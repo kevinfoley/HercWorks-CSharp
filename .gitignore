@@ -1,0 +1,11 @@
+ES2/
+herc-works-mdk-main/
+*.zip
+HercWorksMDK-CSharp-port/tests/HercWorks.Vol.Tests/obj/
+HercWorksMDK-CSharp-port/tests/HercWorks.Vol.Tests/bin/
+HercWorksMDK-CSharp-port/src/HercWorks.Vol/obj/
+HercWorksMDK-CSharp-port/src/HercWorks.UI/obj/
+HercWorksMDK-CSharp-port/src/HercWorks.UI/bin/
+HercWorksMDK-CSharp-port/.vs/
+HercWorksMDK-CSharp-port/src/HercWorks.Vol/bin/
+HercWorksMDK-CSharp-port/src/HercWorks.Core/obj/

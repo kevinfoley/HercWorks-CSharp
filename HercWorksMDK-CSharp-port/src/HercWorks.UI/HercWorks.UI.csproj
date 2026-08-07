@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>HercWorks.UI</RootNamespace>
+    <AssemblyName>HercWorksMDK</AssemblyName>
+    <ApplicationIcon />
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HercWorks.Vol\HercWorks.Vol.csproj" />
+    <ProjectReference Include="..\HercWorks.Core\HercWorks.Core.csproj" />
+  </ItemGroup>
+
+</Project>

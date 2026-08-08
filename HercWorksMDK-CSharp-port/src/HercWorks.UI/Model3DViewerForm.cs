@@ -29,6 +29,16 @@ public partial class Model3DViewerForm : Form {
 
 	private void OnResetView(object? sender, EventArgs e) => _viewerControl.ResetView();
 
+	private void OnShowKeyboardShortcuts(object? sender, EventArgs e) {
+		MessageBox.Show(this,
+			"Left / Right — Previous / Next part\n" +
+			"Up / Down — Previous / Next detail level (when the current part has more than one)\n\n" +
+			"Mouse drag — Orbit camera (yaw / pitch)\n" +
+			"Mouse wheel — Zoom\n" +
+			"Middle-drag — Pan camera",
+			"Keyboard Shortcuts", MessageBoxButtons.OK, MessageBoxIcon.Information);
+	}
+
 	private void OnShadedMode(object? sender, EventArgs e) => SetRenderMode(Model3DRenderMode.Shaded);
 
 	private void OnWireframeMode(object? sender, EventArgs e) => SetRenderMode(Model3DRenderMode.Wireframe);

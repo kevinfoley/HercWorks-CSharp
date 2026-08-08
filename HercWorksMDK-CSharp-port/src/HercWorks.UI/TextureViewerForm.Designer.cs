@@ -25,6 +25,8 @@ partial class TextureViewerForm {
 		_openPaletteMenuItem = new ToolStripMenuItem();
 		_fileMenuSeparator = new ToolStripSeparator();
 		_closeMenuItem = new ToolStripMenuItem();
+		_helpMenuItem = new ToolStripMenuItem();
+		_keyboardShortcutsMenuItem = new ToolStripMenuItem();
 		_frameLabel = new Label();
 		_frameSelector = new NumericUpDown();
 		_paletteLabel = new Label();
@@ -40,7 +42,7 @@ partial class TextureViewerForm {
 		//
 		// _menuStrip
 		//
-		_menuStrip.Items.AddRange(new ToolStripItem[] { _fileMenuItem });
+		_menuStrip.Items.AddRange(new ToolStripItem[] { _fileMenuItem, _helpMenuItem });
 		_menuStrip.Location = new Point(0, 0);
 		_menuStrip.Name = "_menuStrip";
 		_menuStrip.Size = new Size(620, 24);
@@ -75,6 +77,18 @@ partial class TextureViewerForm {
 		_closeMenuItem.Name = "_closeMenuItem";
 		_closeMenuItem.Text = "&Close";
 		_closeMenuItem.Click += OnClose;
+		//
+		// _helpMenuItem
+		//
+		_helpMenuItem.DropDownItems.AddRange(new ToolStripItem[] { _keyboardShortcutsMenuItem });
+		_helpMenuItem.Name = "_helpMenuItem";
+		_helpMenuItem.Text = "&Help";
+		//
+		// _keyboardShortcutsMenuItem
+		//
+		_keyboardShortcutsMenuItem.Name = "_keyboardShortcutsMenuItem";
+		_keyboardShortcutsMenuItem.Text = "&Keyboard Shortcuts...";
+		_keyboardShortcutsMenuItem.Click += OnShowKeyboardShortcuts;
 		//
 		// _frameLabel
 		//
@@ -166,6 +180,8 @@ partial class TextureViewerForm {
 	private ToolStripMenuItem _openPaletteMenuItem;
 	private ToolStripSeparator _fileMenuSeparator;
 	private ToolStripMenuItem _closeMenuItem;
+	private ToolStripMenuItem _helpMenuItem;
+	private ToolStripMenuItem _keyboardShortcutsMenuItem;
 	private Label _frameLabel;
 	private NumericUpDown _frameSelector;
 	private Label _paletteLabel;

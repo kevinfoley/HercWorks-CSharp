@@ -30,6 +30,8 @@ partial class Model3DViewerForm {
 		_shadedWireframeModeMenuItem = new ToolStripMenuItem();
 		_viewMenuSeparator = new ToolStripSeparator();
 		_resetViewMenuItem = new ToolStripMenuItem();
+		_helpMenuItem = new ToolStripMenuItem();
+		_keyboardShortcutsMenuItem = new ToolStripMenuItem();
 		_rootPanel = new Panel();
 		_partSelector = new ComboBox();
 		_rootListLabel = new Label();
@@ -48,7 +50,7 @@ partial class Model3DViewerForm {
 		//
 		// _menuStrip
 		//
-		_menuStrip.Items.AddRange(new ToolStripItem[] { _fileMenuItem, _viewMenuItem });
+		_menuStrip.Items.AddRange(new ToolStripItem[] { _fileMenuItem, _viewMenuItem, _helpMenuItem });
 		_menuStrip.Location = new Point(0, 0);
 		_menuStrip.Name = "_menuStrip";
 		_menuStrip.Size = new Size(900, 24);
@@ -114,6 +116,18 @@ partial class Model3DViewerForm {
 		_resetViewMenuItem.Name = "_resetViewMenuItem";
 		_resetViewMenuItem.Text = "&Reset View";
 		_resetViewMenuItem.Click += OnResetView;
+		//
+		// _helpMenuItem
+		//
+		_helpMenuItem.DropDownItems.AddRange(new ToolStripItem[] { _keyboardShortcutsMenuItem });
+		_helpMenuItem.Name = "_helpMenuItem";
+		_helpMenuItem.Text = "&Help";
+		//
+		// _keyboardShortcutsMenuItem
+		//
+		_keyboardShortcutsMenuItem.Name = "_keyboardShortcutsMenuItem";
+		_keyboardShortcutsMenuItem.Text = "&Keyboard Shortcuts...";
+		_keyboardShortcutsMenuItem.Click += OnShowKeyboardShortcuts;
 		//
 		// _rootPanel
 		//
@@ -264,6 +278,8 @@ partial class Model3DViewerForm {
 	private ToolStripMenuItem _shadedWireframeModeMenuItem;
 	private ToolStripSeparator _viewMenuSeparator;
 	private ToolStripMenuItem _resetViewMenuItem;
+	private ToolStripMenuItem _helpMenuItem;
+	private ToolStripMenuItem _keyboardShortcutsMenuItem;
 	private Panel _rootPanel;
 	private ComboBox _partSelector;
 	private Label _rootListLabel;

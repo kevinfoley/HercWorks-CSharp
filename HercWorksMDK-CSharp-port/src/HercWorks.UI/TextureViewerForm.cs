@@ -34,6 +34,58 @@ public partial class TextureViewerForm : Form {
 
 	private void OnFrameChanged(object? sender, EventArgs e) => RenderCurrentFrame();
 
+	private void OnShowKeyboardShortcuts(object? sender, EventArgs e) {
+		MessageBox.Show(this,
+			"Left / Right — Previous / Next frame\n" +
+			"Up / Down — Previous / Next palette",
+			"Keyboard Shortcuts", MessageBoxButtons.OK, MessageBoxIcon.Information);
+	}
+
+	/// <summary>
+	/// Left/Right step through frames, Up/Down step through palettes — both regardless of which
+	/// control has focus. Up/Down deliberately fall through to normal handling while the palette
+	/// combo's dropdown is actually open, so the native "arrow keys browse the open list" behavior
+	/// still works instead of being hijacked out from under it (same guard as Model3DViewerForm's
+	/// Part/Detail Level navigation).
+	/// </summary>
+	protected override bool ProcessCmdKey(ref Message msg, Keys keyData) {
+		if (keyData == Keys.Left) {
+			NavigateFrame(-1);
+			return true;
+		}
+		if (keyData == Keys.Right) {
+			NavigateFrame(1);
+			return true;
+		}
+		if ((keyData == Keys.Up || keyData == Keys.Down) && !_paletteSelector.DroppedDown) {
+			NavigatePalette(keyData == Keys.Up ? -1 : 1);
+			return true;
+		}
+		return base.ProcessCmdKey(ref msg, keyData);
+	}
+
+	/// <summary>Wraps at both ends, matching Model3DViewerForm.NavigatePart's convention.</summary>
+	private void NavigateFrame(int direction) {
+		var frames = Frames;
+		if (frames == null || frames.Length <= 1) {
+			return;
+		}
+
+		int current = (int)_frameSelector.Value;
+		_frameSelector.Value = ((current + direction) % frames.Length + frames.Length) % frames.Length;
+	}
+
+	/// <summary>Wraps at both ends, matching NavigateFrame above.</summary>
+	private void NavigatePalette(int direction) {
+		int count = _paletteSelector.Items.Count;
+		if (count <= 1) {
+			return;
+		}
+
+		int current = Math.Max(_paletteSelector.SelectedIndex, 0);
+		_paletteSelector.SelectedIndex = ((current + direction) % count + count) % count;
+	}
+
 	private DynamixBitmap[]? Frames => _loadedDba?.Images ?? (_loadedDbm != null ? new[] { _loadedDbm } : null);
 
 	private void OnOpenImage(object? sender, EventArgs e) {
@@ -82,7 +134,7 @@ public partial class TextureViewerForm : Form {
 			}
 
 			LoadPaletteCandidatesFromDisk(dialog.FileName);
-			FinishLoad(Path.GetFileName(dialog.FileName), dialog.FileName);
+			FinishLoad(Path.GetFileName(dialog.FileName), dialog.FileName, PreferredPaletteFor(Path.GetExtension(dialog.FileName)));
 		} catch (Exception ex) {
 			MessageBox.Show(this, $"Failed to load file:\n{ex.Message}", "Error",
 				MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -103,9 +155,10 @@ public partial class TextureViewerForm : Form {
 				return;
 			}
 
-			// .HBA and .HB0/.HB1/.HB2 are byte-identical to the .DBA container format (see
-			// TransformerRegistry's doc comment) — same transformer handles all of them.
-			bool isDbaLike = entry.Ext is FileType.Dba or FileType.Hba or FileType.Hb0 or FileType.Hb1 or FileType.Hb2;
+			// .HBA, .HB0/.HB1/.HB2, and .DB0/.DB1/.DB2 are all byte-identical to the .DBA container
+			// format (see TransformerRegistry's doc comment) — same transformer handles all of them.
+			bool isDbaLike = entry.Ext is FileType.Dba or FileType.Hba or FileType.Hb0 or FileType.Hb1 or FileType.Hb2
+				or FileType.Db0 or FileType.Db1 or FileType.Db2;
 
 			if (isDbaLike) {
 				_loadedDba = (DynamixBitmapArray?)_dbaTransformer.BytesToObject(entry.RawBytes);
@@ -114,7 +167,7 @@ public partial class TextureViewerForm : Form {
 				_loadedDbm = (DynamixBitmap?)_dbmTransformer.BytesToObject(entry.RawBytes);
 				_loadedDba = null;
 			} else {
-				MessageBox.Show(this, "Selected entry is not a DBA, DBM, HBA, or HB0/HB1/HB2 texture.", "Error",
+				MessageBox.Show(this, "Selected entry is not a DBA, DBM, HBA, HB0/HB1/HB2, or DB0/DB1/DB2 texture.", "Error",
 					MessageBoxButtons.OK, MessageBoxIcon.Error);
 				return;
 			}
@@ -126,7 +179,9 @@ public partial class TextureViewerForm : Form {
 			}
 
 			LoadPaletteCandidatesFromVol(sourceVol);
-			FinishLoad(entry.FileName ?? "(texture asset)", entry.FileName ?? "");
+			string? preferredPalette = entry.Ext is FileType.Hba or FileType.Hb0 or FileType.Hb1 or FileType.Hb2
+				or FileType.Db0 or FileType.Db1 or FileType.Db2 ? "COCKPIT" : null;
+			FinishLoad(entry.FileName ?? "(texture asset)", entry.FileName ?? "", preferredPalette);
 		} catch (Exception ex) {
 			MessageBox.Show(this, $"Failed to load file:\n{ex.Message}", "Error",
 				MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -216,17 +271,29 @@ public partial class TextureViewerForm : Form {
 		}
 	}
 
-	private void FinishLoad(string sourceLabel, string paletteMatchName) {
+	/// <summary>
+	/// .HB0/.HB1/.HB2/.HBA/.DB0/.DB1/.DB2 textures don't bind a same-name palette (they're named
+	/// after the herc, not a palette) but empirically always look right under COCKPIT.DPL — all of
+	/// them are cockpit interior backgrounds (at 640x480 or 320x240) or cockpit gauge/HUD sprites.
+	/// Returns null for every other extension, leaving the existing same-basename auto-match as the
+	/// only default.
+	/// </summary>
+	private static string? PreferredPaletteFor(string? extension) {
+		string ext = (extension ?? "").TrimStart('.');
+		return ext is "hba" or "hb0" or "hb1" or "hb2" or "db0" or "db1" or "db2" ? "COCKPIT" : null;
+	}
+
+	private void FinishLoad(string sourceLabel, string paletteMatchName, string? preferredPaletteBaseName = null) {
 		var frames = Frames!;
 		_frameSelector.Minimum = 0;
 		_frameSelector.Maximum = frames.Length - 1;
 		_frameSelector.Value = 0;
 
-		bool autoMatched = PopulatePaletteSelector(paletteMatchName);
+		bool autoMatched = PopulatePaletteSelector(paletteMatchName, preferredPaletteBaseName);
 
 		string kind = _loadedDba != null ? "DBA" : "DBM";
 		string paletteNote = autoMatched
-			? " — auto-matched a same-name palette."
+			? " — auto-matched a palette."
 			: _paletteCandidates.Count > 0
 				? " — no matching palette found automatically, pick one from the dropdown."
 				: " — no palettes found nearby to try.";
@@ -235,22 +302,34 @@ public partial class TextureViewerForm : Form {
 		RenderCurrentFrame();
 	}
 
-	/// <summary>Returns true if a same-basename candidate was found and auto-selected.</summary>
-	private bool PopulatePaletteSelector(string textureFileName) {
+	/// <summary>
+	/// Returns true if a palette was found and auto-selected. Tries <paramref name="preferredPaletteBaseName"/>
+	/// first (e.g. "COCKPIT" for HB0/HB1/HB2/HBA — see PreferredPaletteFor), then falls back to a
+	/// same-basename-as-texture match (the original DBA/DBM behavior).
+	/// </summary>
+	private bool PopulatePaletteSelector(string textureFileName, string? preferredPaletteBaseName) {
 		_paletteSelector.Items.Clear();
 		_paletteSelector.Items.Add("(None)");
 
 		string baseName = Path.GetFileNameWithoutExtension(textureFileName);
-		int matchIndex = 0;
+		int preferredIndex = 0;
+		int sameNameIndex = 0;
 
 		foreach (var candidate in _paletteCandidates) {
 			_paletteSelector.Items.Add(candidate.Label);
-			if (matchIndex == 0 &&
-				string.Equals(Path.GetFileNameWithoutExtension(candidate.Label), baseName, StringComparison.OrdinalIgnoreCase)) {
-				matchIndex = _paletteSelector.Items.Count - 1;
+			int itemIndex = _paletteSelector.Items.Count - 1;
+			string candidateBase = Path.GetFileNameWithoutExtension(candidate.Label);
+
+			if (preferredIndex == 0 && preferredPaletteBaseName != null &&
+				string.Equals(candidateBase, preferredPaletteBaseName, StringComparison.OrdinalIgnoreCase)) {
+				preferredIndex = itemIndex;
+			}
+			if (sameNameIndex == 0 && string.Equals(candidateBase, baseName, StringComparison.OrdinalIgnoreCase)) {
+				sameNameIndex = itemIndex;
 			}
 		}
 
+		int matchIndex = preferredIndex != 0 ? preferredIndex : sameNameIndex;
 		_paletteSelector.SelectedIndex = matchIndex;
 		return matchIndex != 0;
 	}

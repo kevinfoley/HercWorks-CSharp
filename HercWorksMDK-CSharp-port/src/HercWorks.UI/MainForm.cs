@@ -1,3 +1,4 @@
+using HercWorks.Core.Io.Transform;
 using HercWorks.Vol;
 using HercWorks.Vol.Io;
 using HercWorks.Vol.Util;
@@ -11,10 +12,15 @@ namespace HercWorks.UI;
 /// player .sav file's salvage/workshop slots via the Campaign Resources editor, and
 /// exporting DBA/DBM/DPL Dynamix bitmap data to PNG via the Tools menu's Image
 /// Export dialog (all built directly on HercWorks.Core — no ES2TransferApi
-/// dependency). Mission file editing, the last "ideal feature" from the original
-/// README, is still a stubbed disabled menu entry. Control layout lives in
-/// MainForm.Designer.cs so the form can be opened in the WinForms visual designer;
-/// this file holds only state and event-handler logic.
+/// dependency). The VOL browser's right-hand side is a fixed-height Metadata list
+/// (the raw entry info — offset, size, compression, magic prefix) stacked above a
+/// Content tree that fills the remaining space: when the selected file's type is
+/// recognized by TransformerRegistry, Content shows its actual parsed,
+/// human-readable data (fully expanded) via ContentTreeRenderer; unrecognized types
+/// just show a "no parser available" note there. Mission file editing, the last
+/// "ideal feature" from the original README, is still a stubbed disabled menu
+/// entry. Control layout lives in MainForm.Designer.cs so the form can be opened in
+/// the WinForms visual designer; this file holds only state and event-handler logic.
 /// </summary>
 public partial class MainForm : Form {
 	private Voln? _currentVol;
@@ -105,6 +111,7 @@ public partial class MainForm : Form {
 
 	private void OnTreeSelect(object? sender, TreeViewEventArgs e) {
 		_fileDetails.Items.Clear();
+		_contentTree.Nodes.Clear();
 
 		if (e.Node?.Tag is not VolEntry entry) {
 			return;
@@ -117,6 +124,35 @@ public partial class MainForm : Form {
 		AddDetail("Size (bytes)", (entry.RawBytes?.Length ?? 0).ToString());
 		AddDetail("Compression Type", entry.FileCompressionType.ToString());
 		AddDetail("Magic Prefix", ByteOps.ToHex(entry.MagicPrefix));
+
+		PopulateContent(entry);
+	}
+
+	private void PopulateContent(VolEntry entry) {
+		var transformer = TransformerRegistry.FindTransformer(entry);
+		if (transformer == null) {
+			_contentTree.Nodes.Add(new TreeNode(
+				"No parser available for this file type yet — showing metadata only."));
+			return;
+		}
+
+		if (entry.RawBytes == null || entry.RawBytes.Length == 0) {
+			_contentTree.Nodes.Add(new TreeNode("File has no data to parse."));
+			return;
+		}
+
+		try {
+			var parsed = transformer.BytesToObject(entry.RawBytes);
+			if (parsed == null) {
+				_contentTree.Nodes.Add(new TreeNode("Parser returned no data for this file."));
+				return;
+			}
+
+			string label = TransformerRegistry.FindLabel(entry) ?? entry.FileName ?? "Content";
+			ContentTreeRenderer.Populate(_contentTree, label, parsed);
+		} catch (Exception ex) {
+			_contentTree.Nodes.Add(new TreeNode($"Failed to parse this file:\n{ex.Message}"));
+		}
 	}
 
 	private void AddDetail(string label, string value) {

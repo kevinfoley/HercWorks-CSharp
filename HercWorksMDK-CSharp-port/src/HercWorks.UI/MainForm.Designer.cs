@@ -36,6 +36,7 @@ partial class MainForm {
 		_fileDetails = new ListView();
 		_fileDetailsPropertyColumn = new ColumnHeader();
 		_fileDetailsValueColumn = new ColumnHeader();
+		_contentTree = new TreeView();
 		_statusStrip = new StatusStrip();
 		_statusLabel = new ToolStripStatusLabel();
 		_menuStrip.SuspendLayout();
@@ -136,12 +137,16 @@ partial class MainForm {
 		//
 		// _fileDetails
 		//
+		// Fixed-height panel docked to the top of the right-hand area: the metadata list is
+		// always exactly 7 rows plus a header, so a scrollable/growing area isn't needed here —
+		// leaves the rest of the vertical space for _contentTree below it.
 		_fileDetails.Columns.AddRange(new ColumnHeader[] { _fileDetailsPropertyColumn, _fileDetailsValueColumn });
-		_fileDetails.Dock = DockStyle.Fill;
+		_fileDetails.Dock = DockStyle.Top;
 		_fileDetails.FullRowSelect = true;
+		_fileDetails.Height = 180;
 		_fileDetails.Location = new Point(320, 24);
 		_fileDetails.Name = "_fileDetails";
-		_fileDetails.Size = new Size(680, 604);
+		_fileDetails.Size = new Size(680, 180);
 		_fileDetails.TabIndex = 2;
 		_fileDetails.UseCompatibleStateImageBehavior = false;
 		_fileDetails.View = View.Details;
@@ -156,13 +161,21 @@ partial class MainForm {
 		_fileDetailsValueColumn.Text = "Value";
 		_fileDetailsValueColumn.Width = 480;
 		//
+		// _contentTree
+		//
+		_contentTree.Dock = DockStyle.Fill;
+		_contentTree.Location = new Point(320, 204);
+		_contentTree.Name = "_contentTree";
+		_contentTree.Size = new Size(680, 424);
+		_contentTree.TabIndex = 3;
+		//
 		// _statusStrip
 		//
 		_statusStrip.Items.AddRange(new ToolStripItem[] { _statusLabel });
 		_statusStrip.Location = new Point(0, 628);
 		_statusStrip.Name = "_statusStrip";
 		_statusStrip.Size = new Size(1000, 22);
-		_statusStrip.TabIndex = 3;
+		_statusStrip.TabIndex = 4;
 		//
 		// _statusLabel
 		//
@@ -172,10 +185,11 @@ partial class MainForm {
 		// MainForm
 		//
 		Size = new Size(1000, 650);
-		Controls.Add(_menuStrip);
+		Controls.Add(_contentTree);
 		Controls.Add(_fileDetails);
 		Controls.Add(_volTree);
 		Controls.Add(_statusStrip);
+		Controls.Add(_menuStrip);
 		MainMenuStrip = _menuStrip;
 		Name = "MainForm";
 		Text = "HercWorks MDK";
@@ -206,6 +220,7 @@ partial class MainForm {
 	private ListView _fileDetails;
 	private ColumnHeader _fileDetailsPropertyColumn;
 	private ColumnHeader _fileDetailsValueColumn;
+	private TreeView _contentTree;
 	private StatusStrip _statusStrip;
 	private ToolStripStatusLabel _statusLabel;
 }

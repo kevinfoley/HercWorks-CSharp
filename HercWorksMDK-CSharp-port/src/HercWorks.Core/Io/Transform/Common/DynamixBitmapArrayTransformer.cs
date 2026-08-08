@@ -6,11 +6,10 @@ namespace HercWorks.Core.Io.Transform.Common;
 /// <summary>
 /// Ported from org.hercworks.core.io.transform.common.DynamixBitmapArrayTransformer.
 ///
-/// NOTE: on write, this reverses dba.FileSize before writing it — a genuine, correct byte
-/// reversal (`.reverse()` was called in the original, not just `.byteOrder()`). Since FileSize is
-/// stored on read via IndexSegmentLE (a no-op alias of IndexSegment, see ByteOps notes), the
-/// stored bytes are raw on-disk order; reversing them on write means the size ends up written in
-/// the opposite byte order from how it was read. Ported literally either way.
+/// FIXED — see KNOWN_ISSUES.md history: write used to reverse dba.FileSize before writing it,
+/// but FileSize is stored on read via IndexSegmentLE (a no-op alias of IndexSegment, see ByteOps
+/// notes), so the stored bytes are raw on-disk order — reversing them on write flipped the byte
+/// order relative to how they were read. Write now writes FileSize as stored.
 /// </summary>
 public class DynamixBitmapArrayTransformer : ThreeSpaceByteTransformer {
 	public override DataFile? BytesToObject(byte[]? inputArray) {
@@ -79,9 +78,12 @@ public class DynamixBitmapArrayTransformer : ThreeSpaceByteTransformer {
 
 		objectBytes.Write(DynamixBitmapArray.HeaderMagic, 0, DynamixBitmapArray.HeaderMagic.Length);
 
-		var reversedSize = (byte[])dba.FileSize!.Clone();
-		Array.Reverse(reversedSize);
-		objectBytes.Write(reversedSize, 0, reversedSize.Length);
+		// FIXED — see KNOWN_ISSUES.md history: this used to reverse FileSize before writing, but
+		// FileSize is stored on read via IndexSegmentLE, which (despite the name) is a no-op alias
+		// of IndexSegment — so the stored bytes are already in raw on-disk order. Reversing them
+		// here flipped the byte order relative to how they were read. Now written as stored,
+		// matching the read path (the side this project's own features already rely on).
+		objectBytes.Write(dba.FileSize!, 0, dba.FileSize!.Length);
 
 		var rowBytes = WriteShortLE(dba.ArrayRow);
 		objectBytes.Write(rowBytes, 0, rowBytes.Length);

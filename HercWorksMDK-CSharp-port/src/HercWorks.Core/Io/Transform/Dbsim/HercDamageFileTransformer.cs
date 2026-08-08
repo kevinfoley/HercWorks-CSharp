@@ -7,14 +7,26 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// <summary>
 /// Ported from org.hercworks.core.io.transform.dbsim.HercDamageFileTransformer.
 ///
-/// TWO ISSUES FOUND HERE, flagged in KNOWN_ISSUES.md:
-/// 1) `ComponentData` is allocated with length `totalComponents` (read from the file), but the
-///    parse loop always runs exactly 29 times regardless of that value — if a real file reports
-///    fewer than 29 components, this throws an IndexOutOfRangeException (matching the Java
-///    original's equivalent ArrayIndexOutOfBoundsException).
-/// 2) The write path multiplies each `CritChance` by 100 before writing; the read path assigns
-///    the raw read value directly with no corresponding division. Round-tripping would scale
-///    CritChance up by 100x every time it's written after being read.
+/// FIXED — verified against real .DMG files from a retail install
+/// (ES2\VOL\simvol0\dmg\{SKIMMER,SPIDER,OUTLAW}.DMG). Three issues:
+/// 1) The component parse loop always ran exactly 29 times regardless of the actual
+///    `totalComponents` read from the file. SPIDER.DMG and OUTLAW.DMG both genuinely have 29
+///    components (so the old hardcoded loop happened to work for them), but SKIMMER.DMG has
+///    only 1 — decoding it by hand confirmed the fixed-29 loop would write past the end of a
+///    1-element array, an immediate crash on real data. Fixed to loop `totalComponents` times.
+/// 2) The internals-padding skip (`22 - internals.Length` shorts) is only correct for
+///    "normal" hercs, which always store all 22 internals slots (so the skip amount is
+///    genuinely 0 in every real file checked — the padding was never actually exercised for
+///    them). SKIMMER.DMG stores only 1 internal, and unconditionally skipping `(22-1)*2 = 42`
+///    bytes overruns its tiny 18-byte content — decoding confirmed the correct behavior mirrors
+///    what the write path already does (skip 0 padding for a 1-internal/Skimmer-shaped record):
+///    with 0 padding, the remaining bytes decode perfectly into one well-formed component.
+///    Fixed to only apply the 22-slot padding skip when there's more than 1 internal.
+/// 3) The write path multiplied `CritChance` by 100 before writing; read assigned the raw value
+///    directly. Real files settle this: `CritChance` reads as exactly `20` for the large majority
+///    of components across all three files (matching this class's own "0x14 in every known
+///    example" doc comment) — not 2000, which the old write-then-read-back round trip would have
+///    produced. The write path's `* 100` was the actual bug; fixed to write the raw value.
 /// </summary>
 public class HercDamageFileTransformer : ThreeSpaceByteTransformer {
 	public override DataFile? BytesToObject(byte[]? inputArray) {
@@ -52,15 +64,16 @@ public class HercDamageFileTransformer : ThreeSpaceByteTransformer {
 		}
 		data.Internals = internals;
 
-		for (int i = 0; i < 22 - data.Internals.Length; i++) {
-			Skip(2);
+		if (data.Internals.Length > 1) {
+			for (int i = 0; i < 22 - data.Internals.Length; i++) {
+				Skip(2);
+			}
 		}
 
 		short totalComponents = IndexShortLE();
 
-		// non-skimmer, non-spider hercs have 29 — see class doc re: the fixed loop below
 		data.ComponentData = new HercSimDamage.HercPiece[totalComponents];
-		for (int i = 0; i < 29; i++) {
+		for (int i = 0; i < totalComponents; i++) {
 			data.ComponentData[i] = ParseHercPiece(data);
 		}
 
@@ -98,8 +111,7 @@ public class HercDamageFileTransformer : ThreeSpaceByteTransformer {
 			Write(outStream, WriteShortLE((short)piece.MappedInternals!.Length));
 
 			foreach (var t in piece.MappedInternals) {
-				short chance = (short)(t.CritChance * 100); // see class doc
-				Write(outStream, WriteShortLE(chance));
+				Write(outStream, WriteShortLE(t.CritChance));
 				Write(outStream, WriteShortLE(t.InternalsId!.Id));
 			}
 		}

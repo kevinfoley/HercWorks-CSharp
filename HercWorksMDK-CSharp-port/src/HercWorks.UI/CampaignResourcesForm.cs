@@ -10,12 +10,13 @@ namespace HercWorks.UI;
 /// now. The rest of PlayerSave (weapon inventory, all 36 squadmates, the player pilot, herc bay
 /// state, herc unlock flags) is far more deeply nested data that would need its own dedicated
 /// editor(s) to do justice to; it's parsed and carried through unchanged on save rather than
-/// exposed here. Note PlayerSaveTransform.ObjectToBytes has a confirmed bug where it ignores
-/// PlayerSave.UnlockedHercs entirely and writes a hardcoded pattern instead (see KNOWN_ISSUES.md)
-/// — another reason not to expose editing there yet. Follows the same pattern as
-/// HercStatsForm/WeaponStatsForm: works against a loose .sav file, uses the shared
-/// VolEntryPrefixCodec so exports stay retail-compatible, and keeps layout in
-/// CampaignResourcesForm.Designer.cs for the WinForms visual designer.
+/// exposed here. `PlayerSaveTransform.ObjectToBytes`'s herc-unlocks write bug (see
+/// KNOWN_ISSUES.md) is now fixed, so herc-unlock editing could reasonably be added to this form
+/// in the future — not done yet since it needs its own UI (a checklist of hercs), which is a
+/// separate scope from this fix pass. Follows the same pattern as HercStatsForm/WeaponStatsForm:
+/// works against a loose .sav file, uses the shared VolEntryPrefixCodec so exports stay
+/// retail-compatible, and keeps layout in CampaignResourcesForm.Designer.cs for the WinForms
+/// visual designer.
 /// </summary>
 public partial class CampaignResourcesForm : Form {
 	private readonly PlayerSaveTransform _transformer = new();
@@ -110,6 +111,13 @@ public partial class CampaignResourcesForm : Form {
 					_loadedSave.WorkshopSlots[i] = selected;
 				}
 			}
+
+			// Recalculate WorkshopSpace to match the edited slots (occupied slots are anything
+			// other than WeaponLUT.None) — previously this was left at whatever value the file had
+			// on load, so changing a slot's contents without this could leave WorkshopSpace
+			// inconsistent with the slots actually written out.
+			int occupiedSlots = _loadedSave.WorkshopSlots.Count(w => w.Id != WeaponLUT.None.Id);
+			_loadedSave.WorkshopSpace = (short)(_loadedSave.WorkshopSlots.Length - occupiedSlots);
 
 			byte[] content = _transformer.ObjectToBytes(_loadedSave)!;
 			byte[] outBytes;

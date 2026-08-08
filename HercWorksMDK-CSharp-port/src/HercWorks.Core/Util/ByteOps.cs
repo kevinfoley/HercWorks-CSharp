@@ -35,17 +35,14 @@ public static class ByteOps {
 	}
 
 	/// <summary>
-	/// Original: Bytes.from(b.array()[0], b.array()[1]).toChar() — i.e. reads the first two bytes
-	/// of the given array and interprets them big-endian (array[0] as the high byte).
-	///
-	/// NOTE: despite the name, this does NOT do a little-endian interpretation — it's a direct,
-	/// literal port of what the Java code does. If 'data' holds two raw little-endian bytes read
-	/// from a file (low byte first), this will produce a byte-swapped value versus what you'd
-	/// normally call "converting little-endian bytes to an int". This looks like it may have been
-	/// a bug in the original; kept as-is for fidelity. Flag if real files show this misreading data.
+	/// FIXED — see KNOWN_ISSUES.md history: despite the name, this used to interpret the first two
+	/// bytes big-endian (array[0] as the high byte), a direct literal port of what the Java
+	/// original did. Genuinely unused anywhere in this codebase (verified before changing), so
+	/// fixed to a real little-endian interpretation (array[0] as the low byte) with no risk of
+	/// disturbing already-relied-upon behavior.
 	/// </summary>
 	public static int Bytes2LEToInt(byte[] data) {
-		return (data[0] << 8) | data[1];
+		return (data[1] << 8) | data[0];
 	}
 
 	/// <summary>Original: Bytes.from(b).toChar() on a single byte — zero-extends to an int.</summary>
@@ -54,14 +51,14 @@ public static class ByteOps {
 	}
 
 	/// <summary>
-	/// Original: byte[] s = Bytes.from(v).byteOrder(LE).array(); arr[index]=s[0]; arr[index+1]=s[1];
-	/// Same reasoning as Int4ToByteLittleEndian: .array() ignores the LE tag, so 's' is actually
-	/// the big-endian 2-byte representation of v (MSB first) — despite the method's name, this
-	/// writes v in BIG-ENDIAN order into arr. Kept as a literal port; flagged for the same reason
-	/// as Bytes2LEToInt above.
+	/// FIXED — see KNOWN_ISSUES.md history: despite the name, this used to write v in big-endian
+	/// order into arr, a direct literal port of what the Java original did. The only caller
+	/// (UiWeaponEntry.ToByte()) has no callers of its own anywhere in this codebase (verified
+	/// before changing), so fixed to a real little-endian write with no risk of disturbing
+	/// already-relied-upon behavior.
 	/// </summary>
 	public static void ShortLEToByteArr(byte[] arr, int index, short v) {
-		arr[index] = (byte)((v >> 8) & 0xFF);
-		arr[index + 1] = (byte)(v & 0xFF);
+		arr[index] = (byte)(v & 0xFF);
+		arr[index + 1] = (byte)((v >> 8) & 0xFF);
 	}
 }

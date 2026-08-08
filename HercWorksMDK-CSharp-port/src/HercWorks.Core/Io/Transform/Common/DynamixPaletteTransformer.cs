@@ -108,18 +108,20 @@ public class DynamixPaletteTransformer : ThreeSpaceByteTransformer {
 	/// Converts a ColorBytes object to a 4-byte array based on the parent DynamixPalette's
 	/// scalar value.
 	///
-	/// NOTE: despite ToColorBytes() above reading byte0=R, byte1=G, byte2=B, this write path
-	/// outputs byte0=R, byte1=B, byte2=G — the G/B channels are swapped versus the read path.
-	/// That's how the Java original is written; looks like a genuine round-trip bug (write then
-	/// read would swap green/blue), but ported literally rather than silently fixed.
+	/// FIXED — see KNOWN_ISSUES.md history: this used to write byte0=R, byte1=B, byte2=G, while
+	/// ToColorBytes() above reads byte0=R, byte1=G, byte2=B — the G/B channels were swapped
+	/// relative to the read path, so writing a palette then reading it back would swap green and
+	/// blue. Fixed to match the read path's channel order (write is the side this project's own
+	/// features don't yet exercise, so aligning it to the already-used read path is the lower-risk
+	/// direction).
 	/// </summary>
 	private static byte[] ToDynamixColor(ColorBytes color, int scalar) {
 		var data = new byte[4];
 		var c = color.GetColor();
 
 		data[0] = (byte)(c.R / scalar);
-		data[1] = (byte)(c.B / scalar);
-		data[2] = (byte)(c.G / scalar);
+		data[1] = (byte)(c.G / scalar);
+		data[2] = (byte)(c.B / scalar);
 
 		if (color.Array[3] != 0) {
 			data[3] = 0x01;

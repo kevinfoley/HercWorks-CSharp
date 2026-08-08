@@ -6,15 +6,17 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// <summary>
 /// Ported from org.hercworks.core.io.transform.dbsim.FlightModelTransformer.
 ///
-/// TWO ISSUES FOUND HERE, flagged in KNOWN_ISSUES.md:
-/// 1) The read path sets RollForce a second time (overwriting its earlier value) where the write
-///    path uses RollFriction in the equivalent slot — RollFriction is never actually set on read.
-/// 2) Read and write are NOT byte-count symmetric: tallying every field, the write path produces
-///    47 bytes total but the read path consumes 54 bytes (the skip() amounts between fields
-///    don't match the zero-byte padding actually written). This is a real inconsistency in the
-///    original, not introduced by this port — since there's no real flight-model file available
-///    to determine which side (or neither) reflects the true on-disk layout, both methods are
-///    ported exactly as written rather than guessing at a fix.
+/// FIXED (was two bugs, see KNOWN_ISSUES.md history): verified against real RAZOR.FM/SKIMMER.FM
+/// from a retail install. Both are the standard VOL-entry-prefixed loose-file shape (9-byte
+/// prefix + content + 1 trailing byte), and the prefix's own declared content-size field reads
+/// 54 bytes — matching the read path's byte count, not the write path's (formerly 47). Decoding
+/// the read path's layout against the real bytes confirms every `Skip()` region actually is
+/// zero-padding in both files, and confirms the value at the "RollFriction" slot is genuinely
+/// different from `RollForce` in both samples (400 vs 4, and 300 vs 4) — not a duplicate read.
+/// Fixed by: (1) reading into `RollFriction` instead of overwriting `RollForce` a second time,
+/// and (2) widening the write path's padding to match the read path's Skip() amounts exactly
+/// (6/2/2/2/2 zero bytes instead of 3/1/1/1/1), making read and write byte-count symmetric at 54
+/// bytes each.
 /// </summary>
 public class FlightModelTransformer : ThreeSpaceByteTransformer {
 	public override DataFile? BytesToObject(byte[]? inputArray) {
@@ -51,7 +53,7 @@ public class FlightModelTransformer : ThreeSpaceByteTransformer {
 
 		Skip(2);
 
-		fm.RollForce = IndexShortLE(); // see class doc — likely meant RollFriction
+		fm.RollFriction = IndexShortLE();
 
 		Skip(2);
 
@@ -84,21 +86,28 @@ public class FlightModelTransformer : ThreeSpaceByteTransformer {
 		bytes.WriteByte(0x00);
 		bytes.WriteByte(0x00);
 		bytes.WriteByte(0x00);
+		bytes.WriteByte(0x00);
+		bytes.WriteByte(0x00);
+		bytes.WriteByte(0x00);
 
 		Write(bytes, WriteShortLE(fm.RollMax));
 
+		bytes.WriteByte(0x00);
 		bytes.WriteByte(0x00);
 
 		Write(bytes, WriteShortLE(fm.Unk22_val16));
 
 		bytes.WriteByte(0x00);
+		bytes.WriteByte(0x00);
 
 		Write(bytes, WriteShortLE(fm.Unk26_5or6));
 
 		bytes.WriteByte(0x00);
+		bytes.WriteByte(0x00);
 
 		Write(bytes, WriteShortLE(fm.RollFriction));
 
+		bytes.WriteByte(0x00);
 		bytes.WriteByte(0x00);
 
 		Write(bytes, WriteIntLE(fm.AltitudeMax));

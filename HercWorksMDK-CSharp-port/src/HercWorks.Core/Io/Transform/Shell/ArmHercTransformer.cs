@@ -6,11 +6,14 @@ namespace HercWorks.Core.Io.Transform.Shell;
 
 /// <summary>
 /// Ported from org.hercworks.core.io.transform.shell.ArmHercTransformer.
-/// See KNOWN_ISSUES.md — WriteUiImage takes a UiImageDBA (not UiHardpointGraphic), so even though
-/// the top/bottom herc images are actually UiHardpointGraphic instances with real OutlineX/OutlineY
-/// data, the write path can only see the UiImageDBA-level members and re-emits OriginX/OriginY in
-/// the slot where OutlineX/OutlineY belongs. Ported literally (bug-for-bug); the C# type system
-/// reproduces the same restriction as the original Java static typing.
+/// FIXED — see KNOWN_ISSUES.md history: WriteUiImage used to take a UiImageDBA (not
+/// UiHardpointGraphic), so even though the top/bottom herc images are actually
+/// UiHardpointGraphic instances with real OutlineX/OutlineY data, the write path could only see
+/// the UiImageDBA-level members and re-emitted OriginX/OriginY in the slot where
+/// OutlineX/OutlineY belongs. WriteUiImage now pattern-matches on the actual runtime type (always
+/// UiHardpointGraphic in practice, since that's the only type this class ever constructs for
+/// these fields) to write the real outline values, without changing ArmHerc.HercTopImg/HercBotImg's
+/// declared UiImageDBA? type.
 /// </summary>
 public class ArmHercTransformer : ThreeSpaceByteTransformer {
 	public override DataFile? BytesToObject(byte[]? inputArray) {
@@ -106,8 +109,15 @@ public class ArmHercTransformer : ThreeSpaceByteTransformer {
 	private void WriteUiImage(UiImageDBA img, MemoryStream targ) {
 		WriteToStream(targ, WriteIntLE(img.OriginX));
 		WriteToStream(targ, WriteIntLE(img.OriginY));
-		WriteToStream(targ, WriteIntLE(img.OriginX));
-		WriteToStream(targ, WriteIntLE(img.OriginY));
+
+		if (img is UiHardpointGraphic hardpointImg) {
+			WriteToStream(targ, WriteIntLE(hardpointImg.OutlineX));
+			WriteToStream(targ, WriteIntLE(hardpointImg.OutlineY));
+		} else {
+			WriteToStream(targ, WriteIntLE(img.OriginX));
+			WriteToStream(targ, WriteIntLE(img.OriginY));
+		}
+
 		WriteToStream(targ, WriteShortLE(img.FrameId));
 		WriteToStream(targ, WriteShortLE(img.Flags!.Val));
 	}

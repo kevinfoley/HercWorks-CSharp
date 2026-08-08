@@ -1,16 +1,15 @@
 # Known issues carried over from the original Java source
 
 This file tracks every place where the original `herc-works-mdk` Java code appears to have a bug
-or rough edge. Per the porting approach used throughout, these were **ported literally
-(bug-for-bug)** rather than silently fixed, since:
-- there's no real ES2 game data available in this environment to verify what "correct" behavior
-  should actually be, and
-- some other part of the original codebase (or a downstream consumer) might already compensate
-  for the quirk, so "fixing" it here could break compatibility with data produced by the
-  original tool.
+or rough edge. Entries marked **(fixed)** have been corrected — most of those were verified
+against real retail ES2 game files (see the individual entries for which files and how), so they
+carry real confidence rather than a guess. A handful of lower-confidence entries remain
+intentionally unfixed — either because no real file exists to verify against, because the
+"correct" direction genuinely can't be determined from the data alone, or because fixing a shared
+method would ripple across multiple call sites that would each need separate re-verification; see
+each entry's own reasoning for why it was left alone.
 
-Each entry notes the file, what the issue is, and how confident the assessment is. If you have
-real game files to test against, these are the first places to check when something looks wrong.
+Each entry notes the file, what the issue is/was, and how confident the assessment is.
 
 ---
 
@@ -54,141 +53,146 @@ method.
 
 ## Confirmed functional bugs (would produce visibly wrong data)
 
-### `FlightModelTransformer` — read and write are not symmetric, and one field is misassigned
+### `FlightModelTransformer` — read/write asymmetry and a field misassignment (fixed)
 **File:** `src/HercWorks.Core/Io/Transform/Dbsim/FlightModelTransformer.cs`
 **Java source:** `org.hercworks.core.io.transform.dbsim.FlightModelTransformer`
 
-Two separate issues in the same class:
-1. The read path sets `RollForce` a second time (overwriting its earlier value) in the slot
-   where the write path uses `RollFriction` — so `RollFriction` is never actually populated when
-   reading a file, and the intended second `RollForce`-adjacent field is lost.
-2. Tallying every field by hand, the write path produces **47 bytes** total but the read path
-   consumes **54 bytes** — the `Skip()` amounts between fields on read don't match the zero-byte
-   padding actually written. Read and write disagree about the file's layout by 7 bytes. This is
-   a real inconsistency in the original Java, not something introduced by porting it — there's no
-   real `.DAT` flight-model file available here to determine which side (if either) reflects the
-   true on-disk format, so both methods are ported exactly as written rather than guessing at a
-   fix. This is the one most worth testing first if you have real game files.
+Used to have two issues: (1) the read path set `RollForce` a second time instead of populating
+`RollFriction`, and (2) the write path produced 47 bytes total against the read path's 54,
+disagreeing about the file's zero-padding layout by 7 bytes. Fixed and verified against real
+`RAZOR.FM`/`SKIMMER.FM` from a retail install (`ES2\VOL\simvol0\fm\`): their own declared
+content-size field reads 54 bytes, and decoding the read path's field layout against the real
+bytes confirms every `Skip()` region is genuine zero-padding, and that the "RollFriction" slot
+holds a distinct value from `RollForce` in both files. Read now assigns into `RollFriction`; write
+now pads with the same byte counts the read path skips (6/2/2/2/2 instead of 3/1/1/1/1), making
+both paths symmetric at 54 bytes.
 
-### `HercDamageFileTransformer` — fixed loop count ignores the read component total; CritChance scaling mismatch
+### `HercDamageFileTransformer` — fixed loop count, missing skimmer-shaped padding case, and CritChance scaling (fixed)
 **File:** `src/HercWorks.Core/Io/Transform/Dbsim/HercDamageFileTransformer.cs`
 **Java source:** `org.hercworks.core.io.transform.dbsim.HercDamageFileTransformer`
 
-Two separate issues:
-1. `ComponentData` is allocated with length `totalComponents` (read from the file), but the
-   parse loop always runs exactly 29 times regardless of that value. If a real file reports fewer
-   than 29 components, this throws an index-out-of-range exception.
-2. The write path multiplies each `CritChance` by 100 before writing it out; the read path
-   assigns the raw value directly with no corresponding division. Reading a file then writing it
-   back out would inflate every `CritChance` value by 100x.
+Three issues, all confirmed and fixed against real `.DMG` files from a retail install
+(`ES2\VOL\simvol0\dmg\{SKIMMER,SPIDER,OUTLAW}.DMG`):
+1. The component parse loop always ran exactly 29 times regardless of the actual
+   `totalComponents` read. SPIDER.DMG/OUTLAW.DMG genuinely have 29 (so this happened to work for
+   them), but SKIMMER.DMG has only 1 — hand-decoding confirmed the old fixed loop would write
+   past the end of a 1-element array, an immediate crash on real data. Now loops
+   `totalComponents` times.
+2. A second, previously undocumented bug found while verifying #1: the internals-padding skip
+   (`22 - internals.Length` shorts) is only correct for hercs storing all 22 internals slots
+   (skip amount is 0 there, so the padding path was never actually exercised before). For
+   SKIMMER.DMG's 1-internal record, unconditionally skipping `(22-1)*2 = 42` bytes overruns its
+   18-byte content. Decoding confirmed the fix mirrors what the write path already does for a
+   skimmer-shaped record (skip 0 padding) — now only applies the 22-slot padding skip when there
+   are more than 1 internals.
+3. The write path multiplied `CritChance` by 100 before writing; read assigned the raw value
+   directly. Real files settle this: `CritChance` reads as exactly `20` for the large majority of
+   components across all three files (matching this class's own "0x14 in every known example"
+   doc comment on `HercSimDamage.InternalsTarget`), not `2000` — the write path's `* 100` was the
+   actual bug. Now writes the raw value.
 
-### `DatFileReader.ParseIniHercDatStats()` — hardpoints map never populated
+### `DatFileReader.ParseIniHercDatStats()` — hardpoints map never populated (fixed)
 **File:** `src/HercWorks.Core/Io/Read/DatFileReader.cs`
 **Java source:** `org.hercworks.core.io.read.DatFileReader`
 
-Initializes `iniStats.Data.Hardpoints` as an empty dictionary, then loops through the file bytes
-constructing a `UiWeaponEntry` for each hardpoint — but never inserts any of them into the
-dictionary. Every parsed entry is discarded. The dictionary comes back empty after parsing
-completes, regardless of how many hardpoints the file actually describes.
+Used to initialize `iniStats.Data.Hardpoints` as an empty dictionary, then loop through the file
+bytes constructing a `UiWeaponEntry` for each hardpoint without ever inserting any of them into
+the dictionary — every parsed entry was discarded, so the dictionary came back empty regardless
+of how many hardpoints the file actually described. Fixed by adding
+`iniStats.Data.Hardpoints[id] = hardpoint;` at the end of the loop body.
 
-This is the one bug in this list most likely to cause visible, immediate problems if exercised
-on real data (as opposed to the round-trip/write-path bugs below, which only surface on
-write-then-read-back).
-
-### `WeaponPDGTransformer.BytesToObject()` — never calls `SetBytes`, so `Bytes` is left null/stale
+### `WeaponPDGTransformer.BytesToObject()` — never called `SetBytes`, so `Bytes` was left null/stale (fixed)
 **File:** `src/HercWorks.Core/Io/Transform/Dbsim/WeaponPDGTransformer.cs`
 **Java source:** `org.hercworks.core.io.transform.dbsim.WeaponPDGTransformer`
 
-Every other transformer's read path calls `setBytes(inputArray)` right after the null/empty check,
-which populates the `bytes` field the rest of the indexing methods read from. This one resets
-`index = 0` but never calls `setBytes(...)` at all. On a fresh transformer instance this means
-`Bytes` is `null` and the first `IndexIntLE()` call throws a `NullReferenceException`
-(`NullPointerException` in the original Java). If the same transformer instance were ever reused
-across multiple files, it would silently read from whatever the *previous* call's byte array was
-instead of the new `inputArray`. Ported literally (bug-for-bug) — the fix would be adding a
-`SetBytes(inputArray)` call where `Index = 0` currently stands alone.
+Every other transformer's read path calls `setBytes(inputArray)` right after the null/empty
+check, which populates the `bytes` field the rest of the indexing methods read from. This one
+reset `index = 0` but never called `setBytes(...)` at all — on a fresh transformer instance,
+`Bytes` was `null` and the first `IndexIntLE()` call threw a `NullReferenceException`. Fixed by
+adding the missing `SetBytes(inputArray)` call.
 
-### `HMeter` constructor — origin parameter never used
+### `HMeter` constructor — origin parameter never used (fixed)
 **File:** `src/HercWorks.Core/Data/File/Gau/HMeter.cs`
 **Java source:** `org.hercworks.core.data.file.gau.HMeter`
 
-The constructor calls `setOrigin(getOrigin())` instead of `setOrigin(origin)` — it assigns the
-`Origin` field to its own current (null/default) value rather than the constructor's `origin`
-parameter. The parameter is effectively dead; `Origin` is never actually set by this constructor.
+Used to call `setOrigin(getOrigin())` instead of `setOrigin(origin)` — assigning the `Origin`
+field to its own current (null/default) value rather than the constructor's `origin` parameter,
+making the parameter effectively dead. Fixed to assign `Origin = origin`.
 
 ---
 
 ## Round-trip bugs (write and read paths disagree with each other)
 
-### `PlayerSaveTransform` — write path completely ignores `PlayerSave.UnlockedHercs`
+### `PlayerSaveTransform` — write path completely ignored `PlayerSave.UnlockedHercs` (fixed)
 **File:** `src/HercWorks.Core/Io/Transform/Common/PlayerSaveTransform.cs`
 **Java source:** `org.hercworks.core.io.transform.common.PlayerSaveTransform`
 
 On read, the herc-unlock segment is parsed into `save.UnlockedHercs` — a `Dictionary<HercLUT,
 short>` keyed by every `HercLUT` up to (not including) `Mongoose` (id 9), with each entry's
-actual stored value preserved. On write, that dictionary is never read at all — the write path
-instead iterates `HercLUT.Values()` and writes a hardcoded `1` for every herc with `Id <
-Achilles.Id` (id 13), an entirely different range and an entirely fabricated value with no
-connection to what was parsed or to anything the caller could have edited. A save file read then
-written back out would silently discard the real unlock data and replace it with this hardcoded
-pattern — any in-memory edits to `UnlockedHercs` are lost too, not just preserved-incorrectly.
-This is why the WinForms Campaign Resources editor (`CampaignResourcesForm`) doesn't expose herc
-unlocks for editing — doing so would be actively misleading, since edits wouldn't actually take
-effect on save. Ported literally (bug-for-bug); no real `.sav` file was available to determine
-which side (if either) reflects the true on-disk format.
+actual stored value preserved. The write path used to ignore that dictionary entirely and
+instead iterate `HercLUT.Values()`, writing a hardcoded `1` for every herc with `Id <
+Achilles.Id` (id 13) — a different range and a fabricated value with no connection to what was
+read or edited. Fixed to mirror the read path exactly: same id range (`0` until
+`HercLUT.Mongoose.Id`), reading each value from `save.UnlockedHercs` (defaulting to `0` if a key
+is somehow missing) instead of hardcoding. Not verified against a real `.sav` file's exact unlock
+values (several real `.sav` files exist under `ES2\SAV\`, but hand-decoding the full variable-length
+`PlayerSave` layout just to reach this one segment wasn't done here) — but mirroring the read
+path exactly is the only defensible fix regardless, since the old write path didn't even attempt
+to reflect the in-memory object. With this fixed, `CampaignResourcesForm` could reasonably expose
+herc-unlock editing now — it was deliberately left out only because of this bug.
 
-### `DynamixPaletteTransformer` — green/blue channels swapped on write
+### `DynamixPaletteTransformer` — green/blue channels swapped on write (fixed)
 **File:** `src/HercWorks.Core/Io/Transform/Common/DynamixPaletteTransformer.cs`
 **Java source:** `org.hercworks.core.io.transform.common.DynamixPaletteTransformer`
 
 The read path (`ToColorBytes`) interprets a color's 4 bytes as R, G, B, A (byte0=R, byte1=G,
-byte2=B). The write path (`ToDynamixColor`) outputs them as R, B, G (byte0=R, byte1=B, byte2=G).
-Reading a palette, writing it back out, and reading it again would silently swap the green and
-blue channels.
+byte2=B). The write path (`ToDynamixColor`) used to output them as R, B, G (byte0=R, byte1=B,
+byte2=G), so reading a palette, writing it back out, and reading it again would silently swap the
+green and blue channels. Fixed write to match read's channel order.
 
-### `DynamixBitmapArrayTransformer` — FileSize byte order inconsistent between read and write
+### `DynamixBitmapArrayTransformer` — FileSize byte order inconsistent between read and write (fixed)
 **File:** `src/HercWorks.Core/Io/Transform/Common/DynamixBitmapArrayTransformer.cs`
 **Java source:** `org.hercworks.core.io.transform.common.DynamixBitmapArrayTransformer`
 
 On read, `FileSize` is stored via `IndexSegmentLE` — which (see below) is actually a no-op alias
 of `IndexSegment`, so the stored bytes are in raw on-disk order. On write, those same stored
-bytes are explicitly reversed before being written out. A round trip would flip the byte order of
-this field.
+bytes used to be explicitly reversed before being written out, flipping the byte order on a round
+trip. Fixed write to write `FileSize` as stored (no reversal), matching read.
 
-### `ArmHercTransformer.WriteUiImage()` — outline coordinates lost, origin written twice instead
+### `ArmHercTransformer.WriteUiImage()` — outline coordinates lost, origin written twice instead (fixed)
 **File:** `src/HercWorks.Core/Io/Transform/Shell/ArmHercTransformer.cs`
 **Java source:** `org.hercworks.core.io.transform.shell.ArmHercTransformer`
 
 The top/bottom herc images (`HercTopImg`/`HercBotImg`) are actually `UiHardpointGraphic`
 instances with real `OutlineX`/`OutlineY` data populated on read. But the private helper that
-serializes them (`uiImageToByte` in Java, `WriteUiImage` here) takes a `UiImageDBA`-typed
-parameter — the *base* class, which only exposes `OriginX`/`OriginY`. Since the read path
-consumes 4 coordinate values per image (origin X/Y, then outline X/Y) but the write path can only
-see origin, it writes `OriginX, OriginY, OriginX, OriginY` — silently discarding the outline
-values and duplicating the origin instead. A round trip loses the outline coordinates for the
-top/bottom herc panel images (the per-weapon hardpoint graphics later in the same file are
-unaffected — those go through a separate helper, `uiHardpointToBytes`/`WriteUiHardpoint`, that is
-correctly typed as `UiHardpointGraphic` and writes the real outline values). Ported literally
-(bug-for-bug); C#'s static typing reproduces the same restriction the original Java had.
+serializes them (`WriteUiImage`) took a `UiImageDBA`-typed parameter — the *base* class, which
+only exposes `OriginX`/`OriginY` — so it wrote `OriginX, OriginY, OriginX, OriginY`, silently
+discarding the outline values and duplicating the origin instead. The Java original had the same
+restriction via its own static typing. Fixed in C# via a runtime type check
+(`img is UiHardpointGraphic`) inside `WriteUiImage`, since the field's declared type
+(`ArmHerc.HercTopImg`/`HercBotImg`, both `UiImageDBA?`) wasn't changed — this class always
+constructs `UiHardpointGraphic` instances for these fields in practice, so the check reliably
+finds the real outline data and writes it.
 
-### `HercInfoTransformer` — `TotalHercs` and `HercId` read little-endian, written big-endian
+### `HercInfoTransformer` — `TotalHercs` and `HercId` read little-endian, written big-endian (fixed)
 **File:** `src/HercWorks.Core/Io/Transform/Shell/HercInfoTransformer.cs`
 **Java source:** `org.hercworks.core.io.transform.shell.HercInfoTransformer`
 
-Every field in this transformer except two reads with `IndexShortLE`/writes with `WriteShortLE`
-consistently. The header `TotalHercs` count and each entry's `HercId` are the exceptions: both are
-read with `IndexShortLE` (little-endian) but written back out with `WriteShort` (big-endian). A
-round trip would byte-swap these two fields while leaving the rest of the file's shorts
-untouched. Ported literally (bug-for-bug).
+Every field in this transformer except two read with `IndexShortLE`/wrote with `WriteShortLE`
+consistently. The header `TotalHercs` count and each entry's `HercId` were the exceptions: both
+were read with `IndexShortLE` (little-endian) but written back out with `WriteShort`
+(big-endian). Fixed write to use `WriteShortLE` for both, matching read — the read side is
+already confirmed correct in practice (the WinForms Herc Stats editor uses it successfully
+against real retail `HERC_INF.DAT` data).
 
-### `TSShape.JsonString()` — prints the same list twice
+### `TSShape.JsonString()` — printed the same list twice (fixed)
 **File:** `src/HercWorks.Core/Data/File/Dts/TSShape.cs`
 **Java source:** `org.hercworks.core.data.file.dts.TSShape`
 
-The debug/JSON-string output prints `SequenceList` under both the `"sequences"` and
-`"transforms"` keys — looks like a copy/paste error where the second one should have been
-`TransformList`. This only affects the human-readable `ToString()` output, not the underlying
-data or any read/write logic, so it's cosmetic rather than a data-integrity issue.
+The debug/JSON-string output used to print `SequenceList` under both the `"sequences"` and
+`"transforms"` keys — a copy/paste error where the second one should have been `TransformList`.
+Only affected the human-readable `ToString()` output, not the underlying data or any read/write
+logic. Fixed to print `TransformList` under `"transforms"`.
 
 ---
 
@@ -203,38 +207,48 @@ constructing a `Bytes` from a primitive fresh) actually reorders bytes. Where th
 `.byteOrder(...)` and then `.array()` (instead of `.reverse()`), the byte-order tag silently had
 no effect — despite the method name.
 
-### `ByteOps.Bytes2LEToInt()`
+### `ByteOps.Bytes2LEToInt()` (fixed)
 **File:** `src/HercWorks.Core/Util/ByteOps.cs`
 
-Despite the name, reads the first two bytes of the input as big-endian (`(b[0] << 8) | b[1]`).
-If fed genuine little-endian on-disk bytes, this produces a byte-swapped value.
+Used to read the first two bytes of the input as big-endian (`(b[0] << 8) | b[1]`) despite the
+name. Confirmed unused anywhere in this codebase before fixing, so changed to a genuine
+little-endian read with no risk to existing behavior.
 
-### `ByteOps.ShortLEToByteArr()`
+### `ByteOps.ShortLEToByteArr()` (fixed)
 **File:** `src/HercWorks.Core/Util/ByteOps.cs`
 
-Despite the name, writes the given `short` in big-endian order into the destination array.
+Used to write the given `short` in big-endian order into the destination array despite the name.
+Its only caller (`UiWeaponEntry.ToByte()`) has no callers of its own anywhere in this codebase, so
+confirmed safe to fix to a genuine little-endian write.
 
-### `ThreeSpaceByteTransformer.IndexSegmentLE()`
+### `ThreeSpaceByteTransformer.IndexSegmentLE()` — left as-is (see reasoning)
 **File:** `src/HercWorks.Core/Io/Transform/ThreeSpaceByteTransformer.cs`
 
 Byte-identical to `IndexSegment()` — the "LE" in the name has no effect. Any transformer that
 calls this method for a multi-byte field is reading raw on-disk byte order, not
-little-endian-corrected order. (Several transformers do call this — e.g. `DynamixBitmapArrayTransformer.FileSize`, `DynamixPaletteTransformer`'s per-color 4-byte reads. Those individual
-call sites are working as originally written; this entry just documents *why* the method itself
-doesn't do what its name says.)
+little-endian-corrected order. Unlike the two `ByteOps` methods above, this one has multiple real
+call sites that already depend on its current (no-op) behavior — `DynamixBitmapArrayTransformer.FileSize`
+and `DynamixPaletteTransformer`'s per-color reads both got their *write* sides fixed to match this
+method's existing read behavior (see those entries above) rather than the other way around, to
+avoid a change here rippling across every caller at once. Left unchanged; fixing it for real would
+require re-auditing every call site's paired write logic together, not in isolation.
 
-### `ThreeSpaceByteTransformer.PeekAt()`
+### `ThreeSpaceByteTransformer.PeekAt()` — left as-is (see reasoning)
 **File:** `src/HercWorks.Core/Io/Transform/ThreeSpaceByteTransformer.cs`
 
 Doesn't read or dereference anything — just returns `index + at` as a plain integer offset.
-Looks unused or unfinished in the original; no callers were found elsewhere in the ported code.
+Looks unused or unfinished in the original; no callers were found anywhere in the ported code, and
+with zero callers there's no way to infer what its intended correct behavior should have been.
+Left unchanged rather than guessing at a "fix" for genuinely unfinished code.
 
-### `DTSBoneFlags` — flag value never actually assigned
+### `DTSBoneFlags` — flag value never actually assigned (fixed)
 **File:** `src/HercWorks.Core/Data/Struct/Herc/DTSBoneFlags.cs`
 **Java source:** `org.hercworks.core.data.struct.herc.DTSBoneFlags`
 
-The constructor takes a `flagNum` parameter but never assigns it to the instance's `flag` field.
-`Flag()` returns `0` for every enum value, regardless of which constant you access.
+The constructor took a `flagNum` parameter but never assigned it to the instance's `flag` field,
+so `Flag()` returned `0` for every enum value regardless of which constant you accessed. Confirmed
+unused anywhere else in this codebase before fixing, so changed the constructor to assign
+`_flag = flagNum` with no risk to existing behavior.
 
 ---
 
@@ -255,16 +269,26 @@ throw). Not confirmed against real game data — hardpoint IDs may genuinely alw
 contiguous, in which case this is harmless — but it's a real assumption baked into the write path
 that the read path doesn't share.
 
-### `InitHerc.Header` / `DynamixPalette.Header` — "hex" strings that aren't actually hex
-**Files:** `src/HercWorks.Core/Data/File/Dat/Shell/InitHerc.cs`,
-`src/HercWorks.Core/Data/File/Dyn/DynamixPalette.cs`
+### `DynamixPalette.Header` — "hex" string that wasn't actually hex (fixed, verified against real data)
+**File:** `src/HercWorks.Core/Data/File/Dyn/DynamixPalette.cs`
 
-Both build a header byte constant from a string that reads like hex (e.g. `"661FAF55"`,
-`"0F002800"`) via `Encoding.UTF8.GetBytes(...)` — i.e. the literal ASCII bytes of those 8
-characters, not a hex-decoded 4-byte value. This might be intentional (a literal magic-byte
-signature that happens to look hex-like), or might be a case where the author meant to hex-decode
-and didn't. Ported literally either way since both are plausible and there's no way to tell
-without a real file exhibiting the actual on-disk header bytes to compare against.
+Used to build this header constant from `Encoding.UTF8.GetBytes("0F002800")` — the literal
+8-byte ASCII encoding of that string, not a hex-decoded 4-byte value, despite looking like hex.
+Checked against a real `.DPL` file (`ES2\VOL\SHELL0\DPL\ALPHA.DPL`): its actual first 4 content
+bytes are `0F 00 28 00` — the genuine hex-decoded value. Fixed `Header` to the real 4-byte value;
+this is also consistent with `DynamixPaletteTransformer.BytesToObject`'s read path only ever
+having skipped 4 bytes for this header, not the 8 the old (wrong) ASCII encoding would need.
+
+### `InitHerc.Header` — same "hex string" pattern, checked but left as-is (genuinely unused)
+**File:** `src/HercWorks.Core/Data/File/Dat/Shell/InitHerc.cs`
+
+Same `Encoding.UTF8.GetBytes("661FAF55")`-style construction as `DynamixPalette.Header` above,
+but checked against a real `INI_[herc].DAT` file (`ES2\VOL\SHELL0\GAM\INI_OUTL.DAT`) and found
+this constant has **no corresponding bytes in the real file at all** — `InitHercTransformer`
+never reads, skips, or writes a header; `HercId` is the very first field at content offset 0 in
+the real file (confirmed: reads as `0`, matching Outlaw's id). So `InitHerc.Header` is genuinely
+dead/unused, with no real on-disk bytes to verify a "correct" value against — left unchanged
+rather than guessing.
 
 ### `HercDataRef` — `.toInt()` called on a 2-byte value
 **File:** `src/HercWorks.Core/Data/Ref/Constants/HercDataRef.cs`

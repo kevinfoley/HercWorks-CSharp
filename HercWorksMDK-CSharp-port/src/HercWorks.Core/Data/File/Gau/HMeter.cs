@@ -6,16 +6,15 @@ namespace HercWorks.Core.Data.File.Gau;
 /// Observed: unlabeled, horizontal, will generate meter ticks from origin to maximum.
 /// Ported from org.hercworks.core.data.file.gau.HMeter.
 ///
-/// NOTE: the original Java constructor calls setOrigin(getOrigin()) instead of
-/// setOrigin(origin) — it assigns Origin to its own (null/default) current value instead of the
-/// constructor parameter. Looks like a bug; ported literally (the "origin" parameter is
-/// effectively unused, matching the original).
+/// FIXED — see KNOWN_ISSUES.md history: the original Java constructor called
+/// setOrigin(getOrigin()) instead of setOrigin(origin), assigning Origin to its own
+/// (null/default) current value instead of the constructor parameter.
 /// </summary>
 public class HMeter : WidgetBase {
 	public HMeter() { }
 
 	public HMeter(Point origin, Point extent) {
-		Origin = Origin;
+		Origin = origin;
 		Size = new Size(extent.X - origin.X, extent.Y - origin.Y);
 	}
 }

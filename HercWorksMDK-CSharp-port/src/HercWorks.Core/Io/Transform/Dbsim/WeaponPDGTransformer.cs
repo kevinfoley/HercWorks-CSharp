@@ -5,8 +5,8 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 
 /// <summary>
 /// Ported from org.hercworks.core.io.transform.dbsim.WeaponPDGTransformer.
-/// See KNOWN_ISSUES.md — BytesToObject never calls SetBytes, so Bytes is left null/stale; this is
-/// a real bug in the Java original, ported literally (bug-for-bug).
+/// FIXED — see KNOWN_ISSUES.md history: BytesToObject reset Index but never called SetBytes, so
+/// Bytes was left null/stale on a fresh instance.
 /// </summary>
 public class WeaponPDGTransformer : ThreeSpaceByteTransformer {
 	public override DataFile? BytesToObject(byte[]? inputArray) {
@@ -16,6 +16,8 @@ public class WeaponPDGTransformer : ThreeSpaceByteTransformer {
 			// TODO - null input
 			return null;
 		}
+
+		SetBytes(inputArray);
 
 		var data = new WeaponPaperDiagram {
 			FileName = "WEAPONS",

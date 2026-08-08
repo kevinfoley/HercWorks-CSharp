@@ -1,6 +1,5 @@
 using HercWorks.Core.Data.Struct;
 using HercWorks.Vol;
-using System.Text;
 
 namespace HercWorks.Core.Data.File.Dyn;
 
@@ -10,11 +9,16 @@ namespace HercWorks.Core.Data.File.Dyn;
 /// </summary>
 public class DynamixPalette : DataFile {
 	/// <summary>
-	/// Original: Bytes.from("0F002800", StandardCharsets.UTF_8) — like InitHerc.Header, this
-	/// looks like a hex string but is literally the UTF-8/ASCII bytes of that 8-character text.
-	/// Ported literally.
+	/// FIXED — see KNOWN_ISSUES.md history: the original Java built this from
+	/// Bytes.from("0F002800", StandardCharsets.UTF_8) — the literal 8-byte ASCII/UTF-8 encoding of
+	/// that string, not a hex-decoded 4-byte value, despite looking like hex. Confirmed wrong
+	/// against a real .DPL file (ES2\VOL\SHELL0\DPL\ALPHA.DPL): its actual first 4 content bytes
+	/// are 0F 00 28 00 — the genuine hex-decoded value — not the 8-byte ASCII string. Fixed to the
+	/// real 4-byte value; DynamixPaletteTransformer.BytesToObject's read path already only ever
+	/// skipped 4 bytes for this header (not the 8 the old ASCII encoding would have needed),
+	/// which is consistent with this being the correct length all along.
 	/// </summary>
-	public static readonly byte[] Header = Encoding.UTF8.GetBytes("0F002800");
+	public static readonly byte[] Header = { 0x0F, 0x00, 0x28, 0x00 };
 
 	public int ColorCount { get; set; }
 

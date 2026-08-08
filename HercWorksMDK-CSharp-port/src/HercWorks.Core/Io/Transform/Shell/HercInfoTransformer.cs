@@ -6,8 +6,10 @@ namespace HercWorks.Core.Io.Transform.Shell;
 
 /// <summary>
 /// Ported from org.hercworks.core.io.transform.shell.HercInfoTransformer.
-/// See KNOWN_ISSUES.md — TotalHercs and each entry's HercId are read little-endian
-/// (IndexShortLE) but written big-endian (WriteShort); ported literally (bug-for-bug).
+/// FIXED — see KNOWN_ISSUES.md history: TotalHercs and each entry's HercId used to be read
+/// little-endian (IndexShortLE) but written big-endian (WriteShort). Fixed write to use
+/// WriteShortLE for both, matching read — confirmed correct in practice: the WinForms Herc Stats
+/// editor already uses this read path successfully against real retail HERC_INF.DAT data.
 /// </summary>
 public class HercInfoTransformer : ThreeSpaceByteTransformer {
 	public override DataFile? BytesToObject(byte[]? inputArray) {
@@ -48,10 +50,10 @@ public class HercInfoTransformer : ThreeSpaceByteTransformer {
 
 		void Write(byte[] bytes) => objectBytes.Write(bytes, 0, bytes.Length);
 
-		Write(WriteShort(data.TotalHercs));
+		Write(WriteShortLE(data.TotalHercs));
 
 		foreach (var entry in data.Data) {
-			Write(WriteShort(entry.HercId));
+			Write(WriteShortLE(entry.HercId));
 			Write(WriteShortLE(entry.Weight));
 			Write(WriteShortLE(entry.Speed));
 			Write(WriteShortLE(entry.HardpointTotal));

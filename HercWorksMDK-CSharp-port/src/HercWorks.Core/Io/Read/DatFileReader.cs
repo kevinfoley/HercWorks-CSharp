@@ -44,15 +44,9 @@ public static class DatFileReader {
 		short activeHardpoints = EndianOps.ToShort(data, cursor, ByteOrder.LittleEndian);
 		cursor += 2;
 
-		// NOTE ON A LIKELY BUG: the original initializes this map but the loop below never
-		// actually inserts any of the parsed UiWeaponEntry objects into it — each entry is
-		// constructed and then discarded. Ported literally (the map stays empty after parsing),
-		// since I can't be sure without real game data whether some other caller populates it.
 		iniStats.Data.Hardpoints = new Dictionary<short, UiWeaponEntry>();
 
 		for (int i = cursor; i < iniStats.RawBytes.Length; i += 2) {
-			// 'id' is read here but never stored anywhere — matches the original, which reads
-			// it into a local variable and never uses it beyond advancing the cursor.
 			short id = EndianOps.ToShort(data, i, ByteOrder.LittleEndian);
 			var hardpoint = new UiWeaponEntry();
 			i += 2;
@@ -65,6 +59,8 @@ public static class DatFileReader {
 
 			short mslType = EndianOps.ToShort(data, i, ByteOrder.LittleEndian);
 			hardpoint.MissileType = MissileType.GetById(mslType);
+
+			iniStats.Data.Hardpoints[id] = hardpoint;
 		}
 
 		return iniStats;

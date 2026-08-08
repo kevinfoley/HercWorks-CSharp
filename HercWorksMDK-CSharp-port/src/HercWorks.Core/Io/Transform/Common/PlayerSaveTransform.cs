@@ -88,7 +88,7 @@ public class PlayerSaveTransform : ThreeSpaceByteTransformer {
 			save.HercBay[bayId] = IndexHercEntry();
 		}
 
-		// Herc unlock flags, 9 bytes
+		// Herc unlock flags — 9 shorts (18 bytes)
 		int l = 0;
 		while (l < HercLUT.Mongoose.Id) {
 			short val = IndexShortLE();
@@ -257,11 +257,13 @@ public class PlayerSaveTransform : ThreeSpaceByteTransformer {
 			WriteHercEntry(h, save.HercBay[h], outStream);
 		}
 
-		// HERC UNLOCKS
-		foreach (var herc in HercLUT.Values()) {
-			if (herc.Id < HercLUT.Achilles.Id) {
-				WriteAndCount(outStream, WriteShortLE(1));
-			}
+		// HERC UNLOCKS — mirrors the read path exactly: same id range (0 until HercLUT.Mongoose.Id),
+		// same source (save.UnlockedHercs), instead of writing a hardcoded pattern over an
+		// unrelated id range. See KNOWN_ISSUES.md history for the bug this replaces.
+		for (short l = 0; l < HercLUT.Mongoose.Id; l++) {
+			var herc = HercLUT.GetById(l)!;
+			short val = save.UnlockedHercs.TryGetValue(herc, out var unlockVal) ? unlockVal : (short)0;
+			WriteAndCount(outStream, WriteShortLE(val));
 		}
 
 		// SALVAGE

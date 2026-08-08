@@ -111,6 +111,27 @@ reset `index = 0` but never called `setBytes(...)` at all — on a fresh transfo
 `Bytes` was `null` and the first `IndexIntLE()` call threw a `NullReferenceException`. Fixed by
 adding the missing `SetBytes(inputArray)` call.
 
+### `ThreeSpaceByteTransformer.SetBytes()` — never reset `Index`, corrupting any transformer instance reused for a second parse (fixed)
+**File:** `src/HercWorks.Core/Io/Transform/ThreeSpaceByteTransformer.cs`
+**Java source:** `org.hercworks.core.io.transform.ThreeSpaceByteTransformer`
+
+`SetBytes()`/`setBytes()` only assigned the new byte array — it never reset the cursor (`Index`/
+`index`) back to 0. A transformer's *first* `BytesToObject()` call on a fresh instance works fine
+(the field defaults to 0), but every call after that on the *same instance* starts reading the new
+array from wherever the previous parse's cursor stopped, silently misreading the header of an
+unrelated file. Some individual transformers (e.g. `WeaponPDGTransformer`, see above) had already
+worked around this by manually resetting `index = 0` themselves, which is exactly the kind of
+per-call-site inconsistency that signals a base-class gap rather than an intentional design.
+
+Found while building the new DTS 3D model viewer (`HercWorks.UI`), whose `Model3DViewerForm` holds
+one long-lived `DTSModelTransformer` field reused across every "Open DTS" click — confirmed with a
+throwaway batch probe against all 58 real `.DTS` files in `ES2\VOL\simvol0\dts\`: the first file
+parsed correctly (7 meshes, 2064 triangles for `SAMSON.DTS`), and every subsequent file in the same
+transformer instance failed, all with the identical garbage byte offset left over from the previous
+file's cursor position. Fixed by resetting `Index = 0` inside `SetBytes()` itself, so the reset
+can't be forgotten per call site — this benefits every transformer in the codebase that might ever
+be reused for more than one parse, not just DTS.
+
 ### `HMeter` constructor — origin parameter never used (fixed)
 **File:** `src/HercWorks.Core/Data/File/Gau/HMeter.cs`
 **Java source:** `org.hercworks.core.data.file.gau.HMeter`

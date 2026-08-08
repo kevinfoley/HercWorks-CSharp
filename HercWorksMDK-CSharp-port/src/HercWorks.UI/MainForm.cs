@@ -11,19 +11,27 @@ namespace HercWorks.UI;
 /// the Herc Stats editor, editing WEAPONS.DAT via the Item Stats editor, editing a
 /// player .sav file's salvage/workshop slots via the Campaign Resources editor, and
 /// exporting DBA/DBM/DPL Dynamix bitmap data to PNG via the Tools menu's Image
-/// Export dialog (all built directly on HercWorks.Core — no ES2TransferApi
+/// Export dialog, and viewing .DTS 3D models with an orbit camera via the Tools
+/// menu's 3D Model Viewer (all built directly on HercWorks.Core — no ES2TransferApi
 /// dependency). The VOL browser's right-hand side is a fixed-height Metadata list
 /// (the raw entry info — offset, size, compression, magic prefix) stacked above a
 /// Content tree that fills the remaining space: when the selected file's type is
 /// recognized by TransformerRegistry, Content shows its actual parsed,
 /// human-readable data (fully expanded) via ContentTreeRenderer; unrecognized types
-/// just show a "no parser available" note there. Mission file editing, the last
-/// "ideal feature" from the original README, is still a stubbed disabled menu
-/// entry. Control layout lives in MainForm.Designer.cs so the form can be opened in
-/// the WinForms visual designer; this file holds only state and event-handler logic.
+/// just show a "no parser available" note there. Below Content, a "View Asset" button
+/// (enabled only for DTS/DBA/DBM entries) opens the selected file directly in the 3D
+/// Model Viewer or the new Texture Viewer (HercWorks.UI.TextureViewerForm — preview
+/// only, best-effort automatic palette matching with a manual dropdown fallback,
+/// since DBA/DBM never embed which palette they use), reading straight from the
+/// loaded VOL rather than requiring an already-extracted loose file. Mission file
+/// editing, the last "ideal feature" from the original README, is still a stubbed
+/// disabled menu entry. Control layout lives in MainForm.Designer.cs so the form can
+/// be opened in the WinForms visual designer; this file holds only state and
+/// event-handler logic.
 /// </summary>
 public partial class MainForm : Form {
 	private Voln? _currentVol;
+	private VolEntry? _selectedEntry;
 
 	public MainForm() {
 		InitializeComponent();
@@ -71,6 +79,32 @@ public partial class MainForm : Form {
 		form.ShowDialog(this);
 	}
 
+	private void OnOpenModelViewer(object? sender, EventArgs e) {
+		using var form = new Model3DViewerForm();
+		form.ShowDialog(this);
+	}
+
+	/// <summary>
+	/// Opens the currently selected VOL-tree entry in whichever viewer matches its type — the
+	/// 3D model viewer for DTS, the texture viewer for DBA/DBM. _viewAssetButton.Enabled already
+	/// guarantees _selectedEntry and _currentVol are usable here (see UpdateViewAssetButtonState).
+	/// </summary>
+	private void OnViewAsset(object? sender, EventArgs e) {
+		if (_selectedEntry == null || _currentVol == null) {
+			return;
+		}
+
+		if (_selectedEntry.Ext == FileType.Dts) {
+			using var form = new Model3DViewerForm();
+			form.LoadFromVolEntry(_selectedEntry);
+			form.ShowDialog(this);
+		} else if (_selectedEntry.Ext is FileType.Dba or FileType.Dbm) {
+			using var form = new TextureViewerForm();
+			form.LoadFromVolEntry(_selectedEntry, _currentVol);
+			form.ShowDialog(this);
+		}
+	}
+
 	private void OnUnpackVol(object? sender, EventArgs e) {
 		if (_currentVol == null) {
 			MessageBox.Show(this, "Open a VOL file first.", "No VOL loaded",
@@ -113,7 +147,10 @@ public partial class MainForm : Form {
 		_fileDetails.Items.Clear();
 		_contentTree.Nodes.Clear();
 
-		if (e.Node?.Tag is not VolEntry entry) {
+		_selectedEntry = e.Node?.Tag as VolEntry;
+		UpdateViewAssetButtonState();
+
+		if (_selectedEntry is not { } entry) {
 			return;
 		}
 
@@ -126,6 +163,15 @@ public partial class MainForm : Form {
 		AddDetail("Magic Prefix", ByteOps.ToHex(entry.MagicPrefix));
 
 		PopulateContent(entry);
+	}
+
+	/// <summary>
+	/// "View Asset" is enabled only for types that actually have a viewer: DTS (3D model) and
+	/// DBA/DBM (texture). A DPL alone isn't a texture, so it's intentionally excluded here.
+	/// </summary>
+	private void UpdateViewAssetButtonState() {
+		_viewAssetButton.Enabled = _selectedEntry is { RawBytes.Length: > 0 } entry &&
+			(entry.Ext == FileType.Dts || entry.Ext == FileType.Dba || entry.Ext == FileType.Dbm);
 	}
 
 	private void PopulateContent(VolEntry entry) {

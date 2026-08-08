@@ -31,6 +31,7 @@ public abstract class ThreeSpaceByteTransformer {
 
 	protected void SetBytes(byte[] src) {
 		Bytes = src;
+		Index = 0;
 	}
 
 	protected byte IndexByte() {

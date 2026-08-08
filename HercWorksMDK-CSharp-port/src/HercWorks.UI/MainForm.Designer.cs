@@ -32,11 +32,14 @@ partial class MainForm {
 		_missionFilesMenuItem = new ToolStripMenuItem();
 		_toolsMenuItem = new ToolStripMenuItem();
 		_imageExportMenuItem = new ToolStripMenuItem();
+		_modelViewerMenuItem = new ToolStripMenuItem();
 		_volTree = new TreeView();
 		_fileDetails = new ListView();
 		_fileDetailsPropertyColumn = new ColumnHeader();
 		_fileDetailsValueColumn = new ColumnHeader();
 		_contentTree = new TreeView();
+		_viewAssetPanel = new Panel();
+		_viewAssetButton = new Button();
 		_statusStrip = new StatusStrip();
 		_statusLabel = new ToolStripStatusLabel();
 		_menuStrip.SuspendLayout();
@@ -116,7 +119,7 @@ partial class MainForm {
 		//
 		// _toolsMenuItem
 		//
-		_toolsMenuItem.DropDownItems.AddRange(new ToolStripItem[] { _imageExportMenuItem });
+		_toolsMenuItem.DropDownItems.AddRange(new ToolStripItem[] { _imageExportMenuItem, _modelViewerMenuItem });
 		_toolsMenuItem.Name = "_toolsMenuItem";
 		_toolsMenuItem.Text = "&Tools";
 		//
@@ -125,6 +128,12 @@ partial class MainForm {
 		_imageExportMenuItem.Name = "_imageExportMenuItem";
 		_imageExportMenuItem.Text = "Image Export (DBA/DBM/DPL)...";
 		_imageExportMenuItem.Click += OnOpenImageExport;
+		//
+		// _modelViewerMenuItem
+		//
+		_modelViewerMenuItem.Name = "_modelViewerMenuItem";
+		_modelViewerMenuItem.Text = "3D Model Viewer (DTS)...";
+		_modelViewerMenuItem.Click += OnOpenModelViewer;
 		//
 		// _volTree
 		//
@@ -169,13 +178,36 @@ partial class MainForm {
 		_contentTree.Size = new Size(680, 424);
 		_contentTree.TabIndex = 3;
 		//
+		// _viewAssetPanel
+		//
+		// Thin padded strip below the Content panel, holding the "View Asset" button — the
+		// Padding is what gives it a little visual breathing room from _contentTree above it.
+		_viewAssetPanel.Controls.Add(_viewAssetButton);
+		_viewAssetPanel.Dock = DockStyle.Bottom;
+		_viewAssetPanel.Location = new Point(320, 628);
+		_viewAssetPanel.Name = "_viewAssetPanel";
+		_viewAssetPanel.Padding = new Padding(8);
+		_viewAssetPanel.Size = new Size(680, 52);
+		_viewAssetPanel.TabIndex = 4;
+		//
+		// _viewAssetButton
+		//
+		_viewAssetButton.Dock = DockStyle.Fill;
+		_viewAssetButton.Enabled = false;
+		_viewAssetButton.Location = new Point(8, 8);
+		_viewAssetButton.Name = "_viewAssetButton";
+		_viewAssetButton.Size = new Size(664, 36);
+		_viewAssetButton.TabIndex = 0;
+		_viewAssetButton.Text = "View Asset";
+		_viewAssetButton.Click += OnViewAsset;
+		//
 		// _statusStrip
 		//
 		_statusStrip.Items.AddRange(new ToolStripItem[] { _statusLabel });
 		_statusStrip.Location = new Point(0, 628);
 		_statusStrip.Name = "_statusStrip";
 		_statusStrip.Size = new Size(1000, 22);
-		_statusStrip.TabIndex = 4;
+		_statusStrip.TabIndex = 5;
 		//
 		// _statusLabel
 		//
@@ -187,6 +219,7 @@ partial class MainForm {
 		Size = new Size(1000, 650);
 		Controls.Add(_contentTree);
 		Controls.Add(_fileDetails);
+		Controls.Add(_viewAssetPanel);
 		Controls.Add(_volTree);
 		Controls.Add(_statusStrip);
 		Controls.Add(_menuStrip);
@@ -216,11 +249,14 @@ partial class MainForm {
 	private ToolStripMenuItem _missionFilesMenuItem;
 	private ToolStripMenuItem _toolsMenuItem;
 	private ToolStripMenuItem _imageExportMenuItem;
+	private ToolStripMenuItem _modelViewerMenuItem;
 	private TreeView _volTree;
 	private ListView _fileDetails;
 	private ColumnHeader _fileDetailsPropertyColumn;
 	private ColumnHeader _fileDetailsValueColumn;
 	private TreeView _contentTree;
+	private Panel _viewAssetPanel;
+	private Button _viewAssetButton;
 	private StatusStrip _statusStrip;
 	private ToolStripStatusLabel _statusLabel;
 }

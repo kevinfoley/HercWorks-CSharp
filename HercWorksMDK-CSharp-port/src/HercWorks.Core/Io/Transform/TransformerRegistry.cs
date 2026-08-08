@@ -37,6 +37,8 @@ public static class TransformerRegistry {
 
 		// --- dbsim (various dirs) ---
 		new("Beam Data", e => NameIs(e, "BEAM.DAT"), () => new Dbsim.BeamDatFileTransformer()),
+		new("Scanline Clip Mask", e => ExtIs(e, FileType.Edg), () => new Dbsim.EdgeClipFileTransformer()),
+		new("HUD Layout", e => ExtIs(e, FileType.Gau), () => new Dbsim.GauFileTransformer()),
 		new("Herc Collider", e => ExtIs(e, FileType.Col), () => new Dbsim.HercColliderTransformer()),
 		new("3D Model (DTS)", e => ExtIs(e, FileType.Dts), () => new Dbsim.DTSModelTransformer()),
 		new("Herc Debris Data", e => NameEndsWith(e, "_DEB.DAT"), () => new Dbsim.DebrisHercTransformer()),
@@ -47,7 +49,10 @@ public static class TransformerRegistry {
 		new("Weapons Paper Diagram", e => NameIs(e, "WEAPONS.PDG"), () => new Dbsim.WeaponPDGTransformer()),
 		new("Paper Diagram Graphic", e => ExtIs(e, FileType.Pdg) && !NameIs(e, "WEAPONS.PDG"), () => new Dbsim.PaperDiagramGraphTransformer()),
 		new("Projectile Data", e => NameIs(e, "PROJ.DAT"), () => new Dbsim.ProjectileDataTransformer()),
+		new("Pilot Portrait Offsets", e => ExtIs(e, FileType.Ofs), () => new Dbsim.PilotOffsetFileTransformer()),
+		new("Terrain Ramp Data", e => ExtIs(e, FileType.Rmp), () => new Dbsim.TerrainRampFileTransformer()),
 		new("Viewport Data", e => ExtIs(e, FileType.Vue), () => new Dbsim.VueTransformer()),
+		new("World/Environment Data", e => ExtIs(e, FileType.Wld), () => new Dbsim.WorldDataTransformer()),
 
 		// --- common ---
 		new("Dynamix Bitmap Array", e => ExtIs(e, FileType.Dba), () => new Common.DynamixBitmapArrayTransformer()),
@@ -65,6 +70,14 @@ public static class TransformerRegistry {
 		// background, one per team color); HBA holds several smaller gauge/UI sprites.
 		new("Herc Cockpit Bitmap Array", e => ExtIs(e, FileType.Hba), () => new Common.DynamixBitmapArrayTransformer()),
 		new("Herc Cockpit Texture (640x480)", e => ExtIs(e, FileType.Hb0) || ExtIs(e, FileType.Hb1) || ExtIs(e, FileType.Hb2),
+			() => new Common.DynamixBitmapArrayTransformer()),
+
+		// Same DBA-compatible container as HBA/HB0-2 above, confirmed against real data
+		// (2026-08-08): .DB0/.DB1/.DB2 always parse to a single 320x240 frame — a smaller/alternate
+		// framing of the same cockpit interior (e.g. DB2 shows a rotated/cropped angle), also
+		// correctly colored under COCKPIT.DPL. Same "COCKPIT TEXTURES.txt" hint file present
+		// alongside HB0/HB1/HB2's real folders is also present in db0/db1/db2.
+		new("Herc Cockpit Texture (320x240)", e => ExtIs(e, FileType.Db0) || ExtIs(e, FileType.Db1) || ExtIs(e, FileType.Db2),
 			() => new Common.DynamixBitmapArrayTransformer()),
 	};
 

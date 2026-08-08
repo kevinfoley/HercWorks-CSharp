@@ -23,7 +23,8 @@ public sealed class WeaponLUT {
 	public static readonly WeaponLUT Msl6 = new(13, "MSL6", 13);
 	public static readonly WeaponLUT Msl8 = new(14, "MSL8", 14);
 	public static readonly WeaponLUT Msl10 = new(15, "MSL10", 15);
-	public static readonly WeaponLUT Mslr = new(16, "MSLR", 16);
+	/// <summary>Real name confirmed against SHELL0/GAM/WEAPONS.DAT's own catalog — id 16 is "FLYMSL" there, not "MSLR" as originally guessed here.</summary>
+	public static readonly WeaponLUT Mslr = new(16, "FLYMSL", 16);
 	public static readonly WeaponLUT Pbw = new(17, "PBW", 17);
 	public static readonly WeaponLUT Ecm = new(18, "ECM", 18);
 	public static readonly WeaponLUT Bemp = new(19, "BEMP", 0);

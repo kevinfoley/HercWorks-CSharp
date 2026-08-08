@@ -30,6 +30,8 @@ partial class MainForm {
 		_itemStatsMenuItem = new ToolStripMenuItem();
 		_campaignResourcesMenuItem = new ToolStripMenuItem();
 		_missionFilesMenuItem = new ToolStripMenuItem();
+		_toolsMenuItem = new ToolStripMenuItem();
+		_imageExportMenuItem = new ToolStripMenuItem();
 		_volTree = new TreeView();
 		_fileDetails = new ListView();
 		_fileDetailsPropertyColumn = new ColumnHeader();
@@ -42,7 +44,7 @@ partial class MainForm {
 		//
 		// _menuStrip
 		//
-		_menuStrip.Items.AddRange(new ToolStripItem[] { _fileMenuItem, _editMenuItem });
+		_menuStrip.Items.AddRange(new ToolStripItem[] { _fileMenuItem, _editMenuItem, _toolsMenuItem });
 		_menuStrip.Location = new Point(0, 0);
 		_menuStrip.Name = "_menuStrip";
 		_menuStrip.Size = new Size(1000, 24);
@@ -101,15 +103,27 @@ partial class MainForm {
 		//
 		// _campaignResourcesMenuItem
 		//
-		_campaignResourcesMenuItem.Enabled = false;
 		_campaignResourcesMenuItem.Name = "_campaignResourcesMenuItem";
 		_campaignResourcesMenuItem.Text = "Campaign Resources...";
+		_campaignResourcesMenuItem.Click += OnOpenCampaignResources;
 		//
 		// _missionFilesMenuItem
 		//
 		_missionFilesMenuItem.Enabled = false;
 		_missionFilesMenuItem.Name = "_missionFilesMenuItem";
 		_missionFilesMenuItem.Text = "Mission Files...";
+		//
+		// _toolsMenuItem
+		//
+		_toolsMenuItem.DropDownItems.AddRange(new ToolStripItem[] { _imageExportMenuItem });
+		_toolsMenuItem.Name = "_toolsMenuItem";
+		_toolsMenuItem.Text = "&Tools";
+		//
+		// _imageExportMenuItem
+		//
+		_imageExportMenuItem.Name = "_imageExportMenuItem";
+		_imageExportMenuItem.Text = "Image Export (DBA/DBM/DPL)...";
+		_imageExportMenuItem.Click += OnOpenImageExport;
 		//
 		// _volTree
 		//
@@ -186,6 +200,8 @@ partial class MainForm {
 	private ToolStripMenuItem _itemStatsMenuItem;
 	private ToolStripMenuItem _campaignResourcesMenuItem;
 	private ToolStripMenuItem _missionFilesMenuItem;
+	private ToolStripMenuItem _toolsMenuItem;
+	private ToolStripMenuItem _imageExportMenuItem;
 	private TreeView _volTree;
 	private ListView _fileDetails;
 	private ColumnHeader _fileDetailsPropertyColumn;

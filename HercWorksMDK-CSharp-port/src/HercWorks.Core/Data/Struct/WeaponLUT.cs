@@ -66,4 +66,6 @@ public sealed class WeaponLUT {
 	public static IReadOnlyList<WeaponLUT> Values() => All;
 
 	public static WeaponLUT? GetByName(string name) => All.FirstOrDefault(w => w.Name == name);
+
+	public override string ToString() => Name;
 }

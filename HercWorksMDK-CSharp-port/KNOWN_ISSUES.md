@@ -120,6 +120,23 @@ parameter. The parameter is effectively dead; `Origin` is never actually set by 
 
 ## Round-trip bugs (write and read paths disagree with each other)
 
+### `PlayerSaveTransform` — write path completely ignores `PlayerSave.UnlockedHercs`
+**File:** `src/HercWorks.Core/Io/Transform/Common/PlayerSaveTransform.cs`
+**Java source:** `org.hercworks.core.io.transform.common.PlayerSaveTransform`
+
+On read, the herc-unlock segment is parsed into `save.UnlockedHercs` — a `Dictionary<HercLUT,
+short>` keyed by every `HercLUT` up to (not including) `Mongoose` (id 9), with each entry's
+actual stored value preserved. On write, that dictionary is never read at all — the write path
+instead iterates `HercLUT.Values()` and writes a hardcoded `1` for every herc with `Id <
+Achilles.Id` (id 13), an entirely different range and an entirely fabricated value with no
+connection to what was parsed or to anything the caller could have edited. A save file read then
+written back out would silently discard the real unlock data and replace it with this hardcoded
+pattern — any in-memory edits to `UnlockedHercs` are lost too, not just preserved-incorrectly.
+This is why the WinForms Campaign Resources editor (`CampaignResourcesForm`) doesn't expose herc
+unlocks for editing — doing so would be actively misleading, since edits wouldn't actually take
+effect on save. Ported literally (bug-for-bug); no real `.sav` file was available to determine
+which side (if either) reflects the true on-disk format.
+
 ### `DynamixPaletteTransformer` — green/blue channels swapped on write
 **File:** `src/HercWorks.Core/Io/Transform/Common/DynamixPaletteTransformer.cs`
 **Java source:** `org.hercworks.core.io.transform.common.DynamixPaletteTransformer`

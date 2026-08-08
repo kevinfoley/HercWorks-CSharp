@@ -7,12 +7,14 @@ namespace HercWorks.UI;
 /// <summary>
 /// Starting shell for the HercWorks MDK WinForms port. Currently supports opening
 /// and browsing a .vol archive, unpacking it to a folder, editing HERC_INF.DAT via
-/// the Herc Stats editor, and editing WEAPONS.DAT via the Item Stats editor (both
-/// built directly on HercWorks.Core — no ES2TransferApi dependency). The remaining
-/// "ideal features" from the original README (campaign resource editing, mission
-/// file editing) are still stubbed as disabled menu entries. Control layout lives
-/// in MainForm.Designer.cs so the form can be opened in the WinForms visual
-/// designer; this file holds only state and event-handler logic.
+/// the Herc Stats editor, editing WEAPONS.DAT via the Item Stats editor, editing a
+/// player .sav file's salvage/workshop slots via the Campaign Resources editor, and
+/// exporting DBA/DBM/DPL Dynamix bitmap data to PNG via the Tools menu's Image
+/// Export dialog (all built directly on HercWorks.Core — no ES2TransferApi
+/// dependency). Mission file editing, the last "ideal feature" from the original
+/// README, is still a stubbed disabled menu entry. Control layout lives in
+/// MainForm.Designer.cs so the form can be opened in the WinForms visual designer;
+/// this file holds only state and event-handler logic.
 /// </summary>
 public partial class MainForm : Form {
 	private Voln? _currentVol;
@@ -50,6 +52,16 @@ public partial class MainForm : Form {
 
 	private void OnOpenItemStats(object? sender, EventArgs e) {
 		using var form = new WeaponStatsForm();
+		form.ShowDialog(this);
+	}
+
+	private void OnOpenCampaignResources(object? sender, EventArgs e) {
+		using var form = new CampaignResourcesForm();
+		form.ShowDialog(this);
+	}
+
+	private void OnOpenImageExport(object? sender, EventArgs e) {
+		using var form = new ImageExportForm();
 		form.ShowDialog(this);
 	}
 

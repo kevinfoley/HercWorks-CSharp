@@ -98,7 +98,7 @@ public partial class MainForm : Form {
 			using var form = new Model3DViewerForm();
 			form.LoadFromVolEntry(_selectedEntry);
 			form.ShowDialog(this);
-		} else if (_selectedEntry.Ext is FileType.Dba or FileType.Dbm) {
+		} else if (_selectedEntry.Ext is FileType.Dba or FileType.Dbm or FileType.Hba or FileType.Hb0 or FileType.Hb1 or FileType.Hb2) {
 			using var form = new TextureViewerForm();
 			form.LoadFromVolEntry(_selectedEntry, _currentVol);
 			form.ShowDialog(this);
@@ -167,11 +167,13 @@ public partial class MainForm : Form {
 
 	/// <summary>
 	/// "View Asset" is enabled only for types that actually have a viewer: DTS (3D model) and
-	/// DBA/DBM (texture). A DPL alone isn't a texture, so it's intentionally excluded here.
+	/// DBA/DBM/HBA/HB0/HB1/HB2 (texture — the HBx types are byte-identical to the DBA container
+	/// format, see TransformerRegistry's doc comment). A DPL alone isn't a texture, so it's
+	/// intentionally excluded here.
 	/// </summary>
 	private void UpdateViewAssetButtonState() {
 		_viewAssetButton.Enabled = _selectedEntry is { RawBytes.Length: > 0 } entry &&
-			(entry.Ext == FileType.Dts || entry.Ext == FileType.Dba || entry.Ext == FileType.Dbm);
+			entry.Ext is FileType.Dts or FileType.Dba or FileType.Dbm or FileType.Hba or FileType.Hb0 or FileType.Hb1 or FileType.Hb2;
 	}
 
 	private void PopulateContent(VolEntry entry) {

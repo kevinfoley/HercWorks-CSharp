@@ -103,14 +103,18 @@ public partial class TextureViewerForm : Form {
 				return;
 			}
 
-			if (entry.Ext == FileType.Dba) {
+			// .HBA and .HB0/.HB1/.HB2 are byte-identical to the .DBA container format (see
+			// TransformerRegistry's doc comment) — same transformer handles all of them.
+			bool isDbaLike = entry.Ext is FileType.Dba or FileType.Hba or FileType.Hb0 or FileType.Hb1 or FileType.Hb2;
+
+			if (isDbaLike) {
 				_loadedDba = (DynamixBitmapArray?)_dbaTransformer.BytesToObject(entry.RawBytes);
 				_loadedDbm = null;
 			} else if (entry.Ext == FileType.Dbm) {
 				_loadedDbm = (DynamixBitmap?)_dbmTransformer.BytesToObject(entry.RawBytes);
 				_loadedDba = null;
 			} else {
-				MessageBox.Show(this, "Selected entry is not a DBA or DBM texture.", "Error",
+				MessageBox.Show(this, "Selected entry is not a DBA, DBM, HBA, or HB0/HB1/HB2 texture.", "Error",
 					MessageBoxButtons.OK, MessageBoxIcon.Error);
 				return;
 			}

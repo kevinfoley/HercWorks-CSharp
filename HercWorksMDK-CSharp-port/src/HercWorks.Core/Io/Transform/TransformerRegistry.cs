@@ -37,6 +37,7 @@ public static class TransformerRegistry {
 
 		// --- dbsim (various dirs) ---
 		new("Beam Data", e => NameIs(e, "BEAM.DAT"), () => new Dbsim.BeamDatFileTransformer()),
+		new("Herc Collider", e => ExtIs(e, FileType.Col), () => new Dbsim.HercColliderTransformer()),
 		new("3D Model (DTS)", e => ExtIs(e, FileType.Dts), () => new Dbsim.DTSModelTransformer()),
 		new("Herc Debris Data", e => NameEndsWith(e, "_DEB.DAT"), () => new Dbsim.DebrisHercTransformer()),
 		new("Flight Model", e => ExtIs(e, FileType.Fm), () => new Dbsim.FlightModelTransformer()),
@@ -54,6 +55,17 @@ public static class TransformerRegistry {
 		new("Dynamix Palette", e => ExtIs(e, FileType.Dpl), () => new Common.DynamixPaletteTransformer()),
 		new("Mission File", e => ExtIs(e, FileType.Msn), () => new Common.MissionFileTransformer()),
 		new("Player Save", e => ExtIs(e, FileType.Sav), () => new Common.PlayerSaveTransform()),
+		new("String Table", e => ExtIs(e, FileType.Str), () => new Common.StringFileTransformer()),
+
+		// .HBA and .HB0/.HB1/.HB2 turned out to be byte-identical to the .DBA container format
+		// (same 12-byte "01 00 28 00" + size + count header, same embedded DynamixBitmap-per-entry
+		// layout, same 1-byte inter-entry padding) — confirmed against every real HBA/HB0/HB1/HB2
+		// file in simvol0 by walking the existing DynamixBitmapArrayTransformer's exact algorithm
+		// by hand. HB0/HB1/HB2 always parse to a single 640x480 frame (a full-screen cockpit
+		// background, one per team color); HBA holds several smaller gauge/UI sprites.
+		new("Herc Cockpit Bitmap Array", e => ExtIs(e, FileType.Hba), () => new Common.DynamixBitmapArrayTransformer()),
+		new("Herc Cockpit Texture (640x480)", e => ExtIs(e, FileType.Hb0) || ExtIs(e, FileType.Hb1) || ExtIs(e, FileType.Hb2),
+			() => new Common.DynamixBitmapArrayTransformer()),
 	};
 
 	/// <summary>Returns a fresh transformer instance for the given entry, or null if no known parser matches.</summary>

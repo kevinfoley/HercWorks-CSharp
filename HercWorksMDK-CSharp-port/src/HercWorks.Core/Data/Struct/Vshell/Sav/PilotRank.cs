@@ -28,7 +28,12 @@ public sealed class PilotRank {
 
 	public static PilotRank? GetById(short id) => ById.GetValueOrDefault(id);
 
+	/// <summary>Equivalent of Java's enum .values().</summary>
+	public static IReadOnlyList<PilotRank> Values() => All;
+
 	/// <summary>Original Java defaults to ROOKIE when no name matches; preserved here.</summary>
 	public static PilotRank GetByName(string name) =>
 		All.FirstOrDefault(r => string.Equals(name, r.Label, StringComparison.OrdinalIgnoreCase)) ?? Rookie;
+
+	public override string ToString() => Label;
 }

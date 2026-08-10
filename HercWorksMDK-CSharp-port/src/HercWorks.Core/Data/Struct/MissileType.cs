@@ -26,4 +26,6 @@ public sealed class MissileType {
 
 	/// <summary>Equivalent of Java's enum .values().</summary>
 	public static IReadOnlyList<MissileType> Values() => All;
+
+	public override string ToString() => Name;
 }

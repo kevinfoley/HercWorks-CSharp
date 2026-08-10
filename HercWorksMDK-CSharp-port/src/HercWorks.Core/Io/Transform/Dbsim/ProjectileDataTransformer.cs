@@ -29,7 +29,7 @@ public class ProjectileDataTransformer : ThreeSpaceByteTransformer {
 			proj.MissileId = IndexShortLE();
 			proj.DamageShield = IndexShortLE();
 			proj.DamageArmor = IndexShortLE();
-			proj.Unk2_val = IndexShortLE();
+			proj.SplashFactor = IndexShortLE();
 			proj.Speed = IndexShortLE();
 
 			proj.ImpactFXShield[0] = IndexShortLE();
@@ -73,7 +73,7 @@ public class ProjectileDataTransformer : ThreeSpaceByteTransformer {
 			WriteShort(proj.MissileId);
 			WriteShort(proj.DamageShield);
 			WriteShort(proj.DamageArmor);
-			WriteShort(proj.Unk2_val);
+			WriteShort(proj.SplashFactor);
 			WriteShort(proj.Speed);
 
 			WriteShort(proj.ImpactFXShield[0]);

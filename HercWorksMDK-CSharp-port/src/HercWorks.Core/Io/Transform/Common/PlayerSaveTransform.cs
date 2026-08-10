@@ -251,10 +251,13 @@ public class PlayerSaveTransform : ThreeSpaceByteTransformer {
 		// PLAYER PILOT
 		WritePilotData(save.PlayerPilot!, outStream, true);
 
-		// HERC DATA
+		// HERC DATA — keyed by actual bay id, not a 0..Count-1 sequential index: real saves have
+		// sparse bay ids (e.g. missing bay 2 or bay 7), so indexing by loop counter threw
+		// KeyNotFoundException on those files. Mirrors the read path, which keys by the bay id
+		// read from the file rather than assuming contiguity.
 		outStream.Write(WriteShortLE((short)save.HercBay.Count), 0, 2);
-		for (short h = 0; h < save.HercBay.Count; h++) {
-			WriteHercEntry(h, save.HercBay[h], outStream);
+		foreach (var kv in save.HercBay) {
+			WriteHercEntry(kv.Key, kv.Value, outStream);
 		}
 
 		// HERC UNLOCKS — mirrors the read path exactly: same id range (0 until HercLUT.Mongoose.Id),
@@ -341,9 +344,11 @@ public class PlayerSaveTransform : ThreeSpaceByteTransformer {
 		WriteAndCount(outArr, WriteShortLE(herc.HardpointMax));
 		WriteAndCount(outArr, WriteShortLE(herc.ActiveSockets));
 
-		for (short w = 0; w < herc.ActiveSockets; w++) {
-			var weapon = herc.Weapons[w];
-			WriteAndCount(outArr, WriteShortLE(w));
+		// Keyed by actual socket id, not a 0..ActiveSockets-1 sequential index — same sparse-key
+		// issue as the herc bay loop above (see comment in ObjectToBytes).
+		foreach (var kv in herc.Weapons) {
+			WriteAndCount(outArr, WriteShortLE(kv.Key));
+			var weapon = kv.Value;
 			WriteAndCount(outArr, WriteShortLE((short)weapon.Id!.Id));
 			WriteAndCount(outArr, WriteShortLE(weapon.NameId));
 			WriteAndCount(outArr, WriteShortLE(weapon.HealthArmor));

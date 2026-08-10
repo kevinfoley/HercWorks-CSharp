@@ -107,7 +107,7 @@ public class HercDamageFileTransformer : ThreeSpaceByteTransformer {
 			Write(outStream, WriteShortLE(piece.Armor));
 			Write(outStream, WriteShortLE(piece.DebrisFlags));
 			outStream.WriteByte(piece.BoneId);
-			outStream.WriteByte(piece.Unk_val);
+			outStream.WriteByte(piece.DestructionFlags);
 			Write(outStream, WriteShortLE((short)piece.MappedInternals!.Length));
 
 			foreach (var t in piece.MappedInternals) {
@@ -124,7 +124,7 @@ public class HercDamageFileTransformer : ThreeSpaceByteTransformer {
 		piece.Armor = IndexShortLE();
 		piece.DebrisFlags = IndexShortLE();
 		piece.BoneId = IndexByte();
-		piece.Unk_val = IndexByte();
+		piece.DestructionFlags = IndexByte();
 
 		piece.MappedInternals = new HercSimDamage.InternalsTarget[IndexShortLE()];
 		for (int i = 0; i < piece.MappedInternals.Length; i++) {

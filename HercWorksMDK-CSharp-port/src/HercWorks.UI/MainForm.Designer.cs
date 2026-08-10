@@ -147,15 +147,16 @@ partial class MainForm {
 		// _fileDetails
 		//
 		// Fixed-height panel docked to the top of the right-hand area: the metadata list is
-		// always exactly 7 rows plus a header, so a scrollable/growing area isn't needed here —
-		// leaves the rest of the vertical space for _contentTree below it.
+		// always 7 rows plus a header (8 rows for a recognized file type, which adds a "File
+		// Type" row), so a scrollable/growing area isn't needed here — leaves the rest of the
+		// vertical space for _contentTree below it.
 		_fileDetails.Columns.AddRange(new ColumnHeader[] { _fileDetailsPropertyColumn, _fileDetailsValueColumn });
 		_fileDetails.Dock = DockStyle.Top;
 		_fileDetails.FullRowSelect = true;
-		_fileDetails.Height = 180;
+		_fileDetails.Height = 202;
 		_fileDetails.Location = new Point(320, 24);
 		_fileDetails.Name = "_fileDetails";
-		_fileDetails.Size = new Size(680, 180);
+		_fileDetails.Size = new Size(680, 202);
 		_fileDetails.TabIndex = 2;
 		_fileDetails.UseCompatibleStateImageBehavior = false;
 		_fileDetails.View = View.Details;

@@ -14,9 +14,10 @@ namespace HercWorks.UI;
 /// Export dialog, and viewing .DTS 3D models with an orbit camera via the Tools
 /// menu's 3D Model Viewer (all built directly on HercWorks.Core — no ES2TransferApi
 /// dependency). The VOL browser's right-hand side is a fixed-height Metadata list
-/// (the raw entry info — offset, size, compression, magic prefix) stacked above a
-/// Content tree that fills the remaining space: when the selected file's type is
-/// recognized by TransformerRegistry, Content shows its actual parsed,
+/// (the raw entry info — offset, size, compression, magic prefix — plus a "File Type"
+/// row with a short human-readable description whenever TransformerRegistry recognizes
+/// the file) stacked above a Content tree that fills the remaining space: when the
+/// selected file's type is recognized by TransformerRegistry, Content shows its actual parsed,
 /// human-readable data (fully expanded) via ContentTreeRenderer; unrecognized types
 /// just show a "no parser available" note there. Below Content, a "View Asset" button
 /// (enabled only for DTS/DBA/DBM entries) opens the selected file directly in the 3D
@@ -158,6 +159,9 @@ public partial class MainForm : Form {
 		AddDetail("File Name", entry.FileName ?? string.Empty);
 		AddDetail("Directory", entry.Dir?.Val() ?? "(unknown)");
 		AddDetail("Extension", entry.Ext?.Val() ?? "(unknown)");
+		if (TransformerRegistry.FindLabel(entry) is { } typeLabel) {
+			AddDetail("File Type", typeLabel);
+		}
 		AddDetail("Offset In VOL", entry.VolOffsetValue.ToString());
 		AddDetail("Size (bytes)", (entry.RawBytes?.Length ?? 0).ToString());
 		AddDetail("Compression Type", entry.FileCompressionType.ToString());

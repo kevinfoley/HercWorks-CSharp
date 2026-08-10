@@ -28,6 +28,7 @@ public partial class TextureViewerForm : Form {
 
 	public TextureViewerForm() {
 		InitializeComponent();
+		_previewPanel.Resize += (_, _) => PositionPreviewInPanel();
 	}
 
 	private void OnClose(object? sender, EventArgs e) => Close();
@@ -337,11 +338,56 @@ public partial class TextureViewerForm : Form {
 	private void RenderCurrentFrame() {
 		var frames = Frames;
 		if (frames == null || frames.Length == 0) {
+			_resolutionStatusLabel.Text = "";
+			_preview.Image?.Dispose();
+			_preview.Image = null;
+			_preview.Size = Size.Empty;
 			return;
 		}
 
 		int index = Math.Clamp((int)_frameSelector.Value, 0, frames.Length - 1);
+		var frame = frames[index];
+		var bitmap = DynamixImageRenderer.RenderFrame(frame, _loadedPalette);
+
 		_preview.Image?.Dispose();
-		_preview.Image = DynamixImageRenderer.RenderFrame(frames[index], _loadedPalette);
+		// Clear the picture box before measuring so a scrollbar left over from the previous
+		// (possibly larger) frame doesn't shrink _previewPanel.ClientSize and throw off the fit check.
+		_preview.Size = Size.Empty;
+		GrowWindowToFitImage(bitmap.Size);
+
+		_preview.Image = bitmap;
+		_preview.Size = bitmap.Size;
+		PositionPreviewInPanel();
+
+		_resolutionStatusLabel.Text = $"{frame.Cols} x {frame.Rows}";
+	}
+
+	/// <summary>
+	/// Grows the window just enough that the full image fits in the preview panel without
+	/// scrollbars. Never shrinks the window — loading a smaller image afterward leaves the current
+	/// size alone, and a user who's manually shrunk the window below what the image needs just gets
+	/// scrollbars (via _previewPanel's AutoScroll) instead of being resized out from under them.
+	/// </summary>
+	private void GrowWindowToFitImage(Size imageSize) {
+		int widthGrowth = Math.Max(0, imageSize.Width - _previewPanel.ClientSize.Width);
+		int heightGrowth = Math.Max(0, imageSize.Height - _previewPanel.ClientSize.Height);
+		if (widthGrowth > 0 || heightGrowth > 0) {
+			Size = new Size(Width + widthGrowth, Height + heightGrowth);
+		}
+	}
+
+	/// <summary>
+	/// Centers the image in the panel when it's smaller than the visible area; pins it to the
+	/// top-left (the natural AutoScroll origin) when it's larger and needs scrollbars.
+	/// </summary>
+	private void PositionPreviewInPanel() {
+		if (_preview.Image == null) {
+			return;
+		}
+
+		var panelSize = _previewPanel.ClientSize;
+		int x = _preview.Width < panelSize.Width ? (panelSize.Width - _preview.Width) / 2 : 0;
+		int y = _preview.Height < panelSize.Height ? (panelSize.Height - _preview.Height) / 2 : 0;
+		_preview.Location = new Point(x, y);
 	}
 }

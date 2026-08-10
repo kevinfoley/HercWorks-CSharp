@@ -23,6 +23,14 @@ public partial class ImageExportForm : Form {
 
 	private DynamixPalette? _loadedPalette;
 
+	// Distinct per-purpose identities — see CampaignResourcesForm's DialogClientGuid for the full
+	// explanation. Kept separate (rather than one shared per-form GUID) since Open Image, Open
+	// Palette, and PNG export each browse a genuinely different real-data folder (e.g. simvol0/dba
+	// vs simvol0/dpl vs wherever the user keeps exported PNGs).
+	private static readonly Guid OpenImageClientGuid = new("129d02e5-b603-45ef-84ef-5cb8479f2e32");
+	private static readonly Guid OpenPaletteClientGuid = new("3cacc805-89ca-43b8-8a87-b9fd88d08b55");
+	private static readonly Guid ExportPngClientGuid = new("24fcf6df-ce5f-4cb8-b9d9-24cd51f45a50");
+
 	public ImageExportForm() {
 		InitializeComponent();
 		UpdateExportMenuState();
@@ -37,7 +45,8 @@ public partial class ImageExportForm : Form {
 	private void OnOpenImage(object? sender, EventArgs e) {
 		using var dialog = new OpenFileDialog {
 			Filter = "Dynamix bitmap files (*.dba;*.dbm)|*.dba;*.dbm|All files (*.*)|*.*",
-			Title = "Open DBA or DBM file"
+			Title = "Open DBA or DBM file",
+			ClientGuid = OpenImageClientGuid
 		};
 
 		if (dialog.ShowDialog(this) != DialogResult.OK) {
@@ -98,7 +107,8 @@ public partial class ImageExportForm : Form {
 	private void OnOpenPalette(object? sender, EventArgs e) {
 		using var dialog = new OpenFileDialog {
 			Filter = "Dynamix palette files (*.dpl)|*.dpl|All files (*.*)|*.*",
-			Title = "Open DPL palette file"
+			Title = "Open DPL palette file",
+			ClientGuid = OpenPaletteClientGuid
 		};
 
 		if (dialog.ShowDialog(this) != DialogResult.OK) {
@@ -148,7 +158,8 @@ public partial class ImageExportForm : Form {
 
 		using var dialog = new SaveFileDialog {
 			Filter = "PNG image (*.png)|*.png",
-			Title = "Export current frame as PNG"
+			Title = "Export current frame as PNG",
+			ClientGuid = ExportPngClientGuid
 		};
 
 		if (dialog.ShowDialog(this) != DialogResult.OK) {
@@ -231,7 +242,8 @@ public partial class ImageExportForm : Form {
 
 		using var dialog = new SaveFileDialog {
 			Filter = "PNG image (*.png)|*.png",
-			Title = "Export palette grid as PNG"
+			Title = "Export palette grid as PNG",
+			ClientGuid = ExportPngClientGuid
 		};
 
 		if (dialog.ShowDialog(this) != DialogResult.OK) {

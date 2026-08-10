@@ -39,10 +39,17 @@ public partial class WeaponStatsForm : Form {
 
 	private void OnGridCellEndEdit(object? sender, DataGridViewCellEventArgs e) => _grid.InvalidateRow(e.RowIndex);
 
+	/// <summary>
+	/// Distinct per-form/file-type identity — see CampaignResourcesForm's DialogClientGuid for the
+	/// full explanation. Shared between Open and Save As since both deal with WEAPONS.DAT.
+	/// </summary>
+	private static readonly Guid DialogClientGuid = new("b5228457-50b0-4667-b328-07a17f72c4d1");
+
 	private void OnOpen(object? sender, EventArgs e) {
 		using var dialog = new OpenFileDialog {
 			Filter = "WEAPONS.DAT|WEAPONS.DAT|DAT files (*.dat)|*.dat|All files (*.*)|*.*",
-			Title = "Open WEAPONS.DAT"
+			Title = "Open WEAPONS.DAT",
+			ClientGuid = DialogClientGuid
 		};
 
 		if (dialog.ShowDialog(this) != DialogResult.OK) {
@@ -97,7 +104,8 @@ public partial class WeaponStatsForm : Form {
 		using var dialog = new SaveFileDialog {
 			Filter = "WEAPONS.DAT|WEAPONS.DAT|DAT files (*.dat)|*.dat|All files (*.*)|*.*",
 			Title = "Save WEAPONS.DAT",
-			FileName = _loadedPath == null ? "WEAPONS.DAT" : Path.GetFileName(_loadedPath)
+			FileName = _loadedPath == null ? "WEAPONS.DAT" : Path.GetFileName(_loadedPath),
+			ClientGuid = DialogClientGuid
 		};
 
 		if (dialog.ShowDialog(this) != DialogResult.OK) {

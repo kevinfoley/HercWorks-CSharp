@@ -53,10 +53,17 @@ public partial class Model3DViewerForm : Form {
 		_viewerControl.Invalidate();
 	}
 
+	/// <summary>
+	/// Distinct per-dialog identity — see CampaignResourcesForm's DialogClientGuid for the full
+	/// explanation.
+	/// </summary>
+	private static readonly Guid OpenDtsClientGuid = new("ac716302-ad6d-426b-a513-e488ebe755ea");
+
 	private void OnOpenDts(object? sender, EventArgs e) {
 		using var dialog = new OpenFileDialog {
 			Filter = "DTS 3D Model files (*.dts)|*.dts|All files (*.*)|*.*",
-			Title = "Open DTS file"
+			Title = "Open DTS file",
+			ClientGuid = OpenDtsClientGuid
 		};
 
 		if (dialog.ShowDialog(this) != DialogResult.OK) {

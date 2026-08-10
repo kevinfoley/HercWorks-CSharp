@@ -40,10 +40,18 @@ public partial class MainForm : Form {
 
 	private void OnExit(object? sender, EventArgs e) => Close();
 
+	/// <summary>
+	/// Distinct per-dialog identity so Windows remembers this dialog's last-visited folder
+	/// separately from other Open/Save dialogs in the app — see CampaignResourcesForm's
+	/// DialogClientGuid for the full explanation.
+	/// </summary>
+	private static readonly Guid OpenVolClientGuid = new("af529f56-306a-4c02-9f85-feb11bdd75a1");
+
 	private void OnOpenVol(object? sender, EventArgs e) {
 		using var dialog = new OpenFileDialog {
 			Filter = "Earthsiege 2 VOL files (*.vol)|*.vol|All files (*.*)|*.*",
-			Title = "Open VOL file"
+			Title = "Open VOL file",
+			ClientGuid = OpenVolClientGuid
 		};
 
 		if (dialog.ShowDialog(this) != DialogResult.OK) {

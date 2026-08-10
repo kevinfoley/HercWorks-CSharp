@@ -39,10 +39,17 @@ public partial class HercStatsForm : Form {
 
 	private void OnGridCellEndEdit(object? sender, DataGridViewCellEventArgs e) => _grid.InvalidateRow(e.RowIndex);
 
+	/// <summary>
+	/// Distinct per-form/file-type identity — see CampaignResourcesForm's DialogClientGuid for the
+	/// full explanation. Shared between Open and Save As since both deal with HERC_INF.DAT.
+	/// </summary>
+	private static readonly Guid DialogClientGuid = new("3a72675c-7fc2-4cda-a293-de65df2ee1b0");
+
 	private void OnOpen(object? sender, EventArgs e) {
 		using var dialog = new OpenFileDialog {
 			Filter = "HERC_INF.DAT|HERC_INF.DAT|DAT files (*.dat)|*.dat|All files (*.*)|*.*",
-			Title = "Open HERC_INF.DAT"
+			Title = "Open HERC_INF.DAT",
+			ClientGuid = DialogClientGuid
 		};
 
 		if (dialog.ShowDialog(this) != DialogResult.OK) {
@@ -97,7 +104,8 @@ public partial class HercStatsForm : Form {
 		using var dialog = new SaveFileDialog {
 			Filter = "HERC_INF.DAT|HERC_INF.DAT|DAT files (*.dat)|*.dat|All files (*.*)|*.*",
 			Title = "Save HERC_INF.DAT",
-			FileName = _loadedPath == null ? "HERC_INF.DAT" : Path.GetFileName(_loadedPath)
+			FileName = _loadedPath == null ? "HERC_INF.DAT" : Path.GetFileName(_loadedPath),
+			ClientGuid = DialogClientGuid
 		};
 
 		if (dialog.ShowDialog(this) != DialogResult.OK) {

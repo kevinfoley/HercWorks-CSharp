@@ -89,10 +89,19 @@ public partial class TextureViewerForm : Form {
 
 	private DynamixBitmap[]? Frames => _loadedDba?.Images ?? (_loadedDbm != null ? new[] { _loadedDbm } : null);
 
+	/// <summary>
+	/// Distinct per-purpose identities — see CampaignResourcesForm's DialogClientGuid for the full
+	/// explanation. Kept separate from ImageExportForm's own GUIDs for the same file types since
+	/// each is its own independent entry point with its own last-visited-folder expectation.
+	/// </summary>
+	private static readonly Guid OpenImageClientGuid = new("0b195bb6-3cf3-403e-a830-90f4ad962fcd");
+	private static readonly Guid OpenPaletteClientGuid = new("f59f5bee-1b59-439d-96e6-e06514e8691c");
+
 	private void OnOpenImage(object? sender, EventArgs e) {
 		using var dialog = new OpenFileDialog {
 			Filter = "Dynamix bitmap files (*.dba;*.dbm)|*.dba;*.dbm|All files (*.*)|*.*",
-			Title = "Open DBA or DBM file"
+			Title = "Open DBA or DBM file",
+			ClientGuid = OpenImageClientGuid
 		};
 
 		if (dialog.ShowDialog(this) != DialogResult.OK) {
@@ -192,7 +201,8 @@ public partial class TextureViewerForm : Form {
 	private void OnOpenPalette(object? sender, EventArgs e) {
 		using var dialog = new OpenFileDialog {
 			Filter = "Dynamix palette files (*.dpl)|*.dpl|All files (*.*)|*.*",
-			Title = "Open DPL palette file"
+			Title = "Open DPL palette file",
+			ClientGuid = OpenPaletteClientGuid
 		};
 
 		if (dialog.ShowDialog(this) != DialogResult.OK) {

@@ -144,7 +144,7 @@ making the parameter effectively dead. Fixed to assign `Origin = origin`.
 
 ## Round-trip bugs (write and read paths disagree with each other)
 
-### `PlayerSaveTransform` — write path completely ignored `PlayerSave.UnlockedHercs` (fixed)
+### `PlayerSaveTransform` — write path completely ignored `PlayerSave.UnlockedHercs` (fixed, now verified)
 **File:** `src/HercWorks.Core/Io/Transform/Common/PlayerSaveTransform.cs`
 **Java source:** `org.hercworks.core.io.transform.common.PlayerSaveTransform`
 
@@ -155,12 +155,36 @@ instead iterate `HercLUT.Values()`, writing a hardcoded `1` for every herc with 
 Achilles.Id` (id 13) — a different range and a fabricated value with no connection to what was
 read or edited. Fixed to mirror the read path exactly: same id range (`0` until
 `HercLUT.Mongoose.Id`), reading each value from `save.UnlockedHercs` (defaulting to `0` if a key
-is somehow missing) instead of hardcoding. Not verified against a real `.sav` file's exact unlock
-values (several real `.sav` files exist under `ES2\SAV\`, but hand-decoding the full variable-length
-`PlayerSave` layout just to reach this one segment wasn't done here) — but mirroring the read
-path exactly is the only defensible fix regardless, since the old write path didn't even attempt
-to reflect the in-memory object. With this fixed, `CampaignResourcesForm` could reasonably expose
-herc-unlock editing now — it was deliberately left out only because of this bug.
+is somehow missing) instead of hardcoding.
+
+**Update (2026-08-10):** now verified against all 9 real `.sav` files in `ES2\SAV\` (`GAME_0`
+through `GAME_6`, `GAME_R`, `GAME_T`) via a throwaway console probe (read → `ObjectToBytes` →
+`SequenceEqual` against the original bytes). All 9 round-trip byte-exact, confirming this fix is
+correct — see the two related bugs below, found by the same probe, that had to be fixed first
+before any file could round-trip at all. With this verified, `CampaignResourcesForm` now exposes
+herc-unlock editing.
+
+### `PlayerSaveTransform.ObjectToBytes` — herc bay and weapon-socket writes assumed contiguous dictionary keys (fixed)
+**File:** `src/HercWorks.Core/Io/Transform/Common/PlayerSaveTransform.cs`
+**Java source:** `org.hercworks.core.io.transform.common.PlayerSaveTransform`
+
+Found while verifying the `UnlockedHercs` fix above against real save files (2/9 crashed with
+`KeyNotFoundException`) — two separate instances of the same mistake, both in `WriteHercEntry`'s
+call sites:
+
+1. The herc bay loop wrote `save.HercBay[h]` for `h` in `0..HercBay.Count-1`, assuming bay ids
+   are a contiguous `0..Count-1` range. Real saves have sparse bay ids — `GAME_2.SAV` has no bay
+   id `2`, `GAME_5.SAV` has no bay id `7` — so this threw on any save where a bay slot was ever
+   vacated/skipped. The read path never made this assumption; it reads an explicit `bayId` per
+   entry and keys the dictionary by that.
+2. The per-herc weapon-socket loop (inside `WriteHercEntry`) had the identical bug one level
+   deeper: `herc.Weapons[w]` for `w` in `0..ActiveSockets-1`, assuming socket ids are contiguous
+   from 0, when the read path stores each weapon under its own explicit `socketId`.
+
+Both fixed by iterating the dictionary directly (`foreach (var kv in ...)`) and writing each
+entry's actual key, instead of reconstructing a key from a loop counter. Verified: all 9 real
+`.sav` files (including `GAME_2`/`GAME_5`, the two that previously crashed) now round-trip
+byte-exact.
 
 ### `DynamixPaletteTransformer` — green/blue channels swapped on write (fixed)
 **File:** `src/HercWorks.Core/Io/Transform/Common/DynamixPaletteTransformer.cs`
@@ -214,6 +238,140 @@ The debug/JSON-string output used to print `SequenceList` under both the `"seque
 `"transforms"` keys — a copy/paste error where the second one should have been `TransformList`.
 Only affected the human-readable `ToString()` output, not the underlying data or any read/write
 logic. Fixed to print `TransformList` under `"transforms"`.
+
+### `GauFileTransformer.ObjectToBytes()` — unimplemented, always returned `null` (fixed)
+**File:** `src/HercWorks.Core/Io/Transform/Dbsim/GauFileTransformer.cs`
+**Java source:** none — no Java equivalent existed; this transformer was written from scratch
+against the Java `GAUFile.java` data model's own (previously unimplemented) doc-comment layout.
+
+`BytesToObject` was implemented and verified against real retail `.GAU` data in an earlier
+session, but `ObjectToBytes` was a stub that unconditionally returned `null`, on the reasoning
+that the file's tail (`GAUFile.Remainder`, offset 628 onward) is undecoded so a round trip
+couldn't be achieved. That reasoning didn't hold up: `Remainder` is captured and preserved as raw
+bytes on read, so it can simply be written back verbatim — nothing about it needs to be decoded to
+round-trip it. Implemented `ObjectToBytes` to reconstruct the confirmed offset 0-627 region
+(HUD origin/size, weapon list total, the 10 weapon-slot rects, the confirmed always-zero padding
+regions, the Chain/Link/Auto-track buttons, and the Energy meter) and append `Remainder` as-is.
+Verified byte-exact (`SequenceEqual`) round trip against all 9 real `(herc).GAU` files in
+`ES2\VOL\simvol0\gau\`, including the loose-file VOL-entry prefix wrap via
+`VolEntryPrefixCodec`. Registered in `TransformerRegistry` for `FileType.Gau`.
+
+**Follow-up, same day:** decoded 64 more bytes of what was `Remainder` (offset 628-691) as a new
+`HShieldDisplay` field, with help from a user working interactively from a real screenshot and
+real `.HB0` cockpit-texture renders (see `HShieldDisplay.cs`'s own doc comment for the full method
+and slot breakdown). `Remainder` now starts at offset 692 (1008 bytes, down from 1072) instead of
+628. Round-trip re-verified byte-exact against all 9 files after the change.
+
+**Second follow-up, same day:** decoded another 48 bytes (offset 1016-1063) as a new `HThrottle`
+field, same method (user screenshot measurement matched against real bytes, confirmed by
+overlaying the candidate track/points on real `.HB0` cockpit art — see `HThrottle.cs`'s own doc
+comment). Unlike the shield display, the throttle's track uses the file's normal
+X1,Y1,X2,Y2 rect convention with no field-order surprises. Since this widget sits in the middle of
+what was `Remainder` rather than at its start, the undecoded bytes are now split into
+`GAUFile.RemainderBeforeThrottle` (offset 692-1015, 324 bytes — a confirmed zero gap plus a
+still-undecoded ~64-byte live region) and `GAUFile.Remainder` (offset 1064 onward, 636 bytes).
+Round-trip re-verified byte-exact against all 9 files after the change.
+
+**Third follow-up, same day:** decoded the ~64-byte live region flagged above as a new `HMfdPanel`
+field (offset 952-967, a single normal X1,Y1,X2,Y2 rect — the Multi-Function Display screen bounding
+box), same method again (user screenshot measurement, confirmed by overlaying the candidate rect on
+real `.HB0` cockpit art — it lands exactly on the console's central screen bezel). Checking the
+original Java `GAUFile.java` doc comment afterward (should have been checked first) found it had
+already named this exact offset (`"952- PANEL\MFD"`) and `HThrottle`'s exact offset
+(`"1016- SLIDER\THROTTLE\"`) — never implemented or verified, but both offsets held up precisely.
+That same Java comment names further unverified leads worth checking before guessing blind:
+`"1064- SLIDER\THROTTLE\SLIDE_DIR"` (exactly where `Remainder` now starts), `"1088- PANEL\NAVBAR"`,
+`"1104- INDICATOR\TORSO_TWIST"`, `"1136- RETICLE"`. `GAUFile.RemainderBeforeThrottle` is now split
+further into `RemainderBeforeMfdPanel` (offset 692-951, 260 bytes — confirmed all-zero except one
+still-unexplained leftover byte at offset 692) + `MfdPanel` + a confirmed-zero 48-byte gap (offset
+968-1015) + `Throttle` (unchanged). Round-trip re-verified byte-exact against all 9 files; MFD panel
+size is a consistent 115x60 across every herc, only position varies.
+
+**Fourth follow-up, same day:** decoded offset 1136 as a new `HReticle` field (a single (X,Y) point,
+not a rect — the only widget in this file stored that way). Same method: user description
+("horizontally centered, a bit above vertical center") matched real bytes (X constant 160 = exact
+screen horizontal center across all 9 files; Y 95-115 for 8 of 9, RAZOR the usual exception at 146),
+confirmed decisively by rendering the point over real `APOCA.HB0` — lands exactly centered in the
+transparent viewport gap between the cockpit struts. Matches the Java doc's exact named offset
+(`"1136- RETICLE"`) again. `GAUFile.Remainder` is now split further into `RemainderBeforeReticle`
+(offset 1064-1135, 72 bytes) + `Reticle` + `Remainder` (offset 1144 onward, 556 bytes). Round-trip
+re-verified byte-exact against all 9 files.
+
+Also investigated the Java doc's `"1104- INDICATOR\TORSO_TWIST"` per a user description (~92x6,
+horizontally centered near the top of the screen) — **not found**. An exhaustive search (every
+4-int-window starting position across the *entire* remaining undecoded region, every one of the 24
+possible field orderings per window, allowing one herc to fail) for a rect matching that shape
+found zero matches. Left undecoded; noted in `GAUFile.cs`'s doc comment as a confirmed negative
+result rather than an unexplored gap, so a future session doesn't repeat the same search.
+
+**Fifth follow-up (2026-08-10) — `"1104- INDICATOR\TORSO_TWIST"` resolved, this time via Ghidra
+disassembly of DBSIM.EXE instead of black-box byte search.** The earlier byte-search dead end
+turned out to be a tolerance problem, not a "doesn't exist" problem: the real widget is a 120x17
+rect, well outside the ~92x6 shape the exhaustive search was tuned around. Found by decompiling
+DBSIM.EXE's `.GAU` loader (`FUN_00431778` in the project's Ghidra database — allocates exactly
+0x6a4=1700 bytes, matching the file's own confirmed content size, and its first placement-new call
+matches the already-confirmed 10-slot weapon list at offset 20 exactly, confirming it's the right
+function) and its caller (`FUN_00431bf8`, which constructs 7 named panel-level widgets from fixed
+struct offsets: 468, 548, 616, 728, 1000, 1088, 1212). The offset-1088 widget's own constructor
+(`FUN_0043c7d8`) turned out to be a large composite "roving gunsight" HUD-overlay container — not
+navbar as the Java doc guessed for that offset — whose first child rect (read at offset 1104) is
+passed to a sub-gadget constructor that loads a bitmap resource literally named `"hudhtick"` ("HUD
+H[orizontal]-tick"), i.e. a tick-mark graphic consistent with a torso-twist deviation gauge.
+Verified against all 9 real files: X1=100/X2=220 (width 120) constant in every file, centering the
+widget exactly on the HUD's horizontal center (160); height (Y2-Y1) is exactly 17px in all 9 files
+including RAZOR, even though RAZOR's Y-position is a clear outlier (matching its already-documented
+divergent HUD layout elsewhere in this file). Implemented as new `HTorsoTwist` (a plain
+X1,Y1,X2,Y2 rect, same pattern as `HMfdPanel`) — see its own doc comment for the full method.
+`GAUFile.RemainderBeforeReticle` (1064-1135, 72 bytes) is now split into `RemainderBeforeTorsoTwist`
+(1064-1103, 40 bytes — partially understood: offset 1064 is confirmed as `HThrottle`'s own
+"slide direction" mode flag, matching the Java doc's `"1064- SLIDER\THROTTLE\SLIDE_DIR"` guess, and
+1088-1103 is the gunsight-complex's own bounding rect, mostly constant across hercs) + `TorsoTwist`
++ a shrunk `RemainderBeforeReticle` (1120-1135, 16 bytes — still undecoded, likely another gunsight
+sub-gadget per the HUDLockingGunsight/HUDPipper/HUDCrosshairGunsight class names found in DBSIM's
+strings). Round-trip re-verified byte-exact against all 9 files.
+
+NAVBAR (Java doc's `"1088- PANEL\NAVBAR"`) remains unresolved — that offset turned out to be the
+gunsight complex's container rect, not a navbar/compass widget, so the Java doc's label for that
+specific offset was wrong even though its offset-guessing accuracy held up everywhere else in this
+file. The `HudScreenSize` (320,400) vs. user-reported real coordinate space (320,240) question also
+remains unresolved this session — no new evidence either way turned up in the disassembly.
+
+**Sixth follow-up, same day — finished mapping `.GAU`'s structure; NAVBAR confirmed as a genuine
+dead end, not just unverified.** Continued the same Ghidra-disassembly approach to close out the
+remaining undecoded regions:
+
+- The 16-byte gap at offset 1120-1135 (left over after `TorsoTwist` was carved out of the old
+  `RemainderBeforeReticle`) turned out to be two (X,Y) anchor points for a target-speed text readout
+  (a literal `"000 K/H"` format string sits next to the code that positions it) — part of the same
+  gunsight complex as `TorsoTwist`, not a mystery gunsight sub-gadget as guessed in the prior
+  follow-up.
+- Traced the file-data footprint of the remaining two of `.GAU`'s 7 top-level widgets that hadn't
+  been examined yet: offset 1000's constructor is `HThrottle` itself (already known); offset 1212's
+  constructor (tied to `"hddclip"`/`"pilots"`/`"static"` string resources) is a pilot-roster/
+  crew-status HDD readout whose file-data footprint runs from 1212 to roughly 1588 — accounting for
+  most of what was `GAUFile.Remainder`.
+- **NAVBAR searched for exhaustively and not found anywhere in this file.** Two separate DBSIM
+  string-table keyword sweeps (9 keywords: torso/twist/navbar/compass/reticle/hud/panel/gadget/
+  indicator; then 12 more: heading/bearing/degree/altimeter/mach and variants) found zero direct
+  hits for anything nav/compass/heading-related, and all 7 of `.GAU`'s top-level widget-offset
+  constructors were traced to their real purpose (weapon-control-button panel, energy-meter
+  container, shield front/rear value labels, MFD radar/mode-switching logic, throttle, the gunsight
+  complex, and the pilots/HDD readout) — none is navbar-shaped. This is now a confirmed negative
+  result, not an unexplored gap.
+- None of the newly-mapped regions (the speed-readout anchor, the pilots/HDD widget's several
+  sub-rects, or a further MFD-radar-submode object found near offset 1668 read by the loader's
+  *caller* rather than the loader itself) were implemented as typed C# fields, unlike every earlier
+  widget in this file. The reason is consistent across all of them: none showed the "constant except
+  position" signal that made earlier widgets trustworthy, and — more fundamentally — this app has no
+  HUD text/graphics renderer to visually confirm a guess against the way `.HB0` cockpit-art overlays
+  confirmed the shield display, throttle, MFD panel, reticle, and torso-twist. Documented as raw
+  preserved bytes with a structural map in `GAUFile.cs`'s doc comment instead of force-fitting an
+  unverified model.
+
+`.GAU` is now considered functionally complete for this project's purposes: every widget that can be
+verified (visually, or via an unambiguous constant-shape signal) is decoded; what's left is real
+in-file structure that's understood at the byte-offset level but not worth modeling without a way to
+confirm exact field semantics.
 
 ---
 

@@ -5,6 +5,9 @@
     <Compile Update="CampaignResourcesForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Update="HercBayEditorForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Update="HercStatsForm.cs">
       <SubType>Form</SubType>
     </Compile>

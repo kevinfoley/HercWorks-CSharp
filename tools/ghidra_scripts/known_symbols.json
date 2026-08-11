@@ -1,0 +1,1053 @@
+{
+  "schema_version": 1,
+  "_readme": [
+    "Confirmed address->meaning mappings for VSHELL.EXE / DBSIM.EXE, extracted from",
+    "HercWorksMDK-CSharp-port/docs/formats/*.md, docs/simulation/*.md, and the",
+    "project_es2_exe_recon memory file. Applied to the Ghidra project by",
+    "ES2ApplySymbolNames.java (tools/ghidra_scripts/). Re-run that script after adding",
+    "entries here -- it is idempotent.",
+    "",
+    "Fields per entry:",
+    "  address     - hex address, no '0x' prefix (e.g. '00411fc4')",
+    "  binary      - 'VSHELL' or 'DBSIM' (must match the -process file name at apply time)",
+    "  type        - 'function' or 'data'",
+    "  confidence  - 'high' | 'medium' | 'low'",
+    "  name        - proposed symbol name. OMITTED for 'low' confidence entries -- those get",
+    "                a plate comment only, never a rename/label, so a guess can never look like",
+    "                a confirmed name in the database. 'medium' confidence names are prefixed",
+    "                'maybe_' by convention (kept explicit here rather than inferred from",
+    "                confidence, so the apply script does no string-editing of names).",
+    "  description - short evidence/meaning note, safe to also use as the plate comment body.",
+    "  source      - repo doc or memory section this was extracted from, for traceability.",
+    "",
+    "Confidence guide (see HercWorksMDK-CSharp-port docs for full evidence per entry):",
+    "  high   - verified via multiple cross-checks (raw disassembly, byte-exact match against",
+    "           real files, or explicit 'confirmed'/'solved' language in the source doc).",
+    "  medium - a reasoned, plausible finding ('very likely', 'best guess', 'plausibly') that",
+    "           was NOT independently cross-checked. Renamed with a maybe_ prefix, never bare.",
+    "  low    - open/unconfirmed ('unknown', 'not yet observed', 'meaning not confirmed').",
+    "           Comment only, no rename.",
+    "",
+    "Struct-instance offsets (e.g. 'mech+0x222' for the shield struct) are deliberately NOT",
+    "included here -- they aren't fixed Ghidra addresses, so they'd need a proper structure",
+    "data type to label meaningfully, which is out of scope for this file/script."
+  ],
+  "entries": [
+    {
+      "address": "00411fc4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "LoadWeaponsDat",
+      "description": "File-level parser for gam\\weapons.dat (SHELL0/GAM weapon catalog, 33 entries). Confirmed via direct string reference to the literal path.",
+      "source": "docs/formats/weapons-dat.md; memory project_es2_exe_recon 2026-08-08"
+    },
+    {
+      "address": "004104ed",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "LoadHercsDat",
+      "description": "Loads gam\\hercs.dat. Confirmed via direct string reference to the literal path.",
+      "source": "memory project_es2_exe_recon 2026-08-08"
+    },
+    {
+      "address": "0041181c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "LoadHercInfDat",
+      "description": "Loads gam\\herc_inf.dat. Confirmed via direct string reference to the literal path.",
+      "source": "memory project_es2_exe_recon 2026-08-08"
+    },
+    {
+      "address": "00412906",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "LoadCareerDat",
+      "description": "Loads gam\\career.dat. Confirmed via direct string reference to the literal path.",
+      "source": "memory project_es2_exe_recon 2026-08-08"
+    },
+    {
+      "address": "00413628",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "LoadDamageDat_Shell",
+      "description": "Loads gam\\damage.dat -- VSHELL/UI-facing summary table (fixed 9x{6,9} shorts + 0x21 shorts), distinct from DBSIM's variable per-Herc hit-zone table loaded by HercPiece_LoadTable. Confirmed via direct string reference.",
+      "source": "memory project_es2_exe_recon 2026-08-08"
+    },
+    {
+      "address": "00402226",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Volume_LoadVolume",
+      "description": "Volume::loadVolume. Confirmed via matching Class::method assert string ('VolRStream revision' mismatch check) and clean decompile after the parameter-commit fix.",
+      "source": "memory project_es2_exe_recon 2026-08-08"
+    },
+    {
+      "address": "00411d57",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponsDat_ReadRecord",
+      "description": "Per-record body reader for WEAPONS.DAT (29-byte stride, blockLen-prefixed front block, price field at 0x14 scaled x1000). Called from LoadWeaponsDat.",
+      "source": "docs/formats/weapons-dat.md"
+    },
+    {
+      "address": "00408240",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponsBin_LookupName",
+      "description": "Bounds-checked weapon-name lookup into weapons.bin by weapon id (offsets[id] + stringPoolStart). Structure verified byte-exact against the real retail file in ES2/VOL/LANG0.VOL.",
+      "source": "docs/formats/weapons-dat.md"
+    },
+    {
+      "address": "00408605",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponsBin_Open",
+      "description": "Opens weapons.bin by its literal filename string found in VSHELL.EXE.",
+      "source": "docs/formats/weapons-dat.md"
+    },
+    {
+      "address": "00483be4",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "WeaponsDat_RecordArray",
+      "description": "In-memory WEAPONS.DAT record array, 29 bytes/record. Stride confirmed via IMUL EDX,EDX,0x1d in raw disassembly (FUN_0041266a), not decompiler pointer-math (which mis-implied 116 bytes).",
+      "source": "docs/formats/weapons-dat.md"
+    },
+    {
+      "address": "0041266a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Armory_ItemCostCalc",
+      "description": "Reads WeaponsDat_RecordArray fields 0x14 (price, /1000) and 0x17 (multiplier -- plausibly ammo/quantity count, not confirmed by a load-time read).",
+      "source": "docs/formats/weapons-dat.md"
+    },
+    {
+      "address": "00412428",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Armory_TotalCostCalc",
+      "description": "Armory total-cost calculation; sums the price field (0x14) as a direct per-item cost contribution.",
+      "source": "memory project_es2_exe_recon 2026-08-08"
+    },
+    {
+      "address": "00483fa2",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "low",
+      "description": "A 2-byte value per weapon id, stored in a separate parallel array from the 29-byte WeaponsDat_RecordArray record at load time. Meaning not confirmed.",
+      "source": "docs/formats/weapons-dat.md"
+    },
+    {
+      "address": "00483fe4",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "medium",
+      "name": "maybe_WeaponsBinFileHandle",
+      "description": "weapons.bin's stream/file handle, referenced alongside WeaponsDat_RecordArray in the WEAPONS.DAT loading call chain.",
+      "source": "memory project_es2_exe_recon 2026-08-08"
+    },
+    {
+      "address": "0044d5bd",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Msn_BuildPath",
+      "description": "Builds the msn\\<name>.msn path string (format 'msn\\\\%s.msn', with '^' sanitized to '_') before loading a mission.",
+      "source": "docs/formats/msn-mission-file.md"
+    },
+    {
+      "address": "0041c73d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MsnGen_LoadMission",
+      "description": "msn_gen.cpp. Calls MsnGen_ParseMsnFile first with the .msn path, then separately opens data\\script.dat as an apparent second/later stage.",
+      "source": "docs/formats/msn-mission-file.md"
+    },
+    {
+      "address": "00417b67",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MsnGen_ParseMsnFile",
+      "description": "The raw .MSN byte parser (msn_gen.cpp). Revision-field check, scratch/patch pass, then 17 record-array rows with a condition-filter/template-inheritance system. Macro-structure confirmed byte-exact against 61/62 real retail .MSN files.",
+      "source": "docs/formats/msn-mission-file.md"
+    },
+    {
+      "address": "0041ac54",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WriteScriptDatFile",
+      "description": "Fully traced: the WRITER of data\\script.dat. Serializes directly from the same in-memory .msn row-array globals FUN_00417b67 populates (DAT_0047064e/0x16=row6, DAT_00470650/10=row7, DAT_00470656=row8, DAT_0047065e/0xc=row9, DAT_00470660/0x52=row10, DAT_00470662/0x1e=row11, DAT_00470652/0x90=row12, DAT_00470654/0x66=row13, DAT_0047065c/0x3e=row14, DAT_00470658/0x16=row15, DAT_0047065a/0xa4=row16, DAT_0047064a/0x3a=row17, DAT_00470640=row4), filtering out GUID==-1 (deleted/inactive) records per row and exporting only a field subset of each. See docs/formats/script-dat.md for the full block table.",
+      "source": "docs/formats/script-dat.md"
+    },
+    {
+      "address": "00423f43",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_Constructor",
+      "description": "ShellMap::ctor (vtable &PTR_FUN_004721b0). Opens data\\mission.str and data\\maplabel.str as independent string tables, then calls ShellMap_LoadScriptDat. Confirmed via assert string.",
+      "source": "docs/formats/msn-mission-file.md"
+    },
+    {
+      "address": "004243d7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_LoadScriptDat",
+      "description": "shellmap.cpp. Reads data\\script.dat directly and builds its own typed arrays -- a separate, map-rendering-focused structure, not a subset of the .msn gameplay arrays (none of its record sizes match the .msn table).",
+      "source": "docs/formats/msn-mission-file.md"
+    },
+    {
+      "address": "00412a71",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Career_SaveSlotCopyA",
+      "description": "career.cpp. Part of the confirmed save-slot handoff copy mechanism (sav\\script%d.dat<->data\\script.dat, sav\\missn%d.str<->data\\mission.str, sav\\player%d.mec<->data\\player.mec) -- which specific direction/pair this function handles wasn't individually pinned down.",
+      "source": "docs/formats/msn-mission-file.md"
+    },
+    {
+      "address": "00412bbf",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Career_SaveSlotCopyB",
+      "description": "career.cpp. Part of the confirmed save-slot handoff copy mechanism -- see maybe_Career_SaveSlotCopyA.",
+      "source": "docs/formats/msn-mission-file.md"
+    },
+    {
+      "address": "00482af8",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "medium",
+      "name": "maybe_CampaignFlagArray",
+      "description": "Global flag/counter array compared against by the .MSN condition/trigger opcode system (switch 0x119-0x11e: ==, !=, <, <=, >, >=). 'Almost certainly' the campaign-progress flag store the original Java doc predicted but never located -- not independently cross-checked against a known campaign flag.",
+      "source": "docs/formats/msn-mission-file.md"
+    },
+    {
+      "address": "00417610",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Msn_ConditionFilterGate",
+      "description": "Shared condition-filter helper used by every .MSN record array; compacts an array in place based on campaign state, implementing the 0x119-0x11e comparison opcodes against maybe_CampaignFlagArray.",
+      "source": "docs/formats/msn-mission-file.md"
+    },
+    {
+      "address": "00415c79",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Msn_ResolveGuidToIndex",
+      "description": "GUID-based search/resolve into an already-loaded .MSN record array by stable authored id (search-only mode also used as an insert-or-merge key check). Confirmed via a 100% (275/275) match rate resolving row #10's sub-refs against row #9's GUIDs.",
+      "source": "docs/formats/msn-mission-file.md"
+    },
+    {
+      "address": "00415b44",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Msn_ResolveRow6Ref",
+      "description": "Resolves a short field into row #6's index space -- used by row #9 (LinkOrReward12)'s 0x08/0x0A ref fields.",
+      "source": "docs/formats/msn-mission-file.md"
+    },
+    {
+      "address": "00416379",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Msn_ApplyScratchPatch",
+      "description": "Applies effects during the one-shot 82-byte scratch pass in MsnGen_ParseMsnFile (a reused buffer, not a persistent entity array) -- looks like a campaign-override/patch application, not confirmed further.",
+      "source": "docs/formats/msn-mission-file.md"
+    },
+    {
+      "address": "0047df94",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_Q8Multiply",
+      "description": "Q8 fixed-point multiply: (int64)a*b >> 8. Verified via raw disassembly (SHRD EAX,EDX,0x8) matching the decompiler's >>8 exactly.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "00467820",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_IntegrateRateOverTick",
+      "description": "Q8mul(SimTickDelta, rate), clamped to signed 16-bit range. Core 'apply a per-unit-time rate as this tick's delta' primitive.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "00467944",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_CountdownTimerTick",
+      "description": "*timerPtr -= SimTickDelta, clamped to 0, returns the new value. Used for cooldowns (e.g. the rocket seeker's target-reacquire timer).",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "004679d8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_RateLimitedMoveToward",
+      "description": "Generic per-tick turn/slew-rate limiter: moves current toward target by at most step, returns remaining error. Used by rocket guidance and the shield recharge tick.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0047dd66",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_FastMagnitude3D",
+      "description": "Sqrt-free 3D magnitude approximation: L + M*0.34375 + S*0.25 (sorted |dx|,|dy|,|dz|). Verified via raw disassembly (three CMP/XCHG sort pairs, SAR+ADD coefficient chains). Reused for collision bounding-sphere radius and rocket proximity-fuze range checks.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "004d3be8",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "SimTickDelta",
+      "description": "Global simulation timestep, read (never written) by the fixed-point math toolkit. Confirms DBSIM runs a discrete fixed/semi-fixed timestep simulation.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0040cd88",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Collision_RegisterObject",
+      "description": "collide.cpp. Top-level collision-model entry point: allocates the next slot in the fixed collision-object table, then calls Collision_LoadRecordArray.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0040ccf8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Collision_LoadRecordArray",
+      "description": "Reads a collision record count, allocates count*10 bytes, loads each via Collision_LoadSubSpheres then post-processes via Collision_ComputeBoundingSphere.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0040cc50",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Collision_LoadSubSpheres",
+      "description": "Reads a per-record sub-sphere count, calls Collision_LoadSubSphereFlag per sub-sphere.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0040cc14",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Collision_LoadSubSphereFlag",
+      "description": "Reads a sub-sphere flag byte; if set, calls Collision_LoadSubMeshIndices.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0040c7c4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Collision_LoadSubMeshIndices",
+      "description": "Reads a 13-bit-masked packed count+flags field and, if nonzero, loads that many 8-byte index/sub-mesh records.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0040c5d0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Collision_ComputeBoundingSphere",
+      "description": "Builds a record's bounding sphere from child spheres: AABB of inflated children, center = AABB midpoint, radius = Math_FastMagnitude3D of the half-extents.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0040a818",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rocket_LoadTypeTable_Unguided",
+      "description": "rocket.cpp. Loads the Type-0 rocket type table (14-byte/0xe stride, confirmed via IMUL-style indexing).",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0040a234",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rocket_GetTypeRecord",
+      "description": "RocketType* getType() accessor: RocketTypeTable + instance.typeIndex(byte @ +0x41) * 0xe.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0040a9c4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rocket_Fire",
+      "description": "Spawn ('fire a rocket') entry point. Constructs via Missile_Construct or Rocket_ConstructGuided, captures lock-on target once at launch.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0040a948",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Missile_Construct",
+      "description": "Constructs the Type-0/unguided rocket-family object. PROJ.DAT category 0 (5 entries, real Speed, armor>>shield, uniform SplashFactor=500).",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0040ac3c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rocket_ConstructGuided",
+      "description": "Constructs the Type-3/guided rocket-family object (own type table). PROJ.DAT category 3 (3 entries, shield==armor exactly).",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0040af6c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Bullet_Construct",
+      "description": "Constructs the Type-2 Bullet-class object (own vtable PTR_FUN_00498628, own 14-byte type table). PROJ.DAT category 2; MissileId 9 is the confirmed Plasma cannon.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0040a538",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rocket_TickUpdate",
+      "description": "Per-tick rocket update: seeker-slot reacquire, burnout check, integrate motion (damped speed update), homing-vs-ballistic dispatch, proximity-fuze warning check (<40000 units).",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0040a254",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rocket_HomingSteer",
+      "description": "Lead-predicted homing/steering: LOS delta to extrapolated target position, deadband (+/-0xc00 inside +/-0x1800), rate-limited turn (0x500/tick cap via Math_RateLimitedMoveToward).",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0040a488",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rocket_BallisticSteer",
+      "description": "Non-homing steering variant: takes the launcher's one-shot aim-point delta directly, no deadband/rate-limiting, clears the aim-point fields after consuming them.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0040b124",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Bullet_TickUpdate",
+      "description": "bullet.cpp per-bullet-instance tick. Fixed age rate Math_IntegrateRateOverTick(0x200). type==9 branch (confirmed Plasma cannon, MissileId 9 on a Bullet instance) calls Damage_ExplosiveBlastSweep directly with a 4000-unit blast radius.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0040bf74",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Bullet_FireBurst",
+      "description": "Fire-burst/tracer spawner. Calls Sim_RaycastObjectList synchronously at fire time to resolve the hit before any tracer visual spawns -- this is the beam/hitscan (PROJ.DAT Type 4, always Speed=0) mechanism: no persisting travelling object.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0040e964",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_FireDispatch_Missile",
+      "description": "Missile-capable-hardpoint fire dispatcher: checks the mount's cached PROJ.DAT Type field, Type==Missile(0) -> Rocket_Fire, else falls through to the shared Bullet fallback.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0040ea58",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_FireDispatch_GunBeam",
+      "description": "Gun/beam-capable-hardpoint fire dispatcher: checks the mount's cached PROJ.DAT Type field, Type==4(Beam) -> Bullet_FireBurst (instant), else unconditionally constructs a Type=2 Bullet object.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0040ffc8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Proj_LookupRecord",
+      "description": "PROJ.DAT in-memory lookup by (category, subtypeId) -- linear search against ProjDat_RecordTable.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0040fc8c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Weapons_LoadResourceTables",
+      "description": "Opens 'wpntex' (textures), 'mechwpn2', 'weapons' (88-byte per-hardpoint mount-template records), then 'proj' -- reads PROJ.DAT's 36-byte records into ProjDat_RecordTable. Previously flagged as a 'zero callers, dead end' before being decompiled -- it is not a dead end.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "004a9980",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ProjDat_RecordTable",
+      "description": "PROJ.DAT's in-memory record table, 36 bytes/record, keyed by (category, subtypeId). Verified byte-exact against the real retail ES2/VOL/simvol0/dat/PROJ.DAT (27 records) -- independently converges with the pre-existing C# ProjectileData.cs field layout.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "004a9754",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "medium",
+      "name": "maybe_RocketTypeTable_Unguided",
+      "description": "Type-0 rocket type table, 14-byte stride, loaded by Rocket_LoadTypeTable_Unguided.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "004a9758",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "medium",
+      "name": "maybe_RocketTypeTable_Unguided_Count",
+      "description": "Record count for maybe_RocketTypeTable_Unguided.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0042789c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_LoadZone",
+      "description": "terrain.cpp zone/grid loader. Builds a 'zoneNNNN' filename, reads a grid header, allocates a HeightGrid, installs it as ActiveHeightGrid.",
+      "source": "memory project_es2_exe_recon 2026-08-08"
+    },
+    {
+      "address": "0046e07c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_HeightQuery",
+      "description": "Converts world (x,y) to a grid cell, fetches 4 corner texels from a 16-byte-per-cell heightmap, does proper barycentric/bilinear interpolation across a per-cell-selectable diagonal (2-bit flag per cell).",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "004a0bf8",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ActiveHeightGrid",
+      "description": "Pointer to the currently-installed HeightGrid struct, confirmed set by Terrain_LoadZone.",
+      "source": "memory project_es2_exe_recon 2026-08-08"
+    },
+    {
+      "address": "004198f4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Flyer_TerrainAvoidanceAutopilot",
+      "description": "Six direction-flag-gated sensor probes (front/back/left/right/up/down) nudging vertical speed and playing a distance-scaled alarm tone. Best-guess home TU flyersys.cpp, not proven by a direct assert string.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "00426528",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sim_RaycastObjectList",
+      "description": "Generic ray-vs-live-object-list query. Exactly 5 confirmed call sites: rocket homing, bullet tick/burst, and the flyer terrain-avoidance autopilot. Calls each candidate's vtable +0x20 (hit-test) and +0x50 (AI threat-tracking).",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0041f7b8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Mech_AiThreatTracking",
+      "description": "Mech vtable +0x50, called per raycast candidate by Sim_RaycastObjectList. AI threat-tracking/target-acquisition update ('this object just took fire'), confirmed NOT a damage function.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "00418ba8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_DirectFireHitTest",
+      "description": "Mech vtable +0x20. Range check -> Mech_ShieldAbsorb_DirectFire -> Mech_SelectStruckComponent -> Mech_ApplyDirectFireDamage. The hit-test and damage application are the same call, one level deeper than Sim_RaycastObjectList's caller.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "00413cc4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_ShieldAbsorb_DirectFire",
+      "description": "Direct-fire shield absorption: picks front/rear zone by hit side, absorbed = min(incomingDamage, remainingShieldInZone), hard cap not threshold gate.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0040c9d4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_SelectStruckComponent",
+      "description": "Deterministic single-component selection via real hit geometry -- iterates up to 29 component slots, tracks best match, returns exactly the one struck (no randomness, unlike the explosive path).",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0040c8fc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_ComponentGeometryTest_Candidate",
+      "description": "Per-candidate coarse geometry test, called by Mech_SelectStruckComponent.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "004188c8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_ApplyDirectFireDamage",
+      "description": "Applies a per-weapon-type Q8 multiplier (Math_Q8Multiply(shotData+8, damage)), splits the result between destroying the struck weapon mount (possible secondary explosion via mech vtable +0x70) and general component health via mech vtable +0x74.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "00426a20",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Damage_ExplosiveBlastSweep",
+      "description": "Radius-based splash-damage entry point. Sweeps the live-object list; distance-hitRadius<blastRadius calls each object's +0x70 vtable damage method. Exactly 3 confirmed call sites, all genuinely explosive/terminal (missile ground impact, Plasma-cannon bullet type 9, mech death) -- NOT a universal weapon-fire path.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "004187d0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_ApplyExplosiveDamage",
+      "description": "Mech vtable +0x70. Front/rear facing classification -> Mech_ShieldAbsorb_Explosive -> ~51% per-component random roll across up to 29 slots -> linear distance falloff (overflow * (blastRadius-distance)/blastRadius) via mech vtable +0x74.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "00413c68",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_ShieldAbsorb_Explosive",
+      "description": "Explosion path's own separate shield-absorption implementation (parallel to, not shared with, Mech_ShieldAbsorb_DirectFire). scaledDamage=(weaponDamage*1000)>>8, clamps zone to 0, returns scaled overflow.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "00409d2c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rocket_GroundImpactDetonate",
+      "description": "Checks altitude vs. terrain height every tick via Terrain_HeightQuery; on ground contact calls Damage_ExplosiveBlastSweep(pos, 3000, 10000, 0, null).",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0041e48e",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_DeathExplosion",
+      "description": "Mech death/destruction handler. One Damage_ExplosiveBlastSweep splash call, then unconditionally applies a flat 32000 damage to every remaining component (guaranteed-destruction cleanup, no roll/falloff).",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "00417de4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_ComponentHealthWrite",
+      "description": "Mech vtable +0x74. Shared health-write/cascade endpoint for both damage pathways. 8-level percentage bucketing with alert sounds, leg-pair status tracking (dependent-array slots {0,1} front legs, {10,11} rear legs on 4-legged types), mech-death trigger on enough destroyed limbs.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0040da38",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Component_ApplyDamageAndCascade",
+      "description": "Subtracts damage from a component's current value (via a helper); if the component crosses into 'destroyed', cascades via Component_DestroyAndCascade.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0040d434",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Component_DestroyAndCascade",
+      "description": "Destroys a component (debris/effect index lookup, HUD slot state write) and walks the BoneId destruction-dependency group, destroying every sibling that shares the same BoneId.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0040dbc0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Component_ReadHealthPercent",
+      "description": "Reads a component's current/max as Q8 (0-256): aggregates the component's own value with all its dependent sub-components' current/max before computing (totalCurrent<<8)/totalMax.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0040d2cc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Component_AllocHealthArrays",
+      "description": "Allocates the header of pointers at mech+0x206: a 22-entry dependent health array, a 29-entry main component health array, and a 29-entry active-flag array (all zeroed except the flag array, filled 0x01).",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0040d354",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Component_LinkMaxRefData",
+      "description": "Wires up mech+0x212 (and neighboring fields) as a pointer into per-component maximum/reference data, sourced from the mech's own .DMG-derived pointer plus its Collision_RegisterObject registration record.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0040cff8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HercPiece_ReadRecord",
+      "description": "Loads one 18-byte .DMG HercPiece record: max health, debris-flags index pair, BoneId (bone/destruction-group key), DestructionFlags bitfield, dependent sub-component list pointer+count.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0040d09c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HercPiece_LoadTable",
+      "description": "Loads the .DMG per-mech component table: a count-prefixed flat byte array followed by a count-prefixed array of 18-byte HercPiece records (via HercPiece_ReadRecord).",
+      "source": "docs/simulation/dbsim-physics-notes.md; memory project_es2_exe_recon 2026-08-08"
+    },
+    {
+      "address": "0040d160",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Damage_LoadMechDmgFile",
+      "description": "damage.cpp dispatch/setup that opens dmg\\[herc].DMG (filename built from the mech's own name string) and drives HercPiece_LoadTable. Called from the mech constructor.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "00415bb0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_Constructor",
+      "description": "The Mech class constructor -- assigns a fully-populated 34-slot vtable at 0x0049a282 (by far the largest of the base-constructor-helper's 13 callers). Calls Damage_LoadMechDmgFile, Shield_Init, Component_AllocHealthArrays, Component_LinkMaxRefData.",
+      "source": "memory project_es2_exe_recon 2026-08-09"
+    },
+    {
+      "address": "00498864",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "medium",
+      "name": "maybe_ComponentDependencyList",
+      "description": "Dependency list walked by Component_DestroyAndCascade to find and destroy dependent components.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "00413a90",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shield_Init",
+      "description": "Initializes the 5-field shield struct (mech+0x222) from the mech-type base capacity (typeRecord+0xc0): max fields = baseValue, current fields = baseValue>>1 (default 50/50 split).",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "004154d0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_GetShieldByHeading",
+      "description": "Mech vtable +0x34. Given a heading angle, returns the front (+0x222) or rear (+0x224) shield value by which side is within +/-90 degrees.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0045f464",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sim_MainTick",
+      "description": "DBSIM's per-frame simulation tick. Updates SimTickDelta from a hardware/timer source, iterates every global object list, and calls Mech_PerTickSystemsUpdate once per live mech in GlobalMechList.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0041aa5c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_PerTickSystemsUpdate",
+      "description": "Per-mech-per-tick reactor/energy bookkeeping (integrates reactor output rate into the energy pool at +0x292), then dispatches weapon-energy arbitration and shield-recharge via Shield_RechargeTick.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "00413b38",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shield_RechargeTick",
+      "description": "Shield recharge primitive: clamps the request to at most 5 units/tick and to the remaining deficit, redistributes front/rear via balance using Math_RateLimitedMoveToward, returns the unclaimed portion.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0041b130",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Player_PerFrameCockpitUpdate",
+      "description": "Called once per frame for LocalPlayerMech only, from the main-loop function. Cockpit/HUD-adjacent bookkeeping; calls Shield_BalanceInputRead among other things.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "00413bc8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shield_BalanceInputRead",
+      "description": "Reads the shield-balance HUD gauge widget's click state; if a flag is set, calls Shield_BalanceAdjust. Also pushes front/rear display percentages back to the widget.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "00413af8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shield_BalanceAdjust",
+      "description": "Nudges the shield balance field (mech+0x226) by +/-0x66 (102), clamped to [0, 0x400] (0-1024). Default center 0x200 (512).",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "004175dc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_ConfigureLoadout",
+      "description": "Mech loadout (re)configuration, called on spawn/equip changes. Allocates the weapon-mount-manager object at mech+0x202 (malloc 0x14 or 0x35 bytes depending on the 'locally-simulated' flag).",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "004d256a",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "LocalPlayerMech",
+      "description": "Confirmed global pointer to 'this instance's own locally-piloted mech' -- set in the level-init function by scanning the mech list for the one with the locally-simulated flag set.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "004a9bfe",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "GlobalMechList",
+      "description": "Global list of live mechs, walked once per tick by Sim_MainTick (calling Mech_PerTickSystemsUpdate per live, non-removed, non-dead mech).",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "004a9b7c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "medium",
+      "name": "maybe_GlobalLiveObjectList",
+      "description": "Global live-object list walked by Sim_RaycastObjectList and Damage_ExplosiveBlastSweep. Shared with confirmed objlist.cpp functions, not proven by a direct assert-string tie to Sim_RaycastObjectList itself.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0047a038",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ClassItem_LoadResource",
+      "description": "Generic polymorphic resource loader entry point (stream, mode). Reads an 8-byte type tag via ClassItem_ReadTypeTag, looks up a handler via ClassItem_FindHandler, calls its loadFn.",
+      "source": "memory project_es2_exe_recon 2026-08-08"
+    },
+    {
+      "address": "0047a5a8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ClassItem_ReadTypeTag",
+      "description": "Reads the 8-byte type tag from a resource stream, called by ClassItem_LoadResource.",
+      "source": "memory project_es2_exe_recon 2026-08-08"
+    },
+    {
+      "address": "0047a394",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ClassItem_FindHandler",
+      "description": "Searches a registry of (idArray, count) bucket pairs for a matching type tag, returns a 12-byte {id, loadFn, extra} descriptor.",
+      "source": "memory project_es2_exe_recon 2026-08-08"
+    },
+    {
+      "address": "00430f58",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Panel_LoadWrapper",
+      "description": "Trivial wrapper funneling .DFN/.HFN panel loads into ClassItem_LoadResource with the panel's filename.",
+      "source": "docs/formats/dfn-hfn-dci.md"
+    },
+    {
+      "address": "00430fb0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Cursor_LoadWrapper",
+      "description": "Trivial wrapper funneling .DCI cursor loads into ClassItem_LoadResource with the cursor's filename.",
+      "source": "docs/formats/dfn-hfn-dci.md"
+    },
+    {
+      "address": "00431778",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gau_Load",
+      "description": "PANEL.CPP's confirmed .GAU loader. Allocates a 1700-byte (0x6a4) struct -- matching .GAU's confirmed content size exactly -- then constructs 6 sub-widgets via vector-new, the first matching .GAU's confirmed weapon-slot layout (offset 20, count 10, stride 16).",
+      "source": "memory project_es2_exe_recon 2026-08-10"
+    },
+    {
+      "address": "00431bf8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gau_BuildCockpitWidgets",
+      "description": "Caller of Gau_Load. Builds a per-herc cockpit object and constructs 7 top-level HUD widgets from fixed literal byte offsets (468, 548, 616, 728, 1000, 1088, 1212) into the loaded .GAU struct.",
+      "source": "memory project_es2_exe_recon 2026-08-10"
+    },
+    {
+      "address": "00432340",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gau_WeaponButtonsWidget",
+      "description": ".GAU offset 468 widget wrapper -> FUN_00441dd0: container for the Weapon Chain-select/Link/Auto-track button gadgets (4 children from offsets 484/500/516/532).",
+      "source": "memory project_es2_exe_recon 2026-08-10 (later update)"
+    },
+    {
+      "address": "004323e0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gau_EnergyMeterWidget",
+      "description": ".GAU offset 548 widget wrapper -> FUN_00444d5c: container for the Energy Meter widget (1 child from offset 564).",
+      "source": "memory project_es2_exe_recon 2026-08-10 (later update)"
+    },
+    {
+      "address": "00432454",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gau_ShieldDisplayWidget",
+      "description": ".GAU offset 616 widget wrapper -> FUN_004434fc: Shield Display's front/rear numeric value label widgets (children at 632/648/664/680), nested inside the confirmed HShieldDisplay byte range.",
+      "source": "memory project_es2_exe_recon 2026-08-10 (later update)"
+    },
+    {
+      "address": "004324c8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gau_MfdPanelWidget",
+      "description": ".GAU offset 728 widget wrapper -> FUN_00445218: the MFD's actual interactive behavior -- mode-switching state machine, radar-sweep table, damage-readout digits. Behavior behind the confirmed HMfdPanel bounding box at 952.",
+      "source": "memory project_es2_exe_recon 2026-08-10 (later update)"
+    },
+    {
+      "address": "0043254c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gau_ThrottleWidget",
+      "description": ".GAU offset 1000 widget wrapper -> FUN_00447b84: the Throttle widget (already fully confirmed/ported in the C# port).",
+      "source": "memory project_es2_exe_recon 2026-08-10 (later update)"
+    },
+    {
+      "address": "004325c0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gau_RovingGunsightWrapper",
+      "description": ".GAU offset 1088 widget wrapper, constructs the roving-gunsight complex via Gau_RovingGunsightWidget.",
+      "source": "memory project_es2_exe_recon 2026-08-10"
+    },
+    {
+      "address": "0043c7d8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gau_RovingGunsightWidget",
+      "description": "Large composite 'roving gunsight' HUD-overlay container (matches HUDRovingGunsightGadget/HUDLockingGunsight/HUDPipper class names). Contains the confirmed HTorsoTwist (child rect at 1104, loads bitmap 'hudhtick') and a target-speed text-readout anchor (offsets 1120/1124/1132, format string '000 K/H'). NAVBAR is confirmed NOT here.",
+      "source": "memory project_es2_exe_recon 2026-08-10"
+    },
+    {
+      "address": "00432634",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gau_PilotRosterWidget",
+      "description": ".GAU offset 1212 widget wrapper -> FUN_00448cc8: pilot-roster/crew-status HDD readout ('hddclip'/'pilots'/'static' strings), constructs 15 sub-widgets, accounts for the remainder of GAUFile.Remainder (roughly bytes 1212-1588).",
+      "source": "memory project_es2_exe_recon 2026-08-10 (later update)"
+    },
+    {
+      "address": "00424308",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "DBSim_LoadScriptDat",
+      "description": "DBSIM's reader for data\\script.dat, called from World::ctor-equivalent init path (also opens player.mec and mission.str at nearby offsets). Reads a fixed 20-byte header, then 13 count-prefixed blocks in exact order matching VSHELL's WriteScriptDatFile (0041ac54): row6-coords(12B), row7-heading(2B, x0xb6 degrees->BAM), row8-nested-waypoints, row9(6B), row10-Action82(74B read, only 1 field of the row10-referencing sub-block reused), row11-ActionPair30(24B, resolved via FUN_00423104), row12(134B raw, only the mech-type-ref field at rec-offset 40 kept), row13(92B raw, only rec-offset 44 field kept), row14(52B raw, only the type field kept), row15(14B, read and fully discarded), row16(156B, nested 20-entry crossref with a 3-way discriminator that marks row6/row7/row14 slots 'live' -- this is DBSIM's actual entity-activation mechanism), row17(54B, read and fully discarded), then a final flat count+array tail = row4's populated LUT-ref prefix (the mission's herc/weapon unlock package). See docs/formats/script-dat.md.",
+      "source": "docs/formats/script-dat.md"
+    },
+    {
+      "address": "00423104",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "DBSim_BuildActionPairRecord",
+      "description": "Small helper called once per row11 (ActionPair30) record inside DBSim_LoadScriptDat: builds a resolved in-memory record from a target ref + a type/verb short + a 10-slot ref array, all already resolved to row10-array pointers by the caller.",
+      "source": "docs/formats/script-dat.md"
+    }
+  ]
+}

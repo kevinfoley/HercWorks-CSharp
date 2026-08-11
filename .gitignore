@@ -1,7 +1,8 @@
 ES2/
 herc-works-mdk-main/
 *.zip
-tools/
+tools/*
+!tools/ghidra_scripts
 HercWorksMDK-CSharp-port/tests/HercWorks.Vol.Tests/obj/
 HercWorksMDK-CSharp-port/tests/HercWorks.Vol.Tests/bin/
 HercWorksMDK-CSharp-port/src/HercWorks.Vol/obj/

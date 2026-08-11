@@ -9,16 +9,60 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 ///   SEQ0 (36 bytes/segment): unknown, ID (BULLETS or ROCKETS), DMG/SHIELD, DMG/ARMOR, ?, SPEED
 ///   (fixed point, 5000 -> 500.0), IMPACT/SHIELD[0-3], IMPACT/GROUND[0-3], IMPACT/ARMOR[0-3].
 ///
-/// Cross-referenced against real retail data (2026-08-08): real PROJ.DAT has exactly 27 entries,
-/// which lines up cleanly with "Weapon ID order" if the order is SHELL0/GAM/WEAPONS.DAT's own
-/// catalog order (see WeaponsDat/WeaponLUT) with the 5 non-projectile support/utility weapon ids
-/// skipped — ECM(18), TARG(29), SHLD(30), TURB(31), ENRG(32) — leaving exactly 27 of the 32
-/// non-NONE catalog entries (32 - 5 = 27, confirmed by count). Per-entry damage values were
-/// spot-checked against this ordering and mostly form a plausible per-weapon-tier progression
-/// (e.g. the first 3 BULLET-type entries have steadily increasing shield/armor damage matching
-/// ATC20/ATC35/ATC50) but not every entry lines up cleanly enough to call the full 27-entry
-/// mapping confirmed — treat the *count* match (27) as solid, the *exact index-to-weapon-name*
-/// mapping as a strong but unverified hypothesis. <see cref="Projectile.MissileId"/> combined with
+/// Cross-referenced against real retail data (2026-08-08): real PROJ.DAT has exactly 27 entries.
+/// An initial pass guessed this was simply SHELL0/GAM/WEAPONS.DAT's own catalog order with 5
+/// non-projectile ids skipped (32 - 5 = 27) — that count matched by coincidence, but the ordering
+/// guess was wrong; see the per-index mapping below, SOLVED by disassembly rather than pattern
+/// matching.
+///
+/// **The real index-to-weapon mapping — SOLVED 2026-08-11 by tracing DBSIM's mech-loadout
+/// weapon-mount factory (0x0040fff8, called from <c>Mech_ConfigureLoadout</c>).** Each real
+/// catalog weapon's own <c>Sim.Weapons.WeaponMountTemplate.ProjDatIndex</c> field (see that class'
+/// doc comment for the full field semantics) is either a direct flat array index into this table,
+/// a sentinel meaning "no PROJ.DAT record" (only <c>ECM</c>), or — for <c>MSL6</c>/<c>MSL8</c>/
+/// <c>MSL10</c>/<c>FLYMSL</c> only — resolved through a secondary per-hardpoint key this project
+/// doesn't have visibility into. Confirmed byte-exact via a throwaway console probe cross-joining
+/// the real retail <c>WEAPONS.DAT</c> (sim), <c>WEAPONS.DAT</c> (SHELL0 catalog, for real names),
+/// and this file: 21 of 32 real catalog weapons resolve to a distinct PROJ.DAT index directly (2
+/// more, <c>PLAS</c> and <c>MFAC</c>, share one index), 6 catalog ids (<c>NONE</c>, <c>LAEW</c>,
+/// <c>MINE</c>, <c>TARG</c>, <c>SHLD</c>, <c>TURB</c>, <c>ENRG</c>) carry an all-zero placeholder
+/// template whose mount constructors never actually consume the (coincidentally "valid") index 0
+/// it reads, and the remaining 7 PROJ.DAT entries (indices 7-13 — exactly the 3 <c>Rocket</c> +
+/// the other 4 <c>Missile</c> entries not already claimed by <c>BMSL</c>) are reached only through
+/// <c>MSL6</c>/<c>MSL8</c>/<c>MSL10</c>/<c>FLYMSL</c>'s secondary-key path. Full index table:
+///
+/// | idx | Weapon | Type | MissileId | DmgShield | DmgArmor | Splash | Speed |
+/// |---|---|---|---|---|---|---|---|
+/// | 0 | ATC20 | Bullet | 0 | 60 | 360 | 0 | 5000 |
+/// | 1 | ATC35 | Bullet | 1 | 120 | 480 | 0 | 5000 |
+/// | 2 | ATC50 | Bullet | 2 | 180 | 600 | 0 | 5000 |
+/// | 3 | L100 | Beam | 3 | 1500 | 600 | 0 | 0 |
+/// | 4 | L200 | Beam | 4 | 1800 | 960 | 0 | 0 |
+/// | 5 | L300 | Beam | 5 | 2000 | 1200 | 0 | 0 |
+/// | 6 | EMPC | Bullet | 6 | 2000 | 400 | 0 | 2000 |
+/// | 7-9 | (unclaimed) | Rocket | 0-2 | 1000 | 1000 | 500-1000 | 1000 |
+/// | 10-13 | (unclaimed) | Missile | 0-3 | 400 | 1600 | 500 | 6000 |
+/// | 14 | PBW | Beam | 0 | 1000 | 1000 | 0 | 0 |
+/// | 15 | ELFW | Beam | 1 | 150 | 200 | 0 | 0 |
+/// | 16 | BEMP | Bullet | 7 | 8000 | 2000 | 0 | 2000 |
+/// | 17 | BPBW | Beam | 2 | 4000 | 4000 | 0 | 0 |
+/// | 18 | BMSL | Missile | 4 | 3000 | 7200 | 500 | 6000 |
+/// | 19 | EMP2 | Bullet | 8 | 2000 | 400 | 0 | 2000 |
+/// | 20 | PBW2 | Beam | 6 | 1400 | 1400 | 0 | 0 |
+/// | 21 | ELF2 | Beam | 7 | 200 | 300 | 0 | 0 |
+/// | 22 | PLAS, MFAC | Bullet | 9 | 3000 | 3000 | 1000 | 1000 |
+/// | 23 | ATC75 | Bullet | 1 | 220 | 700 | 0 | 5000 |
+/// | 24 | ATC100 | Bullet | 2 | 260 | 800 | 0 | 5000 |
+/// | 25 | L400 | Beam | 4 | 3000 | 1920 | 0 | 0 |
+/// | 26 | L500 | Beam | 5 | 3000 | 2000 | 0 | 0 |
+///
+/// This also retroactively confirms several manual-fiction matches by real weapon name rather than
+/// just shape: EMPC and BEMP (both shield≫armor) really are the EMP cannons ("disrupts the shield
+/// matrix"); PLAS really is the Plasma cannon, matching the MissileId==9 splash-Bullet mechanism
+/// already independently identified two sessions earlier; ELFW really is Electron Flux, matching
+/// the "unusually low-damage Beam entry" flagged as a plausible ELF candidate a session earlier.
+///
+/// <see cref="Projectile.MissileId"/> combined with
 /// <see cref="Projectile.Type"/> indexes into MissileDatFile (BULLETS.DAT for Bullet/Beam types,
 /// ROCKETS.DAT for Rocket/Missile types per that file's own doc comment) — observed MissileId
 /// values stay within each target file's real entry count (0-11 for BULLETS.DAT's 12 entries,

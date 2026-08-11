@@ -180,21 +180,70 @@ effect, not the projectile-spawn or hit-resolution logic — those live in `rock
 and the damage system below, not `fire.cpp` itself. Worth knowing so a future session doesn't
 re-search `fire.cpp` expecting to find damage/hit math there.
 
-## Terrain height query: `FUN_0046e07c(HeightGrid*, {x,y})`
+## Terrain system: `HeightGrid`, `Terrain_LoadZone`, `Terrain_HeightQuery` — fully solved, byte-verified
 
-Converts a world `(x, y)` into a grid cell via a shift by the grid's per-axis cell-size-log2
-fields (offsets `+0x100`/`+0x104`/`+0x108` of the `HeightGrid` struct — consistent with the
-"shift-based LOD/scale calc" already noted in `FUN_0042789c`'s zone loader last session), fetches
-the enclosing cell's 4 corner texels from a **16-byte-per-cell** heightmap array (base pointer at
-`+0xec`), remaps each raw height byte through a scale/offset pair (`+0x110`/`+0x118`), and — using
-a **per-cell diagonal-direction flag** stored in the 16th byte of each cell record (`cell[0xf] &
-3`, three possible triangulation modes) — does a proper barycentric/bilinear interpolation across
-whichever triangle the query point falls in. This is a materially more sophisticated terrain
-representation than a naive fixed-diagonal heightmap: each grid quad can independently choose
-which way its diagonal split runs, presumably chosen at terrain-authoring time for a
-better-looking/more-accurate mesh. Confirms and extends last session's terrain.cpp finding
-(`HeightGrid` struct, `DAT_004a0bf8` = active grid) with the runtime query side. Used by the
+**The `HeightGrid` struct (0x129 = 297 bytes, allocated by `HeightGrid_Constructor` @ `0046bdf8`,
+installed as `ActiveHeightGrid` @ `004a0bf8` by `Terrain_LoadZone` @ `0042789c`):**
+
+| Offset | Field | Meaning |
+|---|---|---|
+| `+0xec` | `int*` | Base pointer to the per-cell array (16 bytes/cell, row-major: `cellIndex = x + y*(1<<WidthShift)`) |
+| `+0xf0` | `byte*` | Parallel per-cell scratch/flag byte array (`width*height` bytes), written but not yet traced to a consumer |
+| `+0x100` | `int` | `WidthShift` — log2(grid width in cells) |
+| `+0x104` | `int` | `HeightShift` — log2(grid height in cells) |
+| `+0x108` | `int` | `CellShift` — log2(world-units per cell); also the shift used to convert world (x,y) → cell (x,y) |
+| `+0x10c` | `int` | An LOD value derived at load time as `10 >> (CellShift-14)` (clamped, default 10) — not read by `Terrain_HeightQuery` itself, presumably a renderer/chunking parameter |
+| `+0x110` | `int` | `HeightBase` — additive height offset (0 for real/binary zones; `MinHeight*8` for the ASCII debug format) |
+| `+0x118` | `int` | `HeightScale` — multiplicative height scale applied to each cell's raw byte |
+| `+0x11d` | `int` | Material/detail-type record count (from `dat\mat0`) |
+| `+0x121` | `int*` | Pointer to the material/detail-type table, `count` × 8-byte records (`ZONES_MaterialTable`, from `Mat0ResourceName`/`dat\mat0`, confirmed against the real `ES2/VOL/simvol0/dat/MAT0.DAT`) |
+
+**Per-cell record (16 bytes):**
+- `+0x0` (byte): raw height value 0–255. World height = `rawByte * HeightScale + HeightBase`.
+- `+0x1`..`+0xe` (14 bytes): not yet decoded (neither loader path examined writes anything here).
+- `+0xf` (byte, bitfield): bits `[0:1]` = diagonal-split selector consumed by `Terrain_HeightQuery`'s barycentric interpolation (values `0`/`2` confirmed produced by the loaders; `1`/`3` are handled by the query but never observed being written); bits `[2:7]` = material/detail-type index into `ZONES_MaterialTable`, assigned via a weighted random roll (~30.6% chance per type, first match wins) at an LOD-driven block stride so neighboring cells within a block share one roll rather than each rolling independently.
+
+**Loading pipeline, confirmed against real files in `ES2/VOL/ZONES.VOL`:**
+1. `Terrain_LoadZone(zoneIndex)` builds the base name `zoneNNNN` (`ZoneFilenameTemplate`,
+   `_itoa`-substituted) and reads a **16-byte per-zone header** resource at `dat\zoneNNNN`
+   (`ZONES.VOL\DAT\ZONE*.DAT`, confirmed real, always exactly 16 bytes): four LE `int32`s —
+   `[0] WidthShift` and `[1] HeightShift` (redundant pre-declarations, re-derived and overwritten
+   from the bitmap itself later), `[2] CellShift`, `[3] HeightScale`. Verified byte-exact, e.g.
+   `ZONE504.DAT` = `07 00 00 00 07 00 00 00 0E 00 00 00 95 00 00 00` → WidthShift=7, HeightShift=7
+   (128×128 cells), CellShift=14, HeightScale=149.
+2. `TerrainZone_LoadHeightmap` (`0046c650`) also loads the shared (not per-zone) material table
+   from `dat\mat0` (confirmed = real retail `MAT0.DAT`), then opens `dba\zoneNNNN.dba`. If the
+   resolved extension is `.dba` (`DbaExtensionLiteral`, every real zone), it goes through the
+   generic `ClassItem_LoadResource` polymorphic loader — the same registry-dispatch architecture
+   already confirmed for `.DFN`/`.HFN`/`.DCI` — into `TerrainZone_PopulateFromBitmap` (`0046c3c0`).
+   Any other extension falls back to a plain `fopen`/`fscanf` ASCII format (`"%d %d %d %d"` header
+   = WidthShift/HeightShift/MaxHeightRaw/MinHeightRaw, then one `%d` per cell) — almost certainly a
+   level-design/debug-only path; no such loose files exist in retail data.
+3. **`TerrainZone_PopulateFromBitmap` reveals that a zone's heightmap is literally an ordinary
+   `DynamixBitmap` image** — the exact same 8-bit-indexed container format used for regular
+   `.DBM`/`.DBA` textures elsewhere in this codebase (see `docs/formats/dfn-hfn-dci.md`). Each
+   pixel byte (minus a small bias parameter) becomes one cell's raw height byte; `WidthShift`/
+   `HeightShift` are re-derived from the bitmap's own width/height fields rather than trusting the
+   zone header's copies. **Verified byte-exact against every real file in
+   `ES2/VOL/ZONES.VOL/DBA/`:** 128×128 zones are exactly 16418 bytes (`128*128 + 34`-byte
+   `DynamixBitmap` header) and 256×256 zones are exactly 65570 bytes (`256*256 + 34`) — both an
+   exact match, and the zones that come out 256×256 are precisely the ones whose `.DAT` header
+   declared `WidthShift=HeightShift=8` (e.g. `ZONE123.DAT`), confirming the redundant header fields
+   really do track the bitmap dimensions.
+
+`Terrain_HeightQuery(HeightGrid*, {x,y})` (`0046e07c`) converts a world `(x, y)` into a grid cell
+via `CellShift`, fetches the enclosing cell's 4 corner texels from the 16-byte-per-cell array, and
+— using each cell's `+0xf` diagonal-selector bits — does a proper barycentric/bilinear
+interpolation across whichever triangle the query point falls in. A materially more sophisticated
+terrain representation than a naive fixed-diagonal heightmap: each grid quad can independently
+choose which way its diagonal split runs, chosen at terrain-authoring/compile time. Used by the
 flyer terrain-avoidance autopilot below and by a rocket's ground-impact detonation check.
+
+**Open items:** the 14 undecoded per-cell bytes (`+0x1`..`+0xe`); the parallel `+0xf0` scratch
+array's consumer; the `+0x10c` LOD value's consumer (presumably the terrain renderer, not yet
+located); and the exact path-join semantics of `FUN_00492ae0`/`FUN_00492a84` (medium-confidence
+`maybe_` names — the resulting paths were confirmed against real files, but the string-concatenation
+order wasn't independently proven byte-for-byte).
 
 **Flyer ground-proximity/terrain-avoidance autopilot: `FUN_004198f4`.** Initially suspected (from
 its 5 calls to the weapon-fire raycast, below) to be a generic weapon-fire dispatcher; decompiling
@@ -1040,17 +1089,74 @@ follow-up) did **not** yield the `(Type, MissileId)`-to-weapon-name mapping — 
 consumer turned out to be a debris-visual spawner, not a damage/reference lookup — see "Weapon
 mounts" above for the full account of what is and isn't decoded in that record.
 
-Remaining leads, roughly in priority order: (a) the `(Type, MissileId)`-to-weapon-name mapping for
-`PROJ.DAT`'s other 26 entries is still open (only `MissileId=9`/Plasma is now individually
-confirmed) — `WEAPONS.DAT(sim)`'s own still-undecoded SEQ structure is the most likely remaining
-home for this reference, but was explicitly flagged by a prior session as too risky to guess at
-further given its "crashes the engine if changed" fields; a real file byte-dump cross-check (the
-technique that worked for `PROJ.DAT` and `.DMG`) is the right next move if resumed, not more
-disassembly of `GUNLIST.CPP`'s loader, which is now a confirmed dead end for this specific
-question; (b) if pinning down `FUN_00426528`'s/`FUN_004198f4`'s exact source translation unit
-still matters, a symbol/map-file search is a better lever than further string xrefs, which are
-exhausted for this address region; (c) the `Missile` and `Rocket` constructor classes
-(`FUN_0040a948`/`FUN_0040ac3c`) still have unexplored per-class fields beyond their `PROJ.DAT`
-category literal and confirmed guidance behavior — `Bullet`'s class (`FUN_0040af6c`) is now
-better understood via its vtable and `MissileId==9` special case, but a full field map for all
+Remaining leads, roughly in priority order: (a) ~~the `(Type, MissileId)`-to-weapon-name mapping for
+`PROJ.DAT`'s other 26 entries is still open~~ **SOLVED 2026-08-11, continuation session** — see "The
+real weapon-id-to-`PROJ.DAT` mapping" below, found not via `WEAPONS.DAT(sim)`'s SEQ/48-byte tail
+guesswork but by tracing the mech-loadout weapon-mount factory that actually consumes one specific
+field within that tail; (b) if pinning down `FUN_00426528`'s/`FUN_004198f4`'s exact source
+translation unit still matters, a symbol/map-file search is a better lever than further string
+xrefs, which are exhausted for this address region; (c) the `Missile` and `Rocket` constructor
+classes (`FUN_0040a948`/`FUN_0040ac3c`) still have unexplored per-class fields beyond their
+`PROJ.DAT` category literal and confirmed guidance behavior — `Bullet`'s class (`FUN_0040af6c`) is
+now better understood via its vtable and `MissileId==9` special case, but a full field map for all
 three, the way rocket.cpp's was rounded out two sessions ago, remains undone.
+
+## The real weapon-id-to-`PROJ.DAT` mapping — SOLVED (2026-08-11, continuation session)
+
+Closes the single item this doc's "Remaining leads" had flagged as still open after the previous
+session's `PROJ.DAT`/beam-weapon/`.DMG` work. Found by picking a different thread than the one the
+previous session tried (`GUNLIST.CPP`'s loader, a confirmed dead end for this specific question):
+tracing every caller of `Proj_LookupRecord` (`0x0040ffc8`) turned up a 5th caller beyond the 4
+already-known projectile constructors — `FUN_0040fff8`, called from `Mech_ConfigureLoadout`
+(`0x004175dc`, DBSIM's mech-loadout-(re)configuration entry point, already known from the shield
+system's `+0x202` correction two sessions ago). Renamed `MechLoadout_ConstructWeaponMounts`.
+
+`MechLoadout_ConstructWeaponMounts` is the mech-loadout-time factory that turns a real catalog
+weapon id (0-32, `SHELL0/GAM/WEAPONS.DAT`'s own id space) into a live weapon-mount C++ object for
+each of a mech's hardpoint slots. For each occupied slot it: reads the slot's weapon id, fetches
+that weapon's `simvol0/dat/WEAPONS.DAT` template via a **direct flat array index** (`weaponId *
+0x58 + base`, `WeaponMountTemplate_GetByWeaponId`/`0x0040fe84` — this is the first confirmation
+that the sim and shell weapon catalogs share one 33-entry indexing scheme by weapon id, not merely
+the same entry count), reads a specific 2-byte field within that template's previously-undecoded
+48-byte tail (tail-relative offset `0x1c`, now named `ProjDatIndex` — see
+`docs/formats/weapons-dat-sim.md` for the full byte-offset derivation), and resolves the weapon's
+`PROJ.DAT` shot-data record from it before constructing the mount object with that record attached.
+
+`ProjDatIndex` has three cases, confirmed against a byte-exact cross-join of the real retail
+`simvol0/dat/WEAPONS.DAT`, `SHELL0/GAM/WEAPONS.DAT` (for real weapon names), and `simvol0/dat/PROJ.DAT`
+(a throwaway `dotnet run` console probe against `HercWorks.Core`'s own transformers — deliberately
+reusing the already-shipped, already-verified byte layouts rather than re-parsing by hand):
+
+1. **`0x21` (33) — no `PROJ.DAT` lookup at all.** Real-world case: only `ECM`.
+2. **`0x22` (34) — resolved via `Proj_LookupRecord(category=0/*Missile*/, secondaryKey)`**, a
+   `(category, subtypeId)` search rather than a direct index; `secondaryKey` comes from a
+   *different* per-hardpoint-slot table (`MechLoadout_ConstructWeaponMounts`'s own `param_6`), not
+   from the template itself, so it isn't resolvable from `WEAPONS.DAT` alone. Real-world case:
+   exactly `MSL6`/`MSL8`/`MSL10`/`FLYMSL` — the four tube/rack-style missile launchers, consistent
+   with one catalog "launcher" entry being able to carry different submunition records by loadout
+   variant.
+3. **Otherwise — a direct flat array index into `PROJ.DAT`** (`Proj_LookupRecordByIndex`,
+   `0x0040ffb0`: `index * 0x24 + ProjDat_RecordTable`). Confirmed for 21 of the 32 real catalog
+   weapons (2 of those 21, `PLAS` and `MFAC`, happen to share one index). 6 more catalog ids
+   (`NONE`, `LAEW`, `MINE`, `TARG`, `SHLD`, `TURB`, `ENRG`) carry a byte-identical all-zero
+   placeholder template whose `ProjDatIndex` reads `0` — a coincidentally "valid" index that
+   `MechLoadout_ConstructWeaponMounts`'s own per-weapon-id switch statement confirms
+   `TARG`/`SHLD`/`TURB`/`ENRG`'s mount constructors never even receive as an argument (they're
+   passive stat-boost systems, not firing weapons — the field is simply inert for them); `LAEW`'s
+   constructor *does* receive it, so `LAEW` genuinely resolves to `PROJ.DAT` index 0 (`ATC20`'s
+   record), whether or not that was the original data author's intent. This corrects the earlier
+   session's guess (`32 - 5 = 27` skipped ids) — the real skipped set is 6 ids wide, not 5, and the
+   count-27 match was coincidental, not causal: `PROJ.DAT`'s remaining 7 entries (indices 7-13,
+   exactly the 3 `Rocket` + the other 4 `Missile` entries not already claimed by `BMSL`) are reached
+   only through the `MSL6`/`MSL8`/`MSL10`/`FLYMSL` secondary-key path above, not by direct id order.
+
+**Retroactively confirms several manual-fiction matches by real weapon name, not just numeric
+shape:** `EMPC` (index 6, 2000 shield/400 armor) and `BEMP` (index 16, 8000/2000 — the exact
+"8000/2000" pair this doc's own weapon-effectiveness section already flagged as EMP-shaped from
+numbers alone) really are the EMP cannons ("EMP cannons disrupt the shield matrix"); `PLAS` (index
+22, `MissileId==9`) really is the Plasma cannon, confirming by name a mechanism two sessions ago
+only confirmed by behavior; `ELFW` (index 15, 150/200 — the exact "unusually low-damage `Beam`
+entry" flagged as a plausible ELF candidate one session ago) really is Electron Flux. The full
+index table (all 27 `PROJ.DAT` entries, weapon names, `Type`/`MissileId`/damage fields) is recorded
+in `HercWorks.Core.Data.File.Dat.Sim.ProjectileData`'s doc comment rather than duplicated here — see
+that file for the exact numbers.

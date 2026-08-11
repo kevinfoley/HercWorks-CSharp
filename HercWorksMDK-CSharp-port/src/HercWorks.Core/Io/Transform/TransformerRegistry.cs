@@ -8,9 +8,10 @@ namespace HercWorks.Core.Io.Transform;
 /// content for a selected file without needing to know every file-naming convention themselves.
 ///
 /// Deliberately conservative: only covers file types this project actually has a real, working
-/// transformer for (see HercWorks.Core.Io.Transform.{Common,Dbsim,Shell}). Plenty of other file
+/// transformer for (see HercWorks.Core.Io.Transform.{Bnd,Common,Dbsim,Shell}). Plenty of other file
 /// types exist in the game data with a parsed C# data-model class but no ported
-/// ThreeSpaceByteTransformer (e.g. MapInfo, MapLOCS, Theater, Mech*.BND, WorldData) — those
+/// ThreeSpaceByteTransformer (e.g. MapInfo, MapLOCS, Theater, Mech.BND/MechSys.BND/MechView.BND/
+/// AppInput.BND, WorldData) — those
 /// intentionally have no registration here and will report "no parser available" rather than
 /// risk a wrong/guessed match. A couple of borderline cases were left out for the same reason:
 /// HercSimDataTransformer's target ("dat\[herc].dat") is too ambiguous to distinguish reliably
@@ -35,6 +36,10 @@ public static class TransformerRegistry {
 		new("Training Hercs", e => NameIs(e, "TRN_HERCS.DAT"), () => new Shell.TrainingHercsTransform()),
 		new("Weapons Catalog", e => NameIs(e, "WEAPONS.DAT") && DirIs(e, FileType.Gam), () => new Shell.WeaponsDatTransformer()),
 
+		// --- bnd (per-subsystem tuning blobs, see docs/formats/bnd-notes.md — every file has its
+		// own unrelated record shape, so these are matched by exact name, not by extension) ---
+		new("Camera Config", e => NameIs(e, "CAM.BND"), () => new Bnd.CamTransformer()),
+
 		// --- dbsim (various dirs) ---
 		new("Beam Data", e => NameIs(e, "BEAM.DAT"), () => new Dbsim.BeamDatFileTransformer()),
 		new("Scanline Clip Mask", e => ExtIs(e, FileType.Edg), () => new Dbsim.EdgeClipFileTransformer()),
@@ -49,6 +54,7 @@ public static class TransformerRegistry {
 		new("Weapons Paper Diagram", e => NameIs(e, "WEAPONS.PDG"), () => new Dbsim.WeaponPDGTransformer()),
 		new("Paper Diagram Graphic", e => ExtIs(e, FileType.Pdg) && !NameIs(e, "WEAPONS.PDG"), () => new Dbsim.PaperDiagramGraphTransformer()),
 		new("Projectile Data", e => NameIs(e, "PROJ.DAT"), () => new Dbsim.ProjectileDataTransformer()),
+		new("Weapon Mount Templates", e => NameIs(e, "WEAPONS.DAT") && DirIs(e, FileType.Dat), () => new Dbsim.WeaponsSimTransformer()),
 		new("Pilot Portrait Offsets", e => ExtIs(e, FileType.Ofs), () => new Dbsim.PilotOffsetFileTransformer()),
 		new("Terrain Ramp Data", e => ExtIs(e, FileType.Rmp), () => new Dbsim.TerrainRampFileTransformer()),
 		new("Viewport Data", e => ExtIs(e, FileType.Vue), () => new Dbsim.VueTransformer()),

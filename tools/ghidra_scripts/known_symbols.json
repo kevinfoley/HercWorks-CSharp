@@ -173,8 +173,8 @@
       "type": "function",
       "confidence": "high",
       "name": "MsnGen_LoadMission",
-      "description": "msn_gen.cpp. Calls MsnGen_ParseMsnFile first with the .msn path, then separately opens data\\script.dat as an apparent second/later stage.",
-      "source": "docs/formats/msn-mission-file.md"
+      "description": "msn_gen.cpp. Calls MsnGen_ParseMsnFile (00417b67) first with the .msn path, then WriteScriptDatFile (0041ac54) -- confirmed to be data\\script.dat's writer, serializing a GUID-filtered field-subset re-export of the same in-memory row arrays MsnGen_ParseMsnFile just populated. See docs/formats/script-dat.md.",
+      "source": "docs/formats/script-dat.md"
     },
     {
       "address": "00417b67",
@@ -209,8 +209,8 @@
       "type": "function",
       "confidence": "high",
       "name": "ShellMap_LoadScriptDat",
-      "description": "shellmap.cpp. Reads data\\script.dat directly and builds its own typed arrays -- a separate, map-rendering-focused structure, not a subset of the .msn gameplay arrays (none of its record sizes match the .msn table).",
-      "source": "docs/formats/msn-mission-file.md"
+      "description": "shellmap.cpp. VSHELL's own map-editor reader for data\\script.dat -- a SECOND, independent reader of the same 13-block structure WriteScriptDatFile (0041ac54, VSHELL) writes and DBSim_LoadScriptDat (00424308, DBSIM) also reads. Confirmed byte-for-byte identical block order/strides to both, differing only in which fields it keeps vs seeks past (e.g. keeps row12/row14/row15 blocks in full for UI display, where DBSIM keeps only 1 field or discards entirely). NOT an independent/map-rendering-only format -- that was an earlier, since-corrected guess. See docs/formats/script-dat.md.",
+      "source": "docs/formats/script-dat.md"
     },
     {
       "address": "00412a71",
@@ -1048,6 +1048,456 @@
       "name": "DBSim_BuildActionPairRecord",
       "description": "Small helper called once per row11 (ActionPair30) record inside DBSim_LoadScriptDat: builds a resolved in-memory record from a target ref + a type/verb short + a 10-slot ref array, all already resolved to row10-array pointers by the caller.",
       "source": "docs/formats/script-dat.md"
+    },
+    {
+      "address": "00408107",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_AllocZeroed",
+      "description": "Generic widget allocator: bounds-checks param_1 (a struct byte-size, e.g. 0x61/0x55/0x47/0x69/0x75/0x6e8 for different widget classes) against a fixed pool, allocates via FUN_004078e7, zeroes with memset, returns the block. No file/resource access -- confirms widget construction throughout VSHELL's tab screens is purely in-memory, not resource-indexed.",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL screen-layout pass"
+    },
+    {
+      "address": "0040b698",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Widget_InitRect",
+      "description": "Thin widget-init wrapper: calls base-init FUN_0040a6f4(widget, parent, rectPtr, ...)/Panel_Ctor to copy a caller-supplied {x,y,w,h} rect into the widget struct, then sets its own vtable pointer (0x61-byte struct) and clears a couple of state fields. Sibling wrappers over the same Panel_Ctor/Window_Ctor base are now individually disambiguated by their own vtable+paint-function pairs -- see Text_Ctor/Button_Ctor/ButtonIcon_Ctor/TitledPanel_Ctor/FramedPanel_Ctor/Grid_Ctor/HatchedDivider_Ctor/Panel_Ctor below. This one's own paint function (FUN_0040b772) wasn't independently decompiled/confirmed, so it stays medium/generic.",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL screen-layout pass"
+    },
+    {
+      "address": "00409970",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Window_Ctor",
+      "description": "Lowest-level widget base constructor (window.cpp-equivalent). Sets a placeholder vtable (&PTR_FUN_004717dc, classic Watcom base-subobject-under-construction pattern), zeroes state fields, calls FUN_0041eb5c(widget, parent, rectPtr, style) to install the {x,y,w,h} rect (fields at +0x25/+0x29/+0x2d/+0x31 = left/top/right/bottom) and attach to the parent's child tree, then sets the real base vtable (&PTR_FUN_0046e828). Called by every other widget constructor, directly or via Control_Ctor.",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL widget-class disambiguation pass"
+    },
+    {
+      "address": "00409788",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Control_Ctor",
+      "description": "Mid-level widget base (wwinbase.cpp/esdialog.cpp-equivalent), one level above Window_Ctor: calls Window_Ctor, sets its own vtable (&PTR_FUN_0046e810), zeroes an icon/style field at +0x45, ORs style flags 0x60 into the +0x39 flags word, sets +0x49=1 (default-visible), then calls Widget_ShowRecursive to cascade the show/attach notification down the tree. This is the base every 'has visible chrome' widget (Text, Button, Panel-family) constructs through, distinct from the plain-rect InitRect variant which skips it.",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL widget-class disambiguation pass"
+    },
+    {
+      "address": "0041f469",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_ShowRecursive",
+      "description": "Recursive show/attach cascade: sets the +0x11 'attached' state bit, recurses into every child (+0xd child-list head, +5 sibling-next) not already attached, then posts a type=2 event (via a small event-record alloc + FUN_00468440 dispatch) targeting the widget. Mirror of Widget_HideRecursive.",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL widget-class disambiguation pass"
+    },
+    {
+      "address": "0041f2e6",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_HideRecursive",
+      "description": "Recursive hide/detach cascade: clears the +0x11 'attached'/'parent-shown' state bits, posts type=1 (self) and type=4 (parent-directed) events, then recurses over a z-order sibling list (+9 offset). Mirror of Widget_ShowRecursive.",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL widget-class disambiguation pass"
+    },
+    {
+      "address": "0040a6f4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Panel_Ctor",
+      "description": "Simplest visible-chrome widget: calls Control_Ctor, sets its own vtable (&PTR_FUN_0046ead0, 0x55 or 0x65-byte struct depending on caller), stores a style/color param at +0x4d, sets +0x51=1. Its paint function (Panel_Paint, FUN_0040a959) does nothing but a single flat-fill call (FUN_0040a726(widget,1)) -- confirms this is a plain flat-colour rectangle/background panel, used raw (no further subclass wrapper) wherever screens need an unadorned coloured rect.",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL widget-class disambiguation pass"
+    },
+    {
+      "address": "0040a959",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Panel_Paint",
+      "description": "Panel_Ctor's paint override: single flat-fill call, no border/text/children drawing. Confirms Panel_Ctor is the plain flat-colour rectangle widget class.",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL widget-class disambiguation pass"
+    },
+    {
+      "address": "0040b278",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Text_Ctor",
+      "description": "The Text/Label widget class (0xc9=201-byte struct, by far the most-constructed widget class in VSHELL's screens, 68 uses across the 6 tab screens alone -- consistent with 'every caption/value/button-label is one of these'). Calls Control_Ctor, sets its own vtable (&PTR_FUN_0046ec54), stores font id (+0x45) and alignment/style (+0xb5, seen as constant 0x29=41 everywhere), then calls Text_SetString to copy the caller's string into a fixed 100-char buffer. Also constructed internally as the embedded caption child of Button_Ctor/ButtonIcon_Ctor.",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL widget-class disambiguation pass"
+    },
+    {
+      "address": "0040b30b",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Text_SetString",
+      "description": "Text_Ctor's string-setter: stores font/style params, copies the caller's string into the widget's fixed 100-char buffer (asserts 'Message text is too long' if over 100 chars, per the src\\esmsg.cpp assert string -- Text shares its overlong-string guard with the message-queue system), or clears/hides the widget if the string is null/empty.",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL widget-class disambiguation pass"
+    },
+    {
+      "address": "00409d14",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ButtonIcon_Ctor",
+      "description": "Button-with-icon widget class (0x69=105-byte struct, 17 uses). Passes a click-callback function pointer straight through the widget's base constructor (confirmed at the ServiceBay_BuildScreen call sites: per-weapon-slot handlers FUN_00439f2d/FUN_00439fdc/FUN_0043a0d8/etc, one per weapon-buy button, each ~0xfa/250 bytes apart matching the per-row screen layout). Also constructs an embedded Text_Ctor child sized to the widget's full client rect for the button's caption. Sets the +0x39 flags word's 0x200 bit (likely 'clickable'/'enabled').",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL widget-class disambiguation pass"
+    },
+    {
+      "address": "00409a54",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Button_Ctor",
+      "description": "Plain button widget class, no icon slot (0x5d=93-byte struct, 18 uses -- smaller than ButtonIcon_Ctor's 0x69). Same embedded-Text_Ctor-child pattern as ButtonIcon_Ctor for its caption, but via Panel_Ctor's base rather than passing a callback through Control_Ctor's base-init call directly.",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL widget-class disambiguation pass"
+    },
+    {
+      "address": "0040ab4c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TitledPanel_Ctor",
+      "description": "Root/tab-panel widget class with title-bar chrome (0x75=117-byte struct, 10 uses). Always the FIRST widget constructed in every one of the six *_BuildScreen functions, sized to near-fullscreen, given a title string (weapon-catalog or hardcoded caption) -- this is each tab screen's own root window. Constructs an embedded Text_Ctor title child, calls Widget_ShowRecursive at the end. Its paint override (TitledPanel_Paint) draws a header strip with vertical column-divider lines, a checkerboard-dithered body background, and a border -- classic titled-groupbox chrome.",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL widget-class disambiguation pass"
+    },
+    {
+      "address": "0040ac27",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TitledPanel_Paint",
+      "description": "TitledPanel_Ctor's paint override: fills a header strip (height from +0x59) with vertical divider lines if the header-divider flag is set, else (no title-bar variant) fills the whole body with a checkerboard/dithered pixel pattern; either way finishes with a 4-corner-tick + rectangle border draw. Confirms TitledPanel_Ctor is a bordered, optionally-titled groupbox/root-window chrome.",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL widget-class disambiguation pass"
+    },
+    {
+      "address": "0040a96c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FramedPanel_Ctor",
+      "description": "Smaller bordered sub-panel widget class (0x5d=93-byte struct, 8 uses -- same size class as Button_Ctor but a distinct vtable/paint). Calls Panel_Ctor's base then sets its own vtable (&PTR_FUN_0046eae4). Its paint override (FramedPanel_Paint) is near-identical to TitledPanel_Paint's checkerboard-fill+border logic but without the header-divider-line step -- essentially TitledPanel_Ctor without the titled header, i.e. a plain framed/bordered box.",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL widget-class disambiguation pass"
+    },
+    {
+      "address": "0040a9a6",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FramedPanel_Paint",
+      "description": "FramedPanel_Ctor's paint override: checkerboard-dithered fill + border, no header-divider lines (compare TitledPanel_Paint). Confirms FramedPanel_Ctor is a plain bordered box.",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL widget-class disambiguation pass"
+    },
+    {
+      "address": "0040b7e0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Grid_Ctor",
+      "description": "Multi-column grid/list-view widget class (0x6e8=1768-byte struct, 4 uses -- the biggest widget struct in VSHELL by far). Calls Panel_Ctor's base, sets its own vtable (&PTR_FUN_0046ecd8), then initializes 30 fixed row slots (56/0x38 bytes each) via Grid_InitRow, each row holding a 10-column width/flag array (default {14,16} per column). Used by Squad_BuildRosterList and the wcrewi.cpp/wmissini.cpp list screens -- almost certainly the crew/pilot roster and mission objective/weapon lists (30 rows matches a plausible max-crew-slots count).",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL widget-class disambiguation pass"
+    },
+    {
+      "address": "0040b97c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Grid_Paint",
+      "description": "Grid_Ctor's paint override: draws 16px gridlines (both axes) if the grid-lines flag (+0x6e5) is set, then for each of the 30 rows with a non-null icon pointer, blits the row's icon (FUN_00453158) and, for each of its 10 columns whose width differs from the default (0x10), performs a byte-remap-based colour-tint fill (FUN_00457364) over that cell. Conclusively confirms Grid_Ctor is a per-row-icon, per-column-tinted table/list-view widget.",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL widget-class disambiguation pass"
+    },
+    {
+      "address": "0040b844",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Grid_InitRow",
+      "description": "Zeroes one Grid_Ctor row slot (icon ptr, x, y fields) and its 10-column width/flag array to the default {14,16} pair per column. Called 30 times by Grid_Ctor at construction.",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL widget-class disambiguation pass"
+    },
+    {
+      "address": "0040b7a8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Grid_InitSingleRow",
+      "description": "Same zero-init pattern as Grid_InitRow but operating on a single standalone row-shaped struct rather than one slot of a Grid_Ctor's 30-row array -- used inline in Mission_BuildScreen's do/while list-building loop. Plausibly a single detached row/line-item struct reusing the same 10-column layout convention, not confirmed against a distinct constructor.",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL widget-class disambiguation pass"
+    },
+    {
+      "address": "0040c378",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HatchedDivider_Ctor",
+      "description": "Repeating-horizontal-line fill widget class (0x61=97-byte struct, 3 uses -- same size class as maybe_Widget_InitRect but a distinct vtable/paint). Calls Panel_Ctor's base, sets its own vtable (&PTR_FUN_0046ee08), sets width/style fields. Its paint override (HatchedDivider_Paint) draws a repeating stack of horizontal lines from a start offset (+0x55) to the bottom edge, plus an optional small corner-bracket shape if a flag (+0x5d) is set -- looks like a hatched section-divider or scrollbar-track background, not a single separator line.",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL widget-class disambiguation pass"
+    },
+    {
+      "address": "0040c513",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HatchedDivider_Paint",
+      "description": "HatchedDivider_Ctor's paint override: repeating horizontal-line fill plus an optional corner-bracket shape. Confirms HatchedDivider_Ctor is a hatched/lined fill widget, not a simple 1px separator.",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL widget-class disambiguation pass"
+    },
+    {
+      "address": "0043a944",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ServiceBay_BuildScreen",
+      "description": "wsrvbayi.cpp (service/repair bay tab) screen builder, located via __FILE__ assert-string xref. Every widget's {x,y,w,h} rect is a plain immediate literal in this function (e.g. local_5c=0x27f, local_58=0x1df); no fopen/Volume/ClassIO/fread call anywhere in the function. Confirms VSHELL's tab-screen layouts are hardcoded pixel constants compiled into the EXE, not driven by any data file.",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL screen-layout pass"
+    },
+    {
+      "address": "0043c1a0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squad_BuildScreen",
+      "description": "wsquadi.cpp (squad/pilot assignment tab) screen builder, located via __FILE__ assert-string xref (short param_1 selects a sub-mode/rebuild variant). Same hardcoded-rect-literal pattern as ServiceBay_BuildScreen; no file I/O.",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL screen-layout pass"
+    },
+    {
+      "address": "0043c999",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squad_BuildRosterList",
+      "description": "wsquadi.cpp: builds a repeated row of widgets in a do/while loop over a fixed base rect with a hardcoded per-row Y stride (not a per-row data record). Same TU as Squad_BuildScreen (address range 0043c1a0-0043e52c).",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL screen-layout pass"
+    },
+    {
+      "address": "0043e52c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Warning_BuildScreen",
+      "description": "warmingi.cpp (warning screen) builder, located via __FILE__ assert-string xref. Same hardcoded-rect-literal widget-construction pattern; no file I/O.",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL screen-layout pass"
+    },
+    {
+      "address": "00440eb8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Crew_BuildScreen",
+      "description": "wcrewi.cpp (crew tab) screen builder, located via __FILE__ assert-string xref. Same hardcoded-rect-literal pattern; no file I/O.",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL screen-layout pass"
+    },
+    {
+      "address": "00442534",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Crew_BuildDetailPanel",
+      "description": "wcrewi.cpp: largest function in the TU (6655 bytes), builds the crew detail/roster panel widget-by-widget with hardcoded rect literals identical in shape to Crew_BuildScreen. Same address range as the wcrewi.cpp TU (00440eb8-00443f33).",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL screen-layout pass"
+    },
+    {
+      "address": "00443f33",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Mission_UpdateTerrainLabel",
+      "description": "wmissini.cpp (mission tab) __FILE__ assert-string anchor function, but small (270 bytes) -- looks up a terrain-description string resource by id and a earth/moon label variant, writes into an existing widget field, not a full screen builder. The real screen builder in this TU is the much larger FUN_00445758 (Mission_BuildScreen).",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL screen-layout pass"
+    },
+    {
+      "address": "0044409f",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Mission_UpdateLocationTab",
+      "description": "wmissini.cpp: small (271 bytes) helper that either loads a fixed-rect bitmap (hardcoded 0x55,0x20,0x3c,0x240,0x168 params) or looks up one of 4 region-label strings by index and updates an existing widget field. Not the main screen builder.",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL screen-layout pass"
+    },
+    {
+      "address": "00445758",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_BuildScreen",
+      "description": "wmissini.cpp: largest function in the TU (4317 bytes), the actual mission-tab screen builder -- same hardcoded-rect-literal widget-construction pattern as the other five screens, plus a do/while loop building a repeated list row with a fixed Y stride. No file I/O.",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL screen-layout pass"
+    },
+    {
+      "address": "00447e34",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_BuildScreen",
+      "description": "warmoryi.cpp (armory tab) screen builder, located via __FILE__ assert-string xref -- also the largest function in its TU (5365 bytes). Same hardcoded-rect-literal widget-construction pattern; no file I/O. Together with ServiceBay/Squad/Warning/Crew/Mission_BuildScreen, confirms none of VSHELL's tab screens are data-driven -- all layouts are pixel constants compiled into the EXE.",
+      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL screen-layout pass"
+    },
+    {
+      "address": "00423db4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_EnsureResourcesLoaded",
+      "description": "shellmap.cpp. Lazy-loads mis_icon.dba, mapshp.dba, and map.dfn into globals (guarded by null-checks), asserts on failure, sets a screen-state byte to 0. Confirmed via direct string references to the three literal filenames.",
+      "source": "docs/formats/dfn-hfn-dci.md"
+    },
+    {
+      "address": "00423e82",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_ReleaseResources",
+      "description": "shellmap.cpp teardown counterpart to ShellMap_EnsureResourcesLoaded -- destroys the 3 loaded resources (calls each object's vtable+0x18 destructor) and nulls the globals. Confirmed the only other reference to ShellMap_DfnPanelPtr in VSHELL.EXE besides the loader -- the loaded DFN panel object's contents are never read, only destroyed.",
+      "source": "docs/formats/dfn-hfn-dci.md"
+    },
+    {
+      "address": "00423d00",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Vshell_PanelLoadWrapper",
+      "description": "Trivial wrapper funneling .DFN/.HFN panel loads into VshellClassItem_LoadItem with the panel's filename (e.g. \"dfn\\map.dfn\"). VSHELL's own copy of the same wrapper pattern as DBSIM's Panel_LoadWrapper, at a different address since the two EXEs are separate processes.",
+      "source": "docs/formats/dfn-hfn-dci.md"
+    },
+    {
+      "address": "00423c4c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Vshell_DbaLoadWrapper",
+      "description": "Identical in shape to Vshell_PanelLoadWrapper but for .DBA bitmap-array resources (e.g. \"dba\\mis_icon.dba\"). Confirms both file kinds funnel into the same generic VshellClassItem_LoadItem loader.",
+      "source": "docs/formats/dfn-hfn-dci.md"
+    },
+    {
+      "address": "00403c1f",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "VshellClassItem_LoadItem",
+      "description": "classio.cpp, ClassItem::loadItem (confirmed via the literal assert string). VSHELL's own copy of the generic ClassItem registry-dispatch loader -- reads an 8-byte type tag via VshellClassItem_ReadTypeTag, looks up a handler via VshellClassItem_FindHandler, calls its loadFn(stream, mode). Structurally identical to but a separate compiled instance from DBSIM's ClassItem_LoadResource.",
+      "source": "docs/formats/dfn-hfn-dci.md"
+    },
+    {
+      "address": "0040428c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "VshellClassItem_ReadTypeTag",
+      "description": "Reads the 8-byte type tag ([typeId][0x0028][totalSize]) from a resource stream, called by VshellClassItem_LoadItem. VSHELL's copy of ClassItem_ReadTypeTag.",
+      "source": "docs/formats/dfn-hfn-dci.md"
+    },
+    {
+      "address": "00404028",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "VshellClassItem_FindHandler",
+      "description": "Searches VSHELL's registry (bucket base VshellClassItem_RegistryBuckets, count-global at 0046d1cc) for a matching type-tag id, returns a 12-byte {id, loadFn, extra} descriptor. VSHELL's copy of ClassItem_FindHandler. Note: the registry itself is populated by C++ static initializers at runtime, so it reads as empty/zero in the static binary image -- don't try to walk it directly, trace call graphs from a known class-id literal instead (see VshellPanel_ClassIdGetter).",
+      "source": "docs/formats/dfn-hfn-dci.md"
+    },
+    {
+      "address": "00481248",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "VshellClassItem_RegistryBuckets",
+      "description": "Base of VSHELL's ClassItem registry bucket array (pairs of {int* entries, int count}, 8 bytes/bucket). Runtime-populated by static initializers -- reads as zero-length in the static image.",
+      "source": "docs/formats/dfn-hfn-dci.md"
+    },
+    {
+      "address": "004542d0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "VshellPanel_ClassIdGetter",
+      "description": "Trivial getter returning 0x280005, the little-endian dword of the [typeId=5][0x0028] envelope -- confirms vtable 0x0047bf68 is the .DFN/.HFN \"Panel\" class. Found via ES2FindImmediateRefs literal search across the DBA/DCI/DFN/embedded-bitmap class-id candidates (0x280001/0x280003/0x280005/0x28000b/0x28000e).",
+      "source": "docs/formats/dfn-hfn-dci.md"
+    },
+    {
+      "address": "0047bf68",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "VshellPanel_Vtable",
+      "description": "7-slot vtable for the .DFN/.HFN \"Panel\" class: +0x00 VshellPanel_ClassIdGetter, +0x04/+0x08 size-calc pair, +0x0c VshellPanel_ReadFromStream, +0x10 VshellPanel_WriteToStream, +0x14 VshellClassItem_DebugPrintType, +0x18 VshellPanel_Destructor. No rendering/accessor methods -- confirms this base class is pure serialization, any consumer must access fields directly rather than through this vtable.",
+      "source": "docs/formats/dfn-hfn-dci.md"
+    },
+    {
+      "address": "00454238",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "VshellPanel_ConstructAndRead",
+      "description": "The registered factory for class id 0x280005 (called from VshellClassItem_LoadItem via the registry entry's loadFn slot). Allocates a 50 (0x32)-byte object, installs VshellPanel_Vtable, calls vtable+0xc (VshellPanel_ReadFromStream) as obj->readFrom(stream).",
+      "source": "docs/formats/dfn-hfn-dci.md"
+    },
+    {
+      "address": "00454474",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "VshellPanel_ReadFromStream",
+      "description": "The field-by-field deserializer for the .DFN/.HFN Panel format. Reads 11 int16 fields (struct offsets 0x04-0x18) + 1 int32 (0x1a), then conditionally reads up to 5 variable-length blocks based on those fields' values (3 confirmed present in real files: an offset table, a sparse-byte-value mask pool, a per-record enum byte -- see docs/formats/dfn-hfn-dci.md for the full byte-exact-validated layout). Calls only trivial raw-byte-count stream readers (VshellPanel_ReadInt16/ReadRaw/etc.) -- no field interpretation happens here, semantics were derived from real-file byte inspection instead.",
+      "source": "docs/formats/dfn-hfn-dci.md"
+    },
+    {
+      "address": "00454354",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "VshellPanel_WriteToStream",
+      "description": "Mirror \"save\" method of VshellPanel_ReadFromStream -- same field order, confirming the read method's field roles are structural (write and read agree), not just a one-sided guess.",
+      "source": "docs/formats/dfn-hfn-dci.md"
+    },
+    {
+      "address": "00453eb8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "VshellPanel_Destructor",
+      "description": "Frees the up-to-5 conditionally-allocated trailing buffers, then calls the base-class destructor. Vtable+0x18. Confirms 0x0047bf68 is this class's vtable via the self-referential vtable-pointer store (*param_1 = &PTR_FUN_0047bf68).",
+      "source": "docs/formats/dfn-hfn-dci.md"
+    },
+    {
+      "address": "00404120",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "VshellClassItem_DebugPrintType",
+      "description": "Debug helper (vtable+0x14 on Panel, likely shared shape across other ClassItem-derived classes): calls the object's own classId getter, looks up the registry entry, prints \"Class type: %d %d\" plus the registry entry's extra field as a %s (suggesting that field is a class-name string, not yet independently confirmed).",
+      "source": "docs/formats/dfn-hfn-dci.md"
+    },
+    {
+      "address": "00471ca8",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellMap_DfnPanelPtr",
+      "description": "Global holding the loaded MAP.DFN panel object. Exhaustive address-xref search found only 2 referencing functions in all of VSHELL.EXE -- ShellMap_EnsureResourcesLoaded (the loader) and ShellMap_ReleaseResources (destructor call only). The parsed contents are never read back anywhere in VSHELL -- this specific load is dead/vestigial (the format's real, live consumer is DBSIM's cockpit font system, see ColorSchemePanels_LoadAll).",
+      "source": "docs/formats/dfn-hfn-dci.md"
+    },
+    {
+      "address": "00431098",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ColorSchemePanels_LoadAll",
+      "description": "PANEL.CPP-adjacent. Lazy-loads the 18 color-scheme .DFN/.HFN panels (cpblue first, extension chosen by DAT_004d25bb==3) into the ColorSchemePanels array, then the 7 .DCI cursors into a separate array. Loop counts (0x12=18, 7) match the real retail file counts exactly.",
+      "source": "docs/formats/dfn-hfn-dci.md"
+    },
+    {
+      "address": "0049b0ac",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ColorSchemePanels",
+      "description": "Base of the 18-element loaded-panel-object array filled by ColorSchemePanels_LoadAll (index 0 = cpblue, per the PTR_s_cpblue_0049b108 name-table iteration order). Unlike VSHELL's dead ShellMap_DfnPanelPtr, this array has 7 real consumer functions in DBSIM.EXE -- each assigns the panel-object pointer wholesale into a widget struct field and passes it as an opaque handle into a generic text/label constructor (FUN_00438920/FUN_00438884) alongside literal display strings, confirming this format is a bitmap FONT resource for DBSIM's cockpit HUD text, not a widget-layout table.",
+      "source": "docs/formats/dfn-hfn-dci.md"
     }
   ]
 }

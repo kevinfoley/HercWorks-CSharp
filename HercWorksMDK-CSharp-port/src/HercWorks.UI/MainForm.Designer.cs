@@ -23,6 +23,7 @@ partial class MainForm {
 		_fileMenuItem = new ToolStripMenuItem();
 		_openVolMenuItem = new ToolStripMenuItem();
 		_unpackVolMenuItem = new ToolStripMenuItem();
+		_exportSelectedFileMenuItem = new ToolStripMenuItem();
 		_fileMenuSeparator = new ToolStripSeparator();
 		_exitMenuItem = new ToolStripMenuItem();
 		_editMenuItem = new ToolStripMenuItem();
@@ -58,7 +59,7 @@ partial class MainForm {
 		// _fileMenuItem
 		//
 		_fileMenuItem.DropDownItems.AddRange(new ToolStripItem[] {
-			_openVolMenuItem, _unpackVolMenuItem, _fileMenuSeparator, _exitMenuItem
+			_openVolMenuItem, _unpackVolMenuItem, _exportSelectedFileMenuItem, _fileMenuSeparator, _exitMenuItem
 		});
 		_fileMenuItem.Name = "_fileMenuItem";
 		_fileMenuItem.Text = "&File";
@@ -74,6 +75,13 @@ partial class MainForm {
 		_unpackVolMenuItem.Name = "_unpackVolMenuItem";
 		_unpackVolMenuItem.Text = "&Unpack VOL To Folder...";
 		_unpackVolMenuItem.Click += OnUnpackVol;
+		//
+		// _exportSelectedFileMenuItem
+		//
+		_exportSelectedFileMenuItem.Enabled = false;
+		_exportSelectedFileMenuItem.Name = "_exportSelectedFileMenuItem";
+		_exportSelectedFileMenuItem.Text = "Export &Selected File...";
+		_exportSelectedFileMenuItem.Click += OnExportSelectedFile;
 		//
 		// _fileMenuSeparator
 		//
@@ -241,6 +249,7 @@ partial class MainForm {
 	private ToolStripMenuItem _fileMenuItem;
 	private ToolStripMenuItem _openVolMenuItem;
 	private ToolStripMenuItem _unpackVolMenuItem;
+	private ToolStripMenuItem _exportSelectedFileMenuItem;
 	private ToolStripSeparator _fileMenuSeparator;
 	private ToolStripMenuItem _exitMenuItem;
 	private ToolStripMenuItem _editMenuItem;

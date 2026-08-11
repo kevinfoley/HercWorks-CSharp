@@ -47,6 +47,13 @@ public partial class MainForm : Form {
 	/// </summary>
 	private static readonly Guid OpenVolClientGuid = new("af529f56-306a-4c02-9f85-feb11bdd75a1");
 
+	/// <summary>
+	/// Distinct per-dialog identity so Windows remembers this dialog's last-visited folder
+	/// separately from other Open/Save dialogs in the app — see CampaignResourcesForm's
+	/// DialogClientGuid for the full explanation.
+	/// </summary>
+	private static readonly Guid ExportSelectedFileClientGuid = new("d3f8c2b1-7e4a-4b6d-9c3f-1a2e5d8f0b6c");
+
 	private void OnOpenVol(object? sender, EventArgs e) {
 		using var dialog = new OpenFileDialog {
 			Filter = "Earthsiege 2 VOL files (*.vol)|*.vol|All files (*.*)|*.*",
@@ -137,6 +144,34 @@ public partial class MainForm : Form {
 		}
 	}
 
+	/// <summary>
+	/// Exports the currently selected VOL-tree entry's decoded content to a standalone file,
+	/// without requiring a full "Unpack VOL To Folder". _exportSelectedFileMenuItem.Enabled is
+	/// kept in sync with _selectedEntry in OnTreeSelect, so a null/empty check here is just defense.
+	/// </summary>
+	private void OnExportSelectedFile(object? sender, EventArgs e) {
+		if (_selectedEntry is not { RawBytes: { } bytes } entry) {
+			return;
+		}
+
+		using var dialog = new SaveFileDialog {
+			FileName = entry.FileName ?? string.Empty,
+			Title = "Export selected file",
+			ClientGuid = ExportSelectedFileClientGuid
+		};
+
+		if (dialog.ShowDialog(this) != DialogResult.OK) {
+			return;
+		}
+
+		try {
+			File.WriteAllBytes(dialog.FileName, bytes);
+		} catch (Exception ex) {
+			MessageBox.Show(this, $"Failed to export file:\n{ex.Message}", "Error",
+				MessageBoxButtons.OK, MessageBoxIcon.Error);
+		}
+	}
+
 	private void PopulateTree(Voln vol) {
 		_volTree.Nodes.Clear();
 		var root = new TreeNode(vol.FileName);
@@ -159,6 +194,7 @@ public partial class MainForm : Form {
 
 		_selectedEntry = e.Node?.Tag as VolEntry;
 		UpdateViewAssetButtonState();
+		_exportSelectedFileMenuItem.Enabled = _selectedEntry is { RawBytes.Length: > 0 };
 
 		if (_selectedEntry is not { } entry) {
 			return;

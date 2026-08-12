@@ -8,30 +8,10 @@
     ".NETCoreApp,Version=v8.0": {
       "HercWorks.Core/1.0.0": {
         "dependencies": {
-          "HercWorks.Vol": "1.0.0",
-          "SixLabors.ImageSharp": "4.1.0"
+          "HercWorks.Vol": "1.0.0"
         },
         "runtime": {
           "HercWorks.Core.dll": {}
-        }
-      },
-      "SixLabors.ImageSharp/4.1.0": {
-        "dependencies": {
-          "System.IO.Hashing": "8.0.0"
-        },
-        "runtime": {
-          "lib/net8.0/SixLabors.ImageSharp.dll": {
-            "assemblyVersion": "4.0.0.0",
-            "fileVersion": "4.1.0.0"
-          }
-        }
-      },
-      "System.IO.Hashing/8.0.0": {
-        "runtime": {
-          "lib/net8.0/System.IO.Hashing.dll": {
-            "assemblyVersion": "8.0.0.0",
-            "fileVersion": "8.0.23.53103"
-          }
         }
       },
       "HercWorks.Vol/1.0.0": {
@@ -49,20 +29,6 @@
       "type": "project",
       "serviceable": false,
       "sha512": ""
-    },
-    "SixLabors.ImageSharp/4.1.0": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-7PfVxHQsa77VmO+ZcnkrcwsjZHs4ZIdAYkjKesf71glMlrAwKjjSh5Nz5F5rwfVEOF5eAh/F7k6Fel8CK3V1YA==",
-      "path": "sixlabors.imagesharp/4.1.0",
-      "hashPath": "sixlabors.imagesharp.4.1.0.nupkg.sha512"
-    },
-    "System.IO.Hashing/8.0.0": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-ne1843evDugl0md7Fjzy6QjJrzsjh46ZKbhf8GwBXb5f/gw97J4bxMs0NQKifDuThh/f0bZ0e62NPl1jzTuRqA==",
-      "path": "system.io.hashing/8.0.0",
-      "hashPath": "system.io.hashing.8.0.0.nupkg.sha512"
     },
     "HercWorks.Vol/1.0.0": {
       "type": "project",

@@ -1,5 +1,6 @@
 using HercWorks.Vol;
 using HercWorks.Vol.Util;
+using System.Diagnostics;
 using System.Text;
 
 namespace HercWorks.Core.Io.Write;
@@ -91,7 +92,7 @@ public static class VolFileCompiler {
 			var entry = vol.FilesSet[i];
 			int entrySize = CalcFileChunkSize(entry) - i;
 
-			Console.WriteLine($"{entry.FileName}: entrySize[{entrySize}]");
+			Debug.WriteLine($"{entry.FileName}: entrySize[{entrySize}]");
 
 			byte[] nameBytes = Encoding.ASCII.GetBytes(entry.FileName ?? string.Empty);
 			var listBytes = new byte[13];

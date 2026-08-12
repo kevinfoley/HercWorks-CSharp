@@ -1,5 +1,6 @@
 using HercWorks.Core.Data.File.Msn;
 using HercWorks.Vol;
+using System.Diagnostics;
 
 namespace HercWorks.Core.Io.Transform.Common;
 
@@ -22,7 +23,7 @@ public class MissionStringFileTransformer : ThreeSpaceByteTransformer {
 			// conversion as IndexString(len).
 			var ent = str.CreateEntry(guid, rval, rflag, len, IndexString(len));
 
-			Console.WriteLine(ent.ToString());
+			Debug.WriteLine($"Created string entry {ent}");
 			entries[i] = ent;
 		}
 		str.Strings = entries;

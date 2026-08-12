@@ -1,4 +1,5 @@
 using HercWorks.Vol.Util;
+using System.Diagnostics;
 
 namespace HercWorks.Vol.Io;
 
@@ -76,7 +77,7 @@ public static class VolFileReader {
 				if (b == 0x5C) // '\' separator
 				{
 					string label = BytesToAsciiString(dirNameBytes.ToArray());
-					Console.WriteLine(label); // parity with the original debug print
+					//Debug.WriteLine(label);
 
 					var dir = new VolDir(label, dirCount);
 					vol.Folders[dir.DirIdx] = dir;

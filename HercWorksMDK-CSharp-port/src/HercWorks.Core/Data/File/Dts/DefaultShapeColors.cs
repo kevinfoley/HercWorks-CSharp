@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace HercWorks.Core.Data.File.Dts;
 
 /// <summary>
@@ -44,7 +46,7 @@ public sealed class DefaultShapeColors {
 				return dsc;
 			}
 		}
-		Console.WriteLine("UNKNOWN COLOR: " + num);
+		Debug.WriteLine("UNKNOWN COLOR: " + num);
 		return Error;
 	}
 }

@@ -33,18 +33,26 @@ partial class Model3DViewerForm {
 		_helpMenuItem = new ToolStripMenuItem();
 		_keyboardShortcutsMenuItem = new ToolStripMenuItem();
 		_rootPanel = new Panel();
-		_partSelector = new ComboBox();
-		_rootListLabel = new Label();
+		_texturePanel = new Panel();
+		_texturePaletteSelector = new ComboBox();
+		_paletteLabel = new Label();
+		_textureBankSelector = new ComboBox();
+		_textureBankLabel = new Label();
+		_textureLabel = new Label();
+		_lodSelector = new ComboBox();
+		_lodLabel = new Label();
 		_partNavPanel = new Panel();
 		_nextPartButton = new Button();
 		_prevPartButton = new Button();
-		_lodLabel = new Label();
-		_lodSelector = new ComboBox();
+		_partSelector = new ComboBox();
+		_rootListLabel = new Label();
 		_viewerControl = new Model3DViewerControl();
 		_statusStrip = new StatusStrip();
 		_statusLabel = new ToolStripStatusLabel();
 		_menuStrip.SuspendLayout();
 		_rootPanel.SuspendLayout();
+		_texturePanel.SuspendLayout();
+		_partNavPanel.SuspendLayout();
 		_statusStrip.SuspendLayout();
 		SuspendLayout();
 		//
@@ -131,6 +139,7 @@ partial class Model3DViewerForm {
 		//
 		// _rootPanel
 		//
+		_rootPanel.Controls.Add(_texturePanel);
 		_rootPanel.Controls.Add(_lodSelector);
 		_rootPanel.Controls.Add(_lodLabel);
 		_rootPanel.Controls.Add(_partNavPanel);
@@ -225,6 +234,74 @@ partial class Model3DViewerForm {
 		_lodSelector.Visible = false;
 		_lodSelector.SelectedIndexChanged += OnDetailLevelSelectionChanged;
 		//
+		// _texturePanel
+		//
+		_texturePanel.Controls.Add(_texturePaletteSelector);
+		_texturePanel.Controls.Add(_paletteLabel);
+		_texturePanel.Controls.Add(_textureBankSelector);
+		_texturePanel.Controls.Add(_textureBankLabel);
+		_texturePanel.Controls.Add(_textureLabel);
+		_texturePanel.Dock = DockStyle.Top;
+		_texturePanel.Location = new Point(0, 130);
+		_texturePanel.Name = "_texturePanel";
+		_texturePanel.Size = new Size(220, 113);
+		_texturePanel.TabIndex = 5;
+		//
+		// _textureLabel
+		//
+		_textureLabel.Dock = DockStyle.Top;
+		_textureLabel.Location = new Point(0, 0);
+		_textureLabel.Name = "_textureLabel";
+		_textureLabel.Padding = new Padding(6, 6, 6, 4);
+		_textureLabel.Size = new Size(220, 27);
+		_textureLabel.TabIndex = 0;
+		_textureLabel.Text = "Texture:";
+		//
+		// _textureBankLabel
+		//
+		_textureBankLabel.Dock = DockStyle.Top;
+		_textureBankLabel.Location = new Point(0, 27);
+		_textureBankLabel.Name = "_textureBankLabel";
+		_textureBankLabel.Padding = new Padding(6, 2, 6, 2);
+		_textureBankLabel.Size = new Size(220, 20);
+		_textureBankLabel.TabIndex = 1;
+		_textureBankLabel.Text = "Texture bank (.DBA):";
+		//
+		// _textureBankSelector
+		//
+		// Lists every .dba entry in the loaded VOL directly (no intermediate picker dialog) plus a
+		// trailing "Browse..." item that falls back to a filesystem OpenFileDialog — see
+		// Model3DViewerForm.PopulateTextureBankSelector.
+		_textureBankSelector.Dock = DockStyle.Top;
+		_textureBankSelector.DropDownStyle = ComboBoxStyle.DropDownList;
+		_textureBankSelector.Location = new Point(0, 47);
+		_textureBankSelector.Name = "_textureBankSelector";
+		_textureBankSelector.Size = new Size(220, 23);
+		_textureBankSelector.TabIndex = 2;
+		_textureBankSelector.SelectedIndexChanged += OnTextureBankSelectionChanged;
+		//
+		// _paletteLabel
+		//
+		_paletteLabel.Dock = DockStyle.Top;
+		_paletteLabel.Location = new Point(0, 70);
+		_paletteLabel.Name = "_paletteLabel";
+		_paletteLabel.Padding = new Padding(6, 2, 6, 2);
+		_paletteLabel.Size = new Size(220, 20);
+		_paletteLabel.TabIndex = 3;
+		_paletteLabel.Text = "Palette (.DPL):";
+		//
+		// _texturePaletteSelector
+		//
+		// Same VOL-list-plus-Browse pattern as _textureBankSelector, for .dpl palettes — see
+		// Model3DViewerForm.PopulateTexturePaletteSelector.
+		_texturePaletteSelector.Dock = DockStyle.Top;
+		_texturePaletteSelector.DropDownStyle = ComboBoxStyle.DropDownList;
+		_texturePaletteSelector.Location = new Point(0, 90);
+		_texturePaletteSelector.Name = "_texturePaletteSelector";
+		_texturePaletteSelector.Size = new Size(220, 23);
+		_texturePaletteSelector.TabIndex = 4;
+		_texturePaletteSelector.SelectedIndexChanged += OnTexturePaletteSelectionChanged;
+		//
 		// _viewerControl
 		//
 		_viewerControl.Dock = DockStyle.Fill;
@@ -259,6 +336,8 @@ partial class Model3DViewerForm {
 		_menuStrip.ResumeLayout(false);
 		_menuStrip.PerformLayout();
 		_rootPanel.ResumeLayout(false);
+		_texturePanel.ResumeLayout(false);
+		_partNavPanel.ResumeLayout(false);
 		_statusStrip.ResumeLayout(false);
 		_statusStrip.PerformLayout();
 		ResumeLayout(false);
@@ -288,6 +367,12 @@ partial class Model3DViewerForm {
 	private Button _nextPartButton;
 	private Label _lodLabel;
 	private ComboBox _lodSelector;
+	private Panel _texturePanel;
+	private Label _textureLabel;
+	private Label _textureBankLabel;
+	private ComboBox _textureBankSelector;
+	private Label _paletteLabel;
+	private ComboBox _texturePaletteSelector;
 	private Model3DViewerControl _viewerControl;
 	private StatusStrip _statusStrip;
 	private ToolStripStatusLabel _statusLabel;

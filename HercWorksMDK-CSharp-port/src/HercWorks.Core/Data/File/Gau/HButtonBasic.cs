@@ -1,14 +1,14 @@
-using System.Drawing;
+using HercWorks.Core.Data.Struct;
 
 namespace HercWorks.Core.Data.File.Gau;
 
 /// <summary>Ported from org.hercworks.core.data.file.gau.HButtonBasic.</summary>
 public class HButtonBasic : WidgetBase {
-	public Point LabelOfs { get; set; }
+	public PixelPoint LabelOfs { get; set; }
 
 	public HButtonBasic() { }
 
-	public HButtonBasic(Point origin, Point labelOfs) {
+	public HButtonBasic(PixelPoint origin, PixelPoint labelOfs) {
 		Origin = origin;
 		LabelOfs = labelOfs;
 	}

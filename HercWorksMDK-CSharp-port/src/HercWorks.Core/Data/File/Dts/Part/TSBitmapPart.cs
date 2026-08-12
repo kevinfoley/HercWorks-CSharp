@@ -3,10 +3,18 @@ using System.Text;
 namespace HercWorks.Core.Data.File.Dts.Part;
 
 /// <summary>
-/// NOTES: ThreeSpace2 engine somehow already knows the target DBA to bind these to; it also
-/// knows to generate a basic textured quad which is the destination. TODO (carried over from
-/// Java): make sure this exports to a basic quad, but unsure how to find matching material.
-/// Ported from org.hercworks.core.data.file.dts.part.TSBitmapPart.
+/// BmpTag is a plain zero-based frame index into whichever DBA bitmap-array is currently bound
+/// to the owning TSShapeInstance at render time (confirmed via Ghidra RE of VSHELL.EXE's
+/// TSBitmapPart_Render/TSShapeInstance_Render). This mechanism is specific to TSBitmapPart — the
+/// unrelated TSTexture4Poly poly type does NOT work the same way (it has its own, more complex
+/// vtable render method feeding a real textured-polygon rasterizer — see TSSurfaceEntry.cs's doc
+/// comment). Which DBA file gets bound for a given .DTS model is NOT recorded anywhere in the
+/// .DTS/.DBA files themselves — it's an application-level decision made by the calling code, and
+/// per user domain knowledge is not one uniform naming rule (mech bodies mostly share a
+/// weight-class atlas — LIGHT.DBA/MEDIUM.DBA/HEAVY.DBA/ENEMY.DBA — except a "certain mechs use
+/// NEWHERCS.DBA instead" exception and the Apocalypse/Razor each having their own dedicated atlas).
+/// See HercWorksMDK-CSharp-port/docs/formats/dts-texture-binding.md for the full picture. OfsX/OfsY
+/// place the resulting textured quad. Ported from org.hercworks.core.data.file.dts.part.TSBitmapPart.
 /// </summary>
 public class TSBitmapPart : TSBasePart {
 	public short BmpTag { get; set; }

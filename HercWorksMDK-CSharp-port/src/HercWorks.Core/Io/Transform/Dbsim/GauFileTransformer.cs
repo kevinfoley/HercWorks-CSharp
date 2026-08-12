@@ -1,5 +1,5 @@
-using System.Drawing;
 using HercWorks.Core.Data.File.Gau;
+using HercWorks.Core.Data.Struct;
 using HercWorks.Vol;
 
 namespace HercWorks.Core.Io.Transform.Dbsim;
@@ -51,8 +51,8 @@ public class GauFileTransformer : ThreeSpaceByteTransformer {
 			RawBytes = inputArray,
 			Ext = FileType.Gau,
 
-			HudOrigin = new Point(IndexIntLE(), IndexIntLE()),
-			HudScreenSize = new Size(IndexIntLE(), IndexIntLE()),
+			HudOrigin = new PixelPoint(IndexIntLE(), IndexIntLE()),
+			HudScreenSize = new PixelSize(IndexIntLE(), IndexIntLE()),
 			WeaponListTotal = IndexIntLE(),
 		};
 
@@ -92,7 +92,7 @@ public class GauFileTransformer : ThreeSpaceByteTransformer {
 
 		gau.RemainderBeforeReticle = IndexSegment(RemainderBeforeReticleLength);
 
-		gau.Reticle = new HReticle { Origin = new Point(IndexIntLE(), IndexIntLE()) };
+		gau.Reticle = new HReticle { Origin = new PixelPoint(IndexIntLE(), IndexIntLE()) };
 
 		gau.Remainder = IndexSegment(inputArray.Length - Index);
 
@@ -107,8 +107,8 @@ public class GauFileTransformer : ThreeSpaceByteTransformer {
 		int y2 = IndexIntLE();
 
 		var widget = factory();
-		widget.Origin = new Point(x1, y1);
-		widget.Size = new Size(x2 - x1, y2 - y1);
+		widget.Origin = new PixelPoint(x1, y1);
+		widget.Size = new PixelSize(x2 - x1, y2 - y1);
 		return widget;
 	}
 
@@ -132,8 +132,8 @@ public class GauFileTransformer : ThreeSpaceByteTransformer {
 
 		int top = Math.Min(bounds[0], bounds[2]);
 		int bottom = Math.Max(bounds[0], bounds[2]);
-		display.Origin = new Point(bounds[1], top);
-		display.Size = new Size(bounds[3] - bounds[1], bottom - top);
+		display.Origin = new PixelPoint(bounds[1], top);
+		display.Size = new PixelSize(bounds[3] - bounds[1], bottom - top);
 
 		return display;
 	}
@@ -145,7 +145,7 @@ public class GauFileTransformer : ThreeSpaceByteTransformer {
 		var throttle = ReadRect(() => new HThrottle());
 
 		for (int i = 0; i < throttle.DetentPoints.Length; i++) {
-			throttle.DetentPoints[i] = new Point(IndexIntLE(), IndexIntLE());
+			throttle.DetentPoints[i] = new PixelPoint(IndexIntLE(), IndexIntLE());
 		}
 
 		return throttle;

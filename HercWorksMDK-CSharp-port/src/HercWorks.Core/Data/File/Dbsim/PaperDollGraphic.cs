@@ -1,5 +1,5 @@
+using HercWorks.Core.Data.Struct;
 using HercWorks.Vol;
-using System.Drawing;
 
 namespace HercWorks.Core.Data.File.Dbsim;
 
@@ -20,21 +20,21 @@ public class PaperDollGraphic : DataFile {
 	public HardpointEntry NewHardpointEntry() => new();
 
 	public class ViewEntry {
-		public Point Origin { get; set; }
-		public Point Size { get; set; }
+		public PixelPoint Origin { get; set; }
+		public PixelPoint Size { get; set; }
 		public ViewRegion[]? Regions { get; set; }
 	}
 
 	public class ViewRegion {
 		public int Index { get; set; }
-		public Point TopLeft { get; set; }
-		public Point BottomRight { get; set; }
+		public PixelPoint TopLeft { get; set; }
+		public PixelPoint BottomRight { get; set; }
 		public int Unk_val { get; set; }
 		public int Spacer { get; set; }
 	}
 
 	public class HardpointEntry {
-		public Point Origin { get; set; }
+		public PixelPoint Origin { get; set; }
 		public int Unk1 { get; set; }
 		public int Unk2 { get; set; }
 		public int Spacer { get; set; }

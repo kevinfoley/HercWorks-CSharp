@@ -1,6 +1,7 @@
 using System.Drawing;
 using System.Drawing.Imaging;
 using HercWorks.Core.Data.File.Dyn;
+using HercWorks.Core.Data.Struct;
 
 namespace HercWorks.UI;
 
@@ -8,10 +9,13 @@ namespace HercWorks.UI;
 /// Renders parsed Dynamix bitmap/palette data (from HercWorks.Core) into real
 /// System.Drawing.Bitmap images, for previewing and PNG export. Kept in the UI project rather
 /// than Core, since producing GDI+ bitmaps is a rendering concern, not a file-format concern —
-/// Core's ColorBytes already carries a System.Drawing.Color internally, but nothing in Core
-/// needs to draw one.
+/// Core's ColorBytes carries a cross-platform-safe <see cref="RgbaColor"/> internally (Core has
+/// no System.Drawing.Common dependency — see docs/engine/planning.md's "Known technical debt"
+/// section), converted to a real System.Drawing.Color here at the UI boundary, since this
+/// project (net8.0-windows, WinForms) is free to use GDI+ directly.
 /// </summary>
 public static class DynamixImageRenderer {
+	private static Color ToGdiColor(RgbaColor c) => Color.FromArgb(c.A, c.R, c.G, c.B);
 	/// <summary>
 	/// Renders a single DynamixBitmap frame using the given palette's colors (indexed color —
 	/// each ImageData byte is a palette index). Without a palette, falls back to treating each
@@ -33,7 +37,7 @@ public static class DynamixImageRenderer {
 			byte index = imageData[i];
 
 			Color color = palette != null && palette.Colors.TryGetValue(index, out var colorBytes)
-				? colorBytes.GetColor()
+				? ToGdiColor(colorBytes.GetColor())
 				: Color.FromArgb(255, index, index, index);
 
 			bitmap.SetPixel(x, y, color);
@@ -58,7 +62,7 @@ public static class DynamixImageRenderer {
 			int col = index % columns;
 			int row = index / columns;
 
-			using var brush = new SolidBrush(colorBytes.GetColor());
+			using var brush = new SolidBrush(ToGdiColor(colorBytes.GetColor()));
 			g.FillRectangle(brush, col * swatchSize, row * swatchSize, swatchSize, swatchSize);
 		}
 

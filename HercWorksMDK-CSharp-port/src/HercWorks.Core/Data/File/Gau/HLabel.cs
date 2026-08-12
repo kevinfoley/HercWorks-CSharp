@@ -1,4 +1,4 @@
-using System.Drawing;
+using HercWorks.Core.Data.Struct;
 
 namespace HercWorks.Core.Data.File.Gau;
 
@@ -6,7 +6,7 @@ namespace HercWorks.Core.Data.File.Gau;
 public class HLabel : WidgetBase {
 	public HLabel() { }
 
-	public HLabel(Point origin, Size size) {
+	public HLabel(PixelPoint origin, PixelSize size) {
 		Origin = origin;
 		Size = size;
 	}

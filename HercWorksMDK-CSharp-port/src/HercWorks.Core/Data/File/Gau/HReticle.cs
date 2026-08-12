@@ -1,5 +1,3 @@
-using System.Drawing;
-
 namespace HercWorks.Core.Data.File.Gau;
 
 /// <summary>

@@ -1,4 +1,6 @@
+using HercWorks.Core.Data.File.Dat.Sim;
 using HercWorks.Core.Data.File.Dyn;
+using HercWorks.Core.Io.Transform.Common;
 using HercWorks.Core.Io.Transform.Dbsim;
 using HercWorks.Vol;
 
@@ -7,18 +9,45 @@ namespace HercWorks.UI;
 /// <summary>
 /// Viewer for .DTS 3D models (mechs, terrain props, etc.) — orbit camera over a flat/solid-shaded
 /// software-rendered mesh (see Model3DViewerControl for the rasterizer and DtsGeometryBuilder for
-/// how DTS's chunk tree becomes triangles). Textured polys render with a placeholder color since
-/// DTS texture binding was never reverse-engineered (see DtsGeometryBuilder's doc comment).
-/// Follows the same designer-split, Open-dialog-with-VolEntryPrefixCodec pattern as ImageExportForm.
+/// how DTS's chunk tree becomes triangles). Textured (TSTexture4Poly) polys resolve to a real DBA
+/// frame and render UV-mapped once a texture bank is loaded via "Load Texture Bank" below (frame
+/// resolution confirmed via Ghidra RE of VSHELL.EXE — see docs/formats/dts-texture-binding.md's
+/// 2026-08-11 settlement of the front/back stride question); without one loaded, they still fall
+/// back to the original fixed placeholder color. The UV-corner mapping onto each poly's vertices is
+/// a labeled approximation (see DtsGeometryBuilder's doc comment), not an independently confirmed
+/// reproduction of the exe's own rasterizer math. TSBitmapPart geometry is still not built at all.
+///
+/// Per user domain knowledge (2026-08-11, not derivable from the .DTS/.DBA files themselves — see
+/// that doc): the real in-game mech-body texture source isn't one uniform file-per-mech rule. Most
+/// mechs share a weight-class atlas (simvol0/dba/LIGHT.DBA, MEDIUM.DBA, or HEAVY.DBA, plus a
+/// separate ENEMY.DBA variant), but "certain mechs" use NEWHERCS.DBA instead, and the Apocalypse/
+/// Razor each have their own dedicated atlas (APOCATEX.DBA/RAZORTEX.DBA). Same-basename DBAs like
+/// SAMSON.DBA/OUTLAW.DBA are a red herring — those are 2D UI graphics used in damage readouts, not
+/// 3D mesh textures. Follows the same designer-split, Open-dialog-with-VolEntryPrefixCodec pattern
+/// as ImageExportForm.
 /// </summary>
 public partial class Model3DViewerForm : Form {
 	private readonly DTSModelTransformer _dtsTransformer = new();
+	private readonly DynamixBitmapArrayTransformer _dbaTransformer = new();
+	private readonly DynamixPaletteTransformer _dplTransformer = new();
+	private readonly HercSimDataTransformer _hercSimDataTransformer = new();
 
 	// Kept around (rather than discarded after the initial Build()) so the Detail Level combo can
 	// re-walk a single root's own tree on demand — see RefreshDetailLevelSelector/
 	// OnDetailLevelSelectionChanged.
 	private DynamixThreeSpaceModel? _currentModel;
 	private string? _loadedDisplayName;
+
+	// Set by LoadFromVolEntry, cleared by the loose-file OnOpenDts path — lets the texture
+	// bank/palette selectors list that VOL's own entries directly instead of only offering a
+	// filesystem "Browse..." item, since most real usage is browsing an already-loaded VOL, not
+	// separately-extracted loose files.
+	private Voln? _sourceVol;
+
+	private DynamixBitmapArray? _loadedTextureBank;
+	private DynamixPalette? _loadedPalette;
+	private string? _loadedTextureBankName;
+	private string? _loadedPaletteName;
 
 	public Model3DViewerForm() {
 		InitializeComponent();
@@ -81,6 +110,9 @@ public partial class Model3DViewerForm : Form {
 				return;
 			}
 
+			// Loose file, not from a loaded VOL — Load Texture Bank/Palette fall back to their own
+			// OpenFileDialog rather than offering a (nonexistent) VOL-folder dropdown.
+			_sourceVol = null;
 			ApplyModel(model, Path.GetFileName(dialog.FileName));
 		} catch (Exception ex) {
 			MessageBox.Show(this, $"Failed to load DTS file:\n{ex.Message}", "Error",
@@ -92,9 +124,10 @@ public partial class Model3DViewerForm : Form {
 	/// Loads a DTS model still packed inside a loaded VOL — e.g. from MainForm's "View Asset"
 	/// button. Unlike the loose-file OpenFileDialog path above, VolEntry.RawBytes is already clean
 	/// content (VolFileReader strips the 9-byte per-entry prefix at parse time), so no
-	/// VolEntryPrefixCodec step is needed here.
+	/// VolEntryPrefixCodec step is needed here. sourceVol is kept so Load Texture Bank/Load Palette
+	/// can offer a dropdown of that VOL's own .dba/.dpl entries instead of only a filesystem picker.
 	/// </summary>
-	public void LoadFromVolEntry(VolEntry entry) {
+	public void LoadFromVolEntry(VolEntry entry, Voln sourceVol) {
 		try {
 			var model = (DynamixThreeSpaceModel?)_dtsTransformer.BytesToObject(entry.RawBytes);
 			if (model == null) {
@@ -103,6 +136,7 @@ public partial class Model3DViewerForm : Form {
 				return;
 			}
 
+			_sourceVol = sourceVol;
 			ApplyModel(model, entry.FileName ?? "(DTS asset)");
 		} catch (Exception ex) {
 			MessageBox.Show(this, $"Failed to load DTS file:\n{ex.Message}", "Error",
@@ -110,13 +144,331 @@ public partial class Model3DViewerForm : Form {
 		}
 	}
 
+	private static readonly Guid OpenTextureBankClientGuid = new("2c9a2e9f-4b1a-4b6a-9e3a-6f6e0a2e6a1d");
+	private static readonly Guid OpenTexturePaletteClientGuid = new("7d4e8c2a-1f9b-4a3d-8c7e-2b5f9d1e4a6c");
+
+	/// <summary>Trailing entry in both selectors — picking it opens a filesystem OpenFileDialog.</summary>
+	private const string BrowseSelectorItemText = "Browse...";
+
+	// Mirror of each selector's non-Browse items, in display order, so a SelectedIndex maps back
+	// to the VolEntry it came from.
+	private List<VolEntry> _textureBankCandidates = new();
+	private List<VolEntry> _paletteCandidates = new();
+
+	/// <summary>
+	/// Lists every .dba entry actually in the loaded VOL (when there is one) directly in the
+	/// combo box — picking an entry loads it immediately. Previously this button opened
+	/// VolEntryPickerForm, a modal dialog that was itself just a dropdown + OK button; putting the
+	/// same dropdown straight on the panel removes that pointless extra step. "Browse..." is
+	/// always the last item and falls back to a filesystem OpenFileDialog, covering both the
+	/// no-source-VOL case (a loose .dts opened via File > Open DTS) and picking a texture bank
+	/// from outside the loaded VOL entirely.
+	/// </summary>
+	private void PopulateTextureBankSelector() {
+		_textureBankSelector.SelectedIndexChanged -= OnTextureBankSelectionChanged;
+		_textureBankSelector.Items.Clear();
+
+		_textureBankCandidates = _sourceVol != null
+			? FindVolEntries(_sourceVol, FileType.Dba).OrderBy(e => e.FileName, StringComparer.OrdinalIgnoreCase).ToList()
+			: new List<VolEntry>();
+
+		foreach (var entry in _textureBankCandidates) {
+			_textureBankSelector.Items.Add(entry.FileName ?? "(unnamed)");
+		}
+		_textureBankSelector.Items.Add(BrowseSelectorItemText);
+
+		_textureBankSelector.SelectedIndexChanged += OnTextureBankSelectionChanged;
+	}
+
+	/// <summary>Same idea as PopulateTextureBankSelector, for .dpl palettes.</summary>
+	private void PopulateTexturePaletteSelector() {
+		_texturePaletteSelector.SelectedIndexChanged -= OnTexturePaletteSelectionChanged;
+		_texturePaletteSelector.Items.Clear();
+
+		_paletteCandidates = _sourceVol != null
+			? FindVolEntries(_sourceVol, FileType.Dpl).OrderBy(e => e.FileName, StringComparer.OrdinalIgnoreCase).ToList()
+			: new List<VolEntry>();
+
+		foreach (var entry in _paletteCandidates) {
+			_texturePaletteSelector.Items.Add(entry.FileName ?? "(unnamed)");
+		}
+		_texturePaletteSelector.Items.Add(BrowseSelectorItemText);
+
+		_texturePaletteSelector.SelectedIndexChanged += OnTexturePaletteSelectionChanged;
+	}
+
+	/// <summary>
+	/// Reflects _loadedTextureBankName/_loadedPaletteName back onto the selectors after a load —
+	/// picking a named VOL entry lands on that same entry (an idempotent no-op, since it's already
+	/// selected), while "Browse..." resolves to whichever candidate (if any) matches the loaded
+	/// file's name, or blank otherwise, instead of staying stuck showing "Browse...".
+	/// </summary>
+	private void SyncTextureSelectorsToLoadedState() {
+		SelectMatchingItem(_textureBankSelector, _textureBankCandidates, _loadedTextureBankName, OnTextureBankSelectionChanged);
+		SelectMatchingItem(_texturePaletteSelector, _paletteCandidates, _loadedPaletteName, OnTexturePaletteSelectionChanged);
+	}
+
+	private static void SelectMatchingItem(ComboBox combo, List<VolEntry> candidates, string? loadedName, EventHandler handler) {
+		int index = loadedName != null
+			? candidates.FindIndex(c => string.Equals(c.FileName, loadedName, StringComparison.OrdinalIgnoreCase))
+			: -1;
+
+		combo.SelectedIndexChanged -= handler;
+		combo.SelectedIndex = index;
+		combo.SelectedIndexChanged += handler;
+	}
+
+	private void OnTextureBankSelectionChanged(object? sender, EventArgs e) {
+		int index = _textureBankSelector.SelectedIndex;
+		if (index < 0) {
+			return;
+		}
+
+		if (index == _textureBankCandidates.Count) {
+			BrowseForTextureBank();
+		} else {
+			LoadTextureBank(_textureBankCandidates[index].RawBytes, _textureBankCandidates[index].FileName);
+		}
+
+		SyncTextureSelectorsToLoadedState();
+	}
+
+	private void OnTexturePaletteSelectionChanged(object? sender, EventArgs e) {
+		int index = _texturePaletteSelector.SelectedIndex;
+		if (index < 0) {
+			return;
+		}
+
+		if (index == _paletteCandidates.Count) {
+			BrowseForPalette();
+		} else {
+			LoadPalette(_paletteCandidates[index].RawBytes, _paletteCandidates[index].FileName);
+		}
+
+		SyncTextureSelectorsToLoadedState();
+	}
+
+	private void BrowseForTextureBank() {
+		using var dialog = new OpenFileDialog {
+			Filter = "Dynamix Bitmap Array files (*.dba)|*.dba|All files (*.*)|*.*",
+			Title = "Open DBA texture bank",
+			ClientGuid = OpenTextureBankClientGuid
+		};
+
+		if (dialog.ShowDialog(this) != DialogResult.OK) {
+			return;
+		}
+
+		byte[] rawBytes = VolEntryPrefixCodec.StripIfPresent(File.ReadAllBytes(dialog.FileName)).Content;
+		LoadTextureBank(rawBytes, Path.GetFileName(dialog.FileName));
+	}
+
+	private void BrowseForPalette() {
+		using var dialog = new OpenFileDialog {
+			Filter = "Dynamix palette files (*.dpl)|*.dpl|All files (*.*)|*.*",
+			Title = "Open DPL palette file",
+			ClientGuid = OpenTexturePaletteClientGuid
+		};
+
+		if (dialog.ShowDialog(this) != DialogResult.OK) {
+			return;
+		}
+
+		byte[] rawBytes = VolEntryPrefixCodec.StripIfPresent(File.ReadAllBytes(dialog.FileName)).Content;
+		LoadPalette(rawBytes, Path.GetFileName(dialog.FileName));
+	}
+
+	/// <summary>Triggers RebuildTexturedRoots on success so the newly picked bank actually shows up in the render.</summary>
+	private void LoadTextureBank(byte[]? rawBytes, string? label) {
+		if (rawBytes is not { Length: > 0 }) {
+			return;
+		}
+
+		try {
+			var bank = (DynamixBitmapArray?)_dbaTransformer.BytesToObject(rawBytes);
+			if (bank?.Images is not { Length: > 0 }) {
+				MessageBox.Show(this, "File was empty or could not be parsed as a DBA.", "Error",
+					MessageBoxButtons.OK, MessageBoxIcon.Error);
+				return;
+			}
+
+			_loadedTextureBank = bank;
+			_loadedTextureBankName = label;
+			RebuildTexturedRoots();
+		} catch (Exception ex) {
+			MessageBox.Show(this, $"Failed to load DBA file:\n{ex.Message}", "Error",
+				MessageBoxButtons.OK, MessageBoxIcon.Error);
+		}
+	}
+
+	private void LoadPalette(byte[]? rawBytes, string? label) {
+		if (rawBytes is not { Length: > 0 }) {
+			return;
+		}
+
+		try {
+			var palette = (DynamixPalette?)_dplTransformer.BytesToObject(rawBytes);
+			if (palette == null) {
+				MessageBox.Show(this, "File was empty or could not be parsed as a DPL.", "Error",
+					MessageBoxButtons.OK, MessageBoxIcon.Error);
+				return;
+			}
+
+			_loadedPalette = palette;
+			_loadedPaletteName = label;
+			RebuildTexturedRoots();
+		} catch (Exception ex) {
+			MessageBox.Show(this, $"Failed to load palette:\n{ex.Message}", "Error",
+				MessageBoxButtons.OK, MessageBoxIcon.Error);
+		}
+	}
+
+	private static List<VolEntry> FindVolEntries(Voln vol, FileType ext) {
+		var result = new List<VolEntry>();
+		foreach (var folder in vol.Folders.Values) {
+			foreach (var entry in folder.Files) {
+				if (entry.Ext == ext && entry.RawBytes is { Length: > 0 }) {
+					result.Add(entry);
+				}
+			}
+		}
+		return result;
+	}
+
+	/// <summary>
+	/// Mech textures in simvol0/dba share a handful of generic simvol0/dpl palettes (WORLD0-9 — see
+	/// TextureViewerForm's doc comment), none named after the mech itself, so there's no reliable
+	/// per-model auto-match the way there is for some other asset types. WORLD0 is a reasonable
+	/// good-enough default so the viewer shows *something* textured without forcing a manual Load
+	/// Palette click first — Load Palette remains available to override.
+	/// </summary>
+	private const string DefaultPaletteBaseName = "WORLD0";
+
 	private void ApplyModel(DynamixThreeSpaceModel model, string displayName) {
 		_currentModel = model;
 		_loadedDisplayName = displayName;
 
-		var roots = DtsGeometryBuilder.Build(model);
+		if (_loadedTextureBank == null) {
+			TryLoadDefaultTextureBank();
+		}
+		if (_loadedPalette == null) {
+			TryLoadDefaultPalette();
+		}
+
+		var roots = DtsGeometryBuilder.Build(model, _loadedTextureBank, _loadedPalette);
 		_viewerControl.LoadMeshes(roots);
 		PopulatePartSelector(roots);
+
+		PopulateTextureBankSelector();
+		PopulateTexturePaletteSelector();
+		SyncTextureSelectorsToLoadedState();
+	}
+
+	/// <summary>
+	/// Silent best-effort default (see DefaultPaletteBaseName) — only runs for VOL-sourced loads,
+	/// since there's no VOL to search for a loose .dts opened via File > Open DTS. Any failure
+	/// (missing entry, bad bytes) just leaves _loadedPalette null, same as before this existed; only
+	/// an explicit Load Palette click surfaces a real error dialog.
+	/// </summary>
+	private void TryLoadDefaultPalette() {
+		if (_sourceVol == null) {
+			return;
+		}
+
+		var candidate = FindVolEntries(_sourceVol, FileType.Dpl).FirstOrDefault(e =>
+			string.Equals(Path.GetFileNameWithoutExtension(e.FileName ?? ""), DefaultPaletteBaseName,
+				StringComparison.OrdinalIgnoreCase));
+		if (candidate?.RawBytes is not { Length: > 0 } rawBytes) {
+			return;
+		}
+
+		try {
+			_loadedPalette = (DynamixPalette?)_dplTransformer.BytesToObject(rawBytes);
+			_loadedPaletteName = _loadedPalette != null ? candidate.FileName : null;
+		} catch {
+			// Best-effort default — swallow and leave _loadedPalette null.
+		}
+	}
+
+	/// <summary>
+	/// Auto-selects the correct DBA texture bank for a mech model, instead of requiring a manual
+	/// "Load Texture Bank" click — the exe itself resolves this per mech type (see
+	/// HercSimDat.ModelSkinId's doc comment for the confirming Ghidra RE). Looks for a same-basename
+	/// simvol0/dat/&lt;mech&gt;.DAT alongside the loaded .dts in the same VOL, reads its ModelSkinId,
+	/// and maps that to one of the 7 shared atlas DBAs (light/medium/heavy/enemy/apocatex/razortex/
+	/// newhercs). Silent best-effort, same convention as TryLoadDefaultPalette: only runs for
+	/// VOL-sourced loads, and any failure (no matching .DAT, unmapped ModelSkinId, missing .DBA)
+	/// just leaves _loadedTextureBank null so the model still renders with the flat placeholder
+	/// color — Load Texture Bank remains available as a manual override or fallback.
+	/// </summary>
+	private void TryLoadDefaultTextureBank() {
+		if (_sourceVol == null || _loadedDisplayName == null) {
+			return;
+		}
+
+		string mechBaseName = Path.GetFileNameWithoutExtension(_loadedDisplayName);
+		var datEntry = FindVolEntries(_sourceVol, FileType.Dat).FirstOrDefault(e =>
+			string.Equals(Path.GetFileNameWithoutExtension(e.FileName ?? ""), mechBaseName,
+				StringComparison.OrdinalIgnoreCase));
+		if (datEntry?.RawBytes is not { Length: > 0 } datBytes) {
+			return;
+		}
+
+		string? groupName;
+		try {
+			if (_hercSimDataTransformer.BytesToObject(datBytes) is not HercSimDat simData) {
+				return;
+			}
+			groupName = HercSimDat.TextureGroupDbaBaseName(simData.ModelSkinId);
+		} catch {
+			return;
+		}
+		if (groupName == null) {
+			return;
+		}
+
+		var dbaEntry = FindVolEntries(_sourceVol, FileType.Dba).FirstOrDefault(e =>
+			string.Equals(Path.GetFileNameWithoutExtension(e.FileName ?? ""), groupName,
+				StringComparison.OrdinalIgnoreCase));
+		if (dbaEntry?.RawBytes is not { Length: > 0 } dbaBytes) {
+			return;
+		}
+
+		try {
+			var bank = (DynamixBitmapArray?)_dbaTransformer.BytesToObject(dbaBytes);
+			if (bank?.Images is not { Length: > 0 }) {
+				return;
+			}
+			_loadedTextureBank = bank;
+			_loadedTextureBankName = dbaEntry.FileName;
+		} catch {
+			// Best-effort default — swallow and leave _loadedTextureBank null.
+		}
+	}
+
+	/// <summary>
+	/// Re-resolves every currently-loaded root's geometry against the current texture bank/palette
+	/// — called after Load Texture Bank/Load Palette so a newly-picked DBA actually shows up,
+	/// without resetting the camera or losing the current Part/Detail Level selection (ReplaceRoot
+	/// preserves both). Each root keeps its own already-chosen detail level except the currently
+	/// selected one, which re-reads it from the Detail Level combo in case the user has one picked.
+	/// </summary>
+	private void RebuildTexturedRoots() {
+		if (_currentModel?.Meshes is not { } meshes) {
+			return;
+		}
+
+		int selectedPart = _partSelector.SelectedIndex;
+		int? selectedLod = _lodSelector.Visible && _lodSelector.SelectedIndex >= 0 ? _lodSelector.SelectedIndex : null;
+
+		for (int i = 0; i < meshes.Count && i < _viewerControl.Roots.Count; i++) {
+			int? lodIndex = i == selectedPart ? selectedLod : null;
+			string label = _viewerControl.Roots[i].Mesh.Label;
+			var rebuilt = DtsGeometryBuilder.BuildRoot(meshes[i], label, lodIndex, _loadedTextureBank, _loadedPalette);
+			_viewerControl.ReplaceRoot(i, rebuilt);
+		}
+
+		UpdateStatusForCurrentSelection();
 	}
 
 	/// <summary>
@@ -253,7 +605,7 @@ public partial class Model3DViewerForm : Form {
 			return;
 		}
 
-		var rebuilt = DtsGeometryBuilder.BuildRoot(meshes[partIndex], $"Part {partIndex}", lodIndex);
+		var rebuilt = DtsGeometryBuilder.BuildRoot(meshes[partIndex], $"Part {partIndex}", lodIndex, _loadedTextureBank, _loadedPalette);
 		_viewerControl.ReplaceRoot(partIndex, rebuilt);
 		UpdateStatusForCurrentSelection();
 	}
@@ -269,7 +621,13 @@ public partial class Model3DViewerForm : Form {
 		string lodNote = _lodSelector.Visible && _lodSelector.SelectedIndex >= 0
 			? $", detail level {_lodSelector.SelectedIndex} of {_lodSelector.Items.Count}"
 			: "";
+		string paletteNote = _loadedPaletteName != null ? $", palette {_loadedPaletteName}" : ", no palette";
+		string textureNote = _loadedTextureBankName != null
+			? $" — texture bank loaded: {_loadedTextureBankName} ({_loadedTextureBank?.Images?.Length ?? 0} frames" +
+			  $"{paletteNote}), applied to TSTexture4Poly faces " +
+			  "(TSBitmapPart geometry is still not built — see class doc comment)."
+			: "";
 		_statusLabel.Text =
-			$"Loaded {_loadedDisplayName} — part {partIndex} of {_viewerControl.Roots.Count}{lodNote}, {triangleCount} triangle(s).";
+			$"Loaded {_loadedDisplayName} — part {partIndex} of {_viewerControl.Roots.Count}{lodNote}, {triangleCount} triangle(s).{textureNote}";
 	}
 }

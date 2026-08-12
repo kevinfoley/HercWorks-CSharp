@@ -1,15 +1,15 @@
-using System.Drawing;
+using HercWorks.Core.Data.Struct;
 using System.Text;
 
 namespace HercWorks.Core.Data.File.Gau;
 
 /// <summary>Ported from org.hercworks.core.data.file.gau.HPanel.</summary>
 public class HPanel : WidgetBase {
-	public Point PanelOffset { get; set; }
+	public PixelPoint PanelOffset { get; set; }
 
 	public HPanel() { }
 
-	public HPanel(Point org, Size size, Point ofs) {
+	public HPanel(PixelPoint org, PixelSize size, PixelPoint ofs) {
 		Origin = org;
 		Size = size;
 		PanelOffset = ofs;

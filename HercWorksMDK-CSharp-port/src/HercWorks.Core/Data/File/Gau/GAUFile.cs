@@ -1,4 +1,4 @@
-using System.Drawing;
+using HercWorks.Core.Data.Struct;
 using HercWorks.Vol;
 
 namespace HercWorks.Core.Data.File.Gau;
@@ -136,8 +136,8 @@ namespace HercWorks.Core.Data.File.Gau;
 /// and written back verbatim rather than needing to be understood.
 /// </summary>
 public class GAUFile : DataFile {
-	public Point HudOrigin { get; set; }
-	public Size HudScreenSize { get; set; }
+	public PixelPoint HudOrigin { get; set; }
+	public PixelSize HudScreenSize { get; set; }
 
 	public int WeaponListTotal { get; set; }
 	public HWeaponPanelItem[]? Weapons { get; set; }

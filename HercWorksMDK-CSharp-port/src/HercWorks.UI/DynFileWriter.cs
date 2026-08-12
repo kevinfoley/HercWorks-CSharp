@@ -1,15 +1,24 @@
 using HercWorks.Core.Data.File.Dyn;
+using HercWorks.Core.Data.Struct;
 using HercWorks.Core.Io.Transform.Common;
 using System.Drawing;
 using System.Drawing.Imaging;
 
-namespace HercWorks.Core.Io.Write;
+namespace HercWorks.UI;
 
 /// <summary>
-/// Ported from org.hercworks.core.io.write.DynFileWriter. Java's BufferedImage/ImageIO maps to
-/// System.Drawing.Bitmap here (requires the System.Drawing.Common package, already referenced).
+/// Ported from org.hercworks.core.io.write.DynFileWriter. Lives in HercWorks.UI rather than
+/// HercWorks.Core: it dumps parsed .DBM data to real .png/.bmp files on disk for a human to look
+/// at, which is an MDK export feature the future engine port will never call — the engine
+/// consumes DynamixBitmap/DynamixPalette data directly, not files written back to disk. Core's
+/// ColorBytes carries a cross-platform-safe RgbaColor internally (see docs/engine/planning.md's
+/// "Known technical debt" section), converted to a real System.Drawing.Color here at the UI
+/// boundary, since this project (net8.0-windows, WinForms) is free to use GDI+ directly — same
+/// pattern as DynamixImageRenderer.cs.
 /// </summary>
 public static class DynFileWriter {
+	private static Color ToGdiColor(RgbaColor c) => Color.FromArgb(c.A, c.R, c.G, c.B);
+
 	public static void WriteDBMToFile(DynamixBitmap dbm, bool index0Alpha, DynamixPalette palette, string filePath) {
 		string file = filePath + dbm.FileName + ".png";
 
@@ -26,11 +35,11 @@ public static class DynFileWriter {
 				int idx = dbm.ImageData[cell] & 0xFF;
 
 				try {
-					Color pixel = index0Alpha && idx == 0
+					RgbaColor pixel = index0Alpha && idx == 0
 						? palette.Index0AlphaKey.GetColor()
 						: palette.ColorAt(idx).GetColor();
 
-					imageOut.SetPixel(c, r, pixel);
+					imageOut.SetPixel(c, r, ToGdiColor(pixel));
 				} catch (KeyNotFoundException) {
 					Console.WriteLine($"PIXEL({c},{r})={(byte)idx}~MISSING");
 				} catch (Exception e) {

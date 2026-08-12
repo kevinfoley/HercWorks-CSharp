@@ -1,4 +1,4 @@
-using System.Drawing;
+using HercWorks.Core.Data.Struct;
 
 namespace HercWorks.Core.Data.File.Gau;
 
@@ -24,5 +24,5 @@ namespace HercWorks.Core.Data.File.Gau;
 /// different sprite-anchor conventions for different detent types).
 /// </summary>
 public class HThrottle : WidgetBase {
-	public Point[] DetentPoints { get; set; } = new Point[4];
+	public PixelPoint[] DetentPoints { get; set; } = new PixelPoint[4];
 }

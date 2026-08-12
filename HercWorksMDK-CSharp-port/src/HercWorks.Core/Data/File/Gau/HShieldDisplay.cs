@@ -1,4 +1,4 @@
-using System.Drawing;
+using HercWorks.Core.Data.Struct;
 
 namespace HercWorks.Core.Data.File.Gau;
 
@@ -38,17 +38,17 @@ public class HShieldDisplay : WidgetBase {
 	public int[] BoundsRaw { get; set; } = new int[4];
 	public int[] FillRaw { get; set; } = new int[4];
 
-	public Point DividerOrigin => SlotOrigin(DividerRaw);
-	public Size DividerSize => SlotSize(DividerRaw);
-	public Point FillOrigin => SlotOrigin(FillRaw);
-	public Size FillSize => SlotSize(FillRaw);
+	public PixelPoint DividerOrigin => SlotOrigin(DividerRaw);
+	public PixelSize DividerSize => SlotSize(DividerRaw);
+	public PixelPoint FillOrigin => SlotOrigin(FillRaw);
+	public PixelSize FillSize => SlotSize(FillRaw);
 
-	private static Point SlotOrigin(int[] raw) => new(raw[1], Math.Min(raw[0], raw[2]));
+	private static PixelPoint SlotOrigin(int[] raw) => new(raw[1], Math.Min(raw[0], raw[2]));
 
-	private static Size SlotSize(int[] raw) {
+	private static PixelSize SlotSize(int[] raw) {
 		int top = Math.Min(raw[0], raw[2]);
 		int bottom = Math.Max(raw[0], raw[2]);
-		return new Size(raw[3] - raw[1], bottom - top);
+		return new PixelSize(raw[3] - raw[1], bottom - top);
 	}
 
 	public override string ToString() {

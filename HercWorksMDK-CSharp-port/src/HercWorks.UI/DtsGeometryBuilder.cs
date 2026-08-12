@@ -1,5 +1,7 @@
 using System.Drawing;
+using System.Drawing.Imaging;
 using System.Numerics;
+using System.Runtime.InteropServices;
 using HercWorks.Core.Data.File.Dts;
 using HercWorks.Core.Data.File.Dts.Anim;
 using HercWorks.Core.Data.File.Dts.Bsp;
@@ -9,18 +11,54 @@ using HercWorks.Core.Data.File.Dyn;
 
 namespace HercWorks.UI;
 
-/// <summary>A single triangle in world space, already colored — ready for the rasterizer.</summary>
+/// <summary>
+/// A single decoded DBA frame's pixels, pre-unpacked to ARGB for fast per-pixel sampling in the
+/// rasterizer (avoids GDI+ GetPixel calls in the hot path).
+/// </summary>
+public readonly struct DtsTexture {
+	public int[] Pixels { get; }
+	public int Width { get; }
+	public int Height { get; }
+
+	public DtsTexture(int[] pixels, int width, int height) {
+		Pixels = pixels;
+		Width = width;
+		Height = height;
+	}
+}
+
+/// <summary>
+/// A single triangle in world space — either flat-colored, or textured (Texture != null) with a
+/// per-vertex UV in [0,1] to be perspective-correct-interpolated by the rasterizer.
+/// </summary>
 public readonly struct DtsTriangle {
 	public Vector3 A { get; }
 	public Vector3 B { get; }
 	public Vector3 C { get; }
 	public Color Color { get; }
+	public DtsTexture? Texture { get; }
+	public Vector2 UvA { get; }
+	public Vector2 UvB { get; }
+	public Vector2 UvC { get; }
 
 	public DtsTriangle(Vector3 a, Vector3 b, Vector3 c, Color color) {
 		A = a;
 		B = b;
 		C = c;
 		Color = color;
+		Texture = null;
+		UvA = UvB = UvC = default;
+	}
+
+	public DtsTriangle(Vector3 a, Vector3 b, Vector3 c, DtsTexture texture, Vector2 uvA, Vector2 uvB, Vector2 uvC) {
+		A = a;
+		B = b;
+		C = c;
+		Color = Color.White;
+		Texture = texture;
+		UvA = uvA;
+		UvB = uvB;
+		UvC = uvC;
 	}
 }
 
@@ -40,11 +78,37 @@ public sealed class DtsRootMesh {
 /// rather than HercWorks.Core — same reasoning as DynamixImageRenderer: turning parsed file data
 /// into renderer-ready floats/colors is a rendering concern, not a file-format concern.
 ///
-/// DTS texture binding was never resolved (see TSBitmapPart's and TSSurfaceEntry's doc comments
-/// in HercWorks.Core) — TSTexture4Poly polys render with a fixed placeholder color instead of an
-/// actual texture. Multi-part placement uses the translation-only transform chain verified against
-/// the independent convert_dts.py reference (rotation is left unapplied there too, since that
-/// script's own comments call it "untested/probably wrong").
+/// TSTexture4Poly texture-frame resolution (2026-08-11 follow-up, settling
+/// docs/formats/dts-texture-binding.md's front/back stride question): ColorIndexId is stored on
+/// disk as surfaceIndex*4 (confirmed two independent ways — fresh VSHELL.EXE disassembly of
+/// TSTexture4Poly_Render, and DTSModelTransformer.cs's own colorCount/4 read convention, unrelated
+/// to the exe RE). Frame = group.Surfaces[ColorIndexId/4].FrontColor — this is the same frame index
+/// value both of TSTexture4Poly_Render's internal code paths agree on (see that doc's "UV-generation
+/// formula" section for why there even are two paths); Images[frame] is the natural C#-side target
+/// regardless of which internal path the exe takes to get there.
+///
+/// UV-corner mapping (2026-08-11 second follow-up, RE-confirmed): decoding TSTexture4Poly_Render's
+/// real scanline-rasterizer path (previously misidentified — an earlier pass thought a DIFFERENT,
+/// non-texturing fallback branch was "the normal case") found the exe assigns UV corners to a
+/// poly's 4 vertices as (left,top)/(right,top)/(right,bottom)/(left,bottom) in vertex order — i.e.
+/// exactly the (0,0)/(1,0)/(1,1)/(0,1) topology already used here, now confirmed correct in *order*
+/// rather than just assumed. The one remaining unconfirmed piece: this assumes each DBA frame is its
+/// own independently-cropped image (matching how Images[] is already parsed, each with its own
+/// Cols/Rows) rather than a shared-atlas sub-rect with a nonzero top-left offset — the exe's
+/// descriptor-table builder that would settle that with certainty wasn't traced (see that doc's open
+/// follow-ups).
+///
+/// The engine's real front/back visibility test (picking BackColor for back-facing views) is not
+/// implemented — this renderer never backface-culls (see Model3DViewerControl's doc comment), so a
+/// poly's texture is always resolved once via FrontColor regardless of view angle. Without a texture
+/// bank loaded, TSTexture4Poly still falls back to the original fixed placeholder color rather than
+/// silently guessing. TSBitmapPart geometry is still not built at all (billboard quads need
+/// per-frame camera-facing geometry, a bigger architecture change than this pass — see that doc,
+/// mechanism is fully confirmed and simple whenever that's tackled).
+///
+/// Multi-part placement uses the translation-only transform chain verified against the independent
+/// convert_dts.py reference (rotation is left unapplied there too, since that script's own comments
+/// call it "untested/probably wrong").
 ///
 /// Each entry in DynamixThreeSpaceModel.Meshes (one DtsRootMesh here) is a fully independent
 /// top-level object — confirmed against convert_dts.py's own export loop, which treats every
@@ -67,16 +131,75 @@ public static class DtsGeometryBuilder {
 	private const int MaxTransformChainSteps = 64;
 	private static readonly Color TextureFallbackColor = Color.FromArgb(255, 120, 150, 190);
 
-	public static List<DtsRootMesh> Build(DynamixThreeSpaceModel model) {
+	// Vertex-order UV corners for a TSTexture4Poly quad — RE-confirmed order (top-left/top-right/
+	// bottom-right/bottom-left), see class doc comment's "UV-corner mapping" note for the one
+	// remaining unconfirmed assumption (no shared-atlas frames).
+	private static readonly Vector2[] QuadUvCorners = {
+		new(0f, 0f), new(1f, 0f), new(1f, 1f), new(0f, 1f)
+	};
+
+	/// <summary>
+	/// Decodes and caches DBA frames on demand for one Build() call. Null Bank means "no texture
+	/// bank loaded" — callers fall back to the flat placeholder in that case, same as before this
+	/// feature existed.
+	/// </summary>
+	private sealed class TextureContext {
+		private readonly DynamixBitmapArray? _bank;
+		private readonly DynamixPalette? _palette;
+		private readonly Dictionary<int, DtsTexture?> _cache = new();
+
+		public TextureContext(DynamixBitmapArray? bank, DynamixPalette? palette) {
+			_bank = bank;
+			_palette = palette;
+		}
+
+		public DtsTexture? Resolve(int frameIndex) {
+			if (_bank?.Images is not { } images || frameIndex < 0 || frameIndex >= images.Length) {
+				return null;
+			}
+
+			if (_cache.TryGetValue(frameIndex, out var cached)) {
+				return cached;
+			}
+
+			DtsTexture? texture = DecodeFrame(images[frameIndex], _palette);
+			_cache[frameIndex] = texture;
+			return texture;
+		}
+
+		private static DtsTexture? DecodeFrame(Core.Data.File.Dyn.DynamixBitmap frame, DynamixPalette? palette) {
+			if (frame.Cols <= 0 || frame.Rows <= 0) {
+				return null;
+			}
+
+			using var bmp = DynamixImageRenderer.RenderFrame(frame, palette);
+			int width = bmp.Width, height = bmp.Height;
+			var pixels = new int[width * height];
+			var bmpData = bmp.LockBits(new Rectangle(0, 0, width, height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+			Marshal.Copy(bmpData.Scan0, pixels, 0, pixels.Length);
+			bmp.UnlockBits(bmpData);
+			return new DtsTexture(pixels, width, height);
+		}
+	}
+
+	public static List<DtsRootMesh> Build(DynamixThreeSpaceModel model) => Build(model, null, null);
+
+	/// <summary>
+	/// Same as Build(model), but resolves TSTexture4Poly polys to real decoded textures from the
+	/// given DBA (+ optional palette) instead of the flat placeholder color — see class doc comment.
+	/// </summary>
+	public static List<DtsRootMesh> Build(DynamixThreeSpaceModel model, DynamixBitmapArray? textureBank, DynamixPalette? palette) {
 		var roots = new List<DtsRootMesh>();
 		if (model.Meshes == null) {
 			return roots;
 		}
 
+		var texCtx = textureBank != null ? new TextureContext(textureBank, palette) : null;
+
 		int index = 0;
 		foreach (var mesh in model.Meshes) {
 			string label = $"{mesh.Header?.Id() ?? mesh.GetType().Name} #{index}";
-			roots.Add(BuildRootInternal(mesh, label, null));
+			roots.Add(BuildRootInternal(mesh, label, null, texCtx));
 			index++;
 		}
 
@@ -89,7 +212,24 @@ public static class DtsGeometryBuilder {
 	/// Level for the currently-selected Part (see Model3DViewerForm.OnDetailLevelChanged).
 	/// </summary>
 	public static DtsRootMesh BuildRoot(TSObject root, string label, int detailLevelIndex) =>
-		BuildRootInternal(root, label, detailLevelIndex);
+		BuildRoot(root, label, detailLevelIndex, null, null);
+
+	/// <summary>Same as BuildRoot, but with texture resolution — see Build's texture overload.</summary>
+	public static DtsRootMesh BuildRoot(TSObject root, string label, int detailLevelIndex,
+			DynamixBitmapArray? textureBank, DynamixPalette? palette) =>
+		BuildRoot(root, label, (int?)detailLevelIndex, textureBank, palette);
+
+	/// <summary>
+	/// Same as BuildRoot, but detailLevelIndex is nullable — null means "always highest detail",
+	/// matching Build()'s own default (see HighestDetailIndex), for callers rebuilding an
+	/// already-loaded root (e.g. after loading a texture bank) without disturbing whichever detail
+	/// level happened to already be selected.
+	/// </summary>
+	public static DtsRootMesh BuildRoot(TSObject root, string label, int? detailLevelIndex,
+			DynamixBitmapArray? textureBank, DynamixPalette? palette) {
+		var texCtx = textureBank != null ? new TextureContext(textureBank, palette) : null;
+		return BuildRootInternal(root, label, detailLevelIndex, texCtx);
+	}
 
 	/// <summary>
 	/// Highest TSDetailPart.Parts.Length found anywhere in this root's tree (0 if none) — how many
@@ -132,23 +272,23 @@ public static class DtsGeometryBuilder {
 		}
 	}
 
-	private static DtsRootMesh BuildRootInternal(TSObject root, string label, int? detailLevelIndex) {
+	private static DtsRootMesh BuildRootInternal(TSObject root, string label, int? detailLevelIndex, TextureContext? texCtx) {
 		var triangles = new List<DtsTriangle>();
-		CollectGroups(root, null, triangles, detailLevelIndex);
+		CollectGroups(root, null, triangles, detailLevelIndex, texCtx);
 		triangles = DeduplicateCoincidentTriangles(triangles);
 		return new DtsRootMesh(label, triangles);
 	}
 
 	/// <summary>
 	/// Real DTS meshes can carry two triangles occupying the exact same surface — a textured poly
-	/// (TSTexture4Poly, always rendered here as a flat placeholder color since texture binding is
-	/// unresolved, see class doc comment) stacked precisely on a flat-shaded twin. Confirmed
-	/// against SAMSON.DTS's root 0: 186 such pairs, centroid distance and normal both exactly
-	/// identical. Left alone, both get rasterized at the exact same depth, and the Z-buffer tie
-	/// between them flips from floating-point noise as the camera moves a fraction of a degree —
-	/// visible as the surface flickering between the placeholder color and the shaded one. Since
-	/// only one of the pair can ever look right without real texturing, keep a single triangle per
-	/// coincident group, preferring whichever one isn't the texture placeholder.
+	/// (TSTexture4Poly, always rendered here as a flat placeholder color, see class doc comment)
+	/// stacked precisely on a flat-shaded twin. Confirmed against SAMSON.DTS's root 0: 186 such
+	/// pairs, centroid distance and normal both exactly identical. Left alone, both get rasterized
+	/// at the exact same depth, and the Z-buffer tie between them flips from floating-point noise
+	/// as the camera moves a fraction of a degree — visible as the surface flickering between the
+	/// placeholder color and the shaded one. Since only one of the pair can ever look right without
+	/// real texturing, keep a single triangle per coincident group, preferring whichever one isn't
+	/// the texture placeholder.
 	/// </summary>
 	private static List<DtsTriangle> DeduplicateCoincidentTriangles(List<DtsTriangle> triangles) {
 		var buckets = new Dictionary<(int, int, int, int, int, int), List<int>>();
@@ -184,7 +324,7 @@ public static class DtsGeometryBuilder {
 
 			int keepIndex = bucket[0];
 			foreach (int i in bucket) {
-				if (triangles[i].Color != TextureFallbackColor) {
+				if (triangles[i].Texture != null || triangles[i].Color != TextureFallbackColor) {
 					keepIndex = i;
 					break;
 				}
@@ -246,44 +386,44 @@ public static class DtsGeometryBuilder {
 	/// TSCellAnimPart) are walked into via Parts; ANShape additionally swaps in its own
 	/// AnimationList for everything beneath it. TSBitmapPart has no geometry and is skipped.
 	/// </summary>
-	private static void CollectGroups(TSObject? node, ANAnimList? animList, List<DtsTriangle> triangles, int? detailLevelIndex) {
+	private static void CollectGroups(TSObject? node, ANAnimList? animList, List<DtsTriangle> triangles, int? detailLevelIndex, TextureContext? texCtx) {
 		switch (node) {
 			case null:
 				return;
 
 			case ANShape anShape:
-				CollectFromParts(anShape.Parts, anShape.AnimationList ?? animList, triangles, detailLevelIndex);
+				CollectFromParts(anShape.Parts, anShape.AnimationList ?? animList, triangles, detailLevelIndex, texCtx);
 				break;
 
 			case TSDetailPart detailPart:
-				CollectDetailLevel(detailPart, animList, triangles, detailLevelIndex);
+				CollectDetailLevel(detailPart, animList, triangles, detailLevelIndex, texCtx);
 				break;
 
 			case TSCellAnimPart cellAnimPart:
-				CollectFirstFrame(cellAnimPart, animList, triangles, detailLevelIndex);
+				CollectFirstFrame(cellAnimPart, animList, triangles, detailLevelIndex, texCtx);
 				break;
 
 			case TSBSPGroup bspGroup:
-				AppendGroupTriangles(bspGroup, animList, triangles);
+				AppendGroupTriangles(bspGroup, animList, triangles, texCtx);
 				break;
 
 			case TSGroup group:
-				AppendGroupTriangles(group, animList, triangles);
+				AppendGroupTriangles(group, animList, triangles, texCtx);
 				break;
 
 			case TSPartList partList:
-				CollectFromParts(partList.Parts, animList, triangles, detailLevelIndex);
+				CollectFromParts(partList.Parts, animList, triangles, detailLevelIndex, texCtx);
 				break;
 		}
 	}
 
-	private static void CollectFromParts(TSObject[]? parts, ANAnimList? animList, List<DtsTriangle> triangles, int? detailLevelIndex) {
+	private static void CollectFromParts(TSObject[]? parts, ANAnimList? animList, List<DtsTriangle> triangles, int? detailLevelIndex, TextureContext? texCtx) {
 		if (parts == null) {
 			return;
 		}
 
 		foreach (var part in parts) {
-			CollectGroups(part, animList, triangles, detailLevelIndex);
+			CollectGroups(part, animList, triangles, detailLevelIndex, texCtx);
 		}
 	}
 
@@ -302,7 +442,7 @@ public static class DtsGeometryBuilder {
 	/// particular TSDetailPart's own range since different roots — or even different TSDetailPart
 	/// nodes within one root — aren't guaranteed to have the same number of levels.
 	/// </summary>
-	private static void CollectDetailLevel(TSDetailPart detailPart, ANAnimList? animList, List<DtsTriangle> triangles, int? detailLevelIndex) {
+	private static void CollectDetailLevel(TSDetailPart detailPart, ANAnimList? animList, List<DtsTriangle> triangles, int? detailLevelIndex, TextureContext? texCtx) {
 		if (detailPart.Parts is not { Length: > 0 } parts) {
 			return;
 		}
@@ -311,7 +451,7 @@ public static class DtsGeometryBuilder {
 			? Math.Clamp(requested, 0, parts.Length - 1)
 			: HighestDetailIndex(detailPart, parts);
 
-		CollectGroups(parts[chosenIndex], animList, triangles, detailLevelIndex);
+		CollectGroups(parts[chosenIndex], animList, triangles, detailLevelIndex, texCtx);
 	}
 
 	private static int HighestDetailIndex(TSDetailPart detailPart, TSObject[] parts) {
@@ -337,13 +477,13 @@ public static class DtsGeometryBuilder {
 	/// on top of each other. This viewer doesn't play animations, so it always shows just the first
 	/// frame (rest pose) regardless of the requested detail level.
 	/// </summary>
-	private static void CollectFirstFrame(TSCellAnimPart cellAnimPart, ANAnimList? animList, List<DtsTriangle> triangles, int? detailLevelIndex) {
+	private static void CollectFirstFrame(TSCellAnimPart cellAnimPart, ANAnimList? animList, List<DtsTriangle> triangles, int? detailLevelIndex, TextureContext? texCtx) {
 		if (cellAnimPart.Parts is { Length: > 0 } parts) {
-			CollectGroups(parts[0], animList, triangles, detailLevelIndex);
+			CollectGroups(parts[0], animList, triangles, detailLevelIndex, texCtx);
 		}
 	}
 
-	private static void AppendGroupTriangles(TSGroup group, ANAnimList? animList, List<DtsTriangle> triangles) {
+	private static void AppendGroupTriangles(TSGroup group, ANAnimList? animList, List<DtsTriangle> triangles, TextureContext? texCtx) {
 		if (group.Points == null || group.Indexes == null || group.Polys == null) {
 			return;
 		}
@@ -380,6 +520,14 @@ public static class DtsGeometryBuilder {
 			}
 			Vector3 v0 = worldPoints[v0Index];
 
+			DtsTexture? texture = null;
+			if (poly is TSTexture4Poly tex4Poly && texCtx != null && poly.VertexCount == 4) {
+				int? frameIndex = ResolveTextureFrame(tex4Poly, group.Surfaces);
+				if (frameIndex is int fi) {
+					texture = texCtx.Resolve(fi);
+				}
+			}
+
 			Color color = ResolveColor(poly, surfaceColors);
 
 			for (int i = 0; i < poly.VertexCount - 2; i++) {
@@ -389,9 +537,33 @@ public static class DtsGeometryBuilder {
 					continue;
 				}
 
-				triangles.Add(new DtsTriangle(v0, worldPoints[i1], worldPoints[i2], color));
+				if (texture is { } tex) {
+					triangles.Add(new DtsTriangle(v0, worldPoints[i1], worldPoints[i2], tex,
+						QuadUvCorners[0], QuadUvCorners[i + 1], QuadUvCorners[i + 2]));
+				} else {
+					triangles.Add(new DtsTriangle(v0, worldPoints[i1], worldPoints[i2], color));
+				}
 			}
 		}
+	}
+
+	/// <summary>
+	/// Resolves a TSTexture4Poly's ColorIndexId to a DBA frame index. ColorIndexId is stored on
+	/// disk as surfaceIndex*4, not a plain surface index — see class doc comment's front/back
+	/// stride settlement. Always uses FrontColor (never BackColor); see class doc comment for why.
+	/// </summary>
+	private static int? ResolveTextureFrame(TSTexture4Poly poly, TSSurfaceEntry[]? surfaces) {
+		if (surfaces == null) {
+			return null;
+		}
+
+		int surfaceIndex = poly.ColorIndexId / 4;
+		if (surfaceIndex < 0 || surfaceIndex >= surfaces.Length) {
+			return null;
+		}
+
+		short frame = surfaces[surfaceIndex].FrontColor;
+		return frame >= 0 ? frame : null;
 	}
 
 	/// <summary>
@@ -443,9 +615,15 @@ public static class DtsGeometryBuilder {
 			return TextureFallbackColor;
 		}
 
-		if (poly is TSSolidPoly solidPoly && surfaceColors != null
-			&& solidPoly.ColorIndexId >= 0 && solidPoly.ColorIndexId < surfaceColors.Length) {
-			return surfaceColors[solidPoly.ColorIndexId];
+		// ColorIndexId is surfaceIndex*4 for every TSSolidPoly subtype, not a plain surface index —
+		// see class doc comment's front/back stride settlement (confirmed via TSTexture4Poly's own
+		// render code, but ColorIndexId is one shared inherited field read the same way regardless
+		// of poly subtype, so the same /4 applies here too).
+		if (poly is TSSolidPoly solidPoly && surfaceColors != null) {
+			int surfaceIndex = solidPoly.ColorIndexId / 4;
+			if (surfaceIndex >= 0 && surfaceIndex < surfaceColors.Length) {
+				return surfaceColors[surfaceIndex];
+			}
 		}
 
 		return Color.Gainsboro;

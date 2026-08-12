@@ -22,18 +22,20 @@ down this README summarize the same things but may be less complete going forwar
 
 ### ES2Core progress detail
 
-**`io/read/` and `io/write/` — both complete (3 files each).**
+**`io/read/` and `io/write/` — both complete.**
 - `io/read`: `DynFileReader` (load/parse DPL/DBM/DBA files), `DatFileReader` (parses `InitHerc`
   stats out of `.DAT` files), and `VolFileReader` — a near-duplicate of
   `HercWorks.Vol.Io.VolFileReader` in the Java original (same situation as `io/write`'s
   `VolFileWriter` below), ported as a thin delegating wrapper rather than re-implementing the
   same logic twice. The Java original also carried several debug-only/fully-commented-out
   methods here that added no behavior and weren't ported.
-- `io/write`: `DynFileWriter` (exports DBM images to PNG/BMP via `System.Drawing.Bitmap`, and
-  DBM objects back to `.DBM` bytes), `VolFileCompiler` (compiles a **brand-new** VOL from
-  scratch, computing fresh offsets/sizes — distinct from the "strict" round-trip writer), and
-  `VolFileWriter` — again a near-duplicate of `HercWorks.Vol.Io.VolFileWriter`, ported as a thin
-  delegating wrapper.
+- `io/write`: `VolFileCompiler` (compiles a **brand-new** VOL from scratch, computing fresh
+  offsets/sizes — distinct from the "strict" round-trip writer) and `VolFileWriter` — again a
+  near-duplicate of `HercWorks.Vol.Io.VolFileWriter`, ported as a thin delegating wrapper.
+  `DynFileWriter` (exports DBM images to PNG/BMP via `System.Drawing.Bitmap`, and DBM objects back
+  to `.DBM` bytes) lives in `HercWorks.UI` instead, not `HercWorks.Core.Io.Write` — it's an MDK
+  export feature the engine port will never call, and `Core` otherwise has no `System.Drawing`
+  dependency at all (see `docs/engine/planning.md`'s "Known technical debt" section).
 
 **Bugs found and ported literally (not silently fixed) this stretch — one is more than cosmetic:**
 - `DatFileReader.ParseIniHercDatStats()`: initializes a hardpoints map, then loops constructing

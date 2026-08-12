@@ -1,6 +1,6 @@
 using HercWorks.Core.Data.File.Dbsim;
+using HercWorks.Core.Data.Struct;
 using HercWorks.Vol;
-using System.Drawing;
 
 namespace HercWorks.Core.Io.Transform.Dbsim;
 
@@ -24,14 +24,14 @@ public class PaperDiagramGraphTransformer : ThreeSpaceByteTransformer {
 
 		// Structure Damage view
 		var structure = pdg.NewViewEntry();
-		structure.Origin = new Point(IndexIntLE(), IndexIntLE());
-		structure.Size = new Point(IndexIntLE(), IndexIntLE());
+		structure.Origin = new PixelPoint(IndexIntLE(), IndexIntLE());
+		structure.Size = new PixelPoint(IndexIntLE(), IndexIntLE());
 		structure.Regions = new PaperDollGraphic.ViewRegion[IndexIntLE()];
 		for (int r = 0; r < structure.Regions.Length; r++) {
 			var region = pdg.NewViewRegion();
 			region.Index = IndexIntLE();
-			region.TopLeft = new Point(IndexIntLE(), IndexIntLE());
-			region.BottomRight = new Point(IndexIntLE(), IndexIntLE());
+			region.TopLeft = new PixelPoint(IndexIntLE(), IndexIntLE());
+			region.BottomRight = new PixelPoint(IndexIntLE(), IndexIntLE());
 			region.Unk_val = IndexIntLE();
 			region.Spacer = IndexIntLE();
 			structure.Regions[r] = region;
@@ -40,14 +40,14 @@ public class PaperDiagramGraphTransformer : ThreeSpaceByteTransformer {
 
 		// Internal Damage view
 		var internals = pdg.NewViewEntry();
-		internals.Origin = new Point(IndexIntLE(), IndexIntLE());
-		internals.Size = new Point(IndexIntLE(), IndexIntLE());
+		internals.Origin = new PixelPoint(IndexIntLE(), IndexIntLE());
+		internals.Size = new PixelPoint(IndexIntLE(), IndexIntLE());
 		internals.Regions = new PaperDollGraphic.ViewRegion[IndexIntLE()];
 		for (int r = 0; r < internals.Regions.Length; r++) {
 			var region = pdg.NewViewRegion();
 			region.Index = IndexIntLE();
-			region.TopLeft = new Point(IndexIntLE(), IndexIntLE());
-			region.BottomRight = new Point(IndexIntLE(), IndexIntLE());
+			region.TopLeft = new PixelPoint(IndexIntLE(), IndexIntLE());
+			region.BottomRight = new PixelPoint(IndexIntLE(), IndexIntLE());
 			region.Unk_val = IndexIntLE();
 			region.Spacer = IndexIntLE();
 			internals.Regions[r] = region;
@@ -56,14 +56,14 @@ public class PaperDiagramGraphTransformer : ThreeSpaceByteTransformer {
 
 		// HUD-F5 Target view
 		var hudTarget = pdg.NewViewEntry();
-		hudTarget.Origin = new Point(IndexIntLE(), IndexIntLE());
-		hudTarget.Size = new Point(IndexIntLE(), IndexIntLE());
+		hudTarget.Origin = new PixelPoint(IndexIntLE(), IndexIntLE());
+		hudTarget.Size = new PixelPoint(IndexIntLE(), IndexIntLE());
 		hudTarget.Regions = new PaperDollGraphic.ViewRegion[IndexIntLE()];
 		for (int r = 0; r < hudTarget.Regions.Length; r++) {
 			var region = pdg.NewViewRegion();
 			region.Index = IndexIntLE();
-			region.TopLeft = new Point(IndexIntLE(), IndexIntLE());
-			region.BottomRight = new Point(IndexIntLE(), IndexIntLE());
+			region.TopLeft = new PixelPoint(IndexIntLE(), IndexIntLE());
+			region.BottomRight = new PixelPoint(IndexIntLE(), IndexIntLE());
 			region.Unk_val = IndexIntLE();
 			region.Spacer = IndexIntLE();
 			hudTarget.Regions[r] = region;
@@ -73,7 +73,7 @@ public class PaperDiagramGraphTransformer : ThreeSpaceByteTransformer {
 		pdg.Hardpoints = new PaperDollGraphic.HardpointEntry[IndexIntLE()];
 		for (int h = 0; h < pdg.Hardpoints.Length; h++) {
 			var hardpoint = pdg.NewHardpointEntry();
-			hardpoint.Origin = new Point(IndexIntLE(), IndexIntLE());
+			hardpoint.Origin = new PixelPoint(IndexIntLE(), IndexIntLE());
 			hardpoint.Unk1 = IndexIntLE();
 			hardpoint.Unk2 = IndexIntLE();
 			hardpoint.Spacer = IndexIntLE();

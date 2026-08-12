@@ -4,10 +4,16 @@ namespace HercWorks.Core.Data.File.Dts;
 
 /// <summary>
 /// UTILITY — used in TSGroup. 'Colors' here really are 4 config options expressed as flags. The
-/// first int is the 'surface' color/shade, but for TSTexture4Poly this is read as a DBA frame
-/// number. The second int is the 'outline'/'edge' color, but only for TSShadedPoly. The 'flags'
-/// for each entry are also unknown — TSTexture4Poly cannot have any flags, while TSShadedPoly has
-/// 1024 for front and 5120 for back.
+/// first int is the 'surface' color/shade, but for TSTexture4Poly this ultimately resolves to a
+/// bound DBA's data — confirmed via Ghidra RE of VSHELL.EXE that TSTexture4Poly has its own
+/// distinct vtable render method (NOT the same one TSBitmapPart uses — an earlier version of this
+/// comment wrongly claimed the two shared one mechanism). That method reads FrontColor as an index
+/// into a per-surface runtime lookup record (not a direct DBA-frame index the way
+/// TSBitmapPart.BmpTag is), and feeds a real scanline/perspective-correct textured-polygon
+/// rasterizer — see HercWorksMDK-CSharp-port/docs/formats/dts-texture-binding.md's 2026-08-11
+/// update for what's confirmed about that path and what isn't yet. The second int is the
+/// 'outline'/'edge' color, but only for TSShadedPoly. The 'flags' for each entry are also unknown
+/// — TSTexture4Poly cannot have any flags, while TSShadedPoly has 1024 for front and 5120 for back.
 /// Ported from org.hercworks.core.data.file.dts.TSSurfaceEntry.
 /// </summary>
 public class TSSurfaceEntry {

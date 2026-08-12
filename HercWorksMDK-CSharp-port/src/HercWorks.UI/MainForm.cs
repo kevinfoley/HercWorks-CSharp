@@ -112,7 +112,7 @@ public partial class MainForm : Form {
 
 		if (_selectedEntry.Ext == FileType.Dts) {
 			using var form = new Model3DViewerForm();
-			form.LoadFromVolEntry(_selectedEntry);
+			form.LoadFromVolEntry(_selectedEntry, _currentVol);
 			form.ShowDialog(this);
 		} else if (_selectedEntry.Ext is FileType.Dba or FileType.Dbm or FileType.Hba or FileType.Hb0 or FileType.Hb1 or FileType.Hb2
 			or FileType.Db0 or FileType.Db1 or FileType.Db2) {

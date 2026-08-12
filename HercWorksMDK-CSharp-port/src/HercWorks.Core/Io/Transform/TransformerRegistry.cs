@@ -13,11 +13,13 @@ namespace HercWorks.Core.Io.Transform;
 /// ThreeSpaceByteTransformer (e.g. MapInfo, MapLOCS, Theater, Mech.BND/MechSys.BND/MechView.BND/
 /// AppInput.BND, WorldData) — those
 /// intentionally have no registration here and will report "no parser available" rather than
-/// risk a wrong/guessed match. A couple of borderline cases were left out for the same reason:
-/// HercSimDataTransformer's target ("dat\[herc].dat") is too ambiguous to distinguish reliably
-/// from other .DAT files without a more specific real-world naming sample, and
+/// risk a wrong/guessed match. One borderline case was left out for the same reason:
 /// HardpointOverlayTransformer is only confirmed here for RPR_HOTS.DAT — its doc comment doesn't
 /// establish it also covers ARM_HOTS.DAT, so that file is left unmatched rather than guessed.
+///
+/// HercSimDataTransformer's target ("dat\[herc].dat") can't be distinguished from other .DAT
+/// files by name/path, so it's matched instead by the 4-byte VolEntry.MagicPrefix observed on
+/// real herc data files: 41 20 00 7A or 41 20 01 7A.
 /// </summary>
 public static class TransformerRegistry {
 	private sealed record Registration(string Label, Func<VolEntry, bool> Matches, Func<ThreeSpaceByteTransformer> Create);
@@ -55,6 +57,7 @@ public static class TransformerRegistry {
 		new("Paper Diagram Graphic", e => ExtIs(e, FileType.Pdg) && !NameIs(e, "WEAPONS.PDG"), () => new Dbsim.PaperDiagramGraphTransformer()),
 		new("Projectile Data", e => NameIs(e, "PROJ.DAT"), () => new Dbsim.ProjectileDataTransformer()),
 		new("Weapon Mount Templates", e => NameIs(e, "WEAPONS.DAT") && DirIs(e, FileType.Dat), () => new Dbsim.WeaponsSimTransformer()),
+		new("Herc Sim Data", e => MagicIs(e, "4120007A") || MagicIs(e, "4120017A"), () => new Dbsim.HercSimDataTransformer()),
 		new("Pilot Portrait Offsets", e => ExtIs(e, FileType.Ofs), () => new Dbsim.PilotOffsetFileTransformer()),
 		new("Terrain Ramp Data", e => ExtIs(e, FileType.Rmp), () => new Dbsim.TerrainRampFileTransformer()),
 		new("Viewport Data", e => ExtIs(e, FileType.Vue), () => new Dbsim.VueTransformer()),
@@ -119,4 +122,7 @@ public static class TransformerRegistry {
 	private static bool ExtIs(VolEntry e, FileType ext) => e.Ext == ext;
 
 	private static bool DirIs(VolEntry e, FileType dir) => e.Dir == dir;
+
+	private static bool MagicIs(VolEntry e, string hex) =>
+		e.MagicPrefix != null && string.Equals(Convert.ToHexString(e.MagicPrefix), hex, StringComparison.OrdinalIgnoreCase);
 }

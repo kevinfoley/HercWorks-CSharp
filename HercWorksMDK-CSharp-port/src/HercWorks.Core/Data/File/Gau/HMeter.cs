@@ -1,4 +1,4 @@
-using System.Drawing;
+using HercWorks.Core.Data.Struct;
 
 namespace HercWorks.Core.Data.File.Gau;
 
@@ -13,8 +13,8 @@ namespace HercWorks.Core.Data.File.Gau;
 public class HMeter : WidgetBase {
 	public HMeter() { }
 
-	public HMeter(Point origin, Point extent) {
+	public HMeter(PixelPoint origin, PixelPoint extent) {
 		Origin = origin;
-		Size = new Size(extent.X - origin.X, extent.Y - origin.Y);
+		Size = new PixelSize(extent.X - origin.X, extent.Y - origin.Y);
 	}
 }

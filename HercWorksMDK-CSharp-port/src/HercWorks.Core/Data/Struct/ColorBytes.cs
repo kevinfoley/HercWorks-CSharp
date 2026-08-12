@@ -1,5 +1,3 @@
-using System.Drawing;
-
 namespace HercWorks.Core.Data.Struct;
 
 /// <summary>
@@ -7,7 +5,7 @@ namespace HercWorks.Core.Data.Struct;
 /// Ported from org.hercworks.core.data.struct.ColorBytes.
 /// </summary>
 public class ColorBytes {
-	private Color _color;
+	private RgbaColor _color;
 	public byte[] Array { get; set; } = new byte[4];
 
 	public ColorBytes(byte r, byte g, byte b, byte a) {
@@ -25,9 +23,9 @@ public class ColorBytes {
 		Array[index] = b;
 	}
 
-	public Color GetColor() => _color;
+	public RgbaColor GetColor() => _color;
 
-	public void SetColor(Color color) => _color = color;
+	public void SetColor(RgbaColor color) => _color = color;
 
 	public int ColorIntRgb() {
 		var tone = GetColor();

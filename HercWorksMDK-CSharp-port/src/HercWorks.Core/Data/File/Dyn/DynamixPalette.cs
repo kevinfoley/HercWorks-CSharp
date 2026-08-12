@@ -36,7 +36,7 @@ public class DynamixPalette : DataFile {
 
 	public DynamixPalette() {
 		Index0AlphaKey = new ColorBytes(218, 164, 164, 255);
-		Index0AlphaKey.SetColor(System.Drawing.Color.FromArgb(255, 218, 164, 164));
+		Index0AlphaKey.SetColor(RgbaColor.FromArgb(255, 218, 164, 164));
 	}
 
 	public ColorBytes ColorAt(int idx) => Colors[idx];

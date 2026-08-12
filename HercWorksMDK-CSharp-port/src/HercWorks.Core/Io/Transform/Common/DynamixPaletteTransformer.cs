@@ -1,7 +1,6 @@
 using HercWorks.Core.Data.File.Dyn;
 using HercWorks.Core.Data.Struct;
 using HercWorks.Vol;
-using System.Drawing;
 
 namespace HercWorks.Core.Io.Transform.Common;
 
@@ -99,7 +98,7 @@ public class DynamixPaletteTransformer : ThreeSpaceByteTransformer {
 		bytes[3] = (byte)ia;
 
 		var rawColor = new ColorBytes(bytes);
-		rawColor.SetColor(Color.FromArgb(ia, ir, ig, ib));
+		rawColor.SetColor(RgbaColor.FromArgb(ia, ir, ig, ib));
 
 		return rawColor;
 	}

@@ -1,4 +1,4 @@
-using System.Drawing;
+using HercWorks.Core.Data.Struct;
 
 namespace HercWorks.Core.Data.File.Gau;
 
@@ -6,7 +6,7 @@ namespace HercWorks.Core.Data.File.Gau;
 public class HWeaponPanelItem : WidgetBase {
 	public HWeaponPanelItem() { }
 
-	public HWeaponPanelItem(Point org, Size size) {
+	public HWeaponPanelItem(PixelPoint org, PixelSize size) {
 		Origin = org;
 		Size = size;
 	}

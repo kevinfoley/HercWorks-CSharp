@@ -1,4 +1,4 @@
-using System.Drawing;
+using HercWorks.Core.Data.Struct;
 using System.Text;
 
 namespace HercWorks.Core.Data.File.Gau;
@@ -9,13 +9,13 @@ public class HWeaponPanel : WidgetBase {
 
 	public HWeaponPanel() { }
 
-	public HWeaponPanel(Point origin, Size size) {
+	public HWeaponPanel(PixelPoint origin, PixelSize size) {
 		Origin = origin;
 		Size = size;
 		Components = new WidgetBase[10];
 	}
 
-	public HWeaponPanel(Point origin, Size size, int activeTotal) {
+	public HWeaponPanel(PixelPoint origin, PixelSize size, int activeTotal) {
 		Origin = origin;
 		Size = size;
 		ActiveTotal = activeTotal;

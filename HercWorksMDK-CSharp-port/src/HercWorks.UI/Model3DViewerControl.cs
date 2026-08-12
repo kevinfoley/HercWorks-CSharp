@@ -150,10 +150,8 @@ public sealed class Model3DViewerControl : Control {
 		_lastMouse = e.Location;
 
 		if (_leftDown) {
-			// Horizontal drag = yaw (the primary ask). Vertical drag = pitch — an added bonus on
-			// top of yaw-only rotation, clamped short of the poles to avoid gimbal flip.
 			_yaw -= dx * RotateSpeed;
-			_pitch = Math.Clamp(_pitch - dy * RotateSpeed, -MaxPitch, MaxPitch);
+			_pitch = Math.Clamp(_pitch + dy * RotateSpeed, -MaxPitch, MaxPitch);
 			Invalidate();
 		} else if (_middleDown) {
 			Pan(dx, dy);
@@ -304,7 +302,18 @@ public sealed class Model3DViewerControl : Control {
 			float nDotL = MathF.Abs(Vector3.Dot(faceNormal / normalLength, lightDir));
 			intensity = 0.35f + 0.65f * nDotL;
 		}
-		int argb = Scale(tri.Color, intensity).ToArgb();
+
+		bool textured = tri.Texture is { } tex;
+		DtsTexture texture = default;
+		float uAw = 0, uBw = 0, uCw = 0, vAw = 0, vBw = 0, vCw = 0;
+		int argb = 0;
+		if (textured) {
+			texture = tri.Texture!.Value;
+			uAw = tri.UvA.X * invWa; uBw = tri.UvB.X * invWb; uCw = tri.UvC.X * invWc;
+			vAw = tri.UvA.Y * invWa; vBw = tri.UvB.Y * invWb; vCw = tri.UvC.Y * invWc;
+		} else {
+			argb = Scale(tri.Color, intensity).ToArgb();
+		}
 
 		for (int y = minY; y <= maxY; y++) {
 			float py = y + 0.5f;
@@ -328,7 +337,17 @@ public sealed class Model3DViewerControl : Control {
 				int idx = rowOffset + x;
 				if (pixelInvW > depthBuffer[idx]) {
 					depthBuffer[idx] = pixelInvW;
-					pixels[idx] = argb;
+
+					if (textured) {
+						float u = (w0 * uAw + w1 * uBw + w2 * uCw) / pixelInvW;
+						float v = (w0 * vAw + w1 * vBw + w2 * vCw) / pixelInvW;
+						int tx = Math.Clamp((int)(u * texture.Width), 0, texture.Width - 1);
+						int ty = Math.Clamp((int)(v * texture.Height), 0, texture.Height - 1);
+						int texel = texture.Pixels[ty * texture.Width + tx];
+						pixels[idx] = Scale(Color.FromArgb(texel), intensity).ToArgb();
+					} else {
+						pixels[idx] = argb;
+					}
 				}
 			}
 		}

@@ -1606,6 +1606,249 @@
       "name": "Proj_LookupRecordByIndex",
       "description": "index * 0x24 + ProjDat_RecordTable -- direct flat-array index into PROJ.DAT's in-memory table, distinct from Proj_LookupRecord's (category,subtypeId) linear search. Called by MechLoadout_ConstructWeaponMounts with the value read from a WeaponMountTemplate's ProjDatIndex field, which is what resolves a real catalog weapon id to its PROJ.DAT damage record for 21 of 32 real weapons directly (see Sim.Weapons.WeaponMountTemplate.ProjDatIndex's doc comment for the confirmed full mapping).",
       "source": "docs/simulation/dbsim-physics-notes.md; docs/formats/weapons-dat-sim.md 2026-08-11"
+    },
+    {
+      "address": "0046296d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSShapeInstance_GetBoundBitmapArray",
+      "description": "return *(instance + 0x26). Trivial getter for the DBA bitmap-array pointer bound to this specific TSShapeInstance -- confirms texture binding is a per-instance field, not stored in the .DTS file. See docs/formats/dts-texture-binding.md.",
+      "source": "docs/formats/dts-texture-binding.md 2026-08-11"
+    },
+    {
+      "address": "00462967",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSBase_GetActiveBitmapArray",
+      "description": "return g_ActiveBitmapArray (DAT_005d8010). Paired with TSBase_SetActiveBitmapArray as the only two accessors of that global (confirmed via full xref list). See docs/formats/dts-texture-binding.md.",
+      "source": "docs/formats/dts-texture-binding.md 2026-08-11"
+    },
+    {
+      "address": "00462978",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSBase_SetActiveBitmapArray",
+      "description": "g_ActiveBitmapArray = param_1. The only write site for DAT_005d8010 in the whole binary (confirmed via ES2FindAddressRefs on the global's address). See docs/formats/dts-texture-binding.md.",
+      "source": "docs/formats/dts-texture-binding.md 2026-08-11"
+    },
+    {
+      "address": "005d8010",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_ActiveBitmapArray",
+      "description": "Process-wide 'currently active DBA bitmap-array' pointer. Swapped to a TSShapeInstance's own bound DBA (instance+0x26) for the duration of that instance's render call by TSShapeInstance_Render, then restored. TSBitmapPart_Render indexes into *this* global by BmpTag, not anything owned by the poly's shape. CORRECTION (2026-08-11 UV-formula follow-up): this global is better understood as a 2-field context, not a bare DBA pointer -- *g_ActiveBitmapArray (one deref, offset+0 of what it points to) is the actual DBA object pointer (whose own offset+4=frame count, offset+8=frames pointer-table, confirmed via TSBase::getBitmapPtr's assert), while g_ActiveBitmapArray[1] (a DIFFERENT single deref at offset+4 of g_ActiveBitmapArray's OWN stored value, NOT of the nested DBA object) is a separate pointer to a parallel 20-byte-stride per-frame UV/texture-descriptor table -- see TSTexture4Poly_Render's updated entry. That second field's own builder function was not traced this session (only found via distinguishing instruction-load-count in raw disassembly, not yet reverse engineered further). See docs/formats/dts-texture-binding.md.",
+      "source": "docs/formats/dts-texture-binding.md 2026-08-11, corrected 2026-08-11 UV-formula follow-up"
+    },
+    {
+      "address": "00471890",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_UseFlatPolyFallback",
+      "description": "Boolean flag read at the top of TSTexture4Poly_Render, gating which of two ENTIRELY DIFFERENT code paths runs -- NOT 'activeDba pointer-table vs descriptor-table' as an earlier same-session pass claimed (that claim was wrong and is corrected in TSTexture4Poly_Render's own entry). ==0: the REAL scanline-textured path -- builds a per-vertex 3D position array plus a UV-corner array from a 20-byte-stride per-frame descriptor (via g_ActiveBitmapArray[1]), then calls TSTexture4Poly_RasterizeA/B. !=0: a flat/solid 2D polygon-fill FALLBACK -- projects+clips the poly's vertices to screen space (FUN_0045e694/FUN_0045ee2c) and fills with FUN_0045f364 (-> FUN_0045f8e7/FUN_0045f8d2), never touching a texture at all, even though it still resolves a DBA frame index via the pointer-table lookup (that resolved value goes unused for actual pixel sampling in this branch -- likely only used for an assert/bounds-check side effect). Exact runtime condition for which value this flag normally holds (a detail-level toggle? a 'texture pack loaded' capability check?) not determined this session.",
+      "source": "docs/formats/dts-texture-binding.md 2026-08-11 UV-formula follow-up"
+    },
+    {
+      "address": "00421db2",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSBitmapPart_Render",
+      "description": "Contains the 'TSBase::getBitmapPtr() : index out of range' assert. Reads poly+0x10 (== TSBitmapPart.BmpTag) as a frame index, bounds-checks against g_ActiveBitmapArray's count, looks up g_ActiveBitmapArray.Frames[frameIndex], and if non-null draws a textured quad using poly+0x12/+0x13 (== TSBitmapPart.OfsX/OfsY) for placement. This is the confirmed BmpTag-to-bitmap resolution path. See docs/formats/dts-texture-binding.md.",
+      "source": "docs/formats/dts-texture-binding.md 2026-08-11"
+    },
+    {
+      "address": "0042203a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSShapeInstance_RenderPolys",
+      "description": "Iterates a shape instance's poly-object list (instance+0x10 = count, instance+0x12 = array base) and calls each poly's own virtual render method (vtable slot +0x1c). Called by TSShapeInstance_Render while g_ActiveBitmapArray is bound to that instance's own DBA. See docs/formats/dts-texture-binding.md.",
+      "source": "docs/formats/dts-texture-binding.md 2026-08-11"
+    },
+    {
+      "address": "00462730",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSShapeInstance_Render",
+      "description": "Save/swap/restore around TSShapeInstance_RenderPolys: saves g_ActiveBitmapArray, sets it to this instance's own bound DBA (TSShapeInstance_GetBoundBitmapArray), renders all polys, restores the previous global. The core render-time texture-binding entry point. See docs/formats/dts-texture-binding.md.",
+      "source": "docs/formats/dts-texture-binding.md 2026-08-11"
+    },
+    {
+      "address": "00462894",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSShapeInstance_RenderFromRef",
+      "description": "Near-identical twin of TSShapeInstance_Render, taking the shape instance one level of indirection further (param_1+4) -- same save/swap/restore pattern around g_ActiveBitmapArray. See docs/formats/dts-texture-binding.md.",
+      "source": "docs/formats/dts-texture-binding.md 2026-08-11"
+    },
+    {
+      "address": "004084f1",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSBase_LoadDba",
+      "description": "Prefixes the install-root path onto the given relative .dba path, loads it through VshellClassItem_LoadItem (the same generic Dynamix ClassItem-registry resource loader used for .DFN/.DCI, see project_es2_exe_recon memory). Returns the loaded DBA handle later bound into a TSShapeInstance's +0x26 field or read via array[frame] by TSBitmapPart_Render. See docs/formats/dts-texture-binding.md.",
+      "source": "docs/formats/dts-texture-binding.md 2026-08-11"
+    },
+    {
+      "address": "0040b8cf",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ESGrid_SetPart",
+      "description": "Contains the 'ESGrid::setPart out of range' assert (src/esgrid.cpp). Writes a resolved GLBitmap* plus placement fields into one of up to 29 named part slots (0x38-byte stride) on an ESGrid Herc-display widget -- the 2D icon/portrait-painting layer built on top of the base BmpTag mechanism, matching the same 29-part hit-zone indexing used by the mech damage formula. Not needed for base .DTS/.DBA texture rendering, only for VSHELL's per-poly paint-job overlay UI. See docs/formats/dts-texture-binding.md.",
+      "source": "docs/formats/dts-texture-binding.md 2026-08-11"
+    },
+    {
+      "address": "0047f258",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_TSObjectTypeRegistry",
+      "description": "18-entry, 12-byte-stride table: {tag:uint32 matching TSObjectHeader's on-disk [subtype:u16][supertype:u16] bytes, constructorFnPtr, nameStringPtr}. Confirmed by matching every tag value against HercWorksMDK-CSharp-port's already-known TSObjectHeader constants (e.g. 0x0014000f = TSTexture4Poly) and the adjacent name strings (\"TSPoly\", \"TSGroup\", etc.). This is the DTS-tree node factory VSHELL's/DBSIM's shared ThreeSpace engine uses to construct the right C++ class per on-disk chunk tag -- the reliable way to find any TS*/AN* class's real constructor (and from there its real vtable) when RTTI type-name strings turn out to have zero code references (a recurring dead end in this binary, also seen for .BND's MECH string). One tag (0x0e) has no corresponding entry in TSObjectHeader.cs -- an object type ES2's real .DTS files apparently never use. See docs/formats/dts-texture-binding.md.",
+      "source": "docs/formats/dts-texture-binding.md 2026-08-11"
+    },
+    {
+      "address": "0045ffe0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSTexture4Poly_Construct",
+      "description": "TSTexture4Poly's real constructor, found via g_TSObjectTypeRegistry's tag=0x0014000f entry. Standard Watcom multi-base-class construction pattern: stamps the object's vtable pointer several times (once per base sub-object as each base constructor completes), finishing with &PTR_FUN_0047ee0c -- the actually-used TSTexture4Poly vtable at runtime. See docs/formats/dts-texture-binding.md.",
+      "source": "docs/formats/dts-texture-binding.md 2026-08-11"
+    },
+    {
+      "address": "0047ee0c",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_TSTexture4PolyVtable",
+      "description": "TSTexture4Poly's real, fully-constructed vtable (found via TSTexture4Poly_Construct's final vtable-pointer stamp, not the dead RTTI string). Slot +0x1c (TSTexture4Poly_Render, FUN_00422af5) is what TSShapeInstance_RenderPolys actually calls for a TSTexture4Poly -- confirming TSTexture4Poly and TSBitmapPart do NOT share one render mechanism, correcting an earlier same-session claim. See docs/formats/dts-texture-binding.md.",
+      "source": "docs/formats/dts-texture-binding.md 2026-08-11"
+    },
+    {
+      "address": "00422af5",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSTexture4Poly_Render",
+      "description": "TSTexture4Poly's real vtable-slot-0x1c render method (see g_TSTexture4PolyVtable). Stride SETTLED (2026-08-11 follow-up session): reads poly+0xc (ColorIndexId) as MOVZX (unsigned short), SHL 2 (x4) to a byte offset into g_ActiveSurfaceRecords (DAT_005d88a2), then reads front=*(int32*)(base+offset) and back=*(int32*)(base+offset+8) (i.e. +2 int32 slots) -- confirmed via fresh ES2DumpAsm raw disassembly, not just the decompiler. Cross-confirmed independently from DTSModelTransformer.cs's ReadTSGroup/WriteTSGroup, which already read/write the file's group-level surface count as colorCount/4 / Surfaces.Length*4 -- the file format itself encodes surface-related indices in 4-int32-slot units, matching TSSurfaceEntry's true 4-slot (Front/FrontLine/Back/BackLine) layout. CONCLUSION: ColorIndexId = surfaceIndex*4; surfaceIndex = ColorIndexId/4; front value = Surfaces[surfaceIndex].FrontColor, back value = Surfaces[surfaceIndex].BackColor. Front/back is chosen by a visibility test (see TSPoly_FrontBackVisibilityTest) against poly+4/+6. UV-GENERATION FORMULA FOUND (2026-08-11 second follow-up, CORRECTS a wrong claim this entry previously made about g_UseFlatPolyFallback/DAT_00471890): that flag does NOT choose between two texture-lookup styles -- it chooses between the REAL scanline-textured rasterizer (flag==0) and an entirely separate flat/solid 2D polygon-fill FALLBACK (flag!=0, see g_UseFlatPolyFallback's own entry) that never samples a texture at all. Only the flag==0 path reaches TSTexture4Poly_RasterizeA/B. In that path, the resolved frame index indexes a 20-byte-stride per-frame descriptor table at g_ActiveBitmapArray[1] (a pointer distinct from the DBA object itself -- see g_ActiveBitmapArray's corrected entry): 4 leading int32 fields F0,F1,F2,F3 (bytes 0-15) plus a 5th field F4 at byte 16 (passed to the rasterizer as param_4, likely a pixel-data pointer/handle). The UV-corner array built for the rasterizer's 4-vertex quad is exactly [V0=(F0,F1), V1=(F2,F1), V2=(F2,F3), V3=(F0,F3)] -- confirmed via decompiled assignment sequence (_DAT_0048a190.._0048a1ac = F0,F1,F2,F1,F2,F3,F0,F3). This is a standard axis-aligned rect-corner mapping (top-left, top-right, bottom-right, bottom-left in vertex order) IF F0/F1=(left,top) and F2/F3=(right,bottom) of that frame's own texture-space rect. NOT YET TRACED: the builder function that populates g_ActiveBitmapArray[1]'s descriptor table (would settle whether F0-F3 are always a trivial (0,0,width,height) per independently-cropped frame, matching HercWorksMDK-CSharp-port's existing per-frame DynamixBitmap parsing, or genuine shared-atlas sub-rect coordinates requiring new file/mechanism support) -- a bounded follow-up if resumed, not chased this session per the project's 'don't spend unbounded time on RE before shipping' lesson. See docs/formats/dts-texture-binding.md.",
+      "source": "docs/formats/dts-texture-binding.md 2026-08-11, settled 2026-08-11 follow-up, UV formula found 2026-08-11 second follow-up"
+    },
+    {
+      "address": "0042349d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSGroup_RenderPolys",
+      "description": "Render-setup wrapper (implicit-this via unaff_EBP, likely a __thiscall stub or inlined caller) for a TSGroup-like runtime object. Reads iVar1+0x10 (Indexes ptr, default &DAT_005d8014 if null), +0x14 (Points ptr -> DAT_005d8894, confirmed by later x6-byte-stride vertex math matching Vec3Short), +0x18 (Surfaces ptr -> DAT_005d88a2, the 'per-surface runtime record array' TSTexture4Poly_Render indexes), +0x1c (Polys ptr, walked as an array of object pointers), +0x22 (ushort, copied to DAT_005d889c, bounds-checked <1000 and used as a memset-zero byte count for a scratch buffer at DAT_005d88a6 -- matches DTSModelTransformer.cs's on-disk 'colorCount' = Surfaces.Length*4 field exactly, both in field order and in the x4 convention), +0x26 (ushort Polys.Length, loop bound). Loop body calls (*(int*)*polyPtr + 0x1c) i.e. each poly's own vtable slot +0x1c -- matches TSShapeInstance_RenderPolys's documented per-poly render dispatch. Field order (Indexes.Length, Points.Length, colorCount, Polys.Length) is an exact match for TSGroup's on-disk chunk layout as already independently implemented in DTSModelTransformer.cs's ReadTSGroup/WriteTSGroup -- strong two-source confirmation this is TSGroup's own render-time field layout, not merely 'some context object'. See docs/formats/dts-texture-binding.md.",
+      "source": "docs/formats/dts-texture-binding.md 2026-08-11 follow-up"
+    },
+    {
+      "address": "00423709",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSGroup_RenderPolysFromRef",
+      "description": "Explicit-param_1 (__cdecl) sibling of TSGroup_RenderPolys (FUN_0042349d) -- identical field reads (param_1+0x10/0x14/0x18/0x1c/0x22/0x26) into the same globals, differing only in dispatching the poly walk via FUN_0042362c(param_1,0) instead of an inline loop. Same TSShapeInstance_Render/RenderFromRef-style by-value-vs-by-ref pairing already documented for TSBitmapPart's mechanism. See docs/formats/dts-texture-binding.md.",
+      "source": "docs/formats/dts-texture-binding.md 2026-08-11 follow-up"
+    },
+    {
+      "address": "005d88a2",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_ActiveSurfaceRecords",
+      "description": "Global pointer, set from the active TSGroup-like object's own +0x18 field by TSGroup_RenderPolys/RenderPolysFromRef for the duration of one group's poly walk (save/swap/restore pattern, same shape as g_ActiveBitmapArray). Points at a flat int32[] where surface index k occupies 4 consecutive int32 slots (Front, FrontLine, Back, BackLine), matching TSSurfaceEntry's 8-short/16-byte on-disk layout and DTSModelTransformer.cs's colorCount=Surfaces.Length*4 convention. TSTexture4Poly_Render indexes it at byte offset ColorIndexId*4 (front) and ColorIndexId*4+8 (back), which only lands correctly on a single surface's Front/Back slots if ColorIndexId itself equals surfaceIndex*4 -- confirmed true by the independent file-format cross-check. See docs/formats/dts-texture-binding.md.",
+      "source": "docs/formats/dts-texture-binding.md 2026-08-11 follow-up"
+    },
+    {
+      "address": "004202dd",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSTexture4Poly_RasterizeA",
+      "description": "One of two near-identical textured-polygon scanline rasterizer variants called by TSTexture4Poly_Render (dispatched by DAT_00471898), only reached via TSTexture4Poly_Render's g_UseFlatPolyFallback==0 path. Genuine span-based rasterizer: per-edge clipping (FUN_0045c318/c5a4/c6f8), perspective-correct-looking fixed-point interpolation of screen position + a fourth interpolant (lighting or a second UV axis, not yet disambiguated), and inner-loop draw calls (FUN_0045bd58 etc.) -- confirms real (if not yet fully decoded) UV-mapped texturing, not flat shading. UPDATE (2026-08-11 second follow-up): the CALLER's UV-corner-generation formula (what param_2 contains per vertex) is now found -- see TSTexture4Poly_Render's entry. What's still not decoded is this function's OWN internal per-pixel interpolation/sampling math (the fixed-point span-fill loop itself, and the 4th-interpolant's exact semantics) -- not needed to resolve which UV a given vertex gets, only to bit-exactly reproduce the rasterizer's own fill algorithm.",
+      "source": "docs/formats/dts-texture-binding.md 2026-08-11, UV formula found 2026-08-11 second follow-up"
+    },
+    {
+      "address": "00420900",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSTexture4Poly_RasterizeB",
+      "description": "The other of the two rasterizer variants TSTexture4Poly_Render dispatches between -- longer and does extra sub-span/mip-style step-size selection (DAT_00471980/84/88 thresholds) not present in TSTexture4Poly_RasterizeA, suggesting a mipmapped/higher-quality path vs. a simpler one, but not confirmed. See docs/formats/dts-texture-binding.md.",
+      "source": "docs/formats/dts-texture-binding.md 2026-08-11"
+    },
+    {
+      "address": "0045e480",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_TSPoly_FrontBackVisibilityTest",
+      "description": "Called by TSTexture4Poly_Render with poly+4/+6 (Normal/Center vertex-index fields) as arguments; result gates which of a front-color/back-color pair gets used. Reasoned from call-site usage, not independently disassembly-verified instruction-by-instruction the way other 'high' confidence entries in this file are -- worth confirming before relying on the exact facing-test semantics.",
+      "source": "docs/formats/dts-texture-binding.md 2026-08-11"
+    },
+    {
+      "address": "0049a360",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_MechTextureGroupNames",
+      "description": "7-entry array of pointers to the literal strings 'light'/'medium'/'heavy'/'enemy'/'apocatex'/'razortex'/'newhercs' (the strings themselves start at 0049a437, 0x0049a37c holds an 8th unrelated pointer -- not part of this array, unresearched). Confirmed dead in DBSIM.EXE's own code (zero xrefs to the array base or any individual string, checked both via ReferenceManager and a full-binary decompiled-text scan) -- DBSIM does NOT read this table at runtime to pick a mech's DBA. The real runtime mechanism is MechType_TextureGroupIndex (see that entry) feeding g_MechTextureGroupSlots directly; this string table is very likely leftover linked-in rodata from the same shared ThreeSpace source file, present in the binary but never actually executed. Byte-verified against HercWorksMDK-CSharp-port/docs/formats/dts-texture-binding.md's already-known 7-name set from VSHELL/user domain knowledge -- exact match.",
+      "source": "memory project_es2_dts_texture_binding, follow-up session 2026-08-12 (DBSIM-side RE)"
+    },
+    {
+      "address": "004a9df6",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_MechTextureGroupSlots",
+      "description": "8-byte-stride array, one slot per texture group (light/medium/heavy/enemy/apocatex/razortex/newhercs -- see g_MechTextureGroupNames, though this array is populated independently of that dead string table; the loader that fills each slot from a real .DBA wasn't traced this session). MechType_InitOne (0041a8) writes '&g_MechTextureGroupSlots + textureGroupIndex*8' directly into every mesh sub-component's TSShapeInstance+0x26 (the confirmed bound-active-DBA field from docs/formats/dts-texture-binding.md's VSHELL RE) at mech-spawn time -- this is the actual, confirmed, executed mech-to-texture-atlas binding mechanism in DBSIM.EXE.",
+      "source": "memory project_es2_dts_texture_binding, follow-up session 2026-08-12 (DBSIM-side RE)"
+    },
+    {
+      "address": "004201a8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MechType_InitOne",
+      "description": "Per-mech-type init, called once per valid slot (0-0x54) by Mechs_InitAllTypes. Opens the per-mech-type resource files (name built from the mech's own code string + several folder-prefix globals), reads a 0xd8-byte fixed record into the MECH_TYPE_DATA[typeIndex] struct (0x21e bytes/entry) at record offset 2, initializes hit-zone/collision/debris sub-resources, and -- the confirmed answer to 'how does DBSIM pick a mech's texture' -- for every mesh sub-component of this mech type, sets TSShapeInstance+0x26 (bound active DBA, see docs/formats/dts-texture-binding.md) to '&g_MechTextureGroupSlots + typeRecord[0x96]*8'. typeRecord+0x96 is MechType_TextureGroupIndex (see that entry); the 0xd8-byte record it lives in is read directly from simvol0/dat/<MECHNAME>.DAT, byte-exact match with HercWorks.Core's already-ported (but previously unregistered) HercSimDat/HercSimDataTransformer -- offset 0x96 in the record = offset 148 in the file = HercSimDat.ModelSkinId, which the original Java port had already named correctly without knowing why.",
+      "source": "memory project_es2_dts_texture_binding, follow-up session 2026-08-12 (DBSIM-side RE)"
+    },
+    {
+      "address": "0042049c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mechs_InitAllTypes",
+      "description": "Creates the 'mechs' object pool (string xref confirmed) sized DAT_004a9d8a*0x21e (the MECH_TYPE_DATA record size), then loops mech-type slot 0..0x54 calling MechType_InitOne (004201a8) for every slot MechTypeSlot_GetIndex (0041ff00) reports as in-use (!= 0xff).",
+      "source": "memory project_es2_dts_texture_binding, follow-up session 2026-08-12 (DBSIM-side RE)"
+    },
+    {
+      "address": "0041ff00",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_MechTypeSlot_GetIndex",
+      "description": "Trivial accessor, returns (&DAT_004a9d8c)[param_1] -- a per-slot byte, 0xff sentinel meaning 'unused', otherwise the allocated dense index used by MechType_InitOne. Not independently cross-checked beyond its two callers (Mechs_InitAllTypes, MechTypeSlot_Allocate).",
+      "source": "memory project_es2_dts_texture_binding, follow-up session 2026-08-12 (DBSIM-side RE)"
+    },
+    {
+      "address": "0041ff10",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_MechTypeSlot_Allocate",
+      "description": "Assigns the next dense allocation index (DAT_004a9d8a, post-incremented) to slot param_1's (&DAT_004a9d8c)[param_1] entry the first time it's requested; on the very first allocation overall, also caches an object-pool handle (FUN_0040feb4(1) result) into _DAT_004a9df4. Not independently cross-checked beyond call-site usage.",
+      "source": "memory project_es2_dts_texture_binding, follow-up session 2026-08-12 (DBSIM-side RE)"
     }
   ]
 }

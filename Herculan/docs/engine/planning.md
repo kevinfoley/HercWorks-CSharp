@@ -6,9 +6,8 @@ Started 2026-08-11. This is a working document, not a spec — update it as deci
 ## Context
 
 Long-term goal: a modern, cross-platform engine capable of running Earthsiege 2 using the
-original game's data files. `Herculan` (the "HercWorks" toolkit) is a separate,
-already-underway WinForms tool for reading/editing those data files — it is a stepping stone, not
-the engine itself, and the engine does not depend on it. See the honest scope assessment in
+original game's data files. The "HercWorks" toolkit is a separate,
+already-underway toolkit for reading/editing those data files. See the scope assessment in
 project memory (`project-es2-engine-port-readiness`) for what RE work is and isn't done yet.
 
 ## Design principles
@@ -16,47 +15,28 @@ project memory (`project-es2-engine-port-readiness`) for what RE work is and isn
 ### Vanilla by default
 
 All behavior matches the original game exactly by default. The only exceptions are purely
-cosmetic changes with no gameplay effect (e.g. resolution). Anything that changes behavior —
+cosmetic changes with no gameplay effect (e.g. resolution). Anything that changes behavior in the future —
 fixing bugs that exist in the original, raising limits, increasing mathematical precision, etc. —
-is opt-in, not on by default, likely surfaced later as in-game settings rather than being baked
-into the engine's normal behavior.
+will be opt-in via a settings menu.
 
-This is the general principle the math subsystem's "nice to have: switch to modern math" goal
-(below) is one instance of: default to the original's exact (fixed-point) behavior, architect
-things so a non-vanilla alternative *can* be switched in later, but never make the non-vanilla
-behavior the default.
 
 ## Settled decisions
 
-### Name
+- Name: **HERCULAN Engine**
 
-**HERCULAN Engine.** Chosen over "SiegeTech Engine" (clean but generic), "Prometheus Engine"
-(rejected — collides with the well-known Prometheus metrics/monitoring project and multiple
-existing GitHub projects literally named `prometheus-engine`), and "Gierling Engine" (memorable
-but easy to misspell, and opaque outside ES2 fandom). HERCULAN ties directly to the in-fiction
-mech name, had no notable naming collisions, and reads sensibly even to someone unfamiliar with
-the game.
-
-### Language & runtime
-
-- **C#**, not C++. The deciding factor isn't raw performance — it's that `HercWorks.Core`
+- Language: **C#**, not C++. The deciding factor is that `HercWorks.Core`
   already represents substantial, hard-won reverse-engineering work (file formats, DBSIM sim
-  math) and is directly reusable from C#. Rewriting that layer in C++ would cost more time than
-  C++'s performance ceiling would ever save back, for a game in ES2's performance class.
-- **Modern .NET (8/9/10+), not Mono.** Mono was the historical answer for cross-platform C#
+  math) and is directly reusable from C#. Performance is a non-issue on modern systems.
+  
+- Runtime: **Modern .NET (8/9/10+), not Mono.** Mono was the historical answer for cross-platform C#
   (Xamarin, Unity, old MonoGame) but modern .NET has been natively cross-platform
-  (win-x64/linux-x64/osx-arm64/etc.) since .NET Core, generally outperforms Mono's JIT, supports
-  NativeAOT publishing, and is where current investment goes. Mono would only be the right call
-  for platforms specifically requiring it (iOS AOT, some consoles) — not applicable to a desktop
-  Windows/Linux/macOS target.
+  (win-x64/linux-x64/osx-arm64/etc.).
 
 ### Rendering
 
 - Start with **OpenGL**, with an eventual goal of also supporting **Vulkan** (user-selectable
   backend).
-- Bindings: **Silk.NET** over OpenTK — covers GL, Vulkan, and windowing/input in one
-  actively-maintained library, so adding Vulkan later doesn't mean adopting a second binding
-  ecosystem.
+- Bindings: **Silk.NET**
 - Don't over-build the GL/Vulkan abstraction layer up front. An abstraction designed against a
   single backend tends to bake in assumptions (implicit state, no explicit sync) that don't map
   cleanly to Vulkan. Get OpenGL working concretely first; generalize the render interface when
@@ -64,41 +44,21 @@ the game.
 
 ### Repo & project structure
 
-- **Single repository** (`E:\ES2Stuff`, current repo). Explicitly rejected git submodules —
-  the usual submodule advantage (independent versioning of a dependency) doesn't apply here,
-  since Core/UI/Engine are developed in lockstep by the same person against the same evolving RE
-  findings. One clone, one `.sln`, atomic cross-layer commits.
-- **Engine lives as sibling project(s) to `HercWorks.UI`**, under
-  `Herculan/src/`, added to the existing `HercWorksMDK.sln`. Both the engine and
-  the WinForms UI reference `HercWorks.Core` / `HercWorks.Vol` directly as the shared data layer.
-  Neither depends on the other — this was "Option A" of two structures considered (the
-  alternative, UI depending on the engine as a library, was rejected: the WinForms tool has no
-  need for engine-only dependencies like Silk.NET or a physics/sim loop).
-  - `HercWorks.TransferApi` (UI-facing DTOs) is UI-only plumbing; the engine bypasses it and
-    talks to `HercWorks.Core` domain types directly.
-- Confirmed via inspection: `HercWorks.Core` and `HercWorks.Vol` already target plain `net8.0`
-  (not `net8.0-windows`) with no WinForms references, so this separation is already mostly in
-  place — only `HercWorks.UI` is Windows-only (`net8.0-windows`, `UseWindowsForms`).
+- **Single repository** (`E:\ES2Stuff`, current repo).
+- **Engine lives as sibling project(s) to `HercWorks.UI`**, under`Herculan/src/`, added to the 
+  existing `HercWorksMDK.sln`. Both the engine and the WinForms UI reference `HercWorks.Core` / 
+  `HercWorks.Vol`. `HercWorks.TransferApi` (UI-facing DTOs) is UI-only plumbing; the engine 
+  bypasses it and talks to `HercWorks.Core` domain types directly.
 
 ### Simulation object architecture
 
-**Traditional OOP / virtual dispatch, matching the original — not ECS.** This is grounded in
-actual RE evidence, not a guess about 1996-era convention in general: DBSIM.EXE's simulation
+**Traditional OOP / virtual dispatch, matching the original — not ECS.** DBSIM.EXE's simulation
 objects are built on a shared base-object constructor helper (`FUN_00402188`) called by every
-`SimObject`-derived class right after its vtable pointer is set. The Mech class sets a 34-slot
-vtable; rockets/bullets set smaller 6–9-slot vtables. Known virtual methods already identified
-include a hit-radius getter (`obj[+0x5c]`), the damage-application method (`obj[+0x70]`), and a
-part-position getter (`obj[+0x58]`) — see `project_es2_exe_recon` memory and
-`docs/simulation/dbsim-physics-notes.md`.
+`SimObject`-derived class right after its vtable pointer is set. See `project_es2_exe_recon`
+ memory and `docs/simulation/dbsim-physics-notes.md`.
 
 Plan: a `SimObject` abstract base class in the engine with virtual overrides mirroring the
 discovered vtable shape (Mech, Rocket, Bullet, Flyer, ...), rather than a component/system model.
-Two reasons this isn't just fidelity for its own sake:
-- **Scale makes ECS's advantage moot** — DBSIM's entity counts (a handful of mechs, a few dozen
-  active projectiles) are far below where cache-locality/iteration-cost concerns matter.
-- **It de-risks the port** — the actual vtable shape for several classes is already known from
-  Ghidra, so a base-class-plus-overrides translation is close to literal, versus re-deriving the
-  same behavior inside a component model designed from scratch.
 
 This decision is scoped to simulation objects specifically. Rendering/scene representation is a
 separate question and isn't required to follow the same pattern.
@@ -107,12 +67,9 @@ separate question and isn't required to follow the same pattern.
 
 **Custom, exact match to the original.** Not adopting an off-the-shelf .NET physics library
 (e.g. BepuPhysics) — the goal is to reproduce DBSIM's actual behavior, which has already been
-substantially reverse-engineered: the fixed-point math toolkit, hierarchical bounding-sphere
-collision setup, rocket/bullet per-tick integration, terrain height query (bilinear/barycentric
-with per-cell diagonal selection), and the per-mech damage formula (facing-based hit-zone budget,
-per-part random-roll, linear blast-radius falloff). See
-`docs/simulation/dbsim-physics-notes.md` for the full detail — this is the primary porting target
-for the physics/sim subsystem, not a reference to design against.
+substantially reverse-engineered: See `docs/simulation/dbsim-physics-notes.md` for the full detail
+ — this is the primary porting target for the physics/sim subsystem, not a reference to design 
+against.
 
 ### Math
 
@@ -123,23 +80,17 @@ the sqrt-free fast 3D magnitude approximation) rather than using floating-point
 - **Nice-to-have, not required for v1:** architect this behind an abstraction so the engine could
   later switch to modern floating-point math without a large rewrite. Apply the same caution as
   the rendering-backend abstraction above — don't design the swap layer in detail before there's
-  a second implementation to validate it against; get the fixed-point implementation working
-  first, keep it behind clean types rather than raw arithmetic scattered through call sites, and
-  generalize only when/if a second backend actually gets built.
+  a second implementation to validate it against.
 
 ### Audio
 
-**OpenAL via Silk.NET.** Consistent with the rendering-binding choice (Silk.NET already covers
-GL/Vulkan/windowing/input, and also wraps OpenAL) — one binding library rather than a separate
-audio dependency. This choice doesn't depend on resolving the still-unsolved `.SNC` format; that
-remains an open RE gap (see below) but doesn't block picking the playback library.
+**OpenAL via Silk.NET.**
 
 ### Target platform
 
 Primary development/testing target is **Windows**, but OS-specific code paths should still be
 abstracted from the start (consistent with the modern-.NET cross-platform decision above and
-Silk.NET's cross-platform windowing) so Linux/macOS support doesn't require rework later — just
-isn't the near-term testing priority.
+Silk.NET's cross-platform windowing) so Linux/macOS support doesn't require rework later.
 
 ### Engine internal architecture
 
@@ -148,9 +99,6 @@ isn't the near-term testing priority.
   them. A separate, minimal host project wires those libraries into an actual real-time game
   loop.
 - Motivation: a possible future mission editor that renders the mission environment in-engine.
-  If the editor is just another thin host on top of the same engine libraries, supporting it
-  later doesn't require restructuring the engine. Not designing the editor itself now — just
-  keeping the core/host separation clean so it stays an option.
 
 ### First milestone
 
@@ -164,9 +112,8 @@ writing `data\script.dat`, which is the file DBSIM itself reads (DBSIM never tou
 directly). Since the `.msn` parser and `script.dat` export are already understood byte-exact, a
 real `script.dat` can be handed to the engine directly, without building any of VSHELL's
 mission-select/loadout/armory UI. Reasoning for going DBSIM-first instead:
-- Targets the genuinely unbuilt, highest-risk parts of the project (render pipeline, real-time
-  sim loop, engine plumbing) rather than VSHELL's UI, which is comparatively low-risk — closer in
-  kind to the WinForms tool already built several times over.
+- Targets the unbuilt, highest-risk parts of the project (render pipeline, real-time
+  sim loop, engine plumbing) first
 - The milestone's hardcoded loadout is normal, low-risk technical debt: it gets replaced by real
   VSHELL-driven data once that layer exists, not redesigned.
 
@@ -184,16 +131,12 @@ mission-select/loadout/armory UI. Reasoning for going DBSIM-first instead:
   "library core + thin front-end host" decision above. References `Herculan.Engine` only.
   `Program.cs` just constructs an `EngineWindow` and runs it.
 
-Full solution builds with zero errors (`dotnet build HercWorksMDK.sln`). Not yet run/verified
-interactively (opening an actual window) — that's left for manual verification rather than trying
-to smoke-test a blocking windowed loop headlessly.
+Full solution builds with zero errors (`dotnet build HercWorksMDK.sln`).
 
 ### Milestone 1 — implemented (2026-08-11)
 
 All three parts of the first milestone are built and the full solution compiles clean in Debug and
-Release. Verified headlessly against the real `E:\ES2Stuff\ES2` install (loading, terrain query and
-camera motion all exercised without opening a window); actually looking at the rendered result is
-manual verification, deliberately left to the user rather than smoke-tested here.
+Release. Verified headlessly and by Kevin.
 
 **What's in `Herculan.Engine` now, by area:**
 
@@ -230,9 +173,6 @@ to sim input, run a fixed-timestep accumulator, draw. It takes optional `<instal
   along the same diagonal that cell's selector bits choose, so the surface drawn is the surface the
   simulation queries — which heads off an entire category of "why is the mech floating" bugs rather
   than correcting for them with an offset later.
-- ~~**World scale: ~200 world units per metre**~~ — **superseded 2026-08-13, see "World scale —
-  recovered" below.** The estimate was 20% low; the real figure is 166.667 units per metre, read out
-  of DBSIM rather than triangulated.
 - **DTS model units are world units, 1:1.** Measured, not assumed, and since **confirmed** — see
   "World scale — recovered" below. Note this differs from the WinForms viewer's 1/10 scale, which is
   arbitrary framing for its own window.
@@ -252,11 +192,10 @@ to sim input, run a fixed-timestep accumulator, draw. It takes optional `<instal
   type from the UI's `DtsGeometryBuilder` for exactly this reason; the tree-walking rules are the
   same and each is annotated with what the other established, so they're worth keeping in sync.
 
-**Deliberately not done, and why:** no textures (excluded from the milestone, and the DBSIM-side
-atlas convention is still unconfirmed), no weapons or damage — so `SimObject` does not yet declare
+**Deliberately not done, and why:** no weapons or damage — so `SimObject` does not yet declare
 the damage-related vtable slots (`+0x20`/`+0x70`/`+0x74`), since declaring them now would only mean
 stubbing them everywhere; no mech locomotion (the milestone's mech is stationary); no backface
-culling, matching the WinForms viewer's finding that DTS geometry isn't reliably wound.
+culling, matching the WinForms viewer's finding that DTS geometry isn't reliably wound. (**Note:** texture rendering is done as of Milestones 2–3.)
 
 **New open items this work surfaced** (all recorded at their call sites too):
 
@@ -269,11 +208,10 @@ culling, matching the WinForms viewer's finding that DTS geometry isn't reliably
   2026-08-13 terrain session**, and the terrain-renderer theory for who sets it is now **disproved**:
   with the render path located, `Terrain_DrawCellQuad` and `FUN_0046ff74` both only ever read
   `cell[+0xf]`. See `docs/formats/terrain-texturing.md`.
-- ~~**The `HeightGrid` LOD field (`+0x10c`) has no located consumer.**~~ **Found 2026-08-13:**
-  `maybe_Terrain_ComputeViewDistance` (`00470910`) scales it from cells into world units by
-  `<< cellShift`, clamping to 1000 near grid edges, once per frame. Treat the scaling as solid and
-  the two output values' meaning as undecoded — see `docs/formats/terrain-texturing.md` before
-  wiring it to any far-clip or haze constant.
+- **The `HeightGrid` LOD field (`+0x10c`)** is scaled by `maybe_Terrain_ComputeViewDistance`
+  (`00470910`) from cells into world units by `<< cellShift`, clamping to 1000 near grid edges,
+  once per frame. Treat the scaling as solid and the two output values' meaning as undecoded — see
+  `docs/formats/terrain-texturing.md` before wiring it to any far-clip or haze constant.
 - **`SimRandom`'s 56-entry seed table hasn't been extracted** from DBSIM's data section. The
   algorithm is a literal port; the seeding isn't. Bit-exact parity would need more than the table
   anyway — a roll's result depends on how many times the generator was already advanced — so
@@ -299,34 +237,6 @@ culling, matching the WinForms viewer's finding that DTS geometry isn't reliably
 
 ## Known technical debt relevant to the engine
 
-- ~~`HercWorks.Core` uses `System.Drawing.Common`~~ — **resolved (2026-08-11).** Migrated
-  `Core`'s ~18 affected files off `System.Drawing`: added cross-platform-safe
-  `HercWorks.Core.Data.Struct.PixelPoint`/`PixelSize`/`RgbaColor` value types (matching field
-  names/`ToArgb()` bit layout for a mechanical migration and easy conversion back to GDI+ types at
-  a UI boundary), used throughout the GAU widget classes, `DynamixPalette`/`ColorBytes`, and
-  `PaperDollGraphic`. `DynFileWriter` (the one file doing real pixel-level image encoding, not just
-  carrying position/color data) was initially moved to `SixLabors.ImageSharp` instead of
-  `System.Drawing.Bitmap` — but that surfaced a follow-on problem (next item) and was superseded by
-  moving the file to `HercWorks.UI` instead. `HercWorks.Core.csproj` no longer references
-  `System.Drawing.Common` or any image-encoding package at all. `HercWorks.UI`'s
-  `DynamixImageRenderer.cs` (the one UI consumer of `ColorBytes.GetColor()`) converts
-  `RgbaColor` → `System.Drawing.Color` at the UI boundary — appropriate since `HercWorks.UI` is
-  Windows-only and free to keep using GDI+ directly. Full solution compiles with zero `CS` errors
-  (verified via `dotnet build`).
-- ~~`SixLabors.ImageSharp` requires a commercial license in Release builds~~ — **resolved
-  (2026-08-11).** The `ImageSharp` swap above (`Core` v4.1.0) built fine in Debug but errored out
-  in Release under Six Labors' split-license enforcement. Root cause turned out to be a
-  misplacement, not a licensing problem to work around: `DynFileWriter` dumps parsed `.DBM` data to
-  `.png`/`.bmp` files on disk for a human to inspect — an MDK export feature the engine will never
-  call (the engine consumes `DynamixBitmap`/`DynamixPalette` data directly, never writes debug
-  image files) — so it had no reason to live in `Core` in the first place. It was the only file in
-  the whole `Core` migration doing real pixel-level image encoding; every other touched file just
-  carries position/color data via the new `PixelPoint`/`PixelSize`/`RgbaColor` structs. Moved
-  `DynFileWriter` to `HercWorks.UI` (same file, rewritten against `System.Drawing.Bitmap`/GDI+,
-  same pattern as `DynamixImageRenderer.cs`) and dropped the `SixLabors.ImageSharp` package
-  reference from `HercWorks.Core.csproj` entirely. `Core` now has zero image-related dependency of
-  any kind, and the licensing question doesn't apply anywhere in the project. Verified via a clean
-  `dotnet build -c Release` with no errors and no license warning.
 
 ## World scale — recovered (2026-08-13)
 
@@ -406,23 +316,6 @@ The items milestone 1 surfaced (terrain diagonal-selector bit 1, the PRNG seed t
 timestep's real value, DBSIM's trig table, the hit-cylinder radius field) are listed under
 "Milestone 1 — implemented" above, next to the code that works around each one.
 
-**Terrain texturing is RE-solved and ready to implement** (2026-08-13, see
-`docs/formats/terrain-texturing.md`): the bank name comes from the `world<N>` theater descriptor,
-the frame from `mat0[material].Index`, and the per-cell UV rect from a `BlockShift` formula with a
-256-texel wrap. Terrain is still drawn flat-shaded in the engine — implementing it needs the
-`world<N>` descriptor's field layout decoded, to read the bank name rather than hardcode it. The
-metres-per-texel discrepancy that also blocked it is **resolved**: at the recovered scale a retail
-cell is 98.3 m and carries 128 texels, so a texel is 0.77 m. That is *finer* than the 0.64 m the old
-estimate gave, i.e. the correction moved the number away from the "several metres per texel" a
-gameplay screenshot suggested — which settles it the other way, by elimination: that impression was
-320x200 screen pixels, not texels.
-
-Two corrections that fall out of that session and affect existing engine code:
-`TerrainMaterial.Index` is a texture frame index, not the self-index its doc comment claimed; and
-the LOD field is re-derived **every frame** by the original from a per-detail-setting table, so the
-loader's hardcoded base of 10 is the retail default entry rather than a constant. Both doc comments
-are updated in place.
-
 ## Milestone 2 — mech texturing (2026-08-13)
 
 Textured mech rendering on the GPU, using the chain in `docs/formats/dts-texture-binding.md` end to
@@ -434,8 +327,7 @@ optional texture handle, and `ZoneScene` picks the bank from the mech's own `.DA
 `HercSimDat.ModelSkinId`.
 
 Packing into an atlas is an engine-side optimisation, not a reproduction of an original data layout
-— the original ships no atlas, because a software rasterizer pays nothing to switch frames while a
-GPU pays per bind. It is also the smaller change than batching a mesh per referenced frame.
+— the original ships no atlas because it uses a software renderer.
 
 `DtsMeshBuilder.DropCoincidentTwins`' preference **inverted** as part of this: while texturing was
 unimplemented it deliberately kept the untextured twin of each stacked pair, which would have hidden
@@ -470,9 +362,7 @@ cell can select a frame its bank does not have. It also quietly fixed a live def
 mech texture poly kept its placeholder colour in the vertex data but was drawn with texturing on and
 UVs of `(0,0)`, so it sampled whatever sat at the atlas origin rather than showing the placeholder.
 
-**The theater palette resolved an old shrug.** Mech texturing shipped decoding banks against
-`WORLD0.DPL` because nothing named which of `WORLD0..9` went with which bank. They are not a set to
-choose from: `World_LoadTheater` loads `dpl\world<N>.dpl` as its first act, one palette active per
+**`World_LoadTheater` loads `dpl\world<N>.dpl` as its first act, one palette active per
 theater for everything it draws. `ZoneScene` now decodes the mech's bank against the theater's
 palette too.
 
@@ -483,28 +373,9 @@ a cell spans 128 of 256 texels and the texture repeats every two cells. The `urb
 were rendered and eyeballed and look like what this document's terrain notes predicted before
 anything was drawn.
 
-### RE gaps that block specific engine features (status current as of 2026-08-11, confirmed
-against the actual repo docs — supersedes the older, more pessimistic summary in
-`project-es2-engine-port-readiness` memory)
+### Remaining RE gaps
 
-- ~~Direct-fire weapon damage (lasers, autocannons) not located~~ — **solved and documented.**
-  Armor-then-part, deterministic, shield-gated formula, fully written up in
-  `docs/simulation/dbsim-physics-notes.md` ("Direct-fire damage: armor-then-part, deterministic,
-  shield-gated"). No longer a blocker for combat implementation.
-- **DTS texture-to-DBA binding — mechanism solved, one scope caveat remains.** `.DTS` carries no
-  texture references; each `TSShapeInstance` holds its own bound `.DBA` pointer, and each poly's
-  `BmpTag`/`FrontColor` is a plain frame index into whichever DBA is currently bound. Full writeup
-  in `docs/formats/dts-texture-binding.md`. **Caveat:** confirmed via VSHELL.EXE's 2D armory-display
-  code (`dba\<code>_bod.dba` / `_wep.dba` / `_out.dba` naming convention); DBSIM.EXE's own
-  DBA-selection convention for the live 3D combat view is the same underlying mechanism but not yet
-  independently confirmed (DBSIM is a stripped build, harder to trace), and actual textured
-  rendering isn't implemented in C# yet either. Not needed for the first milestone (untextured
-  geometry only) but worth resolving the DBSIM-side convention before the milestone that adds
-  textures.
 - `.SNC` audio format unsolved — blocks original game audio playback. Not needed until audio
   work starts.
-- AI/behavior trees barely understood — blocks enemy mech behavior. Not needed for the first
-  milestone (single mech, no combat/AI).
-
-None of the remaining gaps (`.SNC`, AI, DBSIM-side texture convention) block the first milestone
-as scoped above.
+- AI/behavior trees barely understood — blocks enemy mech behavior. Not needed for near-term
+  milestones (single mech, no combat/AI yet).

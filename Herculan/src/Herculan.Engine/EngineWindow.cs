@@ -31,6 +31,9 @@ public sealed class EngineWindow : IDisposable {
 	/// <summary>Raised each frame to draw, with the elapsed seconds and the GL context.</summary>
 	public event Action<double, GL>? Render;
 
+	/// <summary>Raised when the window is closing, while the GL context is still active.</summary>
+	public event Action? Closing;
+
 	public EngineWindow(string title = "HERCULAN Engine", int width = 1280, int height = 720) {
 		var options = WindowOptions.Default with {
 			Size = new Vector2D<int>(width, height),
@@ -76,6 +79,7 @@ public sealed class EngineWindow : IDisposable {
 	}
 
 	private void OnClosing() {
+		Closing?.Invoke();
 		_input?.Dispose();
 		_input = null;
 	}

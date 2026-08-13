@@ -104,11 +104,12 @@ window.Render += (_, _) => {
 	renderer.Render(camera, items, size.X, size.Y);
 };
 
-window.Run();
+window.Closing += () => {
+	renderer?.Dispose();
+	terrainMesh?.Dispose();
+	mechMesh?.Dispose();
 
-renderer?.Dispose();
-terrainMesh?.Dispose();
-mechMesh?.Dispose();
+window.Run();
 
 return 0;
 

@@ -20,10 +20,11 @@ namespace Herculan.Engine.Render;
 /// each one below is annotated with what the UI builder established — worth keeping the two in sync
 /// if either side changes.</para>
 ///
-/// <para>Textures are out of scope for the first milestone, so <see cref="TSTexture4Poly"/> polys
-/// contribute geometry only; the remaining open question for whenever textures are added is
-/// DBSIM's own atlas-selection convention for the live 3D view, understood in mechanism but not
-/// independently confirmed (see docs/formats/dts-texture-binding.md).</para>
+/// <para><see cref="TSTexture4Poly"/> polys resolve to real texture through the chain established in
+/// docs/formats/dts-texture-binding.md: <c>Surfaces[ColorIndexId / 4].FrontColor</c> is a frame index
+/// into the mech's <c>.DBA</c> bank, and the four UV corners are the frame's own rect. Pass a
+/// <see cref="TextureAtlas"/> to get that; without one they fall back to a flat placeholder, which is
+/// honest about "no bank loaded" rather than quietly wrong.</para>
 /// </summary>
 public static class DtsMeshBuilder {
 	/// <summary>Safety bound on the transform parent chain, in case a file's relations form a cycle.</summary>
@@ -31,22 +32,61 @@ public static class DtsMeshBuilder {
 
 	private static readonly Vector3 FallbackColor = new(0.72f, 0.72f, 0.75f);
 
+	/// <summary>
+	/// Stand-in colour for a <see cref="TSTexture4Poly"/> whose frame could not be resolved. Distinct
+	/// from <see cref="FallbackColor"/> so an unresolved texture poly is identifiable on screen
+	/// instead of blending in with genuinely untextured geometry.
+	/// </summary>
+	private static readonly Vector3 TextureFallbackColor = new(0.47f, 0.59f, 0.75f);
+
+	/// <summary>
+	/// Vertex-order UV corners for a textured quad, as fractions of the frame's own rect.
+	/// RE-confirmed order (top-left, top-right, bottom-right, bottom-left) — the exe builds
+	/// <c>[(F0,F1), (F2,F1), (F2,F3), (F0,F3)]</c> from a per-frame descriptor, see
+	/// docs/formats/dts-texture-binding.md's "UV-generation formula — FOUND".
+	/// </summary>
+	private static readonly Vector2[] QuadCorners = {
+		new(0f, 0f), new(1f, 0f), new(1f, 1f), new(0f, 1f)
+	};
+
 	private readonly struct Triangle {
 		public Vector3 A { get; }
 		public Vector3 B { get; }
 		public Vector3 C { get; }
 		public Vector3 Color { get; }
+		public Vector2 UvA { get; }
+		public Vector2 UvB { get; }
+		public Vector2 UvC { get; }
 
-		/// <summary>Whether this came from a textured poly — see <see cref="DropCoincidentTwins"/>.</summary>
-		public bool Textured { get; }
+		/// <summary>Which twin of a coincident pair wins — see <see cref="DropCoincidentTwins"/>.</summary>
+		public int Rank { get; }
 
-		public Triangle(Vector3 a, Vector3 b, Vector3 c, Vector3 color, bool textured) {
+		public Triangle(Vector3 a, Vector3 b, Vector3 c, Vector3 color, int rank,
+				Vector2 uvA = default, Vector2 uvB = default, Vector2 uvC = default) {
 			A = a;
 			B = b;
 			C = c;
 			Color = color;
-			Textured = textured;
+			Rank = rank;
+			UvA = uvA;
+			UvB = uvB;
+			UvC = uvC;
 		}
+	}
+
+	/// <summary>
+	/// How good a triangle is as the survivor of a coincident group, highest wins. The ordering is
+	/// the whole point of <see cref="DropCoincidentTwins"/> and is documented there.
+	/// </summary>
+	private static class Ranks {
+		/// <summary>A texture poly with no atlas frame behind it — a placeholder colour, worst option.</summary>
+		public const int UnresolvedTexture = 0;
+
+		/// <summary>An ordinary flat-shaded poly, carrying a real surface colour.</summary>
+		public const int FlatShaded = 1;
+
+		/// <summary>A texture poly resolved to real atlas pixels — what the original draws.</summary>
+		public const int Textured = 2;
 	}
 
 	/// <summary>
@@ -58,20 +98,20 @@ public static class DtsMeshBuilder {
 	/// A caller that wants one specific object should use <see cref="BuildRoot"/> and pick. Merging
 	/// all roots is right only when the file is known to hold a single object.</para>
 	/// </summary>
-	public static MeshVertex[] BuildAll(DynamixThreeSpaceModel model) {
+	public static MeshVertex[] BuildAll(DynamixThreeSpaceModel model, TextureAtlas? atlas = null) {
 		var triangles = new List<Triangle>();
 		if (model.Meshes != null) {
 			foreach (var root in model.Meshes) {
-				Collect(root, null, triangles);
+				Collect(root, null, triangles, atlas);
 			}
 		}
 		return Emit(triangles);
 	}
 
 	/// <summary>Builds one top-level root at its highest detail level.</summary>
-	public static MeshVertex[] BuildRoot(TSObject root) {
+	public static MeshVertex[] BuildRoot(TSObject root, TextureAtlas? atlas = null) {
 		var triangles = new List<Triangle>();
-		Collect(root, null, triangles);
+		Collect(root, null, triangles, atlas);
 		return Emit(triangles);
 	}
 
@@ -104,9 +144,14 @@ public static class DtsMeshBuilder {
 			Vector3 normal = Vector3.Cross(triangle.B - triangle.A, triangle.C - triangle.A);
 			normal = normal.LengthSquared() > 1e-12f ? Vector3.Normalize(normal) : Vector3.UnitY;
 
-			vertices[i * 3] = new MeshVertex(triangle.A, normal, triangle.Color);
-			vertices[i * 3 + 1] = new MeshVertex(triangle.B, normal, triangle.Color);
-			vertices[i * 3 + 2] = new MeshVertex(triangle.C, normal, triangle.Color);
+			// Only a triangle that actually resolved to an atlas frame samples the texture; the rest
+			// keep their colour, which is what makes the placeholder colour on an unresolved texture
+			// poly visible instead of it sampling whatever sits at the atlas origin.
+			bool textured = triangle.Rank == Ranks.Textured;
+
+			vertices[i * 3] = new MeshVertex(triangle.A, normal, triangle.Color, triangle.UvA, textured);
+			vertices[i * 3 + 1] = new MeshVertex(triangle.B, normal, triangle.Color, triangle.UvB, textured);
+			vertices[i * 3 + 2] = new MeshVertex(triangle.C, normal, triangle.Color, triangle.UvC, textured);
 		}
 
 		return vertices;
@@ -116,8 +161,19 @@ public static class DtsMeshBuilder {
 	/// Real DTS meshes stack a textured poly precisely on top of a flat-shaded twin occupying the
 	/// exact same surface — 186 such pairs in <c>SAMSON.DTS</c>'s first root alone, with identical
 	/// centroid and normal. Both drawn, they land at identical depth, so which one is visible comes
-	/// down to draw order rather than anything meaningful. Until textures exist only the flat-shaded
-	/// twin can look right, so keep one triangle per coincident group and prefer the untextured one.
+	/// down to draw order rather than anything meaningful. Exactly one survives per coincident group,
+	/// picked by <see cref="Ranks"/>.
+	///
+	/// <para><b>That preference is the inverse of what it was before texturing existed.</b> While
+	/// <see cref="TSTexture4Poly"/> could only render as a placeholder colour, the flat-shaded twin
+	/// was the only one that could look right and deliberately won every tie. Now that a texture poly
+	/// resolves to real atlas pixels it is the one the original actually draws, so it has to win —
+	/// leaving the old preference in place would load and pack every texture and then systematically
+	/// hide it behind the untextured twin.</para>
+	///
+	/// <para>A texture poly that did <i>not</i> resolve (no atlas supplied, or a frame index outside
+	/// the bank) still loses to the flat-shaded twin, which is why this is a three-way rank rather
+	/// than a flipped boolean: the no-bank path keeps behaving exactly as it did before.</para>
 	///
 	/// <para>Grouping uses a coarsely-rounded centroid plus the absolute normal, so opposite-winding
 	/// duplicates of one surface land together while genuinely distinct nearby triangles do not.</para>
@@ -147,8 +203,8 @@ public static class DtsMeshBuilder {
 				continue;
 			}
 
-			// An untextured twin replaces a textured one already kept; otherwise the first wins.
-			if (triangles[existing].Textured && !triangle.Textured) {
+			// A strictly better-ranked twin replaces the one already kept; ties go to the first seen.
+			if (triangle.Rank > triangles[existing].Rank) {
 				keep[existing] = false;
 				groups[key] = i;
 				keep[i] = true;
@@ -170,49 +226,49 @@ public static class DtsMeshBuilder {
 	/// <see cref="TSBitmapPart"/> carries no geometry (it is a camera-facing billboard, which needs
 	/// per-frame geometry this builder doesn't produce) and is skipped.
 	/// </summary>
-	private static void Collect(TSObject? node, ANAnimList? animList, List<Triangle> triangles) {
+	private static void Collect(TSObject? node, ANAnimList? animList, List<Triangle> triangles, TextureAtlas? atlas) {
 		switch (node) {
 			case null:
 				return;
 
 			case ANShape shape:
 				// An ANShape brings its own animation list into scope for everything beneath it.
-				CollectParts(shape.Parts, shape.AnimationList ?? animList, triangles);
+				CollectParts(shape.Parts, shape.AnimationList ?? animList, triangles, atlas);
 				break;
 
 			case TSDetailPart detailPart:
-				CollectHighestDetail(detailPart, animList, triangles);
+				CollectHighestDetail(detailPart, animList, triangles, atlas);
 				break;
 
 			case TSCellAnimPart cellAnimPart:
 				// Consecutive frames of one moving sub-part (a rotating dish, say). Walking all of
 				// them stacks every frame of the motion on top of itself, so take the rest pose.
 				if (cellAnimPart.Parts is { Length: > 0 } frames) {
-					Collect(frames[0], animList, triangles);
+					Collect(frames[0], animList, triangles, atlas);
 				}
 				break;
 
 			case TSBSPGroup bspGroup:
-				AppendGroup(bspGroup, animList, triangles);
+				AppendGroup(bspGroup, animList, triangles, atlas);
 				break;
 
 			case TSGroup group:
-				AppendGroup(group, animList, triangles);
+				AppendGroup(group, animList, triangles, atlas);
 				break;
 
 			case TSPartList partList:
-				CollectParts(partList.Parts, animList, triangles);
+				CollectParts(partList.Parts, animList, triangles, atlas);
 				break;
 		}
 	}
 
-	private static void CollectParts(TSObject[]? parts, ANAnimList? animList, List<Triangle> triangles) {
+	private static void CollectParts(TSObject[]? parts, ANAnimList? animList, List<Triangle> triangles, TextureAtlas? atlas) {
 		if (parts == null) {
 			return;
 		}
 
 		foreach (var part in parts) {
-			Collect(part, animList, triangles);
+			Collect(part, animList, triangles, atlas);
 		}
 	}
 
@@ -222,7 +278,7 @@ public static class DtsMeshBuilder {
 	/// the one paired with the largest threshold rather than simply the last entry, since nothing
 	/// guarantees a file keeps them in ascending order.
 	/// </summary>
-	private static void CollectHighestDetail(TSDetailPart detailPart, ANAnimList? animList, List<Triangle> triangles) {
+	private static void CollectHighestDetail(TSDetailPart detailPart, ANAnimList? animList, List<Triangle> triangles, TextureAtlas? atlas) {
 		if (detailPart.Parts is not { Length: > 0 } parts) {
 			return;
 		}
@@ -238,10 +294,10 @@ public static class DtsMeshBuilder {
 			}
 		}
 
-		Collect(parts[best], animList, triangles);
+		Collect(parts[best], animList, triangles, atlas);
 	}
 
-	private static void AppendGroup(TSGroup group, ANAnimList? animList, List<Triangle> triangles) {
+	private static void AppendGroup(TSGroup group, ANAnimList? animList, List<Triangle> triangles, TextureAtlas? atlas) {
 		if (group.Points == null || group.Indexes == null || group.Polys == null) {
 			return;
 		}
@@ -286,8 +342,17 @@ public static class DtsMeshBuilder {
 				continue;
 			}
 
-			bool textured = poly is TSTexture4Poly;
-			Vector3 color = ResolveColor(poly, surfaceColors);
+			// A TSTexture4Poly is a quad by definition; anything else claiming to be one has a layout
+			// this UV mapping was never confirmed against, so it falls back rather than guessing.
+			AtlasRect? rect = poly is TSTexture4Poly && poly.VertexCount == 4
+				? ResolveFrame(poly, group.Surfaces, atlas)
+				: null;
+
+			int rank = poly is TSTexture4Poly
+				? (rect.HasValue ? Ranks.Textured : Ranks.UnresolvedTexture)
+				: Ranks.FlatShaded;
+
+			Vector3 color = rank == Ranks.UnresolvedTexture ? TextureFallbackColor : ResolveColor(poly, surfaceColors);
 			Vector3 first = points[firstIndex];
 
 			// Polys are convex fans, so a triangle fan from the first vertex reproduces them.
@@ -298,7 +363,12 @@ public static class DtsMeshBuilder {
 					continue;
 				}
 
-				triangles.Add(new Triangle(first, points[i1], points[i2], color, textured));
+				if (rect is { } frame) {
+					triangles.Add(new Triangle(first, points[i1], points[i2], color, rank,
+						UvAt(frame, 0), UvAt(frame, i + 1), UvAt(frame, i + 2)));
+				} else {
+					triangles.Add(new Triangle(first, points[i1], points[i2], color, rank));
+				}
 			}
 		}
 	}
@@ -346,6 +416,36 @@ public static class DtsMeshBuilder {
 		}
 
 		return offset;
+	}
+
+	/// <summary>
+	/// Maps one of the four RE-confirmed quad corners onto a frame's rect inside the atlas.
+	/// </summary>
+	private static Vector2 UvAt(AtlasRect frame, int corner) {
+		Vector2 unit = QuadCorners[corner];
+		return new Vector2(
+			frame.U0 + unit.X * (frame.U1 - frame.U0),
+			frame.V0 + unit.Y * (frame.V1 - frame.V0));
+	}
+
+	/// <summary>
+	/// Resolves a textured poly to its frame in the atlas. The frame index is
+	/// <c>Surfaces[ColorIndexId / 4].FrontColor</c> — the <c>/ 4</c> because <c>ColorIndexId</c> is
+	/// stored as <c>surfaceIndex * 4</c> (confirmed two independent ways, see
+	/// <see cref="ResolveColor"/>), and <c>FrontColor</c> because nothing here backface-culls, so the
+	/// front face is what gets drawn for every poly regardless of facing.
+	/// </summary>
+	private static AtlasRect? ResolveFrame(TSPoly poly, TSSurfaceEntry[]? surfaces, TextureAtlas? atlas) {
+		if (atlas == null || surfaces == null || poly is not TSSolidPoly solidPoly) {
+			return null;
+		}
+
+		int surfaceIndex = solidPoly.ColorIndexId / 4;
+		if (surfaceIndex < 0 || surfaceIndex >= surfaces.Length) {
+			return null;
+		}
+
+		return atlas.Frame(surfaces[surfaceIndex].FrontColor);
 	}
 
 	/// <summary>

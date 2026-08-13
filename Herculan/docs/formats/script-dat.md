@@ -205,8 +205,23 @@ end of block 13) for all 10/10 files — including `script0.dat`, whose real con
   documented there as a heading in degrees (not a generic discrete flag), and row #16's cross-ref
   array is documented there as DBSIM's entity-activation mechanism. Read this doc's own per-block
   table above for the full detail; the `.msn` doc's sections now just carry pointers back here.
-- **Not yet chased**: the header's 20 bytes are only partially understood — one field (offset 2-3,
-  passed to `FUN_00424b48` in DBSIM and to a similarly-placed call in VSHELL's `ShellMap`) is real and
-  varies meaningfully across the 10 real files, but its exact meaning (mission/chapter id? a
-  checksum? something else?) wasn't chased down, since it's read-only header metadata rather than
-  gameplay data and didn't block confirming the record structure or building the C# port.
+- ~~**Not yet chased**: the header's 20 bytes are only partially understood — one field (offset 2-3)
+  is real and varies meaningfully across the 10 real files, but its exact meaning (mission/chapter id?
+  a checksum? something else?) wasn't chased down.~~ — **decoded 2026-08-13.** It is the **zone
+  index**: `DBSim_LoadScriptDat` passes it straight to `Terrain_LoadZone`. Three of the header's ten
+  shorts are now known, and between them they are everything needed to stand up a mission's world:
+
+  | offset | meaning |
+  |---|---|
+  | 0 | theater index, 0-4 — selects `wld\world<index * 2 + variant>.wld`, which names the terrain texture bank and the palette |
+  | 2 | zone index — the `zoneNNNN` handed to `Terrain_LoadZone` |
+  | 18 | theater variant, 0 or 1 — the low bit of that same world number |
+
+  The first two are read straight out of the header global; the theater pair is confirmed by
+  `DBSim_LoadScriptDat` handing the whole 20 bytes to `maybe_World_LoadTheater`, which builds the name
+  from the short at 0 and the short at 18. Cross-checked against all ten real files: every offset-2
+  value (555, 123, 22, 234, 3333) is a zone that actually ships as `dat\zoneNNNN.dat`, every offset-0
+  value is 0/1/2, and every offset-18 value is 0. The field at offset 4 is zeroed by the reader before
+  anything uses it; the rest are constant across the corpus. See
+  [`terrain-texturing.md`](terrain-texturing.md) for the theater side and
+  `Herculan.Engine.World.ScriptDatHeader` for the port.

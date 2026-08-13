@@ -295,6 +295,69 @@ populates `g_MechTextureGroupSlots[i]` with a parsed DBA the first time group `i
 the group→filename mapping is now known from data (not from tracing that loader), reproducing its
 exact lazy-load mechanics wasn't necessary to implement auto-selection in the C# viewer.
 
+## HERCULAN Engine implementation — shipped 2026-08-13, with a fleet-wide audit
+
+The engine (not the WinForms viewer) now renders textured mechs on the GPU, using this document's
+chain end to end: `HercSimDat.ModelSkinId` → bank name → `.DBA` → `Surfaces[ColorIndexId / 4]
+.FrontColor` → frame → the RE-confirmed corner order. `Herculan.Engine.Render.TextureAtlas` decodes
+and packs a whole bank, `Gl.GpuTexture` uploads it, `DtsMeshBuilder` emits UVs, `Scene.ZoneScene`
+picks the bank from the mech's own `.DAT`.
+
+**Two engine-side departures from the original, both deliberate and both documented in code:**
+
+- **Frames are packed into one atlas.** The original ships no atlas — a `.DBA` is an array of
+  independently-sized frames, and a software rasterizer pays nothing to switch between them. A GPU
+  pays per bind, so packing lets a mech draw in one call. Packing is a pure relocation, so the
+  confirmed corner order is unaffected. Retail banks are small: the largest of the seven is 53
+  frames into a 256x512 atlas.
+- **Nearest-neighbour sampling, no mipmaps.** A fidelity call, not a shortcut — the original point
+  samples, so filtering would look softer than the game ever did. Filtering belongs in the opt-in
+  bucket per the planning doc's "vanilla by default" principle.
+
+**Fleet-wide audit (every `dts\*.DTS` with a matching `dat\*.DAT`, 22 mechs).** Ran to check whether
+the frame-index chain actually resolves on real data rather than just on SAMSON:
+
+- **21 of 22 mechs: zero unresolved texture polys.** Every `TSTexture4Poly`'s
+  `Surfaces[ColorIndexId/4].FrontColor` lands inside its selected bank's frame count. This is the
+  strongest evidence yet that both the `/4` stride and the `ModelSkinId`→bank mapping are right —
+  a wrong bank or a wrong stride would produce out-of-range indices somewhere across ~2000 polys.
+- **TOMAHAWK has exactly 4 anomalous polys**, all identical: `ColorIndexId = 0` into a `Surfaces`
+  array of length **1**, with `FrontColor == BackColor == 3084` (`0xC0C`) against a 36-frame bank.
+  Front and back agreeing on the same nonsense value, in a one-entry surface table, reads as a
+  degenerate group in the source art rather than a decoding error — nothing else in the fleet looks
+  like it. They fall back to the placeholder colour.
+- **13 `TSTexture4Poly`s across 6 mechs have 3 vertices, not 4** (SAMSON, COLOSSUS, CERBERUS,
+  HYPERION, OUTLAW, TOMAHAWK). The engine falls these back to flat shading rather than mapping three
+  of the four corners: the exe's decompiled UV builder populates a 4-entry array, and what it does
+  for a 3-vertex poly was never traced. Mapping the first three corners is the natural guess and
+  would probably look fine — but this document's own history (the flat-average-colour episode) is a
+  standing argument against shipping plausible guesses, and 13 polys fleet-wide is not worth the
+  risk. Concrete follow-up if anyone wants it: decompile the vertex-count branch of
+  `TSTexture4Poly_Render`'s UV setup.
+
+**The coincident-twin rule had to invert, and this is easy to miss.** Real DTS meshes stack a
+textured poly exactly on top of a flat-shaded twin (186 such pairs in SAMSON's first root). While
+texturing was unimplemented, `DtsMeshBuilder` deliberately kept the *untextured* twin — the only one
+that could look right. With texturing live, the textured twin is the one the original draws, so the
+preference had to flip; leaving it would have loaded and packed every texture and then hidden it
+behind the flat twin. Implemented as a three-way rank rather than a flipped boolean, so a texture
+poly that fails to resolve still loses to its flat twin and the no-bank path behaves exactly as
+before. Verified by building each mech both ways: identical total triangle counts, textured
+triangles 0 → 142 (SAMSON), 0 → 198 (DIABLO), 0 → 232 (APOCA).
+
+**A parser bug reported by this audit was MISATTRIBUTED — retracted.** The audit originally reported
+that `DTSModelTransformer` throws `IndexOutOfRangeException` on every `*_DEB.DTS` (debris) model and
+on `BULLETS`/`ROCKETS`/`FIRE`/`SKIMMER`. A follow-up investigation found no such failure: all 55
+retail `.DTS` files parse byte-complete and no unhandled subtype exists.
+
+The cause was a flaw in the audit probe, not in the reader: it called `HercSimDataTransformer` on
+`dat\<name>.DAT` and `DTSModelTransformer` on `dts\<name>.DTS` **inside a single try block**, then
+reported any exception as a DTS parse failure. Debris and effect `.DAT` files are not mech sim data,
+so the thrower was almost certainly the *sim-data* parser being handed a file it was never meant to
+read. **Lesson: one try block per claim.** A probe that cannot say which of two operations threw
+cannot support a statement about either, and this one sent a separate investigation after a
+non-existent bug.
+
 ## How to apply
 
 **Implemented 2026-08-11 (follow-up session):**

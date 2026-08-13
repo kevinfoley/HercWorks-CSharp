@@ -15,6 +15,9 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// Ported from org.hercworks.core.io.transform.dbsim.DTSModelTransformer.
 /// </summary>
 public class DTSModelTransformer : ThreeSpaceByteTransformer {
+	/// <summary>Every TSObject is prefixed by a 4-byte type marker plus a 4-byte little-endian payload length.</summary>
+	private const int ChunkHeaderLength = 8;
+
 	private int _indexTSGroup;
 
 	public override DataFile? BytesToObject(byte[]? inputArray) {
@@ -48,9 +51,69 @@ public class DTSModelTransformer : ThreeSpaceByteTransformer {
 	/// <summary>
 	/// Hacked-together analogue for the ChunkTypes[] object in the original python script. DTS
 	/// files are nested objects and object lists, so a tree-loading approach is necessary.
+	///
+	/// <para>Every TSObject on disk is <c>&lt;4-byte marker&gt;&lt;4-byte LE payload length&gt;&lt;payload&gt;</c>,
+	/// so each chunk is self-describing — which lets this method bracket every read: the declared
+	/// payload has to fit the buffer going in, and the per-type reader has to consume it exactly
+	/// going out. A field-layout mistake therefore surfaces <em>here</em>, naming the chunk type and
+	/// its file offset, instead of as a bare IndexOutOfRangeException from some unrelated read much
+	/// further along — which is what it used to look like, since none of the readers below bounds-check
+	/// anything.</para>
+	///
+	/// <para>This validates rather than narrows what the reader accepts: checked against all 55 retail
+	/// DTS models in SIMVOL0.VOL (every mech, debris, effect and weapon model — the only archive that
+	/// ships any), every chunk consumes its declared length exactly, at every nesting depth, with no
+	/// unrecognized markers anywhere.</para>
 	/// </summary>
 	private TSObject? LoadChunkByType(TSObject? parent) {
+		int chunkStart = Index;
+
+		if (chunkStart + ChunkHeaderLength > Bytes!.Length) {
+			throw new InvalidDataException(
+				$"DTS chunk header at offset {chunkStart} runs past the end of the {Bytes.Length}-byte model.");
+		}
+
 		byte[] marker = IndexSegment(4);
+		var header = TSObjectHeader.FindVal(marker);
+		string described = header?.Id() ?? $"unrecognized type 0x{Convert.ToHexString(marker)}";
+
+		// Peeked, not consumed — each per-type reader below reads this length itself as its first act.
+		int byteLen = PeekIntLE();
+
+		if (byteLen < 0 || chunkStart + (long)ChunkHeaderLength + byteLen > Bytes.Length) {
+			throw new InvalidDataException(
+				$"DTS chunk '{described}' at offset {chunkStart} declares a {byteLen}-byte payload, " +
+				$"which does not fit the {Bytes.Length}-byte model.");
+		}
+
+		int expectedEnd = chunkStart + ChunkHeaderLength + byteLen;
+		TSObject? chunk = header == null ? null : ReadChunk(header, parent);
+
+		if (chunk == null) {
+			// Either an unrecognized marker or one of the three Alias*Poly types that no reader
+			// implements (see ReadChunk). Both are stepped over using the chunk's own declared
+			// length, which is exact — no guessing at a layout this project has never seen.
+			Index = expectedEnd;
+			return null;
+		}
+
+		if (Index != expectedEnd) {
+			throw new InvalidDataException(
+				$"DTS chunk '{described}' at offset {chunkStart} declares {byteLen} payload bytes but its " +
+				$"reader consumed {Index - chunkStart - ChunkHeaderLength} (ended at {Index}, expected " +
+				$"{expectedEnd}). The field layout this reader uses for '{described}' does not match the file.");
+		}
+
+		return chunk;
+	}
+
+	/// <summary>
+	/// Dispatches one already-identified chunk to its reader, with the cursor sitting on the chunk's
+	/// length field. Returns null for a type deliberately left unread, which
+	/// <see cref="LoadChunkByType"/> turns into an exact skip.
+	/// </summary>
+	private TSObject? ReadChunk(TSObjectHeader header, TSObject? parent) {
+		byte[] marker = header.Val();
 
 		if (marker.SequenceEqual(TSObjectHeader.TSBasePart.Val())) return ReadTSBasePart(null, parent);
 		if (marker.SequenceEqual(TSObjectHeader.TSPartList.Val())) return ReadTSPartList(null, parent);
@@ -71,9 +134,13 @@ public class DTSModelTransformer : ThreeSpaceByteTransformer {
 		if (marker.SequenceEqual(TSObjectHeader.TSDetailPart.Val())) return ReadTSDetailPart(null, parent);
 		if (marker.SequenceEqual(TSObjectHeader.TSBSPGroup.Val())) return ReadTSBSPGroup(null, parent);
 
-		int len = IndexIntLE();
-		Skip(len);
-
+		// TSAliasSolidPoly (0x10) / TSAliasShadedPoly (0x11) / TSAliasGouraudPoly (0x12) reach here.
+		// They are declared in TSObjectHeader but no reader exists, and none is written here on
+		// purpose: no retail DTS contains one (confirmed by a full chunk census over SIMVOL0.VOL), so
+		// there are no real bytes to verify a guessed field layout against, and the Java original this
+		// was ported from likewise declares the three markers without ever reading them. Skipping by
+		// declared length keeps the rest of the tree parseable; inventing a layout would just be a
+		// plausible-looking guess with nothing behind it.
 		return null;
 	}
 
@@ -124,6 +191,16 @@ public class DTSModelTransformer : ThreeSpaceByteTransformer {
 		// FIXME (carried over from Java): so far these just seem to trail at the end for any
 		// remaining bytes of the TSObject's byte-len. Pretty weird.
 		int detailCount = (link.GetDataIndex() + link.ByteLen) - Index;
+
+		// Derived by subtraction rather than read from a count field, so it goes negative if the part
+		// list above overran the chunk. Caught here because a negative length would otherwise blow up
+		// as an unrelated-looking OverflowException from the array allocation on the next line.
+		if (detailCount < 0) {
+			throw new InvalidDataException(
+				$"TSDetailPart at offset {link.Index} overran its own {link.ByteLen}-byte payload by " +
+				$"{-detailCount} bytes while reading its part list.");
+		}
+
 		var details = new short[detailCount / 2];
 		for (int d = 0; d < details.Length; d++) {
 			details[d] = IndexShortLE();

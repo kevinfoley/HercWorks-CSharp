@@ -67,6 +67,14 @@ public sealed class ShaderProgram : IDisposable {
 
 	public void SetFloat(string name, float value) => _gl.Uniform1(Location(name), value);
 
+	public void SetInt(string name, int value) => _gl.Uniform1(Location(name), value);
+
+	public void SetSamplerTexture(string name, uint textureHandle, uint textureUnit) {
+		_gl.ActiveTexture(TextureUnit.Texture0 + (int)textureUnit);
+		_gl.BindTexture(TextureTarget.Texture2D, textureHandle);
+		_gl.Uniform1(Location(name), (int)textureUnit);
+	}
+
 	private int Location(string name) {
 		if (_uniforms.TryGetValue(name, out int cached)) {
 			return cached;

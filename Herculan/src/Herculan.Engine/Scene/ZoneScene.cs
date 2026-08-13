@@ -1,6 +1,7 @@
 using System.Numerics;
 using HercWorks.Core.Data.File.Dat.Sim;
 using HercWorks.Core.Data.File.Dyn;
+using HercWorks.Core.Io.Transform.Common;
 using HercWorks.Core.Io.Transform.Dbsim;
 using Herculan.Engine.Content;
 using Herculan.Engine.Gl;
@@ -8,6 +9,7 @@ using Herculan.Engine.Numerics;
 using Herculan.Engine.Render;
 using Herculan.Engine.Sim;
 using Herculan.Engine.Terrain;
+using Herculan.Engine.World;
 
 namespace Herculan.Engine.Scene;
 
@@ -22,13 +24,17 @@ namespace Herculan.Engine.Scene;
 /// </summary>
 public sealed class ZoneScene {
 	private ZoneScene(SimWorld world, MechObject mech, FlyCameraObject camera,
-			MeshVertex[] terrainMesh, MeshVertex[] mechMesh, float mechBaseOffset) {
+			MeshVertex[] terrainMesh, MeshVertex[] mechMesh, float mechBaseOffset, TextureAtlas? mechAtlas,
+			TheaterDescriptor theater, TerrainTextureBank? terrainBank) {
 		World = world;
 		Mech = mech;
 		Camera = camera;
 		TerrainMesh = terrainMesh;
 		MechMesh = mechMesh;
 		MechBaseOffset = mechBaseOffset;
+		MechAtlas = mechAtlas;
+		Theater = theater;
+		TerrainBank = terrainBank;
 	}
 
 	public SimWorld World { get; }
@@ -46,6 +52,23 @@ public sealed class ZoneScene {
 	public MeshVertex[] MechMesh { get; }
 
 	/// <summary>
+	/// The mech's packed texture bank, or null when its skin group could not be resolved to a
+	/// <c>.DBA</c> present in the mounted archives — in which case <see cref="MechMesh"/>'s UVs are
+	/// meaningless and it must be drawn untextured.
+	/// </summary>
+	public TextureAtlas? MechAtlas { get; }
+
+	/// <summary>The theater descriptor this scene was built against — it names the terrain bank and the palette.</summary>
+	public TheaterDescriptor Theater { get; }
+
+	/// <summary>
+	/// The terrain's packed texture bank, or null when the theater's <c>.DBA</c> could not be loaded
+	/// — in which case <see cref="TerrainMesh"/>'s vertices are all flagged untextured and fall back
+	/// to the height/slope ramp.
+	/// </summary>
+	public TerrainTextureBank? TerrainBank { get; }
+
+	/// <summary>
 	/// How far up the mech model has to be lifted for its lowest point to touch the ground, in
 	/// render units. DTS model space puts the origin at the rig pivot rather than at the feet.
 	/// </summary>
@@ -55,9 +78,18 @@ public sealed class ZoneScene {
 	/// Loads zone <paramref name="zoneIndex"/> and spawns <paramref name="mechName"/> at the middle
 	/// of it, with the camera placed a short distance back and above so the mech is in view on the
 	/// first frame.
+	///
+	/// <para><paramref name="theaterIndex"/>/<paramref name="theaterVariant"/> pick the
+	/// <c>world&lt;N&gt;</c> descriptor that supplies the terrain's texture bank and palette. A
+	/// mission states both, along with its zone, in the header of <c>data\script.dat</c> — see
+	/// <see cref="ScriptDatHeader"/> — so a host with a real mission handoff should read them from
+	/// there rather than pass a literal. The default is theater 0 (<c>urban</c>), which is what the
+	/// retail <c>script.dat</c> family's first entries use.</para>
 	/// </summary>
-	public static ZoneScene Load(GameContent content, int zoneIndex, string mechName) {
+	public static ZoneScene Load(GameContent content, int zoneIndex, string mechName,
+			int theaterIndex = 0, int theaterVariant = 0) {
 		var materials = TerrainMaterialTable.Load(content);
+		var theater = TheaterDescriptor.Load(content, theaterIndex, theaterVariant);
 
 		// Terrain material assignment is a randomised load-time pass in the original; the seed used
 		// here is the engine's own, since DBSIM's generator state hasn't been recovered (see
@@ -67,8 +99,11 @@ public sealed class ZoneScene {
 
 		var world = new SimWorld(terrain);
 
-		var (mechMesh, mechBaseOffset, mechRadius) = LoadMechModel(content, mechName);
+		// Sim data first: it carries the skin id that selects which texture bank the model is built
+		// against, so the mesh cannot be built until it has been read.
 		var simData = LoadMechSimData(content, mechName);
+		var mechAtlas = LoadMechTextures(content, simData, theater);
+		var (mechMesh, mechBaseOffset, mechRadius) = LoadMechModel(content, mechName, mechAtlas);
 
 		var mech = new MechObject(mechName, simData, mechRadius, MechLoadout.Stubbed) {
 			Position = CenterOfZone(terrain),
@@ -81,9 +116,11 @@ public sealed class ZoneScene {
 		};
 		world.Add(camera);
 
-		var terrainMesh = TerrainMeshBuilder.Build(terrain);
+		var terrainBank = TerrainTextureBank.Load(content, theater, materials);
+		var terrainMesh = TerrainMeshBuilder.Build(terrain, terrainBank);
 
-		return new ZoneScene(world, mech, camera, terrainMesh, mechMesh, mechBaseOffset);
+		return new ZoneScene(world, mech, camera, terrainMesh, mechMesh, mechBaseOffset, mechAtlas,
+			theater, terrainBank);
 	}
 
 	/// <summary>
@@ -103,7 +140,45 @@ public sealed class ZoneScene {
 		return new Vec3i(eye.X, eye.Y, terrain.HeightAtWorld(eye.X, eye.Y) + 3000);
 	}
 
-	private static (MeshVertex[] Mesh, float BaseOffset, int Radius) LoadMechModel(GameContent content, string mechName) {
+	/// <summary>
+	/// Loads and packs the texture bank DBSIM would bind for this mech.
+	///
+	/// <para>The selection is data-driven, not a naming convention: <c>HercSimDat.ModelSkinId</c>
+	/// (content offset 148 of <c>dat\&lt;mech&gt;.DAT</c>) picks one of seven shared banks, which is
+	/// what <c>MechType_InitOne</c> does in DBSIM — byte-verified against every retail mech .DAT.
+	/// See docs/formats/dts-texture-binding.md.</para>
+	///
+	/// <para>Best-effort: an unmapped skin id or a missing <c>.DBA</c> yields null and the mech draws
+	/// untextured, since neither is a reason to refuse to show a scene.</para>
+	/// </summary>
+	private static TextureAtlas? LoadMechTextures(GameContent content, HercSimDat simData,
+			TheaterDescriptor theater) {
+		string? bankName = HercSimDat.TextureGroupDbaBaseName(simData.ModelSkinId);
+		if (bankName == null) {
+			return null;
+		}
+
+		byte[]? bankBytes = content.Read("dba", bankName + ".DBA");
+		if (bankBytes == null
+			|| new DynamixBitmapArrayTransformer().BytesToObject(bankBytes) is not DynamixBitmapArray bank) {
+			return null;
+		}
+
+		// The WORLD0-9 palettes turned out not to be an unexplained set to pick from: they are the
+		// per-theater palette, loaded by name as the first act of maybe_World_LoadTheater, and one is
+		// active for everything the theater draws. So a mech's bank decodes against the palette of
+		// the theater it is standing in, not a fixed choice. (The WinForms model viewer still defaults
+		// to WORLD0 — it has no theater, so it has nothing better to go on.)
+		byte[]? paletteBytes = content.Read("dpl", theater.PaletteName + ".DPL");
+		var palette = paletteBytes != null
+			? new DynamixPaletteTransformer().BytesToObject(paletteBytes) as DynamixPalette
+			: null;
+
+		return TextureAtlas.Build(bank, palette);
+	}
+
+	private static (MeshVertex[] Mesh, float BaseOffset, int Radius) LoadMechModel(
+			GameContent content, string mechName, TextureAtlas? atlas) {
 		byte[] bytes = content.ReadRequired("dts", mechName + ".DTS");
 
 		var model = new DTSModelTransformer().BytesToObject(bytes) as DynamixThreeSpaceModel
@@ -117,7 +192,7 @@ public sealed class ZoneScene {
 		// roots are unrelated objects), so exactly one is wanted. Root 0 is taken as the primary; the
 		// file carries no flag identifying which root is the full-detail one, and picking it properly
 		// is part of the LOD/visibility work a later milestone brings.
-		var mesh = DtsMeshBuilder.BuildRoot(roots[0]);
+		var mesh = DtsMeshBuilder.BuildRoot(roots[0], atlas);
 		var (min, max) = DtsMeshBuilder.Bounds(mesh);
 
 		Vector3 extent = max - min;

@@ -16,6 +16,7 @@ using Silk.NET.OpenGL;
 
 const int DefaultZone = 504;
 const string DefaultMech = "SAMSON";
+const int DefaultTheater = 0;
 
 string? installRoot = GameInstall.Locate(args.Length > 0 ? args[0] : null);
 if (installRoot == null) {
@@ -29,18 +30,29 @@ if (installRoot == null) {
 int zoneIndex = args.Length > 1 && int.TryParse(args[1], out int parsedZone) ? parsedZone : DefaultZone;
 string mechName = args.Length > 2 ? args[2].ToUpperInvariant() : DefaultMech;
 
+// Theater picks the terrain's texture bank and palette. A real mission carries it (and its zone) in
+// script.dat's header — see ScriptDatHeader — which this host does not read yet, so it is an
+// argument with the retail default.
+int theaterIndex = args.Length > 3 && int.TryParse(args[3], out int parsedTheater) ? parsedTheater : DefaultTheater;
+
 Console.WriteLine($"HERCULAN Engine — loading zone {zoneIndex} with {mechName} from {installRoot}");
 
 var content = GameContent.Mount(GameInstall.ArchiveDirectory(installRoot));
 Console.WriteLine($"Mounted archives: {string.Join(", ", content.MountedArchives)}");
 
-var scene = ZoneScene.Load(content, zoneIndex, mechName);
+var scene = ZoneScene.Load(content, zoneIndex, mechName, theaterIndex);
 var terrain = scene.World.Terrain;
 Console.WriteLine(
 	$"Zone {zoneIndex}: {terrain.Width}x{terrain.Height} cells, {terrain.CellSize} units per cell, " +
 	$"height scale {terrain.HeightScale}, peak {terrain.MaxWorldHeight} units.");
 Console.WriteLine(
 	$"{mechName}: {scene.MechMesh.Length / 3} triangles, terrain {scene.TerrainMesh.Length / 3} triangles.");
+Console.WriteLine(scene.MechAtlas is { } atlas
+	? $"{mechName} textures: {atlas.FrameCount} frames packed into a {atlas.Width}x{atlas.Height} atlas."
+	: $"{mechName} textures: none resolved — drawing untextured.");
+Console.WriteLine($"Theater {theaterIndex} ({scene.Theater.PaletteName}): " + (scene.TerrainBank is { } bank
+	? $"terrain bank {bank.BankName}, {bank.Atlas.FrameCount} frames in a {bank.Atlas.Width}x{bank.Atlas.Height} atlas."
+	: "terrain bank could not be loaded — drawing terrain flat-shaded."));
 Console.WriteLine("W/A/S/D move, R/F rise and fall, arrow keys look, Shift boosts, Esc quits.");
 
 using var window = new EngineWindow($"HERCULAN Engine — zone {zoneIndex}");
@@ -48,6 +60,8 @@ using var window = new EngineWindow($"HERCULAN Engine — zone {zoneIndex}");
 SceneRenderer? renderer = null;
 GpuMesh? terrainMesh = null;
 GpuMesh? mechMesh = null;
+GpuTexture? mechTexture = null;
+GpuTexture? terrainTexture = null;
 SceneItem[]? items = null;
 IKeyboard? keyboard = null;
 var camera = new Camera();
@@ -63,9 +77,11 @@ window.Load += (gl, input) => {
 
 	terrainMesh = new GpuMesh(gl, scene.TerrainMesh);
 	mechMesh = new GpuMesh(gl, scene.MechMesh);
+	mechTexture = scene.MechAtlas != null ? new GpuTexture(gl, scene.MechAtlas) : null;
+	terrainTexture = scene.TerrainBank != null ? new GpuTexture(gl, scene.TerrainBank.Atlas) : null;
 	items = new[] {
-		new SceneItem(terrainMesh, Matrix4x4.Identity),
-		new SceneItem(mechMesh, scene.MechTransform()),
+		new SceneItem(terrainMesh, Matrix4x4.Identity, terrainTexture?.Handle),
+		new SceneItem(mechMesh, scene.MechTransform(), mechTexture?.Handle),
 	};
 
 	keyboard = input.Keyboards.Count > 0 ? input.Keyboards[0] : null;
@@ -108,6 +124,9 @@ window.Closing += () => {
 	renderer?.Dispose();
 	terrainMesh?.Dispose();
 	mechMesh?.Dispose();
+	mechTexture?.Dispose();
+	terrainTexture?.Dispose();
+};
 
 window.Run();
 

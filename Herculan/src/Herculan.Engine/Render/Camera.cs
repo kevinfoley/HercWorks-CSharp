@@ -25,14 +25,14 @@ public sealed class Camera {
 
 	/// <summary>
 	/// Near plane, in render units (metres). Kept well out from zero on purpose: depth precision is
-	/// governed by the far/near ratio, and the smallest thing in this world is an ~8 m mech, so
+	/// governed by the far/near ratio, and the smallest thing in this world is a ~10 m mech, so
 	/// there is nothing to gain from a near plane closer than a couple of metres and a lot of depth
 	/// resolution to lose across a 12 km view.
 	/// </summary>
 	public float NearPlane { get; set; } = 2f;
 
 	/// <summary>
-	/// Far plane, in render units. A retail zone is ~10 km across at
+	/// Far plane, in render units. A retail zone is 12.6 km across (128 cells of 16384 units) at
 	/// <see cref="WorldScale.WorldUnitsPerMeter"/>, so this is set to see most of one from altitude;
 	/// the original's own draw distance is a separate question (it has a visibility/LOD system that
 	/// hasn't been RE'd) and this is not an attempt to match it.

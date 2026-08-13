@@ -6,15 +6,19 @@ namespace Herculan.Engine.Render;
 
 /// <summary>One mesh plus the transform that places it in the world.</summary>
 public sealed class SceneItem {
-	public SceneItem(GpuMesh mesh, Matrix4x4 transform) {
+	public SceneItem(GpuMesh mesh, Matrix4x4 transform, uint? textureHandle = null) {
 		Mesh = mesh;
 		Transform = transform;
+		TextureHandle = textureHandle;
 	}
 
 	public GpuMesh Mesh { get; }
 
 	/// <summary>Model-to-world transform, in render space.</summary>
 	public Matrix4x4 Transform { get; set; }
+
+	/// <summary>Optional texture for this item. If null, flat-shaded rendering is used.</summary>
+	public uint? TextureHandle { get; set; }
 }
 
 /// <summary>
@@ -28,6 +32,8 @@ public sealed class SceneRenderer : IDisposable {
 		layout (location = 0) in vec3 aPosition;
 		layout (location = 1) in vec3 aNormal;
 		layout (location = 2) in vec3 aColor;
+		layout (location = 3) in vec2 aUV;
+		layout (location = 4) in float aTextured;
 
 		uniform mat4 uModel;
 		uniform mat4 uView;
@@ -35,6 +41,8 @@ public sealed class SceneRenderer : IDisposable {
 
 		out vec3 vNormal;
 		out vec3 vColor;
+		out vec2 vUV;
+		out float vTextured;
 		out float vViewDistance;
 
 		void main() {
@@ -45,6 +53,8 @@ public sealed class SceneRenderer : IDisposable {
 			// enough; a normal matrix becomes necessary if non-uniform scaling ever appears.
 			vNormal = normalize(mat3(uModel) * aNormal);
 			vColor = aColor;
+			vUV = aUV;
+			vTextured = aTextured;
 			vViewDistance = length(viewPosition.xyz);
 
 			gl_Position = uProjection * viewPosition;
@@ -55,12 +65,16 @@ public sealed class SceneRenderer : IDisposable {
 		#version 330 core
 		in vec3 vNormal;
 		in vec3 vColor;
+		in vec2 vUV;
+		in float vTextured;
 		in float vViewDistance;
 
 		uniform vec3 uLightDirection;
 		uniform vec3 uHazeColor;
 		uniform float uHazeStart;
 		uniform float uHazeEnd;
+		uniform sampler2D uTexture;
+		uniform bool uTextureEnabled;
 
 		out vec4 FragColor;
 
@@ -68,7 +82,14 @@ public sealed class SceneRenderer : IDisposable {
 			// Two-sided lighting: DTS geometry is not reliably wound, and nothing is backface-culled,
 			// so shade by the absolute facing rather than letting flipped triangles go black.
 			float lambert = abs(dot(normalize(vNormal), normalize(-uLightDirection)));
-			vec3 lit = vColor * (0.35 + 0.65 * lambert);
+
+			// Per-vertex, not per-draw: a mesh mixes textured and fallback-coloured triangles, and
+			// vTextured is flat across each triangle so this never interpolates between the two.
+			vec3 baseColor = vColor;
+			if (uTextureEnabled && vTextured > 0.5) {
+				baseColor = texture(uTexture, vUV).rgb;
+			}
+			vec3 lit = baseColor * (0.35 + 0.65 * lambert);
 
 			// Distance haze, so a 10 km zone reads as depth instead of a flat wall of terrain.
 			float haze = clamp((vViewDistance - uHazeStart) / max(uHazeEnd - uHazeStart, 0.001), 0.0, 1.0);
@@ -114,6 +135,15 @@ public sealed class SceneRenderer : IDisposable {
 
 		foreach (var item in items) {
 			_shader.SetMatrix("uModel", item.Transform);
+
+			// Bind texture if available, otherwise use flat shading.
+			if (item.TextureHandle.HasValue) {
+				_shader.SetSamplerTexture("uTexture", item.TextureHandle.Value, 0);
+				_shader.SetInt("uTextureEnabled", 1);
+			} else {
+				_shader.SetInt("uTextureEnabled", 0);
+			}
+
 			item.Mesh.Draw();
 		}
 	}

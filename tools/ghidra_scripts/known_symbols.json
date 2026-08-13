@@ -1046,7 +1046,7 @@
       "type": "function",
       "confidence": "high",
       "name": "DBSim_LoadScriptDat",
-      "description": "DBSIM's reader for data\\script.dat, called from World::ctor-equivalent init path (also opens player.mec and mission.str at nearby offsets). Reads a fixed 20-byte header, then 13 count-prefixed blocks in exact order matching VSHELL's WriteScriptDatFile (0041ac54): row6-coords(12B), row7-heading(2B, x0xb6 degrees->BAM), row8-nested-waypoints, row9(6B), row10-Action82(74B read, only 1 field of the row10-referencing sub-block reused), row11-ActionPair30(24B, resolved via FUN_00423104), row12(134B raw, only the mech-type-ref field at rec-offset 40 kept), row13(92B raw, only rec-offset 44 field kept), row14(52B raw, only the type field kept), row15(14B, read and fully discarded), row16(156B, nested 20-entry crossref with a 3-way discriminator that marks row6/row7/row14 slots 'live' -- this is DBSIM's actual entity-activation mechanism), row17(54B, read and fully discarded), then a final flat count+array tail = row4's populated LUT-ref prefix (the mission's herc/weapon unlock package). See docs/formats/script-dat.md.",
+      "description": "DBSIM's reader for data\\script.dat, called from World::ctor-equivalent init path (also opens player.mec and mission.str at nearby offsets). Reads a fixed 20-byte header into DAT_004a9ed2 and uses it twice: World_LoadTheater(&header) takes the int16 at 0 as the theater and the int16 at 18 as its variant, and Terrain_LoadZone(header[2]) takes the int16 at 2 as THE ZONE INDEX -- verified against all ten retail script.dat files, every offset-2 value is a zone that ships. It also zeroes the field at offset 4 before use. Then 13 count-prefixed blocks in exact order matching VSHELL's WriteScriptDatFile (0041ac54): row6-coords(12B), row7-heading(2B, x0xb6 degrees->BAM), row8-nested-waypoints, row9(6B), row10-Action82(74B read, only 1 field of the row10-referencing sub-block reused), row11-ActionPair30(24B, resolved via FUN_00423104), row12(134B raw, only the mech-type-ref field at rec-offset 40 kept), row13(92B raw, only rec-offset 44 field kept), row14(52B raw, only the type field kept), row15(14B, read and fully discarded), row16(156B, nested 20-entry crossref with a 3-way discriminator that marks row6/row7/row14 slots 'live' -- this is DBSIM's actual entity-activation mechanism), row17(54B, read and fully discarded), then a final flat count+array tail = row4's populated LUT-ref prefix (the mission's herc/weapon unlock package). See docs/formats/script-dat.md.",
       "source": "docs/formats/script-dat.md"
     },
     {
@@ -1876,6 +1876,254 @@
       "name": "Cpp_VectorNew",
       "description": "The compiler's C++ 'vector new' runtime helper (carries the 'Illegal mode in vector new' error string): optionally allocates param_2*param_3 bytes (plus a 4-byte count prefix when mode bit 0x10 is set), then invokes the element constructor param_5 once per element at param_2 stride. Worth having named because it appears in the middle of data-structure loaders -- e.g. the HeightGrid cell array allocation in TerrainZone_PopulateFromBitmap -- where it can otherwise be mistaken for domain logic.",
       "source": "docs/engine/planning.md milestone-1 session 2026-08-11 (terrain loader port)"
+    },
+    {
+      "address": "0046e840",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HeightGrid_ClearCellScratch",
+      "description": "Single-statement function: memsets the HeightGrid's +0xf0 per-cell scratch byte array to 0, sized (1 << grid[+0x100]) * (1 << grid[+0x104]) -- i.e. exactly one byte per cell, using the same width/height shift fields the rest of the terrain code uses. Called first thing in Scene_SubmitFrameObjects, so the +0xf0 array is per-frame working state (reset every frame), not persistent zone data. Pairs with HeightGrid_SetCellScratchByte (00470c68), which writes it. Its READER is still unlocated -- what the byte actually means remains open.",
+      "source": "docs/formats/terrain-texturing.md 2026-08-13 (terrain texturing RE session)"
+    },
+    {
+      "address": "0042841c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Scene_SubmitFrameObjects",
+      "description": "Per-frame scene assembly. Calls HeightGrid_ClearCellScratch(ActiveHeightGrid) first, then walks ~10 separate global object lists (the flat/flat2 ground shapes from maybe_Ground_LoadFlatShapes' list at 004a9711, GlobalMechList, and eight others), calling a small per-object submit helper (004282d8 / 0042837c / 004283b4) on each and caching a 2-byte result pair into each object at +0x7a / +0x1ea. Named 'maybe_' because the per-object helpers were not decoded, so 'submit for render' vs. some other per-frame pass is inferred from position and structure, not proven.",
+      "source": "docs/formats/terrain-texturing.md 2026-08-13 (terrain texturing RE session)"
+    },
+    {
+      "address": "00470910",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Terrain_ComputeViewDistance",
+      "description": "LOCATES THE CONSUMER OF THE HeightGrid LOD FIELD (+0x10c), previously recorded as unlocated. Converts the viewer position (param_2+4/+8) to cell coordinates by >> cellShift (+0x108), then computes grid[+0x10c] << cellShift -- the LOD field scaled from cells into world units. If the viewer's cell is within LOD cells of any grid edge (tested against both 1 << grid[+0x100] and 1 << grid[+0x104]) that distance collapses to a literal 1000. Then builds a transform from the viewer's angle (+0x14) plus grid[+0x110] and emits two values into param_3. Called once per frame from 0042e700 with ActiveHeightGrid, writing into the world object at +0x72. Named 'maybe_' because the final three-call chain (00480330 / 0048c4f0 / 0048c5c4) was not decoded, so 'view/draw distance' is the reading most consistent with the arithmetic and the edge clamp, not a proven semantic for the two outputs.",
+      "source": "docs/formats/terrain-texturing.md 2026-08-13 (terrain texturing RE session)"
+    },
+    {
+      "address": "0042e010",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "World_LoadTheater",
+      "description": "World/theater setup, called by DBSim_LoadScriptDat with script.dat's 20-byte header as its argument (it copies the first 5 dwords to DAT_004cfd48). Builds the base name 'world<N>' via _itoa where N = DAT_004cfd48*2 + DAT_004cfd5a, i.e. header[0]*2 + header[18] -- five theaters, two variants each. Loads dpl\\world<N>.dpl (the per-theater palette, which is what the retail WORLD0.DPL..WORLD9.DPL family is), then reads wld\\world<N>.wld field-by-field, then 'shades' via 0042e760, then a width*height*256 table from world<N>.rmp into DAT_004a09b0 installed at 004a5b18 -- an 8-bit software renderer's colour-ramp/lighting LUT. Finishes with Terrain_BindTextureBank(the 4th of the descriptor's 5 trailing strings) and maybe_Ground_LoadFlatShapes. Descriptor layout now decoded and verified byte-exact against all ten retail .WLD files (see docs/formats/terrain-texturing.md); confidence raised from medium, but the ramp/LUT's own consumer is still untraced.",
+      "source": "docs/formats/terrain-texturing.md 2026-08-13 (world<N> descriptor decode)"
+    },
+    {
+      "address": "004097a8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Ground_LoadFlatShapes",
+      "description": "Loads a DTS shape set and binds a matching DBA to it, choosing base name 'flat' when param_1 == 0 and 'flat2' otherwise; the same base name is used for both 'dts\\<name>' and 'dba\\<name>'. Stores the loaded shape list at 004a971c with its count at 004a9720, then loops over every loaded shape writing the bound-DBA pointer into each instance's +0x26 -- the SAME bound-active-DBA field confirmed for mech texturing in docs/formats/dts-texture-binding.md. Called at the end of World_LoadTheater. Retail data has FLAT2.DBA (a single 64x54 frame). Named 'maybe_' because what the flat/flat2 shapes are actually drawn as (ground plane, distant filler, skirt) was not determined.",
+      "source": "docs/formats/terrain-texturing.md 2026-08-13 (terrain texturing RE session)"
+    },
+    {
+      "address": "0046e87c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Terrain_RayWalk",
+      "description": "Largest function in the terrain module (5129 bytes). Takes two points, computes their component deltas, halves all three repeatedly until every one fits in +/-32000, then derives four fixed-point slope ratios via the divide helper 0047df5c and selects an octant/direction code -- the classic setup for a DDA walk across the height grid. Investigated while looking for a terrain renderer; it is a traversal (line-of-sight / ray-vs-terrain), NOT a renderer. Named 'maybe_' because the walk body was not read past the setup.",
+      "source": "docs/formats/terrain-texturing.md 2026-08-13 (terrain texturing RE session)"
+    },
+    {
+      "address": "0049aae4",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_UnusedTerrainTypeNames",
+      "address": "0046bcf4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_ResolveCellTexture",
+      "description": "SOLVES terrain texture selection and tiling. Takes an 8-byte dat\\mat0 record (param_1), the cell's X and Y, and a UV-rect output. Indexes the active terrain bitmap descriptor table (_DAT_006b4fc4, 20-byte stride -- the SAME per-frame descriptor structure the mech texture path uses, see dts-texture-binding.md) by mat0 field 0, i.e. mat0's first field IS a DBA frame index. Then branches on mat0 field 1 (BlockShift): if 0, the frame's own F0..F3 UV corners are used verbatim (texture stretched across the quad); otherwise shift = cellShift + BlockShift - 13 and the rect becomes u0 = (cellX << shift) & 0xff, v0 = (cellY << shift) & 0xff, spanning 2^shift texels, with V negated. The & 0xff wrap is a 256-texel tiling space -- which is why the terrain banks are 256x256 and must be edge-tileable. Returns descriptor field 4 (bytes 16-19) as a short: the bitmap handle handed to the polygon draw. Retail: mat0 record 0 = {frame 0, BlockShift 6}, record 1 = {frame 1, BlockShift 6}; at cellShift 14 that is shift 7 = 128 texels per cell, repeating every 2 cells.",
+      "source": "docs/formats/terrain-texturing.md 2026-08-13 (terrain texturing RE session, part 2)"
+    },
+    {
+      "address": "0046bc98",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_BindTextureBank",
+      "description": "Binds the terrain texture bank. Takes a bare base name, joins it with the 'dba' folder pointer (PTR_DAT_004a0a28), loads that resource, and stores its 20-byte-stride frame descriptor table into _DAT_006b4fc4 for Terrain_ResolveCellTexture to index. Called from World_LoadTheater with the 4th of the five NUL-terminated strings at the end of the world<N>.wld descriptor -- so the terrain bank is named in DATA, not in code, which is exactly why neither DBSIM.EXE nor VSHELL.EXE contains the strings 'ice'/'bsnow'/'volcan'/'moon' despite those .DBA files shipping. Retail mapping: WORLD0/1 urban, 2/3 bsnow, 4/5 volcan, 6/7 ice, 8/9 moon.",
+      "source": "docs/formats/terrain-texturing.md 2026-08-13 (terrain texturing RE session, part 2)"
+    },
+    {
+      "address": "0046ca98",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_SetupVisibleRegion",
+      "description": "Per-frame terrain visibility setup, called twice per frame from the frame function 0045fb9c with ActiveHeightGrid passed AS A PARAMETER (which is why a search for readers of the ActiveHeightGrid global missed the terrain render path entirely). WRITES the LOD field: grid[+0x10c] = table DAT_004a0bcc[DAT_004d1fc3] (a per-detail-setting LOD table), then >>= (cellShift - 14) when cellShift > 14 -- the engine's ported 'detailLod = cellShift > 14 ? 10 >> (cellShift-14) : 10' is this, with 10 being the retail default table entry rather than a constant. Passes grid[0x10c] << cellShift to 00428bc0 (which derives 5 distance bands), builds the visible cell-space region into grid+0x28 with count grid+0xc8 / pointer grid+0xcc / visible flag grid+0x11c, and installs two texture-basis vectors at grid+4 and grid+0x10.",
+      "source": "docs/formats/terrain-texturing.md 2026-08-13 (terrain texturing RE session, part 2)"
+    },
+    {
+      "address": "0046d344",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_DrawCellQuad",
+      "description": "Draws one terrain cell. Takes cellX, cellY, the HeightGrid and an output vertex block; fetches the quad's four corner cells at grid[0xec] + index*0x10 (16-byte cells), projects each corner's raw height byte (cell[0]) via 00495240 against the grid+0xd0 projection state, then resolves the cell's texture with Terrain_ResolveCellTexture(&mat0[cell[0xf] >> 2], cellX, cellY, uvOut) -- cell[0xf] >> 2 being the material index exactly as documented. Emits the quad as two triangles through 0046865c / 00468078, passing the resolved bitmap handle. Also reads cell bytes +1 and +7 via 0046bd98, which matters because the engine's HeightGrid currently treats all 14 bytes between +0x0 and +0xf as dead.",
+      "source": "docs/formats/terrain-texturing.md 2026-08-13 (terrain texturing RE session, part 2)"
+    },
+    {
+      "address": "0046d220",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_BuildDrawRegionQuad",
+      "description": "Builds the terrain draw region as a square of radius (grid[+0x10c] << cellShift) world units centred on the viewer (DAT_006b4fc8 / DAT_006b4fcc), clamped to the grid's own extent ((1 << widthShift) - 2 << cellShift, plus origin at grid+0xf4/+0xf8), and emits it as a 4-corner quad at constant Z (grid+0xfc); writes count 0 instead when the clamped region is empty. Confirms the LOD field is literally a terrain draw radius in cells.",
+      "source": "docs/formats/terrain-texturing.md 2026-08-13 (terrain texturing RE session, part 2)"
+    },
+    {
+      "address": "0045fb9c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Sim_RenderFrame",
+      "description": "The per-frame render function. Calls Terrain_SetupVisibleRegion(ActiveHeightGrid, view, 0), then maybe_Scene_SubmitFrameObjects, then conditionally a second terrain setup plus maybe_Terrain_ComputeViewDistance and 0042883c, then Player_PerFrameCockpitUpdate and several vtable-dispatched draws. Named 'maybe_' because the individual draw dispatches were not decoded; its role as the frame root is solid (it is the sole caller of both the terrain setup and the view setup).",
+      "source": "docs/formats/terrain-texturing.md 2026-08-13 (terrain texturing RE session, part 2)"
+    },
+    {
+      "address": "00428bc0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Terrain_SetDistanceBands",
+      "description": "Given the terrain view distance in world units (grid[+0x10c] << cellShift), computes five scaled values via 0047dfa4 against a 5-entry short table at DAT_0049abb0, storing them at DAT_004cfa0c. Shape of fog/haze band or LOD threshold setup derived from the terrain draw distance. Named 'maybe_' because the consumer of DAT_004cfa0c was not traced.",
+      "source": "docs/formats/terrain-texturing.md 2026-08-13 (terrain texturing RE session, part 2)"
+    },
+    {
+      "address": "0049aae4",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_UnusedTerrainTypeNames",
+      "description": "A 3-entry pointer table to the literal strings 'urban', 'waste', 'ruins' (at 0049ab82/0049ab88/0049ab8e); the 4th slot is not a pointer, so the table is exactly 3 long. Found via string xref while hunting terrain texture selection. DEAD DATA -- ES2FindAddressRefs on this address returns zero references anywhere in DBSIM, the third confirmed instance of this binary's dead-table pattern after g_MechTextureGroupNames and the RTTI type-name strings. Recorded so a future session does not re-derive it as a live terrain-type selector; note also that only URBAN.DBA exists in retail data (no WASTE/RUINS).",
+      "source": "docs/formats/terrain-texturing.md 2026-08-13 (terrain texturing RE session)"
+    },
+    {
+      "address": "00434228",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Hud_WorldUnitsToMetres",
+      "description": "THE GAME'S UNIT SCALE, stated by the original itself: 'return (worldUnits / 1000) * 6', i.e. 1000 world units = 6 metres, one world unit = 6 mm, 166.667 units per metre. Three call sites, two unrelated HUD gadgets, both feeding it a raw difference of two world positions: Hud_UpdateWaypointIndicator (0043c3e4, the 'WAYPOINT n: d M.' string) and the scanner MFD contact-range readout (0043ebe0/0043eecc). The integer divide quantises the displayed figure to multiples of 6 m.",
+      "source": "docs/engine/planning.md 2026-08-13 (world scale recovery)"
+    },
+    {
+      "address": "0043c3e4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Hud_UpdateWaypointIndicator",
+      "description": "Per-frame HUD waypoint indicator: picks the active waypoint (or the nav-target position), computes the 2D ground distance from the player mech via Math_FastMagnitude2D, converts it with Hud_WorldUnitsToMetres, and builds the on-screen string as <prefix> + itoa(waypointNumber) + ': ' + itoa(metres) + ' M.'. Also draws the direction diamond/arrow triangles.",
+      "source": "docs/engine/planning.md 2026-08-13 (world scale recovery)"
+    },
+    {
+      "address": "0043dc78",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Hud_UpdateSpeedReadout",
+      "description": "Formats the HUD speed text: itoa(Mech_GetDisplaySpeedKph(LocalPlayerMech)) followed by the literal ' K/H' (0049c112). The gadget it writes into is DAT_004d185c, built in Gau_RovingGunsightWidget against the width template '000 K/H'.",
+      "source": "docs/engine/planning.md 2026-08-13 (world scale recovery)"
+    },
+    {
+      "address": "0041bb3c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_GetDisplaySpeedKph",
+      "description": "Converts a mech's current speed to the KPH figure the HUD prints: currentSpeed * typeRec[+0xc2] / typeRec[+6], where MechType_InitOne sets typeRec[+0xc2] = Math_Q10Multiply(315, maxForwardSpeed) -- so the whole thing reduces to speed * 315/1024 (0.3076). Verified against the manual's HERC specs: OUTLAW's 325 max reads exactly 100 KPH, SAMSON's 190 reads 58 against a quoted 60, COLOSSUS 180 -> 55, MAVERICK 285 -> 88 against 90. Flyers (typeRec[+0x50] != 0, i.e. the Razor) take a different branch through the map-range helper 0047de3c. The 315 looks designer-fitted to make the fastest HERC read a round 100, so this constant should NOT be used to derive the simulation's tick length.",
+      "source": "docs/engine/planning.md 2026-08-13 (world scale recovery)"
+    },
+    {
+      "address": "0047dfa4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_Q10Multiply",
+      "description": "Q10 fixed-point multiply: (int64)a*b >> 10. Previously seen unnamed in the shield-balance code; also builds the HUD's speed-display scale factor in MechType_InitOne.",
+      "source": "docs/engine/planning.md 2026-08-13 (world scale recovery)"
+    },
+    {
+      "address": "0047df81",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_Q16Multiply",
+      "description": "Q16 fixed-point multiply: (int64)a*b >> 16. Used by MechType_InitOne to rescale a mech type's speed fields by a Q16 ratio built with Math_Q16Divide.",
+      "source": "docs/engine/planning.md 2026-08-13 (world scale recovery)"
+    },
+    {
+      "address": "0047df5c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_Q16Divide",
+      "description": "Q16 fixed-point divide: ((int64)a << 16) / b.",
+      "source": "docs/engine/planning.md 2026-08-13 (world scale recovery)"
+    },
+    {
+      "address": "0047dd40",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_FastMagnitude2D",
+      "description": "Sqrt-free 2D magnitude approximation: max(|dx|,|dy|) + min(|dx|,|dy|)/2 -- the octagonal estimate, exact on axis and up to ~11.8% high on a diagonal. The 2D counterpart of Math_FastMagnitude3D. This is the distance both HUD distance readouts display, so the original's own on-screen ranges carry that error.",
+      "source": "docs/engine/planning.md 2026-08-13 (world scale recovery)"
+    },
+    {
+      "address": "0047de3c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Math_MapRange",
+      "description": "Five-argument linear remap: maps param_1 from the range [param_2,param_3] onto [param_4,param_5] with a rounding bias term. Named 'maybe_' because it was only observed in one place (the flyer branch of Mech_GetDisplaySpeedKph).",
+      "source": "docs/engine/planning.md 2026-08-13 (world scale recovery)"
+    },
+    {
+      "address": "00467724",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Time_GetCoarseTicks",
+      "description": "(GetTickCount() - startTick) >> 4, i.e. elapsed time in 16 ms units (62.5 Hz). The mission clock gadget (0043dcac) advances one displayed second per 0x3c=60 of these units, so the original's clock runs ~4% fast. This is the coarse UI/event timebase and is NOT the same thing as SimTickDelta, which Sim_MainTick reads from a separate per-frame timing struct.",
+      "source": "docs/engine/planning.md 2026-08-13 (world scale recovery)"
+    },
+    {
+      "address": "00492924",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Vec2_Subtract",
+      "description": "In-place 2D vector subtract: a->x -= b->x, a->y -= b->y. Confirms the HUD's waypoint/contact distances are ground-plane distances, Z ignored.",
+      "source": "docs/engine/planning.md 2026-08-13 (world scale recovery)"
+    },
+    {
+      "address": "00492939",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Vec2_Magnitude",
+      "description": "Thin wrapper: Math_FastMagnitude2D(v->x, v->y) via 0049298e.",
+      "source": "docs/engine/planning.md 2026-08-13 (world scale recovery)"
+    },
+    {
+      "address": "0047d588",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Vec2_DistanceBetween",
+      "description": "Copies a 2D point, subtracts another (Vec2_Subtract) and returns the approximate magnitude (Vec2_Magnitude) -- the distance primitive the HUD waypoint indicator uses.",
+      "source": "docs/engine/planning.md 2026-08-13 (world scale recovery)"
     }
   ]
 }

@@ -13,9 +13,10 @@ namespace Herculan.Engine.Render;
 /// objects would visibly sit slightly above or below the ground on sloped cells — a whole class of
 /// "why is the mech floating" bug avoided by construction rather than by tuning an offset later.</para>
 ///
-/// <para>Flat-shaded: one normal per triangle, no smoothing. That both matches the untextured,
-/// flat-polygon look the original renders and keeps the mesh honest about the geometry actually
-/// being tested against.</para>
+/// <para>Flat-shaded lighting: one normal per triangle, no smoothing — which is what the original's
+/// per-polygon terrain fill does, and keeps the mesh honest about the geometry actually being tested
+/// against. Surface <i>colour</i> comes from the theater's texture bank when one is supplied (see
+/// <see cref="TerrainTextureBank"/>) and from a height/slope ramp when it is not.</para>
 /// </summary>
 public static class TerrainMeshBuilder {
 	/// <summary>
@@ -23,8 +24,12 @@ public static class TerrainMeshBuilder {
 	/// which is small enough that chunking, culling and LOD are all premature — the original's own
 	/// LOD parameter (<see cref="HeightGrid.DetailLod"/>) is carried on the grid for whenever they
 	/// stop being premature.
+	///
+	/// <para>With a <paramref name="bank"/>, each cell gets the atlas rect its material selects; any
+	/// cell whose material or frame does not resolve keeps the untextured ramp colour, which is why
+	/// <see cref="MeshVertex.Textured"/> is per-vertex.</para>
 	/// </summary>
-	public static MeshVertex[] Build(HeightGrid grid) {
+	public static MeshVertex[] Build(HeightGrid grid, TerrainTextureBank? bank = null) {
 		int quadsX = grid.Width - 1;
 		int quadsY = grid.Height - 1;
 		var vertices = new List<MeshVertex>(quadsX * quadsY * 6);
@@ -40,16 +45,25 @@ public static class TerrainMeshBuilder {
 				Vector3 c01 = Corner(grid, cellX, cellY + 1);
 				Vector3 c11 = Corner(grid, cellX + 1, cellY + 1);
 
+				// Corner UVs from the cell's own rect: u rises with cellX, v with cellY.
+				var rect = bank?.CellRect(grid, cellX, cellY);
+				bool textured = rect.HasValue;
+				var r = rect ?? default;
+				Vector2 t00 = new(r.U0, r.V0);
+				Vector2 t10 = new(r.U1, r.V0);
+				Vector2 t01 = new(r.U0, r.V1);
+				Vector2 t11 = new(r.U1, r.V1);
+
 				if (grid.DiagonalSelectorAt(cellX, cellY) == 2) {
 					// Split along the c00-c11 diagonal, matching the height query's selector-2 case.
-					AddTriangle(vertices, c00, c10, c11, peak);
-					AddTriangle(vertices, c00, c11, c01, peak);
+					AddTriangle(vertices, c00, c10, c11, t00, t10, t11, textured, peak);
+					AddTriangle(vertices, c00, c11, c01, t00, t11, t01, textured, peak);
 				} else {
 					// Selector 0 splits along c01-c10; selectors 1 and 3 have no observed producer
 					// and the height query treats them as a single plane through c00/c10/c01, which
 					// this same split renders.
-					AddTriangle(vertices, c00, c10, c01, peak);
-					AddTriangle(vertices, c10, c11, c01, peak);
+					AddTriangle(vertices, c00, c10, c01, t00, t10, t01, textured, peak);
+					AddTriangle(vertices, c10, c11, c01, t10, t11, t01, textured, peak);
 				}
 			}
 		}
@@ -63,7 +77,8 @@ public static class TerrainMeshBuilder {
 			(float)cellY * grid.CellSize,
 			grid.WorldHeightAt(cellX, cellY));
 
-	private static void AddTriangle(List<MeshVertex> vertices, Vector3 a, Vector3 b, Vector3 c, float peak) {
+	private static void AddTriangle(List<MeshVertex> vertices, Vector3 a, Vector3 b, Vector3 c,
+			Vector2 uvA, Vector2 uvB, Vector2 uvC, bool textured, float peak) {
 		Vector3 normal = Vector3.Cross(b - a, c - a);
 		normal = normal.LengthSquared() > 1e-12f ? Vector3.Normalize(normal) : Vector3.UnitY;
 
@@ -75,9 +90,9 @@ public static class TerrainMeshBuilder {
 
 		Vector3 color = SurfaceColor((a.Y + b.Y + c.Y) / 3f, normal, peak);
 
-		vertices.Add(new MeshVertex(a, normal, color));
-		vertices.Add(new MeshVertex(b, normal, color));
-		vertices.Add(new MeshVertex(c, normal, color));
+		vertices.Add(new MeshVertex(a, normal, color, uvA, textured));
+		vertices.Add(new MeshVertex(b, normal, color, uvB, textured));
+		vertices.Add(new MeshVertex(c, normal, color, uvC, textured));
 	}
 
 	/// <summary>

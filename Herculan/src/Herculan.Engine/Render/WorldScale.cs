@@ -14,34 +14,53 @@ public static class WorldScale {
 	/// <summary>
 	/// How many DBSIM world units make up one metre of rendered space.
 	///
-	/// <para><b>Estimated, not recovered.</b> No RE'd constant states the game's unit scale
-	/// directly, so this is triangulated from constants that are known: a missile's ground-impact
-	/// blast radius is 3000 units and a mech's death explosion 2000, the rocket proximity warning
-	/// fires at 40000, and a terrain cell spans 16384 (<c>CellShift</c> 14 in every retail zone).
-	/// At 200 units per metre those read as a 15 m blast, a 200 m proximity warning, an ~82 m
-	/// terrain cell and a ~10.5 km square zone — all plausible for this game, and no other scale
-	/// within a factor of two makes all four plausible at once. It affects only how large the world
-	/// looks and how fast the camera appears to move; nothing in the simulation reads it.</para>
+	/// <para><b>Recovered from DBSIM, not estimated</b> (2026-08-13, superseding an earlier estimate
+	/// of 200). The original states its own scale in the one place it has to: the HUD prints
+	/// distances to the player in metres. <c>Hud_WorldUnitsToMetres</c> (<c>00434228</c>) is the
+	/// whole conversion —
+	/// <code>metres = (worldUnits / 1000) * 6</code>
+	/// — so <b>1000 world units are 6 metres</b> and a world unit is 6 mm. Three call sites share
+	/// it, in two unrelated gadgets: the HUD waypoint indicator's "WAYPOINT n: d M." string
+	/// (<c>Hud_UpdateWaypointIndicator</c>, <c>0043c3e4</c>) and the scanner MFD's contact-range
+	/// readout (<c>0043ebe0</c>/<c>0043eecc</c>). Both feed it a raw difference of two world
+	/// positions, so its input really is world units. See docs/engine/planning.md, "World scale —
+	/// recovered".</para>
+	///
+	/// <para>Note the original's own displayed distance is coarse in two ways this constant is not:
+	/// the integer divide quantises it to multiples of 6 m, and the distance itself is the
+	/// octagonal <c>max + min/2</c> approximation (<c>Math_FastMagnitude2D</c>), which overshoots a
+	/// true diagonal by up to ~12%. Neither affects the scale factor; both are display behaviour to
+	/// reproduce if a HUD is ever built.</para>
 	/// </summary>
-	public const float WorldUnitsPerMeter = 200f;
+	public const float WorldUnitsPerMeter = 1000f / 6f;
 
 	/// <summary>
 	/// How many world units one raw DTS model unit spans — one, i.e. model coordinates are world
 	/// coordinates with no conversion at all.
 	///
-	/// <para>This is a hypothesis, but a well-supported one, and it was <i>not</i> assumed: it fell
-	/// out of measuring real models against the independently-derived
-	/// <see cref="WorldUnitsPerMeter"/> above. Reading DTS point shorts as world units directly puts
-	/// SAMSON (a heavy HERC) at 11.8 m tall and 7.1 m wide, OUTLAW (a light one) at 8.5 m, and APOCA
-	/// at 11.7 m — the right absolute size for a HERC and the right ordering between classes, from
-	/// two constants derived from completely separate evidence. Every mech model measured also has
-	/// its lowest point at exactly model-space zero, i.e. authored standing on the ground plane,
-	/// which is what a world-space authoring convention would produce.</para>
+	/// <para><b>Confirmed from game data (2026-08-13)</b>, having previously been only a
+	/// well-supported hypothesis. Two fields of <c>dat\&lt;mech&gt;.DAT</c> — a file the sim reads in
+	/// world units — carry values that only make sense as model-space measurements:</para>
+	/// <list type="bullet">
+	/// <item>COLOSSUS is the one retail mech whose model dips below model-space zero, to
+	/// <c>-400</c>, and it is the one retail mech with a nonzero <c>UnitOffsetYAdjust</c>: exactly
+	/// <c>400</c>. A correction expressed in the same numbers as the model's own coordinates is a
+	/// 1:1 unit relationship.</item>
+	/// <item><c>AiAimTargOffset</c> — how high up a target the AI aims — tracks model height across
+	/// the fleet (OUTLAW 1500 against a 1700-unit model, everything larger 2500 against 2030–2575).
+	/// </item>
+	/// </list>
 	///
-	/// <para>Kept as a named constant rather than deleted so that the claim stays visible and one
-	/// number changes if the real placement code is ever traced. Note this differs from the WinForms
-	/// model viewer, which scales DTS points by 1/10 — that viewer picks whatever scale frames a
-	/// model nicely in its own window and has no world to be consistent with.</para>
+	/// <para>Model bounds against <see cref="WorldUnitsPerMeter"/> put HERCs at 10.2 m (OUTLAW) to
+	/// 15.5 m (OGRE) tall, roughly 1.5x the heights the manual's HERC specs quote (6.1 m and
+	/// 10.4 m). That gap is bounding box versus quoted stature — a model's box includes raised
+	/// weapon arms and antennae — not a unit mismatch; the ordering by class matches exactly and
+	/// nothing in the load path scales a model (<c>MechType_InitOne</c> hands DTS points straight to
+	/// the shape instance).</para>
+	///
+	/// <para>Note this differs from the WinForms model viewer, which scales DTS points by 1/10 —
+	/// that viewer picks whatever scale frames a model nicely in its own window and has no world to
+	/// be consistent with.</para>
 	/// </summary>
 	public const float WorldUnitsPerDtsUnit = 1f;
 

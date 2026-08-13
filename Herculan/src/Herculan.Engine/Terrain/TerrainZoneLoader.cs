@@ -138,9 +138,15 @@ public static class TerrainZoneLoader {
 		var rawHeights = new byte[cellCount];
 		var cellFlags = new byte[cellCount];
 
-		// Terrain_LoadZone's LOD derivation (HeightGrid+0x10c): 10, halved for every cell-shift step
-		// past 14. Not read by the height query; kept because the field is part of the struct and a
-		// renderer/chunking consumer for it may yet turn up.
+		// LOD (HeightGrid+0x10c): 10, halved for every cell-shift step past 14.
+		//
+		// Its consumer is now known (docs/formats/terrain-texturing.md): it is the terrain draw
+		// radius in cells — Terrain_BuildDrawRegionQuad builds a square of (lod << cellShift) world
+		// units around the viewer. Two differences from the original worth knowing before relying on
+		// this value: the original re-derives it every frame inside Terrain_SetupVisibleRegion rather
+		// than once at load, and the base 10 is not a constant there but an entry read from a
+		// per-detail-setting table (DAT_004a0bcc[DAT_004d1fc3]) — 10 is simply the retail default.
+		// Setting it once from the default is correct until a detail setting exists to change it.
 		int detailLod = cellShift > 14 ? 10 >> (cellShift - 14) : 10;
 
 		int blockMask = (1 << (0x15 - materials[0].BlockShift - cellShift)) - 1;

@@ -58,6 +58,14 @@ public abstract class ThreeSpaceByteTransformer {
 		return i;
 	}
 
+	/// <summary>
+	/// Reads a little-endian int at the cursor <em>without</em> advancing it. For length-prefixed
+	/// formats where a caller needs to validate a size field before the reader that owns it consumes
+	/// it — see <see cref="Dbsim.DTSModelTransformer"/>'s chunk bracketing. The caller is responsible
+	/// for there being 4 bytes left.
+	/// </summary>
+	protected int PeekIntLE() => EndianOps.ToInt(Bytes!, Index, ByteOrder.LittleEndian);
+
 	protected int IndexInt() {
 		// Original had no explicit byteOrder() call, so it used the library's default: BIG_ENDIAN.
 		int i = EndianOps.ToInt(Bytes!, Index, ByteOrder.BigEndian);
@@ -132,8 +140,17 @@ public abstract class ThreeSpaceByteTransformer {
 		}
 	}
 
+	/// <summary>
+	/// Advances the cursor, ignoring a skip that would run past the end rather than throwing.
+	///
+	/// <para>Landing <em>exactly</em> on the end of the buffer is allowed — a trailing field that
+	/// runs to EOF (a final null terminator, a last padding run) is a normal thing for these formats
+	/// to end on. The bound used to be strict <c>&lt;</c>, which silently no-opped that case and left
+	/// the cursor short, so the caller's <c>Index &lt; Length</c> loop went round again and re-read
+	/// bytes it had already consumed.</para>
+	/// </summary>
 	public void Skip(int skip) {
-		if (Index + skip < Bytes!.Length) {
+		if (Index + (long)skip <= Bytes!.Length) {
 			Index += skip;
 		}
 	}

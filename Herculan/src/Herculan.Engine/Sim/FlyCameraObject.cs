@@ -47,13 +47,13 @@ public struct CameraInput {
 /// </summary>
 public sealed class FlyCameraObject : SimObject {
 	/// <summary>
-	/// Cruise speed, in world units per tick — 200 works out to about 30 m/s at
+	/// Cruise speed, in world units per tick — 200 works out to about 36 m/s at
 	/// <see cref="SimWorld.TicksPerSecond"/> and <see cref="Render.WorldScale.WorldUnitsPerMeter"/>.
 	/// </summary>
 	public short CruiseSpeed { get; set; } = 200;
 
 	/// <summary>
-	/// Cruise speed while boosting (~300 m/s), which crosses a retail zone's ~10 km in a little
+	/// Cruise speed while boosting (~360 m/s), which crosses a retail zone's 12.6 km in a little
 	/// over half a minute.
 	/// </summary>
 	public short BoostSpeed { get; set; } = 2000;

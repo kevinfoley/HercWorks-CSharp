@@ -1,0 +1,50 @@
+using Herculan.Engine.Render;
+using Silk.NET.OpenGL;
+
+namespace Herculan.Engine.Gl;
+
+/// <summary>
+/// An RGBA8 texture on the GPU, uploaded from a CPU-side <see cref="TextureAtlas"/>.
+///
+/// <para>Sampling is <b>nearest-neighbour with no mipmaps</b>, which is a deliberate fidelity call
+/// rather than a shortcut: the original is a 1996 software rasterizer that point-samples its
+/// texels, so bilinear filtering would render something visibly softer than the game ever looked.
+/// Per docs/engine/planning.md's "vanilla by default" principle, filtering and mipmapping belong in
+/// the opt-in enhancement bucket alongside the other precision upgrades, not in the default path.
+/// It also means the one-pixel gutter <see cref="TextureAtlas"/> leaves between frames is belt and
+/// braces — nearest sampling inside an exact frame rect cannot reach a neighbour regardless.</para>
+/// </summary>
+public sealed class GpuTexture : IDisposable {
+	private readonly GL _gl;
+
+	public GpuTexture(GL gl, TextureAtlas atlas) {
+		_gl = gl;
+		Handle = _gl.GenTexture();
+
+		_gl.BindTexture(TextureTarget.Texture2D, Handle);
+
+		unsafe {
+			fixed (byte* pixels = atlas.Pixels) {
+				_gl.TexImage2D(TextureTarget.Texture2D, 0, InternalFormat.Rgba8,
+					(uint)atlas.Width, (uint)atlas.Height, 0,
+					PixelFormat.Rgba, PixelType.UnsignedByte, pixels);
+			}
+		}
+
+		_gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
+		_gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
+
+		// Clamp rather than repeat: every UV this engine generates is inside a frame's own rect, so a
+		// value outside 0..1 means something upstream is wrong, and clamping keeps that as a visible
+		// smear at one frame's edge instead of tiling a neighbouring frame across the poly.
+		_gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
+		_gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
+
+		_gl.BindTexture(TextureTarget.Texture2D, 0);
+	}
+
+	/// <summary>The GL texture name, for binding via <see cref="ShaderProgram.SetSamplerTexture"/>.</summary>
+	public uint Handle { get; }
+
+	public void Dispose() => _gl.DeleteTexture(Handle);
+}

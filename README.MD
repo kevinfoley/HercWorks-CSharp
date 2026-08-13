@@ -1,6 +1,6 @@
 # HercWorks CSharp
 
-This repository is a rewrite and extension of [herc-works-mdk](https://github.com/Subject9x/herc-works-mdk) in C#/.NET with Windows Forms GUI. The purpose of this project is to reverse-engineer the file formats used in the game _Earthsiege II_, developed by Dynamix and published by Sierra in 1996.
+This repository is a rewrite and extension of [herc-works-mdk](https://github.com/Subject9x/herc-works-mdk), originally by Subject9x. HercWorks has been rewritten in C#/.NET with Windows Forms GUI. The purpose of this project is to reverse-engineer the file formats used in the Windows 95 game _Earthsiege II_, developed by Dynamix and published by Sierra in 1996.
 
 HercWorks CSharp builds upon the original Java library, fixing bugs, expanding the scope of the reverse-engineering work, and adding a graphical user interface. Unlike the original Java library, this repository does not support exporting data to JSON.
 

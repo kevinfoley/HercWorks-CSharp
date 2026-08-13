@@ -6,7 +6,7 @@ Started 2026-08-11. This is a working document, not a spec — update it as deci
 ## Context
 
 Long-term goal: a modern, cross-platform engine capable of running Earthsiege 2 using the
-original game's data files. `HercWorksMDK-CSharp-port` (the "HercWorks" toolkit) is a separate,
+original game's data files. `Herculan` (the "HercWorks" toolkit) is a separate,
 already-underway WinForms tool for reading/editing those data files — it is a stepping stone, not
 the engine itself, and the engine does not depend on it. See the honest scope assessment in
 project memory (`project-es2-engine-port-readiness`) for what RE work is and isn't done yet.
@@ -69,7 +69,7 @@ the game.
   since Core/UI/Engine are developed in lockstep by the same person against the same evolving RE
   findings. One clone, one `.sln`, atomic cross-layer commits.
 - **Engine lives as sibling project(s) to `HercWorks.UI`**, under
-  `HercWorksMDK-CSharp-port/src/`, added to the existing `HercWorksMDK.sln`. Both the engine and
+  `Herculan/src/`, added to the existing `HercWorksMDK.sln`. Both the engine and
   the WinForms UI reference `HercWorks.Core` / `HercWorks.Vol` directly as the shared data layer.
   Neither depends on the other — this was "Option A" of two structures considered (the
   alternative, UI depending on the engine as a library, was rejected: the WinForms tool has no

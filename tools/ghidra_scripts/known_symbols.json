@@ -1849,6 +1849,33 @@
       "name": "maybe_MechTypeSlot_Allocate",
       "description": "Assigns the next dense allocation index (DAT_004a9d8a, post-incremented) to slot param_1's (&DAT_004a9d8c)[param_1] entry the first time it's requested; on the very first allocation overall, also caches an object-pool handle (FUN_0040feb4(1) result) into _DAT_004a9df4. Not independently cross-checked beyond call-site usage.",
       "source": "memory project_es2_dts_texture_binding, follow-up session 2026-08-12 (DBSIM-side RE)"
+    },
+    {
+      "address": "00470c68",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HeightGrid_SetCellScratchByte",
+      "description": "Writes the HeightGrid's parallel per-cell scratch/flag byte array at +0xf0: derives the cell index from a cell pointer as ((cellPtr - grid[+0xec]) >> 4) and stores param_3 there. Called once per cell by TerrainZone_PopulateFromBitmap with 0; the ASCII fallback loader writes the same array inline instead. Identifies the +0xf0 array's writer -- its *consumer* is still unlocated, so what the byte means remains open.",
+      "source": "docs/engine/planning.md milestone-1 session 2026-08-11 (terrain loader port)"
+    },
+    {
+      "address": "00492dd4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_RandomNext",
+      "description": "The game's pseudo-random generator: an additive lagged Fibonacci generator over a 56-entry (0x38) table of shorts with two rotating byte cursors at state+0x70 and state+0x71. Each call does table[i] += table[j]; returns the new table[i] in the low 16 bits; then advances both cursors modulo 56. Callers pass the state block address (0x4d261d) and mask the result -- & 0xfff for the terrain material roll in TerrainZone_PopulateFromBitmap and for the explosion's ~51% per-component roll in FUN_004187d0. The 56 seed values live in the data section and have not been extracted.",
+      "source": "docs/engine/planning.md milestone-1 session 2026-08-11 (terrain loader port)"
+    },
+    {
+      "address": "004965b8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Cpp_VectorNew",
+      "description": "The compiler's C++ 'vector new' runtime helper (carries the 'Illegal mode in vector new' error string): optionally allocates param_2*param_3 bytes (plus a 4-byte count prefix when mode bit 0x10 is set), then invokes the element constructor param_5 once per element at param_2 stride. Worth having named because it appears in the middle of data-structure loaders -- e.g. the HeightGrid cell array allocation in TerrainZone_PopulateFromBitmap -- where it can otherwise be mistaken for domain logic.",
+      "source": "docs/engine/planning.md milestone-1 session 2026-08-11 (terrain loader port)"
     }
   ]
 }

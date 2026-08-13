@@ -170,6 +170,122 @@ mission-select/loadout/armory UI. Reasoning for going DBSIM-first instead:
 - The milestone's hardcoded loadout is normal, low-risk technical debt: it gets replaced by real
   VSHELL-driven data once that layer exists, not redesigned.
 
+### Scaffolding status
+
+**Initial project structure created (2026-08-11).** Two new projects under
+`Herculan/src/`, added to `HercWorksMDK.sln`:
+- **`Herculan.Engine`** — the library core (`net8.0`, cross-platform). References
+  `HercWorks.Core`/`HercWorks.Vol` directly (no `HercWorks.TransferApi`, per the repo-structure
+  decision above). Packages: `Silk.NET.Windowing`, `Silk.NET.OpenGL`, `Silk.NET.Input` (audio/
+  `Silk.NET.OpenAL` not added yet — not needed until audio work starts). Currently contains just
+  `EngineWindow.cs`, a thin wrapper around a Silk.NET window + GL context that opens a window and
+  clears the screen — proves the pipeline compiles and runs, no scene content yet.
+- **`Herculan.Engine.Host`** — the thin front-end host (`net8.0` console app), per the
+  "library core + thin front-end host" decision above. References `Herculan.Engine` only.
+  `Program.cs` just constructs an `EngineWindow` and runs it.
+
+Full solution builds with zero errors (`dotnet build HercWorksMDK.sln`). Not yet run/verified
+interactively (opening an actual window) — that's left for manual verification rather than trying
+to smoke-test a blocking windowed loop headlessly.
+
+### Milestone 1 — implemented (2026-08-11)
+
+All three parts of the first milestone are built and the full solution compiles clean in Debug and
+Release. Verified headlessly against the real `E:\ES2Stuff\ES2` install (loading, terrain query and
+camera motion all exercised without opening a window); actually looking at the rendered result is
+manual verification, deliberately left to the user rather than smoke-tested here.
+
+**What's in `Herculan.Engine` now, by area:**
+
+- **`Numerics/`** — literal ports of DBSIM's fixed-point toolkit, one method per RE'd function:
+  `SimMath` (Q8/Q10/Q14 multiply, integrate-rate-over-tick, countdown timer, rate-limited
+  move-toward, the sqrt-free 3D magnitude approximation), `Vec3i` (integer world position, X/Y
+  ground plane + Z up, distance via the approximation rather than a real `sqrt`), `BinaryAngle`
+  (BAM angles, Q14 trig), and `SimRandom` (the additive lagged-Fibonacci generator at
+  `FUN_00492dd4`). Namespace is `Numerics`, not `Math`, so it doesn't shadow `System.Math`.
+- **`Terrain/`** — `HeightGrid` (the 0x129 struct, minus the 14 known-dead bytes per cell),
+  `TerrainZoneLoader` (`Terrain_LoadZone` → `TerrainZone_LoadHeightmap` →
+  `TerrainZone_PopulateFromBitmap`, reading the 16-byte `dat\zoneNNNN.dat` header and the
+  `dba\zoneNNNN.dba` heightmap image), `TerrainMaterialTable` (`dat\mat0`). `HeightAtWorld` is a
+  line-by-line port of `Terrain_HeightQuery`, integer arithmetic and all, including the original's
+  east-edge index wrap — kept per "vanilla by default" rather than fixed.
+- **`Content/`** — `GameContent` mounts the game's own VOLs and resolves `folder\name` lookups with
+  the header's load-precedence byte deciding which archive wins; `GameInstall` finds an install.
+- **`Sim/`** — `SimObject` (the OOP base the architecture decision above calls for, currently
+  carrying only the slots in use), `SimWorld` (fixed-timestep tick over the object list, owns the
+  timestep global), `MechObject`, `FlyCameraObject`.
+- **`Render/` + `Gl/`** — `ShaderProgram`, `GpuMesh`, `SceneRenderer` (one directional light,
+  ambient, distance haze), `Camera`, `TerrainMeshBuilder`, `DtsMeshBuilder`, and `WorldScale`, the
+  single float boundary.
+- **`Scene/ZoneScene`** — CPU-side scene assembly, so a host uploads meshes but a headless caller
+  can build the same scene with no GL at all.
+
+`Herculan.Engine.Host` stayed thin: locate install, build the scene, upload meshes, translate keys
+to sim input, run a fixed-timestep accumulator, draw. It takes optional `<installPath> <zone>
+<mech>` arguments and defaults to zone 504 with SAMSON.
+
+**Things worth knowing that came out of building it:**
+
+- **Terrain triangulation matches the height query by construction.** The renderer splits each quad
+  along the same diagonal that cell's selector bits choose, so the surface drawn is the surface the
+  simulation queries — which heads off an entire category of "why is the mech floating" bugs rather
+  than correcting for them with an offset later.
+- **World scale: ~200 world units per metre** (`WorldScale.WorldUnitsPerMeter`). Estimated, not
+  recovered — triangulated from known constants (3000-unit missile blast radius, 40000-unit
+  proximity warning, 16384-unit terrain cell). Those read as a 15 m blast, a 200 m warning, an
+  ~82 m cell and a 10.4 km zone; no other scale within a factor of two makes all of them plausible.
+- **DTS model units are world units, 1:1.** This was measured, not assumed: reading DTS point
+  shorts as world units against the independently-derived 200 units/metre puts SAMSON at 11.8 m
+  tall and 7.1 m wide, OUTLAW (light class) at 8.5 m and APOCA at 11.7 m — right absolute sizes and
+  right ordering, from two unrelated pieces of evidence. Every mech model measured also has its
+  lowest point at exactly model-space zero, i.e. authored standing on the ground plane. Note this
+  differs from the WinForms viewer's 1/10 scale, which is arbitrary framing for its own window.
+- **A mech `.DTS`'s 7 roots are an LOD chain, root 0 highest.** Confirmed by triangle counts across
+  SAMSON/OUTLAW/APOCA (253/251/249/210/132/54/11 for SAMSON) over identical bounds. Nothing in the
+  file says so — that's engine knowledge — so the engine picks root 0 and says why.
+- **Matrix uniforms upload with `transpose: false`, and the reasoning inverts easily.** System.Numerics
+  is row-vector (`v * M`) stored row-major; GLSL is column-vector (`M * v`) and reads a uniform array
+  column-major when transpose is false — so writing System.Numerics' elements out in their own
+  row-major order and *not* transposing hands GL the transpose, which is exactly the column-vector
+  form of the same transform. The first build got this backwards and rendered nothing but the clear
+  colour: the translation landed in the bottom row, where a column-vector multiply ignores it, and
+  the perspective divide produced a negative `w` that clipped everything away. The note in
+  `ShaderProgram.SetMatrix` spells this out because "row-major vs column-major" alone is the wrong
+  mental model for it — the vector convention is the load-bearing half.
+- **`Herculan.Engine` still has no `System.Drawing` dependency.** `DtsMeshBuilder` is a separate
+  type from the UI's `DtsGeometryBuilder` for exactly this reason; the tree-walking rules are the
+  same and each is annotated with what the other established, so they're worth keeping in sync.
+
+**Deliberately not done, and why:** no textures (excluded from the milestone, and the DBSIM-side
+atlas convention is still unconfirmed), no weapons or damage — so `SimObject` does not yet declare
+the damage-related vtable slots (`+0x20`/`+0x70`/`+0x74`), since declaring them now would only mean
+stubbing them everywhere; no mech locomotion (the milestone's mech is stationary); no backface
+culling, matching the WinForms viewer's finding that DTS geometry isn't reliably wound.
+
+**New open items this work surfaced** (all recorded at their call sites too):
+
+- **Nothing writes the terrain diagonal-selector's bit 1.** Decompiling both loader paths settles
+  what the physics notes left open: every flag write in `TerrainZone_PopulateFromBitmap` and its
+  ASCII counterpart masks with `& 2`, preserving bit 1 and clearing bit 0, and the cells arrive
+  zeroed — so both loaders leave every cell's selector at 0. Some other, not-yet-located code must
+  set bit 1, since the query handles selector 2 and the value has been observed. The engine
+  reproduces the loaders exactly rather than inventing a diagonal rule.
+- **`SimRandom`'s 56-entry seed table hasn't been extracted** from DBSIM's data section. The
+  algorithm is a literal port; the seeding isn't. Bit-exact parity would need more than the table
+  anyway — a roll's result depends on how many times the generator was already advanced — so
+  anything built on it should be treated as statistically faithful, not replay faithful. Currently
+  drives only terrain material bits, which nothing renders yet.
+- **The real timestep value and its unit are unknown.** `DAT_004d3be8` is only ever seen being
+  read; the timer source that writes it wasn't traced. `SimWorld` runs 30 Hz with a Q8 tick delta of
+  256, which at least squares with the known 0x500/tick rocket turn cap (a revolution in ~1.7 s).
+- **DBSIM's own sine/cosine table hasn't been located** — no trig function appears in the current
+  symbol set at all. `BinaryAngle`'s table is generated at Q14 rather than ported, which is fine for
+  a camera but would show as slow drift in anything integrating a heading over many ticks. All trig
+  goes through that one type so swapping in the real table is a single-file change.
+- **The per-type hit-cylinder radius (`typeRecord+0x1a`) isn't mapped onto a `HercSimDat` field.**
+  The in-memory mech type record is assembled from more than the `.DAT`, and its offsets don't line
+  up with the parsed file's. `MechObject` takes a radius derived from model bounds meanwhile.
+
 ## Known technical debt relevant to the engine
 
 - ~~`HercWorks.Core` uses `System.Drawing.Common`~~ — **resolved (2026-08-11).** Migrated
@@ -203,7 +319,9 @@ mission-select/loadout/armory UI. Reasoning for going DBSIM-first instead:
 
 ## Open questions
 
-None currently open — see next steps below.
+None blocking. The items milestone 1 surfaced (terrain diagonal-selector bit 1, the PRNG seed
+table, the timestep's real value, DBSIM's trig table, the hit-cylinder radius field) are listed
+under "Milestone 1 — implemented" above, next to the code that works around each one.
 
 ### RE gaps that block specific engine features (status current as of 2026-08-11, confirmed
 against the actual repo docs — supersedes the older, more pessimistic summary in

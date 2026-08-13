@@ -240,10 +240,25 @@ choose which way its diagonal split runs, chosen at terrain-authoring/compile ti
 flyer terrain-avoidance autopilot below and by a rocket's ground-impact detonation check.
 
 **Open items:** the 14 undecoded per-cell bytes (`+0x1`..`+0xe`); the parallel `+0xf0` scratch
-array's consumer; the `+0x10c` LOD value's consumer (presumably the terrain renderer, not yet
-located); and the exact path-join semantics of `FUN_00492ae0`/`FUN_00492a84` (medium-confidence
-`maybe_` names — the resulting paths were confirmed against real files, but the string-concatenation
-order wasn't independently proven byte-for-byte).
+array's consumer (its *writer* is now identified — `HeightGrid_SetCellScratchByte` @ `00470c68`,
+called once per cell from the bitmap loader with 0 — but nothing has been found that reads it); the
+`+0x10c` LOD value's consumer (presumably the terrain renderer, not yet located); and the exact
+path-join semantics of `FUN_00492ae0`/`FUN_00492a84` (medium-confidence `maybe_` names — the
+resulting paths were confirmed against real files, but the string-concatenation order wasn't
+independently proven byte-for-byte).
+
+**Settled while porting the loaders to the engine (2026-08-11): nothing in either loader path writes
+the diagonal-selector bits, so every retail-loaded cell has selector 0.** Decompiling
+`TerrainZone_PopulateFromBitmap` and its ASCII counterpart in full shows every write to the `+0xf`
+byte masks it with `& 2` — preserving bit 1, clearing bit 0 — and the cell array arrives zeroed from
+`Cpp_VectorNew`, so both bits stay 0 throughout loading. The material index is what those writes
+actually set (bits `[2:7]`), via a single `Math_RandomNext() & 0xfff < 0x4ce` roll (~30%) for
+material 1 versus 0 — and note the bitmap path hardcodes a ceiling of **two** materials, unlike the
+ASCII fallback which loops the whole `mat0` table. The roll is sparse: only cells on a block
+boundary roll, and the rest of the block copies the result, where the block size is
+`(1 << (0x15 - mat0[0].field4 - CellShift)) - 1` — 2x2 cells with the retail values (`field4` = 6,
+`CellShift` = 14). Since the query handles selector 2 and that value has been observed, **some
+not-yet-located code must set bit 1** — that's the remaining piece, and it isn't in the loaders.
 
 **Flyer ground-proximity/terrain-avoidance autopilot: `FUN_004198f4`.** Initially suspected (from
 its 5 calls to the weapon-fire raycast, below) to be a generic weapon-fire dispatcher; decompiling

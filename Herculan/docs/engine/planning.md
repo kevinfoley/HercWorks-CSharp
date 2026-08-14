@@ -167,76 +167,56 @@ Release. Verified headlessly and by Kevin.
 to sim input, run a fixed-timestep accumulator, draw. It takes optional `<installPath> <zone>
 <mech>` arguments and defaults to zone 504 with SAMSON.
 
-**Things worth knowing that came out of building it:**
+**Notes:**
 
 - **Terrain triangulation matches the height query by construction.** The renderer splits each quad
-  along the same diagonal that cell's selector bits choose, so the surface drawn is the surface the
-  simulation queries — which heads off an entire category of "why is the mech floating" bugs rather
-  than correcting for them with an offset later.
-- **DTS model units are world units, 1:1.** Measured, not assumed, and since **confirmed** — see
-  "World scale — recovered" below. Note this differs from the WinForms viewer's 1/10 scale, which is
-  arbitrary framing for its own window.
+  along the same diagonal the cell's selector bits choose, so drawn surface = queried surface.
+- **DTS model units are world units, 1:1** — see "World scale — recovered" below. Differs from the
+  WinForms viewer's 1/10 scale, which is arbitrary window framing.
 - **A mech `.DTS`'s 7 roots are an LOD chain, root 0 highest.** Confirmed by triangle counts across
-  SAMSON/OUTLAW/APOCA (253/251/249/210/132/54/11 for SAMSON) over identical bounds. Nothing in the
-  file says so — that's engine knowledge — so the engine picks root 0 and says why.
-- **Matrix uniforms upload with `transpose: false`, and the reasoning inverts easily.** System.Numerics
-  is row-vector (`v * M`) stored row-major; GLSL is column-vector (`M * v`) and reads a uniform array
-  column-major when transpose is false — so writing System.Numerics' elements out in their own
-  row-major order and *not* transposing hands GL the transpose, which is exactly the column-vector
-  form of the same transform. The first build got this backwards and rendered nothing but the clear
-  colour: the translation landed in the bottom row, where a column-vector multiply ignores it, and
-  the perspective divide produced a negative `w` that clipped everything away. The note in
-  `ShaderProgram.SetMatrix` spells this out because "row-major vs column-major" alone is the wrong
-  mental model for it — the vector convention is the load-bearing half.
-- **`Herculan.Engine` still has no `System.Drawing` dependency.** `DtsMeshBuilder` is a separate
-  type from the UI's `DtsGeometryBuilder` for exactly this reason; the tree-walking rules are the
-  same and each is annotated with what the other established, so they're worth keeping in sync.
+  SAMSON/OUTLAW/APOCA (253/251/249/210/132/54/11 for SAMSON) over identical bounds. Not stated in the
+  file; engine picks root 0.
+- **Matrix uniforms upload with `transpose: false`.** System.Numerics is row-vector (`v * M`),
+  row-major storage; GLSL is column-vector (`M * v`), reads a uniform column-major when transpose is
+  false — writing System.Numerics' row-major elements untransposed hands GL exactly the
+  column-vector form of the same transform. Getting this backwards renders only the clear colour
+  (translation lands in the row a column-vector multiply ignores, `w` goes negative, everything
+  clips). Documented in `ShaderProgram.SetMatrix` since "row-major vs column-major" alone is the
+  wrong mental model — the vector convention is the load-bearing half.
+- **`Herculan.Engine` has no `System.Drawing` dependency.** `DtsMeshBuilder` is a separate type from
+  the UI's `DtsGeometryBuilder` for that reason; same tree-walking rules, cross-annotated.
 
-**Deliberately not done, and why:** no weapons or damage — so `SimObject` does not yet declare
-the damage-related vtable slots (`+0x20`/`+0x70`/`+0x74`), since declaring them now would only mean
-stubbing them everywhere; no mech locomotion (the milestone's mech is stationary); no backface
-culling, matching the WinForms viewer's finding that DTS geometry isn't reliably wound. (**Note:** texture rendering is done as of Milestones 2–3.)
+**Deliberately not done:** weapons/damage (`SimObject` doesn't declare the `+0x20`/`+0x70`/`+0x74`
+vtable slots yet); mech locomotion (mech is stationary); backface culling (DTS winding isn't
+reliable, per the WinForms viewer). Texture rendering shipped in Milestones 2-3.
 
-**New open items this work surfaced** (all recorded at their call sites too):
+**Open items surfaced:**
 
-- **Nothing writes the terrain diagonal-selector's bit 1.** Decompiling both loader paths settles
-  what the physics notes left open: every flag write in `TerrainZone_PopulateFromBitmap` and its
-  ASCII counterpart masks with `& 2`, preserving bit 1 and clearing bit 0, and the cells arrive
-  zeroed — so both loaders leave every cell's selector at 0. Some other, not-yet-located code must
-  set bit 1, since the query handles selector 2 and the value has been observed. The engine
-  reproduces the loaders exactly rather than inventing a diagonal rule. **Still open after the
-  2026-08-13 terrain session**, and the terrain-renderer theory for who sets it is now **disproved**:
-  with the render path located, `Terrain_DrawCellQuad` and `FUN_0046ff74` both only ever read
-  `cell[+0xf]`. See `docs/formats/terrain-texturing.md`.
-- **The `HeightGrid` LOD field (`+0x10c`)** is scaled by `maybe_Terrain_ComputeViewDistance`
-  (`00470910`) from cells into world units by `<< cellShift`, clamping to 1000 near grid edges,
-  once per frame. Treat the scaling as solid and the two output values' meaning as undecoded — see
-  `docs/formats/terrain-texturing.md` before wiring it to any far-clip or haze constant.
-- **`SimRandom`'s 56-entry seed table hasn't been extracted** from DBSIM's data section. The
-  algorithm is a literal port; the seeding isn't. Bit-exact parity would need more than the table
-  anyway — a roll's result depends on how many times the generator was already advanced — so
-  anything built on it should be treated as statistically faithful, not replay faithful. Currently
-  drives only terrain material bits, which nothing renders yet.
-- **The real timestep value and its unit are unknown, but 30 Hz now looks wrong.** `SimTickDelta`
-  (`DAT_004d3be8`) is written in exactly one place — `Sim_MainTick` copies it out of field `0x17` of
-  a per-frame timing struct returned by `FUN_0045a7f4`, which was not traced further. The scale
-  recovery above bounds it indirectly: at 166.667 units/metre, mech `SpeedForward` values only
-  reproduce the manual's quoted KPH if the tick is near 15 Hz, and a 30 Hz tick would make every
-  HERC twice its quoted speed. `SimWorld` still runs 30 Hz with a Q8 tick delta of 256; treat that
-  as a suspect default to revisit when locomotion is implemented, not as a neutral one. (The known
-  0x500/tick rocket turn cap becomes a revolution in ~3.4 s at 15 Hz, still sane.) Separately,
-  `Time_GetCoarseTicks` (`00467724`) is *not* this clock — it is `GetTickCount() >> 4`, a 16 ms
-  UI/event timebase the mission clock counts in.
-- **DBSIM's own sine/cosine table hasn't been located** — no trig function appears in the current
-  symbol set at all. `BinaryAngle`'s table is generated at Q14 rather than ported, which is fine for
-  a camera but would show as slow drift in anything integrating a heading over many ticks. All trig
-  goes through that one type so swapping in the real table is a single-file change.
-- **The per-type hit-cylinder radius (`typeRecord+0x1a`) isn't mapped onto a `HercSimDat` field.**
-  The in-memory mech type record is assembled from more than the `.DAT`, and its offsets don't line
-  up with the parsed file's. `MechObject` takes a radius derived from model bounds meanwhile.
-
-## Known technical debt relevant to the engine
-
+- **Nothing writes the terrain diagonal-selector's bit 1.** Every flag write in
+  `TerrainZone_PopulateFromBitmap` (and its ASCII counterpart) masks with `& 2`, preserving bit 1 and
+  clearing bit 0, and cells arrive zeroed — both loaders leave every cell's selector at 0. The query
+  handles selector 2, so something else must set bit 1; not located. Engine reproduces the loaders
+  exactly rather than inventing a rule. Terrain-renderer theory disproved: `Terrain_DrawCellQuad` and
+  `FUN_0046ff74` only ever read `cell[+0xf]`. See `docs/formats/terrain-texturing.md`.
+- **`HeightGrid` LOD field (`+0x10c`)** is scaled by `maybe_Terrain_ComputeViewDistance` (`00470910`)
+  from cells to world units via `<< cellShift`, clamped to 1000 near grid edges, once/frame. Scaling
+  is solid; the two output values' meaning is undecoded — see `terrain-texturing.md` before wiring to
+  far-clip/haze.
+- **`SimRandom`'s 56-entry seed table isn't extracted** from DBSIM's data section — algorithm is a
+  literal port, seeding isn't. A roll's result also depends on generator-advance count, so treat as
+  statistically faithful, not replay faithful. Currently drives only terrain material bits (unrendered).
+- **Timestep is unknown; 30 Hz looks wrong.** `SimTickDelta` (`DAT_004d3be8`) is written once, by
+  `Sim_MainTick` from field `0x17` of a timing struct from `FUN_0045a7f4` (untraced). At 166.667
+  units/metre, mech `SpeedForward` only matches the manual's KPH figures near 15 Hz; 30 Hz doubles
+  every HERC's speed. `SimWorld` still runs 30 Hz (Q8 delta 256) — a suspect default, not neutral.
+  (0x500/tick rocket turn cap = ~3.4s/revolution at 15 Hz, still sane.) `Time_GetCoarseTicks`
+  (`00467724`) is a separate clock: `GetTickCount() >> 4`, the 16ms UI/mission-clock timebase.
+- **DBSIM's sine/cosine table isn't located** — no trig function in the current symbol set.
+  `BinaryAngle`'s table is generated at Q14, not ported; fine for a camera, would drift slowly in
+  anything integrating heading over many ticks. All trig routes through that one type.
+- **Per-type hit-cylinder radius (`typeRecord+0x1a`) isn't mapped to a `HercSimDat` field** — the
+  in-memory mech type record has more fields than the `.DAT` and offsets don't line up.
+  `MechObject` uses a model-bounds-derived radius meanwhile.
 
 ## World scale — recovered (2026-08-13)
 
@@ -279,36 +259,23 @@ to `-400`, and it is the one retail mech with a nonzero `UnitOffsetYAdjust`: exa
 OUTLAW's 1700-unit model, 2500 for everything larger (2030–2575). Nothing in the load path scales a
 model: `MechType_InitOne` hands DTS points straight to the shape instance.
 
-**The one thing that does not line up, and why it is not a problem.** Measured against 166.667,
-HERC models stand 10.2 m (OUTLAW) to 15.5 m (OGRE), roughly 1.5x the heights the manual's HERC specs
-quote (6.1 m and 10.4 m). The gap is bounding box versus quoted stature — a model's box includes
-raised weapon arms and antennae — and the ordering by weight class matches the manual exactly. Note
-this gap existed at the old estimate of 200 too (SAMSON 11.8 m against a quoted 9.2 m); the new
-constant widens it rather than creating it.
+**Discrepancy, not a problem:** at 166.667 u/m, HERC models measure 10.2m (OUTLAW) to 15.5m (OGRE),
+~1.5x the manual's quoted stature (6.1m/10.4m) — bounding box (includes raised arms/antennae) vs.
+quoted height; weight-class ordering matches the manual exactly. Same gap existed at the old 200
+estimate too (SAMSON measured 11.8m vs quoted 9.2m).
 
-**A second, independent check that the scale is at least the right order.** The HUD's speed readout
-(`Mech_GetDisplaySpeedKph`, `0041bb3c`) reduces to `speed * 315/1024`, and run against each mech's
-own `SpeedForward` it reproduces the manual's quoted speeds across the fleet: OUTLAW 325 -> exactly
-100 KPH, SAMSON 190 -> 58 against a quoted 60, COLOSSUS 180 -> 55, MAVERICK 285 -> 88 against 90.
-**Do not use it to derive the tick length**: the 315 looks fitted to make the fastest HERC read a
-round 100, and inverting it against 166.667 units/metre implies a ~14.2 Hz tick, which is close
-enough to a plausible 15 Hz to be suggestive and far enough from round to be untrustworthy. The
-simulation timestep therefore stays an open question (see below), just a better-bounded one — a
-30 Hz tick would put every mech at double its quoted speed, so **whatever the timestep is, it is
-much nearer 15 Hz than 30**, and `SimWorld`'s current 30 Hz is now a known-suspect default rather
-than a neutral one.
+**Independent order-of-magnitude check:** HUD speed readout (`Mech_GetDisplaySpeedKph`, `0041bb3c`)
+= `speed * 315/1024`; against each mech's `SpeedForward` reproduces the manual's KPH: OUTLAW 325 →
+100 (exact), SAMSON 190 → 58 (quoted 60), COLOSSUS 180 → 55, MAVERICK 285 → 88 (quoted 90). **Not a
+tick-length source** — 315 looks fitted to make the fastest HERC read a round 100; inverted against
+166.667 u/m it implies ~14.2 Hz, suggestive but not round enough to trust. Timestep stays open (see
+below), bounded to "much nearer 15 Hz than 30" — 30 Hz would double every mech's quoted speed.
 
-New symbols from this pass, all applied via `ES2ApplySymbolNames`: `Hud_WorldUnitsToMetres`,
+New symbols, applied via `ES2ApplySymbolNames`: `Hud_WorldUnitsToMetres`,
 `Hud_UpdateWaypointIndicator`, `Hud_UpdateSpeedReadout`, `Mech_GetDisplaySpeedKph`,
 `Math_Q10Multiply`, `Math_Q16Multiply`, `Math_Q16Divide`, `Math_FastMagnitude2D`,
 `maybe_Math_MapRange`, `Time_GetCoarseTicks`, `Vec2_Subtract`, `Vec2_Magnitude`,
 `Vec2_DistanceBetween`.
-
-**Process note.** Both earlier attempts at this number reasoned from constants in data files toward a
-plausible scale. What actually settled it was asking where the game *tells the player* a distance —
-i.e. going to the output the user can see, the same move that settled the terrain-texturing and
-flat-colour questions. A screenshot of the cockpit named the two readouts (`M.` and `K/H`) whose
-format strings then led straight to the conversion functions.
 
 ## Open questions
 
@@ -355,16 +322,14 @@ the named `.DBA` through the theater's palette, and implements `Terrain_ResolveC
 per-cell rect). `TerrainMeshBuilder` emits per-corner UVs; `MeshVertex` gained a per-vertex
 `Textured` flag; `ZoneScene` carries the theater and the bank.
 
-**The per-vertex texture flag is worth its own note.** The previous per-draw `uTextureEnabled`
-uniform could not express a mesh that mixes textured and untextured triangles, and both meshes are
-such a mesh — a mech has a handful of texture polys whose frame index does not resolve, and a terrain
-cell can select a frame its bank does not have. It also quietly fixed a live defect: an unresolved
-mech texture poly kept its placeholder colour in the vertex data but was drawn with texturing on and
-UVs of `(0,0)`, so it sampled whatever sat at the atlas origin rather than showing the placeholder.
+**Per-vertex `Textured` flag** replaces the old per-draw `uTextureEnabled` uniform, which couldn't
+express a mesh mixing textured and untextured triangles (both mech and terrain meshes do — unresolved
+frame indices on either). Also fixed a live defect: an unresolved mech texture poly kept its
+placeholder colour but was drawn with texturing on and UVs `(0,0)`, sampling the atlas origin instead
+of showing the placeholder.
 
-**`World_LoadTheater` loads `dpl\world<N>.dpl` as its first act, one palette active per
-theater for everything it draws. `ZoneScene` now decodes the mech's bank against the theater's
-palette too.
+`World_LoadTheater` loads `dpl\world<N>.dpl` as its first act, one palette active per theater for
+everything it draws; `ZoneScene` decodes the mech's bank against the theater's palette too.
 
 **Verified headlessly against the real install** (see the format doc for the full list): ten
 descriptors parse to their exact length, five banks pack, zone 504 textures 100% of its terrain
@@ -373,9 +338,107 @@ a cell spans 128 of 256 texels and the texture repeats every two cells. The `urb
 were rendered and eyeballed and look like what this document's terrain notes predicted before
 anything was drawn.
 
+## Milestone 4 — real missions (2026-08-13)
+
+The scene is now the game's own object placement. Nothing about it is configured by hand: the host
+is given a `script.dat` and everything else — zone, theater, theater variant, which units exist,
+their types, positions, headings and weapon fits, and the player's own lance — comes out of the
+mission. Milestone 1's single hardcoded mech at the middle of the zone is gone, and `ZoneScene` with
+it.
+
+**Key finding:** DBSIM reads `script.dat` **twice** — `DBSim_LoadScriptDat` (pass 1) only counts live
+objects and sizes pools; `DBSim_SpawnMissionObjects` (`FUN_004253d8`, pass 2) re-opens the file and
+walks blocks 7-13 again, reading positions, headings and loadouts. An earlier revision of the format
+doc described pass 1 only and concluded the format discarded most of block 7-11. Full rule in
+`docs/formats/script-dat.md`'s "The two-pass read" and "Placement" sections.
+
+**Three type numberings resolved**, each the last link between a mission's numbers and a resource:
+
+- **Mechs** — `nam\MECHS.NAM`, 21 NUL-terminated names indexed by block 7's type field
+  (`MechType_InitOne` joins the name to the `dat\`/`dts\`/`bnd\` prefixes, so one name is the stats
+  file, the model and the collision data). `nam\FLYERS.NAM` does the same for block 8.
+- **Structures** — `dat\BASES.DAT`, 65 records of 60 bytes with one nested variable-length array.
+  Record shape confirmed by construction: it consumes the retail file's 6,422 content bytes with
+  zero slack. `FUN_00405ebc` is the whole model selection — one field picks the shape index, another
+  picks the library, a third picks the texture bank. This also corrects a wrong entry in
+  `dgs-hd0-notes.md`, which had applied this record shape to `BASES.DGS` and recorded it as
+  disproven; it is `BASES.DAT`'s shape and it is exact.
+- **The player's lance** — `data\player.mec`, decoded and implemented (`MecFile`). It sits at the
+  spawn point block 11's record 0 exists to hold, which is why the camera can now start where the
+  mission starts.
+
+**New:** `World/Mission` + `World/MissionLoader` (the two-pass placement rule),
+`World/UnitTypeNames`, `World/BaseTypeTable`, `Scene/MissionScene` (replaces `ZoneScene`),
+`Scene/SceneModelLibrary` (one mesh and one atlas per distinct type, however many objects share
+it), `Sim/FlyerObject`, `Sim/BaseObject`. `MechObject`'s loadout is no longer stubbed. In
+HercWorks.Core, `ScriptDat`'s blocks 7/8/9 gained named fields for what pass 2 reads, and `MecFile`
+replaced a never-implemented stub.
+
+**Verified headlessly against the real install:** the 10 available `script.dat`-shaped files (see
+`script-dat.md`'s "Fixed-size file structure" — these are save-slot snapshots, not necessarily 10
+distinct retail missions; total retail mission count is unverified, plausibly ~50 across 5 sectors)
+all build as scenes — zone, theater, rosters, groups and lance all resolve, no live roster slot goes
+unclaimed by a group, every placed object lands inside its zone's bounds.
+`ScriptDatTransformer` still round-trips all 10 byte-exact after the model change.
+
+### Milestone 4's two known gaps
+
+RE gaps, not design choices:
+
+- ~~Formation spread — unresolved, not settled~~ — **bases solved and fixed, see Milestone 6
+  below; mechs/flyers still open.** For mechs the link from formation id to `dat\MFORMS.DAT` still
+  can't be confirmed (table pointer `FUN_004205cc` reads has exactly one reference in all of
+  DBSIM.EXE — the read itself — in uninitialised data), so mechs still stack on their group's point.
+- ~~Static structures don't draw~~ — solved, see Milestone 5 below.
+
+## Milestone 5 — static structures (2026-08-14)
+
+`dgs\BASES.DGS`/`BHULKS.DGS` solved. Full RE and format spec in `docs/formats/dgs-hd0-notes.md`.
+Summary: each is a flat sequential list of `ClassItem`-tagged records (tag `0x02BC0001`); each
+record wraps exactly one ordinary DTS chunk (`TSDetailPart`), reusable via
+`DTSModelTransformer.ReadOneObject`, plus undecoded metadata (BSP/collision data, not needed to
+draw). New: `HercWorks.Core.Io.Transform.Dbsim.BasesDgsTransformer`,
+`HercWorks.Core.Data.File.Dgs.BaseShapeLibrary`. `SceneModelLibrary.Base()` now resolves both
+`BaseShapeSource` cases. Verified against retail data: all 45 `BASES.DGS` records and all 16
+`BHULKS.DGS` records parse with zero exceptions (1536 groups/8978 polys and 113 groups/786 polys
+respectively).
+
 ### Remaining RE gaps
 
+- The mech formation-offset table's load site (see above).
+- Flyer texture banks — which `.DBA` DBSIM binds for a flyer is untraced, so flyers draw
+  flat-shaded.
 - `.SNC` audio format unsolved — blocks original game audio playback. Not needed until audio
   work starts.
-- AI/behavior trees barely understood — blocks enemy mech behavior. Not needed for near-term
-  milestones (single mech, no combat/AI yet).
+- AI/behavior trees barely understood — blocks enemy mech behavior and patrol movement along the
+  routes missions now resolve.
+
+## Milestone 6 — base formation spread (2026-08-14)
+
+Fixed: multi-structure base groups (fortress clusters, turret rings) were placing every member on
+the group's single spawn point instead of spreading them out. Root-caused headlessly first, against
+all 10 available missions, before touching code: every stacked group's members genuinely carry no
+position of their own (`ScriptMiscEntityExport.PositionRef == -1`) — not a coordinate-resolution
+bug, confirming the placement rule's documented fallback was firing as designed but incompletely
+(missing the spread step DBSIM applies on top of the fallback).
+
+RE'd the missing step: `FUN_00405c3c` (the base-group-attach function) unconditionally calls the
+attached object's vtable `+0x78`, which for every base subtype is `FUN_00405c04` — a direct
+structural match for `Mech_ApplyFormationOffset`, except this one's backing table
+(`dat\BFORMS.DAT`) has a confirmed load site (`FUN_00405fac` opens it by the literal string
+`"bforms"`), unlike the still-open mech case. Full chain, byte-exact file verification, and the
+rotate-and-add math are in `script-dat.md`'s "Placement — the actual rule" point 6.
+
+Implemented as `Herculan.Engine.World.BaseFormationTable` (parses `BFORMS.DAT`'s count + variable
+per-formation records) wired into `MissionLoader.AddRoster`'s base loop, replacing the bare
+`?? group.Position` fallback with `?? OffsetFromGroup(...)`, which applies the formation offset for
+the object's slot index within its group (0 for the group's first-claimed member, which keeps
+today's no-offset behavior) before falling back further to the bare group point. Re-verified
+headlessly against all 10 missions post-fix: 18 of 18 multi-member base groups now get fully
+distinct member positions (0 remain stacked), where all 18 collapsed to a single point before.
+
+Not implemented — see `script-dat.md` point 6 for detail:
+- Grid-snap (`BinaryFlag`-gated group-anchor snap) — shifts a group's shared point, doesn't cause
+  stacking, not chased.
+- Mech/flyer formation spread — mechs still blocked on the unconfirmed `MFORMS.DAT` load site;
+  flyers untraced (not seen mattering in retail data — no multi-flyer groups observed).

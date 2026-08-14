@@ -13,9 +13,9 @@ namespace Herculan.Engine.Sim;
 ///
 /// <para>What <i>is</i> real is the per-type data — <see cref="HercSimDat"/> is read from the game's
 /// own <c>dat\&lt;name&gt;.dat</c>, so speeds, turn rates and the texture-group id are the mech's
-/// actual stats rather than invented placeholders. The loadout is the one deliberately stubbed
-/// piece, and it is stubbed the way the milestone calls for: normal, low-risk technical debt to be
-/// replaced by real VSHELL-driven data later, not something to be redesigned.</para>
+/// actual stats rather than invented placeholders. As of the mission-loading milestone the
+/// <see cref="Loadout"/> is real too: it is the fit the mission author gave this machine, out of
+/// <c>script.dat</c>'s own roster record (or <c>player.mec</c> for the player's lance).</para>
 /// </summary>
 public sealed class MechObject : SimObject {
 	private readonly int _hitRadius;
@@ -33,7 +33,7 @@ public sealed class MechObject : SimObject {
 	/// <summary>The mech type's stats, straight out of the game's own per-mech <c>.DAT</c>.</summary>
 	public HercSimDat SimData { get; }
 
-	/// <summary>The stubbed weapon fit — see the type's summary.</summary>
+	/// <summary>The weapon fit the mission gave this machine — see the type's summary.</summary>
 	public MechLoadout Loadout { get; }
 
 	/// <summary>
@@ -57,15 +57,16 @@ public sealed class MechObject : SimObject {
 }
 
 /// <summary>
-/// A mech's weapon fit. Milestone 1 uses <see cref="Stubbed"/>; the real thing comes from the
-/// player's loadout in <c>script.dat</c> once the VSHELL-side data path exists — which, per
-/// docs/engine/planning.md, is already understood byte-exact and simply hasn't been wired up.
+/// A mech's weapon fit, as the mission states it. AI machines get theirs from <c>script.dat</c>
+/// block 7's own weapon array; the player's lance gets theirs from <c>player.mec</c>. Both feed the
+/// same <c>Mech_ConfigureLoadout</c> in the original.
 /// </summary>
 /// <param name="WeaponIds">
-/// Indices into the sim-side weapon tables. Empty in the stub — an empty fit is honestly "no
-/// weapons modelled yet" rather than a plausible-looking fit that nothing can fire.
+/// The mount ids the mission assigned, with the file's empty-slot sentinels already dropped. Nothing
+/// fires them yet — weapon systems are a later milestone — so for now this is data carried
+/// faithfully rather than data acted on.
 /// </param>
 public readonly record struct MechLoadout(IReadOnlyList<int> WeaponIds) {
-	/// <summary>The milestone-1 placeholder: no weapons, because no weapon systems exist yet.</summary>
-	public static MechLoadout Stubbed => new(Array.Empty<int>());
+	/// <summary>An empty fit, for a machine spawned outside a mission.</summary>
+	public static MechLoadout None => new(Array.Empty<int>());
 }

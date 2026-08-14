@@ -26,7 +26,7 @@ public readonly record struct AtlasRect(float U0, float V0, float U1, float V1);
 /// (0,0)). Frames are padded apart by one pixel, and sampling is nearest-neighbour at the GL end,
 /// so neighbours cannot bleed into each other.</para>
 ///
-/// <para>CPU-side on purpose, touching no GL, so <see cref="Scene.ZoneScene"/> stays buildable
+/// <para>CPU-side on purpose, touching no GL, so <see cref="Scene.MissionScene"/> stays buildable
 /// headlessly — <see cref="Gl.GpuTexture"/> does the upload.</para>
 /// </summary>
 public sealed class TextureAtlas {

@@ -2,26 +2,45 @@
 
 Partial investigation of `.DGS` and `.HD0` formats. Companion: [`weapons-dat-sim.md`](weapons-dat-sim.md).
 
-## `.DGS` — two real files, genuinely different formats
+## `.DGS` — SOLVED (2026-08-14)
 
-Loader code in DBSIM.EXE: `FUN_00405ebc` (model-instance lookup/cache) and `FUN_00405fac`
-(resource-load sequence: `"bforms"`, `"lc_wpns"`, `"bases"`, `"basecol"`, `"bhulks"`, `"basetex"`, `"vehtex"`).
+`BASES.DGS`/`BHULKS.DGS`: a flat sequential list of `ClassItem`-tagged records — **not** the same
+container as `.DTS`, despite `BASES_AN.DTS` and `BASES.DGS` both starting with a 4-byte value that
+looked like `recordSize<<16|version` (an earlier read of this doc's own guess, now corrected).
 
-**`BHULKS.DGS`:** Likely DTS-model-family; opened via `FUN_00474bcc` (same "load 3D model" call as
-confirmed DTS `"mechwpn2"`). Header bytes share `FF-FF-00-00` sentinel at byte 8 but differ in leading fields:
-- `BHULKS.DGS`: `01-00-BC-02-68-0E-00-00-FF-FF-00-00-93-26-CB-FC`
-- `SAMSON.DTS`: `03-00-1E-00-FE-46-00-00-FF-FF-00-00-05-08-D4-FF`
+**Container.** Each record: `[classId:int32 LE][payloadSize:int32 LE]` + payload. `classId` for
+this library is `0x02BC0001` (= the record's own leading 4 on-disk bytes). Read via the generic
+polymorphic `ClassItem_LoadResource` (`0047a038`) registry dispatch — same mechanism as `.DFN`/
+`.DCI` (see `project_es2_exe_recon` memory), different registered class. `BaseType_LoadShape`
+(`00405ebc`) → `FUN_00474cd8` walks this list sequentially by index (not random-access) to resolve
+`dat\BASES.DAT`'s `ShapeIndex`.
 
-Sentinel position (byte 8) likely non-coincidental. Not byte-identical; DTS-*family* plausible.
+**Record layout** (traced via the class's Watcom base-constructor chain — `FUN_0042762c` →
+`FUN_00490d5c` → `FUN_0048fd94` → `FUN_0048f894`):
+1. 3×`int16` id fields + 6 raw bytes (base header)
+2. `int16` child count, then that many nested `ClassItem` records
+3. `int16` count + that many 32-byte records (undecoded — BSP-plane-adjacent, per consumer `FUN_00476a1c`)
+4. `int16` count + that many `int16` values (undecoded)
+5. 5×`int16` scalars + a fixed 1024-byte block (undecoded)
+6. if scalar 4 (sub-record count) ≠ 0: that many raw records sized by scalar 3
 
-**`BASES.DGS`** (565,882 bytes): Decompiled `FUN_00405fac` hypothesizes `[uint16 count] → 60-byte
-records with nested 30-byte sub-records`. Parsing yields `count=1` — impossible for 565KB file.
-**Hypothesis disproven.** Real file shows `FF-FF-00-00` sentinel at record-relative offset 6–9
-near start (~78-byte span), consistent with (unconfirmed) 22-byte-record hypothesis.
+Every record's on-disk footprint (header+payload) pads to an even total.
 
-**Next steps if resumed:** For `BASES.DGS`, trace `FUN_00405ebc`'s model-cache arrays
-(`DAT_004a9600`/`DAT_004a95f8`). For `BHULKS.DGS`, find caller of `FUN_00474bcc("bhulks", ...)`
-to extract mode/version flags; compare against `mechwpn2` and `.DTS` header field meanings.
+**The key finding: every retail record's one child (step 2) is an ordinary TSObjectHeader-family
+DTS chunk** — observed tag `0x0014000c` = `TSDetailPart`, byte-identical format to a plain `.DTS`
+file's own chunks. No new mesh format was needed; `DTSModelTransformer` gained a public
+`ReadOneObject(bytes, ref index)` entry point to parse it in place. Steps 3–6 are read (to keep the
+cursor correct) but not modelled — the engine doesn't need them to draw.
+
+**Verified against retail data:** an independent whole-file scan for the `0x02BC0001` tag pattern
+finds the same record boundaries the sequential reader does (45/45 `BASES.DGS`, matching
+`BaseTypeTable`'s 57 static types many-to-45 via shared `ShapeIndex`es). Every embedded child
+parses through `DTSModelTransformer` with zero exceptions and produces real geometry: `BASES.DGS`
+45/45 records, 1536 groups, 8978 polys; `BHULKS.DGS` 16/16 records, 113 groups, 786 polys.
+
+Implementation: `HercWorks.Core.Io.Transform.Dbsim.BasesDgsTransformer`,
+`HercWorks.Core.Data.File.Dgs.BaseShapeLibrary`. Wired into
+`Herculan.Engine.Scene.SceneModelLibrary.Base()`.
 
 ## `.HD0`/`.HD1`/`.HD2`/`.HD3` — no loader found
 

@@ -2124,6 +2124,177 @@
       "name": "Vec2_DistanceBetween",
       "description": "Copies a 2D point, subtracts another (Vec2_Subtract) and returns the approximate magnitude (Vec2_Magnitude) -- the distance primitive the HUD waypoint indicator uses.",
       "source": "docs/engine/planning.md 2026-08-13 (world scale recovery)"
+    },
+    {
+      "address": "004253d8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "DBSim_SpawnMissionObjects",
+      "description": "DBSIM's world-spawn pass and the function that actually builds a mission's objects -- the second of two reads of data\\script.dat. RE-OPENS the file from the top (path built from maybe_DatFolderPrefixPtr + the string at 0049aa3e), skips blocks 1-6, then walks blocks 7-13 again. For every slot DBSim_LoadScriptDat's first pass marked live it constructs an object and reads that object's OWN record for placement: block 7 (134B) gives mech type at +0x28, weapon fit at +0x2a, position ref at +0x3e, heading ref at +0x40; block 8 (92B) gives position +0x28, heading +0x2a, flyer type +0x2c; block 9 (52B) gives base type +0x00, position +0x02, heading +0x04. Position refs resolve into the block-1 coordinate array (DAT_004a9e90, stride 0xc); heading refs into the pre-multiplied block-2 array (DAT_004a9e94). Mechs and bases get Terrain_HeightQuery plus the type's foot offset; flyers get no query. It then reads block 11 into DAT_004a9e84 (stride 0x7a) via DBSim_BuildGroupRecord, remapping member refs to dense object indices, and appends the player.mec lance in place of record 0's members. This function is why script-dat.md's earlier 'DBSIM discards the placement data' description was wrong -- that described pass 1 only.",
+      "source": "docs/formats/script-dat.md 2026-08-13 (mission placement)"
+    },
+    {
+      "address": "00423b34",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "DBSim_BuildGroupRecord",
+      "description": "Builds one script.dat block-11 record into a 0x7a-byte in-memory group record: discriminator (record +0x28) at group+0, formation id (+0x2a) at group+2, heading value at group+10, the resolved block-1 coordinate pointer at group+0x18, the resolved row-10 action pointer at group+0x14, and an allocated array of member object pointers at group+0xc. Then attaches every populated member by discriminator -- Mech_AttachToGroup (0/mechs), FUN_00421ee8 (1/flyers), FUN_00405c3c (2/bases) -- passing each its slot index within the group.",
+      "source": "docs/formats/script-dat.md 2026-08-13 (mission placement)"
+    },
+    {
+      "address": "00417aa8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_AttachToGroup",
+      "description": "Attaches a mech to its mission group: stores the group pointer at mech+0x45 and the member slot index at mech+0x49, then fills in heading and position ONLY IF still at the -0x8000 'unset' sentinel -- which is why a roster record's own position ref wins where set and the group's point is the fallback. Position comes from the group's coordinate pointer (group+0x18), or from FUN_00423b0c against the group's route when that is null. Z is Terrain_HeightQuery plus the mech type's foot offset (typeRecord+0x16), plus 5000 when typeRecord+0x50 is set. Calls mech vtable +0x78 (Mech_ApplyFormationOffset) with the position first. FUN_00421ee8 and FUN_00405c3c are the flyer and base equivalents; the flyer one deliberately does no terrain query and substitutes z=5000 when the coordinate's z is zero.",
+      "source": "docs/formats/script-dat.md 2026-08-13 (mission placement)"
+    },
+    {
+      "address": "00417898",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_ApplyFormationOffset",
+      "description": "Mech vtable +0x78. Spreads a group's members around its spawn point. No-ops for slot 0 (the leader stands on the point exactly); otherwise looks up Formation_GetSlotOffset(group's formation id at group+2, mech+0x49) and hands the offset to Formation_RotateAndAddOffset, which rotates it by the group leader's heading before adding it to the position.",
+      "source": "docs/formats/script-dat.md 2026-08-13 (mission placement)"
+    },
+    {
+      "address": "004205cc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Formation_GetSlotOffset",
+      "description": "Returns a static 3-short {x, y, 0} formation offset: table[formationId * 0x1c + slot * 4 - 4] and the short after it. So a formation is 28 bytes = seven (x, y) short pairs, covering follower slots 1-7. OPEN: the table pointer _DAT_004a9df0 has exactly one reference in the whole binary -- this read -- and lives in uninitialised data, so nothing links it to a file. dat\\MFORMS.DAT fits the shape exactly (142 content bytes = count + five 28-byte formations, formation 0 a symmetric wedge at 10000-unit steps) but is unconfirmed. Contrast the base equivalent (FUN_00405b9c/Base_LoadFormationTable, 2026-08-14), whose load site IS confirmed -- this pointer never got the same treatment.",
+      "source": "docs/formats/script-dat.md 2026-08-13 (mission placement)"
+    },
+    {
+      "address": "00411d64",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Formation_RotateAndAddOffset",
+      "description": "Rotates a formation offset into world space and adds it to a position. Takes the group leader (first entry of the group's member array at group+0xc), lazily builds its rotation matrix from its heading (leader+0xc -> leader+0x12, guarded by the stale flag at leader+0x32 that Mech_AttachToGroup clears), rotates the offset by it, and accumulates into the caller's x/y/z. Also the base-formation attach path's rotator (called from FUN_00405c04); for a heading-only object (no pitch/roll, true of every base) the matrix build (FUN_0047eaac) plus apply (FUN_0047fedc) reduces algebraically to a plain 2D rotation: worldDX = dx*cos(heading) - dy*sin(heading), worldDY = dx*sin(heading) + dy*cos(heading).",
+      "source": "docs/formats/script-dat.md 2026-08-13 (mission placement); base-path confirmed 2026-08-14"
+    },
+    {
+      "address": "00405c3c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_AttachToGroup",
+      "description": "Base/structure equivalent of Mech_AttachToGroup (00417aa8), called from DBSim_BuildGroupRecord (00423b34) for discriminator 2. Stores the group pointer at +0x45 and the member's slot index within the group's DiscriminatedRefs array at +0x49. Fills heading only if unset (-0x8000 sentinel), applying a per-slot heading nudge from a formation-indexed table when the slot is nonzero. Fills position only if unset: reads the group's own coordinate pointer (group+0x18) or falls back to its route (FUN_00423b0c), then -- only when the caller's BinaryFlag arg (the raw block-11 record's own 0x06 field) is nonzero -- snaps that shared point to a per-formation grid (fields the C# port does not model; see BaseFormationTable's doc comment) before unconditionally calling the object's own vtable +0x78 (Base_ApplyFormationOffset, FUN_00405c04) with the position, then a terrain height query.",
+      "source": "docs/formats/script-dat.md 2026-08-14 (base formation spread)"
+    },
+    {
+      "address": "00405c04",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_ApplyFormationOffset",
+      "description": "Vtable +0x78 for every base subtype (confirmed identical across all five base vtables: 0x497940/0x4979d4/0x4978ac/0x497784/0x497818, each layered on the common base vtable 0x49a54c) -- the structural match for Mech_ApplyFormationOffset (00417898). No-ops when the object's group-relative slot (+0x49) is 0 (the group's first-claimed member); otherwise looks up BaseFormation_GetSlotOffset(group's formation id, slot) via FUN_00405b9c and hands the offset to Formation_RotateAndAddOffset (00411d64).",
+      "source": "docs/formats/script-dat.md 2026-08-14 (base formation spread)"
+    },
+    {
+      "address": "00405b9c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "BaseFormation_GetSlotOffset",
+      "description": "Base equivalent of Formation_GetSlotOffset (004205cc), but reading a variable-length, file-backed table instead of a flat one: DAT_004a9630[formationId] is a per-formation record whose +4 field is a pointer to that formation's slot-offset array (10 bytes/slot: two int32s X,Y then a trailing int16), indexed as ptr + (slot-1)*10 -- i.e. slot N uses the (N-1)-th entry, so slot 1 (the group's first follower) uses entry 0. Returns {x, y} as two int32s (z is a one-time-zeroed static, never written per-call -- bases take no Z offset). DAT_004a9630 is populated by Base_LoadResources (00405fac) from dat\\BFORMS.DAT -- unlike the mech table, this load site IS confirmed.",
+      "source": "docs/formats/script-dat.md 2026-08-14 (base formation spread)"
+    },
+    {
+      "address": "00405fac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_LoadResources",
+      "description": "base.cpp's resource-load sequence for the base/structure subsystem: streams dat\\bforms (-> DAT_004a9630, formation offsets; see BaseFormation_GetSlotOffset), dat\\lc_wpns, dat\\bases (-> DAT_004a9620, the BASES.DAT type table Bases_LoadTypeTable/BaseTypeTable.cs also reads), dat\\basecol (collision), dat\\bhulks, dat\\basetex and dat\\vehtex (texture banks) via a shared plain-file-read helper (FUN_00472e08 open / FUN_004734ac read via a vtable+0x18 dispatch / FUN_00472e58 close -- no container header, first bytes of each file are its own content, confirmed against BASES.DAT's independently-verified byte-exact parse). BFORMS.DAT's per-formation record is fully variable-length: int32 slot count N, N*10 bytes of slot data, an int32 + two more int32s (grid-snap fields, unmodelled), an int32 buffer count M, then M {1 length byte + that many data bytes} buffers -- confirmed byte-exact: walking the retail file this way consumes all 3186 content bytes with 17 formations (matching the block-11 formation id field's documented 0-16 range) and nothing left over.",
+      "source": "docs/formats/script-dat.md 2026-08-14 (base formation spread)"
+    },
+    {
+      "address": "0043a2e0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Bases_LoadTypeTable",
+      "description": "base.cpp's resource-load sequence. The part that matters for missions is the dat\\BASES.DAT read: a uint16 count then that many 60-byte structure-type records, each with one nested variable-length array of 30-byte sub-records. Byte-verified -- walking that shape consumes the retail file's 6422 content bytes with zero slack, yielding 65 types. NOTE: an earlier revision of dgs-hd0-notes.md applied this record shape to dgs\\BASES.DGS, got count=1, and recorded it as disproven; it is dat\\BASES.DAT's shape and it is exact. Also loads bforms, lc_wpns, basecol, bhulks, basetex and vehtex.",
+      "source": "docs/formats/dgs-hd0-notes.md 2026-08-13"
+    },
+    {
+      "address": "00405ebc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "BaseType_LoadShape",
+      "description": "The whole of a structure type's model selection, indexing dat\\BASES.DAT's table at typeIndex * 0x3c: the field at +6 picks the library (0 -> dgs\\bases via BaseType_ResolveShape with classId 0x2bc0001, else dts\\bases_an via the animated-library path with 0x1e0003) and the field at +2 is the shape index within it; the field at +0x32 picks the texture bank (0 -> basetex, else vehtex, except type 0x34 which borrows RAZOR's mech bank). Cross-check: exactly eight types select the animated library and BASES_AN.DTS holds exactly eight roots, numbered as those eight reference them. CORRECTED 2026-08-14: the 0x2bc0001/0x1e0003 constants are not recordSize<<16|version -- they are ClassItem registry classIds, and 0x2bc0001 is literally BASES.DGS's own leading 4 bytes. See dgs-hd0-notes.md.",
+      "source": "docs/formats/dgs-hd0-notes.md 2026-08-14"
+    },
+    {
+      "address": "00474cd8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "BaseType_ResolveShape",
+      "description": "Resolves one dgs\\bases shape by index (called by BaseType_LoadShape): reopens the file, then loops calling the ClassItem peek/skip primitive (FUN_0047a1fc, then FUN_0047a2a8 to skip) until the requested index is reached, then calls ClassItem_LoadResource once for the real load. Confirms dgs\\BASES.DGS/BHULKS.DGS are flat sequential ClassItem lists, not random-access. See dgs-hd0-notes.md.",
+      "source": "docs/formats/dgs-hd0-notes.md 2026-08-14"
+    },
+    {
+      "address": "00427568",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "BaseShape_Construct",
+      "description": "ClassItem registry loadFn for classId 0x02bc0001 (dgs\\bases/bhulks shape records): allocates a 0x438-byte object, installs the class's vtable (0049aaa0), then calls vtable+0xc (BaseShape_ReadFromStream). See dgs-hd0-notes.md.",
+      "source": "docs/formats/dgs-hd0-notes.md 2026-08-14"
+    },
+    {
+      "address": "0042762c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "BaseShape_ReadFromStream",
+      "description": "Field reader for a dgs\\bases/bhulks shape record (vtable+0xc for classId 0x02bc0001), on top of the generic ClassItem base-class chain (FUN_00490d5c). Reads 5 int16 scalars, a fixed 1024-byte block, then (if the 2nd scalar/sub-record count is nonzero) that many raw sub-records sized by the 1st scalar. Byte-verified against the retail file -- see dgs-hd0-notes.md and HercWorks.Core.Io.Transform.Dbsim.BasesDgsTransformer for the full record shape including the levels below.",
+      "source": "docs/formats/dgs-hd0-notes.md 2026-08-14"
+    },
+    {
+      "address": "00490d5c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ClassItemTree_ReadFromStream",
+      "description": "Generic base-class reader shared by dgs\\bases/bhulks shape records (one level up from BaseShape_ReadFromStream): reads two int16 counts, a parallel int16 array, and a per-entry 32-byte vector (undecoded -- consumed by a BSP-adjacent walk, FUN_00476a1c). Byte-verified as part of the full record shape -- see dgs-hd0-notes.md.",
+      "source": "docs/formats/dgs-hd0-notes.md 2026-08-14"
+    },
+    {
+      "address": "0048fd94",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ClassItemTree_ReadChildren",
+      "description": "Generic base-class reader (below ClassItemTree_ReadFromStream): reads an int16 child count then that many nested objects via ClassItem_LoadResource. For dgs\\bases/bhulks shape records, every retail child is an ordinary TSObjectHeader-family DTS chunk (observed tag 0x0014000c = TSDetailPart) -- the key finding that lets DTSModelTransformer.ReadOneObject parse it directly. See dgs-hd0-notes.md.",
+      "source": "docs/formats/dgs-hd0-notes.md 2026-08-14"
+    },
+    {
+      "address": "0048f894",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ClassItemTree_ReadBaseHeader",
+      "description": "Deepest base-class reader in the ClassItem shape-tree hierarchy: 3 int16 id/name fields + 6 raw bytes. Shared by dgs\\bases/bhulks shape records. See dgs-hd0-notes.md.",
+      "source": "docs/formats/dgs-hd0-notes.md 2026-08-14"
+    },
+    {
+      "address": "00492bf4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LoadNameList",
+      "description": "Loads a nam\\<name>.NAM list -- a flat run of NUL-terminated ASCII names indexed by type number -- with a capacity bound as the second argument. Called with ('mechs', 0x55) into the mech name table DAT_004a9de4 that MechType_InitOne indexes, and with ('flyers', 0x22) into DAT_004a9e74. These are the tables that turn script.dat block 7's and block 8's type numbers into resource base names; MECHS.NAM ships 21 names and FLYERS.NAM 3.",
+      "source": "docs/formats/script-dat.md 2026-08-13 (mission placement)"
     }
   ]
 }

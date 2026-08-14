@@ -49,6 +49,23 @@ public class DTSModelTransformer : ThreeSpaceByteTransformer {
 	}
 
 	/// <summary>
+	/// Reads exactly one TSObject chunk starting at <paramref name="index"/> within an arbitrary
+	/// buffer, advancing <paramref name="index"/> past it. Used by
+	/// <see cref="BasesDgsTransformer"/> to parse the DTS subtree a <c>dgs\BASES.DGS</c>/
+	/// <c>BHULKS.DGS</c> structure record wraps — confirmed to be an ordinary TSObjectHeader-family
+	/// chunk, byte-identical in format to a plain <c>.DTS</c> file's own chunks (see
+	/// docs/formats/dgs-hd0-notes.md), so it reuses this same reader rather than a new one.
+	/// </summary>
+	public TSObject? ReadOneObject(byte[] bytes, ref int index) {
+		Bytes = bytes;
+		Index = index;
+		_indexTSGroup = 0;
+		var chunk = LoadChunkByType(null);
+		index = Index;
+		return chunk;
+	}
+
+	/// <summary>
 	/// Hacked-together analogue for the ChunkTypes[] object in the original python script. DTS
 	/// files are nested objects and object lists, so a tree-loading approach is necessary.
 	///

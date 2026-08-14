@@ -100,7 +100,7 @@ testing it against every real file — see "How this was verified" below):
 | 9 | `DAT_0047065e` | 12 (`0xc`) bytes/record | `DAT_0047062c` | #6, self | **decoded — see "Row #9 field decode" below.** A typed dual-purpose record: a GUID-pair "link" (two refs into row #6) when its type flag is 0, or a single row-#6 ref plus a round-number literal (likely a credit/reward value) when the flag is 1 |
 | 10 | `DAT_00470660` | 82 (`0x52`) bytes/record | `DAT_00470630` | #9 (8 shorts), LUT `DAT_00470664` (5 shorts) | referenced later by a **4-way type-discriminated remap** (codes 7/8/9/10 → #12/#13/#14/#16) — strong candidate for an "action/objective" record |
 | 11 | `DAT_00470662` | 30 (`0x1e`) bytes/record | `DAT_00470634` | #10 (once) + #10 again (10 shorts) | **decoded — see "Row #11 field decode" below.** The nominal 10-slot "sequence" array is a red herring in practice: **96% of real records use at most 1 of its 10 slots**, same "declared capacity, barely used" pattern as row #10's own sub-arrays. Functionally an action-to-action pairing, not a multi-step sequence |
-| 12 | `DAT_00470652` | 144 (`0x90`) bytes/record | `DAT_00470614` | #6, #7, #10 (×2) — all declared but nearly dead in retail (≤2.4% used); real payload is an unresolved 10-slot array | **decoded — see "Row #12 field decode" below.** A second, distinct 144-byte type from #4; heaviest template-inheritance usage of any decoded row (48%) |
+| 12 | `DAT_00470652` | 144 (`0x90`) bytes/record | `DAT_00470614` | #6, #7, #10 (×2) — sparse in retail (≤2.4% used) but all live at runtime; real payload is a 10-slot weapon fit | **decoded — see "Row #12 field decode" below.** The mission's **mech roster**: one record per HERC it can field, with type, weapon fit and optional placement. A second, distinct 144-byte type from #4; heaviest template-inheritance usage of any decoded row (48%) |
 | 13 | `DAT_00470654` | 102 (`0x66`) bytes/record | `DAT_00470618` | #6, #7 (both declared, both dead in retail), #10 (×2, only the 2nd slot real) | **decoded — see "Row #13 field decode" below.** `UnkEntity102Bytes` — real structure is a 20-flag boolean array + a mostly-inert second 20-slot span + a constant trailing field (always `100`), not the flat `Flags[49]` the old hypothesis assumed; the macro pass's "inherit only" note missed all four real cross-refs |
 | 14 | `DAT_0047065c` | 62 (`0x3e`) bytes/record | `DAT_00470628` | #6, #7, #10 (×2) | **decoded — see "Row #14 field decode" below.** `MiscEntityInfo` — 4 real cross-refs, not the 3 the macro pass found (it missed #7); a type-like field at `0x08` correlates ~99% with the trailing constant field being `100` vs `0` |
 | 15 | `DAT_00470658` | 22 (`0x16`) bytes/record | `DAT_00470620` | #6 (rare), #8 (dominant — 94% populated), #10 (rare), plus a **4-way** discriminated ref (0/1/2/3 → #16/#12/#13/#14, resolved in two passes since #16 loads after #15) | **decoded — see "Row #15 field decode" below.** A "typed link" record whose primary payload is a near-always-populated ref into row #8 — confirms it's structurally distinct from #6 (which is a flat position record), not just size-coincidentally 22 bytes |
@@ -281,8 +281,8 @@ Item flags + condition/inheritance (24%/30% real usage — highest combined rate
 | `0x04` | parent/inherit | 30% real; copies blocks A/B if set |
 | `0x06` | ? | **dead** — always `-1` |
 | `0x08–0x30` | flags block A (20 shorts) | 100% populated; boolean: 96.5% `0`, 3.5% `1` |
-| `0x30` | ref→row #6 | **dead** — always `-1` |
-| `0x32` | ref→row #7 | **dead** — always `-1` |
+| `0x30` | ref→row #6 | always `-1` in retail, but **not dead** — DBSIM reads it as this flyer's spawn-position override (see `script-dat.md`) |
+| `0x32` | ref→row #7 | same, for heading |
 | `0x34` | presence flag | 68% real; always `0` if present |
 | `0x36` | ? | nearly always `0` |
 | `0x38–0x60` | flags block B (20 shorts) | **dead** — 99.9% `-1` |
@@ -303,9 +303,9 @@ Entity type + modifier. Largest sample (1,949 instances); clear `0x08`/`0x3C` co
 | `0x02` | condition ref | 30% real (tier: rows #1/#3/#13) |
 | `0x04` | parent/inherit | 0.4% real; nearly dead |
 | `0x06` | ? | **dead** — always `-1` |
-| `0x08` | entity type | 71% real; range 0–56 (43 values) |
-| `0x0A` | ref→row #6 | 6.4% sparse |
-| `0x0C` | ref→row #7 | 6.7% sparse |
+| `0x08` | **base type** | 71% real; range 0–56 (43 values) — an index into `dat\BASES.DAT`'s 65-entry structure table, which names the model and its texture bank |
+| `0x0A` | ref→row #6 | 6.4% sparse — this structure's spawn-position override |
+| `0x0C` | ref→row #7 | 6.7% sparse — its heading |
 | `0x0E` | small discrete | 100% real; 0/1/2 (64%/33%/3%) |
 | `0x10–0x38` | block (20 shorts) | 3.9% sparse |
 | `0x38` | ref→row #10 slot 1 | 0.4% rare |
@@ -328,10 +328,10 @@ Entity-activation directive; position/flag/route/action + 20-entry discriminated
 | `0x08` | near-constant | 100% real; usually `0` |
 | `0x0A–0x2C` | dead zone (18 shorts) | **always `0`** — padding |
 | `0x2E` | discriminator | 89% real; 0/1/2 (selects target of `0x38` array) |
-| `0x30` | small discrete | 85% real; range 0–16 |
-| `0x32` | ref→row #6 | 37% real |
-| `0x34` | ref→row #7 | 45% real |
-| `0x36` | ref→row #8 | 43% real |
+| `0x30` | **formation id** | 85% real; range 0–16 — indexes the formation-offset table that spreads a group's members around its point (see `script-dat.md`'s placement section) |
+| `0x32` | ref→row #6 | 37% real — **the group's spawn point** |
+| `0x34` | ref→row #7 | 45% real — **the group's heading** |
+| `0x36` | ref→row #8 | 43% real — the group's patrol route |
 | `0x38–0x5E` | 20-entry discriminated refs | slot 0: 89% real → slot 8: 0.6% → slots 9–19: never used |
 | `0x60–0x72` | 10-entry ref→row #15 | slot 0: 47% real → slot 3+: never used |
 | `0x74` | tri-state flag | 89% real; 0/1 or `-1` |
@@ -360,9 +360,9 @@ Entity template/spawn; highest inheritance usage (48%). Three-way identity split
 | `0x0A` | near-constant | 100% real; mostly `0` (91%); bitmask-like |
 | `0x0C–0x2E` | dead zone (18 shorts) | **always `0`** — padding |
 | `0x30` | small discrete | 47% real; range 0–20 |
-| `0x32–0x44` | unresolved 10-slot array | **real workhorse**: slot 0: 46% real → slot 9: 0.1%; bursty population; domain unknown |
-| `0x46` | ref→row #6 | 0.1% dead |
-| `0x48` | ref→row #7 | **dead** — never used |
+| `0x32–0x44` | **weapon fit**, 10 slots | **real workhorse**: slot 0: 46% real → slot 9: 0.1%; bursty population. Resolved via `script.dat`: DBSIM hands this array straight to `Mech_ConfigureLoadout`, the same call the player's own fit from `player.mec` goes through |
+| `0x46` | ref→row #6 | 0.1% populated in `.msn` data, but **not dead** — this is the spawn-position override DBSIM reads per mech (see `script-dat.md`); unset means "use the group's point" |
+| `0x48` | ref→row #7 | same, for heading |
 | `0x4A` | small discrete | 100% real; 0–4 (84% `0`) |
 | `0x4C–0x5A` | sparse paired array | 5 pairs; decay: 15.9% → 0.5%; pairs have (wide-range, narrow-tag) structure |
 | `0x74–0x84` | always-populated block | 100% real; 6 shorts; values 0–5, trending up |

@@ -115,13 +115,18 @@ public class ScriptDatTransformer : ThreeSpaceByteTransformer {
 	private ScriptSpawnRecordExport ParseSpawnRecordExport() => new() {
 		HeadBytes = IndexSegment(40),
 		SmallDiscrete = IndexShortLE(),
-		TailBytes = IndexSegment(92)
+		WeaponRefs = IndexShortLEArray(10),
+		PositionRef = IndexShortLE(),
+		HeadingRef = IndexShortLE(),
+		TailBytes = IndexSegment(68)
 	};
 
 	// ---- Block 8: ScriptEntity102Export (92 bytes) ---------------------------------------------
 
 	private ScriptEntity102Export ParseEntity102Export() => new() {
-		HeadBytes = IndexSegment(44),
+		HeadBytes = IndexSegment(40),
+		PositionRef = IndexShortLE(),
+		HeadingRef = IndexShortLE(),
 		BinaryField = IndexShortLE(),
 		TailBytes = IndexSegment(46)
 	};
@@ -130,7 +135,9 @@ public class ScriptDatTransformer : ThreeSpaceByteTransformer {
 
 	private ScriptMiscEntityExport ParseMiscEntityExport() => new() {
 		TypeLikeScalar = IndexShortLE(),
-		TailBytes = IndexSegment(50)
+		PositionRef = IndexShortLE(),
+		HeadingRef = IndexShortLE(),
+		TailBytes = IndexSegment(46)
 	};
 
 	// ---- Block 10: ScriptLinkedRef22Export (14 bytes) ------------------------------------------
@@ -256,17 +263,24 @@ public class ScriptDatTransformer : ThreeSpaceByteTransformer {
 	private void WriteSpawnRecordExport(MemoryStream o, ScriptSpawnRecordExport e) {
 		Write(o, e.HeadBytes);
 		Write(o, WriteShortLE(e.SmallDiscrete));
+		Write(o, WriteShortLESegment(e.WeaponRefs));
+		Write(o, WriteShortLE(e.PositionRef));
+		Write(o, WriteShortLE(e.HeadingRef));
 		Write(o, e.TailBytes);
 	}
 
 	private void WriteEntity102Export(MemoryStream o, ScriptEntity102Export e) {
 		Write(o, e.HeadBytes);
+		Write(o, WriteShortLE(e.PositionRef));
+		Write(o, WriteShortLE(e.HeadingRef));
 		Write(o, WriteShortLE(e.BinaryField));
 		Write(o, e.TailBytes);
 	}
 
 	private void WriteMiscEntityExport(MemoryStream o, ScriptMiscEntityExport e) {
 		Write(o, WriteShortLE(e.TypeLikeScalar));
+		Write(o, WriteShortLE(e.PositionRef));
+		Write(o, WriteShortLE(e.HeadingRef));
 		Write(o, e.TailBytes);
 	}
 

@@ -8,8 +8,14 @@ namespace HercWorks.Core.Data.File.Msn.Script;
 /// actual simulator) and VSHELL's own map-editor UI (`ShellMap`). Every block below is a
 /// GUID-filtered, field-subset re-export of one of <see cref="MissionFile"/>'s already-decoded
 /// rows — this is not an independently-authored format. See
-/// docs/formats/script-dat.md for the full byte-exact writeup (verified against two independently
+/// docs/formats/script-dat.md for the full byte-exact writeup (verified against three independently
 /// compiled readers plus 10 real sample files).
+///
+/// <b>DBSIM reads this file twice.</b> <c>DBSim_LoadScriptDat</c> counts live objects and sizes its
+/// pools, keeping little more than each roster record's type field; <c>DBSim_SpawnMissionObjects</c>
+/// then re-opens the file and walks blocks 7-13 again to actually build the world, and that is the
+/// pass that reads positions, headings and loadouts. Judging a block by what the first pass keeps
+/// gives the wrong answer for most of them — see the format doc's "The two-pass read".
 ///
 /// The file is a fixed 13,520-byte preallocated buffer in every real sample seen — real content
 /// only fills a prefix of it, and any bytes beyond the last block's declared end are stale leftover
@@ -49,40 +55,49 @@ public class ScriptDat : DataFile {
 	public ScriptActionPair[] ActionPairs { get; set; } = [];
 
 	/// <summary>
-	/// Block 7 — row #12 (<see cref="SpawnRecord144"/>) export, 134 bytes/record. DBSIM only keeps
-	/// <see cref="ScriptSpawnRecordExport.SmallDiscrete"/> (the mech-type ref) from this; VSHELL's
-	/// own `ShellMap` reader keeps the whole record for UI display. Preserved in full here since a
-	/// consumer might need any of it, with only the one confirmed field split out by name.
+	/// Block 7 — row #12 (<see cref="SpawnRecord144"/>) export, 134 bytes/record: <b>the mech
+	/// roster</b>. One record per mech the mission can field, carrying its type, weapon fit and
+	/// (usually unset) placement. DBSIM builds one live mech per record its block-11 activation
+	/// marks; VSHELL's own `ShellMap` reader keeps the whole record for UI display.
 	/// </summary>
 	public ScriptSpawnRecordExport[] SpawnRecords { get; set; } = [];
 
 	/// <summary>
-	/// Block 8 — row #13 (<see cref="UnkEntity102Bytes"/>) export, 92 bytes/record. DBSIM only
-	/// keeps <see cref="ScriptEntity102Export.BinaryField"/>; discarded entirely otherwise.
+	/// Block 8 — row #13 (<see cref="UnkEntity102Bytes"/>) export, 92 bytes/record: <b>the
+	/// flyer/vehicle roster</b>, the same arrangement as <see cref="SpawnRecords"/> one class down.
 	/// </summary>
 	public ScriptEntity102Export[] Entities102 { get; set; } = [];
 
 	/// <summary>
-	/// Block 9 — row #14 (<see cref="MiscEntityInfo"/>) export, 52 bytes/record. DBSIM only keeps
-	/// <see cref="ScriptMiscEntityExport.TypeLikeScalar"/>.
+	/// Block 9 — row #14 (<see cref="MiscEntityInfo"/>) export, 52 bytes/record: <b>the base
+	/// roster</b> — structures, turrets and the rest of the static furniture.
 	/// </summary>
 	public ScriptMiscEntityExport[] MiscEntities { get; set; } = [];
 
 	/// <summary>
-	/// Block 10 — row #15 (<see cref="LinkedRef22"/>) export, 14 bytes/record. DBSIM reads and
-	/// fully discards this block; VSHELL's `ShellMap` reader keeps it in full (UI-relevant "what's
-	/// this linked to" data).
+	/// Block 10 — row #15 (<see cref="LinkedRef22"/>) export, 14 bytes/record: <b>route links</b>.
+	/// DBSIM's first pass discards these, but its spawn pass resolves them — a group with no spawn
+	/// point of its own reaches its route through here, and
+	/// <see cref="ScriptLinkedRef22Export.RefRow8"/> names the waypoint group whose first waypoint it
+	/// starts at. VSHELL's `ShellMap` reader keeps the block in full for the same "what's this linked
+	/// to" reason.
 	/// </summary>
 	public ScriptLinkedRef22Export[] LinkedRefs22 { get; set; } = [];
 
 	/// <summary>
-	/// Block 11 — row #16 (<see cref="UnkEntity164Bytes"/>) export, 156 bytes/record. This is
-	/// DBSIM's actual entity-activation mechanism: <see cref="ScriptEntity164Export.ArrayA"/>/
+	/// Block 11 — row #16 (<see cref="UnkEntity164Bytes"/>) export, 156 bytes/record: <b>the groups</b>,
+	/// and the reason anything is anywhere. Each record past the first activates roster slots — the
+	/// discriminator picks which roster, the ref array picks the slots — and carries the spawn point,
+	/// heading, formation and route its members take. <b>Record 0 is special</b>: it activates
+	/// nothing and exists only to hold the player lance's spawn point, which DBSIM fills from
+	/// <see cref="Sav.MecFile"/>.
+	///
+	/// <para><see cref="ScriptEntity164Export.ArrayA"/>/
 	/// <see cref="ScriptEntity164Export.ArrayB"/> together are the on-disk interleaving of the
 	/// source record's Payload1-4 + DeadZone2 span (even-offset entries in A, odd-offset in B) —
 	/// re-derived here from the writer's exact read order, not the `.msn` in-memory field order.
 	/// <see cref="ScriptEntity164Export.TrailingDiscriminator"/> (0x78 in the source row) is not
-	/// exported at all.
+	/// exported at all.</para>
 	/// </summary>
 	public ScriptEntity164Export[] Entities164 { get; set; } = [];
 
@@ -156,39 +171,91 @@ public class ScriptActionPair {
 /// Block 7 entry — 134 bytes, row #12 (<see cref="SpawnRecord144"/>) minus GUID/ConditionRef/
 /// InheritIndex/CompoundConditionPartner and minus <c>SmallDiscrete2</c> (skipped by the writer,
 /// not exported). <see cref="HeadBytes"/> = source offsets 0x08-0x2F (BinaryFlag+NearConstant+
-/// DeadZone), <see cref="SmallDiscrete"/> = source offset 0x30 (the mech-type ref — the one field
-/// DBSIM actually reads back out of this block), <see cref="TailBytes"/> = source offsets
-/// 0x32-0x8F (UnresolvedRefs, RefRow6, RefRow7, PairedRefs, AlwaysPopulatedBlock+Constant5,
-/// Constant2, RefRow10Slot1/2, TrailingField, in that exact on-disk order).
+/// DeadZone), <see cref="TailBytes"/> = source offsets 0x4C-0x8F (PairedRefs,
+/// AlwaysPopulatedBlock+Constant5, Constant2, RefRow10Slot1/2, TrailingField, in that exact
+/// on-disk order).
+///
+/// <para>The four named fields between them are the ones DBSIM's world-spawn pass
+/// (<c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>)) reads back out: it re-opens <c>script.dat</c> after
+/// <c>DBSim_LoadScriptDat</c> has marked which slots are live and builds one mech per live slot
+/// from this record. Do not be misled by <c>DBSim_LoadScriptDat</c> reading 134 bytes and keeping
+/// only <see cref="SmallDiscrete"/> — that first pass exists to count and allocate, not to
+/// place.</para>
 /// </summary>
 public class ScriptSpawnRecordExport {
 	public byte[] HeadBytes { get; set; } = new byte[40];
+
+	/// <summary>Source offset 0x30 — the mech type, an index into <c>nam\MECHS.NAM</c>'s name list.</summary>
 	public short SmallDiscrete { get; set; }
-	public byte[] TailBytes { get; set; } = new byte[92];
+
+	/// <summary>
+	/// Source offsets 0x32-0x45 — the mech's weapon fit, passed straight to DBSIM's
+	/// <c>Mech_ConfigureLoadout</c> alongside <see cref="TailBytes"/>' second array. Unused slots
+	/// are <c>-1</c>. This is the 10-slot array <c>msn-mission-file.md</c> row #12 calls the
+	/// "unresolved 10-slot array ... domain unknown".
+	/// </summary>
+	public short[] WeaponRefs { get; set; } = new short[10];
+
+	/// <summary>
+	/// Source offset 0x46 — index into <see cref="ScriptDat.Coordinates"/>, or <c>-1</c>. Every
+	/// retail record carries <c>-1</c> here, in which case the mech takes its spawn point from the
+	/// block-11 group that activates it (see <see cref="ScriptEntity164Export.RefRow6"/>).
+	/// </summary>
+	public short PositionRef { get; set; }
+
+	/// <summary>Source offset 0x48 — index into <see cref="ScriptDat.Headings"/>, or <c>-1</c>.</summary>
+	public short HeadingRef { get; set; }
+
+	public byte[] TailBytes { get; set; } = new byte[68];
 }
 
 /// <summary>
 /// Block 8 entry — 92 bytes, row #13 (<see cref="UnkEntity102Bytes"/>) minus GUID/ConditionRef/
 /// InheritIndex/Unk06 and minus <c>Unk36</c> (skipped, not exported). <see cref="HeadBytes"/> =
-/// source offsets 0x08-0x33 (FlagsA, RefRow6, RefRow7), <see cref="BinaryField"/> = source offset
-/// 0x34 (the one field DBSIM keeps), <see cref="TailBytes"/> = source offsets 0x36-0x64 (skips
-/// Unk36 itself, then FlagsB, RefRow10Slot1/2, UnkVal_100).
+/// source offsets 0x08-0x2F (FlagsA), <see cref="TailBytes"/> = source offsets 0x38-0x64 (FlagsB,
+/// RefRow10Slot1/2, UnkVal_100).
+///
+/// <para>DBSIM's world-spawn pass (<c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>)) builds one flyer/vehicle per live slot from
+/// this record, taking its type from <see cref="BinaryField"/> and its placement from the two refs
+/// below.</para>
 /// </summary>
 public class ScriptEntity102Export {
-	public byte[] HeadBytes { get; set; } = new byte[44];
+	public byte[] HeadBytes { get; set; } = new byte[40];
+
+	/// <summary>Source offset 0x30 — index into <see cref="ScriptDat.Coordinates"/>, or <c>-1</c>.</summary>
+	public short PositionRef { get; set; }
+
+	/// <summary>Source offset 0x32 — index into <see cref="ScriptDat.Headings"/>, or <c>-1</c>.</summary>
+	public short HeadingRef { get; set; }
+
+	/// <summary>Source offset 0x34 — the flyer type, an index into <c>nam\FLYERS.NAM</c>'s name list.</summary>
 	public short BinaryField { get; set; }
+
 	public byte[] TailBytes { get; set; } = new byte[46];
 }
 
 /// <summary>
 /// Block 9 entry — 52 bytes, row #14 (<see cref="MiscEntityInfo"/>) minus GUID/ConditionRef/
-/// InheritIndex/Unk06. <see cref="TypeLikeScalar"/> = source offset 0x08 (the one field DBSIM
-/// keeps — it's the very first field exported), <see cref="TailBytes"/> = source offsets
-/// 0x0A-0x3D (RefRow6, RefRow7, SparseBlock, RefRow10Slot1/2, TrailingField).
+/// InheritIndex/Unk06. <see cref="TailBytes"/> = source offsets 0x0E-0x3D (SmallDiscrete,
+/// SparseBlock, RefRow10Slot1/2, TrailingField).
+///
+/// <para>DBSIM's world-spawn pass (<c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>)) builds one base/structure per live slot
+/// from this record.</para>
 /// </summary>
 public class ScriptMiscEntityExport {
+	/// <summary>
+	/// Source offset 0x08 — the base type, an index into the 65-entry table in
+	/// <c>dat\BASES.DAT</c> (which in turn names the model and its texture bank).
+	/// </summary>
 	public short TypeLikeScalar { get; set; }
-	public byte[] TailBytes { get; set; } = new byte[50];
+
+	/// <summary>Source offset 0x0A — index into <see cref="ScriptDat.Coordinates"/>, or <c>-1</c>.</summary>
+	public short PositionRef { get; set; }
+
+	/// <summary>Source offset 0x0C — index into <see cref="ScriptDat.Headings"/>, or <c>-1</c>.</summary>
+	public short HeadingRef { get; set; }
+
+	public byte[] TailBytes { get; set; } = new byte[46];
 }
 
 /// <summary>

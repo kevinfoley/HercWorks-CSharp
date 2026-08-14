@@ -5,18 +5,15 @@ using Herculan.Engine.Gl;
 using Herculan.Engine.Render;
 using Herculan.Engine.Scene;
 using Herculan.Engine.Sim;
+using Herculan.Engine.World;
 using Silk.NET.Input;
 using Silk.NET.OpenGL;
 
 // The thin front-end host from docs/engine/planning.md's "Engine internal architecture" section:
-// it locates an install, asks the engine to build a scene, and runs a real-time loop over it.
-// Everything it does is wiring — no simulation rules, no rendering rules, no file formats — so a
-// second host (the mission editor that decision exists to keep possible) can differ here and reuse
-// everything below it unchanged.
-
-const int DefaultZone = 504;
-const string DefaultMech = "SAMSON";
-const int DefaultTheater = 0;
+// it locates an install, asks the engine to build a scene from a real mission, and runs a real-time
+// loop over it. Everything it does is wiring — no simulation rules, no rendering rules, no file
+// formats — so a second host (the mission editor that decision exists to keep possible) can differ
+// here and reuse everything below it unchanged.
 
 string? installRoot = GameInstall.Locate(args.Length > 0 ? args[0] : null);
 if (installRoot == null) {
@@ -27,41 +24,73 @@ if (installRoot == null) {
 	return 1;
 }
 
-int zoneIndex = args.Length > 1 && int.TryParse(args[1], out int parsedZone) ? parsedZone : DefaultZone;
-string mechName = args.Length > 2 ? args[2].ToUpperInvariant() : DefaultMech;
+// The mission handoff VSHELL writes and DBSIM reads. It states its own zone and theater, so nothing
+// else here needs configuring. Any of the save-slot snapshots in SAV\ works as an alternative.
+string scriptPath = args.Length > 1 ? args[1] : MissionLoader.DefaultScriptPath(installRoot);
+if (!File.Exists(scriptPath)) {
+	Console.Error.WriteLine(
+		$"No mission at {scriptPath}.\n" +
+		$"Pass one as the second argument — {MissionLoader.ScriptFileName} from the install's " +
+		$"{MissionLoader.DataFolderName} folder, or any of the SAV\\script*.dat snapshots.");
+	return 1;
+}
 
-// Theater picks the terrain's texture bank and palette. A real mission carries it (and its zone) in
-// script.dat's header — see ScriptDatHeader — which this host does not read yet, so it is an
-// argument with the retail default.
-int theaterIndex = args.Length > 3 && int.TryParse(args[3], out int parsedTheater) ? parsedTheater : DefaultTheater;
-
-Console.WriteLine($"HERCULAN Engine — loading zone {zoneIndex} with {mechName} from {installRoot}");
+Console.WriteLine($"HERCULAN Engine — loading {scriptPath} from {installRoot}");
 
 var content = GameContent.Mount(GameInstall.ArchiveDirectory(installRoot));
 Console.WriteLine($"Mounted archives: {string.Join(", ", content.MountedArchives)}");
 
-var scene = ZoneScene.Load(content, zoneIndex, mechName, theaterIndex);
+var scene = MissionScene.Load(content, scriptPath);
+var mission = scene.Mission;
 var terrain = scene.World.Terrain;
+
 Console.WriteLine(
-	$"Zone {zoneIndex}: {terrain.Width}x{terrain.Height} cells, {terrain.CellSize} units per cell, " +
+	$"Mission: zone {mission.Header.ZoneIndex}, theater {mission.Header.TheaterIndex}" +
+	$" variant {mission.Header.TheaterVariant}.");
+Console.WriteLine(
+	$"Zone {mission.Header.ZoneIndex}: {terrain.Width}x{terrain.Height} cells, {terrain.CellSize} units per cell, " +
 	$"height scale {terrain.HeightScale}, peak {terrain.MaxWorldHeight} units.");
 Console.WriteLine(
-	$"{mechName}: {scene.MechMesh.Length / 3} triangles, terrain {scene.TerrainMesh.Length / 3} triangles.");
-Console.WriteLine(scene.MechAtlas is { } atlas
-	? $"{mechName} textures: {atlas.FrameCount} frames packed into a {atlas.Width}x{atlas.Height} atlas."
-	: $"{mechName} textures: none resolved — drawing untextured.");
-Console.WriteLine($"Theater {theaterIndex} ({scene.Theater.PaletteName}): " + (scene.TerrainBank is { } bank
-	? $"terrain bank {bank.BankName}, {bank.Atlas.FrameCount} frames in a {bank.Atlas.Width}x{bank.Atlas.Height} atlas."
-	: "terrain bank could not be loaded — drawing terrain flat-shaded."));
+	$"Placed {scene.Objects.Count} objects — {mission.CountOf(MissionUnitKind.Mech)} mechs, " +
+	$"{mission.CountOf(MissionUnitKind.Flyer)} flyers, {mission.CountOf(MissionUnitKind.Base)} structures — " +
+	$"from {scene.Models.Count} distinct models.");
+
+if (scene.UnmodelledCount > 0) {
+	Console.WriteLine(
+		$"{scene.UnmodelledCount} of them have no model (missing install files or an out-of-range " +
+		"index); they are simulated and positioned but not drawn.");
+}
+
+Console.WriteLine(mission.Player is { } player
+	? $"Player flies {player.TypeName} at {player.Position}."
+	: "No player.mec beside the mission — camera starts at the first placed object.");
+
+foreach (var group in scene.Objects
+		.GroupBy(o => (o.Placement.Kind, o.Placement.TypeName ?? $"base type {o.Placement.TypeIndex}"))
+		.OrderBy(g => g.Key.Kind).ThenBy(g => g.Key.Item2)) {
+	var model = group.First().Model;
+	string art = model == null
+		? "no model"
+		: model.Atlas is { } atlas
+			? $"{model.Mesh.Length / 3} tris, {atlas.FrameCount} frames in {atlas.Width}x{atlas.Height}"
+			: $"{model.Mesh.Length / 3} tris, untextured";
+	Console.WriteLine($"  {group.Count()}x {group.Key.Item2} ({art})");
+}
+
+Console.WriteLine($"Theater {mission.Header.TheaterIndex} ({scene.Theater.PaletteName}): " + (scene.TerrainBank is { } bank
+	? $"terrain bank {bank.BankName}, {bank.Atlas.FrameCount} frames in a {bank.Atlas.Width}x{bank.Atlas.Height} atlas, "
+	  + $"{scene.TerrainMesh.Length / 3} triangles."
+	: $"terrain bank could not be loaded — drawing {scene.TerrainMesh.Length / 3} triangles flat-shaded."));
 Console.WriteLine("W/A/S/D move, R/F rise and fall, arrow keys look, Shift boosts, Esc quits.");
 
-using var window = new EngineWindow($"HERCULAN Engine — zone {zoneIndex}");
+using var window = new EngineWindow($"HERCULAN Engine — zone {mission.Header.ZoneIndex}");
 
 SceneRenderer? renderer = null;
 GpuMesh? terrainMesh = null;
-GpuMesh? mechMesh = null;
-GpuTexture? mechTexture = null;
 GpuTexture? terrainTexture = null;
+var modelMeshes = new Dictionary<string, GpuMesh>();
+var modelTextures = new Dictionary<string, GpuTexture>();
+var disposables = new List<IDisposable>();
 SceneItem[]? items = null;
 IKeyboard? keyboard = null;
 var camera = new Camera();
@@ -76,14 +105,34 @@ window.Load += (gl, input) => {
 	renderer = new SceneRenderer(gl);
 
 	terrainMesh = new GpuMesh(gl, scene.TerrainMesh);
-	mechMesh = new GpuMesh(gl, scene.MechMesh);
-	mechTexture = scene.MechAtlas != null ? new GpuTexture(gl, scene.MechAtlas) : null;
 	terrainTexture = scene.TerrainBank != null ? new GpuTexture(gl, scene.TerrainBank.Atlas) : null;
-	items = new[] {
-		new SceneItem(terrainMesh, Matrix4x4.Identity, terrainTexture?.Handle),
-		new SceneItem(mechMesh, scene.MechTransform(), mechTexture?.Handle),
+
+	// One upload per distinct model, however many objects share it — a mission routinely fields
+	// several of the same machine and a row of identical structures.
+	foreach (var model in scene.Models) {
+		modelMeshes[model.Key] = new GpuMesh(gl, model.Mesh);
+		if (model.Atlas != null) {
+			modelTextures[model.Key] = new GpuTexture(gl, model.Atlas);
+		}
+	}
+
+	disposables.AddRange(modelMeshes.Values);
+	disposables.AddRange(modelTextures.Values);
+
+	var built = new List<SceneItem> {
+		new(terrainMesh, Matrix4x4.Identity, terrainTexture?.Handle)
 	};
 
+	foreach (var sceneObject in scene.Objects) {
+		if (sceneObject.Model is not { } model || !modelMeshes.TryGetValue(model.Key, out var mesh)) {
+			continue;
+		}
+
+		built.Add(new SceneItem(mesh, MissionScene.TransformOf(sceneObject),
+			modelTextures.TryGetValue(model.Key, out var texture) ? texture.Handle : null));
+	}
+
+	items = built.ToArray();
 	keyboard = input.Keyboards.Count > 0 ? input.Keyboards[0] : null;
 
 	// No backface culling. DTS geometry is not reliably wound — the WinForms model viewer reached
@@ -123,9 +172,10 @@ window.Render += (_, _) => {
 window.Closing += () => {
 	renderer?.Dispose();
 	terrainMesh?.Dispose();
-	mechMesh?.Dispose();
-	mechTexture?.Dispose();
 	terrainTexture?.Dispose();
+	foreach (var disposable in disposables) {
+		disposable.Dispose();
+	}
 };
 
 window.Run();

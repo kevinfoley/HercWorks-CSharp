@@ -189,8 +189,9 @@ that group's `.DBA`. Silent best-effort; "Load Texture Bank" remains available a
 
 The engine renders textured mechs on the GPU: `HercSimDat.ModelSkinId` → bank name → `.DBA` →
 `Surfaces[ColorIndexId / 4].FrontColor` → frame → confirmed corner order. `Herculan.Engine.Render.TextureAtlas`
-decodes and packs a whole bank; `Gl.GpuTexture` uploads it; `DtsMeshBuilder` emits UVs; `Scene.ZoneScene`
-picks the bank from the mech's `.DAT`.
+decodes and packs a whole bank; `Gl.GpuTexture` uploads it; `DtsMeshBuilder` emits UVs;
+`Scene.SceneModelLibrary` picks the bank from the mech's `.DAT` and caches one atlas per bank across
+every unit in a mission.
 
 **Two engine-side departures from the original, both deliberate and both documented in code:**
 

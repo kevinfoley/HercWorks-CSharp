@@ -1,0 +1,253 @@
+using System.ComponentModel;
+using HercWorks.Core.Data.File.Sav;
+using HercWorks.Core.Io.Transform.Common;
+using HercWorks.Vol;
+
+namespace HercWorks.UI;
+
+/// <summary>
+/// Editor for <c>data\player.mec</c> — the player's own squad: which machine the player pilots, which
+/// wingmen come along, and each one's weapon fit. This is the file DBSIM reads for the player's
+/// loadout; <c>script.dat</c> carries only the point the squad spawns at (its block 11 record 0),
+/// which is why the mech and weapons cannot be edited from MissionScriptForm. Backed by
+/// HercWorks.Core's MecFileTransformer; see MecFile for the format and the RE behind it.
+///
+/// <para><b>VSHELL regenerates this file from the .sav</b> every time a mission is launched from the
+/// shell, so edits here apply to the next DBSIM run and are overwritten by going back through the
+/// shell. Use CampaignResourcesForm's Herc Bay for changes that should survive that.</para>
+///
+/// <para>Herc types are named, via <see cref="HercTypeOption"/>'s HercLUT-to-MECHS.NAM equivalence.
+/// Weapon ids stay raw — this form has no loaded VOL to resolve them against.</para>
+/// </summary>
+public partial class PlayerSquadForm : Form {
+	private readonly MecFileTransformer _transformer = new();
+	private readonly BindingList<PlayerSquadRow> _rows = new();
+
+	private MecFile? _loaded;
+	private string? _loadedPath;
+
+	/// <summary>Original VOL entry prefix, round-tripped on save — see VolEntryPrefixCodec.</summary>
+	private byte? _originalCompressionType;
+	private byte[]? _originalMagicPrefix;
+	private bool _originalHadTrailingByte;
+
+	public PlayerSquadForm() {
+		InitializeComponent();
+		_squadGrid.DataSource = _rows;
+	}
+
+	private void OnClose(object? sender, EventArgs e) => Close();
+
+	/// <summary>
+	/// Distinct per-form/file-type identity so Windows remembers this dialog's last-visited folder
+	/// separately from every other Open/Save dialog in the app — see CampaignResourcesForm's
+	/// DialogClientGuid for the full explanation.
+	/// </summary>
+	private static readonly Guid DialogClientGuid = new("2d84f7a0-5b93-4e18-9a6c-8f3d1c07b562");
+
+	private void OnOpen(object? sender, EventArgs e) {
+		using var dialog = new OpenFileDialog {
+			Filter = "Player squad files (*.mec)|*.mec|All files (*.*)|*.*",
+			Title = "Open player squad file",
+			ClientGuid = DialogClientGuid
+		};
+
+		if (dialog.ShowDialog(this) != DialogResult.OK) {
+			return;
+		}
+
+		try {
+			byte[] rawBytes = File.ReadAllBytes(dialog.FileName);
+			var prefix = VolEntryPrefixCodec.StripIfPresent(rawBytes);
+			var squad = (MecFile?)_transformer.BytesToObject(prefix.Content);
+
+			if (squad == null) {
+				MessageBox.Show(this, "File was empty or could not be parsed.", "Error",
+					MessageBoxButtons.OK, MessageBoxIcon.Error);
+				return;
+			}
+
+			_loaded = squad;
+
+			_rows.Clear();
+			BindHercTypes(squad.Entries.Select(entry => entry.MechType));
+			for (int i = 0; i < squad.Entries.Length; i++) {
+				_rows.Add(new PlayerSquadRow { Index = i, Source = squad.Entries[i] });
+			}
+
+			UpdatePlayerSlotRange();
+			_playerSlotInput.Value = Math.Clamp(squad.PlayerEntryIndex, _playerSlotInput.Minimum, _playerSlotInput.Maximum);
+
+			_loadedPath = dialog.FileName;
+			_originalCompressionType = prefix.HadPrefix ? prefix.CompressionType : null;
+			_originalMagicPrefix = prefix.MagicPrefix;
+			_originalHadTrailingByte = prefix.HadTrailingByte;
+
+			string prefixNote = prefix.HadPrefix ? " (VOL entry prefix detected — will be preserved on save)" : "";
+			_statusLabel.Text =
+				$"Loaded {Path.GetFileName(dialog.FileName)} — {squad.Entries.Length} entries, " +
+				$"player pilots #{squad.PlayerEntryIndex}.{prefixNote}";
+		} catch (Exception ex) {
+			MessageBox.Show(this, $"Failed to load file:\n{ex.Message}", "Error",
+				MessageBoxButtons.OK, MessageBoxIcon.Error);
+		}
+	}
+
+	/// <summary>
+	/// Rebuilds the Herc-type dropdown for the file being loaded, before any row is bound — a
+	/// combo column rejects a value it has no item for, so the unnamed types the file actually
+	/// carries have to be in the list first.
+	/// </summary>
+	private void BindHercTypes(IEnumerable<short> typesInUse) {
+		_hercTypeColumn.DataSource = HercTypeOption.Build(typesInUse);
+	}
+
+	/// <summary>
+	/// PlayerEntryIndex names one of the entries, so its range has to follow the roster as rows are
+	/// added and removed.
+	/// </summary>
+	private void UpdatePlayerSlotRange() {
+		_playerSlotInput.Maximum = Math.Max(0, _rows.Count - 1);
+	}
+
+	/// <summary>Slots is derived from the weapon list's length, so it has to follow the edit.</summary>
+	private void OnSquadCellChanged(object? sender, DataGridViewCellEventArgs e) {
+		if (e.RowIndex >= 0) {
+			_squadGrid.InvalidateRow(e.RowIndex);
+		}
+	}
+
+	/// <summary>
+	/// Rejected cell edits surface here — the row property setters throw FormatException for a
+	/// malformed list. Report and keep the old value rather than letting WinForms rethrow into an
+	/// unhandled crash.
+	/// </summary>
+	private void OnGridDataError(object? sender, DataGridViewDataErrorEventArgs e) {
+		e.ThrowException = false;
+		e.Cancel = true;
+		MessageBox.Show(this, e.Exception?.Message ?? "That value could not be applied.",
+			"Invalid value", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+	}
+
+	/// <summary>
+	/// Adds a wingman by cloning the selected entry (or the first one). The three trailing spans are
+	/// copied wholesale into DBSIM's mech record and nothing is known about their contents, so an
+	/// entry built from scratch would be guesswork — cloning a real one keeps them valid.
+	/// </summary>
+	private void OnAddEntry(object? sender, EventArgs e) {
+		if (_loaded == null || _rows.Count == 0) {
+			MessageBox.Show(this, "Open a player.mec file first — new entries are cloned from an existing one.",
+				"Nothing to clone", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			return;
+		}
+
+		var template = (_squadGrid.CurrentRow?.DataBoundItem as PlayerSquadRow ?? _rows[0]).Source;
+		var clone = new MecEntry {
+			Unk00 = template.Unk00,
+			Unk02 = template.Unk02,
+			MechType = template.MechType,
+			SlotCount = template.SlotCount,
+			WeaponRefs = (short[])template.WeaponRefs.Clone(),
+			WeaponCounts = (short[])template.WeaponCounts.Clone(),
+			Unk3A = template.Unk3A,
+			BlockA = (byte[])template.BlockA.Clone(),
+			BlockB = (byte[])template.BlockB.Clone(),
+			BlockC = (byte[])template.BlockC.Clone()
+		};
+
+		_rows.Add(new PlayerSquadRow { Index = _rows.Count, Source = clone });
+		UpdatePlayerSlotRange();
+	}
+
+	private void OnRemoveEntry(object? sender, EventArgs e) {
+		if (_squadGrid.CurrentRow?.DataBoundItem is not PlayerSquadRow row) {
+			return;
+		}
+
+		if (_rows.Count == 1) {
+			MessageBox.Show(this, "The squad needs at least one entry — it is the machine the player pilots.",
+				"Cannot remove", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			return;
+		}
+
+		_rows.Remove(row);
+		for (int i = 0; i < _rows.Count; i++) {
+			_rows[i].Index = i;
+		}
+
+		UpdatePlayerSlotRange();
+		_squadGrid.Refresh();
+	}
+
+	private void OnSaveAs(object? sender, EventArgs e) {
+		if (_loaded == null) {
+			MessageBox.Show(this, "Open a player.mec file first.", "Nothing to save",
+				MessageBoxButtons.OK, MessageBoxIcon.Information);
+			return;
+		}
+
+		// Grid edits write straight through to the model, but only once the cell is committed.
+		_squadGrid.EndEdit();
+
+		// The writer emits SlotCount as a field and then writes both arrays at their actual length,
+		// so a mismatch does not just mis-describe this entry — it shifts every entry after it.
+		// Refuse the save rather than producing a file DBSIM reads off its own rails.
+		var mismatched = _rows
+			.Where(r => r.Source.WeaponRefs.Length != r.Source.WeaponCounts.Length)
+			.Select(r => $"Entry {r.Index}: {r.Source.WeaponRefs.Length} weapon ids vs {r.Source.WeaponCounts.Length} paired values.")
+			.ToList();
+
+		if (mismatched.Count > 0) {
+			MessageBox.Show(this,
+				"Each entry needs exactly one paired value per weapon id — the two lists set the record's " +
+				"length together, so a mismatch corrupts every entry after it.\n\n" + string.Join("\n", mismatched),
+				"Cannot save", MessageBoxButtons.OK, MessageBoxIcon.Error);
+			return;
+		}
+
+		_loaded.Entries = _rows.Select(r => r.Source).ToArray();
+		foreach (var entry in _loaded.Entries) {
+			entry.SlotCount = (short)entry.WeaponRefs.Length;
+		}
+		_loaded.PlayerEntryIndex = (short)_playerSlotInput.Value;
+
+		using var dialog = new SaveFileDialog {
+			Filter = "Player squad files (*.mec)|*.mec|All files (*.*)|*.*",
+			Title = "Save player squad file",
+			FileName = _loadedPath == null ? "PLAYER.MEC" : Path.GetFileName(_loadedPath),
+			ClientGuid = DialogClientGuid
+		};
+
+		if (dialog.ShowDialog(this) != DialogResult.OK) {
+			return;
+		}
+
+		try {
+			byte[] content = _transformer.ObjectToBytes(_loaded)!;
+			byte[] outBytes;
+			string formatNote;
+
+			if (_originalCompressionType.HasValue && _originalMagicPrefix != null) {
+				outBytes = VolEntryPrefixCodec.Wrap(
+					content, _originalCompressionType.Value, _originalMagicPrefix, _originalHadTrailingByte);
+				formatNote = "retail-compatible format — the original VOL entry prefix (compression type, magic) was preserved, with the size field updated for the edited content";
+			} else {
+				outBytes = content;
+				formatNote = "content-only format — this file wasn't loaded with a VOL entry prefix to preserve, so no prefix could be reconstructed for this export";
+			}
+
+			File.WriteAllBytes(dialog.FileName, outBytes);
+
+			// Same preallocated-buffer situation as script.dat: the retail file carries stale bytes
+			// past its last declared entry, which DBSIM never reads.
+			MessageBox.Show(this,
+				$"Saved in {formatNote}.\n\n" +
+				$"Written as {outBytes.Length:N0} bytes — the game's own file carries stale trailing data " +
+				"past its last entry, which DBSIM stops short of and ignores.",
+				"Done", MessageBoxButtons.OK, MessageBoxIcon.Information);
+		} catch (Exception ex) {
+			MessageBox.Show(this, $"Failed to save file:\n{ex.Message}", "Error",
+				MessageBoxButtons.OK, MessageBoxIcon.Error);
+		}
+	}
+}

@@ -30,6 +30,8 @@ partial class MainForm {
 		_hercStatsMenuItem = new ToolStripMenuItem();
 		_itemStatsMenuItem = new ToolStripMenuItem();
 		_campaignResourcesMenuItem = new ToolStripMenuItem();
+		_missionScriptMenuItem = new ToolStripMenuItem();
+		_playerSquadMenuItem = new ToolStripMenuItem();
 		_missionFilesMenuItem = new ToolStripMenuItem();
 		_toolsMenuItem = new ToolStripMenuItem();
 		_imageExportMenuItem = new ToolStripMenuItem();
@@ -96,7 +98,8 @@ partial class MainForm {
 		// _editMenuItem
 		//
 		_editMenuItem.DropDownItems.AddRange(new ToolStripItem[] {
-			_hercStatsMenuItem, _itemStatsMenuItem, _campaignResourcesMenuItem, _missionFilesMenuItem
+			_hercStatsMenuItem, _itemStatsMenuItem, _campaignResourcesMenuItem, _missionScriptMenuItem,
+			_playerSquadMenuItem, _missionFilesMenuItem
 		});
 		_editMenuItem.Name = "_editMenuItem";
 		_editMenuItem.Text = "&Edit";
@@ -118,6 +121,18 @@ partial class MainForm {
 		_campaignResourcesMenuItem.Name = "_campaignResourcesMenuItem";
 		_campaignResourcesMenuItem.Text = "Campaign Resources...";
 		_campaignResourcesMenuItem.Click += OnOpenCampaignResources;
+		//
+		// _missionScriptMenuItem
+		//
+		_missionScriptMenuItem.Name = "_missionScriptMenuItem";
+		_missionScriptMenuItem.Text = "Mission Script (script.dat)...";
+		_missionScriptMenuItem.Click += OnOpenMissionScript;
+		//
+		// _playerSquadMenuItem
+		//
+		_playerSquadMenuItem.Name = "_playerSquadMenuItem";
+		_playerSquadMenuItem.Text = "Player Squad (player.mec)...";
+		_playerSquadMenuItem.Click += OnOpenPlayerSquad;
 		//
 		// _missionFilesMenuItem
 		//
@@ -256,6 +271,8 @@ partial class MainForm {
 	private ToolStripMenuItem _hercStatsMenuItem;
 	private ToolStripMenuItem _itemStatsMenuItem;
 	private ToolStripMenuItem _campaignResourcesMenuItem;
+	private ToolStripMenuItem _missionScriptMenuItem;
+	private ToolStripMenuItem _playerSquadMenuItem;
 	private ToolStripMenuItem _missionFilesMenuItem;
 	private ToolStripMenuItem _toolsMenuItem;
 	private ToolStripMenuItem _imageExportMenuItem;

@@ -3,7 +3,7 @@ using HercWorks.Vol;
 namespace HercWorks.Core.Data.File.Sav;
 
 /// <summary>
-/// <c>ES2\DATA\player.mec</c> — the player's own lance, written by VSHELL alongside
+/// <c>ES2\DATA\player.mec</c> — the player's own squad, written by VSHELL alongside
 /// <c>data\script.dat</c> and read by DBSIM at world init. Where <c>script.dat</c>'s block 7 is the
 /// mission's roster of AI mechs, this is the roster of the ones the player brought: the machine the
 /// player pilots plus any wingmen, each with the loadout configured in the shell's HERC bay.
@@ -12,7 +12,7 @@ namespace HercWorks.Core.Data.File.Sav;
 /// immediately before <c>script.dat</c>, and from <c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>), DBSIM's world-spawn pass,
 /// which appends these entries to the end of the mission's mech list and hands each one's two
 /// <see cref="MecEntry.WeaponRefs"/>/<see cref="MecEntry.WeaponCounts"/> arrays to the same
-/// <c>Mech_ConfigureLoadout</c> that <c>script.dat</c>'s own records feed. The lance spawns at the
+/// <c>Mech_ConfigureLoadout</c> that <c>script.dat</c>'s own records feed. The squad spawns at the
 /// position carried by <c>script.dat</c> block 11's <b>record 0</b>, which exists purely to place
 /// it — DBSIM overwrites that record's member list with these entries.</para>
 ///
@@ -31,12 +31,12 @@ public class MecFile : DataFile {
 	/// </summary>
 	public short PlayerEntryIndex { get; set; }
 
-	/// <summary>The lance, in the order DBSIM appends them to the mission's mech list.</summary>
+	/// <summary>The squad, in the order DBSIM appends them to the mission's mech list.</summary>
 	public MecEntry[] Entries { get; set; } = [];
 }
 
 /// <summary>
-/// One machine in the player's lance. The two leading fields have no confirmed meaning yet — they
+/// One machine in the player's squad. The two leading fields have no confirmed meaning yet — they
 /// are read but never used along the paths traced so far — and the three trailing spans are copied
 /// wholesale into the mech's in-memory record, so they round-trip raw rather than being guessed at.
 /// </summary>

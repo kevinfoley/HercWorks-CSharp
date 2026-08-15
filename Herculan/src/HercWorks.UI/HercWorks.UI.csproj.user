@@ -17,7 +17,13 @@
     <Compile Update="MainForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Update="MissionScriptForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Update="Model3DViewerForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="PlayerSquadForm.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Update="TextureViewerForm.cs">

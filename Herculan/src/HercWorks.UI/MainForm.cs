@@ -24,9 +24,11 @@ namespace HercWorks.UI;
 /// Model Viewer or the new Texture Viewer (HercWorks.UI.TextureViewerForm — preview
 /// only, best-effort automatic palette matching with a manual dropdown fallback,
 /// since DBA/DBM never embed which palette they use), reading straight from the
-/// loaded VOL rather than requiring an already-extracted loose file. Mission file
-/// editing, the last "ideal feature" from the original README, is still a stubbed
-/// disabled menu entry. Control layout lives in MainForm.Designer.cs so the form can
+/// loaded VOL rather than requiring an already-extracted loose file. Mission editing
+/// covers data\script.dat (the VSHELL→DBSIM handoff DBSIM actually simulates) via the
+/// Edit menu's Mission Script editor and data\player.mec (the player's own squad, which
+/// script.dat deliberately does not carry) via its Player Squad editor; the source .msn
+/// files script.dat is generated from are still a stubbed disabled menu entry. Control layout lives in MainForm.Designer.cs so the form can
 /// be opened in the WinForms visual designer; this file holds only state and
 /// event-handler logic.
 /// </summary>
@@ -87,6 +89,16 @@ public partial class MainForm : Form {
 
 	private void OnOpenCampaignResources(object? sender, EventArgs e) {
 		using var form = new CampaignResourcesForm();
+		form.ShowDialog(this);
+	}
+
+	private void OnOpenMissionScript(object? sender, EventArgs e) {
+		using var form = new MissionScriptForm();
+		form.ShowDialog(this);
+	}
+
+	private void OnOpenPlayerSquad(object? sender, EventArgs e) {
+		using var form = new PlayerSquadForm();
 		form.ShowDialog(this);
 	}
 

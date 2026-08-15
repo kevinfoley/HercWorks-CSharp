@@ -1,6 +1,6 @@
 # `data\script.dat` — the real DBSIM gameplay handoff format
 
-**Format summary:** A GUID-filtered, field-subset re-export of the same in-memory `.msn` row arrays populated by `FUN_00417b67` (the `.msn` parser). Written by `FUN_0041ac54` (`WriteScriptDatFile`, VSHELL) immediately after `.msn` parsing completes. DBSIM reads `script.dat` (not `.msn`) for actual gameplay simulation. Every one of `script.dat`'s 13 count-prefixed record blocks maps 1:1 to one of [`msn-mission-file.md`](msn-mission-file.md)'s 17 already-decoded rows.
+**Format summary:** A GUID-filtered, field-subset re-export of the same in-memory `.msn` row arrays populated by `FUN_00417b67` (the `.msn` parser). Written by `FUN_0041ac54` (`WriteScriptDatFile`, VSHELL) immediately after `.msn` parsing completes. DBSIM reads `script.dat` (not `.msn`) for actual gameplay simulation. Every one of `script.dat`'s 13 count-prefixed record blocks maps 1:1 to one of [`msn-mission-file.md`](msn-mission-file.md)'s 17 already-decoded rows. NOTE TO CLAUDE: This should be a reference document, not a personal journal.
 
 ## Call chain — confirmed
 
@@ -108,12 +108,12 @@ Per record type, what pass 2 reads (offsets into the exported record, not the `.
    fallback. In every retail file the roster refs are unset, so in practice objects stand at their
    group's point.
 3. **Groups with no point** fall back to their route: the group's block-10 links resolve to a
-   waypoint group, whose first waypoint is the spawn point (`FUN_00423b0c`). Patrol lances are
+   waypoint group, whose first waypoint is the spawn point (`FUN_00423b0c`). Patrol squads are
    placed this way.
 4. **Ground height** is not in the file. Mechs and bases get `Terrain_HeightQuery` plus the type's
    own foot offset (`typeRecord+0x16`, and +5000 when `typeRecord+0x50` is set); flyers get no query
    at all — they hold the spawn coordinate's Z, or 5000 units when that is zero.
-5. **The player's lance is not in `script.dat`.** Block 11's **record 0** exists only to hold its
+5. **The player's squad is not in `script.dat`.** Block 11's **record 0** exists only to hold its
    spawn point — pass 1 skips it when marking activation, and pass 2 overwrites its member list with
    the entries read from `data\player.mec`. That file's own format is decoded in
    `HercWorks.Core`'s `MecFile`.
@@ -175,7 +175,7 @@ pass 2 goes back for.
 | 8 | #13 `UnkEntity102Bytes` | count + count×92B (`0x08`-`0x33` `FlagsA`+refs, `0x34` `BinaryField`, `0x38`-`0x5F` `FlagsB`, `0x60`-`0x64` refs+`UnkVal_100`; `Unk36` at `0x36` is skipped/not exported) | yes | reads all 92B but keeps only **`BinaryField` (`0x34`)**, the flyer type. Pass 2 comes back for the rest | **skipped** (seek past, discarded) |
 | 9 | #14 `MiscEntityInfo` | count + count×52B (`0x08` `TypeLikeScalar`, `0x0A`-`0x3D` refs+`SparseBlock`+`TrailingField`) | yes | reads all 52B but keeps only **`TypeLikeScalar` (`0x08`)** — the base type, an index into `dat\BASES.DAT`'s 65-entry table. Pass 2 comes back for the rest | **full 52B kept** |
 | 10 | #15 `LinkedRef22` | count + count×14B (`0x08`-`0x14`, the 7 fields `msn-mission-file.md` decoded as small-int/refs/discriminator) | yes | reads all 14B and **discards it entirely** — DBSIM has no use for the "attach route to entity" authoring metadata | **full 14B kept** — this is exactly the UI-relevant "which route/position/entity is this linked to" data a map editor needs |
-| 11 | #16 `UnkEntity164Bytes` | count + count×156B (two 40B/20B spans, a 20-entry nested cross-ref array with a 3-way discriminator, trailing shorts) | yes | **this is DBSIM's entity-activation mechanism**: for each populated cross-ref entry, the discriminator (0/1/2) marks the referenced **block-7/block-8/block-9** slot as a *live, simulated* object (via `DAT_004aa7ae`/`DAT_004aa8da`/`DAT_004aa93e`+`DAT_004aaa56` flag arrays), turning declared roster entries into things DBSIM actually spawns. **Record 0 is skipped here** — it is the player-lance placeholder. Pass 2 comes back for the group's own position/heading/route | full 156B kept, cross-refs resolved to annotate the kept row-#14 records (a UI/display-oriented resolution, not the "activation" one) |
+| 11 | #16 `UnkEntity164Bytes` | count + count×156B (two 40B/20B spans, a 20-entry nested cross-ref array with a 3-way discriminator, trailing shorts) | yes | **this is DBSIM's entity-activation mechanism**: for each populated cross-ref entry, the discriminator (0/1/2) marks the referenced **block-7/block-8/block-9** slot as a *live, simulated* object (via `DAT_004aa7ae`/`DAT_004aa8da`/`DAT_004aa93e`+`DAT_004aaa56` flag arrays), turning declared roster entries into things DBSIM actually spawns. **Record 0 is skipped here** — it is the player-squad placeholder. Pass 2 comes back for the group's own position/heading/route | full 156B kept, cross-refs resolved to annotate the kept row-#14 records (a UI/display-oriented resolution, not the "activation" one) |
 | 12 | #17 `LinkedRef58` | count (unfiltered — all records, matching row #17's "no GUID field" nature) + count×54B | **no** | reads all 54B and **discards it entirely** | **skipped** (seek past, discarded) |
 | 13 | #4 (no stable name) | flat tail: **one** count (how many of row #4's 10-slot sub-array A are populated, from its front — assumes no gaps) + that many×2B (the populated LUT-ref prefix itself) | n/a — single mission-level record, not a per-entity array | full — **this is the mission's herc/weapon unlock package** reaching DBSIM, matching `msn-mission-file.md`'s row #4 "working model: per-mission reward/unlock package" | not read (VSHELL's `ShellMap` reader stops after block 12; it has no use for player loadout data) |
 
@@ -187,7 +187,7 @@ real files (`ES2\DATA\script.dat` + 9 distinct save-slot snapshots); all parse c
 desync, and `ScriptDatTransformer` round-trips all 10 byte-exact through end of block 13.
 
 The placement decode is verified end to end by building all 10 as scenes in the HERCULAN Engine:
-every one resolves its zone, theater, rosters, groups and player lance with no unclaimed live slots,
+every one resolves its zone, theater, rosters, groups and player squad with no unclaimed live slots,
 and every placed object lands inside its zone's bounds.
 
 ## Header format
@@ -209,7 +209,14 @@ Stop after block 13's declared end and ignore trailing bytes. Files may have sta
 ## Implementation
 
 - `HercWorks.Core.Data.File.Msn.Script.ScriptDat` (model) + `HercWorks.Core.Io.Transform.Common.ScriptDatTransformer` (reader/writer) — round-trip verified byte-exact against all 10 real files (through end of block 13). Deliberately does not pad.
-- `HercWorks.Core.Data.File.Sav.MecFile` + `MecFileTransformer` — `data\player.mec`, the player's lance.
+- `HercWorks.UI.MissionScriptForm` — WinForms editor (Edit ▸ Mission Script), a tab per block.
+  Records are edited in place, never added/removed, since every block indexes the others by array
+  position; the block-13 unlock list is the exception and is rebuilt from its grid. Save runs an
+  advisory cross-block ref range check.
+- `HercWorks.Core.Data.File.Sav.MecFile` + `MecFileTransformer` — `data\player.mec`, the player's squad.
+- `HercWorks.UI.PlayerSquadForm` — WinForms editor for `player.mec` (Edit ▸ Player Squad): player
+  entry index, per-entry mech type and weapon fit, add/remove entries. The mech and weapons the
+  player brings are here, not in `script.dat` (see rule 5 above).
 - `Herculan.Engine.World.ScriptDatHeader` — the engine-side header port.
 - `Herculan.Engine.World.MissionLoader` — the two-pass placement rule above, producing a `Mission`
   of resolved placements. `UnitTypeNames` (`nam\MECHS.NAM`/`FLYERS.NAM`) and `BaseTypeTable`

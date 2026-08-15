@@ -89,7 +89,7 @@ public class ScriptDat : DataFile {
 	/// and the reason anything is anywhere. Each record past the first activates roster slots — the
 	/// discriminator picks which roster, the ref array picks the slots — and carries the spawn point,
 	/// heading, formation and route its members take. <b>Record 0 is special</b>: it activates
-	/// nothing and exists only to hold the player lance's spawn point, which DBSIM fills from
+	/// nothing and exists only to hold the player squad's spawn point, which DBSIM fills from
 	/// <see cref="Sav.MecFile"/>.
 	///
 	/// <para><see cref="ScriptEntity164Export.ArrayA"/>/

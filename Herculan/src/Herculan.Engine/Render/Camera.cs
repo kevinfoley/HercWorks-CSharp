@@ -65,4 +65,24 @@ public sealed class Camera {
 	/// <summary>Projection matrix for a viewport of the given aspect ratio (width / height).</summary>
 	public Matrix4x4 ProjectionMatrix(float aspectRatio) =>
 		Matrix4x4.CreatePerspectiveFieldOfView(FieldOfView, MathF.Max(aspectRatio, 0.0001f), NearPlane, FarPlane);
+
+	/// <summary>
+	/// Builds a world-space (render units) pick ray through a point on the viewport, for
+	/// click-to-select. <paramref name="ndc"/> is normalized device coordinates: -1..1 on each
+	/// axis, +X right, +Y up, origin at the viewport's center — the caller converts screen pixels
+	/// (usually +Y down) itself.
+	/// </summary>
+	public (Vector3 Origin, Vector3 Direction) ViewportPointToRay(Vector2 ndc, float aspectRatio) {
+		Vector3 forward = Forward;
+		Vector3 right = Vector3.Normalize(Vector3.Cross(forward, Vector3.UnitY));
+		Vector3 up = Vector3.Cross(right, forward);
+
+		float tanHalfFov = MathF.Tan(FieldOfView / 2f);
+		Vector3 direction = Vector3.Normalize(
+			forward
+			+ right * (ndc.X * tanHalfFov * aspectRatio)
+			+ up * (ndc.Y * tanHalfFov));
+
+		return (WorldScale.ToRender(Position), direction);
+	}
 }

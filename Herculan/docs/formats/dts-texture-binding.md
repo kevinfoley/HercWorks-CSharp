@@ -238,13 +238,66 @@ triangles 0 → 142 (SAMSON), 0 → 198 (DIABLO), 0 → 232 (APOCA).
 (all 55 retail `.DTS` files parse byte-complete). The audit probe called two parsers in a single try
 block, which cannot distinguish which parser threw.
 
+## Flat-shaded lighting (`TSSolidPoly`, DBSIM.EXE)
+
+Two disproven attempts, do not repeat: (1) `DefaultShapeColors`, a 13-entry hand-guessed table —
+most indices miss it and clamp to solid cyan. (2) `Surfaces[ColorIndexId/4].FrontColor` as a *direct*
+index into the theater's `.DPL` palette — every index resolves to *some* colour, which is not evidence
+of correctness; tested in the running engine, produces wrong hues (red/green/teal/olive where
+buildings should read gray/tan).
+
+**Real mechanism (Ghidra RE of `DBSIM.EXE`, confirmed, not inferred):**
+
+```
+finalPaletteByte = worldRampTable[lightLevel][ shapeBoundDba.Frame[FrontColor].Pixel[ditherCoord] ]
+finalRGB          = theaterDPL[finalPaletteByte]                       (already correctly implemented)
+```
+
+- **`FrontColor` is a frame index into the mesh's own currently-bound `.DBA`** — the SAME bank
+  `TSTexture4Poly` reads for UV corners (`g_CurrentShapeDbaContext`/`DAT_006c60e8`, set per shape
+  instance by `maybe_TSShapeInstance_PrepareRenderContext`, mirroring VSHELL's `TSShapeInstance+0x26`
+  bound-DBA field). No separate "dither table" or lighting-swatch asset exists anywhere in the binary
+  — that was a dead end chased and closed; the frame's own pixel data is the shading swatch.
+- **`lightLevel`** comes from `Light_ComputeShadeForFace` (`FUN_0048bedc`): a real light-accumulation
+  loop over up to 10 active lights, typed ambient(0)/directional(1)/point(2), clamped 0-255.
+- **Every mission gets one identical hardcoded directional "sun,"** never mission/theater data.
+  `Sim_InitMissionSession` calls `Light_CreateMissionSun` unconditionally before the mission file even
+  loads: intensity literal `0x100`, direction `rotate((0,4096,0), eulerMatrix(-6000,0,21000))` in
+  DBSIM's Z-up world space (angle unit `raw/65536*360` degrees; 3-axis composition order not
+  independently verified). No ambient(0) light creation found anywhere in the binary — faces facing
+  away from the sun likely render fully unlit.
+- **Per-face directional term:** `dot = faceNormal · lightDirection` (plain `x*x+y*y+z*z`, no scaling);
+  `t = (dot - 0x400000) >> 1`; if `t<0`: `shade -= (intensity*t) >> 0x16`.
+- **`world<N>.rmp` format, byte-verified against all 10 retail files:** `int32 width, int32 height`,
+  then `width*height*256` raw bytes. All 10 files: `width=32, height=12` (8+32·12·256 = 98312 bytes,
+  exact match). Only the first `width*256 = 8192` bytes are read by flat-poly shading; the other 11
+  height-slices are unused by this code path (purpose unknown).
+- **Two flags gating alternate branches in `TSSolidPoly_Render`** (`DAT_0049f26c`, `DAT_0049f274`) are
+  confirmed **dead in retail**: zero write sites anywhere in `DBSIM.EXE`, and both read `0` directly
+  from the shipped exe's initialized (not BSS) data — compile-time constants, not runtime toggles. The
+  branch described above is the only one that ever executes.
+
+**Implemented in `Herculan.Engine` (structurally faithful, not byte-exact):** a GPU vertex/fragment
+pipeline has no equivalent of per-pixel 256-colour dithering or an indexed light ramp, so
+`DtsMeshBuilder.ResolveSurfaceColor` takes the resolved frame's **average colour** from the atlas
+(`TextureAtlas.AverageColor`) as a stand-in for the swatch, and `SceneRenderer` applies real per-pixel
+Lambertian shading from the RE-derived sun direction (`SceneRenderer.ComputeSunDirection`) at render
+time — not baked into the mesh, since one built mesh is shared by every instance of a unit type at a
+different world rotation. No `world<N>.rmp` reader was written: the engine's lighting model already
+existed (a single global directional light + ambient floor, matching the "one hardcoded sun, no
+per-object variation" architecture) before this session, and reproducing the literal ramp/dither byte
+math would fight that shader-based architecture for no visible gain.
+
 ## Implementation status
 
 - **`TSTexture4Poly` (4-vertex quads only):** Resolves to decoded DBA frame (`group.Surfaces[ColorIndexId/4].FrontColor`)
   and renders perspective-correct UV-mapped in `Model3DViewerControl`'s rasterizer once a texture bank is loaded.
   Without a bank, falls back to flat placeholder color.
+- **`TSSolidPoly`:** Resolves to the bound atlas frame's average colour (see above); falls back to a
+  flat placeholder when no bank is bound. Shaded by the engine's existing directional-light pipeline.
 - **`TSBitmapPart`:** Not implemented (architecture change needed for per-frame billboard generation).
-- **Front/back visibility test:** Not implemented (`Model3DViewerControl` uses `FrontColor` unconditionally).
+- **Front/back visibility test:** Not implemented (`FrontColor` used unconditionally, both in
+  `Herculan.Engine` and `Model3DViewerControl`).
 - **Mech-to-`.DBA` binding:** Automated via `HercSimDat.ModelSkinId` from the mech's `dat\<name>.DAT`.
 
 ## Open follow-ups
@@ -255,5 +308,3 @@ block, which cannot distinguish which parser threw.
   interpolant semantics.
 - Confirm the registry-table/constructor/vtable/rasterizer chain in DBSIM.EXE (expected, not yet independently verified).
 - `.DBA`'s on-disk frame layout (assumed covered by `HercWorks.Core`'s `DynamixBitmap` parsing).
-- The 20-byte runtime bitmap-descriptor struct's 5th field `F4` (byte 16) — pixel-data pointer/handle,
-  not yet independently confirmed.

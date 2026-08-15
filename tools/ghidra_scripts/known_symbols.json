@@ -2295,6 +2295,213 @@
       "name": "LoadNameList",
       "description": "Loads a nam\\<name>.NAM list -- a flat run of NUL-terminated ASCII names indexed by type number -- with a capacity bound as the second argument. Called with ('mechs', 0x55) into the mech name table DAT_004a9de4 that MechType_InitOne indexes, and with ('flyers', 0x22) into DAT_004a9e74. These are the tables that turn script.dat block 7's and block 8's type numbers into resource base names; MECHS.NAM ships 21 names and FLYERS.NAM 3.",
       "source": "docs/formats/script-dat.md 2026-08-13 (mission placement)"
+    },
+    {
+      "address": "0045fe40",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSSolidPoly_Construct",
+      "description": "TSSolidPoly's real constructor, found via g_TSObjectTypeRegistry's tag=0x00140002 entry. Same Watcom multi-base-class stamping pattern as TSTexture4Poly_Construct, finishing with &PTR_FUN_0047ee38 -- the actually-used TSSolidPoly vtable at runtime. See docs/formats/dts-texture-binding.md.",
+      "source": "flat-shaded lighting RE, 2026-08-14 follow-up"
+    },
+    {
+      "address": "0047ee38",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_TSSolidPolyVtable",
+      "description": "TSSolidPoly's real, fully-constructed vtable (found via TSSolidPoly_Construct's final vtable-pointer stamp). Slot +0x1c (TSSolidPoly_Render, FUN_00422a32) is what TSGroup_RenderPolys's per-poly dispatch (*(*polyPtr)+0x1c) calls for a TSSolidPoly, mirroring TSTexture4Poly's g_TSTexture4PolyVtable +0x1c slot exactly.",
+      "source": "flat-shaded lighting RE, 2026-08-14 follow-up"
+    },
+    {
+      "address": "00422a32",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSSolidPoly_Render",
+      "description": "TSSolidPoly's real vtable-slot-0x1c render method (see g_TSSolidPolyVtable). Resolves surface record via (ColorIndexId*4 + g_ActiveSurfaceRecords) -- same *4 stride as TSTexture4Poly_Render, independently reconfirming ColorIndexId=surfaceIndex*4. Runs maybe_TSPoly_FrontBackVisibilityTest against poly+4/+6 (Normal/Center point indices, each *6 into the Vec3Short point array) to pick front (piVar3[0]/[1] = Front/FrontLine) or back (piVar3[2]/[3] = Back/BackLine) color pair -- confirms TSSurfaceEntry's 4-slot Front/FrontLine/Back/BackLine layout applies to flat polys too, not just textured ones. Skips drawing if both resolved color dwords have top byte 0x18-shift == 0x14 (looks like an uninitialized/sentinel guard, not chased further). Otherwise clips via FUN_0045e694/FUN_0045ec54 and fills via FUN_0045f364 -- the SAME flat/solid 2D fill chain TSTexture4Poly_Render's DAT_00471890!=0 fallback branch also uses, confirming that branch really is 'reuse the flat-poly fill path' as its name implies. No dithering/lighting-ramp math visible anywhere in this chain -- VSHELL (a shell/viewer app) passes FrontColor/BackColor straight through to the fill routines, unlike DBSIM's in-mission renderer.",
+      "source": "flat-shaded lighting RE, 2026-08-14 follow-up, docs/formats/dts-texture-binding.md"
+    },
+    {
+      "address": "00474e9c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSSolidPoly_Render",
+      "description": "CONFIRMED (upgraded from the prior handoff's 'inferred, not proven') to be DBSIM's flat/solid-poly render function, by structural match against VSHELL's independently RTTI-registry-verified TSSolidPoly_Render (FUN_00422a32): both resolve their surface record via (ColorIndexId*4 + surfaceRecordsBase) (here _DAT_006c697a), both call a front/back visibility test (FUN_0048c620 here, the DBSIM counterpart of maybe_TSPoly_FrontBackVisibilityTest) against poly+4/+6 Normal/Center point indices (*6 stride), both pick a Front or Back color-pair from the resulting surface record. DBSIM's version additionally computes a per-face lighting 'shade' byte via FUN_0048bedc (still undecoded) and, when DAT_004a5b1c (the loaded world<N>.rmp ramp) is set, uses it to build a ramp-table byte offset (local_24 = (DAT_004a5b1c-1)*shade & 0xffffff00 + _DAT_004a5b18) before dispatching to FUN_00468078/FUN_0046865c -> ... -> FUN_0046ac48's dither+ramp pixel formula. This is the function documented in docs/formats/dts-texture-binding.md; that doc's open question #1 (confirm this is really the flat/solid poly renderer) is now closed.",
+      "source": "flat-shaded lighting RE, 2026-08-14 follow-up, docs/formats/dts-texture-binding.md"
+    },
+    {
+      "address": "0048c620",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSPoly_FrontBackVisibilityTest",
+      "description": "DBSIM's counterpart to VSHELL's maybe_TSPoly_FrontBackVisibilityTest -- called identically (two Vec3Short point pointers, Normal then Center) from TSSolidPoly_Render (FUN_00474e9c) to pick front vs. back surface color. Confirmed via structural match, not independently disassembled instruction-by-instruction.",
+      "source": "flat-shaded lighting RE, 2026-08-14 follow-up"
+    },
+    {
+      "address": "0048bedc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Light_ComputeShadeForFace",
+      "description": "The per-face 'shade byte' (0-255, clamped) calculation feeding TSSolidPoly_Render's lighting-ramp lookup. NOT a simple angle calc -- a real light-accumulation loop over the active light list (DAT_006c6130, max 10 slots, count DAT_006c612c), dispatching per-entry on a type tag from FUN_0048d94b: type 0 = ambient (adds a flat intensity from FUN_0048d956 unconditionally -- never seen actually populated this session, see Light_AddDirectional/PointHelper's entries), type 1 = directional (dot-product-like test via FUN_0048d99b against the face's Normal point (param_1), only contributes when the result crosses a fixed threshold, i.e. face-vs-light-direction test), type 2 = point light (distance-attenuated: displacement from the light's position (FUN_0048d961) to the face's Center point (param_2) combined with the Normal via FUN_0048d86e, divided by distance/range fields FUN_0048d973/FUN_0048d97e). Params: param_1 = poly's Normal-index Vec3Short pointer, param_2 = poly's Center-index Vec3Short pointer (same two pointers TSPoly_FrontBackVisibilityTest receives). Sibling functions FUN_0048bdcc/FUN_0048c060 are near-identical variants (different param shapes) used elsewhere for the same shade calc, likely per-vertex vs. per-face evaluation.",
+      "source": "flat-shaded lighting RE, 2026-08-14 follow-up, docs/formats/dts-texture-binding.md"
+    },
+    {
+      "address": "0048bd44",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Light_Register",
+      "description": "Adds a light object pointer to the active light list (DAT_006c6130, 10-slot max, dedups by pointer identity). Only 4 call sites in the whole binary: FUN_00407388/FUN_00407444 (pooled directional/point light getters, see their own entries), FUN_00407878 (re-registers a persistent light list DAT_004a9690 into the active manager), and Sim_InitMissionSession (FUN_004614fc, inlines the same directional-light-creation logic as FUN_00407388 and calls this directly).",
+      "source": "flat-shaded lighting RE, 2026-08-14 follow-up"
+    },
+    {
+      "address": "00407388",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "Light_GetOrCreateDirectional",
+      "description": "Pooled-object getter/constructor for a type=1 (directional) light: recycles from a small free-list at param_1+0x35c/+0x360 if available, otherwise allocates+constructs (vtable &PTR_LAB_0049f8d8, type field at +0x16 set to 1), then registers it via Light_Register (FUN_0048bd44). Not yet traced who calls this (likely weapon/effect spawn code, not chased this session -- out of scope for static mission-geometry lighting).",
+      "source": "flat-shaded lighting RE, 2026-08-14 follow-up"
+    },
+    {
+      "address": "00407444",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "Light_GetOrCreatePoint",
+      "description": "Same pooled-object pattern as Light_GetOrCreateDirectional (FUN_00407388) but for a type=2 (point) light (vtable &PTR_LAB_00497ac8, type field +0x16 set to 2). Likely explosion/muzzle-flash light spawning; callers not traced this session.",
+      "source": "flat-shaded lighting RE, 2026-08-14 follow-up"
+    },
+    {
+      "address": "00461240",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Light_CreateMissionSun",
+      "description": "MAJOR FINDING: called exactly once per mission, unconditionally, from Sim_InitMissionSession (FUN_004614fc) right after the light-system reset (FUN_0048dbfc) and before DBSim_LoadScriptDat -- creates the ONE directional 'sun' light every mission gets. Direction is NOT read from any mission/theater file: it's built from two HARDCODED constant vectors, local_38=(0,0x1000,0) and local_40=(-6000,0,21000), combined via FUN_0047eaac (looks like a normalize/transform) then FUN_0047ffb4 (looks like it derives a direction from a target-point + up-vector pair, output stored as the light's direction field). Intensity is set via vtable+4 call with literal 0x100 (256). The created light is registered via Light_Register (FUN_0048bd44) AND pushed onto a persistent list (DAT_004a9690) via FUN_00407800, so it survives a later Light_ReregisterPersistent (FUN_00407878) call. No separate ambient (type=0) light creation was found anywhere in the binary this session -- Light_ComputeShadeForFace's type-0 branch may be genuinely unused by real missions, meaning faces angled away from the sun likely render fully unlit (shade=0), not floor-lit. FUN_0047eaac/FUN_0047ffb4/FUN_0048d99b (the actual per-face dot-product math) are NOT yet decoded -- needed for a byte-exact reimplementation, but the qualitative shape (single fixed sun direction+intensity, no mission-specific lighting data) is now solid enough to plan an engine implementation around.",
+      "source": "flat-shaded lighting RE, 2026-08-14 follow-up, docs/formats/dts-texture-binding.md"
+    },
+    {
+      "address": "004614fc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sim_InitMissionSession",
+      "description": "Per-mission session setup: resets the light system (FUN_0048dbfc), creates the mission's one hardcoded sun light (Light_CreateMissionSun), then calls DBSim_LoadScriptDat and DBSim_SpawnMissionObjects. Confirms lighting setup happens once per mission load, independent of which script.dat/theater is loaded.",
+      "source": "flat-shaded lighting RE, 2026-08-14 follow-up"
+    },
+    {
+      "address": "0047eaac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "BuildEulerRotationMatrixQ14",
+      "description": "Builds a 3x3 rotation matrix (9 Q14 fixed-point shorts + 1 mode byte, 10 shorts total output) from a Vec3Short of Euler angles (param_1), using a sin/cos lookup table at DAT_004a25dc (1024-entry quarter-wave table, angle unit = 0x10000 per full circle, i.e. raw/65536*360 = degrees). Has a fast-path when the X and Y angle components are both zero (2-axis-only case, cos/sin of Z alone); otherwise builds the general 3-axis matrix via the standard trig-table-driven approach (same trig-table technique as the sim's other rotation math, see [[project_es2_terrain_format]]-adjacent RE). Called by Light_CreateMissionSun with angles (-6000, 0, 21000) -- confirms the sun's direction is computed, not stored as a literal vector.",
+      "source": "flat-shaded lighting RE, 2026-08-14 follow-up"
+    },
+    {
+      "address": "0047ffb4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "RotateVectorByMatrixQ14",
+      "description": "Matrix-vector multiply: rotates param_1 (Vec3Short) by the 3x3 Q14 matrix param_2 (as built by BuildEulerRotationMatrixQ14), writing the result to param_3. Has fast-paths for the matrix's degenerate mode byte (param_2[9]) similar to the matrix builder's own fast path. Called by Light_CreateMissionSun as rotate((0,0x1000,0), sunRotationMatrix) -- i.e. the sun's direction is 'straight up' rotated by the fixed Euler angles, not an arbitrary hand-authored vector.",
+      "source": "flat-shaded lighting RE, 2026-08-14 follow-up"
+    },
+    {
+      "address": "0047dbdb",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "DotProductVec3Short",
+      "description": "Literal 3-component dot product on two Vec3Short pointers: a.x*b.x+a.y*b.y+a.z*b.z, no scaling/clamping. Called (via the Light_ComputeShadeForFace accessor wrapper FUN_0048d99b) with the poly's Normal-index point and a directional light's own direction vector -- confirms the type-1 (directional) lighting term in Light_ComputeShadeForFace is a plain dot product, i.e. the poly's 'Normal' auxiliary point genuinely holds a normal-like vector (not a position), consistent with the earlier front/back visibility-test finding that Normal/Center are auxiliary vertex-index fields used for facing math, not literal mesh geometry.",
+      "source": "flat-shaded lighting RE, 2026-08-14 follow-up"
+    },
+    {
+      "address": "0047dc0e",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "DotProductVec3Int",
+      "description": "Same as DotProductVec3Short but on int (not short) components -- used by Light_ComputeShadeForFace's type-2 (point light) branch after converting the light-to-face displacement into ints.",
+      "source": "flat-shaded lighting RE, 2026-08-14 follow-up"
+    },
+    {
+      "address": "0042e010",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "World_LoadTheater",
+      "description": "SUPERSEDES the prior entry's 'ramp/LUT's own consumer is still untraced' note -- now fully closed. world<N>.rmp's real format, BYTE-VERIFIED against all 10 retail files (WORLD0-9.RMP, all exactly 98312 bytes): int32 width, int32 height, then width*height*256 raw bytes (all 10 files: width=32, height=12, 8+32*12*256=98312, exact match). The loader reads width/height via the same generic field-reader callback used for .wld fields, then reads the whole width*height*256 body in one call into DAT_004a09b0 (FUN_004734ac(fileHandle, width*height*256, DAT_004a09b0)). Installs _DAT_004a5b18=rampTableBase, DAT_004a5b1c=width, DAT_004a5b20=width (both set to width, not height -- 'height' i.e. 12 is read and used locally for the allocation size but not retained in any global this session found). Cross-referencing TSSolidPoly_Render's ramp-offset formula ((DAT_004a5b1c-1)*shade & 0xffffff00 -- i.e. (width-1)*shade rounded down to a multiple of 256) confirms 'width'=32 is the light-level-row COUNT and each row is 256 bytes (one byte per dither-table output 0-255), i.e. TSSolidPoly_Render only ever reads from the FIRST 32*256=8192-byte block of the file's 98304-byte body -- the other 11 height-slices are not consumed by this code path (unknown purpose, not chased -- possibly a different render mode's ramp bank, e.g. gouraud/texture-modulate).",
+      "source": "flat-shaded lighting RE, 2026-08-14 follow-up (real-file probe against E:\\ES2Stuff\\ES2\\VOL\\rmp\\WORLD*.RMP via GameContent), docs/formats/dts-texture-binding.md"
+    },
+    {
+      "address": "004d4f88",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "medium",
+      "name": "maybe_g_BitmapAtlasCache",
+      "description": "CORRECTS this entry's own prior 'static compiled-in dither table' claim from earlier the same session -- that was WRONG. DBSIM.EXE's total file size is 724,512 bytes; this address sits in the DATA section's second (huge, 2,245,120-byte) chunk, which is almost certainly BSS-style zero-fill reserved space, not literal file content, ruling out a ~16MB static table outright. Traced the real populator: FUN_00469d10 (a rectangle-packing cache-insertion routine, recurses into an overflow bank via param_1[0x200]/[0x201] when a 256-wide row is full) and its wrapper FUN_00469f38 (allocates a 20-byte-stride descriptor per inserted image via Cpp_VectorNew, matching the SAME stride as TSTexture4Poly's already-solved g_ActiveBitmapArray[1] frame-descriptor table). FUN_00469f38 is called from 7 places across totally unrelated subsystems -- Base_LoadResources, maybe_Ground_LoadFlatShapes, Weapons_LoadResourceTables, Terrain_BindTextureBank, and two weapon-effect loaders (bullets.cpp/beam.cpp equivalents, FUN_0040ade0/FUN_0040b6e0) -- each packing a freshly-loaded DBA's frames into this SAME shared atlas via FUN_0045cdd8 (DBA loader). CONCLUSION: this is a generic runtime bitmap/texture atlas cache shared by the whole engine (mechs, weapons, terrain, ground shapes), not a purpose-built dither table. TSSolidPoly_Render's (colorField<<16 | pixelCoord) addressing therefore means 'sample pixel pixelCoord from cached bitmap slot colorField', not 'look up a fixed dither pattern' -- meaning the earlier assumption that colorField=FrontColor (a 0-255 palette index) is now suspect; it more plausibly indexes a specific SMALL-N cached bitmap slot (a dither/shading swatch loaded once per theater), which would also explain why the naive 16MB address range is never actually exercised. WHICH atlas slot TSSolidPoly_Render's shading swatch specifically occupies, and who inserts it, was NOT found this session -- none of the 7 known FUN_00469f38 callers is an obvious 'load lighting dither pattern' site. This is now the real open question, distinct from and more specific than 'extract the dither table's raw bytes'.",
+      "source": "flat-shaded lighting RE, 2026-08-14 follow-up (correction pass), docs/formats/dts-texture-binding.md"
+    },
+    {
+      "address": "006c60e8",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_CurrentShapeDbaContext",
+      "description": "RESOLVES handoff item #6/#8. Set once per shape instance by FUN_0042fa18 (maybe_TSShapeInstance_PrepareRenderContext) as `param_1 + 0x1a`, i.e. a pointer into the per-shape render object -- the exact same offset pattern as VSHELL's TSShapeInstance+0x26 bound-DBA field, just a different struct layout. g_CurrentShapeDbaContext[1] (== param_1+0x1e) is the shape's currently-bound DBA's 20-byte-stride frame-descriptor table -- THE SAME g_ActiveBitmapArray[1]-equivalent table TSTexture4Poly_Render indexes for UV corners. TSSolidPoly_Render (FUN_00474e9c) uses `g_CurrentShapeDbaContext[1] + FrontColor*0x14` to fetch a frame descriptor, then reads its field+0x10 (the 5th int32, F4 -- previously found to be a 'texture-data pointer/handle' in the TSTexture4Poly descriptor) as the value shifted into the shared bitmap atlas (maybe_g_BitmapAtlasCache/DAT_004d4f88) bank selector for ordered-dither pixel fill.",
+      "source": "flat-shaded lighting RE, 2026-08-14 second follow-up (#6 continuation)"
+    },
+    {
+      "address": "0042fa18",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_TSShapeInstance_PrepareRenderContext",
+      "description": "Per-shape-instance render setup, called once before a shape's polys are drawn. Installs g_CurrentShapeDbaContext (DAT_006c60e8 = param_1+0x1a) and the surface-record base (_DAT_006c697a = param_1+0x61) that TSSolidPoly_Render/TSTexture4Poly-equivalent poly renderers read from -- i.e. this is where 'the currently bound DBA' becomes visible to the poly-render layer for this shape, DBSIM's counterpart to VSHELL's TSShapeInstance_Render save/swap/restore step. Also does per-point LOD/pop rotation math (BuildEulerRotationMatrixQ14 per point) unrelated to texturing. Name is a guess from structural role, not from an RTTI/registry match.",
+      "source": "flat-shaded lighting RE, 2026-08-14 second follow-up (#6 continuation)"
+    },
+    {
+      "address": "0042fc34",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_TSGouraudOrSimilarPoly_Render",
+      "description": "Sibling poly-render function reusing g_CurrentShapeDbaContext/_DAT_006c697a exactly like TSSolidPoly_Render (same ColorIndexId*4 surface lookup, same FrontColor-indexes-frame-descriptor-table pattern feeding FUN_00468078 as the 4th arg). Not yet matched to a specific TSPoly subtype via the RTTI registry -- flagged here only because it shares and thus corroborates the g_CurrentShapeDbaContext mechanism.",
+      "source": "flat-shaded lighting RE, 2026-08-14 second follow-up (#6 continuation)"
+    },
+    {
+      "address": "00474e9c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSSolidPoly_Render",
+      "description": "SUPERSEDES this entry's earlier 'material-record populator untraced' note -- CLOSES handoff #6 and #8. There is no dedicated 'lighting swatch' DBA anywhere in the binary -- that was the wrong mental model. TSSolidPoly_Render resolves its surface record (ColorIndexId*4 + surfaceRecordsBase, as before), then uses that record's FrontColor/BackColor value as a FRAME INDEX into g_CurrentShapeDbaContext[1] -- the SAME per-shape bound-DBA frame-descriptor table TSTexture4Poly_Render reads for UV corners (see g_CurrentShapeDbaContext). It reads that frame descriptor's field+0x10 (F4, the bitmap-data handle) and feeds it into the shared bitmap-atlas dither/ramp pixel-fill chain (FUN_00468078/FUN_0046865c -> ... -> FUN_0046ac48) as the atlas bank selector. PRACTICAL UPSHOT: a flat-shaded face's FrontColor selects a FRAME of whichever texture bank is already bound to that mesh (BASETEX.DBA for buildings, a mech's own weight-class bank for mechs, etc. -- see docs/formats/dts-texture-binding.md) -- not a raw palette index and not a separate asset. Herculan.Engine already decodes and GPU-uploads every one of these banks for textured rendering, so a byte-faithful reimplementation needs no new bitmap loader for this step, only: (1) a world<N>.rmp reader (format solved, see World_LoadTheater), (2) sampling the mesh's own already-loaded bank at frame=FrontColor as the dither swatch, (3) the sun-light dot-product shade calc (Light_ComputeShadeForFace).",
+      "source": "flat-shaded lighting RE, 2026-08-14 second follow-up (#6 continuation), docs/formats/dts-texture-binding.md"
+    },
+    {
+      "address": "0049f26c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_TSPolyUseAltPath_maybeDead",
+      "description": "CLOSES handoff #7. Read-only byte: 6 read sites (TSSolidPoly_Render x5, maybe_TSGouraudOrSimilarPoly_Render x1), ZERO write sites found anywhere in DBSIM.EXE (checked via getReferencesTo across the whole binary). Read directly from the mapped image (ES2ReadDataValue.java): value is 0, in an initialized/file-backed (not BSS) DATA block -- i.e. this is a compile-time constant baked into the shipped exe, not a runtime-toggled setting, same pattern as VSHELL's DAT_00471890 (g_UseFlatPolyFallback) in the sibling ThreeSpace codebase. Since every reader branches on `==0`/`!=0` and the byte is permanently 0, the `==0` branch (the one solved in handoff #6: local_c/g_CurrentShapeDbaContext[1] frame lookup, FUN_00468078 dispatch) is the ONLY branch that ever executes in retail DBSIM.EXE. The `!=0` branch (local_28-based lookup, FUN_0048c848/FUN_0048cfec/FUN_0048d518) is dead code in the shipped game and does not need reverse engineering for a faithful Herculan.Engine implementation.",
+      "source": "flat-shaded lighting RE, 2026-08-14 third follow-up (#7 closure)"
+    },
+    {
+      "address": "0049f274",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_TSSolidPolyRasterizerVariant_maybeDead",
+      "description": "Same dead-constant pattern as g_TSPolyUseAltPath_maybeDead (0049f26c): single read site (TSSolidPoly_Render, selects FUN_00468078 vs FUN_0046865c), zero write sites anywhere in DBSIM.EXE, value read directly from the image is 0 in an initialized DATA block. FUN_00468078 is therefore confirmed as the only rasterizer dispatch target ever taken in retail for TSSolidPoly.",
+      "source": "flat-shaded lighting RE, 2026-08-14 third follow-up (#7 closure)"
     }
   ]
 }

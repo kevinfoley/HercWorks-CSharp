@@ -22,9 +22,19 @@ namespace Herculan.Engine.Render;
 ///
 /// <para><see cref="TSTexture4Poly"/> polys resolve to real texture through the chain established in
 /// docs/formats/dts-texture-binding.md: <c>Surfaces[ColorIndexId / 4].FrontColor</c> is a frame index
-/// into the mech's <c>.DBA</c> bank, and the four UV corners are the frame's own rect. Pass a
-/// <see cref="TextureAtlas"/> to get that; without one they fall back to a flat placeholder, which is
-/// honest about "no bank loaded" rather than quietly wrong.</para>
+/// into the mesh's bound <c>.DBA</c> bank, and the four UV corners are the frame's own rect.</para>
+///
+/// <para>A flat-shaded (<see cref="TSSolidPoly"/>) poly's <c>Surfaces[ColorIndexId / 4].FrontColor</c>
+/// is the SAME kind of frame index, into the SAME bound bank — not a direct palette index (that was
+/// tried and produces wrong hues) and not a lookup in <see cref="DefaultShapeColors"/> (a 13-entry
+/// guess table that resolves most indices to a cyan fallback). See docs/formats/dts-texture-binding.md's
+/// "Flat-shaded lighting" section for the full RE trace. <see cref="ResolveSurfaceColor"/> takes the
+/// resolved frame's average colour from the atlas as the base colour; per-face lighting is applied at
+/// render time in <see cref="SceneRenderer"/>, not baked in here, since one built mesh is shared by
+/// every instance of a unit type at a different world rotation.</para>
+///
+/// <para>Pass a <see cref="TextureAtlas"/> to resolve either kind of poly; without one, both fall back
+/// to a flat placeholder colour, which is honest about "no bank loaded" rather than quietly wrong.</para>
 /// </summary>
 public static class DtsMeshBuilder {
 	/// <summary>Safety bound on the transform parent chain, in case a file's relations form a cycle.</summary>
@@ -319,11 +329,7 @@ public static class DtsMeshBuilder {
 		if (group.Surfaces != null) {
 			surfaceColors = new Vector3[group.Surfaces.Length];
 			for (int i = 0; i < group.Surfaces.Length; i++) {
-				double[] rgb = DefaultShapeColors.Color(group.Surfaces[i].FrontColor).Rgb();
-				surfaceColors[i] = new Vector3(
-					(float)System.Math.Clamp(rgb[0], 0.0, 1.0),
-					(float)System.Math.Clamp(rgb[1], 0.0, 1.0),
-					(float)System.Math.Clamp(rgb[2], 0.0, 1.0));
+				surfaceColors[i] = ResolveSurfaceColor(group.Surfaces[i].FrontColor, atlas);
 			}
 		}
 
@@ -464,4 +470,14 @@ public static class DtsMeshBuilder {
 
 		return FallbackColor;
 	}
+
+	/// <summary>
+	/// Resolves a flat-shaded surface's <c>FrontColor</c> as a frame index into the mesh's own bound
+	/// atlas (same mechanism as <see cref="ResolveFrame"/>), taking that frame's average colour as the
+	/// base colour — see this type's doc comment. Falls back to <see cref="FallbackColor"/> when no
+	/// atlas is bound or the frame index doesn't resolve, rather than the disproven direct-palette-index
+	/// or <see cref="DefaultShapeColors"/> guess-table approaches.
+	/// </summary>
+	private static Vector3 ResolveSurfaceColor(short frontColor, TextureAtlas? atlas) =>
+		atlas?.AverageColor(frontColor) ?? FallbackColor;
 }

@@ -139,8 +139,8 @@ Both files sum exactly to declared `totalSize`. Field `A = 223` in both files de
 ### The 3 trailing blocks — variable-length-record pool (NOT a string table)
 
 - **`array2` (`A×4` bytes) is a monotonically increasing `uint32` offset table into `blob1`**,
-  confirmed by direct inspection of `MAP.DFN`'s real bytes: `0, 0x18, 0x28, 0x50, 0x80, 0xa8, 0xd0,
-  0xd8, 0xf8, 0x118, 0x138, ...` — strictly increasing, giving each of the `A` records a
+  confirmed by direct inspection of `MAP.DFN`'s real bytes: `0, 0x18, 0x28, 0x50, 0x80, ...` — 
+  strictly increasing, giving each of the `A` records a
   variable-length slice of `blob1` (record *i*'s data runs from `array2[i]` to `array2[i+1]`,
   lengths seen: 24, 16, 40, 48, 40, 40, 8, 32, 32, 32, 48, ...). This is the same
   `[count][pool][count×offset]` shape already confirmed for `weapons.bin`

@@ -54,6 +54,13 @@ public sealed class EngineWindow : IDisposable {
 	/// <summary>Current framebuffer size in pixels — the viewport a renderer should draw into.</summary>
 	public Vector2D<int> FramebufferSize => _window.FramebufferSize;
 
+	/// <summary>
+	/// The underlying view, for integrations that need it directly — e.g. ImGui's
+	/// <c>ImGuiController</c>, which hooks resize itself rather than going through
+	/// <see cref="Render"/>/<see cref="Update"/>.
+	/// </summary>
+	public IView View => _window;
+
 	/// <summary>Window title, so a host can show live diagnostics without owning the window type.</summary>
 	public string Title {
 		get => _window.Title;

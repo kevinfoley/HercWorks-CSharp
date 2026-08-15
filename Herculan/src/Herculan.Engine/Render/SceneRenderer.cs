@@ -108,8 +108,34 @@ public sealed class SceneRenderer : IDisposable {
 		_gl.DepthFunc(DepthFunction.Less);
 	}
 
-	/// <summary>Direction the sun's light travels, in render space.</summary>
-	public Vector3 LightDirection { get; set; } = Vector3.Normalize(new Vector3(-0.4f, -0.8f, -0.45f));
+	/// <summary>
+	/// Direction the sun's light travels, in render space.
+	///
+	/// <para>Every mission gets the identical hardcoded directional "sun" — see
+	/// docs/formats/dts-texture-binding.md's "Flat-shaded lighting" section. Derived from
+	/// <c>Light_CreateMissionSun</c>'s own math: <c>rotate((0,4096,0), eulerMatrix(-6000,0,21000))</c>
+	/// in DBSIM's Z-up world space (angle unit <c>raw/65536*360</c> degrees), computed by
+	/// <see cref="ComputeSunDirection"/>. The 3-axis rotation order was not independently verified
+	/// against the exe's fixed-point trig, so this is a reasonable reading (intrinsic X then Z; Y is a
+	/// no-op since its angle is 0), not a byte-exact one — it replaces an earlier, purely eyeballed
+	/// guess with a value at least derived from the real constants.</para>
+	/// </summary>
+	public Vector3 LightDirection { get; set; } = ComputeSunDirection();
+
+	private static Vector3 ComputeSunDirection() {
+		const float RadiansPerRawUnit = MathF.PI * 2f / 65536f;
+		float xRadians = -6000f * RadiansPerRawUnit;
+		float zRadians = 21000f * RadiansPerRawUnit;
+
+		var qx = Quaternion.CreateFromAxisAngle(Vector3.UnitX, xRadians);
+		var qz = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, zRadians);
+		Vector3 worldDirection = Vector3.Transform(new Vector3(0f, 1f, 0f), qz * qx);
+
+		// DBSIM world is Z-up with X/Y the ground plane; render space is Y-up — same mapping as
+		// WorldScale.ToRender.
+		Vector3 renderDirection = new(worldDirection.X, worldDirection.Z, -worldDirection.Y);
+		return Vector3.Normalize(renderDirection);
+	}
 
 	/// <summary>Horizon/haze colour; also what the frame is cleared to, so distant terrain melts into it.</summary>
 	public Vector3 HazeColor { get; set; } = new(0.55f, 0.60f, 0.68f);

@@ -277,12 +277,6 @@ New symbols, applied via `ES2ApplySymbolNames`: `Hud_WorldUnitsToMetres`,
 `maybe_Math_MapRange`, `Time_GetCoarseTicks`, `Vec2_Subtract`, `Vec2_Magnitude`,
 `Vec2_DistanceBetween`.
 
-## Open questions
-
-The items milestone 1 surfaced (terrain diagonal-selector bit 1, the PRNG seed table, the
-timestep's real value, DBSIM's trig table, the hit-cylinder radius field) are listed under
-"Milestone 1 — implemented" above, next to the code that works around each one.
-
 ## Milestone 2 — mech texturing (2026-08-13)
 
 Textured mech rendering on the GPU, using the chain in `docs/formats/dts-texture-binding.md` end to
@@ -360,12 +354,9 @@ doc described pass 1 only and concluded the format discarded most of block 7-11.
 - **Structures** — `dat\BASES.DAT`, 65 records of 60 bytes with one nested variable-length array.
   Record shape confirmed by construction: it consumes the retail file's 6,422 content bytes with
   zero slack. `FUN_00405ebc` is the whole model selection — one field picks the shape index, another
-  picks the library, a third picks the texture bank. This also corrects a wrong entry in
-  `dgs-hd0-notes.md`, which had applied this record shape to `BASES.DGS` and recorded it as
-  disproven; it is `BASES.DAT`'s shape and it is exact.
+  picks the library, a third picks the texture bank.
 - **The player's lance** — `data\player.mec`, decoded and implemented (`MecFile`). It sits at the
-  spawn point block 11's record 0 exists to hold, which is why the camera can now start where the
-  mission starts.
+  spawn point block 11's record 0 exists to hold.
 
 **New:** `World/Mission` + `World/MissionLoader` (the two-pass placement rule),
 `World/UnitTypeNames`, `World/BaseTypeTable`, `Scene/MissionScene` (replaces `ZoneScene`),
@@ -381,16 +372,6 @@ all build as scenes — zone, theater, rosters, groups and lance all resolve, no
 unclaimed by a group, every placed object lands inside its zone's bounds.
 `ScriptDatTransformer` still round-trips all 10 byte-exact after the model change.
 
-### Milestone 4's two known gaps
-
-RE gaps, not design choices:
-
-- ~~Formation spread — unresolved, not settled~~ — **bases solved and fixed, see Milestone 6
-  below; mechs/flyers still open.** For mechs the link from formation id to `dat\MFORMS.DAT` still
-  can't be confirmed (table pointer `FUN_004205cc` reads has exactly one reference in all of
-  DBSIM.EXE — the read itself — in uninitialised data), so mechs still stack on their group's point.
-- ~~Static structures don't draw~~ — solved, see Milestone 5 below.
-
 ## Milestone 5 — static structures (2026-08-14)
 
 `dgs\BASES.DGS`/`BHULKS.DGS` solved. Full RE and format spec in `docs/formats/dgs-hd0-notes.md`.
@@ -405,7 +386,6 @@ respectively).
 
 ### Remaining RE gaps
 
-- The mech formation-offset table's load site (see above).
 - Flyer texture banks — which `.DBA` DBSIM binds for a flyer is untraced, so flyers draw
   flat-shaded.
 - `.SNC` audio format unsolved — blocks original game audio playback. Not needed until audio
@@ -426,19 +406,26 @@ RE'd the missing step: `FUN_00405c3c` (the base-group-attach function) unconditi
 attached object's vtable `+0x78`, which for every base subtype is `FUN_00405c04` — a direct
 structural match for `Mech_ApplyFormationOffset`, except this one's backing table
 (`dat\BFORMS.DAT`) has a confirmed load site (`FUN_00405fac` opens it by the literal string
-`"bforms"`), unlike the still-open mech case. Full chain, byte-exact file verification, and the
-rotate-and-add math are in `script-dat.md`'s "Placement — the actual rule" point 6.
+`"bforms"`). Full chain, byte-exact file verification, and the rotate-and-add math are in
+`script-dat.md`'s "Placement — the actual rule" point 6.
 
 Implemented as `Herculan.Engine.World.BaseFormationTable` (parses `BFORMS.DAT`'s count + variable
 per-formation records) wired into `MissionLoader.AddRoster`'s base loop, replacing the bare
 `?? group.Position` fallback with `?? OffsetFromGroup(...)`, which applies the formation offset for
 the object's slot index within its group (0 for the group's first-claimed member, which keeps
-today's no-offset behavior) before falling back further to the bare group point. Re-verified
-headlessly against all 10 missions post-fix: 18 of 18 multi-member base groups now get fully
-distinct member positions (0 remain stacked), where all 18 collapsed to a single point before.
+today's no-offset behavior) before falling back further to the bare group point.
 
-Not implemented — see `script-dat.md` point 6 for detail:
-- Grid-snap (`BinaryFlag`-gated group-anchor snap) — shifts a group's shared point, doesn't cause
-  stacking, not chased.
-- Mech/flyer formation spread — mechs still blocked on the unconfirmed `MFORMS.DAT` load site;
-  flyers untraced (not seen mattering in retail data — no multi-flyer groups observed).
+## Milestone 7 — mech formation spread and base grid-snap (2026-08-14)
+
+Fixed the mech half of Milestone 6: `dat\MFORMS.DAT`'s load site, `Mech_LoadResources`
+(`FUN_0041fdb0`), had never been auto-disassembled (no call-graph edge into it), so its write to
+`Formation_GetSlotOffset`'s table pointer (`_DAT_004a9df0`) was invisible to XREF search, an
+analysis gap. Found via raw byte-scan for the string `"mforms"`, then for that
+address as a `PUSH`-immediate operand. Registered into DBSIM's subsystem-loader table (live code).
+`dat\MFORMS.DAT`: 142 bytes = 2-byte count (5) + five fixed 28-byte formations, byte-exact.
+Implemented as `Herculan.Engine.World.MechFormationTable`, wired into `MissionLoader.AddRoster`.
+
+Implemented base grid-snap (formula and field mapping in `script-dat.md` point 6) as
+`BaseFormationTable.GridSnapFor` / `MissionLoader.GridSnapAnchor`.
+
+Not implemented: flyer formation spread (`FUN_00421ee8` untraced; no multi-flyer groups observed).

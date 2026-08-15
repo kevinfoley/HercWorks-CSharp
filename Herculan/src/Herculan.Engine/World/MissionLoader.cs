@@ -40,21 +40,15 @@ namespace Herculan.Engine.World;
 /// <c>player.mec</c>.</item>
 /// </list>
 ///
-/// <para><b>Formation offsets: bases implemented, mechs/flyers still a known gap.</b> Every member of
-/// a group is placed on the group's own point by the rule above; the original then spreads
-/// non-leader members off that point via a per-kind vtable <c>+0x78</c> call
+/// <para><b>Formation offsets: mechs and bases implemented, flyers still a known gap.</b> Every
+/// member of a group is placed on the group's own point by the rule above; the original then
+/// spreads non-leader members off that point via a per-kind vtable <c>+0x78</c> call
 /// (<c>Mech_ApplyFormationOffset</c> (<c>00417898</c>) for mechs, <c>FUN_00405c04</c> for bases —
-/// same slot, same "member index 0 takes no offset" rule). For mechs this waits on an unconfirmed
-/// load site: the table <c>Formation_GetSlotOffset</c> (<c>004205cc</c>) reads matches
-/// <c>dat\MFORMS.DAT</c>'s shape exactly (142 content bytes = a count plus five 28-byte formations,
-/// formation 0 a symmetric 10,000-unit wedge), but the pointer it reads has exactly one reference in
-/// all of DBSIM.EXE — that read — and lives in uninitialised data, so nothing links the file to the
-/// table; implementing it on the strength of the filename alone would be the kind of plausible guess
-/// that has cost this project time before. <b>Bases are different</b>: their table
-/// (<see cref="BaseFormationTable"/>, <c>dat\BFORMS.DAT</c>) has a confirmed load site
-/// (<c>FUN_00405fac</c> streams it from a file literally named <c>"bforms"</c>) and is implemented
-/// below — see that class's doc comment for the byte-exact verification. Flyers remain unfixed
-/// either way; retail missions were not seen putting more than one flyer in a group.</para>
+/// same slot, same "member index 0 takes no offset" rule). Both tables are implemented:
+/// <see cref="MechFormationTable"/> (<c>dat\MFORMS.DAT</c>) and <see cref="BaseFormationTable"/>
+/// (<c>dat\BFORMS.DAT</c>) — see each class's doc comment for its load-site RE and byte-exact
+/// verification. Flyers remain unfixed; retail missions were not seen putting more than one flyer
+/// in a group.</para>
 /// </summary>
 public static class MissionLoader {
 	/// <summary>Folder inside an install root holding the loose mission handoff files.</summary>
@@ -117,13 +111,14 @@ public static class MissionLoader {
 		var header = ScriptDatHeader.Read(scriptBytes);
 		var mechNames = UnitTypeNames.LoadMechs(content);
 		var flyerNames = UnitTypeNames.LoadFlyers(content);
+		var mechFormations = MechFormationTable.Load(content);
 		var baseFormations = BaseFormationTable.Load(content);
 
 		var groups = ResolveGroups(script);
 		var claims = ClaimSlots(script, groups);
 
 		var placements = new List<MissionPlacement>();
-		AddRoster(script, claims, mechNames, flyerNames, baseFormations, placements);
+		AddRoster(script, claims, mechNames, flyerNames, mechFormations, baseFormations, placements);
 
 		var player = LoadPlayerLance(scriptPath, groups, mechNames, placements);
 
@@ -206,8 +201,8 @@ public static class MissionLoader {
 	/// </summary>
 	private static void AddRoster(ScriptDat script,
 			Dictionary<MissionUnitKind, Dictionary<int, Claim>> claims,
-			UnitTypeNames mechNames, UnitTypeNames flyerNames, BaseFormationTable baseFormations,
-			List<MissionPlacement> placements) {
+			UnitTypeNames mechNames, UnitTypeNames flyerNames, MechFormationTable mechFormations,
+			BaseFormationTable baseFormations, List<MissionPlacement> placements) {
 		var mechClaims = claims[MissionUnitKind.Mech];
 		for (int slot = 0; slot < script.SpawnRecords.Length; slot++) {
 			if (!mechClaims.TryGetValue(slot, out var claim)) {
@@ -216,13 +211,16 @@ public static class MissionLoader {
 
 			var group = claim.Group;
 			var record = script.SpawnRecords[slot];
+			var position = Coordinate(script, record.PositionRef)
+				?? OffsetFromGroup(group, mechFormations, claim.MemberIndex);
+
 			placements.Add(new MissionPlacement(
 				MissionUnitKind.Mech,
 				record.SmallDiscrete,
 				mechNames[record.SmallDiscrete],
 				slot,
 				group.Index,
-				Coordinate(script, record.PositionRef) ?? group.Position,
+				position,
 				Heading(script, record.HeadingRef) ?? group.Heading,
 				record.WeaponRefs.Where(id => id >= 0).ToArray()));
 		}
@@ -276,16 +274,34 @@ public static class MissionLoader {
 	/// group's own heading, mirroring <c>Formation_RotateAndAddOffset</c> (<c>00411d64</c>).
 	/// </summary>
 	private static Vec3i OffsetFromGroup(Group group, BaseFormationTable baseFormations, int memberIndex) {
-		if (baseFormations.OffsetFor(group.FormationId, memberIndex) is not { } offset) {
-			return group.Position;
-		}
+		var offset = baseFormations.OffsetFor(group.FormationId, memberIndex);
+		return offset is { } o ? Rotate(group.Position, group.Heading, o.X, o.Y) : group.Position;
+	}
 
-		short cos = BinaryAngle.Cos(group.Heading);
-		short sin = BinaryAngle.Sin(group.Heading);
-		int worldDx = (int)(((long)offset.X * cos - (long)offset.Y * sin + 0x2000) >> 14);
-		int worldDy = (int)(((long)offset.X * sin + (long)offset.Y * cos + 0x2000) >> 14);
+	/// <summary>
+	/// A mech's spawn point when it carries no coordinate of its own: the group's point, spread by
+	/// its <see cref="MechFormationTable"/> entry for this member's slot and rotated by the group's
+	/// heading — the mech-side twin of the base overload above, both implementing
+	/// <c>Mech_ApplyFormationOffset</c>/<c>Base_ApplyFormationOffset</c>'s shared
+	/// <c>Formation_RotateAndAddOffset</c> (<c>00411d64</c>) rule.
+	/// </summary>
+	private static Vec3i OffsetFromGroup(Group group, MechFormationTable mechFormations, int memberIndex) {
+		var offset = mechFormations.OffsetFor(group.FormationId, memberIndex);
+		return offset is { } o ? Rotate(group.Position, group.Heading, o.X, o.Y) : group.Position;
+	}
 
-		return new Vec3i(group.Position.X + worldDx, group.Position.Y + worldDy, group.Position.Z);
+	/// <summary>
+	/// Rotates a formation offset by the group's heading and adds it to <paramref name="anchor"/> —
+	/// the fixed-point 2D rotation <c>Formation_RotateAndAddOffset</c> (<c>00411d64</c>) reduces to
+	/// for a heading-only object (no pitch/roll), shared by every formation kind.
+	/// </summary>
+	private static Vec3i Rotate(Vec3i anchor, int heading, int dx, int dy) {
+		short cos = BinaryAngle.Cos(heading);
+		short sin = BinaryAngle.Sin(heading);
+		int worldDx = (int)(((long)dx * cos - (long)dy * sin + 0x2000) >> 14);
+		int worldDy = (int)(((long)dx * sin + (long)dy * cos + 0x2000) >> 14);
+
+		return new Vec3i(anchor.X + worldDx, anchor.Y + worldDy, anchor.Z);
 	}
 
 	/// <summary>

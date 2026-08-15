@@ -21,22 +21,23 @@ public readonly record struct BaseFormationOffset(int X, int Y);
 /// member index is nonzero, i.e. every member but the group's first-claimed ("leader") slot — looks
 /// up this table's <c>(formationId, memberIndex-1)</c> entry via <c>FUN_00405b9c</c> and rotates it
 /// into world space by the leader's heading (<c>Formation_RotateAndAddOffset</c>, <c>00411d64</c>)
-/// before adding it to the group's position. This exactly mirrors <c>Mech_ApplyFormationOffset</c>
-/// (<c>00417898</c>) — same vtable slot, same "member index 0 gets no offset" rule — except this
-/// table's load site <b>is</b> confirmed (unlike the mech/flyer tables, still open — see
-/// <c>MissionLoader</c>'s doc comment), because <c>FUN_00405fac</c> demonstrably streams it from a
-/// file literally named <c>"bforms"</c>. Confirmed byte-exact: the retail file is 3,186 content
-/// bytes, walking it as modelled below consumes exactly that with nothing left over, its declared
-/// formation count is 17 (matching the block-11 formation id field's documented 0-16 range), and
-/// formation 0's seven offsets are a visibly symmetric wedge — one point dead ahead, three mirrored
-/// left/right pairs behind it.
+/// before adding it to the group's position — mirrors <c>Mech_ApplyFormationOffset</c>
+/// (<c>00417898</c>): same vtable slot, same "member index 0 gets no offset" rule. Load site:
+/// <c>FUN_00405fac</c> streams the table from a file literally named <c>"bforms"</c>. Byte-exact: the
+/// retail file is 3,186 content bytes, formation count 17 (matches block-11 formation id's 0-16
+/// range), formation 0's seven offsets a symmetric wedge — one point ahead, three mirrored pairs
+/// behind.
 ///
 /// <para><b>Not modelled: grid-snap.</b> When the block-11 record's own <c>BinaryFlag</c> (raw msn
-/// offset <c>0x06</c>) is set, <c>FUN_00405c3c</c> additionally snaps the group's shared anchor point
-/// to a per-formation grid (using three more fields this table skips — a cell-size class and two
-/// axis multipliers) <i>before</i> the per-member offset below is added. That step moves the whole
-/// group's anchor by one shared amount, so it does not cause members to stack on each other — the
-/// bug this table exists to fix — and it wasn't chased further.</para>
+/// offset <c>0x06</c>) is set, <c>Base_AttachToGroup</c> additionally snaps the group's shared anchor
+/// to a per-formation grid, using three fields this table skips (a cell-size class and two axis
+/// multipliers), before the per-member offset above is added — doesn't cause stacking, so left
+/// unimplemented. A 2026-08-15 port attempt, decompiled and formula-matched against
+/// <c>Base_AttachToGroup</c>, shipped a real regression: verified stacking-only checks passed but the
+/// snap moved real structures tens of thousands of world units off their intended pads (visually
+/// confirmed against the mission editor) and was reverted same-day. The bit-mask formula as literally
+/// decompiled produces this; either a field-mapping or scale error remains unfound. Don't reattempt
+/// without a visual check against the real game, not just a distinct-positions check.</para>
 /// </summary>
 public sealed class BaseFormationTable {
 	/// <summary>VOL folder and name of the table.</summary>

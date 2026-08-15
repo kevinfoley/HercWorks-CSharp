@@ -123,43 +123,37 @@ Per record type, what pass 2 reads (offsets into the exported record, not the `.
    rotated by the group leader's heading before being added to the group's point. Slot 0 (the first
    member the group claims) always takes no offset, so it lands exactly on the group's point.
 
-   - **Mechs — unresolved.** Vtable `+0x78` is `Mech_ApplyFormationOffset` (`FUN_00417898`), which
-     reads `Formation_GetSlotOffset(formationId, slot)` (`FUN_004205cc`) — a table of 28 bytes per
-     formation, seven (x, y) short pairs. `dat\MFORMS.DAT` fits exactly (142 content bytes = a count
-     plus five 28-byte formations; formation 0's seven pairs are a symmetric wedge at 10,000-unit
-     steps), but the pointer `FUN_004205cc` reads has exactly one reference in all of DBSIM.EXE —
-     that read — and lives in uninitialised data, so nothing links the file to the table. Not
-     implemented in the engine.
-   - **Bases — resolved and implemented.** Vtable `+0x78` is `FUN_00405c04` for every base subtype
-     (confirmed across all five base vtables: `0x497940`/`0x4979d4`/`0x4978ac`/`0x497784`/
-     `0x497818`, each derived from the common base vtable `0x49a54c`). When the member's slot is
-     nonzero it calls `FUN_00405b9c(formationId, slot)`, which — unlike the mech table — reads
-     through a **confirmed load site**: `FUN_00405fac` (`base.cpp`) streams `dat\BFORMS.DAT`
-     (literally opened via the string `"bforms"`) into the global table `FUN_00405b9c` indexes.
-     Byte-exact verified: the retail file is 3,186 content bytes; walking it as a count (17,
-     matching the block-11 formation id field's documented 0-16 range) followed by, per formation, a
-     slot count + that many 10-byte (x:int32, y:int32, trailing:int16) entries + an 8-byte grid-snap
-     pair + a variable-length trailer, consumes exactly 3,186 bytes with nothing left over; formation
-     0's seven offsets are a visibly symmetric wedge (one point dead ahead, three mirrored left/right
-     pairs behind). The rotate-and-add step (`Formation_RotateAndAddOffset`, `FUN_00411d64`, calling
-     `FUN_0047eaac`/`FUN_0047fedc`) reduces — for a heading-only, no-pitch-no-roll object, which every
-     base is — to a plain 2D rotation: `worldDX = dx·cosθ − dy·sinθ`, `worldDY = dx·sinθ + dy·cosθ`,
-     added to the group's point. Implemented in `Herculan.Engine.World.BaseFormationTable` and wired
-     into `MissionLoader.AddRoster`'s base loop; verified against all 10 available missions
-     (`DATA\script.dat` plus `SAV\script{0-6,10,11}.dat`) — every multi-member base group now gets
-     distinct member positions (18 of 18 checked), where every one previously collapsed onto its
-     group's single point.
-   - **Not implemented: grid-snap.** When the block-11 record's own `BinaryFlag` (`0x06` in the
-     `.msn` row) is set, `FUN_00405c3c` additionally snaps the group's *shared* point to a
-     per-formation grid, using three `BFORMS.DAT` fields this reader skips (a cell-size class and two
-     axis multipliers), before the per-member offset above is added. That step moves the whole
-     group's anchor by one amount shared by every member, so it does not cause the stacking bug this
-     section fixes — it wasn't chased further. `BinaryFlag` is set on roughly a third of retail
-     block-11 records (39/61 split per the row #16 field table below), including several of the
-     multi-member base groups checked above, so this is a real, if lower-priority, gap.
-   - **Flyers — unfixed either way.** `FUN_00421ee8` is the flyer attach equivalent; not traced.
-     Retail missions were not seen putting more than one flyer in a group, so it has not mattered in
-     practice.
+   - **Mechs — implemented.** Vtable `+0x78` is `Mech_ApplyFormationOffset` (`FUN_00417898`), reading
+     `Formation_GetSlotOffset(formationId, slot)` (`FUN_004205cc`): 28 bytes/formation, seven (x, y)
+     `int16` pairs. Load site: `Mech_LoadResources` (`FUN_0041fdb0`) streams `dat\mforms` and writes
+     the vector pointer `Formation_GetSlotOffset` reads (`_DAT_004a9df0`); registered into DBSIM's
+     subsystem-loader table via a thunk at `00420654`. `dat\MFORMS.DAT` is 142 content bytes = 2-byte
+     count (5) + five fixed 28-byte formations, no trailer. Implemented in
+     `Herculan.Engine.World.MechFormationTable`, wired into `MissionLoader.AddRoster`'s mech loop.
+   - **Bases — implemented.** Vtable `+0x78` is `FUN_00405c04` for every base subtype (all five base
+     vtables: `0x497940`/`0x4979d4`/`0x4978ac`/`0x497784`/`0x497818`). Nonzero slot calls
+     `FUN_00405b9c(formationId, slot)`, reading the table `FUN_00405fac` (`base.cpp`) streams from
+     `dat\BFORMS.DAT` (opened via literal string `"bforms"`). File is 3,186 content bytes: a count
+     (17) then per formation a slot count + that many 10-byte (x:int32, y:int32, trailing:int16)
+     entries + an 8-byte grid-snap pair + a variable-length trailer — byte-exact, nothing left over.
+     `Formation_RotateAndAddOffset` (`FUN_00411d64`) reduces to a plain 2D rotation:
+     `worldDX = dx·cosθ − dy·sinθ`, `worldDY = dx·sinθ + dy·cosθ`, added to the group's point.
+     Implemented in `Herculan.Engine.World.BaseFormationTable`, wired into `MissionLoader.AddRoster`'s
+     base loop.
+   - **Grid-snap — implemented.** When the block-11 record's `BinaryFlag` (`0x06`) is set,
+     `Base_AttachToGroup` (`FUN_00405c3c`) snaps the group's shared anchor to a per-formation grid
+     before the per-member offset is added (applies once per group, including the leader). Formula,
+     with `cellClass`/`axisMultX`/`axisMultY` three per-formation fields: `step = cellClass * 0x20`,
+     `mask = cellClass * 0x2000 - 1`, `x' = (x & ~mask) + axisMultX * step`,
+     `y' = ((y & ~mask) + mask + 1) - axisMultY * step`. Field order per `Base_LoadResources`: after
+     slot data, one unused `int32`, then `axisMultX`, then `axisMultY`, then a field also used as the
+     trailing-buffer count (`cellClass`) — same 4 bytes, dual purpose in the original. Implemented in
+     `BaseFormationTable.GridSnapFor`/`MissionLoader.GridSnapAnchor`. `BinaryFlag` is set on ~1/3 of
+     retail block-11 records (39/61, per the row #16 field table below).
+   - **Flyers — unfixed.** `FUN_00421ee8` is the flyer attach equivalent; not traced. No multi-flyer
+     groups observed in retail data.
+   - **Verification:** all 10 available missions — 26/26 multi-mech groups and 18/18 multi-base groups
+     get distinct member positions, 0 exceptions; BFORMS.DAT/MFORMS.DAT both still parse byte-exact.
 
 ## The 13-block structure
 

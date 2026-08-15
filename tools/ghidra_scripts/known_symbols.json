@@ -2502,6 +2502,51 @@
       "name": "g_TSSolidPolyRasterizerVariant_maybeDead",
       "description": "Same dead-constant pattern as g_TSPolyUseAltPath_maybeDead (0049f26c): single read site (TSSolidPoly_Render, selects FUN_00468078 vs FUN_0046865c), zero write sites anywhere in DBSIM.EXE, value read directly from the image is 0 in an initialized DATA block. FUN_00468078 is therefore confirmed as the only rasterizer dispatch target ever taken in retail for TSSolidPoly.",
       "source": "flat-shaded lighting RE, 2026-08-14 third follow-up (#7 closure)"
+    },
+    {
+      "address": "0041fdb0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_LoadResources",
+      "description": "mechsys.cpp's resource-load sequence for the mech subsystem -- the mech-side twin of Base_LoadResources (00405fac). Resets the mech-type-slot table (memset &DAT_004a9d8c, 0xff, 0x55), then streams dat\\mforms (string 'mforms' at 0049a46b, joined with the shared 'dat' folder-prefix helper FUN_00492ae0): reads a 2-byte record count into DAT_004a9dec, allocates that many 28-byte vector elements (Cpp_VectorNew(..., 0x1c, count, ...) -- 7 (x,y) int16 pairs/formation, matching Formation_GetSlotOffset's stride), stores the vector pointer into _DAT_004a9df0 (previously unwritten anywhere in disassembled code -- see that symbol's updated entry), then reads count*28 bytes straight from the file into the buffer. Afterwards loads the 7 mech texture groups (g_MechTextureGroupNames/g_MechTextureGroupSlots) via FUN_0045cdd8/FUN_00469f38, unrelated to formations. This function was never auto-disassembled by prior analysis passes (it sits directly after another function's RET with no call-graph edge Ghidra had found, so nothing walked into it) -- found by raw byte-scanning for the 'mforms' string's address as a PUSH-immediate operand, then manually disassembling/decompiling from there. Registered into DBSIM's subsystem-loader table via a thunk at 00420654 (FUN_00401d64(Mech_LoadResources, 2)), confirming it is live code the game runs, not dead weight.",
+      "source": "docs/formats/script-dat.md 2026-08-14 (mech formation spread, resolving the MFORMS.DAT load-site gap)"
+    },
+    {
+      "address": "004a9df0",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_MechFormationTable",
+      "description": "The mech formation-offset table pointer Formation_GetSlotOffset (004205cc) reads. Previously documented as having no write site anywhere in DBSIM.EXE -- that was true only of the code Ghidra had disassembled; Mech_LoadResources (0041fdb0), found 2026-08-14, writes it (`_DAT_004a9df0 = extraout_EAX_00;` immediately after Cpp_VectorNew allocates count*28 bytes and before the file's formation data is read into that buffer). Sits in a tight cluster of mech-subsystem globals: DAT_004a9de4 (mech name table, LoadNameList's target) / DAT_004a9dec (formation count) / this pointer / DAT_004a9df4 (cached object-pool handle, maybe_MechTypeSlot_Allocate).",
+      "source": "docs/formats/script-dat.md 2026-08-14 (mech formation spread)"
+    },
+    {
+      "address": "00420654",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_RegisterLoader",
+      "description": "Thunk that registers Mech_LoadResources (0041fdb0) into DBSIM's subsystem-loader table via FUN_00401d64(Mech_LoadResources, 2), then separately allocates the 7-slot mech-texture-group vector (Cpp_VectorNew(&g_MechTextureGroupSlots, 8, 8, 1, ...)). Found by raw dword-scanning DBSIM.EXE for Mech_LoadResources' address used as a PUSH-immediate operand (68 B0 FD 41 00); like Mech_LoadResources itself, was never auto-disassembled by prior analysis (sits right after another function's RET, no call-graph edge into it).",
+      "source": "docs/formats/script-dat.md 2026-08-14 (mech formation spread)"
+    },
+    {
+      "address": "00401d64",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "RegisterSubsystemLoader",
+      "description": "Appends (funcPtr, id) to a global registration table (DAT_004a80d0, 6-byte entries: 4-byte function pointer + 2-byte id) at the slot indexed by a global counter (DAT_00497074) that it then increments. Confirms whatever registers itself here -- e.g. Mech_LoadResources via the 00420654 thunk -- is walked and invoked by DBSIM's generic subsystem-init driver rather than being dead code.",
+      "source": "docs/formats/script-dat.md 2026-08-14 (mech formation spread)"
+    },
+    {
+      "address": "0049a46b",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "s_mforms_0049a46b",
+      "description": "String literal 'mforms', mechsys.cpp's dat\\MFORMS.DAT resource name (joined with the 'dat' folder prefix by FUN_00492ae0 in Mech_LoadResources). Sits in a literal pool alongside other mechsys.cpp string constants (difficulty names, texture-bank names) immediately followed by the source-file name 'mechsys.cpp' itself -- typical MSVC layout for a translation unit's string constants. No Reference object existed to this address before Mech_LoadResources was manually disassembled, because that function itself was never auto-analyzed; found by raw byte-scanning every initialized memory block for the literal ASCII bytes.",
+      "source": "docs/formats/script-dat.md 2026-08-14 (mech formation spread)"
     }
   ]
 }

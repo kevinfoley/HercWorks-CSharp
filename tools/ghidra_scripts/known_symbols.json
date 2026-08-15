@@ -2547,6 +2547,87 @@
       "name": "s_mforms_0049a46b",
       "description": "String literal 'mforms', mechsys.cpp's dat\\MFORMS.DAT resource name (joined with the 'dat' folder prefix by FUN_00492ae0 in Mech_LoadResources). Sits in a literal pool alongside other mechsys.cpp string constants (difficulty names, texture-bank names) immediately followed by the source-file name 'mechsys.cpp' itself -- typical MSVC layout for a translation unit's string constants. No Reference object existed to this address before Mech_LoadResources was manually disassembled, because that function itself was never auto-analyzed; found by raw byte-scanning every initialized memory block for the literal ASCII bytes.",
       "source": "docs/formats/script-dat.md 2026-08-14 (mech formation spread)"
+    },
+    {
+      "address": "00492ae0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ResourcePath_BuildFolderName",
+      "description": "The shared folder\\name resource-path builder: ResourcePath_BuildFolderName(name, folder) writes 'folder\\\\name' into a shared static buffer (&DAT_006cbcae) via FUN_00492a84(name) + strcat('\\\\') + strcat(folder). Confirmed by tracing its two operands against known-good results (e.g. ResourcePath_BuildFolderName(hercName, \"vue\") and the folder-name pointer table at CockpitDpl_ResourceFolderNames). Matches Herculan.Engine.Content.GameContent's own folder\\name resolution convention exactly -- this is DBSIM's side of the same addressing scheme.",
+      "source": "docs/formats/cockpit-hud.md 2026-08-15 (Milestone 8 Phase 0)"
+    },
+    {
+      "address": "004a0a14",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "CockpitDpl_ResourceFolderNames",
+      "description": "A 12-entry constant pointer table of resource folder-name strings: dpl, gl, dmg, col, edg, dba, dci, dfn, gau, hfn, hdg, hba (0x4a0a14-0x4a0a43, pointing into a shared string pool at 0x4a0a44 that separately also holds wb/rb (fopen modes) and nam/dat/bnd/dts, those last four belonging to a different, not-yet-located table). Despite the name, this table is NOT cockpit-exclusive -- gau/dpl/dba/dci/dfn/hfn/hdg/hba are all mech-subsystem resource kinds reused site-wide; named for the first confirmed use found this session (index 0, \"dpl\", is PTR_DAT_004a0a14, used directly by the COCKPIT.DPL/IMPACTCP.DPL load calls -- see CockpitPaletteSingleton).",
+      "source": "docs/formats/cockpit-hud.md 2026-08-15 (Milestone 8 Phase 0)"
+    },
+    {
+      "address": "0049ac48",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "CockpitPaletteSingleton",
+      "description": "Pointer to the currently-loaded cockpit-family DynamixPalette object. First loaded lazily (guarded by == 0) as the literal resource 'dpl\\\\cockpit' (s_cockpit_0049ae69 + CockpitDpl_ResourceFolderNames[0]=\"dpl\", via ResourcePath_BuildFolderName + ClassItem_LoadTaggedResource) -- confirms DBSIM loads COCKPIT.DPL by a plain literal name, not a derived/offset one, and the real retail file ES2/VOL/simvol0/dpl/COCKPIT.DPL exists under exactly that name. Later swapped to 'dpl\\\\impactcp' (IMPACTCP.DPL, also a real retail file) as a second, smaller damage/impact-flash palette, whose colors get copied into a 24-entry sub-range of the global active display palette (Palette_InstallRange(0x2a, 0x18, ...)) rather than replacing CockpitPaletteSingleton wholesale. No index-remap/offset was found anywhere in this load path -- decoding a real .HB0 through COCKPIT.DPL with a direct, unmodified index lookup produces a correct, recognizable cockpit image (visually verified against APOCA.HB0/SAMSON.HB0), settling Milestone 8 Phase 0 Q1: the existing TextureViewerForm.PreferredPaletteFor(\"COCKPIT\") heuristic is exactly right, not merely a plausible guess.",
+      "source": "docs/formats/cockpit-hud.md 2026-08-15 (Milestone 8 Phase 0)"
+    },
+    {
+      "address": "004303c4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Palette_InstallRange",
+      "description": "Palette_InstallRange(baseIndex, count, srcRgbaArray): copies count RGBA/RGB entries from srcRgbaArray into the global active display palette (*(DAT_0049b020+8) + baseIndex*4), then tracks the min/max dirty index range (DAT_0049b028/DAT_0049b02c) for a batched hardware palette update -- classic indexed-display-mode palette management. Used by the cockpit-view constructor to install the small IMPACTCP.DPL flash palette into a 24-entry sub-range (base 0x2a) of the shared 256-slot palette, distinct from CockpitPaletteSingleton's own local RGB array.",
+      "source": "docs/formats/cockpit-hud.md 2026-08-15 (Milestone 8 Phase 0)"
+    },
+    {
+      "address": "0049b088",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "CockpitViewInstance",
+      "description": "Singleton pointer to LocalPlayerMech's live cockpit/HUD view object (set once, guarded by == 0, in ColorSchemePanels_LoadAll/00431098). Directly embeds each GAU widget as a live sub-object at a fixed struct offset matching GAUFile.cs's own documented field order: a 10-slot weapon-button array at +0x1c (matches GAU's 10 weapon hardpoint slots), then single widgets at +0x1e1/+0x1e5/+0x1e9/+0x1ed/+0x1f1/+0x1f5/+0x1f9/+0x20b (chain/link/autotrack/energy-meter-family offsets), each paint-dispatched via its own vtable call. Read throughout the cockpit/HUD call graph (Player_PerFrameCockpitUpdate, maybe_Sim_RenderFrame, Gau_BuildCockpitWidgets, Gau_RovingGunsightWidget, Hud_UpdateWaypointIndicator, ~90 more sites) but never seen holding the HB0/HB2 background bitmap itself -- that field, and the exact function that blits the cockpit background art and composites the live 3D view into it, were not pinned to a specific offset/address this session (see docs/formats/cockpit-hud.md's open items). NOT the same object as maybe_MechInspectViewInstance (DAT_004d2544), a separate, much smaller (0x37-byte) object built by Sim_InitMissionSession right after this singleton is already in use.",
+      "source": "docs/formats/cockpit-hud.md 2026-08-15 (Milestone 8 Phase 0)"
+    },
+    {
+      "address": "0045fb9c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "maybe_Sim_RenderFrame",
+      "description": "Confirmed per-frame ordering relevant to cockpit/HUD compositing (Milestone 8 Phase 0): Terrain_SetupVisibleRegion, then FUN_004327ac(CockpitViewInstance) (per-widget paint dispatch over the weapon-slot array and chain/link/autotrack/shield/etc. sub-widgets), then maybe_Scene_SubmitFrameObjects (the 3D world), then Player_PerFrameCockpitUpdate, then three more vtable paint dispatches on CockpitViewInstance sub-objects (+0x1f5, FUN_00433158's result, +0x20b). Widget paint therefore happens BEFORE the 3D scene submit each frame, not after -- relevant to how Phase 2/3's Overlay2DRenderer should order its own draw calls relative to SceneRenderer, though DBSIM's own software-blit ordering doesn't have to constrain an OpenGL implementation that composites via alpha/depth instead.",
+      "source": "docs/formats/cockpit-hud.md 2026-08-15 (Milestone 8 Phase 0); confidence/name unchanged from docs/formats/terrain-texturing.md 2026-08-13"
+    },
+    {
+      "address": "00429660",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_MechInspectView_Ctor",
+      "description": "Builds a small (0x37=55-byte) per-object 'view' widget, NOT CockpitViewInstance -- Sim_InitMissionSession stores its result in the separate global maybe_MechInspectViewInstance (DAT_004d2544), constructed well after CockpitViewInstance is already in use elsewhere in the same function. Also the site of CockpitPaletteSingleton's first (singleton-guarded) load. Named 'MechInspectView' as a working hypothesis -- calls maybe_MechInspectView_LoadDamageFrames with the target mech's own model name, loading per-index images from folders whose names are built by overwriting the last letter of a shared 3-char stem (\"edg\"/\"hdg\") with an ASCII digit, i.e. ed0/ed1/ed2 or hd0/hd1/hd2 -- and both folder families (plus a 4th index, ed3/hd3) are confirmed to exist as real folders in ES2/VOL/simvol0. Plausibly a target-identification/mech-scan display, not the player's own first-person cockpit background (which uses the completely different, still-unlocated HB0/HB1/HB2 folders -- see cockpit-hud.md).",
+      "source": "docs/formats/cockpit-hud.md 2026-08-15 (Milestone 8 Phase 0)"
+    },
+    {
+      "address": "00429834",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_MechInspectView_LoadDamageFrames",
+      "description": "Called once from maybe_MechInspectView_Ctor. Loads *param_1 per-index frame images from folder ed0../hd0.. (see maybe_MechInspectView_Ctor), then calls the already-known Gau_BuildCockpitWidgets(gauFile, hercName) -- confirming that function is a general-purpose '.GAU widget tree builder for a given herc', reused here for this smaller inspect-view object and not exclusive to the player's own live cockpit.",
+      "source": "docs/formats/cockpit-hud.md 2026-08-15 (Milestone 8 Phase 0)"
+    },
+    {
+      "address": "004d2544",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "medium",
+      "name": "maybe_MechInspectViewInstance",
+      "description": "Result of maybe_MechInspectView_Ctor, constructed in Sim_InitMissionSession. Small (0x37-byte) object, distinct from the much larger CockpitViewInstance (DAT_0049b088).",
+      "source": "docs/formats/cockpit-hud.md 2026-08-15 (Milestone 8 Phase 0)"
     }
   ]
 }

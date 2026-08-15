@@ -17,16 +17,23 @@ namespace Herculan.Engine.Gl;
 public sealed class GpuTexture : IDisposable {
 	private readonly GL _gl;
 
-	public GpuTexture(GL gl, TextureAtlas atlas) {
+	public GpuTexture(GL gl, TextureAtlas atlas) : this(gl, atlas.Pixels, atlas.Width, atlas.Height) { }
+
+	/// <summary>
+	/// Uploads a plain RGBA8 image with no atlas packing — for a single-frame source like
+	/// <see cref="Content.CockpitFrame"/>, where packing would be pure overhead (see
+	/// <c>Content.CockpitArt</c>'s doc comment).
+	/// </summary>
+	public GpuTexture(GL gl, ReadOnlySpan<byte> rgbaPixels, int width, int height) {
 		_gl = gl;
 		Handle = _gl.GenTexture();
 
 		_gl.BindTexture(TextureTarget.Texture2D, Handle);
 
 		unsafe {
-			fixed (byte* pixels = atlas.Pixels) {
+			fixed (byte* pixels = rgbaPixels) {
 				_gl.TexImage2D(TextureTarget.Texture2D, 0, InternalFormat.Rgba8,
-					(uint)atlas.Width, (uint)atlas.Height, 0,
+					(uint)width, (uint)height, 0,
 					PixelFormat.Rgba, PixelType.UnsignedByte, pixels);
 			}
 		}

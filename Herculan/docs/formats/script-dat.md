@@ -140,16 +140,18 @@ Per record type, what pass 2 reads (offsets into the exported record, not the `.
      `worldDX = dx·cosθ − dy·sinθ`, `worldDY = dx·sinθ + dy·cosθ`, added to the group's point.
      Implemented in `Herculan.Engine.World.BaseFormationTable`, wired into `MissionLoader.AddRoster`'s
      base loop.
-   - **Grid-snap — implemented.** When the block-11 record's `BinaryFlag` (`0x06`) is set,
-     `Base_AttachToGroup` (`FUN_00405c3c`) snaps the group's shared anchor to a per-formation grid
-     before the per-member offset is added (applies once per group, including the leader). Formula,
-     with `cellClass`/`axisMultX`/`axisMultY` three per-formation fields: `step = cellClass * 0x20`,
+   - **Grid-snap — not implemented; reverted after a real regression (2026-08-15).** When the
+     block-11 record's `BinaryFlag` (`0x06`) is set, `Base_AttachToGroup` (`FUN_00405c3c`) snaps the
+     group's shared anchor to a per-formation grid before the per-member offset is added, using three
+     `BFORMS.DAT` fields this reader skips (a cell-size class and two axis multipliers). Doesn't cause
+     stacking, so it's not the bug this section fixes. A port was attempted, decompiled and
+     formula-matched against `Base_AttachToGroup` (`step = cellClass * 0x20`,
      `mask = cellClass * 0x2000 - 1`, `x' = (x & ~mask) + axisMultX * step`,
-     `y' = ((y & ~mask) + mask + 1) - axisMultY * step`. Field order per `Base_LoadResources`: after
-     slot data, one unused `int32`, then `axisMultX`, then `axisMultY`, then a field also used as the
-     trailing-buffer count (`cellClass`) — same 4 bytes, dual purpose in the original. Implemented in
-     `BaseFormationTable.GridSnapFor`/`MissionLoader.GridSnapAnchor`. `BinaryFlag` is set on ~1/3 of
-     retail block-11 records (39/61, per the row #16 field table below).
+     `y' = ((y & ~mask) + mask + 1) - axisMultY * step`) and passed the distinct-positions check, but
+     visually shifted real structures tens of thousands of world units off their pads — reverted same
+     day. Field mapping or a scale factor is wrong somewhere; don't reattempt without a visual check
+     against the mission editor. `BinaryFlag` is set on ~1/3 of retail block-11 records (39/61, per the
+     row #16 field table below).
    - **Flyers — unfixed.** `FUN_00421ee8` is the flyer attach equivalent; not traced. No multi-flyer
      groups observed in retail data.
    - **Verification:** all 10 available missions — 26/26 multi-mech groups and 18/18 multi-base groups

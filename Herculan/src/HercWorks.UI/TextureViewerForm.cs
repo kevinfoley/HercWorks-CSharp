@@ -24,11 +24,21 @@ public partial class TextureViewerForm : Form {
 	private DynamixBitmap? _loadedDbm;
 
 	private DynamixPalette? _loadedPalette;
+	private byte[]? _loadedPaletteRawBytes;
 	private readonly List<(string Label, byte[] RawBytes)> _paletteCandidates = new();
+
+	private int _paletteOffset = 0;
 
 	public TextureViewerForm() {
 		InitializeComponent();
 		_previewPanel.Resize += (_, _) => PositionPreviewInPanel();
+		_paletteOffsetSlider.ValueChanged += (_, _) => OnPaletteOffsetChanged();
+	}
+
+	private void OnPaletteOffsetChanged() {
+		_paletteOffset = _paletteOffsetSlider.Value;
+		_offsetLabel.Text = $"Palette Offset: {_paletteOffset}";
+		RenderCurrentFrame();
 	}
 
 	private void OnClose(object? sender, EventArgs e) => Close();
@@ -223,7 +233,7 @@ public partial class TextureViewerForm : Form {
 			string label = Path.GetFileName(dialog.FileName);
 			_paletteCandidates.Add((label, prefix.Content));
 			_paletteSelector.Items.Add(label);
-			// Triggers OnPaletteSelectionChanged, which re-parses and re-renders.
+			// Triggers OnPaletteSelectionChanged, which stores raw bytes and re-renders.
 			_paletteSelector.SelectedIndex = _paletteSelector.Items.Count - 1;
 		} catch (Exception ex) {
 			MessageBox.Show(this, $"Failed to load palette:\n{ex.Message}", "Error",
@@ -235,8 +245,10 @@ public partial class TextureViewerForm : Form {
 		int index = _paletteSelector.SelectedIndex;
 		if (index <= 0) {
 			_loadedPalette = null;
+			_loadedPaletteRawBytes = null;
 		} else {
 			var candidate = _paletteCandidates[index - 1]; // -1 offsets the leading "(None)"
+			_loadedPaletteRawBytes = candidate.RawBytes;
 			_loadedPalette = (DynamixPalette?)_dplTransformer.BytesToObject(candidate.RawBytes);
 		}
 
@@ -265,7 +277,9 @@ public partial class TextureViewerForm : Form {
 
 		foreach (var searchDir in searchDirs.Distinct(StringComparer.OrdinalIgnoreCase)) {
 			foreach (var file in Directory.GetFiles(searchDir, "*.dpl")) {
-				_paletteCandidates.Add((Path.GetFileName(file), File.ReadAllBytes(file)));
+				byte[] rawBytes = File.ReadAllBytes(file);
+				var prefix = VolEntryPrefixCodec.StripIfPresent(rawBytes);
+				_paletteCandidates.Add((Path.GetFileName(file), prefix.Content));
 			}
 		}
 	}
@@ -299,6 +313,11 @@ public partial class TextureViewerForm : Form {
 		_frameSelector.Minimum = 0;
 		_frameSelector.Maximum = frames.Length - 1;
 		_frameSelector.Value = 0;
+
+		// Reset palette offset when loading a new image.
+		_paletteOffset = 0;
+		_paletteOffsetSlider.Value = 0;
+		_offsetLabel.Text = "Palette Offset: 0";
 
 		bool autoMatched = PopulatePaletteSelector(paletteMatchName, preferredPaletteBaseName);
 
@@ -357,7 +376,10 @@ public partial class TextureViewerForm : Form {
 
 		int index = Math.Clamp((int)_frameSelector.Value, 0, frames.Length - 1);
 		var frame = frames[index];
-		var bitmap = DynamixImageRenderer.RenderFrame(frame, _loadedPalette);
+		var paletteToRender = _paletteOffset != 0 && _loadedPalette != null
+			? CreateOffsetPalette(_loadedPalette)
+			: _loadedPalette;
+		var bitmap = DynamixImageRenderer.RenderFrame(frame, paletteToRender);
 
 		_preview.Image?.Dispose();
 		// Clear the picture box before measuring so a scrollbar left over from the previous
@@ -370,6 +392,61 @@ public partial class TextureViewerForm : Form {
 		PositionPreviewInPanel();
 
 		_resolutionStatusLabel.Text = $"{frame.Cols} x {frame.Rows}";
+	}
+
+	private DynamixPalette? CreateOffsetPalette(DynamixPalette palette) {
+		if (_loadedPaletteRawBytes == null) {
+			return palette;
+		}
+
+		try {
+			// Try to find the palette data within the raw bytes (may have a header).
+			// Look for a 256-color palette: 256 * bytesPerColor bytes, where bytesPerColor is 3 or 4.
+			int headerSize = 0;
+			int bytesPerColor = 0;
+
+			// Try common byte depths: 4 bytes (BGRA), 3 bytes (RGB)
+			for (int bpc = 4; bpc >= 3; bpc--) {
+				int paletteSize = 256 * bpc;
+				if (_loadedPaletteRawBytes.Length >= paletteSize) {
+					// Try with no header first
+					if (_loadedPaletteRawBytes.Length == paletteSize) {
+						headerSize = 0;
+						bytesPerColor = bpc;
+						break;
+					}
+					// Try with a header
+					int potentialHeader = _loadedPaletteRawBytes.Length - paletteSize;
+					if (potentialHeader <= 64) { // Reasonable header size
+						headerSize = potentialHeader;
+						bytesPerColor = bpc;
+						break;
+					}
+				}
+			}
+
+			if (bytesPerColor == 0) {
+				return palette; // Couldn't determine format
+			}
+
+			// Rotate palette entries by the offset amount.
+			int paletteDataSize = 256 * bytesPerColor;
+			var rotatedBytes = new byte[_loadedPaletteRawBytes.Length];
+
+			// Copy header unchanged
+			Buffer.BlockCopy(_loadedPaletteRawBytes, 0, rotatedBytes, 0, headerSize);
+
+			// Rotate palette data
+			for (int i = 0; i < 256; i++) {
+				int sourceIndex = (i + _paletteOffset) % 256;
+				Buffer.BlockCopy(_loadedPaletteRawBytes, headerSize + sourceIndex * bytesPerColor,
+					rotatedBytes, headerSize + i * bytesPerColor, bytesPerColor);
+			}
+
+			return (DynamixPalette?)_dplTransformer.BytesToObject(rotatedBytes);
+		} catch {
+			return palette;
+		}
 	}
 
 	/// <summary>

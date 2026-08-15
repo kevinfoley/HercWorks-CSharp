@@ -146,10 +146,28 @@ public sealed class SceneRenderer : IDisposable {
 	/// <summary>Distance in render units at which haze is total.</summary>
 	public float HazeEnd { get; set; } = 9000f;
 
-	public void Render(Camera camera, IEnumerable<SceneItem> items, int viewportWidth, int viewportHeight) {
-		_gl.Viewport(0, 0, (uint)System.Math.Max(viewportWidth, 1), (uint)System.Math.Max(viewportHeight, 1));
+	/// <summary>
+	/// Clears the whole framebuffer once per frame. Split out from <see cref="Render"/> so a host can
+	/// draw several panels (Milestone 8's three-panel cockpit view) into disjoint viewport sub-rects
+	/// of the same frame without each call wiping the ones already drawn — call this once, then
+	/// <see cref="Render"/> once per panel.
+	/// </summary>
+	public void Clear() {
 		_gl.ClearColor(HazeColor.X, HazeColor.Y, HazeColor.Z, 1f);
 		_gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+	}
+
+	/// <summary>
+	/// Draws one pass into the viewport sub-rect (<paramref name="viewportX"/>, <paramref
+	/// name="viewportY"/>, <paramref name="viewportWidth"/>, <paramref name="viewportHeight"/>) —
+	/// origin bottom-left in GL viewport convention, matching <c>GL.Viewport</c>'s own. Does not clear
+	/// — call <see cref="Clear"/> once per frame before the first panel. Setting `gl.Viewport` per call
+	/// is what keeps each panel's rasterization confined to its own sub-rect with no scissor-rect
+	/// bookkeeping needed.
+	/// </summary>
+	public void Render(Camera camera, IEnumerable<SceneItem> items,
+			int viewportX, int viewportY, int viewportWidth, int viewportHeight) {
+		_gl.Viewport(viewportX, viewportY, (uint)System.Math.Max(viewportWidth, 1), (uint)System.Math.Max(viewportHeight, 1));
 
 		_shader.Use();
 		_shader.SetMatrix("uView", camera.ViewMatrix);

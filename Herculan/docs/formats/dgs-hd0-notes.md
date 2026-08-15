@@ -42,11 +42,22 @@ Implementation: `HercWorks.Core.Io.Transform.Dbsim.BasesDgsTransformer`,
 `HercWorks.Core.Data.File.Dgs.BaseShapeLibrary`. Wired into
 `Herculan.Engine.Scene.SceneModelLibrary.Base()`.
 
-## `.HD0`/`.HD1`/`.HD2`/`.HD3` — no loader found
+## `.HD0`/`.HD1`/`.HD2`/`.HD3` — loader found (2026-08-15), NOT paired with `.HB0`
 
-No literal `"hd0"` / `"hd1"` / `".hd"` string in DBSIM.EXE. `.HD0` paired 1:1 with `.HB0`
-cockpit-textures (`SAMSON.HD0`/`SAMSON.HB0`, etc.). Likely approach: trace `.HB0`'s confirmed
-loader (herc-name + extension, like `.GAU`/`.DMG`) to find `.HD0` sibling.
+Correction to the note below: `.HD0`-family loading is now traced (see `cockpit-hud.md`, Milestone 8
+Phase 0) — `maybe_MechInspectView_LoadDamageFrames` (`00429834`) builds folder names by overwriting
+the last letter of a shared 3-char stem with an ASCII digit (`"hdg"`→`"hd0"/"hd1"/"hd2"`, or
+`"edg"`→`"ed0"/"ed1"/"ed2"`, selected by a runtime flag, plausibly a display-detail-mode switch — both
+folder families exist in retail data, `ed0-3` and `hd0-3`). Still no literal `"hd0"`/`.hd` string
+exists anywhere in DBSIM.EXE, confirming the original note's search — the name is assembled from
+parts, not stored whole.
+
+**Not paired with the player's own first-person `.HB0` cockpit background** as this note previously
+guessed from filename co-occurrence alone: the loader's result is stored in a separate, small
+(0x37-byte) object (`maybe_MechInspectViewInstance`, `DAT_004d2544`), distinct from and constructed
+after `CockpitViewInstance` (`DAT_0049b088`, the actual live player-cockpit/HUD singleton). Read as a
+target-identification/mech-inspection display, not the cockpit backdrop — `.HB0`/`.HB1`/`.HB2`'s own
+loader remains unlocated (see `cockpit-hud.md`'s open items).
 
 Previous finding (hex-only, pre-Ghidra): long run of `[UINT16][UINT16]` pairs (one counts up,
 one counts down) — suggestive of gradient/remap table; only extant evidence.

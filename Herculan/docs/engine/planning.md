@@ -415,7 +415,7 @@ per-formation records) wired into `MissionLoader.AddRoster`'s base loop, replaci
 the object's slot index within its group (0 for the group's first-claimed member, which keeps
 today's no-offset behavior) before falling back further to the bare group point.
 
-## Milestone 7 — mech formation spread and base grid-snap (2026-08-14)
+## Milestone 7 — mech formation spread (2026-08-14/15)
 
 Fixed the mech half of Milestone 6: `dat\MFORMS.DAT`'s load site, `Mech_LoadResources`
 (`FUN_0041fdb0`), had never been auto-disassembled (no call-graph edge into it), so its write to
@@ -424,8 +424,105 @@ analysis gap. Found via raw byte-scan for the string `"mforms"`, then for that
 address as a `PUSH`-immediate operand. Registered into DBSIM's subsystem-loader table (live code).
 `dat\MFORMS.DAT`: 142 bytes = 2-byte count (5) + five fixed 28-byte formations, byte-exact.
 Implemented as `Herculan.Engine.World.MechFormationTable`, wired into `MissionLoader.AddRoster`.
+Verified: 26/26 multi-mech groups get distinct positions, 0 exceptions.
 
-Implemented base grid-snap (formula and field mapping in `script-dat.md` point 6) as
-`BaseFormationTable.GridSnapFor` / `MissionLoader.GridSnapAnchor`.
+Also attempted base grid-snap and **reverted it same-day**: the decompiled formula
+(`script-dat.md` point 6) passed the distinct-positions check but visually shifted real structures
+tens of thousands of world units off their pads, confirmed against the mission editor. Field
+mapping or a scale factor is wrong; not re-attempted without a visual check next time.
 
 Not implemented: flyer formation spread (`FUN_00421ee8` untraced; no multi-flyer groups observed).
+
+## Milestone 8 — cockpit canopy + HUD graphics (2026-08-15)
+
+First 2D rendering of any kind: the player's cockpit canopy art (`(herc).HB0`/`.HB2`) and GAU HUD
+widget layout, drawn over a live 3D view. Full RE and real-data verification in
+`docs/formats/cockpit-hud.md` (Phase 0); summary here.
+
+**Modernization call, flagged as such per "vanilla by default":** the original shows one view at a
+time, panned via `F9`/`F10`. This milestone draws **three views simultaneously, side by side**
+(left/front/right) instead, since modern wide monitors don't need panning — purely cosmetic, no
+sim-behavior change. `Render/CockpitViewLayout.cs` computes each side panel's yaw offset from FOV and
+aspect ratio (`halfFovX(viewport) = atan(tan(fovY/2) * aspect)`) so the three tile edge-to-edge with
+no seam regardless of window size.
+
+**RE findings (Phase 0), all in `cockpit-hud.md`:**
+- Palette is confirmed literal `dpl\COCKPIT.DPL`, zero index offset — the existing
+  `TextureViewerForm.PreferredPaletteFor("COCKPIT")` heuristic was already exactly right; no WinForms
+  change was needed.
+- `.HB0`/`.HB2`'s own load site was not found in DBSIM.EXE despite an exhaustive raw-byte string
+  search — resolved empirically instead, by decoding and visually inspecting real assets: `.HB0` =
+  front/center, `.HB2` = a genuine distinct side view (mirrored at draw time for the opposite panel,
+  no separate mirrored asset), `.HB1` = a rear/overhead equipment-bay view not used by this milestone.
+- GAU's `HudScreenSize` (320,400) coordinate space maps onto `.HB0`/`.HB2`'s 640x480 pixel space via
+  a plain, uniform **2x scale on both axes** — proven by pixel-perfect visual overlay of five
+  independent real widgets on real cockpit art, not by disassembly (see `CockpitArt.GauToPixelScale`).
+- The 3D-viewport cutout is solid pure black (palette index 0). Not a clean isolated region — black
+  also occurs in scattered console-shadow detail — so it's resolved via a flood fill from the GAU
+  reticle position (always inside the viewport) baked into each frame's alpha channel at load time,
+  not a naive global color-key.
+
+**New types:** `Content/CockpitArt.cs` (loads/decodes `.HB0`/`.HB2`/`.GAU`, bakes the viewport-hole
+alpha), `Gl/Overlay2DVertex.cs` + `Gl/GpuOverlayMesh.cs` (a lighter 2D vertex/mesh pair — forcing flat
+HUD quads through the 12-float lit-3D `MeshVertex` layout would waste bandwidth for no benefit, same
+reasoning as `WireframeRenderer`'s own separate shader), `Render/Overlay2DRenderer.cs` (draws the
+cockpit-art quad with alpha blending, depth test off, then GAU widgets as flat-color outline/fill
+placeholders — center panel only, since the console instruments live in the front view — and restores
+GL state afterward), `Render/CockpitViewLayout.cs`. `Gl/GpuTexture.cs` gained a raw-RGBA-pixels
+constructor (no atlas packing needed for one 640x480 frame). `Render/SceneRenderer.cs` split into
+`Clear()` (call once per frame) and `Render(camera, items, viewportX, viewportY, viewportWidth,
+viewportHeight)` (no longer clears, takes an explicit sub-rect) — each panel's own `gl.Viewport` call
+confines its rasterization with no scissor-rect bookkeeping needed.
+
+**Verification aid:** `Herculan.Engine.Host` gained a `--screenshot <path>` flag — captures a
+dependency-free 24bpp BMP via `glReadPixels` after 30 frames and exits (no System.Drawing/ImageSharp
+dependency, matching the engine's existing no-imaging-dependency precedent).
+
+**Verified against the real install** (COLOSSUS, zone 555): palette renders correctly (recognizable
+console art, magenta energy-meter stripes intact); left/right panels are true mirrors of each other;
+all HUD placeholders (MFD bezel, weapon-slot banks, shield fill, chain/link/autotrack buttons,
+throttle, reticle) land exactly on their physical console graphics; the three panels tile with no
+visible seam even where the front and side images meet (checked at both boundaries, pixel-cropped).
+
+**Bug caught during this verification, not before:** the first working build placed widgets using the
+cockpit texture's own native 640x480 pixel coordinates directly as panel-viewport pixel coordinates —
+correct only when a panel's viewport happens to be exactly 640x480. Since the texture is stretched to
+fill each panel's own (different, non-4:3) viewport, every widget drifted off its console art. Fixed
+by scaling widget positions by `viewportSize / cockpitTextureSize` per axis, same as the quad itself
+already gets implicitly via UV interpolation. Caught by the visual verification screenshot, not by
+inspection — worth remembering that GAU-widget-over-cockpit-art correctness needs a real render, not
+just "it compiles."
+
+Not implemented: GAU widgets are not interactive (no input wiring); no HUD font/icon assets (outline
+placeholders only, per plan — kept out of scope on follow-up review too, see below); `.HB1`'s
+rear/overhead view is not drawn anywhere.
+
+### Milestone 8 follow-up (2026-08-15, same day): three real defects found on user review
+
+The first build's own screenshot-based verification above missed three things a side-by-side
+comparison against a real reference screenshot caught:
+
+1. **Cockpit art was stretched to fill each panel, distorting its aspect ratio.** Fixed:
+   `Overlay2DRenderer` now fits by height and preserves the native 640x480 aspect ratio, centering
+   horizontally — narrower panels (the common case for 3 side-by-side panels at a normal window
+   width) crop the art's left/right edges via GL's own clipping (no explicit UV math needed); wider
+   (ultrawide) panels show the live 3D view at the flanks instead of stretching art to cover them.
+   Widget placement uses the same transform, so it stays aligned regardless of panel aspect ratio.
+2. **Side panels were opaque black instead of showing the 3D view through the canopy.** Root cause:
+   the viewport-hole flood fill (`CockpitArt.CutViewportHole`) was only ever applied to `Front`
+   (`.HB0`), never to `Side` (`.HB2`). Fixed by applying it to `Side` too, seeded at its geometric
+   center — confirmed index 0 there across every retail herc checked.
+3. **Palette colors were visibly wrong** (purple/lavender-tinted, not retail's neutral gray/white).
+   This was a genuine RE gap, not just a code bug — see `docs/formats/cockpit-hud.md`'s Q1 for the
+   full trace. Short version: `COCKPIT.DPL` is a sequence of short per-material brightness ramps, not
+   one flat color space, and the correct on-screen look needs a lighting-state index offset that
+   DBSIM's own disassembly didn't reveal (every `Palette_InstallRange` call site was traced; none
+   installs `COCKPIT.DPL` for normal gameplay). Resolved empirically instead: shifting every nonzero
+   palette index by a constant (`CockpitArt.PaletteIndexOffset = 14`, index 0 always excluded)
+   reproduces the retail neutral-gray look, verified against a real reference screenshot. Different
+   offsets appear to select different lighting states (e.g. offset 246 gives APOCA a darker look
+   matching real gameplay screenshots specifically) — the real selection mechanism is still open.
+
+HUD graphics (green-outline placeholders vs. real icon/font art) were raised as a possible fourth
+issue but confirmed out of scope for this milestone on follow-up — decoding `.DFN`/`.HFN` HUD
+font/icon assets is a separate, open-ended RE task.

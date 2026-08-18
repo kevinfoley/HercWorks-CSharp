@@ -26,22 +26,18 @@ namespace HercWorks.Core.Data.File.Gau;
 ///   516 - rect - Auto-track toggle button.
 ///   532, 548 - confirmed always-zero (2 more "null widget" slots per the original doc).
 ///   564 - rect - Energy meter.
-///   580, 596, 612 - confirmed always-zero (3 more "null widget" slots per the original doc).
-///   628 - <see cref="HShieldDisplay"/>, 64 bytes (4x 16-byte slots) — the shield-status display.
-///     Cross-referenced against `Earthsiege 2 - On-Line Manual.pdf` (repo root, line 353: cockpit
-///     console lists "shield display" alongside the already-decoded ChainButton/LinkButton/
-///     EnergyMeter) and then confirmed 2026-08-09 against real pixel measurements from a user
-///     screenshot (APOCA) and, decisively, by rendering real `(herc).HB0` cockpit texture art with
-///     the candidate rects overlaid: they land exactly on the real meter graphic for both a
-///     bar-style meter (APOCA) and a completely different circular-gauge-style meter (MAVERICK) —
-///     see HShieldDisplay's own doc comment for the full slot breakdown. RAZOR is a confirmed
-///     exception: the manual (line 400) says it has a unique altimeter here instead of a shield
-///     display, so RAZOR's bytes at this offset still parse via the same struct shape (round-trips
-///     fine) but don't mean "shield display" the way every other herc's do.
-///   692 - <see cref="RemainderBeforeMfdPanel"/>, 260 bytes, NOT decoded. Confirmed all-zero across
-///     every real file except a single leftover byte at offset 692 itself (duplicates
-///     ShieldDisplay's last decoded int for reasons still unconfirmed — kept raw rather than
-///     guessed). Parallels the confirmed 288-byte gap earlier in the file.
+///   580, 596 - confirmed always-zero "null widget" slots; 612-615 is 4 more confirmed-zero bytes.
+///   616 - <see cref="HShieldDisplay"/>, 80 bytes — the ShieldsGauge block. A 16-byte header whose
+///     first two ints are an origin offset added to the rest (all-zero in every retail file), then
+///     four ordinary X1,Y1,X2,Y2 rects at 632/648/664/680: the two shield facings' meter bodies and
+///     their two numeric-readout rects. Layout taken from DBSIM's own ShieldsGauge_Ctor (004434fc),
+///     which Gau_ShieldDisplayWidget (00432454) calls with this offset. Corrected 2026-08-17: this
+///     block used to be read starting at 628, which rotated every slot by one int and left a
+///     spurious leftover int at 692. RAZOR is a confirmed exception — the manual (line 400) gives it
+///     a unique altimeter here — so its bytes parse through the same struct but do not mean the same
+///     thing.
+///   696 - <see cref="RemainderBeforeMfdPanel"/>, 256 bytes, NOT decoded. Confirmed all-zero across
+///     every real file. Parallels the confirmed 288-byte gap earlier in the file.
 ///   952 - <see cref="HMfdPanel"/>, 16 bytes (a single normal X1,Y1,X2,Y2 rect) — the Multi-Function
 ///     Display screen bounding box. The original Java doc comment already named this exact offset
 ///     (`"952- PANEL\MFD"`) but it was never implemented or verified against real data. Confirmed
@@ -148,7 +144,7 @@ public class GAUFile : DataFile {
 	public HMeter? EnergyMeter { get; set; }
 	public HShieldDisplay? ShieldDisplay { get; set; }
 
-	/// <summary>Undecoded bytes from content offset 692 to 951 — see class doc comment.</summary>
+	/// <summary>Undecoded bytes from content offset 696 to 951 — see class doc comment.</summary>
 	public byte[]? RemainderBeforeMfdPanel { get; set; }
 
 	public HMfdPanel? MfdPanel { get; set; }

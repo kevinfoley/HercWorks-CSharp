@@ -25,14 +25,12 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// </summary>
 public class GauFileTransformer : ThreeSpaceByteTransformer {
 	private const int WeaponSlotCount = 10;
-
 	/// <summary>
-	/// Bytes between the end of ShieldDisplay (offset 692) and the start of MfdPanel's rect (offset
-	/// 952) — confirmed all-zero for every real file except a single leftover duplicate byte at
-	/// offset 692 itself (mirrors ShieldDisplay's last decoded int, meaning unconfirmed — see
-	/// GAUFile's class doc comment), so kept raw rather than hardcoded zero.
+	/// Bytes between the end of the ShieldsGauge block (offset 696) and the start of MfdPanel's rect
+	/// (offset 952) — confirmed all-zero for every real file, kept raw rather than hardcoded zero.
 	/// </summary>
-	private const int RemainderBeforeMfdPanelLength = 260;
+	/// </summary>
+	private const int RemainderBeforeMfdPanelLength = 256;
 
 	/// <summary>Bytes between the end of Throttle (offset 1064) and the start of TorsoTwist (offset 1104) — NOT fully decoded, see class doc comment.</summary>
 	private const int RemainderBeforeTorsoTwistLength = 40;
@@ -74,7 +72,7 @@ public class GauFileTransformer : ThreeSpaceByteTransformer {
 
 		gau.EnergyMeter = ReadRect(() => new HMeter());
 
-		Skip(48); // 3 more confirmed always-zero "null widget" slots, offset 580/596/612.
+		Skip(36); // confirmed always-zero, offset 580-615 (two null widget slots plus 4 trailing bytes).
 
 		gau.ShieldDisplay = ReadShieldDisplay();
 
@@ -113,27 +111,28 @@ public class GauFileTransformer : ThreeSpaceByteTransformer {
 	}
 
 	/// <summary>
-	/// Reads the shield display's 4 slots (Unused, Divider, Bounds, Fill, in that on-disk order) —
-	/// see <see cref="HShieldDisplay"/>'s doc comment for what each slot means and why they're kept
-	/// as raw ints rather than sorted on read.
+	/// Reads the ShieldsGauge block at offset 616: a header rect whose first two ints are an origin
+	/// offset added to the rest, then the two facing boxes and the two numeric-readout rects — see
+	/// <see cref="HShieldDisplay"/> for the constructor this mirrors.
 	/// </summary>
 	private HShieldDisplay ReadShieldDisplay() {
-		int[] unused = ReadShieldSlot();
-		int[] divider = ReadShieldSlot();
-		int[] bounds = ReadShieldSlot();
-		int[] fill = ReadShieldSlot();
-
 		var display = new HShieldDisplay {
-			Unused = unused,
-			DividerRaw = divider,
-			BoundsRaw = bounds,
-			FillRaw = fill,
+			HeaderRaw = ReadShieldSlot(),
+			FrontBoxRaw = ReadShieldSlot(),
+			RearBoxRaw = ReadShieldSlot(),
+			FrontLabelRaw = ReadShieldSlot(),
+			RearLabelRaw = ReadShieldSlot(),
 		};
 
-		int top = Math.Min(bounds[0], bounds[2]);
-		int bottom = Math.Max(bounds[0], bounds[2]);
-		display.Origin = new PixelPoint(bounds[1], top);
-		display.Size = new PixelSize(bounds[3] - bounds[1], bottom - top);
+		// The widget's bounding box is the two facing boxes together.
+		int left = Math.Min(display.FrontBox.X, display.RearBox.X);
+		int top = Math.Min(display.FrontBox.Y, display.RearBox.Y);
+		int right = Math.Max(display.FrontBox.X + display.FrontBoxSize.Width,
+			display.RearBox.X + display.RearBoxSize.Width);
+		int bottom = Math.Max(display.FrontBox.Y + display.FrontBoxSize.Height,
+			display.RearBox.Y + display.RearBoxSize.Height);
+		display.Origin = new PixelPoint(left, top);
+		display.Size = new PixelSize(right - left, bottom - top);
 
 		return display;
 	}
@@ -180,12 +179,13 @@ public class GauFileTransformer : ThreeSpaceByteTransformer {
 
 		WriteRect(Write, gau.EnergyMeter!);
 
-		Write(new byte[48]); // 3 null widget slots, offset 580/596/612.
+		Write(new byte[36]); // confirmed always-zero, offset 580-615.
 
-		WriteShieldSlot(Write, gau.ShieldDisplay!.Unused);
-		WriteShieldSlot(Write, gau.ShieldDisplay.DividerRaw);
-		WriteShieldSlot(Write, gau.ShieldDisplay.BoundsRaw);
-		WriteShieldSlot(Write, gau.ShieldDisplay.FillRaw);
+		WriteShieldSlot(Write, gau.ShieldDisplay!.HeaderRaw);
+		WriteShieldSlot(Write, gau.ShieldDisplay.FrontBoxRaw);
+		WriteShieldSlot(Write, gau.ShieldDisplay.RearBoxRaw);
+		WriteShieldSlot(Write, gau.ShieldDisplay.FrontLabelRaw);
+		WriteShieldSlot(Write, gau.ShieldDisplay.RearLabelRaw);
 
 		if (gau.RemainderBeforeMfdPanel != null) {
 			Write(gau.RemainderBeforeMfdPanel);

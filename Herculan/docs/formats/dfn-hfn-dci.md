@@ -1,4 +1,6 @@
-# .DFN / .HFN / .DCI — Panel definitions and cursor images
+# .DFN / .HFN / .DCI — bitmap fonts and cursor images
+
+NOTE TO CLAUDE: This should be a reference document, not a personal journal.
 
 Reverse-engineered from `VSHELL.EXE`/`DBSIM.EXE` disassembly (Ghidra, `E:\ES2Stuff\tools\`), not
 from the Java source (`ES2TransferApi`/etc. never covered these). Cross-checked against real
@@ -24,10 +26,10 @@ Confirmed `typeId` values (all read as **big-endian** 4-byte magic, matching the
 |---|---|---|
 | `0x01002800` | `.DBA`/`.HBA`/`.HB0-2`/`.DB0-2` — bitmap array | already ported (`DynamixBitmapArrayTransformer`) |
 | `0x0E002800` | Embedded single-image sub-header inside the above | already ported |
-| `0x0B002800` | `.DCI` — cursor image | **new, this doc** |
-| `0x05002800` | `.DFN`/`.HFN` — "Panel" resource | **new, this doc** |
+| `0x0B002800` | `.DCI` — cursor image | decoded below |
+| `0x05002800` | `.DFN`/`.HFN` — bitmap font | decoded below |
 
-`.DFN`/`.HFN`/`.DCI` are dispatched by a generic class-registry loader in `DBSIM.EXE` (FUN_0047a5a8 → FUN_0047a394). Specific loaders: `FUN_00430f58` (panels), `FUN_00430fb0` (cursors).
+`.DFN`/`.HFN`/`.DCI` are dispatched by a generic class-registry loader in `DBSIM.EXE` (FUN_0047a5a8 → FUN_0047a394). Specific loaders: `FUN_00430f58` (fonts), `FUN_00430fb0` (cursors).
 
 ## `.DCI` — cursor image
 
@@ -69,112 +71,81 @@ prefix):
 
 **Caveat:** `PCURSOR.DCI` has ~101 undecoded trailing bytes; other 6 files end with 5 zero-padding bytes. The trailing data is mostly zero with scattered `0x38` and `0x3C` values — possibly a second image layer (AND-mask, outline) specific to this cursor, but not confirmed. Preserve as raw when parsing.
 
-## `.DFN` / `.HFN` — Panel resource (bitmap FONT for DBSIM's cockpit HUD, not VSHELL's UI layout)
+## `.DFN` / `.HFN` — bitmap font
 
-Two file sets:
-- `ES2/VOL/simvol0/dfn/*.DFN` — 18 color-scheme variants (ACTIVE, CPBLACK, CPBLUE, etc., loaded by FUN_00431098). `.HFN` and `.DFN` are the same format, differing only by extension based on runtime mode (DAT_004d25bb).
-- `ES2/VOL/SHELL0/DFN/*.DFN` — 4 files (FONT.DFN, FONT2.DFN, MAP.DFN, BLACK.DFN) referenced directly in VSHELL.EXE. Same outer magic as simvol0.
+DBSIM's only HUD text mechanism, and VSHELL's. Not a widget-layout resource: the seven consumer
+functions in `DBSIM.EXE` pass the loaded object as an opaque handle to the generic label
+constructors (`FUN_004387ac`/`FUN_00438884`/`FUN_00438920`) alongside a display string.
 
-Confirmed layout (after 9-byte VOL prefix):
+Two sets: `simvol0/dfn/*.DFN` and `simvol0/hfn/*.HFN` (26 and 25 files — the 18
+`ColorSchemePanels` fonts plus spares), and `SHELL0/DFN/*.DFN` (`FONT`, `FONT2`, `MAP`, `BLACK`).
+Same format throughout. `.HFN` is the 640-wide video mode's set and `.DFN` the 320-wide one's,
+selected by `VideoMode_UseHiResPanels == 3`; they are separate art, not a 2x scale of each other
+(cell heights 13 and 10, glyph counts 217 and 223).
 
-```
-0x00  uint16 typeId    = 0x0005   (BE dword 0x05002800)
-0x02  uint16           = 0x0028
-0x04  uint32 totalSize -- content size below this field (e.g. 0x1e3d for ACTIVE.DFN/CPBLACK.DFN)
-0x08  ...              -- NOT decoded past this point
-```
+### Layout
 
-`ACTIVE.DFN` and `CPBLACK.DFN` (both 7759 bytes) have **byte-identical content from offset 0x08
-through at least offset 0x27** in a spot-check — strong evidence the two colors share one panel
-*layout* and differ only in some later portion (very likely color/bitmap-reference fields), but
-that later portion wasn't located. `MAP.DFN`/`FONT.DFN` differ from the color-scheme files in
-several of the early count/size-looking fields (as expected, since they're structurally different
-panels), but share the same envelope.
-
-### Fixed header + trailing-blob structure
-
-Panel class vtable at `0x0047bf68` (slot 0: `FUN_004542d0`). Load path: VSHELL `FUN_00423d00` → generic loader `FUN_00403c1f` → factory `FUN_00454238` → deserializer `FUN_00454474`. Deserializer reads 11 int16 fields at offsets `0x04`–`0x18`, one int32 at `0x1a`, then conditionally-parsed variable-length blocks.
-
-**Confirmed on-disk layout** (offsets relative to content start, i.e. after the 9-byte VOL prefix;
-letters are this doc's own labels, not the original source's field names, which weren't recovered):
+Offsets relative to content start, i.e. after the 9-byte VOL prefix.
 
 ```
-0x00  uint16 typeId    = 0x0005        (BE dword 0x05002800)
+0x00  uint16 typeId     = 0x0005      (BE dword 0x05002800)
 0x02  uint16            = 0x0028
-0x04  uint32 totalSize -- content size below this field
-0x08  int16  A          -- a count, reused twice below (array-of-4-byte-entries count AND, when
-                           E==-1, a second raw-byte-blob length)
-0x0a  int16  B
-0x0c  int16  C          -- sentinel: when == -1, a 5th conditional block (count=B, 2 bytes/entry)
-                           is present (not observed set in any file checked yet)
-0x0e  int16  D
-0x10  int16  E          -- sentinel: -1 in every real file checked so far (MAP.DFN, ACTIVE.DFN);
-                           when -1, triggers the length-A raw blob at the end
-0x12  int16  F
-0x14  int16  G
-0x16  int16  H
-0x18  int16  I
-0x1a  int16  J
-0x1c  int16  K          -- count for the first conditional array (K×4 bytes); 0 in every file
-                           checked so far, so that array has never actually been observed non-empty
-0x1e  int32  L          -- byte length of the first conditional blob
-      -- (26-byte header ends here; all of the below are conditional on the header fields)
-      [K×4 bytes]        -- array1, present only if K != 0 (not yet observed non-empty)
-      [L bytes]          -- blob1, raw bytes, present only if L != 0 (present in every file checked)
-      [A×4 bytes]        -- array2, present only if A != 0 (present in every file checked)
-      [A bytes]          -- blob2, raw bytes, present only if E == -1 (present in every file checked;
-                            length reuses field A, NOT a separate on-disk length)
-      [B×2 bytes]        -- array3 (2 bytes/entry), present only if C == -1 (not yet observed)
+0x04  uint32 totalSize  -- content size below this field
+0x08  int16  glyphCount
+0x0a  int16             -- 0 in every retail file
+0x0c  int16  firstCharCode           -- 32 in every retail file
+0x0e  int16  cellHeight
+0x10  int16             -- -1 in every retail file
+0x12  int16  cellHeight              -- repeated
+0x14  int16  baseline                -- 8 (.DFN) / 9 (.HFN)
+0x16  int16             -- 8 in every retail file
+0x18  int16             -- 0 in every retail file
+0x1a  int16             -- 8 / 11 / 7, varies by file, meaning unmapped
+0x1c  int16  arrayCount              -- 0 in every retail file; when non-zero, arrayCount x 4 bytes
+                                        precede the glyph pool
+0x1e  uint32 poolLength
+0x22  [poolLength bytes]              glyph pool
+      [glyphCount x uint32]           each glyph's start offset into the pool
+      [glyphCount x uint8]            each glyph's width
 ```
 
-**Byte-exact validated against 2 real files, arithmetic not guesswork:**
+A glyph is `width * cellHeight` bytes, row-major, one palette index per pixel. **Verified across all
+54 retail font files: every glyph's pool slice is exactly `width * cellHeight` bytes, no
+exceptions** — so the width byte and the gap between consecutive offsets state the same fact twice.
 
-| File | totalSize | A | E | K | L (blob1) | A×4 (array2) | A (blob2) | sum vs. totalSize−26 |
-|---|---|---|---|---|---|---|---|---|
-| `SHELL0/DFN/MAP.DFN` | 5909 | 223 | −1 | 0 | 4768 | 892 | 223 | 4768+892+223 = 5883 = 5909−26 ✓ |
-| `simvol0/dfn/ACTIVE.DFN` | 7741 | 223 | −1 | 0 | 6600 | 892 | 223 | 6600+892+223 = 7715 = 7741−26 ✓ |
+The declared width is the advance, art included: cells carry their own right-hand spacing column, so
+a run is laid out by summing widths with no extra tracking. Glyph art is proportional — in
+`ACTIVE.HFN`, `1` is 3 wide, `S` 6, `0` and `A` 8.
 
-Both files sum exactly to declared `totalSize`. Field `A = 223` in both files despite structural differences (map vs. cockpit panel) — plausibly a fixed engine-wide count.
+Index 0 is transparent and **every retail file uses exactly one other value as its ink**. That is
+what makes the 18 colour-scheme fonts copies of one typeface: a widget picks its text colour by
+picking which font to hand the label constructor, never by passing a colour.
 
-### The 3 trailing blocks — variable-length-record pool (NOT a string table)
+| `.HFN` | ink | `.HFN` | ink |
+|---|---|---|---|
+| `WHITE` | 30 | `HUD1` | 72 |
+| `GRAY` | 25 | `HUD2` | 73 |
+| `GREEN` | 14 | `HUD3` | 74 |
+| `DARK` | 19 | `CPGREEN` | 15 |
+| `RED` | 10 | `ACTIVE` | 24 |
 
-- **`array2` (`A×4` bytes) is a monotonically increasing `uint32` offset table into `blob1`**,
-  confirmed by direct inspection of `MAP.DFN`'s real bytes: `0, 0x18, 0x28, 0x50, 0x80, ...` — 
-  strictly increasing, giving each of the `A` records a
-  variable-length slice of `blob1` (record *i*'s data runs from `array2[i]` to `array2[i+1]`,
-  lengths seen: 24, 16, 40, 48, 40, 40, 8, 32, 32, 32, 48, ...). This is the same
-  `[count][pool][count×offset]` shape already confirmed for `weapons.bin`
-  (`docs/formats/weapons-dat.md`), just with 4-byte offsets instead of 2-byte.
-- **`blob1` is NOT a string pool — ruled out by direct inspection.** Real bytes are overwhelmingly
-  `0x00` with a narrow band of other values, never printable ASCII text: `MAP.DFN`'s 4768 bytes are
-  3891× `0x00`, 789× `0x3b`, 88× `0x3a` (only 3 distinct byte values in the entire blob);
-  `ACTIVE.DFN`'s 6600 bytes are **exactly 2 distinct values**, 5380× `0x00` and 1220× `0x1f`. This
-  is the signature of a sparse raster mask/stencil (1 byte per pixel, "off"/"on" plus one
-  anti-aliased edge value for `MAP.DFN`), not text — each of the `A` variable-length slices from
-  `array2` is very likely a small per-record bitmap fragment (a glyph, an icon silhouette, or a
-  highlight/glow mask), matching the same "sparse mask, narrow value band" signature already seen
-  in `PCURSOR.DCI`'s undecoded trailing bytes and the confirmed `.EDG` scanline clip masks
-  elsewhere in this project — worth checking against those known-decoded formats for a shared
-  encoding scheme rather than treating this as fully novel.
-- **`blob2` (`A` bytes, one per record) is a small enum, not a flags byte.** `MAP.DFN`'s real
-  bytes are dominated by `0x04` with scattered `0x01`–`0x06` for roughly the first 180 records,
-  then a **long uniform run of `0x01`** for the remaining ~40 — matching the "unused/null slot"
-  sentinel pattern already confirmed elsewhere in this project (e.g. `.GAU`'s null-weapon
-  sentinel). Best current guess: a per-record type/category tag (widget kind, icon kind, etc.),
-  with `0x01` doubling as the empty-slot value.
-- The 11 small header shorts (`B`,`C`,`D`,`F`,`G`,`H`,`I`,`J`) are still not mapped to individual
-  meaning. `A` (the record count) is 223 in **both** `MAP.DFN` and `ACTIVE.DFN` but only 217 in
-  `FONT2.DFN`/`BLACK.DFN` (SHELL0) — so it does vary per-file, not a fixed engine-wide constant as
-  first guessed, but 217–223 is a suspiciously tight band (printable-ASCII-range-sized) worth
-  testing against more of the 18 `simvol0/dfn` color variants before concluding anything.
+`ColorSchemePanels` (`0049b0ac`) is the 18-entry loaded-font array; see cockpit-hud.md for the load
+order and which widget takes which entry.
 
-### Consumer found in DBSIM.EXE
+Engine implementation: `Herculan.Engine.Content.HudFont`, packed into the shared HUD atlas by
+`HudSpriteSheet`.
 
-7 real consumer functions in DBSIM.EXE (`FUN_0044a7c0`, `FUN_00451e94`, `FUN_0043a5a0`, `FUN_0043fe1c`, `FUN_0044ddec`, `FUN_0044c960`, `FUN_00450c54`) pass the loaded panel object as an opaque handle to generic label/text constructors (`FUN_00438920`, `FUN_00438884`), alongside literal strings — the signature of **a font being handed to a draw-this-string call**, not a widget-layout unpacking.
+### Label background
 
-**Conclusion: `.DFN`/`.HFN` is a bitmap font resource used by DBSIM's cockpit HUD (pilot names, readouts), not VSHELL's general UI-layout mechanism.** VSHELL's `MAP.DFN` is loaded but never used in VSHELL.EXE itself.
+A label paints its rect before its text, in the colour id at the label object's field `0x1d` — `0x2e`
+for a weapon row, `DAT_004d3c26` (`COLORS.DAT` id 19, palette 16, black) for the shield readouts.
+That is why retail's shield "100" sits on solid black rather than on the bezel art under it.
 
-**Open question:** Whether DBSIM.EXE loads the SHELL0 DFN files (FONT.DFN, FONT2.DFN, BLACK.DFN), since VSHELL never references them by name.
+### Consumers
+
+`FUN_0044a7c0`, `FUN_00451e94`, `FUN_0043a5a0`, `FUN_0043fe1c`, `FUN_0044ddec`, `FUN_0044c960`,
+`FUN_00450c54`. VSHELL loads `MAP.DFN` (`ShellMap_DfnPanelPtr`, `00471ca8`) but never reads it back —
+that load is vestigial.
 
 ## Ruled out: `.BND` and `.SNC`
 
@@ -182,6 +153,7 @@ Real files checked (`ACTOR.BND`, `MECH.BND`, `CAM.BND`, `PA_01000.SNC`, `PA_0200
 
 ## Open questions
 
-- `.DFN`/`.HFN`: record dimensions (width/height) within each `blob1` slice — still unmapped header shorts `B`/`D`/`F`/`G`/`H`/`I`/`J` may encode this.
-- `.DCI`: `PCURSOR.DCI`'s trailing 101 bytes (likely AND-mask or outline layer, but not confirmed).
-- Whether DBSIM.EXE (not VSHELL) loads the SHELL0 DFN files (FONT.DFN, FONT2.DFN, BLACK.DFN).
+- `.DFN`/`.HFN`: the header shorts at `0x0a`, `0x16`, `0x18` and `0x1a` are constant or near-constant
+  across every retail file and have no observed consumer.
+- `.DCI`: `PCURSOR.DCI`'s trailing 101 bytes (likely an AND-mask or outline layer, unconfirmed).
+- Whether DBSIM.EXE (not VSHELL) loads the SHELL0 fonts (`FONT.DFN`, `FONT2.DFN`, `BLACK.DFN`).

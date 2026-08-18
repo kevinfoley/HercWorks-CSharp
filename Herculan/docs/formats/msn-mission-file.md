@@ -1,5 +1,7 @@
 # .MSN mission file (ZONES.VOL/MSN/*.msn) and its VSHELL load path
 
+NOTE TO CLAUDE: This should be a reference document, not a personal journal.
+
 **Macro-structure: revision field + 17 array/skip rows in order (14 fully field-decoded), verified against all 62 real retail `.MSN` files.** The format was previously guessed by `MissionFile.cs`/`MissionFileTransformer.cs` (hardcoded against `TRAIN5.MSN` alone) and known to be structurally wrong. This doc reverses it from `VSHELL.EXE` disassembly and validates against real data.
 
 ## Call chain — confirmed

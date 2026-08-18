@@ -84,8 +84,13 @@ public sealed class TextureAtlas {
 	/// <para>A null <paramref name="palette"/> falls back to reading each index byte as a grey level,
 	/// matching <c>HercWorks.UI</c>'s renderer — a rough preview, never an accurate render, since a
 	/// <c>.DBM</c> does not bind its own palette (see <see cref="DynamixBitmap"/>).</para>
+	///
+	/// <para><paramref name="transparentIndex0"/> decodes palette index 0 to alpha 0 instead of an
+	/// opaque colour. Off by default because a mesh texture frame has no transparent index — it is the
+	/// 2D HUD sprite banks (<c>Content.HudSpriteSheet</c>) that treat 0 as "leave the console art
+	/// showing through", the same sentinel role index 0 plays in <c>Content.CockpitArt</c>.</para>
 	/// </summary>
-	public static TextureAtlas? Build(DynamixBitmapArray bank, DynamixPalette? palette) {
+	public static TextureAtlas? Build(DynamixBitmapArray bank, DynamixPalette? palette, bool transparentIndex0 = false) {
 		if (bank.Images is not { Length: > 0 } images) {
 			return null;
 		}
@@ -103,7 +108,7 @@ public sealed class TextureAtlas {
 				continue;
 			}
 
-			byte[] pixels = DecodeFrame(frame, palette);
+			byte[] pixels = DecodeFrame(frame, palette, transparentIndex0);
 			decoded[i] = new Decoded(pixels, frame.Cols, frame.Rows);
 			averageColors[i] = AverageColorOf(pixels);
 			totalArea += (frame.Cols + Padding) * (long)(frame.Rows + Padding);
@@ -221,7 +226,7 @@ public sealed class TextureAtlas {
 	/// against the real game, so diverging here would mean the engine and the tool disagree about
 	/// what a frame looks like.
 	/// </summary>
-	private static byte[] DecodeFrame(DynamixBitmap frame, DynamixPalette? palette) {
+	private static byte[] DecodeFrame(DynamixBitmap frame, DynamixPalette? palette, bool transparentIndex0) {
 		var pixels = new byte[frame.Cols * frame.Rows * 4];
 		byte[] indices = frame.ImageData ?? Array.Empty<byte>();
 		int count = System.Math.Min(indices.Length, frame.Cols * frame.Rows);
@@ -236,7 +241,7 @@ public sealed class TextureAtlas {
 			pixels[i * 4] = color.R;
 			pixels[i * 4 + 1] = color.G;
 			pixels[i * 4 + 2] = color.B;
-			pixels[i * 4 + 3] = 255;
+			pixels[i * 4 + 3] = (byte)(transparentIndex0 && index == 0 ? 0 : 255);
 		}
 
 		return pixels;

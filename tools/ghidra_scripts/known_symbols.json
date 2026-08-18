@@ -1505,7 +1505,7 @@
       "type": "data",
       "confidence": "high",
       "name": "ColorSchemePanels",
-      "description": "Base of the 18-element loaded-panel-object array filled by ColorSchemePanels_LoadAll (index 0 = cpblue, per the PTR_s_cpblue_0049b108 name-table iteration order). Unlike VSHELL's dead ShellMap_DfnPanelPtr, this array has 7 real consumer functions in DBSIM.EXE -- each assigns the panel-object pointer wholesale into a widget struct field and passes it as an opaque handle into a generic text/label constructor (FUN_00438920/FUN_00438884) alongside literal display strings, confirming this format is a bitmap FONT resource for DBSIM's cockpit HUD text, not a widget-layout table.",
+      "description": "Base of the 18-element loaded-font array filled by ColorSchemePanels_LoadAll, in load order: 0 cpblue, 1 cpgreen, 2 cpred, 3 cpylw, 4 cpon, 5 cppress, 6 cpoff, 7 cpgrey, 8 cpblack, 9 cporange, 10 white, 11 gray, 12 dark, 13 green, 14 red, 15 hud1, 16 hud2, 17 hud3. Each entry is a .DFN/.HFN bitmap font (see docs/formats/dfn-hfn-dci.md) stencilled in a single palette index, so a widget picks its text colour by picking which entry to hand the label constructor -- it never passes a colour. Consumers reach entries by absolute address: 0049b0d4 = 10 white (shield readouts, selected weapon name), 0049b0d8 = 11 gray, 0049b0dc = 12 dark, 0049b0ec = 16 hud2 (SPEED:/TIME: captions), 0049b0f0 = 17 hud3 (their values).",
       "source": "docs/formats/dfn-hfn-dci.md"
     },
     {
@@ -2606,28 +2606,514 @@
       "address": "00429660",
       "binary": "DBSIM",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_MechInspectView_Ctor",
-      "description": "Builds a small (0x37=55-byte) per-object 'view' widget, NOT CockpitViewInstance -- Sim_InitMissionSession stores its result in the separate global maybe_MechInspectViewInstance (DAT_004d2544), constructed well after CockpitViewInstance is already in use elsewhere in the same function. Also the site of CockpitPaletteSingleton's first (singleton-guarded) load. Named 'MechInspectView' as a working hypothesis -- calls maybe_MechInspectView_LoadDamageFrames with the target mech's own model name, loading per-index images from folders whose names are built by overwriting the last letter of a shared 3-char stem (\"edg\"/\"hdg\") with an ASCII digit, i.e. ed0/ed1/ed2 or hd0/hd1/hd2 -- and both folder families (plus a 4th index, ed3/hd3) are confirmed to exist as real folders in ES2/VOL/simvol0. Plausibly a target-identification/mech-scan display, not the player's own first-person cockpit background (which uses the completely different, still-unlocated HB0/HB1/HB2 folders -- see cockpit-hud.md).",
-      "source": "docs/formats/cockpit-hud.md 2026-08-15 (Milestone 8 Phase 0)"
+      "confidence": "high",
+      "name": "CockpitViewManager_Ctor",
+      "description": "CORRECTS the earlier 'MechInspectView' hypothesis. This 0x37-byte object IS the player's own cockpit view manager (MECHVIEW.CPP): it holds the current view index at +0x14, the pending view command at +0x18, the CockpitView widget tree pointer at +0x1f, the owning mech at +0x29 and the herc model name at +0x2d, and it is what CockpitView_SetView/CockpitView_ProcessViewCommand drive. It is small because the heavy state lives in the CockpitView object it builds (see CockpitViewManager_LoadViews -> FUN_00431008 -> CockpitViewInstance). Also the site of CockpitPaletteSingleton's first (singleton-guarded) load of dpl\\\\cockpit.",
+      "source": "cockpit rendering RE session 2026-08-17"
     },
     {
       "address": "00429834",
       "binary": "DBSIM",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_MechInspectView_LoadDamageFrames",
-      "description": "Called once from maybe_MechInspectView_Ctor. Loads *param_1 per-index frame images from folder ed0../hd0.. (see maybe_MechInspectView_Ctor), then calls the already-known Gau_BuildCockpitWidgets(gauFile, hercName) -- confirming that function is a general-purpose '.GAU widget tree builder for a given herc', reused here for this smaller inspect-view object and not exclusive to the player's own live cockpit.",
-      "source": "docs/formats/cockpit-hud.md 2026-08-15 (Milestone 8 Phase 0)"
+      "confidence": "high",
+      "name": "CockpitViewManager_LoadViews",
+      "description": "The whole cockpit bring-up, in order: (1) loads vue\\\\<herc> -- int32 viewCount then viewCount x 32-byte records {int x0,y0,x1,y1, cx, cy, canvasOriginX, canvasOriginY}, all coordinates shifted by VideoMode_X/YCoordShift; every retail .VUE has viewCount=4; (2) allocates 4 slots for canopy bitmaps, 4 x 0x204 clip-region blocks and 4 span tables; (3) per view i, calls CockpitClipRegions_Load on ed<i>/hd<i> and ClipRegions_BuildScanlineSpans on the result, and (unless CockpitArt_LoadOnDemand) CockpitCanopy_LoadViewBitmap for db<i>/hb<i>; (4) builds the CockpitView widget object (FUN_00431008 -> ColorSchemePanels_LoadAll, which sets CockpitViewInstance) and Gau_BuildCockpitWidgets; (5) THE PER-HERC COCKPIT COLOUR SCHEME: Palette_InstallRange(0x2a, 0x18, COCKPIT.DPL.entries + (schemeIdx*0x18 + 0x20)*4), i.e. live palette slots 42..65 are overwritten with COCKPIT.DPL entries [32 + 24*schemeIdx .. +24), where schemeIdx = mechTypeRecord+0x52 = offset 80 of simvol0/dat/<MECH>.DAT (HercSimDat.Unk80_ValHudId). Retail values are a 0-8 permutation: APOCA 0, COLOSSUS 1, SAMSON 2, MAVERICK 3, OGRE 4, OUTLAW 5, RAPTOR2 6, RAZOR 7, TOMAHAWK 8, so the nine 24-entry schemes fill COCKPIT.DPL entries 32..247. This matches the independently measured retail screenshots exactly (APOCA renders canopy index i as COCKPIT.DPL[i-10] => base 32; COLOSSUS as COCKPIT.DPL[i+14] => base 56) and explains why every WORLD<n>.DPL parks exactly slots 42-65 at filler green. (6) Repeats the same install with IMPACTCP.DPL into the secondary palette object DAT_0049aef8 for the damage flash.",
+      "source": "cockpit rendering RE session 2026-08-17"
     },
     {
       "address": "004d2544",
       "binary": "DBSIM",
       "type": "data",
+      "confidence": "high",
+      "name": "CockpitViewManagerInstance",
+      "description": "Result of CockpitViewManager_Ctor, constructed in Sim_InitMissionSession. The player's cockpit view-state object (current view, pending view command, the 4 canopy bitmaps / clip blocks / span tables, and the CockpitView widget tree). Distinct from, and the owner of, CockpitViewInstance (DAT_0049b088).",
+      "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "0045cdd8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Resource_Load",
+      "description": "Resource_Load(path): wraps a folder\\name string into a temporary object and calls ClassItem_LoadResource(obj, 0), returning the loaded resource handle. The single entry point every HUD sprite bank, panel and cursor load goes through after ResourcePath_BuildFolderName builds the path.",
+      "source": "docs/formats/cockpit-hud.md (HUD sprite art)"
+    },
+    {
+      "address": "00430d08",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Palette_InterpolateIndexRanges",
+      "description": "Palette_InterpolateIndexRanges(from, to, rampCount, levels, out): linearly interpolates palette index RANGES, not colours. Each of from/to/out is an array of (int16 start, int16 count) pairs; for each of rampCount ramps it emits `levels` interpolated ranges in 8.8 fixed point, with the final step forced exactly to the `to` endpoint. Called twice by maybe_World_LoadTheater with endpoint tables read from WORLD<n>.WLD. WORLD0 expands to 11 ramps x 16 levels, all ranges within indices 96-239 (terrain shading only; no cockpit equivalent found).",
+      "source": "docs/formats/cockpit-hud.md (Range-remap idiom)"
+    },
+    {
+      "address": "004306ac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Palette_CycleAnimatedRanges",
+      "description": "Per-frame animated palette cycling. Walks 5 fixed slots (DAT_004cfde8 descriptors, DAT_004cfdfc next-due times, DAT_004cfe10 rotation offsets); when a slot's due time passes it rotates that slot's palette sub-range by one entry and reinstalls it via Palette_InstallRange. Keyed off Time_GetCoarseTicks. Blinking cockpit/console lights.",
+      "source": "docs/formats/cockpit-hud.md (Other palette writers)"
+    },
+    {
+      "address": "0045d532",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "low",
+      "description": "OPEN LEAD for the unresolved cockpit canopy shading. Copies the live 256-entry palette into two scratch buffers, halves the RGB of two 16-entry spans, and installs them via Palette_InstallRange at base 0x20 (32) and base 0x40 (64) -- both inside the canopy art's own 42-71 index band. Candidate for the lighting-state mechanism that CockpitArt.PaletteIndexOffset currently stands in for. Callers not yet traced.",
+      "source": "docs/formats/cockpit-hud.md (PaletteIndexOffset - unresolved)"
+    },
+    {
+      "address": "0043b57c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HudHeadingTape_Ctor",
+      "description": "Constructor for the HUD heading tick tape. Lazily loads the `hudhtick` sprite bank into DAT_0049be70, selecting folder \"hba\" or \"dba\" off DAT_004d25f0 (the 640-wide vs 320-wide video mode flag).",
+      "source": "docs/formats/cockpit-hud.md (HUD sprite art)"
+    },
+    {
+      "address": "00445218",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdDisplay_Ctor",
+      "description": "Constructor for the multi-function display. Lazily loads three sprite banks -- `mfd` (DAT_0049cbcc), `mfd_dmg` (DAT_0049cbd4) and `radar` -- each selecting folder \"hba\"/\"dba\" off DAT_004d25f0.",
+      "source": "docs/formats/cockpit-hud.md (HUD sprite art)"
+    },
+    {
+      "address": "0044080c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponGauge_Ctor",
+      "description": "Constructor for a weapon hardpoint gauge. Lazily loads the `pweapons` (DAT_0049c4d0) and `wpn_dmg` (DAT_0049c4d4) sprite banks, folder selected off DAT_004d25f0, and builds a 2-row animation frame table into _DAT_004d1adc.",
+      "source": "docs/formats/cockpit-hud.md (HUD sprite art)"
+    },
+    {
+      "address": "00447b84",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ThrottleGauge_Ctor",
+      "description": "Constructor for the throttle slider gauge. Lazily loads the `throttle` sprite bank into DAT_0049cfc4, folder selected by DAT_004d25bb == 3 choosing \"hba\" over \"dba\". Reads CockpitViewInstance and its own .GAU track rect. Bank frame 0 is a 2px tick, frame 1 the knob.",
+      "source": "docs/formats/cockpit-hud.md (HUD sprite art)"
+    },
+    {
+      "address": "00434368",
+      "binary": "DBSIM",
+      "type": "function",
       "confidence": "medium",
-      "name": "maybe_MechInspectViewInstance",
-      "description": "Result of maybe_MechInspectView_Ctor, constructed in Sim_InitMissionSession. Small (0x37-byte) object, distinct from the much larger CockpitViewInstance (DAT_0049b088).",
-      "source": "docs/formats/cockpit-hud.md 2026-08-15 (Milestone 8 Phase 0)"
+      "name": "maybe_SysButtonPair_Ctor",
+      "description": "Lazily loads the `sysbuttn` sprite bank into DAT_0049b63c (folder by DAT_004d25bb == 3), then constructs two widgets whose coordinates are built as `value << (DAT_004d25be & 0x1f)` on X and `<< (DAT_004d25c0 & 0x1f)` on Y -- the per-axis resolution shift that makes .GAU coordinates 320-wide-space and doubles them for 640-wide.",
+      "source": "docs/formats/cockpit-hud.md (HUD sprite art)"
+    },
+    {
+      "address": "0044f130",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_IconGadget_Ctor",
+      "description": "Lazily loads the `icons` sprite bank into DAT_0049d6b4, folder selected by DAT_004d25bb == 3.",
+      "source": "docs/formats/cockpit-hud.md (HUD sprite art)"
+    },
+    {
+      "address": "004544a4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_CockpitFontsAndCorners_Init",
+      "description": "Loads the cockpit's .DFN/.HFN font set (title, cpylw, active, pushed, inactive, green6x8, red6x8) with folder chosen by DAT_004d25bb == 3 selecting \"hfn\" over \"dfn\", then the `corners` sprite bank -- hardcoded to \"dba\", and indeed no hba\\CORNERS.HBA exists -- and finally the `alert` bank via the DAT_004d25f0 idiom.",
+      "source": "docs/formats/cockpit-hud.md (HUD sprite art)"
+    },
+    {
+      "address": "0044a7c0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddGauge_LoadPilotFrames",
+      "description": "HDDGauge frame loader (PHDD.CPP). Builds the resource name `pilot<n>` with _itoa, loads its .OFS animation-offset table (27 entries), then loads the matching sprite bank from folder \"dba\". Emits the literal errors \"HDDGauge::Couldn't load anim offset\" / \"...bitmap array\".",
+      "source": "docs/formats/cockpit-hud.md (HUD sprite art)"
+    },
+    {
+      "address": "004d25f0",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "VideoMode_UseHiResBanks",
+      "description": "Nonzero selects the 640-wide `hba` sprite banks, zero selects the 320-wide `dba` ones. Read directly by every HUD bank constructor. A parallel flag DAT_004d25bb == 3 drives the same choice for sysbuttn/throttle/icons and for .hfn over .dfn.",
+      "source": "docs/formats/cockpit-hud.md (HUD sprite art)"
+    },
+    {
+      "address": "004d25be",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "VideoMode_XCoordShift",
+      "description": "Per-axis resolution shift for hardcoded widget coordinates: the exe writes them as `value << (VideoMode_XCoordShift & 0x1f)`. 0 in the 320-wide mode, 1 in the 640-wide one -- the mechanism behind Herculan.Engine's CockpitArt.GauToPixelScale = 2. DAT_004d25c0 is the Y counterpart.",
+      "source": "docs/formats/cockpit-hud.md (Q3)"
+    },
+    {
+      "address": "004d25c0",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "VideoMode_YCoordShift",
+      "description": "Y-axis counterpart of VideoMode_XCoordShift.",
+      "source": "docs/formats/cockpit-hud.md (Q3)"
+    },
+    {
+      "address": "004d3c00",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "HudColorTable",
+      "description": "27 int16 palette indices, loaded from dat\\COLORS.DAT (54-byte payload). HUD data files carry small logical colour ids rather than palette indices; those are resolved through this table once at load time, in place (arr[i] = table[arr[i]]). Read at 16 distinct offsets by ~60 functions; nothing in the image writes the address with an immediate because it is filled from the file. Verified: HDD ids 19/9/15/12 resolve to palette 16/10/13/14 = black/red/yellow/green, matching retail HDD screenshots.",
+      "source": "docs/formats/cockpit-hud.md (dat\\COLORS.DAT)"
+    },
+    {
+      "address": "00434280",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HudColorTable_Get",
+      "description": "Returns HudColorTable[DAT_0049b040[i]] -- resolves a logical colour id held in an initialised id array to a palette index.",
+      "source": "docs/formats/cockpit-hud.md (dat\\COLORS.DAT)"
+    },
+    {
+      "address": "004395c4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LedBarGraph_Ctor",
+      "description": "LEDBarGraph constructor: calls LedBarGraph_CtorBase then installs vtable PTR_FUN_0049bd30.",
+      "source": "docs/formats/cockpit-hud.md (LED gauges)"
+    },
+    {
+      "address": "004390c4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LedBarGraph_CtorBase",
+      "description": "LedBarGraph_CtorBase(obj, rect, range): precomputes span = (end - start) * 0x10000 / range at field 0x14, start at 0x18, end at 0x1c, and seeds the current fill position at 0x20 from the sign of span -- a negative span fills from the far end back, which is how the H and V variants share one implementation.",
+      "source": "docs/formats/cockpit-hud.md (LED gauges)"
+    },
+    {
+      "address": "004395e8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LedBarGraph_PaintToValue",
+      "description": "Paints the bar for a 16.16 fixed-point value: fills to start + (value * span >> 16) via LedBarGraph_FillPinstripe, then installs field 0x24 as the draw colour and covers the remainder.",
+      "source": "docs/formats/cockpit-hud.md (LED gauges)"
+    },
+    {
+      "address": "00439758",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LedBarGraph_FillPinstripe",
+      "description": "Fills the lit span of an LED bar. Walks the x range twice -- once over even columns, once over odd -- drawing a full-height line each step, with field 0x2c as the even-column colour and 0x30 as the odd. Two near-identical shades interleaved at one pixel read as a single shaded fill rather than two colours.",
+      "source": "docs/formats/cockpit-hud.md (LED gauges)"
+    },
+    {
+      "address": "004434fc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShieldsGauge_Ctor",
+      "description": "The real shield meter, called only by Gau_ShieldDisplayWidget (00432454) with .GAU offset 0x268=616. NOT an LED bar -- it loads no sprite bank and instead builds a 0x40-byte child per shield facing via FUN_00444aec plus a text label via FUN_004387ac/FUN_00438884 (the same generic label constructors the .DFN font consumers use). That matches retail: nested green concentric boxes with a numeric readout above and below. The .GAU block at 616 is a zero header rect followed by four 16-byte rects at 632/648/664/680, all shifted by VideoMode_X/YCoordShift in FUN_00444b9c. Distinct from EnergyPoolGauge_Ctor (00444d5c), which the earlier maybe_ShieldsGauge_Ctor name wrongly claimed was this widget.",
+      "source": "cockpit widget mapping, 2026-08-17"
+    },
+    {
+      "address": "00444d5c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "EnergyPoolGauge_Ctor",
+      "description": "CORRECTS the earlier maybe_ShieldsGauge_Ctor name. This is the Master Energy Pool meter (reactor charge), not the shield meter. Called only by Gau_EnergyMeterWidget (004323e0) with .GAU offset 0x224=548, whose child rect is at 564 -- in OUTLAW.GAU that rect is (91,198)-(115,205), directly under the TRACK button, which is where retail draws the blue pinstripe bar. Builds an LED bar with value range 0x400, writing HudColorTable ids 6 and 5 into the pinstripe colour fields 0x2c/0x30 and id 19 into the remainder colour 0x24; against the corrected palette those resolve to palette indices 98/97/16 = (0,116,204), (0,40,160), (0,0,0), i.e. blue -- the old note's 'ids resolve to two greys and black' was computed against the superseded palette model. Class identity is from the binary's own class-name table, which pairs 'EnergyPoolGauge' immediately with 'LEDBarGraphV' (file offset 280429) and 'ShieldsGauge' with 'ShieldsSelectGadget' (279148): the LED bar class is EnergyPoolGauge, and ShieldsGauge is a different class entirely (see ShieldsGauge_Ctor).",
+      "source": "cockpit widget mapping, 2026-08-17"
+    },
+    {
+      "address": "004379cc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PaperDoll_Load",
+      "description": "pdamage.cpp .PDG loader. Reads 3 views, each an origin/size pair plus a vector of 0x1c-byte regions {int index, PixelPoint topLeft, PixelPoint bottomRight, int colorId, int spacer}; resolves each region's colorId through HudColorTable in place and shifts its coordinates by VideoMode_X/YCoordShift, with bottomRight additionally +1 in the 640-wide mode. Matches HercWorks.Core's PaperDollGraphic field-for-field, identifying its ViewRegion.Unk_val at offset 0x14 as the colour id.",
+      "source": "docs/formats/cockpit-hud.md (.PDG)"
+    }
+    ,
+    {
+      "address": "00429c2c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitCanopy_LoadViewBitmap",
+      "description": "MECHVIEW.CPP:0x12e. THE previously-unlocated .HB0/.HB1/.HB2 (.DB0/.DB1/.DB2) load site. No literal 'hb0' string exists because the folder name is built at runtime: it copies the global folder literal 'dba' (or 'hba' when VideoMode_UseHiResPanels==3) into a stack buffer and overwrites index 2 with an ASCII digit via _itoa, giving db0/db1/db2 or hb0/hb1/hb2, then ResourcePath_BuildFolderName(hercName, buf) + ClassItem_LoadResource. View->file map: fileIdx = viewIdx>2 ? viewIdx-1 : viewIdx, so views 0,1,2,3 -> files 0,1,2,2 and view 4 loads nothing; after loading file 2 the same handle is also stored in slot 3, i.e. views 2 and 3 share one bitmap (view 3 is drawn horizontally mirrored, see CockpitView_SetView). Result handles land in CockpitViewManager+8[viewIdx]. The CockpitLayoutMode==1 branch increments byte 2 of the SHARED global 'dba' literal (MOV ECX,[0x4a0a28]; INC byte ptr [ECX+2]) rather than the local buffer -- verified in raw disassembly at 00429d3e; the follow-on load still uses the unmodified local buffer, so that branch loads db0 twice and corrupts the global folder name. Treat CockpitLayoutMode==1 as an unused/buggy path.",
+      "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "00429de4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitCanopy_FreeViewBitmap",
+      "description": "Releases the canopy bitmap handle for one view and nulls its slot; when freeing view 2 it also nulls slot 3, which shares the same handle. Only called when CockpitArt_LoadOnDemand (DAT_004d2704) is set, i.e. the low-memory mode that loads and frees canopy art per view switch instead of keeping all four resident.",
+      "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "00429e60",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitView_ApplyViewState",
+      "description": "Installs one view's state into the global render context (DAT_006c5ff4): copies that view's 0x204-byte clip-region block (CockpitViewManager+0xc + viewIdx*0x204, filled by CockpitClipRegions_Load) into ctx+4..ctx+0x208, points ActiveScanlineClipSpans at the view's prebuilt per-scanline span table (CockpitViewManager+0x10[viewIdx]), and copies the view's six .VUE ints into ctx[0x84..0x89]. The .VUE record's last two ints are the view's origin inside the cockpit canvas and go to DAT_004cfa24/28 (or VideoMode_X/YCoordShift-space DAT_004d25da/de in CockpitLayoutMode 2). View 4 instead installs the default full-screen clip block at DAT_004cfb1c and hides the cockpit widgets -- it is the external/no-cockpit view.",
+      "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "0042a1f0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitView_SetView",
+      "description": "Switches the cockpit to view 0-4. Calls CockpitView_ApplyViewState, then blits the view's full-screen canopy bitmap once via Bitmap_Blit(bitmap, {0,0}, flags) with flags = 2 (horizontal mirror) for view 3 and 0 otherwise -- this is where the side view's single authored bitmap is flipped for the opposite side. Finally repaints every cockpit widget (FUN_004316c0). The canopy is NOT redrawn per frame: it is blitted once per view change and the 3D scene is then rasterized over it, clipped to ActiveScanlineClipSpans. In CockpitLayoutMode 1 view 0 additionally blits slot 1 at y+0xc5.",
+      "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "0042a3f4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitView_QueueViewCommand",
+      "description": "Latches a pending view-change command (field +0x18) from an input action, guarded by the current view (field +0x14). Consumed by CockpitView_ProcessViewCommand.",
+      "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "0042a4c4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitView_ProcessViewCommand",
+      "description": "Executes the pending view command. Command 4 selects view 2 and adds -0x3600 to the pilot view yaw; command 5 selects view 3 and adds +0x3600; command 6 returns to view 0 and undoes the yaw. 0x3600/0x10000 of a turn = ~76 degrees, i.e. views 2 and 3 are the two 'glance sideways' views. Command 2 selects view 4 (external).",
+      "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "0042dcf0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitClipRegions_Load",
+      "description": "Parser for the per-view .ED0-.ED3 / .HD0-.HD3 files (folder name built by overwriting index 2 of the 'edg'/'hdg' literals with a digit). Layout after the 9-byte VOL prefix: int16 rectCount, rectCount x {int16 y0, y1, x0, x1}; then int16 spanBlockCount, and per block {int16 firstRow, int16 rowCount, rowCount x {int16 xStart, int16 xEnd}}. Rects become type-0 region objects, span blocks type-2. Coordinates are shifted by the caller's (xShift,yShift) pair, which is (0,0) for the .HD* hi-res set and VideoMode_X/YCoordShift for the .DB*-era .ED* set. Output is a 0x204-byte block (int count + up to 128 region pointers). APOCA.HD0 reads cleanly: one full-width rect for rows 0-76 then a 235-row span block from row 77 whose spans narrow inward (the canopy frame). APOCA.HD1 is empty (rectCount=0, blockCount=0), which is why view 1 shows no 3D at all.",
+      "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "0048b9a8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ClipRegions_BuildScanlineSpans",
+      "description": "Flattens a loaded region list (rects + span blocks from CockpitClipRegions_Load) into a per-scanline span table of `rowCount` rows (0xf0 << VideoMode_YCoordShift, i.e. 240 or 480). Each row is {int spanCount, ptr to spanCount x {int start, int length}}, sorted by start. Stores the result in ActiveScanlineClipSpans. This -- not any colour key -- is the cockpit's 3D-viewport cutout mechanism.",
+      "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "004a5b10",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ActiveScanlineClipSpans",
+      "description": "Pointer to the current view's per-scanline visible-span table (built by ClipRegions_BuildScanlineSpans). The polygon rasterizer at 00468310 indexes it per row (row*8 -> {spanCount, spanPtr}) and skips rows whose span count is zero, so the 3D scene only ever paints through the canopy's cut-out. Set to 0 for view 4 (no cockpit, unclipped full screen).",
+      "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "0048159c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Bitmap_Blit",
+      "description": "Bitmap_Blit(bitmap, {int x, int y}, flags) -- the engine-wide sprite/background blit. flags bit 1 (value 2) mirrors horizontally, bit 0 (value 1) flips vertically, 3 does both; confirmed at the reticle corner-bracket draw (0044401d..0044403a) which draws one corner sprite four times with flags 0/2/1/3, offsetting x by the bitmap's width field (+6) for flag 2 and y by its height field (+4) for flag 1. Used with flags=2 to produce the cockpit's opposite side view from the single authored side bitmap.",
+      "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "00430394",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Palette_LoadAndActivate",
+      "description": "Loads a .DPL by path and makes it THE active palette object (ActivePaletteObject / DAT_0049b020). World_LoadTheater calls it with dpl\\\\world<N>, so the live 256-slot palette IS the theater palette in its entirety -- it is not a merge of COCKPIT.DPL and WORLD<N>.DPL. The only cockpit-owned slots are 42..65, overwritten afterwards by the per-herc scheme install in CockpitViewManager_LoadViews.",
+      "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "004303b0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Palette_SetActive",
+      "description": "Swaps ActivePaletteObject and returns the previous one. Used to temporarily retarget Palette_InstallRange at the secondary impact palette (DAT_0049aef8) without disturbing the live one.",
+      "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "0043048c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Palette_FlushDirtyRange",
+      "description": "Pushes the accumulated dirty index range to the display and clears it; if the active palette object changed since the last flush it uploads the whole palette instead.",
+      "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "004308fc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Palette_BeginCrossFade",
+      "description": "Palette_BeginCrossFade(fromPalette, toPalette, durationTicks): precomputes per-channel 8.8 deltas into DAT_004cfe28/004d0028/004d0228 for a timed fade between two palette objects (either endpoint may be null, meaning fade to/from black). Driven per frame by Palette_StepCrossFade. This is how the impact/damage flash is applied on top of the cockpit's own colour scheme.",
+      "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "00430b34",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Palette_StepCrossFade",
+      "description": "Advances the Palette_BeginCrossFade fade one frame, writing interpolated RGB straight into the live palette and extending the dirty range. Returns remaining ticks, 0 when finished.",
+      "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "004307b0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Palette_InterpolateColours",
+      "description": "Colour-space sibling of Palette_InterpolateIndexRanges: interpolates rampCount colour pairs across `levels` steps, emitting 0x01RRGGBB-style entries. Distinct from the index-range remapper used for terrain shading.",
+      "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "0049b020",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ActivePaletteObject",
+      "description": "The live palette object. Field +8 is its 256 x 4-byte entry array (the array every Palette_* helper indexes). Installed by Palette_LoadAndActivate from dpl\\\\world<N>; DAT_0049b028/0x2c/0x30 are its dirty min/max/valid triple and DAT_0049b024 the last-uploaded object.",
+      "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "0045e4f4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "VideoMode_Configure",
+      "description": "Sets the whole video-mode global block from a mode byte read out of the prefs file. Mode 0: VideoMode_UseHiResPanels=0, UseHiResBanks=0, viewport 320x240, canvas 320x480, coord shifts 0. Mode 1: UseHiResPanels=3, UseHiResBanks=0, viewport 640x480, canvas 640x960, shifts 1. Mode 2: as mode 1 but UseHiResBanks=1. So UseHiResPanels==3 selects .HFN/.HBA/.HB<n> art while UseHiResBanks separately selects the hi-res HUD sprite banks -- which is why the two idioms documented in cockpit-hud.md differ.",
+      "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "004d25bb",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "VideoMode_UseHiResPanels",
+      "description": "0 or 3. When 3 the engine loads the 640-wide art set: .HFN fonts, hba\\\\ sprite banks, and the hb0/hb1/hb2 canopy folders (via CockpitCanopy_LoadViewBitmap) plus the hd0-hd3 clip files. Set by VideoMode_Configure.",
+      "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "004d25bc",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "medium",
+      "name": "maybe_CockpitLayoutMode",
+      "description": "Alternate cockpit layout selector, 0 by default. Value 1 makes view 0 also blit the view-1 (heads-down) bitmap at y+0xc5 and disables view 1 as a standalone view -- but its second load reuses the unmodified local folder buffer and corrupts the global 'dba' literal, so it looks like dead/buggy code. Value 2 routes blits through the windowed variant (Bitmap_BlitClipped) and moves the view origin into DAT_004d25da/de. Never observed written anywhere in the image.",
+      "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "004d25d2",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "CockpitCanvasWidth",
+      "description": "Width of the virtual cockpit canvas the .GAU widget rects are authored in: 320 in mode 0, 640 in modes 1/2 (paired with CockpitCanvasHeight at 004d25d6 = 480 / 960). The canvas is TALLER than the 3D viewport (004d25c2/c6 = 320x240 / 640x480) because view 1's .VUE origin is (0,237): canvas rows 0-239 are the forward cockpit and rows 237-476 are the heads-down display. Views 2 and 3 sit at canvas x +320 and -320. This is why .GAU's addressable Y range runs past 240.",
+      "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "00444aec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShieldsGauge_FacingCtor",
+      "description": "Builds one 0x40-byte shield-facing child for ShieldsGauge_Ctor, one per facing, over the .GAU rects at 632 and 648. Draws no geometry: its paint slot (FUN_00444b5c) only tests visibility. The nested concentric rings the retail meter shows are painted into the herc's own canopy art in palette indices 66-71; the gauge animates them by rewriting those six palette slots (ShieldsGauge_UpdateRingPalette).",
+      "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "004438f0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShieldsGauge_UpdateRingPalette",
+      "description": "Computes the shield meter's six ring colours and installs them at palette index 0x42 (66-71). Per facing (charge at +0xb5 and +0xb9) three rings light in turn: ring 1 from 0, ring 2 from 0x100 at twice the rate, ring 3 from 0x180 at four times, each as base * t >> 10 in Q10. Above 0x400 the same three tracks run again over base + (bright - base) * t. Colour immediates at 0049c9cb..0049c9d0: base RGB6 (25,59,23), bright (59,59,23). Install order is the stack layout, so 66-68 are the first facing outermost-first and 69-71 the second. At the nominal half charge all six resolve to RGB (48,116,44), matching the retail screenshot's meter.",
+      "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "00444a68",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShieldsGauge_UpdateReadouts",
+      "description": "Fills ShieldsGauge's two numeric labels (object +0xc4 and +0xc8) from the fore/aft balance at +0xbd: itoa(balance * 200 >> 10) and its complement out of 200. An even split reads 100 and 100, which is what retail shows.",
+      "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "00442488",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponSelectGadget_Ctor",
+      "description": "One weapon row's select gadget, built by FUN_00440a68 from the .GAU hardpoint rect. Lays out two sub-rects relative to that rect, mirrored from the right edge for a right-column slot: the hardpoint state box at +6..+9 GAU x, +0..+7 y (PWEAPONS frames 4-6, 6x14 device), and the weapon-name label at +11..+35 x, +0..+5 y. Painted by WeaponSelectGadget_Paint.",
+      "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "004426c0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponSelectGadget_Paint",
+      "description": "Paints one weapon row: the row plate from PWEAPONS frame 0 (selected) or 1 (not) at the .GAU rect minus one device pixel on both axes, the hardpoint state box from PWEAPONS frames 4/5/6 by state, the weapon name from the gauge's own 12-char buffer (+0xb1), and the round count. Text colour is the font: ColorSchemePanels[10] WHITE / [11] GRAY for the name, [13] GREEN / [11] GRAY for the count; the label's field 0x1d is the background colour it paints first (0x2e here).",
+      "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "00442c88",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ConsoleButton_Paint",
+      "description": "Paints the chain/link/auto-track console buttons: plate from PWEAPONS frames 2 + state (frame 2 unlit, solid palette index 34 = the retail blue at RGB (77,77,182); frame 3 lit, index 14 green) blitted at the widget's own rect, then the caption. The chain button's caption comes from the three-entry Roman-numeral table at 0049c71c ('I', 'II', 'III'). Caption font is ColorSchemePanels[10] WHITE when unlit, [12] DARK when lit.",
+      "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "0049c71c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ChainCountCaptions",
+      "description": "Three 4-byte inline strings 'I', 'II', 'III' indexed by chain count, read by ConsoleButton_Paint.",
+      "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "0049c9cb",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShieldRingColors",
+      "description": "Six bytes of 6-bit colour channels for the shield meter's ring ramp: base R,G,B at +0..+2 = (25,59,23) and bright R,G,B at +3..+5 = (59,59,23). Read only by ShieldsGauge_UpdateRingPalette. Channel order matches the .DPL entry layout, byte 0 = R.",
+      "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "004d2704",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "CockpitArt_LoadOnDemand",
+      "description": "When non-zero, canopy view bitmaps are loaded on entering a view and freed on leaving it instead of all being loaded up front in CockpitViewManager_LoadViews. A low-memory path.",
+      "source": "cockpit rendering RE session 2026-08-17"
     }
   ]
 }

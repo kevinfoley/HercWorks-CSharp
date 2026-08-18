@@ -1,5 +1,7 @@
 # DTS/DBA texture binding (VSHELL.EXE)
 
+NOTE TO CLAUDE: This should be a reference document, not a personal journal.
+
 **The `.DTS` file format carries no reference to any specific texture file.** Which `.DBA` gets bound
 to a given model is a runtime/application-level decision (see "DBA filename selection" below), never
 recorded in the `.DTS` bytes. **`TSBitmapPart` and `TSTexture4Poly` — the file format's two

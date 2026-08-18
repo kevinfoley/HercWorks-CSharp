@@ -97,10 +97,43 @@ Console.WriteLine($"Theater {mission.Header.TheaterIndex} ({scene.Theater.Palett
 // docs/engine/planning.md's Milestone 8 section and docs/formats/cockpit-hud.md for why. Falls back
 // to the old single full-window 3D view when there's no player.mec or its cockpit assets are missing
 // (e.g. a raw script.dat with no accompanying player.mec).
-var cockpitArt = mission.Player?.TypeName is { } pilotHerc ? CockpitArt.Load(content, pilotHerc) : null;
-Console.WriteLine(cockpitArt != null
-	? $"Cockpit art loaded for {mission.Player!.TypeName} — drawing the three-panel cockpit view."
-	: "No cockpit art available — drawing a single full-window 3D view.");
+// The theater's palette is the live palette — all 256 slots — with only this herc's own 24-entry
+// cockpit colour scheme installed over slots 42-65. See CockpitPalette.
+var cockpitArt = mission.Player?.TypeName is { } pilotHerc
+	? CockpitArt.Load(content, pilotHerc, scene.Theater.PaletteName)
+	: null;
+if (cockpitArt != null) {
+	Console.WriteLine(
+		$"Cockpit art loaded for {mission.Player!.TypeName} — drawing the three-panel cockpit view. "
+		+ (cockpitArt.Sprites is { } hud
+			? $"HUD sprites: {string.Join(", ", hud.BankNames)} in a {hud.Atlas.Width}x{hud.Atlas.Height} atlas."
+			: "No HUD sprite banks could be loaded — canopy art only."));
+	Console.WriteLine(cockpitArt.ColorSchemeIndex >= 0
+		? $"Cockpit colour scheme {cockpitArt.ColorSchemeIndex} — palette slots "
+		  + $"{CockpitPalette.CockpitSchemeFirstSlot}-"
+		  + $"{CockpitPalette.CockpitSchemeFirstSlot + CockpitPalette.CockpitSchemeLength - 1}"
+		  + $" from COCKPIT.DPL entries {CockpitPalette.SchemeFirstEntry(cockpitArt.ColorSchemeIndex)}+."
+		: $"No cockpit colour scheme — {mission.Player!.TypeName}.DAT unreadable, so slots "
+		  + $"{CockpitPalette.CockpitSchemeFirstSlot}+ keep the theater's filler colour.");
+	if (!cockpitArt.ClipRegionsLoaded) {
+		Console.WriteLine(
+			"Viewport cutout fell back to inferring the hole from black pixels — at least one of the "
+			+ "herc's .HD0/.HD2 region files could not be read.");
+	}
+} else {
+	Console.WriteLine("No cockpit art available — drawing a single full-window 3D view.");
+}
+
+// The cockpit readouts' live values. Only the hardpoint names are real so far — they come from the
+// shell weapon catalog keyed by player.mec's own hardpoint ids; everything else sits at the
+// power-up defaults in CockpitHudState.Default until the sim carries the state behind it.
+var hudState = CockpitHudState.Default;
+if (cockpitArt != null && mission.Player is { } playerMech && WeaponNameTable.Load(content) is { } weaponNames) {
+	hudState = hudState with {
+		WeaponNames = weaponNames.NamesFor(playerMech.WeaponRefs.Select(id => (int)id)),
+	};
+	Console.WriteLine("Hardpoints: " + string.Join(", ", hudState.WeaponNames.Where(n => n.Length > 0)));
+}
 
 Console.WriteLine("W/A/S/D move, R/F rise and fall, arrow keys look, Shift boosts, Esc quits.");
 
@@ -112,6 +145,7 @@ GpuMesh? terrainMesh = null;
 GpuTexture? terrainTexture = null;
 GpuTexture? cockpitFrontTexture = null;
 GpuTexture? cockpitSideTexture = null;
+GpuTexture? hudSpriteTexture = null;
 var modelMeshes = new Dictionary<string, GpuMesh>();
 var modelTextures = new Dictionary<string, GpuTexture>();
 var disposables = new List<IDisposable>();
@@ -137,6 +171,10 @@ window.Load += (gl, input) => {
 	if (cockpitArt != null) {
 		cockpitFrontTexture = new GpuTexture(gl, cockpitArt.Front.Pixels, cockpitArt.Front.Width, cockpitArt.Front.Height);
 		cockpitSideTexture = new GpuTexture(gl, cockpitArt.Side.Pixels, cockpitArt.Side.Width, cockpitArt.Side.Height);
+
+		if (cockpitArt.Sprites is { } hudSprites) {
+			hudSpriteTexture = new GpuTexture(gl, hudSprites.Atlas);
+		}
 	}
 
 	// One upload per distinct model, however many objects share it — a mission routinely fields
@@ -221,6 +259,7 @@ window.Closing += () => {
 	terrainTexture?.Dispose();
 	cockpitFrontTexture?.Dispose();
 	cockpitSideTexture?.Dispose();
+	hudSpriteTexture?.Dispose();
 	foreach (var disposable in disposables) {
 		disposable.Dispose();
 	}
@@ -262,15 +301,16 @@ void DrawThreePanelCockpitView(GL gl, int totalWidth, int totalHeight) {
 
 	renderer!.Render(leftCamera, items!, leftX, 0, leftWidth, totalHeight);
 	overlay!.Draw(leftX, 0, leftWidth, totalHeight, cockpitSideTexture!,
-		cockpitArt!.Side.Width, cockpitArt.Side.Height, mirrorHorizontally: true, widgets: null);
+		cockpitArt!.Side.Width, cockpitArt.Side.Height, mirrorHorizontally: true, hud: null);
 
 	renderer.Render(centerCamera, items!, centerX, 0, centerWidth, totalHeight);
 	overlay.Draw(centerX, 0, centerWidth, totalHeight, cockpitFrontTexture!,
-		cockpitArt.Front.Width, cockpitArt.Front.Height, mirrorHorizontally: false, widgets: cockpitArt.Gau);
+		cockpitArt.Front.Width, cockpitArt.Front.Height, mirrorHorizontally: false, hud: cockpitArt,
+		spriteTexture: hudSpriteTexture, hudState: hudState);
 
 	renderer.Render(rightCamera, items!, rightX, 0, rightWidth, totalHeight);
 	overlay.Draw(rightX, 0, rightWidth, totalHeight, cockpitSideTexture!,
-		cockpitArt.Side.Width, cockpitArt.Side.Height, mirrorHorizontally: false, widgets: null);
+		cockpitArt.Side.Width, cockpitArt.Side.Height, mirrorHorizontally: false, hud: null);
 }
 
 // The pixel width a panel's cockpit-art quad occupies when fit to the given window height while

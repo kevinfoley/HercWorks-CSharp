@@ -213,7 +213,9 @@ window.Render += (_, gl) => {
 	var size = window.FramebufferSize;
 	float aspect = (float)size.X / MathF.Max(size.Y, 1);
 
-	renderer.Render(camera, items, size.X, size.Y);
+	// Full-window viewport: the editor draws one 3D view, unlike the simulator host's three cockpit
+	// panels, which is what SceneRenderer.Render's x/y origin exists for.
+	renderer.Render(camera, items, 0, 0, size.X, size.Y);
 
 	if (selected is { } sel) {
 		var picked = Array.Find(pickables, p => p.SceneObject == sel);

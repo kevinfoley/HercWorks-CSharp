@@ -1,3 +1,5 @@
+using System.Numerics;
+using HercWorks.Core.Data.File.Dat.Sim;
 using HercWorks.Core.Data.File.Dyn;
 using HercWorks.Core.Data.File.Gau;
 using HercWorks.Core.Io.Transform.Common;
@@ -19,47 +21,23 @@ public sealed record CockpitFrame(byte[] Pixels, int Width, int Height);
 /// a third front-facing angle — it is not loaded here because this milestone's simultaneous
 /// front+left+right layout has no use for it.</para>
 ///
-/// <para>Both frames decode through the single shared <c>dpl\COCKPIT.DPL</c> palette. Palette index 0
-/// (pure black) marks the "3D viewport" cutout. It is not one clean region, though — the canopy strut
-/// pinches it into several disconnected islands (a real per-pixel connectivity scan of
-/// <c>COLOSSUS.HB0</c>/<c>.HB2</c>, 2026-08-15, found 100% of index-0 pixels sit in components that
-/// touch the image's outer edge, split across 2-3 separate components per frame) — a single-seed flood
-/// fill missed the islands that don't happen to connect to that one seed, leaving them opaque and
-/// blocking the 3D view behind the canopy's raked struts. <see cref="Load"/> instead floods from every
-/// border pixel at once: any black region reachable from the image edge is "outside the cockpit" and
-/// becomes part of the hole, while any that never reaches the edge stays opaque console detail (the
-/// scan found none of the latter in real data, but the algorithm leaves room for it). The result bakes
-/// into each frame's own alpha channel (0 = viewport hole, 255 = opaque art).</para>
+/// <para>Both frames decode through the live palette (<see cref="CockpitPalette"/>): the theater
+/// palette in full, with this herc's own 24-entry cockpit colour scheme installed over slots 42-65.
+/// Indices are used <b>as authored</b> — no shift, no offset. The per-herc canopy colour difference
+/// that <c>PaletteIndexOffset</c> used to approximate is entirely a property of which scheme window
+/// gets installed, and is now resolved from the herc's own data file (see
+/// <see cref="ColorSchemeIndex"/>).</para>
 ///
-/// <para><b>The palette index→RGB mapping needs a lighting-state offset, not a plain lookup.</b>
-/// <c>COCKPIT.DPL</c> is not one flat 256-color space — it's a sequence of ~15 short brightness
-/// *ramps* (10-16 entries each: e.g. index 42-47 is a 6-step neutral-gray ramp, 80-89 a 10-step
-/// warm-brown ramp, 240-247 a blue-tinted ramp), and a real <c>.HB0</c>'s pixel data only ever
-/// exercises a narrow band of indices within one or two adjacent ramps (COLOSSUS.HB0 uses only
-/// indices 0 and roughly 42-71 — a real, exhaustive per-pixel histogram, not a sample). A plain,
-/// unmodified lookup (index 0-based, i.e. offset 0) renders a legible but visibly wrong cockpit — a
-/// real screenshot comparison (2026-08-15) shows retail COLOSSUS is neutral gray/white, not the
-/// purple/lavender tint offset 0 produces, because it happens to land on the "48-55" ramp's purple
-/// end for some of the shading detail. Disassembly did not find the mechanism (see
-/// docs/formats/cockpit-hud.md's Q1 for what was and wasn't found — <c>Palette_InstallRange</c>'s
-/// every caller was traced and none installs <c>COCKPIT.DPL</c> at a nonzero base for normal
-/// gameplay), so this is resolved empirically: <see cref="PaletteIndexOffset"/> circularly shifts
-/// every <i>nonzero</i> index (index 0 is a fixed sentinel — the viewport-hole/background marker, and
-/// shifting it lands on fully-saturated EGA-style colors at indices 1-15, wildly wrong) by a constant.
-/// Different offsets select what look like different in-game lighting states — offset 14 matches a
-/// neutral/daylight look for both COLOSSUS and APOCA (verified against a real reference screenshot),
-/// while e.g. offset 246 gives APOCA a darker, redder look the user identified as matching retail
-/// gameplay screenshots specifically. <b>14 is a reasonable static default, not a proven "correct"
-/// constant</b> — the real selection mechanism (plausibly tied to an ambient-lighting system, given
-/// the terrain/mech renderer already has one) was not located. Revisit if a future session traces the
-/// real blit/lighting function — DBSIM's <c>CockpitViewInstance</c> global (see cockpit-hud.md's
-/// symbol table) is the next lead: it owns the widget tree but its background-art field wasn't
-/// identified either.</para>
+/// <para><b>The 3D-viewport cutout is data, not a colour key.</b> Each herc ships a per-view region
+/// file — <c>hd0</c> for the forward view, <c>hd2</c> for the side view — that states per scanline
+/// exactly which columns the live 3D scene shows through; DBSIM's rasterizer is physically span-clipped
+/// to it (see <see cref="CockpitClipRegions"/>). <see cref="Load"/> punches those spans into each
+/// frame's alpha channel (0 = viewport hole, 255 = opaque art). The previous border-flood-fill over
+/// pure-black pixels survives only as a fallback for when the region file can't be read: it inferred
+/// the hole from art that happens to be black there, which is close but not the same thing, and it had
+/// no way to know about the rows the original leaves opaque despite their colour.</para>
 /// </summary>
 public sealed class CockpitArt {
-	/// <summary>The single shared palette every herc's cockpit art decodes through.</summary>
-	public const string PaletteName = "COCKPIT";
-
 	/// <summary>
 	/// GAU widget coordinates address a 320x400 logical space; cockpit art is 640x480 pixels. A plain
 	/// uniform 2x scale on both axes maps one onto the other — confirmed by overlaying five
@@ -70,18 +48,63 @@ public sealed class CockpitArt {
 	/// </summary>
 	public const float GauToPixelScale = 2f;
 
-	/// <summary>
-	/// Empirically-tuned default lighting-state offset — see the class doc comment for the full
-	/// reasoning. Applied to every nonzero palette index, circularly within 1..255; index 0 is never
-	/// shifted.
-	/// </summary>
-	public const int PaletteIndexOffset = 14;
+	/// <summary>DBSIM's own view numbering: the forward view the console instruments belong to.</summary>
+	public const int ForwardViewIndex = 0;
 
-	private CockpitArt(CockpitFrame front, CockpitFrame side, GAUFile gau) {
+	/// <summary>
+	/// DBSIM's own view numbering for the sideways glance whose canopy bitmap is authored (view 3
+	/// reuses this same bitmap mirrored, which is what the renderer's mirror flag does).
+	/// </summary>
+	public const int SideViewIndex = 2;
+
+	/// <summary>
+	/// The sprite banks this milestone draws, all from <c>hba\</c> — see <see cref="HudSpriteSheet"/>
+	/// for why the <c>hba</c> half and not <c>dba</c>, and <see cref="Sprites"/> for which widget each
+	/// one serves.
+	/// </summary>
+	public static readonly string[] HudBankNames =
+		{ "HUD", "HUDHTICK", "MFD", "RADAR", "THROTTLE", "WPN_DMG", "PWEAPONS" };
+
+	/// <summary>
+	/// The <c>.HFN</c> fonts the cockpit draws text with, out of the 18 <c>ColorSchemePanels</c>
+	/// (<c>0049b0ac</c>) DBSIM loads. In this format the font is the colour — each file is the same
+	/// typeface stencilled in one palette index — so a widget picks its text colour by picking a font.
+	/// These are the ones the widgets reached so far name: <c>WHITE</c> (shield readouts, the selected
+	/// weapon's name, an idle hardpoint digit), <c>GRAY</c> (an unselected weapon's name and its round
+	/// count), <c>GREEN</c> (the selected weapon's round count), <c>DARK</c> (a lit hardpoint digit),
+	/// and <c>HUD1</c>/<c>HUD2</c>/<c>HUD3</c>, the three theater-coloured fonts the gunsight
+	/// complex's readouts use.
+	/// </summary>
+	public static readonly string[] HudFontNames =
+		{ "WHITE", "GRAY", "GREEN", "DARK", "RED", "HUD1", "HUD2", "HUD3" };
+
+	private CockpitArt(CockpitFrame front, CockpitFrame side, GAUFile gau, HudSpriteSheet? sprites,
+			HudColorTable? colors, (Vector3, Vector3, Vector3)? gaugeColors,
+			int colorSchemeIndex, bool clipRegionsLoaded) {
 		Front = front;
 		Side = side;
 		Gau = gau;
+		Sprites = sprites;
+		Colors = colors;
+		GaugeColors = gaugeColors;
+		ColorSchemeIndex = colorSchemeIndex;
+		ClipRegionsLoaded = clipRegionsLoaded;
 	}
+
+	/// <summary>
+	/// Which of <c>COCKPIT.DPL</c>'s nine 24-entry cockpit colour schemes this herc renders through —
+	/// mech type record <c>+0x52</c>, i.e. offset 80 of <c>dat\&lt;MECH&gt;.DAT</c>. See
+	/// <see cref="CockpitPalette"/>. -1 when the herc's data file could not be read, in which case no
+	/// scheme is installed and slots 42-65 keep the theater's own filler green.
+	/// </summary>
+	public int ColorSchemeIndex { get; }
+
+	/// <summary>
+	/// True when both views' cutouts came from the herc's own <c>.HD0</c>/<c>.HD2</c> region files.
+	/// False means at least one fell back to inferring the hole from black pixels — worth surfacing,
+	/// since the fallback is an approximation.
+	/// </summary>
+	public bool ClipRegionsLoaded { get; }
 
 	/// <summary>The center/front cockpit view — console, HUD instruments, and the 3D viewport cutout.</summary>
 	public CockpitFrame Front { get; }
@@ -93,14 +116,46 @@ public sealed class CockpitArt {
 	public GAUFile Gau { get; }
 
 	/// <summary>
+	/// The HUD's own sprite art, keyed by bank name, or null when none of the banks could be loaded
+	/// (in which case the renderer draws the canopy alone).
+	///
+	/// <para>Bank-to-widget mapping, from the loader functions the bank-name string literals xref to
+	/// in DBSIM: <c>HUD</c> is the gunsight/reticle set (<c>Gau_RovingGunsightWidget</c>, 0043c7d8),
+	/// <c>HUDHTICK</c> the heading tick tape (FUN_0043b57c), <c>MFD</c> the multi-function display
+	/// screen (FUN_00445218, which also owns <c>MFD_DMG</c> and <c>RADAR</c>), <c>THROTTLE</c> the
+	/// slider knob (FUN_00447b84), <c>WPN_DMG</c> the weapon hardpoint plates (FUN_0044080c, which
+	/// also owns <c>PWEAPONS</c>).</para>
+	///
+	/// <para>Not yet drawn, and deliberately: the chain/link/autotrack buttons, energy meter and
+	/// shield display have their bezels painted into the canopy art already, and their dynamic part is
+	/// a <c>LEDBarGraphH</c>/<c>LEDBarGraphV</c> fill plus <c>.HFN</c> font text rather than a sprite —
+	/// neither of which this milestone has. Drawing a bank at them on a size hunch would be worse than
+	/// leaving the painted bezel alone.</para>
+	/// </summary>
+	public HudSpriteSheet? Sprites { get; }
+
+	/// <summary>
+	/// The logical-colour-id lookup every HUD data file's colour fields go through — see
+	/// <see cref="HudColorTable"/>. Null when <c>dat\COLORS.DAT</c> is missing.
+	///
+	/// </summary>
+	public HudColorTable? Colors { get; }
+
+	/// <summary>
+	/// An LED gauge bar's three resolved colours — even-column fill, odd-column fill, and unfilled
+	/// remainder (see <see cref="HudColorTable.GaugeFillEvenId"/>). Null when <c>COLORS.DAT</c> is
+	/// missing, in which case gauges draw nothing rather than a colour of the engine's own choosing.
+	/// </summary>
+	public (Vector3 FillEven, Vector3 FillOdd, Vector3 Remainder)? GaugeColors { get; }
+
+	/// <summary>
 	/// Loads and decodes one herc's cockpit art and HUD layout. Returns null when any required
 	/// resource is missing from the mounted archives, in which case the caller should fall back to
 	/// drawing no cockpit overlay rather than a partially-wrong one.
 	/// </summary>
-	public static CockpitArt? Load(GameContent content, string hercName) {
-		byte[]? paletteBytes = content.Read("dpl", PaletteName + ".DPL");
-		if (paletteBytes == null
-			|| new DynamixPaletteTransformer().BytesToObject(paletteBytes) is not DynamixPalette palette) {
+	public static CockpitArt? Load(GameContent content, string hercName, string? worldPaletteName = null) {
+		int schemeIndex = ReadColorSchemeIndex(content, hercName);
+		if (CockpitPalette.Load(content, worldPaletteName, schemeIndex) is not { } palette) {
 			return null;
 		}
 
@@ -115,10 +170,42 @@ public sealed class CockpitArt {
 			return null;
 		}
 
-		CutViewportHole(front);
-		CutViewportHole(side);
+		bool clipped = CutViewportHole(content, hercName, ForwardViewIndex, front)
+			& CutViewportHole(content, hercName, SideViewIndex, side);
 
-		return new CockpitArt(front, side, gau);
+		var colors = HudColorTable.Load(content);
+		return new CockpitArt(front, side, gau,
+			HudSpriteSheet.Load(content, palette, HudBankNames, HudFontNames),
+			colors,
+			ResolveGaugeColors(colors, palette),
+			schemeIndex,
+			clipped);
+	}
+
+	/// <summary>
+	/// Reads the herc's cockpit colour-scheme index out of its own <c>dat\&lt;MECH&gt;.DAT</c>, or -1
+	/// when that file is missing or unparseable. The field is
+	/// <see cref="HercWorks.Core.Data.File.Dat.Sim.HercSimDat.Unk80_ValHudId"/> — record offset 80,
+	/// which is the mech type struct's <c>+0x52</c> that
+	/// <c>CockpitViewManager_LoadViews</c> indexes <c>COCKPIT.DPL</c> with.
+	/// </summary>
+	private static int ReadColorSchemeIndex(GameContent content, string hercName) =>
+		content.Read("dat", hercName + ".DAT") is { } bytes
+			&& new HercSimDataTransformer().BytesToObject(bytes) is HercSimDat data
+			? data.Unk80_ValHudId
+			: -1;
+
+	/// <summary>All three gauge colours or none — a bar drawn with only some of them resolved would
+	/// be worse than one not drawn at all.</summary>
+	private static (Vector3, Vector3, Vector3)? ResolveGaugeColors(HudColorTable? colors, DynamixPalette palette) {
+		if (colors?.Resolve(HudColorTable.GaugeFillEvenId, palette) is not { } even
+			|| colors.Resolve(HudColorTable.GaugeFillOddId, palette) is not { } odd
+			|| colors.Resolve(HudColorTable.GaugeRemainderId, palette) is not { } remainder) {
+			return null;
+		}
+
+		static Vector3 V(HercWorks.Core.Data.Struct.RgbaColor c) => new(c.R / 255f, c.G / 255f, c.B / 255f);
+		return (V(even), V(odd), V(remainder));
 	}
 
 	/// <summary>
@@ -144,11 +231,7 @@ public sealed class CockpitArt {
 		int count = Math.Min(indices.Length, width * height);
 
 		for (int i = 0; i < count; i++) {
-			byte raw = indices[i];
-			// Index 0 is a fixed sentinel (background/viewport marker) and is never shifted — see the
-			// class doc comment for why every other index gets PaletteIndexOffset applied circularly
-			// within 1..255.
-			int index = raw == 0 ? 0 : ((raw - 1 + PaletteIndexOffset) % 255 + 255) % 255 + 1;
+			int index = indices[i];
 			var color = palette.Colors.TryGetValue(index, out var entry)
 				? entry.GetColor()
 				: new HercWorks.Core.Data.Struct.RgbaColor(255, (byte)index, (byte)index, (byte)index);
@@ -163,14 +246,49 @@ public sealed class CockpitArt {
 	}
 
 	/// <summary>
-	/// Flood-fills every connected region of pure-black (0,0,0) pixels that touches the image's outer
-	/// edge, setting each one's alpha to 0. Multi-source (every border pixel is a candidate seed) rather
-	/// than a single interior point — see the class doc comment: the canopy strut splits the viewport
-	/// hole into 2-3 disconnected islands, and a single seed only ever catches the one it happens to sit
-	/// in. Border-touching is the discriminator, not a single seed's reachability — real per-pixel data
-	/// shows every viewport-hole pixel touches the edge and no interior console-shadow black pixel does.
+	/// Punches the view's 3D-viewport hole into <paramref name="frame"/>'s alpha channel using the
+	/// herc's own <c>.HD&lt;view&gt;</c> region file — the same data DBSIM's rasterizer is span-clipped
+	/// to. Returns true when that file supplied the mask, false when it was missing and
+	/// <see cref="CutViewportHoleByColor"/> had to infer one instead.
+	///
+	/// <para>A file that parses to zero spans is honoured as zero spans, not treated as a failure: that
+	/// is a legitimate "this view shows no 3D" (the heads-down view's file is 16 bytes of zeroes). The
+	/// forward and side views this class loads both have real spans, so a zero-span result here would
+	/// mean something else is wrong — but silently substituting a guessed mask would hide it.</para>
 	/// </summary>
-	private static void CutViewportHole(CockpitFrame frame) {
+	private static bool CutViewportHole(GameContent content, string hercName, int viewIndex, CockpitFrame frame) {
+		if (CockpitClipRegions.Load(content, hercName, viewIndex) is not { } regions) {
+			CutViewportHoleByColor(frame);
+			return false;
+		}
+
+		byte[] pixels = frame.Pixels;
+		int rows = Math.Min(regions.RowCount, frame.Height);
+		for (int y = 0; y < rows; y++) {
+			foreach (var span in regions.Row(y)) {
+				int from = Math.Max(span.Start, 0);
+				int to = Math.Min(span.Start + span.Length, frame.Width);
+				for (int x = from; x < to; x++) {
+					pixels[(y * frame.Width + x) * 4 + 3] = 0;
+				}
+			}
+		}
+
+		return true;
+	}
+
+	/// <summary>
+	/// Fallback cutout for when the region file is unavailable: flood-fills every connected region of
+	/// pure-black (0,0,0) pixels that touches the image's outer edge, setting each one's alpha to 0.
+	/// Multi-source (every border pixel is a candidate seed) rather than a single interior point,
+	/// because the canopy strut splits the hole into 2-3 disconnected islands and a single seed only
+	/// catches the one it sits in.
+	///
+	/// <para>Kept only as a fallback. It infers the hole from art that happens to be black there, which
+	/// is not the same statement as the region file's, and it cannot know about rows the original leaves
+	/// opaque regardless of their colour.</para>
+	/// </summary>
+	private static void CutViewportHoleByColor(CockpitFrame frame) {
 		byte[] pixels = frame.Pixels;
 		bool IsBlackOpaque(int x, int y) {
 			int i = (y * frame.Width + x) * 4;

@@ -446,21 +446,12 @@ sim-behavior change. `Render/CockpitViewLayout.cs` computes each side panel's ya
 aspect ratio (`halfFovX(viewport) = atan(tan(fovY/2) * aspect)`) so the three tile edge-to-edge with
 no seam regardless of window size.
 
-**RE findings (Phase 0), all in `cockpit-hud.md`:**
-- Palette is confirmed literal `dpl\COCKPIT.DPL`, zero index offset — the existing
-  `TextureViewerForm.PreferredPaletteFor("COCKPIT")` heuristic was already exactly right; no WinForms
-  change was needed.
-- `.HB0`/`.HB2`'s own load site was not found in DBSIM.EXE despite an exhaustive raw-byte string
-  search — resolved empirically instead, by decoding and visually inspecting real assets: `.HB0` =
-  front/center, `.HB2` = a genuine distinct side view (mirrored at draw time for the opposite panel,
-  no separate mirrored asset), `.HB1` = a rear/overhead equipment-bay view not used by this milestone.
-- GAU's `HudScreenSize` (320,400) coordinate space maps onto `.HB0`/`.HB2`'s 640x480 pixel space via
-  a plain, uniform **2x scale on both axes** — proven by pixel-perfect visual overlay of five
-  independent real widgets on real cockpit art, not by disassembly (see `CockpitArt.GauToPixelScale`).
-- The 3D-viewport cutout is solid pure black (palette index 0). Not a clean isolated region — black
-  also occurs in scattered console-shadow detail — so it's resolved via a flood fill from the GAU
-  reticle position (always inside the viewport) baked into each frame's alpha channel at load time,
-  not a naive global color-key.
+**RE findings (Phase 0), all in `cockpit-hud.md`.** Two of the four were superseded by the
+2026-08-17 pass below — see that section; the surviving two:
+- GAU coordinates are authored in the 320-wide space and map onto `.HB0`/`.HB2`'s 640x480 pixel space
+  via a plain, uniform **2x scale on both axes** (`CockpitArt.GauToPixelScale`).
+- `.HB0` = forward view, `.HB2` = a distinct side view, mirrored at draw time for the opposite panel
+  with no separate mirrored asset. Later confirmed to be exactly what DBSIM does.
 
 **New types:** `Content/CockpitArt.cs` (loads/decodes `.HB0`/`.HB2`/`.GAU`, bakes the viewport-hole
 alpha), `Gl/Overlay2DVertex.cs` + `Gl/GpuOverlayMesh.cs` (a lighter 2D vertex/mesh pair — forcing flat
@@ -512,17 +503,70 @@ comparison against a real reference screenshot caught:
    the viewport-hole flood fill (`CockpitArt.CutViewportHole`) was only ever applied to `Front`
    (`.HB0`), never to `Side` (`.HB2`). Fixed by applying it to `Side` too, seeded at its geometric
    center — confirmed index 0 there across every retail herc checked.
-3. **Palette colors were visibly wrong** (purple/lavender-tinted, not retail's neutral gray/white).
-   This was a genuine RE gap, not just a code bug — see `docs/formats/cockpit-hud.md`'s Q1 for the
-   full trace. Short version: `COCKPIT.DPL` is a sequence of short per-material brightness ramps, not
-   one flat color space, and the correct on-screen look needs a lighting-state index offset that
-   DBSIM's own disassembly didn't reveal (every `Palette_InstallRange` call site was traced; none
-   installs `COCKPIT.DPL` for normal gameplay). Resolved empirically instead: shifting every nonzero
-   palette index by a constant (`CockpitArt.PaletteIndexOffset = 14`, index 0 always excluded)
-   reproduces the retail neutral-gray look, verified against a real reference screenshot. Different
-   offsets appear to select different lighting states (e.g. offset 246 gives APOCA a darker look
-   matching real gameplay screenshots specifically) — the real selection mechanism is still open.
+3. **Palette colors were visibly wrong.** A genuine RE gap, not just a code bug. The interim model —
+   two `.DPL` files merged, plus a single `CockpitArt.PaletteIndexOffset = 14` standing in for a
+   per-herc ramp selector — was wrong in both halves and is superseded below.
 
-HUD graphics (green-outline placeholders vs. real icon/font art) were raised as a possible fourth
-issue but confirmed out of scope for this milestone on follow-up — decoding `.DFN`/`.HFN` HUD
-font/icon assets is a separate, open-ended RE task.
+HUD sprite art is now drawn from the game's own `hba\*.HBA` banks (`HudSpriteSheet`), and
+`dat\COLORS.DAT`'s logical-colour-id table is decoded (`HudColorTable`). The "still open" items this
+entry listed — gauge colours, `.DFN`/`.HFN` text, frame-to-state mapping — are resolved by the two
+follow-ups below.
+
+### Milestone 8 follow-up (2026-08-17): cockpit rendering fully reverse-engineered
+
+Full RE in `docs/formats/cockpit-hud.md`, rewritten as the reference for this subsystem. What changed
+in the engine:
+
+- **Palette (`CockpitPalette`) inverted.** The live palette is the theater palette in full; only slots
+  42-65 are replaced, by this herc's own 24-entry window of `COCKPIT.DPL` selected by
+  `dat\<MECH>.DAT` offset 80. The nine schemes tile `COCKPIT.DPL` entries 32-247 exactly. Fixes the
+  canopy for all nine hercs rather than only COLOSSUS, and with it the heading tape (theater index 74)
+  and the hazard stripes (theater yellow at index 13).
+- **`CockpitArt.PaletteIndexOffset`/`ShiftCanopyIndex` deleted.** Canopy indices decode as authored.
+- **Viewport cutout is data-driven (`CockpitClipRegions`, new).** Parses the herc's own
+  `hd0`/`hd2` per-scanline span files — the same data DBSIM's rasterizer is span-clipped to. The
+  border flood-fill over black pixels survives only as a fallback, reported via
+  `CockpitArt.ClipRegionsLoaded`.
+- **`CockpitArt.ColorSchemeIndex`** exposed and logged by the host.
+
+**Verified** by pixel-comparing decoded `.HB0` against the retail reference screenshots in
+`Reference/`: APOCA 69.4% exact RGB / mean channel error 11.8, COLOSSUS 78.7% / 9.2 over opaque
+pixels, with every scheme index bar two agreeing at 85-100% and both outliers' disagreements confined
+to the scanner/MFD block where retail paints live HUD content over the art. Also verified that all
+nine hercs' schemes and both clip files load, and that RAZOR is the only herc with a non-stub view-1
+clip file (matching its file sizes on disk).
+
+**Not changed, deliberately:** the three-panel simultaneous layout stays. DBSIM switches one of four
+views at a time on a keypress; that divergence is the modernization call above, and the RE does not
+contradict it — the mirror-for-the-opposite-side approach already in use is precisely what DBSIM does
+(`Bitmap_Blit` flag 2 on view 3). Side panels still draw no GAU widgets, which the RE confirms is
+correct: widget origins across all nine hercs span `x:[3..298] y:[1..230]`, entirely inside the
+forward view's quadrant of the cockpit canvas.
+
+### Milestone 8 follow-up (2026-08-17): HUD instruments
+
+Four cockpit defects addressed; RE in `docs/formats/cockpit-hud.md` and `docs/formats/dfn-hfn-dci.md`.
+
+- **Energy meter re-anchored.** The LED pinstripe bar was drawn at the shield display's rect; it
+  belongs at `.GAU` offset 564 (`EnergyPoolGauge`, the Master Energy Pool meter under the TRACK
+  button). Nothing is drawn at the shield display any more.
+- **`.DFN`/`.HFN` decoded, `HudFont` added.** Glyph pool plus per-glyph offset and width arrays,
+  `width * cellHeight` bytes each, one ink index per file. Glyphs pack into the existing HUD sprite
+  atlas, so text costs no extra texture bind. This unblocked every readout below.
+- **Weapon rows drawn** (`PWEAPONS` plate, hardpoint state box, slot number, weapon name). Names come
+  from `SHELL0.VOL`'s `gam\WEAPONS.DAT` via `WeaponNameTable`, which reads that archive directly
+  rather than mounting it — SHELL0 ships `DBA`/`DPL`/`DFN` folders whose names collide with
+  SIMVOL0's, so mounting it would let shell art shadow simulator art.
+- **Shield meter lit, not drawn.** Its rings are canopy art in palette indices 66-71;
+  `CockpitPalette.InstallShieldRamp` reproduces `ShieldsGauge`'s per-frame six-entry palette write.
+  Matches the retail screenshot to within one channel of the palette scalar's own rounding.
+- **Console buttons and gunsight readouts** (`I`/`LINK`/`TRACK` plates and captions, `SPEED:` and
+  `TIME:`) drawn from their own `.GAU` anchors in the fonts the original picks.
+- **`.GAU` shield block corrected** from 628 to 616 (`HShieldDisplay`, `GauFileTransformer`). All nine
+  retail files still round-trip byte-exact.
+
+`CockpitHudState` carries the readouts' live values. Only the hardpoint names are real so far;
+everything else sits at power-up defaults until the sim carries the state behind it.
+
+**Not done:** the MFD still shows its blank screen frame. Compositing the `RADAR` frame over it needs
+the MFD's sub-widget rects, which are in a `.GAU` region that is not decoded.

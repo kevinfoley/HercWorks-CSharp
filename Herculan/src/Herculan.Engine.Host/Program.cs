@@ -17,9 +17,15 @@ using Silk.NET.OpenGL;
 
 var positional = new List<string>();
 string? screenshotPath = null;
+MfdMode? initialMfdMode = null;
 for (int i = 0; i < args.Length; i++) {
 	if (args[i] == "--screenshot" && i + 1 < args.Length) {
 		screenshotPath = args[++i];
+	} else if (args[i] == "--mfd" && i + 1 < args.Length && int.TryParse(args[++i], out int mfdIndex)
+			&& mfdIndex >= 0 && mfdIndex <= 5) {
+		// Which MFD screen to power up on. F1-F6 switch it live; this exists so a --screenshot run,
+		// which never sees a keystroke, can be pointed at a specific screen.
+		initialMfdMode = (MfdMode)mfdIndex;
 	} else {
 		positional.Add(args[i]);
 	}
@@ -128,6 +134,10 @@ if (cockpitArt != null) {
 // shell weapon catalog keyed by player.mec's own hardpoint ids; everything else sits at the
 // power-up defaults in CockpitHudState.Default until the sim carries the state behind it.
 var hudState = CockpitHudState.Default;
+if (initialMfdMode is { } startMfdMode) {
+	hudState = hudState with { Mfd = startMfdMode };
+}
+
 if (cockpitArt != null && mission.Player is { } playerMech && WeaponNameTable.Load(content) is { } weaponNames) {
 	hudState = hudState with {
 		WeaponNames = weaponNames.NamesFor(playerMech.WeaponRefs.Select(id => (int)id)),
@@ -136,6 +146,7 @@ if (cockpitArt != null && mission.Player is { } playerMech && WeaponNameTable.Lo
 }
 
 Console.WriteLine("W/A/S/D move, R/F rise and fall, arrow keys look, Shift boosts, Esc quits.");
+Console.WriteLine("F1-F6 switch the MFD screen: STATUS, FLASH COMM, NAV MAP, SCANNER, TARGET, MISSILE CAM.");
 
 using var window = new EngineWindow($"HERCULAN Engine — zone {mission.Header.ZoneIndex}");
 
@@ -217,6 +228,12 @@ window.Update += deltaSeconds => {
 	if (keyboard?.IsKeyPressed(Key.Escape) == true) {
 		window.Close();
 		return;
+	}
+
+	// F1-F6 pick the MFD screen, the same keys and the same order as the original's own mode buttons
+	// — button i of the display's F-key column dispatches SetMode(i), and this sets the same value.
+	if (keyboard != null && ReadMfdMode(keyboard) is { } requestedMfdMode) {
+		hudState = hudState with { Mfd = requestedMfdMode };
 	}
 
 	// Clamping the accumulator stops a long stall (a breakpoint, a window drag) from turning into
@@ -386,6 +403,19 @@ static CameraInput ReadInput(IKeyboard? keyboard) {
 		Pitch = Axis(keyboard, Key.Up, Key.Down),
 		Boost = keyboard.IsKeyPressed(Key.ShiftLeft) || keyboard.IsKeyPressed(Key.ShiftRight),
 	};
+}
+
+// The MFD screen the function keys are asking for, or null when none of them is down — returning null
+// rather than a default keeps the display on whatever screen it was already showing.
+static MfdMode? ReadMfdMode(IKeyboard keyboard) {
+	Key[] keys = { Key.F1, Key.F2, Key.F3, Key.F4, Key.F5, Key.F6 };
+	for (int i = 0; i < keys.Length; i++) {
+		if (keyboard.IsKeyPressed(keys[i])) {
+			return (MfdMode)i;
+		}
+	}
+
+	return null;
 }
 
 static int Axis(IKeyboard keyboard, Key positive, Key negative) =>

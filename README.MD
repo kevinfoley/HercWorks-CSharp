@@ -60,6 +60,13 @@ Earthsiege 2 is a copyrighted work. While a legal owner of the copyright has pre
   </figure>
 </div>
 
+<div align="center">
+  <figure>
+    <img src="Images/Outlaw%20Cockpit.png" alt="Outlaw Cockpit" width="400">
+    <p><em>An early version of the HERCULAN Engine, displaying the Outlaw cockpit with (currently non-functional) HUD</em></p>
+  </figure>
+</div>
+
 ## Project Structure
 
 - **`Herculan/`** — Main project directory

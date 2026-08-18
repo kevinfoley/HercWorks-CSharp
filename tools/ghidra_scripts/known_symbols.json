@@ -2212,7 +2212,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Base_LoadResources",
-      "description": "base.cpp's resource-load sequence for the base/structure subsystem: streams dat\\bforms (-> DAT_004a9630, formation offsets; see BaseFormation_GetSlotOffset), dat\\lc_wpns, dat\\bases (-> DAT_004a9620, the BASES.DAT type table Bases_LoadTypeTable/BaseTypeTable.cs also reads), dat\\basecol (collision), dat\\bhulks, dat\\basetex and dat\\vehtex (texture banks) via a shared plain-file-read helper (FUN_00472e08 open / FUN_004734ac read via a vtable+0x18 dispatch / FUN_00472e58 close -- no container header, first bytes of each file are its own content, confirmed against BASES.DAT's independently-verified byte-exact parse). BFORMS.DAT's per-formation record is fully variable-length: int32 slot count N, N*10 bytes of slot data, an int32 + two more int32s (grid-snap fields, unmodelled), an int32 buffer count M, then M {1 length byte + that many data bytes} buffers -- confirmed byte-exact: walking the retail file this way consumes all 3186 content bytes with 17 formations (matching the block-11 formation id field's documented 0-16 range) and nothing left over.",
+      "description": "base.cpp's resource-load sequence for the base/structure subsystem: streams dat\\bforms (-> DAT_004a9630, formation offsets; see BaseFormation_GetSlotOffset), dat\\lc_wpns, dat\\bases (-> DAT_004a9620, the BASES.DAT type table BaseTypeTable.cs also reads; this is the only reader of it -- an entry at 0043a2e0 carried a copy of this description under the name Bases_LoadTypeTable until 2026-08-18, when that address was identified as MfdStatusScreen_Ctor and renamed), dat\\basecol (collision), dat\\bhulks, dat\\basetex and dat\\vehtex (texture banks) via a shared plain-file-read helper (FUN_00472e08 open / FUN_004734ac read via a vtable+0x18 dispatch / FUN_00472e58 close -- no container header, first bytes of each file are its own content, confirmed against BASES.DAT's independently-verified byte-exact parse). BFORMS.DAT's per-formation record is fully variable-length: int32 slot count N, N*10 bytes of slot data, an int32 + two more int32s (grid-snap fields, unmodelled), an int32 buffer count M, then M {1 length byte + that many data bytes} buffers -- confirmed byte-exact: walking the retail file this way consumes all 3186 content bytes with 17 formations (matching the block-11 formation id field's documented 0-16 range) and nothing left over.",
       "source": "docs/formats/script-dat.md 2026-08-14 (base formation spread)"
     },
     {
@@ -2220,9 +2220,9 @@
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "Bases_LoadTypeTable",
-      "description": "base.cpp's resource-load sequence. The part that matters for missions is the dat\\BASES.DAT read: a uint16 count then that many 60-byte structure-type records, each with one nested variable-length array of 30-byte sub-records. Byte-verified -- walking that shape consumes the retail file's 6422 content bytes with zero slack, yielding 65 types. NOTE: an earlier revision of dgs-hd0-notes.md applied this record shape to dgs\\BASES.DGS, got count=1, and recorded it as disproven; it is dat\\BASES.DAT's shape and it is exact. Also loads bforms, lc_wpns, basecol, bhulks, basetex and vehtex.",
-      "source": "docs/formats/dgs-hd0-notes.md 2026-08-13"
+      "name": "MfdStatusScreen_Ctor",
+      "description": "Constructor for the MFD's status screen, shared by mode 0 (STATUS, F1) and mode 4 (TARGET, F5) -- MfdDisplay_Ctor builds one of each. Lazily loads the `bases`, `vehicles` and `flyers` sprite banks (folder \"hba\"/\"dba\" off VideoMode_UseHiResBanks) for target silhouettes, sets the wireframe viewport to inset+(0x2d,0xd)-(0x5f,0x3a), and builds five text labels from tables at 0049bd84 (x0), 0049bd8e (y0) and 0049bd98 (font selector into {ColorSchemePanels[10] WHITE, [14] RED}). CORRECTED 2026-08-18: was named Bases_LoadTypeTable. It does not read dat\\BASES.DAT -- that is Base_LoadResources (0043a3xx family, see its own entry); the collision was between loading the BASES sprite bank and loading the BASES data file. See docs/formats/mfd.md.",
+      "source": "docs/formats/mfd.md 2026-08-18"
     },
     {
       "address": "00405ebc",
@@ -3114,6 +3114,195 @@
       "name": "CockpitArt_LoadOnDemand",
       "description": "When non-zero, canopy view bitmaps are loaded on entering a view and freed on leaving it instead of all being loaded up front in CockpitViewManager_LoadViews. A low-memory path.",
       "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "00447650",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdGau_ApplyCoordShift",
+      "description": "Coordinate-shifts the MFD's .GAU block at offset 728 in place before MfdDisplay_Ctor reads it: 13 consecutive rects from int index 4 (file offset 744), then the panel rect at int index 0x38 (file offset 952). The 13 rects are zero in all nine retail .GAU files and no constructor reads them; only the panel rect is live. See docs/formats/mfd.md.",
+      "source": "docs/formats/mfd.md 2026-08-18"
+    },
+    {
+      "address": "00446e38",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdDisplay_SetMode",
+      "description": "Switches the MFD to a screen (0-5, = F-key - 1). Lights button `mode` and unlights the previous via their +0x40 flag, stores the mode at +0xc1, then walks the 6x13 visibility table at 0049cbd8 for buttons 6-12 showing/hiding each. Gau_MfdPanelWidget calls it with 3 (SCANNER) at build time, which is what a cockpit powers up on. See docs/formats/mfd.md.",
+      "source": "docs/formats/mfd.md 2026-08-18"
+    },
+    {
+      "address": "00446138",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdDisplay_Repaint",
+      "description": "Full MFD repaint, in order: mode buttons 0-5, the screen background, all visible buttons 0-12, the current screen's paint slot, then the title from DAT_004d13e0[mode]. Background frame is a bare switch on the mode over the `mfd` bank's frame-pointer array: modes 0/1/4 take element 1, mode 3 element 2, modes 2/5 take literal 0 and skip the blit. Frame 0 is never used as a background. See docs/formats/mfd.md.",
+      "source": "docs/formats/mfd.md 2026-08-18"
+    },
+    {
+      "address": "00446328",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdDisplay_Update",
+      "description": "MFD per-frame update. Dispatches the current screen's update slot via +0xcd + mode*4, refreshes the title for modes 2 and 5, and when a transmission is active draws the speaking pilot's frames at inset+(0x14,0) and fills the message label at +0x329. See docs/formats/mfd.md.",
+      "source": "docs/formats/mfd.md 2026-08-18"
+    },
+    {
+      "address": "0044681c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdButton_OnClick",
+      "description": "MFD button dispatch: finds the clicked button's index in the +0x18 array, then switches on it. Indices 0-5 call MfdDisplay_SetMode(i) -- this is what makes mode index = F-key - 1. Index 11 (PASS) and 12 (ACTIVE) set the radar-mode flag at CockpitViewInstance+0x203's +0x96 to 0/1 and swap which of the two lights. See docs/formats/mfd.md.",
+      "source": "docs/formats/mfd.md 2026-08-18"
+    },
+    {
+      "address": "00447358",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdButton_SetCaption",
+      "description": "Sets one MFD button's caption from its index at +0x28: for index < 6 it composes \"F1\"-\"F6\" on the stack from the two-byte literal at 0049cea3 (\"Fx\") with '1'+index written over the second byte -- the six mode captions are not stored as strings. For index >= 6 it takes DAT_004d13e0[index] from STRINGS0.STR group 5. See docs/formats/mfd.md.",
+      "source": "docs/formats/mfd.md 2026-08-18"
+    },
+    {
+      "address": "004474e4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdButton_Repaint",
+      "description": "Repaints one MFD button and re-fonts its caption: buttons 0-5 and 11-12 take ColorSchemePanels[12] DARK when the +0x40 lit flag is set and [10] WHITE when clear, which is why the selected F-key reads dark-on-green. Caption text is resolved the same way as MfdButton_SetCaption. See docs/formats/mfd.md.",
+      "source": "docs/formats/mfd.md 2026-08-18"
+    },
+    {
+      "address": "0043f5d8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdFlashCommScreen_Ctor",
+      "description": "Constructor for the MFD's FLASH COMM screen (mode 1). Builds six order rows: rect inset+(2,0xd)-(0x60,0x3a) GAU with the top-left nudged in and bottom-right out by 1<<XCoordShift, stepping 7<<YCoordShift per row. Font ColorSchemePanels[1] CPGREEN with [2] CPRED as the alternate at +0x21, background colour id 0x11, text margin 2<<XCoordShift. Rows list the first six of STRINGS0.STR group 0's 18 squadmate orders. See docs/formats/mfd.md.",
+      "source": "docs/formats/mfd.md 2026-08-18"
+    },
+    {
+      "address": "00440494",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdMapScreen_Ctor",
+      "description": "Constructor for the MFD's NAV MAP screen (mode 2). Takes the whole inset rect, allocates a 0x239-byte offscreen render target and centres it at -((x1-x0)>>1), -((y1-y0)>>1). No labels and no aux buttons. Its paint (004405e4) floods the rect with COLORS.DAT id 19 (black) before rasterizing terrain, which is why MfdDisplay_Repaint blits no chrome for this mode. See docs/formats/mfd.md.",
+      "source": "docs/formats/mfd.md 2026-08-18"
+    },
+    {
+      "address": "0043e70c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdRadarScreen_Ctor",
+      "description": "Constructor for the MFD's SCANNER screen (mode 3), the largest of the six at 0x524 bytes. Owns the contact list and the `radar` bank's 10-frame 110x110 sweep animation. Range comes from _DAT_004d1cf4 = 50000/100000/200000 world units (300/600/1200 m at 1000 units = 6 m) indexed by the zoom field at MfdDisplay+0xc5, default 2. See docs/formats/mfd.md.",
+      "source": "docs/formats/mfd.md 2026-08-18"
+    },
+    {
+      "address": "0043facc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdMissileViewScreen_Ctor",
+      "description": "Constructor for the MFD's MISSILE CAM screen (mode 5), matching the MFDMissileView class name in DBSIM's string table. Like the nav map it gets no background chrome from MfdDisplay_Repaint, filling the screen with its own camera image. See docs/formats/mfd.md.",
+      "source": "docs/formats/mfd.md 2026-08-18"
+    },
+    {
+      "address": "00438884",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Label_SetRect",
+      "description": "Anchors a HUD text label: stores the caller's rect at label+1..4 and computes the text anchor. Horizontal depends on the flags argument -- 2 = centre ((x1-x0)/2 + x0 + margin[0]), 4 = right (x1 - margin[0]), otherwise left (x0 + margin[0]). Vertical has no flag at all: anchorY = (y1-y0)/2 + y0 + fontCellHeight/2 + margin[2] + 1, so every label is vertically centred in its rect. margin is the caller's short[4]. Paired with Label_SetText. See docs/formats/mfd.md.",
+      "source": "docs/formats/mfd.md 2026-08-18"
+    },
+    {
+      "address": "00438920",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Label_SetText",
+      "description": "Sets a HUD label's text and places it against the anchor Label_SetRect computed. Measures the run and subtracts 1<<XCoordShift (dropping the trailing advance), then places left/centre/right per the same flags. Vertical position is the stored anchor, which is the cell's bottom -- text top is anchor - cellHeight. Fills the label's background first when its +0x1d colour id is non-zero. See docs/formats/mfd.md.",
+      "source": "docs/formats/mfd.md 2026-08-18"
+    },
+    {
+      "address": "00437598",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimStrings_LoadAll",
+      "description": "Opens one str\\*.STR file and registers its string groups into .bss pointer arrays, in strict file order -- 41 registrations for STRINGS0.STR, so a group's index is its position in this sequence. The sixth (13 entries into DAT_004d13e0) is the MFD's caption/title table. A registration passes a second destination array only for groups whose entries carry attribute bytes, which matches the file's own self-describing per-entry attribute count. See docs/formats/str-strings.md.",
+      "source": "docs/formats/str-strings.md 2026-08-18"
+    },
+    {
+      "address": "004d13e0",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "MfdCaptionTable",
+      "description": "13 pointers into STRINGS0.STR group 5, filled at runtime by SimStrings_LoadAll (BSS, zero in the image). Entries 0-5 are the MFD's six screen titles (STATUS, FLASH COMM, NAV MAP, SCANNER, TARGET, MISSILE CAM) and 6-12 its aux button captions (MODE, SELECT, RANGE, TARGET, XMIT, PASS, ACTIVE). Indexed by mode for the title and by button index for captions. See docs/formats/mfd.md.",
+      "source": "docs/formats/mfd.md 2026-08-18"
+    },
+    {
+      "address": "0049cacc",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "MfdButtonRects",
+      "description": "Four parallel int16[13] tables giving the MFD's button rects in GAU units relative to the inset screen origin: 0049cacc x0, 0049cae6 y0, 0049cb00 x1, 0049cb1a y1. Indices 0-5 are the F-key mode column at x -16..-2 with a 10-unit pitch (negative because the column sits left of the inset), 6 is a degenerate zero rect, 7-12 the per-screen aux buttons. Every rect size matches a dba\\MFD.DBA frame size exactly. See docs/formats/mfd.md.",
+      "source": "docs/formats/mfd.md 2026-08-18"
+    },
+    {
+      "address": "0049cbd8",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "MfdButtonVisibility",
+      "description": "6 rows x 13 bytes: which buttons each MFD mode shows. Indices 0-5 are 1 in every row; the aux columns give SELECT on modes 0 and 4, XMIT on 1, RANGE/TARGET/PASS/ACTIVE on 3, and none on 2 and 5. MfdDisplay_SetMode and MfdDisplay_Repaint address it as &table[mode][6], which the decompiler folds into DAT_0049cbde + mode*13. See docs/formats/mfd.md.",
+      "source": "docs/formats/mfd.md 2026-08-18"
+    },
+    {
+      "address": "0049bd84",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "MfdStatusLabelTables",
+      "description": "Three parallel int16[5] tables for the MFD status screen's labels: 0049bd84 x0 (6 for all five), 0049bd8e y0 (16, 23, 32, 40, 49), 0049bd98 font selector (0,1,0,1,1) into {ColorSchemePanels[10] WHITE, [14] RED}. All in GAU units relative to the inset screen origin; each label is 6 units tall and runs right to the wireframe viewport's left edge at 45. See docs/formats/mfd.md.",
+      "source": "docs/formats/mfd.md 2026-08-18"
+    },
+    {
+      "address": "0043b260",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdStatusScreen_SetCondition",
+      "description": "Writes the MFD status screen's fourth and fifth labels. Label 4 (screen+0x1c) takes MfdStatusConditionStrings[state] = STRINGS0.STR group 28; state is the caller's, or FUN_00438700(damage) when the caller passes -1. Label 5 (screen+0x20) is composed from literals: \"[ \" (0049be2c), itoa((0x100 - damage) * 100 >> 8), then \"% ]\" (0049be2f) -- undamaged reads \"[ 100% ]\". When the subject is unreadable (screen+0x34 set) it writes \"XXXXXX\" and \"XXX\" instead. NOTE: STRINGS0.STR group 10 holds a near-identical five-string set and is dead data -- SimStrings_LoadAll is the only reference to its array. See docs/formats/mfd.md.",
+      "source": "docs/formats/mfd.md 2026-08-18"
+    },
+    {
+      "address": "004d1698",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "MfdStatusConditionStrings",
+      "description": "5 pointers into STRINGS0.STR group 28 -- OK, SHIELDS DN, INT DAMAGE, CRITICAL, DESTROYED -- filled at runtime by SimStrings_LoadAll. Indexed by condition state for the MFD status screen's fourth label in MfdStatusScreen_SetCondition. This, not the similar-looking group 10 at DAT_004d1440, is the live table. See docs/formats/mfd.md.",
+      "source": "docs/formats/mfd.md 2026-08-18"
+    },
+    {
+      "address": "004d1cf4",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "MfdScannerRanges",
+      "description": "Three int32 scanner ranges -- 50000, 100000, 200000 world units = 300, 600, 1200 m at the game's 1000 units = 6 m scale. Indexed by the MFD's zoom field at +0xc5, which MfdDisplay_Ctor inits to 2; 1200 m matches the RNG: readout in the retail scanner screenshot. See docs/formats/mfd.md.",
+      "source": "docs/formats/mfd.md 2026-08-18"
     }
   ]
 }

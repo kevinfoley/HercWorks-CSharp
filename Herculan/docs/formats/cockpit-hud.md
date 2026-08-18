@@ -325,7 +325,7 @@ Load path: `ResourcePath_BuildFolderName(name, folder)` → `Resource_Load` (`00
 |---|---|---|
 | `hud` | `Gau_RovingGunsightWidget` (`0043c7d8`) | gunsight / reticle |
 | `hudhtick` | `HudHeadingTape_Ctor` (`0043b57c`) | heading tick tape |
-| `mfd`, `mfd_dmg`, `radar` | `MfdDisplay_Ctor` (`00445218`) | multi-function display |
+| `mfd`, `mfd_dmg`, `radar` | `MfdDisplay_Ctor` (`00445218`) | multi-function display — see [`mfd.md`](mfd.md) |
 | `hdd`, `static`, `hddclip`, `pilotN` | `FUN_00448cc8`, `HddGauge_LoadPilotFrames` (`0044a7c0`) | heads-down display |
 | `pweapons`, `wpn_dmg` | `WeaponGauge_Ctor` (`0044080c`) | weapon hardpoint plates |
 | `throttle` | `ThrottleGauge_Ctor` (`00447b84`) | throttle slider knob |
@@ -340,7 +340,8 @@ Frame-to-state mapping, as far as it is traced: `PWEAPONS` 0/1 are the selected/
 2/3 the unlit/lit console-button plate, 4/5/6 the hardpoint state box (green / red / amber), 7 a
 640x80 strip with no located consumer; `WPN_DMG`'s 10 frames are damage fill levels, frame 0 the
 opaque empty plate; `THROTTLE` 0 is a 2x12 tick and 1 the 28x12 knob; `RADAR`'s 10 110x110 frames are
-the sweep animation; `MFD` 0-2 are 196x122 screen states.
+the sweep animation; `MFD` 0-2 are 196x122 screen chrome, 3-10 five button plates in unlit/lit pairs
+(see [`mfd.md`](mfd.md)).
 
 ## `.GAU` widget tree
 
@@ -541,9 +542,6 @@ sub-objects (`+0x1f5`, `FUN_00433158`'s result, `+0x20b`).
 
 ## Open
 
-- The MFD's sub-widget geometry — where the `RADAR` frame and the mode readouts sit inside the screen
-  — comes from rects in the MFD's own `.GAU` block (`MfdDisplay_Ctor`, `00445218`, reads them at
-  `param_2[0x38]` onward) that are not decoded. The engine draws the blank `MFD` frame 0 only.
 - `WPN_DMG`'s fill levels and the weapon value field need per-weapon sim state the engine does not
   carry, so neither is drawn.
 - Widget *state* sources generally: which frame or fill level a widget is in per frame is driven from

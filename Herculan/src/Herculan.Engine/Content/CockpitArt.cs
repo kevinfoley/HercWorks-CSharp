@@ -1,5 +1,6 @@
 using System.Numerics;
 using HercWorks.Core.Data.File.Dat.Sim;
+using HercWorks.Core.Data.File.Dbsim;
 using HercWorks.Core.Data.File.Dyn;
 using HercWorks.Core.Data.File.Gau;
 using HercWorks.Core.Io.Transform.Common;
@@ -75,12 +76,15 @@ public sealed class CockpitArt {
 	/// and <c>HUD1</c>/<c>HUD2</c>/<c>HUD3</c>, the three theater-coloured fonts the gunsight
 	/// complex's readouts use.
 	/// </summary>
+	/// <para><c>CPGREEN</c> and <c>CPRED</c> are <c>ColorSchemePanels[1]</c> and <c>[2]</c>, the pair
+	/// the MFD's FLASH COMM screen lists its squadmate orders in — available orders in green, ones the
+	/// squad cannot take in red.</para>
 	public static readonly string[] HudFontNames =
-		{ "WHITE", "GRAY", "GREEN", "DARK", "RED", "HUD1", "HUD2", "HUD3" };
+		{ "WHITE", "GRAY", "GREEN", "DARK", "RED", "HUD1", "HUD2", "HUD3", "CPGREEN", "CPRED" };
 
 	private CockpitArt(CockpitFrame front, CockpitFrame side, GAUFile gau, HudSpriteSheet? sprites,
 			HudColorTable? colors, (Vector3, Vector3, Vector3)? gaugeColors,
-			int colorSchemeIndex, bool clipRegionsLoaded) {
+			int colorSchemeIndex, bool clipRegionsLoaded, string hercName, SimStringTable? strings) {
 		Front = front;
 		Side = side;
 		Gau = gau;
@@ -89,7 +93,30 @@ public sealed class CockpitArt {
 		GaugeColors = gaugeColors;
 		ColorSchemeIndex = colorSchemeIndex;
 		ClipRegionsLoaded = clipRegionsLoaded;
+		HercName = hercName;
+		Strings = strings;
 	}
+
+	/// <summary>
+	/// The herc this cockpit belongs to, which is also the name of its own sprite bank — the paper-doll
+	/// wireframe the MFD's status screen draws comes from <c>hba\&lt;HERC&gt;.HBA</c>.
+	/// </summary>
+	public string HercName { get; }
+
+	/// <summary>
+	/// <c>str\STRINGS0.STR</c>, the simulator's UI text — every caption and readout label the cockpit
+	/// prints, including the MFD's screen titles and button captions. Null when the resource is
+	/// missing, in which case text-bearing widgets draw their art and no words.
+	/// </summary>
+	public SimStringTable? Strings { get; }
+
+	/// <summary>
+	/// The herc's <c>pdg\&lt;HERC&gt;.PDG</c> damage diagram — three views, each an origin/size pair
+	/// and a list of body regions. The MFD's status screen positions its wireframe by the view's
+	/// origin; the regions are what the original tints per body part as damage lands. Null when the
+	/// file is missing or does not parse, in which case no wireframe is drawn.
+	/// </summary>
+	public PaperDollGraphic? PaperDoll { get; private init; }
 
 	/// <summary>
 	/// Which of <c>COCKPIT.DPL</c>'s nine 24-entry cockpit colour schemes this herc renders through —
@@ -174,12 +201,24 @@ public sealed class CockpitArt {
 			& CutViewportHole(content, hercName, SideViewIndex, side);
 
 		var colors = HudColorTable.Load(content);
+
+		// The herc's own bank goes in alongside the shared ones: it holds the paper-doll wireframe
+		// frames the MFD status screen draws, and its name is the herc's.
+		var banks = HudBankNames.Append(hercName.ToUpperInvariant()).ToArray();
+
 		return new CockpitArt(front, side, gau,
-			HudSpriteSheet.Load(content, palette, HudBankNames, HudFontNames),
+			HudSpriteSheet.Load(content, palette, banks, HudFontNames),
 			colors,
 			ResolveGaugeColors(colors, palette),
 			schemeIndex,
-			clipped);
+			clipped,
+			hercName.ToUpperInvariant(),
+			SimStringTable.Load(content)) {
+			PaperDoll = content.Read("pdg", hercName + ".PDG") is { } pdgBytes
+				&& new PaperDiagramGraphTransformer().BytesToObject(pdgBytes) is PaperDollGraphic doll
+					? doll
+					: null,
+		};
 	}
 
 	/// <summary>

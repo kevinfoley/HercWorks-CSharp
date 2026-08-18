@@ -294,7 +294,8 @@ public sealed class Overlay2DRenderer : IDisposable {
 				gauY0 * S + ((gauY1 - gauY0) * S - font.CellHeight) / 2f);
 		}
 
-		BlitAt("MFD", 0, gau.MfdPanel);
+		AddMfd(hud, state, BlitDevice, DrawText,
+			(x0, y0, x1, y1, color) => AddFilledRect(Dx(x0), Dy(y0), Dx(x1), Dy(y1), color));
 		BlitAt("HUDHTICK", 0, gau.TorsoTwist);
 
 		// Frame 1 is the knob; frame 0 is a 2px tick. With no throttle state wired up yet it parks at
@@ -383,6 +384,208 @@ public sealed class Overlay2DRenderer : IDisposable {
 		Label(state.ShieldFront.ToString(), shields.FrontLabel, shields.FrontLabelSize);
 		Label(state.ShieldRear.ToString(), shields.RearLabel, shields.RearLabelSize);
 	}
+
+	/// <summary>
+	/// The multi-function display, built the way <c>MfdDisplay_Ctor</c> (<c>00445218</c>) builds it —
+	/// see <see cref="MfdLayout"/> for where every rect comes from and
+	/// docs/formats/cockpit-hud.md for the panel it sits in.
+	///
+	/// <list type="number">
+	/// <item>the screen itself, <c>MFD</c> frame 0, at the panel rect inset 18 GAU units from the left;
+	/// its 196x122 art fills that inset region exactly;</item>
+	/// <item>the F1-F6 mode column down the strip the inset left free, each button lit (frame 4) for
+	/// the current screen and unlit (frame 3) otherwise, captioned "F1".."F6" — the original composes
+	/// those from its own <c>"Fx"</c> literal rather than storing six strings;</item>
+	/// <item>the aux buttons the current screen shows, from the 6x13 visibility table — SELECT on the
+	/// two status screens, XMIT on FLASH COMM, PASS/ACTIVE/RANGE/TARGET on the scanner, none on the
+	/// nav map or missile cam;</item>
+	/// <item>the screen title, and then whichever screen's own content is implemented.</item>
+	/// </list>
+	///
+	/// <para>A lit button captions in <c>DARK</c> and an unlit one in <c>WHITE</c>, which is
+	/// <c>FUN_004474e4</c>'s own choice: it picks <c>ColorSchemePanels[12]</c> when the button's
+	/// <c>+0x40</c> lit flag is set and <c>[10]</c> when it is clear.</para>
+	///
+	/// <para><b>Screens are laid out, not driven.</b> STATUS, FLASH COMM and NAV MAP draw their real
+	/// widget geometry with the text the string table actually holds; the values in that text are the
+	/// power-up placeholders in <see cref="CockpitHudState"/>, since the sim carries no damage,
+	/// squad-order or map state yet. SCANNER, TARGET STATUS and MISSILE CAM draw their screen and
+	/// buttons only — TARGET STATUS shares STATUS's layout but needs a target to name, and the other
+	/// two are wholly state-driven.</para>
+	/// </summary>
+	private static void AddMfd(CockpitArt hud, CockpitHudState state,
+			Action<string, int, float, float> blitDevice,
+			Func<string, string, float, float, float> drawText,
+			Action<float, float, float, float, Vector3> fillRect) {
+		if (hud.Sprites is not { } sprites || MfdLayout.InsetOrigin(hud.Gau) is not { } inset) {
+			return;
+		}
+
+		const float S = CockpitArt.GauToPixelScale;
+		float insetX = inset.X * S;
+		float insetY = inset.Y * S;
+		var strings = hud.Strings;
+
+		// Device-pixel positions measured from the inset origin, which is the space every rect in
+		// MfdLayout is expressed in once scaled.
+		float X(int gau) => insetX + gau * S;
+		float Y(int gau) => insetY + gau * S;
+
+		// Places one label in a device-pixel rect the way FUN_00438884 and FUN_00438920 do together.
+		// The pair anchor a label once and re-place its text on every change: horizontally the flags
+		// pick left (1), centre (2) or right (4) against an anchor at the rect edge plus the caller's
+		// margin, while vertically there is no flag at all — the anchor is always the rect's own
+		// centre offset by half a font cell, so every label in the display is vertically centred in
+		// its rect and only the horizontal rule varies.
+		void DrawLabel(string font, string text, float x0, float y0, float x1, float y1,
+				bool centered, float marginX = 0f) {
+			if (sprites.Font(font) is not { } metrics) {
+				return;
+			}
+
+			// The measured width drops one device pixel: the original subtracts 1 << XCoordShift from
+			// the run before splitting it, discarding the trailing advance past the last glyph.
+			float width = metrics.Measure(text) - CockpitArt.GauToPixelScale;
+			float left = centered ? (x0 + x1) / 2f + marginX - width / 2f : x0 + marginX;
+			drawText(font, text, left, (y0 + y1) / 2f - metrics.CellHeight / 2f);
+		}
+
+		if (MfdLayout.BackgroundFrame(state.Mfd) is { } background) {
+			blitDevice(MfdLayout.Bank, background, insetX, insetY);
+		}
+
+		// The nav map owns the whole inset region and its paint (FUN_004405e4) floods that rect with
+		// COLORS.DAT id 19 — black, the same id the gauge remainder resolves through — before
+		// rasterizing terrain into it. That flood is why the repaint blits no chrome for this mode at
+		// all, and it goes down before the buttons and title for the same reason the original paints
+		// them after. The terrain it would cover needs a map rasterizer the engine does not have.
+		if (state.Mfd == MfdMode.NavMap
+			&& hud.GaugeColors?.Remainder is { } mapBackground
+			&& sprites.Sprite(MfdLayout.Bank, 0) is { } screen) {
+			fillRect(insetX, insetY, insetX + screen.Width, insetY + screen.Height, mapBackground);
+		}
+
+		for (int i = 0; i < MfdLayout.ButtonCount; i++) {
+			if (!MfdLayout.ButtonVisible(state.Mfd, i)) {
+				continue;
+			}
+
+			var button = MfdLayout.Buttons[i];
+			bool lit = i < MfdLayout.ModeCount && i == (int)state.Mfd;
+			float left = X(button.X0);
+			float top = Y(button.Y0);
+
+			blitDevice(MfdLayout.Bank, lit ? button.LitFrame : button.UnlitFrame, left, top);
+			if (MfdLayout.Caption(strings, i) is { Length: > 0 } caption) {
+				DrawLabel(lit ? "DARK" : "WHITE", caption,
+					left, top, X(button.X1), Y(button.Y1), centered: true);
+			}
+		}
+
+		switch (state.Mfd) {
+			case MfdMode.Status:
+				AddMfdStatusScreen(hud, blitDevice, DrawLabel, X, Y);
+				break;
+			case MfdMode.FlashComm:
+				AddMfdFlashComm(strings, DrawLabel, insetX, insetY);
+				break;
+			case MfdMode.NavMap:
+				// Its background is flooded above, before the buttons and title go down over it.
+				break;
+		}
+
+		// The title goes down last, after the screen has painted — the repaint's own order, so a
+		// screen that draws into the header strip cannot cover its own caption. Left-aligned, not
+		// centred: the title passes alignment 1 where the button captions pass 2, and retail's own
+		// "STATUS" starts 44 device pixels from the panel's left edge, which is this rect's left edge.
+		if (MfdLayout.Title(strings, state.Mfd) is { Length: > 0 } title) {
+			DrawLabel("WHITE", title,
+				X(MfdLayout.TitleRect.X0), Y(MfdLayout.TitleRect.Y0),
+				X(MfdLayout.TitleRect.X1), Y(MfdLayout.TitleRect.Y1), centered: false);
+		}
+	}
+
+	/// <summary>
+	/// The status screen shared by F1 and F5 (<c>0043a2e0</c>): five stacked labels down the left of
+	/// the screen and the herc's damage wireframe in a viewport whose left edge is the labels' right
+	/// edge.
+	///
+	/// <para>The wireframe is the herc's own paper-doll art — <c>hba\&lt;HERC&gt;.HBA</c> frame 2, the
+	/// compact third view of the three its <c>.PDG</c> describes, at 48x82 device pixels against a
+	/// 102x92 viewport. The original tints individual body regions by damage from the <c>.PDG</c>
+	/// region list; with no damage model to drive that, this draws the undamaged frame whole.</para>
+	/// </summary>
+	private static void AddMfdStatusScreen(CockpitArt hud,
+			Action<string, int, float, float> blitDevice, MfdLabelWriter drawLabel,
+			Func<int, float> x, Func<int, float> y) {
+		const float S = CockpitArt.GauToPixelScale;
+		var strings = hud.Strings;
+
+		// The five labels, in the constructor's own order: identifier caption, subject name, status
+		// caption, damage state, and a structural-integrity readout the original formats at runtime.
+		string?[] texts = {
+			strings?.Text(MfdLayout.IdentLabelGroup, 0),
+			strings?.Text(MfdLayout.SelfNameGroup, 0),
+			strings?.Text(MfdLayout.StatusLabelGroup, 0),
+			strings?.Text(MfdLayout.ConditionGroup, 0),
+			MfdLayout.IntegrityReadout(0),
+		};
+
+		for (int i = 0; i < MfdLayout.StatusLabelY.Length; i++) {
+			if (texts[i] is { Length: > 0 } text) {
+				drawLabel(MfdLayout.StatusLabelFonts[i], text,
+					x(MfdLayout.StatusLabelX), y(MfdLayout.StatusLabelY[i]),
+					x(MfdLayout.WireframeRect.X0),
+					y(MfdLayout.StatusLabelY[i] + MfdLayout.StatusLabelHeight),
+					false, 0f);
+			}
+		}
+
+		// The paper doll blits at the viewport's top-left plus the .PDG view's own origin plus a fixed
+		// (0x11, 2) device nudge — the paint's own arithmetic, not a centring rule. The view's origin
+		// is authored in the 320-wide space like every other .PDG coordinate, so it scales the same way.
+		if (hud.PaperDoll?.Entries is { } views
+			&& MfdLayout.WireframeViewIndex < views.Length
+			&& views[MfdLayout.WireframeViewIndex] is { } view) {
+			blitDevice(hud.HercName, MfdLayout.WireframeViewIndex,
+				x(MfdLayout.WireframeRect.X0) + view.Origin.X * S + MfdLayout.WireframeArtOffset.X,
+				y(MfdLayout.WireframeRect.Y0) + view.Origin.Y * S + MfdLayout.WireframeArtOffset.Y);
+		}
+	}
+
+	/// <summary>
+	/// FLASH COMM's order list (<c>0043f5d8</c>): six evenly stacked rows spanning almost the whole
+	/// screen, listing the first six of the eighteen squadmate orders the string table holds. Rows are
+	/// 7 GAU units apart and drawn in <c>CPGREEN</c>.
+	///
+	/// <para>The original highlights the row the cursor is on and re-fonts orders the squad cannot
+	/// currently take; both need squad state, so every row draws available here.</para>
+	/// </summary>
+	private static void AddMfdFlashComm(SimStringTable? strings, MfdLabelWriter drawLabel,
+			float insetX, float insetY) {
+		var rows = MfdLayout.FlashCommRows;
+		var orders = strings?.Group(MfdLayout.OrderGroup);
+		if (orders == null) {
+			return;
+		}
+
+		for (int i = 0; i < MfdLayout.FlashCommRowCount && i < orders.Count; i++) {
+			if (orders[i].Text is { Length: > 0 } text) {
+				float top = insetY + rows.Y0 + i * rows.RowHeight;
+				drawLabel(MfdLayout.FlashCommFont, text,
+					insetX + rows.X0, top, insetX + rows.X1, top + rows.RowHeight,
+					false, MfdLayout.FlashCommTextMarginX);
+			}
+		}
+	}
+
+	/// <summary>
+	/// Places one MFD label: a font, its text, the device-pixel rect it sits in, whether it centres
+	/// horizontally, and how far its text is indented from the anchoring edge. Vertical centring is
+	/// unconditional — see the implementation inside <see cref="AddMfd"/> for why.
+	/// </summary>
+	private delegate void MfdLabelWriter(string font, string text,
+		float x0, float y0, float x1, float y1, bool centered, float marginX);
 
 	/// <summary>
 	/// The three console buttons: a <c>PWEAPONS</c> plate with a caption centred on it.

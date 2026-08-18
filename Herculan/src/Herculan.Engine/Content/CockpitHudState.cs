@@ -19,6 +19,7 @@ namespace Herculan.Engine.Content;
 /// <param name="SpeedKph">Ground speed in K/H, as the readout under the reticle spells it.</param>
 /// <param name="MissionTime">Mission clock, rendered mm:ss.</param>
 /// <param name="ChainCount">How many weapons the chain button fires per pull, 1-3 — its caption is that many <c>I</c>s.</param>
+/// <param name="Mfd">Which screen the multi-function display is showing. F1-F6 select it, exactly as DBSIM's own mode buttons do.</param>
 public readonly record struct CockpitHudState(
 	IReadOnlyList<string> WeaponNames,
 	int SelectedWeapon,
@@ -26,11 +27,14 @@ public readonly record struct CockpitHudState(
 	int ShieldRear,
 	int SpeedKph,
 	TimeSpan MissionTime,
-	int ChainCount) {
+	int ChainCount,
+	MfdMode Mfd) {
 
 	/// <summary>
 	/// Power-up state: shields full and evenly balanced at 100/100 out of the 200-point pool
-	/// <c>FUN_00444a68</c> scales to, first hardpoint armed, chain at one, stationary clock.
+	/// <c>FUN_00444a68</c> scales to, first hardpoint armed, chain at one, stationary clock, and the
+	/// MFD on the scanner — which is the screen <c>Gau_MfdPanelWidget</c> boots the display to with
+	/// its own <c>SetMode(obj, 3)</c> call.
 	/// </summary>
 	public static CockpitHudState Default { get; } = new(
 		WeaponNames: Array.Empty<string>(),
@@ -39,5 +43,6 @@ public readonly record struct CockpitHudState(
 		ShieldRear: 100,
 		SpeedKph: 0,
 		MissionTime: TimeSpan.Zero,
-		ChainCount: 1);
+		ChainCount: 1,
+		Mfd: MfdMode.Scanner);
 }

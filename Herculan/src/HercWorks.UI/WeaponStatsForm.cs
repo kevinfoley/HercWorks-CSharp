@@ -12,15 +12,16 @@ namespace HercWorks.UI;
 /// armory autobuild priority) — one row per weapon. The file's separate campaign-start loadout
 /// section (StartingWeapons) isn't shown here; that belongs more to a future Campaign Resources
 /// editor than to per-weapon stats, but its bytes are carried through unchanged on save so
-/// nothing is lost. Follows the same pattern as HercStatsForm: works against a loose .DAT file,
-/// uses the shared VolEntryPrefixCodec so exports stay retail-compatible, and keeps layout in
+/// nothing is lost. Follows the same pattern as HercStatsForm: opens whichever copy GamePaths' GAM
+/// search order finds and saves to a loose .DAT override, uses the shared VolEntryPrefixCodec via
+/// GameFile so exports stay retail-compatible, and keeps layout in
 /// WeaponStatsForm.Designer.cs for the WinForms visual designer.
 /// </summary>
 public partial class WeaponStatsForm : Form {
 	private readonly BindingList<WeaponStatRow> _rows = new();
 	private readonly WeaponsDatTransformer _transformer = new();
 
-	private string? _loadedPath;
+	private GameFile? _loadedFile;
 
 	// Campaign-start loadout section, carried through unchanged — not edited by this form.
 	private short _loadedStartWeaponTotal;
@@ -45,11 +46,31 @@ public partial class WeaponStatsForm : Form {
 	/// </summary>
 	private static readonly Guid DialogClientGuid = new("b5228457-50b0-4667-b328-07a17f72c4d1");
 
+	/// <summary>
+	/// Opened automatically on startup, found by GamePaths' GAM search order — same situation as
+	/// HercStatsForm's: a loose override wins, otherwise this comes out of SHELL0.VOL.
+	/// </summary>
+	private const string DefaultFileName = "WEAPONS.DAT";
+
+	protected override void OnLoad(EventArgs e) {
+		base.OnLoad(e);
+
+		try {
+			if (GamePaths.FindGamFile(DefaultFileName) is { } file) {
+				LoadGameFile(file);
+			}
+		} catch (Exception ex) {
+			MessageBox.Show(this, $"Failed to load {DefaultFileName} from the game directory:\n{ex.Message}",
+				"Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+		}
+	}
+
 	private void OnOpen(object? sender, EventArgs e) {
 		using var dialog = new OpenFileDialog {
 			Filter = "WEAPONS.DAT|WEAPONS.DAT|DAT files (*.dat)|*.dat|All files (*.*)|*.*",
 			Title = "Open WEAPONS.DAT",
-			ClientGuid = DialogClientGuid
+			ClientGuid = DialogClientGuid,
+			InitialDirectory = GamePaths.GamInitialDirectory
 		};
 
 		if (dialog.ShowDialog(this) != DialogResult.OK) {
@@ -57,9 +78,16 @@ public partial class WeaponStatsForm : Form {
 		}
 
 		try {
-			byte[] rawBytes = File.ReadAllBytes(dialog.FileName);
-			var prefix = VolEntryPrefixCodec.StripIfPresent(rawBytes);
-			var weaponsDat = (WeaponsDat?)_transformer.BytesToObject(prefix.Content);
+			LoadGameFile(GameFile.FromLooseFile(dialog.FileName));
+		} catch (Exception ex) {
+			MessageBox.Show(this, $"Failed to load file:\n{ex.Message}", "Error",
+				MessageBoxButtons.OK, MessageBoxIcon.Error);
+		}
+	}
+
+	private void LoadGameFile(GameFile file) {
+		try {
+			var weaponsDat = (WeaponsDat?)_transformer.BytesToObject(file.Content);
 
 			if (weaponsDat == null) {
 				MessageBox.Show(this, "File was empty or could not be parsed.", "Error",
@@ -81,13 +109,14 @@ public partial class WeaponStatsForm : Form {
 			_loadedStartWeaponTotal = weaponsDat.StartWeaponTotal;
 			_loadedStartingWeapons = weaponsDat.StartingWeapons;
 
-			_loadedPath = dialog.FileName;
-			_originalCompressionType = prefix.HadPrefix ? prefix.CompressionType : null;
-			_originalMagicPrefix = prefix.MagicPrefix;
-			_originalHadTrailingByte = prefix.HadTrailingByte;
+			_loadedFile = file;
+			_originalCompressionType = file.CompressionType;
+			_originalMagicPrefix = file.MagicPrefix;
+			_originalHadTrailingByte = file.HadTrailingByte;
 
-			string prefixNote = prefix.HadPrefix ? " (VOL entry prefix detected — will be preserved on save)" : "";
-			_statusLabel.Text = $"Loaded {Path.GetFileName(dialog.FileName)} — {_rows.Count} weapons.{prefixNote}";
+			string prefixNote = file.CompressionType.HasValue
+				? " (VOL entry prefix detected — will be preserved on save)" : "";
+			_statusLabel.Text = $"Loaded {file.Location} — {_rows.Count} weapons.{prefixNote}";
 		} catch (Exception ex) {
 			MessageBox.Show(this, $"Failed to load file:\n{ex.Message}", "Error",
 				MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -104,8 +133,13 @@ public partial class WeaponStatsForm : Form {
 		using var dialog = new SaveFileDialog {
 			Filter = "WEAPONS.DAT|WEAPONS.DAT|DAT files (*.dat)|*.dat|All files (*.*)|*.*",
 			Title = "Save WEAPONS.DAT",
-			FileName = _loadedPath == null ? "WEAPONS.DAT" : Path.GetFileName(_loadedPath),
-			ClientGuid = DialogClientGuid
+			FileName = _loadedFile?.FileName ?? DefaultFileName,
+			ClientGuid = DialogClientGuid,
+			// A file read out of the packed VOL has no folder of its own to save back beside, so it
+			// falls through to the same GAM override folder the message below points at.
+			InitialDirectory = _loadedFile?.LoosePath is { } loosePath
+				? Path.GetDirectoryName(loosePath)!
+				: GamePaths.GamInitialDirectory
 		};
 
 		if (dialog.ShowDialog(this) != DialogResult.OK) {

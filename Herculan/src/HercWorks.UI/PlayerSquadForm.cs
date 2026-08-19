@@ -45,19 +45,38 @@ public partial class PlayerSquadForm : Form {
 	/// </summary>
 	private static readonly Guid DialogClientGuid = new("2d84f7a0-5b93-4e18-9a6c-8f3d1c07b562");
 
+	/// <summary>
+	/// The copy DBSIM actually reads, relative to the game directory — opened automatically so the
+	/// editor starts on the live squad rather than an empty grid.
+	/// </summary>
+	private static readonly string[] DefaultFile = { "DATA", "PLAYER.MEC" };
+
+	protected override void OnLoad(EventArgs e) {
+		base.OnLoad(e);
+
+		if (GamePaths.Resolve(DefaultFile) is { } path) {
+			LoadFile(path);
+		}
+	}
+
 	private void OnOpen(object? sender, EventArgs e) {
 		using var dialog = new OpenFileDialog {
 			Filter = "Player squad files (*.mec)|*.mec|All files (*.*)|*.*",
 			Title = "Open player squad file",
-			ClientGuid = DialogClientGuid
+			ClientGuid = DialogClientGuid,
+			InitialDirectory = GamePaths.InitialDirectoryFor("DATA")
 		};
 
 		if (dialog.ShowDialog(this) != DialogResult.OK) {
 			return;
 		}
 
+		LoadFile(dialog.FileName);
+	}
+
+	private void LoadFile(string path) {
 		try {
-			byte[] rawBytes = File.ReadAllBytes(dialog.FileName);
+			byte[] rawBytes = File.ReadAllBytes(path);
 			var prefix = VolEntryPrefixCodec.StripIfPresent(rawBytes);
 			var squad = (MecFile?)_transformer.BytesToObject(prefix.Content);
 
@@ -78,14 +97,14 @@ public partial class PlayerSquadForm : Form {
 			UpdatePlayerSlotRange();
 			_playerSlotInput.Value = Math.Clamp(squad.PlayerEntryIndex, _playerSlotInput.Minimum, _playerSlotInput.Maximum);
 
-			_loadedPath = dialog.FileName;
+			_loadedPath = path;
 			_originalCompressionType = prefix.HadPrefix ? prefix.CompressionType : null;
 			_originalMagicPrefix = prefix.MagicPrefix;
 			_originalHadTrailingByte = prefix.HadTrailingByte;
 
 			string prefixNote = prefix.HadPrefix ? " (VOL entry prefix detected — will be preserved on save)" : "";
 			_statusLabel.Text =
-				$"Loaded {Path.GetFileName(dialog.FileName)} — {squad.Entries.Length} entries, " +
+				$"Loaded {Path.GetFileName(path)} — {squad.Entries.Length} entries, " +
 				$"player pilots #{squad.PlayerEntryIndex}.{prefixNote}";
 		} catch (Exception ex) {
 			MessageBox.Show(this, $"Failed to load file:\n{ex.Message}", "Error",
@@ -215,7 +234,10 @@ public partial class PlayerSquadForm : Form {
 			Filter = "Player squad files (*.mec)|*.mec|All files (*.*)|*.*",
 			Title = "Save player squad file",
 			FileName = _loadedPath == null ? "PLAYER.MEC" : Path.GetFileName(_loadedPath),
-			ClientGuid = DialogClientGuid
+			ClientGuid = DialogClientGuid,
+			InitialDirectory = _loadedPath == null
+				? GamePaths.InitialDirectoryFor("DATA")
+				: Path.GetDirectoryName(_loadedPath)!
 		};
 
 		if (dialog.ShowDialog(this) != DialogResult.OK) {

@@ -24,6 +24,8 @@ partial class MainForm {
 		_openVolMenuItem = new ToolStripMenuItem();
 		_unpackVolMenuItem = new ToolStripMenuItem();
 		_exportSelectedFileMenuItem = new ToolStripMenuItem();
+		_gameFolderMenuSeparator = new ToolStripSeparator();
+		_setGameFolderMenuItem = new ToolStripMenuItem();
 		_fileMenuSeparator = new ToolStripSeparator();
 		_exitMenuItem = new ToolStripMenuItem();
 		_editMenuItem = new ToolStripMenuItem();
@@ -61,7 +63,8 @@ partial class MainForm {
 		// _fileMenuItem
 		//
 		_fileMenuItem.DropDownItems.AddRange(new ToolStripItem[] {
-			_openVolMenuItem, _unpackVolMenuItem, _exportSelectedFileMenuItem, _fileMenuSeparator, _exitMenuItem
+			_openVolMenuItem, _unpackVolMenuItem, _exportSelectedFileMenuItem,
+			_gameFolderMenuSeparator, _setGameFolderMenuItem, _fileMenuSeparator, _exitMenuItem
 		});
 		_fileMenuItem.Name = "_fileMenuItem";
 		_fileMenuItem.Text = "&File";
@@ -84,6 +87,16 @@ partial class MainForm {
 		_exportSelectedFileMenuItem.Name = "_exportSelectedFileMenuItem";
 		_exportSelectedFileMenuItem.Text = "Export &Selected File...";
 		_exportSelectedFileMenuItem.Click += OnExportSelectedFile;
+		//
+		// _gameFolderMenuSeparator
+		//
+		_gameFolderMenuSeparator.Name = "_gameFolderMenuSeparator";
+		//
+		// _setGameFolderMenuItem
+		//
+		_setGameFolderMenuItem.Name = "_setGameFolderMenuItem";
+		_setGameFolderMenuItem.Text = "Set Earthsiege 2 &Folder...";
+		_setGameFolderMenuItem.Click += OnSetGameFolder;
 		//
 		// _fileMenuSeparator
 		//
@@ -265,6 +278,8 @@ partial class MainForm {
 	private ToolStripMenuItem _openVolMenuItem;
 	private ToolStripMenuItem _unpackVolMenuItem;
 	private ToolStripMenuItem _exportSelectedFileMenuItem;
+	private ToolStripSeparator _gameFolderMenuSeparator;
+	private ToolStripMenuItem _setGameFolderMenuItem;
 	private ToolStripSeparator _fileMenuSeparator;
 	private ToolStripMenuItem _exitMenuItem;
 	private ToolStripMenuItem _editMenuItem;

@@ -144,7 +144,7 @@ partial class HercStatsForm {
 		// _unknownFlagColumn
 		//
 		_unknownFlagColumn.DataPropertyName = "UnknownFlag";
-		_unknownFlagColumn.HeaderText = "Scrap Value?";
+		_unknownFlagColumn.HeaderText = "Unknown Flag";
 		_unknownFlagColumn.Name = "_unknownFlagColumn";
 		_unknownFlagColumn.Width = 100;
 		//

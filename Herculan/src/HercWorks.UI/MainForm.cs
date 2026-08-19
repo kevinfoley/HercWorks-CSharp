@@ -40,7 +40,44 @@ public partial class MainForm : Form {
 		InitializeComponent();
 	}
 
+	protected override void OnLoad(EventArgs e) {
+		base.OnLoad(e);
+		ShowGameDirectoryStatus();
+	}
+
+	/// <summary>
+	/// Asks for the install folder on first run. Deliberately in OnShown rather than OnLoad or
+	/// Program.Main: the window has to exist and be visible first, both so the dialog is owned by it
+	/// (which keeps the app in the foreground when the dialog closes) and so the user can see what
+	/// is asking.
+	/// </summary>
+	protected override void OnShown(EventArgs e) {
+		base.OnShown(e);
+
+		if (GamePaths.EnsureConfigured(this)) {
+			ShowGameDirectoryStatus();
+		}
+
+		Activate();
+	}
+
 	private void OnExit(object? sender, EventArgs e) => Close();
+
+	/// <summary>
+	/// Lets the user point the app at a different install (or set one after cancelling the startup
+	/// prompt) — the editors' default files and every dialog's start folder hang off this.
+	/// </summary>
+	private void OnSetGameFolder(object? sender, EventArgs e) {
+		if (GamePaths.Prompt(this)) {
+			ShowGameDirectoryStatus();
+		}
+	}
+
+	private void ShowGameDirectoryStatus() {
+		_statusLabel.Text = GamePaths.IsConfigured
+			? $"Earthsiege 2 directory: {GamePaths.GameDirectory}"
+			: "No Earthsiege 2 directory set — use File ▸ Set Earthsiege 2 Folder to pick ES.EXE.";
+	}
 
 	/// <summary>
 	/// Distinct per-dialog identity so Windows remembers this dialog's last-visited folder
@@ -60,7 +97,8 @@ public partial class MainForm : Form {
 		using var dialog = new OpenFileDialog {
 			Filter = "Earthsiege 2 VOL files (*.vol)|*.vol|All files (*.*)|*.*",
 			Title = "Open VOL file",
-			ClientGuid = OpenVolClientGuid
+			ClientGuid = OpenVolClientGuid,
+			InitialDirectory = GamePaths.InitialDirectoryFor("VOL")
 		};
 
 		if (dialog.ShowDialog(this) != DialogResult.OK) {

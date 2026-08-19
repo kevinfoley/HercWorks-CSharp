@@ -77,19 +77,38 @@ public partial class MissionScriptForm : Form {
 	/// </summary>
 	private static readonly Guid DialogClientGuid = new("6c1e0d54-3a7b-4f92-8c1d-2f5b7a9e4d31");
 
+	/// <summary>
+	/// The copy DBSIM actually reads, relative to the game directory — opened automatically so the
+	/// editor starts on the live mission rather than an empty grid.
+	/// </summary>
+	private static readonly string[] DefaultFile = { "DATA", "SCRIPT.DAT" };
+
+	protected override void OnLoad(EventArgs e) {
+		base.OnLoad(e);
+
+		if (GamePaths.Resolve(DefaultFile) is { } path) {
+			LoadFile(path);
+		}
+	}
+
 	private void OnOpen(object? sender, EventArgs e) {
 		using var dialog = new OpenFileDialog {
 			Filter = "Mission script files (script*.dat)|script*.dat|DAT files (*.dat)|*.dat|All files (*.*)|*.*",
 			Title = "Open mission script file",
-			ClientGuid = DialogClientGuid
+			ClientGuid = DialogClientGuid,
+			InitialDirectory = GamePaths.InitialDirectoryFor("DATA")
 		};
 
 		if (dialog.ShowDialog(this) != DialogResult.OK) {
 			return;
 		}
 
+		LoadFile(dialog.FileName);
+	}
+
+	private void LoadFile(string path) {
 		try {
-			byte[] rawBytes = File.ReadAllBytes(dialog.FileName);
+			byte[] rawBytes = File.ReadAllBytes(path);
 			var prefix = VolEntryPrefixCodec.StripIfPresent(rawBytes);
 			var script = (ScriptDat?)_transformer.BytesToObject(prefix.Content);
 
@@ -102,14 +121,14 @@ public partial class MissionScriptForm : Form {
 			_loaded = script;
 			Populate(script);
 
-			_loadedPath = dialog.FileName;
+			_loadedPath = path;
 			_originalCompressionType = prefix.HadPrefix ? prefix.CompressionType : null;
 			_originalMagicPrefix = prefix.MagicPrefix;
 			_originalHadTrailingByte = prefix.HadTrailingByte;
 
 			string prefixNote = prefix.HadPrefix ? " (VOL entry prefix detected — will be preserved on save)" : "";
 			_statusLabel.Text =
-				$"Loaded {Path.GetFileName(dialog.FileName)} — {script.Coordinates.Length} points, " +
+				$"Loaded {Path.GetFileName(path)} — {script.Coordinates.Length} points, " +
 				$"{script.SpawnRecords.Length} hercs, {script.Entities102.Length} flyers, " +
 				$"{script.MiscEntities.Length} bases, {script.Entities164.Length} groups.{prefixNote}";
 		} catch (Exception ex) {
@@ -224,7 +243,10 @@ public partial class MissionScriptForm : Form {
 			Filter = "Mission script files (*.dat)|*.dat|All files (*.*)|*.*",
 			Title = "Save mission script file",
 			FileName = _loadedPath == null ? "SCRIPT.DAT" : Path.GetFileName(_loadedPath),
-			ClientGuid = DialogClientGuid
+			ClientGuid = DialogClientGuid,
+			InitialDirectory = _loadedPath == null
+				? GamePaths.InitialDirectoryFor("DATA")
+				: Path.GetDirectoryName(_loadedPath)!
 		};
 
 		if (dialog.ShowDialog(this) != DialogResult.OK) {

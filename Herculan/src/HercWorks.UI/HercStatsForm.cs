@@ -8,10 +8,11 @@ namespace HercWorks.UI;
 
 /// <summary>
 /// Editor for SHELL/GAM/HERC_INF.DAT — one row per herc (weight, speed, hardpoint total, salvage
-/// requirement, build-mission count, campaign-unlock flag). Works against a loose .DAT file
-/// (either unpacked from a VOL via the main window, or a modded override file per the technique
-/// documented in the original project's README) rather than a VOL archive directly, so this
-/// doesn't require a VOL repacker to be useful yet. Control layout lives in
+/// requirement, build-mission count, campaign-unlock flag). On open it loads the copy GamePaths'
+/// GAM search order finds — a loose override, an unpacked SHELL0 tree, or the entry inside
+/// SHELL0.VOL — and always saves to a loose .DAT (there's no VOL repacker yet), which the game
+/// reads in preference to its packed copy per the technique documented in the original project's
+/// README. Control layout lives in
 /// HercStatsForm.Designer.cs so the form can be opened in the WinForms visual designer; this file
 /// holds only state and event-handler logic.
 /// </summary>
@@ -19,7 +20,7 @@ public partial class HercStatsForm : Form {
 	private readonly BindingList<HercStatRow> _rows = new();
 	private readonly HercInfoTransformer _transformer = new();
 
-	private string? _loadedPath;
+	private GameFile? _loadedFile;
 
 	/// <summary>
 	/// Original VOL entry prefix (compression type + magic, plus whether a trailing marker byte
@@ -45,11 +46,32 @@ public partial class HercStatsForm : Form {
 	/// </summary>
 	private static readonly Guid DialogClientGuid = new("3a72675c-7fc2-4cda-a293-de65df2ee1b0");
 
+	/// <summary>
+	/// Opened automatically on startup, found by GamePaths' GAM search order (loose override, then
+	/// unpacked SHELL0 tree, then inside SHELL0.VOL) so the editor starts on whichever copy the game
+	/// itself would read.
+	/// </summary>
+	private const string DefaultFileName = "HERC_INF.DAT";
+
+	protected override void OnLoad(EventArgs e) {
+		base.OnLoad(e);
+
+		try {
+			if (GamePaths.FindGamFile(DefaultFileName) is { } file) {
+				LoadGameFile(file);
+			}
+		} catch (Exception ex) {
+			MessageBox.Show(this, $"Failed to load {DefaultFileName} from the game directory:\n{ex.Message}",
+				"Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+		}
+	}
+
 	private void OnOpen(object? sender, EventArgs e) {
 		using var dialog = new OpenFileDialog {
 			Filter = "HERC_INF.DAT|HERC_INF.DAT|DAT files (*.dat)|*.dat|All files (*.*)|*.*",
 			Title = "Open HERC_INF.DAT",
-			ClientGuid = DialogClientGuid
+			ClientGuid = DialogClientGuid,
+			InitialDirectory = GamePaths.GamInitialDirectory
 		};
 
 		if (dialog.ShowDialog(this) != DialogResult.OK) {
@@ -57,9 +79,16 @@ public partial class HercStatsForm : Form {
 		}
 
 		try {
-			byte[] rawBytes = File.ReadAllBytes(dialog.FileName);
-			var prefix = VolEntryPrefixCodec.StripIfPresent(rawBytes);
-			var hercInf = (HercInf?)_transformer.BytesToObject(prefix.Content);
+			LoadGameFile(GameFile.FromLooseFile(dialog.FileName));
+		} catch (Exception ex) {
+			MessageBox.Show(this, $"Failed to load file:\n{ex.Message}", "Error",
+				MessageBoxButtons.OK, MessageBoxIcon.Error);
+		}
+	}
+
+	private void LoadGameFile(GameFile file) {
+		try {
+			var hercInf = (HercInf?)_transformer.BytesToObject(file.Content);
 
 			if (hercInf == null) {
 				MessageBox.Show(this, "File was empty or could not be parsed.", "Error",
@@ -81,13 +110,14 @@ public partial class HercStatsForm : Form {
 				});
 			}
 
-			_loadedPath = dialog.FileName;
-			_originalCompressionType = prefix.HadPrefix ? prefix.CompressionType : null;
-			_originalMagicPrefix = prefix.MagicPrefix;
-			_originalHadTrailingByte = prefix.HadTrailingByte;
+			_loadedFile = file;
+			_originalCompressionType = file.CompressionType;
+			_originalMagicPrefix = file.MagicPrefix;
+			_originalHadTrailingByte = file.HadTrailingByte;
 
-			string prefixNote = prefix.HadPrefix ? " (VOL entry prefix detected — will be preserved on save)" : "";
-			_statusLabel.Text = $"Loaded {Path.GetFileName(dialog.FileName)} — {_rows.Count} hercs.{prefixNote}";
+			string prefixNote = file.CompressionType.HasValue
+				? " (VOL entry prefix detected — will be preserved on save)" : "";
+			_statusLabel.Text = $"Loaded {file.Location} — {_rows.Count} hercs.{prefixNote}";
 		} catch (Exception ex) {
 			MessageBox.Show(this, $"Failed to load file:\n{ex.Message}", "Error",
 				MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -104,8 +134,13 @@ public partial class HercStatsForm : Form {
 		using var dialog = new SaveFileDialog {
 			Filter = "HERC_INF.DAT|HERC_INF.DAT|DAT files (*.dat)|*.dat|All files (*.*)|*.*",
 			Title = "Save HERC_INF.DAT",
-			FileName = _loadedPath == null ? "HERC_INF.DAT" : Path.GetFileName(_loadedPath),
-			ClientGuid = DialogClientGuid
+			FileName = _loadedFile?.FileName ?? DefaultFileName,
+			ClientGuid = DialogClientGuid,
+			// A file read out of the packed VOL has no folder of its own to save back beside, so it
+			// falls through to the same GAM override folder the message below points at.
+			InitialDirectory = _loadedFile?.LoosePath is { } loosePath
+				? Path.GetDirectoryName(loosePath)!
+				: GamePaths.GamInitialDirectory
 		};
 
 		if (dialog.ShowDialog(this) != DialogResult.OK) {

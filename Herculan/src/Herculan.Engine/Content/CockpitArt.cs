@@ -18,9 +18,9 @@ public sealed record CockpitFrame(byte[] Pixels, int Width, int Height);
 /// <para><see cref="Front"/> is <c>(herc).HB0</c> (the center/front view) and <see cref="Side"/> is
 /// <c>(herc).HB2</c> (a real, distinct side view — not a duplicate of the front). There is no
 /// separate mirrored asset: the left panel reuses <see cref="Side"/> with its UVs flipped
-/// horizontally at draw time. <c>(herc).HB1</c> exists but is a rear/overhead equipment-bay view, not
-/// a third front-facing angle — it is not loaded here because this milestone's simultaneous
-/// front+left+right layout has no use for it.</para>
+/// horizontally at draw time. <see cref="HeadsDown"/> is <c>(herc).HB1</c>, DBSIM's view 1 — the
+/// Heads-Down Display below the dashboard that <c>[F7]</c>/<c>[F8]</c> pan down to. (An earlier
+/// revision of this comment called it a rear/overhead equipment-bay view; it is not.)</para>
 ///
 /// <para>Both frames decode through the live palette (<see cref="CockpitPalette"/>): the theater
 /// palette in full, with this herc's own 24-entry cockpit colour scheme installed over slots 42-65.
@@ -82,11 +82,12 @@ public sealed class CockpitArt {
 	public static readonly string[] HudFontNames =
 		{ "WHITE", "GRAY", "GREEN", "DARK", "RED", "HUD1", "HUD2", "HUD3", "CPGREEN", "CPRED" };
 
-	private CockpitArt(CockpitFrame front, CockpitFrame side, GAUFile gau, HudSpriteSheet? sprites,
+	private CockpitArt(CockpitFrame front, CockpitFrame side, CockpitFrame? headsDown, GAUFile gau, HudSpriteSheet? sprites,
 			HudColorTable? colors, (Vector3, Vector3, Vector3)? gaugeColors,
 			int colorSchemeIndex, bool clipRegionsLoaded, string hercName, SimStringTable? strings) {
 		Front = front;
 		Side = side;
+		HeadsDown = headsDown;
 		Gau = gau;
 		Sprites = sprites;
 		Colors = colors;
@@ -138,6 +139,19 @@ public sealed class CockpitArt {
 
 	/// <summary>A side cockpit view — mirror horizontally at draw time for the opposite panel.</summary>
 	public CockpitFrame Side { get; }
+
+	/// <summary>
+	/// The Heads-Down Display's background — <c>(herc).HB1</c>, DBSIM's view 1. Null when the file is
+	/// missing, in which case the pan has nothing to pan to and the caller should stay forward.
+	///
+	/// <para>No 3D-viewport hole is punched into it, unlike <see cref="Front"/> and
+	/// <see cref="Side"/>. That is what the data says rather than a simplification: every herc's
+	/// <c>.HD1</c> region file is 16 bytes of zeroes and its <c>.VUE</c> view-1 rect is zero-size, so
+	/// the heads-down view shows no live world. RAZOR is the sole exception — a 2368-byte <c>.HD1</c>
+	/// and a real <c>0,0-320,181</c> viewport rect — and rendering that is left for the pass that
+	/// gives the HDD live content, since a hole cut now would only expose cleared background.</para>
+	/// </summary>
+	public CockpitFrame? HeadsDown { get; }
 
 	/// <summary>The HUD widget layout to overlay on <see cref="Front"/> — center panel only (see Overlay2DRenderer).</summary>
 	public GAUFile Gau { get; }
@@ -197,6 +211,9 @@ public sealed class CockpitArt {
 			return null;
 		}
 
+		// Not required: a missing HB1 costs the heads-down view, not the cockpit.
+		var headsDown = LoadFrame(content, "hb1", hercName + ".HB1", palette);
+
 		bool clipped = CutViewportHole(content, hercName, ForwardViewIndex, front)
 			& CutViewportHole(content, hercName, SideViewIndex, side);
 
@@ -206,7 +223,7 @@ public sealed class CockpitArt {
 		// frames the MFD status screen draws, and its name is the herc's.
 		var banks = HudBankNames.Append(hercName.ToUpperInvariant()).ToArray();
 
-		return new CockpitArt(front, side, gau,
+		return new CockpitArt(front, side, headsDown, gau,
 			HudSpriteSheet.Load(content, palette, banks, HudFontNames),
 			colors,
 			ResolveGaugeColors(colors, palette),

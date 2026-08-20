@@ -82,6 +82,62 @@ entering views 2/3 and undoes it on return to view 0.
 **The canopy is blitted once per view change, not per frame.** The 3D scene is then rasterized over
 it every frame, span-clipped to `ActiveScanlineClipSpans`; HUD widgets repaint on top.
 
+Command values latched at `+0x18`, and the current-view gate each requires:
+
+| Command | Gate (current view) | Effect |
+|---|---|---|
+| 0 | 0 | pan down one view — forward → heads-down |
+| 1 | 1 | pan up one view — heads-down → forward |
+| 2 | not 4 | external view |
+| 3 | 4 | return from external |
+| 4 | 0 (or 3 → 6) | glance to view 2 |
+| 5 | 0 (or 2 → 6) | glance to view 3 |
+| 6 | 2 or 3 | return from a glance to view 0 |
+
+Key sites: `FUN_00433a88` maps one bound key per axis (`+0x21a` heads-down, `+0x21e`/`+0x222` the two
+glances) and picks the command by current view; `FUN_00432b14` reads four separate device-state bytes
+at `+0x1e`-`+0x21` for commands 1/0/5/4. The manual binds `[F7]`/`[F8]` to the heads-down key and
+`[F1]`-`[F6]`/`[Esc]` to the way back.
+
+### Heads-down pan — `CockpitView_StepViewTransition` (`0042a9c0`)
+
+Called once per frame from `Sim_EndFrame` (`0045fa98`), immediately before
+`CockpitView_ProcessViewCommand`. A view change spans three frames:
+
+1. A key calls `CockpitView_QueueViewCommand`, latching `+0x18`.
+2. `CockpitView_ProcessViewCommand` installs the destination view's clip block and canvas origin on
+   the back page (via `CockpitView_ApplyViewState`, no blit) and sets the transition flag `+0x1c`.
+3. `CockpitView_StepViewTransition` runs the whole slide, then `+0x14 += 1` (or `-1`), `+0x18 = -1`,
+   and `+0x1d = 2` — a two-frame cooldown that `CockpitView_ProcessViewCommand` decrements and
+   returns on before doing anything else.
+
+The slide itself, for commands 0/1:
+
+```
+travel = vue[dest].canvasOriginY - vue[src].canvasOriginY     -- 237, or 474 in the 640x480 modes
+for (i = 0; i < travel; i += 10)
+    displayOriginY += 10
+    SetDisplayOrigin(page, {x, displayOriginY})               -- DAT_004a5800
+displayOriginY += travel - i                                  -- final remainder step
+```
+
+Step is 10 canvas rows; `maybe_CockpitLayoutMode == 2` doubles it and forces travel to `0x1e0`. The
+side-glance commands (4/5/6) use step `0x14` and scroll on x instead.
+
+**There is no timing in this loop** — no timer, no retrace poll, no frame boundary. Its real-time
+duration is whatever the host CPU makes it, and only a step *count* is recoverable: 24 steps in mode
+0, 48 in modes 1/2, since the step is in device rows and the coord shift doubles the travel.
+
+**Both views' canopies are resident in the canvas throughout.** `Sim_InitMissionSession` (`004614fc`)
+calls `CockpitView_SetView(mgr, 1)` and then `CockpitView_SetView(mgr, 0)` during bring-up, so the
+pan is a pure scroll and never a redraw. That order also settles the six-row overlap where the two
+blits meet — `.HB1` lands at canvas row 474 and `.HB0` runs to 479, so **`.HB0` wins**.
+
+Herculan: `Herculan.Engine.Render.CockpitPan`, `Content.CockpitViewGeometry`,
+`Render.Overlay2DRenderer.DrawHeadsDown`. The pan is pinned to a fixed 0.4 s (mode 0's 24 steps at
+60 Hz), expressed as a duration so both asset sets pan at one speed, and interpolated continuously
+rather than in 10-row jumps.
+
 ## `.VUE` — per-view geometry
 
 After the 9-byte VOL prefix: `int32 viewCount`, then `viewCount x` 8 `int32`s. All coordinates are
@@ -93,6 +149,11 @@ authored in the 320-wide space and shifted by `VideoMode_X/YCoordShift`.
 | 4-5 | View centre, `cx, cy` |
 | 6-7 | Canvas origin `originX, originY` |
 
+C# port: `HercWorks.Core.Data.File.Dbsim.Vue.Entry` (fields renamed to match the above 2026-08-20;
+they were `WidthMax`/`UnkOfs*` pre-RE guesses). Engine wrapper: `Content.CockpitViewGeometry`.
+
+Every retail `.VUE` gives view 1 the canvas origin `(0,237)` — no herc differs.
+
 `APOCA.VUE` (`viewCount = 4`):
 
 | View | Rect | Centre | Canvas origin |
@@ -102,7 +163,8 @@ authored in the 320-wide space and shifted by `VideoMode_X/YCoordShift`.
 | 2 | `0,0 – 287,231` | `-160,-95` | `320,0` |
 | 3 | `0,0 – 320,231` | `-160,-95` | `-320,0` |
 
-View 1's zero-size rect is why the heads-down view shows no 3D.
+View 1's zero-size rect is why the heads-down view shows no 3D. **RAZOR is the sole exception** —
+`0,0 – 320,181`, matching its 2368-byte `.HD1` against every other herc's 16-byte stub.
 
 ### Cockpit canvas
 
@@ -546,4 +608,7 @@ sub-objects (`+0x1f5`, `FUN_00433158`'s result, `+0x20b`).
   carry, so neither is drawn.
 - Widget *state* sources generally: which frame or fill level a widget is in per frame is driven from
   the mech object, not from the `.GAU`.
-- View 1 (heads-down) is parsed but not drawn by the engine.
+- The heads-down display's *content* — map, orders list, pilot comm boxes (`hdd`, `static`,
+  `hddclip`, `pilotN` banks, `HDDisplay`/`HDDGauge`/`HDDDamage`/`HDDMapGadget`) — is not RE'd. The
+  engine draws `.HB1` and pans to it; nothing on it is live.
+- RAZOR's non-stub view-1 3D viewport is not rendered.

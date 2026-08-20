@@ -3303,6 +3303,42 @@
       "name": "MfdScannerRanges",
       "description": "Three int32 scanner ranges -- 50000, 100000, 200000 world units = 300, 600, 1200 m at the game's 1000 units = 6 m scale. Indexed by the MFD's zoom field at +0xc5, which MfdDisplay_Ctor inits to 2; 1200 m matches the RNG: readout in the retail scanner screenshot. See docs/formats/mfd.md.",
       "source": "docs/formats/mfd.md 2026-08-18"
+    },
+    {
+      "address": "0042a9c0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitView_StepViewTransition",
+      "description": "Runs a queued view change's animated slide, once per frame from Sim_EndFrame just before CockpitView_ProcessViewCommand, gated on pending != -1 and the armed flag at +0x1c. For commands 0/1 (heads-down pan) it steps the display origin y by 10 canvas rows per loop iteration over vue[dest].canvasOriginY - vue[src].canvasOriginY (237, or 474 after the coord shift), then a remainder step; commands 4/5/6 step x by 0x14. The loop has no timer, retrace poll or frame boundary, so its real-time speed is CPU-bound. On completion: +0x14 += 1 (or -1), +0x18 = -1, +0x1d = 2 (two-frame cooldown). See docs/formats/cockpit-hud.md.",
+      "source": "HDD pan RE session 2026-08-20"
+    },
+    {
+      "address": "0045fa98",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sim_EndFrame",
+      "description": "Per-frame tail: CockpitView_StepViewTransition, Palette_CycleAnimatedRanges, Palette_FlushDirtyRange, page flip (swaps the display context's +0x88/+0x8c page origins through DAT_004a5808/580c), then CockpitView_ProcessViewCommand. The DAT_004d25ea != 0 branch is the hardware-scroll display path.",
+      "source": "HDD pan RE session 2026-08-20"
+    },
+    {
+      "address": "00433a88",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitView_HandleViewKey",
+      "description": "Maps one pressed key id to a view command by current view. +0x21a is the heads-down key ([F7]/[F8]): view 0 queues command 0 (pan down), view 1 queues command 1 (pan up). +0x21e and +0x222 are the two side-glance keys, queuing 5/4 from view 0 and 6 from views 3/2.",
+      "source": "HDD pan RE session 2026-08-20"
+    },
+    {
+      "address": "00432b14",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "CockpitView_PollViewDevice",
+      "description": "Polls a device-state block for the four view axes -- bytes +0x1e/+0x1f/+0x20/+0x21 queue view commands 1/0/5/4 respectively -- i.e. the joystick hat's up/down/left/right, the alternative to CockpitView_HandleViewKey's keyboard path. Also handles the +0xb button edge.",
+      "source": "HDD pan RE session 2026-08-20"
     }
   ]
 }

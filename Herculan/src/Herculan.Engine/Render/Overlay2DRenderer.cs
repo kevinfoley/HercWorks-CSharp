@@ -157,6 +157,58 @@ public sealed class Overlay2DRenderer : IDisposable {
 		_gl.Enable(EnableCap.DepthTest);
 	}
 
+	/// <summary>
+	/// Draws the Heads-Down Display's background — <c>(herc).HB1</c> — filling the given viewport
+	/// edge to edge horizontally.
+	///
+	/// <para>The art itself is placed exactly as <see cref="Draw"/> places a cockpit panel: fit by
+	/// height at its own 4:3 aspect ratio, horizontally centered, never stretched. On a window wider
+	/// than 4:3 that leaves a margin on each side, and this fills those margins by stretching the
+	/// art's own outermost pixel column outward. That is a Herculan addition with no original behind
+	/// it — DBSIM only ever ran at 4:3 and had no margins to fill — chosen because the HDD's art is a
+	/// flat console surround whose edge columns are near-uniform, so the stretch reads as the panel
+	/// continuing rather than as a smear. The alternative, letting the cleared framebuffer show
+	/// through at the flanks, reads as a hole in the cockpit.</para>
+	/// </summary>
+	public void DrawHeadsDown(int viewportX, int viewportY, int viewportWidth, int viewportHeight,
+			GpuTexture texture, int textureWidth, int textureHeight) {
+		_gl.Viewport(viewportX, viewportY, (uint)Math.Max(viewportWidth, 1), (uint)Math.Max(viewportHeight, 1));
+		_gl.Disable(EnableCap.DepthTest);
+		_gl.Enable(EnableCap.Blend);
+		_gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+
+		float scale = viewportHeight / (float)textureHeight;
+		float quadWidth = textureWidth * scale;
+		float quadX0 = (viewportWidth - quadWidth) / 2f;
+		float quadX1 = quadX0 + quadWidth;
+
+		_shader.Use();
+		_shader.SetVector2("uViewportSize", new Vector2(viewportWidth, viewportHeight));
+
+		_vertices.Clear();
+
+		// Texel centres, so nearest sampling lands on the outermost column and not on whatever the
+		// clamp boundary rounds to.
+		float leftEdgeU = 0.5f / textureWidth;
+		float rightEdgeU = 1f - 0.5f / textureWidth;
+
+		if (quadX0 > 0f) {
+			AddTexturedQuad(0f, 0f, quadX0, viewportHeight, leftEdgeU, 0f, leftEdgeU, 1f);
+		}
+
+		if (quadX1 < viewportWidth) {
+			AddTexturedQuad(quadX1, 0f, viewportWidth, viewportHeight, rightEdgeU, 0f, rightEdgeU, 1f);
+		}
+
+		AddTexturedQuad(quadX0, 0f, quadX1, viewportHeight, 0f, 0f, 1f, 1f);
+
+		_shader.SetSamplerTexture("uTexture", texture.Handle, 0);
+		_mesh.SubmitAndDraw(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_vertices));
+
+		_gl.Disable(EnableCap.Blend);
+		_gl.Enable(EnableCap.DepthTest);
+	}
+
 	/// <summary>The cockpit-art quad at its native aspect ratio, positioned by <see cref="Draw"/>'s fit-by-height math.</summary>
 	private void AddCockpitQuad(float quadX0, float quadWidth, int viewportHeight, bool mirror) {
 		float u0 = mirror ? 1f : 0f;

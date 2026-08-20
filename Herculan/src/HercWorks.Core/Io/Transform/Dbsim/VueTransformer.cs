@@ -24,15 +24,15 @@ public class VueTransformer : ThreeSpaceByteTransformer {
 		for (int i = 0; i < data.TotalViewports; i++) {
 			var entry = data.NewEntry();
 
-			entry.OriginX = IndexIntLE();
-			entry.OriginY = IndexIntLE();
-			entry.WidthMax = IndexIntLE();
-			entry.HeightMax = IndexIntLE();
+			entry.ViewportX0 = IndexIntLE();
+			entry.ViewportY0 = IndexIntLE();
+			entry.ViewportX1 = IndexIntLE();
+			entry.ViewportY1 = IndexIntLE();
 
-			entry.UnkOfsX = IndexIntLE();
-			entry.UnkOfsY = IndexIntLE();
-			entry.UnkOfsW = IndexIntLE();
-			entry.UnkOfsH = IndexIntLE();
+			entry.CenterX = IndexIntLE();
+			entry.CenterY = IndexIntLE();
+			entry.CanvasOriginX = IndexIntLE();
+			entry.CanvasOriginY = IndexIntLE();
 
 			data.Entries[i] = entry;
 		}
@@ -54,14 +54,14 @@ public class VueTransformer : ThreeSpaceByteTransformer {
 
 		for (int i = 0; i < data.TotalViewports; i++) {
 			var entry = data.Entries![i];
-			WriteInt(entry.OriginX);
-			WriteInt(entry.OriginY);
-			WriteInt(entry.WidthMax);
-			WriteInt(entry.HeightMax);
-			WriteInt(entry.UnkOfsX);
-			WriteInt(entry.UnkOfsY);
-			WriteInt(entry.UnkOfsW);
-			WriteInt(entry.UnkOfsH);
+			WriteInt(entry.ViewportX0);
+			WriteInt(entry.ViewportY0);
+			WriteInt(entry.ViewportX1);
+			WriteInt(entry.ViewportY1);
+			WriteInt(entry.CenterX);
+			WriteInt(entry.CenterY);
+			WriteInt(entry.CanvasOriginX);
+			WriteInt(entry.CanvasOriginY);
 		}
 
 		return outStream.ToArray();

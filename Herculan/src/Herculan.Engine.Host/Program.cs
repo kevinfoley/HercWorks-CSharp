@@ -18,6 +18,7 @@ using Silk.NET.OpenGL;
 var positional = new List<string>();
 string? screenshotPath = null;
 MfdMode? initialMfdMode = null;
+bool startOnHeadsDown = false;
 for (int i = 0; i < args.Length; i++) {
 	if (args[i] == "--screenshot" && i + 1 < args.Length) {
 		screenshotPath = args[++i];
@@ -26,6 +27,10 @@ for (int i = 0; i < args.Length; i++) {
 		// Which MFD screen to power up on. F1-F6 switch it live; this exists so a --screenshot run,
 		// which never sees a keystroke, can be pointed at a specific screen.
 		initialMfdMode = (MfdMode)mfdIndex;
+	} else if (args[i] == "--hdd") {
+		// Power up already panned down to the Heads-Down Display, for the same reason as --mfd: a
+		// --screenshot run never sees a keystroke.
+		startOnHeadsDown = true;
 	} else {
 		positional.Add(args[i]);
 	}
@@ -130,6 +135,28 @@ if (cockpitArt != null) {
 	Console.WriteLine("No cockpit art available — drawing a single full-window 3D view.");
 }
 
+// How far the display window travels down the cockpit canvas to reach the Heads-Down Display, read
+// from the herc's own vue\<HERC>.VUE rather than assumed. Every retail file says 237 authored rows
+// (474 device), but reading it is what makes the pan the file's statement instead of this host's.
+var viewGeometry = mission.Player?.TypeName is { } geometryHerc
+	? CockpitViewGeometry.Load(content, geometryHerc)
+	: null;
+var cockpitPan = new CockpitPan(
+	viewGeometry?.HeadsDownTravelY ?? CockpitViewGeometry.DefaultHeadsDownOriginY);
+if (startOnHeadsDown) {
+	cockpitPan.Request(headsDown: true);
+	cockpitPan.Advance(CockpitPan.DurationSeconds);
+}
+
+if (cockpitArt?.HeadsDown != null) {
+	Console.WriteLine(
+		$"Heads-Down Display art loaded — pan travel {cockpitPan.TravelRows} device rows, "
+		+ $"{CockpitPan.DurationSeconds:0.00}s"
+		+ (viewGeometry == null ? " (no .VUE; using the retail default travel)." : "."));
+} else if (cockpitArt != null) {
+	Console.WriteLine("No .HB1 for this herc — the Heads-Down Display is unavailable.");
+}
+
 // The cockpit readouts' live values. Only the hardpoint names are real so far — they come from the
 // shell weapon catalog keyed by player.mec's own hardpoint ids; everything else sits at the
 // power-up defaults in CockpitHudState.Default until the sim carries the state behind it.
@@ -147,6 +174,7 @@ if (cockpitArt != null && mission.Player is { } playerMech && WeaponNameTable.Lo
 
 Console.WriteLine("W/A/S/D move, R/F rise and fall, arrow keys look, Shift boosts, Esc quits.");
 Console.WriteLine("F1-F6 switch the MFD screen: STATUS, FLASH COMM, NAV MAP, SCANNER, TARGET, MISSILE CAM.");
+Console.WriteLine("F7/F8 pan down to the Heads-Down Display; F1-F6 pan back up to the cockpit.");
 
 using var window = new EngineWindow($"HERCULAN Engine — zone {mission.Header.ZoneIndex}");
 
@@ -156,6 +184,7 @@ GpuMesh? terrainMesh = null;
 GpuTexture? terrainTexture = null;
 GpuTexture? cockpitFrontTexture = null;
 GpuTexture? cockpitSideTexture = null;
+GpuTexture? cockpitHeadsDownTexture = null;
 GpuTexture? hudSpriteTexture = null;
 var modelMeshes = new Dictionary<string, GpuMesh>();
 var modelTextures = new Dictionary<string, GpuTexture>();
@@ -182,6 +211,10 @@ window.Load += (gl, input) => {
 	if (cockpitArt != null) {
 		cockpitFrontTexture = new GpuTexture(gl, cockpitArt.Front.Pixels, cockpitArt.Front.Width, cockpitArt.Front.Height);
 		cockpitSideTexture = new GpuTexture(gl, cockpitArt.Side.Pixels, cockpitArt.Side.Width, cockpitArt.Side.Height);
+
+		if (cockpitArt.HeadsDown is { } headsDownFrame) {
+			cockpitHeadsDownTexture = new GpuTexture(gl, headsDownFrame.Pixels, headsDownFrame.Width, headsDownFrame.Height);
+		}
 
 		if (cockpitArt.Sprites is { } hudSprites) {
 			hudSpriteTexture = new GpuTexture(gl, hudSprites.Atlas);
@@ -232,9 +265,23 @@ window.Update += deltaSeconds => {
 
 	// F1-F6 pick the MFD screen, the same keys and the same order as the original's own mode buttons
 	// — button i of the display's F-key column dispatches SetMode(i), and this sets the same value.
+	// Selecting one also pans back up to the cockpit, which is the manual's own rule for leaving the
+	// Heads-Down Display ("select an MFD screen [F1]-[F6], press [Esc], or click the top of the
+	// screen") and matches view command 1, the "up" half of the pair at 0042a3f4.
 	if (keyboard != null && ReadMfdMode(keyboard) is { } requestedMfdMode) {
 		hudState = hudState with { Mfd = requestedMfdMode };
+		cockpitPan.Request(headsDown: false);
 	}
+
+	// F7 (Command Display) and F8 (Damage Detail) are the two HDD functions, and per the manual
+	// either one opens the display. Which of the two screens it lands on is the next leg's problem;
+	// both pan the same way.
+	if (cockpitHeadsDownTexture != null && keyboard != null
+		&& (keyboard.IsKeyPressed(Key.F7) || keyboard.IsKeyPressed(Key.F8))) {
+		cockpitPan.Request(headsDown: true);
+	}
+
+	cockpitPan.Advance(deltaSeconds);
 
 	// Clamping the accumulator stops a long stall (a breakpoint, a window drag) from turning into
 	// a burst of catch-up ticks that would teleport everything.
@@ -276,6 +323,7 @@ window.Closing += () => {
 	terrainTexture?.Dispose();
 	cockpitFrontTexture?.Dispose();
 	cockpitSideTexture?.Dispose();
+	cockpitHeadsDownTexture?.Dispose();
 	hudSpriteTexture?.Dispose();
 	foreach (var disposable in disposables) {
 		disposable.Dispose();
@@ -294,7 +342,24 @@ return 0;
 // leaves equal empty margins, and no panel is ever stretched. See CockpitViewLayout for the separate
 // yaw-offset math that keeps the *3D scene* (as opposed to the cockpit art) tiling seamlessly across
 // whatever aspect ratio each panel ends up with.
+//
+// The whole composite also slides vertically with the Heads-Down Display pan. The original's cockpit
+// is a canvas twice the screen's height with the forward view's art at canvas row 0 and the HDD's at
+// row 474, both blitted during mission bring-up, and switching between them is a scroll of the
+// display window over that canvas — never a redraw (see CockpitViewGeometry, and CockpitPan for the
+// transition's own machinery). This reproduces the same geometry with two quads at fixed canvas
+// offsets and a moving window: the three cockpit panels are offset up by the pan distance, the HDD
+// panel sits one travel-distance below them, and the 3D viewports ride along with their panels so
+// the world scrolls out of frame exactly as the art does. The two views' art overlaps by six rows on
+// the canvas — HB1 starts at row 474 and HB0 runs to 479 — and the original resolves that by blitting
+// view 1 before view 0, so the draw order below does the same.
 void DrawThreePanelCockpitView(GL gl, int totalWidth, int totalHeight) {
+	// Device-pixel-to-screen scale, shared by the panel art and the pan distance so both move
+	// together — the same fit-by-height factor Overlay2DRenderer.Draw computes for the art itself.
+	float panScale = totalHeight / (float)CockpitViewGeometry.ViewHeight;
+	int panPixels = (int)MathF.Round(cockpitPan.OffsetRows * panScale);
+	int headsDownTopPixels = (int)MathF.Round((cockpitPan.TravelRows - cockpitPan.OffsetRows) * panScale);
+
 	int centerWidth = PanelWidthForHeight(cockpitArt!.Front, totalHeight);
 	int sideWidth = PanelWidthForHeight(cockpitArt.Side, totalHeight);
 	int leftWidth = sideWidth;
@@ -316,17 +381,27 @@ void DrawThreePanelCockpitView(GL gl, int totalWidth, int totalHeight) {
 	var leftCamera = ClonePanelCamera(camera, -leftYawOffset);
 	var rightCamera = ClonePanelCamera(camera, rightYawOffset);
 
-	renderer!.Render(leftCamera, items!, leftX, 0, leftWidth, totalHeight);
-	overlay!.Draw(leftX, 0, leftWidth, totalHeight, cockpitSideTexture!,
+	// First, so the six-row overlap where the two views' art meets on the canvas resolves the way the
+	// original's VRAM does. Sim_InitMissionSession (004614fc) blits view 1 and then view 0, so HB0's
+	// bottom rows win over HB1's top rows and no sliver of the HDD shows under the dashboard at rest.
+	if (cockpitHeadsDownTexture != null && cockpitArt.HeadsDown is { } headsDown) {
+		overlay!.DrawHeadsDown(0, -headsDownTopPixels, totalWidth, totalHeight,
+			cockpitHeadsDownTexture, headsDown.Width, headsDown.Height);
+	}
+
+	// GL's viewport origin is bottom-left, so a positive y offset moves a panel up the screen — which
+	// is the direction the cockpit travels as the view pans down the canvas.
+	renderer!.Render(leftCamera, items!, leftX, panPixels, leftWidth, totalHeight);
+	overlay!.Draw(leftX, panPixels, leftWidth, totalHeight, cockpitSideTexture!,
 		cockpitArt!.Side.Width, cockpitArt.Side.Height, mirrorHorizontally: true, hud: null);
 
-	renderer.Render(centerCamera, items!, centerX, 0, centerWidth, totalHeight);
-	overlay.Draw(centerX, 0, centerWidth, totalHeight, cockpitFrontTexture!,
+	renderer.Render(centerCamera, items!, centerX, panPixels, centerWidth, totalHeight);
+	overlay.Draw(centerX, panPixels, centerWidth, totalHeight, cockpitFrontTexture!,
 		cockpitArt.Front.Width, cockpitArt.Front.Height, mirrorHorizontally: false, hud: cockpitArt,
 		spriteTexture: hudSpriteTexture, hudState: hudState);
 
-	renderer.Render(rightCamera, items!, rightX, 0, rightWidth, totalHeight);
-	overlay.Draw(rightX, 0, rightWidth, totalHeight, cockpitSideTexture!,
+	renderer.Render(rightCamera, items!, rightX, panPixels, rightWidth, totalHeight);
+	overlay.Draw(rightX, panPixels, rightWidth, totalHeight, cockpitSideTexture!,
 		cockpitArt.Side.Width, cockpitArt.Side.Height, mirrorHorizontally: false, hud: null);
 }
 

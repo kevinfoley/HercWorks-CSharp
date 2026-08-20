@@ -570,3 +570,23 @@ everything else sits at power-up defaults until the sim carries the state behind
 
 **Not done:** the MFD still shows its blank screen frame. Compositing the `RADAR` frame over it needs
 the MFD's sub-widget rects, which are in a `.GAU` region that is not decoded.
+
+## Milestone 9 — Heads-Down Display (2026-08-20)
+
+Leg 1: place `.HB1` and pan to it. RE in `docs/formats/cockpit-hud.md`, "Heads-down pan".
+
+- **`CockpitViewGeometry`** reads `vue\<HERC>.VUE` for each view's canvas origin in device pixels.
+  `HercWorks.Core`'s `Vue.Entry` field names were pre-RE guesses and are renamed to match.
+- **`CockpitPan`** drives the transition. The original's slide loop
+  (`CockpitView_StepViewTransition`, `0042a9c0`) is untimed, so there is no original duration to
+  port — only a step count. Pinned at a fixed 0.4 s (mode 0's 24 steps at 60 Hz), continuous rather
+  than stepped.
+- **The whole composite slides**, 3D viewports included, reproducing the original's scroll over a
+  640x960 cockpit canvas with `.HB0` at row 0 and `.HB1` at row 474. Draw order puts the HDD first so
+  `.HB0` wins the six-row overlap, as the original's blit order does.
+- **`Overlay2DRenderer.DrawHeadsDown`** fits the 4:3 art by height and stretches its outermost pixel
+  columns into the side margins on wider windows — a Herculan addition; the original had no margins.
+- Host: `[F7]`/`[F8]` down, `[F1]`-`[F6]` up, `--hdd` starts panned down for `--screenshot` runs.
+
+**Not done:** everything on the display is static art. The HDD's live content — map, orders list,
+pilot comm boxes — is un-RE'd, as is RAZOR's non-stub view-1 3D viewport.

@@ -19,6 +19,8 @@ var positional = new List<string>();
 string? screenshotPath = null;
 MfdMode? initialMfdMode = null;
 bool startOnHeadsDown = false;
+HddPage initialHddPage = CockpitHudState.Default.Hdd;
+HddDamageView initialHddDamageView = CockpitHudState.Default.HddDamage;
 for (int i = 0; i < args.Length; i++) {
 	if (args[i] == "--screenshot" && i + 1 < args.Length) {
 		screenshotPath = args[++i];
@@ -29,8 +31,19 @@ for (int i = 0; i < args.Length; i++) {
 		initialMfdMode = (MfdMode)mfdIndex;
 	} else if (args[i] == "--hdd") {
 		// Power up already panned down to the Heads-Down Display, for the same reason as --mfd: a
-		// --screenshot run never sees a keystroke.
+		// --screenshot run never sees a keystroke. An optional 0 or 1 picks which of its two screens
+		// to land on — the command display or the damage detail, as [F7] and [F8] do live.
 		startOnHeadsDown = true;
+		if (i + 1 < args.Length && int.TryParse(args[i + 1], out int hddIndex)
+			&& hddIndex >= 0 && hddIndex <= 1) {
+			initialHddPage = (HddPage)hddIndex;
+			i++;
+		}
+	} else if (args[i] == "--hdd-damage" && i + 1 < args.Length
+			&& int.TryParse(args[++i], out int damageIndex) && damageIndex >= 0 && damageIndex <= 2) {
+		// Which component category the damage screen powers up listing. [S], [I] and [W] switch it
+		// live; this is the same reason --mfd and --hdd exist.
+		initialHddDamageView = (HddDamageView)damageIndex;
 	} else {
 		positional.Add(args[i]);
 	}
@@ -138,9 +151,7 @@ if (cockpitArt != null) {
 // How far the display window travels down the cockpit canvas to reach the Heads-Down Display, read
 // from the herc's own vue\<HERC>.VUE rather than assumed. Every retail file says 237 authored rows
 // (474 device), but reading it is what makes the pan the file's statement instead of this host's.
-var viewGeometry = mission.Player?.TypeName is { } geometryHerc
-	? CockpitViewGeometry.Load(content, geometryHerc)
-	: null;
+var viewGeometry = cockpitArt?.ViewGeometry;
 var cockpitPan = new CockpitPan(
 	viewGeometry?.HeadsDownTravelY ?? CockpitViewGeometry.DefaultHeadsDownOriginY);
 if (startOnHeadsDown) {
@@ -153,6 +164,10 @@ if (cockpitArt?.HeadsDown != null) {
 		$"Heads-Down Display art loaded — pan travel {cockpitPan.TravelRows} device rows, "
 		+ $"{CockpitPan.DurationSeconds:0.00}s"
 		+ (viewGeometry == null ? " (no .VUE; using the retail default travel)." : "."));
+	Console.WriteLine(cockpitArt.HeadsDownLayout is { } hddLayout
+		? $"Heads-Down widgets from the herc's own .GAU — screen {hddLayout.Screen}, "
+		  + $"arrow frame set {hddLayout.UnlitFrame(HddLayout.Widget.ArrowUp)}+."
+		: "No Heads-Down widget block in this herc's .GAU — drawing its art only.");
 } else if (cockpitArt != null) {
 	Console.WriteLine("No .HB1 for this herc — the Heads-Down Display is unavailable.");
 }
@@ -160,7 +175,7 @@ if (cockpitArt?.HeadsDown != null) {
 // The cockpit readouts' live values. Only the hardpoint names are real so far — they come from the
 // shell weapon catalog keyed by player.mec's own hardpoint ids; everything else sits at the
 // power-up defaults in CockpitHudState.Default until the sim carries the state behind it.
-var hudState = CockpitHudState.Default;
+var hudState = CockpitHudState.Default with { Hdd = initialHddPage, HddDamage = initialHddDamageView };
 if (initialMfdMode is { } startMfdMode) {
 	hudState = hudState with { Mfd = startMfdMode };
 }
@@ -174,7 +189,9 @@ if (cockpitArt != null && mission.Player is { } playerMech && WeaponNameTable.Lo
 
 Console.WriteLine("W/A/S/D move, R/F rise and fall, arrow keys look, Shift boosts, Esc quits.");
 Console.WriteLine("F1-F6 switch the MFD screen: STATUS, FLASH COMM, NAV MAP, SCANNER, TARGET, MISSILE CAM.");
-Console.WriteLine("F7/F8 pan down to the Heads-Down Display; F1-F6 pan back up to the cockpit.");
+Console.WriteLine("F7/F8 pan down to the Heads-Down Display's command and damage screens; "
+	+ "F1-F6 pan back up.");
+Console.WriteLine("On the damage screen, S/I/W switch between structural, internal and weapon systems.");
 
 using var window = new EngineWindow($"HERCULAN Engine — zone {mission.Header.ZoneIndex}");
 
@@ -274,11 +291,25 @@ window.Update += deltaSeconds => {
 	}
 
 	// F7 (Command Display) and F8 (Damage Detail) are the two HDD functions, and per the manual
-	// either one opens the display. Which of the two screens it lands on is the next leg's problem;
-	// both pan the same way.
-	if (cockpitHeadsDownTexture != null && keyboard != null
-		&& (keyboard.IsKeyPressed(Key.F7) || keyboard.IsKeyPressed(Key.F8))) {
-		cockpitPan.Request(headsDown: true);
+	// either one opens the display — so each both pans down and selects its own screen, which is
+	// what the display's own two page buttons dispatch (FUN_0044a5e4 with the button's index).
+	if (cockpitHeadsDownTexture != null && keyboard != null) {
+		if (keyboard.IsKeyPressed(Key.F7)) {
+			hudState = hudState with { Hdd = HddPage.CommandDisplay };
+			cockpitPan.Request(headsDown: true);
+		} else if (keyboard.IsKeyPressed(Key.F8)) {
+			hudState = hudState with { Hdd = HddPage.DamageDetail };
+			cockpitPan.Request(headsDown: true);
+		}
+	}
+
+	// The damage detail's three component categories, on the manual's own [S]/[I]/[W] bindings — the
+	// same three the display's up/down arrow buttons step through. Only while that screen is actually
+	// down: [S] and [W] are also two thirds of this host's camera movement, and the original has no
+	// such clash because its own [S]/[I]/[W] only mean anything on this screen either.
+	if (keyboard != null && cockpitPan.AtHeadsDown && hudState.Hdd == HddPage.DamageDetail
+		&& ReadHddDamageView(keyboard) is { } damageView) {
+		hudState = hudState with { HddDamage = damageView };
 	}
 
 	cockpitPan.Advance(deltaSeconds);
@@ -386,7 +417,8 @@ void DrawThreePanelCockpitView(GL gl, int totalWidth, int totalHeight) {
 	// bottom rows win over HB1's top rows and no sliver of the HDD shows under the dashboard at rest.
 	if (cockpitHeadsDownTexture != null && cockpitArt.HeadsDown is { } headsDown) {
 		overlay!.DrawHeadsDown(0, -headsDownTopPixels, totalWidth, totalHeight,
-			cockpitHeadsDownTexture, headsDown.Width, headsDown.Height);
+			cockpitHeadsDownTexture, headsDown.Width, headsDown.Height,
+			cockpitArt, hudSpriteTexture, hudState);
 	}
 
 	// GL's viewport origin is bottom-left, so a positive y offset moves a panel up the screen — which
@@ -491,6 +523,20 @@ static MfdMode? ReadMfdMode(IKeyboard keyboard) {
 	}
 
 	return null;
+}
+
+// The Heads-Down damage screen's component category, or null when none of its three keys is down —
+// same rule as ReadMfdMode: returning null leaves the screen on whatever it was already showing.
+static HddDamageView? ReadHddDamageView(IKeyboard keyboard) {
+	if (keyboard.IsKeyPressed(Key.S)) {
+		return HddDamageView.Structural;
+	}
+
+	if (keyboard.IsKeyPressed(Key.I)) {
+		return HddDamageView.Internal;
+	}
+
+	return keyboard.IsKeyPressed(Key.W) ? HddDamageView.Weapons : null;
 }
 
 static int Axis(IKeyboard keyboard, Key positive, Key negative) =>

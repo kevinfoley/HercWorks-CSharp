@@ -170,8 +170,14 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// continuing rather than as a smear. The alternative, letting the cleared framebuffer show
 	/// through at the flanks, reads as a hole in the cockpit.</para>
 	/// </summary>
+	/// <param name="hud">
+	/// The cockpit whose Heads-Down Display widgets to overlay, or null to draw the <c>.HB1</c> art
+	/// alone. Everything drawn comes from <see cref="CockpitArt.HeadsDownLayout"/>, which is the
+	/// herc's own <c>.GAU</c> block rather than a hardcoded layout — see <see cref="HddLayout"/>.
+	/// </param>
 	public void DrawHeadsDown(int viewportX, int viewportY, int viewportWidth, int viewportHeight,
-			GpuTexture texture, int textureWidth, int textureHeight) {
+			GpuTexture texture, int textureWidth, int textureHeight,
+			CockpitArt? hud = null, GpuTexture? spriteTexture = null, CockpitHudState? hudState = null) {
 		_gl.Viewport(viewportX, viewportY, (uint)Math.Max(viewportWidth, 1), (uint)Math.Max(viewportHeight, 1));
 		_gl.Disable(EnableCap.DepthTest);
 		_gl.Enable(EnableCap.Blend);
@@ -205,9 +211,280 @@ public sealed class Overlay2DRenderer : IDisposable {
 		_shader.SetSamplerTexture("uTexture", texture.Handle, 0);
 		_mesh.SubmitAndDraw(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_vertices));
 
+		// Second bind, second draw, exactly as Draw layers the console instruments over .HB0: the
+		// display's own sprites and glyphs live in the shared HUD atlas, not in the canopy texture.
+		if (hud?.HeadsDownLayout is { } layout && hud.Sprites is { } sprites && spriteTexture != null) {
+			_vertices.Clear();
+			AddHeadsDown(hud, layout, sprites, scale, quadX0, hudState ?? CockpitHudState.Default);
+
+			if (_vertices.Count > 0) {
+				_shader.SetSamplerTexture("uTexture", spriteTexture.Handle, 0);
+				_mesh.SubmitAndDraw(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_vertices));
+			}
+		}
+
 		_gl.Disable(EnableCap.Blend);
 		_gl.Enable(EnableCap.DepthTest);
 	}
+
+	/// <summary>
+	/// The Heads-Down Display's live content, built the way <c>FUN_00448cc8</c> and its two page
+	/// constructors build it — see <see cref="HddLayout"/> for where every rect and frame index comes
+	/// from, and docs/formats/cockpit-hud.md for the pan that reaches this view.
+	///
+	/// <list type="number">
+	/// <item>the screen area, flooded with colour id 19 the way whichever page owns it floods it;</item>
+	/// <item>that page's own content — the map viewport and order list, or the paper doll and
+	/// component list;</item>
+	/// <item>the widgets the page shows: two page buttons lit for the current page, four arrow
+	/// buttons, the map's two magnifiers, and XMIT/CANCEL;</item>
+	/// <item>the three squad comm boxes;</item>
+	/// <item>the indicator block and the page title, which the display paints after everything
+	/// else.</item>
+	/// </list>
+	///
+	/// <para><b>Layout and text, not state.</b> The tactical map's terrain and its 140 unit markers,
+	/// the pilots' video and the static that replaces it when their comms are out, which orders the
+	/// selected squadmate can currently take, and real per-component damage percentages all need
+	/// simulation state the engine does not carry — so the map viewport draws its flood, the comm
+	/// boxes draw the empty-slot fill the original uses for a slot no squadmate occupies, every order
+	/// draws available, and each component reads the undamaged 100 its own value column is sized
+	/// around.</para>
+	///
+	/// <para>The page's content goes down before the widgets rather than after, which is the reverse
+	/// of the display's own paint loop. That loop can afford the other order because a page only
+	/// floods its screen on a full repaint; here every frame is a full repaint, and XMIT and CANCEL
+	/// sit inside the screen rect, so painting the page last would erase them.</para>
+	/// </summary>
+	private void AddHeadsDown(CockpitArt hud, HddLayout layout, HudSpriteSheet sprites,
+			float scale, float quadX0, CockpitHudState state) {
+		var strings = hud.Strings;
+
+		// Device pixels relative to the .HB1 art's top-left, which is the space HddLayout reports in
+		// and the space the sprite banks and .HFN glyphs are authored in.
+		float Dx(float x) => quadX0 + x * scale;
+		float Dy(float y) => y * scale;
+
+		void Fill(HddLayout.Rect rect, Vector3 color) =>
+			AddFilledRect(Dx(rect.X0), Dy(rect.Y0), Dx(rect.X1 + 1), Dy(rect.Y1 + 1), color);
+
+		void Blit(string bank, int frame, float left, float top) {
+			if (sprites.Sprite(bank, frame) is not { } sprite || sprite.Width <= 0 || sprite.Height <= 0) {
+				return;
+			}
+
+			var r = sprite.Rect;
+			AddTexturedQuad(Dx(left), Dy(top), Dx(left + sprite.Width), Dy(top + sprite.Height),
+				r.U0, r.V0, r.U1, r.V1);
+		}
+
+		// One run of glyphs left to right, with the character at hotkeyIndex drawn in an alternate
+		// font — FUN_00438aac's own behaviour, and where the order list's red hotkey letters come from.
+		// Pass -1 for a plain run.
+		void DrawText(string fontName, string alternateFont, string text, int hotkeyIndex,
+				float left, float top) {
+			if (sprites.Font(fontName) is not { } font) {
+				return;
+			}
+
+			float pen = left;
+			for (int i = 0; i < text.Length; i++) {
+				string face = i == hotkeyIndex && sprites.Font(alternateFont) != null ? alternateFont : fontName;
+				var metrics = sprites.Font(face)!;
+				if (metrics.GlyphIndex(text[i]) is { } glyph) {
+					Blit(face, glyph, pen, top);
+					pen += metrics.Width(text[i]);
+				}
+			}
+		}
+
+		// Label_SetRect/Label_SetText's shared placement — see HudFont.Place.
+		void DrawLabel(string fontName, string alternateFont, string text, int hotkeyIndex,
+				HddLayout.Rect rect, bool centered, float marginX = 0f) {
+			if (sprites.Font(fontName) is not { } metrics) {
+				return;
+			}
+
+			var (textX, textY) = metrics.Place(text, rect.X0, rect.Y0, rect.X1, rect.Y1,
+				centered ? LabelAlign.Center : LabelAlign.Left, (int)marginX);
+			DrawText(fontName, alternateFont, text, hotkeyIndex, textX, textY);
+		}
+
+		var background = hud.HeadsDownColors?.Background;
+		if (background is { } screenFill) {
+			Fill(layout.Screen, screenFill);
+		}
+
+		if (state.Hdd == HddPage.CommandDisplay) {
+			AddHddCommandDisplay(layout, strings, background, Fill, DrawLabel);
+		} else {
+			AddHddDamageDetail(hud, layout, sprites, strings, state.HddDamage, state, Blit, Fill, DrawLabel);
+		}
+
+		for (int i = 0; i < HddLayout.WidgetCount; i++) {
+			var widget = (HddLayout.Widget)i;
+			if (!HddLayout.WidgetVisible(state.Hdd, widget) || layout.UnlitFrame(widget) is not { } unlit) {
+				continue;
+			}
+
+			bool lit = widget == (state.Hdd == HddPage.CommandDisplay
+				? HddLayout.Widget.PageButton0
+				: HddLayout.Widget.PageButton1);
+			var rect = layout[widget];
+			Blit(HddLayout.Bank, lit ? unlit + 1 : unlit, rect.X0, rect.Y0);
+
+			// A page button captions itself "F7"/"F8" from the shared "Fx" literal, in DARK when lit
+			// and WHITE when not — the same pair the MFD's mode buttons use. XMIT and CANCEL take
+			// their captions from the string table and their font from ColorSchemePanels[4 + lit].
+			if (widget is HddLayout.Widget.PageButton0 or HddLayout.Widget.PageButton1) {
+				DrawLabel(lit ? "DARK" : HddLayout.TitleFont, string.Empty,
+					"F" + (7 + i), -1, rect, centered: true);
+			} else if (widget is HddLayout.Widget.Transmit or HddLayout.Widget.Cancel
+				&& strings?.Text(HddLayout.ButtonCaptionGroup, i - (int)HddLayout.Widget.Transmit)
+					is { Length: > 0 } caption) {
+				DrawLabel(HddLayout.TransmitButtonFont, string.Empty, caption, -1,
+					layout.TransmitCaptionBox(widget), centered: true);
+			}
+		}
+
+		// A comm box with nobody in it: the display's own paint floods the box inset one device pixel
+		// on every edge with colour id 19 and draws no labels. With no squad state every slot is that
+		// slot — the retail screenshot's third box, beside the two carrying video.
+		if (background is { } boxFill) {
+			for (int i = 0; i < HddLayout.PilotSlotCount; i++) {
+				Fill(layout[HddLayout.Widget.PilotBox0 + i].Inset(1, 1), boxFill);
+			}
+		}
+
+		if (hud.HeadsDownColors?.Indicator is { } indicator) {
+			Fill(layout.Indicator, indicator);
+		}
+
+		// Last, after the page has painted — the display's own order, so a page that draws into the
+		// header strip cannot cover its own caption. Centred, and on its own black background.
+		if (HddLayout.Title(strings, state.Hdd, state.HddDamage) is { Length: > 0 } title) {
+			var titleBox = layout[HddLayout.Widget.TitleBox];
+			if (background is { } titleFill) {
+				Fill(titleBox, titleFill);
+			}
+
+			DrawLabel(HddLayout.TitleFont, string.Empty, title, -1, titleBox, centered: true);
+		}
+	}
+
+	/// <summary>
+	/// The command display (<c>FUN_0044c264</c>): the tactical map on the left and, down the right,
+	/// nine rows — a message row and the eight orders you transmit to the selected squadmate.
+	///
+	/// <para>Orders come from <c>STRINGS0.STR</c> group 0 entries 10-17, and each entry's single
+	/// attribute byte is the index of its hotkey character within its own text, which is why DEFEND
+	/// POSITION highlights its F and SCAN FOR HOSTILES its C — the manual's own key bindings, stored
+	/// beside the strings rather than in the code. The row refresh (<c>FUN_0044ddec</c>) draws an
+	/// available order in <c>CPGREEN</c> with the hotkey in <c>CPRED</c>, an unavailable one wholly in
+	/// <c>CPBLUE</c>, and the selected one in <c>CPYLW</c>; availability and selection are squad state,
+	/// so every row draws available here.</para>
+	///
+	/// <para>The map viewport gets the flood its own render target sits on and nothing more. What
+	/// belongs in it is a live overhead terrain raster plus up to 140 unit markers — the same
+	/// rasterizer the MFD's NAV MAP is waiting on.</para>
+	/// </summary>
+	private static void AddHddCommandDisplay(HddLayout layout, SimStringTable? strings,
+			Vector3? background, Action<HddLayout.Rect, Vector3> fill, HddLabelWriter drawLabel) {
+		if (background is { } mapFill) {
+			fill(layout.MapViewport, mapFill);
+		}
+
+		var orders = strings?.Group(HddLayout.OrderGroup);
+		if (orders == null) {
+			return;
+		}
+
+		for (int i = 0; i < HddLayout.OrderCount; i++) {
+			int entry = HddLayout.FirstCommandOrder + i;
+			if (entry >= orders.Count || orders[entry].Text is not { Length: > 0 } text) {
+				continue;
+			}
+
+			int hotkey = orders[entry].Attributes is { Length: > 0 } attributes ? attributes[0] : -1;
+
+			// Row 0 of the nine is the incoming-message row, which is blank outside a transmission —
+			// the orders start at row 1.
+			drawLabel(HddLayout.OrderFont, HddLayout.OrderHotkeyFont, text, hotkey,
+				layout.OrderRow(i + 1), false, HddLayout.OrderTextMargin);
+		}
+	}
+
+	/// <summary>
+	/// The damage detail (<c>FUN_0045079c</c>): the herc's paper doll on the left of the screen and,
+	/// down the right, thirteen component rows — a name and a percentage each.
+	///
+	/// <para>Names come from the string table by category: 19 structural sections or 12 internal
+	/// systems, of which thirteen fit at once. The percentage column's width is the measured width of
+	/// the literal "100", which the constructor reserves before placing either label — so an undamaged
+	/// component fills its column exactly. The manual's damage colours (green normal through red
+	/// imminent, grey inoperative) are a paint-time re-font from four colour ids the screen resolves
+	/// at construction; with no damage model, every row draws in the green its constructor
+	/// installs.</para>
+	///
+	/// <para>The paper doll is the herc's own <c>.PDG</c> view for the category — front for structural,
+	/// rear for internal — blitted at the screen rect's top-left plus that view's own origin, which is
+	/// the paint's own arithmetic rather than a centring rule. The weapons category has no doll and
+	/// lists the mech's fitted hardpoints instead; those are already in
+	/// <see cref="CockpitHudState.WeaponNames"/>.</para>
+	/// </summary>
+	private static void AddHddDamageDetail(CockpitArt hud, HddLayout layout, HudSpriteSheet sprites,
+			SimStringTable? strings, HddDamageView view, CockpitHudState state,
+			Action<string, int, float, float> blit, Action<HddLayout.Rect, Vector3> fill,
+			HddLabelWriter drawLabel) {
+		const float S = CockpitArt.GauToPixelScale;
+
+		// Whose herc is being inspected, on its own plate at the screen's bottom-left. The engine only
+		// ever inspects the player, which is entry 0 of the display's own five-name array — the three
+		// squadmates and "TARGET" behind it need squad and targeting state.
+		if (strings?.Text(HddLayout.SubjectNameGroup, 0) is { Length: > 0 } subject) {
+			if (hud.HeadsDownColors?.SubjectPlate is { } plate) {
+				fill(layout.DamageFooter, plate);
+			}
+
+			drawLabel(HddLayout.SubjectFont, string.Empty, subject, -1, layout.DamageFooter, true, 0f);
+		}
+
+		if (HddLayout.PaperDollView(view) is { } dollView
+			&& hud.PaperDoll?.Entries is { } views && dollView < views.Length && views[dollView] is { } doll) {
+			blit(hud.HercName, dollView,
+				layout.Screen.X0 + doll.Origin.X * S, layout.Screen.Y0 + doll.Origin.Y * S);
+		}
+
+		// The weapons category lists the subject's own fitted hardpoints instead of a fixed table —
+		// FUN_00450c54 copies each weapon's name straight off the mech. Those are already loaded.
+		var names = view == HddDamageView.Weapons
+			? state.WeaponNames.Where(n => n.Length > 0).ToList()
+			: HddLayout.ComponentNames(strings, view).Select(e => e.Text).ToList();
+
+		float valueWidth = sprites.Font(HddLayout.DamageRowFont)?.Measure(HddLayout.DamageValueReservation) ?? 0f;
+
+		for (int i = 0; i < HddLayout.DamageRowCount && i < names.Count; i++) {
+			if (names[i] is not { Length: > 0 } text) {
+				continue;
+			}
+
+			var row = layout.DamageRow(i);
+			var nameBox = row with { X1 = row.X1 - (int)valueWidth };
+			var valueBox = row with { X0 = nameBox.X1 };
+
+			drawLabel(HddLayout.DamageRowFont, string.Empty, text, -1, nameBox, false, 0f);
+			drawLabel(HddLayout.DamageRowFont, string.Empty, HddLayout.DamageValueReservation, -1,
+				valueBox, false, 0f);
+		}
+	}
+
+	/// <summary>
+	/// Places one Heads-Down Display label: a font, the alternate its hotkey character is drawn in,
+	/// the text, that character's index (-1 for none), the device-pixel rect it sits in, whether it
+	/// centres horizontally, and how far its text is indented from the anchoring edge.
+	/// </summary>
+	private delegate void HddLabelWriter(string font, string alternateFont, string text, int hotkeyIndex,
+		HddLayout.Rect rect, bool centered, float marginX);
 
 	/// <summary>The cockpit-art quad at its native aspect ratio, positioned by <see cref="Draw"/>'s fit-by-height math.</summary>
 	private void AddCockpitQuad(float quadX0, float quadWidth, int viewportHeight, bool mirror) {
@@ -341,9 +618,12 @@ public sealed class Overlay2DRenderer : IDisposable {
 				AddFilledRect(Px(gauX0), Py(gauY0), Px(gauX1), Py(gauY1), fill);
 			}
 
-			DrawText(fontName, text,
-				gauX0 * S + ((gauX1 - gauX0) * S - font.Measure(text)) / 2f,
-				gauY0 * S + ((gauY1 - gauY0) * S - font.CellHeight) / 2f);
+			// The .GAU rect's Origin + Size is the file's own inclusive second corner, so scaling both
+			// corners gives the device-pixel rect Label_SetRect takes. See HudFont.Place.
+			var (textX, textY) = font.Place(text,
+				(int)(gauX0 * S), (int)(gauY0 * S), (int)(gauX1 * S), (int)(gauY1 * S),
+				LabelAlign.Center);
+			DrawText(fontName, text, textX, textY);
 		}
 
 		AddMfd(hud, state, BlitDevice, DrawText,
@@ -483,23 +763,17 @@ public sealed class Overlay2DRenderer : IDisposable {
 		float X(int gau) => insetX + gau * S;
 		float Y(int gau) => insetY + gau * S;
 
-		// Places one label in a device-pixel rect the way FUN_00438884 and FUN_00438920 do together.
-		// The pair anchor a label once and re-place its text on every change: horizontally the flags
-		// pick left (1), centre (2) or right (4) against an anchor at the rect edge plus the caller's
-		// margin, while vertically there is no flag at all — the anchor is always the rect's own
-		// centre offset by half a font cell, so every label in the display is vertically centred in
-		// its rect and only the horizontal rule varies.
+		// Places one label in a device-pixel rect through the shared Label_SetRect/Label_SetText rule
+		// — see HudFont.Place, which is where that pair's arithmetic lives.
 		void DrawLabel(string font, string text, float x0, float y0, float x1, float y1,
 				bool centered, float marginX = 0f) {
 			if (sprites.Font(font) is not { } metrics) {
 				return;
 			}
 
-			// The measured width drops one device pixel: the original subtracts 1 << XCoordShift from
-			// the run before splitting it, discarding the trailing advance past the last glyph.
-			float width = metrics.Measure(text) - CockpitArt.GauToPixelScale;
-			float left = centered ? (x0 + x1) / 2f + marginX - width / 2f : x0 + marginX;
-			drawText(font, text, left, (y0 + y1) / 2f - metrics.CellHeight / 2f);
+			var (textX, textY) = metrics.Place(text, (int)x0, (int)y0, (int)x1, (int)y1,
+				centered ? LabelAlign.Center : LabelAlign.Left, (int)marginX);
+			drawText(font, text, textX, textY);
 		}
 
 		if (MfdLayout.BackgroundFrame(state.Mfd) is { } background) {

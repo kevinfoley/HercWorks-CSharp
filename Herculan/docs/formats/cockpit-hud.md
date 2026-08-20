@@ -388,14 +388,15 @@ Load path: `ResourcePath_BuildFolderName(name, folder)` → `Resource_Load` (`00
 | `hud` | `Gau_RovingGunsightWidget` (`0043c7d8`) | gunsight / reticle |
 | `hudhtick` | `HudHeadingTape_Ctor` (`0043b57c`) | heading tick tape |
 | `mfd`, `mfd_dmg`, `radar` | `MfdDisplay_Ctor` (`00445218`) | multi-function display — see [`mfd.md`](mfd.md) |
-| `hdd`, `static`, `hddclip`, `pilotN` | `FUN_00448cc8`, `HddGauge_LoadPilotFrames` (`0044a7c0`) | heads-down display |
+| `hdd`, `static`, `hddclip`, `pilotN` | `HddDisplay_Ctor` (`00448cc8`), `HddGauge_LoadPilotFrames` (`0044a7c0`) | heads-down display — see [`heads-down-display.md`](heads-down-display.md) |
 | `pweapons`, `wpn_dmg` | `WeaponGauge_Ctor` (`0044080c`) | weapon hardpoint plates |
 | `throttle` | `ThrottleGauge_Ctor` (`00447b84`) | throttle slider knob |
 | `sysbuttn`, `icons`, `corners` | `maybe_SysButtonPair_Ctor` (`00434368`), `maybe_IconGadget_Ctor` (`0044f130`), `maybe_CockpitFontsAndCorners_Init` (`004544a4`) | |
 
 Widget class names from the same string table: `HUDPipper`, `HUDCrosshairGunsight`,
 `HUDRovingGunsight`, `HUDLockingGunsight`, `MFDRadar`, `MFDStatus`, `MFDMissileView`, `MFDFlashComm`,
-`HDDGauge`, `HDDisplay`, `HDDDamage`, `HDDMapGadget`, `ShieldsGauge`, `EnergyPoolGauge`,
+`HDDGauge`, `HDDisplay`, `HDDDamage`, `HDDMapGadget` (see
+[`heads-down-display.md`](heads-down-display.md)), `ShieldsGauge`, `EnergyPoolGauge`,
 `ThrottleGauge`, `LEDBarGraphV`/`LEDBarGraphH`, `WeaponSelectGadget`, `ChainedWeaponSelectGadget`.
 
 Frame-to-state mapping, as far as it is traced: `PWEAPONS` 0/1 are the selected/unselected row plate,
@@ -608,7 +609,6 @@ sub-objects (`+0x1f5`, `FUN_00433158`'s result, `+0x20b`).
   carry, so neither is drawn.
 - Widget *state* sources generally: which frame or fill level a widget is in per frame is driven from
   the mech object, not from the `.GAU`.
-- The heads-down display's *content* — map, orders list, pilot comm boxes (`hdd`, `static`,
-  `hddclip`, `pilotN` banks, `HDDisplay`/`HDDGauge`/`HDDDamage`/`HDDMapGadget`) — is not RE'd. The
-  engine draws `.HB1` and pans to it; nothing on it is live.
+- `static` and `pilot<n>` ship in `dba\` only, so the 640-wide mode has no matching art for them; see
+  [`heads-down-display.md`](heads-down-display.md).
 - RAZOR's non-stub view-1 3D viewport is not rendered.

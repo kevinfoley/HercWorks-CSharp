@@ -98,9 +98,9 @@ Offsets relative to content start, i.e. after the 9-byte VOL prefix.
 0x10  int16             -- -1 in every retail file
 0x12  int16  cellHeight              -- repeated
 0x14  int16  baseline                -- 8 (.DFN) / 9 (.HFN)
-0x16  int16             -- 8 in every retail file
+0x16  int16  bitsPerPixel            -- 8 in every retail file
 0x18  int16             -- 0 in every retail file
-0x1a  int16             -- 8 / 11 / 7, varies by file, meaning unmapped
+0x1a  int16  inkHeight               -- 8 (.DFN) / 11 (.HFN)
 0x1c  int16  arrayCount              -- 0 in every retail file; when non-zero, arrayCount x 4 bytes
                                         precede the glyph pool
 0x1e  uint32 poolLength
@@ -135,6 +135,20 @@ order and which widget takes which entry.
 Engine implementation: `Herculan.Engine.Content.HudFont`, packed into the shared HUD atlas by
 `HudSpriteSheet`.
 
+### `inkHeight` and label placement
+
+`inkHeight` (`0x1a`) is the height a label centres by, and the only vertical metric the label code
+reads — `cellHeight` is what the glyph *art* occupies. `Label_SetRect` (`00438884`) anchors at
+`rectCentreY + (inkHeight >> 1) + margin + 1` and the glyph blitter (`FUN_00482428`) draws each glyph
+with its top row at `anchor - inkHeight`, so the inked band is centred in the rect and the remaining
+`cellHeight - inkHeight` rows hang below as descender space. Both sets leave exactly 2: 11 of 13
+(`.HFN`), 8 of 10 (`.DFN`). Centring `cellHeight` instead sits every label 1.5 device pixels high.
+
+`bitsPerPixel` (`0x16`) is read by the same blitter, alongside `cellHeight` from `0x0e` (via
+`FUN_00482410`) and the glyph width from the per-glyph width byte (via `FUN_0048238c`).
+
+Full placement formula, including the horizontal rule: [`mfd.md`](mfd.md), "Label placement".
+
 ### Label background
 
 A label paints its rect before its text, in the colour id at the label object's field `0x1d` — `0x2e`
@@ -143,8 +157,9 @@ That is why retail's shield "100" sits on solid black rather than on the bezel a
 
 ### Consumers
 
-`FUN_0044a7c0`, `FUN_00451e94`, `FUN_0043a5a0`, `FUN_0043fe1c`, `FUN_0044ddec`, `FUN_0044c960`,
-`FUN_00450c54`. VSHELL loads `MAP.DFN` (`ShellMap_DfnPanelPtr`, `00471ca8`) but never reads it back —
+`HddGauge_LoadPilotFrames` (`0044a7c0`), `HddCommandScreen_RefreshOrders` (`0044ddec`),
+`HddDamageScreen_Update` (`00450c54`), `FUN_00451e94`, `FUN_0043a5a0`, `FUN_0043fe1c`,
+`FUN_0044c960`. VSHELL loads `MAP.DFN` (`ShellMap_DfnPanelPtr`, `00471ca8`) but never reads it back —
 that load is vestigial.
 
 ## Ruled out: `.BND` and `.SNC`
@@ -153,7 +168,7 @@ Real files checked (`ACTOR.BND`, `MECH.BND`, `CAM.BND`, `PA_01000.SNC`, `PA_0200
 
 ## Open questions
 
-- `.DFN`/`.HFN`: the header shorts at `0x0a`, `0x16`, `0x18` and `0x1a` are constant or near-constant
-  across every retail file and have no observed consumer.
+- `.DFN`/`.HFN`: the header shorts at `0x0a` and `0x18` are 0 in every retail file and have no
+  observed consumer.
 - `.DCI`: `PCURSOR.DCI`'s trailing 101 bytes (likely an AND-mask or outline layer, unconfirmed).
 - Whether DBSIM.EXE (not VSHELL) loads the SHELL0 fonts (`FONT.DFN`, `FONT2.DFN`, `BLACK.DFN`).

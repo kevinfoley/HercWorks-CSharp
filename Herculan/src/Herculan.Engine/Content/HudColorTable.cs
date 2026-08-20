@@ -59,6 +59,27 @@ public sealed class HudColorTable {
     /// </summary>
     public const int GaugeValueRange = 0x400;
 
+	/// <summary>
+	/// What the Heads-Down Display floods a screen or a label background with — palette 16, black.
+	/// Both its pages use it: the command display's paint (<c>FUN_0044c894</c>) reads it as id 19 and
+	/// the damage detail's (<c>FUN_00450c54</c>) as id 3, and this table sends both to the same index.
+	/// </summary>
+	public const int HeadsDownBackgroundId = 19;
+
+	/// <summary>
+	/// The small block beside that display's title — palette 13, yellow. Its paint
+	/// (<c>FUN_00449a50</c>) fills the rect with colour id 13 or, while the <c>+0x51f</c> flag the
+	/// constructor initialises to 1 is up, with this one.
+	/// </summary>
+	public const int HeadsDownIndicatorId = 15;
+
+	/// <summary>
+	/// The plate the damage screen's subject caption sits on — palette 98, the same blue an LED bar's
+	/// even columns use. <c>FUN_0044ba2c</c> installs it as that label's background while the subject
+	/// is the player; a squadmate gets the pilot's own colour and a target gets id 15 instead.
+	/// </summary>
+	public const int HeadsDownSubjectPlateId = 6;
+
 	private readonly int[] _entries;
 
 	private HudColorTable(int[] entries) {

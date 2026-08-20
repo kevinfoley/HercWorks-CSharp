@@ -3220,7 +3220,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Label_SetRect",
-      "description": "Anchors a HUD text label: stores the caller's rect at label+1..4 and computes the text anchor. Horizontal depends on the flags argument -- 2 = centre ((x1-x0)/2 + x0 + margin[0]), 4 = right (x1 - margin[0]), otherwise left (x0 + margin[0]). Vertical has no flag at all: anchorY = (y1-y0)/2 + y0 + fontCellHeight/2 + margin[2] + 1, so every label is vertically centred in its rect. margin is the caller's short[4]. Paired with Label_SetText. See docs/formats/mfd.md.",
+      "description": "Anchors a HUD text label: stores the caller's rect at label+1..4 and computes the text anchor. Horizontal depends on the flags argument -- 2 = centre ((x1-x0)/2 + x0 + margin[0]), 4 = right (x1 - margin[0]), otherwise left (x0 + margin[0]). Vertical has no flag at all: anchorY = ((y1-y0)>>1) + y0 + (inkHeight>>1) + margin[2] + 1, where inkHeight is font+0x16 (file offset 0x1a, 11 for .HFN) and NOT the cell height at font+0xa. All of it is integer arithmetic. margin is the caller's short[4]. Paired with Label_SetText. See docs/formats/mfd.md.",
       "source": "docs/formats/mfd.md 2026-08-18"
     },
     {
@@ -3229,7 +3229,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Label_SetText",
-      "description": "Sets a HUD label's text and places it against the anchor Label_SetRect computed. Measures the run and subtracts 1<<XCoordShift (dropping the trailing advance), then places left/centre/right per the same flags. Vertical position is the stored anchor, which is the cell's bottom -- text top is anchor - cellHeight. Fills the label's background first when its +0x1d colour id is non-zero. See docs/formats/mfd.md.",
+      "description": "Sets a HUD label's text and places it against the anchor Label_SetRect computed. Measures the run and subtracts 1<<XCoordShift (dropping the trailing advance), then places left/centre/right per the same flags. Vertical position is the stored anchor; HudFont_DrawGlyph then draws each glyph with its top row at anchor - inkHeight, so the inked band is what gets centred in the rect and the remaining cell rows hang below. Fills the label's background first when its +0x1d colour id is non-zero. See docs/formats/mfd.md.",
       "source": "docs/formats/mfd.md 2026-08-18"
     },
     {
@@ -3339,6 +3339,276 @@
       "name": "CockpitView_PollViewDevice",
       "description": "Polls a device-state block for the four view axes -- bytes +0x1e/+0x1f/+0x20/+0x21 queue view commands 1/0/5/4 respectively -- i.e. the joystick hat's up/down/left/right, the alternative to CockpitView_HandleViewKey's keyboard path. Also handles the +0xb button edge.",
       "source": "HDD pan RE session 2026-08-20"
+    },
+    {
+      "address": "00448cc8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddDisplay_Ctor",
+      "description": "HDDisplay constructor, .GAU offset 1212 (PHDD.CPP). Reads the block's origin, four region rects (+0xc1 screen, +0xe1 order column, +0xd1 damage column, +0xf1 title indicator), 15 widget rects and 3 comm-box marker rects; loads the 'static' and 'hdd' sprite banks and the 'hddclip' clip region; builds both page objects (+0x101 command display, +0x105 damage detail), the title label (+0x51b) and three 0x14e-byte comm gauges; ends with HddDisplay_SetPage(obj, 0).",
+      "source": "docs/formats/heads-down-display.md 2026-08-20"
+    },
+    {
+      "address": "0044bed0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddGau_ApplyCoordShift",
+      "description": "Pre-pass over the .GAU HDD block: adds 0x28 to the origin's y, then shifts every rect in the block by VideoMode_X/YCoordShift. The bias is what turns each retail file's authored origin (0,197) into (0,237), i.e. the same canvas origin the herc's own .VUE gives view 1 -- the row .HB1 is blitted at.",
+      "source": "docs/formats/heads-down-display.md 2026-08-20"
+    },
+    {
+      "address": "0044baac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddButton_Ctor",
+      "description": "One HDDisplay sub-widget: rect at [0..3], owning display at param_1[9], index at param_1[10], label at param_1[0xb], unlit/lit frames at param_1[0xc]/[0xd], visibility state at +0x1b (2 = hidden), lit flag at +0x40.",
+      "source": "docs/formats/heads-down-display.md 2026-08-20"
+    },
+    {
+      "address": "0044bb38",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddButton_Paint",
+      "description": "Paints one HDDisplay sub-widget, gated on state +0x1b < 2. Indices 0/1 blit the frame and caption themselves 'F7'/'F8' from the shared 'Fx' literal at 0049d4f5 in ColorSchemePanels[12] lit / [10] unlit; 2-7 blit the frame alone (four arrows and two map magnifiers); 10-12 fill the selected comm box's marker rect; 13/14 blit the plate and caption XMIT/CANCEL from STRINGS0 group 9 in ColorSchemePanels[4 + lit].",
+      "source": "docs/formats/heads-down-display.md 2026-08-20"
+    },
+    {
+      "address": "0044a5e4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddDisplay_SetPage",
+      "description": "Switches the display between its two pages (0 = command display [F7], 1 = damage detail [F8]): unlights the old page button, hides the old page object, shows the new one, lights its button, then applies the 2x15 widget visibility table at HddPageWidgetVisibility -- a 0 sets the widget's state to 2, the value HddButton_Paint refuses to draw at.",
+      "source": "docs/formats/heads-down-display.md 2026-08-20"
+    },
+    {
+      "address": "0044a6dc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddDisplay_SetTitle",
+      "description": "Fills the title label (+0x51b) from STRINGS0 group 11 entry 0 ('MAP') on page 0, or group 12 indexed by the damage screen's current category (' STRUCT DAMAGE' / ' INTERN DAMAGE' / ' WEAPON DAMAGE') on page 1.",
+      "source": "docs/formats/heads-down-display.md 2026-08-20"
+    },
+    {
+      "address": "0044a720",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddDisplay_SelectPilot",
+      "description": "Selects one of the three squad comm boxes (widgets 10-12): unlights the previous, records it at +0x52b, stores the new index at +0x517, lights its widget, sends the pilot a select message, and tells the command screen.",
+      "source": "docs/formats/heads-down-display.md 2026-08-20"
+    },
+    {
+      "address": "00449a50",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddDisplay_Repaint",
+      "description": "Whole-display paint: every visible widget, then the current page object's paint, then the title indicator rect (+0xf1, colour id 13 or -- while +0x51f is set, which the constructor does -- id 15), then HddDisplay_SetTitle, then the three comm gauges. A gauge slot with no squadmate in it is flooded with colour id 19 inset one device pixel instead.",
+      "source": "docs/formats/heads-down-display.md 2026-08-20"
+    },
+    {
+      "address": "0044c264",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddCommandScreen_Ctor",
+      "description": "The [F7] command display. Builds the map viewport as the screen rect inset (4<<XCoordShift, 2<<YCoordShift) with its right edge at the order column's left minus the same, a 0x239-byte offscreen map render target centred on the zone, 140 map marker gadgets, and nine label rows down the order column at (y1-y0)/9 pitch: row 0 the incoming-message label in ColorSchemePanels[2], rows 1-8 the orders in [1] with [2] as the hotkey alternate.",
+      "source": "docs/formats/heads-down-display.md 2026-08-20"
+    },
+    {
+      "address": "0044c894",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddCommandScreen_Repaint",
+      "description": "Floods the screen rect with colour id 19, refreshes the order rows, draws the selected order's 2px marker bar in id 15, repaints the two magnifier buttons, rebuilds the map markers and rasterizes the map.",
+      "source": "docs/formats/heads-down-display.md 2026-08-20"
+    },
+    {
+      "address": "0044ddec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddCommandScreen_RefreshOrders",
+      "description": "Re-fonts and re-texts the eight order rows from STRINGS0 group 0 entries 10-17, passing each entry's single attribute byte as the index of its hotkey character within its own text. An available order draws in ColorSchemePanels[1] CPGREEN with the hotkey in [2] CPRED, an unavailable one wholly in [0] CPBLUE, and the selected one in [3] CPYLW.",
+      "source": "docs/formats/heads-down-display.md 2026-08-20"
+    },
+    {
+      "address": "0044dd4c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddCommandScreen_DrawOrderHighlight",
+      "description": "Blits HDD bank frame 2 + state (or 4) -- the 116x18 selected-order bar -- at an order label's own text position.",
+      "source": "docs/formats/heads-down-display.md 2026-08-20"
+    },
+    {
+      "address": "0044ded8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddCommandScreen_BuildMapMarkers",
+      "description": "Rebuilds the map's marker gadgets: up to 9 waypoint markers from the player's own route (icons 0x4e+), then one per object in the three global object lists, then the player's own marker (icon 0x57). Gadgets past the last used one, out of the 140 allocated, are released.",
+      "source": "docs/formats/heads-down-display.md 2026-08-20"
+    },
+    {
+      "address": "0045079c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddDamageScreen_Ctor",
+      "description": "The [F8] damage detail. Resolves its four colour ids at HddDamageColorIds through HudColorTable in place, then builds 13 rows of two labels each down the damage column: a name from the column's left edge + 0x1e<<XCoordShift, and a value column whose width is the measured width of the literal '100'. Rows are 4<<YCoordShift tall at 7<<YCoordShift pitch, all in ColorSchemePanels[1] on colour id 19. Also builds the subject caption at the screen's bottom-left and a centred no-data label, then calls HddDamageScreen_SetView(obj, 0).",
+      "source": "docs/formats/heads-down-display.md 2026-08-20"
+    },
+    {
+      "address": "00450b60",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddDamageScreen_SetView",
+      "description": "Selects the damage category and its row count: 0 structural = 0x13 rows, 1 internal = 0xc, 2 weapons = the subject's own fitted weapon count. The manual binds these to [S], [I] and [W], and to the display's up/down arrow buttons.",
+      "source": "docs/formats/heads-down-display.md 2026-08-20"
+    },
+    {
+      "address": "00450c54",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddDamageScreen_Update",
+      "description": "Per-frame update and repaint. Picks the name table by category and subject type -- STRINGS0 groups 13/14 for structural (walker/flyer), 15/16 for internal, the mech's own weapon names for weapons -- floods the screen with colour id 3, sets the subject caption, blits the .PDG view for the category (0 structural, 1 internal) at the screen rect's top-left plus the view's own origin, tints its regions, and refills the rows.",
+      "source": "docs/formats/heads-down-display.md 2026-08-20"
+    },
+    {
+      "address": "0044ba2c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddDamageScreen_SetSubjectCaption",
+      "description": "Sets the damage screen's subject caption from the display's five-entry name array at +0x548 (the player's 'YOU', three squadmate names, then 'TARGET') indexed by the subject selector at +0x55c. The player draws in ColorSchemePanels[3] on colour id 6, a squadmate in [2] on that pilot's own COLORS.DAT entry, and the target in [2] on id 15.",
+      "source": "docs/formats/heads-down-display.md 2026-08-20"
+    },
+    {
+      "address": "0044ae78",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddGauge_PaintIdle",
+      "description": "Paints one squad comm box while its pilot is not broadcasting: floods the video area with colour id 19 and fills five labels -- the pilot's name, 'STATUS:', the condition from STRINGS0 group 28, 'OBJECTIVE:', and the pilot's current order from group 40. Matches the manual's 'their video box remains darkened, displaying only their name, their status, and their current orders'. Defers to HddGauge_PaintStatic when the pilot's comms are out.",
+      "source": "docs/formats/heads-down-display.md 2026-08-20"
+    },
+    {
+      "address": "0044b3b4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddGauge_PaintStatic",
+      "description": "Draws the next of the 'static' bank's five frames into a comm box and advances the cycle -- the manual's 'the video box goes to static and you can send them no messages'.",
+      "source": "docs/formats/heads-down-display.md 2026-08-20"
+    },
+    {
+      "address": "0044b120",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddGauge_PaintPilotFrame",
+      "description": "Draws one frame of a talking pilot into a comm box: floods it with colour id 19, blits the requested frame of the pilot<n> bank at that frame's own .OFS offset pair, and refreshes the name label.",
+      "source": "docs/formats/heads-down-display.md 2026-08-20"
+    },
+    {
+      "address": "0044adf4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddGauge_ConditionIndex",
+      "description": "Averages a mech's 19 structural damage bytes into a 0-100 integrity percentage and buckets it into the five STRINGS0 group 28 conditions at 90 / 74 / 51 / 1 -- OK, SHIELDS DN, INT DAMAGE, CRITICAL, DESTROYED.",
+      "source": "docs/formats/heads-down-display.md 2026-08-20"
+    },
+    {
+      "address": "0049d24c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "HddPageWidgetVisibility",
+      "description": "2 rows x 15 bytes, indexed [page][widget] by HddDisplay_SetPage. Page 0 shows widgets 0-7 and 13-14, page 1 only 0-5. Both rows hide the three comm boxes (10-12), which HddGauge_LoadPilotFrames re-enables per occupied squad slot.",
+      "source": "docs/formats/heads-down-display.md 2026-08-20"
+    },
+    {
+      "address": "0049d23c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "HddSpriteBank",
+      "description": "The 'hdd' sprite bank handle (hba\\HDD.HBA or dba\\HDD.DBA), 27 frames: 0-1 the XMIT/CANCEL plate unlit/lit, 2-4 the selected-order highlight bar, 5-12 the first arrow-button set, 13-20 the second, 21-24 the two map magnifiers, 25-26 the F7/F8 page buttons. Which arrow set a herc uses is its own .GAU block value at offset 0x5c.",
+      "source": "docs/formats/heads-down-display.md 2026-08-20"
+    },
+    {
+      "address": "0049d234",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "HddStaticBank",
+      "description": "The 'static' sprite bank handle -- five 64x53 frames of video noise that HddGauge_PaintStatic cycles through a comm box whose pilot's comms are out. Ships in dba\\ only.",
+      "source": "docs/formats/heads-down-display.md 2026-08-20"
+    },
+    {
+      "address": "0049d9ec",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "HddDamageColorIds",
+      "description": "Four COLORS.DAT logical colour ids -- 19, 9, 15, 12 -- that HddDamageScreen_Ctor resolves through HudColorTable in place to palette 16, 10, 13, 14 (black, red, yellow, green) for the damage rows.",
+      "source": "docs/formats/heads-down-display.md 2026-08-20"
+    },
+    {
+      "address": "00482528",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HudFont_DrawString",
+      "description": "Draws a NUL-terminated run with a .DFN/.HFN font at a caller-supplied top-left, advancing the pen by each glyph's own width. A display-wide alignment override at renderContext+0x231 (1 = right, 2 = centre against the field width at +0x235) shifts the whole run first; it is 0 in the cockpit.",
+      "source": "docs/formats/dfn-hfn-dci.md 2026-08-20"
+    },
+    {
+      "address": "00482428",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HudFont_DrawGlyph",
+      "description": "Blits one glyph: height from font+0xa (file 0x0e cellHeight), width from HudFont_GlyphWidth, bit depth from font+0x12 (file 0x16, 8 in every retail file), pixels from the pool at font+0x22 indexed through the per-glyph offset array at font+0x26. Draws with its top row at y - font+0x16 (file 0x1a, the ink height), which is the other half of Label_SetRect's vertical rule.",
+      "source": "docs/formats/dfn-hfn-dci.md 2026-08-20"
+    },
+    {
+      "address": "0048238c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HudFont_GlyphWidth",
+      "description": "One glyph's advance width: the fixed width at font+0xc when that is not -1, otherwise the per-glyph width byte at font+0x2a indexed by char - firstCharCode. Every retail font stores -1 and is therefore proportional.",
+      "source": "docs/formats/dfn-hfn-dci.md 2026-08-20"
+    },
+    {
+      "address": "004823e0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HudFont_MeasureString",
+      "description": "Sums HudFont_GlyphWidth over a NUL-terminated run. Callers that align a run subtract 1<<XCoordShift from the result to drop the trailing advance past the last glyph.",
+      "source": "docs/formats/dfn-hfn-dci.md 2026-08-20"
+    },
+    {
+      "address": "00482410",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HudFont_CellHeight",
+      "description": "Returns font+0xa, the glyph cell height (file offset 0x0e; 13 for .HFN, 10 for .DFN). This is the glyph art's height, not the ink height at font+0x16 that labels centre by.",
+      "source": "docs/formats/dfn-hfn-dci.md 2026-08-20"
     }
   ]
 }

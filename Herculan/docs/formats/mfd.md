@@ -155,20 +155,25 @@ object that drives FLASH COMM's talking-head frames; blank outside a transmissio
 an alignment flag and a `short[4]` margin:
 
 ```
-anchorX = flags & 2 ? (x1 - x0) / 2 + x0 + margin[0]     -- centre
+anchorX = flags & 2 ? ((x1 - x0) >> 1) + x0 + margin[0]  -- centre
         : flags & 4 ? x1 - margin[0]                     -- right
         :             x0 + margin[0]                     -- left
-anchorY = (y1 - y0) / 2 + y0 + cellHeight / 2 + margin[2] + 1
+anchorY = ((y1 - y0) >> 1) + y0 + (inkHeight >> 1) + margin[2] + 1
 
 width   = measure(text) - (1 << XCoordShift)
-textX   = flags & 2 ? anchorX - width / 2 : flags & 4 ? anchorX - width : anchorX
-textY   = anchorY - cellHeight
+textX   = flags & 2 ? anchorX - (width >> 1) : flags & 4 ? anchorX - width : anchorX
+textY   = anchorY - inkHeight
 ```
 
-There is no vertical alignment flag: every label is vertically centred in its rect, and `textY`
-reduces to `(y0 + y1) / 2 - cellHeight / 2`. Retail uses alignment 1 (left) for the title, the status
-labels and the flash-comm rows, and 2 (centre) for button captions. All margins are zero except the
-flash-comm rows'.
+There is no vertical alignment flag: every label is vertically centred in its rect. Retail uses
+alignment 1 (left) for the title, the status labels and the flash-comm rows, and 2 (centre) for
+button captions. All margins are zero except the flash-comm rows'.
+
+`inkHeight` is the font's own `0x1a` header field (11 for `.HFN`), **not** its cell height (13) — see
+[`dfn-hfn-dci.md`](dfn-hfn-dci.md). Both `Label_SetRect` and the glyph blitter (`FUN_00482428`,
+`glyphTop = anchorY - inkHeight`) read that field and no other, so it is the inked band that gets
+centred and the remaining two cell rows hang below. All the arithmetic is integer, both shifts
+included; doing it in floating point shifts a label up to a pixel on either axis.
 
 ## Screens
 

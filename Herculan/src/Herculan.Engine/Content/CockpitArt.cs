@@ -64,7 +64,7 @@ public sealed class CockpitArt {
 	/// one serves.
 	/// </summary>
 	public static readonly string[] HudBankNames =
-		{ "HUD", "HUDHTICK", "MFD", "RADAR", "THROTTLE", "WPN_DMG", "PWEAPONS" };
+		{ "HUD", "HUDHTICK", "MFD", "RADAR", "THROTTLE", "WPN_DMG", "PWEAPONS", "HDD" };
 
 	/// <summary>
 	/// The <c>.HFN</c> fonts the cockpit draws text with, out of the 18 <c>ColorSchemePanels</c>
@@ -79,8 +79,14 @@ public sealed class CockpitArt {
 	/// <para><c>CPGREEN</c> and <c>CPRED</c> are <c>ColorSchemePanels[1]</c> and <c>[2]</c>, the pair
 	/// the MFD's FLASH COMM screen lists its squadmate orders in — available orders in green, ones the
 	/// squad cannot take in red.</para>
-	public static readonly string[] HudFontNames =
-		{ "WHITE", "GRAY", "GREEN", "DARK", "RED", "HUD1", "HUD2", "HUD3", "CPGREEN", "CPRED" };
+	/// <para><c>CPON</c> and <c>CPPRESS</c> are <c>[4]</c> and <c>[5]</c>, which the Heads-Down
+	/// Display's XMIT and CANCEL buttons caption themselves in unlit and lit
+	/// (<see cref="HddLayout.TransmitButtonFont"/>); <c>CPYLW</c> is <c>[3]</c>, that display's
+	/// subject caption.</para>
+	public static readonly string[] HudFontNames = {
+		"WHITE", "GRAY", "GREEN", "DARK", "RED", "HUD1", "HUD2", "HUD3",
+		"CPGREEN", "CPRED", "CPON", "CPPRESS", "CPYLW",
+	};
 
 	private CockpitArt(CockpitFrame front, CockpitFrame side, CockpitFrame? headsDown, GAUFile gau, HudSpriteSheet? sprites,
 			HudColorTable? colors, (Vector3, Vector3, Vector3)? gaugeColors,
@@ -118,6 +124,29 @@ public sealed class CockpitArt {
 	/// file is missing or does not parse, in which case no wireframe is drawn.
 	/// </summary>
 	public PaperDollGraphic? PaperDoll { get; private init; }
+
+	/// <summary>
+	/// Where this herc's cockpit views sit in the cockpit canvas — <c>vue\&lt;HERC&gt;.VUE</c>. Null
+	/// when the file is missing, in which case callers fall back to
+	/// <see cref="CockpitViewGeometry.DefaultHeadsDownOriginY"/>. Loaded here because
+	/// <see cref="HeadsDown"/>'s own widget layout is expressed against view 1's canvas origin.
+	/// </summary>
+	public CockpitViewGeometry? ViewGeometry { get; private init; }
+
+	/// <summary>
+	/// The Heads-Down Display's widget layout, from the herc's own <c>.GAU</c> — see
+	/// <see cref="HddLayout"/>. Null when the block could not be read, in which case the pan still
+	/// reaches <see cref="HeadsDown"/> but nothing is drawn over its art.
+	/// </summary>
+	public HddLayout? HeadsDownLayout { get; private init; }
+
+	/// <summary>
+	/// The two flat colours the Heads-Down Display fills with: colour id 19 for every screen and label
+	/// background, and id 15 for the small indicator block beside the title. Null when
+	/// <c>COLORS.DAT</c> is missing, in which case the display draws its sprites and text and floods
+	/// nothing — better than flooding a colour of the engine's own choosing over the art.
+	/// </summary>
+	public (Vector3 Background, Vector3 Indicator, Vector3 SubjectPlate)? HeadsDownColors { get; private init; }
 
 	/// <summary>
 	/// Which of <c>COCKPIT.DPL</c>'s nine 24-entry cockpit colour schemes this herc renders through —
@@ -218,6 +247,7 @@ public sealed class CockpitArt {
 			& CutViewportHole(content, hercName, SideViewIndex, side);
 
 		var colors = HudColorTable.Load(content);
+		var viewGeometry = CockpitViewGeometry.Load(content, hercName);
 
 		// The herc's own bank goes in alongside the shared ones: it holds the paper-doll wireframe
 		// frames the MFD status screen draws, and its name is the herc's.
@@ -235,6 +265,11 @@ public sealed class CockpitArt {
 				&& new PaperDiagramGraphTransformer().BytesToObject(pdgBytes) is PaperDollGraphic doll
 					? doll
 					: null,
+			ViewGeometry = viewGeometry,
+			HeadsDownLayout = HddLayout.Load(gau,
+				viewGeometry?.CanvasOriginY(CockpitViewGeometry.HeadsDownViewIndex)
+					?? CockpitViewGeometry.DefaultHeadsDownOriginY),
+			HeadsDownColors = ResolveHeadsDownColors(colors, palette),
 		};
 	}
 
@@ -260,9 +295,23 @@ public sealed class CockpitArt {
 			return null;
 		}
 
-		static Vector3 V(HercWorks.Core.Data.Struct.RgbaColor c) => new(c.R / 255f, c.G / 255f, c.B / 255f);
-		return (V(even), V(odd), V(remainder));
+		return (ToVector(even), ToVector(odd), ToVector(remainder));
 	}
+
+	/// <summary>All three Heads-Down Display fill colours or none, for the reason in
+	/// <see cref="ResolveGaugeColors"/>.</summary>
+	private static (Vector3, Vector3, Vector3)? ResolveHeadsDownColors(HudColorTable? colors, DynamixPalette palette) {
+		if (colors?.Resolve(HudColorTable.HeadsDownBackgroundId, palette) is not { } background
+			|| colors.Resolve(HudColorTable.HeadsDownIndicatorId, palette) is not { } indicator
+			|| colors.Resolve(HudColorTable.HeadsDownSubjectPlateId, palette) is not { } plate) {
+			return null;
+		}
+
+		return (ToVector(background), ToVector(indicator), ToVector(plate));
+	}
+
+	private static Vector3 ToVector(HercWorks.Core.Data.Struct.RgbaColor c) =>
+		new(c.R / 255f, c.G / 255f, c.B / 255f);
 
 	/// <summary>
 	/// Reads and decodes one <c>.HBx</c> file's single frame through <paramref name="palette"/>.

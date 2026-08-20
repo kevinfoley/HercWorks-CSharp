@@ -588,5 +588,26 @@ Leg 1: place `.HB1` and pan to it. RE in `docs/formats/cockpit-hud.md`, "Heads-d
   columns into the side margins on wider windows — a Herculan addition; the original had no margins.
 - Host: `[F7]`/`[F8]` down, `[F1]`-`[F6]` up, `--hdd` starts panned down for `--screenshot` runs.
 
-**Not done:** everything on the display is static art. The HDD's live content — map, orders list,
-pilot comm boxes — is un-RE'd, as is RAZOR's non-stub view-1 3D viewport.
+Leg 2: the display's own GUI. Full RE in `docs/formats/heads-down-display.md`.
+
+- **The whole display is authored per herc**, unlike the MFD: the `.GAU` block at 1212 carries an
+  origin, four region rects, 15 widget rects, 3 marker rects and two mode values. `HddLayout` reads
+  it out of `GAUFile.Remainder` and re-bases it onto the `.HB1` art. The block's origin y is biased
+  `+0x28` before shifting, which lands it on the herc's own `.VUE` view-1 canvas origin — the check
+  that confirms the block.
+- **Widget-to-frame mapping confirmed by size**, the same method the MFD's button table passed: 90
+  rect/frame checks across all nine retail files, 54 exact, the 36 misses being the two classes the
+  original does not match either.
+- **Both pages drawn**: command display (map viewport, 8 orders with their hotkey characters,
+  XMIT/CANCEL) and damage detail (paper doll per category, 13 component rows). Comm boxes draw the
+  unoccupied-slot fill.
+- **Label placement corrected**, cockpit-wide. `Label_SetRect` centres the font's `0x1a` *ink height*
+  (11), not its cell height (13), and works in integers throughout; `HudFont.Place` now owns that
+  rule for the MFD, the HDD and the console readouts alike. Every label had been sitting 1.5 device
+  pixels high. `.HFN` header fields `0x16` and `0x1a` move out of dfn-hfn-dci.md's open questions.
+- Host: `[F7]`/`[F8]` select the page as well as panning, `[S]`/`[I]`/`[W]` switch damage category
+  while that page is down, `--hdd [0|1]` and `--hdd-damage [0-2]` for `--screenshot` runs.
+
+**Not done:** the map's terrain raster and its 140 markers, pilot video and static, order
+availability and selection, per-component damage — all need sim state. Nor is RAZOR's non-stub view-1
+3D viewport rendered.

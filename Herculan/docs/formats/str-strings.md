@@ -47,7 +47,7 @@ Groups referenced by decoded code:
 |---|---|---|
 | 0 | 18 | Squadmate orders. First six are the FLASH COMM page: `ATTACK MY TARGET`, `IGNORE MY TARGET`, `HELP ME OUT!`, `JOIN ON ME`, `SCAN FOR HOSTILES`, `FIRE AT WILL`. |
 | 1 | 3 | `RED1`-`RED3` |
-| 4 | 4 | Console button captions incl. `LINK`, `TRACK` |
+| 4 | 4 | Console button captions: `I`, `LINK`, `TRACK`, `` (entry 0 unused — the chain button's numerals come from a separate `.rdata` table, `ChainCountCaptions` at `0049c71c`) |
 | 5 | 13 | MFD captions: `STATUS`, `FLASH COMM`, `NAV MAP`, `SCANNER`, `TARGET`, `MISSILE CAM`, `MODE`, `SELECT`, `RANGE`, `TARGET`, `XMIT`, `PASS`, `ACTIVE`. Entries 0-5 are the screen titles, 6-12 the aux button captions. |
 | 10 | 5 | `OK`, `INT DMG`, `SHLD DWN`, `CRITICAL`, `WASTED` — **dead data**: `SimStrings_LoadAll` is the only reference to `DAT_004d1440` in the image. Group 28 is the live condition table. |
 | 17 | 1 | `YOU` |

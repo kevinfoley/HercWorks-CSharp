@@ -554,7 +554,10 @@ palette index 34 (the retail blue, RGB `(77,77,182)`); frame 3 lit, index 14 gre
 in `[10]` `WHITE` unlit / `[12]` `DARK` lit. The plates are **not** canopy art.
 
 The chain button's caption is its count in Roman numerals from `ChainCountCaptions` (`0049c71c`):
-`"I"`, `"II"`, `"III"`.
+`"I"`, `"II"`, `"III"` — a literal table in `.rdata`, unrelated to the string file. LINK and TRACK
+are not fixed the same way: `ConsoleButton_Paint` reads them from `DAT_004d13d0`, the `.bss` array
+`SimStrings_LoadAll` fills from `STRINGS0.STR` group 4 (see [`str-strings.md`](str-strings.md)),
+indexed by the widget's own kind field — entry 1 for LINK, entry 2 for TRACK.
 
 ## Gunsight readouts
 

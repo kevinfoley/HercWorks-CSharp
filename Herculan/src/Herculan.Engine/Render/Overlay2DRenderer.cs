@@ -144,7 +144,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 			_vertices.Clear();
 			AddGaugeFills(hud, scale, quadX0, fillFraction: 1f);
 			if (hud.Sprites is { } sprites) {
-				AddWidgetSprites(hud, sprites, scale, quadX0, hudState ?? CockpitHudState.Default);
+				AddWidgets(hud, sprites, scale, quadX0, hudState ?? CockpitHudState.Default);
 			}
 
 			if (_vertices.Count > 0) {
@@ -554,7 +554,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// widget's hit/layout box, not its art's extent, and stretching to match visibly softens art
 	/// authored for exact pixels.
 	/// </summary>
-	private void AddWidgetSprites(CockpitArt hud, HudSpriteSheet sprites, float scale, float quadX0,
+	private void AddWidgets(CockpitArt hud, HudSpriteSheet sprites, float scale, float quadX0,
 			CockpitHudState state) {
 		const float S = CockpitArt.GauToPixelScale;
 		var gau = hud.Gau;
@@ -636,7 +636,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 
 		AddWeaponRows(gau, state, BlitDevice, DrawText);
 		AddShieldReadouts(gau, state, hud.GaugeColors?.Remainder, DrawTextCentered);
-		AddButtonLabels(gau, state, BlitDevice, DrawTextCentered);
+		AddConsoleButtons(gau, hud.Strings, state, BlitDevice, DrawTextCentered);
 		AddGunsightReadouts(gau, sprites, state, DrawText);
 
 		// The reticle is a point, not a rect — the only widget in the file that is — so its sprite
@@ -916,35 +916,52 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// <summary>
 	/// The three console buttons: a <c>PWEAPONS</c> plate with a caption centred on it.
 	///
-	/// <para>The plate is not canopy art — <c>FUN_00442c88</c> blits it per frame from
-	/// <c>PWEAPONS</c> frames 2 and 3, indexed <c>bank[2 + state]</c>, at the widget's own rect. Frame
-	/// 2 is the unlit plate (solid palette index 34, the blue the retail screenshot shows at RGB
-	/// (77,77,182)) and frame 3 the lit one (index 14, green). Both are 50x16 against a 48x14 rect,
-	/// the same one-pixel overhang the weapon-row plates have, and all three buttons are that same
-	/// 24x7 GAU size in every retail file.</para>
+	/// <para>The plate is not canopy art — <c>FUN_00442c88</c> (ConsoleButton_Paint) blits it per
+	/// frame from <c>PWEAPONS</c> frames 2 and 3, indexed <c>bank[2 + state]</c>, at the widget's
+	/// own rect. Frame 2 is the unlit plate (solid palette index 34, the blue the retail screenshot
+	/// shows at RGB (77,77,182)) and frame 3 the lit one (index 14, green). Both are 50x16 against
+	/// a 48x14 rect, the same one-pixel overhang the weapon-row plates have, and all three buttons 
+	/// are that same 24x7 GAU size in every retail file.</para>
 	///
 	/// <para>The chain button's caption is its count in Roman numerals, read from DBSIM's own
-	/// three-entry table at <c>0049c71c</c> ("I", "II", "III"); the other two are fixed.</para>
+	/// three-entry table at <c>0049c71c</c> ("I", "II", "III") — a literal table in <c>.rdata</c>,
+	/// unrelated to the string file. LINK and TRACK are not fixed: <c>ConsoleButton_Paint</c>
+	/// (<c>00442c88</c>) reads them out of <c>DAT_004d13d0</c>, the <c>.bss</c> array
+	/// <c>SimStrings_LoadAll</c> fills from <c>STRINGS0.STR</c> group <see cref="CaptionGroup"/>,
+	/// indexed by the widget's own kind field (1 = LINK, 2 = TRACK) — see
+	/// docs/formats/str-strings.md.</para>
 	/// </summary>
-	private static void AddButtonLabels(GAUFile gau, CockpitHudState state,
+	private static void AddConsoleButtons(GAUFile gau, SimStringTable? strings, CockpitHudState state,
 			Action<string, int, float, float> blit,
 			Action<string, string, int, int, int, int, Vector3?> drawCentered) {
 		const float S = CockpitArt.GauToPixelScale;
 
-		void Button(string text, WidgetBase? widget, bool lit = false) {
+		void Button(string? text, WidgetBase? widget, bool lit = false) {
 			if (widget == null) {
 				return;
 			}
 
 			blit("PWEAPONS", lit ? 3 : 2, widget.Origin.X * S, widget.Origin.Y * S);
-			drawCentered("WHITE", text, widget.Origin.X, widget.Origin.Y,
-				widget.Origin.X + widget.Size.Width, widget.Origin.Y + widget.Size.Height, null);
+			if (text is { Length: > 0 }) {
+				drawCentered("WHITE", text, widget.Origin.X, widget.Origin.Y,
+					widget.Origin.X + widget.Size.Width, widget.Origin.Y + widget.Size.Height, null);
+			}
 		}
 
+		// Firing chain button ("I"/"II"/"III").
 		Button(new string('I', Math.Clamp(state.ChainCount, 1, 3)), gau.ChainButton);
-		Button("LINK", gau.LinkButton);
-		Button("TRACK", gau.AutoTrackButton);
+		// LINK button.
+		Button(strings?.Text(CaptionGroup, 1), gau.LinkButton);
+		// TRACK button.
+		Button(strings?.Text(CaptionGroup, 2), gau.AutoTrackButton);
 	}
+
+	/// <summary>
+	/// <c>STRINGS0.STR</c> group 4: the console button captions — index 0 is <c>"I"</c> (unused; the
+	/// chain button gets its numerals from <see cref="AddConsoleButtons"/>'s own table instead), 1 is
+	/// <c>"LINK"</c>, 2 is <c>"TRACK"</c>, 3 is empty.
+	/// </summary>
+	private const int CaptionGroup = 4;
 
 	/// <summary>
 	/// The speed and mission-time readouts under the reticle, laid out as

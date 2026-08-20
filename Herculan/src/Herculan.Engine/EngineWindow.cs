@@ -34,7 +34,7 @@ public sealed class EngineWindow : IDisposable {
 	/// <summary>Raised when the window is closing, while the GL context is still active.</summary>
 	public event Action? Closing;
 
-	public EngineWindow(string title = "HERCULAN Engine", int width = 1280, int height = 720) {
+	public EngineWindow(string title = "HERCULAN Engine", int width = 1280, int height = 960) {
 		var options = WindowOptions.Default with {
 			Size = new Vector2D<int>(width, height),
 			Title = title,

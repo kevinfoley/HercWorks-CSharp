@@ -3085,8 +3085,8 @@
       "type": "function",
       "confidence": "high",
       "name": "ConsoleButton_Paint",
-      "description": "Paints the chain/link/auto-track console buttons: plate from PWEAPONS frames 2 + state (frame 2 unlit, solid palette index 34 = the retail blue at RGB (77,77,182); frame 3 lit, index 14 green) blitted at the widget's own rect, then the caption. The chain button's caption comes from the three-entry Roman-numeral table at 0049c71c ('I', 'II', 'III'). Caption font is ColorSchemePanels[10] WHITE when unlit, [12] DARK when lit.",
-      "source": "cockpit rendering RE session 2026-08-17"
+      "description": "Paints the chain/link/auto-track console buttons: plate from PWEAPONS frames 2 + state (frame 2 unlit, solid palette index 34 = the retail blue at RGB (77,77,182); frame 3 lit, index 14 green) blitted at the widget's own rect, then the caption. The chain button's caption comes from the three-entry Roman-numeral table at 0049c71c ('I', 'II', 'III'), a literal .rdata table unrelated to the string file. LINK and TRACK are not fixed the same way: both read ConsoleButtonCaptions (004d13d0) indexed by the widget's own kind field (param_1[10]: 1=LINK, 2=TRACK), which SimStrings_LoadAll fills from STRINGS0.STR group 4. Caption font is ColorSchemePanels[10] WHITE when unlit, [12] DARK when lit.",
+      "source": "cockpit rendering RE session 2026-08-17; corrected 2026-08-20"
     },
     {
       "address": "0049c71c",
@@ -3096,6 +3096,15 @@
       "name": "ChainCountCaptions",
       "description": "Three 4-byte inline strings 'I', 'II', 'III' indexed by chain count, read by ConsoleButton_Paint.",
       "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "004d13d0",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ConsoleButtonCaptions",
+      "description": "4-entry .bss pointer array (STRINGS0.STR group 4: 'I', 'LINK', 'TRACK', ''), filled by SimStrings_LoadAll and read by ConsoleButton_Paint, indexed by the console button's own kind field. Entry 0 ('I') is unused by that reader -- the chain button gets its numerals from the separate ChainCountCaptions table instead.",
+      "source": "cockpit rendering RE session 2026-08-20"
     },
     {
       "address": "0049c9cb",

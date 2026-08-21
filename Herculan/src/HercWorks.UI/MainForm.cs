@@ -2,6 +2,7 @@ using HercWorks.Core.Io.Transform;
 using HercWorks.Vol;
 using HercWorks.Vol.Io;
 using HercWorks.Vol.Util;
+using System.Diagnostics;
 
 namespace HercWorks.UI;
 
@@ -77,6 +78,10 @@ public partial class MainForm : Form {
 		_statusLabel.Text = GamePaths.IsConfigured
 			? $"Earthsiege 2 directory: {GamePaths.GameDirectory}"
 			: "No Earthsiege 2 directory set — use File ▸ Set Earthsiege 2 Folder to pick ES.EXE.";
+
+		if (_volTree.GetNodeCount(false) == 0) {
+			LoadVolList();
+		}
 	}
 
 	/// <summary>
@@ -93,6 +98,30 @@ public partial class MainForm : Form {
 	/// </summary>
 	private static readonly Guid ExportSelectedFileClientGuid = new("d3f8c2b1-7e4a-4b6d-9c3f-1a2e5d8f0b6c");
 
+	/// <summary>
+	/// Load a list of VOL files in the game directory and display each one in the VOL tree.
+	/// </summary>
+	private void LoadVolList() {
+		_volTree.Nodes.Clear();
+		if (GamePaths.IsConfigured) {
+			var path = Path.Join(GamePaths.GameDirectory, "VOL");
+			var filePaths = Directory.GetFiles(path);
+			foreach (var file in filePaths) {
+				if (Path.GetExtension(file).ToUpper() == ".VOL") {
+					string fileName = Path.GetFileName(file);
+					var node = new TreeNode(fileName) { Name = fileName, Tag = file };
+					_volTree.Nodes.Add(node);
+
+					// Add a placeholder child node so that the + (expand) icon appears next
+					// to the VOL node. When the VOL node is expanded, we'll remove the
+					// placeholder and load the VOL's actual file list.
+					var placeholderChild = new TreeNode("...");
+					node.Nodes.Add(placeholderChild);
+				}
+			}
+		}
+	}
+
 	private void OnOpenVol(object? sender, EventArgs e) {
 		using var dialog = new OpenFileDialog {
 			Filter = "Earthsiege 2 VOL files (*.vol)|*.vol|All files (*.*)|*.*",
@@ -105,49 +134,155 @@ public partial class MainForm : Form {
 			return;
 		}
 
+		TryLoadVol(dialog.FileName);
+	}
+
+	private bool TryLoadVol(string path) {
 		try {
-			_currentVol = VolFileReader.ParseVolFile(dialog.FileName);
+			_currentVol = VolFileReader.ParseVolFile(path);
 			PopulateTree(_currentVol);
-			_statusLabel.Text = $"Loaded {_currentVol.FileName} — {_currentVol.FilesSet.Length} files, {_currentVol.Folders.Count} folders.";
+			return true;
 		} catch (Exception ex) {
 			MessageBox.Show(this, $"Failed to load VOL file:\n{ex.Message}", "Error",
 				MessageBoxButtons.OK, MessageBoxIcon.Error);
+			return false;
 		}
 	}
 
-	private void OnOpenHercStats(object? sender, EventArgs e) {
-		using var form = new HercStatsForm();
-		form.ShowDialog(this);
+	private void OnExpandTreeNode(object sender, TreeViewCancelEventArgs e) {
+		if (e.Node is not null) {
+			if (e.Node.Tag is string fileName) {
+				TryLoadVol(fileName);
+			}
+		}
 	}
 
-	private void OnOpenItemStats(object? sender, EventArgs e) {
-		using var form = new WeaponStatsForm();
-		form.ShowDialog(this);
+	private void PopulateTree(Voln vol) {
+		Debug.Assert(!string.IsNullOrEmpty(vol.FileName), $"Invalid vol {vol}");
+
+		TreeNode root;
+		var nodes = _volTree.Nodes.Find(vol.FileName, true);
+
+		if (nodes.Length == 0) {
+			root = new TreeNode(vol.FileName);
+			_volTree.Nodes.Add(root);
+		} else {
+			if (nodes.Length > 1) {
+				Debug.WriteLine($"Warning: Found multiple nodes matching {vol.FileName}");
+			}
+			root = nodes[0];
+		}
+
+		root.Tag = vol;
+		// Remove placeholder node.
+		if (root.GetNodeCount(false) == 1 && root.Nodes[0].Tag is null) {
+			root.Nodes.RemoveAt(0);
+		}
+
+		// Populate child nodes now if not already loaded
+		if (root.GetNodeCount(false) == 0) {
+			foreach (var kv in vol.Folders.OrderBy(f => f.Key)) {
+				var dirNode = new TreeNode(kv.Value.Label) { Tag = kv.Value };
+				foreach (var file in kv.Value.Files) {
+					dirNode.Nodes.Add(new TreeNode(file.FileName) { Tag = file });
+				}
+				root.Nodes.Add(dirNode);
+			}
+			_statusLabel.Text = $"Loaded {vol.FileName} — {vol.FilesSet.Length} files, {vol.Folders.Count} folders.";
+		}
 	}
 
-	private void OnOpenCampaignResources(object? sender, EventArgs e) {
-		using var form = new CampaignResourcesForm();
-		form.ShowDialog(this);
+	private void OnTreeSelect(object? sender, TreeViewEventArgs e) {
+		_fileDetails.Items.Clear();
+		_contentTree.Nodes.Clear();
+
+		if (e.Node is not null) {
+			if (e.Node.Tag is VolEntry entry) {
+				_currentVol = FindParentVol(e.Node);
+				SelectVolEntry(entry);
+			} else if (e.Node.Tag is string fileName) {
+				TryLoadVol(fileName);
+			} else if (e.Node.Tag is Voln vol) {
+				_currentVol = vol;
+			}
+		}
 	}
 
-	private void OnOpenMissionScript(object? sender, EventArgs e) {
-		using var form = new MissionScriptForm();
-		form.ShowDialog(this);
+	private Voln? FindParentVol(TreeNode treeNode) {
+		TreeNode currentNode = treeNode.Parent;
+		while (currentNode is not null) {
+			if (currentNode.Tag is Voln vol) {
+				return vol;
+			}
+			currentNode = currentNode.Parent;
+		}
+		return null;
 	}
 
-	private void OnOpenPlayerSquad(object? sender, EventArgs e) {
-		using var form = new PlayerSquadForm();
-		form.ShowDialog(this);
+	private void SelectVolEntry(VolEntry? entry) {
+		_selectedEntry = entry;
+		UpdateViewAssetButtonState();
+		_exportSelectedFileMenuItem.Enabled = _selectedEntry is { RawBytes.Length: > 0 };
+
+		if (entry is null) {
+			return;
+		}
+
+		AddDetail("File Name", entry.FileName ?? string.Empty);
+		AddDetail("Directory", entry.Dir?.Val() ?? "(unknown)");
+		AddDetail("Extension", entry.Ext?.Val() ?? "(unknown)");
+		if (TransformerRegistry.FindLabel(entry) is { } typeLabel) {
+			AddDetail("File Type", typeLabel);
+		}
+		AddDetail("Offset In VOL", entry.VolOffsetValue.ToString());
+		AddDetail("Size (bytes)", (entry.RawBytes?.Length ?? 0).ToString());
+		AddDetail("Compression Type", entry.FileCompressionType.ToString());
+		AddDetail("Magic Prefix", ByteOps.ToHex(entry.MagicPrefix));
+
+		PopulateContent(entry);
 	}
 
-	private void OnOpenImageExport(object? sender, EventArgs e) {
-		using var form = new ImageExportForm();
-		form.ShowDialog(this);
+	/// <summary>
+	/// "View Asset" is enabled only for types that actually have a viewer: DTS (3D model) and
+	/// DBA/DBM/HBA/HB0-2/DB0-2 (texture — the HBx/DBx types are byte-identical to the DBA container
+	/// format, see TransformerRegistry's doc comment). A DPL alone isn't a texture, so it's
+	/// intentionally excluded here.
+	/// </summary>
+	private void UpdateViewAssetButtonState() {
+		_viewAssetButton.Enabled = _selectedEntry is { RawBytes.Length: > 0 } entry &&
+			entry.Ext is FileType.Dts or FileType.Dba or FileType.Dbm or FileType.Hba or FileType.Hb0 or FileType.Hb1 or FileType.Hb2
+				or FileType.Db0 or FileType.Db1 or FileType.Db2;
 	}
 
-	private void OnOpenModelViewer(object? sender, EventArgs e) {
-		using var form = new Model3DViewerForm();
-		form.ShowDialog(this);
+	private void PopulateContent(VolEntry entry) {
+		var transformer = TransformerRegistry.FindTransformer(entry);
+		if (transformer == null) {
+			_contentTree.Nodes.Add(new TreeNode(
+				"No parser available for this file type yet — showing metadata only."));
+			return;
+		}
+
+		if (entry.RawBytes == null || entry.RawBytes.Length == 0) {
+			_contentTree.Nodes.Add(new TreeNode("File has no data to parse."));
+			return;
+		}
+
+		try {
+			var parsed = transformer.BytesToObject(entry.RawBytes);
+			if (parsed == null) {
+				_contentTree.Nodes.Add(new TreeNode("Parser returned no data for this file."));
+				return;
+			}
+
+			string label = TransformerRegistry.FindLabel(entry) ?? entry.FileName ?? "Content";
+			ContentTreeRenderer.Populate(_contentTree, label, parsed);
+		} catch (Exception ex) {
+			_contentTree.Nodes.Add(new TreeNode($"Failed to parse this file:\n{ex.Message}"));
+		}
+	}
+
+	private void AddDetail(string label, string value) {
+		_fileDetails.Items.Add(new ListViewItem(new[] { label, value }));
 	}
 
 	/// <summary>
@@ -222,88 +357,38 @@ public partial class MainForm : Form {
 		}
 	}
 
-	private void PopulateTree(Voln vol) {
-		_volTree.Nodes.Clear();
-		var root = new TreeNode(vol.FileName);
-
-		foreach (var kv in vol.Folders.OrderBy(f => f.Key)) {
-			var dirNode = new TreeNode(kv.Value.Label) { Tag = kv.Value };
-			foreach (var file in kv.Value.Files) {
-				dirNode.Nodes.Add(new TreeNode(file.FileName) { Tag = file });
-			}
-			root.Nodes.Add(dirNode);
-		}
-
-		_volTree.Nodes.Add(root);
-		root.Expand();
+	private void OnOpenHercStats(object? sender, EventArgs e) {
+		using var form = new HercStatsForm();
+		form.ShowDialog(this);
 	}
 
-	private void OnTreeSelect(object? sender, TreeViewEventArgs e) {
-		_fileDetails.Items.Clear();
-		_contentTree.Nodes.Clear();
-
-		_selectedEntry = e.Node?.Tag as VolEntry;
-		UpdateViewAssetButtonState();
-		_exportSelectedFileMenuItem.Enabled = _selectedEntry is { RawBytes.Length: > 0 };
-
-		if (_selectedEntry is not { } entry) {
-			return;
-		}
-
-		AddDetail("File Name", entry.FileName ?? string.Empty);
-		AddDetail("Directory", entry.Dir?.Val() ?? "(unknown)");
-		AddDetail("Extension", entry.Ext?.Val() ?? "(unknown)");
-		if (TransformerRegistry.FindLabel(entry) is { } typeLabel) {
-			AddDetail("File Type", typeLabel);
-		}
-		AddDetail("Offset In VOL", entry.VolOffsetValue.ToString());
-		AddDetail("Size (bytes)", (entry.RawBytes?.Length ?? 0).ToString());
-		AddDetail("Compression Type", entry.FileCompressionType.ToString());
-		AddDetail("Magic Prefix", ByteOps.ToHex(entry.MagicPrefix));
-
-		PopulateContent(entry);
+	private void OnOpenItemStats(object? sender, EventArgs e) {
+		using var form = new WeaponStatsForm();
+		form.ShowDialog(this);
 	}
 
-	/// <summary>
-	/// "View Asset" is enabled only for types that actually have a viewer: DTS (3D model) and
-	/// DBA/DBM/HBA/HB0-2/DB0-2 (texture — the HBx/DBx types are byte-identical to the DBA container
-	/// format, see TransformerRegistry's doc comment). A DPL alone isn't a texture, so it's
-	/// intentionally excluded here.
-	/// </summary>
-	private void UpdateViewAssetButtonState() {
-		_viewAssetButton.Enabled = _selectedEntry is { RawBytes.Length: > 0 } entry &&
-			entry.Ext is FileType.Dts or FileType.Dba or FileType.Dbm or FileType.Hba or FileType.Hb0 or FileType.Hb1 or FileType.Hb2
-				or FileType.Db0 or FileType.Db1 or FileType.Db2;
+	private void OnOpenCampaignResources(object? sender, EventArgs e) {
+		using var form = new CampaignResourcesForm();
+		form.ShowDialog(this);
 	}
 
-	private void PopulateContent(VolEntry entry) {
-		var transformer = TransformerRegistry.FindTransformer(entry);
-		if (transformer == null) {
-			_contentTree.Nodes.Add(new TreeNode(
-				"No parser available for this file type yet — showing metadata only."));
-			return;
-		}
-
-		if (entry.RawBytes == null || entry.RawBytes.Length == 0) {
-			_contentTree.Nodes.Add(new TreeNode("File has no data to parse."));
-			return;
-		}
-
-		try {
-			var parsed = transformer.BytesToObject(entry.RawBytes);
-			if (parsed == null) {
-				_contentTree.Nodes.Add(new TreeNode("Parser returned no data for this file."));
-				return;
-			}
-
-			string label = TransformerRegistry.FindLabel(entry) ?? entry.FileName ?? "Content";
-			ContentTreeRenderer.Populate(_contentTree, label, parsed);
-		} catch (Exception ex) {
-			_contentTree.Nodes.Add(new TreeNode($"Failed to parse this file:\n{ex.Message}"));
-		}
+	private void OnOpenMissionScript(object? sender, EventArgs e) {
+		using var form = new MissionScriptForm();
+		form.ShowDialog(this);
 	}
 
-	private void AddDetail(string label, string value) {
-		_fileDetails.Items.Add(new ListViewItem(new[] { label, value }));
+	private void OnOpenPlayerSquad(object? sender, EventArgs e) {
+		using var form = new PlayerSquadForm();
+		form.ShowDialog(this);
+	}
+
+	private void OnOpenImageExport(object? sender, EventArgs e) {
+		using var form = new ImageExportForm();
+		form.ShowDialog(this);
+	}
+
+	private void OnOpenModelViewer(object? sender, EventArgs e) {
+		using var form = new Model3DViewerForm();
+		form.ShowDialog(this);
 	}
 }

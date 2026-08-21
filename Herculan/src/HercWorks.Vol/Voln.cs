@@ -40,6 +40,10 @@ public class Voln : DataFile {
 		DirSize = b.DirSize;
 	}
 
+	public override string ToString() {
+		return $"Vol {FileName} ({FilePath})";
+	}
+
 	public class VolnBuilder {
 		public string? FileName { get; private set; }
 		public string? GameDirPath { get; private set; }

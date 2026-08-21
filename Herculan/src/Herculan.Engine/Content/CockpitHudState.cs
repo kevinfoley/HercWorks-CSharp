@@ -25,6 +25,14 @@ namespace Herculan.Engine.Content;
 /// Which component category <see cref="HddPage.DamageDetail"/> is listing. The manual binds [S], [I]
 /// and [W] to it; the display's own up/down arrow buttons step through the same three.
 /// </param>
+/// <param name="PressedWidget">
+/// The widget currently held down under the pointer, drawn in its lit frame for as long as it is —
+/// the original's own <c>DAT_0049dbdc</c> plus the state byte it sets (docs/formats/cockpit-input.md
+/// §7). Transient input state rather than simulation state, and it lives here for the same reason the
+/// rest does: <see cref="CockpitWidgets"/> folds it into each widget's lit flag, so the one place that
+/// decides what a widget looks like stays the one place, and no renderer needs a second parameter
+/// threaded through it.
+/// </param>
 public readonly record struct CockpitHudState(
 	IReadOnlyList<string> WeaponNames,
 	int SelectedWeapon,
@@ -35,7 +43,8 @@ public readonly record struct CockpitHudState(
 	int ChainCount,
 	MfdMode Mfd,
 	HddPage Hdd,
-	HddDamageView HddDamage) {
+	HddDamageView HddDamage,
+	CockpitWidgetId? PressedWidget = null) {
 
 	/// <summary>
 	/// Power-up state: shields full and evenly balanced at 100/100 out of the 200-point pool
@@ -57,5 +66,6 @@ public readonly record struct CockpitHudState(
 		ChainCount: 1,
 		Mfd: MfdMode.Scanner,
 		Hdd: HddPage.CommandDisplay,
-		HddDamage: HddDamageView.Structural);
+		HddDamage: HddDamageView.Structural,
+		PressedWidget: null);
 }

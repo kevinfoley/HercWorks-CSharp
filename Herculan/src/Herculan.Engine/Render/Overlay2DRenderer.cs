@@ -321,23 +321,28 @@ public sealed class Overlay2DRenderer : IDisposable {
 			AddHddDamageDetail(hud, layout, sprites, strings, state.HddDamage, state, Blit, Fill, DrawLabel);
 		}
 
-		for (int i = 0; i < HddLayout.WidgetCount; i++) {
-			var widget = (HddLayout.Widget)i;
-			if (!HddLayout.WidgetVisible(state.Hdd, widget) || layout.UnlitFrame(widget) is not { } unlit) {
+		// Visibility, position and lit state come from CockpitWidgets so the click regions agree with
+		// what is drawn. The frame check stays here and stays a draw-side concern: a widget with no
+		// sprite of its own — the title box, the dead slot — is still clickable in the original's flat
+		// list, so CockpitWidgets reports it and only this loop skips it.
+		foreach (var clickable in CockpitWidgets.VisibleHddWidgets(hud, state)) {
+			var widget = clickable.Id.AsHddWidget!.Value;
+			int i = clickable.Id.Index;
+			if (layout.UnlitFrame(widget) is not { } unlit) {
 				continue;
 			}
 
-			bool lit = widget == (state.Hdd == HddPage.CommandDisplay
-				? HddLayout.Widget.PageButton0
-				: HddLayout.Widget.PageButton1);
+			bool lit = clickable.Lit;
 			var rect = layout[widget];
 			Blit(HddLayout.Bank, lit ? unlit + 1 : unlit, rect.X0, rect.Y0);
 
-			// A page button captions itself "F7"/"F8" from the shared "Fx" literal, in DARK when lit
-			// and WHITE when not — the same pair the MFD's mode buttons use. XMIT and CANCEL take
-			// their captions from the string table and their font from ColorSchemePanels[4 + lit].
+			// A page button captions itself "F7"/"F8" from the shared "Fx" literal, in DARK for the
+			// page that is showing and WHITE otherwise — the same pair the MFD's mode buttons use, and
+			// keyed on selection rather than on Lit for the same reason (see CockpitWidget.Selected).
+			// XMIT and CANCEL take their captions from the string table and their font from
+			// ColorSchemePanels[4 + lit].
 			if (widget is HddLayout.Widget.PageButton0 or HddLayout.Widget.PageButton1) {
-				DrawLabel(lit ? "DARK" : HddLayout.TitleFont, string.Empty,
+				DrawLabel(clickable.Selected ? "DARK" : HddLayout.TitleFont, string.Empty,
 					"F" + (7 + i), -1, rect, centered: true);
 			} else if (widget is HddLayout.Widget.Transmit or HddLayout.Widget.Cancel
 				&& strings?.Text(HddLayout.ButtonCaptionGroup, i - (int)HddLayout.Widget.Transmit)
@@ -791,20 +796,22 @@ public sealed class Overlay2DRenderer : IDisposable {
 			fillRect(insetX, insetY, insetX + screen.Width, insetY + screen.Height, mapBackground);
 		}
 
-		for (int i = 0; i < MfdLayout.ButtonCount; i++) {
-			if (!MfdLayout.ButtonVisible(state.Mfd, i)) {
-				continue;
-			}
-
+		// Which buttons this mode shows, where they sit and which are lit all come from
+		// CockpitWidgets, so the same answers drive the click regions — see that type. Only the
+		// caption's own right and bottom bounds are taken from the table directly: those are a text
+		// layout box, not the button's extent, and the original measures them to the rect's inclusive
+		// GAU edge rather than to the last pixel its sprite covers.
+		foreach (var widget in CockpitWidgets.VisibleMfdButtons(hud, state)) {
+			int i = widget.Id.Index;
 			var button = MfdLayout.Buttons[i];
-			bool lit = i < MfdLayout.ModeCount && i == (int)state.Mfd;
-			float left = X(button.X0);
-			float top = Y(button.Y0);
 
-			blitDevice(MfdLayout.Bank, lit ? button.LitFrame : button.UnlitFrame, left, top);
+			blitDevice(MfdLayout.Bank, widget.Lit ? button.LitFrame : button.UnlitFrame, widget.X0, widget.Y0);
 			if (MfdLayout.Caption(strings, i) is { Length: > 0 } caption) {
-				DrawLabel(lit ? "DARK" : "WHITE", caption,
-					left, top, X(button.X1), Y(button.Y1), centered: true);
+				// The plate follows Lit, the caption follows Selected. MfdButton_Repaint is the only
+				// thing that re-fonts a caption, and it reads the button's own selection flag (+0x40),
+				// not the press byte — so a held button lights its plate with its text unchanged.
+				DrawLabel(widget.Selected ? "DARK" : "WHITE", caption,
+					widget.X0, widget.Y0, X(button.X1), Y(button.Y1), centered: true);
 			}
 		}
 

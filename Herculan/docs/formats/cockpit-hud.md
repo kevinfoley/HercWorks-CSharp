@@ -9,6 +9,9 @@ Engine implementation: `Herculan.Engine.Content.{CockpitArt, CockpitPalette, Coc
 HudSpriteSheet, HudFont, HudColorTable, CockpitHudState, WeaponNameTable}`,
 `Herculan.Engine.Render.Overlay2DRenderer`.
 
+How a mouse click on any of these widgets reaches its own click handler:
+[`cockpit-input.md`](cockpit-input.md).
+
 ## Object model
 
 | Symbol | Address | Role |

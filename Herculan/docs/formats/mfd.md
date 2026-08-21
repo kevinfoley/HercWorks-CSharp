@@ -9,6 +9,9 @@ The console screen the F1-F6 keys switch between six screens. Surrounding cockpi
 Engine implementation: `Herculan.Engine.Content.{MfdLayout, MfdMode, SimStringTable}`,
 `Herculan.Engine.Render.Overlay2DRenderer.AddMfd`.
 
+How a click on one of the buttons below reaches `MfdButton_OnClick`:
+[`cockpit-input.md`](cockpit-input.md).
+
 ## Object model
 
 | Symbol | Address | Role |
@@ -20,8 +23,8 @@ Engine implementation: `Herculan.Engine.Content.{MfdLayout, MfdMode, SimStringTa
 | `MfdDisplay_Repaint` | `00446138` | Full repaint: buttons, background, buttons, screen, title. |
 | `MfdDisplay_Update` | `00446328` | Per-frame update; dispatches the current screen's update slot. |
 | `MfdButton_OnClick` | `0044681c` | Button dispatch — indices 0-5 call `SetMode(i)`. |
-| `MfdButton_SetCaption` | `00447358` | `"F%d"` for indices < 6, caption table otherwise. |
-| `MfdButton_Repaint` | `004474e4` | Re-fonts a caption: `DARK` when lit, `WHITE` when not. |
+| `MfdButton_SetCaption` | `00447358` | Repaint for the **momentary** button class (indices 7-10): frame from the shared press byte `+0x1b`, caption `"F%d"` for indices < 6 and the caption table otherwise, never re-fonted. |
+| `MfdButton_Repaint` | `004474e4` | Repaint for the **latching** button class (indices 0-5, 11-12): frame and `DARK`/`WHITE` caption both from the button's own `+0x40` selection flag, never from the press byte. |
 
 Object fields, base `MfdDisplay_Ctor`'s `param_1`:
 
@@ -38,6 +41,36 @@ Object fields, base `MfdDisplay_Ctor`'s `param_1`:
 | `+0xfb` | Base panel widget, covering the inset rect |
 | `+0x329` | Message label |
 | `+0x331`-`+0x341` | Radar sweep frame table and `radar` bank handle |
+
+### Two button classes
+
+`MfdDisplay_Ctor` switches on the button index and builds its 13 buttons through **two different
+classes**, which is why some MFD buttons show a pressed state and others do not:
+
+| Class | Ctor | Indices | Repaint | Frame comes from |
+|---|---|---|---|---|
+| Latching | `0044741c` | 0-5, 11, 12 | `MfdButton_Repaint` (`004474e4`) | its own selection flag `+0x40` |
+| Momentary | `004472e4` | 7, 8, 9, 10 | `MfdButton_SetCaption` (`00447358`) | the shared press byte `+0x1b` |
+
+So the F-key column and the two scanner toggles (PASS, ACTIVE) **have no pressed state at all** —
+blue when unselected, green when selected — while SELECT, RANGE, TARGET and XMIT light *only* while
+held and have no selected state.
+
+`MfdButton_Repaint`'s caption re-font test, `index < 6 || index - 0xb < 2`, covers exactly the
+latching class's indices: it is a class invariant restated, not a rule of its own. Only latching
+buttons ever re-font, which is why holding SELECT does not darken its caption.
+
+Index 6 has **no case in the switch** and so takes whichever class the previous iteration left on the
+stack. It is the degenerate zero rect no mode shows.
+
+Per-button fields, base a button pointer from `+0x18`:
+
+| Offset | Contents |
+|---|---|
+| `+0x28` | Button index 0-12 — what both the ctor switch and the caption re-font test key on |
+| `+0x2c` | Caption label |
+| `+0x30` | Two sprite pointers, unlit then lit |
+| `+0x40` | Selection flag, **latching class only**. Set by the button's click handler (`FUN_004474a8`), never by a press — the press path sets the shared widget state byte `+0x1b` instead (see [`cockpit-input.md`](cockpit-input.md) §7) |
 
 ## Modes
 

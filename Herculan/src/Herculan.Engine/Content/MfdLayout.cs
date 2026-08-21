@@ -180,6 +180,25 @@ public static class MfdLayout {
 		{ 0, 0, 0, 0, 0, 0, 0 },  // MissileCam:  none
 	};
 
+	/// <summary>
+	/// Whether button <paramref name="index"/> is a latching button — lit by being chosen and staying
+	/// chosen — rather than a momentary one that lights only while it is held down.
+	///
+	/// <para><b>They are two different C++ classes.</b> <c>MfdDisplay_Ctor</c> switches on the button
+	/// index and constructs indices 0-5 and 11-12 through <c>FUN_0044741c</c>, whose repaint
+	/// (<c>MfdButton_Repaint</c>) picks its frame with the object's own selection flag <c>+0x40</c>,
+	/// and indices 7-10 through <c>FUN_004472e4</c>, whose repaint (<c>MfdButton_SetCaption</c>) picks
+	/// its frame with the shared widget state byte <c>+0x1b</c> — the byte a press sets. So the F-key
+	/// column and the two scanner toggles never show a pressed state at all, while SELECT, RANGE,
+	/// TARGET and XMIT light only while held.</para>
+	///
+	/// <para>This also explains <c>MfdButton_Repaint</c>'s caption re-font test,
+	/// <c>index &lt; 6 || index - 0xb &lt; 2</c>: that set is exactly the latching class's indices, so
+	/// the test is a class invariant restated rather than a rule of its own. Only latching buttons ever
+	/// re-font, which is why holding SELECT does not darken its caption.</para>
+	/// </summary>
+	public static bool IsLatching(int index) => index < ModeCount || index is 11 or 12;
+
 	/// <summary>Whether <paramref name="mode"/> shows button <paramref name="button"/>.</summary>
 	public static bool ButtonVisible(MfdMode mode, int button) {
 		if (button < 0 || button >= ButtonCount) {

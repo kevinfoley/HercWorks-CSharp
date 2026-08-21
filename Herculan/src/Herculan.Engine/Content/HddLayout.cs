@@ -313,6 +313,20 @@ public sealed class HddLayout {
 	/// for each slot a squadmate actually occupies. The boxes themselves are drawn by the display, not
 	/// by the widgets.</para>
 	/// </summary>
+	/// <summary>
+	/// Whether <paramref name="widget"/> is latching — lit by being the chosen page and staying chosen
+	/// — rather than momentary, lighting only while held.
+	///
+	/// <para>Unlike the MFD, which splits this across two classes, the Heads-Down Display's paint
+	/// (<c>FUN_0044bb38</c>) switches on the widget index inside one: cases 0-1, the two page buttons,
+	/// take their frame from the object's selection flag <c>+0x40</c> and re-font their caption from
+	/// it; cases 2-7, the arrows and the two magnifiers, take their frame from the shared press byte
+	/// <c>+0x1b</c>. Cases 13-14, XMIT and CANCEL, are momentary too and additionally re-font from
+	/// that same press byte.</para>
+	/// </summary>
+	public static bool IsLatching(Widget widget) =>
+		widget is Widget.PageButton0 or Widget.PageButton1;
+
 	public static bool WidgetVisible(HddPage page, Widget widget) {
 		int index = (int)widget;
 		if (index < 0 || index >= WidgetCount) {

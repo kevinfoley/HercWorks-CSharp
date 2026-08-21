@@ -3382,7 +3382,7 @@
       "type": "function",
       "confidence": "high",
       "name": "HddButton_Paint",
-      "description": "Paints one HDDisplay sub-widget, gated on state +0x1b < 2. Indices 0/1 blit the frame and caption themselves 'F7'/'F8' from the shared 'Fx' literal at 0049d4f5 in ColorSchemePanels[12] lit / [10] unlit; 2-7 blit the frame alone (four arrows and two map magnifiers); 10-12 fill the selected comm box's marker rect; 13/14 blit the plate and caption XMIT/CANCEL from STRINGS0 group 9 in ColorSchemePanels[4 + lit].",
+      "description": "Paints one HDDisplay sub-widget, gated on state +0x1b < 2. The frame index differs by case, which is what makes some of these buttons latching and others momentary: indices 0/1 (the F7/F8 page buttons) take the frame from the object's own selection flag +0x40 and caption themselves 'F7'/'F8' from the shared 'Fx' literal at 0049d4f5 in ColorSchemePanels[12] selected / [10] not -- they have no pressed state; 2-7 (four arrows, two map magnifiers) take the frame from the shared press byte +0x1b and so light only while held; 10-12 fill the selected comm box's marker rect; 13/14 blit the plate and caption XMIT/CANCEL from STRINGS0 group 9, both frame and font indexed by that same press byte (ColorSchemePanels[4 + pressed]).",
       "source": "docs/formats/heads-down-display.md 2026-08-20"
     },
     {
@@ -3618,6 +3618,312 @@
       "name": "HudFont_CellHeight",
       "description": "Returns font+0xa, the glyph cell height (file offset 0x0e; 13 for .HFN, 10 for .DFN). This is the glyph art's height, not the ink height at font+0x16 that labels centre by.",
       "source": "docs/formats/dfn-hfn-dci.md 2026-08-20"
+    },
+    {
+      "address": "004808ec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mouse_WndProcHook",
+      "description": "Registered into the MainWndProc filter chain (see WndProcHook_Register). Catches WM_MOUSEMOVE(0x200)/WM_LBUTTONDOWN(0x201)/WM_LBUTTONUP(0x202)/WM_RBUTTONDOWN(0x204)/WM_RBUTTONUP(0x205) -- none of which MainWndProc's own switch handles -- and forwards each to Mouse_DispatchEvent with a kind id (0=move,1=ldown,2=lup,3=rdown,4=rup) and a button-held bitmask built from wParam.",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "00480588",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mouse_Init",
+      "description": "Registers Mouse_WndProcHook into the WndProc filter chain and, on first call, resets a clip/extent struct (width 0x140, height 400) via two small copy helpers at 0048062c/00480658 -- purpose not traced further, not needed to understand click handling.",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "0048083c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mouse_DispatchEvent",
+      "description": "Rescales a raw window-client-space (x,y) from Mouse_WndProcHook into the game's internal coordinate space via a fixed-point factor (Mouse_RecomputeScale), packs the current L/R button-held bitmask into DAT_006c5fdc, and calls every enabled entry of the 10-slot mouse-listener table (DAT_006c5f5c, registered via MouseListener_Register) whose event mask has the event kind's bit set.",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "0048078c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mouse_RecomputeScale",
+      "description": "Recomputes DAT_004a2de4/DAT_004a2de8, the 16.15 fixed-point (gameSize<<0xf)/clientSize factors Mouse_DispatchEvent uses to rescale window-client mouse coordinates into game space. Reads the window's current client rect, so it must be re-run on resize.",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "0048073c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MouseListener_Register",
+      "description": "Appends {enabled=1, eventMask, callback} to the first free slot (of 10) in the mouse-listener table at DAT_006c5f5c that Mouse_DispatchEvent fans events out to. Returns the slot index or -1 if full. Same {enabled,mask,fn}-triple-array idiom as WndProcHook_Register's table and the keyboard-binding table read by FUN_00477ae0 -- DBSIM reuses this shape for at least three unrelated subscriber lists.",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "00480774",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MouseListener_Unregister",
+      "description": "Clears slot param_2's enabled flag in the mouse-listener table at DAT_006c5f5c.",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "00465ee8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WndProcHook_Register",
+      "description": "Appends a raw (hwnd,msg,wParam,lParam)-shaped filter function to the first free slot (of 10) in the table at DAT_004d3bb4 that MainWndProc tries, in order, before its own message switch -- any hook returning nonzero short-circuits MainWndProc entirely. Mouse_WndProcHook is one of four registered hooks found; the others are sound/movie-playback related.",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "00465f0c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WndProcHook_Unregister",
+      "description": "Removes a hook previously added by WndProcHook_Register from the DAT_004d3bb4 table.",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "00452abc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitMouse_Init",
+      "description": "Called once at cockpit setup. Registers CockpitMouse_OnEvent with MouseListener_Register under event mask 0x1e (button down/up on both buttons -- bits 1-4; bit 0, plain movement, is deliberately excluded), allocates the double-buffered per-frame event queue (two Cpp_VectorNew'd 0xe-byte-record vectors, swapped by CockpitMouse_ProcessQueue), and sets the click-vs-drag timing gate DAT_004d1e70 = 0x1e (30 coarse ticks, ~480ms at the ~62.5Hz UI timebase -- the same literal 0x1e as the event mask above but an unrelated field, easy to conflate).",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "00452cb4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitMouse_OnEvent",
+      "description": "The cockpit's one mouse-listener callback. Does not act on the event synchronously: pushes a {x,y,buttonMask,timestamp} record into the back-buffer queue via CockpitMouseQueue_Push (debounced to once per coarse tick) and, when a software/hardware cursor sprite is active (DAT_0049dbdf), calls Cursor_SyncPosition to keep the drawn pointer following the raw event position immediately rather than waiting for the once-per-frame queue drain.",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "00453034",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitMouseQueue_Push",
+      "description": "Appends one 0xe=14-byte record {int32 x, int32 y, uint16 buttonMask, int32 timestamp} to the back-buffer vector at DAT_004d1e88, capped at 99 entries (silently drops further events past that).",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "00452d18",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitMouse_ProcessQueue",
+      "description": "Swaps the double-buffered event queue and drains it once per frame -- the real click/hover/drag logic. Per record: on a position change, hit-tests via Widget_HitTestChildren and either forwards to the captured widget's drag slot (if mouse-captured) or fires Widget_OnMouseHover; on a button-down edge, calls Widget_OnMouseDown; on a button-up edge, gates on the release landing within DAT_004d1e70 ticks of the press before calling Widget_OnMouseUp (or, if a drag was in progress, ends the capture and fires the captured widget's OnClick/GetValue pair directly).",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "00452388",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_HitTest",
+      "description": "Point-in-widget test against a single widget, param_1. A per-widget flag at param_1+0x10 selects the shape: 0 = axis-aligned rect, inclusive bounds at param_1[0..3] (x0,y0,x1,y1); nonzero = circular/diamond region, Manhattan distance from a centre point (param_1+0x11/+0x13, int16 cx,cy) at most a radius (param_1+0x15, int16). The circular form is not exercised by any widget traced so far (MFD/HDD/console buttons and the shield facings are all rectangular); presumably serves a knob/dial-shaped control.",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "00452a00",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_HitTestChildren",
+      "description": "Linear-scans the flat clickable-widget list at param_1+0x256 (count at +0x254) with Widget_HitTest, returning the index of the first widget under the point whose state (+0x1b) is not 2 (hidden). Not a tree walk: every clickable widget anywhere in the cockpit is registered into one shared list by Widget_RegisterClickable, so an off-screen panel's buttons are excluded purely by their hidden state, not by not being reachable.",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "004527a0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_OnMouseDown",
+      "description": "Hit-tests the press position via Widget_HitTestChildren; if a widget is hit, marks its state (+0x1b) pressed (1) and, if that widget opts in via its own +0x1d==1 flag, begins mouse capture (DAT_0049dbde=1) and forwards the position to the widget's drag-move vtable slot. Widgets built with +0x1d left 0 (every button/gauge traced so far) never enter capture and are handled entirely by press/release instead.",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "00452870",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_OnMouseUp",
+      "description": "Hit-tests the release position; if it lands on the same widget that was pressed (or the right button is still held), calls the widget's own GetValue then OnClick vtable slots with that value, then clears its pressed state (+0x1b=0) and repaints it via Widget_Repaint. This is where a click actually fires -- CockpitMouse_ProcessQueue only calls this after its own press/release timing gate passes.",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "00452954",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_TrackPressedWidget",
+      "description": "On a position change while a button is held, keeps the pressed widget's appearance in sync with the pointer: hit-tests, and if the hit is still the widget in DAT_0049dbdc sets its state (+0x1b) to 1, otherwise clears it to 0, repainting via Widget_Repaint on each change. This is the button that pops back up when you drag off it and depresses again when you return. Guarded entirely on DAT_0049dbdc != -1, and that global is set only by Widget_OnMouseDown and cleared to -1 by Widget_OnMouseUp, so this cannot run unless a button is down. Previously named Widget_OnMouseHover, which was wrong: DBSIM has no hover state, corroborated by CockpitMouse_Init's event mask (0x1e) excluding plain movement.",
+      "source": "docs/formats/cockpit-input.md 2026-08-20; corrected 2026-08-20 from DBSIM_full_decomp"
+    },
+    {
+      "address": "0049dbdc",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "Widget_PressedIndex",
+      "description": "int16. Index into the cockpit-wide clickable list of the widget a mouse button is currently held down on, or -1 for none. One global for the whole cockpit, not per-panel. Set by Widget_OnMouseDown from its own hit test, read and acted on by Widget_TrackPressedWidget, cleared to -1 at the end of Widget_OnMouseUp. Its -1 guard is what makes Widget_TrackPressedWidget a no-op unless a button is held.",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "00452a90",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_Repaint",
+      "description": "Calls a widget's own Paint vtable slot after a state change. The slot's numeric offset is not uniform across classes (confirmed +4 for MfdDisplay and HddButton via unambiguous ctor evidence; do not assume the same offset for every class without checking).",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "00452c44",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_RegisterClickable",
+      "description": "Appends one widget pointer to the caller's flat +0x256 array (count at +0x254) that Widget_HitTestChildren scans. Called once per child during every cockpit widget tree's construction (MfdDisplay_Ctor's 13 MFD buttons, ShieldsGauge_Ctor's 2 facings, etc.) with the *dereferenced* CockpitViewInstance pointer as the shared root -- every clickable widget in the whole cockpit lands in one list, not a per-panel one.",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "00452c64",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_Show",
+      "description": "Sets the child widget at index param_2 of the caller's +0x256 array to state 0 (normal/visible) and repaints it. Pairs with Widget_Hide.",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "00452c8c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_Hide",
+      "description": "Sets the child widget at index param_2 of the caller's +0x256 array to state 2 (hidden -- excluded from Widget_HitTestChildren and refused by every traced Paint slot) and repaints it. Pairs with Widget_Show.",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "00452a48",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Widget_NotifySelfAndChildren",
+      "description": "Toggles a guard flag (+0x227) around calling vtable slot 0 on the caller itself, then on every widget in its +0x256 clickable-child array. What slot 0 means is class-specific (observed as OnClick/OnCommand for MfdDisplay and ShieldsGauge) so this function's own purpose -- relayout notification, a generic show/refresh cascade -- was not independently confirmed, only its mechanical shape.",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "00486d70",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Cursor_SyncPosition",
+      "description": "Moves the on-screen pointer to the (x,y) in param_1. If a hardware cursor is active (DAT_004a365e), hides/shows it via two function pointers (DAT_004a5840/DAT_004a583c, a DirectDraw cursor surface's vtable calls) around updating its position (DAT_004a3638/3c); otherwise stashes the position for the software cursor overlay Screen_PresentFrame draws.",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "00465524",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Screen_PresentFrame",
+      "description": "Dual-purpose per-frame presentation: in windowed/GDI mode (_DAT_004d25e2==0), StretchBlt's the backbuffer to the window via BeginPaint/EndPaint; in fullscreen mode, raw-copies the backbuffer into VRAM and, when a software cursor bitmap is active (DAT_004d37a8), blits it at GetCursorPos() clipped to the viewport, colour-keyed on byte value 1. Named for its dominant role (frame presentation); the cursor blit is secondary but confirms the visible pointer is genuinely drawn from the same OS cursor position the click pipeline reads, not a separate abstracted position.",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "004807d0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Mouse_WarpCursorToPoint",
+      "description": "Rescales a game-space point to client coordinates (inverse of Mouse_RecomputeScale's factor) and calls SetCursorPos. Caller(s) and trigger not traced -- plausibly a 'snap cursor to this widget' affordance, not confirmed.",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "0044380c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShieldsGauge_OnClick",
+      "description": "ShieldsGauge's own vtable slot 0 (per the same *param_1=&PTR_thisFunction ctor-assignment evidence used for MfdButton_OnClick). Searches its own +0x18/+0x68 child-pointer table (populated identically to MfdDisplay's, by ShieldsGauge_Ctor) for the clicked facing widget; index 0 (front) sets state byte +0xc2=1 clearing +0xc3, index 1 (rear) the reverse. Consumed once per frame by Shield_BalanceInputRead, not painted directly.",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "00438e3c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShieldFacing_OnClick",
+      "description": "A shield-facing child widget's own click handler, reached via Widget_OnMouseUp. Gated on the left mouse button bit (param_2&1); forwards the click to its owner (pointer stored at the facing's own +0x24, set to the parent ShieldsGauge at construction) as owner->vtable[0](owner, self, buttonFlags) -- i.e. calls ShieldsGauge_OnClick -- then repaints itself and notifies its label child.",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "004438e0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShieldsGauge_GetStateBlock",
+      "description": "Trivial accessor: returns param_1+0xb5, the start of ShieldsGauge's 15-byte live state block (front charge, rear charge, balance, then the two click flags ShieldsGauge_OnClick sets). Shield_BalanceInputRead copies out of this pointer directly rather than through a richer accessor.",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "00443858",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShieldsGauge_SetStateBlock",
+      "description": "Write-back counterpart to ShieldsGauge_GetStateBlock: overwrites the 15-byte state block at param_1+0xb5 from param_2 (called by Shield_BalanceInputRead with the freshly computed front/rear percentages and a cleared click-flag pair), and sets the dirty flag at +0xb0=2 if the values actually changed. Also zeroes the front/rear fields when the gauge's +0x8d 'shields down' flag is set.",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "00443730",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShieldsGauge_Paint",
+      "description": "ShieldsGauge's vtable+4 slot. Unconditionally calls ShieldsGauge_UpdateRingPalette and ShieldsGauge_UpdateReadouts.",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "00443748",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShieldsGauge_Update",
+      "description": "ShieldsGauge's per-frame update slot (vtable+8, called from the general HUD paint pass, not the click pipeline). Gated on visibility and a 'shields present' flag; when the dirty flag ShieldsGauge_SetStateBlock set (+0xb0==2) is pending, refreshes the ring palette and readouts and clears it. This is the bridge between Shield_BalanceInputRead's once-per-frame gameplay update and the HUD paint pass -- the click sets a flag, the gameplay tick consumes it into real sim state and a dirty bit, and this slot is what actually repaints from that bit.",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "00444b5c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShieldFacing_Paint",
+      "description": "A shield-facing child's Paint slot. Draws no geometry -- only a visibility test (FUN_00431410) -- because the concentric rings retail shows are palette-animated into the herc's own canopy art, not drawn by this widget (see ShieldsGauge_UpdateRingPalette in docs/formats/cockpit-hud.md).",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
+    },
+    {
+      "address": "00444b70",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_ShieldFacing_FlashTimer",
+      "description": "A shield-facing child's update slot: a two-stage counter at +0x1f (2->1 calls FUN_0043122c then decrements; 1->0 just decrements) -- plausibly a brief post-click flash/debounce, not independently confirmed.",
+      "source": "docs/formats/cockpit-input.md 2026-08-20"
     }
   ]
 }

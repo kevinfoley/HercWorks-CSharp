@@ -11,6 +11,9 @@ Closest precedent for the widget vocabulary: [`mfd.md`](mfd.md).
 Engine implementation: `Herculan.Engine.Content.{HddLayout, HddPage, HddDamageView}`,
 `Herculan.Engine.Render.Overlay2DRenderer.AddHeadsDown`.
 
+How a click on one of the widgets below reaches its own click handler:
+[`cockpit-input.md`](cockpit-input.md).
+
 ## Object model
 
 | Symbol | Address | Role |
@@ -22,7 +25,7 @@ Engine implementation: `Herculan.Engine.Content.{HddLayout, HddPage, HddDamageVi
 | `HddDisplay_Repaint` | `00449a50` | Full repaint (order below). |
 | `HddDisplay_SetTitle` | `0044a6dc` | Fills the title label from the string table. |
 | `HddDisplay_SelectPilot` | `0044a720` | Selects one of the three comm boxes. |
-| `HddButton_Ctor` / `_Paint` | `0044baac` / `0044bb38` | One sub-widget. |
+| `HddButton_Ctor` / `_Paint` | `0044baac` / `0044bb38` | One sub-widget. `_Paint` switches on the widget index: 0-1 (the page buttons) take their frame and caption font from the selection flag `+0x40` and have **no pressed state**; 2-7 (arrows, magnifiers) and 13-14 (XMIT, CANCEL) take theirs from the press byte `+0x1b` and light only while held. |
 | `HddGauge_LoadPilotFrames` | `0044a7c0` | Per-squadmate `pilot<n>` bank, `.OFS` offsets, and the comm box's six labels. |
 
 Translation unit `PHDD.CPP`, from the error literals at `0049d52d`/`0049d55a`.

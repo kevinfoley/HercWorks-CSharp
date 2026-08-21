@@ -55,6 +55,13 @@ public sealed class EngineWindow : IDisposable {
 	public Vector2D<int> FramebufferSize => _window.FramebufferSize;
 
 	/// <summary>
+	/// Current client size in window coordinates, which is the space the pointer reports in. Equal to
+	/// <see cref="FramebufferSize"/> except on a scaled display, where input has to be converted
+	/// between the two.
+	/// </summary>
+	public Vector2D<int> ClientSize => _window.Size;
+
+	/// <summary>
 	/// The underlying view, for integrations that need it directly — e.g. ImGui's
 	/// <c>ImGuiController</c>, which hooks resize itself rather than going through
 	/// <see cref="Render"/>/<see cref="Update"/>.

@@ -2,6 +2,7 @@ using System.Numerics;
 using Herculan.Engine;
 using Herculan.Engine.Content;
 using Herculan.Engine.Gl;
+using Herculan.Engine.Input;
 using Herculan.Engine.Render;
 using Herculan.Engine.Scene;
 using Herculan.Engine.Sim;
@@ -208,6 +209,7 @@ var modelTextures = new Dictionary<string, GpuTexture>();
 var disposables = new List<IDisposable>();
 SceneItem[]? items = null;
 IKeyboard? keyboard = null;
+var cockpitInput = new CockpitInput();
 var camera = new Camera();
 int framesRendered = 0;
 bool screenshotTaken = false;
@@ -266,6 +268,33 @@ window.Load += (gl, input) => {
 	items = built.ToArray();
 	keyboard = input.Keyboards.Count > 0 ? input.Keyboards[0] : null;
 
+	// Mouse events are queued here and nowhere else: everything that decides what a click means runs
+	// once per frame in Update, out of CockpitInput.Drain. That is the original's own split — its
+	// listener callback pushes a record and returns, and CockpitMouse_ProcessQueue does the work a
+	// frame later (docs/formats/cockpit-input.md §3-4).
+	if (input.Mice.Count > 0) {
+		var mouse = input.Mice[0];
+
+		// The pointer reports window-client pixels while the cockpit is placed in framebuffer pixels,
+		// which differ on a high-DPI display. Rescaling here is the same correction the original makes
+		// for the same reason — Mouse_RecomputeScale (0048078c) converts client coordinates into the
+		// game's own space before any listener sees them (§2).
+		void Queue(IMouse m, CockpitMouseButtons buttons) {
+			var client = window.ClientSize;
+			var framebuffer = window.FramebufferSize;
+			cockpitInput.Enqueue(
+				m.Position.X * framebuffer.X / Math.Max(client.X, 1),
+				m.Position.Y * framebuffer.Y / Math.Max(client.Y, 1),
+				buttons);
+		}
+
+		// The mask is built from the event's own button rather than read back off the device, so it
+		// does not depend on whether Silk.NET updates the held state before or after it raises.
+		mouse.MouseMove += (m, _) => Queue(m, ButtonsHeld(m));
+		mouse.MouseDown += (m, button) => Queue(m, ButtonsHeld(m) | ButtonFlag(button));
+		mouse.MouseUp += (m, button) => Queue(m, ButtonsHeld(m) & ~ButtonFlag(button));
+	}
+
 	// No backface culling. DTS geometry is not reliably wound — the WinForms model viewer reached
 	// the same conclusion and never culls either — so culling would punch holes in the mech rather
 	// than save fill rate. The shader shades two-sided to match.
@@ -310,6 +339,23 @@ window.Update += deltaSeconds => {
 	if (keyboard != null && cockpitPan.AtHeadsDown && hudState.Hdd == HddPage.DamageDetail
 		&& ReadHddDamageView(keyboard) is { } damageView) {
 		hudState = hudState with { HddDamage = damageView };
+	}
+
+	// Clicks are drained before the pan advances and before the sim ticks, so a click and the tick
+	// that reacts to it keep a fixed order every frame — the point of queueing them in the first
+	// place. The layout is rebuilt from this frame's pan position, which is the same one Render will
+	// use, so what the player is clicking is what they are looking at.
+	if (cockpitArt != null) {
+		var framebuffer = window.FramebufferSize;
+		var inputLayout = CockpitScreenLayout.Create(framebuffer.X, framebuffer.Y, cockpitArt,
+			cockpitPan.OffsetRows, cockpitPan.TravelRows);
+
+		foreach (var click in cockpitInput.Drain(deltaSeconds, inputLayout, cockpitArt, hudState)) {
+			ApplyCockpitClick(click);
+		}
+
+		// Held buttons draw depressed, and pop back up if the pointer slides off them still held.
+		hudState = hudState with { PressedWidget = cockpitInput.Depressed };
 	}
 
 	cockpitPan.Advance(deltaSeconds);
@@ -385,63 +431,105 @@ return 0;
 // the canvas — HB1 starts at row 474 and HB0 runs to 479 — and the original resolves that by blitting
 // view 1 before view 0, so the draw order below does the same.
 void DrawThreePanelCockpitView(GL gl, int totalWidth, int totalHeight) {
-	// Device-pixel-to-screen scale, shared by the panel art and the pan distance so both move
-	// together — the same fit-by-height factor Overlay2DRenderer.Draw computes for the art itself.
-	float panScale = totalHeight / (float)CockpitViewGeometry.ViewHeight;
-	int panPixels = (int)MathF.Round(cockpitPan.OffsetRows * panScale);
-	int headsDownTopPixels = (int)MathF.Round((cockpitPan.TravelRows - cockpitPan.OffsetRows) * panScale);
+	// One placement for the whole frame, shared with the input path so a widget's click region cannot
+	// drift from the art it was drawn over — see CockpitScreenLayout.
+	var layout = CockpitScreenLayout.Create(totalWidth, totalHeight, cockpitArt!,
+		cockpitPan.OffsetRows, cockpitPan.TravelRows);
 
-	int centerWidth = PanelWidthForHeight(cockpitArt!.Front, totalHeight);
-	int sideWidth = PanelWidthForHeight(cockpitArt.Side, totalHeight);
-	int leftWidth = sideWidth;
-	int rightWidth = sideWidth;
-
-	int totalContentWidth = leftWidth + centerWidth + rightWidth;
-	int leftX = (totalWidth - totalContentWidth) / 2;
-	int centerX = leftX + leftWidth;
-	int rightX = centerX + centerWidth;
-
-	float centerAspect = (float)centerWidth / Math.Max(totalHeight, 1);
-	float leftAspect = (float)leftWidth / Math.Max(totalHeight, 1);
-	float rightAspect = (float)rightWidth / Math.Max(totalHeight, 1);
-
-	int leftYawOffset = CockpitViewLayout.SideYawOffset(camera.FieldOfView, centerAspect, leftAspect);
-	int rightYawOffset = CockpitViewLayout.SideYawOffset(camera.FieldOfView, centerAspect, rightAspect);
-
-	var centerCamera = ClonePanelCamera(camera, 0);
-	var leftCamera = ClonePanelCamera(camera, -leftYawOffset);
-	var rightCamera = ClonePanelCamera(camera, rightYawOffset);
+	// Both side panels are the same width, so one offset serves them mirrored about the centre.
+	float centerAspect = (float)layout.Center.Viewport.Width / Math.Max(totalHeight, 1);
+	float sideAspect = (float)layout.Left.Viewport.Width / Math.Max(totalHeight, 1);
+	int sideYawOffset = CockpitViewLayout.SideYawOffset(camera.FieldOfView, centerAspect, sideAspect);
 
 	// First, so the six-row overlap where the two views' art meets on the canvas resolves the way the
 	// original's VRAM does. Sim_InitMissionSession (004614fc) blits view 1 and then view 0, so HB0's
 	// bottom rows win over HB1's top rows and no sliver of the HDD shows under the dashboard at rest.
-	if (cockpitHeadsDownTexture != null && cockpitArt.HeadsDown is { } headsDown) {
-		overlay!.DrawHeadsDown(0, -headsDownTopPixels, totalWidth, totalHeight,
-			cockpitHeadsDownTexture, headsDown.Width, headsDown.Height,
+	if (cockpitHeadsDownTexture != null && layout.HeadsDown is { } headsDown) {
+		overlay!.DrawHeadsDown(headsDown.Viewport.X, headsDown.Viewport.Y,
+			headsDown.Viewport.Width, headsDown.Viewport.Height,
+			cockpitHeadsDownTexture, headsDown.ArtWidth, headsDown.ArtHeight,
 			cockpitArt, hudSpriteTexture, hudState);
 	}
 
 	// GL's viewport origin is bottom-left, so a positive y offset moves a panel up the screen — which
 	// is the direction the cockpit travels as the view pans down the canvas.
-	renderer!.Render(leftCamera, items!, leftX, panPixels, leftWidth, totalHeight);
-	overlay!.Draw(leftX, panPixels, leftWidth, totalHeight, cockpitSideTexture!,
-		cockpitArt!.Side.Width, cockpitArt.Side.Height, mirrorHorizontally: true, hud: null);
+	DrawPanel(layout.Left, -sideYawOffset, cockpitSideTexture!, mirrorHorizontally: true, hud: null);
+	DrawPanel(layout.Center, 0, cockpitFrontTexture!, mirrorHorizontally: false, hud: cockpitArt);
+	DrawPanel(layout.Right, sideYawOffset, cockpitSideTexture!, mirrorHorizontally: false, hud: null);
 
-	renderer.Render(centerCamera, items!, centerX, panPixels, centerWidth, totalHeight);
-	overlay.Draw(centerX, panPixels, centerWidth, totalHeight, cockpitFrontTexture!,
-		cockpitArt.Front.Width, cockpitArt.Front.Height, mirrorHorizontally: false, hud: cockpitArt,
-		spriteTexture: hudSpriteTexture, hudState: hudState);
-
-	renderer.Render(rightCamera, items!, rightX, panPixels, rightWidth, totalHeight);
-	overlay.Draw(rightX, panPixels, rightWidth, totalHeight, cockpitSideTexture!,
-		cockpitArt.Side.Width, cockpitArt.Side.Height, mirrorHorizontally: false, hud: null);
+	void DrawPanel(CockpitScreenLayout.PlacedSurface surface, int yawOffset, GpuTexture texture,
+			bool mirrorHorizontally, CockpitArt? hud) {
+		var viewport = surface.Viewport;
+		renderer!.Render(ClonePanelCamera(camera, yawOffset), items!,
+			viewport.X, viewport.Y, viewport.Width, viewport.Height);
+		overlay!.Draw(viewport.X, viewport.Y, viewport.Width, viewport.Height, texture,
+			surface.ArtWidth, surface.ArtHeight, mirrorHorizontally, hud,
+			spriteTexture: hudSpriteTexture, hudState: hudState);
+	}
 }
 
-// The pixel width a panel's cockpit-art quad occupies when fit to the given window height while
-// preserving its own native aspect ratio — matches Overlay2DRenderer.Draw's own fit-by-height math, so
-// a panel sized to this width shows its art edge-to-edge with no letterboxed gap on either side.
-static int PanelWidthForHeight(CockpitFrame frame, int height) =>
-	Math.Max(1, (int)Math.Round(frame.Width * (height / (float)frame.Height)));
+// A completed click, routed to the same state changes the corresponding key already makes — the
+// original's buttons and its keyboard bindings dispatch the same calls, so the two agree here by
+// construction rather than by two parallel implementations.
+//
+// The buttons with nothing behind them yet are deliberately silent rather than stubbed: the MFD's
+// SELECT/RANGE/TARGET/XMIT/PASS/ACTIVE, the Heads-Down Display's map arrows and zoom, its comm boxes
+// and XMIT/CANCEL all need squad, target or map state the engine does not have. They still hit-test
+// and will still light on press; they simply do nothing on release.
+void ApplyCockpitClick(CockpitClick click) {
+	switch (click.Id.Kind) {
+		case CockpitWidgetKind.MfdButton when click.Id.Index < MfdLayout.ModeCount:
+			// Button i of the F-key column dispatches SetMode(i), and picking a screen pans back up —
+			// the manual's own rule for leaving the Heads-Down Display.
+			hudState = hudState with { Mfd = (MfdMode)click.Id.Index };
+			cockpitPan.Request(headsDown: false);
+			break;
+
+		case CockpitWidgetKind.HddWidget:
+			ApplyHddClick(click.Id.AsHddWidget!.Value);
+			break;
+	}
+}
+
+void ApplyHddClick(HddLayout.Widget widget) {
+	switch (widget) {
+		// The two page buttons dispatch FUN_0044a5e4 with their own index, and either one opens the
+		// display — the same pairing F7 and F8 have.
+		case HddLayout.Widget.PageButton0:
+			hudState = hudState with { Hdd = HddPage.CommandDisplay };
+			cockpitPan.Request(headsDown: true);
+			break;
+
+		case HddLayout.Widget.PageButton1:
+			hudState = hudState with { Hdd = HddPage.DamageDetail };
+			cockpitPan.Request(headsDown: true);
+			break;
+
+		// On the damage screen the up and down arrows step the component category, which is the same
+		// three [S]/[I]/[W] select. They wrap, so the pair walks the list either way without dead ends.
+		// On the command display the same two arrows scroll the map, which has no rasterizer yet.
+		case HddLayout.Widget.ArrowUp or HddLayout.Widget.ArrowDown
+			when hudState.Hdd == HddPage.DamageDetail:
+			const int views = 3;
+			int step = widget == HddLayout.Widget.ArrowUp ? views - 1 : 1;
+			hudState = hudState with {
+				HddDamage = (HddDamageView)(((int)hudState.HddDamage + step) % views),
+			};
+			break;
+	}
+}
+
+/// <summary>Every mouse button currently held, as the cockpit's own flag pair.</summary>
+static CockpitMouseButtons ButtonsHeld(IMouse mouse) =>
+	(mouse.IsButtonPressed(MouseButton.Left) ? CockpitMouseButtons.Left : CockpitMouseButtons.None)
+	| (mouse.IsButtonPressed(MouseButton.Right) ? CockpitMouseButtons.Right : CockpitMouseButtons.None);
+
+/// <summary>One button as its flag. Anything but left and right is <see cref="CockpitMouseButtons.None"/> — the original watches only those two.</summary>
+static CockpitMouseButtons ButtonFlag(MouseButton button) => button switch {
+	MouseButton.Left => CockpitMouseButtons.Left,
+	MouseButton.Right => CockpitMouseButtons.Right,
+	_ => CockpitMouseButtons.None,
+};
 
 static Camera ClonePanelCamera(Camera source, int yawOffset) => new() {
 	Position = source.Position,

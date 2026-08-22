@@ -48,6 +48,19 @@ public static class SimMath {
 	public static int Q10Multiply(int a, int b) => (int)(((long)a * b) >> 10);
 
 	/// <summary>
+	/// <c>Math_Q16Multiply</c> (<c>0047df81</c>) — Q16 fixed-point multiply: <c>(int64)a*b >> 16</c>.
+	/// Pairs with <see cref="Q16Divide"/> to apply a ratio built from two integers; that is exactly
+	/// what <c>MechType_InitOne</c> does to rescale a mech type's speed fields at load
+	/// (see <see cref="Sim.MechTypeRecord"/>).
+	/// </summary>
+	public static int Q16Multiply(int a, int b) => (int)(((long)a * b) >> 16);
+
+	/// <summary>
+	/// <c>Math_Q16Divide</c> (<c>0047df5c</c>) — Q16 fixed-point divide: <c>((int64)a &lt;&lt; 16) / b</c>.
+	/// </summary>
+	public static int Q16Divide(int a, int b) => (int)(((long)a << 16) / b);
+
+	/// <summary>
 	/// Q14 sibling of <see cref="Q8Multiply"/> — shift <c>0xe</c> with a 16-bit signed operand.
 	/// Its range fits a normalized -1.0..1.0 value such as a sine/cosine table output, though that
 	/// is not yet confirmed by a traced caller. See <see cref="BinaryAngle"/> for the engine's
@@ -70,6 +83,48 @@ public static class SimMath {
 			return 0x7fff;
 		}
 		return value;
+	}
+
+	/// <summary>
+	/// The <see cref="TickDelta"/> the original produces on hardware fast enough to hit its own
+	/// 40 ms frame cap: <c>40 * 256 / 125</c>. It is the reference point
+	/// <see cref="ScalePerTickStep"/> measures against, and the value the engine's fixed timestep
+	/// pins <see cref="TickDelta"/> to (see <c>Sim/SimWorld</c>).
+	/// </summary>
+	public const short VanillaTickDelta = 81;
+
+	/// <summary>
+	/// <b>Not a DBSIM function — a deliberate deviation.</b> Converts a constant the original
+	/// applied as a raw per-tick step into this tick's equivalent:
+	/// <c>step * TickDelta / VanillaTickDelta</c>.
+	///
+	/// <para>DBSIM feeds a handful of constants — the locomotion accel/decel pair, notably —
+	/// straight into <see cref="RateLimitedMoveToward"/> without routing them through
+	/// <see cref="IntegrateRateOverTick"/>, so their ramps take a fixed number of <i>ticks</i>
+	/// rather than a fixed amount of <i>time</i>. On the original that made acceleration and turn
+	/// ramp frame-rate dependent; here it would tie them to the engine's chosen tick rate. This
+	/// rescales them to be tick-rate independent instead.</para>
+	///
+	/// <para>It is exact at <see cref="VanillaTickDelta"/>, which is what the engine's fixed
+	/// timestep runs at, so it changes nothing today. <see cref="IntegrateRateOverTick"/> cannot be
+	/// used directly for this: its Q8 unit is 125 ms, so it would return about a third of the step
+	/// and visibly slacken the ramp.</para>
+	///
+	/// <para>Steps are slew rates and non-negative. A non-zero step never scales to zero — at a
+	/// tick short enough to round it away the result is pinned to 1, so a ramp cannot stall
+	/// outright. Below the vanilla tick length that pin is the quantization floor of a fixed-point
+	/// port with no fractional carry, and the accel constants would want re-checking there.</para>
+	/// </summary>
+	public static short ScalePerTickStep(short step) {
+		if (step <= 0) {
+			return step;
+		}
+
+		int value = step * TickDelta / VanillaTickDelta;
+		if (value < 1) {
+			return 1;
+		}
+		return value > 0x7fff ? (short)0x7fff : (short)value;
 	}
 
 	/// <summary>
@@ -147,6 +202,18 @@ public static class SimMath {
 		}
 
 		return (small >> 2) + large + (mid >> 2) + (mid >> 4) + (mid >> 5);
+	}
+
+	/// <summary>
+	/// <c>Math_FastMagnitude2D</c> (<c>0047dd40</c>) — the 2D counterpart of
+	/// <see cref="FastMagnitude3D"/>: <c>max + min/2</c>, the octagonal estimate. Exact on axis, up
+	/// to ~11.8% high on a diagonal. This is the distance the HUD's own range readouts display, so
+	/// the error is part of the original's on-screen behavior.
+	/// </summary>
+	public static int FastMagnitude2D(int dx, int dy) {
+		int ax = Abs(dx);
+		int ay = Abs(dy);
+		return ay <= ax ? (ay >> 1) + ax : ay + (ax >> 1);
 	}
 
 	/// <summary>

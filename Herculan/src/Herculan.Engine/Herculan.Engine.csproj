@@ -11,6 +11,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- The locomotion tests build a synthetic flat HeightGrid, whose constructor is internal. -->
+    <InternalsVisibleTo Include="Herculan.Engine.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\HercWorks.Core\HercWorks.Core.csproj" />
     <ProjectReference Include="..\HercWorks.Vol\HercWorks.Vol.csproj" />
   </ItemGroup>

@@ -17,6 +17,11 @@ namespace Herculan.Engine.Content;
 /// <param name="ShieldFront">Front shield readout, 0-200 against <see cref="ShieldRear"/>'s complement.</param>
 /// <param name="ShieldRear">Rear shield readout.</param>
 /// <param name="SpeedKph">Ground speed in K/H, as the readout under the reticle spells it.</param>
+/// <param name="Throttle">
+/// The console throttle slider's setting, Q10 over the gauge's own +/-0x400 range, positive
+/// forward. It is the same number the piloted machine holds at <c>mech+0x290</c>, kept in step with
+/// it by <c>MechObject.ExchangeCockpitThrottle</c> once a frame — see <see cref="ThrottleTrack"/>.
+/// </param>
 /// <param name="MissionTime">Mission clock, rendered mm:ss.</param>
 /// <param name="ChainCount">How many weapons the chain button fires per pull, 1-3 — its caption is that many <c>I</c>s.</param>
 /// <param name="Mfd">Which screen the multi-function display is showing. F1-F6 select it, exactly as DBSIM's own mode buttons do.</param>
@@ -39,6 +44,7 @@ public readonly record struct CockpitHudState(
 	int ShieldFront,
 	int ShieldRear,
 	int SpeedKph,
+	short Throttle,
 	TimeSpan MissionTime,
 	int ChainCount,
 	MfdMode Mfd,
@@ -62,6 +68,7 @@ public readonly record struct CockpitHudState(
 		ShieldFront: 100,
 		ShieldRear: 100,
 		SpeedKph: 0,
+		Throttle: 0,
 		MissionTime: TimeSpan.Zero,
 		ChainCount: 1,
 		Mfd: MfdMode.Scanner,

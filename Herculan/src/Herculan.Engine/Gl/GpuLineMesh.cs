@@ -12,18 +12,21 @@ public sealed class GpuLineMesh : IDisposable {
 	private readonly GL _gl;
 	private readonly uint _vertexArray;
 	private readonly uint _vertexBuffer;
-	private readonly int _vertexCount;
+	private readonly bool _dynamic;
+	private int _vertexCount;
 
-	public GpuLineMesh(GL gl, ReadOnlySpan<Vector3> vertices) {
+	public GpuLineMesh(GL gl, ReadOnlySpan<Vector3> vertices, bool dynamic = false) {
 		_gl = gl;
 		_vertexCount = vertices.Length;
+		_dynamic = dynamic;
 
 		_vertexArray = _gl.GenVertexArray();
 		_gl.BindVertexArray(_vertexArray);
 
 		_vertexBuffer = _gl.GenBuffer();
 		_gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vertexBuffer);
-		_gl.BufferData(BufferTargetARB.ArrayBuffer, vertices, BufferUsageARB.StaticDraw);
+		_gl.BufferData(BufferTargetARB.ArrayBuffer, vertices,
+			dynamic ? BufferUsageARB.DynamicDraw : BufferUsageARB.StaticDraw);
 
 		unsafe {
 			_gl.EnableVertexAttribArray(0);
@@ -53,6 +56,22 @@ public sealed class GpuLineMesh : IDisposable {
 		}
 
 		return new GpuLineMesh(gl, vertices);
+	}
+
+	/// <summary>
+	/// Replaces the whole vertex list. Only valid on a mesh created with <c>dynamic: true</c>: a
+	/// debug gizmo whose geometry is rebuilt every frame reuses one buffer rather than churning a
+	/// GL object per frame.
+	/// </summary>
+	public void SetVertices(ReadOnlySpan<Vector3> vertices) {
+		if (!_dynamic) {
+			throw new InvalidOperationException("This line mesh was created static; it cannot be updated.");
+		}
+
+		_vertexCount = vertices.Length;
+		_gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vertexBuffer);
+		_gl.BufferData(BufferTargetARB.ArrayBuffer, vertices, BufferUsageARB.DynamicDraw);
+		_gl.BindBuffer(BufferTargetARB.ArrayBuffer, 0);
 	}
 
 	public void Draw() {

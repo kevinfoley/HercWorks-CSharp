@@ -14,16 +14,23 @@ public class HercSimDat : DataFile {
 	public short SpeedTurn { get; set; }
 	public short SpeedReverse { get; set; }
 	public short SpeedForward { get; set; }
+	/// <summary>Offset 6 — how far the speed scalar moves toward its target each tick.</summary>
 	public short SpeedAccelDecel { get; set; }
 
+	/// <summary>Offset 8 — the same step for the turn rate.</summary>
 	public short DecelTurning { get; set; }
 
+	/// <summary>Offset 10 — the model node the cockpit eye rides.</summary>
 	public short CameraBoneId { get; set; }
 
 	public short AnimId_Walk { get; set; }
 	public short AnimId_Run { get; set; } = 2;
 	public short AnimId_StopMove { get; set; } = 3;
-	public short AnimId_TorsoPitch { get; set; } = 4;
+	/// <summary>
+	/// Offset 18 — the stop / step-off sequence played when slowing to a halt in reverse. Named
+	/// AnimId_TorsoPitch until 2026-08-21; the torso pitch parameters are offsets 36-42.
+	/// </summary>
+	public short AnimId_StopReverse { get; set; } = 4;
 	public short UnitOffsetYAdjust { get; set; }
 
 	public short Unk22_Val750Razor0 { get; set; }
@@ -40,7 +47,8 @@ public class HercSimDat : DataFile {
 	public short TorsoPitchMax { get; set; }
 	public short TorsoPitchMin { get; set; }
 
-	public short Unk44_MoveAnimRate { get; set; }
+	/// <summary>Offset 44 — the speed at which the walk gait gives way to the run gait.</summary>
+	public short GaitThreshold { get; set; }
 
 	public static int ModelLodArrOFs { get; set; } = 46;
 	public byte[] ModelLoDBoneIds { get; set; } = new byte[20];
@@ -49,7 +57,13 @@ public class HercSimDat : DataFile {
 
 	public short Unk66_Val1000 { get; set; } = 1000;
 
-	public short LegsCritFlags1 { get; set; }
+	/// <summary>
+	/// Offset 68 — the death / fall sequence. Named LegsCritFlags1 until 2026-08-21; it is a sequence
+	/// id, not a flag word. <see cref="LegsCritFlags2"/> at offset 70 keeps its old name because
+	/// nothing has been traced reading it either way.
+	/// </summary>
+	public short AnimId_Death { get; set; }
+
 	public short LegsCritFlags2 { get; set; }
 	public short ModelLegsTotal { get; set; }
 	public short ModelFlagNoDebris { get; set; }
@@ -80,7 +94,11 @@ public class HercSimDat : DataFile {
 
 	// blank bytes 0x106
 
-	public short Unk108_camExtVal1 { get; set; }
+	/// <summary>
+	/// Offset 108 — <see cref="GaitThreshold"/> on the reverse side. Named Unk108_camExtVal1 until
+	/// 2026-08-21; it has nothing to do with the camera.
+	/// </summary>
+	public short GaitThresholdReverse { get; set; }
 	public short Unk110_camExtVal2 { get; set; }
 
 	public short ModelFlagsShadow1 { get; set; }
@@ -89,7 +107,11 @@ public class HercSimDat : DataFile {
 	public short Unk116_val { get; set; }
 	public short Unk118_val { get; set; }
 	public short Unk120_val { get; set; }
-	public short Unk122_mdlFlagVal { get; set; }
+	/// <summary>
+	/// Offset 122 — the turn-in-place sequence. Named Unk122_mdlFlagVal until 2026-08-21. Uniform
+	/// across the fleet: 7 frames of 1820 BAM each, no translation.
+	/// </summary>
+	public short AnimId_TurnInPlace { get; set; }
 
 	public static int Unk124_range { get; set; } = 12;
 	public short[]? Unk124_all500 { get; set; }
@@ -142,8 +164,16 @@ public class HercSimDat : DataFile {
 
 	public short ShieldMaxTotal { get; set; }
 	public short Unk192_val { get; set; }
-	public short PhysicsFrictionCoef { get; set; }
-	public short PhysicsFrctionAccel { get; set; }
+	/// <summary>
+	/// Offsets 194 and 196 — the stride-calibration pair MechType_InitOne (004201a8) turns into the
+	/// Q16 factor it rescales the speed fields by, <c>Q16Divide(offset196 * 400, offset194)</c>. Named
+	/// PhysicsFrictionCoef/PhysicsFrctionAccel until 2026-08-21; neither is a friction term. See
+	/// Herculan.Engine.Sim.MechTypeRecord, which applies the rescale.
+	/// </summary>
+	public short StrideScaleDivisor { get; set; }
+
+	/// <inheritdoc cref="StrideScaleDivisor"/>
+	public short StrideScaleNumerator { get; set; }
 
 	// 198 - 203 - BLANK BYTES
 

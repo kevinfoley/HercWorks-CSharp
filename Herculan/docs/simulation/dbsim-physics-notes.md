@@ -17,9 +17,26 @@ format and query is in [`../formats/terrain-heightmap.md`](../formats/terrain-he
 Shared helper functions used throughout the sim, not tied to any one subsystem — the primitives
 every other section below builds on.
 
-**`DAT_004d3be8` — the global simulation timestep**, read by both helpers below. Everything
-scaled by it is a "per this tick" quantity, not "per second" — DBSIM runs a discrete
-fixed/semi-fixed timestep sim, not a continuous-time integrator.
+**`DAT_004d3be8` — the global simulation timestep (`SimTickDelta`)**, read by both helpers below
+and computed once per tick by `FUN_004677bc`:
+
+```
+spin until GetTickCount() >= last + 40             // 25 Hz frame cap
+SimTickDelta = clamp((elapsedMs << 8) / 125, 0x40, 0x1c2)
+```
+
+Q8, where `1.0` (`0x100`) = 125 ms — helper "rates" below are per-125ms quantities, not
+per-second or per-tick-count. Everything scaled by it is a "per this tick" quantity — DBSIM runs
+a discrete fixed/semi-fixed timestep sim, not a continuous-time integrator. At the vanilla 40
+ms/25 Hz tick this evaluates to **81** (`40×256/125`, floored) — the constant the engine's
+`SimWorld.TickDelta` is pinned to, running a fixed 25 Hz tick decoupled from rendering rather than
+reproducing the spin-wait.
+
+Not every per-tick quantity is scaled by this timestep: locomotion's `SpeedAccelDecel`/
+`DecelTurning` accel-step fields are raw per-tick steps with no `FUN_00467820` integration,
+making the original's control law frame-rate dependent — see
+[`mech-locomotion.md`](mech-locomotion.md#timing) for the consequence and the engine's
+`SimMath.ScalePerTickStep` port deviation.
 
 **`FUN_0047df94(a, b)` — Q8 fixed-point multiply.** `(int64)a * b`, right-shifted 32 bits via
 `SHRD EAX,EDX,0x8` (i.e. `>> 8`, scale factor 256). Confirmed via raw disassembly
@@ -159,10 +176,12 @@ pointers). Projectile spawn/hit-resolution logic lives in `rocket.cpp`/`bullet.c
 
 ## Port notes
 
-1. **DBSIM is a fixed-timestep, fixed-point simulation** — `DAT_004d3be8` is the tick length and
-   essentially all motion math is `rate × tick` in Q8, not continuous float integration; a naive
-   float-based reimplementation will drift from the original unless the same quantization/clamping
-   is preserved.
+1. **DBSIM ticks at a fixed 25 Hz** (`SimTickDelta`/`DAT_004d3be8` = 81 in Q8/125ms units at that
+   rate) and essentially all motion math is `rate × tick` in Q8, not continuous float integration;
+   a naive float-based reimplementation will drift from the original unless the same
+   quantization/clamping is preserved. Not universal — some per-tick fields (locomotion's
+   accel/decel steps) are unscaled and frame-rate dependent in the original; see
+   [`mech-locomotion.md`](mech-locomotion.md#timing).
 2. **Collision bounds are spheres built from AABBs of named sub-part spheres**, using the
    ~3.4%-low-biased fast-magnitude approximation rather than true Euclidean distance —
    reproducing hit detection faithfully means reproducing that approximation, not substituting a

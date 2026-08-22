@@ -15,7 +15,8 @@ This is DBSIM.EXE's runtime weapon-mount table, loaded by `Weapons_LoadResourceT
 ### `WeaponMountTemplate` record (variable length)
 
 Built entirely from **reused low-level record readers**:
-`HercPiece_ReadRecord`, `Collision_LoadSubSphereFlag`, `Collision_LoadSubMeshIndices` (see `docs/simulation/dbsim-physics-notes.md`). In-memory struct is 88 bytes (`0x58`), but on-disk record is variable-length; extra in-memory bytes are runtime-only (a pointer + self-index the loader fills in after reading).
+`HercPiece_ReadRecord` (see `docs/simulation/damage-system.md`, "The component/health system"),
+`Collision_LoadSubSphereFlag`, `Collision_LoadSubMeshIndices` (see `docs/simulation/dbsim-physics-notes.md`, "Collision system"). In-memory struct is 88 bytes (`0x58`), but on-disk record is variable-length; extra in-memory bytes are runtime-only (a pointer + self-index the loader fills in after reading).
 
 Read order (all fields little-endian):
 

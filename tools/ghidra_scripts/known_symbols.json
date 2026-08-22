@@ -1,4 +1,4 @@
-{
+﻿{
   "schema_version": 1,
   "_readme": [
     "Confirmed address->meaning mappings for VSHELL.EXE / DBSIM.EXE, extracted from",
@@ -3924,6 +3924,440 @@
       "name": "maybe_ShieldFacing_FlashTimer",
       "description": "A shield-facing child's update slot: a two-stage counter at +0x1f (2->1 calls FUN_0043122c then decrements; 1->0 just decrements) -- plausibly a brief post-click flash/debounce, not independently confirmed.",
       "source": "docs/formats/cockpit-input.md 2026-08-20"
+    }
+,
+    {
+      "address": "00460764",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sim_PollPlayerInput",
+      "description": "Reads the input device struct (axes at +0x0e steer, +0x10 throttle, +0x12 torso twist, +0x14 torso pitch) and dispatches player control: Mech_ApplyThrottleInput, Mech_TorsoTwistTick, Mech_TorsoPitchTick. Also hosts the keyboard command switch.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+    },
+    {
+      "address": "004160dc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_ApplyThrottleInput",
+      "description": "Player throttle handler. Integrates the stick axis into mech+0x290 (throttle, Q10, clamped +/-0x400) at Q8(0x91,-axis) per tick, converts it to a desired speed via Q10(maxRev or maxFwd, throttle), then calls Mech_LocomotionTick. ThrottleLeverMode (0049a06e) gates the clamp: at 0 it spans the full +/-0x400, so the axis held down runs through zero into reverse.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+    },
+    {
+      "address": "00416a04",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_LocomotionTick",
+      "description": "The Herc control law. Sets speed (mech+0x28e), turn rate (mech+0x28c), heading (mech+0x10) and animation rate (mech+0x2a0); about 60 percent of the body is the gait state machine. Writes no position -- all translation is animation root motion. Turn rate is a tent over speed peaking at half top speed; turn-in-place sets only the animation rate.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+    },
+    {
+      "address": "0041693c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_ApplyTerrainSlopeToSpeed",
+      "description": "Adjusts desired speed by dot(terrainNormal, forwardVector)/0x960, signed by direction of travel, clamped to zero on sign flip. Uphill slows, downhill speeds up.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+    },
+    {
+      "address": "00416274",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_AiObstacleAvoidance",
+      "description": "Terrain and obstacle avoidance applied to steering and desired speed. AI only -- Mech_LocomotionTick skips it when the mech is PlayerMech.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+    },
+    {
+      "address": "0041a360",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_MovementTick",
+      "description": "Per-tick mech physics step: push transform, integrate motion, clamp Z to Terrain_HeightQuery plus typeRec[+0x16], collision test, restore and reverse speed on hit, place legs. Dispatched via mech vtable +0x18 to 00415b38 to behaviour struct +0x18; its pointer lives in an unmarked 0x24-stride table from 00499928, so Ghidra reports zero xrefs.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+    },
+    {
+      "address": "00418f40",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_IntegrateMotion",
+      "description": "Sets the animation playback rate from mech+0x2a0, then advances the object by dt = Math_IntegrateRateOverTick(100) via SimObject_ApplyRootMotion.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+    },
+    {
+      "address": "0040250c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_ApplyRootMotion",
+      "description": "Seeds the shape root node to identity, advances the animation by dt, reads node 0 world transform back, and applies it: pos = objRotation * delta.translation + pos, euler += eulerOf(delta.rotation). Then resets the root. The only source of Herc translation and turn-in-place rotation.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+    },
+    {
+      "address": "00402628",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_PushTransform",
+      "description": "Saves the object transform, position and the whole animated node hierarchy into globals at 004a8d54. Paired with SimObject_PopTransform.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+    },
+    {
+      "address": "004027fc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_PopTransform",
+      "description": "Restores what SimObject_PushTransform saved. Used by Mech_MovementTick to undo a blocked move.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+    },
+    {
+      "address": "00418f74",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_CollisionTest",
+      "description": "Returns nonzero when the just-integrated position is blocked.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+    },
+    {
+      "address": "004195c8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_PlaceLegsOnGround",
+      "description": "Per-leg terrain placement over the mech animated node hierarchy.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+    },
+    {
+      "address": "00478de8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AnimThread_LoadFrameGroundMovement",
+      "description": "Called on every animation frame advance. If the sequence ground-movement flag is set, loads Transforms[transformIndices[frame * numParts]] -- part index 0, the root node -- into the thread ground translation (+0x22/24/26) and rotation (+0x28/2a/2c) and sets the ground-move flag at +0x20.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+    },
+    {
+      "address": "00478fa8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AnimThread_ReadRootTransform",
+      "description": "Returns scale(groundTransform, thread[0x1c]/thread[0x1e]) composed onto the thread stored transform, where the fraction is intra-frame accumulator over frame duration. Inverse of AnimThread_WriteRootTransform.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+    },
+    {
+      "address": "00479088",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AnimThread_WriteRootTransform",
+      "description": "Stores inverse(scale(groundTransform, frac)) composed with the incoming transform. Paired with AnimThread_ReadRootTransform so that seeding identity and reading back yields the exact per-tick root-motion delta.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+    },
+    {
+      "address": "00478e60",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AnimThread_CommitGroundMovement",
+      "description": "On frame exit, folds the completed frame full ground transform into the thread stored transform.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+    },
+    {
+      "address": "00478ee8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AnimThread_UncommitGroundMovement",
+      "description": "Inverse of AnimThread_CommitGroundMovement, for backward playback.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+    },
+    {
+      "address": "00479614",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AnimThread_Advance",
+      "description": "Advances one animation thread by dt * thread[0x4e] >> 8, crossing frames forward or backward and driving the ground-movement load and commit hooks.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+    },
+    {
+      "address": "004795cc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AnimThread_SetPlaybackRate",
+      "description": "Writes the playback rate to thread+0x4e; restarts the sequence when the sign flips.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+    },
+    {
+      "address": "00478c2c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShapeInstance_StepAnimation",
+      "description": "Advance threads, evaluate keyframes into per-node local transforms, rebuild world transforms. FULLY RESOLVED 2026-08-22, in call order: AnimThread_StepAll (004789a0) then ShapeInst_EvalAllNodeLocals (004789f4, which runs AnimThread_EvalNodeLocals per thread) then ShapeInst_BuildWorldTransforms (00478b58). The keyframe interpolation is the middle step, so poses are re-blended every time this is called. CADENCE SETTLED: the sole caller is SimObject_ApplyRootMotion (0040250c), which Mech_IntegrateMotion runs once per sim tick -- poses are evaluated per TICK, not per rendered frame. DBSIM has no separate render rate to be per-frame at: FUN_004677bc spin-waits the whole loop to 40 ms (25 Hz), so tick and frame are the same thing in the original. A port with a fixed 25 Hz tick matches vanilla pose cadence exactly, however fast it renders.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-21, extended 2026-08-22"
+    },
+    {
+      "address": "004677bc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Time_BeginSimTick",
+      "description": "Spins until 40 ms have elapsed (25 Hz frame cap), then sets SimTickDelta = clamp((elapsedMs << 8) / 125, 0x40, 0x1c2). SimTickDelta is Q8 with 1.0 = 125 ms, so rate units are per-125 ms.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+    },
+    {
+      "address": "0049a06e",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ThrottleLeverMode",
+      "description": "Joystick throttle-lever mode: 0 = no lever (keyboard/plain stick), +1 = lever present, -1 = lever present with its sense inverted. Set by FUN_00459d20, which writes 1 only when the input config reports a throttle control AND the preferences page assigns it to THROTTLE rather than TURRET, and 0 otherwise; the key command (Sim_PollPlayerInput case 5) and the cockpit slider commit (FUN_00448378) only flip between +1 and -1 and are gated on that same pair. NOT a forward/reverse gear selector, which is what this symbol was called until 2026-08-21 -- DBSIM has no gear. In Mech_ApplyThrottleInput it gates two things: the absolute-lever read (|axis-0x100|*2, deadbanded below 100) and the throttle clamp, which spans the full +/-0x400 at 0 and closes to one side of zero otherwise. That is why holding the keyboard throttle down walks a HERC through zero into reverse.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+    },
+    {
+      "address": "004a9c08",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "PlayerMech",
+      "description": "The player-controlled mech. Distinct from LocalPlayerMech (004d256a, the camera subject). Used for team comparisons, scoring, and to skip Mech_AiObstacleAvoidance for the player.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+    },
+    {
+      "address": "0041a550",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_TorsoTwistTick",
+      "description": "Torso twist (yaw): rate at mech+0x294, angle at mech+0x298, clamped to +/- typeRec[+0x22]. Rates dt-scaled via Math_IntegrateRateOverTick.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+    },
+    {
+      "address": "0041a808",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_TorsoPitchTick",
+      "description": "Torso pitch: rate at mech+0x296, angle at mech+0x29a, clamped to the asymmetric range [typeRec+0x2c, typeRec+0x2a].",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+    },
+    {
+      "address": "0041ef14",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Cockpit_TargetAnglesFromCameraBone",
+      "description": "Transforms a world point into the pilot eye's frame and returns its azimuth/elevation. CameraBoneId (typeRec+0x0c) is a shape PART id: the shape find-by-id vtable slot (+0x20) returns the part, its TSBasePart.Transform (+4) is a transform id, and that indexes the per-node transform array at shapeInst+0x16 (0x20 bytes per entry). Composes the inverse of the mech transform (mech+0xc) then the inverse of that node transform, and subtracts typeRec+0x66. The cockpit eye rides the same node, which is where the retail cockpit bob comes from -- no dedicated bob code exists. Chain is uniform across the fleet: part 5 -> transform 11 -> 4 -> 1 for 16 of 18 HERCs, node 1 being the one the walk cycle animates.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+    },
+    {
+      "address": "00499928",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "medium",
+      "name": "maybe_MechBehaviourTable",
+      "description": "Start of an unmarked 0x24-stride table of per-mech-type behaviour structs; slot +0x18 holds Mech_MovementTick (18 entries located by raw byte search).",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+    },
+    {
+      "address": "004524a8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SliderWidget_CtorBase",
+      "description": "Shared slider base ctor (obj, trackRect, min, max, initial, knobSize). Sets the widget's +0x1d drag flag to 1 unconditionally -- the ONLY ctor traced that does, and therefore the whole reason the throttle slider is the one draggable control in a retail cockpit. Widget_OnMouseDown (004527a0) tests that flag before latching Widget_DragCapture.",
+      "source": "docs/formats/cockpit-input.md 2026-08-21"
+    },
+    {
+      "address": "004525d8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SliderWidget_DragToPointV",
+      "description": "Vertical slider drag handler (vtable +0x18). Saves the previous knob position to +0x2a, clamps the pointer y into [trackTop + knobHeight, trackBottom], and stores it as the knob's BOTTOM edge at +0x28 -- so grabbing the knob jumps its lower edge under the cursor. Horizontal twin is 004524f8.",
+      "source": "docs/formats/cockpit-input.md 2026-08-21"
+    },
+    {
+      "address": "00452628",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SliderWidget_GetValueV",
+      "description": "Vertical slider get-value (vtable +0x10): (knobTop(+0x32) - trackTop(+4)) * 0x10000 / scale(+0x20) + min(+0x24). Reads the knob's TOP against the track's top while SetValueV places its BOTTOM, so it returns the NEGATION of what SetValueV was given (for the symmetric +/-0x400 range). Not a bug: ThrottleGauge_OnChildValue negates again, and the two cancel. Horizontal twin is 00452544, which is self-consistent.",
+      "source": "docs/formats/cockpit-input.md 2026-08-21"
+    },
+    {
+      "address": "00452644",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SliderWidget_SetValueV",
+      "description": "Vertical slider set-value (vtable +0x14): knobBottom(+0x28) = trackBottom(+0xc) - ((value - min) * scale >> 16), then dispatches the commit slot (+8). Max puts the knob at the track top. Horizontal twin is 0045255c.",
+      "source": "docs/formats/cockpit-input.md 2026-08-21"
+    },
+    {
+      "address": "00452694",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SliderWidget_RecomputeScaleV",
+      "description": "Vertical slider scale (vtable +0x1c): +0x20 = ((trackBottom - knobHeight) - trackTop) * 0x10000 / (max - min), i.e. Q16 device pixels per value unit over the knob's travel. Horizontal twin is 004525a8.",
+      "source": "docs/formats/cockpit-input.md 2026-08-21"
+    },
+    {
+      "address": "0049dbde",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "Widget_DragCapture",
+      "description": "Set by Widget_OnMouseDown when the pressed widget's +0x1d flag is 1. While set, CockpitMouse_ProcessQueue routes every position change to the captured widget's drag slot (+0x18) WITHOUT hit-testing -- a drag follows the pointer off the widget and off the window -- and the release path reads the value (+0x10) and commits it (+8) instead of calling Widget_OnMouseUp, so a drag fires no click.",
+      "source": "docs/formats/cockpit-input.md 2026-08-21"
+    },
+    {
+      "address": "00447e24",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ThrottleSlider_CtorV",
+      "description": "The throttle's vertical slider child, built when .GAU offset 1064 (SLIDE_DIR) == 1 -- the case all 9 retail .GAU files use. Knob spans the track's full width with its height from throttle bank frame 1 (28x12), limits +/-0x400 at +0x24/+0x26, and an initial position centred on the track (knobBottom = trackBottom - (trackHeight - knobHeight)/2), which is the manual's centred-is-stopped detent. Also constructs the two LED fill bars from .GAU ints [8..11] and [12..15].",
+      "source": "docs/formats/cockpit-hud.md 2026-08-21"
+    },
+    {
+      "address": "004483c0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "ThrottleSlider_CtorFixed",
+      "description": "The SLIDE_DIR != 1 throttle slider variant: a fixed 12px-wide knob centred horizontally and spanning the track's full height. No retail .GAU selects it (all 9 hold 1 at offset 1064), so this branch is never exercised by retail data and its behaviour is unverified.",
+      "source": "docs/formats/cockpit-hud.md 2026-08-21"
+    },
+    {
+      "address": "00448378",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ThrottleSlider_OnValue",
+      "description": "Throttle slider commit slot (vtable +8). Notifies the parent gauge via FUN_0043904c (which dispatches the owner's slot 0 = ThrottleGauge_OnChildValue, then repaints), then sets ThrottleLeverMode (0049a06e) from the sign of the committed value -- but gated on a joystick throttle control being configured AND assigned to THROTTLE in preferences, so it is inert on a keyboard/mouse setup.",
+      "source": "docs/formats/cockpit-hud.md 2026-08-21"
+    },
+    {
+      "address": "00447d80",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ThrottleGauge_SetValues",
+      "description": "Writes the gauge's live value pair at +0xb1 from a caller struct of two ints: [0] speed as a Q10 fraction of max, [1] throttle Q10 +/-0x400. Pushes the throttle down to the slider child's set-value slot (+0x14) when it changed, and marks the child dirty (+0x1f = 2) when the speed fraction changed. Called once a frame by Player_PerFrameCockpitUpdate.",
+      "source": "docs/formats/cockpit-hud.md 2026-08-21"
+    },
+    {
+      "address": "00447dd0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ThrottleGauge_GetValues",
+      "description": "Returns gauge + 0xb1, the speedFraction/throttle int pair. Player_PerFrameCockpitUpdate reads [1] (gauge+0xb5) into mech+0x290 unless the mech+0x93 dirty flag says input moved the throttle this frame, in which case it pushes the other way. That arbitration is the whole of the two-way binding between the slider and the keyboard.",
+      "source": "docs/formats/cockpit-hud.md 2026-08-21"
+    },
+    {
+      "address": "00447de0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ThrottleGauge_OnChildValue",
+      "description": "Gauge slot 0: a child reporting a value. Finds the child in the gauge's array (+0x18, count +0x68); index 0 is the slider, and its value is negated when the gauge's +0xc1 is 0 (the vertical variant) before being stored to +0xb5. That negation cancels SliderWidget_GetValueV's own inversion, leaving positive = forward = knob up.",
+      "source": "docs/formats/cockpit-hud.md 2026-08-21"
+    },
+    {
+      "address": "00439344",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LedBarGraph_CtorV",
+      "description": "Vertical LED bar graph ctor (obj, rect, range) -- the V twin of LedBarGraph_CtorBase (004390c4), taking start/end from the rect's y0/y1 instead of x0/x1. The throttle gauge builds two: .GAU ints [8..11] with range +0x400 (forward fill, above centre) and [12..15] with -0x400 (reverse fill, below). This is what those ints are; they are NOT the four detent points HThrottle previously recorded.",
+      "source": "docs/formats/cockpit-hud.md 2026-08-21"
+    },
+    {
+      "address": "00459d20",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Input_SetThrottleLeverMode",
+      "description": "Sets ThrottleLeverMode (0049a06e) to 1 only when the input config struct (FUN_004777f8) reports a throttle control at +2 AND the caller's mode == 1 (the preferences page's THROTTLE rather than TURRET assignment); 0 otherwise. This is the function that proves 0049a06e is a joystick-lever mode and not a forward/reverse gear -- with no lever it is 0, which leaves Mech_ApplyThrottleInput's clamp spanning the full +/-0x400 so the keyboard can reach reverse.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+    }
+,
+    {
+      "address": "004799a4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AnimThread_EvalNodeLocals",
+      "description": "THE KEYFRAME INTERPOLATOR -- resolves 2026-08-22 the open 'no interpolator was found in DBSIM' question. For each animated column of the playing sequence, reads the transform-pool index at (sequence, frame) and at (nextSequence, nextFrame); if the two indices match, copies the 12-byte local transform straight; otherwise calls Anim_BlendKeyframeTransforms (00492600) with a Q10 interpolant of ((frameAccumulator * 0x400 + frameDuration/2) / frameDuration) -- the SAME elapsed-frame fraction AnimThread_ReadRootScaled already ramps root motion by. Writes into the shape instance's per-node local array (shapeInst+0x12, stride 0xc, indexed by transform id) and sets that node's dirty byte in shapeInst+0xe. Columns whose part id is 0 are skipped entirely, so transform 0 keeps its default and never takes an animated pose. Thread field offsets confirmed here: +4 sequence, +6 frame, +8 nextSequence, +10 nextFrame, +0x1c frameAccumulator, +0x1e frameDuration.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-22; Herculan AnimationThread.NodeTransform"
+    },
+    {
+      "address": "00492600",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Anim_BlendKeyframeTransforms",
+      "description": "Blends two 12-byte ANAnimListTransform records (3 euler shorts then 3 translation shorts) by a Q10 factor (0x400 == fully the second). Rotation components take the SHORTEST ARC: the difference is biased by 0x10000 when it would go negative, subtracted, then folded back by 0x10000 when it exceeds 0x7fff -- the same wrap BinaryAngle.Delta performs -- before the Q10 multiply and arithmetic >>10. Translation components are a plain truncating lerp on the 16-bit difference. All fixed point; no float anywhere.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-22"
+    },
+    {
+      "address": "00478b58",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShapeInst_BuildWorldTransforms",
+      "description": "Composes the per-node WORLD transform array (shapeInst+0x16, stride 0x20, indexed by transform id) that everything else reads -- e.g. Mech_TargetRelativeToPilot (0041ef14) and the cockpit eye. Walks the relation list (pairs of shorts at animList+0xc, count at animList+10): parent == -1 goes through ShapeInst_ExpandRootTransform (00478b10), otherwise ShapeInst_ComposeChildTransform (00478ab8) against the parent's already-built world transform. Dirty-flag driven off shapeInst+0xe (bit 0 = local changed, bit 1 = world rebuilt, so children follow), and memsets the flag array when done.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-22"
+    },
+    {
+      "address": "00478b10",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShapeInst_ExpandRootTransform",
+      "description": "Expands one 12-byte local transform into a 0x20-byte world transform with no parent: BuildEulerRotationMatrixQ14 over the three leading shorts, and the trailing three shorts widened to the ints at +0x14/+0x18/+0x1c. Confirms the 0xc-byte local record layout is [eulerX, eulerY, eulerZ, x, y, z] as shorts.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-22"
+    },
+    {
+      "address": "00478ab8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShapeInst_ComposeChildTransform",
+      "description": "Same expansion as ShapeInst_ExpandRootTransform, then concatenates the result onto the parent's world transform (FUN_0047f914) into the destination slot. The parent-chain composition Herculan's AnimationThread.NodeTransform performs lazily per requested node.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-22"
+    },
+    {
+      "address": "004789f4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShapeInst_EvalAllNodeLocals",
+      "description": "Runs AnimThread_EvalNodeLocals (004799a4) over every thread the shape instance holds (thread pointers from shapeInst+0x1a upward), passing the local-transform array (shapeInst+0x12) and the dirty-flag array (shapeInst+0xe). The loop runs last-to-first; the natural reading is that it lets an earlier thread win a node a later one also writes, but that ordering intent was not independently confirmed.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-22"
+    },
+    {
+      "address": "004789a0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AnimThread_StepAll",
+      "description": "Advances every thread on the shape instance by the timestep (AnimThread_Advance, 00479614), bracketed by FUN_004788a4/FUN_004788c4 (thread-list iteration helpers, not further decoded). Then, if a first thread exists, writes its ramped root transform (00478fa8 = AnimThread_ReadRoot) into the leading slot of the world-transform array at shapeInst+0x16.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-22"
     }
   ]
 }

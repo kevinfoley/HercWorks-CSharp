@@ -9,6 +9,9 @@ public enum CockpitWidgetKind {
 
 	/// <summary>A <see cref="HddLayout.Widget"/>.</summary>
 	HddWidget = 1,
+
+	/// <summary>The console's throttle slider. One of a kind, so its index is always zero.</summary>
+	Throttle = 2,
 }
 
 /// <summary>One clickable widget's identity — the pair a click reports back and an action handler switches on.</summary>
@@ -20,6 +23,9 @@ public readonly record struct CockpitWidgetId(CockpitWidgetKind Kind, int Index)
 
 	/// <summary>Heads-Down Display widget <paramref name="widget"/>.</summary>
 	public static CockpitWidgetId Hdd(HddLayout.Widget widget) => new(CockpitWidgetKind.HddWidget, (int)widget);
+
+	/// <summary>The throttle slider.</summary>
+	public static CockpitWidgetId Throttle { get; } = new(CockpitWidgetKind.Throttle, 0);
 
 	/// <summary>This id as an <see cref="HddLayout.Widget"/>, or null when it is not one.</summary>
 	public HddLayout.Widget? AsHddWidget =>
@@ -52,8 +58,14 @@ public readonly record struct CockpitWidgetId(CockpitWidgetKind Kind, int Index)
 /// Display's current page. Only latching buttons are ever selected, and only they re-font their
 /// caption; a momentary button holds its construction font however long it is held.
 /// </param>
+/// <param name="Draggable">
+/// Whether pressing this widget captures the pointer — the original's per-widget <c>+0x1d</c> flag,
+/// which <c>Widget_OnMouseDown</c> (<c>004527a0</c>) tests before latching the global drag capture
+/// and dispatching the widget's own drag handler. Every button class leaves it clear; the slider
+/// base (<c>004524a8</c>) sets it, which is the whole of what makes the throttle draggable.
+/// </param>
 public readonly record struct CockpitWidget(CockpitWidgetId Id, CockpitSurface Surface,
-		int X0, int Y0, int X1, int Y1, bool Lit, bool Selected = false) {
+		int X0, int Y0, int X1, int Y1, bool Lit, bool Selected = false, bool Draggable = false) {
 
 	/// <summary>Inclusive width in art pixels.</summary>
 	public int Width => X1 - X0 + 1;
@@ -113,6 +125,26 @@ public static class CockpitWidgets {
 		foreach (var widget in VisibleHddWidgets(art, state)) {
 			yield return widget;
 		}
+
+		if (VisibleThrottle(art) is { } throttle) {
+			yield return throttle;
+		}
+	}
+
+	/// <summary>
+	/// The throttle slider's track, or null when this herc's <c>.GAU</c> has no throttle block. It is
+	/// the one cockpit control the pointer can drag, and it is always showing: the console it sits on
+	/// has no modes.
+	/// </summary>
+	public static CockpitWidget? VisibleThrottle(CockpitArt art) {
+		ArgumentNullException.ThrowIfNull(art);
+		if (ThrottleTrack.From(art) is not { } track) {
+			return null;
+		}
+
+		return new CockpitWidget(CockpitWidgetId.Throttle, CockpitSurface.Forward,
+			track.Left, track.Top, track.Right, track.Bottom, Lit: false, Selected: false,
+			Draggable: true);
 	}
 
 	/// <summary>

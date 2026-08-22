@@ -89,7 +89,7 @@ public class Weapons : DataFile {
 		/// DBSIM's <c>Mech_ConfigureLoadout</c> (0x004175dc) -&gt; weapon-mount factory (0x0040fff8,
 		/// which reads this exact field into a local it then branches on). This is the mechanism
 		/// behind <see cref="ProjectileData"/>'s weapon-id-to-record mapping — see
-		/// docs/simulation/dbsim-physics-notes.md and docs/formats/weapons-dat-sim.md for the full
+		/// docs/simulation/damage-system.md and docs/formats/weapons-dat-sim.md for the full
 		/// writeup, and <c>ProjectileData</c>'s own doc comment for the resulting confirmed mapping.
 		/// Three cases, confirmed against every real weapon in the retail catalog:
 		///   <list type="bullet">

@@ -22,6 +22,16 @@ public enum CockpitMouseButtons {
 public readonly record struct CockpitClick(CockpitWidgetId Id, CockpitMouseButtons Button);
 
 /// <summary>
+/// Where a captured pointer is on the widget it is dragging, in that surface's art pixels.
+/// </summary>
+/// <param name="Id">The widget holding the capture.</param>
+/// <param name="Surface">The surface its rect is measured on.</param>
+/// <param name="ArtX">Pointer x in that surface's art pixels — not clamped to the widget.</param>
+/// <param name="ArtY">Pointer y in that surface's art pixels.</param>
+public readonly record struct CockpitDrag(CockpitWidgetId Id, CockpitSurface Surface,
+	float ArtX, float ArtY);
+
+/// <summary>
 /// The cockpit's mouse pipeline: raw window events in, completed widget clicks out.
 /// Reverse-engineered from DBSIM — see docs/formats/cockpit-input.md, whose section numbers this
 /// file's comments refer to.
@@ -38,10 +48,18 @@ public readonly record struct CockpitClick(CockpitWidgetId Id, CockpitMouseButto
 /// original has none, and the function long mistaken for one turns out to be this same press
 /// tracking.</para>
 ///
+/// <para><b>Drag capture</b> (§7) is reproduced, because one retail control does use it. A press on a
+/// widget whose <c>+0x1d</c> flag is set — the slider base <c>004524a8</c> sets it, every button class
+/// leaves it clear — latches the pointer to that widget until the button comes back up, and every
+/// move in between is delivered to it wherever the pointer has got to. The throttle slider is the only
+/// widget in a retail cockpit built that way, which is why it is the only one that can be dragged and
+/// why an earlier reading of this file's own §7 (that nothing is draggable) was wrong. A captured
+/// release fires no click: the original's release path skips <c>Widget_OnMouseUp</c> entirely while
+/// the capture flag is set.</para>
+///
 /// <para><b>What is not.</b> The Win32 hook chain and the two ten-slot subscriber tables the original
-/// routes events through (§1-2) are a message-pump workaround with no purpose here. Drag capture
-/// (§7) is omitted: every widget traced in the original constructs with its drag flag clear, so no
-/// retail cockpit control is draggable. The cursor (§9) is the host's.</para>
+/// routes events through (§1-2) are a message-pump workaround with no purpose here. The cursor (§9) is
+/// the host's.</para>
 ///
 /// <para><b>Where the timing differs.</b> The original stamps each event as it arrives and debounces
 /// pushes to one per ~16ms coarse tick; this stamps events with the frame they are processed in, and
@@ -74,8 +92,10 @@ public sealed class CockpitInput {
 	private CockpitWidgetId? _pressed;
 	private CockpitSurface _pressedSurface;
 	private float _pressedAtSeconds;
+	private bool _capturing;
 
 	private readonly List<CockpitClick> _clicks = new();
+	private readonly List<CockpitDrag> _drags = new();
 
 	/// <summary>
 	/// The widget a press is armed on, or null. Stays set while the pointer wanders off it — the
@@ -99,6 +119,22 @@ public sealed class CockpitInput {
 	/// (§3), which leaves nothing to drive one.</para>
 	/// </summary>
 	public CockpitWidgetId? Depressed { get; private set; }
+
+	/// <summary>
+	/// Every position a captured pointer reported during the last drain, oldest first — empty when
+	/// nothing is being dragged. The capture opens on the press that starts it, because the original
+	/// dispatches its drag handler straight from <c>Widget_OnMouseDown</c>: clicking anywhere on a
+	/// slider's track jumps the knob there.
+	///
+	/// <para>The coordinates are the captured surface's art pixels and are <b>not</b> clamped to the
+	/// widget: a capture follows the pointer off its own rect, off the surface, and off the window,
+	/// which is what lets a drag past the end of a track pin it to that end.</para>
+	///
+	/// <para>The list is cleared and refilled by each drain, like the clicks it is returned beside.
+	/// The release that ends a capture carries a position too, and it is reported: the original
+	/// updates the widget from the pointer before it looks at the button.</para>
+	/// </summary>
+	public IReadOnlyList<CockpitDrag> Drags => _drags;
 
 	/// <summary>
 	/// Queues one mouse event, in window pixels with the origin at the top-left. Called straight from
@@ -136,7 +172,10 @@ public sealed class CockpitInput {
 		ArgumentNullException.ThrowIfNull(layout);
 		ArgumentNullException.ThrowIfNull(art);
 
-		return Drain(deltaSeconds, (x, y) => HitTest(layout, art, state, x, y));
+		return Drain(deltaSeconds, (x, y) => HitTest(layout, art, state, x, y),
+			(surface, x, y) => layout.Surface(surface) is { } placed
+				? placed.WindowToArt(x, y)
+				: (x, y));
 	}
 
 	/// <summary>
@@ -150,11 +189,18 @@ public sealed class CockpitInput {
 	/// </summary>
 	/// <param name="deltaSeconds">Real time since the previous drain, for the click-hold gate.</param>
 	/// <param name="hitTest">Window x and y to the widget under them, or null for bare art.</param>
-	public IReadOnlyList<CockpitClick> Drain(double deltaSeconds, Func<float, float, CockpitWidget?> hitTest) {
+	/// <param name="toArt">
+	/// Window x and y to a named surface's art pixels, unclamped — how a captured drag is positioned
+	/// once the pointer has left the widget it grabbed. Null passes window pixels through unchanged,
+	/// which is what a caller with no surfaces to speak of wants.
+	/// </param>
+	public IReadOnlyList<CockpitClick> Drain(double deltaSeconds, Func<float, float, CockpitWidget?> hitTest,
+			Func<CockpitSurface, float, float, (float X, float Y)>? toArt = null) {
 		ArgumentNullException.ThrowIfNull(hitTest);
 
 		_elapsedSeconds += (float)Math.Max(deltaSeconds, 0d);
 		_clicks.Clear();
+		_drags.Clear();
 
 		while (_queue.Count > 0) {
 			var e = _queue.Dequeue();
@@ -162,8 +208,10 @@ public sealed class CockpitInput {
 
 			// A held button's widget depresses and pops back up as the pointer moves on and off it,
 			// which is all FUN_00452954 does. Nothing happens here when no button is held: there is no
-			// hover state to track.
-			if (_pressed is { } armed) {
+			// hover state to track, and nothing happens during a capture either — the mouse pump takes
+			// the drag branch instead of calling FUN_00452954 at all, so a captured widget stays down
+			// however far the pointer wanders.
+			if (!_capturing && _pressed is { } armed) {
 				Depressed = hit is { } over && over.Id == armed && over.Surface == _pressedSurface
 					? armed
 					: null;
@@ -175,6 +223,13 @@ public sealed class CockpitInput {
 
 			if (pressedNow != CockpitMouseButtons.None) {
 				OnPress(hit);
+			}
+
+			// A capture is fed on the press that started it and on every move after — the original's
+			// mouse pump dispatches the drag handler from both places (004527a0 and 00452d18).
+			if (_capturing && _pressed is { } dragged) {
+				var (artX, artY) = toArt?.Invoke(_pressedSurface, e.X, e.Y) ?? (e.X, e.Y);
+				_drags.Add(new CockpitDrag(dragged, _pressedSurface, artX, artY));
 			}
 
 			if (releasedNow != CockpitMouseButtons.None) {
@@ -195,13 +250,19 @@ public sealed class CockpitInput {
 		_lastButtons = CockpitMouseButtons.None;
 		_pressed = null;
 		Depressed = null;
+		_capturing = false;
+		_drags.Clear();
 	}
 
-	/// <summary>§7's <c>Widget_OnMouseDown</c>: a press on a widget arms it and starts the hold clock.</summary>
+	/// <summary>
+	/// §7's <c>Widget_OnMouseDown</c>: a press on a widget arms it and starts the hold clock, and on a
+	/// draggable one also latches the pointer capture.
+	/// </summary>
 	private void OnPress(CockpitWidget? hit) {
 		if (hit is not { } widget) {
 			_pressed = null;
 			Depressed = null;
+			_capturing = false;
 			return;
 		}
 
@@ -209,14 +270,24 @@ public sealed class CockpitInput {
 		_pressedSurface = widget.Surface;
 		_pressedAtSeconds = _elapsedSeconds;
 		Depressed = widget.Id;
+		_capturing = widget.Draggable;
 	}
 
 	/// <summary>
 	/// §7's <c>Widget_OnMouseUp</c>, gated by §4's hold timer: the click fires only when the release
-	/// lands back on the armed widget and soon enough after the press.
+	/// lands back on the armed widget and soon enough after the press. A captured widget ends its
+	/// drag here and fires nothing — the original's release path takes the capture branch instead of
+	/// the click one.
 	/// </summary>
 	private void OnRelease(CockpitWidget? hit, CockpitMouseButtons released) {
 		if (_pressed is not { } armed) {
+			return;
+		}
+
+		if (_capturing) {
+			_capturing = false;
+			_pressed = null;
+			Depressed = null;
 			return;
 		}
 

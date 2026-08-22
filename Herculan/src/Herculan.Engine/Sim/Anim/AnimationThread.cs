@@ -1,0 +1,613 @@
+using Herculan.Engine.Numerics;
+
+namespace Herculan.Engine.Sim.Anim;
+
+/// <summary>
+/// One playing animation on a shape — DBSIM's 0x52-byte animation thread (constructed by
+/// <c>FUN_00478d3c</c>, stepped by <c>FUN_00479614</c>). A mech keeps one, at <c>mech+0x22c</c>.
+///
+/// <para>Beyond the obvious sequence/frame cursor, a thread carries two things locomotion depends
+/// on. The first is the <b>root-motion accumulator</b>: while a ground-movement sequence plays, the
+/// thread holds the current frame's whole ground displacement and hands out the ramped fraction of
+/// it that has elapsed. Seeding <see cref="ReadRoot"/>'s source to identity, stepping, then reading
+/// back yields exactly the displacement covered by that step — which is how a HERC moves, since
+/// HERCs have no velocity vector (see docs/simulation/mech-locomotion.md). The second is the
+/// <b>transition search</b>: asking for a target sequence does not cut to it, it looks for a
+/// transition frame that leads there and plays through it.</para>
+/// </summary>
+public sealed class AnimationThread {
+	private const short NoFrame = -1;
+
+	/// <summary>Set once the thread has reached <see cref="TargetSequence"/>.</summary>
+	private const int FlagAtTarget = 1;
+
+	/// <summary>Set while the current frame is a transition frame rather than a sequence frame.</summary>
+	private const int FlagInTransition = 2;
+
+	private readonly ShapeAnimation _animation;
+
+	private short _sequence;
+	private short _frame;
+	private short _nextSequence;
+	private short _nextFrame;
+
+	// Frame the transition search stopped on. Reaching it hands playback to the transition fields
+	// below instead of to the sequence's own next frame.
+	private short _scanFrame = NoFrame;
+	private short _transitionSequence;
+	private short _transitionFrame;
+	private short _transitionDuration;
+	private short _transitionTransform;
+
+	private short _targetSequence = NoFrame;
+	private short _targetFrame = NoFrame;
+	private short _targetFlags;
+
+	private short _frameAccumulator;
+	private short _frameDuration;
+
+	private bool _hasGroundMotion;
+	private short _groundX, _groundY, _groundZ;
+	private short _groundRotationX, _groundRotationY, _groundRotationZ;
+
+	private Transform3 _root = Transform3.Identity;
+	private short _rate;
+	private int _flags;
+
+	public AnimationThread(ShapeAnimation animation) {
+		_animation = animation;
+		SetSequence(0, 0, 0);
+		_root = Transform3.Identity;
+	}
+
+	/// <summary>The sequence currently playing.</summary>
+	public int Sequence => _sequence;
+
+	/// <summary>The frame currently playing.</summary>
+	public int Frame => _frame;
+
+	/// <summary>The sequence <see cref="SetTarget"/> last asked for, or -1.</summary>
+	public int TargetSequence => _targetSequence;
+
+	/// <summary>Whether playback has reached its target sequence.</summary>
+	public bool AtTarget => (_flags & FlagAtTarget) != 0;
+
+	/// <summary>Whether a transition frame is currently playing.</summary>
+	public bool InTransition => (_flags & FlagInTransition) != 0;
+
+	/// <summary>
+	/// Whether playback is inside one sequence rather than crossing into another. The gait state
+	/// machine only acts while this holds; mid-change it freezes the speed scalar instead.
+	/// </summary>
+	public bool IsSettled => _sequence == _nextSequence;
+
+	/// <summary>
+	/// Playback rate as a Q8 multiplier on the timestep — negative plays backwards.
+	/// <c>FUN_004795cc</c>: flipping the sign re-runs the transition search, since a transition that
+	/// leads to the target playing forwards is not the one that leads there playing backwards.
+	/// </summary>
+	public short Rate {
+		get => _rate;
+		set {
+			short previous = _rate;
+			_rate = value;
+			if ((value < 0) != (previous < 0)) {
+				SetTarget(_targetSequence, _targetFrame, _targetFlags);
+			}
+		}
+	}
+
+	/// <summary>
+	/// <c>FUN_004791a0</c> — cuts straight to a sequence and frame, abandoning any target. Used by
+	/// the gait state machine when it wants a sequence to start immediately rather than be
+	/// transitioned into.
+	/// </summary>
+	public void SetSequence(int sequence, int frame, short accumulator) {
+		_sequence = (short)sequence;
+		_frame = (short)frame;
+		_nextSequence = _sequence;
+
+		var current = _animation.Sequences[_sequence];
+		_nextFrame = (short)current.NextFrame(_frame);
+		_frameAccumulator = accumulator;
+		_frameDuration = current.FrameDurations[_frame];
+
+		LoadGroundTransform(_sequence, _frame);
+
+		_targetFrame = NoFrame;
+		_targetSequence = NoFrame;
+		_targetFlags = 0;
+		_scanFrame = NoFrame;
+		_flags = FlagAtTarget;
+	}
+
+	/// <summary>
+	/// <c>FUN_00479570</c> — asks playback to reach <paramref name="sequence"/>, via whatever
+	/// transition leads there. <paramref name="frame"/> of -1 means any frame of it will do; bit 0
+	/// of <paramref name="flags"/> makes playback stop dead on arrival instead of continuing.
+	/// </summary>
+	public void SetTarget(int sequence, int frame, short flags) {
+		_targetSequence = (short)sequence;
+		_targetFrame = (short)frame;
+		_targetFlags = flags;
+		_flags &= ~FlagAtTarget;
+
+		if (_targetSequence != NoFrame
+			&& (_sequence != _targetSequence || _frame != _targetFrame || _frameAccumulator != 0)) {
+			FindTransition();
+			return;
+		}
+
+		_flags |= FlagAtTarget;
+		_scanFrame = NoFrame;
+	}
+
+	/// <summary>
+	/// Drops any target and marks playback settled, leaving the current sequence running. The gait
+	/// state machine does this inline in five places rather than through a helper.
+	/// </summary>
+	public void ClearTarget() {
+		_scanFrame = NoFrame;
+		_targetFrame = NoFrame;
+		_targetSequence = NoFrame;
+		_targetFlags = 0;
+		_flags = FlagAtTarget;
+	}
+
+	/// <summary>
+	/// The whole thread state, for the save/restore a blocked move needs — <c>FUN_00402628</c> and
+	/// <c>FUN_004027fc</c> copy exactly these 0x52 bytes per thread so a rejected step can be
+	/// replayed without the animation having advanced twice.
+	/// </summary>
+	public readonly record struct State(
+		short Sequence, short Frame, short NextSequence, short NextFrame, short ScanFrame,
+		short TransitionSequence, short TransitionFrame, short TransitionDuration,
+		short TransitionTransform, short TargetSequence, short TargetFrame, short TargetFlags,
+		short FrameAccumulator, short FrameDuration, bool HasGroundMotion,
+		short GroundX, short GroundY, short GroundZ,
+		short GroundRotationX, short GroundRotationY, short GroundRotationZ,
+		Transform3 Root, short Rate, int Flags);
+
+	/// <summary>Captures the state <see cref="Restore"/> puts back.</summary>
+	public State Capture() => new(
+		_sequence, _frame, _nextSequence, _nextFrame, _scanFrame,
+		_transitionSequence, _transitionFrame, _transitionDuration, _transitionTransform,
+		_targetSequence, _targetFrame, _targetFlags, _frameAccumulator, _frameDuration,
+		_hasGroundMotion, _groundX, _groundY, _groundZ,
+		_groundRotationX, _groundRotationY, _groundRotationZ, _root, _rate, _flags);
+
+	/// <summary>Puts back a state captured by <see cref="Capture"/>.</summary>
+	public void Restore(in State state) {
+		_sequence = state.Sequence;
+		_frame = state.Frame;
+		_nextSequence = state.NextSequence;
+		_nextFrame = state.NextFrame;
+		_scanFrame = state.ScanFrame;
+		_transitionSequence = state.TransitionSequence;
+		_transitionFrame = state.TransitionFrame;
+		_transitionDuration = state.TransitionDuration;
+		_transitionTransform = state.TransitionTransform;
+		_targetSequence = state.TargetSequence;
+		_targetFrame = state.TargetFrame;
+		_targetFlags = state.TargetFlags;
+		_frameAccumulator = state.FrameAccumulator;
+		_frameDuration = state.FrameDuration;
+		_hasGroundMotion = state.HasGroundMotion;
+		_groundX = state.GroundX;
+		_groundY = state.GroundY;
+		_groundZ = state.GroundZ;
+		_groundRotationX = state.GroundRotationX;
+		_groundRotationY = state.GroundRotationY;
+		_groundRotationZ = state.GroundRotationZ;
+		_root = state.Root;
+		_rate = state.Rate;
+		_flags = state.Flags;
+	}
+
+	/// <summary>
+	/// <c>FUN_00479614</c> — advances playback by <paramref name="delta"/> (Q8 animation ticks,
+	/// scaled by <see cref="Rate"/>), crossing as many frames as that covers and committing each
+	/// crossed frame's root motion as it goes.
+	/// </summary>
+	public void Advance(short delta) {
+		if ((_flags & FlagAtTarget) != 0 && (_targetFlags & 1) != 0) {
+			return;
+		}
+
+		short step = (short)(((long)delta * _rate) >> 8);
+		if (step == 0) {
+			return;
+		}
+
+		step = (short)(_frameAccumulator + step);
+
+		// Playing backwards off the front of a sequence that does not wrap: hold at frame 0.
+		if (step < 0 && _frame == 0 && _frame != _scanFrame
+			&& _animation.Sequences[_sequence].PreviousFrame(_frame) == 0) {
+			step = 0;
+		}
+
+		if (step == 0) {
+			_frameAccumulator = 0;
+			if ((_flags & FlagInTransition) != 0) {
+				LandFromTransition();
+			}
+			NoteTargetReached();
+			return;
+		}
+
+		if (step < _frameDuration) {
+			if (step >= 0) {
+				_frameAccumulator = step;
+				return;
+			}
+
+			StepBackward(step);
+			return;
+		}
+
+		StepForward(step);
+	}
+
+	/// <summary>
+	/// <c>FUN_00478fa8</c> — the root transform as it stands part way through the current frame:
+	/// the stored transform with the elapsed fraction of this frame's ground motion applied.
+	/// </summary>
+	public Transform3 ReadRoot() {
+		if (!_hasGroundMotion) {
+			return _root;
+		}
+
+		return Transform3.Concat(ScaledGroundTransform(), _root);
+	}
+
+	/// <summary>
+	/// <c>FUN_00479088</c> — the inverse of <see cref="ReadRoot"/>: stores whatever transform would
+	/// make <see cref="ReadRoot"/> return <paramref name="value"/> right now. Seeding identity here
+	/// and reading back after <see cref="Advance"/> gives the step's own displacement and nothing
+	/// else.
+	/// </summary>
+	public void WriteRoot(in Transform3 value) {
+		if (!_hasGroundMotion) {
+			_root = value;
+			return;
+		}
+
+		var scaled = ScaledGroundTransform();
+		scaled.TransposeRotation();
+		var moved = scaled.RotateVector(-scaled.X, -scaled.Y, -scaled.Z);
+		scaled.X = moved.X;
+		scaled.Y = moved.Y;
+		scaled.Z = moved.Z;
+
+		_root = Transform3.Concat(scaled, value);
+	}
+
+	/// <summary>
+	/// One node's pose in shape space on the current frame: its own transform composed up its parent
+	/// chain, taking each node's animated transform where the playing sequence covers it and its rest
+	/// transform where it does not.
+	///
+	/// <para>This is what DBSIM keeps as an array of ready-made transforms on the shape instance
+	/// (<c>shapeInst+0x16</c>, indexed by transform id) and rebuilds each frame for every node. Only
+	/// the nodes something asks for are built here, because only the cockpit eye asks: geometry is
+	/// still drawn in its rest pose (see <c>DtsMeshBuilder</c>), so a mech's legs do not yet move
+	/// with the animation that is nonetheless carrying it across the ground.</para>
+	///
+	/// <para>Identity for an unknown id, so a shape with no such node puts the eye at the machine's
+	/// own origin rather than somewhere invented.</para>
+	/// </summary>
+	/// <param name="transformId">The node, in the transform id space the relations table uses.</param>
+	public Transform3 NodeTransform(int transformId) {
+		var accumulated = Transform3.Identity;
+		var sequence = _animation.Sequences[_sequence];
+		var upcoming = _animation.Sequences[_nextSequence];
+		int fraction = FrameFraction();
+		var parents = _animation.ParentTransform;
+
+		for (int step = 0; transformId >= 0 && step <= parents.Length; step++) {
+			int index = TransformIndexOf(sequence, _frame, transformId);
+			if (index >= 0 && index < _animation.Transforms.Length) {
+				accumulated = Transform3.Concat(accumulated,
+					NodeLocal(InterpolatedLocal(index, upcoming, transformId, fraction)));
+			}
+
+			transformId = transformId < parents.Length ? parents[transformId] : -1;
+		}
+
+		return accumulated;
+	}
+
+	/// <summary>
+	/// One node's local transform part way between the frame playing and the frame playback is headed
+	/// for — <c>FUN_004799a4</c>'s inner loop.
+	///
+	/// <para>Where the two frames name the same pool entry the entry stands as it is, which is the
+	/// original's own short-circuit and not merely an optimisation: identical indices are identical
+	/// transforms, so blending them would only cost rounding.</para>
+	/// </summary>
+	private AnimTransform InterpolatedLocal(int index, AnimSequence upcoming, int transformId,
+			int fraction) {
+		int nextIndex = TransformIndexOf(upcoming, _nextFrame, transformId);
+		if (nextIndex == index || nextIndex < 0 || nextIndex >= _animation.Transforms.Length) {
+			return _animation.Transforms[index];
+		}
+
+		return AnimTransform.Blend(_animation.Transforms[index], _animation.Transforms[nextIndex],
+			fraction);
+	}
+
+	/// <summary>
+	/// How far through the current frame playback stands, in Q10 (0x400 == a whole frame) with the
+	/// divide rounded — <c>FUN_004799a4</c>'s <c>(elapsed * 0x400 + duration / 2) / duration</c>.
+	///
+	/// <para>This is the same elapsed fraction <see cref="ScaledGroundTransform"/> ramps ground motion
+	/// by. That both the pose and the ground movement ride the one fraction is the whole reason the
+	/// original looks smooth at any speed: a slow walk stretches the keyframes out in time, and the
+	/// pose keeps moving between them rather than stepping.</para>
+	/// </summary>
+	private int FrameFraction() =>
+		_frameDuration == 0 ? 0 : (_frameAccumulator * 0x400 + _frameDuration / 2) / _frameDuration;
+
+	/// <summary>
+	/// Which entry of the transform pool a node holds on one frame: that frame's if the playing
+	/// sequence animates it, its default otherwise. -1 when it is neither, which is a node the shape
+	/// never places.
+	/// </summary>
+	private int TransformIndexOf(AnimSequence sequence, int frame, int transformId) {
+		// Part id 0 is skipped, as FUN_004799a4 skips it: column 0 of every sequence carries the
+		// sequence's *root motion*, not a pose, and the original never writes it into the node array
+		// — that node keeps its default. Without this a caller asking for node 0 gets the ramped
+		// ground displacement back as though it were a pose, which is the same displacement the
+		// object's own position already carries.
+		int column = transformId != 0 ? sequence.ColumnOf(transformId) : -1;
+		if (column >= 0) {
+			int offset = frame * sequence.PartCount + column;
+			if (offset >= 0 && offset < sequence.TransformIndices.Length) {
+				return sequence.TransformIndices[offset];
+			}
+		}
+
+		var defaults = _animation.DefaultTransforms;
+		return transformId >= 0 && transformId < defaults.Length ? defaults[transformId] : -1;
+	}
+
+	/// <summary>One pool entry as a transform: the euler rotation with the translation hung off it.</summary>
+	private static Transform3 NodeLocal(in AnimTransform source) {
+		var transform = Transform3.FromEuler(source.RotationX, source.RotationY, source.RotationZ);
+		transform.X = source.X;
+		transform.Y = source.Y;
+		transform.Z = source.Z;
+		return transform;
+	}
+
+	/// <summary>The whole of the current frame's ground motion, unscaled.</summary>
+	private Transform3 GroundTransform() {
+		var transform = Transform3.FromEuler(_groundRotationX, _groundRotationY, _groundRotationZ);
+		transform.X = _groundX;
+		transform.Y = _groundY;
+		transform.Z = _groundZ;
+		return transform;
+	}
+
+	/// <summary>
+	/// The fraction of the current frame's ground motion that has elapsed. Both the rotation and the
+	/// translation are scaled linearly and truncated, exactly as the original does — which is what
+	/// makes a HERC's ground speed pulse within a stride rather than hold steady.
+	/// </summary>
+	private Transform3 ScaledGroundTransform() {
+		int elapsed = _frameAccumulator;
+		int duration = _frameDuration;
+		if (duration == 0) {
+			// A zero-length frame has no elapsed fraction to scale. The original divides
+			// unconditionally here, so this state cannot arise in it; the limit is the identity.
+			return Transform3.Identity;
+		}
+
+		var transform = Transform3.FromEuler(
+			(short)(_groundRotationX * elapsed / duration),
+			(short)(_groundRotationY * elapsed / duration),
+			(short)(_groundRotationZ * elapsed / duration));
+		transform.X = _groundX * elapsed / duration;
+		transform.Y = _groundY * elapsed / duration;
+		transform.Z = _groundZ * elapsed / duration;
+		return transform;
+	}
+
+	/// <summary><c>FUN_00478e60</c> — folds a whole frame's ground motion into the stored transform.</summary>
+	private void CommitFrameForward() {
+		if (_hasGroundMotion) {
+			_root = Transform3.Concat(GroundTransform(), _root);
+		}
+	}
+
+	/// <summary><c>FUN_00478ee8</c> — the same, undone, for backward playback.</summary>
+	private void CommitFrameBackward() {
+		if (!_hasGroundMotion) {
+			return;
+		}
+
+		var transform = GroundTransform();
+		transform.TransposeRotation();
+		var moved = transform.RotateVector(-transform.X, -transform.Y, -transform.Z);
+		transform.X = moved.X;
+		transform.Y = moved.Y;
+		transform.Z = moved.Z;
+
+		_root = Transform3.Concat(transform, _root);
+	}
+
+	/// <summary><c>FUN_00478de8</c> — loads a frame's root-part transform as this frame's ground motion.</summary>
+	private void LoadGroundTransform(int sequence, int frame) {
+		var current = _animation.Sequences[sequence];
+		if (!current.GroundMovement) {
+			_hasGroundMotion = false;
+			return;
+		}
+
+		// Part index 0 is the root; the sequence's transform indices are row-major by frame.
+		SetGroundTransform(current.TransformIndices[frame * current.PartCount]);
+	}
+
+	private void SetGroundTransform(int transformIndex) {
+		var transform = _animation.Transforms[transformIndex];
+		_groundX = transform.X;
+		_groundY = transform.Y;
+		_groundZ = transform.Z;
+		_groundRotationX = transform.RotationX;
+		_groundRotationY = transform.RotationY;
+		_groundRotationZ = transform.RotationZ;
+		_hasGroundMotion = true;
+	}
+
+	private void LandFromTransition() {
+		var current = _animation.Sequences[_sequence];
+		_nextSequence = _sequence;
+		_nextFrame = (short)current.NextFrame(_frame);
+		_frameDuration = current.FrameDurations[_frame];
+		_flags &= ~FlagInTransition;
+		LoadGroundTransform(_sequence, _frame);
+	}
+
+	private void NoteTargetReached() {
+		if (_sequence == _targetSequence && (_targetFrame == _frame || _targetFrame == NoFrame)) {
+			_flags |= FlagAtTarget;
+		}
+	}
+
+	private void StepForward(short step) {
+		while (step != 0 && _frameDuration <= step) {
+			CommitFrameForward();
+			_sequence = _nextSequence;
+			_frame = _nextFrame;
+
+			if (_nextFrame == _scanFrame) {
+				_nextSequence = _transitionSequence;
+				_nextFrame = _transitionFrame;
+				step = (short)(step - _frameDuration);
+				_frameDuration = _transitionDuration;
+				_frameAccumulator = 0;
+				_scanFrame = NoFrame;
+				_flags |= FlagInTransition;
+				SetGroundTransform(_transitionTransform);
+			} else {
+				_nextFrame = (short)_animation.Sequences[_nextSequence].NextFrame(_nextFrame);
+				step = (short)(step - _frameDuration);
+
+				short duration = _animation.Sequences[_sequence].FrameDurations[_frame];
+				_frameDuration = duration;
+				if (duration == 0) {
+					step = 0;
+				}
+
+				_frameAccumulator = 0;
+				_flags &= ~FlagInTransition;
+				LoadGroundTransform(_sequence, _frame);
+			}
+
+			if (_sequence == _targetSequence && (_targetFrame == _frame || _targetFrame == NoFrame)) {
+				_flags |= FlagAtTarget;
+				if ((_targetFlags & 1) != 0) {
+					step = 0;
+				}
+			}
+		}
+
+		_frameAccumulator = step;
+	}
+
+	private void StepBackward(short step) {
+		while (step < 0) {
+			_nextSequence = _sequence;
+			_nextFrame = _frame;
+
+			if (_frame == _scanFrame) {
+				_sequence = _transitionSequence;
+				_frame = _transitionFrame;
+				_frameDuration = _transitionDuration;
+				_scanFrame = NoFrame;
+				_flags |= FlagInTransition;
+				SetGroundTransform(_transitionTransform);
+			} else {
+				_frame = (short)_animation.Sequences[_sequence].PreviousFrame(_frame);
+				_frameDuration = _animation.Sequences[_sequence].FrameDurations[_frame];
+				_flags &= ~FlagInTransition;
+				LoadGroundTransform(_sequence, _frame);
+			}
+
+			CommitFrameBackward();
+
+			if (-_frameDuration == step || -step < _frameDuration) {
+				_frameAccumulator = (short)(step + _frameDuration);
+				step = 0;
+			} else {
+				_frameAccumulator = 0;
+				step = (short)(step + _frameDuration);
+			}
+
+			if (_sequence == _targetSequence && (_targetFrame == _frame || _targetFrame == NoFrame)) {
+				_flags |= FlagAtTarget;
+				if ((_targetFlags & 1) != 0) {
+					step = 0;
+					_frameAccumulator = 0;
+				}
+			}
+		}
+	}
+
+	/// <summary>
+	/// <c>FUN_004792c8</c> — walks the current sequence's frames looking for one that offers a
+	/// transition into the target sequence, and arms it. Gives up after a full lap, leaving
+	/// <see cref="_scanFrame"/> at -1 so playback simply continues where it is.
+	/// </summary>
+	private void FindTransition() {
+		bool backward = _rate < 0;
+		short start = backward ? _frame : _nextFrame;
+		_scanFrame = start;
+
+		do {
+			var current = _animation.Sequences[_sequence];
+			int first = current.FirstTransitions[_scanFrame];
+			int remaining = current.TransitionCounts[_scanFrame];
+
+			for (; remaining != 0; remaining--, first++) {
+				var transition = _animation.Transitions[first];
+				if (transition.DestinationSequence != _targetSequence) {
+					continue;
+				}
+
+				_transitionDuration = transition.Duration;
+				_transitionSequence = _targetSequence;
+				_transitionFrame = transition.DestinationFrame;
+				_transitionTransform = transition.TransformIndex;
+
+				if (_targetFrame == NoFrame) {
+					return;
+				}
+
+				// Only accept a transition whose landing frame is on the near side of the target,
+				// so playback still runs into it rather than past it.
+				bool reachesTarget = backward
+					? _transitionFrame > _targetFrame
+						|| (_transitionFrame == _targetFrame && _frameAccumulator == 0)
+					: _transitionFrame < _targetFrame
+						|| (_transitionFrame == _targetFrame && _frameAccumulator == 0);
+
+				if (reachesTarget) {
+					return;
+				}
+			}
+
+			short previous = _scanFrame;
+			_scanFrame = (short)(backward
+				? current.PreviousFrame(_scanFrame)
+				: current.NextFrame(_scanFrame));
+
+			if (previous == _scanFrame || _scanFrame == start) {
+				break;
+			}
+		} while (true);
+
+		_scanFrame = NoFrame;
+	}
+}

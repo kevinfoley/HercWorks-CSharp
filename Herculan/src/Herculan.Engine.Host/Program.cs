@@ -3,12 +3,16 @@ using Herculan.Engine;
 using Herculan.Engine.Content;
 using Herculan.Engine.Gl;
 using Herculan.Engine.Input;
+using Herculan.Engine.Numerics;
 using Herculan.Engine.Render;
 using Herculan.Engine.Scene;
 using Herculan.Engine.Sim;
+using Herculan.Engine.Sim.Anim;
 using Herculan.Engine.World;
+using ImGuiNET;
 using Silk.NET.Input;
 using Silk.NET.OpenGL;
+using Silk.NET.OpenGL.Extensions.ImGui;
 
 // The thin front-end host from docs/engine/planning.md's "Engine internal architecture" section:
 // it locates an install, asks the engine to build a scene from a real mission, and runs a real-time
@@ -22,6 +26,7 @@ MfdMode? initialMfdMode = null;
 bool startOnHeadsDown = false;
 HddPage initialHddPage = CockpitHudState.Default.Hdd;
 HddDamageView initialHddDamageView = CockpitHudState.Default.HddDamage;
+short initialThrottle = 0;
 for (int i = 0; i < args.Length; i++) {
 	if (args[i] == "--screenshot" && i + 1 < args.Length) {
 		screenshotPath = args[++i];
@@ -40,6 +45,12 @@ for (int i = 0; i < args.Length; i++) {
 			initialHddPage = (HddPage)hddIndex;
 			i++;
 		}
+	} else if (args[i] == "--throttle" && i + 1 < args.Length
+			&& int.TryParse(args[++i], out int throttleSetting)) {
+		// Power up with the throttle already open, for the same reason as --mfd and --hdd: a
+		// --screenshot run never sees a keystroke, and a walking machine is the only way to see the
+		// gait, the cockpit bob or the slider anywhere but its centre. ±1024 is full travel.
+		initialThrottle = (short)Math.Clamp(throttleSetting, -ThrottleTrack.Full, ThrottleTrack.Full);
 	} else if (args[i] == "--hdd-damage" && i + 1 < args.Length
 			&& int.TryParse(args[++i], out int damageIndex) && damageIndex >= 0 && damageIndex <= 2) {
 		// Which component category the damage screen powers up listing. [S], [I] and [W] switch it
@@ -188,7 +199,75 @@ if (cockpitArt != null && mission.Player is { } playerMech && WeaponNameTable.Lo
 	Console.WriteLine("Hardpoints: " + string.Join(", ", hudState.WeaponNames.Where(n => n.Length > 0)));
 }
 
-Console.WriteLine("W/A/S/D move, R/F rise and fall, arrow keys look, Shift boosts, Esc quits.");
+// Milestone 9: the player walks. A HERC has no velocity vector — the walk and run animations' root
+// motion is what moves it — so piloting is the arrow keys on the throttle and the stick, and the
+// machine covers whatever ground its own gait covers. See docs/simulation/mech-locomotion.md.
+//
+// Retail's own bindings, from the manual's keyboard table and its throttle section: left and right
+// arrows steer, up and down arrows open and close the throttle, and keypad [5] is all stop. The
+// manual says the numeric keypad with NUM LOCK off, which on a real keyboard is the same key as the
+// arrow cluster; both are accepted here since a host window has no NUM LOCK to read.
+var pilotMech = scene.PlayerMech;
+bool piloting = pilotMech != null;
+bool allStopKeyDown = false;
+
+// [V], the external view: the camera parked behind the machine with the cockpit not drawn. Both the
+// geometry and this binding are placeholders — see ExternalCamera for what has not been RE'd. The
+// manual's own [V] cycles through several external cameras; this is one fixed chase view and a
+// toggle.
+bool externalView = false;
+bool externalViewKeyDown = false;
+
+// The debug panel, on [Esc] — which therefore no longer quits; close the window for that. Built with
+// ImGui, the toolkit the editor host already uses, rather than the game's own HUD font: that font and
+// its sprite banks are the original's art placed from the original's own layout files, and bending
+// them into a live settings panel would cost far more than adding a toolkit already in the tree.
+// Nothing the *game* draws goes through ImGui.
+bool debugPanel = false;
+bool debugPanelKeyDown = false;
+bool drawSkeleton = true;
+bool steadyEye = false;
+bool steadyEyeCaptured = false;
+int steadyEyeRiseUnits = 0;
+
+// What the panel reports about the walk. The eye's rise above the machine's own origin is the whole
+// of the cockpit bob (see MechObject.EyePosition), so tracking its swing turns "it feels wrong" into
+// a number that can be checked against the 0.24-0.42 m a retail stride is supposed to cover.
+float eyeRiseMeters = 0f;
+float eyeRiseMin = float.MaxValue;
+float eyeRiseMax = float.MinValue;
+float lastStepMeters = 0f;
+Vec3i lastMechPosition = default;
+bool haveLastPosition = false;
+int skeletonJointCount = 0;
+
+string debugFontPath = Path.Combine(AppContext.BaseDirectory,
+	"Assets", "Fonts", "Open_Sans", "static", "OpenSans-Regular.ttf");
+
+// The console's throttle slider and the machine's throttle setting are two-way bound, so the gauge's
+// own value is state in its own right: it is what the machine reads on any frame the machine did not
+// itself move the throttle. See MechObject.ExchangeCockpitThrottle.
+var throttleTrack = cockpitArt != null ? ThrottleTrack.From(cockpitArt) : null;
+short throttleGauge = initialThrottle;
+if (pilotMech != null && initialThrottle != 0) {
+	pilotMech.Throttle = initialThrottle;
+}
+
+if (pilotMech != null) {
+	Console.WriteLine(
+		$"Piloting {pilotMech.Name}: top speed {pilotMech.Type.DisplaySpeedKph(pilotMech.Type.MaxForward)} km/h, "
+		+ $"walk/run threshold at {pilotMech.Type.DisplaySpeedKph(pilotMech.Type.GaitThreshold)} km/h"
+		+ (pilotMech.Thread == null ? " — no animation data, so it cannot walk." : "."));
+	Console.WriteLine("Up/Down arrows throttle — hold Down through zero for reverse — Left/Right "
+		+ "arrows turn, keypad 5 all stop, C switches to the free camera, V to the external view.");
+	Console.WriteLine(throttleTrack != null
+		? "Drag the console's throttle slider with the mouse to set it; it tracks the keys either way."
+		: "No throttle slider in this herc's .GAU — keyboard throttle only.");
+}
+
+Console.WriteLine("Free camera: W/A/S/D move, R/F rise and fall, arrow keys look, Shift boosts.");
+Console.WriteLine("Esc opens the debug panel (skeleton view, animation readouts) — it no longer quits; "
+	+ "close the window for that.");
 Console.WriteLine("F1-F6 switch the MFD screen: STATUS, FLASH COMM, NAV MAP, SCANNER, TARGET, MISSILE CAM.");
 Console.WriteLine("F7/F8 pan down to the Heads-Down Display's command and damage screens; "
 	+ "F1-F6 pan back up.");
@@ -198,6 +277,8 @@ using var window = new EngineWindow($"HERCULAN Engine — zone {mission.Header.Z
 
 SceneRenderer? renderer = null;
 Overlay2DRenderer? overlay = null;
+WireframeRenderer? wireframe = null;
+ImGuiController? imgui = null;
 GpuMesh? terrainMesh = null;
 GpuTexture? terrainTexture = null;
 GpuTexture? cockpitFrontTexture = null;
@@ -208,7 +289,10 @@ var modelMeshes = new Dictionary<string, GpuMesh>();
 var modelTextures = new Dictionary<string, GpuTexture>();
 var disposables = new List<IDisposable>();
 SceneItem[]? items = null;
+SceneItem[]? pilotedItems = null;
+var movers = new List<(SceneObject Object, SceneItem Item)>();
 IKeyboard? keyboard = null;
+bool cameraKeyDown = false;
 var cockpitInput = new CockpitInput();
 var camera = new Camera();
 int framesRendered = 0;
@@ -223,6 +307,8 @@ const double MaxAccumulatedSeconds = 0.25;
 window.Load += (gl, input) => {
 	renderer = new SceneRenderer(gl);
 	overlay = new Overlay2DRenderer(gl);
+	wireframe = new WireframeRenderer(gl);
+	imgui = new ImGuiController(gl, window.View, input, new ImGuiFontConfig(debugFontPath, 16));
 
 	terrainMesh = new GpuMesh(gl, scene.TerrainMesh);
 	terrainTexture = scene.TerrainBank != null ? new GpuTexture(gl, scene.TerrainBank.Atlas) : null;
@@ -256,16 +342,38 @@ window.Load += (gl, input) => {
 		new(terrainMesh, Matrix4x4.Identity, terrainTexture?.Handle)
 	};
 
+	// The player's own machine, kept aside so the cockpit view can leave it out — see below.
+	SceneItem? playerItem = null;
+
 	foreach (var sceneObject in scene.Objects) {
 		if (sceneObject.Model is not { } model || !modelMeshes.TryGetValue(model.Key, out var mesh)) {
 			continue;
 		}
 
-		built.Add(new SceneItem(mesh, MissionScene.TransformOf(sceneObject),
-			modelTextures.TryGetValue(model.Key, out var texture) ? texture.Handle : null));
+		var item = new SceneItem(mesh, MissionScene.TransformOf(sceneObject),
+			modelTextures.TryGetValue(model.Key, out var texture) ? texture.Handle : null);
+		built.Add(item);
+
+		if (ReferenceEquals(sceneObject, scene.PlayerObject)) {
+			playerItem = item;
+		}
+
+		// Anything that can move needs its transform refreshed every frame. Structures never do, so
+		// they stay on the one built here.
+		if (sceneObject.Object is MechObject) {
+			movers.Add((sceneObject, item));
+		}
 	}
 
 	items = built.ToArray();
+
+	// Piloting means sitting inside the machine, and its own geometry is all around the eye — the
+	// cockpit node the camera rides is well inside the torso, so drawing it fills the canopy and
+	// hides the world. Both lists share the same SceneItem objects, so the per-frame transform
+	// refresh reaches whichever one is being drawn.
+	pilotedItems = playerItem != null
+		? built.Where(entry => !ReferenceEquals(entry, playerItem)).ToArray()
+		: items;
 	keyboard = input.Keyboards.Count > 0 ? input.Keyboards[0] : null;
 
 	// Mouse events are queued here and nowhere else: everything that decides what a click means runs
@@ -302,11 +410,63 @@ window.Load += (gl, input) => {
 };
 
 window.Update += deltaSeconds => {
-	scene.Camera.Input = ReadInput(keyboard);
+	imgui?.Update((float)deltaSeconds);
 
-	if (keyboard?.IsKeyPressed(Key.Escape) == true) {
-		window.Close();
-		return;
+	// [Esc] opens and closes the debug panel. Read before the capture gate below and on its own edge,
+	// so the key that opens the panel is also the key that closes it however ImGui feels about focus.
+	if (keyboard != null) {
+		bool debugPanelKey = keyboard.IsKeyPressed(Key.Escape);
+		if (debugPanelKey && !debugPanelKeyDown) {
+			debugPanel = !debugPanel;
+		}
+		debugPanelKeyDown = debugPanelKey;
+	}
+
+	// Everything below reads `controls` rather than the device itself: while the panel has keyboard
+	// focus it is null, so piloting and camera keys go dead instead of the panel and the machine both
+	// acting on the same keystroke.
+	var controls = imgui != null && ImGui.GetIO().WantCaptureKeyboard ? null : keyboard;
+
+	// [C] swaps between flying the observer camera and piloting the machine, on the key's own edge
+	// so holding it does not flicker between the two.
+	if (pilotMech != null && controls != null) {
+		bool cameraKey = controls.IsKeyPressed(Key.C);
+		if (cameraKey && !cameraKeyDown) {
+			piloting = !piloting;
+		}
+		cameraKeyDown = cameraKey;
+
+		// [V] swaps between sitting in the cockpit and watching the machine from behind it, on its own
+		// edge for the same reason. The cockpit is not drawn in the external view, and the machine —
+		// left out of the cockpit view because its geometry wraps the eye — is.
+		bool externalViewKey = controls.IsKeyPressed(Key.V);
+		if (externalViewKey && !externalViewKeyDown) {
+			externalView = !externalView;
+		}
+		externalViewKeyDown = externalViewKey;
+	}
+
+	if (piloting && pilotMech != null && controls != null) {
+		// Keypad [5], all stop: zero the throttle and let the gauge follow the machine this frame
+		// rather than putting the old setting straight back. On its own edge, so holding it does not
+		// fight a throttle the player is trying to open again.
+		bool allStopKey = controls.IsKeyPressed(Key.Keypad5);
+		if (allStopKey && !allStopKeyDown) {
+			pilotMech.AllStop();
+		}
+		allStopKeyDown = allStopKey;
+
+		// Stick sign convention is the device's, not the game's: forward and left are negative. No
+		// throttle lever, so the throttle's range spans both directions and holding [Down] takes the
+		// machine through zero into reverse — see MechControls.ThrottleLever.
+		pilotMech.Controls = new MechControls(
+			(short)(Axis(controls, Key.Right, Key.Left, Key.Keypad6, Key.Keypad4) * MechControls.AxisFull),
+			(short)(Axis(controls, Key.Down, Key.Up, Key.Keypad2, Key.Keypad8) * MechControls.AxisFull));
+	} else {
+		scene.Camera.Input = ReadInput(controls);
+		if (pilotMech != null) {
+			pilotMech.Controls = MechControls.Neutral;
+		}
 	}
 
 	// F1-F6 pick the MFD screen, the same keys and the same order as the original's own mode buttons
@@ -314,7 +474,7 @@ window.Update += deltaSeconds => {
 	// Selecting one also pans back up to the cockpit, which is the manual's own rule for leaving the
 	// Heads-Down Display ("select an MFD screen [F1]-[F6], press [Esc], or click the top of the
 	// screen") and matches view command 1, the "up" half of the pair at 0042a3f4.
-	if (keyboard != null && ReadMfdMode(keyboard) is { } requestedMfdMode) {
+	if (controls != null && ReadMfdMode(controls) is { } requestedMfdMode) {
 		hudState = hudState with { Mfd = requestedMfdMode };
 		cockpitPan.Request(headsDown: false);
 	}
@@ -322,11 +482,11 @@ window.Update += deltaSeconds => {
 	// F7 (Command Display) and F8 (Damage Detail) are the two HDD functions, and per the manual
 	// either one opens the display — so each both pans down and selects its own screen, which is
 	// what the display's own two page buttons dispatch (FUN_0044a5e4 with the button's index).
-	if (cockpitHeadsDownTexture != null && keyboard != null) {
-		if (keyboard.IsKeyPressed(Key.F7)) {
+	if (cockpitHeadsDownTexture != null && controls != null) {
+		if (controls.IsKeyPressed(Key.F7)) {
 			hudState = hudState with { Hdd = HddPage.CommandDisplay };
 			cockpitPan.Request(headsDown: true);
-		} else if (keyboard.IsKeyPressed(Key.F8)) {
+		} else if (controls.IsKeyPressed(Key.F8)) {
 			hudState = hudState with { Hdd = HddPage.DamageDetail };
 			cockpitPan.Request(headsDown: true);
 		}
@@ -336,8 +496,8 @@ window.Update += deltaSeconds => {
 	// same three the display's up/down arrow buttons step through. Only while that screen is actually
 	// down: [S] and [W] are also two thirds of this host's camera movement, and the original has no
 	// such clash because its own [S]/[I]/[W] only mean anything on this screen either.
-	if (keyboard != null && cockpitPan.AtHeadsDown && hudState.Hdd == HddPage.DamageDetail
-		&& ReadHddDamageView(keyboard) is { } damageView) {
+	if (controls != null && cockpitPan.AtHeadsDown && hudState.Hdd == HddPage.DamageDetail
+		&& ReadHddDamageView(controls) is { } damageView) {
 		hudState = hudState with { HddDamage = damageView };
 	}
 
@@ -345,13 +505,26 @@ window.Update += deltaSeconds => {
 	// that reacts to it keep a fixed order every frame — the point of queueing them in the first
 	// place. The layout is rebuilt from this frame's pan position, which is the same one Render will
 	// use, so what the player is clicking is what they are looking at.
-	if (cockpitArt != null) {
+	// Nothing to click while the cockpit is off screen, so the whole click path sits out the external
+	// view rather than hit-testing a console the player cannot see — and likewise while the pointer is
+	// over the debug panel, so a click on a checkbox is not also a click on the console behind it.
+	if (cockpitArt != null && !ExternalViewActive()
+			&& (imgui == null || !ImGui.GetIO().WantCaptureMouse)) {
 		var framebuffer = window.FramebufferSize;
 		var inputLayout = CockpitScreenLayout.Create(framebuffer.X, framebuffer.Y, cockpitArt,
 			cockpitPan.OffsetRows, cockpitPan.TravelRows);
 
 		foreach (var click in cockpitInput.Drain(deltaSeconds, inputLayout, cockpitArt, hudState)) {
 			ApplyCockpitClick(click);
+		}
+
+		// The one draggable control. Dragging the slider sets the gauge, and the machine picks that up
+		// on this frame's exchange unless its own input moved the throttle first.
+		foreach (var drag in cockpitInput.Drags) {
+			if (drag.Id.Kind == CockpitWidgetKind.Throttle && throttleTrack is { } track) {
+				throttleGauge = track.ThrottleAt(drag.ArtY);
+
+			}
 		}
 
 		// Held buttons draw depressed, and pop back up if the pointer slides off them still held.
@@ -368,7 +541,76 @@ window.Update += deltaSeconds => {
 		tickAccumulator -= SecondsPerTick;
 	}
 
-	scene.Camera.ApplyTo(camera);
+	foreach (var (sceneObject, item) in movers) {
+		item.Transform = MissionScene.TransformOf(sceneObject);
+	}
+
+	if (piloting && pilotMech != null) {
+		if (externalView) {
+			// Fixed chase view, ~10 m behind the machine. Placeholder geometry — see ExternalCamera.
+			ExternalCamera.Place(camera, pilotMech, terrain);
+		} else {
+			// The eye rides the model node the type record names, so the walk cycle's bob comes with it —
+			// see MechObject.EyePosition. Camera yaw runs opposite to a simulation heading; see
+			// MissionScene.TransformOf.
+			//
+			// The debug panel's "steady eye" pins the eye's *height* to whatever it was the moment the
+			// toggle went on and leaves everything else — the machine's own travel, its lean, the eye's
+			// fore/aft swing — alone. That isolates the vertical bob from the ride without touching the
+			// animation that produces either, which is the A/B for "is it the eye or the machine?".
+			var eye = pilotMech.EyePosition;
+			if (steadyEye) {
+				if (!steadyEyeCaptured) {
+					steadyEyeRiseUnits = eye.Z - pilotMech.Position.Z;
+					steadyEyeCaptured = true;
+				}
+
+				eye = new Vec3i(eye.X, eye.Y, pilotMech.Position.Z + steadyEyeRiseUnits);
+			} else {
+				steadyEyeCaptured = false;
+			}
+
+			camera.Position = eye;
+			camera.Yaw = -pilotMech.Heading & 0xffff;
+			camera.Pitch = 0;
+		}
+
+		// Keep the observer camera on the machine, so switching to it lands where the player was
+		// rather than wherever it was parked at mission start.
+		scene.Camera.Position = camera.Position;
+		scene.Camera.Heading = camera.Yaw;
+	} else {
+		scene.Camera.ApplyTo(camera);
+	}
+
+	// What the debug panel reports. Measured every frame whether or not the panel is open, so opening
+	// it mid-stride shows the stride rather than starting from nothing — and so the min/max swing is
+	// a record of the walk, not of how long the panel has been up.
+	if (pilotMech != null) {
+		eyeRiseMeters = (pilotMech.EyePosition.Z - pilotMech.Position.Z) / WorldScale.WorldUnitsPerMeter;
+		eyeRiseMin = Math.Min(eyeRiseMin, eyeRiseMeters);
+		eyeRiseMax = Math.Max(eyeRiseMax, eyeRiseMeters);
+
+		if (haveLastPosition) {
+			var step = pilotMech.Position;
+			lastStepMeters = new Vector2(
+				(step.X - lastMechPosition.X) / WorldScale.WorldUnitsPerMeter,
+				(step.Y - lastMechPosition.Y) / WorldScale.WorldUnitsPerMeter).Length();
+		}
+
+		lastMechPosition = pilotMech.Position;
+		haveLastPosition = true;
+	}
+
+	if (cockpitArt != null && pilotMech != null) {
+		// Player_PerFrameCockpitUpdate's own order: the gauge and the machine settle which of them
+		// moved this frame, then the readouts are taken from the machine.
+		throttleGauge = pilotMech.ExchangeCockpitThrottle(throttleGauge);
+		hudState = hudState with {
+			SpeedKph = pilotMech.DisplaySpeedKph,
+			Throttle = throttleGauge,
+		};
+	}
 };
 
 window.Render += (_, gl) => {
@@ -379,11 +621,21 @@ window.Render += (_, gl) => {
 	var size = window.FramebufferSize;
 	renderer.Clear();
 
-	if (cockpitArt != null && cockpitFrontTexture != null && cockpitSideTexture != null) {
+	// The external view is drawn as one full-window 3D view with no canopy over it — there is no
+	// cockpit to see from outside the machine.
+	if (cockpitArt != null && cockpitFrontTexture != null && cockpitSideTexture != null
+			&& !ExternalViewActive()) {
 		DrawThreePanelCockpitView(gl, size.X, size.Y);
 	} else {
-		renderer.Render(camera, items, 0, 0, size.X, size.Y);
+		renderer.Render(camera, VisibleItems(), 0, 0, size.X, size.Y);
+		DrawSkeleton(camera, size.X, size.Y);
 	}
+
+	if (debugPanel) {
+		BuildDebugPanel(size.Y);
+	}
+
+	imgui?.Render();
 
 	framesRendered++;
 	if (screenshotPath != null && !screenshotTaken && framesRendered >= 30) {
@@ -394,8 +646,10 @@ window.Render += (_, gl) => {
 };
 
 window.Closing += () => {
+	imgui?.Dispose();
 	renderer?.Dispose();
 	overlay?.Dispose();
+	wireframe?.Dispose();
 	terrainMesh?.Dispose();
 	terrainTexture?.Dispose();
 	cockpitFrontTexture?.Dispose();
@@ -460,12 +714,125 @@ void DrawThreePanelCockpitView(GL gl, int totalWidth, int totalHeight) {
 	void DrawPanel(CockpitScreenLayout.PlacedSurface surface, int yawOffset, GpuTexture texture,
 			bool mirrorHorizontally, CockpitArt? hud) {
 		var viewport = surface.Viewport;
-		renderer!.Render(ClonePanelCamera(camera, yawOffset), items!,
+		var panelCamera = ClonePanelCamera(camera, yawOffset);
+		renderer!.Render(panelCamera, VisibleItems(),
 			viewport.X, viewport.Y, viewport.Width, viewport.Height);
+
+		// Before the canopy goes over it, so the skeleton is clipped by the viewport hole like the rest
+		// of the world. Mostly of use with the machine's own model hidden, but it costs one draw call.
+		DrawSkeleton(panelCamera, viewport.Width, viewport.Height);
 		overlay!.Draw(viewport.X, viewport.Y, viewport.Width, viewport.Height, texture,
 			surface.ArtWidth, surface.ArtHeight, mirrorHorizontally, hud,
 			spriteTexture: hudSpriteTexture, hudState: hudState);
 	}
+}
+
+// The animating skeleton, drawn over whatever was just rendered into the current viewport.
+//
+// This is the only view of the animation system there is. The mesh is baked at the shape's default
+// pose and drawn with one matrix per object (see DtsMeshBuilder.ResolveGroupOffset), so a playing
+// walk cycle moves nothing on screen; before this, the only observable output of the whole thread
+// was where the player's eye ended up. Bones are drawn through solid geometry on purpose — the
+// skeleton is inside the model it belongs to.
+void DrawSkeleton(Camera view, int viewportWidth, int viewportHeight) {
+	if (!drawSkeleton || wireframe == null || pilotMech == null) {
+		return;
+	}
+
+	var joints = SkeletonPose.Build(pilotMech);
+	skeletonJointCount = joints.Length;
+	if (joints.Length == 0) {
+		return;
+	}
+
+	float aspect = (float)viewportWidth / Math.Max(viewportHeight, 1);
+	wireframe.DrawLines(view, SkeletonWireframe.Build(joints), new Vector3(0.2f, 1f, 0.85f), aspect);
+
+	// The node the eye rides, flagged in its own colour: it is the one joint whose motion the player
+	// actually feels, so it wants to be findable among the rest.
+	int cameraNode = SkeletonPose.CameraTransformId(pilotMech);
+	if (cameraNode >= 0 && cameraNode < joints.Length) {
+		wireframe.DrawLines(view,
+			SkeletonWireframe.Marker(joints[cameraNode].World, SkeletonWireframe.CameraCrossMeters),
+			new Vector3(1f, 0.85f, 0.1f), aspect);
+	}
+}
+
+// The debug settings panel, on [Esc]. Everything it shows is read from live simulation state and
+// everything it sets is a host-side view option — nothing here feeds back into the sim, so leaving it
+// open cannot change what it is reporting. See docs/engine/handoff-player-movement.md for what the
+// readouts are for.
+void BuildDebugPanel(int windowHeight) {
+	ImGui.SetNextWindowPos(new Vector2(16f, 16f), ImGuiCond.FirstUseEver);
+	ImGui.SetNextWindowSize(new Vector2(340f, MathF.Min(windowHeight - 32f, 560f)), ImGuiCond.FirstUseEver);
+	ImGui.Begin("Debug — Esc closes");
+
+	bool skeleton = drawSkeleton;
+	if (ImGui.Checkbox("Draw skeleton", ref skeleton)) {
+		drawSkeleton = skeleton;
+	}
+
+	bool steady = steadyEye;
+	if (ImGui.Checkbox("Steady eye (pin cockpit height)", ref steady)) {
+		steadyEye = steady;
+	}
+
+	ImGui.Separator();
+	ImGui.Text($"View: {(!piloting ? "free camera" : externalView ? "external" : "cockpit")}");
+
+	if (pilotMech == null) {
+		ImGui.TextWrapped("No player machine in this mission, so there is nothing to report.");
+		ImGui.End();
+		return;
+	}
+
+	ImGui.Text($"Machine: {pilotMech.Name}");
+	ImGui.Text($"Skeleton joints: {skeletonJointCount}");
+
+	ImGui.Separator();
+	if (pilotMech.Thread is { } thread) {
+		var sequence = pilotMech.Animation?.Sequences[thread.Sequence];
+		ImGui.Text($"Sequence: {thread.Sequence}  frame {thread.Frame}"
+			+ (sequence != null ? $" / {sequence.FrameCount}" : ""));
+		ImGui.Text($"Target: {thread.TargetSequence}  {(thread.AtTarget ? "reached" : "seeking")}"
+			+ (thread.InTransition ? ", in transition" : ""));
+		ImGui.Text($"Rate: {thread.Rate}  (mech AnimRate {pilotMech.AnimRate})");
+		ImGui.Text($"Root motion: {(sequence?.GroundMovement == true ? "yes" : "no")}");
+	} else {
+		ImGui.TextWrapped("No animation data — this machine cannot walk.");
+	}
+
+	ImGui.Separator();
+	ImGui.Text($"Throttle: {pilotMech.Throttle} / {ThrottleTrack.Full}");
+	ImGui.Text($"Speed: {pilotMech.Speed} raw, {pilotMech.DisplaySpeedKph} km/h");
+	ImGui.Text($"Gait: {(Math.Abs(pilotMech.Speed) >= pilotMech.Type.GaitThreshold ? "run" : "walk")}");
+	ImGui.Text($"Step this frame: {lastStepMeters:F3} m");
+
+	ImGui.Separator();
+	var position = pilotMech.Position;
+	ImGui.Text($"Position: {position.X}, {position.Y}, {position.Z}");
+	ImGui.Text($"Heading: {BinaryAngle.ToRadians(pilotMech.Heading) * (180f / MathF.PI):F1} deg");
+	ImGui.Text($"Lean: pitch {BinaryAngle.ToRadians(pilotMech.Pitch) * (180f / MathF.PI):F1}, "
+		+ $"roll {BinaryAngle.ToRadians(pilotMech.Roll) * (180f / MathF.PI):F1} deg");
+	ImGui.Text($"Ground clearance: "
+		+ $"{(position.Z - terrain.HeightAtWorld(position.X, position.Y)) / WorldScale.WorldUnitsPerMeter:F2} m");
+
+	// The bob itself. A retail stride is supposed to swing the eye 0.24-0.42 m (see
+	// MechObject.EyePosition), so a swing far outside that band is the measurement that turns the
+	// complaint into a lead.
+	ImGui.Separator();
+	ImGui.Text($"Eye rise: {eyeRiseMeters:F3} m");
+	if (eyeRiseMin <= eyeRiseMax) {
+		ImGui.Text($"  seen {eyeRiseMin:F3} .. {eyeRiseMax:F3} m");
+		ImGui.Text($"  swing {eyeRiseMax - eyeRiseMin:F3} m (retail stride: 0.24-0.42)");
+	}
+
+	if (ImGui.Button("Reset swing")) {
+		eyeRiseMin = float.MaxValue;
+		eyeRiseMax = float.MinValue;
+	}
+
+	ImGui.End();
 }
 
 // A completed click, routed to the same state changes the corresponding key already makes — the
@@ -518,6 +885,17 @@ void ApplyHddClick(HddLayout.Widget widget) {
 			break;
 	}
 }
+
+// What this frame's cameras draw. The player's own machine is left out while looking out of its
+// cockpit: the cockpit node the eye rides sits well inside the torso, so its geometry would wrap the
+// camera and fill the canopy. The observer camera and the external view both put it back, which is
+// the only way to see the machine you are flying.
+SceneItem[] VisibleItems() =>
+	(piloting && !externalView ? pilotedItems : items) ?? Array.Empty<SceneItem>();
+
+// Whether this frame is being drawn from the external camera. Only meaningful while piloting — the
+// free camera already draws the whole scene with no cockpit over it.
+bool ExternalViewActive() => externalView && piloting && pilotMech != null;
 
 /// <summary>Every mouse button currently held, as the cockpit's own flag pair.</summary>
 static CockpitMouseButtons ButtonsHeld(IMouse mouse) =>
@@ -627,5 +1005,12 @@ static HddDamageView? ReadHddDamageView(IKeyboard keyboard) {
 	return keyboard.IsKeyPressed(Key.W) ? HddDamageView.Weapons : null;
 }
 
-static int Axis(IKeyboard keyboard, Key positive, Key negative) =>
-	(keyboard.IsKeyPressed(positive) ? 1 : 0) - (keyboard.IsKeyPressed(negative) ? 1 : 0);
+// One signed axis from a pair of keys, plus optional aliases for each direction — the arrow cluster
+// and the numeric keypad are the same key on the hardware the manual is describing, and a host window
+// sees them as two.
+static int Axis(IKeyboard keyboard, Key positive, Key negative,
+		Key? positiveAlias = null, Key? negativeAlias = null) {
+	bool up = keyboard.IsKeyPressed(positive) || (positiveAlias is { } p && keyboard.IsKeyPressed(p));
+	bool down = keyboard.IsKeyPressed(negative) || (negativeAlias is { } n && keyboard.IsKeyPressed(n));
+	return (up ? 1 : 0) - (down ? 1 : 0);
+}

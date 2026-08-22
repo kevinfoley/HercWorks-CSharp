@@ -10,7 +10,7 @@ namespace Herculan.Engine.Terrain;
 /// Port of DBSIM's zone-loading pipeline — <c>Terrain_LoadZone</c> (<c>0042789c</c>),
 /// <c>TerrainZone_LoadHeightmap</c> (<c>0046c650</c>) and <c>TerrainZone_PopulateFromBitmap</c>
 /// (<c>0046c3c0</c>) — producing a ready <see cref="HeightGrid"/>. See
-/// docs/simulation/dbsim-physics-notes.md, "Terrain system", for the byte-level verification of
+/// docs/formats/terrain-heightmap.md for the byte-level verification of
 /// each step against the real files in <c>ES2/VOL/ZONES.VOL</c>.
 ///
 /// <para>Two files per zone, both keyed off the same <c>zoneNNNN</c> base name the original builds
@@ -108,13 +108,12 @@ public static class TerrainZoneLoader {
 	/// <para>The roll itself is <c>~30%</c> (<c>rand() &amp; 0xfff &lt; 0x4ce</c>) for material 1,
 	/// otherwise material 0 — note the bitmap path hardcodes a ceiling of two materials, unlike the
 	/// ASCII fallback which loops over the whole <c>mat0</c> table. The diagonal-selector bits
-	/// (<see cref="HeightGrid.DiagonalSelectorAt"/>) are deliberately <i>not</i> written: every
+	/// (<see cref="HeightGrid.DiagonalSelectorAt"/>) are deliberately <i>not</i> written here: every
 	/// assignment in this function masks the flag byte with <c>&amp; 2</c>, preserving bit 1 and
-	/// clearing bit 0, and the cells arrive freshly zeroed — so this loader leaves every cell's
-	/// selector at 0. Something else in the original must set bit 1 (the height query handles a
-	/// selector of 2, and the physics notes record having seen the value), but that writer has not
-	/// been located. Rather than invent a diagonal rule, this reproduces the loader exactly and
-	/// leaves the gap visible; see the open items in docs/engine/planning.md.</para>
+	/// clearing bit 0, and the cells arrive freshly zeroed. The writer is the per-cell normal builder
+	/// that runs after loading (<c>FUN_0046bed8</c>, driven over the whole grid by
+	/// <c>FUN_0046c1dc</c>), which derives each cell's diagonal from its own corner heights —
+	/// see <see cref="HeightGrid"/>, which does the same in its constructor.</para>
 	/// </summary>
 	private static HeightGrid PopulateFromBitmap(DynamixBitmap image, int cellShift, int heightScale,
 			TerrainMaterialTable materials, SimRandom random, byte heightBias) {

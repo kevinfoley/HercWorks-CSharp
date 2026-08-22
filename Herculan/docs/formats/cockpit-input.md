@@ -1,5 +1,7 @@
 # Cockpit mouse input
 
+NOTE TO CLAUDE: This should be a reference document, not a personal journal.
+
 How DBSIM routes a mouse click on the cockpit dashboard/HUD/HDD to a button's own click handler.
 Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project. All addresses are DBSIM.
 Symbols are in `tools/ghidra_scripts/known_symbols.json`; apply with `ES2ApplySymbolNames.java`.
@@ -144,14 +146,32 @@ yet.
 `Widget_OnMouseDown` (`004527a0`): on hit, stores the hit index in `Widget_PressedIndex`
 (`0049dbdc`) — one global for the whole cockpit — sets the widget's state to `1` and repaints it. If
 the widget's own `+0x1d` flag is `1`, begins mouse capture (`DAT_0049dbde=1`) and forwards the
-position to its drag-move vtable slot immediately. Every widget traced so far (every button, both
-shield facings) constructs with `+0x1d=0` and never enters capture — click-only, not drag.
+position to its drag-move vtable slot (`+0x18`) immediately.
 
-`Widget_TrackPressedWidget` (`00452954`): called on every position change, and a no-op unless
-`Widget_PressedIndex` is valid. It re-hit-tests and compares against that index: still on the held
-widget and its state is `0`, set it to `1` and repaint; anywhere else and its state is `1`, clear to
-`0` and repaint. That is a button popping back up when you drag off it and depressing again when you
-come back, and it is the *only* thing this function does.
+**One retail widget does use capture: the throttle slider.** Every button class leaves `+0x1d` clear,
+but the shared slider base `SliderWidget_CtorBase` (`004524a8`) sets it unconditionally, and the
+throttle's vertical slider child (`00447e24`) is built through it. Corrected 2026-08-21; this
+section previously stated that no widget ever enters capture, on a survey that had covered only the
+buttons and the shield facings. It is why the manual's "set throttle with the mouse by clicking on
+the slide and dragging it up or down" works, and why clicking anywhere on the track jumps the knob
+there — the press itself dispatches the drag handler.
+
+While capture is held, `CockpitMouse_ProcessQueue` takes a different branch on every position change:
+it dispatches `+0x18` on the captured widget with the pointer position and repaints it, **without
+hit-testing** — so a drag follows the pointer off the widget, off the panel and off the window.
+`Widget_TrackPressedWidget` is not called at all in that branch, so a captured widget stays depressed
+however far the pointer wanders.
+
+Release under capture also takes its own branch: clear the state byte, repaint, clear
+`DAT_0049dbde`, then read the widget's value (`+0x10`) and commit it (`+8`), and clear
+`Widget_PressedIndex`. `Widget_OnMouseUp` is never reached, so **a drag fires no click** — including
+a press-and-release that never moved.
+
+`Widget_TrackPressedWidget` (`00452954`): called on every position change *outside* capture, and a
+no-op unless `Widget_PressedIndex` is valid. It re-hit-tests and compares against that index: still on
+the held widget and its state is `0`, set it to `1` and repaint; anywhere else and its state is `1`,
+clear to `0` and repaint. That is a button popping back up when you drag off it and depressing again
+when you come back, and it is the *only* thing this function does.
 
 **There is no hover state anywhere in DBSIM.** This function was long recorded as
 `Widget_OnMouseHover`, on a misreading of that same toggle. Two independent facts rule hover out: the
@@ -227,10 +247,16 @@ active.
 | `CockpitMouseQueue_Push` | `00453034` | Appends one event record to the back buffer |
 | `CockpitMouse_ProcessQueue` | `00452d18` | Once-per-frame drain: press/release/drag logic |
 | `Widget_HitTest` | `00452388` | Rect or circular/diamond point test |
+| `SliderWidget_CtorBase` | `004524a8` | Shared slider base; the only ctor that sets the `+0x1d` drag-capture flag |
+| `SliderWidget_DragToPointV` | `004525d8` | Vertical drag: clamps the pointer into the track, puts the knob bottom there |
+| `SliderWidget_GetValueV` / `_SetValueV` | `00452628` / `00452644` | Vertical value from/to knob position |
+| `SliderWidget_RecomputeScaleV` | `00452694` | Q16 pixels-per-unit over the knob travel |
+| `SliderWidget_DragToPointH` / `_GetValueH` / `_SetValueH` / `_RecomputeScaleH` | `004524f8` / `00452544` / `0045255c` / `004525a8` | The horizontal twins |
 | `Widget_HitTestChildren` | `00452a00` | Scans the flat clickable list |
 | `Widget_OnMouseDown` / `_OnMouseUp` | `004527a0` / `00452870` | Press and click state transitions |
 | `Widget_TrackPressedWidget` | `00452954` | Keeps the held widget depressed only while the pointer is on it |
 | `Widget_PressedIndex` | `0049dbdc` | int16 index of the widget a button is held on, -1 for none |
+| `Widget_DragCapture` | `0049dbde` | Set while a `+0x1d` widget holds the pointer; routes moves to `+0x18` and suppresses the click |
 | `Widget_Repaint` | `00452a90` | Calls a widget's own Paint slot |
 | `Widget_RegisterClickable` | `00452c44` | Appends to the flat clickable list |
 | `Widget_Show` / `Widget_Hide` | `00452c64` / `00452c8c` | Set a child's state to 0 / 2 |
@@ -238,6 +264,13 @@ active.
 | `Cursor_SyncPosition` | `00486d70` | Hardware/software cursor position sync |
 | `maybe_Screen_PresentFrame` | `00465524` | Per-frame present; software cursor blit in fullscreen mode |
 | `maybe_Mouse_WarpCursorToPoint` | `004807d0` | `SetCursorPos` wrapper; caller/trigger not traced |
+| `ThrottleGauge_Ctor` | `00447b84` | Builds the throttle gauge, its slider child and its two fill bars |
+| `ThrottleGauge_SetValues` / `_GetValues` | `00447d80` / `00447dd0` | The `{speedFraction, throttle}` pair at gauge `+0xb1` |
+| `ThrottleGauge_OnChildValue` | `00447de0` | Slider/bar value in, negated for the vertical variant, stored to `+0xb5` |
+| `ThrottleSlider_CtorV` | `00447e24` | The vertical slider child, `SLIDE_DIR == 1` — what all 9 retail `.GAU`s use |
+| `ThrottleSlider_CtorFixed` | `004483c0` | The `SLIDE_DIR != 1` variant; never exercised by retail data |
+| `ThrottleSlider_OnValue` | `00448378` | Commit: notifies the gauge, then sets `ThrottleLeverMode` from the value sign |
+| `LedBarGraph_CtorV` | `00439344` | Vertical LED bar; the throttle builds two, ranges +0x400 and -0x400 |
 | `ShieldsGauge_OnClick` | `0044380c` | Sets front/rear click flags |
 | `ShieldFacing_OnClick` | `00438e3c` | Forwards a facing's click to its owner |
 | `ShieldsGauge_GetStateBlock` / `_SetStateBlock` | `004438e0` / `00443858` | Read/write the 15-byte live state block |

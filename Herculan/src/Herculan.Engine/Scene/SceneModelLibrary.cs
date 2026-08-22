@@ -8,6 +8,7 @@ using HercWorks.Core.Io.Transform.Dbsim;
 using Herculan.Engine.Content;
 using Herculan.Engine.Gl;
 using Herculan.Engine.Render;
+using Herculan.Engine.Sim.Anim;
 using Herculan.Engine.World;
 
 namespace Herculan.Engine.Scene;
@@ -27,8 +28,10 @@ namespace Herculan.Engine.Scene;
 /// DTS model space puts the origin at the rig pivot rather than at the feet.
 /// </param>
 /// <param name="RadiusWorldUnits">Coarse collision radius derived from the model's own bounds.</param>
+/// <param name="HeightWorldUnits">Height of the model's bounding box, in world units.</param>
 public sealed record SceneModel(
-	string Key, MeshVertex[] Mesh, TextureAtlas? Atlas, float BaseOffset, int RadiusWorldUnits);
+	string Key, MeshVertex[] Mesh, TextureAtlas? Atlas, float BaseOffset, int RadiusWorldUnits,
+	int HeightWorldUnits);
 
 /// <summary>
 /// Loads and caches the models a mission needs, keyed so identical unit types share one mesh and one
@@ -61,6 +64,7 @@ public sealed class SceneModelLibrary {
 	private readonly Dictionary<string, BaseShapeLibrary?> _shapeLibraries = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, HercSimDat?> _mechData = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, FlyerSimData?> _flyerData = new(StringComparer.OrdinalIgnoreCase);
+	private readonly Dictionary<string, ShapeAnimation?> _animations = new(StringComparer.OrdinalIgnoreCase);
 
 	/// <summary>
 	/// <paramref name="theater"/> supplies the palette every bank in this mission decodes against —
@@ -107,6 +111,21 @@ public sealed class SceneModelLibrary {
 
 		_flyerData[flyerName] = data;
 		return data;
+	}
+
+	/// <summary>
+	/// A mech type's animation data, or null when its <c>.DTS</c> is missing or carries no
+	/// <c>ANAnimList</c>. Shared per type, as the model is: an animation thread holds only a cursor
+	/// into it, so several machines of one type play the same data independently.
+	/// </summary>
+	public ShapeAnimation? MechAnimation(string mechName) {
+		if (_animations.TryGetValue(mechName, out var cached)) {
+			return cached;
+		}
+
+		var animation = ShapeAnimation.FromModel(LoadDts(mechName + ".DTS"));
+		_animations[mechName] = animation;
+		return animation;
 	}
 
 	/// <summary>The model for a mech type, or null when its <c>.DTS</c> is missing or empty.</summary>
@@ -179,7 +198,8 @@ public sealed class SceneModelLibrary {
 		float radiusInRenderUnits = MathF.Max(extent.X, extent.Z) * 0.5f;
 
 		return new SceneModel(key, mesh, atlas, -min.Y,
-			(int)(radiusInRenderUnits * WorldScale.WorldUnitsPerMeter));
+			(int)(radiusInRenderUnits * WorldScale.WorldUnitsPerMeter),
+			(int)(extent.Y * WorldScale.WorldUnitsPerMeter));
 	}
 
 	/// <summary>

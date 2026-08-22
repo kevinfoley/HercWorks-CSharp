@@ -8,7 +8,7 @@ namespace HercWorks.Core.Data.File.Dbsim;
 /// tied to the unit by name from the corresponding .DAT file.
 ///
 /// Independently confirmed as DBSIM.EXE's own per-mech hit-zone/component table (2026-08-09, see
-/// docs/simulation/dbsim-physics-notes.md): loaded at runtime via a filename built from the
+/// docs/simulation/damage-system.md): loaded at runtime via a filename built from the
 /// mech's own name string plus an extension, matching this file's own `dmg\[herc].DMG` location;
 /// <see cref="HercPiece"/> is exactly DBSIM's 18-byte per-component record (`Armor`=max health at
 /// offset 0, `DebrisFlags`=offsets 2-3, `BoneId`=offset 4, `DestructionFlags`=offset 5,
@@ -109,7 +109,7 @@ public class HercSimDamage : DataFile {
 		/// <summary>
 		/// Was <c>Unk_val</c> — resolved 2026-08-09 via DBSIM.EXE disassembly of this record's
 		/// consumers (<c>FUN_0040da38</c>/<c>FUN_0040d434</c>, see
-		/// docs/simulation/dbsim-physics-notes.md). A bitfield: bit 0 = this piece has dependents
+		/// docs/simulation/damage-system.md). A bitfield: bit 0 = this piece has dependents
 		/// to cascade-destroy (checked before walking the dependency list); bit 1 = selects an
 		/// alternate destruction-effect callback mode (0 vs 2, passed to the same effect
 		/// function); bit 2 = a one-shot "major destruction alert already played" latch (checked

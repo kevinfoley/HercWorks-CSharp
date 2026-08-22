@@ -47,25 +47,29 @@ public struct CameraInput {
 /// </summary>
 public sealed class FlyCameraObject : SimObject {
 	/// <summary>
-	/// Cruise speed, in world units per tick — 200 works out to about 36 m/s at
+	/// Cruise speed, as a rate in the Q8 timestep scale — about 36 m/s at
 	/// <see cref="SimWorld.TicksPerSecond"/> and <see cref="Render.WorldScale.WorldUnitsPerMeter"/>.
+	///
+	/// <para>These five constants were all multiplied by 3.79 when the simulation timestep was
+	/// corrected to the original's recovered 25 Hz / 81 (see <see cref="SimWorld.TickDelta"/>);
+	/// the observer's real-world speeds are unchanged.</para>
 	/// </summary>
-	public short CruiseSpeed { get; set; } = 200;
+	public short CruiseSpeed { get; set; } = 759;
 
 	/// <summary>
 	/// Cruise speed while boosting (~360 m/s), which crosses a retail zone's 12.6 km in a little
 	/// over half a minute.
 	/// </summary>
-	public short BoostSpeed { get; set; } = 2000;
+	public short BoostSpeed { get; set; } = 7586;
 
 	/// <summary>How much a speed can change in one tick, i.e. the acceleration limit.</summary>
-	public short SpeedStep { get; set; } = 60;
+	public short SpeedStep { get; set; } = 228;
 
 	/// <summary>Turn rate at full input, in binary angle units per tick.</summary>
-	public short TurnRate { get; set; } = 700;
+	public short TurnRate { get; set; } = 2655;
 
 	/// <summary>How much the turn rate can change in one tick.</summary>
-	public short TurnStep { get; set; } = 140;
+	public short TurnStep { get; set; } = 531;
 
 	/// <summary>
 	/// Pitch limit, just short of straight up or down. Stopping short of a quarter turn keeps the

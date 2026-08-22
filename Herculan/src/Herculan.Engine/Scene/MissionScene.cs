@@ -34,11 +34,13 @@ public sealed record SceneObject(SimObject Object, SceneModel? Model, MissionPla
 public sealed class MissionScene {
 	private MissionScene(Mission mission, SimWorld world, FlyCameraObject camera,
 			IReadOnlyList<SceneObject> objects, IReadOnlyList<SceneModel> models,
-			MeshVertex[] terrainMesh, TheaterDescriptor theater, TerrainTextureBank? terrainBank) {
+			MeshVertex[] terrainMesh, TheaterDescriptor theater, TerrainTextureBank? terrainBank,
+			SceneObject? playerObject) {
 		Mission = mission;
 		World = world;
 		Camera = camera;
 		Objects = objects;
+		PlayerObject = playerObject;
 		Models = models;
 		TerrainMesh = terrainMesh;
 		Theater = theater;
@@ -55,6 +57,16 @@ public sealed class MissionScene {
 
 	/// <summary>Every placed object, in spawn order.</summary>
 	public IReadOnlyList<SceneObject> Objects { get; }
+
+	/// <summary>
+	/// The machine the player pilots, or null when the mission has no <c>player.mec</c> beside it.
+	/// It is an ordinary placed object; the only thing that distinguishes it is that the host feeds
+	/// it <see cref="MechObject.Controls"/>.
+	/// </summary>
+	public SceneObject? PlayerObject { get; }
+
+	/// <summary>The player's HERC, or null when there is no player or it has no mech model.</summary>
+	public MechObject? PlayerMech => PlayerObject?.Object as MechObject;
 
 	/// <summary>The distinct models the scene draws with — upload each of these once.</summary>
 	public IReadOnlyList<SceneModel> Models { get; }
@@ -95,13 +107,30 @@ public sealed class MissionScene {
 		var baseTypes = BaseTypeTable.Load(content);
 
 		var objects = new List<SceneObject>(mission.Placements.Count);
+		SceneObject? playerObject = null;
 		foreach (var placement in mission.Placements) {
 			var spawned = Spawn(placement, models, baseTypes);
 			if (spawned == null) {
 				continue;
 			}
 
-			spawned.Object.Tick(world);
+			if (ReferenceEquals(placement, mission.Player)) {
+				playerObject = spawned;
+				if (spawned.Object is MechObject playerMech) {
+					playerMech.IsPlayer = true;
+				}
+			}
+
+			// Settling an object onto the terrain before it joins the world is a placement step, not
+			// a simulation step -- a mech's own tick now walks it, which is not what spawning wants.
+			spawned.Object.Position = new Vec3i(spawned.Object.Position.X, spawned.Object.Position.Y,
+				spawned.Object switch {
+					FlyerObject => spawned.Object.Position.Z,
+					MechObject mech => terrain.HeightAtWorld(
+						spawned.Object.Position.X, spawned.Object.Position.Y) + mech.Type.RideHeight,
+					_ => terrain.HeightAtWorld(spawned.Object.Position.X, spawned.Object.Position.Y)
+				});
+
 			world.Add(spawned.Object);
 			objects.Add(spawned);
 		}
@@ -113,17 +142,24 @@ public sealed class MissionScene {
 		var terrainMesh = TerrainMeshBuilder.Build(terrain, terrainBank);
 
 		return new MissionScene(mission, world, camera, objects, models.Models.ToArray(),
-			terrainMesh, theater, terrainBank);
+			terrainMesh, theater, terrainBank, playerObject);
 	}
 
 	/// <summary>
 	/// Model-to-world transform for one placed object, in render space: heading rotation, the lift
 	/// that puts it on the ground, then its world position.
+	///
+	/// <para>The rotation sign is the simulation's, not the camera's. A HERC's forward vector is
+	/// <c>(-sin h, cos h)</c> in world XY — that falls out of <c>BuildEulerRotationMatrixQ14</c>'s
+	/// Z-only matrix and the row-vector transform, and it is the same sense
+	/// <see cref="MissionLoader"/>'s formation spread rotates in. <see cref="Camera"/>'s yaw runs
+	/// the other way, so anything attaching a camera to an object's heading negates it; this
+	/// transform must not.</para>
 	/// </summary>
 	public static Matrix4x4 TransformOf(SceneObject sceneObject) {
 		float lift = sceneObject.Model?.BaseOffset ?? 0f;
 
-		return Matrix4x4.CreateRotationY(-BinaryAngle.ToRadians(sceneObject.Object.Heading))
+		return Matrix4x4.CreateRotationY(BinaryAngle.ToRadians(sceneObject.Object.Heading))
 			* Matrix4x4.CreateTranslation(
 				WorldScale.ToRender(sceneObject.Object.Position) + new Vector3(0f, lift, 0f));
 	}
@@ -165,7 +201,8 @@ public sealed class MissionScene {
 				var model = models.Mech(placement.TypeName);
 				return (
 					new MechObject(placement.TypeName, simData, model?.RadiusWorldUnits ?? 0,
-						new MechLoadout(placement.WeaponRefs.Select(id => (int)id).ToArray())),
+						new MechLoadout(placement.WeaponRefs.Select(id => (int)id).ToArray()),
+						models.MechAnimation(placement.TypeName)),
 					model);
 			}
 

@@ -1,5 +1,7 @@
 # Cockpit rendering: canopy art, views, clip regions, palette, HUD
 
+NOTE TO CLAUDE: This should be a reference document, not a personal journal.
+
 Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project. All addresses are DBSIM unless
 noted. Symbols are in `tools/ghidra_scripts/known_symbols.json`; apply with `ES2ApplySymbolNames.java`.
 
@@ -127,9 +129,9 @@ displayOriginY += travel - i                                  -- final remainder
 Step is 10 canvas rows; `maybe_CockpitLayoutMode == 2` doubles it and forces travel to `0x1e0`. The
 side-glance commands (4/5/6) use step `0x14` and scroll on x instead.
 
-**There is no timing in this loop** — no timer, no retrace poll, no frame boundary. Its real-time
-duration is whatever the host CPU makes it, and only a step *count* is recoverable: 24 steps in mode
-0, 48 in modes 1/2, since the step is in device rows and the coord shift doubles the travel.
+**There is no timing in this loop**. Its real-time duration is whatever the host CPU makes it, and 
+only a step *count* is recoverable: 24 steps in mode 0, 48 in modes 1/2, since the step is in device
+rows and the coord shift doubles the travel.
 
 **Both views' canopies are resident in the canvas throughout.** `Sim_InitMissionSession` (`004614fc`)
 calls `CockpitView_SetView(mgr, 1)` and then `CockpitView_SetView(mgr, 0)` during bring-up, so the
@@ -320,14 +322,7 @@ This supersedes the earlier "assembled from two `.DPL` files" model and
   `COCKPIT.DPL[i-10]` (slot 42 → entry 32 = scheme 0); COLOSSUS as `COCKPIT.DPL[i+14]` (slot 42 →
   entry 56 = scheme 1).
 - Every `WORLD<n>.DPL` parks precisely slots 42-65 at a flat green — the exact window the cockpit
-  scheme overwrites, and no wider.
-- Pixel comparison of decoded `.HB0` against the two retail reference screenshots in `Reference/`,
-  over opaque pixels: APOCA 69.4% exact RGB / 81.5% within 12/765 / mean channel error 11.8;
-  COLOSSUS 78.7% / 89.2% / 9.2. Per source index, every scheme index bar two agrees at 85-100%.
-  The two outliers (APOCA 42 and 53, COLOSSUS 42 and 46) are the largest flat fills, and their
-  disagreements are confined to `x:[154..535] y:[306..466]` and `x:[208..434] y:[326..446]` — the
-  scanner/MFD/button block, where retail paints live HUD content over the art. The same indices agree
-  across the whole rest of the frame.
+  scheme overwrites.
 
 Consequences now resolved: the heading tape's index 74 is a theater colour; the shield meter's green
 is a theater colour absent from `COCKPIT.DPL`; the canopy hazard stripes at index 13 render as the
@@ -462,6 +457,83 @@ bar is the energy meter, and `ShieldsGauge` is a different class entirely.
 
 A second `LEDBarGraph` per weapon row carries the energy-weapon charge field (`FUN_00442950`, range
 `0x400`, colour ids `0x20`/`0x22`, remainder `0x2e`).
+
+## Throttle gauge
+
+`ThrottleGauge_Ctor` (`00447b84`), called only by `Gau_ThrottleWidget` (`0043254c`). Decoded
+2026-08-21, and it **supersedes `HThrottle`'s previous "track rect + 4 detent points" reading**.
+
+The constructor is handed `.GAU` offset **1000**, not 1016, and treats the whole block from there as
+one widget record. `FUN_004488cc` shifts ints `[4..0xf]` left by the video mode's coordinate shift
+before it ever sees them, so the geometry below is in device pixels (`.GAU` units x2 at 640x480):
+
+| int | file offset | Role |
+|---|---|---|
+| `[0]`,`[1]` | 1000, 1004 | Origin the rest is measured from. Zero in all 9 retail files — which is why the transformer had recorded 1000 as an always-zero "null widget" slot |
+| `[4..7]` | 1016-1028 | Slider **track** rect, `x0,y0,x1,y1` |
+| `[8..11]` | 1032-1044 | **Forward fill bar** rect — `LedBarGraph_CtorV` (`00439344`) with range `+0x400` |
+| `[12..15]` | 1048-1060 | **Reverse fill bar** rect — same, range `-0x400` |
+| `[0x10]` | 1064 | `SLIDE_DIR`. 1 in every retail file, selecting `ThrottleSlider_CtorV` (`00447e24`); the 0 branch (`004483c0`, a fixed 12px knob spanning the track's full height) is never exercised |
+| `[0x12]` | 1072 | x nudge for the centre tick, shifted by the ctor itself rather than at load |
+
+Ints `[8..15]` are **two rects, not four points**. That explains both things the point reading found
+odd: "points" 1 and 2 always sit close together because they are the bottom of the upper bar and the
+top of the lower one, and the x alternates between two values because those are each bar's left and
+right edge. The bars are the coloured fill either side of centre; Herculan does not draw them yet
+(their colour ids were not traced).
+
+### Slider geometry
+
+`ThrottleSlider_CtorV` builds the knob over the track: full track width, height taken from bank frame
+1 (28x12 in every retail bank), limits `+/-0x400`, and an initial position centred on the track —
+`knobBottom = trackBottom - (trackHeight - knobHeight)/2`. That is the manual's "Centered is
+stopped". `SliderWidget_RecomputeScaleV` (`00452694`) then precomputes
+
+```
+scale     = (trackHeight - knobHeight) * 0x10000 / 0x800     // Q16 device px per throttle unit
+knobBottom(v) = trackBottom - ((v + 0x400) * scale >> 16)     // 00452644
+```
+
+so `+0x400` puts the knob at the top and `-0x400` at the bottom. **Up is forward** — corroborated by
+`Screenshots/Simulator1.jpg`, where the knob sits at the track's top while the HUD reads 61 K/H.
+
+The original reaches that convention through two sign flips that cancel: `SliderWidget_GetValueV`
+(`00452628`) reads the knob's *top* against the track's top, so it returns the negation of what
+`_SetValueV` was given, and `ThrottleGauge_OnChildValue` (`00447de0`) negates again for the vertical
+variant (gated on the gauge's `+0xc1 == 0`). Net effect, and what `ThrottleTrack` exposes: positive
+is forward, linear in knob position.
+
+### Sprites
+
+Bank `throttle` (`.HBA`/`.DBA`), 2 frames: **0** is a 2x12 tick, **1** the 28x12 knob.
+
+The gauge captures the tick's blit position **once**, in the constructor, at the knob's neutral height
+plus `[0x12]`, and nothing writes it again — so it is a static centre-detent marker beside the track,
+not a moving indicator. Matches `Simulator1.jpg`, where the tick sits at the track's midpoint while
+the knob is at the top.
+
+### Live values and the two-way binding
+
+`ThrottleGauge_GetValues` (`00447dd0`) returns gauge `+0xb1`, a pair of ints:
+
+| offset | Value |
+|---|---|
+| `+0xb1` | Speed as a Q10 fraction of max, `(mech+0x28e << 10) / (speed < 0 ? -maxRev : maxFwd)` |
+| `+0xb5` | Throttle setting, Q10 `+/-0x400` — the same number as `mech+0x290` |
+
+`Player_PerFrameCockpitUpdate` (`0041b130`) writes both once a frame via
+`ThrottleGauge_SetValues` (`00447d80`), and arbitrates the throttle against the `mech+0x93` dirty
+flag: flag clear, the gauge drives `mech+0x290`; flag set, the machine's throttle is handed back for
+the gauge to follow and the flag is cleared. Whichever moved last wins, which is what makes the
+slider track the keyboard and the keyboard pick up where a drag left off.
+
+What `+0xb1` is *for* is unresolved. `ThrottleGauge_SetValues` marks the slider child dirty when it
+changes and the child stores it (`+0x7a`/`+0x4a`), but nothing was found that moves anything with it.
+
+The slider is the **only draggable widget in a retail cockpit** — see cockpit-input.md §7.
+`ThrottleSlider_OnValue` (`00448378`) also sets `ThrottleLeverMode` (`0049a06e`) from the committed
+value's sign, but gated on a joystick throttle control being configured, so it does nothing on a
+keyboard-and-mouse setup. See mech-locomotion.md for what that global actually is.
 
 ## `ShieldsGauge`
 

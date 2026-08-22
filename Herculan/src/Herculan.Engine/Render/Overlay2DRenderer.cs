@@ -635,9 +635,17 @@ public sealed class Overlay2DRenderer : IDisposable {
 			(x0, y0, x1, y1, color) => AddFilledRect(Dx(x0), Dy(y0), Dx(x1), Dy(y1), color));
 		BlitAt("HUDHTICK", 0, gau.TorsoTwist);
 
-		// Frame 1 is the knob; frame 0 is a 2px tick. With no throttle state wired up yet it parks at
-		// the top of its own track rather than floating at an invented position.
-		BlitAt("THROTTLE", 1, gau.Throttle);
+		// The throttle slider: frame 1 is the knob, riding the track at the setting's own height, and
+		// frame 0 the 2px tick the gauge parks beside the track's centre — ThrottleGauge_Ctor captures
+		// that tick's position once, at the knob's neutral height, and never moves it again. Its x
+		// nudge is the .GAU's own offset-1072 int, the one field of the block the loader does not
+		// pre-scale, which is why it is shifted here instead.
+		if (ThrottleTrack.From(hud) is { } track) {
+			BlitDevice(ThrottleTrack.SpriteBank, ThrottleTrack.KnobFrame,
+				track.Left, track.KnobTopFor(state.Throttle));
+			BlitDevice(ThrottleTrack.SpriteBank, ThrottleTrack.TickFrame,
+				track.Left + track.TickOffsetX, track.KnobTopFor(0));
+		}
 
 		AddWeaponRows(gau, state, BlitDevice, DrawText);
 		AddShieldReadouts(gau, state, hud.GaugeColors?.Remainder, DrawTextCentered);

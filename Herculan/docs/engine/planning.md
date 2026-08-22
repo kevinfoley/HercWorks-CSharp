@@ -197,20 +197,21 @@ reliable, per the WinForms viewer). Texture rendering shipped in Milestones 2-3.
   clearing bit 0, and cells arrive zeroed — both loaders leave every cell's selector at 0. The query
   handles selector 2, so something else must set bit 1; not located. Engine reproduces the loaders
   exactly rather than inventing a rule. Terrain-renderer theory disproved: `Terrain_DrawCellQuad` and
-  `FUN_0046ff74` only ever read `cell[+0xf]`. See `docs/formats/terrain-texturing.md`.
+  `FUN_0046ff74` only ever read `cell[+0xf]`. See `docs/formats/terrain-heightmap.md`.
 - **`HeightGrid` LOD field (`+0x10c`)** is scaled by `maybe_Terrain_ComputeViewDistance` (`00470910`)
   from cells to world units via `<< cellShift`, clamped to 1000 near grid edges, once/frame. Scaling
-  is solid; the two output values' meaning is undecoded — see `terrain-texturing.md` before wiring to
+  is solid; the two output values' meaning is undecoded — see `terrain-heightmap.md` before wiring to
   far-clip/haze.
 - **`SimRandom`'s 56-entry seed table isn't extracted** from DBSIM's data section — algorithm is a
   literal port, seeding isn't. A roll's result also depends on generator-advance count, so treat as
   statistically faithful, not replay faithful. Currently drives only terrain material bits (unrendered).
-- **Timestep is unknown; 30 Hz looks wrong.** `SimTickDelta` (`DAT_004d3be8`) is written once, by
-  `Sim_MainTick` from field `0x17` of a timing struct from `FUN_0045a7f4` (untraced). At 166.667
-  units/metre, mech `SpeedForward` only matches the manual's KPH figures near 15 Hz; 30 Hz doubles
-  every HERC's speed. `SimWorld` still runs 30 Hz (Q8 delta 256) — a suspect default, not neutral.
-  (0x500/tick rocket turn cap = ~3.4s/revolution at 15 Hz, still sane.) `Time_GetCoarseTicks`
-  (`00467724`) is a separate clock: `GetTickCount() >> 4`, the 16ms UI/mission-clock timebase.
+- **Timestep — resolved (2026-08-21).** DBSIM ticks at a fixed 25 Hz. `SimTickDelta`/
+  `DAT_004d3be8` is computed by `FUN_004677bc` (the earlier `FUN_0045a7f4` lead below was never
+  the actual writer), a Q8 value where `0x100` = 125 ms — formula in
+  `docs/simulation/dbsim-physics-notes.md`'s "Fixed-point math toolkit". `SimWorld.TickDelta` is
+  pinned to `81`, what that formula evaluates to at 25 Hz, replacing the milestone-1-era 30 Hz
+  default this bullet used to flag as suspect. `Time_GetCoarseTicks` (`00467724`) is a separate
+  clock: `GetTickCount() >> 4`, the 16ms UI/mission-clock timebase.
 - **DBSIM's sine/cosine table isn't located** — no trig function in the current symbol set.
   `BinaryAngle`'s table is generated at Q14, not ported; fine for a camera, would drift slowly in
   anything integrating heading over many ticks. All trig routes through that one type.
@@ -268,8 +269,10 @@ estimate too (SAMSON measured 11.8m vs quoted 9.2m).
 = `speed * 315/1024`; against each mech's `SpeedForward` reproduces the manual's KPH: OUTLAW 325 →
 100 (exact), SAMSON 190 → 58 (quoted 60), COLOSSUS 180 → 55, MAVERICK 285 → 88 (quoted 90). **Not a
 tick-length source** — 315 looks fitted to make the fastest HERC read a round 100; inverted against
-166.667 u/m it implies ~14.2 Hz, suggestive but not round enough to trust. Timestep stays open (see
-below), bounded to "much nearer 15 Hz than 30" — 30 Hz would double every mech's quoted speed.
+166.667 u/m it implies ~14.2 Hz. That back-solved estimate undershot: the timestep was later
+resolved directly from `FUN_004677bc` at a fixed 25 Hz (see "Open items" above), confirmed
+independently by `mech-locomotion.md`'s root-motion speed verification (predicted/HUD ratio
+0.899–1.076 across all 18 HERCs). This estimate did correctly rule out 30 Hz.
 
 New symbols, applied via `ES2ApplySymbolNames`: `Hud_WorldUnitsToMetres`,
 `Hud_UpdateWaypointIndicator`, `Hud_UpdateSpeedReadout`, `Mech_GetDisplaySpeedKph`,
@@ -611,3 +614,43 @@ Leg 2: the display's own GUI. Full RE in `docs/formats/heads-down-display.md`.
 **Not done:** the map's terrain raster and its 140 markers, pilot video and static, order
 availability and selection, per-component damage — all need sim state. Nor is RAZOR's non-stub view-1
 3D viewport rendered.
+
+## External view — placeholder (2026-08-22)
+
+`[V]` toggles a chase camera while piloting: cockpit not drawn, the player's own HERC drawn, eye
+10 m behind it, 6 m up, aimed 4 m up its hull, floored 2 m above the ground under it.
+
+**Not reverse-engineered.** All five numbers are this engine's own, and the binding is a toggle
+rather than the manual's own cycle through several external cameras. DBSIM's external view placement,
+transitions, terrain handling and overlay chrome are unrecovered. `Render/ExternalCamera.cs` is the
+single place the real rule replaces the guess — the host only asks it to place a `Camera`.
+
+## Debug panel + skeleton view (2026-08-22)
+
+`Esc` in the simulator host opens an ImGui debug panel; it no longer quits. Full description in
+`docs/engine/handoff-player-movement.md`, "Debug view".
+
+Why ImGui in the game host: the cockpit's font and sprite banks are the original's art placed from
+the original's own layout files, and bending them into a live settings panel costs more than adding a
+toolkit already in the tree. Nothing the game itself draws goes through ImGui.
+
+Why a skeleton and not posed geometry: `DtsMeshBuilder` bakes the rest pose and each object draws
+with one matrix, so a playing cycle moves nothing on screen and the animation system's only
+observable output was the eye. `AnimationThread.NodeTransform` already returns full rotations, so
+drawing joints needs none of the per-node render path — the unapplied rotation in
+`ResolveGroupOffset` is a load-time path and is not in the way.
+
+## Keyframe interpolation — SOLVED + SHIPPED (2026-08-22)
+
+Poses are now blended between the playing keyframe and the frame playback is headed for, by the same
+elapsed-frame fraction root motion was already ramped by. Full RE in
+`docs/simulation/mech-locomotion.md`, "Keyframe interpolation"; the original's own blend
+(`Anim_BlendKeyframeTransforms`, `00492600`) is ported to `AnimTransform.Blend`.
+
+Found by looking for the builder of the `shapeInst+0x16` node-transform array, which the previous
+pass had recorded as the one place any interpolation could live. It was, and it did. Symbols
+applied via `ES2ApplySymbolNames` (7 new + one pre-existing entry extended; re-runs report 0 renames).
+
+Pose cadence checked and settled: the original evaluates poses once per sim tick, and its whole loop
+is capped at 25 Hz, so tick and frame are the same thing there. The engine's fixed 25 Hz tick
+produces the same 25 poses a second — matching, not approximating.

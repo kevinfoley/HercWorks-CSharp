@@ -246,6 +246,61 @@ public class CockpitInputTests {
 		Assert.Empty(Frame(input));
 	}
 
+	/// <summary>
+	/// A press on a draggable widget captures the pointer and reports a position straight away —
+	/// <c>Widget_OnMouseDown</c> dispatches the drag handler itself, which is why clicking a slider
+	/// track jumps its knob rather than waiting for the pointer to move.
+	/// </summary>
+	[Fact]
+	public void PressingADraggableWidgetCapturesThePointerImmediately() {
+		var input = new CockpitInput();
+		input.Enqueue(50, 10, CockpitMouseButtons.Left);
+
+		input.Drain(1 / 60d, DraggableHitTest);
+
+		var drag = Assert.Single(input.Drags);
+		Assert.Equal(A, drag.Id);
+		Assert.Equal(50, drag.ArtX);
+		Assert.Equal(10, drag.ArtY);
+	}
+
+	/// <summary>
+	/// A capture follows the pointer off its own widget and off every widget — the original dispatches
+	/// to the captured widget without hit-testing at all while the flag is set.
+	/// </summary>
+	[Fact]
+	public void ACaptureFollowsThePointerOffTheWidget() {
+		var input = new CockpitInput();
+		input.Enqueue(50, 10, CockpitMouseButtons.Left);
+		input.Enqueue(150, 20, CockpitMouseButtons.Left);
+		input.Enqueue(900, 30, CockpitMouseButtons.Left);
+
+		input.Drain(1 / 60d, DraggableHitTest);
+
+		Assert.Equal(new[] { 10f, 20f, 30f }, input.Drags.Select(d => d.ArtY));
+		Assert.All(input.Drags, d => Assert.Equal(A, d.Id));
+	}
+
+	/// <summary>
+	/// The release that ends a capture fires no click, however quickly it followed the press: the
+	/// original takes the capture branch and never reaches <c>Widget_OnMouseUp</c>.
+	/// </summary>
+	[Fact]
+	public void ReleasingACaptureFiresNoClick() {
+		var input = new CockpitInput();
+		input.Enqueue(50, 10, CockpitMouseButtons.Left);
+		input.Enqueue(50, 10, CockpitMouseButtons.None);
+
+		Assert.Empty(input.Drain(1 / 60d, DraggableHitTest));
+		Assert.Null(input.Pressed);
+	}
+
+	/// <summary>Widget A, but draggable — the flag the slider base sets and no button class does.</summary>
+	private static CockpitWidget? DraggableHitTest(float x, float y) {
+		var hit = HitTest(x, y);
+		return hit is { } widget && widget.Id == A ? widget with { Draggable = true } : hit;
+	}
+
 	/// <summary>The queue is bounded; events past its capacity are dropped rather than growing it.</summary>
 	[Fact]
 	public void TheQueueIsBounded() {

@@ -4,7 +4,7 @@ namespace Herculan.Engine.Terrain;
 /// Port of DBSIM's <c>HeightGrid</c> — the loaded terrain of one zone. The original is a 0x129-byte
 /// struct built by <c>HeightGrid_Constructor</c> (<c>0046bdf8</c>) and installed as the global
 /// <c>ActiveHeightGrid</c> by <c>Terrain_LoadZone</c> (<c>0042789c</c>); see
-/// docs/simulation/dbsim-physics-notes.md, "Terrain system", for the full field map.
+/// docs/formats/terrain-heightmap.md, "The HeightGrid struct", for the full field map.
 ///
 /// <para>Storage differs from the original in one deliberate way: DBSIM allocates a single array of
 /// 16-byte cells, of which only byte <c>+0x0</c> (raw height) and byte <c>+0xf</c> (diagonal
@@ -14,8 +14,17 @@ namespace Herculan.Engine.Terrain;
 /// and every value are unchanged, so the height query below is still a literal translation.</para>
 /// </summary>
 public sealed class HeightGrid {
+	/// <summary>Length every surface normal is scaled to — <c>FUN_0046c2ec</c>'s own constant.</summary>
+	public const int NormalOne = 0x800;
+
 	private readonly byte[] _rawHeights;
 	private readonly byte[] _cellFlags;
+
+	// Per-cell diagonal selector and the two face normals it splits the cell into, built once at
+	// construction exactly as FUN_0046c1dc builds them at zone load. Six shorts per cell: the
+	// north-west triangle's normal, then the south-east one's.
+	private readonly byte[] _diagonals;
+	private readonly short[] _normals;
 
 	internal HeightGrid(int widthShift, int heightShift, int cellShift, int heightScale, int detailLod,
 			byte[] rawHeights, byte[] cellFlags) {
@@ -26,6 +35,10 @@ public sealed class HeightGrid {
 		DetailLod = detailLod;
 		_rawHeights = rawHeights;
 		_cellFlags = cellFlags;
+
+		_diagonals = new byte[rawHeights.Length];
+		_normals = new short[rawHeights.Length * 6];
+		BuildSurface();
 	}
 
 	/// <summary>log2 of the grid width in cells (<c>+0x100</c>). Re-derived from the heightmap image.</summary>
@@ -91,10 +104,133 @@ public sealed class HeightGrid {
 
 	/// <summary>
 	/// The cell's diagonal-split selector — bits [0:1] of the original's <c>+0xf</c> byte, which
-	/// <see cref="HeightAtWorld"/> uses to decide which way the quad's diagonal runs. See
-	/// <see cref="TerrainZoneLoader"/> for which values the retail loader actually produces.
+	/// <see cref="HeightAtWorld"/> uses to decide which way the quad's diagonal runs.
+	///
+	/// <para>Neither loader path writes it, and for a while the writer was an open item. It is
+	/// <c>FUN_0046bed8</c>, the per-cell <b>normal builder</b>: computing a cell's two face normals
+	/// requires choosing its diagonal, so it derives the selector from the four corner heights and
+	/// stores it alongside. <c>FUN_0046c1dc</c> runs that over the whole grid once at zone load, so
+	/// every interior cell's selector is decided by its own corners and only the last row and column
+	/// keep the loader's zero. See <see cref="BuildSurface"/>.</para>
 	/// </summary>
-	public int DiagonalSelectorAt(int cellX, int cellY) => _cellFlags[CellIndex(cellX, cellY)] & 3;
+	public int DiagonalSelectorAt(int cellX, int cellY) => _diagonals[CellIndex(cellX, cellY)];
+
+	/// <summary>
+	/// The surface normal of the triangle under a world position, scaled to length
+	/// <see cref="NormalOne"/> — <c>FUN_0046e394</c>, which picks between the cell's two face
+	/// normals using the same diagonal split the height query uses. Null outside the grid, where the
+	/// original returns a null pointer and its callers skip their slope terms entirely.
+	/// </summary>
+	public (short X, short Y, short Z)? SurfaceNormalAt(int worldX, int worldY) {
+		int cellX = worldX >> CellShift;
+		int cellY = worldY >> CellShift;
+
+		if (cellX < 0 || cellX >= 1 << WidthShift || cellY < 0 || cellY >= 1 << HeightShift) {
+			return null;
+		}
+
+		int fracX = worldX - (cellX << CellShift);
+		int fracY = worldY - (cellY << CellShift);
+		int cell = cellX + (cellY << WidthShift);
+
+		// The far triangle is chosen by the same comparison the height query makes, which differs
+		// between the two diagonal directions.
+		bool farTriangle = _diagonals[cell] == 2
+			? fracY < fracX
+			: (1 << CellShift) - fracX < fracY;
+
+		int at = cell * 6 + (farTriangle ? 3 : 0);
+		return (_normals[at], _normals[at + 1], _normals[at + 2]);
+	}
+
+	/// <summary>
+	/// <c>FUN_0046bed8</c> + <c>FUN_0046c138</c>, run over the grid as <c>FUN_0046c1dc</c> does at
+	/// zone load: for every cell, choose the diagonal its four corner heights imply and build the
+	/// two face normals, each scaled to length <see cref="NormalOne"/>.
+	///
+	/// <para>The normals are built in <i>raw height units</i>, not world units — the horizontal
+	/// components are plain corner differences and the vertical one is
+	/// <c>cellSize / HeightScale</c> — which is the same vector as a true cross product divided
+	/// through by <c>HeightScale</c>. Both are then doubled before normalising, which changes
+	/// nothing but is reproduced anyway.</para>
+	///
+	/// <para>The last row and column are skipped, as in the original: they have no east/north
+	/// neighbour to difference against, so they keep a flat <c>(0, 0, NormalOne)</c> normal and a
+	/// zero selector.</para>
+	/// </summary>
+	private void BuildSurface() {
+		int width = 1 << WidthShift;
+		int height = 1 << HeightShift;
+		short flatZ = (short)NormalOne;
+
+		for (int cellY = 0; cellY < height; cellY++) {
+			for (int cellX = 0; cellX < width; cellX++) {
+				int cell = cellX + (cellY << WidthShift);
+				int at = cell * 6;
+
+				if (cellX >= width - 1 || cellY >= height - 1) {
+					_normals[at + 2] = flatZ;
+					_normals[at + 5] = flatZ;
+					continue;
+				}
+
+				int corner00 = _rawHeights[cell];
+				int corner01 = _rawHeights[cellX + ((cellY + 1) << WidthShift)];
+				int corner11 = _rawHeights[cellX + 1 + ((cellY + 1) << WidthShift)];
+				int corner10 = _rawHeights[cellX + 1 + (cellY << WidthShift)];
+
+				short nearX, nearY, farX, farY;
+				if (corner00 + corner11 == corner01 + corner10) {
+					// A planar quad: both triangles share one normal, and the selector says so.
+					_diagonals[cell] = 1;
+					nearX = farX = (short)(corner00 - corner10);
+					nearY = farY = (short)(corner00 - corner01);
+				} else if (corner00 + corner11 - (corner01 + corner10) < 1) {
+					_diagonals[cell] = 2;
+					nearX = (short)(corner01 - corner11);
+					nearY = (short)(corner00 - corner01);
+					farX = (short)(corner00 - corner10);
+					farY = (short)(corner10 - corner11);
+				} else {
+					_diagonals[cell] = 0;
+					nearX = (short)(corner00 - corner10);
+					nearY = (short)(corner00 - corner01);
+					farX = (short)(corner01 - corner11);
+					farY = (short)(corner10 - corner11);
+				}
+
+				short verticalRun = (short)((1 << CellShift) / HeightScale);
+				var near = Normalize((short)(nearX << 1), (short)(nearY << 1), (short)(verticalRun << 1));
+				var far = Normalize((short)(farX << 1), (short)(farY << 1), (short)(verticalRun << 1));
+
+				_normals[at] = near.X;
+				_normals[at + 1] = near.Y;
+				_normals[at + 2] = near.Z;
+				_normals[at + 3] = far.X;
+				_normals[at + 4] = far.Y;
+				_normals[at + 5] = far.Z;
+			}
+		}
+	}
+
+	/// <summary>
+	/// <c>FUN_0046c138</c> — rescales a vector to length <see cref="NormalOne"/>, measured with the
+	/// sim's sqrt-free magnitude approximation, halving it first if it is close enough to overflowing
+	/// a signed short that the Q16 scale would.
+	/// </summary>
+	private static (short X, short Y, short Z) Normalize(short x, short y, short z) {
+		while ((short)Numerics.SimMath.FastMagnitude3D(x, y, z) >= 0x7d01) {
+			x >>= 1;
+			y >>= 1;
+			z >>= 1;
+		}
+
+		int scale = (NormalOne << 16) / (short)Numerics.SimMath.FastMagnitude3D(x, y, z);
+		return (
+			(short)Numerics.SimMath.Q16Multiply(x, scale),
+			(short)Numerics.SimMath.Q16Multiply(y, scale),
+			(short)Numerics.SimMath.Q16Multiply(z, scale));
+	}
 
 	/// <summary>
 	/// The cell's material/detail-type index — bits [2:7] of the original's <c>+0xf</c> byte, an
@@ -145,7 +281,7 @@ public sealed class HeightGrid {
 		int h11 = _rawHeights[i11] * HeightScale + HeightBase;
 		int h10 = _rawHeights[i10] * HeightScale + HeightBase;
 
-		int diagonal = _cellFlags[i00] & 3;
+		int diagonal = _diagonals[i00];
 
 		if (diagonal == 2) {
 			// Split along the (0,0)-(1,1) diagonal.

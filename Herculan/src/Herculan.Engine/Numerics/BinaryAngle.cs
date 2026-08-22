@@ -5,7 +5,7 @@ namespace Herculan.Engine.Numerics;
 /// turn is 0x10000, so a <see cref="ushort"/> covers the circle exactly and wraps for free.
 /// The scale is confirmed from the damage system, where a mech classifies a hit as front vs. rear
 /// by testing the angular difference against <c>0x4000</c>, described in the disassembly notes as
-/// ±90° (see docs/simulation/dbsim-physics-notes.md, "Explosive damage").
+/// ±90° (see docs/simulation/damage-system.md, "Explosive damage").
 ///
 /// <para><b>Not yet vanilla:</b> DBSIM's own sine/cosine table has not been located in the
 /// disassembly yet (a search of the current symbol set turns up no trig function at all), so

@@ -86,6 +86,13 @@ public class GauFileTransformer : ThreeSpaceByteTransformer {
 
 		gau.RemainderBeforeTorsoTwist = IndexSegment(RemainderBeforeTorsoTwistLength);
 
+		// Two of the remainder's ints belong to the throttle — the gauge constructor reads offsets
+		// 1064 and 1072 straight out of the same widget record it reads the track rect from. They are
+		// surfaced on the widget but left in the remainder as well, so ObjectToBytes stays the verbatim
+		// write-back it was and the round-trip is untouched.
+		gau.Throttle.SlideMode = IntLE(gau.RemainderBeforeTorsoTwist, 0);
+		gau.Throttle.TickOffsetX = IntLE(gau.RemainderBeforeTorsoTwist, 8);
+
 		gau.TorsoTwist = ReadRect(() => new HTorsoTwist());
 
 		gau.RemainderBeforeReticle = IndexSegment(RemainderBeforeReticleLength);
@@ -140,6 +147,10 @@ public class GauFileTransformer : ThreeSpaceByteTransformer {
 	private int[] ReadShieldSlot() => new[] { IndexIntLE(), IndexIntLE(), IndexIntLE(), IndexIntLE() };
 
 	/// <summary>Reads the throttle's track rect (normal X1,Y1,X2,Y2 order) plus 4 detent points.</summary>
+	/// <summary>One little-endian int out of an already-captured raw segment.</summary>
+	private static int IntLE(byte[]? segment, int offset) =>
+		segment != null && offset + 4 <= segment.Length ? BitConverter.ToInt32(segment, offset) : 0;
+
 	private HThrottle ReadThrottle() {
 		var throttle = ReadRect(() => new HThrottle());
 

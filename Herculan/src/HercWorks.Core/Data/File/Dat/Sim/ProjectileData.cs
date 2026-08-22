@@ -69,7 +69,7 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 /// 0-4 for ROCKETS.DAT's 5), which is consistent with (but not independent proof of) that link.
 ///
 /// Independently confirmed against DBSIM.EXE disassembly (2026-08-09, see
-/// docs/simulation/dbsim-physics-notes.md): DBSIM keys this same table by (category, subtypeId)
+/// docs/simulation/damage-system.md): DBSIM keys this same table by (category, subtypeId)
 /// via a linear search (its own copy, loaded at runtime from a resource opened by the literal
 /// name "proj" — matches this file's own name), 36 bytes/record, and reads exactly this record's
 /// <see cref="Projectile.DamageShield"/>/<see cref="Projectile.DamageArmor"/> at the same byte
@@ -129,7 +129,7 @@ public class ProjectileData : DataFile {
 
 		/// <summary>
 		/// Was <c>Unk2_val</c> — resolved 2026-08-09 via DBSIM.EXE disassembly
-		/// (<c>FUN_004188c8</c>, see docs/simulation/dbsim-physics-notes.md). A Q8 fraction of
+		/// (<c>FUN_004188c8</c>, see docs/simulation/damage-system.md). A Q8 fraction of
 		/// this hit's (already shield-absorbed) armor/structure damage that gets diverted into a
 		/// secondary small-radius explosion — reusing the same blast-sweep formula explosive
 		/// weapons use — instead of going straight to the struck component's health. Zero (the

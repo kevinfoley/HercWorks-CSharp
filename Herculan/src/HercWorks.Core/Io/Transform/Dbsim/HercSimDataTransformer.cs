@@ -3,7 +3,17 @@ using HercWorks.Vol;
 
 namespace HercWorks.Core.Io.Transform.Dbsim;
 
-/// <summary>Ported from org.hercworks.core.io.transform.dbsim.HercSimDataTransformer.</summary>
+/// <summary>
+/// Ported from org.hercworks.core.io.transform.dbsim.HercSimDataTransformer.
+///
+/// Expects the 216-byte record ALONE — i.e. <see cref="HercWorks.Vol.VolEntry.RawBytes"/>, which
+/// VolFileReader has already advanced past the 9-byte VOL entry prefix (1 compression-type byte,
+/// 4 size bytes, 4 magic bytes; see VolEntry's doc comment). Files dumped straight out of a VOL
+/// to disk normally KEEP that prefix, so feeding one of those in unmodified shifts every field by
+/// 9 bytes and yields plausible-looking nonsense rather than an obvious failure. Skip 9 bytes
+/// first if the source is a raw dump. DBSIM reads the same 216 bytes into MECH_TYPE_DATA at
+/// record offset 2, so a field at record offset N here is the exe's typeRecord+N+2.
+/// </summary>
 public class HercSimDataTransformer : ThreeSpaceByteTransformer {
 	public override DataFile? BytesToObject(byte[]? inputArray) {
 		Index = 0;
@@ -33,7 +43,7 @@ public class HercSimDataTransformer : ThreeSpaceByteTransformer {
 
 		data.AnimId_Run = IndexShortLE();
 		data.AnimId_StopMove = IndexShortLE();
-		data.AnimId_TorsoPitch = IndexShortLE();
+		data.AnimId_StopReverse = IndexShortLE();
 		data.UnitOffsetYAdjust = IndexShortLE();
 		data.Unk22_Val750Razor0 = IndexShortLE();
 
@@ -51,7 +61,7 @@ public class HercSimDataTransformer : ThreeSpaceByteTransformer {
 		data.TorsoPitchMax = IndexShortLE();
 		data.TorsoPitchMin = IndexShortLE();
 
-		data.Unk44_MoveAnimRate = IndexShortLE();
+		data.GaitThreshold = IndexShortLE();
 
 		for (int i = 0; i < 20; i++) {
 			data.ModelLoDBoneIds[i] = IndexByte();
@@ -59,7 +69,7 @@ public class HercSimDataTransformer : ThreeSpaceByteTransformer {
 
 		data.Unk66_Val1000 = IndexShortLE();
 
-		data.LegsCritFlags1 = IndexShortLE();
+		data.AnimId_Death = IndexShortLE();
 		data.LegsCritFlags2 = IndexShortLE();
 		data.ModelLegsTotal = IndexShortLE();
 		data.ModelFlagNoDebris = IndexShortLE();
@@ -84,7 +94,7 @@ public class HercSimDataTransformer : ThreeSpaceByteTransformer {
 
 		Skip(2); // blank bytes 0x106
 
-		data.Unk108_camExtVal1 = IndexShortLE();
+		data.GaitThresholdReverse = IndexShortLE();
 		data.Unk110_camExtVal2 = IndexShortLE();
 
 		data.ModelFlagsShadow1 = IndexShortLE();
@@ -94,7 +104,7 @@ public class HercSimDataTransformer : ThreeSpaceByteTransformer {
 		data.Unk118_val = IndexShortLE();
 		data.Unk120_val = IndexShortLE();
 
-		data.Unk122_mdlFlagVal = IndexShortLE();
+		data.AnimId_TurnInPlace = IndexShortLE();
 
 		var seg500 = new short[12];
 		for (int i = 0; i < 12; i++) {
@@ -119,8 +129,8 @@ public class HercSimDataTransformer : ThreeSpaceByteTransformer {
 
 		data.ShieldMaxTotal = IndexShortLE();
 		data.Unk192_val = IndexShortLE();
-		data.PhysicsFrictionCoef = IndexShortLE();
-		data.PhysicsFrctionAccel = IndexShortLE();
+		data.StrideScaleDivisor = IndexShortLE();
+		data.StrideScaleNumerator = IndexShortLE();
 
 		Skip(6);
 
@@ -146,7 +156,7 @@ public class HercSimDataTransformer : ThreeSpaceByteTransformer {
 
 		Write(outStream, WriteShortLE(data.AnimId_Run));
 		Write(outStream, WriteShortLE(data.AnimId_StopMove));
-		Write(outStream, WriteShortLE(data.AnimId_TorsoPitch));
+		Write(outStream, WriteShortLE(data.AnimId_StopReverse));
 		Write(outStream, WriteShortLE(data.UnitOffsetYAdjust));
 
 		Write(outStream, WriteShortLE(data.Unk22_Val750Razor0));
@@ -163,7 +173,7 @@ public class HercSimDataTransformer : ThreeSpaceByteTransformer {
 		Write(outStream, WriteShortLE(data.TorsoPitchMax));
 		Write(outStream, WriteShortLE(data.TorsoPitchMin));
 
-		Write(outStream, WriteShortLE(data.Unk44_MoveAnimRate));
+		Write(outStream, WriteShortLE(data.GaitThreshold));
 
 		for (int i = 0; i < 20; i++) {
 			outStream.WriteByte(data.ModelLoDBoneIds[i]);
@@ -171,7 +181,7 @@ public class HercSimDataTransformer : ThreeSpaceByteTransformer {
 
 		Write(outStream, WriteShortLE(data.Unk66_Val1000));
 
-		Write(outStream, WriteShortLE(data.LegsCritFlags1));
+		Write(outStream, WriteShortLE(data.AnimId_Death));
 		Write(outStream, WriteShortLE(data.LegsCritFlags2));
 		Write(outStream, WriteShortLE(data.ModelLegsTotal));
 		Write(outStream, WriteShortLE(data.ModelFlagNoDebris));
@@ -202,7 +212,7 @@ public class HercSimDataTransformer : ThreeSpaceByteTransformer {
 		outStream.WriteByte(0x00);
 		outStream.WriteByte(0x00);
 
-		Write(outStream, WriteShortLE(data.Unk108_camExtVal1));
+		Write(outStream, WriteShortLE(data.GaitThresholdReverse));
 		Write(outStream, WriteShortLE(data.Unk110_camExtVal2));
 
 		Write(outStream, WriteShortLE(data.ModelFlagsShadow1));
@@ -211,7 +221,7 @@ public class HercSimDataTransformer : ThreeSpaceByteTransformer {
 		Write(outStream, WriteShortLE(data.Unk116_val));
 		Write(outStream, WriteShortLE(data.Unk118_val));
 		Write(outStream, WriteShortLE(data.Unk120_val));
-		Write(outStream, WriteShortLE(data.Unk122_mdlFlagVal));
+		Write(outStream, WriteShortLE(data.AnimId_TurnInPlace));
 
 		// range
 		for (int i = 0; i < 12; i++) {
@@ -241,8 +251,8 @@ public class HercSimDataTransformer : ThreeSpaceByteTransformer {
 
 		Write(outStream, WriteShortLE(data.ShieldMaxTotal));
 		Write(outStream, WriteShortLE(data.Unk192_val));
-		Write(outStream, WriteShortLE(data.PhysicsFrictionCoef));
-		Write(outStream, WriteShortLE(data.PhysicsFrctionAccel));
+		Write(outStream, WriteShortLE(data.StrideScaleDivisor));
+		Write(outStream, WriteShortLE(data.StrideScaleNumerator));
 
 		// 198 - 203 - BLANK BYTES
 		for (int i = 0; i < 6; i++) {

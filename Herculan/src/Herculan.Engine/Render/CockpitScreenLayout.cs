@@ -73,6 +73,18 @@ public sealed class CockpitScreenLayout {
 	public PlacedSurface? HeadsDown { get; }
 
 	/// <summary>
+	/// The panel a <see cref="CockpitSurface"/> names, or null when this cockpit has no such panel.
+	/// For converting a window point to that surface's art pixels without first hit-testing which
+	/// surface the point is on — what a captured drag needs, since it follows the pointer off its own
+	/// panel.
+	/// </summary>
+	public PlacedSurface? Surface(CockpitSurface surface) => surface switch {
+		CockpitSurface.Forward => Center,
+		CockpitSurface.HeadsDown => HeadsDown,
+		_ => null,
+	};
+
+	/// <summary>
 	/// Places every panel for one frame.
 	/// </summary>
 	/// <param name="windowWidth">Framebuffer width in pixels.</param>

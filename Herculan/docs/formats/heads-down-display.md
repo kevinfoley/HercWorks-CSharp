@@ -1,5 +1,7 @@
 # The Heads-Down Display
 
+NOTE TO CLAUDE: This should be a reference document, not a personal journal.
+
 The two-page console below the dashboard, reached by panning down from the forward view.
 Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project; addresses are DBSIM. Symbols
 are in `tools/ghidra_scripts/known_symbols.json`, applied with `ES2ApplySymbolNames.java`.

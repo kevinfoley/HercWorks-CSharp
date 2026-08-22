@@ -1,0 +1,523 @@
+# DBSIM.EXE damage system — shields, components, weapon effectiveness
+
+Reverse-engineered from `DBSIM.EXE` disassembly (Ghidra project `ES2Recon`). All addresses are
+DBSIM.EXE virtual addresses. Confirmed against the official *Earthsiege 2 - On-Line Manual.pdf*
+where noted. See [`dbsim-physics-notes.md`](dbsim-physics-notes.md) for movement/collision/rocket
+math and [`../formats/terrain-heightmap.md`](../formats/terrain-heightmap.md) for the terrain
+heightmap this system's ground-impact checks query.
+
+How a weapon's fire turns into a mech taking damage has two different pathways — **direct fire**
+(deterministic, single component, shield-gated) and **explosive/area-of-effect** (random,
+multi-component, distance falloff, also shield-gated but via a separate parallel implementation)
+— that share a common raycast entry point and converge on the same final health-writing primitive.
+
+## The shared raycast: `FUN_00426528`
+
+A generic ray-vs-live-object-list query, not weapon-specific. Exactly 5 call sites: rocket
+per-tick homing (`FUN_0040a538`), bullet per-tick and burst-fire (`FUN_0040b124`/`FUN_0040bf74`,
+below), and the flyer terrain-avoidance autopilot
+(`FUN_004198f4`, see [`../formats/terrain-heightmap.md`](../formats/terrain-heightmap.md#consumers-outside-the-terrain-system)).
+A single raycast primitive reused for weapon hit-scan **and** obstacle sensing — most likely
+`objlist.cpp` (shares the global live-object list, `DAT_004a9b7c`/`DAT_004a9b82`, with the
+confirmed-`objlist.cpp` functions at `0x004281b0`/`0x004282f8`; not confirmed by a direct
+assert-string tie). Confirmed **not** `fire.cpp`.
+
+Walks the live-object list; for each candidate that passes team/state filtering, calls that
+object's vtable method at `+0x20` — for a mech, `FUN_00418ba8`, the direct-fire hit-test-and-damage
+function below. **The hit test and the damage application are the same call** — there is no
+separate "apply damage" step visible from the caller's side. `FUN_00426528` also makes a second,
+unrelated vtable call per candidate (`+0x50`, `FUN_0041f7b8`) — AI threat-tracking ("this object
+just took fire, update who it thinks is attacking it"), not damage.
+
+`bullet.cpp`'s per-tick and burst-fire functions (found by walking `FUN_00426528`'s other callers):
+- **`FUN_0040b124`(instance) — per-bullet-instance tick.** Structurally parallel to the rocket's
+  `FUN_0040a538` (periodic seeker-slot reacquire, age counter, lifetime-expiry check) but bullets
+  age at a fixed baked-in rate, `FUN_00467820(0x200)`, not a per-type-record rate field. For
+  bullet **type 9 specifically** (a distinct type index, not bullets as a class), there's a
+  near-miss short-circuit before the raycast, and on a confirmed hit it calls the explosion
+  function directly with a `4000`-unit blast radius — see "Explosive damage" below. Every other
+  bullet type just calls the raycast and, if it returns a hit, marks itself for removal — the
+  direct-fire damage already happened inside that raycast call.
+- **`FUN_0040bf74`(type, origin/dir, distance, owner, angle) — fire-burst / tracer spawner.**
+  Calls the raycast once up front to get the actual (possibly shortened) travel distance, then —
+  if that distance exceeds 5000 game units — splits the visual tracer into multiple 5000-unit
+  segments (`FUN_0040b804` spawns each), otherwise spawns one tracer for the whole distance. Pure
+  rendering; the hit-distance math is already resolved by the raycast call at the top.
+
+## Direct-fire damage: armor-then-part, deterministic, shield-gated
+
+**`FUN_00418ba8` (mech vtable `+0x20`), called by `FUN_00426528` on every raycast candidate.** In
+order:
+
+1. **Range/geometry check.** Transforms the shot into the mech's local space and rejects it if
+   outside the mech's hit-cylinder (a per-type radius, `typeRecord+0x1a`).
+2. **Shield absorption — `FUN_00413cc4`.** Picks the front or rear shield zone by which side of
+   the mech was hit, then: `absorbed = min(incomingDamage, remainingShieldInZone)`; both the
+   incoming damage and the zone's remaining charge are reduced by that amount. A **hard cap, not
+   an all-or-nothing threshold** — a hit whose damage exceeds what's left in that zone drains it
+   to zero and carries its excess straight through in the same hit; the zone doesn't need to
+   already be empty beforehand. If the shot is fully absorbed, the function returns "no
+   penetration" and the caller only spawns a visual hit-spark effect. See "The shield system"
+   below.
+3. **Component selection — `FUN_0040c9d4` → `FUN_0040c8fc` (per candidate) → `FUN_0040c8c8`
+   (fine geometry test).** Only reached if some damage penetrated shields. Iterates the mech's up
+   to 29 component slots (see "The component/health system" below), and for each occupied one,
+   does a geometric ray-vs-subshape test (coarse part, then fine sub-piece within it) to find the
+   ONE specific component struck — **not** a random roll, unlike the explosion path. Returns that
+   single component's index.
+4. **Damage application — `FUN_004188c8`.** Applies a **per-weapon-type damage multiplier**
+   (`FUN_0047dfa4(shotData[+8], remainingDamage)`, Q8 — see "Weapon-type effectiveness" below).
+   **Splits** the (multiplier-scaled) damage: a portion goes toward destroying the specific weapon
+   mount at that location if one is present (which, if it fails, can trigger a secondary
+   small-radius explosion via the mech's own `+0x70` vtable slot — the same function the AoE path
+   uses, i.e. a destroyed weapon mount can itself explode and splash nearby components), and the
+   remainder goes to that component's general health via the mech's `+0x74` vtable slot
+   (`FUN_00417de4`, below). Health is bucketed into 8 levels (`>>5` of the 0–256 Q8 percentage)
+   for state-transition/alert purposes, plausibly matching the manual's 5-color status system
+   (Green/Yellow/Orange/Red/Gray).
+
+This is fundamentally different in shape from the explosion path: precisely-aimed weapons hit what
+you aimed at; explosions spray damage around imprecisely.
+
+`FUN_00418ba8` has no direct literal callers besides its own vtable-slot data reference — it's
+exclusively invoked polymorphically as `obj[+0x20](...)`, so it's not confirmed as the beam-weapon
+path specifically vs. the general path anything routed through `FUN_00426528` uses (a beam weapon
+calling this same virtual method directly on its locked target, skipping the object-list scan,
+wouldn't show up as a distinct literal caller). See "Beam-weapon dispatch" below — the beam
+question itself is resolved even though this particular point isn't.
+
+## Explosive damage: blast sweep, random per-component roll, distance falloff, shield-gated
+
+**`FUN_00426a20` — the area-of-effect sweep.** Walks the live-object list, skips inactive objects
+and the excluded object (`param_5`), and for every other live object: computes its hit-radius via
+a vtable call (`obj+0x5c`), computes distance from the impact point, and if
+`distance − hitRadius < blastRadiusParam`, calls that object's `+0x70` vtable method — for a mech,
+`FUN_004187d0` — with `(weaponType, impactPos, blastRadius, extra)`.
+
+Exactly **3 call sites in all of DBSIM.EXE**, all genuinely explosive/terminal events, not routine
+weapon fire:
+1. **`FUN_00409d2c`** — a projectile's ground-impact handler: checks altitude against terrain
+   height every tick via `Terrain_HeightQuery` (`0046e07c`), and the instant it dips below ground,
+   detonates — `FUN_00426a20(pos, 3000, 10000, 0, null)`. A missile exploding on ground impact.
+2. **`FUN_0040b124`, only inside the bullet `type == 9` branch** — a distinct bullet subtype, not
+   bullets as a class, calling `FUN_00426a20(pos, 4000, ..., owner, null)` on a hit. This is the
+   **Plasma cannon** — confirmed concretely below (`MissileId 9`).
+3. **`FUN_0041e48e`** — a mech's own death/destruction handler: once confirmed dead, it drops to
+   the ground, triggers one `FUN_00426a20(pos, 3000, 2000, 0, self)` (a death explosion that can
+   splash nearby objects), then unconditionally slams **every one of its own remaining components
+   with a flat 32000 damage** via direct `+0x74` calls — no random roll, no falloff; guaranteed-
+   destruction cleanup, not the live-combat formula.
+
+**`FUN_004187d0(this, weaponType, hitPos, blastRadius, extra)` — the per-mech AoE damage
+formula.** In order:
+1. Computes the angular difference between the mech's facing and the direction to the hit point,
+   classifying it front (`< 0x4000`, ±90° in BAM units) or rear.
+2. **Shield absorption — `FUN_00413c68`, the explosion path's own separate implementation of
+   the same concept `FUN_00413cc4` implements for direct fire.** Picks the front or rear shield
+   value by the classification above, computes `scaledDamage = (weaponDamage × 1000) >> 8` (a
+   different scaling constant than the direct-fire path — genuinely separate code, not a shared
+   subroutine), subtracts it from that shield zone, and if the zone goes negative, clamps it to 0
+   and returns a scaled overflow amount (`overflow × 0x400 / 1000`); otherwise returns 0 (fully
+   absorbed, no structural damage). Confirms shields gate both damage pathways, matching the
+   manual: "shields cause missiles to explode on contact, preventing most of their blast power
+   from reaching the HERC's armor."
+3. If shield overflow is positive, **iterates up to 29 component slots** (the same indexing space
+   the direct-fire path's component selection uses — see below), and for each occupied slot: rolls
+   a per-component random chance (`FUN_00492dd4(...) & 0xfff < 0x802`, ≈51%) to even be considered
+   for this hit — splash damage doesn't hit every component in range, each independently rolls.
+   For components that pass, gets that component's world position (`this+0x58` vtable call),
+   computes distance from the hit point, and if within `blastRadius`, applies damage via the
+   mech's `+0x74` vtable slot (the same `FUN_00417de4` the direct-fire path's final step uses)
+   with:
+   ```
+   amount = shieldOverflow × (blastRadius − distance) / blastRadius
+   ```
+   **Linear distance falloff** — full overflow amount at zero distance, scaling to zero exactly at
+   `blastRadius`.
+
+**Both pathways converge on the same final health-writing function, `FUN_00417de4`** — they
+differ in shield-absorption implementation (parallel but separate code), in how many/which
+components get selected (one deterministic vs. many random), and in whether there's a
+distance-falloff curve. Using the AoE formula for a laser would make it behave like a
+mini-explosion instead of a precise hit; using the direct-fire formula for a missile would make
+its splash radius meaningless — keep both as genuinely separate systems in a port.
+
+## The shield system
+
+**Struct layout** (confirmed from the mech constructor `FUN_00415bb0` and the shield initializer
+`FUN_00413a90`): five consecutive `short` fields starting at `this+0x222`:
+
+| Offset  | Field                          |
+|---------|--------------------------------|
+| `+0x222`| current front shield charge    |
+| `+0x224`| current rear shield charge     |
+| `+0x226`| balance setting (`0x200` = default center) |
+| `+0x228`| front max capacity (= per-side potential if fully allocated) |
+| `+0x22a`| rear max capacity (same)       |
+
+`FUN_00413a90(shieldFields, baseValue)` — called at construction with `baseValue =
+typeRecord[0xc0]` (max shield capacity is a **per-mech-type stat**) — initializes `+0x228`/`+0x22a`
+to `baseValue` each and `+0x222`/`+0x224` to `baseValue >> 1` each (default 50/50 split of one pool
+of size `baseValue`). This reconciles with the manual's "100/200" display numbers exactly: if the
+displayed percentage is `currentSideCharge / (totalCapacity/2) × 100`, the default split reads as
+100%/100%, and fully shifting to front reads as 200%/0%. `+0x226` (`0x200` at init) is the
+adjustable balance value.
+
+**Getter:** `FUN_004154d0` (mech vtable `+0x34`) — given a heading angle, returns `+0x222` if
+within ±90° of front, else `+0x224`.
+
+Both absorption implementations (`FUN_00413cc4` for direct fire, `FUN_00413c68` for explosions)
+are a hard cap — `min(damage, remainingCharge)` — not a threshold gate. A single hit whose damage
+exceeds what's left in a shield zone drains it to zero and its excess carries through in that same
+hit, even if the zone wasn't already empty before the shot landed.
+
+### Recharge tick — every tick, every mech, from the main simulation loop
+
+- **`FUN_0045f464`** is DBSIM's per-frame simulation tick — updates the global timestep
+  (`DAT_004d3be8`), walks every global object list (rockets, bullets, debris, etc.), and walks the
+  global mech list (`DAT_004a9bfe`) calling **`FUN_0041aa5c(mech)` once per live mech**, skipping
+  any mech with a "removed" flag (`+0x14`) or "already dead" state byte (`+0x99`).
+- **`FUN_0041aa5c`** does reactor/energy bookkeeping first: `FUN_00467820(*(short*)(this+0x256))`
+  integrates a per-mech-type reactor output *rate* over one tick and accumulates it into an energy
+  pool tracker at `this+0x292` (matches the manual's "Master Energy Pool"). Calls a vtable method
+  on the mech's own weapon-mount-manager object (`*(this+0x202)` — see "Weapon mounts" below)
+  passing `(energyPool − 500, this)` — weapon-energy arbitration; the *returned* value is the
+  amount left over for shields, fed into:
+- **`FUN_00413b38(shieldStructPtr, requestedAmount)`** — the recharge primitive. Clamps the
+  request to **at most 5 units per tick**, then further clamps to `frontMax − (frontCurrent +
+  rearCurrent)` (the total deficit — never overcharges past full). Computes the new total charge,
+  re-derives the front share via `Q8mul(balance, newTotal)`, and slews the front value toward that
+  target using `FUN_004679d8` (max step `0x41`/tick normally, `10000`/tick — effectively instant —
+  if the deficit is negative, i.e. snapping back down from an over-full state). The rear value is
+  set to make up the remainder. Returns the *unclaimed* portion of the request, folded back into
+  the energy pool by `FUN_0041aa5c`. The 5-unit/tick cap is the concrete recharge-rate constant.
+
+### Balance-adjustment input — every tick, player's own mech only, from a separate cockpit update
+
+- **`FUN_0041b130(DAT_004d256a)`** (`DAT_004d256a` = the confirmed "this instance's own
+  locally-piloted mech" global, set by `FUN_004614fc` scanning for `this+0xa3` set) runs once per
+  frame from `FUN_0045fb9c`, doing cockpit/HUD bookkeeping (target tracking, network sync, HUD
+  fields). Among other things it calls:
+- **`FUN_00413bc8(shieldStructPtr)`** — reads the shield-balance HUD gauge widget's state
+  (`FUN_004438e0(*(int*)(DAT_0049b088+0x1e9))`, a singleton UI-context slot), copies two flag
+  bytes, and if either is set calls `FUN_00413af8(shieldStructPtr, direction)`, clearing the flag
+  after (fires once per press/hold-tick). Computes front/rear display percentages
+  (`(current<<10)/max`) and pushes them back to the same widget — one function both reads the
+  balance-adjust input and drives the gauge's own display.
+- **`FUN_00413af8(shieldStructPtr, direction)`** — the balance nudge: adds `±0x66` (102) to the
+  balance field (`+0x226`), clamped to `[0, 0x400]` (0–1024). Confirms the balance field's real
+  range is 0–1024 with `0x200` (512) as the documented default center — matches the ctor's `0x200`
+  init exactly — and gives the concrete per-tick adjustment rate (102/1024 ≈ 10% of full range per
+  tick while a balance key is held).
+
+Shield recharge is a background per-tick trickle shared by every mech (AI and player alike),
+driven off the reactor's energy pool; balance adjustment is a player-input concern layered on top,
+only ever touching the `balance` field, which the recharge tick reads back on the next tick. The
+two systems don't call each other directly — connected only through the shared struct fields.
+
+## The component/health system
+
+**`this+0x206` is a header of pointers, not inline arrays.** Allocator `FUN_0040d2cc`, called as
+`FUN_0040d2cc(this+0x206, 0x1d /*29*/, 0x16 /*22*/)`:
+
+| Offset (abs) | Field |
+|---|---|
+| `+0x206` | **pointer** to a 22-`short` dependent/sub-piece health array, zeroed |
+| `+0x20a` | **pointer** to a 29-`short` main-component health array, zeroed |
+| `+0x20e` | **pointer** to a 29-`short` active/occupancy-flag array, all bytes `0x01` at init |
+| `+0x21e` | `short` count = 29 |
+| `+0x220` | `short` count = 22 |
+
+Every accessor (`FUN_0040dbc0`/`FUN_0040da38`/`FUN_00417de4`/`FUN_00417bec`/…) treats `this+0x206`
+as `(int*)` and does an extra pointer dereference before indexing.
+
+- The 22-entry array = current health for **fine sub-piece / dependent** components (see the
+  aggregation formula below).
+- The 29-entry array = current health for the **main component slots**, the same indexing space
+  both damage pathways' component selection uses.
+- The 29-entry flag array = **occupancy/active flag per component slot**, not a second depleting
+  health pool. Zeroed for a slot when that component (typically a weapon mount) is destroyed.
+
+`FUN_0040d354(this+0x206, mechThis, damageDataPtr, collisionRegistration)` — a second constructor
+call — wires up `this+0x212` (and neighboring fields) as a pointer into per-component **maximum/
+reference** data (sourced from the mech's own `damage.dat`-derived pointer plus its collision
+registration record from `FUN_0040cd88`, tying this system to the collision bounding-sphere tree
+in [`dbsim-physics-notes.md`](dbsim-physics-notes.md#collision-system--hierarchical-bounding-sphere-construction-collidecpp)).
+
+**Read: `FUN_0040dbc0(this+0x206, componentIndex)` — current/max percentage, Q8 (0–256).** Looks
+up the component's max-reference record (18 bytes, via `this+0x212`), starts with its own current
+(main 29-entry array) and max values, then **aggregates in every dependent sub-component** listed
+in that record (walking a list, adding each dependent's current value from the 22-entry array and
+max value from a parallel max-side array) before computing `(totalCurrent << 8) / totalMax`. A
+single displayed component's health can be the aggregate of several finer sub-parts — e.g. a "leg"
+reading as leg proper plus whatever finer actuator/joint pieces are modeled underneath it (exact
+sub-piece breakdown per component not traced).
+
+**Write and cascade: `FUN_0040da38(this+0x206, componentIndex, damage)`**, called from
+`FUN_00417de4` (mech vtable `+0x74`, the shared endpoint both damage pathways call into).
+Subtracts damage from that component's current value (via `FUN_0040d3ec`), and if the component's
+state crosses into "destroyed" (a flag bit in its record), cascades: calls `FUN_0040d434` on that
+component, then walks a **dependency list** (`DAT_00498864`) calling `FUN_0040d434` on every
+dependent — destroying one component can automatically destroy things that depend on it.
+
+### The 18-byte record — `.DMG`'s `HercPiece`
+
+`HercWorks.Core.Data.File.Dbsim.HercSimDamage.HercPiece`, loaded from `dmg\[herc].DMG` (confirmed
+by tracing `FUN_0040d160`'s caller `FUN_00415bb0`, the mech constructor, which builds the filename
+from the mech's own name string plus extension).
+
+| Offset | Field | Evidence |
+|---|---|---|
+| `+0x00` | `short` `Armor` (max health) | `FUN_0040dbc0`'s `local_10 = *psVar5` |
+| `+0x02` | `signed char` — index into a debris/effect lookup (`FUN_004089bc`), sentinel `-1` = none | `FUN_0040d434`, on destruction, selects a specific debris/effect variant |
+| `+0x03` | `signed char` — index into a slot array on the mech itself (`*(int*)(mechThis+0x34)+8`, byte `[index]` written `=2` on destroy — a state-transition write, same "2" code seen for a damaged/destroyed HUD slot elsewhere) | `FUN_0040d434`, guarded by `-1 < value` (`-1` = no HUD slot) |
+| `+0x04` | `char` `BoneId` — equality-compared to find *all* components sharing a group when cascading destruction; a piece's mounting bone and its destruction-dependency group are the same concept | `FUN_0040d434`'s trailing loop |
+| `+0x05` | `byte` `DestructionFlags` bitfield: bit0=has dependents to cascade, bit1=alt destruction-effect mode, bit2=one-shot "major alert already fired" latch, bit3=triggers secondary effect callback | `FUN_0040da38`/`FUN_0040d434` |
+| `+0x06` | `short` dependent sub-component count | `FUN_0040cff8` (loader), `FUN_0040dbc0`'s loop bound |
+| `+0x08` | `int` pointer to the dependent list (4 bytes/entry: index at sub-offset `+2`) | `FUN_0040cff8`/`FUN_0040dbc0` |
+| `+0x0c` | `short` sentinel `0xffff` (runtime-only) | `FUN_0040cff8` |
+| `+0x0e` | `int` zero (runtime-only) | `FUN_0040cff8` |
+
+`+0x02`/`+0x03` together form the C# port's `DebrisFlags` (one `short`); `+0x05` is
+`DestructionFlags`.
+
+### Component naming and index semantics
+
+The Java author's own doc comment on `HercSimDamage.cs` lists real component names in array order:
+`COCKPIT/FRONT`, `COCKPIT/REAR`, `SHOULDER/LEFT`, `SHOULDER/RIGHT`, `WEPN_BRACK/LEFT`,
+`WEPN_BRACK/RIGHT`, `TORSO`, `LEG/LEFT/UPPER`, `LEG/RIGHT/UPPER`, ...
+
+- **Indices 0–1 (`COCKPIT/FRONT`/`REAR`)** — individually checked (`FUN_0040d9f8`) as the mech's
+  death-trigger gate.
+- **Indices 4–5 (`WEPN_BRACK/LEFT`/`RIGHT`)** — ordinary weapon-mount slots inside this same
+  29-entry array (see "Weapon mounts" below for the separate runtime ammo/heat state).
+- **Dependent-array (22-entry) indices 0 and 1 = front leg pair**, and — for mech types whose leg
+  count (`typeRecord+0x4a`) is `4` — **indices 10 and 11 = rear leg pair**. `FUN_00417de4` reads
+  these by literal offset (not a loop), averaging the pair(s) together before comparing against
+  thresholds that gate "walk" vs. "crippled" vs. "destroyed-legs" status and (for the player's own
+  mech) an alert sound/HUD flag.
+
+`FUN_00417de4` itself, beyond wrapping the health write above, does per-subsystem percentage
+tracking with 8-level bucketing and fires distinct alert sounds at multiple thresholds (~55%,
+~31%, fully destroyed). It tracks the leg/limb subset in pairs (above) and — the mech-death
+trigger — **if enough limbs are fully destroyed, kills the mech outright**: clears its target,
+calls a destruction handler, sets flags, and finishes off remaining components via a recursive
+self-call with a flat 30000 damage. It also processes weapon-mount ratios (from `this+0x202`, see
+"Weapon mounts" below) and a distinct "torso"-like aggregate with its own thresholds (75%/50%).
+
+## Structural / Internal / Weaponry
+
+The manual describes a HUD/HDD display split into "structural, internal, and weaponry" categories.
+This is **three different mechanisms**, not a 3-way partition of one index space:
+
+- **Structural** = most of the 29-slot `HercPiece` array — named body pieces (torso, legs, feet,
+  shoulders).
+- **Weaponry** = a *subset of that same array*, distinguished only by name/position
+  (`WEPN_BRACK/LEFT`/`RIGHT`). Weapon-specific runtime state (ammo, heat) lives elsewhere, in the
+  weapon-mount-manager object (`this+0x202`), not in this health record.
+- **Internal** = a *wholly separate*, smaller table, `HercInternals` (Left/Right Leg Servos,
+  Sensor Array, Targeting Computer, Shield Generator, Engine, Hydraulics, Stabilizers, Life
+  Support, Pilot) — reached *probabilistically* through a struck structural/weaponry piece's own
+  `MappedInternals`/`CritChance` list, not directly targetable. An Internal system has no health
+  slot of its own in the 29-component array; damaging it is a chance-based side effect of hitting
+  whichever structural piece maps to it.
+
+"Armor" in the manual's "where shields leave off, armor takes over... duranium plates" sense maps
+to the per-component `Armor` field on `HercPiece` (`this+0x20a`/`this+0x206`) — not a separate
+third depleting pool distinct from "structure." Genuinely still open: whether shields
+differentiate by weapon type anywhere (checked, not found in the shield-absorption functions
+themselves — see "Weapon-type effectiveness" below), and the remaining `+0x02`/`+0x03` sub-byte
+semantics within `DebrisFlags`.
+
+## Weapon-type effectiveness
+
+The manual: "Two weapons are effective against shields: EMP cannons disrupt the shield matrix, and
+the ELF is so incredibly powerful that it punches through shields as if they are not even there,"
+"energy weapons... are effective against shields... Projectile weapons have longer range and do
+more damage to enemy armor, but have little effect on a target with shields," Lasers have "limited
+effectiveness against shields," ATCs are "fast and hard enough to penetrate most armor plating."
+
+**Confirmed in code:** `FUN_004188c8` (direct-fire chain step 4 above) applies
+`FUN_0047dfa4(shotData[+8], remainingDamage)` — a Q8 multiply by a value carried in the shot's own
+data — before splitting/applying damage to the selected component.
+
+The shot descriptor (`shotData`, the same struct `FUN_00418ba8`/`FUN_004188c8` consume) is built
+in `FUN_0040bf74` right before the `FUN_00426528` raycast call:
+```c
+psVar1 = FUN_0040ffc8(4, param_1);                   // look up this bullet's weapon-type record
+shotData.field_0x04 = Q8mul(shotPower, psVar1[3]);   // -> shotData+4, read by FUN_004188c8 (structure/armor damage)
+shotData.field_0x06 = Q8mul(shotPower, psVar1[2]);   // -> shotData+6, read by FUN_00418ba8 (fed into shields)
+shotData.field_0x08 = psVar1[4];                     // -> shotData+8, a further per-hit scaling factor, see below
+shotData.field_0x0a = psVar1 + 6;                    // pointer into the record's effect/sound data
+shotData.field_0x12 = 5;                             // an unrelated "weapon category" tag, see below
+```
+`psVar1` is `PROJ.DAT` (`HercWorks.Core.Data.File.Dat.Sim.ProjectileData`). Cross-checked against
+the real retail `ES2\VOL\simvol0\dat\PROJ.DAT` (984 bytes: 9-byte VOL prefix +
+`[Total:u16=27][27×36-byte records]` + 1 trailing marker byte): values line up with the manual —
+- Entries with `DamageShield ≫ DamageArmor` (e.g. 2000/400, 8000/2000) — EMP-shaped.
+- Entries with `DamageArmor ≫ DamageShield` (e.g. 400/1600, 3000/7200) — ordinary
+  Autocannon-shaped.
+- Several `DamageShield ≥ DamageArmor` entries with `Speed=0` (no travel time) — beam-shaped.
+- The first 3 entries (60/360, 120/480, 180/600, `Speed=5000`) match ATC20/35/50.
+
+**`DamageShield`/`DamageArmor` are the weapon's own base damage stats against each defense type**
+— the value scaled against them (`shotPower`, the shot's own power/charge level, Q8) is not a
+"raw damage" the file further adjusts.
+
+**`SplashFactor` (`Unk2_val`, short-index 4, `shotData+8`) — a per-weapon splash/secondary-
+explosion trigger, not a third damage-type multiplier.** Consumer, `FUN_004188c8`:
+```c
+uVar1 = Q8mul(shotData+8 /*SplashFactor*/, shotData+4 /*armor-scaled damage*/);
+call obj[+0x74](obj, part, armorDamage - uVar1, ...);      // general component health takes the REMAINDER
+if (uVar1 != 0) call obj[+0x70](obj, uVar1, ..., blastRadius=500, ...);  // secondary explosion, same formula explosive weapons use
+```
+A Q8 **fraction of the already shield-absorbed armor damage** diverted into a small
+(500-unit-radius) secondary explosion, reusing the same blast-sweep formula as "Explosive damage"
+above, instead of applying straight to the struck component's health. Zero means no secondary
+explosion — the guard (`if (uVar1 != 0)`) skips it and the full armor-damage amount goes straight
+to health. Real nonzero values (`500` or `1000`) appear scattered across several weapons, most
+consistently for one whole weapon family (uniform `DamageShield==DamageArmor`) — a plausible match
+for Electron Flux, not proven.
+
+**The loader:** `FUN_0040fc8c` opens `"wpntex"`, `"mechwpn2"`, `"weapons"` (count + 88-byte
+records — plausibly a per-hardpoint mount-template table, not traced further), then `"proj"` and
+reads its count + 36-byte records in one flat read into `DAT_004a9980`, linear-searched by
+`FUN_0040ffc8(category, subtypeId)` — `PROJ.DAT`'s in-memory copy is keyed by `(category, id)`
+(matching `Projectile.Type`/`MissileId`), not by flat array index.
+
+### `Type` — a firing-mechanism selector
+
+Traced all 5 callers of `FUN_0040ffc8` and both callers of `FUN_0040bf74`. Each caller hardcodes a
+literal category constant, and each corresponds to a genuinely different projectile *class*
+(different vtable, different construction):
+
+| `Type` | Constructor | Object kind | Real `PROJ.DAT` shape |
+|---|---|---|---|
+| `0` | `FUN_0040a948` | rocket-family object (14-byte type table `DAT_004a9754`, "unguided") | 5 entries, `SplashFactor=500` uniformly, real `Speed`, armor≫shield |
+| `2` | `FUN_0040af6c` | a third rocket-family object (own 14-byte type table `DAT_004a9784`, own vtable `PTR_FUN_00498628`) | mixed: ATC20/35/50-shaped progression *and* EMP-shaped high-shield entries — `SplashFactor=0` for all but `MissileId=9` (Plasma cannon, below) |
+| `3` | `FUN_0040ac3c` | guided/homing rocket variant (own type table `DAT_004a9768`/`DAT_004a9770`) | 3 entries, shield==armor exactly, `SplashFactor` 1000/500/500 |
+| `4` | `FUN_0040bf74` | **no persistent simulated object at all** — resolves its raycast hit synchronously inside the call itself, then spawns pure-visual tracer segments | every `Type=4` record has `Speed=0`, no exceptions |
+
+`Type=4`'s "no persistent object, resolves at the call site, always `Speed=0`" combination is the
+concrete mechanical definition of a beam/hitscan weapon. `Type=0`/`2`/`3` are three genuinely
+different rocket-family C++ classes, matching the original Java author's doc comment more
+precisely than a flat reading: "BULLETS" = `Type 4` only, "ROCKETS" = three separate sub-classes
+(`0`/`2`/`3`) differing in guidance and splash, not one family.
+
+Mapping onto the weapon taxonomy — flagged as a reasoned hypothesis from mechanism + shape except
+where noted confirmed:
+- **`Type 4` (beam) → Lasers + PBW.** Two unusually low-damage `Type 4` entries (150/200, 200/300,
+  both far below the others' 1000+ values) plausibly fit Electron Flux, not confirmed.
+- **`Type 2` (real flight time, no splash) → Autocannons + EMP** — accounts for every `Type 2`
+  entry except the one Plasma outlier.
+- **`Type 0` (5 entries) / `Type 3` (3 entries) → the game's ordinary Missile weapons, not
+  Plasma** — two Missile sub-variants (guided/unguided), matching the Java author's own
+  `ProjectileType` names (`Missile`=0, `Rocket`=3).
+
+**Plasma cannon — confirmed.** The one `Type 2` outlier (`DamageShield==DamageArmor==3000`,
+`SplashFactor=1000`) is `MissileId 9`. The `Bullet` class's vtable (`PTR_FUN_00498628`) per-tick
+slot (`+0x14`) is `FUN_0040b124`, whose `type == 9` branch (checked via
+`*(char*)(this+0x41) == '\t'`) calls the explosion formula directly instead of the ordinary
+single-target hit path — `this+0x41` is exactly where every rocket-family constructor
+(`FUN_0040a948`/`FUN_0040af6c`/`FUN_0040ac3c`) stores its own `MissileId` argument, so this is
+checking `MissileId==9` on a live `Bullet` instance. `(Type=2, MissileId=9)` is mechanically a
+`Bullet` (real flight time, unlike true `Beam`s) that explodes with splash on impact (unlike every
+other `Bullet`), matching the manual's Plasma description exactly.
+
+**Still open:** the full `Type`/`MissileId` → weapon-*name* mapping. `MissileId` also indexes
+`BULLETS.DAT`/`ROCKETS.DAT` for model data, meaning a weapon's `(Type, MissileId)` pair is set
+somewhere upstream — most likely the untraced 88-byte `"weapons"` record table found alongside
+`PROJ.DAT`'s own loader — rather than being implied by array position (the engine looks records up
+by key, never by index).
+
+### Beam-weapon dispatch — solved
+
+Beam weapons don't need a special hit-test call — they go through the exact same `FUN_00426528`
+raycast every other weapon uses, just synchronously, once, inside their own fire function, with no
+persisting object afterward. `FUN_0040bf74` calls the raycast **immediately, at fire time**,
+before any tracer visual is spawned, and its hardcoded `Type=4` lookup category corresponds, in
+every real `PROJ.DAT` record, to `Speed=0`. A beam is a `Type=4` shot: same object, same raycast,
+same hit-test — only the `PROJ.DAT` record says "no travel time."
+
+Dispatch structure, via `FUN_0040ea58`/`FUN_0040ec64` (the generic weapon-mount fire handlers,
+found from `FUN_0040bf74`'s own 2 callers): each checks the mount's cached `PROJ.DAT` record's
+`Type` field (`**(short**)(mount+0x20) == 4`) and branches — `Type==4` → `FUN_0040bf74` (instant
+hitscan, the beam path); anything else → `FUN_0040b5a0`/`FUN_0040b43c`, which unconditionally
+constructs a `Type=2` object via `FUN_0040af6c` (real flight-time). The entire generic gun/beam
+hardpoint mechanism is a two-way branch on one field.
+
+**Missile-launcher dispatcher:** `FUN_0040e964`, structurally parallel to `FUN_0040ea58` (same
+`FUN_0040e788` setup call, same shared scratch globals `DAT_004a98d8`/`DAT_004a98e4`). Reads the
+mount's cached `PROJ.DAT` record (same cache field) and checks `*psVar1 == 0` (`Type == Missile`)
+— if so, fires via `FUN_0040a9c4(psVar1[1] /*MissileId*/, ...)` (the confirmed rocket/missile
+spawn entry point, chooses unguided vs. guided internally — see
+[`dbsim-physics-notes.md`](dbsim-physics-notes.md#rocket-physics-rocketcpp-cluster-0x0040a120-0x0040ac3c));
+any other `Type` falls through to the same `FUN_0040b43c`/`Bullet` fallback. Two mount categories
+(gun/beam-capable, missile-capable), each defaulting to the shared ballistic `Bullet` path for
+whatever they don't specifically handle. `Type 3`/`Rocket`'s own dedicated dispatch trigger wasn't
+separately traced — plausibly selected *within* `FUN_0040a9c4` by a guidance-capability flag.
+
+**Why this wasn't obvious at first:** the shot-record field `shotData+0x12` (hardcoded `5` for
+`FUN_0040bf74`'s bullets) is a completely different numbering scheme from `PROJ.DAT`'s own `Type`
+field — conflating the two makes the search for a "separate beam mechanism" look necessary when it
+isn't. `shotData+0x12` gates an unrelated target-side alert/timer effect; `PROJ.DAT`'s `Type` is
+what actually determines beam-vs-projectile behavior, at the mount's fire-dispatch decision, not
+in the shot record's own flag byte.
+
+## Weapon mounts
+
+`this+0x202` is a **pointer to a separately-allocated weapon-mount-manager object** (own vtable;
+size `0x14` or `0x35` bytes depending on the `this+0xa3` "locally-simulated" flag), allocated in
+`FUN_004175dc` (the mech loadout-(re)configuration function, called on spawn/equip changes):
+`*(int**)(this+0x202) = malloc(...)`, thereafter accessed via `(**(vtable)(*(this+0x202)))`
+virtual calls. It's referenced throughout `FUN_00417de4` for computing ammo/heat-style ratios, by
+`FUN_00415558` (a "find the next occupied weapon slot" iterator, walking a 7-entry table
+`DAT_0049a060`), and is where the shield-recharge tick's energy-arbitration vtable call goes (see
+"The shield system" above). When a weapon mount is destroyed (inside `FUN_004188c8`'s damage-split
+logic), its `this+0x20e` active-flag is cleared and its owning object is released. Matches the
+manual's "Weaponry" HDD damage category. (`this+0x20e`'s per-slot indices, the weapon mount active
+flags, are a *different*, already-documented array from `this+0x202` itself — see "The component/
+health system" above.)
+
+## Open items
+
+- **`FUN_00426528`'s and `FUN_004198f4`'s exact source translation unit** unconfirmed by a direct
+  assert string — the `objlist.cpp`/`flyersys.cpp` attributions are architecturally well-supported
+  (shared object-list usage, sensor/autopilot semantics) but not proven the way `rocket.cpp`/
+  `collide.cpp` were.
+- **`debris.cpp`'s `FUN_0040874c`** — a load-time debris-piece-list loader, reading per-piece
+  records via `FUN_004083f8`. Two angle-like `short` fields are each multiplied by `0xb6` (182)
+  after loading, unless the raw value is sentinel `-1`. `65536 / 360 ≈ 182.04`, so `×182` is very
+  likely a degrees→BAM conversion applied to debris piece orientation at load time — not
+  cross-checked against a second `×182` site.
+
+## Port notes
+
+1. **Shields are a single pool per side (front/rear), redistributable by balance, that hard-caps
+   how much damage of any kind gets through** — `absorbed = min(damage, remainingCharge)`, damage
+   bleeds through the instant a hit exceeds what's left in that zone, not only once the zone is
+   already empty. Both damage pathways implement this separately but with the same concept; a
+   port needs shields to gate both.
+2. **There are two structurally different post-shield damage models, not one.** Direct fire hits
+   exactly one deterministically-selected component (found by real hit geometry, not randomness),
+   applies a per-weapon-type multiplier, and splits damage between destroying a weapon mount (with
+   a possible secondary explosion) and general component health — no distance falloff. Explosive
+   weapons sweep the whole object list by blast radius, then independently roll each of up to 29
+   components at ~51% odds and apply linear distance falloff to the ones that pass.
+3. **Both pathways converge on one shared health-writing/cascading-destruction primitive** — a
+   component's health is the aggregate of itself plus dependent sub-parts, and destroying one
+   component can cascade to destroy its dependents. Enough destroyed limbs kill the mech outright.
+   A port needs this dependency graph, not just a flat per-part HP list.
+4. **Shields recharge from the reactor at a flat 5-units/tick cap, redistributed by a
+   player-adjustable balance value (range 0–1024, default 512, ±102/tick while held)** — a
+   separate per-mech-per-tick system (`FUN_0041aa5c`/`FUN_00413b38`) from the player-only
+   balance-input handler (`FUN_0041b130`/`FUN_00413bc8`/`FUN_00413af8`). A port needs both: the
+   background regen for every mech (AI included), and the player-specific input path layered on
+   top, connected only through the shared balance/charge fields.
+5. **Per-weapon-type effectiveness is `PROJ.DAT`'s own `DamageShield`/`DamageArmor` fields,
+   applied once, upstream, when the shot record is built** — not a branch inside the shield or
+   structure damage functions. The shot's own power/charge level (Q8) is independently scaled
+   against each of those two per-weapon stats before shields and structure ever see it; a third
+   field (`SplashFactor`) diverts a fraction of the armor-damage portion into a secondary
+   explosion. A port's "energy weapons hit shields hard, projectiles hit armor hard" behavior
+   should read directly from `PROJ.DAT`'s existing fields — the data needed is already parsed.

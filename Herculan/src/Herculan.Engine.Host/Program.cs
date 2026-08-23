@@ -2,6 +2,7 @@ using System.Numerics;
 using Herculan.Engine;
 using Herculan.Engine.Content;
 using Herculan.Engine.Gl;
+using Herculan.Engine.Host.Debugging;
 using Herculan.Engine.Input;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Render;
@@ -237,28 +238,10 @@ bool shieldFrontKeyDown = false;
 bool externalView = startExternal;
 bool externalViewKeyDown = false;
 
-// The debug panel, on [Esc] — which therefore no longer quits; close the window for that. Built with
-// ImGui, the toolkit the editor host already uses, rather than the game's own HUD font: that font and
-// its sprite banks are the original's art placed from the original's own layout files, and bending
-// them into a live settings panel would cost far more than adding a toolkit already in the tree.
-// Nothing the *game* draws goes through ImGui.
-bool debugPanel = false;
-bool debugPanelKeyDown = false;
-bool drawSkeleton = true;
-bool steadyEye = false;
-bool steadyEyeCaptured = false;
-int steadyEyeRiseUnits = 0;
-
-// What the panel reports about the walk. The eye's rise above the machine's own origin is the whole
-// of the cockpit bob (see MechObject.EyePosition), so tracking its swing turns "it feels wrong" into
-// a number that can be checked against the 0.24-0.42 m a retail stride is supposed to cover.
-float eyeRiseMeters = 0f;
-float eyeRiseMin = float.MaxValue;
-float eyeRiseMax = float.MinValue;
-float lastStepMeters = 0f;
-Vec3i lastMechPosition = default;
-bool haveLastPosition = false;
-int skeletonJointCount = 0;
+// The debug panel, on [Esc] — which therefore no longer quits; close the window for that. It owns
+// its own view options and readouts; see DebugPanel for what it shows and why it is ImGui rather
+// than the game's own HUD font.
+var debugPanel = new DebugPanel();
 
 string debugFontPath = Path.Combine(AppContext.BaseDirectory,
 	"Assets", "Fonts", "Open_Sans", "static", "OpenSans-Regular.ttf");
@@ -478,15 +461,9 @@ window.Load += (gl, input) => {
 window.Update += deltaSeconds => {
 	imgui?.Update((float)deltaSeconds);
 
-	// [Esc] opens and closes the debug panel. Read before the capture gate below and on its own edge,
-	// so the key that opens the panel is also the key that closes it however ImGui feels about focus.
-	if (keyboard != null) {
-		bool debugPanelKey = keyboard.IsKeyPressed(Key.Escape);
-		if (debugPanelKey && !debugPanelKeyDown) {
-			debugPanel = !debugPanel;
-		}
-		debugPanelKeyDown = debugPanelKey;
-	}
+	// [Esc] opens and closes the debug panel. Read before the capture gate below, so the key that
+	// opens the panel is also the key that closes it however ImGui feels about focus.
+	debugPanel.ReadToggleKey(keyboard);
 
 	// Everything below reads `controls` rather than the device itself: while the panel has keyboard
 	// focus it is null, so piloting and camera keys go dead instead of the panel and the machine both
@@ -661,17 +638,8 @@ window.Update += deltaSeconds => {
 			// fore/aft swing — alone. That isolates the vertical bob from the ride without touching the
 			// animation that produces either, which is the A/B for "is it the eye or the machine?".
 			var eyeFrame = pilotMech.EyeTransform;
-			var eye = new Vec3i(eyeFrame.X, eyeFrame.Y, eyeFrame.Z);
-			if (steadyEye) {
-				if (!steadyEyeCaptured) {
-					steadyEyeRiseUnits = eye.Z - pilotMech.Position.Z;
-					steadyEyeCaptured = true;
-				}
-
-				eye = new Vec3i(eye.X, eye.Y, pilotMech.Position.Z + steadyEyeRiseUnits);
-			} else {
-				steadyEyeCaptured = false;
-			}
+			var eye = debugPanel.PinEyeHeight(
+				new Vec3i(eyeFrame.X, eyeFrame.Y, eyeFrame.Z), pilotMech.Position);
 
 			// Orientation comes off the eye node too, not off the machine's heading: the camera node
 			// hangs below the two nodes the torso sequences drive, so twisting and pitching the turret
@@ -692,24 +660,9 @@ window.Update += deltaSeconds => {
 		scene.Camera.ApplyTo(camera);
 	}
 
-	// What the debug panel reports. Measured every frame whether or not the panel is open, so opening
-	// it mid-stride shows the stride rather than starting from nothing — and so the min/max swing is
-	// a record of the walk, not of how long the panel has been up.
-	if (pilotMech != null) {
-		eyeRiseMeters = (pilotMech.EyePosition.Z - pilotMech.Position.Z) / WorldScale.WorldUnitsPerMeter;
-		eyeRiseMin = Math.Min(eyeRiseMin, eyeRiseMeters);
-		eyeRiseMax = Math.Max(eyeRiseMax, eyeRiseMeters);
-
-		if (haveLastPosition) {
-			var step = pilotMech.Position;
-			lastStepMeters = new Vector2(
-				(step.X - lastMechPosition.X) / WorldScale.WorldUnitsPerMeter,
-				(step.Y - lastMechPosition.Y) / WorldScale.WorldUnitsPerMeter).Length();
-		}
-
-		lastMechPosition = pilotMech.Position;
-		haveLastPosition = true;
-	}
+	// What the debug panel reports about the walk — see DebugPanel.Sample for why it is measured
+	// every frame rather than only while the panel is up.
+	debugPanel.Sample(pilotMech);
 
 	if (cockpitArt != null && pilotMech != null) {
 		// Player_PerFrameCockpitUpdate's own order: the gauge and the machine settle which of them
@@ -764,9 +717,15 @@ window.Render += (_, gl) => {
 		DrawSkeleton(camera, size.X, size.Y);
 	}
 
-	if (debugPanel) {
-		BuildDebugPanel(size.Y);
-	}
+	// The panel goes over whatever view is up. The cockpit path above draws through three sub-window
+	// viewports and leaves the last one set, so the full-window viewport is restored first —
+	// otherwise the panel is squeezed into the right-hand cockpit panel's rectangle and mostly
+	// scissored away, which is why it only ever appeared in the external view.
+	gl.Viewport(0, 0, (uint)Math.Max(size.X, 1), (uint)Math.Max(size.Y, 1));
+	debugPanel.Draw(
+		new DebugPanelContext(piloting, externalView, pilotMech,
+			scene.PlayerObject?.Model?.Segments.Length ?? 0, terrain),
+		size.Y);
 
 	imgui?.Render();
 
@@ -868,12 +827,12 @@ void DrawThreePanelCockpitView(GL gl, int totalWidth, int totalHeight) {
 // was where the player's eye ended up. Bones are drawn through solid geometry on purpose — the
 // skeleton is inside the model it belongs to.
 void DrawSkeleton(Camera view, int viewportWidth, int viewportHeight) {
-	if (!drawSkeleton || wireframe == null || pilotMech == null) {
+	if (!debugPanel.DrawSkeleton || wireframe == null || pilotMech == null) {
 		return;
 	}
 
 	var joints = SkeletonPose.Build(pilotMech);
-	skeletonJointCount = joints.Length;
+	debugPanel.SkeletonJointCount = joints.Length;
 	if (joints.Length == 0) {
 		return;
 	}
@@ -889,132 +848,6 @@ void DrawSkeleton(Camera view, int viewportWidth, int viewportHeight) {
 			SkeletonWireframe.Marker(joints[cameraNode].World, SkeletonWireframe.CameraCrossMeters),
 			new Vector3(1f, 0.85f, 0.1f), aspect);
 	}
-}
-
-// The debug settings panel, on [Esc]. Everything it shows is read from live simulation state and
-// everything it sets is a host-side view option — nothing here feeds back into the sim, so leaving it
-// open cannot change what it is reporting. See docs/engine/handoff-player-movement.md for what the
-// readouts are for.
-void BuildDebugPanel(int windowHeight) {
-	ImGui.SetNextWindowPos(new Vector2(16f, 16f), ImGuiCond.FirstUseEver);
-	ImGui.SetNextWindowSize(new Vector2(340f, MathF.Min(windowHeight - 32f, 560f)), ImGuiCond.FirstUseEver);
-	ImGui.Begin("Debug — Esc closes");
-
-	bool skeleton = drawSkeleton;
-	if (ImGui.Checkbox("Draw skeleton", ref skeleton)) {
-		drawSkeleton = skeleton;
-	}
-
-	bool steady = steadyEye;
-	if (ImGui.Checkbox("Steady eye (pin cockpit height)", ref steady)) {
-		steadyEye = steady;
-	}
-
-	ImGui.Separator();
-	ImGui.Text($"View: {(!piloting ? "free camera" : externalView ? "external" : "cockpit")}");
-
-	if (pilotMech == null) {
-		ImGui.TextWrapped("No player machine in this mission, so there is nothing to report.");
-		ImGui.End();
-		return;
-	}
-
-	ImGui.Text($"Machine: {pilotMech.Name}");
-	ImGui.Text($"Skeleton joints: {skeletonJointCount}");
-	ImGui.Text($"Posed geometry nodes: {scene.PlayerObject?.Model?.Segments.Length ?? 0}"
-		+ " (visible in the external view, [V])");
-
-	ImGui.Separator();
-	if (pilotMech.Thread is { } thread) {
-		var sequence = pilotMech.Animation?.Sequences[thread.Sequence];
-		ImGui.Text($"Sequence: {thread.Sequence}  frame {thread.Frame}"
-			+ (sequence != null ? $" / {sequence.FrameCount}" : ""));
-		ImGui.Text($"Target: {thread.TargetSequence}  {(thread.AtTarget ? "reached" : "seeking")}"
-			+ (thread.InTransition ? ", in transition" : ""));
-		ImGui.Text($"Rate: {thread.Rate}  (mech AnimRate {pilotMech.AnimRate})");
-		ImGui.Text($"Root motion: {(sequence?.GroundMovement == true ? "yes" : "no")}");
-	} else {
-		ImGui.TextWrapped("No animation data — this machine cannot walk.");
-	}
-
-	// The turret's own state. "Drawn" is where the animation actually put the eye, which is not the
-	// same as the angle the sim holds — the twist sequence's keyframes are not evenly spaced, so the
-	// two drift apart by up to about 7% across the travel. See docs/simulation/mech-locomotion.md.
-	ImGui.Separator();
-	var turret = pilotMech.EyeTransform.ToEuler();
-	ImGui.Text($"Turret twist: {Degrees(pilotMech.TorsoTwistAngle):F1} deg"
-		+ $" (limit {Degrees(pilotMech.Type.TorsoTwistLimit):F1}), rate {pilotMech.TorsoTwistRate}");
-	ImGui.Text($"Turret pitch: {Degrees(pilotMech.TorsoPitchAngle):F1} deg"
-		+ $" ({Degrees(pilotMech.Type.TorsoPitchMin):F1} to {Degrees(pilotMech.Type.TorsoPitchMax):F1})"
-		+ $", rate {pilotMech.TorsoPitchRate}");
-	ImGui.Text($"Drawn: twist {Degrees((short)(turret.Z - pilotMech.Heading)):F1} deg,"
-		+ $" pitch {Degrees(turret.X):F1} deg");
-	ImGui.Text(pilotMech.CenteringBody
-		? $"Centring: body, onto {Degrees(pilotMech.CenterBodyReference):F1} deg"
-		: pilotMech.CenteringTorso ? "Centring: turret" : "Centring: none");
-
-	ImGui.Separator();
-	ImGui.Text($"Throttle: {pilotMech.Throttle} / {ThrottleTrack.Full}");
-	ImGui.Text($"Speed: {pilotMech.Speed} raw, {pilotMech.DisplaySpeedKph} km/h");
-	ImGui.Text($"Gait: {(Math.Abs(pilotMech.Speed) >= pilotMech.Type.GaitThreshold ? "run" : "walk")}");
-	ImGui.Text($"Step this frame: {lastStepMeters:F3} m");
-
-	ImGui.Separator();
-	var position = pilotMech.Position;
-	ImGui.Text($"Position: {position.X}, {position.Y}, {position.Z}");
-	ImGui.Text($"Heading: {BinaryAngle.ToRadians(pilotMech.Heading) * (180f / MathF.PI):F1} deg");
-	ImGui.Text($"Lean: pitch {BinaryAngle.ToRadians(pilotMech.Pitch) * (180f / MathF.PI):F1}, "
-		+ $"roll {BinaryAngle.ToRadians(pilotMech.Roll) * (180f / MathF.PI):F1} deg");
-	ImGui.Text($"Ground clearance: "
-		+ $"{(position.Z - terrain.HeightAtWorld(position.X, position.Y)) / WorldScale.WorldUnitsPerMeter:F2} m");
-
-	// Reactor and Master Energy Pool. Nothing spends the pool yet except the shields — weapons are a
-	// later milestone — so a machine standing still sits at a full 10000 and the cockpit's energy bar
-	// stays hard right, which is correct rather than unwired. [Drain shields] is the test seam that
-	// makes the trickle visible: watch the pool dip below full while the array rebuilds at its 5-a-tick
-	// cap, then climb back once the deficit closes.
-	var pods = pilotMech.Pods;
-	var shields = pilotMech.Shields;
-	ImGui.Separator();
-	ImGui.Text($"Energy pool: {pilotMech.EnergyPool} / {MechObject.EnergyPoolMax}"
-		+ $"  (reserve {MechObject.EnergyPoolReserve})");
-	ImGui.Text($"Reactor output: {pilotMech.ReactorOutputRate}"
-		+ $"  (base {MechObject.BaseReactorOutputRate}{(pods.EnergyPod ? ", Energy Pod fitted" : "")})");
-	ImGui.Text($"Shields: {shields.Front} front, {shields.Rear} rear"
-		+ $" of {shields.Max}{(pods.ShieldPod ? " (Shield Pod fitted)" : "")}");
-	ImGui.Text($"  rings: {CockpitPalette.ShieldFacingCharge(shields.Front, shields.BaseMax)}"
-		+ $" / {CockpitPalette.ShieldFacingCharge(shields.Rear, shields.BaseMax)} of 0x400");
-	// The printed numbers are the balance and nothing else — they sum to 200 even on an empty array.
-	ImGui.Text($"Balance: {shields.Balance} / {ShieldCharge.BalanceMax}"
-		+ $"  — prints {shields.FrontReadout} / {shields.RearReadout}   [ and ] move it");
-
-	// Both are test seams, not mechanics — see their own summaries. They are the only way to watch
-	// either system refill until weapons and incoming fire exist to empty them for real.
-	if (ImGui.Button("Drain shields")) {
-		shields.Empty();
-	}
-
-	ImGui.SameLine();
-	if (ImGui.Button("Drain energy pool")) {
-		pilotMech.DrainEnergyPoolForTest();
-	}
-
-	// The bob itself. A retail stride is supposed to swing the eye 0.24-0.42 m (see
-	// MechObject.EyePosition), so a swing far outside that band is the measurement that turns the
-	// complaint into a lead.
-	ImGui.Separator();
-	ImGui.Text($"Eye rise: {eyeRiseMeters:F3} m");
-	if (eyeRiseMin <= eyeRiseMax) {
-		ImGui.Text($"  seen {eyeRiseMin:F3} .. {eyeRiseMax:F3} m");
-		ImGui.Text($"  swing {eyeRiseMax - eyeRiseMin:F3} m (retail stride: 0.24-0.42)");
-	}
-
-	if (ImGui.Button("Reset swing")) {
-		eyeRiseMin = float.MaxValue;
-		eyeRiseMax = float.MinValue;
-	}
-
-	ImGui.End();
 }
 
 // A completed click, routed to the same state changes the corresponding key already makes — the
@@ -1196,9 +1029,6 @@ static int Axis(IKeyboard keyboard, Key positive, Key negative,
 	bool down = keyboard.IsKeyPressed(negative) || (negativeAlias is { } n && keyboard.IsKeyPressed(n));
 	return (up ? 1 : 0) - (down ? 1 : 0);
 }
-
-/// <summary>A binary angle in degrees, for the debug panel's readouts.</summary>
-static float Degrees(int binaryAngle) => BinaryAngle.ToRadians(binaryAngle) * (180f / MathF.PI);
 
 /// <summary>
 /// One turret axis: the key pair, or whatever <c>--turret</c> is holding when no key is down. Never

@@ -36,6 +36,20 @@ namespace Herculan.Engine.Render;
 /// <para>Pass a <see cref="TextureAtlas"/> to resolve either kind of poly; without one, both fall back
 /// to a flat placeholder colour, which is honest about "no bank loaded" rather than quietly wrong.</para>
 /// </summary>
+/// <summary>
+/// One node's share of a shape's geometry: the triangles of every group that hangs from a single
+/// transform, in that node's own space rather than the shape's.
+///
+/// <para>A segment is drawn with the node's posed transform in front of the object's own, so the
+/// animation thread moving the node moves the geometry. Its vertices are therefore <i>not</i>
+/// interchangeable with <see cref="DtsMeshBuilder.BuildRoot"/>'s flat mesh, which has the rest pose
+/// already baked into it.</para>
+/// </summary>
+/// <param name="TransformId">The node, in the id space <c>AnimationThread.NodeTransform</c> takes.
+/// -1 for geometry no node places, which is drawn at the shape's origin.</param>
+/// <param name="Vertices">Triangles in the node's own space, ready to upload.</param>
+public readonly record struct MeshSegment(int TransformId, MeshVertex[] Vertices);
+
 public static class DtsMeshBuilder {
 	/// <summary>Safety bound on the transform parent chain, in case a file's relations form a cycle.</summary>
 	private const int MaxTransformChainSteps = 64;
@@ -63,6 +77,19 @@ public static class DtsMeshBuilder {
 		public Vector3 A { get; }
 		public Vector3 B { get; }
 		public Vector3 C { get; }
+
+		/// <summary>The same corners before the node's own placement — see <see cref="MeshSegment"/>.</summary>
+		public Vector3 LocalA { get; }
+
+		/// <inheritdoc cref="LocalA" />
+		public Vector3 LocalB { get; }
+
+		/// <inheritdoc cref="LocalA" />
+		public Vector3 LocalC { get; }
+
+		/// <summary>The transform id of the node this triangle's group hangs from, or -1.</summary>
+		public int TransformId { get; }
+
 		public Vector3 Color { get; }
 		public Vector2 UvA { get; }
 		public Vector2 UvB { get; }
@@ -72,10 +99,15 @@ public static class DtsMeshBuilder {
 		public int Rank { get; }
 
 		public Triangle(Vector3 a, Vector3 b, Vector3 c, Vector3 color, int rank,
+				Vector3 localA, Vector3 localB, Vector3 localC, int transformId,
 				Vector2 uvA = default, Vector2 uvB = default, Vector2 uvC = default) {
 			A = a;
 			B = b;
 			C = c;
+			LocalA = localA;
+			LocalB = localB;
+			LocalC = localC;
+			TransformId = transformId;
 			Color = color;
 			Rank = rank;
 			UvA = uvA;
@@ -126,6 +158,33 @@ public static class DtsMeshBuilder {
 	}
 
 	/// <summary>
+	/// The same geometry as <see cref="BuildRoot"/>, split by the node each part hangs from and left
+	/// in that node's own space — what a shape has to be to animate.
+	///
+	/// <para>DBSIM draws a shape exactly this way. <c>TSGroup_RenderPolys</c> (<c>004758c8</c>)
+	/// begins by calling <c>00476014</c>, which takes the group's own <c>TSBasePart.Transform</c>
+	/// (field +4), looks the node's world transform up in the shape instance's per-node array, and
+	/// composes it with the current object-to-view transform before a single poly is drawn
+	/// (<c>Concat(nodeWorld[transform], objectToView)</c>, then <c>0048c338</c> installs it). Every
+	/// group in the shape is placed by its own node, and it is the animation thread that moves those
+	/// nodes.</para>
+	///
+	/// <para>Contrast <see cref="BuildRoot"/>, which bakes each group at the rest pose that
+	/// <see cref="ResolveGroupOffset"/> works out and hands back one rigid mesh. That is still what a
+	/// structure wants — nothing animates it — but it is why a HERC's legs never moved.</para>
+	///
+	/// <para>Coincident-twin removal (<see cref="DropCoincidentTwins"/>) runs across the whole shape
+	/// first, in the shared rest-pose space, exactly as it does for the flat build: a textured poly
+	/// and its flat-shaded twin always belong to the same group, so splitting afterwards keeps the
+	/// same survivor either way.</para>
+	/// </summary>
+	public static MeshSegment[] BuildSegments(TSObject root, TextureAtlas? atlas = null) {
+		var triangles = new List<Triangle>();
+		Collect(root, null, triangles, atlas);
+		return EmitSegments(triangles);
+	}
+
+	/// <summary>
 	/// Axis-aligned bounds of a built mesh, as (min, max) in render units. Used to sit a model on
 	/// the ground and to derive a collision radius until the original's per-type hit-cylinder value
 	/// is mapped (see <see cref="Sim.MechObject.HitRadius"/>).
@@ -149,22 +208,64 @@ public static class DtsMeshBuilder {
 		var vertices = new MeshVertex[kept.Count * 3];
 
 		for (int i = 0; i < kept.Count; i++) {
-			var triangle = kept[i];
-
-			Vector3 normal = Vector3.Cross(triangle.B - triangle.A, triangle.C - triangle.A);
-			normal = normal.LengthSquared() > 1e-12f ? Vector3.Normalize(normal) : Vector3.UnitY;
-
-			// Only a triangle that actually resolved to an atlas frame samples the texture; the rest
-			// keep their colour, which is what makes the placeholder colour on an unresolved texture
-			// poly visible instead of it sampling whatever sits at the atlas origin.
-			bool textured = triangle.Rank == Ranks.Textured;
-
-			vertices[i * 3] = new MeshVertex(triangle.A, normal, triangle.Color, triangle.UvA, textured);
-			vertices[i * 3 + 1] = new MeshVertex(triangle.B, normal, triangle.Color, triangle.UvB, textured);
-			vertices[i * 3 + 2] = new MeshVertex(triangle.C, normal, triangle.Color, triangle.UvC, textured);
+			EmitTriangle(kept[i], local: false, vertices, i * 3);
 		}
 
 		return vertices;
+	}
+
+	/// <summary>
+	/// The surviving triangles grouped by the node that places them, each in that node's own space.
+	/// Segments come back in ascending transform id, which is only for stable output — nothing reads
+	/// the order.
+	/// </summary>
+	private static MeshSegment[] EmitSegments(List<Triangle> triangles) {
+		var kept = DropCoincidentTwins(triangles);
+
+		var byNode = new Dictionary<int, List<Triangle>>();
+		foreach (var triangle in kept) {
+			if (!byNode.TryGetValue(triangle.TransformId, out var list)) {
+				byNode[triangle.TransformId] = list = new List<Triangle>();
+			}
+			list.Add(triangle);
+		}
+
+		var segments = new MeshSegment[byNode.Count];
+		int next = 0;
+		foreach (int transformId in byNode.Keys.OrderBy(id => id)) {
+			var list = byNode[transformId];
+			var vertices = new MeshVertex[list.Count * 3];
+			for (int i = 0; i < list.Count; i++) {
+				EmitTriangle(list[i], local: true, vertices, i * 3);
+			}
+
+			segments[next++] = new MeshSegment(transformId, vertices);
+		}
+
+		return segments;
+	}
+
+	/// <summary>
+	/// Writes one triangle's three vertices, either at the rest pose <see cref="Collect"/> baked or
+	/// in its node's own space. The normal is taken from whichever corners are being written, so a
+	/// segment's normals rotate with the node matrix that draws it.
+	/// </summary>
+	private static void EmitTriangle(in Triangle triangle, bool local, MeshVertex[] vertices, int at) {
+		Vector3 a = local ? triangle.LocalA : triangle.A;
+		Vector3 b = local ? triangle.LocalB : triangle.B;
+		Vector3 c = local ? triangle.LocalC : triangle.C;
+
+		Vector3 normal = Vector3.Cross(b - a, c - a);
+		normal = normal.LengthSquared() > 1e-12f ? Vector3.Normalize(normal) : Vector3.UnitY;
+
+		// Only a triangle that actually resolved to an atlas frame samples the texture; the rest
+		// keep their colour, which is what makes the placeholder colour on an unresolved texture
+		// poly visible instead of it sampling whatever sits at the atlas origin.
+		bool textured = triangle.Rank == Ranks.Textured;
+
+		vertices[at] = new MeshVertex(a, normal, triangle.Color, triangle.UvA, textured);
+		vertices[at + 1] = new MeshVertex(b, normal, triangle.Color, triangle.UvB, textured);
+		vertices[at + 2] = new MeshVertex(c, normal, triangle.Color, triangle.UvC, textured);
 	}
 
 	/// <summary>
@@ -315,10 +416,13 @@ public static class DtsMeshBuilder {
 		Vector3 offset = ResolveGroupOffset(group, animList);
 
 		// Point shorts go straight through as world coordinates — see WorldScale.WorldUnitsPerDtsUnit
-		// for the measurements behind that.
+		// for the measurements behind that. Each point is kept twice: once at the rest pose the flat
+		// mesh bakes, and once in the group's own node space, which is where a segment draws from.
 		var points = new Vector3[group.Points.Length];
+		var localPoints = new Vector3[group.Points.Length];
 		for (int i = 0; i < group.Points.Length; i++) {
 			var point = group.Points[i];
+			localPoints[i] = WorldScale.DtsToRender(point.X, point.Y, point.Z);
 			points[i] = WorldScale.DtsToRender(
 				point.X + offset.X,
 				point.Y + offset.Y,
@@ -360,6 +464,7 @@ public static class DtsMeshBuilder {
 
 			Vector3 color = rank == Ranks.UnresolvedTexture ? TextureFallbackColor : ResolveColor(poly, surfaceColors);
 			Vector3 first = points[firstIndex];
+			Vector3 localFirst = localPoints[firstIndex];
 
 			// Polys are convex fans, so a triangle fan from the first vertex reproduces them.
 			for (int i = 0; i < poly.VertexCount - 2; i++) {
@@ -371,9 +476,11 @@ public static class DtsMeshBuilder {
 
 				if (rect is { } frame) {
 					triangles.Add(new Triangle(first, points[i1], points[i2], color, rank,
+						localFirst, localPoints[i1], localPoints[i2], group.Transform,
 						UvAt(frame, 0), UvAt(frame, i + 1), UvAt(frame, i + 2)));
 				} else {
-					triangles.Add(new Triangle(first, points[i1], points[i2], color, rank));
+					triangles.Add(new Triangle(first, points[i1], points[i2], color, rank,
+						localFirst, localPoints[i1], localPoints[i2], group.Transform));
 				}
 			}
 		}
@@ -382,11 +489,11 @@ public static class DtsMeshBuilder {
 	/// <summary>
 	/// Walks a group's transform-id parent chain summing translations.
 	///
-	/// <para>Rotation is deliberately left unapplied. The independent <c>convert_dts.py</c>
-	/// reference this chain was verified against does the same and calls its own rotation handling
-	/// "untested/probably wrong"; applying an unverified rotation would scramble parts rather than
-	/// place them. Mech models render correctly with translations alone, so this is a known
-	/// limitation to revisit alongside animation, not a bug to paper over now.</para>
+	/// <para>Rotation is deliberately left unapplied here, and costs nothing: no retail shape's rest
+	/// pose carries one. Every node of all 18 HERCs has a zero-rotation default transform, so this
+	/// sum and <see cref="BuildSegments"/>'s full composition agree to the last vertex — checked
+	/// against the built meshes' own bounds. Rotation is what an animated node acquires, and that
+	/// path applies it.</para>
 	/// </summary>
 	private static Vector3 ResolveGroupOffset(TSGroup group, ANAnimList? animList) {
 		if (animList?.Relations == null || animList.Transforms == null || animList.DefaultTransforms == null) {

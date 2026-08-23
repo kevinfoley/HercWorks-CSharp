@@ -284,38 +284,55 @@ public sealed class AnimationThread {
 	}
 
 	/// <summary>
-	/// One node's pose in shape space on the current frame: its own transform composed up its parent
-	/// chain, taking each node's animated transform where the playing sequence covers it and its rest
-	/// transform where it does not.
+	/// <c>AnimThread_SeekToPosition</c> (<c>00479238</c>) — parks playback at a <i>fraction</i> of a
+	/// sequence rather than playing through it: <paramref name="position"/> is Q14 across the
+	/// sequence's whole duration, and this finds the frame and intra-frame offset that lands on.
 	///
-	/// <para>This is what DBSIM keeps as an array of ready-made transforms on the shape instance
-	/// (<c>shapeInst+0x16</c>, indexed by transform id) and rebuilds each frame for every node. Only
-	/// the nodes something asks for are built here, because only the cockpit eye asks: geometry is
-	/// still drawn in its rest pose (see <c>DtsMeshBuilder</c>), so a mech's legs do not yet move
-	/// with the animation that is nonetheless carrying it across the ground.</para>
-	///
-	/// <para>Identity for an unknown id, so a shape with no such node puts the eye at the machine's
-	/// own origin rather than somewhere invented.</para>
+	/// <para>This is how the torso is aimed. Its threads never advance — the mech constructor gives
+	/// them a rate of zero — and the twist and pitch sequences are one full sweep of their node, so
+	/// setting a position in the sequence <i>is</i> setting an angle. See
+	/// <see cref="MechObject.TorsoTwistTick"/>.</para>
 	/// </summary>
-	/// <param name="transformId">The node, in the transform id space the relations table uses.</param>
-	public Transform3 NodeTransform(int transformId) {
-		var accumulated = Transform3.Identity;
-		var sequence = _animation.Sequences[_sequence];
-		var upcoming = _animation.Sequences[_nextSequence];
-		int fraction = FrameFraction();
-		var parents = _animation.ParentTransform;
+	public void SeekToPosition(int sequence, short position) {
+		var target = _animation.Sequences[sequence];
 
-		for (int step = 0; transformId >= 0 && step <= parents.Length; step++) {
-			int index = TransformIndexOf(sequence, _frame, transformId);
-			if (index >= 0 && index < _animation.Transforms.Length) {
-				accumulated = Transform3.Concat(accumulated,
-					NodeLocal(InterpolatedLocal(index, upcoming, transformId, fraction)));
-			}
-
-			transformId = transformId < parents.Length ? parents[transformId] : -1;
+		int total = 0;
+		foreach (short duration in target.FrameDurations) {
+			total += duration;
 		}
 
-		return accumulated;
+		// The original walks off the end of the frame list if this ever exceeds the total; it cannot,
+		// since position is a 14-bit fraction and this scales it by total - 1.
+		int remaining = SimMath.Q14Multiply(position, (short)(total - 1));
+
+		int frame = 0;
+		while (frame < target.FrameCount - 1 && remaining >= target.FrameDurations[frame]) {
+			remaining = (ushort)(remaining - target.FrameDurations[frame]);
+			frame++;
+		}
+
+		SetSequence(sequence, frame, (short)remaining);
+	}
+
+	/// <summary>
+	/// This thread's contribution to one node: the interpolated local transform when the playing
+	/// sequence animates that node, nothing when it does not.
+	///
+	/// <para>A shape carries several threads at once — a HERC has three, one for locomotion and one
+	/// each for torso twist and pitch — and each writes only the nodes its own sequence covers.
+	/// <see cref="ShapeInstance"/> is what puts them together; this is one thread's answer.</para>
+	/// </summary>
+	public bool TryGetLocal(int transformId, out AnimTransform local) {
+		local = default;
+
+		int index = AnimatedIndexOf(_animation.Sequences[_sequence], _frame, transformId);
+		if (index < 0 || index >= _animation.Transforms.Length) {
+			return false;
+		}
+
+		local = InterpolatedLocal(index, _animation.Sequences[_nextSequence], transformId,
+			FrameFraction());
+		return true;
 	}
 
 	/// <summary>
@@ -355,30 +372,35 @@ public sealed class AnimationThread {
 	/// never places.
 	/// </summary>
 	private int TransformIndexOf(AnimSequence sequence, int frame, int transformId) {
-		// Part id 0 is skipped, as FUN_004799a4 skips it: column 0 of every sequence carries the
-		// sequence's *root motion*, not a pose, and the original never writes it into the node array
-		// — that node keeps its default. Without this a caller asking for node 0 gets the ramped
-		// ground displacement back as though it were a pose, which is the same displacement the
-		// object's own position already carries.
-		int column = transformId != 0 ? sequence.ColumnOf(transformId) : -1;
-		if (column >= 0) {
-			int offset = frame * sequence.PartCount + column;
-			if (offset >= 0 && offset < sequence.TransformIndices.Length) {
-				return sequence.TransformIndices[offset];
-			}
+		int index = AnimatedIndexOf(sequence, frame, transformId);
+		if (index >= 0) {
+			return index;
 		}
 
 		var defaults = _animation.DefaultTransforms;
 		return transformId >= 0 && transformId < defaults.Length ? defaults[transformId] : -1;
 	}
 
-	/// <summary>One pool entry as a transform: the euler rotation with the translation hung off it.</summary>
-	private static Transform3 NodeLocal(in AnimTransform source) {
-		var transform = Transform3.FromEuler(source.RotationX, source.RotationY, source.RotationZ);
-		transform.X = source.X;
-		transform.Y = source.Y;
-		transform.Z = source.Z;
-		return transform;
+	/// <summary>
+	/// Which entry of the transform pool <paramref name="sequence"/> gives a node on one frame, or
+	/// -1 when the sequence does not animate that node at all — no fall back to its default, which
+	/// is what lets a caller tell "this thread poses this node" from "it does not".
+	/// </summary>
+	private static int AnimatedIndexOf(AnimSequence sequence, int frame, int transformId) {
+		// Part id 0 is skipped, as FUN_004799a4 skips it: column 0 of every sequence carries the
+		// sequence's *root motion*, not a pose, and the original never writes it into the node array
+		// — that node keeps its default. Without this a caller asking for node 0 gets the ramped
+		// ground displacement back as though it were a pose, which is the same displacement the
+		// object's own position already carries.
+		int column = transformId > 0 ? sequence.ColumnOf(transformId) : -1;
+		if (column < 0) {
+			return -1;
+		}
+
+		int offset = frame * sequence.PartCount + column;
+		return offset >= 0 && offset < sequence.TransformIndices.Length
+			? sequence.TransformIndices[offset]
+			: -1;
 	}
 
 	/// <summary>The whole of the current frame's ground motion, unscaled.</summary>

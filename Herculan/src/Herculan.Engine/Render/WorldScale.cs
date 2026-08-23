@@ -83,4 +83,46 @@ public static class WorldScale {
 	/// <summary>Converts a DTS model-space coordinate triple straight to render space.</summary>
 	public static Vector3 DtsToRender(float dtsX, float dtsY, float dtsZ) =>
 		ToRender(dtsX * WorldUnitsPerDtsUnit, dtsY * WorldUnitsPerDtsUnit, dtsZ * WorldUnitsPerDtsUnit);
+
+	/// <summary>
+	/// One of the simulation's own <see cref="Transform3"/>s as the render matrix that does the same
+	/// thing to already-converted points: for any point <c>p</c>,
+	/// <c>ToRender(t.TransformPoint(p)) == Vector3.Transform(ToRender(p), ToRenderMatrix(t))</c>.
+	///
+	/// <para>The rotation is conjugated through the axis map rather than merely copied, because
+	/// <see cref="ToRender(Vec3i)"/> is a change of basis: a rotation about the simulation's Z is a
+	/// rotation about render Y, and writing the Q14 entries straight into a matrix would leave the
+	/// machine turning about the wrong axis. The metre scale cancels out of the conjugation, so only
+	/// the translation carries it.</para>
+	///
+	/// <para>Both conventions here are row-vector — DBSIM's <c>p * M + t</c> and
+	/// <see cref="Vector3.Transform(Vector3, Matrix4x4)"/>'s — so the two compose in the same order
+	/// and a node matrix multiplied by an object matrix means node-then-object either way.</para>
+	/// </summary>
+	public static Matrix4x4 ToRenderMatrix(in Transform3 transform) {
+		// The nine entries in the layout Transform3 documents: rows (m0 m1 m4), (m2 m3 m5), (m6 m7 m8).
+		var rotation = new Matrix4x4(
+			transform.M[0] / (float)SimTrig.One, transform.M[1] / (float)SimTrig.One, transform.M[4] / (float)SimTrig.One, 0f,
+			transform.M[2] / (float)SimTrig.One, transform.M[3] / (float)SimTrig.One, transform.M[5] / (float)SimTrig.One, 0f,
+			transform.M[6] / (float)SimTrig.One, transform.M[7] / (float)SimTrig.One, transform.M[8] / (float)SimTrig.One, 0f,
+			0f, 0f, 0f, 1f);
+
+		var result = RenderToSim * rotation * SimToRender;
+		result.Translation = ToRender(transform.X, transform.Y, transform.Z);
+		return result;
+	}
+
+	/// <summary>The axis half of <see cref="ToRender(Vec3i)"/>: <c>(x, y, z) -> (x, z, -y)</c>.</summary>
+	private static readonly Matrix4x4 SimToRender = new(
+		1f, 0f, 0f, 0f,
+		0f, 0f, -1f, 0f,
+		0f, 1f, 0f, 0f,
+		0f, 0f, 0f, 1f);
+
+	/// <summary>Its inverse: <c>(x, y, z) -> (x, -z, y)</c>.</summary>
+	private static readonly Matrix4x4 RenderToSim = new(
+		1f, 0f, 0f, 0f,
+		0f, 0f, 1f, 0f,
+		0f, -1f, 0f, 0f,
+		0f, 0f, 0f, 1f);
 }

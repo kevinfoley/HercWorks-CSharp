@@ -634,11 +634,9 @@ Why ImGui in the game host: the cockpit's font and sprite banks are the original
 the original's own layout files, and bending them into a live settings panel costs more than adding a
 toolkit already in the tree. Nothing the game itself draws goes through ImGui.
 
-Why a skeleton and not posed geometry: `DtsMeshBuilder` bakes the rest pose and each object draws
-with one matrix, so a playing cycle moves nothing on screen and the animation system's only
-observable output was the eye. `AnimationThread.NodeTransform` already returns full rotations, so
-drawing joints needs none of the per-node render path — the unapplied rotation in
-`ResolveGroupOffset` is a load-time path and is not in the way.
+Why a skeleton as well as posed geometry: it shows the nodes no geometry hangs from, and overlaid on
+a posed machine it is the check that the pose the simulation holds and the pose being drawn are the
+same one. It was built first, when the eye was the animation system's only observable output.
 
 ## Keyframe interpolation — SOLVED + SHIPPED (2026-08-22)
 
@@ -654,3 +652,38 @@ applied via `ES2ApplySymbolNames` (7 new + one pre-existing entry extended; re-r
 Pose cadence checked and settled: the original evaluates poses once per sim tick, and its whole loop
 is capped at 25 Hz, so tick and frame are the same thing there. The engine's fixed 25 Hz tick
 produces the same 25 poses a second — matching, not approximating.
+
+## Node-posed geometry — SOLVED + SHIPPED (2026-08-22)
+
+A machine's geometry is now drawn one node at a time, so the walk cycle that was already carrying it
+across the ground also moves its legs. Full RE and port detail in
+[`docs/formats/dts-node-posing.md`](../formats/dts-node-posing.md).
+
+The mechanism was traced, not assumed: `TSGroup_RenderPolys` (`004758c8`) resolves the group's own
+`TSBasePart.Transform` and composes that node's world transform with the object-to-view one
+(`00476014` → `00476030`) before drawing a single poly. `DtsMeshBuilder.BuildSegments` splits a shape
+accordingly and `MissionScene.PosedTransformOf` is the composition.
+
+This also settles `ResolveGroupOffset`'s long-standing "rotation deliberately unapplied" note: no
+retail HERC node has a rotation in its rest pose, so the load-time translation sum and the runtime
+composition agree to the vertex. Rotation is what an animated node acquires.
+
+## Turret twist and pitch — SOLVED + SHIPPED (2026-08-22)
+
+A HERC's turret now aims independently of its legs, and the cockpit view looks where it points. Full
+RE in [`docs/simulation/torso-aim.md`](../simulation/torso-aim.md).
+
+The turret has no rotation of its own: each axis owns an animation thread whose sequence is one full
+sweep of one node, and the angle selects a position within it (`AnimThread_SeekToPosition`,
+`00479238`). A HERC therefore runs three threads at once, and `ShapeInstance` is the port of the
+shape-level node evaluation that puts them together — first-registered thread wins a contested node,
+as `ShapeInst_EvalAllNodeLocals` leaves it.
+
+Two more record fields recovered from names nothing read: 26 `InputTorsoRazrFlag` and 34
+`InputFlagsTorso` are the twist and pitch **sequence ids**. Symbols applied via
+`ES2ApplySymbolNames`.
+
+Cockpit camera orientation now comes from `MechObject.EyeTransform` — the camera node's own composed
+frame, which is the frame `Mech_TargetRelativeToPilot` aims in — rather than from the machine's
+heading. Measured first: the walk cycle rotates the eye by exactly zero, so this adds the turret and
+nothing else.

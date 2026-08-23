@@ -27,8 +27,8 @@ public class HercSimDat : DataFile {
 	public short AnimId_Run { get; set; } = 2;
 	public short AnimId_StopMove { get; set; } = 3;
 	/// <summary>
-	/// Offset 18 — the stop / step-off sequence played when slowing to a halt in reverse. Named
-	/// AnimId_TorsoPitch until 2026-08-21; the torso pitch parameters are offsets 36-42.
+	/// Offset 18 — the stop / step-off sequence played when slowing to a halt in reverse. The torso 
+	/// pitch parameters are offsets 36-42.
 	/// </summary>
 	public short AnimId_StopReverse { get; set; } = 4;
 	public short UnitOffsetYAdjust { get; set; }
@@ -37,11 +37,21 @@ public class HercSimDat : DataFile {
 
 	public short AiAimTargOffset { get; set; }
 
-	public short InputTorsoRazrFlag { get; set; }
+	/// <summary>
+	/// Offset 26 — the torso-twist sequence id. <c>Mech_Constructor</c> builds the mech's second
+	/// animation thread on it, and <c>Mech_TorsoTwistTick</c> seeks that thread by the twist angle;
+	/// the sequence is a full turn of the torso node.
+	/// </summary>
+	public short AnimId_TorsoTwist { get; set; }
 	public short TorsoTwistSpeed { get; set; }
 	public short TorsoRotateAccel { get; set; }
 	public short TorsoTwistDegreeMax { get; set; }
-	public short InputFlagsTorso { get; set; }
+
+	/// <summary>
+	/// Offset 34 — the torso-pitch sequence id, the pitch counterpart of
+	/// <see cref="AnimId_TorsoTwist"/>.
+	/// </summary>
+	public short AnimId_TorsoPitch { get; set; }
 	public short TorsoPitchMaxRate { get; set; }
 	public short TorsoPitchRate { get; set; }
 	public short TorsoPitchMax { get; set; }
@@ -58,9 +68,7 @@ public class HercSimDat : DataFile {
 	public short Unk66_Val1000 { get; set; } = 1000;
 
 	/// <summary>
-	/// Offset 68 — the death / fall sequence. Named LegsCritFlags1 until 2026-08-21; it is a sequence
-	/// id, not a flag word. <see cref="LegsCritFlags2"/> at offset 70 keeps its old name because
-	/// nothing has been traced reading it either way.
+	/// Offset 68 — the death / fall sequence.
 	/// </summary>
 	public short AnimId_Death { get; set; }
 
@@ -95,8 +103,7 @@ public class HercSimDat : DataFile {
 	// blank bytes 0x106
 
 	/// <summary>
-	/// Offset 108 — <see cref="GaitThreshold"/> on the reverse side. Named Unk108_camExtVal1 until
-	/// 2026-08-21; it has nothing to do with the camera.
+	/// Offset 108 — <see cref="GaitThreshold"/> on the reverse side.
 	/// </summary>
 	public short GaitThresholdReverse { get; set; }
 	public short Unk110_camExtVal2 { get; set; }
@@ -108,8 +115,8 @@ public class HercSimDat : DataFile {
 	public short Unk118_val { get; set; }
 	public short Unk120_val { get; set; }
 	/// <summary>
-	/// Offset 122 — the turn-in-place sequence. Named Unk122_mdlFlagVal until 2026-08-21. Uniform
-	/// across the fleet: 7 frames of 1820 BAM each, no translation.
+	/// Offset 122 — the turn-in-place sequence. Uniform across the fleet: 7 frames of 1820 
+	/// BAM each, no translation.
 	/// </summary>
 	public short AnimId_TurnInPlace { get; set; }
 
@@ -166,9 +173,8 @@ public class HercSimDat : DataFile {
 	public short Unk192_val { get; set; }
 	/// <summary>
 	/// Offsets 194 and 196 — the stride-calibration pair MechType_InitOne (004201a8) turns into the
-	/// Q16 factor it rescales the speed fields by, <c>Q16Divide(offset196 * 400, offset194)</c>. Named
-	/// PhysicsFrictionCoef/PhysicsFrctionAccel until 2026-08-21; neither is a friction term. See
-	/// Herculan.Engine.Sim.MechTypeRecord, which applies the rescale.
+	/// Q16 factor it rescales the speed fields by, <c>Q16Divide(offset196 * 400, offset194)</c>.
+	/// See Herculan.Engine.Sim.MechTypeRecord, which applies the rescale.
 	/// </summary>
 	public short StrideScaleDivisor { get; set; }
 

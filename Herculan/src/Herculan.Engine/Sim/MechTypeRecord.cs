@@ -115,6 +115,43 @@ public sealed class MechTypeRecord {
 	/// <summary>Record field 20 — ride height, added to the terrain height under the machine.</summary>
 	public short RideHeight => Data.UnitOffsetYAdjust;
 
+	/// <summary>
+	/// Record field 26 — the torso-twist sequence, a full turn of the twist node. The machine's
+	/// twist angle is a <i>position</i> within it rather than something it plays through; see
+	/// <see cref="MechObject.TorsoTwistTick"/>. Uniform across the fleet at sequence 0.
+	/// </summary>
+	public short TorsoTwistSequence => Data.AnimId_TorsoTwist;
+
+	/// <summary>Record field 28 — twist rate at full stick, in binary angle per second.</summary>
+	public short TorsoTwistMaxRate => Data.TorsoTwistSpeed;
+
+	/// <summary>
+	/// Record field 30 — how fast the twist rate itself may build. Unlike the locomotion accel pair
+	/// this one is already integrated over the tick by the original, so it needs no rescale.
+	/// </summary>
+	public short TorsoTwistAccel => Data.TorsoRotateAccel;
+
+	/// <summary>
+	/// Record field 32 — how far the torso may twist either way, as a binary angle. 14000 across the
+	/// whole fleet, which is 76.9 degrees.
+	/// </summary>
+	public short TorsoTwistLimit => Data.TorsoTwistDegreeMax;
+
+	/// <summary>Record field 34 — the torso-pitch sequence; see <see cref="TorsoTwistSequence"/>.</summary>
+	public short TorsoPitchSequence => Data.AnimId_TorsoPitch;
+
+	/// <summary>Record field 36 — pitch rate at full stick.</summary>
+	public short TorsoPitchMaxRate => Data.TorsoPitchMaxRate;
+
+	/// <summary>Record field 38 — how fast the pitch rate may build.</summary>
+	public short TorsoPitchAccel => Data.TorsoPitchRate;
+
+	/// <summary>Record field 40 — pitch limit looking up. Asymmetric with <see cref="TorsoPitchMin"/>.</summary>
+	public short TorsoPitchMax => Data.TorsoPitchMax;
+
+	/// <summary>Record field 42 — pitch limit looking down, negative.</summary>
+	public short TorsoPitchMin => Data.TorsoPitchMin;
+
 	/// <summary>Record field 44 — the speed at which the walk gait gives way to the run gait.</summary>
 	public short GaitThreshold { get; }
 

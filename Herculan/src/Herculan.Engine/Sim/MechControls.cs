@@ -41,7 +41,19 @@ namespace Herculan.Engine.Sim;
 /// take either sign. With a lever present the clamp closes to one side of zero, because a lever's
 /// travel only spans one direction and the other has to come from inverting it.</para>
 /// </param>
-public readonly record struct MechControls(short Turn, short Throttle, int ThrottleLever = 0) {
+/// <param name="TorsoTwist">
+/// The turret axis, left/right. Full deflection at ±0x100, as the two above. It is a
+/// <i>rate</i> demand, not a position: <see cref="MechObject.TorsoTwistTick"/> builds the torso's
+/// turn rate toward what this asks for and integrates that into the angle.
+/// </param>
+/// <param name="TorsoPitch">The turret axis, up/down. Positive looks up.</param>
+/// <param name="CenterTorso">
+/// The manual's [Backspace] "Center Turret" command — a mode, not a keypress: the original latches
+/// it (<c>DAT_004d2588</c>) and runs the centring tick every tick until the pilot moves either
+/// turret axis, which clears it. The host holds it the same way.
+/// </param>
+public readonly record struct MechControls(short Turn, short Throttle, int ThrottleLever = 0,
+		short TorsoTwist = 0, short TorsoPitch = 0, bool CenterTorso = false) {
 	/// <summary>Full stick deflection, in either direction.</summary>
 	public const short AxisFull = 0x100;
 

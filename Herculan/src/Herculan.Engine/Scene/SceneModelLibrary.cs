@@ -29,9 +29,14 @@ namespace Herculan.Engine.Scene;
 /// </param>
 /// <param name="RadiusWorldUnits">Coarse collision radius derived from the model's own bounds.</param>
 /// <param name="HeightWorldUnits">Height of the model's bounding box, in world units.</param>
+/// <param name="Segments">
+/// The same geometry split by the node that places each part, for an object whose shape animates —
+/// see <see cref="DtsMeshBuilder.BuildSegments"/>. A caller draws either <paramref name="Mesh"/> or
+/// these, never both: they are the same triangles twice.
+/// </param>
 public sealed record SceneModel(
 	string Key, MeshVertex[] Mesh, TextureAtlas? Atlas, float BaseOffset, int RadiusWorldUnits,
-	int HeightWorldUnits);
+	int HeightWorldUnits, MeshSegment[] Segments);
 
 /// <summary>
 /// Loads and caches the models a mission needs, keyed so identical unit types share one mesh and one
@@ -134,7 +139,7 @@ public sealed class SceneModelLibrary {
 			? HercSimDat.TextureGroupDbaBaseName(data.ModelSkinId)
 			: null;
 
-		return Build(mechName + ".DTS", 0, bankName);
+		return Build(mechName + ".DTS", 0, bankName, segmented: true);
 	}
 
 	/// <summary>The model for a flyer type, or null when the install has no <c>.DTS</c> for it.</summary>
@@ -152,7 +157,7 @@ public sealed class SceneModelLibrary {
 			? Build(BaseTypeTable.AnimatedLibraryName, type.ShapeIndex, type.TextureBankName)
 			: BuildFromShapeLibrary(BaseTypeTable.StaticLibraryName, type.ShapeIndex, type.TextureBankName);
 
-	private SceneModel? Build(string dtsName, int rootIndex, string? bankName) {
+	private SceneModel? Build(string dtsName, int rootIndex, string? bankName, bool segmented = false) {
 		string key = $"dts\\{dtsName}#{rootIndex}";
 		if (_models.TryGetValue(key, out var cached)) {
 			return cached;
@@ -163,7 +168,7 @@ public sealed class SceneModelLibrary {
 			root = roots[rootIndex];
 		}
 
-		var model = BuildFromRoot(key, root, bankName);
+		var model = BuildFromRoot(key, root, bankName, segmented);
 		_models[key] = model;
 		return model;
 	}
@@ -185,7 +190,7 @@ public sealed class SceneModelLibrary {
 		return model;
 	}
 
-	private SceneModel? BuildFromRoot(string key, TSObject? root, string? bankName) {
+	private SceneModel? BuildFromRoot(string key, TSObject? root, string? bankName, bool segmented = false) {
 		if (root == null) {
 			return null;
 		}
@@ -197,9 +202,14 @@ public sealed class SceneModelLibrary {
 		Vector3 extent = max - min;
 		float radiusInRenderUnits = MathF.Max(extent.X, extent.Z) * 0.5f;
 
+		// Bounds, radius and base offset all come off the flat mesh whichever way the model ends up
+		// being drawn: they describe the machine at rest, and a walk cycle should not change how wide
+		// it is for collision purposes. Segments cost a second pass over the shape, so only the
+		// rosters that animate ask for them.
 		return new SceneModel(key, mesh, atlas, -min.Y,
 			(int)(radiusInRenderUnits * WorldScale.WorldUnitsPerMeter),
-			(int)(extent.Y * WorldScale.WorldUnitsPerMeter));
+			(int)(extent.Y * WorldScale.WorldUnitsPerMeter),
+			segmented ? DtsMeshBuilder.BuildSegments(root, atlas) : Array.Empty<MeshSegment>());
 	}
 
 	/// <summary>

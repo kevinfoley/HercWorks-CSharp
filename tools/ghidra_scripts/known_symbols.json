@@ -4139,8 +4139,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_TorsoTwistTick",
-      "description": "Torso twist (yaw): rate at mech+0x294, angle at mech+0x298, clamped to +/- typeRec[+0x22]. Rates dt-scaled via Math_IntegrateRateOverTick.",
-      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+      "description": "Torso/turret twist (yaw): rate at mech+0x294, angle at mech+0x298, clamped to +/- typeRec[+0x22]. Rates dt-scaled via Math_IntegrateRateOverTick. Only ACCELERATION is rate-limited -- when |Q8(axis, typeRec[+0x1e])| <= |rate| the rate snaps to it, so releasing or reversing the stick stops the turret dead. Args are (mech, axis, snapTarget, snapEnable); with snapEnable set the turret stops on the tick its angle crosses snapTarget, which is how Mech_CenterTorsoTick lands on centre. Ends by seeking the twist thread (mech+0x230) to (unsigned)angle >> 2 via AnimThread_SeekToPosition -- the turret has no rotation of its own. See docs/simulation/torso-aim.md.",
+      "source": "docs/simulation/torso-aim.md 2026-08-22"
     },
     {
       "address": "0041a808",
@@ -4148,8 +4148,62 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_TorsoPitchTick",
-      "description": "Torso pitch: rate at mech+0x296, angle at mech+0x29a, clamped to the asymmetric range [typeRec+0x2c, typeRec+0x2a].",
-      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+      "description": "Torso/turret pitch: rate at mech+0x296, angle at mech+0x29a, clamped to the asymmetric range [typeRec+0x2c, typeRec+0x2a]. Same shape as Mech_TorsoTwistTick, on the pitch thread (mech+0x234) and typeRec[+0x24..+0x2c]. Its third argument is the range to the current target, passed straight to FUN_0041a74c for gun convergence. See docs/simulation/torso-aim.md.",
+      "source": "docs/simulation/torso-aim.md 2026-08-22"
+    },
+    {
+      "address": "00479238",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AnimThread_SeekToPosition",
+      "description": "Parks a thread at a Q14 fraction of a sequence instead of playing through it: sums the sequence's frame durations, scales the position by Q14 x (total - 1) (FUN_0047dfb4), walks the frames subtracting durations, and installs the resulting frame + intra-frame offset with AnimThread_SetSequence (004791a0). The only caller pair is the two torso ticks, which pass (unsigned)angle >> 2 -- this is how a turret angle becomes a pose. See docs/simulation/torso-aim.md.",
+      "source": "docs/simulation/torso-aim.md 2026-08-22"
+    },
+    {
+      "address": "0041e8d4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_CenterTorsoTick",
+      "description": "The [Backspace] 'Center Turret' command, run every tick while DAT_004d2588 is latched. Drives each torso tick with -clamp(Q10(0xfa, angle), +/-0x100) and snapTarget 0 with the snap enabled, so the turret runs home and stops exactly on centre. Nothing clears the mode on arrival; the input path clears it the moment either turret axis is non-zero.",
+      "source": "docs/simulation/torso-aim.md 2026-08-22"
+    },
+    {
+      "address": "0041a74c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Mech_ConvergeGunsOnRange",
+      "description": "Run from Mech_TorsoPitchTick with the range to the current target. Walks the mech's gun list (mech+0x202) and writes a per-gun aim vector at gun+0x24/+0x28, built from the gun's own muzzle position (FUN_0040f540) offset by record field 100; a range of 0 zeroes it instead. Named from that structural role -- the vector's consumer was not traced. Not ported.",
+      "source": "docs/simulation/torso-aim.md 2026-08-22"
+    },
+    {
+      "address": "00415488",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_GetTorsoTwistAngle",
+      "description": "Returns mech+0x298. Mech vtable slot +0x3c; the Center Body command (scancode 0x2b) uses it to work out the heading the legs must turn to.",
+      "source": "docs/simulation/torso-aim.md 2026-08-22"
+    },
+    {
+      "address": "004d2588",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_CenterTurretMode",
+      "description": "Latched by scancode 0x0e ([Backspace]) and by the expiry of the timer at mech+0x31b; cleared by scancode 0x2b (Center Body) and by Sim_PollPlayerInput the moment either turret axis is non-zero. While set, the player's turret block runs Mech_CenterTorsoTick instead of the two torso ticks.",
+      "source": "docs/simulation/torso-aim.md 2026-08-22"
+    },
+    {
+      "address": "004d2af4",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_CenterBodyMode",
+      "description": "The counterpart of g_CenterTurretMode for scancode 0x2b ('\\', Center Body): while set, Sim_PollPlayerInput steers the machine onto the turret's centreline instead of taking the throttle/steer axes, using the target heading cached in _DAT_004d2af8 (heading - Mech_GetTorsoTwistAngle at the moment the key was pressed). Not ported.",
+      "source": "docs/simulation/torso-aim.md 2026-08-22"
     },
     {
       "address": "0041ef14",
@@ -4358,6 +4412,78 @@
       "name": "AnimThread_StepAll",
       "description": "Advances every thread on the shape instance by the timestep (AnimThread_Advance, 00479614), bracketed by FUN_004788a4/FUN_004788c4 (thread-list iteration helpers, not further decoded). Then, if a first thread exists, writes its ramped root transform (00478fa8 = AnimThread_ReadRoot) into the leading slot of the world-transform array at shapeInst+0x16.",
       "source": "docs/simulation/mech-locomotion.md 2026-08-22"
+    },
+    {
+      "address": "004758c8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSGroup_RenderPolys",
+      "description": "DBSIM's counterpart to VSHELL's symbol of the same name, and the same field layout: +0x10 Indexes (defaulted when null), +0x14 Points, +0x18 Surfaces, +0x22 colorCount (memset size for the scratch buffer), +0x1c Polys walked as object pointers, +0x26 Polys.Length. Loop body calls each poly's vtable slot +0x1c. Opens by calling TSGroup_BindNodeTransform (00476014), which is what places the group's geometry at its own animated node -- see docs/formats/dts-node-posing.md. FUN_004758ce is the same function reached mid-prologue.",
+      "source": "docs/formats/dts-node-posing.md 2026-08-22"
+    },
+    {
+      "address": "00476014",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSGroup_BindNodeTransform",
+      "description": "One-line forwarder: ShapeNode_ComposeToViewTransform(group, out, (short)*(group + 4)). Field +4 is TSBasePart.Transform, the same transform id CameraBoneId resolves to through a part -- so every geometry group is drawn through its own node. See docs/formats/dts-node-posing.md.",
+      "source": "docs/formats/dts-node-posing.md 2026-08-22"
+    },
+    {
+      "address": "00476030",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShapeNode_ComposeToViewTransform",
+      "description": "For a non-negative transform id: FUN_0047f914(g_ShapeNodeWorldTransforms + id * 0x20, maybe_g_ShapeObjectToViewTransform, out) then installs the result via maybe_Raster_SetModelTransform (0048c338). Guarded by the per-node cache flags at &DAT_006bb334, so several groups on one node compose once. A negative id skips the composition and leaves the standing transform. This is the whole of how an animated node moves geometry -- see docs/formats/dts-node-posing.md.",
+      "source": "docs/formats/dts-node-posing.md 2026-08-22"
+    },
+    {
+      "address": "00475fd8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShapeInst_BindNodeTransformArray",
+      "description": "Binds the shape instance's per-node world transform array (shapeInst+0x16) to the render-side global g_ShapeNodeWorldTransforms, and on a non-null bind clears the 0x32-byte per-node cache-flag block at &DAT_006bb334 and resets the render-context stack index DAT_006bb368. Called before a shape's groups are drawn.",
+      "source": "docs/formats/dts-node-posing.md 2026-08-22"
+    },
+    {
+      "address": "006b7bec",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_ShapeNodeWorldTransforms",
+      "description": "Pointer to the currently bound shape instance's per-node WORLD transform array (shapeInst+0x16, stride 0x20, indexed by transform id -- the array ShapeInst_BuildWorldTransforms fills). Written only by ShapeInst_BindNodeTransformArray (00475fd8); read by ShapeNode_ComposeToViewTransform (00476030) and by FUN_00476a1c.",
+      "source": "docs/formats/dts-node-posing.md 2026-08-22"
+    },
+    {
+      "address": "006bb334",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_ShapeNodeTransformCacheFlags",
+      "description": "0x32-byte per-node 'already composed for this shape' flag block, cleared by ShapeInst_BindNodeTransformArray. Byte 0 is set as a bound marker; the per-node flags ShapeNode_ComposeToViewTransform tests start at 006bb335 and are indexed by transform id.",
+      "source": "docs/formats/dts-node-posing.md 2026-08-22"
+    },
+    {
+      "address": "006b7c14",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "medium",
+      "name": "maybe_g_ShapeObjectToViewTransform",
+      "description": "The transform a node's world transform is composed WITH in ShapeNode_ComposeToViewTransform, i.e. the object-to-view step. Sits at &DAT_006b7bf4 + 0x20, inside element 0 of the 0x110-stride render-context array allocated by FUN_00476b64 (Cpp_VectorNew(&DAT_006b7bf4, 0x110, 0x34, ...)). The role is inferred from that single read -- no writer was located, so the name is a maybe_.",
+      "source": "docs/formats/dts-node-posing.md 2026-08-22"
+    },
+    {
+      "address": "0048c338",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Raster_SetModelTransform",
+      "description": "Installs a 0x20-byte transform as the rasterizer's current model transform: stores the pointer in DAT_006c607c (defaulting to &DAT_006c6080 when null), composes it with DAT_006c6078 into the derived chain at &DAT_006c6038/&DAT_006c6058, and rebuilds the dependent state. Called by ShapeNode_ComposeToViewTransform and by every other site that changes what space geometry is submitted in. The derived globals were not individually decoded, hence medium.",
+      "source": "docs/formats/dts-node-posing.md 2026-08-22"
     }
   ]
 }

@@ -46,10 +46,20 @@ public sealed partial class MechObject : SimObject {
 		// the walk cycle at zero speed can never begin turning.
 		if (animation != null && animation.HasSequence(Type.StopForwardSequence)) {
 			Animation = animation;
-			Thread = new AnimationThread(animation);
-			Thread.SetSequence(Type.StopForwardSequence, 0, 0);
+			Shape = new ShapeInstance(animation);
+			Thread = Shape.AddThread(Type.StopForwardSequence);
+
+			// The torso's two threads, in the constructor's own order — it matters, because the
+			// first-registered thread wins any node two of them both animate. Neither ever plays:
+			// their rate stays zero and the torso tick seeks them by angle instead. A type record
+			// with a negative sequence id gets no thread, exactly as the original skips one.
+			TorsoTwistThread = AddTorsoThread(animation, Type.TorsoTwistSequence);
+			TorsoPitchThread = AddTorsoThread(animation, Type.TorsoPitchSequence);
 		}
 	}
+
+	private AnimationThread? AddTorsoThread(ShapeAnimation animation, short sequence) =>
+		sequence >= 0 && animation.HasSequence(sequence) ? Shape!.AddThread(sequence) : null;
 
 	/// <summary>Base name of the mech's data files, e.g. <c>SAMSON</c> for <c>dat\SAMSON.DAT</c>.</summary>
 	public string Name { get; }
@@ -66,8 +76,33 @@ public sealed partial class MechObject : SimObject {
 	/// <summary>The type's animation data, or null when its model carried none.</summary>
 	public ShapeAnimation? Animation { get; }
 
-	/// <summary>This machine's animation thread, or null when it has no animation to play.</summary>
+	/// <summary>
+	/// This machine's animated shape — its animation data plus the three threads playing on it.
+	/// Null when its model carried no animation.
+	/// </summary>
+	public ShapeInstance? Shape { get; }
+
+	/// <summary>
+	/// This machine's locomotion thread, the first of the three and the only one that ever plays.
+	/// Null when it has no animation.
+	/// </summary>
 	public AnimationThread? Thread { get; }
+
+	/// <summary>
+	/// The thread the torso's twist angle is seeked on (<c>mech+0x230</c>), or null when the type
+	/// names no twist sequence.
+	/// </summary>
+	public AnimationThread? TorsoTwistThread { get; }
+
+	/// <summary>The pitch counterpart (<c>mech+0x234</c>).</summary>
+	public AnimationThread? TorsoPitchThread { get; }
+
+	/// <summary>
+	/// One node of this machine's shape, posed as it stands this tick — see
+	/// <see cref="ShapeInstance.NodeTransform"/>. Identity when the machine has no animation.
+	/// </summary>
+	public Transform3 NodeTransform(int transformId) =>
+		Shape?.NodeTransform(transformId) ?? Transform3.Identity;
 
 	/// <summary>Whether this is the machine the player pilots. Only it slides on steep ground.</summary>
 	public bool IsPlayer { get; set; }
@@ -157,17 +192,31 @@ public sealed partial class MechObject : SimObject {
 	/// </summary>
 	public Vec3i EyePosition {
 		get {
-			if (Thread is not { } thread || Animation is not { } animation) {
-				return Position;
+			var eye = EyeTransform;
+			return new Vec3i(eye.X, eye.Y, eye.Z);
+		}
+	}
+
+	/// <summary>
+	/// The pilot's whole frame in world space, orientation included — the camera node's own
+	/// transform composed with the machine's. <see cref="EyePosition"/> is its translation.
+	///
+	/// <para>The orientation is not decorative: <c>Mech_TargetRelativeToPilot</c> (<c>0041ef14</c>)
+	/// brings a target into exactly this frame to work out where the HUD should draw it, so this is
+	/// what "the direction the pilot is looking" means in DBSIM. It is also why torso twist and pitch
+	/// turn the view without anything having to add them to it — the camera node hangs off the two
+	/// nodes those sequences drive (see docs/simulation/mech-locomotion.md's chain table).</para>
+	/// </summary>
+	public Transform3 EyeTransform {
+		get {
+			if (Shape is not { } shape || Animation is not { } animation) {
+				return Rotation();
 			}
 
 			int node = animation.TransformIdOfPart(Type.CameraBoneId);
-			if (node < 0) {
-				return Position;
-			}
-
-			var eye = thread.NodeTransform(node);
-			return Rotation().TransformPoint(eye.X, eye.Y, eye.Z);
+			return node < 0
+				? Rotation()
+				: Transform3.Concat(shape.NodeTransform(node), Rotation());
 		}
 	}
 
@@ -214,8 +263,40 @@ public sealed partial class MechObject : SimObject {
 	/// </summary>
 	public override void Tick(SimWorld world) {
 		ApplyThrottleInput(world);
+		TorsoTick();
 		MovementTick(world);
 	}
+
+	/// <summary>
+	/// <c>Sim_PollPlayerInput</c>'s turret block (<c>00460764</c>), which runs between the throttle
+	/// and the move. Either the pilot is holding the turret axes, or the centring command is latched
+	/// and drives them instead — touching either axis clears it, which is why the original tests the
+	/// axes before it tests the mode.
+	///
+	/// <para>Automatic Turret Tracking, the third case there, needs a selected target and is not
+	/// ported.</para>
+	/// </summary>
+	private void TorsoTick() {
+		var controls = Controls;
+
+		if (controls.TorsoTwist != 0 || controls.TorsoPitch != 0) {
+			_centeringTorso = false;
+		} else if (controls.CenterTorso) {
+			_centeringTorso = true;
+		}
+
+		if (_centeringTorso) {
+			CenterTorsoTick();
+			return;
+		}
+
+		TorsoTwistTick(controls.TorsoTwist);
+		TorsoPitchTick(controls.TorsoPitch);
+	}
+
+	// DAT_004d2588 — the latched centring mode. A global in the original, since only the player has
+	// one; per-object here for the same reason SimWorld has no globals.
+	private bool _centeringTorso;
 
 	/// <summary>
 	/// <c>Mech_MovementTick</c> (<c>0041a360</c>) — advances the animation, takes whatever ground

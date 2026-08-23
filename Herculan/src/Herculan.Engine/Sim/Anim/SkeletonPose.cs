@@ -16,12 +16,11 @@ public readonly record struct SkeletonJoint(int TransformId, int ParentId, Vec3i
 /// Samples every node of an animating machine into world space — the debug counterpart to
 /// <see cref="MechObject.EyePosition"/>, which asks the same question about one node only.
 ///
-/// <para>This exists because the animation system currently has exactly one observable output: the
-/// player's eye. The rendered mesh is baked at the shape's default pose (see
-/// <c>DtsMeshBuilder.ResolveGroupOffset</c>) and drawn with a single per-object matrix, so nothing
-/// on screen moves when a walk cycle plays, and a defect anywhere in the thread, the sequence data
-/// or the root motion can only be inferred from how the camera feels. Drawing the pose makes the
-/// whole of it visible without needing the per-node render path — see docs/engine/handoff-player-movement.md.</para>
+/// <para>It shows the whole skeleton, including the nodes no geometry hangs from, which the drawn
+/// model cannot. Overlaid on a posed machine (the external view, <c>[V]</c>) it is also the check
+/// that the two agree: the joints land on the model's own knees and feet, so a defect in the thread,
+/// the sequence data or the root motion shows up as the pair disagreeing rather than having to be
+/// inferred from how the camera feels.</para>
 ///
 /// <para>Nothing here is a port; the original has no such view. It reads the same
 /// <see cref="AnimationThread"/> state the simulation reads and adds no state of its own, so it
@@ -32,13 +31,13 @@ public static class SkeletonPose {
 	/// Every transform in <paramref name="mech"/>'s shape, in world units, on the frame its thread is
 	/// currently showing. Empty when the machine has no animation data.
 	///
-	/// <para>Nodes the playing sequence never places come back at the machine's own origin:
-	/// <see cref="AnimationThread.NodeTransform"/> accumulates nothing for them and returns identity,
+	/// <para>Nodes no thread places come back at the machine's own origin:
+	/// <see cref="ShapeInstance.NodeTransform"/> accumulates nothing for them and returns identity,
 	/// which is indistinguishable from a node genuinely posed at the origin. A cluster of joints
 	/// sitting exactly on the origin is that case, not a collapsed skeleton.</para>
 	/// </summary>
 	public static SkeletonJoint[] Build(MechObject mech) {
-		if (mech.Thread is not { } thread || mech.Animation is not { } animation) {
+		if (mech.Shape is not { } shape || mech.Animation is not { } animation) {
 			return Array.Empty<SkeletonJoint>();
 		}
 
@@ -47,7 +46,7 @@ public static class SkeletonPose {
 
 		var joints = new SkeletonJoint[parents.Length];
 		for (int id = 0; id < parents.Length; id++) {
-			var local = thread.NodeTransform(id);
+			var local = shape.NodeTransform(id);
 			joints[id] = new SkeletonJoint(id, parents[id],
 				world.TransformPoint(local.X, local.Y, local.Z));
 		}

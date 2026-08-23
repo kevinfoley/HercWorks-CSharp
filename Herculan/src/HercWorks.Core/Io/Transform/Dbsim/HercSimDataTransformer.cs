@@ -49,13 +49,13 @@ public class HercSimDataTransformer : ThreeSpaceByteTransformer {
 
 		data.AiAimTargOffset = IndexShortLE();
 
-		data.InputTorsoRazrFlag = IndexShortLE();
+		data.AnimId_TorsoTwist = IndexShortLE();
 		data.TorsoTwistSpeed = IndexShortLE();
 
 		data.TorsoRotateAccel = IndexShortLE();
 
 		data.TorsoTwistDegreeMax = IndexShortLE();
-		data.InputFlagsTorso = IndexShortLE();
+		data.AnimId_TorsoPitch = IndexShortLE();
 		data.TorsoPitchMaxRate = IndexShortLE();
 		data.TorsoPitchRate = IndexShortLE();
 		data.TorsoPitchMax = IndexShortLE();
@@ -163,11 +163,11 @@ public class HercSimDataTransformer : ThreeSpaceByteTransformer {
 
 		Write(outStream, WriteShortLE(data.AiAimTargOffset));
 
-		Write(outStream, WriteShortLE(data.InputTorsoRazrFlag));
+		Write(outStream, WriteShortLE(data.AnimId_TorsoTwist));
 		Write(outStream, WriteShortLE(data.TorsoTwistSpeed));
 		Write(outStream, WriteShortLE(data.TorsoRotateAccel));
 		Write(outStream, WriteShortLE(data.TorsoTwistDegreeMax));
-		Write(outStream, WriteShortLE(data.InputFlagsTorso));
+		Write(outStream, WriteShortLE(data.AnimId_TorsoPitch));
 		Write(outStream, WriteShortLE(data.TorsoPitchMaxRate));
 		Write(outStream, WriteShortLE(data.TorsoPitchRate));
 		Write(outStream, WriteShortLE(data.TorsoPitchMax));

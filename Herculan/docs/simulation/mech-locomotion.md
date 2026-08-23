@@ -24,7 +24,7 @@ a turn rate, and an animation playback rate.
 | `00402628` / `004027fc` | `SimObject_PushTransform` / `PopTransform` | Save/restore full transform incl. node hierarchy |
 | `00418f74` | `Mech_CollisionTest` | Returns nonzero on blocked move |
 | `004195c8` | `Mech_PlaceLegsOnGround` | Per-leg terrain placement |
-| `0041a550` / `0041a808` | `Mech_TorsoTwistTick` / `Mech_TorsoPitchTick` | Torso aim (not locomotion) |
+| `0041a550` / `0041a808` | `Mech_TorsoTwistTick` / `Mech_TorsoPitchTick` | Turret aim, not locomotion — [`torso-aim.md`](torso-aim.md) |
 
 `Mech_MovementTick` is dispatched from `Sim_MainTick`'s object loop via mech vtable `+0x18`
 (`0049a29a` → `00415b38`), which forwards through the per-mech-type behaviour struct at `+0x18`.
@@ -45,8 +45,9 @@ starting `00499928`. Ghidra reports zero xrefs for it — the table is unmarked 
 | `+0x28c` | short | Current turn rate (per tick) |
 | `+0x28e` | short | Current speed scalar |
 | `+0x290` | short | Throttle setting, Q10, clamped ±0x400 |
-| `+0x294/0x298` | short | Torso twist rate / angle |
-| `+0x296/0x29a` | short | Torso pitch rate / angle |
+| `+0x230/0x234` | ptr | Turret twist / pitch animation threads |
+| `+0x294/0x298` | short | Turret twist rate / angle |
+| `+0x296/0x29a` | short | Turret pitch rate / angle |
 | `+0x2a0` | short | Animation playback rate (Q8 multiplier) |
 | `+0x93` | byte | Throttle-dirty flag (input changed it this frame) |
 | `+0x317` | ptr | Subsystem object; damage causes throttle runaway |
@@ -77,8 +78,8 @@ stripped).
 | 16 | `+0x12` | `AnimId_StopMove` | Stop/step-off sequence, forward |
 | 18 | `+0x14` | `AnimId_StopReverse` | Stop/step-off sequence, reverse |
 | 20 | `+0x16` | `UnitOffsetYAdjust` | Ride height added to terrain height |
-| 28–32 | `+0x1e`–`+0x22` | `TorsoTwist*` | Torso twist rate/accel/limit |
-| 36–42 | `+0x26`–`+0x2c` | `TorsoPitch*` | Torso pitch rate/accel/max/min |
+| 26–32 | `+0x1c`–`+0x22` | `AnimId_TorsoTwist`, `TorsoTwist*` | Turret twist sequence, rate, accel, limit |
+| 34–42 | `+0x24`–`+0x2c` | `AnimId_TorsoPitch`, `TorsoPitch*` | The same for pitch — see [`torso-aim.md`](torso-aim.md) |
 | 44 | `+0x2e` | `GaitThreshold` | Walk↔run threshold speed |
 | 68 | `+0x46` | `AnimId_Death` | Death/fall sequence id |
 | 78 | `+0x50` | `InputFlagFlyer` | 1 = Razor |
@@ -307,9 +308,14 @@ walked to place geometry:
 | HEADHUNT | 5 | 12 | 12 <- 5 <- 1 |
 | RAZOR | 12 | 1 | 1 (flyer, no animation) |
 
-Node **1** is the one the walk, run, stop and turn sequences animate; 4 and 11 are the torso nodes
-that sequences 0 and 5 drive (torso twist and pitch — neither ported), so on a walking machine the
-bob comes entirely from node 1 while 4 and 11 hold their defaults.
+Node **1** is the one the walk, run, stop and turn sequences animate; 4 and 11 are the turret nodes
+sequences 0 and 5 drive (see [`torso-aim.md`](torso-aim.md)). The bob therefore comes entirely from
+node 1: with the turret held still, 4 and 11 contribute a fixed offset and no motion at all.
+
+The chain also **rotates** only at 4 and 11. Measured over a full stride on OUTLAW, OGRE, MONGOOSE
+and HEADHUNT, the camera node's world orientation does not move — zero yaw, pitch and roll swing —
+so a walking machine's view bobs without tilting, and everything the pilot's frame is turned by comes
+from the turret.
 
 Measured through the port, on flat ground: standing eye height 3.2 m (STINGRAY) to 11.2 m (SAMSON),
 running 4.7 m to 11.8 m (OGRE), against the 6.1-10.4 m statures the manual's HERC specs quote. A
@@ -360,9 +366,9 @@ frameDuration.
 > Port note: `AnimTransform.Blend` ports the blend; `AnimationThread.NodeTransform` /
 > `InterpolatedLocal` / `FrameFraction` port the evaluation. The port composes lazily per requested
 > node instead of building the whole array, so `ShapeInst_BuildWorldTransforms`'s dirty-flag
-> machinery has no counterpart and needs none. One deviation: no posed geometry is drawn —
-> `DtsMeshBuilder` bakes the rest pose, so animation reaches the screen only through the cockpit eye
-> and the debug skeleton view.
+> machinery has no counterpart and needs none. `ShapeInst_BuildWorldTransforms`'s output array is
+> what geometry is drawn through — see
+> [`dts-node-posing.md`](../formats/dts-node-posing.md).
 
 ### Evaluation cadence — per tick, not per rendered frame
 
@@ -383,7 +389,6 @@ shows a pose evaluated that same iteration, at 25 Hz.
 
 ## Outstanding
 
-- Leg/torso node posing in the renderer.
 - `mech+0x317` subsystem identity.
-- Torso twist (`0041a550`) and pitch (`0041a808`) — sequences 0 and 5, nodes 4 and 11.
+- Center Body (`\`, `DAT_004d2af4`) — steers the machine onto the turret's centreline.
 - AI obstacle avoidance (`00416274`), Razor flyer movement.

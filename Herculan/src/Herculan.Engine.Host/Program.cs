@@ -27,6 +27,9 @@ bool startOnHeadsDown = false;
 HddPage initialHddPage = CockpitHudState.Default.Hdd;
 HddDamageView initialHddDamageView = CockpitHudState.Default.HddDamage;
 short initialThrottle = 0;
+bool startExternal = false;
+short heldTwist = 0;
+short heldPitch = 0;
 for (int i = 0; i < args.Length; i++) {
 	if (args[i] == "--screenshot" && i + 1 < args.Length) {
 		screenshotPath = args[++i];
@@ -51,6 +54,19 @@ for (int i = 0; i < args.Length; i++) {
 		// --screenshot run never sees a keystroke, and a walking machine is the only way to see the
 		// gait, the cockpit bob or the slider anywhere but its centre. ±1024 is full travel.
 		initialThrottle = (short)Math.Clamp(throttleSetting, -ThrottleTrack.Full, ThrottleTrack.Full);
+	} else if (args[i] == "--turret" && i + 2 < args.Length
+			&& int.TryParse(args[i + 1], out int twistAxis) && int.TryParse(args[i + 2], out int pitchAxis)) {
+		// Hold the two turret axes for the whole run, for the same reason as --throttle: a
+		// --screenshot run never sees a keystroke, and the turret only moves while a key is held.
+		// ±256 is full deflection on each.
+		heldTwist = (short)Math.Clamp(twistAxis, -MechControls.AxisFull, MechControls.AxisFull);
+		heldPitch = (short)Math.Clamp(pitchAxis, -MechControls.AxisFull, MechControls.AxisFull);
+		i += 2;
+	} else if (args[i] == "--external") {
+		// Power up in the external chase view, for the same reason as --mfd and --throttle: the
+		// player's own machine is the one thing the cockpit view never shows, so a --screenshot run
+		// has no other way to see its own legs move.
+		startExternal = true;
 	} else if (args[i] == "--hdd-damage" && i + 1 < args.Length
 			&& int.TryParse(args[++i], out int damageIndex) && damageIndex >= 0 && damageIndex <= 2) {
 		// Which component category the damage screen powers up listing. [S], [I] and [W] switch it
@@ -215,7 +231,7 @@ bool allStopKeyDown = false;
 // geometry and this binding are placeholders — see ExternalCamera for what has not been RE'd. The
 // manual's own [V] cycles through several external cameras; this is one fixed chase view and a
 // toggle.
-bool externalView = false;
+bool externalView = startExternal;
 bool externalViewKeyDown = false;
 
 // The debug panel, on [Esc] — which therefore no longer quits; close the window for that. Built with
@@ -260,6 +276,8 @@ if (pilotMech != null) {
 		+ (pilotMech.Thread == null ? " — no animation data, so it cannot walk." : "."));
 	Console.WriteLine("Up/Down arrows throttle — hold Down through zero for reverse — Left/Right "
 		+ "arrows turn, keypad 5 all stop, C switches to the free camera, V to the external view.");
+	Console.WriteLine("J/K twist the turret, I/M pitch it, Backspace re-centres it — the manual's own "
+		+ "keyboard turret set. The cockpit view looks where the turret points.");
 	Console.WriteLine(throttleTrack != null
 		? "Drag the console's throttle slider with the mouse to set it; it tracks the keys either way."
 		: "No throttle slider in this herc's .GAU — keyboard throttle only.");
@@ -291,6 +309,11 @@ var disposables = new List<IDisposable>();
 SceneItem[]? items = null;
 SceneItem[]? pilotedItems = null;
 var movers = new List<(SceneObject Object, SceneItem Item)>();
+
+// A machine whose shape animates is drawn a node at a time, so each entry here is one geometry
+// segment riding one transform of one mech — see MissionScene.PosedTransformOf.
+var posedParts = new List<(MechObject Mech, int TransformId, SceneItem Item)>();
+var segmentMeshes = new Dictionary<string, GpuMesh[]>();
 IKeyboard? keyboard = null;
 bool cameraKeyDown = false;
 var cockpitInput = new CockpitInput();
@@ -326,10 +349,27 @@ window.Load += (gl, input) => {
 		}
 	}
 
+	// Which models are actually going to be drawn a node at a time: one whose segments exist *and*
+	// whose object has an animation thread to pose them with. A machine whose shape carries no
+	// ANAnimList has neither, and has to keep the flat mesh, which has the rest pose baked in — its
+	// segments alone would put every part at the shape's origin.
+	var animatedKeys = scene.Objects
+		.Where(o => o.Object is MechObject { Thread: not null } && o.Model is { } m && m.Segments.Length > 0)
+		.Select(o => o.Model!.Key)
+		.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
 	// One upload per distinct model, however many objects share it — a mission routinely fields
-	// several of the same machine and a row of identical structures.
+	// several of the same machine and a row of identical structures. A model that is drawn posed
+	// uploads its segments instead of its flat mesh: the two are the same triangles, and only one of
+	// them is ever drawn.
 	foreach (var model in scene.Models) {
-		modelMeshes[model.Key] = new GpuMesh(gl, model.Mesh);
+		if (animatedKeys.Contains(model.Key)) {
+			segmentMeshes[model.Key] = model.Segments.Select(segment => new GpuMesh(gl, segment.Vertices)).ToArray();
+			disposables.AddRange(segmentMeshes[model.Key]);
+		} else {
+			modelMeshes[model.Key] = new GpuMesh(gl, model.Mesh);
+		}
+
 		if (model.Atlas != null) {
 			modelTextures[model.Key] = new GpuTexture(gl, model.Atlas);
 		}
@@ -342,20 +382,43 @@ window.Load += (gl, input) => {
 		new(terrainMesh, Matrix4x4.Identity, terrainTexture?.Handle)
 	};
 
-	// The player's own machine, kept aside so the cockpit view can leave it out — see below.
-	SceneItem? playerItem = null;
+	// The player's own machine, kept aside so the cockpit view can leave it out — see below. A
+	// segmented machine contributes one item per node, so this is a set rather than one item.
+	var playerItems = new HashSet<SceneItem>();
 
 	foreach (var sceneObject in scene.Objects) {
-		if (sceneObject.Model is not { } model || !modelMeshes.TryGetValue(model.Key, out var mesh)) {
+		if (sceneObject.Model is not { } model) {
 			continue;
 		}
 
-		var item = new SceneItem(mesh, MissionScene.TransformOf(sceneObject),
-			modelTextures.TryGetValue(model.Key, out var texture) ? texture.Handle : null);
+		uint? texture = modelTextures.TryGetValue(model.Key, out var bound) ? bound.Handle : null;
+		bool isPlayer = ReferenceEquals(sceneObject, scene.PlayerObject);
+
+		if (sceneObject.Object is MechObject mech && segmentMeshes.TryGetValue(model.Key, out var segments)) {
+			for (int i = 0; i < segments.Length; i++) {
+				int transformId = model.Segments[i].TransformId;
+				var part = new SceneItem(segments[i],
+					MissionScene.PosedTransformOf(mech, transformId), texture);
+
+				built.Add(part);
+				posedParts.Add((mech, transformId, part));
+				if (isPlayer) {
+					playerItems.Add(part);
+				}
+			}
+
+			continue;
+		}
+
+		if (!modelMeshes.TryGetValue(model.Key, out var mesh)) {
+			continue;
+		}
+
+		var item = new SceneItem(mesh, MissionScene.TransformOf(sceneObject), texture);
 		built.Add(item);
 
-		if (ReferenceEquals(sceneObject, scene.PlayerObject)) {
-			playerItem = item;
+		if (isPlayer) {
+			playerItems.Add(item);
 		}
 
 		// Anything that can move needs its transform refreshed every frame. Structures never do, so
@@ -371,8 +434,8 @@ window.Load += (gl, input) => {
 	// cockpit node the camera rides is well inside the torso, so drawing it fills the canopy and
 	// hides the world. Both lists share the same SceneItem objects, so the per-frame transform
 	// refresh reaches whichever one is being drawn.
-	pilotedItems = playerItem != null
-		? built.Where(entry => !ReferenceEquals(entry, playerItem)).ToArray()
+	pilotedItems = playerItems.Count > 0
+		? built.Where(entry => !playerItems.Contains(entry)).ToArray()
 		: items;
 	keyboard = input.Keyboards.Count > 0 ? input.Keyboards[0] : null;
 
@@ -459,9 +522,17 @@ window.Update += deltaSeconds => {
 		// Stick sign convention is the device's, not the game's: forward and left are negative. No
 		// throttle lever, so the throttle's range spans both directions and holding [Down] takes the
 		// machine through zero into reverse — see MechControls.ThrottleLever.
+		//
+		// [I]/[M]/[J]/[K] aim the turret and [Backspace] re-centres it, which is the manual's own
+		// keyboard turret set. The turret's axes are rates, so holding a key sweeps it rather than
+		// putting it somewhere; [Backspace] latches until either axis is touched again.
 		pilotMech.Controls = new MechControls(
 			(short)(Axis(controls, Key.Right, Key.Left, Key.Keypad6, Key.Keypad4) * MechControls.AxisFull),
-			(short)(Axis(controls, Key.Down, Key.Up, Key.Keypad2, Key.Keypad8) * MechControls.AxisFull));
+			(short)(Axis(controls, Key.Down, Key.Up, Key.Keypad2, Key.Keypad8) * MechControls.AxisFull),
+			ThrottleLever: 0,
+			TorsoTwist: TurretAxis(Axis(controls, Key.K, Key.J), heldTwist),
+			TorsoPitch: TurretAxis(Axis(controls, Key.I, Key.M), heldPitch),
+			CenterTorso: controls.IsKeyPressed(Key.Backspace));
 	} else {
 		scene.Camera.Input = ReadInput(controls);
 		if (pilotMech != null) {
@@ -545,6 +616,14 @@ window.Update += deltaSeconds => {
 		item.Transform = MissionScene.TransformOf(sceneObject);
 	}
 
+	// Each node of an animating machine is re-read here, alongside the whole-object transforms above.
+	// Reading more often than the simulation ticks costs nothing and gains nothing: the thread's
+	// intra-frame fraction only moves in Advance, so consecutive reads between ticks return the same
+	// pose. That is the original's cadence too — see mech-locomotion.md's "Evaluation cadence".
+	foreach (var (mech, transformId, item) in posedParts) {
+		item.Transform = MissionScene.PosedTransformOf(mech, transformId);
+	}
+
 	if (piloting && pilotMech != null) {
 		if (externalView) {
 			// Fixed chase view, ~10 m behind the machine. Placeholder geometry — see ExternalCamera.
@@ -558,7 +637,8 @@ window.Update += deltaSeconds => {
 			// toggle went on and leaves everything else — the machine's own travel, its lean, the eye's
 			// fore/aft swing — alone. That isolates the vertical bob from the ride without touching the
 			// animation that produces either, which is the A/B for "is it the eye or the machine?".
-			var eye = pilotMech.EyePosition;
+			var eyeFrame = pilotMech.EyeTransform;
+			var eye = new Vec3i(eyeFrame.X, eyeFrame.Y, eyeFrame.Z);
 			if (steadyEye) {
 				if (!steadyEyeCaptured) {
 					steadyEyeRiseUnits = eye.Z - pilotMech.Position.Z;
@@ -570,9 +650,15 @@ window.Update += deltaSeconds => {
 				steadyEyeCaptured = false;
 			}
 
+			// Orientation comes off the eye node too, not off the machine's heading: the camera node
+			// hangs below the two nodes the torso sequences drive, so twisting and pitching the turret
+			// turns the view without anything here having to add the angles in. On a walking machine
+			// with the turret centred this is exactly the old heading-only camera — the walk cycle
+			// moves the eye but does not rotate it, measured at zero swing across the fleet.
+			var look = eyeFrame.ToEuler();
 			camera.Position = eye;
-			camera.Yaw = -pilotMech.Heading & 0xffff;
-			camera.Pitch = 0;
+			camera.Yaw = -look.Z & 0xffff;
+			camera.Pitch = look.X;
 		}
 
 		// Keep the observer camera on the machine, so switching to it lands where the player was
@@ -788,6 +874,8 @@ void BuildDebugPanel(int windowHeight) {
 
 	ImGui.Text($"Machine: {pilotMech.Name}");
 	ImGui.Text($"Skeleton joints: {skeletonJointCount}");
+	ImGui.Text($"Posed geometry nodes: {scene.PlayerObject?.Model?.Segments.Length ?? 0}"
+		+ " (visible in the external view, [V])");
 
 	ImGui.Separator();
 	if (pilotMech.Thread is { } thread) {
@@ -801,6 +889,19 @@ void BuildDebugPanel(int windowHeight) {
 	} else {
 		ImGui.TextWrapped("No animation data — this machine cannot walk.");
 	}
+
+	// The turret's own state. "Drawn" is where the animation actually put the eye, which is not the
+	// same as the angle the sim holds — the twist sequence's keyframes are not evenly spaced, so the
+	// two drift apart by up to about 7% across the travel. See docs/simulation/mech-locomotion.md.
+	ImGui.Separator();
+	var turret = pilotMech.EyeTransform.ToEuler();
+	ImGui.Text($"Turret twist: {Degrees(pilotMech.TorsoTwistAngle):F1} deg"
+		+ $" (limit {Degrees(pilotMech.Type.TorsoTwistLimit):F1}), rate {pilotMech.TorsoTwistRate}");
+	ImGui.Text($"Turret pitch: {Degrees(pilotMech.TorsoPitchAngle):F1} deg"
+		+ $" ({Degrees(pilotMech.Type.TorsoPitchMin):F1} to {Degrees(pilotMech.Type.TorsoPitchMax):F1})"
+		+ $", rate {pilotMech.TorsoPitchRate}");
+	ImGui.Text($"Drawn: twist {Degrees((short)(turret.Z - pilotMech.Heading)):F1} deg,"
+		+ $" pitch {Degrees(turret.X):F1} deg");
 
 	ImGui.Separator();
 	ImGui.Text($"Throttle: {pilotMech.Throttle} / {ThrottleTrack.Full}");
@@ -1014,3 +1115,14 @@ static int Axis(IKeyboard keyboard, Key positive, Key negative,
 	bool down = keyboard.IsKeyPressed(negative) || (negativeAlias is { } n && keyboard.IsKeyPressed(n));
 	return (up ? 1 : 0) - (down ? 1 : 0);
 }
+
+/// <summary>A binary angle in degrees, for the debug panel's readouts.</summary>
+static float Degrees(int binaryAngle) => BinaryAngle.ToRadians(binaryAngle) * (180f / MathF.PI);
+
+/// <summary>
+/// One turret axis: the key pair, or whatever <c>--turret</c> is holding when no key is down. Never
+/// past full deflection, so holding a key during a <c>--turret</c> run cannot ask for more rate than
+/// a stick can.
+/// </summary>
+static short TurretAxis(int keys, short held) =>
+	keys != 0 ? (short)(keys * MechControls.AxisFull) : held;

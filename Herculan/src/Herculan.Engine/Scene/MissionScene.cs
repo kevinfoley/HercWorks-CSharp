@@ -156,6 +156,29 @@ public sealed class MissionScene {
 	/// the other way, so anything attaching a camera to an object's heading negates it; this
 	/// transform must not.</para>
 	/// </summary>
+	/// <summary>
+	/// Where one node of an animating machine's shape stands, in render space: the node's own posed
+	/// transform followed by the machine's shape-to-world one. A caller draws each
+	/// <see cref="MeshSegment"/> with the matrix for its own transform id, which is what makes the
+	/// legs move.
+	///
+	/// <para>Two things differ from <see cref="TransformOf"/>, and both are the simulation being let
+	/// through rather than approximated. The machine's own transform is
+	/// <see cref="MechObject.WorldTransform"/>, so its lean over sloping ground comes with it, where
+	/// the rigid path has only a heading rotation. And there is no
+	/// <see cref="SceneModel.BaseOffset"/> lift: a HERC's shape origin is already its ground contact
+	/// point and the sim puts that at terrain height plus the type's own ride height (the one retail
+	/// machine whose model dips below zero, COLOSSUS, is also the one with a nonzero ride height, and
+	/// by exactly the same 400 units — see <see cref="WorldScale.WorldUnitsPerDtsUnit"/>), so lifting
+	/// by the bounding box on top of that counted the correction twice.</para>
+	/// </summary>
+	public static Matrix4x4 PosedTransformOf(MechObject mech, int transformId) {
+		var world = WorldScale.ToRenderMatrix(mech.WorldTransform);
+		return transformId < 0
+			? world
+			: WorldScale.ToRenderMatrix(mech.NodeTransform(transformId)) * world;
+	}
+
 	public static Matrix4x4 TransformOf(SceneObject sceneObject) {
 		float lift = sceneObject.Model?.BaseOffset ?? 0f;
 

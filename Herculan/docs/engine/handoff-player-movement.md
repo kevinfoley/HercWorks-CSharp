@@ -2,7 +2,9 @@
 
 RE references: [`docs/simulation/mech-locomotion.md`](../simulation/mech-locomotion.md),
 [`docs/formats/cockpit-hud.md`](../formats/cockpit-hud.md) (throttle gauge),
-[`docs/formats/cockpit-input.md`](../formats/cockpit-input.md) §7 (drag capture).
+[`docs/formats/cockpit-input.md`](../formats/cockpit-input.md) §7 (drag capture),
+[`docs/formats/dts-node-posing.md`](../formats/dts-node-posing.md) (node-posed geometry),
+[`docs/simulation/torso-aim.md`](../simulation/torso-aim.md) (turret twist and pitch).
 
 ## Shipped
 
@@ -10,15 +12,19 @@ RE references: [`docs/simulation/mech-locomotion.md`](../simulation/mech-locomot
 |---|---|
 | `Numerics/SimTrig.cs` | DBSIM cos/atan2/asin tables, with its 1/4096-turn quantization |
 | `Numerics/Transform3.cs` | 0x20-byte Q14 transform (`0047eaac`, `0047f914`, `00480330`, `0047f894`) |
-| `Sim/Anim/ShapeAnimation.cs`, `AnimationThread.cs` | Animation thread, root-motion accumulator, transition search, per-node pose lookup |
+| `Sim/Anim/ShapeAnimation.cs`, `AnimationThread.cs` | Animation thread, root-motion accumulator, transition search, per-node pose lookup, `SeekToPosition` |
+| `Sim/Anim/ShapeInstance.cs` | The shape's three threads, and the node poses they produce together |
+| `Sim/MechObject.Torso.cs` | Turret twist and pitch (`0041a550`, `0041a808`), centring (`0041e8d4`) |
 | `Sim/MechTypeRecord.cs` | Load-time speed rescale, on top of a now-correctly-named `HercSimDat` |
 | `Sim/MechObject.cs`, `MechObject.Locomotion.cs`, `MechControls.cs` | Throttle input, control law, gait state machine, root motion, collision, steep-ground slide, cockpit eye |
 | `Content/ThrottleTrack.cs` | Throttle slider geometry — value to knob position and back |
 | `Content/CockpitWidgets.cs`, `Input/CockpitInput.cs` | Draggable widgets and pointer capture |
-| Host `Program.cs` | Arrow-key piloting, throttle/slider binding, cockpit camera, `--throttle` |
+| `Render/DtsMeshBuilder.cs`, `WorldScale.cs`, `Scene/MissionScene.cs` | Per-node geometry segments, `Transform3` to render matrix, posed placement (`004758c8`, `00476030`) |
+| Host `Program.cs` | Arrow-key piloting, turret keys, throttle/slider binding, cockpit camera, one draw per posed node, `--throttle`, `--external`, `--turret` |
 
 Tests: `MechLocomotionTests`, `MissionWalkTests`, `ThrottleGaugeTests`, `CockpitInputTests`,
-`Transform3Tests`, `SimMathTests`. 233 pass.
+`SkeletonPoseTests`, `Transform3Tests`, `SimMathTests`. 270 pass. Node posing and the turret added
+none — their verification was one-off measurement, recorded in dts-node-posing.md and torso-aim.md.
 
 **Verified without fitted parameters:** predicted top speed / HUD readout = **0.83–1.05** across all
 18 HERCs. Turn-in-place 26.9°/s vs. the reference doc's 27.3. Cockpit eye height 3.2–11.8 m against
@@ -65,20 +71,29 @@ up in its stop sequence.
 - **Player's own mech is not drawn in the cockpit view.** The eye node is well inside the torso, so
   its geometry would fill the canopy. Taken from observed retail behaviour — the exclusion was *not*
   traced in DBSIM's own submit path.
-- **Node poses use full `Transform3` composition**, including rotation, unlike `DtsMeshBuilder`,
-  which sums translations only and documents rotation as unverified. Cross-checked: the two agree on
-  eye height to a fraction of a metre, so the composition order is not scrambled.
+- **Node poses use full `Transform3` composition**, including rotation, unlike `DtsMeshBuilder`'s
+  load-time offset sum. The two agree exactly at rest — no retail HERC node carries a rest rotation
+  — so the composition order is not scrambled.
+- **A posed machine drops the `BaseOffset` lift and gains its lean**, both of them the simulation
+  being let through rather than approximated. See
+  [`dts-node-posing.md`](../formats/dts-node-posing.md).
+- **The cockpit camera's orientation comes off the eye node**, not the machine's heading, which is
+  what makes the turret turn the view. Checked first that the walk cycle rotates the eye by zero, so
+  it adds the turret and nothing else — see [`torso-aim.md`](../simulation/torso-aim.md).
+- **A contested node goes to the first-registered thread**, read off
+  `ShapeInst_EvalAllNodeLocals`'s backwards iteration rather than stated anywhere. It only matters to
+  HEADHUNT, whose twist node its walk cycle also drives.
 - **The throttle's vtable slots** were read off its constructors, not dumped from the vtable — see
   cockpit-input.md's Open list.
 
 ## Next
 
-- Leg/torso node posing in the renderer.
 - The throttle's two LED fill bars are decoded but not drawn; their colour ids were not traced.
 - The gauge's `+0xb1` speed-fraction value: written every frame, stored by the slider child, but
   nothing was found that moves anything with it.
-- Torso twist (`0041a550`) and pitch (`0041a808`) — sequences 0 and 5, nodes 4 and 11, which are two
-  of the three nodes in the camera chain. Porting them will move the eye.
+- Automatic Turret Tracking ([T]) and AI turret aiming — both need target selection first. Then
+  Center Body (`\`), the turret servo sound, and the HUD's turret rotation indicator; see
+  [`torso-aim.md`](../simulation/torso-aim.md)'s "Not ported".
 - Damage terms in the control law (all exactly zero at full health), `mech+0x317` identity.
 - AI obstacle avoidance (`00416274`), Razor flyer movement.
 
@@ -88,17 +103,16 @@ up in its stop sequence.
 quits). Two toggles and a set of animation readouts:
 
 - **Draw skeleton** — every transform of the player's shape sampled through
-  `AnimationThread.NodeTransform`, drawn as bones plus a joint cross, depth-test off. The camera node
-  is flagged in its own colour. This is the only view of the animation system there is: the mesh is
-  baked at the rest pose, so nothing else on screen moves when a cycle plays. Built on
-  `SkeletonPose` (sim) + `SkeletonWireframe` (render); needs none of the per-node render path, and in
-  particular none of `ResolveGroupOffset`'s unapplied rotation, since the runtime thread's rotations
-  are already there.
+  `ShapeInstance.NodeTransform`, drawn as bones plus a joint cross, depth-test off. The camera node
+  is flagged in its own colour. Built on `SkeletonPose` (sim) + `SkeletonWireframe` (render). It
+  shows the nodes no geometry hangs from, and overlaid on a posed machine (`V`) it is the check that
+  the pose the simulation holds and the pose being drawn are the same one.
 - **Steady eye** — pins the eye's height to whatever it was when the toggle went on, leaving travel,
   lean and fore/aft swing alone. A/B for whether the complaint is the eye or the machine.
-- Readouts: sequence/frame/target/rate, root-motion flag, throttle, speed, gait, step per frame,
-  position, heading, lean, ground clearance, and eye rise with its running min/max swing (retail
-  stride is 0.24–0.42 m).
+- Readouts: sequence/frame/target/rate, root-motion flag, posed node count, turret twist and pitch
+  with the angle actually drawn beside each (they differ, see torso-aim.md), throttle, speed, gait,
+  step per frame, position, heading, lean, ground clearance, and eye rise with its running min/max
+  swing (retail stride is 0.24–0.42 m).
 
 `SkeletonPoseTests` pins the invariant that makes it evidence: the camera joint equals
 `MechObject.EyePosition` exactly, for all 18 retail HERCs mid-stride, and sampling perturbs nothing.
@@ -106,14 +120,19 @@ quits). Two toggles and a set of animation readouts:
 ## Host controls
 
 Arrow keys or keypad 4/6/8/2 steer and throttle — hold Down through zero for reverse. Keypad 5 all
-stop. Mouse drags the console throttle slider. `C` toggles the observer camera, `V` the external
-chase view (placeholder geometry, not RE'd — see `ExternalCamera`), `Esc` the debug panel.
-`--throttle <n>` powers up with the throttle preset, for `--screenshot` runs that never see a
-keystroke.
+stop. `J`/`K` twist the turret, `I`/`M` pitch it, `Backspace` re-centres it — the manual's own
+keyboard turret set, and the cockpit view looks where the turret points. Mouse drags the console
+throttle slider. `C` toggles the observer camera, `V` the external chase view (placeholder geometry,
+not RE'd — see `ExternalCamera`), `Esc` the debug panel.
+
+For `--screenshot` runs that never see a keystroke: `--throttle <n>` powers up with the throttle
+preset, `--turret <twist> <pitch>` holds the two turret axes (±256 each), and `--external` starts in
+the external view — the only view that shows the player's own machine, and so the only one its legs
+are visible in.
 
 ## Environment
 
 Ghidra project `E:\ES2Stuff\tools\ghidra_project\ES2Recon`. Grep
 `tools/analysis_out/DBSIM_full_decomp.txt` (pre-rename, use addresses) rather than re-running
 headless Ghidra. `known_symbols.json` is current and has been applied to the project
-(`ES2ApplySymbolNames.java`, 14 renamed / 2 labeled this pass).
+(`ES2ApplySymbolNames.java`, most recently 5 renamed / 3 labeled for the node-posing pass).

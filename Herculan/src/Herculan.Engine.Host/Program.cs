@@ -526,13 +526,18 @@ window.Update += deltaSeconds => {
 		// [I]/[M]/[J]/[K] aim the turret and [Backspace] re-centres it, which is the manual's own
 		// keyboard turret set. The turret's axes are rates, so holding a key sweeps it rather than
 		// putting it somewhere; [Backspace] latches until either axis is touched again.
+		//
+		// [\] is the other half of that pair, Center Body: it walks the legs round under the turret
+		// instead of bringing the turret back, taking the steering and the twist axis until they line
+		// up. It latches on the keypress, and [Backspace] cancels it.
 		pilotMech.Controls = new MechControls(
 			(short)(Axis(controls, Key.Right, Key.Left, Key.Keypad6, Key.Keypad4) * MechControls.AxisFull),
 			(short)(Axis(controls, Key.Down, Key.Up, Key.Keypad2, Key.Keypad8) * MechControls.AxisFull),
 			ThrottleLever: 0,
 			TorsoTwist: TurretAxis(Axis(controls, Key.K, Key.J), heldTwist),
 			TorsoPitch: TurretAxis(Axis(controls, Key.I, Key.M), heldPitch),
-			CenterTorso: controls.IsKeyPressed(Key.Backspace));
+			CenterTorso: controls.IsKeyPressed(Key.Backspace),
+			CenterBody: controls.IsKeyPressed(Key.BackSlash));
 	} else {
 		scene.Camera.Input = ReadInput(controls);
 		if (pilotMech != null) {
@@ -695,6 +700,7 @@ window.Update += deltaSeconds => {
 		hudState = hudState with {
 			SpeedKph = pilotMech.DisplaySpeedKph,
 			Throttle = throttleGauge,
+			TorsoTwist = pilotMech.TorsoTwistAngle,
 		};
 	}
 };
@@ -902,6 +908,9 @@ void BuildDebugPanel(int windowHeight) {
 		+ $", rate {pilotMech.TorsoPitchRate}");
 	ImGui.Text($"Drawn: twist {Degrees((short)(turret.Z - pilotMech.Heading)):F1} deg,"
 		+ $" pitch {Degrees(turret.X):F1} deg");
+	ImGui.Text(pilotMech.CenteringBody
+		? $"Centring: body, onto {Degrees(pilotMech.CenterBodyReference):F1} deg"
+		: pilotMech.CenteringTorso ? "Centring: turret" : "Centring: none");
 
 	ImGui.Separator();
 	ImGui.Text($"Throttle: {pilotMech.Throttle} / {ThrottleTrack.Full}");

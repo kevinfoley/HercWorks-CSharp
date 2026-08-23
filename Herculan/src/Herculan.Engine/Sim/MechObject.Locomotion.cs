@@ -51,9 +51,13 @@ public sealed partial class MechObject {
 	/// path with an absolute one and closes the clamp to one side of zero, since a lever's travel
 	/// only spans one direction.</para>
 	/// </summary>
-	private void ApplyThrottleInput(SimWorld world) {
+	/// <param name="turn">
+	/// The steering stick, normally <see cref="MechControls.Turn"/> straight through. Center Body
+	/// (<see cref="CenterBodyTick"/>) substitutes its own, which is why the caller passes it rather
+	/// than this reading it off the controls with everything else.
+	/// </param>
+	private void ApplyThrottleInput(SimWorld world, short turn) {
 		var controls = Controls;
-		short turn = controls.Turn;
 		short throttleAxis = controls.Throttle;
 
 		if (controls.ThrottleLever != 0) {

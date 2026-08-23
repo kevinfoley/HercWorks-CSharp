@@ -4202,8 +4202,8 @@
       "type": "data",
       "confidence": "high",
       "name": "g_CenterBodyMode",
-      "description": "The counterpart of g_CenterTurretMode for scancode 0x2b ('\\', Center Body): while set, Sim_PollPlayerInput steers the machine onto the turret's centreline instead of taking the throttle/steer axes, using the target heading cached in _DAT_004d2af8 (heading - Mech_GetTorsoTwistAngle at the moment the key was pressed). Not ported.",
-      "source": "docs/simulation/torso-aim.md 2026-08-22"
+      "description": "The counterpart of g_CenterTurretMode for scancode 0x2b ('\\', Center Body): while set, Sim_PollPlayerInput steers the machine onto the turret's centreline instead of taking the throttle/steer axes, using the target heading cached in g_CenterBodyTargetHeading (004d2af8). Cleared only by its own convergence test or by [Backspace]; steering and the turret axes do not cancel it.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-23"
     },
     {
       "address": "0041ef14",
@@ -4283,7 +4283,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ThrottleSlider_CtorV",
-      "description": "The throttle's vertical slider child, built when .GAU offset 1064 (SLIDE_DIR) == 1 -- the case all 9 retail .GAU files use. Knob spans the track's full width with its height from throttle bank frame 1 (28x12), limits +/-0x400 at +0x24/+0x26, and an initial position centred on the track (knobBottom = trackBottom - (trackHeight - knobHeight)/2), which is the manual's centred-is-stopped detent. Also constructs the two LED fill bars from .GAU ints [8..11] and [12..15].",
+      "description": "The throttle's vertical slider child, built when .GAU offset 1064 (SLIDE_DIR) == 1 -- the case all 9 retail .GAU files use. Knob spans the track's full width with its height from throttle bank frame 1 (28x12), limits +/-0x400 at +0x24/+0x26, and an initial position centred on the track (knobBottom = trackBottom - (trackHeight - knobHeight)/2), which is the manual's centred-is-stopped detent. Also constructs the two LED fill bars from .GAU ints [8..11] and [12..15] into private fields +0x7e and +0x82 -- it never registers them as children, and nothing ever paints them (see LedBarGraph_CtorV).",
       "source": "docs/formats/cockpit-hud.md 2026-08-21"
     },
     {
@@ -4337,7 +4337,7 @@
       "type": "function",
       "confidence": "high",
       "name": "LedBarGraph_CtorV",
-      "description": "Vertical LED bar graph ctor (obj, rect, range) -- the V twin of LedBarGraph_CtorBase (004390c4), taking start/end from the rect's y0/y1 instead of x0/x1. The throttle gauge builds two: .GAU ints [8..11] with range +0x400 (forward fill, above centre) and [12..15] with -0x400 (reverse fill, below). This is what those ints are; they are NOT the four detent points HThrottle previously recorded.",
+      "description": "Vertical LED bar graph ctor (obj, rect, range) -- the V twin of LedBarGraph_CtorBase (004390c4), taking start/end from the rect's y0/y1 instead of x0/x1. The throttle gauge builds two: .GAU ints [8..11] with range +0x400 (forward fill, above centre) and [12..15] with -0x400 (reverse fill, below). This is what those ints are; they are NOT the four detent points HThrottle previously recorded. NEITHER THROTTLE BAR IS EVER DRAWN: the slider holds them privately, ThrottleSlider_PaintV reads them only for their rects (via FUN_004390b8) to widen the region it invalidates, and the bar draw routines 00439398/00439460 have no callers in the image. A cut feature, along with the gauge+0xb1 speed fraction that would have filled them.",
       "source": "docs/formats/cockpit-hud.md 2026-08-21"
     },
     {
@@ -4475,6 +4475,132 @@
       "name": "maybe_g_ShapeObjectToViewTransform",
       "description": "The transform a node's world transform is composed WITH in ShapeNode_ComposeToViewTransform, i.e. the object-to-view step. Sits at &DAT_006b7bf4 + 0x20, inside element 0 of the 0x110-stride render-context array allocated by FUN_00476b64 (Cpp_VectorNew(&DAT_006b7bf4, 0x110, 0x34, ...)). The role is inferred from that single read -- no writer was located, so the name is a maybe_.",
       "source": "docs/formats/dts-node-posing.md 2026-08-22"
+    },
+    {
+      "address": "004d2af8",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_CenterBodyTargetHeading",
+      "description": "Short. Latched by scancode 0x2b to (mech+0x10) - Mech_GetTorsoTwistAngle() -- the world direction the turret is pointing in at the moment Center Body is pressed. While g_CenterBodyMode is set, both the substituted steering command and the substituted turret twist command are errors measured against this one number.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-23"
+    },
+    {
+      "address": "0045fdac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sim_ExecuteCommand",
+      "description": "Keyboard command dispatch, switched on scancode. Called both from the key queue and directly by Sim_PollPlayerInput (which passes 0x14 for one of the MFD cases). Case 0x0e/0x14 latch g_CenterTurretMode and clear g_CenterBodyMode; case 0x2b does the reverse and caches g_CenterBodyTargetHeading. Both also clear the auto-turret-tracking flag at mech+0x202 -> +0x14.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-23"
+    },
+    {
+      "address": "00415498",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_GetSpeed",
+      "description": "Mech vtable slot +0x38 (vtable 0049a282). Returns Q10(2000, mech+0x28e) for a walker, or mech+0x2bd when the type record's flyer flag (+0x50) is set. Used for its sign by the Center Body branch, and as a speed term by the AI's lead-the-target maths.",
+      "source": "docs/simulation/mech-locomotion.md 2026-08-23"
+    },
+    {
+      "address": "0044819c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ThrottleSlider_PaintV",
+      "description": "Vertical throttle slider paint. Copies the gauge's +0xb1 speed fraction into +0x7a/+0x4a and does nothing further with it, reads the two LED fill bars' rects only to widen the invalidated region handed to FUN_0043122c, then blits the knob at its current height. It never draws either bar -- see LedBarGraph_CtorV.",
+      "source": "docs/formats/cockpit-hud.md 2026-08-23"
+    },
+    {
+      "address": "0043d5a4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gunsight_AddChild",
+      "description": "Appends a child pointer to the roving-gunsight complex's array at widget+0xd7 (count at +0xff), so construction order is child index. Gunsight_Paint (0043d5c8) walks that array calling each child's slot 0.",
+      "source": "docs/formats/cockpit-hud.md 2026-08-23"
+    },
+    {
+      "address": "0043d5c8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gunsight_Paint",
+      "description": "Paints the front-window HUD: every child of the array at widget+0xd7 in order, then the mission-name label and the speed readout.",
+      "source": "docs/formats/cockpit-hud.md 2026-08-23"
+    },
+    {
+      "address": "0043d98c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gunsight_SetValues",
+      "description": "Called once a frame by Player_PerFrameCockpitUpdate with the machine's heading (mech+0x10), turret twist (+0x298) and turret pitch (+0x29a). Caches them at widget+0xb1/+0xb3/+0xb5 and forwards each one's delta to a child's AddDelta slot (+0xc): heading -> child 7 as (new - old), twist -> child 2 (the rotation indicator) as (old - new), pitch -> child 3 as (old - new).",
+      "source": "docs/formats/cockpit-hud.md 2026-08-23"
+    },
+    {
+      "address": "0043b378",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HudSlideBar_CtorBase",
+      "description": "Base of the front-window HUD's sliding-bar widgets. Stores the rect, defaults the limits to +/-0x4800 at +0x24/+0x26, precomputes the range at +0x2c and seeds the current value at +0x3a to the midpoint. HudSlideBar_SetLimits (0043b3c0) is the vtable +0x10 slot that overrides those limits.",
+      "source": "docs/formats/cockpit-hud.md 2026-08-23"
+    },
+    {
+      "address": "0043b3c0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HudSlideBar_SetLimits",
+      "description": "Slide-bar vtable slot +0x10: sets min/max at +0x24/+0x26, recomputes the range and the midpoint value, then runs the recompute slot (+8). The gunsight gives the heading tape and child 7 +/-0xe38 (~20 deg) and the rotation indicator +/-0x38e3 (~80 deg).",
+      "source": "docs/formats/cockpit-hud.md 2026-08-23"
+    },
+    {
+      "address": "0043b3f8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HudSlideBar_AddDelta",
+      "description": "Slide-bar vtable slot +0xc: value (+0x3a) -= delta, clamped to [+0x24, +0x26]. The only caller is Gunsight_SetValues, which chooses the delta's sign per child so that a bar either tracks its angle or scrolls against it.",
+      "source": "docs/formats/cockpit-hud.md 2026-08-23"
+    },
+    {
+      "address": "0043b438",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HudRotationIndicator_Ctor",
+      "description": "The manual's Rotation Indicator -- child 2 of the roving-gunsight complex, driven by the turret twist angle. Has no .GAU rect of its own: Gau_RovingGunsightWidget derives it from the heading tape's rect at offset 1104 with literals (+15, -10, 90 wide, 4 tall) and then gives it limits +/-0x38e3.",
+      "source": "docs/formats/cockpit-hud.md 2026-08-23"
+    },
+    {
+      "address": "0043b460",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HudRotationIndicator_Recompute",
+      "description": "Slide-bar slot +8 for the rotation indicator: caches the rect's width at +0x28 as the bar's travel, and the track sprite's blit position at +0x2e/+0x32 -- the rect's top-left lifted by (2 << VideoMode_YCoordShift).",
+      "source": "docs/formats/cockpit-hud.md 2026-08-23"
+    },
+    {
+      "address": "0043b4a4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HudRotationIndicator_Paint",
+      "description": "Blits HUD bank frame 11 (182x10) as the track, then the sliding bar: frame 13 (green) while |value| <= 299, frame 12 (yellow) otherwise, at rect.x0 + (value - min) * width / range, minus (15 << VideoMode_XCoordShift) to centre the 62px bar on that point. This is the manual's 'turns yellow and moves left or right if your Turret moves from center'.",
+      "source": "docs/formats/cockpit-hud.md 2026-08-23"
+    },
+    {
+      "address": "0043b54c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HudSlideBar_CtorHidden",
+      "description": "Child 3 of the roving-gunsight complex, driven by the turret pitch angle. Its vtable (0049c20c) has no-op stubs in both the paint (0043b574) and recompute (0043b56c) slots, so the pitch axis has a slide bar that is never drawn -- there is no on-screen pitch indicator.",
+      "source": "docs/formats/cockpit-hud.md 2026-08-23"
     },
     {
       "address": "0048c338",

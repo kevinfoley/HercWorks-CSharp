@@ -402,7 +402,8 @@ Frame-to-state mapping, as far as it is traced: `PWEAPONS` 0/1 are the selected/
 640x80 strip with no located consumer; `WPN_DMG`'s 10 frames are damage fill levels, frame 0 the
 opaque empty plate; `THROTTLE` 0 is a 2x12 tick and 1 the 28x12 knob; `RADAR`'s 10 110x110 frames are
 the sweep animation; `MFD` 0-2 are 196x122 screen chrome, 3-10 five button plates in unlit/lit pairs
-(see [`mfd.md`](mfd.md)).
+(see [`mfd.md`](mfd.md)); `HUD` 0 is the 45x45 reticle, 11 the 182x10 rotation-indicator track and
+12/13 its 62x4 yellow and green bars (sizes in the 640-wide `hba\` banks; `dba\` is exactly half).
 
 ## `.GAU` widget tree
 
@@ -473,14 +474,21 @@ before it ever sees them, so the geometry below is in device pixels (`.GAU` unit
 | `[4..7]` | 1016-1028 | Slider **track** rect, `x0,y0,x1,y1` |
 | `[8..11]` | 1032-1044 | **Forward fill bar** rect — `LedBarGraph_CtorV` (`00439344`) with range `+0x400` |
 | `[12..15]` | 1048-1060 | **Reverse fill bar** rect — same, range `-0x400` |
+
 | `[0x10]` | 1064 | `SLIDE_DIR`. 1 in every retail file, selecting `ThrottleSlider_CtorV` (`00447e24`); the 0 branch (`004483c0`, a fixed 12px knob spanning the track's full height) is never exercised |
 | `[0x12]` | 1072 | x nudge for the centre tick, shifted by the ctor itself rather than at load |
 
 Ints `[8..15]` are **two rects, not four points**. That explains both things the point reading found
 odd: "points" 1 and 2 always sit close together because they are the bottom of the upper bar and the
 top of the lower one, and the x alternates between two values because those are each bar's left and
-right edge. The bars are the coloured fill either side of centre; Herculan does not draw them yet
-(their colour ids were not traced).
+right edge. On OUTLAW they are two 4x20 strips inside the 14x49 track, one either side of centre.
+
+**Neither bar is ever drawn.** `ThrottleSlider_CtorV` keeps them as private fields (`+0x7e`, `+0x82`)
+and never registers them with the widget tree, so nothing dispatches their paint; `LedBarGraph`'s own
+draw routines (`00439398`, `00439460`) have no callers anywhere in the image. The slider's paint
+(`ThrottleSlider_PaintV`, `0044819c`) reads them only through `FUN_004390b8`, which returns the
+object's rect, and unions those rects into the region it invalidates. The bars are a cut feature whose
+construction was left in — see the speed fraction below, which is what would have filled them.
 
 ### Slider geometry
 
@@ -527,8 +535,11 @@ flag: flag clear, the gauge drives `mech+0x290`; flag set, the machine's throttl
 the gauge to follow and the flag is cleared. Whichever moved last wins, which is what makes the
 slider track the keyboard and the keyboard pick up where a drag left off.
 
-What `+0xb1` is *for* is unresolved. `ThrottleGauge_SetValues` marks the slider child dirty when it
-changes and the child stores it (`+0x7a`/`+0x4a`), but nothing was found that moves anything with it.
+**`+0xb1` drives nothing.** `ThrottleGauge_SetValues` marks the slider child dirty when it changes, and
+`ThrottleSlider_PaintV` copies it into `+0x7a` and `+0x4a` and does nothing further with it — so its
+only observable effect is to force a repaint whenever the machine's speed changes. It is the other
+half of the cut feature the two fill bars are: the knob shows the throttle asked for, the bars would
+have shown the speed actually reached.
 
 The slider is the **only draggable widget in a retail cockpit** — see cockpit-input.md §7.
 `ThrottleSlider_OnValue` (`00448378`) also sets `ThrottleLeverMode` (`0049a06e`) from the committed
@@ -634,10 +645,75 @@ are not fixed the same way: `ConsoleButton_Paint` reads them from `DAT_004d13d0`
 `SimStrings_LoadAll` fills from `STRINGS0.STR` group 4 (see [`str-strings.md`](str-strings.md)),
 indexed by the widget's own kind field — entry 1 for LINK, entry 2 for TRACK.
 
-## Gunsight readouts
+## Front-window HUD — the gunsight complex
 
-`Gau_RovingGunsightWidget` (`0043c7d8`) places the speed and mission-time readouts from two anchor
-points in the gunsight complex's `.GAU` block, both already device-shifted:
+Everything drawn over the live 3D view, rather than on the console, belongs to one widget:
+`Gau_RovingGunsightWidget` (`0043c7d8`), built from `.GAU` offset **1088**. Its own ints:
+
+| int | file offset | Role |
+|---|---|---|
+| `[0]`,`[1]` | 1088, 1092 | Origin added to every child rect. Zero in all 9 retail files |
+| `[2]`,`[3]` | 1096, 1100 | The complex's own bottom-right — `320, 117` or `320, 157` |
+| `[4..7]` | 1104-1116 | **Heading tape** rect. `100,y - 220,y+17` in every file, so 120x17 centred on the 320-wide HUD. The rotation indicator is derived from it, below |
+| `[8]`,`[0xa]`,`[0xb]` | 1120, 1128, 1132 | Speed and time readout anchors — see below |
+| `[0xc]`,`[0xd]` | 1136, 1140 | Reticle point |
+| `[0xe]` | 1144 | Half-extent of the waypoint child's box about the reticle point |
+| `[0xf..0x12]` | 1148-1163 | Rect shared by children 0, 5 and 6 |
+
+`Gunsight_AddChild` (`0043d5a4`) appends to a pointer array at the widget's `+0xd7`, so construction
+order *is* child index. `Gunsight_Paint` (`0043d5c8`) walks that array calling each child's slot 0.
+
+| # | Ctor | What it is |
+|---|---|---|
+| 1 | `HudHeadingTape_Ctor` (`0043b57c`) | Heading tick tape, bank `hudhtick`, limits ±`0xe38` |
+| 2 | `HudRotationIndicator_Ctor` (`0043b438`) | The rotation indicator, limits ±`0x38e3` |
+| 3 | `HudSlideBar_CtorHidden` (`0043b54c`) | The pitch axis's slide bar — **paint slot is a no-op** (`0043b574`), so it is never drawn |
+| 7 | `FUN_0043c268` | Second widget on the heading tape's rect, limits ±`0xe38` |
+
+Children 0, 4, 5, 6 and 8 are constructed but were not traced.
+
+### Live values
+
+`Player_PerFrameCockpitUpdate` (`0041b130`) calls `Gunsight_SetValues` (`0043d98c`) once a frame with
+three shorts — `mech+0x10` (heading), `mech+0x298` (twist angle), `mech+0x29a` (pitch angle). The
+widget caches them at `+0xb1`/`+0xb3`/`+0xb5` and forwards each one's **delta** to a child's
+`AddDelta` slot (`+0xc`):
+
+| value | child | delta sent |
+|---|---|---|
+| heading | 7 | `new - old` |
+| twist | 2 | `old - new` |
+| pitch | 3 | `old - new` |
+
+`HudSlideBar_AddDelta` (`0043b3f8`) does `value -= delta`, clamped to the bar's limits, so the two
+`old - new` children *track* their angle and the heading child scrolls against it. All three start at
+zero, which is where the machine's angles start, so nothing drifts.
+
+### Rotation indicator
+
+The manual's sliding green bar. It has **no `.GAU` rect of its own**: `Gau_RovingGunsightWidget`
+derives it from the heading tape's rect with literals — `+15, -10` from its top-left, 90 wide and 4
+tall, all in `.GAU` units and shifted by the video mode.
+
+`HudRotationIndicator_Paint` (`0043b4a4`) draws two `HUD`-bank frames:
+
+```
+track:  frame 11 (182x10) at (rect.x0, rect.y0 - (2 << YCoordShift))
+bar:    frame 13 while |value| <= 299, frame 12 otherwise
+        x = rect.x0 + (value - min) * rectWidth / range  (+1 if value < 0)  - (15 << XCoordShift)
+        y = rect.y0
+```
+
+Frame 13 is green and 12 yellow, matching the manual's "turns yellow … if your Turret moves from
+center"; the 299 threshold is about 1.6°, so any deliberate movement trips it. The trailing `-15`
+undoes the `+15` the rect carries, which centres the 31-unit-wide bar on the mapped point to within
+one unit. The ±`0x38e3` limit is about 80°, deliberately wider than any herc's own 14000 twist limit,
+so the bar never reaches the ends of its track.
+
+### Speed and time readouts
+
+`Gau_RovingGunsightWidget` places these from two anchor points in the same block, both already
+device-shifted:
 
 - **1128/1132** is the *left* edge of the `SPEED:` caption. The value follows at
   `captionEnd + (2 << XCoordShift)`.
@@ -690,3 +766,5 @@ sub-objects (`+0x1f5`, `FUN_00433158`'s result, `+0x20b`).
 - `static` and `pilot<n>` ship in `dba\` only, so the 640-wide mode has no matching art for them; see
   [`heads-down-display.md`](heads-down-display.md).
 - RAZOR's non-stub view-1 3D viewport is not rendered.
+- Gunsight children 0, 4, 5, 6 and 8 — constructed, but neither their art nor their value sources
+  were traced.

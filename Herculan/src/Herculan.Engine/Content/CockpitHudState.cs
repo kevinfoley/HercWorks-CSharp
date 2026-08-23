@@ -22,6 +22,11 @@ namespace Herculan.Engine.Content;
 /// forward. It is the same number the piloted machine holds at <c>mech+0x290</c>, kept in step with
 /// it by <c>MechObject.ExchangeCockpitThrottle</c> once a frame — see <see cref="ThrottleTrack"/>.
 /// </param>
+/// <param name="TorsoTwist">
+/// The turret's twist angle, <c>mech+0x298</c> — what the front window's Rotation Indicator
+/// shows. Binary angle relative to the machine's own heading, positive to the same side
+/// <see cref="Herculan.Engine.Sim.MechControls.TorsoTwist"/> positive drives it.
+/// </param>
 /// <param name="MissionTime">Mission clock, rendered mm:ss.</param>
 /// <param name="ChainCount">How many weapons the chain button fires per pull, 1-3 — its caption is that many <c>I</c>s.</param>
 /// <param name="Mfd">Which screen the multi-function display is showing. F1-F6 select it, exactly as DBSIM's own mode buttons do.</param>
@@ -45,6 +50,7 @@ public readonly record struct CockpitHudState(
 	int ShieldRear,
 	int SpeedKph,
 	short Throttle,
+	short TorsoTwist,
 	TimeSpan MissionTime,
 	int ChainCount,
 	MfdMode Mfd,
@@ -69,6 +75,7 @@ public readonly record struct CockpitHudState(
 		ShieldRear: 100,
 		SpeedKph: 0,
 		Throttle: 0,
+		TorsoTwist: 0,
 		MissionTime: TimeSpan.Zero,
 		ChainCount: 1,
 		Mfd: MfdMode.Scanner,

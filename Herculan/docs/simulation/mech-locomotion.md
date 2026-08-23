@@ -14,6 +14,8 @@ a turn rate, and an animation playback rate.
 | Address | Name | Role |
 |---|---|---|
 | `00460764` | `Sim_PollPlayerInput` | Reads device axes, dispatches player control |
+| `0045fdac` | `Sim_ExecuteCommand` | Keyboard command dispatch, by scancode |
+| `00415498` | `Mech_GetSpeed` | Mech vtable `+0x38`: `Q10(2000, mech+0x28e)`, or `mech+0x2bd` for a flyer |
 | `004160dc` | `Mech_ApplyThrottleInput` | Stick/key throttle → `mech+0x290`, computes desired speed |
 | `00416a04` | `Mech_LocomotionTick` | Control law: speed, turn rate, animation rate, gait state machine |
 | `0041693c` | `Mech_ApplyTerrainSlopeToSpeed` | Uphill/downhill speed modifier |
@@ -159,6 +161,41 @@ turn-in-place sequence's root rotation.
 The remainder of `Mech_LocomotionTick` (~60% of its body) is the gait state machine, switching
 between sequences `AnimId_Walk` / `AnimId_Run` / stop-forward / stop-reverse / turn-in-place /
 death and maintaining `mech+0x2a0`. In steady state `animRate = speed`.
+
+## Center Body
+
+The manual's other half of [Backspace]: instead of bringing the turret back to the legs, it walks the
+legs round under the turret. Scancode `0x2b` (`Sim_ExecuteCommand`, `0045fdac`, and the identical case
+in `Sim_PollPlayerInput`) latches `g_CenterBodyMode` (`004d2af4`), clears `g_CenterTurretMode` and the
+ATT flag, and caches
+
+```
+g_CenterBodyTargetHeading = heading - Mech_GetTorsoTwistAngle()    // 004d2af8, short
+```
+
+— the world direction the turret is pointing in. While latched, the player's input block substitutes
+its own steering and twist axis; the throttle and the pitch axis still come from the pilot.
+
+```
+bodyError   = heading - target                       // legs still to turn
+turretError = (heading - twistAngle) - target        // turret drifted off the direction
+steer = sign(a) x (a² >> 8),  a = Q10(100, bodyError)
+twist = sign(b) x (b² >> 8),  b = Q10(0x46, turretError)
+if (a² >> 8 < 0x1e && b² >> 8 < 10)  g_CenterBodyMode = 0
+if (Mech_GetSpeed() < 0)  steer = -steer
+Mech_ApplyThrottleInput(mech, steer, throttleAxis)
+Mech_TorsoTwistTick(mech, twist);  Mech_TorsoPitchTick(mech, pitchAxis, range)
+```
+
+All 16-bit arithmetic, so both errors wrap. Squaring the gained error makes the command soft near the
+target and hard away from it, which is what stops the legs hunting; the sign is put back afterwards.
+Both terms reach their thresholds together, since heading meeting the target forces the twist to zero.
+The extra inversion on `Mech_GetSpeed` (mech vtable `+0x38`, `00415498` — `Q10(2000, mech+0x28e)`)
+sits on top of the one `Mech_ApplyThrottleInput` already does from the stick, so reversing steers the
+right way.
+
+The mode is not cancelled by steering or by the turret axes — only by its own convergence test or by
+[Backspace]. It leaves a few degrees of residual twist, by design: it is not a centring command.
 
 ## Timing
 
@@ -390,5 +427,4 @@ shows a pose evaluated that same iteration, at 25 Hz.
 ## Outstanding
 
 - `mech+0x317` subsystem identity.
-- Center Body (`\`, `DAT_004d2af4`) — steers the machine onto the turret's centreline.
 - AI obstacle avoidance (`00416274`), Razor flyer movement.

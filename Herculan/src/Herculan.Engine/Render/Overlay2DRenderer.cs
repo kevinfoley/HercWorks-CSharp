@@ -635,6 +635,17 @@ public sealed class Overlay2DRenderer : IDisposable {
 			(x0, y0, x1, y1, color) => AddFilledRect(Dx(x0), Dy(y0), Dx(x1), Dy(y1), color));
 		BlitAt("HUDHTICK", 0, gau.TorsoTwist);
 
+		// The Rotation Indicator, above the heading tape: a fixed track with a bar sliding along it at
+		// the turret's twist angle, in one of two colours depending on whether the turret is centred.
+		// Its geometry is derived from the heading tape's rect rather than read from the file — see
+		// RotationIndicator.
+		if (RotationIndicator.From(hud) is { } rotation) {
+			BlitDevice(RotationIndicator.SpriteBank, RotationIndicator.TrackFrame,
+				rotation.TrackX, rotation.TrackY);
+			BlitDevice(RotationIndicator.SpriteBank, RotationIndicator.FrameFor(state.TorsoTwist),
+				rotation.BarLeftFor(state.TorsoTwist), rotation.BarY);
+		}
+
 		// The throttle slider: frame 1 is the knob, riding the track at the setting's own height, and
 		// frame 0 the 2px tick the gauge parks beside the track's centre — ThrottleGauge_Ctor captures
 		// that tick's position once, at the knob's neutral height, and never moves it again. Its x

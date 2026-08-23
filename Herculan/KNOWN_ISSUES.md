@@ -2,10 +2,11 @@
 
 ## Earthsiege 2 (original retail game)
 
-_Bugs listed in this section are reproduced as-is in HERCULAN Engine unless otherwise noted._
+_Bugs listed in this section were tested on Windows 11. It's possible that some bugs would not occur on original 1990s hardware. Bugs in this section are reproduced as-is in HERCULAN Engine unless otherwise noted._
 
 - Samson cockpit: several HUD elements are slightly misaligned (shield balance text is not centered horizontally with meter; firing chain, LINK, and TRACK buttons are slightly too high and too far outward)
 - Player Herc acceleration/deceleration and turning are framerate-dependent (**fixed** in HERCULAN Engine)
+- The "center legs" function moves the turret awkwardly and does not center the legs perfectly.
 
 ## HERCULAN Engine
 

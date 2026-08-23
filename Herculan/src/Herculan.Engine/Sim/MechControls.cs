@@ -52,8 +52,20 @@ namespace Herculan.Engine.Sim;
 /// it (<c>DAT_004d2588</c>) and runs the centring tick every tick until the pilot moves either
 /// turret axis, which clears it. The host holds it the same way.
 /// </param>
+/// <param name="CenterBody">
+/// The manual's [\] "Center Body" command — the other half of the pair, and a locomotion assist
+/// rather than a turret one: it steers the <i>legs</i> round to line up under the turret, rather
+/// than bringing the turret back to the legs.
+///
+/// <para>Read on its rising edge, not held: latching it (<c>DAT_004d2af4</c>) captures the world
+/// direction the turret is pointing in (<c>DAT_004d2af8</c>), and everything after that is measured
+/// against that one number, so it has to be taken once. It clears <see cref="CenterTorso"/> and is
+/// cleared by it — the original's dispatch sets one of the two globals and zeroes the other
+/// wherever it touches either.</para>
+/// </param>
 public readonly record struct MechControls(short Turn, short Throttle, int ThrottleLever = 0,
-		short TorsoTwist = 0, short TorsoPitch = 0, bool CenterTorso = false) {
+		short TorsoTwist = 0, short TorsoPitch = 0, bool CenterTorso = false,
+		bool CenterBody = false) {
 	/// <summary>Full stick deflection, in either direction.</summary>
 	public const short AxisFull = 0x100;
 

@@ -21,7 +21,7 @@ sequence. Nothing rotates the torso; an animation is seeked to match the angle.
 | `00479238` | `AnimThread_SeekToPosition` | Angle → frame + intra-frame offset |
 | `0041a6d0` / `0041a994` | — | Servo loop sound, gated on `mech+0xa3` |
 | `0041a74c` | — | Gun convergence, run from the pitch tick |
-| `00415488` | — | Twist-angle accessor, mech vtable `+0x3c` |
+| `00415488` | `Mech_GetTorsoTwistAngle` | Twist-angle accessor, mech vtable `+0x3c` |
 
 Three callers, all once per tick: `Sim_PollPlayerInput` (`00460764`) for the player,
 `Mech_TargetRelativeToPilot`'s caller for AI aiming, and `Mech_CenterTorsoTick` for centring.
@@ -151,8 +151,10 @@ the input path clears it again the moment either turret axis is non-zero, which 
 axes before it tests the mode. Nothing clears it on arrival — with the turret centred the axes are
 zero and nothing moves, so it simply idles until the pilot takes the turret back.
 
-Scancode `0x2b` (`\`, "Center Body") sets the opposite flag `DAT_004d2af4`, which steers the machine
-to the turret's centreline instead. That is a locomotion assist and is not covered here.
+Scancode `0x2b` (`\`, "Center Body") sets the opposite flag `g_CenterBodyMode` (`004d2af4`), which
+turns the legs under the turret rather than the turret back to the legs. It substitutes the steering
+and the twist axis both, and is documented with the rest of the steering in
+[`mech-locomotion.md`](mech-locomotion.md#center-body).
 
 ## The pilot's frame
 
@@ -170,7 +172,8 @@ pitch turn the view with nothing having to add them to it.
 | `Sim/Anim/AnimationThread.cs` | `SeekToPosition`, `TryGetLocal` |
 | `Sim/MechObject.Torso.cs` | Both ticks, the centring command |
 | `Sim/MechObject.cs` | The three threads, `EyeTransform` |
-| `Sim/MechControls.cs` | `TorsoTwist`, `TorsoPitch`, `CenterTorso` |
+| `Sim/MechControls.cs` | `TorsoTwist`, `TorsoPitch`, `CenterTorso`, `CenterBody` |
+| `Content/RotationIndicator.cs`, `Render/Overlay2DRenderer.cs` | The HUD rotation indicator — see [`cockpit-hud.md`](../formats/cockpit-hud.md#front-window-hud--the-gunsight-complex) |
 
 `MechObject.EyeTransform` is the pilot's whole frame, orientation included; `EyePosition` is its
 translation. The host takes the cockpit camera's yaw and pitch from it rather than from the machine's
@@ -195,10 +198,7 @@ centres. `--turret <twist> <pitch>` holds the axes for a `--screenshot` run.
   target selection.
 - **AI turret aiming**, the caller that feeds `Mech_TargetRelativeToPilot`'s output back into these
   two ticks with a snap target derived from the target's bearing.
-- **Center Body** (`\`), a locomotion assist rather than a turret command.
 - **`FUN_0041a74c`**, gun convergence: the pitch tick's third argument is the range to the current
   target, and it writes a per-gun aim vector from it using record field 100.
 - **The servo sound** (`0041a6d0` / `0041a994`): sound 0x21, started when the axis exceeds 0xc0 and
   the angle is still changing, stopped when the axis centres or the angle stops.
-- **The HUD rotation indicator**, which the manual describes as turning yellow and sliding off centre
-  with the turret.

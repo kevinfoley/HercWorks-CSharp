@@ -68,11 +68,11 @@ namespace HercWorks.Core.Data.File.Gau;
 ///     complex's bottom edge. This offset is where the Java doc comment guessed `"1088- PANEL\NAVBAR"`
 ///     — that guess is now known to be wrong (it isn't a navbar/compass widget), though the doc's
 ///     *offset* itself wasn't a bad guess, just its label. NAVBAR itself remains unlocated.
-///   1104 - <see cref="HTorsoTwist"/>, 16 bytes (a normal X1,Y1,X2,Y2 rect) — the torso-twist
-///     deviation indicator. Matches the Java doc's `"1104- INDICATOR\TORSO_TWIST"` guess exactly.
-///     See <see cref="HTorsoTwist"/>'s own doc comment for the full disassembly-based confirmation
-///     (a prior session's black-box byte search had ruled out a plain-rect encoding here, but that
-///     search's shape tolerance was too tight for the real widget's actual 120x17 size).
+///   1104 - <see cref="HTorsoTwist"/>, 16 bytes (a normal X1,Y1,X2,Y2 rect) — the HUD **heading
+///     tape**, not the torso-twist indicator the Java doc's `"1104- INDICATOR\TORSO_TWIST"` guess
+///     named and not the field name kept here for compatibility. The Rotation Indicator has no rect
+///     in the file: the gunsight constructor derives it from this one. See
+///     <see cref="HTorsoTwist"/>'s own doc comment.
 ///   1120 - <see cref="RemainderBeforeReticle"/>, 16 bytes, NOT modeled as typed fields (though its
 ///     purpose is now understood from disassembly): two (X,Y) anchor points — offset 1120-1127 and
 ///     1132-1135 — for a target-speed text readout ("000 K/H" per a literal format string found next
@@ -93,7 +93,10 @@ namespace HercWorks.Core.Data.File.Gau;
 ///   1144 onward - <see cref="Remainder"/>, 556 bytes. Structurally mapped via 2026-08-10 DBSIM.EXE
 ///     disassembly (not decoded into typed fields — see below for why), so this is no longer really
 ///     "undecoded," just not modeled:
-///     - 1144-1211 (68 bytes): still genuinely unaccounted for — no widget constructor found that
+///     - 1144: the half-extent of the gunsight complex's waypoint child, taken about the
+///       <see cref="HReticle"/> point.
+///     - 1148-1163: a rect three of the gunsight complex's children share, none of them traced.
+///     - 1164-1211 (48 bytes): still genuinely unaccounted for — no widget constructor found that
 ///       reads this span.
 ///     - 1212-~1588: the file-data footprint of one widget constructor (`FUN_00448cc8` in the
 ///       2026-08-10 Ghidra project) tied to `"hddclip"`/`"pilots"`/`"static"` string resources — a

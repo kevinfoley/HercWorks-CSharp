@@ -23,6 +23,10 @@ namespace HercWorks.Core.Data.File.Gau;
 /// "points" always sit close together because they are the bottom of the upper bar and the top of
 /// the lower one, and the x value alternates between two values because those are each bar's left
 /// and right edge.
+///
+/// Neither bar is ever drawn — not by DBSIM either. The slider keeps them as private fields, never
+/// registers them with the widget tree, and uses their rects only to widen the region it
+/// invalidates; the bar-graph draw routines have no callers in the image. They are a cut feature.
 /// </summary>
 public class HThrottle : WidgetBase {
 	/// <summary>

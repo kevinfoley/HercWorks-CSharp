@@ -15,8 +15,14 @@ namespace Herculan.Engine.Content;
 /// <c>+0x400</c> and <c>-0x400</c>. Those are the forward and reverse fill bars either side of
 /// centre, which is why <see cref="HThrottle.DetentPoints"/>'s middle two points always sit close
 /// together — they are the bottom of the upper bar and the top of the lower one — and why their x
-/// alternates between two values: those are each bar's left and right edge. The bars are not drawn
-/// yet; only the track and the knob are.</para>
+/// alternates between two values: those are each bar's left and right edge.</para>
+///
+/// <para><b>The bars are a cut feature, and not drawing them is faithful.</b> DBSIM does not draw
+/// them either: the slider keeps them as private fields, never registers them with the widget tree,
+/// and its paint reads them only for their rects, which it unions into the region it invalidates.
+/// Their bar-graph draw routines have no callers anywhere in the image. The gauge's <c>+0xb1</c>
+/// speed-fraction value is the other half of the same cut feature — the knob shows the throttle
+/// asked for, the bars would have shown the speed reached.</para>
 ///
 /// <para><b>Units.</b> Everything here is device pixels, the 640-wide space the rest of the cockpit
 /// art and the sprite banks live in — <c>FUN_004488cc</c> shifts the whole block left by the video

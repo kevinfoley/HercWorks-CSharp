@@ -262,10 +262,119 @@ public sealed partial class MechObject : SimObject {
 	/// reproducible.</para>
 	/// </summary>
 	public override void Tick(SimWorld world) {
-		ApplyThrottleInput(world);
-		TorsoTick();
+		LatchCenterBody();
+
+		if (_centeringBody) {
+			// Center Body replaces the pilot's steering and his twist axis both, and is the reason
+			// the original runs the throttle and the turret from the same branch: the two commands
+			// it substitutes have to be worked out together, from the same pair of errors.
+			CenterBodyTick(world);
+		} else {
+			ApplyThrottleInput(world, Controls.Turn);
+			TorsoTick();
+		}
+
 		MovementTick(world);
 	}
+
+	/// <summary>
+	/// The <c>[\]</c> "Center Body" command's own latch, from <c>Sim_ExecuteCommand</c>'s scancode
+	/// <c>0x2b</c> case (<c>0045fdac</c>) and the identical one in <c>Sim_PollPlayerInput</c>: it
+	/// takes the world direction the turret is pointing in, <c>heading - twist</c>, and everything
+	/// the mode does afterwards is measured against that one number.
+	///
+	/// <para>The two centring commands are exclusive. Each one's dispatch clears the other's global,
+	/// so pressing [Backspace] mid-manoeuvre abandons this and brings the turret home instead.</para>
+	/// </summary>
+	private void LatchCenterBody() {
+		var controls = Controls;
+
+		if (controls.CenterBody && !_centerBodyHeld) {
+			_centeringBody = true;
+			_centeringTorso = false;
+			_centerBodyReference = (short)((short)Heading - TorsoTwistAngle);
+		}
+
+		_centerBodyHeld = controls.CenterBody;
+
+		if (_centeringBody && controls.CenterTorso) {
+			_centeringBody = false;
+			_centeringTorso = true;
+		}
+	}
+
+	/// <summary>
+	/// <c>Sim_PollPlayerInput</c>'s Center Body branch (<c>00460764</c>) — the machine walks its legs
+	/// round until they point where the turret was when the command was given, unwinding the turret
+	/// by exactly as much as the body gains so the pilot keeps looking at the same place throughout.
+	///
+	/// <para>Two errors drive it, both measured against the captured direction: how far the
+	/// <i>heading</i> still is from it, which steers, and how far the <i>turret</i> has drifted off
+	/// it, which twists. Both go to zero together, and only then, since heading meeting the reference
+	/// forces the twist to be zero.</para>
+	///
+	/// <para>Each error is gained, then <b>squared</b> and rescaled — the original's own
+	/// <c>e² >> 8</c> with the sign put back afterwards. That makes it soft near the target and hard
+	/// away from it, which is what stops the legs hunting about the reference. The mode ends when
+	/// both squared terms fall under their own thresholds, on the same tick it issues its last
+	/// commands.</para>
+	///
+	/// <para>The pilot keeps the throttle and the pitch axis; only steering and twist are taken.</para>
+	/// </summary>
+	private void CenterBodyTick(SimWorld world) {
+		short heading = (short)Heading;
+		short bodyError = (short)(heading - _centerBodyReference);
+		short turretError = (short)((short)(heading - TorsoTwistAngle) - _centerBodyReference);
+
+		short steerGain = (short)SimMath.Q10Multiply(CenterBodySteerGain, bodyError);
+		short twistGain = (short)SimMath.Q10Multiply(CenterBodyTwistGain, turretError);
+
+		int steer = steerGain * steerGain >> 8;
+		int twist = twistGain * twistGain >> 8;
+
+		if (steer < CenterBodySteerDeadband && twist < CenterBodyTwistDeadband) {
+			_centeringBody = false;
+		}
+
+		if (steerGain < 0) {
+			steer = -steer;
+		}
+
+		if (twistGain < 0) {
+			twist = -twist;
+		}
+
+		// Steering inverts when the machine is travelling backwards, read off the object's own speed
+		// accessor (mech vtable +0x38, 00415498) rather than off the throttle — the control law does
+		// its own inversion from the stick, and this one is on top of it.
+		if (TravelSpeed < 0) {
+			steer = -steer;
+		}
+
+		ApplyThrottleInput(world, (short)steer);
+		TorsoTwistTick((short)twist);
+		TorsoPitchTick(Controls.TorsoPitch);
+	}
+
+	/// <summary>
+	/// The mech vtable's <c>+0x38</c> speed accessor (<c>00415498</c>): the speed scalar in the units
+	/// the rest of the simulation quotes distances in. Only its sign is read here.
+	/// </summary>
+	private short TravelSpeed => (short)SimMath.Q10Multiply(TravelSpeedScale, Speed);
+
+	/// <summary>The accessor's own Q10 factor.</summary>
+	private const int TravelSpeedScale = 2000;
+
+	/// <summary>Q10 gain on the heading error before it is squared into a steering command.</summary>
+	private const int CenterBodySteerGain = 100;
+
+	/// <summary>Q10 gain on the turret error, lower than the steering one so the turret trails.</summary>
+	private const int CenterBodyTwistGain = 0x46;
+
+	/// <summary>Squared-steering term the mode disengages under, with the turret one below.</summary>
+	private const int CenterBodySteerDeadband = 0x1e;
+
+	private const int CenterBodyTwistDeadband = 10;
 
 	/// <summary>
 	/// <c>Sim_PollPlayerInput</c>'s turret block (<c>00460764</c>), which runs between the throttle
@@ -294,9 +403,28 @@ public sealed partial class MechObject : SimObject {
 		TorsoPitchTick(controls.TorsoPitch);
 	}
 
+	/// <summary>Whether [Backspace] centring is latched, for the debug readout.</summary>
+	public bool CenteringTorso => _centeringTorso;
+
+	/// <summary>
+	/// Whether [\] Center Body is latched, and the turret world direction it is steering the legs
+	/// onto — both for the debug readout.
+	/// </summary>
+	public bool CenteringBody => _centeringBody;
+
+	/// <inheritdoc cref="CenteringBody"/>
+	public short CenterBodyReference => _centerBodyReference;
+
 	// DAT_004d2588 — the latched centring mode. A global in the original, since only the player has
 	// one; per-object here for the same reason SimWorld has no globals.
 	private bool _centeringTorso;
+
+	// DAT_004d2af4 and DAT_004d2af8 — the Center Body mode and the turret world direction it was
+	// latched on, globals in the original for the same reason. _centerBodyHeld is the edge detector
+	// the original gets for free from being dispatched on a keystroke rather than on a held key.
+	private bool _centeringBody;
+	private bool _centerBodyHeld;
+	private short _centerBodyReference;
 
 	/// <summary>
 	/// <c>Mech_MovementTick</c> (<c>0041a360</c>) — advances the animation, takes whatever ground

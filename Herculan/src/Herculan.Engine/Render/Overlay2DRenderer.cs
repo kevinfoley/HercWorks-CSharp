@@ -142,7 +142,8 @@ public sealed class Overlay2DRenderer : IDisposable {
 		// textured/flat choice per vertex, so they ignore whatever texture happens to be bound.
 		if (hud != null && spriteTexture != null) {
 			_vertices.Clear();
-			AddGaugeFills(hud, scale, quadX0, fillFraction: 1f);
+			AddGaugeFills(hud, scale, quadX0,
+				fillFraction: (hudState ?? CockpitHudState.Default).EnergyFraction / 1024f);
 			if (hud.Sprites is { } sprites) {
 				AddWidgets(hud, sprites, scale, quadX0, hudState ?? CockpitHudState.Default);
 			}
@@ -512,10 +513,11 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// <para>Nothing is drawn at <c>ShieldDisplay</c>: that widget is <c>ShieldsGauge</c>, a
 	/// different class with its own nested-box geometry, not an LED bar.</para>
 	///
-	/// <para><paramref name="fillFraction"/> is not wired to simulation state yet and is passed as
-	/// full — which also means the bar's fill <i>direction</i> does not matter yet: the original
-	/// derives it from the sign of its precomputed span, and at full fill either direction covers the
-	/// same box.</para>
+	/// <para><paramref name="fillFraction"/> is the piloted machine's Master Energy Pool, over the
+	/// same 0-1024 range the widget's bar was built with — see
+	/// <c>Herculan.Engine.Sim.MechObject.EnergyPoolFraction</c>. The bar's fill <i>direction</i> is
+	/// still assumed rather than read: the original derives it from the sign of its precomputed span,
+	/// and every retail rect authors x0 left of x1, so it fills left to right here.</para>
 	/// </summary>
 	private void AddGaugeFills(CockpitArt hud, float scale, float quadX0, float fillFraction) {
 		if (hud.GaugeColors is not var (fillEven, fillOdd, remainder)

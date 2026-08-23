@@ -451,7 +451,9 @@ Both class variants fill along **x**: `LedBarGraph_CtorBase` takes start/end fro
 `EnergyPoolGauge_Ctor` (`00444d5c`) constructs one over the `.GAU` widget rect at 564 with range
 `0x400`, writing colour ids 6 and 5 into `0x2c`/`0x30` and id 19 into `0x24`. Those resolve to palette
 indices 98/97/16 = `(0,116,204)`, `(0,40,160)`, `(0,0,0)` — the blue pinstripe bar retail draws
-directly under the TRACK button, i.e. the **Master Energy Pool meter** (reactor charge). Its only
+directly under the TRACK button, i.e. the **Master Energy Pool meter**. It is fed
+`(pool << 10) / 10000` by `Player_PerFrameCockpitUpdate` — see
+[../simulation/reactor-energy-pool.md](../simulation/reactor-energy-pool.md). Its only
 caller is `Gau_EnergyMeterWidget`, and the binary's own class-name table pairs `EnergyPoolGauge` with
 `LEDBarGraphV` (file offset 280429) and `ShieldsGauge` with `ShieldsSelectGadget` (279148) — the LED
 bar is the energy meter, and `ShieldsGauge` is a different class entirely.

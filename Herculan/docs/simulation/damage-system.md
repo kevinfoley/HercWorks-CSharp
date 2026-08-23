@@ -61,7 +61,7 @@ order:
    below.
 3. **Component selection — `FUN_0040c9d4` → `FUN_0040c8fc` (per candidate) → `FUN_0040c8c8`
    (fine geometry test).** Only reached if some damage penetrated shields. Iterates the mech's up
-   to 29 component slots (see "The component/health system" below), and for each occupied one,
+   to 29 component slots (see "The component damage system" below), and for each occupied one,
    does a geometric ray-vs-subshape test (coarse part, then fine sub-piece within it) to find the
    ONE specific component struck — **not** a random roll, unlike the explosion path. Returns that
    single component's index.
@@ -144,86 +144,108 @@ its splash radius meaningless — keep both as genuinely separate systems in a p
 
 ## The shield system
 
-**Struct layout** (confirmed from the mech constructor `FUN_00415bb0` and the shield initializer
-`FUN_00413a90`): five consecutive `short` fields starting at `this+0x222`:
+**Struct layout** (confirmed in disassembly of `Shield_Init` `00413a90`): five consecutive `short`
+fields at `this+0x222`:
 
-| Offset  | Field                          |
-|---------|--------------------------------|
-| `+0x222`| current front shield charge    |
-| `+0x224`| current rear shield charge     |
-| `+0x226`| balance setting (`0x200` = default center) |
-| `+0x228`| front max capacity (= per-side potential if fully allocated) |
-| `+0x22a`| rear max capacity (same)       |
+| Offset  | Field |
+|---------|-------|
+| `+0x222`| front charge |
+| `+0x224`| rear charge |
+| `+0x226`| balance, Q10 over 0–1024 (`0x200` = even) |
+| `+0x228`| max — caps `front + rear`, raised by a Shield Pod |
+| `+0x22a`| base max — the type's capacity before any pod; never written again |
 
-`FUN_00413a90(shieldFields, baseValue)` — called at construction with `baseValue =
-typeRecord[0xc0]` (max shield capacity is a **per-mech-type stat**) — initializes `+0x228`/`+0x22a`
-to `baseValue` each and `+0x222`/`+0x224` to `baseValue >> 1` each (default 50/50 split of one pool
-of size `baseValue`). This reconciles with the manual's "100/200" display numbers exactly: if the
-displayed percentage is `currentSideCharge / (totalCapacity/2) × 100`, the default split reads as
-100%/100%, and fully shifting to front reads as 200%/0%. `+0x226` (`0x200` at init) is the
-adjustable balance value.
+**There is one pool, not two.** `+0x228` caps the *sum*; balance decides the split. `Shield_Init`
+sets both maxes to `baseValue` and both charges to `baseValue >> 1`, so a machine spawns full and
+evenly split.
 
-**Getter:** `FUN_004154d0` (mech vtable `+0x34`) — given a heading angle, returns `+0x222` if
-within ±90° of front, else `+0x224`.
+**Capacity is a fleet-wide constant, not a per-type stat.** `baseValue` is `typeRecord+0xc0` — in
+asm, `ADD ESI,0x2` then `[ESI+0xbe]`, i.e. record-relative offset **190**, which is the file offset
+directly (`HercSimDat.ShieldMaxTotal`; the in-memory record is the 216-byte file record loaded at
+`+2`). Every retail HERC `.DAT` carries **3500** there; only the non-HERC SPIDER differs, at 0. A
+Shield Pod is the only thing that moves it.
 
-Both absorption implementations (`FUN_00413cc4` for direct fire, `FUN_00413c68` for explosions)
-are a hard cap — `min(damage, remainingCharge)` — not a threshold gate. A single hit whose damage
-exceeds what's left in a shield zone drains it to zero and its excess carries through in that same
-hit, even if the zone wasn't already empty before the shot landed.
+**Capacity at loadout — `FUN_00417bec`.** Runs once, from `Mech_ConfigureLoadout`, and writes
+`+0x228` via `FUN_00413ab8`; `FUN_00413ac8` then refills to `max` at the current balance.
 
-### Recharge tick — every tick, every mech, from the main simulation loop
+```
+capacity = 3500
+if (bodyDamage > 0x80)                     // dependent-subpiece 4
+    capacity = Q10(3500, ((bodyDamage - 0x80) / 0x19) * -0x66 + 0x400)   // → 50% at worst
+if (ShieldPod && podDamage < 225)
+    capacity += Q10(1024 - 204*(podDamage/51), 3500)                     // → doubles at best
+```
 
-- **`FUN_0045f464`** is DBSIM's per-frame simulation tick — updates the global timestep
-  (`DAT_004d3be8`), walks every global object list (rockets, bullets, debris, etc.), and walks the
-  global mech list (`DAT_004a9bfe`) calling **`FUN_0041aa5c(mech)` once per live mech**, skipping
-  any mech with a "removed" flag (`+0x14`) or "already dead" state byte (`+0x99`).
-- **`FUN_0041aa5c`** does reactor/energy bookkeeping first: `FUN_00467820(*(short*)(this+0x256))`
-  integrates a per-mech-type reactor output *rate* over one tick and accumulates it into an energy
-  pool tracker at `this+0x292` (matches the manual's "Master Energy Pool"). Calls a vtable method
-  on the mech's own weapon-mount-manager object (`*(this+0x202)` — see "Weapon mounts" below)
-  passing `(energyPool − 500, this)` — weapon-energy arbitration; the *returned* value is the
-  amount left over for shields, fed into:
-- **`FUN_00413b38(shieldStructPtr, requestedAmount)`** — the recharge primitive. Clamps the
-  request to **at most 5 units per tick**, then further clamps to `frontMax − (frontCurrent +
-  rearCurrent)` (the total deficit — never overcharges past full). Computes the new total charge,
-  re-derives the front share via `Q8mul(balance, newTotal)`, and slews the front value toward that
-  target using `FUN_004679d8` (max step `0x41`/tick normally, `10000`/tick — effectively instant —
-  if the deficit is negative, i.e. snapping back down from an over-full state). The rear value is
-  set to make up the remainder. Returns the *unclaimed* portion of the request, folded back into
-  the energy pool by `FUN_0041aa5c`. The 5-unit/tick cap is the concrete recharge-rate constant.
+The pod's share is a fraction of the *undamaged* base, so a battered machine still gets the full pod
+bonus. The pod curve is shared verbatim with the Energy Pod — see
+[reactor-energy-pool.md](reactor-energy-pool.md#equipment-pods--mech0x307-filled-by-fun_0040fb2c).
 
-### Balance-adjustment input — every tick, player's own mech only, from a separate cockpit update
+**Getter:** `Mech_GetShieldByHeading` (`004154d0`, mech vtable `+0x34`) — given a heading angle,
+returns `+0x222` within ±90° of front, else `+0x224`.
 
-- **`FUN_0041b130(DAT_004d256a)`** (`DAT_004d256a` = the confirmed "this instance's own
-  locally-piloted mech" global, set by `FUN_004614fc` scanning for `this+0xa3` set) runs once per
-  frame from `FUN_0045fb9c`, doing cockpit/HUD bookkeeping (target tracking, network sync, HUD
-  fields). Among other things it calls:
-- **`FUN_00413bc8(shieldStructPtr)`** — reads the shield-balance HUD gauge widget's state
-  (`FUN_004438e0(*(int*)(DAT_0049b088+0x1e9))`, a singleton UI-context slot), copies two flag
-  bytes, and if either is set calls `FUN_00413af8(shieldStructPtr, direction)`, clearing the flag
-  after (fires once per press/hold-tick). Computes front/rear display percentages
-  (`(current<<10)/max`) and pushes them back to the same widget — one function both reads the
-  balance-adjust input and drives the gauge's own display.
-- **`FUN_00413af8(shieldStructPtr, direction)`** — the balance nudge: adds `±0x66` (102) to the
-  balance field (`+0x226`), clamped to `[0, 0x400]` (0–1024). Confirms the balance field's real
-  range is 0–1024 with `0x200` (512) as the documented default center — matches the ctor's `0x200`
-  init exactly — and gives the concrete per-tick adjustment rate (102/1024 ≈ 10% of full range per
-  tick while a balance key is held).
+Both absorption implementations (`FUN_00413cc4` direct fire, `FUN_00413c68` explosions) are a hard
+cap — `min(damage, remainingCharge)` — not a threshold gate. A hit exceeding what a zone holds
+drains it to zero and its excess carries through in the same hit.
 
-Shield recharge is a background per-tick trickle shared by every mech (AI and player alike),
-driven off the reactor's energy pool; balance adjustment is a player-input concern layered on top,
-only ever touching the `balance` field, which the recharge tick reads back on the next tick. The
-two systems don't call each other directly — connected only through the shared struct fields.
+### Recharge tick — `Shield_RechargeTick` (`00413b38`)
 
-## The component/health system
+Called once per mech per tick from `Mech_PerTickSystemsUpdate`, with whatever the weapon mounts left
+unclaimed. See [reactor-energy-pool.md](reactor-energy-pool.md) for where that budget comes from.
+
+```
+deficit  = max - (front + rear)
+granted  = min(request, 5, deficit)         // CMP word ptr [EBP+0xc],0x5
+newTotal = front + rear + granted
+front   := moveToward(front, Q10(balance, newTotal), deficit < 0 ? 10000 : 0x41)
+rear     = newTotal - front
+return request - granted
+```
+
+**5 units per tick is the recharge-rate constant** and it is per *tick*, not per unit time. At 3500
+capacity and DBSIM's hard 25 Hz cap that is 700 ticks — **28 s from empty**, confirmed against
+retail. The front slew runs whether or not anything was granted, which is why moving the balance
+redistributes charge on an already-full array. The `10000` step is effectively a snap, reachable
+only when `max` drops below the charge held.
+
+### Balance-adjustment input — player's own mech only
+
+`Player_PerFrameCockpitUpdate` (`0041b130`, run per frame for `LocalPlayerMech`) calls
+`Shield_BalanceInputRead` (`00413bc8`) unconditionally. That function:
+
+- copies the gauge's 15-byte state block (`ShieldsGauge_GetStateBlock`, UI slot `+0x1e9`), and if
+  either click flag is set calls `Shield_BalanceAdjust`, clearing the flag (once per press);
+- writes back `(front << 10) / baseMax`, `(rear << 10) / baseMax` and the raw balance.
+
+`Shield_BalanceAdjust` (`00413af8`) adds `±0x66` (102) to `+0x226`, clamped to `[0, 0x400]` — a
+tenth of the range per press, so five presses from centre put everything on one facing. The manual
+binds `[` to rear and `]` to forward; direction 1 is the `+0x66` case, and balance is the front's
+share. Nothing is spent moving the balance.
+
+### The cockpit widget shows charge and balance in two different places
+
+- **Rings = charge.** `ShieldsGauge_UpdateRingPalette` (`004438f0`) reads the state block's
+  `+0xb5`/`+0xb9` (the two `(charge << 10) / baseMax` fractions) and rewrites palette slots 66–71
+  every frame. The rings are painted into the herc's canopy art; the widget draws no geometry.
+  Dividing by *base* max is what makes a Shield Pod drive the rings past `0x400` into their
+  overcharged colours instead of renormalising.
+- **Numbers = balance.** `ShieldsGauge_UpdateReadouts` (`00444a68`) reads `+0xbd` — the balance —
+  and prints `balance * 200 >> 10` and the literal complement `200 - that`. **The pair always sums
+  to 200 regardless of charge**; an empty array still reads 100/100. Reading them as a charge
+  percentage is the natural mistake.
+
+Shield recharge is a background trickle on every mech, AI and player alike. Balance adjustment is
+player input layered on top, touching only the balance field, which the recharge tick reads back on
+the next tick. The two never call each other.
+
+## The component damage system
 
 **`this+0x206` is a header of pointers, not inline arrays.** Allocator `FUN_0040d2cc`, called as
 `FUN_0040d2cc(this+0x206, 0x1d /*29*/, 0x16 /*22*/)`:
 
 | Offset (abs) | Field |
 |---|---|
-| `+0x206` | **pointer** to a 22-`short` dependent/sub-piece health array, zeroed |
-| `+0x20a` | **pointer** to a 29-`short` main-component health array, zeroed |
+| `+0x206` | **pointer** to a 22-`short` dependent-subpiece **damage** array, zeroed = undamaged |
+| `+0x20a` | **pointer** to a 29-`short` main-component **damage** array, zeroed = undamaged |
 | `+0x20e` | **pointer** to a 29-`short` active/occupancy-flag array, all bytes `0x01` at init |
 | `+0x21e` | `short` count = 29 |
 | `+0x220` | `short` count = 22 |
@@ -231,9 +253,9 @@ two systems don't call each other directly — connected only through the shared
 Every accessor (`FUN_0040dbc0`/`FUN_0040da38`/`FUN_00417de4`/`FUN_00417bec`/…) treats `this+0x206`
 as `(int*)` and does an extra pointer dereference before indexing.
 
-- The 22-entry array = current health for **fine sub-piece / dependent** components (see the
+- The 22-entry array = accumulated damage on **fine sub-piece / dependent** components (see the
   aggregation formula below).
-- The 29-entry array = current health for the **main component slots**, the same indexing space
+- The 29-entry array = accumulated damage on the **main component slots**, the same indexing space
   both damage pathways' component selection uses.
 - The 29-entry flag array = **occupancy/active flag per component slot**, not a second depleting
   health pool. Zeroed for a slot when that component (typically a weapon mount) is destroyed.
@@ -244,19 +266,22 @@ reference** data (sourced from the mech's own `damage.dat`-derived pointer plus 
 registration record from `FUN_0040cd88`, tying this system to the collision bounding-sphere tree
 in [`dbsim-physics-notes.md`](dbsim-physics-notes.md#collision-system--hierarchical-bounding-sphere-construction-collidecpp)).
 
-**Read: `FUN_0040dbc0(this+0x206, componentIndex)` — current/max percentage, Q8 (0–256).** Looks
-up the component's max-reference record (18 bytes, via `this+0x212`), starts with its own current
-(main 29-entry array) and max values, then **aggregates in every dependent sub-component** listed
-in that record (walking a list, adding each dependent's current value from the 22-entry array and
-max value from a parallel max-side array) before computing `(totalCurrent << 8) / totalMax`. A
-single displayed component's health can be the aggregate of several finer sub-parts — e.g. a "leg"
-reading as leg proper plus whatever finer actuator/joint pieces are modeled underneath it (exact
-sub-piece breakdown per component not traced).
+**Read: `Component_ReadDamagePercent` (`0040dbc0`) — accumulated damage as Q8 (0–256), 0 = pristine,
+256 = destroyed.** Renamed 2026-08-23; the earlier `Component_ReadHealthPercent` had the sense
+inverted, which flipped the meaning of every caller. Looks up the component's max-reference record
+(18 bytes, via `this+0x212`), starts with its own damage (main 29-entry array) and max values, then
+**aggregates in every dependent sub-component** listed in that record (walking a list, adding each
+dependent's damage from the 22-entry array and max from a parallel max-side array) before computing
+`(totalDamage << 8) / totalMax`. An entry holding `-1` (destroyed) substitutes its max, so it reads
+as fully damaged. A single displayed component's reading can be the aggregate of several finer
+sub-parts — e.g. a "leg" reading as leg proper plus whatever finer actuator/joint pieces are
+modeled underneath it (exact sub-piece breakdown per component not traced).
 
-**Write and cascade: `FUN_0040da38(this+0x206, componentIndex, damage)`**, called from
-`FUN_00417de4` (mech vtable `+0x74`, the shared endpoint both damage pathways call into).
-Subtracts damage from that component's current value (via `FUN_0040d3ec`), and if the component's
-state crosses into "destroyed" (a flag bit in its record), cascades: calls `FUN_0040d434` on that
+**Write and cascade: `Component_ApplyDamageAndCascade` (`0040da38`)**, called from
+`Mech_ComponentDamageWrite` (`00417de4`, mech vtable `+0x74`, the shared endpoint both damage
+pathways call into). **Adds** damage to that component's entry via `FUN_0040d3ec`, which caps at
+the record's max and stores `-1` once destroyed. If the component's state crosses into
+"destroyed" (a flag bit in its record), cascades: calls `FUN_0040d434` on that
 component, then walks a **dependency list** (`DAT_00498864`) calling `FUN_0040d434` on every
 dependent — destroying one component can automatically destroy things that depend on it.
 
@@ -476,8 +501,8 @@ virtual calls. It's referenced throughout `FUN_00417de4` for computing ammo/heat
 "The shield system" above). When a weapon mount is destroyed (inside `FUN_004188c8`'s damage-split
 logic), its `this+0x20e` active-flag is cleared and its owning object is released. Matches the
 manual's "Weaponry" HDD damage category. (`this+0x20e`'s per-slot indices, the weapon mount active
-flags, are a *different*, already-documented array from `this+0x202` itself — see "The component/
-health system" above.)
+flags, are a *different*, already-documented array from `this+0x202` itself — see "The component
+damage system" above.)
 
 ## Open items
 
@@ -504,16 +529,17 @@ health system" above.)
    a possible secondary explosion) and general component health — no distance falloff. Explosive
    weapons sweep the whole object list by blast radius, then independently roll each of up to 29
    components at ~51% odds and apply linear distance falloff to the ones that pass.
-3. **Both pathways converge on one shared health-writing/cascading-destruction primitive** — a
-   component's health is the aggregate of itself plus dependent sub-parts, and destroying one
+3. **Both pathways converge on one shared damage-writing/cascading-destruction primitive** — a
+   component's reading is the aggregate of itself plus dependent sub-parts, and destroying one
    component can cascade to destroy its dependents. Enough destroyed limbs kill the mech outright.
    A port needs this dependency graph, not just a flat per-part HP list.
-4. **Shields recharge from the reactor at a flat 5-units/tick cap, redistributed by a
-   player-adjustable balance value (range 0–1024, default 512, ±102/tick while held)** — a
-   separate per-mech-per-tick system (`FUN_0041aa5c`/`FUN_00413b38`) from the player-only
-   balance-input handler (`FUN_0041b130`/`FUN_00413bc8`/`FUN_00413af8`). A port needs both: the
-   background regen for every mech (AI included), and the player-specific input path layered on
-   top, connected only through the shared balance/charge fields.
+4. **Shields recharge from the energy pool at a flat 5-units/tick cap, redistributed by a
+   player-adjustable balance value (range 0–1024, default 512, ±102 per press)** — a separate
+   per-mech-per-tick system (`Mech_PerTickSystemsUpdate`/`Shield_RechargeTick`) from the player-only
+   balance-input handler (`Player_PerFrameCockpitUpdate`/`Shield_BalanceInputRead`/
+   `Shield_BalanceAdjust`). A port needs both: the background regen for every mech (AI included),
+   and the player-specific input path layered on top, connected only through the shared
+   balance/charge fields. Capacity is a fleet-wide 3500, so a full rebuild is 700 ticks (28 s).
 5. **Per-weapon-type effectiveness is `PROJ.DAT`'s own `DamageShield`/`DamageArmor` fields,
    applied once, upstream, when the shot record is built** — not a branch inside the shield or
    structure damage functions. The shot's own power/charge level (Q8) is independently scaled

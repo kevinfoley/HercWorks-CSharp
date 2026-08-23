@@ -316,14 +316,23 @@ mechanism, not the readout.
 
 ## Damage effects on movement
 
-Out of scope for the locomotion milestone; **all terms are exactly zero at full health.**
+Out of scope for the locomotion milestone, but the sense of the first term was corrected 2026-08-23
+and is no longer "zero at full health" — it is **maximal** at full health.
 
-- `mech+0x317` subsystem below 88% health (`Component_ReadHealthPercent` returns Q8, 256 = full)
-  adds a term to desired speed *in the current direction of travel*, scaling ~20%→~98% of max as
-  health falls. A throttle runaway, not a top-speed cut. The physical identity of `mech+0x317` is
-  unresolved — no writer to that offset appears in the decompilation.
-- Flat multiplicative penalties of 73% (`Q10 × 750`) and 39% (`Q10 × 400`), gated on damage flags
-  at `mech+0x2a`, `+0xa9`, `+0xaa`, `+0xab`.
+- `mech+0x317` is the **Turbo Pod** (`TURB`, catalog id 31), one of the five equipment-pod slots
+  filled by `FUN_0040fb2c` at loadout — see
+  [reactor-energy-pool.md](reactor-energy-pool.md#equipment-pods--mech0x307-filled-by-fun_0040fb2c).
+  It adds a term to desired speed *in the current direction of travel*, worth ~98% of max at full
+  and fading to ~20% before cutting out entirely past 225/256 damage. A speed bonus that degrades,
+  not a throttle runaway.
+  > Previously documented as a runaway that grew as health fell. That was an artifact of
+  > `Component_ReadHealthPercent` being misnamed: it returns **accumulated damage**, not health, so
+  > the curve runs the other way. See
+  > [damage-system.md](damage-system.md#the-component-damage-system).
+- Flat multiplicative penalties of 73% (`Q10 × 750`) and 39% (`Q10 × 400`), gated on damage flags at
+  `mech+0x2a`, `+0xa9`, `+0xaa`, `+0xab`. The latter two are the **reactor** damage flags, which cut
+  power and mobility together — see
+  [reactor-energy-pool.md](reactor-energy-pool.md#reactor-damage-flags).
 
 ## Cockpit eye and bob
 

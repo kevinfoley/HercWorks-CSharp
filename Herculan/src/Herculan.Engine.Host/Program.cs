@@ -200,9 +200,10 @@ if (cockpitArt?.HeadsDown != null) {
 	Console.WriteLine("No .HB1 for this herc — the Heads-Down Display is unavailable.");
 }
 
-// The cockpit readouts' live values. Only the hardpoint names are real so far — they come from the
-// shell weapon catalog keyed by player.mec's own hardpoint ids; everything else sits at the
-// power-up defaults in CockpitHudState.Default until the sim carries the state behind it.
+// The cockpit readouts' live values. The hardpoint names come from the shell weapon catalog keyed by
+// player.mec's own hardpoint ids; speed, throttle, turret, the shield numbers and the energy bar are
+// taken off the piloted machine each frame. What is left sits at the power-up defaults in
+// CockpitHudState.Default until the sim carries the state behind it.
 var hudState = CockpitHudState.Default with { Hdd = initialHddPage, HddDamage = initialHddDamageView };
 if (initialMfdMode is { } startMfdMode) {
 	hudState = hudState with { Mfd = startMfdMode };
@@ -226,6 +227,8 @@ if (cockpitArt != null && mission.Player is { } playerMech && WeaponNameTable.Lo
 var pilotMech = scene.PlayerMech;
 bool piloting = pilotMech != null;
 bool allStopKeyDown = false;
+bool shieldRearKeyDown = false;
+bool shieldFrontKeyDown = false;
 
 // [V], the external view: the camera parked behind the machine with the cockpit not drawn. Both the
 // geometry and this binding are placeholders — see ExternalCamera for what has not been RE'd. The
@@ -519,6 +522,21 @@ window.Update += deltaSeconds => {
 		}
 		allStopKeyDown = allStopKey;
 
+		// [[] and []], the manual's shield-balance keys — rear and forward. Both fire on their own
+		// edge: the original clears the gauge's flag byte after acting on it, so a held key nudges
+		// once, not once a tick. Nothing is spent moving the balance; it changes where the next
+		// recharge tick puts the charge it is already holding.
+		bool shieldRearKey = controls.IsKeyPressed(Key.LeftBracket);
+		bool shieldFrontKey = controls.IsKeyPressed(Key.RightBracket);
+		if (shieldRearKey && !shieldRearKeyDown) {
+			pilotMech.Shields.AdjustBalance(towardFront: false);
+		}
+		if (shieldFrontKey && !shieldFrontKeyDown) {
+			pilotMech.Shields.AdjustBalance(towardFront: true);
+		}
+		shieldRearKeyDown = shieldRearKey;
+		shieldFrontKeyDown = shieldFrontKey;
+
 		// Stick sign convention is the device's, not the game's: forward and left are negative. No
 		// throttle lever, so the throttle's range spans both directions and holding [Down] takes the
 		// machine through zero into reverse — see MechControls.ThrottleLever.
@@ -701,6 +719,9 @@ window.Update += deltaSeconds => {
 			SpeedKph = pilotMech.DisplaySpeedKph,
 			Throttle = throttleGauge,
 			TorsoTwist = pilotMech.TorsoTwistAngle,
+			ShieldFront = pilotMech.Shields.FrontReadout,
+			ShieldRear = pilotMech.Shields.RearReadout,
+			EnergyFraction = pilotMech.EnergyPoolFraction,
 		};
 	}
 };
@@ -712,6 +733,26 @@ window.Render += (_, gl) => {
 
 	var size = window.FramebufferSize;
 	renderer.Clear();
+
+	// The shield meter's rings are canopy pixels, not HUD geometry, and the original relights them by
+	// rewriting six palette slots every frame. Decoding the art at load baked that palette in, so the
+	// live version repaints those pixels and re-uploads — which UpdateShieldRings only asks for on the
+	// frames where a ring's colour actually changed, so a settled array costs one comparison.
+	if (cockpitArt != null && pilotMech != null && cockpitFrontTexture != null) {
+		var shieldRings = pilotMech.Shields;
+		bool repainted = cockpitArt.UpdateShieldRings(
+			CockpitPalette.ShieldFacingCharge(shieldRings.Front, shieldRings.BaseMax),
+			CockpitPalette.ShieldFacingCharge(shieldRings.Rear, shieldRings.BaseMax));
+
+		if (repainted) {
+			var frontFrame = cockpitArt.Front;
+			cockpitFrontTexture.Update(frontFrame.Pixels, frontFrame.Width, frontFrame.Height);
+			cockpitSideTexture?.Update(cockpitArt.Side.Pixels, cockpitArt.Side.Width, cockpitArt.Side.Height);
+			if (cockpitArt.HeadsDown is { } headsDownFrame && cockpitHeadsDownTexture != null) {
+				cockpitHeadsDownTexture.Update(headsDownFrame.Pixels, headsDownFrame.Width, headsDownFrame.Height);
+			}
+		}
+	}
 
 	// The external view is drawn as one full-window 3D view with no canopy over it — there is no
 	// cockpit to see from outside the machine.
@@ -926,6 +967,37 @@ void BuildDebugPanel(int windowHeight) {
 		+ $"roll {BinaryAngle.ToRadians(pilotMech.Roll) * (180f / MathF.PI):F1} deg");
 	ImGui.Text($"Ground clearance: "
 		+ $"{(position.Z - terrain.HeightAtWorld(position.X, position.Y)) / WorldScale.WorldUnitsPerMeter:F2} m");
+
+	// Reactor and Master Energy Pool. Nothing spends the pool yet except the shields — weapons are a
+	// later milestone — so a machine standing still sits at a full 10000 and the cockpit's energy bar
+	// stays hard right, which is correct rather than unwired. [Drain shields] is the test seam that
+	// makes the trickle visible: watch the pool dip below full while the array rebuilds at its 5-a-tick
+	// cap, then climb back once the deficit closes.
+	var pods = pilotMech.Pods;
+	var shields = pilotMech.Shields;
+	ImGui.Separator();
+	ImGui.Text($"Energy pool: {pilotMech.EnergyPool} / {MechObject.EnergyPoolMax}"
+		+ $"  (reserve {MechObject.EnergyPoolReserve})");
+	ImGui.Text($"Reactor output: {pilotMech.ReactorOutputRate}"
+		+ $"  (base {MechObject.BaseReactorOutputRate}{(pods.EnergyPod ? ", Energy Pod fitted" : "")})");
+	ImGui.Text($"Shields: {shields.Front} front, {shields.Rear} rear"
+		+ $" of {shields.Max}{(pods.ShieldPod ? " (Shield Pod fitted)" : "")}");
+	ImGui.Text($"  rings: {CockpitPalette.ShieldFacingCharge(shields.Front, shields.BaseMax)}"
+		+ $" / {CockpitPalette.ShieldFacingCharge(shields.Rear, shields.BaseMax)} of 0x400");
+	// The printed numbers are the balance and nothing else — they sum to 200 even on an empty array.
+	ImGui.Text($"Balance: {shields.Balance} / {ShieldCharge.BalanceMax}"
+		+ $"  — prints {shields.FrontReadout} / {shields.RearReadout}   [ and ] move it");
+
+	// Both are test seams, not mechanics — see their own summaries. They are the only way to watch
+	// either system refill until weapons and incoming fire exist to empty them for real.
+	if (ImGui.Button("Drain shields")) {
+		shields.Empty();
+	}
+
+	ImGui.SameLine();
+	if (ImGui.Button("Drain energy pool")) {
+		pilotMech.DrainEnergyPoolForTest();
+	}
 
 	// The bob itself. A retail stride is supposed to swing the eye 0.24-0.42 m (see
 	// MechObject.EyePosition), so a swing far outside that band is the measurement that turns the

@@ -97,6 +97,14 @@ public sealed class MechTypeRecord {
 	/// <summary>Record field 10 — the model node the cockpit eye rides.</summary>
 	public short CameraBoneId => Data.CameraBoneId;
 
+	/// <summary>
+	/// Record field 190 (the exe's <c>typeRecord+0xc0</c>) — the shield array's total capacity before
+	/// any Shield Pod, which <c>Shield_Init</c> reads straight out of here. Despite living in the
+	/// per-type record it is not a per-type stat: every retail HERC carries 3500. See
+	/// <see cref="ShieldCharge"/>.
+	/// </summary>
+	public short ShieldCapacity => Data.ShieldMaxTotal;
+
 	/// <summary>Record field 12 — walk sequence id.</summary>
 	public short WalkSequence => Data.AnimId_Walk;
 

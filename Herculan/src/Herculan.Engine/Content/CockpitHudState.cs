@@ -4,18 +4,27 @@ namespace Herculan.Engine.Content;
 /// The live values the cockpit's readouts display. Separate from <see cref="CockpitArt"/>, which is
 /// the herc's layout and art and is loaded once: this is what changes frame to frame.
 ///
-/// <para>Most of it is not wired to the simulation yet. <see cref="Default"/> is the state a herc
-/// powers up in — full even shields, first hardpoint selected, unchained, unlinked — which is also
-/// what the retail reference screenshots show, so what the engine draws can be compared against them
-/// directly. Fields become live as the sim grows the state behind them.</para>
+/// <para>Some of it is not wired to the simulation yet. <see cref="Default"/> is the state a herc
+/// powers up in — full pool, an even shield balance, first hardpoint selected, unchained, unlinked —
+/// which is also what the retail reference screenshots show, so what the engine draws can be
+/// compared against them directly. Fields become live as the sim grows the state behind them.</para>
 /// </summary>
 /// <param name="WeaponNames">
 /// Fitted hardpoint names, in <c>.GAU</c> slot order. Slots past the end draw their plate and number
 /// with no name rather than an invented one.
 /// </param>
 /// <param name="SelectedWeapon">Index of the armed hardpoint — its row draws the selected plate and the brighter font.</param>
-/// <param name="ShieldFront">Front shield readout, 0-200 against <see cref="ShieldRear"/>'s complement.</param>
-/// <param name="ShieldRear">Rear shield readout.</param>
+/// <param name="ShieldFront">
+/// Front shield readout, 0-200. This is the shield <i>balance</i>, not the charge — the original
+/// prints `balance * 200 >> 10` here and its complement below, so the pair always sums to 200 even
+/// on an empty array. Charge is shown by the meter rings instead.
+/// </param>
+/// <param name="ShieldRear">Rear shield readout — exactly 200 minus <see cref="ShieldFront"/>.</param>
+/// <param name="EnergyFraction">
+/// The Master Energy Pool's fill, Q10 over 0-1024 — <c>MechObject.EnergyPoolFraction</c>, which is
+/// the same <c>(pool &lt;&lt; 10) / 10000</c> <c>Player_PerFrameCockpitUpdate</c> hands the meter
+/// widget, and 1024 is the range that widget's LED bar was built with.
+/// </param>
 /// <param name="SpeedKph">Ground speed in K/H, as the readout under the reticle spells it.</param>
 /// <param name="Throttle">
 /// The console throttle slider's setting, Q10 over the gauge's own +/-0x400 range, positive
@@ -48,6 +57,7 @@ public readonly record struct CockpitHudState(
 	int SelectedWeapon,
 	int ShieldFront,
 	int ShieldRear,
+	int EnergyFraction,
 	int SpeedKph,
 	short Throttle,
 	short TorsoTwist,
@@ -59,8 +69,8 @@ public readonly record struct CockpitHudState(
 	CockpitWidgetId? PressedWidget = null) {
 
 	/// <summary>
-	/// Power-up state: shields full and evenly balanced at 100/100 out of the 200-point pool
-	/// <c>FUN_00444a68</c> scales to, first hardpoint armed, chain at one, stationary clock, and the
+	/// Power-up state: an even shield balance printing 100/100 the way <c>ShieldsGauge_UpdateReadouts</c>
+	/// scales it (a balance readout, not a charge one), first hardpoint armed, chain at one, stationary clock, and the
 	/// MFD on the scanner — which is the screen <c>Gau_MfdPanelWidget</c> boots the display to with
 	/// its own <c>SetMode(obj, 3)</c> call.
 	///
@@ -73,6 +83,7 @@ public readonly record struct CockpitHudState(
 		SelectedWeapon: 0,
 		ShieldFront: 100,
 		ShieldRear: 100,
+		EnergyFraction: 1024,
 		SpeedKph: 0,
 		Throttle: 0,
 		TorsoTwist: 0,

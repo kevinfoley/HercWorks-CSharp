@@ -142,14 +142,36 @@ public static class CockpitPalette {
 	/// <paramref name="rearCharge"/>'s.</para>
 	/// </summary>
 	public static void InstallShieldRamp(DynamixPalette palette, int frontCharge, int rearCharge) {
-		var entries = new HercWorks.Core.Data.Struct.ColorBytes[ShieldRampLength];
-		RingsFor(frontCharge, entries, 0);
-		RingsFor(rearCharge, entries, 3);
-
+		var entries = ShieldRampEntries(frontCharge, rearCharge);
 		for (int i = 0; i < ShieldRampLength; i++) {
 			palette.Colors[ShieldRampFirstSlot + i] = entries[i];
 		}
 	}
+
+	/// <summary>
+	/// The six ring colours for a given pair of facing charges, in slot order, without installing
+	/// them anywhere. <see cref="InstallShieldRamp"/> writes these into a palette at load; the live
+	/// cockpit re-derives them every time the charge moves and repaints the canopy's ring pixels
+	/// directly, because by then the palette has already been baked into the decoded art.
+	/// </summary>
+	/// <param name="frontCharge">Front facing charge on the widget's own 0..<c>0x800</c> scale — see <see cref="ShieldFacingCharge"/>.</param>
+	/// <param name="rearCharge">Rear facing charge, same scale.</param>
+	public static HercWorks.Core.Data.Struct.ColorBytes[] ShieldRampEntries(int frontCharge, int rearCharge) {
+		var entries = new HercWorks.Core.Data.Struct.ColorBytes[ShieldRampLength];
+		RingsFor(frontCharge, entries, 0);
+		RingsFor(rearCharge, entries, 3);
+		return entries;
+	}
+
+	/// <summary>
+	/// One facing's charge on the ramp's 0..<c>0x800</c> scale, from the raw charge the simulation
+	/// holds. This is the same Q10 fraction <c>Shield_BalanceInputRead</c> (<c>00413bc8</c>) hands the
+	/// gauge — <c>(facing &lt;&lt; 10) / baseMax</c>, divided by the array's <i>base</i> capacity
+	/// rather than its pod-boosted one, which is why a Shield Pod drives the rings past
+	/// <c>0x400</c> into their overcharged colours instead of renormalising back to nominal.
+	/// </summary>
+	public static int ShieldFacingCharge(int facingCharge, int baseCapacity) =>
+		baseCapacity <= 0 ? 0 : ((int)facingCharge << 10) / baseCapacity;
 
 	/// <summary>Base and bright ring colours, RGB6 — the exe's own immediates at <c>0049c9cb</c>/<c>0049c9ce</c>.</summary>
 	private static readonly (int R, int G, int B) ShieldRingBase = (25, 59, 23);

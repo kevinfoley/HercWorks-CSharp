@@ -687,3 +687,46 @@ Cockpit camera orientation now comes from `MechObject.EyeTransform` — the came
 frame, which is the frame `Mech_TargetRelativeToPilot` aims in — rather than from the machine's
 heading. Measured first: the walk cycle rotates the eye by exactly zero, so this adds the turret and
 nothing else.
+
+## Reactor and Master Energy Pool — SOLVED + SHIPPED (2026-08-23)
+
+Full RE in [`docs/simulation/reactor-energy-pool.md`](../simulation/reactor-energy-pool.md).
+
+The reactor is a rate (`mech+0x256`), the pool a capacitor (`mech+0x292`, 0–10000, starts full).
+`Mech_PerTickSystemsUpdate`'s first five statements are the whole model: integrate the rate, offer
+`pool - 500` to the weapon mounts, offer the remainder to the shields, put `leftover + 500` back.
+Consumption is an overwrite, not a subtraction, and 500 is a hard reserve.
+
+Neither reactor output nor shield capacity varies per HERC — 20/tick and 3500 are literals shared by
+the whole fleet (checked against every retail `.DAT`). Equipment pods are the only way to move
+either, and both pod bonuses **double** their stat on the same five-step damage curve. Reactor output
+is computed **once at spawn** (`FUN_00417d08` has one reference in the binary), so mid-mission
+reactor damage never changes it.
+
+Shipped: `MechObject.Power.cs`, `ShieldCharge.cs`, `MechPods.cs`, the cockpit energy meter (was
+hard-coded full), live shield rings (the ramp was installed once at load with a nominal charge, so
+they could never move), and `[`/`]` shield balance.
+
+### Corrections this milestone
+
+- **`Component_ReadHealthPercent` → `Component_ReadDamagePercent`.** It returns accumulated damage,
+  not health: the arrays are zeroed at init and `FUN_0040d3ec` *adds*, capping at max and storing
+  `-1` on destruction. The old name inverted the sense of every caller. `Component_AllocHealthArrays`
+  and `Mech_ComponentHealthWrite` renamed to match; applied via `ES2ApplySymbolNames`.
+- **`mech+0x317` is the Turbo Pod**, not an unidentified subsystem, and its speed term is a bonus
+  that *fades* with damage rather than a runaway that grows — a direct consequence of the rename.
+  Corrected in [`mech-locomotion.md`](../simulation/mech-locomotion.md).
+- **Shield capacity is not a per-mech-type stat.** Every retail HERC carries 3500 at record offset
+  190.
+- **The cockpit's shield numbers show balance, not charge.** `ShieldsGauge_UpdateReadouts` prints
+  `balance * 200 >> 10` and its literal complement, so the pair always sums to 200 whatever the
+  charge. The rings are the charge indicator.
+
+### Method note
+
+Three conclusions in this milestone were wrong on the first pass and were caught by user review
+against the retail build, not by static analysis: shield capacity read from the wrong premise, a
+readout misread as charge, and a frame-rate explanation that a 25 Hz cap ruled out. Each was
+resolved by disassembling the function rather than trusting the decompiler — `Shield_Init`'s
+`ADD ESI,0x2` / `[ESI+0xbe]` pair, folded by the decompiler into `+0xc0`, is the representative
+case. Prefer raw disassembly for any load-bearing offset or constant.

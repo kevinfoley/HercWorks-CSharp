@@ -703,8 +703,8 @@
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "Mech_ComponentHealthWrite",
-      "description": "Mech vtable +0x74. Shared health-write/cascade endpoint for both damage pathways. 8-level percentage bucketing with alert sounds, leg-pair status tracking (dependent-array slots {0,1} front legs, {10,11} rear legs on 4-legged types), mech-death trigger on enough destroyed limbs.",
+      "name": "Mech_ComponentDamageWrite",
+      "description": "Mech vtable +0x74. Shared damage-write/cascade endpoint for both damage pathways. Also latches the two reactor-damage flags off dependent-subpiece 5: mech+0xaa past 50% damage, mech+0xab at 75%+, each with an alert sound for the player; the check is gated on BOTH flags being clear, so once the first latches the second can only be reached by a single hit that crosses both thresholds at once. 8-level percentage bucketing with alert sounds, leg-pair status tracking (dependent-array slots {0,1} front legs, {10,11} rear legs on 4-legged types), mech-death trigger on enough destroyed limbs.",
       "source": "docs/simulation/dbsim-physics-notes.md"
     },
     {
@@ -730,8 +730,8 @@
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "Component_ReadHealthPercent",
-      "description": "Reads a component's current/max as Q8 (0-256): aggregates the component's own value with all its dependent sub-components' current/max before computing (totalCurrent<<8)/totalMax.",
+      "name": "Component_ReadDamagePercent",
+      "description": "Reads a component's ACCUMULATED DAMAGE as Q8 (0-256), 0 = pristine and 256 = destroyed -- NOT health, despite the earlier name. Component_AllocHealthArrays zeroes the arrays at init and the write path (FUN_0040d3ec) ADDS damage to the entry, capping it at the record's max and storing -1 once destroyed; this read substitutes the max for a -1 entry, so a destroyed component reads as fully damaged. Aggregates the component's own value with all its dependent sub-components before computing (totalDamage<<8)/totalMax. Renamed 2026-08-23 -- inverts the sense of every caller, including the pod-bonus curves in FUN_00417d08/FUN_00417bec and the mech+0x317 locomotion term.",
       "source": "docs/simulation/dbsim-physics-notes.md"
     },
     {
@@ -739,8 +739,8 @@
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "Component_AllocHealthArrays",
-      "description": "Allocates the header of pointers at mech+0x206: a 22-entry dependent health array, a 29-entry main component health array, and a 29-entry active-flag array (all zeroed except the flag array, filled 0x01).",
+      "name": "Component_AllocDamageArrays",
+      "description": "Allocates the header of pointers at mech+0x206: a 22-entry dependent-subpiece DAMAGE array, a 29-entry main-component DAMAGE array, and a 29-entry active-flag array (all zeroed except the flag array, filled 0x01). Zeroed means undamaged, not destroyed -- these accumulate damage rather than hold remaining health. Renamed 2026-08-23, see Component_ReadDamagePercent.",
       "source": "docs/simulation/dbsim-physics-notes.md"
     },
     {
@@ -4610,6 +4610,78 @@
       "name": "maybe_Raster_SetModelTransform",
       "description": "Installs a 0x20-byte transform as the rasterizer's current model transform: stores the pointer in DAT_006c607c (defaulting to &DAT_006c6080 when null), composes it with DAT_006c6078 into the derived chain at &DAT_006c6038/&DAT_006c6058, and rebuilds the dependent state. Called by ShapeNode_ComposeToViewTransform and by every other site that changes what space geometry is submitted in. The derived globals were not individually decoded, hence medium.",
       "source": "docs/formats/dts-node-posing.md 2026-08-22"
+    },
+    {
+      "address": "00417d08",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_ComputeReactorRate",
+      "description": "Computes the mech reactor output rate into mech+0x256. Base is a literal 0x14 (20) shared by the whole fleet -- the type record is never read. Replaced outright by Q10(200,20)=3 when mech+0xab (reactor critical) or Q10(600,20)=11 when mech+0xaa (reactor degraded). An Energy Pod in slot mech+0x313 then adds Q10(1024 - 204*(podDamage/51), 20), up to a second full 20 (it doubles output), gated off entirely at 225/256 damage. ONE reference in the whole binary, the tail of Mech_ConfigureLoadout, so the rate is sampled at spawn and never recomputed.",
+      "source": "docs/simulation/reactor-energy-pool.md 2026-08-23"
+    },
+    {
+      "address": "00417bec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_ComputeShieldCapacity",
+      "description": "Sibling of Mech_ComputeReactorRate for shield capacity; writes mech+0x228 via Shield_SetMax. Base is typeRecord+0xc0 = record offset 190 = HercSimDat.ShieldMaxTotal, a fleet-wide 3500. Chassis damage above 0x80 on dependent-subpiece 4 scales it down in five steps to 50%; a Shield Pod in slot mech+0x30f adds up to a second full base (doubling it) on the same five-step pod-damage curve the Energy Pod uses. Called once, from Mech_ConfigureLoadout, followed by Shield_RefillToBalance.",
+      "source": "docs/simulation/reactor-energy-pool.md 2026-08-23"
+    },
+    {
+      "address": "0040fb2c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MechLoadout_FileEquipmentPods",
+      "description": "Walks the finished weapon-mount list and files five specific weapon ids into the five-pointer pod array at mech+0x307, keyed on the mount template's +0x56 (the SHELL0 gam/WEAPONS.DAT catalog id, written as the record index by Weapons_LoadResourceTables). Slot order is not id order: 0x12 ECM->[0], 0x1d TARG->[1], 0x1e SHLD->[2], 0x20 ENRG->[3], 0x1f TURB->[4]. Assigns rather than accumulates, so a duplicate pod contributes nothing.",
+      "source": "docs/simulation/reactor-energy-pool.md 2026-08-23"
+    },
+    {
+      "address": "004107e4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMounts_ArbitrateEnergy",
+      "description": "Vtable slot 0 of the weapon-mount-manager at mech+0x202 for both manager classes; the weapon half of the Master Energy Pool tick. Serves the player's selected mount first (manager+0x1d; AI passes -1), then the remaining mounts highest-priority-first by vtable+0x48. Each mount takes its share via vtable+0x34 and passes the remainder on. Once any mount reports itself mid-charge (+0x43), every later mount targets zero instead and bleeds its capacitor back to the pool, so only one energy weapon charges at a time. Returns the unclaimed budget. A player-only infinite-energy debug path refunds all consumption when DAT_004a9ed6==0 and DAT_004a9edc==1.",
+      "source": "docs/simulation/reactor-energy-pool.md 2026-08-23"
+    },
+    {
+      "address": "0040f00c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_ChargeCapacitor",
+      "description": "One energy mount's draw on the pool. Target is the mount's capacity (+0x7b), or zero when told another mount is already charging, minus its stored charge (+0x7d); takes min(chargeRate +0x7f, budget, deficit) and returns the remainder. A non-positive deficit clears the charging flag (+0x43) and bleeds charge back at up to 5/tick. PLAS (catalog id 25) is half-efficiency: its deficit counts double and only half the drawn energy is stored. Ammunition mounts override this with a no-op that consumes nothing.",
+      "source": "docs/simulation/reactor-energy-pool.md 2026-08-23"
+    },
+    {
+      "address": "00413ab8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shield_SetMax",
+      "description": "Trivial setter: writes the shield array's total capacity at shieldStruct+6 (mech+0x228). Only caller is Mech_ComputeShieldCapacity. The base capacity at shieldStruct+8 is left alone, which is why the cockpit rings measure against the pre-pod figure.",
+      "source": "docs/simulation/reactor-energy-pool.md 2026-08-23"
+    },
+    {
+      "address": "00413ac8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shield_RefillToBalance",
+      "description": "Fills the shield array to its max and splits it at the current balance: front = Q10(balance, max), rear = max - front. Called from Mech_ConfigureLoadout right after Shield_SetMax, so a mech spawns with full shields at whatever capacity its pods bought it.",
+      "source": "docs/simulation/reactor-energy-pool.md 2026-08-23"
+    },
+    {
+      "address": "0040f504",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_GetEnergyPriority",
+      "description": "Vtable+0x48 on energy mounts: returns the mount's capacity (+0x7b), or 10000 when its charging flag (+0x43) is set so a mount already mid-charge jumps the arbitration queue and finishes charging. The ammunition mount class returns 0 from this slot.",
+      "source": "docs/simulation/reactor-energy-pool.md 2026-08-23"
     }
   ]
 }

@@ -56,6 +56,12 @@ public sealed partial class MechObject : SimObject {
 			TorsoTwistThread = AddTorsoThread(animation, Type.TorsoTwistSequence);
 			TorsoPitchThread = AddTorsoThread(animation, Type.TorsoPitchSequence);
 		}
+
+		// The original splits this in two: the constructor sizes the shield array and fills the pool,
+		// and the spawn path calls Mech_ConfigureLoadout straight afterwards to fit the pods and
+		// resize the array around them. Both run before the machine ever ticks, so they are one call
+		// here — see MechObject.Power.cs.
+		ConfigureLoadout();
 	}
 
 	private AnimationThread? AddTorsoThread(ShapeAnimation animation, short sequence) =>
@@ -262,6 +268,12 @@ public sealed partial class MechObject : SimObject {
 	/// reproducible.</para>
 	/// </summary>
 	public override void Tick(SimWorld world) {
+		// Reactor and pool first. In the original this is a separate dispatch entirely —
+		// Sim_MainTick walks the global mech list calling Mech_PerTickSystemsUpdate, while the
+		// control law comes in from the input poll or the AI think — but it runs once per mech per
+		// tick either way, and its inputs are last tick's, so its position within the tick is free.
+		PowerTick();
+
 		LatchCenterBody();
 
 		if (_centeringBody) {

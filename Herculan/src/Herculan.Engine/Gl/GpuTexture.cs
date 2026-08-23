@@ -53,5 +53,23 @@ public sealed class GpuTexture : IDisposable {
 	/// <summary>The GL texture name, for binding via <see cref="ShaderProgram.SetSamplerTexture"/>.</summary>
 	public uint Handle { get; }
 
+	/// <summary>
+	/// Replaces the whole image in place, keeping the same texture name and sampler state. For art
+	/// the CPU side repaints — the cockpit's shield-meter rings, whose colours are per-frame state
+	/// baked into the canopy bitmap (see <c>Content.CockpitArt.UpdateShieldRings</c>).
+	/// </summary>
+	public void Update(ReadOnlySpan<byte> rgbaPixels, int width, int height) {
+		_gl.BindTexture(TextureTarget.Texture2D, Handle);
+
+		unsafe {
+			fixed (byte* pixels = rgbaPixels) {
+				_gl.TexSubImage2D(TextureTarget.Texture2D, 0, 0, 0, (uint)width, (uint)height,
+					PixelFormat.Rgba, PixelType.UnsignedByte, pixels);
+			}
+		}
+
+		_gl.BindTexture(TextureTarget.Texture2D, 0);
+	}
+
 	public void Dispose() => _gl.DeleteTexture(Handle);
 }

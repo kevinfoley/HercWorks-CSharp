@@ -9,7 +9,21 @@ using HercWorks.Core.Io.Transform.Dbsim;
 namespace Herculan.Engine.Content;
 
 /// <summary>One decoded cockpit-art frame, RGBA8, top row first — CPU-side, no GL.</summary>
-public sealed record CockpitFrame(byte[] Pixels, int Width, int Height);
+public sealed record CockpitFrame(byte[] Pixels, int Width, int Height) {
+	/// <summary>
+	/// Where this frame's shield-meter ring pixels ended up, one list of <see cref="Pixels"/> byte
+	/// offsets per ramp slot (<see cref="CockpitPalette.ShieldRampFirstSlot"/> + index).
+	///
+	/// <para>The meter's rings are part of the canopy art, not geometry the HUD draws, and the widget
+	/// animates them by rewriting six palette slots every frame. Decoding indexed art to RGBA at load
+	/// bakes the palette in and loses that, so the positions are kept here and
+	/// <see cref="CockpitArt.UpdateShieldRings"/> repaints them in place. Retail frames put a few
+	/// hundred pixels in these six indices, so a repaint is cheap and only happens when the charge
+	/// actually moves.</para>
+	/// </summary>
+	public int[][] ShieldRingPixels { get; init; } =
+		Enumerable.Range(0, CockpitPalette.ShieldRampLength).Select(_ => Array.Empty<int>()).ToArray();
+}
 
 /// <summary>
 /// A herc's cockpit canopy art and HUD widget layout — see docs/formats/cockpit-hud.md (Milestone 8
@@ -319,6 +333,63 @@ public sealed class CockpitArt {
 	/// special-casing of index 0 here — the viewport cutout is a separate, deliberate pass, not a
 	/// side effect of decoding).
 	/// </summary>
+	// The ring colours currently painted into the frames, so a repaint is skipped on the many frames
+	// where the charge did not move far enough to change any of the six.
+	private HercWorks.Core.Data.Struct.ColorBytes[]? _shieldRingColors;
+
+	/// <summary>
+	/// Repaints the shield meter's rings for the charge the machine is actually holding —
+	/// <c>ShieldsGauge</c>'s per-frame palette write, applied to already-decoded art.
+	///
+	/// <para>Charges are on the widget's own 0..<c>0x800</c> scale; use
+	/// <see cref="CockpitPalette.ShieldFacingCharge"/> to get there from raw simulation charge. The
+	/// rings genuinely go dark as a facing empties, which is the whole point of the meter and is what
+	/// the palette baked at load could never show.</para>
+	/// </summary>
+	/// <returns>
+	/// True when pixels changed and the caller must re-upload the affected textures. False means the
+	/// six colours resolved identically to last time and nothing was touched.
+	/// </returns>
+	public bool UpdateShieldRings(int frontCharge, int rearCharge) {
+		var colors = CockpitPalette.ShieldRampEntries(frontCharge, rearCharge);
+
+		if (_shieldRingColors is { } previous) {
+			bool same = true;
+			for (int i = 0; i < colors.Length && same; i++) {
+				var a = previous[i].GetColor();
+				var b = colors[i].GetColor();
+				same = a.R == b.R && a.G == b.G && a.B == b.B;
+			}
+
+			if (same) {
+				return false;
+			}
+		}
+
+		_shieldRingColors = colors;
+
+		// Every frame gets the pass, not just the front one: a herc whose side or heads-down art
+		// happens to use these indices would otherwise drift out of step with the front panel.
+		Paint(Front);
+		Paint(Side);
+		if (HeadsDown is { } headsDown) {
+			Paint(headsDown);
+		}
+
+		return true;
+
+		void Paint(CockpitFrame frame) {
+			for (int slot = 0; slot < colors.Length; slot++) {
+				var color = colors[slot].GetColor();
+				foreach (int offset in frame.ShieldRingPixels[slot]) {
+					frame.Pixels[offset] = color.R;
+					frame.Pixels[offset + 1] = color.G;
+					frame.Pixels[offset + 2] = color.B;
+				}
+			}
+		}
+	}
+
 	private static CockpitFrame? LoadFrame(GameContent content, string folder, string name, DynamixPalette palette) {
 		byte[]? bytes = content.Read(folder, name);
 		if (bytes == null
@@ -335,6 +406,11 @@ public sealed class CockpitArt {
 		byte[] indices = frame.ImageData ?? Array.Empty<byte>();
 		int count = Math.Min(indices.Length, width * height);
 
+		var ringPixels = new List<int>[CockpitPalette.ShieldRampLength];
+		for (int i = 0; i < ringPixels.Length; i++) {
+			ringPixels[i] = new List<int>();
+		}
+
 		for (int i = 0; i < count; i++) {
 			int index = indices[i];
 			var color = palette.Colors.TryGetValue(index, out var entry)
@@ -345,9 +421,16 @@ public sealed class CockpitArt {
 			pixels[i * 4 + 1] = color.G;
 			pixels[i * 4 + 2] = color.B;
 			pixels[i * 4 + 3] = 255;
+
+			int slot = index - CockpitPalette.ShieldRampFirstSlot;
+			if (slot >= 0 && slot < CockpitPalette.ShieldRampLength) {
+				ringPixels[slot].Add(i * 4);
+			}
 		}
 
-		return new CockpitFrame(pixels, width, height);
+		return new CockpitFrame(pixels, width, height) {
+			ShieldRingPixels = ringPixels.Select(list => list.ToArray()).ToArray(),
+		};
 	}
 
 	/// <summary>

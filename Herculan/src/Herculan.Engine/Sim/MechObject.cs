@@ -1,4 +1,5 @@
 using HercWorks.Core.Data.File.Dat.Sim;
+using HercWorks.Core.Data.File.Dbsim;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Sim.Anim;
 
@@ -31,14 +32,25 @@ public sealed partial class MechObject : SimObject {
 	private const int CollisionBackoffTime = 10000;
 
 	private readonly int _hitRadius;
+	private readonly GunLayout? _hardpoints;
+	private readonly WeaponCatalog? _weapons;
 
+	/// <param name="hardpoints">
+	/// The chassis' own <c>gl\&lt;HERC&gt;.GL</c> hardpoint list — where each weapon physically sits,
+	/// which cockpit row it owns, and which slot of <paramref name="loadout"/> it draws from. Without
+	/// it the machine is fitted with nothing, because the fit alone does not say where anything goes.
+	/// </param>
+	/// <param name="weapons">The simulator's weapon tables — see <see cref="WeaponCatalog"/>.</param>
 	public MechObject(string name, HercSimDat simData, int hitRadius, MechLoadout loadout,
-			ShapeAnimation? animation = null) {
+			ShapeAnimation? animation = null, GunLayout? hardpoints = null,
+			WeaponCatalog? weapons = null) {
 		Name = name;
 		SimData = simData;
 		Type = new MechTypeRecord(simData);
 		_hitRadius = hitRadius;
 		Loadout = loadout;
+		_hardpoints = hardpoints;
+		_weapons = weapons;
 
 		// A HERC powers up in its stop / step-off sequence, not its walk cycle — the mech constructor
 		// builds this thread with typeRec+0x12 and a rate of zero. It matters: the gait state
@@ -671,11 +683,29 @@ public sealed partial class MechObject : SimObject {
 /// same <c>Mech_ConfigureLoadout</c> in the original.
 /// </summary>
 /// <param name="WeaponIds">
-/// The mount ids the mission assigned, with the file's empty-slot sentinels already dropped. Nothing
-/// fires them yet — weapon systems are a later milestone — so for now this is data carried
-/// faithfully rather than data acted on.
+/// The mount ids the mission assigned, <b>in slot order and with the file's holes left in</b> —
+/// <c>0</c> or <c>-1</c> for an unfitted slot. The order and the holes both matter: a chassis'
+/// <c>.GL</c> hardpoint list addresses this array by slot index, so closing a hole or sorting the
+/// list would fit the wrong weapon to the wrong hardpoint. See <see cref="WeaponMounts.Build"/>.
 /// </param>
-public readonly record struct MechLoadout(IReadOnlyList<int> WeaponIds) {
+/// <param name="SecondaryKeys">
+/// The parallel second value per slot, the array DBSIM's loadout call takes alongside the first.
+/// It is the ammunition type a missile launcher is loaded with — the value a launcher's mount takes
+/// through <c>Proj_LookupRecord(Missile, key)</c> and then prints as its name. Retail data puts
+/// <see cref="WeaponCatalog.DefaultSecondaryKey"/> in every slot that is not a launcher. May be
+/// shorter than <see cref="WeaponIds"/>, or empty, in which case the default is assumed.
+/// </param>
+public readonly record struct MechLoadout(
+	IReadOnlyList<int> WeaponIds,
+	IReadOnlyList<short> SecondaryKeys) {
+
 	/// <summary>An empty fit, for a machine spawned outside a mission.</summary>
-	public static MechLoadout None => new(Array.Empty<int>());
+	public static MechLoadout None => new(Array.Empty<int>(), Array.Empty<short>());
+
+	/// <summary>The weapon id in fit slot <paramref name="slot"/>, or 0 when the fit has no such slot.</summary>
+	public int WeaponAt(int slot) => slot >= 0 && slot < WeaponIds.Count ? WeaponIds[slot] : 0;
+
+	/// <summary>The ammunition type in fit slot <paramref name="slot"/>, defaulting to retail's own filler.</summary>
+	public short SecondaryAt(int slot) =>
+		slot >= 0 && slot < SecondaryKeys.Count ? SecondaryKeys[slot] : WeaponCatalog.DefaultSecondaryKey;
 }

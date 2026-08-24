@@ -3,6 +3,7 @@ using HercWorks.Core.Data.File.Gau;
 using HercWorks.Core.Data.Struct;
 using Herculan.Engine.Content;
 using Herculan.Engine.Gl;
+using Herculan.Engine.Sim;
 using Silk.NET.OpenGL;
 
 namespace Herculan.Engine.Render;
@@ -436,7 +437,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// rear for internal — blitted at the screen rect's top-left plus that view's own origin, which is
 	/// the paint's own arithmetic rather than a centring rule. The weapons category has no doll and
 	/// lists the mech's fitted hardpoints instead; those are already in
-	/// <see cref="CockpitHudState.WeaponNames"/>.</para>
+	/// <see cref="CockpitHudState.HardpointNames"/>.</para>
 	/// </summary>
 	private static void AddHddDamageDetail(CockpitArt hud, HddLayout layout, HudSpriteSheet sprites,
 			SimStringTable? strings, HddDamageView view, CockpitHudState state,
@@ -464,7 +465,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 		// The weapons category lists the subject's own fitted hardpoints instead of a fixed table —
 		// FUN_00450c54 copies each weapon's name straight off the mech. Those are already loaded.
 		var names = view == HddDamageView.Weapons
-			? state.WeaponNames.Where(n => n.Length > 0).ToList()
+			? state.HardpointNames.Where(n => n.Length > 0).ToList()
 			: HddLayout.ComponentNames(strings, view).Select(e => e.Text).ToList();
 
 		float valueWidth = sprites.Font(HddLayout.DamageRowFont)?.Measure(HddLayout.DamageValueReservation) ?? 0f;
@@ -660,7 +661,8 @@ public sealed class Overlay2DRenderer : IDisposable {
 				track.Left + track.TickOffsetX, track.KnobTopFor(0));
 		}
 
-		AddWeaponRows(gau, state, BlitDevice, DrawText);
+		AddWeaponRows(gau, state, hud.WeaponBarColors, BlitDevice, DrawText,
+			(x0, y0, x1, y1, color) => AddFilledRect(Dx(x0), Dy(y0), Dx(x1), Dy(y1), color));
 		AddShieldReadouts(gau, state, hud.GaugeColors?.Remainder, DrawTextCentered);
 		AddConsoleButtons(gau, hud.Strings, state, BlitDevice, DrawTextCentered);
 		AddGunsightReadouts(gau, sprites, state, DrawText);
@@ -682,21 +684,27 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// <item>the row plate from <c>PWEAPONS</c> — frame 0 selected, frame 1 not — blitted one device
 	/// pixel up and left of the <c>.GAU</c> rect, which is why its 116x18 art overhangs a 110x12 rect
 	/// evenly;</item>
-	/// <item>the hardpoint's state box from <c>PWEAPONS</c> frames 4-6 (6x14) at the rect's
-	/// <c>+12</c> device offset — the constructor's own <c>+6</c> GAU literal;</item>
+	/// <item>the hardpoint's state box from <c>PWEAPONS</c> frames 4 and 5 (6x14) at the rect's
+	/// <c>+12</c> device offset — the constructor's own <c>+6</c> GAU literal. It is drawn only for a
+	/// mount that is armed or in the current fire group, lit (frame 4) when the mount could fire and
+	/// dark (frame 5) when it could not, which is why a pod's row never has one;</item>
 	/// <item>the slot number at <c>+6</c> device, then the weapon's name in the label rect the
 	/// constructor puts at <c>+11..+35</c> GAU. Colour is the font: <c>WHITE</c> for the selected
 	/// row, <c>GRAY</c> for the rest.</item>
+	/// <item>the value field past the name, at <c>+0x24..+0x35</c> GAU — a round count for an
+	/// ammunition mount (<c>FUN_004411b4</c> prints <c>itoa(rounds)</c> there) and an LED charge bar
+	/// for an energy one (<c>FUN_00442b38</c> paints one across the same span). A pod has neither: its
+	/// own constructor widens the name label across both fields instead.</item>
 	/// </list>
 	///
-	/// <para>The value field past the name — an LED charge bar for energy weapons, a round count for
-	/// ballistic ones — needs weapon state the sim does not carry yet, so it is left to the plate art.
-	/// <c>WPN_DMG</c> is likewise not drawn: its ten frames are damage fill levels, and frame 0, the
-	/// only one this could pick blind, is a fully opaque console-coloured plate that would cover the
-	/// row.</para>
+	/// <para><c>WPN_DMG</c> is not drawn: its ten frames are damage fill levels and nothing damages a
+	/// mount yet. The original blits its frame 0 as every row's underlay, before the plate; here the
+	/// plate is the underlay, which comes to the same thing while no row is damaged.</para>
 	/// </summary>
 	private static void AddWeaponRows(GAUFile gau, CockpitHudState state,
-			Action<string, int, float, float> blit, Func<string, string, float, float, float> drawText) {
+			(Vector3 FillEven, Vector3 FillOdd)? barColors,
+			Action<string, int, float, float> blit, Func<string, string, float, float, float> drawText,
+			Action<float, float, float, float, Vector3> fillRect) {
 		if (gau.Weapons is not { } weapons) {
 			return;
 		}
@@ -705,18 +713,79 @@ public sealed class Overlay2DRenderer : IDisposable {
 		int slots = Math.Min(gau.WeaponListTotal, weapons.Length);
 		for (int i = 0; i < slots; i++) {
 			var rect = weapons[i];
-			bool selected = i == state.SelectedWeapon;
-			string font = selected ? "WHITE" : "GRAY";
+			var row = i < state.Weapons.Count ? state.Weapons[i] : WeaponRowState.Empty;
+			string font = row.Selected ? "WHITE" : "GRAY";
 			float left = rect.Origin.X * S;
 			float top = rect.Origin.Y * S;
 
-			blit("PWEAPONS", selected ? 0 : 1, left - 1, top - 1);
-			blit("PWEAPONS", 4, left + 12, top);
+			blit("PWEAPONS", row.Selected ? 0 : 1, left - 1, top - 1);
+			if (row.Selected || row.InGroup) {
+				blit("PWEAPONS", row.Ready ? ReadyStateFrame : UnreadyStateFrame, left + 12, top);
+			}
 
 			drawText(font, (i + 1).ToString(), left + 6, top);
-			if (i < state.WeaponNames.Count && state.WeaponNames[i] is { Length: > 0 } name) {
+			if (row.Name is { Length: > 0 } name) {
 				drawText(font, name, left + 22, top);
 			}
+
+			switch (row.Kind) {
+				case WeaponMountKind.Ammunition:
+					drawText(font, row.Rounds.ToString(), left + ValueFieldLeft * S, top);
+					break;
+
+				case WeaponMountKind.Energy when barColors is var (fillEven, fillOdd):
+					AddChargeBar(row.ChargeMeter,
+						left + ValueFieldLeft * S, top + ChargeBarTop * S,
+						(ValueFieldRight - ValueFieldLeft) * S,
+						(ChargeBarBottom - ChargeBarTop) * S, fillEven, fillOdd, fillRect);
+					break;
+			}
+		}
+	}
+
+	/// <summary><c>PWEAPONS</c> frame for a mount that could fire this instant.</summary>
+	private const int ReadyStateFrame = 4;
+
+	/// <summary>And for one that could not — out of ammunition, still charging, or inside its refire delay.</summary>
+	private const int UnreadyStateFrame = 5;
+
+	/// <summary>
+	/// Where a weapon row's value field starts and ends, in <c>.GAU</c> units from the row's own
+	/// left edge — the ammunition gauge's <c>+0x24..+0x35</c> label rect (<c>FUN_00440f78</c>), which
+	/// is also the span the energy gauge hands its LED bar (<c>FUN_00442950</c>).
+	/// </summary>
+	private const int ValueFieldLeft = 0x24;
+
+	private const int ValueFieldRight = 0x35;
+
+	/// <summary>
+	/// The charge bar's top and bottom edges, in <c>.GAU</c> units below the row's own top. The
+	/// energy gauge builds the bar's rect as the value field at <c>y0..y0+5</c>
+	/// (<c>FUN_00440a68</c>), and <c>FUN_00442950</c> then drops the top edge by one more unit — so
+	/// the bar is a touch shorter than the row and sits clear of the plate's upper bezel.
+	/// </summary>
+	private const int ChargeBarTop = 1;
+
+	private const int ChargeBarBottom = 5;
+
+	/// <summary>
+	/// An energy mount's capacitor bar — the same one-pixel pinstripe of two near-identical shades
+	/// <see cref="AddGaugeFills"/> paints for the Master Energy Pool, since both are the same
+	/// <c>LEDBarGraph</c> class.
+	///
+	/// <para>Unlike the pool's meter, the unfilled remainder is left alone: the weapon row's bar sits
+	/// on the plate art rather than on its own box, and <c>LedBarGraph_PaintToValue</c>'s remainder
+	/// colour for this instance is the row background it was built with.</para>
+	/// </summary>
+	/// <param name="meterValue">The bar's value over its own 0-1024 range.</param>
+	private static void AddChargeBar(int meterValue, float left, float top, float width, float height,
+			Vector3 fillEven, Vector3 fillOdd, Action<float, float, float, float, Vector3> fillRect) {
+		const int Range = 0x400;
+		int columns = (int)MathF.Round(width);
+		int filled = (int)(Math.Clamp(meterValue, 0, Range) * (long)columns / Range);
+
+		for (int x = 0; x < filled; x++) {
+			fillRect(left + x, top, left + x + 1, top + height, (x & 1) == 0 ? fillEven : fillOdd);
 		}
 	}
 
@@ -976,12 +1045,14 @@ public sealed class Overlay2DRenderer : IDisposable {
 			}
 		}
 
-		// Firing chain button ("I"/"II"/"III").
-		Button(new string('I', Math.Clamp(state.ChainCount, 1, 3)), gau.ChainButton);
-		// LINK button.
-		Button(strings?.Text(CaptionGroup, 1), gau.LinkButton);
-		// TRACK button.
-		Button(strings?.Text(CaptionGroup, 2), gau.AutoTrackButton);
+		// Firing chain and LINK light only while held; TRACK latches. ConsoleButton_Paint
+		// (00442c88) takes the first two from the shared press byte and the third from its own flag.
+		bool Held(ConsoleButton which) => state.PressedWidget == CockpitWidgetId.Console(which);
+
+		Button(new string('I', Math.Clamp(state.ChainGroup + 1, 1, 3)), gau.ChainButton,
+			Held(ConsoleButton.Chain));
+		Button(strings?.Text(CaptionGroup, 1), gau.LinkButton, Held(ConsoleButton.Link));
+		Button(strings?.Text(CaptionGroup, 2), gau.AutoTrackButton, state.AutoTrack);
 	}
 
 	/// <summary>

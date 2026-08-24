@@ -32,9 +32,9 @@ internal sealed class PlayerSquadRow {
 		set => Source.WeaponRefs = ShortCsv.Parse(value);
 	}
 
-	public string WeaponCounts {
-		get => ShortCsv.Format(Source.WeaponCounts);
-		set => Source.WeaponCounts = ShortCsv.Parse(value);
+	public string WeaponAmmoTypes {
+		get => ShortCsv.Format(Source.WeaponAmmoTypes);
+		set => Source.WeaponAmmoTypes = ShortCsv.Parse(value);
 	}
 
 	public short Unk00 { get => Source.Unk00; set => Source.Unk00 = value; }

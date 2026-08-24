@@ -89,7 +89,8 @@ nothing. A pristine pod is worth `Q10(1024, base) = base`: it **doubles** the st
 ## Weapon energy arbitration — `FUN_004107e4`
 
 Vtable slot 0 of the mount-manager object at `mech+0x202`, for both the local (`00499238`) and
-remote (`00499338`) manager classes. Not ported — weapon systems are a later milestone.
+remote (`00499338`) manager classes. Ported in `WeaponMounts.ChargeTick`; the mounts it serves are
+in [`weapon-mounts.md`](weapon-mounts.md).
 
 - Mounts are served one at a time, highest priority first. Priority is the mount's `+0x7b`, except a
   mount already mid-charge (`+0x43`) reports 10000 and jumps the queue.
@@ -103,7 +104,10 @@ remote (`00499338`) manager classes. Not ported — weapon systems are a later m
 - PLAS (id 25) is half-efficiency: its deficit counts double and only half of what it draws is
   stored.
 - An infinite-energy debug path exists (`DAT_004a9ed6 == 0 && DAT_004a9edc == 1`, player only):
-  consumption is refunded at the end of the pass.
+  consumption is refunded at the end of the pass. Not ported.
+
+An idle machine draws nothing: every energy mount powers up with `+0x7d` already at `+0x7b`, so the
+deficit is zero until a shot is demanded.
 
 ## Cockpit readouts
 
@@ -111,6 +115,8 @@ remote (`00499338`) manager classes. Not ported — weapon systems are a later m
   pushes it to the LED bar at UI slot `+0x1e5`, whose range is `0x400`.
 - **Shield rings** show charge; **the shield numbers show balance.** See
   [damage-system.md](damage-system.md#the-shield-system).
+- **Weapon charge bars** are per-mount capacitors, not the pool, and are scaled against a fixed 1200
+  rather than the mount's own level — see [weapon-mounts.md](weapon-mounts.md).
 
 ## Verified against retail
 

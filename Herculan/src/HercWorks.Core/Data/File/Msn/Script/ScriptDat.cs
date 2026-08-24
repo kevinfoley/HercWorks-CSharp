@@ -207,6 +207,34 @@ public class ScriptSpawnRecordExport {
 	public short HeadingRef { get; set; }
 
 	public byte[] TailBytes { get; set; } = new byte[68];
+
+	/// <summary>
+	/// Source offset 0x72 — the second of the two parallel per-slot arrays
+	/// <c>Mech_ConfigureLoadout</c> takes, alongside <see cref="WeaponRefs"/>. It is the ammunition
+	/// type each missile launcher is loaded with, the value a launcher's mount resolves through
+	/// <c>Proj_LookupRecord(Missile, key)</c> and then prints as its name; non-launcher slots carry a
+	/// filler 5.
+	///
+	/// <para>Located by the two stack locals <c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>) hands
+	/// the loadout call, which sit exactly 64 bytes apart in a frame holding one record — placing the
+	/// second array 64 bytes past <see cref="WeaponRefs"/>' own 0x32. Confirmed against the retail
+	/// mission: every slot whose <see cref="WeaponRefs"/> entry is a launcher (<c>MSL10</c>, id 15)
+	/// reads 1 here and every other slot reads 5.</para>
+	///
+	/// <para>A view over <see cref="TailBytes"/> rather than a field of its own, so the record still
+	/// round-trips byte-exact through <see cref="Io.Transform.Common.ScriptDatTransformer"/>.</para>
+	/// </summary>
+	public short[] WeaponSecondary => TailBytes.Length >= SecondaryOffset + SlotCount * 2
+		? Enumerable.Range(0, SlotCount)
+			.Select(i => BitConverter.ToInt16(TailBytes, SecondaryOffset + i * 2))
+			.ToArray()
+		: [];
+
+	/// <summary>Where <see cref="WeaponSecondary"/> starts inside <see cref="TailBytes"/> (source 0x72 less 0x4a).</summary>
+	private const int SecondaryOffset = 40;
+
+	/// <summary>Slots in both loadout arrays.</summary>
+	private const int SlotCount = 10;
 }
 
 /// <summary>

@@ -11,7 +11,7 @@ namespace HercWorks.Core.Data.File.Sav;
 /// <para>Decoded from <c>DBSim_LoadScriptDat</c> (<c>00424308</c>), which opens this file
 /// immediately before <c>script.dat</c>, and from <c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>), DBSIM's world-spawn pass,
 /// which appends these entries to the end of the mission's mech list and hands each one's two
-/// <see cref="MecEntry.WeaponRefs"/>/<see cref="MecEntry.WeaponCounts"/> arrays to the same
+/// <see cref="MecEntry.WeaponRefs"/>/<see cref="MecEntry.WeaponAmmoTypes"/> arrays to the same
 /// <c>Mech_ConfigureLoadout</c> that <c>script.dat</c>'s own records feed. The squad spawns at the
 /// position carried by <c>script.dat</c> block 11's <b>record 0</b>, which exists purely to place
 /// it — DBSIM overwrites that record's member list with these entries.</para>
@@ -58,8 +58,19 @@ public class MecEntry {
 	/// <summary>Per-slot weapon ids; <c>0</c> for an empty slot.</summary>
 	public short[] WeaponRefs { get; set; } = [];
 
-	/// <summary>Per-slot second value, paired with <see cref="WeaponRefs"/> by DBSIM's loadout call.</summary>
-	public short[] WeaponCounts { get; set; } = [];
+	/// <summary>
+	/// Per-slot second value, paired with <see cref="WeaponRefs"/> by DBSIM's loadout call — the
+	/// ammunition type each missile launcher is loaded with.
+	///
+	/// <para>Resolved 2026-08-23 from <c>MechLoadout_ConstructWeaponMounts</c> (<c>0040fff8</c>),
+	/// which takes this array's entry for a hardpoint through
+	/// <c>Proj_LookupRecord(Missile, key)</c> whenever the weapon's template carries the launcher
+	/// sentinel, and from <c>FUN_0040e18c</c>, which then prints that record's own subtype as the
+	/// mount's name. That is why the retail player's <c>MSL10</c> hardpoint reads <c>ARH</c> in the
+	/// cockpit rather than <c>MSL10</c>. Non-launcher slots carry a filler 5, which the factory
+	/// rewrites to 0 before looking it up.</para>
+	/// </summary>
+	public short[] WeaponAmmoTypes { get; set; } = [];
 
 	public short Unk3A { get; set; }
 

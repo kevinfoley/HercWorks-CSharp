@@ -35,7 +35,7 @@ partial class PlayerSquadForm {
 		_hercTypeColumn = new DataGridViewComboBoxColumn();
 		_slotsColumn = new DataGridViewTextBoxColumn();
 		_weaponRefsColumn = new DataGridViewTextBoxColumn();
-		_weaponCountsColumn = new DataGridViewTextBoxColumn();
+		_weaponAmmoTypesColumn = new DataGridViewTextBoxColumn();
 		_unk00Column = new DataGridViewTextBoxColumn();
 		_unk02Column = new DataGridViewTextBoxColumn();
 		_unk3AColumn = new DataGridViewTextBoxColumn();
@@ -143,7 +143,7 @@ partial class PlayerSquadForm {
 		_squadGrid.AllowUserToDeleteRows = false;
 		_squadGrid.AutoGenerateColumns = false;
 		_squadGrid.Columns.AddRange(new DataGridViewColumn[] {
-			_indexColumn, _hercTypeColumn, _slotsColumn, _weaponRefsColumn, _weaponCountsColumn,
+			_indexColumn, _hercTypeColumn, _slotsColumn, _weaponRefsColumn, _weaponAmmoTypesColumn,
 			_unk00Column, _unk02Column, _unk3AColumn
 		});
 		_squadGrid.Dock = DockStyle.Fill;
@@ -189,12 +189,12 @@ partial class PlayerSquadForm {
 		_weaponRefsColumn.Name = "_weaponRefsColumn";
 		_weaponRefsColumn.Width = 260;
 		//
-		// _weaponCountsColumn
+		// _weaponAmmoTypesColumn
 		//
-		_weaponCountsColumn.DataPropertyName = "WeaponCounts";
-		_weaponCountsColumn.HeaderText = "Paired values (one per slot)";
-		_weaponCountsColumn.Name = "_weaponCountsColumn";
-		_weaponCountsColumn.Width = 260;
+		_weaponAmmoTypesColumn.DataPropertyName = "WeaponAmmoTypes";
+		_weaponAmmoTypesColumn.HeaderText = "Ammunition type (one per slot)";
+		_weaponAmmoTypesColumn.Name = "_weaponAmmoTypesColumn";
+		_weaponAmmoTypesColumn.Width = 260;
 		//
 		// _unk00Column
 		//
@@ -304,7 +304,7 @@ partial class PlayerSquadForm {
 	private DataGridViewComboBoxColumn _hercTypeColumn;
 	private DataGridViewTextBoxColumn _slotsColumn;
 	private DataGridViewTextBoxColumn _weaponRefsColumn;
-	private DataGridViewTextBoxColumn _weaponCountsColumn;
+	private DataGridViewTextBoxColumn _weaponAmmoTypesColumn;
 	private DataGridViewTextBoxColumn _unk00Column;
 	private DataGridViewTextBoxColumn _unk02Column;
 	private DataGridViewTextBoxColumn _unk3AColumn;

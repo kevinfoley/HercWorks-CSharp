@@ -43,20 +43,44 @@ Read order (all fields little-endian):
                                   entry is 4 int16s. Pattern suggests (offsetish, offsetish,
                                   0-or-small, rate-ish) tuples, plausibly muzzle offset + fire-rate
                                   for multi-shot weapons (not confirmed field-by-field).
-+0x22 (relative) 48 raw bytes (0x30)  -- Mostly undecoded, EXCEPT ProjDatIndex at tail-relative
-                             offset 0x1c (see below). Two bytes at relative offset 0x26 are
-                             zeroed in memory at runtime (not real file data).
++0x22 (relative) 48 raw bytes (0x30)  -- Four decoded fields (see below); the rest undecoded. Two
+                             bytes at relative offset 0x26 are zeroed in memory at runtime (not
+                             real file data).
 ```
 
 In-memory boundary confirmed: front block 0x00-0x11, sub-sphere/sub-mesh block 0x12-0x21, tail
 0x22-0x51, runtime-only pointer at 0x52, self-index at 0x56. Total 0x58 (88) bytes.
+
+## Decoded tail fields
+
+Offsets are absolute in-memory (tail-relative = absolute − 0x22).
+
+| Absolute | Field | Read by |
+|---|---|---|
+| `0x36` | energy fire threshold, low | `FUN_0040ecdc` |
+| `0x38` | energy fire threshold, high | `FUN_0040ecdc` |
+| `0x3a` | magazine size | `FUN_0040e140` |
+| `0x3e` | `ProjDatIndex` | `MechLoadout_ConstructWeaponMounts` |
+
+`0x36`/`0x38` decide when an energy mount will fire: `max(0x36, mount+0x7b)` when `0x36 < 0x38`,
+otherwise `0x38`. `0x3a` is both the round count an ammunition mount powers up with and its cap
+(ATC20 2000 … ATC100 500, MSL6/8/10/24 6/8/10/24). Both are covered in
+[`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md).
+
+## `+0x52` and `+0x56` — runtime-only, written by the loader
+
+Neither is file data. `Weapons_LoadResourceTables` writes the record's own table index into `+0x56`
+— which is what identifies the sim table and the shell catalog as sharing one 0-32 weapon id — and a
+pointer from a 33-entry string array at `00498eb0` into `+0x52`. That pointer is the name a weapon
+gauge prints, and it is **not** the shell catalog's name for the same id. See
+[`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#names--fun_0040e18c).
 
 ## `ProjDatIndex` (tail-relative offset 0x1c, absolute offset 0x3e) — SOLVED
 
 Answers how a weapon id maps to a `PROJ.DAT` record. Read via `WeaponMountTemplate_GetByWeaponId` (`0x0040fe84`) and `MechLoadout_ConstructWeaponMounts` (`0x0040fff8`). Both `simvol0/dat/WEAPONS.DAT` and `SHELL0/GAM/WEAPONS.DAT` share the same 33-entry weapon-id indexing.
 
 - **`0x21` (33) -- no `PROJ.DAT` lookup.** Real case: `ECM` (electronic-warfare, no projectile).
-- **`0x22` (34) -- resolved via `Proj_LookupRecord(category=0/*Missile*/, secondaryKey)`**, a `(category, subtypeId)` search. Real cases: `MSL6`, `MSL8`, `MSL10`, `FLYMSL` (tube/rack missile launchers).
+- **`0x22` (34) -- resolved via `Proj_LookupRecord(category=0/*Missile*/, secondaryKey)`**, a `(category, subtypeId)` search. Real cases: `MSL6`, `MSL8`, `MSL10`, `FLYMSL` (tube/rack missile launchers). The secondary key is the hardpoint's own ammunition type out of the mission file's second loadout array, resolved 2026-08-23 — see [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md).
 - **Otherwise -- direct flat array index into `PROJ.DAT`** (`index * 0x24 + ProjDat_RecordTable`, via `Proj_LookupRecordByIndex` at `0x0040ffb0`). Confirmed for all other real weapons.
 - **0 for non-firing entries** (`NONE`, `LAEW`, `MINE`, `TARG`, `SHLD`, `TURB`, `ENRG`). Field is inert for passive stat-boost systems. `LAEW` coincidentally resolves to index 0 (`ATC20`).
 
@@ -67,6 +91,6 @@ Full weapon-id-to-index table: see `HercWorks.Core.Data.File.Dat.Sim.ProjectileD
 - `Field0` (range/tier semantics unknown)
 - Reused constant fields (`DepCount`, `SubSphereFlagRaw`) from `.DMG`/`.COL`
 - Firing-sequence tuple details
-- Other 46 bytes of the 48-byte tail
+- The 40 bytes of the tail outside the four fields above
 
 Implementation: see `HercWorks.Core.Data.File.Dat.Sim.Weapons` and `HercWorks.Core.Io.Transform.Dbsim.WeaponsSimTransformer`.

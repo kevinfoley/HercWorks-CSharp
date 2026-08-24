@@ -179,9 +179,34 @@ when you come back, and it is the *only* thing this function does.
 `CockpitMouse_Init`'s event mask (`0x1e`, §3) never subscribes to plain movement in the first place,
 so nothing would drive a hover highlight even if the code wanted one.
 
-`Widget_OnMouseUp` (`00452870`): if the release lands back on the widget that was pressed (or the
-right button is still held), calls that widget's `GetValue` vtable slot, then its `OnClick` slot
-with that value, then clears the pressed state and repaints via `Widget_Repaint` (`00452a90`).
+`Widget_OnMouseUp` (`00452870`): if the release lands back on the widget that was pressed **or the
+release was a right-button one**, calls that widget's `GetValue` vtable slot, then its `OnClick`
+slot with that value, then clears the pressed state and repaints via `Widget_Repaint` (`00452a90`).
+
+**Only the left button presses.** `CockpitMouse_ProcessQueue` calls `Widget_OnMouseDown` for a left
+press and not a right one, so a right click never arms a widget — the release's own re-hit-test
+plus that second condition is the whole of what makes it work. Herculan arms on either button and
+requires press and release on the same widget for both, which reaches the same outcome for a normal
+click and diverges only for a right press dragged off its widget before release.
+
+### The click value carries the mouse button
+
+`GetValue`'s default implementation (`00455530`) returns the global button word `0049db6c`, which
+`CockpitMouse_ProcessQueue` sets to `buttons | 1` on a left release and `buttons | 2` on a right
+one. A widget whose class does not override the slot therefore receives **which button clicked it**
+as its "value", and several branch on it: a weapon panel row arms its mount on bit 0 and toggles the
+mount's fire-chain membership on bit 1 (see
+[`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#arming-chaining-and-linking)).
+Sliders override the slot and return a real value instead (`SliderWidget_GetValueV`).
+
+### Keyboard commands are scancodes
+
+The same handlers are reachable from the keyboard, and the command codes that travel through
+`FUN_0045fdac` to the widget tree (`FUN_00432bc8`) are **PC set-1 scancodes**, with `0x200` added
+for `[Alt]` — `0x26` is `L`, `0x29` is `` ` ``, `0x11`/`0x211` are `W`/`Alt+W`, `0x1a`/`0x1b` are
+`[`/`]`, `0x3b`–`0x40` are `F1`–`F6`. Codes `0x02`–`0x0b` (the number row) index the cockpit's own
+ten weapon gauges at `CockpitViewInstance+0x70` and press each one's select gadget, which is how a
+key and a click end up in one handler rather than two.
 
 `Widget_Repaint` calls a widget's own Paint slot — but **the slot's numeric vtable offset is not
 uniform across classes**. Confirmed at `+4` for both `MfdDisplay` (`MfdDisplay_Repaint`) and
@@ -272,7 +297,13 @@ active.
 | `ThrottleSlider_OnValue` | `00448378` | Commit: notifies the gauge, then sets `ThrottleLeverMode` from the value sign |
 | `LedBarGraph_CtorV` | `00439344` | Vertical LED bar; the throttle builds two, ranges +0x400 and -0x400 |
 | `ShieldsGauge_OnClick` | `0044380c` | Sets front/rear click flags |
+| `Widget_GetButtonValue` | `00455530` | Default `GetValue`: returns the global mouse-button word `0049db6c` |
 | `ShieldFacing_OnClick` | `00438e3c` | Forwards a facing's click to its owner |
+| `Sim_DispatchCommand` | `0045fdac` | Every command code passes through here: the widget tree, then the player mech's vtable +0x2c |
+| `Mech_HandleCommand` | `004157c8` | Mech vtable +0x2c; offers the code to the weapon manager before handling it itself |
+| `CockpitWidgets_HandleCommand` | `00432bc8` | The widget tree's command handler; codes 0x02-0x0b press the ten weapon gauges |
+| `ConsoleButtons_HandleCommand` | `004421a0` | Console panel's command slot: 0x26 (L) presses LINK, 0x29 (`) presses the chain button |
+| `Widget_PressChild` | `00438d9c` | Dispatches a child's press slot as if clicked — how a key reaches a button |
 | `ShieldsGauge_GetStateBlock` / `_SetStateBlock` | `004438e0` / `00443858` | Read/write the 15-byte live state block |
 | `ShieldsGauge_Paint` / `_Update` | `00443730` / `00443748` | Paint slot; per-frame dirty-flag-gated update |
 | `ShieldFacing_Paint` | `00444b5c` | Visibility test only — rings are palette-animated, not drawn |
@@ -286,8 +317,12 @@ active.
   only its mechanical shape (vtable slot 0 on self then children) is confirmed.
 - `maybe_Mouse_WarpCursorToPoint`'s caller(s) and trigger.
 - Whether every clickable widget class puts `OnClick` at the same vtable slot `ShieldsGauge` and
-  `MfdDisplay` do (slot 0) — not checked for `ConsoleButton`, `WeaponSelectGadget`, the throttle,
-  or ordinary MFD/HDD leaf buttons themselves (as opposed to their owning display objects).
+  `MfdDisplay` do (slot 0) — not checked for the throttle or for ordinary MFD/HDD leaf buttons
+  themselves (as opposed to their owning display objects). Settled since for `ConsoleButton`
+  (`FUN_00442dc8`) and `WeaponSelectGadget` (`FUN_00442458`): both take `OnClick` at `+8` of their
+  `+0x17` vtable and forward to their owner's slot 0, which is the same shape.
+- Where the command-code queue at `004d2148` is filled from. The codes' meaning is settled (§7,
+  scancodes with an `0x200` Alt bank), but the raw-keystroke-to-queue step was not traced.
 - The exact leaf "Button" widget class MFD buttons construct through (`FUN_004472e4` /
   `FUN_0044741c`, called from `MfdDisplay_Ctor`) — the forward-to-owner shape is inferred from the
   shield-facing case, not independently decompiled for this class.

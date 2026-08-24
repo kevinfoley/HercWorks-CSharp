@@ -28,7 +28,15 @@ public enum MissionUnitKind {
 /// <param name="Position">Spawn position in world units. Z is left at zero — the ground under a
 /// spawn point is a terrain query the scene does once the zone is loaded, exactly as DBSIM does.</param>
 /// <param name="Heading">Facing as a binary angle, already converted from the file's degrees.</param>
-/// <param name="WeaponRefs">The mech's weapon fit; empty for anything else.</param>
+/// <param name="WeaponRefs">
+/// The mech's weapon fit, one entry per fit slot and holes left in — empty for anything else. The
+/// slot positions are load-bearing: the chassis' <c>.GL</c> hardpoint list indexes this array, so it
+/// is carried as the file states it rather than compacted.
+/// </param>
+/// <param name="WeaponSecondary">
+/// The parallel second array the same loadout call takes — the ammunition type per slot. See
+/// <see cref="Herculan.Engine.Sim.MechLoadout.SecondaryKeys"/>.
+/// </param>
 /// <param name="IsPlayerLance">
 /// Whether this came from <c>player.mec</c> rather than the mission's own roster.
 /// </param>
@@ -41,6 +49,7 @@ public sealed record MissionPlacement(
 	Vec3i Position,
 	int Heading,
 	IReadOnlyList<short> WeaponRefs,
+	IReadOnlyList<short> WeaponSecondary,
 	bool IsPlayerLance = false);
 
 /// <summary>

@@ -5,15 +5,20 @@ namespace Herculan.Engine.Content;
 /// the herc's layout and art and is loaded once: this is what changes frame to frame.
 ///
 /// <para>Some of it is not wired to the simulation yet. <see cref="Default"/> is the state a herc
-/// powers up in — full pool, an even shield balance, first hardpoint selected, unchained, unlinked —
+/// powers up in — full pool, an even shield balance, no weapons fitted, unchained, unlinked —
 /// which is also what the retail reference screenshots show, so what the engine draws can be
 /// compared against them directly. Fields become live as the sim grows the state behind them.</para>
 /// </summary>
-/// <param name="WeaponNames">
-/// Fitted hardpoint names, in <c>.GAU</c> slot order. Slots past the end draw their plate and number
-/// with no name rather than an invented one.
+/// <param name="Weapons">
+/// One entry per <c>.GAU</c> weapon row, in row order — see <see cref="WeaponRowState"/>. A row no
+/// mount claims draws its plate and number with no name rather than an invented one.
 /// </param>
-/// <param name="SelectedWeapon">Index of the armed hardpoint — its row draws the selected plate and the brighter font.</param>
+/// <param name="HardpointNames">
+/// The same mounts' bare names in <b>mount order</b> — the order the <c>.GL</c> hardpoint list puts
+/// them in, which is not the row order. This is the list the Heads-Down Display's weapon-damage page
+/// prints (<c>FUN_00450c54</c> walks the mount array directly), and it takes the mount's own name
+/// with none of the cockpit row's pod suffix.
+/// </param>
 /// <param name="ShieldFront">
 /// Front shield readout, 0-200. This is the shield <i>balance</i>, not the charge — the original
 /// prints `balance * 200 >> 10` here and its complement below, so the pair always sums to 200 even
@@ -37,7 +42,11 @@ namespace Herculan.Engine.Content;
 /// <see cref="Herculan.Engine.Sim.MechControls.TorsoTwist"/> positive drives it.
 /// </param>
 /// <param name="MissionTime">Mission clock, rendered mm:ss.</param>
-/// <param name="ChainCount">How many weapons the chain button fires per pull, 1-3 — its caption is that many <c>I</c>s.</param>
+/// <param name="ChainGroup">
+/// Which of the three fire chains is selected, 0-2 — <c>WeaponMounts.Group</c>. The chain button is
+/// captioned with that many <c>I</c>s from a literal table in the executable, so chain 0 reads "I".
+/// </param>
+/// <param name="AutoTrack">Whether the TRACK button is latched — <c>WeaponMounts.AutoTrack</c>.</param>
 /// <param name="Mfd">Which screen the multi-function display is showing. F1-F6 select it, exactly as DBSIM's own mode buttons do.</param>
 /// <param name="Hdd">Which screen the Heads-Down Display is showing. F7 and F8 select it, and either one also pans down to it.</param>
 /// <param name="HddDamage">
@@ -53,8 +62,8 @@ namespace Herculan.Engine.Content;
 /// threaded through it.
 /// </param>
 public readonly record struct CockpitHudState(
-	IReadOnlyList<string> WeaponNames,
-	int SelectedWeapon,
+	IReadOnlyList<WeaponRowState> Weapons,
+	IReadOnlyList<string> HardpointNames,
 	int ShieldFront,
 	int ShieldRear,
 	int EnergyFraction,
@@ -62,7 +71,8 @@ public readonly record struct CockpitHudState(
 	short Throttle,
 	short TorsoTwist,
 	TimeSpan MissionTime,
-	int ChainCount,
+	int ChainGroup,
+	bool AutoTrack,
 	MfdMode Mfd,
 	HddPage Hdd,
 	HddDamageView HddDamage,
@@ -70,7 +80,7 @@ public readonly record struct CockpitHudState(
 
 	/// <summary>
 	/// Power-up state: an even shield balance printing 100/100 the way <c>ShieldsGauge_UpdateReadouts</c>
-	/// scales it (a balance readout, not a charge one), first hardpoint armed, chain at one, stationary clock, and the
+	/// scales it (a balance readout, not a charge one), no weapon panel, chain at one, stationary clock, and the
 	/// MFD on the scanner — which is the screen <c>Gau_MfdPanelWidget</c> boots the display to with
 	/// its own <c>SetMode(obj, 3)</c> call.
 	///
@@ -79,8 +89,8 @@ public readonly record struct CockpitHudState(
 	/// <c>FUN_00450b60(obj, 0)</c>.</para>
 	/// </summary>
 	public static CockpitHudState Default { get; } = new(
-		WeaponNames: Array.Empty<string>(),
-		SelectedWeapon: 0,
+		Weapons: Array.Empty<WeaponRowState>(),
+		HardpointNames: Array.Empty<string>(),
 		ShieldFront: 100,
 		ShieldRear: 100,
 		EnergyFraction: 1024,
@@ -88,7 +98,8 @@ public readonly record struct CockpitHudState(
 		Throttle: 0,
 		TorsoTwist: 0,
 		MissionTime: TimeSpan.Zero,
-		ChainCount: 1,
+		ChainGroup: 0,
+		AutoTrack: false,
 		Mfd: MfdMode.Scanner,
 		Hdd: HddPage.CommandDisplay,
 		HddDamage: HddDamageView.Structural,

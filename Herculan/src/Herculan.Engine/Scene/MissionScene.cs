@@ -106,10 +106,15 @@ public sealed class MissionScene {
 		var models = new SceneModelLibrary(content, theater);
 		var baseTypes = BaseTypeTable.Load(content);
 
+		// The simulator loads both weapon tables once, at startup, not per machine — see WeaponCatalog.
+		var weapons = WeaponCatalog.Load(
+			content.Read(WeaponCatalog.ResourceFolder, WeaponCatalog.TemplateResource),
+			content.Read(WeaponCatalog.ResourceFolder, WeaponCatalog.ProjectileResource));
+
 		var objects = new List<SceneObject>(mission.Placements.Count);
 		SceneObject? playerObject = null;
 		foreach (var placement in mission.Placements) {
-			var spawned = Spawn(placement, models, baseTypes);
+			var spawned = Spawn(placement, models, baseTypes, weapons);
 			if (spawned == null) {
 				continue;
 			}
@@ -194,8 +199,8 @@ public sealed class MissionScene {
 	/// <i>model</i> cannot be built still spawns: it is really there, and the scene reports it.
 	/// </summary>
 	private static SceneObject? Spawn(MissionPlacement placement, SceneModelLibrary models,
-			BaseTypeTable baseTypes) {
-		var (simObject, model) = Create(placement, models, baseTypes);
+			BaseTypeTable baseTypes, WeaponCatalog? weapons) {
+		var (simObject, model) = Create(placement, models, baseTypes, weapons);
 		if (simObject == null) {
 			return null;
 		}
@@ -214,7 +219,7 @@ public sealed class MissionScene {
 	}
 
 	private static (SimObject? Object, SceneModel? Model) Create(MissionPlacement placement,
-			SceneModelLibrary models, BaseTypeTable baseTypes) {
+			SceneModelLibrary models, BaseTypeTable baseTypes, WeaponCatalog? weapons) {
 		switch (placement.Kind) {
 			case MissionUnitKind.Mech: {
 				if (placement.TypeName == null || models.MechData(placement.TypeName) is not { } simData) {
@@ -224,8 +229,12 @@ public sealed class MissionScene {
 				var model = models.Mech(placement.TypeName);
 				return (
 					new MechObject(placement.TypeName, simData, model?.RadiusWorldUnits ?? 0,
-						new MechLoadout(placement.WeaponRefs.Select(id => (int)id).ToArray()),
-						models.MechAnimation(placement.TypeName)),
+						new MechLoadout(
+							placement.WeaponRefs.Select(id => (int)id).ToArray(),
+							placement.WeaponSecondary),
+						models.MechAnimation(placement.TypeName),
+						models.MechHardpoints(placement.TypeName),
+						weapons),
 					model);
 			}
 

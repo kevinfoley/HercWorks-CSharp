@@ -2,7 +2,13 @@
 
 Reverse-engineered from `VSHELL.EXE` disassembly and verified against real retail files. This is
 the SHELL0/GAM weapon **catalog** (33 entries: id 0 = NONE + 32 real weapons) — distinct from the
-simulator's `simvol0/dat/WEAPONS.DAT` (see [`weapons-dat-sim.md`](weapons-dat-sim.md)).
+simulator's `simvol0/dat/WEAPONS.DAT` (see [`weapons-dat-sim.md`](weapons-dat-sim.md)). Both share
+the same 0-32 weapon id.
+
+> **The simulator does not read this file.** DBSIM carries its own 33-entry name table and its names
+> differ (`EMPC`/`SHLD` here, `EMP`/`SHIELD` there), so a cockpit fed from this catalog prints the
+> wrong words — see
+> [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#names--fun_0040e18c).
 
 ## WEAPONS.BIN — weapon name strings (fully confirmed, byte-exact)
 

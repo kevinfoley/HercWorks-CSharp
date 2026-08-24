@@ -556,10 +556,9 @@ Four cockpit defects addressed; RE in `docs/formats/cockpit-hud.md` and `docs/fo
 - **`.DFN`/`.HFN` decoded, `HudFont` added.** Glyph pool plus per-glyph offset and width arrays,
   `width * cellHeight` bytes each, one ink index per file. Glyphs pack into the existing HUD sprite
   atlas, so text costs no extra texture bind. This unblocked every readout below.
-- **Weapon rows drawn** (`PWEAPONS` plate, hardpoint state box, slot number, weapon name). Names come
-  from `SHELL0.VOL`'s `gam\WEAPONS.DAT` via `WeaponNameTable`, which reads that archive directly
-  rather than mounting it — SHELL0 ships `DBA`/`DPL`/`DFN` folders whose names collide with
-  SIMVOL0's, so mounting it would let shell art shadow simulator art.
+- **Weapon rows drawn** (`PWEAPONS` plate, hardpoint state box, slot number, weapon name). The names
+  were taken from `SHELL0.VOL`'s `gam\WEAPONS.DAT`, which was wrong on both order and wording;
+  corrected in "Weapon mounts and the weapon panel" below.
 - **Shield meter lit, not drawn.** Its rings are canopy art in palette indices 66-71;
   `CockpitPalette.InstallShieldRamp` reproduces `ShieldsGauge`'s per-frame six-entry palette write.
   Matches the retail screenshot to within one channel of the palette scalar's own rounding.
@@ -593,7 +592,7 @@ Leg 1: place `.HB1` and pan to it. RE in `docs/formats/cockpit-hud.md`, "Heads-d
 
 Leg 2: the display's own GUI. Full RE in `docs/formats/heads-down-display.md`.
 
-- **The whole display is authored per herc**, unlike the MFD: the `.GAU` block at 1212 carries an
+- **The whole display is authored per Herc**, unlike the MFD: the `.GAU` block at 1212 carries an
   origin, four region rects, 15 widget rects, 3 marker rects and two mode values. `HddLayout` reads
   it out of `GAUFile.Remainder` and re-bases it onto the `.HB1` art. The block's origin y is biased
   `+0x28` before shifting, which lands it on the herc's own `.VUE` view-1 canvas origin — the check
@@ -630,14 +629,6 @@ single place the real rule replaces the guess — the host only asks it to place
 `Esc` in the simulator host opens an ImGui debug panel; it no longer quits. Full description in
 `docs/engine/handoff-player-movement.md`, "Debug view".
 
-Why ImGui in the game host: the cockpit's font and sprite banks are the original's art placed from
-the original's own layout files, and bending them into a live settings panel costs more than adding a
-toolkit already in the tree. Nothing the game itself draws goes through ImGui.
-
-Why a skeleton as well as posed geometry: it shows the nodes no geometry hangs from, and overlaid on
-a posed machine it is the check that the pose the simulation holds and the pose being drawn are the
-same one. It was built first, when the eye was the animation system's only observable output.
-
 ## Keyframe interpolation — SOLVED + SHIPPED (2026-08-22)
 
 Poses are now blended between the playing keyframe and the frame playback is headed for, by the same
@@ -651,7 +642,7 @@ applied via `ES2ApplySymbolNames` (7 new + one pre-existing entry extended; re-r
 
 Pose cadence checked and settled: the original evaluates poses once per sim tick, and its whole loop
 is capped at 25 Hz, so tick and frame are the same thing there. The engine's fixed 25 Hz tick
-produces the same 25 poses a second — matching, not approximating.
+produces the same 25 poses a second.
 
 ## Node-posed geometry — SOLVED + SHIPPED (2026-08-22)
 
@@ -659,7 +650,7 @@ A machine's geometry is now drawn one node at a time, so the walk cycle that was
 across the ground also moves its legs. Full RE and port detail in
 [`docs/formats/dts-node-posing.md`](../formats/dts-node-posing.md).
 
-The mechanism was traced, not assumed: `TSGroup_RenderPolys` (`004758c8`) resolves the group's own
+The mechanism was traced: `TSGroup_RenderPolys` (`004758c8`) resolves the group's own
 `TSBasePart.Transform` and composes that node's world transform with the object-to-view one
 (`00476014` → `00476030`) before drawing a single poly. `DtsMeshBuilder.BuildSegments` splits a shape
 accordingly and `MissionScene.PosedTransformOf` is the composition.
@@ -703,9 +694,8 @@ either, and both pod bonuses **double** their stat on the same five-step damage 
 is computed **once at spawn** (`FUN_00417d08` has one reference in the binary), so mid-mission
 reactor damage never changes it.
 
-Shipped: `MechObject.Power.cs`, `ShieldCharge.cs`, `MechPods.cs`, the cockpit energy meter (was
-hard-coded full), live shield rings (the ramp was installed once at load with a nominal charge, so
-they could never move), and `[`/`]` shield balance.
+Shipped: `MechObject.Power.cs`, `ShieldCharge.cs`, `MechPods.cs`, the cockpit energy meter, live 
+shield rings, and `[`/`]` shield balance.
 
 ### Corrections this milestone
 
@@ -713,10 +703,10 @@ they could never move), and `[`/`]` shield balance.
   not health: the arrays are zeroed at init and `FUN_0040d3ec` *adds*, capping at max and storing
   `-1` on destruction. The old name inverted the sense of every caller. `Component_AllocHealthArrays`
   and `Mech_ComponentHealthWrite` renamed to match; applied via `ES2ApplySymbolNames`.
-- **`mech+0x317` is the Turbo Pod**, not an unidentified subsystem, and its speed term is a bonus
+- **`mech+0x317` is the Turbo Pod**, and its speed term is a bonus
   that *fades* with damage rather than a runaway that grows — a direct consequence of the rename.
   Corrected in [`mech-locomotion.md`](../simulation/mech-locomotion.md).
-- **Shield capacity is not a per-mech-type stat.** Every retail HERC carries 3500 at record offset
+- **Shield capacity is uniform.** Every retail HERC carries 3500 at record offset
   190.
 - **The cockpit's shield numbers show balance, not charge.** `ShieldsGauge_UpdateReadouts` prints
   `balance * 200 >> 10` and its literal complement, so the pair always sums to 200 whatever the
@@ -724,9 +714,74 @@ they could never move), and `[`/`]` shield balance.
 
 ### Method note
 
-Three conclusions in this milestone were wrong on the first pass and were caught by user review
-against the retail build, not by static analysis: shield capacity read from the wrong premise, a
-readout misread as charge, and a frame-rate explanation that a 25 Hz cap ruled out. Each was
+Three conclusions in this milestone were wrong on the first pass. Each was
 resolved by disassembling the function rather than trusting the decompiler — `Shield_Init`'s
 `ADD ESI,0x2` / `[ESI+0xbe]` pair, folded by the decompiler into `+0xc0`, is the representative
 case. Prefer raw disassembly for any load-bearing offset or constant.
+
+## Weapon mounts and the weapon panel — SOLVED + SHIPPED (2026-08-23)
+
+Full RE in [`docs/simulation/weapon-mounts.md`](../simulation/weapon-mounts.md).
+
+A mission's weapon fit is not the weapon panel. `MechLoadout_ConstructWeaponMounts` walks the
+chassis' own `gl\<HERC>.GL` hardpoint list and uses each record to *index* the fit, so hardpoint
+order, mount order and cockpit-row order are three different orderings of one list. The simulator
+also has its own weapon names, in `DBSIM.EXE` rather than in the shell catalog, and a missile
+launcher prints its loaded ammunition type instead of its own name.
+
+Shipped: `WeaponCatalog`, `WeaponMount`, `WeaponMounts`, `WeaponRowState`, magazines and capacitors
+from the real template table, the pool arbitration wired into the seam `MechObject.Power.cs` left
+for it, and per-row round counts, charge bars and state boxes in the cockpit. Firing is not
+implemented.
+
+### Corrections this milestone
+
+Four defects the user reported against the retail build, all one root cause each:
+
+- **Row order was the fit array's order.** It is the `.GL` record's fire-chain byte at `+7`.
+- **Names came from `SHELL0/GAM/WEAPONS.DAT`.** `WeaponNameTable` is deleted; the names are
+  `DBSIM.EXE`'s own pointer array at `00498eb0` (`SHLD` → `SHIELD`, `EMPC` → `EMP`).
+- **`SHLD` should read `SHIELD POD`.** The pod gauge class decorates its name with `STRINGS0.STR`
+  group 3; the other two classes do not.
+- **`MSL10` should read `ARH`.** The name is picked off the resolved `PROJ.DAT` record, and the
+  launcher's record comes from the mission file's *second* loadout array — `MecEntry.WeaponCounts`,
+  which is renamed `WeaponAmmoTypes`.
+
+Two more found while porting: the weapon row's charge bar uses raw palette indices `0x20`/`0x22`
+rather than `COLORS.DAT` gauge ids (blue, not grey), and its state box is drawn only for an armed or
+in-group mount, lit by readiness — so a pod row has none.
+
+## Weapon selection, fire chains and link fire — SOLVED + SHIPPED (2026-08-24)
+
+Full RE in [`docs/simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#arming-chaining-and-linking).
+
+Arming a weapon and putting it in a fire chain are two different actions, each with a key and a
+mouse binding that meet in one handler: `[1]`-`[0]` and a left click both reach `FUN_004106ac`,
+`[Alt]`+`[1]`-`[0]` and a **right** click both reach `FUN_004110ac`. The mouse's split is the button
+itself — a widget's default `GetValue` returns the global mouse-button word, so a click's "value"
+*is* which button clicked it.
+
+Link fire is a pair, not a type: the chassis' `.GL` record names each hardpoint's partner and the
+two must carry the same weapon id. Both rows of a linked pair draw armed together, and readiness
+recurses into the partner.
+
+Shipped: `WeaponMounts` selection/chain/link/step/group methods and its per-frame pass, weapon rows
+and the three console buttons as clickable widgets, and the `[1]`-`[0]` / `[Alt]`+number / `[W]` /
+`[Alt]`+`[W]` / `[L]` bindings. Firing is not implemented.
+
+### Corrections this milestone
+
+- **Command codes are PC set-1 scancodes**, `0x200` added for `[Alt]` — settled by `0x26`/`0x29`
+  binding to LINK and the chain button and `0x11`/`0x211` to `[W]`/`[Alt]`+`[W]`. Recorded in
+  [`cockpit-input.md`](../formats/cockpit-input.md).
+- **`CockpitHudState.ChainCount` was the fire-chain index, not a weapon count.** Renamed
+  `ChainGroup`; the button's caption is that many `I`s.
+- **`ConsoleButton` press behaviour is not uniform.** CHAIN and LINK read the shared press byte and
+  light only while held; only TRACK latches.
+
+### Known divergences
+
+- A right press dragged off its widget before release fires no click here; the original's right
+  release re-hit-tests and fires wherever it lands, because a right press never arms a widget.
+- TRACK latches but nothing reads it — automatic turret tracking is unported.
+- Clicking a pod's row does nothing; the original toggles the pod on and off there.

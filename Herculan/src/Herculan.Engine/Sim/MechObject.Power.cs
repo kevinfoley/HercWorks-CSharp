@@ -71,6 +71,12 @@ public sealed partial class MechObject {
 	/// <summary>This machine's shield array — the pool's sink once the weapon mounts have taken their share.</summary>
 	public ShieldCharge Shields { get; private set; } = new(0);
 
+	/// <summary>
+	/// This machine's weapon mounts, <c>mech+0x202</c> — built from its own hardpoint list and the fit
+	/// the mission gave it. <see cref="WeaponMounts.Empty"/> when either was unavailable.
+	/// </summary>
+	public WeaponMounts Weapons { get; private set; } = WeaponMounts.Empty;
+
 	/// <summary>The pods this machine's fit gave it. Two of them feed the numbers on this page.</summary>
 	public MechPods Pods { get; private set; }
 
@@ -83,9 +89,10 @@ public sealed partial class MechObject {
 	public int EnergyPoolFraction => ((int)EnergyPool << 10) / EnergyPoolMax;
 
 	/// <summary>
-	/// <c>Mech_ConfigureLoadout</c>'s (<c>004175dc</c>) closing three calls, in its own order:
-	/// file the pods out of the mount list, size the shield array and fill it, then work out the
-	/// reactor rate. Everything damage-dependent in here is sampled now and not looked at again.
+	/// <c>Mech_ConfigureLoadout</c> (<c>004175dc</c>), in its own order: build the weapon mounts from
+	/// the chassis' hardpoint list, file the pods out of the finished mount list, size the shield
+	/// array and fill it, then work out the reactor rate. Everything damage-dependent in here is
+	/// sampled now and not looked at again.
 	/// </summary>
 	/// <param name="bodyDamage">
 	/// Damage on sub-piece 4, Q8 over 0-256 with 0 pristine — the chassis term in the shield-capacity
@@ -100,7 +107,8 @@ public sealed partial class MechObject {
 			short energyPodDamage = 0,
 			ReactorCondition reactor = ReactorCondition.Intact) {
 
-		Pods = MechPods.FromLoadout(Loadout);
+		Weapons = WeaponMounts.Build(_hardpoints, Loadout, _weapons);
+		Pods = MechPods.FromLoadout(Weapons);
 
 		Shields = new ShieldCharge(Type.ShieldCapacity);
 		Shields.SetMax(ShieldCapacity(Type.ShieldCapacity, bodyDamage, Pods.ShieldPod, shieldPodDamage));
@@ -225,28 +233,13 @@ public sealed partial class MechObject {
 
 	/// <summary>
 	/// The weapon mounts' claim on the pool — vtable slot 0 of the mount-manager object at
-	/// <c>mech+0x202</c>, which is <c>FUN_004107e4</c> for every machine.
+	/// <c>mech+0x202</c>, which is <c>FUN_004107e4</c> for every machine. See
+	/// <see cref="WeaponMounts.ChargeTick"/> for the arbitration itself.
 	///
-	/// <para><b>Nothing is claimed yet</b>, because no weapon exists to claim it; weapon systems are
-	/// their own milestone. The seam is here rather than inlined into <see cref="PowerTick"/> because
-	/// the original's arbitration is already understood and this is where it goes:</para>
-	///
-	/// <list type="bullet">
-	/// <item>Mounts are served one at a time, highest priority first. Priority is the mount's own
-	/// <c>+0x7b</c>, except that a mount already mid-charge (<c>+0x43</c>) reports 10000 and jumps the
-	/// queue — so a weapon that started charging finishes charging.</item>
-	/// <item>The player's currently selected mount is served before the ranking is consulted at all.
-	/// The AI passes -1 for that and goes straight to the ranking.</item>
-	/// <item>Each mount takes <c>min(its charge rate, what is left, its own deficit)</c> and passes
-	/// the remainder down the chain (<c>FUN_0040f00c</c>).</item>
-	/// <item>Once any mount reports itself mid-charge, every mount after it is told to target zero
-	/// instead, and <i>bleeds its capacitor back into the pool</i> at 5 units a tick. One energy
-	/// weapon charges at a time and the rest give way to it.</item>
-	/// <item>Ammunition mounts consume nothing: their slot-0x34 override returns the budget
-	/// untouched, which is why a HERC full of autocannons never troubles its reactor.</item>
-	/// <item>PLAS (catalog id 25) is special-cased to half efficiency — its deficit counts double and
-	/// only half of what it draws reaches its capacitor.</item>
-	/// </list>
+	/// <para>The armed mount is served first, and only a locally-piloted machine has one: the local
+	/// manager passes its own selection, the remote manager passes -1 and goes straight to the
+	/// priority ranking.</para>
 	/// </summary>
-	private short ChargeWeapons(short budget) => budget;
+	private short ChargeWeapons(short budget) =>
+		Weapons.ChargeTick(budget, IsPlayer ? Weapons.Selected : WeaponMounts.NoSelection);
 }

@@ -1,5 +1,6 @@
 using System.Numerics;
 using HercWorks.Core.Data.File.Dat.Sim;
+using HercWorks.Core.Data.File.Dbsim;
 using HercWorks.Core.Data.File.Dgs;
 using HercWorks.Core.Data.File.Dts;
 using HercWorks.Core.Data.File.Dyn;
@@ -70,6 +71,13 @@ public sealed class SceneModelLibrary {
 	private readonly Dictionary<string, HercSimDat?> _mechData = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, FlyerSimData?> _flyerData = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, ShapeAnimation?> _animations = new(StringComparer.OrdinalIgnoreCase);
+	private readonly Dictionary<string, GunLayout?> _hardpoints = new(StringComparer.OrdinalIgnoreCase);
+
+	/// <summary>
+	/// The folder hardpoint lists live in — <c>ResourcePath_BuildFolderName(name, "gl")</c> at the
+	/// head of the mech-type loader (<c>FUN_00420298</c>).
+	/// </summary>
+	private const string GunLayoutFolder = "gl";
 
 	/// <summary>
 	/// <paramref name="theater"/> supplies the palette every bank in this mission decodes against —
@@ -100,6 +108,26 @@ public sealed class SceneModelLibrary {
 			: null;
 
 		_mechData[mechName] = data;
+		return data;
+	}
+
+	/// <summary>
+	/// The mech type's hardpoint list, <c>gl\&lt;NAME&gt;.GL</c> — where its weapons sit, which
+	/// cockpit row each owns and which slot of a fit each draws from. Null when the install has none,
+	/// in which case the machine is fitted with nothing at all: the fit is addressed through this
+	/// list, so without it there is nothing to address.
+	/// </summary>
+	public GunLayout? MechHardpoints(string mechName) {
+		if (_hardpoints.TryGetValue(mechName, out var cached)) {
+			return cached;
+		}
+
+		byte[]? bytes = _content.Read(GunLayoutFolder, mechName + ".GL");
+		var data = bytes != null
+			? new GunLayoutTransformer().BytesToObject(bytes) as GunLayout
+			: null;
+
+		_hardpoints[mechName] = data;
 		return data;
 	}
 

@@ -233,6 +233,24 @@ public sealed class CockpitArt {
 	public (Vector3 FillEven, Vector3 FillOdd, Vector3 Remainder)? GaugeColors { get; }
 
 	/// <summary>
+	/// A weapon row's charge bar, which does <b>not</b> take its colours from <c>COLORS.DAT</c> the
+	/// way <see cref="GaugeColors"/> does: <c>FUN_00442950</c> overwrites the bar's three colour
+	/// fields with the raw palette indices 32, 34 and 46 immediately after constructing it. That is
+	/// why a capacitor bar is blue where the Master Energy Pool's meter is grey.
+	///
+	/// <para>The override is conditional on one byte of the widget geometry the constructor is handed,
+	/// which lands in the <c>.GAU</c>'s confirmed-zero padding in every retail file — so the override
+	/// always applies.</para>
+	/// </summary>
+	public (Vector3 FillEven, Vector3 FillOdd)? WeaponBarColors { get; private init; }
+
+	/// <summary>Palette index for the even columns of a weapon row's charge bar.</summary>
+	public const int WeaponBarFillEvenIndex = 0x20;
+
+	/// <summary>And the odd ones — one shade apart, so the pair reads as a single shaded fill.</summary>
+	public const int WeaponBarFillOddIndex = 0x22;
+
+	/// <summary>
 	/// Loads and decodes one herc's cockpit art and HUD layout. Returns null when any required
 	/// resource is missing from the mounted archives, in which case the caller should fall back to
 	/// drawing no cockpit overlay rather than a partially-wrong one.
@@ -275,6 +293,9 @@ public sealed class CockpitArt {
 			clipped,
 			hercName.ToUpperInvariant(),
 			SimStringTable.Load(content)) {
+			WeaponBarColors = (
+				PaletteColor(palette, WeaponBarFillEvenIndex),
+				PaletteColor(palette, WeaponBarFillOddIndex)),
 			PaperDoll = content.Read("pdg", hercName + ".PDG") is { } pdgBytes
 				&& new PaperDiagramGraphTransformer().BytesToObject(pdgBytes) is PaperDollGraphic doll
 					? doll
@@ -323,6 +344,11 @@ public sealed class CockpitArt {
 
 		return (ToVector(background), ToVector(indicator), ToVector(plate));
 	}
+
+	/// <summary>One live-palette slot as a colour, for the widgets that name a raw index rather than
+	/// a <c>COLORS.DAT</c> id. Black when the palette has no such slot.</summary>
+	private static Vector3 PaletteColor(DynamixPalette palette, int index) =>
+		palette.Colors.TryGetValue(index, out var entry) ? ToVector(entry.GetColor()) : Vector3.Zero;
 
 	private static Vector3 ToVector(HercWorks.Core.Data.Struct.RgbaColor c) =>
 		new(c.R / 255f, c.G / 255f, c.B / 255f);

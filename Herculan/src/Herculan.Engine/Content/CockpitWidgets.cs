@@ -1,3 +1,4 @@
+using HercWorks.Core.Data.File.Gau;
 using Herculan.Engine.Render;
 
 namespace Herculan.Engine.Content;
@@ -12,6 +13,28 @@ public enum CockpitWidgetKind {
 
 	/// <summary>The console's throttle slider. One of a kind, so its index is always zero.</summary>
 	Throttle = 2,
+
+	/// <summary>A weapon panel row — index is its <c>.GAU</c> weapon slot, the number the row prints minus one.</summary>
+	WeaponRow = 3,
+
+	/// <summary>One of the three console buttons — index is a <see cref="ConsoleButton"/>.</summary>
+	ConsoleButton = 4,
+}
+
+/// <summary>
+/// The three buttons under the weapon panel, in the order <c>FUN_00441dd0</c> builds them and
+/// <c>FUN_0044212c</c> switches on. The index is the child index, and it is what tells the paint
+/// which of them latches.
+/// </summary>
+public enum ConsoleButton {
+	/// <summary>The fire-chain selector, captioned with the chain's Roman numeral. Momentary.</summary>
+	Chain = 0,
+
+	/// <summary>LINK. Momentary — it lights while held and never latches, because the link state lives on the mounts.</summary>
+	Link = 1,
+
+	/// <summary>TRACK, auto turret tracking. The one console button that latches.</summary>
+	Track = 2,
 }
 
 /// <summary>One clickable widget's identity — the pair a click reports back and an action handler switches on.</summary>
@@ -26,6 +49,20 @@ public readonly record struct CockpitWidgetId(CockpitWidgetKind Kind, int Index)
 
 	/// <summary>The throttle slider.</summary>
 	public static CockpitWidgetId Throttle { get; } = new(CockpitWidgetKind.Throttle, 0);
+
+	/// <summary>Weapon panel row <paramref name="gaugeSlot"/>, zero-based.</summary>
+	public static CockpitWidgetId Weapon(int gaugeSlot) => new(CockpitWidgetKind.WeaponRow, gaugeSlot);
+
+	/// <summary>One of the three console buttons.</summary>
+	public static CockpitWidgetId Console(ConsoleButton button) =>
+		new(CockpitWidgetKind.ConsoleButton, (int)button);
+
+	/// <summary>This id as a weapon-panel row index, or null when it is not one.</summary>
+	public int? AsWeaponRow => Kind == CockpitWidgetKind.WeaponRow ? Index : null;
+
+	/// <summary>This id as a console button, or null when it is not one.</summary>
+	public ConsoleButton? AsConsoleButton =>
+		Kind == CockpitWidgetKind.ConsoleButton ? (ConsoleButton)Index : null;
 
 	/// <summary>This id as an <see cref="HddLayout.Widget"/>, or null when it is not one.</summary>
 	public HddLayout.Widget? AsHddWidget =>
@@ -126,8 +163,87 @@ public static class CockpitWidgets {
 			yield return widget;
 		}
 
+		foreach (var widget in VisibleWeaponRows(art, state)) {
+			yield return widget;
+		}
+
+		foreach (var widget in VisibleConsoleButtons(art, state)) {
+			yield return widget;
+		}
+
 		if (VisibleThrottle(art) is { } throttle) {
 			yield return throttle;
+		}
+	}
+
+	/// <summary>
+	/// The weapon panel's rows. The clickable region is the <c>.GAU</c> hardpoint rect itself, not the
+	/// plate art drawn over it — the row's select gadget is built on that rect
+	/// (<c>WeaponSelectGadget_Ctor</c>) and registered first, so it takes the click even where the
+	/// energy row's value-field child overlaps it.
+	///
+	/// <para>Rows past the herc's own weapon count are not built at all, so they are not listed. A
+	/// row whose mount is a pod <i>is</i>: it is clickable in the original too, where the click
+	/// toggles the pod on and off. Nothing models a pod's on/off state yet, so such a click is
+	/// swallowed rather than acted on.</para>
+	/// </summary>
+	public static IEnumerable<CockpitWidget> VisibleWeaponRows(CockpitArt art, CockpitHudState state) {
+		ArgumentNullException.ThrowIfNull(art);
+		if (art.Gau.Weapons is not { } rows) {
+			yield break;
+		}
+
+		const int scale = (int)CockpitArt.GauToPixelScale;
+		int slots = Math.Min(art.Gau.WeaponListTotal, rows.Length);
+
+		for (int i = 0; i < slots; i++) {
+			var rect = rows[i];
+			yield return new CockpitWidget(CockpitWidgetId.Weapon(i), CockpitSurface.Forward,
+				X0: rect.Origin.X * scale,
+				Y0: rect.Origin.Y * scale,
+				X1: (rect.Origin.X + rect.Size.Width) * scale + scale - 1,
+				Y1: (rect.Origin.Y + rect.Size.Height) * scale + scale - 1,
+				Lit: false,
+				Selected: i < state.Weapons.Count && state.Weapons[i].Selected);
+		}
+	}
+
+	/// <summary>
+	/// The three console buttons under the weapon panel. <c>ConsoleButton_Paint</c> (<c>00442c88</c>)
+	/// picks each one's frame from a different field: CHAIN and LINK read the shared press byte, so
+	/// they light only while held, and TRACK reads its own latch flag.
+	/// </summary>
+	public static IEnumerable<CockpitWidget> VisibleConsoleButtons(CockpitArt art, CockpitHudState state) {
+		ArgumentNullException.ThrowIfNull(art);
+
+		const int scale = (int)CockpitArt.GauToPixelScale;
+
+		CockpitWidget? Button(ConsoleButton which, WidgetBase? rect) {
+			if (rect == null) {
+				return null;
+			}
+
+			var id = CockpitWidgetId.Console(which);
+			bool latched = which == ConsoleButton.Track && state.AutoTrack;
+			return new CockpitWidget(id, CockpitSurface.Forward,
+				X0: rect.Origin.X * scale,
+				Y0: rect.Origin.Y * scale,
+				X1: (rect.Origin.X + rect.Size.Width) * scale + scale - 1,
+				Y1: (rect.Origin.Y + rect.Size.Height) * scale + scale - 1,
+				Lit: which == ConsoleButton.Track ? latched : state.PressedWidget == id,
+				Selected: latched);
+		}
+
+		if (Button(ConsoleButton.Chain, art.Gau.ChainButton) is { } chain) {
+			yield return chain;
+		}
+
+		if (Button(ConsoleButton.Link, art.Gau.LinkButton) is { } link) {
+			yield return link;
+		}
+
+		if (Button(ConsoleButton.Track, art.Gau.AutoTrackButton) is { } track) {
+			yield return track;
 		}
 	}
 

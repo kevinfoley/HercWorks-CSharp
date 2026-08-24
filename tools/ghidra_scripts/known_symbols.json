@@ -4682,6 +4682,384 @@
       "name": "WeaponMount_GetEnergyPriority",
       "description": "Vtable+0x48 on energy mounts: returns the mount's capacity (+0x7b), or 10000 when its charging flag (+0x43) is set so a mount already mid-charge jumps the arbitration queue and finishes charging. The ammunition mount class returns 0 from this slot.",
       "source": "docs/simulation/reactor-energy-pool.md 2026-08-23"
+    },
+    {
+      "address": "0040e18c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_GetDisplayName",
+      "description": "The name a weapon gauge prints for a mount. If the mount's resolved PROJ.DAT record (+0x20) is null or its category is non-zero, copies the template's name pointer (+0x52, written by Weapons_LoadResourceTables from the 33-entry array at 00498eb0). If the record is a Missile (category 0), copies MissileAmmoNameTable[record.subtypeId] instead -- so a launcher is named by its loaded ammunition (ARH, SARH, ...), not by its weapon id. Returns a pointer to the shared scratch buffer at 004a9954.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-23"
+    },
+    {
+      "address": "00498eb0",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "WeaponMountNameTable",
+      "description": "33 char* in weapon-id order -- the simulator's own weapon names, walked by Weapons_LoadResourceTables into each WeaponMountTemplate's +0x52. NOT the SHELL0/GAM/WEAPONS.DAT catalog's names: id 7 is 'EMP' here and 'EMPC' there, id 30 'SHIELD' vs 'SHLD'. Ids 13-16 hold bare round counts ('6','8','10','24') because a launcher never prints this name.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-23"
+    },
+    {
+      "address": "004989c8",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "MissileAmmoNameTable",
+      "description": "4 char* indexed by a PROJ.DAT Missile record's subtype id: SARH, ARH, ARM, EO. Read only by WeaponMount_GetDisplayName, with no bounds check -- MISSL (id 21, subtype 4) reads one past the end.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-23"
+    },
+    {
+      "address": "0040fee8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GunLayout_LoadForMechType",
+      "description": "Loads one gl\\<HERC>.GL hardpoint list into the object pool slot for a mech type: short count, then count 26-byte records. Asserts in GUNLIST.CPP. The record's byte at +0x17 indexes the mission's loadout arrays and its byte at +7 is the cockpit weapon row the resulting mount owns.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-23"
+    },
+    {
+      "address": "0040fea0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GunLayout_GetBySlot",
+      "description": "index * 6 + _DAT_004a9968 -- flat index into the loaded gun-layout table. Each 6-byte entry is {short count, record*}. Callers reach it through FUN_00420634, which adds the mech type's own allocation index to the base slot cached in _DAT_004a9df4.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-23"
+    },
+    {
+      "address": "00420634",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_GetGunLayout",
+      "description": "GunLayout_GetBySlot(mechTypeRecord[0] + _DAT_004a9df4) -- this machine's hardpoint list. Its return value is what Mech_ConfigureLoadout hands MechLoadout_ConstructWeaponMounts as the record array and count.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-23"
+    },
+    {
+      "address": "0040e140",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_CtorAmmunition",
+      "description": "Ammunition mount constructor (vtable 00498d54): reads the magazine size from the template's +0x3a into +0x7b and the same value shifted left 8 into +0x7d, so the mount powers up with a full magazine and its gauge prints +0x7d >> 8. Used for weapon ids 1-5, 13-16, 21 and 26.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-23"
+    },
+    {
+      "address": "0040e074",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_CtorEnergy",
+      "description": "Energy mount constructor (vtable 00498dcc): writes Q10Multiply(820, 1200) = 960 into both the charge target (+0x7b) and the capacitor level (+0x7d), and 20 into the charge rate (+0x7f). All three are literals shared by every energy weapon. Used for weapon ids 6-12, 17, 19, 20 and 22-25, 28.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-23"
+    },
+    {
+      "address": "0040f288",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_PushEnergyGaugeState",
+      "description": "Energy mount vtable+0x50, called once per mount per frame from WeaponMounts_PerFrameUpdate. Pushes (charge << 10) / 1200 as the LED bar's value and the charge target scaled the same way as its tick mark, plus the destroyed and mid-charge flags and the three caller-supplied bytes (selected, in current fire group, ready). The fixed 1200 denominator -- not the mount's own capacity -- is why a fully charged weapon fills four-fifths of its bar.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-23"
+    },
+    {
+      "address": "0040f330",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_PushAmmoGaugeState",
+      "description": "Ammunition mount vtable+0x50, the sibling of WeaponMount_PushEnergyGaugeState. Decays +0x7d toward capacity*256 at 250/tick if it is above it, then pushes +0x7d >> 8 as the round count the gauge prints, plus the destroyed flag and the three caller-supplied state bytes.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-23"
+    },
+    {
+      "address": "0040ecdc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_EnergyCanFire",
+      "description": "Energy mount vtable+0x2c: not destroyed (+0x49), refire timer (+0x31) expired, and charge (+0x7d) at or above a threshold taken from the template's +0x36/+0x38 pair -- max(+0x36, +0x7b) when +0x36 < +0x38, otherwise +0x38 outright. Both shapes occur in retail data (EMP 350/10000, ELF 400/70).",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-23"
+    },
+    {
+      "address": "0040ed6c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_AmmoCanFire",
+      "description": "Ammunition mount vtable+0x2c: not destroyed (+0x49), refire timer (+0x31) expired, and at least one round left (+0x7b != 0).",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-23"
+    },
+    {
+      "address": "0040e644",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_GetAmmoType",
+      "description": "Ammunition mount vtable+0x60: returns the resolved PROJ.DAT record's subtype id when that record is a Missile (category 0), otherwise 5. Callers treat 5 and 3 as always-available and gate the other values on the manager's per-ammunition-type counters at manager+0x0a. The energy class returns a constant 5 from this slot (FUN_0040e62c).",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-23"
+    },
+    {
+      "address": "004104ec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMounts_CtorLocal",
+      "description": "The locally-piloted machine's mount manager (vtable 00499238): runs MechLoadout_ConstructWeaponMounts, then allocates three fire-group arrays (manager+0x1f/+0x25/+0x2b) and picks the initial selection. Writes 'group == wanted' into all three arrays with wanted fixed at 0 for a weapon and -1 for a pod, so every non-pod mount starts in group I and groups II and III start empty; manager+0x1d becomes the first non-pod mount in mount-array order.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-23"
+    },
+    {
+      "address": "00410b40",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMounts_PerFrameUpdate",
+      "description": "The mount manager's per-frame pass: reads the weapon-panel input block, applies the chain/link commands, then walks every mount and calls its vtable+0x50 gauge push with three state bytes -- selected (index == manager+0x1d), in the current fire group (groups[manager+0x1c][index]), and ready (WeaponMounts_MountIsReady).",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-23"
+    },
+    {
+      "address": "00410970",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMounts_MountIsReady",
+      "description": "The readiness flag a weapon row's state box is lit by: the mount's own vtable+0x2c test, gated on target range when manager+0x31 is set, then gated again on ammunition availability -- vtable+0x60's code is taken as always-available for 5 and 3, and otherwise checked against manager[0x0a + code*2]. No writer for that counter array was found along the paths traced.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-23"
+    },
+    {
+      "address": "00441524",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PodGauge_Ctor",
+      "description": "The weapon-row gauge class for equipment pods (vtable 0049c8d0), built via FUN_004321d4. Has no state box and no value field: its name label spans x0+11..x0+53 of the .GAU hardpoint rect, and its 11-char name buffer is seeded with a literal space, then the mount name, then STRINGS0.STR group 3 (' POD') appended into whatever room is left -- 'SHIELD' becomes ' SHIELD POD'.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-23"
+    },
+    {
+      "address": "00440f78",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AmmoWeaponGauge_Ctor",
+      "description": "The weapon-row gauge class for ammunition mounts (vtable 0049c8fc), built via FUN_00432124. Adds a left-aligned numeric label over the value field at x0+36..x0+53, y0..y0+5 of the .GAU hardpoint rect; FUN_004411b4 fills it with itoa(rounds) in ColorSchemePanels[10] WHITE when the mount is selected and [11] GRAY otherwise.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-23"
+    },
+    {
+      "address": "00440a68",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "EnergyWeaponGauge_Ctor",
+      "description": "The weapon-row gauge class for energy mounts (vtable 0049c91c), built via FUN_00432074. Builds the LED charge bar over the same value field the ammunition class puts its number in (x0+36..x0+53, y0..y0+5), handing it to FUN_00442950.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-23"
+    },
+    {
+      "address": "00442950",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponChargeBar_Ctor",
+      "description": "The energy weapon row's LED bar widget. Drops the value field's top edge by one GAU unit, builds an LEDBarGraph over range 0x400, and then, when the byte it is handed is zero (as it is in every retail .GAU, where it lands in confirmed-zero padding), overwrites its three colour fields with raw palette indices 0x20 (even columns), 0x22 (odd) and 0x2e (remainder) -- not COLORS.DAT ids, which is why a capacitor bar is blue where the Master Energy Pool's meter is grey.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-23"
+    },
+    {
+      "address": "0045fdac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sim_DispatchCommand",
+      "description": "The simulator's command dispatcher: every queued command code passes through here. Offers the code to the cockpit widget tree (CockpitWidgets_HandleCommand), then to FUN_0045fd60, then its own switch, and finally to the player mech's vtable +0x2c. Codes are PC set-1 scancodes with 0x200 added for Alt -- 0x26 is L, 0x29 is backquote, 0x11/0x211 are W and Alt+W, 0x02-0x0b and 0x202-0x20b the two number-key banks.",
+      "source": "docs/simulation/weapon-mounts.md; docs/formats/cockpit-input.md 2026-08-24"
+    },
+    {
+      "address": "004157c8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_HandleCommand",
+      "description": "Mech vtable +0x2c. Offers the command code to the machine's weapon-mount manager (WeaponMounts_HandleCommand) first and returns if that consumed it; otherwise handles the turret, throttle and shield commands itself.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-24"
+    },
+    {
+      "address": "00432bc8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitWidgets_HandleCommand",
+      "description": "The cockpit widget tree's command handler. Codes 0x02-0x0b (the number row) index the ten weapon gauges at CockpitViewInstance+0x70 and press each one's select gadget, which is how a number key and a mouse click on a weapon row reach the same handler; F1-F8, the view commands and the shield keys are handled here too, and anything left over is offered to each top-level widget's own command slot.",
+      "source": "docs/formats/cockpit-input.md 2026-08-24"
+    },
+    {
+      "address": "00410f78",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMounts_HandleCommand",
+      "description": "The weapon-mount manager's command handler, called from Mech_HandleCommand. 0x202-0x20b (Alt+1..0) toggle a row's fire-chain membership via WeaponMounts_ToggleChainMember; 0x11 and 0x211 (W, Alt+W) step the armed weapon via WeaponMounts_StepSelection and clear the single-fire flag at manager+0x18; 0x30 advances the fire chain; 0x2c calls FUN_00410d04; 0xc/0xd/0x4a/0x4e reach the armed mount's vtable +0x38.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-24"
+    },
+    {
+      "address": "004110ac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMounts_ToggleChainMember",
+      "description": "Add or remove one cockpit weapon row from the CURRENT fire chain -- Alt and the row's number key, or a right click on the row. Finds the mount by its .GL fire-chain byte (slot+7), requires the mount template's int32 at 0x30 to be positive (zero for every pod, which is what keeps pods off a chain), then XORs that mount's bit in the current chain array via WeaponMounts_XorChainBit. It does not arm anything. Follows the toggle by waking an energy mount's capacitor when its arbitration priority reads zero.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-24"
+    },
+    {
+      "address": "00410cd0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMounts_XorChainBit",
+      "description": "Flips one mount's membership bit in the currently selected fire chain (manager+0x1f + manager+0x1c*6, indexed by mount index). Membership is toggled, never set, which is why Alt+number and a right click both add and remove.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-24"
+    },
+    {
+      "address": "004106ac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMounts_SelectByGauge",
+      "description": "Arm the mount that owns a given weapon gauge -- what a left click on a weapon row and a number key both end at. Finds the mount whose vtable +0x58 gauge-match slot accepts the gauge (the pod base class returns 0 unconditionally, so a pod never matches), requires the mount's selectable byte +0x4c, calls WeaponMounts_SetSelection and sets the single-fire flag at manager+0x18.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-24"
+    },
+    {
+      "address": "00410708",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMounts_SetSelection",
+      "description": "The only writer of the armed-mount index at manager+0x1d. Normalises a linked pair onto its first half: if the mount being armed is linked (+0x4b) and its .GL partner offset (slot+0x16) is negative, the partner is armed instead. That is what keeps a linked pair's two rows agreeing about which of them is armed.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-24"
+    },
+    {
+      "address": "0041074c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMounts_StepSelection",
+      "description": "Step the armed mount one place through the current fire chain, wrapping. Skips anything not selectable (+0x4c), not in the current chain, or the second half of a linked pair (partner offset must be positive). Does not clear the single-fire flag itself -- the command handler does, which is why the chain switch and the per-frame advance step the selection without giving the chain control back.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-24"
+    },
+    {
+      "address": "00410f14",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMounts_ToggleLink",
+      "description": "Toggle link fire on the armed mount and its .GL partner. Two conditions, both from the chassis: the armed mount's slot+0x16 partner offset is non-zero, and the partner hardpoint carries the SAME weapon id (template+0x56). Both halves' +0x4b flip together. One LINK press runs this three times -- the button's click handler, the manager's next per-frame pass reading the button's latch byte, and that pass writing the byte back -- which nets to one flip.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-24"
+    },
+    {
+      "address": "00410ae4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMounts_SetChain",
+      "description": "Switch which of the three fire chains is current (manager+0x1c). If the armed mount is not in the new chain, steps the selection to one that is, then pushes the new number to the console chain button's caption.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-24"
+    },
+    {
+      "address": "00410a3c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMounts_AdvanceToReady",
+      "description": "The firing chain's own advance, run every frame from WeaponMounts_PerFrameUpdate: if the armed mount cannot fire, step through the chain until one that can is found, and put the original back if none is. Gated off entirely while the single-fire flag (manager+0x18) is set, which is the manual's 'select a weapon to single-fire ... once you fire, the current firing chain will resume'.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-24"
+    },
+    {
+      "address": "0044212c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ConsoleButtons_OnChildClick",
+      "description": "The console button panel's child-click slot, switching on the child index: 0 advances the chain number at panel+0xb1 (wrapping at 3) and repaints the caption, 1 calls ConsoleButtons_SetLinkLatch, 2 toggles auto-track. Reached identically by a mouse click and by a key, since ConsoleButtons_HandleCommand presses the same children.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-24"
+    },
+    {
+      "address": "004421a0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ConsoleButtons_HandleCommand",
+      "description": "The console button panel's command slot: scancode 0x26 (L) presses child 1, the LINK button; 0x29 (backquote) presses child 0, the chain button. The pair of literals is what identifies the whole command-code space as PC set-1 scancodes.",
+      "source": "docs/formats/cockpit-input.md 2026-08-24"
+    },
+    {
+      "address": "0044202c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ConsoleButtons_SetLinkLatch",
+      "description": "Stores the LINK button's latch byte at panel+0xb4 and calls WeaponMounts_ToggleLink. Called from the button's own click handler and again from ConsoleButtons_SetStateBlock when the manager writes the byte back cleared -- two of the three toggles one press produces.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-24"
+    },
+    {
+      "address": "004420f8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ConsoleButtons_GetStateBlock",
+      "description": "Copies the console panel's three live fields -- chain number (+0xb1, short), auto-track latch (+0xb3) and LINK latch (+0xb4) -- into the scratch block at 004d1ae0 for WeaponMounts_PerFrameUpdate to read.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-24"
+    },
+    {
+      "address": "004420a0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ConsoleButtons_SetStateBlock",
+      "description": "The write-back half of ConsoleButtons_GetStateBlock: applies each of the three fields that differs from the panel's own copy. The manager clears the LINK byte before writing back, so this sees a change and calls ConsoleButtons_SetLinkLatch again -- the third of the three toggles one LINK press produces.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-24"
+    },
+    {
+      "address": "00455530",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_GetButtonValue",
+      "description": "The default GetValue vtable slot (+0x10) for a widget class that does not override it: returns the global mouse-button word 0049db6c, which CockpitMouse_ProcessQueue sets to buttons|1 on a left release and buttons|2 on a right one. A click's 'value' is therefore which button clicked it, and the weapon rows branch on exactly that -- left arms, right toggles chain membership.",
+      "source": "docs/formats/cockpit-input.md 2026-08-24"
+    },
+    {
+      "address": "00438d9c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_PressChild",
+      "description": "Dispatches one child widget's press slot (+0x17 vtable, +8) as if it had been clicked, then repaints it. This is how a bound key reaches a button: the command handlers call it with the child index rather than duplicating the button's own action.",
+      "source": "docs/formats/cockpit-input.md 2026-08-24"
+    },
+    {
+      "address": "0040df00",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_MatchGaugeNever",
+      "description": "The pod base class's vtable +0x58 gauge-match slot: returns 0 unconditionally, so WeaponMounts_SelectByGauge can never find a pod. The energy and ammunition classes (FUN_0040df08, FUN_0040df1c) compare the argument against the mount's own gauge pointer at +0x77 instead. Together with the pod constructor clearing the selectable byte +0x4c, this is why a pod's cockpit row cannot be armed.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-24"
+    },
+    {
+      "address": "0040f4d8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_WakeCapacitor",
+      "description": "Energy mount vtable +0x3c: puts the charge target (+0x7b) back to its idle 0x334 unless the mount is destroyed. Called after a chain toggle when the mount reports a zero arbitration priority, so a capacitor that had been zeroed starts asking for charge again. The ammunition and pod classes have a no-op in this slot.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-24"
+    },
+    {
+      "address": "0040f4f0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_DemandFullCharge",
+      "description": "Energy mount vtable +0x40: sets the mid-charge flag (+0x43) and raises the charge target (+0x7b) to 0x4b0, the same 1200 the cockpit bar is scaled against -- so only a mount with a shot demanded of it ever fills its bar. Its counterpart WeaponMount_WakeCapacitor drops the target back to the idle 820.",
+      "source": "docs/simulation/weapon-mounts.md 2026-08-24"
     }
   ]
 }

@@ -167,7 +167,7 @@ public partial class PlayerSquadForm : Form {
 			MechType = template.MechType,
 			SlotCount = template.SlotCount,
 			WeaponRefs = (short[])template.WeaponRefs.Clone(),
-			WeaponCounts = (short[])template.WeaponCounts.Clone(),
+			WeaponAmmoTypes = (short[])template.WeaponAmmoTypes.Clone(),
 			Unk3A = template.Unk3A,
 			BlockA = (byte[])template.BlockA.Clone(),
 			BlockB = (byte[])template.BlockB.Clone(),
@@ -212,8 +212,8 @@ public partial class PlayerSquadForm : Form {
 		// so a mismatch does not just mis-describe this entry — it shifts every entry after it.
 		// Refuse the save rather than producing a file DBSIM reads off its own rails.
 		var mismatched = _rows
-			.Where(r => r.Source.WeaponRefs.Length != r.Source.WeaponCounts.Length)
-			.Select(r => $"Entry {r.Index}: {r.Source.WeaponRefs.Length} weapon ids vs {r.Source.WeaponCounts.Length} paired values.")
+			.Where(r => r.Source.WeaponRefs.Length != r.Source.WeaponAmmoTypes.Length)
+			.Select(r => $"Entry {r.Index}: {r.Source.WeaponRefs.Length} weapon ids vs {r.Source.WeaponAmmoTypes.Length} paired values.")
 			.ToList();
 
 		if (mismatched.Count > 0) {

@@ -63,12 +63,16 @@ public readonly record struct MechPods(
 	/// <summary>A machine carrying no pods at all.</summary>
 	public static MechPods None => default;
 
-	/// <summary><c>FUN_0040fb2c</c>'s pass over the mount list, run against a fit's weapon ids.</summary>
-	public static MechPods FromLoadout(MechLoadout loadout) {
+	/// <summary>
+	/// <c>FUN_0040fb2c</c>'s pass over the finished mount list. It runs against the mounts, not the
+	/// raw fit: a weapon id sitting in a fit slot no hardpoint addresses builds no mount and so fits
+	/// no pod.
+	/// </summary>
+	public static MechPods FromLoadout(WeaponMounts mounts) {
 		bool ecm = false, targeting = false, shieldPod = false, energyPod = false, turboPod = false;
 
-		foreach (int id in loadout.WeaponIds) {
-			switch (id) {
+		foreach (var mount in mounts.Mounts) {
+			switch (mount.WeaponId) {
 				case EcmWeaponId: ecm = true; break;
 				case TargetingWeaponId: targeting = true; break;
 				case ShieldPodWeaponId: shieldPod = true; break;

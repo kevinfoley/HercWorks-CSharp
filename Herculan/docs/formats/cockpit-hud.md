@@ -8,7 +8,7 @@ noted. Symbols are in `tools/ghidra_scripts/known_symbols.json`; apply with `ES2
 Verified against retail data in `ES2/VOL/simvol0/{hb0,hb1,hb2,hba,hd0-3,ed0-3,vue,gau,dpl,dat}/`.
 
 Engine implementation: `Herculan.Engine.Content.{CockpitArt, CockpitPalette, CockpitClipRegions,
-HudSpriteSheet, HudFont, HudColorTable, CockpitHudState, WeaponNameTable}`,
+HudSpriteSheet, HudFont, HudColorTable, CockpitHudState, WeaponRowState}`,
 `Herculan.Engine.Render.Overlay2DRenderer`.
 
 How a mouse click on any of these widgets reaches its own click handler:
@@ -459,7 +459,8 @@ caller is `Gau_EnergyMeterWidget`, and the binary's own class-name table pairs `
 bar is the energy meter, and `ShieldsGauge` is a different class entirely.
 
 A second `LEDBarGraph` per weapon row carries the energy-weapon charge field (`FUN_00442950`, range
-`0x400`, colour ids `0x20`/`0x22`, remainder `0x2e`).
+`0x400`) — but with raw palette indices `0x20`/`0x22` and remainder `0x2e`, not `COLORS.DAT` ids.
+See [Weapon hardpoint rows](#weapon-hardpoint-rows).
 
 ## Throttle gauge
 
@@ -609,30 +610,53 @@ byte-exact.
 
 ## Weapon hardpoint rows
 
-`WeaponGauge_Ctor` (`0044080c`) lazily loads `pweapons` and `wpn_dmg` and builds a two-sequence frame
-table for the latter. `FUN_00440a68` wraps it with the row's two children: the select gadget
-(`WeaponSelectGadget_Ctor`, `00442488`) and the value field (`FUN_00442950`, an `LEDBarGraph` over
-`0x400` with colour ids `0x20`/`0x22` and remainder `0x2e`). The weapon's name arrives as a pointer
-(`FUN_0040e18c`) and is `strncpy`'d 12 bytes into the gauge at `+0xb1`.
+**Which mount owns which row is the mount's business, not the panel's**: the gauge factory is called
+with the `gl\<HERC>.GL` record's fire-chain byte as its `.GAU` weapon-slot index, so row order and
+mount order are different orderings. See
+[`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md).
 
-`WeaponSelectGadget_Ctor` lays out two sub-rects relative to the `.GAU` hardpoint rect, mirrored from
-the right edge for a right-column slot:
+Three gauge classes, one per mount class, all built on `WeaponGauge_Ctor` (`0044080c`), which lazily
+loads `pweapons` and `wpn_dmg` and builds a two-sequence frame table for the latter:
 
-| Sub-rect | Offsets from the rect, GAU |
-|---|---|
-| hardpoint state box | `x0+6 .. x0+9`, `y0 .. y0+7` |
-| weapon-name label | `x0+11 .. x0+35`, `y0 .. y0+5` |
+| Class | Factory → ctor | Value field |
+|---|---|---|
+| energy | `FUN_00432074` → `FUN_00440a68` | `LEDBarGraph` (`FUN_00442950`) |
+| ammunition | `FUN_00432124` → `FUN_00440f78` | round count, `itoa` (`FUN_004411b4`) |
+| pod | `FUN_004321d4` → `FUN_00441524` | none — the name label widens over both fields |
+
+All three `strncpy` 12 bytes of the mount's name (`FUN_0040e18c`) into the gauge at `+0xb1`. The pod
+class instead seeds an 11-char buffer with a space, appends the name, then appends `STRINGS0.STR`
+group 3 (`" POD"`) into the room left — `" SHIELD POD"`. A destroyed mount's row prints group 2
+(`"OFFLINE"`) in place of the name.
+
+Sub-rects, all relative to the `.GAU` hardpoint rect and mirrored from its right edge when the
+constructor's slot-mask byte is set (that byte lands in the `.GAU`'s confirmed-zero padding in every
+retail file, so retail never mirrors):
+
+| Sub-rect | Offsets from the rect, GAU | Built by |
+|---|---|---|
+| hardpoint state box | `x0+6 .. x0+9`, `y0 .. y0+7` | `WeaponSelectGadget_Ctor` (`00442488`) |
+| weapon-name label | `x0+11 .. x0+35`, `y0 .. y0+5` | `WeaponSelectGadget_Ctor` |
+| value field | `x0+36 .. x0+53`, `y0 .. y0+5` | `FUN_00440a68` / `FUN_00440f78` |
+
+`FUN_00442950` then drops the bar's own top edge one GAU unit below the value field's, and builds it
+over `0x400` with colour **palette indices** `0x20`/`0x22` and remainder `0x2e` written straight
+into the bar object — not `COLORS.DAT` ids, which is why a capacitor bar is blue where the energy
+meter is grey.
 
 `WeaponSelectGadget_Paint` (`004426c0`) draws:
 
-- the row plate, `PWEAPONS` frame 0 selected / frame 1 not, at the rect **minus one device pixel on
-  both axes** — its 116x18 art overhangs the 110x12 rect evenly;
-- the state box, `PWEAPONS` frames 4/5/6 by state (6x14): frame 4 green (index 14), 5 and 6 red/amber
-  (108/109 and 102/104);
+- `WPN_DMG` frame 0 as the row underlay, then the slot number (`FUN_00442394`);
 - the name, in `ColorSchemePanels[10]` `WHITE` when selected and `[11]` `GRAY` otherwise;
-- the round count, in `[13]` `GREEN` or `[11]` `GRAY`.
+- the slot number again, recoloured `[13]` `GREEN` when selected / `[11]` `GRAY`;
+- the state box, `PWEAPONS` 6x14 frames — **only when the mount is armed or in the current fire
+  group**, otherwise the box area is filled with the row background. Frame 4 (green, index 14) when
+  the mount could fire this instant, frame 5 (red) when it could not. A pod is in no fire group, so
+  a pod row never has one;
+- last, the row plate: `PWEAPONS` frame 0 selected / frame 1 not, at the rect **minus one device
+  pixel on both axes** — its 116x18 art overhangs the 110x12 rect evenly.
 
-The value field past the name is either that LED bar (energy weapons) or the round count (ballistic).
+The three state flags come from `FUN_00410b40`, the mount manager's per-frame pass.
 
 ## Console buttons
 
@@ -761,8 +785,9 @@ sub-objects (`+0x1f5`, `FUN_00433158`'s result, `+0x20b`).
 
 ## Open
 
-- `WPN_DMG`'s fill levels and the weapon value field need per-weapon sim state the engine does not
-  carry, so neither is drawn.
+- `WPN_DMG`'s fill levels need per-mount damage state the engine does not carry, so no row is drawn
+  damaged. The engine also draws the row plate as the underlay instead of `WPN_DMG` frame 0, which
+  is equivalent only while that holds.
 - Widget *state* sources generally: which frame or fill level a widget is in per frame is driven from
   the mech object, not from the `.GAU`.
 - `static` and `pilot<n>` ship in `dba\` only, so the 640-wide mode has no matching art for them; see

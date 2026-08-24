@@ -31,6 +31,8 @@ short initialThrottle = 0;
 bool startExternal = false;
 short heldTwist = 0;
 short heldPitch = 0;
+int? initialWeaponRow = null;
+bool initialLink = false;
 for (int i = 0; i < args.Length; i++) {
 	if (args[i] == "--screenshot" && i + 1 < args.Length) {
 		screenshotPath = args[++i];
@@ -63,6 +65,14 @@ for (int i = 0; i < args.Length; i++) {
 		heldTwist = (short)Math.Clamp(twistAxis, -MechControls.AxisFull, MechControls.AxisFull);
 		heldPitch = (short)Math.Clamp(pitchAxis, -MechControls.AxisFull, MechControls.AxisFull);
 		i += 2;
+	} else if (args[i] == "--weapon" && i + 1 < args.Length
+			&& int.TryParse(args[++i], out int weaponRow) && weaponRow >= 1 && weaponRow <= 10) {
+		// Arm a weapon panel row at power-up, 1-based as the row prints it, and optionally link it.
+		// Same reason as --mfd and --throttle: a --screenshot run never sees a keystroke, and the
+		// armed row and a linked pair are only visible once something has selected one.
+		initialWeaponRow = weaponRow - 1;
+	} else if (args[i] == "--link") {
+		initialLink = true;
 	} else if (args[i] == "--external") {
 		// Power up in the external chase view, for the same reason as --mfd and --throttle: the
 		// player's own machine is the one thing the cockpit view never shows, so a --screenshot run
@@ -210,11 +220,25 @@ if (initialMfdMode is { } startMfdMode) {
 	hudState = hudState with { Mfd = startMfdMode };
 }
 
-if (cockpitArt != null && mission.Player is { } playerMech && WeaponNameTable.Load(content) is { } weaponNames) {
+// The weapon panel. Both lists come off the piloted machine's own mounts, which are already built:
+// the rows in cockpit-row order, and the Heads-Down Display's list in hardpoint order. See
+// WeaponRowState.
+if (cockpitArt?.Gau is { } weaponGau && scene.PlayerMech is { } armedMech) {
 	hudState = hudState with {
-		WeaponNames = weaponNames.NamesFor(playerMech.WeaponRefs.Select(id => (int)id)),
+		Weapons = WeaponRowState.Build(armedMech.Weapons, weaponGau.WeaponListTotal, cockpitArt.Strings),
+		HardpointNames = armedMech.Weapons.Mounts.Select(m => m.Name).ToList(),
 	};
-	Console.WriteLine("Hardpoints: " + string.Join(", ", hudState.WeaponNames.Where(n => n.Length > 0)));
+
+	if (initialWeaponRow is { } startRow) {
+		armedMech.Weapons.SelectBySlot(startRow);
+		if (initialLink) {
+			armedMech.Weapons.ToggleLink();
+		}
+	}
+
+	Console.WriteLine("Hardpoints: " + string.Join(", ", hudState.Weapons
+		.Select((row, i) => $"{i + 1} {row.Name}")
+		.Where(entry => entry.Length > 2)));
 }
 
 // Milestone 9: the player walks. A HERC has no velocity vector — the walk and run animations' root
@@ -230,6 +254,16 @@ bool piloting = pilotMech != null;
 bool allStopKeyDown = false;
 bool shieldRearKeyDown = false;
 bool shieldFrontKeyDown = false;
+
+// The weapon panel's row keys, in row order: [1] is row 1 and [0] is row 10, which is the same
+// wrap-around the row's own printed digit uses ((slot + 1) % 10).
+Key[] weaponRowKeys = {
+	Key.Number1, Key.Number2, Key.Number3, Key.Number4, Key.Number5,
+	Key.Number6, Key.Number7, Key.Number8, Key.Number9, Key.Number0,
+};
+bool[] weaponRowKeyDown = new bool[weaponRowKeys.Length];
+bool cycleWeaponKeyDown = false;
+bool linkKeyDown = false;
 
 // [V], the external view: the camera parked behind the machine with the cockpit not drawn. Both the
 // geometry and this binding are placeholders — see ExternalCamera for what has not been RE'd. The
@@ -276,6 +310,10 @@ Console.WriteLine("F1-F6 switch the MFD screen: STATUS, FLASH COMM, NAV MAP, SCA
 Console.WriteLine("F7/F8 pan down to the Heads-Down Display's command and damage screens; "
 	+ "F1-F6 pan back up.");
 Console.WriteLine("On the damage screen, S/I/W switch between structural, internal and weapon systems.");
+Console.WriteLine("1-0 arm a weapon row (left-click the row does the same), W and Alt+W step through "
+	+ "the firing chain, Alt+1-0 or a right-click add and remove a row from it.");
+Console.WriteLine("L or the LINK button links the armed weapon to its opposite hardpoint, when that "
+	+ "hardpoint carries the same weapon; both rows then light together.");
 
 using var window = new EngineWindow($"HERCULAN Engine — zone {mission.Header.ZoneIndex}");
 
@@ -514,6 +552,8 @@ window.Update += deltaSeconds => {
 		shieldRearKeyDown = shieldRearKey;
 		shieldFrontKeyDown = shieldFrontKey;
 
+		ApplyWeaponKeys(controls, pilotMech.Weapons);
+
 		// Stick sign convention is the device's, not the game's: forward and left are negative. No
 		// throttle lever, so the throttle's range spans both directions and holding [Down] takes the
 		// machine through zero into reverse — see MechControls.ThrottleLever.
@@ -665,8 +705,9 @@ window.Update += deltaSeconds => {
 	debugPanel.Sample(pilotMech);
 
 	if (cockpitArt != null && pilotMech != null) {
-		// Player_PerFrameCockpitUpdate's own order: the gauge and the machine settle which of them
-		// moved this frame, then the readouts are taken from the machine.
+		// Player_PerFrameCockpitUpdate's own order: the weapon manager's pass, then the gauge and the
+		// machine settle which of them moved this frame, then the readouts are taken from the machine.
+		pilotMech.Weapons.PerFrameUpdate();
 		throttleGauge = pilotMech.ExchangeCockpitThrottle(throttleGauge);
 		hudState = hudState with {
 			SpeedKph = pilotMech.DisplaySpeedKph,
@@ -675,6 +716,10 @@ window.Update += deltaSeconds => {
 			ShieldFront = pilotMech.Shields.FrontReadout,
 			ShieldRear = pilotMech.Shields.RearReadout,
 			EnergyFraction = pilotMech.EnergyPoolFraction,
+			Weapons = WeaponRowState.Build(pilotMech.Weapons,
+				cockpitArt.Gau.WeaponListTotal, cockpitArt.Strings),
+			ChainGroup = pilotMech.Weapons.Group,
+			AutoTrack = pilotMech.Weapons.AutoTrack,
 		};
 	}
 };
@@ -870,6 +915,45 @@ void ApplyCockpitClick(CockpitClick click) {
 		case CockpitWidgetKind.HddWidget:
 			ApplyHddClick(click.Id.AsHddWidget!.Value);
 			break;
+
+		// A weapon row: the left button arms it, the right button adds or removes it from the current
+		// fire chain. Both are the row gadget's one click handler (FUN_00440ef0 / FUN_004414b4)
+		// branching on the mouse-button bit its GetValue slot returns.
+		case CockpitWidgetKind.WeaponRow when pilotMech != null:
+			if (click.Button.HasFlag(CockpitMouseButtons.Right)) {
+				pilotMech.Weapons.ToggleChain(click.Id.Index);
+			} else {
+				pilotMech.Weapons.SelectBySlot(click.Id.Index);
+			}
+
+			break;
+
+		case CockpitWidgetKind.ConsoleButton when pilotMech != null:
+			ApplyConsoleClick(click.Id.AsConsoleButton!.Value);
+			break;
+	}
+}
+
+// The three console buttons, from FUN_0044212c's own child switch. TRACK's flag is latched here
+// because that is what makes the button look right; nothing reads it — automatic turret tracking is
+// not ported.
+void ApplyConsoleClick(ConsoleButton button) {
+	if (pilotMech == null) {
+		return;
+	}
+
+	switch (button) {
+		case ConsoleButton.Chain:
+			pilotMech.Weapons.SetGroup((pilotMech.Weapons.Group + 1) % WeaponMounts.GroupCount);
+			break;
+
+		case ConsoleButton.Link:
+			pilotMech.Weapons.ToggleLink();
+			break;
+
+		case ConsoleButton.Track:
+			pilotMech.Weapons.AutoTrack = !pilotMech.Weapons.AutoTrack;
+			break;
 	}
 }
 
@@ -911,6 +995,47 @@ SceneItem[] VisibleItems() =>
 // Whether this frame is being drawn from the external camera. Only meaningful while piloting — the
 // free camera already draws the whole scene with no cockpit over it.
 bool ExternalViewActive() => externalView && piloting && pilotMech != null;
+
+// The weapon panel's keyboard set, on the manual's own bindings. Every one of these reaches exactly
+// the same call the corresponding mouse action does — the original routes them together too, through
+// the cockpit's ten-gauge array (CockpitViewInstance+0x70) and the console button panel.
+//
+//   [1]..[0]        arm that row                       -> FUN_004110ac's sibling, FUN_004106ac
+//   [Alt]+[1]..[0]  add/remove that row from the chain -> FUN_004110ac
+//   [W] / [Alt]+[W] step the armed weapon forward/back -> FUN_0041074c
+//   [L]             toggle link fire on the armed pair -> FUN_00410f14
+//
+// All fire on their own key-down edge: they are toggles and steps, not held states.
+void ApplyWeaponKeys(IKeyboard keyboard, WeaponMounts mounts) {
+	bool alt = keyboard.IsKeyPressed(Key.AltLeft) || keyboard.IsKeyPressed(Key.AltRight);
+
+	for (int slot = 0; slot < weaponRowKeys.Length; slot++) {
+		bool down = keyboard.IsKeyPressed(weaponRowKeys[slot]);
+		if (down && !weaponRowKeyDown[slot]) {
+			if (alt) {
+				mounts.ToggleChain(slot);
+			} else {
+				mounts.SelectBySlot(slot);
+			}
+		}
+
+		weaponRowKeyDown[slot] = down;
+	}
+
+	bool cycleKey = keyboard.IsKeyPressed(Key.W);
+	if (cycleKey && !cycleWeaponKeyDown) {
+		mounts.CycleSelection(alt ? -1 : 1);
+	}
+
+	cycleWeaponKeyDown = cycleKey;
+
+	bool linkKey = keyboard.IsKeyPressed(Key.L);
+	if (linkKey && !linkKeyDown) {
+		mounts.ToggleLink();
+	}
+
+	linkKeyDown = linkKey;
+}
 
 /// <summary>Every mouse button currently held, as the cockpit's own flag pair.</summary>
 static CockpitMouseButtons ButtonsHeld(IMouse mouse) =>

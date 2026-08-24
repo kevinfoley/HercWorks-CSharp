@@ -35,7 +35,7 @@ public class MecFileTransformer : ThreeSpaceByteTransformer {
 			};
 
 			entry.WeaponRefs = IndexShortLEArray(entry.SlotCount);
-			entry.WeaponCounts = IndexShortLEArray(entry.SlotCount);
+			entry.WeaponAmmoTypes = IndexShortLEArray(entry.SlotCount);
 			entry.Unk3A = IndexShortLE();
 			entry.BlockA = IndexSegment(26);
 			entry.BlockB = IndexSegment(20);
@@ -61,7 +61,7 @@ public class MecFileTransformer : ThreeSpaceByteTransformer {
 			Write(outStream, WriteShortLE(entry.MechType));
 			Write(outStream, WriteShortLE(entry.SlotCount));
 			Write(outStream, WriteShortLESegment(entry.WeaponRefs));
-			Write(outStream, WriteShortLESegment(entry.WeaponCounts));
+			Write(outStream, WriteShortLESegment(entry.WeaponAmmoTypes));
 			Write(outStream, WriteShortLE(entry.Unk3A));
 			Write(outStream, entry.BlockA);
 			Write(outStream, entry.BlockB);

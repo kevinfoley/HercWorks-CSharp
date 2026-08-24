@@ -222,7 +222,8 @@ public static class MissionLoader {
 				group.Index,
 				position,
 				Heading(script, record.HeadingRef) ?? group.Heading,
-				record.WeaponRefs.Where(id => id >= 0).ToArray()));
+				record.WeaponRefs,
+				record.WeaponSecondary));
 		}
 
 		var flyerClaims = claims[MissionUnitKind.Flyer];
@@ -241,6 +242,7 @@ public static class MissionLoader {
 				group.Index,
 				Coordinate(script, record.PositionRef) ?? group.Position,
 				Heading(script, record.HeadingRef) ?? group.Heading,
+				Array.Empty<short>(),
 				Array.Empty<short>()));
 		}
 
@@ -263,6 +265,7 @@ public static class MissionLoader {
 				group.Index,
 				position,
 				Heading(script, record.HeadingRef) ?? group.Heading,
+				Array.Empty<short>(),
 				Array.Empty<short>()));
 		}
 	}
@@ -333,7 +336,8 @@ public static class MissionLoader {
 				PlayerGroupIndex,
 				spawn.Position,
 				spawn.Heading,
-				entry.WeaponRefs.Where(id => id > 0).ToArray(),
+				entry.WeaponRefs,
+				entry.WeaponAmmoTypes,
 				IsPlayerLance: true);
 
 			placements.Add(placement);

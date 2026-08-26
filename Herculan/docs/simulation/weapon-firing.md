@@ -117,7 +117,7 @@ than jump.
 | `+0x04` | `Q10Multiply(power, DamageArmor)` |
 | `+0x06` | `Q10Multiply(power, DamageShield)` |
 | `+0x08` | `SplashFactor`, the Q8 secondary-explosion fraction |
-| `+0x0a` | pointer to the record's `ImpactFX` arrays |
+| `+0x0a` | pointer to the record's three `ImpactFX` arrays, indexed as one 12-entry array — see [`impact-effects.md`](impact-effects.md#which-effect-a-shot-spawns) |
 | `+0x0e` | the owner machine, which the sweep skips |
 | `+0x12` | a weapon-class code, a literal 5 on the beam path |
 
@@ -219,7 +219,5 @@ through to whatever stands behind.
   `Mech_ApplyDirectFireDamage` need the 29-slot component health array, which does not exist. Damage
   past shields is counted, not applied.
 - **Sound.** `Bullet_FireBurst` opens with `FUN_004627dc(0x0b, muzzlePoint)`. Untraced past the call.
-- **Impact effects.** `FUN_00407f1c`, keyed off the `PROJ.DAT` record's three `ImpactFX` arrays — an
-  animated-shape system, see [`beam-visuals.md`](beam-visuals.md#impact-effects--not-decoded).
 - **ELF and ELF2 beams draw straight.** Their tracer takes a jagged branch whose paint half is not
   decoded — see [`beam-visuals.md`](beam-visuals.md#elf-and-elf2--the-jagged-branch).

@@ -78,6 +78,7 @@ public sealed class WeaponShot {
 			: (short)SimMath.Q10Multiply(power, projectile.DamageShield);
 		SplashFactor = projectile.SplashFactor;
 		MissileId = projectile.MissileId;
+		Effects = projectile;
 		Owner = owner;
 	}
 
@@ -138,6 +139,58 @@ public sealed class WeaponShot {
 	/// real beam, so nothing reads it yet; it is carried because it is what the record holds.
 	/// </summary>
 	public short SplashFactor { get; }
+
+	/// <summary>
+	/// The record's <c>+0x0a</c>: a pointer to the firing <c>PROJ.DAT</c> record's three
+	/// <c>ImpactFX</c> arrays, which is the only reason a hit test can see the record at all. Each
+	/// array holds four effect ids and a struck object picks one at random from whichever array
+	/// matches what the shot did — see <see cref="ImpactFxFor"/>.
+	/// </summary>
+	public ProjectileData.Projectile Effects { get; }
+
+	/// <summary>
+	/// One of the four ids in the group <paramref name="group"/> names. The original addresses all
+	/// three arrays as one twelve-entry short array off the shot record's <c>+0x0a</c> and indexes it
+	/// <c>group * 4 + (rand &amp; 3)</c>, so the groups are ordered exactly as the file writes them —
+	/// see <see cref="ImpactFxGroup"/> for which branch reaches each.
+	/// </summary>
+	public short[] ImpactFx(ImpactFxGroup group) => group switch {
+		ImpactFxGroup.Shield => Effects.ImpactFXShield,
+		ImpactFxGroup.Ground => Effects.ImpactFXGround,
+		_ => Effects.ImpactFXArmor,
+	};
+
+	/// <summary>
+	/// Which of a <c>PROJ.DAT</c> record's three <c>ImpactFX</c> arrays a hit draws from. Every spawn
+	/// site in the original reaches one of these three, and the file's own field order is this order.
+	/// </summary>
+	public enum ImpactFxGroup {
+		/// <summary>
+		/// <c>ImpactFXShield</c>. <c>Mech_DirectFireHitTest</c>'s branch for a shot the struck
+		/// facing's shields <i>fully</i> absorbed — the flash off a shield rather than off a surface.
+		/// </summary>
+		Shield = 0,
+
+		/// <summary>
+		/// <c>ImpactFXGround</c>, and the name is accurate: it is what
+		/// <see cref="SimWorld.Raycast"/> spawns when a shot ends on the terrain. It is <i>also</i>
+		/// what <c>Mech_ApplyDirectFireDamage</c> uses for damage that got through armour but left the
+		/// struck component in the health band it was already in — one array serving both.
+		/// </summary>
+		Ground = 1,
+
+		/// <summary>
+		/// <c>ImpactFXArmor</c>. The same armour branch when the struck component's health band did
+		/// drop, and the only array the non-mech classes' hit test (<c>FUN_00405038</c>) ever uses.
+		///
+		/// <para><b>Nothing in the engine selects this yet</b>: the distinction from
+		/// <see cref="Ground"/> is a change in a component's health band and there is no component
+		/// health array (see <c>MechObject.PenetratingHits</c>). It costs nothing on retail data —
+		/// <b>all 27 records carry byte-identical <c>ImpactFXGround</c> and <c>ImpactFXArmor</c>
+		/// arrays</b>, so the two branches draw the same effect anyway.</para>
+		/// </summary>
+		Armor = 2,
+	}
 
 	/// <summary>The machine that fired. The sweep skips it, so nothing shoots itself.</summary>
 	public SimObject? Owner { get; }

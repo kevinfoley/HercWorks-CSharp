@@ -21,6 +21,6 @@ _Bugs listed in this section were tested on Windows 11. It's possible that some 
 - Similarly to the previous, currently missing is an animation where weapon buttons wink on one-at-a-time when the simulation first starts.
 - In the Scramble practice mission while piloting an Apocalypse, a Particle Beam Weapon is equipped to slot 8. In HERCULAN, when this PBW is fired the beam visibly clips off near the corner of the screen. This may be a camera near-clip plane issue.
 - TextureAtlas.AverageColor() sounds like a hack (needs investigation)
-- The three EMP cannons fire an invisible round. Their projectile shapes are sprite flipbooks (`TSCellAnimPart` of `TSBitmapPart`), and the engine has no world-space sprite path yet; the round still travels and does damage.
+- Impact effects have no sound, and the two arrays that pick which effect a hit on armour draws are indistinguishable to the engine (no component health array). Both cost nothing on retail data — see `docs/simulation/impact-effects.md`.
 - Missile and rocket launchers fire nothing at all, and do not spend a round.
 - The `[P]` pause is a placeholder, not RE'd: it just stops the fixed-timestep tick loop. Retail DBSIM's own pause has not been traced.

@@ -39,13 +39,16 @@ public sealed class TextureAtlas {
 
 	private readonly AtlasRect?[] _frames;
 	private readonly Vector3?[] _averageColors;
+	private readonly (int Width, int Height)[] _frameSizes;
 
-	private TextureAtlas(byte[] pixels, int width, int height, AtlasRect?[] frames, Vector3?[] averageColors) {
+	private TextureAtlas(byte[] pixels, int width, int height, AtlasRect?[] frames,
+			Vector3?[] averageColors, (int Width, int Height)[] frameSizes) {
 		Pixels = pixels;
 		Width = width;
 		Height = height;
 		_frames = frames;
 		_averageColors = averageColors;
+		_frameSizes = frameSizes;
 	}
 
 	/// <summary>Tightly-packed RGBA8 pixels, top row first, <see cref="Width"/> * <see cref="Height"/> * 4 bytes.</summary>
@@ -77,6 +80,18 @@ public sealed class TextureAtlas {
 	/// </summary>
 	/// TODO: This looks like a hacky workaround rather than a proper recreation of the way that
 	/// color works in the original engine.
+	/// <summary>
+	/// DBA frame <paramref name="frameIndex"/>'s size in its own pixels, or (0, 0) when that frame is
+	/// out of range or was empty. Packing relocates a frame but does not resize it, so this is the
+	/// source bitmap's own row and column count.
+	///
+	/// <para>A billboard needs it where a mesh does not: a <c>TSBitmapPart</c>'s on-screen size is
+	/// its bitmap's pixel dimensions scaled by the part's radius, so the numbers are geometry rather
+	/// than just texture bookkeeping — see <see cref="SpriteRenderer"/>.</para>
+	/// </summary>
+	public (int Width, int Height) FrameSize(int frameIndex) =>
+		frameIndex >= 0 && frameIndex < _frameSizes.Length ? _frameSizes[frameIndex] : (0, 0);
+
 	public Vector3? AverageColor(int frameIndex) =>
 		frameIndex >= 0 && frameIndex < _averageColors.Length ? _averageColors[frameIndex] : null;
 
@@ -184,11 +199,14 @@ public sealed class TextureAtlas {
 	private static TextureAtlas Compose(Decoded?[] decoded, Placement[] placements, int width, int height, Vector3?[] averageColors) {
 		var pixels = new byte[width * height * 4];
 		var frames = new AtlasRect?[decoded.Length];
+		var sizes = new (int Width, int Height)[decoded.Length];
 
 		for (int i = 0; i < decoded.Length; i++) {
 			if (decoded[i] is not { } frame || !placements[i].Placed) {
 				continue;
 			}
+
+			sizes[i] = (frame.Width, frame.Height);
 
 			var at = placements[i];
 			for (int row = 0; row < frame.Height; row++) {
@@ -205,7 +223,7 @@ public sealed class TextureAtlas {
 				(at.Y + frame.Height) / (float)height);
 		}
 
-		return new TextureAtlas(pixels, width, height, frames, averageColors);
+		return new TextureAtlas(pixels, width, height, frames, averageColors, sizes);
 	}
 
 	private static Vector3 AverageColorOf(byte[] rgbaPixels) {

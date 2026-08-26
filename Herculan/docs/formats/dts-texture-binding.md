@@ -5,17 +5,20 @@ NOTE TO CLAUDE: This should be a reference document, not a personal journal.
 **The `.DTS` file format carries no reference to any specific texture file.** Which `.DBA` gets bound
 to a given model is a runtime/application-level decision (see "DBA filename selection" below), never
 recorded in the `.DTS` bytes. **`TSBitmapPart` and `TSTexture4Poly` — the file format's two
-texture-bearing poly types — have distinct rendering mechanisms.** `TSBitmapPart` is a fixed 2D billboard quad
-(see "TSBitmapPart's mechanism" below); `TSTexture4Poly` is a real scanline/perspective-correct textured-polygon
-rasterizer (see "TSTexture4Poly's real mechanism" below).
+texture-bearing poly types — have distinct rendering mechanisms.** `TSBitmapPart` is a screen-space
+billboard blit (see [`dts-billboards.md`](dts-billboards.md)); `TSTexture4Poly` is a real
+scanline/perspective-correct textured-polygon rasterizer (see "TSTexture4Poly's real mechanism"
+below).
 
 All findings are from Ghidra 12.1.2 disassembly of `VSHELL.EXE` (project
 `E:\ES2Stuff\tools\ghidra_project\ES2Recon`).
 
-## TSBitmapPart's mechanism (confirmed, simple)
+## TSBitmapPart's texture lookup
 
-`TSBitmapPart` really does work exactly as originally described — a plain frame-index lookup into
-whichever DBA is currently "active," rendered as a fixed 2D billboard quad:
+**How the resolved bitmap is then sized, rotated and placed is in
+[`dts-billboards.md`](dts-billboards.md)** — it is not a "fixed quad", and the numbers matter. What
+belongs here is only the lookup, which is a plain frame-index into whichever DBA is currently
+"active":
 
 1. **`TSShapeInstance` carries its own bound DBA pointer as a struct field, offset `+0x26`.**
    Confirmed by `TSShapeInstance_GetBoundBitmapArray` (`FUN_0046296d`):
@@ -30,12 +33,11 @@ whichever DBA is currently "active," rendered as a fixed 2D billboard quad:
 4. **`TSBitmapPart_Render`** (`FUN_00421db2` — the function holding the `"TSBase::getBitmapPtr() :
    index out of range"` assert) reads `poly+0x10` (== `TSBitmapPart.BmpTag`) as a plain frame index,
    bounds-checks it against `g_ActiveBitmapArray`'s count, and looks up `array[frameIndex]` — a
-   direct pointer-table indexed lookup (`*(int*)(*g_ActiveBitmapArray+8) + frameIndex*4`). If found,
-   draws a fixed quad at the poly's position using `OfsX`/`OfsY` (`poly+0x12`/`+0x13`, single bytes —
-   exact match for `TSBitmapPart.OfsX`/`OfsY`) and the bitmap as its texture.
+   direct pointer-table indexed lookup (`*(int*)(*g_ActiveBitmapArray+8) + frameIndex*4`). `OfsX`/
+   `OfsY` (`poly+0x12`/`+0x13`, single bytes — exact match for `TSBitmapPart.OfsX`/`OfsY`) place the
+   result.
 
-**This part is genuinely simple: for `TSBitmapPart`, texture resolution really is just
-`activeDba.Frames[BmpTag]`, rendered as a billboard quad, no UV interpolation needed.**
+**Texture resolution really is just `activeDba.Frames[BmpTag]`, with no UV interpolation.**
 
 ## TSTexture4Poly's front/back stride
 
@@ -317,8 +319,9 @@ bytes — 32 and 12 in all ten retail files. The 11 "unused" height slices are d
 - **`TSShadedPoly`:** Still the atlas frame's *average* colour, which is a stand-in and not the
   mechanism. Replacing it needs the `.DPL` shade-ramp table parsed. Shaded by the engine's own
   directional-light pipeline.
-- **`TSBitmapPart`:** Not implemented (architecture change needed for per-frame billboard
-  generation). Its `TSCellAnimPart` flipbook form is why the three EMP rounds are invisible.
+- **`TSBitmapPart`:** Implemented in the engine as a view-space billboard quad, with the bank decoded
+  index-0-transparent — see [`dts-billboards.md`](dts-billboards.md). `Model3DViewerControl` does not
+  draw them.
 - **Front/back visibility test:** Not implemented (`FrontColor` used unconditionally, both in
   `Herculan.Engine` and `Model3DViewerControl`).
 - **Mech-to-`.DBA` binding:** Automated via `HercSimDat.ModelSkinId` from the mech's `dat\<name>.DAT`.

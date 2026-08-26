@@ -66,7 +66,7 @@ public sealed partial class MechObject {
 	/// <para>Note what the shield step does <i>not</i> do: a shot it absorbs entirely still counts as
 	/// a hit and still stops the ray. Shields do not let fire through to whatever stands behind.</para>
 	/// </summary>
-	public override int DirectFireHitTest(WeaponShot shot) {
+	public override int DirectFireHitTest(SimWorld world, WeaponShot shot) {
 		var muzzle = new Vec3i(shot.Muzzle.X, shot.Muzzle.Y, shot.Muzzle.Z);
 		if (shot.Clearance + shot.Distance + HitRadius < Position.ApproxDistanceTo(muzzle)) {
 			return 0;
@@ -88,6 +88,19 @@ public sealed partial class MechObject {
 			DamageTaken += shot.DamageArmor;
 			PenetratingHits++;
 		}
+
+		// Both branches of the original spawn one, at the point on the ray where this machine was
+		// struck — `transform(0, hitDistance, 0)` off the shot's own frame, the same Y-is-forward
+		// construction the ray itself is. Which array it comes out of is the only thing that differs
+		// between them, and the armour branch's own two-way split is not reachable here; see
+		// WeaponShot.ImpactFxGroup.
+		var group = shieldDamage == 0
+			? WeaponShot.ImpactFxGroup.Shield
+			: WeaponShot.ImpactFxGroup.Ground;
+
+		world.SpawnImpactEffect(
+			world.PickImpactEffect(shot.ImpactFx(group)),
+			shot.Muzzle.TransformPoint(0, struckAt, 0));
 
 		return struckAt;
 	}

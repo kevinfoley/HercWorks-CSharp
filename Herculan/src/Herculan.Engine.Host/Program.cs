@@ -340,6 +340,7 @@ SceneRenderer? renderer = null;
 Overlay2DRenderer? overlay = null;
 WireframeRenderer? wireframe = null;
 BeamRenderer? beams = null;
+SpriteRenderer? sprites = null;
 ImGuiController? imgui = null;
 GpuMesh? terrainMesh = null;
 GpuTexture? terrainTexture = null;
@@ -354,6 +355,10 @@ SceneItem[]? items = null;
 SceneItem[]? pilotedItems = null;
 var movers = new List<(SceneObject Object, SceneItem Item)>();
 var projectileItems = new List<SceneItem>();
+
+// The billboards to draw this frame: the EMP rounds in flight and every impact effect playing. Both
+// churn from tick to tick, so the list is rebuilt each frame rather than kept — see SpriteRenderer.
+var spriteBatches = new List<SpriteBatch>();
 
 // A machine whose shape animates is drawn a node at a time, so each entry here is one geometry
 // segment riding one transform of one mech — see MissionScene.PosedTransformOf.
@@ -385,6 +390,11 @@ window.Load += (gl, input) => {
 	// Beams draw only if their two resources loaded; a scene without them still fires and still
 	// damages, it just shows nothing.
 	beams = scene.Beams != null ? new BeamRenderer(gl, scene.Beams) : null;
+
+	// Billboards need no resource of their own — every sprite they draw belongs to a model already
+	// built, so this is unconditional where the beam renderer is not.
+	sprites = new SpriteRenderer(gl);
+
 	imgui = new ImGuiController(gl, window.View, input, new ImGuiFontConfig(debugFontPath, 16));
 
 	terrainMesh = new GpuMesh(gl, scene.TerrainMesh);
@@ -420,7 +430,9 @@ window.Load += (gl, input) => {
 		if (animatedKeys.Contains(model.Key)) {
 			segmentMeshes[model.Key] = model.Segments.Select(segment => new GpuMesh(gl, segment.Vertices, segment.TriangleVertexCount)).ToArray();
 			disposables.AddRange(segmentMeshes[model.Key]);
-		} else {
+		} else if (model.Mesh.Length > 0) {
+			// A pure billboard shape — every EMP round, every impact effect — has no triangles at all
+			// and gets no mesh; its atlas below is the whole of it.
 			modelMeshes[model.Key] = new GpuMesh(gl, model.Mesh, model.TriangleVertexCount);
 		}
 
@@ -717,6 +729,7 @@ window.Update += deltaSeconds => {
 	}
 
 	RefreshProjectileItems();
+	RefreshSpriteBatches();
 
 	if (piloting && pilotMech != null) {
 		if (externalView) {
@@ -814,6 +827,7 @@ window.Render += (_, gl) => {
 	} else {
 		renderer.Render(camera, VisibleItems(), 0, 0, size.X, size.Y);
 		DrawBeams(camera, size.X, size.Y);
+		DrawSprites(camera, size.X, size.Y);
 		DrawSkeleton(camera, size.X, size.Y);
 	}
 
@@ -847,6 +861,7 @@ window.Closing += () => {
 	overlay?.Dispose();
 	wireframe?.Dispose();
 	beams?.Dispose();
+	sprites?.Dispose();
 	terrainMesh?.Dispose();
 	terrainTexture?.Dispose();
 	cockpitFrontTexture?.Dispose();
@@ -917,6 +932,7 @@ void DrawThreePanelCockpitView(GL gl, int totalWidth, int totalHeight) {
 			viewport.X, viewport.Y, viewport.Width, viewport.Height);
 
 		DrawBeams(panelCamera, viewport.Width, viewport.Height);
+		DrawSprites(panelCamera, viewport.Width, viewport.Height);
 
 		// Before the canopy goes over it, so the skeleton is clipped by the viewport hole like the rest
 		// of the world. Mostly of use with the machine's own model hidden, but it costs one draw call.
@@ -953,6 +969,13 @@ Vector2 PanelPrincipalPoint(CockpitScreenLayout.PlacedSurface surface) {
 // frame drawn in that window and for none after — see BeamTracer.
 void DrawBeams(Camera view, int viewportWidth, int viewportHeight) {
 	beams?.Render(view, scene.World.Tracers, viewportWidth, viewportHeight);
+}
+
+// The billboards, over the world already drawn into the current viewport: the EMP rounds crossing
+// the ground and the impact effects wherever shots have landed. After the beams for the same reason
+// they are after the world — they are alpha-tested and depth-tested against what is already there.
+void DrawSprites(Camera view, int viewportWidth, int viewportHeight) {
+	sprites?.Render(view, spriteBatches, viewportWidth, viewportHeight);
 }
 
 // The animating skeleton, drawn over whatever was just rendered into the current viewport.
@@ -1100,6 +1123,37 @@ void RefreshProjectileItems() {
 
 		uint? texture = modelTextures.TryGetValue(model.Key, out var bound) ? bound.Handle : null;
 		projectileItems.Add(new SceneItem(mesh, WorldScale.ToRenderMatrix(projectile.Frame), texture));
+	}
+}
+
+// The frame's billboards, from the two things that have any.
+//
+// A shot in flight draws its shape's flipbook at its own frame counter, with the shot's own frame as
+// the transform — so an EMP round's puff leans with the round, which is what the original measures
+// its rotation and its squash off (see SpriteRenderer). An impact effect draws its EXPLOS.DTS root
+// at wherever the shot landed, upright: the original never gives one a rotation.
+void RefreshSpriteBatches() {
+	spriteBatches.Clear();
+
+	foreach (var projectile in scene.World.Projectiles) {
+		if (scene.BulletModels.TryGetValue(projectile.MissileId, out var model)) {
+			Add(model, WorldScale.ToRenderMatrix(projectile.Frame), projectile.AnimationFrame);
+		}
+	}
+
+	foreach (var effect in scene.World.Effects) {
+		if (scene.ExplosionModels.TryGetValue(effect.ShapeIndex, out var model)) {
+			Add(model, Matrix4x4.CreateTranslation(WorldScale.ToRender(effect.Position)), effect.Frame);
+		}
+	}
+
+	void Add(SceneModel model, Matrix4x4 transform, int frame) {
+		if (model.Sprites.Length == 0 || model.Atlas == null
+			|| !modelTextures.TryGetValue(model.Key, out var texture)) {
+			return;
+		}
+
+		spriteBatches.Add(new SpriteBatch(model.Sprites, model.Atlas, texture.Handle, transform, frame));
 	}
 }
 

@@ -20,6 +20,7 @@ public sealed class SimWorld {
 	private readonly List<WeaponShot> _impacts = new();
 	private readonly List<BeamTracer> _tracers = new();
 	private readonly List<Projectile> _projectiles = new();
+	private readonly List<ImpactEffect> _effects = new();
 
 	/// <param name="terrain">The loaded zone.</param>
 	/// <param name="bullets">
@@ -27,10 +28,16 @@ public sealed class SimWorld {
 	/// <see cref="FireBullet"/>. Null leaves those weapons firing blanks, the same way an unported
 	/// branch does.
 	/// </param>
+	/// <param name="explosions">
+	/// <c>dat\EXPLOS.DAT</c>, which everything that lands needs — see
+	/// <see cref="SpawnImpactEffect"/>. Null leaves impacts invisible.
+	/// </param>
 	/// <param name="seed">Seed for <see cref="Random"/>.</param>
-	public SimWorld(HeightGrid terrain, BulletCatalog? bullets = null, int seed = 0) {
+	public SimWorld(HeightGrid terrain, BulletCatalog? bullets = null,
+			ExplosionCatalog? explosions = null, int seed = 0) {
 		Terrain = terrain;
 		Bullets = bullets;
+		Explosions = explosions;
 		Random = new SimRandom(seed);
 	}
 
@@ -39,6 +46,9 @@ public sealed class SimWorld {
 
 	/// <summary>The travelling-projectile table, or null when the resource was not loaded.</summary>
 	public BulletCatalog? Bullets { get; }
+
+	/// <summary>The impact-effect table, or null when the resource was not loaded.</summary>
+	public ExplosionCatalog? Explosions { get; }
 
 	/// <summary>
 	/// The simulation's pseudo-random generator — DBSIM's single global state block at
@@ -117,6 +127,42 @@ public sealed class SimWorld {
 	/// </summary>
 	public IReadOnlyList<WeaponShot> Impacts => _impacts;
 
+	/// <summary>
+	/// The impact effects playing right now — the same <c>DAT_004a9746</c>-style effect pool
+	/// <see cref="Tracers"/> and <see cref="Projectiles"/> come from, walked by the same loop. An
+	/// entry lives for exactly one pass of its shape's flipbook; see <see cref="ImpactEffect"/>.
+	/// </summary>
+	public IReadOnlyList<ImpactEffect> Effects => _effects;
+
+	/// <summary>
+	/// <c>FUN_00407f1c</c> — puts one impact effect at <paramref name="position"/>. Called from the
+	/// two places the original calls it from along this path: from inside an object's hit test, where
+	/// the effect belongs to the object struck (and is spawned whether or not the sweep goes on to
+	/// find something nearer), and from the tail of <see cref="Raycast"/> itself for a shot that ends
+	/// on the ground.
+	///
+	/// <para>Silently does nothing when the table did not load or the id is outside it. A retail
+	/// <c>ImpactFX</c> array can hold an id no type row exists for, and the original bounds nothing
+	/// here — reading past the table is not a behaviour worth reproducing.</para>
+	/// </summary>
+	/// <param name="typeId">The <c>EXPLOS.DAT</c> type, out of a <c>PROJ.DAT</c> <c>ImpactFX</c> array.</param>
+	/// <param name="position">Where the shot landed, in world units.</param>
+	internal void SpawnImpactEffect(short typeId, Vec3i position) {
+		if (Explosions?.Type(typeId) is not { } record) {
+			return;
+		}
+
+		_effects.Add(new ImpactEffect(typeId, record, Explosions.FrameCount(record.ShapeIndex), position));
+	}
+
+	/// <summary>
+	/// One of the four ids an <c>ImpactFX</c> array holds, drawn the way every spawn site draws it —
+	/// <c>Math_RandomNext(...) &amp; 3</c>, so all four are equally likely and the same array gives a
+	/// different effect shot to shot.
+	/// </summary>
+	internal short PickImpactEffect(short[]? effects) =>
+		effects is { Length: > 0 } ? effects[Random.NextMasked(3) % effects.Length] : (short)0;
+
 	/// <summary>Adds an object to the simulation.</summary>
 	public void Add(SimObject simObject) => _objects.Add(simObject);
 
@@ -151,7 +197,7 @@ public sealed class SimWorld {
 				continue;
 			}
 
-			int struckAt = candidate.DirectFireHitTest(shot);
+			int struckAt = candidate.DirectFireHitTest(this, shot);
 			if (struckAt == 0) {
 				continue;
 			}
@@ -163,6 +209,21 @@ public sealed class SimWorld {
 			if (struckAt < WeaponShot.MinimumScanDistance) {
 				break;
 			}
+		}
+
+		// The ground impact, which is the sweep's own job and not the ground's: the original keeps two
+		// flags — "something was struck" and "an object was struck" — and spawns an effect at the ray's
+		// far end when the first is set and the second is not. So a shot that ends in the dirt puts one
+		// down and a shot that ends on a machine does not, even though the ground clipped the ray
+		// first in both cases.
+		//
+		// It comes out of the ImpactFxGroup.Ground array, and unlike every object hit it is spawned
+		// with no owner and with the sound suppressed (the constructor's last argument is 0 here and 1
+		// at every other site).
+		if (hit && shot.HitObject == null) {
+			SpawnImpactEffect(
+				PickImpactEffect(shot.ImpactFx(WeaponShot.ImpactFxGroup.Ground)),
+				shot.Muzzle.TransformPoint(0, shot.Distance, 0));
 		}
 
 		return hit ? shot.Distance + 1 : 0;
@@ -272,6 +333,14 @@ public sealed class SimWorld {
 		// a machine updates is not counted down until the tick after. A travelling shot gets the same
 		// deal — the round that leaves the barrel this tick does not move or hit anything until the
 		// next one.
+		// Impact effects share that deal, and want it more: one is spawned from inside a hit test, so
+		// it is created part-way through this same tick and must not be counted down until the next.
+		for (int i = _effects.Count - 1; i >= 0; i--) {
+			if (_effects[i].Tick()) {
+				_effects.RemoveAt(i);
+			}
+		}
+
 		for (int i = _tracers.Count - 1; i >= 0; i--) {
 			if (_tracers[i].Tick()) {
 				_tracers.RemoveAt(i);
@@ -283,6 +352,7 @@ public sealed class SimWorld {
 				_projectiles.RemoveAt(i);
 			}
 		}
+
 
 		for (int i = 0; i < _objects.Count; i++) {
 			var simObject = _objects[i];

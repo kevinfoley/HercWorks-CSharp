@@ -188,8 +188,8 @@ The value reaches the projection through three steps, all of which cancel to a p
    against their own window origins.
 
 So the centre relative to a view's own window is `(-cx, -cy)` authored — `(160, 95)` for APOCA.
-Retail `cy` runs 95 (APOCA, RAPTOR2) to 146 (RAZOR); `cx` is 160 for every herc and every view, so
-only the vertical actually varies. All four views of a herc carry the same pair.
+Retail `cy` runs 95 (APOCA, RAPTOR2) to 146 (RAZOR); `cx` is 160 for every herc and every view. All =
+four views of a herc carry the same pair.
 
 `FUN_0048c1d8` also installs, from the same view struct: `+0x1a` the perspective shift
 (`(width << shift) / z` is the whole of the divide), `+0x1e` the near plane, `+0x22` the orthographic
@@ -197,9 +197,7 @@ divisor. The shift is the focal length in pixels and would give the true field o
 been traced to its writer, so the engine's FOV remains a guess.
 
 Engine: `Content.CockpitViewGeometry.ProjectionCenter`, applied via `Render.Camera.PrincipalPoint`
-as an off-centre frustum. Before this was found the engine used a symmetric frustum centred on the
-canopy hole, which put every shot ~100 window pixels below the reticle it was supposed to converge
-on.
+as an off-centre frustum.
 
 ### Cockpit canvas
 
@@ -549,9 +547,8 @@ is forward, linear in knob position.
 Bank `throttle` (`.HBA`/`.DBA`), 2 frames: **0** is a 2x12 tick, **1** the 28x12 knob.
 
 The gauge captures the tick's blit position **once**, in the constructor, at the knob's neutral height
-plus `[0x12]`, and nothing writes it again — so it is a static centre-detent marker beside the track,
-not a moving indicator. Matches `Simulator1.jpg`, where the tick sits at the track's midpoint while
-the knob is at the top.
+plus `[0x12]`, and nothing writes it again — so it is a static centre-detent marker beside the track.
+Matches `Simulator1.jpg`.
 
 ### Live values and the two-way binding
 
@@ -576,8 +573,8 @@ have shown the speed actually reached.
 
 The slider is the **only draggable widget in a retail cockpit** — see cockpit-input.md §7.
 `ThrottleSlider_OnValue` (`00448378`) also sets `ThrottleLeverMode` (`0049a06e`) from the committed
-value's sign, but gated on a joystick throttle control being configured, so it does nothing on a
-keyboard-and-mouse setup. See mech-locomotion.md for what that global actually is.
+value's sign, but gated on a joystick throttle control being configured. See mech-locomotion.md for
+what that global actually is.
 
 ## `ShieldsGauge`
 
@@ -619,7 +616,7 @@ at `0x200`, where all six rings resolve to RGB `(48,116,44)`. The retail screens
 `itoa(balance * 200 >> 10)` into the first label and its complement into the second, from the fore/aft
 balance at `+0xbd`. An even split reads 100 and 100 out of a 200-point pool, which is what retail
 shows. Font is `ColorSchemePanels[10]` (`WHITE`); background is `COLORS.DAT` id 19 (palette 16,
-black), which is why the readouts sit on solid black.
+black).
 
 ### `.GAU` block at 616
 
@@ -696,8 +693,8 @@ palette index 34 (the retail blue, RGB `(77,77,182)`); frame 3 lit, index 14 gre
 in `[10]` `WHITE` unlit / `[12]` `DARK` lit. The plates are **not** canopy art.
 
 The chain button's caption is its count in Roman numerals from `ChainCountCaptions` (`0049c71c`):
-`"I"`, `"II"`, `"III"` — a literal table in `.rdata`, unrelated to the string file. LINK and TRACK
-are not fixed the same way: `ConsoleButton_Paint` reads them from `DAT_004d13d0`, the `.bss` array
+`"I"`, `"II"`, `"III"` — a literal table in `.rdata`. LINK and TRACK are not fixed the same way: 
+`ConsoleButton_Paint` reads them from `DAT_004d13d0`, the `.bss` array
 `SimStrings_LoadAll` fills from `STRINGS0.STR` group 4 (see [`str-strings.md`](str-strings.md)),
 indexed by the widget's own kind field — entry 1 for LINK, entry 2 for TRACK.
 
@@ -743,7 +740,7 @@ widget caches them at `+0xb1`/`+0xb3`/`+0xb5` and forwards each one's **delta** 
 
 `HudSlideBar_AddDelta` (`0043b3f8`) does `value -= delta`, clamped to the bar's limits, so the two
 `old - new` children *track* their angle and the heading child scrolls against it. All three start at
-zero, which is where the machine's angles start, so nothing drifts.
+zero, which is where the machine's angles start.
 
 ### Rotation indicator
 
@@ -760,10 +757,9 @@ bar:    frame 13 while |value| <= 299, frame 12 otherwise
         y = rect.y0
 ```
 
-Frame 13 is green and 12 yellow, matching the manual's "turns yellow … if your Turret moves from
-center"; the 299 threshold is about 1.6°, so any deliberate movement trips it. The trailing `-15`
-undoes the `+15` the rect carries, which centres the 31-unit-wide bar on the mapped point to within
-one unit. The ±`0x38e3` limit is about 80°, deliberately wider than any herc's own 14000 twist limit,
+Frame 13 is green and 12 yellow; the 299 threshold is about 1.6°, so any deliberate movement trips it. 
+The trailing `-15` undoes the `+15` the rect carries, which centres the 31-unit-wide bar on the mapped
+point. The ±`0x38e3` limit is about 80°, deliberately wider than any herc's own 14000 twist limit,
 so the bar never reaches the ends of its track.
 
 ### Speed and time readouts

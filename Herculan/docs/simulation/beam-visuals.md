@@ -148,17 +148,10 @@ chain — so at least one of those three helpers redirects the geometry, and the
 Retail reference: `Reference/Simulator3.jpg` shows an ELF as a bright yellow zigzag, which fixes
 both the shape and that the colour index reaches this path.
 
-## Impact effects — not decoded
+## Impact effects
 
-`FUN_00407f1c` allocates from `DAT_004a96a2` and takes an effect id picked from one of the
-`PROJ.DAT` record's three four-entry arrays. It resolves a DTS shape through a 0x28-byte type table
-(`DAT_004a96ac` → `DAT_004a96b4`), sets an animation state from the shape record, and optionally
-builds two sub-objects. That is an animated-shape system, and it is its own milestone.
-
-Which array is chosen is half-visible in two call sites: `Sim_RaycastObjectList`'s miss/ground case
-reads the record's effect-block pointer at `+8` (the second array), and `Mech_DirectFireHitTest`'s
-fully-absorbed case at `+0` (the first). The ordering of the three arrays in the parsed record has
-not been checked against those offsets.
+Solved and ported — see [`impact-effects.md`](impact-effects.md), which settles the array ordering
+this section previously listed as half-traced.
 
 ## Engine port
 

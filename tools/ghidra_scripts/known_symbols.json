@@ -5554,6 +5554,123 @@
       "name": "Terrain_DrawCellObjects",
       "description": "Draws the objects registered against one terrain cell: bounds-checks the cell index, fetches the cell's pending-object count, and if nonzero calls the hook at HeightGrid+0x125 (ObjList_DrawCellObjects) with (cellX, cellY, count), then clears the cell's scratch. Called from the terrain cell walk and once directly for the player's own cell.",
       "source": "docs/formats/distance-fog-and-sky.md 2026-08-26"
+    },
+    {
+      "address": "004762e8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSBitmapPart_Render",
+      "description": "TSBitmapPart vtable +0x1c. Resolves BmpTag against the shape's bound DBA, then blits a screen-space quad: scale = (Radius*4 << focalShift)/depth (so one bitmap pixel spans Radius/64 world units, the focal shift cancelling), rotated by the screen angle of the model's own +Z axis, height interpolated between the bitmap's cols and rows by how much of that axis survives in the view plane, anchored so the part's Center lands on bitmap pixel (OfsX, OfsY*height/rows). Identified via g_TSObjectTypeRegistry tag 0x00140013 -> ctor 0048fa68 -> vtable 004a62d0.",
+      "source": "docs/formats/dts-billboards.md 2026-08-26"
+    },
+    {
+      "address": "004767e4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSCellAnimPart_Render",
+      "description": "TSCellAnimPart vtable +0x1c. Draws exactly ONE child per call: children[cellFrames[AnimSequence] % childCount], where cellFrames is the drawing shape instance's own per-sequence frame array (global g_CellAnimFrames). The children are animation frames, not sub-parts. Identified via g_TSObjectTypeRegistry tag 0x0014000b -> ctor 0048fee8 -> vtable 004a629c.",
+      "source": "docs/formats/dts-billboards.md 2026-08-26"
+    },
+    {
+      "address": "006b7bf0",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_CellAnimFrames",
+      "description": "Pointer to the currently-drawing shape instance's per-sequence cell-animation frame array (one ushort per sequence). Saved/swapped/restored around a shape's draw alongside g_CurrentShapeDbaContext; TSCellAnimPart_Render indexes it by the part's AnimSequence.",
+      "source": "docs/formats/dts-billboards.md 2026-08-26"
+    },
+    {
+      "address": "00488a8c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Bitmap_BlitRotatedScaled",
+      "description": "Draws a bitmap into a rotated, arbitrarily-sized destination quad. Source quad is the bitmap's full extent (0,0)-(cols-1,rows-1) read from header+4 (rows) and +6 (cols); destination quad is (0,0),(w,0),(w,h),(0,h) from the caller's size pair, each corner rotated by the caller's binary angle and then translated by the caller's position -- so that position is the rotated quad's top-left, not its centre.",
+      "source": "docs/formats/dts-billboards.md 2026-08-26"
+    },
+    {
+      "address": "00407b54",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Explosion_LoadResources",
+      "description": "EXPLO.CPP subsystem init. Loads the fifteen EXPLO0..EXPLO14 DBA banks (name template 'explo666' at 00497ba0), the EXPLOS.DTS shape file and the EXPLOS.DAT table; binds each shape to the DBA its EXPLOS.DAT shape row names. With CockpitArt_LoadOnDemand set it uses the 13-bank EXPLO<n>S / EXPLOS2 low-memory set instead.",
+      "source": "docs/simulation/impact-effects.md 2026-08-26"
+    },
+    {
+      "address": "00407f1c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Explosion_Construct",
+      "description": "Builds one impact effect: (obj, typeId, worldPoint, ownerObject, playSound). Resolves the EXPLOS.DAT type row's shape, resets that shape's cell-animation frame counter to 0, loads the frame countdown from the row's FrameInterval, and optionally attaches a light source and a trail object. playSound gates the row's SoundId+10.",
+      "source": "docs/simulation/impact-effects.md 2026-08-26"
+    },
+    {
+      "address": "0040813c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Explosion_TickUpdate",
+      "description": "Impact-effect vtable +0x14. Counts the frame timer down; on expiry steps the shape's cell-animation frame modulo the shape's own frame count, drives the attached light from the type row's per-frame intensity, and reloads the timer. Returns finished on the step that wraps the frame back to 0, so the flipbook plays exactly once.",
+      "source": "docs/simulation/impact-effects.md 2026-08-26"
+    },
+    {
+      "address": "00407b20",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Explosion_GetTypeRecord",
+      "description": "g_ExplosionTypeTable + obj[+0x41] * 0x28 -- the impact effect's own EXPLOS.DAT type row.",
+      "source": "docs/simulation/impact-effects.md 2026-08-26"
+    },
+    {
+      "address": "004a96ac",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_ExplosionTypeTable",
+      "description": "EXPLOS.DAT's second table: 0x28-byte effect type rows (22 in retail), indexed by the effect type ids a PROJ.DAT ImpactFX array holds. Row layout in docs/simulation/impact-effects.md.",
+      "source": "docs/simulation/impact-effects.md 2026-08-26"
+    },
+    {
+      "address": "004a96c0",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_ExplosionShapeTable",
+      "description": "EXPLOS.DAT's first table: one 4-byte row per EXPLOS.DTS root, {int16 animSequence; int16 textureBankIndex}. The bank index selects which of the fifteen EXPLO<n> DBA banks Explosion_LoadResources binds to that shape.",
+      "source": "docs/simulation/impact-effects.md 2026-08-26"
+    },
+    {
+      "address": "004a96b4",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_ExplosionShapes",
+      "description": "Array of loaded EXPLOS.DTS root shapes (20 in retail), indexed by an EXPLOS.DAT type row's ShapeIndex. Every root is a TSCellAnimPart flipbook of TSBitmapParts.",
+      "source": "docs/simulation/impact-effects.md 2026-08-26"
+    },
+    {
+      "address": "004a96a2",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_ExplosionPool",
+      "description": "The impact-effect object pool, allocated from by every effect spawn site. Walked by the same effect-pool pass of Sim_MainTick that carries beam tracers and travelling rounds.",
+      "source": "docs/simulation/impact-effects.md 2026-08-26"
+    },
+    {
+      "address": "004aab58",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_TerrainHitPseudoObject",
+      "description": "Static stand-in object Sim_RaycastTerrain reports as the thing a ground-clipped ray struck, with the hit point stored at its +0x1a/+0x1e/+0x22. INERT: written there and read nowhere in the binary. The terrain impact effect does NOT come from it -- Sim_RaycastObjectList spawns that itself, see docs/simulation/impact-effects.md.",
+      "source": "docs/simulation/impact-effects.md 2026-08-26"
     }
   ]
 }

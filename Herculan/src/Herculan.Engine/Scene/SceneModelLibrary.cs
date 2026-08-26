@@ -9,6 +9,7 @@ using HercWorks.Core.Io.Transform.Dbsim;
 using Herculan.Engine.Content;
 using Herculan.Engine.Gl;
 using Herculan.Engine.Render;
+using Herculan.Engine.Sim;
 using Herculan.Engine.Sim.Anim;
 using Herculan.Engine.World;
 
@@ -37,9 +38,15 @@ namespace Herculan.Engine.Scene;
 /// see <see cref="DtsMeshBuilder.BuildSegments"/>. A caller draws either <paramref name="Mesh"/> or
 /// these, never both: they are the same triangles twice.
 /// </param>
+/// <param name="Sprites">
+/// The shape's billboards, a frame at a time — see <see cref="DtsSpriteBuilder.Build"/>. Empty for
+/// ordinary geometry; for a shape that is <i>only</i> billboards (every EMP round, every impact
+/// effect) this is the whole model and <paramref name="Mesh"/> is empty instead. A caller draws both
+/// where both exist: they are different parts of one shape, not two versions of it.
+/// </param>
 public sealed record SceneModel(
 	string Key, MeshVertex[] Mesh, int TriangleVertexCount, TextureAtlas? Atlas, float BaseOffset,
-	int RadiusWorldUnits, int HeightWorldUnits, MeshSegment[] Segments);
+	int RadiusWorldUnits, int HeightWorldUnits, MeshSegment[] Segments, SpriteQuad[][] Sprites);
 
 /// <summary>
 /// Loads and caches the models a mission needs, keyed so identical unit types share one mesh and one
@@ -200,13 +207,17 @@ public sealed class SceneModelLibrary {
 	/// them — roots 2 and 3, which are the <b>three EMP cannons' rounds</b> — are not geometry at
 	/// all: they are a <c>TSCellAnimPart</c> of five <c>TSBitmapPart</c>s, a flipbook of billboard
 	/// sprites out of the same <c>.DBA</c>. <see cref="DtsMeshBuilder"/> builds triangles and those
-	/// roots have none, so an EMP round is simulated and does damage but is <b>invisible</b>. Drawing
-	/// it needs a world-space sprite path the engine does not have — the same one the impact effects
-	/// will need, and the same reason <see cref="Sim.Projectile"/> does not advance a frame counter.
-	/// The plasma round (root 8) is a two-frame cell animation over real geometry and draws its first
-	/// frame; every autocannon round is plain static geometry.</para>
+	/// roots have none, so their mesh is empty and their <see cref="SceneModel.Sprites"/> is
+	/// everything — see <see cref="DtsSpriteBuilder"/>. The plasma round (root 8) is a two-frame cell
+	/// animation over real geometry and draws its first frame; every autocannon round is plain static
+	/// geometry.</para>
+	///
+	/// <para>The bank is decoded with index 0 transparent, which only the sprite roots read: the
+	/// other seven are <c>TSSolidPoly</c> geometry coloured through the theater ramp and never sample
+	/// it at all.</para>
 	/// </summary>
-	public SceneModel? Bullet(int modelId) => Build(BulletLibraryName, modelId, BulletBankName);
+	public SceneModel? Bullet(int modelId) =>
+		Build(BulletLibraryName, modelId, BulletBankName, transparentBank: true);
 
 	/// <summary>The shape file <c>FUN_0040ade0</c> opens, by the literal name <c>bullets</c>.</summary>
 	public const string BulletLibraryName = "BULLETS.DTS";
@@ -226,7 +237,19 @@ public sealed class SceneModelLibrary {
 			? Build(BaseTypeTable.AnimatedLibraryName, type.ShapeIndex, type.TextureBankName)
 			: BuildFromShapeLibrary(BaseTypeTable.StaticLibraryName, type.ShapeIndex, type.TextureBankName);
 
-	private SceneModel? Build(string dtsName, int rootIndex, string? bankName, bool segmented = false) {
+	/// <summary>
+	/// One root of <c>dts\EXPLOS.DTS</c> — an impact effect's shape, a flipbook of billboards out of
+	/// whichever <c>dba\EXPLO&lt;n&gt;.DBA</c> its <c>EXPLOS.DAT</c> row names. Both the shape file
+	/// and the fifteen banks come from the effect subsystem's own init (<c>FUN_00407b54</c>), which
+	/// writes each bank straight into its shape's bound-bank pointer; this is that binding, expressed
+	/// as which atlas the model carries.
+	/// </summary>
+	public SceneModel? Explosion(int shapeIndex, int textureBankIndex) =>
+		Build(ExplosionCatalog.ShapeLibraryName, shapeIndex,
+			ExplosionCatalog.TextureBankPrefix + textureBankIndex, transparentBank: true);
+
+	private SceneModel? Build(string dtsName, int rootIndex, string? bankName,
+			bool segmented = false, bool transparentBank = false) {
 		string key = $"dts\\{dtsName}#{rootIndex}";
 		if (_models.TryGetValue(key, out var cached)) {
 			return cached;
@@ -237,7 +260,7 @@ public sealed class SceneModelLibrary {
 			root = roots[rootIndex];
 		}
 
-		var model = BuildFromRoot(key, root, bankName, segmented);
+		var model = BuildFromRoot(key, root, bankName, segmented, transparentBank);
 		_models[key] = model;
 		return model;
 	}
@@ -259,12 +282,13 @@ public sealed class SceneModelLibrary {
 		return model;
 	}
 
-	private SceneModel? BuildFromRoot(string key, TSObject? root, string? bankName, bool segmented = false) {
+	private SceneModel? BuildFromRoot(string key, TSObject? root, string? bankName,
+			bool segmented = false, bool transparentBank = false) {
 		if (root == null) {
 			return null;
 		}
 
-		var atlas = bankName != null ? LoadAtlas(bankName) : null;
+		var atlas = bankName != null ? LoadAtlas(bankName, transparentBank) : null;
 		var build = DtsMeshBuilder.BuildRoot(root, atlas, _shading);
 		var (min, max) = DtsMeshBuilder.Bounds(build.Vertices);
 
@@ -278,7 +302,8 @@ public sealed class SceneModelLibrary {
 		return new SceneModel(key, build.Vertices, build.TriangleVertexCount, atlas, -min.Y,
 			(int)(radiusInRenderUnits * WorldScale.WorldUnitsPerMeter),
 			(int)(extent.Y * WorldScale.WorldUnitsPerMeter),
-			segmented ? DtsMeshBuilder.BuildSegments(root, atlas, _shading) : Array.Empty<MeshSegment>());
+			segmented ? DtsMeshBuilder.BuildSegments(root, atlas, _shading) : Array.Empty<MeshSegment>(),
+			DtsSpriteBuilder.Build(root));
 	}
 
 	/// <summary>
@@ -322,8 +347,18 @@ public sealed class SceneModelLibrary {
 		return library;
 	}
 
-	private TextureAtlas? LoadAtlas(string bankName) {
-		if (_atlases.TryGetValue(bankName, out var cached)) {
+	/// <summary>
+	/// <paramref name="transparentIndex0"/> decodes palette index 0 to alpha 0 rather than to an
+	/// opaque colour, which is what a bank of <b>billboard sprites</b> needs and a bank of mesh
+	/// textures does not: an explosion frame is a round puff on a field of index 0, and the
+	/// original's blit skips that index rather than writing it. Only the sprite banks ask for it —
+	/// the frames a mesh samples have no transparent index at all.
+	/// </summary>
+	private TextureAtlas? LoadAtlas(string bankName, bool transparentIndex0 = false) {
+		// The two decodings of one bank are different images, so they cache apart. No retail bank is
+		// asked for both ways; the key keeps that from being an assumption.
+		string key = transparentIndex0 ? bankName + "#alpha" : bankName;
+		if (_atlases.TryGetValue(key, out var cached)) {
 			return cached;
 		}
 
@@ -332,10 +367,10 @@ public sealed class SceneModelLibrary {
 
 		if (bytes != null
 			&& new DynamixBitmapArrayTransformer().BytesToObject(bytes) is DynamixBitmapArray bank) {
-			atlas = TextureAtlas.Build(bank, _palette);
+			atlas = TextureAtlas.Build(bank, _palette, transparentIndex0);
 		}
 
-		_atlases[bankName] = atlas;
+		_atlases[key] = atlas;
 		return atlas;
 	}
 }

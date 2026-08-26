@@ -211,11 +211,19 @@ public sealed class Projectile {
 	}
 
 	/// <summary>
-	/// The shape's frame counter — the record's <c>+0x06</c> as a countdown, reloaded each time it
-	/// expires, stepping the drawn shape's animation frame on. <b>The step itself is not modelled</b>:
-	/// the engine draws a bullet's <c>.DTS</c> root at its rest pose and has nothing that advances a
-	/// shape-instance frame index. The countdown is kept because it is the object's own state and
-	/// because it is all that is missing — the three EMP records are the only ones that set it.
+	/// <c>Bullet_TickUpdate</c>'s opening step: the record's <c>+0x06</c> as a countdown, reloaded
+	/// each time it expires, stepping the drawn shape's cell-animation frame on. Unlike an
+	/// <see cref="ImpactEffect"/>, a round's flipbook simply loops — the wrap is not an ending.
+	///
+	/// <para>A zero interval means a static shape and the counter never moves, which is every
+	/// autocannon round and the plasma round; the three EMP records are the only ones that set it,
+	/// and their shapes are the flipbooks of billboards that need it (see
+	/// <see cref="Render.DtsSpriteBuilder"/>).</para>
+	///
+	/// <para>The original also takes the step modulo the shape's own frame count for that sequence.
+	/// Here the counter simply climbs and the renderer takes the modulo, which
+	/// <c>TSCellAnimPart_Render</c> does anyway — same frame drawn, and the simulation stays clear of
+	/// needing to know what the shape looks like.</para>
 	/// </summary>
 	private void AnimationTick() {
 		if (_record.Unk2Flag == 0) {
@@ -224,8 +232,15 @@ public sealed class Projectile {
 
 		if (SimMath.CountdownTimerTick(ref _animationTimer) == 0) {
 			_animationTimer = _record.Unk2Flag;
+			AnimationFrame++;
 		}
 	}
+
+	/// <summary>
+	/// The shape's cell-animation frame counter, which the renderer wraps against the drawn shape's
+	/// own frame count. Zero and unmoving for every round whose shape is static.
+	/// </summary>
+	public int AnimationFrame { get; private set; }
 
 	/// <summary>
 	/// <c>FUN_0040aff0</c> — the plasma cannon's guidance, which is a steer of the shot's own euler

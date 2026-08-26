@@ -149,6 +149,7 @@ sealed class DebugPanel {
 		}
 
 		_projectilesLive = world.Projectiles.Count;
+		_effectsLive = world.Effects.Count;
 
 		foreach (var impact in world.Impacts) {
 			_projectileImpacts++;
@@ -161,6 +162,7 @@ sealed class DebugPanel {
 	}
 
 	private int _projectilesLive;
+	private int _effectsLive;
 	private int _projectileImpacts;
 	private string? _lastImpactTarget;
 
@@ -309,6 +311,7 @@ sealed class DebugPanel {
 		}
 
 		ImGui.Text($"Shots in flight: {_projectilesLive}   impacts: {_projectileImpacts}");
+		ImGui.Text($"Impact effects playing: {_effectsLive}");
 		if (_projectileImpacts > 0) {
 			ImGui.Text($"  last struck: {_lastImpactTarget ?? "nothing"}");
 		}

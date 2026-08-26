@@ -36,10 +36,12 @@ public sealed class MissionScene {
 			IReadOnlyList<SceneObject> objects, IReadOnlyList<SceneModel> models,
 			MeshVertex[] terrainMesh, TheaterDescriptor theater, TerrainTextureBank? terrainBank,
 			SceneObject? playerObject, BeamAppearance? beams,
-			IReadOnlyDictionary<int, SceneModel> bulletModels, Atmosphere atmosphere) {
+			IReadOnlyDictionary<int, SceneModel> bulletModels,
+			IReadOnlyDictionary<int, SceneModel> explosionModels, Atmosphere atmosphere) {
 		Atmosphere = atmosphere;
 		Beams = beams;
 		BulletModels = bulletModels;
+		ExplosionModels = explosionModels;
 		Mission = mission;
 		World = world;
 		Camera = camera;
@@ -106,6 +108,15 @@ public sealed class MissionScene {
 	/// </summary>
 	public IReadOnlyDictionary<int, SceneModel> BulletModels { get; }
 
+	/// <summary>
+	/// The shape each impact effect is drawn as, keyed by the <c>EXPLOS.DAT</c> shape index its type
+	/// row names — one root of <c>dts\EXPLOS.DTS</c> each, textured from whichever
+	/// <c>dba\EXPLO&lt;n&gt;.DBA</c> that row's own second field selects. Built up front for the same
+	/// reason <see cref="BulletModels"/> is: an effect appears at the instant of impact and has
+	/// nowhere to load anything from, and the original loads all twenty once at startup.
+	/// </summary>
+	public IReadOnlyDictionary<int, SceneModel> ExplosionModels { get; }
+
 	/// <summary>How many placed objects have no model the engine can build yet.</summary>
 	public int UnmodelledCount => Objects.Count(o => o.Model == null);
 
@@ -128,7 +139,13 @@ public sealed class MissionScene {
 		// to the world because a shot in flight is simulation state before it is anything visual.
 		var bullets = BulletCatalog.Load(content.Read(BulletCatalog.ResourceFolder, BulletCatalog.TableResource));
 
-		var world = new SimWorld(terrain, bullets, mission.Header.ZoneIndex);
+		// The impact-effect table, loaded once at startup as FUN_00407b54 loads it. Its shapes are
+		// built below, and the frame counts they yield go back into the catalog — an effect's life is
+		// one pass of its own flipbook, so the simulation cannot time it without them.
+		var explosions = ExplosionCatalog.Load(
+			content.Read(ExplosionCatalog.ResourceFolder, ExplosionCatalog.TableResource));
+
+		var world = new SimWorld(terrain, bullets, explosions, mission.Header.ZoneIndex);
 		var models = new SceneModelLibrary(content, theater);
 		var baseTypes = BaseTypeTable.Load(content);
 
@@ -179,9 +196,24 @@ public sealed class MissionScene {
 			}
 		}
 
+		var explosionModels = new Dictionary<int, SceneModel>();
+		var explosionFrames = new List<int>();
+		for (int shapeIndex = 0; explosions != null && shapeIndex < explosions.ShapeCount; shapeIndex++) {
+			var shape = explosions.Shape(shapeIndex);
+			var model = shape != null ? models.Explosion(shapeIndex, shape.TextureBankIndex) : null;
+
+			if (model != null) {
+				explosionModels[shapeIndex] = model;
+			}
+
+			explosionFrames.Add(model?.Sprites.Length ?? 0);
+		}
+
+		explosions?.BindFrameCounts(explosionFrames);
+
 		return new MissionScene(mission, world, camera, objects, models.Models.ToArray(),
 			terrainMesh, theater, terrainBank, playerObject,
-			BeamAppearance.Load(content, theater.PaletteName), bulletModels,
+			BeamAppearance.Load(content, theater.PaletteName), bulletModels, explosionModels,
 			Atmosphere.From(terrain, models.Shading));
 	}
 

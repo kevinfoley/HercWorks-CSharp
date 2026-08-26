@@ -93,12 +93,16 @@ Homing is a steer of the **euler angles**, not of a velocity: the bearing to the
   yet; an unported explosion should cost the weapon its splash, not its shot.
 - **Nothing homes.** The guidance is ported but reads the firing machine's selected target, and the
   engine has no target selection — the same result the original gives with nothing selected.
-- **The shape's animation frame is not advanced.** The countdown is kept; nothing steps a
-  shape-instance frame index.
-- **The three EMP rounds are invisible.** `BULLETS.DTS` roots 2 and 3 are a `TSCellAnimPart` of five
-  `TSBitmapPart`s — a flipbook of billboard sprites, not geometry — and the engine has no
-  world-space sprite path. They simulate and do damage.
+- **The animation frame counter climbs rather than wrapping.** The original mods it by the shape's
+  own frame count for the sequence; the renderer takes the same modulo anyway
+  (`TSCellAnimPart_Render` does), so the frame drawn is identical and the simulation stays clear of
+  needing to know what the shape looks like.
 - Sound is unported throughout.
+
+The three EMP rounds — `BULLETS.DTS` roots 2 and 3, a `TSCellAnimPart` of five `TSBitmapPart`s — are
+drawn through the billboard path, see [`../formats/dts-billboards.md`](../formats/dts-billboards.md).
+The record's `+0x06` animation interval is what steps their flipbook; it is zero for every other
+round.
 
 ## How a round is drawn
 

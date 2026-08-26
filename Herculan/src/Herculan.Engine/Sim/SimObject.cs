@@ -48,12 +48,16 @@ public abstract class SimObject {
 	/// <para>The base returns "missed". <see cref="BaseObject"/> and <see cref="FlyerObject"/> both
 	/// have their own <c>+0x20</c> in the original and neither is ported, so beams pass through
 	/// structures and aircraft — see docs/simulation/damage-system.md.</para>
+	///
+	/// <para>The world is passed because a hit is more than a number: an implementation spawns the
+	/// shot's impact effect from in here, which is where the original spawns it too — see
+	/// <see cref="SimWorld.SpawnImpactEffect"/>.</para>
 	/// </summary>
 	/// <returns>
 	/// How far along the ray the object was struck, or zero for a miss. The caller shortens the ray
 	/// to this, so it has to be a distance rather than a flag.
 	/// </returns>
-	public virtual int DirectFireHitTest(WeaponShot shot) => 0;
+	public virtual int DirectFireHitTest(SimWorld world, WeaponShot shot) => 0;
 
 	/// <summary>
 	/// One simulation step. Rate-based motion inside an override should go through

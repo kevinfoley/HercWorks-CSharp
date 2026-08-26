@@ -57,15 +57,34 @@ Offsets are absolute in-memory (tail-relative = absolute − 0x22).
 
 | Absolute | Field | Read by |
 |---|---|---|
-| `0x36` | energy fire threshold, low | `FUN_0040ecdc` |
-| `0x38` | energy fire threshold, high | `FUN_0040ecdc` |
+| `0x30` | **range**, int32, in world units | `WeaponMount_FireDispatch_GunBeam` |
+| `0x36` | energy fire threshold, low | `WeaponMount_EnergyCanFire` |
+| `0x38` | energy fire threshold, high, **and the per-shot cost** | `WeaponMount_EnergyCanFire`, both fire dispatchers |
 | `0x3a` | magazine size | `FUN_0040e140` |
 | `0x3e` | `ProjDatIndex` | `MechLoadout_ConstructWeaponMounts` |
+| `0x40`–`0x44` | muzzle offset, three int16, in the firing bone's space | `WeaponMount_PrepareShot` |
+| `0x46` | lateral muzzle offset, for a side-mounted hardpoint | `WeaponMountTemplate_SideMuzzleOffset` |
+| `0x4a` | vertical muzzle offset, for a top- or bottom-mounted one | `WeaponMountTemplate_SideMuzzleOffset` |
+| `0x4c` | refire delay, in sim timer units | `WeaponMount_PrepareShot` |
+
+`0x30` is the ray length the beam dispatch hands `Bullet_FireBurst`, which is what identifies it; it
+was previously known only as the value `FUN_004110ac` requires to be positive before it will put a
+hardpoint into a fire chain, and every pod carries zero, so that gate still works. Retail values run
+75000 (ATC20) down to 15000 (ELF2) — 450 m to 90 m at the simulation's own scale, which does *not*
+match the manual's 20 m figure for the ELF.
 
 `0x36`/`0x38` decide when an energy mount will fire: `max(0x36, mount+0x7b)` when `0x36 < 0x38`,
-otherwise `0x38`. `0x3a` is both the round count an ammunition mount powers up with and its cap
-(ATC20 2000 … ATC100 500, MSL6/8/10/24 6/8/10/24). Both are covered in
-[`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md).
+otherwise `0x38`. `0x38` is also what a shot costs, so the two shapes real data takes — equal pair
+(LAS100 80/80) versus small low against a 10000 high (PBEAM 300/10000) — are a fixed-cost weapon and
+a charge-up one. `0x3a` is both the round count an ammunition mount powers up with and its cap
+(ATC20 2000 … ATC100 500, MSL6/8/10/24 6/8/10/24), and the ammunition dispatch spends `0x38` rounds
+per shot.
+
+`0x4c` is 1200 on most weapons — about 15 sim ticks — and **zero on `ELF` and `ELF2`**, which is what
+makes those two continuous beams. The mount scales it by its own `+0x63`, a constant `0x400`.
+
+See [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md) for the mount fields and
+[`../simulation/weapon-firing.md`](../simulation/weapon-firing.md) for the fire path.
 
 ## `+0x52` and `+0x56` — runtime-only, written by the loader
 
@@ -88,9 +107,13 @@ Full weapon-id-to-index table: see `HercWorks.Core.Data.File.Dat.Sim.ProjectileD
 
 ## Remaining undecoded
 
-- `Field0` (range/tier semantics unknown)
+- `Field0` (tier semantics unknown — **not** the range, which is `0x30`)
 - Reused constant fields (`DepCount`, `SubSphereFlagRaw`) from `.DMG`/`.COL`
 - Firing-sequence tuple details
-- The 40 bytes of the tail outside the four fields above
+- `0x3c` (1 for most weapons, 3 for `EMP2` — the gun dispatch fires a second barrel at 3) and `0x3e`
+  when read as a burst flag by that same dispatch (`0x13`)
+- `0x4e` (200 for LAS100 rising to 800 for the big launchers) and `0x50` (a small per-family code:
+  1 laser, 2 autocannon, 3 EMP, 4 particle beam, 5 missile)
+- The rest of the tail outside the fields above
 
 Implementation: see `HercWorks.Core.Data.File.Dat.Sim.Weapons` and `HercWorks.Core.Io.Transform.Dbsim.WeaponsSimTransformer`.

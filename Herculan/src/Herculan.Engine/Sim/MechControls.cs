@@ -63,9 +63,19 @@ namespace Herculan.Engine.Sim;
 /// cleared by it — the original's dispatch sets one of the two globals and zeroes the other
 /// wherever it touches either.</para>
 /// </param>
+/// <param name="Fire">
+/// The manual's [Space] "Fire Active Weapon" — the device struct's own byte at <c>+0x0d</c>, which
+/// is the joystick trigger and whatever key is bound alongside it.
+///
+/// <para><b>Held, not pressed.</b> It reaches the weapon manager as a mount vtable call
+/// (<c>+0x30</c>, <c>FUN_0040f8ad</c>) that does nothing but return that byte, and the whole trigger
+/// path is re-run every frame — so a held trigger fires again as soon as the refire delay expires
+/// and the capacitor is back over its threshold. Nothing along the path looks at edges, which is why
+/// there is no scancode case for [Space] anywhere in the command dispatcher.</para>
+/// </param>
 public readonly record struct MechControls(short Turn, short Throttle, int ThrottleLever = 0,
 		short TorsoTwist = 0, short TorsoPitch = 0, bool CenterTorso = false,
-		bool CenterBody = false) {
+		bool CenterBody = false, bool Fire = false) {
 	/// <summary>Full stick deflection, in either direction.</summary>
 	public const short AxisFull = 0x100;
 

@@ -74,9 +74,11 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 /// name "proj" — matches this file's own name), 36 bytes/record, and reads exactly this record's
 /// <see cref="Projectile.DamageShield"/>/<see cref="Projectile.DamageArmor"/> at the same byte
 /// offsets this parser already used, independently of this Java-ported doc comment. A shot's raw
-/// power level (Q8, effectively the shot's charge fraction) is multiplied against DamageShield
-/// before it reaches shield absorption, and against DamageArmor before it reaches the
-/// direct-fire/explosion damage-application step — i.e. these fields are genuinely the weapon's
+/// power level — the capacitor charge it was fired at, <c>min(template+0x38, mount+0x7d)</c> — is
+/// <b>Q10</b>-multiplied against DamageShield before it reaches shield absorption, and against
+/// DamageArmor before it reaches the direct-fire/explosion damage-application step (an earlier pass
+/// recorded this as Q8; Q8 is <see cref="Projectile.SplashFactor"/>'s own multiplier, one step
+/// further down). See docs/simulation/weapon-firing.md. These fields are genuinely the weapon's
 /// own base damage-vs-shields and damage-vs-armor stats, not abstract multipliers. Real values
 /// line up with the manual's weapon-effectiveness fiction: entries with DamageShield &gt;&gt;
 /// DamageArmor (e.g. 2000/400, 8000/2000) match "EMP disrupts the shield matrix"; entries with

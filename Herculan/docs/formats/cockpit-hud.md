@@ -151,7 +151,7 @@ authored in the 320-wide space and shifted by `VideoMode_X/YCoordShift`.
 | Field | Meaning |
 |---|---|
 | 0-3 | 3D viewport rect `x0, y0, x1, y1` |
-| 4-5 | View centre, `cx, cy` |
+| 4-5 | Projection centre, `cx, cy` — **stored negated**, see below |
 | 6-7 | Canvas origin `originX, originY` |
 
 C# port: `HercWorks.Core.Data.File.Dbsim.Vue.Entry` (fields renamed to match the above 2026-08-20;
@@ -170,6 +170,36 @@ Every retail `.VUE` gives view 1 the canvas origin `(0,237)` — no herc differs
 
 View 1's zero-size rect is why the heads-down view shows no 3D. **RAZOR is the sole exception** —
 `0,0 – 320,181`, matching its 2368-byte `.HD1` against every other herc's 16-byte stub.
+
+### The projection centre is not the middle of the view
+
+Fields 4-5 are where the view axis lands on screen, and `FUN_0048c5c4` is the projection's last step:
+`screenX = x + centreX`, `screenY = centreY - y`. Anything running straight away from the eye — a
+beam leaves its muzzle parallel to the view axis — vanishes at that point, and it is where the
+gunsight reticle is drawn. **It is not the centre of the viewport rect, and not the centre of the
+view window.** APOCA's is 95 rows down a 240-row view, 45 above the window's middle.
+
+The value reaches the projection through three steps, all of which cancel to a plain negation:
+
+1. `CockpitView_ApplyViewState` (`00429e60`) copies the record's first six ints into the render
+   context at `+0x210..+0x224`, then adds the view's canvas origin into the last pair.
+2. `FUN_0048c1d8` computes `centre = viewportTopLeft - thatPair`.
+3. Every retail viewport rect starts at `(0,0)`, and the side glances' canvas origins of ±320 cancel
+   against their own window origins.
+
+So the centre relative to a view's own window is `(-cx, -cy)` authored — `(160, 95)` for APOCA.
+Retail `cy` runs 95 (APOCA, RAPTOR2) to 146 (RAZOR); `cx` is 160 for every herc and every view, so
+only the vertical actually varies. All four views of a herc carry the same pair.
+
+`FUN_0048c1d8` also installs, from the same view struct: `+0x1a` the perspective shift
+(`(width << shift) / z` is the whole of the divide), `+0x1e` the near plane, `+0x22` the orthographic
+divisor. The shift is the focal length in pixels and would give the true field of view; it has not
+been traced to its writer, so the engine's FOV remains a guess.
+
+Engine: `Content.CockpitViewGeometry.ProjectionCenter`, applied via `Render.Camera.PrincipalPoint`
+as an off-centre frustum. Before this was found the engine used a symmetric frustum centred on the
+canopy hole, which put every shot ~100 window pixels below the reticle it was supposed to converge
+on.
 
 ### Cockpit canvas
 

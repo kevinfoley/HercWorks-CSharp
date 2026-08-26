@@ -2,9 +2,10 @@
 
 Reverse-engineered from `DBSIM.EXE` disassembly (Ghidra project `ES2Recon`). All addresses are
 DBSIM.EXE virtual addresses. Confirmed against the official *Earthsiege 2 - On-Line Manual.pdf*
-where noted. See [`dbsim-physics-notes.md`](dbsim-physics-notes.md) for movement/collision/rocket
-math and [`../formats/terrain-heightmap.md`](../formats/terrain-heightmap.md) for the terrain
-heightmap this system's ground-impact checks query.
+where noted. See [`weapon-firing.md`](weapon-firing.md) for how a shot gets here in the first place,
+[`dbsim-physics-notes.md`](dbsim-physics-notes.md) for movement/collision/rocket math, and
+[`../formats/terrain-heightmap.md`](../formats/terrain-heightmap.md) for the terrain heightmap this
+system's ground-impact checks query.
 
 How a weapon's fire turns into a mech taking damage has two different pathways — **direct fire**
 (deterministic, single component, shield-gated) and **explosive/area-of-effect** (random,
@@ -29,6 +30,21 @@ separate "apply damage" step visible from the caller's side. `FUN_00426528` also
 unrelated vtable call per candidate (`+0x50`, `FUN_0041f7b8`) — AI threat-tracking ("this object
 just took fire, update who it thinks is attacking it"), not damage.
 
+Three properties a port has to preserve:
+
+- Before the sweep it **caches the world-to-muzzle transform** in the ray record at `+0x0a` (copy,
+  transpose, negate-and-rotate the translation), which is the frame every hit test works in.
+- It **shortens the ray to each hit** (`rayRecord+0x04`) rather than stopping at the first, so a
+  candidate found later but nearer wins — every subsequent candidate is tested against the shortened
+  length. It breaks early only for a hit inside 500 units. Because damage is applied inside the hit
+  test, a candidate that is later superseded has still taken its damage.
+- It opens with a **ray-versus-terrain query**, `Sim_RaycastTerrain` (`00428048`) →
+  `Terrain_RayWalk` (`0046e87c`) against `ActiveHeightGrid`. A ground hit clips the ray before any
+  object is tested, so a beam cannot shoot through a hillside. The ray record's own 200 is passed
+  through as a walk radius but the thin-ray mode never reads it. Solved — see
+  [`../formats/terrain-heightmap.md`](../formats/terrain-heightmap.md#ray-versus-terrain--terrain_raywalk-0046e87c).
+  Returns `hitDistance + 1`, or 0 for a clean miss.
+
 `bullet.cpp`'s per-tick and burst-fire functions (found by walking `FUN_00426528`'s other callers):
 - **`FUN_0040b124`(instance) — per-bullet-instance tick.** Structurally parallel to the rocket's
   `FUN_0040a538` (periodic seeker-slot reacquire, age counter, lifetime-expiry check) but bullets
@@ -38,7 +54,7 @@ just took fire, update who it thinks is attacking it"), not damage.
   function directly with a `4000`-unit blast radius — see "Explosive damage" below. Every other
   bullet type just calls the raycast and, if it returns a hit, marks itself for removal — the
   direct-fire damage already happened inside that raycast call.
-- **`FUN_0040bf74`(type, origin/dir, distance, owner, angle) — fire-burst / tracer spawner.**
+- **`Bullet_FireBurst`(missileId, shotTransform, range, owner, power) — fire-burst / tracer spawner.**
   Calls the raycast once up front to get the actual (possibly shortened) travel distance, then —
   if that distance exceeds 5000 game units — splits the visual tracer into multiple 5000-unit
   segments (`FUN_0040b804` spawns each), otherwise spawns one tracer for the whole distance. Pure
@@ -49,16 +65,24 @@ just took fire, update who it thinks is attacking it"), not damage.
 **`FUN_00418ba8` (mech vtable `+0x20`), called by `FUN_00426528` on every raycast candidate.** In
 order:
 
-1. **Range/geometry check.** Transforms the shot into the mech's local space and rejects it if
-   outside the mech's hit-cylinder (a per-type radius, `typeRecord+0x1a`).
-2. **Shield absorption — `FUN_00413cc4`.** Picks the front or rear shield zone by which side of
-   the mech was hit, then: `absorbed = min(incomingDamage, remainingShieldInZone)`; both the
-   incoming damage and the zone's remaining charge are reduced by that amount. A **hard cap, not
-   an all-or-nothing threshold** — a hit whose damage exceeds what's left in that zone drains it
-   to zero and carries its excess straight through in the same hit; the zone doesn't need to
-   already be empty beforehand. If the shot is fully absorbed, the function returns "no
-   penetration" and the caller only spawns a visual hit-spark effect. See "The shield system"
-   below.
+1. **Coarse range check.** Rejects the candidate outright when
+   `200 + rayLength + typeRecord[0x1a] < |muzzle - mech|`, keeping the transform work off everything
+   nowhere near the shot.
+2. **Geometry and shield absorption — `FUN_00413cc4`.** The mech's centre of mass
+   (`typeRecord+0x18` above its origin) is brought into **muzzle space**, where the ray is the Y
+   axis, so the hit is two comparisons: the centre in front and within the ray's remaining length
+   (an *unsigned* compare, which is what rejects anything behind the muzzle), and its 2D distance
+   off the axis under the hit radius `typeRecord+0x1a`. Then
+   `absorbed = min(incomingDamage, remainingShieldInZone)`, with both the incoming damage and the
+   zone's charge reduced by it. A **hard cap, not an all-or-nothing threshold** — a hit worth more
+   than the zone holds drains it to zero and carries its excess straight through in the same hit.
+   The facing is picked by **where the muzzle sits in the mech's frame**, so it is the shooter's
+   bearing that exposes the rear array. See "The shield system" below.
+
+   It returns the ray's entry point into the hit cylinder, `alongAxis - (radius - offAxis)` floored
+   at 1, which is what `FUN_00426528` shortens the ray to. **A fully absorbed shot still returns a
+   hit distance and still stops the ray** — shields do not let fire through to whatever is behind —
+   and the caller spawns only a hit-spark effect.
 3. **Component selection — `FUN_0040c9d4` → `FUN_0040c8fc` (per candidate) → `FUN_0040c8c8`
    (fine geometry test).** Only reached if some damage penetrated shields. Iterates the mech's up
    to 29 component slots (see "The component damage system" below), and for each occupied one,
@@ -79,12 +103,10 @@ order:
 This is fundamentally different in shape from the explosion path: precisely-aimed weapons hit what
 you aimed at; explosions spray damage around imprecisely.
 
-`FUN_00418ba8` has no direct literal callers besides its own vtable-slot data reference — it's
-exclusively invoked polymorphically as `obj[+0x20](...)`, so it's not confirmed as the beam-weapon
-path specifically vs. the general path anything routed through `FUN_00426528` uses (a beam weapon
-calling this same virtual method directly on its locked target, skipping the object-list scan,
-wouldn't show up as a distinct literal caller). See "Beam-weapon dispatch" below — the beam
-question itself is resolved even though this particular point isn't.
+`FUN_00418ba8` is invoked only polymorphically, as `obj[+0x20](...)`. **Beams do reach it through
+`FUN_00426528` and nowhere else** — the beam dispatch was traced end to end in
+[`weapon-firing.md`](weapon-firing.md), and it calls `Bullet_FireBurst`, which calls the raycast; no
+path applies damage directly to a locked target.
 
 ## Explosive damage: blast sweep, random per-component roll, distance falloff, shield-gated
 
@@ -367,14 +389,15 @@ effectiveness against shields," ATCs are "fast and hard enough to penetrate most
 data — before splitting/applying damage to the selected component.
 
 The shot descriptor (`shotData`, the same struct `FUN_00418ba8`/`FUN_004188c8` consume) is built
-in `FUN_0040bf74` right before the `FUN_00426528` raycast call:
+in `Bullet_FireBurst` right before the `FUN_00426528` raycast call — full layout in
+[`weapon-firing.md`](weapon-firing.md#the-shot-record):
 ```c
-psVar1 = FUN_0040ffc8(4, param_1);                   // look up this bullet's weapon-type record
-shotData.field_0x04 = Q8mul(shotPower, psVar1[3]);   // -> shotData+4, read by FUN_004188c8 (structure/armor damage)
-shotData.field_0x06 = Q8mul(shotPower, psVar1[2]);   // -> shotData+6, read by FUN_00418ba8 (fed into shields)
-shotData.field_0x08 = psVar1[4];                     // -> shotData+8, a further per-hit scaling factor, see below
-shotData.field_0x0a = psVar1 + 6;                    // pointer into the record's effect/sound data
-shotData.field_0x12 = 5;                             // an unrelated "weapon category" tag, see below
+psVar1 = Proj_LookupRecord(4, param_1);               // look up this bullet's weapon-type record
+shotData.field_0x04 = Q10mul(shotPower, psVar1[3]);   // -> shotData+4, read by FUN_004188c8 (structure/armor damage)
+shotData.field_0x06 = Q10mul(shotPower, psVar1[2]);   // -> shotData+6, read by FUN_00418ba8 (fed into shields)
+shotData.field_0x08 = psVar1[4];                      // -> shotData+8, a further per-hit scaling factor, see below
+shotData.field_0x0a = psVar1 + 6;                     // pointer into the record's effect/sound data
+shotData.field_0x12 = 5;                              // an unrelated "weapon category" tag, see below
 ```
 `psVar1` is `PROJ.DAT` (`HercWorks.Core.Data.File.Dat.Sim.ProjectileData`). Cross-checked against
 the real retail `ES2\VOL\simvol0\dat\PROJ.DAT` (984 bytes: 9-byte VOL prefix +
@@ -386,8 +409,12 @@ the real retail `ES2\VOL\simvol0\dat\PROJ.DAT` (984 bytes: 9-byte VOL prefix +
 - The first 3 entries (60/360, 120/480, 180/600, `Speed=5000`) match ATC20/35/50.
 
 **`DamageShield`/`DamageArmor` are the weapon's own base damage stats against each defense type**
-— the value scaled against them (`shotPower`, the shot's own power/charge level, Q8) is not a
-"raw damage" the file further adjusts.
+— the value scaled against them (`shotPower`) is not a "raw damage" the file further adjusts.
+
+`shotPower` is the capacitor charge the shot was fired at, `min(template+0x38, mount+0x7d)`, and the
+scale is **Q10** — against a capacitor scaled to 1200, so a mount holding more than 1024 makes a shot
+worth slightly more than the record's face value. (Q8 is `SplashFactor`'s own multiplier below, one
+step further down; an earlier pass applied it to both.)
 
 **`SplashFactor` (`Unk2_val`, short-index 4, `shotData+8`) — a per-weapon splash/secondary-
 explosion trigger, not a third damage-type multiplier.** Consumer, `FUN_004188c8`:
@@ -449,38 +476,16 @@ checking `MissileId==9` on a live `Bullet` instance. `(Type=2, MissileId=9)` is 
 `Bullet` (real flight time, unlike true `Beam`s) that explodes with splash on impact (unlike every
 other `Bullet`), matching the manual's Plasma description exactly.
 
-**Still open:** the full `Type`/`MissileId` → weapon-*name* mapping. `MissileId` also indexes
-`BULLETS.DAT`/`ROCKETS.DAT` for model data, meaning a weapon's `(Type, MissileId)` pair is set
-somewhere upstream — most likely the untraced 88-byte `"weapons"` record table found alongside
-`PROJ.DAT`'s own loader — rather than being implied by array position (the engine looks records up
-by key, never by index).
+A weapon's `(Type, MissileId)` pair is set upstream, in the mount template table
+([`../formats/weapons-dat-sim.md`](../formats/weapons-dat-sim.md)) via each template's
+`ProjDatIndex` — the engine looks records up by key, never by array position. `MissileId` also
+indexes `BULLETS.DAT`/`ROCKETS.DAT` for model data.
 
 ### Beam-weapon dispatch — solved
 
-Beam weapons don't need a special hit-test call — they go through the exact same `FUN_00426528`
-raycast every other weapon uses, just synchronously, once, inside their own fire function, with no
-persisting object afterward. `FUN_0040bf74` calls the raycast **immediately, at fire time**,
-before any tracer visual is spawned, and its hardcoded `Type=4` lookup category corresponds, in
-every real `PROJ.DAT` record, to `Speed=0`. A beam is a `Type=4` shot: same object, same raycast,
-same hit-test — only the `PROJ.DAT` record says "no travel time."
-
-Dispatch structure, via `FUN_0040ea58`/`FUN_0040ec64` (the generic weapon-mount fire handlers,
-found from `FUN_0040bf74`'s own 2 callers): each checks the mount's cached `PROJ.DAT` record's
-`Type` field (`**(short**)(mount+0x20) == 4`) and branches — `Type==4` → `FUN_0040bf74` (instant
-hitscan, the beam path); anything else → `FUN_0040b5a0`/`FUN_0040b43c`, which unconditionally
-constructs a `Type=2` object via `FUN_0040af6c` (real flight-time). The entire generic gun/beam
-hardpoint mechanism is a two-way branch on one field.
-
-**Missile-launcher dispatcher:** `FUN_0040e964`, structurally parallel to `FUN_0040ea58` (same
-`FUN_0040e788` setup call, same shared scratch globals `DAT_004a98d8`/`DAT_004a98e4`). Reads the
-mount's cached `PROJ.DAT` record (same cache field) and checks `*psVar1 == 0` (`Type == Missile`)
-— if so, fires via `FUN_0040a9c4(psVar1[1] /*MissileId*/, ...)` (the confirmed rocket/missile
-spawn entry point, chooses unguided vs. guided internally — see
-[`dbsim-physics-notes.md`](dbsim-physics-notes.md#rocket-physics-rocketcpp-cluster-0x0040a120-0x0040ac3c));
-any other `Type` falls through to the same `FUN_0040b43c`/`Bullet` fallback. Two mount categories
-(gun/beam-capable, missile-capable), each defaulting to the shared ballistic `Bullet` path for
-whatever they don't specifically handle. `Type 3`/`Rocket`'s own dedicated dispatch trigger wasn't
-separately traced — plausibly selected *within* `FUN_0040a9c4` by a guidance-capability flag.
+Beam weapons need no special hit-test call: they go through the same `FUN_00426528` raycast every
+other weapon uses, just synchronously, once, at fire time, with no persisting object afterward. The
+dispatch itself is in [`weapon-firing.md`](weapon-firing.md#the-fire-dispatch--vtable-0x28).
 
 **Why this wasn't obvious at first:** the shot-record field `shotData+0x12` (hardcoded `5` for
 `FUN_0040bf74`'s bullets) is a completely different numbering scheme from `PROJ.DAT`'s own `Type`
@@ -542,7 +547,7 @@ damage system" above.)
    balance/charge fields. Capacity is a fleet-wide 3500, so a full rebuild is 700 ticks (28 s).
 5. **Per-weapon-type effectiveness is `PROJ.DAT`'s own `DamageShield`/`DamageArmor` fields,
    applied once, upstream, when the shot record is built** — not a branch inside the shield or
-   structure damage functions. The shot's own power/charge level (Q8) is independently scaled
+   structure damage functions. The shot's own power/charge level is Q10-scaled independently
    against each of those two per-weapon stats before shields and structure ever see it; a third
    field (`SplashFactor`) diverts a fraction of the armor-damage portion into a secondary
    explosion. A port's "energy weapons hit shields hard, projectiles hit armor hard" behavior

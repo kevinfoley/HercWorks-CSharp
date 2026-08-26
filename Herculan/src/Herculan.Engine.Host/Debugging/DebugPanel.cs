@@ -21,7 +21,7 @@ namespace Herculan.Engine.Host.Debugging;
 /// <para>Everything it shows is read from live simulation state and everything it sets is a
 /// host-side view option — nothing here feeds back into the sim, so leaving it open cannot change
 /// what it is reporting. The two [Drain] buttons are the exception, and are test seams rather than
-/// mechanics. See docs/engine/handoff-player-movement.md for what the readouts are for.</para>
+/// mechanics.</para>
 /// </summary>
 sealed class DebugPanel {
 	/// <summary>Whether the panel is up. Toggled by [Esc]; see <see cref="ReadToggleKey"/>.</summary>
@@ -118,6 +118,43 @@ sealed class DebugPanel {
 		_lastMechPosition = mech.Position;
 		_haveLastPosition = true;
 	}
+
+	/// <summary>
+	/// Records the beams the tick just finished resolved. Called once per <see cref="SimWorld.Tick"/>
+	/// rather than once per frame, because that list is cleared at the top of each tick and a frame
+	/// can cover several.
+	///
+	/// <para>This is the only thing that can currently see a shot happen: beams have no visual yet, so
+	/// the tally below is what tells you whether the trigger reached the mounts, whether the ray found
+	/// anything, and how far it got.</para>
+	/// </summary>
+	public void SampleBeams(SimWorld world) {
+		foreach (var beam in world.Beams) {
+			_beamsFired++;
+			_lastBeamRange = beam.Range;
+			_lastBeamDistance = beam.Distance;
+			_lastBeamTarget = beam.HitObject switch {
+				MechObject mech => mech.Name,
+				null => beam.GroundHit != null ? "ground" : null,
+				var other => other.GetType().Name,
+			};
+
+			if (beam.HitObject != null) {
+				_beamsHit++;
+			}
+
+			if (beam.GroundHit != null) {
+				_beamsGrounded++;
+			}
+		}
+	}
+
+	private int _beamsFired;
+	private int _beamsHit;
+	private int _beamsGrounded;
+	private int _lastBeamRange;
+	private int _lastBeamDistance;
+	private string? _lastBeamTarget;
 
 	/// <summary>
 	/// Builds this frame's ImGui draw list for the panel. Does nothing while <see cref="IsOpen"/> is
@@ -232,6 +269,32 @@ sealed class DebugPanel {
 		if (ImGui.Button("Drain energy pool")) {
 			pilotMech.DrainEnergyPoolForTest();
 		}
+
+		// The armed weapon and what it does when [Space] is held. A beam is resolved and gone inside
+		// the tick that fired it, so the tally is the only evidence one happened until the tracer
+		// exists; the mount's own three numbers are what gate the next shot.
+		ImGui.Separator();
+		var mounts = pilotMech.Weapons;
+		if (mounts.Slots.ElementAtOrDefault(mounts.Selected) is { } armed) {
+			ImGui.Text($"Armed: {armed.Name} (row {armed.GaugeSlot + 1}"
+				+ $"{(armed.Linked ? ", linked" : "")}{(mounts.SingleFire ? ", single fire" : "")})");
+			ImGui.Text($"  charge {armed.Charge} of target {armed.ChargeTarget}"
+				+ $"  — costs {armed.ShotCost} a shot   - and = move the target");
+			ImGui.Text($"  refire {armed.RefireTimer} of {armed.RefireDelay}"
+				+ $"  ({SimWorld.TickDelta} a tick)   range {armed.Range}");
+			ImGui.Text($"  ready: {(armed.CanFire ? "yes" : "no")}");
+		} else {
+			ImGui.Text("Armed: nothing");
+		}
+
+		ImGui.Text($"Beams fired: {_beamsFired}   hit: {_beamsHit}   clipped at ground: {_beamsGrounded}");
+		if (_beamsFired > 0) {
+			ImGui.Text($"  last: reached {_lastBeamDistance} of {_lastBeamRange}"
+				+ $"  — {_lastBeamTarget ?? "no hit"}");
+		}
+
+		ImGui.Text($"Damage taken: {pilotMech.DamageTaken}"
+			+ $"   ({pilotMech.PenetratingHits} hits past shields)");
 
 		// The bob itself. A retail stride is supposed to swing the eye 0.24-0.42 m (see
 		// MechObject.EyePosition), so a swing far outside that band is the measurement that turns the

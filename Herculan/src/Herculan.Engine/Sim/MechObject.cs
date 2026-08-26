@@ -32,6 +32,7 @@ public sealed partial class MechObject : SimObject {
 	private const int CollisionBackoffTime = 10000;
 
 	private readonly int _hitRadius;
+	private readonly int _centerHeight;
 	private readonly GunLayout? _hardpoints;
 	private readonly WeaponCatalog? _weapons;
 
@@ -41,13 +42,23 @@ public sealed partial class MechObject : SimObject {
 	/// it the machine is fitted with nothing, because the fit alone does not say where anything goes.
 	/// </param>
 	/// <param name="weapons">The simulator's weapon tables — see <see cref="WeaponCatalog"/>.</param>
+	/// <param name="centerHeight">
+	/// How high above the machine's origin its centre of mass sits, in world units — the height a
+	/// direct-fire hit test measures the machine by, so that a beam over its feet misses.
+	///
+	/// <para>DBSIM reads this from its in-memory mech type record at <c>+0x18</c>, alongside the hit
+	/// radius at <c>+0x1a</c>; neither offset has been mapped onto <see cref="HercSimDat"/>'s fields,
+	/// so the caller supplies both from the loaded model's bounds instead. Defaults to
+	/// <paramref name="hitRadius"/>, which is the same order of magnitude.</para>
+	/// </param>
 	public MechObject(string name, HercSimDat simData, int hitRadius, MechLoadout loadout,
 			ShapeAnimation? animation = null, GunLayout? hardpoints = null,
-			WeaponCatalog? weapons = null) {
+			WeaponCatalog? weapons = null, int? centerHeight = null) {
 		Name = name;
 		SimData = simData;
 		Type = new MechTypeRecord(simData);
 		_hitRadius = hitRadius;
+		_centerHeight = centerHeight ?? hitRadius;
 		Loadout = loadout;
 		_hardpoints = hardpoints;
 		_weapons = weapons;
@@ -225,17 +236,25 @@ public sealed partial class MechObject : SimObject {
 	/// turn the view without anything having to add them to it — the camera node hangs off the two
 	/// nodes those sequences drive (see docs/simulation/mech-locomotion.md's chain table).</para>
 	/// </summary>
-	public Transform3 EyeTransform {
-		get {
-			if (Shape is not { } shape || Animation is not { } animation) {
-				return Rotation();
-			}
+	public Transform3 EyeTransform => PartTransform(Type.CameraBoneId);
 
-			int node = animation.TransformIdOfPart(Type.CameraBoneId);
-			return node < 0
-				? Rotation()
-				: Transform3.Concat(shape.NodeTransform(node), Rotation());
+	/// <summary>
+	/// Where one part of this machine's model has ended up in the world, orientation included: the
+	/// part's posed node transform composed with the machine's own. The camera bone and every weapon
+	/// hardpoint are both resolved this way — <c>WeaponMount_PrepareShot</c> (<c>0040e788</c>) reads
+	/// the firing hardpoint's bone exactly as <c>Mech_TargetRelativeToPilot</c> reads the pilot's.
+	///
+	/// <para>Falls back to the machine's own frame for a part the model does not have, which is what
+	/// the original's own fallback transform amounts to.</para>
+	/// </summary>
+	/// <param name="partId">The model part, in the <c>.DTS</c> part id space the type record and the <c>.GL</c> hardpoint list both use.</param>
+	public Transform3 PartTransform(int partId) {
+		if (Shape is not { } shape || Animation is not { } animation) {
+			return Rotation();
 		}
+
+		int node = animation.TransformIdOfPart(partId);
+		return node < 0 ? Rotation() : Transform3.Concat(shape.NodeTransform(node), Rotation());
 	}
 
 	/// <summary>
@@ -280,6 +299,12 @@ public sealed partial class MechObject : SimObject {
 	/// reproducible.</para>
 	/// </summary>
 	public override void Tick(SimWorld world) {
+		// Firing comes before the power tick, which is the original's order within a frame and not an
+		// arbitrary choice: Sim_PollPlayerInput runs the trigger path, and the mech list's own
+		// Mech_PerTickSystemsUpdate pass follows it. That pass is what counts the refire timer down,
+		// so a shot fired this tick has already lost a tick's worth of its delay by the end of it.
+		FireTick(world);
+
 		// Reactor and pool first. In the original this is a separate dispatch entirely —
 		// Sim_MainTick walks the global mech list calling Mech_PerTickSystemsUpdate, while the
 		// control law comes in from the input poll or the AI think — but it runs once per mech per

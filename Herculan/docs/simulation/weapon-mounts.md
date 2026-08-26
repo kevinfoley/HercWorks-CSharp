@@ -5,9 +5,9 @@ from `DBSIM.EXE` in the `ES2Recon` Ghidra project; all addresses are DBSIM virtu
 in `Herculan.Engine.Sim.{WeaponCatalog, WeaponMount, WeaponMounts}` and
 `Herculan.Engine.Content.WeaponRowState`.
 
-Covers how a fit becomes mounts, what those mounts hold, and how the player arms them. The pool
-arbitration they feed is in
-[`reactor-energy-pool.md`](reactor-energy-pool.md); the widgets they drive are in
+Covers how a fit becomes mounts, what those mounts hold, and how the player arms them. What happens
+when the trigger is pulled is in [`weapon-firing.md`](weapon-firing.md); the pool arbitration they
+feed is in [`reactor-energy-pool.md`](reactor-energy-pool.md); the widgets they drive are in
 [`../formats/cockpit-hud.md`](../formats/cockpit-hud.md#weapon-hardpoint-rows); the template table
 itself is in [`../formats/weapons-dat-sim.md`](../formats/weapons-dat-sim.md).
 
@@ -95,10 +95,16 @@ MISSL 36, PLAS 20, LAEW 0.
 `FUN_0040e074` writes `Q10Multiply(820, 1200) = 960` into **both** `+0x7b` and `+0x7d` and `20` into
 `+0x7f` — literals, identical for every energy weapon. A HERC powers up with its capacitors full.
 
-`+0x7b` is a *request*, not a capacity: `FUN_0040f4d8` drops it to 820 when the mount goes idle and
-`FUN_0040f4f0` raises it to 1200 (and sets the mid-charge flag) when a shot is demanded. The charge
+`+0x7b` is a *request*, not a capacity, and it is the manual's **power level**. `FUN_0040f4d8` drops
+it to 820 when the mount goes idle, and `WeaponMount_AdjustPowerLevel` (`0040f48c`) is what the pilot
+moves it with, ±80 a press over 0..1200 — see
+[`weapon-firing.md`](weapon-firing.md#power-level--weaponmount_adjustpowerlevel-0040f48c). The charge
 bar's denominator is the fixed 1200, so a mount at its spawn charge fills 960/1200 = four-fifths of
-its bar, and only a mount charging for a shot ever fills it.
+its bar and only a mount turned up ever fills it.
+
+> `WeaponMount_DemandFullCharge` (`0040f4f0`) sets 1200 in one step and looks like the natural
+> mechanism, but its only caller has no reference of any kind in the image; neither is reachable in
+> the retail build.
 
 Readiness (`FUN_0040ecdc`) is `!destroyed && refireTimer == 0 && charge >= threshold`, where the
 threshold comes from the template's `+0x36`/`+0x38` pair: `max(+0x36, +0x7b)` when `+0x36 < +0x38`,
@@ -212,10 +218,8 @@ or the *first* half of a linked pair.
 
 Finds the mount by its `.GL` fire-chain byte rather than by gauge pointer, requires the template's
 int32 at `0x30` to be positive, and **XORs** its bit in the current chain's array. It does not arm
-anything. The `0x30` gate is what keeps a pod off a chain — every real firing weapon carries a large
-positive value there and every pod carries zero. (The field descends with calibre across the
-autocannon and laser families, which looks like a range, but the manual's own 20 m figure for the
-ELF does not fit; it is left undecoded.)
+anything. `0x30` is the weapon's **range**, so this gate amounts to "is a weapon at all" — every real
+firing weapon carries a large positive value and every pod carries zero.
 
 ### Linking — `FUN_00410f14`
 
@@ -248,11 +252,10 @@ from its own `+0x40` latch. **LINK never stays lit**; the link state lives on th
   `FUN_0041f358`); no writer was found along the paths traced, which is not the
   same as none existing. The engine leaves this gate out; it affects only a missile row's state-box
   colour.
-- Template fields other than those named here, including the `0x30` chain gate — see
+- Template fields other than those named here — see
   [`../formats/weapons-dat-sim.md`](../formats/weapons-dat-sim.md).
-- **Firing.** `WeaponMount_FireDispatch_GunBeam` (`0040ea58`), `WeaponMount_FireDispatch_Missile`
-  (`0040e964`) and auto-fire (`FUN_0040ede8`) are unported. See
-  [`../engine/handoff-beam-firing.md`](../engine/handoff-beam-firing.md).
+- **Firing** is in [`weapon-firing.md`](weapon-firing.md). Beams are ported; the ammunition and
+  rocket dispatches, and auto-fire, are not.
 - **Auto turret tracking.** `manager+0x14` is latched by the TRACK button and read by nothing in
   Herculan; the tracking itself is unported.
 - **A pod's on/off toggle.** Clicking a pod's row in the original flips `gauge+0xc2`

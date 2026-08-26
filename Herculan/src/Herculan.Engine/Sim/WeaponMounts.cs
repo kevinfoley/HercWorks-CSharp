@@ -259,12 +259,12 @@ public sealed class WeaponMounts {
 	/// <c>[Alt]</c> and its number key. It toggles membership rather than setting it, and it does not
 	/// arm anything.
 	///
-	/// <para>A hardpoint whose template gate is not positive is skipped outright, so the pods on the
-	/// panel cannot be chained — see <see cref="WeaponMount.TemplateGate"/>.</para>
+	/// <para>A hardpoint whose weapon has no range is skipped outright, so the pods on the panel
+	/// cannot be chained — see <see cref="WeaponMount.Range"/>.</para>
 	/// </summary>
 	/// <returns>Whether a mount was found to toggle.</returns>
 	public bool ToggleChain(int gaugeSlot) {
-		var mount = Mounts.FirstOrDefault(m => m.GaugeSlot == gaugeSlot && m.TemplateGate > 0);
+		var mount = Mounts.FirstOrDefault(m => m.GaugeSlot == gaugeSlot && m.Range > 0);
 		if (mount == null || Group < 0 || Group >= _groups.Length) {
 			return false;
 		}
@@ -377,6 +377,71 @@ public sealed class WeaponMounts {
 		}
 
 		return !mount.Linked || PartnerOf(mount) is not { } partner || partner.CanFire;
+	}
+
+	/// <summary>
+	/// <c>FUN_00410dbc</c> — the manager's fire entry, and the whole of what pulling the trigger does.
+	///
+	/// <para>Its order is worth keeping: <b>both halves of a linked pair are tested before either
+	/// fires</b>, so a pair whose second half is still charging does not fire its first half alone.
+	/// The same goes for the trigger itself, which is asked of each mount separately (vtable
+	/// <c>+0x30</c>) even though every mount answers from the same device byte.</para>
+	///
+	/// <para>Firing clears <see cref="SingleFire"/> the moment the armed mount is no longer ready,
+	/// which is what "once you fire, the current firing chain will resume" means in the manual: a
+	/// weapon armed by hand keeps the selection until its shot leaves it unready, and then the chain
+	/// takes over again on the next <see cref="PerFrameUpdate"/>.</para>
+	///
+	/// <para>Two things in the original are not here. It passes the mounts a flag off a pair of
+	/// globals which only the ammunition class reads, as its "this shot is free" gate; and it asks the
+	/// armed mount for its ammunition type and raises an alert flag for type 3, which an energy mount
+	/// can never report.</para>
+	/// </summary>
+	/// <param name="owner">The machine firing, which the shot's geometry and the raycast both need.</param>
+	/// <param name="world">The world the shot is resolved against.</param>
+	/// <param name="triggerHeld">The device's fire byte — see <see cref="MechControls.Fire"/>.</param>
+	/// <returns>Whether anything fired.</returns>
+	public bool FireTick(MechObject owner, SimWorld world, bool triggerHeld) {
+		if (_slots.ElementAtOrDefault(Selected) is not { } armed) {
+			return false;
+		}
+
+		var partner = armed.Linked ? PartnerOf(armed) : null;
+
+		if (!armed.CanFire || (partner != null && !partner.CanFire)) {
+			return false;
+		}
+
+		if (!triggerHeld) {
+			return false;
+		}
+
+		armed.Fire(owner, world);
+		partner?.Fire(owner, world);
+
+		// The original re-tests the armed mount after each of the two shots, and the partner's shot
+		// cannot change the armed mount's readiness, so the two tests are one.
+		if (!armed.CanFire) {
+			SingleFire = false;
+		}
+
+		return true;
+	}
+
+	/// <summary>
+	/// <c>WeaponMounts_HandleCommand</c>'s <c>0x0c</c>/<c>0x0d</c>/<c>0x4a</c>/<c>0x4e</c> cases — the
+	/// <c>[-]</c> and <c>[=]</c> keys and the keypad's <c>[-]</c> and <c>[+]</c>, which reach the armed
+	/// mount's vtable <c>+0x38</c> with the "up" half of the pair as a flag. Only an energy mount has
+	/// anything in that slot; see <see cref="WeaponMount.AdjustPower"/> for what it does.
+	/// </summary>
+	/// <returns>Whether a mount took the command.</returns>
+	public bool AdjustPower(bool raise) {
+		if (_slots.ElementAtOrDefault(Selected) is not { } armed) {
+			return false;
+		}
+
+		armed.AdjustPower(raise);
+		return true;
 	}
 
 	/// <summary>

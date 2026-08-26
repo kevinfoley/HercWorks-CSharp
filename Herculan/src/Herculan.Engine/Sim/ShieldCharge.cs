@@ -196,13 +196,48 @@ public sealed class ShieldCharge {
 	/// recharge tick's 5-per-tick cap, which at 3500 capacity and 25 Hz is 700 ticks — 28 seconds,
 	/// matching the retail refill.
 	///
-	/// <para>The real absorb paths (<c>FUN_00413cc4</c> direct fire, <c>FUN_00413c68</c> explosions)
-	/// pick a facing from the hit's bearing and carry excess through into armour; neither is ported.
-	/// See docs/simulation/damage-system.md.</para>
+	/// <para>The explosion path (<c>FUN_00413c68</c>) is still unported; the direct-fire one is
+	/// <see cref="AbsorbDirectFire"/>. See docs/simulation/damage-system.md.</para>
 	/// </summary>
 	public void Empty() {
 		_front = 0;
 		Rear = 0;
+	}
+
+	/// <summary>
+	/// The absorption half of <c>Mech_ShieldAbsorb_DirectFire</c> (<c>00413cc4</c>) — everything that
+	/// function does once its geometry has picked a facing.
+	///
+	/// <para>It is a <b>hard cap, not a threshold</b>: <c>absorbed = min(damage, charge in that
+	/// zone)</c>, and both are reduced by it. A hit worth more than the facing holds drains that
+	/// facing to zero and carries its excess through to armour in the same hit — the zone does not
+	/// have to already be empty for anything to get past it.</para>
+	///
+	/// <para>Only the struck facing is touched. <see cref="Balance"/> is not consulted and the other
+	/// facing is not drawn on, so a machine with everything on its front takes rear hits on nothing
+	/// at all.</para>
+	/// </summary>
+	/// <param name="front">Which facing the hit's bearing selected.</param>
+	/// <param name="damage">
+	/// The shot's shield damage on the way in, and what is left of it on the way out — zero if the
+	/// facing swallowed the whole shot.
+	/// </param>
+	/// <returns>What the facing absorbed.</returns>
+	public short AbsorbDirectFire(bool front, ref short damage) {
+		short charge = front ? _front : Rear;
+		short absorbed = Math.Min(damage, charge);
+		if (absorbed == 0) {
+			return 0;
+		}
+
+		damage -= absorbed;
+		if (front) {
+			_front -= absorbed;
+		} else {
+			Rear -= absorbed;
+		}
+
+		return absorbed;
 	}
 
 	/// <summary>

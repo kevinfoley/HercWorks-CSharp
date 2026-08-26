@@ -35,7 +35,8 @@ public sealed class MissionScene {
 	private MissionScene(Mission mission, SimWorld world, FlyCameraObject camera,
 			IReadOnlyList<SceneObject> objects, IReadOnlyList<SceneModel> models,
 			MeshVertex[] terrainMesh, TheaterDescriptor theater, TerrainTextureBank? terrainBank,
-			SceneObject? playerObject) {
+			SceneObject? playerObject, BeamAppearance? beams) {
+		Beams = beams;
 		Mission = mission;
 		World = world;
 		Camera = camera;
@@ -83,6 +84,13 @@ public sealed class MissionScene {
 	/// to the height/slope ramp.
 	/// </summary>
 	public TerrainTextureBank? TerrainBank { get; }
+
+	/// <summary>
+	/// Beam widths, colours and the shared cross-section, or null when either resource is missing —
+	/// in which case beams still fire and still do damage, they just are not drawn. Loaded here
+	/// because its colours are palette indices and the theater owns the palette.
+	/// </summary>
+	public BeamAppearance? Beams { get; }
 
 	/// <summary>How many placed objects have no model the engine can build yet.</summary>
 	public int UnmodelledCount => Objects.Count(o => o.Model == null);
@@ -147,7 +155,8 @@ public sealed class MissionScene {
 		var terrainMesh = TerrainMeshBuilder.Build(terrain, terrainBank);
 
 		return new MissionScene(mission, world, camera, objects, models.Models.ToArray(),
-			terrainMesh, theater, terrainBank, playerObject);
+			terrainMesh, theater, terrainBank, playerObject,
+			BeamAppearance.Load(content, theater.PaletteName));
 	}
 
 	/// <summary>
@@ -234,7 +243,10 @@ public sealed class MissionScene {
 							placement.WeaponSecondary),
 						models.MechAnimation(placement.TypeName),
 						models.MechHardpoints(placement.TypeName),
-						weapons),
+						weapons,
+						// Half the model's own height stands in for the type record's centre-of-mass
+						// field, which has not been mapped — see MechObject's constructor.
+						(model?.HeightWorldUnits ?? 0) / 2),
 					model);
 			}
 

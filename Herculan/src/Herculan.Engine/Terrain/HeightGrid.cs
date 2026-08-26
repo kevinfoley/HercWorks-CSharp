@@ -13,7 +13,7 @@ namespace Herculan.Engine.Terrain;
 /// two parallel byte arrays. The addressing (<c>index = x + (y &lt;&lt; WidthShift)</c>, row-major)
 /// and every value are unchanged, so the height query below is still a literal translation.</para>
 /// </summary>
-public sealed class HeightGrid {
+public sealed partial class HeightGrid {
 	/// <summary>Length every surface normal is scaled to — <c>FUN_0046c2ec</c>'s own constant.</summary>
 	public const int NormalOne = 0x800;
 

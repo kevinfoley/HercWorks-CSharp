@@ -257,6 +257,24 @@ public struct Transform3 {
 	}
 
 	/// <summary>
+	/// The inverse of a rigid transform — the two-step idiom the original inlines wherever it has to
+	/// bring a world point into an object's own space: transpose the rotation (<c>FUN_0047de0d</c>),
+	/// then rotate the negated translation through it (<c>FUN_004801f8</c>). Both the shared raycast
+	/// (<c>Sim_RaycastObjectList</c>) and the direct-fire shield test
+	/// (<c>Mech_ShieldAbsorb_DirectFire</c>) build it exactly that way, in place, on a copy.
+	/// </summary>
+	public readonly Transform3 Inverted() {
+		var result = this;
+		result.TransposeRotation();
+
+		var translation = result.RotateVector(-X, -Y, -Z);
+		result.X = translation.X;
+		result.Y = translation.Y;
+		result.Z = translation.Z;
+		return result;
+	}
+
+	/// <summary>
 	/// <c>FUN_0047f894</c> — recovers the XYZ euler triple from the rotation, with the usual
 	/// gimbal-lock branch when the X angle reaches a quarter turn.
 	/// </summary>

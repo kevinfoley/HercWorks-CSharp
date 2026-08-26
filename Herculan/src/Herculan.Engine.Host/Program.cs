@@ -33,6 +33,7 @@ short heldTwist = 0;
 short heldPitch = 0;
 int? initialWeaponRow = null;
 bool initialLink = false;
+bool heldFire = false;
 for (int i = 0; i < args.Length; i++) {
 	if (args[i] == "--screenshot" && i + 1 < args.Length) {
 		screenshotPath = args[++i];
@@ -73,6 +74,10 @@ for (int i = 0; i < args.Length; i++) {
 		initialWeaponRow = weaponRow - 1;
 	} else if (args[i] == "--link") {
 		initialLink = true;
+	} else if (args[i] == "--fire") {
+		// Hold the trigger down for the whole run, for the same reason as --turret: a --screenshot
+		// run never sees a keystroke, and a beam is only on screen for the tick after it was fired.
+		heldFire = true;
 	} else if (args[i] == "--external") {
 		// Power up in the external chase view, for the same reason as --mfd and --throttle: the
 		// player's own machine is the one thing the cockpit view never shows, so a --screenshot run
@@ -264,6 +269,8 @@ Key[] weaponRowKeys = {
 bool[] weaponRowKeyDown = new bool[weaponRowKeys.Length];
 bool cycleWeaponKeyDown = false;
 bool linkKeyDown = false;
+bool powerUpKeyDown = false;
+bool powerDownKeyDown = false;
 
 // [V], the external view: the camera parked behind the machine with the cockpit not drawn. Both the
 // geometry and this binding are placeholders — see ExternalCamera for what has not been RE'd. The
@@ -320,6 +327,7 @@ using var window = new EngineWindow($"HERCULAN Engine — zone {mission.Header.Z
 SceneRenderer? renderer = null;
 Overlay2DRenderer? overlay = null;
 WireframeRenderer? wireframe = null;
+BeamRenderer? beams = null;
 ImGuiController? imgui = null;
 GpuMesh? terrainMesh = null;
 GpuTexture? terrainTexture = null;
@@ -355,6 +363,10 @@ window.Load += (gl, input) => {
 	renderer = new SceneRenderer(gl);
 	overlay = new Overlay2DRenderer(gl);
 	wireframe = new WireframeRenderer(gl);
+
+	// Beams draw only if their two resources loaded; a scene without them still fires and still
+	// damages, it just shows nothing.
+	beams = scene.Beams != null ? new BeamRenderer(gl, scene.Beams) : null;
 	imgui = new ImGuiController(gl, window.View, input, new ImGuiFontConfig(debugFontPath, 16));
 
 	terrainMesh = new GpuMesh(gl, scene.TerrainMesh);
@@ -572,7 +584,10 @@ window.Update += deltaSeconds => {
 			TorsoTwist: TurretAxis(Axis(controls, Key.K, Key.J), heldTwist),
 			TorsoPitch: TurretAxis(Axis(controls, Key.I, Key.M), heldPitch),
 			CenterTorso: controls.IsKeyPressed(Key.Backspace),
-			CenterBody: controls.IsKeyPressed(Key.BackSlash));
+			CenterBody: controls.IsKeyPressed(Key.BackSlash),
+			// [Space] is held, not pressed — see MechControls.Fire. Holding it keeps the armed weapon
+			// firing as fast as its refire delay and its capacitor allow.
+			Fire: heldFire || controls.IsKeyPressed(Key.Space));
 	} else {
 		scene.Camera.Input = ReadInput(controls);
 		if (pilotMech != null) {
@@ -649,6 +664,10 @@ window.Update += deltaSeconds => {
 	tickAccumulator = Math.Min(tickAccumulator + deltaSeconds, MaxAccumulatedSeconds);
 	while (tickAccumulator >= SecondsPerTick) {
 		scene.World.Tick();
+
+		// Beams are resolved and forgotten inside the tick, so anything that wants to see one has to
+		// look between ticks — see SimWorld.Beams.
+		debugPanel.SampleBeams(scene.World);
 		tickAccumulator -= SecondsPerTick;
 	}
 
@@ -759,6 +778,7 @@ window.Render += (_, gl) => {
 		DrawThreePanelCockpitView(gl, size.X, size.Y);
 	} else {
 		renderer.Render(camera, VisibleItems(), 0, 0, size.X, size.Y);
+		DrawBeams(camera, size.X, size.Y);
 		DrawSkeleton(camera, size.X, size.Y);
 	}
 
@@ -775,7 +795,11 @@ window.Render += (_, gl) => {
 	imgui?.Render();
 
 	framesRendered++;
-	if (screenshotPath != null && !screenshotTaken && framesRendered >= 30) {
+	// A tracer is on screen for one tick out of every refire period, so a fixed frame number would
+	// catch one only by luck. With the trigger held, wait for a frame that actually has one.
+	bool beamWanted = heldFire && beams != null;
+	if (screenshotPath != null && !screenshotTaken && framesRendered >= 30
+			&& (!beamWanted || scene.World.Tracers.Count > 0)) {
 		screenshotTaken = true;
 		CaptureScreenshot(gl, size.X, size.Y, screenshotPath);
 		window.Close();
@@ -787,6 +811,7 @@ window.Closing += () => {
 	renderer?.Dispose();
 	overlay?.Dispose();
 	wireframe?.Dispose();
+	beams?.Dispose();
 	terrainMesh?.Dispose();
 	terrainTexture?.Dispose();
 	cockpitFrontTexture?.Dispose();
@@ -852,8 +877,11 @@ void DrawThreePanelCockpitView(GL gl, int totalWidth, int totalHeight) {
 			bool mirrorHorizontally, CockpitArt? hud) {
 		var viewport = surface.Viewport;
 		var panelCamera = ClonePanelCamera(camera, yawOffset);
+		panelCamera.PrincipalPoint = PanelPrincipalPoint(surface);
 		renderer!.Render(panelCamera, VisibleItems(),
 			viewport.X, viewport.Y, viewport.Width, viewport.Height);
+
+		DrawBeams(panelCamera, viewport.Width, viewport.Height);
 
 		// Before the canopy goes over it, so the skeleton is clipped by the viewport hole like the rest
 		// of the world. Mostly of use with the machine's own model hidden, but it costs one draw call.
@@ -862,6 +890,34 @@ void DrawThreePanelCockpitView(GL gl, int totalWidth, int totalHeight) {
 			surface.ArtWidth, surface.ArtHeight, mirrorHorizontally, hud,
 			spriteTexture: hudSpriteTexture, hudState: hudState);
 	}
+}
+
+// Where the view axis lands on one cockpit panel, as a fraction of that panel's viewport — the
+// herc's own .VUE projection centre, carried through the same art-to-window transform the canopy is
+// drawn with so it stays on the reticle through the heads-down pan.
+//
+// All three panels get the same point. The centre is stated per view and every retail file gives all
+// four views the same pair, so the horizon cannot step between panels; and since x is always the
+// middle of the view, only the vertical actually moves. Without a .VUE the fallback is APOCA's,
+// which is a guess — but a far better one than the middle of the window, which is wrong for every
+// herc in the game.
+Vector2 PanelPrincipalPoint(CockpitScreenLayout.PlacedSurface surface) {
+	var (centerX, centerY) = viewGeometry?.ProjectionCenter(CockpitViewGeometry.ForwardViewIndex)
+		?? (CockpitViewGeometry.DefaultProjectionCenterX, CockpitViewGeometry.DefaultProjectionCenterY);
+
+	var (windowX, windowY) = surface.ArtToWindow(centerX, centerY);
+	var viewport = surface.Viewport;
+
+	return new Vector2(
+		(windowX - viewport.X) / Math.Max(viewport.Width, 1),
+		(windowY - surface.ViewportTopInWindow) / Math.Max(viewport.Height, 1));
+}
+
+// Every beam fired on the last tick, over the world already drawn into the current viewport. The
+// tracers outlive the tick that made them by exactly one tick, so a shot is on screen for every
+// frame drawn in that window and for none after — see BeamTracer.
+void DrawBeams(Camera view, int viewportWidth, int viewportHeight) {
+	beams?.Render(view, scene.World.Tracers, viewportWidth, viewportHeight);
 }
 
 // The animating skeleton, drawn over whatever was just rendered into the current viewport.
@@ -1004,8 +1060,11 @@ bool ExternalViewActive() => externalView && piloting && pilotMech != null;
 //   [Alt]+[1]..[0]  add/remove that row from the chain -> FUN_004110ac
 //   [W] / [Alt]+[W] step the armed weapon forward/back -> FUN_0041074c
 //   [L]             toggle link fire on the armed pair -> FUN_00410f14
+//   [-] / [=]       lower/raise the armed weapon's power -> the armed mount's vtable +0x38
 //
-// All fire on their own key-down edge: they are toggles and steps, not held states.
+// All fire on their own key-down edge: they are toggles and steps, not held states. [Space] is the
+// exception and is not here — the trigger is a held state read straight off the device struct, so it
+// travels with the rest of the pilot's input in MechControls.
 void ApplyWeaponKeys(IKeyboard keyboard, WeaponMounts mounts) {
 	bool alt = keyboard.IsKeyPressed(Key.AltLeft) || keyboard.IsKeyPressed(Key.AltRight);
 
@@ -1035,6 +1094,20 @@ void ApplyWeaponKeys(IKeyboard keyboard, WeaponMounts mounts) {
 	}
 
 	linkKeyDown = linkKey;
+
+	// [-] and [=], with the keypad's own pair alongside them, move the armed energy weapon's power
+	// level. Also an edge: each press is one step of 0x50 out of 1200.
+	bool powerUpKey = keyboard.IsKeyPressed(Key.Equal) || keyboard.IsKeyPressed(Key.KeypadAdd);
+	bool powerDownKey = keyboard.IsKeyPressed(Key.Minus) || keyboard.IsKeyPressed(Key.KeypadSubtract);
+	if (powerUpKey && !powerUpKeyDown) {
+		mounts.AdjustPower(raise: true);
+	}
+	if (powerDownKey && !powerDownKeyDown) {
+		mounts.AdjustPower(raise: false);
+	}
+
+	powerUpKeyDown = powerUpKey;
+	powerDownKeyDown = powerDownKey;
 }
 
 /// <summary>Every mouse button currently held, as the cockpit's own flag pair.</summary>

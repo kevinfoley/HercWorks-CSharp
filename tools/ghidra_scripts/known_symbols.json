@@ -479,8 +479,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Bullet_FireBurst",
-      "description": "Fire-burst/tracer spawner. Calls Sim_RaycastObjectList synchronously at fire time to resolve the hit before any tracer visual spawns -- this is the beam/hitscan (PROJ.DAT Type 4, always Speed=0) mechanism: no persisting travelling object.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "description": "Fire-burst/tracer spawner, called as Bullet_FireBurst(missileId, shotTransform, range, ownerMech, power). Builds the shot record -- ray {transform, range, 200} plus Q10Multiply(power, DamageArmor), Q10Multiply(power, DamageShield), SplashFactor, the ImpactFX table pointer and the owner -- and calls Sim_RaycastObjectList synchronously to resolve the hit before any tracer visual spawns. This is the beam/hitscan (PROJ.DAT Type 4, always Speed=0) mechanism: no persisting travelling object. Splits the tracer into 5000-unit segments (FUN_0040b804) over the resolved distance.",      "source": "docs/simulation/dbsim-physics-notes.md"
     },
     {
       "address": "0040e964",
@@ -497,8 +496,8 @@
       "type": "function",
       "confidence": "high",
       "name": "WeaponMount_FireDispatch_GunBeam",
-      "description": "Gun/beam-capable-hardpoint fire dispatcher: checks the mount's cached PROJ.DAT Type field, Type==4(Beam) -> Bullet_FireBurst (instant), else unconditionally constructs a Type=2 Bullet object.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "description": "Energy/gun mount vtable +0x28, the fire dispatch. Opens with WeaponMount_PrepareShot, then branches on the mount's cached PROJ.DAT Type: Type==4(Beam) spends min(template+0x38, capacitor +0x7d) out of the capacitor and calls Bullet_FireBurst with that as the shot's power, having first copied the muzzle world point into the shot transform's translation; otherwise it builds a travelling Bullet, with a second barrel when template+0x3c==3 and a burst follow-up when template+0x3e==0x13.",
+      "source": "docs/simulation/weapon-firing.md 2026-08-24"
     },
     {
       "address": "0040ffc8",
@@ -1926,10 +1925,55 @@
       "address": "0046e87c",
       "binary": "DBSIM",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Terrain_RayWalk",
-      "description": "Largest function in the terrain module (5129 bytes). Takes two points, computes their component deltas, halves all three repeatedly until every one fits in +/-32000, then derives four fixed-point slope ratios via the divide helper 0047df5c and selects an octant/direction code -- the classic setup for a DDA walk across the height grid. Investigated while looking for a terrain renderer; it is a traversal (line-of-sight / ray-vs-terrain), NOT a renderer. Named 'maybe_' because the walk body was not read past the setup.",
-      "source": "docs/formats/terrain-texturing.md 2026-08-13 (terrain texturing RE session)"
+      "confidence": "high",
+      "name": "Terrain_RayWalk",
+      "description": "Ray-versus-terrain traversal, the largest function in the terrain module (5129 bytes). Halves the segment delta until every component fits +/-32000, derives four Q16 slopes via 0047df5c, classifies the ground-plane delta into an octant 0-7, then walks the height grid cell by cell with a two-phase step (a minor-axis crossing stashes the major-axis exit and replays it next iteration). Each step yields an exit point and an edge code 0=W/1=E/2=N/3=S, tested by Terrain_EdgeCrossingTest and refined by Terrain_CellSurfaceIntersect. param_6 selects the body: 0 = thin ray (weapon fire, via Sim_RaycastTerrain), 1 = swept volume (movement collision, via 0046fe84/0046ff74/0046fcac). Six multiplies in the octant-2/3 arms are 32-bit truncating imul/sar rather than Math_Q16Multiply.",
+      "source": "docs/formats/terrain-heightmap.md 2026-08-24 (terrain clipping RE session)"
+    },
+    {
+      "address": "0047035c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_EdgeCrossingTest",
+      "description": "Terrain_RayWalk's per-step test: (grid, cellX, cellY, exitPoint, edgeCode) -> is the terrain along that cell edge at or above the exit point. Takes the edge's two corner heights (rawByte * grid+0x118 + grid+0x110); below both = clear, at or above both = hit, straddling = interpolate the edge height at the exit point (fraction along Y for edges 0/1, along X for 2/3). Bounds-checks only the flat corner index, so an edge in the last column reads the next row's first cell -- the same wrap Terrain_HeightQuery has.",
+      "source": "docs/formats/terrain-heightmap.md 2026-08-24 (terrain clipping RE session)"
+    },
+    {
+      "address": "0047068c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_CellSurfaceIntersect",
+      "description": "Solves exactly where a segment meets the ground inside one cell, once Terrain_EdgeCrossingTest has reported a crossing. Builds a plane from each of the cell's two face normals (cell+0x1 and cell+0x7) through a corner that triangle contains, and intersects via Math_PlaneSegmentIntersect; works in cell-local X/Y with world Z and adds the cell origin back on the way out. Result returned in the statics at DAT_006b50e0. Near triangle first, selected by cell+0xf&3 the same way Terrain_HeightQuery selects. Two quirks: selector 0's far triangle has no corner in this cell, so it shifts one cell east and uses corner (x+1,y); selector 2's far plane keeps the NEAR triangle's plane constant rather than recomputing it against the far normal.",
+      "source": "docs/formats/terrain-heightmap.md 2026-08-24 (terrain clipping RE session)"
+    },
+    {
+      "address": "0047e504",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_PlaneSegmentIntersect",
+      "description": "(plane{nx,ny,nz,d}, segment{start[3],end[3]}, out[3]) -> bool. Denominator = dot(n, end-start), numerator = -(dot(n, start) + d); rejects a parameter outside the segment by comparing the pair with the sign of the denominator rather than dividing first, then applies it per component through a 64-bit multiply (0047de78) and divide (0047dd21).",
+      "source": "docs/formats/terrain-heightmap.md 2026-08-24 (terrain clipping RE session)"
+    },
+    {
+      "address": "0046bed8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_BuildCellSurface",
+      "description": "Writes one height-grid cell's diagonal selector (cell+0xf bits [0:1]) and both face normals (cell+0x1 and cell+0x7, three shorts each) from its four corner heights. Selector 1 = coplanar quad (h00+h11 == h01+h10, both normals identical), 2 = split along the (0,0)-(1,1) diagonal, 0 = along the anti-diagonal. Normals are in raw height units -- horizontal components are corner differences, vertical is cellSize/HeightScale -- doubled, then rescaled to length 0x800 by FUN_0046c138. This is the writer of the selector bits that was open until 2026-08-24; neither zone loader touches them.",
+      "source": "docs/formats/terrain-heightmap.md 2026-08-24 (terrain clipping RE session)"
+    },
+    {
+      "address": "0046c1dc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_BuildSurface",
+      "description": "Runs Terrain_BuildCellSurface (via FUN_0046c2ec) over every cell of a freshly loaded height grid, row by row. The last row and column have no east/north neighbour to difference against and keep a flat (0,0,0x800) normal and selector 0.",
+      "source": "docs/formats/terrain-heightmap.md 2026-08-24 (terrain clipping RE session)"
     },
     {
       "address": "0049aae4",
@@ -4896,7 +4940,7 @@
       "type": "function",
       "confidence": "high",
       "name": "WeaponMounts_HandleCommand",
-      "description": "The weapon-mount manager's command handler, called from Mech_HandleCommand. 0x202-0x20b (Alt+1..0) toggle a row's fire-chain membership via WeaponMounts_ToggleChainMember; 0x11 and 0x211 (W, Alt+W) step the armed weapon via WeaponMounts_StepSelection and clear the single-fire flag at manager+0x18; 0x30 advances the fire chain; 0x2c calls FUN_00410d04; 0xc/0xd/0x4a/0x4e reach the armed mount's vtable +0x38.",
+      "description": "The weapon-mount manager's command handler, called from Mech_HandleCommand. 0x202-0x20b (Alt+1..0) toggle a row's fire-chain membership via WeaponMounts_ToggleChainMember; 0x11 and 0x211 (W, Alt+W) step the armed weapon via WeaponMounts_StepSelection and clear the single-fire flag at manager+0x18; 0x30 advances the fire chain; 0x2c calls WeaponMounts_IdleAllCapacitors; 0xc/0xd/0x4a/0x4e ([-], [=], keypad [-], keypad [+]) reach the armed mount's vtable +0x38, WeaponMount_AdjustPowerLevel. There is no firing case: the trigger is polled, not dispatched -- see WeaponMount_TriggerHeld.",
       "source": "docs/simulation/weapon-mounts.md 2026-08-24"
     },
     {
@@ -5058,8 +5102,260 @@
       "type": "function",
       "confidence": "high",
       "name": "WeaponMount_DemandFullCharge",
-      "description": "Energy mount vtable +0x40: sets the mid-charge flag (+0x43) and raises the charge target (+0x7b) to 0x4b0, the same 1200 the cockpit bar is scaled against -- so only a mount with a shot demanded of it ever fills its bar. Its counterpart WeaponMount_WakeCapacitor drops the target back to the idle 820.",
-      "source": "docs/simulation/weapon-mounts.md 2026-08-24"
+      "description": "Energy mount vtable +0x40: sets the mid-charge flag (+0x43) and raises the charge target (+0x7b) to 0x4b0, the same 1200 the cockpit bar is scaled against. NEVER INVOKED in the retail build -- its only caller, WeaponMounts_DemandFullChargeOnArmed_Dead, is itself unreferenced. What actually raises a capacitor past the idle 820 is WeaponMount_AdjustPowerLevel, the player's power-level keys.",
+      "source": "docs/simulation/weapon-firing.md 2026-08-24"
+    },
+    {
+      "address": "00415608",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_PlayerFireTick",
+      "description": "The player's fire path, called once a frame from Sim_PollPlayerInput with the input device struct. Calls WeaponMounts_FireTrigger(mech+0x202, inputDevice, mech); on a shot it also lays out the HUD lead-indicator trail along the bearing to the selected target (DAT_004a9c0c, count DAT_004a9d4c). The only caller of the trigger path -- AI machines fire from their own think function.",
+      "source": "docs/simulation/weapon-firing.md 2026-08-24"
+    },
+    {
+      "address": "00410dbc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMounts_FireTrigger",
+      "description": "The weapon manager's fire entry. Resolves the armed mount and, if it is linked (+0x4b), its partner via the hardpoint's +0x16 offset; requires both to pass vtable +0x2c (CanFire) AND both to pass vtable +0x30 (trigger held) before either fires through vtable +0x28. Clears the single-fire flag (+0x18) once the armed mount is no longer ready. Also passes a free-shot flag built from DAT_004a9ed6/DAT_004a9edc, which only the ammunition class reads.",
+      "source": "docs/simulation/weapon-firing.md 2026-08-24"
+    },
+    {
+      "address": "0040f8ad",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_TriggerHeld",
+      "description": "Mount vtable +0x30, shared by the energy and ammunition classes: returns the input device struct's byte at +0x0d, the fire button. This is the whole of the trigger -- it is a held state polled every frame, not a command, which is why no scancode case for [Space] exists in Sim_DispatchCommand or WeaponMounts_HandleCommand.",
+      "source": "docs/simulation/weapon-firing.md 2026-08-24"
+    },
+    {
+      "address": "0040e788",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_PrepareShot",
+      "description": "The fire prologue both dispatchers open with. Resolves the firing hardpoint's bone (.GL +0) to its posed node transform, composes it with the mech's own transform (mech+0x12) into the global shot transform at 004a98b8, transforms the muzzle offset into world space at 004a98d8, extracts the firing euler triple to 004a98e4, and arms the refire timer as Q10Multiply(mount+0x63, template+0x4c). The per-hardpoint aim rotation it also composes is identity on every retail chassis (.GL +2 and +4 both read -1).",
+      "source": "docs/simulation/weapon-firing.md 2026-08-24"
+    },
+    {
+      "address": "0040f540",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_MuzzleOffset",
+      "description": "Adds the hardpoint's own mount-point offset (.GL +0x10/+0x12/+0x14) to WeaponMountTemplate_SideMuzzleOffset's result and returns the sum, in the firing bone's space. WeaponMount_PrepareShot adds the template's own muzzle triple at +0x40 on top.",
+      "source": "docs/simulation/weapon-firing.md 2026-08-24"
+    },
+    {
+      "address": "0040f904",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMountTemplate_SideMuzzleOffset",
+      "description": "Given a template and the hardpoint's mounting code (.GL +6: 0 on top, 1 underneath, 2 left, 3 right, 4 invisible), returns a 3-vector at 004a9b74 built from the template's lateral figure at +0x46 and vertical figure at +0x4a. Only one axis is ever nonzero: top/bottom take +/-vertical, left/right take -/+lateral, invisible takes neither. Y is always zero. This is what makes a mirrored hardpoint pair fire from mirrored points off one template.",
+      "source": "docs/simulation/weapon-firing.md 2026-08-24"
+    },
+    {
+      "address": "0040ef94",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_RefireTick",
+      "description": "Ammunition mount vtable +0x34, and the first thing WeaponMount_ChargeCapacitor does for an energy mount: counts the refire timer (+0x31) down by SimTickDelta via Math_CountdownTimerTick, and shuffles the two 8-byte muzzle-flash flag blocks at +0x33/+0x3b plus the burst frame counter at +0x44. Gated on the mount not being destroyed, so a dead mount's cooldown does not run. Consumes no energy -- an ammunition mount's whole turn at the pool is this.",
+      "source": "docs/simulation/weapon-firing.md 2026-08-24"
+    },
+    {
+      "address": "0040f48c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_AdjustPowerLevel",
+      "description": "Energy mount vtable +0x38, reached by WeaponMounts_HandleCommand codes 0x0c/0x0d/0x4a/0x4e ([-], [=], keypad [-], keypad [+]) with the 'up' half as a flag. Moves the charge target (+0x7b) by +/-0x50, clamped to 0..0x4b0. This is the manual's power-level control and the only thing in the retail build that raises a capacitor past its idle 820. The ammunition and pod classes have a no-op in this slot.",
+      "source": "docs/simulation/weapon-firing.md 2026-08-24"
+    },
+    {
+      "address": "0040ede8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_AutoFireDue",
+      "description": "Reports a mount as due for an auto-fire follow-up shot: refire timer (+0x31) expired AND the burst-continues flag (+0x4d) set. Only WeaponMount_FireDispatch_GunBeam's multi-shot branch ever sets +0x4d, and never on the beam path, so a beam weapon never reports due.",
+      "source": "docs/simulation/weapon-firing.md 2026-08-24"
+    },
+    {
+      "address": "00410d04",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMounts_IdleAllCapacitors",
+      "description": "WeaponMounts_HandleCommand's 0x2c case: calls vtable +0x3c (WeaponMount_WakeCapacitor) on every mount, dropping every energy capacitor's target back to the idle 820. The bulk counterpart to WeaponMount_AdjustPowerLevel.",
+      "source": "docs/simulation/weapon-firing.md 2026-08-24"
+    },
+    {
+      "address": "00410d50",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMounts_DemandFullChargeOnArmed_Dead",
+      "description": "DEAD CODE. Would call vtable +0x40 (WeaponMount_DemandFullCharge) on the armed mount and clear every other mount's mid-charge flag (+0x43). Has no reference of any kind anywhere in DBSIM.EXE -- neither a CALL rel32 nor a stored address -- so nothing in the retail build reaches it, and WeaponMount_DemandFullCharge is therefore never invoked either.",
+      "source": "docs/simulation/weapon-firing.md 2026-08-24"
+    },
+    {
+      "address": "00428048",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sim_RaycastTerrain",
+      "description": "The ray-versus-terrain query Sim_RaycastObjectList runs before it tests any object. Calls maybe_Terrain_RayWalk(ActiveHeightGrid, origin, endPoint, rayRecord+8 -- the literal 200, as a radius, &hitPoint, 0); on a ground hit the caller measures the distance back to the origin and clips the ray to it. This is what stops a shot passing through a hillside. Its companion FUN_00427d98 is only a counter reset (DAT_004aab54), not part of the query.",
+      "source": "docs/simulation/weapon-firing.md 2026-08-24"
+    },
+    {
+      "address": "0040e62c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_GetEnergyAmmoType",
+      "description": "Energy mount vtable +0x60: writes 0 through its optional out pointer and returns a constant 5. The ammunition counterpart is WeaponMount_GetAmmoType. WeaponMounts_FireTrigger raises an alert pair (DAT_004d25ac/DAT_004d25aa) when this returns 3, which an energy mount never can.",
+      "source": "docs/simulation/weapon-firing.md 2026-08-24"
+    },
+    {
+      "address": "0040b804",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "BeamTracer_Ctor",
+      "description": "Beam tracer constructor, (obj, subtypeId, startPoint, endPoint, owner); vtable PTR_FUN_004987c4, type 3. A straight beam stores two points (muzzle, hit) at +0x58, quad count 1 at +0x54, jagged flag 0 at +0x55, and arms the life timer at +0x5d to 0x38 -- 27 ms in the Q8-of-125ms tick unit, less than one SimTickDelta, so a tracer never survives a second tick. Subtype ids 1 and 7 (ELF, ELF2) take a jagged branch instead: one node per 1024 units, each jittered by RandomNext()&0x7f, each writing a point pair offset in z by BEAM.DAT's width.",
+      "source": "docs/simulation/beam-visuals.md 2026-08-25"
+    },
+    {
+      "address": "0040bc14",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "BeamTracer_Draw",
+      "description": "Beam tracer vtable slot 0. Per quad: both points to view space (FUN_0048c470), near-plane clip (Beam_ClipSegmentToNearPlane), project (FUN_0048c4f0 / Raster_ProjectToScreen), half-width in pixels per end via Raster_PerspectiveScale floored at 2 (a HALF-width floor, so four pixels across), four vertices stepped along the segment's 2D perpendicular in Q11, UVs with u along the beam's length and v across its width, then Raster_DrawPolygon mode 0. Writes no z. Publishes BEAM.DAT's colour index to the graphics context's +0x22c pair, which mode 0 never reads.",
+      "source": "docs/simulation/beam-visuals.md 2026-08-25"
+    },
+    {
+      "address": "0040c2a0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "BeamTracer_LifeTick",
+      "description": "Beam tracer vtable +0x14: one Math_CountdownTimerTick on the timer at +0x5c, returning true at zero. Sim_MainTick frees the object on true, and walks this pool before the machine list so a tracer spawned during a machine update is not counted down until the tick after.",
+      "source": "docs/simulation/beam-visuals.md 2026-08-25"
+    },
+    {
+      "address": "0040ba94",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "BeamTracer_Dtor",
+      "description": "Beam tracer vtable +0x08. Frees the point array at +0x58 and chains to the base destructor.",
+      "source": "docs/simulation/beam-visuals.md 2026-08-25"
+    },
+    {
+      "address": "0040b6e0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Beam_LoadResourceTables",
+      "description": "Beam module init, named by the BEAM.CPP string at 00498781. Builds the 120-entry ramp at DAT_004a9796 as (i>>1) + DAT_00498640[i&3]; loads dat\\beam (int16 count then count x 3 int16 {halfWidth, paletteIndex, dbaFrame}) into BeamAppearanceTable; loads dba\\beamtex and converts it through BitmapArray_PackToAtlas into BeamTextureDescriptors.",
+      "source": "docs/simulation/beam-visuals.md 2026-08-25"
+    },
+    {
+      "address": "004a9888",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "BeamAppearanceTable",
+      "description": "Pointer to the parsed dat\\BEAM.DAT records, 6 bytes each, indexed by PROJ.DAT subtype id (not weapon id): {int16 halfWidth world units, int16 palette index, int16 BEAMTEX.DBA frame}. Retail has 10 records, frame 0 throughout. Only the width differs per weapon on the straight-beam path; the palette index is unread there.",
+      "source": "docs/simulation/beam-visuals.md 2026-08-25"
+    },
+    {
+      "address": "004a988c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "BeamTextureDescriptors",
+      "description": "Pointer to the BEAMTEX.DBA frame descriptors built by BitmapArray_PackToAtlas, 20 bytes each: {x0, y0, x1, y1, int16 atlasPageIndex}, plus a +0x12 short flagging a frame that contains palette index 0. Retail ships one frame, 128x25, every row a single repeated palette index forming a symmetric cross-section (11 at the edges, ramp 84..95 to the middle).",
+      "source": "docs/simulation/beam-visuals.md 2026-08-25"
+    },
+    {
+      "address": "00469f38",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "BitmapArray_PackToAtlas",
+      "description": "Packs every frame of a loaded .DBA into 256x256 atlas pages via Bitmap_PlaceInAtlasPage and returns a vector of 20-byte descriptors {x0, y0, x1, y1, int16 pageIndex}.",
+      "source": "docs/simulation/beam-visuals.md 2026-08-25"
+    },
+    {
+      "address": "00469d10",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Bitmap_PlaceInAtlasPage",
+      "description": "Finds free space in a 256x256 atlas page and blits one bitmap into it at maybe_g_BitmapAtlasCache + page*0x10000 + y*0x100 + x, recursing into a chained page when the current one is full. Writes the caller's descriptor as {x0, y0, x0+w-1, y0+h-1, int16 pageIndex} plus a +0x12 short set when any texel was palette index 0.",
+      "source": "docs/simulation/beam-visuals.md 2026-08-25"
+    },
+    {
+      "address": "00468310",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_DrawPolygon",
+      "description": "Polygon submit: (vertexCount, vertices, mode, atlasPage, shadeLevelPtr, transparencyFlag). Clips, builds edges, then walks scanlines calling the span routine the mode selects -- 0 Raster_SpanTextured (u,v only), 1 FUN_0046ac48 (u,v plus a shade level taken from param_5), 2 FUN_0046adad (u,v plus a third interpolant at vertex +0x14). param_4 goes to DAT_004a09b4 as the atlas page; param_6 to DAT_004a09ac, which selects the span routine's transparent half.",
+      "source": "docs/simulation/beam-visuals.md 2026-08-25"
+    },
+    {
+      "address": "0046ab10",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_SpanTextured",
+      "description": "Mode 0 span routine: fetch atlasPage[v][u] via a packed page<<16|v<<8|u index into maybe_g_BitmapAtlasCache, store that palette byte to the framebuffer, step the fixed-point u/v, repeat. Two halves selected by DAT_004a09ac: zero is an opaque copy, non-zero skips texels of palette index 0. No shade level, no colour lookup, no blending -- which is why a beam ignores BEAM.DAT's colour index.",
+      "source": "docs/simulation/beam-visuals.md 2026-08-25"
+    },
+    {
+      "address": "0048c1d8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_InstallViewProjection",
+      "description": "Installs a view's projection state into the rasterizer globals: perspective shift from view+0x1a (DAT_006c60ac), near plane from +0x1e (DAT_006c60b0), orthographic divisor from +0x22 (DAT_006c60b4), and from the render target at view+0x16 the clip rect +0x210..+0x21c. The projection centre DAT_006c60b8/bc starts as that rect's top-left and then has the target's +0x220 pair subtracted -- that pair being the .VUE projection centre plus the view's canvas origin, installed by CockpitView_ApplyViewState.",
+      "source": "docs/formats/cockpit-hud.md 2026-08-25"
+    },
+    {
+      "address": "0048c5c4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_ProjectToScreen",
+      "description": "Final projection step: screenX = x + DAT_006c60b8, screenY = DAT_006c60bc - y. That centre is the .VUE projection centre, not the middle of the viewport rect, and is where the gunsight reticle sits -- anything running parallel to the view axis vanishes there. APOCA's is 95 rows down a 240-row view.",
+      "source": "docs/formats/cockpit-hud.md 2026-08-25"
+    },
+    {
+      "address": "0048c4c0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_PerspectiveScale",
+      "description": "Scales a world-space extent to pixels at a given depth: (extent << DAT_006c60ac) / z, or (extent << 8) / DAT_006c60b4 in the orthographic mode. The beam draw uses it for half-width, flooring the result at 2.",
+      "source": "docs/simulation/beam-visuals.md 2026-08-25"
+    },
+    {
+      "address": "0040bb4c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Beam_ClipSegmentToNearPlane",
+      "description": "Clips a pair of view-space points against the near plane DAT_006c60b0, moving whichever end is short up to the plane by Q16 interpolation. Returns 0 when both ends are behind it.",
+      "source": "docs/simulation/beam-visuals.md 2026-08-25"
     }
   ]
 }

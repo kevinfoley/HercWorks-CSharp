@@ -39,6 +39,23 @@ public abstract class SimObject {
 	public abstract int HitRadius { get; }
 
 	/// <summary>
+	/// Vtable <c>+0x20</c> — <b>the hit test and the damage application are the same call</b>, which
+	/// is the shape of the original and not a shortcut here: <c>Sim_RaycastObjectList</c>
+	/// (<c>00426528</c>) offers each live object the shot and the object decides both whether it was
+	/// struck and what that did to it. See <c>Mech_DirectFireHitTest</c> (<c>00418ba8</c>) for the
+	/// only implementation that exists.
+	///
+	/// <para>The base returns "missed". <see cref="BaseObject"/> and <see cref="FlyerObject"/> both
+	/// have their own <c>+0x20</c> in the original and neither is ported, so beams pass through
+	/// structures and aircraft — see docs/simulation/damage-system.md.</para>
+	/// </summary>
+	/// <returns>
+	/// How far along the ray the object was struck, or zero for a miss. The caller shortens the ray
+	/// to this, so it has to be a distance rather than a flag.
+	/// </returns>
+	public virtual int DirectFireHitTest(WeaponShot shot) => 0;
+
+	/// <summary>
 	/// One simulation step. Rate-based motion inside an override should go through
 	/// <see cref="SimMath.IntegrateRateOverTick"/> rather than multiplying by a float delta —
 	/// <see cref="SimWorld"/> maintains <see cref="SimMath.TickDelta"/> for exactly that.

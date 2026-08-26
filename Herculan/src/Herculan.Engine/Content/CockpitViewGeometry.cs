@@ -71,6 +71,44 @@ public sealed class CockpitViewGeometry {
 				? new CockpitViewGeometry(vue)
 				: null;
 
+	/// <summary>
+	/// The projection centre every retail <c>.VUE</c> gives in x: the middle of the 320-wide view,
+	/// used when the herc's file is missing. Device pixels, from the view window's left edge.
+	/// </summary>
+	public const int DefaultProjectionCenterX = 160 << CoordShift;
+
+	/// <summary>
+	/// The projection centre in y to fall back on, device pixels from the view window's top. 95 is
+	/// APOCA's; the retail spread is 95 (APOCA, RAPTOR2) to 146 (RAZOR), so this is a middling guess
+	/// and not a value any herc is guaranteed to want.
+	/// </summary>
+	public const int DefaultProjectionCenterY = 95 << CoordShift;
+
+	/// <summary>
+	/// Where this view's perspective is centred — <b>not</b> the middle of its viewport rect, which is
+	/// the whole point of the field existing. In device pixels from the view window's top-left.
+	///
+	/// <para><c>FUN_0048c5c4</c> is the projection's last step: <c>screenX = x + centreX</c>,
+	/// <c>screenY = centreY - y</c>. So this point is where the view axis lands — the vanishing point
+	/// of anything running straight away from the eye, and the point the gunsight reticle is drawn
+	/// over. For APOCA that is (160, 95) authored, 95 rows down a 240-row view rather than the 93 its
+	/// 186-row 3D rect would put at its own middle, and 45 rows above where the middle of the full
+	/// 240-row window would be.</para>
+	///
+	/// <para><b>The negation is the original's.</b> The file stores (-160, -95), and
+	/// <c>CockpitView_ApplyViewState</c> (<c>00429e60</c>) installs the pair at the render context's
+	/// <c>+0x220</c> with the view's canvas origin added, after which <c>FUN_0048c1d8</c>
+	/// (<c>0048c1d8</c>) computes the centre as <c>viewportTopLeft - that</c>. With every retail
+	/// viewport rect starting at (0,0), the whole chain collapses to negating the stored pair — and it
+	/// collapses the same way for the two side glances, whose canvas origins of ±320 cancel against
+	/// their own window origins. Each view's centre is therefore the same point in its own window, and
+	/// every retail file gives all four views the same pair anyway.</para>
+	/// </summary>
+	public (int X, int Y) ProjectionCenter(int viewIndex) =>
+		Entry(viewIndex) is { } e
+			? (-e.CenterX << CoordShift, -e.CenterY << CoordShift)
+			: (DefaultProjectionCenterX, DefaultProjectionCenterY);
+
 	/// <summary>This view's canvas origin x in device pixels, or 0 when the view is not declared.</summary>
 	public int CanvasOriginX(int viewIndex) => Entry(viewIndex) is { } e ? e.CanvasOriginX << CoordShift : 0;
 

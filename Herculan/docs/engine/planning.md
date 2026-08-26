@@ -626,8 +626,9 @@ single place the real rule replaces the guess — the host only asks it to place
 
 ## Debug panel + skeleton view (2026-08-22)
 
-`Esc` in the simulator host opens an ImGui debug panel; it no longer quits. Full description in
-`docs/engine/handoff-player-movement.md`, "Debug view".
+`Esc` in the simulator host opens an ImGui debug panel; it no longer quits. It reports live
+locomotion, power, shield and weapon state and carries a few host-side view toggles — see
+`Herculan.Engine.Host/Debugging/DebugPanel.cs`.
 
 ## Keyframe interpolation — SOLVED + SHIPPED (2026-08-22)
 
@@ -785,3 +786,123 @@ and the three console buttons as clickable widgets, and the `[1]`-`[0]` / `[Alt]
   release re-hit-tests and fires wherever it lands, because a right press never arms a widget.
 - TRACK latches but nothing reads it — automatic turret tracking is unported.
 - Clicking a pod's row does nothing; the original toggles the pod on and off there.
+
+## Beam firing — SOLVED + SHIPPED (2026-08-24)
+
+`[Space]` fires the armed weapon and beams do damage. Full RE writeup in
+[`../simulation/weapon-firing.md`](../simulation/weapon-firing.md).
+
+The trigger is a **held state polled every frame**, not a command — the mount's vtable `+0x30` does
+nothing but return the input device's fire byte, which is why no `[Space]` scancode case exists
+anywhere. `WeaponMounts_FireTrigger` requires both halves of a linked pair to be ready *and* the
+trigger held before either fires.
+
+A beam is `min(template+0x38, capacitor)` out of the capacitor, both `PROJ.DAT` damage figures
+Q10-scaled by that power, and a synchronous raycast — no travelling object. The shot's frame is the
+firing hardpoint's own model bone, so **a beam follows the torso because the gun bone does**.
+
+Shipped: `WeaponShot`, `SimWorld.Raycast`/`FireBeam`, `SimObject.DirectFireHitTest` with
+`MechObject`'s implementation, `ShieldCharge.AbsorbDirectFire`, `WeaponMount.Fire`/`PrepareShot`/
+`AdjustPower`, the refire countdown, `WeaponMounts.FireTick`/`AdjustPower`, `MechControls.Fire`, and
+the `[Space]` and `[-]`/`[=]` bindings. Firing empties capacitors, so `PerFrameUpdate`'s chain
+advance now does real work.
+
+### Corrections this milestone
+
+- **Template `0x30` is the weapon's range**, not an undecoded chain gate — the beam dispatch hands it
+  to `Bullet_FireBurst` as the ray length. Four more template fields decoded alongside it; see
+  [`../formats/weapons-dat-sim.md`](../formats/weapons-dat-sim.md).
+- **Shot power scales damage Q10, not Q8.** Q8 is `SplashFactor`'s own multiplier, one step further
+  down. [`../simulation/damage-system.md`](../simulation/damage-system.md) said Q8 for both.
+- **`WeaponMount_DemandFullCharge` is unreachable** — its only caller has no reference of any kind in
+  the image. The power-level keys are what raise a capacitor past its idle 820.
+
+### Known divergences
+
+- Beams pass through structures and aircraft — neither has a `DirectFireHitTest`; see
+  [`handoff-weapon-effects.md`](handoff-weapon-effects.md).
+- Damage past shields is counted (`MechObject.PenetratingHits`), not applied: there is no component
+  health array yet.
+- Only the beam branch fires. Bullets, rockets and missiles run the prologue, pay their refire delay
+  and emit nothing; the ammunition dispatch's round is not spent either.
+- Firing runs inside the sim tick rather than the frame's input poll, so it is fixed-rate and
+  deterministic. Order within the tick matches the original: fire, then recharge and count down.
+- No visuals and no sound.
+
+## Terrain clipping — SOLVED + SHIPPED (2026-08-24)
+
+A shot now stops at the ground instead of running through a hillside. `Terrain_RayWalk` (`0046e87c`),
+the terrain module's largest function and previously read no further than its setup, is fully decoded
+— octant classification, the two-phase cell DDA, the per-edge corner test and the triangle-plane
+refinement. RE writeup in
+[`../formats/terrain-heightmap.md`](../formats/terrain-heightmap.md#ray-versus-terrain--terrain_raywalk-0046e87c).
+
+Shipped: `HeightGrid.RayWalk` and its helpers (`HeightGrid.RayWalk.cs`), and
+`SimWorld.RaycastTerrain`, which the shared raycast now runs before it tests a single object.
+`WeaponShot.GroundHit` carries the point, which is also what will pick the ground impact effect.
+
+### Corrections this milestone
+
+- **The 16-byte cell record's `+0x1`..`+0xc` are the cell's two face normals**, three shorts each —
+  [`../formats/terrain-heightmap.md`](../formats/terrain-heightmap.md) called all 14 bytes past the
+  height "not decoded, neither loader writes here".
+- **The diagonal-selector writer is found**: `Terrain_BuildCellSurface` (`0046bed8`), the per-cell
+  normal builder, which derives the selector from the four corner heights because choosing normals
+  requires choosing a diagonal. That had been an open question since 2026-08-13, with the terrain
+  renderer investigated and ruled out.
+- **The ray record's literal 200 is not a walk radius.** Both this document's predecessor note and
+  `damage-system.md` described it as one; the thin-ray mode never reads the parameter.
+
+### Known divergences
+
+- Only the thin-ray mode is ported. The swept-volume mode (movement collision) is not, because
+  nothing in the engine needs it yet.
+- Where the original's triangle solve finds nothing it returns "hit" with its output buffer
+  unwritten, and its caller measures a distance to stack garbage. The port substitutes the walk's own
+  point for that step rather than reproduce reading uninitialised memory.
+
+## Beam visuals — SOLVED + SHIPPED (2026-08-25)
+
+Beams are visible. RE writeup in [`../simulation/beam-visuals.md`](../simulation/beam-visuals.md).
+
+`BeamTracer` is the tracer object `Bullet_FireBurst` spawns after the hit resolves, held in its own
+`SimWorld.Tracers` pool and ticked ahead of the machine list as `Sim_MainTick` does — which gives it
+exactly one tick on screen, the original's own 27 ms life rounded up to the tick it cannot outlive.
+`BeamAppearance` loads `BEAM.DAT` and `BEAMTEX.DBA`; `BeamRenderer` draws one camera-facing quad per
+shot, expanded in a vertex shader so the half-width floor of two pixels is measured in real
+framebuffer pixels.
+
+Host: `--fire` holds the trigger, and with it a `--screenshot` run waits for a frame that actually
+has a tracer rather than firing at a fixed frame number.
+
+### Corrections this milestone
+
+- **The fill is a plain opaque texture copy.** A first pass shipped a per-weapon colour tint with the
+  profile's luminance as alpha. Both were wrong: `Raster_DrawPolygon` mode 0's span routine
+  (`Raster_SpanTextured`) stores the fetched palette byte and nothing else — no shade level, no
+  colour lookup, no blending. `BEAM.DAT`'s colour index *is* published to the graphics context's
+  `+0x22c` pair, which is what made the tint look justified, but only mode 1 would read it.
+- **The two-pixel width floor is a floor on the half-width**, so a beam is four pixels across at
+  worst, not two.
+- **The projection centre is not the middle of the view.** See below.
+
+### The projection centre
+
+The `.VUE`'s centre fields were parsed and never used; the engine centred each panel's frustum on the
+canopy hole instead. That put every shot ~100 window pixels below the reticle — the beam is exactly
+parallel to the view axis (measured: 0.000° in both pitch and yaw), so its vanishing point *is* the
+principal point, and the reticle is drawn at the `.VUE` centre. Fixed by
+`Camera.PrincipalPoint` and an off-centre frustum of identical scale; verified by measuring the
+rendered beam's far tip, which moved from the window centre to the `.VUE` centre within 3 px.
+
+Field semantics and the negation chain are in
+[`../formats/cockpit-hud.md`](../formats/cockpit-hud.md#the-projection-centre-is-not-the-middle-of-the-view).
+
+### Not done
+
+- **ELF and ELF2 draw straight.** Their tracer takes a jagged branch — geometry decoded, paint half
+  not. Retail reference: `Screenshots/Simulator3.jpg`.
+- **Impact effects**, an animated-shape system of its own.
+- **Sound.** `Bullet_FireBurst` opens with a play-at-point call, untraced past the call.
+- The engine's field of view is still a guess. The original's focal length is a per-view shift at
+  `view+0x1a`, whose writer has not been traced.

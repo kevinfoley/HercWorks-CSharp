@@ -279,6 +279,16 @@ bool powerDownKeyDown = false;
 bool externalView = startExternal;
 bool externalViewKeyDown = false;
 
+// [P] pauses and unpauses the simulation: the frame still draws and the debug panel still reads,
+// only the fixed-timestep tick loop stops advancing.
+//
+// PLACEHOLDER — NOT REVERSE-ENGINEERED. Retail DBSIM has its own pause and none of it has been
+// traced: which key it is really on, whether it stops the whole sim or only parts of it, what the
+// cockpit and HUD show while paused, and whether it is allowed at all mid-mission. This is a
+// development stop-the-world; replace it once the original's pause has been RE'd.
+bool paused = false;
+bool pauseKeyDown = false;
+
 // The debug panel, on [Esc] — which therefore no longer quits; close the window for that. It owns
 // its own view options and readouts; see DebugPanel for what it shows and why it is ImGui rather
 // than the game's own HUD font.
@@ -520,6 +530,18 @@ window.Update += deltaSeconds => {
 	// acting on the same keystroke.
 	var controls = imgui != null && ImGui.GetIO().WantCaptureKeyboard ? null : keyboard;
 
+	// [P] pauses the simulation, on the key's own edge, and outside the piloting block below so it
+	// works from the free camera too. See the placeholder note where `paused` is declared.
+	if (controls != null) {
+		bool pauseKey = controls.IsKeyPressed(Key.P);
+		if (pauseKey && !pauseKeyDown) {
+			paused = !paused;
+		}
+		pauseKeyDown = pauseKey;
+	} else {
+		pauseKeyDown = false;
+	}
+
 	// [C] swaps between flying the observer camera and piloting the machine, on the key's own edge
 	// so holding it does not flicker between the two.
 	if (pilotMech != null && controls != null) {
@@ -660,9 +682,12 @@ window.Update += deltaSeconds => {
 	cockpitPan.Advance(deltaSeconds);
 
 	// Clamping the accumulator stops a long stall (a breakpoint, a window drag) from turning into
-	// a burst of catch-up ticks that would teleport everything.
-	tickAccumulator = Math.Min(tickAccumulator + deltaSeconds, MaxAccumulatedSeconds);
-	while (tickAccumulator >= SecondsPerTick) {
+	// a burst of catch-up ticks that would teleport everything. A paused sim neither ticks nor
+	// accumulates, so unpausing carries on from where it stopped rather than catching up.
+	if (!paused) {
+		tickAccumulator = Math.Min(tickAccumulator + deltaSeconds, MaxAccumulatedSeconds);
+	}
+	while (!paused && tickAccumulator >= SecondsPerTick) {
 		scene.World.Tick();
 
 		// Beams are resolved and forgotten inside the tick, so anything that wants to see one has to

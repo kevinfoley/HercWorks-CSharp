@@ -16,4 +16,5 @@ _Bugs listed in this section were tested on Windows 11. It's possible that some 
 - Due to nearest-neighbor scaling, text often looks bad when window height isn't an integer multiple of 240.
 - The `[V]` external view is placeholder geometry, not RE'd — see `docs/engine/planning.md`, "External view".
 - Automatic Turret Tracking ([T]) and AI turret aiming are not ported yet.
-- HERCULAN Engine is currently missing a quirk from retail where the player's shield meter fills in over ~10 seconds at the start of a mission. Claude says there's no explanation for this in the shield code, where the shields start out at full charge, and would take ~30 seconds to fully charge from empty. The fade-in-over-10-seconds may be a HUD animation that hasn't been discovered during RE yet.
+- Currently missing is a quirk from retail where the player's shield meter fills in over ~10 seconds at the start of a mission. Claude says there's no explanation for this in the shield code, where the shields start out at full charge, and would take ~30 seconds to fully charge from empty. The fade-in-over-10-seconds may be a HUD animation that hasn't been discovered during RE yet.
+- The `[P]` pause is a placeholder, not RE'd: it just stops the fixed-timestep tick loop. Retail DBSIM's own pause has not been traced.

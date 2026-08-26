@@ -35,6 +35,7 @@ public sealed class SceneRenderer : IDisposable {
 		layout (location = 3) in vec2 aUV;
 		layout (location = 4) in float aTextured;
 		layout (location = 5) in float aUnlit;
+		layout (location = 6) in float aShade;
 
 		uniform mat4 uModel;
 		uniform mat4 uView;
@@ -45,6 +46,7 @@ public sealed class SceneRenderer : IDisposable {
 		out vec2 vUV;
 		out float vTextured;
 		out float vUnlit;
+		out float vShade;
 		out float vViewDistance;
 
 		void main() {
@@ -58,6 +60,7 @@ public sealed class SceneRenderer : IDisposable {
 			vUV = aUV;
 			vTextured = aTextured;
 			vUnlit = aUnlit;
+			vShade = aShade;
 			vViewDistance = length(viewPosition.xyz);
 
 			gl_Position = uProjection * viewPosition;
@@ -71,6 +74,7 @@ public sealed class SceneRenderer : IDisposable {
 		in vec2 vUV;
 		in float vTextured;
 		in float vUnlit;
+		in float vShade;
 		in float vViewDistance;
 
 		uniform vec3 uLightDirection;
@@ -94,8 +98,12 @@ public sealed class SceneRenderer : IDisposable {
 				baseColor = texture(uTexture, vUV).rgb;
 			}
 			// A flat solid poly is not lit at all in the original — its colour already came out of the
-			// theater ramp at a fixed shade — so it is passed through untouched. See MeshVertex.Unlit.
-			vec3 lit = vUnlit > 0.5 ? baseColor : baseColor * (0.35 + 0.65 * lambert);
+			// theater ramp at a fixed shade — so it takes no runtime light term. See MeshVertex.Unlit.
+			// vShade is the other half of that: a multiplier for surfaces the original shades once,
+			// ahead of time, and stores — terrain, whose per-cell shade bytes are computed at zone
+			// load by Terrain_BuildSurface. It is 1.0 everywhere else.
+			float light = vUnlit > 0.5 ? 1.0 : (0.35 + 0.65 * lambert);
+			vec3 lit = baseColor * light * vShade;
 
 			// Distance haze, so a 10 km zone reads as depth instead of a flat wall of terrain.
 			float haze = clamp((vViewDistance - uHazeStart) / max(uHazeEnd - uHazeStart, 0.001), 0.0, 1.0);
@@ -156,33 +164,10 @@ public sealed class SceneRenderer : IDisposable {
 	}
 
 	/// <summary>
-	/// Direction the sun's light travels, in render space.
-	///
-	/// <para>Every mission gets the identical hardcoded directional "sun" — see
-	/// docs/formats/dts-texture-binding.md's "Flat-shaded lighting" section. Derived from
-	/// <c>Light_CreateMissionSun</c>'s own math: <c>rotate((0,4096,0), eulerMatrix(-6000,0,21000))</c>
-	/// in DBSIM's Z-up world space (angle unit <c>raw/65536*360</c> degrees), computed by
-	/// <see cref="ComputeSunDirection"/>. The 3-axis rotation order was not independently verified
-	/// against the exe's fixed-point trig, so this is a reasonable reading (intrinsic X then Z; Y is a
-	/// no-op since its angle is 0), not a byte-exact one — it replaces an earlier, purely eyeballed
-	/// guess with a value at least derived from the real constants.</para>
+	/// Direction the sun's light travels, in render space — <see cref="MissionSun.Direction"/>.
+	/// Settable so a tool can override it; every mission uses the one hardcoded sun.
 	/// </summary>
-	public Vector3 LightDirection { get; set; } = ComputeSunDirection();
-
-	private static Vector3 ComputeSunDirection() {
-		const float RadiansPerRawUnit = MathF.PI * 2f / 65536f;
-		float xRadians = -6000f * RadiansPerRawUnit;
-		float zRadians = 21000f * RadiansPerRawUnit;
-
-		var qx = Quaternion.CreateFromAxisAngle(Vector3.UnitX, xRadians);
-		var qz = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, zRadians);
-		Vector3 worldDirection = Vector3.Transform(new Vector3(0f, 1f, 0f), qz * qx);
-
-		// DBSIM world is Z-up with X/Y the ground plane; render space is Y-up — same mapping as
-		// WorldScale.ToRender.
-		Vector3 renderDirection = new(worldDirection.X, worldDirection.Z, -worldDirection.Y);
-		return Vector3.Normalize(renderDirection);
-	}
+	public Vector3 LightDirection { get; set; } = MissionSun.Direction;
 
 	/// <summary>
 	/// What distant geometry fades into. The theater's own ramp knows this colour — see

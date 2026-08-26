@@ -31,7 +31,9 @@ Ported in `Herculan.Engine.Terrain.HeightGrid` (`HeightGrid.cs`, `HeightGrid.Ray
 - `+0x1`..`+0x6` (3 shorts): the **near** face normal, scaled to length 0x800.
 - `+0x7`..`+0xc` (3 shorts): the **far** face normal, same scale. Which of the two a point belongs
   to is the diagonal selector's decision, exactly as in `Terrain_HeightQuery`.
-- `+0xd`..`+0xe`: unwritten.
+- `+0xd` (byte): the **near** triangle's baked shade byte; `+0xe` (byte): the **far** triangle's.
+  Written at zone load and read straight back by `Terrain_DrawCellQuad` as the ramp row — see
+  [`terrain-lighting.md`](terrain-lighting.md). Recorded here as unwritten until 2026-08-26.
 - `+0xf` (byte, bitfield): bits `[0:1]` = diagonal-split selector consumed by `Terrain_HeightQuery`'s
   barycentric interpolation (values `0`/`1`/`2` are produced; `3` is handled by the query but never
   written); bits `[2:7]` = material/detail-type index into `ZONES_MaterialTable`, assigned via a

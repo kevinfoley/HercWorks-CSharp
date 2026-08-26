@@ -187,7 +187,11 @@ public sealed class MissionScene {
 		world.Add(camera);
 
 		var terrainBank = TerrainTextureBank.Load(content, theater, materials);
-		var terrainMesh = TerrainMeshBuilder.Build(terrain, terrainBank);
+
+		// Terrain is lit once, here, the way the original lights it once at zone load — see
+		// TerrainMeshBuilder. The same theater ramp that colours a flat solid face supplies the
+		// brightness curve the baked shade bytes are read through.
+		var terrainMesh = TerrainMeshBuilder.Build(terrain, terrainBank, ShadeBrightness.Build(models.Shading));
 
 		var bulletModels = new Dictionary<int, SceneModel>();
 		for (int subtype = 0; bullets != null && subtype < bullets.Count; subtype++) {

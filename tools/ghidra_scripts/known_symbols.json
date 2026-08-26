@@ -5671,6 +5671,51 @@
       "name": "g_TerrainHitPseudoObject",
       "description": "Static stand-in object Sim_RaycastTerrain reports as the thing a ground-clipped ray struck, with the hit point stored at its +0x1a/+0x1e/+0x22. INERT: written there and read nowhere in the binary. The terrain impact effect does NOT come from it -- Sim_RaycastObjectList spawns that itself, see docs/simulation/impact-effects.md.",
       "source": "docs/simulation/impact-effects.md 2026-08-26"
+    },
+    {
+      "address": "0048c060",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Light_ComputeShadeForNormal",
+      "description": "The per-normal sibling of Light_ComputeShadeForFace (0048bdcc/0048c060 were flagged as near-identical variants; this is the one the terrain uses). Takes (Vec3Short* normal, int* centre) and walks the same active light list, returning a shade byte clamped to 255. Directional (type 1) branch, which is the only one a retail mission populates: dot = DotProductVec3Short(normal, lightDir); if (dot < 0) shade -= (intensity * dot) >> 22. Normals arrive normalised to length 0x800 and the mission sun's direction vector is length 0x1000 at intensity 0x100, so the whole expression is shade = min(255, 512 * cos) -- IT SATURATES AT cos 0.5, i.e. every surface within 60 degrees of facing the sun gets the ramp's top row rather than a falloff. Flat ground sits at cos 0.544 and is pinned at 255. Called by Terrain_BuildCellSurfaceAndShade once per cell triangle at zone load.",
+      "source": "docs/formats/terrain-lighting.md 2026-08-26 (terrain lighting RE session)"
+    },
+    {
+      "address": "0046c2ec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_BuildCellSurfaceAndShade",
+      "description": "Terrain_BuildSurface's per-cell body, and THE ANSWER TO WHERE TERRAIN LIGHT COMES FROM. For an interior cell it runs Terrain_BuildCellSurface then normalises both face normals (cell+0x1 near, cell+0x7 far) to length 0x800 via Math_NormalizeVec3ShortToLength; edge cells get a flat (0,0,0x800) instead. Then, unconditionally, it BAKES A SHADE BYTE PER TRIANGLE: cell[+0xd] = Light_ComputeShadeForNormal(cell+0x1), cell[+0xe] = Light_ComputeShadeForNormal(cell+0x7). Terrain_DrawCellQuad reads those two bytes straight back out as the ramp row -- so terrain lighting is computed ONCE at zone load and never per frame, and cell bytes +0xd/+0xe are not dead as the engine's HeightGrid assumed.",
+      "source": "docs/formats/terrain-lighting.md 2026-08-26 (terrain lighting RE session)"
+    },
+    {
+      "address": "0046c138",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_NormalizeVec3ShortToLength",
+      "description": "Rescales a Vec3Short in place to a requested length (param_2). Halves all three components until Math_FastMagnitude3D fits under 0x7d01, then multiplies each by Q16Divide(length, magnitude). Called by Terrain_BuildCellSurfaceAndShade with 0x800 for both of a cell's face normals -- which is the constant that makes Light_ComputeShadeForNormal's >> 22 come out as a saturating 512*cos.",
+      "source": "docs/formats/terrain-lighting.md 2026-08-26 (terrain lighting RE session)"
+    },
+    {
+      "address": "0046bd98",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_FaceVisibilityTest",
+      "description": "Per-triangle backface test in Terrain_DrawCellQuad: dot(faceNormal, viewerPos - facePoint) > 0, with the viewer position read from DAT_006b4fc8, DAT_006b4fcc, DAT_006b4fd0. Takes the cell's Vec3Short normal (cell+0x1 for the near triangle, cell+0x7 for the far) and a world point on that triangle. Purely a visibility gate -- it computes no light term; the shade the triangle draws at was baked at zone load, see Terrain_BuildCellSurfaceAndShade.",
+      "source": "docs/formats/terrain-lighting.md 2026-08-26 (terrain lighting RE session)"
+    },
+    {
+      "address": "0046865c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "Raster_DrawTexturedPolyNear",
+      "description": "Textured polygon draw used for terrain cells inside twice the near-distance threshold (DAT_0049aad0); FUN_00468078 is the far/cheaper twin, chosen by the same distance test in Terrain_DrawCellQuad. Signature (verts, uvs, vertexCount, bitmapHandle, shades, shadeMode, worldSpaceFlag, flags). shadeMode is DAT_004aab30: mode 2 takes a shade PER VERTEX out of the shades array and builds a Gouraud ramp offset per vertex ((shade * (shadeLevels-1) + depthBias) << 8); mode 1 takes shades[0] alone and sets one flat ramp row for the whole polygon into DAT_004a09c4 by the identical formula, i.e. Raster_ShadeRampRow. Terrain only ever fills shades[0] (from the cell's baked byte), so retail terrain is flat-shaded per triangle, mode 1.",
+      "source": "docs/formats/terrain-lighting.md 2026-08-26 (terrain lighting RE session)"
     }
   ]
 }

@@ -39,16 +39,34 @@ public struct MeshVertex {
 	/// </summary>
 	public float Unlit;
 
+	/// <summary>
+	/// A brightness multiplier already resolved through the theater's ramp, applied on top of whatever
+	/// <see cref="Unlit"/> decides. 1 is the identity and the default.
+	///
+	/// <para>This is how a surface the original shades <i>ahead of time</i> gets drawn. Terrain is the
+	/// case: <c>Terrain_BuildSurface</c> lights every cell once at zone load and stores the two shade
+	/// bytes in the cell itself (offsets <c>+0xd</c> and <c>+0xe</c>, one per triangle), and
+	/// <c>Terrain_DrawCellQuad</c> hands the byte straight to the span setup. Nothing about it is
+	/// recomputed per frame, so running the renderer's own light term over terrain — which is what the
+	/// engine used to do — is not a stand-in for the original, it is a second, different light.
+	/// Terrain now carries <see cref="Unlit"/> set (no runtime term) and its shade here instead.</para>
+	///
+	/// <para>See <see cref="Render.MissionSun"/> for the shade byte and
+	/// <see cref="Render.ShadeBrightness"/> for the byte-to-multiplier curve.</para>
+	/// </summary>
+	public float Shade;
+
 	public MeshVertex(Vector3 position, Vector3 normal, Vector3 color, Vector2 uv = default,
-			bool textured = false, bool unlit = false) {
+			bool textured = false, bool unlit = false, float shade = 1f) {
 		Position = position;
 		Normal = normal;
 		Color = color;
 		UV = uv;
 		Textured = textured ? 1f : 0f;
 		Unlit = unlit ? 1f : 0f;
+		Shade = shade;
 	}
 
 	/// <summary>Bytes per vertex, used as the vertex-attribute stride.</summary>
-	public const uint SizeInBytes = 13 * sizeof(float);
+	public const uint SizeInBytes = 14 * sizeof(float);
 }

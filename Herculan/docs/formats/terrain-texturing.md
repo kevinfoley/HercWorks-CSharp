@@ -1,5 +1,7 @@
 # Terrain texturing (DBSIM.EXE) — SOLVED
 
+Terrain *lighting* is a separate subject with its own file: [`terrain-lighting.md`](terrain-lighting.md).
+
 Questions 1 and 2 are answered; Question 3 remains open. See `dts-texture-binding.md` for the mech-side texturing chain — terrain and mechs share a data structure.
 
 ## The answer, end to end

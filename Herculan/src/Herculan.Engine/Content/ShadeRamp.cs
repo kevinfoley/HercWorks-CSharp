@@ -11,9 +11,16 @@ namespace Herculan.Engine.Content;
 /// body): <c>int32 shadeLevels</c>, <c>int32 depthSlices</c>, then
 /// <c>depthSlices * shadeLevels * 256</c> bytes. Every retail file reads 32 and 12. A row is 256
 /// palette bytes — "this colour, at this brightness" — so the whole file is one colour ramp per
-/// palette index, sampled 32 ways for light and 12 ways for distance. Row <c>0</c> is near black and
-/// row <c>31</c> is the colour at full brightness, with hue preserved throughout, which is what makes
-/// it a ramp rather than a remap.</para>
+/// palette index, sampled 32 ways for light and 12 ways for distance. Hue is preserved throughout,
+/// which is what makes it a ramp rather than a remap.</para>
+///
+/// <para><b>The rows are not a 0..1 fade</b> — an earlier reading of this file said row <c>0</c> was
+/// near black and row <c>31</c> full brightness, and both halves are wrong. Measured against
+/// <c>WORLD0</c>'s own palette (luminance out over luminance in, summed across the palette), row
+/// <c>0</c> lands at <b>0.36x</b> the source colour and row <c>31</c> at <b>1.16x</b> — the ramp
+/// brightens as well as darkens, and passes through unity around row 23. That matters wherever the
+/// engine substitutes a multiply for the lookup: the neutral row is not the top one.
+/// <see cref="Render.ShadeBrightness"/> is that curve, measured per theater at load.</para>
 ///
 /// <para>The consumer is <c>FUN_00468054</c>, which is the whole of the address arithmetic:</para>
 /// <code>
@@ -119,6 +126,16 @@ public sealed class ShadeRamp {
 	public byte Lookup(int paletteIndex, int shade, int depthSlice) {
 		int slice = Math.Clamp(depthSlice, 0, DepthSlices - 1);
 		return _rows[(slice * ShadeLevels + RowFor(shade)) * RowLength + (paletteIndex & 0xff)];
+	}
+
+	/// <summary>
+	/// The same lookup addressed by row number rather than by shade byte, for callers that walk the
+	/// whole ramp instead of resolving one surface — see <see cref="Render.ShadeBrightness"/>.
+	/// </summary>
+	public byte AtRow(int paletteIndex, int row, int depthSlice = 0) {
+		int slice = Math.Clamp(depthSlice, 0, DepthSlices - 1);
+		int clampedRow = Math.Clamp(row, 0, ShadeLevels - 1);
+		return _rows[(slice * ShadeLevels + clampedRow) * RowLength + (paletteIndex & 0xff)];
 	}
 
 	/// <summary>

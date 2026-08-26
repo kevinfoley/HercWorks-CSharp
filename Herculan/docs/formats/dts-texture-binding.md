@@ -308,6 +308,11 @@ directional sun (`Light_CreateMissionSun`, intensity `0x100`, direction
 `world<N>.rmp` is `int32 shadeLevels, int32 depthSlices` then `depthSlices * shadeLevels * 256`
 bytes — 32 and 12 in all ten retail files. The 11 "unused" height slices are distance fog — see
 [`distance-fog-and-sky.md`](distance-fog-and-sky.md).
+
+What that sun does to a *shade byte* is worked out in [`terrain-lighting.md`](terrain-lighting.md):
+with normals at length `0x800` and the sun at `0x1000`/`0x100`, the shade collapses to
+`min(255, 512 * cos)` and saturates at cos 0.5. The ramp rows it selects are not a 0..1 fade either —
+row 0 is 0.36x the source colour and row 31 is 1.16x.
 ## Implementation status
 
 - **`TSTexture4Poly` (4-vertex quads only):** Resolves to decoded DBA frame (`group.Surfaces[ColorIndexId/4].FrontColor`)

@@ -65,11 +65,24 @@ public sealed partial class HeightGrid {
 	public int HeightScale { get; }
 
 	/// <summary>
-	/// The load-time LOD value at <c>+0x10c</c>, derived as <c>10 >> (CellShift - 14)</c> (clamped,
-	/// default 10). <c>Terrain_HeightQuery</c> never reads it; it is presumably a renderer/chunking
-	/// parameter, and its consumer in the original hasn't been located.
+	/// The load-time value at <c>+0x10c</c>, derived as <c>10 >> (CellShift - 14)</c> (clamped,
+	/// default 10). <c>Terrain_HeightQuery</c> never reads it — it is the <b>view radius in cells</b>,
+	/// and its one consumer is <c>Terrain_DrawCellQuad</c>, which per cell does
+	/// <c>FUN_00467fdc(grid[0x10c] &lt;&lt; grid[0x108])</c> to install the visibility range the
+	/// distance fog is measured against. See <see cref="VisibilityRange"/>.
 	/// </summary>
 	public int DetailLod { get; }
+
+	/// <summary>
+	/// How far the original draws and fogs, in world units: <see cref="DetailLod"/> cells converted
+	/// to world units by <see cref="CellShift"/>, exactly as <c>Terrain_DrawCellQuad</c> computes it.
+	/// Distance fog begins at half this and is total at it — see
+	/// <see cref="Content.ShadeRamp.DepthSliceFor"/>.
+	///
+	/// <para>Retail zones are shift 12 to 15, which puts this between 40960 and 163840 world units
+	/// (246 m to 983 m at <see cref="World.WorldScale.WorldUnitsPerMeter"/>).</para>
+	/// </summary>
+	public long VisibilityRange => (long)DetailLod << CellShift;
 
 	/// <summary>Grid width in cells.</summary>
 	public int Width => 1 << WidthShift;

@@ -371,6 +371,11 @@ const double MaxAccumulatedSeconds = 0.25;
 
 window.Load += (gl, input) => {
 	renderer = new SceneRenderer(gl);
+
+	// How far this zone is visible and what it fades into, both off the zone and its theater rather
+	// than hand-picked — see Scene.Atmosphere. The sky is deliberately left alone.
+	scene.Atmosphere.ApplyTo(renderer);
+
 	overlay = new Overlay2DRenderer(gl);
 	wireframe = new WireframeRenderer(gl);
 

@@ -25,15 +25,30 @@ public struct MeshVertex {
 	/// <summary>1 when <see cref="UV"/> addresses a real atlas rect, 0 to use <see cref="Color"/>.</summary>
 	public float Textured;
 
+	/// <summary>
+	/// 1 to take <see cref="Color"/> exactly as given, with no light term over it; 0 to shade it.
+	///
+	/// <para>Sensed rather than styled: the original's flat solid poly (<c>TSSolidPoly_Render</c>,
+	/// <c>00474db4</c>) never computes a light term — it looks its colour up in the theater's ramp at
+	/// a fixed shade byte and fills. Its shaded sibling <c>TSShadedPoly</c> does light the face, and
+	/// that is what almost every surface of a HERC or a building is. So the two need different
+	/// treatment on the same mesh, per vertex, for the same reason <see cref="Textured"/> is per
+	/// vertex — see <see cref="Content.ShadeRamp"/>.</para>
+	///
+	/// <para>Zero by default, so a vertex built any other way stays lit.</para>
+	/// </summary>
+	public float Unlit;
+
 	public MeshVertex(Vector3 position, Vector3 normal, Vector3 color, Vector2 uv = default,
-			bool textured = false) {
+			bool textured = false, bool unlit = false) {
 		Position = position;
 		Normal = normal;
 		Color = color;
 		UV = uv;
 		Textured = textured ? 1f : 0f;
+		Unlit = unlit ? 1f : 0f;
 	}
 
 	/// <summary>Bytes per vertex, used as the vertex-attribute stride.</summary>
-	public const uint SizeInBytes = 12 * sizeof(float);
+	public const uint SizeInBytes = 13 * sizeof(float);
 }

@@ -19,7 +19,7 @@ Ported in `Herculan.Engine.Terrain.HeightGrid` (`HeightGrid.cs`, `HeightGrid.Ray
 | `+0x100` | `int` | `WidthShift` — log2(grid width in cells) |
 | `+0x104` | `int` | `HeightShift` — log2(grid height in cells) |
 | `+0x108` | `int` | `CellShift` — log2(world-units per cell); also the shift used to convert world (x,y) → cell (x,y) |
-| `+0x10c` | `int` | LOD value, `10 >> (CellShift-14)` (clamped, default 10) at load time; also a **terrain draw radius in cells**, re-scaled to world units by `maybe_Terrain_ComputeViewDistance` (`00470910`) once/frame — see `terrain-texturing.md` Question 2 |
+| `+0x10c` | `int` | **View radius in cells**, `10 >> (CellShift-14)` (clamped, default 10) at load time. `Terrain_DrawCellQuad` installs `+0x10c << +0x108` as the visibility range distance fog is measured against — see [`distance-fog-and-sky.md`](distance-fog-and-sky.md) |
 | `+0x110` | `int` | `HeightBase` — additive height offset (0 for real/binary zones; `MinHeight*8` for the ASCII debug format) |
 | `+0x118` | `int` | `HeightScale` — multiplicative height scale applied to each cell's raw byte |
 | `+0x11d` | `int` | Material/detail-type record count (from `dat\mat0`) |

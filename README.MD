@@ -4,17 +4,25 @@ The HERCULAN Engine is an effort to fully reverse-engineer the classic video gam
 
 ## HercWorks CSharp
 
-A fundemental feature of the HERCULAN Engine is HercWorks CSharp, a toolset for viewing (and sometimes editing) data files from EarthSiege 2. HercWorks CSharp is a rewrite and extension of [herc-works-mdk](https://github.com/Subject9x/herc-works-mdk), originally by Subject9x. HercWorks has been rewritten in C#/.NET. HercWorks CSharp builds upon the original Java library, fixing bugs, expanding the scope of the reverse-engineering work, and adding a graphical user interface built with Windows Forms. Unlike the original Java library, this repository currently does not support exporting data to JSON.
+A fundemental feature of the HERCULAN Engine is HercWorks CSharp, a toolset for viewing (and sometimes editing) data files from _EarthSiege 2_. HercWorks CSharp is a rewrite and extension of [herc-works-mdk](https://github.com/Subject9x/herc-works-mdk), originally by Subject9x. HercWorks has been rewritten in C#/.NET. HercWorks CSharp builds upon the original Java library, fixing bugs, expanding the scope of the reverse-engineering work, and adding a graphical user interface built with Windows Forms. Unlike the original Java library, this repository currently does not support exporting data to JSON.
 
 My great thanks to Subject9x (developer of the original repository) and any contributors (e.g. the Starsiege Community) for the initial reverse-engineering work that has made this possible. Also, I apologize for taking their work and continuing it in a completely different programming language!
 
 ## The engine
 
-The HERCULAN Engine is intended to eventually be a playable cross-platform modern port of _Earthsiege 2_. Unlike many classic games which have been ported to modern operating systems, such as _Doom_, the source code for Earthsiege 2 has never been released. This means the HERCULAN Engine is not simply a matter of taking the original code and updating it for modern systems; instead, the game logic in its entirety has to be reconstructed through reverse-engineering.
+The HERCULAN Engine is intended to eventually be a playable cross-platform modern reimplementation of _Earthsiege 2_. Unlike many classic games which have been ported to modern operating systems, such as _Doom_, the source code for _Earthsiege 2_ has never been released. This means the HERCULAN Engine is not simply a matter of taking the original code and updating it for modern systems; instead, the game logic in its entirety has to be reconstructed through reverse-engineering.
 
 ### Using the engine
 
-Earthsiege 2 is a copyrighted work. While a legal owner of the copyright has previously released the game for free, I do not have a license to distribute the original game files and they are not included in this repository. To use the HERCULAN Engine, you will need a copy of the original game files, which you can acquire from abandonware websites or by purchasing an original retail CD-ROM. I am not aware of any digital marketplace that sells Earthsiege 2.
+_Earthsiege 2_ is a copyrighted work. While a legal owner of the copyright has previously released the game for free, I do not have a license to distribute the original game files and they are not included in this repository. To use the HERCULAN Engine, you will need a copy of the original game files, which you can acquire from abandonware websites or by purchasing an original retail CD-ROM. I am not aware of any digital marketplace that sells _Earthsiege 2_.
+
+### What the engine is not
+
+HERCULAN Engine is a reimplementation of _Earthsiege 2_, not a remake. There are currently no plans for any of the following:
+
+- Enhanced graphics (other than basic quality of life changes like support for higher resolutions and widescreen displays)
+- Gameplay changes or balance adjustments
+- New Hercs, weapons, or missions
 
 ## Screenshots
 

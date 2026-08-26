@@ -145,7 +145,7 @@ read the projection globals and the point-list globals the draw publishes up fro
 shows it reading `points[0]` and `points[1]` with no loop index, which does not square with drawing a
 chain — so at least one of those three helpers redirects the geometry, and the reading is incomplete.
 
-Retail reference: `Screenshots/Simulator3.jpg` shows an ELF as a bright yellow zigzag, which fixes
+Retail reference: `Reference/Simulator3.jpg` shows an ELF as a bright yellow zigzag, which fixes
 both the shape and that the colour index reaches this path.
 
 ## Impact effects — not decoded

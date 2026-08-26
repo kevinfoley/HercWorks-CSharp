@@ -75,6 +75,8 @@ public sealed class TextureAtlas {
 	/// per-pixel 256-colour dithering, so the frame's average colour stands in for the swatch as a
 	/// single representative colour.
 	/// </summary>
+	/// TODO: This looks like a hacky workaround rather than a proper recreation of the way that
+	/// color works in the original engine.
 	public Vector3? AverageColor(int frameIndex) =>
 		frameIndex >= 0 && frameIndex < _averageColors.Length ? _averageColors[frameIndex] : null;
 

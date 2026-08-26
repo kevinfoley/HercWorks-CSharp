@@ -95,8 +95,9 @@ Two functions, and one of them **writes** the field:
   `grid[+0x10c] << cellShift` world units around the viewer, clamped to the grid extent. So the LOD
   field is literally **a terrain draw radius in cells**.
 - `maybe_Terrain_SetDistanceBands` (`00428bc0`) turns that same distance into five scaled values via
-  a 5-entry table at `DAT_0049abb0` — the shape of fog/haze bands or LOD thresholds, consumer not
-  traced.
+  a 5-entry table at `DAT_0049abb0` — LOD thresholds or similar, consumer not traced. **Not** the
+  distance fog, which is 12-slice and computed per drawn thing: see
+  [`distance-fog-and-sky.md`](distance-fog-and-sky.md).
 
 `maybe_Terrain_ComputeViewDistance` (`00470910`) reads the same field per frame for the view setup;
 its two outputs remain undecoded.

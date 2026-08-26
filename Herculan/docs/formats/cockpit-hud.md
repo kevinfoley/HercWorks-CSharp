@@ -536,7 +536,7 @@ knobBottom(v) = trackBottom - ((v + 0x400) * scale >> 16)     // 00452644
 ```
 
 so `+0x400` puts the knob at the top and `-0x400` at the bottom. **Up is forward** — corroborated by
-`Screenshots/Simulator1.jpg`, where the knob sits at the track's top while the HUD reads 61 K/H.
+`Reference/Simulator1.jpg`, where the knob sits at the track's top while the HUD reads 61 K/H.
 
 The original reaches that convention through two sign flips that cancel: `SliderWidget_GetValueV`
 (`00452628`) reads the knob's *top* against the track's top, so it returns the negation of what

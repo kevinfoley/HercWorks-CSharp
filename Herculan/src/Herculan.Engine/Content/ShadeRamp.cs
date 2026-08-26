@@ -1,0 +1,213 @@
+using System.Numerics;
+using HercWorks.Core.Data.File.Dyn;
+
+namespace Herculan.Engine.Content;
+
+/// <summary>
+/// The theater's colour ramp, <c>rmp\WORLD&lt;n&gt;.RMP</c> — the table every flat-shaded face in the
+/// original passes its colour through before it reaches the framebuffer.
+///
+/// <para><b>Layout, byte-verified against all ten retail files</b> (each exactly 98304 bytes of
+/// body): <c>int32 shadeLevels</c>, <c>int32 depthSlices</c>, then
+/// <c>depthSlices * shadeLevels * 256</c> bytes. Every retail file reads 32 and 12. A row is 256
+/// palette bytes — "this colour, at this brightness" — so the whole file is one colour ramp per
+/// palette index, sampled 32 ways for light and 12 ways for distance. Row <c>0</c> is near black and
+/// row <c>31</c> is the colour at full brightness, with hue preserved throughout, which is what makes
+/// it a ramp rather than a remap.</para>
+///
+/// <para>The consumer is <c>FUN_00468054</c>, which is the whole of the address arithmetic:</para>
+/// <code>
+/// row = ((shade * (shadeLevels - 1) + depthBias) &amp; ~0xFF) + rampBase
+/// </code>
+/// <para>with <c>depthBias</c> a whole number of 8192-byte depth slices that
+/// <c>Raster_SetDepthFadeFromDistance(distance)</c> sets from how far the object being drawn is —
+/// zero for anything inside half the visibility range, climbing to the last slice at the far edge.
+/// That is the original's distance fog. <see cref="DepthSliceFor"/> is that calculation and
+/// <see cref="FogColor"/> is where it ends up.</para>
+///
+/// <para><b>Who gets faded.</b> The setter has exactly three callers in DBSIM:
+/// <c>Terrain_DrawCellQuad</c> per terrain cell, <c>FUN_0042876c</c> per drawn object from that
+/// object's own range, and <c>maybe_TSShapeInstance_PrepareRenderContext</c> with zero. The third
+/// belongs to DBSIM's other, parallel render implementation (the <c>0042xxxx</c> one) and is not on
+/// the path of the poly renderers the DTS type registry actually points at, so it does not reset
+/// anything drawn through <c>TSSolidPoly_Render</c>. In particular a projectile — which is a type-3
+/// object, bucketed per terrain cell by <c>FUN_00428c60</c> and drawn through the depth-sorted
+/// entry list — reaches <c>FUN_0042876c</c> and is faded from its own range like anything else. A
+/// flat solid face is <i>not</i> pinned to row 15 at distance.</para>
+///
+/// <para>The engine renders that fade as per-pixel haze in <see cref="Render.SceneRenderer"/>
+/// rather than as a ramp row, so <see cref="Lookup"/>'s two-argument form reads slice zero and the
+/// haze supplies the rest. The difference is that the original's is per object and quantised to
+/// twelve steps where the haze is continuous.</para>
+/// </summary>
+public sealed class ShadeRamp {
+	/// <summary>The folder the theater loader opens this from.</summary>
+	public const string ResourceFolder = "rmp";
+
+	/// <summary>
+	/// The shade a flat, unlit face is drawn at — <c>TSSolidPoly_Render</c> (<c>00474db4</c>) passes
+	/// <c>FUN_00468054</c> a literal <c>0x80</c> and never computes a light term at all. With the
+	/// retail 32 levels that lands on row 15, a little under half brightness.
+	/// </summary>
+	public const int UnlitShade = 0x80;
+
+	private readonly byte[] _rows;
+
+	private ShadeRamp(int shadeLevels, int depthSlices, byte[] rows) {
+		ShadeLevels = shadeLevels;
+		DepthSlices = depthSlices;
+		_rows = rows;
+	}
+
+	/// <summary>How many brightness rows the ramp has — 32 in every retail file.</summary>
+	public int ShadeLevels { get; }
+
+	/// <summary>How many distance slices it has — 12 in every retail file.</summary>
+	public int DepthSlices { get; }
+
+	/// <summary>Bytes in one row, one per palette index.</summary>
+	public const int RowLength = 256;
+
+	/// <summary>
+	/// Loads <c>rmp\&lt;name&gt;.RMP</c>. Returns null when the resource is missing or too short for
+	/// the size its own header states, in which case flat-shaded faces keep the fallback colouring.
+	/// </summary>
+	/// <param name="content">Mounted archives.</param>
+	/// <param name="name">The theater's base name, the same one its <c>.DPL</c> uses — e.g. <c>WORLD2</c>.</param>
+	public static ShadeRamp? Load(GameContent content, string? name) {
+		if (string.IsNullOrWhiteSpace(name) || content.Read(ResourceFolder, name + ".RMP") is not { } bytes
+			|| bytes.Length < 8) {
+			return null;
+		}
+
+		int shadeLevels = BitConverter.ToInt32(bytes, 0);
+		int depthSlices = BitConverter.ToInt32(bytes, 4);
+		if (shadeLevels <= 0 || depthSlices <= 0) {
+			return null;
+		}
+
+		long body = (long)shadeLevels * depthSlices * RowLength;
+		if (bytes.Length - 8 < body) {
+			return null;
+		}
+
+		var rows = new byte[body];
+		Array.Copy(bytes, 8, rows, 0, body);
+		return new ShadeRamp(shadeLevels, depthSlices, rows);
+	}
+
+	/// <summary>
+	/// Which row <c>FUN_00468054</c> selects for a given shade byte: <c>(shade * (levels - 1)) / 256</c>,
+	/// clamped to the table. The truncation is the original's own <c>&amp; ~0xFF</c>.
+	/// </summary>
+	public int RowFor(int shade) =>
+		Math.Clamp(shade * (ShadeLevels - 1) / RowLength, 0, ShadeLevels - 1);
+
+	/// <summary>
+	/// The palette byte a colour index resolves to at one shade — the ramp lookup itself.
+	/// </summary>
+	/// <param name="paletteIndex">The surface's own colour index, 0-255.</param>
+	/// <param name="shade">A shade byte, 0-255; <see cref="UnlitShade"/> for a flat solid face.</param>
+	public byte Lookup(int paletteIndex, int shade) => Lookup(paletteIndex, shade, 0);
+
+	/// <summary>
+	/// The same lookup at one of the ramp's depth slices — the original's distance fog, which
+	/// <c>Raster_ShadeRampRow</c> applies by adding whole slices to the row offset.
+	/// </summary>
+	/// <param name="depthSlice">0 for unfogged, up to <see cref="DepthSlices"/> - 1 at the far edge;
+	/// <see cref="DepthSliceFor"/> works it out from a distance.</param>
+	public byte Lookup(int paletteIndex, int shade, int depthSlice) {
+		int slice = Math.Clamp(depthSlice, 0, DepthSlices - 1);
+		return _rows[(slice * ShadeLevels + RowFor(shade)) * RowLength + (paletteIndex & 0xff)];
+	}
+
+	/// <summary>
+	/// Which depth slice something at <paramref name="distance"/> is drawn in — a direct port of
+	/// <c>Raster_SetDepthFadeFromDistance</c> (<c>00467fec</c>), whose result it expresses as a slice
+	/// number rather than the byte offset the original carries around.
+	///
+	/// <code>
+	/// if (d >= range)     d = range;
+	/// if (d &lt;= range/2)   return 0;
+	/// t = min((d - range/2) * 2 / range, 1)      // Q16
+	/// return t * (depthSlices - 1)               // Q16
+	/// </code>
+	///
+	/// <para>So nothing inside half the visibility range is fogged at all, and the fade runs over the
+	/// outer half only.</para>
+	/// </summary>
+	/// <param name="distance">Distance from the view, in world units.</param>
+	/// <param name="visibilityRange">The far limit, in world units — see
+	/// <see cref="Terrain.HeightGrid.VisibilityRange"/>.</param>
+	public int DepthSliceFor(long distance, long visibilityRange) {
+		if (visibilityRange <= 0) {
+			return 0;
+		}
+
+		long clamped = Math.Min(distance, visibilityRange);
+		long half = visibilityRange / 2;
+		if (clamped <= half) {
+			return 0;
+		}
+
+		double t = Math.Min((double)(clamped - half) * 2 / visibilityRange, 1);
+		return Math.Clamp((int)(t * (DepthSlices - 1)), 0, DepthSlices - 1);
+	}
+
+	/// <summary>
+	/// The colour everything the theater draws converges to at the far edge of visibility: the
+	/// commonest output of the last depth slice at <see cref="UnlitShade"/>, expanded through the
+	/// palette.
+	///
+	/// <para>Taking the commonest rather than any one index is what makes this a fog colour and not a
+	/// sample: by the last slice the ramp has collapsed almost the whole palette onto one entry.
+	/// Across the retail files the last slice resolves 256 indices to two to four distinct bytes,
+	/// with one of them covering the large majority — <c>WORLD2</c> lands 200 of 256 on
+	/// <c>#F4D4BC</c>, <c>WORLD0</c> 255 of 256 on <c>#747060</c>.</para>
+	///
+	/// <para>The answer lands where the sky ends. <c>WORLD2</c>'s <c>#F4D4BC</c> is palette entry 222
+	/// and <c>WORLD0</c>'s <c>#747060</c> is entry 223 — the last colours of the same 208-223 run
+	/// <see cref="SkyGradient"/> draws the sky from, so the ramp fogs distant terrain to very nearly
+	/// the colour of the sky immediately above the horizon. That is a property of the data, arrived at
+	/// from two directions (this table's far slice, and the palette run measured off retail captures),
+	/// and it is why retail's horizon reads as continuous.</para>
+	/// </summary>
+	public Vector3? FogColor(DynamixPalette? palette) {
+		if (palette == null) {
+			return null;
+		}
+
+		Span<int> counts = stackalloc int[RowLength];
+		for (int index = 0; index < RowLength; index++) {
+			counts[Lookup(index, UnlitShade, DepthSlices - 1)]++;
+		}
+
+		int best = 0;
+		for (int candidate = 1; candidate < RowLength; candidate++) {
+			if (counts[candidate] > counts[best]) {
+				best = candidate;
+			}
+		}
+
+		if (!palette.Colors.TryGetValue(best, out var entry)) {
+			return null;
+		}
+
+		var color = entry.GetColor();
+		return new Vector3(color.R / 255f, color.G / 255f, color.B / 255f);
+	}
+
+	/// <summary>
+	/// One flat surface colour as the engine wants it: the ramp lookup expanded through the theater's
+	/// own palette. Returns null when the palette has no entry for the resolved byte.
+	/// </summary>
+	public Vector3? Resolve(int paletteIndex, int shade, DynamixPalette? palette) {
+		byte resolved = Lookup(paletteIndex, shade);
+		if (palette == null || !palette.Colors.TryGetValue(resolved, out var entry)) {
+			return null;
+		}
+
+		var color = entry.GetColor();
+		return new Vector3(color.R / 255f, color.G / 255f, color.B / 255f);
+	}
+}

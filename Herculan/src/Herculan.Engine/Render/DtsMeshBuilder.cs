@@ -5,6 +5,7 @@ using HercWorks.Core.Data.File.Dts.Bsp;
 using HercWorks.Core.Data.File.Dts.Part;
 using HercWorks.Core.Data.File.Dts.Poly;
 using HercWorks.Core.Data.File.Dyn;
+using Herculan.Engine.Content;
 using Herculan.Engine.Gl;
 
 namespace Herculan.Engine.Render;
@@ -24,17 +25,23 @@ namespace Herculan.Engine.Render;
 /// docs/formats/dts-texture-binding.md: <c>Surfaces[ColorIndexId / 4].FrontColor</c> is a frame index
 /// into the mesh's bound <c>.DBA</c> bank, and the four UV corners are the frame's own rect.</para>
 ///
-/// <para>A flat-shaded (<see cref="TSSolidPoly"/>) poly's <c>Surfaces[ColorIndexId / 4].FrontColor</c>
-/// is the SAME kind of frame index, into the SAME bound bank — not a direct palette index (that was
-/// tried and produces wrong hues) and not a lookup in <see cref="DefaultShapeColors"/> (a 13-entry
-/// guess table that resolves most indices to a cyan fallback). See docs/formats/dts-texture-binding.md's
-/// "Flat-shaded lighting" section for the full RE trace. <see cref="ResolveSurfaceColor"/> takes the
-/// resolved frame's average colour from the atlas as the base colour; per-face lighting is applied at
-/// render time in <see cref="SceneRenderer"/>, not baked in here, since one built mesh is shared by
-/// every instance of a unit type at a different world rotation.</para>
+/// <para><b>The flat poly types are two mechanisms, not one.</b> <see cref="TSShadedPoly"/> — which is
+/// what nearly every surface of a HERC or a building actually is — takes its
+/// <c>Surfaces[ColorIndexId / 4].FrontColor</c> as the same kind of frame index into the same bound
+/// bank, and is lit per face. <see cref="ResolveSurfaceColor"/> takes the resolved frame's average
+/// colour from the atlas as its base colour, and per-face lighting is applied at render time in
+/// <see cref="SceneRenderer"/> rather than baked in here, since one built mesh is shared by every
+/// instance of a unit type at a different world rotation.</para>
 ///
-/// <para>Pass a <see cref="TextureAtlas"/> to resolve either kind of poly; without one, both fall back
-/// to a flat placeholder colour, which is honest about "no bank loaded" rather than quietly wrong.</para>
+/// <para>A plain <see cref="TSSolidPoly"/> is the other one: its value is a <b>palette index</b>, run
+/// through the theater's colour ramp at a fixed shade and never lit at all. See
+/// <c>ResolveSolidColors</c> for the trace and for why that distinction was previously missed —
+/// a palette index was tried against the whole flat population once, produced wrong hues on
+/// buildings, and was rejected for both types together.</para>
+///
+/// <para>Pass a <see cref="TextureAtlas"/> to resolve a textured or shaded poly and a
+/// <see cref="SurfaceShading"/> to resolve a solid one; without either, both fall back to a flat
+/// placeholder colour, which is honest about "nothing loaded" rather than quietly wrong.</para>
 /// </summary>
 /// <summary>
 /// One node's share of a shape's geometry: the triangles of every group that hangs from a single
@@ -47,8 +54,32 @@ namespace Herculan.Engine.Render;
 /// </summary>
 /// <param name="TransformId">The node, in the id space <c>AnimationThread.NodeTransform</c> takes.
 /// -1 for geometry no node places, which is drawn at the shape's origin.</param>
-/// <param name="Vertices">Triangles in the node's own space, ready to upload.</param>
-public readonly record struct MeshSegment(int TransformId, MeshVertex[] Vertices);
+/// <param name="Vertices">Triangles then outline edges in the node's own space, ready to upload —
+/// see <see cref="MeshBuild"/>.</param>
+/// <param name="TriangleVertexCount">Where the outline edges start — see <see cref="MeshBuild"/>.</param>
+public readonly record struct MeshSegment(int TransformId, MeshVertex[] Vertices, int TriangleVertexCount);
+
+/// <summary>
+/// A built mesh: filled triangles first, then the outline edges that are drawn over them as lines,
+/// in one array so a single vertex buffer carries both.
+///
+/// <para>The outline is not decoration. <c>TSSolidPoly_Render</c> (<c>00474db4</c>) resolves
+/// <i>two</i> colours for every flat solid face — <c>surface.FrontColor</c> and
+/// <c>surface.FrontLineColor</c>, both through the theater ramp at the same fixed shade — and hands
+/// both to the polygon fill <c>FUN_0048d518</c>, which fills in the first and then, whenever the two
+/// resolve differently, re-draws the same polygon's edge loop in the second. That second pass is
+/// this range. See <see cref="DtsMeshBuilder"/>'s <c>ResolveSolidColors</c>.</para>
+/// </summary>
+/// <param name="Vertices">Triangle corners in <c>[0, TriangleVertexCount)</c>, line-segment
+/// endpoint pairs after it.</param>
+/// <param name="TriangleVertexCount">Always a multiple of three; the remainder of
+/// <paramref name="Vertices"/> is a multiple of two.</param>
+public readonly record struct MeshBuild(MeshVertex[] Vertices, int TriangleVertexCount) {
+	public static MeshBuild Empty { get; } = new(Array.Empty<MeshVertex>(), 0);
+
+	/// <summary>How many vertices belong to the outline pass.</summary>
+	public int OutlineVertexCount => Vertices.Length - TriangleVertexCount;
+}
 
 public static class DtsMeshBuilder {
 	/// <summary>Safety bound on the transform parent chain, in case a file's relations form a cycle.</summary>
@@ -98,9 +129,22 @@ public static class DtsMeshBuilder {
 		/// <summary>Which twin of a coincident pair wins — see <see cref="DropCoincidentTwins"/>.</summary>
 		public int Rank { get; }
 
-		public Triangle(Vector3 a, Vector3 b, Vector3 c, Vector3 color, int rank,
+		/// <summary>
+		/// Which source poly this triangle was fanned out of, unique across the whole build. Only
+		/// <see cref="OutlineEdge"/> reads it: an outline belongs to a poly, so it has to disappear
+		/// with that poly when <see cref="DropCoincidentTwins"/> discards it.
+		/// </summary>
+		public int PolyId { get; }
+
+		/// <summary>Whether <see cref="Color"/> is final — see <see cref="MeshVertex.Unlit"/>.</summary>
+		public bool Unlit { get; }
+
+		public Triangle(Vector3 a, Vector3 b, Vector3 c, Vector3 color, int rank, int polyId,
 				Vector3 localA, Vector3 localB, Vector3 localC, int transformId,
-				Vector2 uvA = default, Vector2 uvB = default, Vector2 uvC = default) {
+				Vector2 uvA = default, Vector2 uvB = default, Vector2 uvC = default,
+				bool unlit = false) {
+			Unlit = unlit;
+			PolyId = polyId;
 			A = a;
 			B = b;
 			C = c;
@@ -114,6 +158,51 @@ public static class DtsMeshBuilder {
 			UvB = uvB;
 			UvC = uvC;
 		}
+	}
+
+	/// <summary>
+	/// One edge of a flat solid poly's outline pass, in the same two spaces a <see cref="Triangle"/>
+	/// is kept in — see <see cref="MeshBuild"/>.
+	/// </summary>
+	private readonly struct OutlineEdge {
+		public OutlineEdge(Vector3 a, Vector3 b, Vector3 localA, Vector3 localB,
+				Vector3 color, int transformId, int polyId) {
+			A = a;
+			B = b;
+			LocalA = localA;
+			LocalB = localB;
+			Color = color;
+			TransformId = transformId;
+			PolyId = polyId;
+		}
+
+		public Vector3 A { get; }
+		public Vector3 B { get; }
+		public Vector3 LocalA { get; }
+		public Vector3 LocalB { get; }
+
+		/// <summary>The ramped <c>FrontLineColor</c>, already final — an outline is never lit.</summary>
+		public Vector3 Color { get; }
+
+		public int TransformId { get; }
+
+		/// <summary>The poly this edge belongs to — see <see cref="Triangle.PolyId"/>.</summary>
+		public int PolyId { get; }
+	}
+
+	/// <summary>
+	/// What the tree walk fills in: the two passes the original draws every flat solid face in, plus
+	/// the counter that ties one to the other.
+	/// </summary>
+	private sealed class Collector {
+		public List<Triangle> Triangles { get; } = new();
+
+		public List<OutlineEdge> Outlines { get; } = new();
+
+		private int _nextPolyId;
+
+		/// <summary>Claims the next <see cref="Triangle.PolyId"/>, once per source poly.</summary>
+		public int NextPolyId() => _nextPolyId++;
 	}
 
 	/// <summary>
@@ -140,21 +229,21 @@ public static class DtsMeshBuilder {
 	/// A caller that wants one specific object should use <see cref="BuildRoot"/> and pick. Merging
 	/// all roots is right only when the file is known to hold a single object.</para>
 	/// </summary>
-	public static MeshVertex[] BuildAll(DynamixThreeSpaceModel model, TextureAtlas? atlas = null) {
-		var triangles = new List<Triangle>();
+	public static MeshBuild BuildAll(DynamixThreeSpaceModel model, TextureAtlas? atlas = null, SurfaceShading? shading = null) {
+		var sink = new Collector();
 		if (model.Meshes != null) {
 			foreach (var root in model.Meshes) {
-				Collect(root, null, triangles, atlas);
+				Collect(root, null, sink, atlas, shading);
 			}
 		}
-		return Emit(triangles);
+		return Emit(sink);
 	}
 
 	/// <summary>Builds one top-level root at its highest detail level.</summary>
-	public static MeshVertex[] BuildRoot(TSObject root, TextureAtlas? atlas = null) {
-		var triangles = new List<Triangle>();
-		Collect(root, null, triangles, atlas);
-		return Emit(triangles);
+	public static MeshBuild BuildRoot(TSObject root, TextureAtlas? atlas = null, SurfaceShading? shading = null) {
+		var sink = new Collector();
+		Collect(root, null, sink, atlas, shading);
+		return Emit(sink);
 	}
 
 	/// <summary>
@@ -178,10 +267,10 @@ public static class DtsMeshBuilder {
 	/// and its flat-shaded twin always belong to the same group, so splitting afterwards keeps the
 	/// same survivor either way.</para>
 	/// </summary>
-	public static MeshSegment[] BuildSegments(TSObject root, TextureAtlas? atlas = null) {
-		var triangles = new List<Triangle>();
-		Collect(root, null, triangles, atlas);
-		return EmitSegments(triangles);
+	public static MeshSegment[] BuildSegments(TSObject root, TextureAtlas? atlas = null, SurfaceShading? shading = null) {
+		var sink = new Collector();
+		Collect(root, null, sink, atlas, shading);
+		return EmitSegments(sink);
 	}
 
 	/// <summary>
@@ -203,15 +292,52 @@ public static class DtsMeshBuilder {
 		return (min, max);
 	}
 
-	private static MeshVertex[] Emit(List<Triangle> triangles) {
-		var kept = DropCoincidentTwins(triangles);
-		var vertices = new MeshVertex[kept.Count * 3];
+	private static MeshBuild Emit(Collector sink) {
+		var kept = DropCoincidentTwins(sink.Triangles);
+		var edges = SurvivingOutlines(kept, sink.Outlines);
+
+		int triangleVertices = kept.Count * 3;
+		var vertices = new MeshVertex[triangleVertices + edges.Count * 2];
 
 		for (int i = 0; i < kept.Count; i++) {
 			EmitTriangle(kept[i], local: false, vertices, i * 3);
 		}
 
-		return vertices;
+		for (int i = 0; i < edges.Count; i++) {
+			EmitEdge(edges[i], local: false, vertices, triangleVertices + i * 2);
+		}
+
+		return new MeshBuild(vertices, triangleVertices);
+	}
+
+	/// <summary>
+	/// The outline edges whose poly still has geometry after <see cref="DropCoincidentTwins"/>. An
+	/// outline is a second pass over a poly the original has just filled, so it has no business
+	/// outliving one that lost its tie.
+	/// </summary>
+	private static List<OutlineEdge> SurvivingOutlines(List<Triangle> kept, List<OutlineEdge> outlines) {
+		if (outlines.Count == 0) {
+			return outlines;
+		}
+
+		var drawn = new HashSet<int>();
+		foreach (var triangle in kept) {
+			drawn.Add(triangle.PolyId);
+		}
+
+		return outlines.Where(edge => drawn.Contains(edge.PolyId)).ToList();
+	}
+
+	/// <summary>
+	/// Writes one outline edge's two endpoints. Unlit and untextured by construction — the line
+	/// colour came out of the ramp already resolved, exactly as the fill colour did.
+	/// </summary>
+	private static void EmitEdge(in OutlineEdge edge, bool local, MeshVertex[] vertices, int at) {
+		Vector3 a = local ? edge.LocalA : edge.A;
+		Vector3 b = local ? edge.LocalB : edge.B;
+
+		vertices[at] = new MeshVertex(a, Vector3.UnitY, edge.Color, unlit: true);
+		vertices[at + 1] = new MeshVertex(b, Vector3.UnitY, edge.Color, unlit: true);
 	}
 
 	/// <summary>
@@ -219,8 +345,9 @@ public static class DtsMeshBuilder {
 	/// Segments come back in ascending transform id, which is only for stable output — nothing reads
 	/// the order.
 	/// </summary>
-	private static MeshSegment[] EmitSegments(List<Triangle> triangles) {
-		var kept = DropCoincidentTwins(triangles);
+	private static MeshSegment[] EmitSegments(Collector sink) {
+		var kept = DropCoincidentTwins(sink.Triangles);
+		var edges = SurvivingOutlines(kept, sink.Outlines);
 
 		var byNode = new Dictionary<int, List<Triangle>>();
 		foreach (var triangle in kept) {
@@ -230,16 +357,34 @@ public static class DtsMeshBuilder {
 			list.Add(triangle);
 		}
 
+		// An outline rides the same node its poly does, so it goes into that node's segment. A node
+		// that has outlines but no surviving triangles cannot happen — SurvivingOutlines already
+		// dropped those — so this never introduces a segment of its own.
+		var edgesByNode = new Dictionary<int, List<OutlineEdge>>();
+		foreach (var edge in edges) {
+			if (!edgesByNode.TryGetValue(edge.TransformId, out var list)) {
+				edgesByNode[edge.TransformId] = list = new List<OutlineEdge>();
+			}
+			list.Add(edge);
+		}
+
 		var segments = new MeshSegment[byNode.Count];
 		int next = 0;
 		foreach (int transformId in byNode.Keys.OrderBy(id => id)) {
 			var list = byNode[transformId];
-			var vertices = new MeshVertex[list.Count * 3];
+			var nodeEdges = edgesByNode.TryGetValue(transformId, out var found) ? found : null;
+
+			int triangleVertices = list.Count * 3;
+			var vertices = new MeshVertex[triangleVertices + (nodeEdges?.Count ?? 0) * 2];
 			for (int i = 0; i < list.Count; i++) {
 				EmitTriangle(list[i], local: true, vertices, i * 3);
 			}
 
-			segments[next++] = new MeshSegment(transformId, vertices);
+			for (int i = 0; i < (nodeEdges?.Count ?? 0); i++) {
+				EmitEdge(nodeEdges![i], local: true, vertices, triangleVertices + i * 2);
+			}
+
+			segments[next++] = new MeshSegment(transformId, vertices, triangleVertices);
 		}
 
 		return segments;
@@ -263,9 +408,9 @@ public static class DtsMeshBuilder {
 		// poly visible instead of it sampling whatever sits at the atlas origin.
 		bool textured = triangle.Rank == Ranks.Textured;
 
-		vertices[at] = new MeshVertex(a, normal, triangle.Color, triangle.UvA, textured);
-		vertices[at + 1] = new MeshVertex(b, normal, triangle.Color, triangle.UvB, textured);
-		vertices[at + 2] = new MeshVertex(c, normal, triangle.Color, triangle.UvC, textured);
+		vertices[at] = new MeshVertex(a, normal, triangle.Color, triangle.UvA, textured, triangle.Unlit);
+		vertices[at + 1] = new MeshVertex(b, normal, triangle.Color, triangle.UvB, textured, triangle.Unlit);
+		vertices[at + 2] = new MeshVertex(c, normal, triangle.Color, triangle.UvC, textured, triangle.Unlit);
 	}
 
 	/// <summary>
@@ -337,49 +482,49 @@ public static class DtsMeshBuilder {
 	/// <see cref="TSBitmapPart"/> carries no geometry (it is a camera-facing billboard, which needs
 	/// per-frame geometry this builder doesn't produce) and is skipped.
 	/// </summary>
-	private static void Collect(TSObject? node, ANAnimList? animList, List<Triangle> triangles, TextureAtlas? atlas) {
+	private static void Collect(TSObject? node, ANAnimList? animList, Collector sink, TextureAtlas? atlas, SurfaceShading? shading) {
 		switch (node) {
 			case null:
 				return;
 
 			case ANShape shape:
 				// An ANShape brings its own animation list into scope for everything beneath it.
-				CollectParts(shape.Parts, shape.AnimationList ?? animList, triangles, atlas);
+				CollectParts(shape.Parts, shape.AnimationList ?? animList, sink, atlas, shading);
 				break;
 
 			case TSDetailPart detailPart:
-				CollectHighestDetail(detailPart, animList, triangles, atlas);
+				CollectHighestDetail(detailPart, animList, sink, atlas, shading);
 				break;
 
 			case TSCellAnimPart cellAnimPart:
 				// Consecutive frames of one moving sub-part (a rotating dish, say). Walking all of
 				// them stacks every frame of the motion on top of itself, so take the rest pose.
 				if (cellAnimPart.Parts is { Length: > 0 } frames) {
-					Collect(frames[0], animList, triangles, atlas);
+					Collect(frames[0], animList, sink, atlas, shading);
 				}
 				break;
 
 			case TSBSPGroup bspGroup:
-				AppendGroup(bspGroup, animList, triangles, atlas);
+				AppendGroup(bspGroup, animList, sink, atlas, shading);
 				break;
 
 			case TSGroup group:
-				AppendGroup(group, animList, triangles, atlas);
+				AppendGroup(group, animList, sink, atlas, shading);
 				break;
 
 			case TSPartList partList:
-				CollectParts(partList.Parts, animList, triangles, atlas);
+				CollectParts(partList.Parts, animList, sink, atlas, shading);
 				break;
 		}
 	}
 
-	private static void CollectParts(TSObject[]? parts, ANAnimList? animList, List<Triangle> triangles, TextureAtlas? atlas) {
+	private static void CollectParts(TSObject[]? parts, ANAnimList? animList, Collector sink, TextureAtlas? atlas, SurfaceShading? shading) {
 		if (parts == null) {
 			return;
 		}
 
 		foreach (var part in parts) {
-			Collect(part, animList, triangles, atlas);
+			Collect(part, animList, sink, atlas, shading);
 		}
 	}
 
@@ -389,7 +534,7 @@ public static class DtsMeshBuilder {
 	/// the one paired with the largest threshold rather than simply the last entry, since nothing
 	/// guarantees a file keeps them in ascending order.
 	/// </summary>
-	private static void CollectHighestDetail(TSDetailPart detailPart, ANAnimList? animList, List<Triangle> triangles, TextureAtlas? atlas) {
+	private static void CollectHighestDetail(TSDetailPart detailPart, ANAnimList? animList, Collector sink, TextureAtlas? atlas, SurfaceShading? shading) {
 		if (detailPart.Parts is not { Length: > 0 } parts) {
 			return;
 		}
@@ -405,10 +550,10 @@ public static class DtsMeshBuilder {
 			}
 		}
 
-		Collect(parts[best], animList, triangles, atlas);
+		Collect(parts[best], animList, sink, atlas, shading);
 	}
 
-	private static void AppendGroup(TSGroup group, ANAnimList? animList, List<Triangle> triangles, TextureAtlas? atlas) {
+	private static void AppendGroup(TSGroup group, ANAnimList? animList, Collector sink, TextureAtlas? atlas, SurfaceShading? shading) {
 		if (group.Points == null || group.Indexes == null || group.Polys == null) {
 			return;
 		}
@@ -462,9 +607,18 @@ public static class DtsMeshBuilder {
 				? (rect.HasValue ? Ranks.Textured : Ranks.UnresolvedTexture)
 				: Ranks.FlatShaded;
 
-			Vector3 color = rank == Ranks.UnresolvedTexture ? TextureFallbackColor : ResolveColor(poly, surfaceColors);
+			// A plain TSSolidPoly — the exact type, not one of the three subclasses that inherit its
+			// fields — is the one poly kind the original draws through the theater ramp instead of the
+			// bound texture bank, and the one it does not light. See ResolveSolidColors.
+			SolidColors? solid = polyObject.GetType() == typeof(TSSolidPoly)
+				? ResolveSolidColors(poly, group.Surfaces, shading)
+				: null;
+
+			Vector3 color = solid?.Fill
+				?? (rank == Ranks.UnresolvedTexture ? TextureFallbackColor : ResolveColor(poly, surfaceColors));
 			Vector3 first = points[firstIndex];
 			Vector3 localFirst = localPoints[firstIndex];
+			int polyId = sink.NextPolyId();
 
 			// Polys are convex fans, so a triangle fan from the first vertex reproduces them.
 			for (int i = 0; i < poly.VertexCount - 2; i++) {
@@ -475,12 +629,29 @@ public static class DtsMeshBuilder {
 				}
 
 				if (rect is { } frame) {
-					triangles.Add(new Triangle(first, points[i1], points[i2], color, rank,
+					sink.Triangles.Add(new Triangle(first, points[i1], points[i2], color, rank, polyId,
 						localFirst, localPoints[i1], localPoints[i2], group.Transform,
 						UvAt(frame, 0), UvAt(frame, i + 1), UvAt(frame, i + 2)));
 				} else {
-					triangles.Add(new Triangle(first, points[i1], points[i2], color, rank,
-						localFirst, localPoints[i1], localPoints[i2], group.Transform));
+					sink.Triangles.Add(new Triangle(first, points[i1], points[i2], color, rank, polyId,
+						localFirst, localPoints[i1], localPoints[i2], group.Transform,
+						unlit: solid.HasValue));
+				}
+			}
+
+			// The original's second pass over the same poly: its whole edge loop, re-drawn in the
+			// surface's line colour, whenever that resolves to something other than the fill. See
+			// MeshBuild.
+			if (solid?.Line is { } lineColor) {
+				for (int i = 0; i < poly.VertexCount; i++) {
+					int from = group.Indexes[listStart + i];
+					int to = group.Indexes[listStart + (i + 1) % poly.VertexCount];
+					if (from < 0 || from >= points.Length || to < 0 || to >= points.Length) {
+						continue;
+					}
+
+					sink.Outlines.Add(new OutlineEdge(points[from], points[to],
+						localPoints[from], localPoints[to], lineColor, group.Transform, polyId));
 				}
 			}
 		}
@@ -587,4 +758,98 @@ public static class DtsMeshBuilder {
 	/// </summary>
 	private static Vector3 ResolveSurfaceColor(short frontColor, TextureAtlas? atlas) =>
 		atlas?.AverageColor(frontColor) ?? FallbackColor;
+
+	/// <summary>
+	/// The colour of a plain <see cref="TSSolidPoly"/> — <b>a palette index run through the theater's
+	/// own ramp</b>, which is a different mechanism from every other poly type's and was previously
+	/// conflated with theirs.
+	///
+	/// <para><c>TSSolidPoly_Render</c> (DBSIM <c>00474db4</c>, reached from the DTS type registry's
+	/// tag <c>0x00140002</c> entry, so this is the poly class by construction and not by structural
+	/// resemblance) is short enough to quote whole: pick the front or back pair by the visibility
+	/// test, bail if both carry the "none" marker, then</para>
+	/// <code>
+	/// fill = rampRow(0x80)[surface.Front];   line = rampRow(0x80)[surface.FrontLine];
+	/// </code>
+	/// <para>and hand both to <c>FUN_0048d518</c>, which fills the polygon in <c>fill</c> and then,
+	/// when <c>line != fill</c>, re-draws the same polygon's edge loop in <c>line</c>. (That second
+	/// pass is the rasterizer's mode 4, which is a line loop over the vertex list — confirmed down to
+	/// <c>FUN_00483dac</c>'s own <c>iVar11 == 4</c> branch, which walks consecutive vertex pairs and
+	/// closes back to the first.) There is no texture lookup, no frame index and — the part that
+	/// shows — <b>no light term</b>: the shade byte is the literal <c>0x80</c>, so a solid face is the
+	/// same brightness whichever way it faces. <see cref="Content.ShadeRamp"/> is that table.</para>
+	///
+	/// <para>The comparison that decides whether there is an outline at all is on the <b>ramped</b>
+	/// bytes, not the raw surface values: the original ramps both before <c>FUN_0048d518</c> ever sees
+	/// them, so two different palette indices that land on the same ramp output draw no outline.</para>
+	///
+	/// <para>Its sibling <c>TSShadedPoly</c> (tag <c>0x00140003</c>, <c>0047542c</c>) is the one that
+	/// lights: it runs <c>Light_ComputeShadeForFace</c> and puts the result through the palette's own
+	/// per-colour shade ramp before the same table. That is what almost every surface of a HERC or a
+	/// building is — 1227 of APOCA's 1368 polys, 2049 of BASES_AN's — and it is <b>not</b> changed
+	/// here; those keep the atlas-average stand-in and the renderer's own lighting.</para>
+	///
+	/// <para>Which is why this correction is small and safe as well as right. Retail geometry uses
+	/// plain <c>TSSolidPoly</c> almost nowhere: 12 polys in <c>BULLETS.DTS</c>, 57 in
+	/// <c>ROCKETS.DTS</c>, and 73 scattered across the whole mech and building fleet. The projectiles
+	/// are the case that made it visible — their palette indices are 85, 93, 94, 104 and 246, which
+	/// are the fire ramp and near-white, and none of which is a valid frame of the eight-frame
+	/// <c>BULLETS.DBA</c> the old reading indexed. An autocannon round is meant to be gold.</para>
+	///
+	/// <para>Corroborated across the install: of the 1517 plain <c>TSSolidPoly</c> surfaces in every
+	/// <c>.DTS</c> the game ships, <b>all 1517</b> carry a zero flag and a value inside 0-255. A frame
+	/// index would have to fit each shape's own bank, and no distribution that tight to a byte is a
+	/// frame index.</para>
+	///
+	/// <para>Returns null when there is no ramp loaded, when the surface index is out of range, or
+	/// when the entry carries a nonzero flag — the flag occupies the high half of the same int32 the
+	/// original indexes with, so a value that has one is not a plain colour and is left to the
+	/// existing path. (The original's own test is narrower: a flag of 5120, which puts <c>0x14</c> in
+	/// that int32's top byte, means "do not draw this face at all". Nothing in retail data reaches
+	/// either case.)</para>
+	/// </summary>
+	private static SolidColors? ResolveSolidColors(TSPoly poly, TSSurfaceEntry[]? surfaces, SurfaceShading? shading) {
+		if (shading == null || surfaces == null || poly is not TSSolidPoly solid) {
+			return null;
+		}
+
+		int index = solid.ColorIndexId / 4;
+		if (index < 0 || index >= surfaces.Length) {
+			return null;
+		}
+
+		var surface = surfaces[index];
+		if (surface.FrontFlag != 0 || surface.FrontColor < 0) {
+			return null;
+		}
+
+		if (shading.Ramp.Resolve(surface.FrontColor, ShadeRamp.UnlitShade, shading.Palette) is not { } fill) {
+			return null;
+		}
+
+		// The line colour is guarded exactly as the fill is — a nonzero flag means the entry is not a
+		// plain colour, and retail's own "no outline" entries are the flagged -1 pair. Past that, the
+		// original's test is on the ramp's output, so this one is too.
+		Vector3? line = null;
+		if (surface.FrontLineFlag == 0 && surface.FrontLineColor >= 0
+			&& shading.Ramp.Lookup(surface.FrontLineColor, ShadeRamp.UnlitShade)
+				!= shading.Ramp.Lookup(surface.FrontColor, ShadeRamp.UnlitShade)) {
+			line = shading.Ramp.Resolve(surface.FrontLineColor, ShadeRamp.UnlitShade, shading.Palette);
+		}
+
+		return new SolidColors(fill, line);
+	}
+
+	/// <summary>
+	/// The two colours a flat solid surface carries — see <see cref="ResolveSolidColors"/>.
+	/// <paramref name="Line"/> is null when the surface draws no outline.
+	/// </summary>
+	private readonly record struct SolidColors(Vector3 Fill, Vector3? Line);
 }
+
+/// <summary>
+/// What a flat solid surface needs to become a colour: the theater's ramp and the palette the ramp's
+/// output is an index into. Both come from the same theater, and neither means anything without the
+/// other — see <see cref="DtsMeshBuilder"/>'s <c>ResolveSolidColors</c>.
+/// </summary>
+public sealed record SurfaceShading(ShadeRamp Ramp, DynamixPalette? Palette);

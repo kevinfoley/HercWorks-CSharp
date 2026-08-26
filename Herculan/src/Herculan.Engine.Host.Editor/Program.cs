@@ -120,7 +120,7 @@ window.Load += (gl, input) => {
 	terrainTexture = scene.TerrainBank != null ? new GpuTexture(gl, scene.TerrainBank.Atlas) : null;
 
 	foreach (var model in scene.Models) {
-		modelMeshes[model.Key] = new GpuMesh(gl, model.Mesh);
+		modelMeshes[model.Key] = new GpuMesh(gl, model.Mesh, model.TriangleVertexCount);
 		if (model.Atlas != null) {
 			modelTextures[model.Key] = new GpuTexture(gl, model.Atlas);
 		}
@@ -293,7 +293,7 @@ void BuildPropertiesPanel(int width, int height, SceneObject? sel) {
 
 		if (sel.Model is { } model) {
 			ImGui.Text($"Model: {model.Key}");
-			ImGui.Text($"Triangles: {model.Mesh.Length / 3}");
+			ImGui.Text($"Triangles: {model.TriangleVertexCount / 3}");
 			ImGui.Text(model.Atlas is { } atlas
 				? $"Texture: {atlas.FrameCount} frames ({atlas.Width}x{atlas.Height})"
 				: "Texture: none");

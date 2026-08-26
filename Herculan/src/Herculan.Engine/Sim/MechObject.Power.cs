@@ -208,11 +208,11 @@ public sealed partial class MechObject {
 	/// Nothing in the real ranges gets anywhere near an overflow, but the arithmetic is kept faithful
 	/// rather than widened.</para>
 	/// </summary>
-	private void PowerTick() {
+	private void PowerTick(SimWorld world) {
 		EnergyPool = unchecked((short)(EnergyPool + SimMath.IntegrateRateOverTick(ReactorOutputRate)));
 
 		short budget = unchecked((short)(EnergyPool - EnergyPoolReserve));
-		budget = ChargeWeapons(budget);
+		budget = ChargeWeapons(budget, world);
 		budget = Shields.RechargeTick(budget);
 
 		EnergyPool = unchecked((short)(budget + EnergyPoolReserve));
@@ -240,6 +240,6 @@ public sealed partial class MechObject {
 	/// manager passes its own selection, the remote manager passes -1 and goes straight to the
 	/// priority ranking.</para>
 	/// </summary>
-	private short ChargeWeapons(short budget) =>
-		Weapons.ChargeTick(budget, IsPlayer ? Weapons.Selected : WeaponMounts.NoSelection);
+	private short ChargeWeapons(short budget, SimWorld world) =>
+		Weapons.ChargeTick(budget, IsPlayer ? Weapons.Selected : WeaponMounts.NoSelection, this, world);
 }

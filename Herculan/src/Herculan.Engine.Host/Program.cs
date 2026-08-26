@@ -320,6 +320,8 @@ if (pilotMech != null) {
 		: "No throttle slider in this herc's .GAU — keyboard throttle only.");
 }
 
+Console.WriteLine("P pauses and unpauses the simulation (placeholder — retail's own pause has not "
+	+ "been reverse-engineered yet).");
 Console.WriteLine("Free camera: W/A/S/D move, R/F rise and fall, arrow keys look, Shift boosts.");
 Console.WriteLine("Esc opens the debug panel (skeleton view, animation readouts) — it no longer quits; "
 	+ "close the window for that.");
@@ -351,6 +353,7 @@ var disposables = new List<IDisposable>();
 SceneItem[]? items = null;
 SceneItem[]? pilotedItems = null;
 var movers = new List<(SceneObject Object, SceneItem Item)>();
+var projectileItems = new List<SceneItem>();
 
 // A machine whose shape animates is drawn a node at a time, so each entry here is one geometry
 // segment riding one transform of one mech — see MissionScene.PosedTransformOf.
@@ -415,10 +418,10 @@ window.Load += (gl, input) => {
 	// them is ever drawn.
 	foreach (var model in scene.Models) {
 		if (animatedKeys.Contains(model.Key)) {
-			segmentMeshes[model.Key] = model.Segments.Select(segment => new GpuMesh(gl, segment.Vertices)).ToArray();
+			segmentMeshes[model.Key] = model.Segments.Select(segment => new GpuMesh(gl, segment.Vertices, segment.TriangleVertexCount)).ToArray();
 			disposables.AddRange(segmentMeshes[model.Key]);
 		} else {
-			modelMeshes[model.Key] = new GpuMesh(gl, model.Mesh);
+			modelMeshes[model.Key] = new GpuMesh(gl, model.Mesh, model.TriangleVertexCount);
 		}
 
 		if (model.Atlas != null) {
@@ -713,6 +716,8 @@ window.Update += deltaSeconds => {
 		item.Transform = MissionScene.PosedTransformOf(mech, transformId);
 	}
 
+	RefreshProjectileItems();
+
 	if (piloting && pilotMech != null) {
 		if (externalView) {
 			// Fixed chase view, ~10 m behind the machine. Placeholder geometry — see ExternalCamera.
@@ -825,11 +830,11 @@ window.Render += (_, gl) => {
 	imgui?.Render();
 
 	framesRendered++;
-	// A tracer is on screen for one tick out of every refire period, so a fixed frame number would
-	// catch one only by luck. With the trigger held, wait for a frame that actually has one.
-	bool beamWanted = heldFire && beams != null;
+	// A tracer is on screen for one tick out of every refire period and a travelling shot for as long
+	// as its flight lasts, so either one counts as "the trigger produced something visible".
+	bool shotWanted = heldFire && (beams != null || scene.World.Bullets != null);
 	if (screenshotPath != null && !screenshotTaken && framesRendered >= 30
-			&& (!beamWanted || scene.World.Tracers.Count > 0)) {
+			&& (!shotWanted || scene.World.Tracers.Count > 0 || scene.World.Projectiles.Count > 0)) {
 		screenshotTaken = true;
 		CaptureScreenshot(gl, size.X, size.Y, screenshotPath);
 		window.Close();
@@ -1075,8 +1080,28 @@ void ApplyHddClick(HddLayout.Widget widget) {
 // cockpit: the cockpit node the eye rides sits well inside the torso, so its geometry would wrap the
 // camera and fill the canopy. The observer camera and the external view both put it back, which is
 // the only way to see the machine you are flying.
-SceneItem[] VisibleItems() =>
-	(piloting && !externalView ? pilotedItems : items) ?? Array.Empty<SceneItem>();
+// Shots in flight ride on the end of both lists: they are never the player's own machine, so nothing
+// hides them, and they are rebuilt every frame rather than kept because a projectile pool churns.
+IEnumerable<SceneItem> VisibleItems() =>
+	((piloting && !externalView ? pilotedItems : items) ?? Array.Empty<SceneItem>())
+		.Concat(projectileItems);
+
+// One item per live projectile, from the shape its PROJ.DAT subtype names — see
+// MissionScene.BulletModels. The transform is the shot's own frame, which carries both where it is
+// and which way it is pointing, so a round is drawn nose-first along its flight.
+void RefreshProjectileItems() {
+	projectileItems.Clear();
+
+	foreach (var projectile in scene.World.Projectiles) {
+		if (!scene.BulletModels.TryGetValue(projectile.MissileId, out var model)
+			|| !modelMeshes.TryGetValue(model.Key, out var mesh)) {
+			continue;
+		}
+
+		uint? texture = modelTextures.TryGetValue(model.Key, out var bound) ? bound.Handle : null;
+		projectileItems.Add(new SceneItem(mesh, WorldScale.ToRenderMatrix(projectile.Frame), texture));
+	}
+}
 
 // Whether this frame is being drawn from the external camera. Only meaningful while piloting — the
 // free camera already draws the whole scene with no cockpit over it.

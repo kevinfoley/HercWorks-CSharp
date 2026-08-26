@@ -19,7 +19,9 @@ namespace Herculan.Engine.Scene;
 /// three ACHILLES and five of one structure holds two entries here, not eight.
 /// </summary>
 /// <param name="Key">Stable identity, e.g. <c>dts\ACHILLES.DTS#0</c>.</param>
-/// <param name="Mesh">Triangles in model space, ready to upload.</param>
+/// <param name="Mesh">Triangles then outline edges in model space, ready to upload — see
+/// <see cref="MeshBuild"/>.</param>
+/// <param name="TriangleVertexCount">Where <paramref name="Mesh"/>'s outline range starts.</param>
 /// <param name="Atlas">
 /// The model's packed texture bank, or null when no bank could be resolved — in which case the
 /// mesh's UVs mean nothing and it must be drawn untextured.
@@ -36,8 +38,8 @@ namespace Herculan.Engine.Scene;
 /// these, never both: they are the same triangles twice.
 /// </param>
 public sealed record SceneModel(
-	string Key, MeshVertex[] Mesh, TextureAtlas? Atlas, float BaseOffset, int RadiusWorldUnits,
-	int HeightWorldUnits, MeshSegment[] Segments);
+	string Key, MeshVertex[] Mesh, int TriangleVertexCount, TextureAtlas? Atlas, float BaseOffset,
+	int RadiusWorldUnits, int HeightWorldUnits, MeshSegment[] Segments);
 
 /// <summary>
 /// Loads and caches the models a mission needs, keyed so identical unit types share one mesh and one
@@ -63,6 +65,7 @@ public sealed record SceneModel(
 public sealed class SceneModelLibrary {
 	private readonly GameContent _content;
 	private readonly DynamixPalette? _palette;
+	private readonly SurfaceShading? _shading;
 
 	private readonly Dictionary<string, SceneModel?> _models = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, TextureAtlas?> _atlases = new(StringComparer.OrdinalIgnoreCase);
@@ -91,10 +94,23 @@ public sealed class SceneModelLibrary {
 		_palette = paletteBytes != null
 			? new DynamixPaletteTransformer().BytesToObject(paletteBytes) as DynamixPalette
 			: null;
+
+		// The theater ships its colour ramp beside its palette, under the same base name, and a flat
+		// solid face is nothing without it — see DtsMeshBuilder's ResolveSolidColors.
+		_shading = ShadeRamp.Load(content, theater.PaletteName) is { } ramp
+			? new SurfaceShading(ramp, _palette)
+			: null;
 	}
 
 	/// <summary>Every model built so far, in first-requested order.</summary>
 	public IEnumerable<SceneModel> Models => _models.Values.Where(m => m != null)!;
+
+	/// <summary>
+	/// The theater's ramp and palette, or null when the ramp did not load. Exposed because the same
+	/// pair that colours a flat solid face also carries the zone's fog colour — see
+	/// <see cref="Atmosphere"/>.
+	/// </summary>
+	public SurfaceShading? Shading => _shading;
 
 	/// <summary>The mech type's stats, or null when the install has no <c>dat\&lt;name&gt;.DAT</c>.</summary>
 	public HercSimDat? MechData(string mechName) {
@@ -174,6 +190,31 @@ public sealed class SceneModelLibrary {
 	public SceneModel? Flyer(string flyerName) => Build(flyerName + ".DTS", 0, bankName: null);
 
 	/// <summary>
+	/// The shape a travelling shot is drawn as — a root of <c>dts\BULLETS.DTS</c>, textured from
+	/// <c>dba\BULLETS.DBA</c>. Both come from the bullet module's own init (<c>FUN_0040ade0</c>),
+	/// which loads the shape file into <c>DAT_004a9784</c> and binds that one bank to every shape in
+	/// it; <paramref name="modelId"/> is the <c>BULLETS.DAT</c> record's first field, which
+	/// <c>Bullet_Construct</c> uses as the index into that array.
+	///
+	/// <para>Retail ships nine roots and the twelve records between them name all nine, but two of
+	/// them — roots 2 and 3, which are the <b>three EMP cannons' rounds</b> — are not geometry at
+	/// all: they are a <c>TSCellAnimPart</c> of five <c>TSBitmapPart</c>s, a flipbook of billboard
+	/// sprites out of the same <c>.DBA</c>. <see cref="DtsMeshBuilder"/> builds triangles and those
+	/// roots have none, so an EMP round is simulated and does damage but is <b>invisible</b>. Drawing
+	/// it needs a world-space sprite path the engine does not have — the same one the impact effects
+	/// will need, and the same reason <see cref="Sim.Projectile"/> does not advance a frame counter.
+	/// The plasma round (root 8) is a two-frame cell animation over real geometry and draws its first
+	/// frame; every autocannon round is plain static geometry.</para>
+	/// </summary>
+	public SceneModel? Bullet(int modelId) => Build(BulletLibraryName, modelId, BulletBankName);
+
+	/// <summary>The shape file <c>FUN_0040ade0</c> opens, by the literal name <c>bullets</c>.</summary>
+	public const string BulletLibraryName = "BULLETS.DTS";
+
+	/// <summary>And the bank it binds to every shape in it, opened by the same literal.</summary>
+	public const string BulletBankName = "BULLETS";
+
+	/// <summary>
 	/// The model for a structure type. <see cref="BaseShapeSource.AnimatedLibrary"/> types are a
 	/// root of <c>dts\BASES_AN.DTS</c>; <see cref="BaseShapeSource.StaticLibrary"/> types are a
 	/// record of <c>dgs\BASES.DGS</c> — see <see cref="BasesDgsTransformer"/> for how that record's
@@ -224,8 +265,8 @@ public sealed class SceneModelLibrary {
 		}
 
 		var atlas = bankName != null ? LoadAtlas(bankName) : null;
-		var mesh = DtsMeshBuilder.BuildRoot(root, atlas);
-		var (min, max) = DtsMeshBuilder.Bounds(mesh);
+		var build = DtsMeshBuilder.BuildRoot(root, atlas, _shading);
+		var (min, max) = DtsMeshBuilder.Bounds(build.Vertices);
 
 		Vector3 extent = max - min;
 		float radiusInRenderUnits = MathF.Max(extent.X, extent.Z) * 0.5f;
@@ -234,10 +275,10 @@ public sealed class SceneModelLibrary {
 		// being drawn: they describe the machine at rest, and a walk cycle should not change how wide
 		// it is for collision purposes. Segments cost a second pass over the shape, so only the
 		// rosters that animate ask for them.
-		return new SceneModel(key, mesh, atlas, -min.Y,
+		return new SceneModel(key, build.Vertices, build.TriangleVertexCount, atlas, -min.Y,
 			(int)(radiusInRenderUnits * WorldScale.WorldUnitsPerMeter),
 			(int)(extent.Y * WorldScale.WorldUnitsPerMeter),
-			segmented ? DtsMeshBuilder.BuildSegments(root, atlas) : Array.Empty<MeshSegment>());
+			segmented ? DtsMeshBuilder.BuildSegments(root, atlas, _shading) : Array.Empty<MeshSegment>());
 	}
 
 	/// <summary>

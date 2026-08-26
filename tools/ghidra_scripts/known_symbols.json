@@ -2368,21 +2368,12 @@
       "source": "flat-shaded lighting RE, 2026-08-14 follow-up, docs/formats/dts-texture-binding.md"
     },
     {
-      "address": "00474e9c",
-      "binary": "DBSIM",
-      "type": "function",
-      "confidence": "high",
-      "name": "TSSolidPoly_Render",
-      "description": "CONFIRMED (upgraded from the prior handoff's 'inferred, not proven') to be DBSIM's flat/solid-poly render function, by structural match against VSHELL's independently RTTI-registry-verified TSSolidPoly_Render (FUN_00422a32): both resolve their surface record via (ColorIndexId*4 + surfaceRecordsBase) (here _DAT_006c697a), both call a front/back visibility test (FUN_0048c620 here, the DBSIM counterpart of maybe_TSPoly_FrontBackVisibilityTest) against poly+4/+6 Normal/Center point indices (*6 stride), both pick a Front or Back color-pair from the resulting surface record. DBSIM's version additionally computes a per-face lighting 'shade' byte via FUN_0048bedc (still undecoded) and, when DAT_004a5b1c (the loaded world<N>.rmp ramp) is set, uses it to build a ramp-table byte offset (local_24 = (DAT_004a5b1c-1)*shade & 0xffffff00 + _DAT_004a5b18) before dispatching to FUN_00468078/FUN_0046865c -> ... -> FUN_0046ac48's dither+ramp pixel formula. This is the function documented in docs/formats/dts-texture-binding.md; that doc's open question #1 (confirm this is really the flat/solid poly renderer) is now closed.",
-      "source": "flat-shaded lighting RE, 2026-08-14 follow-up, docs/formats/dts-texture-binding.md"
-    },
-    {
       "address": "0048c620",
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
       "name": "TSPoly_FrontBackVisibilityTest",
-      "description": "DBSIM's counterpart to VSHELL's maybe_TSPoly_FrontBackVisibilityTest -- called identically (two Vec3Short point pointers, Normal then Center) from TSSolidPoly_Render (FUN_00474e9c) to pick front vs. back surface color. Confirmed via structural match, not independently disassembled instruction-by-instruction.",
+      "description": "DBSIM's counterpart to VSHELL's maybe_TSPoly_FrontBackVisibilityTest -- called identically (two Vec3Short point pointers, Normal then Center) from all three flat poly renderers (TSSolidPoly_Render 00474db4, TSShadedPoly_Render 0047542c, TSTexture4Poly_Render 00474e9c) to pick front vs. back surface color. Confirmed via structural match, not independently disassembled instruction-by-instruction.",
       "source": "flat-shaded lighting RE, 2026-08-14 follow-up"
     },
     {
@@ -2391,7 +2382,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Light_ComputeShadeForFace",
-      "description": "The per-face 'shade byte' (0-255, clamped) calculation feeding TSSolidPoly_Render's lighting-ramp lookup. NOT a simple angle calc -- a real light-accumulation loop over the active light list (DAT_006c6130, max 10 slots, count DAT_006c612c), dispatching per-entry on a type tag from FUN_0048d94b: type 0 = ambient (adds a flat intensity from FUN_0048d956 unconditionally -- never seen actually populated this session, see Light_AddDirectional/PointHelper's entries), type 1 = directional (dot-product-like test via FUN_0048d99b against the face's Normal point (param_1), only contributes when the result crosses a fixed threshold, i.e. face-vs-light-direction test), type 2 = point light (distance-attenuated: displacement from the light's position (FUN_0048d961) to the face's Center point (param_2) combined with the Normal via FUN_0048d86e, divided by distance/range fields FUN_0048d973/FUN_0048d97e). Params: param_1 = poly's Normal-index Vec3Short pointer, param_2 = poly's Center-index Vec3Short pointer (same two pointers TSPoly_FrontBackVisibilityTest receives). Sibling functions FUN_0048bdcc/FUN_0048c060 are near-identical variants (different param shapes) used elsewhere for the same shade calc, likely per-vertex vs. per-face evaluation.",
+      "description": "The per-face 'shade byte' (0-255, clamped) calculation feeding TSShadedPoly_Render (0047542c). TSSolidPoly_Render does NOT call it -- a solid poly carries no light term at all. NOT a simple angle calc -- a real light-accumulation loop over the active light list (DAT_006c6130, max 10 slots, count DAT_006c612c), dispatching per-entry on a type tag from FUN_0048d94b: type 0 = ambient (adds a flat intensity from FUN_0048d956 unconditionally -- never seen actually populated this session, see Light_AddDirectional/PointHelper's entries), type 1 = directional (dot-product-like test via FUN_0048d99b against the face's Normal point (param_1), only contributes when the result crosses a fixed threshold, i.e. face-vs-light-direction test), type 2 = point light (distance-attenuated: displacement from the light's position (FUN_0048d961) to the face's Center point (param_2) combined with the Normal via FUN_0048d86e, divided by distance/range fields FUN_0048d973/FUN_0048d97e). Params: param_1 = poly's Normal-index Vec3Short pointer, param_2 = poly's Center-index Vec3Short pointer (same two pointers TSPoly_FrontBackVisibilityTest receives). Sibling functions FUN_0048bdcc/FUN_0048c060 are near-identical variants (different param shapes) used elsewhere for the same shade calc, likely per-vertex vs. per-face evaluation.",
       "source": "flat-shaded lighting RE, 2026-08-14 follow-up, docs/formats/dts-texture-binding.md"
     },
     {
@@ -2499,7 +2490,7 @@
       "type": "data",
       "confidence": "high",
       "name": "g_CurrentShapeDbaContext",
-      "description": "RESOLVES handoff item #6/#8. Set once per shape instance by FUN_0042fa18 (maybe_TSShapeInstance_PrepareRenderContext) as `param_1 + 0x1a`, i.e. a pointer into the per-shape render object -- the exact same offset pattern as VSHELL's TSShapeInstance+0x26 bound-DBA field, just a different struct layout. g_CurrentShapeDbaContext[1] (== param_1+0x1e) is the shape's currently-bound DBA's 20-byte-stride frame-descriptor table -- THE SAME g_ActiveBitmapArray[1]-equivalent table TSTexture4Poly_Render indexes for UV corners. TSSolidPoly_Render (FUN_00474e9c) uses `g_CurrentShapeDbaContext[1] + FrontColor*0x14` to fetch a frame descriptor, then reads its field+0x10 (the 5th int32, F4 -- previously found to be a 'texture-data pointer/handle' in the TSTexture4Poly descriptor) as the value shifted into the shared bitmap atlas (maybe_g_BitmapAtlasCache/DAT_004d4f88) bank selector for ordered-dither pixel fill.",
+      "description": "RESOLVES handoff item #6/#8. Set once per shape instance by FUN_0042fa18 (maybe_TSShapeInstance_PrepareRenderContext) as `param_1 + 0x1a`, i.e. a pointer into the per-shape render object -- the exact same offset pattern as VSHELL's TSShapeInstance+0x26 bound-DBA field, just a different struct layout. g_CurrentShapeDbaContext[1] (== param_1+0x1e) is the shape's currently-bound DBA's 20-byte-stride frame-descriptor table -- THE SAME g_ActiveBitmapArray[1]-equivalent table TSTexture4Poly_Render indexes for UV corners. TSTexture4Poly_Render (FUN_00474e9c) uses `g_CurrentShapeDbaContext[1] + FrontColor*0x14` to fetch a frame descriptor, then reads its field+0x10 (the 5th int32, F4 -- previously found to be a 'texture-data pointer/handle' in the TSTexture4Poly descriptor) as the value shifted into the shared bitmap atlas (maybe_g_BitmapAtlasCache/DAT_004d4f88) bank selector for ordered-dither pixel fill.",
       "source": "flat-shaded lighting RE, 2026-08-14 second follow-up (#6 continuation)"
     },
     {
@@ -2508,7 +2499,7 @@
       "type": "function",
       "confidence": "medium",
       "name": "maybe_TSShapeInstance_PrepareRenderContext",
-      "description": "Per-shape-instance render setup, called once before a shape's polys are drawn. Installs g_CurrentShapeDbaContext (DAT_006c60e8 = param_1+0x1a) and the surface-record base (_DAT_006c697a = param_1+0x61) that TSSolidPoly_Render/TSTexture4Poly-equivalent poly renderers read from -- i.e. this is where 'the currently bound DBA' becomes visible to the poly-render layer for this shape, DBSIM's counterpart to VSHELL's TSShapeInstance_Render save/swap/restore step. Also does per-point LOD/pop rotation math (BuildEulerRotationMatrixQ14 per point) unrelated to texturing. Name is a guess from structural role, not from an RTTI/registry match.",
+      "description": "Per-shape-instance render setup, called once before a shape's polys are drawn. Installs g_CurrentShapeDbaContext (DAT_006c60e8 = param_1+0x1a) and the surface-record base (_DAT_006c697a = param_1+0x61) that the poly renderers read from -- i.e. this is where 'the currently bound DBA' becomes visible to the poly-render layer for this shape, DBSIM's counterpart to VSHELL's TSShapeInstance_Render save/swap/restore step. Also does per-point LOD/pop rotation math (BuildEulerRotationMatrixQ14 per point) unrelated to texturing. Name is a guess from structural role, not from an RTTI/registry match.",
       "source": "flat-shaded lighting RE, 2026-08-14 second follow-up (#6 continuation)"
     },
     {
@@ -2525,9 +2516,144 @@
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
+      "name": "TSTexture4Poly_Render",
+      "description": "CORRECTS this address's long-standing 'TSSolidPoly_Render' name, which was assigned by structural resemblance to VSHELL's TSSolidPoly_Render and was wrong. DBSIM's DTS type registry (g_TSObjectTypeRegistry, 004a63c8) settles it by construction: tag 0x0014000f -> ctor 0048e210 -> final vtable 004a5f24, whose slot +0x1c is this function. FrontColor really is a frame index into g_CurrentShapeDbaContext[1] here, because this is the TEXTURED poly type; the flat/solid type is TSSolidPoly_Render (00474db4) and works completely differently. Also the only reader of DAT_004a5b1c: when that is zero the poly is drawn in FUN_00468078 mode 0 (plain texture copy, no light term), which is how Bullet_Draw (0040a120) makes a projectile fullbright.",
+      "source": "projectile RE, 2026-08-25, docs/engine/handoff-weapon-effects.md"
+    },
+    {
+      "address": "00474db4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
       "name": "TSSolidPoly_Render",
-      "description": "SUPERSEDES this entry's earlier 'material-record populator untraced' note -- CLOSES handoff #6 and #8. There is no dedicated 'lighting swatch' DBA anywhere in the binary -- that was the wrong mental model. TSSolidPoly_Render resolves its surface record (ColorIndexId*4 + surfaceRecordsBase, as before), then uses that record's FrontColor/BackColor value as a FRAME INDEX into g_CurrentShapeDbaContext[1] -- the SAME per-shape bound-DBA frame-descriptor table TSTexture4Poly_Render reads for UV corners (see g_CurrentShapeDbaContext). It reads that frame descriptor's field+0x10 (F4, the bitmap-data handle) and feeds it into the shared bitmap-atlas dither/ramp pixel-fill chain (FUN_00468078/FUN_0046865c -> ... -> FUN_0046ac48) as the atlas bank selector. PRACTICAL UPSHOT: a flat-shaded face's FrontColor selects a FRAME of whichever texture bank is already bound to that mesh (BASETEX.DBA for buildings, a mech's own weight-class bank for mechs, etc. -- see docs/formats/dts-texture-binding.md) -- not a raw palette index and not a separate asset. Herculan.Engine already decodes and GPU-uploads every one of these banks for textured rendering, so a byte-faithful reimplementation needs no new bitmap loader for this step, only: (1) a world<N>.rmp reader (format solved, see World_LoadTheater), (2) sampling the mesh's own already-loaded bank at frame=FrontColor as the dither swatch, (3) the sun-light dot-product shade calc (Light_ComputeShadeForFace).",
-      "source": "flat-shaded lighting RE, 2026-08-14 second follow-up (#6 continuation), docs/formats/dts-texture-binding.md"
+      "description": "DBSIM's real flat/solid poly renderer, from the DTS type registry (tag 0x00140002 -> ctor 0048e06c -> final vtable 004a5ef8, slot +0x1c). Short: pick the front pair (surface[0]=Front, surface[1]=FrontLine) or the back pair (surface[2]/[3]) by TSPoly_FrontBackVisibilityTest, skip when both have 0x14 in the top byte, then fill = Raster_ShadeRampRow(0x80)[Front] and line = same table [FrontLine], and hand both to the polygon fill (FUN_0048d518, which draws the fill then re-draws an outline in the line colour when the two differ). NO texture lookup, no frame index, and NO light term -- the shade byte is the literal 0x80. The surface value is a PALETTE INDEX, not a DBA frame: all 1517 plain TSSolidPoly surfaces across every retail .DTS carry a zero flag and a value inside 0-255. Contrast TSShadedPoly_Render (0047542c), which is the lit variant and is what nearly all mech and building geometry uses.",
+      "source": "projectile RE, 2026-08-25, docs/engine/handoff-weapon-effects.md"
+    },
+    {
+      "address": "0047542c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSShadedPoly_Render",
+      "description": "The lit flat-poly renderer, from the DTS type registry (tag 0x00140003 -> ctor 0048e2d4 -> final vtable 004a6000, slot +0x1c). Same surface-pair selection as TSSolidPoly_Render, then per face: shade = Light_ComputeShadeForFace(normal, center), fill = Raster_ShadeRampRow(0x80)[ Palette_ShadeRampLookup(Front, shade) ] and likewise for the line colour. Palette_ShadeRampLookup (00430e34) is the extra step the solid variant does not have: the surface value selects one of the active palette's shade ramps rather than a palette entry. This is the type nearly every mech and building surface actually is (1227 of APOCA's 1368 polys, 2049 of BASES_AN's).",
+      "source": "projectile RE, 2026-08-25, docs/engine/handoff-weapon-effects.md"
+    },
+    {
+      "address": "00430e34",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Palette_ShadeRampLookup",
+      "description": "Palette_ShadeRampLookup(value, shade): idx = value & 0xff, clamped to 0 when >= ActivePaletteObject+0x0c (the ramp count); reads ActivePaletteObject+0x10 as an array of 8-byte {int16* indices, int32 length} shade ramps and returns ramp[idx].indices[ Q8Multiply(shade, length) ], stepping back one when that lands on the end. So a value here is a RAMP NUMBER, not a colour: the ramps are per-material brightness sequences of palette indices. They live in the tail of each .DPL, after the 256 colour entries, and HercWorks.Core's DynamixPaletteTransformer does not parse them yet. Sole consumer found: TSShadedPoly_Render.",
+      "source": "projectile RE, 2026-08-25, docs/engine/handoff-weapon-effects.md"
+    },
+    {
+      "address": "00468054",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_ShadeRampRow",
+      "description": "Raster_ShadeRampRow(shade) = ((shade * (DAT_004d3d38 - 1) + DAT_004a08c8) & 0xffffff00) + DAT_004a09b0 -- the base of one 256-byte row of the theater's world<N>.rmp, indexable directly by palette index. DAT_004d3d38 is the ramp's shade-level count (32 in every retail file) and DAT_004a08c8 a whole number of 8192-byte depth slices set from the drawn object's distance by Raster_SetDepthFadeFromDistance. Both flat poly renderers call it with a literal 0x80, which with 32 levels is row 15.",
+      "source": "projectile RE, 2026-08-25, docs/engine/handoff-weapon-effects.md"
+    },
+    {
+      "address": "00467f9c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_SetShadeRampDimensions",
+      "description": "Raster_SetShadeRampDimensions(shadeLevels, depthSlices) -> DAT_004d3d38 / DAT_004d3d3c, plus a 1/n reciprocal table. Sole caller is World_LoadTheater, which passes the world<N>.rmp header's own two int32s (32 and 12 in every retail file) straight through -- which is what fixes Raster_ShadeRampRow's row arithmetic.",
+      "source": "projectile RE, 2026-08-25, docs/engine/handoff-weapon-effects.md"
+    },
+    {
+      "address": "00467fec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_SetDepthFadeFromDistance",
+      "description": "Sets DAT_004a08c8, the depth-slice byte offset Raster_ShadeRampRow adds: zero for anything inside half the visibility range (DAT_004a08c4), otherwise Q16Multiply(t, depthSlices - 1) * shadeLevels * 256. That is the original's distance fog, and it is what the world<N>.rmp's 12 height slices are for -- an earlier pass recorded them as unused. Called per drawn object (FUN_0042876c, with the object's own distance), per terrain cell (Terrain_DrawCellQuad), and with zero from maybe_TSShapeInstance_PrepareRenderContext.",
+      "source": "projectile RE, 2026-08-25, docs/engine/handoff-weapon-effects.md"
+    },
+    {
+      "address": "004a63c8",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_TSObjectTypeRegistry",
+      "description": "DBSIM's DTS node factory, the counterpart of VSHELL's 0047f258: 12-byte entries of {uint32 tag, constructorFnPtr, nameStringPtr} where tag is the on-disk chunk marker. Use it rather than structural resemblance to identify a TSObject subclass -- doing so corrected two poly-render assignments (see TSSolidPoly_Render 00474db4 and TSTexture4Poly_Render 00474e9c).",
+      "source": "projectile RE, 2026-08-25, docs/engine/handoff-weapon-effects.md"
+    },
+    {
+      "address": "0048e8e4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSGroup_ReadFromFile",
+      "description": "TSGroup's vtable +0x0c load method (group struct is 0x28 bytes, built by the type registry's tag-0x00140014 ctor 0048e7a4). Reads four int16 counts into +0x20 indexes / +0x22 points / +0x24 surfaces / +0x26 polys, allocates +0x10 / +0x14 / +0x18 / +0x1c for each, then streams them. The surface array at +0x18 is surfaceCount int32s read RAW -- no conversion of any kind -- so the value a poly renderer indexes really is the file's own {int16 colour, int16 flag} pair packed into one int32.",
+      "source": "projectile RE, 2026-08-25, docs/engine/handoff-weapon-effects.md"
+    },
+    {
+      "address": "0040b43c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Bullet_Fire",
+      "description": "Bullet_Fire(missileId, muzzleWorldPoint, aimEulerTriple, ownerMech) -- spawns one travelling PROJ.DAT Type-2 Bullet from the effect pool DAT_004a9746. Copies the muzzle point to obj+0x26 (the frame's translation), stores the euler triple at obj+0x0c with components 0 and 2 displaced by (spread*2 & random) - spread from the BULLETS.DAT record's +0x0a, sets obj+0x52 = ownerMech->vtable+0x38 (travel speed) + PROJ.Speed, and plays the record's +0x08 sound. Returns the object so Bullet_FirePowered can add to it.",
+      "source": "docs/simulation/projectiles.md 2026-08-25"
+    },
+    {
+      "address": "0040b5a0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Bullet_FirePowered",
+      "description": "Bullet_Fire plus two writes: obj+0x56 = the capacitor charge the shot was fired at (which scales both damage figures Q10 in Bullet_TickUpdate; zero leaves them at face value), and for missileId 9 only (the plasma cannon) obj+0x5b = ownerMech+0x1a4, the firing machine's selected target, which is what makes that one subtype home.",
+      "source": "docs/simulation/projectiles.md 2026-08-25"
+    },
+    {
+      "address": "0040adc0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Bullet_GetTypeRecord",
+      "description": "return DAT_004a977c + obj[0x41] * 14 -- the BULLETS.DAT record for a bullet's subtype id. The table is indexed by the PROJ.DAT record's subtype id, exactly as BEAM.DAT is.",
+      "source": "docs/simulation/projectiles.md 2026-08-25"
+    },
+    {
+      "address": "0040ade0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Bullet_LoadResources",
+      "description": "bullet.cpp's init (named by the BULLET.CPP string at 00498601). Loads dat\\bullets into DAT_004a977c as a count plus that many 14-byte records, dts\\bullets into the shape array DAT_004a9784, and dba\\bullets into DAT_004a978a, packing its frames with BitmapArray_PackToAtlas; finally binds &DAT_004a978a as every bullet shape's +0x26 bound-DBA context.",
+      "source": "docs/simulation/projectiles.md 2026-08-25"
+    },
+    {
+      "address": "0040aff0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Bullet_HomingSteer",
+      "description": "The plasma round's guidance, and a steer of the object's EULER ANGLES rather than of a velocity: takes the bearing from the shot to obj+0x5b's position via Math_EulerToward, moves euler[0] and euler[2] toward it through Math_RateLimitedMoveToward capped at 0x280 per 125 ms, integrates over the tick, and clears the matrix-dirty flag at obj+0x32.",
+      "source": "docs/simulation/projectiles.md 2026-08-25"
+    },
+    {
+      "address": "0040a120",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Bullet_Draw",
+      "description": "The Bullet class's vtable slot 0. Sets DAT_004a5b1c = 0 for the duration of the call, which is what makes a projectile's textured polys draw unlit (see TSTexture4Poly_Render), installs the object's frame as the model transform, renders the shape instance at obj+0x34, and restores DAT_004a5b1c from DAT_004a5b20.",
+      "source": "docs/simulation/projectiles.md 2026-08-25"
+    },
+    {
+      "address": "00492884",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_EulerToward",
+      "description": "Math_EulerToward(out, from, to): euler[2] = atan2(dx, dy) - 0x4000, euler[1] = 0, euler[0] = atan2(FastMagnitude2D(dx, dy), dz), where d = from - to. The quarter-turn subtraction is because the simulation's forward axis is model Y. FUN_00492800 is atan2 with the degenerate (0,0) pair nudged onto the axis.",
+      "source": "docs/simulation/projectiles.md 2026-08-25"
     },
     {
       "address": "0049f26c",
@@ -2535,7 +2661,7 @@
       "type": "data",
       "confidence": "high",
       "name": "g_TSPolyUseAltPath_maybeDead",
-      "description": "CLOSES handoff #7. Read-only byte: 6 read sites (TSSolidPoly_Render x5, maybe_TSGouraudOrSimilarPoly_Render x1), ZERO write sites found anywhere in DBSIM.EXE (checked via getReferencesTo across the whole binary). Read directly from the mapped image (ES2ReadDataValue.java): value is 0, in an initialized/file-backed (not BSS) DATA block -- i.e. this is a compile-time constant baked into the shipped exe, not a runtime-toggled setting, same pattern as VSHELL's DAT_00471890 (g_UseFlatPolyFallback) in the sibling ThreeSpace codebase. Since every reader branches on `==0`/`!=0` and the byte is permanently 0, the `==0` branch (the one solved in handoff #6: local_c/g_CurrentShapeDbaContext[1] frame lookup, FUN_00468078 dispatch) is the ONLY branch that ever executes in retail DBSIM.EXE. The `!=0` branch (local_28-based lookup, FUN_0048c848/FUN_0048cfec/FUN_0048d518) is dead code in the shipped game and does not need reverse engineering for a faithful Herculan.Engine implementation.",
+      "description": "CLOSES handoff #7. Read-only byte: 6 read sites (TSTexture4Poly_Render x5, maybe_TSGouraudOrSimilarPoly_Render x1), ZERO write sites found anywhere in DBSIM.EXE (checked via getReferencesTo across the whole binary). Read directly from the mapped image (ES2ReadDataValue.java): value is 0, in an initialized/file-backed (not BSS) DATA block -- i.e. this is a compile-time constant baked into the shipped exe, not a runtime-toggled setting, same pattern as VSHELL's DAT_00471890 (g_UseFlatPolyFallback) in the sibling ThreeSpace codebase. Since every reader branches on `==0`/`!=0` and the byte is permanently 0, the `==0` branch (the one solved in handoff #6: local_c/g_CurrentShapeDbaContext[1] frame lookup, FUN_00468078 dispatch) is the ONLY branch that ever executes in retail DBSIM.EXE. The `!=0` branch (local_28-based lookup, FUN_0048c848/FUN_0048cfec/FUN_0048d518) is dead code in the shipped game and does not need reverse engineering for a faithful Herculan.Engine implementation.",
       "source": "flat-shaded lighting RE, 2026-08-14 third follow-up (#7 closure)"
     },
     {
@@ -2544,7 +2670,7 @@
       "type": "data",
       "confidence": "high",
       "name": "g_TSSolidPolyRasterizerVariant_maybeDead",
-      "description": "Same dead-constant pattern as g_TSPolyUseAltPath_maybeDead (0049f26c): single read site (TSSolidPoly_Render, selects FUN_00468078 vs FUN_0046865c), zero write sites anywhere in DBSIM.EXE, value read directly from the image is 0 in an initialized DATA block. FUN_00468078 is therefore confirmed as the only rasterizer dispatch target ever taken in retail for TSSolidPoly.",
+      "description": "Same dead-constant pattern as g_TSPolyUseAltPath_maybeDead (0049f26c): single read site (TSTexture4Poly_Render, selects FUN_00468078 vs FUN_0046865c), zero write sites anywhere in DBSIM.EXE, value read directly from the image is 0 in an initialized DATA block. FUN_00468078 is therefore confirmed as the only rasterizer dispatch target ever taken in retail for TSTexture4Poly.",
       "source": "flat-shaded lighting RE, 2026-08-14 third follow-up (#7 closure)"
     },
     {
@@ -5356,6 +5482,78 @@
       "name": "Beam_ClipSegmentToNearPlane",
       "description": "Clips a pair of view-space points against the near plane DAT_006c60b0, moving whichever end is short up to the plane by Q16 interpolation. Returns 0 when both ends are behind it.",
       "source": "docs/simulation/beam-visuals.md 2026-08-25"
+    },
+    {
+      "address": "0048d518",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PolyFill_FillThenOutline",
+      "description": "The polygon fill both flat poly renderers hand their two resolved colours to. Fills in DAT_006c60dc, then when DAT_006c60d4 (the line colour) differs and the mode is not 5, sets the fill colour to the line colour, sets mode DAT_006c60d8 = 4 and re-draws the SAME polygon -- an outline pass, not a second fill. Mode 4 is confirmed at Raster_DrawPolygonDispatch's iVar11 == 4 branch, which walks consecutive vertex pairs and closes back to the first vertex. Callers ramp both colours before this runs, so the != test is on ramped bytes, not raw surface values.",
+      "source": "docs/formats/dts-texture-binding.md 2026-08-26"
+    },
+    {
+      "address": "00483dac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "Raster_DrawPolygonDispatch",
+      "description": "Generic polygon draw, dispatching on the current brush's mode (*(int*)(PTR_DAT_004a362c + 0x228)). Mode 4 is the line-loop/outline path (edge pairs plus the closing edge); mode 0 goes to the scan-conversion fill; 1, 5, 6 and 7 select other fills. FUN_00484116 is the opposite-winding sibling. Named from the mode dispatch, not from a full decode of each branch.",
+      "source": "docs/formats/dts-texture-binding.md 2026-08-26"
+    },
+    {
+      "address": "00467fdc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_SetVisibilityRange",
+      "description": "Sets DAT_004a08c4, the far limit Raster_SetDepthFadeFromDistance measures against. Sole caller is Terrain_DrawCellQuad, per cell, with grid[+0x10c] << grid[+0x108] -- the HeightGrid's view radius in cells scaled to world units. Retail zones land on 40960, 81920 or 163840 world units (246 m, 492 m, 983 m).",
+      "source": "docs/formats/distance-fog-and-sky.md 2026-08-26"
+    },
+    {
+      "address": "0042876c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjList_DrawEntryRender",
+      "description": "Slot 0 of the depth-sorted render entry's vtable (stamped as PTR_FUN_0049ac38 by ObjList_DrawEntryConstruct). Reads the entry's cached position (+4/+8/+0xc) and object pointer (+0x32), calls Raster_SetDepthFadeFromDistance with the entry's own distance (+0x12), then calls the object's vtable slot 0 -- Bullet_Draw for a projectile. This is why every pooled effect is distance-fogged from its own range.",
+      "source": "docs/formats/distance-fog-and-sky.md 2026-08-26"
+    },
+    {
+      "address": "00428c60",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjList_DrawCellObjects",
+      "description": "The per-terrain-cell object draw hook (installed at HeightGrid+0x125, invoked by Terrain_DrawCellObjects). Walks the cell's ObjList::drawTable row and branches on each object's type tag at +4: tag 9 is drawn immediately, wrapped in DAT_004a5b1c = 0 for fullbright; everything else (a Bullet is tag 3, written by Bullet_Construct) is turned into a 0x36-byte render entry carrying its position, LOD short and distance, appended to the list ObjList_DrawSorted then walks.",
+      "source": "docs/formats/distance-fog-and-sky.md 2026-08-26"
+    },
+    {
+      "address": "004282f8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjList_AddToDrawTable",
+      "description": "Files one object into ObjList::drawTable at DAT_004aab80 (rows of 1000 bytes, row index interned per cell by ObjList_InternCellRow) or, when it resolves to no cell, into the flat DAT_004cf910 bucket that FUN_0042883c draws directly with no depth fade. Asserts carry the objlist.cpp strings 'ObjList::drawTable entry full' and 'ObjList::drawTable full'.",
+      "source": "docs/formats/distance-fog-and-sky.md 2026-08-26"
+    },
+    {
+      "address": "00428e10",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjList_DrawEntryConstruct",
+      "description": "Constructor for the depth-sorted render entry: three successive vtable stamps (base, derived, most-derived), the last being PTR_FUN_0049ac38 whose slot 0 is ObjList_DrawEntryRender.",
+      "source": "docs/formats/distance-fog-and-sky.md 2026-08-26"
+    },
+    {
+      "address": "0046e4a0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_DrawCellObjects",
+      "description": "Draws the objects registered against one terrain cell: bounds-checks the cell index, fetches the cell's pending-object count, and if nonzero calls the hook at HeightGrid+0x125 (ObjList_DrawCellObjects) with (cellX, cellY, count), then clears the cell's scratch. Called from the terrain cell walk and once directly for the player's own cell.",
+      "source": "docs/formats/distance-fog-and-sky.md 2026-08-26"
     }
   ]
 }

@@ -389,6 +389,7 @@ public sealed class WeaponMount {
 		}
 
 		if (Kind != WeaponMountKind.Energy) {
+			AmmoGaugeDecayTick();
 			return budget;
 		}
 
@@ -412,6 +413,38 @@ public sealed class WeaponMount {
 
 		return (short)(budget - draw);
 	}
+
+	/// <summary>
+	/// What the ammunition gauge's own printed count does between the shot and the next: the mount
+	/// keeps two figures, the true round count at <c>+0x7b</c> which a shot drops instantly, and a
+	/// display figure at <c>+0x7d</c> in 256ths which chases it down at
+	/// <see cref="AmmoGaugeDecayRate"/> a tick. That is what makes the cockpit's round counter roll
+	/// rather than jump, and it is why an ammunition mount's two "charge" fields disagree for a
+	/// moment after every shot.
+	///
+	/// <para><b>Moved, deliberately.</b> The original does this inside
+	/// <c>WeaponMount_PushAmmoGaugeState</c> (<c>0040f330</c>), the gauge-state push, which runs per
+	/// frame and only for the machine whose cockpit is on screen. It is per-tick state driven by
+	/// <see cref="SimMath.IntegrateRateOverTick"/>, so it belongs on the tick; the visible result for
+	/// the piloted machine is the same, and an AI machine's unread display figure now decays too.</para>
+	/// </summary>
+	private void AmmoGaugeDecayTick() {
+		if (Kind != WeaponMountKind.Ammunition) {
+			return;
+		}
+
+		int floor = ChargeTarget << 8;
+		if (floor < Charge) {
+			Charge -= (short)SimMath.IntegrateRateOverTick(AmmoGaugeDecayRate);
+		}
+
+		if (Charge < floor) {
+			Charge = floor;
+		}
+	}
+
+	/// <summary>How fast the printed round count chases the real one — <c>FUN_0040f330</c>'s literal 250 per 125 ms.</summary>
+	public const short AmmoGaugeDecayRate = 0xfa;
 
 	/// <summary>
 	/// Vtable slot <c>0x38</c>, <c>FUN_0040f48c</c> — the manual's power-level control, on
@@ -441,34 +474,180 @@ public sealed class WeaponMount {
 	/// (<c>FUN_0040e788</c>), which works out where the muzzle is and arms the refire delay, and then
 	/// branch on the resolved <c>PROJ.DAT</c> record's own type.
 	///
-	/// <para><b>Only the beam branch is ported.</b> It spends <c>min(cost, charge)</c> out of the
-	/// capacitor and resolves its hit synchronously, and that is the whole of it: every real
-	/// <c>Beam</c> record carries <c>Speed == 0</c> and there is no travelling object to simulate.
-	/// Every other branch — the gun dispatch's bullet, the ammunition dispatch's rocket and its own
-	/// bullet fallback — builds a real object with flight time, and needs the projectile lifecycle
-	/// that does not exist yet. So does the round the ammunition dispatch spends, which is why that
-	/// is not taken either: a magazine that empties with nothing leaving the barrel would be worse
-	/// than one that does not move.</para>
+	/// <para><b>The rocket branch is the only one still missing.</b> A <see cref="ProjectileType.Beam"/>
+	/// record resolves its hit synchronously and is over inside this call; a
+	/// <see cref="ProjectileType.Bullet"/> record becomes a travelling <see cref="Projectile"/>; a
+	/// <see cref="ProjectileType.Missile"/> record needs <c>Rocket_Fire</c>'s guided object, which
+	/// does not exist yet.</para>
 	///
 	/// <para>The prologue runs regardless, as it does in the original, so an unported weapon still
 	/// pays its refire delay — it fires blanks rather than free-running, and the fire chain advances
 	/// past it exactly as it will once the shot is real.</para>
+	///
+	/// <para>Both dispatches also set a flag at <c>mount+0x44</c> whenever the hardpoint's mounting
+	/// code says it is visible (<c>.GL +6 &lt; 4</c>). It is the muzzle flash, and nothing here draws
+	/// one.</para>
 	/// </summary>
 	internal void Fire(MechObject owner, SimWorld world) {
-		var muzzle = PrepareShot(owner);
+		var (bone, muzzle) = PrepareShot(owner);
 
-		if (Kind != WeaponMountKind.Energy
-			|| Projectile is not { } projectile || projectile.Type != ProjectileType.Beam) {
+		if (Projectile is not { } projectile) {
 			return;
 		}
 
-		// The cost is capped at what the capacitor actually holds, so a mount that somehow fires
-		// under-charged fires a weaker shot rather than going negative. For a laser the two are the
-		// same number every time; for a charge-up weapon the cost is larger than the capacitor can
-		// ever hold, which is what makes the shot worth the whole of it.
-		short power = Math.Min(ShotCost, (short)Charge);
-		Charge -= power;
-		world.FireBeam(new WeaponShot(muzzle, Range, projectile, power, owner));
+		switch (Kind) {
+			case WeaponMountKind.Energy:
+				FireGunOrBeam(owner, world, projectile, bone, muzzle);
+				break;
+
+			case WeaponMountKind.Ammunition:
+				FireAmmunition(owner, world, projectile, bone, muzzle);
+				break;
+		}
+	}
+
+	/// <summary>
+	/// <c>WeaponMount_FireDispatch_GunBeam</c> (<c>0040ea58</c>) past the prologue — the energy
+	/// class's three branches, which are three kinds of weapon.
+	///
+	/// <list type="bullet">
+	/// <item><b>A beam</b> spends <c>min(cost, charge)</c> and resolves its hit here and now.</item>
+	/// <item><b>A charge-up gun</b> — the branch taken when the capacitor holds less than the cost,
+	/// which for every retail energy gun is <i>always</i>, since they all read a 10000 cost against a
+	/// capacitor scaled to 1200. It fires travelling shots worth the whole charge, then either arms a
+	/// burst follow-up or empties the capacitor.</item>
+	/// <item><b>A fixed-cost gun</b> subtracts the cost and fires one unpowered shot. <b>Nothing in
+	/// retail reaches it</b>, for the reason above; it is here because it is the branch that exists,
+	/// and because it is what a hand-edited template with a real cost would take.</item>
+	/// </list>
+	///
+	/// <para>Two multi-shot rules sit on the charge-up branch, and both are keyed off template fields
+	/// that identify exactly one weapon each. <c>+0x3c == 3</c> is the big EMP cannon (catalog id 19,
+	/// which the simulator also calls <c>EMP</c>): it fires <b>three</b> shots, from barrels at
+	/// <c>-x</c>, <c>0</c> and <c>+x</c> of the template's own muzzle offset. <c>+0x3e == 0x13</c> is
+	/// <c>EMP2</c> (id 23) — that field is <see cref="Weapons.WeaponMountTemplate.ProjDatIndex"/>, and
+	/// 0x13 is <c>EMP2</c>'s own <c>PROJ.DAT</c> row, so the test is a weapon check spelled as a data
+	/// comparison. It arms <see cref="Bursting"/>, which fires the mount a second time a quarter of a
+	/// refire delay later and <i>then</i> empties the capacitor: two volleys per trigger pull.</para>
+	/// </summary>
+	private void FireGunOrBeam(MechObject owner, SimWorld world, ProjectileData.Projectile projectile,
+			in Transform3 bone, Vec3i muzzle) {
+		if (projectile.Type == ProjectileType.Beam) {
+			// The cost is capped at what the capacitor actually holds, so a mount that somehow fires
+			// under-charged fires a weaker shot rather than going negative. For a laser the two are the
+			// same number every time; for a charge-up weapon the cost is larger than the capacitor can
+			// ever hold, which is what makes the shot worth the whole of it.
+			short beamPower = Math.Min(ShotCost, (short)Charge);
+			Charge -= beamPower;
+
+			var shot = bone;
+			shot.X = muzzle.X;
+			shot.Y = muzzle.Y;
+			shot.Z = muzzle.Z;
+			world.FireBeam(new WeaponShot(shot, Range, projectile, beamPower, owner));
+			return;
+		}
+
+		var aim = bone.ToEuler();
+		short travelSpeed = owner.TravelSpeed;
+
+		if (Charge >= ShotCost) {
+			Charge -= ShotCost;
+			world.FireBullet(projectile, muzzle, aim, travelSpeed, 0, owner);
+			return;
+		}
+
+		short power = (short)Charge;
+		world.FireBullet(projectile, muzzle, aim, travelSpeed, power, owner);
+
+		if (Barrels == MultiBarrelCode) {
+			world.FireBullet(projectile, BarrelMuzzle(bone, 0), aim, travelSpeed, power, owner);
+			world.FireBullet(projectile, BarrelMuzzle(bone, -TemplateMuzzleX), aim, travelSpeed, power, owner);
+		}
+
+		if (_template?.ProjDatIndex == BurstProjectileIndex && !Bursting) {
+			// A quarter of the ordinary delay, and the capacitor is deliberately left holding its
+			// charge — the follow-up volley is worth the same as the first.
+			_refireTimer = (short)(RefireDelay >> 2);
+			Bursting = true;
+			return;
+		}
+
+		Bursting = false;
+		Charge = 0;
+	}
+
+	/// <summary>
+	/// <c>WeaponMount_FireDispatch_Missile</c> (<c>0040e964</c>) past the prologue — the ammunition
+	/// class, which is a magazine and two projectile branches.
+	///
+	/// <para><b>The round is now spent</b>, which it was not while nothing left the barrel: the
+	/// magazine drops by the template's <c>+0x38</c> — the same field that is a shot's energy cost on
+	/// the other class, and 5 on every autocannon against magazines of 500 to 2000 — and a magazine
+	/// that reaches zero clears <see cref="Selectable"/>, dropping the weapon out of the selection
+	/// cycle rather than leaving it armed and dry.</para>
+	///
+	/// <para><b>Except for a launcher</b>, whose <see cref="ProjectileType.Missile"/> branch is still
+	/// <c>Rocket_Fire</c> and still unported. The original spends the round before it looks at the
+	/// type, so a faithful spend would empty a launcher's rack with nothing fired; the omission is
+	/// kept for exactly the weapons it still applies to and no others.</para>
+	///
+	/// <para>The original also passes the dispatch a "this shot is free" flag off a pair of debug
+	/// globals, which is the one thing that can skip the spend. Nothing in the engine sets it.</para>
+	/// </summary>
+	private void FireAmmunition(MechObject owner, SimWorld world, ProjectileData.Projectile projectile,
+			in Transform3 bone, Vec3i muzzle) {
+		if (projectile.Type == ProjectileType.Missile) {
+			return;
+		}
+
+		ChargeTarget -= ShotCost;
+		if (ChargeTarget < 1) {
+			ChargeTarget = 0;
+			Selectable = false;
+		}
+
+		world.FireBullet(projectile, muzzle, bone.ToEuler(), owner.TravelSpeed, 0, owner);
+	}
+
+	/// <summary>
+	/// <c>+0x4d</c>. Set by the charge-up branch on the one weapon whose template asks for a burst,
+	/// and read by <c>WeaponMount_AutoFireDue</c> (<c>0040ede8</c>) — see
+	/// <see cref="AutoFireDue"/>.
+	/// </summary>
+	public bool Bursting { get; private set; }
+
+	/// <summary>
+	/// <c>WeaponMount_AutoFireDue</c> (<c>0040ede8</c>): a mount whose refire delay has run out with
+	/// <see cref="Bursting"/> still set is due to fire itself again, without the trigger. The
+	/// arbitration pass is what asks — see <see cref="WeaponMounts.ChargeTick"/>.
+	/// </summary>
+	public bool AutoFireDue => _refireTimer == 0 && Bursting;
+
+	/// <summary>The value the template's <c>+0x3c</c> takes on the one multi-barrel weapon.</summary>
+	public const short MultiBarrelCode = 3;
+
+	/// <summary>
+	/// The <c>PROJ.DAT</c> row the burst test compares the template's <c>ProjDatIndex</c> against —
+	/// <c>EMP2</c>'s.
+	/// </summary>
+	public const short BurstProjectileIndex = 0x13;
+
+	/// <summary>The template's <c>+0x3c</c>, which is <see cref="MultiBarrelCode"/> or 1.</summary>
+	public short Barrels =>
+		_template?.Tail is { Length: >= 0x1c } tail ? BitConverter.ToInt16(tail, 0x1a) : (short)1;
+
+	/// <summary>The lateral half of the template's own muzzle triple, <c>+0x40</c> — the barrel spacing.</summary>
+	private short TemplateMuzzleX =>
+		_template?.Tail is { Length: >= 0x20 } tail ? BitConverter.ToInt16(tail, 0x1e) : (short)0;
+
+	/// <summary>
+	/// Where one barrel of a multi-barrel weapon sits, in world space: the same three-part offset
+	/// <see cref="MuzzleOffset"/> builds, with the template's own lateral figure replaced.
+	/// </summary>
+	private Vec3i BarrelMuzzle(in Transform3 bone, int lateral) {
+		var offset = MuzzleOffset;
+		return bone.TransformPoint(offset.X - TemplateMuzzleX + lateral, offset.Y, offset.Z);
 	}
 
 	/// <summary>
@@ -486,19 +665,19 @@ public sealed class WeaponMount {
 	/// template's, the hardpoint's, and a side offset the template holds separately and the hardpoint
 	/// picks the sign of — see <see cref="MuzzleOffset"/>.</para>
 	/// </summary>
-	/// <returns>The shot's frame: the bone's world orientation, with the muzzle's world position in the translation.</returns>
-	private Transform3 PrepareShot(MechObject owner) {
+	/// <returns>
+	/// The bone's own world frame (<c>DAT_004a98b8</c>) and the muzzle's world position
+	/// (<c>DAT_004a98d8</c>), which the original leaves as two separate globals because the two
+	/// branches want them differently: a beam overwrites the frame's translation with the muzzle and
+	/// rays down it, while a travelling shot takes the muzzle as a start point and the frame only for
+	/// its euler triple and for placing any further barrels.
+	/// </returns>
+	private (Transform3 Bone, Vec3i Muzzle) PrepareShot(MechObject owner) {
 		var bone = owner.PartTransform(_hardpoint.BoneId);
 		var offset = MuzzleOffset;
-		var muzzle = bone.TransformPoint(offset.X, offset.Y, offset.Z);
-
-		var shot = bone;
-		shot.X = muzzle.X;
-		shot.Y = muzzle.Y;
-		shot.Z = muzzle.Z;
 
 		_refireTimer = RefireDelay;
-		return shot;
+		return (bone, bone.TransformPoint(offset.X, offset.Y, offset.Z));
 	}
 
 	/// <summary>

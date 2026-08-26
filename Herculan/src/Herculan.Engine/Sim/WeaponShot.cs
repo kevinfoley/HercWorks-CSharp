@@ -14,10 +14,12 @@ namespace Herculan.Engine.Sim;
 /// the world-to-muzzle transform in it for the hit tests to use — which is why this is a class
 /// rather than a readonly struct.</para>
 ///
-/// <para>A beam is the whole of its own lifetime: <c>ProjectileType.Beam</c> records all carry
-/// <c>Speed == 0</c> and the hit is resolved synchronously at the instant of firing, so nothing
-/// survives this call. Bullets, rockets and missiles build a real travelling object instead and are
-/// not ported.</para>
+/// <para><b>Two things build one of these.</b> A beam is the whole of its own lifetime:
+/// <c>ProjectileType.Beam</c> records all carry <c>Speed == 0</c>, the ray is the weapon's full
+/// range, and the hit is resolved synchronously at the instant of firing. A travelling
+/// <see cref="Projectile"/> builds a fresh one every tick instead, with the ray no longer than the
+/// step it is about to take, so that its flight is a chain of short sweeps rather than a moving
+/// point — same record, same query, same per-object hit test.</para>
 /// </summary>
 public sealed class WeaponShot {
 	/// <summary>
@@ -26,6 +28,16 @@ public sealed class WeaponShot {
 	/// range and the target's radius before it rejects a candidate outright.
 	/// </summary>
 	public const int MuzzleClearance = 200;
+
+	/// <summary>
+	/// The ray record's <c>+0x08</c> for this shot. A beam gets the literal above; a travelling
+	/// <see cref="Projectile"/> gets its <c>BULLETS.DAT</c> record's <c>ClipRadius</c> instead, which
+	/// is what makes the big EMP round (200) forgiving where an autocannon round (100) is not.
+	///
+	/// <para>The ground walk is handed it as a radius and never reads it, so it only ever widens the
+	/// object test.</para>
+	/// </summary>
+	public int Clearance { get; }
 
 	/// <summary>
 	/// How far a hit has to be for the query to keep looking past it — <c>Sim_RaycastObjectList</c>'s
@@ -39,19 +51,31 @@ public sealed class WeaponShot {
 	/// <param name="projectile">The <c>PROJ.DAT</c> record, for its two damage figures and its splash fraction.</param>
 	/// <param name="power">The charge this shot was fired at — see <see cref="WeaponMount.ShotPower"/>.</param>
 	/// <param name="owner">The machine that fired, which the query skips.</param>
+	/// <param name="clearance">The slack the range check allows — see <see cref="Clearance"/>.</param>
 	public WeaponShot(in Transform3 muzzle, int range, ProjectileData.Projectile projectile,
-			short power, SimObject? owner) {
+			short power, SimObject? owner, int clearance = MuzzleClearance) {
 		Muzzle = muzzle;
 		MuzzleInverse = muzzle.Inverted();
 		Range = range;
 		Distance = range;
+		Clearance = clearance;
 
-		// Bullet_FireBurst scales both damage figures by the shot's power before anything downstream
-		// sees them, so a weapon fired at half charge does half damage on both counts. Q10, against
-		// the 1200 the capacitor is scaled to, so a mount holding more than 1024 makes a shot worth
-		// slightly more than the record's face value.
-		DamageArmor = (short)SimMath.Q10Multiply(power, projectile.DamageArmor);
-		DamageShield = (short)SimMath.Q10Multiply(power, projectile.DamageShield);
+		// Both damage figures are scaled by the shot's power before anything downstream sees them, so
+		// a weapon fired at half charge does half damage on both counts. Q10, against the 1200 the
+		// capacitor is scaled to, so a mount holding more than 1024 makes a shot worth slightly more
+		// than the record's face value.
+		//
+		// Zero means "not fired from a capacitor at all" and leaves the record's own figures alone —
+		// Bullet_TickUpdate's own `if (power != 0)`, which is what makes an autocannon round, spent
+		// out of a magazine rather than a charge, do the damage the record states. The beam dispatch
+		// spells the same line without the test, but its power is min(cost, charge) on a mount that
+		// only fires above its threshold, so it can never reach here with zero.
+		DamageArmor = power == 0
+			? projectile.DamageArmor
+			: (short)SimMath.Q10Multiply(power, projectile.DamageArmor);
+		DamageShield = power == 0
+			? projectile.DamageShield
+			: (short)SimMath.Q10Multiply(power, projectile.DamageShield);
 		SplashFactor = projectile.SplashFactor;
 		MissileId = projectile.MissileId;
 		Owner = owner;
@@ -61,7 +85,8 @@ public sealed class WeaponShot {
 	/// The shot's frame: the firing hardpoint's world orientation with the muzzle's world position in
 	/// the translation. <c>WeaponMount_FireDispatch_GunBeam</c> overwrites the gun transform's
 	/// translation with the muzzle point before handing it over, so the ray starts at the muzzle and
-	/// runs down the transform's <b>Y</b> axis — model forward.
+	/// runs down the transform's <b>Y</b> axis — model forward. A travelling shot passes its own
+	/// frame, which is the same convention: where it is now, pointing the way it is going.
 	/// </summary>
 	public Transform3 Muzzle { get; }
 
@@ -77,6 +102,10 @@ public sealed class WeaponShot {
 	/// field <c>WeaponMounts.ToggleChain</c> reads only for its sign; <c>Bullet_FireBurst</c> takes it
 	/// as the ray's length, which is what identifies it. Retail values run 75000 (ATC20, 450 m) down
 	/// to 15000 (ELF2, 90 m).
+	///
+	/// <para><b>A travelling shot has no range of its own here</b> — it passes this tick's step
+	/// instead, because that is the length of the segment it is asking about. Its real reach is its
+	/// <c>BULLETS.DAT</c> lifetime, which is a different limit in a different place.</para>
 	///
 	/// <para>Kept separate from <see cref="Distance"/> only for reporting: the original has one field
 	/// and overwrites it, so nothing in the query itself reads this.</para>

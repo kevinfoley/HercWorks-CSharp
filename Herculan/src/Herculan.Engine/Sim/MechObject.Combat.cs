@@ -52,7 +52,7 @@ public sealed partial class MechObject {
 	///
 	/// <list type="number">
 	/// <item><b>Reject by distance.</b> Muzzle to machine, against the ray's remaining length plus
-	/// this machine's radius plus <see cref="WeaponShot.MuzzleClearance"/>. A coarse first pass that
+	/// this machine's radius plus the shot's own <see cref="WeaponShot.Clearance"/>. A coarse first pass that
 	/// keeps the transform work off everything nowhere near the shot.</item>
 	/// <item><b>Geometry, in the shot's own frame.</b> The machine's centre of mass is brought into
 	/// muzzle space, where the ray is the Y axis: the hit needs the centre in front and within range,
@@ -68,7 +68,7 @@ public sealed partial class MechObject {
 	/// </summary>
 	public override int DirectFireHitTest(WeaponShot shot) {
 		var muzzle = new Vec3i(shot.Muzzle.X, shot.Muzzle.Y, shot.Muzzle.Z);
-		if (WeaponShot.MuzzleClearance + shot.Distance + HitRadius < Position.ApproxDistanceTo(muzzle)) {
+		if (shot.Clearance + shot.Distance + HitRadius < Position.ApproxDistanceTo(muzzle)) {
 			return 0;
 		}
 

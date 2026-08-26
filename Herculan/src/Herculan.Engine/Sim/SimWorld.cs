@@ -1,3 +1,4 @@
+using HercWorks.Core.Data.File.Dat.Sim;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Terrain;
 
@@ -16,14 +17,35 @@ namespace Herculan.Engine.Sim;
 public sealed class SimWorld {
 	private readonly List<SimObject> _objects = new();
 	private readonly List<WeaponShot> _beams = new();
+	private readonly List<WeaponShot> _impacts = new();
 	private readonly List<BeamTracer> _tracers = new();
+	private readonly List<Projectile> _projectiles = new();
 
-	public SimWorld(HeightGrid terrain) {
+	/// <param name="terrain">The loaded zone.</param>
+	/// <param name="bullets">
+	/// <c>dat\BULLETS.DAT</c>, which everything that fires a travelling shot needs — see
+	/// <see cref="FireBullet"/>. Null leaves those weapons firing blanks, the same way an unported
+	/// branch does.
+	/// </param>
+	/// <param name="seed">Seed for <see cref="Random"/>.</param>
+	public SimWorld(HeightGrid terrain, BulletCatalog? bullets = null, int seed = 0) {
 		Terrain = terrain;
+		Bullets = bullets;
+		Random = new SimRandom(seed);
 	}
 
 	/// <summary>The loaded zone's terrain. One zone is active at a time, as in the original.</summary>
 	public HeightGrid Terrain { get; }
+
+	/// <summary>The travelling-projectile table, or null when the resource was not loaded.</summary>
+	public BulletCatalog? Bullets { get; }
+
+	/// <summary>
+	/// The simulation's pseudo-random generator — DBSIM's single global state block at
+	/// <c>0x4d261d</c>, which every roll in the simulation shares. Weapon scatter is the first thing
+	/// in the engine to draw on it during a tick.
+	/// </summary>
+	public SimRandom Random { get; }
 
 	/// <summary>Live simulation objects, including any flagged <see cref="SimObject.Removed"/>.</summary>
 	public IReadOnlyList<SimObject> Objects => _objects;
@@ -80,6 +102,20 @@ public sealed class SimWorld {
 	/// <see cref="BeamTracer.InitialLife"/>) and are what a renderer draws.
 	/// </summary>
 	public IReadOnlyList<BeamTracer> Tracers => _tracers;
+
+	/// <summary>
+	/// The travelling shots in flight — the same <c>DAT_004a9746</c> pool <see cref="Tracers"/> comes
+	/// from. Unlike a tracer these live for as long as their <c>BULLETS.DAT</c> lifetime or until
+	/// they hit something, and they move and do damage while they do.
+	/// </summary>
+	public IReadOnlyList<Projectile> Projectiles => _projectiles;
+
+	/// <summary>
+	/// Every travelling shot that struck something during the tick just completed, as the shot record
+	/// the raycast left behind. Cleared at the top of each <see cref="Tick"/>, exactly as
+	/// <see cref="Beams"/> is, and not part of the original for the same reason.
+	/// </summary>
+	public IReadOnlyList<WeaponShot> Impacts => _impacts;
 
 	/// <summary>Adds an object to the simulation.</summary>
 	public void Add(SimObject simObject) => _objects.Add(simObject);
@@ -192,19 +228,59 @@ public sealed class SimWorld {
 	}
 
 	/// <summary>
+	/// <c>FUN_0040b43c</c> — spawns one travelling shot. The powered form <c>FUN_0040b5a0</c> is the
+	/// same call with two fields written afterwards, so it is this one method: an energy gun passes
+	/// the capacitor charge it spent, an ammunition mount passes zero.
+	///
+	/// <para>The homing target the powered form also attaches, for the plasma subtype alone, is the
+	/// firing machine's <b>selected target</b> (<c>mech+0x1a4</c>). <b>There is no target selection in
+	/// the engine</b>, so nothing is attached and a plasma round flies straight — which is what the
+	/// original does with nothing selected too. See <see cref="Projectile.Target"/>.</para>
+	/// </summary>
+	/// <param name="projectile">The firing <c>PROJ.DAT</c> record.</param>
+	/// <param name="muzzle">The world muzzle point the fire prologue worked out.</param>
+	/// <param name="aim">The shot transform's euler triple, before scatter.</param>
+	/// <param name="ownerSpeed">The firing machine's travel speed, which the shot inherits.</param>
+	/// <param name="power">The capacitor charge spent, or zero for a shot out of a magazine.</param>
+	/// <param name="owner">The machine that fired.</param>
+	/// <returns>The shot, or null when <see cref="Bullets"/> has no record for its subtype.</returns>
+	internal Projectile? FireBullet(ProjectileData.Projectile projectile, Vec3i muzzle,
+			(short X, short Y, short Z) aim, short ownerSpeed, short power, SimObject? owner) {
+		if (Bullets?.Record(projectile.MissileId) is not { } record) {
+			return null;
+		}
+
+		var shot = new Projectile(projectile, record, muzzle, aim, ownerSpeed, power, owner, Random);
+		_projectiles.Add(shot);
+		return shot;
+	}
+
+	/// <summary>Records a travelling shot's impact for <see cref="Impacts"/>. Not part of the original.</summary>
+	internal void RecordProjectileHit(WeaponShot shot) => _impacts.Add(shot);
+
+	/// <summary>
 	/// Advances the simulation by one tick: publishes the timestep, then updates every live object.
 	/// Objects flagged removed are skipped, matching how the original's tick walks its lists.
 	/// </summary>
 	public void Tick() {
 		SimMath.TickDelta = TickDelta;
 		_beams.Clear();
+		_impacts.Clear();
 
-		// Tracers go first, as they do in Sim_MainTick, where the effect pool is walked ahead of the
+		// The effect pool goes first, as it does in Sim_MainTick, where it is walked ahead of the
 		// machine list. That ordering is what gives a tracer a full tick on screen: one spawned while
-		// a machine updates is not counted down until the tick after.
+		// a machine updates is not counted down until the tick after. A travelling shot gets the same
+		// deal — the round that leaves the barrel this tick does not move or hit anything until the
+		// next one.
 		for (int i = _tracers.Count - 1; i >= 0; i--) {
 			if (_tracers[i].Tick()) {
 				_tracers.RemoveAt(i);
+			}
+		}
+
+		for (int i = _projectiles.Count - 1; i >= 0; i--) {
+			if (_projectiles[i].Tick(this)) {
+				_projectiles.RemoveAt(i);
 			}
 		}
 

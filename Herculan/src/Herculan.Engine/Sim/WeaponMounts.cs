@@ -460,15 +460,19 @@ public sealed class WeaponMounts {
 	/// to target zero instead and bleeds its own capacitor back into the pool.</item>
 	/// </list>
 	///
-	/// <para>The original also fires any mount that reports itself due to auto-fire in this same
-	/// loop; that is a firing mechanic and is not here.</para>
+	/// <para><b>The burst follow-up fires from here</b>, not from the trigger: a mount served this
+	/// pass that reports <see cref="WeaponMount.AutoFireDue"/> is dispatched again immediately, with
+	/// no trigger read and no readiness test. Only the charge-up gun branch ever arms that, and only
+	/// on <c>EMP2</c>, so this is the second of that weapon's two volleys and nothing else.</para>
 	/// </summary>
 	/// <param name="budget">The pool less its reserve.</param>
 	/// <param name="selected">
 	/// The armed mount to serve first, or <see cref="NoSelection"/> to go straight to the ranking.
 	/// </param>
+	/// <param name="owner">The machine these mounts belong to, for the follow-up shot's geometry.</param>
+	/// <param name="world">The world a follow-up shot is resolved against.</param>
 	/// <returns>What the mounts did not take.</returns>
-	public short ChargeTick(short budget, int selected) {
+	public short ChargeTick(short budget, int selected, MechObject owner, SimWorld world) {
 		if (_slots.Length == 0) {
 			return budget;
 		}
@@ -497,6 +501,11 @@ public sealed class WeaponMounts {
 
 			served[next.MountIndex] = true;
 			budget = next.ChargeTick(budget, yieldToOther);
+
+			if (next.AutoFireDue) {
+				next.Fire(owner, world);
+			}
+
 			yieldToOther |= next.Charging;
 		}
 

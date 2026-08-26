@@ -309,7 +309,7 @@ public sealed partial class MechObject : SimObject {
 		// Sim_MainTick walks the global mech list calling Mech_PerTickSystemsUpdate, while the
 		// control law comes in from the input poll or the AI think — but it runs once per mech per
 		// tick either way, and its inputs are last tick's, so its position within the tick is free.
-		PowerTick();
+		PowerTick(world);
 
 		LatchCenterBody();
 
@@ -407,9 +407,11 @@ public sealed partial class MechObject : SimObject {
 
 	/// <summary>
 	/// The mech vtable's <c>+0x38</c> speed accessor (<c>00415498</c>): the speed scalar in the units
-	/// the rest of the simulation quotes distances in. Only its sign is read here.
+	/// the rest of the simulation quotes distances in. The control law above reads only its sign; a
+	/// travelling shot adds the whole of it to its own speed, so a round fired from a machine running
+	/// forward flies faster than one fired standing still (see <see cref="Projectile.Speed"/>).
 	/// </summary>
-	private short TravelSpeed => (short)SimMath.Q10Multiply(TravelSpeedScale, Speed);
+	public short TravelSpeed => (short)SimMath.Q10Multiply(TravelSpeedScale, Speed);
 
 	/// <summary>The accessor's own Q10 factor.</summary>
 	private const int TravelSpeedScale = 2000;

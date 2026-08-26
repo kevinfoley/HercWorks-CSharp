@@ -3,6 +3,7 @@
 Reverse-engineered from `DBSIM.EXE` disassembly (Ghidra project `ES2Recon`). All addresses are
 DBSIM.EXE virtual addresses. Confirmed against the official *Earthsiege 2 - On-Line Manual.pdf*
 where noted. See [`weapon-firing.md`](weapon-firing.md) for how a shot gets here in the first place,
+[`projectiles.md`](projectiles.md) for the travelling `Bullet` family's own lifecycle,
 [`dbsim-physics-notes.md`](dbsim-physics-notes.md) for movement/collision/rocket math, and
 [`../formats/terrain-heightmap.md`](../formats/terrain-heightmap.md) for the terrain heightmap this
 system's ground-impact checks query.

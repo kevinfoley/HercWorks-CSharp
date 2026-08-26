@@ -198,10 +198,10 @@ reliable, per the WinForms viewer). Texture rendering shipped in Milestones 2-3.
   handles selector 2, so something else must set bit 1; not located. Engine reproduces the loaders
   exactly rather than inventing a rule. Terrain-renderer theory disproved: `Terrain_DrawCellQuad` and
   `FUN_0046ff74` only ever read `cell[+0xf]`. See `docs/formats/terrain-heightmap.md`.
-- **`HeightGrid` LOD field (`+0x10c`)** is scaled by `maybe_Terrain_ComputeViewDistance` (`00470910`)
-  from cells to world units via `<< cellShift`, clamped to 1000 near grid edges, once/frame. Scaling
-  is solid; the two output values' meaning is undecoded — see `terrain-heightmap.md` before wiring to
-  far-clip/haze.
+- **`HeightGrid` view-radius field (`+0x10c`) — resolved (2026-08-26).** `<< cellShift` is the
+  visibility range distance fog is measured against, and the engine's haze is now wired to it; see
+  `docs/formats/distance-fog-and-sky.md`. `maybe_Terrain_ComputeViewDistance`'s (`00470910`) two
+  outputs from the same field remain undecoded, as does whether the far clip should follow.
 - **`SimRandom`'s 56-entry seed table isn't extracted** from DBSIM's data section — algorithm is a
   literal port, seeding isn't. A roll's result also depends on generator-advance count, so treat as
   statistically faithful, not replay faithful. Currently drives only terrain material bits (unrendered).
@@ -823,11 +823,13 @@ advance now does real work.
   [`handoff-weapon-effects.md`](handoff-weapon-effects.md).
 - Damage past shields is counted (`MechObject.PenetratingHits`), not applied: there is no component
   health array yet.
-- Only the beam branch fires. Bullets, rockets and missiles run the prologue, pay their refire delay
-  and emit nothing; the ammunition dispatch's round is not spent either.
+- Beams and bullets both fire. Rockets and missiles run the prologue, pay their refire delay and emit
+  nothing; a launcher alone does not spend its round.
+- The three EMP rounds have no visual (their shapes are sprite flipbooks) — see
+  [`handoff-weapon-effects.md`](handoff-weapon-effects.md).
 - Firing runs inside the sim tick rather than the frame's input poll, so it is fixed-rate and
   deterministic. Order within the tick matches the original: fire, then recharge and count down.
-- No visuals and no sound.
+- No sound anywhere.
 
 ## Terrain clipping — SOLVED + SHIPPED (2026-08-24)
 
@@ -901,7 +903,7 @@ Field semantics and the negation chain are in
 ### Not done
 
 - **ELF and ELF2 draw straight.** Their tracer takes a jagged branch — geometry decoded, paint half
-  not. Retail reference: `Screenshots/Simulator3.jpg`.
+  not. Retail reference: `Reference/Simulator3.jpg`.
 - **Impact effects**, an animated-shape system of its own.
 - **Sound.** `Bullet_FireBurst` opens with a play-at-point call, untraced past the call.
 - The engine's field of view is still a guess. The original's focal length is a per-view shift at

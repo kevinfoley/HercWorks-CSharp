@@ -35,8 +35,11 @@ public sealed class MissionScene {
 	private MissionScene(Mission mission, SimWorld world, FlyCameraObject camera,
 			IReadOnlyList<SceneObject> objects, IReadOnlyList<SceneModel> models,
 			MeshVertex[] terrainMesh, TheaterDescriptor theater, TerrainTextureBank? terrainBank,
-			SceneObject? playerObject, BeamAppearance? beams) {
+			SceneObject? playerObject, BeamAppearance? beams,
+			IReadOnlyDictionary<int, SceneModel> bulletModels, Atmosphere atmosphere) {
+		Atmosphere = atmosphere;
 		Beams = beams;
+		BulletModels = bulletModels;
 		Mission = mission;
 		World = world;
 		Camera = camera;
@@ -47,6 +50,9 @@ public sealed class MissionScene {
 		Theater = theater;
 		TerrainBank = terrainBank;
 	}
+
+	/// <summary>How far this zone is visible and what it fades into — see <see cref="Scene.Atmosphere"/>.</summary>
+	public Atmosphere Atmosphere { get; }
 
 	/// <summary>The mission this scene was built from.</summary>
 	public Mission Mission { get; }
@@ -92,6 +98,14 @@ public sealed class MissionScene {
 	/// </summary>
 	public BeamAppearance? Beams { get; }
 
+	/// <summary>
+	/// The shape each travelling shot is drawn as, keyed by the <c>PROJ.DAT</c> subtype id that
+	/// spawned it — the same id <see cref="SimWorld.Bullets"/> is indexed by. Built up front, from
+	/// every record in that table, because a shot that appears mid-flight has nowhere to load a model
+	/// from; the original loads the same nine shapes once at startup for the same reason.
+	/// </summary>
+	public IReadOnlyDictionary<int, SceneModel> BulletModels { get; }
+
 	/// <summary>How many placed objects have no model the engine can build yet.</summary>
 	public int UnmodelledCount => Objects.Count(o => o.Model == null);
 
@@ -110,7 +124,11 @@ public sealed class MissionScene {
 		var random = new SimRandom(mission.Header.ZoneIndex);
 		var terrain = TerrainZoneLoader.Load(content, mission.Header.ZoneIndex, materials, random);
 
-		var world = new SimWorld(terrain);
+		// The travelling-projectile table, loaded once at startup as FUN_0040ade0 loads it, and given
+		// to the world because a shot in flight is simulation state before it is anything visual.
+		var bullets = BulletCatalog.Load(content.Read(BulletCatalog.ResourceFolder, BulletCatalog.TableResource));
+
+		var world = new SimWorld(terrain, bullets, mission.Header.ZoneIndex);
 		var models = new SceneModelLibrary(content, theater);
 		var baseTypes = BaseTypeTable.Load(content);
 
@@ -154,9 +172,17 @@ public sealed class MissionScene {
 		var terrainBank = TerrainTextureBank.Load(content, theater, materials);
 		var terrainMesh = TerrainMeshBuilder.Build(terrain, terrainBank);
 
+		var bulletModels = new Dictionary<int, SceneModel>();
+		for (int subtype = 0; bullets != null && subtype < bullets.Count; subtype++) {
+			if (bullets.Record(subtype) is { } record && models.Bullet(record.ModelId) is { } model) {
+				bulletModels[subtype] = model;
+			}
+		}
+
 		return new MissionScene(mission, world, camera, objects, models.Models.ToArray(),
 			terrainMesh, theater, terrainBank, playerObject,
-			BeamAppearance.Load(content, theater.PaletteName));
+			BeamAppearance.Load(content, theater.PaletteName), bulletModels,
+			Atmosphere.From(terrain, models.Shading));
 	}
 
 	/// <summary>

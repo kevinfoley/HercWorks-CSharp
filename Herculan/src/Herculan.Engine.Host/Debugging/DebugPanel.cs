@@ -147,7 +147,22 @@ sealed class DebugPanel {
 				_beamsGrounded++;
 			}
 		}
+
+		_projectilesLive = world.Projectiles.Count;
+
+		foreach (var impact in world.Impacts) {
+			_projectileImpacts++;
+			_lastImpactTarget = impact.HitObject switch {
+				MechObject mech => mech.Name,
+				null => impact.GroundHit != null ? "ground" : null,
+				var other => other.GetType().Name,
+			};
+		}
 	}
+
+	private int _projectilesLive;
+	private int _projectileImpacts;
+	private string? _lastImpactTarget;
 
 	private int _beamsFired;
 	private int _beamsHit;
@@ -291,6 +306,11 @@ sealed class DebugPanel {
 		if (_beamsFired > 0) {
 			ImGui.Text($"  last: reached {_lastBeamDistance} of {_lastBeamRange}"
 				+ $"  — {_lastBeamTarget ?? "no hit"}");
+		}
+
+		ImGui.Text($"Shots in flight: {_projectilesLive}   impacts: {_projectileImpacts}");
+		if (_projectileImpacts > 0) {
+			ImGui.Text($"  last struck: {_lastImpactTarget ?? "nothing"}");
 		}
 
 		ImGui.Text($"Damage taken: {pilotMech.DamageTaken}"

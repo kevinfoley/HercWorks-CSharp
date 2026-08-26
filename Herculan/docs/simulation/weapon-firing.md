@@ -53,6 +53,8 @@ Two implementations, one per live mount class, both opening with the same prolog
 | Energy / gun | `WeaponMount_FireDispatch_GunBeam` (`0040ea58`) | `Beam` → `Bullet_FireBurst`; else a travelling `Bullet` |
 | Ammunition | `WeaponMount_FireDispatch_Missile` (`0040e964`) | `Missile` → `Rocket_Fire`; else the same `Bullet` fallback |
 
+Both also set `mount+0x44` when the hardpoint is visible (`.GL +6 < 4`) — the muzzle flash.
+
 ### The beam branch
 
 ```
@@ -71,9 +73,39 @@ shapes that pair takes are two kinds of weapon:
   `max(0x36, charge target)` and the cost is the whole capacitor, so the shot is worth as much as the
   pilot let it accumulate. The manual's *power level* is that charge target.
 
-**The ammunition dispatch spends `+0x7b`, not `+0x7d`** — it subtracts `template[0x38]` from the
-round count and clears `+0x4c` (selectable) at zero, dropping an empty weapon out of the selection
-cycle.
+### The gun branches
+
+Everything that is not a `Beam` builds a travelling `Bullet` (see
+[`projectiles.md`](projectiles.md)), through one of two branches:
+
+- **Charge-up gun**, taken when the capacitor holds *less* than the cost. It fires shots worth the
+  whole charge and then either arms a burst or empties the capacitor. **Every retail energy gun
+  takes this branch always**, because they all read a 10000 cost against a capacitor scaled to 1200.
+- **Fixed-cost gun**, taken otherwise: subtract the cost, fire one unpowered shot. Unreachable in
+  retail for the reason above.
+
+Two multi-shot rules sit on the charge-up branch, and each identifies exactly one weapon:
+
+| Test | Weapon | Effect |
+|---|---|---|
+| `template[0x3c] == 3` | catalog id 19, the big EMP (the simulator also names it `EMP`) | fires **three** shots, from barrels at `-x`, `0` and `+x` of the template's own muzzle offset |
+| `template[0x3e] == 0x13` | catalog id 23, `EMP2` | arms `mount+0x4d`, so the mount fires again a quarter of a refire delay later and *then* empties — two volleys per trigger pull |
+
+`0x3e` is `ProjDatIndex`, and `0x13` is `EMP2`'s own `PROJ.DAT` row, so that second test is a weapon
+check spelled as a data comparison. The follow-up shot is dispatched from the energy arbitration
+(`WeaponMounts_ArbitrateEnergy`, via `WeaponMount_AutoFireDue`), not from the trigger.
+
+### The ammunition dispatch
+
+**It spends `+0x7b`, not `+0x7d`** — it subtracts `template[0x38]` from the round count (5 on every
+autocannon, against magazines of 500 to 2000) and clears `+0x4c` (selectable) at zero, dropping an
+empty weapon out of the selection cycle. It spends **before** it looks at the projectile type, so a
+launcher pays a round on the `Rocket_Fire` path too. The one thing that can skip the spend is the
+"this shot is free" flag the manager passes from a pair of debug globals.
+
+`+0x7d` is the *displayed* count, in 256ths, and lags: `WeaponMount_PushAmmoGaugeState` (`0040f330`)
+decays it toward `+0x7b * 256` at 250 per 125 ms, which is what makes the cockpit counter roll rather
+than jump.
 
 ## The shot record
 
@@ -178,10 +210,9 @@ through to whatever stands behind.
 
 ## Not ported
 
-- **Every non-beam branch.** Bullets, rockets and missiles need the projectile object lifecycle. An
-  unported mount still runs the prologue and pays its refire delay, so the fire chain advances past
-  it exactly as it will once the shot is real; the ammunition dispatch's round is deliberately not
-  spent either.
+- **The rocket branch.** `Rocket_Fire`'s guided object does not exist, so a launcher fires blanks —
+  and, alone among the mount classes, does not spend its round, since emptying a rack with nothing
+  leaving it is worse than not moving. Everything else spends normally.
 - **Structures and aircraft.** Both have their own vtable `+0x20`; neither is ported, so beams pass
   through them.
 - **Component damage.** Shield absorption is real; `Mech_SelectStruckComponent` and
@@ -192,6 +223,3 @@ through to whatever stands behind.
   animated-shape system, see [`beam-visuals.md`](beam-visuals.md#impact-effects--not-decoded).
 - **ELF and ELF2 beams draw straight.** Their tracer takes a jagged branch whose paint half is not
   decoded — see [`beam-visuals.md`](beam-visuals.md#elf-and-elf2--the-jagged-branch).
-- **Auto-fire.** `WeaponMount_AutoFireDue` (`0040ede8`) reports a mount due for a burst follow-up:
-  refire expired and the burst flag `+0x4d` set. Only the gun dispatch's multi-shot branch sets that
-  flag, never the beam path.

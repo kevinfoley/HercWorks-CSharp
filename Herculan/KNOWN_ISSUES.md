@@ -21,5 +21,7 @@ _Bugs listed in this section were tested on Windows 11. It's possible that some 
 - In the Scramble practice mission while piloting an Apocalypse, a Particle Beam Weapon is equipped to slot 8. In HERCULAN, when this PBW is fired the beam visibly clips off near the corner of the screen. This may be a camera near-clip plane issue.
 - TextureAtlas.AverageColor() sounds like a hack (needs investigation)
 - Impact effects have no sound, and the two arrays that pick which effect a hit on armour draws are indistinguishable to the engine (no component health array). Both cost nothing on retail data — see `docs/simulation/impact-effects.md`.
-- Missile and rocket launchers fire nothing at all, and do not spend a round.
+- Missile launchers do not home: `Rocket_Fire` attaches the firing machine's selected target and there is no target selection, so a missile flies where it was pointed — see `docs/simulation/rockets.md`. The electro-optical missile's nose-camera view is unported for the same reason.
+- Mission deployment is gated but not implemented: a group waiting on a mission action is correctly held out of the world, but nothing ever fires the trigger, so it never arrives. Drop pods (the falling `METEOR` that delivers Cybrid reinforcements), walk-on arrivals and the trigger evaluator are all missing — see `docs/simulation/mission-deployment.md`, which has the full RE.
+- Mission group orders are not ported: nothing follows a route, so deployed AI units stand still.
 - The `[P]` pause is a placeholder, not RE'd: it just stops the fixed-timestep tick loop. Retail DBSIM's own pause has not been traced.

@@ -248,14 +248,14 @@ from its own `+0x40` latch. **LINK never stays lit**; the link state lives on th
 ## Open
 
 - **`manager+0x0a`.** `FUN_00410970` gates a missile mount's readiness on `manager[0x0a + type*2]`,
-  and the manager block is `malloc`'d rather than zeroed. Readers were found (`FUN_004155ac`,
+  and the manager block is `malloc`'d rather than zeroed. Readers were found (`Mech_MissileAmmoCount`,
   `FUN_0041f358`); no writer was found along the paths traced, which is not the
   same as none existing. The engine leaves this gate out; it affects only a missile row's state-box
-  colour.
+  colour, and `Rocket_Fire`'s lock-on attach — see [`rockets.md`](rockets.md).
 - Template fields other than those named here — see
   [`../formats/weapons-dat-sim.md`](../formats/weapons-dat-sim.md).
-- **Firing** is in [`weapon-firing.md`](weapon-firing.md). Beams are ported; the ammunition and
-  rocket dispatches, and auto-fire, are not.
+- **Firing** is in [`weapon-firing.md`](weapon-firing.md). All three dispatch branches are ported;
+  auto-fire is not.
 - **Auto turret tracking.** `manager+0x14` is latched by the TRACK button and read by nothing in
   Herculan; the tracking itself is unported.
 - **A pod's on/off toggle.** Clicking a pod's row in the original flips `gauge+0xc2`

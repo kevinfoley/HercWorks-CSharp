@@ -58,7 +58,10 @@ public static class DtsSpriteBuilder {
 
 		Collect(root, frames, everyFrame, 0);
 
-		if (frames.Count == 0 && everyFrame.Count == 0) {
+		// A cell animation over geometry — a rocket's exhaust, the plasma round's two cells — makes
+		// frame slots without putting a single sprite in any of them. Reporting those as a flipbook
+		// would make an ordinary geometry shape claim billboards it does not have.
+		if (everyFrame.Count == 0 && frames.All(frame => frame.Count == 0)) {
 			return Array.Empty<SpriteQuad[]>();
 		}
 

@@ -226,6 +226,45 @@ public sealed class SceneModelLibrary {
 	public const string BulletBankName = "BULLETS";
 
 	/// <summary>
+	/// The shapes a launcher's round is drawn as — a root of <c>dts\ROCKETS.DTS</c>, one entry per
+	/// cell of its flipbook, and <b>untextured</b>. <c>Rocket_LoadTypeTable_Unguided</c>
+	/// (<c>0040a818</c>) loads the table and the shape file and stops: unlike the bullet module's init
+	/// it opens no <c>.DBA</c> and binds no bank to any of the shapes it just read, and there is no
+	/// <c>ROCKETS.DBA</c> in the install to open. So a rocket is <c>TSSolidPoly</c> geometry coloured
+	/// through the theater's own ramp, the same way a flyer with no bank is.
+	///
+	/// <para><b>Why a list.</b> A rocket's <see cref="TSCellAnimPart"/>s hold <i>geometry</i>, not
+	/// billboards — the flipbook is the exhaust flame, two alternate cones of flat polys at the tail
+	/// in the palette's red/orange/white range (indices 109, 94/93, 87/88, 86), sitting beside the
+	/// static grey body (index 200). Both retail roots carry one sequence of two cells, and both
+	/// cell-anim parts in each read sequence 0 — the same sequence every <c>ROCKETS.DAT</c> record
+	/// names. So the record's frame interval really does drive them, and the shape has to be built
+	/// once per cell for the flame to move. See <see cref="DtsMeshBuilder.CellFrameCount"/>.</para>
+	///
+	/// <para><paramref name="modelId"/> is the <c>ROCKETS.DAT</c> record's first field. Retail ships
+	/// two roots and the five records name both: root 0 for the four ordinary missiles, root 1 for
+	/// <c>BMSL</c>.</para>
+	/// </summary>
+	/// <returns>The cells in order, or empty when the shape file or the index is missing.</returns>
+	public IReadOnlyList<SceneModel> Rocket(int modelId) {
+		if (Root(RocketLibraryName, modelId) is not { } root) {
+			return Array.Empty<SceneModel>();
+		}
+
+		var cells = new List<SceneModel>();
+		for (int cell = 0; cell < DtsMeshBuilder.CellFrameCount(root); cell++) {
+			if (Build(RocketLibraryName, modelId, bankName: null, cellFrame: cell) is { } model) {
+				cells.Add(model);
+			}
+		}
+
+		return cells;
+	}
+
+	/// <summary>The shape file <c>Rocket_LoadTypeTable_Unguided</c> opens, by the literal name <c>rockets</c>.</summary>
+	public const string RocketLibraryName = "ROCKETS.DTS";
+
+	/// <summary>
 	/// The model for a structure type. <see cref="BaseShapeSource.AnimatedLibrary"/> types are a
 	/// root of <c>dts\BASES_AN.DTS</c>; <see cref="BaseShapeSource.StaticLibrary"/> types are a
 	/// record of <c>dgs\BASES.DGS</c> — see <see cref="BasesDgsTransformer"/> for how that record's
@@ -249,21 +288,22 @@ public sealed class SceneModelLibrary {
 			ExplosionCatalog.TextureBankPrefix + textureBankIndex, transparentBank: true);
 
 	private SceneModel? Build(string dtsName, int rootIndex, string? bankName,
-			bool segmented = false, bool transparentBank = false) {
-		string key = $"dts\\{dtsName}#{rootIndex}";
+			bool segmented = false, bool transparentBank = false, int cellFrame = 0) {
+		string key = cellFrame == 0 ? $"dts\\{dtsName}#{rootIndex}" : $"dts\\{dtsName}#{rootIndex}@{cellFrame}";
 		if (_models.TryGetValue(key, out var cached)) {
 			return cached;
 		}
 
-		TSObject? root = null;
-		if (LoadDts(dtsName)?.Meshes is { Count: > 0 } roots && rootIndex >= 0 && rootIndex < roots.Count) {
-			root = roots[rootIndex];
-		}
-
-		var model = BuildFromRoot(key, root, bankName, segmented, transparentBank);
+		var model = BuildFromRoot(key, Root(dtsName, rootIndex), bankName, segmented, transparentBank, cellFrame);
 		_models[key] = model;
 		return model;
 	}
+
+	/// <summary>One root of a shape file, or null when the file or the index is missing.</summary>
+	private TSObject? Root(string dtsName, int rootIndex) =>
+		LoadDts(dtsName)?.Meshes is { Count: > 0 } roots && rootIndex >= 0 && rootIndex < roots.Count
+			? roots[rootIndex]
+			: null;
 
 	private SceneModel? BuildFromShapeLibrary(string libraryName, int shapeIndex, string? bankName) {
 		string key = $"dgs\\{libraryName}#{shapeIndex}";
@@ -283,13 +323,13 @@ public sealed class SceneModelLibrary {
 	}
 
 	private SceneModel? BuildFromRoot(string key, TSObject? root, string? bankName,
-			bool segmented = false, bool transparentBank = false) {
+			bool segmented = false, bool transparentBank = false, int cellFrame = 0) {
 		if (root == null) {
 			return null;
 		}
 
 		var atlas = bankName != null ? LoadAtlas(bankName, transparentBank) : null;
-		var build = DtsMeshBuilder.BuildRoot(root, atlas, _shading);
+		var build = DtsMeshBuilder.BuildRoot(root, atlas, _shading, cellFrame);
 		var (min, max) = DtsMeshBuilder.Bounds(build.Vertices);
 
 		Vector3 extent = max - min;

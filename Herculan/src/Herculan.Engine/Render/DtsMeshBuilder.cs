@@ -239,12 +239,38 @@ public static class DtsMeshBuilder {
 		return Emit(sink);
 	}
 
-	/// <summary>Builds one top-level root at its highest detail level.</summary>
-	public static MeshBuild BuildRoot(TSObject root, TextureAtlas? atlas = null, SurfaceShading? shading = null) {
+	/// <summary>
+	/// Builds one top-level root at its highest detail level, with every
+	/// <see cref="TSCellAnimPart"/> under it showing cell <paramref name="cellFrame"/>.
+	/// </summary>
+	/// <param name="cellFrame">
+	/// Which cell of the shape's flipbook to bake. Zero — the rest pose — for everything the engine
+	/// draws statically; a launcher round builds one mesh per cell and picks between them as its own
+	/// frame counter moves, see <see cref="CellFrameCount"/>.
+	/// </param>
+	public static MeshBuild BuildRoot(TSObject root, TextureAtlas? atlas = null,
+			SurfaceShading? shading = null, int cellFrame = 0) {
 		var sink = new Collector();
-		Collect(root, null, sink, atlas, shading);
+		Collect(root, null, sink, atlas, shading, cellFrame);
 		return Emit(sink);
 	}
+
+	/// <summary>
+	/// How many cells the shape's flipbook has — <c>TSShape.SequenceList[0]</c>, which is the
+	/// per-sequence frame-count array the original mods its own counter by
+	/// (<c>shape+0x20</c>, read by <c>Bullet_TickUpdate</c> and <c>Rocket_TickUpdate</c>).
+	///
+	/// <para>Sequence zero only: every retail <see cref="TSCellAnimPart"/> in a projectile shape
+	/// carries <c>AnimSequence == 0</c>, and so does every <c>ROCKETS.DAT</c> record's own sequence
+	/// field. A shape with no flipbook reports one frame, which is the shape itself.</para>
+	/// </summary>
+	public static int CellFrameCount(TSObject? root) =>
+		root is TSShape { SequenceList: { Length: > 0 } sequences } && sequences[0] > 1
+			? System.Math.Min((int)sequences[0], MaxCellFrames)
+			: 1;
+
+	/// <summary>Guard against a file claiming a flipbook longer than anything could reasonably hold.</summary>
+	private const int MaxCellFrames = 64;
 
 	/// <summary>
 	/// The same geometry as <see cref="BuildRoot"/>, split by the node each part hangs from and left
@@ -482,25 +508,30 @@ public static class DtsMeshBuilder {
 	/// <see cref="TSBitmapPart"/> carries no geometry (it is a camera-facing billboard, which needs
 	/// per-frame geometry this builder doesn't produce) and is skipped.
 	/// </summary>
-	private static void Collect(TSObject? node, ANAnimList? animList, Collector sink, TextureAtlas? atlas, SurfaceShading? shading) {
+	private static void Collect(TSObject? node, ANAnimList? animList, Collector sink,
+			TextureAtlas? atlas, SurfaceShading? shading, int cellFrame = 0) {
 		switch (node) {
 			case null:
 				return;
 
 			case ANShape shape:
 				// An ANShape brings its own animation list into scope for everything beneath it.
-				CollectParts(shape.Parts, shape.AnimationList ?? animList, sink, atlas, shading);
+				CollectParts(shape.Parts, shape.AnimationList ?? animList, sink, atlas, shading, cellFrame);
 				break;
 
 			case TSDetailPart detailPart:
-				CollectHighestDetail(detailPart, animList, sink, atlas, shading);
+				CollectHighestDetail(detailPart, animList, sink, atlas, shading, cellFrame);
 				break;
 
 			case TSCellAnimPart cellAnimPart:
-				// Consecutive frames of one moving sub-part (a rotating dish, say). Walking all of
-				// them stacks every frame of the motion on top of itself, so take the rest pose.
-				if (cellAnimPart.Parts is { Length: > 0 } frames) {
-					Collect(frames[0], animList, sink, atlas, shading);
+				// Consecutive frames of one moving sub-part — a rocket's exhaust flame, say. Walking
+				// all of them stacks every frame of the motion on top of itself, so exactly one cell
+				// is taken, the way TSCellAnimPart_Render (004767e4) takes one:
+				// children[counter % childCount]. Everything the engine draws statically asks for
+				// cell zero, the rest pose.
+				if (cellAnimPart.Parts is { Length: > 0 } cells) {
+					Collect(cells[((cellFrame % cells.Length) + cells.Length) % cells.Length],
+						animList, sink, atlas, shading, cellFrame);
 				}
 				break;
 
@@ -513,18 +544,19 @@ public static class DtsMeshBuilder {
 				break;
 
 			case TSPartList partList:
-				CollectParts(partList.Parts, animList, sink, atlas, shading);
+				CollectParts(partList.Parts, animList, sink, atlas, shading, cellFrame);
 				break;
 		}
 	}
 
-	private static void CollectParts(TSObject[]? parts, ANAnimList? animList, Collector sink, TextureAtlas? atlas, SurfaceShading? shading) {
+	private static void CollectParts(TSObject[]? parts, ANAnimList? animList, Collector sink,
+			TextureAtlas? atlas, SurfaceShading? shading, int cellFrame = 0) {
 		if (parts == null) {
 			return;
 		}
 
 		foreach (var part in parts) {
-			Collect(part, animList, sink, atlas, shading);
+			Collect(part, animList, sink, atlas, shading, cellFrame);
 		}
 	}
 
@@ -534,7 +566,8 @@ public static class DtsMeshBuilder {
 	/// the one paired with the largest threshold rather than simply the last entry, since nothing
 	/// guarantees a file keeps them in ascending order.
 	/// </summary>
-	private static void CollectHighestDetail(TSDetailPart detailPart, ANAnimList? animList, Collector sink, TextureAtlas? atlas, SurfaceShading? shading) {
+	private static void CollectHighestDetail(TSDetailPart detailPart, ANAnimList? animList,
+			Collector sink, TextureAtlas? atlas, SurfaceShading? shading, int cellFrame = 0) {
 		if (detailPart.Parts is not { Length: > 0 } parts) {
 			return;
 		}
@@ -550,7 +583,7 @@ public static class DtsMeshBuilder {
 			}
 		}
 
-		Collect(parts[best], animList, sink, atlas, shading);
+		Collect(parts[best], animList, sink, atlas, shading, cellFrame);
 	}
 
 	private static void AppendGroup(TSGroup group, ANAnimList? animList, Collector sink, TextureAtlas? atlas, SurfaceShading? shading) {

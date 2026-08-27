@@ -31,8 +31,16 @@ per-sequence `ushort` array, published to the global `DAT_006b7bf0` by whatever 
 instance for drawing. Walking every child the way a `TSPartList` is walked stacks the whole animation
 on top of itself.
 
-Children need not be bitmaps: `BULLETS.DTS` root 8 (plasma) is a two-cell animation over real
-`TSGroup` geometry.
+**Children need not be bitmaps.** `BULLETS.DTS` root 8 (plasma) is a two-cell animation over real
+`TSGroup` geometry, and both `ROCKETS.DTS` roots animate their exhaust flame the same way — that
+file holds no `TSBitmapPart` at all (see [`../simulation/rockets.md`](../simulation/rockets.md)).
+`AnimSequence` (`part+0x12`) picks which entry of `cellFrames` the part reads; a projectile's own
+tick names the same sequence in its type record and mods the counter by `TSShape.SequenceList[seq]`,
+the shape's per-sequence frame count at `shape+0x20`.
+
+A geometry flipbook needs one built mesh per cell, which is what `DtsMeshBuilder.BuildRoot`'s
+`cellFrame` argument and `SceneModelLibrary.Rocket`'s list of `SceneModel`s are for.
+`DtsSpriteBuilder` reports no frames for such a shape: it has no sprites, only cells.
 
 ## `TSBitmapPart_Render` (`004762e8`)
 

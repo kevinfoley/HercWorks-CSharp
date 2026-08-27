@@ -474,15 +474,12 @@ public sealed class WeaponMount {
 	/// (<c>FUN_0040e788</c>), which works out where the muzzle is and arms the refire delay, and then
 	/// branch on the resolved <c>PROJ.DAT</c> record's own type.
 	///
-	/// <para><b>The rocket branch is the only one still missing.</b> A <see cref="ProjectileType.Beam"/>
-	/// record resolves its hit synchronously and is over inside this call; a
-	/// <see cref="ProjectileType.Bullet"/> record becomes a travelling <see cref="Projectile"/>; a
-	/// <see cref="ProjectileType.Missile"/> record needs <c>Rocket_Fire</c>'s guided object, which
-	/// does not exist yet.</para>
-	///
-	/// <para>The prologue runs regardless, as it does in the original, so an unported weapon still
-	/// pays its refire delay — it fires blanks rather than free-running, and the fire chain advances
-	/// past it exactly as it will once the shot is real.</para>
+	/// <para><b>All three branches are live.</b> A <see cref="ProjectileType.Beam"/> record resolves
+	/// its hit synchronously and is over inside this call; a <see cref="ProjectileType.Bullet"/>
+	/// record becomes a travelling <see cref="Projectile"/>; a <see cref="ProjectileType.Missile"/>
+	/// record becomes a <see cref="Rocket"/>. <see cref="ProjectileType.Rocket"/> is the fourth value
+	/// and no dispatch tests for it — its class is built by a constructor nothing calls, so those
+	/// records are unreachable in the original too.</para>
 	///
 	/// <para>Both dispatches also set a flag at <c>mount+0x44</c> whenever the hardpoint's mounting
 	/// code says it is visible (<c>.GL +6 &lt; 4</c>). It is the muzzle flash, and nothing here draws
@@ -587,27 +584,34 @@ public sealed class WeaponMount {
 	/// that reaches zero clears <see cref="Selectable"/>, dropping the weapon out of the selection
 	/// cycle rather than leaving it armed and dry.</para>
 	///
-	/// <para><b>Except for a launcher</b>, whose <see cref="ProjectileType.Missile"/> branch is still
-	/// <c>Rocket_Fire</c> and still unported. The original spends the round before it looks at the
-	/// type, so a faithful spend would empty a launcher's rack with nothing fired; the omission is
-	/// kept for exactly the weapons it still applies to and no others.</para>
+	/// <para><b>A launcher now pays for its round too.</b> The spend used to be skipped on the
+	/// <see cref="ProjectileType.Missile"/> branch, because the branch fired nothing and a faithful
+	/// spend would have emptied a rack for free. The original does it before it looks at the type at
+	/// all, and it does it here now.</para>
+	///
+	/// <para>The two branches are a gun and a launcher — <c>Bullet_Fire</c> for anything that is not
+	/// a <see cref="ProjectileType.Missile"/>, <c>Rocket_Fire</c> for one that is. Only the gun branch
+	/// raises the muzzle-flash flag at <c>mount+0x44</c>; a rocket comes off a rail rather than out of
+	/// a barrel and the original lights nothing for it.</para>
 	///
 	/// <para>The original also passes the dispatch a "this shot is free" flag off a pair of debug
 	/// globals, which is the one thing that can skip the spend. Nothing in the engine sets it.</para>
 	/// </summary>
 	private void FireAmmunition(MechObject owner, SimWorld world, ProjectileData.Projectile projectile,
 			in Transform3 bone, Vec3i muzzle) {
-		if (projectile.Type == ProjectileType.Missile) {
-			return;
-		}
-
 		ChargeTarget -= ShotCost;
 		if (ChargeTarget < 1) {
 			ChargeTarget = 0;
 			Selectable = false;
 		}
 
-		world.FireBullet(projectile, muzzle, bone.ToEuler(), owner.TravelSpeed, 0, owner);
+		var aim = bone.ToEuler();
+		if (projectile.Type == ProjectileType.Missile) {
+			world.FireRocket(projectile, muzzle, aim, owner.TravelSpeed, owner);
+			return;
+		}
+
+		world.FireBullet(projectile, muzzle, aim, owner.TravelSpeed, 0, owner);
 	}
 
 	/// <summary>

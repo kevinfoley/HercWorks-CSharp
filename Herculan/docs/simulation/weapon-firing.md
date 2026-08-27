@@ -51,9 +51,11 @@ Two implementations, one per live mount class, both opening with the same prolog
 | Class | Function | Branch |
 |---|---|---|
 | Energy / gun | `WeaponMount_FireDispatch_GunBeam` (`0040ea58`) | `Beam` → `Bullet_FireBurst`; else a travelling `Bullet` |
-| Ammunition | `WeaponMount_FireDispatch_Missile` (`0040e964`) | `Missile` → `Rocket_Fire`; else the same `Bullet` fallback |
+| Ammunition | `WeaponMount_FireDispatch_Missile` (`0040e964`) | `Missile` → `Rocket_Fire` ([`rockets.md`](rockets.md)); else the same `Bullet` fallback |
 
-Both also set `mount+0x44` when the hardpoint is visible (`.GL +6 < 4`) — the muzzle flash.
+Both also set `mount+0x44` when the hardpoint is visible (`.GL +6 < 4`) — the muzzle flash. The
+ammunition class raises it on its `Bullet` branch only; a rocket comes off a rail and lights
+nothing.
 
 ### The beam branch
 
@@ -210,9 +212,6 @@ through to whatever stands behind.
 
 ## Not ported
 
-- **The rocket branch.** `Rocket_Fire`'s guided object does not exist, so a launcher fires blanks —
-  and, alone among the mount classes, does not spend its round, since emptying a rack with nothing
-  leaving it is worse than not moving. Everything else spends normally.
 - **Structures and aircraft.** Both have their own vtable `+0x20`; neither is ported, so beams pass
   through them.
 - **Component damage.** Shield absorption is real; `Mech_SelectStruckComponent` and

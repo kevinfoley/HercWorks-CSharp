@@ -407,8 +407,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Rocket_Fire",
-      "description": "Spawn ('fire a rocket') entry point. Constructs via Missile_Construct or Rocket_ConstructGuided, captures lock-on target once at launch.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "description": "Rocket_Fire(missileId, muzzleWorldPoint, aimEulerTriple, ownerMech, ownerTravelSpeed) -- spawns one PROJ.DAT Type-0 Missile from the effect pool DAT_004a9746. Always builds via Missile_Construct; Rocket_ConstructGuided is never called. Speed = ownerTravelSpeed + literal 500. Attaches mech+0x1a4 (selected target) only when mech vtable +0x6c returns nonzero. Plays ROCKETS.DAT +0x0c + 10.",
+      "source": "docs/simulation/rockets.md 2026-08-27"
     },
     {
       "address": "0040a948",
@@ -425,8 +425,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Rocket_ConstructGuided",
-      "description": "Constructs the Type-3/guided rocket-family object (own type table). PROJ.DAT category 3 (3 entries, shield==armor exactly).",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "description": "DEAD CODE: constructs a PROJ.DAT Type-3 object, but nothing calls it and its vtable PTR_Bullet_Draw_004984fc has FUN_0040acb4 (return 0) in the per-tick slot, so an instance would never move or die. Retail Type-3 records are unreachable data.",
+      "source": "docs/simulation/rockets.md 2026-08-27"
     },
     {
       "address": "0040af6c",
@@ -443,8 +443,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Rocket_TickUpdate",
-      "description": "Per-tick rocket update: seeker-slot reacquire, burnout check, integrate motion (damped speed update), homing-vs-ballistic dispatch, proximity-fuze warning check (<40000 units).",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "description": "Per-tick launcher-round update, vtable +0x14. Steps the shape cell-anim frame on ROCKETS.DAT +0x08/+0x0a (the exhaust flame, NOT a seeker reacquire); age +1 vs record +0x02 in ticks; damped burn speed += IntegrateRateOverTick(record +0x04) averaged with the opening speed, capped at PROJ.DAT Speed; Rocket_PlayerSteer for a locally-simulated subtype 3 else Rocket_HomingSteer; Sim_RaycastObjectList over this tick step with record +0x06 as slack. Proximity beep under 40000 units.",
+      "source": "docs/simulation/rockets.md 2026-08-27"
     },
     {
       "address": "0040a254",
@@ -452,17 +452,26 @@
       "type": "function",
       "confidence": "high",
       "name": "Rocket_HomingSteer",
-      "description": "Lead-predicted homing/steering: LOS delta to extrapolated target position, deadband (+/-0xc00 inside +/-0x1800), rate-limited turn (0x500/tick cap via Math_RateLimitedMoveToward).",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "description": "Missile seeker. Steers the euler triple toward Math_EulerToward(leadPoint, self) at 0x500 per 125 ms. Lead point is the locked node (target vtable +0x58 via obj+0x5a) or the extrapolated origin. Subtype 2 (ARM) steers only while the target emits (target +0x96 scanner or +0xa1 jammer); every other subtype has its aim error pushed AWAY by 0xc00 whenever inside +/-0xc00 while the FIRING mech+0x9c spoof flag is set (ECM). Subtype 3 sets owner+0xb5 to suppress AI weapon selection for a tick.",
+      "source": "docs/simulation/rockets.md 2026-08-27"
+    },
+    {
+      "address": "004155ac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_MissileAmmoCount",
+      "description": "Mech vtable +0x6c: returns the weapon-mount manager's per-ammunition-type counter, manager[0x0a + missileId*2]. Rocket_Fire will not attach a lock-on target when it reads zero, and WeaponMounts_MountIsReady gates a missile row's ready box on the same array. No writer for that array found on any traced path.",
+      "source": "docs/simulation/rockets.md 2026-08-27"
     },
     {
       "address": "0040a488",
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "Rocket_BallisticSteer",
-      "description": "Non-homing steering variant: takes the launcher's one-shot aim-point delta directly, no deadband/rate-limiting, clears the aim-point fields after consuming them.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "name": "Rocket_PlayerSteer",
+      "description": "The electro-optical missile's nose-camera control, not a ballistic variant. Reads two axis accumulators out of the global player control block at 0x4d234a, steers by Q8Multiply(0x500, axis) per tick with no rate limit or deadband, and zeroes them. Gate 0x4d2357 is missile-control-active; with it clear the function drops the round's target and rewrites its subtype id to 0.",
+      "source": "docs/simulation/rockets.md 2026-08-27"
     },
     {
       "address": "0040b124",
@@ -541,8 +550,8 @@
       "type": "data",
       "confidence": "medium",
       "name": "maybe_RocketTypeTable_Unguided",
-      "description": "Type-0 rocket type table, 14-byte stride, loaded by Rocket_LoadTypeTable_Unguided.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "description": "dat/ROCKETS.DAT in memory, 14-byte stride, loaded by Rocket_LoadTypeTable_Unguided. Layout is NOT BULLETS.DAT's: +0x00 ModelId, +0x02 lifetime in ticks, +0x04 acceleration, +0x06 hit-test slack, +0x08 animation interval, +0x0a animation sequence, +0x0c sound id.",
+      "source": "docs/simulation/rockets.md 2026-08-27"
     },
     {
       "address": "004a9758",

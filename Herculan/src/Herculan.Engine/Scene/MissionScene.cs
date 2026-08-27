@@ -37,11 +37,13 @@ public sealed class MissionScene {
 			MeshVertex[] terrainMesh, TheaterDescriptor theater, TerrainTextureBank? terrainBank,
 			SceneObject? playerObject, BeamAppearance? beams,
 			IReadOnlyDictionary<int, SceneModel> bulletModels,
-			IReadOnlyDictionary<int, SceneModel> explosionModels, Atmosphere atmosphere) {
+			IReadOnlyDictionary<int, SceneModel> explosionModels,
+			IReadOnlyDictionary<int, IReadOnlyList<SceneModel>> rocketModels, Atmosphere atmosphere) {
 		Atmosphere = atmosphere;
 		Beams = beams;
 		BulletModels = bulletModels;
 		ExplosionModels = explosionModels;
+		RocketModels = rocketModels;
 		Mission = mission;
 		World = world;
 		Camera = camera;
@@ -117,6 +119,18 @@ public sealed class MissionScene {
 	/// </summary>
 	public IReadOnlyDictionary<int, SceneModel> ExplosionModels { get; }
 
+	/// <summary>
+	/// The shapes each launcher round is drawn as, keyed by the <c>PROJ.DAT</c> subtype id that fired
+	/// it — the same arrangement <see cref="BulletModels"/> has, over a separate table and a separate
+	/// shape file. The two key spaces overlap (both start at subtype 0) and mean different things, so
+	/// they are deliberately not one dictionary.
+	///
+	/// <para>The value is a <b>list</b> because a rocket's flipbook is geometry: entry <c>i</c> is the
+	/// shape with its exhaust flame on cell <c>i</c>, and a round in flight picks by
+	/// <see cref="Rocket.AnimationFrame"/>. See <see cref="SceneModelLibrary.Rocket"/>.</para>
+	/// </summary>
+	public IReadOnlyDictionary<int, IReadOnlyList<SceneModel>> RocketModels { get; }
+
 	/// <summary>How many placed objects have no model the engine can build yet.</summary>
 	public int UnmodelledCount => Objects.Count(o => o.Model == null);
 
@@ -145,7 +159,11 @@ public sealed class MissionScene {
 		var explosions = ExplosionCatalog.Load(
 			content.Read(ExplosionCatalog.ResourceFolder, ExplosionCatalog.TableResource));
 
-		var world = new SimWorld(terrain, bullets, explosions, mission.Header.ZoneIndex);
+		// And the launcher table, loaded once at startup as Rocket_LoadTypeTable_Unguided loads it.
+		var rockets = RocketCatalog.Load(
+			content.Read(RocketCatalog.ResourceFolder, RocketCatalog.TableResource));
+
+		var world = new SimWorld(terrain, bullets, explosions, rockets, mission.Header.ZoneIndex);
 		var models = new SceneModelLibrary(content, theater);
 		var baseTypes = BaseTypeTable.Load(content);
 
@@ -200,6 +218,13 @@ public sealed class MissionScene {
 			}
 		}
 
+		var rocketModels = new Dictionary<int, IReadOnlyList<SceneModel>>();
+		for (int subtype = 0; rockets != null && subtype < rockets.Count; subtype++) {
+			if (rockets.Record(subtype) is { } record && models.Rocket(record.ModelId) is { Count: > 0 } cells) {
+				rocketModels[subtype] = cells;
+			}
+		}
+
 		var explosionModels = new Dictionary<int, SceneModel>();
 		var explosionFrames = new List<int>();
 		for (int shapeIndex = 0; explosions != null && shapeIndex < explosions.ShapeCount; shapeIndex++) {
@@ -218,7 +243,7 @@ public sealed class MissionScene {
 		return new MissionScene(mission, world, camera, objects, models.Models.ToArray(),
 			terrainMesh, theater, terrainBank, playerObject,
 			BeamAppearance.Load(content, theater.PaletteName), bulletModels, explosionModels,
-			Atmosphere.From(terrain, models.Shading));
+			rocketModels, Atmosphere.From(terrain, models.Shading));
 	}
 
 	/// <summary>
@@ -278,6 +303,7 @@ public sealed class MissionScene {
 
 		simObject.Position = placement.Position;
 		simObject.Heading = placement.Heading;
+		simObject.AwaitingDeployment = placement.AwaitingDeployment;
 
 		// The original's hover-height substitution, applied at spawn because that is where it
 		// happens in FUN_00421ee8 — see FlyerObject.DefaultHoverHeight.

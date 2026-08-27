@@ -258,7 +258,7 @@ public sealed class Projectile {
 			return;
 		}
 
-		var (bearingX, _, bearingZ) = EulerToward(Target.Position, Position);
+		var (bearingX, _, bearingZ) = SimTrig.EulerToward(Target.Position, Position);
 
 		short pitchRate = 0;
 		short yawRate = 0;
@@ -269,29 +269,6 @@ public sealed class Projectile {
 		_eulerZ = (short)(_eulerZ + SimMath.IntegrateRateOverTick(yawRate));
 		_frameStale = true;
 	}
-
-	/// <summary>
-	/// <c>FUN_00492884</c> — the euler triple that points <paramref name="from"/> at
-	/// <paramref name="to"/>. Roll is always zero; the yaw is the ground-plane bearing shifted back a
-	/// quarter turn, because the sim's forward axis is model Y and not model X; the pitch is taken
-	/// against the ground-plane distance with the simulation's own sqrt-free magnitude, so it carries
-	/// the same few-percent bias every other range in the simulation does.
-	/// </summary>
-	private static (short X, short Y, short Z) EulerToward(Vec3i from, Vec3i to) {
-		int dx = from.X - to.X;
-		int dy = from.Y - to.Y;
-		int dz = from.Z - to.Z;
-
-		short yaw = (short)(Atan2Guarded(dx, dy) - BinaryAngle.QuarterTurn);
-		short pitch = (short)Atan2Guarded(SimMath.FastMagnitude2D(dx, dy), dz);
-		return (pitch, 0, yaw);
-	}
-
-	/// <summary>
-	/// <c>FUN_00492800</c>: <see cref="SimTrig.Atan2"/> with the degenerate pair nudged onto the axis
-	/// rather than left at the origin, so a shot sitting exactly on its target still has a bearing.
-	/// </summary>
-	private static int Atan2Guarded(int y, int x) => SimTrig.Atan2(y == 0 && x == 0 ? 1 : y, x);
 
 	/// <summary>The cap <c>FUN_0040aff0</c> puts on how fast a homing shot may turn — <c>0x280</c> per 125 ms.</summary>
 	public const short HomingTurnRate = 0x280;

@@ -1,8 +1,9 @@
-# Handoff — after impact effects
+# Handoff — after rockets and missiles
 
-Rewritten 2026-08-26. Addresses are starting points to decompile, not settled findings — check
+Rewritten 2026-08-27. Addresses are starting points to decompile, not settled findings — check
 anything load-bearing. What *is* settled is in
 [`../simulation/projectiles.md`](../simulation/projectiles.md),
+[`../simulation/rockets.md`](../simulation/rockets.md),
 [`../simulation/weapon-firing.md`](../simulation/weapon-firing.md),
 [`../simulation/beam-visuals.md`](../simulation/beam-visuals.md),
 [`../simulation/impact-effects.md`](../simulation/impact-effects.md),
@@ -12,33 +13,25 @@ anything load-bearing. What *is* settled is in
 
 ## Where this left off
 
-Built and shipped: travelling `Bullet` projectiles, both gun-dispatch branches, beam tracers and
-their visuals, the zone's distance fog and banded sky, and the `TSSolidPoly` outline pass.
+Built and shipped: travelling `Bullet` projectiles, all three fire-dispatch branches, beam tracers
+and their visuals, the billboard path, impact effects, the zone's distance fog and banded sky, and
+the `TSSolidPoly` outline pass.
 
-Since: the **billboard path** (`TSBitmapPart` sizing, rotation, squash and anchor; `TSCellAnimPart`
-flipbooks), which made the three EMP rounds visible; and **impact effects** — `EXPLOS.DAT` decoded,
-the effect object ported, and effects spawned from both the object hit tests and the raycast's own
-terrain case. Two previously-open questions are closed: which `ImpactFX` array a hit reads (all
-three, settled), and how a bitmap part is placed.
+Since: **launcher rounds** — `ROCKETS.DAT` decoded (it does *not* share `BULLETS.DAT`'s layout),
+`Rocket_Fire`/`Rocket_TickUpdate` ported, the magazine spend taken, and the exhaust flame's
+geometry flipbook built one mesh per cell. Closed with it: what `Rocket_PlayerSteer` (ex-`Rocket_BallisticSteer`) is (the
+player flying an electro-optical missile from its nose camera), that `Type 3` `PROJ.DAT` records are
+data for a class nothing constructs, and where `mech+0x9c` — the ECM spoof roll that makes a missile
+weave — is written.
 
-Not built: **anything you can hear**, rockets and missiles, structure hit detection, and the light
+Not built: **anything you can hear**, structure hit detection, target selection, and the light
 sources effects are supposed to cast.
 
-## Next: rockets and missiles
+## Next
 
-The last unported fire branch, and the only weapon class that still fires nothing at all.
-`Rocket_Fire`, `Rocket_ConstructGuided` (`0040ac3c`), `Rocket_TickUpdate` (`0040a538`),
-`Rocket_HomingSteer` (`0040a254`), `Rocket_BallisticSteer` (`0040a488`) are all already named and
-sketched in [`../simulation/damage-system.md`](../simulation/damage-system.md); `ROCKETS.DAT` shares
-`BULLETS.DAT`'s record layout. Note there is no `ROCKETS.DBA` — how a rocket's shape is textured is
-an open question, though `ROCKETS.DTS`'s 57 `TSSolidPoly`s suggest most of it is ramp-coloured
-geometry rather than texture. **A launcher deliberately does not spend its round today**; take the
-spend with this.
+Pick one; they are independent.
 
-`manager+0x0a`, the per-ammunition-type counters `FUN_00410970` gates missile readiness on, blocks
-part of this: readers found (`FUN_004155ac`, `FUN_0041f358`), no writer traced.
-
-## Structure hit detection
+### Structure hit detection
 
 Beams and bullets pass through buildings, so nothing but a HERC can be shot and no impact effect
 appears on a structure. `BaseObject` has no `DirectFireHitTest`; the base class's own vtable `+0x20`
@@ -46,6 +39,18 @@ is findable from its constructor (`FUN_00405314`). **`FUN_00405038` is very like
 the same translation unit, has the `+0x20` shape, and is the site that reads the `ImpactFXArmor`
 array (see [`../simulation/impact-effects.md`](../simulation/impact-effects.md)); confirm against the
 vtable before porting. `FlyerObject` is the same gap.
+
+### Target selection
+
+Now the single biggest unlock. Nothing homes — not the plasma round, not a missile — because both
+read `mech+0x1a4` and nothing ever sets it. It would also make the ECM weave, the anti-radiation
+missile's emission gate and the HUD lead indicator reachable at once. Start from
+`Mech_PerTickSystemsUpdate` (`0041aa5c`), which reads `mech+0x1a4` throughout and writes the
+lock-related flags around it.
+
+`manager+0x0a`, the per-ammunition-type counters, still blocks part of it: `Rocket_Fire` will not
+attach a target without one, and `FUN_00410970` gates a missile row's ready box on the same array.
+Readers found (`Mech_MissileAmmoCount`, `FUN_0041f358`), no writer traced.
 
 ## Also outstanding, lower priority
 

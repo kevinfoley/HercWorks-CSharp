@@ -20,6 +20,7 @@ public sealed class SimWorld {
 	private readonly List<WeaponShot> _impacts = new();
 	private readonly List<BeamTracer> _tracers = new();
 	private readonly List<Projectile> _projectiles = new();
+	private readonly List<Rocket> _rockets = new();
 	private readonly List<ImpactEffect> _effects = new();
 
 	/// <param name="terrain">The loaded zone.</param>
@@ -32,12 +33,17 @@ public sealed class SimWorld {
 	/// <c>dat\EXPLOS.DAT</c>, which everything that lands needs — see
 	/// <see cref="SpawnImpactEffect"/>. Null leaves impacts invisible.
 	/// </param>
+	/// <param name="rockets">
+	/// <c>dat\ROCKETS.DAT</c>, which every launcher needs — see <see cref="FireRocket"/>. Null leaves
+	/// them firing blanks, as null <paramref name="bullets"/> does for the guns.
+	/// </param>
 	/// <param name="seed">Seed for <see cref="Random"/>.</param>
 	public SimWorld(HeightGrid terrain, BulletCatalog? bullets = null,
-			ExplosionCatalog? explosions = null, int seed = 0) {
+			ExplosionCatalog? explosions = null, RocketCatalog? rockets = null, int seed = 0) {
 		Terrain = terrain;
 		Bullets = bullets;
 		Explosions = explosions;
+		Rockets = rockets;
 		Random = new SimRandom(seed);
 	}
 
@@ -49,6 +55,9 @@ public sealed class SimWorld {
 
 	/// <summary>The impact-effect table, or null when the resource was not loaded.</summary>
 	public ExplosionCatalog? Explosions { get; }
+
+	/// <summary>The launcher-round table, or null when the resource was not loaded.</summary>
+	public RocketCatalog? Rockets { get; }
 
 	/// <summary>
 	/// The simulation's pseudo-random generator — DBSIM's single global state block at
@@ -119,6 +128,14 @@ public sealed class SimWorld {
 	/// they hit something, and they move and do damage while they do.
 	/// </summary>
 	public IReadOnlyList<Projectile> Projectiles => _projectiles;
+
+	/// <summary>
+	/// The launcher rounds in flight — the same pool again, and the same deal: a rocket that leaves
+	/// the rail this tick does not move or hit anything until the next one. They are kept apart from
+	/// <see cref="Projectiles"/> because they are a different class with a different tick, exactly as
+	/// they are in the original.
+	/// </summary>
+	public IReadOnlyList<Rocket> RocketsInFlight => _rockets;
 
 	/// <summary>
 	/// Every travelling shot that struck something during the tick just completed, as the shot record
@@ -316,6 +333,40 @@ public sealed class SimWorld {
 		return shot;
 	}
 
+	/// <summary>
+	/// <c>Rocket_Fire</c> (<c>0040a9c4</c>) — spawns one launcher round. There is no powered form: a
+	/// rocket comes off a rack, never out of a capacitor, so the record's damage is what it does.
+	///
+	/// <para><b>No target is attached</b>, for two reasons that stack. <c>Rocket_Fire</c> takes the
+	/// launching machine's selected target (<c>mech+0x1a4</c>) and there is no target selection; and it
+	/// only takes it at all when the machine's vtable <c>+0x6c</c> (<c>FUN_004155ac</c>) returns
+	/// nonzero, which reads the mount manager's per-ammunition-type counter array at
+	/// <c>manager+0x0a</c> — an array with readers (this, and
+	/// <c>WeaponMounts_MountIsReady</c>) and no writer found along any traced path. A rocket
+	/// therefore flies where it was pointed. See <see cref="Rocket.Target"/>.</para>
+	///
+	/// <para>The one exception in the original is not reachable here either: a machine that is
+	/// <i>not</i> locally simulated firing <see cref="Rocket.PlayerFlownSubtype"/> skips the counter
+	/// gate outright, which is how an AI opponent's electro-optical missile locks without a player at
+	/// the stick.</para>
+	/// </summary>
+	/// <param name="projectile">The firing <c>PROJ.DAT</c> record.</param>
+	/// <param name="muzzle">The world muzzle point the fire prologue worked out.</param>
+	/// <param name="aim">The shot transform's euler triple. A rocket has no scatter to apply to it.</param>
+	/// <param name="ownerSpeed">The launching machine's travel speed, which the round inherits.</param>
+	/// <param name="owner">The machine that fired.</param>
+	/// <returns>The round, or null when <see cref="Rockets"/> has no record for its subtype.</returns>
+	internal Rocket? FireRocket(ProjectileData.Projectile projectile, Vec3i muzzle,
+			(short X, short Y, short Z) aim, short ownerSpeed, SimObject? owner) {
+		if (Rockets?.Record(projectile.MissileId) is not { } record) {
+			return null;
+		}
+
+		var round = new Rocket(projectile, record, muzzle, aim, ownerSpeed, owner);
+		_rockets.Add(round);
+		return round;
+	}
+
 	/// <summary>Records a travelling shot's impact for <see cref="Impacts"/>. Not part of the original.</summary>
 	internal void RecordProjectileHit(WeaponShot shot) => _impacts.Add(shot);
 
@@ -353,10 +404,19 @@ public sealed class SimWorld {
 			}
 		}
 
+		for (int i = _rockets.Count - 1; i >= 0; i--) {
+			if (_rockets[i].Tick(this)) {
+				_rockets.RemoveAt(i);
+			}
+		}
 
+
+		// A group still waiting on its arrival action is not in the mission yet, so it does not tick:
+		// Sim_MainTick sends such a group to Group_DeploymentCheck instead of its order tick, and
+		// skips a base's own update outright. See SimObject.AwaitingDeployment.
 		for (int i = 0; i < _objects.Count; i++) {
 			var simObject = _objects[i];
-			if (!simObject.Removed) {
+			if (!simObject.Removed && !simObject.AwaitingDeployment) {
 				simObject.Tick(this);
 			}
 		}

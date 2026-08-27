@@ -149,4 +149,31 @@ public static class SimTrig {
 		int highSign = value >> 15;
 		return (ushort)((ArcsineFine[index - FineArcsineBase] ^ highSign) - highSign);
 	}
+
+	/// <summary>
+	/// <c>Math_EulerToward</c> (<c>00492884</c>) — the euler triple that points <paramref name="from"/>
+	/// at <paramref name="to"/>. Roll is always zero; the yaw is the ground-plane bearing shifted back
+	/// a quarter turn, because the sim's forward axis is model Y and not model X; the pitch is taken
+	/// against the ground-plane distance with the simulation's own sqrt-free magnitude, so it carries
+	/// the same few-percent bias every other range in the simulation does.
+	///
+	/// <para>Both guidance paths read it — the plasma round's (<c>Bullet_HomingSteer</c>) and a
+	/// launcher's (<c>Rocket_HomingSteer</c>) — and both pass the target first and the shot second,
+	/// which is the argument order the original's call sites use.</para>
+	/// </summary>
+	public static (short X, short Y, short Z) EulerToward(Vec3i from, Vec3i to) {
+		int dx = from.X - to.X;
+		int dy = from.Y - to.Y;
+		int dz = from.Z - to.Z;
+
+		short yaw = (short)(Atan2Guarded(dx, dy) - BinaryAngle.QuarterTurn);
+		short pitch = (short)Atan2Guarded(SimMath.FastMagnitude2D(dx, dy), dz);
+		return (pitch, 0, yaw);
+	}
+
+	/// <summary>
+	/// <c>FUN_00492800</c>: <see cref="Atan2"/> with the degenerate pair nudged onto the axis rather
+	/// than left at the origin, so a shot sitting exactly on its target still has a bearing.
+	/// </summary>
+	public static int Atan2Guarded(int y, int x) => Atan2(y == 0 && x == 0 ? 1 : y, x);
 }

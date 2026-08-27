@@ -133,6 +133,14 @@ Console.WriteLine(
 	$"{mission.CountOf(MissionUnitKind.Flyer)} flyers, {mission.CountOf(MissionUnitKind.Base)} structures — " +
 	$"from {scene.Models.Count} distinct models.");
 
+int awaitingDeployment = scene.Objects.Count(o => o.Object.AwaitingDeployment);
+if (awaitingDeployment > 0) {
+	Console.WriteLine(
+		$"{awaitingDeployment} of them are waiting on a mission action and are not in the mission " +
+		"yet — undrawn, unsimulated and non-solid, standing on a placeholder point until they " +
+		"arrive. Arrival (drop pods and walk-ons) is not implemented; see MissionLoader.");
+}
+
 if (scene.UnmodelledCount > 0) {
 	Console.WriteLine(
 		$"{scene.UnmodelledCount} of them have no model (missing install files or an out-of-range " +
@@ -454,6 +462,14 @@ window.Load += (gl, input) => {
 
 	foreach (var sceneObject in scene.Objects) {
 		if (sceneObject.Model is not { } model) {
+			continue;
+		}
+
+		// A unit whose group is still waiting on its arrival action is not in the mission, and
+		// maybe_Scene_SubmitFrameObjects does not submit it. Nothing deploys yet, so leaving it out
+		// of the scene here is enough; once arrival exists this becomes a per-frame filter, as it is
+		// in the original. See SimObject.AwaitingDeployment.
+		if (sceneObject.Object.AwaitingDeployment) {
 			continue;
 		}
 
@@ -848,7 +864,8 @@ window.Render += (_, gl) => {
 	// as its flight lasts, so either one counts as "the trigger produced something visible".
 	bool shotWanted = heldFire && (beams != null || scene.World.Bullets != null);
 	if (screenshotPath != null && !screenshotTaken && framesRendered >= 30
-			&& (!shotWanted || scene.World.Tracers.Count > 0 || scene.World.Projectiles.Count > 0)) {
+			&& (!shotWanted || scene.World.Tracers.Count > 0 || scene.World.Projectiles.Count > 0
+				|| scene.World.RocketsInFlight.Count > 0)) {
 		screenshotTaken = true;
 		CaptureScreenshot(gl, size.X, size.Y, screenshotPath);
 		window.Close();
@@ -1112,17 +1129,37 @@ IEnumerable<SceneItem> VisibleItems() =>
 // One item per live projectile, from the shape its PROJ.DAT subtype names — see
 // MissionScene.BulletModels. The transform is the shot's own frame, which carries both where it is
 // and which way it is pointing, so a round is drawn nose-first along its flight.
+// Launcher rounds come out of their own table and their own shape file, and go in the same list:
+// both classes are drawn through the same vtable slot in the original.
 void RefreshProjectileItems() {
 	projectileItems.Clear();
 
 	foreach (var projectile in scene.World.Projectiles) {
-		if (!scene.BulletModels.TryGetValue(projectile.MissileId, out var model)
-			|| !modelMeshes.TryGetValue(model.Key, out var mesh)) {
-			continue;
+		Add(scene.BulletModels, projectile.MissileId, projectile.Frame);
+	}
+
+	// A rocket's shape is a flipbook of geometry, not one mesh: its exhaust flame is a two-cell
+	// TSCellAnimPart, and the cell is the round's own frame counter. Picking the mesh here is the
+	// engine's equivalent of TSCellAnimPart_Render choosing one child.
+	foreach (var rocket in scene.World.RocketsInFlight) {
+		if (scene.RocketModels.TryGetValue(rocket.MissileId, out var cells) && cells.Count > 0) {
+			AddModel(cells[rocket.AnimationFrame % cells.Count], rocket.Frame);
+		}
+	}
+
+	void Add(IReadOnlyDictionary<int, SceneModel> models, int subtype, Transform3 frame) {
+		if (models.TryGetValue(subtype, out var model)) {
+			AddModel(model, frame);
+		}
+	}
+
+	void AddModel(SceneModel model, Transform3 frame) {
+		if (!modelMeshes.TryGetValue(model.Key, out var mesh)) {
+			return;
 		}
 
 		uint? texture = modelTextures.TryGetValue(model.Key, out var bound) ? bound.Handle : null;
-		projectileItems.Add(new SceneItem(mesh, WorldScale.ToRenderMatrix(projectile.Frame), texture));
+		projectileItems.Add(new SceneItem(mesh, WorldScale.ToRenderMatrix(frame), texture));
 	}
 }
 
@@ -1141,6 +1178,8 @@ void RefreshSpriteBatches() {
 		}
 	}
 
+	// Nothing for rockets here: ROCKETS.DTS holds no billboards at all, only geometry — see
+	// SceneModelLibrary.Rocket. Their flipbook is drawn in RefreshProjectileItems.
 	foreach (var effect in scene.World.Effects) {
 		if (scene.ExplosionModels.TryGetValue(effect.ShapeIndex, out var model)) {
 			Add(model, Matrix4x4.CreateTranslation(WorldScale.ToRender(effect.Position)), effect.Frame);

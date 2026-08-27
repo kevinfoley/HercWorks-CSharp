@@ -15,8 +15,9 @@ multi-component, distance falloff, also shield-gated but via a separate parallel
 
 ## The shared raycast: `FUN_00426528`
 
-A generic ray-vs-live-object-list query, not weapon-specific. Exactly 5 call sites: rocket
-per-tick homing (`FUN_0040a538`), bullet per-tick and burst-fire (`FUN_0040b124`/`FUN_0040bf74`,
+A generic ray-vs-live-object-list query, not weapon-specific. Exactly 5 call sites: the launcher
+round's per-tick step (`Rocket_TickUpdate`, `0040a538`), bullet per-tick and burst-fire
+(`FUN_0040b124`/`FUN_0040bf74`,
 below), and the flyer terrain-avoidance autopilot
 (`FUN_004198f4`, see [`../formats/terrain-heightmap.md`](../formats/terrain-heightmap.md#consumers-outside-the-terrain-system)).
 A single raycast primitive reused for weapon hit-scan **and** obstacle sensing — most likely
@@ -446,16 +447,15 @@ literal category constant, and each corresponds to a genuinely different project
 
 | `Type` | Constructor | Object kind | Real `PROJ.DAT` shape |
 |---|---|---|---|
-| `0` | `FUN_0040a948` | rocket-family object (14-byte type table `DAT_004a9754`, "unguided") | 5 entries, `SplashFactor=500` uniformly, real `Speed`, armor≫shield |
-| `2` | `FUN_0040af6c` | a third rocket-family object (own 14-byte type table `DAT_004a9784`, own vtable `PTR_FUN_00498628`) | mixed: ATC20/35/50-shaped progression *and* EMP-shaped high-shield entries — `SplashFactor=0` for all but `MissileId=9` (Plasma cannon, below) |
-| `3` | `FUN_0040ac3c` | guided/homing rocket variant (own type table `DAT_004a9768`/`DAT_004a9770`) | 3 entries, shield==armor exactly, `SplashFactor` 1000/500/500 |
-| `4` | `FUN_0040bf74` | **no persistent simulated object at all** — resolves its raycast hit synchronously inside the call itself, then spawns pure-visual tracer segments | every `Type=4` record has `Speed=0`, no exceptions |
+| `0` | `Missile_Construct` (`0040a948`) | the launcher round (14-byte type table `ROCKETS.DAT`, vtable `PTR_Bullet_Draw_00498448`) — see [`rockets.md`](rockets.md) | 5 entries, `SplashFactor=500` uniformly, real `Speed`, armor≫shield |
+| `2` | `Bullet_Construct` (`0040af6c`) | the travelling gun round (own 14-byte type table `BULLETS.DAT`, own vtable `PTR_FUN_00498628`) — see [`projectiles.md`](projectiles.md) | mixed: ATC20/35/50-shaped progression *and* EMP-shaped high-shield entries — `SplashFactor=0` for all but `MissileId=9` (Plasma cannon, below) |
+| `3` | `Rocket_ConstructGuided` (`0040ac3c`) | **dead code** — nothing calls it, and its vtable's per-tick slot is `FUN_0040acb4`, a stub returning zero, so an instance would never move and never die | 3 entries, shield==armor exactly, `SplashFactor` 1000/500/500, all unreachable |
+| `4` | `Bullet_FireBurst` (`0040bf74`) | **no persistent simulated object at all** — resolves its raycast hit synchronously inside the call itself, then spawns pure-visual tracer segments | every `Type=4` record has `Speed=0`, no exceptions |
 
 `Type=4`'s "no persistent object, resolves at the call site, always `Speed=0`" combination is the
-concrete mechanical definition of a beam/hitscan weapon. `Type=0`/`2`/`3` are three genuinely
-different rocket-family C++ classes, matching the original Java author's doc comment more
-precisely than a flat reading: "BULLETS" = `Type 4` only, "ROCKETS" = three separate sub-classes
-(`0`/`2`/`3`) differing in guidance and splash, not one family.
+concrete mechanical definition of a beam/hitscan weapon. Only `0` and `2` are live classes: the
+ammunition dispatch (`WeaponMount_FireDispatch_Missile`) tests for `Type == 0` and sends everything
+else to `Bullet_Fire`, and `Rocket_Fire` always builds the `Type 0` class.
 
 Mapping onto the weapon taxonomy — flagged as a reasoned hypothesis from mechanism + shape except
 where noted confirmed:
@@ -463,16 +463,17 @@ where noted confirmed:
   both far below the others' 1000+ values) plausibly fit Electron Flux, not confirmed.
 - **`Type 2` (real flight time, no splash) → Autocannons + EMP** — accounts for every `Type 2`
   entry except the one Plasma outlier.
-- **`Type 0` (5 entries) / `Type 3` (3 entries) → the game's ordinary Missile weapons, not
-  Plasma** — two Missile sub-variants (guided/unguided), matching the Java author's own
-  `ProjectileType` names (`Missile`=0, `Rocket`=3).
+- **`Type 0` (5 entries) → the game's Missile weapons**, confirmed: its five subtype ids are the
+  five `ROCKETS.DAT` records, and the four the `MSL` launchers reach are `SARH`/`ARH`/`ARM`/`EO`
+  while `BMSL` takes the fifth. `Type 3`'s three entries are data for a class that never runs.
 
 **Plasma cannon — confirmed.** The one `Type 2` outlier (`DamageShield==DamageArmor==3000`,
 `SplashFactor=1000`) is `MissileId 9`. The `Bullet` class's vtable (`PTR_FUN_00498628`) per-tick
 slot (`+0x14`) is `FUN_0040b124`, whose `type == 9` branch (checked via
 `*(char*)(this+0x41) == '\t'`) calls the explosion formula directly instead of the ordinary
-single-target hit path — `this+0x41` is exactly where every rocket-family constructor
-(`FUN_0040a948`/`FUN_0040af6c`/`FUN_0040ac3c`) stores its own `MissileId` argument, so this is
+single-target hit path — `this+0x41` is exactly where every projectile constructor
+(`Missile_Construct`/`Bullet_Construct`/`Rocket_ConstructGuided`) stores its own `MissileId`
+argument, so this is
 checking `MissileId==9` on a live `Bullet` instance. `(Type=2, MissileId=9)` is mechanically a
 `Bullet` (real flight time, unlike true `Beam`s) that explodes with splash on impact (unlike every
 other `Bullet`), matching the manual's Plasma description exactly.

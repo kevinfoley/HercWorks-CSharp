@@ -16,7 +16,7 @@ This is DBSIM.EXE's runtime weapon-mount table, loaded by `Weapons_LoadResourceT
 
 Built entirely from **reused low-level record readers**:
 `HercPiece_ReadRecord` (see `docs/simulation/damage-system.md`, "The component damage system"),
-`Collision_LoadSubSphereFlag`, `Collision_LoadSubMeshIndices` (see `docs/simulation/dbsim-physics-notes.md`, "Collision system"). In-memory struct is 88 bytes (`0x58`), but on-disk record is variable-length; extra in-memory bytes are runtime-only (a pointer + self-index the loader fills in after reading).
+`Collision_ReadCluster`, `Collision_ReadSphereArray` (see `docs/simulation/structure-hit-detection.md`; both were named `Collision_LoadSubSphereFlag`/`Collision_LoadSubMeshIndices` when this doc was written). In-memory struct is 88 bytes (`0x58`), but on-disk record is variable-length; extra in-memory bytes are runtime-only (a pointer + self-index the loader fills in after reading).
 
 Read order (all fields little-endian):
 
@@ -32,10 +32,11 @@ Read order (all fields little-endian):
                              this is HercPiece_ReadRecord's "dependent sub-component list" mechanism
                              reused generically; for weapons it never varies, so it isn't obviously
                              a real per-weapon list despite the mechanism supporting one.
-     short SubSphereFlagRaw   -- read via Collision_LoadSubSphereFlag; constant 0x13 (19) in EVERY
-                                  real record seen, including id0/NONE. Not the boolean "flag" the
-                                  function's own name suggests when reused here -- semantics unknown.
-     short SubMeshCountRaw    -- read via Collision_LoadSubMeshIndices; real count is this value
+     short SubSphereFlagRaw   -- read via Collision_ReadCluster; constant 0x13 (19) in EVERY
+                                  real record seen, including id0/NONE. In a real collision model
+                                  this field is the component index; here it never varies, so its
+                                  meaning for a weapon is unknown.
+     short SubMeshCountRaw    -- read via Collision_ReadSphereArray; real count is this value
                                   masked with 0x1FFF (top 3 bits are reserved for flags in the
                                   original collision-record format; never observed set here). 0 for
                                   NONE.

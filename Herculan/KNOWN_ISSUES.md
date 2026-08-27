@@ -13,6 +13,7 @@ _Bugs listed in this section were tested on Windows 11. It's possible that some 
 
 - Terrain textures are not mapped correctly.
 - Lighting on HERCs may not be correct (needs review).
+- Turning movement is not correct (most obvious when turning while throttle is at 0). Possibly missing some root motion.
 - Claude used a separate camera for each cockpit panel, which causes a visible distortion in the side panels, particularly when looking downward at all. Will probably need to replace with a single camera covering the full width of the window (remember to maintain the same vertical FOV as the original game!). Or maybe we can crop the camera views by window frame rather than square, so that the seam isn't visible...
 - Due to nearest-neighbor scaling, text often looks bad when window height isn't an integer multiple of 240.
 - The `[V]` external view is placeholder geometry, not RE'd — see `docs/engine/planning.md`, "External view".
@@ -26,3 +27,6 @@ _Bugs listed in this section were tested on Windows 11. It's possible that some 
 - Mission deployment is gated but not implemented: a group waiting on a mission action is correctly held out of the world, but nothing ever fires the trigger, so it never arrives. Drop pods (the falling `METEOR` that delivers Cybrid reinforcements), walk-on arrivals and the trigger evaluator are all missing — see `docs/simulation/mission-deployment.md`, which has the full RE.
 - Mission group orders are not ported: nothing follows a route, so deployed AI units stand still.
 - The `[P]` pause is a placeholder, not RE'd: it just stops the fixed-timestep tick loop. Retail DBSIM's own pause has not been traced.
+- When projectiles hit buildings, many hit effects seem to clip inside the building - I don't observe this in retail. Not investigated; candidates are the collision bound running slightly small (`Collision_ComputeBoundingSphere`'s radius uses the low-biased fast magnitude, and the collision volume's cells are 512 world units across) or a render-ordering problem independent of the hit geometry. See `docs/simulation/structure-hit-detection.md`.
+- Structures never come apart visually: a destroyed component's sub-shape should stop being drawn, and its destruction effect should play. Neither is ported - see `docs/simulation/structure-hit-detection.md`.
+- Flyers cannot be shot at all, and a HERC still takes no component damage - both need the `col\*.COL` hit-sphere models, which are unported.

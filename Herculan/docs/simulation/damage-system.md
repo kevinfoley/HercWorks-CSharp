@@ -27,7 +27,9 @@ assert-string tie). Confirmed **not** `fire.cpp`.
 
 Walks the live-object list; for each candidate that passes team/state filtering, calls that
 object's vtable method at `+0x20` — for a mech, `FUN_00418ba8`, the direct-fire hit-test-and-damage
-function below. **The hit test and the damage application are the same call** — there is no
+function below; for a structure, `00405038`, and for a flyer, `FUN_00421c8c`, both in
+[`structure-hit-detection.md`](structure-hit-detection.md). **The hit test and the damage
+application are the same call** — there is no
 separate "apply damage" step visible from the caller's side. `FUN_00426528` also makes a second,
 unrelated vtable call per candidate (`+0x50`, `FUN_0041f7b8`) — AI threat-tracking ("this object
 just took fire, update who it thinks is attacking it"), not damage.
@@ -85,12 +87,12 @@ order:
    at 1, which is what `FUN_00426528` shortens the ray to. **A fully absorbed shot still returns a
    hit distance and still stops the ray** — shields do not let fire through to whatever is behind —
    and the caller spawns only a hit-spark effect.
-3. **Component selection — `FUN_0040c9d4` → `FUN_0040c8fc` (per candidate) → `FUN_0040c8c8`
-   (fine geometry test).** Only reached if some damage penetrated shields. Iterates the mech's up
-   to 29 component slots (see "The component damage system" below), and for each occupied one,
-   does a geometric ray-vs-subshape test (coarse part, then fine sub-piece within it) to find the
-   ONE specific component struck — **not** a random roll, unlike the explosion path. Returns that
-   single component's index.
+3. **Component selection — `Mech_SelectStruckComponent` (`0040c9d4`).** Only reached if some damage
+   penetrated shields. Tests the mech's hit-sphere model cluster by cluster to find the ONE
+   component struck — **not** a random roll, unlike the explosion path. The test itself is decoded
+   and ported in [`structure-hit-detection.md`](structure-hit-detection.md); the mech's model comes
+   from `col\<NAME>.COL` rather than `dat\BASECOL.DAT`, and **loading those files is the only thing
+   still missing** before this step works for mechs too.
 4. **Damage application — `FUN_004188c8`.** Applies a **per-weapon-type damage multiplier**
    (`FUN_0047dfa4(shotData[+8], remainingDamage)`, Q8 — see "Weapon-type effectiveness" below).
    **Splits** the (multiplier-scaled) damage: a portion goes toward destroying the specific weapon

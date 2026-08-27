@@ -167,6 +167,10 @@ public sealed class MissionScene {
 		var models = new SceneModelLibrary(content, theater);
 		var baseTypes = BaseTypeTable.Load(content);
 
+		// The structure hit-sphere table, read straight after the type table as Bases_LoadTypeTable
+		// reads it, and sized by it: BASECOL.DAT carries no count of its own.
+		var baseCollision = BaseCollisionTable.Load(content, baseTypes.Count);
+
 		// The simulator loads both weapon tables once, at startup, not per machine — see WeaponCatalog.
 		var weapons = WeaponCatalog.Load(
 			content.Read(WeaponCatalog.ResourceFolder, WeaponCatalog.TemplateResource),
@@ -175,7 +179,7 @@ public sealed class MissionScene {
 		var objects = new List<SceneObject>(mission.Placements.Count);
 		SceneObject? playerObject = null;
 		foreach (var placement in mission.Placements) {
-			var spawned = Spawn(placement, models, baseTypes, weapons);
+			var spawned = Spawn(placement, models, baseTypes, baseCollision, weapons);
 			if (spawned == null) {
 				continue;
 			}
@@ -295,8 +299,8 @@ public sealed class MissionScene {
 	/// <i>model</i> cannot be built still spawns: it is really there, and the scene reports it.
 	/// </summary>
 	private static SceneObject? Spawn(MissionPlacement placement, SceneModelLibrary models,
-			BaseTypeTable baseTypes, WeaponCatalog? weapons) {
-		var (simObject, model) = Create(placement, models, baseTypes, weapons);
+			BaseTypeTable baseTypes, BaseCollisionTable baseCollision, WeaponCatalog? weapons) {
+		var (simObject, model) = Create(placement, models, baseTypes, baseCollision, weapons);
 		if (simObject == null) {
 			return null;
 		}
@@ -316,7 +320,7 @@ public sealed class MissionScene {
 	}
 
 	private static (SimObject? Object, SceneModel? Model) Create(MissionPlacement placement,
-			SceneModelLibrary models, BaseTypeTable baseTypes, WeaponCatalog? weapons) {
+			SceneModelLibrary models, BaseTypeTable baseTypes, BaseCollisionTable baseCollision, WeaponCatalog? weapons) {
 		switch (placement.Kind) {
 			case MissionUnitKind.Mech: {
 				if (placement.TypeName == null || models.MechData(placement.TypeName) is not { } simData) {
@@ -356,7 +360,10 @@ public sealed class MissionScene {
 				}
 
 				var model = models.Base(type);
-				return (new BaseObject(type, model?.RadiusWorldUnits ?? 0), model);
+				var (boundingRadius, volume) = models.BaseShapeCollision(type);
+				return (
+					new BaseObject(type, volume, baseCollision[type.Index], boundingRadius),
+					model);
 			}
 
 			default:

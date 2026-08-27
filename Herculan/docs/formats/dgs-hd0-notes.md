@@ -17,20 +17,26 @@ polymorphic `ClassItem_LoadResource` (`0047a038`) registry dispatch — same mec
 
 **Record layout** (traced via the class's Watcom base-constructor chain — `FUN_0042762c` →
 `FUN_00490d5c` → `FUN_0048fd94` → `FUN_0048f894`):
-1. 3×`int16` id fields + 6 raw bytes (base header)
+1. 3×`int16` head fields + 6 raw bytes (base header). The **third is the shape's bounding radius**
+   — see [`../simulation/structure-hit-detection.md`](../simulation/structure-hit-detection.md).
+   An earlier read of this doc called all three "id fields".
 2. `int16` child count, then that many nested `ClassItem` records
 3. `int16` count + that many 32-byte records (undecoded — BSP-plane-adjacent, per consumer `FUN_00476a1c`)
 4. `int16` count + that many `int16` values (undecoded)
-5. 5×`int16` scalars + a fixed 1024-byte block (undecoded)
-6. if scalar 4 (sub-record count) ≠ 0: that many raw records sized by scalar 3
+5. the shape's **collision volume**: 5×`int16` scalars, a 1024-byte height table, then one row of
+   height codes per grid row. **Corrects this doc's earlier reading** of steps 5–6 as "5 undecoded
+   scalars + an opaque block" followed by "sub-record count × sub-record size raw records" — that
+   walk consumed exactly the same bytes, so every retail record parsed correctly while all of it was
+   named wrongly. Full layout and queries in
+   [`../simulation/structure-hit-detection.md`](../simulation/structure-hit-detection.md).
 
 Every record's on-disk footprint (header+payload) pads to an even total.
 
 **The key finding: every retail record's one child (step 2) is an ordinary TSObjectHeader-family
 DTS chunk** — observed tag `0x0014000c` = `TSDetailPart`, byte-identical format to a plain `.DTS`
 file's own chunks. No new mesh format was needed; `DTSModelTransformer` gained a public
-`ReadOneObject(bytes, ref index)` entry point to parse it in place. Steps 3–6 are read (to keep the
-cursor correct) but not modelled — the engine doesn't need them to draw.
+`ReadOneObject(bytes, ref index)` entry point to parse it in place. Steps 3–4 are read to keep the
+cursor correct but not modelled; step 5 is modelled and is what makes a building solid.
 
 **Verified against retail data:** an independent whole-file scan for the `0x02BC0001` tag pattern
 finds the same record boundaries the sequential reader does (45/45 `BASES.DGS`, matching

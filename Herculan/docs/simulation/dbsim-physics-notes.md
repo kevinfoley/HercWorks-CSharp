@@ -75,32 +75,24 @@ two unrelated purposes, confirming it's a general math-library utility:
 - **Collision bounding-sphere radius** (`FUN_0040c5d0`, below).
 - **Missile target-proximity check** (`Rocket_TickUpdate`, `0040a538`) — `if (dist_approx < 40000) { ...proximity warning... }`.
 
-## Collision system — hierarchical bounding-sphere construction (`collide.cpp`)
+## Collision system (`collide.cpp`)
 
-Address cluster `0x0040cc14`–`0x0040cd88`. This is the collision-model **load-time setup**, not
-per-tick narrow-phase collision detection.
+Address cluster `0x0040c428`–`0x0040cd88`: the per-object hit-sphere model, its load-time setup and
+its ray test. **Fully decoded and ported for structures** —
+[`structure-hit-detection.md`](structure-hit-detection.md) carries the file format, the readers, the
+ray test and the retail verification. Three points that belong with the rest of the fixed-point math:
 
-- **`FUN_0040cd88(name)`** — top-level entry point: allocates the next slot in a fixed collision-
-  object table (`_DAT_004a98a8`, 6 bytes/entry, index counter `DAT_004987de`), then calls
-  `FUN_0040ccf8` to populate it.
-- **`FUN_0040ccf8(countOut, stream)`** — reads a record count, allocates `count × 10` bytes, and
-  for each record: `FUN_0040cc50` (load), then `FUN_0040ccc8` (post-process).
-- **`FUN_0040cc50(record, stream)`** — reads a per-record sub-sphere count, then for each
-  sub-sphere calls `FUN_0040cc14`, which reads a flag byte and, if set, calls `FUN_0040c7c4` —
-  which reads a 13-bit-masked count (`value & 0x1fff`, top 3 bits reserved for flags — a packed
-  count+flags field) and, if nonzero, loads that many 8-byte index/sub-mesh records.
-- **`FUN_0040c5d0(record, boundsOut)` — the actual math.** Given a list of child spheres (each
-  `{x, y, z, radius}` as four `short`s), computes the record's own bounding volume:
-  1. AABB from all children, each inflated by its own radius (`min(x-r)`, `max(x+r)`, etc. per
-     axis) — a proper "union of spheres" bound, not just a union of center points.
-  2. Center = midpoint of that AABB (`(max+min) >> 1` per axis).
-  3. Radius = `FUN_0047dd66(halfExtentX, halfExtentY, halfExtentZ)` — the fast-magnitude
-     approximation above, applied to the half-extents from center to the AABB corner.
-
-  So the per-object collision bound is a **sphere approximating the AABB's circumscribing
-  sphere**, built bottom-up from named sub-part spheres (a hierarchical hitbox/hardpoint tree —
-  see [`damage-system.md`](damage-system.md#the-componenthealth-system) for the runtime
-  counterpart of this tree).
+- The model is a tree of `{x, y, z, radius}` `int16` spheres grouped into clusters, one cluster per
+  destructible component of the object.
+- Each cluster's bound (`Collision_ComputeBoundingSphere`, `0040c5d0`) is the AABB of its children
+  each inflated by its own radius, centred on that box's midpoint, radius =
+  `Math_FastMagnitude3D(halfExtents)`. Reproducing hit detection faithfully means reproducing that
+  ~3.4%-low bias, not substituting a real `sqrt`.
+- `Collision_RegisterObject` (`0040cd88`) loads one model by name into a fixed table
+  (`_DAT_004a98a8`, 6 bytes/entry, counter `DAT_004987de`). Its two callers are `Mech_Constructor`
+  (`00415bb0` → `mech+0x1f6`) and the flyer type loader (`FUN_00422ed0` → `+0x32`), both from
+  `col\<NAME>.COL`. Structures use the same reader against `dat\BASECOL.DAT` instead. **The `.COL`
+  files are unported**, which is why mech and flyer component selection is still missing.
 
 ## Rocket physics
 
@@ -123,9 +115,8 @@ pointers). Projectile spawn/hit-resolution logic lives in `rocket.cpp`/`bullet.c
    quantization/clamping is preserved. Not universal — some per-tick fields (locomotion's
    accel/decel steps) are unscaled and frame-rate dependent in the original; see
    [`mech-locomotion.md`](mech-locomotion.md#timing).
-2. **Collision bounds are spheres built from AABBs of named sub-part spheres**, using the
-   ~3.4%-low-biased fast-magnitude approximation rather than true Euclidean distance —
-   reproducing hit detection faithfully means reproducing that approximation, not substituting a
-   real `sqrt`.
+2. **Every range and radius comparison in the simulation uses the ~3.4%-low fast-magnitude
+   approximation**, collision bounds included — reproducing hit detection faithfully means
+   reproducing that bias, not substituting a real `sqrt`.
 3. **Missile guidance leads its target and rate-limits its turn at `0x500`/tick, and weaves by
    `0xc00` while the target is jamming** — see [`rockets.md`](rockets.md).

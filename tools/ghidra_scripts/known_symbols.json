@@ -344,35 +344,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Collision_LoadRecordArray",
-      "description": "Reads a collision record count, allocates count*10 bytes, loads each via Collision_LoadSubSpheres then post-processes via Collision_ComputeBoundingSphere.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
-    },
-    {
-      "address": "0040cc50",
-      "binary": "DBSIM",
-      "type": "function",
-      "confidence": "high",
-      "name": "Collision_LoadSubSpheres",
-      "description": "Reads a per-record sub-sphere count, calls Collision_LoadSubSphereFlag per sub-sphere.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
-    },
-    {
-      "address": "0040cc14",
-      "binary": "DBSIM",
-      "type": "function",
-      "confidence": "high",
-      "name": "Collision_LoadSubSphereFlag",
-      "description": "Reads a sub-sphere flag byte; if set, calls Collision_LoadSubMeshIndices.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
-    },
-    {
-      "address": "0040c7c4",
-      "binary": "DBSIM",
-      "type": "function",
-      "confidence": "high",
-      "name": "Collision_LoadSubMeshIndices",
-      "description": "Reads a 13-bit-masked packed count+flags field and, if nonzero, loads that many 8-byte index/sub-mesh records.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "description": "Reads one object's whole collision model: an int16 node count, then that many 10-byte nodes via Collision_ReadNode, each post-processed by Collision_ComputeBoundingSphere. Called per structure type against dat/BASECOL.DAT (from Bases_LoadTypeTable) and per mech/flyer type against col/<NAME>.COL (from Collision_RegisterObject). Format and retail verification in docs/simulation/structure-hit-detection.md.",
+      "source": "docs/simulation/structure-hit-detection.md 2026-08-27"
     },
     {
       "address": "0040c5d0",
@@ -380,8 +353,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Collision_ComputeBoundingSphere",
-      "description": "Builds a record's bounding sphere from child spheres: AABB of inflated children, center = AABB midpoint, radius = Math_FastMagnitude3D of the half-extents.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "description": "Builds one cluster's bounding sphere from its child spheres: AABB of the children each inflated by its own radius, center = AABB midpoint, radius = Math_FastMagnitude3D of the half-extents. That approximation runs a few percent under a true Euclidean radius, so the bound is slightly tight -- behaviour, not an artefact. Called at load, never per tick.",
+      "source": "docs/simulation/structure-hit-detection.md 2026-08-27"
     },
     {
       "address": "0040a818",
@@ -532,7 +505,7 @@
       "type": "function",
       "confidence": "high",
       "name": "WeaponMountTemplate_ReadRecord",
-      "description": "Per-record reader for simvol0/dat/WEAPONS.DAT, called from Weapons_LoadResourceTables in a Total-length loop. Reuses HercPiece_ReadRecord (8-byte front + conditional dependent list) and Collision_LoadSubSphereFlag/Collision_LoadSubMeshIndices (2+2 bytes, then a variable count*8-byte array -- a per-weapon firing/mount-offset sequence, not real collision geometry) verbatim from the .DMG/.COL loaders, then a final raw 48-byte (0x30) block. Byte-exact verified: this exact read sequence consumes the real file's full 3790 content bytes across 33 records with zero remainder. Full writeup in docs/formats/weapons-dat-sim.md.",
+      "description": "Per-record reader for simvol0/dat/WEAPONS.DAT, called from Weapons_LoadResourceTables in a Total-length loop. Reuses HercPiece_ReadRecord (8-byte front + conditional dependent list) and Collision_ReadCluster/Collision_ReadSphereArray (2+2 bytes, then a variable count*8-byte array -- a per-weapon firing/mount-offset sequence, not real collision geometry) verbatim from the .DMG/.COL loaders, then a final raw 48-byte (0x30) block. Byte-exact verified: this exact read sequence consumes the real file's full 3790 content bytes across 33 records with zero remainder. Full writeup in docs/formats/weapons-dat-sim.md.",
       "source": "docs/formats/weapons-dat-sim.md 2026-08-11"
     },
     {
@@ -2445,8 +2418,8 @@
       "type": "function",
       "confidence": "high",
       "name": "BaseShape_ReadFromStream",
-      "description": "Field reader for a dgs\\bases/bhulks shape record (vtable+0xc for classId 0x02bc0001), on top of the generic ClassItem base-class chain (FUN_00490d5c). Reads 5 int16 scalars, a fixed 1024-byte block, then (if the 2nd scalar/sub-record count is nonzero) that many raw sub-records sized by the 1st scalar. Byte-verified against the retail file -- see dgs-hd0-notes.md and HercWorks.Core.Io.Transform.Dbsim.BasesDgsTransformer for the full record shape including the levels below.",
-      "source": "docs/formats/dgs-hd0-notes.md 2026-08-14"
+      "description": "Field reader for a dgs\\bases/bhulks shape record (vtable+0xc for classId 0x02bc0001), on top of the generic ClassItem base-class chain (ClassItemTree_ReadFromStream). Its tail is the shape's COLLISION VOLUME, a coarse height field: int16 columns (+0x2a), rows (+0x2c), origin column (+0x2e), origin row (+0x30), cell shift (+0x32), a 256-entry int32 height table (+0x34, 1024 bytes, last entry addressed as the ceiling at +0x430), then rows*columns height codes (+0x434). CORRECTED 2026-08-27: this was read as '5 undecoded scalars + an opaque block' followed by 'sub-record count * sub-record size raw records' -- the same byte count, so every retail record parsed correctly while all of it was named wrongly. See docs/simulation/structure-hit-detection.md.",
+      "source": "docs/simulation/structure-hit-detection.md 2026-08-27"
     },
     {
       "address": "00490d5c",
@@ -2472,8 +2445,8 @@
       "type": "function",
       "confidence": "high",
       "name": "ClassItemTree_ReadBaseHeader",
-      "description": "Deepest base-class reader in the ClassItem shape-tree hierarchy: 3 int16 id/name fields + 6 raw bytes. Shared by dgs\\bases/bhulks shape records. See dgs-hd0-notes.md.",
-      "source": "docs/formats/dgs-hd0-notes.md 2026-08-14"
+      "description": "Deepest base-class reader in the ClassItem shape-tree hierarchy: 3 int16 head fields (+4, +6, +8) + 6 raw bytes. Shared by dgs\\bases/bhulks shape records. CORRECTED 2026-08-27: the third field (+8) is the shape's BOUNDING RADIUS, not an id -- SimObject_GetShapeRadius and the LOD selector FUN_004033e4 both read it as one, and it tracks BASES.DAT +0x2a within about a fifth across all 45 records.",
+      "source": "docs/simulation/structure-hit-detection.md 2026-08-27"
     },
     {
       "address": "00492bf4",
@@ -5860,6 +5833,186 @@
       "name": "Raster_DrawTexturedPolyNear",
       "description": "Textured polygon draw used for terrain cells inside twice the near-distance threshold (DAT_0049aad0); FUN_00468078 is the far/cheaper twin, chosen by the same distance test in Terrain_DrawCellQuad. Signature (verts, uvs, vertexCount, bitmapHandle, shades, shadeMode, worldSpaceFlag, flags). shadeMode is DAT_004aab30: mode 2 takes a shade PER VERTEX out of the shades array and builds a Gouraud ramp offset per vertex ((shade * (shadeLevels-1) + depthBias) << 8); mode 1 takes shades[0] alone and sets one flat ramp row for the whole polygon into DAT_004a09c4 by the identical formula, i.e. Raster_ShadeRampRow. Terrain only ever fills shades[0] (from the cell's baked byte), so retail terrain is flat-shaded per triangle, mode 1.",
       "source": "docs/formats/terrain-lighting.md 2026-08-26 (terrain lighting RE session)"
+    },
+    {
+      "address": "00405038",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_DirectFireHitTest",
+      "description": "Structure vtable +0x20 -- all five type-switched vtables Base_Construct installs (00497784/97818/978ac/97940/979d4) point this slot here. Hit test and damage in one call. Branches on typeRec+0x38 (installed when BASES.DAT +0x30 is nonzero): non-null runs Mech_SelectStruckComponent against the type's BASECOL.DAT sphere model and names the struck component, null runs Sim_RaycastShapeVolume against the shape's collision height field and always reports component 0. A destroyed type with a hulk (typeRec+4 != -1) is forced to the volume path. Spawns from ImpactFXArmor (shot effects base +0x10). See docs/simulation/structure-hit-detection.md.",
+      "source": "docs/simulation/structure-hit-detection.md 2026-08-27"
+    },
+    {
+      "address": "00405314",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_Construct",
+      "description": "Builds a structure from a script.dat block-9 record: switches on the type index to pick one of five vtables, allocates the per-component alive-flag array (obj+0x201) and state array (obj+0x205, 11 bytes/entry), seeds each component's damage from the mission record's health percentage (param_1[0x19]: <0 or 100 = intact, 0 = spawned destroyed), and stores the BASES.DAT type record at obj+0x1f2.",
+      "source": "docs/simulation/structure-hit-detection.md 2026-08-27"
+    },
+    {
+      "address": "00404d70",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_ApplyDamage",
+      "description": "Structure vtable +0x74. Writes one component's damage against its BASES.DAT template max. Past half the maximum it rolls once per tenth of health the shot moved through, each a ~10% chance (rand & 0xfff <= 0x199) of destroying the component outright. On a kill it clears the alive flag, records the attacker at state+7, and if Base_DamageFraction reads 0x100 marks the structure destroyed (obj+0x99), fires its mission action (obj+0x1b6) and credits the kill through attacker vtable +0x60. Returns early when typeRec+0x1e (invulnerable) is set.",
+      "source": "docs/simulation/structure-hit-detection.md 2026-08-27"
+    },
+    {
+      "address": "004052b4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_DamageFraction",
+      "description": "Structure vtable +0x40. (sum of component damage << 8) / (sum of component max) -- a ratio of sums, not a count of destroyed components, so a type with one large core component is effectively destroyed by killing the core alone. 0x100 means the structure has fallen.",
+      "source": "docs/simulation/structure-hit-detection.md 2026-08-27"
+    },
+    {
+      "address": "004035a4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_GetHitRadius",
+      "description": "Structure vtable +0x5c: returns BASES.DAT +0x2a. The type's own stated collision radius, distinct from the shape's bounding radius at shape+8 (SimObject_GetShapeRadius); the two disagree by up to a fifth on retail data and four types state 0 here.",
+      "source": "docs/simulation/structure-hit-detection.md 2026-08-27"
+    },
+    {
+      "address": "00404f20",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_ApplyExplosiveDamage",
+      "description": "Structure vtable +0x70, the blast-sweep counterpart to Base_ApplyDamage. Rolls each live component at ~25% (rand & 0xfff < 0x1004), measures the blast point against the component's own position via vtable +0x58, and applies linearly falling-off damage through vtable +0x74. Skipped entirely for an invulnerable type or one with no BASECOL model.",
+      "source": "docs/simulation/structure-hit-detection.md 2026-08-27"
+    },
+    {
+      "address": "0040501c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Bullet_StashDirectFireDamage",
+      "description": "Writes the two globals (DAT_004a9676 armour, DAT_004a9678 shield) that Base_DirectFireHitTest reads back when a shot arrives with zero on both counts. Called only from Bullet_TickUpdate's subtype-9 (plasma) branch, which stashes the round's damage here and then zeroes it in the shot record before the raycast.",
+      "source": "docs/simulation/structure-hit-detection.md 2026-08-27"
+    },
+    {
+      "address": "00427da8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sim_RaycastShapeVolume",
+      "description": "Ray versus a list of objects' collision height fields. Per object: coarse reject on shape+8 plus clearance plus ray length, then the object centre in muzzle space tested against a box on X and Y only (Z is not tested), then the ray transformed into shape space and marched by ShapeVolume_Raycast. Writes the hit distance back into the ray record's +0x04 and returns early for a hit under 500. Two callers: Base_DirectFireHitTest (one object) and FUN_00404bc0 (a bulk line-of-sight query over the structure list).",
+      "source": "docs/simulation/structure-hit-detection.md 2026-08-27"
+    },
+    {
+      "address": "004273c8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShapeVolume_Raycast",
+      "description": "Marches a ray, in shape space, through a shape's collision height field. Rejects an empty grid and a ray with BOTH ends above grid+0x430 (the height table's last entry, its ceiling). Step length is (1 << cellShift) + clearance; the direction is rescaled to it by a Q16 divide truncated to 16 bits. Hits when ShapeVolume_HeightAround returns nonzero above the ray's current Z; reports the hit point with the grid origin offset removed.",
+      "source": "docs/simulation/structure-hit-detection.md 2026-08-27"
+    },
+    {
+      "address": "00427238",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShapeVolume_HeightAround",
+      "description": "Column height under a point of a shape's collision height field, the point already shifted by the grid origin. When (1 << (cellShift - 1)) < radius it returns the tallest cell within radius; below that it samples the single cell. Off-grid is 0, which is what makes the volume end at its own edges. Cells hold a byte code into the 256-entry int32 height table at grid+0x34.",
+      "source": "docs/simulation/structure-hit-detection.md 2026-08-27"
+    },
+    {
+      "address": "00427360",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShapeVolume_HeightAt",
+      "description": "ShapeVolume_HeightAround with the grid-origin shift applied for the caller (origin << cellShift, i.e. world units rather than cells). Returns 0 for a shape with no collision volume.",
+      "source": "docs/simulation/structure-hit-detection.md 2026-08-27"
+    },
+    {
+      "address": "0046b80c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_GetShapeRadius",
+      "description": "SimObject vtable +0x10: the current LOD shape's bounding radius, shape+8 via the shape instance at obj+0x34. Every hit test's coarse reject uses it, as does the LOD selector FUN_004033e4. shape+8 is the third of the three int16 head fields ClassItemTree_ReadBaseHeader reads -- BasesDgsTransformer previously called it an id.",
+      "source": "docs/simulation/structure-hit-detection.md 2026-08-27"
+    },
+    {
+      "address": "0040c4c4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Collision_ClusterBoundTest",
+      "description": "Tests one cluster's load-time bounding sphere against the ray: centre into muzzle space, unsigned compare of Y against radius plus the working ray length (DAT_004a9894), and FastMagnitude2D of X/Z under radius plus the ray clearance (DAT_004a9898). The cheap gate before Collision_ClusterSphereTest.",
+      "source": "docs/simulation/structure-hit-detection.md 2026-08-27"
+    },
+    {
+      "address": "0040c524",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Collision_ClusterSphereTest",
+      "description": "Walks a cluster's child spheres, transforming each centre into muzzle space and calling Collision_RaySphereTest with update enabled. Returns the (now shortened) working ray length + 1 if any sphere was struck, 0 otherwise.",
+      "source": "docs/simulation/structure-hit-detection.md 2026-08-27"
+    },
+    {
+      "address": "0040c428",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Collision_RaySphereTest",
+      "description": "One sphere against the ray in muzzle space. Rejects on an unsigned Y compare against the working ray length, then tests the off-axis distance against clearance + radius in 16-bit arithmetic ((ushort)(offAxis + reach) < (ushort)(reach * 2)) because the doubled reach can overflow a short. On a hit it clips DAT_004a9894 to the entry point, alongAxis - (reach - offAxis), floored at 0.",
+      "source": "docs/simulation/structure-hit-detection.md 2026-08-27"
+    },
+    {
+      "address": "0040cc50",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Collision_ReadNode",
+      "description": "Reads one node of a collision model: int16 node index (-1 = the object's own frame, otherwise an index resolved through the shape instance's node-transform array) and int16 cluster count, then that many 16-byte clusters via Collision_ReadCluster. Was named Collision_LoadSubSpheres, which described the shape one level off.",
+      "source": "docs/simulation/structure-hit-detection.md 2026-08-27"
+    },
+    {
+      "address": "0040cc14",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Collision_ReadCluster",
+      "description": "Reads a cluster's component index into the record's +6, then its sphere array via Collision_ReadSphereArray into +0/+2. The component index is what makes a destroyed section stop blocking shots. Was named Collision_LoadSubSphereFlag: the value it reads is the component index, not a flag, and the branch it guards is on the read succeeding rather than on the value.",
+      "source": "docs/simulation/structure-hit-detection.md 2026-08-27"
+    },
+    {
+      "address": "0040c7c4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Collision_ReadSphereArray",
+      "description": "Reads a cluster's int16 sphere count into the record's +0 and, when count & 0x1fff is nonzero, that many 8-byte { int16 x, y, z, radius } spheres into +2. The mask is only a zero-test -- the allocation and the read both use the unmasked value, and no retail record sets the top bits. Was named Collision_LoadSubMeshIndices; the 8-byte records are spheres, not mesh indices.",
+      "source": "docs/simulation/structure-hit-detection.md 2026-08-27"
+    },
+    {
+      "address": "00422ed0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_FlyerType_LoadResources",
+      "description": "Per-flyer-type resource load into a 0x70-byte type record: the shape, the .dmg component file (+0x2e), and the col/<NAME>.COL hit-sphere model via Collision_RegisterObject (+0x32, which is what the flyer's own vtable +0x20 Flyer_DirectFireHitTest passes to Mech_SelectStruckComponent).",
+      "source": "docs/simulation/structure-hit-detection.md 2026-08-27"
+    },
+    {
+      "address": "00421c8c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_DirectFireHitTest",
+      "description": "Flyer vtable +0x20. Coarse reject on SimObject_GetShapeRadius, then Mech_SelectStruckComponent against the type's col/<NAME>.COL model (flyerTypeRec+0x32) with the per-component alive flags at obj+0x82. Damage through vtable +0x74; spawns from ImpactFXArmor (base +0x10), or effect 10 once the flyer is destroyed. Unported -- the .COL files are not read yet.",
+      "source": "docs/simulation/structure-hit-detection.md 2026-08-27"
     }
   ]
 }

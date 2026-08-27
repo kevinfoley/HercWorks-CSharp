@@ -37,12 +37,13 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// point from an array at this same stride) — read but not modelled, the engine has no use for it.</item>
 /// <item>an <c>int16</c> count and that many <c>int16</c> values (a parallel index/remap array) —
 /// read but not modelled.</item>
-/// <item>5 more <c>int16</c> scalar fields, then a fixed 1024-byte raw block (both undecoded —
-/// likely BSP node data and/or collision metadata, given the class's <c>0x1c</c>-vtable-slot BSP
-/// walk over similarly-shaped nested records; not needed to draw the shape).</item>
-/// <item>if the second-to-last of those 5 fields (the sub-record count) is nonzero: that many
-/// raw records, each sized by the field before it (the sub-record byte size) — read but not
-/// modelled.</item>
+/// <item>the shape's collision volume — 5 <c>int16</c> scalars, a fixed 1024-byte height table,
+/// then one row of height codes per grid row. <b>This is the part an earlier pass of this reader
+/// misread</b>: it walked the tail as "a sub-record size, a sub-record count, three undecoded
+/// scalars, an opaque block, then count × size raw bytes", which consumes exactly the same bytes
+/// and so parsed every retail record correctly while naming all of it wrongly. It is the grid
+/// <c>BaseShape_ReadFromStream</c> (<c>0042762c</c>) reads and the ray-versus-structure query
+/// walks — see <see cref="BaseShapeCollision"/>.</item>
 /// </list>
 ///
 /// <para><b>Padding.</b> Every record's total on-disk footprint (8-byte header + payload) is
@@ -66,8 +67,11 @@ public class BasesDgsTransformer : ThreeSpaceByteTransformer {
 	/// <summary><c>[classId:int32][payloadSize:int32]</c>.</summary>
 	private const int RecordHeaderLength = 8;
 
-	/// <summary>Fixed-size trailing block whose contents aren't modelled — see the class doc comment.</summary>
-	private const int OpaqueBlockLength = 0x400;
+	/// <summary>
+	/// Entries in a collision volume's height table — 256 <c>int32</c>s, one per byte code a grid
+	/// cell can hold, which is the 1024-byte block the original reads in one call.
+	/// </summary>
+	private const int HeightTableEntries = 256;
 
 	public override DataFile? BytesToObject(byte[]? inputArray) {
 		if (inputArray == null || inputArray.Length <= 0) {
@@ -122,9 +126,9 @@ public class BasesDgsTransformer : ThreeSpaceByteTransformer {
 	}
 
 	private BaseShape ReadShape(DTSModelTransformer dtsReader, int payloadEnd) {
-		IndexShortLE(); // id1 -- unmodelled
-		IndexShortLE(); // id2 -- unmodelled
-		short id = IndexShortLE();
+		IndexShortLE(); // +4 -- unmodelled
+		IndexShortLE(); // +6 -- unmodelled
+		short boundingRadius = IndexShortLE(); // +8 -- see BaseShape.BoundingRadius
 		Index += 6; // unmodelled base-class raw fields
 
 		short childCount = IndexShortLE();
@@ -142,14 +146,7 @@ public class BasesDgsTransformer : ThreeSpaceByteTransformer {
 		Index += indexCount * 2;   // parallel int16 array -- unmodelled
 		Index += vertexCount * 32; // per-vertex table -- unmodelled
 
-		short subRecordSize = IndexShortLE();
-		short subRecordCount = IndexShortLE();
-		Index += 2 * 3; // three more undecoded scalar fields
-		Index += OpaqueBlockLength;
-
-		if (subRecordCount != 0) {
-			Index += subRecordCount * subRecordSize;
-		}
+		var collision = ReadCollision();
 
 		if (Index > payloadEnd) {
 			throw new InvalidDataException(
@@ -157,7 +154,31 @@ public class BasesDgsTransformer : ThreeSpaceByteTransformer {
 				"-- the record shape does not match this file.");
 		}
 
-		return new BaseShape(id, geometry);
+		return new BaseShape(boundingRadius, geometry, collision);
+	}
+
+	/// <summary>
+	/// The record's collision volume, exactly as <c>BaseShape_ReadFromStream</c> reads it: five
+	/// scalars, the 256-entry height table (always present, whatever the grid's size), and then one
+	/// row of codes per grid row — the row loop is the one thing the original guards, on the row
+	/// count alone.
+	/// </summary>
+	private BaseShapeCollision ReadCollision() {
+		short columns = IndexShortLE();     // +0x2a
+		short rows = IndexShortLE();        // +0x2c
+		short originColumn = IndexShortLE(); // +0x2e
+		short originRow = IndexShortLE();   // +0x30
+		short cellShift = IndexShortLE();   // +0x32
+
+		int[] heights = IndexIntLEArray(HeightTableEntries);
+
+		var cells = new byte[rows < 0 ? 0 : rows][];
+		for (int row = 0; row < cells.Length; row++) {
+			cells[row] = IndexSegment(columns);
+		}
+
+		return new BaseShapeCollision(
+			columns, rows, originColumn, originRow, cellShift, heights, cells);
 	}
 
 	public override byte[]? ObjectToBytes(DataFile? source) =>

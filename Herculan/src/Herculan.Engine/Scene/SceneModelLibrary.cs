@@ -78,6 +78,7 @@ public sealed class SceneModelLibrary {
 	private readonly Dictionary<string, TextureAtlas?> _atlases = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, DynamixThreeSpaceModel?> _files = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, BaseShapeLibrary?> _shapeLibraries = new(StringComparer.OrdinalIgnoreCase);
+	private readonly Dictionary<int, ShapeVolume?> _volumes = new();
 	private readonly Dictionary<string, HercSimDat?> _mechData = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, FlyerSimData?> _flyerData = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, ShapeAnimation?> _animations = new(StringComparer.OrdinalIgnoreCase);
@@ -275,6 +276,32 @@ public sealed class SceneModelLibrary {
 		type.Source == BaseShapeSource.AnimatedLibrary
 			? Build(BaseTypeTable.AnimatedLibraryName, type.ShapeIndex, type.TextureBankName)
 			: BuildFromShapeLibrary(BaseTypeTable.StaticLibraryName, type.ShapeIndex, type.TextureBankName);
+
+	/// <summary>
+	/// The hit geometry a structure type's shape carries, as distinct from the geometry it is drawn
+	/// from: the coarse collision volume in its <c>.DGS</c> record and that record's own stated
+	/// bounding radius. Both are null/zero for an <see cref="BaseShapeSource.AnimatedLibrary"/> type,
+	/// whose shape is an ordinary DTS and has neither — see <see cref="Sim.BaseObject"/> for why
+	/// that costs nothing on retail data.
+	/// </summary>
+	public (int BoundingRadius, ShapeVolume? Volume) BaseShapeCollision(BaseType type) {
+		if (type.Source == BaseShapeSource.AnimatedLibrary) {
+			return (0, null);
+		}
+
+		if (LoadShapeLibrary(BaseTypeTable.StaticLibraryName)?.Shapes is not { Length: > 0 } shapes
+				|| type.ShapeIndex < 0 || type.ShapeIndex >= shapes.Length) {
+			return (0, null);
+		}
+
+		var shape = shapes[type.ShapeIndex];
+		if (!_volumes.TryGetValue(type.ShapeIndex, out var volume)) {
+			volume = shape.Collision.IsSolid ? new ShapeVolume(shape.Collision) : null;
+			_volumes[type.ShapeIndex] = volume;
+		}
+
+		return (shape.BoundingRadius, volume);
+	}
 
 	/// <summary>
 	/// One root of <c>dts\EXPLOS.DTS</c> — an impact effect's shape, a flipbook of billboards out of

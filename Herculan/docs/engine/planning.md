@@ -193,10 +193,10 @@ this list is not re-verified on every edit.
   latches but nothing reads it; clicking a pod's row does nothing, where the original toggles the
   pod.
 - **Combat gaps** (see `docs/simulation/weapon-firing.md` and `handoff-weapon-effects.md`): beams
-  pass through structures and aircraft (neither has a `DirectFireHitTest`); damage past shields is
-  counted but not applied (no component health array); nothing homes, because no shot has a target to
-  home on (no target selection); ELF/ELF2 tracers draw straight instead of taking their jagged
-  branch.
+  pass through aircraft, and a HERC's damage past shields is counted but not applied — both because
+  the per-type `col\*.COL` hit-sphere models are unported (structures are done, see
+  `docs/simulation/structure-hit-detection.md`); nothing homes, because no shot has a target to home
+  on (no target selection); ELF/ELF2 tracers draw straight instead of taking their jagged branch.
 - **Field of view is still a guess** — the original's per-view focal length shift (`view+0x1a`)
   hasn't been traced.
 - **Terrain raycast: only thin-ray mode is ported.** The swept-volume mode (movement collision)

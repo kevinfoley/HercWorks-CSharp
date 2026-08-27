@@ -693,9 +693,144 @@
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "Rocket_GroundImpactDetonate",
-      "description": "Checks altitude vs. terrain height every tick via Terrain_HeightQuery; on ground contact calls Damage_ExplosiveBlastSweep(pos, 3000, 10000, 0, null).",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "name": "Meteor_Tick",
+      "description": "The drop pod's per-tick update, walked by Sim_MainTick over g_MeteorPool (its only caller). Falling phase (+0x4b clear): integrates position by the velocity at +0x45, pitches the shape to atan2(2000, vz), plays sound 0x2f once below altitude 50000, and on ground contact (Terrain_HeightQuery) sets the landed flag, snaps to ground, plays sound 0x30 and calls Damage_ExplosiveBlastSweep(pos, 3000, 10000, 0, null), setting +0x4c if that hit anything. Landed phase: advances +0x4d at rate 0x5dc and drives the shape frame from +0x4d>>10 (the pod opening); when the flipbook ends it copies its landed position onto the carried group's leader and clears that group's +0x14 action pointer -- the moment the group enters the mission -- unless +0x4c is set, then spawns a leftover effect from pool 004a9711, frees its shape and returns 1 so Sim_MainTick releases it. RENAMED 2026-08-27: was 'Rocket_GroundImpactDetonate'; it is not a rocket or missile handler and has nothing to do with the rocket path. A rocket's own ground-impact detonation has not been located.",
+      "source": "docs/simulation/mission-deployment.md"
+    },
+    {
+      "address": "004236c4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Group_DeploymentCheck",
+      "description": "Per-frame arrival check for a mission group that has not entered the world yet, run by Sim_MainTick for exactly the groups whose record +0x14 action pointer is non-null. No-ops until that action's runtime fired flag (action+0x0a) is set. Then the action's verb (action+0x02) picks the arrival: 2 or 3 spawn a METEOR drop pod 150000 units from the player (bearing +-90 deg for 2, +-22.5 deg for 3) carrying the group, leaving +0x14 set for the pod to clear on landing; 4 or 5 place the group's leader directly at 90000 units behind (4) or 150000 ahead (5), run every other member through vtable +0x78 for its formation offset, and clear +0x14; any other verb just clears +0x14 so the group goes live where it stands. All arrival points come from Deployment_PickPointNearPlayer.",
+      "source": "docs/simulation/mission-deployment.md"
+    },
+    {
+      "address": "0042354c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Deployment_PickPointNearPlayer",
+      "description": "Picks a clear arrival point for a deploying group or drop pod: offsets from the player's position at (player heading + the caller's bearing) by the caller's distance, then steps outward in 2000-unit increments until the point clears every already-deployed object (skipping any whose group +0x14 is still set), FUN_00404ae4's static obstacles, and the terrain validity test FUN_0046fe84.",
+      "source": "docs/simulation/mission-deployment.md"
+    },
+    {
+      "address": "00423430",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Action_Fire",
+      "description": "Fires one block-5 mission action, once: sets the action's runtime fired flag at +0x0a (zeroed at load), walks its 10 counter refs bumping or clearing the mission counter array DAT_004a9ef4, and queues the mission message named by action+0x34.",
+      "source": "docs/simulation/mission-deployment.md"
+    },
+    {
+      "address": "004234b8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Action_TestTrigger",
+      "description": "Tests a position against one action's trigger areas. Returns 1 immediately if the action has already fired (+0x0a set); otherwise offers the position to each resolved block-4 area (count at +0x04, pointer array at +0x06) via FUN_004233a4 and calls Action_Fire on the first hit.",
+      "source": "docs/simulation/mission-deployment.md"
+    },
+    {
+      "address": "00423508",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Action_TestTriggerForGroup",
+      "description": "Action_TestTrigger applied to every member of a group in turn (member array at group+0x0c, count at group+0x10), stopping at the first that fires it.",
+      "source": "docs/simulation/mission-deployment.md"
+    },
+    {
+      "address": "004233a4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TriggerArea_ContainsPoint",
+      "description": "Tests a position against one resolved block-4 trigger area. Type flag 0: axis-aligned XY box strictly between the two block-1 coordinates the record points at, Z ignored. Non-zero type flag: distance from the single coordinate less than the stored radius (the file literal times 10).",
+      "source": "docs/simulation/mission-deployment.md"
+    },
+    {
+      "address": "00423358",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TriggerArea_Resolve",
+      "description": "Load-time resolve of one script.dat block-4 (row #9) record into the 10-byte trigger-area record TriggerArea_ContainsPoint reads: type flag at +0, pointer to block-1 coordinate RefA at +2, and at +6 either a pointer to coordinate RefB (type 0) or the record's literal times 10 (other types).",
+      "source": "docs/simulation/mission-deployment.md"
+    },
+    {
+      "address": "00426b70",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Actions_EvaluateTriggers",
+      "description": "Per-frame mission trigger evaluator, called by Sim_MainTick with the player's mech. Walks the whole block-5 action array and, per action type (+0x00), picks whose position Action_TestTrigger is offered: 0 the player's mech, 1 every member of the player's group, 2/3 every member of every deployed group of side 0 (human) / side 1 (Cybrid), 4/5/6 every deployed mech / flyer / base group, 7/8/9 the action's own resolved target object at +0x36, 10 every member of the action's target group. Groups whose +0x14 action pointer is still set are skipped as subjects -- an undeployed group cannot trip a trigger.",
+      "source": "docs/simulation/mission-deployment.md"
+    },
+    {
+      "address": "00423a74",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Group_OrderTick",
+      "description": "Per-frame tick for a group that has entered the mission (the branch Sim_MainTick takes when group+0x14 is null). Runs the group's current order -- the row-15 link at group+0x44 indexed by the current-order index at group+0x6c -- and advances to the next when FUN_004239fc reports it complete or its own action has fired, flagging the finished order in the byte array at group+0x70 and clearing each member's +0x52. Then ticks every member via FUN_00411cec.",
+      "source": "docs/simulation/mission-deployment.md"
+    },
+    {
+      "address": "00409a34",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Meteor_LoadResources",
+      "description": "Startup loader for the METEOR (drop pod) subsystem, registered into DBSIM's subsystem-loader table by Meteor_RegisterSubsystem: allocates the object pool at g_MeteorPool and its free list, loads the dts\\meteor shape group and the dba\\impact texture bank, and binds that bank into every shape it loaded.",
+      "source": "docs/simulation/mission-deployment.md"
+    },
+    {
+      "address": "00409b44",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Meteor_Construct",
+      "description": "Builds a drop pod at a picked ground point: random heading, 70000 plus up to 25000 units of altitude above it, a downward velocity at +0x45 and the matching constant acceleration, landed flag +0x4b and open-animation counter +0x4d cleared, and the group it delivers stored at +0x55.",
+      "source": "docs/simulation/mission-deployment.md"
+    },
+    {
+      "address": "00409cd0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Meteor_Render",
+      "description": "Draws a drop pod: while falling, the plain shape; once landed (+0x4b set), builds its rotation matrix from its euler triple if stale and draws the opening-animation shape instance at +0x41 instead.",
+      "source": "docs/simulation/mission-deployment.md"
+    },
+    {
+      "address": "00409f78",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Meteor_RegisterSubsystem",
+      "description": "Static-init registrar for the METEOR subsystem: registers Meteor_LoadResources at phase 2 and a teardown stub at phase 5, and nulls g_MeteorPool.",
+      "source": "docs/simulation/mission-deployment.md"
+    },
+    {
+      "address": "004a972e",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_MeteorPool",
+      "description": "Object pool for METEOR (drop pod) instances, allocated by Meteor_LoadResources. Sim_MainTick walks it calling Meteor_Tick and releases anything that returns nonzero into the free list at 004a9732; maybe_Scene_SubmitFrameObjects and Group_DeploymentCheck are its other readers.",
+      "source": "docs/simulation/mission-deployment.md"
+    },
+    {
+      "address": "00492828",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_HeadingToward",
+      "description": "Ground-plane bearing from one position to another as a BAM angle: atan2(to.y - from.y, to.x - from.x) via FUN_00492800, minus a quarter turn, because the sim's forward axis is model Y and not model X. Call sites pass the destination first. DBSim_SpawnMissionObjects uses it to face a group along the first leg of its route when the group's block-11 record carries no heading ref.",
+      "source": "docs/formats/script-dat.md"
     },
     {
       "address": "0041e48e",

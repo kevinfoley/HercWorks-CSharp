@@ -12,6 +12,7 @@ _Bugs listed in this section were tested on Windows 11. It's possible that some 
 ## HERCULAN Engine
 
 - Terrain textures are not mapped correctly.
+- Lighting on HERCs may not be correct (needs review).
 - Claude used a separate camera for each cockpit panel, which causes a visible distortion in the side panels, particularly when looking downward at all. Will probably need to replace with a single camera covering the full width of the window (remember to maintain the same vertical FOV as the original game!). Or maybe we can crop the camera views by window frame rather than square, so that the seam isn't visible...
 - Due to nearest-neighbor scaling, text often looks bad when window height isn't an integer multiple of 240.
 - The `[V]` external view is placeholder geometry, not RE'd — see `docs/engine/planning.md`, "External view".

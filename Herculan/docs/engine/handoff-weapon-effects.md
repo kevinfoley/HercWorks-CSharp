@@ -61,8 +61,7 @@ Readers found (`Mech_MissileAmmoCount`, `FUN_0041f358`), no writer traced.
   (`{?, ?, int16 count, int16 indices[count]}`-ish — the first two fields are not pinned down, and
   the framing desyncs after the eighth ramp), so RE the DPL loader's writer of
   `ActivePaletteObject+0x0c`/`+0x10` rather than guessing the header. **This changes how every mech
-  and building looks**, so it wants its own pass and its own verification. It is also what
-  `KNOWN_ISSUES.md`'s "terrain lighting doesn't match retail" is.
+  and building looks**, so it wants its own pass and its own verification.
 - **Sound.** `Bullet_Fire` plays `record[+8] + 10`; `Bullet_FireBurst` opens with
   `FUN_004627dc(0x0b, muzzlePoint)`; an impact effect plays its type row's `SoundId + 10` through the
   same call. Untraced past it. One entry point covers all three.

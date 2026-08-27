@@ -120,9 +120,12 @@ a vtable call (`obj+0x5c`), computes distance from the impact point, and if
 
 Exactly **3 call sites in all of DBSIM.EXE**, all genuinely explosive/terminal events, not routine
 weapon fire:
-1. **`FUN_00409d2c`** — a projectile's ground-impact handler: checks altitude against terrain
-   height every tick via `Terrain_HeightQuery` (`0046e07c`), and the instant it dips below ground,
-   detonates — `FUN_00426a20(pos, 3000, 10000, 0, null)`. A missile exploding on ground impact.
+1. **`Meteor_Tick` (`00409d2c`)** — the **drop pod** landing, not a missile: checks altitude against
+   terrain height every tick via `Terrain_HeightQuery` (`0046e07c`), and the instant it dips below
+   ground, detonates `FUN_00426a20(pos, 3000, 10000, 0, null)`. Its only caller is `Sim_MainTick`'s
+   walk of the meteor pool. See
+   [`mission-deployment.md`](mission-deployment.md) — this function was previously filed here as a
+   missile's ground impact, which it is not.
 2. **`FUN_0040b124`, only inside the bullet `type == 9` branch** — a distinct bullet subtype, not
    bullets as a class, calling `FUN_00426a20(pos, 4000, ..., owner, null)` on a hit. This is the
    **Plasma cannon** — confirmed concretely below (`MissileId 9`).

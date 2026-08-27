@@ -49,6 +49,41 @@ namespace Herculan.Engine.World;
 /// (<c>dat\BFORMS.DAT</c>) — see each class's doc comment for its load-site RE and byte-exact
 /// verification. Flyers remain unfixed; retail missions were not seen putting more than one flyer
 /// in a group.</para>
+///
+/// <para><b>Not every group is in the mission when it starts.</b> A block-11 record whose
+/// <c>RefRow10</c> names a block-5 action is <i>waiting on that action</i>, and until it fires the
+/// group is not in the world at all — see <see cref="Sim.SimObject.AwaitingDeployment"/> for the
+/// three places the original tests it. Such a group's placed position is a placeholder, which is
+/// why retail missions happily leave several of them stacked on the player's own spawn point: the
+/// three DIABLO groups in the shipped mission-10 handoff all sit exactly there, invisible, until
+/// they arrive somewhere else entirely.</para>
+///
+/// <para><b>Arrival</b> — <c>Group_DeploymentCheck</c> (<c>004236c4</c>), run every frame by
+/// <c>Sim_MainTick</c> (<c>0045f464</c>) for exactly the groups that are waiting. It does nothing
+/// until the action's runtime "fired" flag (in-memory <c>+0x0a</c>, zeroed at load, set by
+/// <c>Action_Fire</c> (<c>00423430</c>) when <c>Action_TestTrigger</c> (<c>004234b8</c>) finds the
+/// tested position inside one of the action's block-4 trigger areas — for action type 0, the
+/// player's own position). Once it fires, the action's <b>verb</b> (in-memory <c>+0x02</c>, this
+/// port's <c>ScriptAction.Verb</c>) picks how the group turns up, always relative to the player and
+/// always on a point <c>FUN_0042354c</c> walks outward until it is clear of objects, obstacles and
+/// bad ground:</para>
+/// <list type="bullet">
+/// <item><b>Verb 2 or 3 — by drop pod.</b> A <c>METEOR</c> object (<c>dts\meteor</c>,
+/// <c>dba\impact</c>, its own pool; ctor <c>00409b44</c>, tick <c>00409d2c</c>) is spawned 150000
+/// units from the player on a random bearing — ±90° of the player's heading for verb 2, ±22.5° for
+/// verb 3 — and 70000-95000 units up. It falls ballistically, whistles below 50000, and on ground
+/// contact detonates a 3000-unit blast, then plays its shape's frames out as it opens. When that
+/// animation ends it moves the group's leader onto the landing point and clears the group's action
+/// pointer, which is the moment the group becomes real. This is the game's mid-mission Cybrid
+/// reinforcement.</item>
+/// <item><b>Verb 4 or 5 — on foot.</b> No pod: the group's leader is placed directly at 90000 units
+/// behind the player (verb 4) or 150000 units ahead (verb 5), the other members take their
+/// formation offsets from it, and the group goes live.</item>
+/// <item><b>Any other verb</b> — the group simply goes live where it already stands.</item>
+/// </list>
+/// <para>None of that is implemented: the engine marks these groups
+/// <see cref="MissionPlacement.AwaitingDeployment"/> and leaves them out of the mission, which
+/// matches the original up to the moment a trigger would fire.</para>
 /// </summary>
 public static class MissionLoader {
 	/// <summary>Folder inside an install root holding the loose mission handoff files.</summary>
@@ -120,14 +155,20 @@ public static class MissionLoader {
 		var placements = new List<MissionPlacement>();
 		AddRoster(script, claims, mechNames, flyerNames, mechFormations, baseFormations, placements);
 
-		var player = LoadPlayerLance(scriptPath, groups, mechNames, placements);
+		var player = LoadPlayerLance(scriptPath, groups, mechFormations, mechNames, placements);
 
 		return new Mission(scriptPath, header, placements, player);
 	}
 
 	/// <summary>A block-11 record reduced to what placement needs.</summary>
+	/// <param name="AwaitsDeployment">
+	/// Whether the record names a block-5 action (its <c>RefRow10</c>), which DBSIM resolves into the
+	/// group record's <c>+0x14</c> action pointer. Such a group has not entered the mission yet — see
+	/// this class's doc comment for how it arrives, and <see cref="Sim.SimObject.AwaitingDeployment"/>
+	/// for what that means while it waits.
+	/// </param>
 	private readonly record struct Group(int Index, MissionUnitKind Kind, Vec3i Position, int Heading,
-		int FormationId);
+		int FormationId, bool AwaitsDeployment);
 
 	/// <summary>
 	/// A roster slot's claim: which group activated it, and the slot's index within that group's
@@ -142,20 +183,52 @@ public static class MissionLoader {
 
 		for (int i = 0; i < groups.Length; i++) {
 			var record = script.Entities164[i];
+			var route = Route(script, record);
 
 			var position = Coordinate(script, record.RefRow6)
-				?? RouteStart(script, record)
+				?? (route.Count > 0 ? route[0] : (Vec3i?)null)
 				?? Vec3i.Zero;
 
 			groups[i] = new Group(
 				i,
 				KindOf(record.Discriminator),
 				position,
-				Heading(script, record.RefRow7) ?? 0,
-				record.SmallDiscrete);
+				Heading(script, record.RefRow7) ?? RouteBearing(route),
+				record.SmallDiscrete,
+				record.RefRow10 >= 0);
 		}
 
 		return groups;
+	}
+
+	/// <summary>
+	/// Which way a group faces when its own record names no heading: along the first leg of its
+	/// route. <c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>) takes the route's first two
+	/// waypoints and calls <c>FUN_00492828</c> with the second one first, which is
+	/// <c>atan2(dy, dx) - 0x4000</c> — the same quarter turn every bearing in the simulation carries,
+	/// since a machine's forward axis is model Y rather than model X.
+	///
+	/// <para>A route with fewer than two waypoints leaves the heading at zero, which is the branch
+	/// the original guards with its <c>1 &lt; waypointCount</c> test. Retail missions reach this for
+	/// every patrolling group <i>and</i> for the player's own squad — none of those records carry a
+	/// heading ref — so without it a whole mission faced due north and every formation spread was
+	/// rotated by the wrong angle.</para>
+	/// </summary>
+	private static int RouteBearing(IReadOnlyList<Vec3i> route) {
+		if (route.Count < 2) {
+			return 0;
+		}
+
+		int dx = route[1].X - route[0].X;
+		int dy = route[1].Y - route[0].Y;
+
+		// FUN_00492800's degenerate guard, which nudges x — not y — so a zero-length first leg reads
+		// as a bearing of zero rather than a quarter turn off it.
+		if (dx == 0 && dy == 0) {
+			dx = 1;
+		}
+
+		return (SimTrig.Atan2(dy, dx) - BinaryAngle.QuarterTurn) & 0xffff;
 	}
 
 	/// <summary>
@@ -223,7 +296,8 @@ public static class MissionLoader {
 				position,
 				Heading(script, record.HeadingRef) ?? group.Heading,
 				record.WeaponRefs,
-				record.WeaponSecondary));
+				record.WeaponSecondary,
+				AwaitingDeployment: group.AwaitsDeployment));
 		}
 
 		var flyerClaims = claims[MissionUnitKind.Flyer];
@@ -243,7 +317,8 @@ public static class MissionLoader {
 				Coordinate(script, record.PositionRef) ?? group.Position,
 				Heading(script, record.HeadingRef) ?? group.Heading,
 				Array.Empty<short>(),
-				Array.Empty<short>()));
+				Array.Empty<short>(),
+				AwaitingDeployment: group.AwaitsDeployment));
 		}
 
 		var baseClaims = claims[MissionUnitKind.Base];
@@ -266,7 +341,8 @@ public static class MissionLoader {
 				position,
 				Heading(script, record.HeadingRef) ?? group.Heading,
 				Array.Empty<short>(),
-				Array.Empty<short>()));
+				Array.Empty<short>(),
+				AwaitingDeployment: group.AwaitsDeployment));
 		}
 	}
 
@@ -308,11 +384,21 @@ public static class MissionLoader {
 	}
 
 	/// <summary>
-	/// Reads the player's lance and places it at block 11's reserved record-0 point. Returns the
+	/// Reads the player's squad and places it around block 11's reserved record-0 point. Returns the
 	/// entry the player themself pilots, which is the one worth putting a camera on.
+	///
+	/// <para>The squad spreads exactly as any other group does, because in the original it <i>is</i>
+	/// one: <c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>) gives every <c>player.mec</c> entry
+	/// the unset-position sentinel and writes the entries into record 0's member array in file
+	/// order, so <c>DBSim_BuildGroupRecord</c> (<c>00423b34</c>) attaches entry <i>i</i> as member
+	/// slot <i>i</i> and <c>Mech_ApplyFormationOffset</c> (<c>00417898</c>) spreads every slot past
+	/// the first. Before this the whole squad stood on one point, which pinned the player against
+	/// their own wingmen — <c>Mech_CollisionTest</c> refuses a position that overlaps another
+	/// machine, so nothing could take its first step.</para>
 	/// </summary>
 	private static MissionPlacement? LoadPlayerLance(string scriptPath, Group[] groups,
-			UnitTypeNames mechNames, List<MissionPlacement> placements) {
+			MechFormationTable mechFormations, UnitTypeNames mechNames,
+			List<MissionPlacement> placements) {
 		string playerPath = PlayerPathFor(scriptPath);
 
 		if (groups.Length == 0 || !File.Exists(playerPath)) {
@@ -334,11 +420,12 @@ public static class MissionLoader {
 				mechNames[entry.MechType],
 				i,
 				PlayerGroupIndex,
-				spawn.Position,
+				OffsetFromGroup(spawn, mechFormations, i),
 				spawn.Heading,
 				entry.WeaponRefs,
 				entry.WeaponAmmoTypes,
-				IsPlayerLance: true);
+				IsPlayerLance: true,
+				AwaitingDeployment: spawn.AwaitsDeployment);
 
 			placements.Add(placement);
 			if (i == lance.PlayerEntryIndex) {
@@ -373,11 +460,19 @@ public static class MissionLoader {
 			: null;
 
 	/// <summary>
-	/// A group's route start: its first row-15 link resolves to a waypoint group, whose first
-	/// waypoint is a block-1 coordinate. This is how every patrolling lance in the retail mission is
-	/// positioned, since those groups carry no point of their own.
+	/// A group's route, as block-1 coordinates: its first row-15 link resolves to a waypoint group,
+	/// whose entries are coordinate refs. A group with no point of its own stands on the route's
+	/// first waypoint and faces along its first leg (see <see cref="RouteBearing"/>), which is how
+	/// every patrolling group and the player's own squad are placed in the retail missions.
+	///
+	/// <para>DBSIM reads the resolved pointer for row-15 <i>slot 0</i> only — both the position
+	/// fallback in <c>Mech_AttachToGroup</c> (<c>00417aa8</c>) and the heading fallback in
+	/// <c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>) go through the same
+	/// <c>groupRecord+0x44</c> entry. The remaining slots are scanned here only because a
+	/// hand-edited mission could leave slot 0 dangling where the original would fault; in retail
+	/// data slot 0 is the only populated one.</para>
 	/// </summary>
-	private static Vec3i? RouteStart(ScriptDat script, ScriptEntity164Export record) {
+	private static IReadOnlyList<Vec3i> Route(ScriptDat script, ScriptEntity164Export record) {
 		for (int i = 0; i < GroupRouteSlots && i < record.Row15Refs.Length; i++) {
 			short linkRef = record.Row15Refs[i];
 			if (linkRef < 0 || linkRef >= script.LinkedRefs22.Length) {
@@ -389,12 +484,16 @@ public static class MissionLoader {
 				continue;
 			}
 
-			var waypoints = script.WaypointGroups[groupRef].Waypoints;
-			if (waypoints.Length > 0 && Coordinate(script, waypoints[0]) is { } start) {
-				return start;
+			var waypoints = script.WaypointGroups[groupRef].Waypoints
+				.Select(reference => Coordinate(script, reference))
+				.OfType<Vec3i>()
+				.ToArray();
+
+			if (waypoints.Length > 0) {
+				return waypoints;
 			}
 		}
 
-		return null;
+		return Array.Empty<Vec3i>();
 	}
 }

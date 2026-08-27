@@ -40,6 +40,11 @@ public enum MissionUnitKind {
 /// <param name="IsPlayerLance">
 /// Whether this came from <c>player.mec</c> rather than the mission's own roster.
 /// </param>
+/// <param name="AwaitingDeployment">
+/// Whether the block-11 record that placed it is waiting on a mission action, in which case the unit
+/// is not in the mission yet and <see cref="Position"/> is a placeholder its arrival replaces — see
+/// <see cref="Herculan.Engine.Sim.SimObject.AwaitingDeployment"/> and <see cref="MissionLoader"/>.
+/// </param>
 public sealed record MissionPlacement(
 	MissionUnitKind Kind,
 	int TypeIndex,
@@ -50,7 +55,8 @@ public sealed record MissionPlacement(
 	int Heading,
 	IReadOnlyList<short> WeaponRefs,
 	IReadOnlyList<short> WeaponSecondary,
-	bool IsPlayerLance = false);
+	bool IsPlayerLance = false,
+	bool AwaitingDeployment = false);
 
 /// <summary>
 /// A mission ready to be turned into a scene: which zone and theater it plays in, and every object

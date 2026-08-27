@@ -93,8 +93,9 @@ Per record type, what pass 2 reads (offsets into the exported record, not the `.
 | | | `0x2c` | ref → block 1 (the group's own spawn point) |
 | | | `0x2e` | ref → block 2 (the group's heading) |
 | | | `0x32`-`0x59` | 20 member refs into the block the discriminator names |
-| | | `0x5a`-`0x6d` | 10 refs → block 10 (route links) |
-| | | `0x70` | ref → block 5 (action) |
+| | | `0x5a`-`0x6d` | 10 refs → block 10 (route links); slot 0 is the group's spawn route, the rest are its later orders |
+| | | `0x6e` | side: 0 = human, 1 = Cybrid (group record `+0x12`) |
+| | | `0x70` | ref → block 5 (action). **Set = the group has not entered the mission yet** — see rule 8 |
 
 ## Placement — the actual rule
 
@@ -107,17 +108,30 @@ Per record type, what pass 2 reads (offsets into the exported record, not the `.
    have one**. So a roster record's own position ref wins where set, and the group's is the
    fallback. In every retail file the roster refs are unset, so in practice objects stand at their
    group's point.
-3. **Groups with no point** fall back to their route: the group's block-10 links resolve to a
-   waypoint group, whose first waypoint is the spawn point (`FUN_00423b0c`). Patrol squads are
-   placed this way.
-4. **Ground height** is not in the file. Mechs and bases get `Terrain_HeightQuery` plus the type's
+3. **Groups with no point** fall back to their route: the group's block-10 link **slot 0** resolves
+   to a waypoint group (link record `+0x08` → block 3), whose first waypoint is the spawn point
+   (`FUN_00423b0c`). Patrol squads are placed this way. Only slot 0 is consulted — both this and the
+   heading fallback below read the same `groupRecord+0x44` entry.
+4. **Heading**, when the group's own block-2 ref is unset, is the bearing along the route's **first
+   leg**: `DBSim_SpawnMissionObjects` passes waypoints [1] and [0] (second first) to `FUN_00492828`,
+   which is `atan2(dy, dx) - 0x4000` — the quarter turn every bearing in the sim carries, since a
+   machine's forward axis is model Y. Fewer than two waypoints leaves it at zero. **Every mech group
+   in every retail mission reaches this**, the player's squad included; none of them carry a heading
+   ref, so ignoring it faces a whole mission due north and rotates every formation spread wrongly.
+5. **Ground height** is not in the file. Mechs and bases get `Terrain_HeightQuery` plus the type's
    own foot offset (`typeRecord+0x16`, and +5000 when `typeRecord+0x50` is set); flyers get no query
    at all — they hold the spawn coordinate's Z, or 5000 units when that is zero.
-5. **The player's squad is not in `script.dat`.** Block 11's **record 0** exists only to hold its
+6. **The player's squad is not in `script.dat`.** Block 11's **record 0** exists only to hold its
    spawn point — pass 1 skips it when marking activation, and pass 2 overwrites its member list with
    the entries read from `data\player.mec`. That file's own format is decoded in
    `HercWorks.Core`'s `MecFile`.
-6. **Formation spread** is applied per member: the member's slot index *within the group's
+
+   Otherwise the squad is an ordinary group and **spreads like one**: pass 2 gives every `player.mec`
+   entry the unset-position sentinel and writes the entries into record 0's member array in file
+   order, so entry *i* attaches as member slot *i* and takes slot *i*'s formation offset (rule 7).
+   Placing the whole squad on the bare point instead stacks it, and `Mech_CollisionTest` then refuses
+   every machine its first step, the player's included.
+7. **Formation spread** is applied per member: the member's slot index *within the group's
    `DiscriminatedRefs` array* (0-19, not a compacted live-member count — `FUN_00423b34` passes the
    raw loop index straight through) goes to the object's own vtable `+0x78`, and that offset is
    rotated by the group leader's heading before being added to the group's point. Slot 0 (the first
@@ -156,6 +170,12 @@ Per record type, what pass 2 reads (offsets into the exported record, not the `.
      groups observed in retail data.
    - **Verification:** all 10 available missions — 26/26 multi-mech groups and 18/18 multi-base groups
      get distinct member positions, 0 exceptions; BFORMS.DAT/MFORMS.DAT both still parse byte-exact.
+8. **A group whose record names a block-5 action (`0x70`) is not in the mission yet** — undrawn,
+   unsimulated and non-solid until that action fires and the group arrives, on foot or by drop pod.
+   Its placed position is a placeholder the arrival overwrites, which is why retail missions leave
+   such groups stacked on shared points (routinely the player's own spawn). See
+   [`../simulation/mission-deployment.md`](../simulation/mission-deployment.md); **do not read a
+   waiting group's position as where the mission means it to be.**
 
 ## The 13-block structure
 
@@ -168,16 +188,31 @@ pass 2 goes back for.
 | 1 | #6 `MapPoint22` | count + count×12B (X,Y,Z int32 triple only — GUID/condition/etc. dropped) | yes | full (min/max bbox tracked live as read) | full |
 | 2 | #7 `Flag10` | count + count×2B (the `0x08` payload short only) | yes | full, **× 182 (`0xb6`) at load** — the same degrees→BAM conversion already confirmed elsewhere in DBSIM; this reframes row #7's payload as **a heading/orientation in degrees**, not a difficulty tier | full, **not** multiplied (VSHELL just displays/edits it) |
 | 3 | #8 `WaypointGroup` | count + per record: nested-count (2B) + nested-count×2B (waypoint refs into block 1) | yes | full, nested refs resolved to block-1 pointers (stride 3 ints) | full, same resolution |
-| 4 | #9 `LinkOrReward12` | count + count×6B (`0x06` type flag, `0x08` ref1, `0x0A` ref2/literal) | yes | full, resolved into a 10-byte in-memory record | **skipped** (seek past, discarded) |
+| 4 | #9 `LinkOrReward12` | count + count×6B (`0x06` type flag, `0x08` ref1, `0x0A` ref2/literal) | yes | full, resolved by `FUN_00423358` into a 10-byte record — **a trigger area**: type flag, block-1 pointer, then either a second block-1 pointer (type 0, an XY box) or the literal × 10 (type != 0, a radius). Tested by `FUN_004233a4` | **skipped** (seek past, discarded) |
 | 5 | #10 `Action82` | count + count×74B (`0x06` type, `0x08` verb, `0x0A`-`0x19` ref[0..7] into row 9, `0x1C`/`0x1E`-stride interleaved 20-short span, `0x44`-`0x4D` herc-LUT ref[0..4], `0x4E` secondary, `0x50` target) | yes | reads all 74B but only **keeps** type, verb, the 8 refs (resolved to row-9 pointers), the 40-byte interleaved span, secondary (decremented by 1), and target — **the herc-LUT refs are read then discarded**, DBSIM has no use for the cosmetic/economy LUT | **skipped** (seek past, discarded) |
 | 6 | #11 `ActionPair30` | count + count×24B (`0x06` ref into row10, `0x08` type/timer, `0x0A`-`0x1D` 10-slot ref array into row10) | yes | full, resolved via `DBSim_BuildActionPairRecord` (`FUN_00423104`) into target+type+10×ref | **skipped** (seek past, discarded) |
 | 7 | #12 (144B type) | count + count×134B (`0x08`-`0x2F` 40B span, `0x30` `SmallDiscrete`, `0x32`-`0x45` 20B span, `0x46`/`0x48` 2 shorts, two 20-short interleaved spans, `0x74`-`0x87` 20B span, 4 trailing shorts; `SmallDiscrete2` at `0x4A` is the one field of row #12 skipped/not exported) | yes | reads all 134B but keeps **only `SmallDiscrete` (`0x30`)**, the mech type — confirmed via the writer's own assert string on this field ("Invalid mech type"). Pass 2 comes back for the rest | **full 134B kept** — the map editor needs the whole record (name, position refs, etc.) to render/edit a placed unit |
 | 8 | #13 `UnkEntity102Bytes` | count + count×92B (`0x08`-`0x33` `FlagsA`+refs, `0x34` `BinaryField`, `0x38`-`0x5F` `FlagsB`, `0x60`-`0x64` refs+`UnkVal_100`; `Unk36` at `0x36` is skipped/not exported) | yes | reads all 92B but keeps only **`BinaryField` (`0x34`)**, the flyer type. Pass 2 comes back for the rest | **skipped** (seek past, discarded) |
 | 9 | #14 `MiscEntityInfo` | count + count×52B (`0x08` `TypeLikeScalar`, `0x0A`-`0x3D` refs+`SparseBlock`+`TrailingField`) | yes | reads all 52B but keeps only **`TypeLikeScalar` (`0x08`)** — the base type, an index into `dat\BASES.DAT`'s 65-entry table. Pass 2 comes back for the rest | **full 52B kept** |
-| 10 | #15 `LinkedRef22` | count + count×14B (`0x08`-`0x14`, the 7 fields `msn-mission-file.md` decoded as small-int/refs/discriminator) | yes | reads all 14B and **discards it entirely** — DBSIM has no use for the "attach route to entity" authoring metadata | **full 14B kept** — this is exactly the UI-relevant "which route/position/entity is this linked to" data a map editor needs |
+| 10 | #15 `LinkedRef22` | count + count×14B (`0x08`-`0x14`, the 7 fields `msn-mission-file.md` decoded as small-int/refs/discriminator) | yes | pass 1 reads all 14B and discards it; **pass 2 resolves it** into a 22-byte order record — `0x04` block-1 point, `0x08` block-3 waypoint group, `0x0e` target object/group, `0x12` block-5 action — and a group's route and spawn point come from its slot-0 link's `0x08` | **full 14B kept** — this is exactly the UI-relevant "which route/position/entity is this linked to" data a map editor needs |
 | 11 | #16 `UnkEntity164Bytes` | count + count×156B (two 40B/20B spans, a 20-entry nested cross-ref array with a 3-way discriminator, trailing shorts) | yes | **this is DBSIM's entity-activation mechanism**: for each populated cross-ref entry, the discriminator (0/1/2) marks the referenced **block-7/block-8/block-9** slot as a *live, simulated* object (via `DAT_004aa7ae`/`DAT_004aa8da`/`DAT_004aa93e`+`DAT_004aaa56` flag arrays), turning declared roster entries into things DBSIM actually spawns. **Record 0 is skipped here** — it is the player-squad placeholder. Pass 2 comes back for the group's own position/heading/route | full 156B kept, cross-refs resolved to annotate the kept row-#14 records (a UI/display-oriented resolution, not the "activation" one) |
 | 12 | #17 `LinkedRef58` | count (unfiltered — all records, matching row #17's "no GUID field" nature) + count×54B | **no** | reads all 54B and **discards it entirely** | **skipped** (seek past, discarded) |
 | 13 | #4 (no stable name) | flat tail: **one** count (how many of row #4's 10-slot sub-array A are populated, from its front — assumes no gaps) + that many×2B (the populated LUT-ref prefix itself) | n/a — single mission-level record, not a per-entity array | full — **this is the mission's herc/weapon unlock package** reaching DBSIM, matching `msn-mission-file.md`'s row #4 "working model: per-mission reward/unlock package" | not read (VSHELL's `ShellMap` reader stops after block 12; it has no use for player loadout data) |
+
+### Block 5 in memory — 58 bytes (`0x3a`)
+
+The runtime action record `DBSim_LoadScriptDat` builds, since two of its fields drive deployment
+([`../simulation/mission-deployment.md`](../simulation/mission-deployment.md)):
+
+| offset | field |
+|---|---|
+| `0x00` | type — selects whose position the trigger tests |
+| `0x02` | verb — selects how a group holding this action arrives |
+| `0x04` / `0x06` | count of, and pointer to, the resolved block-4 trigger areas |
+| `0x0a` | **fired flag** — zeroed at load, set once by `Action_Fire` (`00423430`) |
+| `0x0c` / `0x20` | the two 20-byte de-interleaved spans |
+| `0x34` | secondary (file value − 1) — the mission message queued on firing |
+| `0x36` | target ref, later resolved in place to an object or group pointer |
 
 ## Verification
 

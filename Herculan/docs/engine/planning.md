@@ -175,7 +175,13 @@ this list is not re-verified on every edit.
 - **Flyer texture banks** — which `.DBA` DBSIM binds for a flyer is untraced, so flyers draw
   flat-shaded.
 - **`.SNC` audio format unsolved.** No sound anywhere in the engine yet.
-- **AI/behavior trees barely understood** — blocks enemy mech behavior and patrol movement.
+- **AI/behavior trees barely understood** — blocks enemy mech behavior and patrol movement. The
+  group-order layer above it is decoded but unported: `Group_OrderTick` (`00423a74`) advances a
+  group through its row-15 orders, and nothing here does.
+- **Mission deployment gated but not implemented** (`docs/simulation/mission-deployment.md`). A
+  group waiting on a mission action is correctly held out of the world, but no trigger ever fires,
+  so drop pods (the falling `METEOR` that delivers Cybrid reinforcements) and walk-on arrivals never
+  happen and those units never appear. The whole mechanism is RE'd; this is a porting job.
 - **Flyer formation spread unimplemented** (`FUN_00421ee8` untraced; no multi-flyer groups
   observed in retail missions so far).
 - **External view (`[V]` chase camera) is entirely engine-invented**, not reverse-engineered.

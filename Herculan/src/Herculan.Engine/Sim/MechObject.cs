@@ -598,6 +598,10 @@ public sealed partial class MechObject : SimObject {
 	/// a per-type <i>collision</i> radius from a vtable slot whose per-type values have not been
 	/// mapped, so <see cref="HitRadius"/> — derived from the model's own bounds — stands in for
 	/// both radii.</para>
+	///
+	/// <para>The sweep's first test <i>is</i> here: an object whose mission group carries an action
+	/// is skipped outright, before any distance is measured. See
+	/// <see cref="SimObject.AwaitingDeployment"/> for why the retail missions depend on it.</para>
 	/// </summary>
 	private bool CollisionTest(SimWorld world) {
 		var position = Position;
@@ -605,7 +609,8 @@ public sealed partial class MechObject : SimObject {
 		var objects = world.Objects;
 		for (int i = 0; i < objects.Count; i++) {
 			var other = objects[i];
-			if (ReferenceEquals(other, this) || other.Removed || other.HitRadius == 0) {
+			if (ReferenceEquals(other, this) || other.Removed || other.HitRadius == 0
+					|| other.AwaitingDeployment) {
 				continue;
 			}
 

@@ -167,9 +167,12 @@ public sealed class BaseObject : SimObject {
 		} else if (!WithinReach(shot)) {
 			return 0;
 		} else {
+			// No node-transform resolver: the engine has no posed node transforms for structures, so a
+			// node-placed cluster is tested in the object's own frame. Only the eight animated types
+			// carry any, and each keeps its body cluster in the object frame regardless.
 			var hit = CollisionModel.Test(
 				_collision, Transform3.Concat(WorldTransform, shot.MuzzleInverse),
-				shot.Distance, shot.Clearance, _alive);
+				shot.Distance, shot.Clearance, ComponentAlive);
 
 			struckAt = hit is { } found ? found.Distance + 1 : 0;
 			component = hit?.ComponentIndex ?? -1;

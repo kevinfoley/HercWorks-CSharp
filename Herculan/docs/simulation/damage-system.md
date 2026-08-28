@@ -25,17 +25,24 @@ A single raycast primitive reused for weapon hit-scan **and** obstacle sensing �
 confirmed-`objlist.cpp` functions at `0x004281b0`/`0x004282f8`; not confirmed by a direct
 assert-string tie). Confirmed **not** `fire.cpp`.
 
-Walks the live-object list; for each candidate that passes team/state filtering, calls that
+Walks the live-object list; for each candidate that passes the filter below, calls that
 object's vtable method at `+0x20` — for a mech, `FUN_00418ba8`, the direct-fire hit-test-and-damage
 function below; for a structure, `00405038`, and for a flyer, `FUN_00421c8c`, both in
-[`structure-hit-detection.md`](structure-hit-detection.md). **The hit test and the damage
+[`hit-detection.md`](hit-detection.md). **The hit test and the damage
 application are the same call** — there is no
 separate "apply damage" step visible from the caller's side. `FUN_00426528` also makes a second,
 unrelated vtable call per candidate (`+0x50`, `FUN_0041f7b8`) — AI threat-tracking ("this object
 just took fire, update who it thinks is attacking it"), not damage.
 
-Three properties a port has to preserve:
+Four properties a port has to preserve:
 
+- The **candidate filter** is three tests, all before the vtable call: not the shot's owner
+  (`shotData+0x0e`), not the object at `shotData+0x14`, and **not an object whose mission group
+  still carries an action** (`*(int*)(obj[+0x45] + 0x14) != 0`). The middle one excludes nothing on
+  the beam path, which never writes that field. The last one matters — see
+  [`hit-detection.md`](hit-detection.md). The team byte
+  (`obj[+0x45][+0x12]`) is read only *after* a hit, for the AI notification and friendly-fire
+  warnings; it does not gate the hit itself.
 - Before the sweep it **caches the world-to-muzzle transform** in the ray record at `+0x0a` (copy,
   transpose, negate-and-rotate the translation), which is the frame every hit test works in.
 - It **shortens the ray to each hit** (`rayRecord+0x04`) rather than stopping at the first, so a
@@ -88,14 +95,13 @@ order:
    hit distance and still stops the ray** — shields do not let fire through to whatever is behind —
    and the caller spawns only a hit-spark effect.
 3. **Component selection — `Mech_SelectStruckComponent` (`0040c9d4`).** Only reached if some damage
-   penetrated shields. Tests the mech's hit-sphere model cluster by cluster to find the ONE
-   component struck — **not** a random roll, unlike the explosion path. The test itself is decoded
-   and ported in [`structure-hit-detection.md`](structure-hit-detection.md); the mech's model comes
-   from `col\<NAME>.COL` rather than `dat\BASECOL.DAT`, and **loading those files is the only thing
-   still missing** before this step works for mechs too.
-4. **Damage application — `FUN_004188c8`.** Applies a **per-weapon-type damage multiplier**
-   (`FUN_0047dfa4(shotData[+8], remainingDamage)`, Q8 — see "Weapon-type effectiveness" below).
-   **Splits** the (multiplier-scaled) damage: a portion goes toward destroying the specific weapon
+   penetrated shields. Tests the mech's `col\<NAME>.COL` hit-sphere model cluster by cluster to find
+   the ONE component struck — **not** a random roll, unlike the explosion path. Decoded and ported
+   in [`hit-detection.md`](hit-detection.md). **Missing every sphere is a clean
+   miss**: the shield cylinder is only a gate, and the shot passes on to whatever stands behind.
+4. **Damage application — `FUN_004188c8`.** Takes `SplashFactor` off the top
+   (`Math_Q10Multiply(shotData[+8], armorDamage)`, Q10 — see "Weapon-type effectiveness" below) and
+   **splits** the shot: that share goes toward destroying the specific weapon
    mount at that location if one is present (which, if it fails, can trigger a secondary
    small-radius explosion via the mech's own `+0x70` vtable slot — the same function the AoE path
    uses, i.e. a destroyed weapon mount can itself explode and splash nearby components), and the
@@ -106,6 +112,19 @@ order:
 
 This is fundamentally different in shape from the explosion path: precisely-aimed weapons hit what
 you aimed at; explosions spray damage around imprecisely.
+
+**The three type-record fields this path reads map onto `HercSimDat`.** `MechType_InitOne` reads the
+`.DAT` as one block at record offset 2, so runtime offset = file offset + 2:
+
+| Runtime | File | Field | Retail values |
+|---|---|---|---|
+| `+0x18` | 22 | hit-cylinder centre height (`Unk22_Val750Razor0`) | 1000 heavy/medium, 750 light, 0 RAZOR |
+| `+0x1a` | 24 | hit radius (`AiAimTargOffset`) | 2500 heavy, 1500 medium, 1000 SPIDER |
+| `+0x4a` | 72 | leg count (`ModelLegsTotal`) | 2, except PITBULL's 4 |
+
+The radius is deliberately generous — it only has to be wide enough that nothing which could hit is
+rejected, since the sphere model behind it decides. `AiAimTargOffset` was a guessed name; these two
+consumers identify it.
 
 `FUN_00418ba8` is invoked only polymorphically, as `obj[+0x20](...)`. **Beams do reach it through
 `FUN_00426528` and nowhere else** — the beam dispatch was traced end to end in
@@ -268,6 +287,10 @@ the next tick. The two never call each other.
 
 ## The component damage system
 
+**Flyers have one too.** `FUN_004215f4` allocates the same header at `flyer+0x200` with literal
+counts of **1 and 1** — one main component, one dependent — which is exactly what `SKIMMER.DMG`
+ships. The counts are hard-coded at each constructor, not read from the file.
+
 **`this+0x206` is a header of pointers, not inline arrays.** Allocator `FUN_0040d2cc`, called as
 `FUN_0040d2cc(this+0x206, 0x1d /*29*/, 0x16 /*22*/)`:
 
@@ -307,12 +330,33 @@ sub-parts — e.g. a "leg" reading as leg proper plus whatever finer actuator/jo
 modeled underneath it (exact sub-piece breakdown per component not traced).
 
 **Write and cascade: `Component_ApplyDamageAndCascade` (`0040da38`)**, called from
-`Mech_ComponentDamageWrite` (`00417de4`, mech vtable `+0x74`, the shared endpoint both damage
-pathways call into). **Adds** damage to that component's entry via `FUN_0040d3ec`, which caps at
-the record's max and stores `-1` once destroyed. If the component's state crosses into
-"destroyed" (a flag bit in its record), cascades: calls `FUN_0040d434` on that
-component, then walks a **dependency list** (`DAT_00498864`) calling `FUN_0040d434` on every
-dependent — destroying one component can automatically destroy things that depend on it.
+`Mech_ComponentDamageWrite` (`00417de4`, mech vtable `+0x74`) and `FUN_00421bb4` (the flyer's) — the
+shared endpoint both damage pathways call into:
+
+```
+destroyed = Component_AddDamage(&mainDamage[i], piece.Armor, &damage)   // FUN_0040d3ec
+if (destroyed) {
+    drained = Component_SpillIntoDependents(piece, subDamage, damage, subMax)   // FUN_0040cf44
+    if (drained && (piece.DestructionFlags & 1)) {
+        Component_DestroyAndCascade(i)                     // FUN_0040d434
+        drain the pending BoneId queue through the same call
+    }
+}
+```
+
+- `FUN_0040d3ec` **adds** damage, stores `-1` rather than the max once the entry is finished, and
+  **writes the excess back into `damage`**. An entry already at `-1` absorbs nothing, so a lost part
+  cannot be shot again.
+- `FUN_0040cf44` pours that excess into the component's dependents, **one at a time, weighted and
+  random**: each live dependent contributes its `CritChance` to a total, a draw under that total
+  picks the one that takes the hit, and if that spill destroys it the remainder goes round again. It
+  returns true only once no live dependents are left — which is why a component with internals still
+  intact does not cascade even after its own armour is gone.
+- `FUN_0040d434` writes `-1`, clears the active flag, finishes off everything under it with a flat
+  32000, and queues every live piece whose `BoneId` names this component. The original drains that
+  queue iteratively rather than recursing.
+- `FUN_0040d9f8` ("is component *i* destroyed **and** all of its dependents too", via `FUN_0040cf10`)
+  is the stricter test the mech's death gate asks of its two cockpit slots.
 
 ### The 18-byte record — `.DMG`'s `HercPiece`
 
@@ -320,12 +364,22 @@ dependent — destroying one component can automatically destroy things that dep
 by tracing `FUN_0040d160`'s caller `FUN_00415bb0`, the mech constructor, which builds the filename
 from the mech's own name string plus extension).
 
+The whole file, per `HercPiece_LoadTable` (`0040d09c`) — **no padding anywhere**:
+
+```
+subCount, subCount * int16 dependent max armour
+pieceCount, pieceCount * 18-byte HercPiece
+```
+
+Retail: 22 dependents and 29 pieces for every HERC, 1 and 1 for `SKIMMER`. Only dependent slots
+0–11 carry a nonzero maximum, and the pieces reference no index above 11.
+
 | Offset | Field | Evidence |
 |---|---|---|
 | `+0x00` | `short` `Armor` (max health) | `FUN_0040dbc0`'s `local_10 = *psVar5` |
 | `+0x02` | `signed char` — index into a debris/effect lookup (`FUN_004089bc`), sentinel `-1` = none | `FUN_0040d434`, on destruction, selects a specific debris/effect variant |
 | `+0x03` | `signed char` — index into a slot array on the mech itself (`*(int*)(mechThis+0x34)+8`, byte `[index]` written `=2` on destroy — a state-transition write, same "2" code seen for a damaged/destroyed HUD slot elsewhere) | `FUN_0040d434`, guarded by `-1 < value` (`-1` = no HUD slot) |
-| `+0x04` | `char` `BoneId` — equality-compared to find *all* components sharing a group when cascading destruction; a piece's mounting bone and its destruction-dependency group are the same concept | `FUN_0040d434`'s trailing loop |
+| `+0x04` | `signed char` `BoneId` — the **index of the parent component** this one hangs off, `-1` for none. Destroying component *n* queues every still-live piece whose `BoneId` is *n*. Retail: ACHILLES' leg chain runs 7→9→11, and its two weapon brackets (4, 5) carry components 19–25. SPIDER sets `-1` throughout, so nothing on it cascades | `FUN_0040d434`'s trailing loop |
 | `+0x05` | `byte` `DestructionFlags` bitfield: bit0=has dependents to cascade, bit1=alt destruction-effect mode, bit2=one-shot "major alert already fired" latch, bit3=triggers secondary effect callback | `FUN_0040da38`/`FUN_0040d434` |
 | `+0x06` | `short` dependent sub-component count | `FUN_0040cff8` (loader), `FUN_0040dbc0`'s loop bound |
 | `+0x08` | `int` pointer to the dependent list (4 bytes/entry: index at sub-offset `+2`) | `FUN_0040cff8`/`FUN_0040dbc0` |
@@ -345,11 +399,14 @@ The Java author's own doc comment on `HercSimDamage.cs` lists real component nam
   death-trigger gate.
 - **Indices 4–5 (`WEPN_BRACK/LEFT`/`RIGHT`)** — ordinary weapon-mount slots inside this same
   29-entry array (see "Weapon mounts" below for the separate runtime ammo/heat state).
-- **Dependent-array (22-entry) indices 0 and 1 = front leg pair**, and — for mech types whose leg
-  count (`typeRecord+0x4a`) is `4` — **indices 10 and 11 = rear leg pair**. `FUN_00417de4` reads
-  these by literal offset (not a loop), averaging the pair(s) together before comparing against
-  thresholds that gate "walk" vs. "crippled" vs. "destroyed-legs" status and (for the player's own
-  mech) an alert sound/HUD flag.
+- **Dependent-array (22-entry) slots read by literal offset in `FUN_00417de4`**, not by a loop.
+  0 and 1 are the front leg servos, joined by 10 and 11 (the rear pair) when
+  `typeRecord+0x4a` is 4; the pair(s) are averaged before being compared against `0x8d` (crippled)
+  and `0x50` (an alert only), and half of them destroyed immobilises the machine. 4 is the shield
+  generator, which `Mech_ComputeShieldCapacity` reads — so shooting it shrinks the array the machine
+  can hold, and that recompute happens **here as well as at spawn**. 5 is the reactor, latching the
+  two output-damage flags. 8 and 9 are life support and the pilot: either destroyed, or either
+  cockpit slot fully gone, and the machine dies.
 
 `FUN_00417de4` itself, beyond wrapping the health write above, does per-subsystem percentage
 tracking with 8-level bucketing and fires distinct alert sounds at multiple thresholds (~55%,
@@ -391,9 +448,12 @@ the ELF is so incredibly powerful that it punches through shields as if they are
 more damage to enemy armor, but have little effect on a target with shields," Lasers have "limited
 effectiveness against shields," ATCs are "fast and hard enough to penetrate most armor plating."
 
-**Confirmed in code:** `FUN_004188c8` (direct-fire chain step 4 above) applies
-`FUN_0047dfa4(shotData[+8], remainingDamage)` — a Q8 multiply by a value carried in the shot's own
-data — before splitting/applying damage to the selected component.
+**Not found in code.** The one candidate — `FUN_004188c8`'s
+`Math_Q10Multiply(shotData[+8], armorDamage)` — is `SplashFactor`, the secondary-explosion split
+documented below, not a per-weapon-type effectiveness scale. The whole of the manual's claim that
+lives in code is the two separate `DamageShield`/`DamageArmor` figures each `PROJ.DAT` record
+carries; nothing scales either by the *target's* defence type. The shield absorption functions were
+also checked and carry no weapon-type term.
 
 The shot descriptor (`shotData`, the same struct `FUN_00418ba8`/`FUN_004188c8` consume) is built
 in `Bullet_FireBurst` right before the `FUN_00426528` raycast call — full layout in
@@ -420,17 +480,17 @@ the real retail `ES2\VOL\simvol0\dat\PROJ.DAT` (984 bytes: 9-byte VOL prefix +
 
 `shotPower` is the capacitor charge the shot was fired at, `min(template+0x38, mount+0x7d)`, and the
 scale is **Q10** — against a capacitor scaled to 1200, so a mount holding more than 1024 makes a shot
-worth slightly more than the record's face value. (Q8 is `SplashFactor`'s own multiplier below, one
-step further down; an earlier pass applied it to both.)
+worth slightly more than the record's face value. `SplashFactor`'s own multiply below is Q10 as well
+(`Math_Q10Multiply`, `0047dfa4`); earlier passes of this doc called it Q8.
 
 **`SplashFactor` (`Unk2_val`, short-index 4, `shotData+8`) — a per-weapon splash/secondary-
 explosion trigger, not a third damage-type multiplier.** Consumer, `FUN_004188c8`:
 ```c
-uVar1 = Q8mul(shotData+8 /*SplashFactor*/, shotData+4 /*armor-scaled damage*/);
+uVar1 = Q10mul(shotData+8 /*SplashFactor*/, shotData+4 /*armor-scaled damage*/);
 call obj[+0x74](obj, part, armorDamage - uVar1, ...);      // general component health takes the REMAINDER
 if (uVar1 != 0) call obj[+0x70](obj, uVar1, ..., blastRadius=500, ...);  // secondary explosion, same formula explosive weapons use
 ```
-A Q8 **fraction of the already shield-absorbed armor damage** diverted into a small
+A Q10 **fraction of the already shield-absorbed armor damage** diverted into a small
 (500-unit-radius) secondary explosion, reusing the same blast-sweep formula as "Explosive damage"
 above, instead of applying straight to the struck component's health. Zero means no secondary
 explosion — the guard (`if (uVar1 != 0)`) skips it and the full armor-damage amount goes straight
@@ -537,7 +597,7 @@ damage system" above.)
    port needs shields to gate both.
 2. **There are two structurally different post-shield damage models, not one.** Direct fire hits
    exactly one deterministically-selected component (found by real hit geometry, not randomness),
-   applies a per-weapon-type multiplier, and splits damage between destroying a weapon mount (with
+   takes `SplashFactor` off the top, and splits damage between destroying a weapon mount (with
    a possible secondary explosion) and general component health — no distance falloff. Explosive
    weapons sweep the whole object list by blast radius, then independently roll each of up to 29
    components at ~51% odds and apply linear distance falloff to the ones that pass.
@@ -559,3 +619,16 @@ damage system" above.)
    field (`SplashFactor`) diverts a fraction of the armor-damage portion into a secondary
    explosion. A port's "energy weapons hit shields hard, projectiles hit armor hard" behavior
    should read directly from `PROJ.DAT`'s existing fields — the data needed is already parsed.
+
+## Ported
+
+`Herculan.Engine.Sim.MechObject.Combat` (the hit test, `Mech_ApplyDirectFireDamage`, and the parts
+of `Mech_ComponentDamageWrite` that change behaviour: the shield-capacity recompute, leg grading,
+the death gate, the reactor flags), `Sim.ComponentDamage` (the whole `+0x206` header — the three
+arrays, the aggregate read, the spill and the cascade), `Sim.ShieldCharge`, `Sim.MechObject.Power`
+(capacity and reactor rate), and `MechTypeRecord.HitRadius`/`HitCenterHeight`/`LegCount`.
+
+Not ported: the explosive blast sweep (so `SplashFactor`'s share is dropped rather than diverted —
+every retail beam states zero, so nothing is lost today), weapon-mount destruction (components
+19–28 index the mount manager as `component - 19`), the Shield Pod's own damage term in
+`Mech_ComputeShieldCapacity`, every alert sound, and the debris a destroyed component throws.

@@ -69,4 +69,14 @@ public sealed class SimRandom {
 	/// mask, e.g. <c>0xfff</c> for the terrain material roll and the AoE component roll).
 	/// </summary>
 	public int NextMasked(int mask) => Next() & mask;
+
+	/// <summary>
+	/// <c>FUN_00492e18</c> — a draw in <c>[0, bound)</c>, as <c>(Next() &amp; 0x7fff) % bound</c>. The
+	/// mask before the modulo is the original's own: it drops the sign bit rather than taking an
+	/// absolute value, so the distribution is the low fifteen bits' and not the full sixteen.
+	///
+	/// <para>A bound of zero would divide by zero in the original; nothing reaches it there and
+	/// nothing does here either, so it is answered with zero rather than guarded upstream.</para>
+	/// </summary>
+	public int NextBelow(short bound) => bound == 0 ? 0 : (Next() & 0x7fff) % bound;
 }

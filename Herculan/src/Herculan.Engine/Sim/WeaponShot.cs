@@ -183,11 +183,11 @@ public sealed class WeaponShot {
 		/// <c>ImpactFXArmor</c>. The same armour branch when the struck component's health band did
 		/// drop, and the only array the non-mech classes' hit test (<c>FUN_00405038</c>) ever uses.
 		///
-		/// <para><b>Nothing in the engine selects this yet</b>: the distinction from
-		/// <see cref="Ground"/> is a change in a component's health band and there is no component
-		/// health array (see <c>MechObject.PenetratingHits</c>). It costs nothing on retail data —
-		/// <b>all 27 records carry byte-identical <c>ImpactFXGround</c> and <c>ImpactFXArmor</c>
-		/// arrays</b>, so the two branches draw the same effect anyway.</para>
+		/// <para>The distinction from <see cref="Ground"/> is a change in the struck component's
+		/// health band, which <see cref="MechObject"/> now measures either side of the damage write,
+		/// so both branches are reachable. It shows on nothing: <b>all 27 retail records carry
+		/// byte-identical <c>ImpactFXGround</c> and <c>ImpactFXArmor</c> arrays</b>, so the two draw
+		/// the same effect anyway.</para>
 		/// </summary>
 		Armor = 2,
 	}

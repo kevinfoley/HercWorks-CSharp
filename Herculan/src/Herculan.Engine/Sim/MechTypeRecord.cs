@@ -98,6 +98,38 @@ public sealed class MechTypeRecord {
 	public short CameraBoneId => Data.CameraBoneId;
 
 	/// <summary>
+	/// Record field 22 (the exe's <c>typeRecord+0x18</c>) — how high above the machine's origin its
+	/// hit cylinder is centred, in world units. <c>Mech_ShieldAbsorb_DirectFire</c> builds the point
+	/// it measures every direct-fire shot against as <c>(0, 0, this)</c> in the machine's own frame,
+	/// which is why a beam over a HERC's feet misses and one through its torso does not.
+	///
+	/// <para>Retail states 1000 for every heavy and medium chassis, 750 for the three light ones and
+	/// 0 for the RAZOR — a class figure, not a per-model measurement.</para>
+	/// </summary>
+	public short HitCenterHeight => Data.Unk22_Val750Razor0;
+
+	/// <summary>
+	/// Record field 24 (the exe's <c>typeRecord+0x1a</c>) — the machine's hit radius, in world units,
+	/// and the only radius any of its hit tests use: the coarse reject at the top of
+	/// <c>Mech_DirectFireHitTest</c> and the cylinder <c>Mech_ShieldAbsorb_DirectFire</c> tests the
+	/// ray against are both this. 2500 for a heavy, 1500 for a medium, 1000 for the SPIDER.
+	///
+	/// <para>It is deliberately generous — it only has to be wide enough that nothing which could hit
+	/// is rejected, because the <c>col\&lt;NAME&gt;.COL</c> sphere model behind it is what actually
+	/// decides. The field was named <c>AiAimTargOffset</c> on a guess; these two consumers identify
+	/// it.</para>
+	/// </summary>
+	public short HitRadius => Data.AiAimTargOffset;
+
+	/// <summary>
+	/// Record field 72 (the exe's <c>typeRecord+0x4a</c>) — how many legs the chassis walks on, which
+	/// is 2 for every retail HERC but the four-legged PITBULL.
+	/// <c>Mech_ComponentDamageWrite</c> reads it to decide whether the leg-condition check covers the
+	/// two front dependent slots alone or averages them with the rear pair at slots 10 and 11.
+	/// </summary>
+	public short LegCount => Data.ModelLegsTotal;
+
+	/// <summary>
 	/// Record field 190 (the exe's <c>typeRecord+0xc0</c>) — the shield array's total capacity before
 	/// any Shield Pod, which <c>Shield_Init</c> reads straight out of here. Despite living in the
 	/// per-type record it is not a per-type stat: every retail HERC carries 3500. See

@@ -18,7 +18,7 @@ polymorphic `ClassItem_LoadResource` (`0047a038`) registry dispatch — same mec
 **Record layout** (traced via the class's Watcom base-constructor chain — `FUN_0042762c` →
 `FUN_00490d5c` → `FUN_0048fd94` → `FUN_0048f894`):
 1. 3×`int16` head fields + 6 raw bytes (base header). The **third is the shape's bounding radius**
-   — see [`../simulation/structure-hit-detection.md`](../simulation/structure-hit-detection.md).
+   — see [`../simulation/hit-detection.md`](../simulation/hit-detection.md).
    An earlier read of this doc called all three "id fields".
 2. `int16` child count, then that many nested `ClassItem` records
 3. `int16` count + that many 32-byte records (undecoded — BSP-plane-adjacent, per consumer `FUN_00476a1c`)
@@ -28,7 +28,7 @@ polymorphic `ClassItem_LoadResource` (`0047a038`) registry dispatch — same mec
    scalars + an opaque block" followed by "sub-record count × sub-record size raw records" — that
    walk consumed exactly the same bytes, so every retail record parsed correctly while all of it was
    named wrongly. Full layout and queries in
-   [`../simulation/structure-hit-detection.md`](../simulation/structure-hit-detection.md).
+   [`../simulation/hit-detection.md`](../simulation/hit-detection.md).
 
 Every record's on-disk footprint (header+payload) pads to an even total.
 

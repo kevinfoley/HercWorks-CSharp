@@ -319,6 +319,29 @@ sealed class DebugPanel {
 		ImGui.Text($"Damage taken: {pilotMech.DamageTaken}"
 			+ $"   ({pilotMech.PenetratingHits} hits past shields)");
 
+		if (pilotMech.Damage is { } components) {
+			int standing = 0;
+			int worst = 0;
+			int worstAt = -1;
+			for (int i = 0; i < components.Count; i++) {
+				if (components.IsActive(i)) {
+					standing++;
+				}
+
+				int taken = components.DamagePercent(i);
+				if (taken > worst) {
+					worst = taken;
+					worstAt = i;
+				}
+			}
+
+			ImGui.Text($"Components standing: {standing} of {components.Count}"
+				+ (worstAt < 0 ? "" : $"   worst: #{worstAt} at {worst * 100 / 0x100}%"));
+			ImGui.Text($"  legs: {(pilotMech.Immobilised ? "destroyed" : pilotMech.LegsCrippled ? "crippled" : "ok")}"
+				+ $"   reactor: {pilotMech.Reactor}"
+				+ $"   {(pilotMech.Destroyed ? "DEAD" : "alive")}");
+		}
+
 		// The bob itself. A retail stride is supposed to swing the eye 0.24-0.42 m (see
 		// MechObject.EyePosition), so a swing far outside that band is the measurement that turns the
 		// complaint into a lead.

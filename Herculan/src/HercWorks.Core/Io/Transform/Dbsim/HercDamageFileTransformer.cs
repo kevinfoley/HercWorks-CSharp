@@ -49,18 +49,20 @@ public class HercDamageFileTransformer : ThreeSpaceByteTransformer {
 		data.InternalsTotal = (short)internals.Length;
 
 		for (int i = 0; i < data.InternalsTotal; i++) {
-			short val = IndexShortLE();
-
-			if (i < 10) {
-				var system = data.NewInternalsHealth();
-				system.Id = (short)i;
-				system.Armor = val;
-				if (val != 0) {
-					system.Name = HercInternals.GetById((short)i);
-				}
-
-				internals[i] = system;
+			// Every slot is kept, not just the first ten. DBSIM reads this array flat and indexes it
+			// by the dependent index a component's own record names, and two of those indices are
+			// past ten: slots 10 and 11 are the rear leg servos of a four-legged chassis, which
+			// Mech_ComponentDamageWrite reads by literal offset alongside slots 0 and 1. Dropping
+			// them lost PITBULL's rear legs, and left the write path dereferencing nulls for every
+			// 22-slot file it round-tripped.
+			var system = data.NewInternalsHealth();
+			system.Id = (short)i;
+			system.Armor = IndexShortLE();
+			if (system.Armor != 0) {
+				system.Name = HercInternals.GetById((short)i);
 			}
+
+			internals[i] = system;
 		}
 		data.Internals = internals;
 

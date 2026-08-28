@@ -79,7 +79,7 @@ two unrelated purposes, confirming it's a general math-library utility:
 
 Address cluster `0x0040c428`–`0x0040cd88`: the per-object hit-sphere model, its load-time setup and
 its ray test. **Fully decoded and ported for structures** —
-[`structure-hit-detection.md`](structure-hit-detection.md) carries the file format, the readers, the
+[`hit-detection.md`](hit-detection.md) carries the file format, the readers, the
 ray test and the retail verification. Three points that belong with the rest of the fixed-point math:
 
 - The model is a tree of `{x, y, z, radius}` `int16` spheres grouped into clusters, one cluster per

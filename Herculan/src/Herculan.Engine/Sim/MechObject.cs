@@ -2,6 +2,7 @@ using HercWorks.Core.Data.File.Dat.Sim;
 using HercWorks.Core.Data.File.Dbsim;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Sim.Anim;
+using Herculan.Engine.World;
 
 namespace Herculan.Engine.Sim;
 
@@ -32,9 +33,10 @@ public sealed partial class MechObject : SimObject {
 	private const int CollisionBackoffTime = 10000;
 
 	private readonly int _hitRadius;
-	private readonly int _centerHeight;
 	private readonly GunLayout? _hardpoints;
 	private readonly WeaponCatalog? _weapons;
+	private readonly CollisionNode[] _collision;
+	private readonly ComponentDamage? _damage;
 
 	/// <param name="hardpoints">
 	/// The chassis' own <c>gl\&lt;HERC&gt;.GL</c> hardpoint list — where each weapon physically sits,
@@ -42,26 +44,29 @@ public sealed partial class MechObject : SimObject {
 	/// it the machine is fitted with nothing, because the fit alone does not say where anything goes.
 	/// </param>
 	/// <param name="weapons">The simulator's weapon tables — see <see cref="WeaponCatalog"/>.</param>
-	/// <param name="centerHeight">
-	/// How high above the machine's origin its centre of mass sits, in world units — the height a
-	/// direct-fire hit test measures the machine by, so that a beam over its feet misses.
-	///
-	/// <para>DBSIM reads this from its in-memory mech type record at <c>+0x18</c>, alongside the hit
-	/// radius at <c>+0x1a</c>; neither offset has been mapped onto <see cref="HercSimDat"/>'s fields,
-	/// so the caller supplies both from the loaded model's bounds instead. Defaults to
-	/// <paramref name="hitRadius"/>, which is the same order of magnitude.</para>
+	/// <param name="collision">
+	/// The chassis' <c>col\&lt;HERC&gt;.COL</c> hit-sphere model — every cluster of it mounted on one
+	/// of the shape's animated nodes, which is what makes the hit geometry follow the walk cycle. A
+	/// machine without one cannot be struck at all; see <see cref="DirectFireHitTest"/>.
+	/// </param>
+	/// <param name="damage">
+	/// The chassis' <c>dmg\&lt;HERC&gt;.DMG</c> component health, sized to a mech's 29 components and
+	/// 22 dependents. Without it a struck component has nowhere to record the hit and the machine is
+	/// likewise untouchable.
 	/// </param>
 	public MechObject(string name, HercSimDat simData, int hitRadius, MechLoadout loadout,
 			ShapeAnimation? animation = null, GunLayout? hardpoints = null,
-			WeaponCatalog? weapons = null, int? centerHeight = null) {
+			WeaponCatalog? weapons = null, CollisionNode[]? collision = null,
+			ComponentDamage? damage = null) {
 		Name = name;
 		SimData = simData;
 		Type = new MechTypeRecord(simData);
 		_hitRadius = hitRadius;
-		_centerHeight = centerHeight ?? hitRadius;
 		Loadout = loadout;
 		_hardpoints = hardpoints;
 		_weapons = weapons;
+		_collision = collision ?? Array.Empty<CollisionNode>();
+		_damage = damage;
 
 		// A HERC powers up in its stop / step-off sequence, not its walk cycle — the mech constructor
 		// builds this thread with typeRec+0x12 and a rate of zero. It matters: the gait state
@@ -265,12 +270,19 @@ public sealed partial class MechObject : SimObject {
 	public Transform3 WorldTransform => Rotation();
 
 	/// <summary>
-	/// Coarse collision radius. DBSIM reads a per-type hit-cylinder radius from its in-memory mech
-	/// type record at <c>+0x1a</c>; that record is assembled from more than just the <c>.DAT</c>
-	/// file and its offsets have not been mapped onto <see cref="HercSimDat"/>'s fields yet, so the
-	/// caller supplies a radius derived from the loaded model's bounds instead.
+	/// Coarse collision radius, from the loaded model's own bounds. This is the figure
+	/// <see cref="CollisionTest"/> keeps machines apart by; DBSIM reads that one from a vtable slot
+	/// whose per-type values are still unmapped, which is why it is not the type record's
+	/// <see cref="MechTypeRecord.HitRadius"/> — that one is the <i>shot</i> radius, and it is what
+	/// <see cref="DirectFireHitTest"/> uses.
 	/// </summary>
 	public override int HitRadius => _hitRadius;
+
+	/// <summary>
+	/// This machine's per-component health, or null for a type whose <c>.DMG</c> the install is
+	/// missing. Every hit past shields lands in here.
+	/// </summary>
+	public ComponentDamage? Damage => _damage;
 
 	// Post-collision back-off, for AI machines: a countdown during which desired speed is pinned to
 	// one extreme so the machine walks itself clear of whatever it hit.

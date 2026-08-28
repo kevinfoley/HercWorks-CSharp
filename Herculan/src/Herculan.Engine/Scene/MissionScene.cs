@@ -179,7 +179,7 @@ public sealed class MissionScene {
 		var objects = new List<SceneObject>(mission.Placements.Count);
 		SceneObject? playerObject = null;
 		foreach (var placement in mission.Placements) {
-			var spawned = Spawn(placement, models, baseTypes, baseCollision, weapons);
+			var spawned = Spawn(placement, models, baseTypes, baseCollision, weapons, world.Random);
 			if (spawned == null) {
 				continue;
 			}
@@ -299,8 +299,9 @@ public sealed class MissionScene {
 	/// <i>model</i> cannot be built still spawns: it is really there, and the scene reports it.
 	/// </summary>
 	private static SceneObject? Spawn(MissionPlacement placement, SceneModelLibrary models,
-			BaseTypeTable baseTypes, BaseCollisionTable baseCollision, WeaponCatalog? weapons) {
-		var (simObject, model) = Create(placement, models, baseTypes, baseCollision, weapons);
+			BaseTypeTable baseTypes, BaseCollisionTable baseCollision, WeaponCatalog? weapons,
+			SimRandom random) {
+		var (simObject, model) = Create(placement, models, baseTypes, baseCollision, weapons, random);
 		if (simObject == null) {
 			return null;
 		}
@@ -319,8 +320,20 @@ public sealed class MissionScene {
 		return new SceneObject(simObject, model, placement);
 	}
 
+	/// <summary>
+	/// One object's own component health, or null when the install ships no <c>.DMG</c> for its type.
+	/// The record is shared per type and the damage is per object, which is the split the original
+	/// has: the maxima live in the loaded file and the three arrays are allocated in the constructor.
+	/// </summary>
+	private static ComponentDamage? ComponentDamageFor(SceneModelLibrary models, string typeName,
+			int componentCount, int dependentCount, SimRandom random) =>
+		models.DamageData(typeName) is { } data
+			? new ComponentDamage(data, componentCount, dependentCount, random)
+			: null;
+
 	private static (SimObject? Object, SceneModel? Model) Create(MissionPlacement placement,
-			SceneModelLibrary models, BaseTypeTable baseTypes, BaseCollisionTable baseCollision, WeaponCatalog? weapons) {
+			SceneModelLibrary models, BaseTypeTable baseTypes, BaseCollisionTable baseCollision,
+			WeaponCatalog? weapons, SimRandom random) {
 		switch (placement.Kind) {
 			case MissionUnitKind.Mech: {
 				if (placement.TypeName == null || models.MechData(placement.TypeName) is not { } simData) {
@@ -336,9 +349,9 @@ public sealed class MissionScene {
 						models.MechAnimation(placement.TypeName),
 						models.MechHardpoints(placement.TypeName),
 						weapons,
-						// Half the model's own height stands in for the type record's centre-of-mass
-						// field, which has not been mapped — see MechObject's constructor.
-						(model?.HeightWorldUnits ?? 0) / 2),
+						models.Collision(placement.TypeName),
+						ComponentDamageFor(models, placement.TypeName,
+							ComponentDamage.MechComponentCount, ComponentDamage.MechDependentCount, random)),
 					model);
 			}
 
@@ -350,7 +363,10 @@ public sealed class MissionScene {
 				var model = models.Flyer(placement.TypeName);
 				return (
 					new FlyerObject(placement.TypeName, models.FlyerData(placement.TypeName),
-						model?.RadiusWorldUnits ?? 0),
+						model?.RadiusWorldUnits ?? 0,
+						models.Collision(placement.TypeName),
+						ComponentDamageFor(models, placement.TypeName,
+							ComponentDamage.FlyerComponentCount, ComponentDamage.FlyerDependentCount, random)),
 					model);
 			}
 

@@ -10,9 +10,10 @@ namespace Herculan.Engine.Sim;
 /// specific part of a specific building.
 ///
 /// <para>Despite the name it is not mech-specific: structures reach it through
-/// <c>Base_DirectFireHitTest</c> (<c>00405038</c>) and flyers through <c>FUN_00421c8c</c>, all three
-/// passing a model loaded by the same readers. The engine has models for structures only — see
-/// <see cref="BaseCollisionTable"/>.</para>
+/// <c>Base_DirectFireHitTest</c> (<c>00405038</c>) and flyers through
+/// <c>Flyer_DirectFireHitTest</c> (<c>00421c8c</c>), all three passing a model read by
+/// <see cref="CollisionModelReader"/> — a structure's out of <see cref="BaseCollisionTable"/>, a
+/// mech's or a flyer's out of its own <c>col\&lt;NAME&gt;.COL</c>.</para>
 ///
 /// <para><b>The ray shortens as the test runs.</b> Every sphere that is struck clips the working
 /// distance to its own entry point, and later spheres are tested against the clipped ray, so the
@@ -41,37 +42,54 @@ public static class CollisionModel {
 	/// <param name="distance">The ray's remaining length.</param>
 	/// <param name="clearance">The shot's clearance — see <see cref="WeaponShot.Clearance"/>.</param>
 	/// <param name="componentAlive">
-	/// Whether each of the type's components is still standing. A destroyed component's spheres are
-	/// skipped outright, so a building that has lost a wing stops stopping shots through it.
+	/// Whether one of the type's components is still standing. A destroyed component's spheres are
+	/// skipped outright, so an object that has lost a section stops stopping shots through it.
+	/// </param>
+	/// <param name="nodeFrame">
+	/// Where one of the shape's nodes stands right now, relative to the object's own frame, or null
+	/// for "this shape has no such node" — which the original answers with an identity transform
+	/// (<c>DAT_006c572c</c>) rather than by skipping the cluster. Only consulted for a cluster whose
+	/// <see cref="CollisionNode.NodeIndex"/> is non-negative; passing no resolver at all leaves those
+	/// clusters in the object frame, which is what a static object wants.
+	///
+	/// <para><b>This is the whole of a HERC's hit geometry.</b> A mech <c>.COL</c> places every one
+	/// of its clusters on a node — SPIDER has thirteen, PITBULL ten — with spheres 40 to 300 world
+	/// units across sitting in node-local space, so the hit volume walks with the legs and swings
+	/// with the torso. A structure's model is the opposite: almost all of it is in the object
+	/// frame.</para>
 	/// </param>
 	/// <returns>The nearest component struck, or null for a miss.</returns>
 	public static Hit? Test(CollisionNode[] model, in Transform3 toMuzzleSpace, int distance,
-			int clearance, IReadOnlyList<bool> componentAlive) {
+			int clearance, Func<int, bool> componentAlive, Func<short, Transform3?>? nodeFrame = null) {
 		Hit? best = null;
 
 		foreach (var node in model) {
-			// A node-placed cluster is expressed in one of the shape's node transforms, not in the
-			// object's frame, and the engine has no node transforms for structures — testing those
-			// spheres against the object frame would put them in the wrong place, which is worse than
-			// not testing them. Only the eight animated structure types carry any.
-			if (node.NodeIndex != BaseCollisionTable.ObjectFrameNode) {
-				continue;
+			var frame = toMuzzleSpace;
+
+			if (node.NodeIndex != CollisionModelReader.ObjectFrameNode) {
+				// The original composes the node's posed transform with the object-to-muzzle one, so
+				// the spheres are read in the node's frame and land wherever the animation has put it.
+				// With no resolver — a structure, whose node transforms the engine does not have —
+				// the cluster is left in the object frame, which is where the eight animated
+				// structure types' handful of node-placed clusters sit anyway when they are at rest.
+				if (nodeFrame?.Invoke(node.NodeIndex) is { } posed) {
+					frame = Transform3.Concat(posed, toMuzzleSpace);
+				}
 			}
 
 			foreach (var cluster in node.Clusters) {
-				if (cluster.ComponentIndex < 0 || cluster.ComponentIndex >= componentAlive.Count
-						|| !componentAlive[cluster.ComponentIndex]) {
+				if (!componentAlive(cluster.ComponentIndex)) {
 					continue;
 				}
 
 				// FUN_0040c8c8: the cluster's own bound first, and the spheres only if it passes.
-				if (!BoundStruck(cluster.Bound, toMuzzleSpace, distance, clearance)) {
+				if (!BoundStruck(cluster.Bound, frame, distance, clearance)) {
 					continue;
 				}
 
 				bool struck = false;
 				foreach (var sphere in cluster.Spheres) {
-					var center = toMuzzleSpace.TransformPoint(sphere.X, sphere.Y, sphere.Z);
+					var center = frame.TransformPoint(sphere.X, sphere.Y, sphere.Z);
 					if (SphereStruck(center, sphere.Radius, clearance, ref distance)) {
 						struck = true;
 					}

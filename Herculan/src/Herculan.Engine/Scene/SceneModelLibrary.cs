@@ -83,6 +83,8 @@ public sealed class SceneModelLibrary {
 	private readonly Dictionary<string, FlyerSimData?> _flyerData = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, ShapeAnimation?> _animations = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, GunLayout?> _hardpoints = new(StringComparer.OrdinalIgnoreCase);
+	private readonly Dictionary<string, CollisionNode[]> _collision = new(StringComparer.OrdinalIgnoreCase);
+	private readonly Dictionary<string, HercSimDamage?> _damageData = new(StringComparer.OrdinalIgnoreCase);
 
 	/// <summary>
 	/// The folder hardpoint lists live in — <c>ResourcePath_BuildFolderName(name, "gl")</c> at the
@@ -154,6 +156,46 @@ public sealed class SceneModelLibrary {
 		_hardpoints[mechName] = data;
 		return data;
 	}
+
+	/// <summary>
+	/// A mech or flyer type's hit-sphere model, <c>col\&lt;NAME&gt;.COL</c> — empty when the install
+	/// ships none, which on retail data is true of <c>HOVTANK</c> and <c>DROPSHIP</c> and of nothing
+	/// else. Shared per type: the model is read in the type's own space and posed per object.
+	/// </summary>
+	public CollisionNode[] Collision(string typeName) {
+		if (_collision.TryGetValue(typeName, out var cached)) {
+			return cached;
+		}
+
+		var model = CollisionModelReader.Load(_content, typeName);
+		_collision[typeName] = model;
+		return model;
+	}
+
+	/// <summary>
+	/// A mech or flyer type's component health record, <c>dmg\&lt;NAME&gt;.DMG</c>. Shared per type
+	/// because it is the <i>maxima</i>, not the damage: the damage is per object, in
+	/// <see cref="ComponentDamage"/>.
+	/// </summary>
+	public HercSimDamage? DamageData(string typeName) {
+		if (_damageData.TryGetValue(typeName, out var cached)) {
+			return cached;
+		}
+
+		byte[]? bytes = _content.Read(DamageFolder, typeName + ".DMG");
+		var data = bytes != null
+			? new HercDamageFileTransformer().BytesToObject(bytes) as HercSimDamage
+			: null;
+
+		_damageData[typeName] = data;
+		return data;
+	}
+
+	/// <summary>
+	/// The folder component health records live in — <c>ResourcePath_BuildFolderName(name, "dmg")</c>
+	/// in both the mech constructor and the flyer type loader.
+	/// </summary>
+	private const string DamageFolder = "dmg";
 
 	/// <summary>The flyer type's stats, or null — only <c>SKIMMER</c> ships one.</summary>
 	public FlyerSimData? FlyerData(string flyerName) {

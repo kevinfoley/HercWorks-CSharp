@@ -1,12 +1,24 @@
-# Structure hit detection and damage
+# Hit detection
 
-How a shot hits a building. Reverse-engineered from `DBSIM.EXE` (Ghidra project `ES2Recon`);
-addresses are DBSIM virtual addresses. Companion to
-[`damage-system.md`](damage-system.md) (the mech's own path through the same raycast) and
+How a shot decides what it struck, for all three shootable classes. Reverse-engineered from
+`DBSIM.EXE` (Ghidra project `ES2Recon`); addresses are DBSIM virtual addresses. Companion to
+[`damage-system.md`](damage-system.md) (what the hit then does to a mech) and
 [`impact-effects.md`](impact-effects.md) (what a hit spawns).
 
-Structures are the only class other than the mech whose vtable `+0x20` is ported. **Flyers still
-have none** — see "Not ported" below.
+All three vtable `+0x20` implementations are ported: `Base_DirectFireHitTest` (`00405038`),
+`Mech_DirectFireHitTest` (`00418ba8`, in [`damage-system.md`](damage-system.md)) and
+`Flyer_DirectFireHitTest` (`00421c8c`). All three reach the same sphere test; only the model source
+and what surrounds it differ.
+
+## The sweep — `Sim_RaycastObjectList` (`00426528`)
+
+Full treatment in [`damage-system.md`](damage-system.md). One candidate filter is easy to miss and
+matters: **an object whose mission group still carries an action is skipped before any geometry is
+touched** (`*(int*)(obj[+0x45] + 0x14) != 0` — the group record's action slot, the same test
+[`mission-deployment.md`](mission-deployment.md) covers). Retail missions place undeployed groups by
+the ordinary rules, so several routinely sit stacked on a shared waypoint; the first stock mission
+parks seven objects in three overlapping pairs. Without the skip they are invisible and unticked but
+perfectly solid, and shots stop on nothing.
 
 ## `Base_DirectFireHitTest` — `00405038`
 
@@ -40,16 +52,23 @@ record** before the raycast. A volume-path hit whose shot carries zero on both c
 armour figure back out of that global. Unreachable in the engine, which does not port the plasma
 branch (see [`../engine/handoff-weapon-effects.md`](../engine/handoff-weapon-effects.md)).
 
-## The sphere model — `dat\BASECOL.DAT`
+## The sphere model — `dat\BASECOL.DAT` and `col\<NAME>.COL`
 
-One hand-authored hit-sphere model per structure type, in `BASES.DAT` type order, read as one
-continuous stream at the tail of `Bases_LoadTypeTable` (`0043a2e0`). Every field is `int16`:
+One format, two sources. Every field is `int16`:
 
 ```
-per type:   nodeCount
-              per node: nodeIndex, clusterCount
-                per cluster: componentIndex, sphereCount, sphereCount * { x, y, z, radius }
+nodeCount
+  per node: nodeIndex, clusterCount
+    per cluster: componentIndex, sphereCount, sphereCount * { x, y, z, radius }
 ```
+
+- **Structures** read 65 of these back to back out of `dat\BASECOL.DAT`, in `BASES.DAT` type order,
+  as one continuous stream at the tail of `Bases_LoadTypeTable` (`0043a2e0`). `componentIndex`
+  indexes the type's `BASES.DAT` component array.
+- **Mechs and flyers** each read one whole file, `col\<NAME>.COL`, through
+  `Collision_RegisterObject` (`0040cd88`) — the mech from `Mech_Constructor` (`00415bb0`, into
+  `mech+0x1f6`), the flyer from its type loader (`FUN_00422ed0`, into `flyerTypeRec+0x32`).
+  `componentIndex` indexes the `.DMG` file's 29-slot component array instead.
 
 Readers: `Collision_LoadRecordArray` (`0040ccf8`) → `Collision_ReadNode` (`0040cc50`) →
 `Collision_ReadCluster` (`0040cc14`) → `Collision_ReadSphereArray` (`0040c7c4`). The last three were
@@ -74,18 +93,27 @@ Per cluster (`Mech_ComponentGeometryTest_Candidate`, `0040c8fc`):
 
 - A cluster whose component is already destroyed (`obj+0x201` alive flags) is **skipped entirely**,
   so a building stops blocking shots through the sections it has lost.
-- `nodeIndex < 0` means the object's own frame. A non-negative one resolves through the shape
-  instance's node-transform array (`inst+0x16 + node[+4] * 0x20`) so a moving part carries its hit
-  volume; only the eight animated structure types have any.
+- `nodeIndex < 0` means the object's own frame. A non-negative one is a shape **part id**, resolved
+  through the shape (`shape->vtable+0x20`) to that part's transform slot and then through the
+  instance's node-transform array (`inst+0x16 + part[+4] * 0x20`), so a moving part carries its hit
+  volume. A part the shape does not have falls back to an identity transform rather than being
+  skipped. **This is the whole of a HERC's hit geometry** — every mech `.COL` cluster is node-placed,
+  so the volume walks with the legs and swings with the torso. Structures are the opposite: only the
+  eight animated types have any, and each keeps its body cluster in the object frame.
 - Bound first (`FUN_0040c4c4`), spheres only if it passes (`FUN_0040c524` → `FUN_0040c428`).
 - **The ray shortens as the test runs** (global `DAT_004a9894`): each struck sphere clips the
   working distance to its own entry point, `alongAxis - (radius + clearance - offAxis)` floored at
   zero, and later spheres are tested against the clipped ray. The result kept is the *last* cluster
   that hit, which is therefore the nearest. Returned distance is that clipped distance `+ 1`;
-  `00405038` adds another `+ 1`.
+  `00405038` and `00421c8c` each add another `+ 1`, `00418ba8` does not.
 
 `FUN_0040c428`'s off-axis test is written in 16-bit arithmetic — `(ushort)(offAxis + reach) <
 (ushort)(reach * 2)` — because the doubled radius can overflow a signed short.
+
+The two transform helpers under it differ only in input width: `FUN_004800c8` takes a `short`
+point (structure/sphere centres), `FUN_00480330` an `int` one. Both branch on the transform's rank
+byte at `+0x12` — translation only, Z-rotation only, or full 3×3 — which is an optimisation, not a
+behavioural difference.
 
 ### Verified against retail data
 
@@ -93,6 +121,24 @@ Per cluster (`Mech_ComponentGeometryTest_Candidate`, `0040c8fc`):
 cluster's `componentIndex` is inside its type's component array. The geometry reads as deliberate
 hitboxes — a three-section bunker with a cluster per section, a gun tower with a cluster per barrel.
 One type (3) carries a full model that its `+0x30` flag leaves switched off.
+
+All **22 `.COL` files** likewise walk exactly to their own end and **round-trip byte-exact** through
+`HercColliderTransformer`. Every `componentIndex` is inside the 29-slot array (max 28); every node
+id resolves to a real shape part except RAZOR's single node 5, which takes the identity fallback
+above. Node counts run 1 (RAZOR, SKIMMER) to 13 (SPIDER); sphere radii 40–600 world units.
+`SKIMMER` is the only file with an object-frame cluster.
+
+ACHILLES' first cluster cross-checks against its `.DMG`: it places spheres for components 7, 9 and
+11 on nodes 3 and 1, and 7→9→11 is exactly the `BoneId` chain that file states for the left leg.
+Component 7's two spheres are `(-20, 0, -100) r=200` and `(-20, 0, -400) r=180` — a thigh as two
+stacked balls.
+
+**This corrects `HercWorks.Core`'s `HercCollider`**, which described a 10-byte header followed by
+data it called undecoded. There is no header: those five shorts are the walk's first five fields,
+which is why that reading's own observations lined up as they did — "always 6" is ACHILLES' node
+count, "always 3 for hercs / FFFF for skimmer" the first node's index, the "collider type" that
+crashes above 1 the first node's cluster count reading past the end of the file, "hercs have 7" the
+first cluster's component index, and the last field its sphere count.
 
 ## The collision volume — the `.DGS` record's height field
 
@@ -222,33 +268,65 @@ Runtime object fields the hit path uses: `+0x0c` euler triple, `+0x12` transform
 `+0x1f2` type record, `+0x201` per-component alive flags, `+0x205` per-component state (11 bytes:
 `+0` damage, `+3` effect timer, `+5` effect id, `+7` attacker).
 
+## `Flyer_DirectFireHitTest` — `00421c8c`
+
+The shortest of the three, and the only one with no second piece of geometry behind it: the coarse
+reject on `SimObject_GetShapeRadius` (`shape+8`), then straight to the sphere test against
+`flyerTypeRec+0x32` with the alive flags at `flyer+0x208`. No shields, no collision volume.
+
+```
+if (shapeRadius + shot.clearance + rayLength < |muzzle - obj|) -> miss
+hit = Mech_SelectStruckComponent(typeRec[+0x32], obj, ray, objToMuzzle, obj[+0x208])
+if (hit) {
+    fx = shot.ImpactFXArmor[rand & 3]
+    vtable+0x74(hit.component, shot.DamageArmor, shot.owner)
+    if (obj[+0x99]) fx = 10                       // already a wreck: a fixed effect id, not the shot's
+    spawn fx at rayTransform.TransformPoint(0, hit.distance + 1, 0)
+    spawn a second effect from a different pool   // unconditional here, 25% for a structure
+}
+```
+
+A flyer's health record is **one component with one dependent** — `FUN_004215f4` allocates the
+arrays with literal counts of 1, which is exactly what `SKIMMER.DMG` ships. Its vtable `+0x74`
+(`FUN_00421bb4`) is a thin wrapper: destroy component 0 and the aircraft is lost (`obj+0x99`), it
+fires its mission action, credits the kill, and is given a large negative rate at `obj+0x2e` to
+fall.
+
+Retail ships a `.COL` and a `.DMG` for `SKIMMER` only, so `HOVTANK` and `DROPSHIP` cannot be shot
+at all — in the original as much as here.
+
 ## Ported
 
-`Herculan.Engine.Sim.BaseObject` (both paths, damage), `Sim.ShapeVolume` (the grid queries),
-`Sim.CollisionModel` (the sphere test), `World.BaseCollisionTable` (`BASECOL.DAT`),
-`World.BaseTypeTable` (the combat fields), and the corrected volume read in
-`HercWorks.Core.Io.Transform.Dbsim.BasesDgsTransformer`.
+`Herculan.Engine.Sim.BaseObject` (both paths, damage), `Sim.FlyerObject`, `Sim.MechObject.Combat`,
+`Sim.ComponentDamage` (the mech/flyer health record), `Sim.ShapeVolume` (the grid queries),
+`Sim.CollisionModel` (the sphere test, with the node resolver),
+`World.CollisionModelReader` (the shared format), `World.BaseCollisionTable`,
+`World.BaseTypeTable` (the combat fields), and — on the tool side — the corrected volume read in
+`HercWorks.Core.Io.Transform.Dbsim.BasesDgsTransformer` and the corrected, now round-trippable
+`HercColliderTransformer`.
 
 ## Not ported
 
-- **Flyers.** `FUN_00421c8c` (flyer vtable `+0x20`) runs the same sphere test against
-  `flyerTypeRec+0x32`. That model comes from `col\<NAME>.COL` via `Collision_RegisterObject`
-  (`0040cd88`), loaded per type by the flyer type loader (`FUN_00422ed0`) and by `Mech_Constructor`
-  (`00415bb0`, into `mech+0x1f6`) — the same reader as `BASECOL.DAT`, a different source. Retail
-  ships 22 `.COL` files, one per HERC plus `SKIMMER`. **Loading them is also what would let
-  `Mech_SelectStruckComponent` name a struck HERC component**, which
-  [`damage-system.md`](damage-system.md) lists as outstanding.
-- **Node-placed sphere clusters** are skipped rather than tested in the wrong frame — the engine has
-  no node transforms for structures. Only the eight animated types carry any, and each keeps its
-  body cluster (`nodeIndex == -1`).
+- **Node-placed clusters on structures** are tested in the object frame rather than the node's — the
+  engine has no posed node transforms for structures. Only the eight animated types carry any.
 - The destruction effect table (`0049741c`), the kill credit (`attacker+0x60`), the mission action a
-  destroyed structure fires, the hidden sub-shape, and the 25%-chance secondary effect on every hit.
+  destroyed structure fires, the hidden sub-shape, and the secondary effect every hit rolls.
 - Spawn-time component health from the mission record.
 - Terrain flattening under a placed structure (`FUN_00470dc8`).
+- The second exclusion `Sim_RaycastObjectList` tests at the shot record's `+0x14`. The beam path
+  never writes that field — it is stack garbage there, so the comparison excludes nothing.
+- `FUN_00404bc0`, the bulk line-of-sight query over the structure list.
 
-## Known issue
+## Measured: hit geometry versus the drawn mesh
 
-Impact effects and projectiles visibly clip into buildings, which retail does not do. Cause not
-investigated — candidates are the collision bound being slightly small (`Collision_ComputeBoundingSphere`'s
-fast-magnitude radius runs low, and the volume's cells are 512 units across) or a render-ordering
-problem independent of the hit geometry. Recorded in `KNOWN_ISSUES.md`.
+Prompted by projectiles appearing to sink into buildings. Across every static structure type, the
+`.DGS` grid's world footprint is **larger** than the mesh it is drawn with, by 200–900 units a side,
+because it rounds out to whole 512-unit cells — so the volume never runs small horizontally and a
+shot should if anything stop slightly early. `Sim_RaycastShapeVolume`, `ShapeVolume_Raycast`,
+`ShapeVolume_HeightAround`, `Collision_RaySphereTest` and `Collision_ClusterBoundTest` all re-check
+as faithful ports, including the 712-unit march step (`(1 << 9) + clearance`) that retail shares.
+The remaining suspect is render layering, not hit geometry.
+
+The same pass found a real data quirk: several types' collision **ceiling** sits well below their
+roof line — type 3 stops at 2225 against a 6756 mesh, type 22 at 9400 against 18300 — so shots at
+the upper part of those buildings pass clean through. That is the retail data's own authoring.

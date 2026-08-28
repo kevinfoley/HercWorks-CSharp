@@ -16,7 +16,7 @@ This is DBSIM.EXE's runtime weapon-mount table, loaded by `Weapons_LoadResourceT
 
 Built entirely from **reused low-level record readers**:
 `HercPiece_ReadRecord` (see `docs/simulation/damage-system.md`, "The component damage system"),
-`Collision_ReadCluster`, `Collision_ReadSphereArray` (see `docs/simulation/structure-hit-detection.md`; both were named `Collision_LoadSubSphereFlag`/`Collision_LoadSubMeshIndices` when this doc was written). In-memory struct is 88 bytes (`0x58`), but on-disk record is variable-length; extra in-memory bytes are runtime-only (a pointer + self-index the loader fills in after reading).
+`Collision_ReadCluster`, `Collision_ReadSphereArray` (see `docs/simulation/hit-detection.md`; both were named `Collision_LoadSubSphereFlag`/`Collision_LoadSubMeshIndices` when this doc was written). In-memory struct is 88 bytes (`0x58`), but on-disk record is variable-length; extra in-memory bytes are runtime-only (a pointer + self-index the loader fills in after reading).
 
 Read order (all fields little-endian):
 

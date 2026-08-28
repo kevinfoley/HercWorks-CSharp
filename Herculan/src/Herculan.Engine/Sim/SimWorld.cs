@@ -202,7 +202,9 @@ public sealed class SimWorld {
 	/// <para>Two things the original also does here are left out, both belonging to systems that do
 	/// not exist yet: the AI "something just shot at me" notification on each candidate's
 	/// <c>+0x50</c> slot, and the friendly-fire and lock-on filtering that reads each object's team
-	/// byte.</para>
+	/// byte. A third, the second exclusion the original tests at the shot record's <c>+0x14</c>, is
+	/// left out because the beam path never writes that field — it is stack garbage there, so the
+	/// comparison excludes nothing.</para>
 	/// </summary>
 	/// <returns>The distance the shot travelled before it hit something, or zero if it hit nothing.</returns>
 	public int Raycast(WeaponShot shot) {
@@ -210,7 +212,16 @@ public sealed class SimWorld {
 
 		for (int i = 0; i < _objects.Count; i++) {
 			var candidate = _objects[i];
-			if (candidate.Removed || ReferenceEquals(candidate, shot.Owner)) {
+
+			// An object whose mission group is still waiting on its action is skipped before any
+			// geometry is touched — the original's own `group[+0x14] != 0` test, the same one
+			// MechObject.CollisionTest and the frame submit make. It matters more here than
+			// anywhere: an undeployed group is placed by the ordinary rules, so retail missions
+			// routinely leave several of them stacked on a shared waypoint — the first stock
+			// mission parks seven objects in three overlapping pairs — where they are invisible and
+			// unticked but, without this, perfectly solid. Shots stopped on nothing.
+			if (candidate.Removed || candidate.AwaitingDeployment
+					|| ReferenceEquals(candidate, shot.Owner)) {
 				continue;
 			}
 

@@ -1,3 +1,4 @@
+using HercWorks.Core.Data.File.Dbsim;
 using Herculan.Engine.Content;
 
 namespace Herculan.Engine.World;
@@ -28,9 +29,9 @@ public sealed class BaseCollisionTable {
 	/// <summary>The node index meaning "these spheres are in the object's own frame".</summary>
 	public const short ObjectFrameNode = CollisionModelReader.ObjectFrameNode;
 
-	private readonly CollisionNode[][] _models;
+	private readonly ColliderNode[][] _models;
 
-	private BaseCollisionTable(CollisionNode[][] models) {
+	private BaseCollisionTable(ColliderNode[][] models) {
 		_models = models;
 	}
 
@@ -41,8 +42,8 @@ public sealed class BaseCollisionTable {
 	/// The model for a type, or an empty array when the file has none for it. Whether the model is
 	/// actually used is <see cref="BaseType.HasCollisionModel"/>, not whether this is empty.
 	/// </summary>
-	public CollisionNode[] this[int typeIndex] =>
-		typeIndex >= 0 && typeIndex < _models.Length ? _models[typeIndex] : Array.Empty<CollisionNode>();
+	public ColliderNode[] this[int typeIndex] =>
+		typeIndex >= 0 && typeIndex < _models.Length ? _models[typeIndex] : Array.Empty<ColliderNode>();
 
 	/// <param name="content">Mounted archives.</param>
 	/// <param name="typeCount">
@@ -53,7 +54,7 @@ public sealed class BaseCollisionTable {
 		byte[] bytes = content.ReadRequired(ResourceFolder, ResourceName);
 		int offset = 0;
 
-		var models = new CollisionNode[typeCount][];
+		var models = new ColliderNode[typeCount][];
 		for (int type = 0; type < typeCount; type++) {
 			models[type] = CollisionModelReader.Read(bytes, ref offset);
 		}

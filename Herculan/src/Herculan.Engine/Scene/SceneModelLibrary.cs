@@ -83,7 +83,7 @@ public sealed class SceneModelLibrary {
 	private readonly Dictionary<string, FlyerSimData?> _flyerData = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, ShapeAnimation?> _animations = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, GunLayout?> _hardpoints = new(StringComparer.OrdinalIgnoreCase);
-	private readonly Dictionary<string, CollisionNode[]> _collision = new(StringComparer.OrdinalIgnoreCase);
+	private readonly Dictionary<string, ColliderNode[]> _collision = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, HercSimDamage?> _damageData = new(StringComparer.OrdinalIgnoreCase);
 
 	/// <summary>
@@ -162,7 +162,7 @@ public sealed class SceneModelLibrary {
 	/// ships none, which on retail data is true of <c>HOVTANK</c> and <c>DROPSHIP</c> and of nothing
 	/// else. Shared per type: the model is read in the type's own space and posed per object.
 	/// </summary>
-	public CollisionNode[] Collision(string typeName) {
+	public ColliderNode[] Collision(string typeName) {
 		if (_collision.TryGetValue(typeName, out var cached)) {
 			return cached;
 		}

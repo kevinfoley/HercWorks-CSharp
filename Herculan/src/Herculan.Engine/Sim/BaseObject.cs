@@ -1,3 +1,4 @@
+using HercWorks.Core.Data.File.Dbsim;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.World;
 
@@ -23,7 +24,7 @@ namespace Herculan.Engine.Sim;
 /// </summary>
 public sealed class BaseObject : SimObject {
 	private readonly ShapeVolume? _volume;
-	private readonly CollisionNode[] _collision;
+	private readonly ColliderNode[] _collision;
 	private readonly int _shapeRadius;
 
 	// Damage taken per component, against BaseComponentType.MaxDamage -- the original's own
@@ -56,10 +57,10 @@ public sealed class BaseObject : SimObject {
 	/// type's own radius stands in there, which is close enough for a reject that only has to be
 	/// generous.</para>
 	/// </param>
-	public BaseObject(BaseType type, ShapeVolume? volume, CollisionNode[]? collision, int shapeRadius) {
+	public BaseObject(BaseType type, ShapeVolume? volume, ColliderNode[]? collision, int shapeRadius) {
 		Type = type;
 		_volume = volume;
-		_collision = collision ?? Array.Empty<CollisionNode>();
+		_collision = collision ?? Array.Empty<ColliderNode>();
 		_shapeRadius = shapeRadius != 0 ? shapeRadius : type.HitRadius;
 		_damage = new int[type.Components.Length];
 		_alive = new bool[type.Components.Length];

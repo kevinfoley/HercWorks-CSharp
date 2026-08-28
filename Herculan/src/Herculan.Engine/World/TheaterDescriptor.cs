@@ -1,5 +1,5 @@
-using System.Buffers.Binary;
-using System.Text;
+using HercWorks.Core.Data.File.Dbsim;
+using HercWorks.Core.Io.Transform.Dbsim;
 using Herculan.Engine.Content;
 
 namespace Herculan.Engine.World;
@@ -17,12 +17,12 @@ namespace Herculan.Engine.World;
 /// WORLD0/1 <c>urban</c>, WORLD2/3 <c>bsnow</c>, WORLD4/5 <c>volcan</c>, WORLD6/7 <c>ice</c>,
 /// WORLD8/9 <c>moon</c>. Both indices come from <see cref="ScriptDatHeader"/>.</para>
 ///
-/// <para>Most of the file is still undecoded and is skipped rather than guessed at: two int32
-/// arrays, two colour-ramp tables sized by a row/column pair, and about a dozen loose 16- and 32-bit
-/// fields. What <i>is</i> certain is the structure, because reading it as written below consumes
-/// every one of the ten retail files to its exact last byte, and the strings that fall out of the
-/// end are real resource names (see <see cref="TerrainBankName"/> and
-/// <see cref="ImpactPaletteName"/>).</para>
+/// <para>The file is parsed by <see cref="WorldData"/> in HercWorks.Core, which carries the layout.
+/// Most of its fields are still undecoded — two int32 arrays, two colour-ramp tables sized by a
+/// row/column pair, and about a dozen loose 16- and 32-bit fields — and are kept raw rather than
+/// guessed at. What <i>is</i> certain is the structure, because the walk consumes every one of the
+/// ten retail files to its exact last byte, and the strings that fall out of the end are real
+/// resource names (see <see cref="TerrainBankName"/> and <see cref="ImpactPaletteName"/>).</para>
 /// </summary>
 public sealed class TheaterDescriptor {
 	/// <summary>Resource folder and extension (the game uses one word for both).</summary>
@@ -90,85 +90,24 @@ public sealed class TheaterDescriptor {
 	}
 
 	/// <summary>
-	/// Walks the descriptor exactly as <c>maybe_World_LoadTheater</c> does. Every read below is one
-	/// stream call in the original, in this order; the sizes are its own.
+	/// Pulls the descriptor out of the parsed file. The walk itself — which is
+	/// <c>maybe_World_LoadTheater</c>'s own read order — lives in
+	/// <see cref="WorldDataTransformer"/>; everything this class needs is the string block at the end
+	/// of it.
 	/// </summary>
 	private static TheaterDescriptor Parse(byte[] bytes, int worldIndex, string baseName) {
-		int p = 0;
-
-		short Int16() {
-			short value = BinaryPrimitives.ReadInt16LittleEndian(Take(2));
-			return value;
-		}
-
-		int Int32() => BinaryPrimitives.ReadInt32LittleEndian(Take(4));
-
-		ReadOnlySpan<byte> Take(int count) {
-			if (p + count > bytes.Length) {
-				throw new InvalidDataException(
-					$"{ResourceFolder}\\{baseName}.WLD ended after {bytes.Length} bytes, mid-field at {p}.");
-			}
-			var span = bytes.AsSpan(p, count);
-			p += count;
-			return span;
-		}
-
-		string String() {
-			int start = p;
-			while (p < bytes.Length && bytes[p] != 0) {
-				p++;
-			}
-			if (p >= bytes.Length) {
-				throw new InvalidDataException(
-					$"{ResourceFolder}\\{baseName}.WLD ended inside an unterminated string at {start}.");
-			}
-			string value = Encoding.ASCII.GetString(bytes, start, p - start);
-			p++;
-			return value;
-		}
-
-		// 8 shorts, then 6 more. Several are dispatched straight into subsystem setup calls
-		// (0042ebbc, the sky/haze globals) rather than stored as a struct, so they are skipped here
-		// until whatever reads them is ported.
-		for (int i = 0; i < 14; i++) {
-			Int16();
-		}
-
-		// Two count-prefixed int32 arrays. Retail files carry 16 entries each, identical to one
-		// another, ascending in even steps — a distance/time ramp of some kind, consumer not traced.
-		for (int array = 0; array < 2; array++) {
-			int count = Int32();
-			if (count < 0 || p + count * 4 > bytes.Length) {
-				throw new InvalidDataException(
-					$"{ResourceFolder}\\{baseName}.WLD declares {count} entries in array {array}, which does not fit.");
-			}
-			Take(count * 4);
-		}
-
-		// A rows x cols colour-ramp pair: two tables of `cols` int32s each, with a loose short
-		// between them, then two more 4-byte entries that get expanded the same way (FUN_00430d08).
-		int rampRows = Int16();
-		int rampColumns = Int16();
-		if (rampColumns < 0 || rampRows < 0) {
+		if (new WorldDataTransformer().BytesToObject(bytes) is not WorldData wld) {
 			throw new InvalidDataException(
-				$"{ResourceFolder}\\{baseName}.WLD has a negative ramp size ({rampRows}x{rampColumns}).");
+				$"{ResourceFolder}\\{baseName}.WLD is too short to be a theater descriptor.");
 		}
-		Take(rampColumns * 4);
-		Int16();
-		Take(rampColumns * 4);
-		Take(4);
-		Take(4);
 
-		Int16();
-		Int16();
-		Int32();
-		Int32();
-
-		// Five null-terminated strings. The original reads the first three into one scratch buffer,
-		// keeping only the third (an impact palette) as it goes, then reads the fourth into that same
-		// buffer — and it is the buffer's contents at the end of the function, i.e. the fourth string,
-		// that Terrain_BindTextureBank receives.
-		string[] strings = { String(), String(), String(), String(), String() };
+		string[] strings = {
+			wld.WorldTypeStr ?? string.Empty,
+			wld.CloudStr ?? string.Empty,
+			wld.ImpactStr ?? string.Empty,
+			wld.TextureBaseName ?? string.Empty,
+			wld.TextureExtension ?? string.Empty,
+		};
 
 		return new TheaterDescriptor(worldIndex, baseName, strings[3], strings[2], strings);
 	}

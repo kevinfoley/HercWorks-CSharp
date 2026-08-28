@@ -35,7 +35,7 @@ public sealed partial class MechObject : SimObject {
 	private readonly int _hitRadius;
 	private readonly GunLayout? _hardpoints;
 	private readonly WeaponCatalog? _weapons;
-	private readonly CollisionNode[] _collision;
+	private readonly ColliderNode[] _collision;
 	private readonly ComponentDamage? _damage;
 
 	/// <param name="hardpoints">
@@ -56,7 +56,7 @@ public sealed partial class MechObject : SimObject {
 	/// </param>
 	public MechObject(string name, HercSimDat simData, int hitRadius, MechLoadout loadout,
 			ShapeAnimation? animation = null, GunLayout? hardpoints = null,
-			WeaponCatalog? weapons = null, CollisionNode[]? collision = null,
+			WeaponCatalog? weapons = null, ColliderNode[]? collision = null,
 			ComponentDamage? damage = null) {
 		Name = name;
 		SimData = simData;
@@ -65,7 +65,7 @@ public sealed partial class MechObject : SimObject {
 		Loadout = loadout;
 		_hardpoints = hardpoints;
 		_weapons = weapons;
-		_collision = collision ?? Array.Empty<CollisionNode>();
+		_collision = collision ?? Array.Empty<ColliderNode>();
 		_damage = damage;
 
 		// A HERC powers up in its stop / step-off sequence, not its walk cycle — the mech constructor

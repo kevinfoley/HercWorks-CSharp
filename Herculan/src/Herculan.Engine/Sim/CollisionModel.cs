@@ -1,3 +1,4 @@
+using HercWorks.Core.Data.File.Dbsim;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.World;
 
@@ -49,7 +50,7 @@ public static class CollisionModel {
 	/// Where one of the shape's nodes stands right now, relative to the object's own frame, or null
 	/// for "this shape has no such node" — which the original answers with an identity transform
 	/// (<c>DAT_006c572c</c>) rather than by skipping the cluster. Only consulted for a cluster whose
-	/// <see cref="CollisionNode.NodeIndex"/> is non-negative; passing no resolver at all leaves those
+	/// <see cref="ColliderNode.NodeIndex"/> is non-negative; passing no resolver at all leaves those
 	/// clusters in the object frame, which is what a static object wants.
 	///
 	/// <para><b>This is the whole of a HERC's hit geometry.</b> A mech <c>.COL</c> places every one
@@ -59,7 +60,7 @@ public static class CollisionModel {
 	/// frame.</para>
 	/// </param>
 	/// <returns>The nearest component struck, or null for a miss.</returns>
-	public static Hit? Test(CollisionNode[] model, in Transform3 toMuzzleSpace, int distance,
+	public static Hit? Test(ColliderNode[] model, in Transform3 toMuzzleSpace, int distance,
 			int clearance, Func<int, bool> componentAlive, Func<short, Transform3?>? nodeFrame = null) {
 		Hit? best = null;
 
@@ -111,7 +112,7 @@ public static class CollisionModel {
 	/// under the bound's radius. The length comparison is unsigned, which is what rejects anything
 	/// behind the muzzle without a second test.
 	/// </summary>
-	private static bool BoundStruck(CollisionSphere bound, in Transform3 toMuzzleSpace,
+	private static bool BoundStruck(ColliderSphere bound, in Transform3 toMuzzleSpace,
 			int distance, int clearance) {
 		var center = toMuzzleSpace.TransformPoint(bound.X, bound.Y, bound.Z);
 		return (uint)center.Y < (uint)(bound.Radius + distance)

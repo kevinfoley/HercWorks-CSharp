@@ -300,7 +300,8 @@ at all — in the original as much as here.
 `Herculan.Engine.Sim.BaseObject` (both paths, damage), `Sim.FlyerObject`, `Sim.MechObject.Combat`,
 `Sim.ComponentDamage` (the mech/flyer health record), `Sim.ShapeVolume` (the grid queries),
 `Sim.CollisionModel` (the sphere test, with the node resolver),
-`World.CollisionModelReader` (the shared format), `World.BaseCollisionTable`,
+`World.CollisionModelReader` (VOL lookup plus the load-time bound; the format itself is parsed
+by `HercColliderTransformer.ReadNodes`), `World.BaseCollisionTable`,
 `World.BaseTypeTable` (the combat fields), and — on the tool side — the corrected volume read in
 `HercWorks.Core.Io.Transform.Dbsim.BasesDgsTransformer` and the corrected, now round-trippable
 `HercColliderTransformer`.

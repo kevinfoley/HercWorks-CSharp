@@ -3,94 +3,120 @@ using HercWorks.Vol;
 namespace HercWorks.Core.Data.File.Dbsim;
 
 /// <summary>
-/// FILE - /SIMVOL0/WLD/ worldX.wld — sky/world rendering parameters for one map's environment.
-///   0 - UINT16 - always 2
-///   2 - UINT16 - sky palette id
-///   4 - UINT16 - sky horizon height
-///   6 - UINT16 - sky horizon start height
-///   8 - UINT16 - unknown, varies
-///   10 - UINT16 - unknown, always 1
-///   12 - UINT16 - unknown, always 1
-///   14 - UINT16 - spacer, always 0
-///   16 - UINT16 - unknown, always 233
-///   18 - UINT16 - unknown, always 1
-///   20 - UINT16 - unknown, always 47
-///   22 - UINT16 - unknown, always 223
-///   24 - UINT16 - unknown, always 6000
-///   26 - UINT16 - unknown, always 7
-///   28 - UINT16 - unknown, always 16
-///   30 - UINT16 - spacer, always 0
-///   32 - UINT32 - unknown, always 60000
-///   36 - UINT32 - unknown, always 64400
-///   40 - <see cref="MidSectionA"/> — 190 bytes (95 shorts), NOT decoded. Confirmed against real
-///     data to contain a real (non-zero) 14-value UINT32 arithmetic progression (step +4400,
-///     starting ~68800) repeated twice, each repeat preceded by the same 60000/64400 pair seen at
-///     offset 32/36 — plausibly terrain/fog distance-band thresholds, but not confirmed further.
-///   230 - <see cref="MidSectionB"/> — 48 bytes (24 shorts) immediately before the string section,
-///     also NOT decoded (the original Java doc comment guessed this section started around offset
-///     240 with several "always N" observations, but that didn't line up with real file offsets
-///     when checked here — the values it lists don't appear at the real offset 240).
-///   278 - 8-byte null-terminated string - world type, always "world24" in retail data (possibly
-///     a version/format tag, per the original author's guess).
-///   286 - 8-byte null-terminated string - clouds name, always "clouds2" in retail data (matches
-///     the Java doc's "clouds1/clouds2" — ES2 apparently only ships clouds2).
-///   294 - 8-byte null-terminated string - impact graphic id, "impact0".."impact9" (one per world
-///     file — WORLDn.WLD always pairs with "impactN").
-///   302 - two null-terminated strings running to EOF: ground texture base name ("urban", "bsnow",
-///     "volcan", "ice", "moon" observed) then literally the extension "tex" — NOT one dotted
-///     "name.tex" string as the original Java doc comment guessed; confirmed against real bytes
-///     the two are separately null-terminated.
-/// Ported from org.hercworks.core.data.file.dbsim.WorldData; extended here with a working
-/// transformer and the confirmed string-section layout (2026-08-08) — the original Java version
-/// only ever modeled the header fields (TODO "finish" left in the source, never completed) and had
-/// no transformer at all.
+/// FILE - /SIMVOL0/WLD/ worldX.wld — one theater's environment descriptor: sky and haze parameters,
+/// two distance-band tables, a colour-ramp pair, and the resource names the terrain wears.
+///
+/// <para><b>The file is variable-length, not a fixed struct.</b> Every array in it is preceded by
+/// its own count or dimension, so the layout is a walk, matching <c>maybe_World_LoadTheater</c>
+/// (<c>0042e010</c>) read for read:</para>
+/// <code>
+/// 14 x int16                       -- sky/haze setup, dispatched straight into 0042ebbc
+/// int32 count, count x int32       -- distance bands A
+/// int32 count, count x int32       -- distance bands B
+/// int16 rampRows, int16 rampColumns
+/// rampColumns x int32              -- ramp table A
+/// int16                            -- loose field between the tables
+/// rampColumns x int32              -- ramp table B
+/// 4 bytes, 4 bytes                 -- two more entries expanded the same way (FUN_00430d08)
+/// int16, int16, int32, int32
+/// 5 x null-terminated string
+/// </code>
+///
+/// <para><b>This class previously described a fixed layout with the middle as two raw blocks of 190
+/// and 48 bytes.</b> Those sizes are what the walk happens to produce for every retail file, so the
+/// old reading worked on retail data and would have misread any file whose arrays differed. Its own
+/// notes describe the structure without recognising it: the "14-value UINT32 arithmetic progression
+/// repeated twice, each repeat preceded by the same 60000/64400 pair" is the two 16-entry distance
+/// band arrays, whose first two entries are 60000 and 64400 — the pair the old reading had already
+/// named separately at offsets 32 and 36. <see cref="Header"/>'s last two shorts in that reading
+/// (offsets 28 and 30) were really the low and high halves of band array A's count.</para>
+///
+/// <para>The five trailing strings are constant in retail data except the third and fourth:
+/// <c>world24</c>, <c>clouds2</c>, <c>impact&lt;n&gt;</c> (one per world file), the terrain texture
+/// bank (<c>urban</c>, <c>bsnow</c>, <c>volcan</c>, <c>ice</c>, <c>moon</c>), then literally
+/// <c>tex</c> — five separately terminated strings, not one dotted name. The fourth is the one
+/// <c>Terrain_BindTextureBank</c> receives; see docs/formats/terrain-texturing.md.</para>
+///
+/// Ported from org.hercworks.core.data.file.dbsim.WorldData (which modeled only the header fields
+/// and had no transformer), then corrected.
 /// </summary>
 public class WorldData : DataFile {
-	public short Unk0_val2 { get; set; } = 2;
+	/// <summary>Shorts in <see cref="Header"/>.</summary>
+	public const int HeaderShorts = 14;
 
-	public short SkyPaletteId { get; set; } = 208;
-	public short SkyHorizonHeight { get; set; }
-	public short SkyHorizonStartHeight { get; set; }
+	/// <summary>
+	/// The 14 leading shorts, in file order. The original hands them to its sky/haze setup rather
+	/// than storing a struct, so only the first four have names anyone has proposed, and those come
+	/// from the Java port's guesses rather than from the code: <c>2</c>, a sky palette id (208 in
+	/// retail data, which is where the sky band starts — see docs/simulation/distance-fog-and-sky.md),
+	/// a horizon height and a horizon start height. The rest are constant across all ten files.
+	/// </summary>
+	public short[] Header { get; set; } = new short[HeaderShorts];
 
-	public short Unk8_val { get; set; }
-	public short Unk10_val { get; set; } = 1;
-	public short Unk12_val { get; set; } = 1;
+	/// <summary>
+	/// First distance-band table — 16 entries in every retail file, ascending from 60000 in steps of
+	/// 4400. Consumer not traced.
+	/// </summary>
+	public int[] DistanceBandsA { get; set; } = Array.Empty<int>();
 
-	public short Spacer14 { get; set; }
+	/// <summary>Second distance-band table, identical to <see cref="DistanceBandsA"/> in retail data.</summary>
+	public int[] DistanceBandsB { get; set; } = Array.Empty<int>();
 
-	public short Unk16_val { get; set; } = 233;
-	public short Unk18_val { get; set; } = 1;
-	public short Unk20_val { get; set; } = 47;
-	public short Unk22_val { get; set; } = 223;
-	public short Unk24_val { get; set; } = 6000;
-	public short Unk26_val { get; set; } = 7;
-	public short Unk28_val { get; set; } = 16;
+	/// <summary>Ramp dimensions; only <see cref="RampColumns"/> sizes anything.</summary>
+	public short RampRows { get; set; }
 
-	public short Spacer30 { get; set; }
+	/// <inheritdoc cref="RampRows"/>
+	public short RampColumns { get; set; }
 
-	public int Unk32_val { get; set; } = 60000;
-	public int Unk34_val { get; set; } = 64400;
+	/// <summary>First colour-ramp table, <see cref="RampColumns"/> entries.</summary>
+	public int[] RampTableA { get; set; } = Array.Empty<int>();
 
-	/// <summary>Raw, undecoded 190-byte block at content offset 40 — see class doc comment.</summary>
-	public byte[]? MidSectionA { get; set; }
+	/// <summary>The loose short the original reads between the two ramp tables.</summary>
+	public short BetweenRampTables { get; set; }
 
-	/// <summary>Raw, undecoded 48-byte block at content offset 230 — see class doc comment.</summary>
-	public byte[]? MidSectionB { get; set; }
+	/// <summary>Second colour-ramp table, also <see cref="RampColumns"/> entries.</summary>
+	public int[] RampTableB { get; set; } = Array.Empty<int>();
 
+	/// <summary>
+	/// Two further 4-byte entries the original expands through the same helper as the ramp tables
+	/// (<c>FUN_00430d08</c>). Kept raw: what the expansion means is not established.
+	/// </summary>
+	public byte[] RampExtraA { get; set; } = new byte[4];
+
+	/// <inheritdoc cref="RampExtraA"/>
+	public byte[] RampExtraB { get; set; } = new byte[4];
+
+	/// <summary>The four loose fields between the ramp section and the strings.</summary>
+	public short Trailer0 { get; set; }
+
+	/// <inheritdoc cref="Trailer0"/>
+	public short Trailer1 { get; set; }
+
+	/// <inheritdoc cref="Trailer0"/>
+	public int Trailer2 { get; set; }
+
+	/// <inheritdoc cref="Trailer0"/>
+	public int Trailer3 { get; set; }
+
+	/// <summary>World type tag, <c>world24</c> in every retail file.</summary>
 	public string? WorldTypeStr { get; set; }
+
+	/// <summary>Cloud layer name, <c>clouds2</c> in every retail file.</summary>
 	public string? CloudStr { get; set; }
-	public string? ImpactSt { get; set; }
+
+	/// <summary>Impact/explosion palette base name, <c>impact0</c>..<c>impact9</c>.</summary>
+	public string? ImpactStr { get; set; }
+
+	/// <summary>
+	/// Terrain texture bank base name — the string <c>Terrain_BindTextureBank</c> receives, which
+	/// loads <c>dba\&lt;name&gt;.DBA</c>.
+	/// </summary>
 	public string? TextureBaseName { get; set; }
+
+	/// <summary>Literally <c>tex</c> in every retail file; separately terminated, not a suffix.</summary>
 	public string? TextureExtension { get; set; }
 
 	public WorldData() { }
 
 	public WorldData(string fileName, string dirPath) : base(fileName, dirPath) { }
-
-	/// <summary>Unused in the original (no accessors, no instances created) — ported as-is.</summary>
-	public class Sky {
-		public short PaletteId { get; set; }
-		public short HorizonHeight { get; set; }
-		public short StartHeight { get; set; }
-	}
 }

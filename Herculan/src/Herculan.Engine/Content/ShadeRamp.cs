@@ -1,5 +1,7 @@
 using System.Numerics;
+using HercWorks.Core.Data.File.Dbsim;
 using HercWorks.Core.Data.File.Dyn;
+using HercWorks.Core.Io.Transform.Dbsim;
 
 namespace Herculan.Engine.Content;
 
@@ -7,10 +9,10 @@ namespace Herculan.Engine.Content;
 /// The theater's colour ramp, <c>rmp\WORLD&lt;n&gt;.RMP</c> — the table every flat-shaded face in the
 /// original passes its colour through before it reaches the framebuffer.
 ///
-/// <para><b>Layout, byte-verified against all ten retail files</b> (each exactly 98304 bytes of
-/// body): <c>int32 shadeLevels</c>, <c>int32 depthSlices</c>, then
-/// <c>depthSlices * shadeLevels * 256</c> bytes. Every retail file reads 32 and 12. A row is 256
-/// palette bytes — "this colour, at this brightness" — so the whole file is one colour ramp per
+/// <para><b>Layout</b> — parsed by <see cref="TerrainRampFile"/> in HercWorks.Core, which carries
+/// the format writeup. In short: <c>int32 shadeLevels</c>, <c>int32 depthSlices</c>, then
+/// <c>depthSlices * shadeLevels * 256</c> bytes, reading 32 and 12 in every retail file. A row is
+/// 256 palette bytes — "this colour, at this brightness" — so the whole file is one colour ramp per
 /// palette index, sampled 32 ways for light and 12 ways for distance. Hue is preserved throughout,
 /// which is what makes it a ramp rather than a remap.</para>
 ///
@@ -83,24 +85,16 @@ public sealed class ShadeRamp {
 	/// <param name="name">The theater's base name, the same one its <c>.DPL</c> uses — e.g. <c>WORLD2</c>.</param>
 	public static ShadeRamp? Load(GameContent content, string? name) {
 		if (string.IsNullOrWhiteSpace(name) || content.Read(ResourceFolder, name + ".RMP") is not { } bytes
-			|| bytes.Length < 8) {
+				|| new TerrainRampFileTransformer().BytesToObject(bytes) is not TerrainRampFile rmp
+				|| rmp.Rows == null || rmp.ShadeLevels <= 0 || rmp.DepthSlices <= 0) {
 			return null;
 		}
 
-		int shadeLevels = BitConverter.ToInt32(bytes, 0);
-		int depthSlices = BitConverter.ToInt32(bytes, 4);
-		if (shadeLevels <= 0 || depthSlices <= 0) {
+		if ((long)rmp.Rows.Length < (long)rmp.ShadeLevels * rmp.DepthSlices * RowLength) {
 			return null;
 		}
 
-		long body = (long)shadeLevels * depthSlices * RowLength;
-		if (bytes.Length - 8 < body) {
-			return null;
-		}
-
-		var rows = new byte[body];
-		Array.Copy(bytes, 8, rows, 0, body);
-		return new ShadeRamp(shadeLevels, depthSlices, rows);
+		return new ShadeRamp(rmp.ShadeLevels, rmp.DepthSlices, rmp.Rows);
 	}
 
 	/// <summary>

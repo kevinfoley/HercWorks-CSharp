@@ -1,19 +1,21 @@
+using System.Text;
 using HercWorks.Core.Data.File.Dbsim;
 using HercWorks.Vol;
 
 namespace HercWorks.Core.Io.Transform.Dbsim;
 
 /// <summary>
-/// Transforms byte[] data to and from .WLD world/environment files (see <see cref="WorldData"/>
-/// for the format writeup). New: no Java equivalent existed — WorldData.java was modeled but never
-/// wired to a transformer, and its own TODO ("finish") was never completed.
+/// Transforms byte[] data to and from .WLD world/environment files — see <see cref="WorldData"/>
+/// for the format and the RE behind it. New: no Java equivalent existed (WorldData.java was modeled
+/// but never wired to a transformer, and its own TODO "finish" was never completed).
 ///
-/// Read-only: MidSectionA/MidSectionB are undecoded, so there's no confirmed structure to write
-/// back byte-exact.
+/// <para>Now writes as well as reads: the earlier version could not, because it kept the middle of
+/// the file as two undecoded blocks. Every field is accounted for by the walk, so both directions
+/// are byte-exact on all ten retail files.</para>
 /// </summary>
 public class WorldDataTransformer : ThreeSpaceByteTransformer {
 	public override DataFile? BytesToObject(byte[]? inputArray) {
-		if (inputArray == null) {
+		if (inputArray == null || inputArray.Length < WorldData.HeaderShorts * 2) {
 			return null;
 		}
 
@@ -22,48 +24,104 @@ public class WorldDataTransformer : ThreeSpaceByteTransformer {
 		var wld = new WorldData {
 			RawBytes = inputArray,
 			Ext = FileType.Wld,
-
-			Unk0_val2 = IndexShortLE(),
-			SkyPaletteId = IndexShortLE(),
-			SkyHorizonHeight = IndexShortLE(),
-			SkyHorizonStartHeight = IndexShortLE(),
-			Unk8_val = IndexShortLE(),
-			Unk10_val = IndexShortLE(),
-			Unk12_val = IndexShortLE(),
-			Spacer14 = IndexShortLE(),
-			Unk16_val = IndexShortLE(),
-			Unk18_val = IndexShortLE(),
-			Unk20_val = IndexShortLE(),
-			Unk22_val = IndexShortLE(),
-			Unk24_val = IndexShortLE(),
-			Unk26_val = IndexShortLE(),
-			Unk28_val = IndexShortLE(),
-			Spacer30 = IndexShortLE(),
-			Unk32_val = IndexIntLE(),
-			Unk34_val = IndexIntLE(),
+			Header = IndexShortLEArray(WorldData.HeaderShorts),
 		};
 
-		wld.MidSectionA = IndexSegment(190);
-		wld.MidSectionB = IndexSegment(48);
+		wld.DistanceBandsA = ReadCountedInts();
+		wld.DistanceBandsB = ReadCountedInts();
 
-		wld.WorldTypeStr = ReadFixedNullTerminated(8);
-		wld.CloudStr = ReadFixedNullTerminated(8);
-		wld.ImpactSt = ReadFixedNullTerminated(8);
+		wld.RampRows = IndexShortLE();
+		wld.RampColumns = IndexShortLE();
+		int columns = wld.RampColumns < 0 ? 0 : wld.RampColumns;
 
-		wld.TextureBaseName = ReadNullTerminatedToEnd(inputArray);
-		wld.TextureExtension = ReadNullTerminatedToEnd(inputArray);
+		wld.RampTableA = IndexIntLEArray(columns);
+		wld.BetweenRampTables = IndexShortLE();
+		wld.RampTableB = IndexIntLEArray(columns);
+		wld.RampExtraA = IndexSegment(4);
+		wld.RampExtraB = IndexSegment(4);
+
+		wld.Trailer0 = IndexShortLE();
+		wld.Trailer1 = IndexShortLE();
+		wld.Trailer2 = IndexIntLE();
+		wld.Trailer3 = IndexIntLE();
+
+		wld.WorldTypeStr = ReadNullTerminated(inputArray);
+		wld.CloudStr = ReadNullTerminated(inputArray);
+		wld.ImpactStr = ReadNullTerminated(inputArray);
+		wld.TextureBaseName = ReadNullTerminated(inputArray);
+		wld.TextureExtension = ReadNullTerminated(inputArray);
 
 		return wld;
 	}
 
-	private string ReadFixedNullTerminated(int fieldLen) {
-		string s = IndexString(fieldLen);
-		int nul = s.IndexOf('\0');
-		return nul >= 0 ? s[..nul] : s;
+	public override byte[]? ObjectToBytes(DataFile? source) {
+		if (source is not WorldData wld) {
+			return null;
+		}
+
+		using var outStream = new MemoryStream();
+
+		void Write(byte[] bytes) => outStream.Write(bytes, 0, bytes.Length);
+
+		void WriteCountedInts(int[] values) {
+			Write(WriteIntLE(values.Length));
+			foreach (int value in values) {
+				Write(WriteIntLE(value));
+			}
+		}
+
+		void WriteString(string? value) {
+			Write(Encoding.ASCII.GetBytes(value ?? string.Empty));
+			outStream.WriteByte(0);
+		}
+
+		foreach (short value in wld.Header) {
+			Write(WriteShortLE(value));
+		}
+
+		WriteCountedInts(wld.DistanceBandsA);
+		WriteCountedInts(wld.DistanceBandsB);
+
+		Write(WriteShortLE(wld.RampRows));
+		Write(WriteShortLE(wld.RampColumns));
+
+		foreach (int value in wld.RampTableA) {
+			Write(WriteIntLE(value));
+		}
+
+		Write(WriteShortLE(wld.BetweenRampTables));
+
+		foreach (int value in wld.RampTableB) {
+			Write(WriteIntLE(value));
+		}
+
+		Write(wld.RampExtraA);
+		Write(wld.RampExtraB);
+
+		Write(WriteShortLE(wld.Trailer0));
+		Write(WriteShortLE(wld.Trailer1));
+		Write(WriteIntLE(wld.Trailer2));
+		Write(WriteIntLE(wld.Trailer3));
+
+		WriteString(wld.WorldTypeStr);
+		WriteString(wld.CloudStr);
+		WriteString(wld.ImpactStr);
+		WriteString(wld.TextureBaseName);
+		WriteString(wld.TextureExtension);
+
+		return outStream.ToArray();
 	}
 
-	/// <summary>Reads one null-terminated string starting at the current position, stopping at the byte array's end if no null byte is found.</summary>
-	private string ReadNullTerminatedToEnd(byte[] data) {
+	/// <summary>A count-prefixed int32 array; a count that does not fit reads as empty.</summary>
+	private int[] ReadCountedInts() {
+		int count = IndexIntLE();
+		return count < 0 || Index + (long)count * 4 > Bytes!.Length
+			? Array.Empty<int>()
+			: IndexIntLEArray(count);
+	}
+
+	/// <summary>One null-terminated string, stopping at end of file if the terminator is missing.</summary>
+	private string ReadNullTerminated(byte[] data) {
 		int start = Index;
 		int end = start;
 		while (end < data.Length && data[end] != 0x00) {
@@ -72,14 +130,9 @@ public class WorldDataTransformer : ThreeSpaceByteTransformer {
 
 		string value = IndexString(end - start);
 		if (end < data.Length) {
-			Skip(1); // the null terminator itself.
+			Skip(1);
 		}
-		return value;
-	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
-		// TODO: not implemented — MidSectionA/MidSectionB are undecoded (see class doc comment), so
-		// a byte-exact round-trip isn't currently achievable.
-		return null;
+		return value;
 	}
 }

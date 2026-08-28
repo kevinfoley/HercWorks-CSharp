@@ -15,7 +15,9 @@ namespace HercWorks.Core.Data.File.Dbsim;
 /// </code>
 ///
 /// <para>Structures use the identical record shape, 65 of them back to back in
-/// <c>dat\BASECOL.DAT</c>. Readers: <c>Collision_LoadRecordArray</c> (<c>0040ccf8</c>) →
+/// <c>dat\BASECOL.DAT</c> — read through
+/// <see cref="Io.Transform.Dbsim.HercColliderTransformer.ReadNodes"/>, which is the same walk with
+/// an offset. Readers: <c>Collision_LoadRecordArray</c> (<c>0040ccf8</c>) →
 /// <c>Collision_ReadNode</c> (<c>0040cc50</c>) → <c>Collision_ReadCluster</c> (<c>0040cc14</c>) →
 /// <c>Collision_ReadSphereArray</c> (<c>0040c7c4</c>). Full RE in
 /// <c>docs/simulation/hit-detection.md</c>.</para>
@@ -37,49 +39,11 @@ namespace HercWorks.Core.Data.File.Dbsim;
 /// <see cref="ColliderCluster.ComponentIndex"/> (component 7 is <c>LEG/LEFT/UPPER</c>), and the
 /// last is its sphere count. The walk lands exactly on the end of all 22 retail files.</para>
 ///
-/// Ported from org.hercworks.core.data.file.dbsim.HercCollider, then corrected.
+/// Ported from org.hercworks.core.data.file.dbsim.HercCollider, then corrected. The node/cluster/
+/// sphere types are top-level (see <see cref="ColliderNode"/>) rather than nested, so that the
+/// engine can consume the parsed model without taking a dependency on <see cref="DataFile"/>.
 /// </summary>
 public class HercCollider : DataFile {
 	/// <summary>The model's nodes, in file order.</summary>
 	public ColliderNode[]? Nodes { get; set; }
-
-	/// <summary>
-	/// One node's worth of clusters. <see cref="NodeIndex"/> is the shape part the spheres are
-	/// placed by; <c>-1</c> means the unit's own frame.
-	/// </summary>
-	public class ColliderNode {
-		/// <summary>
-		/// The shape part id whose posed transform places this node's spheres, or <c>-1</c> for the
-		/// unit's own frame. DBSIM resolves it through the shape to a transform slot, falling back on
-		/// identity for a part the shape does not have.
-		///
-		/// <para>Every mech file places every cluster on a node, so a HERC's hit volume walks with
-		/// its legs. <c>SKIMMER.COL</c> is the only retail file with an object-frame cluster.</para>
-		/// </summary>
-		public short NodeIndex { get; set; } = -1;
-
-		public ColliderCluster[]? Clusters { get; set; }
-	}
-
-	/// <summary>One destructible component's hit volume: a group of spheres that all belong to it.</summary>
-	public class ColliderCluster {
-		/// <summary>
-		/// Which of the unit's components these spheres belong to — an index into the 29-slot
-		/// component array in the matching <c>dmg\&lt;herc&gt;.DMG</c> (see
-		/// <see cref="HercSimDamage"/>). A shot that strikes this cluster damages that component, and
-		/// a component already destroyed has its clusters skipped, so a unit loses hit volume as it
-		/// comes apart. Retail values run 0-28.
-		/// </summary>
-		public short ComponentIndex { get; set; }
-
-		public ColliderSphere[]? Spheres { get; set; }
-	}
-
-	/// <summary>One sphere, in the frame its node names. Retail radii run 40-600 world units.</summary>
-	public class ColliderSphere {
-		public short X { get; set; }
-		public short Y { get; set; }
-		public short Z { get; set; }
-		public short Radius { get; set; }
-	}
 }

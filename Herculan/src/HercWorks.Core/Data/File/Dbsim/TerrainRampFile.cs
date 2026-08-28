@@ -3,32 +3,45 @@ using HercWorks.Vol;
 namespace HercWorks.Core.Data.File.Dbsim;
 
 /// <summary>
-/// FILE - /SIMVOL0/RMP/ worldX.rmp — paired 1:1 by name with the corresponding worldX.wld (see
-/// <see cref="WorldData"/>). Likely terrain data for that world (a heightmap or terrain-type/index
-/// map), but NOT confirmed — see the honesty caveat below.
-///   0 - UINT32 - always 32 in every real file checked.
-///   4 - UINT32 - always 12 in every real file checked (32*12 = 384, which shows up again below).
-///   8.. - <see cref="Body"/>, 98304 bytes to EOF in every real file checked, genuinely different
-///     per world (not shared/templated data).
+/// FILE - /SIMVOL0/RMP/ worldX.rmp — the theater's colour ramp, paired 1:1 by name with the
+/// corresponding worldX.wld (see <see cref="WorldData"/>). Every flat-shaded face in DBSIM passes
+/// its colour through this table before it reaches the framebuffer.
+///   0 - INT32 - <see cref="ShadeLevels"/>, 32 in every retail file.
+///   4 - INT32 - <see cref="DepthSlices"/>, 12 in every retail file.
+///   8.. - <see cref="Rows"/>, DepthSlices * ShadeLevels rows of <see cref="RowLength"/> bytes
+///     (98304 in every retail file, which is the whole of the rest).
 ///
-/// New (no Java equivalent — not a ported format). Investigated 2026-08-08: real per-world byte
-/// content is far too locally irregular (short runs, sharp jumps between neighboring values) to be
-/// a smooth real-world-style heightmap rendered directly as grayscale — but a per-width
-/// vertical-continuity check (average difference between a byte and the byte exactly N positions
-/// later) shows a sharp, isolated improvement at N=256 (and weaker echoes at its multiples 512,
-/// 768) that random nearby widths don't show — evidence consistent with the data really being a
-/// 256-wide 2D grid (384 rows: 98304 / 256 = 384, and 384 = 32*12, tying back to the header) even
-/// though a naive grayscale render of it doesn't look like an obviously "smooth" heightmap. NOT
-/// confirmed to the same standard as this session's other new parsers — treat the 256x384 grid
-/// shape as a real, evidence-backed hypothesis, not a fact, and treat individual byte values'
-/// meaning (height? terrain type index? something else?) as completely unknown. Exposed as a flat
-/// array rather than a typed 2D grid so this class doesn't silently assert a width/height that
-/// might be wrong.
+/// <para>A row is 256 palette bytes — "this colour, at this brightness, at this distance" — so the
+/// file is one colour ramp per palette index, sampled 32 ways for light and 12 ways for distance.
+/// Hue is preserved throughout, which is what makes it a ramp rather than a remap. The consumer is
+/// <c>FUN_00468054</c>, whose whole body is the address arithmetic
+/// <c>row = ((shade * (shadeLevels - 1) + depthBias) &amp; ~0xFF) + rampBase</c>, with
+/// <c>depthBias</c> a whole number of 8192-byte depth slices set from the drawn object's range.
+/// That is the original's distance fog. See docs/simulation/distance-fog-and-sky.md.</para>
+///
+/// <para><b>This class previously described the body as an undecoded per-world blob, "likely a
+/// 256-wide x 384-tall grid, possibly a heightmap".</b> The grid hypothesis was arithmetically
+/// right and semantically wrong: the 256-byte period a continuity check found is the row length,
+/// and 384 rows is 12 slices x 32 shades, both of which the header states outright. It is a shade
+/// table, not terrain.</para>
+///
+/// New (no Java equivalent — not a ported format).
 /// </summary>
 public class TerrainRampFile : DataFile {
-	public int Unk0_val { get; set; } = 32;
-	public int Unk4_val { get; set; } = 12;
+	/// <summary>Bytes in one row, one per palette index.</summary>
+	public const int RowLength = 256;
 
-	/// <summary>Raw per-world data, likely (not confirmed) a 256-wide x 384-tall byte grid — see class doc comment.</summary>
-	public byte[]? Body { get; set; }
+	/// <summary>Brightness rows per depth slice — 32 in every retail file.</summary>
+	public int ShadeLevels { get; set; } = 32;
+
+	/// <summary>Distance slices — 12 in every retail file.</summary>
+	public int DepthSlices { get; set; } = 12;
+
+	/// <summary>
+	/// The table itself, <see cref="DepthSlices"/> * <see cref="ShadeLevels"/> rows of
+	/// <see cref="RowLength"/> bytes, slice-major. Row <c>0</c> is not black and the last row is not
+	/// full brightness: measured against WORLD0's palette they land at 0.36x and 1.16x the source
+	/// colour, so the ramp brightens as well as darkens and passes through unity around row 23.
+	/// </summary>
+	public byte[]? Rows { get; set; }
 }

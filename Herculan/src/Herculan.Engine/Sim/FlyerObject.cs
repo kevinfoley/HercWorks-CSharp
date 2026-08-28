@@ -1,3 +1,4 @@
+using HercWorks.Core.Data.File.Dbsim;
 using HercWorks.Core.Data.File.Dat.Sim;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.World;
@@ -34,7 +35,7 @@ public sealed class FlyerObject : SimObject {
 	private const short WreckHitEffect = 10;
 
 	private readonly int _hitRadius;
-	private readonly CollisionNode[] _collision;
+	private readonly ColliderNode[] _collision;
 	private readonly ComponentDamage? _damage;
 
 	/// <param name="collision">
@@ -47,11 +48,11 @@ public sealed class FlyerObject : SimObject {
 	/// dependent. Null alongside a missing <c>.COL</c>, for the same reason.
 	/// </param>
 	public FlyerObject(string name, FlyerSimData? simData, int hitRadius,
-			CollisionNode[]? collision = null, ComponentDamage? damage = null) {
+			ColliderNode[]? collision = null, ComponentDamage? damage = null) {
 		Name = name;
 		SimData = simData;
 		_hitRadius = hitRadius;
-		_collision = collision ?? Array.Empty<CollisionNode>();
+		_collision = collision ?? Array.Empty<ColliderNode>();
 		_damage = damage;
 	}
 

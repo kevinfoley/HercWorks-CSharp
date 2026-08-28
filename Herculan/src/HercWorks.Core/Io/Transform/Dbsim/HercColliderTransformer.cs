@@ -11,10 +11,9 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// (misidentified) 10-byte header and kept the rest as raw shorts, and could not write at all;
 /// the file has no header, and every short of it is now accounted for.</para>
 ///
-/// <para>The engine has its own reader for the same format,
-/// <c>Herculan.Engine.World.CollisionModelReader</c>, which additionally builds the per-cluster
-/// bounding sphere DBSIM computes at load time. This one is the tool-side model and stays a plain
-/// mirror of the bytes.</para>
+/// <para>This is the only parser for the format. <see cref="ReadNodes"/> exposes the walk with a
+/// caller-held offset, which is what lets the engine read one whole <c>.COL</c> and lets
+/// <c>dat\BASECOL.DAT</c>'s 65 back-to-back structure records come out of one stream.</para>
 /// </summary>
 public class HercColliderTransformer : ThreeSpaceByteTransformer {
 	public override DataFile? BytesToObject(byte[]? inputArray) {
@@ -22,44 +21,51 @@ public class HercColliderTransformer : ThreeSpaceByteTransformer {
 			return null;
 		}
 
-		SetBytes(inputArray);
-
-		var col = new HercCollider {
+		int offset = 0;
+		return new HercCollider {
 			RawBytes = inputArray,
 			Ext = FileType.Col,
 			Dir = FileType.Col,
+			Nodes = ReadNodes(inputArray, ref offset),
 		};
+	}
 
-		col.Nodes = new HercCollider.ColliderNode[NonNegative(IndexShortLE())];
-		for (int n = 0; n < col.Nodes.Length; n++) {
-			var node = new HercCollider.ColliderNode { NodeIndex = IndexShortLE() };
+	/// <summary>
+	/// One model's worth of nodes — <c>Collision_LoadRecordArray</c> (<c>0040ccf8</c>) itself.
+	/// Advances <paramref name="offset"/> past everything it read.
+	/// </summary>
+	public ColliderNode[] ReadNodes(byte[] bytes, ref int offset) {
+		// Index directly rather than JumpTo, which silently no-ops an offset at end-of-buffer.
+		SetBytes(bytes);
+		Index = offset;
 
-			node.Clusters = new HercCollider.ColliderCluster[NonNegative(IndexShortLE())];
-			for (int c = 0; c < node.Clusters.Length; c++) {
-				var cluster = new HercCollider.ColliderCluster { ComponentIndex = IndexShortLE() };
+		var nodes = new ColliderNode[NonNegative(IndexShortLE())];
+		for (int n = 0; n < nodes.Length; n++) {
+			short nodeIndex = IndexShortLE();
+
+			var clusters = new ColliderCluster[NonNegative(IndexShortLE())];
+			for (int c = 0; c < clusters.Length; c++) {
+				short componentIndex = IndexShortLE();
 
 				// The original tests the count as `value & 0x1fff` but allocates and reads it
 				// unmasked, so the mask is only a zero-test. Reproduced as written.
 				short sphereCount = IndexShortLE();
-				cluster.Spheres = new HercCollider.ColliderSphere[
+				var spheres = new ColliderSphere[
 					(sphereCount & SphereCountMask) != 0 ? NonNegative(sphereCount) : 0];
 
-				for (int s = 0; s < cluster.Spheres.Length; s++) {
-					cluster.Spheres[s] = new HercCollider.ColliderSphere {
-						X = IndexShortLE(),
-						Y = IndexShortLE(),
-						Z = IndexShortLE(),
-						Radius = IndexShortLE(),
-					};
+				for (int s = 0; s < spheres.Length; s++) {
+					spheres[s] = new ColliderSphere(
+						IndexShortLE(), IndexShortLE(), IndexShortLE(), IndexShortLE());
 				}
 
-				node.Clusters[c] = cluster;
+				clusters[c] = new ColliderCluster(componentIndex, spheres);
 			}
 
-			col.Nodes[n] = node;
+			nodes[n] = new ColliderNode(nodeIndex, clusters);
 		}
 
-		return col;
+		offset = Index;
+		return nodes;
 	}
 
 	public override byte[]? ObjectToBytes(DataFile? source) {
@@ -68,17 +74,17 @@ public class HercColliderTransformer : ThreeSpaceByteTransformer {
 		}
 
 		using var outStream = new MemoryStream();
-		var nodes = col.Nodes ?? Array.Empty<HercCollider.ColliderNode>();
+		var nodes = col.Nodes ?? Array.Empty<ColliderNode>();
 
 		Write(outStream, WriteShortLE((short)nodes.Length));
 		foreach (var node in nodes) {
-			var clusters = node.Clusters ?? Array.Empty<HercCollider.ColliderCluster>();
+			var clusters = node.Clusters ?? Array.Empty<ColliderCluster>();
 
 			Write(outStream, WriteShortLE(node.NodeIndex));
 			Write(outStream, WriteShortLE((short)clusters.Length));
 
 			foreach (var cluster in clusters) {
-				var spheres = cluster.Spheres ?? Array.Empty<HercCollider.ColliderSphere>();
+				var spheres = cluster.Spheres ?? Array.Empty<ColliderSphere>();
 
 				Write(outStream, WriteShortLE(cluster.ComponentIndex));
 				Write(outStream, WriteShortLE((short)spheres.Length));

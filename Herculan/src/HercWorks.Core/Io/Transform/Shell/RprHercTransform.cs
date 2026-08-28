@@ -5,18 +5,14 @@ using HercWorks.Vol;
 namespace HercWorks.Core.Io.Transform.Shell;
 
 /// <summary>Ported from org.hercworks.core.io.transform.shell.RprHercTransform.</summary>
-public class RprHercTransform : ThreeSpaceByteTransformer {
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+public class RprHercTransform : ByteTransformer<RprHerc> {
+	public override RprHerc? Parse(byte[]? inputArray) {
 		if (inputArray == null || inputArray.Length == 0) {
 			// TODO - error for empty byte array
 			return null;
 		}
 		SetBytes(inputArray);
-		var repairHerc = new RprHerc {
-			RawBytes = inputArray,
-			Ext = FileType.Dat,
-			Dir = FileType.Gam
-		};
+		var repairHerc = new RprHerc();
 
 		repairHerc.BodyImgTotal = IndexShortLE();
 
@@ -63,37 +59,36 @@ public class RprHercTransform : ThreeSpaceByteTransformer {
 		return repairHerc;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
-		var data = (RprHerc)source!;
+	public override byte[]? Write(RprHerc data) {
 		using var outStream = new MemoryStream();
 
-		void Write(byte[] bytes) => outStream.Write(bytes, 0, bytes.Length);
+		void Emit(byte[] bytes) => outStream.Write(bytes, 0, bytes.Length);
 
-		Write(WriteShortLE(data.BodyImgTotal));
+		Emit(WriteShortLE(data.BodyImgTotal));
 		foreach (var id in data.BodyImages!.Keys) {
 			var frame = data.BodyImages[id];
-			Write(WriteShortLE(id));
-			Write(WriteUiImage(frame));
+			Emit(WriteShortLE(id));
+			Emit(WriteUiImage(frame));
 		}
 
-		Write(WriteShortLE(data.InternalImage!.Id));
-		Write(WriteIntLE(data.InternalImage.OriginX));
-		Write(WriteIntLE(data.InternalImage.OriginY));
-		Write(WriteShortLE(data.InternalImage.FrameId));
-		Write(WriteShortLE(data.InternalImage.Flags!.Val));
+		Emit(WriteShortLE(data.InternalImage!.Id));
+		Emit(WriteIntLE(data.InternalImage.OriginX));
+		Emit(WriteIntLE(data.InternalImage.OriginY));
+		Emit(WriteShortLE(data.InternalImage.FrameId));
+		Emit(WriteShortLE(data.InternalImage.Flags!.Val));
 
-		Write(WriteShortLE(data.TotalHardpoints));
+		Emit(WriteShortLE(data.TotalHardpoints));
 		foreach (var id in data.WeaponHardpoints!.Keys) {
 			var sockets = data.WeaponHardpoints[id];
-			Write(WriteShortLE(id));
-			Write(WriteShortLE((short)sockets.Length));
+			Emit(WriteShortLE(id));
+			Emit(WriteShortLE((short)sockets.Length));
 			for (int h = 0; h < sockets.Length; h++) {
 				var img = sockets[h];
-				Write(WriteShortLE(img.Id));
-				Write(WriteIntLE(img.OriginX));
-				Write(WriteIntLE(img.OriginY));
-				Write(WriteShortLE(img.FrameId));
-				Write(WriteShortLE(img.Flags!.Val));
+				Emit(WriteShortLE(img.Id));
+				Emit(WriteIntLE(img.OriginX));
+				Emit(WriteIntLE(img.OriginY));
+				Emit(WriteShortLE(img.FrameId));
+				Emit(WriteShortLE(img.Flags!.Val));
 			}
 		}
 		return outStream.ToArray();
@@ -103,12 +98,12 @@ public class RprHercTransform : ThreeSpaceByteTransformer {
 	// and the ones in the ARM_[herc].DAT files
 	private byte[] WriteUiImage(UiImageDBA img) {
 		using var bass = new MemoryStream();
-		void Write(byte[] bytes) => bass.Write(bytes, 0, bytes.Length);
+		void Emit(byte[] bytes) => bass.Write(bytes, 0, bytes.Length);
 
-		Write(WriteIntLE(img.OriginX));
-		Write(WriteIntLE(img.OriginY));
-		Write(WriteShortLE(img.FrameId));
-		Write(WriteShortLE(img.Flags!.Val));
+		Emit(WriteIntLE(img.OriginX));
+		Emit(WriteIntLE(img.OriginY));
+		Emit(WriteShortLE(img.FrameId));
+		Emit(WriteShortLE(img.Flags!.Val));
 
 		return bass.ToArray();
 	}

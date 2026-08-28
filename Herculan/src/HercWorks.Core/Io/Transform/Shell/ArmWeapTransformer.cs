@@ -5,8 +5,8 @@ using HercWorks.Vol;
 namespace HercWorks.Core.Io.Transform.Shell;
 
 /// <summary>Ported from org.hercworks.core.io.transform.shell.ArmWeapTransformer.</summary>
-public class ArmWeapTransformer : ThreeSpaceByteTransformer {
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+public class ArmWeapTransformer : ByteTransformer<ArmWeap> {
+	public override ArmWeap? Parse(byte[]? inputArray) {
 		if (inputArray == null || inputArray.Length <= 0) {
 			return null;
 		}
@@ -14,11 +14,7 @@ public class ArmWeapTransformer : ThreeSpaceByteTransformer {
 		SetBytes(inputArray);
 		short count = IndexShortLE();
 		var armWeap = new ArmWeap(count) {
-			TotalWeapons = count,
-			RawBytes = inputArray,
-			Ext = FileType.Dat,
-			Dir = FileType.Gam,
-			FileName = "ARM_WEAP"
+			TotalWeapons = count
 		};
 
 		for (int i = 0; i < armWeap.TotalWeapons; i++) {
@@ -48,31 +44,30 @@ public class ArmWeapTransformer : ThreeSpaceByteTransformer {
 		return armWeap;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
-		var data = (ArmWeap)source!;
+	public override byte[]? Write(ArmWeap data) {
 
 		using var objectBytes = new MemoryStream();
 
-		void Write(byte[] bytes) => objectBytes.Write(bytes, 0, bytes.Length);
+		void Emit(byte[] bytes) => objectBytes.Write(bytes, 0, bytes.Length);
 
-		Write(WriteShortLE(data.TotalWeapons));
+		Emit(WriteShortLE(data.TotalWeapons));
 
 		for (int i = 0; i < data.TotalWeapons; i++) {
 			var icon = data.Entries![i];
-			Write(WriteShortLE(icon.Id));
-			Write(WriteIntLE(icon.OriginX));
-			Write(WriteIntLE(icon.OriginY));
-			Write(WriteShortLE(icon.FrameId));
+			Emit(WriteShortLE(icon.Id));
+			Emit(WriteIntLE(icon.OriginX));
+			Emit(WriteIntLE(icon.OriginY));
+			Emit(WriteShortLE(icon.FrameId));
 		}
 
-		Write(WriteShortLE(data.TotalSecondList));
+		Emit(WriteShortLE(data.TotalSecondList));
 
 		for (int i = 0; i < data.TotalSecondList; i++) {
 			var icon = data.Secondary![i];
-			Write(WriteShortLE(icon.Id));
-			Write(WriteIntLE(icon.OriginX));
-			Write(WriteIntLE(icon.OriginY));
-			Write(WriteShortLE(icon.FrameId));
+			Emit(WriteShortLE(icon.Id));
+			Emit(WriteIntLE(icon.OriginX));
+			Emit(WriteIntLE(icon.OriginY));
+			Emit(WriteShortLE(icon.FrameId));
 		}
 
 		return objectBytes.ToArray();

@@ -6,8 +6,8 @@ using HercWorks.Vol;
 namespace HercWorks.Core.Io.Transform.Shell;
 
 /// <summary>Ported from org.hercworks.core.io.transform.shell.TrainingHercsTransform.</summary>
-public class TrainingHercsTransform : ThreeSpaceByteTransformer {
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+public class TrainingHercsTransform : ByteTransformer<TrainingHercs> {
+	public override TrainingHercs? Parse(byte[]? inputArray) {
 		if (inputArray == null || inputArray.Length <= 0) {
 			// TODO - warn empty array
 			return null;
@@ -15,9 +15,6 @@ public class TrainingHercsTransform : ThreeSpaceByteTransformer {
 		SetBytes(inputArray);
 
 		var training = new TrainingHercs {
-			RawBytes = inputArray,
-			Ext = FileType.Dat,
-			Dir = FileType.Gam,
 			Data = new List<ShellHercData>()
 		};
 
@@ -42,24 +39,23 @@ public class TrainingHercsTransform : ThreeSpaceByteTransformer {
 		return training;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
-		var training = (TrainingHercs)source!;
+	public override byte[]? Write(TrainingHercs training) {
 		using var outStream = new MemoryStream();
 
-		void Write(byte[] bytes) => outStream.Write(bytes, 0, bytes.Length);
+		void Emit(byte[] bytes) => outStream.Write(bytes, 0, bytes.Length);
 
 		foreach (var herc in training.Data!) {
-			Write(WriteShortLE(herc.HercId));
-			Write(WriteShortLE(herc.HealthRatio));
-			Write(WriteShortLE(herc.BuildCompleteLevel));
-			Write(WriteShortLE((short)herc.Hardpoints!.Count));
+			Emit(WriteShortLE(herc.HercId));
+			Emit(WriteShortLE(herc.HealthRatio));
+			Emit(WriteShortLE(herc.BuildCompleteLevel));
+			Emit(WriteShortLE((short)herc.Hardpoints!.Count));
 
 			foreach (var id in herc.Hardpoints.Keys) {
 				var entry = herc.Hardpoints[id];
-				Write(WriteShortLE(id));
-				Write(WriteShortLE(entry.ItemId));
-				Write(WriteShortLE(entry.HealthPercent));
-				Write(WriteShortLE((short)entry.MissileType!.Id));
+				Emit(WriteShortLE(id));
+				Emit(WriteShortLE(entry.ItemId));
+				Emit(WriteShortLE(entry.HealthPercent));
+				Emit(WriteShortLE((short)entry.MissileType!.Id));
 			}
 		}
 

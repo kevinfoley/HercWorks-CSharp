@@ -1,5 +1,4 @@
 using HercWorks.Core.Data.Struct.Vshell.Hercs;
-using HercWorks.Vol;
 
 namespace HercWorks.Core.Data.File.Dat.Shell;
 
@@ -12,7 +11,7 @@ namespace HercWorks.Core.Data.File.Dat.Shell;
 ///   missile enum).
 /// Ported from org.hercworks.core.data.file.dat.shell.WeaponsDat.
 /// </summary>
-public class WeaponsDat : DataFile {
+public class WeaponsDat {
 	public short TotalCount { get; set; }
 	public Entry[] Data { get; set; }
 	public short StartWeaponTotal { get; set; }

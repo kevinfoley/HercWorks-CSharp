@@ -1,4 +1,3 @@
-using HercWorks.Vol;
 
 namespace HercWorks.Core.Data.File.Bnd;
 
@@ -30,7 +29,16 @@ namespace HercWorks.Core.Data.File.Bnd;
 /// constants, so there's no runtime loader to check CAM.BND's fields against, only the compiled
 /// code's own use of camera-related values if that's ever traced.
 /// </summary>
-public class Cam : DataFile {
+public class Cam {
+	/// <summary>
+	/// The file's own bytes, kept so <see cref="Io.Transform.Bnd.CamTransformer.Write"/> can copy
+	/// the 9-byte .BND envelope (type marker, payload length, reserved, build stamp) back out
+	/// verbatim instead of reconstructing it — the envelope is never decoded, only preserved.
+	/// This is the one place a parsed model needs its source bytes, so it is declared here rather
+	/// than inherited.
+	/// </summary>
+	public byte[]? RawBytes { get; set; }
+
 	/// <summary>Per-subsystem record tag, absolute file offset 9. 54 (0x36) in the real CAM.BND.</summary>
 	public byte RecordTag { get; set; }
 

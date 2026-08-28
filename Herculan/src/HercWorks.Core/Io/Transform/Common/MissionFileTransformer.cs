@@ -1,5 +1,4 @@
 using HercWorks.Core.Data.File.Msn;
-using HercWorks.Vol;
 
 namespace HercWorks.Core.Io.Transform.Common;
 
@@ -17,17 +16,13 @@ namespace HercWorks.Core.Io.Transform.Common;
 /// than throwing or silently fabricating data.
 /// Ported from org.hercworks.core.io.transform.common.MissionFileTransformer.
 /// </summary>
-public class MissionFileTransformer : ThreeSpaceByteTransformer {
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+public class MissionFileTransformer : ByteTransformer<MissionFile> {
+	public override MissionFile? Parse(byte[]? inputArray) {
 		if (inputArray == null || inputArray.Length <= 0) {
 			return null;
 		}
 
-		var data = new MissionFile {
-			RawBytes = inputArray,
-			Ext = FileType.Msn,
-			Dir = FileType.Msn
-		};
+		var data = new MissionFile();
 
 		SetBytes(inputArray);
 
@@ -330,19 +325,18 @@ public class MissionFileTransformer : ThreeSpaceByteTransformer {
 	// Write path
 	// ==========================================================================================
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
+	public override byte[]? Write(MissionFile data) {
 		using var outStream = new MemoryStream();
-		var data = (MissionFile)source!;
 
-		Write(outStream, WriteShortLE(data.Revision));
+		Emit(outStream, WriteShortLE(data.Revision));
 
 		WriteArray(outStream, data.TriggerEntries!, WriteRow1);
 		WriteArray(outStream, data.OverridePatches!, WriteRow2);
 		WriteArray(outStream, data.Variants!, WriteRow3);
 		WriteArray(outStream, data.RewardPackages!, WriteRow4);
 
-		Write(outStream, WriteShortLE((short)(data.SkippedBytes!.Length / 64)));
-		Write(outStream, data.SkippedBytes);
+		Emit(outStream, WriteShortLE((short)(data.SkippedBytes!.Length / 64)));
+		Emit(outStream, data.SkippedBytes);
 
 		WriteArray(outStream, data.Points!, WriteRow6);
 		WriteArray(outStream, data.Flags!, WriteRow7);
@@ -362,224 +356,224 @@ public class MissionFileTransformer : ThreeSpaceByteTransformer {
 	}
 
 	private void WriteArray<T>(MemoryStream outStream, T[] items, Action<MemoryStream, T> writeOne) {
-		Write(outStream, WriteShortLE((short)items.Length));
+		Emit(outStream, WriteShortLE((short)items.Length));
 		foreach (var item in items) {
 			writeOne(outStream, item);
 		}
 	}
 
 	private void WriteRow1(MemoryStream o, UnkHeaderEntry e) {
-		Write(o, WriteShortLE(e.Ordinal));
-		Write(o, WriteShortLE(e.ConditionInput));
-		Write(o, WriteShortLE(e.TypeDiscriminator));
-		Write(o, WriteShortLE(e.FlagIndexOrRangeLower));
-		Write(o, WriteShortLE(e.OperatorOrRangeUpperOrResult));
-		Write(o, WriteShortLE(e.ComparisonOperand));
-		Write(o, WriteShortLE(e.AlwaysZero));
+		Emit(o, WriteShortLE(e.Ordinal));
+		Emit(o, WriteShortLE(e.ConditionInput));
+		Emit(o, WriteShortLE(e.TypeDiscriminator));
+		Emit(o, WriteShortLE(e.FlagIndexOrRangeLower));
+		Emit(o, WriteShortLE(e.OperatorOrRangeUpperOrResult));
+		Emit(o, WriteShortLE(e.ComparisonOperand));
+		Emit(o, WriteShortLE(e.AlwaysZero));
 	}
 
 	private void WriteRow2(MemoryStream o, CampaignOverridePatch82 e) {
-		Write(o, WriteShortLESegment(e.Data));
+		Emit(o, WriteShortLESegment(e.Data));
 	}
 
 	private void WriteRow3(MemoryStream o, VariantValue8 e) {
-		Write(o, WriteShortLE(e.GUID));
-		Write(o, WriteShortLE(e.ConditionRef));
-		Write(o, WriteShortLE(e.Unk04));
-		Write(o, WriteShortLE(e.Payload));
+		Emit(o, WriteShortLE(e.GUID));
+		Emit(o, WriteShortLE(e.ConditionRef));
+		Emit(o, WriteShortLE(e.Unk04));
+		Emit(o, WriteShortLE(e.Payload));
 	}
 
 	private void WriteRow4(MemoryStream o, RewardPackage144 e) {
-		Write(o, WriteShortLE(e.ConditionRef));
-		Write(o, WriteShortLESegment(e.LutRefsA));
-		Write(o, WriteShortLESegment(e.LutRefsB));
-		Write(o, WriteShortLESegment(e.LutRefsC));
-		Write(o, WriteShortLE(e.VariantRef));
+		Emit(o, WriteShortLE(e.ConditionRef));
+		Emit(o, WriteShortLESegment(e.LutRefsA));
+		Emit(o, WriteShortLESegment(e.LutRefsB));
+		Emit(o, WriteShortLESegment(e.LutRefsC));
+		Emit(o, WriteShortLE(e.VariantRef));
 	}
 
 	private void WriteRow6(MemoryStream o, MapPoint22 e) {
-		Write(o, WriteShortLE(e.GUID));
-		Write(o, WriteShortLE(e.ConditionRef));
-		Write(o, WriteShortLE(e.InheritIndex));
-		Write(o, WriteShortLE(e.Unk06));
-		Write(o, WriteShortLE(e.SumFlag));
-		Write(o, WriteIntLE(e.X));
-		Write(o, WriteIntLE(e.Y));
-		Write(o, WriteIntLE(e.Z));
+		Emit(o, WriteShortLE(e.GUID));
+		Emit(o, WriteShortLE(e.ConditionRef));
+		Emit(o, WriteShortLE(e.InheritIndex));
+		Emit(o, WriteShortLE(e.Unk06));
+		Emit(o, WriteShortLE(e.SumFlag));
+		Emit(o, WriteIntLE(e.X));
+		Emit(o, WriteIntLE(e.Y));
+		Emit(o, WriteIntLE(e.Z));
 	}
 
 	private void WriteRow7(MemoryStream o, Flag10 e) {
-		Write(o, WriteShortLE(e.GUID));
-		Write(o, WriteShortLE(e.ConditionRef));
-		Write(o, WriteShortLE(e.InheritIndex));
-		Write(o, WriteShortLE(e.Unk06));
-		Write(o, WriteShortLE(e.Payload));
+		Emit(o, WriteShortLE(e.GUID));
+		Emit(o, WriteShortLE(e.ConditionRef));
+		Emit(o, WriteShortLE(e.InheritIndex));
+		Emit(o, WriteShortLE(e.Unk06));
+		Emit(o, WriteShortLE(e.Payload));
 	}
 
 	private void WriteRow8(MemoryStream o, WaypointGroup e) {
-		Write(o, WriteShortLE(e.GUID));
-		Write(o, WriteShortLE(e.ConditionRef));
-		Write(o, WriteShortLE(e.InheritIndex));
-		Write(o, WriteShortLE(e.Unk06));
-		Write(o, WriteShortLE((short)e.Waypoints.Length));
-		Write(o, WriteShortLESegment(e.Waypoints));
+		Emit(o, WriteShortLE(e.GUID));
+		Emit(o, WriteShortLE(e.ConditionRef));
+		Emit(o, WriteShortLE(e.InheritIndex));
+		Emit(o, WriteShortLE(e.Unk06));
+		Emit(o, WriteShortLE((short)e.Waypoints.Length));
+		Emit(o, WriteShortLESegment(e.Waypoints));
 	}
 
 	private void WriteRow9(MemoryStream o, LinkOrReward12 e) {
-		Write(o, WriteShortLE(e.GUID));
-		Write(o, WriteShortLE(e.ConditionRef));
-		Write(o, WriteShortLE(e.Unk04));
-		Write(o, WriteShortLE(e.TypeFlag));
-		Write(o, WriteShortLE(e.RefA));
-		Write(o, WriteShortLE(e.RefBOrLiteral));
+		Emit(o, WriteShortLE(e.GUID));
+		Emit(o, WriteShortLE(e.ConditionRef));
+		Emit(o, WriteShortLE(e.Unk04));
+		Emit(o, WriteShortLE(e.TypeFlag));
+		Emit(o, WriteShortLE(e.RefA));
+		Emit(o, WriteShortLE(e.RefBOrLiteral));
 	}
 
 	private void WriteRow10(MemoryStream o, Action82 e) {
-		Write(o, WriteShortLE(e.GUID));
-		Write(o, WriteShortLE(e.ConditionRef));
-		Write(o, WriteShortLE(e.Unk04));
-		Write(o, WriteShortLE(e.Type));
-		Write(o, WriteShortLE(e.Verb));
-		Write(o, WriteShortLESegment(e.RefsRow9));
-		Write(o, WriteShortLESegment(e.ConstantSpan));
-		Write(o, WriteShortLESegment(e.LutRefs));
-		Write(o, WriteShortLE(e.SecondaryValue));
-		Write(o, WriteShortLE(e.Target));
+		Emit(o, WriteShortLE(e.GUID));
+		Emit(o, WriteShortLE(e.ConditionRef));
+		Emit(o, WriteShortLE(e.Unk04));
+		Emit(o, WriteShortLE(e.Type));
+		Emit(o, WriteShortLE(e.Verb));
+		Emit(o, WriteShortLESegment(e.RefsRow9));
+		Emit(o, WriteShortLESegment(e.ConstantSpan));
+		Emit(o, WriteShortLESegment(e.LutRefs));
+		Emit(o, WriteShortLE(e.SecondaryValue));
+		Emit(o, WriteShortLE(e.Target));
 	}
 
 	private void WriteRow11(MemoryStream o, ActionPair30 e) {
-		Write(o, WriteShortLE(e.GUID));
-		Write(o, WriteShortLE(e.ConditionRef));
-		Write(o, WriteShortLE(e.Unk04));
-		Write(o, WriteShortLE(e.PrimaryActionRef));
-		Write(o, WriteShortLE(e.TimerValue));
-		Write(o, WriteShortLESegment(e.SequenceRefs));
+		Emit(o, WriteShortLE(e.GUID));
+		Emit(o, WriteShortLE(e.ConditionRef));
+		Emit(o, WriteShortLE(e.Unk04));
+		Emit(o, WriteShortLE(e.PrimaryActionRef));
+		Emit(o, WriteShortLE(e.TimerValue));
+		Emit(o, WriteShortLESegment(e.SequenceRefs));
 	}
 
 	private void WriteRow12(MemoryStream o, SpawnRecord144 e) {
-		Write(o, WriteShortLE(e.GUID));
-		Write(o, WriteShortLE(e.ConditionRef));
-		Write(o, WriteShortLE(e.InheritIndex));
-		Write(o, WriteShortLE(e.CompoundConditionPartner));
-		Write(o, WriteShortLE(e.BinaryFlag));
-		Write(o, WriteShortLE(e.NearConstant));
-		Write(o, WriteShortLESegment(e.DeadZone));
-		Write(o, WriteShortLE(e.SmallDiscrete));
-		Write(o, WriteShortLESegment(e.UnresolvedRefs));
-		Write(o, WriteShortLE(e.RefRow6));
-		Write(o, WriteShortLE(e.RefRow7));
-		Write(o, WriteShortLE(e.SmallDiscrete2));
-		Write(o, WriteShortLESegment(e.PairedRefs));
-		Write(o, WriteShortLESegment(e.AlwaysPopulatedBlock));
-		Write(o, WriteShortLE(e.Constant5));
-		Write(o, WriteShortLE(e.Constant2));
-		Write(o, WriteShortLE(e.RefRow10Slot1));
-		Write(o, WriteShortLE(e.RefRow10Slot2));
-		Write(o, WriteShortLE(e.TrailingField));
+		Emit(o, WriteShortLE(e.GUID));
+		Emit(o, WriteShortLE(e.ConditionRef));
+		Emit(o, WriteShortLE(e.InheritIndex));
+		Emit(o, WriteShortLE(e.CompoundConditionPartner));
+		Emit(o, WriteShortLE(e.BinaryFlag));
+		Emit(o, WriteShortLE(e.NearConstant));
+		Emit(o, WriteShortLESegment(e.DeadZone));
+		Emit(o, WriteShortLE(e.SmallDiscrete));
+		Emit(o, WriteShortLESegment(e.UnresolvedRefs));
+		Emit(o, WriteShortLE(e.RefRow6));
+		Emit(o, WriteShortLE(e.RefRow7));
+		Emit(o, WriteShortLE(e.SmallDiscrete2));
+		Emit(o, WriteShortLESegment(e.PairedRefs));
+		Emit(o, WriteShortLESegment(e.AlwaysPopulatedBlock));
+		Emit(o, WriteShortLE(e.Constant5));
+		Emit(o, WriteShortLE(e.Constant2));
+		Emit(o, WriteShortLE(e.RefRow10Slot1));
+		Emit(o, WriteShortLE(e.RefRow10Slot2));
+		Emit(o, WriteShortLE(e.TrailingField));
 	}
 
 	private void WriteRow13(MemoryStream o, UnkEntity102Bytes e) {
-		Write(o, WriteShortLE(e.GUID));
-		Write(o, WriteShortLE(e.ConditionRef));
-		Write(o, WriteShortLE(e.InheritIndex));
-		Write(o, WriteShortLE(e.Unk06));
-		Write(o, WriteShortLESegment(e.FlagsA));
-		Write(o, WriteShortLE(e.RefRow6));
-		Write(o, WriteShortLE(e.RefRow7));
-		Write(o, WriteShortLE(e.BinaryField));
-		Write(o, WriteShortLE(e.Unk36));
-		Write(o, WriteShortLESegment(e.FlagsB));
-		Write(o, WriteShortLE(e.RefRow10Slot1));
-		Write(o, WriteShortLE(e.RefRow10Slot2));
-		Write(o, WriteShortLE(e.UnkVal_100));
+		Emit(o, WriteShortLE(e.GUID));
+		Emit(o, WriteShortLE(e.ConditionRef));
+		Emit(o, WriteShortLE(e.InheritIndex));
+		Emit(o, WriteShortLE(e.Unk06));
+		Emit(o, WriteShortLESegment(e.FlagsA));
+		Emit(o, WriteShortLE(e.RefRow6));
+		Emit(o, WriteShortLE(e.RefRow7));
+		Emit(o, WriteShortLE(e.BinaryField));
+		Emit(o, WriteShortLE(e.Unk36));
+		Emit(o, WriteShortLESegment(e.FlagsB));
+		Emit(o, WriteShortLE(e.RefRow10Slot1));
+		Emit(o, WriteShortLE(e.RefRow10Slot2));
+		Emit(o, WriteShortLE(e.UnkVal_100));
 	}
 
 	private void WriteRow14(MemoryStream o, MiscEntityInfo e) {
-		Write(o, WriteShortLE(e.GUID));
-		Write(o, WriteShortLE(e.ConditionRef));
-		Write(o, WriteShortLE(e.InheritIndex));
-		Write(o, WriteShortLE(e.Unk06));
-		Write(o, WriteShortLE(e.TypeLikeScalar));
-		Write(o, WriteShortLE(e.RefRow6));
-		Write(o, WriteShortLE(e.RefRow7));
-		Write(o, WriteShortLE(e.SmallDiscrete));
-		Write(o, WriteShortLESegment(e.SparseBlock));
-		Write(o, WriteShortLE(e.RefRow10Slot1));
-		Write(o, WriteShortLE(e.RefRow10Slot2));
-		Write(o, WriteShortLE(e.TrailingField));
+		Emit(o, WriteShortLE(e.GUID));
+		Emit(o, WriteShortLE(e.ConditionRef));
+		Emit(o, WriteShortLE(e.InheritIndex));
+		Emit(o, WriteShortLE(e.Unk06));
+		Emit(o, WriteShortLE(e.TypeLikeScalar));
+		Emit(o, WriteShortLE(e.RefRow6));
+		Emit(o, WriteShortLE(e.RefRow7));
+		Emit(o, WriteShortLE(e.SmallDiscrete));
+		Emit(o, WriteShortLESegment(e.SparseBlock));
+		Emit(o, WriteShortLE(e.RefRow10Slot1));
+		Emit(o, WriteShortLE(e.RefRow10Slot2));
+		Emit(o, WriteShortLE(e.TrailingField));
 	}
 
 	private void WriteRow15(MemoryStream o, LinkedRef22 e) {
-		Write(o, WriteShortLE(e.GUID));
-		Write(o, WriteShortLE(e.ConditionRef));
-		Write(o, WriteShortLE(e.InheritIndex));
-		Write(o, WriteShortLE(e.CompoundConditionPartner));
-		Write(o, WriteShortLE(e.SmallInt1));
-		Write(o, WriteShortLE(e.SmallInt2));
-		Write(o, WriteShortLE(e.RefRow6));
-		Write(o, WriteShortLE(e.RefRow8));
-		Write(o, WriteShortLE(e.DiscriminatorType));
-		Write(o, WriteShortLE(e.DiscriminatedRef));
-		Write(o, WriteShortLE(e.RefRow10));
+		Emit(o, WriteShortLE(e.GUID));
+		Emit(o, WriteShortLE(e.ConditionRef));
+		Emit(o, WriteShortLE(e.InheritIndex));
+		Emit(o, WriteShortLE(e.CompoundConditionPartner));
+		Emit(o, WriteShortLE(e.SmallInt1));
+		Emit(o, WriteShortLE(e.SmallInt2));
+		Emit(o, WriteShortLE(e.RefRow6));
+		Emit(o, WriteShortLE(e.RefRow8));
+		Emit(o, WriteShortLE(e.DiscriminatorType));
+		Emit(o, WriteShortLE(e.DiscriminatedRef));
+		Emit(o, WriteShortLE(e.RefRow10));
 	}
 
 	private void WriteRow16(MemoryStream o, UnkEntity164Bytes e) {
-		Write(o, WriteShortLE(e.GUID));
-		Write(o, WriteShortLE(e.ConditionRef));
-		Write(o, WriteShortLE(e.CompoundConditionPartner));
-		Write(o, WriteShortLE(e.BinaryFlag));
-		Write(o, WriteShortLE(e.NearConstant));
-		Write(o, WriteShortLESegment(e.DeadZone));
-		Write(o, WriteShortLE(e.Discriminator));
-		Write(o, WriteShortLE(e.SmallDiscrete));
-		Write(o, WriteShortLE(e.RefRow6));
-		Write(o, WriteShortLE(e.RefRow7));
-		Write(o, WriteShortLE(e.RefRow8));
-		Write(o, WriteShortLESegment(e.DiscriminatedRefs));
-		Write(o, WriteShortLESegment(e.Row15Refs));
-		Write(o, WriteShortLE(e.TriStateFlag));
-		Write(o, WriteShortLE(e.RefRow10));
-		Write(o, WriteShortLE(e.TrailingDiscriminator));
-		Write(o, WriteShortLE(e.Payload1));
-		Write(o, WriteShortLE(e.Payload2));
-		Write(o, WriteShortLE(e.Payload3));
-		Write(o, WriteShortLE(e.Payload4));
-		Write(o, WriteShortLESegment(e.DeadZone2));
-		Write(o, WriteShortLE(e.TrailingFlag));
+		Emit(o, WriteShortLE(e.GUID));
+		Emit(o, WriteShortLE(e.ConditionRef));
+		Emit(o, WriteShortLE(e.CompoundConditionPartner));
+		Emit(o, WriteShortLE(e.BinaryFlag));
+		Emit(o, WriteShortLE(e.NearConstant));
+		Emit(o, WriteShortLESegment(e.DeadZone));
+		Emit(o, WriteShortLE(e.Discriminator));
+		Emit(o, WriteShortLE(e.SmallDiscrete));
+		Emit(o, WriteShortLE(e.RefRow6));
+		Emit(o, WriteShortLE(e.RefRow7));
+		Emit(o, WriteShortLE(e.RefRow8));
+		Emit(o, WriteShortLESegment(e.DiscriminatedRefs));
+		Emit(o, WriteShortLESegment(e.Row15Refs));
+		Emit(o, WriteShortLE(e.TriStateFlag));
+		Emit(o, WriteShortLE(e.RefRow10));
+		Emit(o, WriteShortLE(e.TrailingDiscriminator));
+		Emit(o, WriteShortLE(e.Payload1));
+		Emit(o, WriteShortLE(e.Payload2));
+		Emit(o, WriteShortLE(e.Payload3));
+		Emit(o, WriteShortLE(e.Payload4));
+		Emit(o, WriteShortLESegment(e.DeadZone2));
+		Emit(o, WriteShortLE(e.TrailingFlag));
 	}
 
 	private void WriteRow17(MemoryStream outStream, MissionFile data) {
 		var entries = data.LinkedRefs58!;
-		Write(outStream, WriteShortLE((short)entries.Length));
+		Emit(outStream, WriteShortLE((short)entries.Length));
 
 		foreach (var e in entries) {
 			if (e == null) {
 				// DEMO2.MSN-style truncation: write back whatever raw tail bytes were preserved on
 				// read, instead of a full 58-byte record that never existed in the source file.
 				if (data.TruncatedRow17Tail != null) {
-					Write(outStream, data.TruncatedRow17Tail);
+					Emit(outStream, data.TruncatedRow17Tail);
 				}
 				continue;
 			}
 
-			Write(outStream, WriteShortLE(e.ConditionRef));
-			Write(outStream, WriteShortLE(e.Unk02));
-			Write(outStream, WriteShortLE(e.Unk04));
-			Write(outStream, WriteShortLE(e.Discriminator));
-			Write(outStream, WriteShortLE(e.DiscriminatedRef));
-			Write(outStream, WriteShortLE(e.RefRow6));
-			Write(outStream, WriteShortLE(e.RefRow8));
-			Write(outStream, WriteShortLE(e.LutRef));
-			Write(outStream, WriteShortLE(e.PairCount));
+			Emit(outStream, WriteShortLE(e.ConditionRef));
+			Emit(outStream, WriteShortLE(e.Unk02));
+			Emit(outStream, WriteShortLE(e.Unk04));
+			Emit(outStream, WriteShortLE(e.Discriminator));
+			Emit(outStream, WriteShortLE(e.DiscriminatedRef));
+			Emit(outStream, WriteShortLE(e.RefRow6));
+			Emit(outStream, WriteShortLE(e.RefRow8));
+			Emit(outStream, WriteShortLE(e.LutRef));
+			Emit(outStream, WriteShortLE(e.PairCount));
 
 			foreach (var pair in e.Pairs) {
-				Write(outStream, WriteShortLE(pair.Ref));
-				Write(outStream, WriteShortLE(pair.Tag));
+				Emit(outStream, WriteShortLE(pair.Ref));
+				Emit(outStream, WriteShortLE(pair.Tag));
 			}
 		}
 	}
 
-	private static void Write(MemoryStream outArr, byte[] data) {
+	private static void Emit(MemoryStream outArr, byte[] data) {
 		outArr.Write(data, 0, data.Length);
 	}
 }

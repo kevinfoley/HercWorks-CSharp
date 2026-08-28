@@ -7,21 +7,18 @@ namespace HercWorks.Core.Io.Transform.Common;
 /// Transforms byte[] data to and from DynamixBitmap game files.
 /// Ported from org.hercworks.core.io.transform.common.DynamixBitmapTransformer.
 /// </summary>
-public class DynamixBitmapTransformer : ThreeSpaceByteTransformer {
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+public class DynamixBitmapTransformer : ByteTransformer<DynamixBitmap> {
+	public override DynamixBitmap? Parse(byte[]? inputArray) {
 		if (inputArray == null || inputArray.Length <= 0) {
 			// TODO (carried over from Java): log null
 			return null;
 		}
 		SetBytes(inputArray);
 
-		var dbm = new DynamixBitmap {
-			RawBytes = inputArray,
-			Ext = FileType.Dbm,
-			Dir = FileType.Dbm,
+		Skip(4); // magic header — the write path emits DynamixBitmap.HeaderMagic, so it isn't retained.
+		Skip(4); // on-disk size — the write path recomputes it from ImageData, so it isn't retained.
 
-			Header = IndexSegment(4),
-			FileSize = IndexSegmentLE(4),
+		var dbm = new DynamixBitmap {
 			Rows = IndexShortLE(),
 			Cols = IndexShortLE(),
 			BitDepth = IndexShortLE(),
@@ -34,14 +31,7 @@ public class DynamixBitmapTransformer : ThreeSpaceByteTransformer {
 		return dbm;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
-		if (source == null) {
-			// TODO (carried over from Java): null file check
-			return null;
-		}
-
-		var dbm = (DynamixBitmap)source;
-
+	public override byte[]? Write(DynamixBitmap dbm) {
 		using var objectBytes = new MemoryStream();
 
 		objectBytes.Write(DynamixBitmap.HeaderMagic, 0, DynamixBitmap.HeaderMagic.Length);

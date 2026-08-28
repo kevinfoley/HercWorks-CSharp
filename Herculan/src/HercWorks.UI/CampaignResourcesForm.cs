@@ -77,7 +77,7 @@ public partial class CampaignResourcesForm : Form {
 		try {
 			byte[] rawBytes = File.ReadAllBytes(dialog.FileName);
 			var prefix = VolEntryPrefixCodec.StripIfPresent(rawBytes);
-			var save = (PlayerSave?)_transformer.BytesToObject(prefix.Content);
+			var save = (PlayerSave?)_transformer.Parse(prefix.Content);
 
 			if (save == null) {
 				MessageBox.Show(this, "File was empty or could not be parsed.", "Error",
@@ -226,7 +226,7 @@ public partial class CampaignResourcesForm : Form {
 				row.Entry.HardpointMax = row.HardpointMax;
 			}
 
-			byte[] content = _transformer.ObjectToBytes(_loadedSave)!;
+			byte[] content = _transformer.Write(_loadedSave)!;
 			byte[] outBytes;
 			string formatNote;
 

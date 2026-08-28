@@ -1,5 +1,3 @@
-using HercWorks.Vol;
-
 namespace HercWorks.Core.Data.File.Dbsim;
 
 /// <summary>
@@ -10,7 +8,7 @@ namespace HercWorks.Core.Data.File.Dbsim;
 ///   X/Y/Z, unknown Int8, weapon ID, unknown Int16 (usually divisible by 1000).
 /// Ported from org.hercworks.core.data.file.dbsim.GunLayout.
 /// </summary>
-public class GunLayout : DataFile {
+public class GunLayout {
 	public short TotalGuns { get; set; }
 	public HardpointEntry[]? Hardpoints { get; set; }
 

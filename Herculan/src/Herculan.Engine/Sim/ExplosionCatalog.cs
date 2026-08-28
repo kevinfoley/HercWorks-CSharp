@@ -52,7 +52,7 @@ public sealed class ExplosionCatalog {
 	/// </summary>
 	public static ExplosionCatalog? Load(byte[]? explosDat) =>
 		explosDat != null
-			&& new ExplosionDataTransformer().BytesToObject(explosDat) is ExplosionData { Types: not null } table
+			&& new ExplosionDataTransformer().Parse(explosDat) is ExplosionData { Types: not null } table
 			? new ExplosionCatalog(table)
 			: null;
 

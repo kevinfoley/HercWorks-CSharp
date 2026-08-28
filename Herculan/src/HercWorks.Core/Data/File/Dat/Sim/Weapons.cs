@@ -1,5 +1,3 @@
-using HercWorks.Vol;
-
 namespace HercWorks.Core.Data.File.Dat.Sim;
 
 /// <summary>
@@ -21,7 +19,7 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 /// Ported from org.hercworks.core.data.file.dat.sim.Weapons (extended — the original Java class
 /// only ever modeled the Total field).
 /// </summary>
-public class Weapons : DataFile {
+public class Weapons {
 	public short Total { get; set; }
 	public WeaponMountTemplate[]? Templates { get; set; }
 

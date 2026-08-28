@@ -268,7 +268,7 @@ public partial class MainForm : Form {
 		}
 
 		try {
-			var parsed = transformer.BytesToObject(entry.RawBytes);
+			var parsed = transformer.ParseToObject(entry.RawBytes);
 			if (parsed == null) {
 				_contentTree.Nodes.Add(new TreeNode("Parser returned no data for this file."));
 				return;

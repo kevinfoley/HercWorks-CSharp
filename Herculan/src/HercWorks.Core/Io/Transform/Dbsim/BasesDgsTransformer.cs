@@ -1,6 +1,5 @@
 using HercWorks.Core.Data.File.Dgs;
 using HercWorks.Core.Data.File.Dts;
-using HercWorks.Vol;
 
 namespace HercWorks.Core.Io.Transform.Dbsim;
 
@@ -60,7 +59,7 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// substantial (1536 groups, 8978 polys total across all 45 shapes) — not degenerate placeholder
 /// data.</para>
 /// </summary>
-public class BasesDgsTransformer : ThreeSpaceByteTransformer {
+public class BasesDgsTransformer : ByteTransformer<BaseShapeLibrary> {
 	/// <summary>The record header's classId, and the record's own leading 4 on-disk bytes.</summary>
 	private const int ShapeTag = 0x02BC0001;
 
@@ -73,7 +72,7 @@ public class BasesDgsTransformer : ThreeSpaceByteTransformer {
 	/// </summary>
 	private const int HeightTableEntries = 256;
 
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+	public override BaseShapeLibrary? Parse(byte[]? inputArray) {
 		if (inputArray == null || inputArray.Length <= 0) {
 			return null;
 		}
@@ -112,9 +111,6 @@ public class BasesDgsTransformer : ThreeSpaceByteTransformer {
 		}
 
 		return new BaseShapeLibrary {
-			RawBytes = inputArray,
-			Ext = FileType.Dgs,
-			Dir = FileType.Dgs,
 			Shapes = shapes.ToArray()
 		};
 	}
@@ -181,6 +177,6 @@ public class BasesDgsTransformer : ThreeSpaceByteTransformer {
 			columns, rows, originColumn, originRow, cellShift, heights, cells);
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) =>
+	public override byte[]? Write(BaseShapeLibrary source) =>
 		throw new NotSupportedException("BasesDgsTransformer is read-only -- the engine only draws structures, it never writes .DGS.");
 }

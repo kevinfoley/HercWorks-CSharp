@@ -85,7 +85,7 @@ public sealed class ShadeRamp {
 	/// <param name="name">The theater's base name, the same one its <c>.DPL</c> uses — e.g. <c>WORLD2</c>.</param>
 	public static ShadeRamp? Load(GameContent content, string? name) {
 		if (string.IsNullOrWhiteSpace(name) || content.Read(ResourceFolder, name + ".RMP") is not { } bytes
-				|| new TerrainRampFileTransformer().BytesToObject(bytes) is not TerrainRampFile rmp
+				|| new TerrainRampFileTransformer().Parse(bytes) is not TerrainRampFile rmp
 				|| rmp.Rows == null || rmp.ShadeLevels <= 0 || rmp.DepthSlices <= 0) {
 			return null;
 		}

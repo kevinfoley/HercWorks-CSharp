@@ -140,10 +140,10 @@ public partial class TextureViewerForm : Form {
 			}
 
 			if (isArray) {
-				_loadedDba = (DynamixBitmapArray?)_dbaTransformer.BytesToObject(prefix.Content);
+				_loadedDba = (DynamixBitmapArray?)_dbaTransformer.Parse(prefix.Content);
 				_loadedDbm = null;
 			} else {
-				_loadedDbm = (DynamixBitmap?)_dbmTransformer.BytesToObject(prefix.Content);
+				_loadedDbm = (DynamixBitmap?)_dbmTransformer.Parse(prefix.Content);
 				_loadedDba = null;
 			}
 
@@ -181,10 +181,10 @@ public partial class TextureViewerForm : Form {
 				or FileType.Db0 or FileType.Db1 or FileType.Db2;
 
 			if (isDbaLike) {
-				_loadedDba = (DynamixBitmapArray?)_dbaTransformer.BytesToObject(entry.RawBytes);
+				_loadedDba = (DynamixBitmapArray?)_dbaTransformer.Parse(entry.RawBytes);
 				_loadedDbm = null;
 			} else if (entry.Ext == FileType.Dbm) {
-				_loadedDbm = (DynamixBitmap?)_dbmTransformer.BytesToObject(entry.RawBytes);
+				_loadedDbm = (DynamixBitmap?)_dbmTransformer.Parse(entry.RawBytes);
 				_loadedDba = null;
 			} else {
 				MessageBox.Show(this, "Selected entry is not a DBA, DBM, HBA, HB0/HB1/HB2, or DB0/DB1/DB2 texture.", "Error",
@@ -222,7 +222,7 @@ public partial class TextureViewerForm : Form {
 		try {
 			byte[] rawBytes = File.ReadAllBytes(dialog.FileName);
 			var prefix = VolEntryPrefixCodec.StripIfPresent(rawBytes);
-			var palette = (DynamixPalette?)_dplTransformer.BytesToObject(prefix.Content);
+			var palette = (DynamixPalette?)_dplTransformer.Parse(prefix.Content);
 
 			if (palette == null) {
 				MessageBox.Show(this, "File was empty or could not be parsed.", "Error",
@@ -249,7 +249,7 @@ public partial class TextureViewerForm : Form {
 		} else {
 			var candidate = _paletteCandidates[index - 1]; // -1 offsets the leading "(None)"
 			_loadedPaletteRawBytes = candidate.RawBytes;
-			_loadedPalette = (DynamixPalette?)_dplTransformer.BytesToObject(candidate.RawBytes);
+			_loadedPalette = (DynamixPalette?)_dplTransformer.Parse(candidate.RawBytes);
 		}
 
 		RenderCurrentFrame();
@@ -443,7 +443,7 @@ public partial class TextureViewerForm : Form {
 					rotatedBytes, headerSize + i * bytesPerColor, bytesPerColor);
 			}
 
-			return (DynamixPalette?)_dplTransformer.BytesToObject(rotatedBytes);
+			return (DynamixPalette?)_dplTransformer.Parse(rotatedBytes);
 		} catch {
 			return palette;
 		}

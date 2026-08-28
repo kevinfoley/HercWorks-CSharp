@@ -1,5 +1,4 @@
 using HercWorks.Core.Data.File;
-using HercWorks.Vol;
 
 namespace HercWorks.Core.Io.Transform.Common;
 
@@ -14,11 +13,11 @@ namespace HercWorks.Core.Io.Transform.Common;
 /// scope for this pass), so ObjectToBytes is left unimplemented like several other transformers
 /// in this codebase (e.g. MissionStringFileTransformer).
 /// </summary>
-public class StringFileTransformer : ThreeSpaceByteTransformer {
+public class StringFileTransformer : ByteTransformer<StringFile> {
 	/// <summary>How far past an entry's null terminator to search for the next well-formed entry when resyncing across an undecoded trailer.</summary>
 	private const int MaxTrailerScan = 64;
 
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+	public override StringFile? Parse(byte[]? inputArray) {
 		if (inputArray == null) {
 			return null;
 		}
@@ -26,9 +25,6 @@ public class StringFileTransformer : ThreeSpaceByteTransformer {
 		SetBytes(inputArray);
 
 		var file = new StringFile {
-			RawBytes = inputArray,
-			Ext = FileType.Str,
-
 			TotalSize = IndexIntLE(),
 		};
 
@@ -101,7 +97,7 @@ public class StringFileTransformer : ThreeSpaceByteTransformer {
 		return 0;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
+	public override byte[]? Write(StringFile? source) {
 		// TODO: not implemented — see class doc comment (trailer bytes are undecoded, so a
 		// byte-exact round-trip isn't currently achievable).
 		return null;

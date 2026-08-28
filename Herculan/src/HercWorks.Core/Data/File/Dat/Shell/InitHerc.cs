@@ -1,5 +1,4 @@
 using HercWorks.Core.Data.Struct.Vshell.Hercs;
-using HercWorks.Vol;
 
 namespace HercWorks.Core.Data.File.Dat.Shell;
 
@@ -14,7 +13,21 @@ namespace HercWorks.Core.Data.File.Dat.Shell;
 ///   SEQ (hardpoints): S0 hardpoint id, S2 weapon id, S4 health percent, S6 missile_num (5 = none)
 /// Ported from org.hercworks.core.data.file.dat.shell.InitHerc.
 /// </summary>
-public class InitHerc : DataFile {
+public class InitHerc {
+	/// <summary>
+	/// Source file name and directory, and the file's own bytes. Unlike every other parsed model,
+	/// these are genuinely consumed: <see cref="Io.Read.DatFileReader.ParseIniHercDatStats"/>
+	/// builds an InitHerc from a VOL entry's name/path and then walks <see cref="RawBytes"/> to
+	/// fill in the hardpoint table. Declared here rather than inherited from DataFile.
+	/// </summary>
+	public string? FileName { get; set; }
+
+	/// <inheritdoc cref="FileName"/>
+	public string? GameDirPath { get; set; }
+
+	/// <inheritdoc cref="FileName"/>
+	public byte[]? RawBytes { get; set; }
+
 	/// <summary>
 	/// Original: Bytes.from("661FAF55", StandardCharsets.UTF_8) — despite looking like a hex
 	/// string, this is literally the UTF-8/ASCII bytes of that 8-character text, not a decoded
@@ -26,5 +39,8 @@ public class InitHerc : DataFile {
 
 	public InitHerc() { }
 
-	public InitHerc(string fileName, string dirPath) : base(fileName, dirPath) { }
+	public InitHerc(string fileName, string dirPath) {
+		FileName = fileName;
+		GameDirPath = dirPath;
+	}
 }

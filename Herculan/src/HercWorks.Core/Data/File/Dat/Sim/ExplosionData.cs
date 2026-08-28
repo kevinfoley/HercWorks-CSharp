@@ -1,5 +1,3 @@
-using HercWorks.Vol;
-
 namespace HercWorks.Core.Data.File.Dat.Sim;
 
 /// <summary>
@@ -25,7 +23,7 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 /// <see cref="ProjectileData.Projectile"/>'s three <c>ImpactFX</c> arrays hold. See
 /// <see cref="ExplosionTypeEntry"/>.</para>
 /// </summary>
-public class ExplosionData : DataFile {
+public class ExplosionData {
 	public ExplosionShapeEntry[]? Shapes { get; set; }
 
 	public ExplosionTypeEntry[]? Types { get; set; }

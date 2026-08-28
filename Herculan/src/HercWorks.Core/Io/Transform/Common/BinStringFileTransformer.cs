@@ -5,18 +5,15 @@ using System.Text;
 namespace HercWorks.Core.Io.Transform.Common;
 
 /// <summary>Ported from org.hercworks.core.io.transform.common.BinStringFileTransformer.</summary>
-public class BinStringFileTransformer : ThreeSpaceByteTransformer {
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+public class BinStringFileTransformer : ByteTransformer<StringBinaryFile> {
+	public override StringBinaryFile? Parse(byte[]? inputArray) {
 		if (inputArray == null) {
 			return null;
 		}
 		Index = 0;
 		SetBytes(inputArray);
 
-		var binFile = new StringBinaryFile {
-			RawBytes = inputArray,
-			Ext = FileType.Bin
-		};
+		var binFile = new StringBinaryFile();
 
 		// note - the reading here ditches the structure of the file; writing back to the format
 		// will do the metadata generation.
@@ -49,14 +46,12 @@ public class BinStringFileTransformer : ThreeSpaceByteTransformer {
 		return binFile;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
-		using var outStream = new MemoryStream();
-
-		if (source == null) {
+	public override byte[]? Write(StringBinaryFile? sbf) {
+		if (sbf == null) {
 			return null;
 		}
 
-		var sbf = (StringBinaryFile)source;
+		using var outStream = new MemoryStream();
 
 		var index = new short[sbf.Values!.Length];
 

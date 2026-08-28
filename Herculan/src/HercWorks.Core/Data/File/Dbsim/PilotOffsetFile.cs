@@ -1,5 +1,3 @@
-using HercWorks.Vol;
-
 namespace HercWorks.Core.Data.File.Dbsim;
 
 /// <summary>
@@ -19,7 +17,7 @@ namespace HercWorks.Core.Data.File.Dbsim;
 /// matching DBA's frame count for 11 of 12 real pilots (PILOT9 is the one exception, with an exact
 /// 1:1 count) — confirmed real per-pilot variation, not a fixed off-by-one to special-case around.
 /// </summary>
-public class PilotOffsetFile : DataFile {
+public class PilotOffsetFile {
 	public Entry[]? Entries { get; set; }
 
 	public class Entry {

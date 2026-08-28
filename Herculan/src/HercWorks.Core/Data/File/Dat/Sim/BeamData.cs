@@ -1,5 +1,3 @@
-using HercWorks.Vol;
-
 namespace HercWorks.Core.Data.File.Dat.Sim;
 
 /// <summary>
@@ -12,7 +10,7 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 ///   8 ???, 9 ???
 /// Ported from org.hercworks.core.data.file.dat.sim.BeamData.
 /// </summary>
-public class BeamData : DataFile {
+public class BeamData {
 	public short Total { get; set; }
 	public Entry[]? Data { get; set; }
 

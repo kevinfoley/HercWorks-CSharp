@@ -1,5 +1,3 @@
-using HercWorks.Vol;
-
 namespace HercWorks.Core.Data.File.Dat.Sim;
 
 /// <summary>
@@ -18,7 +16,7 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 /// HercSimDat, and the two trailing shorts are left as Unk. Revisit all of this if a second flyer
 /// .DAT sample turns up.
 /// </summary>
-public class FlyerSimData : DataFile {
+public class FlyerSimData {
 	public short SpeedTurn { get; set; }
 	public short SpeedReverse { get; set; }
 	public short SpeedForward { get; set; }

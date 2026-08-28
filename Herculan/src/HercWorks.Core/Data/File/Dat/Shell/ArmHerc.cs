@@ -1,5 +1,4 @@
 using HercWorks.Core.Data.Struct.Vshell.Hercs;
-using HercWorks.Vol;
 
 namespace HercWorks.Core.Data.File.Dat.Shell;
 
@@ -10,7 +9,7 @@ namespace HercWorks.Core.Data.File.Dat.Shell;
 /// hardpoint graphics table).
 /// Ported from org.hercworks.core.data.file.dat.shell.ArmHerc.
 /// </summary>
-public class ArmHerc : DataFile {
+public class ArmHerc {
 	public short TopImgArrId { get; set; }
 	public UiImageDBA? HercTopImg { get; set; }
 

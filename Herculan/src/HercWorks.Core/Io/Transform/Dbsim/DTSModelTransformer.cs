@@ -14,13 +14,13 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// LoadChunkByType/WriteTSObject based on a 4-byte TSObjectHeader magic marker.
 /// Ported from org.hercworks.core.io.transform.dbsim.DTSModelTransformer.
 /// </summary>
-public class DTSModelTransformer : ThreeSpaceByteTransformer {
+public class DTSModelTransformer : ByteTransformer<DynamixThreeSpaceModel> {
 	/// <summary>Every TSObject is prefixed by a 4-byte type marker plus a 4-byte little-endian payload length.</summary>
 	private const int ChunkHeaderLength = 8;
 
 	private int _indexTSGroup;
 
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+	public override DynamixThreeSpaceModel? Parse(byte[]? inputArray) {
 		if (inputArray == null || inputArray.Length <= 0) {
 			// TODO (carried over from Java): log null
 			return null;
@@ -28,11 +28,7 @@ public class DTSModelTransformer : ThreeSpaceByteTransformer {
 		_indexTSGroup = 0;
 		SetBytes(inputArray);
 
-		var dts = new DynamixThreeSpaceModel {
-			RawBytes = inputArray,
-			Ext = FileType.Dts,
-			Dir = FileType.Dts
-		};
+		var dts = new DynamixThreeSpaceModel();
 
 		var meshes = new List<TSObject>();
 
@@ -622,12 +618,7 @@ public class DTSModelTransformer : ThreeSpaceByteTransformer {
 		return link;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
-		if (source == null) {
-			return null;
-		}
-
-		var mdl = (DynamixThreeSpaceModel)source;
+	public override byte[]? Write(DynamixThreeSpaceModel mdl) {
 
 		using var outStream = new MemoryStream();
 
@@ -674,18 +665,18 @@ public class DTSModelTransformer : ThreeSpaceByteTransformer {
 	}
 
 	private void WriteTSBasePart(TSBasePart basePart, MemoryStream bos) {
-		Write(bos, WriteShortLE(basePart.Transform));
-		Write(bos, WriteShortLE(basePart.IdNumber));
-		Write(bos, WriteShortLE(basePart.Radius));
-		Write(bos, WriteShortLE(basePart.Center!.X));
-		Write(bos, WriteShortLE(basePart.Center.Y));
-		Write(bos, WriteShortLE(basePart.Center.Z));
+		Emit(bos, WriteShortLE(basePart.Transform));
+		Emit(bos, WriteShortLE(basePart.IdNumber));
+		Emit(bos, WriteShortLE(basePart.Radius));
+		Emit(bos, WriteShortLE(basePart.Center!.X));
+		Emit(bos, WriteShortLE(basePart.Center.Y));
+		Emit(bos, WriteShortLE(basePart.Center.Z));
 	}
 
 	private void WriteTSBitmapPart(TSBitmapPart bitmapPart, MemoryStream bos) {
 		WriteTSBasePart(bitmapPart, bos);
 
-		Write(bos, WriteShortLE(bitmapPart.BmpTag));
+		Emit(bos, WriteShortLE(bitmapPart.BmpTag));
 		bos.WriteByte(bitmapPart.OfsX);
 		bos.WriteByte(bitmapPart.OfsY);
 	}
@@ -694,14 +685,14 @@ public class DTSModelTransformer : ThreeSpaceByteTransformer {
 		WriteTSPartList(detailPart, bos);
 
 		foreach (var d in detailPart.Details!) {
-			Write(bos, WriteShortLE(d));
+			Emit(bos, WriteShortLE(d));
 		}
 	}
 
 	private void WriteTSPartList(TSPartList partList, MemoryStream bos) {
 		WriteTSBasePart(partList, bos);
 
-		Write(bos, WriteShortLE((short)partList.Parts!.Length));
+		Emit(bos, WriteShortLE((short)partList.Parts!.Length));
 		foreach (var part in partList.Parts) {
 			byte[] data = WriteTSObject(partList, part);
 			bos.Write(data, 0, data.Length);
@@ -712,36 +703,36 @@ public class DTSModelTransformer : ThreeSpaceByteTransformer {
 	private void WriteTSCellAnimPart(TSCellAnimPart animPart, MemoryStream bos) {
 		WriteTSPartList(animPart, bos);
 
-		Write(bos, WriteShortLE(animPart.AnimSequence));
+		Emit(bos, WriteShortLE(animPart.AnimSequence));
 	}
 
 	private void WriteTSGroup(TSGroup group, MemoryStream bos) {
 		WriteTSBasePart(group, bos);
 
-		Write(bos, WriteShortLE((short)group.Indexes!.Length));
-		Write(bos, WriteShortLE((short)group.Points!.Length));
-		Write(bos, WriteShortLE((short)(group.Surfaces!.Length * 4)));
-		Write(bos, WriteShortLE((short)group.Polys!.Length));
+		Emit(bos, WriteShortLE((short)group.Indexes!.Length));
+		Emit(bos, WriteShortLE((short)group.Points!.Length));
+		Emit(bos, WriteShortLE((short)(group.Surfaces!.Length * 4)));
+		Emit(bos, WriteShortLE((short)group.Polys!.Length));
 
 		foreach (var idx in group.Indexes) {
-			Write(bos, WriteShortLE(idx));
+			Emit(bos, WriteShortLE(idx));
 		}
 
 		foreach (var p in group.Points) {
-			Write(bos, WriteShortLE(p.X));
-			Write(bos, WriteShortLE(p.Y));
-			Write(bos, WriteShortLE(p.Z));
+			Emit(bos, WriteShortLE(p.X));
+			Emit(bos, WriteShortLE(p.Y));
+			Emit(bos, WriteShortLE(p.Z));
 		}
 
 		foreach (var surface in group.Surfaces) {
-			Write(bos, WriteShortLE(surface.FrontColor));
-			Write(bos, WriteShortLE(surface.FrontFlag));
-			Write(bos, WriteShortLE(surface.FrontLineColor));
-			Write(bos, WriteShortLE(surface.FrontLineFlag));
-			Write(bos, WriteShortLE(surface.BackColor));
-			Write(bos, WriteShortLE(surface.BackColorFlag));
-			Write(bos, WriteShortLE(surface.BackLineColor));
-			Write(bos, WriteShortLE(surface.BackLineFlag));
+			Emit(bos, WriteShortLE(surface.FrontColor));
+			Emit(bos, WriteShortLE(surface.FrontFlag));
+			Emit(bos, WriteShortLE(surface.FrontLineColor));
+			Emit(bos, WriteShortLE(surface.FrontLineFlag));
+			Emit(bos, WriteShortLE(surface.BackColor));
+			Emit(bos, WriteShortLE(surface.BackColorFlag));
+			Emit(bos, WriteShortLE(surface.BackLineColor));
+			Emit(bos, WriteShortLE(surface.BackLineFlag));
 		}
 
 		foreach (var poly in group.Polys) {
@@ -753,26 +744,26 @@ public class DTSModelTransformer : ThreeSpaceByteTransformer {
 	private void WriteTSBSPGroup(TSBSPGroup bspGroup, MemoryStream bos) {
 		WriteTSGroup(bspGroup, bos);
 
-		Write(bos, WriteShortLE((short)bspGroup.GroupNodes!.Length));
+		Emit(bos, WriteShortLE((short)bspGroup.GroupNodes!.Length));
 
 		foreach (var node in bspGroup.GroupNodes) {
-			Write(bos, WriteShortLE(node.Coeff));
-			Write(bos, WriteShortLE(node.Poly));
-			Write(bos, WriteShortLE(node.Front));
-			Write(bos, WriteShortLE(node.Back));
+			Emit(bos, WriteShortLE(node.Coeff));
+			Emit(bos, WriteShortLE(node.Poly));
+			Emit(bos, WriteShortLE(node.Front));
+			Emit(bos, WriteShortLE(node.Back));
 		}
 	}
 
 	private void WriteTSPoly(TSPoly poly, MemoryStream bos) {
-		Write(bos, WriteShortLE(poly.Normal));
-		Write(bos, WriteShortLE(poly.Center));
-		Write(bos, WriteShortLE(poly.VertexCount));
-		Write(bos, WriteShortLE(poly.VertexList));
+		Emit(bos, WriteShortLE(poly.Normal));
+		Emit(bos, WriteShortLE(poly.Center));
+		Emit(bos, WriteShortLE(poly.VertexCount));
+		Emit(bos, WriteShortLE(poly.VertexList));
 	}
 
 	private void WriteTSSolidPoly(TSSolidPoly solidPoly, MemoryStream bos) {
 		WriteTSPoly(solidPoly, bos);
-		Write(bos, WriteShortLE(solidPoly.ColorIndexId));
+		Emit(bos, WriteShortLE(solidPoly.ColorIndexId));
 	}
 
 	private void WriteTSShadedPoly(TSShadedPoly shadedPoly, MemoryStream bos) => WriteTSSolidPoly(shadedPoly, bos);
@@ -781,116 +772,116 @@ public class DTSModelTransformer : ThreeSpaceByteTransformer {
 
 	private void WriteTSGouraudPoly(TSGouraudPoly gouraudPoly, MemoryStream bos) {
 		WriteTSSolidPoly(gouraudPoly, bos);
-		Write(bos, WriteShortLE(gouraudPoly.NormalList));
+		Emit(bos, WriteShortLE(gouraudPoly.NormalList));
 	}
 
 	private void WriteTSShape(TSShape shape, MemoryStream bos) {
 		WriteTSPartList(shape, bos);
 
-		Write(bos, WriteShortLE((short)shape.TransformList!.Length));
-		Write(bos, WriteShortLE((short)shape.SequenceList!.Length));
+		Emit(bos, WriteShortLE((short)shape.TransformList!.Length));
+		Emit(bos, WriteShortLE((short)shape.SequenceList!.Length));
 
 		foreach (var s in shape.SequenceList) {
-			Write(bos, WriteShortLE(s));
+			Emit(bos, WriteShortLE(s));
 		}
 
 		foreach (var t in shape.TransformList) {
-			Write(bos, WriteShortLE(t));
+			Emit(bos, WriteShortLE(t));
 		}
 	}
 
 	private void WriteTSBSPPartNode(TSBSPPartNode node, MemoryStream bos) {
-		Write(bos, WriteShortLE(node.Normal!.X));
-		Write(bos, WriteShortLE(node.Normal.Y));
-		Write(bos, WriteShortLE(node.Normal.Z));
+		Emit(bos, WriteShortLE(node.Normal!.X));
+		Emit(bos, WriteShortLE(node.Normal.Y));
+		Emit(bos, WriteShortLE(node.Normal.Z));
 
-		Write(bos, WriteIntLE(node.Coeff));
-		Write(bos, WriteShortLE(node.Front));
-		Write(bos, WriteShortLE(node.Back));
+		Emit(bos, WriteIntLE(node.Coeff));
+		Emit(bos, WriteShortLE(node.Front));
+		Emit(bos, WriteShortLE(node.Back));
 	}
 
 	private void WriteTSBSPPart(TSBSPPart part, MemoryStream bos) {
 		WriteTSPartList(part, bos);
 
-		Write(bos, WriteShortLE((short)part.Nodes!.Length));
+		Emit(bos, WriteShortLE((short)part.Nodes!.Length));
 		foreach (var n in part.Nodes) {
 			WriteTSBSPPartNode(n, bos);
 		}
 
 		for (int p = 0; p < part.Nodes.Length; p++) {
-			Write(bos, WriteShortLE(part.Transforms![p]));
+			Emit(bos, WriteShortLE(part.Transforms![p]));
 		}
 	}
 
 	private void WriteANAnimListTransition(ANAnimListTransition transition, MemoryStream bos) {
-		Write(bos, WriteShortLE(transition.Tick));
-		Write(bos, WriteShortLE(transition.DestSequence));
-		Write(bos, WriteShortLE(transition.DestFrame));
-		Write(bos, WriteShortLE(transition.GroundMovement));
+		Emit(bos, WriteShortLE(transition.Tick));
+		Emit(bos, WriteShortLE(transition.DestSequence));
+		Emit(bos, WriteShortLE(transition.DestFrame));
+		Emit(bos, WriteShortLE(transition.GroundMovement));
 	}
 
 	private void WriteANAnimListTransform(ANAnimListTransform transform, MemoryStream bos) {
-		Write(bos, WriteShortLE(transform.Rotation!.X));
-		Write(bos, WriteShortLE(transform.Rotation.Y));
-		Write(bos, WriteShortLE(transform.Rotation.Z));
+		Emit(bos, WriteShortLE(transform.Rotation!.X));
+		Emit(bos, WriteShortLE(transform.Rotation.Y));
+		Emit(bos, WriteShortLE(transform.Rotation.Z));
 
-		Write(bos, WriteShortLE(transform.Translation!.X));
-		Write(bos, WriteShortLE(transform.Translation.Y));
-		Write(bos, WriteShortLE(transform.Translation.Z));
+		Emit(bos, WriteShortLE(transform.Translation!.X));
+		Emit(bos, WriteShortLE(transform.Translation.Y));
+		Emit(bos, WriteShortLE(transform.Translation.Z));
 	}
 
 	private void WriteANAnimList(ANAnimList animList, MemoryStream bos) {
-		Write(bos, WriteShortLE((short)animList.Sequences!.Length));
+		Emit(bos, WriteShortLE((short)animList.Sequences!.Length));
 		foreach (var s in animList.Sequences) {
 			byte[] data = WriteTSObject(animList, s);
 			bos.Write(data, 0, data.Length);
 		}
 
-		Write(bos, WriteShortLE((short)animList.Transitions!.Length));
+		Emit(bos, WriteShortLE((short)animList.Transitions!.Length));
 		foreach (var t in animList.Transitions) {
 			WriteANAnimListTransition(t, bos);
 		}
 
-		Write(bos, WriteShortLE((short)animList.Transforms!.Length));
+		Emit(bos, WriteShortLE((short)animList.Transforms!.Length));
 		foreach (var t in animList.Transforms) {
 			WriteANAnimListTransform(t, bos);
 		}
 
-		Write(bos, WriteShortLE((short)animList.DefaultTransforms!.Length));
+		Emit(bos, WriteShortLE((short)animList.DefaultTransforms!.Length));
 		foreach (var d in animList.DefaultTransforms) {
-			Write(bos, WriteShortLE(d));
+			Emit(bos, WriteShortLE(d));
 		}
 
-		Write(bos, WriteShortLE((short)animList.Relations!.Length));
+		Emit(bos, WriteShortLE((short)animList.Relations!.Length));
 		foreach (var r in animList.Relations) {
-			Write(bos, WriteShortLE(r.X));
-			Write(bos, WriteShortLE(r.Y));
+			Emit(bos, WriteShortLE(r.X));
+			Emit(bos, WriteShortLE(r.Y));
 		}
 	}
 
 	private void WriteANSequenceFrame(ANSequenceFrame frame, MemoryStream bos) {
-		Write(bos, WriteShortLE(frame.Tick));
-		Write(bos, WriteShortLE(frame.FirstTransition));
-		Write(bos, WriteShortLE(frame.NumTransitions));
+		Emit(bos, WriteShortLE(frame.Tick));
+		Emit(bos, WriteShortLE(frame.FirstTransition));
+		Emit(bos, WriteShortLE(frame.NumTransitions));
 	}
 
 	private void WriteANSequence(ANSequence seq, MemoryStream bos) {
-		Write(bos, WriteShortLE(seq.Tick));
-		Write(bos, WriteShortLE(seq.Priority));
-		Write(bos, WriteShortLE(seq.GroundMovement));
+		Emit(bos, WriteShortLE(seq.Tick));
+		Emit(bos, WriteShortLE(seq.Priority));
+		Emit(bos, WriteShortLE(seq.GroundMovement));
 
-		Write(bos, WriteShortLE((short)seq.Frames!.Length));
+		Emit(bos, WriteShortLE((short)seq.Frames!.Length));
 		foreach (var f in seq.Frames) {
 			WriteANSequenceFrame(f, bos);
 		}
 
-		Write(bos, WriteShortLE((short)seq.PartIds!.Length));
+		Emit(bos, WriteShortLE((short)seq.PartIds!.Length));
 		foreach (var p in seq.PartIds) {
-			Write(bos, WriteShortLE(p));
+			Emit(bos, WriteShortLE(p));
 		}
 
 		foreach (var t in seq.TransformIndices!) {
-			Write(bos, WriteShortLE(t));
+			Emit(bos, WriteShortLE(t));
 		}
 	}
 
@@ -913,5 +904,5 @@ public class DTSModelTransformer : ThreeSpaceByteTransformer {
 		return result;
 	}
 
-	private static void Write(MemoryStream outArr, byte[] data) => outArr.Write(data, 0, data.Length);
+	private static void Emit(MemoryStream outArr, byte[] data) => outArr.Write(data, 0, data.Length);
 }

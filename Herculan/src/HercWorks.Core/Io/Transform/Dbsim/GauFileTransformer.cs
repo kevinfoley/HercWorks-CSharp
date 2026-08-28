@@ -1,6 +1,5 @@
 using HercWorks.Core.Data.File.Gau;
 using HercWorks.Core.Data.Struct;
-using HercWorks.Vol;
 
 namespace HercWorks.Core.Io.Transform.Dbsim;
 
@@ -19,11 +18,11 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// names offset 1088 (`"PANEL\NAVBAR"`), 1104 (`"INDICATOR\TORSO_TWIST"`), and 1136 (`"RETICLE"`)
 /// as further unverified leads within <see cref="GAUFile.Remainder"/>.
 ///
-/// <see cref="ObjectToBytes"/> round-trips byte-exact against all 9 real herc `.GAU` files despite
+/// <see cref="Write"/> round-trips byte-exact against all 9 real herc `.GAU` files despite
 /// Remainder being undecoded — decoding isn't required to round-trip it, since it's captured and
 /// written back verbatim.
 /// </summary>
-public class GauFileTransformer : ThreeSpaceByteTransformer {
+public class GauFileTransformer : ByteTransformer<GAUFile> {
 	private const int WeaponSlotCount = 10;
 	/// <summary>
 	/// Bytes between the end of the ShieldsGauge block (offset 696) and the start of MfdPanel's rect
@@ -38,7 +37,7 @@ public class GauFileTransformer : ThreeSpaceByteTransformer {
 	/// <summary>Bytes between the end of TorsoTwist (offset 1120) and the start of Reticle (offset 1136) — NOT decoded.</summary>
 	private const int RemainderBeforeReticleLength = 16;
 
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+	public override GAUFile? Parse(byte[]? inputArray) {
 		if (inputArray == null) {
 			return null;
 		}
@@ -46,9 +45,6 @@ public class GauFileTransformer : ThreeSpaceByteTransformer {
 		SetBytes(inputArray);
 
 		var gau = new GAUFile {
-			RawBytes = inputArray,
-			Ext = FileType.Gau,
-
 			HudOrigin = new PixelPoint(IndexIntLE(), IndexIntLE()),
 			HudScreenSize = new PixelSize(IndexIntLE(), IndexIntLE()),
 			WeaponListTotal = IndexIntLE(),
@@ -161,72 +157,68 @@ public class GauFileTransformer : ThreeSpaceByteTransformer {
 		return throttle;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
-		if (source is not GAUFile gau) {
-			return null;
-		}
-
+	public override byte[]? Write(GAUFile gau) {
 		using var outStream = new MemoryStream();
-		void Write(byte[] bytes) => outStream.Write(bytes, 0, bytes.Length);
+		void Emit(byte[] bytes) => outStream.Write(bytes, 0, bytes.Length);
 
-		Write(WriteIntLE(gau.HudOrigin.X));
-		Write(WriteIntLE(gau.HudOrigin.Y));
-		Write(WriteIntLE(gau.HudScreenSize.Width));
-		Write(WriteIntLE(gau.HudScreenSize.Height));
-		Write(WriteIntLE(gau.WeaponListTotal));
+		Emit(WriteIntLE(gau.HudOrigin.X));
+		Emit(WriteIntLE(gau.HudOrigin.Y));
+		Emit(WriteIntLE(gau.HudScreenSize.Width));
+		Emit(WriteIntLE(gau.HudScreenSize.Height));
+		Emit(WriteIntLE(gau.WeaponListTotal));
 
 		foreach (var weapon in gau.Weapons ?? Array.Empty<HWeaponPanelItem>()) {
-			WriteRect(Write, weapon);
+			WriteRect(Emit, weapon);
 		}
 
-		Write(new byte[288]); // confirmed always-zero padding, offset 180-467.
-		Write(new byte[16]); // confirmed always (0,0,0,0) container rect at offset 468.
+		Emit(new byte[288]); // confirmed always-zero padding, offset 180-467.
+		Emit(new byte[16]); // confirmed always (0,0,0,0) container rect at offset 468.
 
-		WriteRect(Write, gau.ChainButton!);
-		WriteRect(Write, gau.LinkButton!);
-		WriteRect(Write, gau.AutoTrackButton!);
+		WriteRect(Emit, gau.ChainButton!);
+		WriteRect(Emit, gau.LinkButton!);
+		WriteRect(Emit, gau.AutoTrackButton!);
 
-		Write(new byte[32]); // 2 null widget slots, offset 532/548.
+		Emit(new byte[32]); // 2 null widget slots, offset 532/548.
 
-		WriteRect(Write, gau.EnergyMeter!);
+		WriteRect(Emit, gau.EnergyMeter!);
 
-		Write(new byte[36]); // confirmed always-zero, offset 580-615.
+		Emit(new byte[36]); // confirmed always-zero, offset 580-615.
 
-		WriteShieldSlot(Write, gau.ShieldDisplay!.HeaderRaw);
-		WriteShieldSlot(Write, gau.ShieldDisplay.FrontBoxRaw);
-		WriteShieldSlot(Write, gau.ShieldDisplay.RearBoxRaw);
-		WriteShieldSlot(Write, gau.ShieldDisplay.FrontLabelRaw);
-		WriteShieldSlot(Write, gau.ShieldDisplay.RearLabelRaw);
+		WriteShieldSlot(Emit, gau.ShieldDisplay!.HeaderRaw);
+		WriteShieldSlot(Emit, gau.ShieldDisplay.FrontBoxRaw);
+		WriteShieldSlot(Emit, gau.ShieldDisplay.RearBoxRaw);
+		WriteShieldSlot(Emit, gau.ShieldDisplay.FrontLabelRaw);
+		WriteShieldSlot(Emit, gau.ShieldDisplay.RearLabelRaw);
 
 		if (gau.RemainderBeforeMfdPanel != null) {
-			Write(gau.RemainderBeforeMfdPanel);
+			Emit(gau.RemainderBeforeMfdPanel);
 		}
 
-		WriteRect(Write, gau.MfdPanel!);
+		WriteRect(Emit, gau.MfdPanel!);
 
-		Write(new byte[48]); // 3 null widget slots, offset 968/984/1000.
+		Emit(new byte[48]); // 3 null widget slots, offset 968/984/1000.
 
-		WriteRect(Write, gau.Throttle!);
+		WriteRect(Emit, gau.Throttle!);
 		foreach (var pt in gau.Throttle!.DetentPoints) {
-			Write(WriteIntLE(pt.X));
-			Write(WriteIntLE(pt.Y));
+			Emit(WriteIntLE(pt.X));
+			Emit(WriteIntLE(pt.Y));
 		}
 
 		if (gau.RemainderBeforeTorsoTwist != null) {
-			Write(gau.RemainderBeforeTorsoTwist);
+			Emit(gau.RemainderBeforeTorsoTwist);
 		}
 
-		WriteRect(Write, gau.TorsoTwist!);
+		WriteRect(Emit, gau.TorsoTwist!);
 
 		if (gau.RemainderBeforeReticle != null) {
-			Write(gau.RemainderBeforeReticle);
+			Emit(gau.RemainderBeforeReticle);
 		}
 
-		Write(WriteIntLE(gau.Reticle!.Origin.X));
-		Write(WriteIntLE(gau.Reticle.Origin.Y));
+		Emit(WriteIntLE(gau.Reticle!.Origin.X));
+		Emit(WriteIntLE(gau.Reticle.Origin.Y));
 
 		if (gau.Remainder != null) {
-			Write(gau.Remainder);
+			Emit(gau.Remainder);
 		}
 
 		return outStream.ToArray();

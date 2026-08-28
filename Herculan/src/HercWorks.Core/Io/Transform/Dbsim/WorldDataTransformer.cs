@@ -13,8 +13,8 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// the file as two undecoded blocks. Every field is accounted for by the walk, so both directions
 /// are byte-exact on all ten retail files.</para>
 /// </summary>
-public class WorldDataTransformer : ThreeSpaceByteTransformer {
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+public class WorldDataTransformer : ByteTransformer<WorldData> {
+	public override WorldData? Parse(byte[]? inputArray) {
 		if (inputArray == null || inputArray.Length < WorldData.HeaderShorts * 2) {
 			return null;
 		}
@@ -22,8 +22,6 @@ public class WorldDataTransformer : ThreeSpaceByteTransformer {
 		SetBytes(inputArray);
 
 		var wld = new WorldData {
-			RawBytes = inputArray,
-			Ext = FileType.Wld,
 			Header = IndexShortLEArray(WorldData.HeaderShorts),
 		};
 
@@ -54,54 +52,54 @@ public class WorldDataTransformer : ThreeSpaceByteTransformer {
 		return wld;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
-		if (source is not WorldData wld) {
+	public override byte[]? Write(WorldData wld) {
+		if (wld == null) {
 			return null;
 		}
 
 		using var outStream = new MemoryStream();
 
-		void Write(byte[] bytes) => outStream.Write(bytes, 0, bytes.Length);
+		void Emit(byte[] bytes) => outStream.Write(bytes, 0, bytes.Length);
 
 		void WriteCountedInts(int[] values) {
-			Write(WriteIntLE(values.Length));
+			Emit(WriteIntLE(values.Length));
 			foreach (int value in values) {
-				Write(WriteIntLE(value));
+				Emit(WriteIntLE(value));
 			}
 		}
 
 		void WriteString(string? value) {
-			Write(Encoding.ASCII.GetBytes(value ?? string.Empty));
+			Emit(Encoding.ASCII.GetBytes(value ?? string.Empty));
 			outStream.WriteByte(0);
 		}
 
 		foreach (short value in wld.Header) {
-			Write(WriteShortLE(value));
+			Emit(WriteShortLE(value));
 		}
 
 		WriteCountedInts(wld.DistanceBandsA);
 		WriteCountedInts(wld.DistanceBandsB);
 
-		Write(WriteShortLE(wld.RampRows));
-		Write(WriteShortLE(wld.RampColumns));
+		Emit(WriteShortLE(wld.RampRows));
+		Emit(WriteShortLE(wld.RampColumns));
 
 		foreach (int value in wld.RampTableA) {
-			Write(WriteIntLE(value));
+			Emit(WriteIntLE(value));
 		}
 
-		Write(WriteShortLE(wld.BetweenRampTables));
+		Emit(WriteShortLE(wld.BetweenRampTables));
 
 		foreach (int value in wld.RampTableB) {
-			Write(WriteIntLE(value));
+			Emit(WriteIntLE(value));
 		}
 
-		Write(wld.RampExtraA);
-		Write(wld.RampExtraB);
+		Emit(wld.RampExtraA);
+		Emit(wld.RampExtraB);
 
-		Write(WriteShortLE(wld.Trailer0));
-		Write(WriteShortLE(wld.Trailer1));
-		Write(WriteIntLE(wld.Trailer2));
-		Write(WriteIntLE(wld.Trailer3));
+		Emit(WriteShortLE(wld.Trailer0));
+		Emit(WriteShortLE(wld.Trailer1));
+		Emit(WriteIntLE(wld.Trailer2));
+		Emit(WriteIntLE(wld.Trailer3));
 
 		WriteString(wld.WorldTypeStr);
 		WriteString(wld.CloudStr);

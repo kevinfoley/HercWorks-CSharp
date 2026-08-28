@@ -18,8 +18,8 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// (6/2/2/2/2 zero bytes instead of 3/1/1/1/1), making read and write byte-count symmetric at 54
 /// bytes each.
 /// </summary>
-public class FlightModelTransformer : ThreeSpaceByteTransformer {
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+public class FlightModelTransformer : ByteTransformer<FlightModel> {
+	public override FlightModel? Parse(byte[]? inputArray) {
 		if (inputArray == null || inputArray.Length <= 0) {
 			return null;
 		}
@@ -27,10 +27,6 @@ public class FlightModelTransformer : ThreeSpaceByteTransformer {
 		SetBytes(inputArray);
 
 		var fm = new FlightModel {
-			RawBytes = inputArray,
-			Ext = FileType.Fm,
-			Dir = FileType.Fm,
-
 			PitchRate = IndexShortLE(),
 			RollRate = IndexShortLE(),
 			RudderForce = IndexShortLE(),
@@ -66,22 +62,16 @@ public class FlightModelTransformer : ThreeSpaceByteTransformer {
 		return fm;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
-		if (source == null) {
-			// TODO (carried over from Java): log null
-			return null;
-		}
-
-		var fm = (FlightModel)source;
+	public override byte[]? Write(FlightModel fm) {
 
 		using var bytes = new MemoryStream();
 
-		Write(bytes, WriteShortLE(fm.PitchRate));
-		Write(bytes, WriteShortLE(fm.RollRate));
-		Write(bytes, WriteShortLE(fm.RudderForce));
-		Write(bytes, WriteShortLE(fm.PitchForce));
-		Write(bytes, WriteShortLE(fm.RollForce));
-		Write(bytes, WriteShortLE(fm.ThrustFactor));
+		Emit(bytes, WriteShortLE(fm.PitchRate));
+		Emit(bytes, WriteShortLE(fm.RollRate));
+		Emit(bytes, WriteShortLE(fm.RudderForce));
+		Emit(bytes, WriteShortLE(fm.PitchForce));
+		Emit(bytes, WriteShortLE(fm.RollForce));
+		Emit(bytes, WriteShortLE(fm.ThrustFactor));
 
 		bytes.WriteByte(0x00);
 		bytes.WriteByte(0x00);
@@ -90,34 +80,34 @@ public class FlightModelTransformer : ThreeSpaceByteTransformer {
 		bytes.WriteByte(0x00);
 		bytes.WriteByte(0x00);
 
-		Write(bytes, WriteShortLE(fm.RollMax));
+		Emit(bytes, WriteShortLE(fm.RollMax));
 
 		bytes.WriteByte(0x00);
 		bytes.WriteByte(0x00);
 
-		Write(bytes, WriteShortLE(fm.Unk22_val16));
+		Emit(bytes, WriteShortLE(fm.Unk22_val16));
 
 		bytes.WriteByte(0x00);
 		bytes.WriteByte(0x00);
 
-		Write(bytes, WriteShortLE(fm.Unk26_5or6));
+		Emit(bytes, WriteShortLE(fm.Unk26_5or6));
 
 		bytes.WriteByte(0x00);
 		bytes.WriteByte(0x00);
 
-		Write(bytes, WriteShortLE(fm.RollFriction));
+		Emit(bytes, WriteShortLE(fm.RollFriction));
 
 		bytes.WriteByte(0x00);
 		bytes.WriteByte(0x00);
 
-		Write(bytes, WriteIntLE(fm.AltitudeMax));
-		Write(bytes, WriteIntLE(fm.Unk38_val6000));
-		Write(bytes, WriteIntLE(fm.AirSpeedMax));
-		Write(bytes, WriteIntLE(fm.AirSpeedMin));
-		Write(bytes, WriteIntLE(fm.RollAccel));
+		Emit(bytes, WriteIntLE(fm.AltitudeMax));
+		Emit(bytes, WriteIntLE(fm.Unk38_val6000));
+		Emit(bytes, WriteIntLE(fm.AirSpeedMax));
+		Emit(bytes, WriteIntLE(fm.AirSpeedMin));
+		Emit(bytes, WriteIntLE(fm.RollAccel));
 
 		return bytes.ToArray();
 	}
 
-	private static void Write(MemoryStream outArr, byte[] data) => outArr.Write(data, 0, data.Length);
+	private static void Emit(MemoryStream outArr, byte[] data) => outArr.Write(data, 0, data.Length);
 }

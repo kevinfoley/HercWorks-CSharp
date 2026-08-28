@@ -12,11 +12,11 @@ namespace HercWorks.Core.Io.Transform.Bnd;
 /// in length and in the Java author's own per-file notes for the handful of other .BND files that
 /// have any.
 /// </summary>
-public class CamTransformer : ThreeSpaceByteTransformer {
+public class CamTransformer : ByteTransformer<Cam> {
 	/// <summary>Header shared by every .BND file: [0]=0x02, [1-2]=payload length (LE), [3-4]=0x0000, [5-8]=build stamp.</summary>
 	private const int EnvelopeLength = 9;
 
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+	public override Cam? Parse(byte[]? inputArray) {
 		if (inputArray == null) {
 			return null;
 		}
@@ -26,7 +26,6 @@ public class CamTransformer : ThreeSpaceByteTransformer {
 
 		var cam = new Cam {
 			RawBytes = inputArray,
-			Ext = FileType.Bnd,
 
 			RecordTag = IndexByte(),
 			Unknown1 = IndexByte(),
@@ -54,27 +53,22 @@ public class CamTransformer : ThreeSpaceByteTransformer {
 		return cam;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
-		if (source == null) {
-			return null;
-		}
-
-		var cam = (Cam)source;
+	public override byte[]? Write(Cam cam) {
 		using var outStream = new MemoryStream();
 
-		void Write(byte[] bytes) => outStream.Write(bytes, 0, bytes.Length);
+		void Emit(byte[] bytes) => outStream.Write(bytes, 0, bytes.Length);
 		void WriteByte(byte b) => outStream.WriteByte(b);
 
 		// The 9-byte envelope (type marker, payload length, reserved, build stamp) is preserved
 		// verbatim from the source file rather than reconstructed — RawBytes always holds it.
-		Write(cam.RawBytes![..EnvelopeLength]);
+		Emit(cam.RawBytes![..EnvelopeLength]);
 
 		WriteByte(cam.RecordTag);
 		WriteByte(cam.Unknown1);
 		WriteByte(cam.Unknown2);
 		WriteByte(cam.Unknown3);
-		Write(WriteShortLE(cam.Distance1));
-		Write(WriteShortLE(cam.Distance2));
+		Emit(WriteShortLE(cam.Distance1));
+		Emit(WriteShortLE(cam.Distance2));
 		WriteByte(cam.Blank1);
 		WriteByte(cam.Unknown4);
 		WriteByte(cam.Unknown5);
@@ -87,8 +81,8 @@ public class CamTransformer : ThreeSpaceByteTransformer {
 		WriteByte(cam.Unknown8);
 		WriteByte(cam.Unknown9);
 		WriteByte(cam.Unknown10);
-		Write(WriteShortLE(cam.Value3));
-		Write(WriteShortLE(cam.Value4));
+		Emit(WriteShortLE(cam.Value3));
+		Emit(WriteShortLE(cam.Value4));
 		WriteByte(cam.TrailingByte);
 
 		return outStream.ToArray();

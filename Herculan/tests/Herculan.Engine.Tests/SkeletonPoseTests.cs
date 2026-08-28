@@ -121,13 +121,13 @@ public class SkeletonPoseTests {
 
 	private static MechObject? Spawn(GameContent content, string herc) {
 		if (content.Read("dat", herc + ".DAT") is not { } datBytes
-			|| new HercSimDataTransformer().BytesToObject(datBytes) is not HercSimDat data) {
+			|| new HercSimDataTransformer().Parse(datBytes) is not HercSimDat data) {
 			return null;
 		}
 
 		var animation = content.Read("dts", herc + ".DTS") is { } dtsBytes
 			? ShapeAnimation.FromModel(
-				new DTSModelTransformer().BytesToObject(dtsBytes) as HercWorks.Core.Data.File.Dyn.DynamixThreeSpaceModel)
+				new DTSModelTransformer().Parse(dtsBytes) as HercWorks.Core.Data.File.Dyn.DynamixThreeSpaceModel)
 			: null;
 
 		return new MechObject(herc, data, 0, MechLoadout.None, animation);

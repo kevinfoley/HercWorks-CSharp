@@ -80,7 +80,7 @@ public static class TerrainZoneLoader {
 	private static DynamixBitmap ReadHeightmapImage(GameContent content, string baseName) {
 		byte[] bytes = content.ReadRequired(HeightmapFolder, baseName + ".dba");
 
-		var array = new DynamixBitmapArrayTransformer().BytesToObject(bytes) as DynamixBitmapArray
+		var array = new DynamixBitmapArrayTransformer().Parse(bytes) as DynamixBitmapArray
 			?? throw new InvalidDataException($"{HeightmapFolder}\\{baseName}.dba is not a DynamixBitmapArray.");
 
 		if (array.Images is not { Length: > 0 } images || images[0] is not { } image) {

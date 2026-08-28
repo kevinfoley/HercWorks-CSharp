@@ -102,7 +102,7 @@ public sealed class SceneModelLibrary {
 
 		byte[]? paletteBytes = content.Read("dpl", theater.PaletteName + ".DPL");
 		_palette = paletteBytes != null
-			? new DynamixPaletteTransformer().BytesToObject(paletteBytes) as DynamixPalette
+			? new DynamixPaletteTransformer().Parse(paletteBytes) as DynamixPalette
 			: null;
 
 		// The theater ships its colour ramp beside its palette, under the same base name, and a flat
@@ -130,7 +130,7 @@ public sealed class SceneModelLibrary {
 
 		byte[]? bytes = _content.Read("dat", mechName + ".DAT");
 		var data = bytes != null
-			? new HercSimDataTransformer().BytesToObject(bytes) as HercSimDat
+			? new HercSimDataTransformer().Parse(bytes) as HercSimDat
 			: null;
 
 		_mechData[mechName] = data;
@@ -150,7 +150,7 @@ public sealed class SceneModelLibrary {
 
 		byte[]? bytes = _content.Read(GunLayoutFolder, mechName + ".GL");
 		var data = bytes != null
-			? new GunLayoutTransformer().BytesToObject(bytes) as GunLayout
+			? new GunLayoutTransformer().Parse(bytes) as GunLayout
 			: null;
 
 		_hardpoints[mechName] = data;
@@ -184,7 +184,7 @@ public sealed class SceneModelLibrary {
 
 		byte[]? bytes = _content.Read(DamageFolder, typeName + ".DMG");
 		var data = bytes != null
-			? new HercDamageFileTransformer().BytesToObject(bytes) as HercSimDamage
+			? new HercDamageFileTransformer().Parse(bytes) as HercSimDamage
 			: null;
 
 		_damageData[typeName] = data;
@@ -205,7 +205,7 @@ public sealed class SceneModelLibrary {
 
 		byte[]? bytes = _content.Read("dat", flyerName + ".DAT");
 		var data = bytes != null
-			? new FlyerSimDataTransformer().BytesToObject(bytes) as FlyerSimData
+			? new FlyerSimDataTransformer().Parse(bytes) as FlyerSimData
 			: null;
 
 		_flyerData[flyerName] = data;
@@ -430,7 +430,7 @@ public sealed class SceneModelLibrary {
 		DynamixThreeSpaceModel? model = null;
 
 		if (bytes != null) {
-			model = new DTSModelTransformer().BytesToObject(bytes) as DynamixThreeSpaceModel;
+			model = new DTSModelTransformer().Parse(bytes) as DynamixThreeSpaceModel;
 		}
 
 		_files[dtsName] = model;
@@ -449,7 +449,7 @@ public sealed class SceneModelLibrary {
 
 		byte[]? bytes = _content.Read("dgs", libraryName);
 		var library = bytes != null
-			? new BasesDgsTransformer().BytesToObject(bytes) as BaseShapeLibrary
+			? new BasesDgsTransformer().Parse(bytes) as BaseShapeLibrary
 			: null;
 
 		_shapeLibraries[libraryName] = library;
@@ -475,7 +475,7 @@ public sealed class SceneModelLibrary {
 		TextureAtlas? atlas = null;
 
 		if (bytes != null
-			&& new DynamixBitmapArrayTransformer().BytesToObject(bytes) is DynamixBitmapArray bank) {
+			&& new DynamixBitmapArrayTransformer().Parse(bytes) is DynamixBitmapArray bank) {
 			atlas = TextureAtlas.Build(bank, _palette, transparentIndex0);
 		}
 

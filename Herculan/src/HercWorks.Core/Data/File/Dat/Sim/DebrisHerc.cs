@@ -1,5 +1,3 @@
-using HercWorks.Vol;
-
 namespace HercWorks.Core.Data.File.Dat.Sim;
 
 /// <summary>
@@ -7,7 +5,7 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 ///   0 - UINT16 - (unidentified)
 /// Ported from org.hercworks.core.data.file.dat.sim.DebrisHerc.
 /// </summary>
-public class DebrisHerc : DataFile {
+public class DebrisHerc {
 	public Entry[]? Data { get; set; }
 
 	public Entry NewEntry() => new();

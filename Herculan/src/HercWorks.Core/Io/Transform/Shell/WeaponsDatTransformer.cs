@@ -6,8 +6,8 @@ using HercWorks.Vol;
 namespace HercWorks.Core.Io.Transform.Shell;
 
 /// <summary>Ported from org.hercworks.core.io.transform.shell.WeaponsDatTransformer.</summary>
-public class WeaponsDatTransformer : ThreeSpaceByteTransformer {
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+public class WeaponsDatTransformer : ByteTransformer<WeaponsDat> {
+	public override WeaponsDat? Parse(byte[]? inputArray) {
 		if (inputArray == null || inputArray.Length <= 0) {
 			// TODO - empty array warning
 			return null;
@@ -17,12 +17,7 @@ public class WeaponsDatTransformer : ThreeSpaceByteTransformer {
 
 		short totalWeapons = IndexShortLE();
 
-		var data = new WeaponsDat(totalWeapons) {
-			FileName = "WEAPONS",
-			RawBytes = inputArray,
-			Ext = FileType.Dat,
-			Dir = FileType.Gam
-		};
+		var data = new WeaponsDat(totalWeapons);
 
 		for (int i = 0; i < totalWeapons; i++) {
 			var entry = data.AddEntry(i);
@@ -48,31 +43,29 @@ public class WeaponsDatTransformer : ThreeSpaceByteTransformer {
 		return data;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
+	public override byte[]? Write(WeaponsDat data) {
 		using var objectBytes = new MemoryStream();
 
-		var data = (WeaponsDat)source!;
+		void Emit(byte[] bytes) => objectBytes.Write(bytes, 0, bytes.Length);
 
-		void Write(byte[] bytes) => objectBytes.Write(bytes, 0, bytes.Length);
-
-		Write(WriteShortLE(data.TotalCount));
+		Emit(WriteShortLE(data.TotalCount));
 		for (int i = 0; i < data.TotalCount; i++) {
 			var entry = data.Data[i];
 
-			Write(WriteShortLE(entry.Id));
-			Write(WriteShortLE(entry.NameLen));
-			Write(entry.Name!);
-			Write(WriteShortLE(entry.SalvageCost));
+			Emit(WriteShortLE(entry.Id));
+			Emit(WriteShortLE(entry.NameLen));
+			Emit(entry.Name!);
+			Emit(WriteShortLE(entry.SalvageCost));
 			objectBytes.WriteByte(entry.StartUnlock);
-			Write(WriteShortLE(entry.AutobuildPriority));
+			Emit(WriteShortLE(entry.AutobuildPriority));
 		}
 
-		Write(WriteShortLE(data.StartWeaponTotal));
+		Emit(WriteShortLE(data.StartWeaponTotal));
 		for (int i = 0; i < data.StartWeaponTotal; i++) {
 			var item = data.StartingWeapons![i];
-			Write(WriteShortLE(item.ItemId));
-			Write(WriteShortLE(item.HealthPercent));
-			Write(WriteShortLE((short)item.MissileType!.Id));
+			Emit(WriteShortLE(item.ItemId));
+			Emit(WriteShortLE(item.HealthPercent));
+			Emit(WriteShortLE((short)item.MissileType!.Id));
 		}
 
 		return objectBytes.ToArray();

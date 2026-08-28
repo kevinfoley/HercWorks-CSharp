@@ -10,7 +10,21 @@ namespace HercWorks.Core.Data.File.Dyn;
 /// Ported from org.hercworks.core.data.file.dyn.DynamixThreeSpaceModel. Apache Commons Math's
 /// Vector3D maps to System.Numerics.Vector3 here.
 /// </summary>
-public class DynamixThreeSpaceModel : DataFile {
+public class DynamixThreeSpaceModel {
+	/// <summary>
+	/// Source file name, used only by <see cref="ToString"/>'s JSON dump. No parse path sets it
+	/// today — the transformer never named the model — so the dump's "file" field comes out empty,
+	/// exactly as it did when this was inherited from DataFile. Kept so a caller that does know
+	/// the name can still supply it.
+	/// </summary>
+	public string? FileName { get; set; }
+
+	/// <summary><see cref="FileName"/> with any extension stripped; empty when unset.</summary>
+	private string NameNoExt() =>
+		FileName == null ? string.Empty
+			: FileName.LastIndexOf('.') != -1 ? FileName[..FileName.LastIndexOf('.')]
+			: FileName;
+
 	public List<TSObject>? Meshes { get; set; }
 
 	public Vector3 Center { get; set; }
@@ -23,7 +37,7 @@ public class DynamixThreeSpaceModel : DataFile {
 	public override string ToString() {
 		var str = new StringBuilder();
 
-		str.Append("{\"file\" : \"").Append(OriginNameNoExt()).Append("\",\n");
+		str.Append("{\"file\" : \"").Append(NameNoExt()).Append("\",\n");
 		str.Append("\"meshes\" : [\n");
 		for (int s = 0; s < Meshes!.Count; s++) {
 			str.Append(Meshes[s].ToString());

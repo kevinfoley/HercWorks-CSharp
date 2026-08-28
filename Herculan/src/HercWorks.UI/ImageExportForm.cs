@@ -75,10 +75,10 @@ public partial class ImageExportForm : Form {
 			}
 
 			if (isArray) {
-				_loadedDba = (DynamixBitmapArray?)_dbaTransformer.BytesToObject(prefix.Content);
+				_loadedDba = (DynamixBitmapArray?)_dbaTransformer.Parse(prefix.Content);
 				_loadedDbm = null;
 			} else {
-				_loadedDbm = (DynamixBitmap?)_dbmTransformer.BytesToObject(prefix.Content);
+				_loadedDbm = (DynamixBitmap?)_dbmTransformer.Parse(prefix.Content);
 				_loadedDba = null;
 			}
 
@@ -118,7 +118,7 @@ public partial class ImageExportForm : Form {
 		try {
 			byte[] rawBytes = File.ReadAllBytes(dialog.FileName);
 			var prefix = VolEntryPrefixCodec.StripIfPresent(rawBytes);
-			var palette = (DynamixPalette?)_dplTransformer.BytesToObject(prefix.Content);
+			var palette = (DynamixPalette?)_dplTransformer.Parse(prefix.Content);
 
 			if (palette == null) {
 				MessageBox.Show(this, "File was empty or could not be parsed.", "Error",
@@ -220,7 +220,7 @@ public partial class ImageExportForm : Form {
 		try {
 			var unpacker = new DynamixBitmapTransformer();
 			for (int i = 0; i < frames.Length; i++) {
-				byte[] dbmBytes = unpacker.ObjectToBytes(frames[i])!;
+				byte[] dbmBytes = unpacker.Write(frames[i])!;
 				string name = string.IsNullOrEmpty(frames[i].FileName) ? $"frame_{i}" : frames[i].FileName!;
 				File.WriteAllBytes(Path.Combine(dialog.SelectedPath, name + ".DBM"), dbmBytes);
 			}

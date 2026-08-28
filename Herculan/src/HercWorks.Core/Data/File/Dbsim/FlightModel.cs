@@ -1,12 +1,10 @@
-using HercWorks.Vol;
-
 namespace HercWorks.Core.Data.File.Dbsim;
 
 /// <summary>
 /// FILE - /DBSIM/fm/RAZOR.DAT and DBSIM/fm/SKIMMER.DAT — flight physics parameters.
 /// Ported from org.hercworks.core.data.file.dbsim.FlightModel.
 /// </summary>
-public class FlightModel : DataFile {
+public class FlightModel {
 	public short PitchRate { get; set; }
 	public short RollRate { get; set; }
 	public short RudderForce { get; set; }

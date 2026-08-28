@@ -88,7 +88,7 @@ public partial class HercStatsForm : Form {
 
 	private void LoadGameFile(GameFile file) {
 		try {
-			var hercInf = (HercInf?)_transformer.BytesToObject(file.Content);
+			var hercInf = (HercInf?)_transformer.Parse(file.Content);
 
 			if (hercInf == null) {
 				MessageBox.Show(this, "File was empty or could not be parsed.", "Error",
@@ -148,10 +148,7 @@ public partial class HercStatsForm : Form {
 		}
 
 		try {
-			var hercInf = new HercInf(_rows.Count) {
-				Ext = FileType.Dat,
-				Dir = FileType.Gam
-			};
+			var hercInf = new HercInf(_rows.Count);
 
 			for (int i = 0; i < _rows.Count; i++) {
 				var row = _rows[i];
@@ -167,7 +164,7 @@ public partial class HercStatsForm : Form {
 				};
 			}
 
-			byte[] content = _transformer.ObjectToBytes(hercInf)!;
+			byte[] content = _transformer.Write(hercInf)!;
 			byte[] outBytes;
 			string formatNote;
 

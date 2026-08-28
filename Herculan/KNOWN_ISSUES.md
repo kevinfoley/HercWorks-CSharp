@@ -10,10 +10,6 @@ _Bugs listed in this section were tested on Windows 11. It's possible that some 
 - Herc stats shown in the "Build" screen may be incorrect (the Outlaw is listed as having a top speed of 80 kph, but the manual and in-game readout show 100 kph).
 - Some buildings' collision volumes are shorter than the visible mesh, so shots pass through the top of the building (verified against the retail data: type 3 stops at 2225 against a 6756 mesh, type 22 at 9400 against 18300). Reproduced as-is.
 
-## HercWorks
-
-- Classes representing file formats in the retail game extend `DataFile`. However, potential consumers like HERCULAN Engine may not need any of the fields from DataFile. Instead of inheritance, we should use DataFile<T> (e.g. `DataFile<HercCollider>` instead of `HercCollider : DataFile`).
-
 ## HERCULAN Engine
 
 - Terrain textures are not mapped correctly.

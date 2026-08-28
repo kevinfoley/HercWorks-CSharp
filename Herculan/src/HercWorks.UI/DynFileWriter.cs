@@ -63,7 +63,7 @@ public static class DynFileWriter {
 
 		try {
 			var transform = new DynamixBitmapTransformer();
-			byte[]? data = transform.ObjectToBytes(dbm);
+			byte[]? data = transform.Write(dbm);
 			if (data != null) {
 				File.WriteAllBytes(file, data);
 			}

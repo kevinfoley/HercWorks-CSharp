@@ -1,5 +1,4 @@
 using HercWorks.Core.Data.Struct.Vshell.Hercs;
-using HercWorks.Vol;
 
 namespace HercWorks.Core.Data.File.Dat.Shell;
 
@@ -8,7 +7,7 @@ namespace HercWorks.Core.Data.File.Dat.Shell;
 /// /UI/ARMING/Weapon_panel. See Java source for full byte layout.
 /// Ported from org.hercworks.core.data.file.dat.shell.ArmWeap.
 /// </summary>
-public class ArmWeap : DataFile {
+public class ArmWeap {
 	public short TotalWeapons { get; set; }
 	public short TotalSecondList { get; set; }
 

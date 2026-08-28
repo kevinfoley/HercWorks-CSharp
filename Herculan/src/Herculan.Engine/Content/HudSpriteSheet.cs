@@ -98,7 +98,7 @@ public sealed class HudSpriteSheet {
 			}
 
 			if (content.Read(ResourceFolder, name + "." + ResourceFolder.ToUpperInvariant()) is not { } bytes
-				|| new DynamixBitmapArrayTransformer().BytesToObject(bytes) is not DynamixBitmapArray bank
+				|| new DynamixBitmapArrayTransformer().Parse(bytes) is not DynamixBitmapArray bank
 				|| bank.Images is not { Length: > 0 } images) {
 				continue;
 			}

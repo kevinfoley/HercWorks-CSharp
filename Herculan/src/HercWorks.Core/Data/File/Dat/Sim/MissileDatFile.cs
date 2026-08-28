@@ -1,5 +1,4 @@
 using HercWorks.Core.Data.Struct.Dbsim;
-using HercWorks.Vol;
 
 namespace HercWorks.Core.Data.File.Dat.Sim;
 
@@ -19,7 +18,7 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 /// against (see the DTS LOD-investigation notes in project memory).
 /// Ported from org.hercworks.core.data.file.dat.sim.MissileDatFile.
 /// </summary>
-public class MissileDatFile : DataFile {
+public class MissileDatFile {
 	public short Total { get; set; }
 	public ProjMissileDatEntry[]? Entries { get; set; }
 

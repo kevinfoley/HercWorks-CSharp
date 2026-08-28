@@ -1,5 +1,4 @@
 using HercWorks.Core.Data.Struct.Vshell.Hercs;
-using HercWorks.Vol;
 
 namespace HercWorks.Core.Data.File.Dat.Shell;
 
@@ -11,7 +10,7 @@ namespace HercWorks.Core.Data.File.Dat.Shell;
 ///   count, SEQ1 per hardpoint: id, item ID, health percentage, missile enum (05 = none).
 /// Ported from org.hercworks.core.data.file.dat.shell.Hercs.
 /// </summary>
-public class Hercs : DataFile {
+public class Hercs {
 	public Entry[]? Data { get; set; }
 
 	public Hercs() { }

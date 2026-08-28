@@ -10,19 +10,15 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// variable-length; every byte is preserved even where semantics aren't decoded yet, so this
 /// round-trips byte-exact — verified against the real retail file.
 /// </summary>
-public class WeaponsSimTransformer : ThreeSpaceByteTransformer {
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+public class WeaponsSimTransformer : ByteTransformer<Weapons> {
+	public override Weapons? Parse(byte[]? inputArray) {
 		if (inputArray == null || inputArray.Length <= 0) {
 			return null;
 		}
 
 		SetBytes(inputArray);
 
-		var data = new Weapons {
-			Ext = FileType.Dat,
-			Dir = FileType.Dat,
-			RawBytes = inputArray
-		};
+		var data = new Weapons();
 
 		data.Total = IndexShortLE();
 		data.Templates = new Weapons.WeaponMountTemplate[data.Total];
@@ -52,8 +48,7 @@ public class WeaponsSimTransformer : ThreeSpaceByteTransformer {
 		return data;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
-		var data = (Weapons)source!;
+	public override byte[]? Write(Weapons data) {
 
 		using var outStream = new MemoryStream();
 

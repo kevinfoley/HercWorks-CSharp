@@ -1,5 +1,3 @@
-using HercWorks.Vol;
-
 namespace HercWorks.Core.Data.File;
 
 /// <summary>
@@ -11,6 +9,6 @@ namespace HercWorks.Core.Data.File;
 ///   8 - SEQ 0 - file-offset of each string, allowing engine to jump to the string.
 /// Ported from org.hercworks.core.data.file.StringBinaryFile.
 /// </summary>
-public class StringBinaryFile : DataFile {
+public class StringBinaryFile {
 	public string[]? Values { get; set; }
 }

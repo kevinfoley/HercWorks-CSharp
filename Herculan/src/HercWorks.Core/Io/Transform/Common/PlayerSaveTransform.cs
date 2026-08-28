@@ -3,26 +3,22 @@ using HercWorks.Core.Data.Struct;
 using HercWorks.Core.Data.Struct.Herc;
 using HercWorks.Core.Data.Struct.Vshell.Hercs;
 using HercWorks.Core.Data.Struct.Vshell.Sav;
-using HercWorks.Vol;
 using System.Text;
 
 namespace HercWorks.Core.Io.Transform.Common;
 
 /// <summary>Ported from org.hercworks.core.io.transform.common.PlayerSaveTransform.</summary>
-public class PlayerSaveTransform : ThreeSpaceByteTransformer {
+public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 	private int _dbgBuffer;
 
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+	public override PlayerSave? Parse(byte[]? inputArray) {
 		if (inputArray == null || inputArray.Length <= 0) {
 			return null;
 		}
 
 		SetBytes(inputArray);
 
-		var save = new PlayerSave {
-			Ext = FileType.Sav,
-			Dir = FileType.Sav
-		};
+		var save = new PlayerSave();
 
 		// INVENTORY SEGMENT - 33 entries, matches total weapons in game, ERROR/cut weapon ids
 		// ARE included here, but zeroed out.
@@ -206,8 +202,7 @@ public class PlayerSaveTransform : ThreeSpaceByteTransformer {
 		return herc;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
-		var save = (PlayerSave)source!;
+	public override byte[]? Write(PlayerSave save) {
 
 		using var outStream = new MemoryStream();
 

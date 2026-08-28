@@ -11,8 +11,8 @@ namespace HercWorks.Core.Io.Transform.Shell;
 /// rather than by the actual hardpoint ID stored as each dictionary key on read, which assumes
 /// hardpoint IDs are always contiguous and zero-based.
 /// </summary>
-public class HercsStartTransformer : ThreeSpaceByteTransformer {
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+public class HercsStartTransformer : ByteTransformer<Hercs> {
+	public override Hercs? Parse(byte[]? inputArray) {
 		if (inputArray == null || inputArray.Length <= 0) {
 			// TODO - warn empty array
 			return null;
@@ -20,9 +20,6 @@ public class HercsStartTransformer : ThreeSpaceByteTransformer {
 		SetBytes(inputArray);
 
 		var startHercs = new Hercs {
-			RawBytes = inputArray,
-			Ext = FileType.Dat,
-			Dir = FileType.Gam,
 			Data = new Hercs.Entry[IndexShortLE()]
 		};
 
@@ -52,29 +49,27 @@ public class HercsStartTransformer : ThreeSpaceByteTransformer {
 		return startHercs;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
+	public override byte[]? Write(Hercs hercs) {
 		using var objectStream = new MemoryStream();
 
-		var hercs = (Hercs)source!;
+		void Emit(byte[] bytes) => objectStream.Write(bytes, 0, bytes.Length);
 
-		void Write(byte[] bytes) => objectStream.Write(bytes, 0, bytes.Length);
-
-		Write(WriteShortLE((short)hercs.Data!.Length));
+		Emit(WriteShortLE((short)hercs.Data!.Length));
 		for (int i = 0; i < hercs.Data.Length; i++) {
 			var entry = hercs.Data[i];
 
-			Write(WriteShortLE(entry.BayId));
-			Write(WriteShortLE(entry.Herc!.HercId));
-			Write(WriteShortLE(entry.Herc.HealthRatio));
-			Write(WriteShortLE(entry.Herc.BuildCompleteLevel));
-			Write(WriteShortLE((short)entry.Herc.Hardpoints!.Count));
+			Emit(WriteShortLE(entry.BayId));
+			Emit(WriteShortLE(entry.Herc!.HercId));
+			Emit(WriteShortLE(entry.Herc.HealthRatio));
+			Emit(WriteShortLE(entry.Herc.BuildCompleteLevel));
+			Emit(WriteShortLE((short)entry.Herc.Hardpoints!.Count));
 
 			for (int h = 0; h < entry.Herc.Hardpoints.Count; h++) {
 				var item = entry.Herc.Hardpoints.GetValueOrDefault((short)h);
-				Write(WriteShortLE((short)h));
-				Write(WriteShortLE(item!.ItemId));
-				Write(WriteShortLE(item.HealthPercent));
-				Write(WriteShortLE((short)item.MissileType!.Id));
+				Emit(WriteShortLE((short)h));
+				Emit(WriteShortLE(item!.ItemId));
+				Emit(WriteShortLE(item.HealthPercent));
+				Emit(WriteShortLE((short)item.MissileType!.Id));
 			}
 		}
 

@@ -1,5 +1,4 @@
 using HercWorks.Core.Data.Struct;
-using HercWorks.Vol;
 
 namespace HercWorks.Core.Data.File.Dat.Shell;
 
@@ -9,6 +8,6 @@ namespace HercWorks.Core.Data.File.Dat.Shell;
 ///   SEQ_0: 0_0 UINT16 sector ID, 0_2 UINT16 total missions in sector, SEQ_1: 1_0 UINT16 mission id.
 /// Ported from org.hercworks.core.data.file.dat.shell.CareerMissions.
 /// </summary>
-public class CareerMissions : DataFile {
+public class CareerMissions {
 	public Dictionary<MissionSector, int[]>? Sectors { get; set; }
 }

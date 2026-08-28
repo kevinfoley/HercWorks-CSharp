@@ -1,12 +1,11 @@
 using HercWorks.Core.Data.File.Msn;
-using HercWorks.Vol;
 using System.Diagnostics;
 
 namespace HercWorks.Core.Io.Transform.Common;
 
 /// <summary>Ported from org.hercworks.core.io.transform.common.MissionStringFileTransformer.</summary>
-public class MissionStringFileTransformer : ThreeSpaceByteTransformer {
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+public class MissionStringFileTransformer : ByteTransformer<MissionStringFile> {
+	public override MissionStringFile? Parse(byte[]? inputArray) {
 		SetBytes(inputArray!);
 
 		var str = new MissionStringFile();
@@ -31,7 +30,7 @@ public class MissionStringFileTransformer : ThreeSpaceByteTransformer {
 		return str;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
+	public override byte[]? Write(MissionStringFile? source) {
 		// TODO (carried over from Java): not implemented in the original
 		return null;
 	}

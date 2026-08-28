@@ -19,14 +19,7 @@ public static class DynFileReader {
 		}
 
 		var convert = new DynamixPaletteTransformer();
-		var newDPal = (DynamixPalette?)convert.BytesToObject(fileBytes);
-
-		if (newDPal != null) {
-			newDPal.FileName = DataFile.MakeFileName(filePath);
-			newDPal.AssignDir(filePath);
-		}
-
-		return newDPal;
+		return convert.Parse(fileBytes);
 	}
 
 	public static DynamixBitmap? ParseBytesToDBM(byte[] data) {
@@ -36,7 +29,7 @@ public static class DynFileReader {
 		}
 
 		var convert = new DynamixBitmapTransformer();
-		return (DynamixBitmap?)convert.BytesToObject(data);
+		return convert.Parse(data);
 	}
 
 	public static DynamixBitmapArray? ParseBytesToDBA(byte[] data) {
@@ -46,7 +39,7 @@ public static class DynFileReader {
 		}
 
 		var transform = new DynamixBitmapArrayTransformer();
-		return (DynamixBitmapArray?)transform.BytesToObject(data);
+		return transform.Parse(data);
 	}
 
 	public static DynamixBitmap? LoadDBM(string filePath) {
@@ -61,7 +54,6 @@ public static class DynFileReader {
 			newDBM = ParseBytesToDBM(fileBytes);
 			if (newDBM != null) {
 				newDBM.FileName = DataFile.MakeFileName(filePath);
-				newDBM.AssignDir(filePath);
 			}
 		}
 
@@ -81,10 +73,6 @@ public static class DynFileReader {
 		DynamixBitmapArray? newDBA = null;
 		if (fileBytes.Length > 0) {
 			newDBA = ParseBytesToDBA(fileBytes);
-			if (newDBA != null) {
-				newDBA.FileName = DataFile.MakeFileName(filePath);
-				newDBA.AssignDir(filePath);
-			}
 		}
 
 		return newDBA;

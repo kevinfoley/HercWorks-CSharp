@@ -4,19 +4,15 @@ using HercWorks.Vol;
 namespace HercWorks.Core.Io.Transform.Dbsim;
 
 /// <summary>Ported from org.hercworks.core.io.transform.dbsim.BeamDatFileTransformer.</summary>
-public class BeamDatFileTransformer : ThreeSpaceByteTransformer {
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+public class BeamDatFileTransformer : ByteTransformer<BeamData> {
+	public override BeamData? Parse(byte[]? inputArray) {
 		if (inputArray == null || inputArray.Length <= 0) {
 			return null;
 		}
 
 		SetBytes(inputArray);
 
-		var data = new BeamData(IndexShortLE()) {
-			Ext = FileType.Dat,
-			Dir = FileType.Dat,
-			RawBytes = inputArray
-		};
+		var data = new BeamData(IndexShortLE());
 
 		for (int b = 0; b < data.Data!.Length; b++) {
 			var beam = data.NewEntry(IndexShortLE(), IndexShortLE(), IndexShortLE());
@@ -26,12 +22,7 @@ public class BeamDatFileTransformer : ThreeSpaceByteTransformer {
 		return data;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
-		if (source == null) {
-			return null;
-		}
-
-		var data = (BeamData)source;
+	public override byte[]? Write(BeamData data) {
 
 		using var outStream = new MemoryStream();
 

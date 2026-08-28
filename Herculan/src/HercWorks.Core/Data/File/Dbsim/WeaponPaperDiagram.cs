@@ -1,5 +1,3 @@
-using HercWorks.Vol;
-
 namespace HercWorks.Core.Data.File.Dbsim;
 
 /// <summary>
@@ -8,7 +6,7 @@ namespace HercWorks.Core.Data.File.Dbsim;
 ///   SEQ_0: possible x coord, possible y coord.
 /// Ported from org.hercworks.core.data.file.dbsim.WeaponPaperDiagram.
 /// </summary>
-public class WeaponPaperDiagram : DataFile {
+public class WeaponPaperDiagram {
 	public Entry[]? Entries { get; set; }
 
 	public Entry NewEntry() => new();

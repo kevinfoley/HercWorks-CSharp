@@ -1,5 +1,4 @@
 using HercWorks.Core.Data.Struct.Herc;
-using HercWorks.Vol;
 
 namespace HercWorks.Core.Data.File.Dbsim;
 
@@ -92,7 +91,15 @@ namespace HercWorks.Core.Data.File.Dbsim;
  *  	FOOT\RIGHT
  */
 
-public class HercSimDamage : DataFile {
+public class HercSimDamage {
+	/// <summary>
+	/// Source file name. <see cref="Io.Transform.Dbsim.HercDamageFileTransformer.Write"/> checks it
+	/// to tell a skimmer's .DMG (one internals slot) from a herc's (22), so a caller that wants to
+	/// write must set it. The read path does not populate it — that was already true when this was
+	/// inherited from DataFile, and nothing in the project calls the write path today.
+	/// </summary>
+	public string? FileName { get; set; }
+
 	public short InternalsTotal { get; set; }
 	public InternalsHealth[]? Internals { get; set; }
 	public HercPiece[]? ComponentData { get; set; }

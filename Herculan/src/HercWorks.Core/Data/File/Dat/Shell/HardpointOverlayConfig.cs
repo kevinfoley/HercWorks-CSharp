@@ -1,5 +1,3 @@
-using HercWorks.Vol;
-
 namespace HercWorks.Core.Data.File.Dat.Shell;
 
 /// <summary>
@@ -9,7 +7,7 @@ namespace HercWorks.Core.Data.File.Dat.Shell;
 ///   SEQ_0: 0_0 UINT16 Segment ID, 0_2 UINT16 total chunks, SEQ_1: array of UINT32 values.
 /// Ported from org.hercworks.core.data.file.dat.shell.HardpointOverlayConfig.
 /// </summary>
-public class HardpointOverlayConfig : DataFile {
+public class HardpointOverlayConfig {
 	public Herc[]? Entries { get; set; }
 
 	public Herc NewEntry() => new();

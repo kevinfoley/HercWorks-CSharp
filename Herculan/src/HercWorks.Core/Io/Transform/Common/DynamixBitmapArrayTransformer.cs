@@ -11,8 +11,8 @@ namespace HercWorks.Core.Io.Transform.Common;
 /// notes), so the stored bytes are raw on-disk order — reversing them on write flipped the byte
 /// order relative to how they were read. Write now writes FileSize as stored.
 /// </summary>
-public class DynamixBitmapArrayTransformer : ThreeSpaceByteTransformer {
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+public class DynamixBitmapArrayTransformer : ByteTransformer<DynamixBitmapArray> {
+	public override DynamixBitmapArray? Parse(byte[]? inputArray) {
 		if (inputArray == null) {
 			// TODO (carried over from Java): log null
 			return null;
@@ -20,12 +20,9 @@ public class DynamixBitmapArrayTransformer : ThreeSpaceByteTransformer {
 
 		SetBytes(inputArray);
 
-		var dba = new DynamixBitmapArray {
-			RawBytes = (byte[])inputArray.Clone(),
-			Ext = FileType.Dba,
-			Dir = FileType.Dba,
+		Skip(4); // magic header — the write path emits DynamixBitmapArray.HeaderMagic, so it isn't retained.
 
-			Header = IndexSegment(4),
+		var dba = new DynamixBitmapArray {
 			FileSize = IndexSegmentLE(4),
 			ArrayRow = IndexShortLE(),
 			ArrayCols = IndexShortLE() // TODO (carried over from Java): could this actually be an INT32 for total images?
@@ -47,7 +44,7 @@ public class DynamixBitmapArrayTransformer : ThreeSpaceByteTransformer {
 			byte[] dbaItem = IndexSegment(fileLength + 8); // +8 for the 4-byte DBM header and INT32 file size.
 
 			dynbitmapTransform.ResetIndex();
-			var dbm = (DynamixBitmap)dynbitmapTransform.BytesToObject(dbaItem)!;
+			var dbm = dynbitmapTransform.Parse(dbaItem)!;
 
 			dbm.FileName = "_" + imageCount;
 
@@ -66,14 +63,7 @@ public class DynamixBitmapArrayTransformer : ThreeSpaceByteTransformer {
 		return dba;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
-		if (source == null) {
-			// TODO (carried over from Java): log null
-			return null;
-		}
-
-		var dba = (DynamixBitmapArray)source;
-
+	public override byte[]? Write(DynamixBitmapArray dba) {
 		using var objectBytes = new MemoryStream();
 
 		objectBytes.Write(DynamixBitmapArray.HeaderMagic, 0, DynamixBitmapArray.HeaderMagic.Length);
@@ -94,7 +84,7 @@ public class DynamixBitmapArrayTransformer : ThreeSpaceByteTransformer {
 		var dbmConvert = new DynamixBitmapTransformer();
 		foreach (var dbm in dba.Images!) {
 			dbmConvert.ResetIndex();
-			byte[]? data = dbmConvert.ObjectToBytes(dbm);
+			byte[]? data = dbmConvert.Write(dbm);
 			if (data != null) {
 				objectBytes.Write(data, 0, data.Length);
 				objectBytes.WriteByte(0x00);

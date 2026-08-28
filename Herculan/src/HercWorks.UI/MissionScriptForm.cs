@@ -110,7 +110,7 @@ public partial class MissionScriptForm : Form {
 		try {
 			byte[] rawBytes = File.ReadAllBytes(path);
 			var prefix = VolEntryPrefixCodec.StripIfPresent(rawBytes);
-			var script = (ScriptDat?)_transformer.BytesToObject(prefix.Content);
+			var script = (ScriptDat?)_transformer.Parse(prefix.Content);
 
 			if (script == null) {
 				MessageBox.Show(this, "File was empty or could not be parsed.", "Error",
@@ -254,7 +254,7 @@ public partial class MissionScriptForm : Form {
 		}
 
 		try {
-			byte[] content = _transformer.ObjectToBytes(_loaded)!;
+			byte[] content = _transformer.Write(_loaded)!;
 			byte[] outBytes;
 			string formatNote;
 

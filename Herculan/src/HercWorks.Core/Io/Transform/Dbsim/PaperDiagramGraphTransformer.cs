@@ -5,19 +5,15 @@ using HercWorks.Vol;
 namespace HercWorks.Core.Io.Transform.Dbsim;
 
 /// <summary>Ported from org.hercworks.core.io.transform.dbsim.PaperDiagramGraphTransformer.</summary>
-public class PaperDiagramGraphTransformer : ThreeSpaceByteTransformer {
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+public class PaperDiagramGraphTransformer : ByteTransformer<PaperDollGraphic> {
+	public override PaperDollGraphic? Parse(byte[]? inputArray) {
 		if (inputArray == null || inputArray.Length <= 0) {
 			return null;
 		}
 
 		SetBytes(inputArray);
 
-		var pdg = new PaperDollGraphic {
-			RawBytes = inputArray,
-			Ext = FileType.Pdg,
-			Dir = FileType.Pdg
-		};
+		var pdg = new PaperDollGraphic();
 
 		pdg.TotalViews = IndexIntLE();
 		pdg.Entries = new PaperDollGraphic.ViewEntry[pdg.TotalViews];
@@ -83,8 +79,7 @@ public class PaperDiagramGraphTransformer : ThreeSpaceByteTransformer {
 		return pdg;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
-		var pdg = (PaperDollGraphic)source!;
+	public override byte[]? Write(PaperDollGraphic pdg) {
 
 		using var outStream = new MemoryStream();
 

@@ -8,8 +8,8 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// FIXED — see KNOWN_ISSUES.md history: BytesToObject reset Index but never called SetBytes, so
 /// Bytes was left null/stale on a fresh instance.
 /// </summary>
-public class WeaponPDGTransformer : ThreeSpaceByteTransformer {
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+public class WeaponPDGTransformer : ByteTransformer<WeaponPaperDiagram> {
+	public override WeaponPaperDiagram? Parse(byte[]? inputArray) {
 		Index = 0;
 
 		if (inputArray == null || inputArray.Length <= 0) {
@@ -19,12 +19,7 @@ public class WeaponPDGTransformer : ThreeSpaceByteTransformer {
 
 		SetBytes(inputArray);
 
-		var data = new WeaponPaperDiagram {
-			FileName = "WEAPONS",
-			Ext = FileType.Pdg,
-			Dir = FileType.Pdg,
-			RawBytes = inputArray
-		};
+		var data = new WeaponPaperDiagram();
 
 		var entries = new WeaponPaperDiagram.Entry[IndexIntLE()];
 
@@ -40,8 +35,7 @@ public class WeaponPDGTransformer : ThreeSpaceByteTransformer {
 		return data;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
-		var data = (WeaponPaperDiagram)source!;
+	public override byte[]? Write(WeaponPaperDiagram data) {
 
 		using var outStream = new MemoryStream();
 

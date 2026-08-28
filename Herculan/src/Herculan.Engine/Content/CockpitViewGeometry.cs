@@ -66,7 +66,7 @@ public sealed class CockpitViewGeometry {
 	/// </summary>
 	public static CockpitViewGeometry? Load(GameContent content, string hercName) =>
 		content.Read("vue", hercName + ".VUE") is { } bytes
-			&& new VueTransformer().BytesToObject(bytes) is Vue vue
+			&& new VueTransformer().Parse(bytes) is Vue vue
 			&& vue.Entries is { Length: > 0 }
 				? new CockpitViewGeometry(vue)
 				: null;

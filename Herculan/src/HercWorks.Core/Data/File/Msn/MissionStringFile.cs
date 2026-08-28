@@ -1,4 +1,3 @@
-using HercWorks.Vol;
 using System.Text;
 
 namespace HercWorks.Core.Data.File.Msn;
@@ -8,7 +7,7 @@ namespace HercWorks.Core.Data.File.Msn;
 /// the string data for missions.
 /// Ported from org.hercworks.core.data.file.msn.MissionStringFile.
 /// </summary>
-public class MissionStringFile : DataFile {
+public class MissionStringFile {
 	public int TotalSize { get; set; }
 	public StringEntry[]? Strings { get; set; }
 

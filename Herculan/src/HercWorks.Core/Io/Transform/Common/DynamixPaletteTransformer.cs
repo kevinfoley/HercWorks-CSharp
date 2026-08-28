@@ -13,7 +13,7 @@ namespace HercWorks.Core.Io.Transform.Common;
 /// least-significant byte, i.e. equivalent to a plain narrowing (byte) cast here since every
 /// value written is already guaranteed &lt; 256. Ported as a direct cast below.
 /// </summary>
-public class DynamixPaletteTransformer : ThreeSpaceByteTransformer {
+public class DynamixPaletteTransformer : ByteTransformer<DynamixPalette> {
 	private readonly int _colorScalar = 4;
 
 	public DynamixPaletteTransformer() { }
@@ -22,7 +22,7 @@ public class DynamixPaletteTransformer : ThreeSpaceByteTransformer {
 		_colorScalar = scalar;
 	}
 
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+	public override DynamixPalette? Parse(byte[]? inputArray) {
 		if (inputArray == null || inputArray.Length <= 0) {
 			// TODO (carried over from Java): log null
 			return null;
@@ -30,11 +30,7 @@ public class DynamixPaletteTransformer : ThreeSpaceByteTransformer {
 		SetBytes(inputArray);
 		ResetIndex();
 
-		var dpl = new DynamixPalette {
-			RawBytes = (byte[])inputArray.Clone(),
-			Ext = FileType.Dpl,
-			Dir = FileType.Dpl
-		};
+		var dpl = new DynamixPalette();
 
 		Index += 4; // skip magic header bytes
 
@@ -54,12 +50,7 @@ public class DynamixPaletteTransformer : ThreeSpaceByteTransformer {
 		return dpl;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
-		if (source == null) {
-			return null;
-		}
-
-		var dpl = (DynamixPalette)source;
+	public override byte[]? Write(DynamixPalette dpl) {
 		using var objectBytes = new MemoryStream();
 
 		objectBytes.Write(DynamixPalette.Header, 0, DynamixPalette.Header.Length);

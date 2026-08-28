@@ -87,7 +87,7 @@ public partial class WeaponStatsForm : Form {
 
 	private void LoadGameFile(GameFile file) {
 		try {
-			var weaponsDat = (WeaponsDat?)_transformer.BytesToObject(file.Content);
+			var weaponsDat = (WeaponsDat?)_transformer.Parse(file.Content);
 
 			if (weaponsDat == null) {
 				MessageBox.Show(this, "File was empty or could not be parsed.", "Error",
@@ -148,9 +148,6 @@ public partial class WeaponStatsForm : Form {
 
 		try {
 			var weaponsDat = new WeaponsDat(_rows.Count) {
-				FileName = "WEAPONS",
-				Ext = FileType.Dat,
-				Dir = FileType.Gam,
 				StartWeaponTotal = _loadedStartWeaponTotal,
 				StartingWeapons = _loadedStartingWeapons
 			};
@@ -168,7 +165,7 @@ public partial class WeaponStatsForm : Form {
 				entry.AutobuildPriority = row.AutobuildPriority;
 			}
 
-			byte[] content = _transformer.ObjectToBytes(weaponsDat)!;
+			byte[] content = _transformer.Write(weaponsDat)!;
 			byte[] outBytes;
 			string formatNote;
 

@@ -140,7 +140,7 @@ public static class MissionLoader {
 	/// </summary>
 	public static Mission Load(GameContent content, string scriptPath) {
 		byte[] scriptBytes = File.ReadAllBytes(scriptPath);
-		var script = new ScriptDatTransformer().BytesToObject(scriptBytes) as ScriptDat
+		var script = new ScriptDatTransformer().Parse(scriptBytes) as ScriptDat
 			?? throw new InvalidDataException($"{scriptPath} did not parse as a script.dat.");
 
 		var header = ScriptDatHeader.Read(scriptBytes);
@@ -405,7 +405,7 @@ public static class MissionLoader {
 			return null;
 		}
 
-		if (new MecFileTransformer().BytesToObject(File.ReadAllBytes(playerPath)) is not MecFile lance) {
+		if (new MecFileTransformer().Parse(File.ReadAllBytes(playerPath)) is not MecFile lance) {
 			return null;
 		}
 

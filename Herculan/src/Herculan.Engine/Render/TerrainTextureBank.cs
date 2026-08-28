@@ -49,13 +49,13 @@ public sealed class TerrainTextureBank {
 			TerrainMaterialTable materials) {
 		byte[]? bankBytes = content.Read("dba", theater.TerrainBankName + ".DBA");
 		if (bankBytes == null
-			|| new DynamixBitmapArrayTransformer().BytesToObject(bankBytes) is not DynamixBitmapArray bank) {
+			|| new DynamixBitmapArrayTransformer().Parse(bankBytes) is not DynamixBitmapArray bank) {
 			return null;
 		}
 
 		byte[]? paletteBytes = content.Read("dpl", theater.PaletteName + ".DPL");
 		var palette = paletteBytes != null
-			? new DynamixPaletteTransformer().BytesToObject(paletteBytes) as DynamixPalette
+			? new DynamixPaletteTransformer().Parse(paletteBytes) as DynamixPalette
 			: null;
 
 		var atlas = TextureAtlas.Build(bank, palette);

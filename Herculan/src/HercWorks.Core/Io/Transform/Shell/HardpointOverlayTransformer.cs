@@ -4,19 +4,15 @@ using HercWorks.Vol;
 namespace HercWorks.Core.Io.Transform.Shell;
 
 /// <summary>Ported from org.hercworks.core.io.transform.shell.HardpointOverlayTransformer.</summary>
-public class HardpointOverlayTransformer : ThreeSpaceByteTransformer {
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+public class HardpointOverlayTransformer : ByteTransformer<HardpointOverlayConfig> {
+	public override HardpointOverlayConfig? Parse(byte[]? inputArray) {
 		if (inputArray == null || inputArray.Length <= 0) {
 			// TODO - error for empty byte array
 			return null;
 		}
 		SetBytes(inputArray);
 
-		var rprHercOverlay = new HardpointOverlayConfig {
-			Ext = FileType.Dat,
-			Dir = FileType.Gam,
-			RawBytes = inputArray
-		};
+		var rprHercOverlay = new HardpointOverlayConfig();
 
 		var entries = new HardpointOverlayConfig.Herc[IndexShortLE()];
 
@@ -43,27 +39,25 @@ public class HardpointOverlayTransformer : ThreeSpaceByteTransformer {
 		return rprHercOverlay;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
+	public override byte[]? Write(HardpointOverlayConfig data) {
 		using var outStream = new MemoryStream();
 
-		var data = (HardpointOverlayConfig)source!;
+		void Emit(byte[] bytes) => outStream.Write(bytes, 0, bytes.Length);
 
-		void Write(byte[] bytes) => outStream.Write(bytes, 0, bytes.Length);
-
-		Write(WriteShortLE((short)data.Entries!.Length));
+		Emit(WriteShortLE((short)data.Entries!.Length));
 
 		for (int i = 0; i < data.Entries.Length; i++) {
 			var entry = data.Entries[i];
 
-			Write(WriteShortLE(entry.HercId));
-			Write(WriteShortLE((short)entry.Areas!.Length));
+			Emit(WriteShortLE(entry.HercId));
+			Emit(WriteShortLE((short)entry.Areas!.Length));
 			for (int c = 0; c < entry.Areas.Length; c++) {
 				var seg = entry.Areas[c];
 
-				Write(WriteIntLE(seg.X));
-				Write(WriteIntLE(seg.Y));
-				Write(WriteIntLE(seg.Width));
-				Write(WriteIntLE(seg.Height));
+				Emit(WriteIntLE(seg.X));
+				Emit(WriteIntLE(seg.Y));
+				Emit(WriteIntLE(seg.Width));
+				Emit(WriteIntLE(seg.Height));
 			}
 		}
 

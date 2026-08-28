@@ -103,7 +103,7 @@ public partial class Model3DViewerForm : Form {
 			byte[] rawBytes = File.ReadAllBytes(dialog.FileName);
 			var prefix = VolEntryPrefixCodec.StripIfPresent(rawBytes);
 
-			var model = (DynamixThreeSpaceModel?)_dtsTransformer.BytesToObject(prefix.Content);
+			var model = (DynamixThreeSpaceModel?)_dtsTransformer.Parse(prefix.Content);
 			if (model == null) {
 				MessageBox.Show(this, "File was empty or could not be parsed.", "Error",
 					MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -129,7 +129,7 @@ public partial class Model3DViewerForm : Form {
 	/// </summary>
 	public void LoadFromVolEntry(VolEntry entry, Voln sourceVol) {
 		try {
-			var model = (DynamixThreeSpaceModel?)_dtsTransformer.BytesToObject(entry.RawBytes);
+			var model = (DynamixThreeSpaceModel?)_dtsTransformer.Parse(entry.RawBytes);
 			if (model == null) {
 				MessageBox.Show(this, "File was empty or could not be parsed.", "Error",
 					MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -285,7 +285,7 @@ public partial class Model3DViewerForm : Form {
 		}
 
 		try {
-			var bank = (DynamixBitmapArray?)_dbaTransformer.BytesToObject(rawBytes);
+			var bank = (DynamixBitmapArray?)_dbaTransformer.Parse(rawBytes);
 			if (bank?.Images is not { Length: > 0 }) {
 				MessageBox.Show(this, "File was empty or could not be parsed as a DBA.", "Error",
 					MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -307,7 +307,7 @@ public partial class Model3DViewerForm : Form {
 		}
 
 		try {
-			var palette = (DynamixPalette?)_dplTransformer.BytesToObject(rawBytes);
+			var palette = (DynamixPalette?)_dplTransformer.Parse(rawBytes);
 			if (palette == null) {
 				MessageBox.Show(this, "File was empty or could not be parsed as a DPL.", "Error",
 					MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -383,7 +383,7 @@ public partial class Model3DViewerForm : Form {
 		}
 
 		try {
-			_loadedPalette = (DynamixPalette?)_dplTransformer.BytesToObject(rawBytes);
+			_loadedPalette = (DynamixPalette?)_dplTransformer.Parse(rawBytes);
 			_loadedPaletteName = _loadedPalette != null ? candidate.FileName : null;
 		} catch {
 			// Best-effort default — swallow and leave _loadedPalette null.
@@ -416,7 +416,7 @@ public partial class Model3DViewerForm : Form {
 
 		string? groupName;
 		try {
-			if (_hercSimDataTransformer.BytesToObject(datBytes) is not HercSimDat simData) {
+			if (_hercSimDataTransformer.Parse(datBytes) is not HercSimDat simData) {
 				return;
 			}
 			groupName = HercSimDat.TextureGroupDbaBaseName(simData.ModelSkinId);
@@ -435,7 +435,7 @@ public partial class Model3DViewerForm : Form {
 		}
 
 		try {
-			var bank = (DynamixBitmapArray?)_dbaTransformer.BytesToObject(dbaBytes);
+			var bank = (DynamixBitmapArray?)_dbaTransformer.Parse(dbaBytes);
 			if (bank?.Images is not { Length: > 0 }) {
 				return;
 			}

@@ -96,7 +96,7 @@ public sealed class TheaterDescriptor {
 	/// of it.
 	/// </summary>
 	private static TheaterDescriptor Parse(byte[] bytes, int worldIndex, string baseName) {
-		if (new WorldDataTransformer().BytesToObject(bytes) is not WorldData wld) {
+		if (new WorldDataTransformer().Parse(bytes) is not WorldData wld) {
 			throw new InvalidDataException(
 				$"{ResourceFolder}\\{baseName}.WLD is too short to be a theater descriptor.");
 		}

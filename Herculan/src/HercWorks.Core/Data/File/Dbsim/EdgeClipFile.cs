@@ -1,5 +1,3 @@
-using HercWorks.Vol;
-
 namespace HercWorks.Core.Data.File.Dbsim;
 
 /// <summary>
@@ -14,7 +12,7 @@ namespace HercWorks.Core.Data.File.Dbsim;
 /// symmetrically at the last few rows — exactly the shape you'd expect from a scanline clip mask
 /// for a screen with rounded/angled top and bottom corners, matching "CLIP" in both filenames.
 /// </summary>
-public class EdgeClipFile : DataFile {
+public class EdgeClipFile {
 	public Row[]? Rows { get; set; }
 
 	/// <summary>Trailing INT16 after the last row — always 0 in both real files checked, meaning unknown.</summary>

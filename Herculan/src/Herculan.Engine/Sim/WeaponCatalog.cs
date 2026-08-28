@@ -80,8 +80,8 @@ public sealed class WeaponCatalog {
 	/// </summary>
 	public static WeaponCatalog? Load(byte[]? weaponsDat, byte[]? projDat) =>
 		weaponsDat != null && projDat != null
-			&& new WeaponsSimTransformer().BytesToObject(weaponsDat) is Weapons { Templates: not null } templates
-			&& new ProjectileDataTransformer().BytesToObject(projDat) is ProjectileData { Data: not null } projectiles
+			&& new WeaponsSimTransformer().Parse(weaponsDat) is Weapons { Templates: not null } templates
+			&& new ProjectileDataTransformer().Parse(projDat) is ProjectileData { Data: not null } projectiles
 			? new WeaponCatalog(templates, projectiles)
 			: null;
 

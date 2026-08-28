@@ -1,5 +1,3 @@
-using HercWorks.Vol;
-
 namespace HercWorks.Core.Data.File.Dbsim;
 
 /// <summary>
@@ -12,7 +10,7 @@ namespace HercWorks.Core.Data.File.Dbsim;
 /// <c>VideoMode_X/YCoordShift</c> (1 in the 640x480 modes) before use.
 /// Ported from org.hercworks.core.data.file.dbsim.Vue.
 /// </summary>
-public class Vue : DataFile {
+public class Vue {
 	public int TotalViewports { get; set; }
 	public Entry[]? Entries { get; set; }
 

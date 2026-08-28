@@ -14,8 +14,8 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// first if the source is a raw dump. DBSIM reads the same 216 bytes into MECH_TYPE_DATA at
 /// record offset 2, so a field at record offset N here is the exe's typeRecord+N+2.
 /// </summary>
-public class HercSimDataTransformer : ThreeSpaceByteTransformer {
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
+	public override HercSimDat? Parse(byte[]? inputArray) {
 		Index = 0;
 
 		if (inputArray == null || inputArray.Length <= 0) {
@@ -23,11 +23,7 @@ public class HercSimDataTransformer : ThreeSpaceByteTransformer {
 			return null;
 		}
 
-		var data = new HercSimDat {
-			RawBytes = inputArray,
-			Ext = FileType.Dat,
-			Dir = FileType.Dat
-		};
+		var data = new HercSimDat();
 
 		SetBytes(inputArray);
 
@@ -139,120 +135,118 @@ public class HercSimDataTransformer : ThreeSpaceByteTransformer {
 		return data;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? dataObj) {
+	public override byte[]? Write(HercSimDat data) {
 		using var outStream = new MemoryStream();
 
-		var data = (HercSimDat)dataObj!;
+		Emit(outStream, WriteShortLE(data.SpeedTurn));
+		Emit(outStream, WriteShortLE(data.SpeedReverse));
+		Emit(outStream, WriteShortLE(data.SpeedForward));
+		Emit(outStream, WriteShortLE(data.SpeedAccelDecel));
+		Emit(outStream, WriteShortLE(data.DecelTurning));
 
-		Write(outStream, WriteShortLE(data.SpeedTurn));
-		Write(outStream, WriteShortLE(data.SpeedReverse));
-		Write(outStream, WriteShortLE(data.SpeedForward));
-		Write(outStream, WriteShortLE(data.SpeedAccelDecel));
-		Write(outStream, WriteShortLE(data.DecelTurning));
+		Emit(outStream, WriteShortLE(data.CameraBoneId));
 
-		Write(outStream, WriteShortLE(data.CameraBoneId));
+		Emit(outStream, WriteShortLE(data.AnimId_Walk));
 
-		Write(outStream, WriteShortLE(data.AnimId_Walk));
+		Emit(outStream, WriteShortLE(data.AnimId_Run));
+		Emit(outStream, WriteShortLE(data.AnimId_StopMove));
+		Emit(outStream, WriteShortLE(data.AnimId_StopReverse));
+		Emit(outStream, WriteShortLE(data.UnitOffsetYAdjust));
 
-		Write(outStream, WriteShortLE(data.AnimId_Run));
-		Write(outStream, WriteShortLE(data.AnimId_StopMove));
-		Write(outStream, WriteShortLE(data.AnimId_StopReverse));
-		Write(outStream, WriteShortLE(data.UnitOffsetYAdjust));
+		Emit(outStream, WriteShortLE(data.Unk22_Val750Razor0));
 
-		Write(outStream, WriteShortLE(data.Unk22_Val750Razor0));
+		Emit(outStream, WriteShortLE(data.AiAimTargOffset));
 
-		Write(outStream, WriteShortLE(data.AiAimTargOffset));
+		Emit(outStream, WriteShortLE(data.AnimId_TorsoTwist));
+		Emit(outStream, WriteShortLE(data.TorsoTwistSpeed));
+		Emit(outStream, WriteShortLE(data.TorsoRotateAccel));
+		Emit(outStream, WriteShortLE(data.TorsoTwistDegreeMax));
+		Emit(outStream, WriteShortLE(data.AnimId_TorsoPitch));
+		Emit(outStream, WriteShortLE(data.TorsoPitchMaxRate));
+		Emit(outStream, WriteShortLE(data.TorsoPitchRate));
+		Emit(outStream, WriteShortLE(data.TorsoPitchMax));
+		Emit(outStream, WriteShortLE(data.TorsoPitchMin));
 
-		Write(outStream, WriteShortLE(data.AnimId_TorsoTwist));
-		Write(outStream, WriteShortLE(data.TorsoTwistSpeed));
-		Write(outStream, WriteShortLE(data.TorsoRotateAccel));
-		Write(outStream, WriteShortLE(data.TorsoTwistDegreeMax));
-		Write(outStream, WriteShortLE(data.AnimId_TorsoPitch));
-		Write(outStream, WriteShortLE(data.TorsoPitchMaxRate));
-		Write(outStream, WriteShortLE(data.TorsoPitchRate));
-		Write(outStream, WriteShortLE(data.TorsoPitchMax));
-		Write(outStream, WriteShortLE(data.TorsoPitchMin));
-
-		Write(outStream, WriteShortLE(data.GaitThreshold));
+		Emit(outStream, WriteShortLE(data.GaitThreshold));
 
 		for (int i = 0; i < 20; i++) {
 			outStream.WriteByte(data.ModelLoDBoneIds[i]);
 		}
 
-		Write(outStream, WriteShortLE(data.Unk66_Val1000));
+		Emit(outStream, WriteShortLE(data.Unk66_Val1000));
 
-		Write(outStream, WriteShortLE(data.AnimId_Death));
-		Write(outStream, WriteShortLE(data.LegsCritFlags2));
-		Write(outStream, WriteShortLE(data.ModelLegsTotal));
-		Write(outStream, WriteShortLE(data.ModelFlagNoDebris));
+		Emit(outStream, WriteShortLE(data.AnimId_Death));
+		Emit(outStream, WriteShortLE(data.LegsCritFlags2));
+		Emit(outStream, WriteShortLE(data.ModelLegsTotal));
+		Emit(outStream, WriteShortLE(data.ModelFlagNoDebris));
 
-		Write(outStream, WriteShortLE(data.Unk76_Val));
+		Emit(outStream, WriteShortLE(data.Unk76_Val));
 
-		Write(outStream, WriteShortLE(data.InputFlagFlyer));
+		Emit(outStream, WriteShortLE(data.InputFlagFlyer));
 
-		Write(outStream, WriteShortLE(data.Unk80_ValHudId));
+		Emit(outStream, WriteShortLE(data.Unk80_ValHudId));
 
-		Write(outStream, WriteShortLE(data.Unk82_val));
+		Emit(outStream, WriteShortLE(data.Unk82_val));
 
-		Write(outStream, WriteShortLE(data.Unk84_val));
+		Emit(outStream, WriteShortLE(data.Unk84_val));
 
 		// write name
 		outStream.Write(data.NameBytes!, 0, data.NameBytes!.Length);
 
-		Write(outStream, WriteShortLE(data.CameraYAxisAdj));
-		Write(outStream, WriteShortLE(data.CameraXAxisAdj));
+		Emit(outStream, WriteShortLE(data.CameraYAxisAdj));
+		Emit(outStream, WriteShortLE(data.CameraXAxisAdj));
 
 		// blank bytes 0x102
 		outStream.WriteByte(0x00);
 		outStream.WriteByte(0x00);
 
-		Write(outStream, WriteShortLE(data.CameraExtOrgOffset));
+		Emit(outStream, WriteShortLE(data.CameraExtOrgOffset));
 
 		// blank bytes 0x106
 		outStream.WriteByte(0x00);
 		outStream.WriteByte(0x00);
 
-		Write(outStream, WriteShortLE(data.GaitThresholdReverse));
-		Write(outStream, WriteShortLE(data.Unk110_camExtVal2));
+		Emit(outStream, WriteShortLE(data.GaitThresholdReverse));
+		Emit(outStream, WriteShortLE(data.Unk110_camExtVal2));
 
-		Write(outStream, WriteShortLE(data.ModelFlagsShadow1));
-		Write(outStream, WriteShortLE(data.ModelFlagsShadow2));
+		Emit(outStream, WriteShortLE(data.ModelFlagsShadow1));
+		Emit(outStream, WriteShortLE(data.ModelFlagsShadow2));
 
-		Write(outStream, WriteShortLE(data.Unk116_val));
-		Write(outStream, WriteShortLE(data.Unk118_val));
-		Write(outStream, WriteShortLE(data.Unk120_val));
-		Write(outStream, WriteShortLE(data.AnimId_TurnInPlace));
+		Emit(outStream, WriteShortLE(data.Unk116_val));
+		Emit(outStream, WriteShortLE(data.Unk118_val));
+		Emit(outStream, WriteShortLE(data.Unk120_val));
+		Emit(outStream, WriteShortLE(data.AnimId_TurnInPlace));
 
 		// range
 		for (int i = 0; i < 12; i++) {
-			Write(outStream, WriteShortLE(data.Unk124_all500![i]));
+			Emit(outStream, WriteShortLE(data.Unk124_all500![i]));
 		}
 
-		Write(outStream, WriteShortLE(data.ModelSkinId));
+		Emit(outStream, WriteShortLE(data.ModelSkinId));
 
-		Write(outStream, WriteShortLE(data.Unk150_val));
-		Write(outStream, WriteShortLE(data.Unk152_val));
-		Write(outStream, WriteShortLE(data.Unk154_fixedVal));
-		Write(outStream, WriteShortLE(data.Unk156_400or800));
+		Emit(outStream, WriteShortLE(data.Unk150_val));
+		Emit(outStream, WriteShortLE(data.Unk152_val));
+		Emit(outStream, WriteShortLE(data.Unk154_fixedVal));
+		Emit(outStream, WriteShortLE(data.Unk156_400or800));
 
 		// 158 - 169 - BLANK BYTES
 		for (int i = 0; i < 12; i++) {
 			outStream.WriteByte(0x00);
 		}
 
-		Write(outStream, WriteShortLE(data.Unk170_val));
-		Write(outStream, WriteShortLE(data.Unk172_val));
-		Write(outStream, WriteShortLE(data.Unk174_250or275));
+		Emit(outStream, WriteShortLE(data.Unk170_val));
+		Emit(outStream, WriteShortLE(data.Unk172_val));
+		Emit(outStream, WriteShortLE(data.Unk174_250or275));
 
 		// 176 - 189 - BLANK BYTES
 		for (int i = 0; i < 14; i++) {
 			outStream.WriteByte(0x00);
 		}
 
-		Write(outStream, WriteShortLE(data.ShieldMaxTotal));
-		Write(outStream, WriteShortLE(data.Unk192_val));
-		Write(outStream, WriteShortLE(data.StrideScaleDivisor));
-		Write(outStream, WriteShortLE(data.StrideScaleNumerator));
+		Emit(outStream, WriteShortLE(data.ShieldMaxTotal));
+		Emit(outStream, WriteShortLE(data.Unk192_val));
+		Emit(outStream, WriteShortLE(data.StrideScaleDivisor));
+		Emit(outStream, WriteShortLE(data.StrideScaleNumerator));
 
 		// 198 - 203 - BLANK BYTES
 		for (int i = 0; i < 6; i++) {
@@ -264,5 +258,5 @@ public class HercSimDataTransformer : ThreeSpaceByteTransformer {
 		return outStream.ToArray();
 	}
 
-	private static void Write(MemoryStream outArr, byte[] data) => outArr.Write(data, 0, data.Length);
+	private static void Emit(MemoryStream outArr, byte[] data) => outArr.Write(data, 0, data.Length);
 }

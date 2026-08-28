@@ -65,7 +65,7 @@ public sealed class BulletCatalog {
 	/// </summary>
 	public static BulletCatalog? Load(byte[]? bulletsDat) =>
 		bulletsDat != null
-			&& new MissileDatFileTransformer().BytesToObject(bulletsDat) is MissileDatFile { Entries: not null } table
+			&& new MissileDatFileTransformer().Parse(bulletsDat) is MissileDatFile { Entries: not null } table
 			? new BulletCatalog(table)
 			: null;
 

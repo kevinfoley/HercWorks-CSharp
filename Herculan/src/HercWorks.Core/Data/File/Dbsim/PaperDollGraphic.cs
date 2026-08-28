@@ -1,5 +1,4 @@
 using HercWorks.Core.Data.Struct;
-using HercWorks.Vol;
 
 namespace HercWorks.Core.Data.File.Dbsim;
 
@@ -10,7 +9,7 @@ namespace HercWorks.Core.Data.File.Dbsim;
 /// view forms of wireframes). See Java source for the full documented byte layout.
 /// Ported from org.hercworks.core.data.file.dbsim.PaperDollGraphic.
 /// </summary>
-public class PaperDollGraphic : DataFile {
+public class PaperDollGraphic {
 	public int TotalViews { get; set; }
 	public ViewEntry[]? Entries { get; set; }
 	public HardpointEntry[]? Hardpoints { get; set; }

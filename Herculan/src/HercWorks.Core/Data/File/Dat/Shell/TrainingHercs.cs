@@ -1,5 +1,4 @@
 using HercWorks.Core.Data.Struct.Vshell.Hercs;
-using HercWorks.Vol;
 
 namespace HercWorks.Core.Data.File.Dat.Shell;
 
@@ -8,6 +7,6 @@ namespace HercWorks.Core.Data.File.Dat.Shell;
 /// VSHELL somehow knows which herc to load, but training skips the normal ARMING/BRIEFING
 /// workflow. Ported from org.hercworks.core.data.file.dat.shell.TrainingHercs.
 /// </summary>
-public sealed class TrainingHercs : DataFile {
+public sealed class TrainingHercs {
 	public List<ShellHercData>? Data { get; set; }
 }

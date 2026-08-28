@@ -1,5 +1,3 @@
-using HercWorks.Vol;
-
 namespace HercWorks.Core.Data.File.Sav;
 
 /// <summary>
@@ -23,7 +21,7 @@ namespace HercWorks.Core.Data.File.Sav;
 /// <para>Replaces a never-implemented stub that guessed this file held a single VSHELL
 /// <c>ShellHercPart</c>.</para>
 /// </summary>
-public class MecFile : DataFile {
+public class MecFile {
 	/// <summary>
 	/// Which <see cref="Entries"/> slot the player themself pilots; the rest are wingmen. DBSIM
 	/// compares this against the entry index as it spawns them and flags the match as the camera's

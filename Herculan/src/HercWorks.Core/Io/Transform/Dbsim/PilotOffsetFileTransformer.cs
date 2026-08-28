@@ -8,10 +8,10 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// <see cref="PilotOffsetFile"/> for the format writeup). New: no Java equivalent, not a ported
 /// format — reverse-engineered directly against real retail data.
 /// </summary>
-public class PilotOffsetFileTransformer : ThreeSpaceByteTransformer {
+public class PilotOffsetFileTransformer : ByteTransformer<PilotOffsetFile> {
 	private const int EntrySize = 12;
 
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+	public override PilotOffsetFile? Parse(byte[]? inputArray) {
 		if (inputArray == null) {
 			return null;
 		}
@@ -33,29 +33,26 @@ public class PilotOffsetFileTransformer : ThreeSpaceByteTransformer {
 		}
 
 		return new PilotOffsetFile {
-			RawBytes = inputArray,
-			Ext = FileType.Ofs,
 			Entries = entries
 		};
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
-		if (source == null) {
+	public override byte[]? Write(PilotOffsetFile ofs) {
+		if (ofs == null) {
 			return null;
 		}
 
-		var ofs = (PilotOffsetFile)source;
 		using var outStream = new MemoryStream();
 
-		void Write(byte[] bytes) => outStream.Write(bytes, 0, bytes.Length);
+		void Emit(byte[] bytes) => outStream.Write(bytes, 0, bytes.Length);
 
 		foreach (var entry in ofs.Entries ?? Array.Empty<PilotOffsetFile.Entry>()) {
-			Write(WriteShortLE(entry.Index));
-			Write(WriteShortLE(entry.Unk1));
-			Write(WriteShortLE(entry.OffsetA));
-			Write(WriteShortLE(entry.OffsetB));
-			Write(WriteShortLE(entry.OffsetC));
-			Write(WriteShortLE(entry.OffsetD));
+			Emit(WriteShortLE(entry.Index));
+			Emit(WriteShortLE(entry.Unk1));
+			Emit(WriteShortLE(entry.OffsetA));
+			Emit(WriteShortLE(entry.OffsetB));
+			Emit(WriteShortLE(entry.OffsetC));
+			Emit(WriteShortLE(entry.OffsetD));
 		}
 
 		return outStream.ToArray();

@@ -28,8 +28,8 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 ///    example" doc comment) — not 2000, which the old write-then-read-back round trip would have
 ///    produced. The write path's `* 100` was the actual bug; fixed to write the raw value.
 /// </summary>
-public class HercDamageFileTransformer : ThreeSpaceByteTransformer {
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+public class HercDamageFileTransformer : ByteTransformer<HercSimDamage> {
+	public override HercSimDamage? Parse(byte[]? inputArray) {
 		Index = 0;
 
 		if (inputArray == null || inputArray.Length <= 0) {
@@ -37,11 +37,7 @@ public class HercDamageFileTransformer : ThreeSpaceByteTransformer {
 			return null;
 		}
 
-		var data = new HercSimDamage {
-			RawBytes = inputArray,
-			Ext = FileType.Dmg,
-			Dir = FileType.Dmg
-		};
+		var data = new HercSimDamage();
 
 		SetBytes(inputArray);
 
@@ -82,39 +78,37 @@ public class HercDamageFileTransformer : ThreeSpaceByteTransformer {
 		return data;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
+	public override byte[]? Write(HercSimDamage data) {
 		using var outStream = new MemoryStream();
-
-		var data = (HercSimDamage)source!;
 
 		int diff = 0;
 		if (data.FileName!.ToLowerInvariant().Contains(HercLUT.Skimmer.AbbrevDat.ToLowerInvariant())) {
-			Write(outStream, WriteShortLE(1));
+			Emit(outStream, WriteShortLE(1));
 		} else {
-			Write(outStream, WriteShortLE(22));
+			Emit(outStream, WriteShortLE(22));
 			diff = 22 - data.Internals!.Length;
 		}
 
 		for (int i = 0; i < data.InternalsTotal; i++) {
-			Write(outStream, WriteShortLE(data.Internals![i].Armor));
+			Emit(outStream, WriteShortLE(data.Internals![i].Armor));
 		}
 
 		for (int i = 0; i < diff; i++) {
-			Write(outStream, WriteShortLE(0));
+			Emit(outStream, WriteShortLE(0));
 		}
 
-		Write(outStream, WriteShortLE((short)data.ComponentData!.Length));
+		Emit(outStream, WriteShortLE((short)data.ComponentData!.Length));
 
 		foreach (var piece in data.ComponentData) {
-			Write(outStream, WriteShortLE(piece.Armor));
-			Write(outStream, WriteShortLE(piece.DebrisFlags));
+			Emit(outStream, WriteShortLE(piece.Armor));
+			Emit(outStream, WriteShortLE(piece.DebrisFlags));
 			outStream.WriteByte(piece.BoneId);
 			outStream.WriteByte(piece.DestructionFlags);
-			Write(outStream, WriteShortLE((short)piece.MappedInternals!.Length));
+			Emit(outStream, WriteShortLE((short)piece.MappedInternals!.Length));
 
 			foreach (var t in piece.MappedInternals) {
-				Write(outStream, WriteShortLE(t.CritChance));
-				Write(outStream, WriteShortLE(t.InternalsId!.Id));
+				Emit(outStream, WriteShortLE(t.CritChance));
+				Emit(outStream, WriteShortLE(t.InternalsId!.Id));
 			}
 		}
 
@@ -138,5 +132,5 @@ public class HercDamageFileTransformer : ThreeSpaceByteTransformer {
 		return piece;
 	}
 
-	private static void Write(MemoryStream outArr, byte[] data) => outArr.Write(data, 0, data.Length);
+	private static void Emit(MemoryStream outArr, byte[] data) => outArr.Write(data, 0, data.Length);
 }

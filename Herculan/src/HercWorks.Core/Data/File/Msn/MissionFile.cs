@@ -1,5 +1,3 @@
-using HercWorks.Vol;
-
 namespace HercWorks.Core.Data.File.Msn;
 
 /// <summary>
@@ -20,7 +18,7 @@ namespace HercWorks.Core.Data.File.Msn;
 /// replicating VSHELL's load-time mutation/compaction/campaign-state filtering.
 /// Ported from org.hercworks.core.data.file.msn.MissionFile.
 /// </summary>
-public class MissionFile : DataFile {
+public class MissionFile {
 	/// <summary>2-byte revision field, right after file start; always 5 in real data.</summary>
 	public short Revision { get; set; }
 

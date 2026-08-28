@@ -25,9 +25,25 @@ public abstract class ThreeSpaceByteTransformer {
 	protected byte[]? Bytes;
 	protected int Index;
 
-	public abstract DataFile? BytesToObject(byte[]? inputArray);
+	/// <summary>
+	/// Legacy parse entry point, for transformers whose model still derives from
+	/// <see cref="DataFile"/>. Virtual rather than abstract so a <see cref="ByteTransformer{T}"/>
+	/// subclass — whose model is a plain class that does not derive from DataFile — can leave it
+	/// alone; such a transformer exposes a typed <c>Parse</c> instead and reaches type-agnostic
+	/// callers via <see cref="ParseToObject"/>.
+	/// </summary>
+	public virtual DataFile? BytesToObject(byte[]? inputArray) => null;
 
-	public abstract byte[]? ObjectToBytes(DataFile? source);
+	/// <summary>Legacy write entry point. Virtual for the same reason as <see cref="BytesToObject"/>.</summary>
+	public virtual byte[]? ObjectToBytes(DataFile? source) => null;
+
+	/// <summary>
+	/// Type-agnostic parse, for callers holding a transformer chosen at runtime that only need
+	/// something to reflect over — chiefly <c>TransformerRegistry</c>'s consumer, the VOL browser's
+	/// content tree. Defaults to the legacy <see cref="BytesToObject"/>;
+	/// <see cref="ByteTransformer{T}"/> overrides it to return its own typed model.
+	/// </summary>
+	public virtual object? ParseToObject(byte[]? inputArray) => BytesToObject(inputArray);
 
 	protected void SetBytes(byte[] src) {
 		Bytes = src;

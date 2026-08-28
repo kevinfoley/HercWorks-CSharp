@@ -262,7 +262,7 @@ public sealed class CockpitArt {
 		}
 
 		byte[]? gauBytes = content.Read("gau", hercName + ".GAU");
-		if (gauBytes == null || new GauFileTransformer().BytesToObject(gauBytes) is not GAUFile gau) {
+		if (gauBytes == null || new GauFileTransformer().Parse(gauBytes) is not { } gau) {
 			return null;
 		}
 
@@ -297,7 +297,7 @@ public sealed class CockpitArt {
 				PaletteColor(palette, WeaponBarFillEvenIndex),
 				PaletteColor(palette, WeaponBarFillOddIndex)),
 			PaperDoll = content.Read("pdg", hercName + ".PDG") is { } pdgBytes
-				&& new PaperDiagramGraphTransformer().BytesToObject(pdgBytes) is PaperDollGraphic doll
+				&& new PaperDiagramGraphTransformer().Parse(pdgBytes) is PaperDollGraphic doll
 					? doll
 					: null,
 			ViewGeometry = viewGeometry,
@@ -317,7 +317,7 @@ public sealed class CockpitArt {
 	/// </summary>
 	private static int ReadColorSchemeIndex(GameContent content, string hercName) =>
 		content.Read("dat", hercName + ".DAT") is { } bytes
-			&& new HercSimDataTransformer().BytesToObject(bytes) is HercSimDat data
+			&& new HercSimDataTransformer().Parse(bytes) is HercSimDat data
 			? data.Unk80_ValHudId
 			: -1;
 
@@ -419,7 +419,7 @@ public sealed class CockpitArt {
 	private static CockpitFrame? LoadFrame(GameContent content, string folder, string name, DynamixPalette palette) {
 		byte[]? bytes = content.Read(folder, name);
 		if (bytes == null
-			|| new DynamixBitmapArrayTransformer().BytesToObject(bytes) is not DynamixBitmapArray array
+			|| new DynamixBitmapArrayTransformer().Parse(bytes) is not DynamixBitmapArray array
 			|| array.Images is not { Length: > 0 } images
 			|| images[0] is not { } frame
 			|| frame.Cols <= 0 || frame.Rows <= 0) {

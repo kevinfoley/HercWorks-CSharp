@@ -8,22 +8,18 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// where it came from. Round-trips byte-exactly: retail's 964 bytes are 2 + 20*4 + 2 + 22*0x28
 /// with nothing left over.
 /// </summary>
-public class ExplosionDataTransformer : ThreeSpaceByteTransformer {
+public class ExplosionDataTransformer : ByteTransformer<ExplosionData> {
 	/// <summary>Bytes one <see cref="ExplosionTypeEntry"/> occupies — <c>FUN_00407b20</c>'s stride.</summary>
 	private const int TypeEntryLength = 0x28;
 
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+	public override ExplosionData? Parse(byte[]? inputArray) {
 		if (inputArray == null || inputArray.Length <= 0) {
 			return null;
 		}
 
 		SetBytes(inputArray);
 
-		var data = new ExplosionData {
-			Ext = FileType.Dat,
-			Dir = FileType.Dat,
-			RawBytes = inputArray
-		};
+		var data = new ExplosionData();
 
 		short shapeCount = IndexShortLE();
 		data.Shapes = new ExplosionShapeEntry[shapeCount];
@@ -64,38 +60,33 @@ public class ExplosionDataTransformer : ThreeSpaceByteTransformer {
 		return data;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
-		if (source == null) {
-			return null;
-		}
-
+	public override byte[]? Write(ExplosionData data) {
 		using var outStream = new MemoryStream();
-		var data = (ExplosionData)source;
 
 		var shapes = data.Shapes ?? Array.Empty<ExplosionShapeEntry>();
-		Write(outStream, WriteShortLE((short)shapes.Length));
+		Emit(outStream, WriteShortLE((short)shapes.Length));
 		foreach (var shape in shapes) {
-			Write(outStream, WriteShortLE(shape.AnimSequence));
-			Write(outStream, WriteShortLE(shape.TextureBankIndex));
+			Emit(outStream, WriteShortLE(shape.AnimSequence));
+			Emit(outStream, WriteShortLE(shape.TextureBankIndex));
 		}
 
 		var types = data.Types ?? Array.Empty<ExplosionTypeEntry>();
-		Write(outStream, WriteShortLE((short)types.Length));
+		Emit(outStream, WriteShortLE((short)types.Length));
 		foreach (var type in types) {
 			long start = outStream.Position;
 
-			Write(outStream, WriteShortLE(type.ShapeIndex));
-			Write(outStream, WriteShortLE(type.FrameInterval));
-			Write(outStream, WriteShortLE(type.TrailEffect));
-			Write(outStream, WriteShortLE(type.LightMode));
+			Emit(outStream, WriteShortLE(type.ShapeIndex));
+			Emit(outStream, WriteShortLE(type.FrameInterval));
+			Emit(outStream, WriteShortLE(type.TrailEffect));
+			Emit(outStream, WriteShortLE(type.LightMode));
 
 			for (int f = 0; f < ExplosionTypeEntry.FrameIntensityCount; f++) {
-				Write(outStream, WriteShortLE(type.FrameIntensity[f]));
+				Emit(outStream, WriteShortLE(type.FrameIntensity[f]));
 			}
 
-			Write(outStream, WriteIntLE(type.ProximityRadius));
-			Write(outStream, WriteShortLE(type.SoundId));
-			Write(outStream, WriteShortLE(type.ObjectClass));
+			Emit(outStream, WriteIntLE(type.ProximityRadius));
+			Emit(outStream, WriteShortLE(type.SoundId));
+			Emit(outStream, WriteShortLE(type.ObjectClass));
 
 			while (outStream.Position - start < TypeEntryLength) {
 				outStream.WriteByte(0);
@@ -105,5 +96,5 @@ public class ExplosionDataTransformer : ThreeSpaceByteTransformer {
 		return outStream.ToArray();
 	}
 
-	private static void Write(MemoryStream outArr, byte[] data) => outArr.Write(data, 0, data.Length);
+	private static void Emit(MemoryStream outArr, byte[] data) => outArr.Write(data, 0, data.Length);
 }

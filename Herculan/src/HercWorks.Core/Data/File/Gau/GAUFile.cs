@@ -134,7 +134,7 @@ namespace HercWorks.Core.Data.File.Gau;
 /// all 9 real herc `.GAU` files (2026-08-09) despite Remainder being undecoded, since it's captured
 /// and written back verbatim rather than needing to be understood.
 /// </summary>
-public class GAUFile : DataFile {
+public class GAUFile {
 	public PixelPoint HudOrigin { get; set; }
 	public PixelSize HudScreenSize { get; set; }
 

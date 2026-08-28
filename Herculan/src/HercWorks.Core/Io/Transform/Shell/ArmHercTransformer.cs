@@ -15,19 +15,15 @@ namespace HercWorks.Core.Io.Transform.Shell;
 /// these fields) to write the real outline values, without changing ArmHerc.HercTopImg/HercBotImg's
 /// declared UiImageDBA? type.
 /// </summary>
-public class ArmHercTransformer : ThreeSpaceByteTransformer {
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+public class ArmHercTransformer : ByteTransformer<ArmHerc> {
+	public override ArmHerc? Parse(byte[]? inputArray) {
 		if (inputArray == null || inputArray.Length == 0) {
 			// TODO - error for empty byte array
 			return null;
 		}
 		SetBytes(inputArray);
 
-		var armData = new ArmHerc {
-			RawBytes = inputArray,
-			Ext = FileType.Dat,
-			Dir = FileType.Gam
-		};
+		var armData = new ArmHerc();
 
 		var topHercImg = new UiHardpointGraphic();
 		armData.TopImgArrId = IndexShortLE();
@@ -77,8 +73,7 @@ public class ArmHercTransformer : ThreeSpaceByteTransformer {
 		return armData;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
-		var data = (ArmHerc)source!;
+	public override byte[]? Write(ArmHerc data) {
 
 		using var objectBytes = new MemoryStream();
 

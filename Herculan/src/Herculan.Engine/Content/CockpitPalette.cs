@@ -215,6 +215,6 @@ public static class CockpitPalette {
 
 	private static DynamixPalette? ReadPalette(GameContent content, string? name) =>
 		name != null && content.Read("dpl", name + ".DPL") is { } bytes
-			? new DynamixPaletteTransformer().BytesToObject(bytes) as DynamixPalette
+			? new DynamixPaletteTransformer().Parse(bytes) as DynamixPalette
 			: null;
 }

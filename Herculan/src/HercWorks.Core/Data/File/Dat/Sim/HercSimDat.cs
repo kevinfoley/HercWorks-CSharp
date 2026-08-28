@@ -1,5 +1,3 @@
-using HercWorks.Vol;
-
 namespace HercWorks.Core.Data.File.Dat.Sim;
 
 /// <summary>
@@ -10,7 +8,7 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 /// duplicated here since it's ~100 lines of field-by-field notes.
 /// Ported from org.hercworks.core.data.file.dat.sim.HercSimDat.
 /// </summary>
-public class HercSimDat : DataFile {
+public class HercSimDat {
 	public short SpeedTurn { get; set; }
 	public short SpeedReverse { get; set; }
 	public short SpeedForward { get; set; }

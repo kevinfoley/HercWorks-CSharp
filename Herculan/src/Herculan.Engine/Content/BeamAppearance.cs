@@ -83,14 +83,14 @@ public sealed class BeamAppearance {
 	public static BeamAppearance? Load(GameContent content, string? paletteName) {
 		byte[]? tableBytes = content.Read("dat", TableResource);
 		if (tableBytes == null
-			|| new BeamDatFileTransformer().BytesToObject(tableBytes) is not BeamData table
+			|| new BeamDatFileTransformer().Parse(tableBytes) is not BeamData table
 			|| table.Data is not { Length: > 0 }) {
 			return null;
 		}
 
 		byte[]? textureBytes = content.Read("dba", TextureResource);
 		if (textureBytes == null
-			|| new DynamixBitmapArrayTransformer().BytesToObject(textureBytes) is not DynamixBitmapArray bank
+			|| new DynamixBitmapArrayTransformer().Parse(textureBytes) is not DynamixBitmapArray bank
 			|| bank.Images is not { Length: > 0 } frames) {
 			return null;
 		}
@@ -98,7 +98,7 @@ public sealed class BeamAppearance {
 		DynamixPalette? palette = null;
 		if (!string.IsNullOrWhiteSpace(paletteName)
 			&& content.Read("dpl", paletteName + ".DPL") is { } paletteBytes) {
-			palette = new DynamixPaletteTransformer().BytesToObject(paletteBytes) as DynamixPalette;
+			palette = new DynamixPaletteTransformer().Parse(paletteBytes) as DynamixPalette;
 		}
 
 		var profiles = new byte[frames.Length][];

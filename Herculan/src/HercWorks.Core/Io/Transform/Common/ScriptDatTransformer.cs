@@ -1,5 +1,4 @@
 using HercWorks.Core.Data.File.Msn.Script;
-using HercWorks.Vol;
 
 namespace HercWorks.Core.Io.Transform.Common;
 
@@ -19,17 +18,13 @@ namespace HercWorks.Core.Io.Transform.Common;
 /// pad the write-back to any fixed total length. Replaces a stale, never-implemented stub that
 /// guessed at an unrelated 20-field/coordinate-array layout with no basis in the real format.
 /// </summary>
-public class ScriptDatTransformer : ThreeSpaceByteTransformer {
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+public class ScriptDatTransformer : ByteTransformer<ScriptDat> {
+	public override ScriptDat? Parse(byte[]? inputArray) {
 		if (inputArray == null || inputArray.Length <= 0) {
 			return null;
 		}
 
-		var data = new ScriptDat {
-			RawBytes = inputArray,
-			Ext = FileType.Dat,
-			Dir = FileType.Dat
-		};
+		var data = new ScriptDat();
 
 		SetBytes(inputArray);
 
@@ -190,11 +185,10 @@ public class ScriptDatTransformer : ThreeSpaceByteTransformer {
 	// Write path
 	// ==============================================================================================
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
+	public override byte[]? Write(ScriptDat data) {
 		using var outStream = new MemoryStream();
-		var data = (ScriptDat)source!;
 
-		Write(outStream, data.HeaderBytes);
+		Emit(outStream, data.HeaderBytes);
 
 		WriteArray(outStream, data.Coordinates, WriteCoordinate);
 		WriteArray(outStream, data.Headings, WriteHeading);
@@ -209,122 +203,122 @@ public class ScriptDatTransformer : ThreeSpaceByteTransformer {
 		WriteArray(outStream, data.Entities164, WriteEntity164Export);
 		WriteArray(outStream, data.LinkedRefs58, WriteLinkedRef58Export);
 
-		Write(outStream, WriteShortLE((short)data.UnlockedLutRefs.Length));
-		Write(outStream, WriteShortLESegment(data.UnlockedLutRefs));
+		Emit(outStream, WriteShortLE((short)data.UnlockedLutRefs.Length));
+		Emit(outStream, WriteShortLESegment(data.UnlockedLutRefs));
 
 		return outStream.ToArray();
 	}
 
 	private void WriteArray<T>(MemoryStream outStream, T[] items, Action<MemoryStream, T> writeOne) {
-		Write(outStream, WriteShortLE((short)items.Length));
+		Emit(outStream, WriteShortLE((short)items.Length));
 		foreach (var item in items) {
 			writeOne(outStream, item);
 		}
 	}
 
 	private void WriteCoordinate(MemoryStream o, ScriptCoordinate e) {
-		Write(o, WriteIntLE(e.X));
-		Write(o, WriteIntLE(e.Y));
-		Write(o, WriteIntLE(e.Z));
+		Emit(o, WriteIntLE(e.X));
+		Emit(o, WriteIntLE(e.Y));
+		Emit(o, WriteIntLE(e.Z));
 	}
 
 	private void WriteHeading(MemoryStream o, ScriptHeading e) {
-		Write(o, WriteShortLE(e.Value));
+		Emit(o, WriteShortLE(e.Value));
 	}
 
 	private void WriteWaypointGroup(MemoryStream o, ScriptWaypointGroup e) {
-		Write(o, WriteShortLE((short)e.Waypoints.Length));
-		Write(o, WriteShortLESegment(e.Waypoints));
+		Emit(o, WriteShortLE((short)e.Waypoints.Length));
+		Emit(o, WriteShortLESegment(e.Waypoints));
 	}
 
 	private void WriteLinkOrReward(MemoryStream o, ScriptLinkOrReward e) {
-		Write(o, WriteShortLE(e.TypeFlag));
-		Write(o, WriteShortLE(e.RefA));
-		Write(o, WriteShortLE(e.RefBOrLiteral));
+		Emit(o, WriteShortLE(e.TypeFlag));
+		Emit(o, WriteShortLE(e.RefA));
+		Emit(o, WriteShortLE(e.RefBOrLiteral));
 	}
 
 	private void WriteAction(MemoryStream o, ScriptAction e) {
-		Write(o, WriteShortLE(e.Type));
-		Write(o, WriteShortLE(e.Verb));
-		Write(o, WriteShortLESegment(e.RefsRow9));
-		Write(o, WriteShortLESegment(e.ArrayA));
-		Write(o, WriteShortLESegment(e.ArrayB));
-		Write(o, WriteShortLESegment(e.LutRefs));
-		Write(o, WriteShortLE(e.SecondaryValue));
-		Write(o, WriteShortLE(e.Target));
+		Emit(o, WriteShortLE(e.Type));
+		Emit(o, WriteShortLE(e.Verb));
+		Emit(o, WriteShortLESegment(e.RefsRow9));
+		Emit(o, WriteShortLESegment(e.ArrayA));
+		Emit(o, WriteShortLESegment(e.ArrayB));
+		Emit(o, WriteShortLESegment(e.LutRefs));
+		Emit(o, WriteShortLE(e.SecondaryValue));
+		Emit(o, WriteShortLE(e.Target));
 	}
 
 	private void WriteActionPair(MemoryStream o, ScriptActionPair e) {
-		Write(o, WriteShortLE(e.PrimaryActionRef));
-		Write(o, WriteShortLE(e.TimerValue));
-		Write(o, WriteShortLESegment(e.SequenceRefs));
+		Emit(o, WriteShortLE(e.PrimaryActionRef));
+		Emit(o, WriteShortLE(e.TimerValue));
+		Emit(o, WriteShortLESegment(e.SequenceRefs));
 	}
 
 	private void WriteSpawnRecordExport(MemoryStream o, ScriptSpawnRecordExport e) {
-		Write(o, e.HeadBytes);
-		Write(o, WriteShortLE(e.SmallDiscrete));
-		Write(o, WriteShortLESegment(e.WeaponRefs));
-		Write(o, WriteShortLE(e.PositionRef));
-		Write(o, WriteShortLE(e.HeadingRef));
-		Write(o, e.TailBytes);
+		Emit(o, e.HeadBytes);
+		Emit(o, WriteShortLE(e.SmallDiscrete));
+		Emit(o, WriteShortLESegment(e.WeaponRefs));
+		Emit(o, WriteShortLE(e.PositionRef));
+		Emit(o, WriteShortLE(e.HeadingRef));
+		Emit(o, e.TailBytes);
 	}
 
 	private void WriteEntity102Export(MemoryStream o, ScriptEntity102Export e) {
-		Write(o, e.HeadBytes);
-		Write(o, WriteShortLE(e.PositionRef));
-		Write(o, WriteShortLE(e.HeadingRef));
-		Write(o, WriteShortLE(e.BinaryField));
-		Write(o, e.TailBytes);
+		Emit(o, e.HeadBytes);
+		Emit(o, WriteShortLE(e.PositionRef));
+		Emit(o, WriteShortLE(e.HeadingRef));
+		Emit(o, WriteShortLE(e.BinaryField));
+		Emit(o, e.TailBytes);
 	}
 
 	private void WriteMiscEntityExport(MemoryStream o, ScriptMiscEntityExport e) {
-		Write(o, WriteShortLE(e.TypeLikeScalar));
-		Write(o, WriteShortLE(e.PositionRef));
-		Write(o, WriteShortLE(e.HeadingRef));
-		Write(o, e.TailBytes);
+		Emit(o, WriteShortLE(e.TypeLikeScalar));
+		Emit(o, WriteShortLE(e.PositionRef));
+		Emit(o, WriteShortLE(e.HeadingRef));
+		Emit(o, e.TailBytes);
 	}
 
 	private void WriteLinkedRef22Export(MemoryStream o, ScriptLinkedRef22Export e) {
-		Write(o, WriteShortLE(e.SmallInt1));
-		Write(o, WriteShortLE(e.SmallInt2));
-		Write(o, WriteShortLE(e.RefRow6));
-		Write(o, WriteShortLE(e.RefRow8));
-		Write(o, WriteShortLE(e.DiscriminatorType));
-		Write(o, WriteShortLE(e.DiscriminatedRef));
-		Write(o, WriteShortLE(e.RefRow10));
+		Emit(o, WriteShortLE(e.SmallInt1));
+		Emit(o, WriteShortLE(e.SmallInt2));
+		Emit(o, WriteShortLE(e.RefRow6));
+		Emit(o, WriteShortLE(e.RefRow8));
+		Emit(o, WriteShortLE(e.DiscriminatorType));
+		Emit(o, WriteShortLE(e.DiscriminatedRef));
+		Emit(o, WriteShortLE(e.RefRow10));
 	}
 
 	private void WriteEntity164Export(MemoryStream o, ScriptEntity164Export e) {
-		Write(o, WriteShortLE(e.BinaryFlag));
-		Write(o, WriteShortLE(e.NearConstant));
-		Write(o, WriteShortLESegment(e.DeadZone));
-		Write(o, WriteShortLE(e.Discriminator));
-		Write(o, WriteShortLE(e.SmallDiscrete));
-		Write(o, WriteShortLE(e.RefRow6));
-		Write(o, WriteShortLE(e.RefRow7));
-		Write(o, WriteShortLE(e.RefRow8));
-		Write(o, WriteShortLESegment(e.DiscriminatedRefs));
-		Write(o, WriteShortLESegment(e.Row15Refs));
-		Write(o, WriteShortLE(e.TriStateFlag));
-		Write(o, WriteShortLE(e.RefRow10));
-		Write(o, WriteShortLESegment(e.ArrayA));
-		Write(o, WriteShortLESegment(e.ArrayB));
-		Write(o, WriteShortLE(e.TrailingFlag));
+		Emit(o, WriteShortLE(e.BinaryFlag));
+		Emit(o, WriteShortLE(e.NearConstant));
+		Emit(o, WriteShortLESegment(e.DeadZone));
+		Emit(o, WriteShortLE(e.Discriminator));
+		Emit(o, WriteShortLE(e.SmallDiscrete));
+		Emit(o, WriteShortLE(e.RefRow6));
+		Emit(o, WriteShortLE(e.RefRow7));
+		Emit(o, WriteShortLE(e.RefRow8));
+		Emit(o, WriteShortLESegment(e.DiscriminatedRefs));
+		Emit(o, WriteShortLESegment(e.Row15Refs));
+		Emit(o, WriteShortLE(e.TriStateFlag));
+		Emit(o, WriteShortLE(e.RefRow10));
+		Emit(o, WriteShortLESegment(e.ArrayA));
+		Emit(o, WriteShortLESegment(e.ArrayB));
+		Emit(o, WriteShortLE(e.TrailingFlag));
 	}
 
 	private void WriteLinkedRef58Export(MemoryStream o, ScriptLinkedRef58Export e) {
-		Write(o, WriteShortLE(e.Unk02));
-		Write(o, WriteShortLE(e.Unk04));
-		Write(o, WriteShortLE(e.Discriminator));
-		Write(o, WriteShortLE(e.DiscriminatedRef));
-		Write(o, WriteShortLE(e.RefRow6));
-		Write(o, WriteShortLE(e.RefRow8));
-		Write(o, WriteShortLE(e.LutRef));
-		Write(o, WriteShortLESegment(e.PairRefs));
-		Write(o, WriteShortLESegment(e.PairTags));
+		Emit(o, WriteShortLE(e.Unk02));
+		Emit(o, WriteShortLE(e.Unk04));
+		Emit(o, WriteShortLE(e.Discriminator));
+		Emit(o, WriteShortLE(e.DiscriminatedRef));
+		Emit(o, WriteShortLE(e.RefRow6));
+		Emit(o, WriteShortLE(e.RefRow8));
+		Emit(o, WriteShortLE(e.LutRef));
+		Emit(o, WriteShortLESegment(e.PairRefs));
+		Emit(o, WriteShortLESegment(e.PairTags));
 	}
 
-	private static void Write(MemoryStream outArr, byte[] data) {
+	private static void Emit(MemoryStream outArr, byte[] data) {
 		outArr.Write(data, 0, data.Length);
 	}
 }

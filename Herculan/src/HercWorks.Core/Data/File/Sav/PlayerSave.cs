@@ -1,7 +1,6 @@
 using HercWorks.Core.Data.Struct;
 using HercWorks.Core.Data.Struct.Herc;
 using HercWorks.Core.Data.Struct.Vshell.Sav;
-using HercWorks.Vol;
 
 namespace HercWorks.Core.Data.File.Sav;
 
@@ -11,7 +10,7 @@ namespace HercWorks.Core.Data.File.Sav;
 ///   Inventory segment, 3+X - UINT16 ...
 /// Ported from org.hercworks.core.data.file.sav.PlayerSave.
 /// </summary>
-public class PlayerSave : DataFile {
+public class PlayerSave {
 	public Inventory? Inventory { get; set; }
 	public short WorkshopSpace { get; set; }
 	public WeaponLUT[] WorkshopSlots { get; set; } = new WeaponLUT[5];

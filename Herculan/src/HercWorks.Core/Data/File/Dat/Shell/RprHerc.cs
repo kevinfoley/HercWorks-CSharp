@@ -1,5 +1,4 @@
 using HercWorks.Core.Data.Struct.Vshell.Hercs;
-using HercWorks.Vol;
 
 namespace HercWorks.Core.Data.File.Dat.Shell;
 
@@ -12,7 +11,7 @@ namespace HercWorks.Core.Data.File.Dat.Shell;
 ///   Layout from there resembles ARM_[herc].DAT: SEQ_1 weapon data (Weapon Id, ...).
 /// Ported from org.hercworks.core.data.file.dat.shell.RprHerc.
 /// </summary>
-public class RprHerc : DataFile {
+public class RprHerc {
 	public short BodyImgTotal { get; set; }
 	public Dictionary<short, UiImageDBA>? BodyImages { get; set; }
 

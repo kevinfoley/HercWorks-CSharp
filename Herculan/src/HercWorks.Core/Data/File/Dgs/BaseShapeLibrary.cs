@@ -1,5 +1,4 @@
 using HercWorks.Core.Data.File.Dts;
-using HercWorks.Vol;
 
 namespace HercWorks.Core.Data.File.Dgs;
 
@@ -74,6 +73,6 @@ public readonly record struct BaseShape(
 /// <c>dgs\BASES.DGS</c> / <c>dgs\BHULKS.DGS</c> — the static-structure shape library <c>dat\BASES.DAT</c>
 /// selects into by index. See <see cref="Io.Transform.Dbsim.BasesDgsTransformer"/> for the format.
 /// </summary>
-public class BaseShapeLibrary : DataFile {
+public class BaseShapeLibrary {
 	public BaseShape[]? Shapes { get; set; }
 }

@@ -78,7 +78,7 @@ public partial class PlayerSquadForm : Form {
 		try {
 			byte[] rawBytes = File.ReadAllBytes(path);
 			var prefix = VolEntryPrefixCodec.StripIfPresent(rawBytes);
-			var squad = (MecFile?)_transformer.BytesToObject(prefix.Content);
+			var squad = (MecFile?)_transformer.Parse(prefix.Content);
 
 			if (squad == null) {
 				MessageBox.Show(this, "File was empty or could not be parsed.", "Error",
@@ -245,7 +245,7 @@ public partial class PlayerSquadForm : Form {
 		}
 
 		try {
-			byte[] content = _transformer.ObjectToBytes(_loaded)!;
+			byte[] content = _transformer.Write(_loaded)!;
 			byte[] outBytes;
 			string formatNote;
 

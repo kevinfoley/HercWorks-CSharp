@@ -1,4 +1,3 @@
-using HercWorks.Vol;
 
 namespace HercWorks.Core.Data.File.Dyn;
 
@@ -17,11 +16,18 @@ namespace HercWorks.Core.Data.File.Dyn;
 ///   [begin data]
 /// Ported from org.hercworks.core.data.file.dyn.DynamixBitmap.
 /// </summary>
-public class DynamixBitmap : DataFile {
+public class DynamixBitmap {
 	/// <summary>
-	/// Expected magic-byte header value. Separate from the inherited instance <see cref="DataFile.Header"/>
-	/// (which holds whatever header bytes were actually read from a given file) — same split as the
-	/// Java original's static `header` constant vs. the inherited instance field.
+	/// Frame name. Set by <see cref="Io.Transform.Common.DynamixBitmapArrayTransformer"/> to
+	/// "_&lt;index&gt;" for each frame it unpacks out of a .DBA, and read back when exporting
+	/// frames to disk. Declared here rather than inherited because this is the only Dynamix model
+	/// whose name is actually consumed.
+	/// </summary>
+	public string? FileName { get; set; }
+
+	/// <summary>
+	/// Expected magic-byte header value; the bytes actually read from a given file are not
+	/// retained, since the write path always emits this constant.
 	/// </summary>
 	public static readonly byte[] HeaderMagic = HercWorks.Core.Util.EndianOps.GetIntBEBytes(0x0E002800);
 

@@ -1,5 +1,3 @@
-using HercWorks.Vol;
-
 namespace HercWorks.Core.Data.File;
 
 /// <summary>
@@ -21,7 +19,7 @@ namespace HercWorks.Core.Data.File;
 /// Ported from org.hercworks.core.data.file.StringFile; extended with per-entry trailer bytes
 /// (the original only modeled TotalSize + a flat string array, with no trailer handling).
 /// </summary>
-public class StringFile : DataFile {
+public class StringFile {
 	public int TotalSize { get; set; }
 	public StringEntry[]? Entries { get; set; }
 

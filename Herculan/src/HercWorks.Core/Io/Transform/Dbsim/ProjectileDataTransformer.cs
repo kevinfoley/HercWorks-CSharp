@@ -5,19 +5,15 @@ using HercWorks.Vol;
 namespace HercWorks.Core.Io.Transform.Dbsim;
 
 /// <summary>Ported from org.hercworks.core.io.transform.dbsim.ProjectileDataTransformer.</summary>
-public class ProjectileDataTransformer : ThreeSpaceByteTransformer {
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+public class ProjectileDataTransformer : ByteTransformer<ProjectileData> {
+	public override ProjectileData? Parse(byte[]? inputArray) {
 		if (inputArray == null || inputArray.Length <= 0) {
 			return null;
 		}
 
 		SetBytes(inputArray);
 
-		var data = new ProjectileData {
-			Ext = FileType.Dat,
-			Dir = FileType.Dat,
-			RawBytes = inputArray
-		};
+		var data = new ProjectileData();
 
 		data.Total = IndexShortLE();
 		data.Data = new ProjectileData.Projectile[data.Total];
@@ -54,8 +50,7 @@ public class ProjectileDataTransformer : ThreeSpaceByteTransformer {
 		return data;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
-		var data = (ProjectileData)source!;
+	public override byte[]? Write(ProjectileData data) {
 
 		using var outStream = new MemoryStream();
 

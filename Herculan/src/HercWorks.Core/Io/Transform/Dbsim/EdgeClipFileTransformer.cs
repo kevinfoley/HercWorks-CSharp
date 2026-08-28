@@ -8,8 +8,8 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// the format writeup). New: no Java equivalent, not a ported format — reverse-engineered directly
 /// against both real retail files.
 /// </summary>
-public class EdgeClipFileTransformer : ThreeSpaceByteTransformer {
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+public class EdgeClipFileTransformer : ByteTransformer<EdgeClipFile> {
+	public override EdgeClipFile? Parse(byte[]? inputArray) {
 		if (inputArray == null) {
 			return null;
 		}
@@ -27,28 +27,21 @@ public class EdgeClipFileTransformer : ThreeSpaceByteTransformer {
 		}
 
 		return new EdgeClipFile {
-			RawBytes = inputArray,
-			Ext = FileType.Edg,
 			Rows = rows,
 			Trailer = IndexShortLE(),
 		};
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
-		if (source == null) {
-			return null;
-		}
-
-		var edg = (EdgeClipFile)source;
+	public override byte[]? Write(EdgeClipFile edg) {
 		using var outStream = new MemoryStream();
 
-		void Write(byte[] bytes) => outStream.Write(bytes, 0, bytes.Length);
+		void Emit(byte[] bytes) => outStream.Write(bytes, 0, bytes.Length);
 
 		foreach (var row in edg.Rows ?? Array.Empty<EdgeClipFile.Row>()) {
-			Write(WriteShortLE(row.Left));
-			Write(WriteShortLE(row.Right));
+			Emit(WriteShortLE(row.Left));
+			Emit(WriteShortLE(row.Right));
 		}
-		Write(WriteShortLE(edg.Trailer));
+		Emit(WriteShortLE(edg.Trailer));
 
 		return outStream.ToArray();
 	}

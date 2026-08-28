@@ -15,18 +15,15 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// isn't possible here (there's no equivalent bug to preserve — it's just broken Java), this uses
 /// the getter, matching the read path and the pattern of every other field in this method.
 /// </summary>
-public class DebrisHercTransformer : ThreeSpaceByteTransformer {
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+public class DebrisHercTransformer : ByteTransformer<DebrisHerc> {
+	public override DebrisHerc? Parse(byte[]? inputArray) {
 		if (inputArray == null) {
 			return null;
 		}
 
 		SetBytes(inputArray);
 
-		var debris = new DebrisHerc {
-			Dir = FileType.Dat,
-			Ext = FileType.Dat
-		};
+		var debris = new DebrisHerc();
 
 		var entries = new DebrisHerc.Entry[IndexShortLE()];
 
@@ -51,28 +48,26 @@ public class DebrisHercTransformer : ThreeSpaceByteTransformer {
 		return debris;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
+	public override byte[]? Write(DebrisHerc data) {
 		using var outStream = new MemoryStream();
-
-		var data = (DebrisHerc)source!;
 
 		var totalBytes = WriteShortLE((short)data.Data!.Length);
 		outStream.Write(totalBytes, 0, totalBytes.Length);
 
 		foreach (var entry in data.Data) {
-			Write(outStream, WriteShortLE(entry.Unk1Val));
-			Write(outStream, WriteShortLE(entry.SpawnDebrisFlag)); // see class doc
-			Write(outStream, WriteShortLE(entry.MeshGroupId));
-			Write(outStream, WriteShortLE(entry.Unk4_0A));
-			Write(outStream, WriteShortLE(entry.Unk5_03));
-			Write(outStream, WriteShortLE(entry.ThrowDir[0]));
-			Write(outStream, WriteShortLE(entry.ThrowDir[1]));
-			Write(outStream, WriteShortLE(entry.ThrowDir[2]));
-			Write(outStream, WriteShortLE(entry.Mass));
+			Emit(outStream, WriteShortLE(entry.Unk1Val));
+			Emit(outStream, WriteShortLE(entry.SpawnDebrisFlag)); // see class doc
+			Emit(outStream, WriteShortLE(entry.MeshGroupId));
+			Emit(outStream, WriteShortLE(entry.Unk4_0A));
+			Emit(outStream, WriteShortLE(entry.Unk5_03));
+			Emit(outStream, WriteShortLE(entry.ThrowDir[0]));
+			Emit(outStream, WriteShortLE(entry.ThrowDir[1]));
+			Emit(outStream, WriteShortLE(entry.ThrowDir[2]));
+			Emit(outStream, WriteShortLE(entry.Mass));
 		}
 
 		return outStream.ToArray();
 	}
 
-	private static void Write(MemoryStream outArr, byte[] data) => outArr.Write(data, 0, data.Length);
+	private static void Emit(MemoryStream outArr, byte[] data) => outArr.Write(data, 0, data.Length);
 }

@@ -1,5 +1,4 @@
 using HercWorks.Core.Data.Struct;
-using HercWorks.Vol;
 
 namespace HercWorks.Core.Data.File.Dyn;
 
@@ -7,7 +6,7 @@ namespace HercWorks.Core.Data.File.Dyn;
 /// FILE - VOL file, .DPL — contains palette colors per-game object; some real optimization
 /// there. Ported from org.hercworks.core.data.file.dyn.DynamixPalette.
 /// </summary>
-public class DynamixPalette : DataFile {
+public class DynamixPalette {
 	/// <summary>
 	/// FIXED — see KNOWN_ISSUES.md history: the original Java built this from
 	/// Bytes.from("0F002800", StandardCharsets.UTF_8) — the literal 8-byte ASCII/UTF-8 encoding of

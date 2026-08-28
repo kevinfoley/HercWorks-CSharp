@@ -1,5 +1,3 @@
-using HercWorks.Vol;
-
 namespace HercWorks.Core.Data.File.Dbsim;
 
 /// <summary>
@@ -40,7 +38,7 @@ namespace HercWorks.Core.Data.File.Dbsim;
 /// Ported from org.hercworks.core.data.file.dbsim.WorldData (which modeled only the header fields
 /// and had no transformer), then corrected.
 /// </summary>
-public class WorldData : DataFile {
+public class WorldData {
 	/// <summary>Shorts in <see cref="Header"/>.</summary>
 	public const int HeaderShorts = 14;
 
@@ -117,6 +115,4 @@ public class WorldData : DataFile {
 	public string? TextureExtension { get; set; }
 
 	public WorldData() { }
-
-	public WorldData(string fileName, string dirPath) : base(fileName, dirPath) { }
 }

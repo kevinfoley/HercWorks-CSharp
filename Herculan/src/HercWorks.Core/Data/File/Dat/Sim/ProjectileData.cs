@@ -1,5 +1,4 @@
 using HercWorks.Core.Data.Struct;
-using HercWorks.Vol;
 
 namespace HercWorks.Core.Data.File.Dat.Sim;
 
@@ -115,7 +114,7 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 /// weapon that fires a slow-moving projectile, does splash."
 /// Ported from org.hercworks.core.data.file.dat.sim.ProjectileData.
 /// </summary>
-public class ProjectileData : DataFile {
+public class ProjectileData {
 	public short Total { get; set; }
 	public Projectile[]? Data { get; set; }
 

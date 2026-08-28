@@ -4,19 +4,15 @@ using HercWorks.Vol;
 namespace HercWorks.Core.Io.Transform.Dbsim;
 
 /// <summary>Ported from org.hercworks.core.io.transform.dbsim.VueTransformer.</summary>
-public class VueTransformer : ThreeSpaceByteTransformer {
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+public class VueTransformer : ByteTransformer<Vue> {
+	public override Vue? Parse(byte[]? inputArray) {
 		if (inputArray == null || inputArray.Length <= 0) {
 			return null;
 		}
 
 		SetBytes(inputArray);
 
-		var data = new Vue {
-			Ext = FileType.Vue,
-			Dir = FileType.Vue,
-			RawBytes = inputArray
-		};
+		var data = new Vue();
 
 		data.TotalViewports = IndexIntLE();
 		data.Entries = new Vue.Entry[data.TotalViewports];
@@ -40,8 +36,7 @@ public class VueTransformer : ThreeSpaceByteTransformer {
 		return data;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
-		var data = (Vue)source!;
+	public override byte[]? Write(Vue data) {
 
 		using var outStream = new MemoryStream();
 

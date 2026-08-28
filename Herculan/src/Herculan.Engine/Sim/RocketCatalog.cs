@@ -70,7 +70,7 @@ public sealed class RocketCatalog {
 	/// </summary>
 	public static RocketCatalog? Load(byte[]? rocketsDat) =>
 		rocketsDat != null
-			&& new MissileDatFileTransformer().BytesToObject(rocketsDat) is MissileDatFile { Entries: not null } table
+			&& new MissileDatFileTransformer().Parse(rocketsDat) is MissileDatFile { Entries: not null } table
 			? new RocketCatalog(table)
 			: null;
 

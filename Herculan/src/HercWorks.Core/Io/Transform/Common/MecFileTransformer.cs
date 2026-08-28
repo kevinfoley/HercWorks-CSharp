@@ -9,17 +9,13 @@ namespace HercWorks.Core.Io.Transform.Common;
 /// shorts, then that many variable-length entries. Anything past the last entry is stale buffer
 /// content (the retail sample has 35 such bytes) and is neither consumed nor written back.
 /// </summary>
-public class MecFileTransformer : ThreeSpaceByteTransformer {
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+public class MecFileTransformer : ByteTransformer<MecFile> {
+	public override MecFile? Parse(byte[]? inputArray) {
 		if (inputArray == null || inputArray.Length <= 0) {
 			return null;
 		}
 
-		var data = new MecFile {
-			RawBytes = inputArray,
-			Ext = FileType.Sav,
-			Dir = FileType.Sav
-		};
+		var data = new MecFile();
 
 		SetBytes(inputArray);
 
@@ -48,30 +44,33 @@ public class MecFileTransformer : ThreeSpaceByteTransformer {
 		return data;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
-		using var outStream = new MemoryStream();
-		var data = (MecFile)source!;
+	public override byte[]? Write(MecFile? data) {
+		if (data == null) {
+			return null;
+		}
 
-		Write(outStream, WriteShortLE(data.PlayerEntryIndex));
-		Write(outStream, WriteShortLE((short)data.Entries.Length));
+		using var outStream = new MemoryStream();
+
+		Emit(outStream, WriteShortLE(data.PlayerEntryIndex));
+		Emit(outStream, WriteShortLE((short)data.Entries.Length));
 
 		foreach (var entry in data.Entries) {
-			Write(outStream, WriteShortLE(entry.Unk00));
-			Write(outStream, WriteShortLE(entry.Unk02));
-			Write(outStream, WriteShortLE(entry.MechType));
-			Write(outStream, WriteShortLE(entry.SlotCount));
-			Write(outStream, WriteShortLESegment(entry.WeaponRefs));
-			Write(outStream, WriteShortLESegment(entry.WeaponAmmoTypes));
-			Write(outStream, WriteShortLE(entry.Unk3A));
-			Write(outStream, entry.BlockA);
-			Write(outStream, entry.BlockB);
-			Write(outStream, entry.BlockC);
+			Emit(outStream, WriteShortLE(entry.Unk00));
+			Emit(outStream, WriteShortLE(entry.Unk02));
+			Emit(outStream, WriteShortLE(entry.MechType));
+			Emit(outStream, WriteShortLE(entry.SlotCount));
+			Emit(outStream, WriteShortLESegment(entry.WeaponRefs));
+			Emit(outStream, WriteShortLESegment(entry.WeaponAmmoTypes));
+			Emit(outStream, WriteShortLE(entry.Unk3A));
+			Emit(outStream, entry.BlockA);
+			Emit(outStream, entry.BlockB);
+			Emit(outStream, entry.BlockC);
 		}
 
 		return outStream.ToArray();
 	}
 
-	private static void Write(MemoryStream outArr, byte[] data) {
+	private static void Emit(MemoryStream outArr, byte[] data) {
 		outArr.Write(data, 0, data.Length);
 	}
 }

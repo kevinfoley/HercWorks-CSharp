@@ -1,5 +1,3 @@
-using HercWorks.Vol;
-
 namespace HercWorks.Core.Data.File.Msn.Script;
 
 /// <summary>
@@ -23,7 +21,7 @@ namespace HercWorks.Core.Data.File.Msn.Script;
 /// format. This model only round-trips the meaningful prefix; nothing here assumes or preserves a
 /// fixed total file length.
 /// </summary>
-public class ScriptDat : DataFile {
+public class ScriptDat {
 	/// <summary>
 	/// Fixed 20-byte header, 10 little-endian shorts. Mostly unconfirmed — one field (bytes 2-3)
 	/// is real and varies meaningfully across real files, but its exact meaning (mission/chapter

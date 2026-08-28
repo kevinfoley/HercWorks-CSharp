@@ -1,5 +1,4 @@
 using HercWorks.Core.Data.Struct.Vshell.Hercs;
-using HercWorks.Vol;
 
 namespace HercWorks.Core.Data.File.Dat.Shell;
 
@@ -11,7 +10,7 @@ namespace HercWorks.Core.Data.File.Dat.Shell;
 ///   build, S14 boolean flag - start campaign available.
 /// Ported from org.hercworks.core.data.file.dat.shell.HercInf.
 /// </summary>
-public class HercInf : DataFile {
+public class HercInf {
 	public short TotalHercs { get; set; }
 	public HercInfEntry[] Data { get; set; }
 

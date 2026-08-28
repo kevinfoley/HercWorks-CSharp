@@ -15,17 +15,14 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// caller-held offset, which is what lets the engine read one whole <c>.COL</c> and lets
 /// <c>dat\BASECOL.DAT</c>'s 65 back-to-back structure records come out of one stream.</para>
 /// </summary>
-public class HercColliderTransformer : ThreeSpaceByteTransformer {
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+public class HercColliderTransformer : ByteTransformer<HercCollider> {
+	public override HercCollider? Parse(byte[]? inputArray) {
 		if (inputArray == null || inputArray.Length < 2) {
 			return null;
 		}
 
 		int offset = 0;
 		return new HercCollider {
-			RawBytes = inputArray,
-			Ext = FileType.Col,
-			Dir = FileType.Col,
 			Nodes = ReadNodes(inputArray, ref offset),
 		};
 	}
@@ -68,32 +65,28 @@ public class HercColliderTransformer : ThreeSpaceByteTransformer {
 		return nodes;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
-		if (source is not HercCollider col) {
-			return null;
-		}
-
+	public override byte[]? Write(HercCollider col) {
 		using var outStream = new MemoryStream();
 		var nodes = col.Nodes ?? Array.Empty<ColliderNode>();
 
-		Write(outStream, WriteShortLE((short)nodes.Length));
+		Emit(outStream, WriteShortLE((short)nodes.Length));
 		foreach (var node in nodes) {
 			var clusters = node.Clusters ?? Array.Empty<ColliderCluster>();
 
-			Write(outStream, WriteShortLE(node.NodeIndex));
-			Write(outStream, WriteShortLE((short)clusters.Length));
+			Emit(outStream, WriteShortLE(node.NodeIndex));
+			Emit(outStream, WriteShortLE((short)clusters.Length));
 
 			foreach (var cluster in clusters) {
 				var spheres = cluster.Spheres ?? Array.Empty<ColliderSphere>();
 
-				Write(outStream, WriteShortLE(cluster.ComponentIndex));
-				Write(outStream, WriteShortLE((short)spheres.Length));
+				Emit(outStream, WriteShortLE(cluster.ComponentIndex));
+				Emit(outStream, WriteShortLE((short)spheres.Length));
 
 				foreach (var sphere in spheres) {
-					Write(outStream, WriteShortLE(sphere.X));
-					Write(outStream, WriteShortLE(sphere.Y));
-					Write(outStream, WriteShortLE(sphere.Z));
-					Write(outStream, WriteShortLE(sphere.Radius));
+					Emit(outStream, WriteShortLE(sphere.X));
+					Emit(outStream, WriteShortLE(sphere.Y));
+					Emit(outStream, WriteShortLE(sphere.Z));
+					Emit(outStream, WriteShortLE(sphere.Radius));
 				}
 			}
 		}
@@ -110,5 +103,5 @@ public class HercColliderTransformer : ThreeSpaceByteTransformer {
 	/// </summary>
 	private static int NonNegative(short count) => count < 0 ? 0 : count;
 
-	private static void Write(MemoryStream outArr, byte[] data) => outArr.Write(data, 0, data.Length);
+	private static void Emit(MemoryStream outArr, byte[] data) => outArr.Write(data, 0, data.Length);
 }

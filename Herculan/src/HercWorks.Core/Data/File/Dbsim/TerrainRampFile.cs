@@ -1,5 +1,3 @@
-using HercWorks.Vol;
-
 namespace HercWorks.Core.Data.File.Dbsim;
 
 /// <summary>
@@ -27,7 +25,7 @@ namespace HercWorks.Core.Data.File.Dbsim;
 ///
 /// New (no Java equivalent — not a ported format).
 /// </summary>
-public class TerrainRampFile : DataFile {
+public class TerrainRampFile {
 	/// <summary>Bytes in one row, one per palette index.</summary>
 	public const int RowLength = 256;
 

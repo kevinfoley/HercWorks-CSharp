@@ -1,5 +1,3 @@
-using HercWorks.Vol;
-
 namespace HercWorks.Core.Data.File.Dbsim;
 
 /// <summary>
@@ -43,7 +41,7 @@ namespace HercWorks.Core.Data.File.Dbsim;
 /// sphere types are top-level (see <see cref="ColliderNode"/>) rather than nested, so that the
 /// engine can consume the parsed model without taking a dependency on <see cref="DataFile"/>.
 /// </summary>
-public class HercCollider : DataFile {
+public class HercCollider {
 	/// <summary>The model's nodes, in file order.</summary>
 	public ColliderNode[]? Nodes { get; set; }
 }

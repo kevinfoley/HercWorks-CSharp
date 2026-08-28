@@ -7,8 +7,8 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// Transforms byte[] data to and from .RMP colour-ramp files — see <see cref="TerrainRampFile"/>
 /// for the format and the RE behind it.
 /// </summary>
-public class TerrainRampFileTransformer : ThreeSpaceByteTransformer {
-	public override DataFile? BytesToObject(byte[]? inputArray) {
+public class TerrainRampFileTransformer : ByteTransformer<TerrainRampFile> {
+	public override TerrainRampFile? Parse(byte[]? inputArray) {
 		if (inputArray == null || inputArray.Length < 8) {
 			return null;
 		}
@@ -16,9 +16,6 @@ public class TerrainRampFileTransformer : ThreeSpaceByteTransformer {
 		SetBytes(inputArray);
 
 		var rmp = new TerrainRampFile {
-			RawBytes = inputArray,
-			Ext = FileType.Rmp,
-
 			ShadeLevels = IndexIntLE(),
 			DepthSlices = IndexIntLE(),
 		};
@@ -28,19 +25,19 @@ public class TerrainRampFileTransformer : ThreeSpaceByteTransformer {
 		return rmp;
 	}
 
-	public override byte[]? ObjectToBytes(DataFile? source) {
-		if (source is not TerrainRampFile rmp) {
+	public override byte[]? Write(TerrainRampFile rmp) {
+		if (rmp == null) {
 			return null;
 		}
 
 		using var outStream = new MemoryStream();
 
-		void Write(byte[] bytes) => outStream.Write(bytes, 0, bytes.Length);
+		void Emit(byte[] bytes) => outStream.Write(bytes, 0, bytes.Length);
 
-		Write(WriteIntLE(rmp.ShadeLevels));
-		Write(WriteIntLE(rmp.DepthSlices));
+		Emit(WriteIntLE(rmp.ShadeLevels));
+		Emit(WriteIntLE(rmp.DepthSlices));
 		if (rmp.Rows != null) {
-			Write(rmp.Rows);
+			Emit(rmp.Rows);
 		}
 
 		return outStream.ToArray();

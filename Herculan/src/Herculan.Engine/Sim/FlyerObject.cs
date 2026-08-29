@@ -68,6 +68,14 @@ public sealed class FlyerObject : SimObject {
 	/// <inheritdoc />
 	public override int HitRadius => _hitRadius;
 
+	/// <inheritdoc />
+	/// <remarks><c>Flyer_Constructor</c> (<c>004215f4</c>) writes 2 at <c>0x004216d8</c>.</remarks>
+	public override TargetClass TargetClass => TargetClass.Flyer;
+
+	/// <inheritdoc />
+	/// <remarks>A flyer has no legs to lose, so only the destroyed half of the pair applies.</remarks>
+	public override bool Neutralised => Destroyed;
+
 	/// <summary>
 	/// <c>obj+0x99</c> — whether the flyer's one component has been destroyed. The original also
 	/// drops it out of the sky from here (it writes a large negative rate into the object's own

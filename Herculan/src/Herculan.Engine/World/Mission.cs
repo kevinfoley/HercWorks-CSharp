@@ -15,6 +15,24 @@ public enum MissionUnitKind {
 }
 
 /// <summary>
+/// Which side of the war an object belongs to — <c>script.dat</c> block 11's <c>0x6e</c>, which
+/// <c>DBSim_BuildGroupRecord</c> (<c>00423b34</c>) copies into the in-memory group record's
+/// <c>+0x12</c>.
+///
+/// <para>Every "is this one of ours" test in the simulation is a comparison of that one byte
+/// between two objects' group records — the target filter, the detection sweep and the contact
+/// share all read it. It is a property of the <i>group</i>, so every member of a group is on the
+/// same side.</para>
+/// </summary>
+public enum MissionSide {
+	/// <summary>Human. The player's own squad, and everything that fights alongside it.</summary>
+	Human = 0,
+
+	/// <summary>Cybrid. The only side the detection sweep scans <i>for</i> — see <c>Detection</c>.</summary>
+	Cybrid = 1
+}
+
+/// <summary>
 /// One object the mission puts in the world: what it is, where it stands and which way it faces.
 /// </summary>
 /// <param name="Kind">Which roster it came from.</param>
@@ -45,6 +63,11 @@ public enum MissionUnitKind {
 /// is not in the mission yet and <see cref="Position"/> is a placeholder its arrival replaces — see
 /// <see cref="Herculan.Engine.Sim.SimObject.AwaitingDeployment"/> and <see cref="MissionLoader"/>.
 /// </param>
+/// <param name="Side">
+/// Whose side the group that placed it is on — see <see cref="MissionSide"/>. Carried per placement
+/// rather than per group because that is the form everything downstream wants: the simulation reads
+/// it off the object, not off a group record it does not have.
+/// </param>
 public sealed record MissionPlacement(
 	MissionUnitKind Kind,
 	int TypeIndex,
@@ -56,7 +79,8 @@ public sealed record MissionPlacement(
 	IReadOnlyList<short> WeaponRefs,
 	IReadOnlyList<short> WeaponSecondary,
 	bool IsPlayerLance = false,
-	bool AwaitingDeployment = false);
+	bool AwaitingDeployment = false,
+	MissionSide Side = MissionSide.Human);
 
 /// <summary>
 /// A mission ready to be turned into a scene: which zone and theater it plays in, and every object

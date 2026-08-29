@@ -180,8 +180,22 @@ public sealed class SimWorld {
 	internal short PickImpactEffect(short[]? effects) =>
 		effects is { Length: > 0 } ? effects[Random.NextMasked(3) % effects.Length] : (short)0;
 
-	/// <summary>Adds an object to the simulation.</summary>
-	public void Add(SimObject simObject) => _objects.Add(simObject);
+	/// <summary>
+	/// Adds an object to the simulation — <c>ObjectList_Add</c> (<c>FUN_00411dd4</c>), which appends
+	/// to the world's one live-object list and stamps the object with the slot it landed in.
+	///
+	/// <para>The slot matters: it is how every per-object table in the simulation is addressed, so
+	/// each object's tables are grown to cover the new list length as it joins. The original
+	/// allocates them to a fixed cap instead; growing is the only difference.</para>
+	/// </summary>
+	public void Add(SimObject simObject) {
+		simObject.ListIndex = _objects.Count;
+		_objects.Add(simObject);
+
+		for (int i = 0; i < _objects.Count; i++) {
+			_objects[i].EnsureTableSize(_objects.Count);
+		}
+	}
 
 	/// <summary>
 	/// <c>Sim_RaycastObjectList</c> (<c>00426528</c>) — the shared ray-versus-live-object query, which
@@ -322,9 +336,9 @@ public sealed class SimWorld {
 	/// the capacitor charge it spent, an ammunition mount passes zero.
 	///
 	/// <para>The homing target the powered form also attaches, for the plasma subtype alone, is the
-	/// firing machine's <b>selected target</b> (<c>mech+0x1a4</c>). <b>There is no target selection in
-	/// the engine</b>, so nothing is attached and a plasma round flies straight — which is what the
-	/// original does with nothing selected too. See <see cref="Projectile.Target"/>.</para>
+	/// firing machine's <b>selected target</b> (<c>mech+0x1a4</c>), which
+	/// <see cref="TargetSelection"/> now fills in. A round fired with nothing selected still flies
+	/// straight, exactly as it does in the original. See <see cref="Projectile.Target"/>.</para>
 	/// </summary>
 	/// <param name="projectile">The firing <c>PROJ.DAT</c> record.</param>
 	/// <param name="muzzle">The world muzzle point the fire prologue worked out.</param>
@@ -340,6 +354,14 @@ public sealed class SimWorld {
 		}
 
 		var shot = new Projectile(projectile, record, muzzle, aim, ownerSpeed, power, owner, Random);
+
+		// The powered form's second write, and the whole of what makes one subtype behave differently
+		// from the other eight: the plasma round takes the firing machine's selected target and
+		// chases it. Everything else flies where it was pointed.
+		if (projectile.MissileId == Projectile.PlasmaSubtype && owner is MechObject firing) {
+			shot.Target = firing.Target;
+		}
+
 		_projectiles.Add(shot);
 		return shot;
 	}
@@ -348,18 +370,20 @@ public sealed class SimWorld {
 	/// <c>Rocket_Fire</c> (<c>0040a9c4</c>) — spawns one launcher round. There is no powered form: a
 	/// rocket comes off a rack, never out of a capacitor, so the record's damage is what it does.
 	///
-	/// <para><b>No target is attached</b>, for two reasons that stack. <c>Rocket_Fire</c> takes the
-	/// launching machine's selected target (<c>mech+0x1a4</c>) and there is no target selection; and it
-	/// only takes it at all when the machine's vtable <c>+0x6c</c> (<c>FUN_004155ac</c>) returns
-	/// nonzero, which reads the mount manager's per-ammunition-type counter array at
-	/// <c>manager+0x0a</c> — an array with readers (this, and
-	/// <c>WeaponMounts_MountIsReady</c>) and no writer found along any traced path. A rocket
-	/// therefore flies where it was pointed. See <see cref="Rocket.Target"/>.</para>
+	/// <para><b>A target is attached only when this class of launcher has lock</b> — the machine's
+	/// vtable <c>+0x6c</c> (<c>Mech_MissileAmmoCount</c>, <c>004155ac</c>), which despite its name
+	/// reads the per-subtype lock flags at <c>manager+0x0a</c> rather than any ammunition count. See
+	/// <see cref="MechObject.MissileLockTick"/> for what builds them. A round fired without lock
+	/// flies where it was pointed, which is exactly what the original does.</para>
 	///
-	/// <para>The one exception in the original is not reachable here either: a machine that is
-	/// <i>not</i> locally simulated firing <see cref="Rocket.PlayerFlownSubtype"/> skips the counter
-	/// gate outright, which is how an AI opponent's electro-optical missile locks without a player at
-	/// the stick.</para>
+	/// <para>The one exception is the original's own: a machine that is <b>not</b> locally piloted
+	/// firing <see cref="Rocket.PlayerFlownSubtype"/> skips the lock gate outright, because that
+	/// subtype is the missile the player flies by hand and so never builds a lock — which is how an
+	/// AI opponent's electro-optical missile still tracks.</para>
+	///
+	/// <para>The <i>node</i> half of the lock is not attached — <c>+0x5a</c>, which the original fills
+	/// from the target's own vtable <c>+0x54</c> so the round steers at a specific part rather than at
+	/// the object's origin.</para>
 	/// </summary>
 	/// <param name="projectile">The firing <c>PROJ.DAT</c> record.</param>
 	/// <param name="muzzle">The world muzzle point the fire prologue worked out.</param>
@@ -374,6 +398,13 @@ public sealed class SimWorld {
 		}
 
 		var round = new Rocket(projectile, record, muzzle, aim, ownerSpeed, owner);
+
+		if (owner is MechObject launching
+				&& (launching.MissileLocked(projectile.MissileId)
+					|| (!launching.LocallyPiloted && projectile.MissileId == Rocket.PlayerFlownSubtype))) {
+			round.Target = launching.Target;
+		}
+
 		_rockets.Add(round);
 		return round;
 	}
@@ -429,6 +460,22 @@ public sealed class SimWorld {
 			var simObject = _objects[i];
 			if (!simObject.Removed && !simObject.AwaitingDeployment) {
 				simObject.Tick(this);
+			}
+		}
+
+		// Who can see whom, worked out from where everything has just finished moving to.
+		// Sim_MainTick puts it exactly here: after every pool's per-object update and after the
+		// player's input poll, immediately ahead of the per-mech systems pass. So a contact made this
+		// tick is not acted on until the next one.
+		Detection.Tick(this);
+
+		// And then the per-mech systems pass, which is where Sim_MainTick puts it — immediately after
+		// the sensor sweep, because the lock gate reads the line-of-sight cache that sweep maintains.
+		// Only the missile-lock half runs from here; the reactor and shield half is inside
+		// MechObject.Tick, where its inputs are last tick's and its position is free.
+		for (int i = 0; i < _objects.Count; i++) {
+			if (_objects[i] is MechObject { Removed: false, AwaitingDeployment: false, Destroyed: false } mech) {
+				mech.MissileLockTick(this);
 			}
 		}
 

@@ -272,6 +272,17 @@ bool allStopKeyDown = false;
 bool shieldRearKeyDown = false;
 bool shieldFrontKeyDown = false;
 
+// The manual's three target keys, on the scancodes DBSIM's own command handlers switch on:
+// [Enter] (0x1c) cycles, ['] (0x28) takes the nearest, and [;] (0x27) clears. All three fire on
+// their own edge — the original dispatches a command per keypress, so holding one does nothing.
+bool cycleTargetKeyDown = false;
+bool nearestTargetKeyDown = false;
+bool clearTargetKeyDown = false;
+
+// [R], the manual's radar mode: PASSIVE at power-up, ACTIVE once pressed. It is the input target
+// selection needs at any real range — see MechObject.ToggleScanner.
+bool radarKeyDown = false;
+
 // The weapon panel's row keys, in row order: [1] is row 1 and [0] is row 10, which is the same
 // wrap-around the row's own printed digit uses ((slot + 1) % 10).
 Key[] weaponRowKeys = {
@@ -628,6 +639,38 @@ window.Update += deltaSeconds => {
 
 		ApplyWeaponKeys(controls, pilotMech.Weapons);
 
+		// [R] switches the radar between PASSIVE and ACTIVE. Worth knowing before wondering why
+		// nothing can be targeted: passive, this machine only ever knows about what it can see inside
+		// visual range, and in the original what makes a distant enemy targetable is usually that
+		// *enemy's* radar being on — which is AI behaviour the engine does not have yet.
+		bool radarKey = controls.IsKeyPressed(Key.R);
+		if (radarKey && !radarKeyDown) {
+			pilotMech.ToggleScanner();
+		}
+		radarKeyDown = radarKey;
+
+		// Target selection. It is the cockpit's, not the machine's, so it is driven from here and
+		// copied onto the machine below — see TargetSelection.
+		if (scene.Targeting is { } targeting) {
+			bool cycleTargetKey = controls.IsKeyPressed(Key.Enter);
+			bool nearestTargetKey = controls.IsKeyPressed(Key.Apostrophe);
+			bool clearTargetKey = controls.IsKeyPressed(Key.Semicolon);
+
+			if (cycleTargetKey && !cycleTargetKeyDown) {
+				targeting.Cycle();
+			}
+			if (nearestTargetKey && !nearestTargetKeyDown) {
+				targeting.SelectNearest();
+			}
+			if (clearTargetKey && !clearTargetKeyDown) {
+				targeting.Clear();
+			}
+
+			cycleTargetKeyDown = cycleTargetKey;
+			nearestTargetKeyDown = nearestTargetKey;
+			clearTargetKeyDown = clearTargetKey;
+		}
+
 		// Stick sign convention is the device's, not the game's: forward and left are negative. No
 		// throttle lever, so the throttle's range spans both directions and holding [Down] takes the
 		// machine through zero into reverse — see MechControls.ThrottleLever.
@@ -719,6 +762,15 @@ window.Update += deltaSeconds => {
 
 		// Held buttons draw depressed, and pop back up if the pointer slides off them still held.
 		hudState = hudState with { PressedWidget = cockpitInput.Depressed };
+	}
+
+	// Player_PerFrameCockpitUpdate's own copy: whatever the cockpit has selected becomes the
+	// machine's mech+0x1a4, once a frame and before the sim ticks, so a weapon fired during the tick
+	// sees this frame's target. The drop that precedes it is not the original's — see
+	// TargetSelection.DropIfInvalid for the two functions that would otherwise do that job.
+	if (scene.Targeting is { } playerTargeting) {
+		playerTargeting.DropIfInvalid();
+		playerTargeting.PushToPilot();
 	}
 
 	cockpitPan.Advance(deltaSeconds);
@@ -870,7 +922,7 @@ window.Render += (_, gl) => {
 	// scissored away, which is why it only ever appeared in the external view.
 	gl.Viewport(0, 0, (uint)Math.Max(size.X, 1), (uint)Math.Max(size.Y, 1));
 	debugPanel.Draw(
-		new DebugPanelContext(piloting, externalView, pilotMech,
+		new DebugPanelContext(piloting, externalView, pilotMech, scene.Targeting, scene.World,
 			scene.PlayerObject?.Model?.Segments.Length ?? 0, terrain),
 		size.Y);
 

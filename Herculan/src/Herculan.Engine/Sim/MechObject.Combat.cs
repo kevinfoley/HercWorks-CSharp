@@ -84,6 +84,54 @@ public sealed partial class MechObject {
 	}
 
 	/// <summary>
+	/// <c>mech+0x1a4</c> — the machine's selected target, and the field the whole of homing hangs
+	/// off: <c>Bullet_FirePowered</c> reads it to give a plasma round something to chase and
+	/// <c>Rocket_Fire</c> reads it to give a missile a lock, so before anything wrote it every guided
+	/// weapon in the game flew straight.
+	///
+	/// <para><b>Nothing in the simulation writes it for the player's machine.</b> The selection is
+	/// made in the cockpit and copied here once a frame — see <see cref="TargetSelection"/>, which is
+	/// where the RE for that lives. An AI machine's own writer (<c>FUN_0041c0f4</c>) is a separate
+	/// function and is not ported, so an AI machine currently never selects anything.</para>
+	///
+	/// <para>The setter carries the two pieces of bookkeeping every writer of the field in the
+	/// original performs, both of which live outside the machine that made the change: the old
+	/// target's <see cref="SimObject.TargetedBy"/> count goes down and the new one's goes up, and
+	/// <see cref="TargetChanged"/> is raised.</para>
+	/// </summary>
+	public SimObject? Target {
+		get => _target;
+		set {
+			if (ReferenceEquals(_target, value)) {
+				return;
+			}
+
+			if (_target != null) {
+				_target.TargetedBy--;
+			}
+
+			_target = value;
+
+			if (_target != null) {
+				_target.TargetedBy++;
+			}
+
+			TargetChanged = true;
+		}
+	}
+
+	private SimObject? _target;
+
+	/// <summary>
+	/// <c>mech+0x9d</c> — raised whenever <see cref="Target"/> changes and never cleared by the write
+	/// itself. In the original it gates the AI's per-tick weapon arbitration (a machine that has just
+	/// switched target does not shoot on that tick) and it is what tells the cockpit to reset the
+	/// gunsight's lock state. Nothing consumes it yet; it is set because the setter is the only place
+	/// that can, and leaving it out would mean revisiting the setter later.
+	/// </summary>
+	public bool TargetChanged { get; set; }
+
+	/// <summary>
 	/// Total damage this machine has taken, <c>mech+0x288</c> — the running sum the original keeps of
 	/// everything both shields and armour have absorbed.
 	/// </summary>

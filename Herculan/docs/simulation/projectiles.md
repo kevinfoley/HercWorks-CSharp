@@ -83,7 +83,14 @@ once the bearing error exceeds a quarter turn.
 
 Homing is a steer of the **euler angles**, not of a velocity: the bearing to the target
 (`Math_EulerToward`, `00492884`) drives euler 0 and 2 through `Math_RateLimitedMoveToward` at
-`0x280` per 125 ms.
+`0x280` per 125 ms. The target point is the vtable `+0x24` aim node, not the origin — see
+[`target-selection.md`](target-selection.md).
+
+`Math_EulerToward` and `Math_HeadingToward` both reach atan2 through `Math_Atan2Guarded`
+(`00492800`), which takes **`(x, y)`** and nudges the *x* when both are zero. So `euler[2]` is
+`atan2(dy, dx)` less a quarter turn and `euler[0]` is `atan2(dz, groundDistance)` — an **elevation
+above the horizon**. Reading the order backwards mirrors the bearing about 45° and turns a level
+target into a quarter turn of pitch; it is worth stating because it did exactly that to this port.
 
 ## Engine port
 
@@ -91,8 +98,8 @@ Homing is a steer of the **euler angles**, not of a velocity: the bearing to the
 
 - **Plasma keeps its direct-fire damage** rather than being zeroed, because there is no blast sweep
   yet; an unported explosion should cost the weapon its splash, not its shot.
-- **Nothing homes.** The guidance is ported but reads the firing machine's selected target, and the
-  engine has no target selection — the same result the original gives with nothing selected.
+- **Homing works**, on the target `TargetSelection` puts at `mech+0x1a4`. It steers at the target's
+  shape centre (`SimObject.AimPoint`), not its origin, as the original does.
 - **The animation frame counter climbs rather than wrapping.** The original mods it by the shape's
   own frame count for the sequence; the renderer takes the same modulo anyway
   (`TSCellAnimPart_Render` does), so the frame drawn is identical and the simulation stays clear of

@@ -258,7 +258,7 @@ public sealed class Projectile {
 			return;
 		}
 
-		var (bearingX, _, bearingZ) = SimTrig.EulerToward(Target.Position, Position);
+		var (bearingX, _, bearingZ) = SimTrig.EulerToward(Target.AimPoint, Position);
 
 		short pitchRate = 0;
 		short yawRate = 0;

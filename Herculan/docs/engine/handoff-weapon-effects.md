@@ -29,22 +29,34 @@ is a signed parent-component index, that the direct-fire multiplier is `SplashFa
 not a weapon-type effectiveness scale, and that `Sim_RaycastObjectList` skips objects awaiting
 deployment.
 
-Not built: **anything you can hear**, target selection, weapon-mount destruction, and the light
+Since: **target selection, the sensor model and missile lock**, with homing reachable at last — see
+[`../simulation/target-selection.md`](../simulation/target-selection.md) and
+[`../simulation/missile-lock.md`](../simulation/missile-lock.md). Closed with them: that
+`manager+0x0a` is the per-subtype lock state and not an ammunition count, that `mech+0x96` is the
+PASSIVE/ACTIVE radar mode a HERC powers up without, and that everything aims at an object's shape
+centre rather than its origin. Corrected on the way: `SimTrig.EulerToward` had its atan2 arguments
+swapped and `Atan2Guarded` guarded the wrong operand, which nobody had noticed because no shot had
+ever had a target to steer at.
+
+Not built: **anything you can hear**, AI target acquisition, weapon-mount destruction, and the light
 sources effects are supposed to cast.
 
 ## Next
 
-### Target selection
+### The HUD target box
 
-The single biggest unlock. Nothing homes — not the plasma round, not a missile — because both read
-`mech+0x1a4` and nothing ever sets it. It would also make the ECM weave, the anti-radiation
-missile's emission gate and the HUD lead indicator reachable at once. Start from
-`Mech_PerTickSystemsUpdate` (`0041aa5c`), which reads `mech+0x1a4` throughout and writes the
-lock-related flags around it.
+A target can be selected but nothing draws it. `Gunsight_SetValues` pushes the target and a flag
+into the gunsight widget, and `FUN_00434a24` parks the target and its world aim point at
+`CockpitView+0x26c`..`+0x27e`. The reader is one of gunsight children 0, 4, 5, 6 or 8 — all
+constructed, none traced. Without it the only evidence of a selection is the debug panel.
 
-`manager+0x0a`, the per-ammunition-type counters, still blocks part of it: `Rocket_Fire` will not
-attach a target without one, and `FUN_00410970` gates a missile row's ready box on the same array.
-Readers found (`Mech_MissileAmmoCount`, `FUN_0041f358`), no writer traced.
+### AI target acquisition
+
+AI machines never select anything, so they never fire and never switch their radar on — which is
+also why a hostile is only targetable at long range once the player goes ACTIVE. The setter is
+`FUN_0041c0f4`; the state functions that call it are `FUN_0041c418`, `FUN_0041cf18`, `FUN_0041d60c`,
+`FUN_0041d7d0`, `FUN_0041d9cc`, `FUN_0041daac` and `FUN_0041e224`, which also drive `mech+0x96`
+from a per-state flag table at `mech+0x92`.
 
 ## Also outstanding, lower priority
 
@@ -65,8 +77,7 @@ Readers found (`Mech_MissileAmmoCount`, `FUN_0041f358`), no writer traced.
   the component side are decoded; the mount manager's own destroy path is not.
 - **The explosive blast sweep** (`FUN_00426a20`, mech vtable `+0x70`). Its absence is why
   `SplashFactor`'s share of a direct-fire hit is dropped rather than diverted, why plasma does not
-  splash, and why a destroyed weapon mount cannot explode. Every retail beam states a zero
-  `SplashFactor`, so nothing is lost today. Fully decoded in
+  splash, and why a destroyed weapon mount cannot explode. Fully decoded in
   [`../simulation/damage-system.md`](../simulation/damage-system.md).
 - **Effect light sources.** An `EXPLOS.DAT` row's `LightMode` and its twelve-frame intensity ramp
   drive a light object the engine does not have. Wants whatever lighting model replaces the

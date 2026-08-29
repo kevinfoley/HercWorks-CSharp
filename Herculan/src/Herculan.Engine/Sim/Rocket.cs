@@ -314,7 +314,17 @@ public sealed class Rocket {
 			return;
 		}
 
-		var (bearingX, _, bearingZ) = SimTrig.EulerToward(Target.Position, Position);
+		// The emission gate. An anti-radiation round steers only while its target is emitting — its
+		// scanner or its jammer — and coasts on its current heading the moment either goes quiet.
+		// Reachable now that a target can be selected; nothing turns either emitter on yet, so in
+		// practice this subtype flies straight, which is also what it does against a silent target in
+		// the original.
+		if (MissileId == AntiRadiationSubtype
+				&& !Target.ScannerActive && !Target.JammerActive) {
+			return;
+		}
+
+		var (bearingX, _, bearingZ) = SimTrig.EulerToward(Target.AimPoint, Position);
 
 		short pitchRate = 0;
 		short yawRate = 0;

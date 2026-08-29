@@ -192,11 +192,11 @@ this list is not re-verified on every edit.
   off its widget before release fires nothing here, where the original re-hits on release; TRACK
   latches but nothing reads it; clicking a pod's row does nothing, where the original toggles the
   pod.
-- **Combat gaps** (see `docs/simulation/weapon-firing.md` and `handoff-weapon-effects.md`): nothing
-  homes, because no shot has a target to home on (no target selection); a struck weapon mount is
-  never destroyed; there is no explosive blast sweep, so a shot's `SplashFactor` share is dropped;
-  ELF/ELF2 tracers draw straight instead of taking their jagged branch. Hit detection itself is
-  complete for all three classes — see `docs/simulation/hit-detection.md`.
+- **Combat gaps** (see `docs/simulation/weapon-firing.md` and `handoff-weapon-effects.md`): AI
+  machines never select a target, so they never fire; a struck weapon mount is never destroyed;
+  there is no explosive blast sweep, so a shot's `SplashFactor` share is dropped; ELF/ELF2 tracers
+  draw straight instead of taking their jagged branch. Hit detection itself is complete for all
+  three classes — see `docs/simulation/hit-detection.md`.
 - **Field of view is still a guess** — the original's per-view focal length shift (`view+0x1a`)
   hasn't been traced.
 - **Terrain raycast: only thin-ray mode is ported.** The swept-volume mode (movement collision)

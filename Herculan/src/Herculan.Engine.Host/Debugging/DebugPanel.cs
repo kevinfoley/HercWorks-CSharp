@@ -161,6 +161,18 @@ sealed class DebugPanel {
 		}
 	}
 
+	/// <summary>
+	/// One line naming a simulation object, for the readouts. A HERC and a flyer have a type name; a
+	/// structure is only ever a table index, which is how the game names them too.
+	/// </summary>
+	private static string Describe(SimObject? simObject) => simObject switch {
+		null => "none",
+		MechObject mech => mech.Name,
+		FlyerObject flyer => flyer.Name,
+		BaseObject structure => $"base type {structure.Type.Index}",
+		var other => other.GetType().Name,
+	};
+
 	private int _projectilesLive;
 	private int _effectsLive;
 	private int _projectileImpacts;
@@ -287,6 +299,75 @@ sealed class DebugPanel {
 			pilotMech.DrainEnergyPoolForTest();
 		}
 
+		// Target selection. Nothing is drawn for it yet — the HUD target box hangs off a gunsight
+		// child that has not been traced — so this is the only place the selection is visible, and
+		// the only way to see why something is not selectable: a candidate has to be known through
+		// one of the two sensor routes before it can be picked at all (see Detection).
+		ImGui.Separator();
+		if (context.Targeting is { } targeting) {
+			ImGui.Text($"Target: {Describe(targeting.Selected)}"
+				+ "   Enter cycles, ' nearest, ; clears");
+
+			int shortlisted = targeting.Shortlist.Count(entry => entry != null);
+			ImGui.Text($"  shortlist ({shortlisted}): "
+				+ string.Join(", ", targeting.Shortlist.Where(e => e != null).Select(Describe)));
+
+			int known = 0;
+			int painted = 0;
+			SimObject? nearest = null;
+			int nearestDistance = int.MaxValue;
+
+			foreach (var candidate in context.World.Objects) {
+				if (candidate.Side == pilotMech.Side || candidate.Removed
+						|| candidate.AwaitingDeployment || candidate.TargetClass == TargetClass.None) {
+					continue;
+				}
+
+				if (pilotMech.Detects(candidate)) {
+					known++;
+				}
+
+				if (candidate.RadarVisible) {
+					painted++;
+				}
+
+				int distance = pilotMech.Position.ApproxDistanceTo(candidate.Position);
+				if (distance < nearestDistance) {
+					nearest = candidate;
+					nearestDistance = distance;
+				}
+			}
+
+			ImGui.Text($"Radar: {(pilotMech.Scanner ? "ACTIVE" : "PASSIVE")} — [R] toggles"
+				+ $"   contacts {known}, painted {painted}");
+
+			// Why nothing can be selected is the question this panel gets asked, so it answers it
+			// rather than leaving a row of zeroes: a hostile has to be a held contact or painted by
+			// somebody's radar before Enter can do anything with it.
+			if (nearest != null) {
+				string reason = pilotMech.Detects(nearest)
+						|| (nearest.RadarVisible && nearestDistance < Detection.RadarTargetingRange)
+					? "selectable"
+					: nearestDistance >= Detection.RadarTargetingRange ? "out of every sensor range"
+					: pilotMech.Scanner ? "no line of sight" : "unknown — radar is PASSIVE";
+
+				ImGui.Text($"  nearest hostile {Describe(nearest)} at "
+					+ $"{nearestDistance / WorldScale.WorldUnitsPerMeter:F0} m — {reason}");
+			} else {
+				ImGui.Text("  no hostiles in the mission");
+			}
+
+			if (pilotMech.Weapons.MissileLock.Any(l => l)) {
+				ImGui.Text("  missile lock: " + string.Join(", ",
+					pilotMech.Weapons.MissileLock
+						.Select((locked, type) => (locked, type))
+						.Where(e => e.locked)
+						.Select(e => $"type {e.type}")));
+			}
+		} else {
+			ImGui.Text("Target: no selection (mission fields no player machine)");
+		}
+
 		// The armed weapon and what it does when [Space] is held. A beam is resolved and gone inside
 		// the tick that fired it, so the tally is the only evidence one happened until the tracer
 		// exists; the mount's own three numbers are what gate the next shot.
@@ -371,11 +452,15 @@ sealed class DebugPanel {
 /// <param name="Piloting">Whether the player is flying the machine rather than the free camera.</param>
 /// <param name="ExternalView">Whether the chase camera is up rather than the cockpit.</param>
 /// <param name="PilotMech">The player's machine, or null if the mission fields none.</param>
+/// <param name="Targeting">The player's target selection, or null with no machine to select from.</param>
+/// <param name="World">The running simulation, for the sensor readouts.</param>
 /// <param name="PosedNodeCount">Geometry segments the player's model is drawn as.</param>
 /// <param name="Terrain">The zone's heightmap, for the ground-clearance readout.</param>
 readonly record struct DebugPanelContext(
 	bool Piloting,
 	bool ExternalView,
 	MechObject? PilotMech,
+	TargetSelection? Targeting,
+	SimWorld World,
 	int PosedNodeCount,
 	HeightGrid Terrain);

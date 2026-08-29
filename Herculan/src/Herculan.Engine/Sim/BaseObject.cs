@@ -114,6 +114,39 @@ public sealed class BaseObject : SimObject {
 	public override int HitRadius => Type.HitRadius;
 
 	/// <summary>
+	/// The <c>BASES.DAT</c> type indices <c>Base_Construct</c> (<c>00405314</c>) sends down its last
+	/// branch, which derives a further class and writes <see cref="Sim.TargetClass.Emplacement"/>
+	/// (<c>0x00405848</c>) where every other branch writes <see cref="Sim.TargetClass.Structure"/>.
+	/// The list is the switch's own case labels.
+	/// </summary>
+	private static readonly HashSet<int> EmplacementTypes = new() {
+		0x2d, 0x2e, 0x2f, 0x30, 0x31, 0x32, 0x33, 0x34,
+		0x37, 0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d
+	};
+
+	/// <summary>
+	/// The four type indices <c>Base_Construct</c> latches <c>obj+0x96</c> on for — structures that
+	/// are radar masts, running an active scanner for as long as they stand. They are the only
+	/// objects in a retail mission with a scanner on at spawn.
+	/// </summary>
+	private static readonly HashSet<int> ScannerTypes = new() { 5, 6, 0x1d, 0x1e };
+
+	/// <inheritdoc />
+	/// <remarks>
+	/// Six of the 65 type indices (<c>0x0a</c>, <c>0x35</c>, <c>0x36</c> and <c>0x3e</c>-<c>0x40</c>)
+	/// match no case in the original's switch, which leaves its object pointer uninitialised rather
+	/// than classifying them; they are taken as ordinary structures here.
+	/// </remarks>
+	public override TargetClass TargetClass =>
+		EmplacementTypes.Contains(Type.Index) ? TargetClass.Emplacement : TargetClass.Structure;
+
+	/// <inheritdoc />
+	public override bool ScannerActive => ScannerTypes.Contains(Type.Index);
+
+	/// <inheritdoc />
+	public override bool Neutralised => Destroyed;
+
+	/// <summary>
 	/// The structure's shape-to-world transform. A structure has no lean and no torso: its heading
 	/// is the whole of its orientation, so this is a Z rotation with its world position in the
 	/// translation.

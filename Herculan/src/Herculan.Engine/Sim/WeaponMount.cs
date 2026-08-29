@@ -189,6 +189,34 @@ public sealed class WeaponMount {
 			: (short)0;
 
 	/// <summary>
+	/// The value <c>WeaponMount_GetAmmoType</c> (<c>0040e644</c>, mount vtable <c>+0x60</c>) reports:
+	/// this mount's <c>PROJ.DAT</c> missile subtype, or <see cref="NotAMissile"/> when it fires
+	/// anything else. The energy class returns the same sentinel unconditionally
+	/// (<c>WeaponMount_GetEnergyAmmoType</c>).
+	///
+	/// <para>It is what indexes the machine's missile-lock state — see
+	/// <see cref="MechObject.MissileLocked"/>.</para>
+	/// </summary>
+	public short AmmoType => Projectile is { } record && record.Type == ProjectileType.Missile
+		? record.MissileId
+		: NotAMissile;
+
+	/// <summary>
+	/// <c>WeaponMount_GetAmmoType</c>'s "this is not a launcher" return. It is deliberately one past
+	/// the last real subtype, so it also serves as the length of every per-subtype array in the lock
+	/// system.
+	/// </summary>
+	public const short NotAMissile = 5;
+
+	/// <summary>
+	/// The round count <c>WeaponMount_GetAmmoType</c> hands back through its out parameter —
+	/// <c>mount+0x7b</c>, which for an ammunition mount is the rounds it has left. Zero for anything
+	/// that is not a launcher, so an empty rack contributes nothing to the lock system's fitment
+	/// tally.
+	/// </summary>
+	public short AmmoRounds => AmmoType == NotAMissile ? (short)0 : ChargeTarget;
+
+	/// <summary>
 	/// <c>+0x7b</c>. An ammunition mount keeps its remaining round count here; an energy mount keeps
 	/// the charge level it is asking the pool for, which doubles as its priority in the arbitration.
 	/// </summary>

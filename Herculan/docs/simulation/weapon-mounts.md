@@ -247,11 +247,9 @@ from its own `+0x40` latch. **LINK never stays lit**; the link state lives on th
 
 ## Open
 
-- **`manager+0x0a`.** `FUN_00410970` gates a missile mount's readiness on `manager[0x0a + type*2]`,
-  and the manager block is `malloc`'d rather than zeroed. Readers were found (`Mech_MissileAmmoCount`,
-  `FUN_0041f358`); no writer was found along the paths traced, which is not the
-  same as none existing. The engine leaves this gate out; it affects only a missile row's state-box
-  colour, and `Rocket_Fire`'s lock-on attach — see [`rockets.md`](rockets.md).
+- **`manager+0x0a` is solved** — it is the per-subtype missile-lock state, written every tick by
+  `Mech_PerTickSystemsUpdate`. See [`missile-lock.md`](missile-lock.md). `FUN_00410970` gates a
+  missile row's state box on it; the engine does not colour that box yet.
 - Template fields other than those named here — see
   [`../formats/weapons-dat-sim.md`](../formats/weapons-dat-sim.md).
 - **Firing** is in [`weapon-firing.md`](weapon-firing.md). All three dispatch branches are ported;

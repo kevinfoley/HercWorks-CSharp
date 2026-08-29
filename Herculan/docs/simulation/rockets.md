@@ -55,10 +55,10 @@ the same line an autocannon does.
 - **Launch speed is a literal 500** plus the machine's own travel speed (mech vtable `+0x38`). The
   record's `Speed` is not read here; it is the ceiling the burn climbs toward.
 - **The target is captured once, at launch**, into `+0x56` — the machine's selected target at
-  `mech+0x1a4`, and only when mech vtable `+0x6c` (`Mech_MissileAmmoCount`, `004155ac`) returns nonzero. That reads the
-  mount manager's per-ammunition-type counter array at `manager+0x0a`, which has readers
-  (this and `WeaponMounts_MountIsReady`) and **no writer found on any traced path**. The one bypass:
-  a machine that is *not* locally simulated firing subtype 3 skips the gate outright, so an AI's
+  `mech+0x1a4`, and only when mech vtable `+0x6c` (`Mech_MissileAmmoCount`, `004155ac`) returns
+  nonzero. **That is not an ammunition count**, despite the name: it reads `manager+0x0a[subtype]`,
+  the per-subtype *lock* flags — see [`missile-lock.md`](missile-lock.md). The one bypass: a machine
+  that is *not* locally simulated firing subtype 3 skips the gate outright, so an AI's
   electro-optical missile always locks. A lock also asks the target for a node handle
   (target vtable `+0x54`) into `+0x5a`, which is the point the seeker steers at.
 - Plays `record[+0x0c] + 10`.
@@ -156,9 +156,10 @@ one: a rocket is entirely ramp-coloured `TSSolidPoly`/`TSShadedPoly` geometry.
 `Sim.Rocket`, `Sim.RocketCatalog`, `SimWorld.{FireRocket, RocketsInFlight}`,
 `SceneModelLibrary.Rocket`, `MissionScene.RocketModels`. Deviations:
 
-- **Nothing homes**, for the two stacked reasons above: there is no target selection, and the
-  counter array that gates a lock has no writer. The guidance is ported; the three gates are not,
-  since none of their inputs exist. Same result the original gives with nothing selected.
+- **Homing works.** The target comes from `TargetSelection`, gated on the subtype's lock flag as the
+  original gates it. The emission gate on subtype 2 is ported. Not ported: the node handle (`+0x5a`),
+  so a round steers at the target's shape centre rather than a named part; and the ECM wobble, which
+  needs `mech+0x9c` read at steer time.
 - **The player's branch is not ported.** There is no missile view to feed it, and the original's
   no-input state is destructive (it drops the target and rewrites the subtype mid-flight), so a
   player-flown round flies straight instead of sitting in a state the original only passes through.

@@ -167,8 +167,15 @@ public static class MissionLoader {
 	/// this class's doc comment for how it arrives, and <see cref="Sim.SimObject.AwaitingDeployment"/>
 	/// for what that means while it waits.
 	/// </param>
+	/// <param name="Side">
+	/// The record's <c>0x6e</c> — <c>ScriptEntity164Export.TriStateFlag</c>, which lands at the
+	/// in-memory group record's <c>+0x12</c> (<c>DBSim_BuildGroupRecord</c>, <c>00423b34</c>:
+	/// <c>group[+0x12] = record[0x6e]</c>). Anything other than 1 is taken as human, which is what
+	/// every comparison in the simulation amounts to — the sweep in <c>Detection</c> is the only
+	/// place that tests for a literal value, and it tests for Cybrid.
+	/// </param>
 	private readonly record struct Group(int Index, MissionUnitKind Kind, Vec3i Position, int Heading,
-		int FormationId, bool AwaitsDeployment);
+		int FormationId, bool AwaitsDeployment, MissionSide Side);
 
 	/// <summary>
 	/// A roster slot's claim: which group activated it, and the slot's index within that group's
@@ -195,7 +202,10 @@ public static class MissionLoader {
 				position,
 				Heading(script, record.RefRow7) ?? RouteBearing(route),
 				record.SmallDiscrete,
-				record.RefRow10 >= 0);
+				record.RefRow10 >= 0,
+				record.TriStateFlag == (short)MissionSide.Cybrid
+					? MissionSide.Cybrid
+					: MissionSide.Human);
 		}
 
 		return groups;
@@ -297,7 +307,8 @@ public static class MissionLoader {
 				Heading(script, record.HeadingRef) ?? group.Heading,
 				record.WeaponRefs,
 				record.WeaponSecondary,
-				AwaitingDeployment: group.AwaitsDeployment));
+				AwaitingDeployment: group.AwaitsDeployment,
+				Side: group.Side));
 		}
 
 		var flyerClaims = claims[MissionUnitKind.Flyer];
@@ -318,7 +329,8 @@ public static class MissionLoader {
 				Heading(script, record.HeadingRef) ?? group.Heading,
 				Array.Empty<short>(),
 				Array.Empty<short>(),
-				AwaitingDeployment: group.AwaitsDeployment));
+				AwaitingDeployment: group.AwaitsDeployment,
+				Side: group.Side));
 		}
 
 		var baseClaims = claims[MissionUnitKind.Base];
@@ -342,7 +354,8 @@ public static class MissionLoader {
 				Heading(script, record.HeadingRef) ?? group.Heading,
 				Array.Empty<short>(),
 				Array.Empty<short>(),
-				AwaitingDeployment: group.AwaitsDeployment));
+				AwaitingDeployment: group.AwaitsDeployment,
+				Side: group.Side));
 		}
 	}
 
@@ -425,7 +438,8 @@ public static class MissionLoader {
 				entry.WeaponRefs,
 				entry.WeaponAmmoTypes,
 				IsPlayerLance: true,
-				AwaitingDeployment: spawn.AwaitsDeployment);
+				AwaitingDeployment: spawn.AwaitsDeployment,
+				Side: spawn.Side);
 
 			placements.Add(placement);
 			if (i == lance.PlayerEntryIndex) {

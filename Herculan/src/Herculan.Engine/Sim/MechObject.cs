@@ -141,6 +141,87 @@ public sealed partial class MechObject : SimObject {
 	/// <summary>Whether this is the machine the player pilots. Only it slides on steep ground.</summary>
 	public bool IsPlayer { get; set; }
 
+	/// <inheritdoc />
+	public override bool LocallyPiloted => IsPlayer;
+
+	/// <inheritdoc />
+	/// <remarks><c>Mech_Constructor</c> (<c>00415bb0</c>) writes 0 at <c>0x00415d35</c>.</remarks>
+	public override TargetClass TargetClass => TargetClass.Herc;
+
+	/// <inheritdoc />
+	/// <remarks>
+	/// <c>FUN_00417b98</c>, the mech vtable <c>+0x24</c>: it pushes the <b>type record's <c>+0x0c</c></b>
+	/// as a shape part id — <c>.DAT</c> file offset 10, <see cref="MechTypeRecord.CameraBoneId"/>, the
+	/// same node the cockpit eye rides — resolves it to that node's transform, and the callers put its
+	/// translation through the machine's own rotation. So a HERC is aimed at from its cockpit, which
+	/// walks and leans with it, and not from the ground point its model origin sits on.
+	///
+	/// <para>A machine with no shape falls back to the origin, which is the original's own branch for
+	/// a part the shape does not have.</para>
+	/// </remarks>
+	public override Vec3i AimPoint {
+		get {
+			var node = CameraNodeTransform;
+			return new Vec3i(node.X, node.Y, node.Z);
+		}
+	}
+
+	/// <inheritdoc />
+	/// <remarks>The same node's <i>model-space</i> Z, which is the <c>+0x1c</c> the sweep reads.</remarks>
+	public override int SightHeight =>
+		Shape is { } shape && Animation?.TransformIdOfPart(Type.CameraBoneId) is { } node && node >= 0
+			? shape.NodeTransform(node).Z
+			: Detection.DefaultSightHeight;
+
+	/// <inheritdoc />
+	/// <remarks>
+	/// Both halves of the original's pair, which for a HERC are two different things: destroyed, or
+	/// merely unable to walk. Losing the legs takes a machine off the target list.
+	/// </remarks>
+	public override bool Neutralised => Destroyed || Immobilised;
+
+	/// <inheritdoc />
+	/// <remarks>Mech vtable <c>+0x3c</c> (<c>FUN_00415488</c>), which returns <c>mech+0x298</c>.</remarks>
+	public override short AimTwist => TorsoTwistAngle;
+
+	/// <summary>
+	/// <c>mech+0x96</c> — the radar mode: false is PASSIVE, true is ACTIVE. <b>A HERC powers up
+	/// passive</b>; nothing in the original writes this field at construction and only the toggle
+	/// below ever sets it for a player.
+	///
+	/// <para>It does two things at once, which is the trade the mode is: an active scanner lets this
+	/// machine paint contacts out to <see cref="Detection.RadarTargetingRange"/> instead of relying
+	/// on line of sight inside visual range, and it makes this machine visible to everything else at
+	/// the same range — and it is one of the two emissions an anti-radiation missile homes on.</para>
+	/// </summary>
+	public bool Scanner { get; private set; }
+
+	/// <summary>
+	/// <c>FUN_0041b468</c> — the manual's [R], and the F4 scanner screen's PASS/ACTIVE button pair,
+	/// which both reach the same place. <b>Only the machine the player is flying toggles</b>: the
+	/// original gates the flip on <c>mech+0xa3</c> and then repaints the console lights for whatever
+	/// the mode now is, so calling it on an AI machine only refreshes the display.
+	///
+	/// <para>The two console lights and the mode-change tone are not ported.</para>
+	/// </summary>
+	public void ToggleScanner() {
+		if (LocallyPiloted) {
+			Scanner = !Scanner;
+		}
+	}
+
+	/// <inheritdoc />
+	public override bool ScannerActive => Scanner;
+
+	/// <summary>
+	/// <c>mech+0xa1</c> — this machine's jammer. Nothing toggles it yet either; see
+	/// <see cref="SimObject.JammerActive"/> for why it is declared.
+	/// </summary>
+	public bool Jammer { get; set; }
+
+	/// <inheritdoc />
+	public override bool JammerActive => Jammer;
+
 	/// <summary>This tick's pilot input. The host writes it before the world ticks.</summary>
 	public MechControls Controls { get; set; } = MechControls.Neutral;
 

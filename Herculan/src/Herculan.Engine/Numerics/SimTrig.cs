@@ -166,14 +166,23 @@ public static class SimTrig {
 		int dy = from.Y - to.Y;
 		int dz = from.Z - to.Z;
 
-		short yaw = (short)(Atan2Guarded(dx, dy) - BinaryAngle.QuarterTurn);
-		short pitch = (short)Atan2Guarded(SimMath.FastMagnitude2D(dx, dy), dz);
+		// Both components go through FUN_00492800, whose first argument is the x of the atan2 and its
+		// second the y — so the yaw is atan2(dy, dx) and the pitch is atan2(dz, groundDistance), an
+		// elevation above the horizon. Passing these the other way round is not a sign error that
+		// mostly works: it mirrors the bearing about the 45-degree line, and it turns a level target
+		// into a quarter turn of pitch.
+		short yaw = (short)(Atan2Guarded(dy, dx) - BinaryAngle.QuarterTurn);
+		short pitch = (short)Atan2Guarded(dz, SimMath.FastMagnitude2D(dx, dy));
 		return (pitch, 0, yaw);
 	}
 
 	/// <summary>
 	/// <c>FUN_00492800</c>: <see cref="Atan2"/> with the degenerate pair nudged onto the axis rather
 	/// than left at the origin, so a shot sitting exactly on its target still has a bearing.
+	///
+	/// <para>The nudge lands on <paramref name="x"/>, which is the original's own choice — it takes
+	/// its arguments as <c>(x, y)</c> and sets the <i>first</i> to 1 when both are zero, so a
+	/// coincident pair reads as a bearing along +x rather than +y.</para>
 	/// </summary>
-	public static int Atan2Guarded(int y, int x) => Atan2(y == 0 && x == 0 ? 1 : y, x);
+	public static int Atan2Guarded(int y, int x) => Atan2(y, y == 0 && x == 0 ? 1 : x);
 }

@@ -53,6 +53,10 @@ public sealed class MissionScene {
 		TerrainMesh = terrainMesh;
 		Theater = theater;
 		TerrainBank = terrainBank;
+
+		if (playerObject?.Object is MechObject pilot) {
+			Targeting = new TargetSelection(world, pilot);
+		}
 	}
 
 	/// <summary>How far this zone is visible and what it fades into — see <see cref="Scene.Atmosphere"/>.</summary>
@@ -78,6 +82,14 @@ public sealed class MissionScene {
 
 	/// <summary>The player's HERC, or null when there is no player or it has no mech model.</summary>
 	public MechObject? PlayerMech => PlayerObject?.Object as MechObject;
+
+	/// <summary>
+	/// The player's target selection, or null with no player machine to select from — see
+	/// <see cref="TargetSelection"/> for why it is a peer of the machine rather than part of it. It
+	/// lives on the scene because the original's does too: it belongs to the cockpit, which is built
+	/// once per mission alongside everything else here.
+	/// </summary>
+	public TargetSelection? Targeting { get; private set; }
 
 	/// <summary>The distinct models the scene draws with — upload each of these once.</summary>
 	public IReadOnlyList<SceneModel> Models { get; }
@@ -309,6 +321,7 @@ public sealed class MissionScene {
 		simObject.Position = placement.Position;
 		simObject.Heading = placement.Heading;
 		simObject.AwaitingDeployment = placement.AwaitingDeployment;
+		simObject.Side = placement.Side;
 
 		// The original's hover-height substitution, applied at spawn because that is where it
 		// happens in FUN_00421ee8 — see FlyerObject.DefaultHoverHeight.

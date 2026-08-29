@@ -433,8 +433,8 @@
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "Mech_MissileAmmoCount",
-      "description": "Mech vtable +0x6c: returns the weapon-mount manager's per-ammunition-type counter, manager[0x0a + missileId*2]. Rocket_Fire will not attach a lock-on target when it reads zero, and WeaponMounts_MountIsReady gates a missile row's ready box on the same array. No writer for that array found on any traced path.",
+      "name": "Mech_MissileLockState",
+      "description": "Mech vtable +0x6c: returns manager[0x0a + missileId*2], the per-missile-subtype LOCK flag -- NOT an ammunition count, despite this slot's former name Mech_MissileAmmoCount. Written every tick for every mech by Mech_PerTickSystemsUpdate, which clears all five and sets the ones whose range-derived countdown expired. Rocket_Fire will not attach a target without it; WeaponMounts_MountIsReady gates a missile row's ready box on it. The real per-subtype round count is FUN_0040fbdc's separate local array.",
       "source": "docs/simulation/rockets.md 2026-08-27"
     },
     {
@@ -2769,7 +2769,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Math_EulerToward",
-      "description": "Math_EulerToward(out, from, to): euler[2] = atan2(dx, dy) - 0x4000, euler[1] = 0, euler[0] = atan2(FastMagnitude2D(dx, dy), dz), where d = from - to. The quarter-turn subtraction is because the simulation's forward axis is model Y. FUN_00492800 is atan2 with the degenerate (0,0) pair nudged onto the axis.",
+      "description": "Math_EulerToward(out, from, to), d = from - to: euler[2] = Math_Atan2Guarded(dx, dy) - 0x4000, euler[1] = 0, euler[0] = Math_Atan2Guarded(FastMagnitude2D(dx, dy), dz). Math_Atan2Guarded takes (x, y), so euler[2] is the ground bearing and euler[0] is an ELEVATION above the horizon, not a polar angle from +Z. The quarter-turn subtraction is because the simulation's forward axis is model Y. Same helper and same argument order as Math_HeadingToward.",
       "source": "docs/simulation/projectiles.md 2026-08-25"
     },
     {
@@ -6130,6 +6130,159 @@
       "name": "Math_RandomBelow",
       "description": "A draw in [0, bound): (Math_RandomNext() & 0x7fff) % bound. The mask drops the sign bit rather than taking an absolute value, so the distribution is the low fifteen bits'. Used by Component_SpillIntoDependents' weighted pick.",
       "source": "docs/simulation/damage-system.md 2026-08-28"
+    },
+    {
+      "address": "004332dc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TargetSelect_SetObject",
+      "description": "Cockpit target selection, on the widget tree (its +0x210 is the selection): selects one named object, or clears when passed 0. Reached by the ; key (scancode 0x27), the F4 scanner's TARGET button and a gunsight click. Walks +0x210 through the live-object list from the cursor at +0x214/+0x218 until it lands on the object asked for and it passes TargetSelect_CanTarget and TargetSelect_InForwardCone, so a request for something unselectable wraps back to where it started.",
+      "source": "docs/simulation/target-selection.md 2026-08-29"
+    },
+    {
+      "address": "004333c8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TargetSelect_Nearest",
+      "description": "The manual's Nearest Target, the apostrophe key (scancode 0x28) via Sim_DispatchCommand. Nearest selectable object by 3D range, considering only target classes 0 (HERC) and 2 (flyer) -- structures are excluded -- and applying no cone test at all, so it reaches something behind the machine.",
+      "source": "docs/simulation/target-selection.md 2026-08-29"
+    },
+    {
+      "address": "0043349c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TargetSelect_Cycle",
+      "description": "The manual's Select Target, [Enter] (scancode 0x1c) via CockpitWidgets_HandleCommand. Files every selectable object inside the forward cone into one of four buckets by bearing error (abs(err) >> 10, clamped to 3), sorted by range within a bucket keeping four, flattens them into the 4-entry shortlist at DAT_004d0490 and takes its head; a repeat press whose head is unchanged steps to the entry after the current selection. The angular-size correction it computes is multiplied by a literal PUSH 0x0 at 004335d0 and is therefore always zero.",
+      "source": "docs/simulation/target-selection.md 2026-08-29"
+    },
+    {
+      "address": "00433174",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TargetSelect_CanTarget",
+      "description": "Whether an object may be selected: alive (+0x99 and +0xa4 clear), on the other side (group+0x12), and known by either sensor route -- radar-visible (+0x95) within DAT_004d1cfc (200000, the last of the scanner's three ranges, read directly rather than the current setting), or a contact the viewer holds (viewer+0xc2+obj[0x4b]) within FUN_00426aec (30000 short / 60000 long).",
+      "source": "docs/simulation/target-selection.md 2026-08-29"
+    },
+    {
+      "address": "00433250",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TargetSelect_InForwardCone",
+      "description": "Bearing to the candidate less the machine's heading PLUS its turret twist (vtable +0x3c), accepted within +/-8999 -- just under 50 degrees each side. Wider cousin of the +/-0x3000 gate the missile-lock block uses. The twist sign is the original's; Mech_PerTickSystemsUpdate and the sensor sweep fold it the same way.",
+      "source": "docs/simulation/target-selection.md 2026-08-29"
+    },
+    {
+      "address": "004123ac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sim_DetectionTick",
+      "description": "The whole sensor model for one tick, from Sim_MainTick after every object update and the input poll. Three passes: tick each object's LOS-cache (+0x1e2) and contact-decay (+0x1e5) timers, running Detection_DecayContacts on expiry; run Detection_Sweep for each live human-side object, holding the locally-piloted machine (+0xa3) back to sweep LAST so squadmates' contacts reach it first; clear the per-tick action latch +0xa2.",
+      "source": "docs/simulation/target-selection.md 2026-08-29"
+    },
+    {
+      "address": "004128f8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Detection_Sweep",
+      "description": "One human-side object's look around, over Cybrid objects only -- but it writes both objects' tables, so a Cybrid learns without ever sweeping. Radar painting within 200000 when either object emits and not both are painted, with 140000 the range at which a scanner paints something not emitting back. Looking runs only within 80000: a pair that already knows each other is skipped, otherwise each object's +/-0x3800 sensor arc (vtable +0x44) plus LOS makes the contact -- shared to the spotter's side by Detection_ShareContact, or kept private when the spotter is the player's machine.",
+      "source": "docs/simulation/target-selection.md 2026-08-29"
+    },
+    {
+      "address": "00412704",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Detection_ShareContact",
+      "description": "Passes a new contact to every object on the spotter's own side within 100000 units, the spotter included, and sets the contact's +0x9e engagement flag inside 50000. Nothing is shared to the other side and a same-side pair is not a contact at all.",
+      "source": "docs/simulation/target-selection.md 2026-08-29"
+    },
+    {
+      "address": "0041251c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Detection_DecayContacts",
+      "description": "Clears the object's own radar visibility (+0x95) then drops every enemy contact it holds that is past 100001 units or has no line of sight, mutually. The range here is measured on the GROUND PLANE only (Math_FastMagnitude2D) where every other range in the sensor model is the 3D approximation, so a flyer directly overhead stays a contact.",
+      "source": "docs/simulation/target-selection.md 2026-08-29"
+    },
+    {
+      "address": "00412608",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Detection_LineOfSight",
+      "description": "Terrain ray between two objects' shape bounding-box centres (vtable +0x24 then +0x1c, or 500 with no shape record), cached per pair in the caller's row table at +0x132. The cache gate tests the OTHER object's countdown at +0x1e3 and reloads the CALLER's -- verified in raw disassembly at 00412617 and 0041263f, so it is the original's own asymmetry and not a decompiler slip. Only human-side objects sweep, so Cybrid timers stay zero and those pairs are re-walked whenever asked.",
+      "source": "docs/simulation/target-selection.md 2026-08-29"
+    },
+    {
+      "address": "00411acc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_BearingInSensorArc",
+      "description": "Mech vtable +0x44: (bearing - obj+0x10 + 0x3800) < 0x7000 unsigned, so +/-78.75 degrees about the object's heading. Callers fold the aim twist into the bearing before calling.",
+      "source": "docs/simulation/target-selection.md 2026-08-29"
+    },
+    {
+      "address": "0041b468",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_ToggleRadarMode",
+      "description": "The manual's [R] and the F4 scanner's PASS/ACTIVE buttons: flips mech+0x96 between PASSIVE and ACTIVE, gated on +0xa3 so only the locally-piloted machine toggles, then repaints the two console lights (0x2c/0x2d) and plays the mode tone. A HERC powers up PASSIVE -- nothing writes +0x96 at construction and this is its only caller. Base_Construct latches it on for structure types 5, 6, 0x1d and 0x1e, the radar masts.",
+      "source": "docs/simulation/target-selection.md 2026-08-29"
+    },
+    {
+      "address": "0040fbdc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMounts_RoundsByMissileType",
+      "description": "Fills a 5-entry short array with rounds carried per PROJ.DAT missile subtype, by walking the mount array calling each mount's vtable +0x60 (WeaponMount_GetAmmoType) and accumulating its out-parameter (mount+0x7b) into rounds[subtype], skipping the 5 sentinel. THIS is the ammunition count; manager+0x0a is the lock state. Mech_PerTickSystemsUpdate uses it to decide which lock timers run.",
+      "source": "docs/simulation/missile-lock.md 2026-08-29"
+    },
+    {
+      "address": "0041b0bc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_LockTonePlay",
+      "description": "Turns mech+0x9b (lock acquired) into the cockpit lock tone: FUN_0046272c(0x15) on a 0x40-coarse-tick blink cadence while set, 0x14 when clear but the target just changed (+0x9d), 0x16 once on loss. Called from the tail of Mech_PerTickSystemsUpdate for the locally-piloted machine only.",
+      "source": "docs/simulation/missile-lock.md 2026-08-29"
+    },
+    {
+      "address": "00492800",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_Atan2Guarded",
+      "description": "atan2 as a BAM angle, with the degenerate pair nudged onto an axis. ARGUMENT ORDER IS (x, y), NOT (y, x): it forwards to FUN_004929bc(p1, p2) and sets p1 -- the X -- to 1 when both are zero. Both Math_HeadingToward and Math_EulerToward call it as (dx, dy). Getting this backwards mirrors a bearing about the 45-degree line and turns an elevation into a polar angle from +Z; it cost the engine port a real bug, so state the order rather than writing 'atan2(dx, dy)'.",
+      "source": "docs/simulation/target-selection.md 2026-08-29"
+    },
+    {
+      "address": "00417b98",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_GetAimNodeTransform",
+      "description": "Mech vtable +0x24: resolves the type record's +0x0c (.DAT file offset 10, CameraBoneId -- the node the cockpit eye rides) through the shape's part lookup (shape vtable +0x20) and returns that node's 0x20-byte transform record at shapeInstance+0x16 + index*0x20, or the zeroed DAT_006c572c when the shape has no such part. Callers take its +0x14 translation as the point to aim at and its +0x1c as a sight height. This is what makes both guidance routines and the HUD target indicator aim at a HERC's cockpit rather than the ground point its model origin sits on.",
+      "source": "docs/simulation/target-selection.md 2026-08-29"
+    },
+    {
+      "address": "00411a9c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_GetAimNodeTransform_None",
+      "description": "Vtable +0x24 on both the flyer and structure classes: return 0. Every caller's null branch falls back to the object's raw origin for aiming and to a literal 500 for sight height, so only a mech has an aim node. The mech's own is Mech_GetAimNodeTransform.",
+      "source": "docs/simulation/target-selection.md 2026-08-29"
     }
   ]
 }

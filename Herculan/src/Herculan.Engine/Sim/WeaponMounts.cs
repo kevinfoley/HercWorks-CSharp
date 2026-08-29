@@ -72,6 +72,62 @@ public sealed class WeaponMounts {
 	public bool AutoTrack { get; set; }
 
 	/// <summary>
+	/// <c>manager+0x0a</c> — one flag per missile subtype: <b>has this class of launcher achieved
+	/// lock on the machine's current target</b>. Five entries, indexed by
+	/// <see cref="WeaponMount.AmmoType"/>.
+	///
+	/// <para>Read by <c>Mech_MissileAmmoCount</c> (mech vtable <c>+0x6c</c>) — a name this port keeps
+	/// only because it is what the symbol table calls it; it counts nothing. <c>Rocket_Fire</c> uses
+	/// it to decide whether the round it is launching gets a target attached, and
+	/// <c>WeaponMounts_MountIsReady</c> uses it to light a missile row's ready box.</para>
+	///
+	/// <para>Written by <see cref="MechObject.MissileLockTick"/>, which clears all five at the top of
+	/// every tick for every machine and sets the ones whose lock timer has run out. Nothing else
+	/// touches it.</para>
+	/// </summary>
+	public IReadOnlyList<bool> MissileLock => _missileLock;
+
+	private readonly bool[] _missileLock = new bool[WeaponMount.NotAMissile];
+
+	/// <summary>Clears every lock flag — the first thing <see cref="MechObject.MissileLockTick"/> does.</summary>
+	internal void ClearMissileLock() => Array.Clear(_missileLock);
+
+	/// <summary>Latches lock for one missile subtype.</summary>
+	internal void SetMissileLock(int missileType) {
+		if (missileType >= 0 && missileType < _missileLock.Length) {
+			_missileLock[missileType] = true;
+		}
+	}
+
+	/// <summary>Whether the given missile subtype currently holds lock.</summary>
+	public bool Locked(int missileType) =>
+		missileType >= 0 && missileType < _missileLock.Length && _missileLock[missileType];
+
+	/// <summary>Whether any missile subtype holds lock — what a non-launcher's ready lamp reads.</summary>
+	public bool AnyLocked => _missileLock.Any(locked => locked);
+
+	/// <summary>
+	/// <c>FUN_0040fbdc</c> — rounds carried, totalled per missile subtype across every fitted mount.
+	/// A mount that is not a launcher reports <see cref="WeaponMount.NotAMissile"/> and is skipped, so
+	/// an entry is non-zero only where the machine actually has that class of missile <i>and has
+	/// rounds left for it</i>. That is what decides which lock timers run at all.
+	/// </summary>
+	/// <param name="rounds">
+	/// Filled with one total per subtype; must be at least <see cref="WeaponMount.NotAMissile"/> long.
+	/// Zeroed first, as the original's own <c>memset</c> does.
+	/// </param>
+	public void RoundsByMissileType(short[] rounds) {
+		Array.Clear(rounds);
+
+		foreach (var mount in Mounts) {
+			short type = mount.AmmoType;
+			if (type != WeaponMount.NotAMissile && type >= 0 && type < rounds.Length) {
+				rounds[type] += mount.AmmoRounds;
+			}
+		}
+	}
+
+	/// <summary>
 	/// Whether cockpit weapon row <paramref name="mountIndex"/> draws as armed. The armed mount does,
 	/// and so does the other half of a linked pair when its partner is the armed one — which is what
 	/// makes linking visible: both rows light together. <c>FUN_00410b40</c> computes exactly this and

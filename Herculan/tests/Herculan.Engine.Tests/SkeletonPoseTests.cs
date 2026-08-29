@@ -18,13 +18,15 @@ namespace Herculan.Engine.Tests;
 [Collection(SimTimestepCollection.Name)]
 public class SkeletonPoseTests {
 	/// <summary>
-	/// The camera joint and <see cref="MechObject.EyePosition"/> are the same point, exactly. This is
-	/// the load-bearing one: it is what makes the drawn skeleton evidence about the cockpit view
-	/// rather than a second, independently-wrong sampling of the animation.
+	/// The camera joint and <see cref="MechObject.CameraNodeTransform"/> are the same point, exactly.
+	/// This is the load-bearing one: it is what makes the drawn skeleton evidence about the cockpit
+	/// view rather than a second, independently-wrong sampling of the animation. The eye itself sits
+	/// off that joint by the type's own offset — see <see cref="MechObject.EyeTransform"/> — so it is
+	/// the joint the two samplings have to agree on, not the eye.
 	/// </summary>
 	[Theory]
 	[MemberData(nameof(MechLocomotionTests.Hercs), MemberType = typeof(MechLocomotionTests))]
-	public void TheCameraJointIsExactlyTheEye(string herc) {
+	public void TheCameraJointIsExactlyTheCameraNode(string herc) {
 		if (Content() is not { } content || Spawn(content, herc) is not { } mech) {
 			return;
 		}
@@ -43,7 +45,8 @@ public class SkeletonPoseTests {
 		}
 
 		var joints = SkeletonPose.Build(mech);
-		Assert.Equal(mech.EyePosition, joints[cameraNode].World);
+		var node = mech.CameraNodeTransform;
+		Assert.Equal(new Vec3i(node.X, node.Y, node.Z), joints[cameraNode].World);
 	}
 
 	/// <summary>

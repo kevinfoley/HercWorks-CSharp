@@ -79,6 +79,23 @@ public readonly record struct MechControls(short Turn, short Throttle, int Throt
 	/// <summary>Full stick deflection, in either direction.</summary>
 	public const short AxisFull = 0x100;
 
+	/// <summary>
+	/// What a held direction key is worth — <b>half</b> a stick's full deflection, not all of it.
+	///
+	/// <para>DBSIM's own constant. <c>FUN_0045a4b0</c> builds the keyboard's two axis pairs by
+	/// accumulating <c>direction * 0x80</c> per held key, where the direction pair is the ±1
+	/// components the key binding carries, so a cardinal key reaches <c>0x80</c> on its axis and
+	/// nothing reaches <c>0x100</c>. The joystick hat is a third value again (<c>0xc0</c>); only an
+	/// analogue stick spans the full range.</para>
+	///
+	/// <para>It is load-bearing for steering, because the turn rate is
+	/// <c>Q8(tentRate, axis)</c> — <b>linear</b> in the axis. At <see cref="AxisFull"/> a keyboard
+	/// pilot turns exactly twice as fast as retail. It also halves how quickly the throttle ramps
+	/// (<c>Q8(0x91, -axis)</c> per tick, so about 14 ticks to the stop rather than 7) and how fast
+	/// the turret sweeps, without changing top speed, which the throttle reaches either way.</para>
+	/// </summary>
+	public const short KeyboardAxis = 0x80;
+
 	/// <summary>Hands off the controls.</summary>
 	public static MechControls Neutral => new(0, 0);
 }

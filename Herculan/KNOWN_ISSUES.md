@@ -9,6 +9,7 @@ _Bugs listed in this section were tested on Windows 11. It's possible that some 
 - The "center legs" function moves the turret awkwardly and does not center the legs perfectly.
 - Herc stats shown in the "Build" screen may be incorrect (the Outlaw is listed as having a top speed of 80 kph, but the manual and in-game readout show 100 kph).
 - Some buildings' collision volumes are shorter than the visible mesh, so shots pass through the top of the building (verified against the retail data: type 3 stops at 2225 against a 6756 mesh, type 22 at 9400 against 18300). Reproduced as-is.
+- Turning with the keyboard turns at half of the speed of turning with the joystick.
 
 ## HERCULAN Engine
 

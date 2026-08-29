@@ -206,6 +206,10 @@ if (cockpitArt != null) {
 var viewGeometry = cockpitArt?.ViewGeometry;
 var cockpitPan = new CockpitPan(
 	viewGeometry?.HeadsDownTravelY ?? CockpitViewGeometry.DefaultHeadsDownOriginY);
+
+// The step kick. It rides the projection centre alongside the pan, which is where the original puts
+// it too — see CockpitViewKick.
+var cockpitViewKick = new CockpitViewKick();
 if (startOnHeadsDown) {
 	cockpitPan.Request(headsDown: true);
 	cockpitPan.Advance(CockpitPan.DurationSeconds);
@@ -635,9 +639,11 @@ window.Update += deltaSeconds => {
 		// [\] is the other half of that pair, Center Body: it walks the legs round under the turret
 		// instead of bringing the turret back, taking the steering and the twist axis until they line
 		// up. It latches on the keypress, and [Backspace] cancels it.
+		// A held key is worth MechControls.KeyboardAxis, half a stick's travel — DBSIM's own keyboard
+		// scale, and the difference between turning at the machine's rate and at twice it.
 		pilotMech.Controls = new MechControls(
-			(short)(Axis(controls, Key.Right, Key.Left, Key.Keypad6, Key.Keypad4) * MechControls.AxisFull),
-			(short)(Axis(controls, Key.Down, Key.Up, Key.Keypad2, Key.Keypad8) * MechControls.AxisFull),
+			(short)(Axis(controls, Key.Right, Key.Left, Key.Keypad6, Key.Keypad4) * MechControls.KeyboardAxis),
+			(short)(Axis(controls, Key.Down, Key.Up, Key.Keypad2, Key.Keypad8) * MechControls.KeyboardAxis),
 			ThrottleLever: 0,
 			TorsoTwist: TurretAxis(Axis(controls, Key.K, Key.J), heldTwist),
 			TorsoPitch: TurretAxis(Axis(controls, Key.I, Key.M), heldPitch),
@@ -748,6 +754,13 @@ window.Update += deltaSeconds => {
 	RefreshSpriteBatches();
 
 	if (piloting && pilotMech != null) {
+		// The kick is the pilot's own, so it runs only from inside the cockpit.
+		if (externalView) {
+			cockpitViewKick.Reset();
+		} else {
+			cockpitViewKick.Update(deltaSeconds, pilotMech.Footfalls);
+		}
+
 		if (externalView) {
 			// Fixed chase view, ~10 m behind the machine. Placeholder geometry — see ExternalCamera.
 			ExternalCamera.Place(camera, pilotMech, terrain);
@@ -766,13 +779,17 @@ window.Update += deltaSeconds => {
 
 			// Orientation comes off the eye node too, not off the machine's heading: the camera node
 			// hangs below the two nodes the torso sequences drive, so twisting and pitching the turret
-			// turns the view without anything here having to add the angles in. On a walking machine
-			// with the turret centred this is exactly the old heading-only camera — the walk cycle
-			// moves the eye but does not rotate it, measured at zero swing across the fleet.
+			// turns the view without anything here having to add the angles in.
+			//
+			// All three angles are taken, roll included, which is what the cockpit branch of
+			// FUN_004011a0 does: it converts the pilot node's world matrix with FUN_0047f894 and
+			// stores the whole triple in the view. A walking machine's node barely rotates, but one
+			// turning on the spot rolls it several degrees a step — the rock through a turn-in-place.
 			var look = eyeFrame.ToEuler();
 			camera.Position = eye;
 			camera.Yaw = -look.Z & 0xffff;
 			camera.Pitch = look.X;
+			camera.Roll = look.Y;
 		}
 
 		// Keep the observer camera on the machine, so switching to it lands where the player was
@@ -973,7 +990,11 @@ Vector2 PanelPrincipalPoint(CockpitScreenLayout.PlacedSurface surface) {
 	var (centerX, centerY) = viewGeometry?.ProjectionCenter(CockpitViewGeometry.ForwardViewIndex)
 		?? (CockpitViewGeometry.DefaultProjectionCenterX, CockpitViewGeometry.DefaultProjectionCenterY);
 
-	var (windowX, windowY) = surface.ArtToWindow(centerX, centerY);
+	// The step kick moves the centre itself, in the art's own pixels, so it goes through the same
+	// art-to-window transform as everything else on the panel — which is how the original applies it:
+	// straight onto the projection centre, before the view is installed. Art y runs downward, so a
+	// positive kick subtracts.
+	var (windowX, windowY) = surface.ArtToWindow(centerX, centerY - cockpitViewKick.OffsetPixels);
 	var viewport = surface.Viewport;
 
 	return new Vector2(
@@ -1274,6 +1295,7 @@ static Camera ClonePanelCamera(Camera source, int yawOffset) => new() {
 	Position = source.Position,
 	Yaw = source.Yaw + yawOffset,
 	Pitch = source.Pitch,
+	Roll = source.Roll,
 	FieldOfView = source.FieldOfView,
 	NearPlane = source.NearPlane,
 	FarPlane = source.FarPlane,
@@ -1382,4 +1404,4 @@ static int Axis(IKeyboard keyboard, Key positive, Key negative,
 /// a stick can.
 /// </summary>
 static short TurretAxis(int keys, short held) =>
-	keys != 0 ? (short)(keys * MechControls.AxisFull) : held;
+	keys != 0 ? (short)(keys * MechControls.KeyboardAxis) : held;

@@ -108,10 +108,14 @@ public class MechLocomotionTests {
 	}
 
 	/// <summary>
-	/// The pilot's eye rides the model node the type record names, and lands somewhere a cockpit
-	/// plausibly is: above the machine's own origin, and within the height its geometry occupies.
-	/// Every retail HERC resolves one — the chain is uniform across the fleet (camera part 5 in all
-	/// but two, through transform 11 and 4 to the body node the walk cycle animates).
+	/// The pilot's eye rides the model node the type record names, offset by the type's own eye
+	/// offset, and lands somewhere a cockpit plausibly is: high up the machine rather than at its
+	/// waist. Every retail HERC resolves a node — the chain is uniform across the fleet (camera part 5
+	/// in all but two, through transform 11 and 4 to the body node the walk cycle animates).
+	///
+	/// <para>The offset is most of the height: without it the fleet sits at 3.2-11.2 m, three of them
+	/// below 7 m, against model bounds of 10.2-15.5 m. With it they run 8.2-13.2 m, which is where a
+	/// cockpit is.</para>
 	/// </summary>
 	[Theory]
 	[MemberData(nameof(Hercs))]
@@ -123,7 +127,7 @@ public class MechLocomotionTests {
 		FlatWorld(mech);
 
 		float eye = (mech.EyePosition.Z - mech.Position.Z) / WorldScale.WorldUnitsPerMeter;
-		Assert.InRange(eye, 3f, 13f);
+		Assert.InRange(eye, 7f, 15f);
 	}
 
 	/// <summary>

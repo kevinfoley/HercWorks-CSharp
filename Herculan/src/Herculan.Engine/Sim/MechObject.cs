@@ -215,9 +215,7 @@ public sealed partial class MechObject : SimObject {
 	/// node its type record names in <see cref="MechTypeRecord.CameraBoneId"/> applied.
 	///
 	/// <para>There is no cockpit-bob code anywhere in DBSIM, and none is needed: the eye rides a
-	/// model node, the walk cycle animates that node's parent, and the bob falls out. Retail HERCs
-	/// come out between 3.2 m (STINGRAY) and 11.8 m (OGRE) at the eye, against the 6.1-10.4 m
-	/// statures the manual's own specs quote, and the walk cycle swings it 0.24-0.42 m over a stride.
+	/// model node, the walk cycle animates that node's parent, and the bob falls out.
 	/// <c>FUN_0041ef14</c> reads the same node the same way to work out where a target sits relative
 	/// to the pilot.</para>
 	///
@@ -232,16 +230,39 @@ public sealed partial class MechObject : SimObject {
 	}
 
 	/// <summary>
-	/// The pilot's whole frame in world space, orientation included — the camera node's own
-	/// transform composed with the machine's. <see cref="EyePosition"/> is its translation.
-	///
-	/// <para>The orientation is not decorative: <c>Mech_TargetRelativeToPilot</c> (<c>0041ef14</c>)
-	/// brings a target into exactly this frame to work out where the HUD should draw it, so this is
-	/// what "the direction the pilot is looking" means in DBSIM. It is also why torso twist and pitch
-	/// turn the view without anything having to add them to it — the camera node hangs off the two
-	/// nodes those sequences drive (see docs/simulation/mech-locomotion.md's chain table).</para>
+	/// The node the eye rides, in world space — the camera node's own posed transform composed with
+	/// the machine's, and nothing else. This is the frame <see cref="EyeTransform"/> is measured in.
 	/// </summary>
-	public Transform3 EyeTransform => PartTransform(Type.CameraBoneId);
+	public Transform3 CameraNodeTransform => PartTransform(Type.CameraBoneId);
+
+	/// <summary>
+	/// The pilot's whole frame in world space, orientation included: the camera node's frame with the
+	/// type's own eye offset (<see cref="MechTypeRecord.EyeOffsetY"/>) put through it.
+	/// <see cref="EyePosition"/> is its translation.
+	///
+	/// <para>The offset is the cockpit branch of <c>FUN_004011a0</c>'s own step — it takes the node's
+	/// world matrix from the mech vtable's <c>+0x24</c> accessor (<c>00417b98</c>) and calls
+	/// <c>Transform_ApplyToShortPoint</c> with the offset point the <c>+0x30</c> accessor
+	/// (<c>004155c4</c>) built out of the type record. Without it the eye sits at the node's own
+	/// origin, which on a HERC is around its waist.</para>
+	///
+	/// <para>The orientation is not decorative either: <c>Mech_TargetRelativeToPilot</c>
+	/// (<c>0041ef14</c>) brings a target into exactly this frame to work out where the HUD should
+	/// draw it, and the view takes its whole euler triple — roll included — from it. It is also why
+	/// torso twist and pitch turn the view without anything having to add them to it: the camera node
+	/// hangs off the two nodes those sequences drive (see
+	/// docs/simulation/mech-locomotion.md's chain table).</para>
+	/// </summary>
+	public Transform3 EyeTransform {
+		get {
+			var node = CameraNodeTransform;
+			var eye = node.TransformPoint(0, Type.EyeOffsetY, Type.EyeOffsetZ);
+			node.X = eye.X;
+			node.Y = eye.Y;
+			node.Z = eye.Z;
+			return node;
+		}
+	}
 
 	/// <summary>
 	/// Where one part of this machine's model has ended up in the world, orientation included: the
@@ -502,6 +523,14 @@ public sealed partial class MechObject : SimObject {
 	/// translation does not; that is the original's behaviour, not an oversight here.</para>
 	/// </summary>
 	private void MovementTick(SimWorld world) {
+		ResolveMovement(world);
+
+		// Last thing in the tick, as it is in the original — it reads the pose the move settled on.
+		PlaceLegsOnGround();
+	}
+
+	/// <summary>Everything Mech_MovementTick does before its closing Mech_PlaceLegsOnGround call.</summary>
+	private void ResolveMovement(SimWorld world) {
 		if (Thread == null) {
 			Position = new Vec3i(Position.X, Position.Y,
 				world.GroundHeightAt(Position) + Type.RideHeight);

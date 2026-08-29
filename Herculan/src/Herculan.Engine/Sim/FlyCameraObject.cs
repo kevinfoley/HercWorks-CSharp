@@ -150,6 +150,7 @@ public sealed class FlyCameraObject : SimObject {
 		camera.Position = Position;
 		camera.Yaw = Heading;
 		camera.Pitch = Pitch;
+		camera.Roll = 0;
 	}
 
 	private static int Clamp(int axis) => axis < 0 ? -1 : axis > 0 ? 1 : 0;

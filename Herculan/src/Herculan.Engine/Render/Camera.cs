@@ -20,8 +20,47 @@ public sealed class Camera {
 	/// <summary>Pitch, as a binary angle. Positive looks up.</summary>
 	public int Pitch { get; set; }
 
-	/// <summary>Vertical field of view, in radians.</summary>
-	public float FieldOfView { get; set; } = MathF.PI / 3f;
+	/// <summary>
+	/// Roll about the view axis, as a binary angle — the simulation's own euler Y, taken straight
+	/// off whatever frame the camera is riding.
+	///
+	/// <para>Not decorative. DBSIM's view carries a full euler triple (<c>view+0x10</c>,
+	/// <c>+0x12</c>, <c>+0x14</c>) and builds its view rotation from all three: the cockpit branch of
+	/// <c>FUN_004011a0</c> takes the pilot node's world matrix, converts it with
+	/// <c>FUN_0047f894</c>, and stores every angle it gets back. A HERC turning on the spot rolls
+	/// that node by several degrees each step, which is what rocks the cockpit through a
+	/// turn-in-place; dropping the angle turns the manoeuvre into a smooth yaw it is not.</para>
+	/// </summary>
+	public int Roll { get; set; }
+
+	/// <summary>
+	/// DBSIM's own focal length, in device pixels — the whole of its projection. The rasterizer
+	/// projects a view-space point as <c>screen = (v &lt;&lt; shift) / depth</c>
+	/// (<c>Raster_PerspectiveScale</c>, <c>0048c4c0</c>, reading the view's <c>+0x1a</c>), so the
+	/// shift <i>is</i> the focal length: <c>2^shift</c> pixels.
+	///
+	/// <para><c>Sim_InitMissionSession</c> (<c>004614fc</c>) picks it as 9 when the mode's canvas
+	/// width (<c>VideoMode_Configure</c>'s <c>DAT_004d25ca</c>) reaches 1201 and 8 otherwise — 8 for
+	/// the 320x240 mode's 640, 9 for the 640x480 modes' 1280. The two work out to the same angle,
+	/// which is the point: 256 pixels across a 240-row view and 512 across a 480-row one.</para>
+	/// </summary>
+	public const float FocalLengthPixels = 512f;
+
+	/// <summary>The view height that focal length belongs to, in the same device pixels.</summary>
+	public const float FocalViewHeightPixels = 480f;
+
+	/// <summary>
+	/// Vertical field of view, in radians. Defaults to the angle
+	/// <see cref="FocalLengthPixels"/> subtends over <see cref="FocalViewHeightPixels"/> — 50.2
+	/// degrees, the original's own.
+	///
+	/// <para>It is not a taste setting. The focal length decides how large everything is drawn, so a
+	/// wider view than the original's shrinks the whole world in the same proportion: at the 60
+	/// degrees this used to default to, every distance, every machine and the cockpit's own bob came
+	/// out 23% smaller than retail draws them.</para>
+	/// </summary>
+	public float FieldOfView { get; set; } =
+		2f * MathF.Atan(FocalViewHeightPixels / 2f / FocalLengthPixels);
 
 	/// <summary>
 	/// Near plane, in render units (metres). Kept well out from zero on purpose: depth precision is
@@ -56,26 +95,43 @@ public sealed class Camera {
 	/// </summary>
 	public Vector2 PrincipalPoint { get; set; } = new(0.5f, 0.5f);
 
+	/// <summary>
+	/// The camera's orientation as the simulation would hold it — the rotation
+	/// <c>BuildEulerRotationMatrixQ14</c> builds from this view's euler triple. With row vectors its
+	/// rows are the view's own axes: row 0 right, row 1 forward, row 2 up. <see cref="Yaw"/> negates
+	/// the simulation's Z angle (see <c>MissionScene.TransformOf</c>), so it goes back in negated.
+	/// </summary>
+	private Transform3 SimRotation =>
+		Transform3.FromEuler(unchecked((short)Pitch), unchecked((short)Roll), unchecked((short)-Yaw));
+
 	/// <summary>Unit forward direction in render space.</summary>
 	public Vector3 Forward {
 		get {
-			float yaw = BinaryAngle.ToRadians(Yaw);
-			float pitch = BinaryAngle.ToRadians(Pitch);
-			float cosPitch = MathF.Cos(pitch);
-
-			// Yaw 0 faces world +Y, which is render -Z (see WorldScale.ToRender).
-			return Vector3.Normalize(new Vector3(
-				MathF.Sin(yaw) * cosPitch,
-				MathF.Sin(pitch),
-				-MathF.Cos(yaw) * cosPitch));
+			var rotation = SimRotation;
+			return RenderDirection(rotation.M[2], rotation.M[3], rotation.M[5]);
 		}
 	}
+
+	/// <summary>
+	/// Unit up direction in render space. Plain world up until <see cref="Roll"/> or <see cref="Pitch"/>
+	/// tilt it.
+	/// </summary>
+	public Vector3 Up {
+		get {
+			var rotation = SimRotation;
+			return RenderDirection(rotation.M[6], rotation.M[7], rotation.M[8]);
+		}
+	}
+
+	/// <summary>A Q14 direction in simulation axes as a unit direction in render axes.</summary>
+	private static Vector3 RenderDirection(short x, short y, short z) =>
+		Vector3.Normalize(new Vector3(x, z, -y));
 
 	/// <summary>View matrix for the current position and orientation.</summary>
 	public Matrix4x4 ViewMatrix {
 		get {
 			Vector3 eye = WorldScale.ToRender(Position);
-			return Matrix4x4.CreateLookAt(eye, eye + Forward, Vector3.UnitY);
+			return Matrix4x4.CreateLookAt(eye, eye + Forward, Up);
 		}
 	}
 
@@ -115,7 +171,7 @@ public sealed class Camera {
 	/// </summary>
 	public (Vector3 Origin, Vector3 Direction) ViewportPointToRay(Vector2 ndc, float aspectRatio) {
 		Vector3 forward = Forward;
-		Vector3 right = Vector3.Normalize(Vector3.Cross(forward, Vector3.UnitY));
+		Vector3 right = Vector3.Normalize(Vector3.Cross(forward, Up));
 		Vector3 up = Vector3.Cross(right, forward);
 
 		float tanHalfFov = MathF.Tan(FieldOfView / 2f);

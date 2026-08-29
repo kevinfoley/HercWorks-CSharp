@@ -98,6 +98,23 @@ public sealed class MechTypeRecord {
 	public short CameraBoneId => Data.CameraBoneId;
 
 	/// <summary>
+	/// Record fields 98 and 100 (the exe's <c>typeRecord+0x64</c> and <c>+0x66</c>) — where the
+	/// pilot's eye sits relative to the node <see cref="CameraBoneId"/> names, in that node's own
+	/// frame and in world units. The X component is always zero: the mech vtable's <c>+0x30</c>
+	/// accessor (<c>004155c4</c>) builds the point as <c>(0, +0x64, +0x66)</c>, and the cockpit
+	/// branch of <c>FUN_004011a0</c> puts it through the node's world matrix to get the eye.
+	///
+	/// <para>The lift is the load-bearing half. Retail states 0-820 for it across the fleet, which on
+	/// OUTLAW moves the eye from 44% of the model's height to 82% — waist to cockpit. It is also what
+	/// gives the eye a lever arm on the node: the node rotates through a turn-in-place, and an eye
+	/// sitting on top of it swings where one sitting at its origin would not.</para>
+	/// </summary>
+	public short EyeOffsetY => Data.CameraYAxisAdj;
+
+	/// <inheritdoc cref="EyeOffsetY"/>
+	public short EyeOffsetZ => Data.CameraXAxisAdj;
+
+	/// <summary>
 	/// Record field 22 (the exe's <c>typeRecord+0x18</c>) — how high above the machine's origin its
 	/// hit cylinder is centred, in world units. <c>Mech_ShieldAbsorb_DirectFire</c> builds the point
 	/// it measures every direct-fire shot against as <c>(0, 0, this)</c> in the machine's own frame,
@@ -128,6 +145,37 @@ public sealed class MechTypeRecord {
 	/// two front dependent slots alone or averages them with the rear pair at slots 10 and 11.
 	/// </summary>
 	public short LegCount => Data.ModelLegsTotal;
+
+	/// <summary>
+	/// The shape part each leg's node hangs on, and the leg's kind byte — record offsets 117 and 112
+	/// read per leg. Only kind 0 walks; <c>Mech_PlaceLegsOnGround</c> skips anything else outside the
+	/// falling case. Every retail HERC states parts 14 and 15, both kind 0.
+	/// </summary>
+	public int LegPartId(int leg) =>
+		leg >= 0 && leg < Data.LegPartIds.Length ? Data.LegPartIds[leg] : -1;
+
+	/// <inheritdoc cref="LegPartId"/>
+	public int LegKind(int leg) => leg >= 0 && leg < Data.LegKinds.Length ? Data.LegKinds[leg] : -1;
+
+	/// <summary>
+	/// The fore/aft position a leg node passes through as the foot plants, per gait — see
+	/// <see cref="HercSimDat.FootfallTriggerWalk"/>. <paramref name="gait"/> is the original's own
+	/// index: 0 walking, 1 reversing, 2 running.
+	/// </summary>
+	public short FootfallTrigger(int gait) => gait switch {
+		0 => Data.FootfallTriggerWalk,
+		1 => Data.FootfallTriggerReverse,
+		2 => Data.FootfallTriggerRun,
+		_ => Data.FootfallTriggerLand,
+	};
+
+	/// <summary>The arming counterpart of <see cref="FootfallTrigger"/>.</summary>
+	public short FootfallRearm(int gait) => gait switch {
+		0 => Data.FootfallRearmWalk,
+		1 => Data.FootfallRearmReverse,
+		2 => Data.FootfallRearmRun,
+		_ => 0,
+	};
 
 	/// <summary>
 	/// Record field 190 (the exe's <c>typeRecord+0xc0</c>) — the shield array's total capacity before

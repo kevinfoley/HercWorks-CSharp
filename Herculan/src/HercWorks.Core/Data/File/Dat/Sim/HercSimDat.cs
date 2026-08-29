@@ -112,6 +112,24 @@ public class HercSimDat {
 	public short Unk116_val { get; set; }
 	public short Unk118_val { get; set; }
 	public short Unk120_val { get; set; }
+
+	/// <summary>
+	/// Offsets 112 and 117 read as <b>bytes</b>, one per leg — the per-leg kind byte
+	/// (<c>typeRec+0x72</c>) and the shape part id the leg's node hangs on (<c>typeRec+0x77</c>).
+	/// <c>Mech_PlaceLegsOnGround</c> (<c>004195c8</c>) walks both with the leg index, for
+	/// <see cref="ModelLegsTotal"/> legs. Every retail HERC states two legs, kinds 0 and 0, on parts
+	/// 14 and 15.
+	///
+	/// <para><b>Read-only views.</b> These bytes overlap the shorts declared above —
+	/// <see cref="ModelFlagsShadow1"/> covers 112-113, and 117-118 straddle
+	/// <see cref="Unk116_val"/> and <see cref="Unk118_val"/> — which are what the writer emits. They
+	/// are exposed separately because the exe reads them per byte and those shorts are not what the
+	/// bytes mean; setting them changes nothing on the way out.</para>
+	/// </summary>
+	public byte[] LegKinds { get; set; } = System.Array.Empty<byte>();
+
+	/// <inheritdoc cref="LegKinds"/>
+	public byte[] LegPartIds { get; set; } = System.Array.Empty<byte>();
 	/// <summary>
 	/// Offset 122 — the turn-in-place sequence. Uniform across the fleet: 7 frames of 1820 
 	/// BAM each, no translation.
@@ -154,16 +172,45 @@ public class HercSimDat {
 		_ => null
 	};
 
-	public short Unk150_val { get; set; }
-	public short Unk152_val { get; set; }
-	public short Unk154_fixedVal { get; set; }
-	public short Unk156_400or800 { get; set; }
+	/// <summary>
+	/// Offsets 150, 152, 154 and 156 — the height a leg node's fore/aft position must cross for a
+	/// <b>footfall</b>, one per gait: walking forward, walking backward, running, and the fourth the
+	/// falling/landing case. <c>Mech_PlaceLegsOnGround</c> (<c>004195c8</c>) reads them as
+	/// <c>typeRec+0x98 + gait*2</c>.
+	///
+	/// <para>A leg arms when it passes <see cref="FootfallRearmWalk"/> and fires when it comes back
+	/// through this one, which is the instant the foot plants: the original plays sound <c>0x1d</c>
+	/// and, for the player, kicks the cockpit view. The reverse gait's pair is negative and its two
+	/// comparisons are the other way round, since the foot swings the other way.</para>
+	/// </summary>
+	public short FootfallTriggerWalk { get; set; }
+
+	/// <inheritdoc cref="FootfallTriggerWalk"/>
+	public short FootfallTriggerReverse { get; set; }
+
+	/// <inheritdoc cref="FootfallTriggerWalk"/>
+	public short FootfallTriggerRun { get; set; }
+
+	/// <inheritdoc cref="FootfallTriggerWalk"/>
+	public short FootfallTriggerLand { get; set; }
 
 	// 158 - 169 - BLANK BYTES
 
-	public short Unk170_val { get; set; }
-	public short Unk172_val { get; set; }
-	public short Unk174_250or275 { get; set; }
+	/// <summary>
+	/// Offsets 170, 172 and 174 — the arming counterpart of <see cref="FootfallTriggerWalk"/>, in the
+	/// same gait order (<c>typeRec+0xac + gait*2</c>). A leg that has not passed this since its last
+	/// footfall cannot fire another.
+	///
+	/// <para>The landing gait's entry, at offset 176, is inside the blank run below: it is zero in
+	/// every retail file and is left unparsed.</para>
+	/// </summary>
+	public short FootfallRearmWalk { get; set; }
+
+	/// <inheritdoc cref="FootfallRearmWalk"/>
+	public short FootfallRearmReverse { get; set; }
+
+	/// <inheritdoc cref="FootfallRearmWalk"/>
+	public short FootfallRearmRun { get; set; }
 
 	// 176 - 189 - BLANK BYTES
 

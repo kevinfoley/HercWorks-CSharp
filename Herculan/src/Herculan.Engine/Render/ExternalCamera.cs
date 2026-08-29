@@ -61,5 +61,6 @@ public static class ExternalCamera {
 		// tips the view down onto the aim point from however high the eye ended up.
 		camera.Yaw = -mech.Heading & 0xffff;
 		camera.Pitch = SimTrig.Atan2(target.Z + Units(AimHeightMeters) - eyeZ, distance) & 0xffff;
+		camera.Roll = 0;
 	}
 }

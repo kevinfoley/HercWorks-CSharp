@@ -110,16 +110,16 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 
 		data.ModelSkinId = IndexShortLE();
 
-		data.Unk150_val = IndexShortLE();
-		data.Unk152_val = IndexShortLE();
-		data.Unk154_fixedVal = IndexShortLE();
-		data.Unk156_400or800 = IndexShortLE();
+		data.FootfallTriggerWalk = IndexShortLE();
+		data.FootfallTriggerReverse = IndexShortLE();
+		data.FootfallTriggerRun = IndexShortLE();
+		data.FootfallTriggerLand = IndexShortLE();
 
 		Skip(12);
 
-		data.Unk170_val = IndexShortLE();
-		data.Unk172_val = IndexShortLE();
-		data.Unk174_250or275 = IndexShortLE();
+		data.FootfallRearmWalk = IndexShortLE();
+		data.FootfallRearmReverse = IndexShortLE();
+		data.FootfallRearmRun = IndexShortLE();
 
 		Skip(14);
 
@@ -132,7 +132,32 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 
 		data.DebrisFile = IndexSegment(12);
 
+		// The per-leg byte arrays, taken at their own offsets rather than in sequence: they overlap
+		// shorts already read above, and the sequential pass emits those shorts unchanged. See
+		// HercSimDat.LegKinds for why both readings of the same bytes exist.
+		int legs = data.ModelLegsTotal < 0 ? 0 : data.ModelLegsTotal;
+		data.LegKinds = ReadLegBytes(inputArray, LegKindsOffset, legs);
+		data.LegPartIds = ReadLegBytes(inputArray, LegPartIdsOffset, legs);
+
 		return data;
+	}
+
+	/// <summary>Record offset of the per-leg kind bytes — the exe's <c>typeRec+0x72</c>.</summary>
+	private const int LegKindsOffset = 112;
+
+	/// <summary>Record offset of the per-leg part-id bytes — the exe's <c>typeRec+0x77</c>.</summary>
+	private const int LegPartIdsOffset = 117;
+
+	/// <summary>One per-leg byte run, clipped to what the record actually holds.</summary>
+	private static byte[] ReadLegBytes(byte[] record, int offset, int count) {
+		int available = record.Length - offset;
+		if (available <= 0 || count <= 0) {
+			return Array.Empty<byte>();
+		}
+
+		var bytes = new byte[Math.Min(count, available)];
+		Array.Copy(record, offset, bytes, 0, bytes.Length);
+		return bytes;
 	}
 
 	public override byte[]? Write(HercSimDat data) {
@@ -224,19 +249,19 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 
 		Emit(outStream, WriteShortLE(data.ModelSkinId));
 
-		Emit(outStream, WriteShortLE(data.Unk150_val));
-		Emit(outStream, WriteShortLE(data.Unk152_val));
-		Emit(outStream, WriteShortLE(data.Unk154_fixedVal));
-		Emit(outStream, WriteShortLE(data.Unk156_400or800));
+		Emit(outStream, WriteShortLE(data.FootfallTriggerWalk));
+		Emit(outStream, WriteShortLE(data.FootfallTriggerReverse));
+		Emit(outStream, WriteShortLE(data.FootfallTriggerRun));
+		Emit(outStream, WriteShortLE(data.FootfallTriggerLand));
 
 		// 158 - 169 - BLANK BYTES
 		for (int i = 0; i < 12; i++) {
 			outStream.WriteByte(0x00);
 		}
 
-		Emit(outStream, WriteShortLE(data.Unk170_val));
-		Emit(outStream, WriteShortLE(data.Unk172_val));
-		Emit(outStream, WriteShortLE(data.Unk174_250or275));
+		Emit(outStream, WriteShortLE(data.FootfallRearmWalk));
+		Emit(outStream, WriteShortLE(data.FootfallRearmReverse));
+		Emit(outStream, WriteShortLE(data.FootfallRearmRun));
 
 		// 176 - 189 - BLANK BYTES
 		for (int i = 0; i < 14; i++) {

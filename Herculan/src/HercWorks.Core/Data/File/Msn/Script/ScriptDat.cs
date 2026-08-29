@@ -222,11 +222,34 @@ public class ScriptSpawnRecordExport {
 	/// <para>A view over <see cref="TailBytes"/> rather than a field of its own, so the record still
 	/// round-trips byte-exact through <see cref="Io.Transform.Common.ScriptDatTransformer"/>.</para>
 	/// </summary>
-	public short[] WeaponSecondary => TailBytes.Length >= SecondaryOffset + SlotCount * 2
+	public short[] WeaponSecondary => HasWeaponSecondary
 		? Enumerable.Range(0, SlotCount)
 			.Select(i => BitConverter.ToInt16(TailBytes, SecondaryOffset + i * 2))
 			.ToArray()
 		: [];
+
+	/// <summary>
+	/// Whether <see cref="TailBytes"/> is long enough to hold the second array — false only for a
+	/// record built with a short tail rather than parsed from a real file.
+	/// </summary>
+	public bool HasWeaponSecondary => TailBytes.Length >= SecondaryOffset + SlotCount * 2;
+
+	/// <summary>
+	/// Writes one slot of <see cref="WeaponSecondary"/> back into <see cref="TailBytes"/>.
+	/// <see cref="WeaponSecondary"/> hands back a copy, so assigning into what it returns changes
+	/// nothing — this is the only way to edit a slot's ammunition type.
+	/// </summary>
+	public void SetWeaponSecondary(int slot, short value) {
+		if (slot < 0 || slot >= SlotCount) {
+			throw new ArgumentOutOfRangeException(nameof(slot), slot, $"A loadout has {SlotCount} slots.");
+		}
+
+		if (!HasWeaponSecondary) {
+			throw new InvalidOperationException("This record's tail is too short to hold the ammunition array.");
+		}
+
+		BitConverter.GetBytes(value).CopyTo(TailBytes, SecondaryOffset + slot * 2);
+	}
 
 	/// <summary>Where <see cref="WeaponSecondary"/> starts inside <see cref="TailBytes"/> (source 0x72 less 0x4a).</summary>
 	private const int SecondaryOffset = 40;

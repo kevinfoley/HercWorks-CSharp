@@ -4,7 +4,7 @@ namespace HercWorks.UI;
 
 /// <summary>
 /// Formats/parses the short arrays that several script.dat records carry as a single editable
-/// comma-separated grid cell. Fixed-length arrays (weapon fits, member ref slots, ...) are written
+/// comma-separated grid cell. Fixed-length arrays (member ref slots, ...) are written
 /// back in place and must keep their exact element count — the on-disk record stride depends on it —
 /// so a wrong-length edit is rejected rather than silently padded; -1 is the format's own
 /// "unused slot" sentinel and is what an empty slot should be set to.
@@ -142,10 +142,41 @@ internal sealed class ScriptMechRow : ScriptRow {
 	public short PositionRef { get => Source.PositionRef; set => Source.PositionRef = value; }
 	public short HeadingRef { get => Source.HeadingRef; set => Source.HeadingRef = value; }
 
-	public string WeaponRefs {
-		get => ShortCsv.Format(Source.WeaponRefs);
-		set => ShortCsv.ParseInto(value, Source.WeaponRefs);
+	/// <summary>
+	/// The fit as words, for the roster grid — the slots themselves are edited one at a time in the
+	/// loadout panel (see <see cref="ScriptWeaponSlotRow"/>), since a raw id list is unreadable and
+	/// says nothing about what a launcher is loaded with. Empty slots are left out.
+	/// </summary>
+	public string WeaponFit => WeaponFitOption.Summarize(Source.WeaponRefs, Source.WeaponSecondary);
+}
+
+/// <summary>
+/// One of the ten hardpoint slots of the Herc selected in the roster grid — the two parallel
+/// loadout arrays presented a slot at a time, so each one can be picked by name.
+/// <see cref="AmmoType"/> only means anything on a launcher (see
+/// <see cref="WeaponFitOption.IsLauncher"/>); every other mount ignores it and retail leaves the
+/// filler 5 there.
+/// </summary>
+internal sealed class ScriptWeaponSlotRow {
+	public required ScriptSpawnRecordExport Source { get; init; }
+
+	/// <summary>Position in both loadout arrays. Slot order is the hardpoint order the Herc's own fit uses.</summary>
+	public required int Slot { get; init; }
+
+	public short WeaponId {
+		get => Source.WeaponRefs[Slot];
+		set => Source.WeaponRefs[Slot] = value;
 	}
+
+	public short AmmoType {
+		get {
+			short[] ammo = Source.WeaponSecondary;
+			return Slot < ammo.Length ? ammo[Slot] : AmmoTypeOption.Filler;
+		}
+		set => Source.SetWeaponSecondary(Slot, value);
+	}
+
+	public bool IsLauncher => WeaponFitOption.IsLauncher(WeaponId);
 }
 
 /// <summary>Block 8 — one flyer roster slot.</summary>

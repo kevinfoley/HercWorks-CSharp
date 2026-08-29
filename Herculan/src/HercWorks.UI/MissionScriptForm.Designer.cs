@@ -87,12 +87,19 @@ partial class MissionScriptForm {
 		_apSequenceColumn = new DataGridViewTextBoxColumn();
 
 		_mechsTab = new TabPage();
+		_mechsSplit = new SplitContainer();
 		_mechsGrid = new DataGridView();
 		_mechIndexColumn = new DataGridViewTextBoxColumn();
 		_mechTypeColumn = new DataGridViewComboBoxColumn();
 		_mechPositionColumn = new DataGridViewTextBoxColumn();
 		_mechHeadingColumn = new DataGridViewTextBoxColumn();
-		_mechWeaponsColumn = new DataGridViewTextBoxColumn();
+		_mechFitColumn = new DataGridViewTextBoxColumn();
+		_loadoutGroupBox = new GroupBox();
+		_loadoutGrid = new DataGridView();
+		_slotIndexColumn = new DataGridViewTextBoxColumn();
+		_slotWeaponColumn = new DataGridViewComboBoxColumn();
+		_slotAmmoColumn = new DataGridViewComboBoxColumn();
+		_loadoutHintLabel = new Label();
 
 		_flyersTab = new TabPage();
 		_flyersGrid = new DataGridView();
@@ -176,7 +183,13 @@ partial class MissionScriptForm {
 		_actionPairsTab.SuspendLayout();
 		((System.ComponentModel.ISupportInitialize)_actionPairsGrid).BeginInit();
 		_mechsTab.SuspendLayout();
+		((System.ComponentModel.ISupportInitialize)_mechsSplit).BeginInit();
+		_mechsSplit.Panel1.SuspendLayout();
+		_mechsSplit.Panel2.SuspendLayout();
+		_mechsSplit.SuspendLayout();
 		((System.ComponentModel.ISupportInitialize)_mechsGrid).BeginInit();
+		_loadoutGroupBox.SuspendLayout();
+		((System.ComponentModel.ISupportInitialize)_loadoutGrid).BeginInit();
 		_flyersTab.SuspendLayout();
 		((System.ComponentModel.ISupportInitialize)_flyersGrid).BeginInit();
 		_basesTab.SuspendLayout();
@@ -738,7 +751,7 @@ partial class MissionScriptForm {
 		//
 		// _mechsTab
 		//
-		_mechsTab.Controls.Add(_mechsGrid);
+		_mechsTab.Controls.Add(_mechsSplit);
 		_mechsTab.Location = new Point(4, 44);
 		_mechsTab.Name = "_mechsTab";
 		_mechsTab.Padding = new Padding(3);
@@ -747,21 +760,38 @@ partial class MissionScriptForm {
 		_mechsTab.Text = "Hercs";
 		_mechsTab.UseVisualStyleBackColor = true;
 		//
+		// _mechsSplit
+		//
+		_mechsSplit.Dock = DockStyle.Fill;
+		_mechsSplit.Location = new Point(3, 3);
+		_mechsSplit.Name = "_mechsSplit";
+		_mechsSplit.Orientation = Orientation.Horizontal;
+		_mechsSplit.Panel1.Controls.Add(_mechsGrid);
+		_mechsSplit.Panel1MinSize = 120;
+		_mechsSplit.Panel2.Controls.Add(_loadoutGroupBox);
+		_mechsSplit.Panel2MinSize = 160;
+		_mechsSplit.Size = new Size(1046, 550);
+		_mechsSplit.SplitterDistance = 260;
+		_mechsSplit.TabIndex = 0;
+		//
 		// _mechsGrid
 		//
 		_mechsGrid.AllowUserToAddRows = false;
 		_mechsGrid.AllowUserToDeleteRows = false;
 		_mechsGrid.AutoGenerateColumns = false;
 		_mechsGrid.Columns.AddRange(new DataGridViewColumn[] {
-			_mechIndexColumn, _mechTypeColumn, _mechPositionColumn, _mechHeadingColumn, _mechWeaponsColumn
+			_mechIndexColumn, _mechTypeColumn, _mechPositionColumn, _mechHeadingColumn, _mechFitColumn
 		});
 		_mechsGrid.Dock = DockStyle.Fill;
-		_mechsGrid.Location = new Point(3, 3);
+		_mechsGrid.Location = new Point(0, 0);
+		_mechsGrid.MultiSelect = false;
 		_mechsGrid.Name = "_mechsGrid";
 		_mechsGrid.RowHeadersVisible = false;
-		_mechsGrid.Size = new Size(1046, 550);
+		_mechsGrid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+		_mechsGrid.Size = new Size(1046, 260);
 		_mechsGrid.TabIndex = 0;
 		_mechsGrid.DataError += OnGridDataError;
+		_mechsGrid.SelectionChanged += OnMechSelectionChanged;
 		//
 		// _mechIndexColumn
 		//
@@ -796,12 +826,90 @@ partial class MissionScriptForm {
 		_mechHeadingColumn.Name = "_mechHeadingColumn";
 		_mechHeadingColumn.Width = 90;
 		//
-		// _mechWeaponsColumn
+		// _mechFitColumn
 		//
-		_mechWeaponsColumn.DataPropertyName = "WeaponRefs";
-		_mechWeaponsColumn.HeaderText = "Weapon fit (10 slots, -1 = empty)";
-		_mechWeaponsColumn.Name = "_mechWeaponsColumn";
-		_mechWeaponsColumn.Width = 420;
+		// Read-only: the fit is edited slot by slot below, where each hardpoint gets its weapon and
+		// (for launchers) its ammunition type by name.
+		_mechFitColumn.DataPropertyName = "WeaponFit";
+		_mechFitColumn.HeaderText = "Weapon fit";
+		_mechFitColumn.Name = "_mechFitColumn";
+		_mechFitColumn.ReadOnly = true;
+		_mechFitColumn.Width = 460;
+		//
+		// _loadoutGroupBox
+		//
+		_loadoutGroupBox.Controls.Add(_loadoutGrid);
+		_loadoutGroupBox.Controls.Add(_loadoutHintLabel);
+		_loadoutGroupBox.Dock = DockStyle.Fill;
+		_loadoutGroupBox.Location = new Point(0, 0);
+		_loadoutGroupBox.Name = "_loadoutGroupBox";
+		_loadoutGroupBox.Padding = new Padding(6, 3, 6, 6);
+		_loadoutGroupBox.Size = new Size(1046, 286);
+		_loadoutGroupBox.TabIndex = 1;
+		_loadoutGroupBox.TabStop = false;
+		_loadoutGroupBox.Text = "Weapon fit";
+		//
+		// _loadoutGrid
+		//
+		_loadoutGrid.AllowUserToAddRows = false;
+		_loadoutGrid.AllowUserToDeleteRows = false;
+		_loadoutGrid.AutoGenerateColumns = false;
+		_loadoutGrid.Columns.AddRange(new DataGridViewColumn[] {
+			_slotIndexColumn, _slotWeaponColumn, _slotAmmoColumn
+		});
+		_loadoutGrid.Dock = DockStyle.Fill;
+		_loadoutGrid.Location = new Point(6, 19);
+		_loadoutGrid.Name = "_loadoutGrid";
+		_loadoutGrid.RowHeadersVisible = false;
+		_loadoutGrid.Size = new Size(1034, 240);
+		_loadoutGrid.TabIndex = 0;
+		_loadoutGrid.CellBeginEdit += OnLoadoutCellBeginEdit;
+		_loadoutGrid.CellFormatting += OnLoadoutCellFormatting;
+		_loadoutGrid.CellValueChanged += OnLoadoutCellValueChanged;
+		_loadoutGrid.CurrentCellDirtyStateChanged += OnLoadoutCellDirtyStateChanged;
+		_loadoutGrid.DataError += OnGridDataError;
+		//
+		// _slotIndexColumn
+		//
+		_slotIndexColumn.DataPropertyName = "Slot";
+		_slotIndexColumn.HeaderText = "Slot";
+		_slotIndexColumn.Name = "_slotIndexColumn";
+		_slotIndexColumn.ReadOnly = true;
+		_slotIndexColumn.Width = 50;
+		//
+		// _slotWeaponColumn
+		//
+		// Items are filled per load (see MissionScriptForm.Populate) so that an id the file carries
+		// but WeaponLUT has no name for still has an entry to select.
+		_slotWeaponColumn.DataPropertyName = "WeaponId";
+		_slotWeaponColumn.DisplayMember = "Label";
+		_slotWeaponColumn.HeaderText = "Weapon";
+		_slotWeaponColumn.Name = "_slotWeaponColumn";
+		_slotWeaponColumn.ValueMember = "Id";
+		_slotWeaponColumn.Width = 180;
+		//
+		// _slotAmmoColumn
+		//
+		_slotAmmoColumn.DataPropertyName = "AmmoType";
+		_slotAmmoColumn.DisplayMember = "Label";
+		_slotAmmoColumn.HeaderText = "Missile ammo";
+		_slotAmmoColumn.Name = "_slotAmmoColumn";
+		_slotAmmoColumn.ValueMember = "Id";
+		_slotAmmoColumn.Width = 220;
+		//
+		// _loadoutHintLabel
+		//
+		_loadoutHintLabel.AutoSize = false;
+		_loadoutHintLabel.Dock = DockStyle.Bottom;
+		_loadoutHintLabel.ForeColor = SystemColors.GrayText;
+		_loadoutHintLabel.Location = new Point(6, 253);
+		_loadoutHintLabel.Name = "_loadoutHintLabel";
+		_loadoutHintLabel.Size = new Size(1034, 27);
+		_loadoutHintLabel.TextAlign = ContentAlignment.MiddleLeft;
+		_loadoutHintLabel.TabIndex = 1;
+		_loadoutHintLabel.Text =
+			"Only the four missile launchers (MSL6, MSL8, MSL10, FLYMSL) carry an ammunition type; " +
+			"every other mount ignores it. A launcher left on (none) fires SARH.";
 		//
 		// _flyersTab
 		//
@@ -1315,7 +1423,13 @@ partial class MissionScriptForm {
 		_actionPairsTab.ResumeLayout(false);
 		((System.ComponentModel.ISupportInitialize)_actionPairsGrid).EndInit();
 		_mechsTab.ResumeLayout(false);
+		_mechsSplit.Panel1.ResumeLayout(false);
+		_mechsSplit.Panel2.ResumeLayout(false);
+		((System.ComponentModel.ISupportInitialize)_mechsSplit).EndInit();
+		_mechsSplit.ResumeLayout(false);
 		((System.ComponentModel.ISupportInitialize)_mechsGrid).EndInit();
+		_loadoutGroupBox.ResumeLayout(false);
+		((System.ComponentModel.ISupportInitialize)_loadoutGrid).EndInit();
 		_flyersTab.ResumeLayout(false);
 		((System.ComponentModel.ISupportInitialize)_flyersGrid).EndInit();
 		_basesTab.ResumeLayout(false);
@@ -1405,12 +1519,19 @@ partial class MissionScriptForm {
 	private DataGridViewTextBoxColumn _apSequenceColumn;
 
 	private TabPage _mechsTab;
+	private SplitContainer _mechsSplit;
 	private DataGridView _mechsGrid;
 	private DataGridViewTextBoxColumn _mechIndexColumn;
 	private DataGridViewComboBoxColumn _mechTypeColumn;
 	private DataGridViewTextBoxColumn _mechPositionColumn;
 	private DataGridViewTextBoxColumn _mechHeadingColumn;
-	private DataGridViewTextBoxColumn _mechWeaponsColumn;
+	private DataGridViewTextBoxColumn _mechFitColumn;
+	private GroupBox _loadoutGroupBox;
+	private DataGridView _loadoutGrid;
+	private DataGridViewTextBoxColumn _slotIndexColumn;
+	private DataGridViewComboBoxColumn _slotWeaponColumn;
+	private DataGridViewComboBoxColumn _slotAmmoColumn;
+	private Label _loadoutHintLabel;
 
 	private TabPage _flyersTab;
 	private DataGridView _flyersGrid;

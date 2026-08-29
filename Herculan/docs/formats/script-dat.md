@@ -81,6 +81,7 @@ Per record type, what pass 2 reads (offsets into the exported record, not the `.
 | | | `0x3e` | ref → block 1 (position) |
 | | | `0x40` | ref → block 2 (heading) |
 | | | `0x42`-`0x69` | two more 10-slot arrays → `FUN_00411b90` |
+| | | `0x6a`-`0x7d` | ammunition type, 10 slots, paired with the weapon fit → `Mech_ConfigureLoadout`'s second array. Only the four launchers read it; every other slot carries the filler 5 |
 | | | `0x80`/`0x82` | refs → block 5 (actions) |
 | 8 (flyers) | 92B | `0x28` | ref → block 1 (position) |
 | | | `0x2a` | ref → block 2 (heading) |
@@ -247,11 +248,15 @@ Stop after block 13's declared end and ignore trailing bytes. Files may have sta
 - `HercWorks.UI.MissionScriptForm` — WinForms editor (Edit ▸ Mission Script), a tab per block.
   Records are edited in place, never added/removed, since every block indexes the others by array
   position; the block-13 unlock list is the exception and is rebuilt from its grid. Save runs an
-  advisory cross-block ref range check.
+  advisory cross-block ref range check. The Hercs tab is master-detail: the block-7 roster on top,
+  the selected record's ten hardpoints below it, each picking its weapon by name and — for the four
+  launchers, the only mounts that read it — its ammunition type out of the parallel second array.
 - `HercWorks.Core.Data.File.Sav.MecFile` + `MecFileTransformer` — `data\player.mec`, the player's squad.
 - `HercWorks.UI.PlayerSquadForm` — WinForms editor for `player.mec` (Edit ▸ Player Squad): player
   entry index, per-entry mech type and weapon fit, add/remove entries. The mech and weapons the
-  player brings are here, not in `script.dat` (see rule 5 above).
+  player brings are here, not in `script.dat` (see rule 5 above). Master-detail like the Hercs tab:
+  the selected entry's slots are edited one per row, weapon and ammunition type by name, and slots
+  are added/removed to both parallel arrays at once so their lengths cannot drift apart.
 - `Herculan.Engine.World.ScriptDatHeader` — the engine-side header port.
 - `Herculan.Engine.World.MissionLoader` — the two-pass placement rule above, producing a `Mission`
   of resolved placements. `UnitTypeNames` (`nam\MECHS.NAM`/`FLYERS.NAM`) and `BaseTypeTable`

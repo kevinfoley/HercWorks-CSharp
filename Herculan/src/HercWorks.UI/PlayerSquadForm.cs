@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using HercWorks.Core.Data.File.Sav;
+using HercWorks.Core.Data.Struct;
 using HercWorks.Core.Io.Transform.Common;
 using HercWorks.Vol;
 
@@ -16,12 +17,20 @@ namespace HercWorks.UI;
 /// shell, so edits here apply to the next DBSIM run and are overwritten by going back through the
 /// shell. Use CampaignResourcesForm's Herc Bay for changes that should survive that.</para>
 ///
-/// <para>Herc types are named, via <see cref="HercTypeOption"/>'s HercLUT-to-MECHS.NAM equivalence.
-/// Weapon ids stay raw — this form has no loaded VOL to resolve them against.</para>
+/// <para>The layout is master-detail, like MissionScriptForm's Hercs tab: the squad roster on top,
+/// and below it the selected entry's weapon slots one row each, with the weapon and (for launchers
+/// only) the ammunition type picked by name — see <see cref="WeaponFitOption"/> and
+/// <see cref="AmmoTypeOption"/>. Slots are added and removed there too, always to both arrays at
+/// once, since their lengths are what set the record's own length.</para>
+///
+/// <para>Herc types are named, via <see cref="HercTypeOption"/>'s HercLUT-to-MECHS.NAM
+/// equivalence; weapon names come from <c>WeaponLUT</c>, whose ids are the same ones these arrays
+/// carry.</para>
 /// </summary>
 public partial class PlayerSquadForm : Form {
 	private readonly MecFileTransformer _transformer = new();
 	private readonly BindingList<PlayerSquadRow> _rows = new();
+	private readonly BindingList<PlayerWeaponSlotRow> _slotRows = new();
 
 	private MecFile? _loaded;
 	private string? _loadedPath;
@@ -34,6 +43,7 @@ public partial class PlayerSquadForm : Form {
 	public PlayerSquadForm() {
 		InitializeComponent();
 		_squadGrid.DataSource = _rows;
+		_loadoutGrid.DataSource = _slotRows;
 	}
 
 	private void OnClose(object? sender, EventArgs e) => Close();
@@ -89,11 +99,13 @@ public partial class PlayerSquadForm : Form {
 			_loaded = squad;
 
 			_rows.Clear();
-			BindHercTypes(squad.Entries.Select(entry => entry.MechType));
+			_slotRows.Clear();
+			BindTypeOptions(squad);
 			for (int i = 0; i < squad.Entries.Length; i++) {
 				_rows.Add(new PlayerSquadRow { Index = i, Source = squad.Entries[i] });
 			}
 
+			BindLoadout();
 			UpdatePlayerSlotRange();
 			_playerSlotInput.Value = Math.Clamp(squad.PlayerEntryIndex, _playerSlotInput.Minimum, _playerSlotInput.Maximum);
 
@@ -113,12 +125,162 @@ public partial class PlayerSquadForm : Form {
 	}
 
 	/// <summary>
-	/// Rebuilds the Herc-type dropdown for the file being loaded, before any row is bound — a
-	/// combo column rejects a value it has no item for, so the unnamed types the file actually
-	/// carries have to be in the list first.
+	/// Rebuilds the three dropdowns for the file being loaded, before any row is bound — a combo
+	/// column rejects a value it has no item for, so the unnamed types, weapon ids and ammunition
+	/// values the file actually carries have to be in the lists first.
+	///
+	/// <para>The weapon list is built without script.dat's <c>-1</c> empty-slot entry: this format
+	/// spells an empty slot <c>NONE</c> (id 0), and its slot list is only as long as the machine's
+	/// real slot count.</para>
 	/// </summary>
-	private void BindHercTypes(IEnumerable<short> typesInUse) {
-		_hercTypeColumn.DataSource = HercTypeOption.Build(typesInUse);
+	private void BindTypeOptions(MecFile squad) {
+		_hercTypeColumn.DataSource = HercTypeOption.Build(squad.Entries.Select(entry => entry.MechType));
+		_slotWeaponColumn.DataSource =
+			WeaponFitOption.Build(squad.Entries.SelectMany(entry => entry.WeaponRefs), includeEmptySlot: false);
+		_slotAmmoColumn.DataSource = AmmoTypeOption.Build(squad.Entries.SelectMany(entry => entry.WeaponAmmoTypes));
+	}
+
+	/// <summary>
+	/// Points the loadout grid at the selected entry's weapon slots. The panel is disabled rather
+	/// than left showing a stale fit when nothing is selected.
+	/// </summary>
+	private void BindLoadout() {
+		var entry = _squadGrid.CurrentRow?.DataBoundItem as PlayerSquadRow;
+
+		_slotRows.Clear();
+		if (entry != null) {
+			for (int slot = 0; slot < entry.Source.WeaponRefs.Length; slot++) {
+				_slotRows.Add(new PlayerWeaponSlotRow { Source = entry.Source, Slot = slot });
+			}
+		}
+
+		_loadoutGroupBox.Enabled = entry != null;
+		_loadoutGroupBox.Text = entry == null ? "Weapon fit" : $"Weapon fit — entry {entry.Index}";
+	}
+
+	/// <summary>The loadout panel edits whichever entry the roster is on.</summary>
+	private void OnSquadSelectionChanged(object? sender, EventArgs e) => BindLoadout();
+
+	/// <summary>
+	/// Appends a slot to both arrays at once — <c>NONE</c> and the filler 5, which is what retail
+	/// writes for a slot carrying no launcher. Growing them together is what keeps the record's
+	/// declared length and its two lists in agreement.
+	/// </summary>
+	private void OnAddSlot(object? sender, EventArgs e) {
+		if (_squadGrid.CurrentRow?.DataBoundItem is not PlayerSquadRow row) {
+			return;
+		}
+
+		ResizeSlots(row.Source, row.Source.WeaponRefs.Length + 1);
+		RefreshAfterSlotChange(row);
+	}
+
+	/// <summary>Drops the selected slot from both arrays, or the last one if none is selected.</summary>
+	private void OnRemoveSlot(object? sender, EventArgs e) {
+		if (_squadGrid.CurrentRow?.DataBoundItem is not PlayerSquadRow row) {
+			return;
+		}
+
+		var entry = row.Source;
+		if (entry.WeaponRefs.Length == 0) {
+			return;
+		}
+
+		int slot = (_loadoutGrid.CurrentRow?.DataBoundItem as PlayerWeaponSlotRow)?.Slot
+			?? entry.WeaponRefs.Length - 1;
+
+		entry.WeaponRefs = RemoveAt(entry.WeaponRefs, slot);
+		entry.WeaponAmmoTypes = RemoveAt(entry.WeaponAmmoTypes, slot);
+		RefreshAfterSlotChange(row);
+	}
+
+	/// <summary>
+	/// Grows both arrays to <paramref name="length"/>, filling new slots with the empty weapon and
+	/// the filler ammunition value.
+	/// </summary>
+	private static void ResizeSlots(MecEntry entry, int length) {
+		int wasWeapons = entry.WeaponRefs.Length;
+		int wasAmmo = entry.WeaponAmmoTypes.Length;
+
+		short[] weapons = entry.WeaponRefs;
+		short[] ammo = entry.WeaponAmmoTypes;
+		Array.Resize(ref weapons, length);
+		Array.Resize(ref ammo, length);
+
+		for (int i = wasWeapons; i < length; i++) {
+			weapons[i] = (short)WeaponLUT.None.Id;
+		}
+		for (int i = wasAmmo; i < length; i++) {
+			ammo[i] = AmmoTypeOption.Filler;
+		}
+
+		entry.WeaponRefs = weapons;
+		entry.WeaponAmmoTypes = ammo;
+	}
+
+	private static short[] RemoveAt(short[] values, int index) =>
+		index >= 0 && index < values.Length
+			? values.Where((_, i) => i != index).ToArray()
+			: values;
+
+	/// <summary>
+	/// The slot rows carry their position, and the roster's Slots and fit columns are derived, so
+	/// both grids have to be rebuilt rather than repainted after slots are added or removed.
+	/// </summary>
+	private void RefreshAfterSlotChange(PlayerSquadRow row) {
+		BindLoadout();
+		_squadGrid.InvalidateRow(row.Index);
+	}
+
+	/// <summary>
+	/// A combo cell normally only commits when focus leaves it, which would leave the ammunition
+	/// column and the roster's fit summary a step behind the weapon just picked.
+	/// </summary>
+	private void OnLoadoutCellDirtyStateChanged(object? sender, EventArgs e) {
+		if (_loadoutGrid.IsCurrentCellDirty) {
+			_loadoutGrid.CommitEdit(DataGridViewDataErrorContexts.Commit);
+		}
+	}
+
+	/// <summary>Ammunition is a launcher-only field — see WeaponFitOption.IsLauncher.</summary>
+	private void OnLoadoutCellBeginEdit(object? sender, DataGridViewCellCancelEventArgs e) {
+		if (e.ColumnIndex == _slotAmmoColumn.Index && SlotAt(e.RowIndex) is { IsLauncher: false }) {
+			e.Cancel = true;
+		}
+	}
+
+	/// <summary>
+	/// Greys the ammunition cell of every slot that is not a launcher, so a value that has no effect
+	/// does not read as one that does. The value itself is still shown rather than blanked — it is
+	/// real data in the file, and retail's own filler 5 is what belongs there.
+	/// </summary>
+	private void OnLoadoutCellFormatting(object? sender, DataGridViewCellFormattingEventArgs e) {
+		if (e.ColumnIndex == _slotAmmoColumn.Index && e.CellStyle is { } style
+			&& SlotAt(e.RowIndex) is { IsLauncher: false }) {
+			style.ForeColor = SystemColors.GrayText;
+			style.BackColor = SystemColors.Control;
+		}
+	}
+
+	private PlayerWeaponSlotRow? SlotAt(int rowIndex) =>
+		rowIndex >= 0 && rowIndex < _loadoutGrid.Rows.Count
+			? _loadoutGrid.Rows[rowIndex].DataBoundItem as PlayerWeaponSlotRow
+			: null;
+
+	/// <summary>
+	/// Both the roster's fit summary and the ammunition cell's own enabled look are derived from the
+	/// weapon just picked, and neither is a bound property that would repaint on its own.
+	/// </summary>
+	private void OnLoadoutCellValueChanged(object? sender, DataGridViewCellEventArgs e) {
+		if (e.RowIndex < 0) {
+			return;
+		}
+
+		_loadoutGrid.InvalidateRow(e.RowIndex);
+
+		if (_squadGrid.CurrentRow is { } row) {
+			_squadGrid.InvalidateRow(row.Index);
+		}
 	}
 
 	/// <summary>
@@ -176,6 +338,7 @@ public partial class PlayerSquadForm : Form {
 
 		_rows.Add(new PlayerSquadRow { Index = _rows.Count, Source = clone });
 		UpdatePlayerSlotRange();
+		BindLoadout();
 	}
 
 	private void OnRemoveEntry(object? sender, EventArgs e) {
@@ -196,6 +359,7 @@ public partial class PlayerSquadForm : Form {
 
 		UpdatePlayerSlotRange();
 		_squadGrid.Refresh();
+		BindLoadout();
 	}
 
 	private void OnSaveAs(object? sender, EventArgs e) {
@@ -207,10 +371,12 @@ public partial class PlayerSquadForm : Form {
 
 		// Grid edits write straight through to the model, but only once the cell is committed.
 		_squadGrid.EndEdit();
+		_loadoutGrid.EndEdit();
 
 		// The writer emits SlotCount as a field and then writes both arrays at their actual length,
-		// so a mismatch does not just mis-describe this entry — it shifts every entry after it.
-		// Refuse the save rather than producing a file DBSIM reads off its own rails.
+		// so a mismatch does not just mis-describe this entry — it shifts every entry after it. The
+		// loadout panel only ever grows and shrinks the two together, so this catches a file that
+		// arrived mismatched rather than an edit made here.
 		var mismatched = _rows
 			.Where(r => r.Source.WeaponRefs.Length != r.Source.WeaponAmmoTypes.Length)
 			.Select(r => $"Entry {r.Index}: {r.Source.WeaponRefs.Length} weapon ids vs {r.Source.WeaponAmmoTypes.Length} paired values.")

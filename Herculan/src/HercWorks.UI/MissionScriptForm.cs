@@ -19,6 +19,12 @@ namespace HercWorks.UI;
 /// repoint every ref after it. The one exception is the Unlocks block, which nothing references and
 /// which is therefore rebuilt wholesale from its grid.</para>
 ///
+/// <para>The Hercs tab is master-detail rather than one wide grid: the roster on top, and below it
+/// the selected Herc's ten hardpoints one row each, with its weapon and (for launchers only) its
+/// ammunition type picked by name — see <see cref="WeaponFitOption"/> and
+/// <see cref="AmmoTypeOption"/>. Both loadout arrays are edited there; the roster's own fit column
+/// is a read-only summary.</para>
+///
 /// <para>Herc types are named, via <see cref="HercTypeOption"/>'s HercLUT-to-MECHS.NAM equivalence.
 /// Flyer and base types stay raw indexes: their names live in <c>nam\FLYERS.NAM</c> and
 /// <c>dat\BASES.DAT</c> inside the game's VOLs, which this form has no loaded VOL to resolve
@@ -34,6 +40,7 @@ public partial class MissionScriptForm : Form {
 	private readonly BindingList<ScriptActionRow> _actionRows = new();
 	private readonly BindingList<ScriptActionPairRow> _actionPairRows = new();
 	private readonly BindingList<ScriptMechRow> _mechRows = new();
+	private readonly BindingList<ScriptWeaponSlotRow> _slotRows = new();
 	private readonly BindingList<ScriptFlyerRow> _flyerRows = new();
 	private readonly BindingList<ScriptBaseRow> _baseRows = new();
 	private readonly BindingList<ScriptRouteLinkRow> _routeLinkRows = new();
@@ -59,6 +66,7 @@ public partial class MissionScriptForm : Form {
 		_actionsGrid.DataSource = _actionRows;
 		_actionPairsGrid.DataSource = _actionPairRows;
 		_mechsGrid.DataSource = _mechRows;
+		_loadoutGrid.DataSource = _slotRows;
 		_flyersGrid.DataSource = _flyerRows;
 		_basesGrid.DataSource = _baseRows;
 		_routeLinksGrid.DataSource = _routeLinkRows;
@@ -150,12 +158,15 @@ public partial class MissionScriptForm : Form {
 		Refill(_linkRows, script.LinksOrRewards, (src, i) => new ScriptLinkRewardRow { Index = i, Source = src });
 		Refill(_actionRows, script.Actions, (src, i) => new ScriptActionRow { Index = i, Source = src });
 		Refill(_actionPairRows, script.ActionPairs, (src, i) => new ScriptActionPairRow { Index = i, Source = src });
-		// A combo column rejects a value it has no item for, so any type the file carries that
-		// MECHS.NAM has no name for needs an entry in the list first. Order matters both ways: the
-		// rows still bound here are the previously loaded file's, whose types the new list may not
-		// cover, so they have to go before the swap.
+		// A combo column rejects a value it has no item for, so any type or weapon id the file
+		// carries that MECHS.NAM/WeaponLUT has no name for needs an entry in the list first. Order
+		// matters both ways: the rows still bound here are the previously loaded file's, whose
+		// values the new lists may not cover, so they have to go before the swap.
 		_mechRows.Clear();
+		_slotRows.Clear();
 		_mechTypeColumn.DataSource = HercTypeOption.Build(script.SpawnRecords.Select(r => r.SmallDiscrete));
+		_slotWeaponColumn.DataSource = WeaponFitOption.Build(script.SpawnRecords.SelectMany(r => r.WeaponRefs), includeEmptySlot: true);
+		_slotAmmoColumn.DataSource = AmmoTypeOption.Build(script.SpawnRecords.SelectMany(r => r.WeaponSecondary));
 
 		Refill(_mechRows, script.SpawnRecords, (src, i) => new ScriptMechRow { Index = i, Source = src });
 		Refill(_flyerRows, script.Entities102, (src, i) => new ScriptFlyerRow { Index = i, Source = src });
@@ -168,6 +179,8 @@ public partial class MissionScriptForm : Form {
 		foreach (short value in script.UnlockedLutRefs) {
 			_unlockRows.Add(new ScriptUnlockRow { Value = value });
 		}
+
+		BindLoadout();
 	}
 
 	private static void Refill<TSource, TRow>(BindingList<TRow> rows, TSource[] source, Func<TSource, int, TRow> makeRow) {
@@ -192,6 +205,83 @@ public partial class MissionScriptForm : Form {
 	private void UpdateWorldLabel() =>
 		_worldValueLabel.Text = $"wld\\world{(int)_theaterInput.Value * 2 + (int)_variantInput.Value}.wld";
 
+	/// <summary>
+	/// The loadout panel edits whichever Herc the roster grid is on, so the slot rows are rebuilt
+	/// on every selection change.
+	/// </summary>
+	private void OnMechSelectionChanged(object? sender, EventArgs e) => BindLoadout();
+
+	/// <summary>
+	/// Points the loadout grid at the selected Herc's ten hardpoints. The panel is disabled rather
+	/// than left showing a stale fit when nothing is selected.
+	/// </summary>
+	private void BindLoadout() {
+		var mech = _mechsGrid.CurrentRow?.DataBoundItem as ScriptMechRow;
+
+		_slotRows.Clear();
+		if (mech != null) {
+			for (int slot = 0; slot < mech.Source.WeaponRefs.Length; slot++) {
+				_slotRows.Add(new ScriptWeaponSlotRow { Source = mech.Source, Slot = slot });
+			}
+		}
+
+		_loadoutGroupBox.Enabled = mech != null;
+		_loadoutGroupBox.Text = mech == null
+			? "Weapon fit"
+			: $"Weapon fit — Herc {mech.Index}";
+	}
+
+	/// <summary>
+	/// A combo cell normally only commits when focus leaves it, which would leave the ammunition
+	/// column and the roster's fit summary a step behind the weapon just picked.
+	/// </summary>
+	private void OnLoadoutCellDirtyStateChanged(object? sender, EventArgs e) {
+		if (_loadoutGrid.IsCurrentCellDirty) {
+			_loadoutGrid.CommitEdit(DataGridViewDataErrorContexts.Commit);
+		}
+	}
+
+	/// <summary>Ammunition is a launcher-only field — see WeaponFitOption.IsLauncher.</summary>
+	private void OnLoadoutCellBeginEdit(object? sender, DataGridViewCellCancelEventArgs e) {
+		if (e.ColumnIndex == _slotAmmoColumn.Index && SlotAt(e.RowIndex) is { IsLauncher: false }) {
+			e.Cancel = true;
+		}
+	}
+
+	/// <summary>
+	/// Greys the ammunition cell of every slot that is not a launcher, so a value that has no effect
+	/// does not read as one that does. The value itself is still shown rather than blanked — it is
+	/// real data in the file, and retail's own filler 5 is what belongs there.
+	/// </summary>
+	private void OnLoadoutCellFormatting(object? sender, DataGridViewCellFormattingEventArgs e) {
+		if (e.ColumnIndex == _slotAmmoColumn.Index && e.CellStyle is { } style
+			&& SlotAt(e.RowIndex) is { IsLauncher: false }) {
+			style.ForeColor = SystemColors.GrayText;
+			style.BackColor = SystemColors.Control;
+		}
+	}
+
+	private ScriptWeaponSlotRow? SlotAt(int rowIndex) =>
+		rowIndex >= 0 && rowIndex < _loadoutGrid.Rows.Count
+			? _loadoutGrid.Rows[rowIndex].DataBoundItem as ScriptWeaponSlotRow
+			: null;
+
+	/// <summary>
+	/// Both the roster's fit summary and the ammunition cell's own enabled look are derived from the
+	/// weapon just picked, and neither is a bound property that would repaint on its own.
+	/// </summary>
+	private void OnLoadoutCellValueChanged(object? sender, DataGridViewCellEventArgs e) {
+		if (e.RowIndex < 0) {
+			return;
+		}
+
+		_loadoutGrid.InvalidateRow(e.RowIndex);
+
+		if (_mechsGrid.CurrentRow is { } row) {
+			_mechsGrid.InvalidateRow(row.Index);
+		}
+	}
+
 	/// <summary>Waypoint lists are variable-length, so the count column has to follow the edit.</summary>
 	private void OnRouteCellChanged(object? sender, DataGridViewCellEventArgs e) {
 		if (e.RowIndex >= 0) {
@@ -211,6 +301,15 @@ public partial class MissionScriptForm : Form {
 			"Invalid value", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 	}
 
+	/// <summary>Every grid under a control, however deeply nested.</summary>
+	private static IEnumerable<DataGridView> GridsIn(Control? root) =>
+		root == null
+			? []
+			: root.Controls.OfType<Control>()
+				.SelectMany(child => child is DataGridView grid
+					? Enumerable.Repeat(grid, 1)
+					: GridsIn(child));
+
 	private void OnAddUnlock(object? sender, EventArgs e) => _unlockRows.Add(new ScriptUnlockRow());
 
 	private void OnRemoveUnlock(object? sender, EventArgs e) {
@@ -227,9 +326,11 @@ public partial class MissionScriptForm : Form {
 		}
 
 		// Commit whatever cell is still being edited — grid edits write straight through to the
-		// model, but only once the cell is committed.
-		_tabs.SelectedTab?.Controls.OfType<DataGridView>().ToList()
-			.ForEach(grid => grid.EndEdit());
+		// model, but only once the cell is committed. Walks the whole tab: the Hercs tab nests its
+		// two grids inside a split container rather than parenting them to the page.
+		foreach (var grid in GridsIn(_tabs.SelectedTab)) {
+			grid.EndEdit();
+		}
 
 		ApplyHeader(_loaded);
 		_loaded.UnlockedLutRefs = _unlockRows.Select(r => r.Value).ToArray();

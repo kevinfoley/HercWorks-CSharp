@@ -30,12 +30,21 @@ partial class PlayerSquadForm {
 		_playerSlotLabel = new Label();
 		_playerSlotInput = new NumericUpDown();
 		_noteLabel = new Label();
+		_squadSplit = new SplitContainer();
 		_squadGrid = new DataGridView();
 		_indexColumn = new DataGridViewTextBoxColumn();
 		_hercTypeColumn = new DataGridViewComboBoxColumn();
 		_slotsColumn = new DataGridViewTextBoxColumn();
-		_weaponRefsColumn = new DataGridViewTextBoxColumn();
-		_weaponAmmoTypesColumn = new DataGridViewTextBoxColumn();
+		_fitColumn = new DataGridViewTextBoxColumn();
+		_loadoutGroupBox = new GroupBox();
+		_loadoutGrid = new DataGridView();
+		_slotIndexColumn = new DataGridViewTextBoxColumn();
+		_slotWeaponColumn = new DataGridViewComboBoxColumn();
+		_slotAmmoColumn = new DataGridViewComboBoxColumn();
+		_slotButtonPanel = new Panel();
+		_addSlotButton = new Button();
+		_removeSlotButton = new Button();
+		_loadoutHintLabel = new Label();
 		_unk00Column = new DataGridViewTextBoxColumn();
 		_unk02Column = new DataGridViewTextBoxColumn();
 		_unk3AColumn = new DataGridViewTextBoxColumn();
@@ -48,7 +57,14 @@ partial class PlayerSquadForm {
 		_topPanel.SuspendLayout();
 		_squadGroupBox.SuspendLayout();
 		((System.ComponentModel.ISupportInitialize)_playerSlotInput).BeginInit();
+		((System.ComponentModel.ISupportInitialize)_squadSplit).BeginInit();
+		_squadSplit.Panel1.SuspendLayout();
+		_squadSplit.Panel2.SuspendLayout();
+		_squadSplit.SuspendLayout();
 		((System.ComponentModel.ISupportInitialize)_squadGrid).BeginInit();
+		_loadoutGroupBox.SuspendLayout();
+		((System.ComponentModel.ISupportInitialize)_loadoutGrid).BeginInit();
+		_slotButtonPanel.SuspendLayout();
 		_buttonPanel.SuspendLayout();
 		_statusStrip.SuspendLayout();
 		SuspendLayout();
@@ -134,8 +150,22 @@ partial class PlayerSquadForm {
 		_noteLabel.Location = new Point(18, 64);
 		_noteLabel.Name = "_noteLabel";
 		_noteLabel.Text =
-			"Weapon ids and their paired values are one list per weapon slot — both lists must stay the same length.\r\n" +
+			"Each entry's weapon slots are edited below the roster — a weapon per slot, and for the four missile launchers the ammunition it is loaded with.\r\n" +
 			"The squad spawns at the point script.dat block 11's record 0 carries; nothing else about it comes from script.dat.";
+		//
+		// _squadSplit
+		//
+		_squadSplit.Dock = DockStyle.Fill;
+		_squadSplit.Location = new Point(0, 154);
+		_squadSplit.Name = "_squadSplit";
+		_squadSplit.Orientation = Orientation.Horizontal;
+		_squadSplit.Panel1.Controls.Add(_squadGrid);
+		_squadSplit.Panel1MinSize = 100;
+		_squadSplit.Panel2.Controls.Add(_loadoutGroupBox);
+		_squadSplit.Panel2MinSize = 180;
+		_squadSplit.Size = new Size(900, 422);
+		_squadSplit.SplitterDistance = 180;
+		_squadSplit.TabIndex = 2;
 		//
 		// _squadGrid
 		//
@@ -143,17 +173,20 @@ partial class PlayerSquadForm {
 		_squadGrid.AllowUserToDeleteRows = false;
 		_squadGrid.AutoGenerateColumns = false;
 		_squadGrid.Columns.AddRange(new DataGridViewColumn[] {
-			_indexColumn, _hercTypeColumn, _slotsColumn, _weaponRefsColumn, _weaponAmmoTypesColumn,
+			_indexColumn, _hercTypeColumn, _slotsColumn, _fitColumn,
 			_unk00Column, _unk02Column, _unk3AColumn
 		});
 		_squadGrid.Dock = DockStyle.Fill;
-		_squadGrid.Location = new Point(0, 154);
+		_squadGrid.Location = new Point(0, 0);
+		_squadGrid.MultiSelect = false;
 		_squadGrid.Name = "_squadGrid";
 		_squadGrid.RowHeadersVisible = false;
-		_squadGrid.Size = new Size(900, 422);
-		_squadGrid.TabIndex = 2;
+		_squadGrid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+		_squadGrid.Size = new Size(900, 180);
+		_squadGrid.TabIndex = 0;
 		_squadGrid.DataError += OnGridDataError;
 		_squadGrid.CellValueChanged += OnSquadCellChanged;
+		_squadGrid.SelectionChanged += OnSquadSelectionChanged;
 		//
 		// _indexColumn
 		//
@@ -182,19 +215,122 @@ partial class PlayerSquadForm {
 		_slotsColumn.ReadOnly = true;
 		_slotsColumn.Width = 60;
 		//
-		// _weaponRefsColumn
+		// _fitColumn
 		//
-		_weaponRefsColumn.DataPropertyName = "WeaponRefs";
-		_weaponRefsColumn.HeaderText = "Weapon ids (0 = empty slot)";
-		_weaponRefsColumn.Name = "_weaponRefsColumn";
-		_weaponRefsColumn.Width = 260;
+		// Read-only: the fit is edited slot by slot below, where each slot gets its weapon and (for
+		// launchers) its ammunition type by name.
+		_fitColumn.DataPropertyName = "WeaponFit";
+		_fitColumn.HeaderText = "Weapon fit";
+		_fitColumn.Name = "_fitColumn";
+		_fitColumn.ReadOnly = true;
+		_fitColumn.Width = 400;
 		//
-		// _weaponAmmoTypesColumn
+		// _loadoutGroupBox
 		//
-		_weaponAmmoTypesColumn.DataPropertyName = "WeaponAmmoTypes";
-		_weaponAmmoTypesColumn.HeaderText = "Ammunition type (one per slot)";
-		_weaponAmmoTypesColumn.Name = "_weaponAmmoTypesColumn";
-		_weaponAmmoTypesColumn.Width = 260;
+		_loadoutGroupBox.Controls.Add(_loadoutGrid);
+		_loadoutGroupBox.Controls.Add(_loadoutHintLabel);
+		_loadoutGroupBox.Controls.Add(_slotButtonPanel);
+		_loadoutGroupBox.Dock = DockStyle.Fill;
+		_loadoutGroupBox.Location = new Point(0, 0);
+		_loadoutGroupBox.Name = "_loadoutGroupBox";
+		_loadoutGroupBox.Padding = new Padding(6, 3, 6, 6);
+		_loadoutGroupBox.Size = new Size(900, 238);
+		_loadoutGroupBox.TabIndex = 1;
+		_loadoutGroupBox.TabStop = false;
+		_loadoutGroupBox.Text = "Weapon fit";
+		//
+		// _loadoutGrid
+		//
+		_loadoutGrid.AllowUserToAddRows = false;
+		_loadoutGrid.AllowUserToDeleteRows = false;
+		_loadoutGrid.AutoGenerateColumns = false;
+		_loadoutGrid.Columns.AddRange(new DataGridViewColumn[] {
+			_slotIndexColumn, _slotWeaponColumn, _slotAmmoColumn
+		});
+		_loadoutGrid.Dock = DockStyle.Fill;
+		_loadoutGrid.Location = new Point(6, 19);
+		_loadoutGrid.MultiSelect = false;
+		_loadoutGrid.Name = "_loadoutGrid";
+		_loadoutGrid.RowHeadersVisible = false;
+		_loadoutGrid.Size = new Size(888, 145);
+		_loadoutGrid.TabIndex = 0;
+		_loadoutGrid.CellBeginEdit += OnLoadoutCellBeginEdit;
+		_loadoutGrid.CellFormatting += OnLoadoutCellFormatting;
+		_loadoutGrid.CellValueChanged += OnLoadoutCellValueChanged;
+		_loadoutGrid.CurrentCellDirtyStateChanged += OnLoadoutCellDirtyStateChanged;
+		_loadoutGrid.DataError += OnGridDataError;
+		//
+		// _slotIndexColumn
+		//
+		_slotIndexColumn.DataPropertyName = "Slot";
+		_slotIndexColumn.HeaderText = "Slot";
+		_slotIndexColumn.Name = "_slotIndexColumn";
+		_slotIndexColumn.ReadOnly = true;
+		_slotIndexColumn.Width = 50;
+		//
+		// _slotWeaponColumn
+		//
+		// Items are filled per load (see PlayerSquadForm.BindWeaponOptions) so that an id the file
+		// carries but WeaponLUT has no name for still has an entry to select.
+		_slotWeaponColumn.DataPropertyName = "WeaponId";
+		_slotWeaponColumn.DisplayMember = "Label";
+		_slotWeaponColumn.HeaderText = "Weapon";
+		_slotWeaponColumn.Name = "_slotWeaponColumn";
+		_slotWeaponColumn.ValueMember = "Id";
+		_slotWeaponColumn.Width = 180;
+		//
+		// _slotAmmoColumn
+		//
+		_slotAmmoColumn.DataPropertyName = "AmmoType";
+		_slotAmmoColumn.DisplayMember = "Label";
+		_slotAmmoColumn.HeaderText = "Missile ammo";
+		_slotAmmoColumn.Name = "_slotAmmoColumn";
+		_slotAmmoColumn.ValueMember = "Id";
+		_slotAmmoColumn.Width = 220;
+		//
+		// _loadoutHintLabel
+		//
+		_loadoutHintLabel.AutoSize = false;
+		_loadoutHintLabel.Dock = DockStyle.Bottom;
+		_loadoutHintLabel.ForeColor = SystemColors.GrayText;
+		_loadoutHintLabel.Location = new Point(6, 164);
+		_loadoutHintLabel.Name = "_loadoutHintLabel";
+		_loadoutHintLabel.Size = new Size(888, 27);
+		_loadoutHintLabel.TabIndex = 1;
+		_loadoutHintLabel.TextAlign = ContentAlignment.MiddleLeft;
+		_loadoutHintLabel.Text =
+			"Only the four missile launchers (MSL6, MSL8, MSL10, FLYMSL) carry an ammunition type; " +
+			"every other mount ignores it. A launcher left on (none) fires SARH.";
+		//
+		// _slotButtonPanel
+		//
+		_slotButtonPanel.Controls.Add(_addSlotButton);
+		_slotButtonPanel.Controls.Add(_removeSlotButton);
+		_slotButtonPanel.Dock = DockStyle.Bottom;
+		_slotButtonPanel.Location = new Point(6, 191);
+		_slotButtonPanel.Name = "_slotButtonPanel";
+		_slotButtonPanel.Size = new Size(888, 41);
+		_slotButtonPanel.TabIndex = 2;
+		//
+		// _addSlotButton
+		//
+		_addSlotButton.Location = new Point(2, 6);
+		_addSlotButton.Name = "_addSlotButton";
+		_addSlotButton.Size = new Size(120, 28);
+		_addSlotButton.TabIndex = 0;
+		_addSlotButton.Text = "Add Slot";
+		_addSlotButton.UseVisualStyleBackColor = true;
+		_addSlotButton.Click += OnAddSlot;
+		//
+		// _removeSlotButton
+		//
+		_removeSlotButton.Location = new Point(128, 6);
+		_removeSlotButton.Name = "_removeSlotButton";
+		_removeSlotButton.Size = new Size(120, 28);
+		_removeSlotButton.TabIndex = 1;
+		_removeSlotButton.Text = "Remove Slot";
+		_removeSlotButton.UseVisualStyleBackColor = true;
+		_removeSlotButton.Click += OnRemoveSlot;
 		//
 		// _unk00Column
 		//
@@ -264,7 +400,7 @@ partial class PlayerSquadForm {
 		// PlayerSquadForm
 		//
 		Size = new Size(900, 650);
-		Controls.Add(_squadGrid);
+		Controls.Add(_squadSplit);
 		Controls.Add(_buttonPanel);
 		Controls.Add(_topPanel);
 		Controls.Add(_statusStrip);
@@ -278,7 +414,14 @@ partial class PlayerSquadForm {
 		_squadGroupBox.ResumeLayout(false);
 		_squadGroupBox.PerformLayout();
 		((System.ComponentModel.ISupportInitialize)_playerSlotInput).EndInit();
+		_squadSplit.Panel1.ResumeLayout(false);
+		_squadSplit.Panel2.ResumeLayout(false);
+		((System.ComponentModel.ISupportInitialize)_squadSplit).EndInit();
+		_squadSplit.ResumeLayout(false);
 		((System.ComponentModel.ISupportInitialize)_squadGrid).EndInit();
+		_loadoutGroupBox.ResumeLayout(false);
+		((System.ComponentModel.ISupportInitialize)_loadoutGrid).EndInit();
+		_slotButtonPanel.ResumeLayout(false);
 		_buttonPanel.ResumeLayout(false);
 		_statusStrip.ResumeLayout(false);
 		_statusStrip.PerformLayout();
@@ -299,12 +442,21 @@ partial class PlayerSquadForm {
 	private Label _playerSlotLabel;
 	private NumericUpDown _playerSlotInput;
 	private Label _noteLabel;
+	private SplitContainer _squadSplit;
 	private DataGridView _squadGrid;
 	private DataGridViewTextBoxColumn _indexColumn;
 	private DataGridViewComboBoxColumn _hercTypeColumn;
 	private DataGridViewTextBoxColumn _slotsColumn;
-	private DataGridViewTextBoxColumn _weaponRefsColumn;
-	private DataGridViewTextBoxColumn _weaponAmmoTypesColumn;
+	private DataGridViewTextBoxColumn _fitColumn;
+	private GroupBox _loadoutGroupBox;
+	private DataGridView _loadoutGrid;
+	private DataGridViewTextBoxColumn _slotIndexColumn;
+	private DataGridViewComboBoxColumn _slotWeaponColumn;
+	private DataGridViewComboBoxColumn _slotAmmoColumn;
+	private Panel _slotButtonPanel;
+	private Button _addSlotButton;
+	private Button _removeSlotButton;
+	private Label _loadoutHintLabel;
 	private DataGridViewTextBoxColumn _unk00Column;
 	private DataGridViewTextBoxColumn _unk02Column;
 	private DataGridViewTextBoxColumn _unk3AColumn;

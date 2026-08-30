@@ -52,15 +52,15 @@ sources effects are supposed to cast.
 
 ## Next
 
-### AI target acquisition
-
-AI machines never select anything, so they never fire and never switch their radar on — which is
-also why a hostile is only targetable at long range once the player goes ACTIVE. The setter is
-`FUN_0041c0f4`; the state functions that call it are `FUN_0041c418`, `FUN_0041cf18`, `FUN_0041d60c`,
-`FUN_0041d7d0`, `FUN_0041d9cc`, `FUN_0041daac` and `FUN_0041e224`, which also drive `mech+0x96`
-from a per-state flag table at `mech+0x92`.
+- MFD F4 SCANNER screen
 
 ## Also outstanding, lower priority
+
+- AI machines never select anything, so they never fire and never switch their radar on — which is
+  also why a hostile is only targetable at long range once the player goes ACTIVE. The setter is
+  `FUN_0041c0f4`; the state functions that call it are `FUN_0041c418`, `FUN_0041cf18`, `FUN_0041d60c`,
+  `FUN_0041d7d0`, `FUN_0041d9cc`, `FUN_0041daac` and `FUN_0041e224`, which also drive `mech+0x96`
+  from a per-state flag table at `mech+0x92`.
 
 - **`TSShadedPoly` still uses an averaged atlas colour**, which is a stand-in and not the mechanism.
   The real one is `Palette_ShadeRampLookup` (`00430e34`) against the active palette's own shade

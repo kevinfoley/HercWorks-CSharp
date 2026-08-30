@@ -114,6 +114,12 @@ string fontPath = Path.Combine(AppContext.BaseDirectory, "Assets", "Fonts", "Ope
 
 window.Load += (gl, input) => {
 	renderer = new SceneRenderer(gl);
+
+	// Same as Herculan.Engine.Host: fog distances, fog colour and the banded sky come off the zone
+	// and its theater rather than being hand-picked — see Scene.Atmosphere. Without this the renderer
+	// has no sky gradient, so DrawSky paints nothing and the view has no background at all.
+	scene.Atmosphere.ApplyTo(renderer);
+
 	wireframe = new WireframeRenderer(gl);
 
 	terrainMesh = new GpuMesh(gl, scene.TerrainMesh);
@@ -212,6 +218,12 @@ window.Render += (_, gl) => {
 
 	var size = window.FramebufferSize;
 	float aspect = (float)size.X / MathF.Max(size.Y, 1);
+
+	// SceneRenderer.Render deliberately does not clear — the simulator host draws three cockpit
+	// panels into one frame, so clearing is the caller's job, once per frame. The editor draws a
+	// single panel but still owes the same call: without it the depth buffer keeps the previous
+	// frame's values and rejects every triangle from frame two onward.
+	renderer.Clear();
 
 	// Full-window viewport: the editor draws one 3D view, unlike the simulator host's three cockpit
 	// panels, which is what SceneRenderer.Render's x/y origin exists for.

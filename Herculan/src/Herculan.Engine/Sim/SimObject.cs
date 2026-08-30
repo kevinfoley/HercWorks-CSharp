@@ -266,6 +266,18 @@ public abstract class SimObject {
 	public abstract int HitRadius { get; }
 
 	/// <summary>
+	/// The drawn model's own radius, in world units - the original's vtable slot <c>+0x10</c>,
+	/// <c>SimObject_GetShapeRadius</c> (<c>0046b80c</c>), which reads it straight off the shape the
+	/// object instances rather than out of any type record. The HUD target box sizes itself from it
+	/// (see <c>Herculan.Engine.Content.TargetBox</c>).
+	///
+	/// <para>For a HERC and a flyer that is the same figure as <see cref="HitRadius"/>, both being
+	/// the model bound; <see cref="BaseObject"/> keeps them apart because a structure's hit radius
+	/// comes from <c>BASES.DAT</c> and can differ from what it draws.</para>
+	/// </summary>
+	public virtual int ShapeRadius => HitRadius;
+
+	/// <summary>
 	/// Vtable <c>+0x20</c> — <b>the hit test and the damage application are the same call</b>, which
 	/// is the shape of the original and not a shortcut here: <c>Sim_RaycastObjectList</c>
 	/// (<c>00426528</c>) offers each live object the shot and the object decides both whether it was

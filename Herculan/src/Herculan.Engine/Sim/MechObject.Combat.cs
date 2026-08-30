@@ -216,6 +216,14 @@ public sealed partial class MechObject {
 
 		DamageTaken += shot.DamageShield - shieldDamage;
 
+		// The shields-down latch, set exactly where the original sets it: on the locally piloted
+		// machine, the first time a shot lands with less than 500 points of charge left across both
+		// facings. It plays alert 0x15 there and never clears - and it is what the MFD status screen
+		// reads for its SHIELDS DN condition, which is why a target never shows that state.
+		if (LocallyPiloted && !ShieldsDownAlert && Shields.Total < ShieldsDownAlertCharge) {
+			ShieldsDownAlert = true;
+		}
+
 		if (shieldDamage == 0) {
 			world.SpawnImpactEffect(
 				world.PickImpactEffect(shot.ImpactFx(WeaponShot.ImpactFxGroup.Shield)),

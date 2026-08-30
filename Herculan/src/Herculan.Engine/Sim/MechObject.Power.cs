@@ -72,6 +72,18 @@ public sealed partial class MechObject {
 	public ShieldCharge Shields { get; private set; } = new(0);
 
 	/// <summary>
+	/// <c>mech+0xb0</c> - the shields-down alert latch. <c>Mech_DirectFireHitTest</c> sets it the first
+	/// time a shot lands on the locally piloted machine with under
+	/// <see cref="ShieldsDownAlertCharge"/> points of charge left across both facings, plays alert
+	/// <c>0x15</c>, and never clears it. Nothing but the player's own machine can set it, which is why
+	/// the MFD status screen's SHIELDS DN condition only ever appears on F1.
+	/// </summary>
+	public bool ShieldsDownAlert { get; internal set; }
+
+	/// <summary>The charge the latch trips below - the original's own literal.</summary>
+	public const int ShieldsDownAlertCharge = 500;
+
+	/// <summary>
 	/// This machine's weapon mounts, <c>mech+0x202</c> — built from its own hardpoint list and the fit
 	/// the mission gave it. <see cref="WeaponMounts.Empty"/> when either was unavailable.
 	/// </summary>

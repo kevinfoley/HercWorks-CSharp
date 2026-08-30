@@ -6283,6 +6283,285 @@
       "name": "SimObject_GetAimNodeTransform_None",
       "description": "Vtable +0x24 on both the flyer and structure classes: return 0. Every caller's null branch falls back to the object's raw origin for aiming and to a literal 500 for sight height, so only a mech has an aim node. The mech's own is Mech_GetAimNodeTransform.",
       "source": "docs/simulation/target-selection.md 2026-08-29"
+    },
+    {
+      "address": "0043b344",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GunsightChild_CtorBase",
+      "description": "Base of all nine roving-gunsight children: stores the caller's {x0,y0,x1,y1} rect at +4..+0x10 and sets a stub vtable each subclass overwrites. Children 4, 5 and 6 additionally receive the 38-byte target state block at +0x14.",
+      "source": "docs/formats/hud-target-indicator.md 2026-08-30"
+    },
+    {
+      "address": "0043b7e0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gunsight_ReticlePaint",
+      "description": "Gunsight child 4's paint: blits one HUD-bank reticle frame centred on the .GAU reticle point (offset 1136). Frame 0 with no target, with the selection behind the near plane, or with its aim point projecting further than 5<<CoordShift from the reticle on either axis; frame 2 inside that tolerance; frame 1 when the armed missile mount also has lock (state block +0x39 = mech+0x9b).",
+      "source": "docs/formats/hud-target-indicator.md 2026-08-30"
+    },
+    {
+      "address": "0043b928",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gunsight_TargetIndicator_Ctor",
+      "description": "Constructor for gunsight child 5, the target box and its off-screen arrow: GunsightChild_CtorBase plus vtable 0049c1c4, whose slot 0 is Gunsight_TargetIndicatorPaint.",
+      "source": "docs/formats/hud-target-indicator.md 2026-08-30"
+    },
+    {
+      "address": "0043b950",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gunsight_TargetIndicatorPaint",
+      "description": "Gunsight child 5's paint: the HUD target box (pip, four mirrored corner brackets, four edge ticks -- HUD frames 3-6 unlocked, 7-10 locked) and, when the target does not project inside the .GAU's offset-1148 rect, a flat-filled arrow at that rect's border pointing at it. Box side is clamp(2*(shapeRadius>>1)*focal/distance, 25, 75) device pixels, the clamp NOT coordinate-shifted. It is the only widget that calls Cockpit_PopRenderContext before drawing and Cockpit_PushCanvasContext after, so the box alone is clipped to the canopy cutout and goes behind the cockpit frame.",
+      "source": "docs/formats/hud-target-indicator.md 2026-08-30"
+    },
+    {
+      "address": "0043c120",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gunsight_ClickSurface_Ctor",
+      "description": "Gunsight child 0: the clickable gunsight surface over the 3D view, on the .GAU's offset-1148 rect. Allocates a gadget and registers it with the cockpit's clickable list, which is the 'gunsight click' path into TargetSelect_SetObject.",
+      "source": "docs/formats/hud-target-indicator.md 2026-08-30"
+    },
+    {
+      "address": "0043c1dc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gunsight_ClickSurface_Paint",
+      "description": "Child 0's paint: draws nothing, only tests the cursor point at +0x42/+0x46 against its own rect and reports the result.",
+      "source": "docs/formats/hud-target-indicator.md 2026-08-30"
+    },
+    {
+      "address": "0043c240",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gunsight_UnusedChild_Ctor",
+      "description": "Gunsight child 6. Built on Gunsight_TargetIndicator_Ctor and fed the same target state block at construction, then overwritten with vtable 0049c174 whose paint slot is a bare RET. Never drawn, and never updated per frame either -- Gunsight_SetValues pushes live state to children 4 and 5 only.",
+      "source": "docs/formats/hud-target-indicator.md 2026-08-30"
+    },
+    {
+      "address": "0043c260",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gunsight_UnusedChild_Paint",
+      "description": "Child 6's paint slot: RET. See Gunsight_UnusedChild_Ctor.",
+      "source": "docs/formats/hud-target-indicator.md 2026-08-30"
+    },
+    {
+      "address": "0043c268",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HudWaypointIndicator_Ctor",
+      "description": "Gunsight children 7 and 8, both on the heading tape's rect with limits +/-0xe38. Built on HudRotationIndicator_Ctor, then given vtable 0049c154 whose paint is Hud_UpdateWaypointIndicator, plus a label child. Child 7 additionally sets its +0x45 flag.",
+      "source": "docs/formats/cockpit-hud.md 2026-08-30"
+    },
+    {
+      "address": "0043d6dc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gunsight_UpdateAndPaint",
+      "description": "The roving gunsight's vtable +8, called once a frame from maybe_Sim_RenderFrame. Copies CockpitView+0x26c..+0x27e (target, world aim point, component id) into the widget's state block at +0xb7..+0xc9, adds the target's heading (+0xc7), its shape radius from vtable +0x10 (+0xcd) and a literal 2000 (+0xd1), drives child 1 from the viewing object's heading, then runs every child's slot +4 and repaints the whole complex.",
+      "source": "docs/formats/hud-target-indicator.md 2026-08-30"
+    },
+    {
+      "address": "0043db88",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gunsight_GetStateBlock",
+      "description": "Returns the roving gunsight's 38-byte target/angle state block, widget+0xb1. Callers are Player_PerFrameCockpitUpdate and the three TargetSelect_* entry points, which set byte 36 to 1 to arm the target indicator.",
+      "source": "docs/formats/hud-target-indicator.md 2026-08-30"
+    },
+    {
+      "address": "00434a24",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitView_SetTargetBlock",
+      "description": "Writes the frame's target block into CockpitViewInstance+0x26c..+0x27e: the selected object, its world aim point (3 ints), and the two shorts Player_ResolveTargetAimPoint produced -- a component-present flag and the component id. Gunsight_UpdateAndPaint and MfdStatusScreen_Paint both read it.",
+      "source": "docs/formats/hud-target-indicator.md 2026-08-30"
+    },
+    {
+      "address": "0041b728",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Player_ResolveTargetAimPoint",
+      "description": "Resolves the point the HUD aims at on the selected target. With a targeting computer fitted (mech+0x30b) and the target inside 30000 units it asks the pod for a component aim point and component id; otherwise it takes the target's vtable +0x24 aim node transformed by the target's own rotation, falls back to the raw origin, and writes 0 to the component id.",
+      "source": "docs/formats/hud-target-indicator.md 2026-08-30"
+    },
+    {
+      "address": "0043a5a0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdStatusScreen_Paint",
+      "description": "Paint for the MFD status screen shared by F1 and F5. Latches the subject from the display's shared block (+0xb9), then branches on its target class: a HERC gets its .PDG paper doll and a twelve-dependent condition scan, a flyer gets flyers-bank frame 0, a structure gets bases/vehicles frame BASES.DAT+0x28. ID: versus TARGET: follows whether the subject is the viewing object or a squadmate; the name label's font and the integrity-versus-range choice for label 4 both follow the subject's mission-group side byte. This is the paint-time font override docs/formats/mfd.md previously recorded as untraced.",
+      "source": "docs/formats/mfd.md 2026-08-30"
+    },
+    {
+      "address": "0043b210",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdStatusScreen_Update",
+      "description": "The status screen's vtable +4: ticks a 30-tick blink latch at +0x34/+0x35, runs the paint, then invalidates the screen rect.",
+      "source": "docs/formats/mfd.md 2026-08-30"
+    },
+    {
+      "address": "00438700",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Damage_ToConditionState",
+      "description": "Maps a Q8 damage fraction to a STRINGS0.STR group 28 condition index: intact = (0x100-damage)*100>>8, then >=0x5a OK, >=0x4a SHIELDS DN, >=0x33 INT DAMAGE, >=1 CRITICAL, else DESTROYED. Used for subjects with no per-component readings -- flyers and structures.",
+      "source": "docs/formats/mfd.md 2026-08-30"
+    },
+    {
+      "address": "0041b4ec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_ReadDamageReadouts",
+      "description": "Fills a 42-short display buffer for one machine: entry 0 is the type record's +0x6c, the rest come from Component_FillDamageReadouts.",
+      "source": "docs/formats/mfd.md 2026-08-30"
+    },
+    {
+      "address": "004151a4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Component_FillDamageReadouts",
+      "description": "Fills the damage-readout buffer from a component-damage object: shorts 1-19 the armour components as Q8 fractions (0x100 when destroyed), 20-31 the twelve dependents on their own, 32-41 ten combined armour+dependent readings. MfdStatusScreen_Paint scans 20-31 for its CRITICAL/INT DAMAGE condition.",
+      "source": "docs/formats/mfd.md 2026-08-30"
+    },
+    {
+      "address": "0040db2c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Component_ReadOverallDamage",
+      "description": "One object's whole damage as a Q8 fraction, 0 pristine and 256 destroyed: every main component and every dependent weighed once against its own maximum, a destroyed one counting as its full maximum. Reached through the object's vtable +0x40 and printed by the MFD status screen's integrity readout.",
+      "source": "docs/formats/mfd.md 2026-08-30"
+    },
+    {
+      "address": "00415504",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_GetOverallDamage",
+      "description": "Mech vtable +0x40: Component_ReadOverallDamage on mech+0x206.",
+      "source": "docs/formats/mfd.md 2026-08-30"
+    },
+    {
+      "address": "00433134",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squad_IndexOf",
+      "description": "Returns an object's index in the three-entry squadmate array DAT_004d044c, or -1. MfdStatusScreen_Paint uses it to decide between ID: with a pilot name and TARGET: with a type name.",
+      "source": "docs/formats/mfd.md 2026-08-30"
+    },
+    {
+      "address": "00430ea0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Cockpit_CreateCanvasContext",
+      "description": "Allocates the cockpit widget layer's own 0x239-byte render context, sets clip mode 1 (single rect) at +0x208 and the caller's rect at +0x210..+0x21c, and stores it in DAT_004d042c. Gau_BuildCockpitWidgets passes the whole cockpit canvas and keeps the result at CockpitViewInstance+4.",
+      "source": "docs/formats/hud-target-indicator.md 2026-08-30"
+    },
+    {
+      "address": "004311e0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Cockpit_PushCanvasContext",
+      "description": "Pushes the current render context onto the stack at DAT_004d0470 and installs CockpitViewInstance+4, the full-canvas mode-1 context. Every cockpit widget paint runs inside a Cockpit_PushCanvasContext/Cockpit_PopRenderContext pair, which is why console instruments outside the canopy cutout can draw at all.",
+      "source": "docs/formats/hud-target-indicator.md 2026-08-30"
+    },
+    {
+      "address": "00431210",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Cockpit_PopRenderContext",
+      "description": "Restores the render context Cockpit_PushCanvasContext saved. Gunsight_TargetIndicatorPaint calls it deliberately mid-paint to drop back into the view's canopy-clipped context for the target box's blits.",
+      "source": "docs/formats/hud-target-indicator.md 2026-08-30"
+    },
+    {
+      "address": "00480c38",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_InstallRenderContext",
+      "description": "Installs a render context: DAT_006c5ff4 = ctx, and PTR_DAT_004a362c = ctx+4, its clip block. The block's mode sits at ctx+0x208 -- 0 none, 1 the single rect at ctx+0x210, 2 the region list the block holds -- and CockpitView_ApplyViewState is what puts a view's context into mode 2 with the herc's .HD/.ED canopy regions.",
+      "source": "docs/formats/hud-target-indicator.md 2026-08-30"
+    },
+    {
+      "address": "004886cc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Bitmap_BlitClipDispatch",
+      "description": "Applies the installed clip block to a blit: offsets the destination by the context's translation when ctx+0x20c is 1, then dispatches on the clip mode at ctx+0x208 -- unclipped, or rect-clipped to ctx+0x210 for both mode 1 and mode 2. A type-1 (transparent) bitmap is handed to Bitmap_BlitTransparent before any of that and is clipped there instead.",
+      "source": "docs/formats/hud-target-indicator.md 2026-08-30"
+    },
+    {
+      "address": "00488cec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Bitmap_BlitTransparent",
+      "description": "The transparent/RLE sprite blitter. Rejects against the context's clip rect (ctx+0x210..+0x21c), then sets a per-call flag from whether the clip mode is 2 and sends every pixel run it emits either to the plain span writer (DAT_004a581c/DAT_004a5824) or to the region-clipped one (DAT_004a5820/DAT_004a5828). That flag is why a sprite drawn through a mode-2 context is cut to the canopy cutout scanline by scanline rather than to a rectangle.",
+      "source": "docs/formats/hud-target-indicator.md 2026-08-30"
+    },
+    {
+      "address": "004865f8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_FillRect",
+      "description": "Fills a rect through the installed clip block: mode 0 direct, mode 1 intersected with ctx+0x210, otherwise walked against each region in the block's list (rect regions intersected, span regions clipped through FUN_00486af4). Used by the MFD status screen's label backgrounds and its component highlight.",
+      "source": "docs/formats/hud-target-indicator.md 2026-08-30"
+    },
+    {
+      "address": "0047d220",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_Atan2Bam",
+      "description": "atan2 in binary angles, arguments (x, y): 0 is +x and +y is a quarter turn, so in screen space 0 is right and a quarter turn is down. The result is masked to 14 bits and shifted left 2.",
+      "source": "docs/formats/hud-target-indicator.md 2026-08-30"
+    },
+    {
+      "address": "0047ea24",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_BuildRotation2D",
+      "description": "Builds a 2x2 Q14 rotation matrix for a binary angle into a short[4] -- {cos, sin, -sin, cos}, both looked up in the quarter-turn table at 004a25dc.",
+      "source": "docs/formats/hud-target-indicator.md 2026-08-30"
+    },
+    {
+      "address": "0047fedc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_Rotate2DPoint",
+      "description": "Rotates an {int x, int y} point by a Math_BuildRotation2D matrix, rounding at Q14.",
+      "source": "docs/formats/hud-target-indicator.md 2026-08-30"
     }
   ]
 }

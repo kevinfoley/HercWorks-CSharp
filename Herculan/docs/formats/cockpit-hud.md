@@ -81,8 +81,11 @@ entering views 2/3 and undoes it on return to view 0.
 - `CockpitView_SetView` (`0042a1f0`) does the work: `CockpitView_ApplyViewState`, then one
   `Bitmap_Blit` of the canopy at `(0,0)`, then `FUN_004316c0` repaints every cockpit widget.
 - `CockpitView_ApplyViewState` (`00429e60`) copies the view's `0x204`-byte clip block into the render
-  context (`DAT_006c5ff4 + 4`), points `ActiveScanlineClipSpans` at its span table, and installs the
-  `.VUE` rect into context slots `0x84`-`0x89`.
+  context (`DAT_006c5ff4 + 4`), sets that context's clip mode (`+0x208`) to **2** — the region-list
+  mode, which makes even sprite blits follow the cutout scanline by scanline — points
+  `ActiveScanlineClipSpans` at its span table for the polygon rasterizers, and installs the `.VUE`
+  rect into context slots `0x84`-`0x89`. Only the target box is drawn through this context; see
+  [`hud-target-indicator.md`](hud-target-indicator.md).
 
 **The canopy is blitted once per view change, not per frame.** The 3D scene is then rasterized over
 it every frame, span-clipped to `ActiveScanlineClipSpans`; HUD widgets repaint on top.
@@ -710,20 +713,28 @@ Everything drawn over the live 3D view, rather than on the console, belongs to o
 | `[4..7]` | 1104-1116 | **Heading tape** rect. `100,y - 220,y+17` in every file, so 120x17 centred on the 320-wide HUD. The rotation indicator is derived from it, below |
 | `[8]`,`[0xa]`,`[0xb]` | 1120, 1128, 1132 | Speed and time readout anchors — see below |
 | `[0xc]`,`[0xd]` | 1136, 1140 | Reticle point |
-| `[0xe]` | 1144 | Half-extent of the waypoint child's box about the reticle point |
-| `[0xf..0x12]` | 1148-1163 | Rect shared by children 0, 5 and 6 |
+| `[0xe]` | 1144 | Half-extent of child 4's rect about the reticle point. Zero in all 9 retail files, and unread by that child's paint |
+| `[0xf..0x12]` | 1148-1163 | Rect shared by children 0, 5 and 6 — `GAUFile.GunsightArea`, the target arrow's safe area |
 
 `Gunsight_AddChild` (`0043d5a4`) appends to a pointer array at the widget's `+0xd7`, so construction
 order *is* child index. `Gunsight_Paint` (`0043d5c8`) walks that array calling each child's slot 0.
 
+All nine children derive from `FUN_0043b344`, a bare rect holder. Children 4, 5 and 6 additionally
+receive the 38-byte state block described in
+[`hud-target-indicator.md`](hud-target-indicator.md), at `+0x14`.
+
 | # | Ctor | What it is |
 |---|---|---|
+| 0 | `FUN_0043c120` | The clickable gunsight surface. Registers a child gadget with the cockpit's click list — the "gunsight click" entry into `TargetSelect_SetObject`. Its paint (`FUN_0043c1dc`) only tracks the cursor against its rect |
 | 1 | `HudHeadingTape_Ctor` (`0043b57c`) | Heading tick tape, bank `hudhtick`, limits ±`0xe38` |
 | 2 | `HudRotationIndicator_Ctor` (`0043b438`) | The rotation indicator, limits ±`0x38e3` |
 | 3 | `HudSlideBar_CtorHidden` (`0043b54c`) | The pitch axis's slide bar — **paint slot is a no-op** (`0043b574`), so it is never drawn |
-| 7 | `FUN_0043c268` | Second widget on the heading tape's rect, limits ±`0xe38` |
+| 4 | `FUN_0043b344`, vtable `0049c124` inline | The reticle |
+| 5 | `FUN_0043b928` (vtable `0049c1c4`) | The target box and its off-screen arrow |
+| 6 | `FUN_0043c240` | Constructed and fed the state block, but its **paint slot is `ret`** (`FUN_0043c260`) |
+| 7, 8 | `FUN_0043c268` | Waypoint indicators on the heading tape's rect, limits ±`0xe38`; `Hud_UpdateWaypointIndicator` (`0043c3e4`) is their paint |
 
-Children 0, 4, 5, 6 and 8 are constructed but were not traced.
+Children 4 and 5: [`hud-target-indicator.md`](hud-target-indicator.md).
 
 ### Live values
 
@@ -741,6 +752,11 @@ widget caches them at `+0xb1`/`+0xb3`/`+0xb5` and forwards each one's **delta** 
 `HudSlideBar_AddDelta` (`0043b3f8`) does `value -= delta`, clamped to the bar's limits, so the two
 `old - new` children *track* their angle and the heading child scrolls against it. All three start at
 zero, which is where the machine's angles start.
+
+The same call copies the whole 38-byte state block into children 4 and 5. Everything in it past the
+three angles is filled by the gunsight's own update slot (`FUN_0043d6dc`) from the target block at
+`CockpitView+0x26c` — see [`hud-target-indicator.md`](hud-target-indicator.md). `FUN_0043d6dc` also
+drives child 1 from `mech+0x10` and runs each child's slot `+4`.
 
 ### Rotation indicator
 
@@ -819,5 +835,3 @@ sub-objects (`+0x1f5`, `FUN_00433158`'s result, `+0x20b`).
 - `static` and `pilot<n>` ship in `dba\` only, so the 640-wide mode has no matching art for them; see
   [`heads-down-display.md`](heads-down-display.md).
 - RAZOR's non-stub view-1 3D viewport is not rendered.
-- Gunsight children 0, 4, 5, 6 and 8 — constructed, but neither their art nor their value sources
-  were traced.

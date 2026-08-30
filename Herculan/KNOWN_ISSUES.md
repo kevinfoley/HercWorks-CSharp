@@ -7,10 +7,11 @@ _Bugs listed in this section were tested on Windows 11. It's possible that some 
 - Samson cockpit: several HUD elements are slightly misaligned (shield balance text is not centered horizontally with meter; firing chain, LINK, and TRACK buttons are slightly too high and too far outward)
 - Player Herc acceleration/deceleration and turning are framerate-dependent (**fixed** in HERCULAN Engine)
 - The "center legs" function moves the turret awkwardly and does not center the legs perfectly.
-- Herc stats shown in the "Build" screen may be incorrect (the Outlaw is listed as having a top speed of 80 kph, but the manual and in-game readout show 100 kph).
-- Some buildings' collision volumes are shorter than the visible mesh, so shots pass through the top of the building (verified against the retail data: type 3 stops at 2225 against a 6756 mesh, type 22 at 9400 against 18300). Reproduced as-is.
+- Herc stats shown in the VSHELL "Build" screen may be incorrect (the Outlaw is listed as having a top speed of 80 kph, but the manual and in-game readout show 100 kph).
+- Some buildings' collision volumes are shorter than the visible mesh, so shots pass through the top of the building.
 - Turning with the keyboard turns at half of the speed of turning with the joystick.
 - The HUD speed readout does not reflect speed accurately. Hercs have two strides, "walking" and "running". In the walking stride, the Herc moves much more slowly than the speed gauge indicates.
+- The Range readout of the MFD TARGET tab (F5) prints raw world units — 1 unit = 6 mm, so 103050 is about 618 m. Every other distance readout in the cockpit converts to metres first (`Hud_WorldUnitsToMetres`); this one does not.
 
 ## HERCULAN Engine
 
@@ -29,3 +30,4 @@ _Note to Claude: This section is for listing features which have been implemente
 - In the Scramble practice mission while piloting an Apocalypse, a Particle Beam Weapon is equipped to slot 8. In HERCULAN, when this PBW is fired the beam visibly clips off near the corner of the screen. This may be a camera near-clip plane issue.
 - TextureAtlas.AverageColor() sounds like a hack (needs investigation)
 - The `[P]` pause is a placeholder, not RE'd: it just stops the fixed-timestep tick loop. Retail DBSIM's own pause has not been traced.
+- Targeting range seems to be much lower than retail, even with active radar. Possibly because there's currently no AI, so the enemies never switch their radar on.

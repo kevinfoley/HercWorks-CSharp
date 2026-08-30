@@ -115,6 +115,80 @@ public static class MfdLayout {
 	public const int StatusLabelGroup = 21;
 
 	/// <summary>
+	/// Group holding the 31 structure type names, indexed by
+	/// <see cref="Herculan.Engine.World.BaseType.SilhouetteIndex"/> - the same index that picks the
+	/// <c>BASES</c> silhouette frame.
+	/// </summary>
+	public const int StructureNameGroup = 23;
+
+	/// <summary>And the four vehicle type names, for a type whose <see cref="Herculan.Engine.World.BaseType.IsVehicle"/> is set.</summary>
+	public const int VehicleNameGroup = 24;
+
+	/// <summary>Group holding the single string "NONE" - what the target screen names an empty selection.</summary>
+	public const int NoTargetNameGroup = 26;
+
+	/// <summary>Group holding the single string "UNKNOWN" - a subject the screen's class switch does not recognise.</summary>
+	public const int UnknownNameGroup = 27;
+
+	/// <summary>
+	/// Which entry of <see cref="IdentLabelGroup"/> heads the screen: 0 <c>ID:</c> for the player's own
+	/// machine and its squad, 1 <c>TARGET:</c> for anything else, and 2 <c>DIST:</c>, which the fifth
+	/// label prefixes a hostile's range with.
+	/// </summary>
+	public const int IdentSelfEntry = 0;
+
+	/// <inheritdoc cref="IdentSelfEntry"/>
+	public const int IdentTargetEntry = 1;
+
+	/// <inheritdoc cref="IdentSelfEntry"/>
+	public const int IdentDistanceEntry = 2;
+
+	/// <summary>
+	/// Fonts the paint re-installs on the subject-name label from the subject's own side, overriding
+	/// the <c>RED</c> the constructor gives it: <c>ColorSchemePanels[1]</c> <c>CPGREEN</c> for one of
+	/// ours and <c>[2]</c> <c>CPRED</c> for a Cybrid. It is <c>FUN_0043a5a0</c>'s own
+	/// <c>DAT_0049b0b0</c>/<c>DAT_0049b0b4</c> pair, read from the group record's side byte.
+	/// </summary>
+	public const string FriendlyNameFont = "CPGREEN";
+
+	/// <inheritdoc cref="FriendlyNameFont"/>
+	public const string HostileNameFont = "CPRED";
+
+	/// <summary>
+	/// And the font the screen falls back to with no subject or an unidentified one -
+	/// <c>ColorSchemePanels[0]</c>, <c>CPBLUE</c>, which the paint writes straight into the label's
+	/// font slot on both of those paths.
+	/// </summary>
+	public const string UnknownNameFont = "CPBLUE";
+
+	/// <summary>
+	/// Bank names the status screen's three silhouette loads use, in
+	/// <c>MfdStatusScreen_Ctor</c>'s own order. A structure and a vehicle index their bank by
+	/// <see cref="Herculan.Engine.World.BaseType.SilhouetteIndex"/>; a flyer always takes frame 0 of
+	/// its own, the paint reaching the bank's frame array with no index at all.
+	/// </summary>
+	public const string StructureBank = "BASES";
+
+	/// <inheritdoc cref="StructureBank"/>
+	public const string VehicleBank = "VEHICLES";
+
+	/// <inheritdoc cref="StructureBank"/>
+	public const string FlyerBank = "FLYERS";
+
+	/// <inheritdoc cref="StructureBank"/>
+	public const int FlyerFrame = 0;
+
+	/// <summary>
+	/// The dependent-component damage a HERC has to be carrying on <i>all</i> twelve of its internals
+	/// before the screen calls it CRITICAL rather than INT DAMAGE - the paint's own <c>0x81</c> against
+	/// the Q8 readings <c>FUN_004151a4</c> fills, i.e. every internal more than half gone.
+	/// </summary>
+	public const int CriticalDependentDamage = 0x81;
+
+	/// <summary>How many dependent slots that scan covers - the paint's own twelve.</summary>
+	public const int ScannedDependents = 12;
+
+	/// <summary>
 	/// Group holding the status screen's condition strings — "OK", "SHIELDS DN", "INT DAMAGE",
 	/// "CRITICAL", "DESTROYED". <c>MfdStatusScreen_SetCondition</c> (<c>0043b260</c>) indexes it as
 	/// <c>DAT_004d1698[state]</c> into the fourth label.
@@ -265,10 +339,11 @@ public static class MfdLayout {
 
 	/// <summary>
 	/// Font per status label, from the selector table at <c>0049bd98</c> (<c>0,1,0,1,1</c>) indexing
-	/// <c>{ColorSchemePanels[10] WHITE, [14] RED}</c>. These are the fonts the constructor installs;
-	/// labels 1 and 3 are re-fonted at paint time from IFF and damage state, which is why a friendly
-	/// name draws green in the retail screenshot while a hostile one draws red. That override is not
-	/// traced, so the constructor's own choice is what this draws.
+	/// <c>{ColorSchemePanels[10] WHITE, [14] RED}</c>. These are the fonts the constructor installs,
+	/// and the ones labels 0, 2, 3 and 4 keep.
+	///
+	/// <para>Label 1, the subject's name, is re-fonted at paint time from the subject's side — see
+	/// <see cref="FriendlyNameFont"/>, which is that override — so entry 1 here is never used.</para>
 	/// </summary>
 	public static readonly string[] StatusLabelFonts = { "WHITE", "RED", "WHITE", "RED", "RED" };
 
@@ -281,6 +356,15 @@ public static class MfdLayout {
 	/// <para>When the subject is unreadable the same function writes <c>"XXXXXX"</c> to the condition
 	/// label and <c>"XXX"</c> here instead.</para>
 	/// </summary>
+	/// <summary>
+	/// The status screen's range readout, which replaces the integrity one for a hostile subject: the
+	/// <c>DIST:</c> caption from <see cref="IdentLabelGroup"/> with the range in world units appended,
+	/// exactly as <c>FUN_0043a5a0</c> builds it (<c>strcpy</c> the caption, <c>itoa</c> onto the end).
+	/// The caption's own trailing spaces are what separate the two.
+	/// </summary>
+	public static string DistanceReadout(SimStringTable? strings, int distance) =>
+		(strings?.Text(IdentLabelGroup, IdentDistanceEntry) ?? "DIST:  ") + distance;
+
 	public static string IntegrityReadout(int damage) =>
 		$"[ {(0x100 - Math.Clamp(damage, 0, 0xff)) * 100 >> 8}% ]";
 

@@ -130,6 +130,19 @@ public sealed class Overlay2DRenderer : IDisposable {
 		_shader.Use();
 		_shader.SetVector2("uViewportSize", new Vector2(viewportWidth, viewportHeight));
 
+		// Before the canopy, so the canopy art covers it: the HUD's target box is the one thing on the
+		// front window that goes *behind* the cockpit frame. See AddTargetBox for why — it is the only
+		// gunsight child that drops back into the view's own render context, whose clip block is the
+		// herc's canopy cutout, while every other widget draws through the full-canvas context.
+		if (hud?.Sprites is { } boxSprites && spriteTexture != null) {
+			_vertices.Clear();
+			AddTargetBoxLayer(hud.Gau, boxSprites, hudState ?? CockpitHudState.Default, scale, quadX0);
+			if (_vertices.Count > 0) {
+				_shader.SetSamplerTexture("uTexture", spriteTexture.Handle, 0);
+				_mesh.SubmitAndDraw(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_vertices));
+			}
+		}
+
 		_vertices.Clear();
 		AddCockpitQuad(quadX0, quadWidth, viewportHeight, mirrorHorizontally);
 		_shader.SetSamplerTexture("uTexture", cockpitTexture.Handle, 0);
@@ -575,14 +588,23 @@ public sealed class Overlay2DRenderer : IDisposable {
 		float Dx(float deviceX) => quadX0 + deviceX * scale;
 		float Dy(float deviceY) => deviceY * scale;
 
-		void Blit(string bank, int frame, float left, float top) {
+		void Blit(string bank, int frame, float left, float top) =>
+			BlitFlipped(bank, frame, left, top, flipX: false, flipY: false);
+
+		// Mirroring is how the target box gets its four corners out of one 12x12 bracket sprite - the
+		// original passes the blitter a 0-3 flip mode for exactly that.
+		void BlitFlipped(string bank, int frame, float left, float top, bool flipX, bool flipY) {
 			if (sprites.Sprite(bank, frame) is not { } sprite || sprite.Width <= 0 || sprite.Height <= 0) {
 				return;
 			}
 
+			// A bank that only ships at 320-wide reports Scale 2, so its frames still cover the cockpit
+			// pixels they were authored for - the original doubles the same banks the same way.
 			var r = sprite.Rect;
-			AddTexturedQuad(left, top, left + sprite.Width * scale, top + sprite.Height * scale,
-				r.U0, r.V0, r.U1, r.V1);
+			float drawn = scale * sprite.Scale;
+			AddTexturedQuad(left, top, left + sprite.Width * drawn, top + sprite.Height * drawn,
+				flipX ? r.U1 : r.U0, flipY ? r.V1 : r.V0,
+				flipX ? r.U0 : r.U1, flipY ? r.V0 : r.V1);
 		}
 
 		void BlitDevice(string bank, int frame, float deviceLeft, float deviceTop) =>
@@ -668,12 +690,248 @@ public sealed class Overlay2DRenderer : IDisposable {
 		AddGunsightReadouts(gau, sprites, state, DrawText);
 
 		// The reticle is a point, not a rect — the only widget in the file that is — so its sprite
-		// centers on it rather than hanging off a top-left corner.
-		if (gau.Reticle is { } reticle && sprites.Sprite("HUD", 0) is { } crosshair) {
-			Blit("HUD", 0,
-				Px(reticle.Origin.X) - crosshair.Width * scale / 2f,
-				Py(reticle.Origin.Y) - crosshair.Height * scale / 2f);
+		// centers on it rather than hanging off a top-left corner. Which of the bank's three frames it
+		// wears is the gunsight's on-target state: child 4's paint (FUN_0043b7e0) draws frame 0 with
+		// nothing selected or the selection off the sight, frame 2 once the target projects within
+		// TargetBox.OnTargetTolerance of this very point, and frame 1 when it also has missile lock.
+		if (gau.Reticle is { } reticle) {
+			int frame = ReticleFrame(gau, state);
+			if (sprites.Sprite(TargetBox.SpriteBank, frame) is { } crosshair) {
+				Blit(TargetBox.SpriteBank, frame,
+					Px(reticle.Origin.X) - crosshair.Width * scale / 2f,
+					Py(reticle.Origin.Y) - crosshair.Height * scale / 2f);
+			}
 		}
+
+		// Last, over the reticle, because the gunsight complex paints its children in construction
+		// order and the target box is child 5 to the reticle's child 4.
+		AddTargetIndicator(gau, sprites, hud.TargetArrowColors, state,
+			(bank, frame, left, top, flipX, flipY) => BlitFlipped(bank, frame, Dx(left), Dy(top), flipX, flipY),
+			(a, b, c, color) => AddFilledTriangle(
+				new Vector2(Dx(a.X), Dy(a.Y)),
+				new Vector2(Dx(b.X), Dy(b.Y)),
+				new Vector2(Dx(c.X), Dy(c.Y)), color));
+	}
+
+	/// <summary>
+	/// Which of the <c>HUD</c> bank's three reticle frames the crosshair wears, from child 4's paint
+	/// (<c>FUN_0043b7e0</c>): frame 0 unless the selected target projects within
+	/// <see cref="TargetBox.OnTargetTolerance"/> of the reticle point on both axes, then frame 2, or
+	/// frame 1 when the armed missile mount also has lock. This is the cockpit's "on target"
+	/// indication — the box is suppressed over exactly the same span, so the two never overlap.
+	/// </summary>
+	private static int ReticleFrame(GAUFile gau, CockpitHudState state) {
+		if (gau.Reticle is not { } reticle || state.Target is not { InFront: true } target) {
+			return 0;
+		}
+
+		const float S = CockpitArt.GauToPixelScale;
+		bool onTarget = MathF.Abs(target.ScreenX - reticle.Origin.X * S) < TargetBox.OnTargetTolerance
+			&& MathF.Abs(target.ScreenY - reticle.Origin.Y * S) < TargetBox.OnTargetTolerance;
+
+		return onTarget ? target.Locked ? 1 : 2 : 0;
+	}
+
+	/// <summary>
+	/// Where the selected target sits on the canopy, and where the indicator is measured from — the
+	/// two points both halves of child 5's paint (<c>FUN_0043b950</c>) work off. Null when nothing is
+	/// selected or the herc's <c>.GAU</c> has no reticle point.
+	/// </summary>
+	private static (TargetIndicator Target, Vector2 Origin, Vector2 Point)? TargetPoint(
+			GAUFile gau, CockpitHudState state) {
+		if (state.Target is not { } target || gau.Reticle is not { } reticle) {
+			return null;
+		}
+
+		const float S = CockpitArt.GauToPixelScale;
+		var origin = new Vector2(reticle.Origin.X * S, reticle.Origin.Y * S);
+
+		// A target behind the eye keeps no usable projection, so the original throws it away and
+		// re-projects a synthetic point straight out to one side on the reticle's own row: the arrow
+		// then points level left or level right, and no box is drawn.
+		var point = target.InFront
+			? new Vector2(target.ScreenX, target.ScreenY)
+			: new Vector2(
+				origin.X + (target.BehindToLeft ? -TargetBox.BehindOffsetX : TargetBox.BehindOffsetX),
+				origin.Y);
+
+		return (target, origin, point);
+	}
+
+	/// <summary>
+	/// The target box, emitted as its own batch so it can be drawn <b>under</b> the canopy art. It is
+	/// the one HUD element the cockpit frame covers, and that is a real distinction in the original
+	/// rather than a layering choice here.
+	///
+	/// <para>Every widget the cockpit paints goes through a render context whose clip block decides
+	/// what it may touch. <c>Gau_BuildCockpitWidgets</c> (<c>00431bf8</c>) builds one covering the
+	/// whole cockpit canvas in the plain single-rect clip mode and stores it at
+	/// <c>CockpitViewInstance+4</c>; <c>FUN_004311e0</c> installs it and <c>FUN_00431210</c> restores
+	/// whatever was there before. The context underneath is the one
+	/// <c>CockpitView_ApplyViewState</c> (<c>00429e60</c>) loaded the current view's own
+	/// <c>0x204</c>-byte clip block into — the herc's <c>.HD</c>/<c>.ED</c> canopy cutout — putting it
+	/// in clip <b>mode 2</b>, the region-list mode. The transparent-sprite blitter
+	/// (<c>FUN_00488cec</c>) tests for exactly that mode and sends every pixel run it emits through
+	/// the clipped span writer instead of the plain one, so a sprite drawn in that context is cut to
+	/// the canopy opening scanline by scanline — following the A-pillars, not a rectangle.</para>
+	///
+	/// <para><b>Child 5 is the only widget that opts into it</b>: its paint calls
+	/// <c>FUN_00431210</c> before the box and <c>FUN_004311e0</c> after, dropping out of the canvas
+	/// context for those blits alone. The reticle, the heading tape, the rotation indicator, the
+	/// readouts and the off-screen arrow all stay in the canvas context and are never cut. Reproduced
+	/// here by draw order: this batch goes down before the canopy quad, whose art is opaque everywhere
+	/// but the cutout (see <see cref="CockpitClipRegions"/>, which is the same region data), so the
+	/// frame covers it exactly where the original's clip block would have.</para>
+	/// </summary>
+	private void AddTargetBoxLayer(GAUFile gau, HudSpriteSheet sprites, CockpitHudState state,
+			float scale, float quadX0) {
+		if (TargetPoint(gau, state) is not var (target, origin, point)
+			|| !target.InFront
+			|| (MathF.Abs(point.X - origin.X) <= TargetBox.OnTargetTolerance
+				&& MathF.Abs(point.Y - origin.Y) <= TargetBox.OnTargetTolerance)) {
+			return;
+		}
+
+		AddTargetBox(sprites, target, point, (bank, frame, left, top, flipX, flipY) => {
+			if (sprites.Sprite(bank, frame) is not { } sprite || sprite.Width <= 0 || sprite.Height <= 0) {
+				return;
+			}
+
+			var r = sprite.Rect;
+			float drawn = scale * sprite.Scale;
+			float x = quadX0 + left * scale;
+			float y = top * scale;
+			AddTexturedQuad(x, y, x + sprite.Width * drawn, y + sprite.Height * drawn,
+				flipX ? r.U1 : r.U0, flipY ? r.V1 : r.V0,
+				flipX ? r.U0 : r.U1, flipY ? r.V0 : r.V1);
+		});
+	}
+
+	/// <summary>
+	/// The off-screen half of child 5's paint: the arrow, drawn whenever the target does not land
+	/// inside the <c>.GAU</c>'s gunsight area, where the line from the reticle out to it crosses that
+	/// rect's border. Unlike the box this stays in the canvas context, so it is never cut by the
+	/// canopy — it does not need to be, since the area is well inside the window opening.
+	/// </summary>
+	private static void AddTargetIndicator(GAUFile gau, HudSpriteSheet sprites,
+			(Vector3 Unlocked, Vector3 Locked)? arrowColors, CockpitHudState state,
+			Action<string, int, float, float, bool, bool> blit,
+			Action<Vector2, Vector2, Vector2, Vector3> triangle) {
+		if (TargetPoint(gau, state) is not var (target, origin, point)
+			|| gau.GunsightArea is not { } area
+			|| arrowColors is not var (unlocked, locked)) {
+			return;
+		}
+
+		const float S = CockpitArt.GauToPixelScale;
+		float areaX0 = area.Origin.X * S;
+		float areaY0 = area.Origin.Y * S;
+		float areaX1 = (area.Origin.X + area.Size.Width) * S;
+		float areaY1 = (area.Origin.Y + area.Size.Height) * S;
+		bool inside = target.InFront
+			&& point.X >= areaX0 && point.X <= areaX1
+			&& point.Y >= areaY0 && point.Y <= areaY1;
+
+		if (!inside) {
+			AddTargetArrow(origin, point, areaX0, areaY0, areaX1, areaY1,
+				target.Locked ? locked : unlocked, triangle);
+		}
+	}
+
+	/// <summary>
+	/// The box itself: the pip centred on the target, four corner brackets at the corners of
+	/// <see cref="TargetBox.Bounds"/> — one sprite mirrored into each — and four ticks stood off the
+	/// box's edges but lined up on the <i>target's</i> own row and column rather than the box's centre.
+	///
+	/// <para>The corner brackets and the ticks are the half a targeting computer suppresses, leaving
+	/// the bare pip, once it has singled out a component of the target. The engine has no targeting
+	/// computer pod, so the full box is always drawn — which is what both retail reference captures
+	/// show.</para>
+	/// </summary>
+	private static void AddTargetBox(HudSpriteSheet sprites, TargetIndicator target, Vector2 point,
+			Action<string, int, float, float, bool, bool> blit) {
+		int first = TargetBox.FirstFrameFor(target.Locked);
+		if (sprites.Sprite(TargetBox.SpriteBank, first + TargetBox.PipFrame) is not { } pip
+			|| sprites.Sprite(TargetBox.SpriteBank, first + TargetBox.CornerFrame) is not { } corner) {
+			return;
+		}
+
+		void Draw(int frame, float left, float top, bool flipX = false, bool flipY = false) =>
+			blit(TargetBox.SpriteBank, first + frame, left, top, flipX, flipY);
+
+		Draw(TargetBox.PipFrame, point.X - pip.Width / 2f, point.Y - pip.Height / 2f);
+
+		var (x0, y0, x1, y1) = TargetBox.Bounds(point.X, point.Y, target.ShapeRadius, target.Distance);
+		Draw(TargetBox.CornerFrame, x0, y0);
+		Draw(TargetBox.CornerFrame, x1 - corner.Width, y0, flipX: true);
+		Draw(TargetBox.CornerFrame, x0, y1 - corner.Height, flipY: true);
+		Draw(TargetBox.CornerFrame, x1 - corner.Width, y1 - corner.Height, flipX: true, flipY: true);
+
+		if (sprites.Sprite(TargetBox.SpriteBank, first + TargetBox.VerticalTickFrame) is { } vertical) {
+			Draw(TargetBox.VerticalTickFrame, point.X, y1);
+			Draw(TargetBox.VerticalTickFrame, point.X, y0 - vertical.Height);
+		}
+
+		if (sprites.Sprite(TargetBox.SpriteBank, first + TargetBox.HorizontalTickFrame) is { } horizontal) {
+			Draw(TargetBox.HorizontalTickFrame, x1, point.Y);
+			Draw(TargetBox.HorizontalTickFrame, x0 - horizontal.Width, point.Y);
+		}
+	}
+
+	/// <summary>
+	/// The off-screen arrow: a flat triangle whose apex sits where the ray from the reticle out to the
+	/// target leaves the gunsight area, pointing along that ray.
+	///
+	/// <para>The crossing is found the way the original finds it — take the vertical border the target
+	/// is on and solve for y; if that lands outside the rect, take the horizontal border instead and
+	/// solve for x. The apex goes on the crossing and the base <see cref="TargetBox.ArrowLength"/>
+	/// back down the ray, <see cref="TargetBox.ArrowHalfWidth"/> to either side. The original builds
+	/// the same triangle about the origin and rotates it by the crossing's own bearing less a quarter
+	/// turn, which comes to the same thing.</para>
+	/// </summary>
+	private static void AddTargetArrow(Vector2 origin, Vector2 point,
+			float areaX0, float areaY0, float areaX1, float areaY1, Vector3 color,
+			Action<Vector2, Vector2, Vector2, Vector3> triangle) {
+		// The original nudges a zero component to one rather than special-casing the divide.
+		float dx = point.X - origin.X;
+		float dy = point.Y - origin.Y;
+		if (dx == 0f) {
+			dx = 1f;
+		}
+
+		if (dy == 0f) {
+			dy = 1f;
+		}
+
+		float offsetX = (point.X < origin.X ? areaX0 : areaX1) - origin.X;
+		float crossingY = offsetX * dy / dx + origin.Y;
+		float offsetY;
+
+		if (crossingY > areaY0 && crossingY < areaY1) {
+			offsetY = crossingY - origin.Y;
+		} else {
+			offsetY = (crossingY < origin.Y ? areaY0 : areaY1) - origin.Y;
+			offsetX = offsetY * dx / dy;
+		}
+
+		var apex = new Vector2(origin.X + offsetX, origin.Y + offsetY);
+		if (apex == origin) {
+			return;
+		}
+
+		var direction = Vector2.Normalize(new Vector2(offsetX, offsetY));
+		var perpendicular = new Vector2(-direction.Y, direction.X);
+		var back = apex - direction * TargetBox.ArrowLength;
+
+		triangle(back + perpendicular * TargetBox.ArrowHalfWidth, apex,
+			back - perpendicular * TargetBox.ArrowHalfWidth, color);
+	}
+
+	/// <summary>One flat-coloured triangle — the only thing on the HUD that is neither a sprite nor a rect.</summary>
+	private void AddFilledTriangle(Vector2 a, Vector2 b, Vector2 c, Vector3 color) {
+		_vertices.Add(new Overlay2DVertex(a, color));
+		_vertices.Add(new Overlay2DVertex(b, color));
+		_vertices.Add(new Overlay2DVertex(c, color));
 	}
 
 	/// <summary>
@@ -907,7 +1165,10 @@ public sealed class Overlay2DRenderer : IDisposable {
 
 		switch (state.Mfd) {
 			case MfdMode.Status:
-				AddMfdStatusScreen(hud, blitDevice, DrawLabel, X, Y);
+				AddMfdStatusScreen(hud, state.StatusSubject, blitDevice, DrawLabel, X, Y);
+				break;
+			case MfdMode.TargetStatus:
+				AddMfdStatusScreen(hud, state.TargetSubject, blitDevice, DrawLabel, X, Y);
 				break;
 			case MfdMode.FlashComm:
 				AddMfdFlashComm(strings, DrawLabel, insetX, insetY);
@@ -930,49 +1191,94 @@ public sealed class Overlay2DRenderer : IDisposable {
 
 	/// <summary>
 	/// The status screen shared by F1 and F5 (<c>0043a2e0</c>): five stacked labels down the left of
-	/// the screen and the herc's damage wireframe in a viewport whose left edge is the labels' right
-	/// edge.
+	/// the screen and the subject's damage diagram in a viewport whose left edge is the labels' right
+	/// edge. One method for both keys, because there is one screen class for both in the original too
+	/// — F1 and F5 differ only in <paramref name="subject"/>.
 	///
-	/// <para>The wireframe is the herc's own paper-doll art — <c>hba\&lt;HERC&gt;.HBA</c> frame 2, the
-	/// compact third view of the three its <c>.PDG</c> describes, at 48x82 device pixels against a
-	/// 102x92 viewport. The original tints individual body regions by damage from the <c>.PDG</c>
-	/// region list; with no damage model to drive that, this draws the undamaged frame whole.</para>
+	/// <list type="number">
+	/// <item><c>ID:</c> for the player's own machine, <c>TARGET:</c> for anything else;</item>
+	/// <item>the subject's name, in green for one of ours and red for a Cybrid — the paint's own font
+	/// override, read from the subject's mission group and not from the label's constructor;</item>
+	/// <item><c>STATUS:</c>, always;</item>
+	/// <item>its condition, from <see cref="MfdLayout.ConditionGroup"/>;</item>
+	/// <item>a structural-integrity percentage for one of ours, its range for a hostile.</item>
+	/// </list>
+	///
+	/// <para>The viewport holds a machine's own paper doll — <c>hba\&lt;HERC&gt;.HBA</c> frame 2, the
+	/// compact third view of the three its <c>.PDG</c> describes — placed by that view's origin, or a
+	/// flat silhouette from the <c>BASES</c>, <c>VEHICLES</c> or <c>FLYERS</c> bank centred in the
+	/// viewport. The original tints individual body regions by damage from the <c>.PDG</c> region
+	/// list; that needs a per-region reading the engine does not compose yet, so the doll is drawn
+	/// whole.</para>
 	/// </summary>
-	private static void AddMfdStatusScreen(CockpitArt hud,
+	private static void AddMfdStatusScreen(CockpitArt hud, MfdStatusSubject subject,
 			Action<string, int, float, float> blitDevice, MfdLabelWriter drawLabel,
 			Func<int, float> x, Func<int, float> y) {
 		const float S = CockpitArt.GauToPixelScale;
 		var strings = hud.Strings;
 
-		// The five labels, in the constructor's own order: identifier caption, subject name, status
-		// caption, damage state, and a structural-integrity readout the original formats at runtime.
-		string?[] texts = {
-			strings?.Text(MfdLayout.IdentLabelGroup, 0),
-			strings?.Text(MfdLayout.SelfNameGroup, 0),
-			strings?.Text(MfdLayout.StatusLabelGroup, 0),
-			strings?.Text(MfdLayout.ConditionGroup, 0),
-			MfdLayout.IntegrityReadout(0),
-		};
-
-		for (int i = 0; i < MfdLayout.StatusLabelY.Length; i++) {
-			if (texts[i] is { Length: > 0 } text) {
-				drawLabel(MfdLayout.StatusLabelFonts[i], text,
-					x(MfdLayout.StatusLabelX), y(MfdLayout.StatusLabelY[i]),
+		void Label(int index, string? text, string font) {
+			if (text is { Length: > 0 }) {
+				drawLabel(font, text,
+					x(MfdLayout.StatusLabelX), y(MfdLayout.StatusLabelY[index]),
 					x(MfdLayout.WireframeRect.X0),
-					y(MfdLayout.StatusLabelY[i] + MfdLayout.StatusLabelHeight),
+					y(MfdLayout.StatusLabelY[index] + MfdLayout.StatusLabelHeight),
 					false, 0f);
 			}
 		}
 
-		// The paper doll blits at the viewport's top-left plus the .PDG view's own origin plus a fixed
-		// (0x11, 2) device nudge — the paint's own arithmetic, not a centring rule. The view's origin
-		// is authored in the 320-wide space like every other .PDG coordinate, so it scales the same way.
-		if (hud.PaperDoll?.Entries is { } views
-			&& MfdLayout.WireframeViewIndex < views.Length
-			&& views[MfdLayout.WireframeViewIndex] is { } view) {
-			blitDevice(hud.HercName, MfdLayout.WireframeViewIndex,
-				x(MfdLayout.WireframeRect.X0) + view.Origin.X * S + MfdLayout.WireframeArtOffset.X,
-				y(MfdLayout.WireframeRect.Y0) + view.Origin.Y * S + MfdLayout.WireframeArtOffset.Y);
+		// No subject at all: the caption reads TARGET:, the name reads NONE in the unknown font, and
+		// the other three labels are cleared. The paint writes literal empty strings into them.
+		if (!subject.Present) {
+			Label(0, strings?.Text(MfdLayout.IdentLabelGroup, MfdLayout.IdentTargetEntry), "WHITE");
+			Label(1, strings?.Text(MfdLayout.NoTargetNameGroup, 0), MfdLayout.UnknownNameFont);
+			return;
+		}
+
+		Label(0, strings?.Text(MfdLayout.IdentLabelGroup,
+			subject.Own ? MfdLayout.IdentSelfEntry : MfdLayout.IdentTargetEntry), "WHITE");
+
+		// A class the screen's switch does not recognise stops here too, name and all — the paint
+		// leaves the status labels holding whatever they last said rather than clearing them.
+		if (!subject.Identified) {
+			Label(1, strings?.Text(MfdLayout.UnknownNameGroup, 0), MfdLayout.UnknownNameFont);
+			return;
+		}
+
+		Label(1, subject.Name, subject.Hostile ? MfdLayout.HostileNameFont : MfdLayout.FriendlyNameFont);
+		Label(2, strings?.Text(MfdLayout.StatusLabelGroup, 0), MfdLayout.StatusLabelFonts[2]);
+		Label(3, strings?.Text(MfdLayout.ConditionGroup, subject.Condition), MfdLayout.StatusLabelFonts[3]);
+		Label(4, subject.Hostile
+			? MfdLayout.DistanceReadout(strings, subject.Distance)
+			: MfdLayout.IntegrityReadout(subject.Damage), MfdLayout.StatusLabelFonts[4]);
+
+		switch (subject.SilhouetteKind) {
+			// The paper doll blits at the viewport's top-left plus the .PDG view's own origin plus a
+			// fixed (0x11, 2) device nudge — the paint's own arithmetic, not a centring rule. The view's
+			// origin is authored in the 320-wide space like every other .PDG coordinate.
+			case MfdSilhouetteKind.PaperDoll
+				when hud.PaperDollFor(subject.PaperDollName)?.Entries is { } views
+					&& MfdLayout.WireframeViewIndex < views.Length
+					&& views[MfdLayout.WireframeViewIndex] is { } view
+					&& subject.SilhouetteBank != null:
+				blitDevice(subject.SilhouetteBank, MfdLayout.WireframeViewIndex,
+					x(MfdLayout.WireframeRect.X0) + view.Origin.X * S + MfdLayout.WireframeArtOffset.X,
+					y(MfdLayout.WireframeRect.Y0) + view.Origin.Y * S + MfdLayout.WireframeArtOffset.Y);
+				break;
+
+			// A flat silhouette is centred in the viewport instead, by its own frame size — the paint
+			// computes ((x1 - x0) - width) / 2 on both axes.
+			case MfdSilhouetteKind.Silhouette
+				when subject.SilhouetteBank != null
+					&& hud.Sprites?.Sprite(subject.SilhouetteBank, subject.SilhouetteFrame) is { } art:
+				float width = art.Width * art.Scale;
+				float height = art.Height * art.Scale;
+				blitDevice(subject.SilhouetteBank, subject.SilhouetteFrame,
+					x(MfdLayout.WireframeRect.X0)
+						+ (x(MfdLayout.WireframeRect.X1) - x(MfdLayout.WireframeRect.X0) - width) / 2f,
+					y(MfdLayout.WireframeRect.Y0)
+						+ (y(MfdLayout.WireframeRect.Y1) - y(MfdLayout.WireframeRect.Y0) - height) / 2f);
+				break;
 		}
 	}
 

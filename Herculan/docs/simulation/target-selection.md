@@ -151,6 +151,11 @@ the line-of-sight test adds to the object's own.
 per-object tables. `MissionScene.Targeting` holds the selection; the host drives it from
 [Enter]/[']/[;] and pushes it to the machine once a frame.
 
+All three entry points also set the gunsight's "indicator armed" byte
+(`TargetSelection.IndicatorArmed`, state-block offset 36) on a successful press, which the target
+box's paint requires — see [`../formats/hud-target-indicator.md`](../formats/hud-target-indicator.md).
+Nothing ever clears it.
+
 Deviations:
 
 - **The observer camera is excluded** from the sensor model by target class. DBSIM's live-object list
@@ -160,7 +165,5 @@ Deviations:
   target-abandon check (`FUN_0041c4a8`) and the death path (`FUN_0041eb34`), neither ported, so
   without it a destroyed target stays locked.
 - Not ported: the "enemy detected" callout (vtable `+0x48`, `FUN_00412800`), `obj+0x9e` and its
-  engagement action (no mission actions exist), the second viewing object `DAT_004d2708` selects when
-  watching another machine, and the HUD target box — `Gunsight_SetValues` pushes the target into a
-  gunsight child that has never been traced, though `CockpitView+0x26c`..`+0x27e` is known to hold the
-  target and its world aim point.
+  engagement action (no mission actions exist), and the second viewing object `DAT_004d2708` selects
+  when watching another machine.

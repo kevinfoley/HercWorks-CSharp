@@ -9,6 +9,7 @@ anything load-bearing. What *is* settled is in
 [`../simulation/impact-effects.md`](../simulation/impact-effects.md),
 [`../simulation/hit-detection.md`](../simulation/hit-detection.md),
 [`../simulation/damage-system.md`](../simulation/damage-system.md),
+[`../formats/hud-target-indicator.md`](../formats/hud-target-indicator.md),
 [`../formats/dts-billboards.md`](../formats/dts-billboards.md),
 [`../formats/dts-texture-binding.md`](../formats/dts-texture-binding.md) and
 [`../formats/distance-fog-and-sky.md`](../formats/distance-fog-and-sky.md).
@@ -38,17 +39,18 @@ centre rather than its origin. Corrected on the way: `SimTrig.EulerToward` had i
 swapped and `Atan2Guarded` guarded the wrong operand, which nobody had noticed because no shot had
 ever had a target to steer at.
 
+Since: **the selection is on the HUD** — the front window's target box and off-screen arrow, and the
+MFD's F5 TARGET screen — see [`../formats/hud-target-indicator.md`](../formats/hud-target-indicator.md)
+and [`../formats/mfd.md`](../formats/mfd.md). Closed with them: all nine gunsight children, the
+`.GAU`'s last undecoded rect (offset 1148, the arrow's safe area), `BASES.DAT +0x28` as the
+silhouette and type-name index, the MFD status screen's untraced paint-time font override, and
+`mech+0xb0` as the shields-down alert latch. Corrected on the way: the status screen's `ID:`/`TARGET:`
+and integrity/range choices are properties of the *subject*, not of the mode.
+
 Not built: **anything you can hear**, AI target acquisition, weapon-mount destruction, and the light
 sources effects are supposed to cast.
 
 ## Next
-
-### The HUD target box
-
-A target can be selected but nothing draws it. `Gunsight_SetValues` pushes the target and a flag
-into the gunsight widget, and `FUN_00434a24` parks the target and its world aim point at
-`CockpitView+0x26c`..`+0x27e`. The reader is one of gunsight children 0, 4, 5, 6 or 8 — all
-constructed, none traced. Without it the only evidence of a selection is the debug panel.
 
 ### AI target acquisition
 
@@ -100,3 +102,5 @@ from a per-state flag table at `mech+0x92`.
 - **Far clip does not follow the visibility range.** The engine fogs to the zone's range but still
   draws past it; retail's terrain draw region is that same radius
   (`Terrain_BuildDrawRegionQuad`, `0046d220`). Cheap to try, changes what is on screen at the edges.
+- In retail, when a target is selected, chain-firing skips weapons for which the selected target is
+  out of range.

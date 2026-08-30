@@ -113,6 +113,9 @@ public sealed class BaseObject : SimObject {
 	/// <inheritdoc />
 	public override int HitRadius => Type.HitRadius;
 
+	/// <inheritdoc />
+	public override int ShapeRadius => _shapeRadius;
+
 	/// <summary>
 	/// The <c>BASES.DAT</c> type indices <c>Base_Construct</c> (<c>00405314</c>) sends down its last
 	/// branch, which derives a further class and writes <see cref="Sim.TargetClass.Emplacement"/>

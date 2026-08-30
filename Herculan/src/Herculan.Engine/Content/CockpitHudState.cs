@@ -61,6 +61,18 @@ namespace Herculan.Engine.Content;
 /// decides what a widget looks like stays the one place, and no renderer needs a second parameter
 /// threaded through it.
 /// </param>
+/// <param name="Target">
+/// The front-window target indicator's resolved state, or null when nothing is selected (or the
+/// indicator has never been armed, which is <c>TargetSelection.IndicatorArmed</c>). See
+/// <see cref="TargetIndicator"/> and <see cref="TargetBox"/>.
+/// </param>
+/// <param name="StatusSubject">
+/// What F1's status screen is looking at - the player's own machine.
+/// </param>
+/// <param name="TargetSubject">
+/// And what F5's is: the current selection. Same screen class, same record, different subject -
+/// see <see cref="MfdStatusSubject"/>.
+/// </param>
 public readonly record struct CockpitHudState(
 	IReadOnlyList<WeaponRowState> Weapons,
 	IReadOnlyList<string> HardpointNames,
@@ -76,7 +88,10 @@ public readonly record struct CockpitHudState(
 	MfdMode Mfd,
 	HddPage Hdd,
 	HddDamageView HddDamage,
-	CockpitWidgetId? PressedWidget = null) {
+	CockpitWidgetId? PressedWidget = null,
+	TargetIndicator? Target = null,
+	MfdStatusSubject StatusSubject = default,
+	MfdStatusSubject TargetSubject = default) {
 
 	/// <summary>
 	/// Power-up state: an even shield balance printing 100/100 the way <c>ShieldsGauge_UpdateReadouts</c>
@@ -103,5 +118,8 @@ public readonly record struct CockpitHudState(
 		Mfd: MfdMode.Scanner,
 		Hdd: HddPage.CommandDisplay,
 		HddDamage: HddDamageView.Structural,
-		PressedWidget: null);
+		PressedWidget: null,
+		Target: null,
+		StatusSubject: MfdStatusSubject.None,
+		TargetSubject: MfdStatusSubject.None);
 }

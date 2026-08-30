@@ -78,6 +78,18 @@ public readonly record struct BaseComponentType(
 /// report component 0. 25 of the 65 retail types set it, and one type (3) carries a full
 /// <c>BASECOL.DAT</c> model that the flag leaves switched off — the data is there and unused.
 /// </param>
+/// <param name="SilhouetteIndex">
+/// <c>+0x28</c> - which silhouette the MFD status screen draws for this type, and which type name
+/// it prints. It indexes the <c>BASES</c> sprite bank and <c>STRINGS0.STR</c> group 23 for a
+/// structure, and the <c>VEHICLES</c> bank and group 24 for a vehicle - which is what
+/// <paramref name="IsVehicle"/> selects between. Confirmed by construction: every structure type
+/// states 0-30 against group 23's 31 names and the bank's 31 frames, and every vehicle type
+/// states 0-3 against group 24's four names and that bank's four frames.
+/// </param>
+/// <param name="IsVehicle">
+/// <c>+0x32 != 0</c> - the same field that picks <c>VEHTEX</c> over <c>BASETEX</c>. Types 45-64 set
+/// it and are the mobile ground units; everything below is a building.
+/// </param>
 /// <param name="Components">
 /// <c>+0x14</c> — the type's destructible parts, in the order the file states them, which is the
 /// order both the health array and <c>BASECOL.DAT</c>'s component indices address them in.
@@ -85,6 +97,7 @@ public readonly record struct BaseComponentType(
 public readonly record struct BaseType(
 	int Index, int ShapeIndex, BaseShapeSource Source, string TextureBankName,
 	short HulkTypeIndex, int HitRadius, bool Invulnerable, bool HasCollisionModel,
+	short SilhouetteIndex, bool IsVehicle,
 	BaseComponentType[] Components);
 
 /// <summary>
@@ -118,7 +131,7 @@ public readonly record struct BaseType(
 ///
 /// <para>Fields still unread are left as skips rather than guessed at: <c>+0x00</c>, <c>+0x08</c>,
 /// <c>+0x0a</c> (6 bytes), <c>+0x10</c>, <c>+0x18</c> (6 bytes), <c>+0x20</c> (4 bytes),
-/// <c>+0x24</c>-<c>+0x28</c>, <c>+0x2c</c> and <c>+0x2e</c>.</para>
+/// <c>+0x24</c>, <c>+0x26</c>, <c>+0x2c</c> and <c>+0x2e</c>.</para>
 /// </summary>
 public sealed class BaseTypeTable {
 	/// <summary>VOL folder and name of the table.</summary>
@@ -187,7 +200,7 @@ public sealed class BaseTypeTable {
 			offset += 4;                     // +0x20
 			Next();                          // +0x24
 			Next();                          // +0x26
-			Next();                          // +0x28
+			short silhouette = Next();       // +0x28 - silhouette frame and type-name index
 			short hitRadius = Next();        // +0x2a
 			Next();                          // +0x2c
 			Next();                          // +0x2e
@@ -203,6 +216,8 @@ public sealed class BaseTypeTable {
 				hitRadius,
 				invulnerable != 0,
 				collisionModel != 0,
+				silhouette,
+				textureSelector != 0,
 				components);
 		}
 

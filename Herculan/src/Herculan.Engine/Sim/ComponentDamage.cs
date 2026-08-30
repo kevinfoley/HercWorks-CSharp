@@ -134,6 +134,36 @@ public sealed class ComponentDamage {
 	}
 
 	/// <summary>
+	/// <c>FUN_0040db2c</c> - the whole machine's damage as one Q8 fraction, 0 pristine and 256
+	/// destroyed. It is the object's vtable <c>+0x40</c> for a HERC (<c>FUN_00415504</c>), and it is
+	/// what the MFD status screen's structural-integrity readout prints.
+	///
+	/// <para>Every main component and every dependent slot is weighed once, each against its own
+	/// maximum, and a destroyed one counts as its full maximum. Unlike <see cref="DamagePercent"/> a
+	/// dependent is <b>not</b> also folded into its parent here, so nothing is double-counted.</para>
+	/// </summary>
+	public int OverallDamage {
+		get {
+			int taken = 0;
+			int maximum = 0;
+
+			for (int i = 0; i < _damage.Length; i++) {
+				int armor = Piece(i)?.Armor ?? 0;
+				taken += _damage[i] < 0 ? armor : _damage[i];
+				maximum += armor;
+			}
+
+			for (int slot = 0; slot < _dependentDamage.Length; slot++) {
+				short dependentMax = DependentMaximum(slot);
+				taken += _dependentDamage[slot] < 0 ? dependentMax : _dependentDamage[slot];
+				maximum += dependentMax;
+			}
+
+			return maximum == 0 ? 0 : (taken << 8) / maximum;
+		}
+	}
+
+	/// <summary>
 	/// One dependent sub-piece's damage on its own, as a Q8 fraction — <b>not</b> the aggregate
 	/// <see cref="DamagePercent"/> computes. <c>Mech_ComponentDamageWrite</c> spells this reading out
 	/// inline, by literal slot, four or six times over: the leg servos at 0 and 1 (plus 10 and 11 on

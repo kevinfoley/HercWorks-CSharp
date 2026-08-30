@@ -37,6 +37,9 @@ public class GauFileTransformer : ByteTransformer<GAUFile> {
 	/// <summary>Bytes between the end of TorsoTwist (offset 1120) and the start of Reticle (offset 1136) — NOT decoded.</summary>
 	private const int RemainderBeforeReticleLength = 16;
 
+	/// <summary>Byte offset of <see cref="HGunsightArea"/>'s rect inside <see cref="GAUFile.Remainder"/>, which starts at content offset 1144.</summary>
+	private const int GunsightAreaRemainderOffset = 4;
+
 	public override GAUFile? Parse(byte[]? inputArray) {
 		if (inputArray == null) {
 			return null;
@@ -96,6 +99,18 @@ public class GauFileTransformer : ByteTransformer<GAUFile> {
 		gau.Reticle = new HReticle { Origin = new PixelPoint(IndexIntLE(), IndexIntLE()) };
 
 		gau.Remainder = IndexSegment(inputArray.Length - Index);
+
+		// Offset 1148, four ints into the remainder past the offset-1144 int the gunsight complex
+		// hands its reticle child. Surfaced on its own widget and left in the remainder as well, the
+		// same way the throttle's two ints above are, so ObjectToBytes stays a verbatim write-back.
+		int areaX0 = IntLE(gau.Remainder, GunsightAreaRemainderOffset);
+		int areaY0 = IntLE(gau.Remainder, GunsightAreaRemainderOffset + 4);
+		int areaX1 = IntLE(gau.Remainder, GunsightAreaRemainderOffset + 8);
+		int areaY1 = IntLE(gau.Remainder, GunsightAreaRemainderOffset + 12);
+		gau.GunsightArea = new HGunsightArea {
+			Origin = new PixelPoint(areaX0, areaY0),
+			Size = new PixelSize(areaX1 - areaX0, areaY1 - areaY0),
+		};
 
 		return gau;
 	}

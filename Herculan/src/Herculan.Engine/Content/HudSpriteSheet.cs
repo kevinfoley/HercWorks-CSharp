@@ -4,8 +4,16 @@ using Herculan.Engine.Render;
 
 namespace Herculan.Engine.Content;
 
-/// <summary>One HUD sprite: where it sits in the shared atlas, and how big it is in cockpit pixels.</summary>
-public readonly record struct HudSprite(AtlasRect Rect, int Width, int Height);
+/// <summary>
+/// One HUD sprite: where it sits in the shared atlas, and how big it is in cockpit pixels.
+/// </summary>
+/// <param name="Scale">
+/// How many cockpit pixels one of the sprite's own pixels covers - 1 for a bank that ships in
+/// <c>hba</c> and 2 for one that only ships in <c>dba</c>. DBSIM does the same doubling, guarded
+/// on <c>VideoMode_UseHiResPanels == 3 && VideoMode_UseHiResBanks == 0</c>, wherever it blits a
+/// bank whose hi-res half does not exist.
+/// </param>
+public readonly record struct HudSprite(AtlasRect Rect, int Width, int Height, int Scale = 1);
 
 /// <summary>
 /// Every HUD sprite the cockpit draws, from several <c>.HBA</c> banks, packed into one atlas so the
@@ -39,6 +47,13 @@ public sealed class HudSpriteSheet {
 	/// <summary>Resource folder for the 640-wide sprite banks, and their extension.</summary>
 	public const string ResourceFolder = "hba";
 
+	/// <summary>
+	/// Resource folder for the 320-wide banks, used only for the handful that have no <c>hba</c> half
+	/// at all - <c>FLYERS</c> is one. A sprite from one of these reports <see cref="HudSprite.Scale"/>
+	/// 2 so it still covers the cockpit pixels it was authored to cover.
+	/// </summary>
+	public const string LoResResourceFolder = "dba";
+
 	private readonly Dictionary<string, Bank> _banks;
 	private readonly Dictionary<string, HudFont> _fonts;
 
@@ -67,7 +82,7 @@ public sealed class HudSpriteSheet {
 		}
 
 		var (width, height) = entry.FrameSizes[frame];
-		return new HudSprite(rect, width, height);
+		return new HudSprite(rect, width, height, entry.Scale);
 	}
 
 	/// <summary>
@@ -87,7 +102,8 @@ public sealed class HudSpriteSheet {
 	/// character order — makes <see cref="Sprite"/> address glyphs as well.</para>
 	/// </summary>
 	public static HudSpriteSheet? Load(GameContent content, DynamixPalette? palette,
-			IEnumerable<string> bankNames, IEnumerable<string>? fontNames = null) {
+			IEnumerable<string> bankNames, IEnumerable<string>? fontNames = null,
+			IEnumerable<string>? loResBankNames = null) {
 		var frames = new List<DynamixBitmap>();
 		var banks = new Dictionary<string, Bank>(StringComparer.OrdinalIgnoreCase);
 		var fonts = new Dictionary<string, HudFont>(StringComparer.OrdinalIgnoreCase);
@@ -105,6 +121,23 @@ public sealed class HudSpriteSheet {
 
 			banks[name] = new Bank(frames.Count, SizesOf(images));
 			frames.AddRange(images);
+		}
+
+		// Banks the game only ships at 320-wide. Loaded at their own size and marked to draw doubled,
+		// which is the original's own path for the same files.
+		foreach (string name in loResBankNames ?? Array.Empty<string>()) {
+			if (banks.ContainsKey(name)) {
+				continue;
+			}
+
+			if (content.Read(LoResResourceFolder, name + "." + LoResResourceFolder.ToUpperInvariant()) is not { } loResBytes
+				|| new DynamixBitmapArrayTransformer().Parse(loResBytes) is not DynamixBitmapArray loResBank
+				|| loResBank.Images is not { Length: > 0 } loResImages) {
+				continue;
+			}
+
+			banks[name] = new Bank(frames.Count, SizesOf(loResImages), Scale: 2);
+			frames.AddRange(loResImages);
 		}
 
 		foreach (string name in fontNames ?? Array.Empty<string>()) {
@@ -139,5 +172,5 @@ public sealed class HudSpriteSheet {
 		return sizes;
 	}
 
-	private readonly record struct Bank(int FirstAtlasFrame, (int Width, int Height)[] FrameSizes);
+	private readonly record struct Bank(int FirstAtlasFrame, (int Width, int Height)[] FrameSizes, int Scale = 1);
 }

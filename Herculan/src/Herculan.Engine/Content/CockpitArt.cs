@@ -78,7 +78,15 @@ public sealed class CockpitArt {
 	/// one serves.
 	/// </summary>
 	public static readonly string[] HudBankNames =
-		{ "HUD", "HUDHTICK", "MFD", "RADAR", "THROTTLE", "WPN_DMG", "PWEAPONS", "HDD" };
+		{ "HUD", "HUDHTICK", "MFD", "RADAR", "THROTTLE", "WPN_DMG", "PWEAPONS", "HDD", "BASES", "VEHICLES" };
+
+	/// <summary>
+	/// Banks the game ships only at 320-wide, loaded through
+	/// <see cref="HudSpriteSheet.LoResResourceFolder"/> and drawn doubled.
+	/// <c>MfdStatusScreen_Ctor</c> asks for <c>bases</c>, <c>vehicles</c> and <c>flyers</c> together as
+	/// its target silhouettes, but only the first two exist in <c>hba</c>.
+	/// </summary>
+	public static readonly string[] LoResHudBankNames = { "FLYERS" };
 
 	/// <summary>
 	/// The <c>.HFN</c> fonts the cockpit draws text with, out of the 18 <c>ColorSchemePanels</c>
@@ -99,7 +107,7 @@ public sealed class CockpitArt {
 	/// subject caption.</para>
 	public static readonly string[] HudFontNames = {
 		"WHITE", "GRAY", "GREEN", "DARK", "RED", "HUD1", "HUD2", "HUD3",
-		"CPGREEN", "CPRED", "CPON", "CPPRESS", "CPYLW",
+		"CPGREEN", "CPRED", "CPON", "CPPRESS", "CPYLW", "CPBLUE",
 	};
 
 	private CockpitArt(CockpitFrame front, CockpitFrame side, CockpitFrame? headsDown, GAUFile gau, HudSpriteSheet? sprites,
@@ -140,6 +148,18 @@ public sealed class CockpitArt {
 	public PaperDollGraphic? PaperDoll { get; private init; }
 
 	/// <summary>
+	/// The same diagram for every machine in the mission, keyed by upper-case herc name - what F5
+	/// needs, since the status screen draws the <i>subject's</i> doll and the subject there is the
+	/// current target. The player's own entry is in here too and <see cref="PaperDoll"/> is its alias.
+	/// </summary>
+	public IReadOnlyDictionary<string, PaperDollGraphic> PaperDolls { get; private init; }
+		= new Dictionary<string, PaperDollGraphic>();
+
+	/// <summary>This herc's diagram, or another machine's by name. Null when that file was missing.</summary>
+	public PaperDollGraphic? PaperDollFor(string? hercName) =>
+		hercName != null && PaperDolls.TryGetValue(hercName.ToUpperInvariant(), out var doll) ? doll : null;
+
+	/// <summary>
 	/// Where this herc's cockpit views sit in the cockpit canvas — <c>vue\&lt;HERC&gt;.VUE</c>. Null
 	/// when the file is missing, in which case callers fall back to
 	/// <see cref="CockpitViewGeometry.DefaultHeadsDownOriginY"/>. Loaded here because
@@ -161,6 +181,15 @@ public sealed class CockpitArt {
 	/// nothing — better than flooding a colour of the engine's own choosing over the art.
 	/// </summary>
 	public (Vector3 Background, Vector3 Indicator, Vector3 SubjectPlate)? HeadsDownColors { get; private init; }
+
+	/// <summary>
+	/// The two colours the front-window HUD's off-screen target arrow is filled with, unlocked then
+	/// locked - <see cref="TargetBox.ArrowColorId"/> and <see cref="TargetBox.ArrowLockedColorId"/>
+	/// through <c>COLORS.DAT</c>, green and red. The arrow is a flat polygon rather than a sprite,
+	/// which is why it needs a resolved colour at all.
+	/// </summary>
+	public (Vector3 Unlocked, Vector3 Locked)? TargetArrowColors { get; private init; }
+
 
 	/// <summary>
 	/// Which of <c>COCKPIT.DPL</c>'s nine 24-entry cockpit colour schemes this herc renders through —
@@ -255,7 +284,8 @@ public sealed class CockpitArt {
 	/// resource is missing from the mounted archives, in which case the caller should fall back to
 	/// drawing no cockpit overlay rather than a partially-wrong one.
 	/// </summary>
-	public static CockpitArt? Load(GameContent content, string hercName, string? worldPaletteName = null) {
+	public static CockpitArt? Load(GameContent content, string hercName, string? worldPaletteName = null,
+			IEnumerable<string>? targetHercNames = null) {
 		int schemeIndex = ReadColorSchemeIndex(content, hercName);
 		if (CockpitPalette.Load(content, worldPaletteName, schemeIndex) is not { } palette) {
 			return null;
@@ -283,10 +313,21 @@ public sealed class CockpitArt {
 
 		// The herc's own bank goes in alongside the shared ones: it holds the paper-doll wireframe
 		// frames the MFD status screen draws, and its name is the herc's.
-		var banks = HudBankNames.Append(hercName.ToUpperInvariant()).ToArray();
+		// The herc's own bank and every other machine's go in alongside the shared ones: each holds the
+		// paper-doll wireframe frames the MFD status screen draws for that machine, and the bank's name
+		// is the machine's. F5 shows the target's doll, so the mission's other types are needed too.
+		var hercBanks = new List<string> { hercName.ToUpperInvariant() };
+		foreach (string target in targetHercNames ?? Array.Empty<string>()) {
+			string upper = target.ToUpperInvariant();
+			if (!hercBanks.Contains(upper)) {
+				hercBanks.Add(upper);
+			}
+		}
+
+		var banks = HudBankNames.Concat(hercBanks).ToArray();
 
 		return new CockpitArt(front, side, headsDown, gau,
-			HudSpriteSheet.Load(content, palette, banks, HudFontNames),
+			HudSpriteSheet.Load(content, palette, banks, HudFontNames, LoResHudBankNames),
 			colors,
 			ResolveGaugeColors(colors, palette),
 			schemeIndex,
@@ -296,15 +337,17 @@ public sealed class CockpitArt {
 			WeaponBarColors = (
 				PaletteColor(palette, WeaponBarFillEvenIndex),
 				PaletteColor(palette, WeaponBarFillOddIndex)),
-			PaperDoll = content.Read("pdg", hercName + ".PDG") is { } pdgBytes
-				&& new PaperDiagramGraphTransformer().Parse(pdgBytes) is PaperDollGraphic doll
-					? doll
-					: null,
+			PaperDoll = LoadPaperDoll(content, hercName),
+			PaperDolls = hercBanks
+				.Select(name => (Name: name, Doll: LoadPaperDoll(content, name)))
+				.Where(entry => entry.Doll != null)
+				.ToDictionary(entry => entry.Name, entry => entry.Doll!, StringComparer.OrdinalIgnoreCase),
 			ViewGeometry = viewGeometry,
 			HeadsDownLayout = HddLayout.Load(gau,
 				viewGeometry?.CanvasOriginY(CockpitViewGeometry.HeadsDownViewIndex)
 					?? CockpitViewGeometry.DefaultHeadsDownOriginY),
 			HeadsDownColors = ResolveHeadsDownColors(colors, palette),
+			TargetArrowColors = ResolveArrowColors(colors, palette),
 		};
 	}
 
@@ -315,6 +358,13 @@ public sealed class CockpitArt {
 	/// which is the mech type struct's <c>+0x52</c> that
 	/// <c>CockpitViewManager_LoadViews</c> indexes <c>COCKPIT.DPL</c> with.
 	/// </summary>
+	/// <summary>One machine's <c>pdg&lt;HERC&gt;.PDG</c>, or null when it is missing or unparseable.</summary>
+	private static PaperDollGraphic? LoadPaperDoll(GameContent content, string hercName) =>
+		content.Read("pdg", hercName + ".PDG") is { } bytes
+			&& new PaperDiagramGraphTransformer().Parse(bytes) is PaperDollGraphic doll
+				? doll
+				: null;
+
 	private static int ReadColorSchemeIndex(GameContent content, string hercName) =>
 		content.Read("dat", hercName + ".DAT") is { } bytes
 			&& new HercSimDataTransformer().Parse(bytes) is HercSimDat data
@@ -343,6 +393,16 @@ public sealed class CockpitArt {
 		}
 
 		return (ToVector(background), ToVector(indicator), ToVector(plate));
+	}
+
+	/// <summary>Both arrow colours or neither, for the reason in <see cref="ResolveGaugeColors"/>.</summary>
+	private static (Vector3, Vector3)? ResolveArrowColors(HudColorTable? colors, DynamixPalette palette) {
+		if (colors?.Resolve(TargetBox.ArrowColorId, palette) is not { } unlocked
+			|| colors.Resolve(TargetBox.ArrowLockedColorId, palette) is not { } locked) {
+			return null;
+		}
+
+		return (ToVector(unlocked), ToVector(locked));
 	}
 
 	/// <summary>One live-palette slot as a colour, for the widgets that name a raw index rather than

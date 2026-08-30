@@ -12,6 +12,9 @@ a destination pointer array in `.bss` and a count. Groups are consumed in strict
 group's index is its position in that sequence. `STRINGS0.STR` registers 41 groups, the sixth
 (13 entries, `DAT_004d13e0`) being the MFD's captions.
 
+The count in a registration is the **destination array's capacity, not the group's size** — group 23
+is registered with 40 slots for 31 strings. Only the order is load-bearing.
+
 ## Layout
 
 After the 9-byte VOL entry prefix; all integers little-endian:
@@ -53,8 +56,12 @@ Groups referenced by decoded code:
 | 17 | 1 | `YOU` |
 | 20 | 3 | `ID:`, `TARGET:`, `DIST:  ` |
 | 21 | 1 | `STATUS:` |
-| 22 | 16 | Herc type names |
-| 23 | 31 | Structure type names |
+| 22 | 16 | Herc type names — the player-side roster only, and **not** what the status screen prints; that takes the machine's own type-record name |
+| 23 | 31 | Structure type names, indexed by `BASES.DAT +0x28` |
+| 24 | 4 | Vehicle type names, same index for a type whose `BASES.DAT +0x32` is set |
+| 25 | 2 | `LANDSKIMMER`, `HOVERTANK` |
+| 26 | 1 | `NONE` — the MFD target screen with nothing selected |
+| 27 | 1 | `UNKNOWN` — a subject whose target class the status screen does not recognise |
 | 28 | 5 | Condition, the MFD status screen's fourth label: `OK`, `SHIELDS DN`, `INT DAMAGE`, `CRITICAL`, `DESTROYED` |
 | 29-31 | 2,1,1 | Scanner readouts: `ACT`/`PASS`, `TRG:`, `RNG:` |
 | 38, 39 | 1,1 | `TIME:`, `SPEED:` — the gunsight readouts |

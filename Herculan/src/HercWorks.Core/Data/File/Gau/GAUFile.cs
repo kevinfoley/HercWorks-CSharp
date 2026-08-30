@@ -166,4 +166,11 @@ public class GAUFile {
 
 	/// <summary>Undecoded bytes from content offset 1144 to end of file — see class doc comment.</summary>
 	public byte[]? Remainder { get; set; }
+
+	/// <summary>
+	/// The gunsight complex's target-indicator area at content offset 1148 - see
+	/// <see cref="HGunsightArea"/>. Surfaced from <see cref="Remainder"/>, which still carries the
+	/// same bytes and is what the write path emits.
+	/// </summary>
+	public HGunsightArea? GunsightArea { get; set; }
 }

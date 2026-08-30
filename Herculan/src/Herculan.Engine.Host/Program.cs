@@ -34,6 +34,11 @@ short heldPitch = 0;
 int? initialWeaponRow = null;
 bool initialLink = false;
 bool heldFire = false;
+bool acquireTarget = false;
+
+// Ticks to let the sensor model run before --target takes its pick: nothing is targetable until a
+// sweep has painted it, and the sweep only runs from the world tick.
+int acquireTargetDelay = 5;
 for (int i = 0; i < args.Length; i++) {
 	if (args[i] == "--screenshot" && i + 1 < args.Length) {
 		screenshotPath = args[++i];
@@ -78,6 +83,12 @@ for (int i = 0; i < args.Length; i++) {
 		// Hold the trigger down for the whole run, for the same reason as --turret: a --screenshot
 		// run never sees a keystroke, and a beam is only on screen for the tick after it was fired.
 		heldFire = true;
+	} else if (args[i] == "--target") {
+		// Acquire a target at power-up, for the same reason as --weapon and --mfd: a --screenshot run
+		// never sees a keystroke, and the HUD's target box, the reticle's on-target frame and the F5
+		// screen all have nothing to show until something is selected. It switches the scanner on
+		// first, as [R] does, because a passive HERC can only see what it has eyes on.
+		acquireTarget = true;
 	} else if (args[i] == "--external") {
 		// Power up in the external chase view, for the same reason as --mfd and --throttle: the
 		// player's own machine is the one thing the cockpit view never shows, so a --screenshot run
@@ -175,8 +186,11 @@ Console.WriteLine($"Theater {mission.Header.TheaterIndex} ({scene.Theater.Palett
 // (e.g. a raw script.dat with no accompanying player.mec).
 // The theater's palette is the live palette — all 256 slots — with only this herc's own 24-entry
 // cockpit colour scheme installed over slots 42-65. See CockpitPalette.
+// Every other machine in the mission goes in with it: F5 draws the *target's* paper doll, and a doll
+// is that machine's own .HBA frames placed by its own .PDG, so both have to be resident.
 var cockpitArt = mission.Player?.TypeName is { } pilotHerc
-	? CockpitArt.Load(content, pilotHerc, scene.Theater.PaletteName)
+	? CockpitArt.Load(content, pilotHerc, scene.Theater.PaletteName,
+		scene.World.Objects.OfType<MechObject>().Select(m => m.Name).Distinct())
 	: null;
 if (cockpitArt != null) {
 	Console.WriteLine(
@@ -327,6 +341,12 @@ var throttleTrack = cockpitArt != null ? ThrottleTrack.From(cockpitArt) : null;
 short throttleGauge = initialThrottle;
 if (pilotMech != null && initialThrottle != 0) {
 	pilotMech.Throttle = initialThrottle;
+}
+
+// The scanner goes on right away; the selection itself has to wait for the sensor model to have run,
+// since nothing is targetable until a sweep has painted it. It is taken on the first tick after that.
+if (acquireTarget && pilotMech != null) {
+	pilotMech.ToggleScanner();
 }
 
 if (pilotMech != null) {
@@ -856,6 +876,15 @@ window.Update += deltaSeconds => {
 	// every frame rather than only while the panel is up.
 	debugPanel.Sample(pilotMech);
 
+	if (acquireTarget && pilotMech != null && scene.Targeting is { } startupTargeting
+			&& --acquireTargetDelay <= 0) {
+		if (startupTargeting.SelectNearest() is { } acquired) {
+			acquireTarget = false;
+			Console.WriteLine($"Target acquired: {acquired.GetType().Name} at "
+				+ $"{pilotMech.Position.ApproxDistanceTo(acquired.Position)} world units.");
+		}
+	}
+
 	if (cockpitArt != null && pilotMech != null) {
 		// Player_PerFrameCockpitUpdate's own order: the weapon manager's pass, then the gauge and the
 		// machine settle which of them moved this frame, then the readouts are taken from the machine.
@@ -872,9 +901,46 @@ window.Update += deltaSeconds => {
 				cockpitArt.Gau.WeaponListTotal, cockpitArt.Strings),
 			ChainGroup = pilotMech.Weapons.Group,
 			AutoTrack = pilotMech.Weapons.AutoTrack,
+			Target = ResolveTargetIndicator(pilotMech),
+			StatusSubject = MfdStatusSubject.For(pilotMech, pilotMech, cockpitArt.Strings),
+			TargetSubject = MfdStatusSubject.For(scene.Targeting?.Selected, pilotMech, cockpitArt.Strings),
 		};
 	}
 };
+
+// Where the selection lands on the canopy, for the front-window target box and arrow — the original's
+// own projection rather than the GL one: view-space offsets scaled by the focal length about the
+// herc's .VUE projection centre, which is what FUN_0043b950 does with Raster_ProjectToScreen. It
+// agrees with the GL projection because the camera's field of view is derived from the same focal
+// length and PanelPrincipalPoint installs the same centre, including the step kick.
+TargetIndicator? ResolveTargetIndicator(MechObject pilot) {
+	if (scene.Targeting is not { IndicatorArmed: true, Selected: { } target }) {
+		return null;
+	}
+
+	var (centerX, centerY) = viewGeometry?.ProjectionCenter(CockpitViewGeometry.ForwardViewIndex)
+		?? (CockpitViewGeometry.DefaultProjectionCenterX, CockpitViewGeometry.DefaultProjectionCenterY);
+
+	var aim = target.AimPoint;
+	var offset = WorldScale.ToRender(aim) - WorldScale.ToRender(camera.Position);
+	var forward = camera.Forward;
+	var up = camera.Up;
+	var right = Vector3.Cross(forward, up);
+
+	float depth = Vector3.Dot(offset, forward);
+	float across = Vector3.Dot(offset, right);
+	bool inFront = depth >= camera.NearPlane;
+
+	return new TargetIndicator(
+		ScreenX: centerX + across * Camera.FocalLengthPixels / MathF.Max(depth, camera.NearPlane),
+		ScreenY: centerY - cockpitViewKick.OffsetPixels
+			- Vector3.Dot(offset, up) * Camera.FocalLengthPixels / MathF.Max(depth, camera.NearPlane),
+		InFront: inFront,
+		BehindToLeft: across < 0f,
+		ShapeRadius: target.ShapeRadius,
+		Distance: pilot.Position.ApproxDistanceTo(aim),
+		Locked: pilot.LockAcquired);
+}
 
 window.Render += (_, gl) => {
 	if (renderer == null || overlay == null || items == null) {
@@ -932,7 +998,10 @@ window.Render += (_, gl) => {
 	// A tracer is on screen for one tick out of every refire period and a travelling shot for as long
 	// as its flight lasts, so either one counts as "the trigger produced something visible".
 	bool shotWanted = heldFire && (beams != null || scene.World.Bullets != null);
-	if (screenshotPath != null && !screenshotTaken && framesRendered >= 30
+
+	// --target waits the same way --fire does: the sensor model has to run before anything is
+	// targetable, so the capture holds until a selection exists rather than photographing a blank HUD.
+	if (screenshotPath != null && !screenshotTaken && framesRendered >= 30 && !acquireTarget
 			&& (!shotWanted || scene.World.Tracers.Count > 0 || scene.World.Projectiles.Count > 0
 				|| scene.World.RocketsInFlight.Count > 0)) {
 		screenshotTaken = true;

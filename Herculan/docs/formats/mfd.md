@@ -227,7 +227,7 @@ Label text sources, all confirmed by xref:
 | 1 | Subject name | group 17 `YOU`, or the type-name groups 22-24, 26, 27 |
 | 2 | `STATUS:` | `DAT_004d157c` = group 21 |
 | 3 | Condition | `DAT_004d1698[state]` = group 28 |
-| 4 | Integrity | composed, below |
+| 4 | Integrity or range | composed, below |
 
 `MfdStatusScreen_SetCondition` (`0043b260`) writes labels 3 and 4. Label 4 is the literal `"[ "`,
 then `itoa((0x100 - damage) * 100 >> 8)`, then `"% ]"` — `[ 100% ]` undamaged. When the subject is
@@ -237,13 +237,48 @@ unreadable it writes `XXXXXX` and `XXX` instead.
 `SHLD DWN`, `CRITICAL`, `WASTED`) and is dead data: `SimStrings_LoadAll` is the only reference to its
 array in the image.
 
-Labels 1 and 3 are re-fonted at paint time from IFF and damage state — a friendly name draws green
-where the constructor installs red. That override is not traced.
+#### The subject
 
-The paper doll blits at `pdgView.origin + viewportTopLeft + (0x11, 2)` device pixels, then per-region
-damage tints draw over it at the same origin from the `.PDG` region list. The paint reaches one view
-record through the mech type without computing an index; only view 2 fits, views 0 and 1 being 96x162
-device against a 102x92 viewport.
+`MfdDisplay_Update` (`00446328`) and `MfdDisplay_SetMode` both park the screen's subject in the
+display's shared state block at `+0xb9`, refreshed every 30 coarse ticks: for mode 0 the entry
+`+0x308[+0x318]` the SELECT button cycles, for mode 4 `CockpitView+0x210`, the current selection.
+Both screens read the same field, so **the two modes differ only in their subject**. The screen
+latches it at `+0x3e` and holds a dead one for 300 ticks before dropping to the empty state.
+
+Everything the paint (`FUN_0043a5a0`) chooses is a property of that subject, not of the mode:
+
+| Test | Effect |
+|---|---|
+| Subject is the viewing object (`CockpitView+0x203`) or one of the three squadmates (`FUN_00433134`) | Label 0 is `ID:` and label 1 the pilot's name — `YOU` for the machine being flown; otherwise `TARGET:` and the type name |
+| Group record's side byte (`obj+0x45` → `+0x12`) | Label 1's font: `ColorSchemePanels[1]` `CPGREEN` for a friendly, `[2]` `CPRED` for a Cybrid. **This is the paint-time override**; the constructor's own `RED` for that label is never used |
+| Same byte | A friendly gets the integrity readout in label 4; a hostile gets group 20 entry 2 `DIST:  ` with the range appended (`FUN_00492780` between the two origins) |
+| Target class `obj+0x1a8` | Which branch below draws the viewport, and how the condition is worked out |
+
+With no subject at all the paint writes `TARGET:` and group 26 `NONE` in `ColorSchemePanels[0]`
+`CPBLUE`, and blanks labels 2-4. A class the switch does not recognise gets `TARGET:` and group 27
+`UNKNOWN` in the same font, with labels 2-4 left as they were.
+
+#### Viewport and condition, per class
+
+| Class | Viewport | Condition |
+|---|---|---|
+| 0 HERC | The type's paper doll, `pdgView.origin + viewportTopLeft + (0x11, 2)` device, then per-region damage tints from the `.PDG` region list at the same origin. The paint reaches one view record through the mech type without computing an index; only view 2 fits, views 0 and 1 being 96x162 device against a 102x92 viewport | Scanned: `DESTROYED` if `obj+0x99`; else `CRITICAL` when all twelve dependent readings from `FUN_004151a4` are `>= 0x81`, `INT DAMAGE` when any is non-zero; else `SHIELDS DN` if `mech+0xb0` (the shields-down alert latch, which only the player's own machine ever sets), else `OK` |
+| 2 flyer | `flyers` bank frame 0, centred in the viewport by its own frame size | `FUN_00438700(damage)`: intact ≥ 90% `OK`, ≥ 74% `SHIELDS DN`, ≥ 51% `INT DAMAGE`, ≥ 1% `CRITICAL`, else `DESTROYED` |
+| 1, 3 structure | `bases` or `vehicles` bank, frame = the type record's `+0x28`, centred the same way | as above |
+
+Damage is the object's vtable `+0x40` as a Q8 fraction — `FUN_0040db2c` over every component and
+dependent for a machine, the component sum for a structure.
+
+`BASES.DAT +0x28` is both the silhouette frame and the type-name index: into group 23's 31 structure
+names when `+0x32` is 0, and group 24's four vehicle names when it is not. Confirmed by construction
+— every structure type states 0-30 and every vehicle type 0-3.
+
+A bank the game ships only at 320-wide (`flyers` is the one here) is blitted doubled, guarded on
+`VideoMode_UseHiResPanels == 3 && VideoMode_UseHiResBanks == 0`.
+
+Also drawn, but unreachable here: with a hostile subject and a component id at `CockpitView+0x27e`,
+the paint outlines that component's `.PDG` region in `COLORS.DAT` id 16. The id only ever comes from
+a targeting computer pod (`mech+0x30b`), which is not ported.
 
 ### `MFDFlashComm` — mode 1
 
@@ -276,13 +311,18 @@ so the first pass is not overdrawn.
 
 ## Engine coverage
 
-Layout and switching only. Drawn: screen background, F-key column with lit state, per-mode aux
-buttons, titles and captions, the status labels and paper doll, the flash-comm order list, the nav
-map's background flood. Not drawn: radar sweep, target data, missile camera, map terrain, per-region
-damage tints, transmission frames — all need sim state or a map rasterizer.
+Drawn: screen background, F-key column with lit state, per-mode aux buttons, titles and captions, the
+flash-comm order list, the nav map's background flood, and **both status screens driven from a live
+subject** — `Herculan.Engine.Content.MfdStatusSubject`, one record for F1 and F5 as in the original.
+Not drawn: radar sweep, missile camera, map terrain, per-region damage tints, transmission frames —
+all need sim state or a map rasterizer.
 
-`Herculan.Engine.Host` takes `--mfd <0-5>` to pick the initial screen, since a `--screenshot` run
-never sees a keystroke.
+`Herculan.Engine.Host` takes `--mfd <0-5>` to pick the initial screen and `--target` to acquire one,
+since a `--screenshot` run never sees a keystroke.
+
+Status-screen deviations: there is no pilot roster, so only the machine being flown reads `ID:`/`YOU`
+and a squadmate reads `TARGET:` plus its type name; a flyer's name comes from `FLYERS.DAT`
+`NameBytes` (the same `+0x12` the paint reads) and a HERC's from its type name.
 
 ## Open
 
@@ -291,5 +331,6 @@ never sees a keystroke.
   Trigger and meaning not traced; consistent with display-damage static.
 - `MFD` frames 11-13 (182x16), 14 (110x110), 15 (51x50), 16 (10x10), 17 (6x54), 18 (14x7) have no
   located consumer. 14 duplicates the `radar` bank's frame size.
-- The paint-time font override on status labels 1 and 3.
-- Screens for modes 3, 4 and 5 beyond their button and background layout.
+- Per-region damage tints on the paper doll. The `.PDG` region list and the per-component readings
+  are both decoded; the tint colour comes from `FUN_00438624`, which is not.
+- Screens for modes 3 and 5 beyond their button and background layout.

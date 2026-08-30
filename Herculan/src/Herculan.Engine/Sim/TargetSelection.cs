@@ -84,6 +84,16 @@ public sealed class TargetSelection {
 	public SimObject? Selected { get; private set; }
 
 	/// <summary>
+	/// The gunsight complex's <c>+0xd5</c> flag - whether the target indicator has been armed. All
+	/// three selection entry points set it (and never clear it) on a successful press, by pushing a
+	/// literal 1 into the gunsight's state block before handing that block back; nothing else in the
+	/// image writes it, and the target box's paint refuses to draw until it is set. Since the only
+	/// way to acquire a target is one of those three keys, it is true whenever there is anything to
+	/// draw - it is carried because the original carries it, not because it gates anything here.
+	/// </summary>
+	public bool IndicatorArmed { get; private set; }
+
+	/// <summary>
 	/// <c>DAT_004d0490</c> — the four best candidates the last <see cref="Cycle"/> found, in priority
 	/// order. It is what <see cref="Cycle"/> steps through on a repeat press, and the original also
 	/// draws it on the scanner. Entries past the number found are null.
@@ -160,6 +170,7 @@ public sealed class TargetSelection {
 
 		if (best != null && best != Selected) {
 			Selected = best;
+			IndicatorArmed = true;
 		}
 
 		return best;
@@ -234,6 +245,7 @@ public sealed class TargetSelection {
 
 		if (chosen != previous) {
 			Selected = chosen;
+			IndicatorArmed = true;
 		}
 
 		return Selected;
@@ -255,6 +267,7 @@ public sealed class TargetSelection {
 	public bool Select(SimObject? target) {
 		if (target == null) {
 			Selected = null;
+			IndicatorArmed = true;
 			return true;
 		}
 
@@ -277,6 +290,10 @@ public sealed class TargetSelection {
 				_cursor = 0;
 			}
 		} while (Selected != start);
+
+		if (target == Selected) {
+			IndicatorArmed = true;
+		}
 
 		return target == Selected;
 	}

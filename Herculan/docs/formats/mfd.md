@@ -153,6 +153,11 @@ row selects. Indices 7 and 10 share a rect: one top-right button under two names
 | 4 TargetStatus | 7 `SELECT` |
 | 5 MissileCam | none |
 
+`MfdButton_OnClick` gives **7 `SELECT` and 9 `TARGET` one shared case**, which branches on the
+current mode: mode 0 steps the status screen's own subject cursor (`+0x318`, a squad roster), every
+other mode calls `TargetSelect_Cycle`. So F5's SELECT and F4's TARGET are the same action, and both
+do what [Enter] does.
+
 ### Screen background
 
 `MFD` frames 0-2 are three pieces of screen chrome, all 196x122: **0** two boxes split by a central
@@ -309,13 +314,18 @@ terrain, which is why no screen chrome is blitted for this mode.
 paint, then the title. The background covers only the inset rect and the mode column sits left of it,
 so the first pass is not overdrawn.
 
+### `MFDRadar` — mode 3
+
+The plan view, its turret wedge and its contact list: [`mfd-scanner.md`](mfd-scanner.md).
+
 ## Engine coverage
 
 Drawn: screen background, F-key column with lit state, per-mode aux buttons, titles and captions, the
 flash-comm order list, the nav map's background flood, and **both status screens driven from a live
 subject** — `Herculan.Engine.Content.MfdStatusSubject`, one record for F1 and F5 as in the original.
-Not drawn: radar sweep, missile camera, map terrain, per-region damage tints, transmission frames —
-all need sim state or a map rasterizer.
+The scanner is drawn too — see its own doc. Not drawn: the mode-switch sweep animation, the missile
+camera, map terrain, per-region damage tints and transmission frames, all of which need sim state, a
+map rasterizer or an animation path.
 
 `Herculan.Engine.Host` takes `--mfd <0-5>` to pick the initial screen and `--target` to acquire one,
 since a `--screenshot` run never sees a keystroke.
@@ -329,8 +339,9 @@ and a squadmate reads `TARGET:` plus its type name; a flyer's name comes from `F
 - `mfd_dmg` (7 frames, 192x118) is built into three animation sequences of 3/2/3 frames by
   `MfdDisplay_Ctor` from count table `0049cb40` and six frame-index tables at `0049cb4c`-`0049cb88`.
   Trigger and meaning not traced; consistent with display-damage static.
-- `MFD` frames 11-13 (182x16), 14 (110x110), 15 (51x50), 16 (10x10), 17 (6x54), 18 (14x7) have no
-  located consumer. 14 duplicates the `radar` bank's frame size.
+- `MFD` frames 11-13 (182x16) have no located consumer. **Frames 14-18 do**: they are the whole of
+  the scanner screen, see [`mfd-scanner.md`](mfd-scanner.md). Frame 14 matching the `radar` bank's
+  frame size is not a coincidence either — that bank holds the sweep played over the same dish.
 - Per-region damage tints on the paper doll. The `.PDG` region list and the per-component readings
   are both decoded; the tint colour comes from `FUN_00438624`, which is not.
-- Screens for modes 3 and 5 beyond their button and background layout.
+- Mode 5, the missile camera, beyond its button and background layout.

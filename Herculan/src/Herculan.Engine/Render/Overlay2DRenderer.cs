@@ -3,6 +3,7 @@ using HercWorks.Core.Data.File.Gau;
 using HercWorks.Core.Data.Struct;
 using Herculan.Engine.Content;
 using Herculan.Engine.Gl;
+using Herculan.Engine.Numerics;
 using Herculan.Engine.Sim;
 using Silk.NET.OpenGL;
 
@@ -610,6 +611,34 @@ public sealed class Overlay2DRenderer : IDisposable {
 		void BlitDevice(string bank, int frame, float deviceLeft, float deviceTop) =>
 			Blit(bank, frame, Dx(deviceLeft), Dy(deviceTop));
 
+		// A sprite rotated about its own top-left corner rather than blitted axis-aligned — the MFD
+		// scanner's turret wedge is the one thing on the cockpit drawn this way. The pivot is the
+		// corner and not the centre because Bitmap_BlitRotatedScaled (00488a8c) builds its destination
+		// quad as (0,0),(w,0),(w,h),(0,h), rotates each corner, and only then translates by the
+		// caller's position; the wedge sprite is authored as a quarter disc filling the quadrant right
+		// and below that corner for exactly this reason.
+		void BlitRotatedDevice(string bank, int frame, float pivotDeviceX, float pivotDeviceY, short angle) {
+			if (sprites.Sprite(bank, frame) is not { } sprite || sprite.Width <= 0 || sprite.Height <= 0) {
+				return;
+			}
+
+			var r = sprite.Rect;
+			float drawn = scale * sprite.Scale;
+			float width = sprite.Width * drawn;
+			float height = sprite.Height * drawn;
+
+			// Math_Rotate2DPoint's own matrix, at Q14: a positive binary angle turns the quad clockwise
+			// on a screen whose y runs down.
+			float cos = SimTrig.Cos(angle) / 16384f;
+			float sin = SimTrig.Sin(angle) / 16384f;
+			var right = new Vector2(cos, sin) * width;
+			var down = new Vector2(-sin, cos) * height;
+			var pivot = new Vector2(Dx(pivotDeviceX), Dy(pivotDeviceY));
+
+			AddTexturedQuad(pivot, pivot + right, pivot + right + down, pivot + down,
+				r.U0, r.V0, r.U1, r.V1);
+		}
+
 		void BlitAt(string bank, int frame, WidgetBase? widget) {
 			if (widget != null) {
 				Blit(bank, frame, Px(widget.Origin.X), Py(widget.Origin.Y));
@@ -656,7 +685,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 			DrawText(fontName, text, textX, textY);
 		}
 
-		AddMfd(hud, state, BlitDevice, DrawText,
+		AddMfd(hud, state, BlitDevice, BlitRotatedDevice, DrawText,
 			(x0, y0, x1, y1, color) => AddFilledRect(Dx(x0), Dy(y0), Dx(x1), Dy(y1), color));
 		BlitAt("HUDHTICK", 0, gau.TorsoTwist);
 
@@ -703,14 +732,125 @@ public sealed class Overlay2DRenderer : IDisposable {
 			}
 		}
 
-		// Last, over the reticle, because the gunsight complex paints its children in construction
-		// order and the target box is child 5 to the reticle's child 4.
+		// Over the reticle, because the gunsight complex paints its children in construction order and
+		// the target box is child 5 to the reticle's child 4.
 		AddTargetIndicator(gau, sprites, hud.TargetArrowColors, state,
 			(bank, frame, left, top, flipX, flipY) => BlitFlipped(bank, frame, Dx(left), Dy(top), flipX, flipY),
 			(a, b, c, color) => AddFilledTriangle(
 				new Vector2(Dx(a.X), Dy(a.Y)),
 				new Vector2(Dx(b.X), Dy(b.Y)),
 				new Vector2(Dx(c.X), Dy(c.Y)), color));
+
+		// And last of all, after every child, the floating scanner repeater — the gunsight's paint
+		// calls it once the child loop is done.
+		AddHudScanner(hud, state, BlitDevice,
+			(x0, y0, x1, y1, color) => AddFilledRect(Dx(x0), Dy(y0), Dx(x1), Dy(y1), color));
+	}
+
+	/// <summary>
+	/// The front window's floating scanner repeater (<c>FUN_0043f2b0</c>) — see
+	/// <see cref="Content.HudScanner"/> for what it is and why it is here rather than with the MFD.
+	/// It draws only while the MFD is showing something other than its own screen.
+	/// </summary>
+	private static void AddHudScanner(CockpitArt hud, CockpitHudState state,
+			Action<string, int, float, float> blitDevice,
+			Action<float, float, float, float, Vector3> fillRect) {
+		if (state.Mfd == MfdMode.Scanner || HudScanner.Origin(hud.Gau) is not { } origin) {
+			return;
+		}
+
+		const float S = CockpitArt.GauToPixelScale;
+		int half = HudScanner.HalfSizeDevice;
+		float centerX = origin.X * S + half;
+		float centerY = origin.Y * S + half;
+
+		if (hud.LogicalColor(HudScanner.OutlineColorId) is { } outline) {
+			AddCircleOutline(centerX, centerY, half, outline, fillRect);
+
+			// The turret arc: two lines from the centre out to the rim, 45 degrees either side of the
+			// twist. The endpoint is the point (0, -half) rotated, so both reach exactly the rim.
+			for (int side = -1; side <= 1; side += 2) {
+				short angle = unchecked((short)(state.TorsoTwist + side * HudScanner.ArcHalfAngle));
+				float cos = SimTrig.Cos(angle) / 16384f;
+				float sin = SimTrig.Sin(angle) / 16384f;
+				AddLine(centerX, centerY, centerX + half * sin, centerY - half * cos, outline, fillRect);
+			}
+		}
+
+		blitDevice(MfdScanner.Bank, MfdScanner.PlayerMarkerFrame,
+			centerX - HudScanner.PlayerMarkerOffsetX * S, centerY);
+
+		var scanner = state.Scanner;
+		int worldPerPixel = HudScanner.WorldUnitsPerPixel(scanner.Range);
+		var contacts = scanner.Plotted;
+		var blipOutline = hud.LogicalColor(HudScanner.BlipOutlineColorId);
+
+		for (int i = 0; i < contacts.Count; i++) {
+			if (hud.LogicalColor(contacts[i].ColorId) is not { } color) {
+				continue;
+			}
+
+			float blipX = centerX + contacts[i].X / worldPerPixel;
+			float blipY = centerY + contacts[i].Y / worldPerPixel;
+			if (blipOutline is { } ring) {
+				AddFilledCircle(blipX, blipY, HudScanner.BlipOutlineRadius, ring, fillRect);
+			}
+
+			AddFilledCircle(blipX, blipY, HudScanner.BlipCoreRadius, color, fillRect);
+		}
+
+		if (scanner.TargetContact >= 0 && scanner.TargetContact < contacts.Count) {
+			var target = contacts[scanner.TargetContact];
+			blitDevice(MfdScanner.Bank, MfdScanner.TargetBracketFrame,
+				centerX + target.X / worldPerPixel - HudScanner.TargetBracketOffset * S,
+				centerY + target.Y / worldPerPixel - HudScanner.TargetBracketOffset * S);
+		}
+	}
+
+	/// <summary>
+	/// A one-device-pixel line, stamped a pixel at a time by Bresenham — the same approach
+	/// <see cref="AddCircleOutline"/> takes, and for the same reason: the original rasterizes it
+	/// (<c>FUN_004838f8</c>) rather than drawing a quad, and a quad thin enough to match would
+	/// alias differently.
+	/// </summary>
+	private static void AddLine(float x0, float y0, float x1, float y1, Vector3 color,
+			Action<float, float, float, float, Vector3> fillRect) {
+		int px = (int)MathF.Round(x0), py = (int)MathF.Round(y0);
+		int qx = (int)MathF.Round(x1), qy = (int)MathF.Round(y1);
+		int dx = Math.Abs(qx - px), dy = -Math.Abs(qy - py);
+		int stepX = px < qx ? 1 : -1, stepY = py < qy ? 1 : -1;
+		int error = dx + dy;
+
+		while (true) {
+			fillRect(px, py, px + 1, py + 1, color);
+			if (px == qx && py == qy) {
+				return;
+			}
+
+			int doubled = error * 2;
+			if (doubled >= dy) {
+				error += dy;
+				px += stepX;
+			}
+
+			if (doubled <= dx) {
+				error += dx;
+				py += stepY;
+			}
+		}
+	}
+
+	/// <summary>
+	/// A filled disc, one row of spans at a time — the original's general ellipse rasterizer
+	/// (<c>FUN_00488070</c>) with the brush in fill mode, which is how the repeater draws a blip: a
+	/// radius-2 disc in black with a radius-1 one in the contact's colour inside it.
+	/// </summary>
+	private static void AddFilledCircle(float centerX, float centerY, int radius, Vector3 color,
+			Action<float, float, float, float, Vector3> fillRect) {
+		for (int dy = -radius; dy <= radius; dy++) {
+			int dx = (int)MathF.Round(MathF.Sqrt(radius * radius - dy * dy));
+			fillRect(centerX - dx, centerY + dy, centerX + dx + 1, centerY + dy + 1, color);
+		}
 	}
 
 	/// <summary>
@@ -1100,6 +1240,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// </summary>
 	private static void AddMfd(CockpitArt hud, CockpitHudState state,
 			Action<string, int, float, float> blitDevice,
+			Action<string, int, float, float, short> blitRotatedDevice,
 			Func<string, string, float, float, float> drawText,
 			Action<float, float, float, float, Vector3> fillRect) {
 		if (hud.Sprites is not { } sprites || MfdLayout.InsetOrigin(hud.Gau) is not { } inset) {
@@ -1119,13 +1260,13 @@ public sealed class Overlay2DRenderer : IDisposable {
 		// Places one label in a device-pixel rect through the shared Label_SetRect/Label_SetText rule
 		// — see HudFont.Place, which is where that pair's arithmetic lives.
 		void DrawLabel(string font, string text, float x0, float y0, float x1, float y1,
-				bool centered, float marginX = 0f) {
+				LabelAlign align, float marginX = 0f) {
 			if (sprites.Font(font) is not { } metrics) {
 				return;
 			}
 
 			var (textX, textY) = metrics.Place(text, (int)x0, (int)y0, (int)x1, (int)y1,
-				centered ? LabelAlign.Center : LabelAlign.Left, (int)marginX);
+				align, (int)marginX);
 			drawText(font, text, textX, textY);
 		}
 
@@ -1159,7 +1300,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 				// thing that re-fonts a caption, and it reads the button's own selection flag (+0x40),
 				// not the press byte — so a held button lights its plate with its text unchanged.
 				DrawLabel(widget.Selected ? "DARK" : "WHITE", caption,
-					widget.X0, widget.Y0, X(button.X1), Y(button.Y1), centered: true);
+					widget.X0, widget.Y0, X(button.X1), Y(button.Y1), LabelAlign.Center);
 			}
 		}
 
@@ -1173,6 +1314,10 @@ public sealed class Overlay2DRenderer : IDisposable {
 			case MfdMode.FlashComm:
 				AddMfdFlashComm(strings, DrawLabel, insetX, insetY);
 				break;
+			case MfdMode.Scanner:
+				AddMfdScanner(hud, state.Scanner, state.TorsoTwist,
+					blitDevice, blitRotatedDevice, fillRect, DrawLabel, X, Y);
+				break;
 			case MfdMode.NavMap:
 				// Its background is flooded above, before the buttons and title go down over it.
 				break;
@@ -1185,7 +1330,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 		if (MfdLayout.Title(strings, state.Mfd) is { Length: > 0 } title) {
 			DrawLabel("WHITE", title,
 				X(MfdLayout.TitleRect.X0), Y(MfdLayout.TitleRect.Y0),
-				X(MfdLayout.TitleRect.X1), Y(MfdLayout.TitleRect.Y1), centered: false);
+				X(MfdLayout.TitleRect.X1), Y(MfdLayout.TitleRect.Y1), LabelAlign.Left);
 		}
 	}
 
@@ -1223,7 +1368,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 					x(MfdLayout.StatusLabelX), y(MfdLayout.StatusLabelY[index]),
 					x(MfdLayout.WireframeRect.X0),
 					y(MfdLayout.StatusLabelY[index] + MfdLayout.StatusLabelHeight),
-					false, 0f);
+					LabelAlign.Left, 0f);
 			}
 		}
 
@@ -1303,18 +1448,144 @@ public sealed class Overlay2DRenderer : IDisposable {
 				float top = insetY + rows.Y0 + i * rows.RowHeight;
 				drawLabel(MfdLayout.FlashCommFont, text,
 					insetX + rows.X0, top, insetX + rows.X1, top + rows.RowHeight,
-					false, MfdLayout.FlashCommTextMarginX);
+					LabelAlign.Left, MfdLayout.FlashCommTextMarginX);
 			}
 		}
 	}
 
 	/// <summary>
-	/// Places one MFD label: a font, its text, the device-pixel rect it sits in, whether it centres
+	/// The SCANNER screen (<c>FUN_0043eecc</c>), in the original's own paint order: the dish rect is
+	/// flooded, the turret wedge goes down, the dish art covers it everywhere but its transparent
+	/// interior, then the passive-range ring, the 12-o'clock reference line, the player marker, the
+	/// contacts, the target bracket and finally the four corner readouts.
+	///
+	/// <para>Two of those are worth spelling out. The <b>wedge</b> is one sprite rotated about its own
+	/// corner, which sits on the plot centre — see <c>BlitRotatedDevice</c> inside
+	/// <see cref="AddWidgets"/>. The <b>ring</b> is the only circle the cockpit draws: it appears only
+	/// while the machine is passive and only on the 1200 m setting, because the paint tests both the
+	/// mode and <c>140000 &lt; range</c> before drawing it.</para>
+	///
+	/// <para>Contacts are plotted by integer division of their world-unit offset, exactly as the
+	/// original does it — the plot is quantised to whole device pixels, which is why blips visibly
+	/// snap rather than slide at the longest range.</para>
+	/// </summary>
+	private static void AddMfdScanner(CockpitArt hud, MfdScannerState scanner, short torsoTwist,
+			Action<string, int, float, float> blitDevice,
+			Action<string, int, float, float, short> blitRotatedDevice,
+			Action<float, float, float, float, Vector3> fillRect,
+			MfdLabelWriter drawLabel,
+			Func<int, float> x, Func<int, float> y) {
+		const float S = CockpitArt.GauToPixelScale;
+		var strings = hud.Strings;
+		var background = hud.PaletteEntry(MfdScanner.BackgroundPaletteIndex);
+
+		float discLeft = x(MfdScanner.DiscOrigin.X);
+		float discTop = y(MfdScanner.DiscOrigin.Y);
+		float centerX = x(MfdScanner.Center.X);
+		float centerY = y(MfdScanner.Center.Y);
+
+		// The flood covers the dish art's own extent — the constructor builds that rect from the
+		// frame's size, not from a stated one.
+		if (hud.Sprites?.Sprite(MfdScanner.Bank, MfdScanner.DiscFrame) is { } dish && background is { } fill) {
+			fillRect(discLeft, discTop, discLeft + dish.Width * dish.Scale,
+				discTop + dish.Height * dish.Scale, fill);
+		}
+
+		blitRotatedDevice(MfdScanner.Bank, MfdScanner.WedgeFrame, centerX, centerY,
+			unchecked((short)(torsoTwist + MfdScanner.WedgeAngleOffset)));
+		blitDevice(MfdScanner.Bank, MfdScanner.DiscFrame, discLeft, discTop);
+
+		int worldPerPixel = scanner.WorldUnitsPerPixel;
+		if (scanner.Passive && MfdScanner.PassiveRingRange < scanner.Range
+			&& hud.LogicalColor(MfdScanner.PassiveRingColorId) is { } ring) {
+			AddCircleOutline(centerX, centerY, MfdScanner.PassiveRingRange / worldPerPixel, ring, fillRect);
+		}
+
+		blitDevice(MfdScanner.Bank, MfdScanner.ReferenceLineFrame,
+			x(MfdScanner.ReferenceLineOrigin.X), y(MfdScanner.ReferenceLineOrigin.Y));
+		blitDevice(MfdScanner.Bank, MfdScanner.PlayerMarkerFrame,
+			centerX - MfdScanner.PlayerMarkerOffsetX * S, centerY);
+
+		var contacts = scanner.Plotted;
+		for (int i = 0; i < contacts.Count; i++) {
+			if (hud.LogicalColor(contacts[i].ColorId) is not { } color) {
+				continue;
+			}
+
+			float blipX = centerX + contacts[i].X / worldPerPixel;
+			float blipY = centerY + contacts[i].Y / worldPerPixel;
+			fillRect(blipX, blipY, blipX + MfdScanner.BlipSize, blipY + MfdScanner.BlipSize, color);
+		}
+
+		if (scanner.TargetContact >= 0 && scanner.TargetContact < contacts.Count) {
+			var target = contacts[scanner.TargetContact];
+			blitDevice(MfdScanner.Bank, MfdScanner.TargetBracketFrame,
+				centerX + target.X / worldPerPixel - MfdScanner.TargetBracketOffset * S,
+				centerY + target.Y / worldPerPixel - MfdScanner.TargetBracketOffset * S);
+		}
+
+		// Each readout paints its own background before its text — the label objects carry background
+		// id 0x11, the same colour the dish's own corners are, which is what keeps the four boxes
+		// invisible against it.
+		void Readout((int X0, int Y0, int X1, int Y1) rect, string? text, LabelAlign align) {
+			if (text is not { Length: > 0 }) {
+				return;
+			}
+
+			if (background is { } labelFill) {
+				fillRect(x(rect.X0), y(rect.Y0), x(rect.X1), y(rect.Y1), labelFill);
+			}
+
+			drawLabel(MfdScanner.ReadoutFont, text,
+				x(rect.X0), y(rect.Y0), x(rect.X1), y(rect.Y1), align, 0f);
+		}
+
+		Readout(MfdScanner.TargetCaptionRect, strings?.Text(MfdScanner.TargetCaptionGroup, 0), LabelAlign.Left);
+		Readout(MfdScanner.RangeValueRect,
+			MfdScanner.Readout(MfdScanner.WorldUnitsToMetres(scanner.Range)), LabelAlign.Right);
+		Readout(MfdScanner.RangeCaptionRect, strings?.Text(MfdScanner.RangeCaptionGroup, 0), LabelAlign.Left);
+		Readout(MfdScanner.TargetValueRect,
+			MfdScanner.Readout(scanner.TargetRangeMetres), LabelAlign.Right);
+	}
+
+	/// <summary>
+	/// A one-device-pixel circle outline, stamped a pixel at a time by the midpoint algorithm. The
+	/// original rasterizes it through its general ellipse routine (<c>FUN_00488070</c>) with the brush
+	/// in outline mode; this reproduces the same aliased ring without a second drawing primitive, and
+	/// is the only place the cockpit needs one.
+	/// </summary>
+	private static void AddCircleOutline(float centerX, float centerY, int radius, Vector3 color,
+			Action<float, float, float, float, Vector3> fillRect) {
+		if (radius <= 0) {
+			return;
+		}
+
+		void Plot(int dx, int dy) =>
+			fillRect(centerX + dx, centerY + dy, centerX + dx + 1, centerY + dy + 1, color);
+
+		int px = radius;
+		int py = 0;
+		int error = 1 - radius;
+		while (px >= py) {
+			Plot(px, py); Plot(py, px); Plot(-py, px); Plot(-px, py);
+			Plot(-px, -py); Plot(-py, -px); Plot(py, -px); Plot(px, -py);
+			py++;
+			if (error < 0) {
+				error += 2 * py + 1;
+			} else {
+				px--;
+				error += 2 * (py - px) + 1;
+			}
+		}
+	}
+
+	/// <summary>
+	/// Places one MFD label: a font, its text, the device-pixel rect it sits in, how it anchors
 	/// horizontally, and how far its text is indented from the anchoring edge. Vertical centring is
 	/// unconditional — see the implementation inside <see cref="AddMfd"/> for why.
 	/// </summary>
 	private delegate void MfdLabelWriter(string font, string text,
-		float x0, float y0, float x1, float y1, bool centered, float marginX);
+		float x0, float y0, float x1, float y1, LabelAlign align, float marginX);
 
 	/// <summary>
 	/// The three console buttons: a <c>PWEAPONS</c> plate with a caption centred on it.
@@ -1427,6 +1698,21 @@ public sealed class Overlay2DRenderer : IDisposable {
 		var d = new Overlay2DVertex(new Vector2(x0, y1), new Vector2(u0, v1));
 		_vertices.Add(a); _vertices.Add(b); _vertices.Add(c);
 		_vertices.Add(a); _vertices.Add(c); _vertices.Add(d);
+	}
+
+	/// <summary>
+	/// The same quad with its four corners given explicitly, for art that is rotated rather than
+	/// axis-aligned. Corners run top-left, top-right, bottom-right, bottom-left in the <i>source</i>
+	/// bitmap's own order, so the UVs pair with them regardless of where the rotation puts them.
+	/// </summary>
+	private void AddTexturedQuad(Vector2 a, Vector2 b, Vector2 c, Vector2 d,
+			float u0, float v0, float u1, float v1) {
+		var va = new Overlay2DVertex(a, new Vector2(u0, v0));
+		var vb = new Overlay2DVertex(b, new Vector2(u1, v0));
+		var vc = new Overlay2DVertex(c, new Vector2(u1, v1));
+		var vd = new Overlay2DVertex(d, new Vector2(u0, v1));
+		_vertices.Add(va); _vertices.Add(vb); _vertices.Add(vc);
+		_vertices.Add(va); _vertices.Add(vc); _vertices.Add(vd);
 	}
 
 	public void Dispose() {

@@ -456,6 +456,14 @@ to write it, so it is filled from the file.
 Verified: the heads-down display resolves ids 19, 9, 15, 12 → palette 16, 10, 13, 14 — black, red,
 yellow, green, matching the retail HDD readouts.
 
+**Not every colour number is an id.** The indirection exists for numbers that arrive in a *data
+file*; a colour a *constructor states as an immediate* is already a palette index and goes nowhere
+near this table. The weapon panel's raw 32/34/46 (`FUN_00442950`) are the clearest case, and the
+scanner screen uses both conventions at once: its contact colours are read out of the table at paint
+time while its screen background is the literal `0x11` its constructor writes — palette 17, matching
+the dish art's own corner pixels. Reading such an immediate as an id lands somewhere plausible but
+wrong (`0x11` as an id is palette 24, a mid grey).
+
 Consumers: `PaperDollGraphic.ViewRegion` at record offset `0x14`; `FUN_0045079c` (4-entry id array at
 `DAT_0049d9ec`); `HudColorTable_Get` (`00434280`).
 
@@ -715,9 +723,13 @@ Everything drawn over the live 3D view, rather than on the console, belongs to o
 | `[0xc]`,`[0xd]` | 1136, 1140 | Reticle point |
 | `[0xe]` | 1144 | Half-extent of child 4's rect about the reticle point. Zero in all 9 retail files, and unread by that child's paint |
 | `[0xf..0x12]` | 1148-1163 | Rect shared by children 0, 5 and 6 — `GAUFile.GunsightArea`, the target arrow's safe area |
+| `[0x1b]`,`[0x1c]` | 1196, 1200 | Top-left of the floating scanner repeater — `GAUFile.HudScanner`, a bare point with no size. Per herc; see [`mfd-scanner.md`](mfd-scanner.md) |
 
 `Gunsight_AddChild` (`0043d5a4`) appends to a pointer array at the widget's `+0xd7`, so construction
-order *is* child index. `Gunsight_Paint` (`0043d5c8`) walks that array calling each child's slot 0.
+order *is* child index. `Gunsight_Paint` (`0043d5c8`) walks that array calling each child's slot 0,
+then draws two things that are not children at all: the **floating scanner repeater** (`FUN_0043e0ec`
+into `FUN_0043f2b0`) and `FUN_0043dd70`, which works from a second derived point at the widget's
+`+0x113` — the reticle plus `(0x46, -0x12)` device — and is not traced.
 
 All nine children derive from `FUN_0043b344`, a bare rect holder. Children 4, 5 and 6 additionally
 receive the 38-byte state block described in

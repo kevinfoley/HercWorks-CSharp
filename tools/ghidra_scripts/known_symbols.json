@@ -3498,8 +3498,53 @@
       "type": "function",
       "confidence": "high",
       "name": "MfdRadarScreen_Ctor",
-      "description": "Constructor for the MFD's SCANNER screen (mode 3), the largest of the six at 0x524 bytes. Owns the contact list and the `radar` bank's 10-frame 110x110 sweep animation. Range comes from _DAT_004d1cf4 = 50000/100000/200000 world units (300/600/1200 m at 1000 units = 6 m) indexed by the zoom field at MfdDisplay+0xc5, default 2. See docs/formats/mfd.md.",
-      "source": "docs/formats/mfd.md 2026-08-18"
+      "description": "Constructor for the MFD's SCANNER screen (mode 3), the largest of the six at 0x524 bytes. Builds the plot geometry (dish at inset+(0x26,1), centre at inset+(0x41,0x1c), plot radius 0x19 GAU), the 100-entry contact vector at +0x68 and the four corner readouts. Binds MFD bank frames 14 (dish) and 15 (turret wedge). Range comes from MfdScannerRanges 004d1cf4 = 50000/100000/200000 world units (300/600/1200 m at 1000 units = 6 m) indexed by the zoom field at MfdDisplay+0xc5, default 2. The `radar` bank's 10-frame sweep is NOT this screen's -- MfdDisplay_Update plays it over the same dish on a switch to mode 3. See docs/formats/mfd-scanner.md.",
+      "source": "docs/formats/mfd-scanner.md 2026-08-31"
+    },
+    {
+      "address": "0043f2b0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HudScanner_Paint",
+      "description": "The front window's floating scanner repeater. Belongs to the GUNSIGHT complex, not the MFD: Gunsight_Paint and Gunsight_UpdateAndPaint reach it through the one-line FUN_0043e0ec after the child loop. Takes the SCANNER screen object (CockpitView+0x1ed's +0xd9) and the widget's own point at +0x10b (.GAU offset 1196), calls MfdRadarScreen_Update to rebuild the shared contact list, and RETURNS IMMEDIATELY when that screen is the display's current one -- so it and the F4 screen are never on screen together. Draws a 0x2e-unit red circle outline (colour id 9), the turret arc as two lines at twist +/- 0x2000, MFD frame 18 at the centre, each contact as a radius-2 black disc with a radius-1 coloured core, and MFD frame 16 over the selection. Its plot scale divides by the half-size (46 device px), not by the screen's 0x19. See docs/formats/mfd-scanner.md.",
+      "source": "docs/formats/mfd-scanner.md 2026-08-31"
+    },
+    {
+      "address": "0043e0ec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gunsight_PaintHudScanner",
+      "description": "One line: HudScanner_Paint(scannerScreen, gunsight+0x10b). The gunsight complex's only reference to the MFD's scanner screen.",
+      "source": "docs/formats/mfd-scanner.md 2026-08-31"
+    },
+    {
+      "address": "0043ebe0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdRadarScreen_Update",
+      "description": "Rebuilds the SCANNER screen's contact list from the live object list: skips the viewing machine, anything dead (+0x99/+0xa4), a group still awaiting deployment (group+0x14), an invulnerable structure type (class 1 with BASES.DAT +0x1e), a Cybrid not currently radar-visible (+0x95), and anything past the current display range on the ground plane. Survivors are rotated by Math_BuildRotation2D(-heading) and stored as (x, -y) with a colour id per class and side, so the plot is hull-relative nose-up. Also mirrors mech+0x96 into +0x34 and re-presses PASS or ACTIVE when it changed. Its hostile branch's blinking obj+0x1aa last-known-position marker is DEAD CODE: every constructor sets obj+0xa7 = 1 and nothing clears it. See docs/formats/mfd-scanner.md.",
+      "source": "docs/formats/mfd-scanner.md 2026-08-31"
+    },
+    {
+      "address": "0043eecc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdRadarScreen_Paint",
+      "description": "Paints the SCANNER screen: floods the dish rect with raw palette index 0x11, blits MFD frame 15 rotated about its own corner at the plot centre by turretTwist - 0x6000, covers it with frame 14, draws the passive-range ring (ellipse outline, colour id 11) only when passive and 140000 < range, then frame 17 (reference line), frame 18 (player marker), each contact as a 2x2 fill, frame 16 over the selected target, and the four RNG:/TRG: readouts as right-aligned zero-padded four-character fields. See docs/formats/mfd-scanner.md.",
+      "source": "docs/formats/mfd-scanner.md 2026-08-31"
+    },
+    {
+      "address": "00446fc8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdDisplay_CycleScannerRange",
+      "description": "The SCANNER screen's RANGE button: steps MfdDisplay+0xc5 and wraps at 3, then FUN_00446fec installs MfdScannerRanges[index] at MfdDisplay+0xbd. Stepping outwards from the default index 2 means the first press goes from 1200 m to 300 m.",
+      "source": "docs/formats/mfd-scanner.md 2026-08-31"
     },
     {
       "address": "0043facc",
@@ -3597,8 +3642,8 @@
       "type": "data",
       "confidence": "high",
       "name": "MfdScannerRanges",
-      "description": "Three int32 scanner ranges -- 50000, 100000, 200000 world units = 300, 600, 1200 m at the game's 1000 units = 6 m scale. Indexed by the MFD's zoom field at +0xc5, which MfdDisplay_Ctor inits to 2; 1200 m matches the RNG: readout in the retail scanner screenshot. See docs/formats/mfd.md.",
-      "source": "docs/formats/mfd.md 2026-08-18"
+      "description": "Three int32 scanner ranges -- 50000, 100000, 200000 world units = 300, 600, 1200 m at the game 1000 units = 6 m scale. MfdDisplay_Ctor writes all three as literals and inits the zoom field at +0xc5 to 2; 1200 m matches the RNG: readout in the retail scanner screenshot. The last entry is also read directly by the target filter FUN_00433174 as its radar-visibility range. See docs/formats/mfd-scanner.md.",
+      "source": "docs/formats/mfd-scanner.md 2026-08-31"
     },
     {
       "address": "0042a9c0",

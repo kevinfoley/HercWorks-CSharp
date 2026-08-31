@@ -40,6 +40,9 @@ public class GauFileTransformer : ByteTransformer<GAUFile> {
 	/// <summary>Byte offset of <see cref="HGunsightArea"/>'s rect inside <see cref="GAUFile.Remainder"/>, which starts at content offset 1144.</summary>
 	private const int GunsightAreaRemainderOffset = 4;
 
+	/// <summary>And <see cref="HHudScanner"/>'s point, content offset 1196 inside the same remainder.</summary>
+	private const int HudScannerRemainderOffset = 52;
+
 	public override GAUFile? Parse(byte[]? inputArray) {
 		if (inputArray == null) {
 			return null;
@@ -110,6 +113,14 @@ public class GauFileTransformer : ByteTransformer<GAUFile> {
 		gau.GunsightArea = new HGunsightArea {
 			Origin = new PixelPoint(areaX0, areaY0),
 			Size = new PixelSize(areaX1 - areaX0, areaY1 - areaY0),
+		};
+
+		// Offset 1196, thirteen ints further on: the floating scanner repeater's top-left, a bare
+		// point with no size — see HHudScanner. Surfaced the same way, left in the remainder.
+		gau.HudScanner = new HHudScanner {
+			Origin = new PixelPoint(
+				IntLE(gau.Remainder, HudScannerRemainderOffset),
+				IntLE(gau.Remainder, HudScannerRemainderOffset + 4)),
 		};
 
 		return gau;

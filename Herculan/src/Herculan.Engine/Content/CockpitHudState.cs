@@ -73,6 +73,10 @@ namespace Herculan.Engine.Content;
 /// And what F5's is: the current selection. Same screen class, same record, different subject -
 /// see <see cref="MfdStatusSubject"/>.
 /// </param>
+/// <param name="Scanner">
+/// What F4's scanner plots — its contacts, its display range and the radar mode it mirrors from the
+/// machine. See <see cref="MfdScannerState"/>.
+/// </param>
 public readonly record struct CockpitHudState(
 	IReadOnlyList<WeaponRowState> Weapons,
 	IReadOnlyList<string> HardpointNames,
@@ -91,7 +95,8 @@ public readonly record struct CockpitHudState(
 	CockpitWidgetId? PressedWidget = null,
 	TargetIndicator? Target = null,
 	MfdStatusSubject StatusSubject = default,
-	MfdStatusSubject TargetSubject = default) {
+	MfdStatusSubject TargetSubject = default,
+	MfdScannerState Scanner = default) {
 
 	/// <summary>
 	/// Power-up state: an even shield balance printing 100/100 the way <c>ShieldsGauge_UpdateReadouts</c>
@@ -121,5 +126,6 @@ public readonly record struct CockpitHudState(
 		PressedWidget: null,
 		Target: null,
 		StatusSubject: MfdStatusSubject.None,
-		TargetSubject: MfdStatusSubject.None);
+		TargetSubject: MfdStatusSubject.None,
+		Scanner: MfdScannerState.Empty);
 }

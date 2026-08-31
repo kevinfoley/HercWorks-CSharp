@@ -63,7 +63,8 @@ Groups referenced by decoded code:
 | 26 | 1 | `NONE` — the MFD target screen with nothing selected |
 | 27 | 1 | `UNKNOWN` — a subject whose target class the status screen does not recognise |
 | 28 | 5 | Condition, the MFD status screen's fourth label: `OK`, `SHIELDS DN`, `INT DAMAGE`, `CRITICAL`, `DESTROYED` |
-| 29-31 | 2,1,1 | Scanner readouts: `ACT`/`PASS`, `TRG:`, `RNG:` |
+| 29 | 2 | `ACT`, `PASS` — consumer not located; the scanner's own toggles caption from group 5 |
+| 30, 31 | 1,1 | `TRG:` and `RNG:`, the scanner's two corner captions (`DAT_004d16b4`/`b8`) |
 | 38, 39 | 1,1 | `TIME:`, `SPEED:` — the gunsight readouts |
 
 Other files: `SYSTEM.STR` alert lines, `COMMAND*.STR` mission briefing and tutorial dialogue,

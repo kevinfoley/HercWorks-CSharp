@@ -151,9 +151,14 @@ Full placement formula, including the horizontal rule: [`mfd.md`](mfd.md), "Labe
 
 ### Label background
 
-A label paints its rect before its text, in the colour id at the label object's field `0x1d` — `0x2e`
-for a weapon row, `DAT_004d3c26` (`COLORS.DAT` id 19, palette 16, black) for the shield readouts.
-That is why retail's shield "100" sits on solid black rather than on the bezel art under it.
+A label paints its rect before its text, in the colour at the label object's field `0x1d` — `0x2e`
+for a weapon row, `0x11` for the scanner's four readouts, `DAT_004d3c26` (`COLORS.DAT` id 19, palette
+16, black) for the shield readouts. That is why retail's shield "100" sits on solid black rather than
+on the bezel art under it.
+
+The first two are **raw palette indices** and the third a logical id: a constructor's immediate is
+already an index, only a data file's number goes through `COLORS.DAT`. See
+[`cockpit-hud.md`](cockpit-hud.md), "`dat\COLORS.DAT`".
 
 ### Consumers
 

@@ -210,6 +210,17 @@ public sealed partial class MechObject : SimObject {
 		}
 	}
 
+	/// <summary>
+	/// The scanner screen's PASS and ACTIVE buttons, which <b>set</b> rather than toggle:
+	/// <c>MfdButton_OnClick</c> writes <c>mech+0x96</c> directly with 0 or 1 rather than going through
+	/// the [R] path, so pressing PASS twice leaves the machine passive.
+	/// </summary>
+	public void SetScanner(bool active) {
+		if (LocallyPiloted) {
+			Scanner = active;
+		}
+	}
+
 	/// <inheritdoc />
 	public override bool ScannerActive => Scanner;
 

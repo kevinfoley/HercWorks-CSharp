@@ -918,6 +918,13 @@ window.Update += deltaSeconds => {
 			Target = ResolveTargetIndicator(pilotMech),
 			StatusSubject = MfdStatusSubject.For(pilotMech, pilotMech, cockpitArt.Strings),
 			TargetSubject = MfdStatusSubject.For(scene.Targeting?.Selected, pilotMech, cockpitArt.Strings),
+
+			// Rebuilt every frame, whichever of the two scanners is up. The MFD screen's own update
+			// slot runs while F4 is showing (mode 3's dirty flag is the one MfdDisplay_Update never
+			// clears); the floating repeater calls that same slot itself while F4 is not. Exactly one
+			// of them runs per frame in the original, so the list is always a frame old at most.
+			Scanner = MfdScanner.Build(pilotMech, scene.World?.Objects,
+				scene.Targeting?.Selected, hudState.Scanner),
 		};
 	}
 };
@@ -1199,6 +1206,10 @@ void ApplyCockpitClick(CockpitClick click) {
 			cockpitPan.Request(headsDown: false);
 			break;
 
+		case CockpitWidgetKind.MfdButton:
+			ApplyMfdAuxClick(click.Id.Index);
+			break;
+
 		case CockpitWidgetKind.HddWidget:
 			ApplyHddClick(click.Id.AsHddWidget!.Value);
 			break;
@@ -1217,6 +1228,39 @@ void ApplyCockpitClick(CockpitClick click) {
 
 		case CockpitWidgetKind.ConsoleButton when pilotMech != null:
 			ApplyConsoleClick(click.Id.AsConsoleButton!.Value);
+			break;
+	}
+}
+
+// The MFD's aux buttons, from MfdButton_OnClick's own switch (0044681c).
+//
+// SELECT (7) and TARGET (9) are one case there, not two: it branches on the current mode, stepping
+// the status screen's own subject cursor on F1 and calling TargetSelect_Cycle everywhere else. So
+// F5's SELECT and F4's TARGET are the same action, and both do what [Enter] does. F1's arm walks a
+// squad roster the engine has no equivalent of, so it is left alone.
+//
+// XMIT (10) opens a transmission and is likewise not wired.
+void ApplyMfdAuxClick(int index) {
+	switch (index) {
+		case 8 when hudState.Mfd == MfdMode.Scanner:
+			hudState = hudState with {
+				Scanner = hudState.Scanner with {
+					RangeIndex = MfdScanner.NextRangeIndex(hudState.Scanner.RangeIndex),
+				},
+			};
+
+			break;
+
+		case 7 or 9 when hudState.Mfd != MfdMode.Status:
+			scene.Targeting?.Cycle();
+			break;
+
+		case 11:
+			pilotMech?.SetScanner(false);
+			break;
+
+		case 12:
+			pilotMech?.SetScanner(true);
 			break;
 	}
 }

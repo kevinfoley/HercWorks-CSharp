@@ -309,7 +309,16 @@ public static class CockpitWidgets {
 
 			var button = MfdLayout.Buttons[i];
 			var id = CockpitWidgetId.Mfd(i);
-			bool selected = i < MfdLayout.ModeCount && i == (int)state.Mfd;
+
+			// PASS and ACTIVE are latching too, and what they latch on is not their own click but the
+			// machine's radar mode: MfdButton_OnClick writes mech+0x96 and then sets one button's
+			// +0x40 flag and clears the other's, and the scanner's update slot re-presses whichever
+			// matches whenever the mode changes behind the display's back (the [R] key).
+			bool selected = i switch {
+				11 => state.Scanner.Passive,
+				12 => !state.Scanner.Passive,
+				_ => i < MfdLayout.ModeCount && i == (int)state.Mfd,
+			};
 			yield return new CockpitWidget(id, CockpitSurface.Forward,
 				X0: (inset.X + button.X0) * scale,
 				Y0: (inset.Y + button.Y0) * scale,

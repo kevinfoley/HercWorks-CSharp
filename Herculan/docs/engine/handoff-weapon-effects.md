@@ -10,6 +10,7 @@ anything load-bearing. What *is* settled is in
 [`../simulation/hit-detection.md`](../simulation/hit-detection.md),
 [`../simulation/damage-system.md`](../simulation/damage-system.md),
 [`../formats/hud-target-indicator.md`](../formats/hud-target-indicator.md),
+[`../formats/mfd-scanner.md`](../formats/mfd-scanner.md),
 [`../formats/dts-billboards.md`](../formats/dts-billboards.md),
 [`../formats/dts-texture-binding.md`](../formats/dts-texture-binding.md) and
 [`../formats/distance-fog-and-sky.md`](../formats/distance-fog-and-sky.md).
@@ -47,23 +48,18 @@ silhouette and type-name index, the MFD status screen's untraced paint-time font
 `mech+0xb0` as the shields-down alert latch. Corrected on the way: the status screen's `ID:`/`TARGET:`
 and integrity/range choices are properties of the *subject*, not of the mode.
 
+Since: **the F4 SCANNER screen and the floating repeater** that stands in for it on every other MFD
+screen, both sets of buttons included — see
+[`../formats/mfd-scanner.md`](../formats/mfd-scanner.md). Closed with them: what `MFD` frames 14-18
+are for (the scanner, whole), that the turret wedge is one sprite rotated about its own corner rather
+than drawn geometry, that `STRINGS0.STR` groups 30 and 31 are `TRG:` and `RNG:`, that `.GAU` offset
+1196 is the repeater's point, and that the MFD's SELECT and TARGET buttons are one shared case.
+Corrected on the way: the blinking last-known-position contact is dead code in the shipped build, and
+**a colour number a constructor states as an immediate is a raw palette index, not a `COLORS.DAT`
+id** — two docs had said otherwise.
+
 Not built: **anything you can hear**, AI target acquisition, weapon-mount destruction, and the light
 sources effects are supposed to cast.
-
-## Next
-
-- Implement the MFD F4 SCANNER screen, which has a radar-style display. This screen has four buttons:
-    - PASS: Switch to passive radar
-	- ACTIVE: Switch to active radar
-	- RANGE: Toggle the range of the display
-	- TARGET: Try to target a vehicle or building in front of the player
-	
-The radar-style portion of the display has a blue wedge indicating the direction that the torso is
-facing, as well as an RNG: readout showing the current display range, and TRG: readout which shows
-the range to the current target (or 0000 if no target is selected). Colored dots on the radar
-represent different types of contacts (e.g. enemies are red).
-
-Ensure all functionality is properly reverse-engineered, not invented to fit the written description.
 
 ## Also outstanding, lower priority
 

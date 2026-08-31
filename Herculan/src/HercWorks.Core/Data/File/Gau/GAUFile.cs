@@ -95,9 +95,10 @@ namespace HercWorks.Core.Data.File.Gau;
 ///     "undecoded," just not modeled:
 ///     - 1144: the half-extent of the gunsight complex's waypoint child, taken about the
 ///       <see cref="HReticle"/> point.
-///     - 1148-1163: a rect three of the gunsight complex's children share, none of them traced.
-///     - 1164-1211 (48 bytes): still genuinely unaccounted for — no widget constructor found that
-///       reads this span.
+///     - 1148-1163: a rect three of the gunsight complex's children share — <see cref="GunsightArea"/>.
+///     - 1196-1203: the floating scanner repeater's top-left — <see cref="HudScanner"/>.
+///     - 1164-1195 and 1204-1211 (40 bytes): still genuinely unaccounted for — no widget
+///       constructor found that reads this span.
 ///     - 1212-~1588: the file-data footprint of one widget constructor (`FUN_00448cc8` in the
 ///       2026-08-10 Ghidra project) tied to `"hddclip"`/`"pilots"`/`"static"` string resources — a
 ///       pilot-roster/crew-status HDD readout. Reads several more rects at offset 1228, 1260, 1276,
@@ -173,4 +174,11 @@ public class GAUFile {
 	/// same bytes and is what the write path emits.
 	/// </summary>
 	public HGunsightArea? GunsightArea { get; set; }
+
+	/// <summary>
+	/// The floating scanner repeater's top-left at content offset 1196 - see
+	/// <see cref="HHudScanner"/>. Surfaced from <see cref="Remainder"/> the same way
+	/// <see cref="GunsightArea"/> is.
+	/// </summary>
+	public HHudScanner? HudScanner { get; set; }
 }

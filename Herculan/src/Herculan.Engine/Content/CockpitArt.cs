@@ -262,6 +262,38 @@ public sealed class CockpitArt {
 	public (Vector3 FillEven, Vector3 FillOdd, Vector3 Remainder)? GaugeColors { get; }
 
 	/// <summary>
+	/// Every <c>COLORS.DAT</c> id resolved against the live palette, or null when the table or the
+	/// palette is missing. The pre-resolved tuples above cover the widgets that name a fixed pair or
+	/// triple; this is for the ones that pick an id at draw time from what they are drawing — the
+	/// scanner's contacts, whose colour is a function of the contact's class and side.
+	/// </summary>
+	private Vector3?[]? LogicalColors { get; init; }
+
+	/// <summary>
+	/// One <c>COLORS.DAT</c> id as a colour, or null when the id is out of range, the table is
+	/// missing, or the palette has no such slot — callers draw nothing rather than substituting.
+	/// </summary>
+	public Vector3? LogicalColor(int id) =>
+		LogicalColors is { } table && id >= 0 && id < table.Length ? table[id] : null;
+
+	/// <summary>Every live-palette slot as a colour — see <see cref="PaletteEntry"/>.</summary>
+	private Vector3?[]? PaletteEntries { get; init; }
+
+	/// <summary>
+	/// One <b>raw</b> palette index as a colour, or null when the palette has no such slot.
+	///
+	/// <para>Which of this and <see cref="LogicalColor"/> a widget wants is decided by where its
+	/// number came from, and the original is consistent about it: a colour that arrives in a
+	/// <i>data file</i> is a logical id and is resolved through <c>COLORS.DAT</c> once at load, while
+	/// a colour a <i>constructor states as an immediate</i> is already a palette index. The scanner
+	/// uses both — its contact colours are read out of the resolved table at paint time, its screen
+	/// background is the literal <c>0x11</c> its constructor writes — and so does the weapon panel,
+	/// whose bar colours are the raw 32/34/46 (see <see cref="WeaponBarColors"/>).</para>
+	/// </summary>
+	public Vector3? PaletteEntry(int index) =>
+		PaletteEntries is { } table && index >= 0 && index < table.Length ? table[index] : null;
+
+	/// <summary>
 	/// A weapon row's charge bar, which does <b>not</b> take its colours from <c>COLORS.DAT</c> the
 	/// way <see cref="GaugeColors"/> does: <c>FUN_00442950</c> overwrites the bar's three colour
 	/// fields with the raw palette indices 32, 34 and 46 immediately after constructing it. That is
@@ -348,6 +380,8 @@ public sealed class CockpitArt {
 					?? CockpitViewGeometry.DefaultHeadsDownOriginY),
 			HeadsDownColors = ResolveHeadsDownColors(colors, palette),
 			TargetArrowColors = ResolveArrowColors(colors, palette),
+			LogicalColors = ResolveLogicalColors(colors, palette),
+			PaletteEntries = ResolvePaletteEntries(palette),
 		};
 	}
 
@@ -403,6 +437,30 @@ public sealed class CockpitArt {
 		}
 
 		return (ToVector(unlocked), ToVector(locked));
+	}
+
+	/// <summary>Every id in the table, resolved once — see <see cref="LogicalColor"/>.</summary>
+	private static Vector3?[]? ResolveLogicalColors(HudColorTable? colors, DynamixPalette palette) {
+		if (colors == null) {
+			return null;
+		}
+
+		var resolved = new Vector3?[HudColorTable.EntryCount];
+		for (int id = 0; id < resolved.Length; id++) {
+			resolved[id] = colors.Resolve(id, palette) is { } color ? ToVector(color) : null;
+		}
+
+		return resolved;
+	}
+
+	/// <summary>The whole live palette, resolved once — see <see cref="PaletteEntry"/>.</summary>
+	private static Vector3?[] ResolvePaletteEntries(DynamixPalette palette) {
+		var resolved = new Vector3?[256];
+		for (int index = 0; index < resolved.Length; index++) {
+			resolved[index] = palette.Colors.TryGetValue(index, out var entry) ? ToVector(entry.GetColor()) : null;
+		}
+
+		return resolved;
 	}
 
 	/// <summary>One live-palette slot as a colour, for the widgets that name a raw index rather than

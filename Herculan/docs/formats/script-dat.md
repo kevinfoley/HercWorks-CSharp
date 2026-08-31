@@ -155,6 +155,30 @@ Per record type, what pass 2 reads (offsets into the exported record, not the `.
      `worldDX = dx·cosθ − dy·sinθ`, `worldDY = dx·sinθ + dy·cosθ`, added to the group's point.
      Implemented in `Herculan.Engine.World.BaseFormationTable`, wired into `MissionLoader.AddRoster`'s
      base loop.
+   - **A base formation slot also turns the structure — SOLVED.** The 10-byte slot record's
+     **trailing `int16` is a per-slot heading**, and it is applied on a completely different path
+     from the (x, y) offset above: not by vtable `+0x78`, but by `Base_AttachToGroup`
+     (`FUN_00405c3c`) itself, and only when the structure's own record names no heading (the
+     `-0x8000` sentinel — a block-9 record whose heading ref is `-1`):
+
+     ```
+     h = group.heading;
+     if (slot != 0) h += formation.slots[slot - 1].trailingInt16;
+     object.heading = (short)h;      // a short, so the sum wraps
+     ```
+
+     Every nonzero value in the retail table is a clean turn: 8190 (45°), 16380 (90°), 32760 (180°)
+     or their negatives. Eleven of the seventeen formations use at least one. **This is why one
+     structure of a group could stand in the right place facing the wrong way** — the engine read the
+     two `int32`s and skipped the short, so every member of a group faced the same way.
+
+     Confirmed on the Scramble training base: group 1 uses formation 9, and roster slots 6 and 8 are
+     two of its three identical silo-cluster structures (type 7). Formation 9's slots 6 and 8 carry
+     16380 and 32760, and in retail those two stand turned by 90° and 180° while the third does not.
+     The 90° one is at world (989519, 1033792), the base the mismatch was reported against.
+   - **Mechs:** `Mech_AttachToGroup` (`FUN_00417aa8`) has the same heading-fallback shape, but
+     `MFORMS.DAT`'s 28-byte formations are seven bare (x, y) `int16` pairs with no room for a
+     per-slot heading. Not investigated further.
    - **Grid-snap — not implemented; reverted after a real regression (2026-08-15).** When the
      block-11 record's `BinaryFlag` (`0x06`) is set, `Base_AttachToGroup` (`FUN_00405c3c`) snaps the
      group's shared anchor to a per-formation grid before the per-member offset is added, using three

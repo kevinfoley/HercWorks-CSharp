@@ -3,8 +3,17 @@ using Herculan.Engine.Content;
 
 namespace Herculan.Engine.World;
 
-/// <summary>An unrotated (x, y) spread offset for one follower slot of a base formation.</summary>
-public readonly record struct BaseFormationOffset(int X, int Y);
+/// <summary>
+/// One follower slot of a base formation: an unrotated (x, y) spread offset, and how far the
+/// structure standing there is turned relative to the rest of its group.
+/// </summary>
+/// <param name="HeadingNudge">
+/// Binary-angle turn added to the group's heading for this slot — the trailing <c>int16</c> of the
+/// 10-byte slot record. Every nonzero value in the retail table is a clean quarter turn: 8190 (45
+/// degrees), 16380 (90), 32760 (180) or their negatives. See
+/// <see cref="BaseFormationTable.HeadingNudgeFor"/>.
+/// </param>
+public readonly record struct BaseFormationOffset(int X, int Y, short HeadingNudge);
 
 /// <summary>
 /// <c>dat\BFORMS.DAT</c> — per-formation spread offsets for a <c>script.dat</c> block-11 base/
@@ -26,7 +35,12 @@ public readonly record struct BaseFormationOffset(int X, int Y);
 /// <c>FUN_00405fac</c> streams the table from a file literally named <c>"bforms"</c>. Byte-exact: the
 /// retail file is 3,186 content bytes, formation count 17 (matches block-11 formation id's 0-16
 /// range), formation 0's seven offsets a symmetric wedge — one point ahead, three mirrored pairs
-/// behind.
+/// behind.</para>
+///
+/// <para><b>A slot turns its structure as well as placing it</b> — see
+/// <see cref="HeadingNudgeFor"/>. That half arrives by a different path (<c>Base_AttachToGroup</c>
+/// itself, not the vtable slot above) and was missed when this table was first read, which left one
+/// structure of a group standing in the right place facing the wrong way.</para>
 ///
 /// <para><b>Not modelled: grid-snap.</b> When the block-11 record's own <c>BinaryFlag</c> (raw msn
 /// offset <c>0x06</c>) is set, <c>Base_AttachToGroup</c> additionally snaps the group's shared anchor
@@ -71,6 +85,32 @@ public sealed class BaseFormationTable {
 		return slotIndex < slots.Length ? slots[slotIndex] : null;
 	}
 
+	/// <summary>
+	/// How far this slot's structure is turned relative to its group, in binary-angle units. Zero for
+	/// the group's first-claimed member and for any slot the table does not reach.
+	///
+	/// <para><b>This is not the same thing as the spread offset</b>, and missing it is why one
+	/// structure of a group could stand at the right spot facing the wrong way.
+	/// <c>Base_AttachToGroup</c> (<c>00405c3c</c>) fills a structure's heading only when its own
+	/// record names none (the <c>-0x8000</c> sentinel — a block-9 record whose heading ref is -1),
+	/// and when it does, it adds this slot's turn on top of the group's:</para>
+	/// <code>
+	/// h = group.heading;
+	/// if (slot != 0) h += formation.slots[slot - 1].headingNudge;   // +405c9a, the slot's trailing int16
+	/// object.heading = (short)h;
+	/// </code>
+	/// <para>Note this is applied at <i>attach</i> time and is entirely separate from
+	/// <c>Base_ApplyFormationOffset</c>, which reads the same slot record's two <c>int32</c>s and only
+	/// moves the structure. The heading is a short in the original, so the sum wraps.</para>
+	///
+	/// <para>Confirmed on the Scramble training base: its group uses formation 9, whose slots 6 and 8
+	/// carry 16380 (90 degrees) and 32760 (180). Roster slots 6 and 8 of that group are two of the
+	/// three identical silo-cluster structures, and in retail they stand turned by exactly those
+	/// amounts while the third does not.</para>
+	/// </summary>
+	public short HeadingNudgeFor(int formationId, int memberIndex) =>
+		OffsetFor(formationId, memberIndex)?.HeadingNudge ?? 0;
+
 	public static BaseFormationTable Load(GameContent content) {
 		byte[] bytes = content.ReadRequired(ResourceFolder, ResourceName);
 		int offset = 0;
@@ -90,8 +130,9 @@ public sealed class BaseFormationTable {
 			for (int s = 0; s < slotCount; s++) {
 				int x = NextInt32();
 				int y = NextInt32();
-				offset += 2; // trailing short per slot entry — unused by the offset lookup
-				slots[s] = new BaseFormationOffset(x, y);
+				short nudge = BinaryPrimitives.ReadInt16LittleEndian(bytes.AsSpan(offset));
+				offset += 2;
+				slots[s] = new BaseFormationOffset(x, y, nudge);
 			}
 			formations[f] = slots;
 

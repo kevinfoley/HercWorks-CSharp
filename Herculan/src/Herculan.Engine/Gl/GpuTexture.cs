@@ -17,7 +17,14 @@ namespace Herculan.Engine.Gl;
 public sealed class GpuTexture : IDisposable {
 	private readonly GL _gl;
 
-	public GpuTexture(GL gl, TextureAtlas atlas) : this(gl, atlas.Pixels, atlas.Width, atlas.Height) { }
+	/// <param name="indexed">
+	/// Upload <see cref="TextureAtlas.IndexPixels"/> — palette index in red — rather than the
+	/// expanded colour. That is what a <b>lit</b> surface has to sample, because the original resolves
+	/// a lit texel as <c>rampRow(shade)[index]</c>; see <see cref="PaletteRampTable"/>. Callers that
+	/// blit a frame unlit (the HUD sprite sheets, the billboard renderer) want the colour.
+	/// </param>
+	public GpuTexture(GL gl, TextureAtlas atlas, bool indexed = false)
+		: this(gl, indexed ? atlas.IndexPixels : atlas.Pixels, atlas.Width, atlas.Height) { }
 
 	/// <summary>
 	/// Uploads a plain RGBA8 image with no atlas packing — for a single-frame source like

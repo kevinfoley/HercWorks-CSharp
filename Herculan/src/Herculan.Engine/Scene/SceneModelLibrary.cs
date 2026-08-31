@@ -316,8 +316,10 @@ public sealed class SceneModelLibrary {
 	/// </summary>
 	public SceneModel? Base(BaseType type) =>
 		type.Source == BaseShapeSource.AnimatedLibrary
-			? Build(BaseTypeTable.AnimatedLibraryName, type.ShapeIndex, type.TextureBankName)
-			: BuildFromShapeLibrary(BaseTypeTable.StaticLibraryName, type.ShapeIndex, type.TextureBankName);
+			? Build(BaseTypeTable.AnimatedLibraryName, type.ShapeIndex, type.TextureBankName,
+				transparentBank: true)
+			: BuildFromShapeLibrary(BaseTypeTable.StaticLibraryName, type.ShapeIndex, type.TextureBankName,
+				transparentBank: true);
 
 	/// <summary>
 	/// The hit geometry a structure type's shape carries, as distinct from the geometry it is drawn
@@ -374,7 +376,8 @@ public sealed class SceneModelLibrary {
 			? roots[rootIndex]
 			: null;
 
-	private SceneModel? BuildFromShapeLibrary(string libraryName, int shapeIndex, string? bankName) {
+	private SceneModel? BuildFromShapeLibrary(string libraryName, int shapeIndex, string? bankName,
+			bool transparentBank = false) {
 		string key = $"dgs\\{libraryName}#{shapeIndex}";
 		if (_models.TryGetValue(key, out var cached)) {
 			return cached;
@@ -386,7 +389,7 @@ public sealed class SceneModelLibrary {
 			root = shapes[shapeIndex].Geometry;
 		}
 
-		var model = BuildFromRoot(key, root, bankName);
+		var model = BuildFromRoot(key, root, bankName, transparentBank: transparentBank);
 		_models[key] = model;
 		return model;
 	}
@@ -458,10 +461,24 @@ public sealed class SceneModelLibrary {
 
 	/// <summary>
 	/// <paramref name="transparentIndex0"/> decodes palette index 0 to alpha 0 rather than to an
-	/// opaque colour, which is what a bank of <b>billboard sprites</b> needs and a bank of mesh
-	/// textures does not: an explosion frame is a round puff on a field of index 0, and the
-	/// original's blit skips that index rather than writing it. Only the sprite banks ask for it —
-	/// the frames a mesh samples have no transparent index at all.
+	/// opaque colour. An explosion frame is a round puff on a field of index 0 and the original's
+	/// blit skips that index rather than writing it, so every sprite bank asks for it.
+	///
+	/// <para><b>CORRECTS</b> the claim that the frames a mesh samples have no transparent index at
+	/// all. The <b>structure</b> banks are cutouts too: <c>BASETEX</c> frames 11, 36, 38, 39, 52, 53,
+	/// 60, 61, 63, 64 and 65 are 20-73% index 0 each, and they are the lattice girders on a
+	/// structure's support towers — drawn opaque they come out as black panels where the original
+	/// shows sky through the frame. The original's own switch is per frame rather than per bank
+	/// (<c>TSTexture4Poly_Render</c> passes a flag from the runtime frame descriptor's <c>+0x12</c>
+	/// down to <c>Raster_DrawPolygon</c>, which selects the span routine's transparent half), and
+	/// where that flag is authored has not been traced — but a frame with no index 0 in it draws
+	/// identically either way, so decoding the whole bank transparent reproduces the original on this
+	/// data.</para>
+	///
+	/// <para>It is still not done for <i>every</i> mesh bank: the mech skins carry a handful of stray
+	/// index-0 texels each (9 of 44376 in <c>LIGHT</c>, 7 of 68464 in <c>MEDIUM</c>) that are plainly
+	/// paint rather than cutouts, and punching single-pixel holes in a HERC to generalise a rule this
+	/// session did not fully trace would be a worse trade than leaving them opaque.</para>
 	/// </summary>
 	private TextureAtlas? LoadAtlas(string bankName, bool transparentIndex0 = false) {
 		// The two decodings of one bank are different images, so they cache apart. No retail bank is

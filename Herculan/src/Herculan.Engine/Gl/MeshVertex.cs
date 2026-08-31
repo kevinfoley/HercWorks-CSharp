@@ -40,8 +40,8 @@ public struct MeshVertex {
 	public float Unlit;
 
 	/// <summary>
-	/// A brightness multiplier already resolved through the theater's ramp, applied on top of whatever
-	/// <see cref="Unlit"/> decides. 1 is the identity and the default.
+	/// A <b>shade byte</b>, 0-255, for a surface that carries its own instead of having one computed
+	/// per frame — read only when <see cref="Unlit"/> is set.
 	///
 	/// <para>This is how a surface the original shades <i>ahead of time</i> gets drawn. Terrain is the
 	/// case: <c>Terrain_BuildSurface</c> lights every cell once at zone load and stores the two shade
@@ -49,24 +49,63 @@ public struct MeshVertex {
 	/// <c>Terrain_DrawCellQuad</c> hands the byte straight to the span setup. Nothing about it is
 	/// recomputed per frame, so running the renderer's own light term over terrain — which is what the
 	/// engine used to do — is not a stand-in for the original, it is a second, different light.
-	/// Terrain now carries <see cref="Unlit"/> set (no runtime term) and its shade here instead.</para>
+	/// Terrain carries <see cref="Unlit"/> set and its baked byte here instead.</para>
 	///
-	/// <para>See <see cref="Render.MissionSun"/> for the shade byte and
-	/// <see cref="Render.ShadeBrightness"/> for the byte-to-multiplier curve.</para>
+	/// <para>See <see cref="Render.MissionSun"/> for where the byte comes from and
+	/// <see cref="Render.PaletteRampTable"/> for what the shader does with it — it selects a row of
+	/// the theater ramp, and each texel's palette index selects the column, which is the original's
+	/// own per-pixel operation rather than a brightness applied over an expanded colour.</para>
 	/// </summary>
 	public float Shade;
 
+	/// <summary>
+	/// Which of the theater palette's <b>material shade ramps</b> this surface names, or -1 for a
+	/// surface that is not shaded that way. The default.
+	///
+	/// <para>This is the vertex half of <see cref="Render.SurfaceShading.ShadedColor"/>. A
+	/// <c>TSShadedPoly</c>'s colour is not a colour at all until a light level is known — the surface
+	/// value picks a ramp and the face's shade picks a step along it — and the shade depends on the
+	/// face's <i>world</i> normal, which differs per instance because one built mesh is shared by
+	/// every structure of a type at its own heading. So the ramp number travels to the GPU and the
+	/// lookup happens per fragment, against <see cref="Render.SurfaceRampTable"/>. Baking it here
+	/// would pin every instance to the rest pose's lighting.</para>
+	///
+	/// <para>It is a <i>row</i> of that table rather than a bare ramp number: a
+	/// <c>TSGouraudPoly</c>'s value carries <see cref="Render.SurfaceRampTable.GouraudRowOffset"/>
+	/// on top, because the two lit types spend the same ramp through different chains — see
+	/// <see cref="Render.SurfaceShading.GouraudColor"/>.</para>
+	/// </summary>
+	public float ShadeRamp;
+
+	/// <summary>
+	/// The <b>face's</b> own normal, identical across the triangle's three corners, where
+	/// <see cref="Normal"/> may be a smoothed per-corner one.
+	///
+	/// <para>It exists for the front/back decision, which the original makes once per poly rather
+	/// than per pixel: <c>TSPoly_FrontBackVisibilityTest</c> takes the poly's stored normal and
+	/// centre, and every renderer negates <i>all</i> of the poly's normals together when the answer
+	/// is "back". Making that call from the smoothed normal instead would let one corner of a
+	/// Gouraud poly flip while another did not, which shows up as a seam along a silhouette.</para>
+	///
+	/// <para>Defaults to <see cref="Normal"/>, which is right for every flat poly — there the two
+	/// are the same vector.</para>
+	/// </summary>
+	public Vector3 FaceNormal;
+
 	public MeshVertex(Vector3 position, Vector3 normal, Vector3 color, Vector2 uv = default,
-			bool textured = false, bool unlit = false, float shade = 1f) {
+			bool textured = false, bool unlit = false, float shade = 1f, int shadeRamp = -1,
+			Vector3? faceNormal = null) {
 		Position = position;
 		Normal = normal;
+		FaceNormal = faceNormal ?? normal;
 		Color = color;
 		UV = uv;
 		Textured = textured ? 1f : 0f;
 		Unlit = unlit ? 1f : 0f;
 		Shade = shade;
+		ShadeRamp = shadeRamp;
 	}
 
 	/// <summary>Bytes per vertex, used as the vertex-attribute stride.</summary>
-	public const uint SizeInBytes = 14 * sizeof(float);
+	public const uint SizeInBytes = 18 * sizeof(float);
 }

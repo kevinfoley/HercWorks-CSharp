@@ -393,6 +393,11 @@ GpuTexture? cockpitHeadsDownTexture = null;
 GpuTexture? hudSpriteTexture = null;
 var modelMeshes = new Dictionary<string, GpuMesh>();
 var modelTextures = new Dictionary<string, GpuTexture>();
+
+// Billboards blit a frame unlit, so they need the atlas as COLOUR where a lit mesh needs it as
+// palette indices (see PaletteRampTable). Only the shapes that actually carry sprites get the
+// second upload.
+var spriteTextures = new Dictionary<string, GpuTexture>();
 var disposables = new List<IDisposable>();
 SceneItem[]? items = null;
 SceneItem[]? pilotedItems = null;
@@ -427,6 +432,11 @@ window.Load += (gl, input) => {
 	// than hand-picked — see Scene.Atmosphere. The sky is deliberately left alone.
 	scene.Atmosphere.ApplyTo(renderer);
 
+	// The theater's shaded-surface colours — what a TSShadedPoly is actually drawn through. See
+	// SurfaceRampTable.
+	renderer.SetShadeRamps(scene.ShadeRamps);
+	renderer.SetPaletteRamp(scene.PaletteRamp);
+
 	overlay = new Overlay2DRenderer(gl);
 	wireframe = new WireframeRenderer(gl);
 
@@ -441,7 +451,7 @@ window.Load += (gl, input) => {
 	imgui = new ImGuiController(gl, window.View, input, new ImGuiFontConfig(debugFontPath, 16));
 
 	terrainMesh = new GpuMesh(gl, scene.TerrainMesh);
-	terrainTexture = scene.TerrainBank != null ? new GpuTexture(gl, scene.TerrainBank.Atlas) : null;
+	terrainTexture = scene.TerrainBank != null ? new GpuTexture(gl, scene.TerrainBank.Atlas, indexed: true) : null;
 
 	if (cockpitArt != null) {
 		cockpitFrontTexture = new GpuTexture(gl, cockpitArt.Front.Pixels, cockpitArt.Front.Width, cockpitArt.Front.Height);
@@ -480,12 +490,16 @@ window.Load += (gl, input) => {
 		}
 
 		if (model.Atlas != null) {
-			modelTextures[model.Key] = new GpuTexture(gl, model.Atlas);
+			modelTextures[model.Key] = new GpuTexture(gl, model.Atlas, indexed: true);
+			if (model.Sprites.Length > 0) {
+				spriteTextures[model.Key] = new GpuTexture(gl, model.Atlas);
+			}
 		}
 	}
 
 	disposables.AddRange(modelMeshes.Values);
 	disposables.AddRange(modelTextures.Values);
+	disposables.AddRange(spriteTextures.Values);
 
 	var built = new List<SceneItem> {
 		new(terrainMesh, Matrix4x4.Identity, terrainTexture?.Handle)
@@ -1330,7 +1344,7 @@ void RefreshSpriteBatches() {
 
 	void Add(SceneModel model, Matrix4x4 transform, int frame) {
 		if (model.Sprites.Length == 0 || model.Atlas == null
-			|| !modelTextures.TryGetValue(model.Key, out var texture)) {
+			|| !spriteTextures.TryGetValue(model.Key, out var texture)) {
 			return;
 		}
 

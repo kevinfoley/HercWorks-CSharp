@@ -25,23 +25,21 @@ namespace Herculan.Engine.Render;
 /// docs/formats/dts-texture-binding.md: <c>Surfaces[ColorIndexId / 4].FrontColor</c> is a frame index
 /// into the mesh's bound <c>.DBA</c> bank, and the four UV corners are the frame's own rect.</para>
 ///
-/// <para><b>The flat poly types are two mechanisms, not one.</b> <see cref="TSShadedPoly"/> — which is
-/// what nearly every surface of a HERC or a building actually is — takes its
-/// <c>Surfaces[ColorIndexId / 4].FrontColor</c> as the same kind of frame index into the same bound
-/// bank, and is lit per face. <see cref="ResolveSurfaceColor"/> takes the resolved frame's average
-/// colour from the atlas as its base colour, and per-face lighting is applied at render time in
-/// <see cref="SceneRenderer"/> rather than baked in here, since one built mesh is shared by every
-/// instance of a unit type at a different world rotation.</para>
+/// <para><b>The untextured poly types are three separate mechanisms</b>, distinguished by what their
+/// <c>Surfaces[ColorIndexId / 4].FrontColor</c> means:</para>
+/// <list type="bullet">
+/// <item><see cref="TSShadedPoly"/> and <see cref="TSGouraudPoly"/> — a <b>ramp number</b> into the
+/// theater palette's shade-ramp table, with the face's light level picking a step along it. The two
+/// spend it through different chains; see <see cref="SurfaceShading"/>. Nearly every surface of a
+/// HERC or a building is one of these. Resolved by <see cref="ResolveShadeRamp"/>, and the lookup
+/// happens per fragment (<see cref="MeshVertex.ShadeRamp"/>, <see cref="SurfaceRampTable"/>) because
+/// the shade depends on the face's world normal and one mesh serves every instance of a type.</item>
+/// <item>Plain <see cref="TSSolidPoly"/> — a <b>palette index</b>, through the theater ramp at a
+/// fixed shade, never lit. <see cref="ResolveSolidColors"/>.</item>
+/// </list>
 ///
-/// <para>A plain <see cref="TSSolidPoly"/> is the other one: its value is a <b>palette index</b>, run
-/// through the theater's colour ramp at a fixed shade and never lit at all. See
-/// <c>ResolveSolidColors</c> for the trace and for why that distinction was previously missed —
-/// a palette index was tried against the whole flat population once, produced wrong hues on
-/// buildings, and was rejected for both types together.</para>
-///
-/// <para>Pass a <see cref="TextureAtlas"/> to resolve a textured or shaded poly and a
-/// <see cref="SurfaceShading"/> to resolve a solid one; without either, both fall back to a flat
-/// placeholder colour, which is honest about "nothing loaded" rather than quietly wrong.</para>
+/// <para>Pass a <see cref="TextureAtlas"/> and a <see cref="SurfaceShading"/> to resolve all three.
+/// Without them, surfaces fall back to <see cref="ResolveSurfaceColor"/> or a flat placeholder.</para>
 /// </summary>
 /// <summary>
 /// One node's share of a shape's geometry: the triangles of every group that hangs from a single
@@ -139,11 +137,33 @@ public static class DtsMeshBuilder {
 		/// <summary>Whether <see cref="Color"/> is final — see <see cref="MeshVertex.Unlit"/>.</summary>
 		public bool Unlit { get; }
 
+		/// <summary>The material ramp this face's surface names, or -1 — see <see cref="MeshVertex.ShadeRamp"/>.</summary>
+		public int ShadeRamp { get; }
+
+		/// <summary>
+		/// The shape's own per-corner normals, for a <see cref="TSGouraudPoly"/> — see
+		/// <see cref="ResolveVertexNormals"/>. Null for every other poly, whose three corners share
+		/// <see cref="FaceNormal"/>.
+		/// </summary>
+		public (Vector3 A, Vector3 B, Vector3 C)? VertexNormals { get; }
+
+		/// <summary>
+		/// The source poly's own stored normal — see <see cref="ResolveFaceNormal"/>. Null when the
+		/// poly's normal index does not resolve, and <see cref="EmitTriangle"/> falls back to the
+		/// winding.
+		/// </summary>
+		public Vector3? FaceNormal { get; }
+
 		public Triangle(Vector3 a, Vector3 b, Vector3 c, Vector3 color, int rank, int polyId,
 				Vector3 localA, Vector3 localB, Vector3 localC, int transformId,
 				Vector2 uvA = default, Vector2 uvB = default, Vector2 uvC = default,
-				bool unlit = false) {
+				bool unlit = false, int shadeRamp = -1,
+				(Vector3 A, Vector3 B, Vector3 C)? vertexNormals = null,
+				Vector3? faceNormal = null) {
 			Unlit = unlit;
+			ShadeRamp = shadeRamp;
+			VertexNormals = vertexNormals;
+			FaceNormal = faceNormal;
 			PolyId = polyId;
 			A = a;
 			B = b;
@@ -426,17 +446,38 @@ public static class DtsMeshBuilder {
 		Vector3 b = local ? triangle.LocalB : triangle.B;
 		Vector3 c = local ? triangle.LocalC : triangle.C;
 
-		Vector3 normal = Vector3.Cross(b - a, c - a);
-		normal = normal.LengthSquared() > 1e-12f ? Vector3.Normalize(normal) : Vector3.UnitY;
+		// The poly's OWN stored normal, not one derived from the winding — the two point opposite
+		// ways. Measured across every poly of BASES.DGS, BASES_AN.DTS and APOCA.DTS (12,656 of them,
+		// no exceptions): dot(normalize(cross(b - a, c - a)), storedNormal) == -1. The files wind
+		// their corners the other way round from the normal they carry.
+		//
+		// This has to be the stored one because the front/back sign the shader derives from it is
+		// then applied to the CORNER normals, which come out of the same point list and so share the
+		// stored convention (ResolveVertexNormals). Deriving the sign from the winding instead turns
+		// every Gouraud poly's light term inside out: lit on the side facing away from the sun.
+		// A flat poly is insensitive to the choice — its corner normal is this same vector, so the
+		// sign cancels — which is why the mistake was invisible until Gouraud shading went in.
+		Vector3 winding = Vector3.Cross(c - a, b - a);
+		Vector3 normal = triangle.FaceNormal
+			?? (winding.LengthSquared() > 1e-12f ? Vector3.Normalize(winding) : Vector3.UnitY);
+
+		// A Gouraud poly carries the shape's own normal per corner, and interpolating between them is
+		// the whole difference between the type and its flat sibling. The corners' normals are
+		// direction-only, so they are the same in the node's space and the rest pose's — the offset
+		// between those is a translation (see ResolveGroupOffset).
+		var (normalA, normalB, normalC) = triangle.VertexNormals ?? (normal, normal, normal);
 
 		// Only a triangle that actually resolved to an atlas frame samples the texture; the rest
 		// keep their colour, which is what makes the placeholder colour on an unresolved texture
 		// poly visible instead of it sampling whatever sits at the atlas origin.
 		bool textured = triangle.Rank == Ranks.Textured;
 
-		vertices[at] = new MeshVertex(a, normal, triangle.Color, triangle.UvA, textured, triangle.Unlit);
-		vertices[at + 1] = new MeshVertex(b, normal, triangle.Color, triangle.UvB, textured, triangle.Unlit);
-		vertices[at + 2] = new MeshVertex(c, normal, triangle.Color, triangle.UvC, textured, triangle.Unlit);
+		vertices[at] = new MeshVertex(a, normalA, triangle.Color, triangle.UvA, textured, triangle.Unlit,
+			shadeRamp: triangle.ShadeRamp, faceNormal: normal);
+		vertices[at + 1] = new MeshVertex(b, normalB, triangle.Color, triangle.UvB, textured, triangle.Unlit,
+			shadeRamp: triangle.ShadeRamp, faceNormal: normal);
+		vertices[at + 2] = new MeshVertex(c, normalC, triangle.Color, triangle.UvC, textured, triangle.Unlit,
+			shadeRamp: triangle.ShadeRamp, faceNormal: normal);
 	}
 
 	/// <summary>
@@ -562,9 +603,26 @@ public static class DtsMeshBuilder {
 
 	/// <summary>
 	/// A <see cref="TSDetailPart"/> holds several complete alternate representations of the same
-	/// sub-structure, paired 1:1 with ascending on-screen-size thresholds in <c>Details</c>. Picks
-	/// the one paired with the largest threshold rather than simply the last entry, since nothing
-	/// guarantees a file keeps them in ascending order.
+	/// sub-structure, paired 1:1 with ascending on-screen-size thresholds in <c>Details</c>. This
+	/// takes the <b>last</b> one, which is the level the original selects at maximum detail — the
+	/// setting the options screen calls <c>STRUCTURE DETAIL: MAXIMUM</c>, and the engine's only
+	/// setting for now.
+	///
+	/// <para><c>TSDetailPart_Render</c> (<c>004768bc</c>) is the whole of the selection:</para>
+	/// <code>
+	/// size = (radius &lt;&lt; shift) / max(distance - radius, 1)   // projected size
+	/// t    = Q10Multiply(detailScale, size)
+	/// i    = detailBias;                                          // the STRUCTURE DETAIL setting
+	/// while (i &lt; count - 1 &amp;&amp; details[i] &lt; t) i++;
+	/// render(parts[min(i - detailBias, count - 1)]);
+	/// </code>
+	/// <para>Thresholds are walked in file order, the chosen part is <c>i - detailBias</c>, and a
+	/// larger bias shifts the whole scale <i>down</i> — bias zero is maximum detail and lets a close
+	/// object reach <c>count - 1</c>. <c>Parts[^1]</c> is that loop's limit.</para>
+	///
+	/// <para>Picking the part paired with the largest <i>threshold</i> is not the same rule, though
+	/// it agrees on every retail shape (all of them end at 255). It would diverge on a file whose
+	/// thresholds were not ascending.</para>
 	/// </summary>
 	private static void CollectHighestDetail(TSDetailPart detailPart, ANAnimList? animList,
 			Collector sink, TextureAtlas? atlas, SurfaceShading? shading, int cellFrame = 0) {
@@ -572,18 +630,7 @@ public static class DtsMeshBuilder {
 			return;
 		}
 
-		int best = parts.Length - 1;
-		if (detailPart.Details is { Length: > 0 } details) {
-			int count = System.Math.Min(details.Length, parts.Length);
-			best = 0;
-			for (int i = 1; i < count; i++) {
-				if (details[i] > details[best]) {
-					best = i;
-				}
-			}
-		}
-
-		Collect(parts[best], animList, sink, atlas, shading, cellFrame);
+		Collect(parts[^1], animList, sink, atlas, shading, cellFrame);
 	}
 
 	private static void AppendGroup(TSGroup group, ANAnimList? animList, Collector sink, TextureAtlas? atlas, SurfaceShading? shading) {
@@ -647,6 +694,16 @@ public static class DtsMeshBuilder {
 				? ResolveSolidColors(poly, group.Surfaces, shading)
 				: null;
 
+			// The lit flat types name a material ramp rather than a colour, and the ramp is only
+			// half a colour until the face's own light level picks a step along it — which happens
+			// per instance, at draw time. See MeshVertex.ShadeRamp.
+			int shadeRamp = IsRampShaded(polyObject) && shading is { HasShadeRamps: true }
+				? ResolveShadeRamp(poly, group.Surfaces)
+				: -1;
+
+			Vector3[]? vertexNormals = ResolveVertexNormals(polyObject, group);
+			Vector3? faceNormal = ResolveFaceNormal(poly, group);
+
 			Vector3 color = solid?.Fill
 				?? (rank == Ranks.UnresolvedTexture ? TextureFallbackColor : ResolveColor(poly, surfaceColors));
 			Vector3 first = points[firstIndex];
@@ -664,11 +721,19 @@ public static class DtsMeshBuilder {
 				if (rect is { } frame) {
 					sink.Triangles.Add(new Triangle(first, points[i1], points[i2], color, rank, polyId,
 						localFirst, localPoints[i1], localPoints[i2], group.Transform,
-						UvAt(frame, 0), UvAt(frame, i + 1), UvAt(frame, i + 2)));
+						UvAt(frame, 0), UvAt(frame, i + 1), UvAt(frame, i + 2),
+						faceNormal: faceNormal));
 				} else {
+					// The fan's corners are vertex-list slots 0, i+1 and i+2, and the normal list is
+					// parallel to it, so the same three slots index it.
+					var corners = vertexNormals == null
+						? ((Vector3, Vector3, Vector3)?)null
+						: (vertexNormals[0], vertexNormals[i + 1], vertexNormals[i + 2]);
+
 					sink.Triangles.Add(new Triangle(first, points[i1], points[i2], color, rank, polyId,
 						localFirst, localPoints[i1], localPoints[i2], group.Transform,
-						unlit: solid.HasValue));
+						unlit: solid.HasValue, shadeRamp: shadeRamp, vertexNormals: corners,
+						faceNormal: faceNormal));
 				}
 			}
 
@@ -783,14 +848,138 @@ public static class DtsMeshBuilder {
 	}
 
 	/// <summary>
-	/// Resolves a flat-shaded surface's <c>FrontColor</c> as a frame index into the mesh's own bound
-	/// atlas (same mechanism as <see cref="ResolveFrame"/>), taking that frame's average colour as the
-	/// base colour — see this type's doc comment. Falls back to <see cref="FallbackColor"/> when no
-	/// atlas is bound or the frame index doesn't resolve, rather than the disproven direct-palette-index
-	/// or <see cref="DefaultShapeColors"/> guess-table approaches.
+	/// The <b>stand-in</b> colour for a flat-shaded surface, used only when the theater's palette
+	/// carries no shade-ramp table: the surface value read as a frame index into the bound atlas,
+	/// averaged. See <see cref="ResolveShadeRamp"/> for what the value actually is.
 	/// </summary>
 	private static Vector3 ResolveSurfaceColor(short frontColor, TextureAtlas? atlas) =>
 		atlas?.AverageColor(frontColor) ?? FallbackColor;
+
+	/// <summary>
+	/// Whether a poly is one of the two <b>lit</b> flat types, whose surface value names a material
+	/// ramp in the theater palette.
+	///
+	/// <para><see cref="TSGouraudPoly"/> names its ramp in the same field as
+	/// <see cref="TSShadedPoly"/>: in <c>BASES.DGS</c> a shape's Gouraud and shaded polys share
+	/// surface records and values (shape 5's groups mix both against ramps 0 and 12). They differ in
+	/// how the ramp entry is spent — see <see cref="SurfaceShading.GouraudColor"/> — and in per-vertex
+	/// versus per-face light, which <see cref="ResolveVertexNormals"/> supplies.</para>
+	///
+	/// <para>Excluded: <see cref="TSTexture4Poly"/>, also a <c>TSSolidPoly</c> subclass but whose
+	/// value is a frame index (<see cref="ResolveFrame"/>), and plain <c>TSSolidPoly</c>, whose value
+	/// is a palette index and which is never lit (<see cref="ResolveSolidColors"/>).</para>
+	/// </summary>
+	private static bool IsRampShaded(TSObject poly) =>
+		poly is TSShadedPoly or TSGouraudPoly;
+
+	/// <summary>
+	/// A poly's own stored normal, in render space, or null when its index does not resolve.
+	///
+	/// <para><see cref="TSPoly.Normal"/> is a <b>point index</b>, dereferenced with the same 6-byte
+	/// Vec3Short stride as a corner — <c>*(ushort *)(poly + 4) * 6 + DAT_006c696c</c> in every one of
+	/// <c>TSSolidPoly_Render</c>, <c>TSShadedPoly_Render</c> and <c>TSTexture4Poly_Render</c>. It is
+	/// what <c>TSPoly_FrontBackVisibilityTest</c> (<c>0048c620</c>) tests with, so it is what the
+	/// front/back sign has to be derived from here.</para>
+	///
+	/// <para>It is <i>not</i> interchangeable with the winding — see <see cref="EmitTriangle"/> for
+	/// the measurement and for what using the winding instead did to Gouraud polys.</para>
+	/// </summary>
+	private static Vector3? ResolveFaceNormal(TSPoly poly, TSGroup group) {
+		if (group.Points == null || poly.Normal < 0 || poly.Normal >= group.Points.Length) {
+			return null;
+		}
+
+		var point = group.Points[poly.Normal];
+		var rendered = WorldScale.DtsToRender(point.X, point.Y, point.Z);
+		return rendered.LengthSquared() > 1e-12f ? Vector3.Normalize(rendered) : null;
+	}
+
+	/// <summary>
+	/// A <see cref="TSGouraudPoly"/>'s own per-corner normals, in render space, or null for any other
+	/// poly — which is what makes it Gouraud rather than flat.
+	///
+	/// <para><b>The shape stores normals as extra entries in its point list.</b> Every poly carries
+	/// <see cref="TSPoly.Normal"/>, a <i>point index</i> that DBSIM's renderers dereference as
+	/// <c>points[index]</c> with the 6-byte Vec3Short stride (<c>*(ushort *)(poly + 4) * 6 +
+	/// DAT_006c696c</c>, in all three of <c>TSSolidPoly_Render</c>, <c>TSShadedPoly_Render</c> and
+	/// <c>TSTexture4Poly_Render</c>). <c>TSGouraudPoly.NormalList</c> is the per-vertex form of the
+	/// same thing: an offset into the group's index array running parallel to
+	/// <see cref="TSPoly.VertexList"/>, whose entries are point indices of normals rather than of
+	/// corners.</para>
+	///
+	/// <para>Confirmed on <c>BASES.DGS</c> shape 11's eight side panels: every entry the list reaches
+	/// has length <b>2048</b> — <see cref="MissionSun.NormalLength"/>, the <c>0x800</c> the shade
+	/// calculation is scaled around — and adjacent panels share the normal at the edge between them,
+	/// which is what wraps a smooth gradient around the mass instead of stepping it.</para>
+	///
+	/// <para>Returns null rather than a partial set if any entry is out of range, so a malformed list
+	/// falls back to flat shading instead of half-smooth shading.</para>
+	/// </summary>
+	private static Vector3[]? ResolveVertexNormals(TSObject polyObject, TSGroup group) {
+		if (polyObject is not TSGouraudPoly gouraud || group.Indexes == null || group.Points == null) {
+			return null;
+		}
+
+		var normals = new Vector3[gouraud.VertexCount];
+		for (int i = 0; i < normals.Length; i++) {
+			int at = gouraud.NormalList + i;
+			if (at < 0 || at >= group.Indexes.Length) {
+				return null;
+			}
+
+			int pointIndex = group.Indexes[at];
+			if (pointIndex < 0 || pointIndex >= group.Points.Length) {
+				return null;
+			}
+
+			var normal = group.Points[pointIndex];
+			var rendered = WorldScale.DtsToRender(normal.X, normal.Y, normal.Z);
+			if (rendered.LengthSquared() <= 1e-12f) {
+				return null;
+			}
+
+			normals[i] = Vector3.Normalize(rendered);
+		}
+
+		return normals;
+	}
+
+	/// <summary>
+	/// The material ramp a lit flat surface names, or -1 when it names none.
+	///
+	/// <para>The value is <c>Surfaces[ColorIndexId / 4].FrontColor</c>, the same field and the same
+	/// <c>/ 4</c> every other poly type reads (see <see cref="ResolveColor"/>) — it is what the value
+	/// <i>means</i> that differs. <c>TSShadedPoly_Render</c> hands it to
+	/// <c>Palette_ShadeRampLookup</c>, which treats it as a slot in the palette's own ramp table; see
+	/// <see cref="SurfaceShading.ShadedColor"/>.</para>
+	///
+	/// <para>Unlike the solid path this does <b>not</b> reject a nonzero <c>FrontFlag</c>: every
+	/// shaded surface in the retail files carries flag 1024 on its front pair, and rejecting that
+	/// would exclude all of them. The original's own test is narrower — it skips the face only when
+	/// <i>both</i> the front and back values put <c>0x14</c> in the top byte of the int32 they share
+	/// with their flag, which is flag 5120, and which retail data uses on back faces only. Nothing
+	/// here draws back faces, so the test has nothing to reject.</para>
+	/// </summary>
+	private static int ResolveShadeRamp(TSPoly poly, TSSurfaceEntry[]? surfaces) {
+		if (surfaces == null || poly is not TSSolidPoly solid) {
+			return -1;
+		}
+
+		int index = solid.ColorIndexId / 4;
+		if (index < 0 || index >= surfaces.Length) {
+			return -1;
+		}
+
+		short ramp = surfaces[index].FrontColor;
+		if (ramp < 0) {
+			return -1;
+		}
+
+		// The two lit types spend the ramp differently — TSShadedPoly through the theater .RMP at a
+		// fixed row, TSGouraudPoly straight through the palette — so they address different halves of
+		// the lookup table. See SurfaceShading.GouraudColor.
+		return (ramp & 0xff) + (poly is TSGouraudPoly ? SurfaceRampTable.GouraudRowOffset : 0);
+	}
 
 	/// <summary>
 	/// The colour of a plain <see cref="TSSolidPoly"/> — <b>a palette index run through the theater's
@@ -879,10 +1068,3 @@ public static class DtsMeshBuilder {
 	/// </summary>
 	private readonly record struct SolidColors(Vector3 Fill, Vector3? Line);
 }
-
-/// <summary>
-/// What a flat solid surface needs to become a colour: the theater's ramp and the palette the ramp's
-/// output is an index into. Both come from the same theater, and neither means anything without the
-/// other — see <see cref="DtsMeshBuilder"/>'s <c>ResolveSolidColors</c>.
-/// </summary>
-public sealed record SurfaceShading(ShadeRamp Ramp, DynamixPalette? Palette);

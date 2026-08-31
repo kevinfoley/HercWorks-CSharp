@@ -33,6 +33,34 @@ public class DynamixPalette {
 
 	public ColorBytes Index0AlphaKey { get; set; }
 
+	/// <summary>
+	/// The palette's <b>shade ramps</b>, which live in the file's tail after the colour entries: one
+	/// ramp per entry of a 256-slot table, each a run of palette indices from darkest to brightest.
+	///
+	/// <para>A ramp is not a colour — it is a <i>material</i>. DBSIM's <c>TSShadedPoly_Render</c>
+	/// (<c>0047542c</c>) treats a surface's <c>FrontColor</c> as an index into this table, not as a
+	/// palette index, and picks the entry a face's computed light level lands on:
+	/// <c>Palette_ShadeRampLookup</c> (<c>00430e34</c>) is
+	/// <c>ramp[value &amp; 0xff].indices[(shade * ramp.length) &gt;&gt; 8]</c>, stepping back one when
+	/// that lands past the end. That is the whole of a shaded surface's colour, and it is why the
+	/// theater's palette changes what a HERC and a building look like.</para>
+	///
+	/// <para>Layout, read exactly and byte-complete on all four <c>WORLD&lt;n&gt;.DPL</c> files:
+	/// <c>int32 rampCount</c> (256 in every retail file) followed by <c>rampCount</c> records of
+	/// <c>int16 length</c> then <c>length</c> <c>int16</c> palette indices. Retail lengths are 1, 4,
+	/// 7, 8, 13 and 16; most of the table is the single-entry ramp <c>[255]</c>, so only the low
+	/// twenty-odd slots carry real material ramps.</para>
+	///
+	/// <para>Empty when the file carries no tail — the shell palettes are colours only.</para>
+	/// </summary>
+	public IReadOnlyList<short[]> ShadeRamps { get; set; } = Array.Empty<short[]>();
+
+	/// <summary>
+	/// The ramp table exactly as it was read, so the write path can put it back untouched rather
+	/// than re-serialising a structure nothing in this project edits. Null when the file had none.
+	/// </summary>
+	public byte[]? ShadeRampBytes { get; set; }
+
 	public DynamixPalette() {
 		Index0AlphaKey = new ColorBytes(218, 164, 164, 255);
 		Index0AlphaKey.SetColor(RgbaColor.FromArgb(255, 218, 164, 164));

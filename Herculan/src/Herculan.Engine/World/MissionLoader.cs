@@ -351,13 +351,25 @@ public static class MissionLoader {
 				slot,
 				group.Index,
 				position,
-				Heading(script, record.HeadingRef) ?? group.Heading,
+				Heading(script, record.HeadingRef)
+					?? HeadingFromGroup(group, baseFormations, claim.MemberIndex),
 				Array.Empty<short>(),
 				Array.Empty<short>(),
 				AwaitingDeployment: group.AwaitsDeployment,
 				Side: group.Side));
 		}
 	}
+
+	/// <summary>
+	/// Which way a structure faces when its own record names no heading: its group's heading plus its
+	/// formation slot's own turn — see <see cref="BaseFormationTable.HeadingNudgeFor"/> for the trace
+	/// and for the evidence that this is a real per-slot field and not a spread artefact.
+	///
+	/// <para>The cast is the original's: <c>Base_AttachToGroup</c> accumulates into a <c>short</c>, so
+	/// the sum wraps rather than running past a full turn.</para>
+	/// </summary>
+	private static int HeadingFromGroup(Group group, BaseFormationTable baseFormations, int memberIndex) =>
+		(short)(group.Heading + baseFormations.HeadingNudgeFor(group.FormationId, memberIndex));
 
 	/// <summary>
 	/// A base's spawn point when it carries no coordinate of its own: the group's point, spread by

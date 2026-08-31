@@ -22,10 +22,14 @@ namespace Herculan.Engine.Render;
 /// at zone load: <c>Terrain_BuildSurface</c> walks every cell, normalises its two face normals to
 /// length <c>0x800</c> and stores a shade byte per triangle in the cell itself (<c>+0xd</c> near,
 /// <c>+0xe</c> far). <c>Terrain_DrawCellQuad</c> then hands that byte straight to the span setup as
-/// the ramp row, and nothing recomputes it per frame. So the shade belongs in the mesh — see
-/// <see cref="MissionSun.ShadeFor"/> for the byte and <see cref="ShadeBrightness"/> for turning it
-/// into the multiplier an RGB renderer can use. Without a measured curve (no ramp or no palette for
-/// the theater) the mesh stays lit by the renderer's own term, as it was before.</para>
+/// the ramp row, and nothing recomputes it per frame. So the shade belongs in the mesh —
+/// <see cref="MissionSun.ShadeFor"/> is the byte, and the shader spends it exactly as the original
+/// does, by picking that row of the theater ramp and looking each texel's palette index up in it
+/// (<see cref="PaletteRampTable"/>). Without a ramp or a palette for the theater there is no table
+/// to look anything up in, and the mesh draws its texture unshaded.</para>
+///
+/// <para>Note this is the <b>terrain</b> shade curve, <c>FUN_0048c060</c> — not the one a shape's
+/// polys use. See <see cref="MissionSun"/> for why they differ.</para>
 /// </summary>
 public static class TerrainMeshBuilder {
 	/// <summary>
@@ -39,7 +43,7 @@ public static class TerrainMeshBuilder {
 	/// <see cref="MeshVertex.Textured"/> is per-vertex.</para>
 	/// </summary>
 	public static MeshVertex[] Build(HeightGrid grid, TerrainTextureBank? bank = null,
-			ShadeBrightness? brightness = null) {
+			bool bakeShade = false) {
 		int quadsX = grid.Width - 1;
 		int quadsY = grid.Height - 1;
 		var vertices = new List<MeshVertex>(quadsX * quadsY * 6);
@@ -66,14 +70,14 @@ public static class TerrainMeshBuilder {
 
 				if (grid.DiagonalSelectorAt(cellX, cellY) == 2) {
 					// Split along the c00-c11 diagonal, matching the height query's selector-2 case.
-					AddTriangle(vertices, c00, c10, c11, t00, t10, t11, textured, peak, brightness);
-					AddTriangle(vertices, c00, c11, c01, t00, t11, t01, textured, peak, brightness);
+					AddTriangle(vertices, c00, c10, c11, t00, t10, t11, textured, peak, bakeShade);
+					AddTriangle(vertices, c00, c11, c01, t00, t11, t01, textured, peak, bakeShade);
 				} else {
 					// Selector 0 splits along c01-c10; selectors 1 and 3 have no observed producer
 					// and the height query treats them as a single plane through c00/c10/c01, which
 					// this same split renders.
-					AddTriangle(vertices, c00, c10, c01, t00, t10, t01, textured, peak, brightness);
-					AddTriangle(vertices, c10, c11, c01, t10, t11, t01, textured, peak, brightness);
+					AddTriangle(vertices, c00, c10, c01, t00, t10, t01, textured, peak, bakeShade);
+					AddTriangle(vertices, c10, c11, c01, t10, t11, t01, textured, peak, bakeShade);
 				}
 			}
 		}
@@ -89,7 +93,7 @@ public static class TerrainMeshBuilder {
 
 	private static void AddTriangle(List<MeshVertex> vertices, Vector3 a, Vector3 b, Vector3 c,
 			Vector2 uvA, Vector2 uvB, Vector2 uvC, bool textured, float peak,
-			ShadeBrightness? brightness) {
+			bool bakeShade) {
 		Vector3 normal = Vector3.Cross(b - a, c - a);
 		normal = normal.LengthSquared() > 1e-12f ? Vector3.Normalize(normal) : Vector3.UnitY;
 
@@ -105,12 +109,16 @@ public static class TerrainMeshBuilder {
 		// bakes, which stores a byte per cell triangle rather than per corner. The normals differ in
 		// derivation (Terrain_BuildCellSurface differences neighbouring heights; this is the cross
 		// product of the triangle actually drawn) but describe the same surface.
-		bool baked = brightness != null;
-		float shade = baked ? brightness!.For(MissionSun.ShadeFor(normal)) : 1f;
+		//
+		// The byte itself, not a brightness derived from it: the shader picks a ramp row with it and
+		// looks each texel's palette index up in that row, which is what Terrain_DrawCellQuad does
+		// with the cell's stored byte. A per-poly multiplier over an expanded RGB texel was the
+		// stand-in for that per-texel lookup, and is gone.
+		float shade = bakeShade ? MissionSun.ShadeFor(normal) : 255f;
 
-		vertices.Add(new MeshVertex(a, normal, color, uvA, textured, baked, shade));
-		vertices.Add(new MeshVertex(b, normal, color, uvB, textured, baked, shade));
-		vertices.Add(new MeshVertex(c, normal, color, uvC, textured, baked, shade));
+		vertices.Add(new MeshVertex(a, normal, color, uvA, textured, bakeShade, shade));
+		vertices.Add(new MeshVertex(b, normal, color, uvB, textured, bakeShade, shade));
+		vertices.Add(new MeshVertex(c, normal, color, uvC, textured, bakeShade, shade));
 	}
 
 	/// <summary>

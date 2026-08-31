@@ -41,9 +41,10 @@ public sealed class TextureAtlas {
 	private readonly Vector3?[] _averageColors;
 	private readonly (int Width, int Height)[] _frameSizes;
 
-	private TextureAtlas(byte[] pixels, int width, int height, AtlasRect?[] frames,
+	private TextureAtlas(byte[] pixels, byte[] indexPixels, int width, int height, AtlasRect?[] frames,
 			Vector3?[] averageColors, (int Width, int Height)[] frameSizes) {
 		Pixels = pixels;
+		IndexPixels = indexPixels;
 		Width = width;
 		Height = height;
 		_frames = frames;
@@ -53,6 +54,23 @@ public sealed class TextureAtlas {
 
 	/// <summary>Tightly-packed RGBA8 pixels, top row first, <see cref="Width"/> * <see cref="Height"/> * 4 bytes.</summary>
 	public byte[] Pixels { get; }
+
+	/// <summary>
+	/// The same packing, but each texel's <b>palette index</b> in the red channel rather than its
+	/// expanded colour — alpha as in <see cref="Pixels"/>, green and blue zero.
+	///
+	/// <para>This is what a lit textured surface has to sample. The original is an 8-bit indexed
+	/// rasterizer: <c>Raster_DrawPolygon</c>'s span routines write
+	/// <c>rampRow(shade)[texelPaletteIndex]</c>, so the light level chooses a <i>row of the theater's
+	/// <c>.RMP</c></i> and the texel chooses the column. Shading an expanded RGB texel with a
+	/// brightness multiplier is a different operation that only approximates it. Paired with
+	/// <see cref="PaletteRampTable"/>, sampling this reproduces the exact palette byte the original
+	/// would have written.</para>
+	///
+	/// <para><see cref="Pixels"/> is kept for everything that draws a frame <i>unlit</i> — the 2D HUD
+	/// sprite sheets and the billboard renderer, which blit a frame as-is.</para>
+	/// </summary>
+	public byte[] IndexPixels { get; }
 
 	public int Width { get; }
 
@@ -125,8 +143,8 @@ public sealed class TextureAtlas {
 				continue;
 			}
 
-			byte[] pixels = DecodeFrame(frame, palette, transparentIndex0);
-			decoded[i] = new Decoded(pixels, frame.Cols, frame.Rows);
+			var (pixels, indexPlane) = DecodeFrame(frame, palette, transparentIndex0);
+			decoded[i] = new Decoded(pixels, indexPlane, frame.Cols, frame.Rows);
 			averageColors[i] = AverageColorOf(pixels);
 			totalArea += (frame.Cols + Padding) * (long)(frame.Rows + Padding);
 			widest = System.Math.Max(widest, frame.Cols);
@@ -198,6 +216,7 @@ public sealed class TextureAtlas {
 
 	private static TextureAtlas Compose(Decoded?[] decoded, Placement[] placements, int width, int height, Vector3?[] averageColors) {
 		var pixels = new byte[width * height * 4];
+		var indexPixels = new byte[width * height * 4];
 		var frames = new AtlasRect?[decoded.Length];
 		var sizes = new (int Width, int Height)[decoded.Length];
 
@@ -214,6 +233,10 @@ public sealed class TextureAtlas {
 					frame.Pixels, row * frame.Width * 4,
 					pixels, ((at.Y + row) * width + at.X) * 4,
 					frame.Width * 4);
+				Array.Copy(
+					frame.Indices, row * frame.Width * 4,
+					indexPixels, ((at.Y + row) * width + at.X) * 4,
+					frame.Width * 4);
 			}
 
 			frames[i] = new AtlasRect(
@@ -223,7 +246,7 @@ public sealed class TextureAtlas {
 				(at.Y + frame.Height) / (float)height);
 		}
 
-		return new TextureAtlas(pixels, width, height, frames, averageColors, sizes);
+		return new TextureAtlas(pixels, indexPixels, width, height, frames, averageColors, sizes);
 	}
 
 	private static Vector3 AverageColorOf(byte[] rgbaPixels) {
@@ -246,8 +269,10 @@ public sealed class TextureAtlas {
 	/// against the real game, so diverging here would mean the engine and the tool disagree about
 	/// what a frame looks like.
 	/// </summary>
-	private static byte[] DecodeFrame(DynamixBitmap frame, DynamixPalette? palette, bool transparentIndex0) {
+	private static (byte[] Pixels, byte[] Indices) DecodeFrame(
+			DynamixBitmap frame, DynamixPalette? palette, bool transparentIndex0) {
 		var pixels = new byte[frame.Cols * frame.Rows * 4];
+		var indexPlane = new byte[frame.Cols * frame.Rows * 4];
 		byte[] indices = frame.ImageData ?? Array.Empty<byte>();
 		int count = System.Math.Min(indices.Length, frame.Cols * frame.Rows);
 
@@ -258,13 +283,19 @@ public sealed class TextureAtlas {
 				? entry.GetColor()
 				: new RgbaColor(255, index, index, index);
 
+			byte alpha = (byte)(transparentIndex0 && index == 0 ? 0 : 255);
+
 			pixels[i * 4] = color.R;
 			pixels[i * 4 + 1] = color.G;
 			pixels[i * 4 + 2] = color.B;
-			pixels[i * 4 + 3] = (byte)(transparentIndex0 && index == 0 ? 0 : 255);
+			pixels[i * 4 + 3] = alpha;
+
+			// The frame's own bytes, kept unexpanded — see TextureAtlas.IndexPixels.
+			indexPlane[i * 4] = index;
+			indexPlane[i * 4 + 3] = alpha;
 		}
 
-		return pixels;
+		return (pixels, indexPlane);
 	}
 
 	private static int NextPowerOfTwo(int value) {
@@ -275,7 +306,7 @@ public sealed class TextureAtlas {
 		return result;
 	}
 
-	private sealed record Decoded(byte[] Pixels, int Width, int Height);
+	private sealed record Decoded(byte[] Pixels, byte[] Indices, int Width, int Height);
 
 	private readonly record struct Placement(int X, int Y, bool Placed);
 }

@@ -56,10 +56,12 @@ turned away gets shade 0 — ramp row 0, not black (see below).
 `rotate((0,0x1000,0), eulerMatrix(-6000,0,21000))` in Z-up world space, intensity `0x100`. No mission
 or theater file contributes.
 
-The 3-axis rotation order was not read out of the exe's fixed-point trig, but only one order is
-consistent with the game rendering at all: composing Z after X puts the direction's world Z at
-**-0.544**, lighting upward-facing ground. The other order gives +0.233, which leaves every flat cell
-facing away from the sun and the whole zone at shade 0.
+Because the rotated vector is `(0, 0x1000, 0)`, only the matrix's middle column is used.
+`BuildEulerRotationMatrixQ14` (`0047eaac`) writes it as `m[2] = ±cosX·sinZ`, `m[3] = cosX·cosZ`,
+`m[5] = sinX` — Z composed after X. With X = -32.96° and Z = 115.34° that is
+**(±0.758, -0.359, -0.544)** in Z-up world space: horizontal component 0.839, vertical 0.544.
+Composing X after Z instead gives world Z +0.233, which would leave every flat cell facing away from
+the sun and the whole zone at shade 0.
 
 ## The ramp rows are not a 0..1 fade
 
@@ -70,9 +72,7 @@ palette):
 |---|---|---|---|---|---|---|
 | multiplier | 0.36 | 0.62 | 0.79 | 1.00 | 1.15 | 1.16 |
 
-The ramp **brightens as well as darkens** and passes through unity around row 23. An earlier reading
-of the file recorded row 0 as near black and row 31 as full brightness; both halves are wrong. This
-matters wherever an RGB renderer substitutes a multiply for the indexed lookup — the neutral row is
+The ramp **brightens as well as darkens** and passes through unity around row 23 — the neutral row is
 not the top one.
 
 Flat ground's saturated shade of 255 selects row 30 (`255 * 31 / 256`), i.e. **1.15x** the texture's
@@ -89,24 +89,27 @@ terrain path is set up to use.
 ## Engine implementation
 
 - **`Render/MissionSun`** — the sun's direction and `ShadeFor(normal)`, the saturating 512*cos above.
-- **`Render/ShadeBrightness`** — measures the row multiplier table from the theater's own `.RMP` and
-  `.DPL` at load. Summed luminances rather than a mean of per-index ratios: a handful of near-black
-  palette entries map onto much brighter bytes and produce ratios above 5, which drag a plain mean
-  around. The two metrics agree to about 5% regardless (row 30: 1.209 unweighted, 1.149 weighted).
 - **`Render/TerrainMeshBuilder`** — bakes one shade per triangle into `MeshVertex.Shade` and marks
   terrain `Unlit`, so the renderer applies no light term of its own over it.
+- **`Render/PaletteRampTable`** — the theater's `.RMP` expanded through its `.DPL` as a
+  256-palette-index x 32-row texture. The shade byte picks the row, the texel's palette index picks
+  the column, which is the original's own `rampRow(shade)[index]` per texel. Requires the atlas to
+  carry palette indices (`TextureAtlas.IndexPixels`) rather than expanded colour. Shapes use the same
+  path — see [`dts-texture-binding.md`](dts-texture-binding.md).
 
 Known divergences:
 
-- The multiplier is per row, not per palette index; the original picks a specific palette entry per
-  texel. Faithful in shape, not byte-exact, and it can clip already-bright texels where the row
-  multiplier exceeds 1.
 - Triangle normals come from the cross product of the triangle actually drawn, where
   `Terrain_BuildCellSurface` differences neighbouring cell heights. Same surface, different
   derivation.
 - Distance fog stays continuous per-pixel haze in the engine rather than the original's twelve
   quantised ramp slices.
 
-**What this replaced:** the engine had been running its own directional Lambert
-(`0.35 + 0.65 * lambert`) over terrain, which put flat ground at **0.70x** where the original puts it
-at **1.15x** — terrain rendered about 1.6x too dark against retail.
+## Rejected readings
+
+| Reading | Why it is wrong |
+|---|---|
+| A directional Lambert term (`0.35 + 0.65 * lambert`) over terrain | Terrain is not lit per frame at all; the shade is baked at zone load. It also put flat ground at 0.70x where the original puts it at 1.15x — about 1.6x too dark |
+| Ramp row 0 is near black and row 31 is full brightness | Both halves are wrong; the ramp brightens as well as darkens and passes through unity around row 23 |
+| A per-row brightness multiplier over an expanded RGB texel, in place of the indexed lookup | The `.RMP` is a per-colour remap: it preserves hue, compresses unevenly, and collapses distinct colours near its ends. No scalar reproduces it, and a row multiplier above 1 clips already-bright texels |
+| Cell bytes `+0xd`/`+0xe` are unwritten | `Terrain_BuildCellSurfaceAndShade` writes both, one per triangle |

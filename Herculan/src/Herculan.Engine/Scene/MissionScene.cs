@@ -38,8 +38,11 @@ public sealed class MissionScene {
 			SceneObject? playerObject, BeamAppearance? beams,
 			IReadOnlyDictionary<int, SceneModel> bulletModels,
 			IReadOnlyDictionary<int, SceneModel> explosionModels,
-			IReadOnlyDictionary<int, IReadOnlyList<SceneModel>> rocketModels, Atmosphere atmosphere) {
+			IReadOnlyDictionary<int, IReadOnlyList<SceneModel>> rocketModels, Atmosphere atmosphere,
+			SurfaceRampTable? shadeRamps, PaletteRampTable? paletteRamp) {
 		Atmosphere = atmosphere;
+		ShadeRamps = shadeRamps;
+		PaletteRamp = paletteRamp;
 		Beams = beams;
 		BulletModels = bulletModels;
 		ExplosionModels = explosionModels;
@@ -61,6 +64,20 @@ public sealed class MissionScene {
 
 	/// <summary>How far this zone is visible and what it fades into — see <see cref="Scene.Atmosphere"/>.</summary>
 	public Atmosphere Atmosphere { get; }
+
+	/// <summary>
+	/// The theater's shaded-surface colours, or null when its palette carries no ramp table. A host
+	/// hands this to <see cref="SceneRenderer.SetShadeRamps"/> once after loading — it is what makes
+	/// a HERC or a structure the colour the original draws it. See <see cref="SurfaceRampTable"/>.
+	/// </summary>
+	public SurfaceRampTable? ShadeRamps { get; }
+
+	/// <summary>
+	/// The theater's palette at every shade row, or null when its ramp or palette did not load. A
+	/// host hands this to <see cref="SceneRenderer.SetPaletteRamp"/> once after loading, and must then
+	/// bind indexed atlases — see <see cref="PaletteRampTable"/>.
+	/// </summary>
+	public PaletteRampTable? PaletteRamp { get; }
 
 	/// <summary>The mission this scene was built from.</summary>
 	public Mission Mission { get; }
@@ -225,7 +242,7 @@ public sealed class MissionScene {
 		// Terrain is lit once, here, the way the original lights it once at zone load — see
 		// TerrainMeshBuilder. The same theater ramp that colours a flat solid face supplies the
 		// brightness curve the baked shade bytes are read through.
-		var terrainMesh = TerrainMeshBuilder.Build(terrain, terrainBank, ShadeBrightness.Build(models.Shading));
+		var terrainMesh = TerrainMeshBuilder.Build(terrain, terrainBank, models.Shading != null);
 
 		var bulletModels = new Dictionary<int, SceneModel>();
 		for (int subtype = 0; bullets != null && subtype < bullets.Count; subtype++) {
@@ -259,7 +276,8 @@ public sealed class MissionScene {
 		return new MissionScene(mission, world, camera, objects, models.Models.ToArray(),
 			terrainMesh, theater, terrainBank, playerObject,
 			BeamAppearance.Load(content, theater.PaletteName), bulletModels, explosionModels,
-			rocketModels, Atmosphere.From(terrain, models.Shading));
+			rocketModels, Atmosphere.From(terrain, models.Shading),
+			SurfaceRampTable.Build(models.Shading), PaletteRampTable.Build(models.Shading));
 	}
 
 	/// <summary>

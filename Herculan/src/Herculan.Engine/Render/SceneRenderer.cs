@@ -36,17 +36,21 @@ public sealed class SceneRenderer : IDisposable {
 		layout (location = 4) in float aTextured;
 		layout (location = 5) in float aUnlit;
 		layout (location = 6) in float aShade;
+		layout (location = 7) in float aShadeRamp;
+		layout (location = 8) in vec3 aFaceNormal;
 
 		uniform mat4 uModel;
 		uniform mat4 uView;
 		uniform mat4 uProjection;
+		uniform vec3 uLightDirection;
 
-		out vec3 vNormal;
 		out vec3 vColor;
 		out vec2 vUV;
 		out float vTextured;
 		out float vUnlit;
 		out float vShade;
+		out float vShadeRamp;
+		out float vLightShade;
 		out float vViewDistance;
 
 		void main() {
@@ -55,12 +59,40 @@ public sealed class SceneRenderer : IDisposable {
 
 			// Normals only ever see rotation and uniform scale here, so the plain model matrix is
 			// enough; a normal matrix becomes necessary if non-uniform scaling ever appears.
-			vNormal = normalize(mat3(uModel) * aNormal);
+			// aNormal is the shape's own per-corner normal, which for a TSGouraudPoly differs between
+			// the three corners; aFaceNormal is the flat one they share.
+			vec3 normal = normalize(mat3(uModel) * aNormal);
+			vec3 faceNormal = normalize(mat3(uModel) * aFaceNormal);
+
+			// The face is turned to meet the eye before it is lit, exactly as the original does it:
+			// every poly renderer runs TSPoly_FrontBackVisibilityTest (0048c620) on the poly's own
+			// stored normal and centre, and negates the poly's normals when the answer is "back". The
+			// test is on the FACE normal so all three corners agree — in view space the camera is the
+			// origin, so a face is turned away when its normal and its position point the same way.
+			float sideSign = dot(mat3(uView) * faceNormal, viewPosition.xyz) > 0.0 ? -1.0 : 1.0;
+
+			// The shade byte Light_ComputeShadeForFace (0048bedc) gives this corner:
+			//     t = (dot - 0x400000) >> 1;  if (t < 0) shade -= (0x100 * t) >> 22
+			// which with normals at length 0x800 and the sun at 0x1000/0x100 collapses to
+			// clamp(128 + 256 * facing). See MissionSun.ShadeForFace.
+			//
+			// Computed HERE, per vertex, and interpolated — which is what makes a TSGouraudPoly
+			// Gouraud. TSGouraudPoly_Render (004755c8) calls the light function once per vertex,
+			// walking NormalList and VertexList in step, stashes the bytes and lets the span routine
+			// interpolate between them. Doing it per fragment from an interpolated normal instead is
+			// Phong, and it differs wherever the clamp bites: the original clamps each corner first
+			// and then interpolates, so a corner that bottoms out at 0 still ramps linearly to its
+			// neighbour rather than holding a dead flat region. Flat polys are unaffected — their
+			// three corners share a normal, so this is constant across the face.
+			float facing = dot(normal * sideSign, -normalize(uLightDirection));
+			vLightShade = clamp(128.0 + 256.0 * facing, 0.0, 255.0);
+
 			vColor = aColor;
 			vUV = aUV;
 			vTextured = aTextured;
 			vUnlit = aUnlit;
 			vShade = aShade;
+			vShadeRamp = aShadeRamp;
 			vViewDistance = length(viewPosition.xyz);
 
 			gl_Position = uProjection * viewPosition;
@@ -69,41 +101,90 @@ public sealed class SceneRenderer : IDisposable {
 
 	private const string FragmentShaderSource = """
 		#version 330 core
-		in vec3 vNormal;
 		in vec3 vColor;
 		in vec2 vUV;
 		in float vTextured;
 		in float vUnlit;
 		in float vShade;
+		in float vShadeRamp;
+		in float vLightShade;
 		in float vViewDistance;
 
-		uniform vec3 uLightDirection;
 		uniform vec3 uHazeColor;
 		uniform float uHazeStart;
 		uniform float uHazeEnd;
 		uniform sampler2D uTexture;
 		uniform bool uTextureEnabled;
+		uniform sampler2D uShadeRampTable;
+		uniform bool uShadeRampEnabled;
+		uniform sampler2D uPaletteRamp;
+		uniform bool uPaletteRampEnabled;
+		uniform float uShadeLevels;
 
 		out vec4 FragColor;
 
 		void main() {
-			// Two-sided lighting: DTS geometry is not reliably wound, and nothing is backface-culled,
-			// so shade by the absolute facing rather than letting flipped triangles go black.
-			float lambert = abs(dot(normalize(vNormal), normalize(-uLightDirection)));
+			// Interpolated from the three corners' own shade bytes — the vertex shader computes them,
+			// which is what makes a TSGouraudPoly Gouraud rather than Phong. See there.
+			float shade = clamp(vLightShade, 0.0, 255.0);
+
+			// A surface the original shades once ahead of time and stores carries its own byte rather
+			// than one computed here — terrain, whose per-cell shades Terrain_BuildSurface bakes at
+			// zone load and Terrain_DrawCellQuad hands straight to the span setup.
+			if (vUnlit > 0.5) {
+				shade = clamp(vShade, 0.0, 255.0);
+			}
 
 			// Per-vertex, not per-draw: a mesh mixes textured and fallback-coloured triangles, and
 			// vTextured is flat across each triangle so this never interpolates between the two.
 			vec3 baseColor = vColor;
-			if (uTextureEnabled && vTextured > 0.5) {
-				baseColor = texture(uTexture, vUV).rgb;
+			bool textured = uTextureEnabled && vTextured > 0.5;
+			bool texturedExact = false;
+			if (textured) {
+				vec4 texel = texture(uTexture, vUV);
+
+				// Palette index 0 decodes to alpha 0 in a bank whose frames are cutouts — the lattice
+				// girders on a structure. The original's span routine skips that index rather than
+				// writing it, so the hole is a hole and not a black polygon. See
+				// SceneModelLibrary.LoadAtlas.
+				if (texel.a < 0.5) {
+					discard;
+				}
+
+				// The exact indexed path: uTexture's red channel is the texel's PALETTE INDEX, not its
+				// colour, and the original's span writes rampRow(shade)[index] — the light level picks
+				// a row of the theater .RMP and the texel picks the column. uPaletteRamp is that table
+				// expanded through the palette, so this is one sample and no approximation. The row is
+				// Raster_ShadeRampRow's own selection, floor(shade * (levels - 1) / 256).
+				if (uPaletteRampEnabled) {
+					float row = clamp(floor(shade * (uShadeLevels - 1.0) / 256.0), 0.0, uShadeLevels - 1.0);
+					baseColor = texture(uPaletteRamp,
+						vec2((floor(texel.r * 255.0 + 0.5) + 0.5) / 256.0, (row + 0.5) / uShadeLevels)).rgb;
+					texturedExact = true;
+				} else {
+					baseColor = texel.rgb;
+				}
 			}
-			// A flat solid poly is not lit at all in the original — its colour already came out of the
-			// theater ramp at a fixed shade — so it takes no runtime light term. See MeshVertex.Unlit.
-			// vShade is the other half of that: a multiplier for surfaces the original shades once,
-			// ahead of time, and stores — terrain, whose per-cell shade bytes are computed at zone
-			// load by Terrain_BuildSurface. It is 1.0 everywhere else.
-			float light = vUnlit > 0.5 ? 1.0 : (0.35 + 0.65 * lambert);
-			vec3 lit = baseColor * light * vShade;
+
+			vec3 lit;
+			if (texturedExact) {
+				lit = baseColor;
+			} else if (uShadeRampEnabled && !textured && vShadeRamp >= 0.0) {
+				// A lit flat poly (TSShadedPoly and its Gouraud sibling) has no colour for a light
+				// term to multiply — its surface names a material ramp and the face's shade byte
+				// picks a step along that ramp, and that lookup IS the shading. uShadeRampTable is
+				// the whole ramp-by-shade grid, so this is one sample rather than the original's two
+				// table reads.
+				// The row is the surface's ramp number, biased into the Gouraud half of the table for
+				// a TSGouraudPoly — see SurfaceRampTable.GouraudRowOffset.
+				lit = texture(uShadeRampTable,
+					vec2((floor(shade) + 0.5) / 256.0, (vShadeRamp + 0.5) / 512.0)).rgb;
+			} else {
+				// What is left is untextured and names no material ramp: a plain TSSolidPoly, whose
+				// colour already came out of the theater ramp at a fixed shade and is never lit, or a
+				// fallback colour for a surface nothing could resolve. Both are final as they stand.
+				lit = baseColor;
+			}
 
 			// Distance haze, so a 10 km zone reads as depth instead of a flat wall of terrain.
 			float haze = clamp((vViewDistance - uHazeStart) / max(uHazeEnd - uHazeStart, 0.001), 0.0, 1.0);
@@ -152,6 +233,9 @@ public sealed class SceneRenderer : IDisposable {
 	private readonly ShaderProgram _shader;
 	private readonly ShaderProgram _skyShader;
 	private readonly uint _skyVertexArray;
+	private GpuTexture? _shadeRampTexture;
+	private GpuTexture? _paletteRampTexture;
+	private int _paletteRampRows;
 
 	public SceneRenderer(GL gl) {
 		_gl = gl;
@@ -168,6 +252,39 @@ public sealed class SceneRenderer : IDisposable {
 	/// Settable so a tool can override it; every mission uses the one hardcoded sun.
 	/// </summary>
 	public Vector3 LightDirection { get; set; } = MissionSun.Direction;
+
+	/// <summary>
+	/// Installs the theater's shaded-surface colours, which every <c>TSShadedPoly</c> in the scene is
+	/// drawn through — see <see cref="SurfaceRampTable"/>. Passing null (a theater whose palette
+	/// carries no ramp table) leaves those surfaces on the mesh builder's fallback colour instead.
+	///
+	/// <para>Call once per loaded mission, before the first <see cref="Render"/>. Uploading again
+	/// replaces the previous table.</para>
+	/// </summary>
+	public void SetShadeRamps(SurfaceRampTable? table) {
+		_shadeRampTexture?.Dispose();
+		_shadeRampTexture = table == null
+			? null
+			: new GpuTexture(_gl, table.Pixels, SurfaceRampTable.Width, SurfaceRampTable.Height);
+	}
+
+	/// <summary>
+	/// Installs the theater's palette-by-shade-row table, which every <b>lit textured</b> surface in
+	/// the scene is drawn through — see <see cref="PaletteRampTable"/>. Passing null leaves those
+	/// surfaces sampling their expanded colour unlit.
+	///
+	/// <para>Call once per loaded mission alongside <see cref="SetShadeRamps"/>. A caller that
+	/// installs this <b>must</b> bind atlases built from
+	/// <see cref="TextureAtlas.IndexPixels"/> rather than <see cref="TextureAtlas.Pixels"/>: the
+	/// shader reads the red channel as a palette index once this is set.</para>
+	/// </summary>
+	public void SetPaletteRamp(PaletteRampTable? table) {
+		_paletteRampTexture?.Dispose();
+		_paletteRampTexture = table == null
+			? null
+			: new GpuTexture(_gl, table.Pixels, PaletteRampTable.Width, table.Height);
+		_paletteRampRows = table?.Height ?? 0;
+	}
 
 	/// <summary>
 	/// What distant geometry fades into. The theater's own ramp knows this colour — see
@@ -234,6 +351,22 @@ public sealed class SceneRenderer : IDisposable {
 		_shader.SetVector3("uHazeColor", HazeColor);
 		_shader.SetFloat("uHazeStart", HazeStart);
 		_shader.SetFloat("uHazeEnd", HazeEnd);
+
+		// Unit 1, so a per-item atlas can keep unit 0 without rebinding this every draw.
+		if (_shadeRampTexture != null) {
+			_shader.SetSamplerTexture("uShadeRampTable", _shadeRampTexture.Handle, 1);
+			_shader.SetInt("uShadeRampEnabled", 1);
+		} else {
+			_shader.SetInt("uShadeRampEnabled", 0);
+		}
+
+		if (_paletteRampTexture != null) {
+			_shader.SetSamplerTexture("uPaletteRamp", _paletteRampTexture.Handle, 2);
+			_shader.SetInt("uPaletteRampEnabled", 1);
+			_shader.SetFloat("uShadeLevels", _paletteRampRows);
+		} else {
+			_shader.SetInt("uPaletteRampEnabled", 0);
+		}
 
 		foreach (var item in items) {
 			_shader.SetMatrix("uModel", item.Transform);
@@ -311,6 +444,8 @@ public sealed class SceneRenderer : IDisposable {
 	public void Dispose() {
 		_shader.Dispose();
 		_skyShader.Dispose();
+		_shadeRampTexture?.Dispose();
+		_paletteRampTexture?.Dispose();
 		_gl.DeleteVertexArray(_skyVertexArray);
 	}
 }

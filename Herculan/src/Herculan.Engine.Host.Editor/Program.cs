@@ -120,15 +120,20 @@ window.Load += (gl, input) => {
 	// has no sky gradient, so DrawSky paints nothing and the view has no background at all.
 	scene.Atmosphere.ApplyTo(renderer);
 
+	// The theater's shaded-surface colours — what a TSShadedPoly is actually drawn through. See
+	// SurfaceRampTable.
+	renderer.SetShadeRamps(scene.ShadeRamps);
+	renderer.SetPaletteRamp(scene.PaletteRamp);
+
 	wireframe = new WireframeRenderer(gl);
 
 	terrainMesh = new GpuMesh(gl, scene.TerrainMesh);
-	terrainTexture = scene.TerrainBank != null ? new GpuTexture(gl, scene.TerrainBank.Atlas) : null;
+	terrainTexture = scene.TerrainBank != null ? new GpuTexture(gl, scene.TerrainBank.Atlas, indexed: true) : null;
 
 	foreach (var model in scene.Models) {
 		modelMeshes[model.Key] = new GpuMesh(gl, model.Mesh, model.TriangleVertexCount);
 		if (model.Atlas != null) {
-			modelTextures[model.Key] = new GpuTexture(gl, model.Atlas);
+			modelTextures[model.Key] = new GpuTexture(gl, model.Atlas, indexed: true);
 		}
 	}
 

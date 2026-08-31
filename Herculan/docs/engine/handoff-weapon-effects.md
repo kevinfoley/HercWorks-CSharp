@@ -52,7 +52,18 @@ sources effects are supposed to cast.
 
 ## Next
 
-- MFD F4 SCANNER screen
+- Implement the MFD F4 SCANNER screen, which has a radar-style display. This screen has four buttons:
+    - PASS: Switch to passive radar
+	- ACTIVE: Switch to active radar
+	- RANGE: Toggle the range of the display
+	- TARGET: Try to target a vehicle or building in front of the player
+	
+The radar-style portion of the display has a blue wedge indicating the direction that the torso is
+facing, as well as an RNG: readout showing the current display range, and TRG: readout which shows
+the range to the current target (or 0000 if no target is selected). Colored dots on the radar
+represent different types of contacts (e.g. enemies are red).
+
+Ensure all functionality is properly reverse-engineered, not invented to fit the written description.
 
 ## Also outstanding, lower priority
 
@@ -62,14 +73,6 @@ sources effects are supposed to cast.
   `FUN_0041d7d0`, `FUN_0041d9cc`, `FUN_0041daac` and `FUN_0041e224`, which also drive `mech+0x96`
   from a per-state flag table at `mech+0x92`.
 
-- **`TSShadedPoly` still uses an averaged atlas colour**, which is a stand-in and not the mechanism.
-  The real one is `Palette_ShadeRampLookup` (`00430e34`) against the active palette's own shade
-  ramps, which sit unparsed in the tail of every `.DPL` after the 256 colour entries.
-  `DynamixPaletteTransformer` stops at the colours. Decoding the tail yields clean monotone ramps
-  (`{?, ?, int16 count, int16 indices[count]}`-ish — the first two fields are not pinned down, and
-  the framing desyncs after the eighth ramp), so RE the DPL loader's writer of
-  `ActivePaletteObject+0x0c`/`+0x10` rather than guessing the header. **This changes how every mech
-  and building looks**, so it wants its own pass and its own verification.
 - **Sound.** `Bullet_Fire` plays `record[+8] + 10`; `Bullet_FireBurst` opens with
   `FUN_004627dc(0x0b, muzzlePoint)`; an impact effect plays its type row's `SoundId + 10` through the
   same call. Untraced past it. One entry point covers all three.
@@ -82,8 +85,9 @@ sources effects are supposed to cast.
   splash, and why a destroyed weapon mount cannot explode. Fully decoded in
   [`../simulation/damage-system.md`](../simulation/damage-system.md).
 - **Effect light sources.** An `EXPLOS.DAT` row's `LightMode` and its twelve-frame intensity ramp
-  drive a light object the engine does not have. Wants whatever lighting model replaces the
-  `TSShadedPoly` stand-in, not a bolt-on. Effect light sources are not obviously visible in retail,
+  drive a light object the engine does not have. The engine's light list holds only the mission sun
+  (`Render.MissionSun`); a second entry would have to sum into the same shade byte, so this wants a
+  pass over the shading path rather than a bolt-on. Effect light sources are not obviously visible in retail,
   so it's possible that this logic was misunderstood, or that the light sources have a brightness of
   0, or are only used in certain zones.
 - **Structures clip.** Projectiles and impact effects visibly sink into buildings, which retail does

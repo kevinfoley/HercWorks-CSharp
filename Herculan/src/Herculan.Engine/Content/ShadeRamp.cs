@@ -22,7 +22,7 @@ namespace Herculan.Engine.Content;
 /// <c>0</c> lands at <b>0.36x</b> the source colour and row <c>31</c> at <b>1.16x</b> — the ramp
 /// brightens as well as darkens, and passes through unity around row 23. That matters wherever the
 /// engine substitutes a multiply for the lookup: the neutral row is not the top one.
-/// <see cref="Render.ShadeBrightness"/> is that curve, measured per theater at load.</para>
+/// <see cref="Render.PaletteRampTable"/> is that table, expanded through the palette at load.</para>
 ///
 /// <para>The consumer is <c>FUN_00468054</c>, which is the whole of the address arithmetic:</para>
 /// <code>
@@ -124,7 +124,7 @@ public sealed class ShadeRamp {
 
 	/// <summary>
 	/// The same lookup addressed by row number rather than by shade byte, for callers that walk the
-	/// whole ramp instead of resolving one surface — see <see cref="Render.ShadeBrightness"/>.
+	/// whole ramp instead of resolving one surface — see <see cref="Render.PaletteRampTable"/>.
 	/// </summary>
 	public byte AtRow(int paletteIndex, int row, int depthSlice = 0) {
 		int slice = Math.Clamp(depthSlice, 0, DepthSlices - 1);

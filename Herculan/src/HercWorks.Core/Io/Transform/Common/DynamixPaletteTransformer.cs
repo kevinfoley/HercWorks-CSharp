@@ -47,23 +47,82 @@ public class DynamixPaletteTransformer : ByteTransformer<DynamixPalette> {
 			colorIdx++;
 		}
 
+		ReadShadeRamps(dpl);
+
 		return dpl;
 	}
+
+	/// <summary>
+	/// Reads the shade-ramp table that follows the colour entries — see
+	/// <see cref="DynamixPalette.ShadeRamps"/> for the layout and for what a ramp means. Leaves the
+	/// table empty rather than throwing when the tail is absent or short: a palette that is only
+	/// colours is still a usable palette, and every shell <c>.DPL</c> is one.
+	/// </summary>
+	private void ReadShadeRamps(DynamixPalette dpl) {
+		int tailStart = Index;
+		if (tailStart + 4 > Bytes!.Length) {
+			return;
+		}
+
+		int rampCount = IndexIntLE();
+		if (rampCount <= 0 || rampCount > MaxShadeRamps) {
+			Index = tailStart;
+			return;
+		}
+
+		var ramps = new short[rampCount][];
+		for (int ramp = 0; ramp < rampCount; ramp++) {
+			if (Index + 2 > Bytes.Length) {
+				Index = tailStart;
+				return;
+			}
+
+			int length = IndexShortLE();
+			if (length < 0 || Index + length * 2 > Bytes.Length) {
+				Index = tailStart;
+				return;
+			}
+
+			var entries = new short[length];
+			for (int i = 0; i < length; i++) {
+				entries[i] = IndexShortLE();
+			}
+			ramps[ramp] = entries;
+		}
+
+		dpl.ShadeRamps = ramps;
+		dpl.ShadeRampBytes = Bytes[tailStart..Index];
+	}
+
+	/// <summary>
+	/// Guard against a truncated file's leading bytes reading as an enormous ramp count. Retail
+	/// states 256; anything past a byte's worth of slots could not be addressed by
+	/// <c>Palette_ShadeRampLookup</c>'s own <c>value &amp; 0xff</c> anyway.
+	/// </summary>
+	private const int MaxShadeRamps = 256;
 
 	public override byte[]? Write(DynamixPalette dpl) {
 		using var objectBytes = new MemoryStream();
 
 		objectBytes.Write(DynamixPalette.Header, 0, DynamixPalette.Header.Length);
 
-		var sizeBytes = WriteInt(dpl.PaletteSizeByte);
+		// Little-endian, matching Parse()'s IndexIntLE() on both fields. Writing these big-endian
+		// produces a .DPL this class cannot read back.
+		var sizeBytes = WriteIntLE(dpl.PaletteSizeByte);
 		objectBytes.Write(sizeBytes, 0, sizeBytes.Length);
 
-		var countBytes = WriteInt(dpl.ColorCount);
+		var countBytes = WriteIntLE(dpl.ColorCount);
 		objectBytes.Write(countBytes, 0, countBytes.Length);
 
 		foreach (var color in dpl.Colors.Values) {
 			var c = ToDynamixColor(color, dpl.Scalar);
 			objectBytes.Write(c, 0, c.Length);
+		}
+
+		// The ramp table goes back exactly as it was read — nothing in this project edits it, so
+		// re-serialising it could only introduce a difference.
+		if (dpl.ShadeRampBytes is { Length: > 0 } ramps) {
+			objectBytes.Write(ramps, 0, ramps.Length);
 		}
 
 		return objectBytes.ToArray();

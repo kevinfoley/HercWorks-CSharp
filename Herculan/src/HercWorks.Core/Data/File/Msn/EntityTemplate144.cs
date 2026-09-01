@@ -9,7 +9,7 @@ namespace HercWorks.Core.Data.File.Msn;
 /// real payload is the unresolved 10-slot array at <see cref="UnresolvedRefs"/>, never touched by
 /// any lookup call the load code makes. See docs/formats/msn-mission-file.md, "Row #12 field decode".
 /// </summary>
-public class SpawnRecord144 : MapObject {
+public class EntityTemplate144 : MapObject {
 	/// <summary>
 	/// 0x02 — condition ref; 43% real. Every record has at least one of GUID or condition
 	/// populated — the file carves records into named/inheritable (GUID, 48%), named-fresh (11%),
@@ -51,7 +51,7 @@ public class SpawnRecord144 : MapObject {
 	/// <summary>0x46 — ref into row #6 (<see cref="MapPoint22"/>); declared, resolved, but essentially dead (0.1% real).</summary>
 	public short RefRow6 { get; set; }
 
-	/// <summary>0x48 — ref into row #7 (<see cref="Flag10"/>); declared, resolved, but never used in retail data.</summary>
+	/// <summary>0x48 — ref into row #7 (<see cref="Heading10"/>); declared, resolved, but never used in retail data.</summary>
 	public short RefRow7 { get; set; }
 
 	/// <summary>0x4A — small discrete field; always populated, values 0-4, dominant 0 (84%).</summary>

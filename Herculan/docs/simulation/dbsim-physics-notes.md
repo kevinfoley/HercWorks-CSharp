@@ -39,8 +39,7 @@ making the original's control law frame-rate dependent — see
 `SimMath.ScalePerTickStep` port deviation.
 
 **`FUN_0047df94(a, b)` — Q8 fixed-point multiply.** `(int64)a * b`, right-shifted 32 bits via
-`SHRD EAX,EDX,0x8` (i.e. `>> 8`, scale factor 256). Confirmed via raw disassembly
-(`FUN_0047df94_asm.txt`). Two adjacent sibling functions share the same `IMUL`+`SHRD` shape at
+`SHRD EAX,EDX,0x8` (i.e. `>> 8`, scale factor 256). Two adjacent sibling functions share the same `IMUL`+`SHRD` shape at
 different shift amounts (`0xa` = Q10, `0xe` = Q14 with a 16-bit signed operand) — Q8 is used for
 position/rate math below; Q14's range fits a normalized `-1.0..1.0` value like a sin/cos table
 output, though no caller confirms that.
@@ -70,10 +69,10 @@ sorts into `L ≥ M ≥ S`, returns:
 L + M×0.34375 + S×0.25          (M×(1/4 + 1/16 + 1/32), S×(1/4))
 ```
 
-Classic alpha-max-plus-beta-min-style 3D distance approximation (avoids a real `sqrt`). **Verified
-against raw disassembly** (`FUN_0047dd66_asm.txt`) — the sort is three `CMP`/`XCHG` pairs, the
-coefficient computation is `SAR`+`ADD` chains, matching the decompiled formula exactly. Reused for
-two unrelated purposes, confirming it's a general math-library utility:
+Classic alpha-max-plus-beta-min-style 3D distance approximation (avoids a real `sqrt`), and it reads
+**~3.4% low** — the bias every range and radius comparison in the simulation inherits. In the
+disassembly the sort is three `CMP`/`XCHG` pairs and the coefficients are `SAR`+`ADD` chains. Reused
+for two unrelated purposes, confirming it's a general math-library utility:
 - **Collision bounding-sphere radius** (`FUN_0040c5d0`, below).
 - **Missile target-proximity check** (`Rocket_TickUpdate`, `0040a538`) — `if (dist_approx < 40000) { ...proximity warning... }`.
 
@@ -88,8 +87,7 @@ ray test and the retail verification. Three points that belong with the rest of 
   destructible component of the object.
 - Each cluster's bound (`Collision_ComputeBoundingSphere`, `0040c5d0`) is the AABB of its children
   each inflated by its own radius, centred on that box's midpoint, radius =
-  `Math_FastMagnitude3D(halfExtents)`. Reproducing hit detection faithfully means reproducing that
-  ~3.4%-low bias, not substituting a real `sqrt`.
+  `Math_FastMagnitude3D(halfExtents)`, so the bound inherits that function's bias.
 - `Collision_RegisterObject` (`0040cd88`) loads one model by name into a fixed table
   (`_DAT_004a98a8`, 6 bytes/entry, counter `DAT_004987de`). Its two callers are `Mech_Constructor`
   (`00415bb0` → `mech+0x1f6`) and the flyer type loader (`FUN_00422ed0` → `+0x32`), both from
@@ -115,8 +113,8 @@ pointers). Projectile spawn/hit-resolution logic lives in `rocket.cpp`/`bullet.c
    a naive float-based reimplementation will drift from the original unless the same
    quantization/clamping is preserved. Note the exception described above: locomotion's accel/decel
    steps are unscaled and frame-rate dependent in the original.
-2. **Every range and radius comparison in the simulation uses the ~3.4%-low fast-magnitude
-   approximation**, collision bounds included — reproducing hit detection faithfully means
-   reproducing that bias, not substituting a real `sqrt`.
+2. **Every range and radius comparison in the simulation uses the fast-magnitude approximation**,
+   collision bounds included — reproducing hit detection faithfully means reproducing its bias, not
+   substituting a real `sqrt`.
 3. **Missile guidance leads its target and rate-limits its turn at `0x500`/tick, and weaves by
    `0xc00` while the target is jamming** — see [`rockets.md`](rockets.md).

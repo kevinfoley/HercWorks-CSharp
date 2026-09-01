@@ -58,30 +58,9 @@ namespace Herculan.Engine.World;
 /// three DIABLO groups in the shipped mission-10 handoff all sit exactly there, invisible, until
 /// they arrive somewhere else entirely.</para>
 ///
-/// <para><b>Arrival</b> — <c>Group_DeploymentCheck</c> (<c>004236c4</c>), run every frame by
-/// <c>Sim_MainTick</c> (<c>0045f464</c>) for exactly the groups that are waiting. It does nothing
-/// until the action's runtime "fired" flag (in-memory <c>+0x0a</c>, zeroed at load, set by
-/// <c>Action_Fire</c> (<c>00423430</c>) when <c>Action_TestTrigger</c> (<c>004234b8</c>) finds the
-/// tested position inside one of the action's block-4 trigger areas — for action type 0, the
-/// player's own position). Once it fires, the action's <b>verb</b> (in-memory <c>+0x02</c>, this
-/// port's <c>ScriptAction.Verb</c>) picks how the group turns up, always relative to the player and
-/// always on a point <c>FUN_0042354c</c> walks outward until it is clear of objects, obstacles and
-/// bad ground:</para>
-/// <list type="bullet">
-/// <item><b>Verb 2 or 3 — by drop pod.</b> A <c>METEOR</c> object (<c>dts\meteor</c>,
-/// <c>dba\impact</c>, its own pool; ctor <c>00409b44</c>, tick <c>00409d2c</c>) is spawned 150000
-/// units from the player on a random bearing — ±90° of the player's heading for verb 2, ±22.5° for
-/// verb 3 — and 70000-95000 units up. It falls ballistically, whistles below 50000, and on ground
-/// contact detonates a 3000-unit blast, then plays its shape's frames out as it opens. When that
-/// animation ends it moves the group's leader onto the landing point and clears the group's action
-/// pointer, which is the moment the group becomes real. This is the game's mid-mission Cybrid
-/// reinforcement.</item>
-/// <item><b>Verb 4 or 5 — on foot.</b> No pod: the group's leader is placed directly at 90000 units
-/// behind the player (verb 4) or 150000 units ahead (verb 5), the other members take their
-/// formation offsets from it, and the group goes live.</item>
-/// <item><b>Any other verb</b> — the group simply goes live where it already stands.</item>
-/// </list>
-/// <para>None of that is implemented: the engine marks these groups
+/// <para><b>Arrival</b> is <c>Group_DeploymentCheck</c> (<c>004236c4</c>), whose per-verb rules —
+/// drop pod, on foot, or in place — are in docs/simulation/mission-deployment.md. None of it is
+/// implemented: the engine marks these groups
 /// <see cref="MissionPlacement.AwaitingDeployment"/> and leaves them out of the mission, which
 /// matches the original up to the moment a trigger would fire.</para>
 /// </summary>

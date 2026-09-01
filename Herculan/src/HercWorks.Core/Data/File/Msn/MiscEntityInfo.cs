@@ -29,7 +29,7 @@ public class MiscEntityInfo : MapObject {
 	/// <summary>0x0A — ref into row #6 (<see cref="MapPoint22"/>); sparse, 6.4% real.</summary>
 	public short RefRow6 { get; set; }
 
-	/// <summary>0x0C — ref into row #7 (<see cref="Flag10"/>); sparse, 6.7% real, narrow domain (only 10 distinct GUIDs referenced).</summary>
+	/// <summary>0x0C — ref into row #7 (<see cref="Heading10"/>); sparse, 6.7% real, narrow domain (only 10 distinct GUIDs referenced).</summary>
 	public short RefRow7 { get; set; }
 
 	/// <summary>0x0E — small discrete field, always populated: 0 (64%), 1 (33%), or 2 (3%).</summary>

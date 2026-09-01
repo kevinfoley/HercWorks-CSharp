@@ -33,9 +33,8 @@ public static class SimMath {
 
 	/// <summary>
 	/// <c>Math_Q8Multiply</c> (<c>0047df94</c>) — Q8 fixed-point multiply: <c>(int64)a * b >> 8</c>.
-	/// Confirmed against raw disassembly (<c>SHRD EAX,EDX,0x8</c>), not just decompiler output.
-	/// The decompiler renders that SHRD as a low-word/high-word recombination; taking the low 32
-	/// bits of the 64-bit shifted product is the same value.
+	/// The original's <c>SHRD EAX,EDX,0x8</c> decompiles as a low-word/high-word recombination;
+	/// taking the low 32 bits of the 64-bit shifted product is the same value.
 	/// </summary>
 	public static int Q8Multiply(int a, int b) => (int)(((long)a * b) >> 8);
 
@@ -171,7 +170,6 @@ public static class SimMath {
 	/// <c>Math_FastMagnitude3D</c> (<c>0047dd66</c>) — sqrt-free 3D magnitude approximation.
 	/// Sorts <c>|dx|,|dy|,|dz|</c> into largest/mid/smallest and returns
 	/// <c>L + M*0.34375 + S*0.25</c> (an alpha-max-plus-beta-min-style approximation, ~3.4% low).
-	/// Verified against raw disassembly: three CMP/XCHG sort pairs and SAR+ADD coefficient chains.
 	///
 	/// This is a general math-library utility in the original, not something purpose-built for one
 	/// subsystem — it backs both collision bounding-sphere radii and rocket proximity checks — so

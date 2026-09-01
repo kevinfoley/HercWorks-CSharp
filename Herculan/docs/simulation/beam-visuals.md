@@ -150,8 +150,7 @@ both the shape and that the colour index reaches this path.
 
 ## Impact effects
 
-Solved and ported — see [`impact-effects.md`](impact-effects.md), which settles the array ordering
-this section previously listed as half-traced.
+Ported — [`impact-effects.md`](impact-effects.md) carries the array ordering.
 
 ## Engine port
 

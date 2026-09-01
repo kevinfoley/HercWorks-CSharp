@@ -6,36 +6,20 @@ namespace Herculan.Engine.Sim;
 /// A HERC's front/rear shield charge — DBSIM's five-<c>short</c> block at <c>mech+0x222</c>, and the
 /// Master Energy Pool's only sink outside the weapon mounts.
 ///
-/// <para>The five fields are, in the original's own order:</para>
-/// <list type="table">
-/// <item><term><c>+0x222</c></term><description><see cref="Front"/>, charge held on the front facing.</description></item>
-/// <item><term><c>+0x224</c></term><description><see cref="Rear"/>, charge held on the rear facing.</description></item>
-/// <item><term><c>+0x226</c></term><description><see cref="Balance"/>, Q10 over 0-1024, the share of the total the front is meant to hold.</description></item>
-/// <item><term><c>+0x228</c></term><description><see cref="Max"/>, the total both facings share.</description></item>
-/// <item><term><c>+0x22a</c></term><description><see cref="BaseMax"/>, the type's own capacity before any Shield Pod.</description></item>
-/// </list>
-///
 /// <para><b>There is one pool, not two.</b> <see cref="Max"/> caps <c>Front + Rear</c>, and
 /// <see cref="Balance"/> decides how that one total is split; moving the balance moves charge across
 /// rather than creating any. That is why the manual can only say power is "redistributed", never
 /// added.</para>
 ///
-/// <para><b>The cockpit shows charge and balance in two different places.</b> The numeric readouts
-/// are the balance alone (see <see cref="FrontReadout"/>) and always sum to 200; the meter's rings
-/// are the charge. Reading the numbers as a charge percentage is the natural mistake and it is
-/// wrong — an empty array still prints 100/100.</para>
-///
-/// <para><b>Capacity is a fleet-wide constant, not a per-type stat.</b> <c>Shield_Init</c>
-/// (<c>00413a90</c>) takes it from the mech type record's <c>+0xc0</c>, which is
-/// <c>HercSimDat.ShieldMaxTotal</c> at file offset 190 (the in-memory type record is the 216-byte
-/// file record loaded at <c>+2</c>, confirmed in <c>MechType_InitOne</c>). Every one of the retail
-/// HERC <c>.DAT</c>s carries 3500 there — the whole fleet, checked, with only the non-HERC SPIDER at
-/// 0. The only thing that moves it is a Shield Pod.</para>
-///
 /// <para>Of the two absorb paths, direct fire (<c>FUN_00413cc4</c>) is ported as
 /// <see cref="AbsorbDirectFire"/>; the explosion one (<c>FUN_00413c68</c>) is not. Otherwise this
 /// type carries the charge, the recharge and the balance, which is what the energy pool tick
-/// touches. See docs/simulation/damage-system.md.</para>
+/// touches.</para>
+///
+/// <para>The <c>+0x222</c> field layout, the fleet-wide 3500 capacity and where it is read from, the
+/// loadout-time capacity formula and the cockpit readouts' "always sums to 200" trap are all in
+/// docs/simulation/damage-system.md, "The shield system". The members below name the constants that
+/// document derives.</para>
 /// </summary>
 public sealed class ShieldCharge {
 	/// <summary>
@@ -193,11 +177,7 @@ public sealed class ShieldCharge {
 	/// <b>Not a ported mechanic — a test seam.</b> Empties both facings, leaving <see cref="Max"/>
 	/// alone so the whole capacity reads as deficit. The host's debug panel is the only caller: it
 	/// makes the refill observable on demand rather than waiting for combat to drain a facing. From
-	/// empty the array rebuilds at the recharge tick's 5-per-tick cap, which at 3500 capacity and
-	/// 25 Hz is 700 ticks — 28 seconds, matching the retail refill.
-	///
-	/// <para>The explosion path (<c>FUN_00413c68</c>) is still unported; the direct-fire one is
-	/// <see cref="AbsorbDirectFire"/>. See docs/simulation/damage-system.md.</para>
+	/// empty the array rebuilds at <see cref="RechargePerTick"/>.
 	/// </summary>
 	public void Empty() {
 		_front = 0;

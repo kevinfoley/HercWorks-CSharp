@@ -29,7 +29,7 @@ public class UnkEntity102Bytes : MapObject {
 	/// <summary>0x30 — ref into row #6 (<see cref="MapPoint22"/>); declared, resolved, but always -1 in real data.</summary>
 	public short RefRow6 { get; set; }
 
-	/// <summary>0x32 — ref into row #7 (<see cref="Flag10"/>); declared, resolved, but always -1 in real data.</summary>
+	/// <summary>0x32 — ref into row #7 (<see cref="Heading10"/>); declared, resolved, but always -1 in real data.</summary>
 	public short RefRow7 { get; set; }
 
 	/// <summary>0x34 — binary field, 68% real, every real value exactly 0 — a presence flag, not a scaled value.</summary>

@@ -155,7 +155,7 @@ authored in the 320-wide space and shifted by `VideoMode_X/YCoordShift`.
 | 4-5 | Projection centre, `cx, cy` — **stored negated**, see below |
 | 6-7 | Canvas origin `originX, originY` |
 
-C# port: `HercWorks.Core.Data.File.Dbsim.Vue.Entry` (fields renamed to match the above 2026-08-20;
+C# port: `HercWorks.Core.Data.File.Dbsim.Vue.Entry` (fields renamed to match the above;
 they were `WidthMax`/`UnkOfs*` pre-RE guesses). Engine wrapper: `Content.CockpitViewGeometry`.
 
 Every retail `.VUE` gives view 1 the canvas origin `(0,237)` — no herc differs.

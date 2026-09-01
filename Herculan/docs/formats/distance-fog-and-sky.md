@@ -1,6 +1,6 @@
 # Distance fog and sky (DBSIM.EXE)
 
-Solved 2026-08-26; addresses are DBSIM virtual addresses. Ported in
+Addresses are DBSIM virtual addresses. Ported in
 `Herculan.Engine.Content.{ShadeRamp, SkyGradient}`, `Scene.Atmosphere` and `Render.SceneRenderer`.
 
 Two mechanisms that share one palette: everything fades toward the colour the sky already is just
@@ -57,8 +57,8 @@ runs over the outer half only, and it is quantised to the ramp's 12 slices. This
 
 The third does **not** reset anything drawn through `TSSolidPoly_Render`. It belongs to DBSIM's
 other, parallel render implementation (the `0042xxxx` family); the poly renderers the DTS type
-registry points at are the `00474xxx`/`00475xxx` family, whose group-level setup is `FUN_004758ce` /
-`FUN_00475af8` — neither of which touches the bias.
+registry points at are the `00474xxx`/`00475xxx` family, whose group-level setup is
+`TSGroup_RenderPolys` (`004758c8`) / `FUN_00475af8` — neither of which touches the bias.
 
 ### A projectile is faded like anything else
 

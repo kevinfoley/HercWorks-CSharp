@@ -41,7 +41,7 @@ public class ScriptDatTransformer : ByteTransformer<ScriptDat> {
 		data.MiscEntities = ReadArray(ParseMiscEntityExport);
 		data.LinkedRefs22 = ReadArray(ParseLinkedRef22Export);
 		data.Entities164 = ReadArray(ParseEntity164Export);
-		data.LinkedRefs58 = ReadArray(ParseLinkedRef58Export);
+		data.LinkedRefs58 = ReadArray(ParseUnitSpawn58Export);
 
 		int lutCount = IndexShortLE();
 		data.UnlockedLutRefs = IndexShortLEArray(lutCount);
@@ -167,9 +167,9 @@ public class ScriptDatTransformer : ByteTransformer<ScriptDat> {
 		TrailingFlag = IndexShortLE()
 	};
 
-	// ---- Block 12: ScriptLinkedRef58Export (54 bytes) ------------------------------------------
+	// ---- Block 12: ScriptUnitSpawn58Export (54 bytes) ------------------------------------------
 
-	private ScriptLinkedRef58Export ParseLinkedRef58Export() => new() {
+	private ScriptUnitSpawn58Export ParseUnitSpawn58Export() => new() {
 		Unk02 = IndexShortLE(),
 		Unk04 = IndexShortLE(),
 		Discriminator = IndexShortLE(),
@@ -201,7 +201,7 @@ public class ScriptDatTransformer : ByteTransformer<ScriptDat> {
 		WriteArray(outStream, data.MiscEntities, WriteMiscEntityExport);
 		WriteArray(outStream, data.LinkedRefs22, WriteLinkedRef22Export);
 		WriteArray(outStream, data.Entities164, WriteEntity164Export);
-		WriteArray(outStream, data.LinkedRefs58, WriteLinkedRef58Export);
+		WriteArray(outStream, data.LinkedRefs58, WriteUnitSpawn58Export);
 
 		Emit(outStream, WriteShortLE((short)data.UnlockedLutRefs.Length));
 		Emit(outStream, WriteShortLESegment(data.UnlockedLutRefs));
@@ -306,7 +306,7 @@ public class ScriptDatTransformer : ByteTransformer<ScriptDat> {
 		Emit(o, WriteShortLE(e.TrailingFlag));
 	}
 
-	private void WriteLinkedRef58Export(MemoryStream o, ScriptLinkedRef58Export e) {
+	private void WriteUnitSpawn58Export(MemoryStream o, ScriptUnitSpawn58Export e) {
 		Emit(o, WriteShortLE(e.Unk02));
 		Emit(o, WriteShortLE(e.Unk04));
 		Emit(o, WriteShortLE(e.Discriminator));

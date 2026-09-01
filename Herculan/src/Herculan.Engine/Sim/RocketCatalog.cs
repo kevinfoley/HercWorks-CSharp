@@ -19,34 +19,15 @@ namespace Herculan.Engine.Sim;
 /// table here: <c>Rocket_GetTypeRecord</c> (<c>0040a234</c>) is <c>table + id * 14</c> against the id
 /// <c>Missile_Construct</c> stored at the object's <c>+0x41</c>.</para>
 ///
-/// <para><b>The record layout is not <c>BULLETS.DAT</c>'s.</b> The two files share a stride and a
-/// first two fields and nothing else — the readers are different functions reading different
-/// offsets, and the retail values only make sense under this reading:</para>
+/// <para><b>The record layout is not <c>BULLETS.DAT</c>'s.</b> The two files share a stride and their
+/// first two fields and nothing else — the readers are different functions reading different offsets,
+/// so <see cref="ProjMissileDatEntry"/>'s property names mean different things here. The field map and
+/// the retail table are in docs/simulation/rockets.md; the accessors below are what this engine reads
+/// through, and are the only safe way to read a rocket record.</para>
 ///
-/// | Offset | Field | Meaning |
-/// |---|---|---|
-/// | <c>+0x00</c> | <see cref="ProjMissileDatEntry.ModelId"/> | root of <c>ROCKETS.DTS</c> |
-/// | <c>+0x02</c> | <see cref="ProjMissileDatEntry.Lifetime"/> | in <b>ticks</b>, not in the bullet's <c>0x200</c> age units |
-/// | <c>+0x04</c> | <see cref="ProjMissileDatEntry.ClipRadius"/> | <b>acceleration</b> — see <see cref="Rocket.Tick"/> |
-/// | <c>+0x06</c> | <see cref="ProjMissileDatEntry.Unk2Flag"/> | the shot record's slack, which is what a bullet keeps at <c>+0x04</c> |
-/// | <c>+0x08</c> | <see cref="ProjMissileDatEntry.SfxFireIdBullets"/> | animation frame interval; 0 = static shape |
-/// | <c>+0x0a</c> | <see cref="ProjMissileDatEntry.Unk3Uint16"/> | which of the shape's sequences that interval steps |
-/// | <c>+0x0c</c> | <see cref="ProjMissileDatEntry.SfxFireIdMissiles"/> | sound id, played as <c>id + 10</c> — the one field whose old name was right |
-///
-/// <para>Retail ships five records, one per <c>Missile</c> subtype id, and four of them are the same
-/// record:</para>
-///
-/// | id | Weapon | Shape | Life | Accel | Slack | Anim |
-/// |---|---|---|---|---|---|---|
-/// | 0 | <c>SARH</c> | 0 | 80 | 250 | 200 | 256 |
-/// | 1 | <c>ARH</c> | 0 | 80 | 250 | 200 | 256 |
-/// | 2 | <c>ARM</c> | 0 | 80 | 250 | 200 | 256 |
-/// | 3 | <c>EO</c> | 0 | 80 | 250 | 200 | 256 |
-/// | 4 | <c>BMSL</c> | 1 | 80 | 250 | 300 | 0 |
-///
-/// <para>So every launcher round flies for 80 ticks (3.2 s at the simulation's rate) and accelerates
-/// at the same figure; the big missile is the one with its own shape, a wider hit slack and a shape
-/// that does not animate.</para>
+/// <para>Retail ships five records, one per <c>Missile</c> subtype id, four of them identical: every
+/// launcher round flies for 80 ticks (3.2 s) and accelerates at the same figure, and the big missile
+/// is the one with its own shape, a wider hit slack and a shape that does not animate.</para>
 /// </summary>
 public sealed class RocketCatalog {
 	/// <summary>The resource folder and name <c>Rocket_LoadTypeTable_Unguided</c> opens, by the literal name <c>rockets</c>.</summary>

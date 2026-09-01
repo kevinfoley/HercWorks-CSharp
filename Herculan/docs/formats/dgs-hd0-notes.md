@@ -5,7 +5,7 @@ The `.DGS` container and the structure shapes it holds. Companion:
 file's name also mentions are documented in [`cockpit-hud.md`](cockpit-hud.md), which owns that
 format, its loader and its real-file verification.
 
-## `.DGS` — SOLVED
+## `.DGS` container format
 
 `BASES.DGS`/`BHULKS.DGS`: a flat sequential list of `ClassItem`-tagged records — **not** the same
 container as `.DTS`, despite `BASES_AN.DTS` and `BASES.DGS` both starting with a 4-byte value that

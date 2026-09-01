@@ -76,11 +76,9 @@ public sealed class ShapeInstance {
 	/// sequence covers with no regard for what is already there, so the first-registered thread's
 	/// writes are the ones left standing. For a HERC that means locomotion outranks the torso.</para>
 	///
-	/// <para>It decides nothing on 17 of the 18 retail HERCs — their walk, run, stop, turn and death
-	/// sequences cover nodes 1,2,3,5..10 while twist covers 4 and pitch covers 11, disjoint. HEADHUNT
-	/// is the exception: its twist node is 5, which the locomotion sequences also animate, so its
-	/// torso twist is overridden while it is moving. That is the retail data's own behaviour, not a
-	/// porting artefact.</para>
+	/// <para>It decides nothing on 17 of the 18 retail HERCs, whose locomotion, twist and pitch
+	/// sequences cover disjoint nodes; HEADHUNT is the one exception. The per-HERC node lists are in
+	/// docs/simulation/torso-aim.md, "Three threads per machine".</para>
 	/// </summary>
 	private AnimTransform? LocalOf(int transformId) {
 		foreach (var thread in _threads) {

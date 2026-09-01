@@ -2,8 +2,7 @@
 
 Covers how a `.DTS` poly gets a colour: which `.DBA` is bound to a model, how a textured poly maps
 its UVs, and how the three untextured poly types resolve their surface value. VSHELL findings are
-from Ghidra 12.1.2 disassembly of `VSHELL.EXE` (project
-`E:\ES2Stuff\tools\ghidra_project\ES2Recon`); the shading sections are from `DBSIM.EXE` and are
+from disassembly of `VSHELL.EXE` in the `ES2Recon` Ghidra project; the shading sections are from `DBSIM.EXE` and are
 marked as such.
 
 **The `.DTS` format carries no reference to any texture file.** Which `.DBA` is bound to a model is

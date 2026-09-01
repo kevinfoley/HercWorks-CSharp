@@ -35,11 +35,8 @@ public static class ByteOps {
 	}
 
 	/// <summary>
-	/// FIXED — see KNOWN_ISSUES.md history: despite the name, this used to interpret the first two
-	/// bytes big-endian (array[0] as the high byte), a direct literal port of what the Java
-	/// original did. Genuinely unused anywhere in this codebase (verified before changing), so
-	/// fixed to a real little-endian interpretation (array[0] as the low byte) with no risk of
-	/// disturbing already-relied-upon behavior.
+	/// Little-endian, as the name says: <c>array[0]</c> is the low byte. The Java original read it
+	/// big-endian despite the name; nothing in this codebase called it, so it follows its name here.
 	/// </summary>
 	public static int Bytes2LEToInt(byte[] data) {
 		return (data[1] << 8) | data[0];
@@ -51,11 +48,8 @@ public static class ByteOps {
 	}
 
 	/// <summary>
-	/// FIXED — see KNOWN_ISSUES.md history: despite the name, this used to write v in big-endian
-	/// order into arr, a direct literal port of what the Java original did. The only caller
-	/// (UiWeaponEntry.ToByte()) has no callers of its own anywhere in this codebase (verified
-	/// before changing), so fixed to a real little-endian write with no risk of disturbing
-	/// already-relied-upon behavior.
+	/// Little-endian, as the name says. The Java original wrote big-endian despite the name; its
+	/// only caller (<c>UiWeaponEntry.ToByte()</c>) is itself uncalled, so it follows its name here.
 	/// </summary>
 	public static void ShortLEToByteArr(byte[] arr, int index, short v) {
 		arr[index] = (byte)(v & 0xFF);

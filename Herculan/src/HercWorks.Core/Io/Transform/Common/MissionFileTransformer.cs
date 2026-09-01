@@ -103,9 +103,9 @@ public class MissionFileTransformer : ByteTransformer<MissionFile> {
 		Z = IndexIntLE()
 	};
 
-	// ---- Row #7: Flag10 (10 bytes) ----------------------------------------------------------
+	// ---- Row #7: Heading10 (10 bytes) ----------------------------------------------------------
 
-	private Flag10 ParseRow7() => new() {
+	private Heading10 ParseRow7() => new() {
 		GUID = IndexShortLE(),
 		ConditionRef = IndexShortLE(),
 		InheritIndex = IndexShortLE(),
@@ -166,9 +166,9 @@ public class MissionFileTransformer : ByteTransformer<MissionFile> {
 		SequenceRefs = IndexShortLEArray(10)
 	};
 
-	// ---- Row #12: SpawnRecord144 (144 bytes) ------------------------------------------------
+	// ---- Row #12: EntityTemplate144 (144 bytes) ------------------------------------------------
 
-	private SpawnRecord144 ParseRow12() => new() {
+	private EntityTemplate144 ParseRow12() => new() {
 		GUID = IndexShortLE(),
 		ConditionRef = IndexShortLE(),
 		InheritIndex = IndexShortLE(),
@@ -241,9 +241,9 @@ public class MissionFileTransformer : ByteTransformer<MissionFile> {
 		RefRow10 = IndexShortLE()
 	};
 
-	// ---- Row #16: UnkEntity164Bytes (164 bytes) ---------------------------------------------
+	// ---- Row #16: EntitySpawn164 (164 bytes) ---------------------------------------------
 
-	private UnkEntity164Bytes ParseRow16() => new() {
+	private EntitySpawn164 ParseRow16() => new() {
 		GUID = IndexShortLE(),
 		ConditionRef = IndexShortLE(),
 		CompoundConditionPartner = IndexShortLE(),
@@ -268,7 +268,7 @@ public class MissionFileTransformer : ByteTransformer<MissionFile> {
 		TrailingFlag = IndexShortLE()
 	};
 
-	// ---- Row #17: LinkedRef58 (58 bytes, no identity field) --------------------------------
+	// ---- Row #17: UnitSpawn58 (58 bytes, no identity field) --------------------------------
 
 	private const int Row17RecordSize = 58;
 
@@ -282,7 +282,7 @@ public class MissionFileTransformer : ByteTransformer<MissionFile> {
 	/// </summary>
 	private void ParseRow17(MissionFile data) {
 		int count = IndexShortLE();
-		var entries = new LinkedRef58?[count];
+		var entries = new UnitSpawn58?[count];
 
 		for (int i = 0; i < count; i++) {
 			int remaining = GetBytes().Length - Index;
@@ -292,14 +292,14 @@ public class MissionFileTransformer : ByteTransformer<MissionFile> {
 				break;
 			}
 
-			entries[i] = ParseLinkedRef58();
+			entries[i] = ParseUnitSpawn58();
 		}
 
 		data.LinkedRefs58 = entries;
 	}
 
-	private LinkedRef58 ParseLinkedRef58() {
-		var r = new LinkedRef58 {
+	private UnitSpawn58 ParseUnitSpawn58() {
+		var r = new UnitSpawn58 {
 			ConditionRef = IndexShortLE(),
 			Unk02 = IndexShortLE(),
 			Unk04 = IndexShortLE(),
@@ -312,7 +312,7 @@ public class MissionFileTransformer : ByteTransformer<MissionFile> {
 		};
 
 		for (int p = 0; p < r.Pairs.Length; p++) {
-			r.Pairs[p] = new LinkedRef58Pair {
+			r.Pairs[p] = new UnitSpawn58Pair {
 				Ref = IndexShortLE(),
 				Tag = IndexShortLE()
 			};
@@ -402,7 +402,7 @@ public class MissionFileTransformer : ByteTransformer<MissionFile> {
 		Emit(o, WriteIntLE(e.Z));
 	}
 
-	private void WriteRow7(MemoryStream o, Flag10 e) {
+	private void WriteRow7(MemoryStream o, Heading10 e) {
 		Emit(o, WriteShortLE(e.GUID));
 		Emit(o, WriteShortLE(e.ConditionRef));
 		Emit(o, WriteShortLE(e.InheritIndex));
@@ -450,7 +450,7 @@ public class MissionFileTransformer : ByteTransformer<MissionFile> {
 		Emit(o, WriteShortLESegment(e.SequenceRefs));
 	}
 
-	private void WriteRow12(MemoryStream o, SpawnRecord144 e) {
+	private void WriteRow12(MemoryStream o, EntityTemplate144 e) {
 		Emit(o, WriteShortLE(e.GUID));
 		Emit(o, WriteShortLE(e.ConditionRef));
 		Emit(o, WriteShortLE(e.InheritIndex));
@@ -517,7 +517,7 @@ public class MissionFileTransformer : ByteTransformer<MissionFile> {
 		Emit(o, WriteShortLE(e.RefRow10));
 	}
 
-	private void WriteRow16(MemoryStream o, UnkEntity164Bytes e) {
+	private void WriteRow16(MemoryStream o, EntitySpawn164 e) {
 		Emit(o, WriteShortLE(e.GUID));
 		Emit(o, WriteShortLE(e.ConditionRef));
 		Emit(o, WriteShortLE(e.CompoundConditionPartner));

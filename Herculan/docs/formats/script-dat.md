@@ -28,7 +28,7 @@
 |---|---|---|---|
 | #4 (no stable name) | `DAT_00470668` | `DAT_00470640` | 144B |
 | #6 `MapPoint22` | `DAT_0047064e` | `DAT_0047060c` | 22B |
-| #7 `Flag10` | `DAT_00470650` | `DAT_00470610` | 10B |
+| #7 `Heading10` | `DAT_00470650` | `DAT_00470610` | 10B |
 | #8 `WaypointGroup` | `DAT_00470656` | `DAT_0047061c` | variable |
 | #9 `LinkOrReward12` | `DAT_0047065e` | `DAT_0047062c` | 12B |
 | #10 `Action82` | `DAT_00470660` | `DAT_00470630` | 82B |
@@ -37,8 +37,8 @@
 | #13 `UnkEntity102Bytes` | `DAT_00470654` | `DAT_00470618` | 102B |
 | #14 `MiscEntityInfo` | `DAT_0047065c` | `DAT_00470628` | 62B |
 | #15 `LinkedRef22` | `DAT_00470658` | `DAT_00470620` | 22B |
-| #16 `UnkEntity164Bytes` | `DAT_0047065a` | `DAT_00470624` | 164B |
-| #17 `LinkedRef58` | `DAT_0047064a` | `DAT_00470608` | 58B |
+| #16 `EntitySpawn164` | `DAT_0047065a` | `DAT_00470624` | 164B |
+| #17 `UnitSpawn58` | `DAT_0047064a` | `DAT_00470608` | 58B |
 
 **Filtering:** All rows except #4 and #17 apply a two-pass GUID-filter (rows with offset `0x00 == -1` are dropped). Row #17 (no GUID field) is written unconditionally. Row #4 is exported differently (see block 13 below).
 
@@ -189,7 +189,7 @@ Per record type, what pass 2 reads (offsets into the exported record, not the `.
      `x' = (x & ~mask) + axisMultX * step`, `y' = ((y & ~mask) + mask + 1) - axisMultY * step`.
      **Warning:** implementing it exactly as written passes a distinct-positions check but shifts
      real structures tens of thousands of world units off their pads, so the field mapping or a scale
-     factor is wrong somewhere. Do not reattempt without a visual check against the mission editor.
+     factor is wrong somewhere. Do not reattempt without a visual check against the mission editor. <!-- doc-lint: ok -->
    - **Flyers — unfixed.** `FUN_00421ee8` is the flyer attach equivalent; not traced. No multi-flyer
      groups observed in retail data.
    - **Verification:** all 10 available missions — 26/26 multi-mech groups and 18/18 multi-base groups
@@ -210,7 +210,7 @@ pass 2 goes back for.
 |---|---|---|---|---|---|
 | header | — | fixed 20 bytes, 10 shorts from unrelated `DAT_004854xx` globals (not part of the 17-row `.msn` table at all) | — | parses into several scalar fields, one passed on to a later call | parses into several scalar fields, one passed on to a later call |
 | 1 | #6 `MapPoint22` | count + count×12B (X,Y,Z int32 triple only — GUID/condition/etc. dropped) | yes | full (min/max bbox tracked live as read) | full |
-| 2 | #7 `Flag10` | count + count×2B (the `0x08` payload short only) | yes | full, **× 182 (`0xb6`) at load** — the same degrees→BAM conversion already confirmed elsewhere in DBSIM; this reframes row #7's payload as **a heading/orientation in degrees**, not a difficulty tier | full, **not** multiplied (VSHELL just displays/edits it) |
+| 2 | #7 `Heading10` | count + count×2B (the `0x08` payload short only) | yes | full, **× 182 (`0xb6`) at load** — the same degrees→BAM conversion already confirmed elsewhere in DBSIM; this reframes row #7's payload as **a heading/orientation in degrees**, not a difficulty tier | full, **not** multiplied (VSHELL just displays/edits it) |
 | 3 | #8 `WaypointGroup` | count + per record: nested-count (2B) + nested-count×2B (waypoint refs into block 1) | yes | full, nested refs resolved to block-1 pointers (stride 3 ints) | full, same resolution |
 | 4 | #9 `LinkOrReward12` | count + count×6B (`0x06` type flag, `0x08` ref1, `0x0A` ref2/literal) | yes | full, resolved by `FUN_00423358` into a 10-byte record — **a trigger area**: type flag, block-1 pointer, then either a second block-1 pointer (type 0, an XY box) or the literal × 10 (type != 0, a radius). Tested by `FUN_004233a4` | **skipped** (seek past, discarded) |
 | 5 | #10 `Action82` | count + count×74B (`0x06` type, `0x08` verb, `0x0A`-`0x19` ref[0..7] into row 9, `0x1C`/`0x1E`-stride interleaved 20-short span, `0x44`-`0x4D` herc-LUT ref[0..4], `0x4E` secondary, `0x50` target) | yes | reads all 74B but only **keeps** type, verb, the 8 refs (resolved to row-9 pointers), the 40-byte interleaved span, secondary (decremented by 1), and target — **the herc-LUT refs are read then discarded**, DBSIM has no use for the cosmetic/economy LUT | **skipped** (seek past, discarded) |
@@ -219,8 +219,8 @@ pass 2 goes back for.
 | 8 | #13 `UnkEntity102Bytes` | count + count×92B (`0x08`-`0x33` `FlagsA`+refs, `0x34` `BinaryField`, `0x38`-`0x5F` `FlagsB`, `0x60`-`0x64` refs+`UnkVal_100`; `Unk36` at `0x36` is skipped/not exported) | yes | reads all 92B but keeps only **`BinaryField` (`0x34`)**, the flyer type. Pass 2 comes back for the rest | **skipped** (seek past, discarded) |
 | 9 | #14 `MiscEntityInfo` | count + count×52B (`0x08` `TypeLikeScalar`, `0x0A`-`0x3D` refs+`SparseBlock`+`TrailingField`) | yes | reads all 52B but keeps only **`TypeLikeScalar` (`0x08`)** — the base type, an index into `dat\BASES.DAT`'s 65-entry table. Pass 2 comes back for the rest | **full 52B kept** |
 | 10 | #15 `LinkedRef22` | count + count×14B (`0x08`-`0x14`, the 7 fields `msn-mission-file.md` decoded as small-int/refs/discriminator) | yes | pass 1 reads all 14B and discards it; **pass 2 resolves it** into a 22-byte order record — `0x04` block-1 point, `0x08` block-3 waypoint group, `0x0e` target object/group, `0x12` block-5 action — and a group's route and spawn point come from its slot-0 link's `0x08` | **full 14B kept** — this is exactly the UI-relevant "which route/position/entity is this linked to" data a map editor needs |
-| 11 | #16 `UnkEntity164Bytes` | count + count×156B (two 40B/20B spans, a 20-entry nested cross-ref array with a 3-way discriminator, trailing shorts) | yes | **this is DBSIM's entity-activation mechanism**: for each populated cross-ref entry, the discriminator (0/1/2) marks the referenced **block-7/block-8/block-9** slot as a *live, simulated* object (via `DAT_004aa7ae`/`DAT_004aa8da`/`DAT_004aa93e`+`DAT_004aaa56` flag arrays), turning declared roster entries into things DBSIM actually spawns. **Record 0 is skipped here** — it is the player-squad placeholder. Pass 2 comes back for the group's own position/heading/route | full 156B kept, cross-refs resolved to annotate the kept row-#14 records (a UI/display-oriented resolution, not the "activation" one) |
-| 12 | #17 `LinkedRef58` | count (unfiltered — all records, matching row #17's "no GUID field" nature) + count×54B | **no** | reads all 54B and **discards it entirely** | **skipped** (seek past, discarded) |
+| 11 | #16 `EntitySpawn164` | count + count×156B (two 40B/20B spans, a 20-entry nested cross-ref array with a 3-way discriminator, trailing shorts) | yes | **this is DBSIM's entity-activation mechanism**: for each populated cross-ref entry, the discriminator (0/1/2) marks the referenced **block-7/block-8/block-9** slot as a *live, simulated* object (via `DAT_004aa7ae`/`DAT_004aa8da`/`DAT_004aa93e`+`DAT_004aaa56` flag arrays), turning declared roster entries into things DBSIM actually spawns. **Record 0 is skipped here** — it is the player-squad placeholder. Pass 2 comes back for the group's own position/heading/route | full 156B kept, cross-refs resolved to annotate the kept row-#14 records (a UI/display-oriented resolution, not the "activation" one) |
+| 12 | #17 `UnitSpawn58` | count (unfiltered — all records, matching row #17's "no GUID field" nature) + count×54B | **no** | reads all 54B and **discards it entirely** | **skipped** (seek past, discarded) |
 | 13 | #4 (no stable name) | flat tail: **one** count (how many of row #4's 10-slot sub-array A are populated, from its front — assumes no gaps) + that many×2B (the populated LUT-ref prefix itself) | n/a — single mission-level record, not a per-entity array | full — **this is the mission's herc/weapon unlock package** reaching DBSIM, matching `msn-mission-file.md`'s row #4 "working model: per-mission reward/unlock package" | not read (VSHELL's `ShellMap` reader stops after block 12; it has no use for player loadout data) |
 
 ### Block 5 in memory — 58 bytes (`0x3a`)

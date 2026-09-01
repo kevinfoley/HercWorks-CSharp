@@ -1,6 +1,6 @@
 # Impact effects (`dat\EXPLOS.DAT`, DBSIM.EXE `EXPLO.CPP`)
 
-Solved 2026-08-26; addresses are DBSIM virtual addresses. Ported in
+Addresses are DBSIM virtual addresses. Ported in
 `Herculan.Engine.Sim.{ExplosionCatalog, ImpactEffect}`, `HercWorks.Core`'s `ExplosionData`.
 
 What happens where a shot lands. An effect is a `dts\EXPLOS.DTS` root standing still at the point of

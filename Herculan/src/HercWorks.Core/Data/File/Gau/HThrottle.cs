@@ -58,7 +58,8 @@ public class HThrottle : WidgetBase {
 	/// The int at file offset 1072, likewise decoded out of the remainder. It is the x nudge the
 	/// gauge applies to the small tick sprite it parks beside the track — <c>ThrottleGauge_Ctor</c>
 	/// adds it, shifted by the video mode's x coordinate shift, to the knob's own left edge. Small and
-	/// per-herc (-4 to +14), which is what a per-art alignment tweak looks like.
+	/// per-herc — -2 to -4 for seven of the nine retail files, +14 for TOMAHAWK and +17 for RAZOR,
+	/// which is what a per-art alignment tweak looks like.
 	/// </summary>
 	public int TickOffsetX { get; set; }
 }

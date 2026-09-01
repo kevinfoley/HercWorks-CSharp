@@ -2,10 +2,6 @@ namespace HercWorks.Core.Data.Struct.Herc;
 
 /// <summary>
 /// Ported from org.hercworks.core.data.struct.herc.DTSBoneFlags.
-///
-/// FIXED — see KNOWN_ISSUES.md history: the original Java constructor never actually assigned
-/// its "flagNum" parameter to the "flag" field, so flag() always returned 0 for every value.
-/// Fixed to assign it.
 /// </summary>
 public sealed class DTSBoneFlags {
 	public static readonly DTSBoneFlags LegLeftCalf = new(256);

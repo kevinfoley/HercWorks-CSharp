@@ -12,7 +12,7 @@ namespace HercWorks.Core.Data.File.Msn;
 /// code explicitly resolves) went well beyond that. See docs/formats/msn-mission-file.md, "Row #16
 /// field decode".
 /// </summary>
-public class UnkEntity164Bytes : MapObject {
+public class EntitySpawn164 : MapObject {
 	/// <summary>0x02 — condition ref; sparse, 2.5% real.</summary>
 	public short ConditionRef { get; set; }
 
@@ -44,7 +44,7 @@ public class UnkEntity164Bytes : MapObject {
 	/// <summary>0x32 — ref into row #6 (<see cref="MapPoint22"/>); 37% real.</summary>
 	public short RefRow6 { get; set; }
 
-	/// <summary>0x34 — ref into row #7 (<see cref="Flag10"/>); 45% real.</summary>
+	/// <summary>0x34 — ref into row #7 (<see cref="Heading10"/>); 45% real.</summary>
 	public short RefRow7 { get; set; }
 
 	/// <summary>0x36 — ref into row #8 (<see cref="WaypointGroup"/>); 43% real.</summary>

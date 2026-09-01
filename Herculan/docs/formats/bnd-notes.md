@@ -2,7 +2,7 @@
 
 83 files in `ES2/VOL/simvol0/bnd/`, one per DBSIM subsystem; filenames map to `DBSIM.EXE` translation units (`ACTOR`, `ALERT`, `BULLET`, `CAM`, `DEBRIS`, `FIRE`, `MECH`, `MECHSYS`, `OBJLIST`, `ROCKET`, `TERRAIN`, `TS_PART`, `PWEAPONS`, etc.). Files are 16–404 bytes; small per-module tuning/config records, not per-entity arrays.
 
-**Status:** This work was deliberately shelved per user request (2026-08-11). The core finding stands: `.BND` is a human/build-tool source format whose values are compiled directly into `DBSIM.EXE`'s code at build time (`ES2/BATCH.EXE` is the likely compiler); the retail game never opens `.bnd` files at runtime.
+**Status:** Shelved deliberately; not needed at runtime. The core finding stands: `.BND` is a human/build-tool source format whose values are compiled directly into `DBSIM.EXE`'s code at build time (`ES2/BATCH.EXE` is the likely compiler); the retail game never opens `.bnd` files at runtime.
 
 ## Solved: universal 9-byte envelope + 1-byte record tag (byte-exact across all 83 files)
 

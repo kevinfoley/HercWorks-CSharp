@@ -1,4 +1,4 @@
-# Terrain texturing (DBSIM.EXE) — SOLVED
+# Terrain texturing (DBSIM.EXE)
 
 Terrain *lighting* is a separate subject with its own file: [`terrain-lighting.md`](terrain-lighting.md).
 

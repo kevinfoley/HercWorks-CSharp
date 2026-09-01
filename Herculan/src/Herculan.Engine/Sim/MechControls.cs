@@ -29,17 +29,10 @@ namespace Herculan.Engine.Sim;
 /// keyboard and plain stick, and the value everything in Herculan currently produces — +1 for a
 /// lever, and -1 for a lever whose sense is inverted.
 ///
-/// <para>This is the original's <c>DAT_0049a06e</c>. <c>FUN_00459d20</c> sets it to 1 only when the
-/// input configuration reports a throttle control <i>and</i> the preferences page has it assigned to
-/// THROTTLE rather than TURRET, and to 0 otherwise; the key and the cockpit slider that "toggle" it
-/// only ever flip between +1 and -1, and are themselves gated on that same pair, so they invert a
-/// lever that exists rather than selecting anything.</para>
-///
-/// <para>It is <b>not</b> a forward/reverse gear selector, which is what the symbol table and an
-/// earlier port of this file both took it for. Nothing in DBSIM selects a gear: the sign of the
-/// throttle setting is the direction of travel, and zero here is what leaves the setting free to
-/// take either sign. With a lever present the clamp closes to one side of zero, because a lever's
-/// travel only spans one direction and the other has to come from inverting it.</para>
+/// <para>This is the original's <c>DAT_0049a06e</c>, which is <b>not</b> a forward/reverse gear
+/// selector despite the name in the symbol table — docs/simulation/mech-locomotion.md carries the
+/// argument. What matters here is that it gates the throttle clamp: at 0 the setting is free to
+/// take either sign, and with a lever present the clamp closes to one side of zero.</para>
 /// </param>
 /// <param name="TorsoTwist">
 /// The turret axis, left/right. Full deflection at ±0x100, as the two above. It is a

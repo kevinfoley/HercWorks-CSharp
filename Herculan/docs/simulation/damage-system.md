@@ -455,18 +455,12 @@ lives in code is the two separate `DamageShield`/`DamageArmor` figures each `PRO
 carries; nothing scales either by the *target's* defence type. The shield absorption functions were
 also checked and carry no weapon-type term.
 
-The shot descriptor (`shotData`, the same struct `FUN_00418ba8`/`FUN_004188c8` consume) is built
-in `Bullet_FireBurst` right before the `FUN_00426528` raycast call — full layout in
-[`weapon-firing.md`](weapon-firing.md#the-shot-record):
-```c
-psVar1 = Proj_LookupRecord(4, param_1);               // look up this bullet's weapon-type record
-shotData.field_0x04 = Q10mul(shotPower, psVar1[3]);   // -> shotData+4, read by FUN_004188c8 (structure/armor damage)
-shotData.field_0x06 = Q10mul(shotPower, psVar1[2]);   // -> shotData+6, read by FUN_00418ba8 (fed into shields)
-shotData.field_0x08 = psVar1[4];                      // -> shotData+8, a further per-hit scaling factor, see below
-shotData.field_0x0a = psVar1 + 6;                     // pointer into the record's effect/sound data
-shotData.field_0x12 = 5;                              // an unrelated "weapon category" tag, see below
-```
-`psVar1` is `PROJ.DAT` (`HercWorks.Core.Data.File.Dat.Sim.ProjectileData`). Cross-checked against
+The shot descriptor (`shotData`, the same struct `FUN_00418ba8`/`FUN_004188c8` consume) is built in
+`Bullet_FireBurst` right before the `FUN_00426528` raycast call from the firing weapon's `PROJ.DAT`
+record — layout in [`weapon-firing.md`](weapon-firing.md#the-shot-record); `+0x04` is the figure
+`FUN_004188c8` applies to structure and armor, `+0x06` the one `FUN_00418ba8` feeds into shields.
+
+The record table is `PROJ.DAT` (`HercWorks.Core.Data.File.Dat.Sim.ProjectileData`). Cross-checked against
 the real retail `ES2\VOL\simvol0\dat\PROJ.DAT` (984 bytes: 9-byte VOL prefix +
 `[Total:u16=27][27×36-byte records]` + 1 trailing marker byte): values line up with the manual —
 - Entries with `DamageShield ≫ DamageArmor` (e.g. 2000/400, 8000/2000) — EMP-shaped.
@@ -481,7 +475,7 @@ the real retail `ES2\VOL\simvol0\dat\PROJ.DAT` (984 bytes: 9-byte VOL prefix +
 `shotPower` is the capacitor charge the shot was fired at, `min(template+0x38, mount+0x7d)`, and the
 scale is **Q10** — against a capacitor scaled to 1200, so a mount holding more than 1024 makes a shot
 worth slightly more than the record's face value. `SplashFactor`'s own multiply below is Q10 as well
-(`Math_Q10Multiply`, `0047dfa4`); earlier passes of this doc called it Q8.
+(`Math_Q10Multiply`, `0047dfa4`).
 
 **`SplashFactor` (`Unk2_val`, short-index 4, `shotData+8`) — a per-weapon splash/secondary-
 explosion trigger, not a third damage-type multiplier.** Consumer, `FUN_004188c8`:

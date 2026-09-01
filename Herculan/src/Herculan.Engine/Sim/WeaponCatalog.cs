@@ -13,8 +13,9 @@ namespace Herculan.Engine.Sim;
 /// (<c>0040fc8c</c>) walks a 33-entry array of string pointers at <c>00498eb0</c> as it reads the
 /// template table and stores one into each record's <c>+0x52</c>; that pointer is what a weapon
 /// gauge prints. The names there are not <c>SHELL0.VOL</c>'s catalog names — the catalog calls id 7
-/// <c>EMPC</c> and id 30 <c>SHLD</c>, the simulator calls them <c>EMP</c> and <c>SHIELD</c> — so a
-/// cockpit fed from the shell catalog prints the wrong words. See <see cref="MountNames"/>.</para>
+/// <c>EMPC</c>, id 28 <c>MFAC</c> and id 30 <c>SHLD</c>, the simulator calls them <c>EMP</c>,
+/// <c>MAGN</c> and <c>SHIELD</c> — so a cockpit fed from the shell catalog prints the wrong words.
+/// See <see cref="MountNames"/>.</para>
 /// </summary>
 public sealed class WeaponCatalog {
 	/// <summary>

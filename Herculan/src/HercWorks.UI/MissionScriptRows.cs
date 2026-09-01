@@ -252,7 +252,7 @@ internal sealed class ScriptGroupRow : ScriptRow {
 
 /// <summary>Block 12 — read and discarded by DBSIM; kept editable for round-trip completeness.</summary>
 internal sealed class ScriptEntityLinkRow : ScriptRow {
-	public required ScriptLinkedRef58Export Source { get; init; }
+	public required ScriptUnitSpawn58Export Source { get; init; }
 
 	public short Unk02 { get => Source.Unk02; set => Source.Unk02 = value; }
 	public short Unk04 { get => Source.Unk04; set => Source.Unk04 = value; }

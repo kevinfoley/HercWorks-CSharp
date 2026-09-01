@@ -236,26 +236,11 @@ public abstract class SimObject {
 	/// in the world</b>. It is not drawn, not simulated, and not collided with, exactly as if it had
 	/// not spawned; the position it holds is a placeholder its arrival overwrites.
 	///
-	/// <para>The original spells this as one pointer: <c>DBSim_BuildGroupRecord</c>
-	/// (<c>00423b34</c>) resolves the block-11 record's action ref into the group record's
-	/// <c>+0x14</c> slot, and a non-null slot means "this group is waiting on that action". Three
-	/// separate places test it and all three are honoured here —
-	/// <c>maybe_Scene_SubmitFrameObjects</c> (<c>0042841c</c>) submits a mech, flyer or base for
-	/// drawing only when it is null; <c>Sim_MainTick</c> (<c>0045f464</c>) sends the group to its
-	/// arrival check instead of its per-frame order tick, and skips a base's own tick outright; and
-	/// <c>Mech_CollisionTest</c> (<c>00418f74</c>) skips such an object before measuring any
-	/// distance. Arrival clears the slot, and the whole group becomes real at once.</para>
-	///
-	/// <para><b>Why an undeployed group's placed position is meaningless.</b> A group waiting on an
-	/// action is placed by the ordinary rules — usually on its route's first waypoint, which mission
-	/// authors routinely share with the player's own squad — so several of them sit stacked on the
-	/// player's spawn point until they arrive. That is harmless in the original precisely because
-	/// nothing above can see them.</para>
-	///
-	/// <para><b>How they arrive</b> is <c>Group_DeploymentCheck</c> (<c>004236c4</c>), which
-	/// <see cref="Herculan.Engine.World.MissionLoader"/>'s doc comment describes in full. The engine
-	/// does not implement it yet: nothing here ever clears this flag, so a group that waits on an
-	/// action stays out of the mission for the whole run.</para>
+	/// <para>The original spells this as one pointer, the group record's <c>+0x14</c>; its three test
+	/// sites, why an undeployed group's placed position is meaningless, and how such a group arrives
+	/// are in docs/simulation/mission-deployment.md. All three gate effects are honoured here.
+	/// Arrival is not implemented: nothing clears this flag, so a group that waits on an action stays
+	/// out of the mission for the whole run.</para>
 	/// </summary>
 	public bool AwaitingDeployment { get; set; }
 

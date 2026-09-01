@@ -1,6 +1,6 @@
 # `TSBitmapPart` billboards and `TSCellAnimPart` flipbooks (DBSIM.EXE)
 
-Solved 2026-08-26; addresses are DBSIM virtual addresses. Ported in
+Addresses are DBSIM virtual addresses. Ported in
 `Herculan.Engine.Render.{DtsSpriteBuilder, SpriteRenderer}`.
 
 The one `TSObject` render slot that puts pixels on screen with no polygon involved. It is what

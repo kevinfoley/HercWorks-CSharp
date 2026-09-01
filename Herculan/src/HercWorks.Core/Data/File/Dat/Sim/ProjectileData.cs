@@ -59,6 +59,10 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 /// throughout — except one. <c>Missile</c> (0) and <c>Rocket</c> (3) are the splash-capable guided
 /// weapons.</para>
 ///
+/// <para>Weapon names above are the shell catalog's (<see cref="WeaponLUT"/>), not DBSIM's own —
+/// index 22's two claimants are catalog ids 25 (<c>PLAS</c>) and 28 (<c>MFAC</c>, which the
+/// simulator's name table calls <c>MAGN</c>).</para>
+///
 /// <para><b>The Plasma cannon is index 22</b>, the single <c>Bullet</c> record that breaks the
 /// no-splash rule (<see cref="Projectile.MissileId"/> 9, 3000/3000, SplashFactor 1000). DBSIM's
 /// <c>Bullet</c> per-tick method has a <c>MissileId == 9</c> branch calling the explosion formula

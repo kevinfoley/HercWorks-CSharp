@@ -1,6 +1,6 @@
 # DBSIM.EXE reactor and Master Energy Pool
 
-Solved 2026-08-23. Ported in `Herculan.Engine.Sim.MechObject.Power.cs`, `ShieldCharge.cs`,
+Ported in `Herculan.Engine.Sim.MechObject.Power.cs`, `ShieldCharge.cs`,
 `MechPods.cs`.
 
 The reactor and the pool are separate things: the reactor is a **rate** (`mech+0x256`), the pool is
@@ -80,7 +80,8 @@ writes as the record's own table index — so it is the `SHELL0.VOL` `gam\WEAPON
 | 4 | `+0x317` | 31 | TURB | speed, see [mech-locomotion.md](mech-locomotion.md) |
 
 Slot order is not id order (`0x1f`→[4], `0x20`→[3]). The switch assigns rather than accumulates, so a
-second copy of a pod fills the same slot and contributes nothing.
+second copy of a pod fills the same slot and contributes nothing — the last mount in hardpoint order
+wins. Ported in `Sim.MechPods`.
 
 **Both pod bonuses share one curve**, gated off entirely at 225/256 damage:
 `scale = 1024 - 204 * (damage / 51)`, Q10 — five steps from 1024 (pristine) down to 208, then

@@ -6,9 +6,11 @@ modding toolkit, MIT licensed) from Java to C#/.NET 8 + WinForms. Original proje
 rather than all at once.
 
 Bugs found in the original Java source during porting were kept bug-compatible rather than silently
-fixed, per the approach described below. They are recorded in the per-round notes further down this
-README. [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md) is a different register: retail Earthsiege 2 bugs, and
-places where the HERCULAN engine behaves differently from retail.
+fixed, per the approach described below. The ones still reproduced are listed in
+[`KNOWN_ISSUES.md`](KNOWN_ISSUES.md), which records outstanding issues only — retail Earthsiege 2
+bugs, places where the HERCULAN engine behaves differently from retail, and these inherited
+Java-port bugs. [`ROADMAP.md`](ROADMAP.md) is the separate register for what the engine does not
+implement yet.
 
 ## Status
 
@@ -37,19 +39,7 @@ places where the HERCULAN engine behaves differently from retail.
   export feature the engine port will never call, and `Core` otherwise has no `System.Drawing`
   dependency at all.
 
-**Bugs found and ported literally (not silently fixed) this stretch — one is more than cosmetic:**
-- `DatFileReader.ParseIniHercDatStats()`: initializes a hardpoints map, then loops constructing
-  `UiWeaponEntry` objects for each hardpoint — but **never actually inserts any of them into the
-  map**. The map comes back empty after parsing. Unlike the earlier cosmetic/round-trip bugs,
-  this one looks like it would produce visibly wrong (empty) data if exercised on real files.
-  Flagged clearly in code; ported bug-compatible since I have no real game data to confirm
-  whether something else compensates.
-- `DatFileReader.ReplaceDatBytes()`: despite its name, the `newData` parameter is never used —
-  it just concatenates the file's existing `Header` and `RawBytes` unchanged.
-- `VolFileCompiler.Compile()`: writes to a hardcoded developer path
-  (`E:\ES2_OS\dev\earthsiege2\VOL`) carried over directly from the Java original — flagged as a
-  rough edge rather than something safe to silently redirect, since the "correct" output path is
-  presumably meant to come from the caller in a real UI flow.
+**Bugs found and ported literally (not silently fixed):** the ones still reproduced are listed in [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md) under "HercWorks toolkit — inherited from the Java original".
 
 **Not started:** `io/transform/dbsim` (12 files), `io/transform/shell` (10 files) — the last ~22
 files in ES2Core.
@@ -84,25 +74,10 @@ semantics (see below) turned up two of the same "name says one thing, does anoth
 - `IndexSegmentLE()` calls `.byteOrder(LE).array()` — since `.array()` ignores that tag, this
   method is **byte-identical to `IndexSegment()`** despite its name. Ported literally.
 - `PeekAt()` doesn't actually read/dereference anything — it just returns `index + at` as a
-  number. Looks unused/unfinished in the original.
+  number. Ported literally; see [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
 - By contrast, `IndexShortLE`/`IndexShort`/`IndexIntLE` (call `.toShort()`/`.toInt()`, not just
   `.array()`) and `WriteIntLE`/`WriteShortLE` (call `.reverse()`) genuinely are correct
   endian-aware reads/writes — confirmed by the same source-level check.
-
-**Bugs found and ported literally (not silently fixed), same policy throughout:**
-- `TSShape.jsonString()`: prints `getSequenceList()` twice instead of `getSequenceList()` then
-  `getTransformList()` — looks like a copy/paste bug.
-- `HMeter`'s constructor calls `setOrigin(getOrigin())` instead of `setOrigin(origin)` — assigns
-  `Origin` to its own current (null/default) value rather than the constructor parameter, so the
-  `origin` argument is effectively unused. Looks like a bug.
-- `InitHerc.header` / `DynamixPalette.header`: both build their header bytes via
-  `Bytes.from("<hex-looking-string>", UTF_8)` — despite looking like hex, this is literally the
-  ASCII bytes of that 8-character text, not a decoded hex value. Ported literally both times.
-- `DynamixPaletteTransformer`: the write path outputs color channels as R, B, G (blue and green
-  swapped) while the read path reads them as R, G, B — a real round-trip bug (write-then-read
-  would swap green and blue).
-- `DynamixBitmapArrayTransformer`: reverses `FileSize` bytes on write but not on read, so the
-  byte order is inconsistent between the two directions.
 
 **Design notes:**
 - Java's "rich enum" pattern (id/name/lookup-table, common throughout this codebase) has no
@@ -157,8 +132,7 @@ dotnet test
 dotnet run --project src/HercWorks.UI
 ```
 
-I don't have a .NET SDK available in the sandbox this was written in, so this hasn't
-been compiled — please flag any build errors and I'll fix them.
+Both solutions build clean (0 warnings) and the test suites pass.
 
 ## Notes on the port
 

@@ -104,8 +104,8 @@ testing it against every real file — see "Verification note" below):
 | 13 | `DAT_00470654` | 102 (`0x66`) bytes/record | `DAT_00470618` | #6, #7 (both declared, both dead in retail), #10 (×2, only the 2nd slot real) | **decoded — see "Row #13 field decode" below.** `UnkEntity102Bytes` — real structure is a 20-flag boolean array + a mostly-inert second 20-slot span + a constant trailing field (always `100`), not the flat `Flags[49]` the old hypothesis assumed; the macro pass's "inherit only" note missed all four real cross-refs |
 | 14 | `DAT_0047065c` | 62 (`0x3e`) bytes/record | `DAT_00470628` | #6, #7, #10 (×2) | **decoded — see "Row #14 field decode" below.** `MiscEntityInfo` — 4 real cross-refs, not the 3 the macro pass found (it missed #7); a type-like field at `0x08` correlates ~99% with the trailing constant field being `100` vs `0` |
 | 15 | `DAT_00470658` | 22 (`0x16`) bytes/record | `DAT_00470620` | #6 (rare), #8 (dominant — 94% populated), #10 (rare), plus a **4-way** discriminated ref (0/1/2/3 → #16/#12/#13/#14, resolved in two passes since #16 loads after #15) | **decoded — see "Row #15 field decode" below.** A "typed link" record whose primary payload is a near-always-populated ref into row #8 — confirms it's structurally distinct from #6 (which is a flat position record), not just size-coincidentally 22 bytes |
-| 16 | `DAT_0047065a` | 164 (`0xa4`) bytes/record | `DAT_00470624` | #6, #7, #8, #10, a **20-entry** discriminated-ref array (0/1/2 → #12/#13/#14), a 10-entry array into #15 | **decoded — see "Row #16 field decode" below.** `UnkEntity164Bytes` — the 20-entry cross-ref array matches `MapEntIds[20]`/`MapEntities[20]` exactly; also has a compound-condition pair (`0x02`/`0x04`, `-99` sentinel), an 18-short always-zero dead zone, and a cleanly discriminated trailing payload (`0x78`: 0/1/2 → 0/2/4 populated fields) |
-| 17 | `DAT_0047064a` | 58 (`0x3a`) bytes/record | `DAT_00470608` | #6 (declared, **never used in retail data**), #8, LUT `DAT_00470664` (dominant), a 4-way discriminated ref (0/1/2/3 → #16/#12/#13/#14) | **fully decoded, including the tail — see "Row #17 field decode" below.** Structurally unusual — no leading GUID field at all (this record is never referenced by anything else in the file); the 42-byte tail turned out to be a nested pair-count array, the same idiom as row #8's nested waypoint list |
+| 16 | `DAT_0047065a` | 164 (`0xa4`) bytes/record | `DAT_00470624` | #6, #7, #8, #10, a **20-entry** discriminated-ref array (0/1/2 → #12/#13/#14), a 10-entry array into #15 | **decoded — see "Row #16 field decode" below.** `EntitySpawn164` — the 20-entry cross-ref array matches `MapEntIds[20]`/`MapEntities[20]` exactly; also has a compound-condition pair (`0x02`/`0x04`, `-99` sentinel), an 18-short always-zero dead zone, and a cleanly discriminated trailing payload (`0x78`: 0/1/2 → 0/2/4 populated fields) |
+| 17 | `DAT_0047064a` | 58 (`0x3a`) bytes/record | `DAT_00470608` | #6 (declared, **never used in retail data**), #8, LUT `DAT_00470664` (dominant), a 4-way discriminated ref (0/1/2/3 → #16/#12/#13/#14) | **fully decoded, including the tail — see "Row #17 field decode" below.** Structurally unusual — no leading GUID field at all (this record is never referenced by anything else in the file); the 42-byte tail is a nested pair-count array, the same idiom as row #8's nested waypoint list |
 
 `DAT_00470664` itself is never the subject of a count+array read in this function — it's used
 throughout as a lookup-table size bound, strongly suggesting it's a shared table (plausibly
@@ -134,7 +134,6 @@ Central spatial-reference table: `{GUID, X, Y, Z}` points (2,661 real instances 
 | `0x0E` | Y (int32) | range 17,968–3,800,672 |
 | `0x12` | Z (int32) | range 0–35,400 (altitude) |
 
-**Model:** Flat position record. Four dead fields are declared but never used; model as GUID + X/Y/Z + opaque padding.
 
 ## Row #8 field decode — "WaypointGroup" (`DAT_00470656`, 10 fixed bytes + nested-count×2 bytes/record)
 
@@ -149,7 +148,6 @@ Ordered waypoint list, heavily referenced by row #15 (470 real instances across 
 | `0x08` | nested count | 0–9 entries; mean 3.2 |
 | nested | ref→row #6 | 2 bytes/entry; resolved to row #6 GUIDs |
 
-**Model:** Named waypoint list; conditionally-spawned records have no GUID; inheritance copies only nested list.
 
 Spatial validation: consecutive waypoints have median distance ~191k units (tighter than random pairs ~310k), confirming authored path structure. 24% of records form closed loops (first = last waypoint).
 
@@ -171,11 +169,10 @@ Spatial validation: consecutive waypoints have median distance ~191k units (tigh
 | `0x12` | discriminated ref | → rows #12/#13/#14/#16 per `0x10` |
 | `0x14` | ref→row #10 | 2% real |
 
-**Model:** Waypoint group reference (94% dominant) + optional position/action/entity. Compound condition pair at `0x02`/`0x06`.
 
 ## Row #9 field decode — "LinkOrReward12" (`DAT_0047065e`, 12 bytes/record)
 
-Dual-purpose: link (two row #6 refs) or reward (one row #6 ref + literal value). 335 real instances; 100% of row #10's sub-refs match row #9 GUIDs.
+Dual-purpose: link (two row #6 refs) or reward (one row #6 ref + literal value). 335 real instances; 100% of row #10's sub-refs match row #9 GUIDs. Row #10's verb code correlates with the type: verb 3 is 97% link, verbs 1/2 lean reward.
 
 | offset | field | notes |
 |---|---|---|
@@ -186,7 +183,6 @@ Dual-purpose: link (two row #6 refs) or reward (one row #6 ref + literal value).
 | `0x08` | ref→row #6 | always resolved; range 0–161 |
 | `0x0A` | ref→row #6 OR literal | if `0x06=0`: row #6 index (87% adjacent to `0x08`); if `0x06=1`: literal value (100–20000 in round increments) |
 
-**Model:** Link (two consecutive waypoints) or reward marker (position + credit quantity). Row #10 verb codes correlate with type (verb 3 → 97% link, verbs 1/2 → reward-leaning).
 
 ## Row #10 field decode — "Action82" (`DAT_00470660`, 82 bytes/record)
 
@@ -207,7 +203,6 @@ Action/objective record; sparse payload (most 82 bytes are dead). 338 real insta
 | `0x4E` | secondary value | 0 dominant; meaning unclear (timer? sequence index?) |
 | `0x50` | polymorphic target | type chosen by `0x06` (0/1/3/4 → rows #12/#13/#14/#16); 1% real |
 
-**Model:** GUID + type + verb + 4 sub-refs (row #9) + optional target, with opaque dead padding.
 
 ## Row #3 field decode — "VariantValue8" (`DAT_00470666`, 8 bytes/record)
 
@@ -220,7 +215,6 @@ Condition-gated variant table; same GUID with different conditions/payloads (194
 | `0x04` | ? | compound pair: `-1` or `-99`; `-99` correlates 100% with real `0x02` |
 | `0x06` | payload | 54 distinct values; fetched by row #4 |
 
-**Model:** Each GUID can have multiple condition-gated variants with different payloads; GUID-based compaction keeps only the matching variant.
 
 ## Row #7 field decode — "Heading10" (`DAT_00470650`, 10 bytes/record)
 
@@ -234,7 +228,6 @@ Heading record (degrees → BAM conversion). 105 real instances; simplest record
 | `0x06` | ? | **dead** — always `-1` |
 | `0x08` | payload | 0/1/10 (62%/34%/4%); multiplied by 182 → degrees to BAM |
 
-**Model:** Minimal {GUID, heading}; exported to script.dat for DBSIM use.
 
 ## Row #11 field decode — "ActionPair30" (`DAT_00470662`, 30 bytes/record)
 
@@ -249,7 +242,6 @@ Paired actions; nominal 10-slot array is dead (96% use ≤1 slot). 72 real insta
 | `0x08` | timer | round numbers (10/30/60/120 etc.); seconds likely |
 | `0x0A–0x1D` | nominal ref[1..9]→row #10 | **dead** — 96% use only slot 0; rest always `-1` |
 
-**Model:** GUID + primary action + optional secondary action + timer; nominal 10-slot is dead padding.
 
 ## Row #4 field decode — "RewardPackage144" (`DAT_00470668`, 144 bytes/record)
 
@@ -263,7 +255,6 @@ Paired actions; nominal 10-slot array is dead (96% use ≤1 slot). 72 real insta
 | `0x52–0x8c` | sub-array C→LUT (30 slots) | 0–3 real slots; mode 1 |
 | `0x8e` | ref→row #3 variant | 87% real; dominant field; fetches payload value |
 
-**Model:** Per-mission reward/unlock package (hercs/weapons availability + condition-gated bonus). No GUID, no position reference.
 
 ## Row #13 field decode — "UnkEntity102Bytes" (`DAT_00470654`, 102 bytes/record)
 
@@ -285,7 +276,6 @@ Item flags + condition/inheritance (24%/30% real usage — highest combined rate
 | `0x62` | ref→row #10 slot 2 | **only live ref** — 21% real |
 | `0x64` | constant | always exactly `100` |
 
-**Model:** 20-flag boolean set + optional secondary action + trailing constant. High inheritance/condition rates suggest variant-template usage pattern.
 
 ## Row #14 field decode — "MiscEntityInfo" (`DAT_0047065c`, 62 bytes/record)
 
@@ -306,7 +296,6 @@ Entity type + modifier. Largest sample (1,949 instances); clear `0x08`/`0x3C` co
 | `0x3A` | ref→row #10 slot 2 | 0.1% dead |
 | `0x3C` | health modifier | 100%: `100` (71%) or `0` (29%); **100% correlates with `0x08` real** |
 
-**Model:** Entity type + health modifier pair; cross-refs sparse but confirmed real. `0x3C` acts as HealthModAdjust (100=default).
 
 ## Row #16 field decode — "EntitySpawn164" (`DAT_0047065a`, 164 bytes/record)
 
@@ -320,7 +309,7 @@ Entity-activation directive; position/flag/route/action + 20-entry discriminated
 | `0x06` | binary flag | 100% real; 39/61 split |
 | `0x08` | near-constant | 100% real; usually `0` |
 | `0x0A–0x2C` | dead zone (18 shorts) | **always `0`** — padding |
-| `0x2E` | discriminator | 89% real; 0/1/2 (selects target of `0x38` array) |
+| `0x2E` | discriminator | 89% real; 0/1/2 — selects which row the `0x38` array's entries point at (rows #12/#13/#14) |
 | `0x30` | **formation id** | 85% real; range 0–16 — indexes the formation-offset table that spreads a group's members around its point (see `script-dat.md`'s placement section) |
 | `0x32` | ref→row #6 | 37% real — **the group's spawn point** |
 | `0x34` | ref→row #7 | 45% real — **the group's heading** |
@@ -337,7 +326,6 @@ Entity-activation directive; position/flag/route/action + 20-entry discriminated
 | `0x82–0xA0` | dead zone (16 shorts) | **always `-1`** — padding |
 | `0xA2` | trailing flag | 6% sparse; 0/1 |
 
-**Model:** Position/heading/waypoint-group + polymorphic entity link (0/1/2 → rows #12/#13/#14) + action + 3-way payload discriminator. Exported to script.dat; DBSIM uses for entity activation.
 
 ## Row #12 field decode — "EntityTemplate144" (`DAT_00470652`, 144 bytes/record)
 
@@ -385,7 +373,6 @@ Unit-spawn/assignment to waypoint group. No GUID (unreferenced row). Nested pair
 
 **Nested pairs:** first element 20–360 (15 distinct values, LUT-like); second element {6, 7} only. Declared capacity (7+ pairs) never populated; actual max 2.
 
-**Model:** Unit/herc type (dominant) + optional waypoint group + polymorphic entity + nested tag pairs. No GUID (self-contained, never referenced).
 
 ## How to apply
 

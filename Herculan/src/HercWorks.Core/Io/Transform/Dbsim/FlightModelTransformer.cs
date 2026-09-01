@@ -6,7 +6,7 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// <summary>
 /// Ported from org.hercworks.core.io.transform.dbsim.FlightModelTransformer.
 ///
-/// FIXED (was two bugs, see KNOWN_ISSUES.md history): verified against real RAZOR.FM/SKIMMER.FM
+/// Verified against real RAZOR.FM/SKIMMER.FM
 /// from a retail install. Both are the standard VOL-entry-prefixed loose-file shape (9-byte
 /// prefix + content + 1 trailing byte), and the prefix's own declared content-size field reads
 /// 54 bytes — matching the read path's byte count, not the write path's (formerly 47). Decoding

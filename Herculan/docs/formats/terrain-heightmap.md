@@ -1,4 +1,4 @@
-# Terrain heightmap — `HeightGrid`, zone loading, height query — SOLVED, byte-verified
+# Terrain heightmap — `HeightGrid`, zone loading, height query, byte-verified
 
 Reverse-engineered from `DBSIM.EXE` disassembly (Ghidra project `ES2Recon`). Covers the
 heightmap/geometry side of terrain: struct layout, zone loading, height interpolation, and the ray

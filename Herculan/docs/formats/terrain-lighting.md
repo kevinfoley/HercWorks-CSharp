@@ -1,4 +1,4 @@
-# Terrain lighting (DBSIM.EXE) — SOLVED
+# Terrain lighting (DBSIM.EXE)
 
 Terrain is lit **once, at zone load**, and the result is stored in the height grid. Nothing about it
 is recomputed per frame.

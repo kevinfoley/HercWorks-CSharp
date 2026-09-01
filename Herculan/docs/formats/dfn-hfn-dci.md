@@ -1,6 +1,6 @@
 # .DFN / .HFN / .DCI — bitmap fonts and cursor images
 
-Reverse-engineered from `VSHELL.EXE`/`DBSIM.EXE` disassembly (Ghidra, `E:\ES2Stuff\tools\`), not
+Reverse-engineered from `VSHELL.EXE`/`DBSIM.EXE` disassembly in the `ES2Recon` Ghidra project, not
 from the Java source (`ES2TransferApi`/etc. never covered these). Cross-checked against real
 retail files (`ES2/VOL/simvol0/dfn/`, `ES2/VOL/simvol0/dci/`, `ES2/VOL/SHELL0/DFN/`). This doc
 records what's confirmed and what's still open — don't treat the open parts as settled.

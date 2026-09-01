@@ -1,6 +1,6 @@
 # Target selection and the sensor model
 
-Solved and shipped 2026-08-29. `Sim.TargetSelection`, `Sim.Detection`, `MechObject.Target`.
+Ported in `Sim.TargetSelection`, `Sim.Detection`, `MechObject.Target`.
 
 ## Where the selection lives
 

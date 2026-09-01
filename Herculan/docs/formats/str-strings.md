@@ -59,9 +59,9 @@ Groups referenced by decoded code:
 | 11 | 2 | `MAP`, `DAMAGE` — the Heads-Down Display's page-0 title |
 | 12 | 3 | `" STRUCT DAMAGE"`, `" INTERN DAMAGE"`, `" WEAPON DAMAGE"` — its page-1 title, indexed by damage category rather than by page |
 | 13 | 19 | Structural component names, walker variant |
-| 14 | ? | The same list for a flyer, selected by the subject type's `+0x50` |
+| 14 | 19 | The same list for a flyer, selected by the subject type's `+0x50`. Only 6 slots are filled (`COCKPIT ARMOR`, `L`/`R NACELLE ARMOR`, `FUSELAGE ARMOR`, `L`/`R WING ARMOR`); the other 13 are empty strings, so the group stays index-compatible with group 13 |
 | 15 | 12 | Internal system names, walker variant |
-| 16 | ? | The same list for a flyer |
+| 16 | 12 | The same list for a flyer — group 15 with the two leg servos replaced by `L`/`R WING SERVO` and the two trailing rear-leg slots blanked |
 | 17 | 1 | `YOU` |
 | 19 | 2 | `NO TARGET SELECTED`, `NO INFO AVAILABLE` — the damage screen with no subject |
 | 20 | 3 | `ID:`, `TARGET:`, `DIST:  ` |
@@ -77,7 +77,7 @@ Groups referenced by decoded code:
 | 30, 31 | 1,1 | `TRG:` and `RNG:`, the scanner's two corner captions (`DAT_004d16b4`/`b8`) |
 | 33 | 2 | `STATUS:` and `OBJECTIVE:`, the squad comm box's two fixed captions |
 | 38, 39 | 1,1 | `TIME:`, `SPEED:` — the gunsight readouts |
-| 40 | ? | Squad comm box's current-order line |
+| 40 | 8 | Squad comm box's current-order line: `ATTACK`, `TRAVEL`, `PATROL`, `FORM UP`, `GUARD`, `FLEE`, `DEAD`, `IMMOBILE` |
 
 Other files: `SYSTEM.STR` alert lines, `COMMAND*.STR` mission briefing and tutorial dialogue,
 `PILOTS.STR` 36 pilot surnames, `SOUNDS.STR` a 57-entry sample catalog.

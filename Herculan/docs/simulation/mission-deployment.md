@@ -1,6 +1,6 @@
 # Mission deployment — triggers, drop pods and walk-ons (DBSIM.EXE)
 
-Solved 2026-08-27; addresses are DBSIM virtual addresses. Partially ported in
+Addresses are DBSIM virtual addresses. Partially ported in
 `Herculan.Engine.Sim.SimObject.AwaitingDeployment` — the gate is honoured, arrival is not.
 
 Not every unit a mission places is in the world when the mission starts. A `script.dat` block-11

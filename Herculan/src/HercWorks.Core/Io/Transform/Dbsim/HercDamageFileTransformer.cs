@@ -7,26 +7,21 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// <summary>
 /// Ported from org.hercworks.core.io.transform.dbsim.HercDamageFileTransformer.
 ///
-/// FIXED — verified against real .DMG files from a retail install
-/// (ES2\VOL\simvol0\dmg\{SKIMMER,SPIDER,OUTLAW}.DMG). Three issues:
-/// 1) The component parse loop always ran exactly 29 times regardless of the actual
-///    `totalComponents` read from the file. SPIDER.DMG and OUTLAW.DMG both genuinely have 29
-///    components (so the old hardcoded loop happened to work for them), but SKIMMER.DMG has
-///    only 1 — decoding it by hand confirmed the fixed-29 loop would write past the end of a
-///    1-element array, an immediate crash on real data. Fixed to loop `totalComponents` times.
-/// 2) The internals-padding skip (`22 - internals.Length` shorts) is only correct for
-///    "normal" hercs, which always store all 22 internals slots (so the skip amount is
-///    genuinely 0 in every real file checked — the padding was never actually exercised for
-///    them). SKIMMER.DMG stores only 1 internal, and unconditionally skipping `(22-1)*2 = 42`
-///    bytes overruns its tiny 18-byte content — decoding confirmed the correct behavior mirrors
-///    what the write path already does (skip 0 padding for a 1-internal/Skimmer-shaped record):
-///    with 0 padding, the remaining bytes decode perfectly into one well-formed component.
-///    Fixed to only apply the 22-slot padding skip when there's more than 1 internal.
-/// 3) The write path multiplied `CritChance` by 100 before writing; read assigned the raw value
-///    directly. Real files settle this: `CritChance` reads as exactly `20` for the large majority
-///    of components across all three files (matching this class's own "0x14 in every known
-///    example" doc comment) — not 2000, which the old write-then-read-back round trip would have
-///    produced. The write path's `* 100` was the actual bug; fixed to write the raw value.
+/// Three format rules, decoded against real <c>.DMG</c> files from a retail install
+/// (<c>ES2\VOL\simvol0\dmg\{SKIMMER,SPIDER,OUTLAW}.DMG</c>). Each is easy to get wrong by assuming
+/// every machine is shaped like a HERC — SKIMMER is the one that proves otherwise:
+/// <list type="number">
+/// <item><b>The component count is variable.</b> Loop the file's own <c>totalComponents</c>. A
+/// normal HERC has 29 (SPIDER, OUTLAW), so a hardcoded 29 looks right until SKIMMER, which has 1
+/// and overruns.</item>
+/// <item><b>The 22-slot internals padding applies only when there is more than 1 internal.</b>
+/// Normal hercs store all 22, so the skip is 0 in every such file and the padding is never
+/// exercised; SKIMMER stores 1, where an unconditional <c>(22-1)*2 = 42</c>-byte skip overruns its
+/// 18-byte content. With 0 padding the remainder decodes into one well-formed component.</item>
+/// <item><b><c>CritChance</c> is written raw, not scaled.</b> It reads as exactly <c>20</c>
+/// (<c>0x14</c>) for the large majority of components across all three files, so a <c>* 100</c> on
+/// write would not round-trip.</item>
+/// </list>
 /// </summary>
 public class HercDamageFileTransformer : ByteTransformer<HercSimDamage> {
 	public override HercSimDamage? Parse(byte[]? inputArray) {

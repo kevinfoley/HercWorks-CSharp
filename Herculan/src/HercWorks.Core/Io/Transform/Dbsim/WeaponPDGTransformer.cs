@@ -5,8 +5,6 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 
 /// <summary>
 /// Ported from org.hercworks.core.io.transform.dbsim.WeaponPDGTransformer.
-/// FIXED — see KNOWN_ISSUES.md history: BytesToObject reset Index but never called SetBytes, so
-/// Bytes was left null/stale on a fresh instance.
 /// </summary>
 public class WeaponPDGTransformer : ByteTransformer<WeaponPaperDiagram> {
 	public override WeaponPaperDiagram? Parse(byte[]? inputArray) {

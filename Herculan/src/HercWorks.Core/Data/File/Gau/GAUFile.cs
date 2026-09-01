@@ -53,9 +53,8 @@ namespace HercWorks.Core.Data.File.Gau;
 ///       across all 9 real files, so the 0 branch is never exercised by retail data.
 ///     - 1068: unread by that constructor (padding).
 ///     - 1072 (INT32): <see cref="HThrottle.TickOffsetX"/>, a small per-herc x nudge for the tick
-///       sprite beside the track (-2 to -4 for most hercs, +14/+17 for RAZOR/TOMAHAWK). NOTE: this
-///       range and the one in <see cref="HThrottle.TickOffsetX"/>'s own comment disagree and no
-///       retail `.GAU` files are on hand to arbitrate; measure before relying on either.
+///       sprite beside the track. Measured across all 9 retail files: -2 (APOCA, OGRE), -3
+///       (COLOSSUS, MAVERICK, OUTLAW, RAPTOR2), -4 (SAMSON), +14 (TOMAHAWK), +17 (RAZOR).
 ///     - 1076-1087 (3 INT32s): confirmed all-zero across all 9 real files.
 ///     - 1088-1103 (X1,Y1,X2,Y2 rect): the bounding container of the whole "roving gunsight"
 ///       HUD-overlay complex that <see cref="HTorsoTwist"/> and <see cref="HReticle"/> are both

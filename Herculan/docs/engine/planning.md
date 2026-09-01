@@ -104,7 +104,7 @@ Silk.NET's cross-platform windowing) so Linux/macOS support doesn't require rewo
   loop.
 - Motivation: a possible future mission editor that renders the mission environment in-engine.
 
-## World scale — recovered (2026-08-13)
+## World scale
 
 **1000 world units are 6 metres.** `WorldScale.WorldUnitsPerMeter` is `1000/6` ≈ **166.667**.
 This is not an estimate — it is the original's own constant.
@@ -163,39 +163,6 @@ Symbols: `Hud_WorldUnitsToMetres`, `Hud_UpdateWaypointIndicator`, `Hud_UpdateSpe
 
 ## Known open RE gaps / divergences
 
-An **index**, not a record: each entry names a gap and points at the doc that owns it. The owning
-doc is authoritative for whether a gap is still open — behavioural divergences live in
-`KNOWN_ISSUES.md`, unimplemented work in each topic doc's own "Not ported" section.
-
-- **SimRandom's 56-entry seed table isn't extracted** from DBSIM's data section — the algorithm
-  is a literal port, seeding isn't. A roll's result also depends on generator-advance count, so
-  treat as statistically faithful, not replay faithful.
-- **Flyer texture banks** — which `.DBA` DBSIM binds for a flyer is untraced, so flyers draw
-  flat-shaded.
-- **`.SNC` audio format unsolved.** No sound anywhere in the engine yet.
-- **AI/behavior trees barely understood** — blocks enemy mech behavior and patrol movement. The
-  group-order layer above it is decoded but unported: `Group_OrderTick` (`00423a74`) advances a
-  group through its row-15 orders, and nothing here does.
-- **Mission deployment gated but not implemented** (`docs/simulation/mission-deployment.md`). A
-  group waiting on a mission action is correctly held out of the world, but no trigger ever fires,
-  so drop pods (the falling `METEOR` that delivers Cybrid reinforcements) and walk-on arrivals never
-  happen and those units never appear. The whole mechanism is RE'd; this is a porting job.
-- **Flyer formation spread unimplemented** (`FUN_00421ee8` untraced; no multi-flyer groups
-  observed in retail missions so far).
-- **External view (`[V]` chase camera) is entirely engine-invented**, not reverse-engineered.
-  DBSIM's own external view placement, transitions, terrain handling and overlay chrome are
-  unrecovered. `Render/ExternalCamera.cs` is the single place a real rule would replace the guess.
-- **GAU widgets are not interactive** (no input wiring) outside the weapon panel/console buttons.
-- **Weapon input divergences** (see `docs/simulation/weapon-mounts.md`): a right press dragged
-  off its widget before release fires nothing here, where the original re-hits on release; TRACK
-  latches but nothing reads it; clicking a pod's row does nothing, where the original toggles the
-  pod.
-- **Combat gaps** (see `docs/simulation/weapon-firing.md` and `handoff-weapon-effects.md`): AI
-  machines never select a target, so they never fire; a struck weapon mount is never destroyed;
-  there is no explosive blast sweep, so a shot's `SplashFactor` share is dropped; ELF/ELF2 tracers
-  draw straight instead of taking their jagged branch. Hit detection itself is complete for all
-  three classes — see `docs/simulation/hit-detection.md`.
-- **Field of view is still a guess** — the original's per-view focal length shift (`view+0x1a`)
-  hasn't been traced.
-- **Terrain raycast: only thin-ray mode is ported.** The swept-volume mode (movement collision)
-  isn't, because nothing in the engine needs it yet.
+Moved to [`../../ROADMAP.md`](../../ROADMAP.md), which is now the single list of what the engine does
+not implement yet. Behavioural divergences — implemented but wrong — stay in
+[`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).

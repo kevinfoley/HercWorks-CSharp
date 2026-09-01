@@ -19,20 +19,10 @@ namespace Herculan.Engine.Sim;
 /// as <c>BEAM.DAT</c> is: <c>Bullet_Construct</c> stores that id at the object's <c>+0x41</c> and
 /// <c>FUN_0040adc0</c> is nothing but <c>table + id * 14</c>.</para>
 ///
-/// <para>Retail ships twelve records for the seven subtype ids real <c>Bullet</c> records use:</para>
-///
-/// | id | Weapons | Shape | Life | Radius | Spread |
-/// |---|---|---|---|---|---|
-/// | 0 | ATC20 | 0 | 20 | 100 | 63 |
-/// | 1 | ATC35, ATC75 | 4 | 18 | 100 | 63 |
-/// | 2 | ATC50, ATC100 | 5 | 16 | 100 | 63 |
-/// | 6 | EMPC | 2 | 30 | 100 | 0 |
-/// | 7 | BEMP | 3 | 30 | 200 | 0 |
-/// | 8 | EMP2 | 2 | 30 | 100 | 0 |
-/// | 9 | PLAS, MFAC | 8 | 40 | 100 | 0 |
-///
-/// <para>Ids 3, 4, 5, 10 and 11 are present but unreachable: no retail <c>Bullet</c> record carries
-/// them. (Those subtype ids do exist on <c>Beam</c> records, which read <c>BEAM.DAT</c> instead.)</para>
+/// <para>Retail ships twelve records, of which only seven subtype ids are reachable — ids 3, 4, 5, 10
+/// and 11 are carried by no <c>Bullet</c> record. (They do exist on <c>Beam</c> records, which read
+/// <c>BEAM.DAT</c> instead.) The field map and the retail table are in
+/// docs/simulation/projectiles.md.</para>
 /// </summary>
 public sealed class BulletCatalog {
 	/// <summary>The resource folder and name <c>FUN_0040ade0</c> opens, by the literal name <c>bullets</c>.</summary>

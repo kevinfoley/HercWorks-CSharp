@@ -6,7 +6,7 @@ namespace HercWorks.Core.Data.File.Msn;
 /// (0/1/10) — plausibly a per-entity toggle or difficulty-tier marker, not confirmed further.
 /// See docs/formats/msn-mission-file.md, "Row #7 field decode".
 /// </summary>
-public class Flag10 : MapObject {
+public class Heading10 : MapObject {
 	/// <summary>0x02 — condition ref; always -1 in all real data.</summary>
 	public short ConditionRef { get; set; }
 

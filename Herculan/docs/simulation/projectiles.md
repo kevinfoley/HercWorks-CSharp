@@ -1,6 +1,6 @@
 # DBSIM.EXE travelling projectiles (`PROJ.DAT` type `Bullet`)
 
-Solved 2026-08-25; addresses are DBSIM virtual addresses. Ported in
+Addresses are DBSIM virtual addresses. Ported in
 `Herculan.Engine.Sim.{Projectile, BulletCatalog}` and `SimWorld.FireBullet`.
 
 The other half of the fire dispatch. A `Beam` record carries `Speed == 0` and is over inside the
@@ -39,7 +39,11 @@ Retail (12 records; the five not listed are unreachable — no `Bullet` record c
 | 6 | EMPC | 2 | 30 | 100 | 256 | 0 |
 | 7 | BEMP | 3 | 30 | 200 | 256 | 0 |
 | 8 | EMP2 | 2 | 30 | 100 | 256 | 0 |
-| 9 | PLAS, MFAC, MAGN | 8 | 40 | 100 | 0 | 0 |
+| 9 | PLAS, MAGN | 8 | 40 | 100 | 0 | 0 |
+
+Weapon names above are the simulator's own. Subtype 9 is reached by two weapon ids, 25 and 28, whose
+templates both carry `ProjDatIndex` 22; id 28 is `MAGN` in DBSIM's name table and `MFAC` in the shell
+catalog, so listing both spellings counts one weapon twice.
 
 ## Spawning — `Bullet_Fire` (`0040b43c`)
 

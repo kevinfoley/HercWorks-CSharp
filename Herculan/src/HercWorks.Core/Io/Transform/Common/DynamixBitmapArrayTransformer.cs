@@ -6,10 +6,8 @@ namespace HercWorks.Core.Io.Transform.Common;
 /// <summary>
 /// Ported from org.hercworks.core.io.transform.common.DynamixBitmapArrayTransformer.
 ///
-/// FIXED — see KNOWN_ISSUES.md history: write used to reverse dba.FileSize before writing it,
-/// but FileSize is stored on read via IndexSegmentLE (a no-op alias of IndexSegment, see ByteOps
-/// notes), so the stored bytes are raw on-disk order — reversing them on write flipped the byte
-/// order relative to how they were read. Write now writes FileSize as stored.
+/// <para><b>Trap:</b> <c>IndexSegmentLE</c> is a no-op alias of <c>IndexSegment</c> despite its
+/// name, so <c>FileSize</c> is stored in raw on-disk order. Do not byte-swap it on write.</para>
 /// </summary>
 public class DynamixBitmapArrayTransformer : ByteTransformer<DynamixBitmapArray> {
 	public override DynamixBitmapArray? Parse(byte[]? inputArray) {
@@ -68,11 +66,7 @@ public class DynamixBitmapArrayTransformer : ByteTransformer<DynamixBitmapArray>
 
 		objectBytes.Write(DynamixBitmapArray.HeaderMagic, 0, DynamixBitmapArray.HeaderMagic.Length);
 
-		// FIXED — see KNOWN_ISSUES.md history: this used to reverse FileSize before writing, but
-		// FileSize is stored on read via IndexSegmentLE, which (despite the name) is a no-op alias
-		// of IndexSegment — so the stored bytes are already in raw on-disk order. Reversing them
-		// here flipped the byte order relative to how they were read. Now written as stored,
-		// matching the read path (the side this project's own features already rely on).
+		// Written as stored — see the IndexSegmentLE trap on this class.
 		objectBytes.Write(dba.FileSize!, 0, dba.FileSize!.Length);
 
 		var rowBytes = WriteShortLE(dba.ArrayRow);

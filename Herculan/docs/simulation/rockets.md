@@ -1,6 +1,6 @@
 # DBSIM.EXE launcher rounds (`PROJ.DAT` type `Missile`)
 
-Solved 2026-08-27; addresses are DBSIM virtual addresses. Ported in
+Addresses are DBSIM virtual addresses. Ported in
 `Herculan.Engine.Sim.{Rocket, RocketCatalog}` and `SimWorld.FireRocket`.
 
 The third and last fire branch. A `Beam` record resolves inside the call that fired it

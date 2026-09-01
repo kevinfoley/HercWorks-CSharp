@@ -32,8 +32,6 @@ public class TSShape : TSPartList {
 
 		str.Append(",\n");
 		str.Append("\"sequences\" : ").Append(ArrayToString(SequenceList)).Append(",\n");
-		// FIXED — see KNOWN_ISSUES.md history: this used to print SequenceList again here instead
-		// of TransformList (a copy/paste bug).
 		str.Append("\"transforms\" : ").Append(ArrayToString(TransformList));
 
 		return str;

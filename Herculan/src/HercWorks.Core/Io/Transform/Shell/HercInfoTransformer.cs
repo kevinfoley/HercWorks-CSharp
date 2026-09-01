@@ -6,10 +6,9 @@ namespace HercWorks.Core.Io.Transform.Shell;
 
 /// <summary>
 /// Ported from org.hercworks.core.io.transform.shell.HercInfoTransformer.
-/// FIXED — see KNOWN_ISSUES.md history: TotalHercs and each entry's HercId used to be read
-/// little-endian (IndexShortLE) but written big-endian (WriteShort). Fixed write to use
-/// WriteShortLE for both, matching read — confirmed correct in practice: the WinForms Herc Stats
-/// editor already uses this read path successfully against real retail HERC_INF.DAT data.
+/// <c>TotalHercs</c> and each entry's <c>HercId</c> are little-endian on both sides
+/// (<c>IndexShortLE</c> / <c>WriteShortLE</c>). The read path is validated in practice: the
+/// WinForms Herc Stats editor uses it against real retail HERC_INF.DAT data.
 /// </summary>
 public class HercInfoTransformer : ByteTransformer<HercInf> {
 	public override HercInf? Parse(byte[]? inputArray) {

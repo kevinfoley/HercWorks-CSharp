@@ -15,7 +15,7 @@ namespace HercWorks.Core.Data.File.Msn;
 /// its own real pair count. See docs/formats/msn-mission-file.md, "Row #17 field decode" and
 /// "The tail (0x10-0x39) — resolved".
 /// </summary>
-public class LinkedRef58 {
+public class UnitSpawn58 {
 	/// <summary>0x00 — condition ref; rare, 98% are -1, only 2 real records use it.</summary>
 	public short ConditionRef { get; set; }
 
@@ -55,11 +55,11 @@ public class LinkedRef58 {
 	/// element of each pair ranges 20-360 (plausibly still LUT/GUID-shaped, not confirmed by any
 	/// resolver call); the second is only ever 6 or 7.
 	/// </summary>
-	public LinkedRef58Pair[] Pairs { get; set; } = new LinkedRef58Pair[10];
+	public UnitSpawn58Pair[] Pairs { get; set; } = new UnitSpawn58Pair[10];
 }
 
-/// <summary>One (ref, tag) entry of <see cref="LinkedRef58.Pairs"/> — 4 bytes on disk.</summary>
-public class LinkedRef58Pair {
+/// <summary>One (ref, tag) entry of <see cref="UnitSpawn58.Pairs"/> — 4 bytes on disk.</summary>
+public class UnitSpawn58Pair {
 	public short Ref { get; set; } = -1;
 	public short Tag { get; set; } = -1;
 }

@@ -1,10 +1,10 @@
 # Missile lock
 
-Solved and shipped 2026-08-29. `MechObject.MissileLockTick`, `WeaponMounts.MissileLock`.
+Ported in `MechObject.MissileLockTick`, `WeaponMounts.MissileLock`.
 
 ## `manager+0x0a` is the lock state, not an ammunition count
 
-Its reader is named `Mech_MissileAmmoCount` (mech vtable `+0x6c`, `004155ac`) and the name is wrong —
+Its reader is named `Mech_MissileAmmoCount` (mech vtable `+0x6c`, `004155ac`) and the name is wrong — <!-- doc-lint: ok -->
 it counts nothing. The array is **five flags, one per `PROJ.DAT` missile subtype: has this class of
 launcher achieved lock on the machine's current target.**
 

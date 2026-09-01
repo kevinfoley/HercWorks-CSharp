@@ -157,12 +157,9 @@ public class DynamixPaletteTransformer : ByteTransformer<DynamixPalette> {
 	/// Converts a ColorBytes object to a 4-byte array based on the parent DynamixPalette's
 	/// scalar value.
 	///
-	/// FIXED — see KNOWN_ISSUES.md history: this used to write byte0=R, byte1=B, byte2=G, while
-	/// ToColorBytes() above reads byte0=R, byte1=G, byte2=B — the G/B channels were swapped
-	/// relative to the read path, so writing a palette then reading it back would swap green and
-	/// blue. Fixed to match the read path's channel order (write is the side this project's own
-	/// features don't yet exercise, so aligning it to the already-used read path is the lower-risk
-	/// direction).
+	/// Channel order is <c>byte0=R, byte1=G, byte2=B</c>, matching <see cref="ToColorBytes"/>.
+	/// <b>The read path is the trusted side</b> — it is exercised against real <c>.DPL</c> files and
+	/// this write path is not, so keep write aligned to read rather than the other way round.
 	/// </summary>
 	private static byte[] ToDynamixColor(ColorBytes color, int scalar) {
 		var data = new byte[4];

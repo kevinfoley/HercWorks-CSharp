@@ -15,8 +15,8 @@ public static class GameInstall {
 	/// <summary>
 	/// Resolves an install root, in order: an explicit <paramref name="explicitPath"/> (a command
 	/// line argument), the <c>ES2_GAME_PATH</c> environment variable, then a short list of paths
-	/// relative to the running binary that cover this repo's own layout
-	/// (<c>E:\ES2Stuff\ES2</c> reached from <c>src/Herculan.Engine.Host/bin/...</c>).
+	/// relative to the running binary that cover a sibling install checked out beside this
+	/// repo, reached from <c>src/Herculan.Engine.Host/bin/...</c>.
 	/// Returns null when nothing matched, so the caller can print something more useful than a
 	/// stack trace.
 	/// </summary>

@@ -6,11 +6,10 @@ namespace HercWorks.Core.Io.Transform.Shell;
 
 /// <summary>
 /// Ported from org.hercworks.core.io.transform.shell.ArmHercTransformer.
-/// FIXED — see KNOWN_ISSUES.md history: WriteUiImage used to take a UiImageDBA (not
-/// UiHardpointGraphic), so even though the top/bottom herc images are actually
-/// UiHardpointGraphic instances with real OutlineX/OutlineY data, the write path could only see
-/// the UiImageDBA-level members and re-emitted OriginX/OriginY in the slot where
-/// OutlineX/OutlineY belongs. WriteUiImage now pattern-matches on the actual runtime type (always
+/// <c>WriteUiImage</c> pattern-matches on the actual runtime type rather than taking a
+/// <c>UiImageDBA</c>: the top/bottom herc images are <c>UiHardpointGraphic</c> instances carrying
+/// real OutlineX/OutlineY, and a <c>UiImageDBA</c>-typed parameter can only see the base members,
+/// which would put OriginX/OriginY in the slot where OutlineX/OutlineY belongs. (Always
 /// UiHardpointGraphic in practice, since that's the only type this class ever constructs for
 /// these fields) to write the real outline values, without changing ArmHerc.HercTopImg/HercBotImg's
 /// declared UiImageDBA? type.

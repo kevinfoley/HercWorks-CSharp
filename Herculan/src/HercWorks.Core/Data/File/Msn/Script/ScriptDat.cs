@@ -34,7 +34,7 @@ public class ScriptDat {
 	public ScriptCoordinate[] Coordinates { get; set; } = [];
 
 	/// <summary>
-	/// Block 2 — row #7 (<see cref="Flag10"/>) export: the payload field only. DBSIM multiplies
+	/// Block 2 — row #7 (<see cref="Heading10"/>) export: the payload field only. DBSIM multiplies
 	/// this by 182 (the confirmed degrees-&gt;BAM constant) at load time, reframing it as a heading
 	/// in degrees rather than a generic discrete flag — that transform is DBSIM-side, not part of
 	/// the on-disk value stored here.
@@ -54,7 +54,7 @@ public class ScriptDat {
 	public ScriptActionPair[] ActionPairs { get; set; } = [];
 
 	/// <summary>
-	/// Block 7 — row #12 (<see cref="SpawnRecord144"/>) export, 134 bytes/record: <b>the mech
+	/// Block 7 — row #12 (<see cref="EntityTemplate144"/>) export, 134 bytes/record: <b>the mech
 	/// roster</b>. One record per mech the mission can field, carrying its type, weapon fit and
 	/// (usually unset) placement. DBSIM builds one live mech per record its block-11 activation
 	/// marks; VSHELL's own `ShellMap` reader keeps the whole record for UI display.
@@ -84,7 +84,7 @@ public class ScriptDat {
 	public ScriptLinkedRef22Export[] LinkedRefs22 { get; set; } = [];
 
 	/// <summary>
-	/// Block 11 — row #16 (<see cref="UnkEntity164Bytes"/>) export, 156 bytes/record: <b>the groups</b>,
+	/// Block 11 — row #16 (<see cref="EntitySpawn164"/>) export, 156 bytes/record: <b>the groups</b>,
 	/// and the reason anything is anywhere. Each record past the first activates roster slots — the
 	/// discriminator picks which roster, the ref array picks the slots — and carries the spawn point,
 	/// heading, formation and route its members take. <b>Record 0 is special</b>: it activates
@@ -101,13 +101,13 @@ public class ScriptDat {
 	public ScriptEntity164Export[] Entities164 { get; set; } = [];
 
 	/// <summary>
-	/// Block 12 — row #17 (<see cref="LinkedRef58"/>) export, 54 bytes/record, unfiltered (row #17
-	/// has no GUID to filter on). DBSIM reads and fully discards this block. <see cref="ScriptLinkedRef58Export.PairRefs"/>/
-	/// <see cref="ScriptLinkedRef58Export.PairTags"/> are the source record's <c>Pairs[10]</c> array
+	/// Block 12 — row #17 (<see cref="UnitSpawn58"/>) export, 54 bytes/record, unfiltered (row #17
+	/// has no GUID to filter on). DBSIM reads and fully discards this block. <see cref="ScriptUnitSpawn58Export.PairRefs"/>/
+	/// <see cref="ScriptUnitSpawn58Export.PairTags"/> are the source record's <c>Pairs[10]</c> array
 	/// re-exported as parallel arrays (all 10 refs, then all 10 tags) rather than interleaved pairs —
 	/// the writer's own on-disk order. <c>ConditionRef</c> (0x00) and <c>PairCount</c> (0x10) are not exported.
 	/// </summary>
-	public ScriptLinkedRef58Export[] LinkedRefs58 { get; set; } = [];
+	public ScriptUnitSpawn58Export[] LinkedRefs58 { get; set; } = [];
 
 	/// <summary>
 	/// Block 13 — the mission's herc/weapon unlock package: the populated prefix of row #4's
@@ -167,7 +167,7 @@ public class ScriptActionPair {
 }
 
 /// <summary>
-/// Block 7 entry — 134 bytes, row #12 (<see cref="SpawnRecord144"/>) minus GUID/ConditionRef/
+/// Block 7 entry — 134 bytes, row #12 (<see cref="EntityTemplate144"/>) minus GUID/ConditionRef/
 /// InheritIndex/CompoundConditionPartner and minus <c>SmallDiscrete2</c> (skipped by the writer,
 /// not exported). <see cref="HeadBytes"/> = source offsets 0x08-0x2F (BinaryFlag+NearConstant+
 /// DeadZone), <see cref="TailBytes"/> = source offsets 0x4C-0x8F (PairedRefs,
@@ -325,9 +325,9 @@ public class ScriptLinkedRef22Export {
 }
 
 /// <summary>
-/// Block 11 entry — 156 bytes, row #16 (<see cref="UnkEntity164Bytes"/>) minus GUID/ConditionRef/
+/// Block 11 entry — 156 bytes, row #16 (<see cref="EntitySpawn164"/>) minus GUID/ConditionRef/
 /// CompoundConditionPartner and minus <c>TrailingDiscriminator</c> (0x78, skipped, not exported).
-/// Field names/offsets otherwise match <see cref="UnkEntity164Bytes"/> exactly (confirmed byte-for-
+/// Field names/offsets otherwise match <see cref="EntitySpawn164"/> exactly (confirmed byte-for-
 /// byte against the writer). <see cref="ArrayA"/>/<see cref="ArrayB"/> together are the source
 /// row's Payload1-4 (0x7A-0x81) + DeadZone2 (0x82-0xA1) span, re-split into two interleaved
 /// 10-short arrays by the writer's actual read order (even source offsets in A, odd in B).
@@ -351,14 +351,14 @@ public class ScriptEntity164Export {
 }
 
 /// <summary>
-/// Block 12 entry — 54 bytes, row #17 (<see cref="LinkedRef58"/>) minus ConditionRef (0x00) and
+/// Block 12 entry — 54 bytes, row #17 (<see cref="UnitSpawn58"/>) minus ConditionRef (0x00) and
 /// PairCount (0x10) — both skipped, not exported; row #17 is written unfiltered (no GUID to
-/// filter on). <see cref="PairRefs"/>/<see cref="PairTags"/> are <see cref="LinkedRef58.Pairs"/>'s
+/// filter on). <see cref="PairRefs"/>/<see cref="PairTags"/> are <see cref="UnitSpawn58.Pairs"/>'s
 /// 10 (ref, tag) entries re-exported as parallel arrays (all 10 refs, then all 10 tags) — the
 /// writer's own on-disk order, not an array of pair structs. DBSIM reads and fully discards every
 /// instance of this block.
 /// </summary>
-public class ScriptLinkedRef58Export {
+public class ScriptUnitSpawn58Export {
 	public short Unk02 { get; set; }
 	public short Unk04 { get; set; }
 	public short Discriminator { get; set; }

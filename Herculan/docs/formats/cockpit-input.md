@@ -170,7 +170,7 @@ clear to `0` and repaint. That is a button popping back up when you drag off it 
 when you come back, and it is the *only* thing this function does.
 
 **There is no hover state anywhere in DBSIM.** Beware any symbol set that still names `00452954`
-`Widget_OnMouseHover` — that reading of this toggle is wrong. Two independent facts rule hover out: the
+`Widget_OnMouseHover` — that reading of this toggle is wrong. Two independent facts rule hover out: the <!-- doc-lint: ok -->
 `Widget_PressedIndex != -1` guard means the function cannot run unless a button is held, and
 `CockpitMouse_Init`'s event mask (`0x1e`, §3) never subscribes to plain movement in the first place,
 so nothing would drive a hover highlight even if the code wanted one.

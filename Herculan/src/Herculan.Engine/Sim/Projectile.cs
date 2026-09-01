@@ -95,9 +95,11 @@ public sealed class Projectile {
 	public short MissileId => Data.MissileId;
 
 	/// <summary>
-	/// The subtype the tick singles out by literal value: 9, the plasma cannon's record (<c>PLAS</c>,
-	/// <c>MFAC</c> and <c>MAGN</c> all resolve to it). It is the one <c>Bullet</c> record with a
-	/// nonzero <c>SplashFactor</c>, and the only one that homes.
+	/// The subtype the tick singles out by literal value: 9, the plasma cannon's record. Two weapon
+	/// ids reach it — 25 (<c>PLAS</c>) and 28, which the simulator's own name table calls
+	/// <c>MAGN</c> and the shell catalog calls <c>MFAC</c>; both templates carry
+	/// <c>ProjDatIndex</c> 22. It is the one <c>Bullet</c> record with a nonzero
+	/// <c>SplashFactor</c>, and the only one that homes.
 	/// </summary>
 	public const short PlasmaSubtype = 9;
 

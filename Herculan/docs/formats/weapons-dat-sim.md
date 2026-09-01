@@ -87,8 +87,8 @@ makes those two continuous beams. The mount scales it by its own `+0x63`, a cons
 
 `0x3c` is 1 everywhere except catalog id 19 (the big EMP), where it is 3. `0x3e == 0x13` is true for
 exactly one weapon too — id 23, `EMP2` — because the value is that weapon's own `PROJ.DAT` row; the
-gun dispatch reads it as a burst flag. An earlier note attributed both to `EMP2`; they are different
-weapons. See [`../simulation/weapon-firing.md`](../simulation/weapon-firing.md#the-gun-branches).
+gun dispatch reads it as a burst flag. The two conditions therefore pick out different weapons. See
+[`../simulation/weapon-firing.md`](../simulation/weapon-firing.md#the-gun-branches).
 
 See [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md) for the mount fields and
 [`../simulation/weapon-firing.md`](../simulation/weapon-firing.md) for the fire path.
@@ -101,12 +101,12 @@ pointer from a 33-entry string array at `00498eb0` into `+0x52`. That pointer is
 gauge prints, and it is **not** the shell catalog's name for the same id. See
 [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#names--fun_0040e18c).
 
-## `ProjDatIndex` (tail-relative offset 0x1c, absolute offset 0x3e) — SOLVED
+## `ProjDatIndex` — tail-relative offset 0x1c, absolute offset 0x3e
 
 Answers how a weapon id maps to a `PROJ.DAT` record. Read via `WeaponMountTemplate_GetByWeaponId` (`0x0040fe84`) and `MechLoadout_ConstructWeaponMounts` (`0x0040fff8`). Both `simvol0/dat/WEAPONS.DAT` and `SHELL0/GAM/WEAPONS.DAT` share the same 33-entry weapon-id indexing.
 
 - **`0x21` (33) -- no `PROJ.DAT` lookup.** Real case: `ECM` (electronic-warfare, no projectile).
-- **`0x22` (34) -- resolved via `Proj_LookupRecord(category=0/*Missile*/, secondaryKey)`**, a `(category, subtypeId)` search. Real cases: `MSL6`, `MSL8`, `MSL10`, `FLYMSL` (tube/rack missile launchers). The secondary key is the hardpoint's own ammunition type out of the mission file's second loadout array, resolved 2026-08-23 — see [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md).
+- **`0x22` (34) -- resolved via `Proj_LookupRecord(category=0/*Missile*/, secondaryKey)`**, a `(category, subtypeId)` search. Real cases: `MSL6`, `MSL8`, `MSL10`, `FLYMSL` (tube/rack missile launchers). The secondary key is the hardpoint's own ammunition type out of the mission file's second loadout array — see [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md).
 - **Otherwise -- direct flat array index into `PROJ.DAT`** (`index * 0x24 + ProjDat_RecordTable`, via `Proj_LookupRecordByIndex` at `0x0040ffb0`). Confirmed for all other real weapons.
 - **0 for non-firing entries** (`NONE`, `LAEW`, `MINE`, `TARG`, `SHLD`, `TURB`, `ENRG`). Field is inert for passive stat-boost systems. `LAEW` coincidentally resolves to index 0 (`ATC20`).
 

@@ -257,7 +257,7 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 
 		// HERC UNLOCKS — mirrors the read path exactly: same id range (0 until HercLUT.Mongoose.Id),
 		// same source (save.UnlockedHercs), instead of writing a hardcoded pattern over an
-		// unrelated id range. See KNOWN_ISSUES.md history for the bug this replaces.
+		// unrelated id range.
 		for (short l = 0; l < HercLUT.Mongoose.Id; l++) {
 			var herc = HercLUT.GetById(l)!;
 			short val = save.UnlockedHercs.TryGetValue(herc, out var unlockVal) ? unlockVal : (short)0;

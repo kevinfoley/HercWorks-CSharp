@@ -11,21 +11,10 @@ namespace Herculan.Engine.Sim;
 /// id. Everything that asks "does this machine have a Shield Pod" is really asking whether that
 /// slot is non-null.</para>
 ///
-/// <para><b>The ids are the shell catalog's own.</b> The switch keys on the mount template's
-/// <c>+0x56</c>, and <c>Weapons_LoadResourceTables</c> (<c>0040fc8c</c>) writes that field as the
-/// record's own table index while loading <c>dat\WEAPONS.DAT</c> — so it is the same 0-32 weapon id
-/// <c>SHELL0.VOL</c>'s <c>gam\WEAPONS.DAT</c> catalog and <c>player.mec</c>'s hardpoint list use.
-/// Read against the retail catalog the five slots come out as ECM, TARG, SHLD, ENRG and TURB, which
-/// is exactly the manual's pod list.</para>
-///
-/// <para><b>Slot order is not id order.</b> <c>FUN_0040fb2c</c>'s cases assign
-/// <c>0x12→[0] 0x1d→[1] 0x1e→[2] 0x1f→[4] 0x20→[3]</c>, so ENRG and TURB are crossed relative to
-/// their ids. The array indices are what the consumers use, and they are what the field names here
-/// stand for; the crossing matters only if a future reader tries to derive one from the other.</para>
-///
-/// <para>The switch <i>assigns</i> rather than accumulates, so fitting the same pod twice fills one
-/// slot and the second copy contributes nothing — the last mount in hardpoint order wins. That is
-/// reproduced below.</para>
+/// <para>The slot/id table, why the ids are the shell catalog's, why slot order is not id order, and
+/// the shared pod damage curve are in docs/simulation/reactor-energy-pool.md, "Equipment pods". The
+/// constants below are the ids that document names; the last mount in hardpoint order wins a slot,
+/// which is reproduced here.</para>
 /// </summary>
 /// <param name="Ecm">Slot 0, <c>mech+0x307</c> — the ECM pod (catalog id 18).</param>
 /// <param name="Targeting">Slot 1, <c>mech+0x30b</c> — the targeting computer (id 29).</param>

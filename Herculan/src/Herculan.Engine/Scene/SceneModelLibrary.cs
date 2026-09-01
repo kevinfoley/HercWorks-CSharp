@@ -106,6 +106,16 @@ public sealed class SceneModelLibrary {
 		_shading = ShadeRamp.Load(content, theater.PaletteName) is { } ramp
 			? new SurfaceShading(ramp, _palette)
 			: null;
+
+		// Every lit flat surface — which is nearly every surface of a HERC or a building — takes its
+		// colour from the palette's shade-ramp table, so without one they all come out
+		// DtsMeshBuilder.FallbackColor grey. Every retail theater palette carries the table, so this
+		// means the palette failed to load or is not one of the game's.
+		if (_shading is not { HasShadeRamps: true }) {
+			Console.Error.WriteLine(
+				$"WARNING: theater palette {theater.PaletteName}.DPL has no shade-ramp table; " +
+				"lit flat surfaces will draw untextured and unlit.");
+		}
 	}
 
 	/// <summary>Every model built so far, in first-requested order.</summary>

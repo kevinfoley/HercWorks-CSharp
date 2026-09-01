@@ -39,7 +39,7 @@ namespace Herculan.Engine.Render;
 /// </list>
 ///
 /// <para>Pass a <see cref="TextureAtlas"/> and a <see cref="SurfaceShading"/> to resolve all three.
-/// Without them, surfaces fall back to <see cref="ResolveSurfaceColor"/> or a flat placeholder.</para>
+/// Without them, surfaces fall back to <see cref="FallbackColor"/>.</para>
 /// </summary>
 /// <summary>
 /// One node's share of a shape's geometry: the triangles of every group that hangs from a single
@@ -662,14 +662,6 @@ public static class DtsMeshBuilder {
 				point.Z + offset.Z);
 		}
 
-		Vector3[]? surfaceColors = null;
-		if (group.Surfaces != null) {
-			surfaceColors = new Vector3[group.Surfaces.Length];
-			for (int i = 0; i < group.Surfaces.Length; i++) {
-				surfaceColors[i] = ResolveSurfaceColor(group.Surfaces[i].FrontColor, atlas);
-			}
-		}
-
 		foreach (var polyObject in group.Polys) {
 			if (polyObject is not TSPoly poly || poly.VertexCount < 3) {
 				continue;
@@ -712,8 +704,13 @@ public static class DtsMeshBuilder {
 			Vector3[]? vertexNormals = ResolveVertexNormals(polyObject, group);
 			Vector3? faceNormal = ResolveFaceNormal(poly, group);
 
+			// Every poly type that resolves at all has resolved by here: a textured one samples the
+			// atlas (rank Textured, which ignores this colour), a plain solid one carries its ramped
+			// fill, and a lit flat one gets its colour per fragment from shadeRamp. FallbackColor is
+			// what is left — a lit flat poly in a theater whose palette has no shade-ramp table, which
+			// no retail theater is. SceneModelLibrary warns when that happens.
 			Vector3 color = solid?.Fill
-				?? (rank == Ranks.UnresolvedTexture ? TextureFallbackColor : ResolveColor(poly, surfaceColors));
+				?? (rank == Ranks.UnresolvedTexture ? TextureFallbackColor : FallbackColor);
 			Vector3 first = points[firstIndex];
 			Vector3 localFirst = localPoints[firstIndex];
 			int polyId = sink.NextPolyId();
@@ -887,8 +884,11 @@ public static class DtsMeshBuilder {
 	/// <summary>
 	/// Resolves a textured poly to its frame in the atlas. The frame index is
 	/// <c>Surfaces[ColorIndexId / 4].FrontColor</c> — the <c>/ 4</c> because <c>ColorIndexId</c> is
-	/// stored as <c>surfaceIndex * 4</c> (confirmed two independent ways, see
-	/// <see cref="ResolveColor"/>), and <c>FrontColor</c> because nothing here backface-culls, so the
+	/// stored on disk as <c>surfaceIndex * 4</c> rather than a plain surface index, confirmed two
+	/// independent ways: from VSHELL's own texture-poly render code, and from the DTS reader's
+	/// <c>colorCount / 4</c> read convention. Every other poly type indexes its surface the same way
+	/// (<see cref="ResolveShadeRamp"/>, <see cref="ResolveSolidColors"/>) — it is what the value
+	/// <i>means</i> that differs. <c>FrontColor</c> because nothing here backface-culls, so the
 	/// front face is what gets drawn for every poly regardless of facing.
 	/// </summary>
 	private static AtlasRect? ResolveFrame(TSPoly poly, TSSurfaceEntry[]? surfaces, TextureAtlas? atlas) {
@@ -903,31 +903,6 @@ public static class DtsMeshBuilder {
 
 		return atlas.Frame(surfaces[surfaceIndex].FrontColor);
 	}
-
-	/// <summary>
-	/// Resolves a poly's flat colour. <c>ColorIndexId</c> is stored on disk as
-	/// <c>surfaceIndex * 4</c>, not a plain surface index — confirmed two independent ways, from
-	/// VSHELL's own texture-poly render code and from the DTS reader's <c>colorCount / 4</c> read
-	/// convention.
-	/// </summary>
-	private static Vector3 ResolveColor(TSPoly poly, Vector3[]? surfaceColors) {
-		if (poly is TSSolidPoly solidPoly && surfaceColors != null) {
-			int surfaceIndex = solidPoly.ColorIndexId / 4;
-			if (surfaceIndex >= 0 && surfaceIndex < surfaceColors.Length) {
-				return surfaceColors[surfaceIndex];
-			}
-		}
-
-		return FallbackColor;
-	}
-
-	/// <summary>
-	/// The <b>stand-in</b> colour for a flat-shaded surface, used only when the theater's palette
-	/// carries no shade-ramp table: the surface value read as a frame index into the bound atlas,
-	/// averaged. See <see cref="ResolveShadeRamp"/> for what the value actually is.
-	/// </summary>
-	private static Vector3 ResolveSurfaceColor(short frontColor, TextureAtlas? atlas) =>
-		atlas?.AverageColor(frontColor) ?? FallbackColor;
 
 	/// <summary>
 	/// Whether a poly is one of the two <b>lit</b> flat types, whose surface value names a material
@@ -1022,7 +997,7 @@ public static class DtsMeshBuilder {
 	/// The material ramp a lit flat surface names, or -1 when it names none.
 	///
 	/// <para>The value is <c>Surfaces[ColorIndexId / 4].FrontColor</c>, the same field and the same
-	/// <c>/ 4</c> every other poly type reads (see <see cref="ResolveColor"/>) — it is what the value
+	/// <c>/ 4</c> every other poly type reads (see <see cref="ResolveFrame"/>) — it is what the value
 	/// <i>means</i> that differs. <c>TSShadedPoly_Render</c> hands it to
 	/// <c>Palette_ShadeRampLookup</c>, which treats it as a slot in the palette's own ramp table; see
 	/// <see cref="SurfaceShading.ShadedColor"/>.</para>
@@ -1083,7 +1058,7 @@ public static class DtsMeshBuilder {
 	/// lights: it runs <c>Light_ComputeShadeForFace</c> and puts the result through the palette's own
 	/// per-colour shade ramp before the same table. That is what almost every surface of a HERC or a
 	/// building is — 1227 of APOCA's 1368 polys, 2049 of BASES_AN's — and it is <b>not</b> changed
-	/// here; those keep the atlas-average stand-in and the renderer's own lighting.</para>
+	/// here; those go through <see cref="ResolveShadeRamp"/> and the renderer's own lighting.</para>
 	///
 	/// <para>Which is why this correction is small and safe as well as right. Retail geometry uses
 	/// plain <c>TSSolidPoly</c> almost nowhere: 12 polys in <c>BULLETS.DTS</c>, 57 in

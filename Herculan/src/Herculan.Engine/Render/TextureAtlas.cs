@@ -1,4 +1,3 @@
-using System.Numerics;
 using HercWorks.Core.Data.File.Dyn;
 using HercWorks.Core.Data.Struct;
 
@@ -38,17 +37,15 @@ public sealed class TextureAtlas {
 	private const int MaxDimension = 4096;
 
 	private readonly AtlasRect?[] _frames;
-	private readonly Vector3?[] _averageColors;
 	private readonly (int Width, int Height)[] _frameSizes;
 
 	private TextureAtlas(byte[] pixels, byte[] indexPixels, int width, int height, AtlasRect?[] frames,
-			Vector3?[] averageColors, (int Width, int Height)[] frameSizes) {
+			(int Width, int Height)[] frameSizes) {
 		Pixels = pixels;
 		IndexPixels = indexPixels;
 		Width = width;
 		Height = height;
 		_frames = frames;
-		_averageColors = averageColors;
 		_frameSizes = frameSizes;
 	}
 
@@ -96,8 +93,6 @@ public sealed class TextureAtlas {
 	/// per-pixel 256-colour dithering, so the frame's average colour stands in for the swatch as a
 	/// single representative colour.
 	/// </summary>
-	/// TODO: This looks like a hacky workaround rather than a proper recreation of the way that
-	/// color works in the original engine.
 	/// <summary>
 	/// DBA frame <paramref name="frameIndex"/>'s size in its own pixels, or (0, 0) when that frame is
 	/// out of range or was empty. Packing relocates a frame but does not resize it, so this is the
@@ -109,9 +104,6 @@ public sealed class TextureAtlas {
 	/// </summary>
 	public (int Width, int Height) FrameSize(int frameIndex) =>
 		frameIndex >= 0 && frameIndex < _frameSizes.Length ? _frameSizes[frameIndex] : (0, 0);
-
-	public Vector3? AverageColor(int frameIndex) =>
-		frameIndex >= 0 && frameIndex < _averageColors.Length ? _averageColors[frameIndex] : null;
 
 	/// <summary>
 	/// Decodes and packs <paramref name="bank"/>. Returns null when the bank holds no usable frames.
@@ -133,7 +125,6 @@ public sealed class TextureAtlas {
 		// Decode first: a frame's real size is only known once its pixels are in hand, and the
 		// packer needs every size up front to choose a sensible atlas width.
 		var decoded = new Decoded?[images.Length];
-		var averageColors = new Vector3?[images.Length];
 		long totalArea = 0;
 		int widest = 0;
 
@@ -145,7 +136,6 @@ public sealed class TextureAtlas {
 
 			var (pixels, indexPlane) = DecodeFrame(frame, palette, transparentIndex0);
 			decoded[i] = new Decoded(pixels, indexPlane, frame.Cols, frame.Rows);
-			averageColors[i] = AverageColorOf(pixels);
 			totalArea += (frame.Cols + Padding) * (long)(frame.Rows + Padding);
 			widest = System.Math.Max(widest, frame.Cols);
 		}
@@ -161,7 +151,7 @@ public sealed class TextureAtlas {
 
 		while (true) {
 			if (TryPack(decoded, width, out var placements, out int usedHeight)) {
-				return Compose(decoded, placements, width, NextPowerOfTwo(usedHeight), averageColors);
+				return Compose(decoded, placements, width, NextPowerOfTwo(usedHeight));
 			}
 
 			if (width >= MaxDimension) {
@@ -214,7 +204,7 @@ public sealed class TextureAtlas {
 		return usedHeight > 0;
 	}
 
-	private static TextureAtlas Compose(Decoded?[] decoded, Placement[] placements, int width, int height, Vector3?[] averageColors) {
+	private static TextureAtlas Compose(Decoded?[] decoded, Placement[] placements, int width, int height) {
 		var pixels = new byte[width * height * 4];
 		var indexPixels = new byte[width * height * 4];
 		var frames = new AtlasRect?[decoded.Length];
@@ -246,20 +236,7 @@ public sealed class TextureAtlas {
 				(at.Y + frame.Height) / (float)height);
 		}
 
-		return new TextureAtlas(pixels, indexPixels, width, height, frames, averageColors, sizes);
-	}
-
-	private static Vector3 AverageColorOf(byte[] rgbaPixels) {
-		long r = 0, g = 0, b = 0;
-		int count = rgbaPixels.Length / 4;
-		for (int i = 0; i < count; i++) {
-			r += rgbaPixels[i * 4];
-			g += rgbaPixels[i * 4 + 1];
-			b += rgbaPixels[i * 4 + 2];
-		}
-		return count == 0
-			? Vector3.Zero
-			: new Vector3(r / (255f * count), g / (255f * count), b / (255f * count));
+		return new TextureAtlas(pixels, indexPixels, width, height, frames, sizes);
 	}
 
 	/// <summary>

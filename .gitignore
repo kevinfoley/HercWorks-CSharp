@@ -3,6 +3,7 @@ herc-works-mdk-main/
 *.zip
 tools/*
 !tools/ghidra_scripts
+!tools/scripts
 Herculan/.vs/
 Herculan/src/HercWorks.UI/bin/
 Herculan/src/HercWorks.UI/obj/

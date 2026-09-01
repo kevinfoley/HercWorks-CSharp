@@ -132,6 +132,8 @@ public static class SimMath {
 	/// at 0, returning the new value. DBSIM takes a pointer into a struct (the timer lives at a
 	/// +1 byte offset inside its owner); the engine passes the field by reference instead, which
 	/// is the same operation without the unaligned-pointer arithmetic.
+	/// The owning record is 3 bytes and the meaning of its leading byte is still open — see
+	/// <c>docs/simulation/dbsim-physics-notes.md</c>.
 	/// </summary>
 	public static short CountdownTimerTick(ref short timer) {
 		timer = (short)(timer - TickDelta);

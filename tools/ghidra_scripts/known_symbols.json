@@ -19,6 +19,13 @@
     "                confidence, so the apply script does no string-editing of names).",
     "  description - short evidence/meaning note, safe to also use as the plate comment body.",
     "  source      - repo doc or memory section this was extracted from, for traceability.",
+    "  signature   - OPTIONAL, functions only. Full C prototype. Record it ONLY when the argument",
+    "                list was derived from the disassembly by hand -- NEVER by copying what Ghidra",
+    "                displays. Every prototype in that database is unverified ANALYSIS-tier",
+    "                inference, and it gets the calling convention wrong: it labels these",
+    "                functions __stdcall when the call sites plainly clean their own stack",
+    "                (ADD ESP,n / POP ECX), i.e. __cdecl. A remaining param_N name means the",
+    "                derivation is unfinished -- omit the field rather than record a partial one.",
     "",
     "Confidence guide (see Herculan docs for full evidence per entry):",
     "  high   - verified via multiple cross-checks (raw disassembly, byte-exact match against",
@@ -281,6 +288,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Math_Q8Multiply",
+      "signature": "int __cdecl Math_Q8Multiply(int a, int b)",
       "description": "Q8 fixed-point multiply: (int64)a*b >> 8. Verified via raw disassembly (SHRD EAX,EDX,0x8) matching the decompiler's >>8 exactly.",
       "source": "docs/simulation/dbsim-physics-notes.md"
     },
@@ -290,6 +298,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Math_IntegrateRateOverTick",
+      "signature": "short __cdecl Math_IntegrateRateOverTick(short ratePerTick)",
       "description": "Q8mul(SimTickDelta, rate), clamped to signed 16-bit range. Core 'apply a per-unit-time rate as this tick's delta' primitive.",
       "source": "docs/simulation/dbsim-physics-notes.md"
     },
@@ -299,8 +308,9 @@
       "type": "function",
       "confidence": "high",
       "name": "Math_CountdownTimerTick",
-      "description": "*timerPtr -= SimTickDelta, clamped to 0, returns the new value. Used for cooldowns (e.g. the rocket seeker's target-reacquire timer).",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "signature": "short __cdecl Math_CountdownTimerTick(void *timerRecord)",
+      "description": "Countdown-timer tick over a 3-byte packed record. THE COUNTER IS THE SHORT AT +1 FROM THE PASSED POINTER, NOT AT +0: rec[+1] -= SimTickDelta, clamped at 0, returns the new value in AX. Verified across all 40 call sites -- each passes a base whose sibling code reads or writes the short one byte higher (mech+0x258 with the word at +0x259, mount+0x30 with the refire counter at +0x31, rocket+0x5c with the counter at +0x5d). Records sit in stride-3 runs: mech+0x258/0x25b/0x25e and +0x264/0x267/0x26a, globals 0x4a9ee6/0x4a9ee9. The leading byte is untouched by this function, and for all four global instances (0x4a9be8, 0x4a9bec, 0x4a9ee6, 0x4a9ee9) is never read or written anywhere in DBSIM -- only ever address-taken -- so its meaning is still OPEN, not settled as padding. Rocket_TickUpdate's use reloads the counter from ROCKETS.DAT +0x08, which is the exhaust-flame cell-anim and NOT a seeker target-reacquire.",
+      "source": "docs/simulation/dbsim-physics-notes.md; disassembly of 00467944 + all 40 call sites, 2026-08-31"
     },
     {
       "address": "004679d8",
@@ -308,6 +318,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Math_RateLimitedMoveToward",
+      "signature": "short __cdecl Math_RateLimitedMoveToward(short *current, short target, short step)",
       "description": "Generic per-tick turn/slew-rate limiter: moves current toward target by at most step, returns remaining error. Used by rocket guidance and the shield recharge tick.",
       "source": "docs/simulation/dbsim-physics-notes.md"
     },
@@ -937,6 +948,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Sim_MainTick",
+      "signature": "short __cdecl Sim_MainTick(void)",
       "description": "DBSIM's per-frame simulation tick. Updates SimTickDelta from a hardware/timer source, iterates every global object list, and calls Mech_PerTickSystemsUpdate once per live mech in GlobalMechList.",
       "source": "docs/simulation/dbsim-physics-notes.md"
     },
@@ -946,6 +958,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_PerTickSystemsUpdate",
+      "signature": "void __cdecl Mech_PerTickSystemsUpdate(void *mech)",
       "description": "Per-mech-per-tick reactor/energy bookkeeping (integrates reactor output rate into the energy pool at +0x292), then dispatches weapon-energy arbitration and shield-recharge via Shield_RechargeTick.",
       "source": "docs/simulation/dbsim-physics-notes.md"
     },
@@ -955,6 +968,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Shield_RechargeTick",
+      "signature": "short __cdecl Shield_RechargeTick(void *shieldState, short request)",
       "description": "Shield recharge primitive: clamps the request to at most 5 units/tick and to the remaining deficit, redistributes front/rear via balance using Math_RateLimitedMoveToward, returns the unclaimed portion.",
       "source": "docs/simulation/dbsim-physics-notes.md"
     },
@@ -2211,6 +2225,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Math_Q10Multiply",
+      "signature": "int __cdecl Math_Q10Multiply(int a, int b)",
       "description": "Q10 fixed-point multiply: (int64)a*b >> 10. Previously seen unnamed in the shield-balance code; also builds the HUD's speed-display scale factor in MechType_InitOne.",
       "source": "docs/engine/planning.md 2026-08-13 (world scale recovery)"
     },
@@ -2220,6 +2235,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Math_Q16Multiply",
+      "signature": "int __cdecl Math_Q16Multiply(int a, int b)",
       "description": "Q16 fixed-point multiply: (int64)a*b >> 16. Used by MechType_InitOne to rescale a mech type's speed fields by a Q16 ratio built with Math_Q16Divide.",
       "source": "docs/engine/planning.md 2026-08-13 (world scale recovery)"
     },
@@ -2229,6 +2245,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Math_Q16Divide",
+      "signature": "int __cdecl Math_Q16Divide(int numerator, int denominator)",
       "description": "Q16 fixed-point divide: ((int64)a << 16) / b.",
       "source": "docs/engine/planning.md 2026-08-13 (world scale recovery)"
     },
@@ -2238,6 +2255,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Math_FastMagnitude2D",
+      "signature": "int __cdecl Math_FastMagnitude2D(int dx, int dy)",
       "description": "Sqrt-free 2D magnitude approximation: max(|dx|,|dy|) + min(|dx|,|dy|)/2 -- the octagonal estimate, exact on axis and up to ~11.8% high on a diagonal. The 2D counterpart of Math_FastMagnitude3D. This is the distance both HUD distance readouts display, so the original's own on-screen ranges carry that error.",
       "source": "docs/engine/planning.md 2026-08-13 (world scale recovery)"
     },
@@ -4444,6 +4462,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Time_BeginSimTick",
+      "signature": "void __cdecl Time_BeginSimTick(void)",
       "description": "Spins until 40 ms have elapsed (25 Hz frame cap), then sets SimTickDelta = clamp((elapsedMs << 8) / 125, 0x40, 0x1c2). SimTickDelta is Q8 with 1.0 = 125 ms, so rate units are per-125 ms.",
       "source": "docs/simulation/mech-locomotion.md 2026-08-21"
     },

@@ -52,8 +52,12 @@ clamped to signed 16-bit range (`[-0x7fff, 0x7fff]`). The core "apply a per-unit
 tick's delta" primitive — called on velocity/acceleration-like type-table fields to get a position
 delta, and on trig-adjacent values (missile guidance, see `rockets.md`).
 
-**`FUN_00467944(timerPtr)` — countdown timer tick.** `*timerPtr -= DAT_004d3be8`, clamped to 0,
-returns the new value. Used for cooldowns (e.g. a projectile shape's animation-frame interval).
+**`FUN_00467944(timerRecord)` — countdown timer tick.** The argument points at a 3-byte packed
+record, **not** at the counter: the counter is the `short` at `+1`. `rec[+1] -= DAT_004d3be8`,
+clamped to 0, returning the new value. Records appear in stride-3 runs; each owning object documents
+its own offset (`mech+0x258`, `mount+0x30` are the two not yet written up). Used for cooldowns (e.g.
+a projectile shape's animation-frame interval). The byte at `+0` is never read or written anywhere
+in DBSIM — unidentified, not established as padding.
 
 **`FUN_004679d8(current*, target, step)` — rate-limited "move toward."** If `current < target`,
 adds `step` (clamped so it doesn't overshoot `target`); symmetric for `current > target`. Returns

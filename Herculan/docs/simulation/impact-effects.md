@@ -61,16 +61,19 @@ resets the shape instance's frame counter for the type's sequence to 0, loads th
 ## Tick — `FUN_0040813c`
 
 ```
-if (CountdownTimerTick(&timer) != 0) return alive;
+if (CountdownTimerTick(effect+0x4a) != 0) return alive;   // counter is the short at +0x4b
 frame = (frame + 1) % shapeFrameCount;
 if (frame == 0) return finished;          // the flipbook wrapped: the effect is over
 light?.SetIntensity(FrameIntensity[frame]);
-timer = FrameInterval;
+timer = FrameInterval;                    // i.e. effect+0x4b
 return alive;
 ```
 
 Nothing moves it and nothing else can stop it. The frame count comes off the loaded shape
 (`shape+0x20`'s per-sequence array), not off the table.
+
+The tick argument is the record base, not the counter: `Math_CountdownTimerTick` reads the `short` at
+`+1` from the pointer it is given. See the countdown-timer entry in `dbsim-physics-notes.md`.
 
 ## Which effect a shot spawns
 

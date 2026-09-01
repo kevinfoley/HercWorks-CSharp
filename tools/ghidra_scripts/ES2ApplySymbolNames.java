@@ -2,8 +2,11 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import ghidra.app.cmd.function.ApplyFunctionSignatureCmd;
 import ghidra.app.script.GhidraScript;
+import ghidra.app.util.parser.FunctionSignatureParser;
 import ghidra.program.model.address.Address;
+import ghidra.program.model.data.FunctionDefinitionDataType;
 import ghidra.program.model.listing.CodeUnit;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.FunctionManager;
@@ -23,6 +26,12 @@ import java.io.FileReader;
 //     the entry has a "name", then always writes/refreshes a plate comment with the description.
 //   - type "data": creates/refreshes a label at that address if the entry has a "name", then
 //     always writes/refreshes a plate comment.
+// An entry may also carry a "signature": a full C prototype, which is applied to the function as
+// SourceType.USER_DEFINED so it survives as a human-verified prototype rather than blending into
+// the decompiler's ANALYSIS-tier guesses. Signatures are functions-only and optional -- see the
+// known_symbols.json _readme for the rule on when one may be recorded at all. A signature that
+// fails to parse or apply is reported and skipped; it never aborts the rest of the run.
+//
 // Entries with no "name" (low-confidence findings) only get the plate comment -- never a
 // rename/label, so a guess can never masquerade as a confirmed symbol in the database.
 //
@@ -30,6 +39,10 @@ import java.io.FileReader;
 // change -- renames/labels are skipped if already correct, and plate comments are always
 // overwritten with the current JSON content rather than appended to.
 public class ES2ApplySymbolNames extends GhidraScript {
+    // Calling conventions that may appear in a known_symbols.json "signature" string.
+    private static final String[] CONVENTIONS = {
+        "__cdecl", "__stdcall", "__thiscall", "__fastcall", "__watcall" };
+
     @Override
     public void run() throws Exception {
         String[] scriptArgs = getScriptArgs();
@@ -50,7 +63,7 @@ public class ES2ApplySymbolNames extends GhidraScript {
         SymbolTable st = currentProgram.getSymbolTable();
         Listing listing = currentProgram.getListing();
 
-        int renamed = 0, labeled = 0, commented = 0, skippedOtherBinary = 0, skippedNoTarget = 0, errors = 0;
+        int renamed = 0, signatured = 0, labeled = 0, commented = 0, skippedOtherBinary = 0, skippedNoTarget = 0, errors = 0;
 
         for (JsonElement el : entries) {
             JsonObject entry = el.getAsJsonObject();
@@ -66,6 +79,7 @@ public class ES2ApplySymbolNames extends GhidraScript {
             String description = entry.has("description") ? entry.get("description").getAsString() : "";
             String source = entry.has("source") ? entry.get("source").getAsString() : "";
             String name = entry.has("name") ? entry.get("name").getAsString() : null;
+            String signature = entry.has("signature") ? entry.get("signature").getAsString() : null;
 
             Address addr;
             try {
@@ -100,9 +114,49 @@ public class ES2ApplySymbolNames extends GhidraScript {
                         f.setName(name, SourceType.USER_DEFINED);
                         renamed++;
                     }
+                    if (signature != null) {
+                        try {
+                            // FunctionSignatureParser does not accept an inline calling convention:
+                            // it reads "int __cdecl" as the return type and fails. Lift the
+                            // convention out of the text and set it on the definition instead.
+                            String conv = null;
+                            String parseText = signature;
+                            for (String c : CONVENTIONS) {
+                                int idx = signature.indexOf(" " + c + " ");
+                                if (idx >= 0) {
+                                    conv = c;
+                                    parseText = signature.substring(0, idx) + " "
+                                        + signature.substring(idx + c.length() + 2);
+                                    break;
+                                }
+                            }
+                            FunctionSignatureParser parser =
+                                new FunctionSignatureParser(currentProgram.getDataTypeManager(), null);
+                            FunctionDefinitionDataType def = parser.parse(f.getSignature(), parseText);
+                            if (conv != null) {
+                                def.setCallingConvention(conv);
+                            }
+                            // preserveCallingConvention=false, or the convention just set is ignored
+                            // and the function keeps the decompiler's (wrong) __stdcall guess.
+                            // forceSetName=false: the rename above already handled the name.
+                            ApplyFunctionSignatureCmd cmd = new ApplyFunctionSignatureCmd(
+                                addr, def, SourceType.USER_DEFINED, false, false);
+                            if (cmd.applyTo(currentProgram, monitor)) {
+                                signatured++;
+                            } else {
+                                println("WARN: signature rejected at " + addr + ": " + cmd.getStatusMsg());
+                            }
+                        } catch (Exception e) {
+                            println("ERROR: bad signature at " + addr + " (" + signature + "): " + e.getMessage());
+                            errors++;
+                        }
+                    }
                     listing.setComment(addr, CodeUnit.PLATE_COMMENT, comment.toString());
                     commented++;
                 } else if ("data".equals(type)) {
+                    if (signature != null) {
+                        println("WARN: entry at " + addr + " is type 'data' but carries a signature -- ignored");
+                    }
                     if (name != null) {
                         Symbol existing = st.getPrimarySymbol(addr);
                         if (existing == null || !name.equals(existing.getName())) {
@@ -124,7 +178,7 @@ public class ES2ApplySymbolNames extends GhidraScript {
         }
 
         println(String.format(
-            "ES2ApplySymbolNames [%s]: renamed=%d labeled=%d commented=%d skipped(other binary)=%d skipped(no target)=%d errors=%d",
-            progName, renamed, labeled, commented, skippedOtherBinary, skippedNoTarget, errors));
+            "ES2ApplySymbolNames [%s]: renamed=%d signatured=%d labeled=%d commented=%d skipped(other binary)=%d skipped(no target)=%d errors=%d",
+            progName, renamed, signatured, labeled, commented, skippedOtherBinary, skippedNoTarget, errors));
     }
 }

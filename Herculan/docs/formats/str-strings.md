@@ -50,10 +50,20 @@ Groups referenced by decoded code:
 |---|---|---|
 | 0 | 18 | Squadmate orders. First six are the FLASH COMM page: `ATTACK MY TARGET`, `IGNORE MY TARGET`, `HELP ME OUT!`, `JOIN ON ME`, `SCAN FOR HOSTILES`, `FIRE AT WILL`. |
 | 1 | 3 | `RED1`-`RED3` |
+| 2 | 1 | `OFFLINE` — what a destroyed mount's cockpit weapon row prints in place of its name |
+| 3 | 1 | `" POD"` — appended to a pod row's name, giving `" SHIELD POD"` |
 | 4 | 4 | Console button captions: `I`, `LINK`, `TRACK`, `` (entry 0 unused — the chain button's numerals come from a separate `.rdata` table, `ChainCountCaptions` at `0049c71c`) |
 | 5 | 13 | MFD captions: `STATUS`, `FLASH COMM`, `NAV MAP`, `SCANNER`, `TARGET`, `MISSILE CAM`, `MODE`, `SELECT`, `RANGE`, `TARGET`, `XMIT`, `PASS`, `ACTIVE`. Entries 0-5 are the screen titles, 6-12 the aux button captions. |
+| 9 | 3 | `XMIT`, `CANCEL`, `EXIT` — the Heads-Down Display's transmit buttons |
 | 10 | 5 | `OK`, `INT DMG`, `SHLD DWN`, `CRITICAL`, `WASTED` — **dead data**: `SimStrings_LoadAll` is the only reference to `DAT_004d1440` in the image. Group 28 is the live condition table. |
+| 11 | 2 | `MAP`, `DAMAGE` — the Heads-Down Display's page-0 title |
+| 12 | 3 | `" STRUCT DAMAGE"`, `" INTERN DAMAGE"`, `" WEAPON DAMAGE"` — its page-1 title, indexed by damage category rather than by page |
+| 13 | 19 | Structural component names, walker variant |
+| 14 | ? | The same list for a flyer, selected by the subject type's `+0x50` |
+| 15 | 12 | Internal system names, walker variant |
+| 16 | ? | The same list for a flyer |
 | 17 | 1 | `YOU` |
+| 19 | 2 | `NO TARGET SELECTED`, `NO INFO AVAILABLE` — the damage screen with no subject |
 | 20 | 3 | `ID:`, `TARGET:`, `DIST:  ` |
 | 21 | 1 | `STATUS:` |
 | 22 | 16 | Herc type names — the player-side roster only, and **not** what the status screen prints; that takes the machine's own type-record name |
@@ -65,7 +75,9 @@ Groups referenced by decoded code:
 | 28 | 5 | Condition, the MFD status screen's fourth label: `OK`, `SHIELDS DN`, `INT DAMAGE`, `CRITICAL`, `DESTROYED` |
 | 29 | 2 | `ACT`, `PASS` — consumer not located; the scanner's own toggles caption from group 5 |
 | 30, 31 | 1,1 | `TRG:` and `RNG:`, the scanner's two corner captions (`DAT_004d16b4`/`b8`) |
+| 33 | 2 | `STATUS:` and `OBJECTIVE:`, the squad comm box's two fixed captions |
 | 38, 39 | 1,1 | `TIME:`, `SPEED:` — the gunsight readouts |
+| 40 | ? | Squad comm box's current-order line |
 
 Other files: `SYSTEM.STR` alert lines, `COMMAND*.STR` mission briefing and tutorial dialogue,
 `PILOTS.STR` 36 pilot surnames, `SOUNDS.STR` a 57-entry sample catalog.

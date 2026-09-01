@@ -1,7 +1,5 @@
 # Cockpit mouse input
 
-NOTE TO CLAUDE: This should be a reference document, not a personal journal.
-
 How DBSIM routes a mouse click on the cockpit dashboard/HUD/HDD to a button's own click handler.
 Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project. All addresses are DBSIM.
 Symbols are in `tools/ghidra_scripts/known_symbols.json`; apply with `ES2ApplySymbolNames.java`.
@@ -150,11 +148,9 @@ position to its drag-move vtable slot (`+0x18`) immediately.
 
 **One retail widget does use capture: the throttle slider.** Every button class leaves `+0x1d` clear,
 but the shared slider base `SliderWidget_CtorBase` (`004524a8`) sets it unconditionally, and the
-throttle's vertical slider child (`00447e24`) is built through it. Corrected 2026-08-21; this
-section previously stated that no widget ever enters capture, on a survey that had covered only the
-buttons and the shield facings. It is why the manual's "set throttle with the mouse by clicking on
-the slide and dragging it up or down" works, and why clicking anywhere on the track jumps the knob
-there — the press itself dispatches the drag handler.
+throttle's vertical slider child (`00447e24`) is built through it. It is why the manual's "set
+throttle with the mouse by clicking on the slide and dragging it up or down" works, and why clicking
+anywhere on the track jumps the knob there — the press itself dispatches the drag handler.
 
 While capture is held, `CockpitMouse_ProcessQueue` takes a different branch on every position change:
 it dispatches `+0x18` on the captured widget with the pointer position and repaints it, **without
@@ -173,8 +169,8 @@ the held widget and its state is `0`, set it to `1` and repaint; anywhere else a
 clear to `0` and repaint. That is a button popping back up when you drag off it and depressing again
 when you come back, and it is the *only* thing this function does.
 
-**There is no hover state anywhere in DBSIM.** This function was long recorded as
-`Widget_OnMouseHover`, on a misreading of that same toggle. Two independent facts rule hover out: the
+**There is no hover state anywhere in DBSIM.** Beware any symbol set that still names `00452954`
+`Widget_OnMouseHover` — that reading of this toggle is wrong. Two independent facts rule hover out: the
 `Widget_PressedIndex != -1` guard means the function cannot run unless a button is held, and
 `CockpitMouse_Init`'s event mask (`0x1e`, §3) never subscribes to plain movement in the first place,
 so nothing would drive a hover highlight even if the code wanted one.
@@ -182,6 +178,10 @@ so nothing would drive a hover highlight even if the code wanted one.
 `Widget_OnMouseUp` (`00452870`): if the release lands back on the widget that was pressed **or the
 release was a right-button one**, calls that widget's `GetValue` vtable slot, then its `OnClick`
 slot with that value, then clears the pressed state and repaints via `Widget_Repaint` (`00452a90`).
+
+**Where `OnClick` sits differs by class.** `ShieldsGauge` and `MfdDisplay` take it at vtable slot 0.
+`ConsoleButton` (`FUN_00442dc8`) and `WeaponSelectGadget` (`FUN_00442458`) take it at `+8` of their
+`+0x17` vtable and forward to their owner's slot 0 — a different slot, the same shape.
 
 **Only the left button presses.** `CockpitMouse_ProcessQueue` calls `Widget_OnMouseDown` for a left
 press and not a right one, so a right click never arms a widget — the release's own re-hit-test
@@ -316,11 +316,8 @@ active.
 - `maybe_Widget_NotifySelfAndChildren`'s actual purpose (relayout? a generic refresh cascade?) —
   only its mechanical shape (vtable slot 0 on self then children) is confirmed.
 - `maybe_Mouse_WarpCursorToPoint`'s caller(s) and trigger.
-- Whether every clickable widget class puts `OnClick` at the same vtable slot `ShieldsGauge` and
-  `MfdDisplay` do (slot 0) — not checked for the throttle or for ordinary MFD/HDD leaf buttons
-  themselves (as opposed to their owning display objects). Settled since for `ConsoleButton`
-  (`FUN_00442dc8`) and `WeaponSelectGadget` (`FUN_00442458`): both take `OnClick` at `+8` of their
-  `+0x17` vtable and forward to their owner's slot 0, which is the same shape.
+- Which vtable slot the throttle and the ordinary MFD/HDD leaf buttons (as opposed to their owning
+  display objects) put `OnClick` at — neither was checked. See §7 for the two shapes found so far.
 - Where the command-code queue at `004d2148` is filled from. The codes' meaning is settled (§7,
   scancodes with an `0x200` Alt bank), but the raw-keystroke-to-queue step was not traced.
 - The exact leaf "Button" widget class MFD buttons construct through (`FUN_004472e4` /

@@ -12,51 +12,22 @@ namespace Herculan.Engine.Render;
 /// </summary>
 public static class WorldScale {
 	/// <summary>
-	/// How many DBSIM world units make up one metre of rendered space.
+	/// How many DBSIM world units make up one metre of rendered space: 1000 world units are 6 metres,
+	/// so a world unit is 6 mm. This is the original's own constant, recovered from
+	/// <c>Hud_WorldUnitsToMetres</c> (<c>00434228</c>) — see docs/engine/planning.md, "World scale —
+	/// recovered", for the derivation and its corroborations.
 	///
-	/// <para><b>Recovered from DBSIM, not estimated</b> (2026-08-13, superseding an earlier estimate
-	/// of 200). The original states its own scale in the one place it has to: the HUD prints
-	/// distances to the player in metres. <c>Hud_WorldUnitsToMetres</c> (<c>00434228</c>) is the
-	/// whole conversion —
-	/// <code>metres = (worldUnits / 1000) * 6</code>
-	/// — so <b>1000 world units are 6 metres</b> and a world unit is 6 mm. Three call sites share
-	/// it, in two unrelated gadgets: the HUD waypoint indicator's "WAYPOINT n: d M." string
-	/// (<c>Hud_UpdateWaypointIndicator</c>, <c>0043c3e4</c>) and the scanner MFD's contact-range
-	/// readout (<c>0043ebe0</c>/<c>0043eecc</c>). Both feed it a raw difference of two world
-	/// positions, so its input really is world units. See docs/engine/planning.md, "World scale —
-	/// recovered".</para>
-	///
-	/// <para>Note the original's own displayed distance is coarse in two ways this constant is not:
-	/// the integer divide quantises it to multiples of 6 m, and the distance itself is the
-	/// octagonal <c>max + min/2</c> approximation (<c>Math_FastMagnitude2D</c>), which overshoots a
-	/// true diagonal by up to ~12%. Neither affects the scale factor; both are display behaviour to
-	/// reproduce if a HUD is ever built.</para>
+	/// <para>The original's own <i>displayed</i> distance is coarser than this constant in two ways
+	/// that matter to a HUD but not to the scale factor: the integer divide quantises it to multiples
+	/// of 6 m, and the distance itself is the octagonal <c>max + min/2</c> approximation
+	/// (<c>Math_FastMagnitude2D</c>), which overshoots a true diagonal by up to ~12%.</para>
 	/// </summary>
 	public const float WorldUnitsPerMeter = 1000f / 6f;
 
 	/// <summary>
 	/// How many world units one raw DTS model unit spans — one, i.e. model coordinates are world
-	/// coordinates with no conversion at all.
-	///
-	/// <para><b>Confirmed from game data (2026-08-13)</b>, having previously been only a
-	/// well-supported hypothesis. Two fields of <c>dat\&lt;mech&gt;.DAT</c> — a file the sim reads in
-	/// world units — carry values that only make sense as model-space measurements:</para>
-	/// <list type="bullet">
-	/// <item>COLOSSUS is the one retail mech whose model dips below model-space zero, to
-	/// <c>-400</c>, and it is the one retail mech with a nonzero <c>UnitOffsetYAdjust</c>: exactly
-	/// <c>400</c>. A correction expressed in the same numbers as the model's own coordinates is a
-	/// 1:1 unit relationship.</item>
-	/// <item><c>AiAimTargOffset</c> — how high up a target the AI aims — tracks model height across
-	/// the fleet (OUTLAW 1500 against a 1700-unit model, everything larger 2500 against 2030–2575).
-	/// </item>
-	/// </list>
-	///
-	/// <para>Model bounds against <see cref="WorldUnitsPerMeter"/> put HERCs at 10.2 m (OUTLAW) to
-	/// 15.5 m (OGRE) tall, roughly 1.5x the heights the manual's HERC specs quote (6.1 m and
-	/// 10.4 m). That gap is bounding box versus quoted stature — a model's box includes raised
-	/// weapon arms and antennae — not a unit mismatch; the ordering by class matches exactly and
-	/// nothing in the load path scales a model (<c>MechType_InitOne</c> hands DTS points straight to
-	/// the shape instance).</para>
+	/// coordinates with no conversion at all. Confirmed from game data; see docs/engine/planning.md,
+	/// "World scale — recovered", for the evidence.
 	///
 	/// <para>Note this differs from the WinForms model viewer, which scales DTS points by 1/10 —
 	/// that viewer picks whatever scale frames a model nicely in its own window and has no world to

@@ -32,9 +32,9 @@ namespace Herculan.Engine.Sim;
 /// HERC <c>.DAT</c>s carries 3500 there — the whole fleet, checked, with only the non-HERC SPIDER at
 /// 0. The only thing that moves it is a Shield Pod.</para>
 ///
-/// <para><b>Damage absorption is not modelled here.</b> The two absorb paths
-/// (<c>FUN_00413cc4</c> direct fire, <c>FUN_00413c68</c> explosions) belong to the damage milestone;
-/// this type carries the charge, the recharge and the balance, which is what the energy pool tick
+/// <para>Of the two absorb paths, direct fire (<c>FUN_00413cc4</c>) is ported as
+/// <see cref="AbsorbDirectFire"/>; the explosion one (<c>FUN_00413c68</c>) is not. Otherwise this
+/// type carries the charge, the recharge and the balance, which is what the energy pool tick
 /// touches. See docs/simulation/damage-system.md.</para>
 /// </summary>
 public sealed class ShieldCharge {
@@ -191,10 +191,10 @@ public sealed class ShieldCharge {
 
 	/// <summary>
 	/// <b>Not a ported mechanic — a test seam.</b> Empties both facings, leaving <see cref="Max"/>
-	/// alone so the whole capacity reads as deficit. The host's debug panel is the only caller, and it
-	/// exists because nothing in the engine damages shields yet: from empty the array rebuilds at the
-	/// recharge tick's 5-per-tick cap, which at 3500 capacity and 25 Hz is 700 ticks — 28 seconds,
-	/// matching the retail refill.
+	/// alone so the whole capacity reads as deficit. The host's debug panel is the only caller: it
+	/// makes the refill observable on demand rather than waiting for combat to drain a facing. From
+	/// empty the array rebuilds at the recharge tick's 5-per-tick cap, which at 3500 capacity and
+	/// 25 Hz is 700 ticks — 28 seconds, matching the retail refill.
 	///
 	/// <para>The explosion path (<c>FUN_00413c68</c>) is still unported; the direct-fire one is
 	/// <see cref="AbsorbDirectFire"/>. See docs/simulation/damage-system.md.</para>

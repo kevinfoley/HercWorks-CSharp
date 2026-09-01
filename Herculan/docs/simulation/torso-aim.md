@@ -194,8 +194,9 @@ centres. `--turret <twist> <pitch>` holds the axes for a `--screenshot` run.
 
 ## Not ported
 
-- **Automatic Turret Tracking** ([T]), the third branch of the input path's turret block. Needs
-  target selection.
+- **Automatic Turret Tracking** ([T]), the third branch of the input path's turret block. Target
+  selection is in place ([`target-selection.md`](target-selection.md)); what is missing is the
+  branch itself, feeding a snap target from `Mech_TargetRelativeToPilot` into the twist/pitch axes.
 - **AI turret aiming**, the caller that feeds `Mech_TargetRelativeToPilot`'s output back into these
   two ticks with a snap target derived from the target's bearing.
 - **`FUN_0041a74c`**, gun convergence: the pitch tick's third argument is the range to the current

@@ -1,7 +1,5 @@
 # Herc locomotion — throttle, steering, and animation root motion
 
-NOTE TO CLAUDE: This should be a reference document, not a personal journal.
-
 Reverse-engineered from `DBSIM.EXE` (`mechsys.cpp`) in the `ES2Recon` Ghidra project. Covers
 ground Hercs only; the Razor flyer (`typeRec+0x50 != 0`) takes different paths throughout.
 
@@ -52,7 +50,7 @@ starting `00499928`. Ghidra reports zero xrefs for it — the table is unmarked 
 | `+0x296/0x29a` | short | Turret pitch rate / angle |
 | `+0x2a0` | short | Animation playback rate (Q8 multiplier) |
 | `+0x93` | byte | Throttle-dirty flag (input changed it this frame) |
-| `+0x317` | ptr | Subsystem object; damage causes throttle runaway |
+| `+0x317` | ptr | Turbo Pod mount (id 31); adds a speed bonus that degrades with damage |
 
 Angles are 16-bit binary angle measure: **65536 = 360°**. Confirmed by a full-sweep animation
 (`OUTLAW` seq 5) stepping `0, 8190, 16380, 24570, 32760, -24570, -16380, -8190` = 8 × 8190 ≈ 65536,
@@ -316,8 +314,8 @@ mechanism, not the readout.
 
 ## Damage effects on movement
 
-Out of scope for the locomotion milestone, but the sense of the first term was corrected 2026-08-23
-and is no longer "zero at full health" — it is **maximal** at full health.
+Out of scope for the locomotion milestone. Note the first term is **maximal** at full health, not
+zero, so omitting it is not neutral on an undamaged machine.
 
 - `mech+0x317` is the **Turbo Pod** (`TURB`, catalog id 31), one of the five equipment-pod slots
   filled by `FUN_0040fb2c` at loadout — see
@@ -325,9 +323,8 @@ and is no longer "zero at full health" — it is **maximal** at full health.
   It adds a term to desired speed *in the current direction of travel*, worth ~98% of max at full
   and fading to ~20% before cutting out entirely past 225/256 damage. A speed bonus that degrades,
   not a throttle runaway.
-  > Previously documented as a runaway that grew as health fell. That was an artifact of
-  > `Component_ReadHealthPercent` being misnamed: it returns **accumulated damage**, not health, so
-  > the curve runs the other way. See
+  > Reading the curve requires care: the health accessor returns **accumulated damage**, not health,
+  > so the term runs the opposite way to how it first scans. See
   > [damage-system.md](damage-system.md#the-component-damage-system).
 - Flat multiplicative penalties of 73% (`Q10 × 750`) and 39% (`Q10 × 400`), gated on damage flags at
   `mech+0x2a`, `+0xa9`, `+0xaa`, `+0xab`. The latter two are the **reactor** damage flags, which cut
@@ -409,7 +406,7 @@ both `* q10 >> 10`. Fixed point throughout; no float.
 sequence, `+6` frame, `+8` nextSequence, `+10` nextFrame, `+0x1c` frameAccumulator, `+0x1e`
 frameDuration.
 
-> Port note: `AnimTransform.Blend` ports the blend; `AnimationThread.NodeTransform` /
+> Port note: `AnimTransform.Blend` ports the blend; `ShapeInstance.NodeTransform` /
 > `InterpolatedLocal` / `FrameFraction` port the evaluation. The port composes lazily per requested
 > node instead of building the whole array, so `ShapeInst_BuildWorldTransforms`'s dirty-flag
 > machinery has no counterpart and needs none. `ShapeInst_BuildWorldTransforms`'s output array is
@@ -435,5 +432,4 @@ shows a pose evaluated that same iteration, at 25 Hz.
 
 ## Outstanding
 
-- `mech+0x317` subsystem identity.
 - AI obstacle avoidance (`00416274`), Razor flyer movement.

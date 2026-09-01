@@ -33,7 +33,7 @@ namespace Herculan.Engine.Sim;
 /// value.</item>
 /// <item><b>It is the class guidance was written for.</b> The plasma round borrows a cut-down
 /// version; this one leads its target, has a per-subtype gate on whether it may lock at all, and a
-/// player-flown branch. None of it runs yet — see <see cref="HomingTick"/>.</item>
+/// player-flown branch. See <see cref="HomingTick"/> for which parts are ported.</item>
 /// </list>
 ///
 /// <para>Only <c>PROJ.DAT</c> <see cref="ProjectileType.Missile"/> records reach here.
@@ -286,14 +286,12 @@ public sealed class Rocket {
 	/// angles rather than of a velocity, exactly as the plasma round's is, but with a real lead and
 	/// three gates on top.
 	///
-	/// <para><b>Nothing homes</b>, and for the same reason nothing homes in <see cref="Projectile"/>:
-	/// <c>Rocket_Fire</c> attaches the launching machine's <i>selected target</i>
-	/// (<c>mech+0x1a4</c>), and there is no target selection — see <see cref="SimWorld.FireRocket"/>.
-	/// A rocket therefore flies where it was pointed, which is what the original does with nothing
-	/// selected too.</para>
+	/// <para>A round steers only when <c>Rocket_Fire</c> attached a target, which it does when this
+	/// class of launcher had lock — see <see cref="SimWorld.FireRocket"/>. Fired without lock it
+	/// flies where it was pointed, exactly as the original does.</para>
 	///
-	/// <para>Three gates the original applies are consequently not reachable either, and are recorded
-	/// here rather than written as branches on inputs that do not exist:</para>
+	/// <para>Three gates the original applies are not ported. The emission gate below is written as
+	/// a branch; these are not, because the inputs they test do not exist here yet:</para>
 	///
 	/// <list type="bullet">
 	/// <item><b>The lead point.</b> A round whose lock is on a specific node of the target
@@ -344,10 +342,9 @@ public sealed class Rocket {
 
 	/// <summary>
 	/// <c>+0x56</c>, what a seeking round is chasing. <c>Rocket_Fire</c> fills it from the launching
-	/// machine's selected target, but only when the machine's vtable <c>+0x6c</c> says this subtype is
-	/// available — and that reads the mount manager's per-ammunition-type counter array at
-	/// <c>manager+0x0a</c>, which has readers and no traced writer. See
-	/// <see cref="SimWorld.FireRocket"/>.
+	/// machine's selected target, but only when the machine's vtable <c>+0x6c</c> says this subtype
+	/// has lock — that reads the per-subtype lock flags at <c>manager+0x0a</c>, written each tick by
+	/// <see cref="MechObject.MissileLockTick"/>. See <see cref="SimWorld.FireRocket"/>.
 	/// </summary>
 	public SimObject? Target { get; internal set; }
 

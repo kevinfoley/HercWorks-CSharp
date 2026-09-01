@@ -85,8 +85,7 @@ public readonly record struct MfdScannerState(
 ///
 /// <para><b>What the screen is.</b> A plan view centred on the machine being flown, rotated so its
 /// own nose is up, with the turret's 90-degree arc drawn as a filled wedge over it. Everything on it
-/// is <c>MFD</c> bank art the rest of the display never touches — frames 14-18, the five that
-/// docs/formats/mfd.md listed as having no located consumer.</para>
+/// is <c>MFD</c> bank art the rest of the display never touches — frames 14-18.</para>
 ///
 /// <list type="table">
 /// <item><term>14, 110x110</term><description>the dish: opaque screen colour in the corners, a

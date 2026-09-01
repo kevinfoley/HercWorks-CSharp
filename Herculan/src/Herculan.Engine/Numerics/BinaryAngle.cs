@@ -7,17 +7,17 @@ namespace Herculan.Engine.Numerics;
 /// by testing the angular difference against <c>0x4000</c>, described in the disassembly notes as
 /// ±90° (see docs/simulation/damage-system.md, "Explosive damage").
 ///
-/// <para><b>Not yet vanilla:</b> DBSIM's own sine/cosine table has not been located in the
-/// disassembly yet (a search of the current symbol set turns up no trig function at all), so
-/// <see cref="Sin"/>/<see cref="Cos"/> below are a mathematically-correct Q14 table generated from
-/// double-precision <see cref="System.Math.Sin"/> rather than a port of the original's values. The
-/// output *scale* is grounded — the Q14 fixed-point multiply sibling in the math toolkit has
-/// exactly the range a normalized -1.0..1.0 trig output needs (see
-/// <see cref="SimMath.Q14Multiply"/>) — but individual entries may differ from the original's by a
-/// unit or two of rounding, which would show up as a slow drift in anything integrating a heading
-/// over many ticks. Everything that needs trig goes through this one type specifically so that
-/// swapping in the real table later is a single-file change; until then, treat any result that
-/// depends on exact trig parity as provisional.</para>
+/// <para><b>This is not the vanilla table — <see cref="SimTrig"/> is.</b> DBSIM's own trigonometry
+/// tables have been located and verified entry-by-entry, and <see cref="SimTrig"/> reproduces them,
+/// including their deliberate coarseness (one cosine entry per 16 BAM). The table here is a
+/// full-resolution Q14 one generated from double-precision <see cref="System.Math.Sin"/> — finer
+/// than the original's, not a port of it.</para>
+///
+/// <para>So: anything whose result feeds back into simulation state — object and node transforms,
+/// heading integration, anything that must match the original tick for tick — belongs on
+/// <see cref="SimTrig"/>, because reproducing the original's quantization is the point. This type is
+/// for engine-side work with no vanilla counterpart to match, such as camera aiming, where the extra
+/// resolution is harmless.</para>
 /// </summary>
 public static class BinaryAngle {
 	/// <summary>One full turn. BAM arithmetic wraps modulo this by construction.</summary>

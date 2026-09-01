@@ -1,7 +1,5 @@
 # Cockpit rendering: canopy art, views, clip regions, palette, HUD
 
-NOTE TO CLAUDE: This should be a reference document, not a personal journal.
-
 Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project. All addresses are DBSIM unless
 noted. Symbols are in `tools/ghidra_scripts/known_symbols.json`; apply with `ES2ApplySymbolNames.java`.
 
@@ -344,8 +342,8 @@ nine schemes tile `COCKPIT.DPL` entries 32-247 exactly:
 index 0, count 256, 256 x 4 bytes). Entry layout is `[R][G][B][flag=1]`, 6-bit channels scaled x4 — entries 1-7
 are the textbook VGA blue/green/cyan/red/magenta/brown at `0x2a`.
 
-This supersedes the earlier "assembled from two `.DPL` files" model and
-`CockpitArt.PaletteIndexOffset`. Canopy art indices are used **as authored**; there is no shift.
+Canopy art indices are used **as authored**; there is no shift, and the live palette is not assembled
+from two `.DPL` files.
 
 ### Corroboration
 
@@ -503,8 +501,7 @@ See [Weapon hardpoint rows](#weapon-hardpoint-rows).
 
 ## Throttle gauge
 
-`ThrottleGauge_Ctor` (`00447b84`), called only by `Gau_ThrottleWidget` (`0043254c`). Decoded
-2026-08-21, and it **supersedes `HThrottle`'s previous "track rect + 4 detent points" reading**.
+`ThrottleGauge_Ctor` (`00447b84`), called only by `Gau_ThrottleWidget` (`0043254c`).
 
 The constructor is handed `.GAU` offset **1000**, not 1016, and treats the whole block from there as
 one widget record. `FUN_004488cc` shifts ints `[4..0xf]` left by the video mode's coordinate shift
@@ -512,7 +509,7 @@ before it ever sees them, so the geometry below is in device pixels (`.GAU` unit
 
 | int | file offset | Role |
 |---|---|---|
-| `[0]`,`[1]` | 1000, 1004 | Origin the rest is measured from. Zero in all 9 retail files — which is why the transformer had recorded 1000 as an always-zero "null widget" slot |
+| `[0]`,`[1]` | 1000, 1004 | Origin the rest is measured from. Zero in all 9 retail files, which is why it reads as an always-zero "null widget" slot until the constructor is traced |
 | `[4..7]` | 1016-1028 | Slider **track** rect, `x0,y0,x1,y1` |
 | `[8..11]` | 1032-1044 | **Forward fill bar** rect — `LedBarGraph_CtorV` (`00439344`) with range `+0x400` |
 | `[12..15]` | 1048-1060 | **Reverse fill bar** rect — same, range `-0x400` |
@@ -642,9 +639,9 @@ file), then four ordinary `x0,y0,x1,y1` rects, all shifted by `VideoMode_X/YCoor
 | 664 | front readout |
 | 680 | rear readout |
 
-The block ends at 696. `HShieldDisplay`/`GauFileTransformer` used to start it at 628, which rotated
-every slot by one int; corrected 2026-08-17, and all nine retail `.GAU` files still round-trip
-byte-exact.
+The block ends at 696. It starts at 616, not 628 — starting it one int later rotates every slot and
+leaves a spurious leftover int at 692. All nine retail `.GAU` files round-trip byte-exact under this
+reading.
 
 ## Weapon hardpoint rows
 

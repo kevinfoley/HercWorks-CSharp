@@ -19,7 +19,7 @@ Ported in `Herculan.Engine.Terrain.HeightGrid` (`HeightGrid.cs`, `HeightGrid.Ray
 | `+0x100` | `int` | `WidthShift` — log2(grid width in cells) |
 | `+0x104` | `int` | `HeightShift` — log2(grid height in cells) |
 | `+0x108` | `int` | `CellShift` — log2(world-units per cell); also the shift used to convert world (x,y) → cell (x,y) |
-| `+0x10c` | `int` | **View radius in cells**, `10 >> (CellShift-14)` (clamped, default 10) at load time. `Terrain_DrawCellQuad` installs `+0x10c << +0x108` as the visibility range distance fog is measured against — see [`distance-fog-and-sky.md`](distance-fog-and-sky.md) |
+| `+0x10c` | `int` | **View radius in cells** (10 at retail detail settings). Its derivation, writer and consumers are in [`terrain-texturing.md`](terrain-texturing.md#grid0x10c--the-lod--draw-radius-field); `Terrain_DrawCellQuad` installs `+0x10c << +0x108` as the visibility range distance fog is measured against — see [`distance-fog-and-sky.md`](distance-fog-and-sky.md) |
 | `+0x110` | `int` | `HeightBase` — additive height offset (0 for real/binary zones; `MinHeight*8` for the ASCII debug format) |
 | `+0x118` | `int` | `HeightScale` — multiplicative height scale applied to each cell's raw byte |
 | `+0x11d` | `int` | Material/detail-type record count (from `dat\mat0`) |
@@ -33,7 +33,7 @@ Ported in `Herculan.Engine.Terrain.HeightGrid` (`HeightGrid.cs`, `HeightGrid.Ray
   to is the diagonal selector's decision, exactly as in `Terrain_HeightQuery`.
 - `+0xd` (byte): the **near** triangle's baked shade byte; `+0xe` (byte): the **far** triangle's.
   Written at zone load and read straight back by `Terrain_DrawCellQuad` as the ramp row — see
-  [`terrain-lighting.md`](terrain-lighting.md). Recorded here as unwritten until 2026-08-26.
+  [`terrain-lighting.md`](terrain-lighting.md).
 - `+0xf` (byte, bitfield): bits `[0:1]` = diagonal-split selector consumed by `Terrain_HeightQuery`'s
   barycentric interpolation (values `0`/`1`/`2` are produced; `3` is handled by the query but never
   written); bits `[2:7]` = material/detail-type index into `ZONES_MaterialTable`, assigned via a

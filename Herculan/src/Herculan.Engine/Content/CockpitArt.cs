@@ -33,15 +33,13 @@ public sealed record CockpitFrame(byte[] Pixels, int Width, int Height) {
 /// <c>(herc).HB2</c> (a real, distinct side view — not a duplicate of the front). There is no
 /// separate mirrored asset: the left panel reuses <see cref="Side"/> with its UVs flipped
 /// horizontally at draw time. <see cref="HeadsDown"/> is <c>(herc).HB1</c>, DBSIM's view 1 — the
-/// Heads-Down Display below the dashboard that <c>[F7]</c>/<c>[F8]</c> pan down to. (An earlier
-/// revision of this comment called it a rear/overhead equipment-bay view; it is not.)</para>
+/// Heads-Down Display below the dashboard that <c>[F7]</c>/<c>[F8]</c> pan down to.</para>
 ///
 /// <para>Both frames decode through the live palette (<see cref="CockpitPalette"/>): the theater
 /// palette in full, with this herc's own 24-entry cockpit colour scheme installed over slots 42-65.
 /// Indices are used <b>as authored</b> — no shift, no offset. The per-herc canopy colour difference
-/// that <c>PaletteIndexOffset</c> used to approximate is entirely a property of which scheme window
-/// gets installed, and is now resolved from the herc's own data file (see
-/// <see cref="ColorSchemeIndex"/>).</para>
+/// is entirely a property of which scheme window gets installed, resolved from the herc's own data
+/// file (see <see cref="ColorSchemeIndex"/>).</para>
 ///
 /// <para><b>The 3D-viewport cutout is data, not a colour key.</b> Each herc ships a per-view region
 /// file — <c>hd0</c> for the forward view, <c>hd2</c> for the side view — that states per scanline
@@ -296,8 +294,9 @@ public sealed class CockpitArt {
 	/// <summary>
 	/// A weapon row's charge bar, which does <b>not</b> take its colours from <c>COLORS.DAT</c> the
 	/// way <see cref="GaugeColors"/> does: <c>FUN_00442950</c> overwrites the bar's three colour
-	/// fields with the raw palette indices 32, 34 and 46 immediately after constructing it. That is
-	/// why a capacitor bar is blue where the Master Energy Pool's meter is grey.
+	/// fields with the raw palette indices 32, 34 and 46 immediately after constructing it. So a
+	/// capacitor bar is pinned to fixed palette slots, where the Master Energy Pool's meter follows
+	/// whatever <c>COLORS.DAT</c> ids 6/5/19 resolve to (<see cref="HudColorTable.GaugeFillEvenId"/>).
 	///
 	/// <para>The override is conditional on one byte of the widget geometry the constructor is handed,
 	/// which lands in the <c>.GAU</c>'s confirmed-zero padding in every retail file — so the override
@@ -385,13 +384,6 @@ public sealed class CockpitArt {
 		};
 	}
 
-	/// <summary>
-	/// Reads the herc's cockpit colour-scheme index out of its own <c>dat\&lt;MECH&gt;.DAT</c>, or -1
-	/// when that file is missing or unparseable. The field is
-	/// <see cref="HercWorks.Core.Data.File.Dat.Sim.HercSimDat.Unk80_ValHudId"/> — record offset 80,
-	/// which is the mech type struct's <c>+0x52</c> that
-	/// <c>CockpitViewManager_LoadViews</c> indexes <c>COCKPIT.DPL</c> with.
-	/// </summary>
 	/// <summary>One machine's <c>pdg&lt;HERC&gt;.PDG</c>, or null when it is missing or unparseable.</summary>
 	private static PaperDollGraphic? LoadPaperDoll(GameContent content, string hercName) =>
 		content.Read("pdg", hercName + ".PDG") is { } bytes
@@ -399,6 +391,13 @@ public sealed class CockpitArt {
 				? doll
 				: null;
 
+	/// <summary>
+	/// Reads the herc's cockpit colour-scheme index out of its own <c>dat\&lt;MECH&gt;.DAT</c>, or -1
+	/// when that file is missing or unparseable. The field is
+	/// <see cref="HercWorks.Core.Data.File.Dat.Sim.HercSimDat.Unk80_ValHudId"/> — record offset 80,
+	/// which is the mech type struct's <c>+0x52</c> that
+	/// <c>CockpitViewManager_LoadViews</c> indexes <c>COCKPIT.DPL</c> with.
+	/// </summary>
 	private static int ReadColorSchemeIndex(GameContent content, string hercName) =>
 		content.Read("dat", hercName + ".DAT") is { } bytes
 			&& new HercSimDataTransformer().Parse(bytes) is HercSimDat data
@@ -471,12 +470,6 @@ public sealed class CockpitArt {
 	private static Vector3 ToVector(HercWorks.Core.Data.Struct.RgbaColor c) =>
 		new(c.R / 255f, c.G / 255f, c.B / 255f);
 
-	/// <summary>
-	/// Reads and decodes one <c>.HBx</c> file's single frame through <paramref name="palette"/>.
-	/// Mirrors <c>TextureAtlas.DecodeFrame</c>'s indexed-colour expansion exactly (including no
-	/// special-casing of index 0 here — the viewport cutout is a separate, deliberate pass, not a
-	/// side effect of decoding).
-	/// </summary>
 	// The ring colours currently painted into the frames, so a repaint is skipped on the many frames
 	// where the charge did not move far enough to change any of the six.
 	private HercWorks.Core.Data.Struct.ColorBytes[]? _shieldRingColors;
@@ -534,6 +527,12 @@ public sealed class CockpitArt {
 		}
 	}
 
+	/// <summary>
+	/// Reads and decodes one <c>.HBx</c> file's single frame through <paramref name="palette"/>.
+	/// Mirrors <c>TextureAtlas.DecodeFrame</c>'s indexed-colour expansion exactly (including no
+	/// special-casing of index 0 here — the viewport cutout is a separate, deliberate pass, not a
+	/// side effect of decoding).
+	/// </summary>
 	private static CockpitFrame? LoadFrame(GameContent content, string folder, string name, DynamixPalette palette) {
 		byte[]? bytes = content.Read(folder, name);
 		if (bytes == null

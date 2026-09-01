@@ -1,7 +1,7 @@
 # DBSIM.EXE weapon mounts: loadout, naming, magazines, capacitors, selection
 
-Loadout and naming solved 2026-08-23; selection, chaining and linking 2026-08-24. Reverse-engineered
-from `DBSIM.EXE` in the `ES2Recon` Ghidra project; all addresses are DBSIM virtual addresses. Ported
+Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project; all addresses are DBSIM
+virtual addresses. Ported
 in `Herculan.Engine.Sim.{WeaponCatalog, WeaponMount, WeaponMounts}` and
 `Herculan.Engine.Content.WeaponRowState`.
 
@@ -152,12 +152,11 @@ A remote machine gets the base class and never has either read.
 |---|---|
 | `+0x04` | mount array (holes preserved) |
 | `+0x08` | mount count |
-| `+0x0a` | per-ammunition-type counters, read by the readiness test — see Open |
+| `+0x0a` | per-subtype missile-lock flags, written every tick by `Mech_PerTickSystemsUpdate` and read by the launcher fire path — see [`missile-lock.md`](missile-lock.md) |
 | `+0x1c` | current fire group, 0–2 |
 | `+0x1d` | armed mount index, `0xff` for none |
 | `+0x1f`, `+0x25`, `+0x2b` | the three fire-group arrays, one `short` per mount |
 | `+0x31` | target range, gating the readiness test |
-
 | `+0x14` | TRACK's latch — automatic turret tracking |
 | `+0x18` | single-fire flag, below |
 
@@ -247,9 +246,8 @@ from its own `+0x40` latch. **LINK never stays lit**; the link state lives on th
 
 ## Open
 
-- **`manager+0x0a` is solved** — it is the per-subtype missile-lock state, written every tick by
-  `Mech_PerTickSystemsUpdate`. See [`missile-lock.md`](missile-lock.md). `FUN_00410970` gates a
-  missile row's state box on it; the engine does not colour that box yet.
+- **The missile row's state box.** `FUN_00410970` colours it from the per-subtype lock flags at
+  `manager+0x0a`; the engine does not colour that box yet.
 - Template fields other than those named here — see
   [`../formats/weapons-dat-sim.md`](../formats/weapons-dat-sim.md).
 - **Firing** is in [`weapon-firing.md`](weapon-firing.md). All three dispatch branches are ported;

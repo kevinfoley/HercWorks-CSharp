@@ -116,9 +116,10 @@ Deviations:
 
 - **No light, no sound, no trail object.** All three belong to systems that do not exist; no retail
   row asks for a trail anyway.
-- **Group 2 is never selected.** The split from group 1 is a change in a component's health band and
-  there is no component health array (see `MechObject.PenetratingHits`). Costs nothing on retail
-  data, per the note above.
+- **Group 2 is selected, but indistinguishably.** The split from group 1 is a change in a component's
+  health band, which `MechObject.ApplyDirectFireDamage` measures either side of the write, so both
+  branches are reachable. It costs nothing on retail data, per the note above: the two arrays hold
+  the same rows.
 - **`ProximityRadius` is unread** — nothing queries it.
 - The shape frame counts are supplied to `ExplosionCatalog` by `MissionScene` after it builds the
   shapes, since they are a property of `EXPLOS.DTS` rather than of the table.

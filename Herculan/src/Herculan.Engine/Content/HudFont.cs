@@ -22,32 +22,16 @@ public enum LabelAlign {
 }
 
 /// <summary>
-/// A <c>.DFN</c>/<c>.HFN</c> bitmap font — DBSIM's only HUD text mechanism. See
-/// docs/formats/dfn-hfn-dci.md for the container; the glyph layout is:
+/// A <c>.DFN</c>/<c>.HFN</c> bitmap font — DBSIM's only HUD text mechanism. The header layout, the
+/// per-font ink indices and the verification against all 54 retail font files are in
+/// docs/formats/dfn-hfn-dci.md, "<c>.DFN</c> / <c>.HFN</c> — bitmap font".
 ///
-/// <code>
-/// 0x00 uint16 typeId = 0x0005      0x14 int16 G   -- baseline row (8 / 9)
-/// 0x02 uint16        = 0x0028      0x16 int16     -- bits per pixel, 8 in every retail file
-/// 0x04 uint32 totalSize            0x18 int16 I   -- 0 in every retail file
-/// 0x08 int16  glyphCount           0x1a int16 inkHeight
-/// 0x0a int16  B      -- 0          0x1c int16 K   -- array1 count, 0 in every retail file
-/// 0x0c int16  firstCharCode = 32   0x1e uint32 L  -- glyph-pool byte length
-/// 0x0e int16  cellHeight           0x22 [L bytes]           glyph pool
-/// 0x10 int16  E      -- -1         .... [count x uint32]    pool offset per glyph
-/// 0x12 int16  cellHeight (again)   .... [count bytes]       glyph width per glyph
-/// </code>
-///
-/// <para>Each glyph is <c>width x cellHeight</c> bytes, row-major, one palette index per pixel: 0 is
-/// transparent and every retail file uses exactly one other value as its ink — which is what makes
-/// the 18 colour-scheme fonts (<c>WHITE</c> 30, <c>GRAY</c> 25, <c>GREEN</c> 14, <c>DARK</c> 19,
-/// <c>RED</c> 10, <c>HUD1</c>/<c>2</c>/<c>3</c> 72/73/74, ...) copies of one typeface. A widget picks
-/// its text colour by picking which of the loaded fonts to hand the label constructor
-/// (<c>ColorSchemePanels</c>, <c>0049b0ac</c>), never by passing a colour.</para>
-///
-/// <para>The declared width is the advance, art included: glyph cells carry their own right-hand
-/// spacing column, so runs are laid out by summing widths with no extra tracking. Verified against
-/// all 54 retail font files — every glyph's pool slice is exactly <c>width * cellHeight</c> bytes,
-/// with no exceptions.</para>
+/// <para>Two consequences this class is built around. Each glyph is <c>width x cellHeight</c> bytes,
+/// one palette index per pixel with 0 transparent and exactly one ink value, so the 18
+/// colour-scheme fonts (<c>ColorSchemePanels</c>, <c>0049b0ac</c>) are copies of one typeface and a
+/// widget picks its text colour by picking a font, never by passing a colour. And the declared width
+/// is the advance, art included, so <see cref="Measure"/> is a plain sum of widths with no
+/// tracking.</para>
 ///
 /// <para><c>.HFN</c> is the 640-wide mode's font (cell height 13, 217 glyphs) and <c>.DFN</c> the
 /// 320-wide mode's (cell height 10, 223 glyphs); they are separate art, not a 2x scale of each other.
@@ -84,14 +68,10 @@ public sealed class HudFont {
 	/// <summary>
 	/// The height a label centres by — 11 in every <c>.HFN</c> against a 13-row cell, 8 in every
 	/// <c>.DFN</c> against a 10-row one. <b>Not</b> <see cref="CellHeight"/>, which is what the glyph
-	/// art occupies.
-	///
-	/// <para>Two functions read this field and only this one. <c>Label_SetRect</c> (<c>00438884</c>)
-	/// puts a label's anchor at <c>rectCentreY + (ink &gt;&gt; 1) + margin + 1</c>, and the glyph
-	/// blitter (<c>FUN_00482428</c>) draws each glyph with its top row at <c>anchor - ink</c>. Between
-	/// them the ink-tall band is what gets centred in the rect, and the two rows of cell past it hang
-	/// below as descender space. Centring the full cell instead sits every label a pixel and a half
-	/// high, which is what this field being read as the cell height used to do here.</para>
+	/// art occupies: it is the ink-tall band that gets centred in a label's rect, with the two cell
+	/// rows past it hanging below as descender space. Centring the full cell instead sits every label
+	/// a pixel and a half high. See docs/formats/dfn-hfn-dci.md, "<c>inkHeight</c> and label
+	/// placement".
 	/// </summary>
 	public int InkHeight { get; }
 
@@ -128,21 +108,13 @@ public sealed class HudFont {
 	/// Where a run of text lands inside a rect — the top-left device pixel of its first glyph — as
 	/// <c>Label_SetRect</c> (<c>00438884</c>) and <c>Label_SetText</c> (<c>00438920</c>) place it
 	/// between them. Every HUD label in the game goes through that pair, so this is the one placement
-	/// rule the cockpit, the MFD and the Heads-Down Display all share.
+	/// rule the cockpit, the MFD and the Heads-Down Display all share. The formula is in
+	/// docs/formats/mfd.md, "Label placement"; there is no vertical alignment flag, so it is
+	/// <see cref="InkHeight"/> that gets centred.
 	///
-	/// <list type="bullet">
-	/// <item>Horizontally the alignment flag picks an anchor — the rect's centre, its right edge, or
-	/// its left edge — offset by <paramref name="marginX"/>, and the trimmed run is then placed
-	/// against it.</item>
-	/// <item>Vertically there is no flag: the anchor is always
-	/// <c>rectCentre + (InkHeight &gt;&gt; 1) + marginY + 1</c>, and the glyph blitter draws from
-	/// <c>anchor - InkHeight</c>. So it is <see cref="InkHeight"/> that gets centred, not
-	/// <see cref="CellHeight"/>.</item>
-	/// </list>
-	///
-	/// <para>All of it is integer arithmetic in the original, including the two <c>&gt;&gt; 1</c>s.
-	/// Doing it in floating point instead shifts a label by up to a pixel on either axis, which is
-	/// visible at this art's scale.</para>
+	/// <para>All of it is integer arithmetic in the original, including both <c>&gt;&gt; 1</c>s, and
+	/// this method keeps it that way: in floating point a label lands up to a pixel off on either
+	/// axis, which is visible at this art's scale.</para>
 	/// </summary>
 	public (int X, int Y) Place(string text, int x0, int y0, int x1, int y1, LabelAlign align,
 			int marginX = 0, int marginY = 0) {

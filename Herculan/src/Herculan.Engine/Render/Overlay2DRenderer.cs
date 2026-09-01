@@ -11,8 +11,9 @@ namespace Herculan.Engine.Render;
 
 /// <summary>
 /// Draws one panel's cockpit-art quad — at its own native aspect ratio, never stretched — plus, for
-/// the center panel only, GAU HUD widgets as flat-color placeholder shapes. See
-/// docs/formats/cockpit-hud.md and docs/engine/planning.md's Milestone 8.
+/// the center panel only, the herc's HUD widgets over it, positioned from its own <c>.GAU</c> and
+/// drawn in the game's own sprite art and fonts. See docs/formats/cockpit-hud.md and
+/// docs/engine/planning.md's Milestone 8.
 ///
 /// <para>Orthographic, own minimal shader (position/UV/color, no lighting) — same precedent as
 /// <see cref="WireframeRenderer"/> using its own shader rather than forcing 2D content through
@@ -27,9 +28,9 @@ namespace Herculan.Engine.Render;
 ///
 /// <para>Widgets whose art is not yet identified draw nothing rather than a placeholder shape: their
 /// bezels are already painted into the canopy art, so an empty overlay reads as correct where a green
-/// rectangle read as unfinished. Frame selection is fixed at each bank's first frame — which frame
-/// index corresponds to which widget <i>state</i> (a weapon plate's ten frames, the MFD's three) is
-/// not mapped yet, so nothing here animates.</para>
+/// rectangle read as unfinished. Everything that is drawn picks its frame from live state in
+/// <see cref="CockpitHudState"/> the way the original's own repaint does — a button's lit plate, the
+/// MFD's per-mode background, the throttle knob's height, the reticle's on-target frame.</para>
 /// </summary>
 public sealed class Overlay2DRenderer : IDisposable {
 	private const string VertexShaderSource = """
@@ -93,8 +94,8 @@ public sealed class Overlay2DRenderer : IDisposable {
 
 	/// <summary>
 	/// Draws one panel into the given viewport sub-rect: the cockpit-art quad at its own native aspect
-	/// ratio (never stretched), then (when <paramref name="widgets"/> is non-null) HUD widget
-	/// placeholders on top, aligned to the same transform.
+	/// ratio (never stretched), then (when <paramref name="hud"/> is non-null) that herc's HUD widgets
+	/// on top, aligned to the same transform.
 	/// </summary>
 	/// <param name="mirrorHorizontally">
 	/// True for the left panel, which reuses the same side (<c>.HB2</c>) texture as the right panel
@@ -1216,8 +1217,9 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// docs/formats/cockpit-hud.md for the panel it sits in.
 	///
 	/// <list type="number">
-	/// <item>the screen itself, <c>MFD</c> frame 0, at the panel rect inset 18 GAU units from the left;
-	/// its 196x122 art fills that inset region exactly;</item>
+	/// <item>the screen background, whichever <c>MFD</c> frame the current mode selects — see
+	/// <see cref="MfdLayout.BackgroundFrame"/>, and note that frame 0 is never one of them — at the
+	/// panel rect inset 18 GAU units from the left; its 196x122 art fills that inset region exactly;</item>
 	/// <item>the F1-F6 mode column down the strip the inset left free, each button lit (frame 4) for
 	/// the current screen and unlit (frame 3) otherwise, captioned "F1".."F6" — the original composes
 	/// those from its own <c>"Fx"</c> literal rather than storing six strings;</item>
@@ -1231,12 +1233,11 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// <c>FUN_004474e4</c>'s own choice: it picks <c>ColorSchemePanels[12]</c> when the button's
 	/// <c>+0x40</c> lit flag is set and <c>[10]</c> when it is clear.</para>
 	///
-	/// <para><b>Screens are laid out, not driven.</b> STATUS, FLASH COMM and NAV MAP draw their real
-	/// widget geometry with the text the string table actually holds; the values in that text are the
-	/// power-up placeholders in <see cref="CockpitHudState"/>, since the sim carries no damage,
-	/// squad-order or map state yet. SCANNER, TARGET STATUS and MISSILE CAM draw their screen and
-	/// buttons only — TARGET STATUS shares STATUS's layout but needs a target to name, and the other
-	/// two are wholly state-driven.</para>
+	/// <para><b>Four of the six screens draw their own content.</b> STATUS and TARGET STATUS share one
+	/// method off one <see cref="MfdStatusSubject"/> — the machine being flown for F1, the current
+	/// selection for F5 — SCANNER plots live contacts, and FLASH COMM lists the string table's order
+	/// rows. NAV MAP gets its background flood but no terrain, which needs a map rasterizer the engine
+	/// does not have; MISSILE CAM draws its screen and buttons only.</para>
 	/// </summary>
 	private static void AddMfd(CockpitArt hud, CockpitHudState state,
 			Action<string, int, float, float> blitDevice,

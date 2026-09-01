@@ -30,9 +30,9 @@ namespace Herculan.Engine.Sim;
 /// <para>The MFD scanner's TARGET button and a click on the gunsight reach <see cref="Select"/>, the
 /// same entry point <see cref="Clear"/> uses.</para>
 ///
-/// <para><b>Not ported:</b> the widget-tree side of each call — every one of the three ends by
-/// pushing the new target into the gunsight widget (<c>Gunsight_SetValues</c>), which draws the HUD
-/// target box. That box's own child was never traced; see the cockpit-hud notes.</para>
+/// <para>Each of the three ends by pushing the new target into the gunsight widget
+/// (<c>Gunsight_SetValues</c>), which draws the HUD target box —
+/// see <see cref="Content.TargetBox"/> and docs/formats/hud-target-indicator.md.</para>
 /// </summary>
 public sealed class TargetSelection {
 	/// <summary>

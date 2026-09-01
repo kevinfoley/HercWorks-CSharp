@@ -470,8 +470,7 @@ public sealed class SceneModelLibrary {
 	/// opaque colour. An explosion frame is a round puff on a field of index 0 and the original's
 	/// blit skips that index rather than writing it, so every sprite bank asks for it.
 	///
-	/// <para><b>CORRECTS</b> the claim that the frames a mesh samples have no transparent index at
-	/// all. The <b>structure</b> banks are cutouts too: <c>BASETEX</c> frames 11, 36, 38, 39, 52, 53,
+	/// <para>The <b>structure</b> banks are cutouts too: <c>BASETEX</c> frames 11, 36, 38, 39, 52, 53,
 	/// 60, 61, 63, 64 and 65 are 20-73% index 0 each, and they are the lattice girders on a
 	/// structure's support towers — drawn opaque they come out as black panels where the original
 	/// shows sky through the frame. The original's own switch is per frame rather than per bank

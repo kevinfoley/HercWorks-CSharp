@@ -48,7 +48,7 @@ will be opt-in via a settings menu.
 
 ### Repo & project structure
 
-- **Single repository** (`E:\ES2Stuff`, current repo).
+- **Single repository** — the engine and the HercWorks toolkit share one tree.
 - **Engine lives as sibling project(s) to `HercWorks.UI`**, under`Herculan/src/`, added to the 
   existing `HercWorksMDK.sln`. Both the engine and the WinForms UI reference `HercWorks.Core` / 
   `HercWorks.Vol`. `HercWorks.TransferApi` (UI-facing DTOs) is UI-only plumbing; the engine 
@@ -138,9 +138,12 @@ value this function can produce must be.
 **DTS model units are world units.** Two fields of `dat\<mech>.DAT`, a file the sim reads in
 world units, carry values that are only meaningful as model-space measurements. COLOSSUS is the
 one retail mech whose model dips below model-space zero, to `-400`, and it is the one retail mech
-with a nonzero `UnitOffsetYAdjust`: exactly `400`. And `AiAimTargOffset` (how high up a target the
-AI aims) tracks model height across the fleet — 1500 for OUTLAW's 1700-unit model, 2500 for
-everything larger (2030–2575). Nothing in the load path scales a model: `MechType_InitOne` hands
+with a nonzero `UnitOffsetYAdjust`: exactly `400`. A correction expressed in the same numbers as the
+model's own coordinates is a 1:1 unit relationship. The second field is the one the `.DAT` calls
+`AiAimTargOffset`, which is really the machine's hit-cylinder radius (see
+`docs/simulation/damage-system.md`); it tracks chassis size across the fleet — 1500 for OUTLAW's
+1700-unit model, 2500 for everything larger (2030–2575) — so it corroborates the scale, though as a
+size measure rather than a height. Nothing in the load path scales a model: `MechType_InitOne` hands
 DTS points straight to the shape instance.
 
 At 166.667 u/m, HERC models measure 10.2m (OUTLAW) to 15.5m (OGRE), ~1.5x the manual's quoted
@@ -160,18 +163,13 @@ Symbols: `Hud_WorldUnitsToMetres`, `Hud_UpdateWaypointIndicator`, `Hud_UpdateSpe
 
 ## Known open RE gaps / divergences
 
-Items still unresolved or deliberately diverging from the original, pulled forward from
-milestone history. Check the linked topic doc before assuming one of these is still current —
-this list is not re-verified on every edit.
+An **index**, not a record: each entry names a gap and points at the doc that owns it. The owning
+doc is authoritative for whether a gap is still open — behavioural divergences live in
+`KNOWN_ISSUES.md`, unimplemented work in each topic doc's own "Not ported" section.
 
 - **SimRandom's 56-entry seed table isn't extracted** from DBSIM's data section — the algorithm
   is a literal port, seeding isn't. A roll's result also depends on generator-advance count, so
   treat as statistically faithful, not replay faithful.
-- **DBSIM's sine/cosine table isn't located.** `BinaryAngle`'s Q14 trig table is generated, not
-  ported — fine for a camera, would drift slowly in anything integrating heading over many ticks.
-- **Per-type hit-cylinder radius (`typeRecord+0x1a`) isn't mapped** to a `HercSimDat` field —
-  the in-memory mech type record has more fields than the `.DAT` and offsets don't line up.
-  `MechObject` uses a model-bounds-derived radius meanwhile.
 - **Flyer texture banks** — which `.DBA` DBSIM binds for a flyer is untraced, so flyers draw
   flat-shaded.
 - **`.SNC` audio format unsolved.** No sound anywhere in the engine yet.

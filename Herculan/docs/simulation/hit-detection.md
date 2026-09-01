@@ -71,8 +71,9 @@ nodeCount
   `componentIndex` indexes the `.DMG` file's 29-slot component array instead.
 
 Readers: `Collision_LoadRecordArray` (`0040ccf8`) → `Collision_ReadNode` (`0040cc50`) →
-`Collision_ReadCluster` (`0040cc14`) → `Collision_ReadSphereArray` (`0040c7c4`). The last three were
-named `Collision_LoadSubSpheres` / `Collision_LoadSubSphereFlag` / `Collision_LoadSubMeshIndices`;
+`Collision_ReadCluster` (`0040cc14`) → `Collision_ReadSphereArray` (`0040c7c4`). The Ghidra project
+may still carry the older names `Collision_LoadSubSpheres` / `Collision_LoadSubSphereFlag` /
+`Collision_LoadSubMeshIndices` for the last three;
 the "flag" is the component index and the "8-byte index/sub-mesh records" are the spheres. The field
 order inside a cluster is not the struct order: `componentIndex` lands at the record's `+6` and is
 read first, `sphereCount` lands at `+0` and is read second, because the two live in different
@@ -142,10 +143,10 @@ first cluster's component index, and the last field its sphere count.
 
 ## The collision volume — the `.DGS` record's height field
 
-**This corrects [`../formats/dgs-hd0-notes.md`](../formats/dgs-hd0-notes.md).** That doc's steps 5–6
-("5 `int16` scalars + a fixed 1024-byte block", then "sub-record count × sub-record size raw
-records") are one structure: the shape's **collision volume**. The old walk consumed exactly the
-same byte count, so every retail record parsed correctly while all of it was named wrongly.
+What reads as "5 `int16` scalars + a fixed 1024-byte block" followed by "sub-record count ×
+sub-record size raw records" is really one structure: the shape's **collision volume**. Both walks
+consume the same byte count, so a reader can parse every retail record correctly while naming all of
+it wrongly — see [`../formats/dgs-hd0-notes.md`](../formats/dgs-hd0-notes.md) for the container.
 
 Read by `BaseShape_ReadFromStream` (`0042762c`):
 

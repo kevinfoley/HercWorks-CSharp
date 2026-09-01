@@ -14,7 +14,7 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 ///
 /// Records are variable-length, NOT a fixed stride — each is built out of the exact same low-level
 /// record readers <c>.DMG</c>/<c>.COL</c> use (<c>HercPiece_ReadRecord</c>,
-/// <c>Collision_LoadSubSphereFlag</c>/<c>Collision_LoadSubMeshIndices</c>), reused generically by
+/// <c>Collision_ReadCluster</c>/<c>Collision_ReadSphereArray</c>), reused generically by
 /// DBSIM rather than a bespoke weapon-record reader — see <see cref="WeaponMountTemplate"/>.
 /// Ported from org.hercworks.core.data.file.dat.sim.Weapons (extended — the original Java class
 /// only ever modeled the Total field).
@@ -56,14 +56,14 @@ public class Weapons {
 		public short[] DependentRaw { get; set; } = [];
 
 		/// <summary>
-		/// Read via the reused Collision_LoadSubSphereFlag call. Constant 0x13 (19) in EVERY real
+		/// Read via the reused Collision_ReadCluster call. Constant 0x13 (19) in EVERY real
 		/// record seen, including id0/NONE — not the boolean flag its origin function's name
 		/// suggests; semantics unknown in this context.
 		/// </summary>
 		public short SubSphereFlagRaw { get; set; }
 
 		/// <summary>
-		/// Read via the reused Collision_LoadSubMeshIndices call. The real entry count is this value
+		/// Read via the reused Collision_ReadSphereArray call. The real entry count is this value
 		/// masked with 0x1FFF (top 3 bits reserved for flags in the original collision-record
 		/// format; never observed set in real weapon data) — see <see cref="FiringSequenceCount"/>.
 		/// </summary>
@@ -78,14 +78,20 @@ public class Weapons {
 		/// </summary>
 		public short[][] FiringSequence { get; set; } = [];
 
-		/// <summary>Trailing 48 raw bytes (0x30) — mostly undecoded, but see <see cref="ProjDatIndex"/>
-		/// for the one field within it that's now fully resolved.</summary>
+		/// <summary>
+		/// Trailing 48 raw bytes (0x30). Kept raw, but much of it is decoded and read directly by
+		/// <c>Herculan.Engine.Sim.WeaponMount</c> at these tail-relative offsets: <c>0x00</c> range,
+		/// <c>0x06</c>/<c>0x08</c> the readiness threshold pair, <c>0x0a</c> magazine size,
+		/// <c>0x0c</c> barrel count, <c>0x10</c>-<c>0x14</c> the muzzle offset triple,
+		/// <c>0x16</c>/<c>0x1a</c> the side offsets, <c>0x1c</c> <see cref="ProjDatIndex"/>, and
+		/// <c>0x1e</c> the refire interval. See docs/formats/weapons-dat-sim.md.
+		/// </summary>
 		public byte[] Tail { get; set; } = new byte[0x30];
 
 		/// <summary>
-		/// Tail-relative offset 0x1c (absolute in-memory offset 0x3e) — SOLVED 2026-08-11 by tracing
-		/// DBSIM's <c>Mech_ConfigureLoadout</c> (0x004175dc) -&gt; weapon-mount factory (0x0040fff8,
-		/// which reads this exact field into a local it then branches on). This is the mechanism
+		/// Tail-relative offset 0x1c (absolute in-memory offset 0x3e). Read by DBSIM's
+		/// <c>Mech_ConfigureLoadout</c> (0x004175dc) -&gt; weapon-mount factory (0x0040fff8), which
+		/// branches on it. This is the mechanism
 		/// behind <see cref="ProjectileData"/>'s weapon-id-to-record mapping — see
 		/// docs/simulation/damage-system.md and docs/formats/weapons-dat-sim.md for the full
 		/// writeup, and <c>ProjectileData</c>'s own doc comment for the resulting confirmed mapping.
@@ -97,10 +103,11 @@ public class Weapons {
 		///   mount constructors never actually consume — confirmed by reading the mount-factory's
 		///   per-case argument lists, not all of which pass the resolved PROJ.DAT pointer through).</item>
 		///   <item>0x22 (34) — resolved via a (category=Missile, secondary-key) search
-		///   (<c>Proj_LookupRecord</c>) instead of a direct index; the secondary key comes from a
-		///   different per-hardpoint table this record doesn't contain, so which of PROJ.DAT's 7
-		///   remaining Missile/Rocket entries (indices 7-13) a given mount resolves to isn't fully
-		///   traceable from WEAPONS.DAT alone. Seen only for MSL6/MSL8/MSL10/FLYMSL.</item>
+		///   (<c>Proj_LookupRecord</c>) instead of a direct index. The secondary key is the mission's
+		///   ammunition-type array (<c>MecEntry.WeaponAmmoTypes</c>, or <c>script.dat</c> block 7
+		///   offset <c>0x72</c>), which is what selects among PROJ.DAT's remaining Missile/Rocket
+		///   entries (indices 7-13); <c>Herculan.Engine.Sim.WeaponCatalog</c> resolves it. Seen only
+		///   for MSL6/MSL8/MSL10/FLYMSL.</item>
 		///   <item>otherwise — a direct flat array index into PROJ.DAT
 		///   (<c>ProjDat_RecordTable[value]</c>), confirmed byte-exact against all 21 other real
 		///   catalog weapons (e.g. ATC20/35/50/75/100 -&gt; indices 0/1/2/23/24 in a clean armor-damage

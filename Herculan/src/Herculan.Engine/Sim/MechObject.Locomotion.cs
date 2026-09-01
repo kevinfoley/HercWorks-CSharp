@@ -121,9 +121,11 @@ public sealed partial class MechObject {
 	/// speed the turn-rate tent is zero, and the rotation comes from the turn-in-place sequence's
 	/// own root rotation.</para>
 	///
-	/// <para>Three of the original's terms are omitted because they are all exactly zero at full
-	/// health and there is no damage system yet: the two flat speed penalties gated on damage flags,
-	/// and the <c>mech+0x317</c> subsystem's throttle runaway.</para>
+	/// <para>Three of the original's terms are not modelled here: the two flat speed penalties gated
+	/// on damage flags, which are zero at full health, and the Turbo Pod's speed bonus
+	/// (<c>mech+0x317</c>, catalog id 31), which is <i>maximal</i> at full health and decays with
+	/// damage — so a machine here runs slightly slower than a fully-podded vanilla one, not faster.
+	/// See docs/simulation/mech-locomotion.md, "Damage effects on movement".</para>
 	/// </summary>
 	private void LocomotionTick(SimWorld world, short turn, short desired) {
 		if (Thread is not { } thread) {

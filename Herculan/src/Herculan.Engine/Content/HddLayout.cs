@@ -304,16 +304,6 @@ public sealed class HddLayout {
 	public Rect this[Widget widget] => _widgets[(int)widget];
 
 	/// <summary>
-	/// Whether <paramref name="page"/> shows <paramref name="widget"/>, from the 2x15 byte table at
-	/// <c>0049d24c</c> that <c>FUN_0044a5e4</c> walks as <c>table[page][widget]</c>, setting a hidden
-	/// widget's state to 2 — the value its paint (<c>FUN_0044bb38</c>) refuses to draw at.
-	///
-	/// <para>Both rows hide the three comm boxes, which is not a contradiction: those widgets paint
-	/// only the selection highlight, and <c>HddGauge_LoadPilotFrames</c> clears the state back to 0
-	/// for each slot a squadmate actually occupies. The boxes themselves are drawn by the display, not
-	/// by the widgets.</para>
-	/// </summary>
-	/// <summary>
 	/// Whether <paramref name="widget"/> is latching — lit by being the chosen page and staying chosen
 	/// — rather than momentary, lighting only while held.
 	///
@@ -327,6 +317,16 @@ public sealed class HddLayout {
 	public static bool IsLatching(Widget widget) =>
 		widget is Widget.PageButton0 or Widget.PageButton1;
 
+	/// <summary>
+	/// Whether <paramref name="page"/> shows <paramref name="widget"/>, from the 2x15 byte table at
+	/// <c>0049d24c</c> that <c>FUN_0044a5e4</c> walks as <c>table[page][widget]</c>, setting a hidden
+	/// widget's state to 2 — the value its paint (<c>FUN_0044bb38</c>) refuses to draw at.
+	///
+	/// <para>Both rows hide the three comm boxes, which is not a contradiction: those widgets paint
+	/// only the selection highlight, and <c>HddGauge_LoadPilotFrames</c> clears the state back to 0
+	/// for each slot a squadmate actually occupies. The boxes themselves are drawn by the display, not
+	/// by the widgets.</para>
+	/// </summary>
 	public static bool WidgetVisible(HddPage page, Widget widget) {
 		int index = (int)widget;
 		if (index < 0 || index >= WidgetCount) {
@@ -412,7 +412,7 @@ public sealed class HddLayout {
 	public const int DamageRowHeight = 14;
 
 	/// <summary>
-	/// The damage screen's footer caption, centred in a 80x14 device box 56 pixels in from
+	/// The damage screen's footer caption, centred in an 81x15 device box 56 pixels in from
 	/// <see cref="Screen"/>'s left edge and 4 up from its bottom.
 	/// </summary>
 	public Rect DamageFooter => new(Screen.X0 + 56, Screen.Y1 - 18, Screen.X0 + 136, Screen.Y1 - 4);

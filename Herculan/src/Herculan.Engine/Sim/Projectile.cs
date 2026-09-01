@@ -248,10 +248,9 @@ public sealed class Projectile {
 	/// the two aiming angles are moved toward it by at most <see cref="HomingTurnRate"/> per 125 ms,
 	/// then the frame is marked stale so the next step flies the new way.
 	///
-	/// <para><b>Nothing homes yet</b>, and not because this is a stub: the guidance reads the firing
-	/// machine's <i>selected target</i> (<c>mech+0x1a4</c>), and the engine has no target selection
-	/// at all — see <see cref="SimWorld.FireBullet"/>. A plasma shot therefore flies straight, which
-	/// is what the original does with no target selected too.</para>
+	/// <para>The guidance reads the firing machine's <i>selected target</i> (<c>mech+0x1a4</c>),
+	/// which <see cref="TargetSelection"/> fills in — see <see cref="SimWorld.FireBullet"/>. Fired
+	/// with nothing selected a plasma shot flies straight, which is what the original does too.</para>
 	/// </summary>
 	private void HomingTick() {
 		if (Target == null) {

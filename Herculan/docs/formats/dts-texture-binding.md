@@ -1,7 +1,5 @@
 # DTS/DBA texture binding and poly shading
 
-NOTE TO CLAUDE: This should be a reference document, not a personal journal.
-
 Covers how a `.DTS` poly gets a colour: which `.DBA` is bound to a model, how a textured poly maps
 its UVs, and how the three untextured poly types resolve their surface value. VSHELL findings are
 from Ghidra 12.1.2 disassembly of `VSHELL.EXE` (project
@@ -196,6 +194,7 @@ SAMSON's first root. `DtsMeshBuilder.DropCoincidentTwins` keeps one per group, r
 texture poly beats a flat poly, which beats an unresolved texture poly. The three-way rank (rather
 than a boolean) keeps the no-bank path drawing the flat twin. Textured triangle counts with the rank
 in place: SAMSON 142, DIABLO 198, APOCA 232, with total triangle counts unchanged.
+
 ## Poly types and their colour mechanisms (DBSIM.EXE)
 
 DBSIM's DTS type registry (`g_TSObjectTypeRegistry`, `004a63c8` — 12-byte `{tag, ctor, name}`
@@ -241,6 +240,11 @@ Across all 55 retail `.DTS`, 11 roots carry a surface whose line colour differs 
 `BULLETS.DTS` root 4 (ATC35), five weapon-model roots in `MECHWPNS`/`MECHWPN2`, and 3-edge slivers on
 two `HYPERION` LODs and one `MIRIMAC` root. ATC35's three quads are gold `#D0CC3C` with no outline,
 `#ECCCAC` outlined `#E4E4E4`, and `#DCCCA0` outlined `#D8D4D4`.
+
+Corroboration that the value is a palette index: of the 1517 plain `TSSolidPoly` surfaces across
+every retail `.DTS`, **all 1517** carry a zero flag and a value inside 0-255 — no distribution that
+tight is a per-shape frame index. The projectiles make it visible: their values are 85, 93, 94, 104
+and 246 — the fire ramp and near-white — and none is a valid frame of the eight-frame `BULLETS.DBA`.
 
 ### `TSShadedPoly` — shade-ramp number, per-face light, fixed `.RMP` row
 
@@ -344,21 +348,10 @@ not move the zero crossing.
 
 ### The sun
 
-One hardcoded directional light per mission, created unconditionally by `Light_CreateMissionSun`
-(`00461240`). No ambient light is created anywhere in the binary.
-
-```
-angles = (-6000, 0, 21000)                     // Vec3Short, 0x10000 per full circle
-BuildEulerRotationMatrixQ14(angles, m)         // 0047eaac
-RotateVectorByMatrixQ14((0, 0x1000, 0), m, d)  // 0047ffb4
-intensity = 0x100
-```
-
-`BuildEulerRotationMatrixQ14` reads a 1024-entry quarter-wave cosine table at `DAT_004a25dc` in Q14,
-indexed `round(angle / 16)` with the usual quadrant reflection. Because the rotated vector is
-`(0, 0x1000, 0)`, only the matrix's middle column matters: `m[2] = ±cosX·sinZ`, `m[3] = cosX·cosZ`,
-`m[5] = sinX`. With X = `-6000` (-32.96 degrees) and Z = `21000` (115.34 degrees) the direction is
-**(±0.758, -0.359, -0.544)** at length `0x1000` — horizontal component 0.839, vertical 0.544.
+One hardcoded directional light per mission, `Light_CreateMissionSun` (`00461240`), intensity
+`0x100`, direction **(±0.758, -0.359, -0.544)** at length `0x1000` in the sim's Z-up world. No
+ambient light is created anywhere in the binary. The constants it is built from and the derivation of
+that direction are in [`terrain-lighting.md`](terrain-lighting.md#the-sun).
 
 ### Normals live in the point list
 
@@ -422,8 +415,8 @@ its *vertices* on the axes at level 1 — a 45-degree difference in cross-sectio
 
 ## Implementation status
 
-`Herculan.Engine` unless noted. `Model3DViewerControl` (HercWorks.UI) implements only the
-`TSTexture4Poly` and averaged-colour paths and none of the shading work below.
+`Herculan.Engine` unless noted. `Model3DViewerControl` (HercWorks.UI) implements the
+`TSTexture4Poly` path and, for everything else, `DefaultShapeColors` — none of the shading work below.
 
 | Mechanism | Status |
 |---|---|
@@ -457,7 +450,8 @@ How the shading paths map onto engine types:
   stored normal alongside the possibly-smoothed `Normal`, so the front/back flip is one decision per
   poly and both vectors share the point list's convention.
 - **Fallbacks, reached only by a theater with no ramp table or no palette** (no retail theater):
-  `TextureAtlas.AverageColor` for a shaded surface, and an unshaded texel for a textured one.
+  `DtsMeshBuilder.FallbackColor`, a flat stand-in, for a shaded surface; an unshaded texel for a
+  textured one.
 
 Cutout frame inventory: `BASETEX` frames 11, 36, 38, 39, 52, 53, 60, 61, 63-65 are 20-73% palette
 index 0 each. Mech skins are excluded — they carry a handful of stray index-0 texels that are paint,
@@ -472,12 +466,12 @@ Each of these was implemented or documented at some point and is disproven. Do n
 | `FUN_00474e9c` is `TSSolidPoly_Render` | It is `TSTexture4Poly_Render`; the type registry settles it. Assigned by resemblance to VSHELL's renderer |
 | A flat poly's `FrontColor` is a `.DBA` frame index sampled as a dither swatch | Only `TSTexture4Poly`'s is a frame index |
 | A flat/shaded surface renders as the frame's **average colour** | The value is a palette index (`TSSolidPoly`) or a ramp number (`TSShadedPoly`/`TSGouraudPoly`). Averaging `BASETEX` frames 0/8/12 gives browns and greens where ramps 0/8/12 are greys and blue-greys |
-| `DefaultShapeColors`, a 13-entry guess table | Mostly clamps to cyan |
+| `DefaultShapeColors`, a 13-entry guess table | Mostly clamps to cyan. Still the WinForms viewer's live colour path (`HercWorks.UI.DtsGeometryBuilder`), which has none of the shading work below — a superseded stand-in, not a reading anything new should adopt |
 | A direct `.DPL[FrontColor]` palette index for the lit types | Right idea, wrong table — it indexes the ramp table, not the colour table |
 | `abs()` on the light term (to keep winding-flipped triangles from going black) | Gives a surface pointing away from the sun the same light as one facing it. The original flips the normal toward the **eye**, then lights it signed |
 | The terrain shade curve (`512 * facing`) applied to shapes | Shapes use `Light_ComputeShadeForFace`; see the table above |
 | The fixed `.RMP` row applied to `TSGouraudPoly` | That path never calls `Raster_ShadeRampRow` |
-| A brightness multiplier over an expanded RGB texel, in place of the indexed lookup | The `.RMP` is a per-colour remap that preserves hue and compresses unevenly; no scalar reproduces it |
+| A brightness multiplier over an expanded RGB texel, in place of the indexed lookup | See [`terrain-lighting.md`](terrain-lighting.md#rejected-readings), which carries this row |
 | Interpolating the normal and computing the shade per fragment (Phong) | The original interpolates the shade computed per vertex; the two differ wherever the 0 clamp bites |
 | Normals are not reachable, so Gouraud cannot be implemented | Normals are extra entries in the point list; `NormalList` indexes them per vertex |
 | A textured quad can be fanned into two triangles carrying plain UVs | Each triangle then maps affinely and independently; they agree only on a parallelogram, and every other quad kinks along the diagonal. See "Quad mapping on triangle hardware" |
@@ -494,8 +488,9 @@ yet retail grades it.
 
 Checked and excluded as the cause:
 
-- The sun direction, re-derived from `BuildEulerRotationMatrixQ14`'s own arithmetic (see above) and
-  independently corroborated by flat terrain being pinned at full brightness.
+- The sun direction, re-derived from `BuildEulerRotationMatrixQ14`'s own arithmetic
+  ([`terrain-lighting.md`](terrain-lighting.md#the-sun)) and independently corroborated by flat
+  terrain being pinned at full brightness.
 - Intensity, which scales both terms and cannot move the zero crossing.
 - The ramp entry sequence, which matches retail exactly and in order.
 

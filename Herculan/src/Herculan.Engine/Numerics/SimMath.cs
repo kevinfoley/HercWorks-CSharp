@@ -41,9 +41,10 @@ public static class SimMath {
 
 	/// <summary>
 	/// Q10 sibling of <see cref="Q8Multiply"/> — same <c>IMUL</c>+<c>SHRD</c> shape, shift
-	/// <c>0xa</c>, sitting immediately adjacent in the binary. Present for completeness of the
-	/// toolkit; no caller has been traced to it yet, so which unit domain it serves is still open
-	/// (see the physics notes' "Fixed-point math toolkit" section).
+	/// <c>0xa</c>, sitting immediately adjacent in the binary. Its domain is the simulation's
+	/// normalized scalars: throttle and speed (<c>Mech_GetSpeed</c>, <c>00415498</c>, is
+	/// <c>Q10(2000, mech+0x28e)</c>), reactor and shield rates, and a shot's damage against its
+	/// capacitor charge. See docs/simulation/dbsim-physics-notes.md, "Fixed-point math toolkit".
 	/// </summary>
 	public static int Q10Multiply(int a, int b) => (int)(((long)a * b) >> 10);
 

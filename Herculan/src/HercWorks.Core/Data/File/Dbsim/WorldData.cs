@@ -46,7 +46,7 @@ public class WorldData {
 	/// The 14 leading shorts, in file order. The original hands them to its sky/haze setup rather
 	/// than storing a struct, so only the first four have names anyone has proposed, and those come
 	/// from the Java port's guesses rather than from the code: <c>2</c>, a sky palette id (208 in
-	/// retail data, which is where the sky band starts — see docs/simulation/distance-fog-and-sky.md),
+	/// retail data, which is where the sky band starts — see docs/formats/distance-fog-and-sky.md),
 	/// a horizon height and a horizon start height. The rest are constant across all ten files.
 	/// </summary>
 	public short[] Header { get; set; } = new short[HeaderShorts];

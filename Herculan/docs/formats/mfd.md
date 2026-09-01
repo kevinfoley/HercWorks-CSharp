@@ -208,10 +208,8 @@ alignment 1 (left) for the title, the status labels and the flash-comm rows, and
 button captions. All margins are zero except the flash-comm rows'.
 
 `inkHeight` is the font's own `0x1a` header field (11 for `.HFN`), **not** its cell height (13) — see
-[`dfn-hfn-dci.md`](dfn-hfn-dci.md). Both `Label_SetRect` and the glyph blitter (`FUN_00482428`,
-`glyphTop = anchorY - inkHeight`) read that field and no other, so it is the inked band that gets
-centred and the remaining two cell rows hang below. All the arithmetic is integer, both shifts
-included; doing it in floating point shifts a label up to a pixel on either axis.
+[`dfn-hfn-dci.md`](dfn-hfn-dci.md), "`inkHeight` and label placement". All the arithmetic is integer,
+both shifts included; doing it in floating point shifts a label up to a pixel on either axis.
 
 ## Screens
 
@@ -308,15 +306,15 @@ target and centres it at `-((x1 - x0) >> 1)`, `-((y1 - y0) >> 1)`. No labels, no
 Its paint (`004405e4`) floods the rect with `COLORS.DAT` id 19 (palette 16, black) before rasterizing
 terrain, which is why no screen chrome is blitted for this mode.
 
+### `MFDRadar` — mode 3
+
+The plan view, its turret wedge and its contact list: [`mfd-scanner.md`](mfd-scanner.md).
+
 ## Paint order
 
 `MfdDisplay_Repaint`: mode buttons 0-5, background, all visible buttons 0-12, the current screen's
 paint, then the title. The background covers only the inset rect and the mode column sits left of it,
 so the first pass is not overdrawn.
-
-### `MFDRadar` — mode 3
-
-The plan view, its turret wedge and its contact list: [`mfd-scanner.md`](mfd-scanner.md).
 
 ## Engine coverage
 

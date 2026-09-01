@@ -1,8 +1,6 @@
 # .MSN mission file (ZONES.VOL/MSN/*.msn) and its VSHELL load path
 
-NOTE TO CLAUDE: This should be a reference document, not a personal journal.
-
-**Macro-structure: revision field + 17 array/skip rows in order (14 fully field-decoded), verified against all 62 real retail `.MSN` files.** The format was previously guessed by `MissionFile.cs`/`MissionFileTransformer.cs` (hardcoded against `TRAIN5.MSN` alone) and known to be structurally wrong. This doc reverses it from `VSHELL.EXE` disassembly and validates against real data.
+**Macro-structure: revision field + 17 array/skip rows in order (14 fully field-decoded), verified against all 62 real retail `.MSN` files.** Reversed from `VSHELL.EXE` disassembly and validated against real data; implemented in `HercWorks.Core.Io.Transform.Common.MissionFileTransformer`.
 
 ## Call chain — confirmed
 
@@ -77,9 +75,9 @@ fields changed" — not something the current C# port models at all.
 ### Record-array table — **empirically confirmed byte-exact against 61/62 real `.MSN` files**
 
 Two corrections versus the first disassembly-only pass (caught by building a strict byte-walker and
-testing it against every real file — see "How this was verified" below):
+testing it against every real file — see "Verification note" below):
 
-- A **skip-only row** (`DAT_0047066a`) sits between the `UnitInfo` array (#4) and the 22-byte array
+- A **skip-only row** (`DAT_0047066a`) sits between the 144-byte array (#4) and the 22-byte array
   (now #6) — it reads a count, then seeks forward `count * 0x40` (64) bytes **without storing
   anything**. Easy to miss reading the decompiled code linearly since it looks like ordinary array
   setup at a glance.
@@ -138,7 +136,6 @@ Central spatial-reference table: `{GUID, X, Y, Z}` points (2,661 real instances 
 
 **Model:** Flat position record. Four dead fields are declared but never used; model as GUID + X/Y/Z + opaque padding.
 
-
 ## Row #8 field decode — "WaypointGroup" (`DAT_00470656`, 10 fixed bytes + nested-count×2 bytes/record)
 
 Ordered waypoint list, heavily referenced by row #15 (470 real instances across 62 files).
@@ -155,7 +152,6 @@ Ordered waypoint list, heavily referenced by row #15 (470 real instances across 
 **Model:** Named waypoint list; conditionally-spawned records have no GUID; inheritance copies only nested list.
 
 Spatial validation: consecutive waypoints have median distance ~191k units (tighter than random pairs ~310k), confirming authored path structure. 24% of records form closed loops (first = last waypoint).
-
 
 ## Row #15 field decode — "LinkedRef22" (`DAT_00470658`, 22 bytes/record)
 
@@ -177,7 +173,6 @@ Spatial validation: consecutive waypoints have median distance ~191k units (tigh
 
 **Model:** Waypoint group reference (94% dominant) + optional position/action/entity. Compound condition pair at `0x02`/`0x06`.
 
-
 ## Row #9 field decode — "LinkOrReward12" (`DAT_0047065e`, 12 bytes/record)
 
 Dual-purpose: link (two row #6 refs) or reward (one row #6 ref + literal value). 335 real instances; 100% of row #10's sub-refs match row #9 GUIDs.
@@ -192,7 +187,6 @@ Dual-purpose: link (two row #6 refs) or reward (one row #6 ref + literal value).
 | `0x0A` | ref→row #6 OR literal | if `0x06=0`: row #6 index (87% adjacent to `0x08`); if `0x06=1`: literal value (100–20000 in round increments) |
 
 **Model:** Link (two consecutive waypoints) or reward marker (position + credit quantity). Row #10 verb codes correlate with type (verb 3 → 97% link, verbs 1/2 → reward-leaning).
-
 
 ## Row #10 field decode — "Action82" (`DAT_00470660`, 82 bytes/record)
 
@@ -271,7 +265,6 @@ Paired actions; nominal 10-slot array is dead (96% use ≤1 slot). 72 real insta
 
 **Model:** Per-mission reward/unlock package (hercs/weapons availability + condition-gated bonus). No GUID, no position reference.
 
-
 ## Row #13 field decode — "UnkEntity102Bytes" (`DAT_00470654`, 102 bytes/record)
 
 Item flags + condition/inheritance (24%/30% real usage — highest combined rates in file). 124 instances.
@@ -294,7 +287,6 @@ Item flags + condition/inheritance (24%/30% real usage — highest combined rate
 
 **Model:** 20-flag boolean set + optional secondary action + trailing constant. High inheritance/condition rates suggest variant-template usage pattern.
 
-
 ## Row #14 field decode — "MiscEntityInfo" (`DAT_0047065c`, 62 bytes/record)
 
 Entity type + modifier. Largest sample (1,949 instances); clear `0x08`/`0x3C` correlation.
@@ -315,7 +307,6 @@ Entity type + modifier. Largest sample (1,949 instances); clear `0x08`/`0x3C` co
 | `0x3C` | health modifier | 100%: `100` (71%) or `0` (29%); **100% correlates with `0x08` real** |
 
 **Model:** Entity type + health modifier pair; cross-refs sparse but confirmed real. `0x3C` acts as HealthModAdjust (100=default).
-
 
 ## Row #16 field decode — "EntitySpawn164" (`DAT_0047065a`, 164 bytes/record)
 
@@ -374,8 +365,7 @@ Entity template/spawn; highest inheritance usage (48%). Three-way identity split
 | `0x8C` | ref→row #10 slot 2 | 2.4% dead |
 | `0x8E` | health modifier | 100% real; `100` (98.5%) or `50` (1.5%) |
 
-**Model:** Template/spawn with high inheritance/condition usage. Declared cross-refs (#6/#7/#10) nearly dead; real payload is unresolved 10-slot array (possibly weapons/items, unconfirmed). Three identity patterns: reusable template (GUID+inherit), fresh template (GUID only), or conditional spawn (no GUID).
-
+**Model:** Template/spawn with high inheritance/condition usage. The payload is the 10-slot **weapon fit** at `0x32`, plus the per-mech spawn-position and heading overrides at `0x46`/`0x48` — sparsely populated but live. Three identity patterns: reusable template (GUID+inherit), fresh template (GUID only), or conditional spawn (no GUID).
 
 ## Row #17 field decode — "UnitSpawn58" (`DAT_0047064a`, 58 bytes/record)
 
@@ -397,15 +387,9 @@ Unit-spawn/assignment to waypoint group. No GUID (unreferenced row). Nested pair
 
 **Model:** Unit/herc type (dominant) + optional waypoint group + polymorphic entity + nested tag pairs. No GUID (self-contained, never referenced).
 
-
-
-
-
 ## How to apply
 
-- **The record table is byte-exact against 61 of 62 retail `.MSN` files.** `MissionFileTransformer.cs`'s `TRAIN5.MSN`-hardcoded layout is wrong and must be replaced with the exact row ordering/strides in the table above (including skip-only row #5 and nested row #8's true 2-bytes-per-entry width).
-
-- **14 of 17 rows now have full field-level decodes** (#1, #3, #4, #6, #7, #8, #9, #10, #11, #12, #13, #14, #15, #16), plus row #17. Most have no current C# model; rows #1/#13/#14/#16 have existing types (with varying accuracy). **Row #4 is fully wrong** — the existing `UnitInfo` hypothesis has no GUID field and the declared cross-refs don't exist; build this one fresh from the decode in this doc.
+- **The record table is byte-exact against 61 of 62 retail `.MSN` files**, and is implemented: `HercWorks.Core.Io.Transform.Common.MissionFileTransformer` walks the rows in this order, including skip-only row #5 and nested row #8's 2-bytes-per-entry width. Each row has a model under `HercWorks.Core.Data.File.Msn/`.
 
 - **Recurring pattern: most declared array/discriminator capacity goes unused in retail.** C# models should expose the actually-used shape, not full nominal capacity, while still round-tripping raw bytes.
 

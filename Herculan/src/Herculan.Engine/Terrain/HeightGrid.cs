@@ -7,11 +7,14 @@ namespace Herculan.Engine.Terrain;
 /// docs/formats/terrain-heightmap.md, "The HeightGrid struct", for the full field map.
 ///
 /// <para>Storage differs from the original in one deliberate way: DBSIM allocates a single array of
-/// 16-byte cells, of which only byte <c>+0x0</c> (raw height) and byte <c>+0xf</c> (diagonal
-/// selector + material index) are written by either loader path — the intervening 14 bytes are
-/// undecoded and never touched. Rather than carry 14 bytes per cell of known-dead space, this holds
-/// two parallel byte arrays. The addressing (<c>index = x + (y &lt;&lt; WidthShift)</c>, row-major)
-/// and every value are unchanged, so the height query below is still a literal translation.</para>
+/// 16-byte cells, where this holds parallel arrays. Of the 16 bytes, the loaders write <c>+0x0</c>
+/// (raw height) and the material index in <c>+0xf</c>; <c>Terrain_BuildCellSurface</c> then fills in
+/// the diagonal selector (also <c>+0xf</c>), the two face normals (<c>+0x1..+0xc</c>) and the two
+/// baked shade bytes (<c>+0xd</c>/<c>+0xe</c>). The parallel arrays here hold the same values:
+/// <c>_rawHeights</c>, <c>_cellFlags</c>, <c>_diagonals</c> and <c>_normals</c>, with the shade bytes
+/// recomputed at mesh-build time instead (<see cref="Render.TerrainMeshBuilder"/>). The addressing
+/// (<c>index = x + (y &lt;&lt; WidthShift)</c>, row-major) and every value are unchanged, so the
+/// height query below is still a literal translation.</para>
 /// </summary>
 public sealed partial class HeightGrid {
 	/// <summary>Length every surface normal is scaled to — <c>FUN_0046c2ec</c>'s own constant.</summary>
@@ -65,11 +68,13 @@ public sealed partial class HeightGrid {
 	public int HeightScale { get; }
 
 	/// <summary>
-	/// The load-time value at <c>+0x10c</c>, derived as <c>10 >> (CellShift - 14)</c> (clamped,
-	/// default 10). <c>Terrain_HeightQuery</c> never reads it — it is the <b>view radius in cells</b>,
-	/// and its one consumer is <c>Terrain_DrawCellQuad</c>, which per cell does
-	/// <c>FUN_00467fdc(grid[0x10c] &lt;&lt; grid[0x108])</c> to install the visibility range the
-	/// distance fog is measured against. See <see cref="VisibilityRange"/>.
+	/// The value at <c>+0x10c</c>, derived here once at load as <c>10 >> (CellShift - 14)</c>
+	/// (clamped, default 10). <c>Terrain_HeightQuery</c> never reads it — it is the <b>view radius in
+	/// cells</b>, and the consumer this engine has ported is <c>Terrain_DrawCellQuad</c>, which per
+	/// cell does <c>FUN_00467fdc(grid[0x10c] &lt;&lt; grid[0x108])</c> to install the visibility range
+	/// the distance fog is measured against (see <see cref="VisibilityRange"/>). The field's writer
+	/// and its other readers — draw-region and view-distance setup — are in
+	/// docs/formats/terrain-texturing.md's "<c>grid+0x10c</c> — the LOD / draw-radius field".
 	/// </summary>
 	public int DetailLod { get; }
 
@@ -317,9 +322,8 @@ public sealed partial class HeightGrid {
 		}
 
 		// Selectors 1 and 3 fall through to the plane through the (0,0)/(1,0)/(0,1) corners with no
-		// triangle test at all. The original handles them; neither loader path has been observed
-		// producing them (see TerrainZoneLoader), so this branch is reachable only if some
-		// not-yet-located code writes those bits.
+		// triangle test at all — which is exact for selector 1, the coplanar quad BuildSurface writes.
+		// Selector 3 has no observed producer; the original handles it, so this branch does too.
 		return ((h10 - h00) * fracX >> CellShift) + h00
 			 + ((h01 - h00) * fracY >> CellShift);
 	}

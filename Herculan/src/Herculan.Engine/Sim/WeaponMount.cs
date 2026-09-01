@@ -257,7 +257,7 @@ public sealed class WeaponMount {
 	/// <c>+0x4c</c>. Whether this mount can be armed at all. Clear for a pod from construction, and
 	/// cleared on an ammunition mount the moment its magazine runs out
 	/// (<c>WeaponMount_FireDispatch_Missile</c>) — an empty weapon drops out of the selection cycle
-	/// rather than staying armed. Nothing empties a magazine yet.
+	/// rather than staying armed. <see cref="FireAmmunition"/> is what empties one.
 	/// </summary>
 	public bool Selectable { get; internal set; }
 

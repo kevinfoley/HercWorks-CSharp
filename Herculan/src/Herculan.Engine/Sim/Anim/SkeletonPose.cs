@@ -7,7 +7,7 @@ namespace Herculan.Engine.Sim.Anim;
 /// transform it hangs from, and where that puts it in the world.
 /// </summary>
 /// <param name="TransformId">Index into the shape's transform table — the id
-/// <see cref="AnimationThread.NodeTransform"/> takes.</param>
+/// <see cref="ShapeInstance.NodeTransform"/> takes.</param>
 /// <param name="ParentId">The transform this one hangs from, or -1 at the root.</param>
 /// <param name="World">The node's origin in world units.</param>
 public readonly record struct SkeletonJoint(int TransformId, int ParentId, Vec3i World);

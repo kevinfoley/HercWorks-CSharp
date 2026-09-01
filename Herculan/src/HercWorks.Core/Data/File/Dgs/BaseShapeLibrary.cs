@@ -59,8 +59,7 @@ public readonly record struct BaseShapeCollision(
 /// at the head of every <c>ClassItem</c> record (<c>shape+8</c>). Two unrelated consumers identify
 /// it: the LOD selector (<c>FUN_004033e4</c>) divides it by viewing distance to estimate the
 /// shape's size on screen, and the structure hit test (<c>FUN_00427da8</c>) adds it to the ray
-/// length before rejecting a candidate. An earlier pass of this reader called it <c>Id</c>, which
-/// was a placeholder rather than a finding.
+/// length before rejecting a candidate.
 /// </param>
 /// <param name="Geometry">
 /// The shape's drawable geometry, or null for the rare record with no child object.

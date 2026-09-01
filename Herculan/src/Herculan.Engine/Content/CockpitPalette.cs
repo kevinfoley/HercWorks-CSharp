@@ -6,43 +6,19 @@ namespace Herculan.Engine.Content;
 /// <summary>
 /// Builds the palette the cockpit, its HUD sprites and the 3D scene all decode through.
 ///
-/// <para><b>The live palette is the theater palette, in full.</b> <c>World_LoadTheater</c>
-/// (<c>0042e010</c>) calls <c>Palette_LoadAndActivate</c> (<c>00430394</c>) with
-/// <c>dpl\world&lt;N&gt;</c>, and that object — all 256 slots of it — <i>is</i> the active display
-/// palette from then on. There is no merge of two half-palettes, which is what this class previously
-/// assumed and got backwards.</para>
+/// <para><b>The live palette is the theater palette, in full</b>, with exactly one 24-entry window
+/// from <c>COCKPIT.DPL</c> installed over it: live slots
+/// <see cref="CockpitSchemeFirstSlot"/>..<see cref="CockpitSchemeFirstSlot"/>+
+/// <see cref="CockpitSchemeLength"/>-1 (42..65) take <c>COCKPIT.DPL</c> entries
+/// <c>[32 + 24*schemeIndex, +24)</c>. There is no merge of two half-palettes, and every slot outside
+/// that window is the theater's. The derivation, the corroborating measurements and the nine-herc
+/// scheme table are in docs/formats/cockpit-hud.md, "Palette".</para>
 ///
-/// <para><b>COCKPIT.DPL contributes exactly one 24-entry window.</b> After building the widget tree,
-/// <c>CockpitViewManager_LoadViews</c> (<c>00429834</c>) issues a single call:</para>
-/// <code>
-/// Palette_InstallRange(0x2a, 0x18, COCKPIT.DPL.entries + (schemeIndex*0x18 + 0x20)*4)
-/// </code>
-/// <para>— live slots <see cref="CockpitSchemeFirstSlot"/>..<see cref="CockpitSchemeFirstSlot"/>+
-/// <see cref="CockpitSchemeLength"/>-1 (42..65) are overwritten with <c>COCKPIT.DPL</c> entries
-/// <c>[32 + 24*schemeIndex, +24)</c>. Nothing else in the image ever installs <c>COCKPIT.DPL</c>, so
-/// its other 232 entries are inert — including the dark-green band at 16..31 that previously looked
-/// like "filler where the theater supplies a ramp". It is not filler standing in for a merge; it is
-/// simply never read.</para>
-///
-/// <para><b>This is the per-herc canopy colour scheme</b> that <c>CockpitArt.PaletteIndexOffset</c>
-/// used to stand in for. <c>schemeIndex</c> comes from the mech type record at <c>+0x52</c>, which is
-/// offset 80 of <c>dat\&lt;MECH&gt;.DAT</c> — <see cref="HercWorks.Core.Data.File.Dat.Sim.HercSimDat.Unk80_ValHudId"/>,
-/// a field the Java port had already guessed the purpose of. The retail values are a clean 0-8
-/// permutation over the nine player hercs (APOCA 0, COLOSSUS 1, SAMSON 2, MAVERICK 3, OGRE 4,
-/// OUTLAW 5, RAPTOR2 6, RAZOR 7, TOMAHAWK 8), so the nine 24-entry schemes tile
-/// <c>COCKPIT.DPL</c> entries 32..247 exactly.</para>
-///
-/// <para><b>Two independent confirmations that this is right.</b> The earlier screenshot measurements
-/// resolve to it exactly: APOCA's canopy renders index <c>i</c> as <c>COCKPIT.DPL[i-10]</c>, i.e.
-/// slot 42 -&gt; entry 32, which is scheme 0; COLOSSUS renders <c>COCKPIT.DPL[i+14]</c>, slot 42 -&gt;
-/// entry 56, which is scheme 1. And every <c>WORLD&lt;n&gt;.DPL</c> parks precisely slots 42-65 at a
-/// flat green — exactly the window the cockpit scheme overwrites, and no wider.</para>
-///
-/// <para>Everything outside that window therefore comes from the theater, which is what makes the
-/// remaining known-wrong colours right: the heading tape's index 74 renders as
-/// <c>WORLD2.DPL[74]</c>, the shield meter's green is a theater colour absent from
-/// <c>COCKPIT.DPL</c>, and the canopy's own hazard stripes at index 13 stay the theater's yellow
-/// rather than <c>COCKPIT.DPL</c>'s magenta.</para>
+/// <para><c>schemeIndex</c> is the mech type record's <c>+0x52</c>, i.e. offset 80 of
+/// <c>dat\&lt;MECH&gt;.DAT</c> —
+/// <see cref="HercWorks.Core.Data.File.Dat.Sim.HercSimDat.Unk80_ValHudId"/>. Retail values are a 0-8
+/// permutation over the nine player hercs, so the nine schemes tile <c>COCKPIT.DPL</c> entries
+/// 32..247 exactly.</para>
 /// </summary>
 public static class CockpitPalette {
 	/// <summary>The shared cockpit palette resource — source of the per-herc scheme window only.</summary>
@@ -122,20 +98,11 @@ public static class CockpitPalette {
 	/// <c>ShieldsGauge</c>'s per-frame palette write (<c>FUN_004438f0</c>, called from its paint at
 	/// <c>00443730</c>/<c>00443748</c>).
 	///
-	/// <para><b>The shield meter is not drawn — it is lit.</b> The nested concentric boxes are painted
-	/// into the herc's own canopy art in palette indices 66-71 (verified on <c>OUTLAW.HB0</c>: those
-	/// six indices appear only inside the meter's bezel, three per facing, the innermost ring using
-	/// the fewest pixels). The widget itself draws no geometry at all; it recolours those six slots
-	/// every frame, so rings go dark as charge drops.</para>
-	///
-	/// <para>Per facing, three rings light in turn as charge rises — ring 1 from zero, ring 2 from
-	/// <c>0x100</c> at twice the rate, ring 3 from <c>0x180</c> at four times — each interpolating
-	/// <c>colour = base * t &gt;&gt; 10</c> in Q10. Above <c>0x400</c> (an overcharged shield) the same
-	/// three tracks run again over <c>base + (bright - base) * t</c>. The two colour constants are
-	/// immediates in the exe (<c>0049c9cb</c>..<c>0049c9d0</c>): base RGB6 (25,59,23), bright (59,59,23).
-	/// At the nominal <see cref="ShieldFacingNominalCharge"/> all six rings resolve to half the base —
-	/// RGB (48,116,44), which matches the retail screenshot's meter to within the palette scalar's own
-	/// rounding on one channel.</para>
+	/// <para><b>The shield meter is not drawn — it is lit.</b> The nested concentric rings live in the
+	/// herc's own canopy art in palette indices 66-71; the widget draws no geometry at all, it
+	/// recolours those six slots every frame, so rings go dark as charge drops. The ramp formula, the
+	/// two colour immediates and the screenshot match are in docs/formats/cockpit-hud.md, "Ring ramp
+	/// — <c>ShieldsGauge_UpdateRingPalette</c> (<c>004438f0</c>)".</para>
 	///
 	/// <para>Slot order follows the original's stack layout, which the install reads upward from the
 	/// last-computed entry: 66-68 are <paramref name="frontCharge"/>'s rings outermost-first, 69-71

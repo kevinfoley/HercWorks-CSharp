@@ -30,40 +30,21 @@ public readonly record struct SpriteBatch(
 /// (<c>004762e8</c>), which is the one <c>TSObject</c> render slot that puts a bitmap on the screen
 /// without a polygon anywhere in it.
 ///
-/// <para><b>What the original does.</b> It resolves the part's <c>BmpTag</c> against the shape's
-/// bound <c>.DBA</c>, brings the part's centre into view space, and then builds a screen-space quad:
-///</para>
-/// <list type="number">
-/// <item><b>A scale off the part's radius.</b> <c>scale = (radius * 4 &lt;&lt; focalShift) / depth</c>,
-/// the same <c>&lt;&lt; focalShift / depth</c> the projection itself uses, and every dimension below
-/// is multiplied by it Q8. Because the projection maps a view-plane length <c>L</c> at depth
-/// <c>D</c> to <c>(L &lt;&lt; focalShift) / D</c> pixels, the projection constant cancels out
-/// entirely: <b>one bitmap pixel is <c>radius / 64</c> world units</b>, whatever the field of view
-/// is. That is what makes this reproducible here without knowing the original's focal length, which
-/// is still an open question elsewhere in the renderer.</item>
-/// <item><b>A rotation.</b> It transforms the model origin and the model point <c>(0, 0, 0x800)</c>
-/// — a fixed distance up the model's <i>own</i> Z axis — projects both, and takes the screen angle
-/// between them. The quad is then blitted rotated by that angle, so its up axis follows the model's
-/// up axis on screen. For a shot in flight that is the shot's own frame, not the world's.</item>
-/// <item><b>A vertical squash.</b> Before projecting, it measures how much of that same
-/// <c>0x800</c>-long axis survives in the view plane, and interpolates the drawn height between the
-/// bitmap's <i>width</i> (axis pointing at the viewer, fully foreshortened) and its <i>height</i>
-/// (axis across the view). A round puff therefore reads as a disc from above and as an oval from the
-/// side, which a true vertical quad — collapsing to nothing overhead — would not.</item>
-/// <item><b>An anchor.</b> The quad's top-left is the projected centre displaced by
-/// <c>-(OfsX, OfsY')</c> scaled the same way, rotated the same way, where <c>OfsY'</c> is <c>OfsY</c>
-/// scaled by the squash so the anchor tracks the height it is measured against. The part's centre
-/// therefore lands on bitmap pixel <c>(OfsX, OfsY')</c>, which for the EMP round's <c>(45, 45)</c>
-/// against a 40x30 sprite is outside the bitmap: the puff is drawn up and to the left of the round,
-/// not centred on it.</item>
-/// </list>
+/// <para><b>What the original does</b> is a screen-space blit of a rotated, scaled quad, built from
+/// four things — a scale off the part's radius, a rotation and a vertical squash both measured from
+/// the model's own up axis probed at <c>(0, 0, 0x800)</c>, and an anchor pixel. All four are traced
+/// in docs/formats/dts-billboards.md's "<c>TSBitmapPart_Render</c> (<c>004762e8</c>)". The one
+/// consequence that has to be reproduced here rather than looked up is that the projection constant
+/// cancels out of the scale: <b>one bitmap pixel is <c>radius / 64</c> world units</b>, whatever the
+/// field of view is, which is what makes this drawable without knowing the original's focal
+/// length.</para>
 ///
 /// <para><b>What this does.</b> The same construction, in the camera's own view space rather than in
 /// screen pixels: the quad's four corners are built in the plane parallel to the image plane at the
-/// sprite's depth, from a right/down basis derived from the projected model up axis, sized in the
-/// world units the step above recovers. Perspective then reproduces the <c>1 / depth</c> scaling for
-/// free and exactly. Nothing about it is approximated except the rotation's own perspective skew,
-/// which the original does not model either.</para>
+/// sprite's depth, from a right/down basis derived from the projected model up axis, sized in those
+/// world units. Perspective then reproduces the <c>1 / depth</c> scaling for free and exactly. The
+/// squash and the anchor are the original's formulas verbatim; only the rotation's own perspective
+/// skew differs, which the original does not model either.</para>
 ///
 /// <para>Transparency is <b>palette index 0</b>, which the bank is decoded with — see
 /// <c>Scene.SceneModelLibrary</c>. Alpha is tested rather than blended, matching a rasterizer that
@@ -110,7 +91,7 @@ public sealed class SpriteRenderer : IDisposable {
 
 	/// <summary>
 	/// World units one bitmap pixel spans, per world unit of the part's radius: the
-	/// <c>radius * 4 ... / 256</c> the original's Q8 scale works out to. See the type's step 1.
+	/// <c>radius * 4 ... / 256</c> the original's Q8 scale works out to. See this type's doc comment.
 	/// </summary>
 	private const float WorldUnitsPerPixelPerRadius = 1f / 64f;
 
@@ -190,7 +171,7 @@ public sealed class SpriteRenderer : IDisposable {
 		}
 
 		// How much of the up axis survives in the view plane: 1 across the view, 0 pointing straight
-		// at the viewer. The original measures it as a length against UpAxisProbeLength; normalised,
+		// at the viewer. The original measures it as a length against the 0x800 probe; normalised,
 		// it is the same fraction.
 		var planar = new Vector2(upView.X, upView.Y);
 		float squash = Math.Clamp(planar.Length(), 0f, 1f);

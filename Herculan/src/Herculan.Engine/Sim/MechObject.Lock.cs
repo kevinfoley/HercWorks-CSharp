@@ -235,9 +235,10 @@ public sealed partial class MechObject {
 			return false;
 		}
 
-		// The original scales the weight down to a quarter when mech+0x30b is present and its +0x7f
-		// is under 0x33 — a field on an object this port has not identified, so the base weight is
-		// always used. That makes ECM here at most as strong as the original's, never more.
+		// The original scales the weight down to a quarter when mech+0x30b — the targeting computer
+		// pod's mount (see MechPods) — is present and its +0x7f is under 0x33. What +0x7f means on a
+		// pod mount is untested, so the base weight is always used here. That makes ECM at most as
+		// strong as the original's, never more.
 		if ((world.Random.Next() & (EcmRollRange - 1)) < EcmRollWeight) {
 			EcmSpoofed = true;
 			_ecmRollTimer = EcmSpoofedInterval;

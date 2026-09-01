@@ -15,7 +15,7 @@ namespace HercWorks.Core.Data.File.Dbsim;
 /// <c>FUN_00468054</c>, whose whole body is the address arithmetic
 /// <c>row = ((shade * (shadeLevels - 1) + depthBias) &amp; ~0xFF) + rampBase</c>, with
 /// <c>depthBias</c> a whole number of 8192-byte depth slices set from the drawn object's range.
-/// That is the original's distance fog. See docs/simulation/distance-fog-and-sky.md.</para>
+/// That is the original's distance fog. See docs/formats/distance-fog-and-sky.md.</para>
 ///
 /// <para><b>This class previously described the body as an undecoded per-world blob, "likely a
 /// 256-wide x 384-tall grid, possibly a heightmap".</b> The grid hypothesis was arithmetically

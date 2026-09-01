@@ -54,8 +54,8 @@ public static class CollisionModel {
 	/// clusters in the object frame, which is what a static object wants.
 	///
 	/// <para><b>This is the whole of a HERC's hit geometry.</b> A mech <c>.COL</c> places every one
-	/// of its clusters on a node — SPIDER has thirteen, PITBULL ten — with spheres 40 to 300 world
-	/// units across sitting in node-local space, so the hit volume walks with the legs and swings
+	/// of its clusters on a node — SPIDER has thirteen, PITBULL ten — with spheres of radius 40 to
+	/// 600 world units sitting in node-local space, so the hit volume walks with the legs and swings
 	/// with the torso. A structure's model is the opposite: almost all of it is in the object
 	/// frame.</para>
 	/// </param>

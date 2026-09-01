@@ -52,16 +52,29 @@ turned away gets shade 0 — ramp row 0, not black (see below).
 
 ## The sun
 
-`Light_CreateMissionSun`, once per mission, from constants compiled into DBSIM: direction
-`rotate((0,0x1000,0), eulerMatrix(-6000,0,21000))` in Z-up world space, intensity `0x100`. No mission
-or theater file contributes.
+**This section is the canonical derivation**; [`dts-texture-binding.md`](dts-texture-binding.md) and
+`Render/MissionSun` reference it.
 
-Because the rotated vector is `(0, 0x1000, 0)`, only the matrix's middle column is used.
-`BuildEulerRotationMatrixQ14` (`0047eaac`) writes it as `m[2] = ±cosX·sinZ`, `m[3] = cosX·cosZ`,
-`m[5] = sinX` — Z composed after X. With X = -32.96° and Z = 115.34° that is
-**(±0.758, -0.359, -0.544)** in Z-up world space: horizontal component 0.839, vertical 0.544.
-Composing X after Z instead gives world Z +0.233, which would leave every flat cell facing away from
-the sun and the whole zone at shade 0.
+One hardcoded directional light per mission, created unconditionally by `Light_CreateMissionSun`
+(`00461240`) from constants compiled into DBSIM. No mission or theater file contributes, and no
+ambient light is created anywhere in the binary.
+
+```
+angles = (-6000, 0, 21000)                     // Vec3Short, 0x10000 per full circle
+BuildEulerRotationMatrixQ14(angles, m)         // 0047eaac
+RotateVectorByMatrixQ14((0, 0x1000, 0), m, d)  // 0047ffb4
+intensity = 0x100
+```
+
+`BuildEulerRotationMatrixQ14` reads a 1024-entry quarter-wave cosine table at `DAT_004a25dc` in Q14,
+indexed `round(angle / 16)` with the usual quadrant reflection.
+
+Because the rotated vector is `(0, 0x1000, 0)`, only the matrix's middle column is used. The matrix
+writes it as `m[2] = ±cosX·sinZ`, `m[3] = cosX·cosZ`, `m[5] = sinX` — Z composed after X. With
+X = `-6000` (-32.96°) and Z = `21000` (115.34°) that is **(±0.758, -0.359, -0.544)** at length
+`0x1000` in Z-up world space: horizontal component 0.839, vertical 0.544. Composing X after Z instead
+gives world Z +0.233, which would leave every flat cell facing away from the sun and the whole zone
+at shade 0.
 
 ## The ramp rows are not a 0..1 fade
 

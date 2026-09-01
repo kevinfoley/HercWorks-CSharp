@@ -18,11 +18,10 @@ namespace HercWorks.Core.Data.File.Gau;
 /// (`00447b84`) and its slider child (`00447e24`) treat the whole block from offset 1000 as one
 /// widget record and hand `[8..11]` and `[12..15]` to the vertical LED bar-graph constructor
 /// (`00439344`) with ranges `+0x400` and `-0x400`: they are the forward and reverse throttle fill
-/// bars either side of the track's centre. That supersedes the earlier reading of these ints as
-/// four detent points, and explains both of the things that reading found odd — the middle two
-/// "points" always sit close together because they are the bottom of the upper bar and the top of
-/// the lower one, and the x value alternates between two values because those are each bar's left
-/// and right edge.
+/// bars either side of the track's centre. <see cref="DetentPoints"/> keeps its name for
+/// compatibility only — read it as two rects. Under a four-point reading the middle two "points"
+/// always sit close together (they are the bottom of the upper bar and the top of the lower one) and
+/// the x alternates between two values (each bar's left and right edge).
 ///
 /// Neither bar is ever drawn — not by DBSIM either. The slider keeps them as private fields, never
 /// registers them with the widget tree, and uses their rects only to widen the region it

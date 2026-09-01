@@ -3,38 +3,15 @@ namespace Herculan.Engine.Content;
 /// <summary>
 /// One <c>str\*.STR</c> resource: DBSIM's localised text, as a list of string groups.
 ///
-/// <para>The simulator keeps every piece of UI text out of its code. <c>FUN_00437598</c> opens one
-/// <c>.STR</c> and then makes a run of registration calls against it, each naming a destination
-/// pointer array in <c>.bss</c> and how many strings to pull into it — 18 into
-/// <c>DAT_004d132c</c>, 3 into <c>DAT_004d13bc</c>, 13 into <c>DAT_004d13e0</c>, and so on. The
-/// groups are consumed strictly in file order, so a group's index here is its position in that
-/// registration sequence, and <see cref="Group"/> is how a caller reaches the one it wants.</para>
+/// <para>The simulator keeps every piece of UI text out of its code. Layout, the attribute bytes and
+/// the <c>STRINGS0.STR</c> group index are in docs/formats/str-strings.md; this class parses that
+/// layout and hands groups out by index.</para>
 ///
-/// <para><b>Layout</b> (after the 9-byte VOL entry prefix, which
-/// <see cref="GameContent.Read"/> has already stripped; all integers little-endian):</para>
-/// <code>
-/// int32 contentLength                  -- bytes that follow
-/// repeat until contentLength consumed:
-///     int16 count                      -- strings in this group
-///     count x {
-///         int16 length                 -- includes the NUL terminator
-///         byte[length] text            -- NUL-terminated ASCII
-///         uint8 attributeCount         -- 0, 1, 7 or 8 in retail data
-///         byte[attributeCount] attributes
-///     }
-/// </code>
-///
-/// <para>The self-describing <c>attributeCount</c> is what makes the format walkable without knowing
-/// the group table: it matches <c>FUN_00437598</c> passing a second destination array only for the
-/// groups whose entries carry attributes and NULL for the rest. Group 0 of <c>STRINGS0.STR</c> — the
-/// squadmate orders — has one attribute byte per entry; <c>SYSTEM.STR</c>'s alert lines have eight;
-/// <c>SOUNDS.STR</c>'s have seven (volume, loop flag, priority and range fields); most groups have
-/// none.</para>
-///
-/// <para>Verified byte-exact: walking this shape consumes <c>STRINGS0.STR</c>, <c>SYSTEM.STR</c>,
-/// <c>COMMAND1.STR</c>, <c>PILOTS.STR</c> and <c>SOUNDS.STR</c> to their declared content lengths
-/// with zero bytes of slack, and each file's group counts reproduce
-/// <c>FUN_00437598</c>'s registration sequence in order.</para>
+/// <para>The one fact the API rests on: <c>SimStrings_LoadAll</c> (<c>00437598</c>) consumes the
+/// groups strictly in file order, so a group's index here is its position in that registration
+/// sequence, and <see cref="Group"/> is how a caller reaches the one it wants. The 9-byte VOL entry
+/// prefix the layout is written against has already been stripped by
+/// <see cref="GameContent.Read"/>.</para>
 /// </summary>
 public sealed class SimStringTable {
 	/// <summary>The resource folder <c>.STR</c> files live in.</summary>

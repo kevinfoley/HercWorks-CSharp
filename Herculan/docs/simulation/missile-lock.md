@@ -52,8 +52,10 @@ after `0x5dc` otherwise. While the flag stands, no subtype but 2 can complete a 
 flag that makes a missile already in the air weave.
 
 The original scales the weight to a quarter when `mech+0x30b` is present and its `+0x7f` is under
-`0x33`. That object is unidentified; the port always uses the base weight, which makes ECM at most as
-strong as the original's, never more.
+`0x33`. That slot is the **targeting computer** pod's mount (catalog id 29 — see
+[`reactor-energy-pool.md`](reactor-energy-pool.md)); what `+0x7f` means on a pod mount is untested,
+since on a weapon mount it is the energy charge rate. The port always uses the base weight, which
+makes ECM at most as strong as the original's, never more.
 
 ## The lock lamp
 

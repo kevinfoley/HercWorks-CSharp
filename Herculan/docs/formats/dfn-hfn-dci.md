@@ -1,7 +1,5 @@
 # .DFN / .HFN / .DCI — bitmap fonts and cursor images
 
-NOTE TO CLAUDE: This should be a reference document, not a personal journal.
-
 Reverse-engineered from `VSHELL.EXE`/`DBSIM.EXE` disassembly (Ghidra, `E:\ES2Stuff\tools\`), not
 from the Java source (`ES2TransferApi`/etc. never covered these). Cross-checked against real
 retail files (`ES2/VOL/simvol0/dfn/`, `ES2/VOL/simvol0/dci/`, `ES2/VOL/SHELL0/DFN/`). This doc
@@ -138,11 +136,11 @@ Engine implementation: `Herculan.Engine.Content.HudFont`, packed into the shared
 ### `inkHeight` and label placement
 
 `inkHeight` (`0x1a`) is the height a label centres by, and the only vertical metric the label code
-reads — `cellHeight` is what the glyph *art* occupies. `Label_SetRect` (`00438884`) anchors at
-`rectCentreY + (inkHeight >> 1) + margin + 1` and the glyph blitter (`FUN_00482428`) draws each glyph
-with its top row at `anchor - inkHeight`, so the inked band is centred in the rect and the remaining
-`cellHeight - inkHeight` rows hang below as descender space. Both sets leave exactly 2: 11 of 13
-(`.HFN`), 8 of 10 (`.DFN`). Centring `cellHeight` instead sits every label 1.5 device pixels high.
+reads — `cellHeight` is what the glyph *art* occupies. `Label_SetRect` (`00438884`) and the glyph
+blitter (`FUN_00482428`) read this field and no other, so the inked band is centred in the rect and
+the remaining `cellHeight - inkHeight` rows hang below as descender space. Both sets leave exactly 2:
+11 of 13 (`.HFN`), 8 of 10 (`.DFN`). Centring `cellHeight` instead sits every label 1.5 device pixels
+high.
 
 `bitsPerPixel` (`0x16`) is read by the same blitter, alongside `cellHeight` from `0x0e` (via
 `FUN_00482410`) and the glyph width from the per-glyph width byte (via `FUN_0048238c`).

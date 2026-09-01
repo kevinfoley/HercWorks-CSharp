@@ -11,7 +11,46 @@ using Herculan.Engine.Gl;
 namespace Herculan.Engine.Render;
 
 /// <summary>
-/// Flattens a parsed DTS model tree into untextured, flat-shaded triangles in render space.
+/// One node's share of a shape's geometry: the triangles of every group that hangs from a single
+/// transform, in that node's own space rather than the shape's.
+///
+/// <para>A segment is drawn with the node's posed transform in front of the object's own, so the
+/// animation thread moving the node moves the geometry. Its vertices are therefore <i>not</i>
+/// interchangeable with <see cref="DtsMeshBuilder.BuildRoot"/>'s flat mesh, which has the rest pose
+/// already baked into it.</para>
+/// </summary>
+/// <param name="TransformId">The node, in the id space <c>ShapeInstance.NodeTransform</c> takes.
+/// -1 for geometry no node places, which is drawn at the shape's origin.</param>
+/// <param name="Vertices">Triangles then outline edges in the node's own space, ready to upload —
+/// see <see cref="MeshBuild"/>.</param>
+/// <param name="TriangleVertexCount">Where the outline edges start — see <see cref="MeshBuild"/>.</param>
+public readonly record struct MeshSegment(int TransformId, MeshVertex[] Vertices, int TriangleVertexCount);
+
+/// <summary>
+/// A built mesh: filled triangles first, then the outline edges that are drawn over them as lines,
+/// in one array so a single vertex buffer carries both.
+///
+/// <para>The outline is not decoration. <c>TSSolidPoly_Render</c> (<c>00474db4</c>) resolves
+/// <i>two</i> colours for every flat solid face — <c>surface.FrontColor</c> and
+/// <c>surface.FrontLineColor</c>, both through the theater ramp at the same fixed shade — and hands
+/// both to the polygon fill <c>FUN_0048d518</c>, which fills in the first and then, whenever the two
+/// resolve differently, re-draws the same polygon's edge loop in the second. That second pass is
+/// this range. See <see cref="DtsMeshBuilder"/>'s <c>ResolveSolidColors</c>.</para>
+/// </summary>
+/// <param name="Vertices">Triangle corners in <c>[0, TriangleVertexCount)</c>, line-segment
+/// endpoint pairs after it.</param>
+/// <param name="TriangleVertexCount">Always a multiple of three; the remainder of
+/// <paramref name="Vertices"/> is a multiple of two.</param>
+public readonly record struct MeshBuild(MeshVertex[] Vertices, int TriangleVertexCount) {
+	public static MeshBuild Empty { get; } = new(Array.Empty<MeshVertex>(), 0);
+
+	/// <summary>How many vertices belong to the outline pass.</summary>
+	public int OutlineVertexCount => Vertices.Length - TriangleVertexCount;
+}
+
+/// <summary>
+/// Flattens a parsed DTS model tree into triangles in render space, carrying the texture, colour and
+/// shading each poly type resolves to.
 ///
 /// <para>This is the engine's counterpart to <c>HercWorks.UI.DtsGeometryBuilder</c>, and it is a
 /// separate type on purpose rather than shared code: that one produces GDI+ <c>Color</c> values for
@@ -41,44 +80,6 @@ namespace Herculan.Engine.Render;
 /// <para>Pass a <see cref="TextureAtlas"/> and a <see cref="SurfaceShading"/> to resolve all three.
 /// Without them, surfaces fall back to <see cref="FallbackColor"/>.</para>
 /// </summary>
-/// <summary>
-/// One node's share of a shape's geometry: the triangles of every group that hangs from a single
-/// transform, in that node's own space rather than the shape's.
-///
-/// <para>A segment is drawn with the node's posed transform in front of the object's own, so the
-/// animation thread moving the node moves the geometry. Its vertices are therefore <i>not</i>
-/// interchangeable with <see cref="DtsMeshBuilder.BuildRoot"/>'s flat mesh, which has the rest pose
-/// already baked into it.</para>
-/// </summary>
-/// <param name="TransformId">The node, in the id space <c>AnimationThread.NodeTransform</c> takes.
-/// -1 for geometry no node places, which is drawn at the shape's origin.</param>
-/// <param name="Vertices">Triangles then outline edges in the node's own space, ready to upload —
-/// see <see cref="MeshBuild"/>.</param>
-/// <param name="TriangleVertexCount">Where the outline edges start — see <see cref="MeshBuild"/>.</param>
-public readonly record struct MeshSegment(int TransformId, MeshVertex[] Vertices, int TriangleVertexCount);
-
-/// <summary>
-/// A built mesh: filled triangles first, then the outline edges that are drawn over them as lines,
-/// in one array so a single vertex buffer carries both.
-///
-/// <para>The outline is not decoration. <c>TSSolidPoly_Render</c> (<c>00474db4</c>) resolves
-/// <i>two</i> colours for every flat solid face — <c>surface.FrontColor</c> and
-/// <c>surface.FrontLineColor</c>, both through the theater ramp at the same fixed shade — and hands
-/// both to the polygon fill <c>FUN_0048d518</c>, which fills in the first and then, whenever the two
-/// resolve differently, re-draws the same polygon's edge loop in the second. That second pass is
-/// this range. See <see cref="DtsMeshBuilder"/>'s <c>ResolveSolidColors</c>.</para>
-/// </summary>
-/// <param name="Vertices">Triangle corners in <c>[0, TriangleVertexCount)</c>, line-segment
-/// endpoint pairs after it.</param>
-/// <param name="TriangleVertexCount">Always a multiple of three; the remainder of
-/// <paramref name="Vertices"/> is a multiple of two.</param>
-public readonly record struct MeshBuild(MeshVertex[] Vertices, int TriangleVertexCount) {
-	public static MeshBuild Empty { get; } = new(Array.Empty<MeshVertex>(), 0);
-
-	/// <summary>How many vertices belong to the outline pass.</summary>
-	public int OutlineVertexCount => Vertices.Length - TriangleVertexCount;
-}
-
 public static class DtsMeshBuilder {
 	/// <summary>Safety bound on the transform parent chain, in case a file's relations form a cycle.</summary>
 	private const int MaxTransformChainSteps = 64;
@@ -96,7 +97,7 @@ public static class DtsMeshBuilder {
 	/// Vertex-order UV corners for a textured quad, as fractions of the frame's own rect.
 	/// RE-confirmed order (top-left, top-right, bottom-right, bottom-left) — the exe builds
 	/// <c>[(F0,F1), (F2,F1), (F2,F3), (F0,F3)]</c> from a per-frame descriptor, see
-	/// docs/formats/dts-texture-binding.md's "UV-generation formula — FOUND".
+	/// docs/formats/dts-texture-binding.md's "Render path and UV generation".
 	/// </summary>
 	private static readonly Vector2[] QuadCorners = {
 		new(0f, 0f), new(1f, 0f), new(1f, 1f), new(0f, 1f)
@@ -1031,46 +1032,19 @@ public static class DtsMeshBuilder {
 	}
 
 	/// <summary>
-	/// The colour of a plain <see cref="TSSolidPoly"/> — <b>a palette index run through the theater's
-	/// own ramp</b>, which is a different mechanism from every other poly type's and was previously
-	/// conflated with theirs.
-	///
-	/// <para><c>TSSolidPoly_Render</c> (DBSIM <c>00474db4</c>, reached from the DTS type registry's
-	/// tag <c>0x00140002</c> entry, so this is the poly class by construction and not by structural
-	/// resemblance) is short enough to quote whole: pick the front or back pair by the visibility
-	/// test, bail if both carry the "none" marker, then</para>
+	/// The two colours of a plain <see cref="TSSolidPoly"/>, both <b>palette indices run through the
+	/// theater's own ramp at the fixed unlit shade</b> — never lit, whichever way the face points:
 	/// <code>
 	/// fill = rampRow(0x80)[surface.Front];   line = rampRow(0x80)[surface.FrontLine];
 	/// </code>
-	/// <para>and hand both to <c>FUN_0048d518</c>, which fills the polygon in <c>fill</c> and then,
-	/// when <c>line != fill</c>, re-draws the same polygon's edge loop in <c>line</c>. (That second
-	/// pass is the rasterizer's mode 4, which is a line loop over the vertex list — confirmed down to
-	/// <c>FUN_00483dac</c>'s own <c>iVar11 == 4</c> branch, which walks consecutive vertex pairs and
-	/// closes back to the first.) There is no texture lookup, no frame index and — the part that
-	/// shows — <b>no light term</b>: the shade byte is the literal <c>0x80</c>, so a solid face is the
-	/// same brightness whichever way it faces. <see cref="Content.ShadeRamp"/> is that table.</para>
+	/// <para>and the outline is drawn only when the two <b>ramped</b> bytes differ, so two palette
+	/// indices that resolve to the same output draw no outline. <c>TSSolidPoly_Render</c>
+	/// (<c>00474db4</c>) is traced in docs/formats/dts-texture-binding.md's "<c>TSSolidPoly</c> —
+	/// palette index, unlit, fill plus outline"; <see cref="Content.ShadeRamp"/> is the table.</para>
 	///
-	/// <para>The comparison that decides whether there is an outline at all is on the <b>ramped</b>
-	/// bytes, not the raw surface values: the original ramps both before <c>FUN_0048d518</c> ever sees
-	/// them, so two different palette indices that land on the same ramp output draw no outline.</para>
-	///
-	/// <para>Its sibling <c>TSShadedPoly</c> (tag <c>0x00140003</c>, <c>0047542c</c>) is the one that
-	/// lights: it runs <c>Light_ComputeShadeForFace</c> and puts the result through the palette's own
-	/// per-colour shade ramp before the same table. That is what almost every surface of a HERC or a
-	/// building is — 1227 of APOCA's 1368 polys, 2049 of BASES_AN's — and it is <b>not</b> changed
-	/// here; those go through <see cref="ResolveShadeRamp"/> and the renderer's own lighting.</para>
-	///
-	/// <para>Which is why this correction is small and safe as well as right. Retail geometry uses
-	/// plain <c>TSSolidPoly</c> almost nowhere: 12 polys in <c>BULLETS.DTS</c>, 57 in
-	/// <c>ROCKETS.DTS</c>, and 73 scattered across the whole mech and building fleet. The projectiles
-	/// are the case that made it visible — their palette indices are 85, 93, 94, 104 and 246, which
-	/// are the fire ramp and near-white, and none of which is a valid frame of the eight-frame
-	/// <c>BULLETS.DBA</c> the old reading indexed. An autocannon round is meant to be gold.</para>
-	///
-	/// <para>Corroborated across the install: of the 1517 plain <c>TSSolidPoly</c> surfaces in every
-	/// <c>.DTS</c> the game ships, <b>all 1517</b> carry a zero flag and a value inside 0-255. A frame
-	/// index would have to fit each shape's own bank, and no distribution that tight to a byte is a
-	/// frame index.</para>
+	/// <para>This is the plain type only. Its lit siblings <c>TSShadedPoly</c> and
+	/// <c>TSGouraudPoly</c>, which are almost every surface of a HERC or a building, go through
+	/// <see cref="ResolveShadeRamp"/> and the renderer's own lighting instead.</para>
 	///
 	/// <para>Returns null when there is no ramp loaded, when the surface index is out of range, or
 	/// when the entry carries a nonzero flag — the flag occupies the high half of the same int32 the

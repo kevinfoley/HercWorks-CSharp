@@ -5,10 +5,10 @@ modding toolkit, MIT licensed) from Java to C#/.NET 8 + WinForms. Original proje
 310 Java files / ~30,000 lines across four modules — this is being ported in stages
 rather than all at once.
 
-**See [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md) for a consolidated list of every bug/quirk found in
-the original Java source during porting.** These were ported bug-compatible (not silently fixed)
-per the approach described below — that file is the canonical record; the per-round notes further
-down this README summarize the same things but may be less complete going forward.
+Bugs found in the original Java source during porting were kept bug-compatible rather than silently
+fixed, per the approach described below. They are recorded in the per-round notes further down this
+README. [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md) is a different register: retail Earthsiege 2 bugs, and
+places where the HERCULAN engine behaves differently from retail.
 
 ## Status
 
@@ -35,7 +35,7 @@ down this README summarize the same things but may be less complete going forwar
   `DynFileWriter` (exports DBM images to PNG/BMP via `System.Drawing.Bitmap`, and DBM objects back
   to `.DBM` bytes) lives in `HercWorks.UI` instead, not `HercWorks.Core.Io.Write` — it's an MDK
   export feature the engine port will never call, and `Core` otherwise has no `System.Drawing`
-  dependency at all (see `docs/engine/planning.md`'s "Known technical debt" section).
+  dependency at all.
 
 **Bugs found and ported literally (not silently fixed) this stretch — one is more than cosmetic:**
 - `DatFileReader.ParseIniHercDatStats()`: initializes a hardpoints map, then loops constructing

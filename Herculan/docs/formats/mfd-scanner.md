@@ -33,8 +33,7 @@ is how the paint reaches the current range at `MfdDisplay+0xbd`.
 
 ## Art
 
-Every piece is an `MFD` bank frame the rest of the display never touches — frames 14-18, which
-[`mfd.md`](mfd.md) previously listed as having no located consumer.
+Every piece is an `MFD` bank frame the rest of the display never touches — frames 14-18.
 
 | Frame | Size | What it is |
 |---|---|---|

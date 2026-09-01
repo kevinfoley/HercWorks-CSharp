@@ -140,20 +140,15 @@ public class HercSimDat {
 	public short[]? Unk124_all500 { get; set; }
 
 	/// <summary>
-	/// Selects which shared texture atlas DBSIM binds to every TSShapeInstance sub-component of
-	/// this mech at spawn time (the exe writes this value*8 + a fixed base straight into
-	/// TSShapeInstance+0x26 -- the same bound-DBA field VSHELL's TSBitmapPart/TSTexture4Poly render
-	/// code reads, see docs/formats/dts-texture-binding.md). Confirmed via Ghidra RE of DBSIM.EXE
-	/// (2026-08-12, MECH_TYPE_DATA init path FUN_004201a8): the exe holds a literal 7-entry string
-	/// table ("light"/"medium"/"heavy"/"enemy"/"apocatex"/"razortex"/"newhercs") and indexes it with
-	/// this exact field, read from this exact file offset (148). Cross-checked byte-exact against
-	/// every real simvol0/dat/*.DAT file: 0=light (OUTLAW), 1=medium (TOMAHAWK), 2=heavy (SAMSON,
-	/// COLOSSUS), 4=apocatex (APOCA) and 5=razortex (RAZOR) match the two named single-mech
-	/// exceptions dts-texture-binding.md already described from user domain knowledge, 6=newhercs
-	/// resolves that doc's previously-open "which mechs use NEWHERCS.DBA" question (OGRE, MAVERICK,
-	/// RAPTOR2), and 3=enemy covers every enemy-only mech checked (DIABLO, CERBERUS, HYPERION,
-	/// MIRIMAC, MONGOOSE, HEADHUNT, PITBULL, ACHILLES, RAMSES, SCARAB, STINGRAY, SPIDER). See
-	/// TextureGroupDbaBaseName.
+	/// File offset 148 — selects which shared texture atlas DBSIM binds to every TSShapeInstance
+	/// sub-component of this mech at spawn time. <c>MechType_InitOne</c> (<c>004201a8</c>) writes
+	/// <c>&amp;g_MechTextureGroupSlots + value*8</c> into <c>TSShapeInstance+0x26</c>, the bound-DBA
+	/// field the render code reads.
+	///
+	/// <para>Values 0-6 index a literal 7-entry name table in the exe; see
+	/// <see cref="TextureGroupDbaBaseName"/> for the names and
+	/// docs/formats/dts-texture-binding.md's "DBSIM's mech-to-texture mapping" for the per-mech
+	/// roster, byte-verified against every retail <c>simvol0/dat/*.DAT</c>.</para>
 	/// </summary>
 	public short ModelSkinId { get; set; }
 

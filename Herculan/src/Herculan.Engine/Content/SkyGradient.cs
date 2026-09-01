@@ -7,25 +7,16 @@ namespace Herculan.Engine.Content;
 /// The theater's sky: sixteen horizontal bands taken straight from palette entries 208-223, the
 /// zenith colour first and the horizon colour last.
 ///
-/// <para><b>Measured, not guessed.</b> <c>Reference/Apocalypse_Cockpit.png</c> is a lossless capture
-/// of the zone <c>DATA\script.dat</c> currently points at (zone 888, theater 1, so
-/// <c>WORLD2</c>), and every band in its sky is an exact match for a consecutive
-/// <c>WORLD2.DPL</c> entry — <c>#D4D0D4</c>, <c>#D4D0D8</c>, <c>#D8D0D8</c> … running 208, 209, 210
-/// downward toward the horizon, with flat 208 above. <c>Reference/Simulator5_Preferences.jpg</c>
-/// shows the same structure in a <c>WORLD0</c> zone, where the run goes orange <c>#985C20</c> at the
-/// top to olive <c>#747060</c> at the horizon, and there — over flat ground, where no ridge cuts the
-/// gradient short — it is visible all the way to entry 223.</para>
+/// <para><b>Measured off retail captures, not RE'd.</b> The draw routine registers itself into a
+/// frame-callback table that lives in uninitialised memory, so static analysis cannot reach it; the
+/// palette run, its end at 223, and the band geometry all come from two lossless screenshots, and
+/// the fog colour <see cref="ShadeRamp.FogColor"/> resolves to lands on the same last entries. The
+/// captures, the per-entry colour runs and that corroboration are in
+/// docs/formats/distance-fog-and-sky.md's "The sky — palette entries 208-223" and "Where the two
+/// meet".</para>
 ///
-/// <para>That the run ends where it does is corroborated by the ramp: a theater's fog colour
-/// (<see cref="ShadeRamp.FogColor"/>) lands on entry 222 or 223, the last of this same gradient.
-/// The sky's bottom band and the colour distant terrain fades into are the same colour, which is why
-/// retail's horizon reads as continuous rather than as a seam.</para>
-///
-/// <para><b>What is not RE'd.</b> The band geometry is measured off those two captures, not taken
-/// from the exe: the draw routine registers itself into a frame-callback table that lives in
-/// uninitialised memory (<c>FUN_00401d94</c>'s table at <c>004a80d0</c>), so it cannot be reached by
-/// static analysis. The bands are ~6 pixels tall in a 480-row view, anchored on the horizon —
-/// see <see cref="BandHeightFor"/>.</para>
+/// <para>Flat 208 covers everything above the gradient. Bands are ~6 pixels tall in a 480-row view,
+/// anchored on the horizon — see <see cref="BandHeightFor"/>.</para>
 /// </summary>
 public sealed class SkyGradient {
 	/// <summary>The palette entry the zenith band uses; the gradient runs upward from here.</summary>

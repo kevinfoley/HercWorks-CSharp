@@ -319,8 +319,8 @@ registration record from `FUN_0040cd88`, tying this system to the collision boun
 in [`dbsim-physics-notes.md`](dbsim-physics-notes.md#collision-system--hierarchical-bounding-sphere-construction-collidecpp)).
 
 **Read: `Component_ReadDamagePercent` (`0040dbc0`) — accumulated damage as Q8 (0–256), 0 = pristine,
-256 = destroyed.** Renamed 2026-08-23; the earlier `Component_ReadHealthPercent` had the sense
-inverted, which flipped the meaning of every caller. Looks up the component's max-reference record
+256 = destroyed.** Note the sense: it returns damage, not health, so every caller's curve runs the
+opposite way to how a `…HealthPercent` name would suggest. Looks up the component's max-reference record
 (18 bytes, via `this+0x212`), starts with its own damage (main 29-entry array) and max values, then
 **aggregates in every dependent sub-component** listed in that record (walking a list, adding each
 dependent's damage from the 22-entry array and max from a parallel max-side array) before computing
@@ -548,18 +548,17 @@ A weapon's `(Type, MissileId)` pair is set upstream, in the mount template table
 `ProjDatIndex` — the engine looks records up by key, never by array position. `MissileId` also
 indexes `BULLETS.DAT`/`ROCKETS.DAT` for model data.
 
-### Beam-weapon dispatch — solved
+### Beam-weapon dispatch
 
 Beam weapons need no special hit-test call: they go through the same `FUN_00426528` raycast every
 other weapon uses, just synchronously, once, at fire time, with no persisting object afterward. The
 dispatch itself is in [`weapon-firing.md`](weapon-firing.md#the-fire-dispatch--vtable-0x28).
 
-**Why this wasn't obvious at first:** the shot-record field `shotData+0x12` (hardcoded `5` for
-`FUN_0040bf74`'s bullets) is a completely different numbering scheme from `PROJ.DAT`'s own `Type`
-field — conflating the two makes the search for a "separate beam mechanism" look necessary when it
-isn't. `shotData+0x12` gates an unrelated target-side alert/timer effect; `PROJ.DAT`'s `Type` is
-what actually determines beam-vs-projectile behavior, at the mount's fire-dispatch decision, not
-in the shot record's own flag byte.
+**Do not conflate two similar-looking fields.** The shot-record field `shotData+0x12` (hardcoded `5`
+for `FUN_0040bf74`'s bullets) is a different numbering scheme from `PROJ.DAT`'s own `Type` field.
+`shotData+0x12` gates an unrelated target-side alert/timer effect; `PROJ.DAT`'s `Type` is what
+determines beam-vs-projectile behaviour, at the mount's fire-dispatch decision, not in the shot
+record's own flag byte.
 
 ## Weapon mounts
 
@@ -590,35 +589,19 @@ damage system" above.)
 
 ## Port notes
 
-1. **Shields are a single pool per side (front/rear), redistributable by balance, that hard-caps
-   how much damage of any kind gets through** — `absorbed = min(damage, remainingCharge)`, damage
-   bleeds through the instant a hit exceeds what's left in that zone, not only once the zone is
-   already empty. Both damage pathways implement this separately but with the same concept; a
-   port needs shields to gate both.
-2. **There are two structurally different post-shield damage models, not one.** Direct fire hits
-   exactly one deterministically-selected component (found by real hit geometry, not randomness),
-   takes `SplashFactor` off the top, and splits damage between destroying a weapon mount (with
-   a possible secondary explosion) and general component health — no distance falloff. Explosive
-   weapons sweep the whole object list by blast radius, then independently roll each of up to 29
-   components at ~51% odds and apply linear distance falloff to the ones that pass.
-3. **Both pathways converge on one shared damage-writing/cascading-destruction primitive** — a
-   component's reading is the aggregate of itself plus dependent sub-parts, and destroying one
-   component can cascade to destroy its dependents. Enough destroyed limbs kill the mech outright.
-   A port needs this dependency graph, not just a flat per-part HP list.
-4. **Shields recharge from the energy pool at a flat 5-units/tick cap, redistributed by a
-   player-adjustable balance value (range 0–1024, default 512, ±102 per press)** — a separate
-   per-mech-per-tick system (`Mech_PerTickSystemsUpdate`/`Shield_RechargeTick`) from the player-only
-   balance-input handler (`Player_PerFrameCockpitUpdate`/`Shield_BalanceInputRead`/
-   `Shield_BalanceAdjust`). A port needs both: the background regen for every mech (AI included),
-   and the player-specific input path layered on top, connected only through the shared
-   balance/charge fields. Capacity is a fleet-wide 3500, so a full rebuild is 700 ticks (28 s).
-5. **Per-weapon-type effectiveness is `PROJ.DAT`'s own `DamageShield`/`DamageArmor` fields,
-   applied once, upstream, when the shot record is built** — not a branch inside the shield or
-   structure damage functions. The shot's own power/charge level is Q10-scaled independently
-   against each of those two per-weapon stats before shields and structure ever see it; a third
-   field (`SplashFactor`) diverts a fraction of the armor-damage portion into a secondary
-   explosion. A port's "energy weapons hit shields hard, projectiles hit armor hard" behavior
-   should read directly from `PROJ.DAT`'s existing fields — the data needed is already parsed.
+The traps, not a summary — everything else here is stated once above and does not need repeating.
+
+1. **The two post-shield damage models are structurally different, not two settings of one.** Direct
+   fire hits exactly one deterministically-selected component with no distance falloff; explosive
+   damage sweeps the object list and independently rolls each of up to 29 components at ~51% odds
+   with linear falloff. Using the explosive formula for a beam turns it into a mini-explosion.
+2. **Shield absorption is implemented twice in the original**, once per pathway, and a port needs
+   both gated — `absorbed = min(damage, remainingCharge)`, so damage bleeds through the instant a
+   hit exceeds what is left in that zone, not only once the zone is empty.
+3. **Component health is a dependency graph, not a flat HP list.** A component's reading aggregates
+   its dependents, and destroying one cascades into them.
+4. **Rates are per tick, not per second.** The 5-unit shield recharge cap is per tick; at 25 Hz and
+   the fleet-wide 3500 capacity a full rebuild is 700 ticks, or 28 s.
 
 ## Ported
 

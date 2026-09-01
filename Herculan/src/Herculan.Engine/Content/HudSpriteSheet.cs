@@ -24,8 +24,8 @@ public readonly record struct HudSprite(AtlasRect Rect, int Width, int Height, i
 /// the latter being exactly twice the former on both axes, frame for frame. DBSIM picks between them
 /// at load time off a video-mode global, with the literal folder names sitting adjacent to each bank
 /// name in its .rdata (<c>"NAME\0hba\0dba\0"</c>). The same <c>d</c>/<c>h</c> split runs through the
-/// whole resource set: <c>db0</c>/<c>hb0</c> canopy art, <c>dfn</c>/<c>hfn</c> fonts, <c>dmg</c>/
-/// <c>hdg</c>. This engine renders the 640x480 <c>.HB0</c> canopy, so it takes the <c>hba</c> half
+/// whole resource set: <c>db0</c>/<c>hb0</c> canopy art, <c>dfn</c>/<c>hfn</c> fonts, <c>edg</c>/
+/// <c>hdg</c> clip regions. This engine renders the 640x480 <c>.HB0</c> canopy, so it takes the <c>hba</c> half
 /// throughout — mixing the two would put half-scale sprites on full-scale art.</para>
 ///
 /// <para>That same video mode is what <see cref="CockpitArt.GauToPixelScale"/> is: the original's

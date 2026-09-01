@@ -3,17 +3,16 @@ using System.Text;
 namespace HercWorks.Core.Data.File.Dts;
 
 /// <summary>
-/// UTILITY — used in TSGroup. 'Colors' here really are 4 config options expressed as flags. The
-/// first int is the 'surface' color/shade, but for TSTexture4Poly this ultimately resolves to a
-/// bound DBA's data — confirmed via Ghidra RE of VSHELL.EXE that TSTexture4Poly has its own
-/// distinct vtable render method (NOT the same one TSBitmapPart uses — an earlier version of this
-/// comment wrongly claimed the two shared one mechanism). That method reads FrontColor as an index
-/// into a per-surface runtime lookup record (not a direct DBA-frame index the way
-/// TSBitmapPart.BmpTag is), and feeds a real scanline/perspective-correct textured-polygon
-/// rasterizer — see HercWorksMDK-CSharp-port/docs/formats/dts-texture-binding.md's 2026-08-11
-/// update for what's confirmed about that path and what isn't yet. The second int is the
-/// 'outline'/'edge' color, but only for TSShadedPoly. The 'flags' for each entry are also unknown
-/// — TSTexture4Poly cannot have any flags, while TSShadedPoly has 1024 for front and 5120 for back.
+/// One entry of a TSGroup's surface array — four {int16 value, int16 flag} slots: the front fill,
+/// the front outline, and the same pair for the back face. A poly names its entry with
+/// <c>ColorIndexId / 4</c>.
+///
+/// <para>What the value <i>means</i> is the poly type's, not this record's: a .DBA frame index for
+/// TSTexture4Poly, a palette index for TSSolidPoly, a shade-ramp number for TSShadedPoly and
+/// TSGouraudPoly. The flag sits in the high half of the int32 the renderers index with — retail uses
+/// 1024 on front pairs and 5120 (0x14 in that int32's top byte, "do not draw this face") on back
+/// ones. See docs/formats/dts-texture-binding.md, "Poly types and their colour mechanisms".</para>
+///
 /// Ported from org.hercworks.core.data.file.dts.TSSurfaceEntry.
 /// </summary>
 public class TSSurfaceEntry {

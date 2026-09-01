@@ -58,20 +58,14 @@ public sealed record SurfaceShading(ShadeRamp Ramp, DynamixPalette? Palette) {
 	/// The colour a <c>TSGouraudPoly</c> surface draws at one light level — <b>the material ramp's
 	/// entry straight through the palette, with no <c>.RMP</c> step at all</b>.
 	///
-	/// <para><c>TSGouraudPoly_Render</c> (<c>004755c8</c>, the <c>+0x1c</c> slot of the vtable whose
-	/// tag function returns <c>0x140009</c>) calls <c>Light_ComputeShadeForFace</c> once <i>per
-	/// vertex</i> — walking the poly's <c>NormalList</c> and <c>VertexList</c> in step — stashes the
-	/// bytes in a per-vertex array, points <c>DAT_006c60e4</c> at it, sets fill mode 1 and lets the
-	/// span routine interpolate. <b>It never calls <c>Raster_ShadeRampRow</c></b>, where
+	/// <para><c>TSGouraudPoly_Render</c> (<c>004755c8</c>) calls <c>Light_ComputeShadeForFace</c> once
+	/// <i>per vertex</i> — walking the poly's <c>NormalList</c> and <c>VertexList</c> in step — and
+	/// lets the span routine interpolate. <b>It never calls <c>Raster_ShadeRampRow</c></b>, where
 	/// <c>TSShadedPoly_Render</c> calls it with the literal <c>0x80</c> before every fill: the ramp
 	/// lookup moves into the span so it can vary per pixel, and the fixed <c>.RMP</c> row is not part
-	/// of this path.</para>
-	///
-	/// <para>Distinguishing evidence: the <c>.RMP</c> row shifts every entry down one step and
-	/// collapses two pairs, so for <c>WORLD2</c>'s ramp 8 the shaded chain can never emit palette 178
-	/// (<c>#68687c</c>). A retail capture of the ramp-8 cylindrical structure shows
-	/// <c>#9090a4 #848498 #7c7c90 #707084 #68687c #606074 #545468 #4c4c60 #444454 #3c3c4c
-	/// #343444</c> — a consecutive run of the raw ramp entries, <c>#68687c</c> included.</para>
+	/// of this path. The trace and the retail capture that distinguishes the two chains are in
+	/// docs/formats/dts-texture-binding.md's "<c>TSGouraudPoly</c> — same ramp number, per-vertex
+	/// light, no <c>.RMP</c> row".</para>
 	/// </summary>
 	/// <inheritdoc cref="ShadedColor" path="/param"/>
 	public Vector3? GouraudColor(int rampNumber, int shade) {

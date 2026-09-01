@@ -2,7 +2,7 @@
 
 Terrain *lighting* is a separate subject with its own file: [`terrain-lighting.md`](terrain-lighting.md).
 
-Questions 1 and 2 are answered; Question 3 remains open. See `dts-texture-binding.md` for the mech-side texturing chain — terrain and mechs share a data structure.
+See `dts-texture-binding.md` for the mech-side texturing chain — terrain and mechs share a data structure.
 
 ## The answer, end to end
 
@@ -42,16 +42,11 @@ world<N> descriptor file  ──(a string field in the data)──▶  dba\<name
 |---|---|---|---|---|---|---|---|---|---|---|
 | bank | urban | urban | bsnow | bsnow | volcan | volcan | ice | ice | moon | moon |
 
-Five theaters, two variants each. Retail missions use variant 0; variant 1 purpose (weather/time-of-day) unknown.
+Five theaters, two variants each. Retail missions use variant 0; variant 1 purpose (weather/time-of-day) unknown. Which theater, variant and zone a mission runs is the `script.dat` header's — see
+[`script-dat.md`](script-dat.md#header-format).
 
-### Theater and zone from `script.dat` header
-
-`DBSim_LoadScriptDat` reads `data\script.dat`'s 20-byte header:
-- **Offset 0** (`int16`): theater index (0, 1, or 2)
-- **Offset 2** (`int16`): zone ID passed to `Terrain_LoadZone`
-- **Offset 18** (`int16`): variant index
-
-Theater palette: `maybe_World_LoadTheater` loads `dpl\world<N>.dpl` (one per theater, affects mechs too).
+Alongside the terrain bank, `maybe_World_LoadTheater` loads the theater palette `dpl\world<N>.dpl`,
+one per theater, which mech and structure shading resolves through too.
 
 ### `mat0`'s two fields, both now resolved
 
@@ -84,9 +79,12 @@ The retail bitmap loader rolls only material **0 or 1**, so shipped zones use fr
 
 **World scale:** `Hud_WorldUnitsToMetres` (`00434228`) defines 166.667 world units = 1 metre (recovered from the HUD's distance conversion in `docs/engine/planning.md`). A retail cell at 128 texels is ~0.77 m/texel.
 
-## Question 2 — ANSWERED: the LOD field
+## `grid+0x10c` — the LOD / draw-radius field
 
-Two functions, and one of them **writes** the field:
+This section is the canonical account of `+0x10c`; [`terrain-heightmap.md`](terrain-heightmap.md) and
+[`distance-fog-and-sky.md`](distance-fog-and-sky.md) reference it rather than re-deriving it.
+
+One function **writes** the field; four read it:
 
 - `Terrain_SetupVisibleRegion` (`0046ca98`) sets `grid[+0x10c] = DAT_004a0bcc[DAT_004d1fc3]` — a
   per-detail-setting LOD table — then `>>= (cellShift - 14)` when `cellShift > 14`. The engine's
@@ -98,25 +96,26 @@ Two functions, and one of them **writes** the field:
   field is literally **a terrain draw radius in cells**.
 - `maybe_Terrain_SetDistanceBands` (`00428bc0`) turns that same distance into five scaled values via
   a 5-entry table at `DAT_0049abb0` — LOD thresholds or similar, consumer not traced. **Not** the
-  distance fog, which is 12-slice and computed per drawn thing: see
-  [`distance-fog-and-sky.md`](distance-fog-and-sky.md).
+  distance fog, which is 12-slice and computed per drawn thing.
+- `Terrain_DrawCellQuad` (`0046d344`) installs `grid[+0x10c] << grid[+0x108]` per cell as the
+  visibility range the distance fade is measured against —
+  see [`distance-fog-and-sky.md`](distance-fog-and-sky.md), which tabulates the resulting range per
+  cell shift.
 
 `maybe_Terrain_ComputeViewDistance` (`00470910`) reads the same field per frame for the view setup;
 its two outputs remain undecoded.
 
-## Question 3 — still open, but the renderer is now ruled out
+## The diagonal selector — read-only in the render path
 
-No writer of the diagonal-selector's bit 1 was found. `FUN_0046ff74` *reads* `cell[+0xf] & 3` in four
-places, all testing `== 0`. `Terrain_DrawCellQuad` splits each quad into two triangles but the
-selector's role in that split was not traced.
+`cell[+0xf]`'s low two bits are the diagonal-split selector; bits `[2:7]` are the material index this
+document's texture lookup uses. The selector is written once at zone load by `Terrain_BuildCellSurface`
+(`0046bed8`), alongside the two face normals it has to choose a diagonal to build — see
+[`terrain-heightmap.md`](terrain-heightmap.md), which carries the four-corner rule and the selector
+table.
 
-**The standing theory that the terrain renderer sets the bit is now disproved** (2026-08-13):
-decompiling both `Terrain_DrawCellQuad` and `FUN_0046ff74` — the pair the frame path reaches once the
-render path above was located — shows every reference to `cell[+0xf]` in them is a read
-(`>> 2` for the material index, `& 3` for the selector). Neither writes the byte. So the writer, if
-one exists in DBSIM at all, is somewhere else again; the remaining candidates are whatever else can
-touch a live grid (base/structure placement is the obvious one, since it is the other thing known to
-be stamped onto terrain).
+Every reference to `cell[+0xf]` in the render path is a read — `>> 2` for the material index, `& 3`
+for the selector, the latter tested in four places in `FUN_0046ff74`, all against `== 0`. Neither
+`Terrain_DrawCellQuad` nor `FUN_0046ff74` writes the byte.
 
 ## The render path, for whoever picks this up
 

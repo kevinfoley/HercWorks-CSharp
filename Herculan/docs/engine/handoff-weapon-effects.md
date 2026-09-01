@@ -1,7 +1,13 @@
-# Handoff — after mech and flyer hit detection
+# Handoff — outstanding combat and effects work
 
-Rewritten 2026-08-28. Addresses are starting points to decompile, not settled findings — check
-anything load-bearing. What *is* settled is in
+> **This file is a scratchpad, not a status record.** It is ephemeral: it may hold the newest lead
+> before that lead reaches a topic doc, but it is never the authority on what is or is not done.
+> For that, read the topic doc that owns the subsystem, or `KNOWN_ISSUES.md` for behavioural
+> divergences. Anything here that becomes settled should move out into a topic doc and be deleted
+> from this file.
+
+Addresses below are starting points to decompile, not settled findings — check anything
+load-bearing. What *is* settled is in
 [`../simulation/projectiles.md`](../simulation/projectiles.md),
 [`../simulation/rockets.md`](../simulation/rockets.md),
 [`../simulation/weapon-firing.md`](../simulation/weapon-firing.md),
@@ -15,51 +21,10 @@ anything load-bearing. What *is* settled is in
 [`../formats/dts-texture-binding.md`](../formats/dts-texture-binding.md) and
 [`../formats/distance-fog-and-sky.md`](../formats/distance-fog-and-sky.md).
 
-## Where this left off
+## Not built
 
-Built and shipped: travelling `Bullet` projectiles and launcher rounds, all three fire-dispatch
-branches, beam tracers and their visuals, the billboard path, impact effects, the zone's distance
-fog and banded sky, the `TSSolidPoly` outline pass, and structures as shootable objects.
-
-Since: **everything in a mission is shootable, and hits land on named components.** All three
-vtable `+0x20` implementations are ported, the `col\<NAME>.COL` reader is shared with
-`BASECOL.DAT`, and the mech/flyer component health model (`Component_*`, the `+0x206` header) is
-ported whole — the weighted overflow spill into a component's internals and the `BoneId` cascade
-included. Closed with it: that a mech `.COL` is entirely node-placed (the hit volume walks with the
-legs), that `typeRecord+0x18`/`+0x1a`/`+0x4a` are `.DAT` offsets 22/24/72, that `HercPiece.BoneId`
-is a signed parent-component index, that the direct-fire multiplier is `SplashFactor` at Q10 and
-not a weapon-type effectiveness scale, and that `Sim_RaycastObjectList` skips objects awaiting
-deployment.
-
-Since: **target selection, the sensor model and missile lock**, with homing reachable at last — see
-[`../simulation/target-selection.md`](../simulation/target-selection.md) and
-[`../simulation/missile-lock.md`](../simulation/missile-lock.md). Closed with them: that
-`manager+0x0a` is the per-subtype lock state and not an ammunition count, that `mech+0x96` is the
-PASSIVE/ACTIVE radar mode a HERC powers up without, and that everything aims at an object's shape
-centre rather than its origin. Corrected on the way: `SimTrig.EulerToward` had its atan2 arguments
-swapped and `Atan2Guarded` guarded the wrong operand, which nobody had noticed because no shot had
-ever had a target to steer at.
-
-Since: **the selection is on the HUD** — the front window's target box and off-screen arrow, and the
-MFD's F5 TARGET screen — see [`../formats/hud-target-indicator.md`](../formats/hud-target-indicator.md)
-and [`../formats/mfd.md`](../formats/mfd.md). Closed with them: all nine gunsight children, the
-`.GAU`'s last undecoded rect (offset 1148, the arrow's safe area), `BASES.DAT +0x28` as the
-silhouette and type-name index, the MFD status screen's untraced paint-time font override, and
-`mech+0xb0` as the shields-down alert latch. Corrected on the way: the status screen's `ID:`/`TARGET:`
-and integrity/range choices are properties of the *subject*, not of the mode.
-
-Since: **the F4 SCANNER screen and the floating repeater** that stands in for it on every other MFD
-screen, both sets of buttons included — see
-[`../formats/mfd-scanner.md`](../formats/mfd-scanner.md). Closed with them: what `MFD` frames 14-18
-are for (the scanner, whole), that the turret wedge is one sprite rotated about its own corner rather
-than drawn geometry, that `STRINGS0.STR` groups 30 and 31 are `TRG:` and `RNG:`, that `.GAU` offset
-1196 is the repeater's point, and that the MFD's SELECT and TARGET buttons are one shared case.
-Corrected on the way: the blinking last-known-position contact is dead code in the shipped build, and
-**a colour number a constructor states as an immediate is a raw palette index, not a `COLORS.DAT`
-id** — two docs had said otherwise.
-
-Not built: **anything you can hear**, AI target acquisition, weapon-mount destruction, and the light
-sources effects are supposed to cast.
+Anything you can hear, AI target acquisition, weapon-mount destruction, and the light sources
+effects are supposed to cast.
 
 ## Also outstanding, lower priority
 

@@ -73,9 +73,9 @@ public static class TerrainMeshBuilder {
 					AddTriangle(vertices, c00, c10, c11, t00, t10, t11, textured, peak, bakeShade);
 					AddTriangle(vertices, c00, c11, c01, t00, t11, t01, textured, peak, bakeShade);
 				} else {
-					// Selector 0 splits along c01-c10; selectors 1 and 3 have no observed producer
-					// and the height query treats them as a single plane through c00/c10/c01, which
-					// this same split renders.
+					// Selector 0 splits along c01-c10. Selector 1 is a coplanar quad and selector 3 has
+					// no observed producer; the height query treats both as a single plane through
+					// c00/c10/c01, which this same split renders.
 					AddTriangle(vertices, c00, c10, c01, t00, t10, t01, textured, peak, bakeShade);
 					AddTriangle(vertices, c10, c11, c01, t10, t11, t01, textured, peak, bakeShade);
 				}
@@ -122,10 +122,10 @@ public static class TerrainMeshBuilder {
 	}
 
 	/// <summary>
-	/// A stand-in surface colour: low ground reads sandy, high ground reads grey-rocky, and steep
-	/// faces darken. This is presentation only — real terrain colour comes from the material index
-	/// each cell already carries (<see cref="HeightGrid.MaterialIndexAt"/>) and the detail textures
-	/// it selects, which is textured-rendering work the first milestone deliberately leaves out.
+	/// The fallback when a cell's material or frame does not resolve: low ground reads sandy, high
+	/// ground reads grey-rocky, and steep faces darken. Presentation only — a cell that resolves takes
+	/// its colour from the material index it carries (<see cref="HeightGrid.MaterialIndexAt"/>) and
+	/// the theater frame that selects, through <see cref="TerrainTextureBank"/>.
 	/// </summary>
 	private static Vector3 SurfaceColor(float renderHeight, Vector3 normal, float peak) {
 		float elevation = System.Math.Clamp(renderHeight / peak, 0f, 1f);

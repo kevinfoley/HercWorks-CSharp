@@ -382,9 +382,8 @@ public sealed class WeaponMounts {
 	///
 	/// <list type="bullet">
 	/// <item><b>The chain advances the armed weapon.</b> Unless <see cref="SingleFire"/> is set, a
-	/// mount that could not fire hands the selection to the next one in the chain that could. With
-	/// nothing firing yet every mount is ready, so in practice nothing moves — but this is the
-	/// mechanism, and it is what makes a chain a chain.</item>
+	/// mount that could not fire hands the selection to the next one in the chain that could. This is
+	/// what makes a chain a chain.</item>
 	/// <item><b>A destroyed mount breaks its link.</b> A linked pair whose half is destroyed or out
 	/// of ammunition unlinks both halves and hands the selection to the partner.</item>
 	/// </list>
@@ -423,9 +422,10 @@ public sealed class WeaponMounts {
 
 	/// <summary>
 	/// <c>FUN_00410970</c> reduced to what the engine models: the mount's own readiness, and for a
-	/// linked pair, both halves'. The original also gates on the selected target's range and on the
-	/// per-ammunition-type counters at <c>manager+0x0a</c>, neither of which is ported — see
-	/// docs/simulation/weapon-mounts.md.
+	/// linked pair, both halves'. The original also gates on the selected target's range, which is
+	/// not ported. It does <i>not</i> gate on <c>manager+0x0a</c> here — those are the per-subtype
+	/// missile-lock flags (see <see cref="MissileLock"/>), read on the launcher fire path rather than
+	/// on general readiness. See docs/simulation/weapon-mounts.md.
 	/// </summary>
 	private bool CanFireNow(int mountIndex) {
 		if (_slots.ElementAtOrDefault(mountIndex) is not { } mount || !mount.CanFire) {

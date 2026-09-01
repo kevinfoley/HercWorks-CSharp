@@ -348,15 +348,6 @@ public static class MfdLayout {
 	public static readonly string[] StatusLabelFonts = { "WHITE", "RED", "WHITE", "RED", "RED" };
 
 	/// <summary>
-	/// The status screen's structural-integrity readout — its fifth label.
-	/// <c>MfdStatusScreen_SetCondition</c> builds it as the literal <c>"[ "</c>, then
-	/// <c>itoa((0x100 - damage) * 100 &gt;&gt; 8)</c>, then the literal <c>"% ]"</c>, from a subject's
-	/// 0-255 damage byte. Undamaged reads <c>[ 100% ]</c>.
-	///
-	/// <para>When the subject is unreadable the same function writes <c>"XXXXXX"</c> to the condition
-	/// label and <c>"XXX"</c> here instead.</para>
-	/// </summary>
-	/// <summary>
 	/// The status screen's range readout, which replaces the integrity one for a hostile subject: the
 	/// <c>DIST:</c> caption from <see cref="IdentLabelGroup"/> with the range in world units appended,
 	/// exactly as <c>FUN_0043a5a0</c> builds it (<c>strcpy</c> the caption, <c>itoa</c> onto the end).
@@ -365,6 +356,15 @@ public static class MfdLayout {
 	public static string DistanceReadout(SimStringTable? strings, int distance) =>
 		(strings?.Text(IdentLabelGroup, IdentDistanceEntry) ?? "DIST:  ") + distance;
 
+	/// <summary>
+	/// The status screen's structural-integrity readout — its fifth label.
+	/// <c>MfdStatusScreen_SetCondition</c> builds it as the literal <c>"[ "</c>, then
+	/// <c>itoa((0x100 - damage) * 100 &gt;&gt; 8)</c>, then the literal <c>"% ]"</c>, from a subject's
+	/// 0-255 damage byte. Undamaged reads <c>[ 100% ]</c>.
+	///
+	/// <para>When the subject is unreadable the same function writes <c>"XXXXXX"</c> to the condition
+	/// label and <c>"XXX"</c> here instead.</para>
+	/// </summary>
 	public static string IntegrityReadout(int damage) =>
 		$"[ {(0x100 - Math.Clamp(damage, 0, 0xff)) * 100 >> 8}% ]";
 

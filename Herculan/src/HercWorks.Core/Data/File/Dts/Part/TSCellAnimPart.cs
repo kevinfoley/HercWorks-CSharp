@@ -3,9 +3,15 @@ using System.Text;
 namespace HercWorks.Core.Data.File.Dts.Part;
 
 /// <summary>
-/// FIXME (carried over from Java): testing in /BULLETS.DTS, the tail bytes look very much like a
-/// TSShape segment as the direct inherit vs a TSPartList — TSShape inherits directly from
-/// TSPartList, so other sources aren't too far off. Will test other files.
+/// A flipbook: <b>one child per animation frame</b>, not a container whose children are all drawn.
+/// <c>TSCellAnimPart_Render</c> (<c>004767e4</c>) draws
+/// <c>children[cellFrames[AnimSequence] % childCount]</c> and nothing else.
+///
+/// <para><see cref="AnimSequence"/> (<c>part+0x12</c>) picks which entry of the drawing shape
+/// instance's per-sequence frame counters the part reads. Children need not be bitmaps — BULLETS.DTS
+/// root 8 animates real TSGroup geometry this way. See docs/formats/dts-billboards.md,
+/// "TSCellAnimPart_Render".</para>
+///
 /// Ported from org.hercworks.core.data.file.dts.part.TSCellAnimPart.
 /// </summary>
 public class TSCellAnimPart : TSPartList {

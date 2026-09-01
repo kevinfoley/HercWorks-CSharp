@@ -21,7 +21,7 @@ public readonly record struct AtlasRect(float U0, float V0, float U1, float V1);
 ///
 /// <para>Packing is purely a relocation — a frame's UV corners still span its own full extent, so
 /// the RE-confirmed corner order in <see cref="DtsMeshBuilder"/> is unaffected (see
-/// docs/formats/dts-texture-binding.md's "UV-generation formula — FOUND"; the exe builds the same
+/// docs/formats/dts-texture-binding.md's "Render path and UV generation"; the exe builds the same
 /// rect-corner mapping from a per-frame descriptor whose top-left is assumed, not confirmed, to be
 /// (0,0)). Frames are padded apart by one pixel, and sampling is nearest-neighbour at the GL end,
 /// so neighbours cannot bleed into each other.</para>
@@ -85,15 +85,6 @@ public sealed class TextureAtlas {
 		frameIndex >= 0 && frameIndex < _frames.Length ? _frames[frameIndex] : null;
 
 	/// <summary>
-	/// Mean RGB of DBA frame <paramref name="frameIndex"/>'s decoded pixels, or null when that frame
-	/// is out of range or was empty. Used for flat-shaded (<c>TSSolidPoly</c>) surface colour — see
-	/// docs/formats/dts-texture-binding.md's "Flat-shaded lighting" section: the exe resolves a flat
-	/// face's <c>FrontColor</c> as a frame index into the mesh's own bound DBA and uses that frame's
-	/// pixel data as a per-pixel dithered shading swatch. A GPU renderer has no equivalent of
-	/// per-pixel 256-colour dithering, so the frame's average colour stands in for the swatch as a
-	/// single representative colour.
-	/// </summary>
-	/// <summary>
 	/// DBA frame <paramref name="frameIndex"/>'s size in its own pixels, or (0, 0) when that frame is
 	/// out of range or was empty. Packing relocates a frame but does not resize it, so this is the
 	/// source bitmap's own row and column count.
@@ -113,9 +104,11 @@ public sealed class TextureAtlas {
 	/// <c>.DBM</c> does not bind its own palette (see <see cref="DynamixBitmap"/>).</para>
 	///
 	/// <para><paramref name="transparentIndex0"/> decodes palette index 0 to alpha 0 instead of an
-	/// opaque colour. Off by default because a mesh texture frame has no transparent index — it is the
-	/// 2D HUD sprite banks (<c>Content.HudSpriteSheet</c>) that treat 0 as "leave the console art
-	/// showing through", the same sentinel role index 0 plays in <c>Content.CockpitArt</c>.</para>
+	/// opaque colour. Off by default because most banks want index 0 opaque; sprite banks and the
+	/// structure banks, whose cutout frames are documented in docs/formats/dts-texture-binding.md,
+	/// both ask for it — see <c>Scene.SceneModelLibrary.LoadAtlas</c>. The 2D HUD sprite banks
+	/// (<c>Content.HudSpriteSheet</c>) treat 0 as "leave the console art showing through", the same
+	/// sentinel role index 0 plays in <c>Content.CockpitArt</c>.</para>
 	/// </summary>
 	public static TextureAtlas? Build(DynamixBitmapArray bank, DynamixPalette? palette, bool transparentIndex0 = false) {
 		if (bank.Images is not { Length: > 0 } images) {

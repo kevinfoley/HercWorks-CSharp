@@ -1,6 +1,6 @@
 # DBSIM.EXE weapon firing: the trigger, the shot, beams
 
-Solved 2026-08-24 from `DBSIM.EXE` in the `ES2Recon` Ghidra project; all addresses are DBSIM virtual
+Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project; all addresses are DBSIM virtual
 addresses. Ported in `Herculan.Engine.Sim.{WeaponMount, WeaponMounts, WeaponShot, MechObject}` and
 `SimWorld.{Raycast, RaycastTerrain}`.
 
@@ -118,7 +118,7 @@ than jump.
 | `+0x00` | pointer to the ray record below |
 | `+0x04` | `Q10Multiply(power, DamageArmor)` |
 | `+0x06` | `Q10Multiply(power, DamageShield)` |
-| `+0x08` | `SplashFactor`, the Q8 secondary-explosion fraction |
+| `+0x08` | `SplashFactor`, the Q10 secondary-explosion fraction |
 | `+0x0a` | pointer to the record's three `ImpactFX` arrays, indexed as one 12-entry array — see [`impact-effects.md`](impact-effects.md#which-effect-a-shot-spawns) |
 | `+0x0e` | the owner machine, which the sweep skips |
 | `+0x12` | a weapon-class code, a literal 5 on the beam path |
@@ -133,9 +133,9 @@ The ray record:
 | `+0x0a` | the world-to-muzzle transform, cached by the sweep for every hit test to work in |
 
 **Both damage figures are scaled Q10 by the shot's power**, against a capacitor scaled to 1200 — so a
-mount holding more than 1024 makes a shot worth slightly more than the record's face value. (An
-earlier note called this a Q8 scale; Q8 is `SplashFactor`'s own multiplier, one step further down in
-`Mech_ApplyDirectFireDamage`.)
+mount holding more than 1024 makes a shot worth slightly more than the record's face value.
+`SplashFactor`'s own multiply, one step further down in `Mech_ApplyDirectFireDamage`, is Q10 as well
+(`Math_Q10Multiply`, `0047dfa4`).
 
 ## Where the shot comes from — `WeaponMount_PrepareShot` (`0040e788`)
 
@@ -194,29 +194,16 @@ For a fixed-cost weapon this changes nothing but the cockpit bar. For a charge-u
 
 `Bullet_FireBurst` calls `Sim_RaycastObjectList` (`00426528`) **before** it spawns any tracer, so the
 hit is already resolved when the visual is built — see [`beam-visuals.md`](beam-visuals.md) for what
-it then builds. The sweep and the per-mech hit test are documented in
-[`damage-system.md`](damage-system.md); three properties matter to the caller:
+it then builds. The sweep itself and the per-mech hit test are documented in
+[`damage-system.md`](damage-system.md#the-shared-raycast-fun_00426528); it clips at terrain first, shortens the
+ray per hit rather than stopping at the first, and applies damage inside the hit test.
 
-- It **clips the ray at the ground first.** `Sim_RaycastTerrain` (`00428048`) walks the heightmap
-  with `Terrain_RayWalk` before a single object is tested, so a machine behind a ridge cannot be shot
-  through it — see
-  [`../formats/terrain-heightmap.md`](../formats/terrain-heightmap.md#ray-versus-terrain--terrain_raywalk-0046e87c).
-  The ray record's `+0x08` is passed along as a walk radius but the thin-ray mode never reads it.
-- It **shortens the ray as it goes** rather than stopping at the first hit, so a candidate found
-  later but nearer wins. It ends early only for a hit inside 500 units.
-- The hit test *is* the damage application (mech vtable `+0x20`), so a candidate that is later
-  superseded has still taken its damage.
-
-A fully shield-absorbed shot still counts as a hit and still stops the ray — shields do not let fire
-through to whatever stands behind.
+Two consequences belong to this caller specifically. The ray record's `+0x08` is passed along as a
+walk radius, but the thin-ray terrain mode never reads it. And a fully shield-absorbed shot still
+counts as a hit and still stops the ray — shields do not let fire through to whatever stands behind.
 
 ## Not ported
 
-- **Structures and aircraft.** Both have their own vtable `+0x20`; neither is ported, so beams pass
-  through them.
-- **Component damage.** Shield absorption is real; `Mech_SelectStruckComponent` and
-  `Mech_ApplyDirectFireDamage` need the 29-slot component health array, which does not exist. Damage
-  past shields is counted, not applied.
 - **Sound.** `Bullet_FireBurst` opens with `FUN_004627dc(0x0b, muzzlePoint)`. Untraced past the call.
 - **ELF and ELF2 beams draw straight.** Their tracer takes a jagged branch whose paint half is not
   decoded — see [`beam-visuals.md`](beam-visuals.md#elf-and-elf2--the-jagged-branch).

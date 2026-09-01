@@ -2,32 +2,15 @@
 namespace HercWorks.Core.Data.File.Bnd;
 
 /// <summary>
-/// FILE - SIMVOL0\BND\CAM.BND — fully byte-mapped (2026-08-11), field meanings mostly unconfirmed.
+/// FILE - SIMVOL0\BND\CAM.BND — fully byte-mapped; no field's real-world meaning is confirmed.
 ///
-/// Every real .BND file (83 total in ES2/VOL/simvol0/bnd/) shares a common 9-byte envelope before
-/// the per-subsystem record: <c>[0]=0x02</c> (constant format marker), <c>[1-2]=uint16 LE</c>
-/// (payload length, always exactly <c>fileSize-10</c>, verified against all 83 real files with no
-/// exceptions), <c>[3-4]=0x0000</c> (reserved), <c>[5-8]</c> = a 4-byte value that clusters
-/// per apparent build batch (see docs/formats/bnd-notes.md) — not consumed here. The actual
-/// per-subsystem record starts at absolute file offset 9 and is <c>RecordTag</c> (1 byte) followed
-/// by <c>payloadLength</c> more bytes (24 for CAM.BND).
+/// <para>The per-subsystem record starts at absolute file offset 9, after the 9-byte envelope every
+/// <c>.BND</c> file shares, and is <see cref="RecordTag"/> (1 byte) plus the envelope's stated
+/// payload length (24 bytes here). The envelope's own layout, the field-by-field match against the
+/// Java author's sample values, and the finding that <c>.BND</c> is a build-time-only source format
+/// DBSIM.EXE never opens at runtime are in docs/formats/bnd-notes.md.</para>
 ///
-/// Ported from org.hercworks.core.data.file.bnd.Cam, whose doc comment already listed sample
-/// values for every field at this same byte alignment (confirmed by cross-checking every value
-/// against the real retail CAM.BND, byte for byte — 21 of 22 numeric fields match exactly; the
-/// remaining one, <see cref="Unknown7"/>, differs by author's-notes "50" vs retail "80", almost
-/// certainly the Java author reading a hex digit string as decimal rather than a real data
-/// difference). The Java notes did not account for the file's very last byte — exposed here as
-/// <see cref="TrailingByte"/>.
-///
-/// No field's real-world meaning is confirmed. <see cref="Distance1"/>/<see cref="Distance2"/>/
-/// <see cref="Value3"/>/<see cref="Value4"/> are the four UINT16 fields (2500, 30000, 500, 8000 in
-/// the real file) — plausible camera clip/zoom distances given the file name, not independently
-/// verified. Note: .BND is confirmed (2026-08-11, see docs/formats/bnd-notes.md) to be a
-/// build-time-only source format — DBSIM.EXE never opens .bnd files at runtime; other .BND files'
-/// values (ROCKET.BND, PWEAPONS.BND) were found baked directly into DBSIM.EXE as literal code
-/// constants, so there's no runtime loader to check CAM.BND's fields against, only the compiled
-/// code's own use of camera-related values if that's ever traced.
+/// Ported from org.hercworks.core.data.file.bnd.Cam.
 /// </summary>
 public class Cam {
 	/// <summary>
@@ -80,7 +63,7 @@ public class Cam {
 
 	/// <summary>
 	/// Unknown. 80 (0x50) in the real retail file — the Java author's notes say "50", the one
-	/// field in this record that doesn't match exactly; see class doc comment.
+	/// field in this record that doesn't match exactly; see docs/formats/bnd-notes.md.
 	/// </summary>
 	public byte Unknown7 { get; set; }
 
@@ -106,8 +89,8 @@ public class Cam {
 	public short Value4 { get; set; }
 
 	/// <summary>
-	/// The file's final byte, not covered by the Java author's original notes (their field list
-	/// ends one byte early). 31 (0x1f) in the real file.
+	/// The file's final byte, not covered by the Java author's original notes. 31 (0x1f) in the
+	/// real file.
 	/// </summary>
 	public byte TrailingByte { get; set; }
 }

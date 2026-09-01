@@ -14,40 +14,17 @@ public readonly record struct ClipSpan(int Start, int Length);
 /// <c>.ED0</c>-<c>.ED3</c> (320-wide) file. These say, per scanline, exactly which columns the live
 /// 3D scene shows through the canopy.
 ///
-/// <para><b>This replaces guessing at the hole from pixel colour.</b> DBSIM never colour-keys the
-/// canopy art. <c>CockpitViewManager_LoadViews</c> (<c>00429834</c>) calls
-/// <c>CockpitClipRegions_Load</c> (<c>0042dcf0</c>) once per view on <c>ed&lt;i&gt;</c>/
-/// <c>hd&lt;i&gt;</c>, hands the parsed region list to <c>ClipRegions_BuildScanlineSpans</c>
-/// (<c>0048b9a8</c>) which flattens it into a per-scanline span table, and stores that table in
-/// <c>ActiveScanlineClipSpans</c> (<c>004a5b10</c>). The polygon rasterizer at <c>00468310</c> then
-/// indexes that table by row (<c>row*8</c> -&gt; <c>{spanCount, spanPtr}</c>) and skips any row whose
-/// span count is zero, so the 3D scene physically cannot paint outside the cutout. Folder names carry
-/// no literal in the image — they are built by overwriting index 2 of the <c>"edg"</c>/<c>"hdg"</c>
-/// string literals with an ASCII digit, which is why an <c>"hd0"</c> string search finds nothing.</para>
-///
-/// <para><b>On-disk layout</b> (offsets after the 9-byte VOL entry prefix, which
-/// <see cref="GameContent"/> has already stripped; all fields little-endian <c>int16</c>):</para>
-/// <code>
-/// int16 rectCount
-/// rectCount x { int16 y0, int16 y1, int16 x0, int16 x1 }   -- inclusive on all four edges
-/// int16 blockCount
-/// blockCount x {
-///     int16 firstRow, int16 rowCount,
-///     rowCount x { int16 xStart, int16 xEnd }              -- one entry per scanline, inclusive
-/// }
-/// </code>
-///
-/// <para>Verified by parsing real files: every one of the nine retail <c>.HD0</c> and <c>.HD2</c>
-/// files consumes its whole body under this layout with three constant trailing bytes left over
-/// (DBSIM reads the two arrays and stops, so it never touches them). Blocks may overlap and may
-/// repeat — <c>APOCA.HD0</c> lists the same <c>row 204 +168</c> block twice, <c>RAZOR.HD0</c>
-/// likewise — which is harmless because the flattening step accumulates every source region per row.
-/// <c>APOCA.HD0</c> resolves to rows 0-371, matching the independently measured index-0 bounding box
-/// on <c>APOCA.HB0</c> (y:[0..371]) from the earlier pixel survey.</para>
+/// <para>On-disk layout, the parse verification against the retail files, and why this is the
+/// viewport cutout mechanism (DBSIM never colour-keys the canopy art) are in
+/// docs/formats/cockpit-hud.md, "<c>.HD0</c>-<c>.HD3</c> / <c>.ED0</c>-<c>.ED3</c> — 3D-viewport clip
+/// regions". The 9-byte VOL entry prefix that layout is written against has already been stripped by
+/// <see cref="GameContent"/>. Blocks may overlap and repeat; this parser accumulates every source
+/// region per row, as the original's flattening step does.</para>
 ///
 /// <para><b>An empty file is meaningful, not a failure.</b> <c>APOCA.HD1</c> is 16 bytes — both counts
-/// zero — because view 1 is the heads-down display, which shows no 3D at all. Its <c>.VUE</c> record
-/// agrees: a zero-size viewport rect.</para>
+/// zero — because view 1 is the heads-down display, which shows no 3D at all, and its <c>.VUE</c>
+/// record agrees with a zero-size viewport rect. So a region list that produces no spans is a valid
+/// parse and must not be reported as one that failed.</para>
 ///
 /// <para><b>One deliberate divergence.</b> A rect's fourth field is an inclusive <c>x1</c> here.
 /// DBSIM's own flattening step feeds it to the rasterizer as a span <i>length</i> instead

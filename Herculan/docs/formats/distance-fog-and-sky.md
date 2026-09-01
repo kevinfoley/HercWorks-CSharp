@@ -14,9 +14,9 @@ above the horizon.
 FUN_00467fdc(grid[+0x10c] << grid[+0x108])      // -> DAT_004a08c4
 ```
 
-`grid+0x10c` is the **view radius in cells** and `grid+0x108` the cell shift.
-[`terrain-heightmap.md`](terrain-heightmap.md) previously recorded `+0x10c` as a load-time LOD value
-whose consumer had not been located; this is it, and it is the only reader.
+`grid+0x10c` is the **view radius in cells** and `grid+0x108` the cell shift. This is one of several
+readers of `+0x10c`; [`terrain-texturing.md`](terrain-texturing.md#grid0x10c--the-lod--draw-radius-field)
+is the canonical account of the field, its writer and the rest of its consumers.
 
 | Cell shift | Zones | `+0x10c` | Range (world units) | Range |
 |---|---|---|---|---|
@@ -25,8 +25,9 @@ whose consumer had not been located; this is it, and it is the only reader.
 | 14 | 26 | 10 | 163840 | 983 m |
 | 15 | 2 | 5 | 163840 | 983 m |
 
-`+0x10c`'s own derivation (`10 >> (cellShift - 14)`, clamped) is from the zone loader and its
-behaviour below shift 14 is unverified — it only affects the 11 zones at shift 12 and 13.
+`+0x10c`'s own derivation (`10 >> (cellShift - 14)`, with 10 the retail detail-table entry) is in
+[`terrain-texturing.md`](terrain-texturing.md#grid0x10c--the-lod--draw-radius-field). Its behaviour
+below shift 14 is unverified — it only affects the 11 zones at shift 12 and 13.
 
 ## The fade — `Raster_SetDepthFadeFromDistance` (`00467fec`)
 
@@ -71,8 +72,8 @@ sets the fade on the line before it calls the object's own slot 0. A bullet reac
    distance at `+0x12`. (Tag 9 is the immediate branch, drawn on the spot with no fade.)
 3. `FUN_00429620` → `FUN_004295f0` walks those entries in sorted order and calls each entry's slot 0.
 
-So **a flat solid face is not pinned to ramp row 15 at distance** — an earlier open question in the
-weapon-effects handoff, which assumed it might be.
+So **a flat solid face is not pinned to ramp row 15 at distance**; it fades from its own range like
+anything else drawn.
 
 ## The sky — palette entries 208-223
 

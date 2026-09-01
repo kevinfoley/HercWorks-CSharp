@@ -23,9 +23,10 @@ namespace HercWorks.Core.Data.File.Msn.Script;
 /// </summary>
 public class ScriptDat {
 	/// <summary>
-	/// Fixed 20-byte header, 10 little-endian shorts. Mostly unconfirmed — one field (bytes 2-3)
-	/// is real and varies meaningfully across real files, but its exact meaning (mission/chapter
-	/// id? a checksum?) wasn't chased down. Round-tripped raw rather than split into named fields.
+	/// Fixed 20-byte header, 10 little-endian shorts. Offset 0 is the theater index, offset 2 the
+	/// zone id passed to <c>Terrain_LoadZone</c>, and offset 18 the variant — decoded in
+	/// docs/formats/script-dat.md and modelled by <c>Herculan.Engine.World.ScriptDatHeader</c>.
+	/// Round-tripped raw here rather than split into named fields.
 	/// </summary>
 	public byte[] HeaderBytes { get; set; } = new byte[20];
 
@@ -309,7 +310,9 @@ public class ScriptMiscEntityExport {
 
 /// <summary>
 /// Block 10 entry — 14 bytes, row #15 (<see cref="LinkedRef22"/>)'s 7 payload fields (0x08-0x14)
-/// verbatim. DBSIM reads and fully discards every instance of this block.
+/// verbatim. DBSIM's pass 1 reads and discards it; pass 2 resolves it into the group's route link —
+/// a group's route and spawn point come from its slot-0 link's <c>0x08</c>. See
+/// docs/formats/script-dat.md.
 /// </summary>
 public class ScriptLinkedRef22Export {
 	public short SmallInt1 { get; set; }

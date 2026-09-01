@@ -134,9 +134,10 @@ public sealed class WeaponShot {
 	public short MissileId { get; }
 
 	/// <summary>
-	/// The record's <c>+0x08</c>: <c>PROJ.DAT</c>'s <c>SplashFactor</c>, the Q8 fraction of penetrating
-	/// damage <c>Mech_ApplyDirectFireDamage</c> diverts into a secondary explosion. Zero for every
-	/// real beam, so nothing reads it yet; it is carried because it is what the record holds.
+	/// The record's <c>+0x08</c>: <c>PROJ.DAT</c>'s <c>SplashFactor</c>, the Q10 fraction of
+	/// penetrating damage <c>Mech_ApplyDirectFireDamage</c> diverts into a secondary explosion, read
+	/// by <c>MechObject.ApplyDirectFireDamage</c>. Zero for every real beam, so it only bites on
+	/// projectile weapons.
 	/// </summary>
 	public short SplashFactor { get; }
 

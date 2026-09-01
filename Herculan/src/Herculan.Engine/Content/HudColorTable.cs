@@ -32,14 +32,15 @@ public sealed class HudColorTable {
 	public const int EntryCount = 27;
 
 	/// <summary>
-	/// Logical ids an LED gauge bar draws with, all from <c>ShieldsGauge</c>'s constructor
+	/// Logical ids an LED gauge bar draws with, all from <c>EnergyPoolGauge_Ctor</c>
 	/// (<c>FUN_00444d5c</c>) and confirmed against the bar's own fill routine (<c>FUN_00439758</c>).
 	///
 	/// <para>The filled span is not a solid colour: the routine walks the bar's x range twice, once
 	/// over even columns and once over odd, drawing a full-height line each step with a different
-	/// colour — a one-pixel vertical pinstripe. That is why the two resolve to near-identical greys
-	/// (112,112,112 and 100,100,100); interleaved, they read as a single shaded fill rather than two
-	/// colours. Field <c>0x2c</c> is the even columns, <c>0x30</c> the odd.</para>
+	/// colour — a one-pixel vertical pinstripe. Ids 6 and 5 resolve to palette 98 and 97, two shades
+	/// of blue — <c>(0,116,204)</c> and <c>(0,40,160)</c> — which interleaved read as a single shaded
+	/// fill rather than two colours. Field <c>0x2c</c> is the even columns, <c>0x30</c> the odd. See
+	/// docs/formats/cockpit-hud.md, "LED gauges".</para>
 	/// </summary>
 	public const int GaugeFillEvenId = 6;
 
@@ -53,8 +54,8 @@ public sealed class HudColorTable {
 	public const int GaugeRemainderId = 19;
 
     /// <summary>
-    /// The value range an LED bar's fill fraction is measured against — <c>ShieldsGauge</c> passes
-    /// this to the bar constructor, which precomputes <c>span = (end - start) * 0x10000 / range</c>
+    /// The value range an LED bar's fill fraction is measured against — <c>EnergyPoolGauge_Ctor</c>
+    /// passes this to the bar constructor, which precomputes <c>span = (end - start) * 0x10000 / range</c>
     /// so painting is <c>start + (value * span &gt;&gt; 16)</c> in 16.16 fixed point.
     /// </summary>
     public const int GaugeValueRange = 0x400;

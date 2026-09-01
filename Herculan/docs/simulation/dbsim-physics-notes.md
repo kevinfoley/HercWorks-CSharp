@@ -1,7 +1,5 @@
 # DBSIM.EXE simulation physics — fixed-point core and collision
 
-NOTE TO CLAUDE: This should be a reference document, not a personal journal.
-
 Reverse-engineered from `DBSIM.EXE` disassembly (Ghidra project `ES2Recon`, `-cspec windows`
 reimport + `ES2CommitAllParams.java` applied — see `project_es2_exe_recon` memory for setup). All
 addresses are DBSIM.EXE virtual addresses. Several numeric claims below (fast-magnitude
@@ -95,15 +93,14 @@ ray test and the retail verification. Three points that belong with the rest of 
 - `Collision_RegisterObject` (`0040cd88`) loads one model by name into a fixed table
   (`_DAT_004a98a8`, 6 bytes/entry, counter `DAT_004987de`). Its two callers are `Mech_Constructor`
   (`00415bb0` → `mech+0x1f6`) and the flyer type loader (`FUN_00422ed0` → `+0x32`), both from
-  `col\<NAME>.COL`. Structures use the same reader against `dat\BASECOL.DAT` instead. **The `.COL`
-  files are unported**, which is why mech and flyer component selection is still missing.
+  `col\<NAME>.COL`. Structures use the same reader against `dat\BASECOL.DAT` instead. The `.COL`
+  files are decoded and ported — see [`hit-detection.md`](hit-detection.md).
 
 ## Rocket physics
 
-Moved to [`rockets.md`](rockets.md), which supersedes what was here: the earlier reading of
-`ROCKETS.DAT`'s fields `+6`/`+8`/`+0xa`, of the per-tick "seeker reacquire" step (it is the exhaust
-flame's animation counter), and of `Rocket_BallisticSteer` (renamed `Rocket_PlayerSteer` — it is the player flying an
-electro-optical missile, not a ballistic variant) were all wrong.
+Rocket and projectile math lives in [`rockets.md`](rockets.md). Note `Rocket_PlayerSteer` is the
+player flying an electro-optical missile, not a ballistic steering variant, and the per-tick step
+that looks like a seeker reacquire is the exhaust flame's animation counter.
 
 **`fire.cpp` ruled out as a projectile-math source.** Only one function (`FUN_0046b0a4`) carries a
 `fire.cpp` assert string, and it's a muzzle-flash/fire-effect resource loader (builds filenames by
@@ -116,9 +113,8 @@ pointers). Projectile spawn/hit-resolution logic lives in `rocket.cpp`/`bullet.c
 1. **DBSIM ticks at a fixed 25 Hz** (`SimTickDelta`/`DAT_004d3be8` = 81 in Q8/125ms units at that
    rate) and essentially all motion math is `rate × tick` in Q8, not continuous float integration;
    a naive float-based reimplementation will drift from the original unless the same
-   quantization/clamping is preserved. Not universal — some per-tick fields (locomotion's
-   accel/decel steps) are unscaled and frame-rate dependent in the original; see
-   [`mech-locomotion.md`](mech-locomotion.md#timing).
+   quantization/clamping is preserved. Note the exception described above: locomotion's accel/decel
+   steps are unscaled and frame-rate dependent in the original.
 2. **Every range and radius comparison in the simulation uses the ~3.4%-low fast-magnitude
    approximation**, collision bounds included — reproducing hit detection faithfully means
    reproducing that bias, not substituting a real `sqrt`.

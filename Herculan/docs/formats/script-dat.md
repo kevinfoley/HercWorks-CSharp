@@ -1,6 +1,6 @@
 # `data\script.dat` — the real DBSIM gameplay handoff format
 
-**Format summary:** A GUID-filtered, field-subset re-export of the same in-memory `.msn` row arrays populated by `FUN_00417b67` (the `.msn` parser). Written by `FUN_0041ac54` (`WriteScriptDatFile`, VSHELL) immediately after `.msn` parsing completes. DBSIM reads `script.dat` (not `.msn`) for actual gameplay simulation. Every one of `script.dat`'s 13 count-prefixed record blocks maps 1:1 to one of [`msn-mission-file.md`](msn-mission-file.md)'s 17 already-decoded rows. NOTE TO CLAUDE: This should be a reference document, not a personal journal.
+**Format summary:** A GUID-filtered, field-subset re-export of the same in-memory `.msn` row arrays populated by `FUN_00417b67` (the `.msn` parser). Written by `FUN_0041ac54` (`WriteScriptDatFile`, VSHELL) immediately after `.msn` parsing completes. DBSIM reads `script.dat` (not `.msn`) for actual gameplay simulation. Every one of `script.dat`'s 13 count-prefixed record blocks maps 1:1 to one of [`msn-mission-file.md`](msn-mission-file.md)'s 17 already-decoded rows.
 
 ## Call chain — confirmed
 
@@ -155,7 +155,7 @@ Per record type, what pass 2 reads (offsets into the exported record, not the `.
      `worldDX = dx·cosθ − dy·sinθ`, `worldDY = dx·sinθ + dy·cosθ`, added to the group's point.
      Implemented in `Herculan.Engine.World.BaseFormationTable`, wired into `MissionLoader.AddRoster`'s
      base loop.
-   - **A base formation slot also turns the structure — SOLVED.** The 10-byte slot record's
+   - **A base formation slot also turns the structure.** The 10-byte slot record's
      **trailing `int16` is a per-slot heading**, and it is applied on a completely different path
      from the (x, y) offset above: not by vtable `+0x78`, but by `Base_AttachToGroup`
      (`FUN_00405c3c`) itself, and only when the structure's own record names no heading (the
@@ -168,9 +168,9 @@ Per record type, what pass 2 reads (offsets into the exported record, not the `.
      ```
 
      Every nonzero value in the retail table is a clean turn: 8190 (45°), 16380 (90°), 32760 (180°)
-     or their negatives. Eleven of the seventeen formations use at least one. **This is why one
-     structure of a group could stand in the right place facing the wrong way** — the engine read the
-     two `int32`s and skipped the short, so every member of a group faced the same way.
+     or their negatives. Eleven of the seventeen formations use at least one. Reading only the two
+     `int32`s and skipping this short puts every member of a group in the right place facing the
+     same way, which is the failure mode to watch for.
 
      Confirmed on the Scramble training base: group 1 uses formation 9, and roster slots 6 and 8 are
      two of its three identical silo-cluster structures (type 7). Formation 9's slots 6 and 8 carry
@@ -179,18 +179,17 @@ Per record type, what pass 2 reads (offsets into the exported record, not the `.
    - **Mechs:** `Mech_AttachToGroup` (`FUN_00417aa8`) has the same heading-fallback shape, but
      `MFORMS.DAT`'s 28-byte formations are seven bare (x, y) `int16` pairs with no room for a
      per-slot heading. Not investigated further.
-   - **Grid-snap — not implemented; reverted after a real regression (2026-08-15).** When the
-     block-11 record's `BinaryFlag` (`0x06`) is set, `Base_AttachToGroup` (`FUN_00405c3c`) snaps the
-     group's shared anchor to a per-formation grid before the per-member offset is added, using three
-     `BFORMS.DAT` fields this reader skips (a cell-size class and two axis multipliers). Doesn't cause
-     stacking, so it's not the bug this section fixes. A port was attempted, decompiled and
-     formula-matched against `Base_AttachToGroup` (`step = cellClass * 0x20`,
-     `mask = cellClass * 0x2000 - 1`, `x' = (x & ~mask) + axisMultX * step`,
-     `y' = ((y & ~mask) + mask + 1) - axisMultY * step`) and passed the distinct-positions check, but
-     visually shifted real structures tens of thousands of world units off their pads — reverted same
-     day. Field mapping or a scale factor is wrong somewhere; don't reattempt without a visual check
-     against the mission editor. `BinaryFlag` is set on ~1/3 of retail block-11 records (39/61, per the
-     row #16 field table below).
+   - **Grid-snap — not implemented.** When the block-11 record's `BinaryFlag` (`0x06`) is set,
+     `Base_AttachToGroup` (`FUN_00405c3c`) snaps the group's shared anchor to a per-formation grid
+     before the per-member offset is added, using three `BFORMS.DAT` fields this reader skips (a
+     cell-size class and two axis multipliers). `BinaryFlag` is set on ~1/3 of retail block-11
+     records (39/61, per the row #16 field table below).
+
+     The formula reads as `step = cellClass * 0x20`, `mask = cellClass * 0x2000 - 1`,
+     `x' = (x & ~mask) + axisMultX * step`, `y' = ((y & ~mask) + mask + 1) - axisMultY * step`.
+     **Warning:** implementing it exactly as written passes a distinct-positions check but shifts
+     real structures tens of thousands of world units off their pads, so the field mapping or a scale
+     factor is wrong somewhere. Do not reattempt without a visual check against the mission editor.
    - **Flyers — unfixed.** `FUN_00421ee8` is the flyer attach equivalent; not traced. No multi-flyer
      groups observed in retail data.
    - **Verification:** all 10 available missions — 26/26 multi-mech groups and 18/18 multi-base groups
@@ -278,7 +277,7 @@ Stop after block 13's declared end and ignore trailing bytes. Files may have sta
 - `HercWorks.Core.Data.File.Sav.MecFile` + `MecFileTransformer` — `data\player.mec`, the player's squad.
 - `HercWorks.UI.PlayerSquadForm` — WinForms editor for `player.mec` (Edit ▸ Player Squad): player
   entry index, per-entry mech type and weapon fit, add/remove entries. The mech and weapons the
-  player brings are here, not in `script.dat` (see rule 5 above). Master-detail like the Hercs tab:
+  player brings are here, not in `script.dat` (see rule 6 above). Master-detail like the Hercs tab:
   the selected entry's slots are edited one per row, weapon and ammunition type by name, and slots
   are added/removed to both parallel arrays at once so their lengths cannot drift apart.
 - `Herculan.Engine.World.ScriptDatHeader` — the engine-side header port.

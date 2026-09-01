@@ -3,9 +3,17 @@ using System.Diagnostics;
 namespace HercWorks.Core.Data.File.Dts;
 
 /// <summary>
-/// Can't figure out the pattern by which TSPoly/TSShadedPoly surface info chooses the right
-/// color in-engine — colors are usually a paletted index subject to lighting values that shift
-/// the palette index up or down. Hardcoded approximations based on found values.
+/// <b>A superseded stand-in, kept because it is still live code.</b> A 13-entry guess table of RGB
+/// approximations for a surface's <c>FrontColor</c>, from before the real mechanism was traced;
+/// anything it has no entry for clamps to the cyan error colour.
+///
+/// <para>The real resolution is in docs/formats/dts-texture-binding.md, "Poly types and their colour
+/// mechanisms": the value is a palette index (TSSolidPoly) or a shade-ramp number
+/// (TSShadedPoly/TSGouraudPoly) resolved through the theater's <c>.RMP</c> and <c>.DPL</c>, which
+/// <c>Herculan.Engine</c> implements. <c>HercWorks.UI.DtsGeometryBuilder</c> still colours every
+/// surface through this table instead, so the WinForms model viewer's colours are not the game's;
+/// do not treat them as evidence.</para>
+///
 /// Ported from org.hercworks.core.data.file.dts.DefaultShapeColors.
 /// </summary>
 public sealed class DefaultShapeColors {

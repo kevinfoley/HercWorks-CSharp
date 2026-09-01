@@ -101,8 +101,9 @@ Deviations:
   original's formulas verbatim; only the rotation's own perspective skew differs, which the original
   does not model either.
 - **Alpha test, not a span skip.** Sprite banks decode palette index 0 to alpha 0
-  (`SceneModelLibrary.LoadAtlas`'s `transparentIndex0`) and the fragment shader discards it. Only
-  sprite banks are decoded that way; a mesh texture frame has no transparent index.
+  (`SceneModelLibrary.LoadAtlas`'s `transparentIndex0`) and the fragment shader discards it. The
+  structure banks are decoded the same way for their cutout frames; mech skins are not — see
+  [`dts-texture-binding.md`](dts-texture-binding.md).
 - **Depth test on, depth write off**, as [`../simulation/beam-visuals.md`](../simulation/beam-visuals.md)
   has it and for the same reason.
 - **One draw call per sprite.** A frame holds a handful.

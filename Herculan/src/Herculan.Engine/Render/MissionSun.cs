@@ -5,17 +5,18 @@ namespace Herculan.Engine.Render;
 /// <summary>
 /// The one directional light every mission gets, and the shade byte it produces for a surface.
 ///
-/// <para><c>Light_CreateMissionSun</c> (<c>004614fc</c>'s callee) runs once per mission,
-/// unconditionally, and builds the sun from constants compiled into DBSIM: direction
+/// <para><c>Light_CreateMissionSun</c> (<c>00461240</c>) runs once per mission, unconditionally, and
+/// builds the sun from constants compiled into DBSIM: direction
 /// <c>rotate((0,0x1000,0), eulerMatrix(-6000,0,21000))</c> in the sim's Z-up world space, intensity
 /// <c>0x100</c>. No mission or theater file contributes to it, and no ambient light is created
-/// anywhere in the binary — a face angled away from the sun gets shade 0, not a floor.</para>
+/// anywhere in the binary — a face angled away from the sun gets shade 0, not a floor. The
+/// derivation is docs/formats/terrain-lighting.md's "The sun".</para>
 ///
 /// <para><b>There are two shade calculations, not one</b>, and they are different curves. Both walk
 /// the active light list; both reduce, for the one directional light, to a function of
-/// <c>cos</c> — the cosine between the surface normal and the direction the light travels. Surface
-/// normals carry length <c>0x800</c> and the sun's direction vector <c>0x1000</c>, so the raw dot is
-/// <c>0x800000 * cos</c>.</para>
+/// <c>facing = -cos</c> between the surface normal and the direction the light travels (positive for
+/// a surface turned toward it). Surface normals carry length <c>0x800</c> and the sun's direction
+/// vector <c>0x1000</c>, so the raw dot is <c>0x800000 * cos</c>.</para>
 ///
 /// <list type="bullet">
 /// <item><b><c>FUN_0048c060</c></b> — what <c>Terrain_BuildSurface</c> bakes a terrain cell with.
@@ -33,26 +34,12 @@ namespace Herculan.Engine.Render;
 /// </code></item>
 /// </list>
 ///
-/// <para>writing <c>facing = -cos</c>, which is positive for a surface turned toward the light (the
-/// direction field is the direction the light <i>travels</i>, pointing into what it lights).</para>
-///
-/// <para>The <c>- 0x400000</c> bias and <c>&gt;&gt; 1</c> are the only difference between them, and
-/// they matter:</para>
-///
-/// <list type="bullet">
-/// <item>The falloff is <b>half as steep</b> (256 per unit of facing, not 512), so a curved surface
-/// spends its gradient over twice the angular range.</item>
-/// <item>An edge-on face (<c>facing == 0</c>) is at shade <b>128</b>, not 0.</item>
-/// <item>Shade does not reach 0 until <c>facing == -0.5</c> — <b>120 degrees</b> from the light, not
-/// 90. A shape's shadowed side is a mid tone that keeps falling, not a floor of black.</item>
-/// </list>
-///
-/// <para>Intensity scales both terms together (<c>shade = I * (0.5 + facing)</c> for the shape
-/// curve), so it does not move the zero crossing.</para>
-///
-/// <para>Both saturate: <see cref="ShadeFor"/> at <c>facing 0.5</c> and <see cref="ShadeForFace"/> at
-/// <c>facing 0.496</c>. Flat ground sits at facing 0.544 and is pinned at 255 either way, which is why
-/// retail terrain reads as evenly lit with shading confined to the steeper slopes.</para>
+/// <para>The <c>- 0x400000</c> bias and <c>&gt;&gt; 1</c> are the only difference: a shape's falloff
+/// is half as steep, an edge-on face sits at 128 rather than 0, and shade reaches 0 at 120 degrees
+/// off the light rather than 90. Both saturate near facing 0.5, so flat ground (facing 0.544) is
+/// pinned at 255 either way. The side-by-side comparison is
+/// docs/formats/dts-texture-binding.md's "Two shade calculations — terrain and shapes use different
+/// ones".</para>
 /// </summary>
 public static class MissionSun {
 	/// <summary>The sun's intensity, the literal <c>0x100</c> the light's setter is called with.</summary>
@@ -71,17 +58,11 @@ public static class MissionSun {
 	/// Direction the sun's light travels, in render space, as a unit vector.
 	///
 	/// <para><c>Light_CreateMissionSun</c> (<c>00461240</c>) builds it as
-	/// <c>RotateVectorByMatrixQ14((0, 0x1000, 0), BuildEulerRotationMatrixQ14(-6000, 0, 21000))</c>.
-	/// Because the rotated vector is <c>(0, 0x1000, 0)</c>, only the matrix's middle column is used,
-	/// and <c>BuildEulerRotationMatrixQ14</c> (<c>0047eaac</c>) writes it as
-	/// <c>m[2] = ±cosX·sinZ</c>, <c>m[3] = cosX·cosZ</c>, <c>m[5] = sinX</c> — which is Z composed
-	/// after X. With X = -32.96 degrees and Z = 115.34 degrees that is
-	/// <c>(±0.758, -0.359, -0.544)</c> in the sim's Z-up world: horizontal component 0.839, vertical
-	/// 0.544.</para>
-	///
-	/// <para>Corroborated by terrain: at vertical 0.544 flat ground sits at facing 0.544 and is
-	/// pinned at shade 255, which is why retail terrain reads as evenly lit with shading confined to
-	/// the steeper slopes.</para>
+	/// <c>RotateVectorByMatrixQ14((0, 0x1000, 0), BuildEulerRotationMatrixQ14(-6000, 0, 21000))</c>,
+	/// which works out to <c>(±0.758, -0.359, -0.544)</c> in the sim's Z-up world — horizontal
+	/// component 0.839, vertical 0.544. Z is composed after X, not before; getting that backwards
+	/// leaves every flat cell facing away from the sun. See docs/formats/terrain-lighting.md's
+	/// "The sun".</para>
 	/// </summary>
 	public static Vector3 Direction { get; } = ComputeDirection();
 

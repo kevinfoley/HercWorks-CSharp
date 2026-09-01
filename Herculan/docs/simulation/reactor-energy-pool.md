@@ -46,9 +46,9 @@ if (EnergyPod && podDamage < 225)
 `Mech_ConfigureLoadout` (`004175dc`), itself only reached on spawn. Damage taken mid-mission never
 changes the rate; the damage terms still matter because a machine can spawn already damaged.
 
-Its sibling `Mech_ComputeShieldCapacity` is **not** like this: `Mech_ComponentDamageWrite`
+Its sibling `FUN_00417bec` (shield capacity) is **not** like this: `Mech_ComponentDamageWrite`
 (`00417de4`) calls it as well as the spawn path, so shield capacity really does shrink as the
-generator is shot. An earlier pass of this doc recorded it as spawn-only.
+generator is shot.
 
 ### Reactor damage flags
 

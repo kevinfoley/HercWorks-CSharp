@@ -16,12 +16,10 @@ namespace Herculan.Engine.Content;
 /// palette index, sampled 32 ways for light and 12 ways for distance. Hue is preserved throughout,
 /// which is what makes it a ramp rather than a remap.</para>
 ///
-/// <para><b>The rows are not a 0..1 fade</b> — an earlier reading of this file said row <c>0</c> was
-/// near black and row <c>31</c> full brightness, and both halves are wrong. Measured against
-/// <c>WORLD0</c>'s own palette (luminance out over luminance in, summed across the palette), row
-/// <c>0</c> lands at <b>0.36x</b> the source colour and row <c>31</c> at <b>1.16x</b> — the ramp
-/// brightens as well as darkens, and passes through unity around row 23. That matters wherever the
-/// engine substitutes a multiply for the lookup: the neutral row is not the top one.
+/// <para><b>The rows are not a 0..1 fade.</b> Row <c>0</c> lands at <b>0.36x</b> the source colour
+/// and row <c>31</c> at <b>1.16x</b> — the ramp brightens as well as darkens, and passes through
+/// unity around row 23, so the neutral row is not the top one. Measured in
+/// docs/formats/terrain-lighting.md's "The ramp rows are not a 0..1 fade".
 /// <see cref="Render.PaletteRampTable"/> is that table, expanded through the palette at load.</para>
 ///
 /// <para>The consumer is <c>FUN_00468054</c>, which is the whole of the address arithmetic:</para>
@@ -34,15 +32,10 @@ namespace Herculan.Engine.Content;
 /// That is the original's distance fog. <see cref="DepthSliceFor"/> is that calculation and
 /// <see cref="FogColor"/> is where it ends up.</para>
 ///
-/// <para><b>Who gets faded.</b> The setter has exactly three callers in DBSIM:
-/// <c>Terrain_DrawCellQuad</c> per terrain cell, <c>FUN_0042876c</c> per drawn object from that
-/// object's own range, and <c>maybe_TSShapeInstance_PrepareRenderContext</c> with zero. The third
-/// belongs to DBSIM's other, parallel render implementation (the <c>0042xxxx</c> one) and is not on
-/// the path of the poly renderers the DTS type registry actually points at, so it does not reset
-/// anything drawn through <c>TSSolidPoly_Render</c>. In particular a projectile — which is a type-3
-/// object, bucketed per terrain cell by <c>FUN_00428c60</c> and drawn through the depth-sorted
-/// entry list — reaches <c>FUN_0042876c</c> and is faded from its own range like anything else. A
-/// flat solid face is <i>not</i> pinned to row 15 at distance.</para>
+/// <para><b>Who gets faded:</b> terrain cells and every drawn object, projectiles included, each
+/// from its own range. A flat solid face is <i>not</i> pinned to row 15 at distance. The three
+/// callers and the trace behind that are docs/formats/distance-fog-and-sky.md's "What gets
+/// faded".</para>
 ///
 /// <para>The engine renders that fade as per-pixel haze in <see cref="Render.SceneRenderer"/>
 /// rather than as a ramp row, so <see cref="Lookup"/>'s two-argument form reads slice zero and the
@@ -171,17 +164,13 @@ public sealed class ShadeRamp {
 	/// palette.
 	///
 	/// <para>Taking the commonest rather than any one index is what makes this a fog colour and not a
-	/// sample: by the last slice the ramp has collapsed almost the whole palette onto one entry.
-	/// Across the retail files the last slice resolves 256 indices to two to four distinct bytes,
-	/// with one of them covering the large majority — <c>WORLD2</c> lands 200 of 256 on
-	/// <c>#F4D4BC</c>, <c>WORLD0</c> 255 of 256 on <c>#747060</c>.</para>
+	/// sample: by the last slice the ramp has collapsed almost the whole palette onto two to four
+	/// distinct bytes, one of them covering the large majority.</para>
 	///
-	/// <para>The answer lands where the sky ends. <c>WORLD2</c>'s <c>#F4D4BC</c> is palette entry 222
-	/// and <c>WORLD0</c>'s <c>#747060</c> is entry 223 — the last colours of the same 208-223 run
-	/// <see cref="SkyGradient"/> draws the sky from, so the ramp fogs distant terrain to very nearly
-	/// the colour of the sky immediately above the horizon. That is a property of the data, arrived at
-	/// from two directions (this table's far slice, and the palette run measured off retail captures),
-	/// and it is why retail's horizon reads as continuous.</para>
+	/// <para>The answer lands where the sky ends — on palette entry 222 or 223, the last colours of
+	/// the same 208-223 run <see cref="SkyGradient"/> draws the sky from, which is why retail's
+	/// horizon reads as continuous. Per-theater colours and the two independent derivations are in
+	/// docs/formats/distance-fog-and-sky.md's "Where the two meet".</para>
 	/// </summary>
 	public Vector3? FogColor(DynamixPalette? palette) {
 		if (palette == null) {

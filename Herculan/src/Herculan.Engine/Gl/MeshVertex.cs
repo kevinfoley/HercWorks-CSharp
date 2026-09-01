@@ -92,9 +92,21 @@ public struct MeshVertex {
 	/// </summary>
 	public Vector3 FaceNormal;
 
+	/// <summary>
+	/// The homogeneous weight <see cref="UV"/> is premultiplied by, or 0 for a vertex whose
+	/// <see cref="UV"/> is a plain coordinate — the default, and what terrain and every non-quad poly
+	/// carry.
+	///
+	/// <para>Interpolating <c>(u·w, v·w)</c> and <c>w</c> and dividing per fragment is what makes a
+	/// textured quad's two triangles share one projective map instead of each getting its own affine
+	/// one. See <see cref="Render.DtsMeshBuilder"/>'s <c>QuadUvWeights</c> for the weights and
+	/// docs/formats/dts-texture-binding.md's "Quad mapping on triangle hardware" for why.</para>
+	/// </summary>
+	public float UvWeight;
+
 	public MeshVertex(Vector3 position, Vector3 normal, Vector3 color, Vector2 uv = default,
 			bool textured = false, bool unlit = false, float shade = 1f, int shadeRamp = -1,
-			Vector3? faceNormal = null) {
+			Vector3? faceNormal = null, float uvWeight = 0f) {
 		Position = position;
 		Normal = normal;
 		FaceNormal = faceNormal ?? normal;
@@ -104,8 +116,9 @@ public struct MeshVertex {
 		Unlit = unlit ? 1f : 0f;
 		Shade = shade;
 		ShadeRamp = shadeRamp;
+		UvWeight = uvWeight;
 	}
 
 	/// <summary>Bytes per vertex, used as the vertex-attribute stride.</summary>
-	public const uint SizeInBytes = 18 * sizeof(float);
+	public const uint SizeInBytes = 19 * sizeof(float);
 }

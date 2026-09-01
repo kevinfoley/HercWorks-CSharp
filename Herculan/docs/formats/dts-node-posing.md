@@ -63,16 +63,13 @@ cancels out of the conjugation and only reaches the translation.
 `ToRenderMatrix(thread.NodeTransform(id)) * ToRenderMatrix(mech.WorldTransform)` — and the host draws
 one `SceneItem` per segment with it.
 
-Two deliberate deviations from the rigid path (`MissionScene.TransformOf`), both of them the
-simulation being let through rather than approximated:
+One deliberate deviation from the rigid path (`MissionScene.TransformOf`), and it is the simulation
+being let through rather than approximated: the machine's own transform is
+`MechObject.WorldTransform`, so lean over sloping ground applies. The rigid path has only a heading
+rotation.
 
-- The machine's own transform is `MechObject.WorldTransform`, so lean over sloping ground applies.
-  The rigid path has only a heading rotation.
-- No `SceneModel.BaseOffset` lift. A HERC's shape origin is its ground contact point and the sim
-  already puts that at terrain height plus the type's ride height; lifting by the bounding box on top
-  of that counted the correction twice. COLOSSUS is the only retail model dipping below zero (−400
-  units) and the only one with a nonzero ride height (400) — the same correction. Every other HERC's
-  model has `minY` exactly 0, so nothing else moves.
+Neither path lifts a shape by its bounding box. A shape's origin is already its ground contact
+point — see [`dgs-hd0-notes.md`](dgs-hd0-notes.md), "Shape origin".
 
 A machine whose shape carries no `ANAnimList` has no thread to pose with and keeps the flat mesh.
 

@@ -124,6 +124,12 @@ public static class DtsMeshBuilder {
 		public Vector2 UvB { get; }
 		public Vector2 UvC { get; }
 
+		/// <summary>
+		/// The three corners' UV weights, or all zero when <see cref="UvA"/>..<see cref="UvC"/> are
+		/// plain coordinates — see <see cref="MeshVertex.UvWeight"/>.
+		/// </summary>
+		public (float A, float B, float C) UvWeights { get; }
+
 		/// <summary>Which twin of a coincident pair wins — see <see cref="DropCoincidentTwins"/>.</summary>
 		public int Rank { get; }
 
@@ -159,7 +165,8 @@ public static class DtsMeshBuilder {
 				Vector2 uvA = default, Vector2 uvB = default, Vector2 uvC = default,
 				bool unlit = false, int shadeRamp = -1,
 				(Vector3 A, Vector3 B, Vector3 C)? vertexNormals = null,
-				Vector3? faceNormal = null) {
+				Vector3? faceNormal = null,
+				(float A, float B, float C) uvWeights = default) {
 			Unlit = unlit;
 			ShadeRamp = shadeRamp;
 			VertexNormals = vertexNormals;
@@ -177,6 +184,7 @@ public static class DtsMeshBuilder {
 			UvA = uvA;
 			UvB = uvB;
 			UvC = uvC;
+			UvWeights = uvWeights;
 		}
 	}
 
@@ -473,11 +481,11 @@ public static class DtsMeshBuilder {
 		bool textured = triangle.Rank == Ranks.Textured;
 
 		vertices[at] = new MeshVertex(a, normalA, triangle.Color, triangle.UvA, textured, triangle.Unlit,
-			shadeRamp: triangle.ShadeRamp, faceNormal: normal);
+			shadeRamp: triangle.ShadeRamp, faceNormal: normal, uvWeight: triangle.UvWeights.A);
 		vertices[at + 1] = new MeshVertex(b, normalB, triangle.Color, triangle.UvB, textured, triangle.Unlit,
-			shadeRamp: triangle.ShadeRamp, faceNormal: normal);
+			shadeRamp: triangle.ShadeRamp, faceNormal: normal, uvWeight: triangle.UvWeights.B);
 		vertices[at + 2] = new MeshVertex(c, normalC, triangle.Color, triangle.UvC, textured, triangle.Unlit,
-			shadeRamp: triangle.ShadeRamp, faceNormal: normal);
+			shadeRamp: triangle.ShadeRamp, faceNormal: normal, uvWeight: triangle.UvWeights.C);
 	}
 
 	/// <summary>
@@ -710,6 +718,12 @@ public static class DtsMeshBuilder {
 			Vector3 localFirst = localPoints[firstIndex];
 			int polyId = sink.NextPolyId();
 
+			// A textured quad is mapped as a quad by the original, not as two triangles — see
+			// QuadUvWeights.
+			float[]? quadWeights = rect.HasValue
+				? QuadUvWeights(points, group.Indexes, listStart)
+				: null;
+
 			// Polys are convex fans, so a triangle fan from the first vertex reproduces them.
 			for (int i = 0; i < poly.VertexCount - 2; i++) {
 				int i1 = group.Indexes[listStart + 1 + i];
@@ -719,10 +733,20 @@ public static class DtsMeshBuilder {
 				}
 
 				if (rect is { } frame) {
+					// With weights the corner's UV goes to the GPU premultiplied by its own weight and
+					// is divided back per fragment; without them (a quad too degenerate to solve) the
+					// mapping stays affine per triangle, as it was.
+					var weights = quadWeights == null
+						? (1f, 1f, 1f)
+						: (quadWeights[0], quadWeights[i + 1], quadWeights[i + 2]);
+
 					sink.Triangles.Add(new Triangle(first, points[i1], points[i2], color, rank, polyId,
 						localFirst, localPoints[i1], localPoints[i2], group.Transform,
-						UvAt(frame, 0), UvAt(frame, i + 1), UvAt(frame, i + 2),
-						faceNormal: faceNormal));
+						UvAt(frame, 0) * weights.Item1,
+						UvAt(frame, i + 1) * weights.Item2,
+						UvAt(frame, i + 2) * weights.Item3,
+						faceNormal: faceNormal,
+						uvWeights: quadWeights == null ? default : weights));
 				} else {
 					// The fan's corners are vertex-list slots 0, i+1 and i+2, and the normal list is
 					// parallel to it, so the same three slots index it.
@@ -798,6 +822,56 @@ public static class DtsMeshBuilder {
 		}
 
 		return offset;
+	}
+
+	/// <summary>
+	/// The four corners' homogeneous UV weights for a textured quad, or null when the quad is too
+	/// degenerate to solve (its diagonals do not cross inside it, or one of them has no length).
+	///
+	/// <para>With the quad's diagonals crossing at fraction <c>s</c> along <c>p0→p2</c> and <c>t</c>
+	/// along <c>p1→p3</c>, the corners take <c>1/(1-s), 1/(1-t), 1/s, 1/t</c>. Why that is the right
+	/// mapping, and what it fixes, is docs/formats/dts-texture-binding.md's "Quad mapping on triangle
+	/// hardware".</para>
+	///
+	/// <para>The crossing is solved as a least-squares one rather than a planar intersection because
+	/// a DTS quad is not guaranteed to be planar.</para>
+	/// </summary>
+	private static float[]? QuadUvWeights(Vector3[] points, short[] indexes, int listStart) {
+		var corner = new Vector3[4];
+		for (int i = 0; i < 4; i++) {
+			int index = indexes[listStart + i];
+			if (index < 0 || index >= points.Length) {
+				return null;
+			}
+			corner[i] = points[index];
+		}
+
+		// p0 + s·d = p1 + (1-t)·(p1 - p3)  rearranged as  s·d + t·e = f.
+		Vector3 d = corner[2] - corner[0];
+		Vector3 e = corner[1] - corner[3];
+		Vector3 f = corner[1] - corner[0];
+
+		float dd = Vector3.Dot(d, d);
+		float de = Vector3.Dot(d, e);
+		float ee = Vector3.Dot(e, e);
+		float determinant = dd * ee - de * de;
+		if (MathF.Abs(determinant) < 1e-9f) {
+			return null;
+		}
+
+		float df = Vector3.Dot(d, f);
+		float ef = Vector3.Dot(e, f);
+		float s = (df * ee - ef * de) / determinant;
+		float t = (dd * ef - de * df) / determinant;
+
+		// Outside that range the diagonals meet beyond the quad — a non-convex or self-crossing poly,
+		// which has no projective map onto the rect. Left affine rather than guessed at.
+		const float margin = 1e-3f;
+		if (s <= margin || s >= 1f - margin || t <= margin || t >= 1f - margin) {
+			return null;
+		}
+
+		return new[] { 1f / (1f - s), 1f / (1f - t), 1f / s, 1f / t };
 	}
 
 	/// <summary>

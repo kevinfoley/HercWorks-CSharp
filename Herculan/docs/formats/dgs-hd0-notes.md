@@ -44,6 +44,22 @@ finds the same record boundaries the sequential reader does (45/45 `BASES.DGS`, 
 parses through `DTSModelTransformer` with zero exceptions and produces real geometry: `BASES.DGS`
 45/45 records, 1536 groups, 8978 polys; `BHULKS.DGS` 16/16 records, 113 groups, 786 polys.
 
+### Shape origin
+
+**A shape's origin is its ground contact point, not a rig pivot.** Measured across the libraries:
+44 of the 45 `BASES.DGS` shapes and all eight `BASES_AN.DTS` roots have their lowest vertex at
+exactly y=0. The exception is shape 28 (base type 38, an elevated span), whose geometry starts
+10.8 render units up because the structure is meant to stand clear of the terrain.
+
+The HERC roster is the same rule: every root 0 sits at y=0 except COLOSSUS, which dips 2.4 render
+units (400 world units) and is also the one HERC with a 400-unit ride height — the same correction
+(see [`dts-node-posing.md`](dts-node-posing.md)).
+
+So a placed structure is drawn at terrain height with no vertical correction of any kind.
+`MissionScene.TransformOf` used to raise every object by its mesh's lowest point; that was a no-op
+on every shape but 28, which it dragged down onto the ground — visible against retail in
+`Reference/Building_comparison.png`.
+
 Implementation: `HercWorks.Core.Io.Transform.Dbsim.BasesDgsTransformer`,
 `HercWorks.Core.Data.File.Dgs.BaseShapeLibrary`. Wired into
 `Herculan.Engine.Scene.SceneModelLibrary.Base()`.

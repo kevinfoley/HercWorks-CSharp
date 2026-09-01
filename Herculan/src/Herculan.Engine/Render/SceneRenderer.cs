@@ -38,6 +38,7 @@ public sealed class SceneRenderer : IDisposable {
 		layout (location = 6) in float aShade;
 		layout (location = 7) in float aShadeRamp;
 		layout (location = 8) in vec3 aFaceNormal;
+		layout (location = 9) in float aUvWeight;
 
 		uniform mat4 uModel;
 		uniform mat4 uView;
@@ -46,6 +47,7 @@ public sealed class SceneRenderer : IDisposable {
 
 		out vec3 vColor;
 		out vec2 vUV;
+		out float vUvWeight;
 		out float vTextured;
 		out float vUnlit;
 		out float vShade;
@@ -89,6 +91,7 @@ public sealed class SceneRenderer : IDisposable {
 
 			vColor = aColor;
 			vUV = aUV;
+			vUvWeight = aUvWeight;
 			vTextured = aTextured;
 			vUnlit = aUnlit;
 			vShade = aShade;
@@ -103,6 +106,7 @@ public sealed class SceneRenderer : IDisposable {
 		#version 330 core
 		in vec3 vColor;
 		in vec2 vUV;
+		in float vUvWeight;
 		in float vTextured;
 		in float vUnlit;
 		in float vShade;
@@ -141,7 +145,12 @@ public sealed class SceneRenderer : IDisposable {
 			bool textured = uTextureEnabled && vTextured > 0.5;
 			bool texturedExact = false;
 			if (textured) {
-				vec4 texel = texture(uTexture, vUV);
+				// A textured quad's corners carry homogeneous UVs so that both of its triangles
+				// resolve to the one projective map the original's quad rasterizer walks — see
+				// MeshVertex.UvWeight. Everything else carries a plain coordinate and weight 0.
+				vec2 uv = vUvWeight > 0.0 ? vUV / vUvWeight : vUV;
+
+				vec4 texel = texture(uTexture, uv);
 
 				// Palette index 0 decodes to alpha 0 in a bank whose frames are cutouts — the lattice
 				// girders on a structure. The original's span routine skips that index rather than

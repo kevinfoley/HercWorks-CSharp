@@ -151,6 +151,29 @@ Two deliberate departures from the original:
   softer than the game did. Filtering belongs in the opt-in bucket per planning.md's "vanilla by
   default" principle.
 
+### Quad mapping on triangle hardware
+
+A `TSPoly` carries no per-vertex UVs: the frame rect's four corners map to the poly's four corners
+(corner order above) and `TSTexture4Poly_Render` hands the rasterizer the whole quad. A GPU has to
+split it, and two triangles with plain UVs each get their own **affine** mapping — the two agree
+only when the quad is a parallelogram. Everywhere else the texture kinks along the shared diagonal,
+plainly on base type 37's trapezoidal pyramid faces (`Reference/Building_comparison.png`).
+
+`DtsMeshBuilder.QuadUvWeights` restores the single map both triangles share. The map taking a quad's
+corners to a rect's corners is projective, and a projective map is what interpolating `(u·w, v·w)`
+against `w` and dividing per fragment produces. The weights come off the diagonals: with the
+diagonals crossing at fraction `s` along `p0→p2` and `t` along `p1→p3`, the corners take
+`1/(1-s), 1/(1-t), 1/s, 1/t`. The crossing is solved least-squares in 3D, since a DTS quad is not
+guaranteed planar. A parallelogram gives `s = t = ½` and equal weights, i.e. the affine mapping this
+replaces, so quads that were already right are untouched; a degenerate or non-convex quad (crossing
+outside the diagonals) stays affine rather than being guessed at.
+
+Carried as `MeshVertex.UvWeight` (0 = the UV is a plain coordinate, which is what terrain and every
+non-quad poly carry). Whether retail's own rasterizer is exactly projective or interpolates linearly
+across screen spans is untraced — the two differ only in the interior of a strongly foreshortened
+quad, and both are free of the diagonal kink. See the open follow-up on
+`TSTexture4Poly_RasterizeA`/`RasterizeB`.
+
 ### Fleet audit
 
 Every `dts\*.DTS` with a matching `dat\*.DAT`, 22 mechs:
@@ -404,7 +427,7 @@ its *vertices* on the axes at level 1 — a 45-degree difference in cross-sectio
 
 | Mechanism | Status |
 |---|---|
-| `TSTexture4Poly` UV mapping | Exact, 4-vertex quads only; falls back to a placeholder colour with no bank |
+| `TSTexture4Poly` UV mapping | Exact, 4-vertex quads only, mapped projectively so both triangles share one map ("Quad mapping on triangle hardware"); falls back to a placeholder colour with no bank |
 | `TSSolidPoly` fill + outline | Exact; outline is a second primitive range in the same buffer (`MeshBuild.TriangleVertexCount`) |
 | `TSShadedPoly` / `TSGouraudPoly` colour | Exact, via `SurfaceRampTable` |
 | Per-face / per-vertex shade | Exact, `MissionSun.ShadeForFace` in the vertex shader |
@@ -457,6 +480,7 @@ Each of these was implemented or documented at some point and is disproven. Do n
 | A brightness multiplier over an expanded RGB texel, in place of the indexed lookup | The `.RMP` is a per-colour remap that preserves hue and compresses unevenly; no scalar reproduces it |
 | Interpolating the normal and computing the shade per fragment (Phong) | The original interpolates the shade computed per vertex; the two differ wherever the 0 clamp bites |
 | Normals are not reachable, so Gouraud cannot be implemented | Normals are extra entries in the point list; `NormalList` indexes them per vertex |
+| A textured quad can be fanned into two triangles carrying plain UVs | Each triangle then maps affinely and independently; they agree only on a parallelogram, and every other quad kinks along the diagonal. See "Quad mapping on triangle hardware" |
 | A winding-derived face normal stands in for the stored one, the eye-facing flip cancelling the sign | It cancels only while the corner normals are that same vector. Once they come from the point list the sign is derived from one convention and applied to the other, and every Gouraud poly lights inside out — dark toward the sun. The two conventions are exactly opposed; see "Normals live in the point list" |
 
 ## Unresolved: type-15 band widths

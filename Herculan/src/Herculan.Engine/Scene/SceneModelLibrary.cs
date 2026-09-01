@@ -27,10 +27,6 @@ namespace Herculan.Engine.Scene;
 /// The model's packed texture bank, or null when no bank could be resolved — in which case the
 /// mesh's UVs mean nothing and it must be drawn untextured.
 /// </param>
-/// <param name="BaseOffset">
-/// How far up the model must be lifted, in render units, for its lowest point to touch the ground.
-/// DTS model space puts the origin at the rig pivot rather than at the feet.
-/// </param>
 /// <param name="RadiusWorldUnits">Coarse collision radius derived from the model's own bounds.</param>
 /// <param name="HeightWorldUnits">Height of the model's bounding box, in world units.</param>
 /// <param name="Segments">
@@ -45,7 +41,7 @@ namespace Herculan.Engine.Scene;
 /// where both exist: they are different parts of one shape, not two versions of it.
 /// </param>
 public sealed record SceneModel(
-	string Key, MeshVertex[] Mesh, int TriangleVertexCount, TextureAtlas? Atlas, float BaseOffset,
+	string Key, MeshVertex[] Mesh, int TriangleVertexCount, TextureAtlas? Atlas,
 	int RadiusWorldUnits, int HeightWorldUnits, MeshSegment[] Segments, SpriteQuad[][] Sprites);
 
 /// <summary>
@@ -407,11 +403,11 @@ public sealed class SceneModelLibrary {
 		Vector3 extent = max - min;
 		float radiusInRenderUnits = MathF.Max(extent.X, extent.Z) * 0.5f;
 
-		// Bounds, radius and base offset all come off the flat mesh whichever way the model ends up
-		// being drawn: they describe the machine at rest, and a walk cycle should not change how wide
-		// it is for collision purposes. Segments cost a second pass over the shape, so only the
-		// rosters that animate ask for them.
-		return new SceneModel(key, build.Vertices, build.TriangleVertexCount, atlas, -min.Y,
+		// Bounds and radius both come off the flat mesh whichever way the model ends up being drawn:
+		// they describe the machine at rest, and a walk cycle should not change how wide it is for
+		// collision purposes. Segments cost a second pass over the shape, so only the rosters that
+		// animate ask for them.
+		return new SceneModel(key, build.Vertices, build.TriangleVertexCount, atlas,
 			(int)(radiusInRenderUnits * WorldScale.WorldUnitsPerMeter),
 			(int)(extent.Y * WorldScale.WorldUnitsPerMeter),
 			segmented ? DtsMeshBuilder.BuildSegments(root, atlas, _shading) : Array.Empty<MeshSegment>(),

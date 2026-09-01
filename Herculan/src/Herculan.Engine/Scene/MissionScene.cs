@@ -281,31 +281,15 @@ public sealed class MissionScene {
 	}
 
 	/// <summary>
-	/// Model-to-world transform for one placed object, in render space: heading rotation, the lift
-	/// that puts it on the ground, then its world position.
-	///
-	/// <para>The rotation sign is the simulation's, not the camera's. A HERC's forward vector is
-	/// <c>(-sin h, cos h)</c> in world XY — that falls out of <c>BuildEulerRotationMatrixQ14</c>'s
-	/// Z-only matrix and the row-vector transform, and it is the same sense
-	/// <see cref="MissionLoader"/>'s formation spread rotates in. <see cref="Camera"/>'s yaw runs
-	/// the other way, so anything attaching a camera to an object's heading negates it; this
-	/// transform must not.</para>
-	/// </summary>
-	/// <summary>
 	/// Where one node of an animating machine's shape stands, in render space: the node's own posed
 	/// transform followed by the machine's shape-to-world one. A caller draws each
 	/// <see cref="MeshSegment"/> with the matrix for its own transform id, which is what makes the
 	/// legs move.
 	///
-	/// <para>Two things differ from <see cref="TransformOf"/>, and both are the simulation being let
-	/// through rather than approximated. The machine's own transform is
+	/// <para>One thing differs from <see cref="TransformOf"/>, and it is the simulation being let
+	/// through rather than approximated: the machine's own transform is
 	/// <see cref="MechObject.WorldTransform"/>, so its lean over sloping ground comes with it, where
-	/// the rigid path has only a heading rotation. And there is no
-	/// <see cref="SceneModel.BaseOffset"/> lift: a HERC's shape origin is already its ground contact
-	/// point and the sim puts that at terrain height plus the type's own ride height (the one retail
-	/// machine whose model dips below zero, COLOSSUS, is also the one with a nonzero ride height, and
-	/// by exactly the same 400 units — see <see cref="WorldScale.WorldUnitsPerDtsUnit"/>), so lifting
-	/// by the bounding box on top of that counted the correction twice.</para>
+	/// the rigid path has only a heading rotation.</para>
 	/// </summary>
 	public static Matrix4x4 PosedTransformOf(MechObject mech, int transformId) {
 		var world = WorldScale.ToRenderMatrix(mech.WorldTransform);
@@ -314,13 +298,24 @@ public sealed class MissionScene {
 			: WorldScale.ToRenderMatrix(mech.NodeTransform(transformId)) * world;
 	}
 
-	public static Matrix4x4 TransformOf(SceneObject sceneObject) {
-		float lift = sceneObject.Model?.BaseOffset ?? 0f;
-
-		return Matrix4x4.CreateRotationY(BinaryAngle.ToRadians(sceneObject.Object.Heading))
-			* Matrix4x4.CreateTranslation(
-				WorldScale.ToRender(sceneObject.Object.Position) + new Vector3(0f, lift, 0f));
-	}
+	/// <summary>
+	/// Model-to-world transform for one placed object, in render space: heading rotation, then its
+	/// world position. Nothing else — the shape's own origin is where the original stands it.
+	///
+	/// <para>The rotation sign is the simulation's, not the camera's. A HERC's forward vector is
+	/// <c>(-sin h, cos h)</c> in world XY — that falls out of <c>BuildEulerRotationMatrixQ14</c>'s
+	/// Z-only matrix and the row-vector transform, and it is the same sense
+	/// <see cref="MissionLoader"/>'s formation spread rotates in. <see cref="Camera"/>'s yaw runs
+	/// the other way, so anything attaching a camera to an object's heading negates it; this
+	/// transform must not.</para>
+	///
+	/// <para><b>No bounding-box lift</b>, deliberately: a shape's origin is already its ground contact
+	/// point, so raising an object by its mesh's lowest point sinks the one shape authored off the
+	/// ground. See docs/formats/dgs-hd0-notes.md, "Shape origin".</para>
+	/// </summary>
+	public static Matrix4x4 TransformOf(SceneObject sceneObject) =>
+		Matrix4x4.CreateRotationY(BinaryAngle.ToRadians(sceneObject.Object.Heading))
+			* Matrix4x4.CreateTranslation(WorldScale.ToRender(sceneObject.Object.Position));
 
 	/// <summary>
 	/// Builds and positions the simulation object for one placement. Returns null when the placement

@@ -11,6 +11,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- GLSL lives in its own files rather than in C# string constants; ShaderSource reads them
+         back out of the assembly, so there is no path to resolve at runtime. -->
+    <EmbeddedResource Include="Render\Shaders\*.glsl" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- The locomotion tests build a synthetic flat HeightGrid, whose constructor is internal. -->
     <InternalsVisibleTo Include="Herculan.Engine.Tests" />
   </ItemGroup>

@@ -41,6 +41,28 @@ public sealed class ShaderProgram : IDisposable {
 		_gl.DeleteShader(fragment);
 	}
 
+	/// <summary>
+	/// Compiles the program in <c>Render/Shaders/<paramref name="fileName"/></c>, whose two stages
+	/// share the one file. See <see cref="ShaderSource"/>.
+	/// </summary>
+	/// <param name="variantDefines">
+	/// Preprocessor symbols to define, selecting which optional blocks of the file are compiled in.
+	/// Code left out this way is not in the program at all — no uniforms, no varyings, nothing to
+	/// branch on at runtime.
+	/// </param>
+	public static ShaderProgram Load(GL gl, string fileName, params string[] variantDefines) {
+		string source = ShaderSource.Load(fileName);
+		try {
+			return new ShaderProgram(gl,
+				ShaderSource.ForStage(source, ShaderType.VertexShader, variantDefines),
+				ShaderSource.ForStage(source, ShaderType.FragmentShader, variantDefines));
+		} catch (InvalidOperationException ex) {
+			// The driver's log counts lines within one stage and names no file, which is no help at
+			// all once more than one shader file exists.
+			throw new InvalidOperationException($"{fileName}: {ex.Message}", ex);
+		}
+	}
+
 	public void Use() => _gl.UseProgram(_handle);
 
 	public void SetMatrix(string name, Matrix4x4 value) {

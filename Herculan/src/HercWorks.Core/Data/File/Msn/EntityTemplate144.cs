@@ -6,8 +6,8 @@ namespace HercWorks.Core.Data.File.Msn;
 /// records, they have no structural relationship (this row has an identity field and the file's
 /// heaviest template-inheritance usage, 48%; row #4 has neither). Its four declared cross-refs
 /// (#6/#7/#10x2) are almost entirely dead in retail (&lt;=2.4% used) — the record's
-/// real payload is the unresolved 10-slot array at <see cref="UnresolvedRefs"/>, never touched by
-/// any lookup call the load code makes. See docs/formats/msn-mission-file.md, "Row #12 field decode".
+/// real payload is the 10-slot weapon fit at <see cref="UnresolvedRefs"/>.
+/// See docs/formats/msn-mission-file.md, "Row #12 field decode".
 /// </summary>
 public class EntityTemplate144 : MapObject {
 	/// <summary>
@@ -42,9 +42,13 @@ public class EntityTemplate144 : MapObject {
 	public short SmallDiscrete { get; set; }
 
 	/// <summary>
-	/// 0x32-0x44 — the record's real workhorse: an unresolved 10-slot array, never touched by any
-	/// lookup call in the load loop. Usage decays from 46% (slot 0) to 0.1% (slot 9), bursty
-	/// within a record (typically all-or-nothing in blocks).
+	/// 0x32-0x44 — the record's real workhorse: the mech's <b>10-slot weapon fit</b>, one weapon
+	/// catalog id per slot. The load loop resolves nothing out of it because it is not an
+	/// intra-file cross-reference; DBSIM hands the array straight to <c>Mech_ConfigureLoadout</c>,
+	/// the same call the player's own fit from <c>player.mec</c> goes through.
+	/// <para><b>Slot positions are load-bearing.</b> Each hardpoint picks its slot by index, so
+	/// compacting the array fits the wrong weapon to the wrong hardpoint and a slot no hardpoint
+	/// addresses contributes nothing. See docs/simulation/weapon-mounts.md, "The join".</para>
 	/// </summary>
 	public short[] UnresolvedRefs { get; set; } = new short[10];
 

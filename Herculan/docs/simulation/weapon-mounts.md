@@ -169,16 +169,9 @@ opens by forcing both flags to 1 whenever `template+0x56` (the record's self-ind
 
 **The simulator does not use the shell catalog's names.** `Weapons_LoadResourceTables` (`0040fc8c`)
 walks a 33-entry string-pointer array at `00498eb0` as it reads the template table and stores one
-pointer into each record's `+0x52`; that is what a gauge prints. The two disagree:
-
-| Id | `SHELL0/GAM/WEAPONS.DAT` | `DBSIM.EXE` |
-|---|---|---|
-| 7 | `EMPC` | `EMP` |
-| 30 | `SHLD` | `SHIELD` |
-| 31 | `TURB` | `TURBO` |
-| 32 | `ENRG` | `ENERGY` |
-
-Full table in `WeaponCatalog.MountNames`.
+pointer into each record's `+0x52`; that is what a gauge prints. The two spellings are
+tabulated per id in [`../formats/weapons-dat.md`](../formats/weapons-dat.md#the-weapon-id-space--three-spellings-per-weapon)
+alongside each weapon's full name; the array itself is ported as `WeaponCatalog.MountNames`.
 
 The name is chosen off the **resolved projectile**, not the weapon id: when the mount's `PROJ.DAT`
 record is a `Missile`, the gauge prints that record's own subtype from a four-entry table at
@@ -188,7 +181,8 @@ why the retail player's `MSL10` hardpoint reads `ARH`. Ids 13–16's own names a
 
 > The subtype index is unbounded in the original. `MISSL` (id 21) points straight at the `BMSL`
 > record, subtype 4, and reads one past the four-entry table. The engine falls back to the id's own
-> name rather than reproducing a read off the end of a table; no player machine mounts that weapon.
+> name rather than reproducing a read off the end of a table. `BMSL` is Bull armament and no
+> player HERC can mount it.
 
 A pod row is the one place the name is decorated. `FUN_00441524` seeds its 11-char buffer with a
 literal space, appends the mount name, then appends `STRINGS0.STR` group 3 (`" POD"`) into whatever

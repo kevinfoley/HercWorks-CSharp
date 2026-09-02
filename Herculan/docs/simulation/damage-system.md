@@ -317,7 +317,7 @@ as `(int*)` and does an extra pointer dereference before indexing.
 call — wires up `this+0x212` (and neighboring fields) as a pointer into per-component **maximum/
 reference** data (sourced from the mech's own `damage.dat`-derived pointer plus its collision
 registration record from `FUN_0040cd88`, tying this system to the collision bounding-sphere tree
-in [`dbsim-physics-notes.md`](dbsim-physics-notes.md#collision-system--hierarchical-bounding-sphere-construction-collidecpp)).
+in [`dbsim-physics-notes.md`](dbsim-physics-notes.md#collision-system-collidecpp)).
 
 **Read: `Component_ReadDamagePercent` (`0040dbc0`) — accumulated damage as Q8 (0–256), 0 = pristine,
 256 = destroyed.** Note the sense: it returns damage, not health, so every caller's curve runs the

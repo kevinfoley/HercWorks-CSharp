@@ -2,27 +2,17 @@
 namespace HercWorks.Core.Data.File.Bnd;
 
 /// <summary>
-/// FILE - SIMVOL0\BND\CAM.BND — fully byte-mapped; no field's real-world meaning is confirmed.
+/// FILE - SIMVOL0\BND\CAM.BND — 24 content bytes, fully byte-mapped; no field's real-world
+/// meaning is confirmed.
 ///
-/// <para>The per-subsystem record starts at absolute file offset 9, after the 9-byte envelope every
-/// <c>.BND</c> file shares, and is <see cref="RecordTag"/> (1 byte) plus the envelope's stated
-/// payload length (24 bytes here). The envelope's own layout, the field-by-field match against the
-/// Java author's sample values, and the finding that <c>.BND</c> is a build-time-only source format
-/// DBSIM.EXE never opens at runtime are in docs/formats/bnd-notes.md.</para>
+/// <para>The record is the whole of the entry's content, offset 0 first. The field-by-field match
+/// against the Java author's sample values, and the finding that <c>.BND</c> is a build-time-only
+/// source format DBSIM.EXE never opens at runtime, are in docs/formats/bnd-notes.md.</para>
 ///
 /// Ported from org.hercworks.core.data.file.bnd.Cam.
 /// </summary>
 public class Cam {
-	/// <summary>
-	/// The file's own bytes, kept so <see cref="Io.Transform.Bnd.CamTransformer.Write"/> can copy
-	/// the 9-byte .BND envelope (type marker, payload length, reserved, build stamp) back out
-	/// verbatim instead of reconstructing it — the envelope is never decoded, only preserved.
-	/// This is the one place a parsed model needs its source bytes, so it is declared here rather
-	/// than inherited.
-	/// </summary>
-	public byte[]? RawBytes { get; set; }
-
-	/// <summary>Per-subsystem record tag, absolute file offset 9. 54 (0x36) in the real CAM.BND.</summary>
+	/// <summary>Per-subsystem record tag, content offset 0. 54 (0x36) in the real CAM.BND.</summary>
 	public byte RecordTag { get; set; }
 
 	/// <summary>Unknown. 208 in the real file.</summary>
@@ -87,10 +77,4 @@ public class Cam {
 
 	/// <summary>Unknown UINT16. 8000 in the real file.</summary>
 	public short Value4 { get; set; }
-
-	/// <summary>
-	/// The file's final byte, not covered by the Java author's original notes. 31 (0x1f) in the
-	/// real file.
-	/// </summary>
-	public byte TrailingByte { get; set; }
 }

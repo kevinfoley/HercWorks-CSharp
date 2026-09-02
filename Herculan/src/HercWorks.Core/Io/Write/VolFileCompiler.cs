@@ -194,9 +194,7 @@ public static class VolFileCompiler {
 			bass.Write(entry.RawBytes!, 0, entry.RawBytes!.Length);
 
 			if (tailByte.Length > 0) {
-				foreach (var _ in entry.UnknownEoFByte!) {
-					bass.WriteByte(0x00);
-				}
+				bass.Write(entry.UnknownEoFByte!, 0, entry.UnknownEoFByte!.Length);
 			}
 		}
 	}

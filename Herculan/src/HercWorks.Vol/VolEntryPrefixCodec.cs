@@ -10,14 +10,15 @@ public readonly record struct VolEntryPrefixResult(
     byte[] Content, bool HadPrefix, byte CompressionType, byte[]? MagicPrefix, bool HadTrailingByte);
 
 /// <summary>
-/// Handles the same 9-byte per-entry prefix (1-byte compression flag + 4-byte little-endian
-/// content size + 4-byte magic) that <see cref="VolEntry"/> carries when parsed out of a packed
-/// .VOL, plus the single trailing marker byte observed after an entry's content. Real loose
-/// copies of these files (e.g. a retail install's own external-override GAM\ tree) carry this
-/// same prefix — it isn't unique to files still packed inside a .VOL — so any code that opens an
-/// arbitrary loose file (rather than reading it via <see cref="VolEntry"/> off an already-loaded
-/// Voln) needs to detect and round-trip it independently. Centralized here so that logic exists
-/// in exactly one place instead of being re-derived per editor.
+/// Handles the same 9-byte per-entry prefix (1-byte storage flag + 4-byte little-endian content
+/// size + 4-byte MS-DOS date/time) that <see cref="VolEntry"/> carries when parsed out of a packed
+/// .VOL, plus the single trailing byte that follows an entry's content in the archive — see
+/// docs/formats/vol-archive.md.
+///
+/// <para>A loose file on disk may be either shape: the retail game's own overrides are
+/// content-only, while anything unpacked by a tool that copies archive bytes wholesale (such as
+/// <c>ES2/VOL/extractVol.py</c>) keeps the prefix. Editors open paths the user picked, so
+/// detection lives here rather than being re-derived per editor.</para>
 /// </summary>
 public static class VolEntryPrefixCodec {
 	private const int PrefixLength = 9;
@@ -48,8 +49,10 @@ public static class VolEntryPrefixCodec {
 	}
 
 	/// <summary>
-	/// Rebuilds the retail-format byte layout around edited content: original compression type
-	/// and magic preserved byte-for-byte, size field recalculated for the new content length.
+	/// Rebuilds the archive byte layout around edited content: original storage flag and date/time
+	/// preserved byte-for-byte, size field recalculated for the new content length, and the
+	/// trailing byte reproduced the way the retail packer writes it — as a repeat of the last
+	/// content byte.
 	/// </summary>
 	public static byte[] Wrap(byte[] content, byte compressionType, byte[] magicPrefix, bool includeTrailingByte) {
 		using var outStream = new MemoryStream();
@@ -60,8 +63,8 @@ public static class VolEntryPrefixCodec {
 		outStream.Write(magicPrefix, 0, magicPrefix.Length);
 		outStream.Write(content, 0, content.Length);
 
-		if (includeTrailingByte) {
-			outStream.WriteByte(0x00);
+		if (includeTrailingByte && content.Length > 0) {
+			outStream.WriteByte(content[^1]);
 		}
 
 		return outStream.ToArray();

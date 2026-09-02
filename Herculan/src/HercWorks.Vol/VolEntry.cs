@@ -10,9 +10,14 @@ namespace HercWorks.Vol;
 ///     UINT32 file's offset in the VOL (little-endian)
 ///
 ///   File prefix - 9 bytes, found at the offset above:
-///     UINT8  possibly a compression type flag
-///     UINT32 file size in bytes (little-endian)
-///     UINT32 unknown 4-byte magic
+///     UINT8  storage flag, 0x02 throughout the retail archives
+///     UINT32 content size in bytes (little-endian) - the content alone, no prefix, no trailer
+///     UINT16 MS-DOS packed date, UINT16 MS-DOS packed time - the source file's timestamp
+///
+///   Then <c>size</c> content bytes, then one trailing byte that repeats the last content byte.
+///
+/// The prefix and the trailing byte belong to the archive, not to the file: what the game reads
+/// is the content alone. See docs/formats/vol-archive.md for the evidence.
 ///
 /// Ported from org.hercworks.voln.VolEntry.
 /// </summary>
@@ -25,9 +30,17 @@ public class VolEntry : DataFile {
 
 	public byte DirIdx { get; set; }
 
+	/// <summary>
+	/// The single byte the archive stores after this entry's content, before the next entry's
+	/// prefix. It repeats the content's last byte and is outside the declared size, so nothing
+	/// reads it; round-tripped rather than reconstructed.
+	/// </summary>
 	public byte[]? UnknownEoFByte { get; set; }
 
-	/// <summary>Raw 4-byte magic prefix observed ahead of every file's data in the VOL.</summary>
+	/// <summary>
+	/// The prefix's 4-byte field at +5: the source file's MS-DOS packed date (UINT16) and time
+	/// (UINT16). Kept raw — TransformerRegistry matches some file types on its exact value.
+	/// </summary>
 	public byte[]? MagicPrefix { get; set; }
 
 	public byte FileCompressionType { get; set; }

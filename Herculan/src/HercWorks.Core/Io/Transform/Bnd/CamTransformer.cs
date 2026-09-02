@@ -11,22 +11,21 @@ namespace HercWorks.Core.Io.Transform.Bnd;
 /// every other .BND file has its own unrelated record shape, confirmed different from CAM's both
 /// in length and in the Java author's own per-file notes for the handful of other .BND files that
 /// have any.
+///
+/// <para>Reads the entry's content, offset 0 first. A loose <c>.BND</c> unpacked with a tool that
+/// keeps the VOL entry prefix carries nine extra leading bytes that are no part of the format —
+/// strip them with <see cref="HercWorks.Vol.VolEntryPrefixCodec"/> before parsing, as the editors
+/// do. See docs/formats/vol-archive.md.</para>
 /// </summary>
 public class CamTransformer : ByteTransformer<Cam> {
-	/// <summary>Header shared by every .BND file: [0]=0x02, [1-2]=payload length (LE), [3-4]=0x0000, [5-8]=build stamp.</summary>
-	private const int EnvelopeLength = 9;
-
 	public override Cam? Parse(byte[]? inputArray) {
 		if (inputArray == null) {
 			return null;
 		}
 
 		SetBytes(inputArray);
-		JumpTo(EnvelopeLength);
 
 		var cam = new Cam {
-			RawBytes = inputArray,
-
 			RecordTag = IndexByte(),
 			Unknown1 = IndexByte(),
 			Unknown2 = IndexByte(),
@@ -47,7 +46,6 @@ public class CamTransformer : ByteTransformer<Cam> {
 			Unknown10 = IndexByte(),
 			Value3 = IndexShortLE(),
 			Value4 = IndexShortLE(),
-			TrailingByte = IndexByte(),
 		};
 
 		return cam;
@@ -58,10 +56,6 @@ public class CamTransformer : ByteTransformer<Cam> {
 
 		void Emit(byte[] bytes) => outStream.Write(bytes, 0, bytes.Length);
 		void WriteByte(byte b) => outStream.WriteByte(b);
-
-		// The 9-byte envelope (type marker, payload length, reserved, build stamp) is preserved
-		// verbatim from the source file rather than reconstructed — RawBytes always holds it.
-		Emit(cam.RawBytes![..EnvelopeLength]);
 
 		WriteByte(cam.RecordTag);
 		WriteByte(cam.Unknown1);
@@ -83,7 +77,6 @@ public class CamTransformer : ByteTransformer<Cam> {
 		WriteByte(cam.Unknown10);
 		Emit(WriteShortLE(cam.Value3));
 		Emit(WriteShortLE(cam.Value4));
-		WriteByte(cam.TrailingByte);
 
 		return outStream.ToArray();
 	}

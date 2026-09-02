@@ -12,8 +12,8 @@ namespace HercWorks.Core.Io.Write;
 /// Ported from org.hercworks.core.io.write.VolFileCompiler.
 /// </summary>
 public static class VolFileCompiler {
-	/// <summary>Compiles a brand-new VOL file, calculating offsets and sizes.</summary>
-	public static void Compile(Voln vol) {
+	/// <summary>Compiles a brand-new VOL file, calculating offsets and sizes, and writes it to <paramref name="outputPath"/>.</summary>
+	public static void Compile(Voln vol, string outputPath) {
 		CalculateDirHeader(vol);
 		GenerateFileSet(vol);
 		CompileFileList(vol);
@@ -28,11 +28,7 @@ public static class VolFileCompiler {
 		vol.RawBytes = rawBytes;
 
 		try {
-			// NOTE: this hardcoded developer path is carried over directly from the Java
-			// original — it's a dev-machine leftover, not something that will work as-is on
-			// another machine. Flagged here rather than silently "fixed", since the right output
-			// path is presumably meant to be supplied by the caller in a real UI flow.
-			VolFileWriter.PackVolToFileStrict(vol, "E:\\ES2_OS\\dev\\earthsiege2\\VOL");
+			VolFileWriter.PackVolToFileStrict(vol, outputPath);
 		} catch (Exception e) {
 			Console.WriteLine(e.Message);
 		}

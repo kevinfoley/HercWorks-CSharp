@@ -171,12 +171,8 @@ public abstract class ThreeSpaceByteTransformer {
 		}
 	}
 
-	/// <summary>
-	/// NOTE: despite the name, this does not read/peek a byte value — it just returns a computed
-	/// offset (index + at) without dereferencing Bytes. Kept as a literal port; looks like it may
-	/// be unused/unfinished in the original.
-	/// </summary>
-	public int PeekAt(int at) => Index + at;
+	/// <summary>Reads the byte at <paramref name="at"/> bytes past the cursor, without advancing it.</summary>
+	public int PeekAt(int at) => Bytes![Index + at];
 
 	public void ResetIndex() => Index = 0;
 

@@ -28,12 +28,8 @@ public class InitHerc {
 	/// <inheritdoc cref="FileName"/>
 	public byte[]? RawBytes { get; set; }
 
-	/// <summary>
-	/// Original: Bytes.from("661FAF55", StandardCharsets.UTF_8) — despite looking like a hex
-	/// string, this is literally the UTF-8/ASCII bytes of that 8-character text, not a decoded
-	/// hex value. Ported literally.
-	/// </summary>
-	public static readonly byte[] Header = System.Text.Encoding.UTF8.GetBytes("661FAF55");
+	/// <summary>Unused by either <see cref="Io.Read.DatFileReader.ParseIniHercDatStats"/> or <see cref="Io.Transform.Shell.InitHercTransformer"/> — confirmed against real `SHELL0\GAM\INI_*.DAT` files, which carry no such prefix.</summary>
+	public static readonly byte[] Header = { 0x66, 0x1F, 0xAF, 0x55 };
 
 	public ShellHercData? Data { get; set; }
 

@@ -66,11 +66,7 @@ public static class DatFileReader {
 		return iniStats;
 	}
 
-	/// <summary>
-	/// NOTE: the "newData" parameter is unused in the original — despite the method name, it
-	/// doesn't splice newData in anywhere; it just concatenates the file's existing Header with
-	/// its existing RawBytes. Ported literally.
-	/// </summary>
+	/// <summary>Replaces <paramref name="targetFile"/>'s content with <paramref name="newData"/>, keeping its existing header prefix.</summary>
 	public static VolEntry ReplaceDatBytes(byte[] newData, DataFile targetFile) {
 		if (targetFile is not VolEntry entry) {
 			throw new Exception($"ERROR: file({targetFile.FileName}) was not a <VolEntry> object.");
@@ -80,9 +76,7 @@ public static class DatFileReader {
 		if (targetFile.Header != null) {
 			spliceData.AddRange(targetFile.Header);
 		}
-		if (targetFile.RawBytes != null) {
-			spliceData.AddRange(targetFile.RawBytes);
-		}
+		spliceData.AddRange(newData);
 
 		targetFile.RawBytes = spliceData.ToArray();
 

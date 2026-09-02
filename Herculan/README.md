@@ -5,12 +5,12 @@ modding toolkit, MIT licensed) from Java to C#/.NET 8 + WinForms. Original proje
 310 Java files / ~30,000 lines across four modules — this is being ported in stages
 rather than all at once.
 
-Bugs found in the original Java source during porting were kept bug-compatible rather than silently
-fixed, per the approach described below. The ones still reproduced are listed in
-[`KNOWN_ISSUES.md`](KNOWN_ISSUES.md), which records outstanding issues only — retail Earthsiege 2
-bugs, places where the HERCULAN engine behaves differently from retail, and these inherited
-Java-port bugs. [`ROADMAP.md`](ROADMAP.md) is the separate register for what the engine does not
-implement yet.
+Bugs found in the original Java source during porting are fixed rather than carried over — see
+"Notes on the port" below for the ones found so far. Retail Earthsiege 2 bugs are the only thing
+kept bug-compatible, since HERCULAN Engine (the separate game-engine reimplementation, not this
+toolkit) needs to match retail behaviour; those are listed in
+[`KNOWN_ISSUES.md`](KNOWN_ISSUES.md), which records outstanding issues only. [`ROADMAP.md`](ROADMAP.md)
+is the separate register for what the engine does not implement yet.
 
 ## Status
 
@@ -148,6 +148,19 @@ Both solutions build clean (0 warnings) and the test suites pass.
 - **Bug fix**: the original Java used `File.pathSeparator` (`;` on Windows) instead of
   `File.separator` when joining folder/file paths, which would have produced invalid
   paths. This port uses `Path.Combine` instead.
+- **Bug fix**: the original Java's `VolFileCompiler.compile()` wrote the freshly-compiled VOL
+  to a hardcoded developer path (`E:\ES2_OS\dev\earthsiege2\VOL`). `VolFileCompiler.Compile()`
+  takes the output path as a parameter instead.
+- **Bug fix**: the original Java's `ThreeSpaceByteTransformer.peekAt(int)` returned `index + at` —
+  an offset, not the byte at that offset. `PeekAt` now actually dereferences it.
+- **Bug fix**: the original Java's `DatFileReader.replaceDatBytes(newData, targetFile)` ignored its
+  `newData` parameter entirely, splicing the file's existing header onto its own existing raw bytes
+  unchanged. `ReplaceDatBytes` now splices `newData` in.
+- **Bug fix**: the original Java's `InitHerc.header` was built as the 8 ASCII bytes of the string
+  `"661FAF55"` rather than the 4 hex-decoded bytes `66 1F AF 55` (`Bytes.from("661FAF55",
+  StandardCharsets.UTF_8)` — the same mistake `DynamixPalette.Header` had). `InitHerc.Header` now
+  holds the decoded bytes. Neither the Java nor the C# field is actually read or written anywhere,
+  so this has no behavioral effect today.
 - **`byte` vs `sbyte`**: Java's `byte` is signed; all values actually used here (directory
   counts/indices) are small and non-negative, so this port uses C#'s unsigned `byte`
   throughout without any behavior difference.

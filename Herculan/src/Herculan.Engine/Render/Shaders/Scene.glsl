@@ -1,0 +1,259 @@
+#version 330 core
+
+// The scene program: every piece of opaque world geometry SceneRenderer draws — terrain, each posed
+// segment of a machine, structures, projectile models.
+//
+// One program for all of it because the surface type is a property of the VERTEX, not of the object.
+// The original rasterized each poly class through its own routine (TSSolidPoly, TSShadedPoly,
+// TSGouraudPoly, the textured pair), and a single DTS shape mixes them freely — a HERC leg carries
+// textured, ramp-shaded and flat polys in one mesh. The builders therefore encode which class a
+// corner belongs to in its own attributes (aTextured, aUnlit, aShadeRamp) and main() resolves it per
+// fragment. Splitting this into a program per surface type would mean splitting every mesh to match,
+// and gain nothing: the classes share their geometry, lighting and haze, and differ only in where
+// the final colour is looked up.
+//
+// Both stages live in this file, selected by VERTEX_SHADER / FRAGMENT_SHADER, which
+// ShaderProgram.Load defines when it compiles each one. See Gl/ShaderSource.
+
+#if defined(VERTEX_SHADER)
+	#define VARYING out
+#else
+	#define VARYING in
+#endif
+
+// Declared once for both stages, so the two can never drift out of step.
+VARYING vec3 vColor;
+VARYING vec2 vUV;
+VARYING float vUvWeight;
+VARYING float vTextured;
+VARYING float vUnlit;
+VARYING float vShade;
+VARYING float vShadeRamp;
+VARYING float vLightShade;
+VARYING float vViewDistance;
+
+#ifdef EDITOR_GRID
+// Only the measuring grid needs a surface point's horizontal world position, so the varying does not
+// exist at all in the program the simulator draws with.
+VARYING vec2 vWorldXZ;
+#endif
+
+#ifdef VERTEX_SHADER
+
+layout (location = 0) in vec3 aPosition;
+layout (location = 1) in vec3 aNormal;
+layout (location = 2) in vec3 aColor;
+layout (location = 3) in vec2 aUV;
+layout (location = 4) in float aTextured;
+layout (location = 5) in float aUnlit;
+layout (location = 6) in float aShade;
+layout (location = 7) in float aShadeRamp;
+layout (location = 8) in vec3 aFaceNormal;
+layout (location = 9) in float aUvWeight;
+
+uniform mat4 uModel;
+uniform mat4 uView;
+uniform mat4 uProjection;
+uniform vec3 uLightDirection;
+
+void main() {
+	vec4 worldPosition = uModel * vec4(aPosition, 1.0);
+#ifdef EDITOR_GRID
+	vWorldXZ = worldPosition.xz;
+#endif
+	vec4 viewPosition = uView * worldPosition;
+
+	// Normals only ever see rotation and uniform scale here, so the plain model matrix is
+	// enough; a normal matrix becomes necessary if non-uniform scaling ever appears.
+	// aNormal is the shape's own per-corner normal, which for a TSGouraudPoly differs between
+	// the three corners; aFaceNormal is the flat one they share.
+	vec3 normal = normalize(mat3(uModel) * aNormal);
+	vec3 faceNormal = normalize(mat3(uModel) * aFaceNormal);
+
+	// The face is turned to meet the eye before it is lit, exactly as the original does it:
+	// every poly renderer runs TSPoly_FrontBackVisibilityTest (0048c620) on the poly's own
+	// stored normal and centre, and negates the poly's normals when the answer is "back". The
+	// test is on the FACE normal so all three corners agree — in view space the camera is the
+	// origin, so a face is turned away when its normal and its position point the same way.
+	float sideSign = dot(mat3(uView) * faceNormal, viewPosition.xyz) > 0.0 ? -1.0 : 1.0;
+
+	// The shade byte Light_ComputeShadeForFace (0048bedc) gives this corner:
+	//     t = (dot - 0x400000) >> 1;  if (t < 0) shade -= (0x100 * t) >> 22
+	// which with normals at length 0x800 and the sun at 0x1000/0x100 collapses to
+	// clamp(128 + 256 * facing). See MissionSun.ShadeForFace.
+	//
+	// Computed HERE, per vertex, and interpolated — which is what makes a TSGouraudPoly
+	// Gouraud. TSGouraudPoly_Render (004755c8) calls the light function once per vertex,
+	// walking NormalList and VertexList in step, stashes the bytes and lets the span routine
+	// interpolate between them. Doing it per fragment from an interpolated normal instead is
+	// Phong, and it differs wherever the clamp bites: the original clamps each corner first
+	// and then interpolates, so a corner that bottoms out at 0 still ramps linearly to its
+	// neighbour rather than holding a dead flat region. Flat polys are unaffected — their
+	// three corners share a normal, so this is constant across the face.
+	float facing = dot(normal * sideSign, -normalize(uLightDirection));
+	vLightShade = clamp(128.0 + 256.0 * facing, 0.0, 255.0);
+
+	vColor = aColor;
+	vUV = aUV;
+	vUvWeight = aUvWeight;
+	vTextured = aTextured;
+	vUnlit = aUnlit;
+	vShade = aShade;
+	vShadeRamp = aShadeRamp;
+	vViewDistance = length(viewPosition.xyz);
+
+	gl_Position = uProjection * viewPosition;
+}
+
+#endif
+
+#ifdef FRAGMENT_SHADER
+
+#ifdef EDITOR_GRID
+uniform bool uGridEnabled;
+uniform vec3 uGridColor;
+uniform float uGridSpacing;
+uniform float uGridMinorOpacity;
+uniform float uGridMajorOpacity;
+uniform float uGridLineWidthPixels;
+uniform float uGridMajorEvery;
+uniform float uGridMajorWidthScale;
+uniform float uGridMinCellPixels;
+uniform float uGridFadeStart;
+uniform float uGridFadeEnd;
+#endif
+
+uniform vec3 uHazeColor;
+uniform float uHazeStart;
+uniform float uHazeEnd;
+uniform sampler2D uTexture;
+uniform bool uTextureEnabled;
+uniform sampler2D uShadeRampTable;
+uniform bool uShadeRampEnabled;
+uniform sampler2D uPaletteRamp;
+uniform bool uPaletteRampEnabled;
+uniform float uShadeLevels;
+
+out vec4 FragColor;
+
+#ifdef EDITOR_GRID
+
+// Anti-aliased coverage of the nearest line of a unit-spaced grid. The width is taken in
+// screen pixels via the coordinate's own derivative — a line that is thinning out then fades
+// smoothly instead of landing on and off pixel centres and dropping out in bands, which is
+// what a rasterized line grid does at a grazing angle. The set also fades out once its cells
+// are too small on screen to be told apart, since drawing them can only produce moire.
+float gridLine(vec2 grid, vec2 cellsPerPixel, float widthPixels) {
+	vec2 toLine = abs(fract(grid + 0.5) - 0.5) / cellsPerPixel;
+	float coverage = 1.0 - smoothstep(0.0, widthPixels, min(toLine.x, toLine.y));
+	float cellPixels = 1.0 / max(cellsPerPixel.x, cellsPerPixel.y);
+	return coverage * clamp(cellPixels / uGridMinCellPixels, 0.0, 1.0);
+}
+
+// The measuring grid over one surface point, as a colour to blend toward and how strongly.
+// Taken from the point's own world position, so the lines follow whatever the ground does
+// underneath them.
+float gridCoverage() {
+	vec2 cell = vWorldXZ / uGridSpacing;
+	vec2 cellsPerPixel = max(fwidth(cell), vec2(1e-8));
+
+	// Two grids over the same ground: every line, and every uGridMajorEvery'th line at its own
+	// width and opacity. Taking the stronger where they coincide makes a major line one line
+	// at its own weight rather than two stacked and blended.
+	float minor = uGridMinorOpacity * gridLine(cell, cellsPerPixel, uGridLineWidthPixels);
+	float major = uGridMajorOpacity * gridLine(cell / uGridMajorEvery,
+		cellsPerPixel / uGridMajorEvery, uGridLineWidthPixels * uGridMajorWidthScale);
+
+	return max(minor, major);
+}
+
+#endif
+
+void main() {
+	// Interpolated from the three corners' own shade bytes — the vertex shader computes them,
+	// which is what makes a TSGouraudPoly Gouraud rather than Phong. See there.
+	float shade = clamp(vLightShade, 0.0, 255.0);
+
+	// A surface the original shades once ahead of time and stores carries its own byte rather
+	// than one computed here — terrain, whose per-cell shades Terrain_BuildSurface bakes at
+	// zone load and Terrain_DrawCellQuad hands straight to the span setup.
+	if (vUnlit > 0.5) {
+		shade = clamp(vShade, 0.0, 255.0);
+	}
+
+	// Per-vertex, not per-draw: a mesh mixes textured and fallback-coloured triangles, and
+	// vTextured is flat across each triangle so this never interpolates between the two.
+	vec3 baseColor = vColor;
+	bool textured = uTextureEnabled && vTextured > 0.5;
+	bool texturedExact = false;
+	if (textured) {
+		// A textured quad's corners carry homogeneous UVs so that both of its triangles
+		// resolve to the one projective map the original's quad rasterizer walks — see
+		// MeshVertex.UvWeight. Everything else carries a plain coordinate and weight 0.
+		vec2 uv = vUvWeight > 0.0 ? vUV / vUvWeight : vUV;
+
+		vec4 texel = texture(uTexture, uv);
+
+		// Palette index 0 decodes to alpha 0 in a bank whose frames are cutouts — the lattice
+		// girders on a structure. The original's span routine skips that index rather than
+		// writing it, so the hole is a hole and not a black polygon. See
+		// SceneModelLibrary.LoadAtlas.
+		if (texel.a < 0.5) {
+			discard;
+		}
+
+		// The exact indexed path: uTexture's red channel is the texel's PALETTE INDEX, not its
+		// colour, and the original's span writes rampRow(shade)[index] — the light level picks
+		// a row of the theater .RMP and the texel picks the column. uPaletteRamp is that table
+		// expanded through the palette, so this is one sample and no approximation. The row is
+		// Raster_ShadeRampRow's own selection, floor(shade * (levels - 1) / 256).
+		if (uPaletteRampEnabled) {
+			float row = clamp(floor(shade * (uShadeLevels - 1.0) / 256.0), 0.0, uShadeLevels - 1.0);
+			baseColor = texture(uPaletteRamp,
+				vec2((floor(texel.r * 255.0 + 0.5) + 0.5) / 256.0, (row + 0.5) / uShadeLevels)).rgb;
+			texturedExact = true;
+		} else {
+			baseColor = texel.rgb;
+		}
+	}
+
+	vec3 lit;
+	if (texturedExact) {
+		lit = baseColor;
+	} else if (uShadeRampEnabled && !textured && vShadeRamp >= 0.0) {
+		// A lit flat poly (TSShadedPoly and its Gouraud sibling) has no colour for a light
+		// term to multiply — its surface names a material ramp and the face's shade byte
+		// picks a step along that ramp, and that lookup IS the shading. uShadeRampTable is
+		// the whole ramp-by-shade grid, so this is one sample rather than the original's two
+		// table reads.
+		// The row is the surface's ramp number, biased into the Gouraud half of the table for
+		// a TSGouraudPoly — see SurfaceRampTable.GouraudRowOffset.
+		lit = texture(uShadeRampTable,
+			vec2((floor(shade) + 0.5) / 256.0, (vShadeRamp + 0.5) / 512.0)).rgb;
+	} else {
+		// What is left is untextured and names no material ramp: a plain TSSolidPoly, whose
+		// colour already came out of the theater ramp at a fixed shade and is never lit, or a
+		// fallback colour for a surface nothing could resolve. Both are final as they stand.
+		lit = baseColor;
+	}
+
+#ifdef EDITOR_GRID
+	// The measuring grid, painted onto the surface before the haze so that a distant line
+	// washes out along with the ground it is drawn on. It is a tool for reading the ground
+	// nearby, so it is also faded out with distance on its own account, well inside the haze.
+	//
+	// Branching on the uniform alone, never on the fade: gridCoverage reads screen-space
+	// derivatives, and those are undefined inside control flow that differs between
+	// neighbouring fragments — which is exactly what an early-out on a distance would be.
+	if (uGridEnabled) {
+		float reach = 1.0 - smoothstep(uGridFadeStart, uGridFadeEnd, vViewDistance);
+		lit = mix(lit, uGridColor, reach * gridCoverage());
+	}
+#endif
+
+	// Distance haze, so a 10 km zone reads as depth instead of a flat wall of terrain.
+	float haze = clamp((vViewDistance - uHazeStart) / max(uHazeEnd - uHazeStart, 0.001), 0.0, 1.0);
+	FragColor = vec4(mix(lit, uHazeColor, haze), 1.0);
+}
+
+#endif

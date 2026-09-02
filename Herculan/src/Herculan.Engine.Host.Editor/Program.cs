@@ -90,7 +90,6 @@ using var window = new EngineWindow($"HERCULAN Mission Editor — zone {mission.
 
 SceneRenderer? renderer = null;
 WireframeRenderer? wireframe = null;
-GroundGridRenderer? groundGrid = null;
 ImGuiController? imgui = null;
 GpuMesh? terrainMesh = null;
 GpuTexture? terrainTexture = null;
@@ -111,12 +110,6 @@ const float CompassMargin = 12f;
 var camera = new Camera();
 var editorCamera = new EditorCamera();
 editorCamera.ResetTo(scene.Camera.Position, scene.Camera.Heading);
-
-// The grid's altitude, fixed for the session. Taken from the ground under the mission's own camera
-// start — the same query the simulation uses to stand a machine on the terrain — rather than from
-// wherever the editor camera currently is, so the plane is a level datum to measure against instead
-// of something that rides up over hills and sinks into valleys as the camera crosses them.
-float gridHeightRender = WorldScale.DistanceToRender(scene.World.GroundHeightAt(scene.Camera.Position));
 
 SceneObject? selected = null;
 bool looking = false;
@@ -140,7 +133,7 @@ bool leftDownOverViewport = false;
 string fontPath = Path.Combine(AppContext.BaseDirectory, "Assets", "Fonts", "Open_Sans", "static", "OpenSans-Regular.ttf");
 
 window.Load += (gl, input) => {
-	renderer = new SceneRenderer(gl);
+	renderer = new SceneRenderer(gl, editorGrid: true);
 
 	// Same as Herculan.Engine.Host: fog distances, fog colour and the banded sky come off the zone
 	// and its theater rather than being hand-picked — see Scene.Atmosphere. Without this the renderer
@@ -153,7 +146,6 @@ window.Load += (gl, input) => {
 	renderer.SetPaletteRamp(scene.PaletteRamp);
 
 	wireframe = new WireframeRenderer(gl);
-	groundGrid = new GroundGridRenderer(gl);
 
 	terrainMesh = new GpuMesh(gl, scene.TerrainMesh);
 	terrainTexture = scene.TerrainBank != null ? new GpuTexture(gl, scene.TerrainBank.Atlas, indexed: true) : null;
@@ -168,8 +160,9 @@ window.Load += (gl, input) => {
 	disposables.AddRange(modelMeshes.Values);
 	disposables.AddRange(modelTextures.Values);
 
+	// The terrain, and the only item the measuring grid is painted onto.
 	var built = new List<SceneItem> {
-		new(terrainMesh, Matrix4x4.Identity, terrainTexture?.Handle)
+		new(terrainMesh, Matrix4x4.Identity, terrainTexture?.Handle) { ShowGrid = settings.ShowGrid }
 	};
 
 	foreach (var sceneObject in scene.Objects) {
@@ -261,6 +254,7 @@ window.Render += (_, gl) => {
 	// object directly and Cancel restores it just as directly, so there is no change event to hang
 	// this off, and the assignment is a field write.
 	renderer.FogEnabled = settings.RenderFog;
+	items[0].ShowGrid = settings.ShowGrid;
 
 	// SceneRenderer.Render deliberately does not clear — the simulator host draws three cockpit
 	// panels into one frame, so clearing is the caller's job, once per frame. The editor draws a
@@ -271,12 +265,6 @@ window.Render += (_, gl) => {
 	// Full-window viewport: the editor draws one 3D view, unlike the simulator host's three cockpit
 	// panels, which is what SceneRenderer.Render's x/y origin exists for.
 	renderer.Render(camera, items, 0, 0, size.X, size.Y);
-
-	// After the scene, so the grid blends over what is already there, and before the selection box,
-	// which is meant to sit on top of everything.
-	if (settings.ShowGrid && groundGrid != null) {
-		groundGrid.Draw(camera, gridHeightRender, aspect);
-	}
 
 	if (selected is { } sel) {
 		var picked = Array.Find(pickables, p => p.SceneObject == sel);
@@ -296,7 +284,6 @@ window.Closing += () => {
 	imgui?.Dispose();
 	renderer?.Dispose();
 	wireframe?.Dispose();
-	groundGrid?.Dispose();
 	terrainMesh?.Dispose();
 	terrainTexture?.Dispose();
 	foreach (var disposable in disposables) {

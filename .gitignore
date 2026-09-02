@@ -32,3 +32,4 @@ Design/
 # ImGui writes this beside the working directory when the debug panel is used.
 imgui.ini
 Herculan/src/HercWorks.TransferApi/obj/
+MusicRip/

@@ -192,7 +192,12 @@ public sealed class MissionScene {
 		var rockets = RocketCatalog.Load(
 			content.Read(RocketCatalog.ResourceFolder, RocketCatalog.TableResource));
 
-		var world = new SimWorld(terrain, bullets, explosions, rockets, mission.Header.ZoneIndex);
+		// And the beam table, which Beam_LoadResourceTables (0040b6e0) loads with the same startup
+		// pass. The world gets it because an ELF tracer's geometry is built from it at fire time,
+		// not at draw time.
+		var beams = BeamAppearance.Load(content, theater.PaletteName);
+
+		var world = new SimWorld(terrain, bullets, explosions, rockets, beams, mission.Header.ZoneIndex);
 		var models = new SceneModelLibrary(content, theater);
 		var baseTypes = BaseTypeTable.Load(content);
 
@@ -313,7 +318,7 @@ public sealed class MissionScene {
 
 		return new MissionScene(mission, world, camera, objects, models.Models.ToArray(),
 			terrainMesh, theater, terrainBank, playerObject,
-			BeamAppearance.Load(content, theater.PaletteName), bulletModels, explosionModels,
+			beams, bulletModels, explosionModels,
 			rocketModels, Atmosphere.From(terrain, models.Shading),
 			SurfaceRampTable.Build(models.Shading), PaletteRampTable.Build(models.Shading));
 	}

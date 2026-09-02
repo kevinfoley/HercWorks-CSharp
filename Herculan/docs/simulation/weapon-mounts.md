@@ -61,14 +61,20 @@ slot whose weapon id is `MSL10` reads 1 here and every other slot reads 5.
 
 ## Mount classes
 
-The factory's switch on the weapon id picks one of three live constructors. Nothing else decides
-what a mount is:
+The factory's switch on the weapon id picks one of four live classes. Nothing else decides what a
+mount is:
 
 | Class | Ctor | Weapon ids | Carries | Gauge |
 |---|---|---|---|---|
-| Ammunition | `FUN_0040e140` | 1–5, 13–16, 21, 26 | rounds | numeric (`FUN_00432124` → `FUN_00440f78`) |
-| Energy | `FUN_0040e074` | 6–12, 17, 19, 20, 22–25, 28 | a capacitor | LED bar (`FUN_00432074` → `FUN_00440a68`) |
+| Ammunition | `WeaponMount_CtorAmmunition` | 1–5, 13–16, 21, 26 | rounds | numeric (`FUN_00432124` → `FUN_00440f78`) |
+| Energy | `WeaponMount_CtorEnergy` | 7–12, 17, 19, 20, 23–25, 28 | a capacitor | LED bar (`FUN_00432074` → `FUN_00440a68`) |
+| ELF | `WeaponMount_CtorEnergy`, then vtable `ElfMountVtable` | 6, 22 | a capacitor | LED bar, as Energy |
 | Pod | `FUN_0040e274`/`e308`/`e344`/`e2bc`/`e380` | 18, 29–32 | nothing | name only (`FUN_004321d4` → `FUN_00441524`) |
+
+The ELF case is the only one that is not just a constructor call: the factory runs the energy
+constructor and then **overwrites the object's vtable pointer** with `ElfMountVtable` (`004992c0`).
+The two classes therefore share every field and differ only in the five slots that table replaces —
+see [ELF and ELF2](#elf-and-elf2).
 
 Shared mount fields mean different things per class:
 
@@ -78,7 +84,9 @@ Shared mount fields mean different things per class:
 | `+0x7d` | rounds in 256ths | capacitor level |
 | `+0x7f` | — | charge rate, a flat 20 |
 | `+0x31` | refire countdown | refire countdown |
+| `+0x33`, `+0x3b` | fired-recently blocks | fired-recently blocks (the ELF sustain reads `+0x33`) |
 | `+0x43` | — | mid-charge flag |
+| `+0x47`, `+0x48` | — | ELF spin-up running / latched |
 | `+0x49` | destroyed | destroyed |
 | `+0x4b` | LINK engaged | LINK engaged |
 
@@ -106,11 +114,56 @@ its bar and only a mount turned up ever fills it.
 > mechanism, but its only caller has no reference of any kind in the image; neither is reachable in
 > the retail build.
 
-Readiness (`FUN_0040ecdc`) is `!destroyed && refireTimer == 0 && charge >= threshold`, where the
-threshold comes from the template's `+0x36`/`+0x38` pair: `max(+0x36, +0x7b)` when `+0x36 < +0x38`,
-otherwise `+0x38` outright. Real templates carry both shapes — `EMP` reads (350, 10000), `ELF`
-reads (400, 70). The ammunition equivalent (`FUN_0040ed6c`) is `!destroyed && refireTimer == 0 &&
-rounds != 0`.
+Readiness (`WeaponMount_EnergyCanFire`) is `!destroyed && refireTimer == 0 && charge >= threshold`,
+where the threshold comes from the template's `+0x36`/`+0x38` pair: `max(+0x36, +0x7b)` when
+`+0x36 < +0x38`, otherwise `+0x38` outright. Real templates carry both shapes — `EMP` reads
+(350, 10000), `LAS100` (80, 80). The ammunition equivalent (`WeaponMount_AmmoCanFire`) is
+`!destroyed && refireTimer == 0 && rounds != 0`.
+
+## ELF and ELF2
+
+`ElfMountVtable` (`004992c0`) replaces five of the energy class's slots. The charge, power-level,
+wake, priority and gauge slots are **not** among them, so an ELF carries and charges an ordinary
+capacitor and prints an ordinary bar.
+
+| Slot | Energy | ELF |
+|---|---|---|
+| `+0x28` fire | `WeaponMount_FireDispatch_GunBeam` | `ElfMount_FireDispatch` |
+| `+0x2c` ready | `WeaponMount_EnergyCanFire` | `ElfMount_CanFire` |
+| `+0x30` trigger | `WeaponMount_TriggerHeld` | `ElfMount_TriggerHeld` |
+| `+0x34` pool turn | `WeaponMount_ChargeCapacitor` | `ElfMount_SpinUpAndChargeTick` |
+| `+0x5c` | `FUN_004111e9` | `FUN_0040ed34` (returns the destroyed byte) |
+
+**`ElfMount_CanFire` is why an ELF cannot be re-triggered until its capacitor is full.** It reads the
+same two template fields as the energy test and drops the branch between them, so the threshold is
+always `max(+0x36, +0x7b)`:
+
+```
+!destroyed && ( charge >= max(template+0x36, chargeTarget)
+                || (mount+0x33 && charge >= template+0x38) )
+```
+
+Both ELFs read `+0x36` = 400 against a charge target of 960, so a fresh trigger pull needs the full
+capacitor. The second clause is the sustain: `+0x33` means the mount fired on the previous tick, and
+while it is set the bar drops to one shot's 70, so the weapon empties itself over successive ticks
+and can only start again once it has climbed all the way back. There is no refire-timer term —
+which is consistent with both ELFs carrying a `+0x4c` of zero.
+
+`+0x33` and `+0x3b` are two 8-byte blocks. `WeaponMount_PrepareShot` sets both on firing;
+`WeaponMount_RefireTick` **ands** `+0x33` with `+0x3b` (`FUN_0040f881`) and then clears `+0x3b`. So
+`+0x33` survives only while the mount fires on every tick.
+
+**`ElfMount_FireDispatch`** subtracts `template+0x38` unconditionally rather than capping it at the
+charge — the last partial shot takes the capacitor slightly negative, which is what ends the burst —
+and passes `Bullet_FireBurst` a **fixed 1200** as the shot power instead of the charge spent. Every
+shot of a burst therefore lands at full strength however far the capacitor has drained, which is
+what makes the ELF the damage outlier the manual describes from small `PROJ.DAT` figures.
+
+**`ElfMount_TriggerHeld` is a spin-up.** A press sets `+0x47` and returns 0 — no shot that tick.
+`ElfMount_SpinUpAndChargeTick` then advances the muzzle-flash flipbook one cell per tick until the
+last, at which point it latches `+0x48` and clears `+0x47`; from then on the slot returns the trigger
+byte and the weapon fires every tick until release, which clears `+0x48`. **ELF2 skips it**: the slot
+opens by forcing both flags to 1 whenever `template+0x56` (the record's self-index) is 22.
 
 ## Names — `FUN_0040e18c`
 

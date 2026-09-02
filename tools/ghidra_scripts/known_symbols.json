@@ -332,6 +332,26 @@
       "source": "docs/simulation/dbsim-physics-notes.md"
     },
     {
+      "address": "00492780",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_DistanceBetweenPoints",
+      "signature": "int __cdecl Math_DistanceBetweenPoints(int *a, int *b)",
+      "description": "Distance between two int Vec3s: copies a to a stack temp, subtracts b, and returns FUN_00492971 -- the Vec3 form of Math_FastMagnitude3D -- so it carries that function's ~3.4% low bias. The MFD TARGET range readout and BeamTracer_Ctor's chain node count both go through it.",
+      "source": "docs/simulation/beam-visuals.md, docs/formats/mfd.md"
+    },
+    {
+      "address": "004926e4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_NormalizeVec3ToLength",
+      "signature": "int * __cdecl Math_NormalizeVec3ToLength(int *vector, short length)",
+      "description": "Rescales an int Vec3 in place to the requested length and returns it. Zeroes all three when the magnitude is zero; otherwise scales each by Q16Divide(length << 16, magnitude) NARROWED TO A SIGNED 16-BIT VALUE before the multiply, so a step over a short delta comes out shorter than asked for. Distinct from Math_NormalizeVec3ShortToLength (0046c138), which is the Vec3Short form and halves until the magnitude fits first.",
+      "source": "docs/simulation/beam-visuals.md, docs/simulation/hit-detection.md"
+    },
+    {
       "address": "004d3be8",
       "binary": "DBSIM",
       "type": "data",
@@ -1717,8 +1737,8 @@
       "type": "function",
       "confidence": "high",
       "name": "MechLoadout_ConstructWeaponMounts",
-      "description": "Called from Mech_ConfigureLoadout (0x004175dc). Given per-hardpoint slot records (stride 0x1a) and two parallel weapon-id/secondary-key lookup tables, for each occupied slot: reads the weapon id, looks up its WeaponMountTemplate (WeaponMountTemplate_GetByWeaponId), reads that template's ProjDatIndex field, resolves the matching PROJ.DAT record (Proj_LookupRecordByIndex direct-index, or Proj_LookupRecord(0,secondaryKey) search for the 0x22 sentinel), then constructs a weapon-id-specific mount C++ object (one of several vtables/sizes keyed by a big switch on the weapon id) passing the resolved template/PROJ.DAT pointers. This is the mech-loadout-time mechanism that resolves a real catalog weapon id into the shot data direct-fire/beam dispatch consumes -- see docs/simulation/dbsim-physics-notes.md and docs/formats/weapons-dat-sim.md.",
-      "source": "docs/simulation/dbsim-physics-notes.md; docs/formats/weapons-dat-sim.md 2026-08-11"
+      "description": "Called from Mech_ConfigureLoadout (0x004175dc). Given per-hardpoint slot records (stride 0x1a) and two parallel weapon-id/secondary-key lookup tables, for each occupied slot: reads the weapon id, looks up its WeaponMountTemplate (WeaponMountTemplate_GetByWeaponId), reads that template's ProjDatIndex field, resolves the matching PROJ.DAT record (Proj_LookupRecordByIndex direct-index, or Proj_LookupRecord(0,secondaryKey) search for the 0x22 sentinel), then constructs a weapon-id-specific mount C++ object (one of several vtables/sizes keyed by a big switch on the weapon id) passing the resolved template/PROJ.DAT pointers. This is the mech-loadout-time mechanism that resolves a real catalog weapon id into the shot data direct-fire/beam dispatch consumes. Four live classes: WeaponMount_CtorAmmunition (ids 1-5, 13-16, 21, 26), WeaponMount_CtorEnergy (7-12, 17, 19, 20, 23-25, 28), the five pod constructors (18, 29-32), and the ELF case (6, 22) -- which is the only one that is not just a constructor call: it runs WeaponMount_CtorEnergy and then OVERWRITES the object's vtable pointer with ElfMountVtable. Id 27 (MINE) has no case at all. See docs/simulation/weapon-mounts.md.",
+      "source": "docs/simulation/weapon-mounts.md; docs/formats/weapons-dat-sim.md"
     },
     {
       "address": "0040fe84",
@@ -5220,13 +5240,72 @@
       "source": "docs/simulation/weapon-mounts.md 2026-08-23"
     },
     {
+      "address": "004992c0",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ElfMountVtable",
+      "description": "The ELF/ELF2 weapon-mount vtable. MechLoadout_ConstructWeaponMounts's case for weapon ids 6 and 22 runs WeaponMount_CtorEnergy and then overwrites the object's vtable pointer with this, so an ELF is an energy mount with five slots replaced: +0x28 ElfMount_FireDispatch, +0x2c ElfMount_CanFire, +0x30 ElfMount_TriggerHeld, +0x34 ElfMount_SpinUpAndChargeTick, +0x5c FUN_0040ed34. The charge, power-level, wake, priority and gauge slots are NOT replaced, so an ELF carries and charges an ordinary capacitor and prints an ordinary bar.",
+      "source": "docs/simulation/weapon-mounts.md"
+    },
+    {
+      "address": "0040eda0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ElfMount_CanFire",
+      "signature": "int __cdecl ElfMount_CanFire(void *mount)",
+      "description": "ElfMountVtable +0x2c, AND THE REASON AN ELF CANNOT BE RE-TRIGGERED UNTIL ITS CAPACITOR IS FULL. Same two template fields as WeaponMount_EnergyCanFire with the branch between them dropped, so the threshold is ALWAYS max(template+0x36, mount+0x7b): !destroyed && (charge >= max(+0x36, chargeTarget) || (mount+0x33 && charge >= template+0x38)). Both ELFs read +0x36 = 400 against a 960 charge target, so a fresh trigger pull needs the full capacitor; the +0x33 clause is the sustain, dropping the bar to one shot's 70 while the mount is firing every tick. No refire-timer term, consistent with both ELF templates carrying a +0x4c of zero.",
+      "source": "docs/simulation/weapon-mounts.md"
+    },
+    {
+      "address": "0040ec64",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ElfMount_FireDispatch",
+      "signature": "void __cdecl ElfMount_FireDispatch(void *mount, void *owner)",
+      "description": "ElfMountVtable +0x28. WeaponMount_PrepareShot, then one branch -- an ELF is always a Beam record. Two deliberate differences from WeaponMount_FireDispatch_GunBeam's beam branch: the cost template+0x38 is subtracted UNCONDITIONALLY rather than capped at the charge, so the last partial shot takes the capacitor negative and ends the burst through ElfMount_CanFire; and the shot power handed to Bullet_FireBurst is the LITERAL 0x4b0 (1200), not the charge spent, so every shot of a burst lands at full strength however far the capacitor has drained.",
+      "source": "docs/simulation/weapon-mounts.md"
+    },
+    {
+      "address": "0040e680",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ElfMount_TriggerHeld",
+      "signature": "char __cdecl ElfMount_TriggerHeld(void *mount, void *inputDevice)",
+      "description": "ElfMountVtable +0x30, a spin-up rather than the plain trigger read WeaponMount_TriggerHeld does. While the latch +0x48 is clear it returns 0 -- no shot -- and a fresh press instead sets +0x47 and resets the cell timer at +0x84; ElfMount_SpinUpAndChargeTick then walks the muzzle-flash flipbook and latches +0x48 at the last cell. Once latched it returns the input device's fire byte, and release clears +0x48 and rewinds the flipbook. ELF2 SKIPS THE SPIN-UP: the function opens by forcing both flags to 1 when template+0x56 (the record's self-index) is 22.",
+      "source": "docs/simulation/weapon-mounts.md"
+    },
+    {
+      "address": "0040f3d8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ElfMount_SpinUpAndChargeTick",
+      "description": "ElfMountVtable +0x34. While the spin-up flag +0x47 is set, counts the cell timer at +0x83 down and on expiry either advances the muzzle-flash flipbook one cell or, at the last cell, latches +0x48 and clears +0x47 -- which is what lets ElfMount_TriggerHeld start returning the trigger. Then falls through to WeaponMount_ChargeCapacitor, so an ELF's capacitor charges exactly as an energy mount's does.",
+      "source": "docs/simulation/weapon-mounts.md"
+    },
+    {
+      "address": "0040f881",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_AndFlagBlocks",
+      "signature": "void __cdecl WeaponMount_AndFlagBlocks(unsigned char *dst, unsigned char *src)",
+      "description": "dst[i] &= src[i] over 8 bytes. WeaponMount_RefireTick calls it as (mount+0x33, mount+0x3b) and then clears +0x3b, while WeaponMount_PrepareShot sets both on firing -- so +0x33 survives only while the mount fires on every tick and drops on the first tick it sits out. It is an 'is still firing' flag, not 'has ever fired', and ElfMount_CanFire is what reads it.",
+      "source": "docs/simulation/weapon-mounts.md"
+    },
+    {
       "address": "0040ecdc",
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
       "name": "WeaponMount_EnergyCanFire",
-      "description": "Energy mount vtable+0x2c: not destroyed (+0x49), refire timer (+0x31) expired, and charge (+0x7d) at or above a threshold taken from the template's +0x36/+0x38 pair -- max(+0x36, +0x7b) when +0x36 < +0x38, otherwise +0x38 outright. Both shapes occur in retail data (EMP 350/10000, ELF 400/70).",
-      "source": "docs/simulation/weapon-mounts.md 2026-08-23"
+      "signature": "int __cdecl WeaponMount_EnergyCanFire(void *mount)",
+      "description": "Energy mount vtable+0x2c: not destroyed (+0x49), refire timer (+0x31) expired, and charge (+0x7d) at or above a threshold taken from the template's +0x36/+0x38 pair -- max(+0x36, +0x7b) when +0x36 < +0x38, otherwise +0x38 outright. Both shapes occur in retail data (EMP 350/10000, LAS100 80/80). NOT the test the ELFs use, despite their (400, 70) template -- they have their own class, see ElfMount_CanFire.",
+      "source": "docs/simulation/weapon-mounts.md"
     },
     {
       "address": "0040ed6c",
@@ -5630,8 +5709,9 @@
       "type": "function",
       "confidence": "high",
       "name": "BeamTracer_Ctor",
-      "description": "Beam tracer constructor, (obj, subtypeId, startPoint, endPoint, owner); vtable PTR_FUN_004987c4, type 3. A straight beam stores two points (muzzle, hit) at +0x58, quad count 1 at +0x54, jagged flag 0 at +0x55, and arms the life timer at +0x5d to 0x38 -- 27 ms in the Q8-of-125ms tick unit, less than one SimTickDelta, so a tracer never survives a second tick. Subtype ids 1 and 7 (ELF, ELF2) take a jagged branch instead: one node per 1024 units, each jittered by RandomNext()&0x7f, each writing a point pair offset in z by BEAM.DAT's width.",
-      "source": "docs/simulation/beam-visuals.md 2026-08-25"
+      "signature": "void * __cdecl BeamTracer_Ctor(void *tracer, short subtypeId, int *startPoint, int *endPoint, void *owner)",
+      "description": "Beam tracer constructor; vtable PTR_FUN_004987c4, type 3. A straight beam stores two points (muzzle, hit) at +0x58, quad count 1 at +0x54, jagged flag 0 at +0x55, and arms the life timer at +0x5d to 0x38 -- 27 ms in the Q8-of-125ms tick unit, less than one SimTickDelta, so a tracer never survives a second tick. Subtype ids 1 and 7 (ELF, ELF2) take a jagged branch instead: nodeCount = (char)(Math_DistanceBetweenPoints >> 10) + 1 at +0x54 and pointCount = nodeCount*2+2 at +0x56, walking a step that is the start->end delta through Math_NormalizeVec3ToLength(0x400). The LAST node restarts from the exact endpoint rather than the walked position; every node but the FIRST -- the last one included -- is then jittered on each axis by Math_RandomNext()&0x7f, one-sided 0..127. Each node writes a pair: points[2k] with BEAM.DAT's half-width added to its z, points[2k+1] without, so the ribbon stands vertically in the world.",
+      "source": "docs/simulation/beam-visuals.md"
     },
     {
       "address": "0040bc14",
@@ -5639,8 +5719,9 @@
       "type": "function",
       "confidence": "high",
       "name": "BeamTracer_Draw",
-      "description": "Beam tracer vtable slot 0. Per quad: both points to view space (FUN_0048c470), near-plane clip (Beam_ClipSegmentToNearPlane), project (FUN_0048c4f0 / Raster_ProjectToScreen), half-width in pixels per end via Raster_PerspectiveScale floored at 2 (a HALF-width floor, so four pixels across), four vertices stepped along the segment's 2D perpendicular in Q11, UVs with u along the beam's length and v across its width, then Raster_DrawPolygon mode 0. Writes no z. Publishes BEAM.DAT's colour index to the graphics context's +0x22c pair, which mode 0 never reads.",
-      "source": "docs/simulation/beam-visuals.md 2026-08-25"
+      "signature": "void __cdecl BeamTracer_Draw(void *tracer)",
+      "description": "Beam tracer vtable slot 0. Installs {0, BEAM.DAT colour index} at the graphics context's +0x22c -- which is the FILL BRUSH, since Raster_InstallRenderContext sets the clip block to ctx+4 and so ctx+0x22c is Raster_DrawPolygonDispatch's clipBlock+0x228 -- then publishes the point-list globals and loops over the object's quad count. Subtype 1/7 (ELF/ELF2) run Poly_ProjectIndexedVertices, Poly_ClipRingToNearPlane when that returns non-zero, then PolyFill_Fill: a flat fill of that palette index, no texture. THAT BRANCH DOES NOT RETURN -- control falls through into the straight-beam code below, which draws points[0]->points[1] (for a chain, node zero with and without the width: a half-width stub at the muzzle, redrawn once per quad). Straight path: both points to view space (FUN_0048c470), near-plane clip (Beam_ClipSegmentToNearPlane), project (FUN_0048c4f0 / Raster_ProjectToScreen), half-width in pixels per end via Raster_PerspectiveScale floored at 2 (a HALF-width floor, so four pixels across), four vertices stepped along the segment's 2D perpendicular in Q11, UVs with u along the beam's length and v across its width, then Raster_DrawPolygon mode 0, which has no colour lookup. Writes no z.",
+      "source": "docs/simulation/beam-visuals.md"
     },
     {
       "address": "0040c2a0",
@@ -5666,8 +5747,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Beam_LoadResourceTables",
-      "description": "Beam module init, named by the BEAM.CPP string at 00498781. Builds the 120-entry ramp at DAT_004a9796 as (i>>1) + DAT_00498640[i&3]; loads dat\\beam (int16 count then count x 3 int16 {halfWidth, paletteIndex, dbaFrame}) into BeamAppearanceTable; loads dba\\beamtex and converts it through BitmapArray_PackToAtlas into BeamTextureDescriptors.",
-      "source": "docs/simulation/beam-visuals.md 2026-08-25"
+      "description": "Beam module init, named by the BEAM.CPP string at 00498781. Builds the 120-entry vertex-index table BeamQuadIndexTable as (i>>1) + BeamQuadIndexOffsets[i&3]; loads dat\\beam (int16 count then count x 3 int16 {halfWidth, paletteIndex, dbaFrame}) into BeamAppearanceTable; loads dba\\beamtex and converts it through BitmapArray_PackToAtlas into BeamTextureDescriptors.",
+      "source": "docs/simulation/beam-visuals.md"
     },
     {
       "address": "004a9888",
@@ -5675,8 +5756,26 @@
       "type": "data",
       "confidence": "high",
       "name": "BeamAppearanceTable",
-      "description": "Pointer to the parsed dat\\BEAM.DAT records, 6 bytes each, indexed by PROJ.DAT subtype id (not weapon id): {int16 halfWidth world units, int16 palette index, int16 BEAMTEX.DBA frame}. Retail has 10 records, frame 0 throughout. Only the width differs per weapon on the straight-beam path; the palette index is unread there.",
-      "source": "docs/simulation/beam-visuals.md 2026-08-25"
+      "description": "Pointer to the parsed dat\\BEAM.DAT records, 6 bytes each, indexed by PROJ.DAT subtype id (not weapon id): {int16 halfWidth world units, int16 palette index, int16 BEAMTEX.DBA frame}. Retail has 10 records, frame 0 throughout. Only the width differs per weapon on the straight-beam path; the palette index is unread there and is the flat fill colour on the ELF/ELF2 jagged path.",
+      "source": "docs/simulation/beam-visuals.md"
+    },
+    {
+      "address": "004a9796",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "BeamQuadIndexTable",
+      "description": "120 int16 vertex indices built at startup by Beam_LoadResourceTables as (i>>1) + BeamQuadIndexOffsets[i&3]. BeamTracer_Draw points the shape renderer's index-list global at it and reads four entries from 4k for chain quad k, which works out to points[2k+1], points[2k], points[2k+2], points[2k+3] -- a wound quad spanning nodes k and k+1. 120 entries caps a chain at 30 quads; retail's longest ELF shot is 20.",
+      "source": "docs/simulation/beam-visuals.md"
+    },
+    {
+      "address": "00498640",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "BeamQuadIndexOffsets",
+      "description": "Four INT16s {1, 0, 1, 2}, the per-corner offsets Beam_LoadResourceTables adds when building BeamQuadIndexTable. Element size is settled by the builder's own 'word ptr [ECX*2 + 0x498640]'; read as bytes the quads collapse to a degenerate edge.",
+      "source": "docs/simulation/beam-visuals.md"
     },
     {
       "address": "004a988c",
@@ -5765,17 +5864,47 @@
       "type": "function",
       "confidence": "high",
       "name": "PolyFill_FillThenOutline",
-      "description": "The polygon fill both flat poly renderers hand their two resolved colours to. Fills in DAT_006c60dc, then when DAT_006c60d4 (the line colour) differs and the mode is not 5, sets the fill colour to the line colour, sets mode DAT_006c60d8 = 4 and re-draws the SAME polygon -- an outline pass, not a second fill. Mode 4 is confirmed at Raster_DrawPolygonDispatch's iVar11 == 4 branch, which walks consecutive vertex pairs and closes back to the first vertex. Callers ramp both colours before this runs, so the != test is on ramped bytes, not raw surface values.",
-      "source": "docs/formats/dts-texture-binding.md 2026-08-26"
+      "description": "The polygon fill both flat poly renderers hand their two resolved colours to. Fills in DAT_006c60dc, then when DAT_006c60d4 (the line colour) differs and the mode is not 5, sets the fill colour to the line colour, sets mode DAT_006c60d8 = 4 and re-draws the SAME polygon -- an outline pass, not a second fill. Mode 4 is confirmed at Raster_DrawPolygonDispatch's iVar11 == 4 branch, which walks consecutive vertex pairs and closes back to the first vertex. Callers ramp both colours before this runs, so the != test is on ramped bytes, not raw surface values. DAT_006c60d8/DAT_006c60dc are one brush {mode, colour} and are the DEFAULT one: the fill dispatches on whatever clipBlock+0x228 points at, normally this pair, so a caller that installs a brush of its own there (BeamTracer_Draw) leaves these writes inert. PolyFill_Fill (0048d4b4) is the sibling without the mode-5 guard.",
+      "source": "docs/formats/dts-texture-binding.md"
+    },
+    {
+      "address": "0048d4b4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PolyFill_Fill",
+      "signature": "void __cdecl PolyFill_Fill(void)",
+      "description": "Fills the screen polygon left in the point-list globals by Poly_ProjectIndexedVertices / Poly_ClipRingToNearPlane, through FUN_004841af -> Raster_DrawPolygonDispatch, then runs PolyFill_FillThenOutline's same outline pass without its mode-5 guard. Winding-agnostic: FUN_004841af measures the signed area and hands the other winding to FUN_00484116. Takes no arguments -- everything is globals. Called by BeamTracer_Draw for each ELF chain quad, where the outline pass is inert because the beam installed its own brush.",
+      "source": "docs/simulation/beam-visuals.md"
+    },
+    {
+      "address": "0048c964",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly_ProjectIndexedVertices",
+      "signature": "int __cdecl Poly_ProjectIndexedVertices(void)",
+      "description": "Projects the vertices the current face names -- DAT_006c6968 of them from DAT_006c696a into the index list DAT_006c6976, indexing the point array DAT_006c6970 -- into the screen-point list DAT_006cbb86 / count DAT_006cbc86. Memoises per point in the state byte array DAT_006c697e: 0 untouched, 1 behind the near plane, 2 already projected, so a shared vertex is transformed once per shape. Takes no arguments. Returns non-zero when any vertex fell behind the near plane, which is the caller's signal to run Poly_ClipRingToNearPlane. FUN_0048c848 is the sibling the .DTS renderers use.",
+      "source": "docs/simulation/beam-visuals.md"
+    },
+    {
+      "address": "0048ce14",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Poly_ClipRingToNearPlane",
+      "signature": "unsigned short __cdecl Poly_ClipRingToNearPlane(void)",
+      "description": "Clips the current face's vertex ring against the near plane DAT_006c60b0 in view space, rebuilding the screen-point list DAT_006cbb86 and returning the new count DAT_006cbc86. Walks consecutive index pairs: both projected emits the second, exactly one projected emits the crossing point (linear in view-space depth, plus the projection centre) and then the second if it is the projected one. Takes no arguments. Run only when Poly_ProjectIndexedVertices returns non-zero.",
+      "source": "docs/simulation/beam-visuals.md"
     },
     {
       "address": "00483dac",
       "binary": "DBSIM",
       "type": "function",
-      "confidence": "medium",
+      "confidence": "high",
       "name": "Raster_DrawPolygonDispatch",
-      "description": "Generic polygon draw, dispatching on the current brush's mode (*(int*)(PTR_DAT_004a362c + 0x228)). Mode 4 is the line-loop/outline path (edge pairs plus the closing edge); mode 0 goes to the scan-conversion fill; 1, 5, 6 and 7 select other fills. FUN_00484116 is the opposite-winding sibling. Named from the mode dispatch, not from a full decode of each branch.",
-      "source": "docs/formats/dts-texture-binding.md 2026-08-26"
+      "description": "Generic polygon draw, dispatching on the mode of the brush at *(int*)(clipBlock + 0x228), a {mode, colour} pair. Mode 4 is the line-loop/outline path (edge pairs plus the closing edge); mode 0 resolves the span routine DAT_004a57c4 and calls it as (scanlineList, colour) -- a FLAT FILL of that palette index when the colour's top byte is zero, with a tag-4 lookup when it is 4; 1, 5, 6 and 7 select other fills. FUN_00484116 is the opposite-winding sibling.",
+      "source": "docs/formats/dts-texture-binding.md, docs/simulation/beam-visuals.md"
     },
     {
       "address": "00467fdc",
@@ -6665,7 +6794,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Raster_InstallRenderContext",
-      "description": "Installs a render context: DAT_006c5ff4 = ctx, and PTR_DAT_004a362c = ctx+4, its clip block. The block's mode sits at ctx+0x208 -- 0 none, 1 the single rect at ctx+0x210, 2 the region list the block holds -- and CockpitView_ApplyViewState is what puts a view's context into mode 2 with the herc's .HD/.ED canopy regions.",
+      "signature": "void __cdecl Raster_InstallRenderContext(void *ctx)",
+      "description": "Installs a render context: DAT_006c5ff4 = ctx, and PTR_DAT_004a362c = ctx+4, its clip block. The block's mode sits at ctx+0x208 -- 0 none, 1 the single rect at ctx+0x210, 2 the region list the block holds -- and CockpitView_ApplyViewState is what puts a view's context into mode 2 with the herc's .HD/.ED canopy regions. THE ctx+4 OFFSET IS LOAD-BEARING for reading brush code: the fill brush Raster_DrawPolygonDispatch reads at clipBlock+0x228 is the field callers write as ctx+0x22c, and the line brush at clipBlock+0x224 is ctx+0x228.",
       "source": "docs/formats/hud-target-indicator.md 2026-08-30"
     },
     {

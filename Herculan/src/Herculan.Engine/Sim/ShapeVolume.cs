@@ -77,7 +77,7 @@ public sealed class ShapeVolume {
 		int deltaX = endX - x;
 		int deltaY = endY - y;
 		int deltaZ = end.Z - z;
-		ScaleToLength(ref deltaX, ref deltaY, ref deltaZ, step);
+		SimMath.ScaleToLength(ref deltaX, ref deltaY, ref deltaZ, step);
 
 		int length = SimMath.FastMagnitude3D(x - endX, y - endY, z - end.Z);
 		short steps = (short)((short)(length / step) + 1);
@@ -133,22 +133,4 @@ public sealed class ShapeVolume {
 		column >= 0 && column < _grid.Columns && row >= 0 && row < _grid.Rows
 			? _grid.Heights[_grid.Cells[row][column]]
 			: 0;
-
-	/// <summary>
-	/// <c>FUN_004926e4</c> — rescales a vector to <paramref name="length"/>. The scale factor is a
-	/// Q16 fraction <b>narrowed to a signed 16-bit value</b> before it is applied, which is the
-	/// original's own truncation and not a rounding choice here.
-	/// </summary>
-	private static void ScaleToLength(ref int x, ref int y, ref int z, short length) {
-		int magnitude = SimMath.FastMagnitude3D(x, y, z);
-		if (magnitude == 0) {
-			x = y = z = 0;
-			return;
-		}
-
-		short scale = (short)SimMath.Q16Divide(length, magnitude);
-		x = SimMath.Q16Multiply(x, scale);
-		y = SimMath.Q16Multiply(y, scale);
-		z = SimMath.Q16Multiply(z, scale);
-	}
 }

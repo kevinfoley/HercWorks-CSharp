@@ -144,16 +144,21 @@ public sealed class WeaponCatalog {
 
 	/// <summary>
 	/// Which mount class a weapon id builds — <c>MechLoadout_ConstructWeaponMounts</c>'s switch,
-	/// which is the only thing that decides it. The three live cases differ in what they carry
+	/// which is the only thing that decides it. The four live cases differ in what they carry
 	/// (rounds vs. a capacitor vs. nothing), what they draw from the Master Energy Pool, and which of
-	/// the three weapon-gauge classes the cockpit gives them.
+	/// the weapon-gauge classes the cockpit gives them.
 	/// </summary>
 	public static WeaponMountKind Kind(int weaponId) => weaponId switch {
 		// FUN_0040e140 — rounds. The autocannons, the four missile launchers, MISSL and LAEW.
 		1 or 2 or 3 or 4 or 5 or 13 or 14 or 15 or 16 or 21 or 26 => WeaponMountKind.Ammunition,
 
+		// The two ELFs. The factory runs WeaponMount_CtorEnergy and then overwrites the vtable
+		// pointer with PTR_DAT_004992c0 — so they are energy mounts that have replaced their fire
+		// dispatch, their readiness test and their pool turn. See WeaponMountKind.Elf.
+		6 or 22 => WeaponMountKind.Elf,
+
 		// FUN_0040e074 — a capacitor charged off the pool. The lasers, EMP, plasma and the beams.
-		6 or 7 or 8 or 9 or 10 or 11 or 12 or 17 or 19 or 20 or 22 or 23 or 24 or 25 or 28
+		7 or 8 or 9 or 10 or 11 or 12 or 17 or 19 or 20 or 23 or 24 or 25 or 28
 			=> WeaponMountKind.Energy,
 
 		// The five equipment pods, each its own trivial subclass with no capacitor and no rounds.
@@ -175,6 +180,14 @@ public enum WeaponMountKind {
 
 	/// <summary>A capacitor charged off the Master Energy Pool. Prints a charge bar.</summary>
 	Energy,
+
+	/// <summary>
+	/// <c>ELF</c> and <c>ELF2</c> — an energy mount with the vtable at <c>004992c0</c> swapped in
+	/// over the energy class's. It carries and charges the same capacitor, and prints the same bar,
+	/// but it will not <b>start</b> firing below a full one and its shot is worth a fixed 1200
+	/// however much is left. See <c>WeaponMount.CanFire</c>.
+	/// </summary>
+	Elf,
 
 	/// <summary>An equipment pod. Fires nothing, prints nothing, and is in no fire group.</summary>
 	Pod,

@@ -168,11 +168,15 @@ nonzero**:
 | 3 | right side | `(+0x46, 0, 0)` |
 | 4 | invisible | `(0, 0, 0)` |
 
-The prologue finally arms the refire timer as `Q10Multiply(mount+0x63, template[0x4c])`.
-`mount+0x63` is `0x400` from the base constructor (`FUN_0040df30`) and nothing traced changes it, so
-the delay is the template's own figure. `WeaponMount_RefireTick` (`0040ef94`) counts it down by
-`SimTickDelta` — about 15 ticks for the 1200 most weapons carry. **`ELF` and `ELF2` carry zero**: a
-continuous beam with no delay at all.
+The prologue then arms the refire timer as `Q10Multiply(mount+0x63, template[0x4c])`. `mount+0x63` is
+`0x400` from the base constructor (`FUN_0040df30`) and nothing traced changes it, so the delay is the
+template's own figure. `WeaponMount_RefireTick` (`0040ef94`) counts it down by `SimTickDelta` — about
+15 ticks for the 1200 most weapons carry. **`ELF` and `ELF2` carry zero**, and their mount class does
+not test the timer either: what limits those two is the capacitor, not a cooldown — see
+[`weapon-mounts.md`](weapon-mounts.md#elf-and-elf2).
+
+Its last two writes set the mount's `+0x33` and `+0x3b` flag blocks, which is what makes an ELF's
+sustained fire possible; the same doc has them.
 
 ## Power level — `WeaponMount_AdjustPowerLevel` (`0040f48c`)
 
@@ -205,5 +209,3 @@ counts as a hit and still stops the ray — shields do not let fire through to w
 ## Not ported
 
 - **Sound.** `Bullet_FireBurst` opens with `FUN_004627dc(0x0b, muzzlePoint)`. Untraced past the call.
-- **ELF and ELF2 beams draw straight.** Their tracer takes a jagged branch whose paint half is not
-  decoded — see [`beam-visuals.md`](beam-visuals.md#elf-and-elf2--the-jagged-branch).

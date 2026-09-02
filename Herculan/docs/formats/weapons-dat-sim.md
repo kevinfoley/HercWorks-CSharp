@@ -78,12 +78,20 @@ match the manual's 20 m figure for the ELF.
 `0x36`/`0x38` decide when an energy mount will fire: `max(0x36, mount+0x7b)` when `0x36 < 0x38`,
 otherwise `0x38`. `0x38` is also what a shot costs, so the two shapes real data takes — equal pair
 (LAS100 80/80) versus small low against a 10000 high (PBEAM 300/10000) — are a fixed-cost weapon and
-a charge-up one. `0x3a` is both the round count an ammunition mount powers up with and its cap
+a charge-up one.
+
+The ELFs are a third shape, (400, 70), and are the reason the pair cannot be read off the template
+alone: their own mount class tests it differently, always taking `max(0x36, mount+0x7b)`, so 400
+against a 960 charge target means a full capacitor to start and 70 per shot to continue. See
+[`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#elf-and-elf2).
+
+`0x3a` is both the round count an ammunition mount powers up with and its cap
 (ATC20 2000 … ATC100 500, MSL6/8/10/24 6/8/10/24), and the ammunition dispatch spends `0x38` rounds
 per shot.
 
-`0x4c` is 1200 on most weapons — about 15 sim ticks — and **zero on `ELF` and `ELF2`**, which is what
-makes those two continuous beams. The mount scales it by its own `+0x63`, a constant `0x400`.
+`0x4c` is 1200 on most weapons — about 15 sim ticks — and **zero on `ELF` and `ELF2`**, whose own
+mount class does not consult the refire timer at all; what paces those two is their capacitor. The
+mount scales it by its own `+0x63`, a constant `0x400`.
 
 `0x3c` is 1 everywhere except catalog id 19 (the big EMP), where it is 3. `0x3e == 0x13` is true for
 exactly one weapon too — id 23, `EMP2` — because the value is that weapon's own `PROJ.DAT` row; the

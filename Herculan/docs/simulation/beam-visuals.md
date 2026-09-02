@@ -20,7 +20,7 @@ distance:
 The `local_20` values written before each allocation (`0x14`, `0x2c`, `0x20`, `0x44`) are Watcom
 exception-frame state, not data.
 
-## The tracer object — `FUN_0040b804`
+## The tracer object — `BeamTracer_Ctor` (`0040b804`)
 
 Constructed as `(obj, subtypeId, startPoint, endPoint, owner)`; vtable `PTR_FUN_004987c4`, type 3.
 
@@ -48,8 +48,8 @@ update is not counted down until the tick after.
 
 ## Appearance data
 
-`FUN_0040b6e0` (the beam module's init, named by the `BEAM.CPP` string at `00498781`) loads two
-resources once at startup.
+`Beam_LoadResourceTables` (`0040b6e0`, the beam module's init, named by the `BEAM.CPP` string at
+`00498781`) loads two resources once at startup.
 
 **`dat\BEAM.DAT`** → `DAT_004a9888`. `int16 count`, then `count x` 3 `int16`s. Indexed by the
 `PROJ.DAT` record's **subtype id**, not by weapon id. C# port:
@@ -84,7 +84,7 @@ ramp 84..95 in to the middle and back out. Nothing varies along the beam's lengt
 pure cross-section. In a `WORLD<n>.DPL` that ramp is the fire ramp — dark orange (184, 92, 20)
 climbing to near-white (252, 248, 228).
 
-## Drawing — `FUN_0040bc14` (vtable slot 0)
+## Drawing — `BeamTracer_Draw` (`0040bc14`, vtable slot 0)
 
 Per quad:
 
@@ -115,38 +115,80 @@ fetch `atlasPage[v][u]`, store that palette byte to the framebuffer, step the fi
 repeat. The non-zero form is a colour-key skip of index 0 — not blending. **There is no alpha, no
 shade level and no colour lookup anywhere in this path.**
 
-### Why `BEAM.DAT`'s colour index does not apply
+### `BEAM.DAT`'s colour index is the fill brush, and only the jagged path uses it
 
-The draw does publish it, as `{0, colourIndex}`, through the graphics context's `+0x22c` colour pair
-— the same slot the HUD painters use. Mode 0 never reads it. The shade level that pair would feed
-belongs to mode 1, which nothing here selects.
+Before either branch runs, the draw installs `{0, colourIndex}` at the graphics context's `+0x22c`.
+That field is **the rasterizer's fill brush**: `Raster_InstallRenderContext` (`00480c38`) sets the
+clip block to `ctx + 4`, so `ctx+0x22c` is the `clipBlock+0x228` that `Raster_DrawPolygonDispatch`
+reads and dispatches on. A brush is `{mode, colour}`; mode 0 with a colour whose top byte is zero is
+a flat fill of that palette index.
+
+The straight path installs it and then never uses it — it submits through `FUN_00468310`, whose
+mode-0 span routine has no colour lookup. The [jagged path](#elf-and-elf2--the-jagged-branch) goes
+through the polygon dispatch and does.
 
 So every retail straight beam draws the identical orange-to-white ribbon and is told apart only by
-its width. Corroborated by retail screenshots: laser and particle-beam shots are orange-white
-regardless of weapon, while ELF — which takes the other branch — is yellow, matching its index 104.
+its width, while ELF and ELF2 are the flat colour their record names. Corroborated by retail
+screenshots: laser and particle-beam shots are orange-white regardless of weapon, while `ELF` is
+yellow, matching its index 104.
 
 ## ELF and ELF2 — the jagged branch
 
-**Geometry decoded, paint not.** `FUN_0040b804`'s branch for subtype ids 1 and 7 builds a chain
-instead of a segment:
+`BeamTracer_Ctor`'s branch for subtype ids 1 and 7 builds a chain instead of a segment:
 
-- `nodeCount = (distance >> 10) + 1`, i.e. one node per 1024 units; `pointCount = nodeCount * 2 + 2`.
-- The step is the start→end delta renormalised to length `0x400` (`FUN_004926e4`).
-- Node `k` is the running point, jittered on every axis by `Math_RandomNext() & 0x7f` (0-127) for all
-  but the first; the last node is the exact endpoint.
+- `nodeCount = (char)(distance >> 10) + 1` at `+0x54`, i.e. one node per 1024 units;
+  `pointCount = nodeCount * 2 + 2`, so the loop writes `nodeCount + 1` node pairs.
+- The step is the start→end delta rescaled to length `0x400` (`Math_NormalizeVec3ToLength`, `004926e4`).
+- Node `k` is the running point; the **last** node restarts from the exact endpoint instead. Every
+  node but the first — the last one included — is then jittered on each axis by
+  `Math_RandomNext() & 0x7f`. The mask leaves that one-sided, 0 to 127, so the chain bows off the
+  straight line rather than wandering either side of it, and the far end does not sit on the impact
+  point.
 - Each node writes a **pair**: `points[2k]` with `BEAM.DAT`'s width added to its z, `points[2k+1]`
-  without. So the chain is a vertical ribbon, not a camera-facing one.
+  without. So the chain is a ribbon standing vertically **in the world**, not a camera-facing one:
+  seen from directly above an ELF is edge-on.
 
-The paint loop runs once per node with `DAT_006c6968 = 4` and `DAT_006c696a = k << (3 - jaggedFlag)`
-before calling `FUN_0048c964` / `FUN_0048ce14` / `FUN_0048d4b4`, none of which are decoded. Those
-read the projection globals and the point-list globals the draw publishes up front
-(`DAT_006c6970` = point array, `DAT_006c6974` = point count, `DAT_006c6976` = the 120-entry ramp
-`DAT_004a9796`, built at init as `(i >> 1) + DAT_00498640[i & 3]`). Disassembly of the shared tail
-shows it reading `points[0]` and `points[1]` with no loop index, which does not square with drawing a
-chain — so at least one of those three helpers redirects the geometry, and the reading is incomplete.
+### The paint is the shape renderer's point-list path
 
-Retail reference: `Reference/Simulator3.jpg` shows an ELF as a bright yellow zigzag, which fixes
-both the shape and that the colour index reaches this path.
+The three functions the paint loop calls are not beam code — they are the generic path
+`TSSolidPoly_Render` and the rest of the `.DTS` renderers use, driven by globals the beam draw
+publishes up front: `DAT_006c6970` = point array, `DAT_006c6974` = point count,
+`DAT_006c6976` = the vertex-index list, and per quad `DAT_006c6968` = 4 vertices with
+`DAT_006c696a` = `k << (3 - jaggedFlag)` as the offset into that list. `jaggedFlag` is 1 on every
+object that reaches here, so the shift is always 2 and the other value is unreachable.
+
+| | |
+|---|---|
+| `Poly_ProjectIndexedVertices` (`0048c964`) | Projects the four named vertices, memoising each in a per-point state byte at `DAT_006c697e` — 0 untouched, 1 behind the near plane, 2 projected — and writing screen points to `DAT_006cbb86` / count `DAT_006cbc86`. Returns non-zero when any vertex fell behind the near plane |
+| `Poly_ClipRingToNearPlane` (`0048ce14`) | Only then: clips the vertex ring against the near plane, rebuilding the same screen-point list |
+| `PolyFill_Fill` (`0048d4b4`) | Fills the screen polygon. Sibling of `PolyFill_FillThenOutline` (`0048d518`) without its mode-5 guard |
+
+The fill is winding-agnostic — `FUN_004841af` measures the signed area and picks `FUN_00484116` for
+the other winding — so the ribbon draws from either side. The index list is the 120-entry table at
+`DAT_004a9796`, built by `Beam_LoadResourceTables` as `(i >> 1) + {1, 0, 1, 2}[i & 3]` over the
+**`int16`** table at `00498640`. Read four entries from `4k`, that is `points[2k+1]`, `points[2k]`,
+`points[2k+2]`, `points[2k+3]` — a wound quad spanning nodes `k` and `k+1`.
+
+120 entries is 30 quads. Retail never approaches it: the longer-ranged of the two is `ELF` at 20000
+units (see [`weapons-dat-sim.md`](../formats/weapons-dat-sim.md)), which is 20.
+
+`PolyFill_Fill`'s second pass — re-fill in the line colour when `DAT_006c60d4 != DAT_006c60dc` — is a
+no-op here. Those globals are the *default* brush; the beam installed its own on the context, so the
+redraw is an identical flat fill.
+
+### The muzzle stub is a retail fall-through
+
+The jagged branch does not return. Control drops into the straight-beam code below it, which draws
+`points[0]`→`points[1]` — for a chain, node zero with and without the width, a stub one half-width
+long standing at the muzzle — and the enclosing loop runs once per quad, so the identical stub is
+redrawn `nodeCount` times. It takes the straight path's `BEAMTEX` frame, not the chain's flat
+colour, and the half-width pixel floor makes it wider than it is long at any real range: a ~4 px
+orange-white dash at the muzzle.
+
+Nothing in the fire path spawns a muzzle visual for this to be part of — `Bullet_FireBurst` does one
+thing at the muzzle point, the sound. Logged in [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
+
+Retail reference: `Reference/Simulator3.jpg` shows an ELF as a thin bright yellow zigzag.
 
 ## Impact effects
 
@@ -165,4 +207,22 @@ Ported — [`impact-effects.md`](impact-effects.md) carries the array ordering.
 - **Depth test on, depth write off.** The original writes no z at all; a beam already stops at
   whatever it hit, so testing costs nothing visible and keeps a shot fired past a ridge from painting
   over it.
-- **ELF and ELF2 draw straight**, pending the branch above.
+- **The chain's quads are built in the simulation, not the renderer.** `BEAM.DAT`'s half-width is
+  baked into the geometry at fire time and the jitter is rolled off the sim generator, exactly as
+  `BeamTracer_Ctor` does it, so `SimWorld` carries the appearance table.
+- **The muzzle stub is drawn once, not once per quad.** The fill is opaque and the geometry
+  identical, so the repeats are not observable.
+- **The node count is clamped to the 30 quads the index table holds.** The original's count is a
+  signed byte it never bounds, so a long enough chain would read past the table; no retail weapon
+  gets near it, and the clamp is a guard rather than a behaviour difference.
+
+## Rejected readings
+
+Readings a fresh pass could plausibly land on. Each is disproven; do not reintroduce.
+
+| Reading | Why it is wrong |
+|---|---|
+| `BEAM.DAT`'s colour index is unused — the `+0x22c` pair is a HUD colour pair mode 0 never reads | `ctx+0x22c` is `clipBlock+0x228`, the fill brush, because the clip block is `ctx + 4`. The jagged path dispatches on it |
+| One of `0048c964`/`0048ce14`/`0048d4b4` redirects the geometry, since the tail reads `points[0]` and `points[1]` with no loop index | That tail is the straight-beam code the jagged branch falls through into — a separate draw, not part of the chain's |
+| The chain's last node is the exact endpoint | It is the endpoint **plus** the same jitter every other node gets |
+| The index table at `00498640` is bytes | `word ptr [ECX*2 + 0x498640]`; as bytes the quads collapse |

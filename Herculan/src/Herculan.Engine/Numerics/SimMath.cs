@@ -218,6 +218,29 @@ public static class SimMath {
 	}
 
 	/// <summary>
+	/// <c>Math_NormalizeVec3ToLength</c> (<c>004926e4</c>) — rescales a vector in place to
+	/// <paramref name="length"/>, which the original uses wherever it needs a step of a fixed size
+	/// along an arbitrary direction (a beam chain's node spacing, a collision volume's face
+	/// offsets).
+	///
+	/// <para>The scale factor is a Q16 fraction <b>narrowed to a signed 16-bit value</b> before it is
+	/// applied. That truncation is the original's own, not a rounding choice here, and it is why a
+	/// step over a very short delta comes out shorter than asked for.</para>
+	/// </summary>
+	public static void ScaleToLength(ref int x, ref int y, ref int z, short length) {
+		int magnitude = FastMagnitude3D(x, y, z);
+		if (magnitude == 0) {
+			x = y = z = 0;
+			return;
+		}
+
+		short scale = (short)Q16Divide(length, magnitude);
+		x = Q16Multiply(x, scale);
+		y = Q16Multiply(y, scale);
+		z = Q16Multiply(z, scale);
+	}
+
+	/// <summary>
 	/// The branchless absolute value the original compiles to (<c>(x ^ (x >> 31)) - (x >> 31)</c>).
 	/// Used instead of <see cref="System.Math.Abs(int)"/> because that throws on
 	/// <see cref="int.MinValue"/> where the original silently wraps — a faithful port shouldn't

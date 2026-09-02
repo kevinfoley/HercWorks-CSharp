@@ -21,11 +21,6 @@ load-bearing. What *is* settled is in
 [`../formats/dts-texture-binding.md`](../formats/dts-texture-binding.md) and
 [`../formats/distance-fog-and-sky.md`](../formats/distance-fog-and-sky.md).
 
-## Next
-
-Finish RE and implementation on the **ELF and ELF2**. Currently, they draw straight — the jagged branch's paint half (`FUN_0048c964`, `FUN_0048ce14`,
-  `FUN_0048d4b4`) is undecoded. See the beam-visuals doc. Make sure they are fully RE'd and understood before starting on implementation.
-
 ## Not built
 
 _ These are not organized in any particular order; this may not be the best order to complete these tasks in._

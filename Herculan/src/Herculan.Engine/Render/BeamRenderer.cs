@@ -8,8 +8,8 @@ using Silk.NET.OpenGL;
 namespace Herculan.Engine.Render;
 
 /// <summary>
-/// Draws the live <see cref="BeamTracer"/>s — the GPU counterpart of <c>FUN_0040bc14</c>, the
-/// tracer class's own paint method.
+/// Draws the live <see cref="BeamTracer"/>s — the GPU counterpart of <c>BeamTracer_Draw</c>
+/// (<c>0040bc14</c>), the tracer class's own paint method.
 ///
 /// <para><b>What the original does.</b> It brings the tracer's two stored points into view space,
 /// clips the pair against the near plane (<c>FUN_0040bb4c</c>), projects both to screen, and then
@@ -35,15 +35,21 @@ namespace Herculan.Engine.Render;
 /// whatever it hit, so testing costs nothing visible and stops a shot fired past a ridge from being
 /// painted over it.</para>
 ///
-/// <para>Only the straight form is drawn. <c>FUN_0040b804</c> has a second branch for subtype ids 1
-/// and 7 — ELF and ELF2 — which builds a jagged chain of nodes 1024 units apart, jittered by up to
-/// 127 units on each axis, as a pair of points per node; its half of the paint method uses per-span
-/// rasterizer state that has not been decoded, so those two weapons currently draw as straight beams
-/// like the rest.</para>
+/// <para><b>The jagged form — ELF and ELF2.</b> A chain tracer (see <see cref="BeamTracer"/>) is
+/// painted one quad at a time through the shape renderer's point-list path instead, and that fill is
+/// <b>flat-coloured with no texture</b>: the record's colour index is the rasterizer's fill brush.
+/// The quads are not turned to face the viewer either — the width is a z offset baked into the
+/// geometry, so an ELF seen from directly above is edge-on. See docs/simulation/beam-visuals.md,
+/// "ELF and ELF2 — the jagged branch".</para>
+///
+/// <para><b>The muzzle stub is retail's, not a bug here.</b> The jagged branch falls through into the
+/// straight-beam code, which draws the tracer's first two points — for a chain, a stub one half-width
+/// long at the muzzle — once per chain quad. This draws it once, which is pixel-identical because the
+/// fill is opaque. Logged in KNOWN_ISSUES.md.</para>
 /// </summary>
 public sealed class BeamRenderer : IDisposable {
 	/// <summary>
-	/// <c>FUN_0040bc14</c>'s <c>if (halfWidth &lt; 2) halfWidth = 2</c>, applied to each end
+	/// <c>BeamTracer_Draw</c>'s <c>if (halfWidth &lt; 2) halfWidth = 2</c>, applied to each end
 	/// independently. It floors the <i>half</i>-width — the value is what each screen point is stepped
 	/// by in both directions along the perpendicular — so a beam never draws narrower than four
 	/// pixels, not two.
@@ -52,16 +58,21 @@ public sealed class BeamRenderer : IDisposable {
 
 	private readonly GL _gl;
 	private readonly ShaderProgram _shader;
+	private readonly ShaderProgram _jaggedShader;
 	private readonly BeamAppearance _appearance;
 	private readonly Dictionary<int, GpuTexture> _profiles = new();
 	private readonly uint _vertexArray;
 	private readonly uint _vertexBuffer;
+	private readonly uint _jaggedVertexArray;
+	private readonly uint _jaggedVertexBuffer;
 	private readonly BeamVertex[] _quad = new BeamVertex[6];
+	private readonly List<Vector3> _chain = new();
 
 	public BeamRenderer(GL gl, BeamAppearance appearance) {
 		_gl = gl;
 		_appearance = appearance;
 		_shader = ShaderProgram.Load(gl, "Beam.glsl");
+		_jaggedShader = ShaderProgram.Load(gl, "BeamJagged.glsl");
 
 		_vertexArray = _gl.GenVertexArray();
 		_gl.BindVertexArray(_vertexArray);
@@ -80,6 +91,19 @@ public sealed class BeamRenderer : IDisposable {
 			_gl.VertexAttribPointer(3, 1, VertexAttribPointerType.Float, false, stride, (void*)28);
 		}
 
+		// The chain's vertices arrive final — no expansion, no profile coordinate — so this one is a
+		// bare position stream.
+		_jaggedVertexArray = _gl.GenVertexArray();
+		_gl.BindVertexArray(_jaggedVertexArray);
+		_jaggedVertexBuffer = _gl.GenBuffer();
+		_gl.BindBuffer(BufferTargetARB.ArrayBuffer, _jaggedVertexBuffer);
+
+		unsafe {
+			_gl.EnableVertexAttribArray(0);
+			_gl.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false,
+				(uint)sizeof(Vector3), (void*)0);
+		}
+
 		_gl.BindVertexArray(0);
 	}
 
@@ -96,17 +120,20 @@ public sealed class BeamRenderer : IDisposable {
 
 		float aspect = (float)viewportWidth / Math.Max(viewportHeight, 1);
 		var cameraPosition = WorldScale.ToRender(camera.Position);
-
-		_shader.Use();
-		_shader.SetMatrix("uView", camera.ViewMatrix);
-		_shader.SetMatrix("uProjection", camera.ProjectionMatrix(aspect));
-		_shader.SetVector3("uCameraPosition", cameraPosition);
-		_shader.SetVector2("uViewport", new Vector2(viewportWidth, Math.Max(viewportHeight, 1)));
-		_shader.SetFloat("uMinimumHalfPixels", MinimumHalfPixels);
+		var projection = camera.ProjectionMatrix(aspect);
 
 		// Opaque, and no depth write: the original submits these polys with no z at all, and nothing
 		// is drawn into the 3D view after them.
 		_gl.DepthMask(false);
+
+		DrawChains(camera, projection, tracers);
+
+		_shader.Use();
+		_shader.SetMatrix("uView", camera.ViewMatrix);
+		_shader.SetMatrix("uProjection", projection);
+		_shader.SetVector3("uCameraPosition", cameraPosition);
+		_shader.SetVector2("uViewport", new Vector2(viewportWidth, Math.Max(viewportHeight, 1)));
+		_shader.SetFloat("uMinimumHalfPixels", MinimumHalfPixels);
 
 		_gl.BindVertexArray(_vertexArray);
 		_gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vertexBuffer);
@@ -119,14 +146,69 @@ public sealed class BeamRenderer : IDisposable {
 		_gl.DepthMask(true);
 	}
 
+	/// <summary>
+	/// The jagged pass: every chain tracer's quads, each a flat fill in that subtype's
+	/// <c>BEAM.DAT</c> colour. One draw call per tracer, since the colour is a uniform and a frame
+	/// never holds many.
+	/// </summary>
+	private void DrawChains(Camera camera, Matrix4x4 projection, IReadOnlyList<BeamTracer> tracers) {
+		bool started = false;
+
+		foreach (var tracer in tracers) {
+			if (!tracer.IsJagged || tracer.QuadCount == 0) {
+				continue;
+			}
+
+			if (!started) {
+				_jaggedShader.Use();
+				_jaggedShader.SetMatrix("uView", camera.ViewMatrix);
+				_jaggedShader.SetMatrix("uProjection", projection);
+				_gl.BindVertexArray(_jaggedVertexArray);
+				_gl.BindBuffer(BufferTargetARB.ArrayBuffer, _jaggedVertexBuffer);
+				started = true;
+			}
+
+			_chain.Clear();
+			for (int quad = 0; quad < tracer.QuadCount; quad++) {
+				var (a, b, c, d) = tracer.Quad(quad);
+				var pa = WorldScale.ToRender(a);
+				var pb = WorldScale.ToRender(b);
+				var pc = WorldScale.ToRender(c);
+				var pd = WorldScale.ToRender(d);
+				_chain.Add(pa);
+				_chain.Add(pb);
+				_chain.Add(pc);
+				_chain.Add(pa);
+				_chain.Add(pc);
+				_chain.Add(pd);
+			}
+
+			_jaggedShader.SetVector3("uColor", _appearance.Color(tracer.MissileId));
+			_gl.BufferData<Vector3>(BufferTargetARB.ArrayBuffer, CollectionsMarshal.AsSpan(_chain),
+				BufferUsageARB.DynamicDraw);
+			_gl.DrawArrays(PrimitiveType.Triangles, 0, (uint)_chain.Count);
+		}
+
+		if (started) {
+			_gl.BindVertexArray(0);
+		}
+	}
+
 	private void Draw(BeamTracer tracer, Matrix4x4 view, float nearPlane) {
 		int halfWidth = _appearance.HalfWidth(tracer.MissileId);
 		if (halfWidth <= 0 || Profile(tracer.MissileId) is not { } profile) {
 			return;
 		}
 
-		var start = WorldScale.ToRender(tracer.Start);
-		var end = WorldScale.ToRender(tracer.End);
+		// A chain tracer reaches here too, because the original's jagged branch falls through into
+		// this code rather than returning — and it draws the tracer's first two points, which for a
+		// chain are node zero's pair and not the muzzle and the hit. See the class remarks.
+		var (from, to) = tracer.IsJagged && tracer.Points.Count >= 2
+			? (tracer.Points[0], tracer.Points[1])
+			: (tracer.Start, tracer.End);
+
+		var start = WorldScale.ToRender(from);
+		var end = WorldScale.ToRender(to);
 		var axis = end - start;
 		if (axis.LengthSquared() <= 0f) {
 			return;
@@ -210,7 +292,10 @@ public sealed class BeamRenderer : IDisposable {
 		_profiles.Clear();
 		_gl.DeleteBuffer(_vertexBuffer);
 		_gl.DeleteVertexArray(_vertexArray);
+		_gl.DeleteBuffer(_jaggedVertexBuffer);
+		_gl.DeleteVertexArray(_jaggedVertexArray);
 		_shader.Dispose();
+		_jaggedShader.Dispose();
 	}
 
 	/// <param name="Position">The endpoint this vertex sits on, in render space.</param>

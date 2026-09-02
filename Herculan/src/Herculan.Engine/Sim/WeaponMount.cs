@@ -20,9 +20,14 @@ namespace Herculan.Engine.Sim;
 /// gets the order wrong.</para>
 ///
 /// <para><b>Fields are shared, not per-class.</b> <c>+0x7b</c> and <c>+0x7d</c> mean different
-/// things in the two live classes: rounds for an ammunition mount, a charge target and a capacitor
-/// level for an energy one. They are modelled here under the names each class gives them, with the
-/// raw offsets noted, rather than as one abstract "level".</para>
+/// things depending on which class holds them: rounds for an ammunition mount, a charge target and a
+/// capacitor level for an energy or ELF one. They are modelled here under the names each class gives
+/// them, with the raw offsets noted, rather than as one abstract "level".</para>
+///
+/// <para><b>The constructor does not decide the class.</b> The factory builds an ELF by running the
+/// energy constructor and then swapping the object's vtable — see <see cref="WeaponMountKind.Elf"/>.
+/// That is why <see cref="Kind"/> is what everything here branches on rather than which fields were
+/// initialised.</para>
 /// </summary>
 public sealed class WeaponMount {
 	/// <summary>
@@ -91,6 +96,8 @@ public sealed class WeaponMount {
 	private readonly Weapons.WeaponMountTemplate? _template;
 	private readonly GunLayout.HardpointEntry _hardpoint;
 	private short _refireTimer;
+	private bool _firedSinceShuffle;
+	private bool _firedThisTick;
 
 	internal WeaponMount(int mountIndex, GunLayout.HardpointEntry hardpoint, int weaponId,
 			short secondaryKey, WeaponCatalog catalog) {
@@ -115,7 +122,10 @@ public sealed class WeaponMount {
 				Charge = MagazineSize << 8;
 				break;
 
+			// The ELF class runs this same constructor before the factory swaps its vtable, so it
+			// powers up with the identical capacitor.
 			case WeaponMountKind.Energy:
+			case WeaponMountKind.Elf:
 				ChargeTarget = EnergyCapacitorFull;
 				Charge = EnergyCapacitorFull;
 				ChargeRate = EnergyChargeRate;
@@ -318,11 +328,31 @@ public sealed class WeaponMount {
 	public bool HalfEfficiency => WeaponId == HalfEfficiencyWeaponId;
 
 	/// <summary>
+	/// Whether this mount carries a capacitor charged off the Master Energy Pool. True for
+	/// <see cref="WeaponMountKind.Elf"/> as well as <see cref="WeaponMountKind.Energy"/>: the factory
+	/// builds an ELF with the energy constructor and then swaps its vtable, and the swap leaves the
+	/// charge, power-level, wake and gauge slots pointing at the energy class's own.
+	/// </summary>
+	private bool IsEnergyClass => Kind is WeaponMountKind.Energy or WeaponMountKind.Elf;
+
+	/// <summary>
+	/// Whether the mount fired during the previous tick — the mount's <c>+0x33</c> flag, and the only
+	/// thing that lets an ELF keep firing below a full capacitor.
+	///
+	/// <para>The original keeps two byte blocks, <c>+0x33</c> and <c>+0x3b</c>. Firing sets both
+	/// (<c>WeaponMount_PrepareShot</c>); each tick <c>WeaponMount_RefireTick</c> <b>ands</b>
+	/// <c>+0x33</c> with <c>+0x3b</c> and then clears <c>+0x3b</c> (<c>FUN_0040f881</c>). So the flag
+	/// survives exactly as long as the mount fires on every tick and drops on the first tick after one
+	/// it sat out — a "still firing", not a "has ever fired".</para>
+	/// </summary>
+	public bool FiringSustained => _firedSinceShuffle;
+
+	/// <summary>
 	/// Vtable slot <c>0x3c</c>, <c>FUN_0040f4d8</c>: put an energy mount's charge target back to its
 	/// idle level. Only the energy class implements it — the other two have a no-op in that slot.
 	/// </summary>
 	internal void WakeCapacitor() {
-		if (Kind == WeaponMountKind.Energy && !Disabled) {
+		if (IsEnergyClass && !Disabled) {
 			ChargeTarget = EnergyIdleTarget;
 		}
 	}
@@ -343,7 +373,7 @@ public sealed class WeaponMount {
 	/// which is how one weapon finishes charging before another starts.
 	/// </summary>
 	public short EnergyPriority => Kind switch {
-		WeaponMountKind.Energy => Charging ? (short)10000 : ChargeTarget,
+		WeaponMountKind.Energy or WeaponMountKind.Elf => Charging ? (short)10000 : ChargeTarget,
 		_ => 0,
 	};
 
@@ -353,23 +383,58 @@ public sealed class WeaponMount {
 	/// <list type="bullet">
 	/// <item><b>Ammunition</b> (<c>FUN_0040ed6c</c>): not destroyed, out of its refire delay, and
 	/// holding at least one round.</item>
-	/// <item><b>Energy</b> (<c>FUN_0040ecdc</c>): not destroyed, out of its refire delay, and charged
-	/// to at least the threshold below.</item>
+	/// <item><b>Energy</b> (<c>WeaponMount_EnergyCanFire</c>): not destroyed, out of its refire delay,
+	/// and charged to at least the threshold below.</item>
+	/// <item><b>ELF</b> (<c>ElfCanFire</c>): not destroyed and charged to a <i>full</i> capacitor —
+	/// unless it is already firing, in which case one shot's worth is enough. It does not consult the
+	/// refire delay at all, which for these two weapons is zero anyway.</item>
 	/// <item><b>Pods</b> have no such method — they never fire and are never in a fire group.</item>
 	/// </list>
 	/// </summary>
 	public bool CanFire => Kind switch {
 		WeaponMountKind.Ammunition => !Disabled && RefireTimer == 0 && ChargeTarget != 0,
 		WeaponMountKind.Energy => !Disabled && RefireTimer == 0 && ChargeThreshold <= Charge,
+		WeaponMountKind.Elf => ElfCanFire,
 		_ => false,
 	};
 
 	/// <summary>
-	/// How much charge an energy mount needs before it will fire — <c>FUN_0040ecdc</c>'s own
-	/// arithmetic over the template's two fields at <c>+0x36</c> and <c>+0x38</c>. When the first is
-	/// below the second the threshold is the larger of it and the mount's current target; otherwise
+	/// <c>FUN_0040eda0</c>, the ELF class's vtable <c>+0x2c</c> — <b>why an ELF cannot be re-triggered
+	/// until its capacitor is back to full</b>.
+	///
+	/// <para>It uses the same two template fields as the energy test but drops the branch between
+	/// them: the threshold is <i>always</i> <c>max(template+0x36, chargeTarget)</c>, and for both
+	/// ELFs the target (960, or whatever the power-level keys set) is the larger. So a fresh trigger
+	/// pull needs a full capacitor. The second clause is what makes it a sustained beam rather than a
+	/// single shot: once <see cref="FiringSustained"/> is set the bar drops to one shot's
+	/// <see cref="ShotCost"/>, so the weapon empties itself over as many ticks as it has charge for
+	/// and cannot be started again until it has climbed all the way back.</para>
+	///
+	/// <para>Turning the mount's power level down therefore makes an ELF re-fire sooner and stop
+	/// sooner, since the target is both the gate and the fuel — see <see cref="AdjustPower"/>.</para>
+	/// </summary>
+	private bool ElfCanFire {
+		get {
+			if (Disabled) {
+				return false;
+			}
+
+			short floor = _template?.Tail is { Length: >= 0x18 } tail
+				? BitConverter.ToInt16(tail, 0x14)
+				: (short)0;
+			short threshold = Math.Max(floor, ChargeTarget);
+
+			return threshold <= Charge || (FiringSustained && ShotCost <= Charge);
+		}
+	}
+
+	/// <summary>
+	/// How much charge an energy mount needs before it will fire — <c>WeaponMount_EnergyCanFire</c>'s
+	/// own arithmetic over the template's two fields at <c>+0x36</c> and <c>+0x38</c>. When the first
+	/// is below the second the threshold is the larger of it and the mount's current target; otherwise
 	/// the second is used outright. Real templates carry both shapes: <c>EMP</c> reads (350, 10000),
-	/// <c>ELF</c> reads (400, 70).
+	/// <c>ELF</c> reads (400, 70) — though the ELFs do not reach this test, see
+	/// <see cref="ElfCanFire"/>.
 	/// </summary>
 	private short ChargeThreshold {
 		get {
@@ -407,16 +472,20 @@ public sealed class WeaponMount {
 			return budget;
 		}
 
-		// FUN_0040ef94 — the refire countdown. It is the whole of an ammunition mount's turn at the
-		// pool (that function *is* its vtable slot 0x34) and the first thing the energy class's own
-		// slot does, so a mount's cooldown runs on the same pass that charges it and a destroyed
-		// mount's does not run at all. Two muzzle-flash flag blocks the same function shuffles are
-		// visual and are not modelled.
-		if (Kind is WeaponMountKind.Energy or WeaponMountKind.Ammunition) {
+		// WeaponMount_RefireTick — the refire countdown. It is the whole of an ammunition mount's turn
+		// at the pool (that function *is* its vtable slot 0x34) and the first thing the energy class's
+		// own slot does, so a mount's cooldown runs on the same pass that charges it and a destroyed
+		// mount's does not run at all.
+		if (IsEnergyClass || Kind == WeaponMountKind.Ammunition) {
 			SimMath.CountdownTimerTick(ref _refireTimer);
+
+			// FUN_0040f881: +0x33 &= +0x3b, then +0x3b is cleared. See FiringSustained — the ELF
+			// readiness test is the one thing that reads the result.
+			_firedSinceShuffle &= _firedThisTick;
+			_firedThisTick = false;
 		}
 
-		if (Kind != WeaponMountKind.Energy) {
+		if (!IsEnergyClass) {
 			AmmoGaugeDecayTick();
 			return budget;
 		}
@@ -487,7 +556,7 @@ public sealed class WeaponMount {
 	/// </summary>
 	/// <param name="raise">True for the two "up" keys.</param>
 	internal void AdjustPower(bool raise) {
-		if (Kind != WeaponMountKind.Energy) {
+		if (!IsEnergyClass) {
 			return;
 		}
 
@@ -525,10 +594,38 @@ public sealed class WeaponMount {
 				FireGunOrBeam(owner, world, projectile, bone, muzzle);
 				break;
 
+			case WeaponMountKind.Elf:
+				FireElf(owner, world, projectile, bone, muzzle);
+				break;
+
 			case WeaponMountKind.Ammunition:
 				FireAmmunition(owner, world, projectile, bone, muzzle);
 				break;
 		}
+	}
+
+	/// <summary>
+	/// <c>FUN_0040ec64</c>, the ELF class's vtable <c>+0x28</c>. Where the energy class branches three
+	/// ways on the record's type, this has one branch and it is the beam: an ELF is always a beam.
+	///
+	/// <para>Two things differ from the energy class's beam branch, both deliberate in the original.
+	/// The cost is subtracted <b>unconditionally</b> rather than capped at what the capacitor holds,
+	/// so an ELF that fires its last partial shot goes slightly negative and
+	/// <see cref="ElfCanFire"/>'s second clause then fails, ending the burst. And the shot's power is
+	/// a <b>fixed 1200</b> — <see cref="EnergyChargeScale"/>, the literal the dispatch pushes — not
+	/// the charge spent, so every shot in a burst hits as hard as the first however far the capacitor
+	/// has drained. That is what makes the ELF the damage outlier the manual describes: its
+	/// <c>PROJ.DAT</c> figures are small, but nothing ever scales them down.</para>
+	/// </summary>
+	private void FireElf(MechObject owner, SimWorld world, ProjectileData.Projectile projectile,
+			in Transform3 bone, Vec3i muzzle) {
+		Charge -= ShotCost;
+
+		var shot = bone;
+		shot.X = muzzle.X;
+		shot.Y = muzzle.Y;
+		shot.Z = muzzle.Z;
+		world.FireBeam(new WeaponShot(shot, Range, projectile, EnergyChargeScale, owner));
 	}
 
 	/// <summary>
@@ -709,6 +806,11 @@ public sealed class WeaponMount {
 		var offset = MuzzleOffset;
 
 		_refireTimer = RefireDelay;
+
+		// The prologue's last two writes, mount +0x33 and +0x3b — see FiringSustained.
+		_firedSinceShuffle = true;
+		_firedThisTick = true;
+
 		return (bone, bone.TransformPoint(offset.X, offset.Y, offset.Z));
 	}
 

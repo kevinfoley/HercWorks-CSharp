@@ -254,7 +254,7 @@ Everything the paint (`FUN_0043a5a0`) chooses is a property of that subject, not
 |---|---|
 | Subject is the viewing object (`CockpitView+0x203`) or one of the three squadmates (`FUN_00433134`) | Label 0 is `ID:` and label 1 the pilot's name — `YOU` for the machine being flown; otherwise `TARGET:` and the type name |
 | Group record's side byte (`obj+0x45` → `+0x12`) | Label 1's font: `ColorSchemePanels[1]` `CPGREEN` for a friendly, `[2]` `CPRED` for a Cybrid. **This is the paint-time override**; the constructor's own `RED` for that label is never used |
-| Same byte | A friendly gets the integrity readout in label 4; a hostile gets group 20 entry 2 `DIST:  ` with the range appended (`FUN_00492780` between the two origins) |
+| Same byte | A friendly gets the integrity readout in label 4; a hostile gets group 20 entry 2 `DIST:  ` with the range appended (`Math_DistanceBetweenPoints` (`00492780`) between the two origins) |
 | Target class `obj+0x1a8` | Which branch below draws the viewport, and how the condition is worked out |
 
 With no subject at all the paint writes `TARGET:` and group 26 `NONE` in `ColorSchemePanels[0]`

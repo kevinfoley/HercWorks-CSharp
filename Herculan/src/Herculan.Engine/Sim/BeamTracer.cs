@@ -4,8 +4,9 @@ namespace Herculan.Engine.Sim;
 
 /// <summary>
 /// The visible half of a beam shot — the tracer object <c>Bullet_FireBurst</c> (<c>0040bf74</c>)
-/// spawns once the hit has already been resolved, constructed by <c>FUN_0040b804</c> and drawn by
-/// its class's vtable slot 0 (<c>FUN_0040bc14</c>).
+/// spawns once the hit has already been resolved, constructed by <c>BeamTracer_Ctor</c>
+/// (<c>0040b804</c>) and drawn by its class's vtable slot 0, <c>BeamTracer_Draw</c>
+/// (<c>0040bc14</c>).
 ///
 /// <para>It is not a <see cref="SimObject"/> in the original either: tracers live in their own pool
 /// (<c>DAT_004a9746</c>), which <c>Sim_MainTick</c> walks <b>before</b> the machine list — ticking
@@ -32,14 +33,52 @@ public sealed class BeamTracer {
 	/// </summary>
 	public const short InitialLife = 0x38;
 
-	internal BeamTracer(Vec3i start, Vec3i end, short missileId) {
+	/// <summary>
+	/// The two <c>PROJ.DAT</c> subtype ids <c>BeamTracer_Ctor</c> tests for before it builds anything —
+	/// ELF and ELF2, the only two weapons that get the jagged chain instead of a straight segment.
+	/// </summary>
+	public const short ElfMissileId = 1;
+
+	/// <inheritdoc cref="ElfMissileId"/>
+	public const short Elf2MissileId = 7;
+
+	/// <summary>How far apart the chain's nodes sit: the length the start-to-end delta is rescaled to.</summary>
+	public const short NodeSpacing = 0x400;
+
+	/// <summary>
+	/// <c>Math_RandomNext() &amp; 0x7f</c>, added to every axis of every node but the first — 0 to
+	/// 127, never negative. What that one-sidedness does to the chain's shape is in
+	/// docs/simulation/beam-visuals.md, "ELF and ELF2".
+	/// </summary>
+	public const int JitterMask = 0x7f;
+
+	/// <summary>
+	/// How many quads the original's vertex-index list can address; a longer chain would read past
+	/// it. No retail weapon reaches it — see docs/simulation/beam-visuals.md, "The paint is the
+	/// shape renderer's point-list path", for the table this comes from.
+	/// </summary>
+	public const int MaxQuads = 30;
+
+	private readonly Vec3i[] _points;
+
+	/// <param name="start">The muzzle point.</param>
+	/// <param name="end">Where the beam stopped.</param>
+	/// <param name="missileId">The <c>PROJ.DAT</c> subtype id, which selects the shape and the appearance.</param>
+	/// <param name="halfWidth">
+	/// The <c>BEAM.DAT</c> half-width for that subtype, which the jagged branch reads at construction
+	/// time — it is baked into the geometry as the z offset between each node's two points, not
+	/// applied at draw time as it is for a straight beam.
+	/// </param>
+	/// <param name="random">The simulation generator, which the node jitter draws from.</param>
+	internal BeamTracer(Vec3i start, Vec3i end, short missileId, int halfWidth, SimRandom random) {
 		Start = start;
 		End = end;
 		MissileId = missileId;
 		Life = InitialLife;
+		_points = IsJagged ? BuildChain(start, end, halfWidth, random) : Array.Empty<Vec3i>();
 	}
 
-	/// <summary>The muzzle point — <c>FUN_0040b804</c>'s <c>param_3</c>, the first of the two points it stores.</summary>
+	/// <summary>The muzzle point — <c>BeamTracer_Ctor</c>'s <c>param_3</c>, the first of the two points it stores.</summary>
 	public Vec3i Start { get; }
 
 	/// <summary>
@@ -59,6 +98,36 @@ public sealed class BeamTracer {
 	public short Life { get; private set; }
 
 	/// <summary>
+	/// Whether this shot took <c>BeamTracer_Ctor</c>'s second branch — the one ELF and ELF2 alone take,
+	/// which stores a chain of jittered nodes instead of the muzzle and the hit.
+	/// </summary>
+	public bool IsJagged => MissileId is ElfMissileId or Elf2MissileId;
+
+	/// <summary>
+	/// The chain's point list, empty for a straight beam. Node <c>k</c> owns the pair
+	/// <c>[2k]</c> (offset up in z by the <c>BEAM.DAT</c> half-width) and <c>[2k+1]</c> (on the node
+	/// itself), so the ribbon stands <b>vertically in the world</b> and does not turn to face the
+	/// viewer the way a straight beam's quad does.
+	/// </summary>
+	public IReadOnlyList<Vec3i> Points => _points;
+
+	/// <summary>
+	/// How many quads the chain spans — one fewer than its node count, since quad <c>k</c> is
+	/// bounded by nodes <c>k</c> and <c>k+1</c>. Zero for a straight beam.
+	/// </summary>
+	public int QuadCount => _points.Length == 0 ? 0 : _points.Length / 2 - 1;
+
+	/// <summary>
+	/// The four points of quad <paramref name="index"/>, in the order the original's vertex-index
+	/// table puts them — low, high, high, low, so the quad is wound as a ribbon rather than crossed.
+	/// The table and how it is built are in docs/simulation/beam-visuals.md.
+	/// </summary>
+	public (Vec3i A, Vec3i B, Vec3i C, Vec3i D) Quad(int index) {
+		int node = index * 2;
+		return (_points[node + 1], _points[node], _points[node + 2], _points[node + 3]);
+	}
+
+	/// <summary>
 	/// <c>FUN_0040c2a0</c>, vtable <c>+0x14</c> — one <c>Math_CountdownTimerTick</c> and nothing else.
 	/// </summary>
 	/// <returns>Whether the tracer has expired and should be freed.</returns>
@@ -69,5 +138,42 @@ public sealed class BeamTracer {
 		}
 
 		return Life == 0;
+	}
+
+	/// <summary>
+	/// <c>BeamTracer_Ctor</c>'s jagged branch. One node per <see cref="NodeSpacing"/> units of the
+	/// straight-line distance plus one, walked from the muzzle along a step rescaled to that
+	/// spacing; the last node restarts from the exact endpoint instead of the walked position.
+	///
+	/// <para>Every node but the first is jittered — see <see cref="JitterMask"/> — the endpoint
+	/// included.</para>
+	/// </summary>
+	private static Vec3i[] BuildChain(Vec3i start, Vec3i end, int halfWidth, SimRandom random) {
+		// (char)(distance >> 10) + 1, a signed byte in the original.
+		int nodeCount = (sbyte)((byte)(start.ApproxDistanceTo(end) >> 10) + 1);
+		nodeCount = Math.Clamp(nodeCount, 1, MaxQuads);
+
+		int stepX = end.X - start.X;
+		int stepY = end.Y - start.Y;
+		int stepZ = end.Z - start.Z;
+		SimMath.ScaleToLength(ref stepX, ref stepY, ref stepZ, NodeSpacing);
+
+		var points = new Vec3i[nodeCount * 2 + 2];
+		var walked = start;
+		for (int node = 0; node <= nodeCount; node++) {
+			var here = node == nodeCount ? end : walked;
+			if (node != 0) {
+				here = new Vec3i(
+					here.X + random.NextMasked(JitterMask),
+					here.Y + random.NextMasked(JitterMask),
+					here.Z + random.NextMasked(JitterMask));
+			}
+
+			points[node * 2] = new Vec3i(here.X, here.Y, here.Z + halfWidth);
+			points[node * 2 + 1] = here;
+			walked = new Vec3i(walked.X + stepX, walked.Y + stepY, walked.Z + stepZ);
+		}
+
+		return points;
 	}
 }

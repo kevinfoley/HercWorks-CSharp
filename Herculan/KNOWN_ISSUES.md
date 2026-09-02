@@ -11,6 +11,7 @@ _Bugs listed in this section were tested on Windows 11. It's possible that some 
 - Some buildings' collision volumes are shorter than the visible mesh, so shots pass through the top of the building.
 - Turning with the keyboard turns at half of the speed of turning with the joystick.
 - The HUD speed readout does not reflect speed accurately. Hercs have two strides, "walking" and "running". In the walking stride, the Herc moves much more slowly than the speed gauge indicates.
+- An ELF or ELF2 shot paints a stray orange-white dash at the muzzle, roughly four pixels wide, where the jagged tracer branch falls through into the straight-beam draw. See [`docs/simulation/beam-visuals.md`](docs/simulation/beam-visuals.md#the-muzzle-stub-is-a-retail-fall-through).
 - The Range readout of the MFD TARGET tab (F5) prints raw world units — 1 unit = 6 mm, so 103050 is about 618 m. Every other distance readout in the cockpit converts to metres first (`Hud_WorldUnitsToMetres`); this one does not.
 
 ## HERCULAN Engine

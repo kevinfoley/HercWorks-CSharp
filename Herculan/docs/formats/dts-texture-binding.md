@@ -235,6 +235,12 @@ a line loop over the poly's own vertex list, closing back to the first vertex �
 second fill. The `line != fill` test is on the **ramped** bytes, so two surface values that resolve
 to the same ramp output draw no outline.
 
+`DAT_006c60d8`/`DAT_006c60dc` are one **brush** — `{mode, colour}` — and the default one: the fill
+dispatches on whatever `clipBlock+0x228` points at, which is normally this pair. A caller that
+installs a brush of its own there instead leaves these writes inert; the beam draw is the one that
+does, see [`../simulation/beam-visuals.md`](../simulation/beam-visuals.md#beamdats-colour-index-is-the-fill-brush-and-only-the-jagged-path-uses-it).
+`DAT_006c60d4`, the line colour, sits just below it and is not part of the brush.
+
 Across all 55 retail `.DTS`, 11 roots carry a surface whose line colour differs from its fill:
 `BULLETS.DTS` root 4 (ATC35), five weapon-model roots in `MECHWPNS`/`MECHWPN2`, and 3-edge slivers on
 two `HYPERION` LODs and one `MIRIMAC` root. ATC35's three quads are gold `#D0CC3C` with no outline,
@@ -458,7 +464,7 @@ not cutouts (9 of 44376 in `LIGHT`, 7 of 68464 in `MEDIUM`).
 
 ## Rejected readings
 
-Each of these was implemented or documented at some point and is disproven. Do not reintroduce.
+Readings a fresh pass could plausibly land on. Each is disproven; do not reintroduce.
 
 | Reading | Why it is wrong |
 |---|---|

@@ -68,8 +68,9 @@ Four properties a port has to preserve:
 - **`Bullet_FireBurst`(missileId, shotTransform, range, owner, power) — fire-burst / tracer spawner.**
   Calls the raycast once up front to get the actual (possibly shortened) travel distance, then —
   if that distance exceeds 5000 game units — splits the visual tracer into multiple 5000-unit
-  segments (`FUN_0040b804` spawns each), otherwise spawns one tracer for the whole distance. Pure
-  rendering; the hit-distance math is already resolved by the raycast call at the top.
+  segments (`BeamTracer_Ctor` (`0040b804`) spawns each), otherwise spawns one tracer for the whole
+  distance. Pure rendering; the hit-distance math is already resolved by the raycast call at the
+  top.
 
 ## Direct-fire damage: armor-then-part, deterministic, shield-gated
 

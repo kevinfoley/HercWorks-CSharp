@@ -1084,7 +1084,9 @@ public sealed class Overlay2DRenderer : IDisposable {
 					drawText(font, row.Rounds.ToString(), left + ValueFieldLeft * S, top);
 					break;
 
-				case WeaponMountKind.Energy when barColors is var (fillEven, fillOdd):
+				// The ELF class keeps the energy class's gauge slot (+0x50), so it prints the same bar.
+				case WeaponMountKind.Energy or WeaponMountKind.Elf
+					when barColors is var (fillEven, fillOdd):
 					AddChargeBar(row.ChargeMeter,
 						left + ValueFieldLeft * S, top + ChargeBarTop * S,
 						(ValueFieldRight - ValueFieldLeft) * S,

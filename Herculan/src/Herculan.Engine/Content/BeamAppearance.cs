@@ -7,8 +7,9 @@ using HercWorks.Core.Io.Transform.Dbsim;
 namespace Herculan.Engine.Content;
 
 /// <summary>
-/// What a beam looks like: the two resources <c>FUN_0040b6e0</c> — the beam module's own init, which
-/// the string <c>BEAM.CPP</c> at <c>00498781</c> names — loads once at startup.
+/// What a beam looks like: the two resources <c>Beam_LoadResourceTables</c> (<c>0040b6e0</c>) — the
+/// beam module's own init, which the string <c>BEAM.CPP</c> at <c>00498781</c> names — loads once at
+/// startup.
 ///
 /// <list type="bullet">
 /// <item><c>dat\BEAM.DAT</c>, a count followed by that many six-byte records
@@ -27,20 +28,16 @@ namespace Herculan.Engine.Content;
 /// keeps a profile of <see cref="ProfileTexels"/> RGBA samples rather than a 2D image.</para>
 ///
 /// <para><b>Only the width differs per weapon.</b> The record's first field is the beam's half-width
-/// in world units — <c>FUN_0040bc14</c> feeds it to the perspective divide at <c>0048c4c0</c> and
+/// in world units — <c>BeamTracer_Draw</c> feeds it to the perspective divide at <c>0048c4c0</c> and
 /// floors the result at two pixels. Retail widths run 20 (LAS100) to 120 (BPBW).</para>
 ///
-/// <para><b>The record's colour index is not used by a straight beam</b>, which is worth stating
-/// plainly because it looks as though it must be. The draw does publish it to the graphics context's
-/// <c>+0x22c</c> colour pair as <c>{0, index}</c>, but the poly it then submits goes through
-/// <c>FUN_00468310</c> with mode <c>0</c>, and mode 0's span routine (<c>FUN_0046ab10</c>) is a plain
-/// affine texture copy: it fetches <c>atlasPage[v][u]</c> and stores that byte to the framebuffer
-/// with no shade level, no colour lookup and no read of the context pair at all. The shade level the
-/// context pair would feed is mode <b>1</b>'s (<c>FUN_0046ac48</c>), which nothing here selects. So
-/// every retail beam draws the same orange-to-white ribbon and is told apart only by how wide it is.
-/// The indices are still parsed and exposed on <see cref="BeamData.Entry.ColorId"/> because they are
-/// what the file holds — PBW/BPBW 10, PBW2 1, ELF 104, ELF2 99, the LAS family 88 — and because the
-/// undecoded ELF/ELF2 branch does extra rasterizer setup that may well consume them.</para>
+/// <para><b>The record's colour index belongs to the jagged path, and only to it.</b> The pair the
+/// draw writes to the graphics context is the rasterizer's <b>fill brush</b>, and an ELF's chain
+/// quads are a flat fill of that palette index with no texture involved. A straight beam installs
+/// the same brush and then never uses it — its span routine has no colour lookup — so every retail
+/// straight beam draws the same orange-to-white ribbon and is told apart only by how wide it is.
+/// PBW/BPBW 10, PBW2 1 and the LAS family 88 are all parsed and all ignored; ELF's 104 and ELF2's 99
+/// decide what those two look like. See <see cref="Color"/> and docs/simulation/beam-visuals.md.</para>
 ///
 /// <para><b>There is no alpha.</b> <c>Bullet_FireBurst</c>'s draw passes <c>FUN_00468310</c>'s last
 /// parameter as 0, which selects the span routine's opaque half; the non-zero form is a colour-key
@@ -48,7 +45,7 @@ namespace Herculan.Engine.Content;
 /// opaque ribbon over whatever it crosses.</para>
 /// </summary>
 public sealed class BeamAppearance {
-	/// <summary>The <c>dat</c> resource <c>FUN_0040b6e0</c> opens by the literal name <c>beam</c>.</summary>
+	/// <summary>The <c>dat</c> resource <c>Beam_LoadResourceTables</c> opens by the literal name <c>beam</c>.</summary>
 	public const string TableResource = "BEAM.DAT";
 
 	/// <summary>The <c>dba</c> resource it loads next, by the literal name <c>beamtex</c>.</summary>
@@ -56,11 +53,14 @@ public sealed class BeamAppearance {
 
 	private readonly BeamData _table;
 	private readonly byte[][] _profiles;
+	private readonly DynamixPalette? _palette;
 
-	private BeamAppearance(BeamData table, byte[][] profiles, int profileTexels) {
+	private BeamAppearance(BeamData table, byte[][] profiles, int profileTexels,
+			DynamixPalette? palette) {
 		_table = table;
 		_profiles = profiles;
 		ProfileTexels = profileTexels;
+		_palette = palette;
 	}
 
 	/// <summary>How many <c>BEAM.DAT</c> records were read.</summary>
@@ -108,7 +108,7 @@ public sealed class BeamAppearance {
 			texels = Math.Max(texels, profiles[i].Length / 4);
 		}
 
-		return texels == 0 ? null : new BeamAppearance(table, profiles, texels);
+		return texels == 0 ? null : new BeamAppearance(table, profiles, texels, palette);
 	}
 
 	/// <summary>
@@ -123,6 +123,13 @@ public sealed class BeamAppearance {
 	/// the perpendicular offset applied to both sides of the centre line. Zero when the id is unknown.
 	/// </summary>
 	public int HalfWidth(int missileId) => Record(missileId)?.Width ?? 0;
+
+	/// <summary>
+	/// The record's colour index resolved through the theater palette — the fill colour a
+	/// <b>jagged</b> beam is painted in, and the one thing that tells ELF from ELF2 on screen. The
+	/// straight path never reaches it; see the class remarks. Black when the id is outside the table.
+	/// </summary>
+	public Vector3 Color(int missileId) => Lookup(_palette, Record(missileId)?.ColorId ?? 0);
 
 	/// <summary>
 	/// The cross-section for <paramref name="missileId"/> as RGBA texels, one per source row, running

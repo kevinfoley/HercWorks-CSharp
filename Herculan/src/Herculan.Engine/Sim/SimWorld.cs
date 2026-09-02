@@ -1,4 +1,5 @@
 using HercWorks.Core.Data.File.Dat.Sim;
+using Herculan.Engine.Content;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Terrain;
 
@@ -37,13 +38,21 @@ public sealed class SimWorld {
 	/// <c>dat\ROCKETS.DAT</c>, which every launcher needs — see <see cref="FireRocket"/>. Null leaves
 	/// them firing blanks, as null <paramref name="bullets"/> does for the guns.
 	/// </param>
+	/// <param name="beams">
+	/// <c>dat\BEAM.DAT</c>. This is simulation state and not only a drawing detail: an ELF's tracer
+	/// bakes the table's half-width into its geometry at construction time, and rolls the chain's
+	/// jitter off <see cref="Random"/> while it does — see <see cref="BeamTracer"/>. Null leaves a
+	/// jagged beam with a zero-width ribbon, which draws as nothing.
+	/// </param>
 	/// <param name="seed">Seed for <see cref="Random"/>.</param>
 	public SimWorld(HeightGrid terrain, BulletCatalog? bullets = null,
-			ExplosionCatalog? explosions = null, RocketCatalog? rockets = null, int seed = 0) {
+			ExplosionCatalog? explosions = null, RocketCatalog? rockets = null,
+			BeamAppearance? beams = null, int seed = 0) {
 		Terrain = terrain;
 		Bullets = bullets;
 		Explosions = explosions;
 		Rockets = rockets;
+		BeamTable = beams;
 		Random = new SimRandom(seed);
 	}
 
@@ -58,6 +67,9 @@ public sealed class SimWorld {
 
 	/// <summary>The launcher-round table, or null when the resource was not loaded.</summary>
 	public RocketCatalog? Rockets { get; }
+
+	/// <summary>The beam appearance table, or null when the resource was not loaded.</summary>
+	public BeamAppearance? BeamTable { get; }
 
 	/// <summary>
 	/// The simulation's pseudo-random generator — DBSIM's single global state block at
@@ -319,7 +331,9 @@ public sealed class SimWorld {
 		_tracers.Add(new BeamTracer(
 			new Vec3i(shot.Muzzle.X, shot.Muzzle.Y, shot.Muzzle.Z),
 			shot.Muzzle.TransformPoint(0, travelled, 0),
-			shot.MissileId));
+			shot.MissileId,
+			BeamTable?.HalfWidth(shot.MissileId) ?? 0,
+			Random));
 
 		_beams.Add(shot);
 	}

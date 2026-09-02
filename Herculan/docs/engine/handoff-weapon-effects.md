@@ -21,12 +21,14 @@ load-bearing. What *is* settled is in
 [`../formats/dts-texture-binding.md`](../formats/dts-texture-binding.md) and
 [`../formats/distance-fog-and-sky.md`](../formats/distance-fog-and-sky.md).
 
+## Next
+
+Finish RE and implementation on the **ELF and ELF2**. Currently, they draw straight — the jagged branch's paint half (`FUN_0048c964`, `FUN_0048ce14`,
+  `FUN_0048d4b4`) is undecoded. See the beam-visuals doc. Make sure they are fully RE'd and understood before starting on implementation.
+
 ## Not built
 
-Anything you can hear, AI target acquisition, weapon-mount destruction, and the light sources
-effects are supposed to cast.
-
-## Also outstanding, lower priority
+_ These are not organized in any particular order; this may not be the best order to complete these tasks in._
 
 - AI machines never select anything, so they never fire and never switch their radar on — which is
   also why a hostile is only targetable at long range once the player goes ACTIVE. The setter is
@@ -55,8 +57,6 @@ effects are supposed to cast.
   not do. **Hit geometry is ruled out** — measured, see
   [`../simulation/hit-detection.md`](../simulation/hit-detection.md), "Measured: hit geometry versus
   the drawn mesh". Remaining suspect is render layering.
-- **ELF and ELF2 draw straight** — the jagged branch's paint half (`FUN_0048c964`, `FUN_0048ce14`,
-  `FUN_0048d4b4`) is undecoded. See the beam-visuals doc.
 - **Field of view.** Still a guess. The original's focal length is the per-view shift at `view+0x1a`
   that `Raster_InstallViewProjection` installs; its writer has not been traced. It also affects the
   sky, whose band height is measured in screen rows while the two retail captures disagree slightly.

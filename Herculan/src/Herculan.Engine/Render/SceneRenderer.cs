@@ -136,7 +136,7 @@ public sealed class SceneRenderer : IDisposable {
 	/// <see cref="Content.ShadeRamp.FogColor"/> — and <see cref="Scene.Atmosphere"/> supplies it.
 	/// The value here is only the fallback for a mission whose ramp did not load.
 	/// </summary>
-	public Vector3 HazeColor { get; set; } = new(0.55f, 0.60f, 0.68f);
+	public Vector3 FogColor { get; set; } = new(0.55f, 0.60f, 0.68f);
 
 	/// <summary>
 	/// The theater's sky, sixteen banded colours out of its own palette — see
@@ -148,7 +148,7 @@ public sealed class SceneRenderer : IDisposable {
 	/// Flat fallback sky, used to clear the framebuffer and drawn instead of the gradient when
 	/// <see cref="Sky"/> is null.
 	///
-	/// <para>Deliberately <b>not</b> <see cref="HazeColor"/>, which it used to be — the sky and the
+	/// <para>Deliberately <b>not</b> <see cref="FogColor"/>, which it used to be — the sky and the
 	/// colour distant terrain fades into are separate things in the original, even though its palette
 	/// makes them meet: the sky's bottom band and the ramp's fog colour are neighbouring entries of
 	/// one gradient.</para>
@@ -156,16 +156,16 @@ public sealed class SceneRenderer : IDisposable {
 	public Vector3 SkyColor { get; set; } = new(0.55f, 0.60f, 0.68f);
 
 	/// <summary>
-	/// Distance in render units (metres) at which haze starts — half the zone's visibility range,
+	/// Distance in render units (metres) at which fog starts — half the zone's visibility range,
 	/// which is where the original's ramp fade begins. See <see cref="Scene.Atmosphere"/>.
 	/// </summary>
-	public float HazeStart { get; set; } = 900f;
+	public float FogStart { get; set; } = 900f;
 
-	/// <summary>Distance in render units at which haze is total — the zone's visibility range.</summary>
-	public float HazeEnd { get; set; } = 9000f;
+	/// <summary>Distance in render units at which fog is total — the zone's visibility range.</summary>
+	public float FogEnd { get; set; } = 9000f;
 
 	/// <summary>
-	/// Whether distance haze is applied at all. On by default, and the simulator never turns it off:
+	/// Whether distance fog is applied at all. On by default, and the simulator never turns it off:
 	/// the fade is the original's own behaviour rather than an effect. It exists for tools — the
 	/// mission editor lets it be switched off so distant geometry stays legible while placing things
 	/// out past the zone's visibility range.
@@ -173,10 +173,10 @@ public sealed class SceneRenderer : IDisposable {
 	public bool FogEnabled { get; set; } = true;
 
 	/// <summary>
-	/// Haze bounds far enough out that the shader's fade fraction clamps to zero everywhere, which is
+	/// Fog bounds far enough out that the shader's fade fraction clamps to zero everywhere, which is
 	/// how <see cref="FogEnabled"/> is spent — no shader branch and no second program.
 	/// </summary>
-	private const float HazeDisabledDistance = 1e9f;
+	private const float FogDisabledDistance = 1e9f;
 
 	/// <summary>
 	/// Settings for the grid painted onto any item whose <see cref="SceneItem.ShowGrid"/> is set.
@@ -213,9 +213,9 @@ public sealed class SceneRenderer : IDisposable {
 		_shader.SetMatrix("uView", camera.ViewMatrix);
 		_shader.SetMatrix("uProjection", camera.ProjectionMatrix((float)viewportWidth / System.Math.Max(viewportHeight, 1)));
 		_shader.SetVector3("uLightDirection", LightDirection);
-		_shader.SetVector3("uHazeColor", HazeColor);
-		_shader.SetFloat("uHazeStart", FogEnabled ? HazeStart : HazeDisabledDistance);
-		_shader.SetFloat("uHazeEnd", FogEnabled ? HazeEnd : HazeDisabledDistance);
+		_shader.SetVector3("uFogColor", FogColor);
+		_shader.SetFloat("uFogStart", FogEnabled ? FogStart : FogDisabledDistance);
+		_shader.SetFloat("uFogEnd", FogEnabled ? FogEnd : FogDisabledDistance);
 
 		if (_hasGrid) {
 			_shader.SetVector3("uGridColor", Grid.Color);

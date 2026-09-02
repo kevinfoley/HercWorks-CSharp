@@ -22,7 +22,7 @@ namespace Herculan.Engine.Scene;
 /// previous hand-picked 900 m/9000 m — that pair was a guess made before any of this was traced,
 /// and it left distant terrain unfogged where the original has it fully washed out.</para>
 ///
-/// <para>The engine spends this as continuous per-pixel haze in <see cref="Render.SceneRenderer"/>
+/// <para>The engine spends this as continuous per-pixel fog in <see cref="Render.SceneRenderer"/>
 /// rather than as the original's twelve per-object ramp steps. Same start, same end, same colour;
 /// smoother in between.</para>
 /// </summary>
@@ -56,10 +56,10 @@ public readonly record struct Atmosphere(float FogStart, float FogEnd, Vector3? 
 	/// is cleared to, so that whatever the gradient does not cover is at least the right hue.
 	/// </summary>
 	public void ApplyTo(SceneRenderer renderer) {
-		renderer.HazeStart = FogStart;
-		renderer.HazeEnd = FogEnd;
+		renderer.FogStart = FogStart;
+		renderer.FogEnd = FogEnd;
 		if (FogColor is { } color) {
-			renderer.HazeColor = color;
+			renderer.FogColor = color;
 		}
 
 		renderer.Sky = Sky;

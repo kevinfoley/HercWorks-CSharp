@@ -118,7 +118,7 @@ Known divergences:
 - Triangle normals come from the cross product of the triangle actually drawn, where
   `Terrain_BuildCellSurface` differences neighbouring cell heights. Same surface, different
   derivation.
-- Distance fog stays continuous per-pixel haze in the engine rather than the original's twelve
+- Distance fog stays continuous per-pixel in the engine rather than the original's twelve
   quantised ramp slices.
 
 ## Rejected readings

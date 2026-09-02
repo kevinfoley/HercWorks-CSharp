@@ -9,7 +9,7 @@
 // textured, ramp-shaded and flat polys in one mesh. The builders therefore encode which class a
 // corner belongs to in its own attributes (aTextured, aUnlit, aShadeRamp) and main() resolves it per
 // fragment. Splitting this into a program per surface type would mean splitting every mesh to match,
-// and gain nothing: the classes share their geometry, lighting and haze, and differ only in where
+// and gain nothing: the classes share their geometry, lighting and fog, and differ only in where
 // the final colour is looked up.
 //
 // Both stages live in this file, selected by VERTEX_SHADER / FRAGMENT_SHADER, which
@@ -123,9 +123,9 @@ uniform float uGridFadeStart;
 uniform float uGridFadeEnd;
 #endif
 
-uniform vec3 uHazeColor;
-uniform float uHazeStart;
-uniform float uHazeEnd;
+uniform vec3 uFogColor;
+uniform float uFogStart;
+uniform float uFogEnd;
 uniform sampler2D uTexture;
 uniform bool uTextureEnabled;
 uniform sampler2D uShadeRampTable;
@@ -238,9 +238,9 @@ void main() {
 	}
 
 #ifdef EDITOR_GRID
-	// The measuring grid, painted onto the surface before the haze so that a distant line
+	// The measuring grid, painted onto the surface before the fog so that a distant line
 	// washes out along with the ground it is drawn on. It is a tool for reading the ground
-	// nearby, so it is also faded out with distance on its own account, well inside the haze.
+	// nearby, so it is also faded out with distance on its own account, well inside the fog.
 	//
 	// Branching on the uniform alone, never on the fade: gridCoverage reads screen-space
 	// derivatives, and those are undefined inside control flow that differs between
@@ -251,9 +251,9 @@ void main() {
 	}
 #endif
 
-	// Distance haze, so a 10 km zone reads as depth instead of a flat wall of terrain.
-	float haze = clamp((vViewDistance - uHazeStart) / max(uHazeEnd - uHazeStart, 0.001), 0.0, 1.0);
-	FragColor = vec4(mix(lit, uHazeColor, haze), 1.0);
+	// Distance fog, so a 10 km zone reads as depth instead of a flat wall of terrain.
+	float fog = clamp((vViewDistance - uFogStart) / max(uFogEnd - uFogStart, 0.001), 0.0, 1.0);
+	FragColor = vec4(mix(lit, uFogColor, fog), 1.0);
 }
 
 #endif

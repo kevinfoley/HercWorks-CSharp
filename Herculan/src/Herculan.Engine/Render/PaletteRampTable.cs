@@ -23,7 +23,7 @@ namespace Herculan.Engine.Render;
 /// its ends it collapses distinct colours together, which no multiplier does.</para>
 ///
 /// <para>Only <see cref="ShadeRamp.ShadeLevels"/> rows of the ramp are represented — depth slice
-/// zero. Distance is applied as continuous haze in <see cref="SceneRenderer"/> rather than as the
+/// zero. Distance is applied as continuous fog in <see cref="SceneRenderer"/> rather than as the
 /// original's twelve quantised slices, which is a deliberate difference recorded in
 /// <see cref="ShadeRamp"/>.</para>
 /// </summary>

@@ -1,14 +1,14 @@
 namespace HercWorks.Core.Data.File.Dbsim;
 
 /// <summary>
-/// FILE - /SIMVOL0/WLD/ worldX.wld — one theater's environment descriptor: sky and haze parameters,
+/// FILE - /SIMVOL0/WLD/ worldX.wld — one theater's environment descriptor: sky and fog parameters,
 /// two distance-band tables, a colour-ramp pair, and the resource names the terrain wears.
 ///
 /// <para><b>The file is variable-length, not a fixed struct.</b> Every array in it is preceded by
 /// its own count or dimension, so the layout is a walk, matching <c>maybe_World_LoadTheater</c>
 /// (<c>0042e010</c>) read for read:</para>
 /// <code>
-/// 14 x int16                       -- sky/haze setup, dispatched straight into 0042ebbc
+/// 14 x int16                       -- sky/fog setup, dispatched straight into 0042ebbc
 /// int32 count, count x int32       -- distance bands A
 /// int32 count, count x int32       -- distance bands B
 /// int16 rampRows, int16 rampColumns
@@ -43,7 +43,7 @@ public class WorldData {
 	public const int HeaderShorts = 14;
 
 	/// <summary>
-	/// The 14 leading shorts, in file order. The original hands them to its sky/haze setup rather
+	/// The 14 leading shorts, in file order. The original hands them to its sky/fog setup rather
 	/// than storing a struct, so only the first four have names anyone has proposed, and those come
 	/// from the Java port's guesses rather than from the code: <c>2</c>, a sky palette id (208 in
 	/// retail data, which is where the sky band starts — see docs/formats/distance-fog-and-sky.md),

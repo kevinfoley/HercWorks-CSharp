@@ -15,7 +15,7 @@ public sealed class EditorSettings {
 	};
 
 	/// <summary>
-	/// Whether the scene is drawn with the zone's distance haze — see
+	/// Whether the scene is drawn with the zone's distance fog — see
 	/// <see cref="Render.SceneRenderer.FogEnabled"/>. On by default, matching what the simulator
 	/// draws.
 	/// </summary>

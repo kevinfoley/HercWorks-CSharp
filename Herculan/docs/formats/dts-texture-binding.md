@@ -430,7 +430,7 @@ its *vertices* on the axes at level 1 — a 45-degree difference in cross-sectio
 | `TSDetailPart` | Maximum detail only (`Parts[^1]`); distance selection and the STRUCTURE DETAIL setting not implemented |
 | Front/back visibility test | Normal flip implemented; **back surface pair not selected** — `FrontColor` is used unconditionally |
 | Per-poly stored normals | Exact; `DtsMeshBuilder.ResolveFaceNormal` reads `TSPoly.Normal` as a point index. All triangles fanned from one poly share it. The winding survives only as a fallback for an unresolvable normal index, negated to match |
-| Distance fog | Continuous per-pixel haze, not the original's 12 quantised `.RMP` depth slices |
+| Distance fog | Continuous per-pixel fog, not the original's 12 quantised `.RMP` depth slices |
 
 How the shading paths map onto engine types:
 

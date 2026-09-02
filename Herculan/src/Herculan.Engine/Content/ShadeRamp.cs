@@ -37,10 +37,10 @@ namespace Herculan.Engine.Content;
 /// callers and the trace behind that are docs/formats/distance-fog-and-sky.md's "What gets
 /// faded".</para>
 ///
-/// <para>The engine renders that fade as per-pixel haze in <see cref="Render.SceneRenderer"/>
+/// <para>The engine renders that fade as per-pixel fog in <see cref="Render.SceneRenderer"/>
 /// rather than as a ramp row, so <see cref="Lookup"/>'s two-argument form reads slice zero and the
-/// haze supplies the rest. The difference is that the original's is per object and quantised to
-/// twelve steps where the haze is continuous.</para>
+/// fog supplies the rest. The difference is that the original's is per object and quantised to
+/// twelve steps where the fog is continuous.</para>
 /// </summary>
 public sealed class ShadeRamp {
 	/// <summary>The folder the theater loader opens this from.</summary>

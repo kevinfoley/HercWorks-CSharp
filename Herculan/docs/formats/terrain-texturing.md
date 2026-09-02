@@ -28,7 +28,7 @@ world<N> descriptor file  ──(a string field in the data)──▶  dba\<name
 
 | | |
 |---|---|
-| 8 x `int16` | dispatched into subsystem setup (`0042ebbc`, sky/haze globals), not stored as a struct |
+| 8 x `int16` | dispatched into subsystem setup (`0042ebbc`, sky/fog globals), not stored as a struct |
 | 6 x `int16` | ditto; two land in `DAT_004cfd76`/`DAT_004cfd78` |
 | `int32` count + count x `int32` | 16 entries in every retail file, ascending in even steps |
 | `int32` count + count x `int32` | 16 again, identical to the first array |

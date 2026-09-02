@@ -111,9 +111,9 @@ immediately above it, which is why retail's horizon reads as continuous rather t
 `Scene.Atmosphere` reads all of it off the loaded zone and theater and applies it to
 `Render.SceneRenderer`. Deviations:
 
-- **The fade is continuous per-pixel haze, not 12 per-object ramp steps.** Same start, end and
+- **The fade is continuous per-pixel fog, not 12 per-object ramp steps.** Same start, end and
   colour; smoother between. `ShadeRamp.Lookup`'s two-argument form therefore reads slice zero and
-  the haze supplies the rest; `ShadeRamp.DepthSliceFor` ports the real calculation and is unused by
+  the fog supplies the rest; `ShadeRamp.DepthSliceFor` ports the real calculation and is unused by
   the renderer.
 - **The sky is banded in screen space**, `SkyGradient.BandHeightFor` scaling the measured 6 rows at
   480 to the viewport. The horizon is projected per frame from the camera's flattened forward

@@ -2258,7 +2258,7 @@
       "type": "function",
       "confidence": "medium",
       "name": "maybe_Terrain_SetDistanceBands",
-      "description": "Given the terrain view distance in world units (grid[+0x10c] << cellShift), computes five scaled values via 0047dfa4 against a 5-entry short table at DAT_0049abb0, storing them at DAT_004cfa0c. Shape of fog/haze band or LOD threshold setup derived from the terrain draw distance. Named 'maybe_' because the consumer of DAT_004cfa0c was not traced.",
+      "description": "Given the terrain view distance in world units (grid[+0x10c] << cellShift), computes five scaled values via 0047dfa4 against a 5-entry short table at DAT_0049abb0, storing them at DAT_004cfa0c. Shape of fog band or LOD threshold setup derived from the terrain draw distance. Named 'maybe_' because the consumer of DAT_004cfa0c was not traced.",
       "source": "docs/formats/terrain-texturing.md 2026-08-13 (terrain texturing RE session, part 2)"
     },
     {

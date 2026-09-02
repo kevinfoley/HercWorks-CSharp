@@ -90,6 +90,7 @@ using var window = new EngineWindow($"HERCULAN Mission Editor — zone {mission.
 
 SceneRenderer? renderer = null;
 WireframeRenderer? wireframe = null;
+GroundGridRenderer? groundGrid = null;
 ImGuiController? imgui = null;
 GpuMesh? terrainMesh = null;
 GpuTexture? terrainTexture = null;
@@ -100,13 +101,39 @@ SceneItem[]? items = null;
 IKeyboard? keyboard = null;
 IMouse? mouse = null;
 
+var settings = EditorSettings.Load();
+var settingsPanel = new EditorSettingsPanel(settings);
+
+// Where the orientation gizmo sits: inset from the window's top-left corner, below the menu bar.
+const float CompassSize = 108f;
+const float CompassMargin = 12f;
+
 var camera = new Camera();
 var editorCamera = new EditorCamera();
 editorCamera.ResetTo(scene.Camera.Position, scene.Camera.Heading);
 
+// The grid's altitude, fixed for the session. Taken from the ground under the mission's own camera
+// start — the same query the simulation uses to stand a machine on the terrain — rather than from
+// wherever the editor camera currently is, so the plane is a level datum to measure against instead
+// of something that rides up over hills and sinks into valleys as the camera crosses them.
+float gridHeightRender = WorldScale.DistanceToRender(scene.World.GroundHeightAt(scene.Camera.Position));
+
 SceneObject? selected = null;
 bool looking = false;
 Vector2 lastMousePos = Vector2.Zero;
+
+// Set when look mode begins, and cleared by the first frame that samples the cursor afterwards.
+// That first sample only re-syncs lastMousePos; it never becomes camera rotation.
+//
+// Grabbing the pointer (CursorMode.Disabled) warps it to the centre of the window, and the cursor
+// position that comes back across that warp is not comparable with the one from before it. GLFW
+// accumulates disabled-mode motion as virtual += x - lastCursorPos and resets lastCursorPos to the
+// centre as part of the warp, so any WM_MOUSEMOVE already queued when the button went down is still
+// carrying a real client position and gets measured against the centre instead — a jump of however
+// far the pointer happened to be from the middle of the window. Hence the symptom: the camera snaps
+// only when the mouse is already moving as the button goes down, since a still mouse has no queued
+// motion to be misread.
+bool lookNeedsResync = false;
 Vector2 leftDownPos = Vector2.Zero;
 bool leftDownOverViewport = false;
 
@@ -120,12 +147,13 @@ window.Load += (gl, input) => {
 	// has no sky gradient, so DrawSky paints nothing and the view has no background at all.
 	scene.Atmosphere.ApplyTo(renderer);
 
-	// The theater's shaded-surface colours � what a TSShadedPoly is actually drawn through. See
+	// The theater's shaded-surface colours � what a TSShadedPoly is actually drawn through. See
 	// SurfaceRampTable.
 	renderer.SetShadeRamps(scene.ShadeRamps);
 	renderer.SetPaletteRamp(scene.PaletteRamp);
 
 	wireframe = new WireframeRenderer(gl);
+	groundGrid = new GroundGridRenderer(gl);
 
 	terrainMesh = new GpuMesh(gl, scene.TerrainMesh);
 	terrainTexture = scene.TerrainBank != null ? new GpuTexture(gl, scene.TerrainBank.Atlas, indexed: true) : null;
@@ -171,7 +199,7 @@ window.Load += (gl, input) => {
 				}
 
 				looking = true;
-				lastMousePos = m.Position;
+				lookNeedsResync = true;
 				m.Cursor.CursorMode = CursorMode.Disabled;
 			} else if (button == MouseButton.Left) {
 				leftDownPos = m.Position;
@@ -207,7 +235,12 @@ window.Update += deltaSeconds => {
 	Vector2 lookDelta = Vector2.Zero;
 	if (looking && mouse != null) {
 		var pos = mouse.Position;
-		lookDelta = pos - lastMousePos;
+		if (lookNeedsResync) {
+			lookNeedsResync = false;
+		} else {
+			lookDelta = pos - lastMousePos;
+		}
+
 		lastMousePos = pos;
 	}
 
@@ -224,6 +257,11 @@ window.Render += (_, gl) => {
 	var size = window.FramebufferSize;
 	float aspect = (float)size.X / MathF.Max(size.Y, 1);
 
+	// Pushed every frame rather than only when the checkbox moves: the panel edits the settings
+	// object directly and Cancel restores it just as directly, so there is no change event to hang
+	// this off, and the assignment is a field write.
+	renderer.FogEnabled = settings.RenderFog;
+
 	// SceneRenderer.Render deliberately does not clear — the simulator host draws three cockpit
 	// panels into one frame, so clearing is the caller's job, once per frame. The editor draws a
 	// single panel but still owes the same call: without it the depth buffer keeps the previous
@@ -234,6 +272,12 @@ window.Render += (_, gl) => {
 	// panels, which is what SceneRenderer.Render's x/y origin exists for.
 	renderer.Render(camera, items, 0, 0, size.X, size.Y);
 
+	// After the scene, so the grid blends over what is already there, and before the selection box,
+	// which is meant to sit on top of everything.
+	if (settings.ShowGrid && groundGrid != null) {
+		groundGrid.Draw(camera, gridHeightRender, aspect);
+	}
+
 	if (selected is { } sel) {
 		var picked = Array.Find(pickables, p => p.SceneObject == sel);
 		if (picked != null) {
@@ -241,7 +285,10 @@ window.Render += (_, gl) => {
 		}
 	}
 
-	BuildPropertiesPanel(size.X, size.Y, selected);
+	float menuBarHeight = BuildMenuBar();
+	CompassGizmo.Draw(camera, new Vector2(CompassMargin, menuBarHeight + CompassMargin), CompassSize);
+	BuildPropertiesPanel(size.X, size.Y, menuBarHeight, selected);
+	settingsPanel.Draw();
 	imgui?.Render();
 };
 
@@ -249,6 +296,7 @@ window.Closing += () => {
 	imgui?.Dispose();
 	renderer?.Dispose();
 	wireframe?.Dispose();
+	groundGrid?.Dispose();
 	terrainMesh?.Dispose();
 	terrainTexture?.Dispose();
 	foreach (var disposable in disposables) {
@@ -295,11 +343,29 @@ static bool RaySphere(Vector3 origin, Vector3 direction, Vector3 center, float r
 	return t >= 0f;
 }
 
-void BuildPropertiesPanel(int width, int height, SceneObject? sel) {
+// Draws the main menu bar and returns its height, which is what the rest of the frame's overlays
+// hang below.
+float BuildMenuBar() {
+	if (!ImGui.BeginMainMenuBar()) {
+		return 0f;
+	}
+
+	// A bare item rather than a menu: there is one entry, and burying it under a "File"-style
+	// dropdown would cost a click for nothing.
+	if (ImGui.MenuItem("Editor Settings")) {
+		settingsPanel.Open();
+	}
+
+	float height = ImGui.GetWindowSize().Y;
+	ImGui.EndMainMenuBar();
+	return height;
+}
+
+void BuildPropertiesPanel(int width, int height, float menuBarHeight, SceneObject? sel) {
 	const float PanelWidth = 320f;
 
-	ImGui.SetNextWindowPos(new Vector2(width - PanelWidth, 0));
-	ImGui.SetNextWindowSize(new Vector2(PanelWidth, height));
+	ImGui.SetNextWindowPos(new Vector2(width - PanelWidth, menuBarHeight));
+	ImGui.SetNextWindowSize(new Vector2(PanelWidth, height - menuBarHeight));
 	ImGui.Begin("Properties", ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoCollapse);
 
 	if (sel != null) {

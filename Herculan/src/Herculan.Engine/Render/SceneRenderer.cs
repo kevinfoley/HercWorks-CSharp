@@ -329,6 +329,20 @@ public sealed class SceneRenderer : IDisposable {
 	public float HazeEnd { get; set; } = 9000f;
 
 	/// <summary>
+	/// Whether distance haze is applied at all. On by default, and the simulator never turns it off:
+	/// the fade is the original's own behaviour rather than an effect. It exists for tools — the
+	/// mission editor lets it be switched off so distant geometry stays legible while placing things
+	/// out past the zone's visibility range.
+	/// </summary>
+	public bool FogEnabled { get; set; } = true;
+
+	/// <summary>
+	/// Haze bounds far enough out that the shader's fade fraction clamps to zero everywhere, which is
+	/// how <see cref="FogEnabled"/> is spent — no shader branch and no second program.
+	/// </summary>
+	private const float HazeDisabledDistance = 1e9f;
+
+	/// <summary>
 	/// Clears the whole framebuffer once per frame. Split out from <see cref="Render"/> so a host can
 	/// draw several panels (Milestone 8's three-panel cockpit view) into disjoint viewport sub-rects
 	/// of the same frame without each call wiping the ones already drawn — call this once, then
@@ -358,8 +372,8 @@ public sealed class SceneRenderer : IDisposable {
 		_shader.SetMatrix("uProjection", camera.ProjectionMatrix((float)viewportWidth / System.Math.Max(viewportHeight, 1)));
 		_shader.SetVector3("uLightDirection", LightDirection);
 		_shader.SetVector3("uHazeColor", HazeColor);
-		_shader.SetFloat("uHazeStart", HazeStart);
-		_shader.SetFloat("uHazeEnd", HazeEnd);
+		_shader.SetFloat("uHazeStart", FogEnabled ? HazeStart : HazeDisabledDistance);
+		_shader.SetFloat("uHazeEnd", FogEnabled ? HazeEnd : HazeDisabledDistance);
 
 		// Unit 1, so a per-item atlas can keep unit 0 without rebinding this every draw.
 		if (_shadeRampTexture != null) {

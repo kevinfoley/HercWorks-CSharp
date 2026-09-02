@@ -74,6 +74,7 @@ public static class TransformerRegistry {
 		new("Mission File", e => ExtIs(e, FileType.Msn), () => new Common.MissionFileTransformer()),
 		new("Player Save", e => ExtIs(e, FileType.Sav), () => new Common.PlayerSaveTransform()),
 		new("String Table", e => ExtIs(e, FileType.Str), () => new Common.StringFileTransformer()),
+		new("Sound", e => ExtIs(e, FileType.Wav), () => new Common.WavInfoTransformer()),
 
 		// .HBA and .HB0/.HB1/.HB2 are byte-identical to the .DBA container format
 		// (same 12-byte "01 00 28 00" + size + count header, same embedded DynamixBitmap-per-entry

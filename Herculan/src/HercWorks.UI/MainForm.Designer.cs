@@ -187,6 +187,7 @@ partial class MainForm {
 		// _volTree
 		// 
 		_volTree.Dock = DockStyle.Left;
+		_volTree.HideSelection = false;
 		_volTree.Location = new Point(0, 24);
 		_volTree.Name = "_volTree";
 		_volTree.Size = new Size(320, 565);

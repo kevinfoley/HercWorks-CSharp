@@ -3,6 +3,7 @@ using HercWorks.Vol;
 using HercWorks.Vol.Io;
 using HercWorks.Vol.Util;
 using System.Diagnostics;
+using System.Media;
 
 namespace HercWorks.UI;
 
@@ -21,11 +22,14 @@ namespace HercWorks.UI;
 /// selected file's type is recognized by TransformerRegistry, Content shows its actual parsed,
 /// human-readable data (fully expanded) via ContentTreeRenderer; unrecognized types
 /// just show a "no parser available" note there. Below Content, a "View Asset" button
-/// (enabled only for DTS/DBA/DBM entries) opens the selected file directly in the 3D
-/// Model Viewer or the new Texture Viewer (HercWorks.UI.TextureViewerForm — preview
+/// (enabled only for DTS/DBA/DBM/WAV entries) opens the selected file directly in the 3D
+/// Model Viewer or the Texture Viewer (HercWorks.UI.TextureViewerForm — preview
 /// only, best-effort automatic palette matching with a manual dropdown fallback,
 /// since DBA/DBM never embed which palette they use), reading straight from the
-/// loaded VOL rather than requiring an already-extracted loose file. Mission editing
+/// loaded VOL rather than requiring an already-extracted loose file. A WAV entry is
+/// instead played directly through System.Media.SoundPlayer — SIMSOUND.VOL's samples
+/// are plain uncompressed RIFF/WAVE, so the entry's bytes need no decoding step of
+/// their own. Mission editing
 /// covers data\script.dat (the VSHELL→DBSIM handoff DBSIM actually simulates) via the
 /// Edit menu's Mission Script editor and data\player.mec (the player's own squad, which
 /// script.dat deliberately does not carry) via its Player Squad editor; the source .msn
@@ -37,8 +41,22 @@ public partial class MainForm : Form {
 	private Voln? _currentVol;
 	private VolEntry? _selectedEntry;
 
+	/// <summary>
+	/// Backs the WAV branch of OnViewAsset. Kept as a field rather than a local so a second "View
+	/// Asset" click cuts off whatever the first is still playing instead of overlapping it, and so
+	/// the clip's backing MemoryStream — which SoundPlayer reads from lazily — stays alive for as
+	/// long as SoundPlayer might still need it.
+	/// </summary>
+	private readonly SoundPlayer _soundPlayer = new();
+	private MemoryStream? _soundStream;
+
 	public MainForm() {
 		InitializeComponent();
+		FormClosed += (_, _) => {
+			_soundPlayer.Stop();
+			_soundPlayer.Dispose();
+			_soundStream?.Dispose();
+		};
 	}
 
 	protected override void OnLoad(EventArgs e) {
@@ -243,15 +261,25 @@ public partial class MainForm : Form {
 	}
 
 	/// <summary>
-	/// "View Asset" is enabled only for types that actually have a viewer: DTS (3D model) and
+	/// "View Asset" is enabled only for types that actually have a viewer: DTS (3D model),
 	/// DBA/DBM/HBA/HB0-2/DB0-2 (texture — the HBx/DBx types are byte-identical to the DBA container
-	/// format, see TransformerRegistry's doc comment). A DPL alone isn't a texture, so it's
-	/// intentionally excluded here.
+	/// format, see TransformerRegistry's doc comment), and WAV (sound — see SoundPlayerForm). A DPL
+	/// alone isn't a texture, so it's intentionally excluded here.
 	/// </summary>
 	private void UpdateViewAssetButtonState() {
-		_viewAssetButton.Enabled = _selectedEntry is { RawBytes.Length: > 0 } entry &&
-			entry.Ext is FileType.Dts or FileType.Dba or FileType.Dbm or FileType.Hba or FileType.Hb0 or FileType.Hb1 or FileType.Hb2
-				or FileType.Db0 or FileType.Db1 or FileType.Db2;
+		if (_selectedEntry != null && _selectedEntry.RawBytes?.Length > 0) {
+			var entry = _selectedEntry;
+			_viewAssetButton.Enabled = entry.Ext is FileType.Dts or FileType.Dba or FileType.Dbm or FileType.Hba or FileType.Hb0 or FileType.Hb1 or FileType.Hb2
+				or FileType.Db0 or FileType.Db1 or FileType.Db2 or FileType.Wav;
+
+			if (entry.Ext is FileType.Wav) {
+				_viewAssetButton.Text = "Play";
+			} else {
+				_viewAssetButton.Text = "View Asset";
+			}
+		} else {
+			_viewAssetButton.Enabled = false;
+		}
 	}
 
 	private void PopulateContent(VolEntry entry) {
@@ -287,7 +315,8 @@ public partial class MainForm : Form {
 
 	/// <summary>
 	/// Opens the currently selected VOL-tree entry in whichever viewer matches its type — the
-	/// 3D model viewer for DTS, the texture viewer for DBA/DBM. _viewAssetButton.Enabled already
+	/// 3D model viewer for DTS, the texture viewer for DBA/DBM — or, for WAV, plays it directly
+	/// rather than opening a viewer window (see PlaySelectedWav). _viewAssetButton.Enabled already
 	/// guarantees _selectedEntry and _currentVol are usable here (see UpdateViewAssetButtonState).
 	/// </summary>
 	private void OnViewAsset(object? sender, EventArgs e) {
@@ -304,6 +333,35 @@ public partial class MainForm : Form {
 			using var form = new TextureViewerForm();
 			form.LoadFromVolEntry(_selectedEntry, _currentVol);
 			form.ShowDialog(this);
+		} else if (_selectedEntry.Ext == FileType.Wav) {
+			PlaySelectedWav(_selectedEntry);
+		}
+	}
+
+	/// <summary>
+	/// Plays a WAV entry's bytes as-is: SIMSOUND.VOL's samples are plain uncompressed RIFF/WAVE (see
+	/// Herculan.Engine.Audio.WaveSample's doc comment), and VolEntry.RawBytes is already the clean
+	/// file content with the VOL entry prefix stripped, so SoundPlayer needs no decoding step of its
+	/// own. Playback is async and fire-and-forget; a second call — including on a different entry —
+	/// simply cuts off whatever is still playing.
+	/// </summary>
+	private void PlaySelectedWav(VolEntry entry) {
+		if (entry.RawBytes is not { Length: > 0 } bytes) {
+			MessageBox.Show(this, "File has no data to play.", "Error",
+				MessageBoxButtons.OK, MessageBoxIcon.Error);
+			return;
+		}
+
+		_soundPlayer.Stop();
+		_soundStream?.Dispose();
+		_soundStream = new MemoryStream(bytes);
+
+		try {
+			_soundPlayer.Stream = _soundStream;
+			_soundPlayer.Play();
+		} catch (Exception ex) {
+			MessageBox.Show(this, $"Failed to play file:\n{ex.Message}", "Error",
+				MessageBoxButtons.OK, MessageBoxIcon.Error);
 		}
 	}
 

@@ -32,9 +32,9 @@ public static class ContentTreeRenderer {
 		"RawBytes", "Header", "FileSize", "GameDirPath", "FilePath"
 	};
 
-	public static void Populate(TreeView tree, string rootLabel, object root) {
+	public static void Populate(TreeView tree, string rootLabel, object value) {
 		tree.Nodes.Clear();
-		var node = BuildNode(rootLabel, root, 0, new HashSet<object>(ReferenceEqualityComparer.Instance));
+		var node = BuildNode(rootLabel, value, 0, new HashSet<object>(ReferenceEqualityComparer.Instance));
 		tree.Nodes.Add(node);
 		tree.ExpandAll();
 
@@ -90,6 +90,7 @@ public static class ContentTreeRenderer {
 				return node;
 			}
 
+			// Catch-all: display values of public properties on the value using reflection.
 			var objNode = new TreeNode(label);
 			foreach (var prop in type.GetProperties(BindingFlags.Public | BindingFlags.Instance)) {
 				if (prop.GetIndexParameters().Length > 0 || SkippedPropertyNames.Contains(prop.Name)) {
@@ -103,7 +104,15 @@ public static class ContentTreeRenderer {
 					objNode.Nodes.Add(new TreeNode($"{prop.Name}: (error reading property: {ex.Message})"));
 					continue;
 				}
-				objNode.Nodes.Add(BuildNode(prop.Name, propValue, depth + 1, ancestors));
+
+				// Display the property as a new node on the tree.
+				if (propValue is TimeSpan ts) {
+					// Custom formatting for TimeSpan. Probably doesn't belong here, but good enough for now.
+					objNode.Nodes.Add(BuildNode(prop.Name, ts.ToString(@"mm\:ss\.ff"), depth + 1, ancestors));
+				} else {
+					// Anything else.
+					objNode.Nodes.Add(BuildNode(prop.Name, propValue, depth + 1, ancestors));
+				}
 			}
 			return objNode;
 		} finally {

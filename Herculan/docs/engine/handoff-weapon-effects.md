@@ -52,15 +52,7 @@ _ These are not organized in any particular order; this may not be the best orde
   not do. **Hit geometry is ruled out** — measured, see
   [`../simulation/hit-detection.md`](../simulation/hit-detection.md), "Measured: hit geometry versus
   the drawn mesh". Remaining suspect is render layering.
-- **Field of view.** Still a guess. The original's focal length is the per-view shift at `view+0x1a`
-  that `Raster_InstallViewProjection` installs; its writer has not been traced. It also affects the
-  sky, whose band height is measured in screen rows while the two retail captures disagree slightly.
-  Note it does **not** affect billboard size — the shift cancels out of that formula, see
-  [`../formats/dts-billboards.md`](../formats/dts-billboards.md).
 - **The 3D view is not clipped to the `.VUE` viewport rect.** Equivalent while the canopy is opaque;
   not for RAZOR's non-stub heads-down view.
-- **Far clip does not follow the visibility range.** The engine fogs to the zone's range but still
-  draws past it; retail's terrain draw region is that same radius
-  (`Terrain_BuildDrawRegionQuad`, `0046d220`). Cheap to try, changes what is on screen at the edges.
 - In retail, when a target is selected, chain-firing skips weapons for which the selected target is
   out of range.

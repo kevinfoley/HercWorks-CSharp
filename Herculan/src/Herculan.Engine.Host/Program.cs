@@ -432,6 +432,10 @@ window.Load += (gl, input) => {
 	// than hand-picked — see Scene.Atmosphere. The sky is deliberately left alone.
 	scene.Atmosphere.ApplyTo(renderer);
 
+	// And the same distance as the camera's far plane, so the view stops where the original's
+	// terrain draw region does instead of drawing fully-fogged geometry past it.
+	scene.Atmosphere.ApplyTo(camera);
+
 	// The theater's shaded-surface colours — what a TSShadedPoly is actually drawn through. See
 	// SurfaceRampTable.
 	renderer.SetShadeRamps(scene.ShadeRamps);
@@ -502,7 +506,7 @@ window.Load += (gl, input) => {
 	disposables.AddRange(spriteTextures.Values);
 
 	var built = new List<SceneItem> {
-		new(terrainMesh, Matrix4x4.Identity, terrainTexture?.Handle)
+		new(terrainMesh, Matrix4x4.Identity, terrainTexture?.Handle) { CellQuantisedFog = true }
 	};
 
 	// The player's own machine, kept aside so the cockpit view can leave it out — see below. A

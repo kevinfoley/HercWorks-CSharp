@@ -194,8 +194,11 @@ four views of a herc carry the same pair.
 
 `FUN_0048c1d8` also installs, from the same view struct: `+0x1a` the perspective shift
 (`(width << shift) / z` is the whole of the divide), `+0x1e` the near plane, `+0x22` the orthographic
-divisor. The shift is the focal length in pixels and would give the true field of view; it has not
-been traced to its writer, so the engine's FOV remains a guess.
+divisor. `2^shift` is the focal length in pixels, which fixes the field of view against the view's
+row count. `Sim_InitMissionSession` (`004614fc`) picks the shift as 9 when the mode's canvas width (`DAT_004d30c4`)
+reaches 1201 and 8 otherwise, and passes it as the third argument of the view constructor
+`FUN_0048bc98`, which stores it at `+0x1a`. Both work out to the same angle — 256 px across a
+240-row view, 512 across a 480-row one, 50.2 degrees vertical. Engine: `Render.Camera.FocalLengthPixels`.
 
 Engine: `Content.CockpitViewGeometry.ProjectionCenter`, applied via `Render.Camera.PrincipalPoint`
 as an off-centre frustum.

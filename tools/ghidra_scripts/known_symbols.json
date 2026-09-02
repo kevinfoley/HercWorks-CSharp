@@ -2236,13 +2236,51 @@
       "source": "docs/formats/terrain-texturing.md 2026-08-13 (terrain texturing RE session, part 2)"
     },
     {
+      "address": "0048c4f0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_PerspectiveDivide",
+      "signature": "int * __cdecl Raster_PerspectiveDivide(int *viewPoint, int *screenOut)",
+      "description": "The perspective divide, ahead of Raster_ProjectToScreen's centring: screenOut[0] = (viewPoint[0] << DAT_006c60ac) / viewPoint[1], screenOut[1] = (viewPoint[2] << DAT_006c60ac) / viewPoint[1], or both over DAT_006c60b4 with a shift of 0 (the orthographic mode). Returns screenOut. Dividing components 0 and 2 by component 1 is what fixes the view-space axis order as (across, DEPTH, up) -- the fact that says which component Terrain_DrawCellQuad's fog distance is. DAT_006c60ac is the focal shift installed from view+0x1a.",
+      "source": "docs/formats/distance-fog-and-sky.md, 'The distance measured'"
+    },
+    {
+      "address": "00468078",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_SetupTexturedSpan",
+      "description": "Per-vertex setup for the textured/Gouraud span fills. In its param_6 == 2 (Gouraud) branch it computes each vertex's ramp row as shade * (DAT_004d3d38 - 1) + DAT_004a08c8 << 8 -- the same arithmetic as Raster_ShadeRampRow, depth bias included. Together with Raster_DrawPolygon's mode-1 branch this is why the Gouraud and textured paths fog by the same rule as the flat ones, even though neither renderer calls Raster_ShadeRampRow itself.",
+      "source": "docs/formats/distance-fog-and-sky.md, 'The fade'"
+    },
+    {
+      "address": "0045993c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Prefs_SetOption",
+      "signature": "void __cdecl Prefs_SetOption(short index, unsigned char value, char apply)",
+      "description": "Writes one simulator option: saves the old byte to (&DAT_004d2028)[index], stores value at (&DAT_004d1fbc)[index], and when apply is non-zero calls the option's handler at (&DAT_004d2060)[index] with the new value. The option array based at DAT_004d1fbc is what makes DAT_004d1fc3 (terrain detail) option 7. Derived from raw disassembly: three stack args at EBP+8/+0xc/+0x10, RET with no operand.",
+      "source": "docs/formats/terrain-texturing.md, 'The terrain-detail setting'"
+    },
+    {
+      "address": "00459754",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Prefs_LoadOptions",
+      "description": "Loads data\\prefs.cfg over the option array: memset(&DAT_004d1fbc, 0, 0x36) then a 0x36-byte read straight into it, so THE FILE IS THE ARRAY -- unparsed, an option's index is its byte offset, and a retail prefs.cfg is 54 bytes. Then walks all 0x36 options calling each one's handler from DAT_004d2060 and seeding the shadow copies at DAT_004d1ff2 (when param_1 is non-zero) and DAT_004d2028. Its argument was not derived from disassembly, so no signature is recorded.",
+      "source": "docs/formats/terrain-texturing.md, 'The terrain-detail setting'"
+    },
+    {
       "address": "0046ca98",
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
       "name": "Terrain_SetupVisibleRegion",
-      "description": "Per-frame terrain visibility setup, called twice per frame from the frame function 0045fb9c with ActiveHeightGrid passed AS A PARAMETER (which is why a search for readers of the ActiveHeightGrid global missed the terrain render path entirely). WRITES the LOD field: grid[+0x10c] = table DAT_004a0bcc[DAT_004d1fc3] (a per-detail-setting LOD table), then >>= (cellShift - 14) when cellShift > 14 -- the engine's ported 'detailLod = cellShift > 14 ? 10 >> (cellShift-14) : 10' is this, with 10 being the retail default table entry rather than a constant. Passes grid[0x10c] << cellShift to 00428bc0 (which derives 5 distance bands), builds the visible cell-space region into grid+0x28 with count grid+0xc8 / pointer grid+0xcc / visible flag grid+0x11c, and installs two texture-basis vectors at grid+4 and grid+0x10.",
-      "source": "docs/formats/terrain-texturing.md 2026-08-13 (terrain texturing RE session, part 2)"
+      "description": "Per-frame terrain visibility setup, called twice per frame from the frame function 0045fb9c with ActiveHeightGrid passed AS A PARAMETER (which is why a search for readers of the ActiveHeightGrid global missed the terrain render path entirely). WRITES the LOD field: grid[+0x10c] = (short)DAT_004a0bcc[DAT_004d1fc3], then >>= (cellShift - 14) when cellShift > 14. DAT_004a0bcc is three int16s -- 6, 10, 14 cells -- indexed by the terrain-detail option DAT_004d1fc3, so the draw radius is a player setting; the >> only ever fires on the two shift-15 zones and nothing compensates below shift 14. Passes grid[0x10c] << cellShift to 00428bc0 (which derives 5 distance bands), builds the visible cell-space region into grid+0x28 with count grid+0xc8 / pointer grid+0xcc / visible flag grid+0x11c, and installs two texture-basis vectors at grid+4 and grid+0x10.",
+      "source": "docs/formats/terrain-texturing.md, 'grid+0x10c -- the LOD / draw-radius field'"
     },
     {
       "address": "0046d344",
@@ -2251,7 +2289,7 @@
       "confidence": "high",
       "name": "Terrain_DrawCellQuad",
       "signature": "void __cdecl Terrain_DrawCellQuad(int cellX, int cellY, void *grid, int *vertexBlock)",
-      "description": "Draws one terrain cell. The caller (FUN_0046dcd8 / FUN_0046dea4) hands it a vertex block already carrying the quad's four camera-space corner positions, in the order (cellX,cellY), (cellX,cellY+1), (cellX+1,cellY+1), (cellX+1,cellY); this fetches the matching four cells at grid[0xec] + index*0x10 (16 bytes/cell) and adds each corner's projected raw height byte (cell[0], via 00495240 against the grid+0xd0 projection state). It re-derives the diagonal split here from the projected corners rather than reading cell[+0xf]: z0+z2 == z1+z3 emits one 4-vertex quad, < 0 splits along corner 0-2, > 0 along corner 1-3. Texture comes from Terrain_ResolveCellTexture(&mat0[cell[0xf] >> 2], cellX, cellY, uvOut), whose four UV pairs are handed to the vertices by index in all three branches -- the fact that pins the corner-to-UV mapping. Each triangle's shade byte is cell[+0xd] (near) / cell[+0xe] (far) and its backface test uses the normals at cell[+0x1] / cell[+0x7] via Terrain_FaceVisibilityTest. Ends by calling Terrain_DrawCellObjects for the cell.",
+      "description": "Draws one terrain cell. The caller (FUN_0046dcd8 / FUN_0046dea4) hands it a vertex block already carrying the quad's four camera-space corner positions, in the order (cellX,cellY), (cellX,cellY+1), (cellX+1,cellY+1), (cellX+1,cellY); this fetches the matching four cells at grid[0xec] + index*0x10 (16 bytes/cell) and adds each corner's projected raw height byte (cell[0], via 00495240 against the grid+0xd0 projection state). It re-derives the diagonal split here from the projected corners rather than reading cell[+0xf]: z0+z2 == z1+z3 emits one 4-vertex quad, < 0 splits along corner 0-2, > 0 along corner 1-3. Texture comes from Terrain_ResolveCellTexture(&mat0[cell[0xf] >> 2], cellX, cellY, uvOut), whose four UV pairs are handed to the vertices by index in all three branches -- the fact that pins the corner-to-UV mapping. Each triangle's shade byte is cell[+0xd] (near) / cell[+0xe] (far) and its backface test uses the normals at cell[+0x1] / cell[+0x7] via Terrain_FaceVisibilityTest. Fog: installs the visibility range grid[0x10c] << grid[0x108] via Raster_SetVisibilityRange, then Raster_SetDepthFadeFromDistance(min of the four corners' component 1) -- component 1 is the view-space DEPTH (Raster_PerspectiveDivide divides by it), so a whole cell is fogged from its NEAREST corner's depth, not per pixel and not from a radial distance. Ends by calling Terrain_DrawCellObjects for the cell.",
       "source": "docs/formats/terrain-texturing.md, 'Which quad corner takes which UV'"
     },
     {
@@ -2680,8 +2718,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Sim_InitMissionSession",
-      "description": "Per-mission session setup: resets the light system (FUN_0048dbfc), creates the mission's one hardcoded sun light (Light_CreateMissionSun), then calls DBSim_LoadScriptDat and DBSim_SpawnMissionObjects. Confirms lighting setup happens once per mission load, independent of which script.dat/theater is loaded.",
-      "source": "flat-shaded lighting RE, 2026-08-14 follow-up"
+      "description": "Per-mission session setup: resets the light system (FUN_0048dbfc), creates the mission's one hardcoded sun light (Light_CreateMissionSun), then calls DBSim_LoadScriptDat and DBSim_SpawnMissionObjects. Confirms lighting setup happens once per mission load, independent of which script.dat/theater is loaded. Also picks the FOCAL SHIFT -- 9 when DAT_004d30c4 >= 0x4b1 and 8 otherwise -- and passes it as the third argument of the view constructor FUN_0048bc98, which stores it at view+0x1a. That is the whole of the field of view; see docs/formats/cockpit-hud.md.",
+      "source": "flat-shaded lighting RE; docs/formats/cockpit-hud.md for the focal shift"
     },
     {
       "address": "0047eaac",
@@ -5810,7 +5848,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Raster_DrawPolygon",
-      "description": "Polygon submit: (vertexCount, vertices, mode, atlasPage, shadeLevelPtr, transparencyFlag). Clips, builds edges, then walks scanlines calling the span routine the mode selects -- 0 Raster_SpanTextured (u,v only), 1 FUN_0046ac48 (u,v plus a shade level taken from param_5), 2 FUN_0046adad (u,v plus a third interpolant at vertex +0x14). param_4 goes to DAT_004a09b4 as the atlas page; param_6 to DAT_004a09ac, which selects the span routine's transparent half.",
+      "description": "Polygon submit: (vertexCount, vertices, mode, atlasPage, shadeLevelPtr, transparencyFlag). Clips, builds edges, then walks scanlines calling the span routine the mode selects -- 0 Raster_SpanTextured (u,v only), 1 FUN_0046ac48 (u,v plus a shade level taken from param_5), 2 FUN_0046adad (u,v plus a third interpolant at vertex +0x14). param_4 goes to DAT_004a09b4 as the atlas page; param_6 to DAT_004a09ac, which selects the span routine's transparent half. In mode 1 it turns *param_5 into a ramp row in place -- shade * (DAT_004d3d38 - 1) + DAT_004a08c8, the depth bias included -- so this path fogs by the same rule as Raster_ShadeRampRow without calling it. See Raster_SetupTexturedSpan for the mode-2 equivalent.",
       "source": "docs/simulation/beam-visuals.md 2026-08-25"
     },
     {

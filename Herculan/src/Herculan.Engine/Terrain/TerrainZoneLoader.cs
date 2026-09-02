@@ -49,8 +49,12 @@ public static class TerrainZoneLoader {
 	/// sizes the material-roll block (see <see cref="TerrainMaterial.BlockShift"/>);
 	/// <paramref name="random"/> drives the roll itself.
 	/// </summary>
+	/// <param name="detailLevel">
+	/// The terrain-detail setting the zone's draw radius comes from — see <see cref="TerrainDetail"/>.
+	/// </param>
 	public static HeightGrid Load(GameContent content, int zoneIndex, TerrainMaterialTable materials,
-			SimRandom random, byte heightBias = DefaultHeightBias) {
+			SimRandom random, byte heightBias = DefaultHeightBias,
+			int detailLevel = TerrainDetail.DefaultLevel) {
 		string baseName = $"zone{zoneIndex}";
 
 		byte[] header = content.ReadRequired(HeaderFolder, baseName + ".dat");
@@ -67,7 +71,8 @@ public static class TerrainZoneLoader {
 
 		var bitmap = ReadHeightmapImage(content, baseName);
 
-		return PopulateFromBitmap(bitmap, cellShift, heightScale, materials, random, heightBias);
+		return PopulateFromBitmap(bitmap, cellShift, heightScale, materials, random, heightBias,
+			detailLevel);
 	}
 
 	/// <summary>
@@ -116,7 +121,7 @@ public static class TerrainZoneLoader {
 	/// see <see cref="HeightGrid"/>, which does the same in its constructor.</para>
 	/// </summary>
 	private static HeightGrid PopulateFromBitmap(DynamixBitmap image, int cellShift, int heightScale,
-			TerrainMaterialTable materials, SimRandom random, byte heightBias) {
+			TerrainMaterialTable materials, SimRandom random, byte heightBias, int detailLevel) {
 		// Cols drives the width shift and Rows the height shift, matching the original's reads at
 		// bitmap offsets +6 and +4 respectively. Every retail zone is square (128x128 or 256x256),
 		// so no real data distinguishes the two — worth knowing if a non-square zone ever turns up.
@@ -137,16 +142,13 @@ public static class TerrainZoneLoader {
 		var rawHeights = new byte[cellCount];
 		var cellFlags = new byte[cellCount];
 
-		// LOD (HeightGrid+0x10c): 10, halved for every cell-shift step past 14.
+		// LOD (HeightGrid+0x10c): the terrain draw radius in cells, off the detail setting's table
+		// with the shift-15 correction — see TerrainDetail, which owns the derivation.
 		//
-		// Its consumer is now known (docs/formats/terrain-texturing.md): it is the terrain draw
-		// radius in cells — Terrain_BuildDrawRegionQuad builds a square of (lod << cellShift) world
-		// units around the viewer. Two differences from the original worth knowing before relying on
-		// this value: the original re-derives it every frame inside Terrain_SetupVisibleRegion rather
-		// than once at load, and the base 10 is not a constant there but an entry read from a
-		// per-detail-setting table (DAT_004a0bcc[DAT_004d1fc3]) — 10 is simply the retail default.
-		// Setting it once from the default is correct until a detail setting exists to change it.
-		int detailLod = cellShift > 14 ? 10 >> (cellShift - 14) : 10;
+		// The one difference from the original is when: Terrain_SetupVisibleRegion re-reads the
+		// setting every frame, where this reads it once at load. Equivalent while nothing changes the
+		// setting mid-mission, which nothing in this engine does.
+		int detailLod = TerrainDetail.RadiusFor(detailLevel, cellShift);
 
 		int blockMask = (1 << (0x15 - materials[0].BlockShift - cellShift)) - 1;
 		if (blockMask < 0) {

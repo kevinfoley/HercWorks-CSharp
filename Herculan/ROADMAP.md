@@ -62,8 +62,5 @@ The engine cannot be faithful here until the original is understood.
 - **External view (`[V]` chase camera) is entirely engine-invented.** DBSIM's own external view
   placement, transitions, terrain handling and overlay chrome are unrecovered.
   `Render/ExternalCamera.cs` is the single place a real rule would replace the guess.
-- **Field of view is still a guess** — the original's per-view focal length shift (`view+0x1a`) has
-  not been traced.
-  → [`docs/formats/cockpit-hud.md`](docs/formats/cockpit-hud.md)
 - **Pause (`[P]`) is a placeholder** that just stops the fixed-timestep tick loop. Retail DBSIM's own
   pause has not been traced.

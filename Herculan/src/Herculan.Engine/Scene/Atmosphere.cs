@@ -18,13 +18,15 @@ namespace Herculan.Engine.Scene;
 /// (<see cref="ShadeRamp.DepthSliceFor"/>). The colour is the theater ramp's own far slice
 /// (<see cref="ShadeRamp.FogColor"/>).</para>
 ///
-/// <para>Retail zones run 246 m to 983 m, so this is a far shorter draw distance than the engine's
-/// previous hand-picked 900 m/9000 m — that pair was a guess made before any of this was traced,
-/// and it left distant terrain unfogged where the original has it fully washed out.</para>
+/// <para>Retail zones run 344 m to 1376 m at the highest detail setting, and 6/14ths of that at the
+/// lowest (see <see cref="TerrainDetail"/>) — a far shorter draw distance than the engine's
+/// previous hand-picked 900 m/9000 m, which was a guess made before any of this was traced and left
+/// distant terrain unfogged where the original has it fully washed out.</para>
 ///
-/// <para>The engine spends this as continuous per-pixel fog in <see cref="Render.SceneRenderer"/>
-/// rather than as the original's twelve per-object ramp steps. Same start, same end, same colour;
-/// smoother in between.</para>
+/// <para>The engine spends this the original's own way, by reading the theater ramp at one of its
+/// twelve depth slices — see <see cref="ShadeRamp"/> and <see cref="Render.PaletteRampTable"/>. The
+/// two numbers here are what the slice is chosen against, and what the blend fallback for a surface
+/// with no ramp row fades over.</para>
 /// </summary>
 /// <param name="FogStart">Render units (metres) at which the fade begins — half the visibility range.</param>
 /// <param name="FogEnd">Render units at which it is total — the visibility range.</param>
@@ -32,12 +34,18 @@ namespace Herculan.Engine.Scene;
 /// What it fades to, or null when the theater's ramp or palette did not load, in which case the
 /// renderer keeps its own fallback.
 /// </param>
+/// <param name="CellSize">
+/// The zone's cell size in render units — the grain the terrain's own fog is measured at, since
+/// <c>Terrain_DrawCellQuad</c> fogs a cell at a time and from its nearest corner. See
+/// <see cref="Render.SceneRenderer.FogCellSize"/>.
+/// </param>
 /// <param name="Sky">
 /// The theater's banded sky (<see cref="SkyGradient"/>), or null when its palette did not load. The
 /// gradient's own bottom band is a neighbour of <paramref name="FogColor"/> in the same palette run,
 /// which is what makes fogged ground meet the sky without a seam.
 /// </param>
-public readonly record struct Atmosphere(float FogStart, float FogEnd, Vector3? FogColor, SkyGradient? Sky) {
+public readonly record struct Atmosphere(float FogStart, float FogEnd, Vector3? FogColor,
+		float CellSize, SkyGradient? Sky) {
 	/// <summary>
 	/// Reads all of it off the loaded zone and theater. <paramref name="shading"/> may be null (no
 	/// ramp), which costs the colours but not the distances: those come from the grid alone.
@@ -48,6 +56,7 @@ public readonly record struct Atmosphere(float FogStart, float FogEnd, Vector3? 
 			WorldScale.DistanceToRender((int)(range / 2)),
 			WorldScale.DistanceToRender((int)range),
 			shading?.Ramp.FogColor(shading.Palette),
+			WorldScale.DistanceToRender(terrain.CellSize),
 			SkyGradient.FromPalette(shading?.Palette));
 	}
 
@@ -58,6 +67,7 @@ public readonly record struct Atmosphere(float FogStart, float FogEnd, Vector3? 
 	public void ApplyTo(SceneRenderer renderer) {
 		renderer.FogStart = FogStart;
 		renderer.FogEnd = FogEnd;
+		renderer.FogCellSize = CellSize;
 		if (FogColor is { } color) {
 			renderer.FogColor = color;
 		}
@@ -66,5 +76,22 @@ public readonly record struct Atmosphere(float FogStart, float FogEnd, Vector3? 
 		if (Sky is { } sky) {
 			renderer.SkyColor = sky.Zenith;
 		}
+	}
+
+	/// <summary>
+	/// Clips the camera at the same distance the fade ends, which is where the original stops
+	/// drawing: <c>Terrain_BuildDrawRegionQuad</c> (<c>0046d220</c>) builds the terrain draw region
+	/// as a square of half-width <c>grid[+0x10c] &lt;&lt; grid[+0x108]</c> around the viewer — the
+	/// same <see cref="HeightGrid.VisibilityRange"/> the fog is measured against.
+	///
+	/// <para>The shapes differ: the original's region is a world-axis-aligned square, so along its
+	/// diagonals it reaches a further 41%, while a far plane is uniform in every direction. That
+	/// difference is invisible because the fade is already total at
+	/// <see cref="FogEnd"/> — everything in the gap is drawn flat in the fog colour, which is the
+	/// colour the sky's bottom band paints where the terrain stops (see <see cref="SkyGradient"/>).
+	/// So the far plane is set to the range itself rather than to its diagonal.</para>
+	/// </summary>
+	public void ApplyTo(Camera camera) {
+		camera.FarPlane = FogEnd;
 	}
 }

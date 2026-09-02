@@ -39,10 +39,9 @@ public sealed class Camera {
 	/// (<c>Raster_PerspectiveScale</c>, <c>0048c4c0</c>, reading the view's <c>+0x1a</c>), so the
 	/// shift <i>is</i> the focal length: <c>2^shift</c> pixels.
 	///
-	/// <para><c>Sim_InitMissionSession</c> (<c>004614fc</c>) picks it as 9 when the mode's canvas
-	/// width (<c>VideoMode_Configure</c>'s <c>DAT_004d25ca</c>) reaches 1201 and 8 otherwise — 8 for
-	/// the 320x240 mode's 640, 9 for the 640x480 modes' 1280. The two work out to the same angle,
-	/// which is the point: 256 pixels across a 240-row view and 512 across a 480-row one.</para>
+	/// <para>Which shift the mode picks, and the trace from there to <c>view+0x1a</c>, are in
+	/// docs/formats/cockpit-hud.md. 512 is the 640x480 modes' value; the 320x240 mode's 256 is the
+	/// same angle over half the rows.</para>
 	/// </summary>
 	public const float FocalLengthPixels = 512f;
 
@@ -71,10 +70,15 @@ public sealed class Camera {
 	public float NearPlane { get; set; } = 2f;
 
 	/// <summary>
-	/// Far plane, in render units. A retail zone is 12.6 km across (128 cells of 16384 units) at
-	/// <see cref="WorldScale.WorldUnitsPerMeter"/>, so this is set to see most of one from altitude;
-	/// the original's own draw distance is a separate question (it has a visibility/LOD system that
-	/// hasn't been RE'd) and this is not an attempt to match it.
+	/// Far plane, in render units. A mission view sets this to the zone's own draw distance —
+	/// <see cref="Terrain.HeightGrid.VisibilityRange"/>, applied through
+	/// <see cref="Scene.Atmosphere.ApplyTo(Camera)"/> — which is where the original's terrain draw
+	/// region ends and where its fog has already saturated, so the clip is not visible as a clip.
+	///
+	/// <para>The default is deliberately not that distance: a camera with no zone behind it still
+	/// has to draw something. A retail zone is 12.6 km across (128 cells of 16384 units) at
+	/// <see cref="WorldScale.WorldUnitsPerMeter"/>, so the default sees most of one from
+	/// altitude.</para>
 	/// </summary>
 	public float FarPlane { get; set; } = 12000f;
 

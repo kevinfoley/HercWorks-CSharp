@@ -307,13 +307,13 @@ per-pixel row selected by the interpolated shade contains all eleven.
 `TSTexture4Poly_Render` (`00474e9c`) resolves the surface pair the same way the flat types do and
 spends it as a **`.DBA` frame index**: the frame descriptor is
 `g_CurrentShapeDbaContext[1] + FrontColor * 0x14`, and its 5th int32 is the handle the fill routine
-`FUN_00468078` samples. Light enters per pixel through the row selection, not as a multiplier — the
+`Raster_SetupTexturedSpan` samples. Light enters per pixel through the row selection, not as a multiplier — the
 span writes `Raster_ShadeRampRow(shade)[texelPaletteIndex]`, so the face's shade picks a row of the
 theater `.RMP` and the texel picks the column.
 
 **The row count is a switch.** `DAT_004a5b1c` is the `.RMP`'s row count, installed as 32 by
 `World_LoadTheater` (`0042e010`), and this renderer is its only reader. When it is **zero** the poly
-is filled through `FUN_00468078`'s mode 0 instead: a plain texture copy, with neither a light term
+is filled through `Raster_SetupTexturedSpan`'s mode 0 instead: a plain texture copy, with neither a light term
 nor a ramp lookup, so the texel's palette index reaches the framebuffer unchanged.
 
 `Bullet_Draw` (`0040a120`) is what zeroes it — for the duration of one projectile's shape render,
@@ -325,7 +325,8 @@ reaches is `BULLETS.DTS` root 8, the plasma cannon's round — every other proje
 
 None of the ramp's own rows is the identity this bypasses: row 0 lands at 0.36x the source colour
 and row 31 at 1.16x. `Render.PaletteRampTable` therefore carries the raw palette as one extra row
-past the ramp's own, and `Render.SceneItem.Fullbright` is what selects it.
+past every depth slice, and `Render.SceneItem.Fullbright` is what selects it. Skipping the ramp skips
+the depth bias with it, so a fullbright surface does not fog either.
 
 ### The `.DPL` shade-ramp table
 
@@ -461,15 +462,17 @@ its *vertices* on the axes at level 1 — a 45-degree difference in cross-sectio
 | `TSDetailPart` | Maximum detail only (`Parts[^1]`); distance selection and the STRUCTURE DETAIL setting not implemented |
 | Front/back visibility test | Normal flip implemented; **back surface pair not selected** — `FrontColor` is used unconditionally |
 | Per-poly stored normals | Exact; `DtsMeshBuilder.ResolveFaceNormal` reads `TSPoly.Normal` as a point index. All triangles fanned from one poly share it. The winding survives only as a fallback for an unresolvable normal index, negated to match |
-| Distance fog | Continuous per-pixel fog, not the original's 12 quantised `.RMP` depth slices |
+| Distance fog | Exact for everything that reads a `.RMP` row — the depth slice is part of the row. A `TSGouraudPoly` has no such row and blends instead; see [`distance-fog-and-sky.md`](distance-fog-and-sky.md) |
 
 How the shading paths map onto engine types:
 
-- **`SurfaceRampTable`** — 256 shade columns x 512 rows. Rows `0..255` are the `TSShadedPoly` chain
-  (ramp entry through `.RMP` row `0x80`), rows `256..511` the `TSGouraudPoly` one (raw ramp entry).
-  A vertex's `MeshVertex.ShadeRamp` is a row of this table: the surface's ramp number, biased by
-  `SurfaceRampTable.GouraudRowOffset` for a Gouraud poly.
-- **`PaletteRampTable`** — 256 palette-index columns x 32 `.RMP` rows, expanded through the palette.
+- **`SurfaceRampTable`** — 256 shade columns, in blocks of 256 ramp rows: one block of the
+  `TSShadedPoly` chain (ramp entry through `.RMP` row `0x80`) per depth slice, then one block of the
+  `TSGouraudPoly` one (raw ramp entry), which has no `.RMP` step to fog. A vertex's
+  `MeshVertex.ShadeRamp` is the surface's ramp number biased by `SurfaceRampTable.GouraudRowOffset`
+  for a Gouraud poly, so it names the chain; the shader turns chain and slice into the row.
+- **`PaletteRampTable`** — 256 palette-index columns by 32 `.RMP` rows per depth slice, expanded
+  through the palette, with the fullbright row past them all.
   This is `rampRow(shade)[texelPaletteIndex]`, the original's per-texel operation for a lit textured
   surface. Requires the atlas to be bound from `TextureAtlas.IndexPixels` (palette index in red)
   rather than `Pixels`. Anything that blits a frame unlit — HUD sprite sheets, the billboard

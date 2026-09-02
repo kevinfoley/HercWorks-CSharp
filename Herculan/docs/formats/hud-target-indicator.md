@@ -53,7 +53,7 @@ centre. Its own rect (that point ± offset 1144) is never read, and 1144 is zero
 `FUN_0043b928` ctor, painted by `FUN_0043b950`. Two independent tests on the same projected point;
 either, both or neither piece is drawn.
 
-The aim point is transformed to view space (`FUN_0048c470`), projected (`FUN_0048c4f0`,
+The aim point is transformed to view space (`FUN_0048c470`), projected (`Raster_PerspectiveDivide`,
 `Raster_ProjectToScreen`) and compared against the reticle point. A depth inside the view's near plane
 (`view+0x1e`) marks it **behind**: no box, and the arrow's direction comes from re-projecting the
 synthetic view-space point `(±10000, 1024, 0)` whose sign is the real point's own view-space x — 5000

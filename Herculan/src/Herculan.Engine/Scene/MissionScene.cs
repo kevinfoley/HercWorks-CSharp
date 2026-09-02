@@ -176,7 +176,13 @@ public sealed class MissionScene {
 		// here is the engine's own, since DBSIM's generator state hasn't been recovered (see
 		// SimRandom). It selects detail textures only, which nothing renders yet.
 		var random = new SimRandom(mission.Header.ZoneIndex);
-		var terrain = TerrainZoneLoader.Load(content, mission.Header.ZoneIndex, materials, random);
+
+		// How far this mission draws is a player setting, not a property of the zone — see
+		// TerrainDetail. The simulator keeps it beside the script it was handed, so this looks for it
+		// in the same folder, and falls back to the highest setting when there is nothing to read.
+		int detail = TerrainDetail.LevelFrom(Path.GetDirectoryName(scriptPath));
+		var terrain = TerrainZoneLoader.Load(content, mission.Header.ZoneIndex, materials, random,
+			detailLevel: detail);
 
 		// The travelling-projectile table, loaded once at startup as FUN_0040ade0 loads it, and given
 		// to the world because a shot in flight is simulation state before it is anything visual.

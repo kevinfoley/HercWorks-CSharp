@@ -41,6 +41,15 @@ public sealed class SceneItem {
 	/// <c>TSSolidPoly</c> geometry was never lit to begin with.</para>
 	/// </summary>
 	public bool Fullbright { get; set; }
+
+	/// <summary>
+	/// Whether this item is the zone's cell grid, and so takes its fog distance a cell at a time the
+	/// way <c>Terrain_DrawCellQuad</c> does rather than a pixel at a time — see
+	/// <see cref="SceneRenderer.FogCellSize"/>. Set on the terrain and nothing else: every other
+	/// drawn thing is fogged from one distance of its own (<c>ObjList_DrawEntryRender</c> passes the
+	/// render entry's <c>+0x12</c>), which is already what a small object per-pixel amounts to.
+	/// </summary>
+	public bool CellQuantisedFog { get; set; }
 }
 
 /// <summary>
@@ -87,6 +96,9 @@ public sealed class SceneRenderer : IDisposable {
 	private GpuTexture? _paletteRampTexture;
 	private int _paletteRampRows;
 	private int _paletteRampShadeRows;
+	private int _depthSlices;
+	private int _shadeRampRows;
+	private int _shadeRampGouraudRow;
 
 	/// <param name="editorGrid">
 	/// Compiles the measuring grid into the scene program, so <see cref="SceneItem.ShowGrid"/> and
@@ -125,7 +137,10 @@ public sealed class SceneRenderer : IDisposable {
 		_shadeRampTexture?.Dispose();
 		_shadeRampTexture = table == null
 			? null
-			: new GpuTexture(_gl, table.Pixels, SurfaceRampTable.Width, SurfaceRampTable.Height);
+			: new GpuTexture(_gl, table.Pixels, SurfaceRampTable.Width, table.Height);
+		_shadeRampRows = table?.Height ?? 0;
+		_shadeRampGouraudRow = table?.GouraudBlockRow ?? 0;
+		_depthSlices = table?.DepthSlices ?? _depthSlices;
 	}
 
 	/// <summary>
@@ -145,6 +160,7 @@ public sealed class SceneRenderer : IDisposable {
 			: new GpuTexture(_gl, table.Pixels, PaletteRampTable.Width, table.Height);
 		_paletteRampRows = table?.Height ?? 0;
 		_paletteRampShadeRows = table?.ShadeRows ?? 0;
+		_depthSlices = table?.DepthSlices ?? _depthSlices;
 	}
 
 	/// <summary>
@@ -164,7 +180,7 @@ public sealed class SceneRenderer : IDisposable {
 	/// Flat fallback sky, used to clear the framebuffer and drawn instead of the gradient when
 	/// <see cref="Sky"/> is null.
 	///
-	/// <para>Deliberately <b>not</b> <see cref="FogColor"/>, which it used to be — the sky and the
+	/// <para>Deliberately <b>not</b> <see cref="FogColor"/> — the sky and the
 	/// colour distant terrain fades into are separate things in the original, even though its palette
 	/// makes them meet: the sky's bottom band and the ramp's fog colour are neighbouring entries of
 	/// one gradient.</para>
@@ -179,6 +195,16 @@ public sealed class SceneRenderer : IDisposable {
 
 	/// <summary>Distance in render units at which fog is total — the zone's visibility range.</summary>
 	public float FogEnd { get; set; } = 9000f;
+
+	/// <summary>
+	/// The zone's cell size in render units, which is the grain the terrain's fog is measured at.
+	/// Retail fogs a whole cell from its nearest corner; the renderer subtracts the mean
+	/// centre-to-corner depth instead, derived per frame from the camera's forward direction. The
+	/// derivation and what it costs are in docs/formats/distance-fog-and-sky.md, "Engine port".
+	///
+	/// <para>Zero leaves the terrain fogged per pixel. Set from <see cref="Scene.Atmosphere"/>.</para>
+	/// </summary>
+	public float FogCellSize { get; set; }
 
 	/// <summary>
 	/// Whether distance fog is applied at all. On by default, and the simulator never turns it off:
@@ -250,6 +276,8 @@ public sealed class SceneRenderer : IDisposable {
 		if (_shadeRampTexture != null) {
 			_shader.SetSamplerTexture("uShadeRampTable", _shadeRampTexture.Handle, 1);
 			_shader.SetInt("uShadeRampEnabled", 1);
+			_shader.SetFloat("uShadeRampRows", _shadeRampRows);
+			_shader.SetFloat("uShadeRampGouraudRow", _shadeRampGouraudRow);
 		} else {
 			_shader.SetInt("uShadeRampEnabled", 0);
 		}
@@ -263,6 +291,18 @@ public sealed class SceneRenderer : IDisposable {
 			_shader.SetInt("uPaletteRampEnabled", 0);
 		}
 
+		// The depth slice both ramps are read at, as the original derives it — see
+		// Content.ShadeRamp.DepthSliceFor. Zero slices disables the whole mechanism and leaves the
+		// blend below as the only fade, which is what a theater with no ramp gets.
+		_shader.SetFloat("uDepthSlices", FogEnabled ? _depthSlices : 0f);
+
+		// How much nearer than its own depth a cell's leading corner is, for this frame's view
+		// direction — see FogCellSize. The grid runs along render X and Z, so a step along either
+		// axis covers cellSize * that component of the forward direction.
+		var forward = camera.Forward;
+		float cellFogBias = 0.5f * FogCellSize
+			* (MathF.Abs(forward.X) + MathF.Abs(forward.Z));
+
 		foreach (var item in items) {
 			_shader.SetMatrix("uModel", item.Transform);
 			if (_hasGrid) {
@@ -270,6 +310,7 @@ public sealed class SceneRenderer : IDisposable {
 			}
 
 			_shader.SetInt("uFullbright", item.Fullbright ? 1 : 0);
+			_shader.SetFloat("uFogDepthBias", item.CellQuantisedFog ? cellFogBias : 0f);
 
 			// Bind texture if available, otherwise use flat shading.
 			if (item.TextureHandle.HasValue) {

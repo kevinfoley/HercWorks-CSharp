@@ -100,7 +100,13 @@ void main() {
 	vUnlit = aUnlit;
 	vShade = aShade;
 	vShadeRamp = aShadeRamp;
-	vViewDistance = length(viewPosition.xyz);
+	// Depth along the view axis, not distance from the eye. That is the quantity the original
+	// fogs against: its view space is (across, depth, up) — Raster_PerspectiveDivide (0048c4f0)
+	// divides components 0 and 2 by component 1 to project — and Terrain_DrawCellQuad hands
+	// Raster_SetDepthFadeFromDistance the minimum of its four corners' component 1. Radial
+	// distance is larger than this everywhere off the view axis, by 1/cos of the angle off it,
+	// which reaches 18% at the corner of the view and fogs the edges of the screen too hard.
+	vViewDistance = -viewPosition.z;
 
 	gl_Position = uProjection * viewPosition;
 }
@@ -130,13 +136,39 @@ uniform sampler2D uTexture;
 uniform bool uTextureEnabled;
 uniform sampler2D uShadeRampTable;
 uniform bool uShadeRampEnabled;
+uniform float uShadeRampRows;
+uniform float uShadeRampGouraudRow;
 uniform sampler2D uPaletteRamp;
 uniform bool uPaletteRampEnabled;
 uniform float uShadeLevels;
 uniform float uPaletteRampRows;
+uniform float uDepthSlices;
+uniform float uFogDepthBias;
 uniform bool uFullbright;
 
 out vec4 FragColor;
+
+// Which of the theater ramp's depth slices this fragment is drawn in — the original's distance fog,
+// which it spends by adding whole slices to the ramp row a fill is about to read rather than by
+// blending anything. Raster_SetDepthFadeFromDistance (00467fec):
+//
+//     if (d >= range)   d = range;
+//     if (d <= range/2) return 0;
+//     t = min((d - range/2) * 2 / range, 1)
+//     return trunc(t * (slices - 1))
+//
+// so nothing inside half the visibility range fogs at all, the fade runs over the outer half, and it
+// lands on a whole slice. uFogEnd is that range and uFogStart is its half; both come off the zone
+// itself (Scene.Atmosphere). The truncation is the original's and is kept: the twelve steps are
+// visible in retail, and smoothing them would be a different picture.
+float depthSlice(float d) {
+	if (uDepthSlices < 2.0 || d <= uFogStart) {
+		return 0.0;
+	}
+
+	float t = clamp((min(d, uFogEnd) - uFogStart) / max(uFogEnd - uFogStart, 0.001), 0.0, 1.0);
+	return min(floor(t * (uDepthSlices - 1.0)), uDepthSlices - 1.0);
+}
 
 #ifdef EDITOR_GRID
 
@@ -185,6 +217,16 @@ void main() {
 
 	// Per-vertex, not per-draw: a mesh mixes textured and fallback-coloured triangles, and
 	// vTextured is flat across each triangle so this never interpolates between the two.
+	// Distance is spent as a slice of the theater ramp wherever the fragment reads one, and as a
+	// blend toward uFogColor only where it does not — see depthSlice above, and PaletteRampTable.
+	//
+	// uFogDepthBias pulls the terrain back to the depth of its cell's leading corner, which is where
+	// the original measures a cell's fog from. It is zero for everything else, which the original
+	// fogs from one distance per object rather than per cell. See SceneRenderer.FogCellSize.
+	float fogDepth = max(vViewDistance - uFogDepthBias, 0.0);
+	float slice = depthSlice(fogDepth);
+	bool rampFogged = false;
+
 	vec3 baseColor = vColor;
 	bool textured = uTextureEnabled && vTextured > 0.5;
 	bool texturedExact = false;
@@ -212,17 +254,22 @@ void main() {
 		if (uPaletteRampEnabled) {
 			float row = clamp(floor(shade * (uShadeLevels - 1.0) / 256.0), 0.0, uShadeLevels - 1.0);
 
-			// A fullbright draw takes the row past the ramp's own, which is the palette straight
+			// The depth bias, which the original adds to this same row offset as a whole number of
+			// slices. The table is stored slice-major, so it is one multiply.
+			row += slice * uShadeLevels;
+
+			// A fullbright draw takes the row past every slice, which is the palette straight
 			// through: the original switches TSTexture4Poly_Render to a plain texture copy with
-			// neither a light term nor a ramp lookup, and that is how a projectile's textured polys
-			// are drawn. See PaletteRampTable.FullbrightRow and SceneItem.Fullbright.
+			// neither a light term nor a ramp lookup — and so with no depth bias either, which is why
+			// a projectile does not fog. See PaletteRampTable.FullbrightRow and SceneItem.Fullbright.
 			if (uFullbright) {
-				row = uShadeLevels;
+				row = uPaletteRampRows - 1.0;
 			}
 
 			baseColor = texture(uPaletteRamp,
 				vec2((floor(texel.r * 255.0 + 0.5) + 0.5) / 256.0, (row + 0.5) / uPaletteRampRows)).rgb;
 			texturedExact = true;
+			rampFogged = true;
 		} else {
 			baseColor = texel.rgb;
 		}
@@ -237,10 +284,22 @@ void main() {
 		// picks a step along that ramp, and that lookup IS the shading. uShadeRampTable is
 		// the whole ramp-by-shade grid, so this is one sample rather than the original's two
 		// table reads.
-		// The row is the surface's ramp number, biased into the Gouraud half of the table for
-		// a TSGouraudPoly — see SurfaceRampTable.GouraudRowOffset.
+		// vShadeRamp carries the ramp number biased by SurfaceRampTable.GouraudRowOffset when the
+		// face is a TSGouraudPoly, which selects the chain rather than the row. The shaded chain has
+		// one block of ramps per depth slice, because TSShadedPoly_Render ends in
+		// Raster_ShadeRampRow and is fogged by the same bias everything else is; the Gouraud chain
+		// has no .RMP step to bias, so it is stored once and fogs by the blend below instead.
+		float chainRamp = vShadeRamp;
+		float row;
+		if (chainRamp >= 256.0) {
+			row = uShadeRampGouraudRow + (chainRamp - 256.0);
+		} else {
+			row = chainRamp + slice * 256.0;
+			rampFogged = true;
+		}
+
 		lit = texture(uShadeRampTable,
-			vec2((floor(shade) + 0.5) / 256.0, (vShadeRamp + 0.5) / 512.0)).rgb;
+			vec2((floor(shade) + 0.5) / 256.0, (row + 0.5) / uShadeRampRows)).rgb;
 	} else {
 		// What is left is untextured and names no material ramp: a plain TSSolidPoly, whose
 		// colour already came out of the theater ramp at a fixed shade and is never lit, or a
@@ -262,9 +321,15 @@ void main() {
 	}
 #endif
 
-	// Distance fog, so a 10 km zone reads as depth instead of a flat wall of terrain.
-	float fog = clamp((vViewDistance - uFogStart) / max(uFogEnd - uFogStart, 0.001), 0.0, 1.0);
-	FragColor = vec4(mix(lit, uFogColor, fog), 1.0);
+	// Whatever did not resolve through a ramp — a Gouraud face, or any surface in a theater whose
+	// ramp did not load — has nothing to carry a slice, so it fades toward the ramp's own fog colour
+	// over the same interval instead. It is the approximation, not the rule.
+	if (!rampFogged) {
+		float fog = clamp((fogDepth - uFogStart) / max(uFogEnd - uFogStart, 0.001), 0.0, 1.0);
+		lit = mix(lit, uFogColor, fog);
+	}
+
+	FragColor = vec4(lit, 1.0);
 }
 
 #endif

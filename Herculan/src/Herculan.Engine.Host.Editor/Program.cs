@@ -162,7 +162,7 @@ window.Load += (gl, input) => {
 
 	// The terrain, and the only item the measuring grid is painted onto.
 	var built = new List<SceneItem> {
-		new(terrainMesh, Matrix4x4.Identity, terrainTexture?.Handle) { ShowGrid = settings.ShowGrid }
+		new(terrainMesh, Matrix4x4.Identity, terrainTexture?.Handle) { ShowGrid = settings.ShowGrid, CellQuantisedFog = true }
 	};
 
 	foreach (var sceneObject in scene.Objects) {

@@ -24,6 +24,11 @@ _Note to Claude: This section is for listing outstanding issues with features wh
   but lands on different cells. See the SimRandom seed-table entry in [`ROADMAP.md`](ROADMAP.md) for
   the blocker. Base pads (frames 2–12) are unaffected — those are placed from `BFORMS.DAT`, not
   rolled.
+- Distance fog on terrain is smooth where retail's steps cell by cell. The amount of fog and the
+  ground it lands on match; the flat step across each cell is missing. See "Engine port" in
+  [`docs/formats/distance-fog-and-sky.md`](docs/formats/distance-fog-and-sky.md).
+- `TSGouraudPoly` faces fade by an RGB blend toward the fog colour rather than by a ramp depth slice.
+  Every other surface fogs through the ramp as retail does. Same section as above.
 - Gouraud-shaded structures band differently from retail. On the type-15 octagonal tower, retail draws six narrow bands (~4 px, ramp-8 entries 9 down to 4) then four wide ones (28, 29, 29, 59 px, entries 3 down to 0); the engine cannot produce the wide dark bands, because `Light_ComputeShadeForFace` is negative at both corners of the away-facing facet and so must flat-fill entry 0 there. The sun direction, the light intensity and the ramp entry sequence are each excluded as the cause. See "Unresolved: type-15 band widths" in `docs/formats/dts-texture-binding.md`. Reference captures: `Reference/Gouraud_shading_comparison_2.png`, `Reference/Scramble_Training_Base_4.png`.
 - Lighting on HERCs may not be correct (needs review) — re-check: HERCs are almost entirely `TSShadedPoly`, so the shade-ramp and away-facing-light fixes changed their colouring too.
 - When projectiles hit buildings, many hit effects seem to clip inside the building - I don't observe this in retail. **Hit geometry ruled out**, and **building LOD ruled out** (the engine draws maximum detail, which is what retail's screenshots were taken at). Most likely a draw order issue.

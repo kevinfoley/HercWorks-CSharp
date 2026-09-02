@@ -70,10 +70,11 @@ public struct MeshVertex {
 	/// lookup happens per fragment, against <see cref="Render.SurfaceRampTable"/>. Baking it here
 	/// would pin every instance to the rest pose's lighting.</para>
 	///
-	/// <para>It is a <i>row</i> of that table rather than a bare ramp number: a
-	/// <c>TSGouraudPoly</c>'s value carries <see cref="Render.SurfaceRampTable.GouraudRowOffset"/>
-	/// on top, because the two lit types spend the same ramp through different chains — see
-	/// <see cref="Render.SurfaceShading.GouraudColor"/>.</para>
+	/// <para>It is more than a bare ramp number: a <c>TSGouraudPoly</c>'s value carries
+	/// <see cref="Render.SurfaceRampTable.GouraudRowOffset"/> on top, because the two lit types spend
+	/// the same ramp through different chains — see <see cref="Render.SurfaceShading.GouraudColor"/>.
+	/// The pair names the chain and the ramp; the shader turns it into a row, since the shaded chain
+	/// is stored once per depth slice and the Gouraud chain once in total.</para>
 	/// </summary>
 	public float ShadeRamp;
 

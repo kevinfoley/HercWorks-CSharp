@@ -37,10 +37,16 @@ namespace Herculan.Engine.Content;
 /// callers and the trace behind that are docs/formats/distance-fog-and-sky.md's "What gets
 /// faded".</para>
 ///
-/// <para>The engine renders that fade as per-pixel fog in <see cref="Render.SceneRenderer"/>
-/// rather than as a ramp row, so <see cref="Lookup"/>'s two-argument form reads slice zero and the
-/// fog supplies the rest. The difference is that the original's is per object and quantised to
-/// twelve steps where the fog is continuous.</para>
+/// <para>The engine renders that fade the same way, as a ramp row: both
+/// <see cref="Render.PaletteRampTable"/> and <see cref="Render.SurfaceRampTable"/> carry every slice
+/// and the fragment shader picks one with <see cref="DepthSliceFor"/>'s own formula, so a fogged
+/// pixel is still the exact byte the original would have written. It differs only in where the
+/// distance is measured: per fragment here, per cell and per object there.</para>
+///
+/// <para>What has no ramp row to bias — a <c>TSGouraudPoly</c>, or any surface in a theater whose
+/// ramp did not load — falls back to <see cref="Render.SceneRenderer"/>'s blend toward
+/// <see cref="FogColor"/> over the same interval, which is a poorer likeness than it looks — why is
+/// in docs/formats/distance-fog-and-sky.md's "Rejected readings".</para>
 /// </summary>
 public sealed class ShadeRamp {
 	/// <summary>The folder the theater loader opens this from.</summary>
@@ -201,8 +207,9 @@ public sealed class ShadeRamp {
 	/// One flat surface colour as the engine wants it: the ramp lookup expanded through the theater's
 	/// own palette. Returns null when the palette has no entry for the resolved byte.
 	/// </summary>
-	public Vector3? Resolve(int paletteIndex, int shade, DynamixPalette? palette) {
-		byte resolved = Lookup(paletteIndex, shade);
+	/// <param name="depthSlice">Which depth slice to read — see <see cref="DepthSliceFor"/>.</param>
+	public Vector3? Resolve(int paletteIndex, int shade, DynamixPalette? palette, int depthSlice = 0) {
+		byte resolved = Lookup(paletteIndex, shade, depthSlice);
 		if (palette == null || !palette.Colors.TryGetValue(resolved, out var entry)) {
 			return null;
 		}

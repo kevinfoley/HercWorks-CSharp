@@ -16,7 +16,7 @@ Terrain_BuildSurface (0046c1dc)              per zone load, and after footprint 
 
 Terrain_DrawCellQuad (0046d344)              per cell, per frame
  ├─ shades[0] = cell[+0xd]  (near tri)  /  cell[+0xe]  (far tri)
- └─ Raster_DrawTexturedPolyNear (0046865c) / FUN_00468078
+ └─ Raster_DrawTexturedPolyNear (0046865c) / Raster_SetupTexturedSpan (00468078)
      └─ mode 1: DAT_004a09c4 = ((shades[0] * (shadeLevels-1)) + depthBias) << 8
 ```
 

@@ -90,7 +90,7 @@ Per quad:
 
 1. Both points to view space (`FUN_0048c470`), then the pair clipped against the near plane
    (`FUN_0040bb4c`); a pair wholly behind it is dropped.
-2. Both projected to screen (`FUN_0048c4f0`, `FUN_0048c5c4`).
+2. Both projected to screen (`Raster_PerspectiveDivide`, `FUN_0048c5c4`).
 3. Half-width in pixels at each end: `FUN_0048c4c0(width, viewZ)` = `(width << shift) / z`, then
    `if (< 2) = 2`. This floors the **half**-width, so a beam is never narrower than four pixels.
 4. Four vertices: each screen point stepped ±(half-width) along the segment's 2D perpendicular,

@@ -49,9 +49,14 @@ public sealed record SurfaceShading(ShadeRamp Ramp, DynamixPalette? Palette) {
 	/// </summary>
 	/// <param name="rampNumber">The surface's <c>FrontColor</c>, masked to a byte as the original does.</param>
 	/// <param name="shade">The face's light level, 0-255 — see <see cref="MissionSun.ShadeForFace"/>.</param>
-	public Vector3? ShadedColor(int rampNumber, int shade) =>
+	/// <param name="depthSlice">
+	/// Which of the <c>.RMP</c>'s depth slices the second lookup reads — the original's distance fog,
+	/// which <c>Raster_ShadeRampRow</c> spends by adding whole slices to the row offset it has just
+	/// computed. 0 is unfogged; <see cref="ShadeRamp.DepthSliceFor"/> works it out from a distance.
+	/// </param>
+	public Vector3? ShadedColor(int rampNumber, int shade, int depthSlice = 0) =>
 		RampedPaletteIndex(rampNumber, shade) is { } index
-			? Ramp.Resolve(index, ShadeRamp.UnlitShade, Palette)
+			? Ramp.Resolve(index, ShadeRamp.UnlitShade, Palette, depthSlice)
 			: null;
 
 	/// <summary>

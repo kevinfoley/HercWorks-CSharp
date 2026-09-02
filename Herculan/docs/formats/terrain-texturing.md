@@ -116,11 +116,12 @@ This section is the canonical account of `+0x10c`; [`terrain-heightmap.md`](terr
 
 One function **writes** the field; four read it:
 
-- `Terrain_SetupVisibleRegion` (`0046ca98`) sets `grid[+0x10c] = DAT_004a0bcc[DAT_004d1fc3]` — a
-  per-detail-setting LOD table — then `>>= (cellShift - 14)` when `cellShift > 14`. The engine's
-  ported `detailLod = cellShift > 14 ? 10 >> (cellShift - 14) : 10` **is this formula**, with 10
-  being the retail default table entry rather than a constant. The engine currently derives it once
-  at load; the original re-reads it every frame from the detail setting.
+- `Terrain_SetupVisibleRegion` (`0046ca98`) sets `grid[+0x10c] = (short)DAT_004a0bcc[DAT_004d1fc3]`
+  — the terrain-detail setting's own table, below — then `>>= (cellShift - 14)` when
+  `cellShift > 14`. The `>>` only ever fires on the two shift-15 zones; nothing compensates in the
+  other direction, so a zone with small cells is simply seen less far across. The original re-reads
+  the setting every frame; `Herculan.Engine.Terrain.TerrainDetail` reads it once at zone load, which
+  is equivalent while nothing changes it mid-mission.
 - `Terrain_BuildDrawRegionQuad` (`0046d220`) builds the draw region as a square of radius
   `grid[+0x10c] << cellShift` world units around the viewer, clamped to the grid extent. So the LOD
   field is literally **a terrain draw radius in cells**.
@@ -134,6 +135,22 @@ One function **writes** the field; four read it:
 
 `maybe_Terrain_ComputeViewDistance` (`00470910`) reads the same field per frame for the view setup;
 its two outputs remain undecoded.
+
+### The terrain-detail setting
+
+`DAT_004a0bcc` is three `int16`s — **6, 10, 14** cells. `DAT_0049e2da`, the map from the same setting
+onto the option panel's labels (`FUN_004571f4` case 4), is also three entries, which is the second
+source for there being exactly three.
+
+The setting is `DAT_004d1fc3`, and it has no writer of its own: the options are a byte array based at
+`DAT_004d1fbc` that `Prefs_SetOption` (`0045993c`) indexes, making the terrain detail **option 7**.
+`Prefs_LoadOptions` (`00459754`) fills that array by `memset`ting 0x36 bytes to zero and reading
+`data\prefs.cfg` straight over them, so **the file is the array, unparsed** — an option's index is
+its byte offset, and the file is 54 bytes. So the draw distance is a player setting, not a property
+of the zone.
+
+Ported in `TerrainDetail`, which reads byte 7 of the `prefs.cfg` beside the mission's `script.dat`
+and falls back to the highest setting when there is none.
 
 ## Who writes `cell[+0xf]`
 

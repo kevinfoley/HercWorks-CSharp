@@ -71,12 +71,13 @@ public sealed partial class HeightGrid {
 	public int HeightScale { get; }
 
 	/// <summary>
-	/// The value at <c>+0x10c</c>, derived here once at load as <c>10 >> (CellShift - 14)</c>
-	/// (clamped, default 10). <c>Terrain_HeightQuery</c> never reads it — it is the <b>view radius in
-	/// cells</b>, and the consumer this engine has ported is <c>Terrain_DrawCellQuad</c>, which per
-	/// cell does <c>FUN_00467fdc(grid[0x10c] &lt;&lt; grid[0x108])</c> to install the visibility range
-	/// the distance fog is measured against (see <see cref="VisibilityRange"/>). The field's writer
-	/// and its other readers — draw-region and view-distance setup — are in
+	/// The value at <c>+0x10c</c>, set once at load from the terrain-detail setting — see
+	/// <see cref="TerrainDetail"/>, which owns the table and the derivation.
+	/// <c>Terrain_HeightQuery</c> never reads it — it is the <b>view radius in cells</b>, and the
+	/// consumer this engine has ported is <c>Terrain_DrawCellQuad</c>, which per cell does
+	/// <c>FUN_00467fdc(grid[0x10c] &lt;&lt; grid[0x108])</c> to install the visibility range the
+	/// distance fog is measured against (see <see cref="VisibilityRange"/>). The field's writer and
+	/// its other readers — draw-region and view-distance setup — are in
 	/// docs/formats/terrain-texturing.md's "<c>grid+0x10c</c> — the LOD / draw-radius field".
 	/// </summary>
 	public int DetailLod { get; }
@@ -87,8 +88,11 @@ public sealed partial class HeightGrid {
 	/// Distance fog begins at half this and is total at it — see
 	/// <see cref="Content.ShadeRamp.DepthSliceFor"/>.
 	///
-	/// <para>Retail zones are shift 12 to 15, which puts this between 40960 and 163840 world units
-	/// (246 m to 983 m at <see cref="World.WorldScale.WorldUnitsPerMeter"/>).</para>
+	/// <para>Retail zones are shift 12 to 15, so at the highest detail setting this runs from 57344
+	/// world units (344 m at <see cref="World.WorldScale.WorldUnitsPerMeter"/>, the one shift-12
+	/// zone) to 229376 (1376 m, the 26 zones at shift 14). The lowest setting is 6/14ths of that.
+	/// Nothing in the format normalises it: a zone with small cells is simply seen less far
+	/// across.</para>
 	/// </summary>
 	public long VisibilityRange => (long)DetailLod << CellShift;
 

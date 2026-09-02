@@ -1,6 +1,7 @@
 using HercWorks.Core.Data.File.Dat.Sim;
 using HercWorks.Core.Data.Struct;
 using HercWorks.Core.Data.Struct.Dbsim;
+using Herculan.Engine.Audio;
 using Herculan.Engine.Numerics;
 
 namespace Herculan.Engine.Sim;
@@ -217,6 +218,7 @@ public sealed class Rocket {
 
 		AccelerationTick();
 		GuidanceTick();
+		InboundWarningTick(world);
 
 		short step = (short)SimMath.IntegrateRateOverTick(_speed);
 		RebuildFrame();
@@ -237,6 +239,38 @@ public sealed class Rocket {
 		_frame.Y = advanced.Y;
 		_frame.Z = advanced.Z;
 		return false;
+	}
+
+	/// <summary>
+	/// How near the camera a round has to come before it warns the player — <c>0x9c40</c>, 40,000
+	/// world units, about 240 m.
+	/// </summary>
+	public const int InboundWarningRange = 0x9c40;
+
+	/// <summary><c>round+0x6</c> — the latch that makes the warning fire once per round.</summary>
+	private bool _warned;
+
+	/// <summary>
+	/// <c>Rocket_TickUpdate</c>'s missile-inbound warning: every tick the round measures itself
+	/// against the camera, and the first time it comes inside <see cref="InboundWarningRange"/> it
+	/// plays <see cref="SoundId.MissileInbound"/> and latches.
+	///
+	/// <para><b>It does not care whose missile it is</b>, or where it is heading — the original tests
+	/// distance to the view and nothing else, so the player's own launch warns them as it leaves.
+	/// And it is not positional: the warning is a cockpit tone, played through <c>Sound_Play</c>.</para>
+	/// </summary>
+	private void InboundWarningTick(SimWorld world) {
+		if (_warned || world.Sounds is not { } sounds) {
+			return;
+		}
+
+		var position = new Vec3i(_frame.X, _frame.Y, _frame.Z);
+		if (position.ApproxDistanceTo(world.ListenerPosition) >= InboundWarningRange) {
+			return;
+		}
+
+		sounds.Play(SoundId.MissileInbound);
+		_warned = true;
 	}
 
 	/// <summary>

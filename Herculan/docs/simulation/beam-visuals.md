@@ -8,7 +8,8 @@ in [`weapon-firing.md`](weapon-firing.md).
 `Bullet_FireBurst` (`0040bf74`) resolves the hit, then builds the visual from the already-shortened
 distance:
 
-1. `Sound_PlayAt(0x0b, muzzlePoint)` — `FUN_004627dc`, untraced beyond the call.
+1. `Sound_PlayAt(0x0b, muzzlePoint)` — catalog id `0x0b` is `laser1.wav`, placed by distance and
+   bearing. See [`../formats/audio.md`](../formats/audio.md).
 2. The far end is rebuilt from the shot's own frame as `transform(0, travelled, 0)`, where
    `travelled` is the raycast's distance or the weapon's full range when it struck nothing.
 3. One tracer object per **5000-unit** span, allocated from the pool at `DAT_004a9746`, plus a final

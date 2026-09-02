@@ -12,7 +12,8 @@ _Bugs listed in this section were tested on Windows 11. It's possible that some 
 - Turning with the keyboard turns at half of the speed of turning with the joystick.
 - The HUD speed readout does not reflect speed accurately. Hercs have two strides, "walking" and "running". In the walking stride, the Herc moves much more slowly than the speed gauge indicates.
 - An ELF or ELF2 shot paints a stray orange-white dash at the muzzle, roughly four pixels wide, where the jagged tracer branch falls through into the straight-beam draw. See [`docs/simulation/beam-visuals.md`](docs/simulation/beam-visuals.md#the-muzzle-stub-is-a-retail-fall-through).
-- The Range readout of the MFD TARGET tab (F5) prints raw world units — 1 unit = 6 mm, so 103050 is about 618 m. Every other distance readout in the cockpit converts to metres first (`Hud_WorldUnitsToMetres`); this one does not.
+- In the low-memory mode (`-l`, or under 12 MB physical) samples load from `SIMSOUND.VOL`'s `hmx\` bank instead of `hmi\`. `EXPLO5.WAV` is in `hmi\` only, so catalog id `0x22` fails to open and that explosion is silent. See [`docs/formats/audio.md`](docs/formats/audio.md#sample-banks).
+- The Range readout of the MFD TARGET tab (F5) prints raw world units — 1 unit = 6 mm. Every other distance readout in the cockpit converts to metres first (`Hud_WorldUnitsToMetres`).
 
 ## HERCULAN Engine
 
@@ -38,6 +39,8 @@ _Note to Claude: This section is for listing outstanding issues with features wh
 - Similarly to the previous, currently missing is an animation where weapon buttons wink on one-at-a-time when the simulation first starts.
 - In the Scramble practice mission while piloting an Apocalypse, a Particle Beam Weapon is equipped to slot 8. In HERCULAN, when this PBW is fired the beam visibly clips off near the corner of the screen. This may be a camera near-clip plane issue.
 - Targeting range seems to be much lower than retail, even with active radar. Possibly because there's currently no AI, so the enemies never switch their radar on.
+- A sound placed exactly abeam the listener pans to the correct side, where retail snaps it to the opposite one. `Sound_Place` computes the front half of its pan as `(ushort)(bearing * -2)`, which for a bearing of zero — a source precisely to the left or right, with no forward component at all — yields the hard-*left* value while every neighbouring bearing on both sides yields the hard-*right* one; the continuous value there is `0x10000` and only the truncation to sixteen bits inverts it. `SoundDirector.Place` computes `0x10000 - 2 * bearing` clamped instead. The engine reaches that exact zero far more often than the original does — DBSIM's forward component comes out of a full camera matrix carrying pitch and roll, where an exact zero is a coincidence, and the engine's comes out of a plain horizontal rotation, where it is simply what "abeam" means — so reproducing it would put an audible snap to the far channel on anything passing the player. See [`docs/formats/audio.md`](docs/formats/audio.md#playing-a-sound).
+- The sound catalog's memory budget is not reproduced: every sample loads at startup rather than being cached on demand and evicted under a cap. No audible difference on retail data — see "Engine coverage" in [`docs/formats/audio.md`](docs/formats/audio.md#engine-coverage).
 - The `[V]` external view is placeholder rather than retail's. See [`ROADMAP.md`](ROADMAP.md).
 - The `[P]` pause is a placeholder that just stops the fixed-timestep tick loop. See [`ROADMAP.md`](ROADMAP.md).
 

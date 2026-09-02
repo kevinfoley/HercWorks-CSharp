@@ -114,8 +114,8 @@ shot's frame, and do so whether or not the sweep goes on to find something neare
 `SimWorld.{Explosions, Effects, SpawnImpactEffect, PickImpactEffect}`, `MissionScene.ExplosionModels`.
 Deviations:
 
-- **No light, no sound, no trail object.** All three belong to systems that do not exist; no retail
-  row asks for a trail anyway.
+- **No light and no trail object.** Both belong to systems that do not exist; no retail row asks for
+  a trail anyway. The row's `SoundId` is played — see [`../formats/audio.md`](../formats/audio.md).
 - **Group 2 is selected, but indistinguishably.** The split from group 1 is a change in a component's
   health band, which `MechObject.ApplyDirectFireDamage` measures either side of the write, so both
   branches are reachable. It costs nothing on retail data, per the note above: the two arrays hold

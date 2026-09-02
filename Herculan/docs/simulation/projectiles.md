@@ -108,7 +108,9 @@ target into a quarter turn of pitch; it is worth stating because it did exactly 
   own frame count for the sequence; the renderer takes the same modulo anyway
   (`TSCellAnimPart_Render` does), so the frame drawn is identical and the simulation stays clear of
   needing to know what the shape looks like.
-- Sound is unported throughout.
+- **The fire sound is ported.** `SimWorld.FireBullet` plays the record's `+0x08` at the muzzle as
+  `id + 10`, through `SimWorld.PlayTableSound`.
+  → [`../formats/audio.md`](../formats/audio.md)
 
 The three EMP rounds — `BULLETS.DTS` roots 2 and 3, a `TSCellAnimPart` of five `TSBitmapPart`s — are
 drawn through the billboard path, see [`../formats/dts-billboards.md`](../formats/dts-billboards.md).

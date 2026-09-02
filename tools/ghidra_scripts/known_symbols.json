@@ -6889,6 +6889,780 @@
       "name": "Math_Rotate2DPoint",
       "description": "Rotates an {int x, int y} point by a Math_BuildRotation2D matrix, rounding at Q14.",
       "source": "docs/formats/hud-target-indicator.md 2026-08-30"
+    },
+    {
+      "address": "004957f1",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sos_BindLibrary",
+      "description": "Binds the HMI Sound Operating System. GetVersion() picks sos32s03.dll under Win32s (high bit set, major <= 3) and sos9503.dll otherwise -- only sos9503.dll ships -- then walks the self-describing table at 004a6ab4: 0x24-byte records of {void **destination, char name[0x20]}, terminated by a NULL destination, GetProcAddress'ing each. 100 entry points: 44 sosDIGI*, 45 sosMIDI*, 8 sosTIMER*, sosGetErrorString, sosPrepare32Memory, sosUnPrepare32Memory. Refcounted at 004a6ab0, so repeated calls bind once.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004a6ab4",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "SosBindingTable",
+      "description": "HMI SOS dynamic-binding table: 0x24-byte records {void **destination, char name[0x20]}, a NULL destination terminating. 100 records. Walked by Sos_BindLibrary.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004735fc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sos_InitBackend",
+      "description": "SFX backend bring-up: binds the SOS library, copies the SOUND.CFG-derived config block (rate, width, driver, buffers) into 004a0e5c..004a0e64, then opens the driver through 00473da0 -- once with the configured driver id, once with id 1.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00473b3c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Music_PlayTrack",
+      "description": "Plays one Red Book CD track through MCI, not through SOS: MCI_OPEN device 'cdaudio', MCI_SET time format TMSF, MCI_PLAY with MCI_FROM|MCI_TO|MCI_NOTIFY from the track start to that track's own length (00473c78). The MCI_NOTIFY is what makes sfxWndProc restart it on MM_MCINOTIFY, so a track loops.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00473af4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Music_Stop",
+      "description": "MCI_STOP then MCI_CLOSE on the cdaudio device, and resets the device id at 004a0e44 to -1.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00473c38",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Music_GetPosition",
+      "description": "MCI_STATUS with item MCI_STATUS_POSITION and MCI_WAIT -- the saved TMSF position Music_ResumeAt takes.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00473cc0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Music_ResumeAt",
+      "description": "Same open/set/play as Music_PlayTrack, but MCI_FROM is a saved TMSF position rather than a track start. Used by Sound_ResumeAll.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004a0e44",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "Music_MciDeviceId",
+      "description": "MCI device id of the open cdaudio device, or -1 when closed.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004a0e48",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "Sos_MasterVolume",
+      "description": "Master volume, 0-100, multiplied into every voice volume by Sos_ApplyVolume. A constant 100: its only setter (004739a8) has no callers.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "0047371c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sos_LoadOrFreeSample",
+      "description": "(resourceName, slotIndex, load, isMidiSong). Loads or frees one resource's backend object at record+0x214. isMidiSong picks the .hmp song path (00474550 / 004745fc) over the digital sample path (00474254 / 004743fc).",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "0047378c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sos_StartVoice",
+      "description": "(resourceRecord+4, voiceRecord+4). Starts one voice on the backend. Branches three ways on the voice flags: bit 0 = MIDI song, bit 12 = the streamed-by-name path (00474630), otherwise a SOS digital sample -- packing volume into both 16-bit halves, translating loop count 0 to -1 (infinite) and n to n-1, and copying pan and callback into the sample object.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004738a0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sos_StopVoice",
+      "description": "Stops one voice on whichever of the three backend paths its flags select.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004739e0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sos_ApplyVolume",
+      "description": "Converts a voice's 0-100 volume to the backend's range: volume * Sos_MasterVolume * 0x7fff / 10000 duplicated into both 16-bit halves for left and right, or volume * 0x7f / 100 for a MIDI song.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "0049f904",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "SfxManager",
+      "description": "The single SFX manager instance (0x4c bytes), or 0 when sound is off. Every Sound_* entry point tests it first.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00463698",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_ReadConfig",
+      "description": "Reads DATA\\\\SOUND.CFG with GetPrivateProfileString into the manager's config block at +0x24: Driver (MME=1 / DirectSound=2) at +0x2a, Buffers (1-64, else 5) at +0x30, Rate (11 gives 0x10, else 0x20) at +0x24, Width (Mono gives 4, else 8) at +0x28. +0x26 is fixed at 1 and +0x32 at 0x200.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00463590",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_Init",
+      "description": "(manager, memoryCap, resourceSlots, voiceSlots). Called as (cap, 60, 90). Allocates the resource table at +0x34 (stride 0x21c) and the voice table at +0x38 (stride 0x28), fills every slot's handle with -1, then brings the backend up with the config block at +0x24.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00463910",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_Open",
+      "description": "(manager, name, type, userValue, loadState) -> voice handle, or -1. Handles are generation<<16|slotIndex, the generation coming from the manager's counter at +0x20; every accessor re-reads the slot's own copy and rejects a mismatch. Takes a free voice slot and defaults it (priority 5, volume 100, loop 1, pan 0x8000, pitch 0x10000), then binds a resource: an existing resource with the same name is shared and its refcount bumped, otherwise a free resource slot takes the name. type 0 = .hmp MIDI song (flag 0x1), 1 = digital sample, 2 = the streamed path (flag 0x1000).",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00463b4c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_Close",
+      "description": "Releases one voice slot and drops its resource's refcount.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00463c48",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_Cache",
+      "description": "(manager, voiceHandle, in). Loads or unloads the voice's resource. Loading stats the file for its byte size into record+0x210, and if cached+size would exceed the manager's cap at +0x18 runs Sfx_EvictUntilFree first; on success sets record+0x20c and adds the size to the cached total at +0x1c. Unloading refuses while the resource refcount (+0x208) is 2 or more.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00463f34",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_Play",
+      "description": "(manager, voiceHandle). Caches the resource on demand, starts it through Sos_StartVoice, sets the playing flag 0x100 and bumps the manager's playing-sample (+0x3c) or playing-song (+0x40) count.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00464014",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_Stop",
+      "description": "Stops one voice and clears its playing flag.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004640e4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_IsDone",
+      "description": "Returns nonzero when the voice is not playing; when the backend reports it finished, calls Sfx_Stop to clear the state.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "0046417c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_PickEvictionVictim",
+      "description": "Scores every live voice and returns the lowest: (resource cached ? 100 : 0) + priority + (playing ? 1000 : 0) + (playing && looping ? 10000 : 0). An idle, uncached, low-priority voice is taken first and a looping playing one last.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "0046428c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_EvictUntilFree",
+      "description": "Frees cached resources by repeatedly taking Sfx_PickEvictionVictim's choice until the requested number of bytes fits under the manager's cap.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00464514",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_SetVolume",
+      "description": "Writes voice+0x14 (0-100) and re-applies it to the backend if the voice is live.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004645d8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_SetPan",
+      "description": "Writes voice+0x1c; 0x8000 is centre and clears flag 0x800, anything else sets it.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00464568",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_SetPitch",
+      "description": "Writes voice+0x20 as 16.16; 0x10000 is 1.0 and clears flag 0x400, anything else sets it.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00464648",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_SetLooping",
+      "description": "Writes voice+0x18 as a repeat COUNT, not a boolean: 0 = forever, 1 = once, n = n times. Sets flag 0x80 for any value other than 1.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004646b4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_SetPriority",
+      "description": "Writes voice+0x0c. The sound catalog uses 5; the speech channel uses 0xff so catalog voices can never evict it.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004644d8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_SetCallback",
+      "description": "Writes voice+0x10, handed to the backend sample object when the voice starts.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "0046479c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_GetVoiceRecord",
+      "description": "Validates a voice handle and returns a pointer to its record+4, or 0.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004647dc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_ServiceFinishedVoices",
+      "description": "Sweeps the voice table, asking the backend which playing voices have finished, clearing their 0x100 flag and decrementing the manager's playing counts.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00462294",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "sfxWndProc",
+      "description": "MainWndProc filter registered by Sound_Init (see WndProcHook_Register). Two messages only: WM_TIMER (0x113) pumps the SOS/MME service routine, and MM_MCINOTIFY (0x3b9) with MCI_NOTIFY_SUCCESSFUL re-issues Music_PlayTrack, which is what loops the CD track.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "0046230c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sound_Init",
+      "description": "(enable). Registers sfxWndProc as a MainWndProc hook, allocates the five-slot speech channel pool (5 x 0x42-byte records plus a 5 x 100-byte script buffer at 004d2df4), then allocates and initialises the SFX manager with a cache cap of 2,000,000 bytes -- 1,000,000 when CockpitArt_LoadOnDemand is set -- 60 resource slots and 90 voice slots, and loads the sound catalog.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00462630",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sound_Shutdown",
+      "description": "Stops the CD, unregisters sfxWndProc, tears the SFX manager down and clears SfxManager.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00462448",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SoundCatalog_Load",
+      "description": "Loads str\\\\SOUNDS.STR -- one .STR group of 57 entries, each a filename plus a 7-byte attribute blob -- into three parallel arrays: names (004d2b0c), attribute pointers (004d2bfc) and voice handles (004d2cfc), count in 004d2dec. Per entry: resolve the path through Sound_ResolveSamplePath, Sfx_Open as a sample, priority 5, Sfx_SetLooping to attribute byte 0, Sfx_SetVolume to Math_Q16Multiply(byte 1, 65000), Sfx_Cache if byte 2 is set, then default byte 4 to 5 and byte 5 to 100 where they are 0xff and set byte 8 to 100. The code reads a TEN-byte blob: bytes 7-9 are runtime scratch (resume flag, category volume, throttle counter) that the file does not supply.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004d2b0c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "SoundCatalog_Names",
+      "description": "57 pointers to the catalog's .wav filenames, into the loaded SOUNDS.STR buffer.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004d2bfc",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "SoundCatalog_Attributes",
+      "description": "57 pointers to the catalog's attribute blobs, into the loaded SOUNDS.STR buffer. Byte 0 loop count (0 = forever), 1 volume 0-100, 2 preload, 3 throttle divisor, 4 rolloff start / 1024 world units (0xff gives 5), 5 cutoff / 1024 world units (0xff gives 100), 6 variation count, 7 resume flag, 8 category volume percent, 9 throttle counter. Bytes 7-9 are runtime-only and overlap the next entry's header in the file buffer, which is inert because every pointer is collected before the first write.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004d2cfc",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "SoundCatalog_Voices",
+      "description": "57 SFX voice handles, one per catalog id. Index 10 (004d2d24) is where the effects half starts.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004d2dec",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "SoundCatalog_Count",
+      "description": "Number of catalog entries actually opened.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00462238",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sound_ResolveSamplePath",
+      "description": "Prefixes a catalog filename with 'HMI\\\\', or 'HMX\\\\' when CockpitArt_LoadOnDemand is set. SIMSOUND.VOL carries both banks, hmx being the same content at half the sample rate; EXPLO5.WAV is in hmi only.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00462680",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sound_IsCategoryEnabled",
+      "description": "Splits the catalog at id 10: below 10 answers to the music enable flag (0049f90c), 10 and up to the effects flag (0049f910). This is why every data-driven table plays SoundId + 10.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "0046272c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sound_Play",
+      "description": "(catalogId). Non-positional. Rolls the variation count (attribute byte 6) to displace the id, sets volume to Math_Q16Multiply(byte 1, 65000) * byte 8 / 100 -- or 0 when the category is muted -- and plays.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004627dc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sound_PlayAt",
+      "description": "(catalogId, worldPoint). Positional. Rolls the variation count, then Sound_Place computes volume and pan; plays only if the result is audible. One entry point covers every data-driven sound in the sim (PROJ.DAT, ROCKETS.DAT, EXPLOS.DAT, the alerts).",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00462898",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sound_Place",
+      "description": "(catalogId, worldPoint) -> audible. Resets the model transform and pushes the point through the current camera transform, so the listener is the camera. With d = Math_FastMagnitude3D(view): beyond attribute byte 5 * 1024 the volume is 0 and nothing plays; at or past byte 4 * 1024 it is (max - d) * vol / max -- the divisor is max, not max - min, so a sound at exactly min is already attenuated. Final volume is scaled by attribute byte 8 / 100. Pan is (-2a) & 0xffff for a = Math_Atan2Bam(viewX, viewY) below 0x8000, and 2a & 0xffff above.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00462878",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sound_UpdatePosition",
+      "description": "Re-runs Sound_Place for a sound already playing, without starting it.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004626c4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sound_ThrottleCheck",
+      "description": "(catalogId) -> may play. interval = (2 - detailSetting 004d1fc7) * attribute byte 3; interval 0 always plays, otherwise attribute byte 9 counts up (wrapping at 0x0f) and only every interval-th call passes. Keeps a sound fired by many objects at once from playing once per object.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004629c0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sound_Stop",
+      "description": "Stops one catalog id's voice.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004629ec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sound_IsPlaying",
+      "description": "Returns whether one catalog id's voice is still playing.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00462604",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sound_Preload",
+      "description": "Caches one catalog id's sample without playing it.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00462c74",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sound_MuteMusic",
+      "description": "Zeroes the volume of catalog ids 0-9 and clears the music enable flag; when a CD track is set, saves the position and stops the CD instead.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00462cd8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sound_MuteEffects",
+      "description": "Zeroes the volume of catalog ids 10 and up and clears the effects enable flag.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00462d54",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sound_UnmuteMusic",
+      "description": "Restores ids 0-9 to Math_Q16Multiply(byte 1, 65000) * byte 8 / 100, or resumes the CD from the saved position, and sets the music enable flag.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00462df8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sound_UnmuteEffects",
+      "description": "Restores ids 10 and up to their own volumes and sets the effects enable flag.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00462f5c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sound_SetCategoryVolume",
+      "description": "Writes attribute byte 8, the per-sound category scale every volume computation multiplies through, and re-applies the resulting volume.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00462f10",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sound_SetBaseVolume",
+      "description": "Overwrites attribute byte 1 (the authored 0-100 volume) and re-applies it.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00462fbc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sound_ShiftMusicSet",
+      "description": "(delta, charIndex). Offsets one character of each of the ten music filenames by delta and re-opens them -- how a different music set would have been selected. All ten name battle1.wav, which ships in no archive.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00463078",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sound_SuspendAll",
+      "description": "Records which catalog voices are playing into attribute byte 7, saves the CD position into 0049f91c, stops the CD and services the backend. Paired with Sound_ResumeAll.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00463134",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sound_ResumeAll",
+      "description": "Replays exactly the catalog voices whose attribute byte 7 was set by Sound_SuspendAll, and resumes the CD from the saved TMSF position.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "0049f90c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "Sound_MusicEnabled",
+      "description": "Enable flag for catalog ids 0-9.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "0049f910",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "Sound_EffectsEnabled",
+      "description": "Enable flag for catalog ids 10 and up.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "0049f914",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "Music_CdTrack",
+      "description": "CD track number for the mission, written by Sim_InitMissionSession. 0 means use the (dead) digital music ids instead.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "0049f918",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "Music_CdEnabled",
+      "description": "CD music enable byte, written by Sim_InitMissionSession.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "0049f91c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "Music_SavedPosition",
+      "description": "TMSF position saved by Sound_SuspendAll for Music_ResumeAt.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "0049f97e",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "Sound_SpeechEnabled",
+      "description": "Enable flag for the five-slot speech channel; without it Voice_Acquire opens nothing.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004d2df0",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "VoiceSlots",
+      "description": "Five 0x42-byte speech channel records. +0x00 SFX voice handle, +0x04 next script event time, +0x08 current portrait frame (-1 = finished), +0x0a script cursor, +0x0e wav name, +0x2f this slot's 100-byte .SNC buffer, +0x33 name pointer for the by-name lookup, +0x37 last-use tick for LRU, +0x3b in-use, +0x3c owning catalog id, +0x3e SFX voice handle.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00462a98",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Voice_Acquire",
+      "description": "(wavName, sncPath) -> slot. Looks the name up across the five speech slots; a miss evicts the least recently used (Voice_EvictLru), copies the name in, opens an SFX voice at priority 0xff so catalog voices can never evict it, caches it, and loads the .SNC script. Gated on Sound_SpeechEnabled.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00462a2c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Voice_EvictLru",
+      "description": "Picks the speech slot with the oldest last-use tick (+0x37), closes whatever voice it held and returns it.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "0046283c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Voice_PlayNamed",
+      "description": "(wavName, volume). Acquires a speech slot for the name with no .SNC script, sets its volume and starts it.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00463270",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Snc_Load",
+      "description": "(slot, sncPath, voiceHandle). Reads the .SNC file into the slot's 100-byte buffer: an int32 length followed by that many bytes of {int8 frame, int8 deltaTicks} pairs, then appends the 0xff terminator itself -- the terminator is NOT in the file. With no path the buffer is just 0xff and the voice plays with the portrait held.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004632fc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Snc_Start",
+      "description": "Points the slot's cursor at the start of its script; an immediately-0xff script sets the frame to 1 and plays without animation, otherwise stamps the start time and runs Snc_Advance. Then plays the voice.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004633ac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Snc_Advance",
+      "description": "Reads {frame, delta} pairs, accumulating delta into the slot's next-event time until it passes now, publishes the frame at slot+0x08, and re-inserts the slot into the global event queue. Reaching 0xff sets the frame to -1, which is what tells HddGauge_PaintPilotFrame the message is over.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004631c0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Snc_ServiceQueue",
+      "description": "Drains the global .SNC event queue (004d2efa, 8-byte {time, slot} entries, count 0049f97c) of everything now due, calling each slot's Snc_Advance.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00463468",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Snc_GetFrame",
+      "description": "Returns the slot's current portrait frame (slot+0x08); -1 once the script has ended.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004d2efa",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "SncEventQueue",
+      "description": "Global .SNC timer queue: 8-byte {uint32 time, void *slot} entries, count at 0049f97c, drained by Snc_ServiceQueue.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "0044afc8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CommBox_BeginMessage",
+      "description": "Builds the two filenames for one comm message and acquires a speech slot. suffix = '_' + 2-digit message id + 3-digit variant; the wav is 'P' + voiceBank + suffix in simvoice/simvoicf/simvoicg, the script 'P' + ('A' + squadSlot) + suffix in snc/. voiceBank is (slot >> 2) + 1 with 3 remapped to 4, so twelve squad slots share three recorded voices P1_/P2_/P4_ -- the same grouping as str\\\\PILOT0/1/2/4.STR.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "0045ef68",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Voice_ArchiveName",
+      "description": "Returns the voice archive name, patching the last character of the literal 'simvoice' with the language byte at 004d25ba: SIMVOICE / SIMVOICF / SIMVOICG.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004328cc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Cockpit_PowerUpSound",
+      "description": "The cockpit's power-up audio. Plays Sound_Play(0x13) -- start3, the start-up sequence -- once per session, gated on cockpit+0x245 and stamping cockpit+0x241 with Time_GetCoarseTicks. Then, ONLY when the piloted machine's type record (mech+0x1f2) has a nonzero +0x50 -- file offset 78, InputFlagFlyer, the RAZOR alone -- starts the looping engine hum Sound_Play(0x2d) and immediately drops it with Sound_SetPitch(0x2d, 42000), about 0.64 of its recorded rate. Despite the sample being called herceng1, a walking HERC never plays it; its running noise is its footsteps.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00463010",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sound_SetPitch",
+      "description": "Sets one catalog id's playback rate through Sfx_SetPitch, as the original's 16.16 ratio (0x10000 = 1.0). Cockpit_PowerUpSound is the only caller found, dropping the engine hum to 42000.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "0049a1d0",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "LockTone_PhaseSounded",
+      "description": "Mech_LockTonePlay's blink latch: set once the lock tone has sounded for the current phase of the 0x40-coarse-tick cadence, cleared when that bit goes low, so the tone plays once per phase rather than every tick.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "0049a1d1",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "LockTone_WasLocked",
+      "description": "Mech_LockTonePlay's edge latch: set while a lock is held, so that losing it plays trgunloc (0x16) exactly once. The branch that consumes it returns before the target-changed test, which is why switching target while locked plays the loss tone and not the acquisition blip.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004d1fc7",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "Sound_DetailSetting",
+      "description": "An options-screen 0-2 value the sound throttle scales against: Sound_ThrottleCheck computes its interval as (2 - this) * the catalog row's throttle divisor, so 2 zeroes the interval and lets every call through while 0 doubles the authored divisor. Also read by an options-screen label (FUN_004571f4 case 8) and by FUN_00403914 and FUN_00408bd8.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004739a8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sos_SetMasterVolume",
+      "description": "Writes Sos_MasterVolume from the passed voice record's +0x10. Dead: it has no callers, so the master volume stays at its initialised 100 for the whole run.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004a6ab0",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "Sos_BindRefCount",
+      "description": "Sos_BindLibrary's refcount. Nonzero means the SOS entry points are already bound, so repeated calls skip the LoadLibrary and the GetProcAddress walk.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004d256e",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ViewObjectPtr",
+      "description": "Pointer to the active view object; its +4 is the camera position triple. Simulation code reads it directly for two audio range gates -- Mech_PlaceLegsOnGround tests a machine against it before playing a footfall, and Rocket_TickUpdate tests each round against it for the missile-inbound warning -- so the camera position is an input to the simulation, not only to the renderer.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "0044cc40",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddButton_Dispatch",
+      "description": "The heads-down display button dispatch, switching on the widget index. Its transmit branch reuses the radar-mode tone pair as an accepted/rejected blip: Sound_Play(0x1a) when the transmit resolves to a recipient and Sound_Play(0x1b) when it does not.",
+      "source": "docs/formats/audio.md"
     }
   ]
 }

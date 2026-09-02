@@ -21,12 +21,14 @@ namespace Herculan.Engine.Content;
 public sealed class GameContent {
 	/// <summary>
 	/// The archives DBSIM needs for a terrain-and-one-mech scene: the main simulator archive, its
-	/// retail patch, and the zone heightmaps. Deliberately excludes the sound/voice archives —
-	/// they are several megabytes each, and <see cref="VolFileReader"/> holds both the whole file
-	/// and a per-entry copy of every entry in memory, so mounting them costs real RAM for nothing
-	/// until audio work starts.
+	/// retail patch, the zone heightmaps and the effect sample bank.
+	///
+	/// <para>The voice archives are still left out. They are seven megabytes each and
+	/// <see cref="VolFileReader"/> holds both the whole file and a per-entry copy of every entry in
+	/// memory, so nothing should mount one until the speech channel needs it.</para>
 	/// </summary>
-	public static readonly string[] SimulatorArchives = { "SIMVOL0.VOL", "SIMPATCH.VOL", "ZONES.VOL" };
+	public static readonly string[] SimulatorArchives =
+		{ "SIMVOL0.VOL", "SIMPATCH.VOL", "ZONES.VOL", "SIMSOUND.VOL" };
 
 	private readonly Dictionary<string, VolEntry> _entries = new(StringComparer.OrdinalIgnoreCase);
 	private readonly List<Voln> _mounted = new();

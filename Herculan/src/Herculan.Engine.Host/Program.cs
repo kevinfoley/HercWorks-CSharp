@@ -1,5 +1,6 @@
 using System.Numerics;
 using Herculan.Engine;
+using Herculan.Engine.Audio;
 using Herculan.Engine.Content;
 using Herculan.Engine.Gl;
 using Herculan.Engine.Host.Debugging;
@@ -132,6 +133,13 @@ Console.WriteLine($"Mounted archives: {string.Join(", ", content.MountedArchives
 var scene = MissionScene.Load(content, scriptPath);
 var mission = scene.Mission;
 var terrain = scene.World.Terrain;
+
+// Audio comes up against the same mounted archives and shares the simulation's generator, because
+// the variation roll draws on it exactly as weapon scatter does. It never throws: a machine with no
+// device gets a working GameAudio that happens to be silent.
+var audio = GameAudio.Create(content, scene.World.Random);
+audio.Attach(scene.World);
+Console.WriteLine($"Audio: {audio.Status}");
 
 Console.WriteLine(
 	$"Mission: zone {mission.Header.ZoneIndex}, theater {mission.Header.TheaterIndex}" +
@@ -346,7 +354,13 @@ if (pilotMech != null && initialThrottle != 0) {
 // The scanner goes on right away; the selection itself has to wait for the sensor model to have run,
 // since nothing is targetable until a sweep has painted it. It is taken on the first tick after that.
 if (acquireTarget && pilotMech != null) {
-	pilotMech.ToggleScanner();
+	pilotMech.ToggleScanner(scene.World);
+}
+
+// The cockpit powers up the moment the player has a machine — the start-up sequence and, for a
+// walker, the engine hum that runs for the rest of the mission. See GameAudio.PowerUp.
+if (pilotMech != null) {
+	audio.PowerUp(pilotMech);
 }
 
 if (pilotMech != null) {
@@ -625,6 +639,14 @@ window.Update += deltaSeconds => {
 		bool pauseKey = controls.IsKeyPressed(Key.P);
 		if (pauseKey && !pauseKeyDown) {
 			paused = !paused;
+
+			// A paused simulation makes no new sound, but the loops it left running would carry on,
+			// so pausing silences them and unpausing puts back exactly what was going.
+			if (paused) {
+				audio.Suspend();
+			} else {
+				audio.Resume();
+			}
 		}
 		pauseKeyDown = pauseKey;
 	} else {
@@ -683,7 +705,7 @@ window.Update += deltaSeconds => {
 		// *enemy's* radar being on — which is AI behaviour the engine does not have yet.
 		bool radarKey = controls.IsKeyPressed(Key.R);
 		if (radarKey && !radarKeyDown) {
-			pilotMech.ToggleScanner();
+			pilotMech.ToggleScanner(scene.World);
 		}
 		radarKeyDown = radarKey;
 
@@ -890,6 +912,12 @@ window.Update += deltaSeconds => {
 		scene.Camera.ApplyTo(camera);
 	}
 
+	// The listener is the camera, as it is in the original — so the external view hears the machine
+	// from behind it rather than from inside it. Camera yaw runs opposite to a simulation heading
+	// (see above), and the placement rules work in the simulation's, so it is negated back here.
+	audio.SetListener(camera.Position, -camera.Yaw & 0xffff);
+	audio.Update();
+
 	// What the debug panel reports about the walk — see DebugPanel.Sample for why it is measured
 	// every frame rather than only while the panel is up.
 	debugPanel.Sample(pilotMech);
@@ -1036,6 +1064,7 @@ window.Render += (_, gl) => {
 };
 
 window.Closing += () => {
+	audio.Dispose();
 	imgui?.Dispose();
 	renderer?.Dispose();
 	overlay?.Dispose();

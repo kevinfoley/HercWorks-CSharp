@@ -1,3 +1,4 @@
+using Herculan.Engine.Audio;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.World;
 
@@ -94,9 +95,70 @@ public sealed partial class MechObject {
 	/// <summary>
 	/// <c>mech+0x9b</c> — <b>LOCK</b>. Whether the armed mount's own missile class has lock; a mount
 	/// that is not a launcher lights it when <i>any</i> class does. This is what drives the cockpit's
-	/// lock lamp and the intermittent lock tone (<c>FUN_0041b0bc</c>, not ported — it is sound).
+	/// lock lamp and the intermittent lock tone — see <see cref="LockToneTick"/>.
 	/// </summary>
 	public bool LockAcquired { get; private set; }
+
+	/// <summary>
+	/// The blink period the lock tone repeats on: bit 6 of the coarse-tick clock, so the tone sounds
+	/// once every time that bit goes high — one beep per 128 coarse ticks, a little over two seconds.
+	/// </summary>
+	private const long LockToneBlinkBit = 0x40;
+
+	/// <summary><c>DAT_0049a1d1</c> — whether a lock was held, so its loss can be announced once.</summary>
+	private bool _lockToneWasLocked;
+
+	/// <summary><c>DAT_0049a1d0</c> — whether this blink phase's beep has already sounded.</summary>
+	private bool _lockToneSounded;
+
+	/// <summary>
+	/// <c>Mech_LockTonePlay</c> (<c>0041b0bc</c>) — the cockpit's lock audio, run from the tail of
+	/// <c>Mech_PerTickSystemsUpdate</c> <b>for the locally-piloted machine only</b>. Three sounds
+	/// come out of one flag:
+	///
+	/// <list type="bullet">
+	/// <item>Holding lock: <see cref="SoundId.LockTone"/> once per blink phase.</item>
+	/// <item>Losing a lock that was held: <see cref="SoundId.LockLost"/>, once.</item>
+	/// <item>No lock, but the target changed this tick: <see cref="SoundId.TargetSelect"/> — the
+	/// acquisition blip, which is why selecting a target beeps even for a machine carrying no
+	/// missiles.</item>
+	/// </list>
+	///
+	/// <para>Note what the original does <i>not</i> do: the "lock lost" branch returns before the
+	/// target-changed test, so switching target while locked plays the loss tone and not the
+	/// acquisition blip.</para>
+	/// </summary>
+	internal void LockToneTick(SimWorld world) {
+		if (world.Sounds is not { } sounds || !LocallyPiloted) {
+			return;
+		}
+
+		if (LockAcquired) {
+			_lockToneWasLocked = true;
+
+			if ((world.CoarseTicks & LockToneBlinkBit) == 0) {
+				_lockToneSounded = false;
+				return;
+			}
+
+			if (!_lockToneSounded) {
+				sounds.Play(SoundId.LockTone);
+				_lockToneSounded = true;
+			}
+
+			return;
+		}
+
+		if (_lockToneWasLocked) {
+			sounds.Play(SoundId.LockLost);
+			_lockToneWasLocked = false;
+			return;
+		}
+
+		if (TargetChanged) {
+			sounds.Play(SoundId.TargetSelect);
+		}
+	}
 
 	/// <summary>Whether the given missile subtype currently holds lock on <see cref="Target"/>.</summary>
 	public bool MissileLocked(int missileType) => Weapons.Locked(missileType);

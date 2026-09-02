@@ -17,6 +17,11 @@ The mechanism is understood; what is left is engine work.
   but no trigger ever fires, so drop pods (the falling `METEOR` that delivers Cybrid reinforcements)
   and walk-on arrivals never happen and those units never appear.
   → [`docs/simulation/mission-deployment.md`](docs/simulation/mission-deployment.md)
+- **CD music and speech.** The effects half of the catalog is ported. Red Book music through MCI
+  is not, so a mission runs without its track, and neither is the five-slot speech channel with its
+  `.SNC` portrait lip-sync scripts, so squadmate and commander lines are never heard and the comm
+  box portrait never animates. Both layers are decoded.
+  → [`docs/formats/audio.md`](docs/formats/audio.md)
 - **Group orders.** `Group_OrderTick` (`00423a74`) advances a group through its row-15 orders. The
   layer is decoded; nothing in the engine runs it.
   → [`docs/formats/script-dat.md`](docs/formats/script-dat.md)
@@ -48,7 +53,6 @@ The engine cannot be faithful here until the original is understood.
 - **AI / behaviour trees barely understood.** Blocks enemy mech behaviour and patrol movement, and
   is why AI machines never select a target and so never fire.
   → [`docs/simulation/target-selection.md`](docs/simulation/target-selection.md)
-- **`.SNC` audio format unsolved.** There is no sound anywhere in the engine.
 - **SimRandom's 56-entry seed table isn't extracted** from DBSIM's data section. The algorithm is a
   literal port; the seeding is not, and a roll's result also depends on generator-advance count —
   treat as statistically faithful, not replay faithful.

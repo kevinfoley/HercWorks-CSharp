@@ -1,4 +1,5 @@
 using HercWorks.Core.Data.File.Dat.Sim;
+using Herculan.Engine.Audio;
 using Herculan.Engine.Content;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Terrain;
@@ -78,11 +79,56 @@ public sealed class SimWorld {
 	/// </summary>
 	public SimRandom Random { get; }
 
+	/// <summary>
+	/// Where the simulation's noises go, or null to run silent — which is what a headless tick, a
+	/// test, and a machine with no audio device all do.
+	///
+	/// <para>The world only announces events; every rule about audibility, volume and stereo
+	/// placement lives in the sink. See <see cref="ISoundSink"/>.</para>
+	/// </summary>
+	public ISoundSink? Sounds { get; set; }
+
+	/// <summary>
+	/// Where the camera is, in world units — the original's own view object (<c>DAT_004d256e</c>),
+	/// which simulation code legitimately reads.
+	///
+	/// <para>Two ported sites need it and both are audio range gates: a footfall is only played for a
+	/// machine within <see cref="MechObject.FootfallAudibleRange"/> of it, and a launcher round
+	/// announces itself when it first comes inside <see cref="Rocket.InboundWarningRange"/>. Neither
+	/// is a rendering concern — the original makes both tests inside the simulation, before it calls
+	/// the sound layer at all.</para>
+	/// </summary>
+	public Vec3i ListenerPosition { get; set; }
+
+	/// <summary>
+	/// The bias every sound id stored in a data table carries — <c>BULLETS.DAT</c>'s fire sound,
+	/// <c>ROCKETS.DAT</c>'s and an <c>EXPLOS.DAT</c> row's. Those tables index the effects half of
+	/// the catalog from zero, so the id they store is <see cref="SoundId.FirstEffect"/> short of a
+	/// real one; every spawn site in the original adds it back.
+	/// </summary>
+	internal void PlayTableSound(short storedId, Vec3i position) {
+		// A negative id is the table's own "silent" — the impact rows use it, and nothing bounds the
+		// addition in the original, so it would index below the catalog.
+		if (storedId >= 0) {
+			Sounds?.PlayAt(storedId + SoundId.FirstEffect, position);
+		}
+	}
+
 	/// <summary>Live simulation objects, including any flagged <see cref="SimObject.Removed"/>.</summary>
 	public IReadOnlyList<SimObject> Objects => _objects;
 
 	/// <summary>Ticks elapsed since the world was created.</summary>
 	public long TickCount { get; private set; }
+
+	/// <summary>
+	/// <c>Time_GetCoarseTicks</c>' timebase — <c>GetTickCount() &gt;&gt; 4</c>, so 16 ms units.
+	///
+	/// <para>This is the original's UI and event clock and is deliberately <b>not</b> the simulation
+	/// timestep; gadgets that blink or repeat on a cadence count in these. Derived from
+	/// <see cref="TickCount"/> rather than from the wall clock so it stays in step with a simulation
+	/// that is paused, stepped, or replayed.</para>
+	/// </summary>
+	public long CoarseTicks => TickCount * 1000 / (TicksPerSecond * 16);
 
 	/// <summary>
 	/// Simulation rate — <b>the original's own</b>. DBSIM's frame loop (<c>FUN_004677bc</c>) spins on
@@ -170,12 +216,21 @@ public sealed class SimWorld {
 	/// </summary>
 	/// <param name="typeId">The <c>EXPLOS.DAT</c> type, out of a <c>PROJ.DAT</c> <c>ImpactFX</c> array.</param>
 	/// <param name="position">Where the shot landed, in world units.</param>
-	internal void SpawnImpactEffect(short typeId, Vec3i position) {
+	/// <param name="playSound">
+	/// The constructor's own last argument, which gates the row's <c>SoundId</c> and nothing else.
+	/// Every object-hit spawn passes true; the ground hit at the tail of <see cref="Raycast"/> is the
+	/// one site that passes false.
+	/// </param>
+	internal void SpawnImpactEffect(short typeId, Vec3i position, bool playSound = true) {
 		if (Explosions?.Type(typeId) is not { } record) {
 			return;
 		}
 
 		_effects.Add(new ImpactEffect(typeId, record, Explosions.FrameCount(record.ShapeIndex), position));
+
+		if (playSound) {
+			PlayTableSound(record.SoundId, position);
+		}
 	}
 
 	/// <summary>
@@ -271,7 +326,8 @@ public sealed class SimWorld {
 		if (hit && shot.HitObject == null) {
 			SpawnImpactEffect(
 				PickImpactEffect(shot.ImpactFx(WeaponShot.ImpactFxGroup.Ground)),
-				shot.Muzzle.TransformPoint(0, shot.Distance, 0));
+				shot.Muzzle.TransformPoint(0, shot.Distance, 0),
+				playSound: false);
 		}
 
 		return hit ? shot.Distance + 1 : 0;
@@ -318,6 +374,11 @@ public sealed class SimWorld {
 	/// <see cref="WeaponShot"/> carries what it holds.
 	/// </summary>
 	internal void FireBeam(WeaponShot shot) {
+		// The report goes first, before the ray is resolved, because that is where Bullet_FireBurst
+		// puts it — a fixed catalog id rather than one off the weapon's own record, so every beam in
+		// the game makes the same noise at the muzzle.
+		Sounds?.PlayAt(SoundId.BeamFire, new Vec3i(shot.Muzzle.X, shot.Muzzle.Y, shot.Muzzle.Z));
+
 		int travelled = Raycast(shot);
 
 		// Bullet_FireBurst's own fallback: a sweep that struck nothing returns zero, and the tracer is
@@ -363,6 +424,10 @@ public sealed class SimWorld {
 
 		var shot = new Projectile(projectile, record, muzzle, aim, ownerSpeed, power, owner, Random);
 
+		// Unlike the beam's fixed report this one is the weapon's own, out of the record: BULLETS.DAT
+		// +0x08, played at the muzzle as the stored id plus the effects-half bias.
+		PlayTableSound(record.SfxFireIdBullets, muzzle);
+
 		// The powered form's second write, and the whole of what makes one subtype behave differently
 		// from the other eight: the plasma round takes the firing machine's selected target and
 		// chases it. Everything else flies where it was pointed.
@@ -406,6 +471,10 @@ public sealed class SimWorld {
 		}
 
 		var round = new Rocket(projectile, record, muzzle, aim, ownerSpeed, owner);
+
+		// ROCKETS.DAT's layout is not BULLETS.DAT's: the launch sound is the field the shared record
+		// type calls SfxFireIdMissiles (+0x0c), not the one the guns use.
+		PlayTableSound(record.SfxFireIdMissiles, muzzle);
 
 		if (owner is MechObject launching
 				&& (launching.MissileLocked(projectile.MissileId)
@@ -484,6 +553,10 @@ public sealed class SimWorld {
 		for (int i = 0; i < _objects.Count; i++) {
 			if (_objects[i] is MechObject { Removed: false, AwaitingDeployment: false, Destroyed: false } mech) {
 				mech.MissileLockTick(this);
+
+				// The cockpit's lock audio closes the same block in the original, and reads the flag
+				// the call above has just settled. It gates itself on the locally-piloted machine.
+				mech.LockToneTick(this);
 			}
 		}
 

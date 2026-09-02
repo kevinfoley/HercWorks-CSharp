@@ -202,12 +202,23 @@ public sealed partial class MechObject : SimObject {
 	/// original gates the flip on <c>mech+0xa3</c> and then repaints the console lights for whatever
 	/// the mode now is, so calling it on an AI machine only refreshes the display.
 	///
-	/// <para>The two console lights and the mode-change tone are not ported.</para>
+	/// <para>The tone the flip plays is the cockpit's own confirmation, one sound for each mode —
+	/// <c>gnract</c> going active and <c>gnrdact</c> going passive. It is not positional: the
+	/// original plays it through <c>Sound_Play</c>, because it is a noise the cockpit makes rather
+	/// than one the world does.</para>
+	///
+	/// <para>The two console lights are not ported.</para>
 	/// </summary>
-	public void ToggleScanner() {
-		if (LocallyPiloted) {
-			Scanner = !Scanner;
+	/// <param name="world">
+	/// Optional, and only so the tone has somewhere to go. A call with none still flips the mode.
+	/// </param>
+	public void ToggleScanner(SimWorld? world = null) {
+		if (!LocallyPiloted) {
+			return;
 		}
+
+		Scanner = !Scanner;
+		world?.Sounds?.Play(Scanner ? Audio.SoundId.ScannerActive : Audio.SoundId.ScannerPassive);
 	}
 
 	/// <summary>
@@ -618,7 +629,7 @@ public sealed partial class MechObject : SimObject {
 		ResolveMovement(world);
 
 		// Last thing in the tick, as it is in the original — it reads the pose the move settled on.
-		PlaceLegsOnGround();
+		PlaceLegsOnGround(world);
 	}
 
 	/// <summary>Everything Mech_MovementTick does before its closing Mech_PlaceLegsOnGround call.</summary>

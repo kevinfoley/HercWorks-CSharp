@@ -206,6 +206,7 @@ Two consequences belong to this caller specifically. The ray record's `+0x08` is
 walk radius, but the thin-ray terrain mode never reads it. And a fully shield-absorbed shot still
 counts as a hit and still stops the ray — shields do not let fire through to whatever stands behind.
 
-## Not ported
+## Sound
 
-- **Sound.** `Bullet_FireBurst` opens with `FUN_004627dc(0x0b, muzzlePoint)`. Untraced past the call.
+`Bullet_FireBurst` opens with `Sound_PlayAt(0x0b, muzzlePoint)`, catalog id `0x0b` = `laser1.wav`.
+Ported; see [`../formats/audio.md`](../formats/audio.md).

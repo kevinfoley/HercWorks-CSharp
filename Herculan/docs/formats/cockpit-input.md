@@ -40,8 +40,8 @@ are excluded by a per-widget state byte, not by not being in the list (§5).
 case at all. Before its own switch it tries up to 10 registered filter functions in order —
 `WndProcHook_Register`/`WndProcHook_Unregister` manage that table (`DAT_004d3bb4`) — and any hook
 returning nonzero short-circuits the rest of `MainWndProc` entirely. `Mouse_WndProcHook`
-(`004808ec`) is one of four hooks found registered; the other three are sound/movie-playback
-related.
+(`004808ec`) is one of four hooks found registered. `sfxWndProc` (`00462294`) is another — see
+[`audio.md`](audio.md); the remaining two are movie-playback related.
 
 `Mouse_WndProcHook` catches:
 

@@ -31,9 +31,6 @@ _ These are not organized in any particular order; this may not be the best orde
   `FUN_0041d7d0`, `FUN_0041d9cc`, `FUN_0041daac` and `FUN_0041e224`, which also drive `mech+0x96`
   from a per-state flag table at `mech+0x92`.
 
-- **Sound.** `Bullet_Fire` plays `record[+8] + 10`; `Bullet_FireBurst` opens with
-  `FUN_004627dc(0x0b, muzzlePoint)`; an impact effect plays its type row's `SoundId + 10` through the
-  same call. Untraced past it. One entry point covers all three.
 - **Weapon-mount destruction.** Components 19–28 are the machine's mounts, indexed
   `component - 19` into the mount manager. A health-band change on one rolls (`FUN_00410670` →
   `FUN_0040f57c`) to knock it out and then finishes the component with a flat 10000. The roll and

@@ -167,4 +167,9 @@ one: a rocket is entirely ramp-coloured `TSSolidPoly`/`TSShadedPoly` geometry.
   `SceneModelLibrary.Rocket` returns the cells in order; the host picks by the round's own frame
   counter. That is the engine's equivalent of `TSCellAnimPart_Render` choosing one child — see
   [`../formats/dts-billboards.md`](../formats/dts-billboards.md).
-- Sound is unported throughout.
+- **Sound is ported.** `SimWorld.FireRocket` plays the record's `+0x0c` at the muzzle as `id + 10`,
+  and `Rocket.InboundWarningTick` reproduces the missile-inbound warning: every tick the round
+  measures itself against the camera and the first time it comes inside `0x9c40` world units it
+  plays catalog id `0x32` and latches (`round+0x6`). The warning does not care whose round it is or
+  where it is going, so the player's own launch warns them as it leaves.
+  → [`../formats/audio.md`](../formats/audio.md)

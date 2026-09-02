@@ -60,9 +60,15 @@ makes ECM at most as strong as the original's, never more.
 ## The lock lamp
 
 `mech+0x9b` is set from the armed mount's own class: a launcher lights its own subtype's flag, a
-mount that is not a launcher (class 5) lights if *any* subtype has lock. `FUN_0041b0bc` turns it into
-the intermittent lock tone — `FUN_0046272c(0x15)` on a `0x40`-tick blink while set, `0x14` on a
-target change, `0x16` on loss. Sound is unported.
+mount that is not a launcher (class 5) lights if *any* subtype has lock. `Mech_LockTonePlay`
+(`0041b0bc`) turns it into the cockpit's lock audio, for the locally-piloted machine only:
+`Sound_Play(0x15)` once per phase of a `0x40`-coarse-tick blink while set, `0x14` when clear but the
+target changed this tick, `0x16` once on loss. Two latches carry it — `0049a1d1` remembers that a
+lock was held so its loss is announced once, `0049a1d0` that this phase's beep has sounded.
+
+The loss branch **returns before** the target-changed test, so switching target while locked plays
+the loss tone and not the acquisition blip. Ported as `MechObject.LockToneTick`.
+→ [`../formats/audio.md`](../formats/audio.md)
 
 ## Verification
 

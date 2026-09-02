@@ -1,8 +1,18 @@
+using Herculan.Engine.Audio;
+using Herculan.Engine.Numerics;
+
 namespace Herculan.Engine.Sim;
 
 // Footfall detection — Mech_PlaceLegsOnGround (004195c8), the part of it that matters to anything
 // ported so far. See docs/simulation/mech-locomotion.md.
 public sealed partial class MechObject {
+	/// <summary>
+	/// How near the camera a machine has to be for its footsteps to be played at all — the
+	/// original's own test, made before it calls Sound_PlayAt rather than left to the catalog row's
+	/// cutoff. <c>foot2</c>'s own range would allow 20480, so this is the tighter of the two.
+	/// </summary>
+	public const int FootfallAudibleRange = 15000;
+
 	/// <summary>The gait the original's own leg thresholds are indexed by.</summary>
 	private const int GaitWalking = 0;
 	private const int GaitReversing = 1;
@@ -27,13 +37,13 @@ public sealed partial class MechObject {
 	/// (<see cref="MechTypeRecord.FootfallTrigger"/>). Reversing flips both comparisons, since the
 	/// foot travels the other way, and it has its own pair of figures.</para>
 	///
-	/// <para>The original does two more things here that are not ported: it copies each leg node's
-	/// world position onto a per-leg child object (the dust/debris emitters), and it plays sound
-	/// <c>0x1d</c> on the plant, for any machine within 15000 units of the camera. What <i>is</i>
-	/// ported is the third: the player's own footfalls kick the cockpit view (see
-	/// <c>CockpitViewKick</c>), which is the visible half.</para>
+	/// <para>The plant does three things. It kicks the player's cockpit view (see
+	/// <c>CockpitViewKick</c>, driven off <see cref="Footfalls"/>); it plays sound <c>0x1d</c> for
+	/// any machine within <see cref="FootfallAudibleRange"/> of the camera; and — the one part still
+	/// unported — it copies each leg node's world position onto a per-leg child object, the
+	/// dust/debris emitter.</para>
 	/// </summary>
-	private void PlaceLegsOnGround() {
+	private void PlaceLegsOnGround(SimWorld world) {
 		if (Thread is not { } thread || Animation is not { } animation) {
 			return;
 		}
@@ -87,6 +97,18 @@ public sealed partial class MechObject {
 			if (_legArmed[leg] && (forward ? position < trigger : trigger < position)) {
 				_legArmed[leg] = false;
 				Footfalls++;
+
+				// The original tests the distance to the camera itself before it plays anything,
+				// rather than leaving the cutoff to foot2's own catalog range — which at 20480 is
+				// the looser of the two.
+				if (Position.ApproxDistanceTo(world.ListenerPosition) > FootfallAudibleRange) {
+					continue;
+				}
+
+				// At the foot, not at the machine's origin — the original passes the leg node's own
+				// world position, so a walking HERC's steps pan with the leg that took them.
+				var foot = NodeTransform(node);
+				world.Sounds?.PlayAt(SoundId.Footfall, new Vec3i(foot.X, foot.Y, foot.Z));
 			}
 		}
 	}

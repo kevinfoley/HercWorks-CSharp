@@ -1197,7 +1197,7 @@ partial class MissionScriptForm {
 		// _grpBinaryFlagColumn
 		//
 		_grpBinaryFlagColumn.DataPropertyName = "BinaryFlag";
-		_grpBinaryFlagColumn.HeaderText = "Grid-snap flag";
+		_grpBinaryFlagColumn.HeaderText = "Formation pad flag";
 		_grpBinaryFlagColumn.Name = "_grpBinaryFlagColumn";
 		_grpBinaryFlagColumn.Width = 100;
 		//

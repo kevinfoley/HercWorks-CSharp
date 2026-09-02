@@ -16,6 +16,60 @@ namespace Herculan.Engine.World;
 public readonly record struct BaseFormationOffset(int X, int Y, short HeadingNudge);
 
 /// <summary>
+/// A formation's terrain layout: which <c>dat\mat0</c> material its ground is painted with, and the
+/// square occupancy map that accompanies it. Eleven of the seventeen retail formations carry one;
+/// the other six carry <c>-1</c> and no map, and their groups leave the ground alone.
+/// </summary>
+/// <param name="MaterialIndex">
+/// Index into <c>dat\mat0</c>, whose <c>Index</c> field is the theater bank frame that gets drawn —
+/// one of the eleven pad layouts in frames 2-12. Each mapped formation uses a distinct one.
+/// </param>
+/// <param name="Dimension">
+/// The map's side in entries, 8 or 16 in retail data. It equals the tile the material's own
+/// <c>BlockShift</c> covers, so the map spans exactly the painted area.
+/// </param>
+/// <param name="AnchorFractionX">
+/// Where the group's anchor sits within the tile, in 256ths of it, measured from the low-x edge.
+/// </param>
+/// <param name="AnchorFractionY">
+/// The same, measured <i>down</i> from the tile's high-y edge — the axis inversion that matches
+/// <see cref="Map"/> being stored top row first.
+/// </param>
+/// <param name="Map">
+/// <see cref="Dimension"/> rows of <see cref="Dimension"/> 0/1 bytes, row 0 at the tile's high-y
+/// edge. Not read by the painting itself, which covers the whole tile; it marks which of that
+/// ground is also levelled.
+/// </param>
+public sealed record BaseFormationLayout(int MaterialIndex, int Dimension,
+		int AnchorFractionX, int AnchorFractionY, byte[] Map) {
+	/// <summary>
+	/// The tile this formation's material and map both span, in world units — always
+	/// <c>1 &lt;&lt; (0x15 - BlockShift)</c>, and independent of the zone's cell size.
+	/// </summary>
+	public int TileSize => Dimension << 13;
+
+	/// <summary>
+	/// Where the group's shared anchor actually sits, given the point the mission placed it on.
+	/// Only which tile that point falls in survives: the position within the tile is replaced by
+	/// this formation's own fixed fraction of it, which is what lines the structures up with the
+	/// pad painted over the same tile.
+	///
+	/// <para>The original computes this per member inside <c>Base_AttachToGroup</c>
+	/// (<c>00405c3c</c>) on a copy of the group's point, as
+	/// <c>(x &amp; ~mask) + b*step</c> / <c>((y &amp; ~mask) + mask + 1) - c*step</c> with
+	/// <c>mask = dim*0x2000 - 1</c> and <c>step = dim*0x20</c> — the same arithmetic as below, since
+	/// <c>mask + 1</c> is the tile and <c>step</c> is a 256th of it.</para>
+	/// </summary>
+	public (int X, int Y) SnapAnchor(int worldX, int worldY) {
+		int tile = TileSize;
+		int step = tile >> 8;
+
+		return ((worldX & ~(tile - 1)) + AnchorFractionX * step,
+			(worldY & ~(tile - 1)) + tile - AnchorFractionY * step);
+	}
+}
+
+/// <summary>
 /// <c>dat\BFORMS.DAT</c> — per-formation spread offsets for a <c>script.dat</c> block-11 base/
 /// structure group. This is what stops a multi-structure group (a fortress cluster, a turret ring)
 /// from placing every member on the group's single point.
@@ -42,16 +96,14 @@ public readonly record struct BaseFormationOffset(int X, int Y, short HeadingNud
 /// itself, not the vtable slot above) and was missed when this table was first read, which left one
 /// structure of a group standing in the right place facing the wrong way.</para>
 ///
-/// <para><b>Not modelled: grid-snap.</b> When the block-11 record's own <c>BinaryFlag</c> (raw msn
-/// offset <c>0x06</c>) is set, <c>Base_AttachToGroup</c> additionally snaps the group's shared anchor
-/// to a per-formation grid, using three fields this table skips (a cell-size class and two axis
-/// multipliers), before the per-member offset above is added — doesn't cause stacking, so left
-/// unimplemented. A 2026-08-15 port attempt, decompiled and formula-matched against
-/// <c>Base_AttachToGroup</c>, shipped a real regression: verified stacking-only checks passed but the
-/// snap moved real structures tens of thousands of world units off their intended pads (visually
-/// confirmed against the mission editor) and was reverted same-day. The bit-mask formula as literally
-/// decompiled produces this; either a field-mapping or scale error remains unfound. Don't reattempt
-/// without a visual check against the real game, not just a distinct-positions check.</para>
+/// <para><b>The trailer describes the formation's ground, and where the group stands on it</b> —
+/// see <see cref="BaseFormationLayout"/>. When the block-11 record's own <c>BinaryFlag</c> (raw msn
+/// offset <c>0x06</c>) is set, the group's shared anchor is moved to that formation's fixed
+/// position within its terrain tile before any per-member offset above is added
+/// (<see cref="BaseFormationLayout.SnapAnchor"/>), and the same tile is painted with the
+/// formation's material by <see cref="Herculan.Engine.Terrain.HeightGrid.PaintFormationPad"/>.
+/// The two go together: the move is what puts the structures on the pad. Trailer layout, the
+/// derivation and the evidence are in docs/formats/script-dat.md, "Base formation terrain".</para>
 /// </summary>
 public sealed class BaseFormationTable {
 	/// <summary>VOL folder and name of the table.</summary>
@@ -61,9 +113,11 @@ public sealed class BaseFormationTable {
 	public const string ResourceName = "BFORMS.DAT";
 
 	private readonly BaseFormationOffset[][] _formations;
+	private readonly BaseFormationLayout?[] _layouts;
 
-	private BaseFormationTable(BaseFormationOffset[][] formations) {
+	private BaseFormationTable(BaseFormationOffset[][] formations, BaseFormationLayout?[] layouts) {
 		_formations = formations;
+		_layouts = layouts;
 	}
 
 	/// <summary>How many formations the table declares.</summary>
@@ -111,6 +165,13 @@ public sealed class BaseFormationTable {
 	public short HeadingNudgeFor(int formationId, int memberIndex) =>
 		OffsetFor(formationId, memberIndex)?.HeadingNudge ?? 0;
 
+	/// <summary>
+	/// This formation's terrain layout, or null when it declares none — the six retail formations
+	/// whose material index is <c>-1</c>, and any id outside the table.
+	/// </summary>
+	public BaseFormationLayout? LayoutFor(int formationId) =>
+		formationId >= 0 && formationId < _layouts.Length ? _layouts[formationId] : null;
+
 	public static BaseFormationTable Load(GameContent content) {
 		byte[] bytes = content.ReadRequired(ResourceFolder, ResourceName);
 		int offset = 0;
@@ -123,6 +184,7 @@ public sealed class BaseFormationTable {
 
 		int formationCount = NextInt32();
 		var formations = new BaseFormationOffset[formationCount][];
+		var layouts = new BaseFormationLayout?[formationCount];
 
 		for (int f = 0; f < formationCount; f++) {
 			int slotCount = NextInt32();
@@ -136,13 +198,33 @@ public sealed class BaseFormationTable {
 			}
 			formations[f] = slots;
 
-			offset += 4; // grid-snap "cell size class" field — see the grid-snap note above
-			offset += 8; // grid-snap axis-multiplier pair
+			// The material index, then where in its tile the group's anchor sits.
+			int materialIndex = NextInt32();
+			int anchorFractionX = NextInt32();
+			int anchorFractionY = NextInt32();
+
+			// The formation's layout map: `bufferCount` rows of `bufferCount` 0/1 bytes (8x8 or
+			// 16x16 in retail data), or nothing at all for the six formations that carry none —
+			// exactly the six whose material index is -1.
 			int bufferCount = NextInt32();
+			var map = new byte[bufferCount * bufferCount];
 			for (int b = 0; b < bufferCount; b++) {
 				byte length = bytes[offset];
-				offset += 1 + length;
+				offset++;
+				if (length != bufferCount) {
+					throw new InvalidDataException(
+						$"{ResourceFolder}\\{ResourceName}: formation {f} row {b} is {length} bytes " +
+						$"across {bufferCount} rows — the layout map is not square.");
+				}
+
+				bytes.AsSpan(offset, length).CopyTo(map.AsSpan(b * bufferCount));
+				offset += length;
 			}
+
+			layouts[f] = materialIndex >= 0 && bufferCount > 0
+				? new BaseFormationLayout(materialIndex, bufferCount, anchorFractionX,
+					anchorFractionY, map)
+				: null;
 		}
 
 		if (offset != bytes.Length) {
@@ -151,6 +233,6 @@ public sealed class BaseFormationTable {
 				$"{formationCount} formations — the record shape does not match this file.");
 		}
 
-		return new BaseFormationTable(formations);
+		return new BaseFormationTable(formations, layouts);
 	}
 }

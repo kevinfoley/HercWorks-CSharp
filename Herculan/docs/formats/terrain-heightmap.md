@@ -1,11 +1,13 @@
 # Terrain heightmap — `HeightGrid`, zone loading, height query, byte-verified
 
 Reverse-engineered from `DBSIM.EXE` disassembly (Ghidra project `ES2Recon`). Covers the
-heightmap/geometry side of terrain: struct layout, zone loading, height interpolation, and the ray
-walk. See [`terrain-texturing.md`](terrain-texturing.md) for how cells get their texture, which is a
-separate pipeline over the same grid.
+heightmap/geometry side of terrain: struct layout, zone loading, height interpolation, the
+structure-footprint flattening pass, and the ray walk. See
+[`terrain-texturing.md`](terrain-texturing.md) for how cells get their texture, which is a separate
+pipeline over the same grid.
 
-Ported in `Herculan.Engine.Terrain.HeightGrid` (`HeightGrid.cs`, `HeightGrid.RayWalk.cs`).
+Ported in `Herculan.Engine.Terrain.HeightGrid` (`HeightGrid.cs`, `HeightGrid.RayWalk.cs`,
+`HeightGrid.Footprints.cs`).
 
 ## The `HeightGrid` struct
 
@@ -15,7 +17,7 @@ Ported in `Herculan.Engine.Terrain.HeightGrid` (`HeightGrid.cs`, `HeightGrid.Ray
 | Offset | Field | Meaning |
 |---|---|---|
 | `+0xec` | `int*` | Base pointer to the per-cell array (16 bytes/cell, row-major: `cellIndex = x + y*(1<<WidthShift)`) |
-| `+0xf0` | `byte*` | Parallel per-cell scratch/flag byte array (`width*height` bytes), written but not traced to a consumer |
+| `+0xf0` | `byte*` | Parallel per-cell scratch byte array (`width*height` bytes). Zeroed at load, used by the [structure-footprint pass](#structure-footprints--the-flattening-pass) at spawn, then `memset` to 0 at the top of every frame and reused as `Terrain_DrawCellObjects`' per-cell pending-object count — see [that section](#structure-footprints--the-flattening-pass) for the handover |
 | `+0x100` | `int` | `WidthShift` — log2(grid width in cells) |
 | `+0x104` | `int` | `HeightShift` — log2(grid height in cells) |
 | `+0x108` | `int` | `CellShift` — log2(world-units per cell); also the shift used to convert world (x,y) → cell (x,y) |
@@ -32,7 +34,7 @@ Ported in `Herculan.Engine.Terrain.HeightGrid` (`HeightGrid.cs`, `HeightGrid.Ray
 - `+0x7`..`+0xc` (3 shorts): the **far** face normal, same scale. Which of the two a point belongs
   to is the diagonal selector's decision, exactly as in `Terrain_HeightQuery`.
 - `+0xd` (byte): the **near** triangle's baked shade byte; `+0xe` (byte): the **far** triangle's.
-  Written at zone load and read straight back by `Terrain_DrawCellQuad` as the ramp row — see
+  Written by the surface build and read straight back by `Terrain_DrawCellQuad` as the ramp row — see
   [`terrain-lighting.md`](terrain-lighting.md).
 - `+0xf` (byte, bitfield): bits `[0:1]` = diagonal-split selector consumed by `Terrain_HeightQuery`'s
   barycentric interpolation (values `0`/`1`/`2` are produced; `3` is handled by the query but never
@@ -41,9 +43,11 @@ Ported in `Herculan.Engine.Terrain.HeightGrid` (`HeightGrid.cs`, `HeightGrid.Ray
   neighboring cells within a block share one roll.
 
 **The selector and both normals are written by the same function**, `Terrain_BuildCellSurface`
-(`0046bed8`), which `Terrain_BuildSurface` (`0046c1dc`) runs over the whole grid once at zone load
-via `FUN_0046c2ec`. Choosing a cell's normals requires choosing its diagonal, so it derives the
-selector from the four corner heights and stores all three together:
+(`0046bed8`), which `Terrain_BuildSurface` (`0046c1dc`) runs over the whole grid via
+`Terrain_BuildCellSurfaceAndShade` (`0046c2ec`) — at zone load, and again at the end of the
+[structure-footprint pass](#structure-footprints--the-flattening-pass). Choosing a cell's normals
+requires choosing its diagonal, so it derives the selector from the four corner heights and stores
+all three together:
 
 | Corners | Selector | Split |
 |---|---|---|
@@ -94,8 +98,74 @@ Neither loader path writes the selector — every `+0xf` write in `TerrainZone_P
 its ASCII counterpart masks with `& 2` and sets only the material index, via
 `Math_RandomNext() & 0xfff < 0x4ce` (~30%) for material 1 vs. 0. (The bitmap path hardcodes a ceiling
 of two materials, unlike the ASCII fallback which loops the whole `mat0` table. The roll is sparse:
-only cells on a block boundary roll, block size `(1 << (0x15 - mat0[0].field4 - CellShift)) - 1`,
-2×2 cells at retail values.) `Terrain_BuildCellSurface` runs afterwards and is what fills it in.
+only cells on a block boundary roll, block size `(1 << (0x15 - mat0[0].field4 - CellShift)) - 1` —
+2×2 cells at `CellShift` 14, 4×4 at 13.) `Terrain_BuildCellSurface` runs afterwards and is what
+fills it in.
+
+## Structure footprints — the flattening pass
+
+Ported in `HeightGrid.MarkStructureFootprint` / `HeightGrid.FlattenStructureFootprints`
+(`HeightGrid.Footprints.cs`), driven from `MissionScene.Load`.
+
+A zone heightmap marks an emplacement with a **single raised sample**: `ZONE555` puts one cell of
+120 in a plain of 97 under each of its five turrets, and 120 is the only even value anywhere in that
+half of the file's histogram. Read as corner samples — which is what `Terrain_HeightQuery` and
+`Terrain_DrawCellQuad` both do — one raised sample is the apex of a four-quad pyramid standing at the
+*corner* of the marked cell, while the structure it was painted for stands near that cell's *centre*
+(all five of `ZONE555`'s turrets sit at a cell fraction of about 0.5, 0.5). DBSIM reconciles the two
+at spawn time rather than in the data.
+
+The `+0xf0` scratch array gets marks from **two** sources before the pass runs.
+
+Each structure registers its own footprint as it is placed —
+`Terrain_MarkStructureFootprint` (`00470dc8`), called from `Base_AttachToGroup` (`00405c3c`) and from
+`DBSim_SpawnMissionObjects`' own base branch, in both cases immediately before that structure's
+height query. It sets bit 0 for the cell the structure stands in unconditionally, then for every cell
+corner within the structure's `SimObject_GetShapeRadius` of it — measured with the sim's sqrt-free
+magnitude approximation at the structure's own Z, so the test is planar — plus the three cells west,
+south and south-west of each such corner, covering all four quads that meet it.
+
+A base group additionally marks its whole pad: `Terrain_PaintFormationPad` (`00471260`) sets bit 0
+for every cell its formation's layout map calls occupied, which is why a base levels as one
+connected region while a lone turret gets its own small mound — turret groups carry `BinaryFlag` 0
+and contribute nothing here. See
+[`terrain-texturing.md`](terrain-texturing.md#base-formation-pads), which owns that pass.
+
+Once the whole roster is down, `Terrain_FlattenStructureFootprints` (`00471190`) walks the grid. At
+each cell still marked and not yet counted it flood-fills the connected region eight-way, summing raw
+heights and counting cells (`Terrain_AccumulateFootprint`, `00470edc`), writes `sum / count` back
+over that region (`Terrain_WriteFootprintHeight`, `0047101c`), and when the whole grid is done re-runs
+`Terrain_BuildSurface` so every normal, diagonal selector and baked shade matches the new ground.
+
+**The write-back is what produces the flat top.** `0047101c` force-writes the average into the three
+neighbours east, north and north-east whether or not they are marked, without recursing into them —
+while the other five are visited without the force and change nothing unless marked in their own
+right. A lone marked cell therefore becomes a 2×2 block of equal samples:
+one flat quad, centred on the structure, with the four surrounding quads sloping down to the plain.
+
+`DBSim_SpawnMissionObjects` (`004253d8`) calls the pass at `004263d9` and then walks its own structure
+list re-querying `Terrain_HeightQuery` at each position, because the ground moved under them.
+Machines are placed before the pass and are not revisited; a walking HERC re-queries the ground every
+tick anyway.
+
+The scratch byte's three bits all belong to this pass — bit 0 marked, bit 1 counted, bit 2 written.
+`Terrain_SetCellScratch` (`00470cd0`) and `Terrain_GetCellScratch` (`00470cf4`) are its accessors;
+`HeightGrid_SetCellScratchByte` (`00470c68`) is the loader's, addressing the same array by cell
+pointer instead of coordinates.
+
+**The bits are wiped before anything else reads the array.** `HeightGrid_ClearCellScratch`
+(`0046e840`) `memset`s the whole thing to 0 as the first act of `maybe_Scene_SubmitFrameObjects`
+(`0042841c`), which runs every frame — so the pass's marks never survive into the frame that follows
+mission spawn. From then on the same byte is a per-cell pending-object count: `FUN_00470cac`
+increments it as an object registers against a cell, and `Terrain_DrawCellObjects` (`0046e4a0`)
+reads it, dispatches that many, and clears that cell back to 0. Nothing bridges the two uses, and
+without the per-frame `memset` the first frame would read a flattened base's marks as object counts.
+
+Two divergences in the port, both deliberate. The original bounds-checks nothing when marking beyond
+refusing to step to a negative index, so a structure near a zone edge writes past the array; the port
+clamps to the grid, since an out-of-bounds write is not behaviour worth reproducing. And the original
+walks both axes to `1 << WidthShift` in `00471190` and `00470edc`; the port uses the grid's own
+height, which cannot differ on retail data since every zone is square.
 
 ## Ray-versus-terrain — `Terrain_RayWalk` (`0046e87c`)
 

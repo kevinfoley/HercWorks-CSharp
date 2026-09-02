@@ -128,15 +128,56 @@ public static class MissionLoader {
 		var mechFormations = MechFormationTable.Load(content);
 		var baseFormations = BaseFormationTable.Load(content);
 
-		var groups = ResolveGroups(script);
+		var groups = ResolveGroups(script, baseFormations);
 		var claims = ClaimSlots(script, groups);
 
 		var placements = new List<MissionPlacement>();
 		AddRoster(script, claims, mechNames, flyerNames, mechFormations, baseFormations, placements);
 
 		var player = LoadPlayerLance(scriptPath, groups, mechFormations, mechNames, placements);
+		var basePads = ResolveBasePads(groups, claims[MissionUnitKind.Base], baseFormations, placements);
 
-		return new Mission(scriptPath, header, placements, player);
+		return new Mission(scriptPath, header, placements, player, basePads);
+	}
+
+	/// <summary>
+	/// The ground each base group repaints. <c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>) runs
+	/// this for a group whose discriminator is 2 and whose <c>BinaryFlag</c> is set, passing
+	/// <c>Base_ApplyFormationTerrain</c> (<c>00405db0</c>) the group's <i>first-attached</i> member —
+	/// the lowest populated slot of its <c>DiscriminatedRefs</c> array, not necessarily slot 0,
+	/// though every retail base group that paints does populate slot 0.
+	/// </summary>
+	private static List<MissionBasePad> ResolveBasePads(Group[] groups,
+			Dictionary<int, Claim> baseClaims, BaseFormationTable baseFormations,
+			List<MissionPlacement> placements) {
+		var pads = new List<MissionBasePad>();
+
+		foreach (var group in groups) {
+			if (group.Kind != MissionUnitKind.Base || !group.PaintsGround) {
+				continue;
+			}
+
+			if (baseFormations.LayoutFor(group.FormationId) is not { } layout) {
+				continue;
+			}
+
+			int leadSlot = -1;
+			int leadMember = int.MaxValue;
+			foreach (var (slot, claim) in baseClaims) {
+				if (claim.Group.Index == group.Index && claim.MemberIndex < leadMember) {
+					leadMember = claim.MemberIndex;
+					leadSlot = slot;
+				}
+			}
+
+			var lead = placements.FirstOrDefault(
+				p => p.Kind == MissionUnitKind.Base && p.SlotIndex == leadSlot);
+			if (lead != null) {
+				pads.Add(new MissionBasePad(lead.Position, layout));
+			}
+		}
+
+		return pads;
 	}
 
 	/// <summary>A block-11 record reduced to what placement needs.</summary>
@@ -153,8 +194,14 @@ public static class MissionLoader {
 	/// every comparison in the simulation amounts to — the sweep in <c>Detection</c> is the only
 	/// place that tests for a literal value, and it tests for Cybrid.
 	/// </param>
+	/// <param name="PaintsGround">
+	/// The record's <c>BinaryFlag</c> (raw msn offset <c>0x06</c>), set on 39 of the 61 retail
+	/// block-11 records. For a base group it gates both halves of the base-formation terrain pass:
+	/// the anchor move applied below, and the repaint of the same tile — see
+	/// <see cref="MissionBasePad"/> and <see cref="BaseFormationLayout"/>.
+	/// </param>
 	private readonly record struct Group(int Index, MissionUnitKind Kind, Vec3i Position, int Heading,
-		int FormationId, bool AwaitsDeployment, MissionSide Side);
+		int FormationId, bool AwaitsDeployment, MissionSide Side, bool PaintsGround);
 
 	/// <summary>
 	/// A roster slot's claim: which group activated it, and the slot's index within that group's
@@ -164,27 +211,39 @@ public static class MissionLoader {
 	/// </summary>
 	private readonly record struct Claim(Group Group, int MemberIndex);
 
-	private static Group[] ResolveGroups(ScriptDat script) {
+	private static Group[] ResolveGroups(ScriptDat script, BaseFormationTable baseFormations) {
 		var groups = new Group[script.Entities164.Length];
 
 		for (int i = 0; i < groups.Length; i++) {
 			var record = script.Entities164[i];
 			var route = Route(script, record);
+			var kind = KindOf(record.Discriminator);
 
 			var position = Coordinate(script, record.RefRow6)
 				?? (route.Count > 0 ? route[0] : (Vec3i?)null)
 				?? Vec3i.Zero;
 
+			// A structure group that paints its ground also stands at a fixed spot on it. The
+			// mission's own point only picks the tile; the formation supplies the position within
+			// it. Machines never do this -- Mech_AttachToGroup (00417aa8) takes no such flag and
+			// has no equivalent arithmetic.
+			if (kind == MissionUnitKind.Base && record.BinaryFlag != 0
+				&& baseFormations.LayoutFor(record.SmallDiscrete) is { } layout) {
+				var (snappedX, snappedY) = layout.SnapAnchor(position.X, position.Y);
+				position = new Vec3i(snappedX, snappedY, position.Z);
+			}
+
 			groups[i] = new Group(
 				i,
-				KindOf(record.Discriminator),
+				kind,
 				position,
 				Heading(script, record.RefRow7) ?? RouteBearing(route),
 				record.SmallDiscrete,
 				record.RefRow10 >= 0,
 				record.TriStateFlag == (short)MissionSide.Cybrid
 					? MissionSide.Cybrid
-					: MissionSide.Human);
+					: MissionSide.Human,
+				record.BinaryFlag != 0);
 		}
 
 		return groups;

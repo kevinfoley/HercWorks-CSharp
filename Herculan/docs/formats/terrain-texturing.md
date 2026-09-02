@@ -48,10 +48,9 @@ Five theaters, two variants each. Retail missions use variant 0; variant 1 purpo
 Alongside the terrain bank, `maybe_World_LoadTheater` loads the theater palette `dpl\world<N>.dpl`,
 one per theater, which mech and structure shading resolves through too.
 
-### `mat0`'s two fields, both now resolved
+### `mat0`'s two fields
 
-`TerrainMaterial.Index` (field 0) had been recorded in the engine as a self-index with *no known
-consumer*. **It is a DBA frame index** — `_DAT_006b4fc4[Index * 0x14]`.
+`TerrainMaterial.Index` (field 0) is **a DBA frame index** — `_DAT_006b4fc4[Index * 0x14]`.
 
 `TerrainMaterial.BlockShift` (field 1) selects between two placement modes:
 
@@ -71,13 +70,44 @@ consumer*. **It is a DBA frame index** — `_DAT_006b4fc4[Index * 0x14]`.
 `Terrain_ResolveCellTexture` returns descriptor field 4 (bytes 16–19) as a short — the bitmap
 handle passed to the polygon draw.
 
+### Which quad corner takes which UV
+
+The rect leaves `Terrain_ResolveCellTexture` as four `(u, v)` pairs, and `Terrain_DrawCellQuad` hands
+pair *i* to vertex *i* of the quad it fetched, in that function's own corner order — `(cellX, cellY)`,
+`(cellX, cellY+1)`, `(cellX+1, cellY+1)`, `(cellX+1, cellY)`. All three of its split branches reuse
+those pairs by index, so the mapping is unambiguous:
+
+| corner | u | v |
+|---|---|---|
+| `(cellX, cellY)` | `u0` | `-v0` |
+| `(cellX, cellY+1)` | `u0` | `-(v0 + span)` |
+| `(cellX+1, cellY+1)` | `u0 + span` | `-(v0 + span)` |
+| `(cellX+1, cellY)` | `u0 + span` | `-v0` |
+
+So `u` rises with `cellX` and, because of the negation, `v` **falls** with `cellY`. The wrap itself is
+not a seam: the frames are edge-tileable, so `v` stepping from 0 back to 256 joins cleanly.
+
 ### Retail numbers
 
-`MAT0.DAT` holds 13 records: `{0,6}`, `{1,6}`, `{2,5}`, … — field 0 ascending (frame index), field 1 per-material tiling shift. At `cellShift = 14`, materials 0 and 1 give `shift = 14 + 6 - 13 = 7` → **128 texels per cell, repeating every 2 cells.**
+`MAT0.DAT` holds 13 records: `{0,6}`, `{1,6}`, `{2,5}`, … — field 0 ascending (frame index), field
+1 per-material tiling shift. Materials 0 and 1 give `shift = cellShift - 7`: **128 texels per cell at
+`cellShift` 14, repeating every 2 cells; 64 at 13, repeating every 4.** Either way a texel spans 128
+world units, the cell size cancelling out.
 
-The retail bitmap loader rolls only material **0 or 1**, so shipped zones use frames 0–1 of the theater bank. Frame 0 is the tiling base; frames 1–12 are variants with roads, pads, and building footprints.
+Materials **0 and 1 are the only ones a zone rolls**: `TerrainZone_PopulateFromBitmap`'s roll bound
+is the hard literal 2 (`CMP EBX,0x2` at `0046c5ca`), not the `mat0` count, and every shipped zone is
+a `.dba` that comes through it. Frame 0 is the plain tiling ground, frame 1 its variant.
 
-**World scale:** `Hud_WorldUnitsToMetres` (`00434228`) defines 166.667 world units = 1 metre (recovered from the HUD's distance conversion in `docs/engine/planning.md`). A retail cell at 128 texels is ~0.77 m/texel.
+Materials **2–12 are the eleven base-formation pads** — see
+[Base formation pads](#base-formation-pads) — and reach terrain only through
+`Terrain_PaintFormationPad`. Their block shift of 5 or 4 makes one frame span a whole 8- or 16-cell
+tile rather than tiling, which is why each is a single legible site plan rather than a repeating
+texture. Only `TerrainZone_LoadHeightmap`'s ASCII fallback bounds the roll by the `mat0` count and
+could roll one at random; no loose ASCII zone ships.
+
+**World scale:** `Hud_WorldUnitsToMetres` (`00434228`) defines 166.667 world units = 1 metre
+(recovered from the HUD's distance conversion in `docs/engine/planning.md`), so 128 world units per
+texel is ~0.77 m/texel.
 
 ## `grid+0x10c` — the LOD / draw-radius field
 
@@ -105,17 +135,54 @@ One function **writes** the field; four read it:
 `maybe_Terrain_ComputeViewDistance` (`00470910`) reads the same field per frame for the view setup;
 its two outputs remain undecoded.
 
-## The diagonal selector — read-only in the render path
+## Who writes `cell[+0xf]`
 
-`cell[+0xf]`'s low two bits are the diagonal-split selector; bits `[2:7]` are the material index this
-document's texture lookup uses. The selector is written once at zone load by `Terrain_BuildCellSurface`
-(`0046bed8`), alongside the two face normals it has to choose a diagonal to build — see
-[`terrain-heightmap.md`](terrain-heightmap.md), which carries the four-corner rule and the selector
-table.
+The byte holds two fields: the low two bits are the diagonal-split selector, bits `[2:7]` the
+material index this document's texture lookup uses. Four functions write it, and **the render path
+is not among them** — every reference there is a read, `>> 2` for the material and `& 3` for the
+selector, the latter tested in four places in `FUN_0046ff74`, all against `== 0`.
 
-Every reference to `cell[+0xf]` in the render path is a read — `>> 2` for the material index, `& 3`
-for the selector, the latter tested in four places in `FUN_0046ff74`, all against `== 0`. Neither
-`Terrain_DrawCellQuad` nor `FUN_0046ff74` writes the byte.
+| Writer | Writes | When |
+|---|---|---|
+| `Terrain_BuildCellSurface` (`0046bed8`) | selector only | at zone load and after each flattening, alongside the two face normals it needs a diagonal to build — see [`terrain-heightmap.md`](terrain-heightmap.md) for the four-corner rule |
+| `TerrainZone_PopulateFromBitmap` (`0046c3c0`) | material | the `.dba` roll, capped at material 1 |
+| `TerrainZone_LoadHeightmap` (`0046c650`) | material | the ASCII fallback's roll, bounded by the `mat0` count; no retail zone takes this path |
+| `Terrain_PaintFormationPad` (`00471260`) | material | per base group at mission spawn — see below |
+
+## Base formation pads
+
+A base group whose `script.dat` block-11 record sets its `BinaryFlag` repaints the ground it stands
+on with its formation's own material, which is what puts a retail base on a marked concrete pad
+instead of open terrain. `DBSim_SpawnMissionObjects` (`004253d8`) calls
+`Base_ApplyFormationTerrain` (`00405db0`) for each such group, passing the group's first-attached
+member; that reads the group's `BFORMS.DAT` record and calls `Terrain_PaintFormationPad`.
+
+The record supplies the material index and a square `dim`×`dim` map of `0`/`1` bytes — see
+[`script-dat.md`](script-dat.md#the-per-formation-trailer), which owns the file layout, how many
+formations carry one, and the anchor placement that goes with it. A formation whose material index
+is `-1` paints nothing.
+
+```
+tile      = 1 << (0x15 - mat0[material].BlockShift)     world units square, CellShift-independent
+map entry = tile / dim                                  so dim spans the tile exactly
+per cell  = 1 << (CellShift - 13)                       map entries along each axis
+```
+
+Two things fall out of that. The tile is the same 65,536 or 131,072 world units whatever the zone's
+cell size, the map simply resolving finer or coarser against it; and `dim` is not free data — it is
+`2 ^ (8 - BlockShift)` at `CellShift` 13, which holds for all eleven retail formations with no
+exceptions.
+
+**The map is a levelling mask, not the pad's shape.** Every cell of the tile takes the material
+unconditionally; only cells whose map byte is nonzero also get `Terrain_SetCellScratch(1)`, feeding
+the flattening pass in [`terrain-heightmap.md`](terrain-heightmap.md#structure-footprints--the-flattening-pass)
+as its second input. The pad's outline is drawn into the frame art itself — overlay a formation's
+map on its frame and the marked entries land on that frame's concrete and nowhere else. **Map row 0
+indexes the tile's high-y edge and counts down**, the same inversion the anchor placement uses.
+
+The material write, but not the levelling mark, is skipped when `CockpitArt_LoadOnDemand` is set —
+the low-memory mode (`-l`, or under 12 MB physical). Such a machine gets flat ground with no pad
+painted on it.
 
 ## The render path, for whoever picks this up
 
@@ -141,5 +208,16 @@ Data-driven, theater-indexed via mission. Core components:
 - **`World/ScriptDatHeader`** — reads the three header fields above.
 - **`Render/TerrainTextureBank`** — loads and packs named `.DBA` via theater `.DPL`; implements `Terrain_ResolveCellTexture`'s rect selection (material index → frame; tiling or whole-frame UV).
 - **`Render/TerrainMeshBuilder`** — per-corner UVs from rect; **`Gl/MeshVertex.Textured`** flag allows cells that fail texture lookup to keep height/slope ramp colour.
+- **`Terrain/HeightGrid.FormationPads`** — `PaintFormationPad`, the base-pad pass, driven from `MissionScene.Load` over `Mission.BasePads`.
 
-Known constraints: corner-to-quad assignment not resolved from disassembly (monotone choice flagged at call site); shelf-packed atlas uses 4 MB/theater.
+Known constraints: the material roll uses the engine's own generator, so which cells are drawn with
+frame 1 differs from retail (see `KNOWN_ISSUES.md`); the shelf-packed atlas uses 4 MB/theater. Pads
+are exact — they are placed from the file, not rolled.
+
+## Rejected readings
+
+| Reading | Why it is wrong |
+|---|---|
+| A cell's UV rect attaches to the quad with both axes monotone — `u` rising with `cellX`, `v` rising with `cellY` | `v` falls with `cellY`. Monotone `v` mirrors every cell vertically against the row below it, so each cell boundary becomes a mirror seam |
+| Materials 2–12 are addressable but nothing assigns them, so they are dead data | Only the two zone loaders' rolls are capped at material 1. `Terrain_PaintFormationPad` assigns 2–12, one per base formation, and reading the loaders alone makes the gap look unexplained |
+| A formation's layout map is the pad's shape, so painting follows the map | The map is a levelling mask. The material is written to the whole tile regardless, and the pad outline is in the frame art. The maps read as legible site plans, which is what makes this the obvious reading |

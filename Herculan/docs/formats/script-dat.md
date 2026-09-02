@@ -121,7 +121,10 @@ Per record type, what pass 2 reads (offsets into the exported record, not the `.
    ref, so ignoring it faces a whole mission due north and rotates every formation spread wrongly.
 5. **Ground height** is not in the file. Mechs and bases get `Terrain_HeightQuery` plus the type's
    own foot offset (`typeRecord+0x16`, and +5000 when `typeRecord+0x50` is set); flyers get no query
-   at all — they hold the spawn coordinate's Z, or 5000 units when that is zero.
+   at all — they hold the spawn coordinate's Z, or 5000 units when that is zero. Bases are then
+   queried a **second** time: placing one levels the terrain under it, so `DBSim_SpawnMissionObjects`
+   re-settles the whole base list once the roster is down — see
+   [`terrain-heightmap.md`](terrain-heightmap.md#structure-footprints--the-flattening-pass).
 6. **The player's squad is not in `script.dat`.** Block 11's **record 0** exists only to hold its
    spawn point — pass 1 skips it when marking activation, and pass 2 overwrites its member list with
    the entries read from `data\player.mec`. That file's own format is decoded in
@@ -150,7 +153,8 @@ Per record type, what pass 2 reads (offsets into the exported record, not the `.
      `FUN_00405b9c(formationId, slot)`, reading the table `FUN_00405fac` (`base.cpp`) streams from
      `dat\BFORMS.DAT` (opened via literal string `"bforms"`). File is 3,186 content bytes: a count
      (17) then per formation a slot count + that many 10-byte (x:int32, y:int32, trailing:int16)
-     entries + an 8-byte grid-snap pair + a variable-length trailer — byte-exact, nothing left over.
+     entries + the three-`int32` terrain trailer and its buffer list
+     ([below](#the-per-formation-trailer)) — byte-exact, nothing left over.
      `Formation_RotateAndAddOffset` (`FUN_00411d64`) reduces to a plain 2D rotation:
      `worldDX = dx·cosθ − dy·sinθ`, `worldDY = dx·sinθ + dy·cosθ`, added to the group's point.
      Implemented in `Herculan.Engine.World.BaseFormationTable`, wired into `MissionLoader.AddRoster`'s
@@ -179,17 +183,9 @@ Per record type, what pass 2 reads (offsets into the exported record, not the `.
    - **Mechs:** `Mech_AttachToGroup` (`FUN_00417aa8`) has the same heading-fallback shape, but
      `MFORMS.DAT`'s 28-byte formations are seven bare (x, y) `int16` pairs with no room for a
      per-slot heading. Not investigated further.
-   - **Grid-snap — not implemented.** When the block-11 record's `BinaryFlag` (`0x06`) is set,
-     `Base_AttachToGroup` (`FUN_00405c3c`) snaps the group's shared anchor to a per-formation grid
-     before the per-member offset is added, using three `BFORMS.DAT` fields this reader skips (a
-     cell-size class and two axis multipliers). `BinaryFlag` is set on ~1/3 of retail block-11
-     records (39/61, per the row #16 field table below).
-
-     The formula reads as `step = cellClass * 0x20`, `mask = cellClass * 0x2000 - 1`,
-     `x' = (x & ~mask) + axisMultX * step`, `y' = ((y & ~mask) + mask + 1) - axisMultY * step`.
-     **Warning:** implementing it exactly as written passes a distinct-positions check but shifts
-     real structures tens of thousands of world units off their pads, so the field mapping or a scale
-     factor is wrong somewhere. Do not reattempt without a visual check against the mission editor. <!-- doc-lint: ok -->
+   - **Anchor adjustment — implemented.** A `BinaryFlag` base group is moved onto a fixed spot in
+     its terrain tile before any per-member offset is added. See
+     [Base formation terrain](#base-formation-terrain).
    - **Flyers — unfixed.** `FUN_00421ee8` is the flyer attach equivalent; not traced. No multi-flyer
      groups observed in retail data.
    - **Verification:** all 10 available missions — 26/26 multi-mech groups and 18/18 multi-base groups
@@ -200,6 +196,74 @@ Per record type, what pass 2 reads (offsets into the exported record, not the `.
    such groups stacked on shared points (routinely the player's own spawn). See
    [`../simulation/mission-deployment.md`](../simulation/mission-deployment.md); **do not read a
    waiting group's position as where the mission means it to be.**
+
+## Base formation terrain
+
+When a block-11 record's `BinaryFlag` (`0x06`) is set — 39 of 61 retail records — a **base** group
+does two things no other group does, both from the same `BFORMS.DAT` record and both gated by that
+one flag. `Base_AttachToGroup` (`00405c3c`) moves the group's shared anchor onto a fixed spot in a
+terrain tile, and `Base_ApplyFormationTerrain` (`00405db0`) paints that tile with the formation's
+own material. They go together: the move is what puts the structures on the pad. Machines are
+unaffected — `Mech_AttachToGroup` (`00417aa8`) takes no such flag and has none of this arithmetic.
+
+The painting side, including the tile geometry both share, is in
+[`terrain-texturing.md`](terrain-texturing.md#base-formation-pads).
+
+### The per-formation trailer
+
+Each formation's slot list is followed by three `int32`s and a length-prefixed buffer list. The
+in-memory record `Base_LoadResources` (`00405fac`) builds is `0x1c` bytes:
+
+| offset | field |
+|---|---|
+| `+0x00` | slot count |
+| `+0x04` | pointer to the slot array |
+| `+0x08` | **material index**, or `-1` for a formation with no terrain of its own |
+| `+0x0c` | anchor position across the tile, in 256ths from the low-x edge |
+| `+0x10` | anchor position down the tile, in 256ths from the **high**-y edge |
+| `+0x14` | **`dim`** — buffer count, and the side of the square layout map |
+| `+0x18` | pointer to the `dim` row pointers |
+
+Eleven formations carry a material and a map; the other six carry `-1`, `0`, `0` and no buffers.
+Formation 5's map reads as a legible L-shaped compound, which is the shape of the concrete in that
+material's frame:
+
+```
+.#####..
+.#####..
+.#####..
+.##..##.
+.....##.
+.....##.
+........
+........
+```
+
+### The anchor
+
+```
+tile = dim << 13                                 the painted tile, sized in terrain-texturing.md
+x'   = (x & ~(tile-1)) + acrossFraction * tile/256
+y'   = (y & ~(tile-1)) + tile - downFraction * tile/256
+```
+
+The original spells this `(x & ~mask) + b*step` / `((y & ~mask) + mask + 1) - c*step` with
+`mask = dim*0x2000 - 1` and `step = dim*0x20`, computed per member on a copy of the group's point,
+which is equivalent. The operands are `+0x14`, `+0x0c` and `+0x10` — the map dimension and the two
+fractions. **Only which tile the mission's point falls in survives** — the position within the tile
+is discarded and replaced by the formation's own fraction of it.
+
+Four independent checks agree on this reading. All 111 members of all eleven mapped formations fall
+inside their own map's bounds, against 64 for the inverted y convention. Every `dim` is predicted by
+its material's block shift, 11 of 11. Across the ten retail handoffs every base group's structures
+then sit entirely inside the tile painted for them, 11 of 11, where the unmoved anchor leaves them
+straddling a tile edge. And in the mission editor the move closes the player-to-base distance in the
+Scramble training mission by 147 m, in the direction and by roughly the amount that base was
+visibly too far away.
+
+A formation's layout map also marks its cells for the per-object flattening pass in
+[`terrain-heightmap.md`](terrain-heightmap.md#structure-footprints--the-flattening-pass), which owns
+that pass and what the two inputs add up to.
 
 ## The 13-block structure
 
@@ -288,3 +352,10 @@ Stop after block 13's declared end and ignore trailing bytes. Files may have sta
   fit) and round-trip the rest raw as `HeadBytes`/`TailBytes`. Blocks 5 and 11 split an interleaved
   source span into parallel `ArrayA`/`ArrayB` (even source offsets in A, odd in B) to match the
   writer's on-disk order.
+
+## Rejected readings
+
+| Reading | Why it is wrong |
+|---|---|
+| The anchor formula's three operands are the trailer's three `int32`s in file order | They are `+0x14`, `+0x0c`, `+0x10`. File order feeds the material index in where `dim` belongs, and a material index of 6 makes `mask` `0xbfff` — not a power of two minus one — so structures land tens of thousands of world units away while still passing a distinct-positions check |
+| The `BinaryFlag` anchor move is the structure-footprint flattening, or feeds it directly | The flattening is per-object, driven by each structure's own shape radius, and reads nothing from `BFORMS.DAT`. What the flag's `BFORMS.DAT` record contributes there is the layout map's cell marks, not the move |

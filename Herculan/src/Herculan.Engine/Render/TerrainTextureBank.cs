@@ -79,12 +79,11 @@ public sealed class TerrainTextureBank {
 	/// so <c>u0 + span</c> lands at or below 256. That is what lets the bank be packed into an atlas
 	/// at all — no cell needs texture-space repeat, only its own sub-rect.</para>
 	///
-	/// <para><b>What is transcribed and what is chosen.</b> The rect is the original's. How its four
-	/// corners attach to the quad's four corners is not stated by the disassembly this was read from,
-	/// so the natural monotone assignment is used (u rising with <c>cellX</c>, v rising with
-	/// <c>cellY</c> down the negated axis). Since a terrain bank is a tiling base texture repeating
-	/// every couple of cells, a wrong choice here shows up as a mirrored or rotated ground texture,
-	/// not as a seam — worth knowing as the thing to look for, and a one-line change if so.</para>
+	/// <para><b>Corner order is the original's too, and V1 is the smaller value.</b> <c>u</c> rises
+	/// with <c>cellX</c> but <c>v</c> falls with <c>cellY</c>, and <see cref="AtlasRect.V1"/> is the V
+	/// at corner <c>cellY + 1</c>. Handing the pair over the other way mirrors every cell against the
+	/// row below it. See docs/formats/terrain-texturing.md, "Which quad corner takes which UV", for
+	/// how the mapping is read off <c>Terrain_DrawCellQuad</c>.</para>
 	/// </summary>
 	public AtlasRect? CellRect(HeightGrid grid, int cellX, int cellY) {
 		int material = grid.MaterialIndexAt(cellX, cellY);
@@ -113,11 +112,11 @@ public sealed class TerrainTextureBank {
 		int u0 = (cellX << shift) & 0xff;
 		int v0 = (cellY << shift) & 0xff;
 
-		// V negated: the original's v runs the other way, so a cell's rect sits at (256 - v0 - span)
-		// once wrapped back into the frame. Mirroring the pair keeps corners monotone in cellY.
+		// V negated, wrapped back into the frame: corner cellY samples at 256 - v0 and corner
+		// cellY + 1 at 256 - v0 - span, so V1 < V0 and consecutive rows join instead of mirroring.
 		return SubRect(frame,
-			u0 / UvSpaceTexels, (UvSpaceTexels - v0 - span) / UvSpaceTexels,
-			(u0 + span) / UvSpaceTexels, (UvSpaceTexels - v0) / UvSpaceTexels);
+			u0 / UvSpaceTexels, (UvSpaceTexels - v0) / UvSpaceTexels,
+			(u0 + span) / UvSpaceTexels, (UvSpaceTexels - v0 - span) / UvSpaceTexels);
 	}
 
 	/// <summary>

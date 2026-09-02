@@ -220,6 +220,14 @@ public sealed class MissionScene {
 				}
 			}
 
+			// A structure registers its footprint with the terrain before it is settled onto it, as both
+			// of the original's base-placement paths do. Nothing has moved yet -- the flattening
+			// happens once, below, after every structure has had its say.
+			if (spawned.Object is BaseObject structure) {
+				terrain.MarkStructureFootprint(structure.Position.X, structure.Position.Y,
+					structure.ShapeRadius);
+			}
+
 			// Settling an object onto the terrain before it joins the world is a placement step, not
 			// a simulation step -- a mech's own tick now walks it, which is not what spawning wants.
 			spawned.Object.Position = new Vec3i(spawned.Object.Position.X, spawned.Object.Position.Y,
@@ -234,14 +242,44 @@ public sealed class MissionScene {
 			objects.Add(spawned);
 		}
 
+		// Each base group that carries a formation layout repaints the ground it stands on with that
+		// formation's own material, which is what puts a base on a marked concrete pad instead of on
+		// open terrain, and marks the pad's own cells for the levelling below. The original does
+		// this per group as it builds the group record; both effects only accumulate, so running
+		// them here -- after every structure has marked its own footprint, before the one flattening
+		// pass -- lands in the same place.
+		foreach (var pad in mission.BasePads) {
+			terrain.PaintFormationPad(pad.Anchor.X, pad.Anchor.Y, pad.Layout.MaterialIndex,
+				materials[pad.Layout.MaterialIndex].BlockShift, pad.Layout.Dimension,
+				pad.Layout.Map);
+		}
+
+		// The whole roster is down, so the ground can now be levelled under each structure and every
+		// normal and diagonal rebuilt over it -- the point DBSim_SpawnMissionObjects runs the same
+		// pass. See HeightGrid.FlattenStructureFootprints for what a zone's single-sample emplacement
+		// marks turn into.
+		terrain.FlattenStructureFootprints();
+
+		// And the structures are re-settled onto the terrain they just changed, which is the loop the
+		// original runs over its own base list the moment the flattening returns. Only structures:
+		// machines were settled before the pass and the original does not revisit them either, since
+		// a walking machine re-queries the ground every tick anyway.
+		foreach (var placed in objects) {
+			if (placed.Object is BaseObject structure) {
+				structure.Position = new Vec3i(structure.Position.X, structure.Position.Y,
+					terrain.HeightAtWorld(structure.Position.X, structure.Position.Y));
+			}
+		}
+
 		var camera = new FlyCameraObject { Position = CameraStart(mission, terrain) };
 		world.Add(camera);
 
 		var terrainBank = TerrainTextureBank.Load(content, theater, materials);
 
-		// Terrain is lit once, here, the way the original lights it once at zone load — see
-		// TerrainMeshBuilder. The same theater ramp that colours a flat solid face supplies the
-		// brightness curve the baked shade bytes are read through.
+		// Terrain is lit here, after the flattening above has settled the heights it is lit from, the
+		// way the original relights the grid at the end of the same pass -- see TerrainMeshBuilder.
+		// The same theater ramp that colours a flat solid face supplies the brightness curve the
+		// baked shade bytes are read through.
 		var terrainMesh = TerrainMeshBuilder.Build(terrain, terrainBank, models.Shading != null);
 
 		var bulletModels = new Dictionary<int, SceneModel>();

@@ -44,11 +44,11 @@ public struct MeshVertex {
 	/// per frame — read only when <see cref="Unlit"/> is set.
 	///
 	/// <para>This is how a surface the original shades <i>ahead of time</i> gets drawn. Terrain is the
-	/// case: <c>Terrain_BuildSurface</c> lights every cell once at zone load and stores the two shade
+	/// case: <c>Terrain_BuildSurface</c> lights every cell at zone load and stores the two shade
 	/// bytes in the cell itself (offsets <c>+0xd</c> and <c>+0xe</c>, one per triangle), and
 	/// <c>Terrain_DrawCellQuad</c> hands the byte straight to the span setup. Nothing about it is
-	/// recomputed per frame, so running the renderer's own light term over terrain — which is what the
-	/// engine used to do — is not a stand-in for the original, it is a second, different light.
+	/// recomputed per frame, so running the renderer's own light term over terrain is not a stand-in
+	/// for the original, it is a second, different light.
 	/// Terrain carries <see cref="Unlit"/> set and its baked byte here instead.</para>
 	///
 	/// <para>See <see cref="Render.MissionSun"/> for where the byte comes from and

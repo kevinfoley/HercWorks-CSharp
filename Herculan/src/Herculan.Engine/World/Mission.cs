@@ -83,17 +83,31 @@ public sealed record MissionPlacement(
 	MissionSide Side = MissionSide.Human);
 
 /// <summary>
+/// One patch of ground a base group paints with its formation's own material — the concrete pad a
+/// retail base stands on. Produced for a group whose block-11 record sets its <c>BinaryFlag</c> and
+/// whose formation declares a layout; see
+/// <see cref="Herculan.Engine.Terrain.HeightGrid.PaintFormationPad"/> for what is done with it.
+/// </summary>
+/// <param name="Anchor">
+/// The position the painted tile is chosen from: the group's first-attached member, which is where
+/// the original reads it. Only which tile it falls in matters, not where within that tile.
+/// </param>
+/// <param name="Layout">The formation's material index and occupancy map.</param>
+public sealed record MissionBasePad(Vec3i Anchor, BaseFormationLayout Layout);
+
+/// <summary>
 /// A mission ready to be turned into a scene: which zone and theater it plays in, and every object
 /// it places. This is the output of <see cref="MissionLoader"/> and carries no file-format detail —
 /// a scene builder, a mission editor or a headless test all consume the same shape.
 /// </summary>
 public sealed class Mission {
 	public Mission(string sourcePath, ScriptDatHeader header, IReadOnlyList<MissionPlacement> placements,
-			MissionPlacement? player) {
+			MissionPlacement? player, IReadOnlyList<MissionBasePad> basePads) {
 		SourcePath = sourcePath;
 		Header = header;
 		Placements = placements;
 		Player = player;
+		BasePads = basePads;
 	}
 
 	/// <summary>Where the <c>script.dat</c> was read from.</summary>
@@ -110,6 +124,9 @@ public sealed class Mission {
 	/// camera, since it is where the mission actually starts.
 	/// </summary>
 	public MissionPlacement? Player { get; }
+
+	/// <summary>Every patch of ground a base group repaints, in group order.</summary>
+	public IReadOnlyList<MissionBasePad> BasePads { get; }
 
 	/// <summary>How many placed objects of one kind the mission has.</summary>
 	public int CountOf(MissionUnitKind kind) => Placements.Count(p => p.Kind == kind);

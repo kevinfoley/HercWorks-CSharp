@@ -12,7 +12,9 @@ namespace Herculan.Engine.Terrain;
 /// the diagonal selector (also <c>+0xf</c>), the two face normals (<c>+0x1..+0xc</c>) and the two
 /// baked shade bytes (<c>+0xd</c>/<c>+0xe</c>). The parallel arrays here hold the same values:
 /// <c>_rawHeights</c>, <c>_cellFlags</c>, <c>_diagonals</c> and <c>_normals</c>, with the shade bytes
-/// recomputed at mesh-build time instead (<see cref="Render.TerrainMeshBuilder"/>). The addressing
+/// recomputed at mesh-build time instead (<see cref="Render.TerrainMeshBuilder"/>). The grid's
+/// second, separate array — the <c>+0xf0</c> per-cell scratch byte — is <c>_cellScratch</c>, and
+/// what writes and reads it is in <c>HeightGrid.Footprints.cs</c>. The addressing
 /// (<c>index = x + (y &lt;&lt; WidthShift)</c>, row-major) and every value are unchanged, so the
 /// height query below is still a literal translation.</para>
 /// </summary>
@@ -41,6 +43,7 @@ public sealed partial class HeightGrid {
 
 		_diagonals = new byte[rawHeights.Length];
 		_normals = new short[rawHeights.Length * 6];
+		_cellScratch = new byte[rawHeights.Length];
 		BuildSurface();
 	}
 
@@ -124,12 +127,13 @@ public sealed partial class HeightGrid {
 	/// The cell's diagonal-split selector — bits [0:1] of the original's <c>+0xf</c> byte, which
 	/// <see cref="HeightAtWorld"/> uses to decide which way the quad's diagonal runs.
 	///
-	/// <para>Neither loader path writes it, and for a while the writer was an open item. It is
-	/// <c>FUN_0046bed8</c>, the per-cell <b>normal builder</b>: computing a cell's two face normals
-	/// requires choosing its diagonal, so it derives the selector from the four corner heights and
-	/// stores it alongside. <c>FUN_0046c1dc</c> runs that over the whole grid once at zone load, so
-	/// every interior cell's selector is decided by its own corners and only the last row and column
-	/// keep the loader's zero. See <see cref="BuildSurface"/>.</para>
+	/// <para>Neither loader path writes it. The writer is <c>FUN_0046bed8</c>, the per-cell
+	/// <b>normal builder</b>: computing a cell's two face normals requires choosing its diagonal, so
+	/// it derives the selector from the four corner heights and stores it alongside.
+	/// <c>FUN_0046c1dc</c> runs that over the whole grid at zone load, and again after footprint
+	/// flattening moves the corners it reads, so every interior cell's selector is decided by its
+	/// own corners and only the last row and column keep the loader's zero. See
+	/// <see cref="BuildSurface"/> and <see cref="FlattenStructureFootprints"/>.</para>
 	/// </summary>
 	public int DiagonalSelectorAt(int cellX, int cellY) => _diagonals[CellIndex(cellX, cellY)];
 

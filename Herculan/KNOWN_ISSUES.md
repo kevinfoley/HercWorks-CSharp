@@ -15,9 +15,14 @@ _Bugs listed in this section were tested on Windows 11. It's possible that some 
 
 ## HERCULAN Engine
 
-_Note to Claude: This section is for listing features which have been implemented but behave differently than retail or otherwise incorrectly. Features that haven't been tackled yet go in [`ROADMAP.md`](ROADMAP.md)._
+_Note to Claude: This section is for listing outstanding issues with features which have been implemented but behave differently than retail or otherwise incorrectly. Features that haven't been tackled yet go in [`ROADMAP.md`](ROADMAP.md)._
 
-- Terrain textures are not mapped correctly.
+- Terrain detail-texture scatter differs from retail. Roughly 30% of 2x2 cell blocks are drawn with
+  the theater bank's frame 1 instead of the plain frame 0, and which blocks is a random roll at zone
+  load. The engine's generator is not seeded like DBSIM's, so the scatter is statistically faithful
+  but lands on different cells. See the SimRandom seed-table entry in [`ROADMAP.md`](ROADMAP.md) for
+  the blocker. Base pads (frames 2–12) are unaffected — those are placed from `BFORMS.DAT`, not
+  rolled.
 - Gouraud-shaded structures band differently from retail. On the type-15 octagonal tower, retail draws six narrow bands (~4 px, ramp-8 entries 9 down to 4) then four wide ones (28, 29, 29, 59 px, entries 3 down to 0); the engine cannot produce the wide dark bands, because `Light_ComputeShadeForFace` is negative at both corners of the away-facing facet and so must flat-fill entry 0 there. The sun direction, the light intensity and the ramp entry sequence are each excluded as the cause. See "Unresolved: type-15 band widths" in `docs/formats/dts-texture-binding.md`. Reference captures: `Reference/Gouraud_shading_comparison_2.png`, `Reference/Scramble_Training_Base_4.png`.
 - Lighting on HERCs may not be correct (needs review) — re-check: HERCs are almost entirely `TSShadedPoly`, so the shade-ramp and away-facing-light fixes changed their colouring too.
 - When projectiles hit buildings, many hit effects seem to clip inside the building - I don't observe this in retail. **Hit geometry ruled out**, and **building LOD ruled out** (the engine draws maximum detail, which is what retail's screenshots were taken at). Most likely a draw order issue.
@@ -27,14 +32,12 @@ _Note to Claude: This section is for listing features which have been implemente
 - Similarly to the previous, currently missing is an animation where weapon buttons wink on one-at-a-time when the simulation first starts.
 - In the Scramble practice mission while piloting an Apocalypse, a Particle Beam Weapon is equipped to slot 8. In HERCULAN, when this PBW is fired the beam visibly clips off near the corner of the screen. This may be a camera near-clip plane issue.
 - Targeting range seems to be much lower than retail, even with active radar. Possibly because there's currently no AI, so the enemies never switch their radar on.
-- The `[V]` external view is placeholder geometry rather than retail's: the camera sits at a fixed distance behind the machine, and none of DBSIM's own external views, transitions, terrain handling or overlay chrome are reproduced. See [`ROADMAP.md`](ROADMAP.md).
-- The `[P]` pause is a placeholder that just stops the fixed-timestep tick loop, so it does not match whatever retail's pause does on screen. See [`ROADMAP.md`](ROADMAP.md).
+- The `[V]` external view is placeholder rather than retail's. See [`ROADMAP.md`](ROADMAP.md).
+- The `[P]` pause is a placeholder that just stops the fixed-timestep tick loop. See [`ROADMAP.md`](ROADMAP.md).
 
 ## HercWorks toolkit — inherited from the Java original
 
-_Bugs present in the original Java source that are still reproduced in the C# port. Ported
-bug-compatible rather than silently fixed, per the porting policy in `README.md`. Bugs that have
-since been fixed are not listed here — that is what `git log` is for._
+_Bugs present in the original Java source that are still reproduced in the C# port. Ported bug-compatible rather than silently fixed, per the porting policy in `README.md`. Bugs that have since been fixed are not listed here._
 
 - `VolFileCompiler.Compile()` writes to the hardcoded developer path `E:\ES2_OS\dev\earthsiege2\VOL`, carried over from the Java original. **The only one of these with real teeth** — it is reachable code and will write to the wrong place, or fail, on any machine but the original author's. The output path should come from the caller.
 - `ThreeSpaceByteTransformer.PeekAt(int at)` returns `Index + at` — an offset, not the byte at that offset. It dereferences nothing. Unused (no callers), so inert; looks unfinished in the original rather than wrong.

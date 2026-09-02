@@ -472,7 +472,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Bullet_FireBurst",
-      "description": "Fire-burst/tracer spawner, called as Bullet_FireBurst(missileId, shotTransform, range, ownerMech, power). Builds the shot record -- ray {transform, range, 200} plus Q10Multiply(power, DamageArmor), Q10Multiply(power, DamageShield), SplashFactor, the ImpactFX table pointer and the owner -- and calls Sim_RaycastObjectList synchronously to resolve the hit before any tracer visual spawns. This is the beam/hitscan (PROJ.DAT Type 4, always Speed=0) mechanism: no persisting travelling object. Splits the tracer into 5000-unit segments (FUN_0040b804) over the resolved distance.",      "source": "docs/simulation/dbsim-physics-notes.md"
+      "description": "Fire-burst/tracer spawner, called as Bullet_FireBurst(missileId, shotTransform, range, ownerMech, power). Builds the shot record -- ray {transform, range, 200} plus Q10Multiply(power, DamageArmor), Q10Multiply(power, DamageShield), SplashFactor, the ImpactFX table pointer and the owner -- and calls Sim_RaycastObjectList synchronously to resolve the hit before any tracer visual spawns. This is the beam/hitscan (PROJ.DAT Type 4, always Speed=0) mechanism: no persisting travelling object. Splits the tracer into 5000-unit segments (FUN_0040b804) over the resolved distance.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
     },
     {
       "address": "0040e964",
@@ -1653,7 +1654,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TerrainZone_PopulateFromBitmap",
-      "description": "Real retail terrain loader. Takes a loaded DynamixBitmap (the SAME format used for ordinary .DBM/.DBA textures) and treats its 8-bit grayscale pixel grid directly as the heightmap: WidthShift/HeightShift are re-derived from the bitmap's own width/height fields (log2), each pixel byte (minus a bias param_3) becomes one HeightGrid cell's raw height byte (offset 0), and cell diagonal-select/material-type bits (offset 0xf) are assigned via a weighted random roll (~30.6% chance per material, first match wins) against ZONES_MaterialTable, sparsely at an LOD-driven block stride (finer cells inherit their block's already-rolled material). Verified byte-exact against real ES2/VOL/ZONES.VOL/DBA/ZONE*.DBA files: 128x128 zones are 16418 bytes (128*128+34-byte DynamixBitmap header), 256x256 zones are 65570 bytes (256*256+34) -- exact match.",
+      "description": "Real retail terrain loader. Takes a loaded DynamixBitmap (the SAME format used for ordinary .DBM/.DBA textures) and treats its 8-bit grayscale pixel grid directly as the heightmap: WidthShift/HeightShift are re-derived from the bitmap's own width/height fields (log2), each pixel byte (minus a bias param_3) becomes one HeightGrid cell's raw height byte (offset 0), and cell diagonal-select/material-type bits (offset 0xf) are assigned via a weighted random roll (~30.6% chance, first match wins) sparsely at an LOD-driven block stride. The roll's upper bound is the hard literal 2 (CMP EBX,0x2 at 0046c5ca), NOT the mat0 count, so this path only ever produces material 0 or 1 -- every shipped zone is a .dba and comes through here. Only the ASCII fallback in TerrainZone_LoadHeightmap bounds the roll by the mat0 count, and materials 2-12 reach shipped terrain solely through Terrain_PaintFormationPad (00471260) (finer cells inherit their block's already-rolled material). Verified byte-exact against real ES2/VOL/ZONES.VOL/DBA/ZONE*.DBA files: 128x128 zones are 16418 bytes (128*128+34-byte DynamixBitmap header), 256x256 zones are 65570 bytes (256*256+34) -- exact match.",
       "source": "memory project_es2_exe_recon 2026-08-11 (terrain data-structure session)"
     },
     {
@@ -1981,13 +1982,84 @@
       "source": "memory project_es2_dts_texture_binding, follow-up session 2026-08-12 (DBSIM-side RE)"
     },
     {
+      "address": "00470dc8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_MarkStructureFootprint",
+      "signature": "void __cdecl Terrain_MarkStructureFootprint(void *grid, int *position, int radius)",
+      "description": "Registers one structure's footprint in the height grid's +0xf0 scratch array, ready for Terrain_FlattenStructureFootprints to level it. Sets the scratch byte to 1 for the cell the structure stands in unconditionally, then walks the cells in the position's radius-sized bounding box and, for each whose corner (cellX << cellShift, cellY << cellShift, position.z) is within radius by Math_FastMagnitude3D -- the z terms cancel, so the test is planar -- marks that cell plus the three west, south and south-west of it, covering all four quads meeting that corner. radius is the caller's SimObject_GetShapeRadius (vtable +0x10). Callers: Base_AttachToGroup (00405c3c) and DBSim_SpawnMissionObjects' own base branch, each immediately before that structure's height query. No bounds checking beyond refusing to step to a negative index.",
+      "source": "docs/formats/terrain-heightmap.md, 'Structure footprints -- the flattening pass'"
+    },
+    {
+      "address": "00471190",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_FlattenStructureFootprints",
+      "signature": "void __cdecl Terrain_FlattenStructureFootprints(void *grid)",
+      "description": "THE REASON A TURRET STANDS ON A FLAT-TOPPED MOUND. A zone heightmap marks each emplacement with a single raised sample (ZONE555: one cell of 120 in a plain of 97 under each turret), which as a corner sample is the apex of a four-quad pyramid at the cell's CORNER while the structure stands near its centre. This levels it instead: walk every cell, and where the scratch byte is marked (bit 0) but not yet counted (bit 1), flood-fill the connected region with Terrain_AccumulateFootprint to get its raw-height sum and count, then write sum/count back over it with Terrain_WriteFootprintHeight. Finishes with Terrain_BuildSurface, since every normal, diagonal selector and baked shade is now stale. Called once by DBSim_SpawnMissionObjects (at 004263d9) after the whole roster is placed, which then re-queries every base's ground height. Walks both axes to 1 << widthShift, which would half-cover a taller-than-wide zone; every retail zone is square.",
+      "source": "docs/formats/terrain-heightmap.md, 'Structure footprints -- the flattening pass'"
+    },
+    {
+      "address": "00471260",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_PaintFormationPad",
+      "description": "Stamps one base formation's material over the terrain tile a world point falls in, and marks that formation's occupied cells for the flattening pass. The only writer of cell +0xf bits [2:7] outside the two zone loaders, and the only path by which materials 2-12 reach shipped terrain -- TerrainZone_PopulateFromBitmap's roll is capped at 2. The tile is 1 << (0x15 - mat0[material].BlockShift) world units square, independent of CellShift, and dimension x dimension map entries span it exactly; a cell takes 1 << (CellShift - 13) entries per axis. Every cell of the tile is painted; only cells whose map byte is nonzero also get Terrain_SetCellScratch(1), which is the second input to Terrain_FlattenStructureFootprints (00471190) alongside the per-object radius marks of Terrain_MarkStructureFootprint (00470dc8), and is why a base's whole pad levels as one region. Map row 0 indexes the tile's HIGH-y edge and counts down. The material write is skipped entirely when CockpitArt_LoadOnDemand is set (the low-memory mode: -l, or under 12 MB physical), leaving the ground flat but unpainted.",
+      "signature": "void __cdecl Terrain_PaintFormationPad(void *grid, int *worldPoint, int materialIndex, unsigned char **mapRows, int dimension)",
+      "source": "docs/formats/terrain-texturing.md (base formation pads)"
+    },
+    {
+      "address": "00470edc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_AccumulateFootprint",
+      "signature": "void __cdecl Terrain_AccumulateFootprint(void *grid, int cellX, int cellY)",
+      "description": "Terrain_FlattenStructureFootprints' measuring half: an eight-way recursive flood fill over cells whose +0xf0 scratch byte has bit 0 set and bit 1 clear. Sets bit 1, then adds the cell's raw height byte to DAT_006b54f4 and increments the cell count DAT_006b54f8, which the caller divides to get the region's average height.",
+      "source": "docs/formats/terrain-heightmap.md, 'Structure footprints -- the flattening pass'"
+    },
+    {
+      "address": "0047101c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_WriteFootprintHeight",
+      "signature": "void __cdecl Terrain_WriteFootprintHeight(void *grid, int cellX, int cellY, int height, int force)",
+      "description": "Terrain_FlattenStructureFootprints' writing half, and the part that produces the FLAT TOP rather than a flat set of corner samples. Eight-way recursive like Terrain_AccumulateFootprint but over bit 2 of the +0xf0 scratch byte; the force argument makes a cell take the height whether or not it is part of the footprint, and it is passed 1 only for the neighbours east, north and north-east. Those three are therefore written but not recursed through, being unmarked, so a region gains one sample on each of those two sides -- which turns a single marked cell into a 2x2 block of equal samples, i.e. one flat quad centred on the structure with the four surrounding quads sloping down to the plain.",
+      "source": "docs/formats/terrain-heightmap.md, 'Structure footprints -- the flattening pass'"
+    },
+    {
+      "address": "00470cd0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_SetCellScratch",
+      "signature": "void __cdecl Terrain_SetCellScratch(void *grid, int cellX, int cellY, unsigned char value)",
+      "description": "Stores one byte in the height grid's +0xf0 per-cell scratch array at (cellY << widthShift) + cellX. Coordinate-addressed counterpart to HeightGrid_SetCellScratchByte (00470c68), which addresses the same array by cell pointer. No bounds check.",
+      "source": "docs/formats/terrain-heightmap.md, 'Structure footprints -- the flattening pass'"
+    },
+    {
+      "address": "00470cf4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_GetCellScratch",
+      "signature": "unsigned char __cdecl Terrain_GetCellScratch(void *grid, int cellX, int cellY)",
+      "description": "Reads one byte of the height grid's +0xf0 per-cell scratch array at (cellY << widthShift) + cellX. Getter for Terrain_SetCellScratch. No bounds check.",
+      "source": "docs/formats/terrain-heightmap.md, 'Structure footprints -- the flattening pass'"
+    },
+    {
       "address": "00470c68",
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
       "name": "HeightGrid_SetCellScratchByte",
-      "description": "Writes the HeightGrid's parallel per-cell scratch/flag byte array at +0xf0: derives the cell index from a cell pointer as ((cellPtr - grid[+0xec]) >> 4) and stores param_3 there. Called once per cell by TerrainZone_PopulateFromBitmap with 0; the ASCII fallback loader writes the same array inline instead. Identifies the +0xf0 array's writer -- its *consumer* is still unlocated, so what the byte means remains open.",
-      "source": "docs/engine/planning.md milestone-1 session 2026-08-11 (terrain loader port)"
+      "signature": "void __cdecl HeightGrid_SetCellScratchByte(void *grid, void *cell, unsigned char value)",
+      "description": "Writes the HeightGrid's parallel per-cell scratch byte array at +0xf0, addressing it by cell pointer -- ((cell - grid[+0xec]) >> 4) -- where Terrain_SetCellScratch (00470cd0) addresses the same array by cell coordinates. Called once per cell by TerrainZone_PopulateFromBitmap with 0, zeroing the array at load; the ASCII fallback loader writes it inline instead. The array's consumers are the structure-footprint pass (Terrain_MarkStructureFootprint / Terrain_FlattenStructureFootprints) and then, at runtime, Terrain_DrawCellObjects' per-cell pending-object count.",
+      "source": "docs/formats/terrain-heightmap.md, 'Structure footprints -- the flattening pass'"
     },
     {
       "address": "00492dd4",
@@ -2013,8 +2085,26 @@
       "type": "function",
       "confidence": "high",
       "name": "HeightGrid_ClearCellScratch",
-      "description": "Single-statement function: memsets the HeightGrid's +0xf0 per-cell scratch byte array to 0, sized (1 << grid[+0x100]) * (1 << grid[+0x104]) -- i.e. exactly one byte per cell, using the same width/height shift fields the rest of the terrain code uses. Called first thing in Scene_SubmitFrameObjects, so the +0xf0 array is per-frame working state (reset every frame), not persistent zone data. Pairs with HeightGrid_SetCellScratchByte (00470c68), which writes it. Its READER is still unlocated -- what the byte actually means remains open.",
-      "source": "docs/formats/terrain-texturing.md 2026-08-13 (terrain texturing RE session)"
+      "description": "Single-statement function: memsets the HeightGrid's +0xf0 per-cell scratch byte array to 0, sized (1 << grid[+0x100]) * (1 << grid[+0x104]) -- exactly one byte per cell. Called first thing in maybe_Scene_SubmitFrameObjects (0042841c), so it runs once per frame. That reset is what lets one array serve two unrelated uses: the structure-footprint pass's marked/counted/written bits at mission spawn, and from the first frame onward a per-cell pending-object count, incremented by 00470cac and consumed and re-cleared per cell by Terrain_DrawCellObjects (0046e4a0). Without it the first frame would read a flattened base's footprint marks as object counts.",
+      "source": "docs/formats/terrain-heightmap.md (structure footprints)"
+    },
+    {
+      "address": "00470cac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_IncrementCellObjectCount",
+      "description": "Increments the +0xf0 scratch byte of the cell a 16-byte cell pointer names and returns the new value -- the per-frame writer of the pending-object count Terrain_DrawCellObjects (0046e4a0) reads back and clears. Addresses by cell pointer, like HeightGrid_SetCellScratchByte (00470c68), rather than by coordinates like Terrain_SetCellScratch (00470cd0). The count is only meaningful after HeightGrid_ClearCellScratch (0046e840) has reset the array for the frame.",
+      "source": "docs/formats/terrain-heightmap.md (structure footprints)"
+    },
+    {
+      "address": "00470c88",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HeightGrid_GetCellScratchByte",
+      "description": "Reads the +0xf0 scratch byte for the cell a 16-byte cell pointer names -- the by-pointer counterpart of Terrain_GetCellScratch (00470cf4), and the read half of HeightGrid_SetCellScratchByte (00470c68).",
+      "source": "docs/formats/terrain-heightmap.md (structure footprints)"
     },
     {
       "address": "0042841c",
@@ -2103,22 +2193,18 @@
       "type": "function",
       "confidence": "high",
       "name": "Terrain_BuildSurface",
-      "description": "Runs Terrain_BuildCellSurface (via FUN_0046c2ec) over every cell of a freshly loaded height grid, row by row. The last row and column have no east/north neighbour to difference against and keep a flat (0,0,0x800) normal and selector 0.",
+      "description": "Runs Terrain_BuildCellSurfaceAndShade (0046c2ec) over every cell of a height grid, row by row. The last row and column have no east/north neighbour to difference against and keep a flat (0,0,0x800) normal and selector 0. Two callers: TerrainZone_LoadHeightmap's zone load, and the tail of Terrain_FlattenStructureFootprints (00471190), which has just changed raw heights and so needs every normal, selector and baked shade rebuilt over them.",
       "source": "docs/formats/terrain-heightmap.md 2026-08-24 (terrain clipping RE session)"
     },
     {
-      "address": "0049aae4",
-      "binary": "DBSIM",
-      "type": "data",
-      "confidence": "high",
-      "name": "g_UnusedTerrainTypeNames",
       "address": "0046bcf4",
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
       "name": "Terrain_ResolveCellTexture",
-      "description": "SOLVES terrain texture selection and tiling. Takes an 8-byte dat\\mat0 record (param_1), the cell's X and Y, and a UV-rect output. Indexes the active terrain bitmap descriptor table (_DAT_006b4fc4, 20-byte stride -- the SAME per-frame descriptor structure the mech texture path uses, see dts-texture-binding.md) by mat0 field 0, i.e. mat0's first field IS a DBA frame index. Then branches on mat0 field 1 (BlockShift): if 0, the frame's own F0..F3 UV corners are used verbatim (texture stretched across the quad); otherwise shift = cellShift + BlockShift - 13 and the rect becomes u0 = (cellX << shift) & 0xff, v0 = (cellY << shift) & 0xff, spanning 2^shift texels, with V negated. The & 0xff wrap is a 256-texel tiling space -- which is why the terrain banks are 256x256 and must be edge-tileable. Returns descriptor field 4 (bytes 16-19) as a short: the bitmap handle handed to the polygon draw. Retail: mat0 record 0 = {frame 0, BlockShift 6}, record 1 = {frame 1, BlockShift 6}; at cellShift 14 that is shift 7 = 128 texels per cell, repeating every 2 cells.",
-      "source": "docs/formats/terrain-texturing.md 2026-08-13 (terrain texturing RE session, part 2)"
+      "signature": "int __cdecl Terrain_ResolveCellTexture(int *materialRecord, int cellX, int cellY, int *uvOut)",
+      "description": "Terrain texture selection and tiling. Takes an 8-byte dat\\mat0 record, the cell's X and Y, and a UV-rect output of four (u, v) pairs -- pair i belongs to vertex i of Terrain_DrawCellQuad's quad, in its corner order (cellX,cellY), (cellX,cellY+1), (cellX+1,cellY+1), (cellX+1,cellY), so u rises with cellX and the negated v FALLS with cellY. Indexes the active terrain bitmap descriptor table (_DAT_006b4fc4, 20-byte stride -- the SAME per-frame descriptor structure the mech texture path uses, see dts-texture-binding.md) by mat0 field 0, i.e. mat0's first field IS a DBA frame index. Then branches on mat0 field 1 (BlockShift): if 0, the frame's own F0..F3 UV corners are used verbatim (texture stretched across the quad); otherwise shift = cellShift + BlockShift - 13 and the rect becomes u0 = (cellX << shift) & 0xff, v0 = (cellY << shift) & 0xff, spanning 2^shift texels, with V negated. The & 0xff wrap is a 256-texel tiling space -- which is why the terrain banks are 256x256 and must be edge-tileable. Returns descriptor field 4 (bytes 16-19) as a short: the bitmap handle handed to the polygon draw. Retail: mat0 record 0 = {frame 0, BlockShift 6}, record 1 = {frame 1, BlockShift 6}; that is shift = cellShift - 7, so 128 texels per cell at cellShift 14 and 64 at 13 -- 128 world units per texel either way.",
+      "source": "docs/formats/terrain-texturing.md"
     },
     {
       "address": "0046bc98",
@@ -2144,8 +2230,9 @@
       "type": "function",
       "confidence": "high",
       "name": "Terrain_DrawCellQuad",
-      "description": "Draws one terrain cell. Takes cellX, cellY, the HeightGrid and an output vertex block; fetches the quad's four corner cells at grid[0xec] + index*0x10 (16-byte cells), projects each corner's raw height byte (cell[0]) via 00495240 against the grid+0xd0 projection state, then resolves the cell's texture with Terrain_ResolveCellTexture(&mat0[cell[0xf] >> 2], cellX, cellY, uvOut) -- cell[0xf] >> 2 being the material index exactly as documented. Emits the quad as two triangles through 0046865c / 00468078, passing the resolved bitmap handle. Also reads cell bytes +1 and +7 via 0046bd98, which matters because the engine's HeightGrid currently treats all 14 bytes between +0x0 and +0xf as dead.",
-      "source": "docs/formats/terrain-texturing.md 2026-08-13 (terrain texturing RE session, part 2)"
+      "signature": "void __cdecl Terrain_DrawCellQuad(int cellX, int cellY, void *grid, int *vertexBlock)",
+      "description": "Draws one terrain cell. The caller (FUN_0046dcd8 / FUN_0046dea4) hands it a vertex block already carrying the quad's four camera-space corner positions, in the order (cellX,cellY), (cellX,cellY+1), (cellX+1,cellY+1), (cellX+1,cellY); this fetches the matching four cells at grid[0xec] + index*0x10 (16 bytes/cell) and adds each corner's projected raw height byte (cell[0], via 00495240 against the grid+0xd0 projection state). It re-derives the diagonal split here from the projected corners rather than reading cell[+0xf]: z0+z2 == z1+z3 emits one 4-vertex quad, < 0 splits along corner 0-2, > 0 along corner 1-3. Texture comes from Terrain_ResolveCellTexture(&mat0[cell[0xf] >> 2], cellX, cellY, uvOut), whose four UV pairs are handed to the vertices by index in all three branches -- the fact that pins the corner-to-UV mapping. Each triangle's shade byte is cell[+0xd] (near) / cell[+0xe] (far) and its backface test uses the normals at cell[+0x1] / cell[+0x7] via Terrain_FaceVisibilityTest. Ends by calling Terrain_DrawCellObjects for the cell.",
+      "source": "docs/formats/terrain-texturing.md, 'Which quad corner takes which UV'"
     },
     {
       "address": "0046d220",
@@ -2310,7 +2397,7 @@
       "type": "function",
       "confidence": "high",
       "name": "DBSim_SpawnMissionObjects",
-      "description": "DBSIM's world-spawn pass and the function that actually builds a mission's objects -- the second of two reads of data\\script.dat. RE-OPENS the file from the top (path built from maybe_DatFolderPrefixPtr + the string at 0049aa3e), skips blocks 1-6, then walks blocks 7-13 again. For every slot DBSim_LoadScriptDat's first pass marked live it constructs an object and reads that object's OWN record for placement: block 7 (134B) gives mech type at +0x28, weapon fit at +0x2a, position ref at +0x3e, heading ref at +0x40; block 8 (92B) gives position +0x28, heading +0x2a, flyer type +0x2c; block 9 (52B) gives base type +0x00, position +0x02, heading +0x04. Position refs resolve into the block-1 coordinate array (DAT_004a9e90, stride 0xc); heading refs into the pre-multiplied block-2 array (DAT_004a9e94). Mechs and bases get Terrain_HeightQuery plus the type's foot offset; flyers get no query. It then reads block 11 into DAT_004a9e84 (stride 0x7a) via DBSim_BuildGroupRecord, remapping member refs to dense object indices, and appends the player.mec lance in place of record 0's members. This function is why script-dat.md's earlier 'DBSIM discards the placement data' description was wrong -- that described pass 1 only.",
+      "description": "DBSIM's world-spawn pass and the function that actually builds a mission's objects -- the second of two reads of data\\script.dat. RE-OPENS the file from the top (path built from maybe_DatFolderPrefixPtr + the string at 0049aa3e), skips blocks 1-6, then walks blocks 7-13 again. For every slot DBSim_LoadScriptDat's first pass marked live it constructs an object and reads that object's OWN record for placement: block 7 (134B) gives mech type at +0x28, weapon fit at +0x2a, position ref at +0x3e, heading ref at +0x40; block 8 (92B) gives position +0x28, heading +0x2a, flyer type +0x2c; block 9 (52B) gives base type +0x00, position +0x02, heading +0x04. Position refs resolve into the block-1 coordinate array (DAT_004a9e90, stride 0xc); heading refs into the pre-multiplied block-2 array (DAT_004a9e94). Mechs and bases get Terrain_HeightQuery plus the type's foot offset; flyers get no query. Each base also registers its footprint with Terrain_MarkStructureFootprint before that query. It then reads block 11 into DAT_004a9e84 (stride 0x7a) via DBSim_BuildGroupRecord, remapping member refs to dense object indices, and appends the player.mec lance in place of record 0's members. With the roster down it calls Terrain_FlattenStructureFootprints (00471190) at 004263d9 and re-queries every base's ground height, the terrain having moved under them. Reading pass 1 (DBSim_LoadScriptDat) alone suggests script.dat carries no placement data; it is this pass that reads it.",
       "source": "docs/formats/script-dat.md 2026-08-13 (mission placement)"
     },
     {
@@ -2364,8 +2451,19 @@
       "type": "function",
       "confidence": "high",
       "name": "Base_AttachToGroup",
-      "description": "Base/structure equivalent of Mech_AttachToGroup (00417aa8), called from DBSim_BuildGroupRecord (00423b34) for discriminator 2. Stores the group pointer at +0x45 and the member's slot index within the group's DiscriminatedRefs array at +0x49. Fills heading only if unset (-0x8000 sentinel), applying a per-slot heading nudge from a formation-indexed table when the slot is nonzero. Fills position only if unset: reads the group's own coordinate pointer (group+0x18) or falls back to its route (FUN_00423b0c), then -- only when the caller's BinaryFlag arg (the raw block-11 record's own 0x06 field) is nonzero -- snaps that shared point to a per-formation grid (fields the C# port does not model; see BaseFormationTable's doc comment) before unconditionally calling the object's own vtable +0x78 (Base_ApplyFormationOffset, FUN_00405c04) with the position, then a terrain height query.",
-      "source": "docs/formats/script-dat.md 2026-08-14 (base formation spread)"
+      "description": "Base/structure equivalent of Mech_AttachToGroup (00417aa8), called from DBSim_BuildGroupRecord (00423b34) for discriminator 2. Stores the group pointer at +0x45 and the member's slot index within the group's DiscriminatedRefs array at +0x49. Fills heading only if unset (-0x8000 sentinel), applying a per-slot heading nudge from a formation-indexed table when the slot is nonzero. Fills position only if unset: reads the group's own coordinate pointer (group+0x18) or falls back to its route (FUN_00423b0c), then -- only when the adjustAnchor arg (the raw block-11 record's own 0x06 BinaryFlag) is nonzero -- replaces that shared point's position within its terrain tile with the formation's own fixed fraction of it, from BFORMS.DAT record +0x14 (map dimension), +0xc and +0x10 (the fraction in 256ths). This is what puts the group on the pad Base_ApplyFormationTerrain (00405db0) paints over the same tile; the two are gated by the same flag. It then unconditionally calls the object's own vtable +0x78 (Base_ApplyFormationOffset, FUN_00405c04) with the position, then Terrain_MarkStructureFootprint (00470dc8) with that position and the object's SimObject_GetShapeRadius, then a terrain height query. Mechs have no equivalent: Mech_AttachToGroup takes no such flag and contains none of this arithmetic.",
+      "source": "docs/formats/script-dat.md (base formation terrain)",
+      "signature": "void __cdecl Base_AttachToGroup(void *structure, void *group, short slot, int adjustAnchor)"
+    },
+    {
+      "address": "00405db0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_ApplyFormationTerrain",
+      "description": "Repaints the ground under one base group with its formation's own material -- what puts a retail base on a marked concrete pad instead of open terrain. Called from DBSim_SpawnMissionObjects (004253d8) immediately after DBSim_BuildGroupRecord, for discriminator-2 groups whose block-11 BinaryFlag is set, passing the group's first-attached member. Reads that object's group pointer (+0x45) -> formation id (+2) -> the BFORMS.DAT record at DAT_004a9630, and returns without doing anything when the record's material index (+8) is -1, which is exactly the six formations that carry no layout map. Otherwise hands Terrain_PaintFormationPad (00471260) the object's position (+0x26), that material index, the record's row-pointer array (+0x18) and its map dimension (+0x14). Sibling of Base_AttachToGroup (00405c3c), which snaps the group onto the tile this paints under the same flag.",
+      "signature": "void __cdecl Base_ApplyFormationTerrain(void *structure)",
+      "source": "docs/formats/script-dat.md (base formation terrain)"
     },
     {
       "address": "00405c04",
@@ -2391,7 +2489,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Base_LoadResources",
-      "description": "base.cpp's resource-load sequence for the base/structure subsystem: streams dat\\bforms (-> DAT_004a9630, formation offsets; see BaseFormation_GetSlotOffset), dat\\lc_wpns, dat\\bases (-> DAT_004a9620, the BASES.DAT type table BaseTypeTable.cs also reads; this is the only reader of it -- an entry at 0043a2e0 carried a copy of this description under the name Bases_LoadTypeTable until 2026-08-18, when that address was identified as MfdStatusScreen_Ctor and renamed), dat\\basecol (collision), dat\\bhulks, dat\\basetex and dat\\vehtex (texture banks) via a shared plain-file-read helper (FUN_00472e08 open / FUN_004734ac read via a vtable+0x18 dispatch / FUN_00472e58 close -- no container header, first bytes of each file are its own content, confirmed against BASES.DAT's independently-verified byte-exact parse). BFORMS.DAT's per-formation record is fully variable-length: int32 slot count N, N*10 bytes of slot data, an int32 + two more int32s (grid-snap fields, unmodelled), an int32 buffer count M, then M {1 length byte + that many data bytes} buffers -- confirmed byte-exact: walking the retail file this way consumes all 3186 content bytes with 17 formations (matching the block-11 formation id field's documented 0-16 range) and nothing left over.",
+      "description": "base.cpp's resource-load sequence for the base/structure subsystem: streams dat\\bforms (-> DAT_004a9630, formation offsets; see BaseFormation_GetSlotOffset), dat\\lc_wpns, dat\\bases (-> DAT_004a9620, the BASES.DAT type table BaseTypeTable.cs also reads; this is the only reader of it -- an entry at 0043a2e0 carried a copy of this description under the name Bases_LoadTypeTable until 2026-08-18, when that address was identified as MfdStatusScreen_Ctor and renamed), dat\\basecol (collision), dat\\bhulks, dat\\basetex and dat\\vehtex (texture banks) via a shared plain-file-read helper (FUN_00472e08 open / FUN_004734ac read via a vtable+0x18 dispatch / FUN_00472e58 close -- no container header, first bytes of each file are its own content, confirmed against BASES.DAT's independently-verified byte-exact parse). BFORMS.DAT's per-formation record is fully variable-length: int32 slot count N, N*10 bytes of slot data, an int32 material index (-1 for the six formations with no layout) and two more int32s (where the group's anchor sits in its tile, in 256ths), an int32 buffer count M, then M {1 length byte + that many data bytes} buffers -- confirmed byte-exact: walking the retail file this way consumes all 3186 content bytes with 17 formations (matching the block-11 formation id field's documented 0-16 range) and nothing left over.",
       "source": "docs/formats/script-dat.md 2026-08-14 (base formation spread)"
     },
     {
@@ -3148,8 +3246,7 @@
       "name": "PaperDoll_Load",
       "description": "pdamage.cpp .PDG loader. Reads 3 views, each an origin/size pair plus a vector of 0x1c-byte regions {int index, PixelPoint topLeft, PixelPoint bottomRight, int colorId, int spacer}; resolves each region's colorId through HudColorTable in place and shifts its coordinates by VideoMode_X/YCoordShift, with bottomRight additionally +1 in the 640-wide mode. Matches HercWorks.Core's PaperDollGraphic field-for-field, identifying its ViewRegion.Unk_val at offset 0x14 as the colour id.",
       "source": "docs/formats/cockpit-hud.md (.PDG)"
-    }
-    ,
+    },
     {
       "address": "00429c2c",
       "binary": "DBSIM",
@@ -4274,8 +4371,7 @@
       "name": "maybe_ShieldFacing_FlashTimer",
       "description": "A shield-facing child's update slot: a two-stage counter at +0x1f (2->1 calls FUN_0043122c then decrements; 1->0 just decrements) -- plausibly a brief post-click flash/debounce, not independently confirmed.",
       "source": "docs/formats/cockpit-input.md 2026-08-20"
-    }
-,
+    },
     {
       "address": "00460764",
       "binary": "DBSIM",
@@ -4699,8 +4795,7 @@
       "name": "Input_SetThrottleLeverMode",
       "description": "Sets ThrottleLeverMode (0049a06e) to 1 only when the input config struct (FUN_004777f8) reports a throttle control at +2 AND the caller's mode == 1 (the preferences page's THROTTLE rather than TURRET assignment); 0 otherwise. This is the function that proves 0049a06e is a joystick-lever mode and not a forward/reverse gear -- with no lever it is 0, which leaves Mech_ApplyThrottleInput's clamp spanning the full +/-0x400 so the keyboard can reach reverse.",
       "source": "docs/simulation/mech-locomotion.md 2026-08-21"
-    }
-,
+    },
     {
       "address": "004799a4",
       "binary": "DBSIM",

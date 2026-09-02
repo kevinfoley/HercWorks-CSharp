@@ -24,7 +24,7 @@ public readonly record struct MechFormationOffset(int X, int Y);
 /// <para>Byte-exact against the retail file: 2-byte count (5) + 5 fixed 28-byte formations (seven
 /// (x, y) <c>int16</c> pairs each) consumes all 142 content bytes, nothing left over. Unlike
 /// <see cref="BaseFormationTable"/>, mech formations are fixed-size records — no per-formation slot
-/// count, no grid-snap fields, no trailer buffers.</para>
+/// count and no terrain trailer.</para>
 ///
 /// <para>Consuming side mirrors <see cref="BaseFormationTable"/>: <c>Mech_ApplyFormationOffset</c>
 /// (<c>00417898</c>, mech vtable <c>+0x78</c>) no-ops for member-index 0 (the leader) and otherwise

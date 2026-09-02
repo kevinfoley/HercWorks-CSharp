@@ -119,10 +119,16 @@ round.
 
 `Bullet_Draw` (`0040a120`) is the class's vtable slot 0: it zeroes `DAT_004a5b1c` for the duration
 (which is what makes a projectile's textured polys fullbright, see
-[`../formats/dts-texture-binding.md`](../formats/dts-texture-binding.md)), installs the object's frame
-as the model transform, renders the shape instance at `+0x34`, and restores.
+[`../formats/dts-texture-binding.md`](../formats/dts-texture-binding.md#tstexture4poly--frame-index-ramp-row-by-light-fullbright-on-demand)),
+installs the object's frame as the model transform, renders the shape instance at `+0x34`, and
+restores.
 
 Reaching it, a round is bucketed by terrain cell into `ObjList::drawTable` and then drawn from a
-depth-sorted render entry that carries its distance — so it is **distance-fogged like any other
-object**, not drawn at a fixed ramp row. The full path and the evidence are in
-[`../formats/distance-fog-and-sky.md`](../formats/distance-fog-and-sky.md).
+depth-sorted render entry that carries its distance — so its **depth fade is set from its own
+range** like any other object's, not pinned to a fixed ramp row. The full path and the evidence are
+in [`../formats/distance-fog-and-sky.md`](../formats/distance-fog-and-sky.md).
+
+The fade is spent as a row offset inside `Raster_ShadeRampRow`, which the fullbright fill does not
+call — so whether a plasma round actually fogs is untraced. Every other round's shape is
+`TSSolidPoly` and fades normally. The engine fogs all of them per pixel regardless, which is how it
+renders the fade throughout.

@@ -6,10 +6,11 @@ namespace Herculan.Engine.Render;
 
 /// <summary>One mesh plus the transform that places it in the world.</summary>
 public sealed class SceneItem {
-	public SceneItem(GpuMesh mesh, Matrix4x4 transform, uint? textureHandle = null) {
+	public SceneItem(GpuMesh mesh, Matrix4x4 transform, uint? textureHandle = null, bool fullbright = false) {
 		Mesh = mesh;
 		Transform = transform;
 		TextureHandle = textureHandle;
+		Fullbright = fullbright;
 	}
 
 	public GpuMesh Mesh { get; }
@@ -27,6 +28,19 @@ public sealed class SceneItem {
 	/// built with the grid compiled in.
 	/// </summary>
 	public bool ShowGrid { get; set; }
+
+	/// <summary>
+	/// Whether this item's <b>textured</b> surfaces skip the theater ramp entirely and draw the
+	/// palette straight through — no light term and no shade row. It is a property of the draw, not
+	/// of the shape: <c>Bullet_Draw</c> (<c>0040a120</c>) zeroes the ramp's row count for the
+	/// duration of a projectile's shape render, which switches <c>TSTexture4Poly_Render</c>
+	/// (<c>00474e9c</c>) to a plain texture copy, and restores it afterwards. The same vtable slot
+	/// draws launcher rounds, so both classes set it — see <see cref="PaletteRampTable.FullbrightRow"/>.
+	///
+	/// <para>Untextured surfaces are unaffected, as they are in the original: a projectile's
+	/// <c>TSSolidPoly</c> geometry was never lit to begin with.</para>
+	/// </summary>
+	public bool Fullbright { get; set; }
 }
 
 /// <summary>
@@ -72,6 +86,7 @@ public sealed class SceneRenderer : IDisposable {
 	private GpuTexture? _shadeRampTexture;
 	private GpuTexture? _paletteRampTexture;
 	private int _paletteRampRows;
+	private int _paletteRampShadeRows;
 
 	/// <param name="editorGrid">
 	/// Compiles the measuring grid into the scene program, so <see cref="SceneItem.ShowGrid"/> and
@@ -129,6 +144,7 @@ public sealed class SceneRenderer : IDisposable {
 			? null
 			: new GpuTexture(_gl, table.Pixels, PaletteRampTable.Width, table.Height);
 		_paletteRampRows = table?.Height ?? 0;
+		_paletteRampShadeRows = table?.ShadeRows ?? 0;
 	}
 
 	/// <summary>
@@ -241,7 +257,8 @@ public sealed class SceneRenderer : IDisposable {
 		if (_paletteRampTexture != null) {
 			_shader.SetSamplerTexture("uPaletteRamp", _paletteRampTexture.Handle, 2);
 			_shader.SetInt("uPaletteRampEnabled", 1);
-			_shader.SetFloat("uShadeLevels", _paletteRampRows);
+			_shader.SetFloat("uShadeLevels", _paletteRampShadeRows);
+			_shader.SetFloat("uPaletteRampRows", _paletteRampRows);
 		} else {
 			_shader.SetInt("uPaletteRampEnabled", 0);
 		}
@@ -251,6 +268,8 @@ public sealed class SceneRenderer : IDisposable {
 			if (_hasGrid) {
 				_shader.SetInt("uGridEnabled", item.ShowGrid ? 1 : 0);
 			}
+
+			_shader.SetInt("uFullbright", item.Fullbright ? 1 : 0);
 
 			// Bind texture if available, otherwise use flat shading.
 			if (item.TextureHandle.HasValue) {

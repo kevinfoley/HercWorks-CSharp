@@ -133,6 +133,8 @@ uniform bool uShadeRampEnabled;
 uniform sampler2D uPaletteRamp;
 uniform bool uPaletteRampEnabled;
 uniform float uShadeLevels;
+uniform float uPaletteRampRows;
+uniform bool uFullbright;
 
 out vec4 FragColor;
 
@@ -209,8 +211,17 @@ void main() {
 		// Raster_ShadeRampRow's own selection, floor(shade * (levels - 1) / 256).
 		if (uPaletteRampEnabled) {
 			float row = clamp(floor(shade * (uShadeLevels - 1.0) / 256.0), 0.0, uShadeLevels - 1.0);
+
+			// A fullbright draw takes the row past the ramp's own, which is the palette straight
+			// through: the original switches TSTexture4Poly_Render to a plain texture copy with
+			// neither a light term nor a ramp lookup, and that is how a projectile's textured polys
+			// are drawn. See PaletteRampTable.FullbrightRow and SceneItem.Fullbright.
+			if (uFullbright) {
+				row = uShadeLevels;
+			}
+
 			baseColor = texture(uPaletteRamp,
-				vec2((floor(texel.r * 255.0 + 0.5) + 0.5) / 256.0, (row + 0.5) / uShadeLevels)).rgb;
+				vec2((floor(texel.r * 255.0 + 0.5) + 0.5) / 256.0, (row + 0.5) / uPaletteRampRows)).rgb;
 			texturedExact = true;
 		} else {
 			baseColor = texel.rgb;

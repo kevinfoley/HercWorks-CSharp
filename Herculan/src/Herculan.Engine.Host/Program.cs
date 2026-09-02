@@ -1359,7 +1359,12 @@ void RefreshProjectileItems() {
 		}
 
 		uint? texture = modelTextures.TryGetValue(model.Key, out var bound) ? bound.Handle : null;
-		projectileItems.Add(new SceneItem(mesh, WorldScale.ToRenderMatrix(frame), texture));
+
+		// Fullbright, because Bullet_Draw — the vtable slot both classes are drawn through — zeroes
+		// the ramp's row count around the shape render, which makes a round's textured polys a plain
+		// palette copy with no light term. See SceneItem.Fullbright. The plasma round is the one
+		// retail shape it shows on; every other projectile shape is untextured.
+		projectileItems.Add(new SceneItem(mesh, WorldScale.ToRenderMatrix(frame), texture, fullbright: true));
 	}
 }
 

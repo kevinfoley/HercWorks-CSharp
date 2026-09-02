@@ -31,16 +31,38 @@ public sealed class PaletteRampTable {
 	/// <summary>Palette indices across — one column each.</summary>
 	public const int Width = 256;
 
-	private PaletteRampTable(byte[] pixels, int height) {
+	private PaletteRampTable(byte[] pixels, int shadeRows) {
 		Pixels = pixels;
-		Height = height;
+		ShadeRows = shadeRows;
 	}
 
 	/// <summary>RGBA8, row-major, <see cref="Width"/> by <see cref="Height"/>.</summary>
 	public byte[] Pixels { get; }
 
-	/// <summary>Shade rows down — <see cref="ShadeRamp.ShadeLevels"/>, 32 in every retail theater.</summary>
-	public int Height { get; }
+	/// <summary>
+	/// The ramp's own rows — <see cref="ShadeRamp.ShadeLevels"/>, 32 in every retail theater. The
+	/// shade byte selects among these; <see cref="FullbrightRow"/> sits past them.
+	/// </summary>
+	public int ShadeRows { get; }
+
+	/// <summary>
+	/// The row a fullbright textured surface reads instead of a shade row: the palette straight
+	/// through, with no <c>.RMP</c> step at all.
+	///
+	/// <para><c>TSTexture4Poly_Render</c> (<c>00474e9c</c>) is the only reader of the ramp's row
+	/// count (<c>DAT_004a5b1c</c>), and when that count is zero it fills through
+	/// <c>FUN_00468078</c>'s mode 0 — a plain texture copy, with neither a light term nor a ramp
+	/// lookup. <c>Bullet_Draw</c> (<c>0040a120</c>) zeroes it for the duration of a projectile's
+	/// shape render and restores it after, which is what makes a round's textured polys fullbright.
+	/// The one retail shape it reaches is <c>BULLETS.DTS</c> root 8, the plasma cannon's round; every
+	/// other projectile shape is untextured. See <see cref="SceneItem.Fullbright"/> and
+	/// docs/formats/dts-texture-binding.md's "<c>TSTexture4Poly</c> — frame index, ramp row by light,
+	/// fullbright on demand".</para>
+	/// </summary>
+	public int FullbrightRow => ShadeRows;
+
+	/// <summary>Rows in the uploaded image: the ramp's own, plus <see cref="FullbrightRow"/>.</summary>
+	public int Height => ShadeRows + 1;
 
 	/// <summary>
 	/// Builds the table for a theater, or returns null without a ramp or a palette — in which case a
@@ -52,13 +74,17 @@ public sealed class PaletteRampTable {
 		}
 
 		var ramp = shading.Ramp;
-		int height = ramp.ShadeLevels;
-		var pixels = new byte[Width * height * 4];
+		int shadeRows = ramp.ShadeLevels;
+		var pixels = new byte[Width * (shadeRows + 1) * 4];
 
-		for (int row = 0; row < height; row++) {
+		for (int row = 0; row <= shadeRows; row++) {
 			for (int index = 0; index < Width; index++) {
 				int at = (row * Width + index) * 4;
-				byte resolved = ramp.AtRow(index, row);
+
+				// The last row skips the ramp entirely — that is what the original's plain copy
+				// writes, and it is not any of the ramp's own rows: row 0 lands at 0.36x the source
+				// colour and row 31 at 1.16x, so none of them is the identity.
+				byte resolved = row == shadeRows ? (byte)index : ramp.AtRow(index, row);
 
 				if (palette.Colors.TryGetValue(resolved, out var entry)) {
 					var color = entry.GetColor();
@@ -71,6 +97,6 @@ public sealed class PaletteRampTable {
 			}
 		}
 
-		return new PaletteRampTable(pixels, height);
+		return new PaletteRampTable(pixels, shadeRows);
 	}
 }

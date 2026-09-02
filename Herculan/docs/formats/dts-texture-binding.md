@@ -302,6 +302,31 @@ capture of the ramp-8 cylindrical structure (`Reference/Gouraud_shading_comparis
 consecutive run of the **raw** ramp entries, `#68687c` included. Neither the fixed-row chain nor a
 per-pixel row selected by the interpolated shade contains all eleven.
 
+### `TSTexture4Poly` — frame index, ramp row by light, fullbright on demand
+
+`TSTexture4Poly_Render` (`00474e9c`) resolves the surface pair the same way the flat types do and
+spends it as a **`.DBA` frame index**: the frame descriptor is
+`g_CurrentShapeDbaContext[1] + FrontColor * 0x14`, and its 5th int32 is the handle the fill routine
+`FUN_00468078` samples. Light enters per pixel through the row selection, not as a multiplier — the
+span writes `Raster_ShadeRampRow(shade)[texelPaletteIndex]`, so the face's shade picks a row of the
+theater `.RMP` and the texel picks the column.
+
+**The row count is a switch.** `DAT_004a5b1c` is the `.RMP`'s row count, installed as 32 by
+`World_LoadTheater` (`0042e010`), and this renderer is its only reader. When it is **zero** the poly
+is filled through `FUN_00468078`'s mode 0 instead: a plain texture copy, with neither a light term
+nor a ramp lookup, so the texel's palette index reaches the framebuffer unchanged.
+
+`Bullet_Draw` (`0040a120`) is what zeroes it — for the duration of one projectile's shape render,
+restoring it from `DAT_004a5b20` afterwards. **That is what makes a round fullbright**, and it is a
+property of the draw rather than of the shape: the same shape drawn by anything else would be lit.
+The vtable slot is shared with the launcher rounds, so both classes get it. The one retail shape it
+reaches is `BULLETS.DTS` root 8, the plasma cannon's round — every other projectile shape is
+`TSSolidPoly` geometry with no texture to copy.
+
+None of the ramp's own rows is the identity this bypasses: row 0 lands at 0.36x the source colour
+and row 31 at 1.16x. `Render.PaletteRampTable` therefore carries the raw palette as one extra row
+past the ramp's own, and `Render.SceneItem.Fullbright` is what selects it.
+
 ### The `.DPL` shade-ramp table
 
 Immediately after the `colourCount * 4` colour entries. Read byte-complete on all four

@@ -957,6 +957,9 @@ window.Update += deltaSeconds => {
 			// of them runs per frame in the original, so the list is always a frame old at most.
 			Scanner = MfdScanner.Build(pilotMech, scene.World?.Objects,
 				scene.Targeting?.Selected, hudState.Scanner),
+
+			// The message port has already run for this frame inside audio.Update, above.
+			Message = audio.Messages.Ticker,
 		};
 	}
 };

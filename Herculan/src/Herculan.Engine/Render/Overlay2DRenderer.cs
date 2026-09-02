@@ -698,6 +698,80 @@ public sealed class Overlay2DRenderer : IDisposable {
 		// calls it once the child loop is done.
 		AddHudScanner(hud, state, BlitDevice,
 			(x0, y0, x1, y1, color) => AddFilledRect(Dx(x0), Dy(y0), Dx(x1), Dy(y1), color));
+
+		// The message port is the view's own last child, constructed after every gauge, so its box
+		// goes over whatever it overlaps rather than under it.
+		AddMessageTicker(hud, sprites, state.Message, Dx, Dy, scale);
+	}
+
+	/// <summary>
+	/// The cockpit computer's message ticker — a black box with a red frame, and one line of red text
+	/// scrolling right to left inside it. <see cref="Content.MessagePort"/> decides what is in it and
+	/// for how long; <see cref="MessageTickerLayout"/> says where it is and where the line sits.
+	///
+	/// <para>The text is clipped horizontally, per glyph, against the box's inset edges — the
+	/// original narrows its live clip rect between drawing the frame and drawing the line
+	/// (<c>FUN_00436cec</c>), which is what makes the marquee slide under the frame instead of past it.
+	/// Clipping the geometry rather than setting a GL scissor keeps the whole panel one batch, and a
+	/// horizontal trim is all that is needed: the glyph row is centred in a box taller than it.</para>
+	/// </summary>
+	private void AddMessageTicker(CockpitArt hud, HudSpriteSheet sprites, in MessageTicker ticker,
+			Func<float, float> dx, Func<float, float> dy, float scale) {
+		if (!ticker.HasText
+			|| MessageTickerLayout.From(hud) is not { } box
+			|| sprites.Font(MessageTickerLayout.Font) is not { } font) {
+			return;
+		}
+
+		if (hud.LogicalColor(MessageTickerLayout.BackgroundColorId) is { } background) {
+			AddFilledRect(dx(box.Left), dy(box.Top), dx(box.Right), dy(box.Bottom), background);
+		}
+
+		if (hud.LogicalColor(MessageTickerLayout.BorderColorId) is { } border) {
+			AddRectOutline(dx(box.Left), dy(box.Top), dx(box.Right), dy(box.Bottom), scale, border);
+		}
+
+		if (!ticker.Visible) {
+			return;
+		}
+
+		string text = ticker.Text!;
+		float pen = box.TextLeft(ticker, font.Measure(text));
+		float top = box.TextTop(font);
+
+		foreach (char c in text) {
+			if (font.GlyphIndex(c) is not { } glyph) {
+				continue;
+			}
+
+			float width = font.Width(c);
+			if (pen + width > box.ClipLeft && pen < box.ClipRight
+				&& sprites.Sprite(MessageTickerLayout.Font, glyph) is { Width: > 0, Height: > 0 } cell) {
+				float left = Math.Max(pen, box.ClipLeft);
+				float right = Math.Min(pen + cell.Width, box.ClipRight);
+				var r = cell.Rect;
+
+				// Trim the UVs by the same fraction the quad was trimmed by, so a half-clipped glyph
+				// shows half of itself rather than a squeezed whole one.
+				float u0 = r.U0 + (r.U1 - r.U0) * ((left - pen) / cell.Width);
+				float u1 = r.U1 - (r.U1 - r.U0) * ((pen + cell.Width - right) / cell.Width);
+				AddTexturedQuad(dx(left), dy(top), dx(right), dy(top + cell.Height), u0, r.V0, u1, r.V1);
+			}
+
+			pen += width;
+		}
+	}
+
+	/// <summary>
+	/// A one-device-pixel frame round a rect, drawn as four filled edges — the fill brush's style 4,
+	/// which <c>FUN_004865f8</c> implements as four line draws round the rect it is handed.
+	/// </summary>
+	private void AddRectOutline(float x0, float y0, float x1, float y1, float scale, Vector3 color) {
+		float thickness = Math.Max(scale, 1f);
+		AddFilledRect(x0, y0, x1, y0 + thickness, color);
+		AddFilledRect(x0, y1 - thickness, x1, y1, color);
+		AddFilledRect(x0, y0, x0 + thickness, y1, color);
+		AddFilledRect(x1 - thickness, y0, x1, y1, color);
 	}
 
 	/// <summary>

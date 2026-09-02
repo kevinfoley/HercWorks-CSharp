@@ -76,8 +76,37 @@ public sealed class SystemMessages {
 	/// <summary>
 	/// Attribute byte 0 — the flat message id, which is also the entry's own position. Carried
 	/// because the file carries it; <see cref="Entry.Id"/> is the position and is what to index on.
+	///
+	/// <para>It is the id, not the position, that the original keys on:
+	/// <c>SystemMessages_Index</c> (<c>00435970</c>) scatters the strings into a 63-slot table at
+	/// <c>base + attr[0] * 9</c> and counts how many landed in each slot, so two entries sharing an id
+	/// would become variants of one message and the post would roll between them. The retail file
+	/// gives all 63 distinct ids, so every count is one and no variant exists.</para>
 	/// </summary>
 	public const int IdAttribute = 0;
+
+	/// <summary>
+	/// Attribute byte 2 — queue priority. <c>MessagePort.Post</c> inserts before the first queued
+	/// message of strictly higher value, so low sorts first. Zero on every entry in the retail file,
+	/// which makes the queue plain arrival order.
+	/// </summary>
+	public const int PriorityAttribute = 2;
+
+	/// <summary>
+	/// Attribute byte 3 — the shortest time the line stays on screen once it is up, after which it
+	/// will step aside for a message waiting behind it. In units of
+	/// <see cref="MessagePort.TicksPerTimingUnit"/>, so effectively seconds.
+	/// </summary>
+	public const int MinDisplayAttribute = 3;
+
+	/// <summary>Attribute byte 4 — the longest it stays up, after which it comes down regardless.</summary>
+	public const int MaxDisplayAttribute = 4;
+
+	/// <summary>Attribute byte 5 — how long after posting before it may be shown. Zero throughout.</summary>
+	public const int MinDelayAttribute = 5;
+
+	/// <summary>Attribute byte 6 — how long after posting it is dropped unshown. 20 throughout.</summary>
+	public const int MaxDelayAttribute = 6;
 
 	/// <summary>
 	/// <c>POWERUP INITIATED. ALL SYSTEMS NOMINAL.</c> — posted by the cockpit's power-up sequence
@@ -96,4 +125,12 @@ public sealed class SystemMessages {
 
 	/// <summary><c>PASSIVE RADAR MODE</c> — the other arm of the same post.</summary>
 	public const int PassiveRadarMode = 0x2d;
+
+	/// <summary>
+	/// <c>TRANSFERRING DATA</c> — the one message the port treats specially. It is the only entry
+	/// whose timings differ from the rest of the file (10 s and 20 s against 3 s and 6 s), and
+	/// <c>FUN_00436abc</c> switches on its id to make it blink; <c>FUN_00436cec</c> then centres it in
+	/// the box instead of scrolling it. See <see cref="MessagePort"/>.
+	/// </summary>
+	public const int TransferringData = 0x36;
 }

@@ -8,8 +8,9 @@ DBSIM's sound is three stacked layers:
 | `SFX` | A general resource/voice manager: named samples, handles, a memory budget, priority eviction |
 | `Sound_*` | The game's own layer: a 57-entry catalog keyed by integer id, 3D placement, and a separate five-slot speech channel |
 
-The first two layers, the effects half of the third and the computer's half of the speech channel are
-ported; see [Engine coverage](#engine-coverage). CD music and squad speech are not.
+The first two layers, the effects half of the third and the whole of the computer's message channel —
+text as well as voice — are ported; see [Engine coverage](#engine-coverage). CD music and squad
+speech are not.
 
 ## Backend
 
@@ -429,55 +430,170 @@ same size, carry the same `SIMVOICE` folder label inside, and differ only in the
 ## The computer's messages
 
 `str\SYSTEM.STR` is what the cockpit computer can say: 63 lines, and for each the recording that
-reads it. Two `.STR` groups of 40 and 23 — but **the grouping means nothing**. Every call site passes
-one number, counted straight through both groups, and that same number is in each entry's own
+reads it. Two `.STR` groups of 40 and 23 — but **the grouping means nothing**. Every call site
+passes one number, counted straight through both groups, and that same number is in each entry's own
 attribute byte 0.
 
-Eight attribute bytes:
+Eight attribute bytes, all read by `MessagePort_Enqueue` (`00434e8c`) into the queued record:
 
-| Byte | Meaning |
-|---|---|
-| 0 | The message id, which is also the entry's flat position |
-| 1, 2 | Always zero in the retail file |
-| 3-6 | `3, 6, 0, 0x14` on every line but `TRANSFERRING DATA`, which has `0x0a, 0x14, 0, 0x14`. The message port's own trace prints `minTime`, `maxTime`, `minWait`, `maxWait`, and four values in that order is the obvious reading; the consumer is not decompiled, so which byte is which is untested |
-| 7 | Which `CVM_nnnn.WAV` reads the line, one-based |
+| Byte | Record | Meaning |
+|---|---|---|
+| 0 | `+0x00` | The message id, which is also the entry's flat position |
+| 1 | `+0x16` | A digit the pilot channel patches into its `.WAV` filename. Zero throughout |
+| 2 | `+0x17` | Queue priority: the insert stops at the first queued entry of strictly higher value, so low sorts first. Zero throughout |
+| 3 | `+0x1c` | `minTime` — shortest time on screen |
+| 4 | `+0x20` | `maxTime` — longest time on screen |
+| 5 | `+0x24` | `minWait` — delay before it may be shown |
+| 6 | `+0x28` | `maxWait` — after this it is dropped unshown |
+| 7 | `+0x2c` | Which `CVM_nnnn.WAV` reads the line, one-based |
+
+The four timings are stored as `byte * 0x3c` coarse ticks, so at 16 ms a tick their units read as
+seconds. Every line carries `3, 6, 0, 0x14` — up for 3 to 6 seconds, no delay, gone in 20 if it
+never got its turn — except `TRANSFERRING DATA`, which carries `0x0a, 0x14, 0, 0x14`. The names come
+from the port's own trace string, and the enqueue settles the order: bytes 3 and 4 stay durations
+until the message is shown and have the show tick added in then, while 5 and 6 have the post tick
+added immediately.
+
+The record reads four bytes past the eight the file supplies. As with `SOUNDS.STR`, attribute blobs
+point into the loaded file buffer, so those four overlap the next entry — and nothing reads them
+back.
 
 Byte 7 is a field and not an offset from the id: the numbering runs 1 to 66 across the 63 messages,
-skipping 0x1c, 0x2d and 0x2f, and the archive holds exactly 66 clips — so three are recorded lines no
-message claims.
+skipping 0x1c, 0x2d and 0x2f, and the archive holds exactly 66 clips — so three are recorded lines
+no message claims.
 
-Messages reach the **cockpit's message port**, the object at `view+0x20b` (`PMSGPORT.BND`), through a
-vtable call; `FUN_00435ac8(port, 0, id)` withdraws one. The port also drives the on-screen text, and
-the preferences screen's PILOT MESSAGE and COMPUTER MESSAGE settings are its two channels, each
-OFF / TEXT ONLY / VOICE ONLY / TEXT-VOICE.
+`SystemMessages_Index` (`00435970`) is what keys the set. It scatters each string into a table at
+`base + attr[0] * 9` — a `{ char *text; byte count; byte *attributes }` triple — and counts how many
+landed in each slot, so **two entries sharing an id would become variants of one message** and the
+post would roll between them (`MessagePort_PickVariant` (`00436a3c`), the same roll `SOUNDS.STR`
+byte 6 drives). All 63 retail ids are distinct, so every count is one and no variant exists.
 
-The port is ~30 functions at `00435074`-`00436fd0`. The current message hangs off `port+0x49a`, its
-id at the record's `+0x00`; `port+0x4c9`/`+0x4cb` are the speaking and cancel latches.
-`FUN_00436abc` swallows a repeat of the same id inside 300 coarse ticks. The text **scrolls**:
-`FUN_00436f70` recomputes its x every frame as
-`port+0x4af - (0x23 << VideoMode_XCoordShift) * elapsed / 0x3c`, about 36 px/sec leftward.
-`DAT_004d1fbf` gates which halves run and is very likely the OFF / TEXT ONLY / VOICE ONLY /
-TEXT-VOICE preference. What the display half does with the four timing values, and what preempts
-what, is not decompiled; `FUN_00435610` and `FUN_00435970` are the consumers to read.
+### The port
 
-Two posters are:
+Messages reach the **cockpit's message port** (`PMSGPORT.BND`) through a vtable call. The cockpit
+view holds two instances of the same class: the computer's ticker at `view+0x20b` and the pilot and
+squad channel at `view+0x207`. Each is a queue of ten records plus one lifecycle, and the
+preferences screen's COMPUTER MESSAGE and PILOT MESSAGE settings are their two enable bytes —
+`DAT_004d1fbf` and `DAT_004d1fbe`, entries 3 and 2 of one four-byte array at `DAT_004d1fbc`, offered
+as OFF / TEXT ONLY / VOICE ONLY / TEXT-VOICE.
+
+The byte gates the two halves separately: the display runs when it is not 1 and the voice when it is
+not 0. That is three behaviours, not four, so which label carries which value is not settled by the
+code. With the display off the port still runs the whole lifecycle and only skips the drawing —
+`port+0x4d2`, the suppression flag every paint entry point tests alongside `port+0x49e`, "a line is
+up".
+
+Two further gates sit on the display half, both fields of the object `FUN_00429820` returns
+(`DAT_004cfa20`). Its `+0x14` is a mode enum: the show refuses to display in mode 4 and suppresses
+the line exactly as TEXT OFF does, lifecycle and all. Its `+0x1c` is a byte the paint tests first and
+returns on. Neither field's owner is decoded.
+
+Both boxes are the herc's own, the last two fields of its `.GAU`: the pilot channel's at content
+offset 1668 (full screen width, ten units tall) and the ticker's at 1684, `100,y - 220,y+9` — a
+120x9 box centred horizontally, at `y = 34` in seven cockpits, 43 in APOCA's and 100 in RAZOR's.
+Both are coordinate-shifted into device pixels by the `.GAU` loader's caller
+(`Gau_BuildCockpitWidgets`, `00431bf8`) before the constructor sees them.
+
+`MessagePort_Tick` (`00435610`) is the whole lifecycle, and it runs on four latches:
+
+| Latch | Meaning |
+|---|---|
+| `+0x4c9` | Due — `minWait` has passed and the message is waiting to go up |
+| `+0x4ca` | Ready — set by whichever paint entry point runs next, which is what puts one frame between due and shown |
+| `+0x4cb` | Cancelled |
+| `+0x49e` | A line is up |
+
+Each tick first drops every *queued* message past index 0 whose `maxWait` has passed, then takes the
+front of the queue as current if there is nothing current, then:
+
+- **not ready and not cancelled** — if `maxWait` has passed, drop it unshown; otherwise once
+  `minWait` has, mark it due and run the port's begin callbacks (`+0x4b9`, up to two, registered
+  through `MessagePort_AddBeginCallback`, `004355a8`). Only the pilot channel registers any: the
+  comm box installs `CommBox_OnMessageBegin` (`0044b4ec`), which is what starts that speaker's
+  `.wav` and `.SNC` portrait and plays the `whitenz` static under it, and `CommBox_OnMessageEnd`
+  (`0044b5c0`) on the matching end hook. The computer's port has none.
+- **not due, or cancelled** — take the line down when it is cancelled, when `maxTime` has passed,
+  when `minTime` has passed *and the queue holds more than one message*, or when the player's
+  machine is dead (`LocalPlayerMech + 0x99`). That middle clause is the whole of the port's
+  preemption: a message with the screen to itself keeps it for its maximum and gives it up at its
+  minimum only when there is a successor.
+- **due and ready** — show it, and on success add the current tick into `minTime` and `maxTime`,
+  turning both from durations into deadlines.
+
+`MessagePort_Show` (`00436abc`) is the show. It swallows a repeat of the same id inside 300 coarse
+ticks (about 4.8 s), and a swallowed repeat *refreshes* that window rather than leaving it, so a
+stream of them stays silent for as long as it keeps coming. Otherwise it latches the line
+(`strncpy`, 0x50 characters), restores the box to its authored rect, publishes the scroll origin,
+repaints, and plays an alert tone picked by a switch on the id:
+
+| Ids | Tone |
+|---|---|
+| `0x00` `INTERNAL DAMAGE`, `0x13` `STRUCTURAL FAILURE IMMINENT` | `0x19` `strcfail` |
+| `0x0c`, `0x0f`, `0x10` (shield generator / powerplant / weapon destroyed), `0x14` `SHIELDS LOW`, `0x15` `SHIELDS CRITICAL` | `0x18` `wrnwoop2` |
+| everything else | `0x1a` `gnract` |
+
+The switch names twelve further ids explicitly — `0x17`, `0x19`, `0x1d`-`0x1f`, `0x2a`-`0x2f` and
+`0x34` — and gives every one of them the same `gnract` its default arm gives, so it is wider than its
+behaviour. Speech goes last, and only then: the voice is
+a consequence of the line going up, not a separate event.
+
+`MessagePort_Withdraw` (`00435ac8`) is the withdraw. It sets the cancel latch on the current message
+only if that message is not yet due — a line already on screen is left to run out its display time —
+and otherwise removes a match from the queue. It matches on the id **and** the record's `+0x02`
+subject pointer, so the same message about two machines is two entries.
+
+`MessagePort_Pause` (`00435b58`) / `MessagePort_Resume` (`00435b80`) are the pause pair: the second
+shifts every deadline in the queue, the current message's two display deadlines and the scroll's
+publish time forward by however long the pause lasted.
+
+### The ticker
+
+`MessageTicker_Paint` (`00436cec`) paints it: the box flooded with `COLORS.DAT` id 19 (black), a
+one-pixel frame in id 9 (red) — the fill brush's style 4, which `Raster_FillRect` (`004865f8`)
+implements as four line draws round the rect — and the line in `ColorSchemePanels[2]`, `CPRED`. The
+clip rect is then narrowed by `3 << VideoMode_XCoordShift` on each side before the glyphs go down,
+which is what makes the text slide under the frame rather than past it.
+
+The text **scrolls**. `MessageTicker_ScrollText` (`00436f70`) recomputes its x every frame as
+`port+0x4af - (0x23 << VideoMode_XCoordShift) * elapsed / 0x3c` — starting at the box's right edge
+and travelling left at `0x23` authored units every `0x3c` ticks — about 36 units, 73 device pixels,
+a second in the 640-wide mode. There is no wrap: a line that outlives its own width simply leaves,
+and against a 120-unit box the 3-to-6-second display time is matched so a long line crosses about
+once.
+
+`TRANSFERRING DATA` (`0x36`) is the one exception, and the only reason the port tests a message id
+outside the tone switch: it is centred in the box instead of scrolling, and it blinks on
+`Time_GetCoarseTicks() & 0x20`. Its 10-and-20-second timings are what make that readable.
+
+Vertically the line is centred by cell rather than by ink: the paint anchors at `((height -
+cellHeight) >> 1) + inkHeight + 1` and the glyph blitter (`HudFont_DrawGlyph`, `00482428`) subtracts
+`inkHeight` straight back off. That is **not** `Label_SetRect`'s rule (see
+[`mfd.md`](mfd.md#label-placement)), which centres `inkHeight`; the ticker is not a label.
+
+### Posters
 
 | Poster | Messages |
 |---|---|
-| `Cockpit_PowerUpTick` (`00432924`) | Once `200 <` coarse ticks have passed since the sequence began, it walks the ten heads-down gauges (`FUN_0041b514`, then `FUN_00438700 < 0x5a`) and posts `0x22` `POWERUP INITIATED. INTERNAL DAMAGE DETECTED.` if any is under, else `0x21` `... ALL SYSTEMS NOMINAL.` |
+| `Cockpit_PowerUpTick` (`00432924`) | Once `200 <` coarse ticks have passed since the sequence began, it walks the ten heads-down gauges (`FUN_0041b514`, then `Damage_ToConditionState` (`00438700`) under `0x5a`) and posts `0x22` `POWERUP INITIATED. INTERNAL DAMAGE DETECTED.` if any is under, else `0x21` `... ALL SYSTEMS NOMINAL.` |
 | `Mech_ToggleRadarMode` (`0041b468`) | Withdraws **both** `0x2c` `ACTIVE RADAR MODE` and `0x2d` `PASSIVE RADAR MODE`, then posts the one the mode just became — so flipping twice quickly announces where it ended up rather than reading out the sequence |
+| `ConsoleButtons_ToggleAutoTrack` (`00441f7c`) | The same shape with `0x26` `AUTO TRACKING ENGAGED` and `0x27` `AUTO TRACKING DISABLED` |
 
 At 16 ms a coarse tick the power-up announcement lands 3.2 s in, inside `start3`'s five seconds
 rather than after them.
+
+The pilot channel's voice dispatch is `PilotMessagePort_Speak` (`00435d9c`), which builds its `P*_*`
+filename out of the message id and the record's `+0x16` digit the same way `CommBox_BeginMessage`
+does — the way in to squad speech.
 
 ## `.SNC` — portrait lip-sync scripts
 
 **`.SNC` is not an audio format.** It is the frame timeline that animates the talking pilot portrait
 in the heads-down display's comm box while the matching `.wav` plays.
 
-556 files in `snc\` (in both `SIMVOL0.VOL` and `SIMSOUND.VOL`): twelve speakers `PA`-`PL` times 46-47
-messages. **The twelve copies of a message are byte-identical** apart from their `.VOL` timestamps —
-the per-speaker naming exists only because the loader builds the name from the speaker letter.
+556 files in `snc\` (in both `SIMVOL0.VOL` and `SIMSOUND.VOL`): twelve speakers `PA`-`PL` times
+46-47 messages. **The twelve copies of a message are byte-identical** apart from their `.VOL`
+timestamps — the per-speaker naming exists only because the loader builds the name from the speaker
+letter.
 
 After the 9-byte `.VOL` entry prefix:
 
@@ -489,8 +605,8 @@ length/2 x {
 }
 ```
 
-The `0xff` terminator is **not in the file** — `Snc_Load` (`00463270`) reads the declared length into
-the slot's 100-byte buffer and appends `0xff` itself. With no script at all the buffer is just
+The `0xff` terminator is **not in the file** — `Snc_Load` (`00463270`) reads the declared length
+into the slot's 100-byte buffer and appends `0xff` itself. With no script at all the buffer is just
 `0xff`, and the voice plays with the portrait held.
 
 **Verified across all 556 files**: length always even, always `fileLength - 14`, never containing a
@@ -517,25 +633,41 @@ frame to `-1`, which is what tells `HddGauge_PaintPilotFrame` the message is ove
 ## Engine coverage
 
 `Herculan.Engine.Audio` covers the catalog and the effects path: `SoundCatalog` parses `SOUNDS.STR`
-with the attribute layout above, `SoundBank` picks the `HMI`/`HMX` folder and decodes the samples out
-of `SIMSOUND.VOL`, and `SoundDirector` is the `Sound_*` layer — one voice per catalog id, the
+with the attribute layout above, `SoundBank` picks the `HMI`/`HMX` folder and decodes the samples
+out of `SIMSOUND.VOL`, and `SoundDirector` is the `Sound_*` layer — one voice per catalog id, the
 variation roll, the category split, the throttle, `Sound_Place`'s rolloff and pan, and
 suspend/resume. `OpenAlBackend` stands in for HMI SOS; `NullAudioBackend` runs the same rules
-silently. `GameAudio` is the host-facing bundle and is itself the `ISoundSink` the simulation reaches
-through `SimWorld.Sounds`, with `PlayTableSound` applying the `+ 10` bias for `PROJ.DAT`,
+silently. `GameAudio` is the host-facing bundle and is itself the `ISoundSink` the simulation
+reaches through `SimWorld.Sounds`, with `PlayTableSound` applying the `+ 10` bias for `PROJ.DAT`,
 `ROCKETS.DAT` and `EXPLOS.DAT` ids.
 
-`SystemMessages` parses `SYSTEM.STR` and flattens it to the ids the call sites use, and
-`ComputerVoice` is the speaking channel: it opens `CVM` clips out of `SIMVOICE.VOL` on first use and
-keeps them, rather than running the original's five-slot LRU. **Only the audio half of the message
-port exists** — a posted message is spoken, a withdrawn one that has not started is dropped, and one
-already speaking finishes before the next begins. There is no on-screen text, no display timing and
-no preemption, because none of that is decompiled.
+The computer's channel is complete. `SystemMessages` parses `SYSTEM.STR` and flattens it to the ids
+the call sites use; `MessagePort` is the port — the ten-slot queue, the four timings, the four
+latches, the repeat suppression, the preemption and the pause — and it drives both halves, raising
+one event for the speech and another for the alert tone rather than reaching into either. Speech is
+`ComputerVoice`, which opens `CVM` clips out of `SIMVOICE.VOL` on first use and keeps them rather
+than running the original's five-slot LRU. The display is `MessageTickerLayout` plus
+`Overlay2DRenderer.AddMessageTicker`: the herc's own `.GAU` box (surfaced as
+`GAUFile.MessageTicker`), the black fill and red frame, the scrolling `CPRED` line, and
+`TRANSFERRING DATA`'s centred blink.
+
+Three things differ. The port's clock is wall time accumulated by `GameAudio` in 16 ms units rather
+than `GetTickCount`, and it stops across `Suspend`/`Resume`, which is what the original's pause pair
+achieves by shifting every deadline instead. The text is clipped per glyph in geometry rather than
+by a raster clip rect, so the whole cockpit panel stays one draw. And the display's two further
+gates — the show's mode-4 refusal and the paint's `+0x1c` byte, both on the object `FUN_00429820`
+returns — are not reproduced,
+because neither field's owner is decoded.
+
+The pilot and squad channel, the port's second instance, is not ported: it needs squad speech, and
+nothing posts to it. `PilotMessagePort_WrapText` (`00436318`) is its word wrap and
+`PilotMessagePort_Paint` (`0043660c`) its paint.
 
 Triggers ported so far: the beam report, the two table-driven fire sounds and the impact sound (with
 the ground hit's suppression), footfalls, the console click, the radar mode tone and its spoken
 announcement, the lock/acquire/loss tones, the power-up with its announcement and its flyer hum, and
-the missile-inbound warning.
+the missile-inbound warning. Only the power-up and the radar toggle post to the message port; the
+other 60 lines have no poster yet because the state they report on does not exist.
 
 The power-up always announces the nominal line: the gauge reading its alternative is chosen by is
 not decompiled, and a machine taken at the start of a mission is undamaged and gets the nominal line

@@ -96,7 +96,8 @@ public readonly record struct CockpitHudState(
 	TargetIndicator? Target = null,
 	MfdStatusSubject StatusSubject = default,
 	MfdStatusSubject TargetSubject = default,
-	MfdScannerState Scanner = default) {
+	MfdScannerState Scanner = default,
+	MessageTicker Message = default) {
 
 	/// <summary>
 	/// Power-up state: an even shield balance printing 100/100 the way <c>ShieldsGauge_UpdateReadouts</c>
@@ -127,5 +128,6 @@ public readonly record struct CockpitHudState(
 		Target: null,
 		StatusSubject: MfdStatusSubject.None,
 		TargetSubject: MfdStatusSubject.None,
-		Scanner: MfdScannerState.Empty);
+		Scanner: MfdScannerState.Empty,
+		Message: default);
 }

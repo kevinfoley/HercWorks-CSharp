@@ -17,12 +17,12 @@ The mechanism is understood; what is left is engine work.
   but no trigger ever fires, so drop pods (the falling `METEOR` that delivers Cybrid reinforcements)
   and walk-on arrivals never happen and those units never appear.
   → [`docs/simulation/mission-deployment.md`](docs/simulation/mission-deployment.md)
-- **CD music, squad speech and the message port.** The effects half of the catalog is ported, and so
-  is the cockpit computer's voice — `SYSTEM.STR`'s messages read from their `CVM` clips. Red Book
-  music through MCI is not, so a mission runs without its track. Neither are squadmate and commander
-  lines with their `.SNC` portrait lip-sync scripts, so the comm box never speaks or animates. And
-  only the audio half of the message port exists: a posted message is spoken but never written on
-  screen, held for its display time or preempted.
+- **CD music and squad speech.** The effects half of the catalog is ported, and so is the cockpit
+  computer's channel entire — the message port's queue, timings, repeat suppression and preemption,
+  the scrolling ticker, and `SYSTEM.STR`'s lines read from their `CVM` clips. Red Book music through
+  MCI is not, so a mission runs without its track. Neither is the port's second instance, the pilot
+  and squad channel: squadmate and commander lines with their `.SNC` portrait lip-sync scripts are
+  unported, so the comm box never speaks or animates and nothing posts to that channel.
   → [`docs/formats/audio.md`](docs/formats/audio.md)
 - **Group orders.** `Group_OrderTick` (`00423a74`) advances a group through its row-15 orders. The
   layer is decoded; nothing in the engine runs it.

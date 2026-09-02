@@ -43,6 +43,9 @@ public class GauFileTransformer : ByteTransformer<GAUFile> {
 	/// <summary>And <see cref="HHudScanner"/>'s point, content offset 1196 inside the same remainder.</summary>
 	private const int HudScannerRemainderOffset = 52;
 
+	/// <summary>And <see cref="HMessageTicker"/>'s rect, content offset 1684 — the file's last field.</summary>
+	private const int MessageTickerRemainderOffset = 540;
+
 	public override GAUFile? Parse(byte[]? inputArray) {
 		if (inputArray == null) {
 			return null;
@@ -121,6 +124,17 @@ public class GauFileTransformer : ByteTransformer<GAUFile> {
 			Origin = new PixelPoint(
 				IntLE(gau.Remainder, HudScannerRemainderOffset),
 				IntLE(gau.Remainder, HudScannerRemainderOffset + 4)),
+		};
+
+		// Offset 1684, the file's last four ints: the cockpit message ticker's box — see
+		// HMessageTicker. Surfaced the same way as the two above.
+		int tickerX0 = IntLE(gau.Remainder, MessageTickerRemainderOffset);
+		int tickerY0 = IntLE(gau.Remainder, MessageTickerRemainderOffset + 4);
+		int tickerX1 = IntLE(gau.Remainder, MessageTickerRemainderOffset + 8);
+		int tickerY1 = IntLE(gau.Remainder, MessageTickerRemainderOffset + 12);
+		gau.MessageTicker = new HMessageTicker {
+			Origin = new PixelPoint(tickerX0, tickerY0),
+			Size = new PixelSize(tickerX1 - tickerX0, tickerY1 - tickerY0),
 		};
 
 		return gau;

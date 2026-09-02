@@ -7663,6 +7663,247 @@
       "name": "HddButton_Dispatch",
       "description": "The heads-down display button dispatch, switching on the widget index. Its transmit branch reuses the radar-mode tone pair as an accepted/rejected blip: Sound_Play(0x1a) when the transmit resolves to a recipient and Sound_Play(0x1b) when it does not.",
       "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00434e50",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MessagePort_QueueInit",
+      "description": "Builds the message port's queue: a vector of ten 0x31-byte records. The port is instantiated twice per cockpit view -- the computer's scrolling ticker at view+0x20b and the pilot/squad channel at view+0x207.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00434e8c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MessagePort_Enqueue",
+      "description": "Fills one queued record from a SYSTEM.STR entry's eight attribute bytes: id at +0x00, filename digit at +0x16, priority at +0x17, and the four timings at +0x1c/+0x20/+0x24/+0x28, each multiplied by 0x3c coarse ticks. minTime/maxTime stay durations until the message is shown; minWait/maxWait get the post tick added at once. The insert stops at the first queued entry of strictly higher priority, so low sorts first.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004355a8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MessagePort_AddBeginCallback",
+      "description": "Registers one of up to two begin callbacks at port+0x4b9, fired when a message comes due. Only the pilot/squad port registers any -- the comm box's CommBox_OnMessageBegin/CommBox_OnMessageEnd pair. The computer's port has none.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00435610",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MessagePort_Tick",
+      "description": "The message port's whole lifecycle, on four latches: +0x4c9 due, +0x4ca ready (set by the paint, which is what puts one frame between due and shown), +0x4cb cancelled, +0x49e a line is up. Drops queued messages past index 0 whose maxWait has passed, takes the queue front as current, then shows / holds / takes down. A line comes down when cancelled, when maxTime has passed, when minTime has passed and the queue holds more than one message, or when LocalPlayerMech+0x99 says the player's machine is dead. That middle clause is the whole of the port's preemption.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00435970",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SystemMessages_Index",
+      "description": "Indexes SYSTEM.STR into a 63-slot table at base + attr[0] * 9, each slot a {char *text; byte count; byte *attributes} triple, counting how many strings landed in each. Two entries sharing an id would become variants of one message and the post would roll between them; all 63 retail ids are distinct, so every count is one.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00435ac8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MessagePort_Withdraw",
+      "description": "Withdraws a posted message, matching on the message id AND the record's +0x02 subject pointer, so the same message about two machines is two entries. Sets the cancel latch on the current message only if it is not yet due -- a line already on screen runs out its display time -- and otherwise removes the match from the queue. Mech_ToggleRadarMode withdraws both radar lines before posting the one the mode became.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00435b58",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MessagePort_Pause",
+      "description": "Marks the port paused, recording the coarse tick it stopped at. Paired with MessagePort_Resume.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00435b80",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MessagePort_Resume",
+      "description": "Shifts every deadline in the queue, the current message's two display deadlines and the scroll's publish time forward by however long the pause lasted, so a paused line keeps the rest of its display time.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00435d9c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PilotMessagePort_Speak",
+      "description": "The pilot/squad channel's voice dispatch. Builds its P*_* filename out of the message id and the queued record's +0x16 digit the same way CommBox_BeginMessage does.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00436318",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PilotMessagePort_WrapText",
+      "description": "Word-wraps a pilot/squad message to that channel's box width. It paints several wrapped lines where the computer's ticker scrolls one.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "0043660c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PilotMessagePort_Paint",
+      "description": "Paints the pilot/squad channel's several wrapped lines. Its box is the .GAU field at content offset 1668 -- full screen width, ten units tall -- read by Gau_BuildCockpitWidgets rather than by Gau_Load.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004369a4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MessagePort_Ctor",
+      "description": "Constructs a message port from the box rect Gau_BuildCockpitWidgets read out of the .GAU and coordinate-shifted into device pixels.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00436a0c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MessagePort_SetText",
+      "description": "Latches the line the ticker will draw: strncpy of 0x50 characters, so a longer message is truncated there.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00436a3c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MessagePort_PickVariant",
+      "description": "Rolls between the variants SystemMessages_Index counted for an id -- the same roll SOUNDS.STR attribute byte 6 drives. No retail id has more than one, so it always picks that one.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00436abc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MessagePort_Show",
+      "description": "Puts the current message up. Swallows a repeat of the same id inside 300 coarse ticks (about 4.8 s), and a swallowed repeat refreshes that window rather than leaving it. Otherwise latches the line, restores the box rect, publishes the scroll origin, repaints, plays an alert tone picked by a switch on the id (0x00/0x13 -> 0x19 strcfail; 0x0c/0x0f/0x10/0x14/0x15 -> 0x18 wrnwoop2; everything else 0x1a gnract -- the switch names a dozen further ids that all reach the default arm's tone), then speaks the line. Message 0x36 TRANSFERRING DATA is armed to blink here.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00436cec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MessageTicker_Paint",
+      "description": "Paints the computer's ticker: the box flooded with COLORS.DAT id 19 (black), a one-pixel frame in id 9 (red) through the fill brush's style 4, and the line in ColorSchemePanels[2] CPRED. Narrows the live clip rect by 3 << VideoMode_XCoordShift on each side before the glyphs go down, so the text slides under the frame rather than past it. Anchors the glyph row at ((height - cellHeight) >> 1) + inkHeight + 1, which HudFont_DrawGlyph subtracts inkHeight back off -- the cell centred in the box, not Label_SetRect's ink-centred rule. Message 0x36 is centred instead of scrolled.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00436f70",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MessageTicker_ScrollText",
+      "description": "Recomputes the scrolling line's x every frame as port+0x4af - (0x23 << VideoMode_XCoordShift) * elapsed / 0x3c: it starts at the box's right edge and travels left at 35 authored units a second, 70 device pixels in the 640-wide mode. There is no wrap -- a line that outlives its own width simply leaves.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00436fd0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MessagePort_Erase",
+      "description": "Takes the line down and erases its box, filling the same rect with the same COLORS.DAT id 19 the paint floods it with and nothing else -- which is what identifies that colour as the background rather than as part of the frame.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "0044b4ec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CommBox_OnMessageBegin",
+      "description": "The pilot/squad port's begin callback, installed through MessagePort_AddBeginCallback. Starts that speaker's .wav and .SNC portrait and plays the whitenz static under it.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "0044b5c0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CommBox_OnMessageEnd",
+      "description": "The matching end hook for CommBox_OnMessageBegin.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00432924",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Cockpit_PowerUpTick",
+      "description": "The cockpit power-up sequence. Once 200 < coarse ticks have passed since it began, walks the ten heads-down gauges (FUN_0041b514, then FUN_00438700 < 0x5a) and posts message 0x22 POWERUP INITIATED. INTERNAL DAMAGE DETECTED. if any is under, else 0x21 ... ALL SYSTEMS NOMINAL. At 16 ms a coarse tick that lands 3.2 s in, inside start3's five seconds rather than after them.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00441f7c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ConsoleButtons_ToggleAutoTrack",
+      "description": "The console buttons manager's auto-track toggle, reached from ConsoleButtons_SetStateBlock and from Sim_DispatchCommand's command 0x14 (and forced off by command 0xe). Flips the manager's +0xb3, pushes the new state into the tracking object at +0x20 and repaints it, then withdraws both 0x26 AUTO TRACKING ENGAGED and 0x27 AUTO TRACKING DISABLED from the computer's message port and posts the one the mode just became -- the same shape as Mech_ToggleRadarMode. Refuses outright when the tracking object's +0x1b is 2.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004d1fbc",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "MessageChannelModes",
+      "description": "Four-byte array of message channel enable bytes the preferences screen writes, offered as OFF / TEXT ONLY / VOICE ONLY / TEXT-VOICE. Entries 2 and 3 are PilotMessageMode and ComputerMessageMode.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004d1fbe",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "PilotMessageMode",
+      "description": "MessageChannelModes[2]: the PILOT MESSAGE preference, gating the pilot/squad port's two halves.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004d1fbf",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ComputerMessageMode",
+      "description": "MessageChannelModes[3]: the COMPUTER MESSAGE preference. The display runs when the byte is not 1 and the voice when it is not 0 -- three behaviours, not four, so which of the screen's four labels carries which value is not settled by the code. With the display off the port still runs the whole lifecycle and only skips the drawing (port+0x4d2).",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00429820",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "low",
+      "description": "One-line accessor returning DAT_004cfa20. MessagePort_Show reads its +0x14 as a mode enum and refuses to display a message in mode 4, suppressing the line exactly as the TEXT-OFF preference does while the lifecycle runs on. The enum's values and the object's class are not decoded. Distinct from CockpitViewManagerInstance despite the matching offset Sim_DispatchCommand tests there.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004cfa20",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "low",
+      "description": "The object FUN_00429820 returns. Two of its fields gate the computer message display: +0x14, the mode enum MessagePort_Show refuses mode 4 on, and +0x1c, a byte MessageTicker_Paint tests first and returns on. The object's class is not decoded.",
+      "source": "docs/formats/audio.md"
     }
   ]
 }

@@ -19,16 +19,32 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	/// </summary>
 	public static readonly TimeSpan PowerUpAnnounceDelay = TimeSpan.FromMilliseconds(200 * 16);
 
+	/// <summary>
+	/// <c>Time_GetCoarseTicks</c>' unit, which is what <see cref="MessagePort"/> counts in:
+	/// <c>GetTickCount() &gt;&gt; 4</c>, so 16 ms of wall time.
+	/// </summary>
+	public const double CoarseTickSeconds = 0.016;
+
 	private readonly SoundDirector? _director;
 	private MechObject? _engineLoopOwner;
+	private MechObject? _pilot;
 	private SimWorld? _world;
 	private TimeSpan _powerUpAnnounceIn = TimeSpan.MinValue;
+	private double _messageTicks;
+	private bool _suspended;
 
-	private GameAudio(SoundDirector? director, SoundBank? bank, ComputerVoice? voice, string status) {
+	private GameAudio(SoundDirector? director, SoundBank? bank, ComputerVoice? voice,
+			SystemMessages? messages, string status) {
 		_director = director;
 		Bank = bank;
 		Voice = voice;
 		Status = status;
+		Messages = new MessagePort(messages);
+
+		// The port drives both halves. Speech is the voice channel's; the alert tone is an ordinary
+		// catalog effect, so it goes through the director like any other cockpit sound.
+		Messages.Speak += messageId => Voice?.Speak(messageId);
+		Messages.AlertTone += id => _director?.Play(id);
 	}
 
 	/// <summary>
@@ -37,6 +53,15 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	/// <see cref="ComputerVoice"/>.
 	/// </summary>
 	public ComputerVoice? Voice { get; }
+
+	/// <summary>
+	/// The cockpit's message port. Not an audio object — it owns the on-screen ticker as much as the
+	/// speech — but it lives here because this is where a posted message arrives: the simulation
+	/// reaches it through <see cref="ISoundSink.Say"/>, which knows nothing about either half. A
+	/// renderer reads <see cref="MessagePort.Ticker"/> from it; see
+	/// <see cref="Content.MessageTickerLayout"/>.
+	/// </summary>
+	public MessagePort Messages { get; }
 
 	/// <summary>The loaded catalog and samples, or null when <c>SOUNDS.STR</c> would not load.</summary>
 	public SoundBank? Bank { get; }
@@ -67,10 +92,10 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	void ISoundSink.MoveTo(int id, Vec3i position) => _director?.UpdatePosition(id, position);
 
 	/// <inheritdoc />
-	void ISoundSink.Say(int messageId) => Voice?.Post(messageId);
+	void ISoundSink.Say(int messageId) => Messages.Post(messageId);
 
 	/// <inheritdoc />
-	void ISoundSink.Unsay(int messageId) => Voice?.Cancel(messageId);
+	void ISoundSink.Unsay(int messageId) => Messages.Withdraw(messageId);
 
 	/// <summary>The rule layer, for a caller that wants to play something directly.</summary>
 	public SoundDirector? Director => _director;
@@ -96,22 +121,25 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	/// </param>
 	/// <param name="lowMemory">Select the half-rate <c>hmx</c> sample bank.</param>
 	public static GameAudio Create(GameContent content, SimRandom? random = null, bool lowMemory = false) {
+		// Read first and unconditionally: the message port's display half needs nothing but the text,
+		// so the ticker still runs on a machine with no sound device and in an install with no
+		// SIMSOUND.VOL.
+		var messages = SystemMessages.Load(content);
+
 		SoundBank? bank;
 		try {
 			bank = SoundBank.Load(content, lowMemory);
 		} catch (Exception e) {
-			return new GameAudio(null, null, null, $"sound bank failed to load: {e.Message}");
+			return new GameAudio(null, null, null, messages, $"sound bank failed to load: {e.Message}");
 		}
 
 		if (bank == null) {
-			return new GameAudio(null, null, null,
+			return new GameAudio(null, null, null, messages,
 				$"no {SoundCatalog.ResourceName} in the mounted archives — is {SoundBank.ArchiveName} mounted?");
 		}
 
 		var backend = (IAudioBackend?)OpenAlBackend.TryCreate() ?? new NullAudioBackend();
 		var director = new SoundDirector(bank, backend, random);
-
-		var messages = SystemMessages.Load(content);
 		var voice = new ComputerVoice(content, messages, backend);
 
 		string status = backend.IsAvailable
@@ -128,7 +156,7 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 			status += $" (no sample for: {string.Join(", ", bank.Missing)})";
 		}
 
-		return new GameAudio(director, bank, voice, status);
+		return new GameAudio(director, bank, voice, messages, status);
 	}
 
 	/// <summary>
@@ -178,12 +206,14 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	/// running noise is its footsteps. See docs/simulation/mech-locomotion.md's type-record table.</para>
 	/// </summary>
 	public void PowerUp(MechObject pilot) {
+		_pilot = pilot;
+		_powerUpAnnounceIn = PowerUpAnnounceDelay;
+
 		if (_director == null) {
 			return;
 		}
 
 		_director.Play(SoundId.PowerUp);
-		_powerUpAnnounceIn = PowerUpAnnounceDelay;
 
 		if (!pilot.Type.IsFlyer) {
 			_engineLoopOwner = null;
@@ -203,6 +233,17 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	}
 
 	/// <summary>
+	/// Leaves the cockpit for good: the hum stops and the message port forgets everything it was
+	/// holding. <c>Cockpit_PowerUpSound</c>'s counterpart at the end of a mission.
+	/// </summary>
+	public void LeaveCockpit() {
+		PowerDown();
+		_pilot = null;
+		Voice?.Stop();
+		Messages.Clear();
+	}
+
+	/// <summary>
 	/// Per-frame service: keeps the engine hum on its machine, lets finite repeat counts run, and
 	/// runs the speech channel. Call once a frame, after the listener has been set.
 	/// </summary>
@@ -210,6 +251,16 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	public void Update(TimeSpan elapsed = default) {
 		AnnouncePowerUp(elapsed);
 		Voice?.Update();
+
+		// The port's clock is Time_GetCoarseTicks' wall time, not the simulation's, and it stops while
+		// suspended — which is what the original's own pause pair (FUN_00435b58/FUN_00435b80) achieves
+		// by shifting every deadline forward by however long the pause lasted.
+		if (!_suspended) {
+			_messageTicks += elapsed.TotalSeconds / CoarseTickSeconds;
+		}
+
+		Messages.PilotDisabled = _pilot is { Destroyed: true };
+		Messages.Update((long)_messageTicks);
 
 		if (_director == null) {
 			return;
@@ -248,21 +299,26 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 		}
 
 		_powerUpAnnounceIn = TimeSpan.MinValue;
-		Voice?.Post(SystemMessages.PowerUpNominal);
+		Messages.Post(SystemMessages.PowerUpNominal);
 	}
 
 	/// <summary>
 	/// Silences everything without tearing the device down — for a pause or a lost window. Speech is
 	/// cut rather than remembered: <see cref="Resume"/> can only restart a clip from its beginning,
-	/// and half a sentence twice is worse than none.
+	/// and half a sentence twice is worse than none. The message port's clock stops, so a line already
+	/// on screen keeps the rest of its display time for after the pause.
 	/// </summary>
 	public void Suspend() {
+		_suspended = true;
 		Voice?.Stop();
 		_director?.SuspendAll();
 	}
 
 	/// <summary>Puts back what <see cref="Suspend"/> stopped.</summary>
-	public void Resume() => _director?.ResumeAll();
+	public void Resume() {
+		_suspended = false;
+		_director?.ResumeAll();
+	}
 
 	/// <inheritdoc />
 	public void Dispose() => _director?.Dispose();

@@ -5,7 +5,7 @@ namespace HercWorks.Core.Data.File.Msn;
 /// (<see cref="RewardPackage144"/>); despite sharing a byte count and both being candidate "spawn"
 /// records, they have no structural relationship (this row has an identity field and the file's
 /// heaviest template-inheritance usage, 48%; row #4 has neither). Its four declared cross-refs
-/// (#6/#7/#10x2) turned out to be almost entirely dead in retail (&lt;=2.4% used) — the record's
+/// (#6/#7/#10x2) are almost entirely dead in retail (&lt;=2.4% used) — the record's
 /// real payload is the unresolved 10-slot array at <see cref="UnresolvedRefs"/>, never touched by
 /// any lookup call the load code makes. See docs/formats/msn-mission-file.md, "Row #12 field decode".
 /// </summary>

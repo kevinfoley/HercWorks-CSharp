@@ -86,7 +86,7 @@ public class ProjectileData {
 		public short DamageArmor { get; set; }
 
 		/// <summary>
-		/// Was <c>Unk2_val</c> — resolved 2026-08-09 via DBSIM.EXE disassembly
+		/// Was <c>Unk2_val</c> — resolved via DBSIM.EXE disassembly
 		/// (<c>FUN_004188c8</c>, see docs/simulation/damage-system.md). A Q8 fraction of
 		/// this hit's (already shield-absorbed) armor/structure damage that gets diverted into a
 		/// secondary small-radius explosion — reusing the same blast-sweep formula explosive

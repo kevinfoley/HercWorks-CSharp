@@ -20,14 +20,14 @@ namespace HercWorks.Core.Data.File.Dbsim;
 /// 5 x null-terminated string
 /// </code>
 ///
-/// <para><b>This class previously described a fixed layout with the middle as two raw blocks of 190
-/// and 48 bytes.</b> Those sizes are what the walk happens to produce for every retail file, so the
-/// old reading worked on retail data and would have misread any file whose arrays differed. Its own
-/// notes describe the structure without recognising it: the "14-value UINT32 arithmetic progression
+/// <para><b>The middle is not a fixed layout of two raw blocks, 190 and 48 bytes.</b> Those are the
+/// sizes the walk above happens to produce for every retail file, so a fixed-layout reading parses
+/// all of retail correctly and would misread any file whose arrays differed. Such a reading
+/// describes the structure without recognising it: its "14-value UINT32 arithmetic progression
 /// repeated twice, each repeat preceded by the same 60000/64400 pair" is the two 16-entry distance
-/// band arrays, whose first two entries are 60000 and 64400 — the pair the old reading had already
-/// named separately at offsets 32 and 36. <see cref="Header"/>'s last two shorts in that reading
-/// (offsets 28 and 30) were really the low and high halves of band array A's count.</para>
+/// band arrays, whose first two entries are 60000 and 64400 — the pair it names separately at
+/// offsets 32 and 36. The two shorts it reads as the tail of <see cref="Header"/> (offsets 28 and
+/// 30) are the low and high halves of band array A's count.</para>
 ///
 /// <para>The five trailing strings are constant in retail data except the third and fourth:
 /// <c>world24</c>, <c>clouds2</c>, <c>impact&lt;n&gt;</c> (one per world file), the terrain texture

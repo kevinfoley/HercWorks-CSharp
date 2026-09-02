@@ -3,7 +3,7 @@ namespace HercWorks.Core.Data.File.Gau;
 /// <summary>
 /// The Multi-Function Display screen bounding box — the console panel that shows Radar/Scanner by
 /// default and switches between Status/FlashComm/Nav Map/Radar/Target Status/Missile Cam via the
-/// F1-F6 keys (manual line 355, 450-451). Confirmed 2026-08-09 the same way as
+/// F1-F6 keys (manual line 355, 450-451). Confirmed the same way as
 /// <see cref="HShieldDisplay"/> and <see cref="HThrottle"/> — a user screenshot measurement matched
 /// real `.GAU` bytes, then confirmed decisively by overlaying the candidate rect on real
 /// `(herc).HB0` cockpit texture art: it lands exactly on the console's central screen bezel,

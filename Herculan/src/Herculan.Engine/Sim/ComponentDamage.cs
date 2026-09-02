@@ -101,8 +101,8 @@ public sealed class ComponentDamage {
 
 	/// <summary>
 	/// <c>Component_ReadDamagePercent</c> (<c>0040dbc0</c>) — one component's accumulated damage as a
-	/// Q8 fraction, <b>0 pristine and 256 destroyed</b>. Not health: the name in the original's own
-	/// callers had the sense inverted for a while and it flipped the meaning of every one of them.
+	/// Q8 fraction, <b>0 pristine and 256 destroyed</b>. Not health — reading it as health inverts
+	/// the meaning of every caller.
 	///
 	/// <para>It is an aggregate. The component's own damage and maximum are only the first term; the
 	/// reading then folds in every dependent the component's record lists, each with its own damage

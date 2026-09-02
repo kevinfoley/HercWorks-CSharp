@@ -27,11 +27,11 @@ public enum Model3DRenderMode {
 /// Software-rasterized orbit-camera viewer for parsed DTS geometry (see DtsGeometryBuilder). No
 /// GPU/extra dependency needed — plenty fast in plain C# at ES2's low poly counts.
 ///
-/// Fill uses a real per-pixel depth (Z-)buffer, not a triangle-level painter's-algorithm sort: an
-/// earlier version sorted whole triangles by average depth, which looked fine for a single
-/// isolated convex shape but flickered wildly on real meshes, since a single global order can't be
-/// correct for triangles that overlap or interpenetrate in screen space — any such pair has pixels
-/// where either order is wrong, and which one "wins" the sort flips with tiny camera changes. A
+/// Fill uses a real per-pixel depth (Z-)buffer, not a triangle-level painter's-algorithm sort.
+/// Sorting whole triangles by average depth looks fine on a single isolated convex shape but
+/// flickers wildly on real meshes: a single global order cannot be correct for triangles that
+/// overlap or interpenetrate in screen space — any such pair has pixels where either order is
+/// wrong, and which one "wins" the sort flips with tiny camera changes. A
 /// depth buffer sidesteps that entirely by testing per pixel instead of per triangle. The ground
 /// grid and wireframe edge overlay still go through GDI+ directly, since they're not competing for
 /// overlapping fill pixels the way triangle interiors are.

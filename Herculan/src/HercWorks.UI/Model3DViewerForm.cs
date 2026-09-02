@@ -12,12 +12,12 @@ namespace HercWorks.UI;
 /// how DTS's chunk tree becomes triangles). Textured (TSTexture4Poly) polys resolve to a real DBA
 /// frame and render UV-mapped once a texture bank is loaded via "Load Texture Bank" below (frame
 /// resolution confirmed via Ghidra RE of VSHELL.EXE — see docs/formats/dts-texture-binding.md's
-/// 2026-08-11 settlement of the front/back stride question); without one loaded, they still fall
+/// settlement of the front/back stride question); without one loaded, they still fall
 /// back to the original fixed placeholder color. The UV-corner mapping onto each poly's vertices is
 /// a labeled approximation (see DtsGeometryBuilder's doc comment), not an independently confirmed
 /// reproduction of the exe's own rasterizer math. TSBitmapPart geometry is still not built at all.
 ///
-/// Per user domain knowledge (2026-08-11, not derivable from the .DTS/.DBA files themselves — see
+/// Per user domain knowledge (not derivable from the .DTS/.DBA files themselves — see
 /// that doc): the real in-game mech-body texture source isn't one uniform file-per-mech rule. Most
 /// mechs share a weight-class atlas (simvol0/dba/LIGHT.DBA, MEDIUM.DBA, or HEAVY.DBA, plus a
 /// separate ENEMY.DBA variant), but "certain mechs" use NEWHERCS.DBA instead, and the Apocalypse/

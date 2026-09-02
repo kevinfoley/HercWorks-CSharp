@@ -4,7 +4,7 @@ namespace HercWorks.Core.Data.Struct.Dbsim;
 /// This struct is shared by both BULLETS.DAT and ROCKETS.DAT — for some reason BULLETS.DAT
 /// uses SfxFireIdBullets and ROCKETS.DAT uses SfxFireIdMissiles.
 ///
-/// <para>Three fields were resolved 2026-08-25 from DBSIM's bullet class — see
+/// <para>Three fields were resolved from DBSIM's bullet class — see
 /// <c>Herculan/docs/simulation/projectiles.md</c>. They are still under their old names because the
 /// WinForms editor binds to them; the doc comments say what they are.</para>
 ///

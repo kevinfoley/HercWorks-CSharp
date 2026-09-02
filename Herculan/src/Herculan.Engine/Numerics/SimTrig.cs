@@ -8,7 +8,7 @@ namespace Herculan.Engine.Numerics;
 /// angle quantizes it to 1/4096 of a turn. Reproducing that quantization is the point — it is what
 /// the original's animation and object transforms actually see.
 ///
-/// <para><b>Verified against DBSIM.EXE's own tables</b> (2026-08-21), by locating each table in the
+/// <para><b>Verified against DBSIM.EXE's own tables</b>, by locating each table in the
 /// retail binary and comparing every entry against the value generated here:</para>
 /// <list type="bullet">
 /// <item><c>DAT_004a25dc</c> quarter-wave cosine, 1024 entries — 1020 exact, 4 differ by one Q14

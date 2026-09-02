@@ -17,11 +17,11 @@ namespace HercWorks.Core.Data.File.Dbsim;
 /// <c>depthBias</c> a whole number of 8192-byte depth slices set from the drawn object's range.
 /// That is the original's distance fog. See docs/formats/distance-fog-and-sky.md.</para>
 ///
-/// <para><b>This class previously described the body as an undecoded per-world blob, "likely a
-/// 256-wide x 384-tall grid, possibly a heightmap".</b> The grid hypothesis was arithmetically
-/// right and semantically wrong: the 256-byte period a continuity check found is the row length,
-/// and 384 rows is 12 slices x 32 shades, both of which the header states outright. It is a shade
-/// table, not terrain.</para>
+/// <para><b>The body is not an undecoded per-world blob.</b> A continuity check over it finds a
+/// 256-byte period across 384 rows, which invites reading it as a 256-wide x 384-tall grid, maybe a
+/// heightmap; the arithmetic is right and the meaning is not. The 256-byte period is the row
+/// length, and 384 rows is 12 slices x 32 shades — both of which the header states outright. It is
+/// a shade table, not terrain.</para>
 ///
 /// New (no Java equivalent — not a ported format).
 /// </summary>

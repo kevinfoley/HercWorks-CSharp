@@ -13,7 +13,7 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 ///
 /// Worth noting for future work: the Java `GAUFile.java` doc comment turned out to already name
 /// both `HMfdPanel`'s offset (`"952- PANEL\MFD"`) and `HThrottle`'s (`"1016- SLIDER\THROTTLE\"`)
-/// exactly — confirmed independently in 2026-08-09 sessions via user screenshot measurements and
+/// exactly — confirmed independently via user screenshot measurements and
 /// `.HB0` cockpit-art overlays before this correlation was checked. The same Java comment also
 /// names offset 1088 (`"PANEL\NAVBAR"`), 1104 (`"INDICATOR\TORSO_TWIST"`), and 1136 (`"RETICLE"`)
 /// as further unverified leads within <see cref="GAUFile.Remainder"/>.

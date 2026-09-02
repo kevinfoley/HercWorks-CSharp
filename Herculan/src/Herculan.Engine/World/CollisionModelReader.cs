@@ -17,9 +17,8 @@ namespace Herculan.Engine.World;
 /// the flyer from its type loader (<c>00422ed0</c>, into <c>flyerTypeRec+0x32</c>). Retail ships 22
 /// <c>.COL</c> files, one per HERC plus <c>SKIMMER</c>.</para>
 ///
-/// <para>The format itself is documented on <see cref="HercCollider"/>. This class used to carry a
-/// second copy of the walk, written without checking that Core already had one; the two readings
-/// then diverged.</para>
+/// <para>The format itself is documented on <see cref="HercCollider"/>, which owns the only walk of
+/// it. This class calls into Core rather than reading the bytes a second time.</para>
 /// </summary>
 public static class CollisionModelReader {
 	/// <summary>VOL folder the per-type <c>.COL</c> files live in.</summary>

@@ -3,7 +3,7 @@ namespace HercWorks.Core.Data.Struct;
 /// <summary>
 /// Ported from org.hercworks.core.data.struct.ProjectileType.
 ///
-/// Independently cross-confirmed against DBSIM.EXE disassembly (2026-08-09, see
+/// Independently cross-confirmed against DBSIM.EXE disassembly (see
 /// docs/simulation/damage-system.md): these are the exact 4 literal values DBSIM's own
 /// PROJ.DAT lookup function (<c>FUN_0040ffc8</c>) is ever called with — a closed set, found from
 /// scratch via disassembly with no reference to this enum, matching it value-for-value. Each

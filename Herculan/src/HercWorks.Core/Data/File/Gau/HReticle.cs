@@ -3,7 +3,7 @@ namespace HercWorks.Core.Data.File.Gau;
 /// <summary>
 /// The aiming reticle's screen position — new, no Java equivalent implemented (the Java doc
 /// comment named the exact offset, `"1136- RETICLE"`, but never implemented or verified it).
-/// Confirmed 2026-08-09: unlike every other widget in this file, this one is stored as a single
+/// Confirmed: unlike every other widget in this file, this one is stored as a single
 /// (X,Y) point, not a 4-int corner rect — <see cref="WidgetBase.Size"/> is unused/always (0,0)
 /// here. X is a constant 160 across all 9 real files (exactly the horizontal center of the file's
 /// own 320-wide <see cref="GAUFile.HudScreenSize"/>, matching a user's description of the reticle

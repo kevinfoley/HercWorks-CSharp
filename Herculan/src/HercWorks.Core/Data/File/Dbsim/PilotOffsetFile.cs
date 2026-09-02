@@ -6,7 +6,7 @@ namespace HercWorks.Core.Data.File.Dbsim;
 /// flat array of 12-byte (6x INT16) entries filling the whole content, so entry count is simply
 /// content length / 12.
 ///
-/// New (no Java equivalent — not a ported format): reverse-engineered 2026-08-08 by cross-checking
+/// New (no Java equivalent — not a ported format): reverse-engineered by cross-checking
 /// against every real PILOTn.OFS/PILOTn.DBA pair. Entry.Index counts up sequentially (0, 1, 2...)
 /// matching DBA frame order. The remaining 4 fields are constant in blocks that line up exactly
 /// with DBA's own frame-size groups (e.g. PILOT0.DBA's 24 identical 56x59 "head rotation" frames

@@ -2,7 +2,7 @@ namespace HercWorks.Core.Data.File.Bnd;
 
 /// <summary>
 /// FILE - DBSIM\BND\MECHSYS.BND — offsets 0-4 and a repeating "value + 3 zero bytes" stride
-/// confirmed against the real retail file (2026-08-11); semantics still unknown.
+/// confirmed against the real retail file; semantics still unknown.
 ///
 /// Every .BND file shares a 9-byte envelope before the per-subsystem record — see the corrected
 /// framing in <see cref="Cam"/>'s doc comment and docs/formats/bnd-notes.md. The Java author's

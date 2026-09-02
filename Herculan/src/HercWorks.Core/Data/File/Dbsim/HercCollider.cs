@@ -27,9 +27,9 @@ namespace HercWorks.Core.Data.File.Dbsim;
 /// inflates each child by that one radius on all three axes. Nothing anywhere compares per-axis
 /// extents.</para>
 ///
-/// <para><b>This class previously described a 10-byte header followed by undecoded data.</b> That
-/// reading was wrong: those five shorts are the first five fields of the walk above, which is why
-/// its own observations lined up the way they did — "always 6" is ACHILLES' <see cref="Nodes"/>
+/// <para><b>A 10-byte header followed by undecoded data is the obvious misreading.</b> Those five
+/// shorts are the first five fields of the walk above, which is why observations of them line up
+/// so plausibly — "always 6" is ACHILLES' <see cref="Nodes"/>
 /// count (MONGOOSE has 8, PITBULL 10, SPIDER 13, RAZOR and SKIMMER 1), "always 3 for hercs, FFFF
 /// for skimmer" is the first node's <see cref="ColliderNode.NodeIndex"/> (SPIDER's is 12, and
 /// <c>FFFF</c> is the object frame), the "collider type" whose values above 1 crash is the first

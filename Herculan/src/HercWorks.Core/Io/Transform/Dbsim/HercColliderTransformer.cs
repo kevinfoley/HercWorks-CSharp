@@ -7,9 +7,8 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// Transforms byte[] data to and from .COL hit-sphere models — see <see cref="HercCollider"/> for
 /// the format and the RE behind it.
 ///
-/// <para>Both directions are byte-exact on all 22 retail files. An earlier pass read only a
-/// (misidentified) 10-byte header and kept the rest as raw shorts, and could not write at all;
-/// the file has no header, and every short of it is now accounted for.</para>
+/// <para>Both directions are byte-exact on all 22 retail files: the file has no header, and every
+/// short of it is accounted for.</para>
 ///
 /// <para>This is the only parser for the format. <see cref="ReadNodes"/> exposes the walk with a
 /// caller-held offset, which is what lets the engine read one whole <c>.COL</c> and lets

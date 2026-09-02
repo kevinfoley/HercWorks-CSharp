@@ -8,7 +8,7 @@ namespace Herculan.Engine.Render;
 /// The external ("chase") view — the camera parked a fixed distance behind the machine the player
 /// pilots, looking at it over its own shoulder, with the cockpit not drawn.
 ///
-/// <para><b>Not reverse-engineered — placeholder geometry (2026-08-22).</b> Every number below is
+/// <para><b>Not reverse-engineered — placeholder geometry.</b> Every number below is
 /// this engine's own choice, picked to frame a HERC nicely; none of it is ported. DBSIM has its own
 /// external views (the manual's [V] cycles through several, and there are missile/target cameras
 /// besides), and their placement rules, transitions, whatever they do about terrain and whatever

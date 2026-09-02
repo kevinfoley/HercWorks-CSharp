@@ -4,7 +4,7 @@ namespace HercWorks.Core.Data.File.Gau;
 
 /// <summary>
 /// The HUD throttle slider — new, no Java equivalent (the Java doc comment's "throttle sliders"
-/// guess named the concept but never located real bytes for it). Confirmed 2026-08-09 using the
+/// guess named the concept but never located real bytes for it). Confirmed using the
 /// same method that cracked <see cref="HShieldDisplay"/>: a user-supplied pixel measurement from
 /// real cockpit art, matched against real `.GAU` bytes, then confirmed decisively by overlaying the
 /// candidate rect/points on real `(herc).HB0` cockpit texture art — they land exactly on the

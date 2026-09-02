@@ -84,7 +84,9 @@ RULES: list[tuple[str, str, re.Pattern[str], str]] = [
     (
         "was-wrong", "error",
         re.compile(
-            r"\b(?:(?:was|were|is)\s+(?:all\s+)?wrong"
+            # Past tense only. "X is wrong" is the forward-looking phrasing a rejected reading is
+            # supposed to use, and is also how prose names a runtime fault or a wrong source.
+            r"\b(?:(?:was|were)\s+(?:all\s+)?wrong"
             r"|got\s+(?:it\s+)?backwards"
             r"|had\s+the\s+sense\s+inverted"
             r"|turned\s+out\s+(?:to\s+be|not)"

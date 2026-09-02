@@ -6,13 +6,13 @@ namespace HercWorks.Core.Data.File.Dbsim;
 /// FILE - dmg\[herc].DMG — armor, critical component HP, and other damage-related data per unit,
 /// tied to the unit by name from the corresponding .DAT file.
 ///
-/// Independently confirmed as DBSIM.EXE's own per-mech hit-zone/component table (2026-08-09, see
+/// Independently confirmed as DBSIM.EXE's own per-mech hit-zone/component table (see
 /// docs/simulation/damage-system.md): loaded at runtime via a filename built from the
 /// mech's own name string plus an extension, matching this file's own `dmg\[herc].DMG` location;
 /// <see cref="HercPiece"/> is exactly DBSIM's 18-byte per-component record (`Armor`=max health at
 /// offset 0, `DebrisFlags`=offsets 2-3, `BoneId`=offset 4, `DestructionFlags`=offset 5,
 /// `MappedInternals`=the offset-6/8 dependent-list). This also settles (as far as the code goes)
-/// the manual's Structural/Internal/Weaponry HDD terminology, which turned out not to be a clean
+/// the manual's Structural/Internal/Weaponry HDD terminology, which is not a clean
 /// 3-way partition of one index space: **Structural** = most of this class's 29-slot
 /// <see cref="HercSimDamage.ComponentData"/> array (the named body pieces in the doc comment
 /// below — TORSO, LEG/UPPER/LOWER, FOOT, SHOULDER, etc.); **Weaponry** = a *subset of that same
@@ -114,7 +114,7 @@ public class HercSimDamage {
 		public byte BoneId { get; set; }
 
 		/// <summary>
-		/// Was <c>Unk_val</c> — resolved 2026-08-09 via DBSIM.EXE disassembly of this record's
+		/// Was <c>Unk_val</c> — resolved via DBSIM.EXE disassembly of this record's
 		/// consumers (<c>FUN_0040da38</c>/<c>FUN_0040d434</c>, see
 		/// docs/simulation/damage-system.md). A bitfield: bit 0 = this piece has dependents
 		/// to cascade-destroy (checked before walking the dependency list); bit 1 = selects an

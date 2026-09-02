@@ -60,7 +60,7 @@ public class MecEntry {
 	/// Per-slot second value, paired with <see cref="WeaponRefs"/> by DBSIM's loadout call — the
 	/// ammunition type each missile launcher is loaded with.
 	///
-	/// <para>Resolved 2026-08-23 from <c>MechLoadout_ConstructWeaponMounts</c> (<c>0040fff8</c>),
+	/// <para>Resolved from <c>MechLoadout_ConstructWeaponMounts</c> (<c>0040fff8</c>),
 	/// which takes this array's entry for a hardpoint through
 	/// <c>Proj_LookupRecord(Missile, key)</c> whenever the weapon's template carries the launcher
 	/// sentinel, and from <c>FUN_0040e18c</c>, which then prints that record's own subtype as the

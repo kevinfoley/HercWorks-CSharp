@@ -8,7 +8,7 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 ///   SEQ0 (14-byte segments): model ID, projectile timer (ms), projectile speed, unknown flag
 ///   (EMP proj IDs have 256, all else 0), SFX/BULLET/FIRE, ?, SFX/ROCKET/FIRE.
 ///
-/// Cross-referenced against real retail data (2026-08-08): real BULLETS.DAT has 12 entries with
+/// Cross-referenced against real retail data: real BULLETS.DAT has 12 entries with
 /// <see cref="ProjMissileDatEntry.ModelId"/> values 0-8 (all 9 values used, several repeated
 /// across entries), and real ROCKETS.DAT has 5 entries with ModelId values 0-1 — both ranges
 /// match exactly the real root-mesh counts of simvol0/dts/BULLETS.DTS (9 roots) and

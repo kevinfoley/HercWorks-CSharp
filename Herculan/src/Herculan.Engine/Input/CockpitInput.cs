@@ -52,8 +52,9 @@ public readonly record struct CockpitDrag(CockpitWidgetId Id, CockpitSurface Sur
 /// widget whose <c>+0x1d</c> flag is set — the slider base <c>004524a8</c> sets it, every button class
 /// leaves it clear — latches the pointer to that widget until the button comes back up, and every
 /// move in between is delivered to it wherever the pointer has got to. The throttle slider is the only
-/// widget in a retail cockpit built that way, which is why it is the only one that can be dragged and
-/// why an earlier reading of this file's own §7 (that nothing is draggable) was wrong. A captured
+/// widget in a retail cockpit built that way, which is why it is the only one that can be dragged.
+/// Read §7 without tracing that flag to its one setter and the cockpit looks entirely undraggable.
+/// A captured
 /// release fires no click: the original's release path skips <c>Widget_OnMouseUp</c> entirely while
 /// the capture flag is set.</para>
 ///

@@ -4,7 +4,7 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 /// FILE - /DBSIM/DAT/WEAPONS.DAT — DBSIM's own runtime weapon-mount-template table (distinct from
 /// SHELL0/GAM/WEAPONS.DAT, the UI-facing weapon catalog ported as <see cref="Shell.WeaponsDat"/>).
 ///
-/// Cracked 2026-08-11 by decompiling the real loader in DBSIM.EXE (see
+/// Cracked by decompiling the real loader in DBSIM.EXE (see
 /// docs/formats/weapons-dat-sim.md for the full writeup and open semantic gaps) — a resource
 /// literally named "weapons", opened by <c>Weapons_LoadResourceTables</c> (0x0040fc8c). Structure
 /// confirmed byte-exact: parsing this exact record shape consumes the real retail file's full 3790

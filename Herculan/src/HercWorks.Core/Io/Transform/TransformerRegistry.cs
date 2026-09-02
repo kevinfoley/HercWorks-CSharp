@@ -75,7 +75,7 @@ public static class TransformerRegistry {
 		new("Player Save", e => ExtIs(e, FileType.Sav), () => new Common.PlayerSaveTransform()),
 		new("String Table", e => ExtIs(e, FileType.Str), () => new Common.StringFileTransformer()),
 
-		// .HBA and .HB0/.HB1/.HB2 turned out to be byte-identical to the .DBA container format
+		// .HBA and .HB0/.HB1/.HB2 are byte-identical to the .DBA container format
 		// (same 12-byte "01 00 28 00" + size + count header, same embedded DynamixBitmap-per-entry
 		// layout, same 1-byte inter-entry padding) — confirmed against every real HBA/HB0/HB1/HB2
 		// file in simvol0 by walking the existing DynamixBitmapArrayTransformer's exact algorithm
@@ -85,8 +85,8 @@ public static class TransformerRegistry {
 		new("Herc Cockpit Texture (640x480)", e => ExtIs(e, FileType.Hb0) || ExtIs(e, FileType.Hb1) || ExtIs(e, FileType.Hb2),
 			() => new Common.DynamixBitmapArrayTransformer()),
 
-		// Same DBA-compatible container as HBA/HB0-2 above, confirmed against real data
-		// (2026-08-08): .DB0/.DB1/.DB2 always parse to a single 320x240 frame — a smaller/alternate
+		// Same DBA-compatible container as HBA/HB0-2 above, confirmed against real data:
+		// .DB0/.DB1/.DB2 always parse to a single 320x240 frame — a smaller/alternate
 		// framing of the same cockpit interior (e.g. DB2 shows a rotated/cropped angle), also
 		// correctly colored under COCKPIT.DPL. Same "COCKPIT TEXTURES.txt" hint file present
 		// alongside HB0/HB1/HB2's real folders is also present in db0/db1/db2.

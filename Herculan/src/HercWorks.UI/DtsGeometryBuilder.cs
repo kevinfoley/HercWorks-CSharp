@@ -78,7 +78,7 @@ public sealed class DtsRootMesh {
 /// rather than HercWorks.Core — same reasoning as DynamixImageRenderer: turning parsed file data
 /// into renderer-ready floats/colors is a rendering concern, not a file-format concern.
 ///
-/// TSTexture4Poly texture-frame resolution (2026-08-11 follow-up, settling
+/// TSTexture4Poly texture-frame resolution (settling
 /// docs/formats/dts-texture-binding.md's front/back stride question): ColorIndexId is stored on
 /// disk as surfaceIndex*4 (confirmed two independent ways — fresh VSHELL.EXE disassembly of
 /// TSTexture4Poly_Render, and DTSModelTransformer.cs's own colorCount/4 read convention, unrelated
@@ -87,12 +87,12 @@ public sealed class DtsRootMesh {
 /// formula" section for why there even are two paths); Images[frame] is the natural C#-side target
 /// regardless of which internal path the exe takes to get there.
 ///
-/// UV-corner mapping (2026-08-11 second follow-up, RE-confirmed): decoding TSTexture4Poly_Render's
-/// real scanline-rasterizer path (previously misidentified — an earlier pass thought a DIFFERENT,
-/// non-texturing fallback branch was "the normal case") found the exe assigns UV corners to a
-/// poly's 4 vertices as (left,top)/(right,top)/(right,bottom)/(left,bottom) in vertex order — i.e.
-/// exactly the (0,0)/(1,0)/(1,1)/(0,1) topology already used here, now confirmed correct in *order*
-/// rather than just assumed. The one remaining unconfirmed piece: this assumes each DBA frame is its
+/// UV-corner mapping (RE-confirmed): in TSTexture4Poly_Render's real scanline-rasterizer path the
+/// exe assigns UV corners to a poly's 4 vertices as
+/// (left,top)/(right,top)/(right,bottom)/(left,bottom) in vertex order — i.e. exactly the
+/// (0,0)/(1,0)/(1,1)/(0,1) topology used here, confirmed in *order* rather than just assumed. Note
+/// the function also has a non-texturing fallback branch that reads like the normal case and is
+/// not; the scanline path is the one to decode. The one remaining unconfirmed piece: this assumes each DBA frame is its
 /// own independently-cropped image (matching how Images[] is already parsed, each with its own
 /// Cols/Rows) rather than a shared-atlas sub-rect with a nonzero top-left offset — the exe's
 /// descriptor-table builder that would settle that with certainty wasn't traced (see that doc's open

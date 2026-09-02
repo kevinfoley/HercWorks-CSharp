@@ -6,7 +6,7 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// <summary>
 /// Transforms byte[] data to and from simvol0/dat/WEAPONS.DAT (see <see cref="Weapons"/> and
 /// docs/formats/weapons-dat-sim.md for the full field-by-field writeup). No Java equivalent existed
-/// beyond a bare Total field — cracked 2026-08-11 from DBSIM.EXE disassembly. Records are
+/// beyond a bare Total field — cracked from DBSIM.EXE disassembly. Records are
 /// variable-length; every byte is preserved even where semantics aren't decoded yet, so this
 /// round-trips byte-exact — verified against the real retail file.
 /// </summary>

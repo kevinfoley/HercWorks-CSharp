@@ -37,10 +37,10 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// <item>an <c>int16</c> count and that many <c>int16</c> values (a parallel index/remap array) —
 /// read but not modelled.</item>
 /// <item>the shape's collision volume — 5 <c>int16</c> scalars, a fixed 1024-byte height table,
-/// then one row of height codes per grid row. <b>This is the part an earlier pass of this reader
-/// misread</b>: it walked the tail as "a sub-record size, a sub-record count, three undecoded
-/// scalars, an opaque block, then count × size raw bytes", which consumes exactly the same bytes
-/// and so parsed every retail record correctly while naming all of it wrongly. It is the grid
+/// then one row of height codes per grid row. <b>This is the part that invites a plausible
+/// misreading</b>: walking the tail as "a sub-record size, a sub-record count, three undecoded
+/// scalars, an opaque block, then count × size raw bytes" consumes exactly the same bytes, so it
+/// parses every retail record correctly while naming all of it wrongly. It is the grid
 /// <c>BaseShape_ReadFromStream</c> (<c>0042762c</c>) reads and the ray-versus-structure query
 /// walks — see <see cref="BaseShapeCollision"/>.</item>
 /// </list>

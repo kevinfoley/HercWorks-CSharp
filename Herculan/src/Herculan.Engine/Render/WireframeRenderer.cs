@@ -10,29 +10,6 @@ namespace Herculan.Engine.Render;
 /// vertex layout this has no use for.
 /// </summary>
 public sealed class WireframeRenderer : IDisposable {
-	private const string VertexShaderSource = """
-		#version 330 core
-		layout (location = 0) in vec3 aPosition;
-
-		uniform mat4 uModel;
-		uniform mat4 uView;
-		uniform mat4 uProjection;
-
-		void main() {
-			gl_Position = uProjection * uView * uModel * vec4(aPosition, 1.0);
-		}
-		""";
-
-	private const string FragmentShaderSource = """
-		#version 330 core
-		uniform vec3 uColor;
-		out vec4 FragColor;
-
-		void main() {
-			FragColor = vec4(uColor, 1.0);
-		}
-		""";
-
 	private readonly GL _gl;
 	private readonly ShaderProgram _shader;
 	private readonly GpuLineMesh _unitCube;
@@ -40,7 +17,7 @@ public sealed class WireframeRenderer : IDisposable {
 
 	public WireframeRenderer(GL gl) {
 		_gl = gl;
-		_shader = new ShaderProgram(gl, VertexShaderSource, FragmentShaderSource);
+		_shader = ShaderProgram.Load(gl, "Wireframe.glsl");
 		_unitCube = GpuLineMesh.CreateUnitCube(gl);
 		_scratch = new GpuLineMesh(gl, ReadOnlySpan<Vector3>.Empty, dynamic: true);
 	}

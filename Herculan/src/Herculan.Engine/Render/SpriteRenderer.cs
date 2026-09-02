@@ -54,41 +54,6 @@ public readonly record struct SpriteBatch(
 /// drawn is what keeps a puff from painting over the ridge in front of it.</para>
 /// </summary>
 public sealed class SpriteRenderer : IDisposable {
-	private const string VertexShaderSource = """
-		#version 330 core
-		layout (location = 0) in vec3 aViewPosition;
-		layout (location = 1) in vec2 aUV;
-
-		uniform mat4 uProjection;
-
-		out vec2 vUV;
-
-		void main() {
-			vUV = aUV;
-			gl_Position = uProjection * vec4(aViewPosition, 1.0);
-		}
-		""";
-
-	private const string FragmentShaderSource = """
-		#version 330 core
-		in vec2 vUV;
-
-		uniform sampler2D uTexture;
-
-		out vec4 FragColor;
-
-		void main() {
-			// Palette index 0 decoded to alpha 0; the original's span routine skips that index rather
-			// than blending it, so this is a test and not a blend.
-			vec4 texel = texture(uTexture, vUV);
-			if (texel.a < 0.5) {
-				discard;
-			}
-
-			FragColor = vec4(texel.rgb, 1.0);
-		}
-		""";
-
 	/// <summary>
 	/// World units one bitmap pixel spans, per world unit of the part's radius: the
 	/// <c>radius * 4 ... / 256</c> the original's Q8 scale works out to. See this type's doc comment.
@@ -103,7 +68,7 @@ public sealed class SpriteRenderer : IDisposable {
 
 	public SpriteRenderer(GL gl) {
 		_gl = gl;
-		_shader = new ShaderProgram(gl, VertexShaderSource, FragmentShaderSource);
+		_shader = ShaderProgram.Load(gl, "Sprite.glsl");
 
 		_vertexArray = _gl.GenVertexArray();
 		_gl.BindVertexArray(_vertexArray);

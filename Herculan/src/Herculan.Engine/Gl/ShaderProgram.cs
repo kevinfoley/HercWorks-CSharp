@@ -17,7 +17,11 @@ public sealed class ShaderProgram : IDisposable {
 	private readonly uint _handle;
 	private readonly Dictionary<string, int> _uniforms = new();
 
-	public ShaderProgram(GL gl, string vertexSource, string fragmentSource) {
+	/// <summary>
+	/// Private so that <see cref="Load"/> is the only way in: shader source belongs in a file under
+	/// <c>Render/Shaders</c>, not in a string constant beside the renderer that uses it.
+	/// </summary>
+	private ShaderProgram(GL gl, string vertexSource, string fragmentSource) {
 		_gl = gl;
 
 		uint vertex = Compile(ShaderType.VertexShader, vertexSource);

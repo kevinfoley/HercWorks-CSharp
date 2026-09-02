@@ -64,43 +64,6 @@ public sealed class TerrainGridOverlay {
 /// legible view of real game geometry, not a material system.
 /// </summary>
 public sealed class SceneRenderer : IDisposable {
-	/// <summary>
-	/// The sky pass. A single full-viewport triangle built from <c>gl_VertexID</c> alone, so it needs
-	/// no vertex buffer — only a bound (empty) VAO, which core-profile GL still requires.
-	/// </summary>
-	private const string SkyVertexShaderSource = """
-		#version 330 core
-		void main() {
-			// (-1,-1), (3,-1), (-1,3): one oversized triangle covering the whole clip rect.
-			vec2 corner = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);
-			gl_Position = vec4(corner * 2.0 - 1.0, 0.0, 1.0);
-		}
-		""";
-
-	/// <summary>
-	/// Bands the sky by distance above the horizon in pixels, which is how the original's raster sky
-	/// is built — see <see cref="Content.SkyGradient"/>. <c>uHorizonY</c> is the horizon's own window
-	/// y, so the gradient rides the camera's pitch instead of being pinned to the middle of the view.
-	/// </summary>
-	private const string SkyFragmentShaderSource = """
-		#version 330 core
-		uniform vec3 uBands[16];
-		uniform float uHorizonY;
-		uniform float uBandHeight;
-
-		out vec4 FragColor;
-
-		void main() {
-			// Band 0 sits on the horizon and they climb from there; below it, the bottom band, which
-			// terrain covers anyway except where the view looks down past the far edge of the world.
-			float above = (gl_FragCoord.y - uHorizonY) / uBandHeight;
-			int band = int(clamp(floor(above), 0.0, 15.0));
-
-			// uBands is ordered zenith-first, so the horizon is the last entry and bands count back.
-			FragColor = vec4(uBands[15 - band], 1.0);
-		}
-		""";
-
 	private readonly GL _gl;
 	private readonly ShaderProgram _shader;
 	private readonly ShaderProgram _skyShader;
@@ -122,7 +85,7 @@ public sealed class SceneRenderer : IDisposable {
 		_shader = editorGrid
 			? ShaderProgram.Load(gl, "Scene.glsl", "EDITOR_GRID")
 			: ShaderProgram.Load(gl, "Scene.glsl");
-		_skyShader = new ShaderProgram(gl, SkyVertexShaderSource, SkyFragmentShaderSource);
+		_skyShader = ShaderProgram.Load(gl, "Sky.glsl");
 		_skyVertexArray = gl.GenVertexArray();
 
 		_gl.Enable(EnableCap.DepthTest);

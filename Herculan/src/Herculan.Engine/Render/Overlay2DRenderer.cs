@@ -33,54 +33,6 @@ namespace Herculan.Engine.Render;
 /// MFD's per-mode background, the throttle knob's height, the reticle's on-target frame.</para>
 /// </summary>
 public sealed class Overlay2DRenderer : IDisposable {
-	private const string VertexShaderSource = """
-		#version 330 core
-		layout (location = 0) in vec2 aPosition;
-		layout (location = 1) in vec2 aUV;
-		layout (location = 2) in vec3 aColor;
-		layout (location = 3) in float aTextured;
-
-		uniform vec2 uViewportSize;
-
-		out vec2 vUV;
-		out vec3 vColor;
-		out float vTextured;
-
-		void main() {
-			// aPosition is in pixel space, origin top-left, +Y down (PixelPoint's own convention) —
-			// flip Y and rescale to NDC's -1..1, +Y up.
-			vec2 ndc = vec2(
-				aPosition.x / uViewportSize.x * 2.0 - 1.0,
-				1.0 - aPosition.y / uViewportSize.y * 2.0);
-			gl_Position = vec4(ndc, 0.0, 1.0);
-			vUV = aUV;
-			vColor = aColor;
-			vTextured = aTextured;
-		}
-		""";
-
-	private const string FragmentShaderSource = """
-		#version 330 core
-		in vec2 vUV;
-		in vec3 vColor;
-		in float vTextured;
-
-		uniform sampler2D uTexture;
-
-		out vec4 FragColor;
-
-		void main() {
-			vec4 texColor = texture(uTexture, vUV);
-			vec3 rgb = mix(vColor, texColor.rgb, vTextured);
-			// Everything drawn here is textured and carries its own alpha: the canopy quad is 0 over
-			// the flood-filled 3D-viewport hole and 255 over painted art (see CockpitArt), and a HUD
-			// sprite is 0 wherever its source palette index was 0 (see HudSpriteSheet). The untextured
-			// path stays in the shader because Overlay2DVertex still offers a flat-colour vertex.
-			float alpha = mix(1.0, texColor.a, vTextured);
-			FragColor = vec4(rgb, alpha);
-		}
-		""";
-
 	private readonly GL _gl;
 	private readonly ShaderProgram _shader;
 	private readonly GpuOverlayMesh _mesh;
@@ -88,7 +40,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 
 	public Overlay2DRenderer(GL gl) {
 		_gl = gl;
-		_shader = new ShaderProgram(gl, VertexShaderSource, FragmentShaderSource);
+		_shader = ShaderProgram.Load(gl, "Overlay2D.glsl");
 		_mesh = new GpuOverlayMesh(gl);
 	}
 

@@ -13,7 +13,7 @@ namespace Herculan.Engine.Audio;
 /// improve on — it is why the throttle and variation attributes exist, and why two machines firing
 /// the same weapon in the same tick produce one report rather than two.</para>
 /// </summary>
-public sealed class SoundDirector : ISoundSink, IDisposable {
+public sealed class SoundDirector : IDisposable {
 	/// <summary>The pan value that is dead centre — HMI SOS's own, and the voice default.</summary>
 	public const int PanCentre = 0x8000;
 
@@ -136,12 +136,6 @@ public sealed class SoundDirector : ISoundSink, IDisposable {
 		Start(id, entry);
 		return true;
 	}
-
-	/// <inheritdoc />
-	void ISoundSink.PlayAt(int id, Vec3i position) => PlayAt(id, position);
-
-	/// <inheritdoc />
-	void ISoundSink.MoveTo(int id, Vec3i position) => UpdatePosition(id, position);
 
 	/// <summary>
 	/// <c>Sound_Place</c> (<c>00462898</c>) — works out one sound's volume and pan from where it is

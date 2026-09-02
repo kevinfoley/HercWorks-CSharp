@@ -39,9 +39,10 @@ attributes and NULL for the rest.
 `PILOTS.STR` and `SOUNDS.STR` to their declared content lengths with zero slack, and each file's
 group counts reproduce the registration sequence in order.
 
-Attribute use: `STRINGS0.STR` group 0 carries one byte per order; `SYSTEM.STR`'s alert lines carry
-eight; `SOUNDS.STR` carries seven — loop count, volume, preload, throttle divisor and the two
-rolloff distances, then a variation count. The sound module reads a tenth byte past them and treats
+Attribute use: `STRINGS0.STR` group 0 carries one byte per order; `SYSTEM.STR`'s computer messages
+carry eight — the message id and the `CVM` voice clip that reads the line, decoded in
+[`audio.md`](audio.md#the-computers-messages); `SOUNDS.STR` carries seven — loop count, volume,
+preload, throttle divisor and the two rolloff distances, then a variation count. The sound module reads a tenth byte past them and treats
 bytes 7-9 as runtime scratch; see [`audio.md`](audio.md#the-sound-catalog--strsoundsstr).
 
 ## `STRINGS0.STR` groups
@@ -81,5 +82,6 @@ Groups referenced by decoded code:
 | 38, 39 | 1,1 | `TIME:`, `SPEED:` — the gunsight readouts |
 | 40 | 8 | Squad comm box's current-order line: `ATTACK`, `TRAVEL`, `PATROL`, `FORM UP`, `GUARD`, `FLEE`, `DEAD`, `IMMOBILE` |
 
-Other files: `SYSTEM.STR` alert lines, `COMMAND*.STR` mission briefing and tutorial dialogue,
-`PILOTS.STR` 36 pilot surnames, `SOUNDS.STR` a 57-entry sample catalog ([`audio.md`](audio.md)).
+Other files: `SYSTEM.STR` the cockpit computer's 63 messages
+([`audio.md`](audio.md#the-computers-messages)), `COMMAND*.STR` mission briefing and tutorial
+dialogue, `PILOTS.STR` 36 pilot surnames, `SOUNDS.STR` a 57-entry sample catalog ([`audio.md`](audio.md)).

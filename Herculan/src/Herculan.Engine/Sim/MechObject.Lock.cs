@@ -112,9 +112,8 @@ public sealed partial class MechObject {
 	private bool _lockToneSounded;
 
 	/// <summary>
-	/// <c>Mech_LockTonePlay</c> (<c>0041b0bc</c>) — the cockpit's lock audio, run from the tail of
-	/// <c>Mech_PerTickSystemsUpdate</c> <b>for the locally-piloted machine only</b>. Three sounds
-	/// come out of one flag:
+	/// <c>Mech_LockTonePlay</c> (<c>0041b0bc</c>) — the cockpit's lock audio. Three sounds come out
+	/// of one flag:
 	///
 	/// <list type="bullet">
 	/// <item>Holding lock: <see cref="SoundId.LockTone"/> once per blink phase.</item>
@@ -124,12 +123,19 @@ public sealed partial class MechObject {
 	/// missiles.</item>
 	/// </list>
 	///
+	/// <para><b>Where it is called from is load-bearing.</b> The call sits inside
+	/// <see cref="MissileLockTick"/>'s own <c>target != null</c> block, and inside that block's
+	/// locally-piloted arm — so a machine with nothing selected runs no lock audio at all. That
+	/// matters because <see cref="TargetChanged"/> is only ever cleared with a target present: called
+	/// unconditionally, a selection dropped to null latches the flag and the acquisition blip
+	/// re-triggers every tick, which sounds like the front of the sample looping.</para>
+	///
 	/// <para>Note what the original does <i>not</i> do: the "lock lost" branch returns before the
 	/// target-changed test, so switching target while locked plays the loss tone and not the
 	/// acquisition blip.</para>
 	/// </summary>
-	internal void LockToneTick(SimWorld world) {
-		if (world.Sounds is not { } sounds || !LocallyPiloted) {
+	private void LockToneTick(SimWorld world) {
+		if (world.Sounds is not { } sounds) {
 			return;
 		}
 
@@ -170,6 +176,9 @@ public sealed partial class MechObject {
 	/// <c>FUN_004123ac</c> and then walks the mech list calling this, and the order matters because
 	/// the gate below reads the line-of-sight cache that pass maintains. <see cref="SimWorld.Tick"/>
 	/// keeps the same order.</para>
+	///
+	/// <para>The cockpit's lock audio closes the same function and is reached through
+	/// <see cref="LockToneTick"/>, not called separately — see there for why the nesting matters.</para>
 	/// </summary>
 	internal void MissileLockTick(SimWorld world) {
 		// Cleared for every machine every tick, whether or not it has a target — so losing a target
@@ -179,10 +188,26 @@ public sealed partial class MechObject {
 
 		Weapons.RoundsByMissileType(_missileRounds);
 
-		if (Target is not { } target) {
-			return;
+		// The original's own local_1a: the flag is cleared at the very end of the function, past the
+		// target block, not at the point the branch below decides to. That is what puts the clear
+		// after the lock audio has already read it, and it is why a selection made this tick blips.
+		bool clearTargetChanged = false;
+
+		if (Target is { } target) {
+			MissileLockTargetBlock(world, target, ref clearTargetChanged);
 		}
 
+		if (clearTargetChanged) {
+			TargetChanged = false;
+		}
+	}
+
+	/// <summary>
+	/// The part of <see cref="MissileLockTick"/> that only runs with something selected —
+	/// <c>Mech_PerTickSystemsUpdate</c>'s <c>if (mech+0x69 != 0)</c> block, kept as its own method so
+	/// that the boundary the original draws there is visible rather than implied by an early return.
+	/// </summary>
+	private void MissileLockTargetBlock(SimWorld world, SimObject target, ref bool clearTargetChanged) {
 		bool spoofedThisRoll = EcmRollTick(world, target);
 
 		// Where the target is, and how long a lock on it should take. A turretless chassis — the
@@ -212,7 +237,14 @@ public sealed partial class MechObject {
 			&& (ushort)(bearingError + LockConeHalfWidth) < LockConeHalfWidth * 2
 			&& sighted;
 
-		if (!holding) {
+		if (holding) {
+			// Subtypes 0 and 4 need this machine's own scanner running; 1 needs nothing; 2 needs the
+			// target to be emitting. Every one of them is also blocked by ECM except 2.
+			StepLock(0, ScannerActive && !spoofedThisRoll, lockTime, blockedByEcm: true);
+			StepLock(4, ScannerActive && !spoofedThisRoll, lockTime, blockedByEcm: true);
+			StepLock(1, !spoofedThisRoll, lockTime, blockedByEcm: true);
+			StepLock(2, target.ScannerActive || target.JammerActive, lockTime, blockedByEcm: false);
+		} else {
 			// Everything resets and no lock builds this tick. Subtype 4's timer is deliberately not
 			// among them: the original resets 0, 1 and 2 here and leaves 4 running, so that one class
 			// keeps a partial lock across a moment of broken sight where the others do not.
@@ -220,19 +252,19 @@ public sealed partial class MechObject {
 			_lockTimer[1] = lockTime;
 			_lockTimer[2] = lockTime;
 
-			// And the target-changed flag is cleared here and only here, which is what makes it cost
-			// exactly one tick: the switch sets it, the next tick lands in this branch and clears it,
-			// and locking may begin on the one after.
-			TargetChanged = false;
-			return;
+			// The target-changed flag is asked to clear here and only here, which is what makes it
+			// cost exactly one tick: the switch sets it, the next tick lands in this branch and asks
+			// for the clear, and locking may begin on the one after. The clear itself happens past the
+			// lock audio below, so that audio still sees the flag this tick.
+			clearTargetChanged = true;
 		}
 
-		// Subtypes 0 and 4 need this machine's own scanner running; 1 needs nothing; 2 needs the
-		// target to be emitting. Every one of them is also blocked by ECM except 2.
-		StepLock(0, ScannerActive && !spoofedThisRoll, lockTime, blockedByEcm: true);
-		StepLock(4, ScannerActive && !spoofedThisRoll, lockTime, blockedByEcm: true);
-		StepLock(1, !spoofedThisRoll, lockTime, blockedByEcm: true);
-		StepLock(2, target.ScannerActive || target.JammerActive, lockTime, blockedByEcm: false);
+		// Both arms above fall into this one. Only the locally-piloted machine has a lamp or a
+		// cockpit to sound a tone in, so the original computes neither for anything else — an AI
+		// machine's lamp stays clear all mission.
+		if (!LocallyPiloted) {
+			return;
+		}
 
 		// The lock lamp, from the armed mount's own class. A mount that fires no missile at all reads
 		// the whole array instead, which is why the lamp lights for a gun when a launcher elsewhere on
@@ -243,6 +275,8 @@ public sealed partial class MechObject {
 		LockAcquired = armedType == WeaponMount.NotAMissile
 			? Weapons.AnyLocked
 			: Weapons.Locked(armedType);
+
+		LockToneTick(world);
 	}
 
 	/// <summary>

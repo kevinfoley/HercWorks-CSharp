@@ -29,7 +29,9 @@ flag.
 - **The whole block is held** when `mech+0x9d` is set (target just changed), the bearing error is
   outside ±`0x3000` of the turret centreline, or line of sight is broken. That branch resets the
   timers for subtypes 0, 1 and 2 — **not 4**, which keeps a partial lock across a broken moment — and
-  clears `mech+0x9d`, which is what makes a target switch cost exactly one tick.
+  raises the function's `local_1a`, which is what makes a target switch cost exactly one tick.
+  `mech+0x9d` is cleared from that flag at the very **end** of the function, past the lock audio, so
+  the audio still sees the switch on the tick it happened.
 - Line of sight is asked from whichever end owns the cache row: human side asks about the target,
   Cybrid asks the target about itself.
 
@@ -61,13 +63,20 @@ makes ECM at most as strong as the original's, never more.
 
 `mech+0x9b` is set from the armed mount's own class: a launcher lights its own subtype's flag, a
 mount that is not a launcher (class 5) lights if *any* subtype has lock. `Mech_LockTonePlay`
-(`0041b0bc`) turns it into the cockpit's lock audio, for the locally-piloted machine only:
-`Sound_Play(0x15)` once per phase of a `0x40`-coarse-tick blink while set, `0x14` when clear but the
-target changed this tick, `0x16` once on loss. Two latches carry it — `0049a1d1` remembers that a
-lock was held so its loss is announced once, `0049a1d0` that this phase's beep has sounded.
+(`0041b0bc`) turns it into the cockpit's lock audio: `Sound_Play(0x15)` once per phase of a
+`0x40`-coarse-tick blink while set, `0x14` when clear but the target changed this tick, `0x16` once
+on loss. Two latches carry it — `0049a1d1` remembers that a lock was held so its loss is announced
+once, `0049a1d0` that this phase's beep has sounded.
 
 The loss branch **returns before** the target-changed test, so switching target while locked plays
 the loss tone and not the acquisition blip. Ported as `MechObject.LockToneTick`.
+
+**Where it is called from is part of the behaviour.** The call — and the lamp calculation above it —
+sit inside the target block's `mech+0xa3` arm, which is inside `if (mech+0x69 != 0)`. So the lamp is
+only ever computed for the locally-piloted machine (an AI machine's stays clear all mission), and
+neither lamp nor tone runs at all with nothing selected. That second nesting matters because
+`mech+0x9d` is *only* cleared with a target present: run the tone unconditionally and a selection
+dropped to null latches the flag and re-triggers the acquisition blip every tick.
 → [`../formats/audio.md`](../formats/audio.md)
 
 ## Verification

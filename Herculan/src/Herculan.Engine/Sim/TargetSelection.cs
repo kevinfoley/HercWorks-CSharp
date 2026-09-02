@@ -302,14 +302,21 @@ public sealed class TargetSelection {
 	public void Clear() => Select(null);
 
 	/// <summary>
-	/// Drops a selection that is no longer legal. Not a function of the original, which leaves a dead
-	/// or vanished target selected until something else clears it — but the original's owner of that
-	/// job is the AI target-abandon check (<c>FUN_0041c4a8</c>) plus the death path's own clear
-	/// (<c>FUN_0041eb34</c>), neither of which is ported, so without this a destroyed machine stays
-	/// locked and homing rounds keep chasing its wreck.
+	/// Drops a selection that is out of the fight. Not a function of the original, which has no
+	/// player-side target-abandon check at all: its death-path clear (<c>FUN_0041eb34</c>) is gated on
+	/// <c>obj+0xa3</c> being <i>clear</i>, so it only ever runs for an AI machine, as does the
+	/// abandon check beside it (<c>FUN_0041c4a8</c>). Neither is ported, and without something in
+	/// their place a destroyed machine stays selected and homing rounds keep chasing its wreck.
+	///
+	/// <para><b>Selectability is deliberately not the test.</b> <see cref="CanTarget"/> also asks
+	/// whether the object is <i>known</i> — painted on radar, or held as a contact — and that comes
+	/// and goes on its own: <see cref="Detection"/> clears radar visibility wholesale every time an
+	/// object's contact list decays, and repaints it only if something is emitting. Testing it here
+	/// would drop a live target the moment it blinked out of the contact table and re-drop it every
+	/// few ticks, which is a thing the original never does to a player's selection.</para>
 	/// </summary>
 	public void DropIfInvalid() {
-		if (Selected != null && (Selected.Removed || !CanTarget(Selected))) {
+		if (Selected != null && (Selected.Removed || Selected.Neutralised)) {
 			Selected = null;
 		}
 	}

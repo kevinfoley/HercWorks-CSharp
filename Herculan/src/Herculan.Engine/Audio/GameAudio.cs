@@ -11,16 +11,32 @@ namespace Herculan.Engine.Audio;
 /// <para>Everything here is optional. <see cref="Create"/> returns an instance even with no device
 /// and no samples, so a host never has to branch on whether sound came up.</para>
 /// </summary>
-public sealed class GameAudio : IDisposable {
+public sealed class GameAudio : ISoundSink, IDisposable {
+	/// <summary>
+	/// How long after the power-up begins the computer announces the result — the original's own
+	/// <c>200 &lt; elapsed</c> against <c>Time_GetCoarseTicks</c>, whose unit is 16 ms. It lands
+	/// inside <c>start3</c>'s five seconds rather than after them.
+	/// </summary>
+	public static readonly TimeSpan PowerUpAnnounceDelay = TimeSpan.FromMilliseconds(200 * 16);
+
 	private readonly SoundDirector? _director;
 	private MechObject? _engineLoopOwner;
 	private SimWorld? _world;
+	private TimeSpan _powerUpAnnounceIn = TimeSpan.MinValue;
 
-	private GameAudio(SoundDirector? director, SoundBank? bank, string status) {
+	private GameAudio(SoundDirector? director, SoundBank? bank, ComputerVoice? voice, string status) {
 		_director = director;
 		Bank = bank;
+		Voice = voice;
 		Status = status;
 	}
+
+	/// <summary>
+	/// The cockpit computer's speaking channel, or null when there is no device. Separate from
+	/// <see cref="Director"/> because speech is a separate channel in the original — see
+	/// <see cref="ComputerVoice"/>.
+	/// </summary>
+	public ComputerVoice? Voice { get; }
 
 	/// <summary>The loaded catalog and samples, or null when <c>SOUNDS.STR</c> would not load.</summary>
 	public SoundBank? Bank { get; }
@@ -31,8 +47,30 @@ public sealed class GameAudio : IDisposable {
 	/// <summary>Whether sound will actually be heard.</summary>
 	public bool IsAvailable => _director is { IsAvailable: true };
 
-	/// <summary>The sink to hand <see cref="SimWorld.Sounds"/>, or null when there is nothing to hear.</summary>
-	public ISoundSink? Sink => _director;
+	/// <summary>
+	/// The sink to hand <see cref="SimWorld.Sounds"/>. This type is it: the two channels the
+	/// simulation can reach — the effect catalog and the computer's voice — are separate objects
+	/// underneath, and which one a call belongs to is not the simulation's business.
+	/// </summary>
+	public ISoundSink Sink => this;
+
+	/// <inheritdoc />
+	void ISoundSink.Play(int id) => _director?.Play(id);
+
+	/// <inheritdoc />
+	void ISoundSink.PlayAt(int id, Vec3i position) => _director?.PlayAt(id, position);
+
+	/// <inheritdoc />
+	void ISoundSink.Stop(int id) => _director?.Stop(id);
+
+	/// <inheritdoc />
+	void ISoundSink.MoveTo(int id, Vec3i position) => _director?.UpdatePosition(id, position);
+
+	/// <inheritdoc />
+	void ISoundSink.Say(int messageId) => Voice?.Post(messageId);
+
+	/// <inheritdoc />
+	void ISoundSink.Unsay(int messageId) => Voice?.Cancel(messageId);
 
 	/// <summary>The rule layer, for a caller that wants to play something directly.</summary>
 	public SoundDirector? Director => _director;
@@ -62,20 +100,27 @@ public sealed class GameAudio : IDisposable {
 		try {
 			bank = SoundBank.Load(content, lowMemory);
 		} catch (Exception e) {
-			return new GameAudio(null, null, $"sound bank failed to load: {e.Message}");
+			return new GameAudio(null, null, null, $"sound bank failed to load: {e.Message}");
 		}
 
 		if (bank == null) {
-			return new GameAudio(null, null,
+			return new GameAudio(null, null, null,
 				$"no {SoundCatalog.ResourceName} in the mounted archives — is {SoundBank.ArchiveName} mounted?");
 		}
 
 		var backend = (IAudioBackend?)OpenAlBackend.TryCreate() ?? new NullAudioBackend();
 		var director = new SoundDirector(bank, backend, random);
 
+		var messages = SystemMessages.Load(content);
+		var voice = new ComputerVoice(content, messages, backend);
+
 		string status = backend.IsAvailable
 			? $"OpenAL, {bank.Catalog.Count} catalog entries"
 			: $"no audio device; {bank.Catalog.Count} catalog entries loaded but silent";
+
+		status += messages != null
+			? $", {messages.Count} computer messages"
+			: $", no {SystemMessages.ResourceName} (computer voice silent)";
 
 		if (bank.Missing.Count > 0) {
 			// battle1.wav is expected: the ten music rows all name it and it ships nowhere, because
@@ -83,7 +128,7 @@ public sealed class GameAudio : IDisposable {
 			status += $" (no sample for: {string.Join(", ", bank.Missing)})";
 		}
 
-		return new GameAudio(director, bank, status);
+		return new GameAudio(director, bank, voice, status);
 	}
 
 	/// <summary>
@@ -138,6 +183,7 @@ public sealed class GameAudio : IDisposable {
 		}
 
 		_director.Play(SoundId.PowerUp);
+		_powerUpAnnounceIn = PowerUpAnnounceDelay;
 
 		if (!pilot.Type.IsFlyer) {
 			_engineLoopOwner = null;
@@ -152,14 +198,19 @@ public sealed class GameAudio : IDisposable {
 	/// <summary>Stops the engine hum — leaving the cockpit, or the machine dying.</summary>
 	public void PowerDown() {
 		_engineLoopOwner = null;
+		_powerUpAnnounceIn = TimeSpan.MinValue;
 		_director?.Stop(SoundId.EngineLoop);
 	}
 
 	/// <summary>
-	/// Per-frame service: keeps the engine hum on its machine and lets finite repeat counts run.
-	/// Call once a frame, after the listener has been set.
+	/// Per-frame service: keeps the engine hum on its machine, lets finite repeat counts run, and
+	/// runs the speech channel. Call once a frame, after the listener has been set.
 	/// </summary>
-	public void Update() {
+	/// <param name="elapsed">Wall time since the last call, for the power-up announcement's delay.</param>
+	public void Update(TimeSpan elapsed = default) {
+		AnnouncePowerUp(elapsed);
+		Voice?.Update();
+
 		if (_director == null) {
 			return;
 		}
@@ -175,8 +226,40 @@ public sealed class GameAudio : IDisposable {
 		_director.Update();
 	}
 
-	/// <summary>Silences everything without tearing the device down — for a pause or a lost window.</summary>
-	public void Suspend() => _director?.SuspendAll();
+	/// <summary>
+	/// <c>FUN_00432924</c>'s tail — the cockpit's power-up sequence announcing itself once
+	/// <see cref="PowerUpAnnounceDelay"/> has passed since the sequence began.
+	///
+	/// <para><b>Always the nominal line.</b> The original chooses between it and
+	/// <see cref="SystemMessages.PowerUpDamaged"/> by walking the ten heads-down gauges and testing
+	/// each one's reading against 0x5a, through two accessors (<c>FUN_0041b514</c> and
+	/// <c>FUN_00438700</c>) that are not decompiled — so what that reading is a percentage <i>of</i>
+	/// is not known, and the threshold is not transcribed rather than guessed at. A machine taken at
+	/// the start of a mission is undamaged and gets the nominal line either way.</para>
+	/// </summary>
+	private void AnnouncePowerUp(TimeSpan elapsed) {
+		if (_powerUpAnnounceIn == TimeSpan.MinValue) {
+			return;
+		}
+
+		_powerUpAnnounceIn -= elapsed;
+		if (_powerUpAnnounceIn > TimeSpan.Zero) {
+			return;
+		}
+
+		_powerUpAnnounceIn = TimeSpan.MinValue;
+		Voice?.Post(SystemMessages.PowerUpNominal);
+	}
+
+	/// <summary>
+	/// Silences everything without tearing the device down — for a pause or a lost window. Speech is
+	/// cut rather than remembered: <see cref="Resume"/> can only restart a clip from its beginning,
+	/// and half a sentence twice is worse than none.
+	/// </summary>
+	public void Suspend() {
+		Voice?.Stop();
+		_director?.SuspendAll();
+	}
 
 	/// <summary>Puts back what <see cref="Suspend"/> stopped.</summary>
 	public void Resume() => _director?.ResumeAll();

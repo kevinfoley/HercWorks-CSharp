@@ -553,10 +553,6 @@ public sealed class SimWorld {
 		for (int i = 0; i < _objects.Count; i++) {
 			if (_objects[i] is MechObject { Removed: false, AwaitingDeployment: false, Destroyed: false } mech) {
 				mech.MissileLockTick(this);
-
-				// The cockpit's lock audio closes the same block in the original, and reads the flag
-				// the call above has just settled. It gates itself on the locally-piloted machine.
-				mech.LockToneTick(this);
 			}
 		}
 

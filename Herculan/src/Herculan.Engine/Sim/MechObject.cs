@@ -207,6 +207,11 @@ public sealed partial class MechObject : SimObject {
 	/// original plays it through <c>Sound_Play</c>, because it is a noise the cockpit makes rather
 	/// than one the world does.</para>
 	///
+	/// <para>The tone is only half of it. The flip also posts the computer message that says the new
+	/// mode aloud, and withdraws <b>both</b> of them first — so flipping twice in quick succession
+	/// leaves the machine announcing where it ended up rather than reading out the whole sequence.
+	/// </para>
+	///
 	/// <para>The two console lights are not ported.</para>
 	/// </summary>
 	/// <param name="world">
@@ -218,7 +223,18 @@ public sealed partial class MechObject : SimObject {
 		}
 
 		Scanner = !Scanner;
-		world?.Sounds?.Play(Scanner ? Audio.SoundId.ScannerActive : Audio.SoundId.ScannerPassive);
+
+		if (world?.Sounds is not { } sounds) {
+			return;
+		}
+
+		sounds.Play(Scanner ? Audio.SoundId.ScannerActive : Audio.SoundId.ScannerPassive);
+
+		sounds.Unsay(Content.SystemMessages.ActiveRadarMode);
+		sounds.Unsay(Content.SystemMessages.PassiveRadarMode);
+		sounds.Say(Scanner
+			? Content.SystemMessages.ActiveRadarMode
+			: Content.SystemMessages.PassiveRadarMode);
 	}
 
 	/// <summary>

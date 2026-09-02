@@ -916,7 +916,7 @@ window.Update += deltaSeconds => {
 	// from behind it rather than from inside it. Camera yaw runs opposite to a simulation heading
 	// (see above), and the placement rules work in the simulation's, so it is negated back here.
 	audio.SetListener(camera.Position, -camera.Yaw & 0xffff);
-	audio.Update();
+	audio.Update(TimeSpan.FromSeconds(deltaSeconds));
 
 	// What the debug panel reports about the walk — see DebugPanel.Sample for why it is measured
 	// every frame rather than only while the panel is up.
@@ -1231,6 +1231,12 @@ void DrawSkeleton(Camera view, int viewportWidth, int viewportHeight) {
 // and XMIT/CANCEL all need squad, target or map state the engine does not have. They still hit-test
 // and will still light on press; they simply do nothing on release.
 void ApplyCockpitClick(CockpitClick click) {
+	// The click itself is audible before anything is decided by it. In the original the sound is not
+	// the handler's: it is a one-line virtual (0x438e2c, the only caller of catalog id 0x11 in the
+	// image) sitting in fifteen widget vtables, so a widget clicks because it is that kind of widget,
+	// not because its action did something. That is why a button with nothing behind it still clicks.
+	audio.Director?.Play(SoundId.ButtonClick);
+
 	switch (click.Id.Kind) {
 		case CockpitWidgetKind.MfdButton when click.Id.Index < MfdLayout.ModeCount:
 			// Button i of the F-key column dispatches SetMode(i), and picking a screen pans back up —

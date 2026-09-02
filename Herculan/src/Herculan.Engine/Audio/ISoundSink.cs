@@ -32,4 +32,18 @@ public interface ISoundSink {
 	/// the looping engine hum and the flamer use to follow their machine.
 	/// </summary>
 	void MoveTo(int id, Vec3i position);
+
+	/// <summary>
+	/// Posts one of the cockpit computer's messages by its flat <c>SYSTEM.STR</c> id — the vtable
+	/// call the original makes on the cockpit's message port, <c>view+0x20b</c>. See
+	/// <see cref="Content.SystemMessages"/> for the ids and <see cref="ComputerVoice"/> for what
+	/// becomes of one.
+	/// </summary>
+	void Say(int messageId);
+
+	/// <summary>
+	/// Withdraws a posted message that has not been said yet — <c>FUN_00435ac8</c>, which the radar
+	/// toggle uses on both of its own lines before posting the one it wants.
+	/// </summary>
+	void Unsay(int messageId);
 }

@@ -161,9 +161,12 @@ Deviations:
 - **The observer camera is excluded** from the sensor model by target class. DBSIM's live-object list
   only ever holds the three combat classes; `SimWorld`'s also holds the camera, which would otherwise
   spot for the player's side.
-- **`TargetSelection.DropIfInvalid`** is not the original's. Its owners there are the AI
-  target-abandon check (`FUN_0041c4a8`) and the death path (`FUN_0041eb34`), neither ported, so
-  without it a destroyed target stays locked.
+- **`TargetSelection.DropIfInvalid`** is not the original's, which has no player-side abandon check
+  at all: the death path (`FUN_0041eb34`) is gated on `obj+0xa3` being *clear*, so it and the
+  abandon check beside it (`FUN_0041c4a8`) only ever run for an AI machine. Without something in
+  their place a destroyed target stays locked. It drops on death alone and deliberately does **not**
+  re-run the selectability test: that also asks whether the object is currently known, which radar
+  decay makes come and go, so testing it would drop a live target every few ticks.
 - Not ported: the "enemy detected" callout (vtable `+0x48`, `FUN_00412800`), `obj+0x9e` and its
   engagement action (no mission actions exist), and the second viewing object `DAT_004d2708` selects
   when watching another machine.

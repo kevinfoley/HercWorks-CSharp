@@ -8,8 +8,8 @@ DBSIM's sound is three stacked layers:
 | `SFX` | A general resource/voice manager: named samples, handles, a memory budget, priority eviction |
 | `Sound_*` | The game's own layer: a 57-entry catalog keyed by integer id, 3D placement, and a separate five-slot speech channel |
 
-The first two layers and the effects half of the third are ported; see [Engine coverage](#engine-coverage).
-CD music and the speech channel are not.
+The first two layers, the effects half of the third and the computer's half of the speech channel are
+ported; see [Engine coverage](#engine-coverage). CD music and squad speech are not.
 
 ## Backend
 
@@ -368,9 +368,16 @@ Two toggles play a confirmation directly rather than through any data table:
 |---|---|
 | `Mech_ToggleRadarMode` (`0041b468`) | `0x1a` `gnract` going ACTIVE, `0x1b` `gnrdact` going PASSIVE. Not positional — the cockpit makes it, not the world. |
 | Heads-down display transmit (`0044cc40`) | The same pair, reused as its accepted/rejected blip. |
+| `Widget_ClickSound` (`00438e2c`) | `0x11` `gm_69`, the console click. |
 
 The mode-change tone is the [R] path only. The scanner screen's PASS/ACTIVE buttons write
-`mech+0x96` directly and play nothing.
+`mech+0x96` directly and play nothing. The radar toggle also announces the new mode in the
+computer's voice — see [The computer's messages](#the-computers-messages).
+
+`Widget_ClickSound` is the whole of the click: `push 0x11; call Sound_Play; ret`, and it is the
+image's only reference to that id. Nothing calls it directly — it sits in **fifteen widget
+vtables**, so a widget clicks because of what kind of widget it is and not because its handler did
+anything. That is why a button wired to nothing still clicks.
 
 ## Speech and the comm portraits
 
@@ -409,12 +416,59 @@ snc    = "P" + ('A' + slot) + suffix     in snc/
 
 `voiceBank` is `(slot >> 2) + 1`, with 3 remapped to 4 — so twelve squad slots share three recorded
 voices, `P1_`, `P2_`, `P4_`. That is the same 1/2/4 grouping as `str\PILOT0.STR`, `PILOT1.STR`,
-`PILOT2.STR`, `PILOT4.STR`. `SIMVOICE.VOL` holds 147 `P*_*.WAV` and 66 `CVM_*.WAV`, the commander's
-own lines.
+`PILOT2.STR`, `PILOT4.STR`. `SIMVOICE.VOL` holds 147 `P*_*.WAV` and 66 `CVM_*.WAV`, the cockpit
+computer's own lines.
+
+The three name templates live together in DATA as literals the loader patches digits into:
+`BC_00000`, `TMx_0000`, `CVM_0000`.
 
 The archive is chosen by `Voice_ArchiveName` (`0045ef68`), which patches the last character of the
 literal `simvoice` with the language byte — `SIMVOICE` / `SIMVOICF` / `SIMVOICG`. All three are the
-same size and differ only in their recordings.
+same size, carry the same `SIMVOICE` folder label inside, and differ only in their recordings.
+
+## The computer's messages
+
+`str\SYSTEM.STR` is what the cockpit computer can say: 63 lines, and for each the recording that
+reads it. Two `.STR` groups of 40 and 23 — but **the grouping means nothing**. Every call site passes
+one number, counted straight through both groups, and that same number is in each entry's own
+attribute byte 0.
+
+Eight attribute bytes:
+
+| Byte | Meaning |
+|---|---|
+| 0 | The message id, which is also the entry's flat position |
+| 1, 2 | Always zero in the retail file |
+| 3-6 | `3, 6, 0, 0x14` on every line but `TRANSFERRING DATA`, which has `0x0a, 0x14, 0, 0x14`. The message port's own trace prints `minTime`, `maxTime`, `minWait`, `maxWait`, and four values in that order is the obvious reading; the consumer is not decompiled, so which byte is which is untested |
+| 7 | Which `CVM_nnnn.WAV` reads the line, one-based |
+
+Byte 7 is a field and not an offset from the id: the numbering runs 1 to 66 across the 63 messages,
+skipping 0x1c, 0x2d and 0x2f, and the archive holds exactly 66 clips — so three are recorded lines no
+message claims.
+
+Messages reach the **cockpit's message port**, the object at `view+0x20b` (`PMSGPORT.BND`), through a
+vtable call; `FUN_00435ac8(port, 0, id)` withdraws one. The port also drives the on-screen text, and
+the preferences screen's PILOT MESSAGE and COMPUTER MESSAGE settings are its two channels, each
+OFF / TEXT ONLY / VOICE ONLY / TEXT-VOICE.
+
+The port is ~30 functions at `00435074`-`00436fd0`. The current message hangs off `port+0x49a`, its
+id at the record's `+0x00`; `port+0x4c9`/`+0x4cb` are the speaking and cancel latches.
+`FUN_00436abc` swallows a repeat of the same id inside 300 coarse ticks. The text **scrolls**:
+`FUN_00436f70` recomputes its x every frame as
+`port+0x4af - (0x23 << VideoMode_XCoordShift) * elapsed / 0x3c`, about 36 px/sec leftward.
+`DAT_004d1fbf` gates which halves run and is very likely the OFF / TEXT ONLY / VOICE ONLY /
+TEXT-VOICE preference. What the display half does with the four timing values, and what preempts
+what, is not decompiled; `FUN_00435610` and `FUN_00435970` are the consumers to read.
+
+Two posters are:
+
+| Poster | Messages |
+|---|---|
+| `Cockpit_PowerUpTick` (`00432924`) | Once `200 <` coarse ticks have passed since the sequence began, it walks the ten heads-down gauges (`FUN_0041b514`, then `FUN_00438700 < 0x5a`) and posts `0x22` `POWERUP INITIATED. INTERNAL DAMAGE DETECTED.` if any is under, else `0x21` `... ALL SYSTEMS NOMINAL.` |
+| `Mech_ToggleRadarMode` (`0041b468`) | Withdraws **both** `0x2c` `ACTIVE RADAR MODE` and `0x2d` `PASSIVE RADAR MODE`, then posts the one the mode just became — so flipping twice quickly announces where it ended up rather than reading out the sequence |
+
+At 16 ms a coarse tick the power-up announcement lands 3.2 s in, inside `start3`'s five seconds
+rather than after them.
 
 ## `.SNC` — portrait lip-sync scripts
 
@@ -467,13 +521,25 @@ with the attribute layout above, `SoundBank` picks the `HMI`/`HMX` folder and de
 of `SIMSOUND.VOL`, and `SoundDirector` is the `Sound_*` layer — one voice per catalog id, the
 variation roll, the category split, the throttle, `Sound_Place`'s rolloff and pan, and
 suspend/resume. `OpenAlBackend` stands in for HMI SOS; `NullAudioBackend` runs the same rules
-silently. `GameAudio` is the host-facing bundle, and `SimWorld.Sounds` is how the simulation reaches
-it, with `PlayTableSound` applying the `+ 10` bias for `PROJ.DAT`, `ROCKETS.DAT` and `EXPLOS.DAT`
-ids.
+silently. `GameAudio` is the host-facing bundle and is itself the `ISoundSink` the simulation reaches
+through `SimWorld.Sounds`, with `PlayTableSound` applying the `+ 10` bias for `PROJ.DAT`,
+`ROCKETS.DAT` and `EXPLOS.DAT` ids.
+
+`SystemMessages` parses `SYSTEM.STR` and flattens it to the ids the call sites use, and
+`ComputerVoice` is the speaking channel: it opens `CVM` clips out of `SIMVOICE.VOL` on first use and
+keeps them, rather than running the original's five-slot LRU. **Only the audio half of the message
+port exists** — a posted message is spoken, a withdrawn one that has not started is dropped, and one
+already speaking finishes before the next begins. There is no on-screen text, no display timing and
+no preemption, because none of that is decompiled.
 
 Triggers ported so far: the beam report, the two table-driven fire sounds and the impact sound (with
-the ground hit's suppression), footfalls, the radar mode tone, the lock/acquire/loss tones, the
-power-up and its flyer hum, and the missile-inbound warning.
+the ground hit's suppression), footfalls, the console click, the radar mode tone and its spoken
+announcement, the lock/acquire/loss tones, the power-up with its announcement and its flyer hum, and
+the missile-inbound warning.
+
+The power-up always announces the nominal line: the gauge reading its alternative is chosen by is
+not decompiled, and a machine taken at the start of a mission is undamaged and gets the nominal line
+either way.
 
 **The memory budget is not reproduced.** `SoundBank` decodes every sample the catalog names at
 startup instead of honouring the preload attribute and caching the rest on demand, so none of
@@ -482,6 +548,6 @@ victim scoring. The whole `hmi` bank is about 1.5 MB of 8-bit PCM against the or
 2,000,000-byte cap, so there is nothing for the eviction machinery to do; it would only start to
 matter for a bank the retail game does not ship.
 
-Not ported: CD music through MCI, the `.hmp` MIDI path, and the five-slot speech channel with its
+Not ported: CD music through MCI, the `.hmp` MIDI path, and squadmate and commander speech with its
 `.SNC` portrait scripts. `HercWorks.Core` has `Data/File/Cfg/SoundCfg.cs`, a `SOUND.CFG` key holder
 with no reader.

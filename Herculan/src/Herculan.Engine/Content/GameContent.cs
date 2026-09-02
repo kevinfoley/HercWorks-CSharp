@@ -21,14 +21,16 @@ namespace Herculan.Engine.Content;
 public sealed class GameContent {
 	/// <summary>
 	/// The archives DBSIM needs for a terrain-and-one-mech scene: the main simulator archive, its
-	/// retail patch, the zone heightmaps and the effect sample bank.
+	/// retail patch, the zone heightmaps, the effect sample bank and the English voice archive.
 	///
-	/// <para>The voice archives are still left out. They are seven megabytes each and
-	/// <see cref="VolFileReader"/> holds both the whole file and a per-entry copy of every entry in
-	/// memory, so nothing should mount one until the speech channel needs it.</para>
+	/// <para>The two other voice archives are the same recordings in French and German —
+	/// <c>Voice_ArchiveName</c> (<c>0045ef68</c>) picks between them by patching the last character
+	/// of the literal <c>simvoice</c>, and all three carry the same <c>SIMVOICE</c> folder label
+	/// inside. Mounting more than one would therefore shadow rather than merge, so a language
+	/// selection means changing which name is in this list, not adding to it.</para>
 	/// </summary>
 	public static readonly string[] SimulatorArchives =
-		{ "SIMVOL0.VOL", "SIMPATCH.VOL", "ZONES.VOL", "SIMSOUND.VOL" };
+		{ "SIMVOL0.VOL", "SIMPATCH.VOL", "ZONES.VOL", "SIMSOUND.VOL", "SIMVOICE.VOL" };
 
 	private readonly Dictionary<string, VolEntry> _entries = new(StringComparer.OrdinalIgnoreCase);
 	private readonly List<Voln> _mounted = new();

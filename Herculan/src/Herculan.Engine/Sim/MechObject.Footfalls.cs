@@ -107,7 +107,13 @@ public sealed partial class MechObject {
 
 				// At the foot, not at the machine's origin — the original passes the leg node's own
 				// world position, so a walking HERC's steps pan with the leg that took them.
-				var foot = NodeTransform(node);
+				//
+				// It has to be the world one. The trigger test above reads the node in shape space,
+				// which is where the .DAT's thresholds are measured, but a shape-space point handed to
+				// Sound_PlayAt places the step near the world origin instead of near the machine —
+				// past foot2's 20480 cutoff from anywhere a mission actually happens, so the step is
+				// computed, found inaudible and dropped.
+				var foot = PartTransform(type.LegPartId(leg));
 				world.Sounds?.PlayAt(SoundId.Footfall, new Vec3i(foot.X, foot.Y, foot.Z));
 			}
 		}

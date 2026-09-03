@@ -37,6 +37,7 @@ bool initialLink = false;
 bool heldFire = false;
 bool acquireTarget = false;
 bool waitForEffectLight = false;
+bool silentAudio = false;
 
 // Ticks to let the sensor model run before --target takes its pick: nothing is targetable until a
 // sweep has painted it, and the sweep only runs from the world tick.
@@ -97,6 +98,11 @@ for (int i = 0; i < args.Length; i++) {
 		// screen all have nothing to show until something is selected. It switches the scanner on
 		// first, as [R] does, because a passive HERC can only see what it has eyes on.
 		acquireTarget = true;
+	} else if (args[i] == "--no-sound" || args[i] == "--silent") {
+		// Skip the output device entirely. Same effect as running on a machine with no sound card:
+		// the catalog, the director and the message port all still run, nothing is heard. For a
+		// --screenshot run, an automated run, or anywhere the noise is not what is being looked at.
+		silentAudio = true;
 	} else if (args[i] == "--external") {
 		// Power up in the external chase view, for the same reason as --mfd and --throttle: the
 		// player's own machine is the one thing the cockpit view never shows, so a --screenshot run
@@ -144,7 +150,7 @@ var terrain = scene.World.Terrain;
 // Audio comes up against the same mounted archives and shares the simulation's generator, because
 // the variation roll draws on it exactly as weapon scatter does. It never throws: a machine with no
 // device gets a working GameAudio that happens to be silent.
-var audio = GameAudio.Create(content, scene.World.Random);
+var audio = GameAudio.Create(content, scene.World.Random, silent: silentAudio);
 audio.Attach(scene.World);
 Console.WriteLine($"Audio: {audio.Status}");
 

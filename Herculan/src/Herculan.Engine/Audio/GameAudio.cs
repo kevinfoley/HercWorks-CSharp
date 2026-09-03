@@ -120,7 +120,12 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	/// The generator the variation roll draws on — pass the world's, as the original does.
 	/// </param>
 	/// <param name="lowMemory">Select the half-rate <c>hmx</c> sample bank.</param>
-	public static GameAudio Create(GameContent content, SimRandom? random = null, bool lowMemory = false) {
+	/// <param name="silent">
+	/// Skip the output device and run on <see cref="NullAudioBackend"/> even where one would open.
+	/// Everything above the device behaves as it does on a machine without one.
+	/// </param>
+	public static GameAudio Create(GameContent content, SimRandom? random = null, bool lowMemory = false,
+			bool silent = false) {
 		// Read first and unconditionally: the message port's display half needs nothing but the text,
 		// so the ticker still runs on a machine with no sound device and in an install with no
 		// SIMSOUND.VOL.
@@ -138,13 +143,15 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 				$"no {SoundCatalog.ResourceName} in the mounted archives — is {SoundBank.ArchiveName} mounted?");
 		}
 
-		var backend = (IAudioBackend?)OpenAlBackend.TryCreate() ?? new NullAudioBackend();
+		var backend = (silent ? null : (IAudioBackend?)OpenAlBackend.TryCreate()) ?? new NullAudioBackend();
 		var director = new SoundDirector(bank, backend, random);
 		var voice = new ComputerVoice(content, messages, backend);
 
 		string status = backend.IsAvailable
 			? $"OpenAL, {bank.Catalog.Count} catalog entries"
-			: $"no audio device; {bank.Catalog.Count} catalog entries loaded but silent";
+			: silent
+				? $"silenced by request; {bank.Catalog.Count} catalog entries loaded but not played"
+				: $"no audio device; {bank.Catalog.Count} catalog entries loaded but silent";
 
 		status += messages != null
 			? $", {messages.Count} computer messages"

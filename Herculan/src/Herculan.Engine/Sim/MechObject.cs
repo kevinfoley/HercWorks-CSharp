@@ -486,7 +486,7 @@ public sealed partial class MechObject : SimObject {
 	}
 
 	/// <summary>
-	/// The <c>[\]</c> "Center Body" command's own latch, from <c>Sim_ExecuteCommand</c>'s scancode
+	/// The <c>[\]</c> "Center Body" command's own latch, from <c>Sim_DispatchCommand</c>'s scancode
 	/// <c>0x2b</c> case (<c>0045fdac</c>) and the identical one in <c>Sim_PollPlayerInput</c>: it
 	/// takes the world direction the turret is pointing in, <c>heading - twist</c>, and everything
 	/// the mode does afterwards is measured against that one number.

@@ -6,6 +6,9 @@
     "project_es2_exe_recon memory file. Applied to the Ghidra project by",
     "ES2ApplySymbolNames.java (tools/ghidra_scripts/). Re-run that script after adding",
     "entries here -- it is idempotent.",
+    "One address, one entry: when a later finding revises an existing one, edit that entry in",
+    "place rather than appending a second. The apply script aborts on a duplicate.",
+    "",
     "",
     "Fields per entry:",
     "  address     - hex address, no '0x' prefix (e.g. '00411fc4')",
@@ -2150,8 +2153,8 @@
       "type": "function",
       "confidence": "high",
       "name": "World_LoadTheater",
-      "description": "World/theater setup, called by DBSim_LoadScriptDat with script.dat's 20-byte header as its argument (it copies the first 5 dwords to DAT_004cfd48). Builds the base name 'world<N>' via _itoa where N = DAT_004cfd48*2 + DAT_004cfd5a, i.e. header[0]*2 + header[18] -- five theaters, two variants each. Loads dpl\\world<N>.dpl (the per-theater palette, which is what the retail WORLD0.DPL..WORLD9.DPL family is), then reads wld\\world<N>.wld field-by-field, then 'shades' via 0042e760, then a width*height*256 table from world<N>.rmp into DAT_004a09b0 installed at 004a5b18 -- an 8-bit software renderer's colour-ramp/lighting LUT. Finishes with Terrain_BindTextureBank(the 4th of the descriptor's 5 trailing strings) and maybe_Ground_LoadFlatShapes. Descriptor layout now decoded and verified byte-exact against all ten retail .WLD files (see docs/formats/terrain-texturing.md); confidence raised from medium, but the ramp/LUT's own consumer is still untraced.",
-      "source": "docs/formats/terrain-texturing.md 2026-08-13 (world<N> descriptor decode)"
+      "description": "World/theater setup, called by DBSim_LoadScriptDat with script.dat's 20-byte header as its argument (it copies the first 5 dwords to DAT_004cfd48). Builds the base name 'world<N>' via _itoa where N = DAT_004cfd48*2 + DAT_004cfd5a, i.e. header[0]*2 + header[18] -- five theaters, two variants each. Loads dpl\\world<N>.dpl (the per-theater palette, which is what the retail WORLD0.DPL..WORLD9.DPL family is), then reads wld\\world<N>.wld field-by-field (descriptor layout decoded and verified byte-exact against all ten retail .WLD files), then 'shades' via 0042e760, then world<N>.rmp -- the 8-bit software renderer's colour-ramp/lighting LUT. .RMP layout, byte-verified against all 10 retail files (WORLD0-9.RMP, all exactly 98312 bytes): int32 width, int32 height, then width*height*256 raw bytes (every file: width=32, height=12, 8+32*12*256=98312). width/height are read via the same generic field-reader callback used for .wld fields; the body is read in one call into DAT_004a09b0 (FUN_004734ac(fileHandle, width*height*256, DAT_004a09b0)). Installs _DAT_004a5b18=rampTableBase and DAT_004a5b1c=DAT_004a5b20=width -- height is used locally for the allocation size and not retained in any global. TSSolidPoly_Render's ramp-offset formula ((DAT_004a5b1c-1)*shade & 0xffffff00, i.e. (width-1)*shade rounded down to a multiple of 256) confirms width=32 is the light-level-row COUNT with 256 bytes per row (one byte per dither-table output 0-255), so that path only ever reads the first 32*256=8192 bytes of the 98304-byte body; the other 11 height-slices are not consumed by it (purpose unknown, possibly a different render mode's ramp bank). Finishes with Terrain_BindTextureBank(the 4th of the descriptor's 5 trailing strings) and maybe_Ground_LoadFlatShapes.",
+      "source": "docs/formats/terrain-texturing.md; docs/formats/dts-texture-binding.md"
     },
     {
       "address": "004097a8",
@@ -2305,10 +2308,10 @@
       "address": "0045fb9c",
       "binary": "DBSIM",
       "type": "function",
-      "confidence": "medium",
+      "confidence": "high",
       "name": "maybe_Sim_RenderFrame",
-      "description": "The per-frame render function. Calls Terrain_SetupVisibleRegion(ActiveHeightGrid, view, 0), then maybe_Scene_SubmitFrameObjects, then conditionally a second terrain setup plus maybe_Terrain_ComputeViewDistance and 0042883c, then Player_PerFrameCockpitUpdate and several vtable-dispatched draws. Named 'maybe_' because the individual draw dispatches were not decoded; its role as the frame root is solid (it is the sole caller of both the terrain setup and the view setup).",
-      "source": "docs/formats/terrain-texturing.md 2026-08-13 (terrain texturing RE session, part 2)"
+      "description": "The per-frame render root. Order: Terrain_SetupVisibleRegion(ActiveHeightGrid, view, 0), then FUN_004327ac(CockpitViewInstance) (per-widget paint dispatch over the weapon-slot array and the chain/link/autotrack/shield/etc. sub-widgets), then maybe_Scene_SubmitFrameObjects (the 3D world), then conditionally a second terrain setup plus maybe_Terrain_ComputeViewDistance and 0042883c, then Player_PerFrameCockpitUpdate, then three more vtable paint dispatches on CockpitViewInstance sub-objects (+0x1f5, FUN_00433158's result, +0x20b). Widget paint therefore happens BEFORE the 3D scene submit each frame, not after -- though DBSIM's software-blit ordering need not constrain an OpenGL implementation that composites via alpha/depth instead. Named 'maybe_' because the individual draw dispatches were not decoded; its role as the frame root is solid (it is the sole caller of both the terrain setup and the view setup).",
+      "source": "docs/formats/terrain-texturing.md; docs/formats/cockpit-hud.md"
     },
     {
       "address": "00428bc0",
@@ -2758,15 +2761,6 @@
       "source": "flat-shaded lighting RE, 2026-08-14 follow-up"
     },
     {
-      "address": "0042e010",
-      "binary": "DBSIM",
-      "type": "function",
-      "confidence": "high",
-      "name": "World_LoadTheater",
-      "description": "SUPERSEDES the prior entry's 'ramp/LUT's own consumer is still untraced' note -- now fully closed. world<N>.rmp's real format, BYTE-VERIFIED against all 10 retail files (WORLD0-9.RMP, all exactly 98312 bytes): int32 width, int32 height, then width*height*256 raw bytes (all 10 files: width=32, height=12, 8+32*12*256=98312, exact match). The loader reads width/height via the same generic field-reader callback used for .wld fields, then reads the whole width*height*256 body in one call into DAT_004a09b0 (FUN_004734ac(fileHandle, width*height*256, DAT_004a09b0)). Installs _DAT_004a5b18=rampTableBase, DAT_004a5b1c=width, DAT_004a5b20=width (both set to width, not height -- 'height' i.e. 12 is read and used locally for the allocation size but not retained in any global this session found). Cross-referencing TSSolidPoly_Render's ramp-offset formula ((DAT_004a5b1c-1)*shade & 0xffffff00 -- i.e. (width-1)*shade rounded down to a multiple of 256) confirms 'width'=32 is the light-level-row COUNT and each row is 256 bytes (one byte per dither-table output 0-255), i.e. TSSolidPoly_Render only ever reads from the FIRST 32*256=8192-byte block of the file's 98304-byte body -- the other 11 height-slices are not consumed by this code path (unknown purpose, not chased -- possibly a different render mode's ramp bank, e.g. gouraud/texture-modulate).",
-      "source": "flat-shaded lighting RE, 2026-08-14 follow-up (real-file probe against E:\\ES2Stuff\\ES2\\VOL\\rmp\\WORLD*.RMP via GameContent), docs/formats/dts-texture-binding.md"
-    },
-    {
       "address": "004d4f88",
       "binary": "DBSIM",
       "type": "data",
@@ -3053,15 +3047,6 @@
       "name": "CockpitViewInstance",
       "description": "Singleton pointer to LocalPlayerMech's live cockpit/HUD view object (set once, guarded by == 0, in ColorSchemePanels_LoadAll/00431098). Directly embeds each GAU widget as a live sub-object at a fixed struct offset matching GAUFile.cs's own documented field order: a 10-slot weapon-button array at +0x1c (matches GAU's 10 weapon hardpoint slots), then single widgets at +0x1e1/+0x1e5/+0x1e9/+0x1ed/+0x1f1/+0x1f5/+0x1f9/+0x20b (chain/link/autotrack/energy-meter-family offsets), each paint-dispatched via its own vtable call. Read throughout the cockpit/HUD call graph (Player_PerFrameCockpitUpdate, maybe_Sim_RenderFrame, Gau_BuildCockpitWidgets, Gau_RovingGunsightWidget, Hud_UpdateWaypointIndicator, ~90 more sites) but never seen holding the HB0/HB2 background bitmap itself -- that field, and the exact function that blits the cockpit background art and composites the live 3D view into it, were not pinned to a specific offset/address this session (see docs/formats/cockpit-hud.md's open items). NOT the same object as maybe_MechInspectViewInstance (DAT_004d2544), a separate, much smaller (0x37-byte) object built by Sim_InitMissionSession right after this singleton is already in use.",
       "source": "docs/formats/cockpit-hud.md 2026-08-15 (Milestone 8 Phase 0)"
-    },
-    {
-      "address": "0045fb9c",
-      "binary": "DBSIM",
-      "type": "function",
-      "confidence": "high",
-      "name": "maybe_Sim_RenderFrame",
-      "description": "Confirmed per-frame ordering relevant to cockpit/HUD compositing (Milestone 8 Phase 0): Terrain_SetupVisibleRegion, then FUN_004327ac(CockpitViewInstance) (per-widget paint dispatch over the weapon-slot array and chain/link/autotrack/shield/etc. sub-widgets), then maybe_Scene_SubmitFrameObjects (the 3D world), then Player_PerFrameCockpitUpdate, then three more vtable paint dispatches on CockpitViewInstance sub-objects (+0x1f5, FUN_00433158's result, +0x20b). Widget paint therefore happens BEFORE the 3D scene submit each frame, not after -- relevant to how Phase 2/3's Overlay2DRenderer should order its own draw calls relative to SceneRenderer, though DBSIM's own software-blit ordering doesn't have to constrain an OpenGL implementation that composites via alpha/depth instead.",
-      "source": "docs/formats/cockpit-hud.md 2026-08-15 (Milestone 8 Phase 0); confidence/name unchanged from docs/formats/terrain-texturing.md 2026-08-13"
     },
     {
       "address": "00429660",
@@ -4994,9 +4979,9 @@
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "Sim_ExecuteCommand",
-      "description": "Keyboard command dispatch, switched on scancode. Called both from the key queue and directly by Sim_PollPlayerInput (which passes 0x14 for one of the MFD cases). Case 0x0e/0x14 latch g_CenterTurretMode and clear g_CenterBodyMode; case 0x2b does the reverse and caches g_CenterBodyTargetHeading. Both also clear the auto-turret-tracking flag at mech+0x202 -> +0x14.",
-      "source": "docs/simulation/mech-locomotion.md 2026-08-23"
+      "name": "Sim_DispatchCommand",
+      "description": "The simulator's command dispatcher: every queued command code passes through here, and Sim_PollPlayerInput also calls it directly (passing 0x14 for one of the MFD cases). Offers the code to the cockpit widget tree (CockpitWidgets_HandleCommand), then to FUN_0045fd60, then its own switch, and finally to the player mech's vtable +0x2c. Codes are PC set-1 scancodes with 0x200 added for Alt -- 0x26 is L, 0x29 is backquote, 0x11/0x211 are W and Alt+W, 0x02-0x0b and 0x202-0x20b the two number-key banks. Case 0x0e/0x14 latch g_CenterTurretMode and clear g_CenterBodyMode; case 0x2b does the reverse and caches g_CenterBodyTargetHeading. Both also clear the auto-turret-tracking flag at mech+0x202 -> +0x14.",
+      "source": "docs/simulation/mech-locomotion.md; docs/simulation/weapon-mounts.md; docs/formats/cockpit-input.md"
     },
     {
       "address": "00415498",
@@ -5425,15 +5410,6 @@
       "name": "WeaponChargeBar_Ctor",
       "description": "The energy weapon row's LED bar widget. Drops the value field's top edge by one GAU unit, builds an LEDBarGraph over range 0x400, and then, when the byte it is handed is zero (as it is in every retail .GAU, where it lands in confirmed-zero padding), overwrites its three colour fields with raw palette indices 0x20 (even columns), 0x22 (odd) and 0x2e (remainder) -- not COLORS.DAT ids, which is why a capacitor bar is blue where the Master Energy Pool's meter is grey.",
       "source": "docs/simulation/weapon-mounts.md 2026-08-23"
-    },
-    {
-      "address": "0045fdac",
-      "binary": "DBSIM",
-      "type": "function",
-      "confidence": "high",
-      "name": "Sim_DispatchCommand",
-      "description": "The simulator's command dispatcher: every queued command code passes through here. Offers the code to the cockpit widget tree (CockpitWidgets_HandleCommand), then to FUN_0045fd60, then its own switch, and finally to the player mech's vtable +0x2c. Codes are PC set-1 scancodes with 0x200 added for Alt -- 0x26 is L, 0x29 is backquote, 0x11/0x211 are W and Alt+W, 0x02-0x0b and 0x202-0x20b the two number-key banks.",
-      "source": "docs/simulation/weapon-mounts.md; docs/formats/cockpit-input.md 2026-08-24"
     },
     {
       "address": "004157c8",

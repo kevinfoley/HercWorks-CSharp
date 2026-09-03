@@ -15,6 +15,8 @@ import ghidra.program.model.symbol.SourceType;
 import ghidra.program.model.symbol.Symbol;
 import ghidra.program.model.symbol.SymbolTable;
 import java.io.FileReader;
+import java.util.HashSet;
+import java.util.Set;
 
 // args[0] = path to known_symbols.json (see that file's _readme for the schema).
 //
@@ -64,6 +66,25 @@ public class ES2ApplySymbolNames extends GhidraScript {
         Listing listing = currentProgram.getListing();
 
         int renamed = 0, signatured = 0, labeled = 0, commented = 0, skippedOtherBinary = 0, skippedNoTarget = 0, errors = 0;
+
+        // One address, one entry. Two entries sharing an address make the plate comment depend on
+        // file order (the later one wins outright), and if their names differ the run can never
+        // reach a fixed point -- every pass renames the target twice, so renamed never falls to 0.
+        Set<String> seenAddresses = new HashSet<>();
+        int duplicates = 0;
+        for (JsonElement el : entries) {
+            JsonObject entry = el.getAsJsonObject();
+            String key = entry.get("binary").getAsString().toUpperCase() + ":"
+                + entry.get("address").getAsString().toLowerCase();
+            if (!seenAddresses.add(key)) {
+                println("ERROR: duplicate entry for " + key + " -- merge them into one.");
+                duplicates++;
+            }
+        }
+        if (duplicates > 0) {
+            println("ES2ApplySymbolNames: aborting, " + duplicates + " duplicate address(es) in " + jsonPath);
+            return;
+        }
 
         for (JsonElement el : entries) {
             JsonObject entry = el.getAsJsonObject();

@@ -12,7 +12,7 @@ a turn rate, and an animation playback rate.
 | Address | Name | Role |
 |---|---|---|
 | `00460764` | `Sim_PollPlayerInput` | Reads device axes, dispatches player control |
-| `0045fdac` | `Sim_ExecuteCommand` | Keyboard command dispatch, by scancode |
+| `0045fdac` | `Sim_DispatchCommand` | Keyboard command dispatch, by scancode |
 | `00415498` | `Mech_GetSpeed` | Mech vtable `+0x38`: `Q10(2000, mech+0x28e)`, or `mech+0x2bd` for a flyer |
 | `004160dc` | `Mech_ApplyThrottleInput` | Stick/key throttle → `mech+0x290`, computes desired speed |
 | `00416a04` | `Mech_LocomotionTick` | Control law: speed, turn rate, animation rate, gait state machine |
@@ -164,7 +164,7 @@ death and maintaining `mech+0x2a0`. In steady state `animRate = speed`.
 ## Center Body
 
 The manual's other half of [Backspace]: instead of bringing the turret back to the legs, it walks the
-legs round under the turret. Scancode `0x2b` (`Sim_ExecuteCommand`, `0045fdac`, and the identical case
+legs round under the turret. Scancode `0x2b` (`Sim_DispatchCommand`, `0045fdac`, and the identical case
 in `Sim_PollPlayerInput`) latches `g_CenterBodyMode` (`004d2af4`), clears `g_CenterTurretMode` and the
 ATT flag, and caches
 

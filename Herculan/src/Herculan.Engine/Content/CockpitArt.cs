@@ -74,9 +74,14 @@ public sealed class CockpitArt {
 	/// The sprite banks this milestone draws, all from <c>hba\</c> — see <see cref="HudSpriteSheet"/>
 	/// for why the <c>hba</c> half and not <c>dba</c>, and <see cref="Sprites"/> for which widget each
 	/// one serves.
+	///
+	/// <para><c>ICONS</c> is loaded here rather than where it is used, unlike the original: its own
+	/// gadget constructor (<c>HddMarker_Ctor</c>) loads it lazily the first time a map marker
+	/// is built. Ninety frames of nine-frame rotation groups, and the only consumer is the command
+	/// display's map — see <see cref="HddMap"/>.</para>
 	/// </summary>
 	public static readonly string[] HudBankNames =
-		{ "HUD", "HUDHTICK", "MFD", "RADAR", "THROTTLE", "WPN_DMG", "PWEAPONS", "HDD", "BASES", "VEHICLES" };
+		{ "HUD", "HUDHTICK", "MFD", "RADAR", "THROTTLE", "WPN_DMG", "PWEAPONS", "HDD", "BASES", "VEHICLES", "ICONS" };
 
 	/// <summary>
 	/// Banks the game ships only at 320-wide, loaded through

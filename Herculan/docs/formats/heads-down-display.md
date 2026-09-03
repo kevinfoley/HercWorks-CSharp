@@ -9,7 +9,8 @@ Surrounding cockpit, canopy art and the pan itself: [`cockpit-hud.md`](cockpit-h
 Closest precedent for the widget vocabulary: [`mfd.md`](mfd.md).
 
 Engine implementation: `Herculan.Engine.Content.{HddLayout, HddPage, HddDamageView}`,
-`Herculan.Engine.Render.Overlay2DRenderer.AddHeadsDown`.
+`Herculan.Engine.Render.Overlay2DRenderer.AddHeadsDown`. The command display's own types are listed
+in its section below.
 
 How a click on one of the widgets below reaches its own click handler:
 [`cockpit-input.md`](cockpit-input.md).
@@ -204,40 +205,201 @@ Logical ids through `dat\COLORS.DAT` (see [`cockpit-hud.md`](cockpit-hud.md)).
 
 ## Command display — page 0
 
-`HddCommandScreen_Ctor` (`0044c264`).
+`HddCommandScreen_Ctor` (`0044c264`), repainted by `HddCommandScreen_Repaint` (`0044c894`) and
+updated by `FUN_0044c960`, its vtable's slot 1. Translation unit fields are quoted off the screen
+object, not the display.
+
+| Symbol | Address | Role |
+|---|---|---|
+| `HddCommandScreen_Ctor` | `0044c264` | Builds the map target, 140 marker gadgets, nine label rows and the two click regions. |
+| `HddCommandScreen_Repaint` | `0044c894` | Screen flood, order rows, selected-row bar, magnifiers, markers, map. |
+| `HddCommandScreen_KeyDispatch` | `0044cc40` | Vtable slot 4; switches on the DOS scancode. |
+| `HddCommandScreen_DrawMap` | `0044e30c` | Everything inside the viewport, in the order listed below. |
+| `HddMap_DrawTerrain` | `004502e4` | Blits the raster between two projected corners. |
+| `HddMap_BuildTerrainRaster` | `0044f6cc` | Builds that raster once per mission. |
+| `HddCommandScreen_AddObjectMarker` | `0044e080` | One object's icon, colour and size. |
+| `HddMarker_Paint` | `0044f194` | One marker gadget. |
+| `HddCommandScreen_SelectOrder` | `0044d9cc` | Arms an order, or clears it. |
+| `HddCommandScreen_SelectPilot` | `0044da70` | Moves the comm-box selection. |
+| `HddCommandScreen_HitTestMarker` | `0044d860` | Screen point to object. |
+
+Engine implementation: `Herculan.Engine.Content.{HddMap, HddMapView, HddMapBounds, HddMapMarker,
+HddCommandScreen, HddCommandState}`, `Herculan.Engine.Render.{HddMapRaster,
+Overlay2DRenderer.DrawHddMap}`.
+
+### The map's frame of reference
+
+**The mission box is `script.dat` block 1's bounding box.** `DBSim_LoadScriptDat` (`00424308`)
+accumulates it into `DAT_004aa6c4`..`d0` (min x, min y, max x, max y) as it reads the coordinate
+list, before any roster block. Everything the map does is measured against it:
+
+- the screen copies it into its own `+0x160` rect and draws it as the manual's red mission border;
+- the pan clamp is that box grown by 60000 world units on every edge;
+- the terrain raster covers the grown box;
+- the full zoom-out scale fits it.
 
 **Map viewport**: the screen rect inset `4 << XCoordShift` on x and `2 << YCoordShift` on y, with its
 right edge taken from the *order column's* left edge minus the same x inset. Backed by a `0x239`-byte
 offscreen render target — the same object the MFD's nav map uses — centred at
-`-(width >> 1), -(height >> 1)`. Zoom scale fits the whole zone; the step is
-`(scale - 60000) / 25`, floored at 5000.
+`-(width >> 1), -(height >> 1)`.
 
-**Markers**: 140 icon gadgets allocated up front. `HddCommandScreen_BuildMapMarkers` (`0044ded8`)
-fills them per frame — up to 9 waypoints from the player's route (icons `0x4e`+), one per object in
-the three global object lists, then the player (icon `0x57`) — and releases the rest.
+**Projection.** `FUN_0044d160` installs a view projection carrying three numbers only: the centre x
+and y (`+0x18`/`+0x1c`) and the scale (`+0x20`). Points go through `Raster_PerspectiveDivide` against
+a focal length of `1 << DAT_0049d6bc` = 256, so
+
+```
+screen = (world - centre) * 256 / scale        // y negated: world +y is up the map
+```
+
+and `scale` is world units per pixel in 8.8 fixed point. `FUN_0044d224` then adds the viewport's own
+origin and half-extent.
+
+| Quantity | Value | Source |
+|---|---|---|
+| Full zoom-out scale | `min((maxX-minX)/2 / halfWidth, (maxY-minY)/2 / halfHeight) << 8` | ctor |
+| Closest scale | 60000, i.e. 234 units/pixel | `FUN_0044cf9c`'s floor |
+| Zoom step | `max((full - 60000) / 25, 5000)` | ctor |
+| Pan step | `(((scale - 60000) >> 8) * 45000 / (full - 60000) << 8) + 5000` | `FUN_0044eea0` |
+
+`min`, not `max`, on the fit: the tighter axis fills the viewport and the other crops. The centre is
+the player's own position plus the pan offset, re-clamped every repaint so the viewport's edge never
+leaves the grown box.
+
+### Terrain raster
+
+`HddMap_BuildTerrainRaster` (`0044f6cc`) runs once per mission, not per frame. It walks the active
+height grid, turns each cell's raw height into a palette index, and Gouraud-shades two triangles per
+cell into an offscreen 8-bit bitmap; `HddMap_DrawTerrain` (`004502e4`) then blits that bitmap between
+two projected corners on every repaint, which is why panning and zooming cost nothing.
+
+```
+palette = min(rawHeight, 0x7f) / 8 + 16
+```
+
+Sixteen entries, 16-31 — the theater-owned half of the ramp, so the map re-colours with the theater
+exactly as the terrain does. The bitmap is sized `cells * scale` where `scale` is the largest integer
+fitting the grown box's cell span inside 640x400.
+
+The cell array is `ActiveHeightGrid + 0xec`, stride `0x10`, height in byte 0; the grid's dimensions
+come from `+0x100`/`+0x104` (log2) and its cell size from `+0x108`.
+
+### Grid and border
+
+`HddCommandScreen_DrawMap` (`0044e30c`) projects the world origin and the point 3,200,000 units out
+on both axes, divides the resulting pixel span by 16, and walks lines out from the origin in both
+directions until they leave the viewport. A grid square is therefore **200,000 world units — 1200
+metres**. Lines are colour id 11.
+
+The border is the mission box drawn through fill brush mode 4, which `Raster_FillRect` (`004865f8`)
+answers by walking the rect's four edges as lines rather than filling it — a one-pixel frame, in id 9
+(palette 10, red).
+
+### Markers
+
+140 icon gadgets allocated up front. `HddCommandScreen_BuildMapMarkers` (`0044ded8`) refills them per
+frame — the player's route first, then one per object in the three global object lists, then one more
+whose position comes from `FUN_0043495c` — and releases the rest.
+
+Route markers take icons `0x4e`+ and start at the route's **second** point: the loop bound is
+`count - 1` capped at 9 and it indexes `route[i + 1]`.
+
+`HddCommandScreen_AddObjectMarker` (`0044e080`) picks the icon from the object's target class
+(`+0x1a8`) and its group's side byte (`type+0x12`, 1 for cybrid):
+
+| Class | Friendly | Hostile | Size | Rotates | Ranged |
+|---|---|---|---|---|---|
+| 0 HERC, the player | `0x2a` | — | 10 | yes | no |
+| 0 HERC, squad slot *n* | `0x33 + n*9` | — | 10 | yes | no |
+| 0 HERC, other | `0x21` | `0x18` | 10 | yes | no |
+| 2 flyer | 6 | `0xf` | 10 | yes | no |
+| 1/3 structure, `BASES.DAT +0x32` set | `0x58` | `0x59` | 6 | no | yes |
+| 1/3 structure, `+0x28` in the listed set | 3 | 5 | 14 | no | yes |
+| 1/3 structure, otherwise | 2 | 4 | 18 | no | yes |
+
+The listed silhouettes are 1, 2, 6, 7, 10, 11, 15, 19, 20, 21, 22, 23, 24, 26 and 28. Sizes are the
+argument to `FUN_0044f634`, which becomes the gadget's extent and, halved, the offset the icon is
+drawn back by so it lands on the object.
+
+**Rotation.** `HddMarker_Paint` (`0044f194`) buckets the object's heading into eight octants — a
+heading within `0x1000` of zero is octant 0, and every other counts down from 7 in `0x2000` steps —
+then adds `DAT_0049d67c[octant]` to the group's base frame and nudges the blit by
+`DAT_004d1d54[octant]` and `DAT_004d1d5c[octant]` device pixels:
+
+| Octant | 0 N | 7 NE | 6 E | 5 SE | 4 S | 3 SW | 2 W | 1 NW |
+|---|---|---|---|---|---|---|---|---|
+| Frame offset | 4 | 3 | 7 | 2 | 6 | 1 | 5 | 0 |
+| Nudge x, y | 0, -8 | -4, -4 | -8, 0 | -4, 0 | 0, 0 | 0, 0 | 0, 0 | 0, -4 |
+
+The frame sizes confirm it: in every nine-frame group, offsets 4 and 6 are the tall pair, 5 and 7 the
+wide pair, and 0-3 the four square diagonals. A destroyed object (`+0x99`) takes the base frame with
+no nudge.
+
+**Range falloff.** A ranged marker computes an apparent size from its distance to the map centre,
+measured in three dimensions with the zoom standing in for height:
+
+```
+apparent = 25000 << 7 / |(x - centreX, y - centreY, -scale)|
+```
+
+and draws a box of that size in its own colour — id 5 blue friendly, id 9 red hostile — whenever the
+icon it would otherwise blit is taller. `25000 << 7 / 16` puts the crossover at 200,000 world units
+out, the same 1200 m one grid square covers.
+
+`hba\ICONS.HBA` is 90 frames: two singles, four structure icons, then eight nine-frame rotation
+groups from frame 6, then ten 16x13 route markers at 78-87 and two 8x5 ticks. It is loaded lazily by
+`HddMarker_Ctor` (`0044f130`) rather than with the rest of the display's art.
+
+### The order list and its state machine
 
 **Order rows**: the column's height divided by 9. Row 0 is the incoming-message label
 (`ColorSchemePanels[2]`, background id 14); rows 1-8 are the orders, each 14 device pixels tall, left
 aligned with a bare `5`-pixel margin (unshifted, unlike the MFD's FLASH COMM rows). A 2px-wide
-vertical bar at the column's left edge marks the selected row in id 15.
+vertical bar at the column's left edge marks the selected row in id 15, three device pixels down from
+the row's top, and `HddCommandScreen_DrawOrderHighlight` (`0044dd4c`) blits the 116x18 plate — frame
+2 available, frame 4 not — at the row label's own text position.
 
 **Order text** is `STRINGS0.STR` group 0 entries 10-17, and each entry's single attribute byte is the
 index of its hotkey character within its own text:
 
-| Entry | Text | Attr | Hotkey |
-|---|---|---|---|
-| 10 | `DISENGAGE` | 0 | D |
-| 11 | `ATTACK ENEMY` | 0 | A |
-| 12 | `DEFEND POSITION` | 2 | F |
-| 13 | `PATROL GRIDPOINT` | 2 | T |
-| 14 | `GOTO GRIDPOINT` | 0 | G |
-| 15 | `JOIN ON ME` | 5 | O |
-| 16 | `SCAN FOR HOSTILES` | 1 | C |
-| 17 | `EMCON` | 0 | E |
+| Entry | Text | Attr | Hotkey | Scancode | Wants |
+|---|---|---|---|---|---|
+| 10 | `DISENGAGE` | 0 | D | `0x20` | — |
+| 11 | `ATTACK ENEMY` | 0 | A | `0x1e` | a hostile unit |
+| 12 | `DEFEND POSITION` | 2 | F | `0x21` | a friendly unit or a gridpoint |
+| 13 | `PATROL GRIDPOINT` | 2 | T | `0x14` | a gridpoint |
+| 14 | `GOTO GRIDPOINT` | 0 | G | `0x22` | a gridpoint |
+| 15 | `JOIN ON ME` | 5 | O | `0x18` | — |
+| 16 | `SCAN FOR HOSTILES` | 1 | C | `0x2e` | — |
+| 17 | `EMCON` | 0 | E | `0x12` | — |
 
 All eight match the manual's key bindings. `HddCommandScreen_RefreshOrders` (`0044ddec`) fonts an
 available order `ColorSchemePanels[1]` `CPGREEN` with the hotkey character in `[2]` `CPRED`, an
-unavailable one wholly in `[0]` `CPBLUE`, and the selected one in `[3]` `CPYLW`.
+unavailable one wholly in `[0]` `CPBLUE`, and the selected one in `[3]` `CPYLW` with no hotkey
+alternate at all.
+
+**Availability is one bit.** The screen keeps eight bytes at `+0x131`, and the only two functions
+that write them set all eight: `FUN_0044edd8` to 1 when a pilot is selected and `FUN_0044edfc` to 0
+when none is. So the list is either wholly live or wholly blue.
+
+**The message row** is `STRINGS0.STR` group 32 — `SELECT PILOT`, `SELECT COMMAND`,
+`DESIGNATE LOCATION`, `DESIGNATE TARGET` — chosen by `FUN_0044dc44` from the same two facts: whether
+a pilot is selected, and which of the two picks the armed order wants.
+
+**The rest of the keyboard**, from the same scancode dispatch:
+
+| Key | Scancode | Effect |
+|---|---|---|
+| `,` `.` | `0x33` `0x34` | Previous / next order, wrapping; both return at once with no order armed |
+| Tab | `0x0f` | Cycles the eligible unit for ATTACK ENEMY or DEFEND POSITION |
+| Enter | `0x1c` | Drops the map cursor on the armed order's pick |
+| X | `0x2d` | Presses XMIT |
+| Backspace | `0x0e` | Presses CANCEL |
+| Keypad 5 | `0x4c` | Zeroes both pan offsets |
+
+The magnifiers and the four arrows are widget presses rather than keys: `FUN_0044a178`'s cases 2-7
+route them to the four pan functions and the two zoom functions on page 0 and to the damage screen's
+own subject and category steps on page 1. XMIT plays `Sound_Play(0x1a)` when the transmission
+resolves to a recipient and `0x1b` when it does not.
 
 ## Damage detail — page 1
 
@@ -315,18 +477,43 @@ rect's own position minus the block origin. Same layout as the `.HD*`/`.ED*` fil
 ## Engine coverage
 
 Drawn: page buttons with lit state, the four arrows and two magnifiers, the title indicator, page
-titles, the screen and map-viewport floods, the eight orders with their hotkey characters,
-XMIT/CANCEL, the three comm boxes in their unoccupied-slot fill, the paper doll per category, and 13
-component rows — structural and internal from the string table, weapons from the player's own fitted
-hardpoints, each reading the undamaged `100` its value column is sized around.
+titles, the screen flood, the paper doll per category, and 13 component rows — structural and internal
+from the string table, weapons from the player's own fitted hardpoints, each reading the undamaged
+`100` its value column is sized around.
 
-Not drawn: the map's terrain raster and its 140 markers, pilot video and static, order availability
-and selection, per-component damage percentages and their colours, comm-box name/status/objective
-labels. All need squad, targeting or damage state the sim does not carry.
+Everything the command display draws is drawn: the terrain raster, the grid, the mission border,
+every marker with its heading frame and its range falloff, the route waypoints, the order list with
+its availability, selection, hotkey characters and highlight plate, the message row, XMIT and CANCEL,
+and the three comm boxes with their names, conditions and objectives. Zoom, pan, recentring, pilot
+selection and target designation are all wired to both the widgets and the keys. Three of those
+labels are fed by stand-in state, below.
 
-`Herculan.Engine.Host` takes `--hdd [0|1]` and `--hdd-damage [0-2]`, since a `--screenshot` run never
-sees a keystroke. `[S]`/`[I]`/`[W]` are gated on the damage page being down: two of the three collide
-with this host's camera keys.
+Not drawn: pilot video and its static — the `pilot<n>` and `static` banks ship 320-wide only (see
+Open) and a squadmate has nothing to say until there is squad AI — and per-component damage
+percentages and their colours on page 1.
+
+**Stand-ins.** Three things read state the simulation does not carry yet, and none of them is the
+original's behaviour:
+
+- **A comm box's name** is the machine's own type name. The original stores a pointer per gauge,
+  filled from the pilot roster in the player's save, which VSHELL owns and this engine does not read.
+- **Its OBJECTIVE: line** is the last order transmitted to that slot. The original reads the
+  machine's current AI state (`FUN_0041bac8`) and indexes group 40 with it, which is what the pilot is
+  *doing* rather than what they were last told.
+- **A transmitted order** is recorded against the slot and nothing else. There is no squad AI to
+  receive it.
+
+The map raster is built as one texel per grid cell and sampled bilinearly rather than Gouraud-shaded
+into an intermediate bitmap. The colour rule is the original's exactly; what is dropped is the round
+trip through a software rasterizer's scratch buffer.
+
+`Herculan.Engine.Host` takes `--hdd [0|1]`, `--hdd-damage [0-2]`, `--hdd-pilot [0-2]` and
+`--hdd-order [0-7]`, since a `--screenshot` run never sees a keystroke — and the order list only
+leaves its unavailable blue once a pilot is selected. Key bindings that collide with the host's own
+are gated on the relevant page being down: `[S]`/`[I]`/`[W]` on the damage page, the order hotkeys and
+`[1]`-`[3]` on the command display. The one binding actually taken away rather than shared is the four
+arrow keys, which scroll the map instead of steering while the command display is down; the keypad
+keeps steering throughout.
 
 ## Open
 
@@ -336,4 +523,9 @@ with this host's camera keys.
 - Block indices 2-3 (1220) and `0x5d` (1584) are read by no constructor.
 - The comm-box highlight mode's 0 branch, which fills the box rect rather than the marker, is
   unexercised by retail data.
-- The map's own rasterizer and marker icon set.
+- The extra marker `HddCommandScreen_BuildMapMarkers` appends after the object lists takes icon
+  `0x57`, one past the nine route icons, and its position comes from `FUN_0043495c` —
+  `CockpitViewInstance + 0x25e` when the flag at `+0x26a` is set. What sets that flag is not traced.
+- `ICONS.HBA` frames 0-1, and the ninth frame of every rotation group, are addressed by nothing in
+  the display — the eight octants use offsets 0-7 and a destroyed object takes offset 0. The
+  briefing map is the likely consumer of the first pair.

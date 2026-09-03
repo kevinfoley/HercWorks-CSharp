@@ -1,4 +1,4 @@
-using System.Buffers.Binary;
+﻿using System.Buffers.Binary;
 using HercWorks.Core.Data.File.Dyn;
 using HercWorks.Core.Data.Struct;
 
@@ -80,6 +80,14 @@ public sealed class HudColorTable {
 	/// is the player; a squadmate gets the pilot's own colour and a target gets id 15 instead.
 	/// </summary>
 	public const int HeadsDownSubjectPlateId = 6;
+
+	/// <summary>
+	/// The colour a squad comm box paints its pilot's name on, and the same colour that pilot's own
+	/// map marker and order link take: <c>HddGauge_LoadPilotFrames</c> indexes this table by the slot
+	/// number itself, so the id is the slot. See "Squad comm boxes" in
+	/// docs/formats/heads-down-display.md.
+	/// </summary>
+	public static int PilotColorId(int slot) => slot;
 
 	private readonly int[] _entries;
 

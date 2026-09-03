@@ -421,7 +421,7 @@ Load path: `ResourcePath_BuildFolderName(name, folder)` → `Resource_Load` (`00
 | `hdd`, `static`, `hddclip`, `pilotN` | `HddDisplay_Ctor` (`00448cc8`), `HddGauge_LoadPilotFrames` (`0044a7c0`) | heads-down display — see [`heads-down-display.md`](heads-down-display.md) |
 | `pweapons`, `wpn_dmg` | `WeaponGauge_Ctor` (`0044080c`) | weapon hardpoint plates |
 | `throttle` | `ThrottleGauge_Ctor` (`00447b84`) | throttle slider knob |
-| `sysbuttn`, `icons`, `corners` | `maybe_SysButtonPair_Ctor` (`00434368`), `maybe_IconGadget_Ctor` (`0044f130`), `maybe_CockpitFontsAndCorners_Init` (`004544a4`) | |
+| `sysbuttn`, `icons`, `corners` | `maybe_SysButtonPair_Ctor` (`00434368`), `HddMarker_Ctor` (`0044f130`), `maybe_CockpitFontsAndCorners_Init` (`004544a4`) | |
 
 Widget class names from the same string table: `HUDPipper`, `HUDCrosshairGunsight`,
 `HUDRovingGunsight`, `HUDLockingGunsight`, `MFDRadar`, `MFDStatus`, `MFDMissileView`, `MFDFlashComm`,

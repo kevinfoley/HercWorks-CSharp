@@ -38,6 +38,8 @@ bool heldFire = false;
 bool acquireTarget = false;
 bool waitForEffectLight = false;
 bool silentAudio = false;
+int initialHddPilot = -1;
+HddOrder? initialHddOrder = null;
 
 // Ticks to let the sensor model run before --target takes its pick: nothing is targetable until a
 // sweep has painted it, and the sweep only runs from the world tick.
@@ -113,6 +115,18 @@ for (int i = 0; i < args.Length; i++) {
 		// Which component category the damage screen powers up listing. [S], [I] and [W] switch it
 		// live; this is the same reason --mfd and --hdd exist.
 		initialHddDamageView = (HddDamageView)damageIndex;
+	} else if (args[i] == "--hdd-pilot" && i + 1 < args.Length
+			&& int.TryParse(args[++i], out int pilotSlot)
+			&& pilotSlot >= 0 && pilotSlot < HddLayout.PilotSlotCount) {
+		// Which comm box the command display powers up with selected, and which order it powers up
+		// armed. [1]-[3] and the order hotkeys do both live; these exist for the same reason
+		// --hdd-damage does, and because the order list only leaves its unavailable blue once a pilot
+		// is selected — a screenshot run has no other way to reach that.
+		initialHddPilot = pilotSlot;
+	} else if (args[i] == "--hdd-order" && i + 1 < args.Length
+			&& int.TryParse(args[++i], out int orderIndex)
+			&& orderIndex >= 0 && orderIndex < HddLayout.OrderCount) {
+		initialHddOrder = (HddOrder)orderIndex;
 	} else {
 		positional.Add(args[i]);
 	}
@@ -263,6 +277,58 @@ if (cockpitArt?.HeadsDown != null) {
 	Console.WriteLine("No .HB1 for this herc — the Heads-Down Display is unavailable.");
 }
 
+// The Heads-Down Display's command display: the map camera, the mission's terrain raster, and the
+// three squad comm boxes. All three are per-mission, so they are built once here.
+//
+// The squad is the player.mec entries other than the player's own — the same three machines the
+// original keeps in DAT_004d044c, in file order, which is the order the comm boxes are numbered in.
+HddCommandScreen? hddCommand = null;
+if (cockpitArt?.HeadsDownLayout is { } commandLayout && scene.World is { } commandWorld) {
+	var mapBounds = HddMapBounds.Of(scene.Mission.Coordinates);
+	var mapViewport = commandLayout.MapViewport;
+	var squad = scene.Objects
+		.Where(o => o.Placement.IsPlayerLance && !ReferenceEquals(o.Object, scene.PlayerObject?.Object))
+		.Select(o => o.Object)
+		.Take(HddLayout.PilotSlotCount)
+		.ToList();
+
+	hddCommand = new HddCommandScreen(
+		new HddMapView(mapBounds, mapViewport.Width, mapViewport.Height),
+		HddMapRaster.Build(commandWorld.Terrain, mapBounds, cockpitArt.PaletteEntry),
+		squad);
+
+	if (initialHddPilot >= 0) {
+		hddCommand.SelectPilot(initialHddPilot);
+	}
+
+	if (initialHddOrder is { } startOrder) {
+		hddCommand.SelectOrder(startOrder);
+	}
+
+	Console.WriteLine($"Command display map: mission box {mapBounds.MinX},{mapBounds.MinY} - "
+		+ $"{mapBounds.MaxX},{mapBounds.MaxY}, {hddCommand.View.FullScale >> HddMapView.ScaleShift} "
+		+ $"world units per pixel zoomed out, {squad.Count} squadmate(s) on the comm boxes.");
+}
+
+// Edge state for the command display's keyboard — see the block that reads them.
+//
+// The order hotkeys are the manual's own, and they are not a table in the code: each STRINGS0 group
+// 0 entry carries the index of its hotkey character within its own text, and the screen's scancode
+// dispatch maps that character to the order. Listed here in order-list order.
+Key[] HddCommandKeys = { Key.D, Key.A, Key.F, Key.T, Key.G, Key.O, Key.C, Key.E };
+Key[] HddPilotKeys = { Key.Number1, Key.Number2, Key.Number3 };
+bool[] hddOrderKeysDown = new bool[HddCommandKeys.Length];
+bool[] hddPilotKeysDown = new bool[HddPilotKeys.Length];
+bool hddPreviousOrderKeyDown = false;
+bool hddNextOrderKeyDown = false;
+bool hddZoomInKeyDown = false;
+bool hddZoomOutKeyDown = false;
+bool hddZoomInPadKeyDown = false;
+bool hddZoomOutPadKeyDown = false;
+bool hddRecentreKeyDown = false;
+bool hddTransmitKeyDown = false;
+bool hddCancelKeyDown = false;
+
 // The cockpit readouts' live values. The hardpoint names come from the shell weapon catalog keyed by
 // player.mec's own hardpoint ids; speed, throttle, turret, the shield numbers and the energy bar are
 // taken off the piloted machine each frame. What is left sits at the power-up defaults in
@@ -410,6 +476,11 @@ Console.WriteLine("F1-F6 switch the MFD screen: STATUS, FLASH COMM, NAV MAP, SCA
 Console.WriteLine("F7/F8 pan down to the Heads-Down Display's command and damage screens; "
 	+ "F1-F6 pan back up.");
 Console.WriteLine("On the damage screen, S/I/W switch between structural, internal and weapon systems.");
+Console.WriteLine("On the command display, 1-3 pick a squadmate, D/A/F/T/G/O/C/E pick an order "
+	+ "(, and . step through them), X transmits and Backspace cancels.");
+Console.WriteLine("Its map: + and - or the two magnifiers zoom, the arrows scroll it (the keypad "
+	+ "keeps steering while it is down), keypad 5 re-centres it on your machine, and clicking a "
+	+ "squadmate's marker selects that pilot.");
 Console.WriteLine("1-0 arm a weapon row (left-click the row does the same), W and Alt+W step through "
 	+ "the firing chain, Alt+1-0 or a right-click add and remove a row from it.");
 Console.WriteLine("L or the LINK button links the armed weapon to its opposite hardpoint, when that "
@@ -429,6 +500,7 @@ GpuTexture? cockpitFrontTexture = null;
 GpuTexture? cockpitSideTexture = null;
 GpuTexture? cockpitHeadsDownTexture = null;
 GpuTexture? hudSpriteTexture = null;
+GpuTexture? hddMapTexture = null;
 var modelMeshes = new Dictionary<string, GpuMesh>();
 var modelTextures = new Dictionary<string, GpuTexture>();
 
@@ -515,6 +587,13 @@ window.Load += (gl, input) => {
 
 		if (cockpitArt.Sprites is { } hudSprites) {
 			hudSpriteTexture = new GpuTexture(gl, hudSprites.Atlas);
+		}
+
+		// One texel per height-grid cell, sampled bilinearly — see HddMapRaster for why linear here
+		// is fidelity rather than a softening of the original.
+		if (hddCommand?.Raster is { } mapRaster) {
+			hddMapTexture = new GpuTexture(gl, mapRaster.Pixels, mapRaster.Width, mapRaster.Height,
+				linear: true);
 		}
 	}
 
@@ -801,13 +880,26 @@ window.Update += deltaSeconds => {
 		// up. It latches on the keypress, and [Backspace] cancels it.
 		// A held key is worth MechControls.KeyboardAxis, half a stick's travel — DBSIM's own keyboard
 		// scale, and the difference between turning at the machine's rate and at twice it.
+		//
+		// While the command display is down the four arrows scroll its map instead of steering, which
+		// is what the manual binds them to there. The keypad keeps steering throughout, so the machine
+		// is never left without a stick; the same split leaves [Backspace] cancelling a transmission
+		// rather than re-centring the turret. This is the one place the two keyboards are separated
+		// rather than allowed to overlap, because scrolling the map and turning the machine with the
+		// same press is the one overlap that would fight the player.
+		bool mapHasArrows = hddCommand != null && cockpitPan.AtHeadsDown
+			&& hudState.Hdd == HddPage.CommandDisplay;
 		pilotMech.Controls = new MechControls(
-			(short)(Axis(controls, Key.Right, Key.Left, Key.Keypad6, Key.Keypad4) * MechControls.KeyboardAxis),
-			(short)(Axis(controls, Key.Down, Key.Up, Key.Keypad2, Key.Keypad8) * MechControls.KeyboardAxis),
+			(short)((mapHasArrows
+				? Axis(controls, Key.Keypad6, Key.Keypad4)
+				: Axis(controls, Key.Right, Key.Left, Key.Keypad6, Key.Keypad4)) * MechControls.KeyboardAxis),
+			(short)((mapHasArrows
+				? Axis(controls, Key.Keypad2, Key.Keypad8)
+				: Axis(controls, Key.Down, Key.Up, Key.Keypad2, Key.Keypad8)) * MechControls.KeyboardAxis),
 			ThrottleLever: 0,
 			TorsoTwist: TurretAxis(Axis(controls, Key.K, Key.J), heldTwist),
 			TorsoPitch: TurretAxis(Axis(controls, Key.I, Key.M), heldPitch),
-			CenterTorso: controls.IsKeyPressed(Key.Backspace),
+			CenterTorso: !mapHasArrows && controls.IsKeyPressed(Key.Backspace),
 			CenterBody: controls.IsKeyPressed(Key.BackSlash),
 			// [Space] is held, not pressed — see MechControls.Fire. Holding it keeps the armed weapon
 			// firing as fast as its refire delay and its capacitor allow.
@@ -840,6 +932,81 @@ window.Update += deltaSeconds => {
 			hudState = hudState with { Hdd = HddPage.DamageDetail };
 			cockpitPan.Request(headsDown: true);
 		}
+	}
+
+	// The command display's own keyboard, from the manual's COMMAND DISPLAY table and the screen's
+	// own key dispatch (0044cc40, which switches on scancodes and matches that table exactly). Gated
+	// on the screen actually being down, the same way [S]/[I]/[W] are gated on the damage screen:
+	// most of these letters are also cockpit or camera bindings in this host, and in the original
+	// they mean nothing anywhere else either.
+	//
+	// Everything here fires on the key's own edge. The original's dispatch is a keydown handler, and
+	// a held order key that re-armed the same order every frame would clear the map pick that had
+	// just been made for it.
+	if (controls != null && hddCommand is { } command
+		&& cockpitPan.AtHeadsDown && hudState.Hdd == HddPage.CommandDisplay) {
+		for (int i = 0; i < HddCommandKeys.Length; i++) {
+			if (Edge(HddCommandKeys[i], ref hddOrderKeysDown[i])) {
+				command.SelectOrder((HddOrder)i);
+			}
+		}
+
+		// [,] and [.] walk the list without the pointer, and only once an order is already armed —
+		// both functions return immediately otherwise.
+		if (Edge(Key.Comma, ref hddPreviousOrderKeyDown)) {
+			command.StepOrder(-1);
+		}
+		if (Edge(Key.Period, ref hddNextOrderKeyDown)) {
+			command.StepOrder(1);
+		}
+
+		// [1]-[3] pick the pilot, left to right, which is what the number under each comm box says.
+		for (int slot = 0; slot < HddPilotKeys.Length; slot++) {
+			if (Edge(HddPilotKeys[slot], ref hddPilotKeysDown[slot])) {
+				command.SelectPilot(slot == command.SelectedPilot ? -1 : slot);
+			}
+		}
+
+		// [+] and [-], the two magnifiers.
+		if (Edge(Key.Equal, ref hddZoomInKeyDown) || Edge(Key.KeypadAdd, ref hddZoomInPadKeyDown)) {
+			command.View.ZoomIn();
+		}
+		if (Edge(Key.Minus, ref hddZoomOutKeyDown) || Edge(Key.KeypadSubtract, ref hddZoomOutPadKeyDown)) {
+			command.View.ZoomOut();
+		}
+
+		// The arrows scroll the map, held rather than edged: the four pan functions are written to be
+		// called repeatedly and clamp themselves against the mission box. Keypad [5] drops the scroll
+		// and puts the map back on the machine.
+		command.View.Pan(
+			(controls.IsKeyPressed(Key.Right) ? 1 : 0) - (controls.IsKeyPressed(Key.Left) ? 1 : 0),
+			(controls.IsKeyPressed(Key.Up) ? 1 : 0) - (controls.IsKeyPressed(Key.Down) ? 1 : 0));
+		if (Edge(Key.Keypad5, ref hddRecentreKeyDown)) {
+			command.View.Recentre();
+		}
+
+		// [X] transmits and [Backspace] cancels. The transmit's two blips are the radar-mode tone
+		// pair, which HddCommandScreen_KeyDispatch reuses as accepted and rejected — see docs/formats/audio.md.
+		if (Edge(Key.X, ref hddTransmitKeyDown)) {
+			audio.Director?.Play(command.Transmit() ? SoundId.ScannerActive : SoundId.ScannerPassive);
+		}
+		if (Edge(Key.Backspace, ref hddCancelKeyDown)) {
+			command.Cancel();
+		}
+
+		bool Edge(Key key, ref bool held) {
+			bool down = controls.IsKeyPressed(key);
+			bool edge = down && !held;
+			held = down;
+			return edge;
+		}
+	} else {
+		Array.Clear(hddOrderKeysDown);
+		Array.Clear(hddPilotKeysDown);
+		hddPreviousOrderKeyDown = hddNextOrderKeyDown = false;
+		hddZoomInKeyDown = hddZoomOutKeyDown = false;
+		hddZoomInPadKeyDown = hddZoomOutPadKeyDown = false;
+		hddRecentreKeyDown = hddTransmitKeyDown = hddCancelKeyDown = false;
 	}
 
 	// The damage detail's three component categories, on the manual's own [S]/[I]/[W] bindings — the
@@ -890,6 +1057,7 @@ window.Update += deltaSeconds => {
 		playerTargeting.PushToPilot();
 	}
 
+	hddCommand?.Update(TimeSpan.FromSeconds(deltaSeconds));
 	cockpitPan.Advance(deltaSeconds);
 
 	// Clamping the accumulator stops a long stall (a breakpoint, a window drag) from turning into
@@ -1019,6 +1187,13 @@ window.Update += deltaSeconds => {
 
 			// The message port has already run for this frame inside audio.Update, above.
 			Message = audio.Messages.Ticker,
+
+			// The command display, rebuilt every frame whether or not it is the page showing: its map
+			// follows the machine, so the camera has to keep up even while the damage screen is up.
+			Command = hddCommand is { } commandScreen
+				? commandScreen.Build(pilotMech, scene.World?.Objects ?? Array.Empty<SimObject>(),
+					scene.Mission.PlayerRoute, cockpitArt.Strings)
+				: hudState.Command,
 		};
 	}
 };
@@ -1145,6 +1320,7 @@ window.Closing += () => {
 	cockpitSideTexture?.Dispose();
 	cockpitHeadsDownTexture?.Dispose();
 	hudSpriteTexture?.Dispose();
+	hddMapTexture?.Dispose();
 	foreach (var disposable in disposables) {
 		disposable.Dispose();
 	}
@@ -1191,7 +1367,7 @@ void DrawThreePanelCockpitView(GL gl, int totalWidth, int totalHeight) {
 		overlay!.DrawHeadsDown(headsDown.Viewport.X, headsDown.Viewport.Y,
 			headsDown.Viewport.Width, headsDown.Viewport.Height,
 			cockpitHeadsDownTexture, headsDown.ArtWidth, headsDown.ArtHeight,
-			cockpitArt, hudSpriteTexture, hudState);
+			cockpitArt, hudSpriteTexture, hudState, hddMapTexture);
 	}
 
 	// GL's viewport origin is bottom-left, so a positive y offset moves a panel up the screen — which
@@ -1321,6 +1497,27 @@ void ApplyCockpitClick(CockpitClick click) {
 			ApplyHddClick(click.Id.AsHddWidget!.Value);
 			break;
 
+		// Clicking an order arms it, which is the same thing its hotkey does — FUN_0044d428 walks the
+		// eight label rects and calls the same FUN_0044d9cc the key dispatch does. Clicking the one
+		// already armed presses XMIT for you, which is that function's own shortcut.
+		case CockpitWidgetKind.HddOrderRow when hddCommand != null:
+			var picked = click.Id.AsHddOrder!.Value;
+			if (hddCommand.SelectedOrder == picked && !hddCommand.AwaitingPick) {
+				audio.Director?.Play(hddCommand.Transmit()
+					? SoundId.ScannerActive : SoundId.ScannerPassive);
+			} else {
+				hddCommand.SelectOrder(picked);
+			}
+
+			break;
+
+		// And a click in the map: a pick for an armed order, or the pilot selection the manual's
+		// "select the pilot's marker on the map" describes.
+		case CockpitWidgetKind.HddMapArea when hddCommand != null && cockpitArt?.HeadsDownLayout is { } mapArea:
+			hddCommand.ClickMap(click.ArtX - mapArea.MapViewport.X0, click.ArtY - mapArea.MapViewport.Y0,
+				scene.World?.Objects ?? Array.Empty<SimObject>());
+			break;
+
 		// A weapon row: the left button arms it, the right button adds or removes it from the current
 		// fire chain. Both are the row gadget's one click handler (FUN_00440ef0 / FUN_004414b4)
 		// branching on the mouse-button bit its GetValue slot returns.
@@ -1411,7 +1608,6 @@ void ApplyHddClick(HddLayout.Widget widget) {
 
 		// On the damage screen the up and down arrows step the component category, which is the same
 		// three [S]/[I]/[W] select. They wrap, so the pair walks the list either way without dead ends.
-		// On the command display the same two arrows scroll the map, which has no rasterizer yet.
 		case HddLayout.Widget.ArrowUp or HddLayout.Widget.ArrowDown
 			when hudState.Hdd == HddPage.DamageDetail:
 			const int views = 3;
@@ -1419,6 +1615,50 @@ void ApplyHddClick(HddLayout.Widget widget) {
 			hudState = hudState with {
 				HddDamage = (HddDamageView)(((int)hudState.HddDamage + step) % views),
 			};
+			break;
+
+		// On the command display all four arrows scroll the map instead, and the two magnifiers zoom
+		// it — FUN_0044a178's cases 2-7, which is one switch over the widget index for both pages.
+		case HddLayout.Widget.ArrowUp when hddCommand != null:
+			hddCommand.View.Pan(0, 1);
+			break;
+
+		case HddLayout.Widget.ArrowDown when hddCommand != null:
+			hddCommand.View.Pan(0, -1);
+			break;
+
+		case HddLayout.Widget.ArrowLeft when hddCommand != null && hudState.Hdd == HddPage.CommandDisplay:
+			hddCommand.View.Pan(-1, 0);
+			break;
+
+		case HddLayout.Widget.ArrowRight when hddCommand != null && hudState.Hdd == HddPage.CommandDisplay:
+			hddCommand.View.Pan(1, 0);
+			break;
+
+		case HddLayout.Widget.ZoomIn when hddCommand != null:
+			hddCommand.View.ZoomIn();
+			break;
+
+		case HddLayout.Widget.ZoomOut when hddCommand != null:
+			hddCommand.View.ZoomOut();
+			break;
+
+		// A comm box selects its pilot, and selecting the one already selected drops it. Selecting a
+		// pilot from the damage screen also switches back to the command display, which is what the
+		// original's case 10-12 does before it selects.
+		case HddLayout.Widget.PilotBox0 or HddLayout.Widget.PilotBox1 or HddLayout.Widget.PilotBox2
+			when hddCommand != null:
+			int slot = widget - HddLayout.Widget.PilotBox0;
+			hudState = hudState with { Hdd = HddPage.CommandDisplay };
+			hddCommand.SelectPilot(slot == hddCommand.SelectedPilot ? -1 : slot);
+			break;
+
+		case HddLayout.Widget.Transmit when hddCommand != null:
+			audio.Director?.Play(hddCommand.Transmit() ? SoundId.ScannerActive : SoundId.ScannerPassive);
+			break;
+
+		case HddLayout.Widget.Cancel when hddCommand != null:
+			hddCommand.Cancel();
 			break;
 	}
 }

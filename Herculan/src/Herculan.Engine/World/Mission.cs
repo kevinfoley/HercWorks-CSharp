@@ -102,12 +102,15 @@ public sealed record MissionBasePad(Vec3i Anchor, BaseFormationLayout Layout);
 /// </summary>
 public sealed class Mission {
 	public Mission(string sourcePath, ScriptDatHeader header, IReadOnlyList<MissionPlacement> placements,
-			MissionPlacement? player, IReadOnlyList<MissionBasePad> basePads) {
+			MissionPlacement? player, IReadOnlyList<MissionBasePad> basePads,
+			IReadOnlyList<Vec3i> coordinates, IReadOnlyList<Vec3i> playerRoute) {
 		SourcePath = sourcePath;
 		Header = header;
 		Placements = placements;
 		Player = player;
 		BasePads = basePads;
+		Coordinates = coordinates;
+		PlayerRoute = playerRoute;
 	}
 
 	/// <summary>Where the <c>script.dat</c> was read from.</summary>
@@ -127,6 +130,21 @@ public sealed class Mission {
 
 	/// <summary>Every patch of ground a base group repaints, in group order.</summary>
 	public IReadOnlyList<MissionBasePad> BasePads { get; }
+
+	/// <summary>
+	/// <c>script.dat</c> block 1 in file order — every point the mission names, which is what its
+	/// spawn points, waypoints and route legs all reference. Kept whole because the block's
+	/// <i>extent</i> is a fact in its own right: <c>DBSim_LoadScriptDat</c> accumulates the bounding
+	/// box as it reads and the Heads-Down Display's map is framed by it end to end. See
+	/// <see cref="Herculan.Engine.Content.HddMapBounds"/>.
+	/// </summary>
+	public IReadOnlyList<Vec3i> Coordinates { get; }
+
+	/// <summary>
+	/// The route the player's own squad group carries, as block-1 points. The command display draws
+	/// its first nine legs past the start as numbered waypoint markers.
+	/// </summary>
+	public IReadOnlyList<Vec3i> PlayerRoute { get; }
 
 	/// <summary>How many placed objects of one kind the mission has.</summary>
 	public int CountOf(MissionUnitKind kind) => Placements.Count(p => p.Kind == kind);

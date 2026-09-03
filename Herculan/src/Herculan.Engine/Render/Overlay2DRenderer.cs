@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using HercWorks.Core.Data.File.Gau;
 using HercWorks.Core.Data.Struct;
 using Herculan.Engine.Content;
@@ -144,9 +144,14 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// alone. Everything drawn comes from <see cref="CockpitArt.HeadsDownLayout"/>, which is the
 	/// herc's own <c>.GAU</c> block rather than a hardcoded layout — see <see cref="HddLayout"/>.
 	/// </param>
+	/// <param name="mapTexture">
+	/// The command display's terrain raster (<see cref="HddMapRaster"/>), or null to leave the map
+	/// viewport empty. Built once per mission, exactly as the original builds its own bitmap.
+	/// </param>
 	public void DrawHeadsDown(int viewportX, int viewportY, int viewportWidth, int viewportHeight,
 			GpuTexture texture, int textureWidth, int textureHeight,
-			CockpitArt? hud = null, GpuTexture? spriteTexture = null, CockpitHudState? hudState = null) {
+			CockpitArt? hud = null, GpuTexture? spriteTexture = null, CockpitHudState? hudState = null,
+			GpuTexture? mapTexture = null) {
 		_gl.Viewport(viewportX, viewportY, (uint)Math.Max(viewportWidth, 1), (uint)Math.Max(viewportHeight, 1));
 		_gl.Disable(EnableCap.DepthTest);
 		_gl.Enable(EnableCap.Blend);
@@ -192,6 +197,18 @@ public sealed class Overlay2DRenderer : IDisposable {
 			}
 		}
 
+		// The map goes down last, and inside a scissor: it is a window onto a raster far larger than
+		// itself, which is what the original's offscreen render target gives it for free, and
+		// everything in the window — raster, grid, border, markers — is clipped by the same rect.
+		// Last is also the display's own order: HddDisplay_Repaint paints the widgets and then hands
+		// over to the current page.
+		if (hud?.HeadsDownLayout is { } mapLayout && hud.Sprites is { } mapSprites && spriteTexture != null
+			&& (hudState ?? CockpitHudState.Default) is { Hdd: HddPage.CommandDisplay } mapState
+			&& mapState.Command.View is { } view) {
+			DrawHddMap(hud, mapLayout, mapSprites, spriteTexture, mapTexture, mapState, view,
+				scale, quadX0, viewportX, viewportY, viewportHeight);
+		}
+
 		_gl.Disable(EnableCap.Blend);
 		_gl.Enable(EnableCap.DepthTest);
 	}
@@ -212,18 +229,18 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// else.</item>
 	/// </list>
 	///
-	/// <para><b>Layout and text, not state.</b> The tactical map's terrain and its 140 unit markers,
-	/// the pilots' video and the static that replaces it when their comms are out, which orders the
-	/// selected squadmate can currently take, and real per-component damage percentages all need
-	/// simulation state the engine does not carry — so the map viewport draws its flood, the comm
-	/// boxes draw the empty-slot fill the original uses for a slot no squadmate occupies, every order
-	/// draws available, and each component reads the undamaged 100 its own value column is sized
-	/// around.</para>
+	/// <para><b>What is not drawn.</b> The pilots' video and the static that replaces it when their
+	/// comms are out, and real per-component damage on the damage screen, whose rows each read the
+	/// undamaged 100 their value column is sized around. The command display is drawn by
+	/// <see cref="AddHddCommandDisplay"/> and <see cref="DrawHddMap"/>. Coverage and what it stands
+	/// in for: "Engine coverage" in docs/formats/heads-down-display.md.</para>
 	///
 	/// <para>The page's content goes down before the widgets rather than after, which is the reverse
 	/// of the display's own paint loop. That loop can afford the other order because a page only
 	/// floods its screen on a full repaint; here every frame is a full repaint, and XMIT and CANCEL
-	/// sit inside the screen rect, so painting the page last would erase them.</para>
+	/// sit inside the screen rect, so painting the page last would erase them. The command display's
+	/// map is the exception and is drawn after all of this by <see cref="DrawHddMap"/>: it owns a
+	/// region nothing else reaches into, and it needs a scissor of its own.</para>
 	/// </summary>
 	private void AddHeadsDown(CockpitArt hud, HddLayout layout, HudSpriteSheet sprites,
 			float scale, float quadX0, CockpitHudState state) {
@@ -285,7 +302,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 		}
 
 		if (state.Hdd == HddPage.CommandDisplay) {
-			AddHddCommandDisplay(layout, strings, background, Fill, DrawLabel);
+			AddHddCommandDisplay(hud, layout, sprites, strings, state, background, Blit, Fill, DrawLabel);
 		} else {
 			AddHddDamageDetail(hud, layout, sprites, strings, state.HddDamage, state, Blit, Fill, DrawLabel);
 		}
@@ -295,7 +312,12 @@ public sealed class Overlay2DRenderer : IDisposable {
 		// sprite of its own — the title box, the dead slot — is still clickable in the original's flat
 		// list, so CockpitWidgets reports it and only this loop skips it.
 		foreach (var clickable in CockpitWidgets.VisibleHddWidgets(hud, state)) {
-			var widget = clickable.Id.AsHddWidget!.Value;
+			// The order rows and the map region come back from the same enumeration so click and paint
+			// agree on where they are, but they are not sprite-backed widgets and are drawn elsewhere.
+			if (clickable.Id.AsHddWidget is not { } widget) {
+				continue;
+			}
+
 			int i = clickable.Id.Index;
 			if (layout.UnlitFrame(widget) is not { } unlit) {
 				continue;
@@ -321,12 +343,64 @@ public sealed class Overlay2DRenderer : IDisposable {
 			}
 		}
 
-		// A comm box with nobody in it: the display's own paint floods the box inset one device pixel
-		// on every edge with colour id 19 and draws no labels. With no squad state every slot is that
-		// slot — the retail screenshot's third box, beside the two carrying video.
+		// The three squad comm boxes, which belong to the display and not to either page — they are
+		// drawn on the damage screen too. An occupied slot gets HddGauge_PaintIdle's flood and five
+		// labels; an empty one gets the display's own fill of the box inset one device pixel, and no
+		// labels at all.
 		if (background is { } boxFill) {
+			var pilots = state.Command.PilotBoxes;
 			for (int i = 0; i < HddLayout.PilotSlotCount; i++) {
-				Fill(layout[HddLayout.Widget.PilotBox0 + i].Inset(1, 1), boxFill);
+				var box = layout[HddLayout.Widget.PilotBox0 + i];
+				Fill(box.Inset(1, 1), boxFill);
+
+				if (i >= pilots.Count || !pilots[i].Occupied) {
+					continue;
+				}
+
+				var pilot = pilots[i];
+				var nameBox = new HddLayout.Rect(box.X0 + 4, box.Y0 + 8, box.X1 - 4, box.Y0 + 8 + PilotLabelHeight);
+				if (hud.LogicalColor(HudColorTable.PilotColorId(i)) is { } nameFill) {
+					Fill(nameBox, nameFill);
+				}
+
+				DrawLabel(HddLayout.PilotNameFont, string.Empty, pilot.Name, -1, nameBox, centered: true);
+
+				PilotLine(box, 32, HddLayout.PilotCaptionFont,
+					strings?.Text(HddLayout.PilotCaptionGroup, 0));
+				PilotLine(box, 48, HddLayout.PilotNameFont,
+					strings?.Text(MfdLayout.ConditionGroup, pilot.ConditionIndex));
+				PilotLine(box, 64, HddLayout.PilotCaptionFont,
+					strings?.Text(HddLayout.PilotCaptionGroup, 1));
+				PilotLine(box, 80, HddLayout.PilotNameFont,
+					strings?.Text(HddLayout.PilotOrderGroup, pilot.OrderIndex));
+
+				// The slot number, bottom-left of the box on colour id 15 — what the manual tells the
+				// player to press to select this pilot.
+				var slotBox = new HddLayout.Rect(box.X0, box.Y1 - 20, box.X0 + 20, box.Y1);
+				if (hud.HeadsDownColors?.Indicator is { } slotFill) {
+					Fill(slotBox, slotFill);
+				}
+
+				DrawLabel(HddLayout.PilotNameFont, string.Empty, (i + 1).ToString(), -1, slotBox, centered: true);
+			}
+
+			// The marker beside the selected box, which is what the herc's own highlight mode 1 fills
+			// rather than filling the box itself. The previously selected one goes back to id 13.
+			for (int i = 0; i < HddLayout.PilotSlotCount && i < layout.PilotMarkers.Count; i++) {
+				int colorId = i == state.Command.SelectedPilot
+					? HddLayout.PilotMarkerSelectedColorId
+					: HddLayout.PilotMarkerColorId;
+				if (hud.LogicalColor(colorId) is { } markerColor) {
+					Fill(layout.PilotMarkers[i], markerColor);
+				}
+			}
+		}
+
+		void PilotLine(HddLayout.Rect box, int offsetY, string font, string? text) {
+			if (text is { Length: > 0 }) {
+				DrawLabel(font, string.Empty, text, -1,
+					new HddLayout.Rect(box.X0, box.Y0 + offsetY, box.X1, box.Y0 + offsetY + PilotLabelHeight),
+					centered: true);
 			}
 		}
 
@@ -355,17 +429,31 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// POSITION highlights its F and SCAN FOR HOSTILES its C — the manual's own key bindings, stored
 	/// beside the strings rather than in the code. The row refresh (<c>FUN_0044ddec</c>) draws an
 	/// available order in <c>CPGREEN</c> with the hotkey in <c>CPRED</c>, an unavailable one wholly in
-	/// <c>CPBLUE</c>, and the selected one in <c>CPYLW</c>; availability and selection are squad state,
-	/// so every row draws available here.</para>
+	/// <c>CPBLUE</c>, and the selected one in <c>CPYLW</c> over the 116x18 plate from the display's own
+	/// sprite bank. Availability is one bit for the whole list: selecting a pilot sets all eight bytes
+	/// and deselecting clears them, so the list greys out entirely until there is somebody to send
+	/// to.</para>
 	///
-	/// <para>The map viewport gets the flood its own render target sits on and nothing more. What
-	/// belongs in it is a live overhead terrain raster plus up to 140 unit markers — the same
-	/// rasterizer the MFD's NAV MAP is waiting on.</para>
+	/// <para>The map itself is drawn separately and last, under a scissor — see
+	/// <see cref="DrawHddMap"/>. What this leaves behind it is the flood its render target sits on.</para>
 	/// </summary>
-	private static void AddHddCommandDisplay(HddLayout layout, SimStringTable? strings,
-			Vector3? background, Action<HddLayout.Rect, Vector3> fill, HddLabelWriter drawLabel) {
+	private void AddHddCommandDisplay(CockpitArt hud, HddLayout layout, HudSpriteSheet sprites,
+			SimStringTable? strings, CockpitHudState state, Vector3? background,
+			Action<string, int, float, float> blit, Action<HddLayout.Rect, Vector3> fill,
+			HddLabelWriter drawLabel) {
 		if (background is { } mapFill) {
 			fill(layout.MapViewport, mapFill);
+		}
+
+		var command = state.Command;
+
+		// Row 0 of the nine is the incoming-message row: a centred label on its own colour id 14
+		// plate, which the screen writes its "select a pilot" / "select a unit" prompts into.
+		var messageRow = layout.OrderRow(0);
+		if (hud.LogicalColor(HddLayout.MessageRowColorId) is { } messageFill
+			&& command.Message is { Length: > 0 } message) {
+			fill(messageRow, messageFill);
+			drawLabel(HddLayout.PilotNameFont, string.Empty, message, -1, messageRow, true, 0f);
 		}
 
 		var orders = strings?.Group(HddLayout.OrderGroup);
@@ -379,12 +467,33 @@ public sealed class Overlay2DRenderer : IDisposable {
 				continue;
 			}
 
-			int hotkey = orders[entry].Attributes is { Length: > 0 } attributes ? attributes[0] : -1;
+			var row = layout.OrderRow(i + 1);
+			bool available = command.OrdersAvailable;
+			bool selected = command.SelectedOrder == (HddOrder)i;
 
-			// Row 0 of the nine is the incoming-message row, which is blank outside a transmission —
-			// the orders start at row 1.
-			drawLabel(HddLayout.OrderFont, HddLayout.OrderHotkeyFont, text, hotkey,
-				layout.OrderRow(i + 1), false, HddLayout.OrderTextMargin);
+			// The selected row gets the plate behind its text and a two-pixel bar at the column's own
+			// left edge, three device pixels down from the row's top.
+			if (selected) {
+				blit(HddLayout.Bank,
+					available ? HddLayout.OrderHighlightFrame : HddLayout.OrderHighlightUnavailableFrame,
+					row.X0, row.Y0);
+
+				if (hud.LogicalColor(HddLayout.SelectedOrderBarColorId) is { } barColor) {
+					fill(new HddLayout.Rect(layout.OrderColumn.X0 + 1, row.Y0 + 3,
+						layout.OrderColumn.X0 + 1 + HddLayout.SelectedOrderBarWidth, row.Y1), barColor);
+				}
+			}
+
+			// The hotkey character is only drawn in the alternate font while the order can actually be
+			// taken: the refresh passes the alternate through only on that branch.
+			int hotkey = available && !selected && orders[entry].Attributes is { Length: > 0 } attributes
+				? attributes[0]
+				: -1;
+			string font = selected ? HddLayout.OrderSelectedFont
+				: available ? HddLayout.OrderFont
+				: HddLayout.OrderUnavailableFont;
+
+			drawLabel(font, HddLayout.OrderHotkeyFont, text, hotkey, row, false, HddLayout.OrderTextMargin);
 		}
 	}
 
@@ -457,6 +566,200 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// the text, that character's index (-1 for none), the device-pixel rect it sits in, whether it
 	/// centres horizontally, and how far its text is indented from the anchoring edge.
 	/// </summary>
+	/// <summary>
+	/// The command display's map, in the order <c>FUN_0044e30c</c> draws it: the terrain raster, the
+	/// 1200-metre grid, the mission border, then every marker.
+	///
+	/// <para>The whole thing is clipped by a GL scissor set to the map viewport. That is the direct
+	/// analogue of the original's arrangement, which renders into a <c>0x239</c>-byte offscreen target
+	/// sized to the viewport and blits the result — the raster covers the entire mission box, so
+	/// without the clip a zoomed-in map would paint over the order column and the console around
+	/// it.</para>
+	/// </summary>
+	private void DrawHddMap(CockpitArt hud, HddLayout layout, HudSpriteSheet sprites,
+			GpuTexture spriteTexture, GpuTexture? mapTexture, CockpitHudState state, HddMapView view,
+			float scale, float quadX0, int viewportX, int viewportY, int viewportHeight) {
+		var region = layout.MapViewport;
+		float Dx(float x) => quadX0 + x * scale;
+		float Dy(float y) => y * scale;
+
+		// Scissor coordinates are framebuffer pixels with the origin at the bottom-left, which is the
+		// frame the viewport was set in; the overlay's own pixel space runs the other way down.
+		float left = Dx(region.X0);
+		float right = Dx(region.X1 + 1);
+		float top = Dy(region.Y0);
+		float bottom = Dy(region.Y1 + 1);
+		int scissorX = viewportX + (int)MathF.Floor(left);
+		int scissorY = viewportY + (int)MathF.Floor(viewportHeight - bottom);
+		int scissorW = Math.Max((int)MathF.Ceiling(right - left), 0);
+		int scissorH = Math.Max((int)MathF.Ceiling(bottom - top), 0);
+		if (scissorW == 0 || scissorH == 0) {
+			return;
+		}
+
+		_gl.Enable(EnableCap.ScissorTest);
+		_gl.Scissor(scissorX, scissorY, (uint)scissorW, (uint)scissorH);
+
+		// Viewport-local device pixels, which is the space HddMapView projects into.
+		float Mx(float x) => Dx(region.X0 + x);
+		float My(float y) => Dy(region.Y0 + y);
+		float Px(int worldX) => Mx(view.ToScreenX(worldX));
+		float Py(int worldY) => My(view.ToScreenY(worldY));
+
+		if (mapTexture != null && state.Command.Raster is { } raster) {
+			_vertices.Clear();
+			AddTexturedQuad(Px(raster.WorldX0), Py(raster.WorldY1), Px(raster.WorldX1), Py(raster.WorldY0),
+				0f, 0f, 1f, 1f);
+			_shader.SetSamplerTexture("uTexture", mapTexture.Handle, 0);
+			_mesh.SubmitAndDraw(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_vertices));
+		}
+
+		_vertices.Clear();
+
+		// The grid: lines every HddMap.GridPitch world units either side of the world origin, walked
+		// out from it until they leave the viewport. The original steps in projected pixels and
+		// divides by sixteen; stepping in world units and projecting each line is the same set of
+		// lines without the accumulated rounding.
+		if (hud.LogicalColor(HddMap.GridColorId) is { } gridColor) {
+			int halfX = view.HalfWorldWidth + HddMap.GridPitch;
+			int halfY = view.HalfWorldHeight + HddMap.GridPitch;
+			for (int worldX = FloorToPitch(view.CentreX - halfX);
+					worldX <= view.CentreX + halfX; worldX += HddMap.GridPitch) {
+				float x = Px(worldX);
+				AddFilledRect(x, My(0), x + 1f, My(region.Height), gridColor);
+			}
+
+			for (int worldY = FloorToPitch(view.CentreY - halfY);
+					worldY <= view.CentreY + halfY; worldY += HddMap.GridPitch) {
+				float y = Py(worldY);
+				AddFilledRect(Mx(0), y, Mx(region.Width), y + 1f, gridColor);
+			}
+		}
+
+		// The mission border: the block-1 bounding box the screen keeps in its own +0x160 rect, drawn
+		// through the brush mode Raster_FillRect answers by walking the four edges as lines rather
+		// than by filling the interior.
+		var bounds = view.Bounds;
+		if (!bounds.IsEmpty && hud.LogicalColor(HddMap.BorderColorId) is { } borderColor) {
+			AddRectOutline(Px(bounds.MinX), Py(bounds.MaxY), Px(bounds.MaxX), Py(bounds.MinY),
+				1f, borderColor);
+		}
+
+		var markers = state.Command.Plotted;
+		for (int i = 0; i < markers.Count; i++) {
+			// The selected pilot's marker blinks on the display's own half-second toggle, which is
+			// what tells the player which of the three they are talking to when the comm boxes are
+			// off the bottom of their attention. The original blinks the wrong gadget — see
+			// Herculan/KNOWN_ISSUES.md.
+			if (!state.Command.Blink && markers[i].PilotSlot == state.Command.SelectedPilot
+				&& state.Command.SelectedPilot >= 0) {
+				continue;
+			}
+
+			AddHddMarker(hud, sprites, markers[i], view, Px, Py, selected: i == state.Command.ChosenUnit);
+		}
+
+		// The link the manual describes: a line from the selected pilot to whatever the armed order
+		// has been pointed at, in that pilot's own colour.
+		int slot = state.Command.SelectedPilot;
+		if (slot >= 0 && hud.LogicalColor(HudColorTable.PilotColorId(slot)) is { } linkColor
+			&& PilotMarker(markers, slot) is { } from) {
+			int chosen = state.Command.ChosenUnit;
+			if (chosen >= 0 && chosen < markers.Count) {
+				AddLine(Px(from.WorldX), Py(from.WorldY),
+					Px(markers[chosen].WorldX), Py(markers[chosen].WorldY), linkColor);
+			} else if (state.Command.ChosenPoint is { } point) {
+				AddLine(Px(from.WorldX), Py(from.WorldY), Px(point.X), Py(point.Y), linkColor);
+			}
+		}
+
+		if (_vertices.Count > 0) {
+			_shader.SetSamplerTexture("uTexture", spriteTexture.Handle, 0);
+			_mesh.SubmitAndDraw(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_vertices));
+		}
+
+		_gl.Disable(EnableCap.ScissorTest);
+
+		static int FloorToPitch(int world) =>
+			(int)Math.Floor(world / (double)HddMap.GridPitch) * HddMap.GridPitch;
+	}
+
+	/// <summary>The marker belonging to squad slot <paramref name="slot"/>, or null.</summary>
+	private static HddMapMarker? PilotMarker(IReadOnlyList<HddMapMarker> markers, int slot) {
+		foreach (var marker in markers) {
+			if (marker.PilotSlot == slot) {
+				return marker;
+			}
+		}
+
+		return null;
+	}
+
+	/// <summary>
+	/// One map marker — <c>FUN_0044f194</c>. An icon is blitted with its own rotation nudge, offset
+	/// back by half the marker's size so it lands on the object. A <see cref="HddMapMarker.Ranged"/>
+	/// one first works out its apparent size from its distance to the map centre and draws a filled
+	/// box of that size instead whenever the icon would be the bigger of the two.
+	/// </summary>
+	private void AddHddMarker(CockpitArt hud, HudSpriteSheet sprites, HddMapMarker marker,
+			HddMapView view, Func<int, float> px, Func<int, float> py, bool selected) {
+		float centerX = px(marker.WorldX);
+		float centerY = py(marker.WorldY);
+		var sprite = sprites.Sprite(HddMap.IconBank, marker.Frame);
+
+		if (marker.Ranged) {
+			// The distance the size divides by is measured in three dimensions with the zoom standing
+			// in for height, which is the original's own vector: (x - centreX, y - centreY, -scale).
+			double dx = marker.WorldX - (double)view.CentreX;
+			double dy = marker.WorldY - (double)view.CentreY;
+			double distance = Math.Max(Math.Sqrt(dx * dx + dy * dy + (double)view.Scale * view.Scale), 1);
+			int apparent = (int)Math.Min(
+				((long)HddMap.MarkerSizeReference << HddMap.MarkerSizeShift) / distance, int.MaxValue);
+
+			if (sprite is not { Height: > 0 } || apparent < sprite.Value.Height) {
+				if (hud.LogicalColor(marker.ColorId) is { } boxColor) {
+					float half = apparent / 2f;
+					AddFilledRect(centerX - half, centerY - half, centerX + half, centerY + half, boxColor);
+				}
+
+				return;
+			}
+		}
+
+		if (sprite is not { Width: > 0, Height: > 0 } icon) {
+			return;
+		}
+
+		float x = centerX - marker.Size / 2f + marker.NudgeX;
+		float y = centerY - marker.Size / 2f + marker.NudgeY;
+		var rect = icon.Rect;
+		AddTexturedQuad(x, y, x + icon.Width, y + icon.Height, rect.U0, rect.V0, rect.U1, rect.V1);
+
+		// The order's chosen unit is boxed, two pixels proud of the icon on every side.
+		if (selected && hud.LogicalColor(HddMap.ChosenUnitColorId) is { } outline) {
+			AddRectOutline(x - 2f, y - 2f, x + icon.Width + 2f, y + icon.Height + 2f, 1f, outline);
+		}
+	}
+
+	/// <summary>A one-pixel line between two arbitrary points, as a quad along its own normal.</summary>
+	private void AddLine(float x0, float y0, float x1, float y1, Vector3 color) {
+		float dx = x1 - x0;
+		float dy = y1 - y0;
+		float length = MathF.Sqrt(dx * dx + dy * dy);
+		if (length < 0.5f) {
+			return;
+		}
+
+		float nx = -dy / length * 0.5f;
+		float ny = dx / length * 0.5f;
+		_vertices.Add(new Overlay2DVertex(new Vector2(x0 + nx, y0 + ny), color));
+		_vertices.Add(new Overlay2DVertex(new Vector2(x1 + nx, y1 + ny), color));
+		_vertices.Add(new Overlay2DVertex(new Vector2(x1 - nx, y1 - ny), color));
+		_vertices.Add(new Overlay2DVertex(new Vector2(x0 + nx, y0 + ny), color));
+		_vertices.Add(new Overlay2DVertex(new Vector2(x1 - nx, y1 - ny), color));
+		_vertices.Add(new Overlay2DVertex(new Vector2(x0 - nx, y0 - ny), color));
+	}
+
 	private delegate void HddLabelWriter(string font, string alternateFont, string text, int hotkeyIndex,
 		HddLayout.Rect rect, bool centered, float marginX);
 
@@ -1715,6 +2018,14 @@ public sealed class Overlay2DRenderer : IDisposable {
 	private const string TimeCaption = "TIME:";
 
 	private const string TimeFieldReservation = "00000";
+
+	/// <summary>
+	/// Height of one comm-box label. <c>HddGauge_LoadPilotFrames</c> states only the y each label
+	/// starts at — 8, 32, 48, 64 and 80 device pixels down the box — and the four in the body are 16
+	/// apart, so each row is given that pitch less a two-pixel gap. The glyphs themselves are placed
+	/// by <see cref="HudFont.Place"/>, which centres them in whatever rect it is handed.
+	/// </summary>
+	private const int PilotLabelHeight = 14;
 
 	/// <summary>The gap between a caption and its value: the constructor's own <c>2 &lt;&lt; XCoordShift</c>, four device pixels wide.</summary>
 	private const float ReadoutGap = 2 * CockpitArt.GauToPixelScale;

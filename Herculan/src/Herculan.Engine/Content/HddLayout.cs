@@ -71,10 +71,10 @@ public enum HddDamageView {
 /// <see cref="TransmitCaptionBox"/> rather than on the widget. <see cref="Screen"/> is 459x201 device
 /// pixels in all nine files with only its position varying, exactly as the MFD's panel rect is.</para>
 ///
-/// <para><b>Not everything here is drawable yet.</b> The map raster and its 140 unit markers, the
-/// live pilot video and its static bursts, which orders the selected squadmate can currently take,
-/// and real per-component damage all need simulation state the engine does not carry. What this type
-/// describes is the layout and the text, which are entirely in the data files.</para>
+/// <para><b>What this type is and is not.</b> It is the geometry and the string-table indices, both
+/// of which are entirely in the data files. Everything that moves — the map camera and its markers,
+/// which pilot and order are selected, the comm boxes' text — is <see cref="HddCommandState"/>, and
+/// the actions behind them are <see cref="HddCommandScreen"/>.</para>
 /// </remarks>
 public sealed class HddLayout {
 	/// <summary>Sprite bank the display's buttons are drawn from — <c>FUN_00448cc8</c>'s second load.</summary>
@@ -107,6 +107,12 @@ public sealed class HddLayout {
 	/// before stepping down for the orders.
 	/// </summary>
 	public const int OrderRowSlots = OrderCount + 1;
+
+	/// <summary>
+	/// Structural components a walker has — group 13's own count, and the number of readings
+	/// <c>HddGauge_ConditionIndex</c> averages into a comm box's condition line.
+	/// </summary>
+	public const int StructuralRowCount = 19;
 
 	/// <summary>Damage rows the screen has labels for — <c>FUN_0045079c</c>'s loop bound. The
 	/// structural view names 19 components, so the list scrolls.</summary>
@@ -169,6 +175,63 @@ public sealed class HddLayout {
 
 	/// <summary>The page title's font — <c>ColorSchemePanels[10]</c>, the same white the MFD titles use.</summary>
 	public const string TitleFont = "WHITE";
+
+	/// <summary>
+	/// A comm box's pilot name, condition and current order — <c>ColorSchemePanels[2]</c>, the same
+	/// red the order list draws its hotkey characters in.
+	/// </summary>
+	public const string PilotNameFont = OrderHotkeyFont;
+
+	/// <summary>Its two fixed captions, <c>STATUS:</c> and <c>OBJECTIVE:</c> — <c>ColorSchemePanels[0]</c>.</summary>
+	public const string PilotCaptionFont = "CPBLUE";
+
+	/// <summary>An unavailable order's font — also <c>[0]</c>, which is what greys the whole list out
+	/// until a pilot is selected.</summary>
+	public const string OrderUnavailableFont = PilotCaptionFont;
+
+	/// <summary>The selected order's font — <c>ColorSchemePanels[3]</c>.</summary>
+	public const string OrderSelectedFont = SubjectFont;
+
+	/// <summary>Group holding those two captions.</summary>
+	public const int PilotCaptionGroup = 33;
+
+	/// <summary>
+	/// Group holding the eight OBJECTIVE: lines — <c>ATTACK</c>, <c>TRAVEL</c>, <c>PATROL</c>,
+	/// <c>FORM UP</c>, <c>GUARD</c>, <c>FLEE</c>, <c>DEAD</c>, <c>IMMOBILE</c>. These are what the
+	/// pilot <i>is doing</i>, not what the order list offers, and the two lists do not correspond.
+	/// </summary>
+	public const int PilotOrderGroup = 40;
+
+	/// <summary>Colour id the tick beside an unselected comm box takes — palette 102.</summary>
+	public const int PilotMarkerColorId = 13;
+
+	/// <summary>And the selected one — palette 13, the same yellow the title indicator uses.</summary>
+	public const int PilotMarkerSelectedColorId = 15;
+
+	/// <summary>
+	/// Background the incoming-message row above the order list sits on — the constructor writes
+	/// <c>DAT_004d3c1c</c> into that one label's own background field.
+	/// </summary>
+	public const int MessageRowColorId = 14;
+
+	/// <summary>
+	/// Colour id the bar marking the selected order row is filled with — the 2px-wide strip
+	/// <c>HddCommandScreen_Repaint</c> draws at the order column's left edge.
+	/// </summary>
+	public const int SelectedOrderBarColorId = 15;
+
+	/// <summary>That bar's width in device pixels — the repaint's own <c>x0 + 1 .. x0 + 3</c>.</summary>
+	public const int SelectedOrderBarWidth = 2;
+
+	/// <summary>
+	/// <c>hba\HDD.HBA</c> frame of the 116x18 plate drawn behind the order the pointer has armed.
+	/// <c>HddCommandScreen_DrawOrderHighlight</c> blits this plus the highlight state, or frame 4 for
+	/// an order that cannot be taken.
+	/// </summary>
+	public const int OrderHighlightFrame = 2;
+
+	/// <summary>The frame that same call substitutes for an unavailable order.</summary>
+	public const int OrderHighlightUnavailableFrame = 4;
 
 	/// <summary>
 	/// The damage screen's subject caption font — <c>ColorSchemePanels[3]</c>. <c>FUN_0044ba2c</c>

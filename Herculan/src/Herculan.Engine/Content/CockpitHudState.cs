@@ -73,6 +73,11 @@ namespace Herculan.Engine.Content;
 /// And what F5's is: the current selection. Same screen class, same record, different subject -
 /// see <see cref="MfdStatusSubject"/>.
 /// </param>
+/// <param name="Command">
+/// What the Heads-Down Display's command display draws that the herc's <c>.GAU</c> does not supply —
+/// the map camera and its markers, the three comm boxes, and which pilot and order are selected. See
+/// <see cref="HddCommandState"/>.
+/// </param>
 /// <param name="Scanner">
 /// What F4's scanner plots — its contacts, its display range and the radar mode it mirrors from the
 /// machine. See <see cref="MfdScannerState"/>.
@@ -97,7 +102,8 @@ public readonly record struct CockpitHudState(
 	MfdStatusSubject StatusSubject = default,
 	MfdStatusSubject TargetSubject = default,
 	MfdScannerState Scanner = default,
-	MessageTicker Message = default) {
+	MessageTicker Message = default,
+	HddCommandState Command = default) {
 
 	/// <summary>
 	/// Power-up state: an even shield balance printing 100/100 the way <c>ShieldsGauge_UpdateReadouts</c>
@@ -129,5 +135,6 @@ public readonly record struct CockpitHudState(
 		StatusSubject: MfdStatusSubject.None,
 		TargetSubject: MfdStatusSubject.None,
 		Scanner: MfdScannerState.Empty,
-		Message: default);
+		Message: default,
+		Command: default);
 }

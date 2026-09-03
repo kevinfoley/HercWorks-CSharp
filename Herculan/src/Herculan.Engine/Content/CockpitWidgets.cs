@@ -19,6 +19,22 @@ public enum CockpitWidgetKind {
 
 	/// <summary>One of the three console buttons — index is a <see cref="ConsoleButton"/>.</summary>
 	ConsoleButton = 4,
+
+	/// <summary>
+	/// A row of the command display's order column — index is an <see cref="HddOrder"/>. The original
+	/// has no widget per row: <c>HddCommandScreen_Ctor</c> registers one clickable over the whole
+	/// column and <c>FUN_0044d428</c> walks the eight label rects to find which was hit. Splitting it
+	/// into eight regions here reaches the same row from the same rects, and lets the shared hit test
+	/// do the walking.
+	/// </summary>
+	HddOrderRow = 5,
+
+	/// <summary>
+	/// The command display's map viewport, registered over the whole inset region exactly as the
+	/// original's second clickable is. What a click does depends on what is armed — see
+	/// <see cref="HddCommandState"/>.
+	/// </summary>
+	HddMapArea = 6,
 }
 
 /// <summary>
@@ -50,6 +66,13 @@ public readonly record struct CockpitWidgetId(CockpitWidgetKind Kind, int Index)
 	/// <summary>The throttle slider.</summary>
 	public static CockpitWidgetId Throttle { get; } = new(CockpitWidgetKind.Throttle, 0);
 
+	/// <summary>Order row <paramref name="order"/> of the command display's list.</summary>
+	public static CockpitWidgetId HddOrder(HddOrder order) =>
+		new(CockpitWidgetKind.HddOrderRow, (int)order);
+
+	/// <summary>The command display's map viewport.</summary>
+	public static CockpitWidgetId HddMapArea { get; } = new(CockpitWidgetKind.HddMapArea, 0);
+
 	/// <summary>Weapon panel row <paramref name="gaugeSlot"/>, zero-based.</summary>
 	public static CockpitWidgetId Weapon(int gaugeSlot) => new(CockpitWidgetKind.WeaponRow, gaugeSlot);
 
@@ -67,6 +90,10 @@ public readonly record struct CockpitWidgetId(CockpitWidgetKind Kind, int Index)
 	/// <summary>This id as an <see cref="HddLayout.Widget"/>, or null when it is not one.</summary>
 	public HddLayout.Widget? AsHddWidget =>
 		Kind == CockpitWidgetKind.HddWidget ? (HddLayout.Widget)Index : null;
+
+	/// <summary>This id as an order row, or null when it is not one.</summary>
+	public HddOrder? AsHddOrder =>
+		Kind == CockpitWidgetKind.HddOrderRow ? (HddOrder)Index : null;
 
 	/// <summary>This id as an MFD button index, or null when it is not one.</summary>
 	public int? AsMfdButton => Kind == CockpitWidgetKind.MfdButton ? Index : null;
@@ -344,19 +371,47 @@ public static class CockpitWidgets {
 			? HddLayout.Widget.PageButton0
 			: HddLayout.Widget.PageButton1;
 
+		var pilots = state.Command.PilotBoxes;
+
 		for (int i = 0; i < HddLayout.WidgetCount; i++) {
 			var widget = (HddLayout.Widget)i;
-			if (!HddLayout.WidgetVisible(state.Hdd, widget)) {
+
+			// A comm box is hidden by both rows of the visibility table and put back by
+			// HddGauge_LoadPilotFrames, which clears the state byte for every slot a squadmate
+			// actually occupies. An empty slot stays unclickable, which is why selecting a pilot who
+			// is not there is impossible rather than merely useless.
+			int slot = i - (int)HddLayout.Widget.PilotBox0;
+			bool commBox = slot is >= 0 and < HddLayout.PilotSlotCount;
+			if (commBox
+				? !(slot < pilots.Count && pilots[slot].Occupied)
+				: !HddLayout.WidgetVisible(state.Hdd, widget)) {
 				continue;
 			}
 
 			var rect = layout[widget];
 			var id = CockpitWidgetId.Hdd(widget);
-			bool selected = widget == litWidget;
+			bool selected = commBox ? slot == state.Command.SelectedPilot : widget == litWidget;
 			yield return new CockpitWidget(id, CockpitSurface.HeadsDown,
 				rect.X0, rect.Y0, rect.X1, rect.Y1,
 				Lit: HddLayout.IsLatching(widget) ? selected : state.PressedWidget == id,
 				Selected: selected);
+		}
+
+		if (state.Hdd != HddPage.CommandDisplay) {
+			yield break;
+		}
+
+		// The map viewport and the eight order rows, the command display's own two clickables.
+		var viewport = layout.MapViewport;
+		yield return new CockpitWidget(CockpitWidgetId.HddMapArea, CockpitSurface.HeadsDown,
+			viewport.X0, viewport.Y0, viewport.X1, viewport.Y1, Lit: false);
+
+		for (int i = 0; i < HddLayout.OrderCount; i++) {
+			var row = layout.OrderRow(i + 1);
+			yield return new CockpitWidget(CockpitWidgetId.HddOrder((HddOrder)i), CockpitSurface.HeadsDown,
+				row.X0, row.Y0, row.X1, row.Y1,
+				Lit: false,
+				Selected: state.Command.SelectedOrder == (HddOrder)i);
 		}
 	}
 }

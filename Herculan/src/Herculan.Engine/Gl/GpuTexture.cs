@@ -31,7 +31,12 @@ public sealed class GpuTexture : IDisposable {
 	/// <see cref="Content.CockpitFrame"/>, where packing would be pure overhead (see
 	/// <c>Content.CockpitArt</c>'s doc comment).
 	/// </summary>
-	public GpuTexture(GL gl, ReadOnlySpan<byte> rgbaPixels, int width, int height) {
+	/// <param name="linear">
+	/// Sample bilinearly instead. Reserved for a surface the original itself interpolates — the
+	/// Heads-Down Display's map raster, whose cells are Gouraud-shaded into its offscreen bitmap
+	/// (see <see cref="Render.HddMapRaster"/>) — so this is fidelity, not the enhancement bucket.
+	/// </param>
+	public GpuTexture(GL gl, ReadOnlySpan<byte> rgbaPixels, int width, int height, bool linear = false) {
 		_gl = gl;
 		Handle = _gl.GenTexture();
 
@@ -45,8 +50,9 @@ public sealed class GpuTexture : IDisposable {
 			}
 		}
 
-		_gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
-		_gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
+		var filter = linear ? (int)TextureMinFilter.Linear : (int)TextureMinFilter.Nearest;
+		_gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, filter);
+		_gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, filter);
 
 		// Clamp rather than repeat: every UV this engine generates is inside a frame's own rect, so a
 		// value outside 0..1 means something upstream is wrong, and clamping keeps that as a visible

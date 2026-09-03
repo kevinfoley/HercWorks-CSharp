@@ -39,7 +39,9 @@ public class CockpitInputTests {
 
 		var clicks = Frame(input);
 
-		Assert.Equal(new[] { new CockpitClick(A, CockpitMouseButtons.Left) }, clicks);
+		// The release position rides along on the click: no toArt converter is supplied here, so it
+		// comes back in the window coordinates the events were enqueued in.
+		Assert.Equal(new[] { new CockpitClick(A, CockpitMouseButtons.Left, 50f, 10f) }, clicks);
 	}
 
 	/// <summary>
@@ -204,7 +206,7 @@ public class CockpitInputTests {
 		input.Enqueue(50, 10, CockpitMouseButtons.Right);
 		input.Enqueue(50, 10, CockpitMouseButtons.None);
 
-		Assert.Equal(new[] { new CockpitClick(A, CockpitMouseButtons.Right) }, Frame(input));
+		Assert.Equal(new[] { new CockpitClick(A, CockpitMouseButtons.Right, 50f, 10f) }, Frame(input));
 	}
 
 	/// <summary>
@@ -220,7 +222,10 @@ public class CockpitInputTests {
 		Release(input, 150);
 
 		Assert.Equal(
-			new[] { new CockpitClick(A, CockpitMouseButtons.Left), new CockpitClick(B, CockpitMouseButtons.Left) },
+			new[] {
+				new CockpitClick(A, CockpitMouseButtons.Left, 50f, 10f),
+				new CockpitClick(B, CockpitMouseButtons.Left, 150f, 10f),
+			},
 			Frame(input));
 	}
 

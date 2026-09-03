@@ -19,7 +19,14 @@ public enum CockpitMouseButtons {
 /// <summary>One completed click on a cockpit widget.</summary>
 /// <param name="Id">Which widget was clicked.</param>
 /// <param name="Button">Which button completed the click.</param>
-public readonly record struct CockpitClick(CockpitWidgetId Id, CockpitMouseButtons Button);
+/// <param name="ArtX">
+/// Where the release landed, in the widget's own surface's art pixels. Only a widget that is a
+/// <i>region</i> rather than a button cares — the command display's map, whose click resolves to a
+/// gridpoint or to whatever unit is under the pointer.
+/// </param>
+/// <param name="ArtY">The same on y.</param>
+public readonly record struct CockpitClick(CockpitWidgetId Id, CockpitMouseButtons Button,
+	float ArtX = 0f, float ArtY = 0f);
 
 /// <summary>
 /// Where a captured pointer is on the widget it is dragging, in that surface's art pixels.
@@ -234,7 +241,8 @@ public sealed class CockpitInput {
 			}
 
 			if (releasedNow != CockpitMouseButtons.None) {
-				OnRelease(hit, releasedNow);
+				var (releaseX, releaseY) = toArt?.Invoke(_pressedSurface, e.X, e.Y) ?? (e.X, e.Y);
+				OnRelease(hit, releasedNow, releaseX, releaseY);
 			}
 		}
 
@@ -280,7 +288,7 @@ public sealed class CockpitInput {
 	/// drag here and fires nothing — the original's release path takes the capture branch instead of
 	/// the click one.
 	/// </summary>
-	private void OnRelease(CockpitWidget? hit, CockpitMouseButtons released) {
+	private void OnRelease(CockpitWidget? hit, CockpitMouseButtons released, float artX, float artY) {
 		if (_pressed is not { } armed) {
 			return;
 		}
@@ -300,7 +308,7 @@ public sealed class CockpitInput {
 		}
 
 		if (hit is { } widget && widget.Id == armed && widget.Surface == _pressedSurface) {
-			_clicks.Add(new CockpitClick(armed, released));
+			_clicks.Add(new CockpitClick(armed, released, artX, artY));
 		}
 	}
 

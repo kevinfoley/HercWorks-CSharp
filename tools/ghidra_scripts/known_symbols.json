@@ -3174,10 +3174,10 @@
       "address": "0044f130",
       "binary": "DBSIM",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_IconGadget_Ctor",
-      "description": "Lazily loads the `icons` sprite bank into DAT_0049d6b4, folder selected by DAT_004d25bb == 3.",
-      "source": "docs/formats/cockpit-hud.md (HUD sprite art)"
+      "confidence": "high",
+      "name": "HddMarker_Ctor",
+      "description": "One of the command display map's 140 marker gadgets. Lazily loads the `icons` sprite bank into DAT_0049d6b4, folder selected by VideoMode_UseHiResPanels == 3.",
+      "source": "docs/formats/heads-down-display.md"
     },
     {
       "address": "004544a4",
@@ -7660,9 +7660,9 @@
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "HddButton_Dispatch",
-      "description": "The heads-down display button dispatch, switching on the widget index. Its transmit branch reuses the radar-mode tone pair as an accepted/rejected blip: Sound_Play(0x1a) when the transmit resolves to a recipient and Sound_Play(0x1b) when it does not.",
-      "source": "docs/formats/audio.md"
+      "name": "HddCommandScreen_KeyDispatch",
+      "description": "Vtable slot 4 of the [F7] command display: switches on a DOS scancode, not a widget index. D/A/F/T/G/O/C/E arm the eight orders, ,< and .> step through them, Tab cycles the eligible unit for ATTACK ENEMY or DEFEND POSITION, Enter drops the map cursor, keypad 5 recentres the map, and X and Backspace press the XMIT and CANCEL widgets. The transmit branch reuses the radar-mode tone pair as an accepted/rejected blip: Sound_Play(0x1a) when the transmit resolves to a recipient and Sound_Play(0x1b) when it does not.",
+      "source": "docs/formats/heads-down-display.md; docs/formats/audio.md"
     },
     {
       "address": "00434e50",
@@ -8406,6 +8406,258 @@
       "name": "Light_GetFalloffOffset",
       "description": "Returns light+0x34, the DENOMINATOR offset of the point-light falloff (A << 5 = 0). See Light_GetRangeNumerator for why the pair is worth stating explicitly.",
       "source": "docs/formats/effect-lights.md"
+    },
+    {
+      "address": "0044e30c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddCommandScreen_DrawMap",
+      "description": "Everything inside the command display's map viewport, in order: flood, re-centre on the player plus the pan offset, clamp, terrain raster, the 1200 m grid, the mission border rect, then every marker with the selected pilot's link line and the chosen unit's box.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "004502e4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddMap_DrawTerrain",
+      "description": "Blits the prebuilt map raster between two projected corners with a rotation, through the currently installed map view projection.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044f6cc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddMap_BuildTerrainRaster",
+      "description": "Builds the command display map raster once per mission: each height-grid cell becomes palette index min(height,0x7f)/8 + 16, Gouraud-shaded two triangles per cell into an 8-bit bitmap sized to fit the mission box inside 640x400.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044e080",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddCommandScreen_AddObjectMarker",
+      "description": "One object's map marker: icon from its target class and its group's side byte, size from HddMarker_SetSize, and for the two structure classes the colour and reference size its range falloff draws a box with.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044f194",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddMarker_Paint",
+      "description": "Paints one map marker: eight-octant heading frame plus its nudge for a HERC or flyer, a range-scaled box for a structure far from the map centre, and the scanner circle for a radar structure.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044f634",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddMarker_SetSize",
+      "description": "Sets a marker gadget's square extent and the half-extent its icon is drawn back by, so the icon lands centred on the object.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044d160",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddMap_ClampAndInstallView",
+      "description": "Clamps the map centre so the viewport stays inside the mission box grown by 60000 on every edge, then writes the centre and the scale into the map view projection.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044d224",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddMap_ToViewport",
+      "description": "Adds the map viewport origin and half-extent to a projected point.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044d260",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddMap_FromViewport",
+      "description": "The inverse of HddMap_ToViewport.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044d860",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddCommandScreen_HitTestMarker",
+      "description": "Turns a map viewport point into world units and returns the first live object within the marker click radius of it.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044cf68",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddMap_ZoomOut",
+      "description": "One magnifier step out, up to the scale that fits the whole mission box.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044cf9c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddMap_ZoomIn",
+      "description": "One magnifier step in, down to a floor of 60000 (8.8 fixed world units per pixel).",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044eea0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddMap_RecomputePanStep",
+      "description": "Recomputes the arrow pan step from the current zoom: 5000 world units at the closest view rising to 50000 at the widest.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044cfd0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddMap_PanLeft",
+      "description": "Scrolls the map one pan step toward the mission box's minimum x, or by whatever room is left.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044d034",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddMap_PanRight",
+      "description": "The same toward maximum x.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044d098",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddMap_PanUp",
+      "description": "The same toward maximum y.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044d0fc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddMap_PanDown",
+      "description": "The same toward minimum y.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044d9cc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddCommandScreen_SelectOrder",
+      "description": "Arms one of the eight orders, or clears the selection with -1. The four that want a target picked on the map also raise the designate flag and write the matching group 32 prompt into the message row.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044da70",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddCommandScreen_SelectPilot",
+      "description": "Moves the comm-box selection, dropping whatever order was armed for the previous pilot and setting or clearing all eight order-availability bytes.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044dbe8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddCommandScreen_CancelTransmission",
+      "description": "CANCEL: drops the armed order, the map pick and the pilot selection together.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044dc44",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddCommandScreen_SetMessageRow",
+      "description": "Writes one of STRINGS0 group 32 four prompts - SELECT PILOT, SELECT COMMAND, DESIGNATE LOCATION, DESIGNATE TARGET - into the row above the order list.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044edd8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddCommandScreen_EnableOrders",
+      "description": "Sets all eight order-availability bytes, which is the whole of what makes the order list live.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044edfc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddCommandScreen_DisableOrders",
+      "description": "Clears all eight, greying the list back to CPBLUE.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044ee20",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddCommandScreen_NextOrder",
+      "description": "Steps the armed order forward one place, wrapping; returns at once with none armed.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044ee60",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddCommandScreen_PreviousOrder",
+      "description": "The same backwards.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044d6b8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddCommandScreen_PickTarget",
+      "description": "Resolves a map click for an armed order into either an eligible unit or a gridpoint, and marks the transmission ready.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044d804",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddCommandScreen_PickPilot",
+      "description": "Resolves a map click with no order armed into a squad slot, which is the manual's \"select the pilot's marker on the map\".",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044c960",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddCommandScreen_Update",
+      "description": "Vtable slot 1: services a queued map click, advances the half-second blink, re-fonts the order rows whose selection changed, and redraws the map when anything moved it.",
+      "source": "docs/formats/heads-down-display.md"
     }
   ]
 }

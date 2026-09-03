@@ -137,7 +137,16 @@ public static class MissionLoader {
 		var player = LoadPlayerLance(scriptPath, groups, mechFormations, mechNames, placements);
 		var basePads = ResolveBasePads(groups, claims[MissionUnitKind.Base], baseFormations, placements);
 
-		return new Mission(scriptPath, header, placements, player, basePads);
+		var coordinates = new List<Vec3i>(script.Coordinates.Length);
+		foreach (var point in script.Coordinates) {
+			coordinates.Add(new Vec3i(point.X, point.Y, point.Z));
+		}
+
+		var playerRoute = script.Entities164.Length > PlayerGroupIndex
+			? Route(script, script.Entities164[PlayerGroupIndex])
+			: Array.Empty<Vec3i>();
+
+		return new Mission(scriptPath, header, placements, player, basePads, coordinates, playerRoute);
 	}
 
 	/// <summary>

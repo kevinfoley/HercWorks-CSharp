@@ -317,12 +317,21 @@ bool linkKeyDown = false;
 bool powerUpKeyDown = false;
 bool powerDownKeyDown = false;
 
-// [V], the external view: the camera parked behind the machine with the cockpit not drawn. Both the
+// [V], the external view: an orbit camera around the machine with the cockpit not drawn. Both the
 // geometry and this binding are placeholders — see ExternalCamera for what has not been RE'd. The
-// manual's own [V] cycles through several external cameras; this is one fixed chase view and a
+// manual's own [V] cycles through several external cameras; this is one orbiting chase view and a
 // toggle.
 bool externalView = startExternal;
 bool externalViewKeyDown = false;
+
+// The external view's orbit, held here rather than in ExternalCamera because it is state the host
+// owns across frames — the same reason cockpitViewKick and the throttle gauge live here. Yaw starts
+// directly behind the machine and pitch starts level with ExternalCamera's own original fixed
+// framing; both only move once the player drags.
+float externalOrbitYaw = 0f;
+float externalOrbitPitch = ExternalCamera.DefaultOrbitPitchRadians;
+bool externalOrbitDragging = false;
+System.Numerics.Vector2 externalOrbitLastMouse = System.Numerics.Vector2.Zero;
 
 // [P] pauses and unpauses the simulation: the frame still draws and the debug panel still reads,
 // only the fixed-timestep tick loop stops advancing.
@@ -370,6 +379,8 @@ if (pilotMech != null) {
 		+ (pilotMech.Thread == null ? " — no animation data, so it cannot walk." : "."));
 	Console.WriteLine("Up/Down arrows throttle — hold Down through zero for reverse — Left/Right "
 		+ "arrows turn, keypad 5 all stop, C switches to the free camera, V to the external view.");
+	Console.WriteLine("In the external view, hold the left mouse button and drag to orbit the camera "
+		+ "around the machine; vertical orbit is clamped to 45 degrees up or down.");
 	Console.WriteLine("J/K twist the turret, I/M pitch it, Backspace re-centres it — the manual's own "
 		+ "keyboard turret set. The cockpit view looks where the turret points.");
 	Console.WriteLine(throttleTrack != null
@@ -427,6 +438,7 @@ var spriteBatches = new List<SpriteBatch>();
 var posedParts = new List<(MechObject Mech, int TransformId, SceneItem Item)>();
 var segmentMeshes = new Dictionary<string, GpuMesh[]>();
 IKeyboard? keyboard = null;
+IMouse? mouse = null;
 bool cameraKeyDown = false;
 var cockpitInput = new CockpitInput();
 var camera = new Camera();
@@ -593,7 +605,7 @@ window.Load += (gl, input) => {
 	// listener callback pushes a record and returns, and CockpitMouse_ProcessQueue does the work a
 	// frame later (docs/formats/cockpit-input.md §3-4).
 	if (input.Mice.Count > 0) {
-		var mouse = input.Mice[0];
+		mouse = input.Mice[0];
 
 		// The pointer reports window-client pixels while the cockpit is placed in framebuffer pixels,
 		// which differ on a high-DPI display. Rescaling here is the same correction the original makes
@@ -670,6 +682,27 @@ window.Update += deltaSeconds => {
 			externalView = !externalView;
 		}
 		externalViewKeyDown = externalViewKey;
+	}
+
+	// The external view's orbit: hold the left mouse button and drag to swing the eye around the
+	// machine, always aimed back at it. Gated the same way the cockpit's own clicks are — nothing to
+	// drag while the pointer is over the debug panel — and only while the external view is actually
+	// up, so a drag started before switching views doesn't carry over.
+	if (piloting && pilotMech != null && externalView && mouse != null
+			&& (imgui == null || !ImGui.GetIO().WantCaptureMouse)) {
+		bool dragging = mouse.IsButtonPressed(MouseButton.Left);
+		var mousePosition = mouse.Position;
+		if (dragging && externalOrbitDragging) {
+			var delta = mousePosition - externalOrbitLastMouse;
+			externalOrbitYaw += delta.X * ExternalCamera.OrbitSensitivity;
+			externalOrbitPitch = Math.Clamp(
+				externalOrbitPitch - delta.Y * ExternalCamera.OrbitSensitivity,
+				-ExternalCamera.MaxOrbitPitchRadians, ExternalCamera.MaxOrbitPitchRadians);
+		}
+		externalOrbitDragging = dragging;
+		externalOrbitLastMouse = mousePosition;
+	} else {
+		externalOrbitDragging = false;
 	}
 
 	if (piloting && pilotMech != null && controls != null) {
@@ -874,8 +907,9 @@ window.Update += deltaSeconds => {
 		}
 
 		if (externalView) {
-			// Fixed chase view, ~10 m behind the machine. Placeholder geometry — see ExternalCamera.
-			ExternalCamera.Place(camera, pilotMech, terrain);
+			// Orbit chase view, ~10 m from the machine. Placeholder geometry — see ExternalCamera.
+			ExternalCamera.Place(camera, pilotMech, terrain,
+				BinaryAngle.FromRadians(externalOrbitYaw), BinaryAngle.FromRadians(externalOrbitPitch));
 		} else {
 			// The eye rides the model node the type record names, so the walk cycle's bob comes with it —
 			// see MechObject.EyePosition. Camera yaw runs opposite to a simulation heading; see

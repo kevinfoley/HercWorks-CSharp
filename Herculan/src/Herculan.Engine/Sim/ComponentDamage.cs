@@ -197,6 +197,79 @@ public sealed class ComponentDamage {
 	}
 
 	/// <summary>
+	/// <c>Component_FillDamageReadouts</c> (<c>004151a4</c>) — the display buffer every damage screen
+	/// reads, in one pass, because that is how the original hands it to them: a flat array of Q8
+	/// fractions the screens then index by fixed offset rather than calling back into the model.
+	///
+	/// <list type="bullet">
+	/// <item><see cref="FirstArmorReadout"/>..+18: each of the first 19 main components against its
+	/// own armour alone — <b>not</b> <see cref="DamagePercent"/>, which also folds in that
+	/// component's dependents.</item>
+	/// <item><see cref="FirstDependentReadout"/>..+11: the twelve dependents on their own, the same
+	/// reading <see cref="DependentPercent"/> gives.</item>
+	/// <item><see cref="FirstCombinedReadout"/>..+9: components 19-28 — the weapon mounts — each
+	/// weighed together with the dependent at the matching offset, which is dependent 12 upward.
+	/// Pairing is positional here, not through the component's own dependent list.</item>
+	/// </list>
+	///
+	/// <para>Entry 0 is the type record's <c>+0x6c</c> (<c>Mech_ReadDamageReadouts</c>,
+	/// <c>0041b4ec</c>) and stays zero: no screen's paint reads it.</para>
+	/// </summary>
+	public short[] ReadDamageReadouts() {
+		var readouts = new short[ReadoutCount];
+
+		for (int i = 0; i < ArmorReadoutCount; i++) {
+			short armor = Piece(i)?.Armor ?? 0;
+			readouts[FirstArmorReadout + i] = i >= _damage.Length ? (short)0
+				: _damage[i] < 0 ? (short)0x100
+				: armor == 0 ? (short)0
+				: (short)((_damage[i] << 8) / armor);
+		}
+
+		for (int slot = 0; slot < DependentReadoutCount; slot++) {
+			readouts[FirstDependentReadout + slot] = (short)DependentPercent(slot);
+		}
+
+		for (int i = 0; i < CombinedReadoutCount; i++) {
+			int component = ArmorReadoutCount + i;
+			int slot = DependentReadoutCount + i;
+			int armor = Piece(component)?.Armor ?? 0;
+			short dependentMax = DependentMaximum(slot);
+			int total = armor + dependentMax;
+			if (total == 0 || component >= _damage.Length || slot >= _dependentDamage.Length) {
+				continue;
+			}
+
+			int taken = (_damage[component] < 0 ? armor : _damage[component])
+				+ (_dependentDamage[slot] < 0 ? dependentMax : _dependentDamage[slot]);
+			readouts[FirstCombinedReadout + i] = (short)((taken << 8) / total);
+		}
+
+		return readouts;
+	}
+
+	/// <summary>Entries in the buffer <see cref="ReadDamageReadouts"/> fills — the original's own 42.</summary>
+	public const int ReadoutCount = 42;
+
+	/// <summary>Where the 19 per-armour component readings start.</summary>
+	public const int FirstArmorReadout = 1;
+
+	/// <inheritdoc cref="FirstArmorReadout"/>
+	public const int ArmorReadoutCount = 19;
+
+	/// <summary>Where the 12 standalone dependent readings start.</summary>
+	public const int FirstDependentReadout = 20;
+
+	/// <inheritdoc cref="FirstDependentReadout"/>
+	public const int DependentReadoutCount = 12;
+
+	/// <summary>Where the 10 combined weapon-mount readings start.</summary>
+	public const int FirstCombinedReadout = 32;
+
+	/// <inheritdoc cref="FirstCombinedReadout"/>
+	public const int CombinedReadoutCount = 10;
+
+	/// <summary>
 	/// <c>FUN_0040d9f8</c> — whether a main component is destroyed <b>and</b> every dependent under it
 	/// is too (<c>FUN_0040cf10</c>). It is the stricter of the two "is this gone" questions, and the
 	/// one the mech's death test asks of its two cockpit sections.

@@ -56,11 +56,14 @@ public sealed class HudSpriteSheet {
 
 	private readonly Dictionary<string, Bank> _banks;
 	private readonly Dictionary<string, HudFont> _fonts;
+	private readonly Dictionary<string, DynamixBitmap[]> _indexed;
 
-	private HudSpriteSheet(TextureAtlas atlas, Dictionary<string, Bank> banks, Dictionary<string, HudFont> fonts) {
+	private HudSpriteSheet(TextureAtlas atlas, Dictionary<string, Bank> banks, Dictionary<string, HudFont> fonts,
+			Dictionary<string, DynamixBitmap[]> indexed) {
 		Atlas = atlas;
 		_banks = banks;
 		_fonts = fonts;
+		_indexed = indexed;
 	}
 
 	/// <summary>Every loaded bank's frames, packed together. Upload once, bind once.</summary>
@@ -86,6 +89,27 @@ public sealed class HudSpriteSheet {
 	}
 
 	/// <summary>
+	/// One frame of a bank loaded with <c>keepIndexed</c>, still as the palette indices the file
+	/// holds. The atlas has already resolved those to RGBA, which loses the identity a paper-doll
+	/// tint needs: it repaints only the pixels holding one particular index (see
+	/// <see cref="PaperDollDamage"/>), a question RGB cannot answer once two palette slots share a
+	/// colour.
+	/// </summary>
+	public readonly record struct IndexedFrame(int Width, int Height, byte[] Pixels);
+
+	/// <inheritdoc cref="IndexedFrame"/>
+	public IndexedFrame? Indexed(string bank, int frame) {
+		if (!_indexed.TryGetValue(bank, out var frames) || frame < 0 || frame >= frames.Length
+			|| frames[frame] is not { ImageData: { } pixels } image
+			|| image.Cols <= 0 || image.Rows <= 0
+			|| pixels.Length < image.Cols * image.Rows) {
+			return null;
+		}
+
+		return new IndexedFrame(image.Cols, image.Rows, pixels);
+	}
+
+	/// <summary>
 	/// A loaded HUD font's metrics, or null when that font was not requested or could not be read.
 	/// Its glyphs are packed into <see cref="Atlas"/> alongside the sprite banks and are addressed
 	/// through <see cref="Sprite"/> under the font's own name, so text costs no extra texture bind.
@@ -103,10 +127,13 @@ public sealed class HudSpriteSheet {
 	/// </summary>
 	public static HudSpriteSheet? Load(GameContent content, DynamixPalette? palette,
 			IEnumerable<string> bankNames, IEnumerable<string>? fontNames = null,
-			IEnumerable<string>? loResBankNames = null) {
+			IEnumerable<string>? loResBankNames = null, IEnumerable<string>? indexedBankNames = null) {
 		var frames = new List<DynamixBitmap>();
 		var banks = new Dictionary<string, Bank>(StringComparer.OrdinalIgnoreCase);
 		var fonts = new Dictionary<string, HudFont>(StringComparer.OrdinalIgnoreCase);
+		var indexed = new Dictionary<string, DynamixBitmap[]>(StringComparer.OrdinalIgnoreCase);
+		var keepIndexed = new HashSet<string>(indexedBankNames ?? Array.Empty<string>(),
+			StringComparer.OrdinalIgnoreCase);
 
 		foreach (string name in bankNames) {
 			if (banks.ContainsKey(name)) {
@@ -120,6 +147,10 @@ public sealed class HudSpriteSheet {
 			}
 
 			banks[name] = new Bank(frames.Count, SizesOf(images));
+			if (keepIndexed.Contains(name)) {
+				indexed[name] = images;
+			}
+
 			frames.AddRange(images);
 		}
 
@@ -159,7 +190,7 @@ public sealed class HudSpriteSheet {
 		// which source bank a frame came from, which is exactly what the FirstAtlasFrame offsets are for.
 		var combined = new DynamixBitmapArray { Images = frames.ToArray() };
 		return TextureAtlas.Build(combined, palette, transparentIndex0: true) is { } atlas
-			? new HudSpriteSheet(atlas, banks, fonts)
+			? new HudSpriteSheet(atlas, banks, fonts, indexed)
 			: null;
 	}
 

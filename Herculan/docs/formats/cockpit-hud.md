@@ -812,7 +812,42 @@ an origin/size pair plus a vector of `0x1c`-byte regions
 (`{int index, PixelPoint topLeft, PixelPoint bottomRight, int colorId, int spacer}`).
 
 Coordinates are authored in the 320-wide space and shifted by `VideoMode_X/YCoordShift`, with
-`bottomRight` additionally `+1` in the 640-wide mode. Region art comes from `{herc}.HBA`/`.DBA`.
+`bottomRight` additionally `+1` in the 640-wide mode, so a region covers the full 2x2 device footprint
+of each source pixel. Region art comes from `{herc}.HBA`/`.DBA`, frame `n` for view `n`.
+
+The two nameless fields are what makes a region a damage region:
+
+| Field | Offset | Meaning |
+|---|---|---|
+| `colorId` | `0x14` | The colour the art drew that body part in — a `COLORS.DAT` id, resolved to a palette index in place at load. Retail uses 9, 12, 15, 20, 24 and 25 |
+| `spacer` | `0x18` | Recolour mode. **Every retail region states 0**; modes 1-3 are unexercised |
+
+### Tinting
+
+A region is not filled. `PaperDoll_RecolorRect` (`00437e94`) walks the region's rect a pixel at a time
+and, in mode 0, rewrites only the pixels still holding `colorId`, which is why the outlines and detail
+drawn over a limb survive its recolour. Modes 1 and 3 do the same without the doubled pixel step;
+mode 2 adds the tint to every pixel that is not the id-19 background. Modes 0 and 1 skip the walk when
+the two colours are equal, so an undamaged region costs nothing.
+
+`PaperDoll_RecolorRectFromArt` (`00438230`) is the same four modes reading the source bitmap instead of
+the raster, for a screen that repaints a region without having repainted what is under it first — the
+Heads-Down Display's route, where the MFD takes the first.
+
+`Damage_PickRegionTint` (`00438624`) chooses the colour from one Q8 damage reading, on
+`Damage_ToConditionState`'s own bands:
+
+| Intact | State | Tint (`COLORS.DAT` id → palette) |
+|---|---|---|
+| ≥ 90% | 0 | 12 → 14 green |
+| ≥ 74% | 1 | 15 → 13 yellow |
+| ≥ 51% | 2 | 20 → 12 orange |
+| ≥ 1% | 3 | 9 → 10 red |
+| 0 | 4 | 18 → 20 grey |
+
+Which reading a region takes is the caller's business, and the two callers disagree: see
+[`mfd.md`](mfd.md#viewport-and-condition-per-class) for the status screen's compact view and
+[`heads-down-display.md`](heads-down-display.md#damage-detail--page-1) for the damage detail's.
 
 ## HUD fonts
 
@@ -839,9 +874,10 @@ sub-objects (`+0x1f5`, `FUN_00433158`'s result, `+0x20b`).
 
 ## Open
 
-- `WPN_DMG`'s fill levels need per-mount damage state the engine does not carry, so no row is drawn
-  damaged. The engine also draws the row plate as the underlay instead of `WPN_DMG` frame 0, which
-  is equivalent only while that holds.
+- `WPN_DMG`'s fill levels are not drawn. The per-mount reading behind them exists — combined entry
+  `32 + slot` of `Component_FillDamageReadouts`' buffer, which the Heads-Down Display's weapons page
+  already prints — but the cockpit's weapon rows do not carry it. The engine also draws the row plate
+  as the underlay instead of `WPN_DMG` frame 0, which is equivalent only while the row is undamaged.
 - Widget *state* sources generally: which frame or fill level a widget is in per frame is driven from
   the mech object, not from the `.GAU`.
 - `static` and `pilot<n>` ship in `dba\` only, so the 640-wide mode has no matching art for them; see

@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using HercWorks.Core.Data.File.Dat.Sim;
 using HercWorks.Core.Data.File.Dbsim;
 using HercWorks.Core.Data.File.Dyn;
@@ -108,9 +108,12 @@ public sealed class CockpitArt {
 	/// Display's XMIT and CANCEL buttons caption themselves in unlit and lit
 	/// (<see cref="HddLayout.TransmitButtonFont"/>); <c>CPYLW</c> is <c>[3]</c>, that display's
 	/// subject caption.</para>
+	/// <para><c>CPGREY</c> and <c>CPORANGE</c> are <c>[7]</c> and <c>[9]</c>, two of the five a damage
+	/// detail row cycles through as its component is worn down — see
+	/// <see cref="PaperDollDamage.RowFont"/>.</para>
 	public static readonly string[] HudFontNames = {
 		"WHITE", "GRAY", "GREEN", "DARK", "RED", "HUD1", "HUD2", "HUD3",
-		"CPGREEN", "CPRED", "CPON", "CPPRESS", "CPYLW", "CPBLUE",
+		"CPGREEN", "CPRED", "CPON", "CPPRESS", "CPYLW", "CPBLUE", "CPORANGE", "CPGREY",
 	};
 
 	private CockpitArt(CockpitFrame front, CockpitFrame side, CockpitFrame? headsDown, GAUFile gau, HudSpriteSheet? sprites,
@@ -363,7 +366,7 @@ public sealed class CockpitArt {
 		var banks = HudBankNames.Concat(hercBanks).ToArray();
 
 		return new CockpitArt(front, side, headsDown, gau,
-			HudSpriteSheet.Load(content, palette, banks, HudFontNames, LoResHudBankNames),
+			HudSpriteSheet.Load(content, palette, banks, HudFontNames, LoResHudBankNames, hercBanks),
 			colors,
 			ResolveGaugeColors(colors, palette),
 			schemeIndex,

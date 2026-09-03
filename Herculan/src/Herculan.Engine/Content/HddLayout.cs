@@ -1,4 +1,4 @@
-using System.Buffers.Binary;
+﻿using System.Buffers.Binary;
 using HercWorks.Core.Data.File.Gau;
 
 namespace Herculan.Engine.Content;
@@ -145,11 +145,20 @@ public sealed class HddLayout {
 	/// </summary>
 	public const int DamageTitleGroup = 12;
 
-	/// <summary>Group of 19 structural component names for a walker; group 14 is the flyer variant.</summary>
+	/// <summary>Group of 19 structural component names for a walker.</summary>
 	public const int StructuralComponentGroup = 13;
 
-	/// <summary>Group of 12 internal system names for a walker; group 16 is the flyer variant.</summary>
+	/// <summary>
+	/// Its flyer counterpart, chosen by the subject type's own flyer flag — "L NACELLE ARMOR" where
+	/// the walker table says "L SHOULDER". The RAZOR is the one retail chassis that takes it.
+	/// </summary>
+	public const int StructuralFlyerComponentGroup = 14;
+
+	/// <summary>Group of 12 internal system names for a walker.</summary>
 	public const int InternalComponentGroup = 15;
+
+	/// <inheritdoc cref="StructuralFlyerComponentGroup"/>
+	public const int InternalFlyerComponentGroup = 16;
 
 	/// <summary>
 	/// The value column's reserved width is the measured width of this literal (<c>DAT_0049da9d</c>),
@@ -574,14 +583,19 @@ public sealed class HddLayout {
 	/// when the string table is absent or the view is <see cref="HddDamageView.Weapons"/> —
 	/// whose rows are the mech's own fitted weapon names rather than a fixed table.
 	///
-	/// <para>Groups 14 and 16 hold flyer variants of the same two tables ("L NACELLE ARMOR" where the
-	/// walker says "L SHOULDER"), selected by a flag on the subject's own type record. The engine only
-	/// ever inspects the player's herc, so it takes the walker tables.</para>
+	/// <para>A row's name is <b>not</b> this list read top to bottom: rows follow the <c>.PDG</c>
+	/// view's own region order and each region's id indexes here, which is why the internal page lists
+	/// its systems 0,1,2,5,6,7,8,3,4,9.</para>
 	/// </summary>
-	public static IReadOnlyList<SimStringTable.Entry> ComponentNames(SimStringTable? strings, HddDamageView view) =>
+	public static IReadOnlyList<SimStringTable.Entry> ComponentNames(SimStringTable? strings, HddDamageView view,
+			bool flyer = false) =>
 		view switch {
-			HddDamageView.Structural => strings?.Group(StructuralComponentGroup) ?? Array.Empty<SimStringTable.Entry>(),
-			HddDamageView.Internal => strings?.Group(InternalComponentGroup) ?? Array.Empty<SimStringTable.Entry>(),
+			HddDamageView.Structural => strings?.Group(
+				flyer ? StructuralFlyerComponentGroup : StructuralComponentGroup)
+				?? Array.Empty<SimStringTable.Entry>(),
+			HddDamageView.Internal => strings?.Group(
+				flyer ? InternalFlyerComponentGroup : InternalComponentGroup)
+				?? Array.Empty<SimStringTable.Entry>(),
 			_ => Array.Empty<SimStringTable.Entry>(),
 		};
 

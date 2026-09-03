@@ -15,9 +15,11 @@ namespace Herculan.Engine.Content;
 /// and the file supplies exactly the 27 entries the code's observed access range and id values
 /// require.</para>
 ///
-/// <para>Independently verified: the heads-down display resolves ids 19, 9, 15, 12, which this table
-/// maps to palette 16, 10, 13, 14 — black, red, yellow and green in the assembled palette (see
-/// <see cref="CockpitPalette"/>), matching the retail HDD screenshot's armour readouts exactly.</para>
+/// <para>Independently verified: the heads-down display's damage screen resolves ids 19, 9, 15, 12,
+/// which this table maps to palette 16, 10, 13, 14 — black, red, yellow and green in the assembled
+/// palette (see <see cref="CockpitPalette"/>). That the four land on exactly the colours a damage
+/// readout wears is what corroborates the table; it is <b>not</b> where those readouts get their
+/// colour, which is a font — see docs/formats/heads-down-display.md, Rejected readings.</para>
 ///
 /// <para>The indirection is what makes the ids theater-independent: entries point into both the
 /// fixed 0-15 system colours and the theater-owned 16-31 ramp, so the same data file yields

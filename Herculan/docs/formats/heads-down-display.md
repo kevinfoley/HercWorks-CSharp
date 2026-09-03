@@ -201,7 +201,7 @@ Logical ids through `dat\COLORS.DAT` (see [`cockpit-hud.md`](cockpit-hud.md)).
 | Damage subject caption plate | 6 | 98, blue |
 | Order message row background | 14 | 103 |
 | Comm-box name background | `COLORS.DAT[slot]` | 14 / 15 / 31 |
-| Damage row ids at `HddDamageColorIds` (`0049d9ec`) | 19, 9, 15, 12 | 16, 10, 13, 14 |
+| `HddDamageColorIds` (`0049d9ec`) — resolved, never read; see Rejected readings | 19, 9, 15, 12 | 16, 10, 13, 14 |
 
 ## Command display — page 0
 
@@ -418,11 +418,36 @@ The flyer variant is selected by a flag at the subject type's `+0x50`.
 **Rows**: 13 label pairs, so a 19-entry structural list scrolls. Each row is 8 device pixels tall at a
 14-pixel pitch from the column's top. The name starts `0x1e << XCoordShift` = 60 pixels in from the
 column's left edge and runs to the value column, whose width is the measured width of the literal
-`"100"` (`0049da9d`) taken off the column's right edge. Both labels are `ColorSchemePanels[1]` on
-background id 19.
+`"100"` (`0049da9d`) taken off the column's right edge. Both labels sit on background id 19.
+
+**A row is a `.PDG` region, not a table entry.** The update walks the category's region vector in file
+order and takes each region's `index` as the index into the name group *and* into
+`Component_FillDamageReadouts`' buffer — armour entry `1 + id` for structural, dependent entry
+`20 + id` for internal. The two orders differ: every retail internal view lists its regions
+0,1,2,5,6,7,8,3,4,9, so reading group 15 top to bottom gives the wrong names. The value is
+`(0x100 - reading) * 100 >> 8`, the same integrity percentage the MFD's label 4 prints, which is what
+the `"100"` reservation is sized for.
+
+Both of a row's labels are re-fonted together from `Damage_PickRegionTint`'s state, so a name changes
+colour with its number:
+
+| State | Font | |
+|---|---|---|
+| 0 | `ColorSchemePanels[1]` | `cpgreen` |
+| 1 | `[3]` | `cpylw` |
+| 2 | `[9]` | `cporange` |
+| 3 | `[2]` | `cpred` |
+| 4 | `[7]` | `cpgrey` |
+
+That is the manual's green-through-red plus grey for inoperative. The constructor's own `[1]` shows
+only until the first update runs.
 
 **Paper doll**: the `.PDG` view for the category, blitted at the screen rect's top-left plus that
-view's own origin, with per-region damage tints drawn over it from the region list.
+view's own origin, then tinted region by region through
+[`PaperDoll_RecolorRectFromArt`](cockpit-hud.md#tinting) — one tint per row, from the same reading the
+row prints. The structural view's first two regions are the exception: they share one rect, so row 0
+tints on the mean of both cockpit halves and row 1 tints nothing while still printing its own number.
+A flyer chassis has no such pair and tints straight from the row.
 
 **Subject caption**: `HddDamageScreen_SetSubjectCaption` (`0044ba2c`) fills an 81x15 device box 56
 pixels in from the screen's left edge and 4 up from its bottom, from the display's five-name array at
@@ -467,6 +492,12 @@ integrity percentage and buckets it at 90 / 74 / 51 / 1 into group 28's five con
 An unoccupied slot is not painted by the gauge at all: `HddDisplay_Repaint` floods the box rect inset
 one device pixel with id 19 instead.
 
+## Rejected readings
+
+| Reading | Why it is wrong |
+|---|---|
+| The four ids `HddDamageScreen_Ctor` resolves at `HddDamageColorIds` are the damage rows' colours | They look exactly like it — 19, 9, 15, 12 resolve to black, red, yellow and green — and the ctor walks them through `HudColorTable` in place like every other id array. But `0049d9ec` is materialised exactly once in the image, at `004507c9`, which is that resolve loop; nothing ever reads the result. The rows take their colour from a font instead, and from five states rather than four. Whatever these were for, the shipped screen does not use them. |
+
 ## `hddclip`
 
 Loaded by `CockpitClipRegions_Load` from `edg\HDDCLIP.EDG` — the 320-wide clip file, shifted by
@@ -477,9 +508,9 @@ rect's own position minus the block origin. Same layout as the `.HD*`/`.ED*` fil
 ## Engine coverage
 
 Drawn: page buttons with lit state, the four arrows and two magnifiers, the title indicator, page
-titles, the screen flood, the paper doll per category, and 13 component rows — structural and internal
-from the string table, weapons from the player's own fitted hardpoints, each reading the undamaged
-`100` its value column is sized around.
+titles, the screen flood, the paper doll per category with its region tints, and 13 component rows in
+`.PDG` region order — structural and internal named from the string table, weapons from the player's
+own fitted hardpoints — each with its live percentage and its state's font.
 
 Everything the command display draws is drawn: the terrain raster, the grid, the mission border,
 every marker with its heading frame and its range falloff, the route waypoints, the order list with
@@ -489,8 +520,8 @@ selection and target designation are all wired to both the widgets and the keys.
 labels are fed by stand-in state, below.
 
 Not drawn: pilot video and its static — the `pilot<n>` and `static` banks ship 320-wide only (see
-Open) and a squadmate has nothing to say until there is squad AI — and per-component damage
-percentages and their colours on page 1.
+Open) and a squadmate has nothing to say until there is squad AI. The damage rows do not scroll
+either: the engine has no row offset, so a 19-row structural list shows its first 13.
 
 **Stand-ins.** Three things read state the simulation does not carry yet, and none of them is the
 original's behaviour:

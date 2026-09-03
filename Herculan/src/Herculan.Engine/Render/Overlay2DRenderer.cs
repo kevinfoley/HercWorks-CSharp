@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using HercWorks.Core.Data.File.Dbsim;
 using HercWorks.Core.Data.File.Gau;
 using HercWorks.Core.Data.Struct;
 using Herculan.Engine.Content;
@@ -304,7 +305,8 @@ public sealed class Overlay2DRenderer : IDisposable {
 		if (state.Hdd == HddPage.CommandDisplay) {
 			AddHddCommandDisplay(hud, layout, sprites, strings, state, background, Blit, Fill, DrawLabel);
 		} else {
-			AddHddDamageDetail(hud, layout, sprites, strings, state.HddDamage, state, Blit, Fill, DrawLabel);
+			AddHddDamageDetail(hud, layout, sprites, strings, state.HddDamage, state, Blit, Fill, DrawLabel,
+				(x0, y0, x1, y1, color) => AddFilledRect(Dx(x0), Dy(y0), Dx(x1), Dy(y1), color));
 		}
 
 		// Visibility, position and lit state come from CockpitWidgets so the click regions agree with
@@ -501,13 +503,17 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// The damage detail (<c>FUN_0045079c</c>): the herc's paper doll on the left of the screen and,
 	/// down the right, thirteen component rows — a name and a percentage each.
 	///
-	/// <para>Names come from the string table by category: 19 structural sections or 12 internal
-	/// systems, of which thirteen fit at once. The percentage column's width is the measured width of
-	/// the literal "100", which the constructor reserves before placing either label — so an undamaged
-	/// component fills its column exactly. The manual's damage colours (green normal through red
-	/// imminent, grey inoperative) are a paint-time re-font from four colour ids the screen resolves
-	/// at construction; with no damage model, every row draws in the green its constructor
-	/// installs.</para>
+	/// <para>A row is a <c>.PDG</c> region rather than a table entry: the update walks the view's region
+	/// vector in file order and uses each region's id to index both the name group and the readout
+	/// buffer. The two orders differ — every retail internal view lists its regions 0,1,2,5,6,7,8,3,4,9
+	/// — so reading the group top to bottom would mislabel the rows. The percentage column's width is
+	/// the measured width of the literal "100", which the constructor reserves before placing either
+	/// label, so an undamaged component fills its column exactly. Both labels are re-fonted together
+	/// from the row's state, giving the manual's green through red plus grey for inoperative — see
+	/// <see cref="PaperDollDamage.RowFont"/>.</para>
+	///
+	/// <para>The rows do not scroll: the original carries a row offset this engine has no input for, so
+	/// a 19-row structural list shows its first thirteen.</para>
 	///
 	/// <para>The paper doll is the herc's own <c>.PDG</c> view for the category — front for structural,
 	/// rear for internal — blitted at the screen rect's top-left plus that view's own origin, which is
@@ -518,7 +524,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	private static void AddHddDamageDetail(CockpitArt hud, HddLayout layout, HudSpriteSheet sprites,
 			SimStringTable? strings, HddDamageView view, CockpitHudState state,
 			Action<string, int, float, float> blit, Action<HddLayout.Rect, Vector3> fill,
-			HddLabelWriter drawLabel) {
+			HddLabelWriter drawLabel, Action<float, float, float, float, Vector3> fillRect) {
 		const float S = CockpitArt.GauToPixelScale;
 
 		// Whose herc is being inspected, on its own plate at the screen's bottom-left. The engine only
@@ -532,32 +538,68 @@ public sealed class Overlay2DRenderer : IDisposable {
 			drawLabel(HddLayout.SubjectFont, string.Empty, subject, -1, layout.DamageFooter, true, 0f);
 		}
 
+		var inspected = state.StatusSubject;
+		var readings = inspected.Readings;
+		PaperDollGraphic.ViewRegion[]? regions = null;
+
 		if (HddLayout.PaperDollView(view) is { } dollView
 			&& hud.PaperDoll?.Entries is { } views && dollView < views.Length && views[dollView] is { } doll) {
-			blit(hud.HercName, dollView,
-				layout.Screen.X0 + doll.Origin.X * S, layout.Screen.Y0 + doll.Origin.Y * S);
+			float dollLeft = layout.Screen.X0 + doll.Origin.X * S;
+			float dollTop = layout.Screen.Y0 + doll.Origin.Y * S;
+			blit(hud.HercName, dollView, dollLeft, dollTop);
+			regions = doll.Regions;
+
+			// One tint per row, in the row's own order — the structural view's first two rows share a
+			// rect (both cockpit halves) and the second of them draws nothing, which is why the reading
+			// comes from PaperDollDamage.TintReading rather than from the row's printed number.
+			if (regions != null && readings != null) {
+				for (int i = 0; i < regions.Length; i++) {
+					AddPaperDollTint(hud, sprites, hud.HercName, dollView, regions[i],
+						PaperDollDamage.TintReading(view, regions, i, inspected.FlyerVariant, readings),
+						dollLeft, dollTop, fillRect);
+				}
+			}
 		}
 
-		// The weapons category lists the subject's own fitted hardpoints instead of a fixed table —
-		// FUN_00450c54 copies each weapon's name straight off the mech. Those are already loaded.
-		var names = view == HddDamageView.Weapons
-			? state.HardpointNames.Where(n => n.Length > 0).ToList()
-			: HddLayout.ComponentNames(strings, view).Select(e => e.Text).ToList();
+		// One row per .PDG region, in the file's own order, each naming its string by the region's id.
+		// The weapons category has no doll: its rows are the subject's own fitted hardpoints, which
+		// FUN_00450c54 walks off the mech directly.
+		var names = HddLayout.ComponentNames(strings, view, inspected.FlyerVariant);
+		int rowCount = view == HddDamageView.Weapons
+			? state.HardpointNames.Count
+			: regions?.Length ?? 0;
 
 		float valueWidth = sprites.Font(HddLayout.DamageRowFont)?.Measure(HddLayout.DamageValueReservation) ?? 0f;
 
-		for (int i = 0; i < HddLayout.DamageRowCount && i < names.Count; i++) {
-			if (names[i] is not { Length: > 0 } text) {
+		for (int i = 0; i < HddLayout.DamageRowCount && i < rowCount; i++) {
+			string? text;
+			int? reading;
+			if (view == HddDamageView.Weapons) {
+				text = state.HardpointNames[i];
+				reading = readings != null && state.HardpointSlots is { } slots && i < slots.Count
+					? PaperDollDamage.WeaponRowReading(slots[i], readings)
+					: null;
+			} else {
+				int id = regions![i].Index;
+				text = id < names.Count ? names[id].Text : null;
+				reading = readings != null ? PaperDollDamage.RowReading(view, id, readings) : null;
+			}
+
+			if (text is not { Length: > 0 }) {
 				continue;
 			}
+
+			// Both labels take the reading's own colour, so a row goes yellow, orange, red and grey
+			// together — the re-font FUN_00450c54 does off Damage_PickRegionTint's state.
+			string font = PaperDollDamage.RowFont(PaperDollDamage.State(reading ?? 0));
+			string value = MfdLayout.IntegrityPercent(reading ?? 0).ToString();
 
 			var row = layout.DamageRow(i);
 			var nameBox = row with { X1 = row.X1 - (int)valueWidth };
 			var valueBox = row with { X0 = nameBox.X1 };
 
-			drawLabel(HddLayout.DamageRowFont, string.Empty, text, -1, nameBox, false, 0f);
-			drawLabel(HddLayout.DamageRowFont, string.Empty, HddLayout.DamageValueReservation, -1,
-				valueBox, false, 0f);
+			drawLabel(font, string.Empty, text, -1, nameBox, false, 0f);
+			drawLabel(font, string.Empty, value, -1, valueBox, false, 0f);
 		}
 	}
 
@@ -1425,9 +1467,11 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// own constructor widens the name label across both fields instead.</item>
 	/// </list>
 	///
-	/// <para><c>WPN_DMG</c> is not drawn: its ten frames are damage fill levels and nothing damages a
-	/// mount yet. The original blits its frame 0 as every row's underlay, before the plate; here the
-	/// plate is the underlay, which comes to the same thing while no row is damaged.</para>
+	/// <para><c>WPN_DMG</c> is not drawn: its ten frames are damage fill levels, and the row carries no
+	/// reading to pick one with — the mount's own damage is composed (the Heads-Down Display's weapons
+	/// page prints it, see <see cref="PaperDollDamage.WeaponRowReading"/>) but it does not reach here.
+	/// The original blits frame 0 as every row's underlay, before the plate; here the plate is the
+	/// underlay, which comes to the same thing only while the row is undamaged.</para>
 	/// </summary>
 	private static void AddWeaponRows(GAUFile gau, CockpitHudState state,
 			(Vector3 FillEven, Vector3 FillOdd)? barColors,
@@ -1638,10 +1682,10 @@ public sealed class Overlay2DRenderer : IDisposable {
 
 		switch (state.Mfd) {
 			case MfdMode.Status:
-				AddMfdStatusScreen(hud, state.StatusSubject, blitDevice, DrawLabel, X, Y);
+				AddMfdStatusScreen(hud, state.StatusSubject, blitDevice, DrawLabel, fillRect, X, Y);
 				break;
 			case MfdMode.TargetStatus:
-				AddMfdStatusScreen(hud, state.TargetSubject, blitDevice, DrawLabel, X, Y);
+				AddMfdStatusScreen(hud, state.TargetSubject, blitDevice, DrawLabel, fillRect, X, Y);
 				break;
 			case MfdMode.FlashComm:
 				AddMfdFlashComm(strings, DrawLabel, insetX, insetY);
@@ -1682,14 +1726,13 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// </list>
 	///
 	/// <para>The viewport holds a machine's own paper doll — <c>hba\&lt;HERC&gt;.HBA</c> frame 2, the
-	/// compact third view of the three its <c>.PDG</c> describes — placed by that view's origin, or a
-	/// flat silhouette from the <c>BASES</c>, <c>VEHICLES</c> or <c>FLYERS</c> bank centred in the
-	/// viewport. The original tints individual body regions by damage from the <c>.PDG</c> region
-	/// list; that needs a per-region reading the engine does not compose yet, so the doll is drawn
-	/// whole.</para>
+	/// compact third view of the three its <c>.PDG</c> describes — placed by that view's origin and
+	/// then tinted region by region (see <see cref="AddPaperDollTint"/>), or a flat silhouette from the
+	/// <c>BASES</c>, <c>VEHICLES</c> or <c>FLYERS</c> bank centred in the viewport.</para>
 	/// </summary>
 	private static void AddMfdStatusScreen(CockpitArt hud, MfdStatusSubject subject,
 			Action<string, int, float, float> blitDevice, MfdLabelWriter drawLabel,
+			Action<float, float, float, float, Vector3> fillRect,
 			Func<int, float> x, Func<int, float> y) {
 		const float S = CockpitArt.GauToPixelScale;
 		var strings = hud.Strings;
@@ -1738,9 +1781,26 @@ public sealed class Overlay2DRenderer : IDisposable {
 					&& MfdLayout.WireframeViewIndex < views.Length
 					&& views[MfdLayout.WireframeViewIndex] is { } view
 					&& subject.SilhouetteBank != null:
-				blitDevice(subject.SilhouetteBank, MfdLayout.WireframeViewIndex,
-					x(MfdLayout.WireframeRect.X0) + view.Origin.X * S + MfdLayout.WireframeArtOffset.X,
-					y(MfdLayout.WireframeRect.Y0) + view.Origin.Y * S + MfdLayout.WireframeArtOffset.Y);
+				float dollLeft =
+					x(MfdLayout.WireframeRect.X0) + view.Origin.X * S + MfdLayout.WireframeArtOffset.X;
+				float dollTop =
+					y(MfdLayout.WireframeRect.Y0) + view.Origin.Y * S + MfdLayout.WireframeArtOffset.Y;
+				blitDevice(subject.SilhouetteBank, MfdLayout.WireframeViewIndex, dollLeft, dollTop);
+
+				// Then the damage over it, region by region. The compact view merges components — one
+				// torso region over both cockpit halves, one limb region over each three-deep stack —
+				// so what a region reads is not one component's number; see
+				// PaperDollDamage.StatusRegionReading.
+				if (subject.Readings is { } readings && view.Regions is { } regions
+					&& hud.Sprites is { } dollSprites) {
+					foreach (var region in regions) {
+						AddPaperDollTint(hud, dollSprites, subject.SilhouetteBank,
+							MfdLayout.WireframeViewIndex, region,
+							PaperDollDamage.StatusRegionReading(region.Index, subject.FlyerVariant, readings),
+							dollLeft, dollTop, fillRect);
+					}
+				}
+
 				break;
 
 			// A flat silhouette is centred in the viewport instead, by its own frame size — the paint
@@ -1756,6 +1816,60 @@ public sealed class Overlay2DRenderer : IDisposable {
 					y(MfdLayout.WireframeRect.Y0)
 						+ (y(MfdLayout.WireframeRect.Y1) - y(MfdLayout.WireframeRect.Y0) - height) / 2f);
 				break;
+		}
+	}
+
+	/// <summary>
+	/// One paper-doll region repainted at its current damage — <c>PaperDoll_RecolorRect</c> in its mode 0 arm,
+	/// the only arm the retail <c>.PDG</c> files reach. It walks the region's rect a pixel at a time
+	/// and rewrites just the pixels still holding the colour the art drew that body part in, which is
+	/// why the outlines and rivets over a limb survive the recolour.
+	///
+	/// <para>Both colours are palette indices: the region's own is the <c>COLORS.DAT</c> id the file
+	/// carries, resolved at load in the original (<c>PaperDoll_Load</c>) and here at draw time, and
+	/// the tint is <see cref="PaperDollDamage.TintColorId"/>'s. When the two agree the original skips
+	/// the walk outright, and so does this — an undamaged region is already the colour it should
+	/// be.</para>
+	///
+	/// <para>The rect is the file's inclusive corner pair, doubled and its far corner nudged one
+	/// further, because the loader shifts every <c>.PDG</c> coordinate by the video mode's
+	/// <c>X/YCoordShift</c> and adds that <c>+1</c> in the 640-wide mode — so the region covers the
+	/// full 2x2 device footprint of each source pixel. Matching pixels go out as merged horizontal
+	/// runs rather than one quad each.</para>
+	/// </summary>
+	private static void AddPaperDollTint(CockpitArt hud, HudSpriteSheet sprites, string bank, int frame,
+			PaperDollGraphic.ViewRegion region, int? reading, float dollLeft, float dollTop,
+			Action<float, float, float, float, Vector3> fillRect) {
+		const int S = (int)CockpitArt.GauToPixelScale;
+
+		if (reading is not { } damage
+			|| hud.Colors?.PaletteIndex(region.Unk_val) is not { } key
+			|| sprites.Indexed(bank, frame) is not { } art) {
+			return;
+		}
+
+		int tintId = PaperDollDamage.TintColorId(PaperDollDamage.State(damage));
+		if (hud.Colors.PaletteIndex(tintId) == key || hud.LogicalColor(tintId) is not { } tint) {
+			return;
+		}
+
+		int x0 = Math.Max(region.TopLeft.X * S, 0);
+		int y0 = Math.Max(region.TopLeft.Y * S, 0);
+		int x1 = Math.Min(region.BottomRight.X * S + 1, art.Width - 1);
+		int y1 = Math.Min(region.BottomRight.Y * S + 1, art.Height - 1);
+
+		for (int y = y0; y <= y1; y++) {
+			int row = y * art.Width;
+			int run = -1;
+			for (int px = x0; px <= x1 + 1; px++) {
+				bool match = px <= x1 && art.Pixels[row + px] == key;
+				if (match) {
+					run = run < 0 ? px : run;
+				} else if (run >= 0) {
+					fillRect(dollLeft + run, dollTop + y, dollLeft + px, dollTop + y + 1, tint);
+					run = -1;
+				}
+			}
 		}
 	}
 

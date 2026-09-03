@@ -265,8 +265,8 @@ With no subject at all the paint writes `TARGET:` and group 26 `NONE` in `ColorS
 
 | Class | Viewport | Condition |
 |---|---|---|
-| 0 HERC | The type's paper doll, `pdgView.origin + viewportTopLeft + (0x11, 2)` device, then per-region damage tints from the `.PDG` region list at the same origin. The paint reaches one view record through the mech type without computing an index; only view 2 fits, views 0 and 1 being 96x162 device against a 102x92 viewport | Scanned: `DESTROYED` if `obj+0x99`; else `CRITICAL` when all twelve dependent readings from `FUN_004151a4` are `>= 0x81`, `INT DAMAGE` when any is non-zero; else `SHIELDS DN` if `mech+0xb0` (the shields-down alert latch, which only the player's own machine ever sets), else `OK` |
-| 2 flyer | `flyers` bank frame 0, centred in the viewport by its own frame size | `FUN_00438700(damage)`: intact ≥ 90% `OK`, ≥ 74% `SHIELDS DN`, ≥ 51% `INT DAMAGE`, ≥ 1% `CRITICAL`, else `DESTROYED` |
+| 0 HERC | The type's paper doll, `pdgView.origin + viewportTopLeft + (0x11, 2)` device, then per-region damage tints at the same origin (below). The paint reaches one view record through the mech type without computing an index; only view 2 fits, views 0 and 1 being 96x162 device against a 102x92 viewport | Scanned: `DESTROYED` if `obj+0x99`; else `CRITICAL` when all twelve dependent readings from `Component_FillDamageReadouts` are `>= 0x81`, `INT DAMAGE` when any is non-zero; else `SHIELDS DN` if `mech+0xb0` (the shields-down alert latch, which only the player's own machine ever sets — see [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md)), else `OK` |
+| 2 flyer | `flyers` bank frame 0, centred in the viewport by its own frame size | `Damage_ToConditionState(damage)`: intact ≥ 90% `OK`, ≥ 74% `SHIELDS DN`, ≥ 51% `INT DAMAGE`, ≥ 1% `CRITICAL`, else `DESTROYED` |
 | 1, 3 structure | `bases` or `vehicles` bank, frame = the type record's `+0x28`, centred the same way | as above |
 
 Damage is the object's vtable `+0x40` as a Q8 fraction — `FUN_0040db2c` over every component and
@@ -278,6 +278,29 @@ names when `+0x32` is 0, and group 24's four vehicle names when it is not. Confi
 
 A bank the game ships only at 320-wide (`flyers` is the one here) is blitted doubled, guarded on
 `VideoMode_UseHiResPanels == 3 && VideoMode_UseHiResBanks == 0`.
+
+#### Region tints
+
+Mechanism, region record and colour ladder: [`cockpit-hud.md`](cockpit-hud.md#tinting). What differs
+here is the reading each region takes, because view 2 is a compact doll whose regions cover more than
+one component. Indices are into `Component_FillDamageReadouts`' buffer, whose entries 1-19 are the
+armour components:
+
+| Region id | Walker | Flyer chassis (`typeRec+0x50`) |
+|---|---|---|
+| 0 | mean of 1, 2 — the two cockpit halves | 1 |
+| 4 | 5 | 5 |
+| 5 | 6 | 6 |
+| 6 | 7 | 7 |
+| 7 | mean of 8, 10, 12 | 8 |
+| 8 | mean of 9, 11, 13 | 9 |
+| 13 | mean of 14, 16, 18 | — |
+| 14 | mean of 15, 17, 19 | — |
+
+The switch has no default arm and divides by its own count, so a region id it does not name would
+divide by zero. None does: every retail view 2 states a subset of these eight, six of them on a flyer
+chassis. The condition line takes no part in this — it is scanned from the internals, so **armour
+damage moves the doll and nothing else**.
 
 Also drawn, but unreachable here: with a hostile subject and a component id at `CockpitView+0x27e`,
 the paint outlines that component's `.PDG` region in `COLORS.DAT` id 16. The id only ever comes from
@@ -321,9 +344,9 @@ so the first pass is not overdrawn.
 Drawn: screen background, F-key column with lit state, per-mode aux buttons, titles and captions, the
 flash-comm order list, the nav map's background flood, and **both status screens driven from a live
 subject** — `Herculan.Engine.Content.MfdStatusSubject`, one record for F1 and F5 as in the original.
-The scanner is drawn too — see its own doc. Not drawn: the mode-switch sweep animation, the missile
-camera, map terrain, per-region damage tints and transmission frames, all of which need sim state, a
-map rasterizer or an animation path.
+The scanner is drawn too — see its own doc, and so are the paper doll's per-region damage tints. Not
+drawn: the mode-switch sweep animation, the missile camera, map terrain and transmission frames, all
+of which need a map rasterizer or an animation path.
 
 `Herculan.Engine.Host` takes `--mfd <0-5>` to pick the initial screen and `--target` to acquire one,
 since a `--screenshot` run never sees a keystroke.
@@ -340,6 +363,4 @@ and a squadmate reads `TARGET:` plus its type name; a flyer's name comes from `F
 - `MFD` frames 11-13 (182x16) have no located consumer. **Frames 14-18 do**: they are the whole of
   the scanner screen, see [`mfd-scanner.md`](mfd-scanner.md). Frame 14 matching the `radar` bank's
   frame size is not a coincidence either — that bank holds the sweep played over the same dish.
-- Per-region damage tints on the paper doll. The `.PDG` region list and the per-component readings
-  are both decoded; the tint colour comes from `FUN_00438624`, which is not.
 - Mode 5, the missile camera, beyond its button and background layout.

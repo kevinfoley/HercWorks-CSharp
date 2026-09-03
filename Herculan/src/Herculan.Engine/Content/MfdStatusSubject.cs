@@ -56,6 +56,15 @@ public enum MfdSilhouetteKind {
 /// The machine whose <c>.PDG</c> places a <see cref="MfdSilhouetteKind.PaperDoll"/>, looked up
 /// through <see cref="CockpitArt.PaperDollFor"/>.
 /// </param>
+/// <param name="Readings">
+/// The subject's damage-readout buffer (<see cref="Sim.ComponentDamage.ReadDamageReadouts"/>), which
+/// is what tints the paper doll region by region and what fills the Heads-Down Display's rows. Null
+/// for a subject with no per-component model.
+/// </param>
+/// <param name="FlyerVariant">
+/// Whether the subject's chassis is the flyer kind (<see cref="Sim.MechTypeRecord.IsFlyer"/>). It
+/// selects the doll's region-to-component mapping and, on the damage detail, the flyer name tables.
+/// </param>
 public readonly record struct MfdStatusSubject(
 	bool Present,
 	bool Identified,
@@ -68,7 +77,9 @@ public readonly record struct MfdStatusSubject(
 	MfdSilhouetteKind SilhouetteKind,
 	string? SilhouetteBank,
 	int SilhouetteFrame,
-	string? PaperDollName) {
+	string? PaperDollName,
+	IReadOnlyList<short>? Readings = null,
+	bool FlyerVariant = false) {
 
 	/// <summary>Nothing selected — the state F5 sits in until the player picks something.</summary>
 	public static MfdStatusSubject None { get; } = new(
@@ -135,7 +146,9 @@ public readonly record struct MfdStatusSubject(
 					Condition: condition, Damage: damage, Distance: distance,
 					SilhouetteKind: MfdSilhouetteKind.PaperDoll,
 					SilhouetteBank: name, SilhouetteFrame: MfdLayout.WireframeViewIndex,
-					PaperDollName: name);
+					PaperDollName: name,
+					Readings: mech.Damage?.ReadDamageReadouts(),
+					FlyerVariant: mech.Type.IsFlyer);
 			}
 
 			case Sim.FlyerObject flyer: {
@@ -184,13 +197,13 @@ public readonly record struct MfdStatusSubject(
 	}
 
 	/// <summary>
-	/// <c>FUN_00438700</c> — the condition a subject with no per-component readings is in, worked out
+	/// <c>Damage_ToConditionState</c> — the condition a subject with no per-component readings is in, worked out
 	/// from its overall damage alone. The flyer and structure branches of the paint both take this
 	/// route; only a HERC gets the component scan. Bands are the original's: 90% and up OK, 74% up
 	/// SHIELDS DN, 51% up INT DAMAGE, anything still standing CRITICAL, nothing left DESTROYED.
 	/// </summary>
 	public static int ConditionFromDamage(int damage) {
-		int intact = (0x100 - Math.Clamp(damage, 0, 0x100)) * 100 >> 8;
+		int intact = MfdLayout.IntegrityPercent(damage);
 		return intact switch {
 			>= 0x5a => 0,
 			>= 0x4a => 1,

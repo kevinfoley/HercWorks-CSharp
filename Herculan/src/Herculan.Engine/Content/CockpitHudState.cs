@@ -1,4 +1,4 @@
-namespace Herculan.Engine.Content;
+﻿namespace Herculan.Engine.Content;
 
 /// <summary>
 /// The live values the cockpit's readouts display. Separate from <see cref="CockpitArt"/>, which is
@@ -18,6 +18,12 @@ namespace Herculan.Engine.Content;
 /// them in, which is not the row order. This is the list the Heads-Down Display's weapon-damage page
 /// prints (<c>FUN_00450c54</c> walks the mount array directly), and it takes the mount's own name
 /// with none of the cockpit row's pod suffix.
+/// </param>
+/// <param name="HardpointSlots">
+/// Each of those mounts' <c>WeaponMount.LoadoutSlot</c>, so the same page can find the damage
+/// component behind a row — see <see cref="PaperDollDamage.WeaponRowReading"/>. Parallel to
+/// <see cref="HardpointNames"/>; the two orders are not the same, which is why the slot has to
+/// travel with the name.
 /// </param>
 /// <param name="ShieldFront">
 /// Front shield readout, 0-200. This is the shield <i>balance</i>, not the charge — the original
@@ -103,7 +109,8 @@ public readonly record struct CockpitHudState(
 	MfdStatusSubject TargetSubject = default,
 	MfdScannerState Scanner = default,
 	MessageTicker Message = default,
-	HddCommandState Command = default) {
+	HddCommandState Command = default,
+	IReadOnlyList<int>? HardpointSlots = null) {
 
 	/// <summary>
 	/// Power-up state: an even shield balance printing 100/100 the way <c>ShieldsGauge_UpdateReadouts</c>
@@ -136,5 +143,6 @@ public readonly record struct CockpitHudState(
 		TargetSubject: MfdStatusSubject.None,
 		Scanner: MfdScannerState.Empty,
 		Message: default,
-		Command: default);
+		Command: default,
+		HardpointSlots: Array.Empty<int>());
 }

@@ -1,4 +1,4 @@
-using HercWorks.Core.Data.File.Gau;
+﻿using HercWorks.Core.Data.File.Gau;
 
 namespace Herculan.Engine.Content;
 
@@ -181,7 +181,7 @@ public static class MfdLayout {
 	/// <summary>
 	/// The dependent-component damage a HERC has to be carrying on <i>all</i> twelve of its internals
 	/// before the screen calls it CRITICAL rather than INT DAMAGE - the paint's own <c>0x81</c> against
-	/// the Q8 readings <c>FUN_004151a4</c> fills, i.e. every internal more than half gone.
+	/// the Q8 readings <c>Component_FillDamageReadouts</c> fills, i.e. every internal more than half gone.
 	/// </summary>
 	public const int CriticalDependentDamage = 0x81;
 
@@ -365,8 +365,14 @@ public static class MfdLayout {
 	/// <para>When the subject is unreadable the same function writes <c>"XXXXXX"</c> to the condition
 	/// label and <c>"XXX"</c> here instead.</para>
 	/// </summary>
-	public static string IntegrityReadout(int damage) =>
-		$"[ {(0x100 - Math.Clamp(damage, 0, 0xff)) * 100 >> 8}% ]";
+	public static string IntegrityReadout(int damage) => $"[ {IntegrityPercent(damage)}% ]";
+
+	/// <summary>
+	/// <c>(0x100 - damage) * 100 &gt;&gt; 8</c> — a Q8 damage reading as the whole-number percentage
+	/// every damage display prints and every condition ladder bands. The original writes it out at
+	/// each site; it is one expression and it is here.
+	/// </summary>
+	public static int IntegrityPercent(int damage) => (0x100 - Math.Clamp(damage, 0, 0x100)) * 100 >> 8;
 
 	/// <summary>How many order rows FLASH COMM lists.</summary>
 	public const int FlashCommRowCount = 6;

@@ -291,7 +291,7 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	/// <para><b>Always the nominal line.</b> The original chooses between it and
 	/// <see cref="SystemMessages.PowerUpDamaged"/> by walking the ten heads-down gauges and testing
 	/// each one's reading against 0x5a, through two accessors (<c>FUN_0041b514</c> and
-	/// <c>FUN_00438700</c>) that are not decompiled — so what that reading is a percentage <i>of</i>
+	/// <c>Damage_ToConditionState</c>) that are not decompiled — so what that reading is a percentage <i>of</i>
 	/// is not known, and the threshold is not transcribed rather than guessed at. A machine taken at
 	/// the start of a mission is undamaged and gets the nominal line either way.</para>
 	/// </summary>

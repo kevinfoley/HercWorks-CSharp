@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using Herculan.Engine;
 using Herculan.Engine.Audio;
 using Herculan.Engine.Content;
@@ -345,6 +345,7 @@ if (cockpitArt?.Gau is { } weaponGau && scene.PlayerMech is { } armedMech) {
 	hudState = hudState with {
 		Weapons = WeaponRowState.Build(armedMech.Weapons, weaponGau.WeaponListTotal, cockpitArt.Strings),
 		HardpointNames = armedMech.Weapons.Mounts.Select(m => m.Name).ToList(),
+		HardpointSlots = armedMech.Weapons.Mounts.Select(m => m.LoadoutSlot).ToList(),
 	};
 
 	if (initialWeaponRow is { } startRow) {

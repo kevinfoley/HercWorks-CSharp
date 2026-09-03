@@ -8172,6 +8172,240 @@
       "name": "maybe_Salvage_QueueDestroyedWeapon",
       "description": "Appends one int32 to the global list at DAT_004a9ef0, bumping the count at DAT_004a9eee. Its one traced caller is Mech_ApplyDirectFireDamage's weapon-mount destruction roll, on the Cybrid branch only, packing the destroyed weapon's catalog id (template+0x56) with its remaining condition. Post-mission salvage is the obvious purpose and is not proven -- the consumer was not traced.",
       "source": "docs/simulation/damage-system.md"
+    },
+    {
+      "address": "004076e4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LightManager_InitSubsystem",
+      "description": "Builds the effect light manager singleton DAT_004a968c (0x404 bytes, FUN_00406e44), then overrides the constructor's falloff constants with LightManager_SetFalloffConstants(mgr, 10, 2000) -- the pair that actually reaches every frame, giving A=0 and B=62 after the setter's >>5. Also builds the effect-light handle pool DAT_004a9682.",
+      "source": "docs/formats/effect-lights.md"
+    },
+    {
+      "address": "00406e44",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LightManager_Construct",
+      "description": "Effect light manager constructor: Cpp_VectorNew of 20 slots at +0x6c, stride 0x23, each flagged free with a null light pointer; embeds a light object at +0x328 and zeroes the two free-list counts at +0x35c and +0x3b0. Its own LightManager_SetFalloffConstants(mgr, 2000, 3000) call is dead -- LightManager_InitSubsystem overwrites it immediately.",
+      "source": "docs/formats/effect-lights.md"
+    },
+    {
+      "address": "00406ee4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LightManager_SetFalloffConstants",
+      "description": "Stores the manager's two falloff constants SHIFTED RIGHT BY 5: mgr+0x10 = A = param>>5, mgr+0x14 = B = param>>5. The live call is (10, 2000), so A=0 and B=62 -- not 10 and 2000.",
+      "source": "docs/formats/effect-lights.md"
+    },
+    {
+      "address": "00406f38",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LightManager_ClaimSlot",
+      "description": "Claims the first free effect-light slot for a world point: marks it busy, copies the position, seeds intensity 0xff, copies A/B from the manager, appends the slot to the live array at mgr+0x1c and recomputes the cull radius. Returns the slot index. NO FULL-TABLE GUARD -- with all 20 busy it writes the slot record through the caller's own worldPoint pointer and returns 0x14; see KNOWN_ISSUES.md.",
+      "source": "docs/formats/effect-lights.md"
+    },
+    {
+      "address": "00406fbc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LightManager_ReleaseSlot",
+      "description": "Frees a slot: sets the free flag, swap-removes its pointer from the live array, and recycles its attached light object through LightManager_RecycleLight.",
+      "source": "docs/formats/effect-lights.md"
+    },
+    {
+      "address": "00407018",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LightManager_SetSlotPosition",
+      "description": "Writes a slot's world position (slot+1/+5/+9). Reached only through EffectLight_SetPosition; nothing in retail moves an effect light.",
+      "source": "docs/formats/effect-lights.md"
+    },
+    {
+      "address": "00407048",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LightManager_SetSlotIntensity",
+      "description": "Writes a slot's intensity to BOTH +0x0d (int16) and +0x1b (int32) and recomputes the cull radius. The only writer of +0x1b, which is the field every consumer actually reads.",
+      "source": "docs/formats/effect-lights.md"
+    },
+    {
+      "address": "0040735c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LightManager_RecomputeCullRadius",
+      "description": "slot+0x17 = (slot.intensity * B * 0x20) / 10 + A * 0x20. With A=0 and B=62 that is intensity * 198.4, so a full-intensity light is culled past ~50,592 world units.",
+      "source": "docs/formats/effect-lights.md"
+    },
+    {
+      "address": "00407098",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LightManager_SelectLightsForObject",
+      "description": "Called once per depth-sorted render entry from ObjList_DrawEntryRender, with the entry's position and its SimObject_GetShapeRadius. Per live slot: cull past slot+0x17; else Math_Atan2Guarded(dist>>5, radius>>5) < 8000 picks a DIRECTIONAL approximation (distance-attenuated intensity, direction rebuilt at length 0x800) and otherwise a POINT light (unattenuated, falloff constants handed to the shade path as light+0x34=0 and light+0x38=1984). Far is directional, near is point -- the helper takes (x, y), so the angle is the object's angular size. See docs/formats/effect-lights.md.",
+      "source": "docs/formats/effect-lights.md"
+    },
+    {
+      "address": "00407500",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LightManager_RecycleLight",
+      "description": "Unregisters a synthesised light and pushes it back onto the manager's directional (+0x35c) or point (+0x3b0) free list by its type field +0x16.",
+      "source": "docs/formats/effect-lights.md"
+    },
+    {
+      "address": "00407604",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "EffectLight_Construct",
+      "description": "Attaches an effect light: claims a manager slot at the world point, stores the index at handle+0x0c, and sets the slot intensity to the EXPLOS.DAT row's FrameIntensity[0]. Called only by Explosion_Construct, gated on the row's LightMode being nonzero.",
+      "source": "docs/formats/effect-lights.md"
+    },
+    {
+      "address": "0040765c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "EffectLight_Destruct",
+      "description": "Releases the handle's manager slot and optionally frees the handle.",
+      "source": "docs/formats/effect-lights.md"
+    },
+    {
+      "address": "004076a0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "EffectLight_SetIntensity",
+      "description": "Sets the handle's slot intensity. Explosion_TickUpdate calls it with FrameIntensity[frame] & 0xff on each flipbook step.",
+      "source": "docs/formats/effect-lights.md"
+    },
+    {
+      "address": "004076c4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "EffectLight_SetPosition",
+      "description": "Sets the handle's slot position. No retail caller moves an effect light.",
+      "source": "docs/formats/effect-lights.md"
+    },
+    {
+      "address": "0040707c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LightManager_SetCameraPosition",
+      "description": "Copies the view object's position into mgr+0x00..+0x08 once a frame from maybe_Sim_RenderFrame. Read by nothing on the live path -- its only consumer, FUN_00407284, has zero callers.",
+      "source": "docs/formats/effect-lights.md"
+    },
+    {
+      "address": "00407284",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LightManager_SelectLightsUnconditional",
+      "description": "Dead: zero callers. A cull-by-fixed-distance variant of LightManager_SelectLightsForObject that always builds a point light, with no directional approximation.",
+      "source": "docs/formats/effect-lights.md"
+    },
+    {
+      "address": "0048bd8c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Light_Unregister",
+      "description": "Swap-removes a light pointer from the active light list DAT_006c6130 and decrements DAT_006c612c. The inverse of Light_Register.",
+      "source": "docs/formats/effect-lights.md"
+    },
+    {
+      "address": "0048bbf0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Light_TransformToModelSpace",
+      "description": "Transforms a light's world position (+0x04) and direction (+0x10) by the given transform into the model-space copies at +0x22 and +0x2e. Those copies, NOT the world fields, are what Light_ComputeShadeForFace and Light_ComputeShadeForNormal read. Driven per composed node by maybe_Raster_SetModelTransform, gated on DAT_006cbc88.",
+      "source": "docs/formats/effect-lights.md"
+    },
+    {
+      "address": "0048dd64",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Light_EnableModelSpaceTransform",
+      "description": "Sets DAT_006cbc88, the gate on the per-node light-to-model-space transform. Called unconditionally by Light_ResetSystem, so it is always on inside a mission.",
+      "source": "docs/formats/effect-lights.md"
+    },
+    {
+      "address": "0048dbfc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Light_ResetSystem",
+      "description": "Per-mission light system reset called from Sim_InitMissionSession: clears the ten active light slots, enables the model-space transform, and reinstalls the identity model transform.",
+      "source": "docs/formats/effect-lights.md"
+    },
+    {
+      "address": "0048d94b",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Light_GetType",
+      "description": "Returns light+0x16: 0 ambient (never created anywhere in the binary), 1 directional, 2 point.",
+      "source": "docs/formats/effect-lights.md"
+    },
+    {
+      "address": "0048d956",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Light_GetIntensity",
+      "description": "Returns light+0x1a, the light's intensity, set through vtable slot +4.",
+      "source": "docs/formats/effect-lights.md"
+    },
+    {
+      "address": "0048d961",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Light_GetModelPosition",
+      "description": "Returns light+0x22 -- the MODEL-space position Light_TransformToModelSpace writes, not the world-space +0x04.",
+      "source": "docs/formats/effect-lights.md"
+    },
+    {
+      "address": "0048d989",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Light_GetModelDirection",
+      "description": "Returns light+0x2e -- the MODEL-space direction, not the world-space +0x10.",
+      "source": "docs/formats/effect-lights.md"
+    },
+    {
+      "address": "0048d973",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Light_GetRangeNumerator",
+      "description": "Returns light+0x38, the NUMERATOR of the point-light falloff (B * 0x20 = 1984). Easily swapped with Light_GetFalloffOffset (0048d97e), which returns +0x34; the two are adjacent, both int32, and reversing them turns a 1/d falloff into a constant.",
+      "source": "docs/formats/effect-lights.md"
+    },
+    {
+      "address": "0048d97e",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Light_GetFalloffOffset",
+      "description": "Returns light+0x34, the DENOMINATOR offset of the point-light falloff (A << 5 = 0). See Light_GetRangeNumerator for why the pair is worth stating explicitly.",
+      "source": "docs/formats/effect-lights.md"
     }
   ]
 }

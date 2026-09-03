@@ -363,7 +363,9 @@ name ramp 8.
 
 ### Two shade calculations — terrain and shapes use different ones
 
-Both walk the active light list and reduce, for the single directional sun, to a function of
+Both walk the active light list. The mission sun is the only entry a mission starts with, and an
+impact effect can add more ([`effect-lights.md`](effect-lights.md)); for the sun alone both reduce to
+a function of
 `facing = -cos` between the surface normal and the direction the light travels (positive = lit).
 Normals carry length `0x800` and the sun's direction `0x1000`, so the raw dot is `0x800000 * cos`.
 
@@ -489,7 +491,7 @@ its *vertices* on the axes at level 1 — a 45-degree difference in cross-sectio
 | Two-vertex line polys | Drawn, as one edge in that same range (`OutlineEdge.Standalone`). Where the surface names no distinct line colour the engine falls back to the fill rather than drawing nothing — a line poly has no fill beneath it for a matching outline to disappear into, so the `line != fill` suppression above cannot be what the original does here. What it does instead was not traced; the fallback is this engine's reading, and it decides 12 of the 92 |
 | One-vertex polys | Not drawn; there is no point primitive |
 | `TSShadedPoly` / `TSGouraudPoly` colour | Exact, via `SurfaceRampTable` |
-| Per-face / per-vertex shade | Exact, `MissionSun.ShadeForFace` in the vertex shader |
+| Per-face / per-vertex shade | Exact, in the vertex shader: `MissionSun.ShadeForFace` for the sun, summed with whatever effect lights reach the object ([`effect-lights.md`](effect-lights.md)) and clamped once, as `Light_ComputeShadeForFace` sums them |
 | Lit textured texel | Exact, via `TextureAtlas.IndexPixels` + `PaletteRampTable` |
 | Terrain shade | Exact, `MissionSun.ShadeFor` baked per triangle into `MeshVertex.Shade` |
 | `TSBitmapPart` | Implemented as a view-space billboard quad — see [`dts-billboards.md`](dts-billboards.md) |

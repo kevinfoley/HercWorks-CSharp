@@ -204,6 +204,13 @@ public sealed class SimWorld {
 	public IReadOnlyList<ImpactEffect> Effects => _effects;
 
 	/// <summary>
+	/// The dynamic lights impact effects are currently casting — the effect light manager
+	/// <c>DAT_004a968c</c>. The renderer reads it to decide what each drawn object is lit by; see
+	/// <see cref="EffectLightField"/> and docs/formats/effect-lights.md.
+	/// </summary>
+	public EffectLightField EffectLights { get; } = new();
+
+	/// <summary>
 	/// <c>FUN_00407f1c</c> — puts one impact effect at <paramref name="position"/>. Called from the
 	/// two places the original calls it from along this path: from inside an object's hit test, where
 	/// the effect belongs to the object struck (and is spawned whether or not the sweep goes on to
@@ -226,7 +233,8 @@ public sealed class SimWorld {
 			return;
 		}
 
-		_effects.Add(new ImpactEffect(typeId, record, Explosions.FrameCount(record.ShapeIndex), position));
+		_effects.Add(new ImpactEffect(
+			typeId, record, Explosions.FrameCount(record.ShapeIndex), position, EffectLights));
 
 		if (playSound) {
 			PlayTableSound(record.SoundId, position);

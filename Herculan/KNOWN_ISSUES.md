@@ -16,6 +16,7 @@ _Bugs listed in this section were tested on Windows 11. It's possible that some 
 - The Range readout of the MFD TARGET tab (F5) prints raw world units — 1 unit = 6 mm. Every other distance readout in the cockpit converts to metres first (`Hud_WorldUnitsToMetres`).
 - A gun mount that has taken damage fires **faster**, not slower: damage steps its refire scale down, and the scale multiplies the refire delay, so a half-wrecked autocannon arms half the delay. Reproduced as-is. See [`docs/simulation/weapon-mounts.md`](docs/simulation/weapon-mounts.md#losing-a-mount).
 - Samson: When firing lasers from the two lowest hardpoints, the beams emerge from a little above the barrels. Not sure if this happens with all lasers or if it's hardpoint specific. Only visible in third-person view.
+- The effect-light allocator has no full-table guard. With all twenty slots busy — twenty-one simultaneous light-bearing impact effects — the claim writes a whole slot record over the caller's own world-point vector and returns an out-of-range index, whose intensity write then lands on the manager's embedded light object. See [`docs/formats/effect-lights.md`](docs/formats/effect-lights.md#the-allocator-overruns-when-all-twenty-slots-are-busy). Not reproduced in HERCULAN Engine.
 
 ## HERCULAN Engine
 

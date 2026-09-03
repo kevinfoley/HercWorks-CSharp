@@ -45,7 +45,7 @@ Reached as `table + typeId * 0x28` (`FUN_00407b20`).
 | `+0x00` | `ShapeIndex` | which shape row, i.e. which `EXPLOS.DTS` root |
 | `+0x02` | `FrameInterval` | ticks each flipbook frame is held; **1 on every retail row** |
 | `+0x04` | `TrailEffect` | nonzero attaches a second effect object; **0 on every retail row** |
-| `+0x06` | `LightMode` | nonzero attaches a light source; 0, 1 or 2 in retail |
+| `+0x06` | `LightMode` | nonzero attaches a light source; 0, 1 or 2 in retail, and 1 and 2 behave alike |
 | `+0x08`..`+0x1f` | `FrameIntensity[12]` | the light's intensity per frame; low byte passed to the light as each frame is stepped |
 | `+0x20` | `ProximityRadius` (int32) | radius the effect's own query slot (`FUN_00408100`) reports a hit inside; 0 or 20000 |
 | `+0x24` | `SoundId` | played as `id + 10`; negative is silent |
@@ -56,7 +56,8 @@ Reached as `table + typeId * 0x28` (`FUN_00407b20`).
 `(effect, typeId, worldPoint, ownerObject, playSound)`. Resolves the shape through the two tables,
 resets the shape instance's frame counter for the type's sequence to 0, loads the countdown from
 `FrameInterval`, and optionally builds the light and the trail object. `playSound` gates the
-`SoundId` call, not the effect.
+`SoundId` call, not the effect. What the light is and what it does to a shape is
+[`../formats/effect-lights.md`](../formats/effect-lights.md).
 
 ## Tick — `FUN_0040813c`
 
@@ -114,8 +115,10 @@ shot's frame, and do so whether or not the sweep goes on to find something neare
 `SimWorld.{Explosions, Effects, SpawnImpactEffect, PickImpactEffect}`, `MissionScene.ExplosionModels`.
 Deviations:
 
-- **No light and no trail object.** Both belong to systems that do not exist; no retail row asks for
-  a trail anyway. The row's `SoundId` is played — see [`../formats/audio.md`](../formats/audio.md).
+- **No trail object**; no retail row asks for one. The light a nonzero `LightMode` attaches is
+  built, simulation and renderer both — see
+  [`../formats/effect-lights.md`](../formats/effect-lights.md), which carries its own port notes.
+  The row's `SoundId` is played — see [`../formats/audio.md`](../formats/audio.md).
 - **Group 2 is selected, but indistinguishably.** The split from group 1 is a change in a component's
   health band, which `MechObject.ApplyDirectFireDamage` measures either side of the write, so both
   branches are reachable. It costs nothing on retail data, per the note above: the two arrays hold

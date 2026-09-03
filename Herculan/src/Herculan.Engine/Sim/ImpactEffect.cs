@@ -18,24 +18,32 @@ namespace Herculan.Engine.Sim;
 /// <c>Sim_MainTick</c> walks ahead of the machine list, so nothing can shoot it and nothing collides
 /// with it.</para>
 ///
-/// <para><b>Three things the original's constructor also does are not here</b>, each belonging to a
-/// system that does not exist yet: the light source
-/// (<see cref="ExplosionTypeEntry.LightMode"/> and the per-frame intensity ramp it drives), the
-/// sound (<see cref="ExplosionTypeEntry.SoundId"/>, played as <c>id + 10</c>), and the second
-/// attached effect at <see cref="ExplosionTypeEntry.TrailEffect"/> — which no retail row asks for
-/// anyway. The proximity radius the type's own query slot reports on is likewise unread: nothing
-/// queries it.</para>
+/// <para>A row with a nonzero <see cref="ExplosionTypeEntry.LightMode"/> also claims a dynamic
+/// light for as long as the flipbook runs — <see cref="EffectLightField"/>, whose slot this drives
+/// from the row's per-frame intensity ramp. <c>LightMode</c> 1 and 2 reach the same code; the
+/// original tests the field only against zero.</para>
+///
+/// <para><b>One thing the original's constructor also does is not here</b>: the second attached
+/// effect at <see cref="ExplosionTypeEntry.TrailEffect"/>, which no retail row asks for. The
+/// proximity radius the type's own query slot reports on is likewise unread — nothing queries
+/// it.</para>
 /// </summary>
 public sealed class ImpactEffect {
 	private readonly ExplosionTypeEntry _record;
 	private readonly int _frameCount;
+	private readonly EffectLightField? _lights;
 	private short _timer;
 
 	/// <param name="typeId">The <c>EXPLOS.DAT</c> type row, which is what a <c>PROJ.DAT</c> <c>ImpactFX</c> array holds.</param>
 	/// <param name="record">That row.</param>
 	/// <param name="frameCount">How many frames the row's shape has — see <see cref="ExplosionCatalog.FrameCount"/>.</param>
 	/// <param name="position">Where the shot landed, in world units.</param>
-	internal ImpactEffect(short typeId, ExplosionTypeEntry record, int frameCount, Vec3i position) {
+	/// <param name="lights">
+	/// The field a light-bearing row claims a slot in, or null to run the effect without one.
+	/// </param>
+	internal ImpactEffect(
+			short typeId, ExplosionTypeEntry record, int frameCount, Vec3i position,
+			EffectLightField? lights = null) {
 		TypeId = typeId;
 		_record = record;
 		_frameCount = frameCount;
@@ -45,10 +53,23 @@ public sealed class ImpactEffect {
 		// effect always opens on frame 0 however the shape was left by the last one to use it.
 		Frame = 0;
 		_timer = record.FrameInterval;
+
+		// FUN_00407604: the row's LightMode is tested against zero and nothing else, and the slot
+		// opens on FrameIntensity[0] — the one ramp entry the tick never reaches, because it reads
+		// the ramp at the frame it has just stepped to and stops the effect when that wraps to 0.
+		_lights = record.LightMode != 0 ? lights : null;
+		LightHandle = _lights?.Claim(position, FrameIntensity(0)) ?? -1;
 	}
 
 	/// <summary>The <c>EXPLOS.DAT</c> type row this effect is, <c>obj+0x41</c>.</summary>
 	public short TypeId { get; }
+
+	/// <summary>
+	/// Which <see cref="EffectLightField"/> slot this effect's light occupies, or -1 when the row
+	/// asks for no light or every slot was busy. The handle the original keeps at
+	/// <c>handle+0x0c</c>.
+	/// </summary>
+	public int LightHandle { get; private set; } = -1;
 
 	/// <summary>Which <c>EXPLOS.DTS</c> root it draws — the type row's own first field.</summary>
 	public int ShapeIndex => _record.ShapeIndex;
@@ -76,15 +97,36 @@ public sealed class ImpactEffect {
 		}
 
 		if (_frameCount <= 0) {
+			ReleaseLight();
 			return true;
 		}
 
 		Frame = (Frame + 1) % _frameCount;
 		if (Frame == 0) {
+			ReleaseLight();
 			return true;
 		}
 
+		// FUN_004076a0, driven from the ramp at the frame just stepped to. Reached only for a
+		// nonzero frame, which is why FrameIntensity[0] is the constructor's business alone.
+		_lights?.SetIntensity(LightHandle, FrameIntensity(Frame));
+
 		_timer = _record.FrameInterval;
 		return false;
+	}
+
+	/// <summary>
+	/// The type row's intensity ramp at one frame, as the original reads it — the entry's low byte,
+	/// and 0 for a frame past the twelve the row has room for. A shape with a longer flipbook than
+	/// that runs the original off the end of the row into <c>ProximityRadius</c>; stopping at the
+	/// ramp's own length is this engine's, and it only differs for data no retail shape supplies.
+	/// </summary>
+	private int FrameIntensity(int frame) =>
+		frame >= 0 && frame < _record.FrameIntensity.Length ? _record.FrameIntensity[frame] & 0xff : 0;
+
+	/// <summary><c>FUN_0040765c</c> — hands the slot back when the effect is over.</summary>
+	private void ReleaseLight() {
+		_lights?.Release(LightHandle);
+		LightHandle = -1;
 	}
 }

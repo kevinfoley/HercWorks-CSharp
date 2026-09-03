@@ -27,8 +27,10 @@ That last line is `Raster_ShadeRampRow` inlined — the shade byte is a row of t
 ## The shade calculation
 
 `Light_ComputeShadeForNormal` (`0048c060`) is the per-normal sibling of `Light_ComputeShadeForFace`.
-It walks the active light list; the mission sun is the only entry a retail mission populates, and it
-is type 1 (directional):
+It walks the active light list. Terrain is shaded at zone load, when the mission sun — type 1,
+directional — is the list's only entry; the dynamic lights an impact effect registers
+([`effect-lights.md`](effect-lights.md)) come and go long afterwards and can never reach a baked
+cell:
 
 ```
 dot = normal . lightDirection             // plain integer dot, no normalisation

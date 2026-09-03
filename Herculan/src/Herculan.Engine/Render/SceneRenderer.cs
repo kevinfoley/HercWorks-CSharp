@@ -1,5 +1,6 @@
 using System.Numerics;
 using Herculan.Engine.Gl;
+using Herculan.Engine.Sim;
 using Silk.NET.OpenGL;
 
 namespace Herculan.Engine.Render;
@@ -41,6 +42,18 @@ public sealed class SceneItem {
 	/// <c>TSSolidPoly</c> geometry was never lit to begin with.</para>
 	/// </summary>
 	public bool Fullbright { get; set; }
+
+	/// <summary>
+	/// The object this item's geometry belongs to, which is what the effect-light pass measures
+	/// from — <c>FUN_00407098</c> takes the drawn entry's own position and bounding radius, and both
+	/// come off the object rather than off the mesh. A machine drawn as one item per posed node names
+	/// the machine on every one of them, because the original selects once for the whole shape.
+	///
+	/// <para>Null leaves the item lit by the mission sun alone, which is right for the two things
+	/// that carry no object: the terrain, whose shade is baked at zone load and cannot respond to a
+	/// light at all, and a projectile, drawn fullbright.</para>
+	/// </summary>
+	public SimObject? LightSubject { get; set; }
 
 	/// <summary>
 	/// Whether this item is the zone's cell grid, and so takes its fog distance a cell at a time the
@@ -99,6 +112,17 @@ public sealed class SceneRenderer : IDisposable {
 	private int _depthSlices;
 	private int _shadeRampRows;
 	private int _shadeRampGouraudRow;
+	private readonly SelectedEffectLight[] _effectLights =
+		new SelectedEffectLight[EffectLightSelection.MaxPerObject];
+
+	// Built once because these are set per drawn item: composing the subscript into a string each
+	// time would put a few thousand allocations a frame in front of the draw loop.
+	private static readonly string[] EffectLightNames = Enumerable
+		.Range(0, EffectLightSelection.MaxPerObject)
+		.Select(i => $"uEffectLights[{i}]").ToArray();
+	private static readonly string[] EffectLightIntensityNames = Enumerable
+		.Range(0, EffectLightSelection.MaxPerObject)
+		.Select(i => $"uEffectLightIntensity[{i}]").ToArray();
 
 	/// <param name="editorGrid">
 	/// Compiles the measuring grid into the scene program, so <see cref="SceneItem.ShowGrid"/> and
@@ -124,6 +148,14 @@ public sealed class SceneRenderer : IDisposable {
 	/// Settable so a tool can override it; every mission uses the one hardcoded sun.
 	/// </summary>
 	public Vector3 LightDirection { get; set; } = MissionSun.Direction;
+
+	/// <summary>
+	/// The impact effects' dynamic lights — <see cref="SimWorld.EffectLights"/>. Each drawn item
+	/// whose <see cref="SceneItem.LightSubject"/> is set gets its own selection out of these, which
+	/// is what <c>FUN_00407098</c> does per render entry. Null lights the scene by the sun alone,
+	/// which is what a tool with no simulation running gets.
+	/// </summary>
+	public EffectLightField? EffectLights { get; set; }
 
 	/// <summary>
 	/// Installs the theater's shaded-surface colours, which every <c>TSShadedPoly</c> in the scene is
@@ -303,8 +335,40 @@ public sealed class SceneRenderer : IDisposable {
 		float cellFogBias = 0.5f * FogCellSize
 			* (MathF.Abs(forward.X) + MathF.Abs(forward.Z));
 
+		// Whether any impact effect is carrying a light this frame at all, asked once rather than
+		// per item: the usual answer is no, and it is what lets the selection below be skipped
+		// outright instead of walking twenty empty slots for every drawn thing.
+		bool anyEffectLights = HasLiveEffectLight();
+		_shader.SetFloat("uEffectLightFalloff", EffectLightSelection.PointFalloff);
+
+		// The count last uploaded, so that a scene with no effect lights sets it once and every
+		// item after the first costs nothing.
+		int uploadedLightCount = -1;
+
 		foreach (var item in items) {
 			_shader.SetMatrix("uModel", item.Transform);
+
+			// FUN_00407098, run per drawn object just as ObjList_DrawEntryRender runs it — see
+			// EffectLightSelection.
+			int lightCount = 0;
+			if (anyEffectLights && item.LightSubject is { } subject) {
+				lightCount = EffectLightSelection.Select(EffectLights!, subject.Position,
+					subject.ShapeRadius, _effectLights);
+
+				for (int i = 0; i < lightCount; i++) {
+					var light = _effectLights[i];
+
+					// w is the original's own light type tag: 1 directional, 2 point.
+					_shader.SetVector4(EffectLightNames[i],
+						new Vector4(light.Vector, light.Directional ? 1f : 2f));
+					_shader.SetFloat(EffectLightIntensityNames[i], light.Intensity);
+				}
+			}
+
+			if (lightCount != uploadedLightCount) {
+				_shader.SetInt("uEffectLightCount", lightCount);
+				uploadedLightCount = lightCount;
+			}
 			if (_hasGrid) {
 				_shader.SetInt("uGridEnabled", item.ShowGrid ? 1 : 0);
 			}
@@ -322,6 +386,24 @@ public sealed class SceneRenderer : IDisposable {
 
 			item.Mesh.Draw();
 		}
+	}
+
+	/// <summary>
+	/// Whether <see cref="EffectLights"/> holds a slot bright enough to light anything — the test
+	/// <c>FUN_00407098</c> makes per slot, hoisted out of the draw loop.
+	/// </summary>
+	private bool HasLiveEffectLight() {
+		if (EffectLights is not { } field) {
+			return false;
+		}
+
+		for (int i = 0; i < field.Slots.Count; i++) {
+			if (field.Slots[i].IsLive) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/// <summary>

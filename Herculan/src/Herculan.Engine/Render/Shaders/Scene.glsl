@@ -56,6 +56,20 @@ uniform mat4 uView;
 uniform mat4 uProjection;
 uniform vec3 uLightDirection;
 
+// The impact effects' dynamic lights, as they apply to the object being drawn — FUN_00407098 picks
+// them per render entry and the renderer uploads its answer here. See EffectLightSelection, and
+// docs/formats/effect-lights.md for the two shade terms below.
+//
+// Nine of them, because the original registers these into the same ten-slot active list the mission
+// sun already occupies and drops the surplus. uEffectLights[i].xyz is the direction the light
+// travels for a directional entry and its render-space position for a point one; .w is the
+// original's own light type tag, 1 and 2.
+#define MAX_EFFECT_LIGHTS 9
+uniform int uEffectLightCount;
+uniform vec4 uEffectLights[MAX_EFFECT_LIGHTS];
+uniform float uEffectLightIntensity[MAX_EFFECT_LIGHTS];
+uniform float uEffectLightFalloff;
+
 void main() {
 	vec4 worldPosition = uModel * vec4(aPosition, 1.0);
 #ifdef EDITOR_GRID
@@ -80,7 +94,7 @@ void main() {
 	// The shade byte Light_ComputeShadeForFace (0048bedc) gives this corner:
 	//     t = (dot - 0x400000) >> 1;  if (t < 0) shade -= (0x100 * t) >> 22
 	// which with normals at length 0x800 and the sun at 0x1000/0x100 collapses to
-	// clamp(128 + 256 * facing). See MissionSun.ShadeForFace.
+	// max(128 + 256 * facing, 0). See MissionSun.ShadeForFace.
 	//
 	// Computed HERE, per vertex, and interpolated — which is what makes a TSGouraudPoly
 	// Gouraud. TSGouraudPoly_Render (004755c8) calls the light function once per vertex,
@@ -90,8 +104,43 @@ void main() {
 	// and then interpolates, so a corner that bottoms out at 0 still ramps linearly to its
 	// neighbour rather than holding a dead flat region. Flat polys are unaffected — their
 	// three corners share a normal, so this is constant across the face.
-	float facing = dot(normal * sideSign, -normalize(uLightDirection));
-	vLightShade = clamp(128.0 + 256.0 * facing, 0.0, 255.0);
+	vec3 litNormal = normal * sideSign;
+	float facing = dot(litNormal, -normalize(uLightDirection));
+
+	// Light_ComputeShadeForFace sums every light's term and clamps the SUM at 255, so the sun's own
+	// term is floored at 0 here but not capped — capping it first would swallow an effect light's
+	// contribution to a face the sun has already overdriven, and the sun overdrives anything within
+	// 60 degrees of it.
+	float shade = max(128.0 + 256.0 * facing, 0.0);
+
+	// A surface that carries a baked shade byte (terrain) never reads this, so it does not pay for
+	// the loop either.
+	if (aUnlit < 0.5) {
+		for (int i = 0; i < uEffectLightCount; i++) {
+			vec4 light = uEffectLights[i];
+			if (light.w < 1.5) {
+				// Directional. The same curve as the sun, halved: the direction vector is built at
+				// length 0x800 rather than 0x1000, which makes the term peak at the light's
+				// intensity instead of twice it and leaves a half-lambert (1 + facing) / 2.
+				shade += uEffectLightIntensity[i]
+					* (1.0 + dot(litNormal, -light.xyz)) * 0.5;
+			} else {
+				// Point, the type-2 branch: intensity * B * 0x20 * cos / distance, with the
+				// original's A of zero dropping out of the denominator. uEffectLightFalloff carries
+				// that numerator already divided by the world-units-per-metre this distance is in.
+				vec3 displacement = light.xyz - worldPosition.xyz;
+				float lightDistance = length(displacement);
+				float cosine = lightDistance > 1e-6
+					? dot(litNormal, displacement / lightDistance)
+					: 0.0;
+				if (cosine > 0.0) {
+					shade += uEffectLightIntensity[i] * uEffectLightFalloff * cosine / lightDistance;
+				}
+			}
+		}
+	}
+
+	vLightShade = min(shade, 255.0);
 
 	vColor = aColor;
 	vUV = aUV;

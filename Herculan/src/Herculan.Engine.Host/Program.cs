@@ -36,6 +36,7 @@ int? initialWeaponRow = null;
 bool initialLink = false;
 bool heldFire = false;
 bool acquireTarget = false;
+bool waitForEffectLight = false;
 
 // Ticks to let the sensor model run before --target takes its pick: nothing is targetable until a
 // sweep has painted it, and the sweep only runs from the world tick.
@@ -84,6 +85,12 @@ for (int i = 0; i < args.Length; i++) {
 		// Hold the trigger down for the whole run, for the same reason as --turret: a --screenshot
 		// run never sees a keystroke, and a beam is only on screen for the tick after it was fired.
 		heldFire = true;
+	} else if (args[i] == "--impact") {
+		// Hold the capture until an impact effect is carrying a light, for the same reason as
+		// --fire: rounds land on their own once the trigger is held, but a light lasts about two
+		// thirds of a second and a fixed frame count is as likely to photograph the gap between two
+		// as one of them. Only useful alongside --fire and --screenshot.
+		waitForEffectLight = true;
 	} else if (args[i] == "--target") {
 		// Acquire a target at power-up, for the same reason as --weapon and --mfd: a --screenshot run
 		// never sees a keystroke, and the HUD's target box, the reticle's on-target frame and the F5
@@ -462,6 +469,11 @@ window.Load += (gl, input) => {
 	// than hand-picked — see Scene.Atmosphere. The sky is deliberately left alone.
 	scene.Atmosphere.ApplyTo(renderer);
 
+	// The lights impact effects claim, which the renderer selects out of per drawn object — see
+	// EffectLightSelection. Live slots only ever come from the simulation, so this is the whole of
+	// the wiring.
+	renderer.EffectLights = scene.World.EffectLights;
+
 	// And the same distance as the camera's far plane, so the view stops where the original's
 	// terrain draw region does instead of drawing fully-fogged geometry past it.
 	scene.Atmosphere.ApplyTo(camera);
@@ -563,7 +575,7 @@ window.Load += (gl, input) => {
 			for (int i = 0; i < segments.Length; i++) {
 				int transformId = model.Segments[i].TransformId;
 				var part = new SceneItem(segments[i],
-					MissionScene.PosedTransformOf(mech, transformId), texture);
+					MissionScene.PosedTransformOf(mech, transformId), texture) { LightSubject = mech };
 
 				built.Add(part);
 				posedParts.Add((mech, transformId, part));
@@ -579,7 +591,9 @@ window.Load += (gl, input) => {
 			continue;
 		}
 
-		var item = new SceneItem(mesh, MissionScene.TransformOf(sceneObject), texture);
+		var item = new SceneItem(mesh, MissionScene.TransformOf(sceneObject), texture) {
+			LightSubject = sceneObject.Object
+		};
 		built.Add(item);
 
 		if (isPlayer) {
@@ -1096,7 +1110,13 @@ window.Render += (_, gl) => {
 
 	// --target waits the same way --fire does: the sensor model has to run before anything is
 	// targetable, so the capture holds until a selection exists rather than photographing a blank HUD.
+	// --impact waits for a slot of the effect light field to be lit, which is the one moment the
+	// dynamic lights are on screen at all. See EffectLightSelection.
+	bool lightWanted = waitForEffectLight
+		&& !scene.World.EffectLights.Slots.Any(slot => slot.IsLive);
+
 	if (screenshotPath != null && !screenshotTaken && framesRendered >= 30 && !acquireTarget
+			&& !lightWanted
 			&& (!shotWanted || scene.World.Tracers.Count > 0 || scene.World.Projectiles.Count > 0
 				|| scene.World.RocketsInFlight.Count > 0)) {
 		screenshotTaken = true;
@@ -1441,7 +1461,11 @@ void RefreshWeaponItems() {
 			}
 
 			uint? texture = modelTextures.TryGetValue(model.Key, out var bound) ? bound.Handle : null;
-			weaponItems.Add(new SceneItem(mesh, WorldScale.ToRenderMatrix(mount.ModelFrame(mech)), texture));
+			// Lit as part of the machine it hangs off, which is how the original draws it: a mount's
+			// shape is composed into the mech's own render entry, so it takes that entry's selection.
+			weaponItems.Add(new SceneItem(mesh, WorldScale.ToRenderMatrix(mount.ModelFrame(mech)), texture) {
+				LightSubject = mech
+			});
 		}
 	}
 }

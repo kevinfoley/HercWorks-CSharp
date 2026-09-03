@@ -37,12 +37,6 @@ _ These are not organized in any particular order; this may not be the best orde
   `SplashFactor`'s share of a direct-fire hit is dropped rather than diverted, why plasma does not
   splash, and why a destroyed weapon mount cannot explode. Fully decoded in
   [`../simulation/damage-system.md`](../simulation/damage-system.md).
-- **Effect light sources.** An `EXPLOS.DAT` row's `LightMode` and its twelve-frame intensity ramp
-  drive a light object the engine does not have. The engine's light list holds only the mission sun
-  (`Render.MissionSun`); a second entry would have to sum into the same shade byte, so this wants a
-  pass over the shading path rather than a bolt-on. Effect light sources are not obviously visible in retail,
-  so it's possible that this logic was misunderstood, or that the light sources have a brightness of
-  0, or are only used in certain zones.
 - **Structures clip.** Projectiles and impact effects visibly sink into buildings, which retail does
   not do. **Hit geometry is ruled out** — measured, see
   [`../simulation/hit-detection.md`](../simulation/hit-detection.md), "Measured: hit geometry versus

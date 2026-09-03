@@ -92,6 +92,9 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	void ISoundSink.MoveTo(int id, Vec3i position) => _director?.UpdatePosition(id, position);
 
 	/// <inheritdoc />
+	void ISoundSink.SetPitch(int id, int rate) => _director?.SetPitch(id, rate);
+
+	/// <inheritdoc />
 	void ISoundSink.Say(int messageId) => Messages.Post(messageId);
 
 	/// <inheritdoc />

@@ -64,7 +64,13 @@ public sealed class MechTypeRecord {
 	/// <summary>The parsed file this record was derived from.</summary>
 	public HercSimDat Data { get; }
 
-	/// <summary>True for the Razor. Its movement is a different set of code paths and is not ported.</summary>
+	/// <summary>
+	/// True for the Razor — record offset 78, the type record's <c>+0x50</c>. It selects a different
+	/// set of code paths throughout: a different behaviour class with its own per-tick move, a
+	/// different control law reading the stick axes as an aircraft's, a different HUD speed
+	/// conversion, and a <c>fm\&lt;NAME&gt;.FM</c> flight model the loader reads only for a type
+	/// that sets it. See <see cref="MechObject.Flight"/>.
+	/// </summary>
 	public bool IsFlyer { get; }
 
 	/// <summary>The Q16 ratio the speed fields were scaled by. 1.0 when the type is not rescaled.</summary>
@@ -293,4 +299,28 @@ public sealed class MechTypeRecord {
 	/// </summary>
 	public int DisplaySpeedKph(int speed) =>
 		MaxForward != 0 ? speed * HudSpeedScale / MaxForward : 0;
+
+	/// <summary>
+	/// The flyer's branch of the same readout — <c>Mech_GetDisplaySpeedKph</c> (<c>0041bb3c</c>)
+	/// remaps airspeed from <c>[0, airSpeedMax]</c> onto <c>[0, HudSpeedScale]</c> through
+	/// <c>Math_MapRange</c> (<c>0047de3c</c>) rather than dividing by the walker's top speed,
+	/// which a flyer's record does not describe.
+	/// </summary>
+	public int DisplayAirSpeedKph(int airSpeed, int airSpeedMax) =>
+		airSpeedMax != 0 ? MapRange(airSpeed, 0, airSpeedMax, 0, HudSpeedScale) : 0;
+
+	/// <summary>
+	/// <c>Math_MapRange</c> (<c>0047de3c</c>) — a linear remap of <paramref name="value"/> from
+	/// <c>[fromLow, fromHigh]</c> onto <c>[toLow, toHigh]</c>, with a rounding bias of one less than
+	/// the input span, signed to match the output's direction.
+	/// </summary>
+	private static int MapRange(int value, int fromLow, int fromHigh, int toLow, int toHigh) {
+		int span = fromHigh - fromLow;
+		long bias = System.Math.Abs(span) - 1;
+		if (toHigh < toLow) {
+			bias = -bias;
+		}
+
+		return (int)(((long)(value - fromLow) * (toHigh - toLow) + bias) / span) + toLow;
+	}
 }

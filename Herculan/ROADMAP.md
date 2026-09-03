@@ -48,6 +48,11 @@ The mechanism is understood; what is left is engine work.
   → [`docs/formats/terrain-heightmap.md`](docs/formats/terrain-heightmap.md)
 - **Automatic turret tracking (`[T]`) and AI turret aiming.**
   → [`docs/simulation/torso-aim.md`](docs/simulation/torso-aim.md)
+- **Flyer control bindings.** The flight model is ported and the axis roles are known, but the host
+  still sends a Razor the walker-shaped control set, so the elevator, rudder and throttle are not
+  reachable from the keyboard. Retail's own bindings are a saved configuration rather than anything
+  in the executable, so what to default to is a design choice.
+  → [`docs/simulation/razor-flight.md`](docs/simulation/razor-flight.md)
 
 ## Reverse-engineering still open
 

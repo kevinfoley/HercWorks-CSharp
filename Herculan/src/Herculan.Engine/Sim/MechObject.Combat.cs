@@ -153,8 +153,14 @@ public sealed partial class MechObject {
 	public bool Destroyed { get; private set; }
 
 	/// <summary>
-	/// <c>mech+0xa4</c> — whether enough legs are gone that the machine cannot walk. Latched, never
+	/// <c>mech+0xa4</c> — whether the machine can no longer move under its own power. Latched, never
 	/// cleared, and in the original it also clears the machine's target and fires its mission action.
+	///
+	/// <para>What sets it depends on the chassis. A walker loses it with its legs, in
+	/// <see cref="GradeLegs"/>. A flyer has no legs to lose and takes it instead from the airframe
+	/// contact that destroys its nose or its belly — and for a flyer it is the harder stop of the
+	/// two, because the flight path also refuses to integrate position while it is set. The aircraft
+	/// is down where it fell. See <see cref="FlyerMovementTick"/>.</para>
 	/// </summary>
 	public bool Immobilised { get; private set; }
 

@@ -447,8 +447,16 @@ if (acquireTarget && pilotMech != null) {
 }
 
 // The cockpit powers up the moment the player has a machine — the start-up sequence and, for a
-// walker, the engine hum that runs for the rest of the mission. See GameAudio.PowerUp.
+// flyer, the engine hum that runs for the rest of the mission. See GameAudio.PowerUp.
+//
+// The listener has to be placed first. The hum is positional and PowerUp is a one-shot: SoundDirector
+// refuses to start a source past its catalog row's cutoff range, so with the listener still at its
+// default origin and the machine tens of thousands of units away at its mission spawn, the hum would
+// be judged inaudible, never started, and never retried. The camera does not exist yet at this point
+// in setup and would not be positioned if it did, so the machine's own eye stands in — which is where
+// the camera opens anyway.
 if (pilotMech != null) {
+	audio.SetListener(pilotMech.EyePosition, pilotMech.Heading);
 	audio.PowerUp(pilotMech);
 }
 

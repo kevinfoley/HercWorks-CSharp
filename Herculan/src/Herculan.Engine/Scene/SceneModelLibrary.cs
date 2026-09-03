@@ -82,6 +82,8 @@ public sealed class SceneModelLibrary {
 	private readonly Dictionary<string, ColliderNode[]> _collision = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, HercSimDamage?> _damageData = new(StringComparer.OrdinalIgnoreCase);
 
+	private readonly Dictionary<string, FlightModel?> _flightModels = new(StringComparer.OrdinalIgnoreCase);
+
 	/// <summary>
 	/// The folder hardpoint lists live in — <c>ResourcePath_BuildFolderName(name, "gl")</c> at the
 	/// head of the mech-type loader (<c>FUN_00420298</c>).
@@ -202,6 +204,29 @@ public sealed class SceneModelLibrary {
 	/// in both the mech constructor and the flyer type loader.
 	/// </summary>
 	private const string DamageFolder = "dmg";
+
+	/// <summary>
+	/// A flyer chassis' flight parameters, <c>fm\&lt;NAME&gt;.FM</c>. Only <c>RAZOR</c> and
+	/// <c>SKIMMER</c> ship one, and <c>MechType_InitOne</c> (<c>004201a8</c>) only looks for it when
+	/// the type's own record sets the flyer flag — so a null here for a walker is the normal case,
+	/// not a missing file.
+	/// </summary>
+	public FlightModel? FlightModelFor(string typeName) {
+		if (_flightModels.TryGetValue(typeName, out var cached)) {
+			return cached;
+		}
+
+		byte[]? bytes = _content.Read(FlightModelFolder, typeName + ".FM");
+		var data = bytes != null
+			? new FlightModelTransformer().Parse(bytes) as FlightModel
+			: null;
+
+		_flightModels[typeName] = data;
+		return data;
+	}
+
+	/// <summary>The folder flight models live in — <c>ResourcePath_BuildFolderName(name, "fm")</c>.</summary>
+	private const string FlightModelFolder = "fm";
 
 	/// <summary>The flyer type's stats, or null — only <c>SKIMMER</c> ships one.</summary>
 	public FlyerSimData? FlyerData(string flyerName) {

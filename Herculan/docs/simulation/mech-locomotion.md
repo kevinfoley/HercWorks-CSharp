@@ -1,7 +1,9 @@
 # Herc locomotion — throttle, steering, and animation root motion
 
 Reverse-engineered from `DBSIM.EXE` (`mechsys.cpp`) in the `ES2Recon` Ghidra project. Covers
-ground Hercs only; the Razor flyer (`typeRec+0x50 != 0`) takes different paths throughout.
+ground Hercs only. The Razor (`typeRec+0x50 != 0`) takes different paths throughout — a different
+control law, a different move and a real velocity vector; see
+[`razor-flight.md`](razor-flight.md).
 
 **Core fact: Hercs have no velocity vector.** All translation and all turn-in-place rotation come
 from the walk/run/turn animations' root-node motion. The control law only sets a speed scalar,
@@ -82,7 +84,7 @@ stripped).
 | 34–42 | `+0x24`–`+0x2c` | `AnimId_TorsoPitch`, `TorsoPitch*` | The same for pitch — see [`torso-aim.md`](torso-aim.md) |
 | 44 | `+0x2e` | `GaitThreshold` | Walk↔run threshold speed |
 | 68 | `+0x46` | `AnimId_Death` | Death/fall sequence id |
-| 78 | `+0x50` | `InputFlagFlyer` | 1 = Razor |
+| 78 | `+0x50` | `InputFlagFlyer` | 1 = Razor. Selects the flight paths and the `fm\<NAME>.FM` load — [`razor-flight.md`](razor-flight.md) |
 | 84 | `+0x56` | `Unk84_val` | Whether a hit can knock this chassis' weapon mounts out — 1 on every biped, **0 on the PITBULL**. `Mech_ApplyDirectFireDamage` tests it before rolling; see [`damage-system.md`](damage-system.md#weapon-mount-destruction) |
 | 108 | `+0x6e` | `GaitThresholdReverse` | Reverse-side walk↔run threshold |
 | 122 | `+0x7c` | `AnimId_TurnInPlace` | Turn-in-place sequence id |
@@ -433,4 +435,4 @@ shows a pose evaluated that same iteration, at 25 Hz.
 
 ## Outstanding
 
-- AI obstacle avoidance (`00416274`), Razor flyer movement.
+- AI obstacle avoidance (`00416274`).

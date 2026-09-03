@@ -200,6 +200,8 @@ centres. `--turret <twist> <pitch>` holds the axes for a `--screenshot` run.
 - **AI turret aiming**, the caller that feeds `Mech_TargetRelativeToPilot`'s output back into these
   two ticks with a snap target derived from the target's bearing.
 - **`FUN_0041a74c`**, gun convergence: the pitch tick's third argument is the range to the current
-  target, and it writes a per-gun aim vector from it using record field 100.
+  target, and it writes a per-gun aim vector from it using record field 100. A flyer reaches it from
+  `Razor_MovementTick` instead, which has no pitch tick — see
+  [`razor-flight.md`](razor-flight.md).
 - **The servo sound** (`0041a6d0` / `0041a994`): sound 0x21, started when the axis exceeds 0xc0 and
   the angle is still changing, stopped when the axis centres or the angle stops.

@@ -5,6 +5,13 @@ namespace Herculan.Engine.Sim;
 /// hands to <c>Mech_ApplyThrottleInput</c> (<c>004160dc</c>): two signed stick axes, full deflection
 /// at ±0x100, and the throttle-lever mode the original keeps as a global because only the player
 /// has one.
+///
+/// <para><b>A flyer reads the same four axes differently.</b> The device layer makes no distinction;
+/// <c>Sim_PollPlayerInput</c> hands them to a different control law, which takes
+/// <see cref="Turn"/> as the aileron, <see cref="Throttle"/> as the elevator,
+/// <see cref="TorsoTwist"/> as the rudder and <see cref="TorsoPitch"/> as the throttle. The field
+/// names here are the walker's roles, which are also the device axes' own names. See
+/// docs/simulation/razor-flight.md.</para>
 /// </summary>
 /// <param name="Turn">
 /// Stick X. Negative is left, positive right — a joystick's own sign convention. The control law

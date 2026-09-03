@@ -282,12 +282,15 @@ public sealed class SimWorld {
 	/// <see cref="RaycastTerrain"/> shortens the ray at the ground before a single object is tested,
 	/// so a machine standing behind a ridge cannot be shot through it.</para>
 	///
+	/// <para>Both of the original's exclusions are here: the attacker at the shot record's
+	/// <c>+0x0e</c> (<see cref="WeaponShot.Owner"/>) and the second one at <c>+0x14</c>
+	/// (<see cref="WeaponShot.Excluded"/>). The beam path writes only the first, so on a weapon shot
+	/// they are the same test twice; a flyer's airframe contact probe writes only the second.</para>
+	///
 	/// <para>Two things the original also does here are left out, both belonging to systems that do
 	/// not exist yet: the AI "something just shot at me" notification on each candidate's
 	/// <c>+0x50</c> slot, and the friendly-fire and lock-on filtering that reads each object's team
-	/// byte. A third, the second exclusion the original tests at the shot record's <c>+0x14</c>, is
-	/// left out because the beam path never writes that field — it is stack garbage there, so the
-	/// comparison excludes nothing.</para>
+	/// byte.</para>
 	/// </summary>
 	/// <returns>The distance the shot travelled before it hit something, or zero if it hit nothing.</returns>
 	public int Raycast(WeaponShot shot) {
@@ -304,7 +307,8 @@ public sealed class SimWorld {
 			// mission parks seven objects in three overlapping pairs — where they are invisible and
 			// unticked but, without this, perfectly solid. Shots stopped on nothing.
 			if (candidate.Removed || candidate.AwaitingDeployment
-					|| ReferenceEquals(candidate, shot.Owner)) {
+					|| ReferenceEquals(candidate, shot.Owner)
+					|| ReferenceEquals(candidate, shot.Excluded)) {
 				continue;
 			}
 

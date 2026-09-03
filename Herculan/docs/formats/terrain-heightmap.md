@@ -228,12 +228,10 @@ radius" but **mode 0 never reads it**. See
 - **Rocket ground-impact detonation** (`FUN_00409d2c`) checks altitude against
   `Terrain_HeightQuery` every tick and detonates the instant a projectile dips below ground — see
   [`../simulation/damage-system.md`](../simulation/damage-system.md#explosive-damage-blast-sweep-random-per-component-roll-distance-falloff-shield-gated).
-- **Flyer ground-proximity/terrain-avoidance autopilot: `FUN_004198f4`** (likely `flyersys.cpp`,
-  unconfirmed by assert string). Six direction-flag bits from the flyer's type record (a per-type
-  "which sensors does this airframe have" mask) each gate a probe in a fixed direction
-  (front/back/left-right/up/down offsets from static direction-vector tables); for each active
-  probe, queries terrain height via `Terrain_HeightQuery` and/or raycasts via `FUN_00426528` (see
-  [`../simulation/damage-system.md`](../simulation/damage-system.md#the-shared-raycast-fun_00426528)),
-  and if triggered, nudges the flyer's vertical-speed field (`+0xe`) away from the obstacle and
-  plays a proximity-alarm tone whose volume/pitch scales with distance via the fast-magnitude
-  approximation from [`../simulation/dbsim-physics-notes.md`](../simulation/dbsim-physics-notes.md).
+- **A flyer's airframe contact probes** (`Razor_MovementTick`, likely `flyersys.cpp`, unconfirmed by
+  assert string). Six points on the airframe are each transformed into world space and tested against
+  `Terrain_HeightQuery`, and all but one also raycast via `FUN_00426528` (see
+  [`../simulation/damage-system.md`](../simulation/damage-system.md#the-shared-raycast-fun_00426528)).
+  A contact damages the component that touched and kicks the airframe away from it. This is the
+  flyer's whole collision model, not an assist — see
+  [`../simulation/razor-flight.md`](../simulation/razor-flight.md#contact-probes).

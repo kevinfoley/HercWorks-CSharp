@@ -1,4 +1,4 @@
-{
+﻿{
   "schema_version": 1,
   "_readme": [
     "Confirmed address->meaning mappings for VSHELL.EXE / DBSIM.EXE, extracted from",
@@ -601,10 +601,11 @@
       "address": "004198f4",
       "binary": "DBSIM",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Flyer_TerrainAvoidanceAutopilot",
-      "description": "Six direction-flag-gated sensor probes (front/back/left/right/up/down) nudging vertical speed and playing a distance-scaled alarm tone. Best-guess home TU flyersys.cpp, not proven by a direct assert string.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "confidence": "high",
+      "name": "Razor_MovementTick",
+      "signature": "short __cdecl Razor_MovementTick(int *mech)",
+      "description": "The flyer chassis' per-tick move, the counterpart of Mech_MovementTick and NOT an autopilot. Integrates the world velocity at mech+0x2c5 into the position (skipped once mech+0xa4 is set), then runs six airframe contact probes -- the two wings, the two nacelles, the cockpit and the fuselage, the game's own names for them from STRINGS0 group 14 -- each against the terrain under it and, bar the fuselage, against a ray one tick's travel long. A contact damages that component through Mech_ApplyDirectFireDamage with the hand-built shot record at 0049a170, kicks the airframe away from what it touched, and scales the damage by airspeed. Destroying the cockpit or the fuselage latches mech+0xa4 and the aircraft stops moving. Ends with the engine-note pitch and maybe_Mech_ConvergeGunsOnRange. Reached as slot +0x0c of the flyer behaviour class at FlyerBehaviourSlots, not through the mech vtable.",
+      "source": "docs/simulation/razor-flight.md"
     },
     {
       "address": "00426528",
@@ -1002,8 +1003,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Player_PerFrameCockpitUpdate",
-      "description": "Called once per frame for LocalPlayerMech only, from the main-loop function. Cockpit/HUD-adjacent bookkeeping; calls Shield_BalanceInputRead among other things.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "description": "The player's once-a-frame cockpit refresh. Its throttle exchange is the two-way binding between the machine and the cockpit slider: with mech+0x93 clear the gauge's value is written to mech+0x290, and ALSO to mech+0x2d7 when the type record's flyer flag is set, which is the only path by which the slider reaches a RAZOR's flight model. With the flag set the machine's own throttle is handed back to the gauge instead. The speed half it feeds the gauge is mech+0x28e, the walker speed scalar -- see KNOWN_ISSUES.md.",
+      "source": "docs/simulation/razor-flight.md"
     },
     {
       "address": "00413bc8",
@@ -2411,10 +2412,10 @@
       "address": "0047de3c",
       "binary": "DBSIM",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Math_MapRange",
-      "description": "Five-argument linear remap: maps param_1 from the range [param_2,param_3] onto [param_4,param_5] with a rounding bias term. Named 'maybe_' because it was only observed in one place (the flyer branch of Mech_GetDisplaySpeedKph).",
-      "source": "docs/engine/planning.md 2026-08-13 (world scale recovery)"
+      "confidence": "high",
+      "name": "Math_MapRange",
+      "description": "Five-argument linear remap of a value from one range onto another, with a rounding bias of one less than the input span, signed to match the output's direction. Its one caller is the flyer branch of Mech_GetDisplaySpeedKph, which maps airspeed from 0..AirSpeedMax onto 0..typeRec+0xc2 -- a flyer's record does not describe the walker top speed the other branch divides by.",
+      "source": "docs/simulation/razor-flight.md"
     },
     {
       "address": "00467724",
@@ -8664,6 +8665,111 @@
       "name": "HddCommandScreen_Update",
       "description": "Vtable slot 1: services a queued map click, advances the half-second blink, re-fonts the order rows whose selection changed, and redraws the map when anything moved it.",
       "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0041bb9c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Razor_ApplyFlightInput",
+      "signature": "void __cdecl Razor_ApplyFlightInput(int *mech, int aileron, int elevator, int throttle, int rudder)",
+      "description": "The flyer's input hand-off, called by Sim_PollPlayerInput in place of Mech_ApplyThrottleInput AND both turret ticks -- which is why a RAZOR's turret never moves. Packs the four device axes, Terrain_HeightQuery at the machine's position and four wing-destroyed flags (component array at mech+0x20e, entries 7/8/4/5) into a stack record and calls FlightModel_Step with the type record's flight model at typeRec+0x1dc. The axes are remapped against the walker's: device +0x0e (steer) is the aileron, +0x10 (throttle) the elevator, +0x12 (turret twist) the rudder and +0x14 (turret pitch) the throttle. On a tick the throttle axis moved it copies mech+0x2d7 to mech+0x290 and sets the mech+0x93 dirty flag, so the cockpit gauge follows the flight model.",
+      "source": "docs/simulation/razor-flight.md"
+    },
+    {
+      "address": "00466a54",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FlightModel_Step",
+      "signature": "void __cdecl FlightModel_Step(int *input, int *state, short *flightModel, int *wingDestroyed, int unused)",
+      "description": "The flight model. Settles, in order: the throttle setting at state+0x1e, the airspeed it demands (throttle interpolated across AirSpeedMin..AirSpeedMax, biased by pitch attitude at Q10 250 nose-down against 62 nose-up), sideslip drag, the three angular rates, the new attitude, and the velocity vector in that attitude. It moves nothing -- it produces the world velocity Razor_MovementTick integrates. Turning is bank-driven: the heading rate is -roll >> fm[30] and is applied on top of the integrated attitude. Attitude is integrated as a rotation MATRIX from the mean of this tick's rates and last tick's, with the eulers read back out, so a vertical climb does not gimbal. The fifth argument, a literal 1 at the one call site, is never read.",
+      "source": "docs/simulation/razor-flight.md"
+    },
+    {
+      "address": "00467a24",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_RateLimitedMoveTowardInt",
+      "signature": "int __cdecl Math_RateLimitedMoveTowardInt(int *current, int target, int step)",
+      "description": "32-bit twin of Math_RateLimitedMoveToward (004679d8), the same operation on a short. Steps *current toward target by step without overshooting and returns the remaining gap, or 0 on arrival. The flight model uses it for airspeed, which is an int where every rate a walker slews is a short.",
+      "source": "docs/simulation/razor-flight.md"
+    },
+    {
+      "address": "004669dc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_IntegrateVec3IntOverTick",
+      "signature": "int * __cdecl Math_IntegrateVec3IntOverTick(int *vector)",
+      "description": "Math_IntegrateRateOverTick over a 3-int vector, in place, returning it. It reads each component as a SHORT and writes back an int, so a component past 0x7fff is truncated before integration.",
+      "source": "docs/simulation/razor-flight.md"
+    },
+    {
+      "address": "00466a1c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_IntegrateVec3ShortOverTick",
+      "signature": "short * __cdecl Math_IntegrateVec3ShortOverTick(short *vector)",
+      "description": "Math_IntegrateRateOverTick over a 3-short vector, in place, returning it. The short-stride twin of Math_IntegrateVec3IntOverTick.",
+      "source": "docs/simulation/razor-flight.md"
+    },
+    {
+      "address": "00466984",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_MeanVec3Short",
+      "signature": "short * __cdecl Math_MeanVec3Short(short *a, short *b)",
+      "description": "Component-wise (a + b) >> 1 of two 3-short vectors into the static at 004d3bdc, whose address it returns. Its one caller is FlightModel_Step, averaging this tick's angular rates with last tick's before integrating the attitude.",
+      "source": "docs/simulation/razor-flight.md"
+    },
+    {
+      "address": "0049a170",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "AirframeContactShot",
+      "description": "The shot record Razor_MovementTick reuses for every airframe contact, refilled per probe. +0x00 pointer to a stack ray {transform*, length = airspeed, clearance}, +0x04 armour damage (Q10 of airspeed for a ground contact, a flat 1000 or 5000 for an object one), +0x06 shield damage, always 8000, +0x08 splash 0, +0x0a AirframeContactImpactFx, +0x0e attacker = NULL so a collision is nobody's kill, +0x14 the aircraft itself, which is Sim_RaycastObjectList's second exclusion.",
+      "source": "docs/simulation/razor-flight.md"
+    },
+    {
+      "address": "0049a158",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "AirframeContactImpactFx",
+      "description": "A PROJ.DAT-shaped 12-entry ImpactFX table held in the image rather than in a file, used for airframe contacts alone: shield {11,11,11,11}, ground and armour both {0,1,4,5}. Statically initialised, and pointed at by AirframeContactShot+0x0a.",
+      "source": "docs/simulation/razor-flight.md"
+    },
+    {
+      "address": "00499940",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "FlyerBehaviourSlots",
+      "description": "The flyer behaviour class' three pointer-to-member-function triples, each {func, thisDelta, vtableIndex}: +0x00 the slot the dispatcher at 00415b38 reads (0041c194), +0x0c the per-tick move (Razor_MovementTick), +0x18 empty. The walker set is the identically shaped block at 0049991c, whose move slot is Mech_MovementTick. Mech_Constructor picks between three behaviour instances by (is this the local player, does the type record set the flyer flag), so Razor_MovementTick runs for the player's RAZOR alone.",
+      "source": "docs/simulation/razor-flight.md"
+    },
+    {
+      "address": "0045a4b0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Input_BuildKeyboardAxes",
+      "description": "Builds the keyboard's contribution to the input axes: TWO signed pairs, not four independent axes. Held keys 0-7 accumulate into the first pair at 004d2445/004d2449 and keys 8-13 into the second at 004d244d/004d2451, each adding its own (dx, dy) entry from the table at 0049eb6d shifted left 7, i.e. +/-0x80 per key. That table is all zeroes in the image -- it is filled at runtime from the saved key configuration, which is why no arrow-key-to-axis mapping can be read out of the executable. The pairs are sources, not destinations: FUN_0045a5c0 registers them alongside the joystick axes in the source-pointer table at 004d2394, and the binding config chooses which source each game axis reads.",
+      "source": "docs/simulation/razor-flight.md"
+    },
+    {
+      "address": "0045a5c0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Input_BuildSourceTable",
+      "description": "Input-system init. Populates the source-pointer table at 004d2394 with the address of every available input value -- the two keyboard axis pairs Input_BuildKeyboardAxes writes, the four joystick axes at DAT_004d2414+0x0d/0x11/0x15/0x19, and the buttons -- so that a key or axis binding is a choice of pointer rather than a hardcoded path. This indirection is why Sim_PollPlayerInput reads some axes through a pointer-to-pointer.",
+      "source": "docs/simulation/razor-flight.md"
     }
   ]
 }

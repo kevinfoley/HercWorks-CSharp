@@ -34,6 +34,13 @@ public interface ISoundSink {
 	void MoveTo(int id, Vec3i position);
 
 	/// <summary>
+	/// Sets a running sound's playback rate, 16.16 with <c>0x10000</c> as its recorded pitch —
+	/// <c>Sound_SetPitch</c> (<c>00463010</c>). The flyer's engine hum is the one thing that varies
+	/// it continuously; the cockpit power-up sets it once.
+	/// </summary>
+	void SetPitch(int id, int rate);
+
+	/// <summary>
 	/// Posts one of the cockpit computer's messages by its flat <c>SYSTEM.STR</c> id — the vtable
 	/// call the original makes on the cockpit's message port, <c>view+0x20b</c>. See
 	/// <see cref="Content.SystemMessages"/> for the ids and <see cref="ComputerVoice"/> for what

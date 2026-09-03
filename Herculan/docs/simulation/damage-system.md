@@ -18,8 +18,8 @@ multi-component, distance falloff, also shield-gated but via a separate parallel
 A generic ray-vs-live-object-list query, not weapon-specific. Exactly 5 call sites: the launcher
 round's per-tick step (`Rocket_TickUpdate`, `0040a538`), bullet per-tick and burst-fire
 (`FUN_0040b124`/`FUN_0040bf74`,
-below), and the flyer terrain-avoidance autopilot
-(`FUN_004198f4`, see [`../formats/terrain-heightmap.md`](../formats/terrain-heightmap.md#consumers-outside-the-terrain-system)).
+below), and a flyer's airframe contact probes
+(`Razor_MovementTick`, see [`razor-flight.md`](razor-flight.md#contact-probes)).
 A single raycast primitive reused for weapon hit-scan **and** obstacle sensing — most likely
 `objlist.cpp` (shares the global live-object list, `DAT_004a9b7c`/`DAT_004a9b82`, with the
 confirmed-`objlist.cpp` functions at `0x004281b0`/`0x004282f8`; not confirmed by a direct
@@ -611,10 +611,10 @@ each mount's vtable `+0x68` — is in
 
 ## Open items
 
-- **`FUN_00426528`'s and `FUN_004198f4`'s exact source translation unit** unconfirmed by a direct
+- **`FUN_00426528`'s and `Razor_MovementTick`'s exact source translation unit** unconfirmed by a direct
   assert string — the `objlist.cpp`/`flyersys.cpp` attributions are architecturally well-supported
-  (shared object-list usage, sensor/autopilot semantics) but not proven the way `rocket.cpp`/
-  `collide.cpp` were.
+  (shared object-list usage; a function that touches nothing but flyer state) but not proven the way
+  `rocket.cpp`/`collide.cpp` were.
 - **`debris.cpp`'s `FUN_0040874c`** — a load-time debris-piece-list loader, reading per-piece
   records via `FUN_004083f8`. Two angle-like `short` fields are each multiplied by `0xb6` (182)
   after loading, unless the raw value is sentinel `-1`. `65536 / 360 ≈ 182.04`, so `×182` is very

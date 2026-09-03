@@ -158,7 +158,7 @@ confirmed independently by `mech-locomotion.md`'s root-motion speed verification
 
 Symbols: `Hud_WorldUnitsToMetres`, `Hud_UpdateWaypointIndicator`, `Hud_UpdateSpeedReadout`,
 `Mech_GetDisplaySpeedKph`, `Math_Q10Multiply`, `Math_Q16Multiply`, `Math_Q16Divide`,
-`Math_FastMagnitude2D`, `maybe_Math_MapRange`, `Time_GetCoarseTicks`, `Vec2_Subtract`,
+`Math_FastMagnitude2D`, `Math_MapRange`, `Time_GetCoarseTicks`, `Vec2_Subtract`,
 `Vec2_Magnitude`, `Vec2_DistanceBetween`.
 
 ## Known open RE gaps / divergences

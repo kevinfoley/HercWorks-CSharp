@@ -52,6 +52,31 @@ public sealed class WeaponShot {
 	/// <param name="power">The charge this shot was fired at — see <see cref="WeaponMount.ShotPower"/>.</param>
 	/// <param name="owner">The machine that fired, which the query skips.</param>
 	/// <param name="clearance">The slack the range check allows — see <see cref="Clearance"/>.</param>
+	/// <summary>
+	/// A record built by hand rather than from a fired weapon — the shape <c>Razor_MovementTick</c>
+	/// (<c>004198f4</c>) assembles in the executable's own statics at <c>0049a170</c> for a flyer's
+	/// airframe contacts.
+	/// The damage figures are given outright instead of being taken from a <c>PROJ.DAT</c> row and
+	/// scaled by a capacitor charge, because no weapon fired the shot.
+	/// </summary>
+	/// <param name="effects">Only the three <c>ImpactFX</c> arrays are read off this.</param>
+	internal WeaponShot(in Transform3 muzzle, int range, short damageArmor, short damageShield,
+			ProjectileData.Projectile effects, SimObject? owner, SimObject? excluded,
+			int clearance = MuzzleClearance) {
+		Muzzle = muzzle;
+		MuzzleInverse = muzzle.Inverted();
+		Range = range;
+		Distance = range;
+		Clearance = clearance;
+		DamageArmor = damageArmor;
+		DamageShield = damageShield;
+		SplashFactor = 0;
+		MissileId = effects.MissileId;
+		Effects = effects;
+		Owner = owner;
+		Excluded = excluded;
+	}
+
 	public WeaponShot(in Transform3 muzzle, int range, ProjectileData.Projectile projectile,
 			short power, SimObject? owner, int clearance = MuzzleClearance) {
 		Muzzle = muzzle;
@@ -195,6 +220,19 @@ public sealed class WeaponShot {
 
 	/// <summary>The machine that fired. The sweep skips it, so nothing shoots itself.</summary>
 	public SimObject? Owner { get; }
+
+	/// <summary>
+	/// A second object the sweep skips, the shot record's <c>+0x14</c> where <see cref="Owner"/> is
+	/// its <c>+0x0e</c>. <c>Sim_RaycastObjectList</c> (<c>00426528</c>) tests both, and they are not
+	/// the same thing: <see cref="Owner"/> is who gets the kill credit, this is only who the ray
+	/// passes through.
+	///
+	/// <para>The beam path leaves it unwritten, which is why it went unmodelled for so long. The
+	/// airframe contact probes (<see cref="MechObject"/>'s flight path) are the site that needs it:
+	/// they sweep a ray out of the aircraft's own wingtip and have to ignore the aircraft, while
+	/// crediting the resulting damage to nobody at all.</para>
+	/// </summary>
+	public SimObject? Excluded { get; }
 
 	/// <summary>What the sweep struck, or null if the shot reached its full range. Not in the original — see <see cref="SimWorld.Beams"/>.</summary>
 	public SimObject? HitObject { get; internal set; }

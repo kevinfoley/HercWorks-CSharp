@@ -6,17 +6,15 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// <summary>
 /// Ported from org.hercworks.core.io.transform.dbsim.FlightModelTransformer.
 ///
-/// Verified against real RAZOR.FM/SKIMMER.FM
-/// from a retail install. Both are the standard VOL-entry-prefixed loose-file shape (9-byte
-/// prefix + content + 1 trailing byte), and the prefix's own declared content-size field reads
-/// 54 bytes — matching the read path's byte count, not the write path's (formerly 47). Decoding
-/// the read path's layout against the real bytes confirms every `Skip()` region actually is
-/// zero-padding in both files, and confirms the value at the "RollFriction" slot is genuinely
-/// different from `RollForce` in both samples (400 vs 4, and 300 vs 4) — not a duplicate read.
-/// Fixed by: (1) reading into `RollFriction` instead of overwriting `RollForce` a second time,
-/// and (2) widening the write path's padding to match the read path's Skip() amounts exactly
-/// (6/2/2/2/2 zero bytes instead of 3/1/1/1/1), making read and write byte-count symmetric at 54
-/// bytes each.
+/// <para>Verified against real RAZOR.FM/SKIMMER.FM from a retail install. Both are the standard
+/// VOL-entry-prefixed loose-file shape (9-byte prefix + content + 1 trailing byte), and the
+/// prefix's own declared content-size field reads 54 bytes — which is also the count
+/// <c>MechType_InitOne</c> (<c>004201a8</c>) asks for when it reads the file into the type record,
+/// so read and write are both held to 54 here.</para>
+///
+/// <para>The skipped runs are zero in both retail files, and stay zero on the way out. They are not
+/// all unused, though: bytes 14-17 are the slot the loader computes the ceiling-versus-airspeed
+/// slope into once the file is in memory. See <see cref="FlightModel"/>.</para>
 /// </summary>
 public class FlightModelTransformer : ByteTransformer<FlightModel> {
 	public override FlightModel? Parse(byte[]? inputArray) {
@@ -27,37 +25,38 @@ public class FlightModelTransformer : ByteTransformer<FlightModel> {
 		SetBytes(inputArray);
 
 		var fm = new FlightModel {
-			PitchRate = IndexShortLE(),
-			RollRate = IndexShortLE(),
-			RudderForce = IndexShortLE(),
-			PitchForce = IndexShortLE(),
-			RollForce = IndexShortLE(),
-			ThrustFactor = IndexShortLE()
+			MaxPitchRate = IndexShortLE(),
+			MaxRollRate = IndexShortLE(),
+			MaxYawRate = IndexShortLE(),
+			MaxPitchAccel = IndexShortLE(),
+			MaxRollAccel = IndexShortLE(),
+			ThrustResponse = IndexShortLE()
 		};
 
+		// Offsets 12-17: two spare bytes and the loader's derived ceiling slope, both zero on disk.
 		Skip(6);
 
-		fm.RollMax = IndexShortLE();
+		fm.AngularDamping = IndexShortLE();
 
 		Skip(2);
 
-		fm.Unk22_val16 = IndexShortLE();
+		fm.PitchLevelShift = IndexShortLE();
 
 		Skip(2);
 
-		fm.Unk26_5or6 = IndexShortLE();
+		fm.RollLevelShift = IndexShortLE();
 
 		Skip(2);
 
-		fm.RollFriction = IndexShortLE();
+		fm.BankTurnShift = IndexShortLE();
 
 		Skip(2);
 
-		fm.AltitudeMax = IndexIntLE();
-		fm.Unk38_val6000 = IndexIntLE();
+		fm.CeilingAtMaxSpeed = IndexIntLE();
+		fm.CeilingAtMinSpeed = IndexIntLE();
 		fm.AirSpeedMax = IndexIntLE();
 		fm.AirSpeedMin = IndexIntLE();
-		fm.RollAccel = IndexIntLE();
+		fm.LateralDrag = IndexIntLE();
 
 		return fm;
 	}
@@ -66,48 +65,45 @@ public class FlightModelTransformer : ByteTransformer<FlightModel> {
 
 		using var bytes = new MemoryStream();
 
-		Emit(bytes, WriteShortLE(fm.PitchRate));
-		Emit(bytes, WriteShortLE(fm.RollRate));
-		Emit(bytes, WriteShortLE(fm.RudderForce));
-		Emit(bytes, WriteShortLE(fm.PitchForce));
-		Emit(bytes, WriteShortLE(fm.RollForce));
-		Emit(bytes, WriteShortLE(fm.ThrustFactor));
+		Emit(bytes, WriteShortLE(fm.MaxPitchRate));
+		Emit(bytes, WriteShortLE(fm.MaxRollRate));
+		Emit(bytes, WriteShortLE(fm.MaxYawRate));
+		Emit(bytes, WriteShortLE(fm.MaxPitchAccel));
+		Emit(bytes, WriteShortLE(fm.MaxRollAccel));
+		Emit(bytes, WriteShortLE(fm.ThrustResponse));
 
-		bytes.WriteByte(0x00);
-		bytes.WriteByte(0x00);
-		bytes.WriteByte(0x00);
-		bytes.WriteByte(0x00);
-		bytes.WriteByte(0x00);
-		bytes.WriteByte(0x00);
+		Pad(bytes, 6);
 
-		Emit(bytes, WriteShortLE(fm.RollMax));
+		Emit(bytes, WriteShortLE(fm.AngularDamping));
 
-		bytes.WriteByte(0x00);
-		bytes.WriteByte(0x00);
+		Pad(bytes, 2);
 
-		Emit(bytes, WriteShortLE(fm.Unk22_val16));
+		Emit(bytes, WriteShortLE(fm.PitchLevelShift));
 
-		bytes.WriteByte(0x00);
-		bytes.WriteByte(0x00);
+		Pad(bytes, 2);
 
-		Emit(bytes, WriteShortLE(fm.Unk26_5or6));
+		Emit(bytes, WriteShortLE(fm.RollLevelShift));
 
-		bytes.WriteByte(0x00);
-		bytes.WriteByte(0x00);
+		Pad(bytes, 2);
 
-		Emit(bytes, WriteShortLE(fm.RollFriction));
+		Emit(bytes, WriteShortLE(fm.BankTurnShift));
 
-		bytes.WriteByte(0x00);
-		bytes.WriteByte(0x00);
+		Pad(bytes, 2);
 
-		Emit(bytes, WriteIntLE(fm.AltitudeMax));
-		Emit(bytes, WriteIntLE(fm.Unk38_val6000));
+		Emit(bytes, WriteIntLE(fm.CeilingAtMaxSpeed));
+		Emit(bytes, WriteIntLE(fm.CeilingAtMinSpeed));
 		Emit(bytes, WriteIntLE(fm.AirSpeedMax));
 		Emit(bytes, WriteIntLE(fm.AirSpeedMin));
-		Emit(bytes, WriteIntLE(fm.RollAccel));
+		Emit(bytes, WriteIntLE(fm.LateralDrag));
 
 		return bytes.ToArray();
 	}
 
 	private static void Emit(MemoryStream outArr, byte[] data) => outArr.Write(data, 0, data.Length);
+
+	private static void Pad(MemoryStream outArr, int count) {
+		for (int i = 0; i < count; i++) {
+			outArr.WriteByte(0x00);
+		}
+	}
 }

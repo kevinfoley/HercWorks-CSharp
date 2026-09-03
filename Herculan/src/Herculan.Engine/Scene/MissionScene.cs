@@ -458,7 +458,8 @@ public sealed class MissionScene {
 						models.Collision(placement.TypeName),
 						ComponentDamageFor(models, placement.TypeName,
 							ComponentDamage.MechComponentCount, ComponentDamage.MechDependentCount, random),
-						models.MechWeaponCellCount),
+						models.MechWeaponCellCount,
+						models.FlightModelFor(placement.TypeName)),
 					model);
 			}
 

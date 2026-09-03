@@ -60,10 +60,17 @@ public sealed partial class MechObject : SimObject {
 	/// index — the one thing the mounts need from the model library, and what sets the length of
 	/// both the flash and the ELF's spin-up. See <see cref="WeaponMount.FlashCell"/>.
 	/// </param>
+	/// <param name="flightModel">
+	/// The chassis' <c>fm\&lt;NAME&gt;.FM</c>, which only a flyer has and which
+	/// <c>MechType_InitOne</c> loads only for a type whose record sets
+	/// <see cref="MechTypeRecord.IsFlyer"/>. Non-null is what puts the machine on the flight path —
+	/// see <see cref="Flight"/>.
+	/// </param>
 	public MechObject(string name, HercSimDat simData, int hitRadius, MechLoadout loadout,
 			ShapeAnimation? animation = null, GunLayout? hardpoints = null,
 			WeaponCatalog? weapons = null, ColliderNode[]? collision = null,
-			ComponentDamage? damage = null, Func<int, int>? weaponModelCellCount = null) {
+			ComponentDamage? damage = null, Func<int, int>? weaponModelCellCount = null,
+			FlightModel? flightModel = null) {
 		Name = name;
 		SimData = simData;
 		Type = new MechTypeRecord(simData);
@@ -74,6 +81,14 @@ public sealed partial class MechObject : SimObject {
 		_collision = collision ?? Array.Empty<ColliderNode>();
 		_damage = damage;
 		_weaponModelCellCount = weaponModelCellCount;
+
+		if (Type.IsFlyer && flightModel != null) {
+			// Mech_Constructor's own flyer seed: airborne at 1000, with the throttle field the
+			// flight model owns starting where the machine's own throttle is.
+			Flight = new FlightModelRecord(flightModel);
+			FlightVelocity = new Vec3i(0, InitialAirSpeed, 0);
+			FlightThrottle = Throttle;
+		}
 
 		// A HERC powers up in its stop / step-off sequence, not its walk cycle — the mech constructor
 		// builds this thread with typeRec+0x12 and a rate of zero. It matters: the gait state
@@ -301,6 +316,18 @@ public sealed partial class MechObject : SimObject {
 	/// gauge drives <see cref="Throttle"/>, and with it set the machine's throttle is handed back for
 	/// the gauge to follow. Either way both hold the same number when this returns, which is what
 	/// makes the slider track the keyboard and the keyboard pick up where a drag left off.</para>
+	///
+	/// <para><b>A flyer takes the gauge's value twice.</b> The original's own line here is gated on
+	/// the type record's flyer flag and writes <c>mech+0x2d7</c> as well as <c>mech+0x290</c> —
+	/// <see cref="FlightThrottle"/> as well as <see cref="Throttle"/> — because the flight model
+	/// reads its own copy and nothing else would ever reach it. So the cockpit slider is a working
+	/// throttle on a RAZOR, and on a chassis with no keyboard throttle binding it is the <i>only</i>
+	/// one.</para>
+	///
+	/// <para>The gauge's <b>speed</b> half is a different matter: the original feeds it
+	/// <c>mech+0x28e</c>, the walker speed scalar, which no flight path ever writes. A RAZOR's
+	/// throttle bar therefore moves and its speed bar does not — a retail quirk, not an omission
+	/// here. <see cref="DisplaySpeedKph"/> takes the flyer branch and does read airspeed.</para>
 	/// </summary>
 	/// <param name="gaugeThrottle">The gauge's current value, Q10 in the same ±0x400 range.</param>
 	/// <returns>The value both should now read.</returns>
@@ -308,6 +335,10 @@ public sealed partial class MechObject : SimObject {
 		if (ThrottleDirty) {
 			ThrottleDirty = false;
 			return Throttle;
+		}
+
+		if (Flight != null) {
+			FlightThrottle = gaugeThrottle;
 		}
 
 		Throttle = gaugeThrottle;
@@ -327,14 +358,24 @@ public sealed partial class MechObject : SimObject {
 	/// <summary>Animation playback rate (<c>mech+0x2a0</c>). In steady state it equals <see cref="Speed"/>.</summary>
 	public short AnimRate { get; set; }
 
-	/// <summary>Body pitch, as a binary angle. Not driven yet — legs stay level.</summary>
+	/// <summary>
+	/// Body pitch, as a binary angle. A walking HERC keeps it at zero — nothing tilts its legs — but
+	/// it is the flight path's primary control axis; see <see cref="MechObject.FlightVelocity"/>.
+	/// </summary>
 	public short Pitch { get; set; }
 
-	/// <summary>Body roll, as a binary angle. Not driven yet.</summary>
+	/// <summary>Body roll, as a binary angle. The same: level on a walker, and how a flyer turns.</summary>
 	public short Roll { get; set; }
 
-	/// <summary>The speed the HUD would read for this machine's current speed, in km/h.</summary>
-	public int DisplaySpeedKph => Type.DisplaySpeedKph(Speed);
+	/// <summary>
+	/// The speed the HUD would read for this machine, in km/h. <c>Mech_GetDisplaySpeedKph</c>
+	/// (<c>0041bb3c</c>) branches on the flyer flag: a walker's speed scalar goes through a fixed
+	/// ratio, while a flyer's <see cref="AirSpeed"/> is remapped from its own speed range onto the
+	/// same readout scale, so both chassis kinds fill the same gauge.
+	/// </summary>
+	public int DisplaySpeedKph => Flight is { } flight
+		? Type.DisplayAirSpeedKph(AirSpeed, flight.Data.AirSpeedMax)
+		: Type.DisplaySpeedKph(Speed);
 
 	/// <summary>
 	/// Where the pilot's eye is, in world units — the machine's own position with the pose of the
@@ -345,8 +386,8 @@ public sealed partial class MechObject : SimObject {
 	/// <c>FUN_0041ef14</c> reads the same node the same way to work out where a target sits relative
 	/// to the pilot.</para>
 	///
-	/// <para>Falls back to the machine's own origin when its model names no such node — the Razor,
-	/// whose flyer paths are not ported, and any shape with no animation data.</para>
+	/// <para>Falls back to the machine's own origin when its model names no such node, which is any
+	/// shape with no animation data.</para>
 	/// </summary>
 	public Vec3i EyePosition {
 		get {
@@ -469,6 +510,13 @@ public sealed partial class MechObject : SimObject {
 		// control law comes in from the input poll or the AI think — but it runs once per mech per
 		// tick either way, and its inputs are last tick's, so its position within the tick is free.
 		PowerTick(world);
+
+		if (Flight is { } flight) {
+			// A flyer takes a different behaviour class entirely: no throttle law, no turret, and a
+			// move of its own. See MechObject.Flight.cs.
+			FlightTick(world, flight);
+			return;
+		}
 
 		LatchCenterBody();
 

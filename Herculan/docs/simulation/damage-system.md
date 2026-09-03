@@ -564,11 +564,50 @@ size `0x14` or `0x35` bytes depending on the `this+0xa3` "locally-simulated" fla
 virtual calls. It's referenced throughout `FUN_00417de4` for computing ammo/heat-style ratios, by
 `FUN_00415558` (a "find the next occupied weapon slot" iterator, walking a 7-entry table
 `DAT_0049a060`), and is where the shield-recharge tick's energy-arbitration vtable call goes (see
-"The shield system" above). When a weapon mount is destroyed (inside `FUN_004188c8`'s damage-split
-logic), its `this+0x20e` active-flag is cleared and its owning object is released. Matches the
-manual's "Weaponry" HDD damage category. (`this+0x20e`'s per-slot indices, the weapon mount active
-flags, are a *different*, already-documented array from `this+0x202` itself — see "The component
-damage system" above.)
+"The shield system" above). `this+0x20e`'s per-slot indices, the weapon mount active flags, are a
+*different* array from `this+0x202` itself — see "The component damage system" above. Losing a mount
+matches the manual's "Weaponry" HDD damage category and is the section below.
+
+## Weapon-mount destruction
+
+Components **19-28** are the machine's weapon mounts. The component a mount occupies is its `.GL`
+record's `+0x17` plus 19, which is also how `Mech_ConfigureLoadout` registers each mount's collision
+and damage records; `WeaponMounts_MountForHardpointSlot` (`00410670`) is the lookup back.
+
+`Mech_ApplyDirectFireDamage` rolls once for a hit that moved a mount component into a new damage
+band:
+
+```c
+if (after != 0x100 && typeRec+0x56 != 0 && component > 0x12) {
+    odds = (obj[+0x45][+0x12] == 0) ? 3 : 10;            // the mission group's side byte
+    if ((rand & 0xfff) < odds * 0x29) {                  // 3/4096-per-41 vs 10, ~3% vs ~10%
+        WeaponMount_Destroy(mountFor(component), mech, 1);
+        mech+0x20e[component] = 0;                       // clear the active flag FIRST
+        if (side == 1) queueSalvage(template+0x56, condition);
+        Component_ApplyDamageAndCascade(component, 10000);
+    }
+}
+```
+
+Four things a port has to keep:
+
+- **The chassis gates it.** `typeRec+0x56` is record offset 84 (the record sits at
+  `MECH_TYPE_DATA[i]+2`), and the PITBULL alone states zero — its mounts are immune to the roll,
+  though not to the certain path. See
+  [`mech-locomotion.md`](mech-locomotion.md#mech-type-record).
+- **The odds depend on whose machine it is**: about 3% for the player's side, about 10% for the
+  Cybrids.
+- **The order of the three writes.** Clearing the active flag before the flat 10000 is what stops the
+  component cascading, so losing a gun does not take the shoulder it hangs off with it.
+  `Component_ApplyDamageAndCascade` does **not** test the active flag — the flag gates
+  `Mech_ComponentDamageWrite` at its entry and `Component_DestroyAndCascade`, and neither of those is
+  reached here.
+- **The Cybrid branch queues salvage.** `maybe_Salvage_QueueDestroyedWeapon` (`00426ac8`) appends the
+  destroyed weapon's catalog id (`template+0x56`) and its remaining condition to a global list.
+
+The mount side of all this — what `WeaponMount_Destroy` writes, and the second, certain path through
+each mount's vtable `+0x68` — is in
+[`weapon-mounts.md`](weapon-mounts.md#losing-a-mount).
 
 ## Open items
 
@@ -606,7 +645,10 @@ the death gate, the reactor flags), `Sim.ComponentDamage` (the whole `+0x206` he
 arrays, the aggregate read, the spill and the cascade), `Sim.ShieldCharge`, `Sim.MechObject.Power`
 (capacity and reactor rate), and `MechTypeRecord.HitRadius`/`HitCenterHeight`/`LegCount`.
 
+Weapon-mount destruction is ported on both paths — `Sim.WeaponMount.Destroy` and
+`ConditionChanged`, and `MechObject.RollWeaponMountDestruction`.
+
 Not ported: the explosive blast sweep (so `SplashFactor`'s share is dropped rather than diverted —
-every retail beam states zero, so nothing is lost today), weapon-mount destruction (components
-19–28 index the mount manager as `component - 19`), the Shield Pod's own damage term in
-`Mech_ComputeShieldCapacity`, every alert sound, and the debris a destroyed component throws.
+every retail beam states zero, so nothing is lost today), the Shield Pod's own damage term in
+`Mech_ComputeShieldCapacity`, every alert sound, the salvage queue, and the debris both a destroyed
+component and a destroyed mount throw.

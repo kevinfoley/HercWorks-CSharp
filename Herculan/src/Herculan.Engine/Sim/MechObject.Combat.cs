@@ -1,3 +1,4 @@
+using Herculan.Engine.World;
 using Herculan.Engine.Numerics;
 
 namespace Herculan.Engine.Sim;
@@ -60,7 +61,7 @@ public sealed partial class MechObject {
 	/// The Q8 reading that means a part is gone. Both <see cref="ComponentDamage.DamagePercent"/> and
 	/// <see cref="ComponentDamage.DependentPercent"/> saturate here.
 	/// </summary>
-	private const int FullyDamaged = 0x100;
+	public const int FullyDamaged = 0x100;
 
 	/// <summary>
 	/// <c>FUN_00415608</c>, the player's own fire path, called once a frame from
@@ -324,10 +325,10 @@ public sealed partial class MechObject {
 	/// arrays distinct, and it is now reachable — though on retail data all 27 projectile records
 	/// carry byte-identical arrays for the two, so the same effect is drawn either way.</para>
 	///
-	/// <para>Not ported, and both wanting systems that are not here: the weapon-mount destruction roll
-	/// a band change on a component past index 18 makes (those slots are the machine's mounts, indexed
-	/// <c>component - 19</c> into the mount manager), and the pilot alerts the original plays
-	/// throughout.</para>
+	/// <para><b>A band change on a mount component rolls to knock that mount out</b> — see
+	/// <see cref="RollWeaponMountDestruction"/>, which is the other half of this function.</para>
+	///
+	/// <para>Not ported: the pilot alerts the original plays throughout.</para>
 	/// </summary>
 	private void ApplyDirectFireDamage(SimWorld world, short componentIndex, WeaponShot shot, Vec3i hitPoint) {
 		if (_damage == null) {
@@ -338,14 +339,81 @@ public sealed partial class MechObject {
 		short splash = (short)SimMath.Q10Multiply(shot.SplashFactor, armorDamage);
 		int band = _damage.DamagePercent(componentIndex) >> 5;
 
-		ComponentDamageWrite(componentIndex, (short)(armorDamage - splash), shot.Owner);
+		ComponentDamageWrite(world.Random, componentIndex, (short)(armorDamage - splash), shot.Owner);
 
-		var group = _damage.DamagePercent(componentIndex) >> 5 == band
+		int after = _damage.DamagePercent(componentIndex);
+		var group = after >> 5 == band
 			? WeaponShot.ImpactFxGroup.Ground
 			: WeaponShot.ImpactFxGroup.Armor;
 
+		if (group == WeaponShot.ImpactFxGroup.Armor) {
+			RollWeaponMountDestruction(world, componentIndex, after);
+		}
+
 		world.SpawnImpactEffect(world.PickImpactEffect(shot.ImpactFx(group)), hitPoint);
 	}
+
+	/// <summary>
+	/// The weapon-mount half of <c>Mech_ApplyDirectFireDamage</c>: a hit that moved one of the
+	/// machine's mount components (<see cref="WeaponMounts.FirstMountComponent"/> and up) into a new
+	/// damage band rolls once to take that mount out for good.
+	///
+	/// <para><b>The odds depend on whose machine it is.</b> The roll is a draw of the low twelve bits
+	/// against the side's own figure times <see cref="MountDestructionOddsScale"/> — 3 in
+	/// 4096-per-41, about 3%, for the player's side, and 10 for the Cybrids, about 10%. So a Cybrid
+	/// machine sheds its guns more than three times as readily as one of ours does.</para>
+	///
+	/// <para><b>The chassis has to allow it at all</b> — see
+	/// <see cref="MechTypeRecord.WeaponMountsDestructible"/>, which the PITBULL alone states zero
+	/// for. Its mounts can still be lost the certain way, through
+	/// <see cref="WeaponMount.ConditionChanged"/>.</para>
+	///
+	/// <para>The roll does not run on a component that is <i>already</i> at
+	/// <see cref="FullyDamaged"/>: there is nothing left to knock out, and it is that test, not the
+	/// mount's own destroyed byte, that keeps a wreck from rolling on every subsequent hit.</para>
+	///
+	/// <para><b>The order of the three writes matters.</b> The mount is destroyed, then the
+	/// component's active flag is cleared, and only then is the component finished off with a flat
+	/// 10000 — with the flag already down, that write lands on the damage array but cannot cascade,
+	/// so losing a gun does not take the shoulder it hangs off with it. See
+	/// <see cref="ComponentDamage.Deactivate"/>.</para>
+	///
+	/// <para><b>Left out: salvage.</b> On a Cybrid the original also queues the destroyed weapon's
+	/// catalog id and its remaining condition onto a global list, which is what the player recovers
+	/// after the mission. There is no post-mission phase here to hand it to.</para>
+	/// </summary>
+	/// <param name="damagePercent">The component's reading <i>after</i> the write, 0 pristine and 256 gone.</param>
+	private void RollWeaponMountDestruction(SimWorld world, short componentIndex, int damagePercent) {
+		if (_damage == null || damagePercent == FullyDamaged
+				|| componentIndex < WeaponMounts.FirstMountComponent
+				|| !Type.WeaponMountsDestructible) {
+			return;
+		}
+
+		int odds = Side == MissionSide.Human ? MountDestructionOddsHuman : MountDestructionOddsCybrid;
+		if (world.Random.NextMasked(0xfff) >= odds * MountDestructionOddsScale) {
+			return;
+		}
+
+		Weapons.ByComponent(componentIndex)?.Destroy();
+		_damage.Deactivate(componentIndex);
+		_damage.ApplyDamage(componentIndex, MountDestructionFinishOff);
+	}
+
+	/// <inheritdoc cref="RollWeaponMountDestruction"/>
+	private const int MountDestructionOddsHuman = 3;
+
+	/// <inheritdoc cref="RollWeaponMountDestruction"/>
+	private const int MountDestructionOddsCybrid = 10;
+
+	/// <inheritdoc cref="RollWeaponMountDestruction"/>
+	private const int MountDestructionOddsScale = 0x29;
+
+	/// <summary>
+	/// What the mount's component is written off with once the roll succeeds — more than any mount
+	/// component's armour, so the slot reads destroyed however healthy it was a moment earlier.
+	/// </summary>
+	private const short MountDestructionFinishOff = 10000;
 
 	/// <summary>
 	/// <c>Mech_ComponentDamageWrite</c> (<c>00417de4</c>), the mech's vtable <c>+0x74</c> — the shared
@@ -369,18 +437,36 @@ public sealed partial class MechObject {
 	/// <item><b>The reactor flags latch</b> off its own dependent. They never clear, and the check is
 	/// gated on both being down, so once the first sets the second is only reachable by a single hit
 	/// crossing both thresholds at once.</item>
+	/// <item><b>Every mount is told what its own component now reads</b>, with the figure from before
+	/// the write and the figure from after — see <see cref="WeaponMount.ConditionChanged"/>. It is
+	/// this, not the hit, that decides whether a hardpoint survives: the write is made against a
+	/// component, and the mount hanging off it finds out here.</item>
 	/// </list>
 	///
-	/// <para>Left out: every alert sound, the per-mount condition notification the original pushes
-	/// through each mount's own <c>+0x68</c> slot before and after the write, and the debris the
-	/// destruction path throws.</para>
+	/// <para><b>The snapshot has to be taken before the write</b> and over <i>all</i> the mounts, not
+	/// just the one whose component was struck — the write cascades, so a hit on a shoulder can move
+	/// the reading of a mount several components away. The original allocates the same array of
+	/// per-mount readings on its own stack for exactly that reason.</para>
+	///
+	/// <para>Left out: every alert sound, and the debris the destruction path throws.</para>
 	/// </summary>
-	private void ComponentDamageWrite(short componentIndex, short damage, SimObject? attacker) {
+	private void ComponentDamageWrite(SimRandom random, short componentIndex, short damage,
+			SimObject? attacker) {
 		if (_damage == null || !_damage.IsActive(componentIndex)) {
 			return;
 		}
 
+		var mounts = Weapons.Mounts.ToList();
+		var before = mounts
+			.Select(m => _damage.DamagePercent(m.LoadoutSlot + WeaponMounts.FirstMountComponent))
+			.ToList();
+
 		_damage.ApplyDamage(componentIndex, damage);
+
+		for (int i = 0; i < mounts.Count; i++) {
+			mounts[i].ConditionChanged(random, before[i],
+				_damage.DamagePercent(mounts[i].LoadoutSlot + WeaponMounts.FirstMountComponent));
+		}
 
 		Shields.SetMax(ShieldCapacity(Type.ShieldCapacity,
 			(short)_damage.DependentPercent(ShieldGeneratorDependent),
@@ -399,7 +485,7 @@ public sealed partial class MechObject {
 
 			// The original's own recursive finish-off, with no attacker so the kill is not credited
 			// twice. Destroyed is already set, so this pass cannot re-enter the death branch.
-			ComponentDamageWrite(CockpitFrontComponent, 30000, null);
+			ComponentDamageWrite(random, CockpitFrontComponent, 30000, null);
 		}
 
 		if (Reactor == ReactorCondition.Intact) {

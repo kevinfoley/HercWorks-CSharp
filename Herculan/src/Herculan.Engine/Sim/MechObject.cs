@@ -37,6 +37,7 @@ public sealed partial class MechObject : SimObject {
 	private readonly WeaponCatalog? _weapons;
 	private readonly ColliderNode[] _collision;
 	private readonly ComponentDamage? _damage;
+	private readonly Func<int, int>? _weaponModelCellCount;
 
 	/// <param name="hardpoints">
 	/// The chassis' own <c>gl\&lt;HERC&gt;.GL</c> hardpoint list — where each weapon physically sits,
@@ -54,10 +55,15 @@ public sealed partial class MechObject : SimObject {
 	/// 22 dependents. Without it a struck component has nowhere to record the hit and the machine is
 	/// likewise untouchable.
 	/// </param>
+	/// <param name="weaponModelCellCount">
+	/// How long a fitted weapon's muzzle-flash flipbook is, by its <c>dts\MECHWPNS.DTS</c> shape
+	/// index — the one thing the mounts need from the model library, and what sets the length of
+	/// both the flash and the ELF's spin-up. See <see cref="WeaponMount.FlashCell"/>.
+	/// </param>
 	public MechObject(string name, HercSimDat simData, int hitRadius, MechLoadout loadout,
 			ShapeAnimation? animation = null, GunLayout? hardpoints = null,
 			WeaponCatalog? weapons = null, ColliderNode[]? collision = null,
-			ComponentDamage? damage = null) {
+			ComponentDamage? damage = null, Func<int, int>? weaponModelCellCount = null) {
 		Name = name;
 		SimData = simData;
 		Type = new MechTypeRecord(simData);
@@ -67,6 +73,7 @@ public sealed partial class MechObject : SimObject {
 		_weapons = weapons;
 		_collision = collision ?? Array.Empty<ColliderNode>();
 		_damage = damage;
+		_weaponModelCellCount = weaponModelCellCount;
 
 		// A HERC powers up in its stop / step-off sequence, not its walk cycle — the mech constructor
 		// builds this thread with typeRec+0x12 and a rate of zero. It matters: the gait state

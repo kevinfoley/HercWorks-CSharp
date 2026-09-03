@@ -1,4 +1,5 @@
 using System.Numerics;
+using HercWorks.Core.Data.File.Dbsim;
 using HercWorks.Core.Data.File.Dts;
 using HercWorks.Core.Data.File.Dts.Anim;
 using HercWorks.Core.Data.File.Dts.Bsp;
@@ -195,7 +196,7 @@ public static class DtsMeshBuilder {
 	/// </summary>
 	private readonly struct OutlineEdge {
 		public OutlineEdge(Vector3 a, Vector3 b, Vector3 localA, Vector3 localB,
-				Vector3 color, int transformId, int polyId) {
+				Vector3 color, int transformId, int polyId, bool standalone = false) {
 			A = a;
 			B = b;
 			LocalA = localA;
@@ -203,7 +204,16 @@ public static class DtsMeshBuilder {
 			Color = color;
 			TransformId = transformId;
 			PolyId = polyId;
+			Standalone = standalone;
 		}
+
+		/// <summary>
+		/// Whether this edge is a <b>line poly</b> — a two-vertex <see cref="TSSolidPoly"/>, which is
+		/// the whole of what its poly draws — rather than the outline pass over a filled face. A
+		/// standalone edge has no triangle to outlive, so <see cref="SurvivingOutlines"/> keeps it
+		/// unconditionally.
+		/// </summary>
+		public bool Standalone { get; }
 
 		public Vector3 A { get; }
 		public Vector3 B { get; }
@@ -277,11 +287,58 @@ public static class DtsMeshBuilder {
 	/// draws statically; a launcher round builds one mesh per cell and picks between them as its own
 	/// frame counter moves, see <see cref="CellFrameCount"/>.
 	/// </param>
+	/// <param name="hiddenPartIds">
+	/// <see cref="TSBasePart.IdNumber"/>s to leave out of the mesh entirely — a machine's hardpoint
+	/// attachment slots, from <see cref="AttachmentPartIds"/>. Null for every shape that has none.
+	/// </param>
 	public static MeshBuild BuildRoot(TSObject root, TextureAtlas? atlas = null,
-			SurfaceShading? shading = null, int cellFrame = 0) {
+			SurfaceShading? shading = null, int cellFrame = 0,
+			IReadOnlySet<short>? hiddenPartIds = null) {
 		var sink = new Collector();
-		Collect(root, null, sink, atlas, shading, cellFrame);
+		Collect(root, null, sink, atlas, shading, cellFrame, hiddenPartIds);
 		return Emit(sink);
+	}
+
+	/// <summary>
+	/// The <see cref="TSBasePart.IdNumber"/>s in a machine's own <c>.DTS</c> that are <b>hardpoint
+	/// attachment slots</b>: the parts DBSIM overwrites every frame, and so never draws as the file
+	/// ships them.
+	///
+	/// <para><b>The mechanism.</b> <c>MechType_InitOne</c> (<c>004201a8</c>) builds, per LOD root, a
+	/// list of part slots — one per hardpoint — through <c>FUN_0040fc50</c>, which emits each
+	/// <c>.GL</c> record's <see cref="GunLayout.HardpointEntry.BoneId"/> when its mounting code is
+	/// under <see cref="Sim.WeaponMount.InvisibleMounting"/> and <c>-1</c> otherwise, and
+	/// <c>FUN_0040304c</c>, which resolves each id to the address of the shape's part slot holding
+	/// the part with that id. The mech's own draw (<c>FUN_004174c8</c>, mech vtable <c>+0</c>) then
+	/// runs <c>FUN_004030d0</c> before rendering anything, replacing each slot's contents with either
+	/// the fitted mount's weapon shape or a blank record from <c>typeRec+0xec</c>, inheriting the
+	/// placeholder's node transform and id. Empty or fitted, the shipped geometry is always
+	/// overwritten.</para>
+	///
+	/// <para><b>Why the engine skips them instead of splicing.</b> The fitted case is already drawn,
+	/// out of <c>MECHWPNS.DTS</c> at the mount's own frame — see
+	/// <see cref="Scene.SceneModelLibrary.MechWeapon"/>. What was missing was the other half: an
+	/// unspliced placeholder was being drawn as flat untextured geometry standing at every hardpoint,
+	/// which retail shows on no machine.</para>
+	///
+	/// <para>Verified against all four retail chassis, where the ids are exactly the visible
+	/// hardpoints' bones: SAMSON 7 (8, 9, 10, 11, 18, 66, 77), OUTLAW 3, APOCA 4 and PITBULL 1. The
+	/// invisible mounting is excluded on its own merits — SAMSON's bone 5 carries a real torso part,
+	/// and splicing it would delete the machine's middle.</para>
+	///
+	/// <para><b>Bone id 0 is not supported</b>, and no retail chassis uses it: the original resolves
+	/// one slot per hardpoint, where matching on the id here would hide every part that carries the
+	/// default id of zero.</para>
+	/// </summary>
+	public static IReadOnlySet<short> AttachmentPartIds(GunLayout? hardpoints) {
+		var ids = new HashSet<short>();
+		foreach (var hardpoint in hardpoints?.Hardpoints ?? Array.Empty<GunLayout.HardpointEntry>()) {
+			if (hardpoint.AngleDirOption < Sim.WeaponMount.InvisibleMounting && hardpoint.BoneId != 0) {
+				ids.Add(hardpoint.BoneId);
+			}
+		}
+
+		return ids;
 	}
 
 	/// <summary>
@@ -322,9 +379,11 @@ public static class DtsMeshBuilder {
 	/// and its flat-shaded twin always belong to the same group, so splitting afterwards keeps the
 	/// same survivor either way.</para>
 	/// </summary>
-	public static MeshSegment[] BuildSegments(TSObject root, TextureAtlas? atlas = null, SurfaceShading? shading = null) {
+	/// <param name="hiddenPartIds"><inheritdoc cref="BuildRoot" path="/param[@name='hiddenPartIds']"/></param>
+	public static MeshSegment[] BuildSegments(TSObject root, TextureAtlas? atlas = null,
+			SurfaceShading? shading = null, IReadOnlySet<short>? hiddenPartIds = null) {
 		var sink = new Collector();
-		Collect(root, null, sink, atlas, shading);
+		Collect(root, null, sink, atlas, shading, cellFrame: 0, hiddenPartIds);
 		return EmitSegments(sink);
 	}
 
@@ -369,6 +428,10 @@ public static class DtsMeshBuilder {
 	/// The outline edges whose poly still has geometry after <see cref="DropCoincidentTwins"/>. An
 	/// outline is a second pass over a poly the original has just filled, so it has no business
 	/// outliving one that lost its tie.
+	///
+	/// <para>A <see cref="OutlineEdge.Standalone"/> edge is exempt: a line poly fills nothing, so
+	/// there is no triangle for it to outlive and dropping it would discard the only thing that poly
+	/// draws.</para>
 	/// </summary>
 	private static List<OutlineEdge> SurvivingOutlines(List<Triangle> kept, List<OutlineEdge> outlines) {
 		if (outlines.Count == 0) {
@@ -380,7 +443,7 @@ public static class DtsMeshBuilder {
 			drawn.Add(triangle.PolyId);
 		}
 
-		return outlines.Where(edge => drawn.Contains(edge.PolyId)).ToList();
+		return outlines.Where(edge => edge.Standalone || drawn.Contains(edge.PolyId)).ToList();
 	}
 
 	/// <summary>
@@ -413,8 +476,8 @@ public static class DtsMeshBuilder {
 		}
 
 		// An outline rides the same node its poly does, so it goes into that node's segment. A node
-		// that has outlines but no surviving triangles cannot happen — SurvivingOutlines already
-		// dropped those — so this never introduces a segment of its own.
+		// whose only geometry is line polys carries edges and no triangles, so the segment list below
+		// is the union of both keyings rather than the triangles' alone.
 		var edgesByNode = new Dictionary<int, List<OutlineEdge>>();
 		foreach (var edge in edges) {
 			if (!edgesByNode.TryGetValue(edge.TransformId, out var list)) {
@@ -423,10 +486,11 @@ public static class DtsMeshBuilder {
 			list.Add(edge);
 		}
 
-		var segments = new MeshSegment[byNode.Count];
+		var nodeIds = byNode.Keys.Concat(edgesByNode.Keys).Distinct().OrderBy(id => id).ToArray();
+		var segments = new MeshSegment[nodeIds.Length];
 		int next = 0;
-		foreach (int transformId in byNode.Keys.OrderBy(id => id)) {
-			var list = byNode[transformId];
+		foreach (int transformId in nodeIds) {
+			var list = byNode.TryGetValue(transformId, out var triangles) ? triangles : new List<Triangle>();
 			var nodeEdges = edgesByNode.TryGetValue(transformId, out var found) ? found : null;
 
 			int triangleVertices = list.Count * 3;
@@ -559,18 +623,29 @@ public static class DtsMeshBuilder {
 	/// per-frame geometry this builder doesn't produce) and is skipped.
 	/// </summary>
 	private static void Collect(TSObject? node, ANAnimList? animList, Collector sink,
-			TextureAtlas? atlas, SurfaceShading? shading, int cellFrame = 0) {
+			TextureAtlas? atlas, SurfaceShading? shading, int cellFrame = 0,
+			IReadOnlySet<short>? hiddenPartIds = null) {
+		// A hardpoint attachment slot is never drawn as it stands in the file — see
+		// AttachmentPartIds. The original overwrites the part pointer every frame; skipping the part
+		// puts the same nothing on screen for an empty hardpoint, and the fitted case is already
+		// drawn separately from MECHWPNS.DTS.
+		if (hiddenPartIds != null && node is TSBasePart { IdNumber: var partId }
+				&& hiddenPartIds.Contains(partId)) {
+			return;
+		}
+
 		switch (node) {
 			case null:
 				return;
 
 			case ANShape shape:
 				// An ANShape brings its own animation list into scope for everything beneath it.
-				CollectParts(shape.Parts, shape.AnimationList ?? animList, sink, atlas, shading, cellFrame);
+				CollectParts(shape.Parts, shape.AnimationList ?? animList, sink, atlas, shading, cellFrame,
+					hiddenPartIds);
 				break;
 
 			case TSDetailPart detailPart:
-				CollectHighestDetail(detailPart, animList, sink, atlas, shading, cellFrame);
+				CollectHighestDetail(detailPart, animList, sink, atlas, shading, cellFrame, hiddenPartIds);
 				break;
 
 			case TSCellAnimPart cellAnimPart:
@@ -581,7 +656,7 @@ public static class DtsMeshBuilder {
 				// cell zero, the rest pose.
 				if (cellAnimPart.Parts is { Length: > 0 } cells) {
 					Collect(cells[((cellFrame % cells.Length) + cells.Length) % cells.Length],
-						animList, sink, atlas, shading, cellFrame);
+						animList, sink, atlas, shading, cellFrame, hiddenPartIds);
 				}
 				break;
 
@@ -594,19 +669,20 @@ public static class DtsMeshBuilder {
 				break;
 
 			case TSPartList partList:
-				CollectParts(partList.Parts, animList, sink, atlas, shading, cellFrame);
+				CollectParts(partList.Parts, animList, sink, atlas, shading, cellFrame, hiddenPartIds);
 				break;
 		}
 	}
 
 	private static void CollectParts(TSObject[]? parts, ANAnimList? animList, Collector sink,
-			TextureAtlas? atlas, SurfaceShading? shading, int cellFrame = 0) {
+			TextureAtlas? atlas, SurfaceShading? shading, int cellFrame = 0,
+			IReadOnlySet<short>? hiddenPartIds = null) {
 		if (parts == null) {
 			return;
 		}
 
 		foreach (var part in parts) {
-			Collect(part, animList, sink, atlas, shading, cellFrame);
+			Collect(part, animList, sink, atlas, shading, cellFrame, hiddenPartIds);
 		}
 	}
 
@@ -634,12 +710,13 @@ public static class DtsMeshBuilder {
 	/// thresholds were not ascending.</para>
 	/// </summary>
 	private static void CollectHighestDetail(TSDetailPart detailPart, ANAnimList? animList,
-			Collector sink, TextureAtlas? atlas, SurfaceShading? shading, int cellFrame = 0) {
+			Collector sink, TextureAtlas? atlas, SurfaceShading? shading, int cellFrame = 0,
+			IReadOnlySet<short>? hiddenPartIds = null) {
 		if (detailPart.Parts is not { Length: > 0 } parts) {
 			return;
 		}
 
-		Collect(parts[^1], animList, sink, atlas, shading, cellFrame);
+		Collect(parts[^1], animList, sink, atlas, shading, cellFrame, hiddenPartIds);
 	}
 
 	private static void AppendGroup(TSGroup group, ANAnimList? animList, Collector sink, TextureAtlas? atlas, SurfaceShading? shading) {
@@ -664,7 +741,16 @@ public static class DtsMeshBuilder {
 		}
 
 		foreach (var polyObject in group.Polys) {
-			if (polyObject is not TSPoly poly || poly.VertexCount < 3) {
+			// Two vertices is a line, not a degenerate face: retail shapes carry TSSolidPolys with
+			// VertexCount 2 whose whole contribution is a one-pixel run in the surface's line colour
+			// — 92 of them in MECHWPNS.DTS alone, which is what draws the struts between a Particle
+			// Beam Weapon's housing and its barrel. The fan below emits nothing for them (it runs
+			// VertexCount - 2 times) and the outline pass emits their single segment.
+			//
+			// One vertex is left out. Ten TSSolidPolys in MECHWPNS.DTS carry it and the original
+			// paints each as a single pixel; there is no point primitive here, and a lone pixel on a
+			// weapon barrel is below what this renderer resolves.
+			if (polyObject is not TSPoly poly || poly.VertexCount < 2) {
 				continue;
 			}
 
@@ -762,8 +848,21 @@ public static class DtsMeshBuilder {
 			// The original's second pass over the same poly: its whole edge loop, re-drawn in the
 			// surface's line colour, whenever that resolves to something other than the fill. See
 			// MeshBuild.
-			if (solid?.Line is { } lineColor) {
-				for (int i = 0; i < poly.VertexCount; i++) {
+			// A line poly has nothing to be an outline OVER, so it draws whatever colour its surface
+			// carries: the line entry when there is one, and the fill when there is not. The
+			// "different from the fill" test that governs a real outline does not apply to it —
+			// that test exists because an outline matching its fill is invisible on a filled face,
+			// and here there is no filled face. Twelve of MECHWPNS.DTS's 92 line polys state a line
+			// colour that resolves to their fill, and they are struts like any other.
+			Vector3? edgeColor = poly.VertexCount == 2 ? solid?.Line ?? solid?.Fill : solid?.Line;
+
+			if (edgeColor is { } lineColor) {
+				// A line poly's edge loop would run 0->1 and then 1->0, the same segment drawn twice,
+				// so it contributes one edge instead of VertexCount of them.
+				bool linePoly = poly.VertexCount == 2;
+				int edgeCount = linePoly ? 1 : poly.VertexCount;
+
+				for (int i = 0; i < edgeCount; i++) {
 					int from = group.Indexes[listStart + i];
 					int to = group.Indexes[listStart + (i + 1) % poly.VertexCount];
 					if (from < 0 || from >= points.Length || to < 0 || to >= points.Length) {
@@ -771,7 +870,8 @@ public static class DtsMeshBuilder {
 					}
 
 					sink.Outlines.Add(new OutlineEdge(points[from], points[to],
-						localPoints[from], localPoints[to], lineColor, group.Transform, polyId));
+						localPoints[from], localPoints[to], lineColor, group.Transform, polyId,
+						standalone: linePoly));
 				}
 			}
 		}

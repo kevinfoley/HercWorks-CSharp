@@ -27,15 +27,16 @@ The mechanism is understood; what is left is engine work.
 - **Group orders.** `Group_OrderTick` (`00423a74`) advances a group through its row-15 orders. The
   layer is decoded; nothing in the engine runs it.
   → [`docs/formats/script-dat.md`](docs/formats/script-dat.md)
-- **Combat gaps.** A struck weapon mount is never destroyed; there is no explosive blast sweep, so a
-  shot's `SplashFactor` share is dropped. Hit detection itself is complete for all three classes.
-- **The ELF spin-up.** `ElfMount_TriggerHeld` swallows the first trigger press and returns no shot
-  until the muzzle-flash flipbook has played once, one cell per tick (`ElfMount_SpinUpAndChargeTick`);
-  ELF2 skips it. The engine fires on the press instead. Blocked on the muzzle flash itself, which is
-  what defines the delay's length — the engine draws none.
-  → [`docs/simulation/weapon-mounts.md`](docs/simulation/weapon-mounts.md)
-  → [`docs/simulation/weapon-firing.md`](docs/simulation/weapon-firing.md),
-  [`docs/engine/handoff-weapon-effects.md`](docs/engine/handoff-weapon-effects.md)
+- **Combat gaps.** There is no explosive blast sweep, so a shot's `SplashFactor` share is dropped.
+  Hit detection and weapon-mount destruction are both complete.
+  → [`docs/simulation/damage-system.md`](docs/simulation/damage-system.md)
+- **No debris objects of any kind.** A destroyed component and a destroyed weapon mount both throw
+  shapes in the original; there is nothing here for them to spawn into.
+  → [`docs/simulation/damage-system.md`](docs/simulation/damage-system.md),
+  [`docs/simulation/weapon-mounts.md`](docs/simulation/weapon-mounts.md)
+- **A machine's LOD roots are not selected.** Root 0 is hard-coded where the original picks one per
+  frame from projected size and a detail bias.
+  → [`docs/formats/mech-shape-drawing.md`](docs/formats/mech-shape-drawing.md)
 - **Weapon input divergences.** A right press dragged off its widget before release fires nothing
   here, where the original re-hits on release; TRACK latches but nothing reads it; clicking a pod's
   row does nothing, where the original toggles the pod.

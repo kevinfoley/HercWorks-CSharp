@@ -233,13 +233,22 @@ public sealed class SceneModelLibrary {
 		return animation;
 	}
 
-	/// <summary>The model for a mech type, or null when its <c>.DTS</c> is missing or empty.</summary>
+	/// <summary>
+	/// The model for a mech type, or null when its <c>.DTS</c> is missing or empty.
+	///
+	/// <para>The chassis' <b>hardpoint attachment slots are left out</b> — see
+	/// <see cref="DtsMeshBuilder.AttachmentPartIds"/>. DBSIM overwrites those parts on every frame of
+	/// every machine before it draws one, so their shipped geometry appears nowhere in the original;
+	/// building them into the mesh stood a flat untextured plate at every hardpoint. The weapon that
+	/// belongs there is drawn separately, from <see cref="MechWeapon"/>.</para>
+	/// </summary>
 	public SceneModel? Mech(string mechName) {
 		string? bankName = MechData(mechName) is { } data
 			? HercSimDat.TextureGroupDbaBaseName(data.ModelSkinId)
 			: null;
 
-		return Build(mechName + ".DTS", 0, bankName, segmented: true);
+		return Build(mechName + ".DTS", 0, bankName, segmented: true,
+			hiddenPartIds: DtsMeshBuilder.AttachmentPartIds(MechHardpoints(mechName)));
 	}
 
 	/// <summary>The model for a flyer type, or null when the install has no <c>.DTS</c> for it.</summary>
@@ -314,6 +323,58 @@ public sealed class SceneModelLibrary {
 	public const string RocketLibraryName = "ROCKETS.DTS";
 
 	/// <summary>
+	/// The model a fitted weapon is drawn as, one entry per cell of its muzzle-flash flipbook — a
+	/// root of <c>dts\MECHWPNS.DTS</c>, textured from <c>dba\WPNTEX.DBA</c>.
+	///
+	/// <para><b>The muzzle flash is the weapon's own model.</b> DBSIM spawns no separate effect for
+	/// it: the base mount constructor (<c>FUN_0040df30</c>) gives every visibly-mounted hardpoint a
+	/// private copy of this shape through <c>FUN_0040fab0</c>, and firing steps that copy's
+	/// <see cref="TSCellAnimPart"/>s one cell a tick. Cell zero is the gun at rest and the rest are
+	/// the flash, as real geometry rather than billboards — see
+	/// <see cref="Sim.WeaponMount.FlashCell"/>.</para>
+	///
+	/// <para>The bank binding is <c>FUN_0040fab0</c>'s own <c>shape+0x26 = &amp;DAT_004a9b6c</c>,
+	/// which is the atlas <c>Weapons_LoadResourceTables</c> packed <c>wpntex</c> into and hands to
+	/// every shape in <c>mechwpn2</c> as well.</para>
+	///
+	/// <para><paramref name="shapeIndex"/> is one of the four
+	/// <see cref="Weapons.WeaponMountTemplate.ModelShapeIndex"/> entries — which one depends on how
+	/// the hardpoint hangs off the chassis, so the same gun is a different root on a left-side mount
+	/// than on a top one.</para>
+	/// </summary>
+	/// <returns>The cells in order, or empty when the shape file or the index is missing.</returns>
+	public IReadOnlyList<SceneModel> MechWeapon(int shapeIndex) {
+		if (Root(MechWeaponLibraryName, shapeIndex) is not { } root) {
+			return Array.Empty<SceneModel>();
+		}
+
+		var cells = new List<SceneModel>();
+		for (int cell = 0; cell < DtsMeshBuilder.CellFrameCount(root); cell++) {
+			// Opaque, like a machine's own bank and unlike a billboard's: these are ordinary textured
+			// polys and index 0 is a colour in them, not a hole.
+			if (Build(MechWeaponLibraryName, shapeIndex, MechWeaponBankName, cellFrame: cell) is { } model) {
+				cells.Add(model);
+			}
+		}
+
+		return cells;
+	}
+
+	/// <summary>
+	/// How long one weapon shape's flipbook is — <see cref="DtsMeshBuilder.CellFrameCount"/> over the
+	/// same root, which is what the mounts need and all they need. Zero for a shape the install does
+	/// not have; one for a shape with no flipbook at all, which is every pod.
+	/// </summary>
+	public int MechWeaponCellCount(int shapeIndex) =>
+		Root(MechWeaponLibraryName, shapeIndex) is { } root ? DtsMeshBuilder.CellFrameCount(root) : 0;
+
+	/// <summary>The shape file <c>FUN_0040f998</c> opens, by the literal name <c>mechwpns</c>.</summary>
+	public const string MechWeaponLibraryName = "MECHWPNS.DTS";
+
+	/// <summary>And the bank <c>Weapons_LoadResourceTables</c> binds to every shape in it, by the literal <c>wpntex</c>.</summary>
+	public const string MechWeaponBankName = "WPNTEX";
+
+	/// <summary>
 	/// The model for a structure type. <see cref="BaseShapeSource.AnimatedLibrary"/> types are a
 	/// root of <c>dts\BASES_AN.DTS</c>; <see cref="BaseShapeSource.StaticLibrary"/> types are a
 	/// record of <c>dgs\BASES.DGS</c> — see <see cref="BasesDgsTransformer"/> for how that record's
@@ -365,13 +426,15 @@ public sealed class SceneModelLibrary {
 			ExplosionCatalog.TextureBankPrefix + textureBankIndex, transparentBank: true);
 
 	private SceneModel? Build(string dtsName, int rootIndex, string? bankName,
-			bool segmented = false, bool transparentBank = false, int cellFrame = 0) {
+			bool segmented = false, bool transparentBank = false, int cellFrame = 0,
+			IReadOnlySet<short>? hiddenPartIds = null) {
 		string key = cellFrame == 0 ? $"dts\\{dtsName}#{rootIndex}" : $"dts\\{dtsName}#{rootIndex}@{cellFrame}";
 		if (_models.TryGetValue(key, out var cached)) {
 			return cached;
 		}
 
-		var model = BuildFromRoot(key, Root(dtsName, rootIndex), bankName, segmented, transparentBank, cellFrame);
+		var model = BuildFromRoot(key, Root(dtsName, rootIndex), bankName, segmented, transparentBank,
+			cellFrame, hiddenPartIds);
 		_models[key] = model;
 		return model;
 	}
@@ -401,13 +464,14 @@ public sealed class SceneModelLibrary {
 	}
 
 	private SceneModel? BuildFromRoot(string key, TSObject? root, string? bankName,
-			bool segmented = false, bool transparentBank = false, int cellFrame = 0) {
+			bool segmented = false, bool transparentBank = false, int cellFrame = 0,
+			IReadOnlySet<short>? hiddenPartIds = null) {
 		if (root == null) {
 			return null;
 		}
 
 		var atlas = bankName != null ? LoadAtlas(bankName, transparentBank) : null;
-		var build = DtsMeshBuilder.BuildRoot(root, atlas, _shading, cellFrame);
+		var build = DtsMeshBuilder.BuildRoot(root, atlas, _shading, cellFrame, hiddenPartIds);
 		var (min, max) = DtsMeshBuilder.Bounds(build.Vertices);
 
 		Vector3 extent = max - min;
@@ -420,7 +484,7 @@ public sealed class SceneModelLibrary {
 		return new SceneModel(key, build.Vertices, build.TriangleVertexCount, atlas,
 			(int)(radiusInRenderUnits * WorldScale.WorldUnitsPerMeter),
 			(int)(extent.Y * WorldScale.WorldUnitsPerMeter),
-			segmented ? DtsMeshBuilder.BuildSegments(root, atlas, _shading) : Array.Empty<MeshSegment>(),
+			segmented ? DtsMeshBuilder.BuildSegments(root, atlas, _shading, hiddenPartIds) : Array.Empty<MeshSegment>(),
 			DtsSpriteBuilder.Build(root));
 	}
 

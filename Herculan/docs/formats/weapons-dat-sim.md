@@ -44,7 +44,7 @@ Read order (all fields little-endian):
                                   entry is 4 int16s. Pattern suggests (offsetish, offsetish,
                                   0-or-small, rate-ish) tuples, plausibly muzzle offset + fire-rate
                                   for multi-shot weapons (not confirmed field-by-field).
-+0x22 (relative) 48 raw bytes (0x30)  -- Four decoded fields (see below); the rest undecoded. Two
++0x22 (relative) 48 raw bytes (0x30)  -- Decoded fields below; the rest undecoded. Two
                              bytes at relative offset 0x26 are zeroed in memory at runtime (not
                              real file data).
 ```
@@ -68,10 +68,17 @@ Offsets are absolute in-memory (tail-relative = absolute − 0x22).
 | `0x46` | lateral muzzle offset, for a side-mounted hardpoint | `WeaponMountTemplate_SideMuzzleOffset` |
 | `0x4a` | vertical muzzle offset, for a top- or bottom-mounted one | `WeaponMountTemplate_SideMuzzleOffset` |
 | `0x4c` | refire delay, in sim timer units | `WeaponMount_PrepareShot` |
+| `0x22`–`0x28` | **weapon model**, four `MECHWPNS.DTS` shape indices, one per `.GL +6` mounting code | `FUN_0040fab0` |
 
-`0x30` is the ray length the beam dispatch hands `Bullet_FireBurst`, which is what identifies it; it
-was previously known only as the value `FUN_004110ac` requires to be positive before it will put a
-hardpoint into a fire chain, and every pod carries zero, so that gate still works. Retail values run
+`0x22`–`0x28` are read as `template[0x22 + code * 2]`, where `code` is the hardpoint's mounting
+byte: the same gun modelled for the four ways it can hang off a chassis, so `ATC20` reads four
+different shapes and a shoulder launcher reads one shape four times. Mounting code 4 is the
+invisible hardpoint and has no entry — nothing is drawn for it. **The shape's cell animation is the
+muzzle flash**; see [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#the-muzzle-flash).
+
+`0x30` is the ray length the beam dispatch hands `Bullet_FireBurst`. It is also the value
+`FUN_004110ac` requires to be positive before it will put a hardpoint into a fire chain, and every
+pod carries zero, so that gate holds on it too. Retail values run
 75000 (ATC20) down to 15000 (ELF2) — 450 m to 90 m at the simulation's own scale, which does *not*
 match the manual's 20 m figure for the ELF.
 

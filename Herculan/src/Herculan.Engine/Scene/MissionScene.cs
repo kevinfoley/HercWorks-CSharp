@@ -38,7 +38,8 @@ public sealed class MissionScene {
 			SceneObject? playerObject, BeamAppearance? beams,
 			IReadOnlyDictionary<int, SceneModel> bulletModels,
 			IReadOnlyDictionary<int, SceneModel> explosionModels,
-			IReadOnlyDictionary<int, IReadOnlyList<SceneModel>> rocketModels, Atmosphere atmosphere,
+			IReadOnlyDictionary<int, IReadOnlyList<SceneModel>> rocketModels,
+			IReadOnlyDictionary<int, IReadOnlyList<SceneModel>> mechWeaponModels, Atmosphere atmosphere,
 			SurfaceRampTable? shadeRamps, PaletteRampTable? paletteRamp) {
 		Atmosphere = atmosphere;
 		ShadeRamps = shadeRamps;
@@ -47,6 +48,7 @@ public sealed class MissionScene {
 		BulletModels = bulletModels;
 		ExplosionModels = explosionModels;
 		RocketModels = rocketModels;
+		MechWeaponModels = mechWeaponModels;
 		Mission = mission;
 		World = world;
 		Camera = camera;
@@ -159,6 +161,15 @@ public sealed class MissionScene {
 	/// <see cref="Rocket.AnimationFrame"/>. See <see cref="SceneModelLibrary.Rocket"/>.</para>
 	/// </summary>
 	public IReadOnlyDictionary<int, IReadOnlyList<SceneModel>> RocketModels { get; }
+
+	/// <summary>
+	/// The weapon models the machines on this field are fitted with, keyed by
+	/// <see cref="Sim.WeaponMount.ModelShapeIndex"/> and holding one entry per cell of the shape's
+	/// muzzle-flash flipbook — see <see cref="SceneModelLibrary.MechWeapon"/>. A mount draws the cell
+	/// its own <see cref="Sim.WeaponMount.FlashCell"/> names, at
+	/// <see cref="Sim.WeaponMount.ModelFrame"/>.
+	/// </summary>
+	public IReadOnlyDictionary<int, IReadOnlyList<SceneModel>> MechWeaponModels { get; }
 
 	/// <summary>How many placed objects have no model the engine can build yet.</summary>
 	public int UnmodelledCount => Objects.Count(o => o.Model == null);
@@ -322,10 +333,30 @@ public sealed class MissionScene {
 
 		explosions?.BindFrameCounts(explosionFrames);
 
+		// One flipbook per weapon shape the roster actually carries, built after the machines are
+		// spawned because it is their fits that say which shapes those are. Several mounts share a
+		// shape freely: the cell each one shows is its own, the geometry is not.
+		var mechWeaponModels = new Dictionary<int, IReadOnlyList<SceneModel>>();
+		foreach (var placed in objects) {
+			if (placed.Object is not MechObject fitted) {
+				continue;
+			}
+
+			foreach (var mount in fitted.Weapons.Mounts) {
+				if (mount.ModelShapeIndex < 0 || mechWeaponModels.ContainsKey(mount.ModelShapeIndex)) {
+					continue;
+				}
+
+				if (models.MechWeapon(mount.ModelShapeIndex) is { Count: > 0 } cells) {
+					mechWeaponModels[mount.ModelShapeIndex] = cells;
+				}
+			}
+		}
+
 		return new MissionScene(mission, world, camera, objects, models.Models.ToArray(),
 			terrainMesh, theater, terrainBank, playerObject,
 			beams, bulletModels, explosionModels,
-			rocketModels, Atmosphere.From(terrain, models.Shading),
+			rocketModels, mechWeaponModels, Atmosphere.From(terrain, models.Shading),
 			SurfaceRampTable.Build(models.Shading), PaletteRampTable.Build(models.Shading));
 	}
 
@@ -426,7 +457,8 @@ public sealed class MissionScene {
 						weapons,
 						models.Collision(placement.TypeName),
 						ComponentDamageFor(models, placement.TypeName,
-							ComponentDamage.MechComponentCount, ComponentDamage.MechDependentCount, random)),
+							ComponentDamage.MechComponentCount, ComponentDamage.MechDependentCount, random),
+						models.MechWeaponCellCount),
 					model);
 			}
 

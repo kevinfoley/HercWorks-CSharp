@@ -86,21 +86,33 @@ public sealed class WeaponMount {
 	public const short EnergyPowerStep = 0x50;
 
 	/// <summary>
-	/// The fixed-point scale on <see cref="RefireDelay"/> — <c>+0x63</c>, which the base mount
-	/// constructor (<c>FUN_0040df30</c>) writes <c>0x400</c> into and nothing traced ever changes. A
-	/// Q10 unit, so as things stand the delay a mount arms is the template's own figure exactly. It is
-	/// modelled rather than folded away because it is a per-mount field, not a constant.
+	/// The fixed-point scale on <see cref="RefireDelay"/> at full health — <c>+0x63</c>, which the
+	/// base mount constructor (<c>FUN_0040df30</c>) writes into every mount. A Q10 unit, so an
+	/// undamaged mount arms the template's own figure exactly.
 	/// </summary>
 	public const short RefireScaleFull = 0x400;
+
+	/// <summary>
+	/// <c>+0x63</c> as it currently stands. Only a gun mount's own damage moves it — see
+	/// <see cref="ConditionChanged"/>, which steps it down by
+	/// <see cref="RefireScalePerDamageStep"/> for every <see cref="MountDamageStep"/> of damage past
+	/// <see cref="MountDamageOnset"/> on the mount's component. A launcher's is never touched: that
+	/// class cooks off instead.
+	/// </summary>
+	public short RefireScale { get; private set; } = RefireScaleFull;
 
 	private readonly Weapons.WeaponMountTemplate? _template;
 	private readonly GunLayout.HardpointEntry _hardpoint;
 	private short _refireTimer;
 	private bool _firedSinceShuffle;
 	private bool _firedThisTick;
+	private bool _flashPlaying;
+	private bool _spinUpRunning;
+	private bool _spinUpLatched;
+	private short _spinUpCellTimer;
 
 	internal WeaponMount(int mountIndex, GunLayout.HardpointEntry hardpoint, int weaponId,
-			short secondaryKey, WeaponCatalog catalog) {
+			short secondaryKey, WeaponCatalog catalog, Func<int, int>? modelCellCount = null) {
 		_hardpoint = hardpoint;
 		MountIndex = mountIndex;
 		GaugeSlot = hardpoint.FireChainNumber;
@@ -136,7 +148,47 @@ public sealed class WeaponMount {
 		// (FUN_0040e234) immediately clears it again, which is one of the two independent reasons a
 		// pod can never be armed.
 		Selectable = Kind != WeaponMountKind.Pod;
+
+		// FUN_0040df30's own first act: an invisibly-mounted hardpoint loads no shape, and every
+		// other one loads the weapon model its template names for the mounting code it sits at.
+		ModelShapeIndex = _hardpoint.AngleDirOption < InvisibleMounting && _template != null
+			? _template.ModelShapeIndex(_hardpoint.AngleDirOption)
+			: -1;
+		FlashCellCount = ModelShapeIndex >= 0 ? modelCellCount?.Invoke(ModelShapeIndex) ?? 0 : 0;
 	}
+
+	/// <summary>
+	/// The <c>.GL</c> mounting code (<c>+6</c>) that means the hardpoint carries no visible weapon.
+	/// Every test the original spells as <c>.GL +6 &lt; 4</c> is this one.
+	/// </summary>
+	public const int InvisibleMounting = 4;
+
+	/// <summary>
+	/// Which shape of <c>dts\MECHWPNS.DTS</c> this mount is drawn as, or -1 for an invisible
+	/// mounting — <c>FUN_0040fab0</c>, which the base constructor calls only when the hardpoint's
+	/// mounting code is under <see cref="InvisibleMounting"/>. The mount owns a private copy of that
+	/// shape in the original (<c>mount+0x10</c>), because it translates the geometry to the muzzle
+	/// point and steps its flipbook independently of every other mount carrying the same weapon.
+	///
+	/// <para>It goes back to -1 when the mount is knocked out — see <see cref="Destroy"/>, which is
+	/// the only thing that changes it after construction.</para>
+	/// </summary>
+	public int ModelShapeIndex { get; private set; }
+
+	/// <summary>
+	/// How many cells the weapon model's flipbook has — the shape's <c>SequenceList[0]</c>,
+	/// <c>*shape+0x20</c>. Retail weapon shapes carry two to seven; a shape with no sequence at all
+	/// (every pod) reports one and so never flashes, and zero means the install has no such shape.
+	/// </summary>
+	public int FlashCellCount { get; }
+
+	/// <summary>
+	/// Which cell of the weapon model's flipbook is showing — the first entry of the private
+	/// per-sequence frame array the base constructor allocates at <c>mount+0x14</c>, and
+	/// <b>the muzzle flash</b>. Cell zero is the gun at rest; a shot starts the book and
+	/// <see cref="ChargeTick"/> walks it one cell a tick until it wraps back to zero.
+	/// </summary>
+	public int FlashCell { get; private set; }
 
 	/// <summary>
 	/// This mount's index in the machine's mount array — its position in the <c>.GL</c> file. It is
@@ -252,9 +304,127 @@ public sealed class WeaponMount {
 
 	/// <summary>
 	/// <c>+0x49</c>. A destroyed mount: it charges nothing, fires nothing, and its cockpit row prints
-	/// <c>OFFLINE</c> in place of the weapon's name. Nothing damages a mount yet.
+	/// <c>OFFLINE</c> in place of the weapon's name. <see cref="Destroy"/> is what sets it.
 	/// </summary>
 	public bool Disabled { get; internal set; }
+
+	/// <summary>
+	/// <c>WeaponMount_Destroy</c> (<c>0040f57c</c>) — the mount side of losing a hardpoint, reached
+	/// from the destruction roll a band change on one of the machine's mount components makes (see
+	/// <c>MechObject</c>'s <c>ApplyDirectFireDamage</c>) and from the mount's own condition
+	/// notification (<c>FUN_0040ee0c</c>) when that reports a fully-damaged component.
+	///
+	/// <para>Two writes, and they are the whole of the state change: the weapon model at
+	/// <c>mount+0x10</c> is dropped, so the gun stops being drawn on the chassis, and the destroyed
+	/// byte at <c>+0x49</c> is set, which is what stops the mount charging, firing and being armed,
+	/// and turns its cockpit row into <c>OFFLINE</c>. It is idempotent in the original too: the whole
+	/// body is under a test of that byte.</para>
+	///
+	/// <para><b>Left out: the debris.</b> A visibly-mounted hardpoint (<c>.GL +6 &lt;</c>
+	/// <see cref="InvisibleMounting"/>) also throws the template's <c>mechwpn2</c> shape
+	/// (<c>template+0x26</c>) off the mount point as a debris object, on a
+	/// <c>Math_EulerToward</c> bearing away from the machine's centre and with a shorter lifetime for
+	/// the local player than for anyone else. The engine has no debris objects at all, so there is
+	/// nothing to spawn into.</para>
+	/// </summary>
+	internal void Destroy() {
+		if (Disabled) {
+			return;
+		}
+
+		ModelShapeIndex = -1;
+		Disabled = true;
+	}
+
+	/// <summary>
+	/// The mount's vtable slot <c>0x68</c>, the condition notification — <c>FUN_0040ee0c</c> for the
+	/// base class and <c>FUN_0040ee90</c> for the two that carry a weapon.
+	/// <c>Mech_ComponentDamageWrite</c> reads every mount's component before its write and again
+	/// after, and hands both readings to every mount on the machine, so this runs on all of them for
+	/// any hit anywhere and is a no-op wherever the two agree.
+	///
+	/// <list type="number">
+	/// <item><b>A component that reads <see cref="MechObject.FullyDamaged"/> destroys its mount</b>,
+	/// with no roll. That is the base class' whole slot, and the certain half of losing a
+	/// hardpoint — the roll in <c>MechObject.RollWeaponMountDestruction</c> is the other, and takes
+	/// mounts out before their component is gone.</item>
+	/// <item><b>A launcher cooks off.</b> Past <see cref="MountDamageOnset"/> — half damage — a
+	/// <c>Missile</c> mount rolls <see cref="MountCookOffOdds"/> in 1024 once for every
+	/// <see cref="MountDamageStep"/> the reading crossed, and the first success destroys it. A hit
+	/// that takes the component from pristine to nearly gone therefore rolls five or six times.</item>
+	/// <item><b>A gun's refire scale moves instead</b>, by
+	/// <see cref="RefireScalePerDamageStep"/> per step over the same range — see
+	/// <see cref="RefireScale"/>. A <c>Bullet</c> mount is never rolled for and a beam mount is
+	/// neither rolled for nor rescaled.</item>
+	/// </list>
+	///
+	/// <para><b>An empty mount is exempt from both</b> — the original gates them on <c>+0x7b</c>,
+	/// <see cref="ChargeTarget"/>, so a launcher out of missiles cannot cook off.</para>
+	/// </summary>
+	/// <param name="before">The mount's component reading before the write, 0 pristine and 256 gone.</param>
+	/// <param name="after">The same reading after it.</param>
+	internal void ConditionChanged(SimRandom random, int before, int after) {
+		if (after == MechObject.FullyDamaged) {
+			Destroy();
+		}
+
+		if (ChargeTarget == 0 || Projectile is not { } projectile || after <= MountDamageOnset) {
+			return;
+		}
+
+		int last = (after - MountDamageOnset) / MountDamageStep;
+
+		if (projectile.Type != ProjectileType.Missile) {
+			if (projectile.Type == ProjectileType.Bullet) {
+				RefireScale = (short)(RefireScaleFull - last * RefireScalePerDamageStep);
+			}
+
+			return;
+		}
+
+		// The original's own loop bounds. C division truncates toward zero, so a reading below the
+		// onset gives a step of 0 rather than a negative one until it is a full step below; the
+		// clamp is what keeps a shot that crosses the onset from rolling more than once for it.
+		int step = (before - MountDamageOnset) / MountDamageStep;
+		if (step < 0) {
+			step = -1;
+		}
+
+		for (; step < last; step++) {
+			if (random.NextMasked(0x3ff) < MountCookOffOdds) {
+				Destroy();
+				return;
+			}
+		}
+	}
+
+	/// <summary>
+	/// The component reading a mount's own damage starts to tell on it at — half gone. Below it a
+	/// mount is as good as new however much the section around it has taken.
+	/// </summary>
+	public const int MountDamageOnset = 0x80;
+
+	/// <summary>
+	/// How much further damage buys one more roll for a launcher, or one more step off a gun's
+	/// <see cref="RefireScale"/>. The reading runs to 256, so there are five steps in all.
+	/// </summary>
+	public const int MountDamageStep = 25;
+
+	/// <summary>
+	/// A launcher's odds of cooking off per <see cref="MountDamageStep"/>, out of 1024 — a shade
+	/// under 30%, compounding over however many steps one hit crossed.
+	/// </summary>
+	public const int MountCookOffOdds = 300;
+
+	/// <summary>
+	/// What one <see cref="MountDamageStep"/> takes off a gun mount's <see cref="RefireScale"/>.
+	///
+	/// <para><b>It shortens the refire delay.</b> The scale multiplies the template's figure, so a
+	/// gun on a half-wrecked mount arms half the delay and fires roughly twice as fast. That reads
+	/// backwards for damage and it is what the original does — <c>FUN_0040ee90</c> subtracts from
+	/// <c>0x400</c> and <c>WeaponMount_PrepareShot</c> multiplies by the result.</para>
+	/// </summary>
+	public const int RefireScalePerDamageStep = 0x66;
 
 	/// <summary>
 	/// <c>+0x31</c>, the refire countdown. Zero means the mount is out of its delay. A shot arms it
@@ -313,15 +483,18 @@ public sealed class WeaponMount {
 
 	/// <summary>
 	/// The refire delay a shot arms, in the same timer units <see cref="RefireTimer"/> counts down in
-	/// — the template's <c>0x4c</c>, scaled by <see cref="RefireScaleFull"/>.
+	/// — the template's <c>0x4c</c>, scaled by <see cref="RefireScale"/>.
 	///
 	/// <para>At the simulation's 81-per-tick countdown, the retail 1200 that most weapons carry is
 	/// about 15 ticks, or 0.6 s. <c>ELF</c> and <c>ELF2</c> carry <b>zero</b>, so they never have a
 	/// delay at all — a continuous beam, held down and firing every tick the capacitor allows.</para>
+	///
+	/// <para>The scale is a full <c>0x400</c> until the mount's own component takes damage, at which
+	/// point a gun's delay <i>shortens</i>. See <see cref="RefireScalePerDamageStep"/>.</para>
 	/// </summary>
 	public short RefireDelay =>
 		_template?.Tail is { Length: >= 0x2c } tail
-			? (short)SimMath.Q10Multiply(RefireScaleFull, BitConverter.ToInt16(tail, 0x2a))
+			? (short)SimMath.Q10Multiply(RefireScale, BitConverter.ToInt16(tail, 0x2a))
 			: (short)0;
 
 	/// <summary>Whether the pool arbitration treats this mount as half-efficient — <c>PLAS</c> alone.</summary>
@@ -472,6 +645,12 @@ public sealed class WeaponMount {
 			return budget;
 		}
 
+		// ElfMount_SpinUpAndChargeTick's own half, which runs before it falls through into the
+		// energy class's slot below. Only the ELF vtable has it.
+		if (Kind == WeaponMountKind.Elf) {
+			SpinUpTick();
+		}
+
 		// WeaponMount_RefireTick — the refire countdown. It is the whole of an ammunition mount's turn
 		// at the pool (that function *is* its vtable slot 0x34) and the first thing the energy class's
 		// own slot does, so a mount's cooldown runs on the same pass that charges it and a destroyed
@@ -483,6 +662,8 @@ public sealed class WeaponMount {
 			// readiness test is the one thing that reads the result.
 			_firedSinceShuffle &= _firedThisTick;
 			_firedThisTick = false;
+
+			MuzzleFlashTick();
 		}
 
 		if (!IsEnergyClass) {
@@ -510,6 +691,156 @@ public sealed class WeaponMount {
 
 		return (short)(budget - draw);
 	}
+
+	/// <summary>
+	/// Where this mount's weapon model stands, in world space: the firing hardpoint's own posed bone,
+	/// with the hardpoint's mount point in the translation.
+	///
+	/// <para>The original gets there the other way round — the base constructor translates the
+	/// freshly-loaded shape's own point lists by that offset (<c>FUN_0040dd4c</c>) and then draws
+	/// the shape at the bone, which is why every mount owns a private copy of the shape rather than
+	/// sharing one. Offsetting the frame instead puts the same geometry in the same place off one
+	/// shared model.</para>
+	///
+	/// <para><b>The offset is <see cref="MountPointOffset"/>, not <see cref="MuzzleOffset"/>.</b> A
+	/// weapon hangs at its hardpoint's mount point; the template's own muzzle triple is the length
+	/// of the barrel from there, and only the shot travels it.</para>
+	/// </summary>
+	public Transform3 ModelFrame(MechObject owner) {
+		var bone = owner.PartTransform(_hardpoint.BoneId);
+		var offset = MountPointOffset;
+		var origin = bone.TransformPoint(offset.X, offset.Y, offset.Z);
+
+		bone.X = origin.X;
+		bone.Y = origin.Y;
+		bone.Z = origin.Z;
+		return bone;
+	}
+
+	/// <summary>
+	/// The muzzle flash, and the whole of it — <c>WeaponMount_RefireTick</c>'s tail. A shot raises
+	/// <c>mount+0x44</c> and this walks the weapon model's flipbook one cell a tick from there;
+	/// when it wraps back to cell zero the flag is dropped and the gun is at rest again. So the
+	/// flash lasts <see cref="FlashCellCount"/> ticks and the data decides how long that is —
+	/// two to seven cells depending on the weapon, seven on both ELFs.
+	///
+	/// <para>Nothing restarts a flash already playing — the flag is already set, so a mount firing
+	/// every tick shows a continuously cycling book rather than one stuck on its first cell.</para>
+	/// </summary>
+	private void MuzzleFlashTick() {
+		if (!_flashPlaying || FlashCellCount <= 0) {
+			return;
+		}
+
+		FlashCell = (FlashCell + 1) % FlashCellCount;
+		if (FlashCell == 0) {
+			_flashPlaying = false;
+		}
+	}
+
+	/// <summary>
+	/// Raises <c>mount+0x44</c>, which both fire dispatches do whenever the hardpoint is a visible
+	/// one (<c>.GL +6 &lt; 4</c>). The ammunition class raises it on its <c>Bullet</c> branch only:
+	/// a rocket comes off a rail rather than out of a barrel and the original lights nothing for it.
+	/// </summary>
+	private void StartMuzzleFlash() {
+		if (ModelShapeIndex >= 0) {
+			_flashPlaying = true;
+		}
+	}
+
+	/// <summary>
+	/// Vtable slot <c>0x30</c>, the trigger read — <c>WeaponMount_TriggerHeld</c> for every class but
+	/// the ELF, which is the device's fire byte handed straight back, and
+	/// <c>ElfMount_TriggerHeld</c> (<c>0040e680</c>) for the ELF, which is a <b>spin-up</b>.
+	///
+	/// <para>The first press of an ELF's trigger fires nothing. It sets <c>+0x47</c> and returns
+	/// zero; <see cref="SpinUpTick"/> then walks the muzzle-flash flipbook one cell a tick, and at
+	/// the last cell latches <c>+0x48</c> and clears <c>+0x47</c>. From then on this returns the
+	/// trigger byte itself and the weapon fires every tick until release, which drops the latch and
+	/// rewinds the book to cell zero. The spin-up is therefore exactly
+	/// <see cref="FlashCellCount"/> ticks long — seven for both ELFs, about a third of a second —
+	/// and it is the weapon model's own flipbook that sets that length.</para>
+	///
+	/// <para><b><c>ELF2</c> skips it.</b> The function opens by forcing both flags set when the
+	/// template's self-index (<c>+0x56</c>, which is the catalog id) is
+	/// <see cref="Elf2WeaponId"/>, so the second-generation weapon fires on the press.</para>
+	///
+	/// <para><b>It is only asked of a mount that is ready</b> — <see cref="WeaponMounts.FireTick"/>
+	/// tests <see cref="CanFire"/> first and returns without reaching this. So an ELF whose
+	/// capacitor is still filling does not spin up, and one that empties mid-burst keeps its latch
+	/// until the trigger is released after it has recharged.</para>
+	/// </summary>
+	/// <param name="held">The device's fire byte — see <see cref="MechControls.Fire"/>.</param>
+	/// <returns>Whether this mount considers the trigger pulled <i>this</i> tick.</returns>
+	internal bool TriggerHeld(bool held) {
+		if (Kind != WeaponMountKind.Elf) {
+			return held;
+		}
+
+		if (WeaponId == Elf2WeaponId) {
+			_spinUpRunning = true;
+			_spinUpLatched = true;
+		}
+
+		if (!_spinUpLatched) {
+			if (!held) {
+				if (_spinUpRunning && ModelShapeIndex >= 0) {
+					FlashCell = 0;
+					_spinUpRunning = false;
+				}
+			} else if (!_spinUpRunning) {
+				_spinUpRunning = true;
+				_spinUpCellTimer = 0;
+			}
+
+			return false;
+		}
+
+		if (!held) {
+			if (ModelShapeIndex >= 0) {
+				FlashCell = 0;
+			}
+
+			_spinUpLatched = false;
+		}
+
+		return held;
+	}
+
+	/// <summary>
+	/// <c>ElfMount_SpinUpAndChargeTick</c> (<c>0040f3d8</c>) ahead of its fall-through into
+	/// <c>WeaponMount_ChargeCapacitor</c>: while the spin-up is running, step the weapon model's
+	/// flipbook one cell, and at its last cell latch the trigger through.
+	///
+	/// <para>The cell timer at <c>mount+0x84</c> is modelled because it is what the original counts,
+	/// but it never delays anything: both the press and each advance reset it to zero, and
+	/// <see cref="SimMath.CountdownTimerTick"/> clamps there, so it expires on every tick and the
+	/// book really does move a cell per tick.</para>
+	///
+	/// <para>A mount with no model, or one whose model carries no flipbook, latches immediately —
+	/// there are no cells to walk, so those two cases are the original's own first two tests.</para>
+	/// </summary>
+	private void SpinUpTick() {
+		if (!_spinUpRunning || SimMath.CountdownTimerTick(ref _spinUpCellTimer) != 0) {
+			return;
+		}
+
+		if (ModelShapeIndex < 0 || FlashCellCount <= 0 || FlashCell == FlashCellCount - 1) {
+			_spinUpLatched = true;
+			_spinUpRunning = false;
+			return;
+		}
+
+		FlashCell = (FlashCell + 1) % FlashCellCount;
+		_spinUpCellTimer = 0;
+	}
+
+	/// <summary>
+	/// The catalog id whose template self-index <c>ElfMount_TriggerHeld</c> compares against to skip
+	/// the spin-up — <c>ELF2</c>, the second-generation weapon.
+	/// </summary>
+	public const int Elf2WeaponId = 22;
 
 	/// <summary>
 	/// What the ammunition gauge's own printed count does between the shot and the next: the mount
@@ -654,6 +985,10 @@ public sealed class WeaponMount {
 	/// </summary>
 	private void FireGunOrBeam(MechObject owner, SimWorld world, ProjectileData.Projectile projectile,
 			in Transform3 bone, Vec3i muzzle) {
+		// The dispatch raises the flash before it looks at the projectile type at all, so a beam
+		// lights the barrel exactly as a gun does.
+		StartMuzzleFlash();
+
 		if (projectile.Type == ProjectileType.Beam) {
 			// The cost is capped at what the capacitor actually holds, so a mount that somehow fires
 			// under-charged fires a weaker shot rather than going negative. For a laser the two are the
@@ -737,6 +1072,7 @@ public sealed class WeaponMount {
 		}
 
 		world.FireBullet(projectile, muzzle, aim, owner.TravelSpeed, 0, owner);
+		StartMuzzleFlash();
 	}
 
 	/// <summary>
@@ -828,6 +1164,38 @@ public sealed class WeaponMount {
 	/// </summary>
 	private Vec3i MuzzleOffset {
 		get {
+			var mount = MountPointOffset;
+			if (_template?.Tail is not { Length: >= 0x24 } tail) {
+				return mount;
+			}
+
+			return new Vec3i(
+				BitConverter.ToInt16(tail, 0x1e) + mount.X,
+				BitConverter.ToInt16(tail, 0x20) + mount.Y,
+				BitConverter.ToInt16(tail, 0x22) + mount.Z);
+		}
+	}
+
+	/// <summary>
+	/// <c>WeaponMount_MuzzleOffset</c> (<c>0040f540</c>) itself — <b>where the weapon sits</b>, as
+	/// against <see cref="MuzzleOffset"/>'s where its shot comes out. It is the hardpoint's own
+	/// mount-point offset (<c>.GL +0x10</c>) plus <c>WeaponMountTemplate_SideMuzzleOffset</c>
+	/// (<c>0040f904</c>), and nothing else: the template's muzzle triple at <c>+0x40</c> is the
+	/// barrel's length down the gun and <c>WeaponMount_PrepareShot</c> is the only thing that adds
+	/// it.
+	///
+	/// <para>The side offset is what makes a mirrored hardpoint pair sit at mirrored points off one
+	/// template. The template carries a lateral figure at <c>+0x46</c> and a vertical one at
+	/// <c>+0x4a</c>; the hardpoint's mounting code picks one of them and its sign, and only one axis
+	/// is ever nonzero.</para>
+	///
+	/// <para>This is the offset the base mount constructor bakes into its private copy of the weapon
+	/// model (<c>FUN_0040dd4c</c>), which is why <see cref="ModelFrame"/> reads it rather than
+	/// <see cref="MuzzleOffset"/>: putting the model at the muzzle stands it a barrel's length
+	/// clear of the chassis.</para>
+	/// </summary>
+	private Vec3i MountPointOffset {
+		get {
 			int lateral = 0;
 			int vertical = 0;
 
@@ -846,14 +1214,12 @@ public sealed class WeaponMount {
 						lateral = BitConverter.ToInt16(tail, 0x24);
 						break;
 				}
-
-				return new Vec3i(
-					BitConverter.ToInt16(tail, 0x1e) + _hardpoint.Offset[0] + lateral,
-					BitConverter.ToInt16(tail, 0x20) + _hardpoint.Offset[1],
-					BitConverter.ToInt16(tail, 0x22) + _hardpoint.Offset[2] + vertical);
 			}
 
-			return new Vec3i(_hardpoint.Offset[0], _hardpoint.Offset[1], _hardpoint.Offset[2]);
+			return new Vec3i(
+				_hardpoint.Offset[0] + lateral,
+				_hardpoint.Offset[1],
+				_hardpoint.Offset[2] + vertical);
 		}
 	}
 }

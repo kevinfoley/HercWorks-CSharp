@@ -1,5 +1,8 @@
 # DTS node posing — how a shape's geometry follows its skeleton (DBSIM.EXE)
 
+For a machine, two mechanisms rewrite the shape before any of this runs — the hardpoint splice and
+the per-frame LOD root pick. See [`mech-shape-drawing.md`](mech-shape-drawing.md).
+
 Every geometry group in a DTS shape is drawn through the transform of the node it names, taken from
 the shape instance's per-node world array. That array is what the animation pipeline in
 [`mech-locomotion.md`](../simulation/mech-locomotion.md#keyframe-interpolation) writes, so posing

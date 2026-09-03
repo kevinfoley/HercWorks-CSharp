@@ -119,7 +119,7 @@ public sealed partial class MechObject {
 			short energyPodDamage = 0,
 			ReactorCondition reactor = ReactorCondition.Intact) {
 
-		Weapons = WeaponMounts.Build(_hardpoints, Loadout, _weapons);
+		Weapons = WeaponMounts.Build(_hardpoints, Loadout, _weapons, _weaponModelCellCount);
 		Pods = MechPods.FromLoadout(Weapons);
 
 		Shields = new ShieldCharge(Type.ShieldCapacity);

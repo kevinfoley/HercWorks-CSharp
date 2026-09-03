@@ -80,13 +80,15 @@ Shared mount fields mean different things per class:
 
 | Offset | Ammunition | Energy |
 |---|---|---|
+| `+0x10`, `+0x14` | the weapon model and its private cell-frame array — see [The muzzle flash](#the-muzzle-flash) | as ammunition |
+| `+0x44` | muzzle flash playing | as ammunition |
 | `+0x7b` | rounds remaining | charge target, **and** the pool-arbitration priority |
 | `+0x7d` | rounds in 256ths | capacitor level |
 | `+0x7f` | — | charge rate, a flat 20 |
 | `+0x31` | refire countdown | refire countdown |
 | `+0x33`, `+0x3b` | fired-recently blocks | fired-recently blocks (the ELF sustain reads `+0x33`) |
 | `+0x43` | — | mid-charge flag |
-| `+0x47`, `+0x48` | — | ELF spin-up running / latched |
+| `+0x47`, `+0x48`, `+0x84` | — | ELF spin-up running / latched / cell timer |
 | `+0x49` | destroyed | destroyed |
 | `+0x4b` | LINK engaged | LINK engaged |
 
@@ -162,8 +164,103 @@ what makes the ELF the damage outlier the manual describes from small `PROJ.DAT`
 **`ElfMount_TriggerHeld` is a spin-up.** A press sets `+0x47` and returns 0 — no shot that tick.
 `ElfMount_SpinUpAndChargeTick` then advances the muzzle-flash flipbook one cell per tick until the
 last, at which point it latches `+0x48` and clears `+0x47`; from then on the slot returns the trigger
-byte and the weapon fires every tick until release, which clears `+0x48`. **ELF2 skips it**: the slot
-opens by forcing both flags to 1 whenever `template+0x56` (the record's self-index) is 22.
+byte and the weapon fires every tick until release, which clears `+0x48` and rewinds the flipbook to
+cell zero. **ELF2 skips it**: the slot opens by forcing both flags to 1 whenever `template+0x56`
+(the record's self-index) is 22.
+
+**The flipbook is what sets the delay's length**, so it is data, not a constant: the spin-up runs
+for as many ticks as the weapon model has cells. Both ELFs carry `MECHWPNS.DTS` shape 4, seven
+cells, so both take seven ticks — about 0.28 s at 25 Hz.
+
+The spin-up only runs while the mount is **ready**: `WeaponMounts_FireTrigger` tests vtable `+0x2c`
+before it reaches `+0x30` at all. So an ELF whose capacitor is still filling does not spin up, and
+one that empties mid-burst keeps its latch until the trigger is released after it has recharged.
+
+## The muzzle flash
+
+**It is the weapon's own model playing its cell animation.** Nothing spawns an effect for it, and
+there is no muzzle-flash resource of any kind — `dts\FIRE.DTS` is the burning-object effect, not
+this (see [`dbsim-physics-notes.md`](dbsim-physics-notes.md#rocket-physics)).
+
+Every hardpoint whose mounting code is visible (`.GL +6 < 4`) gets its own copy of the weapon model
+when the mount is built:
+
+1. `FUN_0040df30` calls `FUN_0040fab0`, which instantiates `MECHWPNS.DTS`'s shape
+   `template[0x22 + code * 2]` from the raw chunk `FUN_0040f998` cached, and binds it the `wpntex`
+   atlas at `shape+0x26`.
+2. `FUN_00402fc0` stores the shape at `mount+0x10` and allocates `mount+0x14` as a **private copy**
+   of its per-sequence frame array, `shape+0x24` entries long.
+3. `FUN_0040dd4c` translates the shape's own point lists by `WeaponMount_MuzzleOffset` — the mount
+   point, not the muzzle. That private copy is why every mount can carry the same weapon and still
+   sit and flash independently.
+4. `Mech_ConfigureLoadout` reads the hardpoint's bone from `FUN_0040e61c` (the `.GL` record's `+0`,
+   the same bone the shot leaves from) and `FUN_00417530` stamps that transform id onto every part
+   of the shape, so it rides the machine's own skeleton.
+
+The animation is `WeaponMount_RefireTick`'s tail, and it is the whole of it:
+
+```
+if (mount+0x44) {
+    cell = (cell + 1) % *shape+0x20      // cell is element 0 of the private array
+    if (cell == 0) mount+0x44 = 0
+}
+```
+
+`mount+0x44` is raised by both fire dispatches whenever the hardpoint is visible — the ammunition
+class on its `Bullet` branch only, since a rocket comes off a rail rather than out of a barrel and
+lights nothing. `*shape+0x20` is the shape's `SequenceList[0]`; retail weapons carry two to seven
+cells, so a flash lasts two to seven ticks. Cell zero is the gun at rest. Nothing restarts a flash
+already running, so a weapon firing every tick shows a cycling book rather than one stuck on its
+first cell.
+
+**The ELF's dispatch does not raise `+0x44`.** Its flipbook is driven by the spin-up instead, which
+leaves it parked on the last cell for as long as the burst lasts.
+
+## Losing a mount
+
+Two independent paths take a hardpoint out, and both end at `WeaponMount_Destroy` (`0040f57c`),
+which is idempotent — its whole body sits under a test of the destroyed byte:
+
+```c
+mount+0x10 = 0;      // drop the weapon model: the gun stops being drawn on the chassis
+mount+0x49 = 1;      // destroyed: charges nothing, fires nothing, cannot be armed, prints OFFLINE
+```
+
+A visibly-mounted hardpoint then throws the template's `mechwpn2` shape (`template+0x26`) off the
+mount point as debris, on a `Math_EulerToward` bearing away from the machine, with a longer lifetime
+pair when the caller passes a nonzero third argument.
+
+### The certain path — the condition notification
+
+`Mech_ComponentDamageWrite` snapshots **every** mount's component reading before its write and hands
+both readings to every mount afterwards, through the mount's vtable `+0x68`. The snapshot has to
+cover all of them because the write cascades: a hit on a shoulder can move a mount several components
+away. The component a mount reads is `.GL +0x17` + 19 — see
+[`damage-system.md`](damage-system.md#weapon-mount-destruction).
+
+`WeaponMount_ConditionChangedBase` (`0040ee0c`), the base class' whole slot: a component reading 256
+destroys the mount, with no roll.
+
+`WeaponMount_ConditionChanged` (`0040ee90`), the two classes that carry a weapon: the base first,
+then, only while the mount is not empty (`+0x7b != 0`) and the reading is past `0x80`:
+
+| `PROJ.DAT` type | Effect per 25 points of damage past `0x80` |
+|---|---|
+| `Missile` | Rolls `rand & 0x3ff < 300` — a shade under 30% — and the first success destroys the mount. One hit crossing several steps rolls several times |
+| `Bullet` | Sets the refire scale `mount+0x63 = 0x400 - steps * 0x66` |
+| `Beam` | Neither |
+
+**A damaged gun fires faster, not slower.** `WeaponMount_PrepareShot` arms
+`Q10Multiply(mount+0x63, template+0x4c)`, so halving the scale halves the delay. It reads backwards
+for damage and it is what the original does; see [`KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
+
+### The chance path — the destruction roll
+
+A band change on a mount component rolls once to take that mount out, inside
+`Mech_ApplyDirectFireDamage`. It is decoded in
+[`damage-system.md`](damage-system.md#weapon-mount-destruction), which owns the damage side;
+`WeaponMounts_MountForHardpointSlot` (`00410670`) is the component-to-mount lookup it uses, matching
+on `.GL +0x17` rather than on a position in the mount array.
 
 ## Names — `FUN_0040e18c`
 
@@ -303,3 +400,11 @@ from its own `+0x40` latch. **LINK never stays lit**; the link state lives on th
   Herculan; the tracking itself is unported.
 - **A pod's on/off toggle.** Clicking a pod's row in the original flips `gauge+0xc2`
   (`FUN_004419fc`), which re-fonts its name. No pod carries an on/off state here.
+- **The debris a destroyed mount throws.** The engine has no debris objects at all, so there is
+  nothing for `WeaponMount_Destroy`'s `mechwpn2` spawn to go into.
+
+## Rejected readings
+
+| Reading | Why it is wrong |
+|---|---|
+| The ELF's cell timer at `+0x84` is a per-cell interval, so the spin-up's length is a rate rather than a cell count | `ElfMount_TriggerHeld` zeroes it on the press and `ElfMount_SpinUpAndChargeTick` zeroes it again after every advance, and `Math_CountdownTimerTick` clamps at zero, so it expires on every tick it is asked. Nothing in the retail build ever gives it a non-zero value |

@@ -116,5 +116,23 @@ public class Weapons {
 		///   </list>
 		/// </summary>
 		public short ProjDatIndex => BitConverter.ToInt16(Tail, 0x1c);
+
+		/// <summary>
+		/// Which shape of <c>dts\MECHWPNS.DTS</c> this weapon is drawn as when it is fitted to a
+		/// hardpoint whose mounting code (<c>.GL +6</c>,
+		/// <see cref="Dbsim.GunLayout.HardpointEntry.AngleDirOption"/>) is
+		/// <paramref name="mountingCode"/> — four shorts at tail-relative <c>0x00</c>-<c>0x06</c>,
+		/// one per code, read by <c>FUN_0040fab0</c> as <c>template[0x22 + code * 2]</c>.
+		///
+		/// <para>The four are the same gun modelled for the four ways it can hang off a chassis, so
+		/// an autocannon reads four different shapes and a shoulder-mounted launcher reads the same
+		/// one four times. <b>The shape's flipbook is the muzzle flash</b> — see
+		/// <c>Herculan.Engine.Sim.WeaponMount.FlashCell</c>.</para>
+		///
+		/// <para>Code 4 is the invisible mounting and has no entry: nothing is drawn for it and the
+		/// base mount constructor loads no shape at all.</para>
+		/// </summary>
+		public short ModelShapeIndex(int mountingCode) =>
+			mountingCode >= 0 && mountingCode < 4 ? BitConverter.ToInt16(Tail, mountingCode * 2) : (short)-1;
 	}
 }

@@ -14,6 +14,8 @@ _Bugs listed in this section were tested on Windows 11. It's possible that some 
 - An ELF or ELF2 shot paints a stray orange-white dash at the muzzle, roughly four pixels wide, where the jagged tracer branch falls through into the straight-beam draw. See [`docs/simulation/beam-visuals.md`](docs/simulation/beam-visuals.md#the-muzzle-stub-is-a-retail-fall-through).
 - In the low-memory mode (`-l`, or under 12 MB physical) samples load from `SIMSOUND.VOL`'s `hmx\` bank instead of `hmi\`. `EXPLO5.WAV` is in `hmi\` only, so catalog id `0x22` fails to open and that explosion is silent. See [`docs/formats/audio.md`](docs/formats/audio.md#sample-banks).
 - The Range readout of the MFD TARGET tab (F5) prints raw world units — 1 unit = 6 mm. Every other distance readout in the cockpit converts to metres first (`Hud_WorldUnitsToMetres`).
+- A gun mount that has taken damage fires **faster**, not slower: damage steps its refire scale down, and the scale multiplies the refire delay, so a half-wrecked autocannon arms half the delay. Reproduced as-is. See [`docs/simulation/weapon-mounts.md`](docs/simulation/weapon-mounts.md#losing-a-mount).
+- Samson: When firing lasers from the two lowest hardpoints, the beams emerge from a little above the barrels. Not sure if this happens with all lasers or if it's hardpoint specific. Only visible in third-person view.
 
 ## HERCULAN Engine
 
@@ -31,6 +33,14 @@ _Note to Claude: This section is for listing outstanding issues with features wh
 - `TSGouraudPoly` faces fade by an RGB blend toward the fog colour rather than by a ramp depth slice.
   Every other surface fogs through the ramp as retail does. Same section as above.
 - Gouraud-shaded structures band differently from retail. On the type-15 octagonal tower, retail draws six narrow bands (~4 px, ramp-8 entries 9 down to 4) then four wide ones (28, 29, 29, 59 px, entries 3 down to 0); the engine cannot produce the wide dark bands, because `Light_ComputeShadeForFace` is negative at both corners of the away-facing facet and so must flat-fill entry 0 there. The sun direction, the light intensity and the ramp entry sequence are each excluded as the cause. See "Unresolved: type-15 band widths" in `docs/formats/dts-texture-binding.md`. Reference captures: `Reference/Gouraud_shading_comparison_2.png`, `Reference/Scramble_Training_Base_4.png`.
+- No back-face culling. The surface flag that marks a face as back-facing is not read, so the engine
+  draws two-sided where the original skips the face — most visible on thin, open geometry, where
+  depth testing does not hide it. Most of the retail fleet leans on it. See "Poly types and their
+  colour mechanisms" in [`docs/formats/dts-texture-binding.md`](docs/formats/dts-texture-binding.md).
+- A machine's fitted weapon models are drawn on the player's own HERC in the cockpit view, where its
+  hull is not. Retail submits every machine in `GlobalMechList` with no local-player test at all
+  (`maybe_Scene_SubmitFrameObjects`, `0042841c`); leaving the hull out is this engine's own device
+  for keeping the torso from wrapping the camera, and the guns hang outside it.
 - Lighting on HERCs may not be correct (needs review) — re-check: HERCs are almost entirely `TSShadedPoly`, so the shade-ramp and away-facing-light fixes changed their colouring too.
 - When projectiles hit buildings, many hit effects seem to clip inside the building - I don't observe this in retail. **Hit geometry ruled out**, and **building LOD ruled out** (the engine draws maximum detail, which is what retail's screenshots were taken at). Most likely a draw order issue.
 - Claude used a separate camera for each cockpit panel, which causes a visible distortion in the side panels, particularly when looking downward at all. Will probably need to replace with a single camera covering the full width of the window (remember to maintain the same vertical FOV as the original game!). Or maybe we can crop the camera views by window frame rather than square, so that the seam isn't visible...

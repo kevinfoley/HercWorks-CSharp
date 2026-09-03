@@ -11,6 +11,7 @@ load-bearing. What *is* settled is in
 [`../simulation/projectiles.md`](../simulation/projectiles.md),
 [`../simulation/rockets.md`](../simulation/rockets.md),
 [`../simulation/weapon-firing.md`](../simulation/weapon-firing.md),
+[`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md),
 [`../simulation/beam-visuals.md`](../simulation/beam-visuals.md),
 [`../simulation/impact-effects.md`](../simulation/impact-effects.md),
 [`../simulation/hit-detection.md`](../simulation/hit-detection.md),
@@ -18,7 +19,8 @@ load-bearing. What *is* settled is in
 [`../formats/hud-target-indicator.md`](../formats/hud-target-indicator.md),
 [`../formats/mfd-scanner.md`](../formats/mfd-scanner.md),
 [`../formats/dts-billboards.md`](../formats/dts-billboards.md),
-[`../formats/dts-texture-binding.md`](../formats/dts-texture-binding.md) and
+[`../formats/dts-texture-binding.md`](../formats/dts-texture-binding.md),
+[`../formats/mech-shape-drawing.md`](../formats/mech-shape-drawing.md) and
 [`../formats/distance-fog-and-sky.md`](../formats/distance-fog-and-sky.md).
 
 ## Not built
@@ -31,10 +33,6 @@ _ These are not organized in any particular order; this may not be the best orde
   `FUN_0041d7d0`, `FUN_0041d9cc`, `FUN_0041daac` and `FUN_0041e224`, which also drive `mech+0x96`
   from a per-state flag table at `mech+0x92`.
 
-- **Weapon-mount destruction.** Components 19–28 are the machine's mounts, indexed
-  `component - 19` into the mount manager. A health-band change on one rolls (`FUN_00410670` →
-  `FUN_0040f57c`) to knock it out and then finishes the component with a flat 10000. The roll and
-  the component side are decoded; the mount manager's own destroy path is not.
 - **The explosive blast sweep** (`FUN_00426a20`, mech vtable `+0x70`). Its absence is why
   `SplashFactor`'s share of a direct-fire hit is dropped rather than diverted, why plasma does not
   splash, and why a destroyed weapon mount cannot explode. Fully decoded in
@@ -49,6 +47,13 @@ _ These are not organized in any particular order; this may not be the best orde
   not do. **Hit geometry is ruled out** — measured, see
   [`../simulation/hit-detection.md`](../simulation/hit-detection.md), "Measured: hit geometry versus
   the drawn mesh". Remaining suspect is render layering.
+- **A machine's LOD roots are not selected.** The original picks one of a `.DTS`'s roots per frame
+  from projected size and a detail bias; the engine hard-codes root 0. See
+  [`../formats/mech-shape-drawing.md`](../formats/mech-shape-drawing.md).
+- **A destroyed component's geometry is not hidden.** Every body part is a three-cell flipbook and
+  the original steps a lost component's to its blank cell; the engine builds cell 0 always. Same doc.
+- **No debris objects.** Both a destroyed component and a destroyed weapon mount throw shapes in the
+  original, and there is nothing here to spawn into.
 - **The 3D view is not clipped to the `.VUE` viewport rect.** Equivalent while the canopy is opaque;
   not for RAZOR's non-stub heads-down view.
 - In retail, when a target is selected, chain-firing skips weapons for which the selected target is

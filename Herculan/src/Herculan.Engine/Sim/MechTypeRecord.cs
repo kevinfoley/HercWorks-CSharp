@@ -147,6 +147,24 @@ public sealed class MechTypeRecord {
 	public short LegCount => Data.ModelLegsTotal;
 
 	/// <summary>
+	/// Whether a hit can knock this chassis' weapon mounts out — record offset 84, the type record's
+	/// <c>+0x56</c>, which <c>Mech_ApplyDirectFireDamage</c> tests before it will roll for mount
+	/// destruction at all.
+	///
+	/// <para>Retail states <b>1 on every biped</b> (SAMSON, APOCA, OUTLAW, RAZOR) and <b>0 on the
+	/// PITBULL</b>, the four-legged chassis, whose hardpoints are therefore immune to the roll. The
+	/// certain path is not gated on it: a PITBULL mount whose component is shot to
+	/// <see cref="MechObject.FullyDamaged"/> still dies, through
+	/// <see cref="WeaponMount.ConditionChanged"/>.</para>
+	///
+	/// <para>The record offsets are the file's; the type record lives at <c>MECH_TYPE_DATA[i]+2</c>,
+	/// so record offset 84 is the <c>+0x56</c> the damage code names. Nothing else in the image was
+	/// traced reading this field, so "mounts are destructible" is the whole of what it is known to
+	/// mean.</para>
+	/// </summary>
+	public bool WeaponMountsDestructible => Data.Unk84_val != 0;
+
+	/// <summary>
 	/// The shape part each leg's node hangs on, and the leg's kind byte — record offsets 117 and 112
 	/// read per leg. Only kind 0 walks; <c>Mech_PlaceLegsOnGround</c> skips anything else outside the
 	/// falling case. Every retail HERC states parts 14 and 15, both kind 0.

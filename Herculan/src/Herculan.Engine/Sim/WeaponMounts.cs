@@ -174,6 +174,25 @@ public sealed class WeaponMounts {
 	public WeaponMount? BySlot(int gaugeSlot) => Mounts.FirstOrDefault(m => m.GaugeSlot == gaugeSlot);
 
 	/// <summary>
+	/// <c>FUN_00410670</c> — the mount a damage component names, or null when that component is not a
+	/// mount or the fit left its hardpoint empty.
+	///
+	/// <para>The match is on <see cref="WeaponMount.LoadoutSlot"/>, not on a position in this array:
+	/// <c>Mech_ConfigureLoadout</c> registers each mount's collision and damage records under
+	/// <c>LoadoutSlot + </c><see cref="FirstMountComponent"/>, and this is that mapping read
+	/// backwards. A chassis whose hardpoints are listed in a different order from its fit slots — and
+	/// they routinely are — would give the wrong mount if the array index were used instead.</para>
+	/// </summary>
+	public WeaponMount? ByComponent(int componentIndex) =>
+		Mounts.FirstOrDefault(m => m.LoadoutSlot == componentIndex - FirstMountComponent);
+
+	/// <summary>
+	/// The damage component the machine's first weapon mount occupies. Components
+	/// <see cref="FirstMountComponent"/> upward are the mounts; everything below is structure.
+	/// </summary>
+	public const int FirstMountComponent = 19;
+
+	/// <summary>
 	/// <c>MechLoadout_ConstructWeaponMounts</c> followed by <c>FUN_004104ec</c>: walk the chassis'
 	/// hardpoint list in file order, resolve each record's fit slot into a weapon id and a mount, and
 	/// then work out the fire groups and the initial selection.
@@ -187,7 +206,14 @@ public sealed class WeaponMounts {
 	/// <param name="hardpoints">The chassis' own <c>gl\&lt;HERC&gt;.GL</c>, or null if it has none.</param>
 	/// <param name="loadout">The fit, with its two parallel arrays addressed by hardpoint slot.</param>
 	/// <param name="catalog">The weapon tables, or null when they could not be read.</param>
-	public static WeaponMounts Build(GunLayout? hardpoints, MechLoadout loadout, WeaponCatalog? catalog) {
+	/// <param name="modelCellCount">
+	/// How many cells a weapon model's muzzle-flash flipbook has, by its
+	/// <c>dts\MECHWPNS.DTS</c> shape index — see <see cref="WeaponMount.FlashCellCount"/>. Null on
+	/// a host with no model library, which leaves every mount flashless and every ELF firing on the
+	/// press.
+	/// </param>
+	public static WeaponMounts Build(GunLayout? hardpoints, MechLoadout loadout, WeaponCatalog? catalog,
+			Func<int, int>? modelCellCount = null) {
 		if (hardpoints?.Hardpoints is not { } records || catalog == null) {
 			return Empty;
 		}
@@ -207,7 +233,7 @@ public sealed class WeaponMounts {
 			}
 
 			manager._slots[i] = new WeaponMount(
-				i, record, weaponId, loadout.SecondaryAt(record.HardpointId), catalog);
+				i, record, weaponId, loadout.SecondaryAt(record.HardpointId), catalog, modelCellCount);
 		}
 
 		foreach (var mount in manager.Mounts) {
@@ -455,7 +481,11 @@ public sealed class WeaponMounts {
 	/// </summary>
 	/// <param name="owner">The machine firing, which the shot's geometry and the raycast both need.</param>
 	/// <param name="world">The world the shot is resolved against.</param>
-	/// <param name="triggerHeld">The device's fire byte — see <see cref="MechControls.Fire"/>.</param>
+	/// <param name="triggerHeld">
+	/// The device's fire byte — see <see cref="MechControls.Fire"/>. It reaches each mount's own
+	/// trigger slot rather than being tested here, because an ELF's slot answers a spin-up rather
+	/// than the byte: see <see cref="WeaponMount.TriggerHeld"/>.
+	/// </param>
 	/// <returns>Whether anything fired.</returns>
 	public bool FireTick(MechObject owner, SimWorld world, bool triggerHeld) {
 		if (_slots.ElementAtOrDefault(Selected) is not { } armed) {
@@ -468,7 +498,10 @@ public sealed class WeaponMounts {
 			return false;
 		}
 
-		if (!triggerHeld) {
+		// Vtable +0x30, asked of the armed mount and only then of its partner — the original's own
+		// short circuit, which matters because the ELF's slot has side effects: a partner that is
+		// never asked never spins up. Every other class hands the byte straight back.
+		if (!armed.TriggerHeld(triggerHeld) || (partner != null && !partner.TriggerHeld(triggerHeld))) {
 			return false;
 		}
 

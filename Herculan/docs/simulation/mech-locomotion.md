@@ -83,6 +83,7 @@ stripped).
 | 44 | `+0x2e` | `GaitThreshold` | Walk↔run threshold speed |
 | 68 | `+0x46` | `AnimId_Death` | Death/fall sequence id |
 | 78 | `+0x50` | `InputFlagFlyer` | 1 = Razor |
+| 84 | `+0x56` | `Unk84_val` | Whether a hit can knock this chassis' weapon mounts out — 1 on every biped, **0 on the PITBULL**. `Mech_ApplyDirectFireDamage` tests it before rolling; see [`damage-system.md`](damage-system.md#weapon-mount-destruction) |
 | 108 | `+0x6e` | `GaitThresholdReverse` | Reverse-side walk↔run threshold |
 | 122 | `+0x7c` | `AnimId_TurnInPlace` | Turn-in-place sequence id |
 | 194 | `+0xc4` | `StrideScaleDivisor` | Stride calibration divisor |

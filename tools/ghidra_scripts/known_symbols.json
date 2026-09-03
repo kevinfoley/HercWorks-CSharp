@@ -1,4 +1,4 @@
-﻿{
+{
   "schema_version": 1,
   "_readme": [
     "Confirmed address->meaning mappings for VSHELL.EXE / DBSIM.EXE, extracted from",
@@ -7904,6 +7904,274 @@
       "confidence": "low",
       "description": "The object FUN_00429820 returns. Two of its fields gate the computer message display: +0x14, the mode enum MessagePort_Show refuses mode 4 on, and +0x1c, a byte MessageTicker_Paint tests first and returns on. The object's class is not decoded.",
       "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "0040df30",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_CtorBase",
+      "description": "Base weapon-mount constructor, run by every mount class before its own. Loads the hardpoint's weapon model when the .GL mounting code (+6) is under 4 via WeaponMount_ShapeForMountingCode, installs it with ShapeInstance_CtorCellFrames at mount+0x10, translates its point lists to the mount point with Shape_TranslatePointLists, resolves the two .GL aim nodes at +2/+4 (both -1 on every retail chassis), zeroes the flag blocks at +0x33/+0x3b/+0x43, and writes the refire scale 0x400 to +0x63.",
+      "source": "docs/simulation/weapon-mounts.md"
+    },
+    {
+      "address": "0040fab0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_ShapeForMountingCode",
+      "description": "Instantiates one weapon model: reads template[0x22 + mountingCode*2] as an index into the mechwpns chunk table, opens that raw chunk as a memory stream, loads the shape from it, and binds the wpntex atlas at shape+0x26. One fresh copy per mount, because the caller then translates its points and stamps a transform id into it.",
+      "source": "docs/simulation/weapon-mounts.md"
+    },
+    {
+      "address": "0040f998",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponModels_LoadShapeChunks",
+      "description": "Opens dts/mechwpns and reads every top-level chunk (all type 0x140008) raw into malloc'd buffers: DAT_004a9988[i] is the buffer, DAT_004a9a78[i] its length, DAT_004a9b68 the count. Retail ships 56 weapon shapes. They are kept as bytes rather than parsed once because each mount needs its own copy.",
+      "source": "docs/simulation/weapon-mounts.md"
+    },
+    {
+      "address": "0040fa88",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponModels_FreeShapeChunks",
+      "description": "Frees the DAT_004a9988 buffers WeaponModels_LoadShapeChunks allocated and nulls each slot.",
+      "source": "docs/simulation/weapon-mounts.md"
+    },
+    {
+      "address": "00402fc0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShapeInstance_CtorCellFrames",
+      "description": "Two-field shape-instance holder: stores the shape at +0, then allocates +4 as a PRIVATE copy of the shape's per-sequence cell-frame array (shape+0x1c, shape+0x24 entries), or null when the shape carries no sequence. Element 0 of that copy is the cell a TSCellAnimPart draws, which is what lets two mounts carrying the same weapon flash independently.",
+      "source": "docs/simulation/weapon-mounts.md"
+    },
+    {
+      "address": "0040dd4c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shape_TranslatePointLists",
+      "description": "Adds a point offset into a shape's own geometry, recursing on the part-list types and, at a group, marking the points its polys actually reference (poly+6, plus poly+8 entries from the index list at poly+0x0a) and adding the offset to those only. Used to move a freshly-loaded weapon model to its hardpoint's mount point.",
+      "source": "docs/simulation/weapon-mounts.md"
+    },
+    {
+      "address": "0040e61c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_HardpointBoneId",
+      "description": "Returns the mount's .GL record +0, the hardpoint's bone id. The same id WeaponMount_PrepareShot resolves the firing frame from, so the drawn weapon and its shot ride one node.",
+      "source": "docs/simulation/weapon-mounts.md"
+    },
+    {
+      "address": "00417530",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shape_StampTransformId",
+      "description": "Writes one transform id into every part of a shape, recursing through the part lists: at a TSGroup/TSBSPGroup (0x140014, 0x14000b) into part+4, and at a TSBSPPart (0x140015) across the whole per-node transform array at +0x1c. Mech_ConfigureLoadout uses it to hang a weapon model on the hardpoint's bone.",
+      "source": "docs/simulation/weapon-mounts.md"
+    },
+    {
+      "address": "0040f57c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_Destroy",
+      "description": "The mount side of weapon-mount destruction, and idempotent -- its whole body sits under a test of the destroyed byte. Clears the weapon model at mount+0x10 and sets mount+0x49, then, for a visibly-mounted hardpoint, spawns the mechwpn2 shape at template+0x26 as debris on a Math_EulerToward bearing. The third argument picks the debris lifetime pair: 0 gives (2, 0x14), anything else (0xff, 0xffff). Ported except the debris.",
+      "source": "docs/simulation/weapon-mounts.md",
+      "signature": "void __cdecl WeaponMount_Destroy(void *mount, void *mech, short longDebrisLifetime)"
+    },
+    {
+      "address": "00476a1c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSBSPPart_RenderNode",
+      "description": "Walks a TSBSPPart's BSP tree from one node, back-to-front. Nodes are 14 bytes at part+0x18 (int16 normal triple, int32 coeff, front int16, back int16) with a parallel per-node transform id at part+0x1c (-1 = untransformed). A front/back value below zero draws nothing; with bit 0x4000 set it names child (value & 0x3fff) and renders it through vtable +0x1c; otherwise it is another node index. A child no node reaches is never drawn -- the Parts array is a pool the tree indexes, not a draw list.",
+      "source": "docs/formats/dts-texture-binding.md"
+    },
+    {
+      "address": "004768bc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSDetailPart_Render",
+      "description": "Detail-level selection. size = (radius << DAT_006c60ac) / max(FastMagnitude3D(viewOffset) - radius, 1); t = Q10Multiply(DAT_004a1034, size); i starts at the STRUCTURE DETAIL bias DAT_004a1038 and advances while details[i] < t; renders parts[min(i - bias, count-1)]. Thresholds are ascending and index-aligned with Parts, so part 0 is the coarsest and the last is the finest; bias 0 is MAXIMUM.",
+      "source": "docs/formats/dts-texture-binding.md"
+    },
+    {
+      "address": "0046b0a4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FireEffect_LoadResources",
+      "description": "Loader for the BURNING-OBJECT effect, not the muzzle flash. Reads dts/fire.dts (fire2.dts when CockpitArt_LoadOnDemand is set) into the shape table DAT_006b4fac, allocates the effect pool DAT_006b4fb4 (10 entries) and its free list DAT_006b4fb8, loads the two banks fire0/fire1 (fire0s/fire1s on demand) into DAT_006b4fb0, then reads dat/FIRE.DAT -- a 4-byte header plus one byte per shape -- and points each shape's +0x26 at the bank that byte names. Retail: 4 shapes, banks [0,0,1,1]. Carries the fire.cpp assert string.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0046b388",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FireEffect_Ctor",
+      "description": "Builds one burning-object effect on shape index param_5: copies the owner pointer to +0x4a, the attach point to +0x50, sets the lifetime/priority at +0x59 (5, or 30 when DAT_004a9ed2 != 4) and +0x57 = 0x40. The first live instance starts sound 0x33 and the last stops it (FireEffect_Dtor), counted by DAT_006b4fbc. At detail level 4 only shapes 1 and 3 are built; the others go straight back on the free list.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0046b32c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_FireEffect_AcquireSlot",
+      "description": "Takes a free entry from the effect pool DAT_006b4fb4, or when none is free walks the live ones and returns the one with the lowest +0x59 -- the field FireEffect_Ctor writes its lifetime/priority into. Read as evict-the-least-important; +0x59's exact meaning is not independently confirmed.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0046b470",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FireEffect_Dtor",
+      "description": "Destroys one burning-object effect and decrements DAT_006b4fbc, stopping sound 0x33 when it reaches zero.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0046b528",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FireEffect_ReleaseForOwner",
+      "description": "Walks the effect pool and returns every entry whose owner pointer at +0x4a matches the argument to the free list -- an object's fires going out when it is destroyed.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "0046b75c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FireEffect_RegisterSubsystem",
+      "description": "Registers FireEffect_LoadResources as a phase-2 subsystem loader and LAB_0046b084 as phase 5, and nulls the effect pool pointer.",
+      "source": "docs/simulation/dbsim-physics-notes.md"
+    },
+    {
+      "address": "00402604",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "description": "Forwards to SimObject_ApplyRootMotion(obj, obj+0x34, arg) when obj+0x39 is set, and does nothing otherwise. Mech_ConfigureLoadout calls it as (mech, 0) ahead of its per-hardpoint loop. It has NOTHING to do with hardpoint visibility, which it was previously suspected of: the placeholder parts are replaced at draw time by Mech_SpliceHardpointShapes.",
+      "source": "docs/formats/mech-shape-drawing.md",
+      "name": "SimObject_ApplyRootMotionIfEnabled"
+    },
+    {
+      "address": "004174c8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_Draw",
+      "description": "Mech vtable +0x00, reached from the ObjList draw-table walk. Runs Mech_SpliceHardpointShapes over every LOD root of the type's shape -- replacing each hardpoint placeholder part with the fitted weapon's shape or a blank record -- and then calls Shape_DrawAtDetailLevel. Gated on DAT_004a9c06.",
+      "source": "docs/formats/mech-shape-drawing.md"
+    },
+    {
+      "address": "004033e4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shape_DrawAtDetailLevel",
+      "description": "Picks which root of a multi-root shape to draw, per frame, from projected size (radius << DAT_006c60ac / (viewDistance - radius)) against the threshold table at obj+0x41, starting at index min(count-1, DAT_0049736c) and advancing while the size is below the threshold. Installs the transform, calls the shape instance's vtable +0x1c, then restores root 0. A close object therefore draws the root at the bias index.",
+      "source": "docs/formats/mech-shape-drawing.md"
+    },
+    {
+      "address": "00401fe4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_InstallModelTransform",
+      "description": "Builds the object's Q14 euler rotation matrix at obj+0x12 when the dirty flag at obj+0x32 is clear, then installs it as the current model transform. Called twice by Shape_DrawAtDetailLevel, around the LOD pick.",
+      "source": "docs/formats/mech-shape-drawing.md"
+    },
+    {
+      "address": "004030d0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_SpliceHardpointShapes",
+      "description": "Walks a root's hardpoint slot list against the machine's mount array and overwrites each slot: the mount's weapon shape when one is fitted, else the next 0x18-byte blank from typeRec+0xec. The replacement inherits the placeholder's TSBasePart.Transform (+4) and IdNumber (+6). This is why a machine's own .DTS placeholder geometry is never drawn, fitted or not.",
+      "signature": "void __cdecl Mech_SpliceHardpointShapes(void *slotList, void *mountArray, int blankRecords)",
+      "source": "docs/formats/mech-shape-drawing.md"
+    },
+    {
+      "address": "0040304c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MechType_BindHardpointSlots",
+      "description": "Builds one root's hardpoint slot list: for each hardpoint bone id, resolves the shape's vtable +0x24 to the ADDRESS of the part slot holding the part whose TSBasePart.IdNumber is that id, storing null for the -1 the invisible mounting emits. Writes a {void **slots; short count} pair, which MechType_InitOne keeps per LOD root at typeRec+0xe6 with the count at +0xea.",
+      "signature": "void __cdecl MechType_BindHardpointSlots(void *slotList, void *shapeRoot, short hardpointCount, short *boneIds)",
+      "source": "docs/formats/mech-shape-drawing.md"
+    },
+    {
+      "address": "0040fc50",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GunLayout_CollectHardpointBones",
+      "description": "Walks a .GL hardpoint list (26-byte records) and writes one short per hardpoint: the record's BoneId when its mounting code at +6 is under 4, else -1. Returns the hardpoint count. The -1 is what keeps the invisible mounting out of the hardpoint splice, which matters because that bone carries real body geometry.",
+      "signature": "short __cdecl GunLayout_CollectHardpointBones(void *gunLayout, short *boneIdsOut)",
+      "source": "docs/formats/mech-shape-drawing.md"
+    },
+    {
+      "address": "00410670",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMounts_MountForHardpointSlot",
+      "description": "Linear search of the mount manager's array for the mount whose .GL record's +0x17 equals the argument, or null. Damage components 19-28 are the mounts, so the caller passes component - 19. The match is on the .GL slot, not on a position in the array.",
+      "signature": "void * __cdecl WeaponMounts_MountForHardpointSlot(void *manager, short loadoutSlot)",
+      "source": "docs/simulation/damage-system.md"
+    },
+    {
+      "address": "0040ee0c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_ConditionChangedBase",
+      "description": "Base weapon-mount vtable +0x68, the condition notification Mech_ComponentDamageWrite pushes through every mount with its component's reading before and after the write. A reading of 0x100 destroys the mount, with no roll.",
+      "signature": "void __cdecl WeaponMount_ConditionChangedBase(void *mount, void *mech, int before, int after)",
+      "source": "docs/simulation/weapon-mounts.md"
+    },
+    {
+      "address": "0040ee90",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_ConditionChanged",
+      "description": "Vtable +0x68 for the two mount classes that carry a weapon. Runs the base slot, then, while the mount is not empty (+0x7b) and the reading is past 0x80: a Missile mount rolls rand & 0x3ff < 300 for each 25 points crossed and the first success destroys it; a Bullet mount instead sets its refire scale mount+0x63 = 0x400 - steps * 0x66, which makes a damaged gun fire FASTER since WeaponMount_PrepareShot multiplies by it; a Beam mount gets neither.",
+      "signature": "void __cdecl WeaponMount_ConditionChanged(void *mount, void *mech, int before, int after)",
+      "source": "docs/simulation/weapon-mounts.md"
+    },
+    {
+      "address": "0049736c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "medium",
+      "name": "maybe_g_ShapeDetailBias",
+      "description": "The starting index of Shape_DrawAtDetailLevel's LOD-root walk, clamped to the root count. A close object draws exactly this root, so a nonzero value makes root 0 unreachable at any distance. Almost certainly the STRUCTURE DETAIL setting, by analogy with TSDetailPart_Render's identical bias, but its writer was not traced.",
+      "source": "docs/formats/mech-shape-drawing.md"
+    },
+    {
+      "address": "00426ac8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Salvage_QueueDestroyedWeapon",
+      "description": "Appends one int32 to the global list at DAT_004a9ef0, bumping the count at DAT_004a9eee. Its one traced caller is Mech_ApplyDirectFireDamage's weapon-mount destruction roll, on the Cybrid branch only, packing the destroyed weapon's catalog id (template+0x56) with its remaining condition. Post-mission salvage is the obvious purpose and is not proven -- the consumer was not traced.",
+      "source": "docs/simulation/damage-system.md"
     }
   ]
 }

@@ -429,6 +429,10 @@ SceneItem[]? pilotedItems = null;
 var movers = new List<(SceneObject Object, SceneItem Item)>();
 var projectileItems = new List<SceneItem>();
 
+// The guns bolted to the machines on the field, rebuilt every frame for the same reason a rocket's
+// is: which mesh a mount draws is its muzzle-flash cell, and that moves tick to tick.
+var weaponItems = new List<SceneItem>();
+
 // The billboards to draw this frame: the EMP rounds in flight and every impact effect playing. Both
 // churn from tick to tick, so the list is rebuilt each frame rather than kept — see SpriteRenderer.
 var spriteBatches = new List<SpriteBatch>();
@@ -896,6 +900,7 @@ window.Update += deltaSeconds => {
 	}
 
 	RefreshProjectileItems();
+	RefreshWeaponItems();
 	RefreshSpriteBatches();
 
 	if (piloting && pilotMech != null) {
@@ -1400,7 +1405,46 @@ void ApplyHddClick(HddLayout.Widget widget) {
 // hides them, and they are rebuilt every frame rather than kept because a projectile pool churns.
 IEnumerable<SceneItem> VisibleItems() =>
 	((piloting && !externalView ? pilotedItems : items) ?? Array.Empty<SceneItem>())
-		.Concat(projectileItems);
+		.Concat(projectileItems)
+		.Concat(weaponItems);
+
+// One item per fitted, visibly-mounted weapon on every machine in the scene: the model its template
+// names for the mounting code it sits at, at the cell its own flipbook has reached.
+//
+// The flipbook IS the muzzle flash — DBSIM spawns no separate effect for one. Cell zero is the gun
+// at rest; firing starts the book and WeaponMount walks it a cell a tick until it wraps. An ELF's
+// spin-up walks the same book before the first shot, which is why that weapon takes seven ticks to
+// answer its trigger.
+//
+// The player's own guns are drawn too, unlike its hull. The hull is left out of the cockpit view
+// because the eye node sits inside the torso and its geometry would wrap the camera; a gun hangs off
+// an arm or a shoulder, out where a pilot can see it, and its flash is the whole point.
+// maybe_Scene_SubmitFrameObjects (0042841c) submits every mech in GlobalMechList with no
+// local-player test of any kind, so nothing in the original hides either.
+void RefreshWeaponItems() {
+	weaponItems.Clear();
+
+	foreach (var sceneObject in scene.Objects) {
+		if (sceneObject.Object is not MechObject mech || sceneObject.Object.AwaitingDeployment) {
+			continue;
+		}
+
+		foreach (var mount in mech.Weapons.Mounts) {
+			if (!scene.MechWeaponModels.TryGetValue(mount.ModelShapeIndex, out var cells)
+				|| cells.Count == 0) {
+				continue;
+			}
+
+			var model = cells[mount.FlashCell % cells.Count];
+			if (!modelMeshes.TryGetValue(model.Key, out var mesh)) {
+				continue;
+			}
+
+			uint? texture = modelTextures.TryGetValue(model.Key, out var bound) ? bound.Handle : null;
+			weaponItems.Add(new SceneItem(mesh, WorldScale.ToRenderMatrix(mount.ModelFrame(mech)), texture));
+		}
+	}
+}
 
 // One item per live projectile, from the shape its PROJ.DAT subtype names — see
 // MissionScene.BulletModels. The transform is the shot's own frame, which carries both where it is

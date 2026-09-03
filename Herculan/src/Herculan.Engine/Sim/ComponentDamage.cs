@@ -93,6 +93,19 @@ public sealed class ComponentDamage {
 	/// </summary>
 	public bool IsActive(int index) => index >= 0 && index < _active.Length && _active[index];
 
+	/// <summary>
+	/// Clears one slot's active flag on its own, leaving its damage reading alone — the bare
+	/// <c>mech+0x20e[i] = 0</c> write <c>Mech_ApplyDirectFireDamage</c> makes when a weapon-mount
+	/// component is knocked out. It is not <see cref="DestroyAndCascade"/>: the slot stops being
+	/// shootable and stops taking further writes through the damage pathways, but nothing under it or
+	/// mounted on it comes apart.
+	/// </summary>
+	public void Deactivate(int index) {
+		if (index >= 0 && index < _active.Length) {
+			_active[index] = false;
+		}
+	}
+
 	/// <summary>The <c>.DMG</c> record for one main component, or null when the file has no such slot.</summary>
 	public HercSimDamage.HercPiece? Piece(int index) {
 		var pieces = _model.ComponentData;
@@ -214,10 +227,17 @@ public sealed class ComponentDamage {
 	/// <item>If the spill ran out of live dependents <b>and</b> the record's destruction flags say so,
 	/// the component cascades: it comes apart, and so does everything mounted on it.</item>
 	/// </list>
+	///
+	/// <para><b>The active flag is not this function's gate.</b> It gates
+	/// <see cref="DestroyAndCascade"/> and each pathway's own entry point
+	/// (<c>Mech_ComponentDamageWrite</c> tests it and returns before reaching here); the write itself
+	/// runs on an inactive slot. That distinction is what lets the weapon-mount destruction roll
+	/// clear the slot's flag and <i>then</i> finish the component off with a flat 10000 without the
+	/// bone group coming apart with it — see <see cref="Deactivate"/>.</para>
 	/// </summary>
 	/// <returns>Whether the component cascaded — which is what a caller reads as "this thing is gone".</returns>
 	public bool ApplyDamage(int index, short damage) {
-		if (Piece(index) is not { } piece || !IsActive(index)) {
+		if (Piece(index) is not { } piece) {
 			return false;
 		}
 
@@ -252,7 +272,9 @@ public sealed class ComponentDamage {
 	/// the dependency graph between main components — losing a shoulder takes the arm on it.</para>
 	///
 	/// <para>Not ported, all of it visual: the debris and destruction effect the record's own
-	/// <c>DebrisFlags</c> selects, the sub-shape it hides, and the HUD slot it marks.</para>
+	/// <c>DebrisFlags</c> selects, the HUD slot it marks, and the sub-shape it hides — the record's
+	/// <c>+3</c> byte names a cell-animation sequence, and the original steps it to its blank third
+	/// cell. See docs/formats/mech-shape-drawing.md.</para>
 	/// </summary>
 	private void DestroyAndCascade(int index) {
 		if (Piece(index) is not { } piece || !IsActive(index)) {

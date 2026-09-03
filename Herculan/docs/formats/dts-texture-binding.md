@@ -212,7 +212,9 @@ The four are different mechanisms. Only `TSTexture4Poly` samples a bitmap.
 The group's surface array is read raw (`TSGroup_ReadFromFile`, `0048e8e4`), so a renderer's surface
 value is the file's own `{int16 colour, int16 flag}` pair packed into one int32, flag in the high
 half. A pair with `0x14` in the top byte means "do not draw this face"; retail uses it on back pairs
-only (flag 5120, against 1024 on the front).
+only (flag 5120, against 1024 on the front). **This is the format's back-face culling**, and most of
+the fleet relies on it: back pairs flagged 5120 are 790 of 998 polys in `SAMSON.DTS`, 2122 of 2202
+in `BASES_AN.DTS`, and 5090 of 6988 in `MECHWPNS.DTS`. The rest are genuinely two-sided.
 
 Retail usage counts: `TSSolidPoly` is rare — 12 polys in `BULLETS.DTS`, 57 in `ROCKETS.DTS`, 73
 across the whole mech and building fleet. `TSShadedPoly` is nearly everything else: 1227 of APOCA's
@@ -234,6 +236,12 @@ The second pass is the rasterizer's **mode 4**, which `FUN_00483dac`'s `iVar11 =
 a line loop over the poly's own vertex list, closing back to the first vertex — an outline, not a
 second fill. The `line != fill` test is on the **ramped** bytes, so two surface values that resolve
 to the same ramp output draw no outline.
+
+**A two-vertex `TSSolidPoly` is a line, not a degenerate face.** `MECHWPNS.DTS` carries 92 of them
+and `SAMSON.DTS` none; a Particle Beam Weapon's four struts between housing and barrel are the
+visible case (`Reference/PBW_Comparison.png`). The fill pass has no area, so the outline is the whole
+of what they draw, in the surface's line colour — palette 198, `#5C5C5C`, on every one of them. Ten
+more carry a single vertex, which the original paints as one pixel.
 
 `DAT_006c60d8`/`DAT_006c60dc` are one **brush** — `{mode, colour}` — and the default one: the fill
 dispatches on whatever `clipBlock+0x228` points at, which is normally this pair. A caller that
@@ -419,6 +427,31 @@ Per **poly**, not per pixel. Takes the poly's own stored normal and centre point
 "back", the renderer negates *all* of that poly's normals before lighting them and takes the back
 surface pair instead of the front.
 
+### `TSBSPPart` child selection
+
+**A `TSBSPPart`'s `Parts` array is a pool its BSP tree indexes into, not a list that is drawn in
+order.** `FUN_00476a1c` walks the tree at `part+0x18` (14-byte nodes: an `int16` normal triple, an
+`int32` coefficient, then a front and a back `int16`), starting at node 0:
+
+```
+d = dot(node.normal, viewOrigin) - node.coeff          // node+0x1c names a transform id;
+                                                       // -1 means the plane is untransformed
+near, far = (d < 0) == DAT_0049f270 ? (back, front) : (front, back)
+for each of near, far:
+    if (value < 0)            draw nothing
+    else if (value & 0x4000)  render Parts[value & 0x3fff]     // leaf
+    else                      recurse into node `value`
+```
+
+So a child no node reaches is never drawn, and the tree is what orders back-to-front. Every child of
+every retail weapon and machine shape checked is reachable, so walking `Parts` in file order happens
+to agree on retail data — but it is not the rule, and it would diverge on a shape that carried an
+unreferenced part.
+
+`part+0x1c` is a parallel `int16` per **node**, not per child: the transform whose world matrix the
+splitting plane is brought into. `FUN_00417530` stamps a single transform id across all of them when
+a weapon model is attached to a machine.
+
 ## `TSDetailPart` level selection and STRUCTURE DETAIL
 
 `TSDetailPart_Render` (`004768bc`, vtable installed by `FUN_00476834`):
@@ -453,6 +486,8 @@ its *vertices* on the axes at level 1 — a 45-degree difference in cross-sectio
 |---|---|
 | `TSTexture4Poly` UV mapping | Exact, 4-vertex quads only, mapped projectively so both triangles share one map ("Quad mapping on triangle hardware"); falls back to a placeholder colour with no bank |
 | `TSSolidPoly` fill + outline | Exact; outline is a second primitive range in the same buffer (`MeshBuild.TriangleVertexCount`) |
+| Two-vertex line polys | Drawn, as one edge in that same range (`OutlineEdge.Standalone`). Where the surface names no distinct line colour the engine falls back to the fill rather than drawing nothing — a line poly has no fill beneath it for a matching outline to disappear into, so the `line != fill` suppression above cannot be what the original does here. What it does instead was not traced; the fallback is this engine's reading, and it decides 12 of the 92 |
+| One-vertex polys | Not drawn; there is no point primitive |
 | `TSShadedPoly` / `TSGouraudPoly` colour | Exact, via `SurfaceRampTable` |
 | Per-face / per-vertex shade | Exact, `MissionSun.ShadeForFace` in the vertex shader |
 | Lit textured texel | Exact, via `TextureAtlas.IndexPixels` + `PaletteRampTable` |
@@ -460,7 +495,8 @@ its *vertices* on the axes at level 1 — a 45-degree difference in cross-sectio
 | `TSBitmapPart` | Implemented as a view-space billboard quad — see [`dts-billboards.md`](dts-billboards.md) |
 | Cutout texture frames | Structure banks decoded index-0-transparent; shader discards |
 | `TSDetailPart` | Maximum detail only (`Parts[^1]`); distance selection and the STRUCTURE DETAIL setting not implemented |
-| Front/back visibility test | Normal flip implemented; **back surface pair not selected** — `FrontColor` is used unconditionally |
+| `TSBSPPart` | Children drawn in file order; **the BSP tree is not walked**, so neither its ordering nor its reachability rule applies. Agrees with the original on retail data, where every child is reachable |
+| Front/back visibility test | Normal flip implemented; **back surface pair not selected** — `FrontColor` is used unconditionally — and **the 5120 skip is not implemented at all**, so a face the original culls is drawn. `SceneItem` disables culling outright and the shader shades two-sided |
 | Per-poly stored normals | Exact; `DtsMeshBuilder.ResolveFaceNormal` reads `TSPoly.Normal` as a point index. All triangles fanned from one poly share it. The winding survives only as a fallback for an unresolvable normal index, negated to match |
 | Distance fog | Exact for everything that reads a `.RMP` row — the depth slice is part of the row. A `TSGouraudPoly` has no such row and blends instead; see [`distance-fog-and-sky.md`](distance-fog-and-sky.md) |
 

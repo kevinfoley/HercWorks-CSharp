@@ -155,6 +155,15 @@ template[0x40..0x44]                       // the weapon's own muzzle triple
 + WeaponMountTemplate_SideMuzzleOffset     // 0040f904, below
 ```
 
+**Only the last two are `WeaponMount_MuzzleOffset` (`0040f540`).** The template's own triple is
+added here, by the prologue, and nowhere else. The distinction matters because the pair without it
+is *where the weapon sits* — it is the offset the base constructor bakes into the mount's copy of
+the weapon model (`FUN_0040dd4c`), and the triple is the length of the barrel from there. Retail
+triples run 630 (`ATC20`) to 2725 units of forward Y, 3.8 m to 16 m, so standing the model at the
+muzzle instead puts it a barrel clear of the chassis. The multi-barrel branch of
+`WeaponMount_FireDispatch_GunBeam` shows the split plainly: it loads `template[0x40..0x44]` into a
+local, calls `WeaponMount_MuzzleOffset`, and adds the two.
+
 `WeaponMountTemplate_SideMuzzleOffset` is what makes a mirrored hardpoint pair fire from mirrored
 points off one template. The template carries a lateral figure at `0x46` and a vertical one at
 `0x4a`; the hardpoint's mounting code (`.GL +6`) picks one and its sign, and **only one axis is ever

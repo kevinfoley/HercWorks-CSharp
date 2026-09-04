@@ -388,9 +388,9 @@ public static class DtsMeshBuilder {
 	}
 
 	/// <summary>
-	/// Axis-aligned bounds of a built mesh, as (min, max) in render units. Used to sit a model on
-	/// the ground and to derive a collision radius until the original's per-type hit-cylinder value
-	/// is mapped (see <see cref="Sim.MechObject.HitRadius"/>).
+	/// Axis-aligned bounds of a built mesh, as (min, max) in render units. Used to sit a model on the
+	/// ground and to derive <see cref="Sim.SimObject.ShapeRadius"/>, the original's vtable
+	/// <c>+0x10</c>, which it reads off the shape the same way.
 	/// </summary>
 	public static (Vector3 Min, Vector3 Max) Bounds(IReadOnlyList<MeshVertex> vertices) {
 		if (vertices.Count == 0) {

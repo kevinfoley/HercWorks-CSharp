@@ -458,13 +458,22 @@ public sealed partial class MechObject : SimObject {
 	public Transform3 WorldTransform => Rotation();
 
 	/// <summary>
-	/// Coarse collision radius, from the loaded model's own bounds. This is the figure
-	/// <see cref="CollisionTest"/> keeps machines apart by; DBSIM reads that one from a vtable slot
-	/// whose per-type values are still unmapped, which is why it is not the type record's
-	/// <see cref="MechTypeRecord.HitRadius"/> — that one is the <i>shot</i> radius, and it is what
-	/// <see cref="DirectFireHitTest"/> uses.
+	/// The machine's body radius — <see cref="MechTypeRecord.BodyRadius"/>, the flat 750 every retail
+	/// HERC states. Not <see cref="MechTypeRecord.HitRadius"/>, which is the generous <i>shot</i>
+	/// radius <see cref="DirectFireHitTest"/> rejects against, and not the drawn model's bound
+	/// either, which is <see cref="ShapeRadius"/>.
 	/// </summary>
-	public override int HitRadius => _hitRadius;
+	public override int HitRadius => Type.BodyRadius;
+
+	/// <inheritdoc />
+	/// <remarks>The same figure — the original hands both radii out of the same field.</remarks>
+	public override int CollisionRadius => Type.BodyRadius;
+
+	/// <summary>
+	/// The drawn model's own bound. Nothing in the simulation reads it; the HUD target box sizes
+	/// itself from it.
+	/// </summary>
+	public override int ShapeRadius => _hitRadius;
 
 	/// <summary>
 	/// This machine's per-component health, or null for a type whose <c>.DMG</c> the install is
@@ -808,11 +817,18 @@ public sealed partial class MechObject : SimObject {
 	/// <c>Mech_CollisionTest</c> (<c>00418f74</c>) — whether the machine's new position is refused,
 	/// either by another object or by the ground being too steep to stand on.
 	///
-	/// <para>Two parts of the original are not here. Its object sweep also deals collision damage to
-	/// both parties and picks out a lock-on candidate, neither of which exists yet; and it consults
-	/// a per-type <i>collision</i> radius from a vtable slot whose per-type values have not been
-	/// mapped, so <see cref="HitRadius"/> — derived from the model's own bounds — stands in for
-	/// both radii.</para>
+	/// <para><b>The gap is asymmetric</b>, as the original's is: this machine contributes its own
+	/// <see cref="HitRadius"/> and the other object its <see cref="SimObject.CollisionRadius"/>,
+	/// which is a different figure with different values — zero for a flyer and for every static
+	/// structure.</para>
+	///
+	/// <para>A structure the radius test walks past is stopped by its collision volume instead —
+	/// <see cref="BaseObject.BlocksWalker"/>, a separate sweep in the original too. Between them no
+	/// structure is walked through.</para>
+	///
+	/// <para>Running into another machine hurts both of them — see
+	/// <see cref="CollisionDamage"/>. One part of the original's sweep is still missing: it also
+	/// picks out a nearby structure as a lock-on candidate, which nothing here consumes.</para>
 	///
 	/// <para>The sweep's first test <i>is</i> here: an object whose mission group carries an action
 	/// is skipped outright, before any distance is measured. See
@@ -824,7 +840,7 @@ public sealed partial class MechObject : SimObject {
 		var objects = world.Objects;
 		for (int i = 0; i < objects.Count; i++) {
 			var other = objects[i];
-			if (ReferenceEquals(other, this) || other.Removed || other.HitRadius == 0
+			if (ReferenceEquals(other, this) || other.Removed || other.CollisionRadius == 0
 					|| other.AwaitingDeployment) {
 				continue;
 			}
@@ -833,7 +849,28 @@ public sealed partial class MechObject : SimObject {
 			int distance = SimMath.FastMagnitude3D(
 				position.X - theirs.X, position.Y - theirs.Y, position.Z - theirs.Z);
 
-			if (distance < HitRadius + other.HitRadius) {
+			if (distance >= HitRadius + other.CollisionRadius) {
+				continue;
+			}
+
+			// The original also latches "something ran into me" on the struck object here. Exactly
+			// one AI behaviour state reads it back, and no behaviour state is ported, so there is
+			// nothing yet that would notice.
+
+			// Only a machine is hurt by the impact -- the original's gate is the struck object's
+			// target class, and MechObject is the only class that answers TargetClass.Herc.
+			if (other is MechObject struck) {
+				CollisionDamage(world, struck);
+			}
+
+			return true;
+		}
+
+		// The second object test, and a wholly separate one: every structure the radius test above
+		// passes over is stopped here by its collision volume instead.
+		for (int i = 0; i < objects.Count; i++) {
+			if (objects[i] is BaseObject structure && !structure.Removed
+					&& !structure.AwaitingDeployment && structure.BlocksWalker(position)) {
 				return true;
 			}
 		}
@@ -871,6 +908,76 @@ public sealed partial class MechObject : SimObject {
 
 		return false;
 	}
+
+	/// <summary>
+	/// <b>Walking into another machine hurts both of you</b>, through the same explosive-damage slot
+	/// a blast uses. It is a direct call on each party rather than a sweep, so a third machine
+	/// standing beside the crash takes nothing.
+	///
+	/// <para><b>Only a machine.</b> A structure or an aircraft blocks the move and is not hurt by
+	/// it.</para>
+	///
+	/// <para><b>What lands is a difference of momenta, not a speed.</b> Each side's speed is weighed
+	/// by its own <see cref="MechTypeRecord.Mass"/> in Q10, and the other machine's is taken as the
+	/// component of <i>its</i> travel along <i>this</i> machine's forward axis — so a head-on meeting
+	/// adds (the term is negative and is subtracted) and being rear-ended by something slower
+	/// subtracts. Both machines then take the same figure. The threshold under it is what keeps a
+	/// machine shuffling against a wall from grinding itself down.</para>
+	///
+	/// <para><b>The impact point mixes two frames</b>, and that is the original's arithmetic: X and Y
+	/// are the world midpoint of the two machines, but Z is the lower of the two cockpit-eye nodes'
+	/// <i>model-space</i> heights — roughly torso height above each machine's own feet — used as
+	/// though it were a world height. Reproduced as-is; see KNOWN_ISSUES.md.</para>
+	/// </summary>
+	private void CollisionDamage(SimWorld world, MechObject other) {
+		// Rotation only: the original copies the two matrices without their translations, so this is
+		// a direction being re-expressed, not a point being moved.
+		var mine = Rotation();
+		mine.TransposeRotation();
+
+		var theirTravel = other.Rotation().RotateVector(0, other.Speed, 0);
+		int closing = mine.RotateVector(theirTravel.X, theirTravel.Y, theirTravel.Z).Y;
+
+		int impulse = SimMath.Q10Multiply(Type.Mass, Speed)
+			- SimMath.Q10Multiply(other.Type.Mass, closing);
+		int damage = SimMath.Q10Multiply(CollisionDamageScale, impulse);
+
+		if (damage <= CollisionDamageThreshold) {
+			return;
+		}
+
+		var theirs = other.Position;
+		var at = new Vec3i(
+			(theirs.X + Position.X) >> 1,
+			(theirs.Y + Position.Y) >> 1,
+			System.Math.Min(EyeNodeHeight(), other.EyeNodeHeight()));
+
+		ExplosiveDamage(world, (short)damage, at, CollisionBlastRadius, other);
+		other.ExplosiveDamage(world, (short)damage, at, CollisionBlastRadius, this);
+	}
+
+	/// <summary>
+	/// The model-space height of the machine's cockpit-eye node, or zero when the shape has no such
+	/// node — the original's own fallback, which reads an identity transform. Only
+	/// <see cref="CollisionDamage"/> reads it.
+	/// </summary>
+	private int EyeNodeHeight() {
+		int transformId = Animation?.TransformIdOfPart(Type.CameraBoneId) ?? -1;
+		return transformId < 0 || Shape == null ? 0 : Shape.NodeTransform(transformId).Z;
+	}
+
+	/// <summary>The Q10 factor the momentum difference is scaled by before it becomes damage.</summary>
+	private const int CollisionDamageScale = 300;
+
+	/// <summary>Below this the collision does nothing at all — the original's literal 200.</summary>
+	private const int CollisionDamageThreshold = 200;
+
+	/// <summary>
+	/// How far the impact reaches on each machine, in world units. Small: it is applied through the
+	/// explosive path, so this is the denominator each component's falloff is measured against, and
+	/// 1200 keeps it to the parts nearest the point of contact.
+	/// </summary>
+	private const int CollisionBlastRadius = 0x4b0;
 
 	/// <summary>
 	/// How shallow a surface normal's vertical component may get before the ground counts as

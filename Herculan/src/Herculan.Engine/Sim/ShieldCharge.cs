@@ -11,10 +11,10 @@ namespace Herculan.Engine.Sim;
 /// rather than creating any. That is why the manual can only say power is "redistributed", never
 /// added.</para>
 ///
-/// <para>Of the two absorb paths, direct fire (<c>FUN_00413cc4</c>) is ported as
-/// <see cref="AbsorbDirectFire"/>; the explosion one (<c>FUN_00413c68</c>) is not. Otherwise this
-/// type carries the charge, the recharge and the balance, which is what the energy pool tick
-/// touches.</para>
+/// <para>Both absorb paths are ported, and they are separate code in the original as they are here
+/// — direct fire (<c>FUN_00413cc4</c>) as <see cref="AbsorbDirectFire"/> and the explosion one
+/// (<c>FUN_00413c68</c>) as <see cref="AbsorbExplosion"/>. Otherwise this type carries the charge,
+/// the recharge and the balance, which is what the energy pool tick touches.</para>
 ///
 /// <para>The <c>+0x222</c> field layout, the fleet-wide 3500 capacity and where it is read from, the
 /// loadout-time capacity formula and the cockpit readouts' "always sums to 200" trap are all in
@@ -219,6 +219,50 @@ public sealed class ShieldCharge {
 
 		return absorbed;
 	}
+
+	/// <summary>
+	/// <c>Mech_ShieldAbsorb_Explosive</c> (<c>00413c68</c>) — the explosion path's own absorption,
+	/// which is a <b>second implementation of the same idea</b> rather than a shared subroutine: the
+	/// original writes the hard cap twice, once per damage pathway, and the two do not scale their
+	/// input the same way.
+	///
+	/// <para><b>The two scales do not cancel</b>, and a blast's overflow comes out four times its
+	/// face value — reproduced as written, and suspected to be a retail bug. The arithmetic and the
+	/// case for the reading are in docs/simulation/damage-system.md, "Explosive damage".</para>
+	///
+	/// <para>Unlike <see cref="AbsorbDirectFire"/> nothing here is returned by reference: the caller
+	/// wants only what got through, and what the facing absorbed is implied.</para>
+	/// </summary>
+	/// <param name="front">Which facing the blast's bearing selected.</param>
+	/// <param name="damage">The blast's damage figure, before scaling.</param>
+	/// <returns>What carried through to structure, or zero for a blast the facing swallowed whole.</returns>
+	public short AbsorbExplosion(bool front, short damage) {
+		int scaled = (damage * ExplosionDamageScale) >> 8;
+		int charge = (front ? _front : Rear) - scaled;
+
+		if (front) {
+			_front = (short)Math.Max(charge, 0);
+		} else {
+			Rear = (short)Math.Max(charge, 0);
+		}
+
+		return charge >= 0
+			? (short)0
+			: (short)(-charge * ExplosionOverflowScale / ExplosionDamageScale);
+	}
+
+	/// <inheritdoc cref="AbsorbExplosion"/>
+	private const int ExplosionDamageScale = 1000;
+
+	/// <inheritdoc cref="AbsorbExplosion"/>
+	private const int ExplosionOverflowScale = 0x400;
+
+	/// <summary>
+	/// The net of the two scales, <c>0x400 / 256</c> — how much larger the overflow
+	/// <see cref="AbsorbExplosion"/> hands back is than the blast figure it was given. Callers that
+	/// have to compare the two need it; nothing in the absorption itself does.
+	/// </summary>
+	public const int ExplosionOverflowFactor = ExplosionOverflowScale / 256;
 
 	/// <summary>
 	/// <c>Shield_BalanceAdjust</c> (<c>00413af8</c>) — one press of the manual's <c>[</c> (rear) and

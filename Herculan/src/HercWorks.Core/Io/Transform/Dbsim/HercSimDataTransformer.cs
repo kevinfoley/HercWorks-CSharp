@@ -70,7 +70,7 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 		data.ModelLegsTotal = IndexShortLE();
 		data.ModelFlagNoDebris = IndexShortLE();
 
-		data.Unk76_Val = IndexShortLE();
+		data.Mass = IndexShortLE();
 
 		data.InputFlagFlyer = IndexShortLE();
 
@@ -91,7 +91,7 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 		Skip(2); // blank bytes 0x106
 
 		data.GaitThresholdReverse = IndexShortLE();
-		data.Unk110_camExtVal2 = IndexShortLE();
+		data.BodyRadius = IndexShortLE();
 
 		data.ModelFlagsShadow1 = IndexShortLE();
 		data.ModelFlagsShadow2 = IndexShortLE();
@@ -205,7 +205,7 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 		Emit(outStream, WriteShortLE(data.ModelLegsTotal));
 		Emit(outStream, WriteShortLE(data.ModelFlagNoDebris));
 
-		Emit(outStream, WriteShortLE(data.Unk76_Val));
+		Emit(outStream, WriteShortLE(data.Mass));
 
 		Emit(outStream, WriteShortLE(data.InputFlagFlyer));
 
@@ -232,7 +232,7 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 		outStream.WriteByte(0x00);
 
 		Emit(outStream, WriteShortLE(data.GaitThresholdReverse));
-		Emit(outStream, WriteShortLE(data.Unk110_camExtVal2));
+		Emit(outStream, WriteShortLE(data.BodyRadius));
 
 		Emit(outStream, WriteShortLE(data.ModelFlagsShadow1));
 		Emit(outStream, WriteShortLE(data.ModelFlagsShadow2));

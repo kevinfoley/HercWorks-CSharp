@@ -47,10 +47,12 @@ Both paths open with the same coarse reject as every other hit test in the simul
 `+0x10` (`FUN_0046b80c`), i.e. `shape+8`.
 
 **Damage recovery for plasma.** `Bullet_TickUpdate`'s subtype-9 branch stashes the round's two
-damage figures in globals (`FUN_0040501c` → `DAT_004a9676`) and then **zeroes them in the shot
-record** before the raycast. A volume-path hit whose shot carries zero on both counts reads the
-armour figure back out of that global. Unreachable in the engine, which does not port the plasma
-branch (see [`../engine/handoff-weapon-effects.md`](../engine/handoff-weapon-effects.md)).
+damage figures in globals (`Bullet_StashDirectFireDamage`, `0040501c` → `DAT_004a9676`/`DAT_004a9678`)
+and then **zeroes them in the shot record** before the raycast. This branch is the only reader: a
+*volume-path* hit whose shot carries zero on both counts puts the armour figure back. The sphere
+path does not, so a plasma round does direct-fire damage to a volume-path building and none to a
+sphere-model one — both then stand in its blast. See
+[`projectiles.md`](projectiles.md#the-plasma-branch).
 
 ## The sphere model — `dat\BASECOL.DAT` and `col\<NAME>.COL`
 
@@ -176,6 +178,12 @@ ray is stepped in shape space and each step asks the grid how tall the column un
   into muzzle space and tests a box on **X and Y only** (`|x| < reach`, `-reach < y < rayLength +
   reach`) — Z is not tested. Then transforms the ray into shape space and marches. Also called by
   `FUN_00404bc0`, a bulk line-of-sight query over the structure list.
+- `Structure_WalkCollisionTest` (`00427c68`) — the **walking-collision** test, called from `Structure_GatherWalkCandidates`'s (`00404ae4`) gather (see
+  [`mech-locomotion.md`](mech-locomotion.md#collision)). 2D distance against `shape+8`, then the
+  point rotated into shape space and sampled at radius 0. It is the only query of the three that
+  **does not apply the `origin << shift`** the march applies, so the footprint a machine walks into
+  is displaced from the one a shot is tested against by the grid's origin — its centre, for all 45
+  records. Not cross-checked against retail play.
 
 ### Verified against retail data
 
@@ -197,6 +205,28 @@ viewing distance to estimate on-screen size, and vtable `+0x10` (`FUN_0046b80c`)
 coarse hit reject. It tracks `BASES.DAT`'s own `+0x2a` radius within about a fifth across all 45
 records (6334/5600, 10325/9600, 3577/3600). `BasesDgsTransformer` called it `Id`, which was a
 placeholder rather than a finding.
+
+### The three radius slots
+
+An object has three unrelated radii, on three vtable slots, and no two of them are read by the same
+consumer. Confusing them is easy: `+0x5c` and `+0x7c` are the *same function body* on a mech, and
+`+0x10` matches neither on anything.
+
+| Slot | What reads it | Mech | Structure | Flyer |
+|---|---|---|---|---|
+| `+0x10` shape radius | every hit test's coarse reject; the LOD selector; the HUD target box | `shape+8` | `shape+8` | `shape+8` |
+| `+0x5c` body radius | the blast sweep's surface-to-centre range; the *mover's* half of the collision gap | `typeRec+0x70`, **750 for every HERC** (`Mech_GetBodyRadius`, `00415518`) | `BASES.DAT +0x2a` (`Base_GetBodyRadius`, `004035a4`) | `FUN_00411aa4`, **0** |
+| `+0x7c` collision radius | the *other* object's half of the collision gap, and nothing else | the same `typeRec+0x70` (`Mech_GetCollisionRadius`, `0041552c`) | `BASES.DAT +0x2a`, but **only for an animated type** (`Base_GetCollisionRadius`, `004035b8`) | `FUN_00411aac`, **0** |
+
+**Zero on `+0x7c` means walk through me**, and `Mech_CollisionTest` skips the object outright. A
+flyer never blocks anything. A structure's zero is narrower than it looks: the slot tests the same
+`BASES.DAT +0x06` that picks the model library, so only an animated type still standing blocks by
+radius — every static type and every animated wreck is stopped by its **collision volume** in a
+second sweep instead. The two sets are exact complements. See
+[`mech-locomotion.md`](mech-locomotion.md#collision).
+
+A mech's `+0x5c` is a third of the `+0x1a` shot radius, and its model bound is larger than either;
+nothing in the simulation reads that bound.
 
 ## Component damage — `Base_ApplyDamage` (`00404d70`)
 
@@ -249,20 +279,25 @@ disk and a pointer at `+0x14`.
 | `+0x12` | `int16` | component count |
 | `+0x14` | array | components, 30 bytes each |
 | `+0x1e` | `int16` | non-zero = invulnerable (types 21, 22, 23) |
-| `+0x2a` | `int16` | hit radius, vtable `+0x5c` (`FUN_004035a4`); four types state 0 |
+| `+0x2a` | `int16` | body radius, vtable `+0x5c` (`Base_GetBodyRadius`, `004035a4`), and `+0x7c` for an animated type; four types state 0 |
 | `+0x30` | `int16` | non-zero installs `BASECOL.DAT`'s model at runtime `+0x38` |
+| `+0x38` | ptr | runtime only: the installed `BASECOL.DAT` model. Null selects the volume hit path **and** makes the type immune to blasts |
 | `+0x32` | `int16` | texture bank selector |
 
 Unread: `+0x00`, `+0x08`, `+0x0a` (6 bytes), `+0x10`, `+0x18` (6 bytes), `+0x20` (4 bytes),
 `+0x24`–`+0x28`, `+0x2c`, `+0x2e`.
 
-Component record, 30 bytes, three fields read:
+Component record, 30 bytes, four fields read:
 
 | Offset | Meaning |
 |---|---|
 | `+0` | max damage (retail 1000–30000) |
 | `+2` | sub-shape hidden when destroyed, `-1` for none |
 | `+4` | index into DBSIM's fixed destruction-effect table (`0049741c`), `-1` for none |
+| `+0x10` | `int16`×3 — the part's position in the structure's own frame, handed out by vtable `+0x58` (`Base_ComponentPosition`, `00406808`) and measured by the blast falloff. See [`damage-system.md`](damage-system.md#where-a-component-stands--the-0x58-slot) |
+
+A second, near-identical point sits at `+0x0a`, its X and Y repeating `+0x10`'s and its Z not;
+nothing traced reads it, nor `+0x06`/`+0x08`.
 
 Runtime object fields the hit path uses: `+0x0c` euler triple, `+0x12` transform (translation at
 `+0x26`, valid flag at `+0x32`), `+0x34` shape instance (`+4` = shape), `+0x99` destroyed,
@@ -303,7 +338,10 @@ at all — in the original as much as here.
 `Sim.CollisionModel` (the sphere test, with the node resolver),
 `World.CollisionModelReader` (VOL lookup plus the load-time bound; the format itself is parsed
 by `HercColliderTransformer.ReadNodes`), `World.BaseCollisionTable`,
-`World.BaseTypeTable` (the combat fields), and — on the tool side — the corrected volume read in
+`World.BaseTypeTable` (the combat fields, including the component position), all three radius slots
+(`SimObject.ShapeRadius`/`HitRadius`/`CollisionRadius`), the plasma damage stash
+(`WeaponShot.StashDamage`, read back in `BaseObject.DirectFireHitTest`), and — on the tool side —
+the corrected volume read in
 `HercWorks.Core.Io.Transform.Dbsim.BasesDgsTransformer` and the corrected, now round-trippable
 `HercColliderTransformer`.
 

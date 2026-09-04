@@ -346,6 +346,55 @@ public sealed class SimWorld {
 	}
 
 	/// <summary>
+	/// <c>Damage_ExplosiveBlastSweep</c> (<c>00426a20</c>) — the area-of-effect counterpart of
+	/// <see cref="Raycast"/>: instead of following a ray it walks the whole live-object list once and
+	/// offers the blast to everything standing inside it.
+	///
+	/// <para>The range test is <b>surface to centre, not centre to centre</b>: an object's own
+	/// <see cref="SimObject.HitRadius"/> is subtracted before the comparison, so a large machine is
+	/// caught by a blast that a small one standing in the same place would be outside of.</para>
+	///
+	/// <para>What the blast then does is the object's own business — <see cref="SimObject.ExplosiveDamage"/>,
+	/// which is implemented for a machine and nothing else. Unlike the raycast the sweep does not
+	/// stop, shorten or care about order: everything in range is hit, and a wall between two of them
+	/// does not shield either, which is the original's behaviour and not a simplification.</para>
+	///
+	/// <para>The original has exactly three call sites, all terminal events rather than routine fire:
+	/// the drop pod touching down, a plasma round going off (<see cref="Projectile"/>), and a
+	/// machine's own death throe. The first and the last belong to functions that are not ported, so
+	/// the plasma round is the only one reaching it here.</para>
+	/// </summary>
+	/// <param name="hitPoint">Where the explosion went off, in world units.</param>
+	/// <param name="blastRadius">How far it reaches, and the denominator of each victim's falloff.</param>
+	/// <param name="damage">The blast's damage figure, before any victim's shields scale it.</param>
+	/// <param name="attacker">Who set it off, for the kill credit.</param>
+	/// <param name="excluded">
+	/// One object the blast passes over — the sweep's own <c>param_5</c>, which the machine death
+	/// throe uses to keep a wreck from blowing itself up a second time.
+	/// </param>
+	public void ExplosiveBlastSweep(Vec3i hitPoint, int blastRadius, short damage,
+			SimObject? attacker, SimObject? excluded) {
+		for (int i = 0; i < _objects.Count; i++) {
+			var candidate = _objects[i];
+
+			// A group still waiting on its arrival action is not in the mission, so it is not in the
+			// blast either — the same gate the raycast and the frame submit make, and the same reason:
+			// undeployed groups sit stacked on shared waypoints where a single explosion would
+			// otherwise catch all of them at once.
+			if (candidate.Removed || candidate.AwaitingDeployment
+					|| ReferenceEquals(candidate, excluded)) {
+				continue;
+			}
+
+			if (candidate.Position.ApproxDistanceTo(hitPoint) - candidate.HitRadius >= blastRadius) {
+				continue;
+			}
+
+			candidate.ExplosiveDamage(this, damage, hitPoint, blastRadius, attacker);
+		}
+	}
+
+	/// <summary>
 	/// <c>Sim_RaycastTerrain</c> (<c>00428048</c>) — the ray-versus-ground query the shared raycast
 	/// runs before it looks at any object. It rebuilds the ray's far end from the shot's own frame,
 	/// walks the heightmap with <see cref="HeightGrid.RayWalk"/>, and measures the ground hit back

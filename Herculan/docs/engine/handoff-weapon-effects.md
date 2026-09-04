@@ -33,10 +33,6 @@ _ These are not organized in any particular order; this may not be the best orde
   `FUN_0041d7d0`, `FUN_0041d9cc`, `FUN_0041daac` and `FUN_0041e224`, which also drive `mech+0x96`
   from a per-state flag table at `mech+0x92`.
 
-- **The explosive blast sweep** (`FUN_00426a20`, mech vtable `+0x70`). Its absence is why
-  `SplashFactor`'s share of a direct-fire hit is dropped rather than diverted, why plasma does not
-  splash, and why a destroyed weapon mount cannot explode. Fully decoded in
-  [`../simulation/damage-system.md`](../simulation/damage-system.md).
 - **Structures clip.** Projectiles and impact effects visibly sink into buildings, which retail does
   not do. **Hit geometry is ruled out** — measured, see
   [`../simulation/hit-detection.md`](../simulation/hit-detection.md), "Measured: hit geometry versus

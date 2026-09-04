@@ -146,10 +146,10 @@ public sealed class WeaponShot {
 	public int Distance { get; internal set; }
 
 	/// <summary>The record's <c>+0x04</c>: <c>PROJ.DAT</c>'s <c>DamageArmor</c>, scaled by shot power.</summary>
-	public short DamageArmor { get; }
+	public short DamageArmor { get; private set; }
 
 	/// <summary>The record's <c>+0x06</c>: <c>PROJ.DAT</c>'s <c>DamageShield</c>, scaled by shot power.</summary>
-	public short DamageShield { get; }
+	public short DamageShield { get; private set; }
 
 	/// <summary>
 	/// The record's subtype id. Not part of the shot record in the original — <c>Bullet_FireBurst</c>
@@ -164,7 +164,38 @@ public sealed class WeaponShot {
 	/// by <c>MechObject.ApplyDirectFireDamage</c>. Zero for every real beam, so it only bites on
 	/// projectile weapons.
 	/// </summary>
-	public short SplashFactor { get; }
+	public short SplashFactor { get; private set; }
+
+	/// <summary>
+	/// What <see cref="StashDamage"/> put aside, and the only thing that reads it back: a structure
+	/// struck on its collision-volume path by a shot carrying no damage at all. See there.
+	/// </summary>
+	public short StashedDamageArmor { get; private set; }
+
+	/// <inheritdoc cref="StashedDamageArmor"/>
+	public short StashedDamageShield { get; private set; }
+
+	/// <summary>
+	/// The plasma round's own preparation before it raycasts: put both damage figures aside and then
+	/// <b>empty the record</b> — damage, shields and splash share alike — so that the raycast reports
+	/// contact and nothing else. Everything the round does, it does through the blast that follows.
+	///
+	/// <para>The exception is a structure hit on its collision-volume path, which reads the stashed
+	/// armour figure back and applies it — see <see cref="BaseObject.DirectFireHitTest"/>. That is
+	/// the original's own asymmetry, not a compromise here: a volume-path building takes the round's
+	/// direct-fire damage <i>and</i> stands in its blast, a sphere-model one and a machine take only
+	/// the blast.</para>
+	///
+	/// <para>The original keeps the stash in globals, because only one shot is being resolved at a
+	/// time; it lives on the shot here, which is the same thing without the aliasing.</para>
+	/// </summary>
+	internal void StashDamage() {
+		StashedDamageArmor = DamageArmor;
+		StashedDamageShield = DamageShield;
+		DamageArmor = 0;
+		DamageShield = 0;
+		SplashFactor = 0;
+	}
 
 	/// <summary>
 	/// The record's <c>+0x0a</c>: a pointer to the firing <c>PROJ.DAT</c> record's three

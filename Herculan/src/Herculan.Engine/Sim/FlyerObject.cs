@@ -34,7 +34,7 @@ public sealed class FlyerObject : SimObject {
 	/// </summary>
 	private const short WreckHitEffect = 10;
 
-	private readonly int _hitRadius;
+	private readonly int _shapeRadius;
 	private readonly ColliderNode[] _collision;
 	private readonly ComponentDamage? _damage;
 
@@ -43,15 +43,16 @@ public sealed class FlyerObject : SimObject {
 	/// flyer names — only <c>SKIMMER</c> ships one — and a flyer with no model cannot be struck at
 	/// all, which is the original's outcome too.
 	/// </param>
+	/// <param name="shapeRadius">The drawn model's own bound — see <see cref="ShapeRadius"/>.</param>
 	/// <param name="damage">
 	/// The type's <c>dmg\&lt;NAME&gt;.DMG</c> health record, sized to a flyer's one component and one
 	/// dependent. Null alongside a missing <c>.COL</c>, for the same reason.
 	/// </param>
-	public FlyerObject(string name, FlyerSimData? simData, int hitRadius,
+	public FlyerObject(string name, FlyerSimData? simData, int shapeRadius,
 			ColliderNode[]? collision = null, ComponentDamage? damage = null) {
 		Name = name;
 		SimData = simData;
-		_hitRadius = hitRadius;
+		_shapeRadius = shapeRadius;
 		_collision = collision ?? Array.Empty<ColliderNode>();
 		_damage = damage;
 	}
@@ -66,7 +67,18 @@ public sealed class FlyerObject : SimObject {
 	public FlyerSimData? SimData { get; }
 
 	/// <inheritdoc />
-	public override int HitRadius => _hitRadius;
+	/// <remarks>
+	/// <b>Zero</b> — an aircraft has no body radius, so a blast measures it from its origin. Not an
+	/// omission here: the original's slot is a <c>return 0</c> stub.
+	/// </remarks>
+	public override int HitRadius => 0;
+
+	/// <inheritdoc />
+	/// <remarks>
+	/// The drawn model's own bound, which is what <see cref="DirectFireHitTest"/> rejects against —
+	/// a flyer has no radius of its own anywhere else.
+	/// </remarks>
+	public override int ShapeRadius => _shapeRadius;
 
 	/// <inheritdoc />
 	/// <remarks><c>Flyer_Constructor</c> (<c>004215f4</c>) writes 2 at <c>0x004216d8</c>.</remarks>
@@ -134,7 +146,7 @@ public sealed class FlyerObject : SimObject {
 	/// </summary>
 	public override int DirectFireHitTest(SimWorld world, WeaponShot shot) {
 		var muzzle = new Vec3i(shot.Muzzle.X, shot.Muzzle.Y, shot.Muzzle.Z);
-		if (_hitRadius + shot.Clearance + shot.Distance < Position.ApproxDistanceTo(muzzle)) {
+		if (_shapeRadius + shot.Clearance + shot.Distance < Position.ApproxDistanceTo(muzzle)) {
 			return 0;
 		}
 
@@ -157,6 +169,31 @@ public sealed class FlyerObject : SimObject {
 			Destroyed ? WreckHitEffect : effect, shot.Muzzle.TransformPoint(0, struckAt, 0));
 
 		return struckAt;
+	}
+
+	/// <summary>
+	/// What a blast does to an aircraft — and it is the shared base implementation rather than
+	/// anything of the flyer class's own, which is why it is so much simpler than a machine's or a
+	/// structure's. No roll, no component selection, no shields: the whole aircraft is one point and
+	/// the damage lands on component 0, the only one it has.
+	///
+	/// <para>The falloff is measured from the object's <b>surface</b> — <see cref="HitRadius"/> is
+	/// subtracted, exactly as the sweep subtracts it before deciding the aircraft was in range at
+	/// all. For an aircraft that is a no-op, a flyer's being zero, but it is written out because the
+	/// implementation is shared: a class with a real body radius takes more than the blast's face
+	/// value at point-blank range.</para>
+	///
+	/// <para>There is no range test. The sweep has already made it, so the numerator cannot come out
+	/// negative. See docs/simulation/damage-system.md, "A flyer".</para>
+	/// </summary>
+	public override void ExplosiveDamage(SimWorld world, short damage, Vec3i hitPoint, int blastRadius,
+			SimObject? attacker) {
+		if (blastRadius <= 0) {
+			return;
+		}
+
+		int distance = Position.ApproxDistanceTo(hitPoint) - HitRadius;
+		ApplyDamage(0, (short)((blastRadius - distance) * damage / blastRadius), attacker);
 	}
 
 	/// <summary>

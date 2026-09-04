@@ -5,8 +5,8 @@ namespace Herculan.Engine.Sim;
 
 /// <summary>
 /// A structure shape's collision volume, and the two queries the simulation runs against it: the
-/// height under a point (<c>FUN_00427238</c>) and the ray march that walks the grid looking for one
-/// (<c>FUN_004273c8</c>). The data itself is <see cref="BaseShapeCollision"/>, read out of the
+/// height under a point (<see cref="HeightAround"/>) and the ray march that walks the grid looking
+/// for one (<see cref="Raycast"/>). The data itself is <see cref="BaseShapeCollision"/>, read out of the
 /// shape's <c>.DGS</c> record.
 ///
 /// <para><b>A building is a height field, not a mesh.</b> Nothing in the original tests a shot
@@ -17,7 +17,8 @@ namespace Herculan.Engine.Sim;
 ///
 /// <para>The grid's own units are shape space, i.e. world units around the model's origin. The
 /// origin cell is not cell zero: a point is shifted by the grid's origin <i>in world units</i>
-/// before it is divided down, so the footprint straddles the model.</para>
+/// before it is divided down, so the footprint straddles the model. The shift belongs to the
+/// caller — see <see cref="HeightAround"/>.</para>
 /// </summary>
 public sealed class ShapeVolume {
 	private readonly BaseShapeCollision _grid;
@@ -98,14 +99,18 @@ public sealed class ShapeVolume {
 	}
 
 	/// <summary>
-	/// <c>FUN_00427238</c> — the tallest column within <paramref name="radius"/> of a point, or the
-	/// column the point is in when the radius is smaller than half a cell. Both forms return zero
-	/// for a point off the grid, which is what makes the volume end at its own edges.
+	/// <c>FUN_00427238</c> — the tallest column within <paramref name="radius"/> of a point, or the column the point is in when the radius is
+	/// smaller than half a cell. Both forms return zero for a point off the grid, which is what makes
+	/// the volume end at its own edges.
+	///
+	/// <para><b>It does not apply the grid origin.</b> That is the caller's job, and the original's
+	/// two callers disagree about it: <see cref="Raycast"/> shifts the point and the walk test
+	/// (<see cref="BaseObject.BlocksWalker"/>) does not. Both are reproduced as written.</para>
 	/// </summary>
-	/// <param name="x">Point X, already shifted by the grid origin.</param>
-	/// <param name="y">Point Y, already shifted by the grid origin.</param>
+	/// <param name="x">Point X, in the grid's own indexing frame.</param>
+	/// <param name="y">Point Y, in the grid's own indexing frame.</param>
 	/// <param name="radius">How wide a footprint to sample — the shot's clearance.</param>
-	private int HeightAround(int x, int y, int radius) {
+	public int HeightAround(int x, int y, int radius) {
 		int shift = _grid.CellShift;
 
 		// The narrow case is not an optimisation the engine adds: the original tests the radius

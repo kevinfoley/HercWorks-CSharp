@@ -145,6 +145,29 @@ public sealed class MechTypeRecord {
 	public short HitRadius => Data.AiAimTargOffset;
 
 	/// <summary>
+	/// Record field 110 (the exe's <c>typeRecord+0x70</c>) — the machine's body radius, and the one
+	/// figure behind <i>both</i> of its radius accessors: what the blast sweep subtracts before
+	/// deciding a machine is inside a blast, and what the collision test keeps machines apart by.
+	///
+	/// <para><b>Every retail HERC states 750</b>, so a SPIDER and a PITBULL occupy the same footprint
+	/// as far as the simulation is concerned and any two machines stop 1500 units — 9 m — apart. It
+	/// is a third of <see cref="HitRadius"/>, which is the generous <i>shot</i> radius and a
+	/// different field for a different job.</para>
+	/// </summary>
+	public short BodyRadius => Data.BodyRadius;
+
+	/// <summary>
+	/// Record field 76 (the exe's <c>typeRecord+0x4e</c>) — the chassis' mass, and the reason a heavy
+	/// machine wins a collision: each party's speed is weighed by its own mass and the difference
+	/// lands on both as blast damage. See <see cref="MechObject.CollisionDamage"/>.
+	///
+	/// <para>5000 for a light, 20000 for the PITBULL — and <b>0 for the SPIDER</b>, which is not a
+	/// missing value but a working one: a SPIDER contributes nothing to an impact from either side of
+	/// it.</para>
+	/// </summary>
+	public short Mass => Data.Mass;
+
+	/// <summary>
 	/// Record field 72 (the exe's <c>typeRecord+0x4a</c>) — how many legs the chassis walks on, which
 	/// is 2 for every retail HERC but the four-legged PITBULL.
 	/// <c>Mech_ComponentDamageWrite</c> reads it to decide whether the leg-condition check covers the

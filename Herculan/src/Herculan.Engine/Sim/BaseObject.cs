@@ -116,6 +116,19 @@ public sealed class BaseObject : SimObject {
 	/// <inheritdoc />
 	public override int ShapeRadius => _shapeRadius;
 
+	/// <inheritdoc />
+	/// <remarks>
+	/// <b>Only a standing <see cref="BaseShapeSource.AnimatedLibrary"/> type blocks by radius</b> —
+	/// the original's slot tests the same field that picks the model library. Every static type, and
+	/// an animated one that has fallen to a hulk, blocks by <see cref="BlocksWalker"/> instead. The
+	/// value is the type's <see cref="BaseType.HitRadius"/>, so a structure that blocks by radius
+	/// blocks at the radius it is shot at.
+	/// </remarks>
+	public override int CollisionRadius =>
+		Type.Source == BaseShapeSource.AnimatedLibrary && !(Destroyed && Type.HulkTypeIndex != -1)
+			? Type.HitRadius
+			: 0;
+
 	/// <summary>
 	/// The <c>BASES.DAT</c> type indices <c>Base_Construct</c> (<c>00405314</c>) sends down its last
 	/// branch, which derives a further class and writes <see cref="Sim.TargetClass.Emplacement"/>
@@ -197,10 +210,18 @@ public sealed class BaseObject : SimObject {
 		bool wreck = Destroyed && Type.HulkTypeIndex != -1;
 
 		short component = -1;
+		short damage = shot.DamageArmor;
 		int struckAt;
 
 		if (wreck || !Type.HasCollisionModel) {
 			struckAt = VolumeStruck(shot);
+
+			// The one consumer of the plasma round's stash: a shot that arrives with both damage
+			// figures at zero has been emptied by WeaponShot.StashDamage, and this branch — the volume
+			// path only, never the sphere path — puts the armour figure back. See there.
+			if (struckAt != 0 && shot.DamageArmor == 0 && shot.DamageShield == 0) {
+				damage = shot.StashedDamageArmor;
+			}
 		} else if (!WithinReach(shot)) {
 			return 0;
 		} else {
@@ -222,7 +243,7 @@ public sealed class BaseObject : SimObject {
 		// The damage goes in before the effect, and only while the structure is standing: a wreck is
 		// still solid and still stops shots, it just has nothing left to lose.
 		if (!Destroyed) {
-			ApplyDamage(world.Random, component, shot.DamageArmor, shot.Owner);
+			ApplyDamage(world.Random, component, damage, shot.Owner);
 		}
 
 		// Always the armour array. Unlike a mech, a structure has no shields to flash and no
@@ -342,6 +363,107 @@ public sealed class BaseObject : SimObject {
 		if (DamageFraction == FullyDestroyed) {
 			Destroyed = true;
 		}
+	}
+
+	/// <summary>
+	/// Whether a walking machine is stopped by this structure's <b>collision volume</b> — the second
+	/// of the two ways a building blocks movement, and the one that covers everything
+	/// <see cref="CollisionRadius"/> does not. The two are exact complements: a standing animated
+	/// type blocks by its radius, and every static type plus every animated wreck blocks by its
+	/// volume, so no structure is walked through and none is tested twice.
+	///
+	/// <para>The exception is a structure that is <i>gone</i>: destroyed, leaving no wreck, and built
+	/// from a single component. That one stops blocking entirely.</para>
+	///
+	/// <para><b>The footprint tested is not the one a shot is tested against.</b> The original's walk
+	/// test omits the grid-origin shift its ray march applies, so the two sample the volume displaced
+	/// from each other by the grid's centre. Reproduced rather than corrected — see
+	/// docs/simulation/hit-detection.md, "The collision volume".</para>
+	/// </summary>
+	/// <param name="point">Where the machine is trying to stand, in world units.</param>
+	public bool BlocksWalker(Vec3i point) {
+		bool wreck = Destroyed && Type.HulkTypeIndex != -1;
+		if (Type.Source == BaseShapeSource.AnimatedLibrary && !wreck) {
+			return false;
+		}
+
+		if (Type.HulkTypeIndex == -1 && Destroyed && Type.Components.Length <= 1) {
+			return false;
+		}
+
+		if (_volume is not { IsSolid: true }
+				|| SimMath.FastMagnitude2D(point.X - Position.X, point.Y - Position.Y) >= _shapeRadius) {
+			return false;
+		}
+
+		// Only the heading matters, and only in 2D: the original transposes the transform's XY block
+		// and rotates the offset by it rather than inverting the whole thing.
+		var local = WorldTransform.Inverted().RotateVector(point.X - Position.X, point.Y - Position.Y, 0);
+		return _volume.HeightAround(local.X, local.Y, 0) != 0;
+	}
+
+	/// <summary>
+	/// What a blast does to a building. It shares nothing with a machine's but the shape of the
+	/// falloff: a structure has no shields to absorb anything, no facing to be caught from behind,
+	/// and its parts stand where the type record says rather than where an animation has put them.
+	///
+	/// <para><b>Every live component is measured, not a random subset.</b> The original's
+	/// per-component draw is compared against a ceiling one above the largest value its mask can
+	/// produce, so the test never fails. The draw is kept because it advances the shared generator,
+	/// which is what everything downstream of it sees.</para>
+	///
+	/// <para>Two gates come first, the same two the hit test opens with: an
+	/// <see cref="BaseType.Invulnerable"/> type takes nothing, and a structure is blast-damageable
+	/// only through its <c>BASECOL.DAT</c> model — <b>a type without one stands in a blast untouched
+	/// however close it is</b>, where direct fire would still hurt it through the shape's collision
+	/// volume. A wreck that has a hulk is skipped for the reason the hit test switches it to the
+	/// volume path: the spheres belong to the building that used to be there.</para>
+	/// </summary>
+	public override void ExplosiveDamage(SimWorld world, short damage, Vec3i hitPoint, int blastRadius,
+			SimObject? attacker) {
+		bool wreck = Destroyed && Type.HulkTypeIndex != -1;
+		if (Type.Invulnerable || wreck || !Type.HasCollisionModel || blastRadius <= 0) {
+			return;
+		}
+
+		for (int i = 0; i < Type.Components.Length; i++) {
+			if (!_alive[i] || world.Random.NextMasked(0xfff) >= BlastConsiderationCeiling) {
+				continue;
+			}
+
+			int distance = ComponentPosition(i).ApproxDistanceTo(hitPoint);
+			if (distance >= blastRadius) {
+				continue;
+			}
+
+			ApplyDamage(world.Random, i, (blastRadius - distance) * damage / blastRadius, attacker);
+		}
+	}
+
+	/// <summary>
+	/// The ceiling the blast's per-component draw is compared against — <c>0x1004</c>, against a draw
+	/// masked to <c>0xfff</c>. Written out rather than folded away so the one place the original
+	/// could have meant otherwise stays visible; see <see cref="ExplosiveDamage"/>.
+	/// </summary>
+	private const int BlastConsiderationCeiling = 0x1004;
+
+	/// <summary>
+	/// Where one of this building's parts stands in the world, which is what a blast measures its
+	/// falloff from. The component's own <see cref="BaseComponentType.Position"/> put through
+	/// <see cref="WorldTransform"/>, and nothing else: unlike a machine's there is no node to resolve
+	/// and no animation to consult, because a structure's parts do not move.
+	///
+	/// <para>The type record is the only place the point comes from — the <c>BASECOL.DAT</c> spheres
+	/// a shot is tested against are <i>not</i> consulted here, and several types put a component's
+	/// blast point above the geometry that stops bullets.</para>
+	/// </summary>
+	public Vec3i ComponentPosition(int index) {
+		if (index < 0 || index >= Type.Components.Length) {
+			return Position;
+		}
+
+		var local = Type.Components[index].Position;
+		return WorldTransform.TransformPoint(local.X, local.Y, local.Z);
 	}
 
 	/// <summary>

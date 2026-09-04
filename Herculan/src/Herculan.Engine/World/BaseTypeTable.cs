@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using Herculan.Engine.Content;
+using Herculan.Engine.Numerics;
 
 namespace Herculan.Engine.World;
 
@@ -21,8 +22,9 @@ public enum BaseShapeSource {
 
 /// <summary>
 /// One destructible part of a structure — the 30-byte sub-record a type's nested array holds, of
-/// which three fields are read by the damage path (<c>Base_ApplyDamage</c>, <c>00404d70</c>) and the
-/// rest are not touched by anything traced.
+/// which four fields are read by the two damage paths (<c>Base_ApplyDamage</c>, <c>00404d70</c>, and
+/// the blast sweep's position accessor <c>Base_ComponentPosition</c>) and the rest are not touched by anything
+/// traced.
 ///
 /// <para>Every structure has at least one of these, so "the building's hit points" is really "its
 /// components' hit points": a structure falls when <i>all</i> of them are destroyed, which is what
@@ -41,8 +43,15 @@ public enum BaseShapeSource {
 /// <c>+4</c> — which entry of DBSIM's small fixed effect table (<c>0049741c</c>) plays when this
 /// component is destroyed, or <c>-1</c> for none. The effect itself is not ported.
 /// </param>
+/// <param name="Position">
+/// <c>+0x10</c> — where this part sits in the structure's own frame, the point
+/// <see cref="Herculan.Engine.Sim.BaseObject.ComponentPosition"/> hands out and a blast measures its
+/// falloff from. Retail values are body-scale offsets in world units — the three sections of a
+/// three-part hangar sit at <c>(0, ±3500, 1000)</c> — and the eight-metre spread across a large
+/// building is the whole reason one end of it can be levelled by a blast while the other stands.
+/// </param>
 public readonly record struct BaseComponentType(
-	short MaxDamage, short DestroyedSubShape, short DestroyedEffect);
+	short MaxDamage, short DestroyedSubShape, short DestroyedEffect, Vec3i Position);
 
 /// <summary>
 /// One entry of the base-type table: everything the engine needs to draw a placed structure and to
@@ -67,7 +76,7 @@ public readonly record struct BaseComponentType(
 /// </param>
 /// <param name="Invulnerable">
 /// <c>+0x1e != 0</c> — the type takes no damage at all. Both damage entry points
-/// (<c>Base_ApplyDamage</c> and the blast sweep <c>FUN_00404f20</c>) open by testing it and
+/// (<c>Base_ApplyDamage</c> and <c>Base_ApplyExplosiveDamage</c>) open by testing it and
 /// returning. Three retail types set it (21, 22 and 23), which share a shape family and are the
 /// tallest things in the table.
 /// </param>
@@ -131,7 +140,9 @@ public readonly record struct BaseType(
 ///
 /// <para>Fields still unread are left as skips rather than guessed at: <c>+0x00</c>, <c>+0x08</c>,
 /// <c>+0x0a</c> (6 bytes), <c>+0x10</c>, <c>+0x18</c> (6 bytes), <c>+0x20</c> (4 bytes),
-/// <c>+0x24</c>, <c>+0x26</c>, <c>+0x2c</c> and <c>+0x2e</c>.</para>
+/// <c>+0x24</c>, <c>+0x26</c>, <c>+0x2c</c> and <c>+0x2e</c>. Two more of the component
+/// sub-record's own fields are known but unused: <c>+0x06</c>/<c>+0x08</c>, and a second point at
+/// <c>+0x0a</c> whose X and Y repeat <see cref="BaseComponentType.Position"/>'s.</para>
 /// </summary>
 public sealed class BaseTypeTable {
 	/// <summary>VOL folder and name of the table.</summary>
@@ -191,7 +202,11 @@ public sealed class BaseTypeTable {
 				components[c] = new BaseComponentType(
 					BinaryPrimitives.ReadInt16LittleEndian(record),
 					BinaryPrimitives.ReadInt16LittleEndian(record[2..]),
-					BinaryPrimitives.ReadInt16LittleEndian(record[4..]));
+					BinaryPrimitives.ReadInt16LittleEndian(record[4..]),
+					new Vec3i(
+						BinaryPrimitives.ReadInt16LittleEndian(record[0x10..]),
+						BinaryPrimitives.ReadInt16LittleEndian(record[0x12..]),
+						BinaryPrimitives.ReadInt16LittleEndian(record[0x14..])));
 				offset += ComponentRecordLength;
 			}
 

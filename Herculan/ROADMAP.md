@@ -27,8 +27,11 @@ The mechanism is understood; what is left is engine work.
 - **Group orders.** `Group_OrderTick` (`00423a74`) advances a group through its row-15 orders. The
   layer is decoded; nothing in the engine runs it.
   → [`docs/formats/script-dat.md`](docs/formats/script-dat.md)
-- **Combat gaps.** There is no explosive blast sweep, so a shot's `SplashFactor` share is dropped.
-  Hit detection and weapon-mount destruction are both complete.
+- **Combat gaps.** Hit detection, weapon-mount destruction and the explosive blast sweep are
+  complete for all three shootable classes. Two of the sweep's three call sites are still unreachable
+  because the functions that own them are unported: the drop pod's landing detonation (`Meteor_Tick`,
+  part of the mission-deployment entry above) and the AI ramming attack (`FUN_0041e488`, part of the
+  behaviour-tree entry below).
   → [`docs/simulation/damage-system.md`](docs/simulation/damage-system.md)
 - **No debris objects of any kind.** A destroyed component and a destroyed weapon mount both throw
   shapes in the original; there is nothing here for them to spawn into.
@@ -59,7 +62,12 @@ The mechanism is understood; what is left is engine work.
 The engine cannot be faithful here until the original is understood.
 
 - **AI / behaviour trees barely understood.** Blocks enemy mech behaviour and patrol movement, and
-  is why AI machines never select a target and so never fire.
+  is why AI machines never select a target and so never fire. Each machine gets a behaviour class at
+  construction and a state within it; the state blocks (`0049991c` onward, stride `0x24`) are three
+  pointer-to-member triples each — a think slot, a per-tick move slot and an empty one — and their
+  class descriptors are filled at startup, so the image alone does not say which state is which. One
+  state is decoded end to end, the ramming attack at `00499b5c`; see
+  [`damage-system.md`](docs/simulation/damage-system.md#the-sweep--damage_explosiveblastsweep-00426a20).
   → [`docs/simulation/target-selection.md`](docs/simulation/target-selection.md)
 - **SimRandom's 56-entry seed table isn't extracted** from DBSIM's data section. The algorithm is a
   literal port; the seeding is not, and a roll's result also depends on generator-advance count —

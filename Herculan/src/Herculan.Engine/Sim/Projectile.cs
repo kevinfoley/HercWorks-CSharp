@@ -174,14 +174,23 @@ public sealed class Projectile {
 	/// record's slack, which is what makes the big EMP round (200) forgiving where an autocannon
 	/// round (100) is not.</para>
 	///
-	/// <para><b>One deliberate deviation, and it is the plasma round's.</b> The original's
-	/// <see cref="PlasmaSubtype"/> branch <i>zeroes</i> the shot record's two damage figures before
-	/// the sweep — the raycast is only asked whether anything was touched — and then calls
-	/// <c>Damage_ExplosiveBlastSweep</c> with a 4000-unit blast radius to do the damage instead, with
-	/// its own proximity fuze against the homing target. There is no blast sweep in the engine, so a
-	/// plasma round keeps its direct-fire damage rather than being made harmless: an unported
-	/// explosion should cost the weapon its splash, not its shot. Everything else about it is the
-	/// ordinary path.</para>
+	/// <para><b>The plasma round ends differently.</b> <see cref="PlasmaSubtype"/> detonates rather
+	/// than striking: <see cref="SimWorld.ExplosiveBlastSweep"/> at
+	/// <see cref="PlasmaBlastRadius"/>, either where it touched something or, through its proximity
+	/// fuze, the moment it has passed its target — see <see cref="PlasmaProximityFuze"/>.</para>
+	///
+	/// <para><b>The blast is the whole of the weapon.</b> The round empties its own shot record
+	/// before it raycasts (<see cref="WeaponShot.StashDamage"/>), so the raycast reports contact and
+	/// nothing more, and everything the round does it does through the sweep — which is why the
+	/// struck object is <i>not</i> excluded from it. The one thing the stash is read back for is a
+	/// structure struck on its collision-volume path; see <see cref="BaseObject.DirectFireHitTest"/>.</para>
+	///
+	/// <para><b>One deviation.</b> The original scales the blast figure by a Q10 factor from one of
+	/// two four-entry tables, one per side, indexed by the mission's difficulty — 3.42x down to 1.37x
+	/// for a shot fired by side 0 and 0.29x up to 0.98x for one fired by anything else, so it is not
+	/// a rounding correction. Nothing here has a difficulty setting to index those tables with, so
+	/// the figure goes in unscaled; it belongs with a difficulty system rather than with the
+	/// round.</para>
 	/// </summary>
 	/// <returns>Whether the shot is finished and should be freed.</returns>
 	internal bool Tick(SimWorld world) {
@@ -199,10 +208,30 @@ public sealed class Projectile {
 		RebuildFrame();
 		var advanced = _frame.TransformPoint(0, step, 0);
 
+		// The proximity fuze, which is ahead of the sweep in the original: a plasma round that has
+		// gone past its target — the bearing error is over a quarter turn, so the target is behind it
+		// — goes off where it is rather than flying on to nothing.
+		if (MissileId == PlasmaSubtype && Target != null
+				&& Position.ApproxDistanceTo(Target.AimPoint) < PlasmaProximityFuze) {
+			var (_, _, bearing) = SimTrig.EulerToward(Target.AimPoint, Position);
+			if ((ushort)(bearing - _eulerZ + BinaryAngle.QuarterTurn) >= BinaryAngle.HalfTurn) {
+				Detonate(world, Position);
+				return true;
+			}
+		}
+
 		var shot = new WeaponShot(_frame, step, Data, Power, Owner, _record.ClipRadius);
+
+		// The plasma round's own preparation, in the original's order: stash and empty before the
+		// raycast, so that whatever it touches is only touched, not damaged.
+		if (MissileId == PlasmaSubtype) {
+			shot.StashDamage();
+		}
+
 		if (world.Raycast(shot) != 0) {
 			HitObject = shot.HitObject;
 			world.RecordProjectileHit(shot);
+			Detonate(world, shot.Muzzle.TransformPoint(0, shot.Distance, 0));
 			return true;
 		}
 
@@ -211,6 +240,39 @@ public sealed class Projectile {
 		_frame.Z = advanced.Z;
 		return false;
 	}
+
+	/// <summary>
+	/// The plasma round's own ending, and nothing else's: a <see cref="PlasmaBlastRadius"/> sweep of
+	/// the object list from wherever the round stopped. Every other subtype simply ceases to exist,
+	/// its damage already applied inside the raycast.
+	///
+	/// <para>The sweep excludes nothing, so the object the round touched stands in the blast like
+	/// everything else — which for a machine is the only damage it takes at all.</para>
+	///
+	/// <para>The blast's figure is the record's <b>armour</b> damage, power-scaled, and not its
+	/// shield damage. On the one record this reaches the two are equal.</para>
+	/// </summary>
+	private void Detonate(SimWorld world, Vec3i at) {
+		if (MissileId != PlasmaSubtype) {
+			return;
+		}
+
+		short damage = Power == 0
+			? Data.DamageArmor
+			: (short)SimMath.Q10Multiply(Power, Data.DamageArmor);
+
+		world.ExplosiveBlastSweep(at, PlasmaBlastRadius, damage, Owner, null);
+	}
+
+	/// <summary>How far the plasma round's blast reaches — <c>Bullet_TickUpdate</c>'s own 4000.</summary>
+	public const int PlasmaBlastRadius = 4000;
+
+	/// <summary>
+	/// How near its target a plasma round has to be for the fuze to arm — 2000 units. Past that
+	/// range the round is only dangerous by contact, and inside it a target that has been overshot
+	/// still takes the blast.
+	/// </summary>
+	public const int PlasmaProximityFuze = 2000;
 
 	/// <summary>
 	/// <c>Bullet_TickUpdate</c>'s opening step: the record's <c>+0x06</c> as a countdown, reloaded

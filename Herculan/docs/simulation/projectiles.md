@@ -80,10 +80,23 @@ the same line unconditionally but can never pass zero.
 
 ### The plasma branch
 
-Subtype 9 is singled out by literal value. It **zeroes the shot record's two damage figures** before
-the sweep — the raycast only reports contact — and calls `Damage_ExplosiveBlastSweep` with a
-4000-unit radius instead, plus a proximity fuze that detonates within 2000 units of the homing target
+Subtype 9 is singled out by literal value. Before the raycast it stashes both damage figures in
+globals and then **empties the shot record** — armour, shield and `SplashFactor` alike — so the
+raycast reports contact and nothing more. Everything the round does it does through a
+`Damage_ExplosiveBlastSweep` at 4000 units, which **excludes nothing**: the object it touched stands
+in the blast like any other. A proximity fuze detonates it within 2000 units of the homing target
 once the bearing error exceeds a quarter turn.
+
+The blast figure is the record's **armour** damage, power-scaled — the two are equal on the one
+record this reaches. On the way in it is scaled by `Damage_ScaleByDifficulty` (`00426b04`), a Q10 factor out of a pair of
+four-entry tables (`0049a73c` for a shot fired by side 0, `0049a744` for anything else) indexed by
+the mission difficulty at `DAT_004a9ee0`. It runs 3.42× down to 1.37× on the first table and 0.29×
+up to 0.98× on the second, so difficulty scales the two sides' blast damage in opposite directions.
+`Mech_CollisionTest`'s slide-landing damage indexes a third such table the same way.
+
+The one reader of the stash is a structure struck on its collision-volume path, which puts the
+armour figure back — see
+[`hit-detection.md`](hit-detection.md#base_directfirehittest--00405038).
 
 Homing is a steer of the **euler angles**, not of a velocity: the bearing to the target
 (`Math_EulerToward`, `00492884`) drives euler 0 and 2 through `Math_RateLimitedMoveToward` at
@@ -100,8 +113,13 @@ target into a quarter turn of pitch; it is worth stating because it did exactly 
 
 `Sim.Projectile`, `Sim.BulletCatalog`, `SimWorld.{FireBullet, Projectiles, Impacts}`. Deviations:
 
-- **Plasma keeps its direct-fire damage** rather than being zeroed, because there is no blast sweep
-  yet; an unported explosion should cost the weapon its splash, not its shot.
+- **The difficulty scale is not applied.** Nothing in the engine has a difficulty setting to index
+  `Damage_ScaleByDifficulty`'s tables with, so the blast figure goes in unscaled; that belongs with a difficulty
+  system rather than with the round. Everything else on the plasma path — the stash and empty
+  (`WeaponShot.StashDamage`), the unexcluded 4000-unit sweep, the 2000-unit proximity fuze — is
+  ported, and all three of the blast slot's implementations are in place, so plasma hurts machines,
+  buildings and aircraft alike. See
+  [`damage-system.md`](damage-system.md#explosive-damage--the-0x70-slot).
 - **Homing works**, on the target `TargetSelection` puts at `mech+0x1a4`. It steers at the target's
   shape centre (`SimObject.AimPoint`), not its origin, as the original does.
 - **The animation frame counter climbs rather than wrapping.** The original mods it by the shape's

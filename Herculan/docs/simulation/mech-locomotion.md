@@ -84,9 +84,11 @@ stripped).
 | 34–42 | `+0x24`–`+0x2c` | `AnimId_TorsoPitch`, `TorsoPitch*` | The same for pitch — see [`torso-aim.md`](torso-aim.md) |
 | 44 | `+0x2e` | `GaitThreshold` | Walk↔run threshold speed |
 | 68 | `+0x46` | `AnimId_Death` | Death/fall sequence id |
+| 76 | `+0x4e` | `Mass` | Chassis mass, the Q10 weight each party's speed carries in a collision. 5000 light … 20000 PITBULL, **0 SPIDER**. Was `Unk76_Val` |
 | 78 | `+0x50` | `InputFlagFlyer` | 1 = Razor. Selects the flight paths and the `fm\<NAME>.FM` load — [`razor-flight.md`](razor-flight.md) |
 | 84 | `+0x56` | `Unk84_val` | Whether a hit can knock this chassis' weapon mounts out — 1 on every biped, **0 on the PITBULL**. `Mech_ApplyDirectFireDamage` tests it before rolling; see [`damage-system.md`](damage-system.md#weapon-mount-destruction) |
 | 108 | `+0x6e` | `GaitThresholdReverse` | Reverse-side walk↔run threshold |
+| 110 | `+0x70` | `BodyRadius` | Body radius, **750 on every HERC** — both radius vtable slots return it, see [`hit-detection.md`](hit-detection.md#the-three-radius-slots). Was `Unk110_camExtVal2` |
 | 122 | `+0x7c` | `AnimId_TurnInPlace` | Turn-in-place sequence id |
 | 194 | `+0xc4` | `StrideScaleDivisor` | Stride calibration divisor |
 | 196 | `+0xc6` | `StrideScaleNumerator` | Stride calibration numerator |
@@ -432,6 +434,35 @@ shows a pose evaluated that same iteration, at 25 Hz.
 > vanilla never does only because it never renders faster than it ticks. Sampling `NodeTransform` at
 > render time with a sub-tick fraction would exceed the original's smoothness rather than match it,
 > and is deliberately not done.
+
+## Collision
+
+`Mech_CollisionTest` (`00418f74`) answers "is the position I just integrated into refused", and is
+run after every move. Three things refuse it, in order:
+
+1. **An object in the way.** The gap is asymmetric: **this** machine contributes its own vtable
+   `+0x5c` and the **other** object its `+0x7c`, and an object whose `+0x7c` is zero is skipped
+   before any distance is taken — see
+   [`hit-detection.md`](hit-detection.md#the-three-radius-slots) for which classes those are. An
+   object still waiting on its mission action is skipped as well.
+2. **A structure's collision volume.** `Structure_GatherWalkCandidates` (`00404ae4`) walks the structure list at `DAT_004a9624`
+   and hands `FUN_00427c68` everything step 1 does not already cover: every static type, plus every
+   animated type that has fallen to a wreck. It skips a structure that is *gone* — destroyed, no
+   hulk, one component. `Structure_WalkCollisionTest` (`00427c68`) then tests the point against each one's `.DGS` height field
+   (see [`hit-detection.md`](hit-detection.md#the-collision-volume--the-dgs-records-height-field)).
+   Step 1 and step 2 are exact complements, so no structure is walked through and none is tested
+   twice.
+3. **Ground too steep**, `|normal.z| < 0x5aa` against normals scaled to the height grid's own one —
+   about 45°. Off the grid counts as steep, which is what keeps a machine inside the zone. For the
+   player only, a *downhill* refusal turns into a slide instead: the slope's X/Y accumulate at Q10
+   10 per tick, and a long enough slide damages the leg components on landing, scaled by the
+   mission difficulty (`DAT_0049a058`).
+
+A block against another **machine** also hurts both of them, through the explosive-damage slot —
+see [`damage-system.md`](damage-system.md#a-collision--mech_collisiontest-00418f74). It additionally
+latches "something ran into me" on the struck object (vtable `+0x68`, `obj+0xb1`) and, separately
+from the block test, records a nearby structure as a lock-on candidate at `mech+0x2b0`; only the
+behaviour layer reads either.
 
 ## Outstanding
 

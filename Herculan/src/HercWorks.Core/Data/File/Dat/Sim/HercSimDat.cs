@@ -74,7 +74,14 @@ public class HercSimDat {
 	public short ModelLegsTotal { get; set; }
 	public short ModelFlagNoDebris { get; set; }
 
-	public short Unk76_Val { get; set; }
+	/// <summary>
+	/// Offset 76 (the exe's <c>typeRecord+0x4e</c>) — the chassis' <b>mass</b>, the Q10 term each
+	/// party's speed is weighed by when two machines run into each other, and the whole of why a
+	/// heavier HERC wins a collision. Retail runs 5000 for a light through 20000 for the PITBULL;
+	/// SPIDER states 0, so it can neither hurt anything by walking into it nor be spared by its own
+	/// weight. Was <c>Unk76_Val</c>.
+	/// </summary>
+	public short Mass { get; set; }
 
 	/// <summary>Hercs have 0, razor has 1.</summary>
 	public short InputFlagFlyer { get; set; }
@@ -104,7 +111,14 @@ public class HercSimDat {
 	/// Offset 108 — <see cref="GaitThreshold"/> on the reverse side.
 	/// </summary>
 	public short GaitThresholdReverse { get; set; }
-	public short Unk110_camExtVal2 { get; set; }
+	/// <summary>
+	/// Offset 110 (the exe's <c>typeRecord+0x70</c>) — the machine's <b>body radius</b>, in world
+	/// units: what the blast sweep measures its surface by, and what keeps two machines from walking
+	/// through each other. <b>Every retail HERC states 750</b> — 4.5 m — so machines stop 1500 units
+	/// apart whatever their size. Distinct from <see cref="AiAimTargOffset"/>, the deliberately
+	/// generous shot radius. Was <c>Unk110_camExtVal2</c>, a guess from its neighbours.
+	/// </summary>
+	public short BodyRadius { get; set; }
 
 	public short ModelFlagsShadow1 { get; set; }
 	public short ModelFlagsShadow2 { get; set; }

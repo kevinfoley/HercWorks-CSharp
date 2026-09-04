@@ -100,16 +100,15 @@ order:
    the ONE component struck — **not** a random roll, unlike the explosion path. Decoded and ported
    in [`hit-detection.md`](hit-detection.md). **Missing every sphere is a clean
    miss**: the shield cylinder is only a gate, and the shot passes on to whatever stands behind.
-4. **Damage application — `FUN_004188c8`.** Takes `SplashFactor` off the top
-   (`Math_Q10Multiply(shotData[+8], armorDamage)`, Q10 — see "Weapon-type effectiveness" below) and
-   **splits** the shot: that share goes toward destroying the specific weapon
-   mount at that location if one is present (which, if it fails, can trigger a secondary
-   small-radius explosion via the mech's own `+0x70` vtable slot — the same function the AoE path
-   uses, i.e. a destroyed weapon mount can itself explode and splash nearby components), and the
-   remainder goes to that component's general health via the mech's `+0x74` vtable slot
-   (`FUN_00417de4`, below). Health is bucketed into 8 levels (`>>5` of the 0–256 Q8 percentage)
-   for state-transition/alert purposes, plausibly matching the manual's 5-color status system
-   (Green/Yellow/Orange/Red/Gray).
+4. **Damage application — `Mech_ApplyDirectFireDamage` (`004188c8`).** Takes `SplashFactor` off the
+   top (`Math_Q10Multiply(shotData[+8], armorDamage)`, Q10 — see "Weapon-type effectiveness" below)
+   and **splits** the shot: the remainder goes to that component's general health via the mech's
+   `+0x74` slot (`FUN_00417de4`, below), and the split-off share, when non-zero, becomes a 500-unit
+   secondary explosion through this same machine's `+0x70` — a direct call, not a sweep, so it
+   cannot reach anything standing beside it. Health is bucketed into 8 levels (`>>5` of the 0–256 Q8
+   percentage) for state-transition/alert purposes, plausibly matching the manual's 5-color status
+   system (Green/Yellow/Orange/Red/Gray). A bucket change also rolls to knock out a weapon mount at
+   that component — see "Weapon-mount destruction" below.
 
 This is fundamentally different in shape from the explosion path: precisely-aimed weapons hit what
 you aimed at; explosions spray damage around imprecisely.
@@ -132,64 +131,178 @@ consumers identify it.
 [`weapon-firing.md`](weapon-firing.md), and it calls `Bullet_FireBurst`, which calls the raycast; no
 path applies damage directly to a locked target.
 
-## Explosive damage: blast sweep, random per-component roll, distance falloff, shield-gated
+## Explosive damage — the `+0x70` slot
 
-**`FUN_00426a20` — the area-of-effect sweep.** Walks the live-object list, skips inactive objects
-and the excluded object (`param_5`), and for every other live object: computes its hit-radius via
-a vtable call (`obj+0x5c`), computes distance from the impact point, and if
-`distance − hitRadius < blastRadiusParam`, calls that object's `+0x70` vtable method — for a mech,
-`FUN_004187d0` — with `(weaponType, impactPos, blastRadius, extra)`.
+Every simulation object carries a vtable `+0x70` that says what an explosion does to it. **Four
+things call it, and only one of them is a sweep:**
 
-Exactly **3 call sites in all of DBSIM.EXE**, all genuinely explosive/terminal events, not routine
-weapon fire:
-1. **`Meteor_Tick` (`00409d2c`)** — the **drop pod** landing, not a missile: checks altitude against
-   terrain height every tick via `Terrain_HeightQuery` (`0046e07c`), and the instant it dips below
-   ground, detonates `FUN_00426a20(pos, 3000, 10000, 0, null)`. Its only caller is `Sim_MainTick`'s
-   walk of the meteor pool. See
-   [`mission-deployment.md`](mission-deployment.md) — this function was previously filed here as a
-   missile's ground impact, which it is not.
-2. **`FUN_0040b124`, only inside the bullet `type == 9` branch** — a distinct bullet subtype, not
-   bullets as a class, calling `FUN_00426a20(pos, 4000, ..., owner, null)` on a hit. This is the
-   **Plasma cannon** — confirmed concretely below (`MissileId 9`).
-3. **`FUN_0041e48e`** — a mech's own death/destruction handler: once confirmed dead, it drops to
-   the ground, triggers one `FUN_00426a20(pos, 3000, 2000, 0, self)` (a death explosion that can
-   splash nearby objects), then unconditionally slams **every one of its own remaining components
-   with a flat 32000 damage** via direct `+0x74` calls — no random roll, no falloff; guaranteed-
-   destruction cleanup, not the live-combat formula.
+| Caller | Shape | Damage | Radius |
+|---|---|---|---|
+| `Damage_ExplosiveBlastSweep` (`00426a20`) | sweep of the live-object list | the caller's | the caller's |
+| `Mech_ApplyDirectFireDamage` (`004188c8`) | direct, on the struck object only | the shot's `SplashFactor` share | 500 |
+| `Mech_CollisionTest` (`00418f74`) | direct, on both parties | momentum difference | 1200 |
 
-**`FUN_004187d0(this, weaponType, hitPos, blastRadius, extra)` — the per-mech AoE damage
-formula.** In order:
-1. Computes the angular difference between the mech's facing and the direction to the hit point,
-   classifying it front (`< 0x4000`, ±90° in BAM units) or rear.
-2. **Shield absorption — `FUN_00413c68`, the explosion path's own separate implementation of
-   the same concept `FUN_00413cc4` implements for direct fire.** Picks the front or rear shield
-   value by the classification above, computes `scaledDamage = (weaponDamage × 1000) >> 8` (a
-   different scaling constant than the direct-fire path — genuinely separate code, not a shared
-   subroutine), subtracts it from that shield zone, and if the zone goes negative, clamps it to 0
-   and returns a scaled overflow amount (`overflow × 0x400 / 1000`); otherwise returns 0 (fully
-   absorbed, no structural damage). Confirms shields gate both damage pathways, matching the
-   manual: "shields cause missiles to explode on contact, preventing most of their blast power
-   from reaching the HERC's armor."
-3. If shield overflow is positive, **iterates up to 29 component slots** (the same indexing space
-   the direct-fire path's component selection uses — see below), and for each occupied slot: rolls
-   a per-component random chance (`FUN_00492dd4(...) & 0xfff < 0x802`, ≈51%) to even be considered
-   for this hit — splash damage doesn't hit every component in range, each independently rolls.
-   For components that pass, gets that component's world position (`this+0x58` vtable call),
-   computes distance from the hit point, and if within `blastRadius`, applies damage via the
-   mech's `+0x74` vtable slot (the same `FUN_00417de4` the direct-fire path's final step uses)
-   with:
-   ```
-   amount = shieldOverflow × (blastRadius − distance) / blastRadius
-   ```
-   **Linear distance falloff** — full overflow amount at zero distance, scaling to zero exactly at
-   `blastRadius`.
+The three implementations share the falloff's shape and nothing else. All take
+`(this, short damage, int *hitPoint, short blastRadius, void *attacker)`.
 
-**Both pathways converge on the same final health-writing function, `FUN_00417de4`** — they
-differ in shield-absorption implementation (parallel but separate code), in how many/which
-components get selected (one deterministic vs. many random), and in whether there's a
-distance-falloff curve. Using the AoE formula for a laser would make it behave like a
-mini-explosion instead of a precise hit; using the direct-fire formula for a missile would make
-its splash radius meaningless — keep both as genuinely separate systems in a port.
+### The sweep — `Damage_ExplosiveBlastSweep` (`00426a20`)
+
+Walks the live-object list; skips an object whose mission group still carries an action (see
+[`hit-detection.md`](hit-detection.md#the-sweep--sim_raycastobjectlist-00426528)) and the excluded
+object (`param_5`); calls `+0x70` on everything whose `distance - obj[+0x5c] < blastRadius`.
+**Surface to centre, not centre to centre** — the object's body radius is subtracted first. Nothing
+stops, shortens or orders the sweep: a wall between two objects shields neither.
+
+Exactly **3 call sites**, all terminal events rather than routine fire:
+
+1. **`Meteor_Tick` (`00409d2c`)** — the **drop pod** landing, not a missile. Detonates
+   `(pos, 3000, 10000, 0, null)` the instant its altitude dips below the terrain. See
+   [`mission-deployment.md`](mission-deployment.md).
+2. **`Bullet_TickUpdate` (`0040b124`), the `type == 9` branch** — the **Plasma cannon**, and a
+   bullet subtype rather than bullets as a class: `(pos, 4000, armourDamage, owner, null)`. It
+   empties its own shot record first, so the blast is the whole of the weapon; see
+   [`projectiles.md`](projectiles.md#the-plasma-branch).
+3. **`Mech_BehaviourRamTick` (`0041e488`)** — an **AI ramming attack**. It is the per-tick *move*
+   slot of one behaviour state (block `00499b5c`, whose think slot `Mech_BehaviourRamThink`
+   (`0041e570`) charges the selected target at full throttle and then runs this three times a tick).
+   It integrates motion, snaps the machine to the ground, and on `Mech_CollisionTest` reporting a
+   block detonates
+   `(pos, 3000, 2000, 0, self)` and then finishes off **every one of its own 29 components with a
+   flat 32000** through `+0x74` — a guaranteed self-destruction, no roll and no falloff. Reaching it
+   needs the behaviour layer, which is not understood; see [`../../ROADMAP.md`](../../ROADMAP.md).
+
+### Where a component stands — the `+0x58` slot
+
+The falloff is measured from the component, not from the object's origin, and `+0x58` is what
+answers where the component is. Signature `(this, short componentIndex, int *out)` for both real
+implementations.
+
+- **A mech — `Mech_ComponentPosition` (`0041b60c`).** Reads the `HercPiece` fields at `+0x0c` (a
+  shape part id) and `+0x0e` (a pointer to a point). A piece with a null point answers **the
+  machine's own position**, which is at its feet. Otherwise the point goes through the machine's
+  world transform, composing the part's posed node transform first when the part id is `> 0` — note
+  strictly greater, so part 0 would stay in the object frame; no retail `.COL` uses part 0. A part
+  the shape does not have falls back to the identity transform at `006c572c`.
+
+  **Those two fields are not in the `.DMG` file** — the loader writes `-1` and null
+  (`HercPiece_ReadRecord`, `0040cff8`), and `Mech_ConfigureLoadout` (`004175dc`) fills them in from
+  the `.COL`: `Collision_CollectComponentAnchors` (`0040cb84`) walks every cluster and emits
+  `(componentIndex, nodeIndex, &cluster.boundCentre)`, and `HercPiece_BindComponentAnchors`
+  (`0040d284`) writes each triple into the piece its component index names. The write is unguarded,
+  so **the last cluster naming a component wins**; every retail mech `.COL` names each component
+  exactly once, so it never bites. The point is the cluster's load-time *bounding-sphere* centre,
+  not any one sphere.
+
+  A mech `.COL` names 6–16 of the 29 slots, so most of a HERC — every internal, and on most chassis
+  the shoulders — is measured from the ground under the machine rather than from where the part is.
+- **A structure — `Base_ComponentPosition` (`00406808`).** The component's own point from
+  `BASES.DAT` (see [`hit-detection.md`](hit-detection.md#datbasesdat-runtime-record)) through the
+  structure's world transform. No node to resolve: a building's parts do not move. It is **not** the
+  `BASECOL.DAT` geometry a shot is tested against, and several types put the blast point above the
+  spheres.
+- **A flyer** inherits the base class's `00411a3c`, which is `push ebp; pop ebp; ret` — it never
+  writes its out-parameter. Nothing calls it: the flyer's `+0x70` uses the object origin directly.
+
+### A mech — `Mech_ApplyExplosiveDamage` (`004187d0`)
+
+1. **Facing.** The bearing to the hit point against the machine's own heading, front inside
+   `0x4000` either way — the same ±90° window `Mech_GetShieldByHeading` uses. Unlike the direct-fire
+   path it is the machine's facing that decides, not the geometry of a ray.
+2. **Shields — `Mech_ShieldAbsorb_Explosive` (`00413c68`)**, the explosion path's own implementation
+   of what `Mech_ShieldAbsorb_DirectFire` does for direct fire. Computes
+   `scaledDamage = (damage × 1000) >> 8`, takes it out of the chosen zone, and returns
+   `overflow × 0x400 / 1000` if the zone went negative and 0 otherwise. A facing that swallows the
+   blast ends it here. Confirms shields gate both pathways, matching the manual: "shields cause
+   missiles to explode on contact, preventing most of their blast power from reaching the HERC's
+   armor."
+
+   **The two scales do not cancel, and a blast's face value is worth four times a beam's.** Input is
+   multiplied by `1000/256`, output divided by `1000/0x400` — a net `0x400/256`, exactly 4. So a
+   blast of face value *d* removes `d × 1000/256` from the facing, and against an empty facing hands
+   `4d` to the components behind it. The exchange rate is nearly unchanged (`1000/1024` ≈ 0.977
+   charge per point delivered, against direct fire's 1.0); it is the *units* that differ, so
+   `PROJ.DAT`'s two damage figures are not comparable between the two pathways. **Suspected retail
+   bug**: the symmetric inverse of the `>> 8` going in is `0x100`, and `0x400` is the Q10 constant
+   one shift away from it. Reproduced as-is; see [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
+3. **A roll per component**, over a fixed 29 slots. Each live one draws `rand & 0xfff < 0x802`
+   (≈51%) to be considered at all, so two identical blasts do not wreck the same parts.
+4. **Distance and falloff.** The component's `+0x58` position against the hit point; inside
+   `blastRadius` it takes `overflow × (blastRadius - distance) / blastRadius` through `+0x74`.
+
+### A structure — `Base_ApplyExplosiveDamage` (`00404f20`)
+
+No shields, no facing, and its parts stand where the type record says.
+
+```
+if (typeRec[+0x1e] != 0) return                        // invulnerable
+if (wreck-with-hulk) return                            // same test Base_DirectFireHitTest opens with
+if (typeRec[+0x38] == 0) return                        // no BASECOL.DAT model -> immune to blasts
+for (i = 0; i < typeRec[+0x12]; i++) {
+    if (!alive[i]) continue
+    if ((rand & 0xfff) >= 0x1004) continue             // cannot fail -- see below
+    d = |vtable+0x58(i) - hitPoint|
+    if (d < blastRadius) vtable+0x74(i, (blastRadius - d) * damage / blastRadius, attacker)
+}
+```
+
+**The per-component roll can never fail.** `0x1004` is one above the largest value the `0xfff` mask
+can produce, so every live component is measured. The draw still advances the shared generator.
+
+**A type with no `BASECOL.DAT` model is immune to explosions** however close they go off, even
+though direct fire still hurts it through the shape's collision volume — 40 of the 65 retail types.
+
+### A flyer — the base slot `SimObject_ApplyExplosiveDamage` (`00411b3c`)
+
+The flyer class does not override `+0x70`; it inherits the shared base implementation, which is why
+it is the simplest of the three. No roll, no component selection, no shields:
+
+```
+vtable+0x74(0, (blastRadius - (|hitPoint - obj[+0x26]| - obj[+0x5c])) * damage / blastRadius, attacker)
+```
+
+Component 0 is the only one a flyer has. There is no range test — the sweep has already made it — so
+the numerator cannot come out negative. The body radius subtracted is the same one the sweep
+subtracted, and a flyer's is zero (see
+[`hit-detection.md`](hit-detection.md#the-three-radius-slots)); for a class whose radius is not zero,
+a blast going off inside it scales by more than one.
+
+### A collision — `Mech_CollisionTest` (`00418f74`)
+
+**Walking into another machine hurts both of you**, and it is a direct call on each party rather
+than a sweep, so a third machine standing beside the crash takes nothing. The blocking half of the
+same function is in [`mech-locomotion.md`](mech-locomotion.md#collision).
+
+```
+if (struck.targetClass != Herc) return                     // a structure or flyer blocks, unhurt
+closing = ({0, struck.speed, 0} * struck.rotation) * transpose(mover.rotation)
+impulse = Q10(moverTypeRec[+0x4e], mover.speed) - Q10(struckTypeRec[+0x4e], closing.y)
+damage  = Q10(300, impulse)
+if (damage <= 200) return
+at = ( (mover.x + struck.x)/2, (mover.y + struck.y)/2,
+       min(eyeNodeZ(mover), eyeNodeZ(struck)) )
+mover.vtable+0x70 (damage, at, 1200, struck)
+struck.vtable+0x70(damage, at, 1200, mover)
+```
+
+`typeRec+0x4e` is the chassis' mass and `closing.y` is the struck machine's travel resolved onto the
+mover's forward axis, so a head-on meeting adds and being rear-ended by something slower subtracts.
+Both machines take the same figure. The 200 threshold is what keeps a machine shuffling against a
+wall from grinding itself down.
+
+**The impact point mixes two frames.** X and Y are the world midpoint of the two machines, but Z is
+the lower of the two cockpit-eye nodes' *model-space* heights — roughly torso height above each
+machine's own feet — used as though it were a world height. On level ground near sea level the two
+nearly agree; on a hill the blast goes off well below the machines.
+
+### Both pathways converge
+
+They end in the same health-writing primitive (`FUN_00417de4` for a mech), and differ in
+shield-absorption implementation (parallel but separate code), in how many and which components get
+selected (one deterministic versus many random), and in whether there is a distance-falloff curve.
+Using the AoE formula for a laser would make it behave like a mini-explosion instead of a precise
+hit; using the direct-fire formula for a missile would make its splash radius meaningless — keep
+both as genuinely separate systems in a port.
+
 
 ## The shield system
 
@@ -486,12 +599,19 @@ call obj[+0x74](obj, part, armorDamage - uVar1, ...);      // general component 
 if (uVar1 != 0) call obj[+0x70](obj, uVar1, ..., blastRadius=500, ...);  // secondary explosion, same formula explosive weapons use
 ```
 A Q10 **fraction of the already shield-absorbed armor damage** diverted into a small
-(500-unit-radius) secondary explosion, reusing the same blast-sweep formula as "Explosive damage"
-above, instead of applying straight to the struck component's health. Zero means no secondary
-explosion — the guard (`if (uVar1 != 0)`) skips it and the full armor-damage amount goes straight
-to health. Real nonzero values (`500` or `1000`) appear scattered across several weapons, most
-consistently for one whole weapon family (uniform `DamageShield==DamageArmor`) — a plausible match
-for Electron Flux, not proven.
+(500-unit-radius) secondary explosion instead of applying straight to the struck component's health.
+Zero means no secondary explosion — the guard (`if (uVar1 != 0)`) skips it and the full armor-damage
+amount goes straight to health.
+
+Real nonzero values (`500` or `1000`) appear scattered across several weapons, most consistently for
+one whole weapon family (uniform `DamageShield==DamageArmor`) — a plausible match for Electron Flux,
+not proven.
+
+**It is a direct call on the struck object, not a sweep**, so the blast stays inside the machine that
+was hit and cannot reach anything standing next to it. It also runs the share through
+`Mech_ShieldAbsorb_Explosive` a second time — the original does not exempt one that has already been
+through `Mech_ShieldAbsorb_DirectFire` — so both that absorption and its 4× apply on top of what the
+shot already lost to shields.
 
 **The loader:** `FUN_0040fc8c` opens `"wpntex"`, `"mechwpn2"`, `"weapons"` (count + 88-byte
 records — plausibly a per-hardpoint mount-template table, not traced further), then `"proj"` and
@@ -627,8 +747,8 @@ The traps, not a summary — everything else here is stated once above and does 
 
 1. **The two post-shield damage models are structurally different, not two settings of one.** Direct
    fire hits exactly one deterministically-selected component with no distance falloff; explosive
-   damage sweeps the object list and independently rolls each of up to 29 components at ~51% odds
-   with linear falloff. Using the explosive formula for a beam turns it into a mini-explosion.
+   damage sweeps the object list and rolls each of a machine's 29 components at ~51% odds with
+   linear falloff. Using the explosive formula for a beam turns it into a mini-explosion.
 2. **Shield absorption is implemented twice in the original**, once per pathway, and a port needs
    both gated — `absorbed = min(damage, remainingCharge)`, so damage bleeds through the instant a
    hit exceeds what is left in that zone, not only once the zone is empty.
@@ -636,6 +756,9 @@ The traps, not a summary — everything else here is stated once above and does 
    its dependents, and destroying one cascades into them.
 4. **Rates are per tick, not per second.** The 5-unit shield recharge cap is per tick; at 25 Hz and
    the fleet-wide 3500 capacity a full rebuild is 700 ticks, or 28 s.
+5. **`+0x70` is not "the splash weapon path".** Two of its four callers are not weapons at all — a
+   drop pod landing and two machines colliding — and one of the weapon callers is a direct call on
+   the struck object rather than a sweep.
 
 ## Ported
 
@@ -643,12 +766,23 @@ The traps, not a summary — everything else here is stated once above and does 
 of `Mech_ComponentDamageWrite` that change behaviour: the shield-capacity recompute, leg grading,
 the death gate, the reactor flags), `Sim.ComponentDamage` (the whole `+0x206` header — the three
 arrays, the aggregate read, the spill and the cascade), `Sim.ShieldCharge`, `Sim.MechObject.Power`
-(capacity and reactor rate), and `MechTypeRecord.HitRadius`/`HitCenterHeight`/`LegCount`.
+(capacity and reactor rate), and `MechTypeRecord.HitRadius`/`HitCenterHeight`/`LegCount`/`Mass`.
 
 Weapon-mount destruction is ported on both paths — `Sim.WeaponMount.Destroy` and
 `ConditionChanged`, and `MechObject.RollWeaponMountDestruction`.
 
-Not ported: the explosive blast sweep (so `SplashFactor`'s share is dropped rather than diverted —
-every retail beam states zero, so nothing is lost today), the Shield Pod's own damage term in
-`Mech_ComputeShieldCapacity`, every alert sound, the salvage queue, and the debris both a destroyed
-component and a destroyed mount throw.
+The explosive pathway is ported entire. `SimWorld.ExplosiveBlastSweep` is the sweep;
+`SimObject.ExplosiveDamage` is the `+0x70` slot, overridden by `MechObject`, `BaseObject` and
+`FlyerObject` for the three implementations. The `+0x58` accessors are
+`MechObject.ComponentPosition` (over an anchor table `BuildComponentAnchors` fills from the `.COL`,
+which is where the original's loadout step puts it) and `BaseObject.ComponentPosition`.
+`ShieldCharge.AbsorbExplosion` is the explosion path's shield step, and `SplashFactor`'s share is
+diverted rather than dropped. The collision call site is `MechObject.CollisionDamage`.
+
+Of the sweep's three call sites the plasma round is reachable; the drop pod's belongs to
+`Meteor_Tick` and the ram to a behaviour state, and neither layer exists yet.
+
+Not ported: the Shield Pod's own damage term in `Mech_ComputeShieldCapacity`, every alert sound, the
+salvage queue, the debris both a destroyed component and a destroyed mount throw, and — from the
+collision path — the "something ran into me" latch (`obj+0xb1`, written through vtable `+0x68`) and
+the nearby-structure lock-on candidate, both of which only the unported behaviour layer reads.

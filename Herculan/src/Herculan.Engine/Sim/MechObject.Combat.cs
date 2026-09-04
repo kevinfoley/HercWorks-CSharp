@@ -319,10 +319,16 @@ public sealed partial class MechObject {
 	///
 	/// <para><b>The shot's splash fraction is taken off the top.</b>
 	/// <see cref="WeaponShot.SplashFactor"/> is a Q10 multiplier, and the share it names is
-	/// <i>diverted</i> away from the struck component into a small explosion of its own (the mech's
-	/// vtable <c>+0x70</c>, a 500-unit blast) — the component gets only the remainder. Every retail
-	/// beam states zero, so today the whole shot lands on the component; the blast half has nowhere
-	/// to go until an explosive sweep exists.</para>
+	/// <i>diverted</i> away from the struck component into a small explosion of its own — the mech's
+	/// own vtable <c>+0x70</c>, <see cref="ExplosiveDamage"/>, at
+	/// <see cref="SecondaryBlastRadius"/> — and the struck component gets only the remainder. Every
+	/// retail beam states zero, so on a beam the whole shot still lands on the one component; the
+	/// missile records and the plasma round are what state a share.</para>
+	///
+	/// <para><b>The share is absorbed a second time on its way in.</b> The explosion path opens with
+	/// its own shield absorption, and the original does not exempt a blast that came out of a shot
+	/// which has already been through the other one — so a machine with charge left keeps far more of
+	/// a splashing weapon off its structure than the two damage figures alone suggest.</para>
 	///
 	/// <para>The effect a hit spawns depends on whether the component's damage reading crossed one of
 	/// its eight bands: it did not, and the shot draws from
@@ -347,6 +353,13 @@ public sealed partial class MechObject {
 
 		ComponentDamageWrite(world.Random, componentIndex, (short)(armorDamage - splash), shot.Owner);
 
+		// The diverted share, as its own explosion inside this machine. It is not a world sweep: the
+		// original calls this machine's own +0x70 slot directly, so the blast is confined to the
+		// components around the point of impact and cannot reach anything standing nearby.
+		if (splash != 0) {
+			ExplosiveDamage(world, splash, hitPoint, SecondaryBlastRadius, shot.Owner);
+		}
+
 		int after = _damage.DamagePercent(componentIndex);
 		var group = after >> 5 == band
 			? WeaponShot.ImpactFxGroup.Ground
@@ -357,6 +370,164 @@ public sealed partial class MechObject {
 		}
 
 		world.SpawnImpactEffect(world.PickImpactEffect(shot.ImpactFx(group)), hitPoint);
+	}
+
+	/// <summary>
+	/// <c>Mech_ApplyExplosiveDamage</c> (<c>004187d0</c>), the mech's vtable <c>+0x70</c> — <b>the other
+	/// damage model</b>, and not a setting of the direct-fire one. Where a beam picks exactly one
+	/// component out of the hit geometry and hands it the whole shot, a blast rolls every component
+	/// the machine has and scales what each takes by how far it stood from the bang.
+	///
+	/// <list type="number">
+	/// <item><b>The facing</b> is the bearing from the machine to the blast against its own heading,
+	/// front inside a quarter turn either way — the same ±90° window
+	/// <c>Mech_GetShieldByHeading</c> uses, and unlike the direct-fire path it is the machine's
+	/// facing that decides, not the geometry of a ray.</item>
+	/// <item><b>Shields</b>, through <see cref="ShieldCharge.AbsorbExplosion"/>, which is the
+	/// original's second implementation of the hard cap and scales its input differently from the
+	/// first. A facing that swallows the blast whole ends it here.</item>
+	/// <item><b>A roll per component.</b> Each live slot draws once at
+	/// <see cref="ComponentBlastOdds"/> in 4096 — a little over half — to be considered at all, so
+	/// two identical blasts on an identical machine do not wreck the same parts.</item>
+	/// <item><b>Distance and falloff.</b> A component that passed its roll is placed in the world and
+	/// measured against the blast point; inside <paramref name="blastRadius"/> it takes the shield
+	/// overflow scaled linearly to zero at the radius, through the same
+	/// <see cref="ComponentDamageWrite"/> endpoint a beam's damage ends in.</item>
+	/// </list>
+	///
+	/// <para>Reached from two places, as in the original: the world sweep
+	/// (<see cref="SimWorld.ExplosiveBlastSweep"/>) for a shot that goes off in the open, and this
+	/// machine's own direct-fire path for the splash share of a shot that hit it — see
+	/// <see cref="ApplyDirectFireDamage"/>.</para>
+	///
+	/// <para>Not ported: the pilot alerts, and the debris a component lost this way throws.</para>
+	/// </summary>
+	public override void ExplosiveDamage(SimWorld world, short damage, Vec3i hitPoint, int blastRadius,
+			SimObject? attacker) {
+		if (_damage == null || blastRadius <= 0) {
+			return;
+		}
+
+		short bearing = Detection.HeadingToward(hitPoint, Position);
+		bool front = (ushort)(bearing - Heading + BinaryAngle.QuarterTurn) < BinaryAngle.HalfTurn;
+
+		short overflow = Shields.AbsorbExplosion(front, damage);
+
+		// What the facing swallowed, back in the blast's own units — see
+		// ShieldCharge.ExplosionOverflowFactor for why the overflow has to be divided before the two
+		// can be subtracted. The original's own write of this field on this path has not been read;
+		// the field is kept consistent here so that it means what its name says whichever way a
+		// machine was hurt.
+		DamageTaken += damage - overflow / ShieldCharge.ExplosionOverflowFactor;
+
+		if (overflow <= 0) {
+			return;
+		}
+
+		for (short i = 0; i < _damage.Count; i++) {
+			if (!_damage.IsActive(i) || world.Random.NextMasked(0xfff) >= ComponentBlastOdds) {
+				continue;
+			}
+
+			int distance = ComponentPosition(i).ApproxDistanceTo(hitPoint);
+			if (distance >= blastRadius) {
+				continue;
+			}
+
+			ComponentDamageWrite(
+				world.Random, i, (short)((long)overflow * (blastRadius - distance) / blastRadius),
+				attacker);
+		}
+	}
+
+	/// <summary>
+	/// The odds a component is considered for a blast at all, out of the low twelve bits of a draw —
+	/// <c>0x802</c> in 4096, a shade over half. It is rolled per component per explosion, which is
+	/// what makes splash damage spread rather than flatten.
+	/// </summary>
+	private const int ComponentBlastOdds = 0x802;
+
+	/// <summary>
+	/// The radius of the secondary explosion <c>Mech_ApplyDirectFireDamage</c> touches off with the
+	/// shot's splash share — small enough that it reaches the components around the point of impact
+	/// and no further.
+	/// </summary>
+	private const int SecondaryBlastRadius = 500;
+
+	/// <summary>
+	/// One component's blast anchor: the shape node it rides and the point it sits at on that node.
+	/// Null for a component the <c>.COL</c> never names, which is most of the internals — see
+	/// <see cref="ComponentPosition"/>.
+	/// </summary>
+	private readonly record struct ComponentAnchor(short NodeIndex, short X, short Y, short Z);
+
+	/// <summary>
+	/// The per-component anchors, built once from the <c>.COL</c> — see
+	/// <see cref="BuildComponentAnchors"/>. Built on demand rather than in the constructor because
+	/// the original builds it at loadout time, after both the model and the piece table are in place.
+	/// </summary>
+	private ComponentAnchor?[]? _componentAnchors;
+
+	/// <summary>
+	/// Where a component learns where it is: the machine's <c>.COL</c> is walked cluster by cluster
+	/// and each cluster's node and centre are filed under the component index it names. The original
+	/// does this once at loadout, writing into two runtime-only fields of the <c>.DMG</c> record —
+	/// see docs/simulation/damage-system.md, "Where a component stands".
+	///
+	/// <para><b>The write is unguarded, so the last cluster naming a component wins.</b> It makes no
+	/// difference on retail data — every mech <c>.COL</c> names each component exactly once — but it
+	/// is the original's order and the cheap thing to be faithful to.</para>
+	///
+	/// <para>The centre is the <i>bound</i> of the cluster, not any one sphere: the same figure
+	/// <see cref="CollisionModelReader"/> derives at load and the hit test tries before the spheres
+	/// under it.</para>
+	/// </summary>
+	private ComponentAnchor?[] BuildComponentAnchors() {
+		var anchors = new ComponentAnchor?[_damage?.Count ?? 0];
+
+		foreach (var node in _collision) {
+			foreach (var cluster in node.Clusters) {
+				if (cluster.ComponentIndex >= 0 && cluster.ComponentIndex < anchors.Length) {
+					anchors[cluster.ComponentIndex] = new ComponentAnchor(
+						node.NodeIndex, cluster.Bound.X, cluster.Bound.Y, cluster.Bound.Z);
+				}
+			}
+		}
+
+		return anchors;
+	}
+
+	/// <summary>
+	/// Where one of this machine's components stands in the world. The blast measures its falloff
+	/// from it, and a missile takes its lock node's position through the same accessor.
+	///
+	/// <para>It reads the anchor <see cref="BuildComponentAnchors"/> filed for the component and puts
+	/// the point through the machine's frame, composing the node's posed transform first when the
+	/// anchor names one — so a leg's blast point walks with the leg and the torso's swings with the
+	/// turret. The node gate is the original's <c>&gt; 0</c> rather than "not the object frame", so
+	/// node 0 would be left in the object frame; no retail <c>.COL</c> uses node 0.</para>
+	///
+	/// <para><b>A component with no anchor answers the machine's own origin</b>, which is at its
+	/// feet. That is the original's first branch, not a fallback invented here, and it is what most
+	/// of a HERC gets: a mech <c>.COL</c> names between six and sixteen of the 29 slots, so every
+	/// internal and — on most chassis — the shoulders are measured from the ground under the machine
+	/// rather than from anywhere near where they are. A blast at head height reaches those parts less
+	/// readily than the geometry would suggest.</para>
+	/// </summary>
+	private Vec3i ComponentPosition(short componentIndex) {
+		_componentAnchors ??= BuildComponentAnchors();
+
+		if (componentIndex < 0 || componentIndex >= _componentAnchors.Length
+				|| _componentAnchors[componentIndex] is not { } anchor) {
+			return Position;
+		}
+
+		var frame = WorldTransform;
+		if (anchor.NodeIndex > 0 && NodeFrame(anchor.NodeIndex) is { } posed) {
+			frame = Transform3.Concat(posed, frame);
+		}
+
+		return frame.TransformPoint(anchor.X, anchor.Y, anchor.Z);
 	}
 
 	/// <summary>

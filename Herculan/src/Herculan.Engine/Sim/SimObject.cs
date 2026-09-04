@@ -44,9 +44,9 @@ public enum TargetClass : short {
 /// <para>Only the slots the engine currently needs are declared. Several more are already
 /// identified in the disassembly — direct-fire hit-test-and-damage (<c>+0x20</c>), the shield
 /// charge getter (<c>+0x34</c>), the AI "I just took fire" notification (<c>+0x50</c>), the
-/// lock-on tracking-handle request (<c>+0x54</c>), explosive damage (<c>+0x70</c>) and the shared
-/// component health write (<c>+0x74</c>) — but declaring them before combat exists would only mean
-/// stubbing them on every subclass. They get added alongside the systems that call them; the point
+/// lock-on tracking-handle request (<c>+0x54</c>) and the shared component health write
+/// (<c>+0x74</c>) — but declaring them before combat exists would only mean stubbing them on every
+/// subclass. They get added alongside the systems that call them; the point
 /// of recording the shape here is that when that happens it is a translation, not a redesign.</para>
 /// </summary>
 public abstract class SimObject {
@@ -245,10 +245,26 @@ public abstract class SimObject {
 	public bool AwaitingDeployment { get; set; }
 
 	/// <summary>
-	/// Coarse collision radius, in world units — the original's vtable slot <c>+0x5c</c>, called by
-	/// the area-of-effect sweep on every candidate object before comparing against a blast radius.
+	/// The object's body radius, in world units. The blast sweep subtracts it from every candidate's
+	/// distance before comparing against the blast radius, and the collision test uses the moving
+	/// machine's as its own half of the gap.
+	///
+	/// <para>It is not the drawn model's size (<see cref="ShapeRadius"/>) and not what a shot is
+	/// rejected against. <b>A flyer's is zero</b>, so an aircraft is measured centre to centre by a
+	/// blast. See docs/simulation/hit-detection.md, "The three radius slots", for all three.</para>
 	/// </summary>
 	public abstract int HitRadius { get; }
+
+	/// <summary>
+	/// The radius at which this object <i>blocks</i> a walking machine. Read only by
+	/// <see cref="MechObject.CollisionTest"/>, and only of the <i>other</i> object. <b>Zero means
+	/// walk through me</b>, and the test skips the object entirely.
+	///
+	/// <para>The base is zero, which is what a flyer keeps: nothing in the simulation is stopped by
+	/// an aircraft. A structure that answers zero here is stopped by its collision volume instead —
+	/// see <see cref="BaseObject.BlocksWalker"/>.</para>
+	/// </summary>
+	public virtual int CollisionRadius => 0;
 
 	/// <summary>
 	/// The drawn model's own radius, in world units - the original's vtable slot <c>+0x10</c>,
@@ -256,9 +272,10 @@ public abstract class SimObject {
 	/// object instances rather than out of any type record. The HUD target box sizes itself from it
 	/// (see <c>Herculan.Engine.Content.TargetBox</c>).
 	///
-	/// <para>For a HERC and a flyer that is the same figure as <see cref="HitRadius"/>, both being
-	/// the model bound; <see cref="BaseObject"/> keeps them apart because a structure's hit radius
-	/// comes from <c>BASES.DAT</c> and can differ from what it draws.</para>
+	/// <para>All three shootable classes keep it apart from <see cref="HitRadius"/>: a structure's
+	/// body radius is its own <c>BASES.DAT</c> figure, a machine's is the flat 750 of
+	/// <see cref="MechTypeRecord.BodyRadius"/>, and a flyer has none at all. This is the radius a
+	/// flyer's and a structure's hit test rejects against.</para>
 	/// </summary>
 	public virtual int ShapeRadius => HitRadius;
 
@@ -269,9 +286,9 @@ public abstract class SimObject {
 	/// struck and what that did to it. See <c>Mech_DirectFireHitTest</c> (<c>00418ba8</c>) for the
 	/// only implementation that exists.
 	///
-	/// <para>The base returns "missed". <see cref="BaseObject"/> and <see cref="FlyerObject"/> both
-	/// have their own <c>+0x20</c> in the original and neither is ported, so beams pass through
-	/// structures and aircraft — see docs/simulation/damage-system.md.</para>
+	/// <para>The base returns "missed"; <see cref="MechObject"/>, <see cref="BaseObject"/> and
+	/// <see cref="FlyerObject"/> each override it with the original's own — see
+	/// docs/simulation/hit-detection.md.</para>
 	///
 	/// <para>The world is passed because a hit is more than a number: an implementation spawns the
 	/// shot's impact effect from in here, which is where the original spawns it too — see
@@ -282,6 +299,25 @@ public abstract class SimObject {
 	/// to this, so it has to be a distance rather than a flag.
 	/// </returns>
 	public virtual int DirectFireHitTest(SimWorld world, WeaponShot shot) => 0;
+
+	/// <summary>
+	/// Vtable <c>+0x70</c> — what an explosion does to this object, called on every object the blast
+	/// sweep found in range (<see cref="SimWorld.ExplosiveBlastSweep"/>) and, for a machine, directly
+	/// on itself by the direct-fire path when the shot carries a splash share.
+	///
+	/// <para>All three shootable classes implement it and no two of them alike — a machine rolls and
+	/// places every component behind a shield, a structure walks its parts with no shield step at
+	/// all, and an aircraft is one point. The base does nothing, so a projectile standing in someone
+	/// else's blast ignores it. See docs/simulation/damage-system.md, "Explosive damage".</para>
+	/// </summary>
+	/// <param name="world">The simulation, for the generator the per-component roll draws from.</param>
+	/// <param name="damage">The blast's own damage figure, before shields scale it.</param>
+	/// <param name="hitPoint">Where the explosion went off, in world units.</param>
+	/// <param name="blastRadius">How far it reaches, and the denominator of its falloff.</param>
+	/// <param name="attacker">Who set it off, for the kill credit — the sweep's own fourth argument.</param>
+	public virtual void ExplosiveDamage(SimWorld world, short damage, Vec3i hitPoint, int blastRadius,
+			SimObject? attacker) {
+	}
 
 	/// <summary>
 	/// One simulation step. Rate-based motion inside an override should go through

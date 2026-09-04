@@ -227,7 +227,7 @@ radius" but **mode 0 never reads it**. See
 
 - **Rocket ground-impact detonation** (`FUN_00409d2c`) checks altitude against
   `Terrain_HeightQuery` every tick and detonates the instant a projectile dips below ground — see
-  [`../simulation/damage-system.md`](../simulation/damage-system.md#explosive-damage-blast-sweep-random-per-component-roll-distance-falloff-shield-gated).
+  [`../simulation/damage-system.md`](../simulation/damage-system.md#a-mech--mech_applyexplosivedamage-004187d0).
 - **A flyer's airframe contact probes** (`Razor_MovementTick`, likely `flyersys.cpp`, unconfirmed by
   assert string). Six points on the airframe are each transformed into world space and tested against
   `Terrain_HeightQuery`, and all but one also raycast via `FUN_00426528` (see

@@ -640,8 +640,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_ShieldAbsorb_DirectFire",
-      "description": "Direct-fire shield absorption: picks front/rear zone by hit side, absorbed = min(incomingDamage, remainingShieldInZone), hard cap not threshold gate.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "description": "Direct-fire shield absorption: picks front/rear zone by where the muzzle sits in the mech frame, absorbed = min(incomingDamage, remainingShieldInZone), hard cap not threshold gate. Unlike Mech_ShieldAbsorb_Explosive it scales neither its input nor its output. Returns the ray's entry point into the hit cylinder, so a fully absorbed shot still stops the ray.",
+      "source": "docs/simulation/damage-system.md"
     },
     {
       "address": "0040c9d4",
@@ -667,8 +667,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_ApplyDirectFireDamage",
-      "description": "Applies a per-weapon-type Q8 multiplier (Math_Q8Multiply(shotData+8, damage)), splits the result between destroying the struck weapon mount (possible secondary explosion via mech vtable +0x70) and general component health via mech vtable +0x74.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "description": "Splits the armor damage by PROJ.DAT SplashFactor (Math_Q10Multiply(shotData+8, shotData+4)) -- NOT a per-weapon-type effectiveness scale. The remainder goes to component health via mech vtable +0x74; the split-off share, when nonzero, becomes a 500-unit secondary explosion through the struck object's OWN +0x70 (a direct call, not a sweep). Also rolls to destroy the struck weapon mount on a damage-band change.",
+      "source": "docs/simulation/damage-system.md"
     },
     {
       "address": "00426a20",
@@ -676,8 +676,9 @@
       "type": "function",
       "confidence": "high",
       "name": "Damage_ExplosiveBlastSweep",
-      "description": "Radius-based splash-damage entry point. Sweeps the live-object list; distance-hitRadius<blastRadius calls each object's +0x70 vtable damage method. Exactly 3 confirmed call sites, all genuinely explosive/terminal (missile ground impact, Plasma-cannon bullet type 9, mech death) -- NOT a universal weapon-fire path.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "description": "Radius-based splash-damage entry point. Args (impactPos, blastRadius, damage, attacker, excluded). Sweeps the live-object list, skipping an object whose mission group still carries an action and the excluded object; distance - obj[+0x5c] < blastRadius calls that object's +0x70. Note it truncates its int blastRadius to a short when handing it on. Exactly 3 call sites, all terminal: Meteor_Tick's drop-pod landing, the Plasma-cannon bullet type 9 branch in Bullet_TickUpdate, and Mech_BehaviourRamTick. It is NOT the only way +0x70 is reached -- Mech_ApplyDirectFireDamage and Mech_CollisionTest both call it directly.",
+      "source": "docs/simulation/damage-system.md",
+      "signature": "short __cdecl Damage_ExplosiveBlastSweep(int *hitPoint, int blastRadius, short damage, int *attacker, int *excluded)"
     },
     {
       "address": "004187d0",
@@ -685,8 +686,9 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_ApplyExplosiveDamage",
-      "description": "Mech vtable +0x70. Front/rear facing classification -> Mech_ShieldAbsorb_Explosive -> ~51% per-component random roll across up to 29 slots -> linear distance falloff (overflow * (blastRadius-distance)/blastRadius) via mech vtable +0x74.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "description": "Mech vtable +0x70. Args (weaponDamage, hitPos, blastRadius, attacker). Front/rear facing classification (<0x4000 BAM) -> Mech_ShieldAbsorb_Explosive -> per-component roll at 0x802-in-0x1000 across up to 29 slots -> component world position via vtable +0x58 -> linear distance falloff (overflow * (blastRadius-distance)/blastRadius) via mech vtable +0x74. Structurally different from the direct-fire path: many random components with falloff, versus one deterministic component without.",
+      "source": "docs/simulation/damage-system.md",
+      "signature": "void __cdecl Mech_ApplyExplosiveDamage(int *this, short damage, int *hitPoint, short blastRadius, int *attacker)"
     },
     {
       "address": "00413c68",
@@ -694,8 +696,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_ShieldAbsorb_Explosive",
-      "description": "Explosion path's own separate shield-absorption implementation (parallel to, not shared with, Mech_ShieldAbsorb_DirectFire). scaledDamage=(weaponDamage*1000)>>8, clamps zone to 0, returns scaled overflow.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "description": "Explosion path's own separate shield-absorption implementation (parallel to, not shared with, Mech_ShieldAbsorb_DirectFire). scaledDamage=(weaponDamage*1000)>>8 comes off the zone; a negative zone clamps to 0 and returns overflow*0x400/1000. The two scales do not cancel -- net 0x400/256, so overflow past a drained facing is 4x the weapon's face value. Symmetric inverse of the >>8 would be 0x100; suspected retail bug, see KNOWN_ISSUES.md.",
+      "source": "docs/simulation/damage-system.md"
     },
     {
       "address": "00409d2c",
@@ -842,13 +844,14 @@
       "source": "docs/formats/script-dat.md"
     },
     {
-      "address": "0041e48e",
+      "address": "0041e488",
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "Mech_DeathExplosion",
-      "description": "Mech death/destruction handler. One Damage_ExplosiveBlastSweep splash call, then unconditionally applies a flat 32000 damage to every remaining component (guaranteed-destruction cleanup, no roll/falloff).",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "name": "Mech_BehaviourRamTick",
+      "description": "The per-tick MOVE slot of one AI behaviour state, NOT a death throe: block 00499b5c's +0x0c, whose think slot Mech_BehaviourRamThink (0041e570) charges the machine's selected target at full throttle and calls this three times a tick once its charge timer fires. Integrates motion, snaps the machine to terrain height + typeRec+0x16, places its legs, and runs Mech_CollisionTest; on a block (or once mech+0xb1 is latched) it detonates Damage_ExplosiveBlastSweep(pos, 3000, 2000, 0, self) and then finishes off every one of its own 29 components with a flat 32000 through vtable +0x74 -- a guaranteed self-destruction, no roll and no falloff. Ghidra's function boundary starts one prologue late at 0041e48e.",
+      "source": "docs/simulation/damage-system.md",
+      "signature": "short __cdecl Mech_BehaviourRamTick(int *this)"
     },
     {
       "address": "00417de4",
@@ -4512,8 +4515,9 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_CollisionTest",
-      "description": "Returns nonzero when the just-integrated position is blocked.",
-      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+      "description": "Returns nonzero when the just-integrated position is refused. Three separate tests: (1) the live-object list, with an ASYMMETRIC gap -- this machine's vtable +0x5c against the other object's +0x7c, and an object whose +0x7c is 0 is skipped entirely; (2) FUN_00404ae4's structure-volume sweep, which covers exactly the structures test 1 skips; (3) terrain steeper than |normal.z| < 0x5aa, which for the player becomes a slide downhill whose landing damages the leg components scaled by the difficulty table at 0049a058. A block against another HERC also calls BOTH parties' +0x70 with a momentum-difference damage at radius 0x4b0, and latches the struck object's +0x68. It additionally records a nearby structure at mech+0x2b0 as a lock-on candidate.",
+      "source": "docs/simulation/mech-locomotion.md",
+      "signature": "char __cdecl Mech_CollisionTest(int *this)"
     },
     {
       "address": "004195c8",
@@ -6178,9 +6182,10 @@
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "Base_GetHitRadius",
-      "description": "Structure vtable +0x5c: returns BASES.DAT +0x2a. The type's own stated collision radius, distinct from the shape's bounding radius at shape+8 (SimObject_GetShapeRadius); the two disagree by up to a fifth on retail data and four types state 0 here.",
-      "source": "docs/simulation/hit-detection.md 2026-08-27"
+      "name": "Base_GetBodyRadius",
+      "description": "Structure vtable +0x5c: returns BASES.DAT +0x2a. The type's own stated body radius -- what the blast sweep subtracts from a candidate's distance -- distinct from the shape's bounding radius at shape+8 (SimObject_GetShapeRadius, vtable +0x10). The two disagree by up to a fifth on retail data and four types state 0 here. Base_GetCollisionRadius (+0x7c) returns the same field under a condition.",
+      "source": "docs/simulation/hit-detection.md",
+      "signature": "short __cdecl Base_GetBodyRadius(int *this)"
     },
     {
       "address": "00404f20",
@@ -6188,8 +6193,9 @@
       "type": "function",
       "confidence": "high",
       "name": "Base_ApplyExplosiveDamage",
-      "description": "Structure vtable +0x70, the blast-sweep counterpart to Base_ApplyDamage. Rolls each live component at ~25% (rand & 0xfff < 0x1004), measures the blast point against the component's own position via vtable +0x58, and applies linearly falling-off damage through vtable +0x74. Skipped entirely for an invulnerable type or one with no BASECOL model.",
-      "source": "docs/simulation/hit-detection.md 2026-08-27"
+      "description": "Structure vtable +0x70, the blast counterpart of Base_ApplyDamage. Returns early for an invulnerable type, for a wreck that leaves a hulk, and -- the gate that matters -- for a type with no BASECOL.DAT model installed at typeRec+0x38, which makes 40 of the 65 retail types immune to explosions while still vulnerable to direct fire. For every live component it draws and compares (rand & 0xfff) < 0x1004, a ceiling one above the largest value that mask can produce, so THE ROLL NEVER FAILS and every component is measured; the draw only advances the generator. Measures the blast point against the component's own position via vtable +0x58 and applies (blastRadius - distance) * damage / blastRadius through vtable +0x74. No shields, no facing.",
+      "source": "docs/simulation/damage-system.md",
+      "signature": "void __cdecl Base_ApplyExplosiveDamage(int *this, short damage, int *hitPoint, short blastRadius, int *attacker)"
     },
     {
       "address": "0040501c",
@@ -8770,6 +8776,126 @@
       "name": "Input_BuildSourceTable",
       "description": "Input-system init. Populates the source-pointer table at 004d2394 with the address of every available input value -- the two keyboard axis pairs Input_BuildKeyboardAxes writes, the four joystick axes at DAT_004d2414+0x0d/0x11/0x15/0x19, and the buttons -- so that a key or axis binding is a choice of pointer rather than a hardcoded path. This indirection is why Sim_PollPlayerInput reads some axes through a pointer-to-pointer.",
       "source": "docs/simulation/razor-flight.md"
+    },
+    {
+      "address": "00406808",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_ComponentPosition",
+      "description": "Structure vtable +0x58: the world position of one destructible part, which is what the blast falloff measures from. Builds the object's rotation from its euler triple if the +0x32 dirty flag is set, then puts the component's own point at BASES.DAT component record +0x10 through the object transform at obj+0x12. No node resolution -- a structure's parts do not move -- and NOT the BASECOL.DAT sphere geometry a shot is tested against.",
+      "source": "docs/simulation/hit-detection.md",
+      "signature": "void __cdecl Base_ComponentPosition(int this, short componentIndex, int *out)"
+    },
+    {
+      "address": "004035b8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_GetCollisionRadius",
+      "description": "Structure vtable +0x7c: the radius at which this structure blocks a walking machine, read only by Mech_CollisionTest and only of the other object. Returns BASES.DAT +0x2a only for an ANIMATED type (typeRec+0x06 nonzero) that is not a wreck-with-hulk; 0 otherwise, and 0 means walk through me. The static types it returns 0 for are the ones FUN_00404ae4's collision-volume sweep covers instead, so the two sets are exact complements.",
+      "source": "docs/simulation/hit-detection.md",
+      "signature": "short __cdecl Base_GetCollisionRadius(int *this)"
+    },
+    {
+      "address": "0041b60c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_ComponentPosition",
+      "description": "Mech vtable +0x58: the world position of one of the 29 .DMG components. Indexes the piece table at *(mech+0x1fa) by componentIndex * 0x12 and reads the two RUNTIME-ONLY HercPiece fields +0x0c (shape part id) and +0x0e (pointer to a short[3] point), which the .DMG loader leaves as -1/null and Mech_ConfigureLoadout fills in from the .COL. A null point returns the MACHINE'S OWN POSITION -- which is most of a HERC, since a mech .COL names only 6-16 of the 29 slots. Otherwise the point goes through the object transform, composing the part's posed node transform first when the part id is > 0 (strictly greater, so part 0 stays in the object frame). A part the shape lacks falls back to the identity transform at 006c572c. Also the accessor a missile takes its lock node's position from.",
+      "source": "docs/simulation/damage-system.md",
+      "signature": "void __cdecl Mech_ComponentPosition(int this, short componentIndex, int *out)"
+    },
+    {
+      "address": "00411b3c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_ApplyExplosiveDamage",
+      "description": "The SimObject base class's vtable +0x70, and the implementation a FLYER uses -- the flyer class does not override the slot. No roll, no component selection, no shields and no range test (the sweep has already made it): applies (blastRadius - (distance - obj[+0x5c])) * damage / blastRadius to component 0 through vtable +0x74. Because the object's own +0x5c is subtracted, a blast inside the body radius scales by more than one -- though a flyer's +0x5c is 0.",
+      "source": "docs/simulation/damage-system.md",
+      "signature": "void __cdecl SimObject_ApplyExplosiveDamage(int *this, short damage, int *hitPoint, short blastRadius, int *attacker)"
+    },
+    {
+      "address": "0041e570",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_BehaviourRamThink",
+      "description": "The think slot (+0x00) of AI behaviour state block 00499b5c, the ramming attack. Acquires a target through FUN_00411fa0(this, 6, 0) into mech+0x1a4 and maintains its +0x1a2 refcount, then drives Mech_LocomotionTick at full throttle (0x100) toward it. A two-phase timer at mech+0x5f: phase 0 approaches until a 3000 + rand(1500) countdown expires, phase 1 runs Mech_BehaviourRamTick up to three times a tick (interleaved with locomotion) until 8000 + rand(4000) expires. This is what makes the ram reachable.",
+      "source": "docs/simulation/damage-system.md",
+      "signature": "int __cdecl Mech_BehaviourRamThink(int *this)"
+    },
+    {
+      "address": "00415518",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_GetBodyRadius",
+      "description": "Mech vtable +0x5c: returns typeRec+0x70 (HercSimDat offset 110, BodyRadius), which every retail HERC states as 750. Mech_GetCollisionRadius at 0041552c (vtable +0x7c) is a byte-identical second copy of this function, so a machine's body and collision radii are the same field. Distinct from typeRec+0x1a, the generous shot radius the direct-fire hit test rejects against, and from shape+8, the drawn model's bound.",
+      "source": "docs/simulation/hit-detection.md",
+      "signature": "short __cdecl Mech_GetBodyRadius(int this)"
+    },
+    {
+      "address": "0041552c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_GetCollisionRadius",
+      "description": "Mech vtable +0x7c: a byte-identical copy of Mech_GetBodyRadius (00415518), returning the same typeRec+0x70. Read only by Mech_CollisionTest, and only of the object being walked into.",
+      "source": "docs/simulation/hit-detection.md",
+      "signature": "short __cdecl Mech_GetCollisionRadius(int this)"
+    },
+    {
+      "address": "0040cb84",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Collision_CollectComponentAnchors",
+      "description": "Walks a loaded .COL model's nodes and emits one (componentIndex, nodeIndex, pointer to the cluster's load-time bounding-sphere centre) triple per cluster into three caller-supplied parallel arrays, returning the count. Per node it delegates to FUN_0040cafc, which strides the 16-byte cluster records reading componentIndex at +6 and taking the address of the bound centre at +8. Called once, from Mech_ConfigureLoadout, feeding HercPiece_BindComponentAnchors.",
+      "source": "docs/simulation/damage-system.md",
+      "signature": "short __cdecl Collision_CollectComponentAnchors(short *model, short *componentOut, short *nodeOut, int *pointOut)"
+    },
+    {
+      "address": "0040d284",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HercPiece_BindComponentAnchors",
+      "description": "Writes the .COL-derived anchors into the .DMG piece table: for each of count entries, piece[componentIndices[i]] at stride 0x12 gets +0x0c = nodeIndices[i] and +0x0e = points[i]. These are the two runtime-only HercPiece fields Mech_ComponentPosition reads. The write is UNGUARDED, so the last cluster naming a component wins; every retail mech .COL names each component exactly once, so it never bites.",
+      "source": "docs/simulation/damage-system.md",
+      "signature": "void __cdecl HercPiece_BindComponentAnchors(int *pieceTable, short count, short *componentIndices, short *nodeIndices, int **points)"
+    },
+    {
+      "address": "00426b04",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Damage_ScaleByDifficulty",
+      "description": "Scales a damage figure in place by a Q10 factor from one of two four-entry tables selected by the firing side -- 0049a73c {3500, 2800, 2100, 1400} for side 0, 0049a744 {300, 600, 800, 1000} for anything else -- indexed by the mission difficulty at DAT_004a9ee0. So difficulty moves the two sides' damage in opposite directions (3.42x down to 1.37x, versus 0.29x up to 0.98x). Its one caller is Bullet_TickUpdate's plasma branch, on the blast figure before the sweep.",
+      "source": "docs/simulation/projectiles.md",
+      "signature": "void __cdecl Damage_ScaleByDifficulty(short *damage, int side)"
+    },
+    {
+      "address": "00427c68",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Structure_WalkCollisionTest",
+      "description": "The walking-collision half of the structure volume test, called from FUN_00404ae4's gather. Per candidate: 2D distance from the point to the structure against shape+8, then the offset rotated into shape space by the transposed XY block of the object's rotation, then ShapeVolume_HeightAround(volume, point, 0). Returns the first nonzero height. NOTE it does not apply the origin << cellShift that ShapeVolume_Raycast applies, so the footprint a machine walks into is displaced from the one a shot is tested against by the grid's origin -- its centre on all 45 retail records. Not cross-checked against retail play.",
+      "source": "docs/simulation/hit-detection.md",
+      "signature": "int __cdecl Structure_WalkCollisionTest(int *point, unsigned short radius, int *candidates, short count)"
+    },
+    {
+      "address": "00404ae4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Structure_GatherWalkCandidates",
+      "description": "Gathers the structures a walking machine can be blocked by and hands them to Structure_WalkCollisionTest. Walks the structure list at DAT_004a9624, skipping the excluded object, and includes a candidate when it is a static type OR an animated one that has fallen to a wreck-with-hulk -- exactly the complement of what Base_GetCollisionRadius returns nonzero for -- unless the structure is gone entirely (destroyed, no hulk, one component).",
+      "source": "docs/simulation/mech-locomotion.md",
+      "signature": "void __cdecl Structure_GatherWalkCandidates(int *point, unsigned short radius, int excluded)"
     }
   ]
 }

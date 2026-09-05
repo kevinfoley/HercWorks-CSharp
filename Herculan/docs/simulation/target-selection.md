@@ -7,8 +7,8 @@ Ported in `Sim.TargetSelection`, `Sim.Detection`, `MechObject.Target`.
 `mech+0x1a4` is the selected target every homing weapon and most of the AI reads. **For the player's
 machine nothing in the simulation writes it.** The selection is made in the cockpit widget tree at
 `CockpitViewInstance+0x210` and copied onto the machine once a frame by
-`Player_PerFrameCockpitUpdate` (`0041b130`). AI machines get theirs from a separate family
-(`FUN_0041c0f4` and the state functions around `0041c418`-`0041e224`), none of it ported.
+`Player_PerFrameCockpitUpdate` (`0041b130`). AI machines get theirs from a separate family, decoded in
+[`ai-targeting.md`](ai-targeting.md) and not ported.
 
 Every writer of `mech+0x1a4` also maintains `target+0x1a2`, a count of how many machines hold that
 object, and raises `mech+0x9d` ("target changed"), which suppresses lock for one tick.
@@ -105,8 +105,9 @@ passive**: nothing writes the field at construction and that toggle is its only 
 This matters for what the player can target. Passive, targeting depends on visual contacts and
 reaches about 350 m; active, it reaches as far as terrain gives line of sight — measured at 831 m
 against the stock mission's nearest hostile. In the original a distant enemy is usually targetable
-because *its own* radar is on, set by the unported AI state functions, so the player-side toggle is
-what substitutes for that here.
+because *its own* radar is on: `Mech_AiCombatReassess` switches an AI machine to ACTIVE the moment it
+enters a fight (see [`ai-targeting.md`](ai-targeting.md#the-combat-reassess--mech_aicombatreassess-0041cf18)),
+and that path is not ported, so the player-side toggle is what substitutes for it here.
 
 ## Object classification
 
@@ -162,11 +163,13 @@ Deviations:
   only ever holds the three combat classes; `SimWorld`'s also holds the camera, which would otherwise
   spot for the player's side.
 - **`TargetSelection.DropIfInvalid`** is not the original's, which has no player-side abandon check
-  at all: the death path (`FUN_0041eb34`) is gated on `obj+0xa3` being *clear*, so it and the
-  abandon check beside it (`FUN_0041c4a8`) only ever run for an AI machine. Without something in
+  at all: the death path (`FUN_0041eb34`) is gated on `obj+0xa3` being *clear*, so it and
+  `Ai_ShouldAbandonTarget` (`0041c4a8`, see [`ai-targeting.md`](ai-targeting.md#abandoning-a-target--ai_shouldabandontarget-0041c4a8))
+  only ever run for an AI machine. Without something in
   their place a destroyed target stays locked. It drops on death alone and deliberately does **not**
   re-run the selectability test: that also asks whether the object is currently known, which radar
   decay makes come and go, so testing it would drop a live target every few ticks.
-- Not ported: the "enemy detected" callout (vtable `+0x48`, `FUN_00412800`), `obj+0x9e` and its
-  engagement action (no mission actions exist), and the second viewing object `DAT_004d2708` selects
-  when watching another machine.
+- Not ported: the "enemy detected" callout (vtable `+0x48`, `Mech_AiEnemySighted` — see
+  [`ai-targeting.md`](ai-targeting.md#radio-callouts)), `obj+0x9e` and its engagement action (no
+  mission actions exist), and the second viewing object `DAT_004d2708` selects when watching another
+  machine.

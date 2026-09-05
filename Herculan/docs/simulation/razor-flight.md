@@ -29,22 +29,13 @@ Ported as `MechObject.Flight.cs` and `FlightModelRecord.cs`.
 `Mech_Constructor` (`00415bb0`) picks one of three **behaviour class** instances by
 (is this the local player `mech+0xa3`, does the type record set the flyer flag):
 
-| Condition | Behaviour instance |
+| Condition | Behaviour state |
 | --- | --- |
-| Not the player | `004993a4` |
-| Player, walker | `004993e2` |
-| Player, flyer | `00499420` |
+| Not the player | `004993a4` — `deciding` |
+| Player, walker | `004993e2` — `player` |
+| Player, flyer | `00499420` — `player fly` |
 
-Each instance holds three pointer-to-member-function triples `{func, thisDelta, vtableIndex}` copied
-in by its own constructor from a 0x24-stride block of source triples. The block at `0049991c` is the
-walker set and its `+0x0c` slot is `Mech_MovementTick`; `FlyerBehaviourSlots` (`00499940`) is the
-next block and its `+0x0c` slot is `Razor_MovementTick`. Because these are member pointers reached
-through dispatchers (`00415b38` and its siblings) rather than vtable entries, Ghidra reports no xrefs
-on either move function.
-
-Which *instance* takes which block is inferred rather than traced: `004198f4` occurs at exactly one
-address in the whole image, in the block immediately after the one holding `Mech_MovementTick`, and
-`Mech_Constructor`'s third branch is the only flyer-gated one.
+These are states 0, 1 and 2 of the 22-entry AI behaviour table, and the names are the game's own; the full roster and the dispatch mechanism are in [`ai-dispatch.md`](ai-dispatch.md). Each descriptor holds three pointer-to-member-function triples `{func, thisDelta, vtableIndex}` filled in at startup from a 0x24-stride source block. Block 1 (`0049991c`) is the walker set and its `+0x0c` slot is `Mech_MovementTick`; `FlyerBehaviourSlots` (`00499940`) is block 2 and its `+0x0c` slot is `Razor_MovementTick`. Because these are member pointers reached through the vtable dispatchers rather than vtable entries directly, Ghidra reports no xrefs on either move function.
 
 **Only the player's RAZOR flies.** An AI-controlled one takes the not-the-player branch and the
 walker move, which would walk it. No retail mission places one.

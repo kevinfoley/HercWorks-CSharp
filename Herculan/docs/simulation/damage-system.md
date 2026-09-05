@@ -169,7 +169,8 @@ Exactly **3 call sites**, all terminal events rather than routine fire:
    block detonates
    `(pos, 3000, 2000, 0, self)` and then finishes off **every one of its own 29 components with a
    flat 32000** through `+0x74` — a guaranteed self-destruction, no roll and no falloff. Reaching it
-   needs the behaviour layer, which is not understood; see [`../../ROADMAP.md`](../../ROADMAP.md).
+   needs behaviour state 17, `ramming`, which a mission group reaches through order verb 1; see
+   [`ai-dispatch.md`](ai-dispatch.md).
 
 ### Where a component stands — the `+0x58` slot
 

@@ -28,10 +28,7 @@ a turn rate, and an animation playback rate.
 | `004195c8` | `Mech_PlaceLegsOnGround` | Per-leg terrain placement |
 | `0041a550` / `0041a808` | `Mech_TorsoTwistTick` / `Mech_TorsoPitchTick` | Turret aim, not locomotion — [`torso-aim.md`](torso-aim.md) |
 
-`Mech_MovementTick` is dispatched from `Sim_MainTick`'s object loop via mech vtable `+0x18`
-(`0049a29a` → `00415b38`), which forwards through the per-mech-type behaviour struct at `+0x18`.
-That struct is 0x24 bytes; `0041a360`'s pointer appears at 18 sites of stride 0x24 in `.data`
-starting `00499928`. Ghidra reports zero xrefs for it — the table is unmarked data.
+`Mech_MovementTick` is the **move** slot of the AI behaviour state a machine currently holds, reached from `Sim_MainTick`'s object loop through mech vtable `+0x14` (`0049a296` → `00415afc`) and the state descriptor's `+0x24` triple. 18 of the 22 states share it; the exceptions are `player fly`, which takes `Razor_MovementTick`, `ramming`, which takes `Mech_BehaviourRamTick`, and `deciding` and `in limbo`, which have no move at all. Because it is a pointer-to-member call, Ghidra reports zero xrefs on it. See [`ai-dispatch.md`](ai-dispatch.md).
 
 ## Mech instance fields
 

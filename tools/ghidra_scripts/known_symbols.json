@@ -620,10 +620,10 @@
       "address": "0041f7b8",
       "binary": "DBSIM",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Mech_AiThreatTracking",
-      "description": "Mech vtable +0x50, called per raycast candidate by Sim_RaycastObjectList. AI threat-tracking/target-acquisition update ('this object just took fire'), confirmed NOT a damage function.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "confidence": "high",
+      "name": "Mech_AiOnTakingFire",
+      "description": "Mech vtable +0x50, called with (attacker, damage) when something hits this machine. Applies no damage. Shares the attacker as a contact through Detection_ShareContact, opens the 30 s under-fire window at +0x27d, and for a machine in the player's group accumulates the damage at +0x281 and ignores it until the total passes 8000. Otherwise, on a 10 s retarget cooldown at +0x273, it reacts by the current state's descriptor flag bits: bit 2 (guarding, driving off en) defends the post via Ai_SelectDefenceTarget around Mech_AiGoalPosition, bit 3 (sleeping, ramming, bulldog travel) ignores fire entirely, and anything else re-acquires with Ai_SelectTarget(this, 0x24, 0). Also posts squad message 3, and Mech_AiFriendlyFireComplaint when the player is the shooter.",
+      "source": "docs/simulation/ai-targeting.md"
     },
     {
       "address": "00418ba8",
@@ -4710,13 +4710,110 @@
       "source": "docs/simulation/mech-locomotion.md 2026-08-21"
     },
     {
-      "address": "00499928",
+      "address": "004998f8",
       "binary": "DBSIM",
       "type": "data",
-      "confidence": "medium",
-      "name": "maybe_MechBehaviourTable",
-      "description": "Start of an unmarked 0x24-stride table of per-mech-type behaviour structs; slot +0x18 holds Mech_MovementTick (18 entries located by raw byte search).",
-      "source": "docs/simulation/mech-locomotion.md 2026-08-21"
+      "confidence": "high",
+      "name": "BehaviourSlotBlocks",
+      "description": "22 unmarked 0x24-stride blocks of pointer-to-member-function triples {func, thisDelta, vtableIndex}, the source the AI behaviour state descriptors at BehaviourStateTable are built from at startup. Slot +0x00 is the state's think function, +0x0c its move, +0x18 its reassess; the static initialiser at 00413ed4 copies them to descriptor +0x18/+0x24/+0x30 respectively. 18 of the 22 move slots hold Mech_MovementTick (0041a360) -- an earlier raw byte search read those 18 hits as one entry per mech type and placed the table start at 00499928, which is block 1's move slot, one triple in. Full layout in docs/simulation/ai-dispatch.md.",
+      "source": "docs/simulation/ai-dispatch.md"
+    },
+    {
+      "address": "004993a4",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "BehaviourStateTable",
+      "description": "The 22 AI behaviour state descriptors, 0x3e stride, zero-filled in the image and built at startup as C++ statics from BehaviourSlotBlocks. Descriptor layout: +0x00 name pointer into BehaviourStateNames, +0x04 a dwell time in MILLISECONDS before the state reassesses (50000 for combat states, 10 -- under one tick -- for the rest), +0x08 sixteen one-byte flags expanded from a 16-bit mask by Behaviour_ExpandFlagBits, bit 0 suppressing the dwell countdown, +0x18/+0x24/+0x30 the think/move/reassess triples, +0x3c a short of 0 or 3. 004993a4 + 22*0x3e lands exactly on BehaviourSlotBlocks, which is what fixes the count at 22. States 0/1/2 are 'deciding'/'player'/'player fly', the three Mech_Constructor installs.",
+      "source": "docs/simulation/ai-dispatch.md"
+    },
+    {
+      "address": "00499c10",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "BehaviourStateNames",
+      "description": "22 packed NUL-terminated AI behaviour state names, the game's own, in table order: deciding, player, player fly, attacking, flanking, facing off, attacking base, attacking flyer, patrolling, travelling, following, bulldog travel, search/destroy, sleeping, skirting, guarding, driving off en, ramming, fleeing, in limbo, dead, disabled. Each descriptor's +0x00 points at its entry. No xrefs -- reached as base + offset by the static initialiser.",
+      "source": "docs/simulation/ai-dispatch.md"
+    },
+    {
+      "address": "00411cec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_AiTick",
+      "description": "One machine's whole AI frame, and the only caller of the three behaviour dispatchers. No-ops unless a descriptor is installed at mech+0x4d. Order: reassess (vtable +0x1c) when the dwell countdown at mech+0x52 has reached 0; Timer_CountDown against that countdown unless descriptor+0x08[0] is set, which is true of every state but deciding, the five combat states, driving off en and fleeing; move (vtable +0x14); then think (vtable +0x18) unless mech+0xaf is set, in which case think is skipped and the flag cleared -- a think returning nonzero zeroes its own countdown. Ends by incrementing the block counter at +0x09 via 00413eb0. ITS ONLY CALLER IS Group_OrderTick (00423a74) at 00423af5, so the AI is driven from the mission-group layer and a machine that is not a live group member never thinks.",
+      "source": "docs/simulation/ai-dispatch.md",
+      "signature": "void __cdecl Mech_AiTick(int *mech)"
+    },
+    {
+      "address": "004679a4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Timer_CountDown",
+      "description": "Generic millisecond countdown step: subtracts SimTickDelta from the int at p+1, clamps at 0, returns it. Taking p+1 rather than p is why the AI behaviour block's dwell countdown sits at an unaligned +0x05 with a spare byte at +0x04. Mech_AiTick passes &block+0x04, so descriptor+0x04 is a dwell time in milliseconds.",
+      "source": "docs/simulation/ai-dispatch.md",
+      "signature": "undefined4 __cdecl Timer_CountDown(int p)"
+    },
+    {
+      "address": "00415028",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Behaviour_ExpandFlagBits",
+      "description": "Unpacks a 16-bit mask into 16 one-byte booleans (bit & 1 each), used on behaviour state descriptor +0x08 by Behaviour_BuildStateTable. Bits 0-5 are the only ones any state sets: 0 stops Mech_AiTick running the dwell countdown (true of every state bar deciding, the five combat states, driving off en and fleeing), 1 marks a state as committed to a fight, 2 as holding a place, 3 as ignoring incoming fire, and 4/5 carry the target state tier Ai_TargetStateTier reads.",
+      "source": "docs/simulation/ai-dispatch.md",
+      "signature": "void __cdecl Behaviour_ExpandFlagBits(byte *out16, byte *mask2)"
+    },
+    {
+      "address": "00413e50",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Behaviour_SetState",
+      "description": "The only writer of a mech's behaviour block at mech+0x4d, and so the AI state machine's single transition primitive -- its 30 call sites are the edge list. Stores the descriptor pointer at +0x00, seeds the timer at +0x05 to descriptor+0x04 plus (DAT_004a9bf4 & 0xf) after stepping that global by 13, zeroes +0x09, memsets +0x0d for 0x28 and +0x35 for 0x10, then sets +0x36 to 1. Callers are responsible for releasing the selected target; Mech_AiSelectBehaviour does so on every path.",
+      "source": "docs/simulation/ai-dispatch.md",
+      "signature": "void __cdecl Behaviour_SetState(int *behaviourBlock, int descriptor)"
+    },
+    {
+      "address": "00415afc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Behaviour_DispatchMove",
+      "description": "Mech vtable +0x14. Reads the behaviour descriptor at *(mech+0x4d) and calls its +0x24 move triple as (*func)(mech + thisDelta), returning 0 without calling when the triple is entirely zero. This -- not vtable +0x18 -- is how Mech_MovementTick and Razor_MovementTick are reached, which is why neither has an xref.",
+      "source": "docs/simulation/ai-dispatch.md",
+      "signature": "undefined4 __cdecl Behaviour_DispatchMove(int mech)"
+    },
+    {
+      "address": "00415b38",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Behaviour_DispatchThink",
+      "description": "Mech vtable +0x18. Same shape as Behaviour_DispatchMove but reads the descriptor's +0x18 think triple. Every per-state think function in BehaviourStateTable is reached only through here.",
+      "source": "docs/simulation/ai-dispatch.md",
+      "signature": "undefined4 __cdecl Behaviour_DispatchThink(int mech)"
+    },
+    {
+      "address": "00415b74",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Behaviour_DispatchReassess",
+      "description": "Mech vtable +0x1c, reading the descriptor's +0x30 triple. 'Reassess' is this engine's name for the slot, from what its two implementations do -- the game's own name is not in the binary. Combat states (attacking, flanking, facing off, attacking base, attacking flyer, fleeing) point it at 0041cf18; every other live state points it straight at Mech_AiSelectBehaviour, and 0041cf18 itself calls that twice.",
+      "source": "docs/simulation/ai-dispatch.md",
+      "signature": "undefined4 __cdecl Behaviour_DispatchReassess(int mech)"
+    },
+    {
+      "address": "0041eb34",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_AiSelectBehaviour",
+      "description": "Picks and installs the next AI behaviour state. Three mutually exclusive paths: the local player (mech+0xa3) takes 'player fly' or 'player' on the type record's flyer flag typeRec+0x50; a machine in the player's own group with a standing squad order (mech+0x23e) maps verbs 1/2 to 'patrolling', 4 to FUN_0041c0f4 against the order target at mech+0x248, and 6 to 'guarding'; anything else reads its mission group's current order (mech+0x45, array at group+0x44 indexed by group+0x6c, verb = the entry's first short) and maps 0-6 to search/destroy, ramming, guarding, patrolling, sleeping, travelling-or-bulldog-travel (split on typeRec+0x22 vs 0x7d01) and following. A null order entry substitutes verb 0x0b, which matches no case. Every path releases mech+0x1a4, decrements the target's +0x1a2 refcount and sets mech+0x9d, so a state change always drops the target.",
+      "source": "docs/simulation/ai-dispatch.md"
     },
     {
       "address": "004524a8",
@@ -6800,8 +6897,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_GetOverallDamage",
-      "description": "Mech vtable +0x40: Component_ReadOverallDamage on mech+0x206.",
-      "source": "docs/formats/mfd.md 2026-08-30"
+      "description": "Mech vtable +0x40. The machine's overall damage figure; Mech_AiFleeCheck uses it as the base of its fear value.",
+      "source": "docs/simulation/ai-targeting.md"
     },
     {
       "address": "00433134",
@@ -9189,6 +9286,213 @@
       "name": "g_FireShapes",
       "description": "The four dts\\FIRE.DTS roots, each a flipbook of billboards. dat\\FIRE.DAT -- a 4-byte count header and then one byte per shape -- names the bank each takes; retail is [0, 0, 0, 1] over fire0/fire1, and the roots hold 24, 24, 24 and 27 frames.",
       "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "00411fa0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Ai_SelectTarget",
+      "description": "The sim's one AI target-acquisition routine, used by mechs and structures: (this, mask, coneLimit) walks the live object list and returns the best-scoring candidate. Candidates pass Ai_IsTargetable, then a tier bar of 2*designated+alive; range caps at 1000000 for the group order's designated target and 100000 otherwise. Score starts at Q10(70, 0x1000 - (bearingError >> 3)), is overridden inside 60000 by a range term, then multiplied by four Q10 weight tables at 0049933c/00499342/00499348/0049934e and divided by the number of other holders. Mask: 0x01 restrict the designated bonus, 0x02 drop the shooting-at-me weight, 0x04 drop the crowding divisor, 0x10 reject own class, 0x20 ignore bearing.",
+      "source": "docs/simulation/ai-targeting.md"
+    },
+    {
+      "address": "00411e80",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Ai_IsTargetable",
+      "description": "Whether an AI machine may target a candidate: not the same side (group+0x12), not destroyed (+0x99), collapsed (+0xb4) or invulnerable (+0xb7), currently known through Ai_KnowsObject, not a dead flyer, not the player's own selection while this machine's +0x9a is set, and with mask bit 0x10 not this machine's own object class.",
+      "source": "docs/simulation/ai-targeting.md"
+    },
+    {
+      "address": "00411c58",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Ai_KnowsObject",
+      "description": "The AI's knowledge test, far looser than the player's: radar-visible (+0x95) within 999999 units, or a contact this machine holds (this+0xc2 + other[0x4b]) at any range.",
+      "source": "docs/simulation/ai-targeting.md"
+    },
+    {
+      "address": "00411cb4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Ai_TargetStateTier",
+      "description": "Reads an object's behaviour descriptor through its block at +0x4d and returns the state tier the squad-order abandon check compares against: 2 for descriptor flag bit 5 (in limbo, dead, disabled), 1 for bit 4 (fleeing), else 0.",
+      "source": "docs/simulation/ai-targeting.md"
+    },
+    {
+      "address": "0041c4a8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Ai_ShouldAbandonTarget",
+      "description": "Whether a combat state should drop its target. Under squad order verb 4, when Ai_TargetStateTier exceeds the order's threshold at mech+0x250. For the group order's designated target, dead or crippled on the human side but only +0x99 destroyed on the Cybrid side. Otherwise dead or dying. Called from the think functions of attacking, flanking, facing off and driving off en.",
+      "source": "docs/simulation/ai-targeting.md"
+    },
+    {
+      "address": "0041cf18",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_AiCombatReassess",
+      "description": "The reassess slot of behaviour states 3-7 and 18. Puts the machine's radar to ACTIVE unless its group is led by the local player; keeps a just-handed target (+0xac) or re-acquires with Ai_SelectTarget, the squad order verb choosing between the order's own target and a free pick; a committed machine under a movement order instead falls into Mech_AiSelectBehaviour and drops the fight. A group's first member re-enters every other uncommitted member, so one machine's fight commits the group. Then runs Mech_AiFleeCheck and, if that did not decide, installs attacking base / attacking flyer for a structure or flyer and facing off / attacking / flanking for a HERC by Mech_CompareCombatRating.",
+      "source": "docs/simulation/ai-targeting.md"
+    },
+    {
+      "address": "0041cb94",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_AiFleeCheck",
+      "description": "Installs the fleeing state (descriptor 00499800) and returns nonzero when it has taken the decision. A machine already out of action flees unless its target is a structure whose BASES.DAT +0x2e is zero. Otherwise fear = Mech_GetOverallDamage plus 5/25/50 per component (0049a328 lists six) past 60/120/180 Q8 damage, and it flees on how many machines hold it as their target: any at fear >= 71, three or a stronger pair at 51-70, three whose average rating beats its own at 31-50, never at 30 or under. Writes 300/600/1000 to mech+0x2aa.",
+      "source": "docs/simulation/ai-targeting.md"
+    },
+    {
+      "address": "0041cb44",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Ai_SumAttackerRatings",
+      "description": "Sums mech+0x29e over every machine in GlobalMechList whose target is the object passed in -- the combined combat rating of everything shooting at it, for Mech_AiFleeCheck.",
+      "source": "docs/simulation/ai-targeting.md"
+    },
+    {
+      "address": "0041ce08",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_AiSelectAimComponent",
+      "description": "Chooses the component slot the AI aims at and writes it to mech+0x2a2, or -1. One rand & 0x7f picks a band: slots 7-18 under 0x28 or whenever a targeting computer at mech+0x30b reads under 0xaa at its +0x7f, the weapon-mount slots 19..19+mountCount under 0x50, else the chassis slots 0-6; a collapsed target (+0xb4) narrows it to slot 0. Within the band it skips slots the target no longer has (target+0x20e) and takes the highest Component_ReadDamagePercent + (rand & 0x3f). RETAIL BUG: the damage is read from this+0x206, the shooter's own components, while the occupancy array walked is the target's.",
+      "source": "docs/simulation/ai-targeting.md"
+    },
+    {
+      "address": "0041cabc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_CompareCombatRating",
+      "description": "Mech vtable +0x4c. Compares this machine's combat rating (+0x29e) with a candidate's and returns the index the AI's three target-weight tables share: 0 this machine's is higher, 1 within 400, 2 the candidate's is higher. Returns 0 for every non-HERC candidate. Both ratings are jittered by rand & 1000 (AND AX,0x3e8) where rand % 1000 was meant.",
+      "source": "docs/simulation/ai-targeting.md"
+    },
+    {
+      "address": "0041edd8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_ComputeCombatRating",
+      "description": "Writes the combat rating at mech+0x29e and latches the cache flag mech+0x94, which Mech_PerTickSystemsUpdate clears to force a recompute. Rating = (typeRec+0x44 base + each live weapon mount's value scaled by its condition + each of 19 components' maximum scaled by its condition - a penalty per system over 70% damaged) >> 4, so it falls as the machine is shot apart.",
+      "source": "docs/simulation/ai-targeting.md"
+    },
+    {
+      "address": "00412800",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_AiEnemySighted",
+      "description": "Mech vtable +0x48, the enemy-detected callout. For a machine in the player's group, posts squad message 1 through Ai_PostSquadMessage the first time anyone on that side holds a contact on a given object, latched per object in DAT_004a9b84[obj+0x4b] and rate-limited to one per 10 s by DAT_004a9be9. The local player's own machine sets the latch without calling out.",
+      "source": "docs/simulation/ai-targeting.md"
+    },
+    {
+      "address": "00420a98",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Ai_PostSquadMessage",
+      "description": "Posts {messageId, machine} to the pilot-and-squad message port (the object FUN_00433158 returns) through its vtable slot 0, suppressed for a destroyed machine unless the third argument forces it. Ids raised by the AI targeting path: 1 enemy sighted, 3 taking fire, 8 friendly fire.",
+      "source": "docs/simulation/ai-targeting.md"
+    },
+    {
+      "address": "0041f790",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_AiFriendlyFireComplaint",
+      "description": "Posts squad message 8 when the player shoots a machine in the player's own group, on a 40 s cooldown at mech+0x278.",
+      "source": "docs/simulation/ai-targeting.md"
+    },
+    {
+      "address": "0041c0f4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_AiEngageOrderedTarget",
+      "description": "Installs a squad order's target on the machine (maintaining +0x1a2 and +0x9d) and picks the state for it: a HERC sets mech+0xac and enters Mech_AiCombatReassess, a flyer takes attacking flyer, a structure attacking base.",
+      "source": "docs/simulation/ai-targeting.md"
+    },
+    {
+      "address": "0041d5ec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_AiEnterCombat",
+      "description": "Thin wrapper that calls Mech_AiCombatReassess; the entry point other AI paths use to force a machine into the combat decision.",
+      "source": "docs/simulation/ai-targeting.md"
+    },
+    {
+      "address": "0041dbcc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_AiGoalPosition",
+      "description": "Resolves the point a machine is working to: a squad order's target object or its stored point for verbs 3, 5 and 6, otherwise the mission group's current order target via Group_OrderTargetPosition.",
+      "source": "docs/simulation/ai-targeting.md"
+    },
+    {
+      "address": "0041e0e0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Ai_SelectDefenceTarget",
+      "description": "Picks the HERC threatening a defended point: over GlobalMechList, candidates passing Ai_IsTargetable and not crippled, scored (limit - distance to the point) / (holders + 1), where limit is 90000, or 980000 when the group's current order names no object. Preferring live candidates, it returns the best. Used by Mech_AiOnTakingFire for the guarding and driving-off states.",
+      "source": "docs/simulation/ai-targeting.md"
+    },
+    {
+      "address": "00423918",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Group_IsOrderTarget",
+      "description": "Whether an object is what the group's current order names: for the order's +0xc == 0 the order holds a group and the test is group identity, for 1-3 it holds the object itself.",
+      "source": "docs/simulation/ai-targeting.md"
+    },
+    {
+      "address": "004238a0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Group_OrderTargetObject",
+      "description": "The object the group's current order names -- the first member of the group it holds (+0xc == 0), or the object directly (1-3).",
+      "source": "docs/simulation/ai-targeting.md"
+    },
+    {
+      "address": "004238d4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Group_OrderTargetPosition",
+      "description": "The position the group's current order works to: the order object's +0x26 origin, falling back to the group's own stored point when the order names nothing.",
+      "source": "docs/simulation/ai-targeting.md"
+    },
+    {
+      "address": "00411aec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_ShareContact",
+      "description": "Thin wrapper over Detection_ShareContact, used by Mech_AiOnTakingFire so that being shot spreads the attacker's position to the whole side.",
+      "source": "docs/simulation/ai-targeting.md"
+    },
+    {
+      "address": "00413ed4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Behaviour_BuildStateTable",
+      "description": "The unmarked static initialiser that builds all 22 behaviour state descriptors at 004993a4 from the slot blocks at 004998f8: name, dwell time, the 16-bit flag mask expanded through Behaviour_ExpandFlagBits, the three member-function triples and the +0x3c short. Ghidra's analysis does not recognise it as a function; create one at this address to read it.",
+      "source": "docs/simulation/ai-dispatch.md"
     }
   ]
 }

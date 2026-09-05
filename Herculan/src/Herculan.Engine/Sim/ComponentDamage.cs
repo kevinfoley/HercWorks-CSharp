@@ -1,4 +1,4 @@
-using HercWorks.Core.Data.File.Dbsim;
+﻿using HercWorks.Core.Data.File.Dbsim;
 using Herculan.Engine.Numerics;
 
 namespace Herculan.Engine.Sim;
@@ -308,8 +308,21 @@ public sealed class ComponentDamage {
 	/// clear the slot's flag and <i>then</i> finish the component off with a flat 10000 without the
 	/// bone group coming apart with it — see <see cref="Deactivate"/>.</para>
 	/// </summary>
+	/// <param name="index">Which component.</param>
+	/// <param name="damage">How much.</param>
+	/// <param name="world">
+	/// The world the destruction's own effects go into, or null to run the damage model alone. The
+	/// original has no such option — the effects come off globals — but a component can be written
+	/// off from places that have no world to hand, and the arithmetic is the same either way.
+	/// </param>
+	/// <param name="owner">What the components belong to, which is what a fire burns on.</param>
+	/// <param name="debris">
+	/// The debris table to install as the alternate database for everything this cascade throws —
+	/// the owner's own. See <see cref="DebrisCatalog"/>.
+	/// </param>
 	/// <returns>Whether the component cascaded — which is what a caller reads as "this thing is gone".</returns>
-	public bool ApplyDamage(int index, short damage) {
+	public bool ApplyDamage(int index, short damage, SimWorld? world = null, SimObject? owner = null,
+			DebrisDatabase? debris = null) {
 		if (Piece(index) is not { } piece) {
 			return false;
 		}
@@ -322,18 +335,32 @@ public sealed class ComponentDamage {
 			return false;
 		}
 
-		DestroyAndCascade(index);
+		// One destruction event, one big explosion: the latch is cleared here, at the head of the
+		// group, and the first component in it whose flags claim the large effect sets it and
+		// silences every effect the rest of the group would have spawned. See DestroyAndCascade.
+		_majorEffectFired = false;
+
+		DestroyAndCascade(index, world, owner, debris);
 
 		// The original queues the bone-group siblings on a shared list and drains it here rather
 		// than recursing, so a cycle in the data cannot blow the stack. Same shape, own list.
 		while (_pendingCascade.Count > 0) {
 			int next = _pendingCascade[^1];
 			_pendingCascade.RemoveAt(_pendingCascade.Count - 1);
-			DestroyAndCascade(next);
+			DestroyAndCascade(next, world, owner, debris);
 		}
 
 		return true;
 	}
+
+	/// <summary>
+	/// <c>DAT_004a98b0</c> — the "the big one has already gone off" latch, cleared at the head of a
+	/// cascade group and set by the first component in it whose
+	/// <see cref="DestructionFlagMajorEffect"/> is up. While it is set every remaining component in
+	/// the group destroys silently: no fire, no explosion. It is what stops a machine that loses
+	/// eight parts at once from spawning eight explosions.
+	/// </summary>
+	private bool _majorEffectFired;
 
 	/// <summary>
 	/// <c>Component_DestroyAndCascade</c> (<c>0040d434</c>) — takes one component out: the entry goes
@@ -344,12 +371,21 @@ public sealed class ComponentDamage {
 	/// original compares it against the index of the component that just died. That is the whole of
 	/// the dependency graph between main components — losing a shoulder takes the arm on it.</para>
 	///
-	/// <para>Not ported, all of it visual: the debris and destruction effect the record's own
-	/// <c>DebrisFlags</c> selects, the HUD slot it marks, and the sub-shape it hides — the record's
-	/// <c>+3</c> byte names a cell-animation sequence, and the original steps it to its blank third
-	/// cell. See docs/formats/mech-shape-drawing.md.</para>
+	/// <para><b>It is also where a part coming off is made visible</b>, and the record's own
+	/// <c>DebrisFlags</c> pair drives all of it. The high byte
+	/// (<see cref="SubShapeSequenceOf"/>) is the shape cell-animation this component drives, stepped
+	/// to its blank third cell so the part stops being drawn; a component that drives one also
+	/// catches fire, of one of two kinds, on its <c>DestructionFlags</c>. The low byte
+	/// (<see cref="DebrisGroupOf"/>) is the wreckage the part throws — or
+	/// <see cref="DefaultDebrisGroup"/> when it names none.</para>
+	///
+	/// <para><b>The one thing still not ported is the blank cell itself.</b> Stepping one part of a
+	/// shape needs a per-part cell index through the mesh builder, which builds one frame for a whole
+	/// root; the sequence is recorded in <see cref="SubShapeHidden"/> so the state exists, and
+	/// nothing draws it yet. See docs/formats/mech-shape-drawing.md.</para>
 	/// </summary>
-	private void DestroyAndCascade(int index) {
+	private void DestroyAndCascade(int index, SimWorld? world, SimObject? owner,
+			DebrisDatabase? debris) {
 		if (Piece(index) is not { } piece || !IsActive(index)) {
 			return;
 		}
@@ -361,6 +397,8 @@ public sealed class ComponentDamage {
 		// any dependent's maximum.
 		SpillIntoDependents(piece, FinishOffDependents);
 
+		DestructionEffects(index, piece, world, owner, debris);
+
 		// The field is a signed byte in the original and 0xff means "no parent", so it is read as one
 		// here: as an unsigned byte the sentinel would simply never match, which is the right answer
 		// by accident rather than the right comparison.
@@ -371,6 +409,121 @@ public sealed class ComponentDamage {
 			}
 		}
 	}
+
+	/// <summary>
+	/// The visual half of <c>Component_DestroyAndCascade</c> — everything a part coming off puts on
+	/// screen, in the original's own order.
+	///
+	/// <list type="number">
+	/// <item><b>Fire</b>, but only for a component that drives a shape sequence — the same byte, and
+	/// the original's own gate. Which fire is the destruction flags: <see cref="DestructionFlagWholeObjectFire"/> puts out every fire already
+	/// burning on the object and lights <see cref="FireEffect.WholeObjectShape"/> in their place —
+	/// this is the machine going up as a whole — while
+	/// <see cref="DestructionFlagComponentFire"/> simply adds
+	/// <see cref="FireEffect.ComponentShape"/> to whatever is already alight.</item>
+	/// <item><b>The part stops being drawn</b>, by stepping that sequence to its blank cell.</item>
+	/// <item><b>An explosion</b> at the component, of one of two types:
+	/// <see cref="ComponentExplosion"/> normally, or <see cref="MajorExplosion"/> for a component
+	/// whose flags claim the big one — which also latches every remaining effect in this cascade
+	/// group off.</item>
+	/// <item><b>Debris</b>, the group the record's low byte names, thrown from the component's own
+	/// position; a component that names none throws <see cref="DefaultDebrisGroup"/>.</item>
+	/// </list>
+	///
+	/// <para>The explosion and the debris are thrown from where the component <i>is</i> — its
+	/// collision cluster resolved through the machine's posed node, the same point a blast measures
+	/// its falloff from. A component the <c>.COL</c> never names has no such point and falls back to
+	/// the machine's own origin, which is at its feet.</para>
+	/// </summary>
+	private void DestructionEffects(int index, HercSimDamage.HercPiece piece, SimWorld? world,
+			SimObject? owner, DebrisDatabase? debris) {
+		if (world == null || owner == null) {
+			return;
+		}
+
+		var mech = owner as MechObject;
+		var point = mech?.ComponentWorldPosition((short)index) ?? owner.Position;
+		int sequence = SubShapeSequenceOf(piece.DebrisFlags);
+
+		if (sequence >= 0) {
+			if (!_majorEffectFired) {
+				if ((piece.DestructionFlags & DestructionFlagWholeObjectFire) != 0) {
+					world.ReleaseFires(owner);
+					world.SpawnFire(owner, (short)index, default, FireEffect.WholeObjectShape);
+				} else if ((piece.DestructionFlags & DestructionFlagComponentFire) != 0) {
+					world.SpawnFire(owner, (short)index, default, FireEffect.ComponentShape);
+				}
+			}
+
+			SubShapeHidden[sequence] = true;
+		}
+
+		if (!_majorEffectFired) {
+			short type = ComponentExplosion;
+			if ((piece.DestructionFlags & DestructionFlagMajorEffect) != 0) {
+				_majorEffectFired = true;
+				type = MajorExplosion;
+			}
+
+			world.SpawnImpactEffect(type, point);
+		}
+
+		short group = DebrisGroupOf(piece.DebrisFlags);
+		world.SpawnDebris(group < 0 ? DefaultDebrisGroup : group,
+			mech?.ComponentThrowFrame((short)index) ?? owner.WorldFrame, debris);
+	}
+
+	/// <summary>
+	/// The <c>.DMG</c> record's <c>+0x02</c> byte, as a signed value — which debris group this
+	/// component throws, or <c>-1</c> for none. <c>HercSimDamage</c> reads <c>+0x02</c> and
+	/// <c>+0x03</c> as one <c>short</c>; the original reads them as two independent signed bytes.
+	/// </summary>
+	public static short DebrisGroupOf(short debrisFlags) => (sbyte)(debrisFlags & 0xff);
+
+	/// <summary>
+	/// And the record's <c>+0x03</c> byte — which <c>TSCellAnimPart</c> sequence of the machine's
+	/// shape this component drives, <c>-1</c> for a component with no geometry of its own. It is the
+	/// gate on the fire as well as the map to the blank cell; see
+	/// docs/formats/mech-shape-drawing.md.
+	/// </summary>
+	public static short SubShapeSequenceOf(short debrisFlags) => (sbyte)((debrisFlags >> 8) & 0xff);
+
+	/// <summary>
+	/// Which of the shape's cell-animation sequences have been stepped to their blank cell — one flag
+	/// per sequence, set by <see cref="SubShapeSequenceOf"/> as each component is destroyed. Nothing
+	/// draws it yet.
+	/// </summary>
+	public bool[] SubShapeHidden { get; } = new bool[SubShapeSequenceCount];
+
+	/// <summary>
+	/// How many sequences the flag array covers — comfortably above the largest index any retail
+	/// <c>.DMG</c> names.
+	/// </summary>
+	private const int SubShapeSequenceCount = 64;
+
+	/// <summary><see cref="DestructionFlags"/> bit 1 — the whole object goes up, and its other fires go out.</summary>
+	public const int DestructionFlagWholeObjectFire = 0x2;
+
+	/// <summary><see cref="DestructionFlags"/> bit 3 — this part alone catches fire.</summary>
+	public const int DestructionFlagComponentFire = 0x8;
+
+	/// <summary>
+	/// <see cref="DestructionFlags"/> bit 2 — this component's loss is the big explosion, and the one
+	/// that silences the rest of its cascade group.
+	/// </summary>
+	public const int DestructionFlagMajorEffect = 0x4;
+
+	/// <summary>The <c>EXPLOS.DAT</c> type an ordinary component's loss spawns — the literal 10.</summary>
+	public const short ComponentExplosion = 10;
+
+	/// <summary>And the one a <see cref="DestructionFlagMajorEffect"/> component spawns — the literal 0x11.</summary>
+	public const short MajorExplosion = 0x11;
+
+	/// <summary>
+	/// The debris group a component that names none throws — the literal 2, which is
+	/// <c>DEF_DEB</c>'s and therefore the same three shapes off any machine.
+	/// </summary>
+	public const short DefaultDebrisGroup = 2;
 
 	/// <summary>
 	/// <c>FUN_0040cf44</c> — pours a component's overflow damage into its dependents, one at a time.

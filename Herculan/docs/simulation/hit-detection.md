@@ -249,7 +249,7 @@ if (vtable+0x40 == 0x100) {                            // FUN_004052b4, the Q8 d
     obj[+0x99] = 1; obj[+0x96] = 0; fire the object's mission action (obj+0x1b6)
     attacker->vtable+0x60 credits the kill
 }
-if (component[+4] != -1) { state[+5] = DAT_0049741c[component[+4]]; state[+3] = 300 }
+if (component[+4] != -1) { state[+5] = stageCount[component[+4]]; state[+3] = 300 }   // start the collapse
 ```
 
 **A component can die early, at random.** Past half its maximum, one ~10% roll fires per tenth of
@@ -276,6 +276,9 @@ disk and a pointer at `+0x14`.
 | `+0x02` | `int16` | shape index into the selected library |
 | `+0x04` | `int16` | wreck type index, `-1` for none |
 | `+0x06` | `int16` | 0 selects `dgs\BASES.DGS`, else `dts\BASES_AN.DTS` |
+| `+0x08` | `int16` | whole-structure fire shape, `-1` for none |
+| `+0x0a` | `int16`×3 | where that fire sits, in the structure's own frame |
+| `+0x10` | `int16` | whole-structure death sequence, used in place of the last part's own |
 | `+0x12` | `int16` | component count |
 | `+0x14` | array | components, 30 bytes each |
 | `+0x1e` | `int16` | non-zero = invulnerable (types 21, 22, 23) |
@@ -284,25 +287,29 @@ disk and a pointer at `+0x14`.
 | `+0x38` | ptr | runtime only: the installed `BASECOL.DAT` model. Null selects the volume hit path **and** makes the type immune to blasts |
 | `+0x32` | `int16` | texture bank selector |
 
-Unread: `+0x00`, `+0x08`, `+0x0a` (6 bytes), `+0x10`, `+0x18` (6 bytes), `+0x20` (4 bytes),
-`+0x24`–`+0x28`, `+0x2c`, `+0x2e`.
+Unread: `+0x00`, `+0x18` (6 bytes), `+0x20` (4 bytes), `+0x24`–`+0x28`, `+0x2c`, `+0x2e`.
 
-Component record, 30 bytes, four fields read:
+Component record, 30 bytes:
 
 | Offset | Meaning |
 |---|---|
 | `+0` | max damage (retail 1000–30000) |
 | `+2` | sub-shape hidden when destroyed, `-1` for none |
-| `+4` | index into DBSIM's fixed destruction-effect table (`0049741c`), `-1` for none |
+| `+4` | which of the four death sequences this part runs, `-1` for none |
+| `+6` | fire shape this part burns at the end of that sequence, `-1` for none |
+| `+8` | debris group it throws as it collapses |
+| `+0x0a` | `int16`×3 — where that debris and that fire come from. Its X and Y repeat `+0x10`'s on most types and its Z does not: this is up on the part, where `+0x10` is at its base |
 | `+0x10` | `int16`×3 — the part's position in the structure's own frame, handed out by vtable `+0x58` (`Base_ComponentPosition`, `00406808`) and measured by the blast falloff. See [`damage-system.md`](damage-system.md#where-a-component-stands--the-0x58-slot) |
+| `+0x16` | `int16`×3 — half-extents of the box the death sequence scatters smoke inside |
+| `+0x1c` | `int16` — the part this one hangs off; destroying it takes every part naming it |
 
-A second, near-identical point sits at `+0x0a`, its X and Y repeating `+0x10`'s and its Z not;
-nothing traced reads it, nor `+0x06`/`+0x08`.
+The four sequence-driven fields and the collapse they run are in
+[`destruction-effects.md`](destruction-effects.md#a-structure-coming-down).
 
 Runtime object fields the hit path uses: `+0x0c` euler triple, `+0x12` transform (translation at
 `+0x26`, valid flag at `+0x32`), `+0x34` shape instance (`+4` = shape), `+0x99` destroyed,
 `+0x1f2` type record, `+0x201` per-component alive flags, `+0x205` per-component state (11 bytes:
-`+0` damage, `+3` effect timer, `+5` effect id, `+7` attacker).
+`+0` damage, `+3` stage timer, `+5` stages of the death sequence left, `+7` attacker).
 
 ## `Flyer_DirectFireHitTest` — `00421c8c`
 
@@ -349,8 +356,9 @@ the corrected volume read in
 
 - **Node-placed clusters on structures** are tested in the object frame rather than the node's — the
   engine has no posed node transforms for structures. Only the eight animated types carry any.
-- The destruction effect table (`0049741c`), the kill credit (`attacker+0x60`), the mission action a
-  destroyed structure fires, the hidden sub-shape, and the secondary effect every hit rolls.
+- The kill credit (`attacker+0x60`), the mission action a destroyed structure fires, and the
+  sub-shape a collapsed part hides. The death sequence itself, with its debris, its fire and its
+  hulk swap, is ported — [`destruction-effects.md`](destruction-effects.md).
 - Spawn-time component health from the mission record.
 - Terrain flattening under a placed structure (`FUN_00470dc8`).
 - The second exclusion `Sim_RaycastObjectList` tests at the shot record's `+0x14`. The beam path

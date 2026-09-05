@@ -101,11 +101,9 @@ player flying an electro-optical missile, not a ballistic steering variant, and 
 that looks like a seeker reacquire is the exhaust flame's animation counter.
 
 **`fire.cpp` ruled out as a projectile-math source.** Only one function (`FUN_0046b0a4`) carries a
-`fire.cpp` assert string, and it is the **burning-object effect's** loader: `dts\FIRE.DTS`'s four
-shapes, two `.DBA` banks (`fire0`, `fire1`) with `dat\FIRE.DAT` naming one per shape, and a pool
-whose first live instance starts sound `0x33` and whose last stops it. Projectile spawn and
-hit-resolution logic lives in `rocket.cpp`/`bullet.cpp` and
-[`damage-system.md`](damage-system.md), not `fire.cpp`.
+`fire.cpp` assert string, and it is the burning-object effect's loader —
+[`destruction-effects.md`](destruction-effects.md#fire). Projectile spawn and hit-resolution logic
+lives in `rocket.cpp`/`bullet.cpp` and [`damage-system.md`](damage-system.md), not `fire.cpp`.
 
 ## Port notes
 
@@ -124,4 +122,4 @@ hit-resolution logic lives in `rocket.cpp`/`bullet.cpp` and
 
 | Reading | Why it is wrong |
 |---|---|
-| `FUN_0046b0a4` is the muzzle-flash loader — it builds filenames by appending an index to a base string, loads two effect variants, and wires each result into a per-shape pointer | Nothing in the fire path reaches it, and the muzzle flash is the weapon model's own flipbook — see [`weapon-mounts.md`](weapon-mounts.md#the-muzzle-flash). `FUN_0046b0a4` loads the burning-object effect |
+| `FUN_0046b0a4` is the muzzle-flash loader — it builds filenames by appending an index to a base string, loads two effect variants, and wires each result into a per-shape pointer | Nothing in the fire path reaches it, and the muzzle flash is the weapon model's own flipbook — see [`weapon-mounts.md`](weapon-mounts.md#the-muzzle-flash). `FUN_0046b0a4` loads the burning-object effect ([`destruction-effects.md`](destruction-effects.md#fire)) |

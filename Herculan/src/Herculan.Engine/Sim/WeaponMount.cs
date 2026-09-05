@@ -1,4 +1,4 @@
-using HercWorks.Core.Data.File.Dat.Sim;
+﻿using HercWorks.Core.Data.File.Dat.Sim;
 using HercWorks.Core.Data.File.Dbsim;
 using HercWorks.Core.Data.Struct;
 using Herculan.Engine.Numerics;
@@ -320,21 +320,72 @@ public sealed class WeaponMount {
 	/// and turns its cockpit row into <c>OFFLINE</c>. It is idempotent in the original too: the whole
 	/// body is under a test of that byte.</para>
 	///
-	/// <para><b>Left out: the debris.</b> A visibly-mounted hardpoint (<c>.GL +6 &lt;</c>
-	/// <see cref="InvisibleMounting"/>) also throws the template's <c>mechwpn2</c> shape
-	/// (<c>template+0x26</c>) off the mount point as a debris object, on a
-	/// <c>Math_EulerToward</c> bearing away from the machine's centre and with a shorter lifetime for
-	/// the local player than for anyone else. The engine has no debris objects at all, so there is
-	/// nothing to spawn into.</para>
+	/// <para><b>And the gun goes flying.</b> A visibly-mounted hardpoint (<c>.GL +6 &lt;</c>
+	/// <see cref="InvisibleMounting"/>) throws its own model — the same shape index, out of
+	/// <see cref="DebrisShapeLibraryName"/> rather than the library it was drawn from — off the mount
+	/// point as a <see cref="DebrisObject"/>, on a <c>Math_EulerToward</c> bearing away from the
+	/// machine's aim point, at the hardpoint's own stated pitch and a flat <see cref="DebrisMass"/>.
+	/// It keeps the muzzle frame's attitude, so it tumbles from the angle it was mounted at.</para>
+	///
+	/// <para><b>The two ways of losing a mount throw different wreckage.</b>
+	/// <paramref name="rolled"/> is the original's third argument, and it decides the pair: the
+	/// certain path through <see cref="ConditionChanged"/> passes 0 and gets a piece that bursts —
+	/// group <see cref="ComponentDamage.DefaultDebrisGroup"/> with <see cref="DebrisBurstEffect"/>
+	/// behind it — while the destruction roll passes 1 and gets a plain piece that just falls. So a
+	/// gun lost because its bracket was shot away goes up, and one lost to the roll simply
+	/// drops.</para>
 	/// </summary>
-	internal void Destroy() {
+	/// <param name="world">Where the wreckage goes, or null to change the state alone.</param>
+	/// <param name="owner">The machine the mount hangs off, which places the throw.</param>
+	/// <param name="rolled">
+	/// Whether this came from the destruction roll rather than the certain path — see above.
+	/// </param>
+	/// <param name="debris">The machine's own debris table, for the burst's group.</param>
+	internal void Destroy(SimWorld? world = null, MechObject? owner = null, bool rolled = true,
+			DebrisDatabase? debris = null) {
 		if (Disabled) {
 			return;
 		}
 
+		bool visible = _hardpoint.AngleDirOption < InvisibleMounting;
+		int thrownShape = ModelShapeIndex;
+
 		ModelShapeIndex = -1;
 		Disabled = true;
+
+		if (!visible || thrownShape < 0 || world == null || owner == null) {
+			return;
+		}
+
+		var bone = owner.PartTransform(_hardpoint.BoneId);
+		var offset = MountPointOffset;
+		var muzzle = bone.TransformPoint(offset.X, offset.Y, offset.Z);
+
+		world.SpawnDebrisPiece(DebrisShapeLibraryName, thrownShape,
+			world.DebrisShapeRadius(DebrisShapeLibraryName, thrownShape),
+			muzzle, bone.ToEuler(),
+			SimTrig.EulerToward(muzzle, owner.AimPoint).Z, _hardpoint.Unk8_val, DebrisMass,
+			rolled ? (short)-1 : ComponentDamage.DefaultDebrisGroup,
+			rolled ? (short)-1 : DebrisBurstEffect,
+			debris);
 	}
+
+	/// <summary>
+	/// The shape file a knocked-off gun is thrown as a piece of — <c>dts\MECHWPN2.DTS</c>, the second
+	/// weapon model library, indexed by the same
+	/// <see cref="Weapons.WeaponMountTemplate.ModelShapeIndex"/> the mount was drawn by. It shares
+	/// <c>WPNTEX</c> with <c>MECHWPNS.DTS</c>; <c>Weapons_LoadResourceTables</c> binds that bank to
+	/// every shape in both.
+	/// </summary>
+	public const string DebrisShapeLibraryName = "MECHWPN2.DTS";
+
+	/// <summary>What the thrown gun's launch speed is divided by — the literal 0x4b0.</summary>
+	public const short DebrisMass = 0x4b0;
+
+	/// <summary>
+	/// The <c>EXPLOS.DAT</c> effect a bursting thrown gun sets off where it lands — the literal 0x14.
+	/// </summary>
+	public const short DebrisBurstEffect = 0x14;
 
 	/// <summary>
 	/// The mount's vtable slot <c>0x68</c>, the condition notification — <c>FUN_0040ee0c</c> for the
@@ -361,11 +412,15 @@ public sealed class WeaponMount {
 	/// <para><b>An empty mount is exempt from both</b> — the original gates them on <c>+0x7b</c>,
 	/// <see cref="ChargeTarget"/>, so a launcher out of missiles cannot cook off.</para>
 	/// </summary>
+	/// <param name="world">Where the wreckage the mount throws goes — see <see cref="Destroy"/>.</param>
+	/// <param name="owner">The machine the mount hangs off.</param>
+	/// <param name="debris">Its own debris table.</param>
 	/// <param name="before">The mount's component reading before the write, 0 pristine and 256 gone.</param>
 	/// <param name="after">The same reading after it.</param>
-	internal void ConditionChanged(SimRandom random, int before, int after) {
+	internal void ConditionChanged(SimRandom random, int before, int after, SimWorld? world = null,
+			MechObject? owner = null, DebrisDatabase? debris = null) {
 		if (after == MechObject.FullyDamaged) {
-			Destroy();
+			Destroy(world, owner, rolled: false, debris);
 		}
 
 		if (ChargeTarget == 0 || Projectile is not { } projectile || after <= MountDamageOnset) {
@@ -392,7 +447,7 @@ public sealed class WeaponMount {
 
 		for (; step < last; step++) {
 			if (random.NextMasked(0x3ff) < MountCookOffOdds) {
-				Destroy();
+				Destroy(world, owner, rolled: false, debris);
 				return;
 			}
 		}

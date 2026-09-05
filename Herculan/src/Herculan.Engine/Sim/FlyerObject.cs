@@ -1,4 +1,4 @@
-using HercWorks.Core.Data.File.Dbsim;
+﻿using HercWorks.Core.Data.File.Dbsim;
 using HercWorks.Core.Data.File.Dat.Sim;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.World;
@@ -33,6 +33,18 @@ public sealed class FlyerObject : SimObject {
 	/// path uses for its ordinary blast.
 	/// </summary>
 	private const short WreckHitEffect = 10;
+
+	/// <summary>
+	/// The debris group an ordinary hit on an aircraft sheds — the original's literal 1, out of
+	/// <c>DEF_DEB</c>.
+	/// </summary>
+	private const short HitDebrisGroup = 1;
+
+	/// <summary>
+	/// And the one the hit that brings it down sheds instead — the literal 3, the same group a
+	/// crashing RAZOR throws.
+	/// </summary>
+	private const short WreckDebrisGroup = 3;
 
 	private readonly int _shapeRadius;
 	private readonly ColliderNode[] _collision;
@@ -109,16 +121,7 @@ public sealed class FlyerObject : SimObject {
 	/// The flyer's shape-to-world transform. Like a structure it has no lean and no torso: its
 	/// heading is the whole of its orientation.
 	/// </summary>
-	public Transform3 WorldTransform {
-		get {
-			var transform = Transform3.FromEuler(0, 0, (short)Heading);
-			var position = Position;
-			transform.X = position.X;
-			transform.Y = position.Y;
-			transform.Z = position.Z;
-			return transform;
-		}
-	}
+	public Transform3 WorldTransform => WorldFrame;
 
 	/// <summary>
 	/// <c>Flyer_DirectFireHitTest</c> (<c>00421c8c</c>), the flyer's vtable <c>+0x20</c> — the
@@ -163,10 +166,15 @@ public sealed class FlyerObject : SimObject {
 		short effect = world.PickImpactEffect(shot.ImpactFx(WeaponShot.ImpactFxGroup.Armor));
 
 		int struckAt = struck.Distance + 1;
-		ApplyDamage(struck.ComponentIndex, shot.DamageArmor, shot.Owner);
+		ApplyDamage(struck.ComponentIndex, shot.DamageArmor, shot.Owner, world);
 
-		world.SpawnImpactEffect(
-			Destroyed ? WreckHitEffect : effect, shot.Muzzle.TransformPoint(0, struckAt, 0));
+		var point = shot.Muzzle.TransformPoint(0, struckAt, 0);
+		world.SpawnImpactEffect(Destroyed ? WreckHitEffect : effect, point);
+
+		// And wreckage off the same point, with the same substitution: an ordinary hit sheds
+		// HitDebrisGroup, and the hit that brings the aircraft down sheds WreckDebrisGroup instead.
+		// Both are DEF_DEB's, a flyer having no debris table of its own.
+		world.SpawnDebris(Destroyed ? WreckDebrisGroup : HitDebrisGroup, point, installed: null);
 
 		return struckAt;
 	}
@@ -193,7 +201,7 @@ public sealed class FlyerObject : SimObject {
 		}
 
 		int distance = Position.ApproxDistanceTo(hitPoint) - HitRadius;
-		ApplyDamage(0, (short)((blastRadius - distance) * damage / blastRadius), attacker);
+		ApplyDamage(0, (short)((blastRadius - distance) * damage / blastRadius), attacker, world);
 	}
 
 	/// <summary>
@@ -214,8 +222,10 @@ public sealed class FlyerObject : SimObject {
 	/// mission action it fires, the kill credit through the shooter's <c>+0x60</c> slot (recorded on
 	/// <see cref="LastAttacker"/> instead) and the alert it plays for the player.</para>
 	/// </summary>
-	private void ApplyDamage(int componentIndex, short damage, SimObject? attacker) {
-		if (_damage == null || !_damage.ApplyDamage(componentIndex, damage) || componentIndex != 0) {
+	private void ApplyDamage(int componentIndex, short damage, SimObject? attacker,
+			SimWorld? world = null) {
+		if (_damage == null || !_damage.ApplyDamage(componentIndex, damage, world, this)
+				|| componentIndex != 0) {
 			return;
 		}
 

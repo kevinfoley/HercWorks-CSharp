@@ -1,4 +1,4 @@
-using HercWorks.Core.Data.File.Dat.Sim;
+﻿using HercWorks.Core.Data.File.Dat.Sim;
 using Herculan.Engine.Audio;
 using Herculan.Engine.Content;
 using Herculan.Engine.Numerics;
@@ -24,6 +24,8 @@ public sealed class SimWorld {
 	private readonly List<Projectile> _projectiles = new();
 	private readonly List<Rocket> _rockets = new();
 	private readonly List<ImpactEffect> _effects = new();
+	private readonly List<DebrisObject> _debris = new();
+	private readonly List<FireEffect> _fires = new();
 
 	/// <param name="terrain">The loaded zone.</param>
 	/// <param name="bullets">
@@ -45,16 +47,32 @@ public sealed class SimWorld {
 	/// jitter off <see cref="Random"/> while it does — see <see cref="BeamTracer"/>. Null leaves a
 	/// jagged beam with a zero-width ribbon, which draws as nothing.
 	/// </param>
+	/// <param name="debris">
+	/// The debris databases, headed by <c>DEF_DEB</c> — see <see cref="SpawnDebris"/>. Null leaves
+	/// every destruction throwing nothing, which is what this engine did before the pool existed.
+	/// </param>
 	/// <param name="seed">Seed for <see cref="Random"/>.</param>
 	public SimWorld(HeightGrid terrain, BulletCatalog? bullets = null,
 			ExplosionCatalog? explosions = null, RocketCatalog? rockets = null,
-			BeamAppearance? beams = null, int seed = 0) {
+			BeamAppearance? beams = null, int seed = 0, DebrisCatalog? debris = null) {
 		Terrain = terrain;
 		Bullets = bullets;
 		Explosions = explosions;
 		Rockets = rockets;
 		BeamTable = beams;
+		Debris = debris;
 		Random = new SimRandom(seed);
+	}
+
+	private int[] _fireShapeFrames = Array.Empty<int>();
+
+	/// <summary>
+	/// Tells the world how many frames each root of <c>dts\FIRE.DTS</c> has, which is what times a
+	/// burning object's loop — see <see cref="FireEffect"/>. Supplied rather than read here for the
+	/// reason <see cref="ExplosionCatalog.BindFrameCounts"/> is. Until it is, nothing burns.
+	/// </summary>
+	public void BindFireShapeFrames(IReadOnlyList<int> framesPerShape) {
+		_fireShapeFrames = framesPerShape.ToArray();
 	}
 
 	/// <summary>The loaded zone's terrain. One zone is active at a time, as in the original.</summary>
@@ -248,6 +266,304 @@ public sealed class SimWorld {
 	/// </summary>
 	internal short PickImpactEffect(short[]? effects) =>
 		effects is { Length: > 0 } ? effects[Random.NextMasked(3) % effects.Length] : (short)0;
+
+	/// <summary>
+	/// The debris databases — <c>DEF_DEB</c> and whatever else has been asked for. Null when the
+	/// install has no <c>DEF_DEB</c>, in which case nothing throws anything.
+	/// </summary>
+	public DebrisCatalog? Debris { get; }
+
+	/// <summary>
+	/// Wreckage in the air, from <see cref="SpawnDebris"/>. Each piece lives until it comes to rest
+	/// or bursts; see <see cref="DebrisObject"/>.
+	/// </summary>
+	public IReadOnlyList<DebrisObject> DebrisInFlight => _debris;
+
+	/// <summary>
+	/// Fires currently burning, from <see cref="SpawnFire"/> — at most
+	/// <see cref="FireEffect.PoolSize"/> of them, as in the original.
+	/// </summary>
+	public IReadOnlyList<FireEffect> Fires => _fires;
+
+	/// <summary>
+	/// <c>Debris_ThrowGroup</c> — throws one debris group at <paramref name="frame"/>.
+	///
+	/// <para><b>Two ways of reading a group</b>, on its own throw count: zero throws every piece it
+	/// holds, once each; anything else throws exactly that many pieces drawn from it at random,
+	/// weighted by each piece's share of the group's total — so a five-throw group of six pieces can
+	/// throw the same one twice and skip two others.</para>
+	///
+	/// <para>Each piece is placed by <c>Debris_Throw</c>: a piece that states an orientation yaw has
+	/// it composed onto <paramref name="frame"/> and keeps the result as its own attitude, and one
+	/// that states a throw yaw is launched along that bearing relative to it. A piece that states
+	/// neither is thrown on a wholly random bearing from the frame's translation, which is what every
+	/// <c>DEF_DEB</c> group does.</para>
+	///
+	/// <para>The launch itself is <c>Debris_Launch</c>: the pitch is drawn between
+	/// <paramref name="pitchMin"/> and <paramref name="pitchMax"/>, and the speed is
+	/// <paramref name="speedScale"/> shifted up ten over the piece's own mass. The original also adds a carrier velocity from a global that only
+	/// <c>Flyer_ComponentDamageWrite</c> ever sets, so a shot-down aircraft's wreckage keeps flying;
+	/// this engine's flyers hold no velocity to add.</para>
+	/// </summary>
+	/// <param name="groupIndex">The group, in the two-database index space — see <see cref="DebrisCatalog"/>.</param>
+	/// <param name="frame">Where and how it is thrown from.</param>
+	/// <param name="installed">
+	/// The alternate database this site has installed, which is the original's global at the moment
+	/// of the call: a machine's own chassis table, <c>BASE_DEB</c>, or the table a bursting piece was
+	/// itself thrown from.
+	/// </param>
+	/// <param name="pitchMin">Lowest launch pitch, BAM. 6000 (about 33 degrees) for a first throw.</param>
+	/// <param name="pitchMax">Highest launch pitch, BAM. 16000 (about 88 degrees) for a first throw.</param>
+	/// <param name="speedScale">
+	/// What the launch speed is <c>&lt;&lt; 10</c> and divided by the piece's mass from. 420 for a
+	/// first throw and 320 for a burst, so second-generation debris scatters closer.
+	/// </param>
+	internal void SpawnDebris(short groupIndex, in Transform3 frame, DebrisDatabase? installed,
+			short pitchMin = ThrowPitchMin, short pitchMax = ThrowPitchMax,
+			int speedScale = ThrowSpeedScale) {
+		if (Debris?.Resolve(groupIndex, installed) is not { } resolved) {
+			return;
+		}
+
+		var (database, group) = resolved;
+
+		if (group.ThrowCount == 0) {
+			foreach (var piece in group.Pieces) {
+				Throw(database, piece, frame, pitchMin, pitchMax, speedScale);
+			}
+
+			return;
+		}
+
+		for (int thrown = 0; thrown < group.ThrowCount; thrown++) {
+			// The weighted walk: a draw under the group's total, then each piece's weight subtracted
+			// off it in file order until one covers what is left. The original's loop is unguarded and
+			// walks off the end if the total does not match; stopping at the last piece is this
+			// engine's, and no retail group can reach it.
+			int draw = Random.NextBelow((short)group.TotalWeight);
+			int index = 0;
+			while (index < group.Pieces.Count - 1 && draw > group.Pieces[index].Weight) {
+				draw -= group.Pieces[index].Weight;
+				index++;
+			}
+
+			Throw(database, group.Pieces[index], frame, pitchMin, pitchMax, speedScale);
+		}
+	}
+
+	/// <inheritdoc cref="SpawnDebris(short, in Transform3, DebrisDatabase?, short, short, int)" />
+	/// <remarks>
+	/// <c>Debris_ThrowGroupAt</c> — the same throw from a point rather than a frame, which is how every site
+	/// but a machine's own component destruction spawns: it builds an identity rotation, drops the
+	/// point in, and hands that over. So a piece thrown this way keeps whatever attitude its record
+	/// states and nothing else.
+	/// </remarks>
+	internal void SpawnDebris(short groupIndex, Vec3i position, DebrisDatabase? installed,
+			short pitchMin = ThrowPitchMin, short pitchMax = ThrowPitchMax,
+			int speedScale = ThrowSpeedScale) {
+		var frame = Transform3.Identity;
+		frame.X = position.X;
+		frame.Y = position.Y;
+		frame.Z = position.Z;
+
+		SpawnDebris(groupIndex, frame, installed, pitchMin, pitchMax, speedScale);
+	}
+
+	/// <summary>
+	/// <c>Debris_Throw</c> and <c>Debris_Launch</c> — places and launches one piece. Silently does
+	/// nothing once <see cref="DebrisObject.PoolSize"/> pieces are already in the air, which is what
+	/// the original's allocator returning null amounts to.
+	/// </summary>
+	private void Throw(DebrisDatabase database, DebrisPiece piece, in Transform3 frame,
+			short pitchMin, short pitchMax, int speedScale) {
+		if (_debris.Count >= DebrisObject.PoolSize) {
+			return;
+		}
+
+		(short X, short Y, short Z) euler = default;
+
+		// A piece with either angle stated has its own yaw composed onto the spawn frame, and the
+		// composed attitude read back out as Euler angles. The original tests the pair together for
+		// the compose and each separately for what it does with the answer, which is why a piece
+		// stating only a throw yaw still does the matrix work and then keeps none of the attitude.
+		// The <b>position is the spawn frame's own</b> either way: the composed transform is a
+		// temporary the original never places anything at.
+		if (piece.OrientationYaw != DebrisDatabase.NoAngle || piece.ThrowYaw != DebrisDatabase.NoAngle) {
+			var yaw = Transform3.FromEuler(0, 0, (short)piece.OrientationYaw);
+			euler = Transform3.Concat(yaw, frame).ToEuler();
+		}
+
+		short bearing = piece.ThrowYaw == DebrisDatabase.NoAngle
+			? Random.Next()
+			: (short)(euler.Z + piece.ThrowYaw - piece.OrientationYaw);
+
+		short pitch = (short)(Random.NextBelow((short)(pitchMax - pitchMin)) + pitchMin);
+		var velocity = LaunchVelocity(bearing, pitch, piece.Mass, speedScale);
+
+		string library = database.Name + ShapeLibrarySuffix;
+
+		_debris.Add(new DebrisObject(
+			library, piece.ShapeIndex, DebrisShapeRadius(library, piece.ShapeIndex),
+			piece.ChildGroup, piece.DestroyEffect, database,
+			new Vec3i(frame.X, frame.Y, frame.Z),
+			piece.OrientationYaw == DebrisDatabase.NoAngle ? default : euler,
+			velocity, DrawSpinRate(), DrawBurstDelay()));
+	}
+
+	/// <summary>
+	/// Puts one already-built piece of wreckage into the world on the launch the throw uses —
+	/// <c>Debris_Launch</c> reached directly rather than through a group. The one caller is
+	/// <see cref="WeaponMount.Destroy"/>, which throws the gun's own model off the hardpoint rather
+	/// than anything a debris table names.
+	/// </summary>
+	/// <param name="shapeLibrary">The shape file the gun's model is a root of.</param>
+	/// <param name="shapeIndex">Which root.</param>
+	/// <param name="shapeRadius">Its bounding radius.</param>
+	/// <param name="position">The muzzle point it is thrown from.</param>
+	/// <param name="euler">The attitude it keeps — the muzzle frame's own.</param>
+	/// <param name="bearing">The bearing it is thrown along.</param>
+	/// <param name="pitch">The pitch it is thrown at — a fixed figure here, not a draw.</param>
+	/// <param name="mass">What divides the speed.</param>
+	/// <param name="childGroup">The group it bursts into, or <c>-1</c>.</param>
+	/// <param name="destroyEffect">The effect that goes off there, or <c>-1</c>.</param>
+	/// <param name="childTable">The database <paramref name="childGroup"/> is read against.</param>
+	internal void SpawnDebrisPiece(string shapeLibrary, int shapeIndex, int shapeRadius,
+			Vec3i position, (short X, short Y, short Z) euler, short bearing, short pitch, short mass,
+			short childGroup, short destroyEffect, DebrisDatabase? childTable) {
+		if (_debris.Count >= DebrisObject.PoolSize) {
+			return;
+		}
+
+		_debris.Add(new DebrisObject(shapeLibrary, shapeIndex, shapeRadius, childGroup, destroyEffect,
+			childTable, position, euler, LaunchVelocity(bearing, pitch, mass, ThrowSpeedScale),
+			DrawSpinRate(), DrawBurstDelay()));
+	}
+
+	/// <summary>
+	/// <c>Debris_Launch</c>'s velocity — the speed is <paramref name="speedScale"/> shifted up ten and
+	/// divided by the piece's mass, split into a horizontal part by the pitch and then onto the two
+	/// horizontal axes by the bearing.
+	///
+	/// <para>The original also adds a carrier velocity from a global that only
+	/// <c>Flyer_ComponentDamageWrite</c> ever sets, so a shot-down aircraft's wreckage keeps flying;
+	/// this engine's flyers hold no velocity to add.</para>
+	/// </summary>
+	private static (short X, short Y, short Z) LaunchVelocity(short bearing, short pitch, short mass,
+			int speedScale) {
+		int speed = mass != 0 ? (speedScale << 10) / mass : 0;
+		int horizontal = SimMath.Q14Multiply(speed, SimTrig.Cos(pitch));
+
+		return (
+			(short)SimMath.Q14Multiply(horizontal, SimTrig.Cos((short)(bearing + BinaryAngle.QuarterTurn))),
+			(short)SimMath.Q14Multiply(horizontal, SimTrig.Cos(bearing)),
+			(short)SimMath.Q14Multiply(speed, SimTrig.Cos((short)(pitch - BinaryAngle.QuarterTurn))));
+	}
+
+	/// <summary>The tumble: always the same direction, between 800 and 2500 BAM a second.</summary>
+	private short DrawSpinRate() =>
+		(short)(SimMath.Q10Multiply(SpinRateSpread, Random.NextMasked(0x3ff)) + SpinRateBase);
+
+	/// <summary>The burst countdown, drawn whether or not the piece has anything to burst into.</summary>
+	private short DrawBurstDelay() => (short)(Random.NextBelow(BurstDelaySpread) + BurstDelayBase);
+
+	/// <summary>What a debris database's shape file is called, given its name.</summary>
+	public const string ShapeLibrarySuffix = ".DTS";
+
+	private readonly Dictionary<string, int[]> _debrisShapeRadii = new(StringComparer.OrdinalIgnoreCase);
+
+	/// <summary>
+	/// Tells the world how large each root of one debris shape file is, which is what a thrown piece
+	/// clears the ground by: <c>Debris_TickUpdate</c> settles a piece at the terrain height plus its
+	/// shape's own bounding radius scaled by <see cref="DebrisObject.GroundClearanceScale"/>.
+	///
+	/// <para>Supplied rather than read here for the reason
+	/// <see cref="ExplosionCatalog.BindFrameCounts"/> is: the radius is a property of the shape file,
+	/// which <see cref="Scene.MissionScene"/> builds. A library nothing has bound answers zero, and a
+	/// piece out of it rests on the terrain surface.</para>
+	/// </summary>
+	public void BindDebrisShapeRadii(string shapeLibrary, IReadOnlyList<int> radiiPerShape) {
+		_debrisShapeRadii[shapeLibrary] = radiiPerShape.ToArray();
+	}
+
+	/// <summary>The bounding radius of one debris shape, or zero when it is unknown.</summary>
+	public int DebrisShapeRadius(string shapeLibrary, int shapeIndex) =>
+		_debrisShapeRadii.TryGetValue(shapeLibrary, out var radii)
+			&& shapeIndex >= 0 && shapeIndex < radii.Length
+			? radii[shapeIndex]
+			: 0;
+
+	/// <inheritdoc cref="SpawnDebris(short, in Transform3, DebrisDatabase?, short, short, int)" />
+	public const short ThrowPitchMin = 6000;
+
+	/// <inheritdoc cref="SpawnDebris(short, in Transform3, DebrisDatabase?, short, short, int)" />
+	public const short ThrowPitchMax = 16000;
+
+	/// <inheritdoc cref="SpawnDebris(short, in Transform3, DebrisDatabase?, short, short, int)" />
+	public const int ThrowSpeedScale = 0x1a4;
+
+	/// <inheritdoc cref="DebrisObject.SpinRate" />
+	private const int SpinRateSpread = -0x6a4;
+
+	/// <inheritdoc cref="DebrisObject.SpinRate" />
+	private const short SpinRateBase = -800;
+
+	/// <summary>The burst countdown's own draw — 2000 to 32000, so 1 to 16 seconds.</summary>
+	private const short BurstDelaySpread = 30000;
+
+	/// <inheritdoc cref="BurstDelaySpread" />
+	private const short BurstDelayBase = 2000;
+
+	/// <summary>
+	/// <c>FireEffect_Ctor</c> (<c>0046b388</c>) — sets something alight.
+	///
+	/// <para><b>The pool is small and full is not a refusal.</b> With all
+	/// <see cref="FireEffect.PoolSize"/> slots busy the original takes the fire with the fewest
+	/// passes left and rebuilds it, so the newest fire always gets a slot and the one nearest going
+	/// out is what pays. That is <c>FireEffect_AcquireSlot</c>, and it is reproduced here.</para>
+	///
+	/// <para>The original also starts the shared burning sound on the first live fire and stops it on
+	/// the last, which <see cref="ReleaseFires"/> holds the other end of.</para>
+	/// </summary>
+	/// <param name="owner">What is burning.</param>
+	/// <param name="componentIndex">Which of its components, or <c>-1</c> — see <see cref="FireEffect"/>.</param>
+	/// <param name="localPoint">Where on it, for a fire with no component.</param>
+	/// <param name="shapeIndex">Which <c>FIRE.DTS</c> root to burn.</param>
+	internal void SpawnFire(SimObject owner, short componentIndex, Vec3i localPoint, int shapeIndex) {
+		if (shapeIndex < 0 || shapeIndex >= _fireShapeFrames.Length) {
+			return;
+		}
+
+		if (_fires.Count >= FireEffect.PoolSize) {
+			int weakest = 0;
+			for (int i = 1; i < _fires.Count; i++) {
+				if (_fires[i].LoopsRemaining < _fires[weakest].LoopsRemaining) {
+					weakest = i;
+				}
+			}
+
+			_fires.RemoveAt(weakest);
+		}
+
+		if (_fires.Count == 0) {
+			Sounds?.Play(SoundId.BurningObject);
+		}
+
+		_fires.Add(new FireEffect(owner, componentIndex, localPoint, shapeIndex,
+			_fireShapeFrames[shapeIndex], FireEffect.LoopCount));
+	}
+
+	/// <summary>
+	/// <c>FireEffect_ReleaseForOwner</c> (<c>0046b528</c>) — puts out every fire burning on one
+	/// object. The original calls it in exactly one place, the whole-object destruction branch, which
+	/// clears a machine's per-component fires before lighting the one big one.
+	/// </summary>
+	internal void ReleaseFires(SimObject owner) {
+		_fires.RemoveAll(fire => ReferenceEquals(fire.Owner, owner));
+
+		if (_fires.Count == 0) {
+			Sounds?.Stop(SoundId.BurningObject);
+		}
+	}
 
 	/// <summary>
 	/// Adds an object to the simulation — <c>ObjectList_Add</c> (<c>FUN_00411dd4</c>), which appends
@@ -587,6 +903,25 @@ public sealed class SimWorld {
 		for (int i = _rockets.Count - 1; i >= 0; i--) {
 			if (_rockets[i].Tick(this)) {
 				_rockets.RemoveAt(i);
+			}
+		}
+
+		// Wreckage and fires are pool objects too, and walked with the rest of them. A piece that
+		// bursts as it is ticked appends its children to the same list; iterating backwards means they
+		// wait for the next tick rather than moving twice on this one, which is the deal every other
+		// pool object gets.
+		for (int i = _debris.Count - 1; i >= 0; i--) {
+			if (_debris[i].Tick(this)) {
+				_debris.RemoveAt(i);
+			}
+		}
+
+		for (int i = _fires.Count - 1; i >= 0; i--) {
+			if (_fires[i].Tick(this)) {
+				_fires.RemoveAt(i);
+				if (_fires.Count == 0) {
+					Sounds?.Stop(SoundId.BurningObject);
+				}
 			}
 		}
 

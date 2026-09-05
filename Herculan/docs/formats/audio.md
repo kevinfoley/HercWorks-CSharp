@@ -268,6 +268,10 @@ sound fails to open.
 `-` is the authored `0xff`, i.e. the 5/100 defaults. The four empty entries have no attribute bytes
 at all and are never opened.
 
+`0x33` is not the flamer: it is the burning-object loop, started by the first live
+[`FireEffect`](../simulation/destruction-effects.md#fire) and stopped by the last, and kept
+positioned on whichever fire is nearest the camera.
+
 This resolves the sound ids scattered through the other docs: `0x0b` is `laser1.wav`, the beam muzzle
 sound of [`../simulation/weapon-firing.md`](../simulation/weapon-firing.md); `0x16` the target-lost
 tone of [`../simulation/missile-lock.md`](../simulation/missile-lock.md); `0x21` the torso servo

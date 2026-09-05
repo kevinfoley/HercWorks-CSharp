@@ -1,4 +1,4 @@
-using HercWorks.Core.Data.File.Dat.Sim;
+﻿using HercWorks.Core.Data.File.Dat.Sim;
 using Herculan.Engine.Numerics;
 
 namespace Herculan.Engine.Sim;
@@ -31,6 +31,8 @@ public sealed class MechTypeRecord {
 
 	public MechTypeRecord(HercSimDat data) {
 		Data = data;
+
+		DebrisTableName = Name(data.DebrisFile);
 
 		IsFlyer = data.InputFlagFlyer != 0;
 		RawMaxForward = data.SpeedForward;
@@ -192,6 +194,24 @@ public sealed class MechTypeRecord {
 	/// mean.</para>
 	/// </summary>
 	public bool WeaponMountsDestructible => Data.Unk84_val != 0;
+
+	/// <summary>
+	/// The base name of this chassis' own debris table, record offset 204 — a 12-byte NUL-padded
+	/// string, <c>achi_deb</c> for the ACHILLES. <c>MechType_InitOne</c> loads
+	/// <c>dat\&lt;name&gt;.DAT</c> and <c>dts\&lt;name&gt;.DTS</c> from it into the type record's own
+	/// database at <c>+0x212</c>, and binds the chassis' texture bank to every shape in it, so a
+	/// machine's wreckage is painted in the machine's own colours.
+	///
+	/// <para>Empty for a chassis that names none — the original tests the first byte before it loads
+	/// anything, and a chassis with no table simply throws nothing out of the alternate half of the
+	/// index space.</para>
+	/// </summary>
+	public string DebrisTableName { get; }
+
+	/// <summary>Reads one of the record's NUL-padded fixed-width name fields.</summary>
+	private static string Name(byte[]? field) =>
+		field == null ? string.Empty
+			: System.Text.Encoding.ASCII.GetString(field).TrimEnd(' ', ' ');
 
 	/// <summary>
 	/// The shape part each leg's node hangs on, and the leg's kind byte — record offsets 117 and 112

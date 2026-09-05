@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using Herculan.Engine.Gl;
 using Herculan.Engine.Sim;
 using Silk.NET.OpenGL;
@@ -14,7 +14,11 @@ public sealed class SceneItem {
 		Fullbright = fullbright;
 	}
 
-	public GpuMesh Mesh { get; }
+	/// <summary>
+	/// The geometry. Settable because a structure that falls is redrawn as its wreck rather than
+	/// rebuilt — see <see cref="Sim.BaseObject.ShowingHulk"/>.
+	/// </summary>
+	public GpuMesh Mesh { get; set; }
 
 	/// <summary>Model-to-world transform, in render space.</summary>
 	public Matrix4x4 Transform { get; set; }

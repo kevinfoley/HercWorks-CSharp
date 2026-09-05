@@ -33,10 +33,11 @@ The mechanism is understood; what is left is engine work.
   part of the mission-deployment entry above) and the AI ramming attack (`FUN_0041e488`, part of the
   behaviour-tree entry below).
   → [`docs/simulation/damage-system.md`](docs/simulation/damage-system.md)
-- **No debris objects of any kind.** A destroyed component and a destroyed weapon mount both throw
-  shapes in the original; there is nothing here for them to spawn into.
-  → [`docs/simulation/damage-system.md`](docs/simulation/damage-system.md),
-  [`docs/simulation/weapon-mounts.md`](docs/simulation/weapon-mounts.md)
+- **Nothing draws a destroyed part's blank cell.** Every body part of a machine, and every
+  destructible section of a structure, is a flipbook whose last cell draws nothing, and the original
+  steps a lost part to it. The engine records which sequences should have been blanked and draws none
+  of them: `DtsMeshBuilder` takes one cell index for a whole root, so this needs a per-part one.
+  → [`docs/formats/mech-shape-drawing.md`](docs/formats/mech-shape-drawing.md)
 - **A machine's LOD roots are not selected.** Root 0 is hard-coded where the original picks one per
   frame from projected size and a detail bias.
   → [`docs/formats/mech-shape-drawing.md`](docs/formats/mech-shape-drawing.md)
@@ -44,17 +45,13 @@ The mechanism is understood; what is left is engine work.
   here, where the original re-hits on release; TRACK latches but nothing reads it; clicking a pod's
   row does nothing, where the original toggles the pod.
   → [`docs/simulation/weapon-mounts.md`](docs/simulation/weapon-mounts.md)
-- **GAU widgets are not interactive** outside the weapon panel and console buttons — no input wiring.
-  → [`docs/formats/cockpit-input.md`](docs/formats/cockpit-input.md)
 - **Terrain raycast, swept-volume mode.** Only thin-ray mode is ported; the swept-volume mode
   (movement collision) is not, because nothing in the engine needs it yet.
   → [`docs/formats/terrain-heightmap.md`](docs/formats/terrain-heightmap.md)
 - **Automatic turret tracking (`[T]`) and AI turret aiming.**
   → [`docs/simulation/torso-aim.md`](docs/simulation/torso-aim.md)
-- **Flyer control bindings.** The flight model is ported and the axis roles are known, but the host
-  still sends a Razor the walker-shaped control set, so the elevator, rudder and throttle are not
-  reachable from the keyboard. Retail's own bindings are a saved configuration rather than anything
-  in the executable, so what to default to is a design choice.
+- **Flyer control bindings.** The flight model is ported and the axis roles are known, but key
+bindings are hardcoded placeholders.
   → [`docs/simulation/razor-flight.md`](docs/simulation/razor-flight.md)
 
 ## Reverse-engineering still open

@@ -94,7 +94,10 @@ if (damageRecord[+3] >= 0)                                  // signed byte: the 
 `shapeInstance+8` is the per-sequence cell-frame array `TSCellAnimPart_Render` indexes by
 `AnimSequence` — see [`dts-billboards.md`](dts-billboards.md). So losing a component is drawn by
 stepping its parts to their blank cell, and the `.DMG` record's `+3` byte is the component-to-sequence
-map. See [`../simulation/damage-system.md`](../simulation/damage-system.md).
+map. The same byte gates the fire that component lights — see
+[`../simulation/destruction-effects.md`](../simulation/destruction-effects.md#who-catches-fire) — and
+the damage arithmetic behind it is in
+[`../simulation/damage-system.md`](../simulation/damage-system.md).
 
 ## HERCULAN Engine
 
@@ -102,4 +105,4 @@ map. See [`../simulation/damage-system.md`](../simulation/damage-system.md).
 |---|---|
 | Hardpoint attachment slots | **Skipped**, not spliced — `DtsMeshBuilder.AttachmentPartIds` derives the id set from the `.GL` and `SceneModelLibrary.Mech` leaves those parts out of the mesh. The fitted case is drawn separately from `MECHWPNS.DTS` (`SceneModelLibrary.MechWeapon`), which is the same picture by a different route |
 | LOD root selection | Not implemented; root 0 is hard-coded. Correct only while `DAT_0049736c` is zero, which is unverified |
-| Component sub-shape cells | Not implemented; every part is built at cell 0, so a destroyed component keeps its intact geometry |
+| Component sub-shape cells | Not drawn; every part is built at cell 0, so a destroyed component keeps its intact geometry. Which sequences *should* have been blanked is recorded in `Sim.ComponentDamage.SubShapeHidden`, and drawing them needs a per-part cell index through `DtsMeshBuilder`, which takes one for a whole root |

@@ -1,4 +1,4 @@
-using HercWorks.Core.Data.File.Dat.Sim;
+﻿using HercWorks.Core.Data.File.Dat.Sim;
 using HercWorks.Core.Data.File.Dbsim;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Sim.Anim;
@@ -456,6 +456,10 @@ public sealed partial class MechObject : SimObject {
 	/// through this, as <see cref="EyePosition"/> does.
 	/// </summary>
 	public Transform3 WorldTransform => Rotation();
+
+	/// <inheritdoc />
+	/// <remarks>A machine's frame is its full attitude, lean included — see <see cref="WorldTransform"/>.</remarks>
+	public override Transform3 WorldFrame => WorldTransform;
 
 	/// <summary>
 	/// The machine's body radius — <see cref="MechTypeRecord.BodyRadius"/>, the flat 750 every retail

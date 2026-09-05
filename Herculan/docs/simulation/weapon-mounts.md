@@ -226,9 +226,12 @@ mount+0x10 = 0;      // drop the weapon model: the gun stops being drawn on the 
 mount+0x49 = 1;      // destroyed: charges nothing, fires nothing, cannot be armed, prints OFFLINE
 ```
 
-A visibly-mounted hardpoint then throws the template's `mechwpn2` shape (`template+0x26`) off the
-mount point as debris, on a `Math_EulerToward` bearing away from the machine, with a longer lifetime
-pair when the caller passes a nonzero third argument.
+A visibly-mounted hardpoint then throws its own gun as a debris object — the same shape index out of
+`dts\MECHWPN2.DTS`, off the mount point, on a `Math_EulerToward` bearing away from the machine's aim
+point. The third argument selects the pair the piece is built with, and it is the *path* that picks
+it, not who is flying: the certain notification below passes 0 and throws a piece that bursts, the
+destruction roll passes 1 and throws one that just falls. See
+[`destruction-effects.md`](destruction-effects.md#spawn-sites).
 
 ### The certain path — the condition notification
 
@@ -400,8 +403,6 @@ from its own `+0x40` latch. **LINK never stays lit**; the link state lives on th
   Herculan; the tracking itself is unported.
 - **A pod's on/off toggle.** Clicking a pod's row in the original flips `gauge+0xc2`
   (`FUN_004419fc`), which re-fonts its name. No pod carries an on/off state here.
-- **The debris a destroyed mount throws.** The engine has no debris objects at all, so there is
-  nothing for `WeaponMount_Destroy`'s `mechwpn2` spawn to go into.
 
 ## Rejected readings
 

@@ -1,4 +1,4 @@
-using HercWorks.Core.Data.File.Dbsim;
+﻿using HercWorks.Core.Data.File.Dbsim;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.World;
 
@@ -35,6 +35,12 @@ public sealed class BaseObject : SimObject {
 	// hit test and the damage path, so it stops absorbing fire entirely.
 	private readonly bool[] _alive;
 
+	// obj+0x205 +5 and +3: how many stages of its death sequence each component has left, and the
+	// countdown to the next one. Both zero for a component that is not falling -- a live one, or one
+	// that has already finished.
+	private readonly short[] _deathStage;
+	private readonly short[] _deathTimer;
+
 	/// <param name="type">The <c>BASES.DAT</c> entry this structure is an instance of.</param>
 	/// <param name="volume">
 	/// The shape's collision volume, or null for a type whose shape has none — every
@@ -63,6 +69,8 @@ public sealed class BaseObject : SimObject {
 		_collision = collision ?? Array.Empty<ColliderNode>();
 		_shapeRadius = shapeRadius != 0 ? shapeRadius : type.HitRadius;
 		_damage = new int[type.Components.Length];
+		_deathStage = new short[type.Components.Length];
+		_deathTimer = new short[type.Components.Length];
 		_alive = new bool[type.Components.Length];
 		Array.Fill(_alive, true);
 	}
@@ -167,16 +175,7 @@ public sealed class BaseObject : SimObject {
 	/// is the whole of its orientation, so this is a Z rotation with its world position in the
 	/// translation.
 	/// </summary>
-	public Transform3 WorldTransform {
-		get {
-			var transform = Transform3.FromEuler(0, 0, (short)Heading);
-			var position = Position;
-			transform.X = position.X;
-			transform.Y = position.Y;
-			transform.Z = position.Z;
-			return transform;
-		}
-	}
+	public Transform3 WorldTransform => WorldFrame;
 
 	/// <summary>
 	/// <c>Base_DirectFireHitTest</c> (<c>FUN_00405038</c>) — the vtable <c>+0x20</c> every structure
@@ -202,9 +201,8 @@ public sealed class BaseObject : SimObject {
 	/// always false here: the effect comes out of a small fixed table in the executable
 	/// (<c>0049741c</c>) that is not ported, so nothing ever starts one.</para>
 	///
-	/// <para>One thing the original does here that this does not is the 25%-chance secondary effect
-	/// it rolls on every structure hit (<c>FUN_004089bc</c>/<c>FUN_00408530</c>, a different effect
-	/// pool from the impact effect above it).</para>
+	/// <para>It also rolls <see cref="HitDebrisOdds"/> in 4096 on every hit — a shade over a quarter —
+	/// to shed <see cref="HitDebrisGroup"/> off the impact point.</para>
 	/// </summary>
 	public override int DirectFireHitTest(SimWorld world, WeaponShot shot) {
 		bool wreck = Destroyed && Type.HulkTypeIndex != -1;
@@ -249,12 +247,30 @@ public sealed class BaseObject : SimObject {
 		// Always the armour array. Unlike a mech, a structure has no shields to flash and no
 		// component health band to fall through, so this is the one branch that exists — and it is
 		// the only place in the engine that reaches ImpactFxGroup.Armor at all.
+		var point = shot.Muzzle.TransformPoint(0, struckAt, 0);
 		world.SpawnImpactEffect(
-			world.PickImpactEffect(shot.ImpactFx(WeaponShot.ImpactFxGroup.Armor)),
-			shot.Muzzle.TransformPoint(0, struckAt, 0));
+			world.PickImpactEffect(shot.ImpactFx(WeaponShot.ImpactFxGroup.Armor)), point);
+
+		if (world.Random.NextMasked(0xfff) < HitDebrisOdds) {
+			world.SpawnDebris(HitDebrisGroup, point, StructureDebris(world));
+		}
 
 		return struckAt;
 	}
+
+	/// <inheritdoc cref="DirectFireHitTest" />
+	private const int HitDebrisOdds = 0x401;
+
+	/// <inheritdoc cref="DirectFireHitTest" />
+	private const short HitDebrisGroup = 1;
+
+	/// <summary>
+	/// <c>BASE_DEB</c> — the debris table the structure paths install as the alternate database
+	/// before every throw they make, exactly as <c>Base_ExplosionSequenceTick</c> installs
+	/// <c>g_DebrisStructure</c>. Null when the install has no such table.
+	/// </summary>
+	private static DebrisDatabase? StructureDebris(SimWorld world) =>
+		world.Debris?.Database(DebrisDatabase.StructureName);
 
 	/// <summary>
 	/// The volume half of <c>FUN_00427da8</c>, narrowed to the single object this is called on.
@@ -363,7 +379,23 @@ public sealed class BaseObject : SimObject {
 		if (DamageFraction == FullyDestroyed) {
 			Destroyed = true;
 		}
+
+		// And the part starts to fall. A component that names no sequence is simply gone the instant
+		// its health runs out; one that names a sequence is given that many stages and the first
+		// interval, and DeathSequenceTick takes it from there.
+		if (StructureDeathSequence.At(component.DestroyedEffect) is { } sequence) {
+			_deathStage[index] = sequence.StageCount;
+			_deathTimer[index] = StructureDeathSequence.StageInterval;
+		}
 	}
+
+	/// <summary>
+	/// Whether a part is still coming down — it has been destroyed but has stages of its death
+	/// sequence left to run. A structure that has fallen but whose parts are still collapsing reads
+	/// <see cref="Destroyed"/> and this at once.
+	/// </summary>
+	public bool Collapsing(int index) =>
+		index >= 0 && index < _deathStage.Length && _deathStage[index] != 0;
 
 	/// <summary>
 	/// Whether a walking machine is stopped by this structure's <b>collision volume</b> — the second
@@ -474,10 +506,261 @@ public sealed class BaseObject : SimObject {
 	public SimObject? LastAttacker { get; private set; }
 
 	/// <summary>
-	/// Sits the structure on the ground. Same treatment mechs get, and for the same reason: the
-	/// mission states X and Y, and the terrain states Z.
+	/// Sits the structure on the ground and runs whatever is still falling off it. Same ground
+	/// treatment mechs get, and for the same reason: the mission states X and Y, and the terrain
+	/// states Z.
 	/// </summary>
 	public override void Tick(SimWorld world) {
-		Position = new Vec3i(Position.X, Position.Y, world.GroundHeightAt(Position));
+		DeathSequenceTick(world);
+		Position = new Vec3i(Position.X, Position.Y,
+			Sunk ? SunkDepth : world.GroundHeightAt(Position));
 	}
+
+	/// <summary>
+	/// <c>Base_DeathSequenceTick</c> — steps every part that is coming down through the next stage of its
+	/// <see cref="StructureDeathSequence"/>. This is the whole of how a building collapses, and it
+	/// runs backwards: the stage counter starts at the sequence's own length and each expiry of the
+	/// stage timer takes one off it.
+	///
+	/// <list type="bullet">
+	/// <item><b>The early stages are smoke.</b> A secondary explosion is scattered at a random point
+	/// inside the part's <see cref="BaseComponentType.SmokeSpread"/> box around its
+	/// <see cref="BaseComponentType.Position"/>. Stage 4 exactly also cascades: every part hanging off
+	/// this one is finished off, so a tower goes when the block under it does.</item>
+	/// <item><b>Stage 1 is the collapse.</b> The sequence's own explosion goes off, the part throws
+	/// its debris out of <c>BASE_DEB</c>, and then either the part's sub-shape stops being drawn or —
+	/// for the last part of a type that leaves a wreck — the whole structure switches over to its
+	/// hulk.</item>
+	/// <item><b>Stage 0 is the fire</b>, and it is where the two scales meet: a type that states a
+	/// whole-structure fire lights that one once every part is down, and every other part lights its
+	/// own. A structure whose type and part both state none, and which has exactly one part, is
+	/// dropped through the floor instead — <see cref="SunkDepth"/>, the original's own way of making
+	/// a small object disappear.</item>
+	/// </list>
+	///
+	/// <para>The one thing the original does here that this does not is hide the collapsed part's
+	/// sub-shape: that needs a per-part cell index through the mesh builder, which builds one frame
+	/// for a whole shape. The state is recorded in <see cref="SubShapeHidden"/>.</para>
+	/// </summary>
+	private void DeathSequenceTick(SimWorld world) {
+		for (int i = 0; i < Type.Components.Length; i++) {
+			if (_deathStage[i] == 0
+					|| StructureDeathSequence.At(Type.Components[i].DestroyedEffect) is not { } sequence
+					|| SimMath.CountdownTimerTick(ref _deathTimer[i]) != 0) {
+				continue;
+			}
+
+			var component = Type.Components[i];
+			_deathStage[i]--;
+
+			switch (_deathStage[i]) {
+				case 0:
+					LightTheFire(world, component);
+					break;
+
+				case 1:
+					Collapse(world, i, component, sequence);
+					break;
+
+				default:
+					ScatterSmoke(world, component, sequence);
+					_deathTimer[i] = StructureDeathSequence.StageInterval;
+					if (_deathStage[i] == CascadeStage) {
+						FinishDependents(world, i);
+					}
+
+					break;
+			}
+		}
+	}
+
+	/// <summary>
+	/// The last stage. A type that states a whole-structure fire uses it in place of the part's own,
+	/// but only once every part is down (<see cref="EveryPartGone"/>); otherwise the part burns
+	/// alone. A structure with neither, and only one part, is dropped out of the world.
+	/// </summary>
+	private void LightTheFire(SimWorld world, BaseComponentType component) {
+		if (Type.HulkTypeIndex == -1 && component.DestroyedSubShape == -1
+				&& Type.Components.Length == 1) {
+			// Dropped through the floor rather than taken out of the list: the original writes the
+			// depth onto the object's Z and leaves it where it is, so it is still shootable and still
+			// blocks nothing, it is simply nowhere the camera looks. Its own Tick puts it back on the
+			// terrain every frame, so the sunk depth has to survive that -- see Sunk.
+			Sunk = true;
+			return;
+		}
+
+		if (Type.FireShapeIndex < 0 || component.FireShapeIndex < 0) {
+			if (component.FireShapeIndex >= 0) {
+				world.SpawnFire(this, -1, component.EmitPoint, component.FireShapeIndex);
+			}
+
+			return;
+		}
+
+		if (EveryPartGone()) {
+			world.SpawnFire(this, -1, Type.FirePoint, Type.FireShapeIndex);
+		}
+	}
+
+	/// <summary>
+	/// The collapse. The explosion is the type's own when this was the last part standing and the
+	/// part's own otherwise, and the sequence decides whether it goes off at the emission point or at
+	/// the structure's origin. Then the debris, and then the shape change.
+	/// </summary>
+	private void Collapse(SimWorld world, int index, BaseComponentType component,
+			StructureDeathSequence sequence) {
+		bool whole = EveryPartGone() && Type.FireShapeIndex >= 0 && component.FireShapeIndex >= 0;
+
+		if (whole) {
+			SpawnCollapseExplosion(world, Type.DestroyedEffect, Type.FirePoint, ref _deathTimer[index]);
+		} else if (component.DestroyedEffect >= 0) {
+			SpawnCollapseExplosion(world, component.DestroyedEffect, component.EmitPoint,
+				ref _deathTimer[index]);
+		}
+
+		ThrowDebris(world, component);
+
+		// A type that leaves a wreck switches to it when its last part falls; anything else loses the
+		// part's own geometry and takes everything hanging off that part with it.
+		if (whole && Type.HulkTypeIndex != -1) {
+			ShowingHulk = true;
+			return;
+		}
+
+		if (component.DestroyedSubShape >= 0) {
+			SubShapeHidden.Add(component.DestroyedSubShape);
+			FinishDependents(world, index);
+		}
+	}
+
+	/// <summary>
+	/// <c>Base_CollapseExplosion</c> — one collapse explosion, and the stage hold that goes with it. The
+	/// sequence's <see cref="StructureDeathSequence.ExplodeAtOrigin"/> decides whether the point is
+	/// the structure's own or the offset put through its frame.
+	/// </summary>
+	private void SpawnCollapseExplosion(SimWorld world, int sequenceIndex, Vec3i point,
+			ref short timer) {
+		if (StructureDeathSequence.At(sequenceIndex) is not { } sequence) {
+			return;
+		}
+
+		world.SpawnImpactEffect(sequence.Explosion, sequence.ExplodeAtOrigin
+			? Position
+			: WorldTransform.TransformPoint(point.X, point.Y, point.Z));
+
+		timer = sequence.CollapseHold;
+	}
+
+	/// <summary>
+	/// <c>Base_ThrowDebris</c> — the debris a collapsing part throws, out of <c>BASE_DEB</c>. A part whose
+	/// group is above <see cref="LargeDebrisGroup"/> throws two further fixed groups on top of its
+	/// own, which is the difference between a shed falling over and a hangar coming apart.
+	/// </summary>
+	private void ThrowDebris(SimWorld world, BaseComponentType component) {
+		var point = WorldTransform.TransformPoint(
+			component.EmitPoint.X, component.EmitPoint.Y, component.EmitPoint.Z);
+		var table = StructureDebris(world);
+
+		world.SpawnDebris(component.DebrisGroup, point, table);
+
+		if (component.DebrisGroup > LargeDebrisGroup) {
+			world.SpawnDebris(LargeDebrisExtraA, point, table);
+			world.SpawnDebris(LargeDebrisExtraB, point, table);
+		}
+	}
+
+	/// <summary>
+	/// <c>Base_FinishDependents</c> — finishes off every part that hangs off this one. Recursive in the
+	/// original and here: a chain of dependent parts all comes down together, each through the
+	/// ordinary damage path so each starts its own death sequence.
+	/// </summary>
+	private void FinishDependents(SimWorld world, int index) {
+		for (int i = 0; i < Type.Components.Length; i++) {
+			if (Type.Components[i].ParentComponent != index
+					|| _damage[i] >= Type.Components[i].MaxDamage) {
+				continue;
+			}
+
+			ApplyDamage(world.Random, i, Type.Components[i].MaxDamage, LastAttacker);
+			FinishDependents(world, i);
+		}
+	}
+
+	/// <summary>
+	/// A smoke stage: one secondary explosion at a random point inside the part's own spread box
+	/// around its position.
+	/// </summary>
+	private void ScatterSmoke(SimWorld world, BaseComponentType component,
+			StructureDeathSequence sequence) {
+		var spread = component.SmokeSpread;
+		var local = new Vec3i(
+			component.Position.X + world.Random.NextBelow((short)(spread.X * 2)) - spread.X,
+			component.Position.Y + world.Random.NextBelow((short)(spread.Y * 2)) - spread.Y,
+			component.Position.Z + world.Random.NextBelow((short)(spread.Z * 2)) - spread.Z);
+
+		world.SpawnImpactEffect(sequence.SmokeExplosion,
+			WorldTransform.TransformPoint(local.X, local.Y, local.Z));
+	}
+
+	/// <summary>
+	/// <c>Base_EveryPartGone</c> — whether every part either has no fire of its own or is fully damaged,
+	/// which is the original's test for "this structure, and not just this part, has gone".
+	/// </summary>
+	private bool EveryPartGone() {
+		for (int i = 0; i < Type.Components.Length; i++) {
+			if (Type.Components[i].FireShapeIndex >= 0 && _damage[i] < Type.Components[i].MaxDamage) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/// <summary>
+	/// Whether this structure has been dropped out of sight — the last stage of a type that leaves no
+	/// wreck, has one part, and nothing to hide. See <see cref="SunkDepth"/>.
+	/// </summary>
+	public bool Sunk { get; private set; }
+
+	/// <summary>
+	/// Whether this structure has switched over to its <see cref="BaseType.HulkTypeIndex"/> wreck — a
+	/// root of <c>dgs\BHULKS.DGS</c> drawn in place of the building. The original writes the hulk
+	/// shape straight onto the object's model instance; here it is a flag the scene reads.
+	/// </summary>
+	public bool ShowingHulk { get; private set; }
+
+	/// <summary>
+	/// Which of the shape's sub-parts have collapsed and should stop being drawn — the
+	/// <see cref="BaseComponentType.DestroyedSubShape"/> of each fallen part. Recorded; nothing draws
+	/// it yet.
+	/// </summary>
+	public HashSet<short> SubShapeHidden { get; } = new();
+
+	/// <summary>
+	/// The stage at which a part takes its dependents with it — the original's literal 4, tested for
+	/// equality rather than as a threshold, so a sequence shorter than five stages never cascades this
+	/// way at all.
+	/// </summary>
+	private const int CascadeStage = 4;
+
+	/// <summary>
+	/// The debris group above which a collapsing part throws extra wreckage — the original's literal
+	/// 5, which is the last group in <c>DEF_DEB</c>. So the test really reads "does this part throw
+	/// structure debris rather than the shared default".
+	/// </summary>
+	public const short LargeDebrisGroup = 5;
+
+	/// <inheritdoc cref="LargeDebrisGroup" />
+	private const short LargeDebrisExtraA = 10;
+
+	/// <inheritdoc cref="LargeDebrisGroup" />
+	private const short LargeDebrisExtraB = 12;
+
+	/// <summary>
+	/// Where the original drops a structure that leaves nothing behind — <c>-100000</c> written
+	/// straight onto its Z, well under any terrain, so it is simply no longer anywhere the camera
+	/// looks.
+	/// </summary>
+	public const int SunkDepth = -100000;
 }

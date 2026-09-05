@@ -877,7 +877,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Component_DestroyAndCascade",
-      "description": "Destroys a component (debris/effect index lookup, HUD slot state write) and walks the BoneId destruction-dependency group, destroying every sibling that shares the same BoneId.",
+      "description": "Destroys a component and walks the BoneId destruction-dependency group, destroying every sibling that shares it. Also the whole of what a lost part puts on screen: the .DMG record's +0x03 (the TSCellAnimPart sequence this component drives) gates a fire and is stepped to its blank cell, an explosion goes off at the component's own composed frame -- type 0x11 and a one-per-cascade-group latch at DAT_004a98b0 when DestructionFlags bit 2 is set, type 10 otherwise -- and the +0x02 debris group is thrown, falling back to group 2 when it states -1.",
       "source": "docs/simulation/dbsim-physics-notes.md"
     },
     {
@@ -8024,8 +8024,8 @@
       "type": "function",
       "confidence": "high",
       "name": "FireEffect_LoadResources",
-      "description": "Loader for the BURNING-OBJECT effect, not the muzzle flash. Reads dts/fire.dts (fire2.dts when CockpitArt_LoadOnDemand is set) into the shape table DAT_006b4fac, allocates the effect pool DAT_006b4fb4 (10 entries) and its free list DAT_006b4fb8, loads the two banks fire0/fire1 (fire0s/fire1s on demand) into DAT_006b4fb0, then reads dat/FIRE.DAT -- a 4-byte header plus one byte per shape -- and points each shape's +0x26 at the bank that byte names. Retail: 4 shapes, banks [0,0,1,1]. Carries the fire.cpp assert string.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "description": "Loader for the BURNING-OBJECT effect, not the muzzle flash. Reads dts/fire.dts (fire2.dts when CockpitArt_LoadOnDemand is set) into g_FireShapes, allocates the ten-entry g_FirePool and its free list, loads the two banks fire0/fire1 (fire0s/fire1s on demand), then reads dat/FIRE.DAT -- a 4-byte count header plus one byte per shape -- and points each shape's +0x26 at the bank that byte names. Retail: 4 shapes, banks [0, 0, 0, 1]. Carries the fire.cpp assert string.",
+      "source": "docs/simulation/destruction-effects.md"
     },
     {
       "address": "0046b388",
@@ -8033,17 +8033,17 @@
       "type": "function",
       "confidence": "high",
       "name": "FireEffect_Ctor",
-      "description": "Builds one burning-object effect on shape index param_5: copies the owner pointer to +0x4a, the attach point to +0x50, sets the lifetime/priority at +0x59 (5, or 30 when DAT_004a9ed2 != 4) and +0x57 = 0x40. The first live instance starts sound 0x33 and the last stops it (FireEffect_Dtor), counted by DAT_006b4fbc. At detail level 4 only shapes 1 and 3 are built; the others go straight back on the free list.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "description": "Builds one burning-object effect on a FIRE.DTS shape index: owner at +0x4a, attach cluster id at +0x4e (negative uses the raw local point, 0xffff is the structures' 'no cluster'), attach point at +0x50, frame timer +0x57 = 0x40, and the loop count at +0x59 (30, or 5 at detail level 4). At detail level 4 only shapes 1 and 3 are built; the others go straight back on the free list. The first live instance starts sound 0x33 and FireEffect_Dtor stops it on the last, counted by DAT_006b4fbc. Two spawn sites: Component_DestroyAndCascade, whose DestructionFlags bit 1 releases the machine's other fires and lights shape 0 in their place while bit 3 adds shape 2, and Base_DeathSequenceTick's last stage.",
+      "source": "docs/simulation/destruction-effects.md"
     },
     {
       "address": "0046b32c",
       "binary": "DBSIM",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_FireEffect_AcquireSlot",
-      "description": "Takes a free entry from the effect pool DAT_006b4fb4, or when none is free walks the live ones and returns the one with the lowest +0x59 -- the field FireEffect_Ctor writes its lifetime/priority into. Read as evict-the-least-important; +0x59's exact meaning is not independently confirmed.",
-      "source": "docs/simulation/dbsim-physics-notes.md"
+      "confidence": "high",
+      "name": "FireEffect_AcquireSlot",
+      "description": "Takes a free entry from g_FirePool, or when none is free walks the live ones and returns the one with the lowest +0x59 -- the loop count FireEffect_TickUpdate decrements each time the flipbook wraps. So a full pool never refuses a new fire; the one nearest going out pays for it.",
+      "source": "docs/simulation/destruction-effects.md"
     },
     {
       "address": "0046b470",
@@ -8896,6 +8896,299 @@
       "description": "Gathers the structures a walking machine can be blocked by and hands them to Structure_WalkCollisionTest. Walks the structure list at DAT_004a9624, skipping the excluded object, and includes a candidate when it is a static type OR an animated one that has fallen to a wreck-with-hulk -- exactly the complement of what Base_GetCollisionRadius returns nonzero for -- unless the structure is gone entirely (destroyed, no hulk, one component).",
       "source": "docs/simulation/mech-locomotion.md",
       "signature": "void __cdecl Structure_GatherWalkCandidates(int *point, unsigned short radius, int excluded)"
+    },
+    {
+      "address": "004083e0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Debris_FreeResources",
+      "description": "debris.cpp phase-5 teardown: frees the debris object pool and its free list.",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "004083f8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Debris_LoadPieceList",
+      "signature": "short __cdecl Debris_LoadPieceList(int *group, int *stream)",
+      "description": "Reads one debris group out of an open _DEB.DAT stream: a throw count, a piece count, and that many 14-byte pieces. Multiplies both of a piece's angle fields by 182 (degrees to BAM) unless the raw value is the -1 sentinel, and accumulates the group's total piece weight into the group record, which the file does not store. Returns the largest shape index the group names.",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "00408530",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Debris_ThrowGroupAt",
+      "signature": "void __cdecl Debris_ThrowGroupAt(short *group, int shapeArray, int *point, int unused)",
+      "description": "Debris_ThrowGroup from a point rather than a frame: builds an identity rotation with the point in its translation and forwards. Every spawn site but a machine's own component destruction uses this one. The fourth argument is forwarded and read by nothing; all six call sites pass 0.",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "00408588",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Debris_Throw",
+      "description": "Places and launches one piece of a debris group. A piece stating either angle has its own yaw composed onto the spawn frame and the composed attitude read back as Euler angles, but only one stating OrientationYaw keeps it; the position is the spawn frame's own translation either way, the composed transform being a temporary. Then Debris_ThrowAtBearing, or Debris_ThrowRandomBearing when the piece states no throw yaw.",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "004086bc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Debris_ThrowGroup",
+      "signature": "void __cdecl Debris_ThrowGroup(short *group, int shapeArray, int transform, int unused)",
+      "description": "Throws one debris group at a transform. A group whose throw count is zero throws every piece it holds once each; any other throws exactly that many pieces drawn at random and weighted -- a draw under the group's total weight, then each piece's weight subtracted off it in file order until one covers the remainder, so the same piece can be thrown twice. Ghidra infers three parameters; the call site pushes four and cleans 0x10, and the fourth is unused.",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "0040874c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Debris_LoadDatabase",
+      "signature": "void __cdecl Debris_LoadDatabase(int *database, char *name, int textureBank)",
+      "description": "Loads one debris database into a 12-byte struct {group* groups; int16 groupCount; TSShape** shapes; int16 shapeCount}: dts\\<name>.DTS for the shapes and dat\\<name>.DAT for the groups, read by Debris_LoadPieceList. A non-zero third argument is written into every loaded shape's bound-bank pointer (shape+0x26), which is how a chassis' wreckage is painted in the chassis' colours. Three call sites: def_deb at startup, base_deb from Base_LoadResources, and one per HERC chassis from MechType_InitOne into that type's record at +0x212.",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "00408860",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Debris_LoadResources",
+      "description": "debris.cpp phase-2 subsystem init: allocates the 150-entry debris pool at g_DebrisPool and its 40-entry draw list, loads DEF_DEB into g_DebrisDefault, nulls g_DebrisAlternate, and seeds the three throw parameters to their first-throw values (6000, 16000, 420).",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "00408940",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Debris_Construct",
+      "signature": "int * __cdecl Debris_Construct(int *debris, int shape, int *position, char childGroup, short deathEffect)",
+      "description": "Builds one thrown piece on a shape: position at +0x26, child debris group at +0x41 (signed char, -1 = never bursts and the gate on the whole death branch), EXPLOS.DAT death effect at +0x59, a burst countdown of RandomBelow(30000)+2000 at +0x55, and the currently installed alternate database captured at +0x5d so a burst reads its child group against the same table its parent came from.",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "004089bc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Debris_Resolve",
+      "signature": "int * __cdecl Debris_Resolve(short *index)",
+      "description": "Splits a debris group index into the database that owns it, in place: below g_DebrisDefault's group count it reads the default, at or above it subtracts that count and returns g_DebrisAlternate, whatever the calling site installed a moment earlier. Retail DEF_DEB holds 6 groups, so 0-5 are shared and 6 upward reach the installed table.",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "004089e4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Debris_Launch",
+      "signature": "void __cdecl Debris_Launch(int *debris, int mass, short pitch, short yaw)",
+      "description": "Gives one piece its launch velocity and tumble. speed = (g_DebrisSpeedScale << 10) / mass; the pitch splits it into a horizontal part and a vertical one and the yaw spreads the horizontal onto X and Y, all Q14 against the cosine table. Adds the carrier velocity at DAT_004a96e4, which only Flyer_ComponentDamageWrite ever sets. The spin is Q10Multiply(-1700, rand & 0x3ff) - 800, so always negative: every piece tumbles the same way at 800-2500 BAM a second.",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "00408b74",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Debris_ThrowAtBearing",
+      "description": "Draws the launch pitch between g_DebrisPitchMin and g_DebrisPitchMax and forwards to Debris_Launch on the given bearing.",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "00408bb4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Debris_ThrowRandomBearing",
+      "description": "Debris_ThrowAtBearing on a wholly random bearing -- what a piece stating no throw yaw gets, which is every DEF_DEB piece.",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "00408bd8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Debris_TickUpdate",
+      "signature": "short __cdecl Debris_TickUpdate(int *debris)",
+      "description": "Debris vtable +0x14. Spin into euler X and gravity (-0x20, or -10 at detail level 4) into the vertical speed; Q10Multiply(30, v) drag on the two horizontal axes only; then the move, by the AVERAGE of the speed before and after this tick and added UN-INTEGRATED, so a debris velocity is per-tick where a flyer's is per-second. Below terrain + Q10Multiply(500, shapeRadius) the piece snaps up and bounces at -Q10Multiply(450, vz), clearing its countdown; a rebound under 0x2d has stopped. A piece with a child group then bursts -- the countdown is ticked only while it is still flying, so ground contact bursts it either way -- spawning its death effect, re-installing the database at +0x5d and throwing the child group at a tightened window (3000, 8000, 320).",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "00408e6c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Debris_Draw",
+      "description": "Debris vtable draw slot: installs the piece's model transform and renders its shape.",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "00408e9c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Debris_RegisterSubsystem",
+      "description": "Registers Debris_LoadResources as a phase-2 subsystem loader and Debris_FreeResources as phase 5, and nulls the pool pointer.",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "00403668",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_EveryPartGone",
+      "signature": "short __cdecl Base_EveryPartGone(int *structure)",
+      "description": "Whether the STRUCTURE, and not just this part, has gone: walks the type's components and passes one whose fire shape is -1 or whose damage has reached its maximum. It is what makes the last part to collapse use the type's whole-structure explosion and fire in place of its own, and what gates the hulk swap.",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "004036c0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_CollapseExplosion",
+      "signature": "void __cdecl Base_CollapseExplosion(int *structure, int *state, int sequence, short *point)",
+      "description": "One collapse explosion and the stage hold that follows it, both out of the four-entry death sequence tables: the EXPLOS.DAT type from 004973fc, placed at the structure's own origin when 0049740c says so and at the offset put through its frame otherwise, then the component's stage timer reloaded from 00497404.",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "0040379c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_ThrowDebris",
+      "signature": "void __cdecl Base_ThrowDebris(int *structure, int *component)",
+      "description": "The wreckage a collapsing structure part throws: installs g_DebrisStructure (BASE_DEB) as the alternate database and throws the component record's +8 group from the part's emission point put through the structure's frame. A group above 5 -- i.e. one that resolves into BASE_DEB rather than the shared default -- also throws the fixed groups 10 and 12, which is why the big structures come apart in more pieces than the small ones.",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "00403890",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_FinishDependents",
+      "signature": "void __cdecl Base_FinishDependents(int *structure, int componentIndex)",
+      "description": "Finishes off every structure part naming this one at component record +0x1c, recursively and through the ordinary damage path so each starts its own death sequence. The structure equivalent of a machine's .DMG bone group.",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "00403914",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_DeathSequenceTick",
+      "signature": "void __cdecl Base_DeathSequenceTick(int *structure)",
+      "description": "Steps every structure part that is coming down through the next stage of its death sequence, counting the stage number DOWN from the count Base_ApplyDamage seeded. Stage above 1 scatters one smoke explosion at a random point inside the part's own spread box and reloads the timer to 300, and stage exactly 4 also runs Base_FinishDependents. Stage 1 is the collapse: Base_CollapseExplosion, Base_ThrowDebris, then either the part's sub-shape stops being drawn or -- for the last part of a type that leaves a wreck -- the object's model instance shape pointer is switched to g_HulkShapes[typeRec+0x04]. Stage 0 lights the fire, or drops a one-part type that leaves nothing to -100000 on its Z.",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "0046b574",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FireEffect_TickUpdate",
+      "signature": "short __cdecl FireEffect_TickUpdate(int *fire)",
+      "description": "Burning-object vtable +0x14. Counts the frame timer at +0x57 down, reloads it to 0x40 and steps the shape's cell animation, decrementing the loop count at +0x59 each time the frame wraps to zero -- so a fire LOOPS its flipbook where an impact effect plays it once, and ends when that count reaches zero. Then re-places itself from wherever the owner has carried it to, and keeps the shared burning sound on whichever live fire is nearest the camera.",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "004a96c6",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_DebrisPool",
+      "description": "The debris object pool: 150 entries of 0x61 bytes. Walked by the same effect-pool pass of Sim_MainTick that carries tracers and travelling rounds, so nothing can shoot a piece of wreckage and nothing collides with one.",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "004a96d0",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_DebrisAlternate",
+      "description": "The currently installed alternate debris database -- the high half of the group index space Debris_Resolve splits. Written immediately before a throw by whichever site is throwing: Mech_ComponentDamageWrite installs the machine's own chassis table (typeRecord+0x212), Base_ThrowDebris installs g_DebrisStructure, and a bursting piece re-installs the table it was itself thrown out of, captured at obj+0x5d.",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "004a96d4",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_DebrisDefault",
+      "description": "DEF_DEB, the shared default database, and the low half of every debris group index. 12 bytes: {group* groups; int16 groupCount; TSShape** shapes; int16 shapeCount}. Retail holds 6 groups over 7 shapes, so indices 0-5 are the same wreckage whoever throws them.",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "004a96e8",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_DebrisPitchMin",
+      "description": "Lowest launch pitch a thrown piece is drawn, BAM. 6000 (about 33 degrees) for a first throw; Debris_TickUpdate rewrites it to 3000 around a burst and restores it after, which is what makes second-generation debris scatter closer. g_DebrisPitchMax (004a96ea, 16000/8000) and g_DebrisSpeedScale (004a96ec, 420/320) are the other two.",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "004a96ec",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_DebrisSpeedScale",
+      "description": "What a thrown piece's launch speed is shifted up ten and divided by the piece's own mass from -- 420 for a first throw and 320 for a burst. See g_DebrisPitchMin for the pair beside it.",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "004a9644",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_DebrisStructure",
+      "description": "BASE_DEB, the structure debris database, loaded by Base_LoadResources and installed as the alternate by Base_ThrowDebris. Retail holds 8 groups over 33 shapes.",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "004a9608",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_HulkShapes",
+      "description": "dgs\\BHULKS.DGS, the wreck library a fallen structure is redrawn out of, indexed by its type's BASES.DAT +0x04. Base_LoadResources sizes it from the largest value any type states and binds BASETEX to every shape in it, whatever bank the standing building used. Retail: 16 wrecks.",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "0049741c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_BaseDeathStageCount",
+      "description": "How many stages each of the four structure death sequences runs: 8, 6, 6, 2. The last of five parallel four-entry tables indexed by a BASES.DAT component record's +4; the others are the collapse explosion type (004973fc), the hold after it (00497404), whether that explosion goes off at the object's origin (0049740c), and the smoke explosion type (00497414).",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "006b4fb4",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_FirePool",
+      "description": "The burning-object effect pool: ten entries. FireEffect_AcquireSlot never refuses a new fire -- with all ten busy it evicts the one with the fewest loops left.",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
+      "address": "006b4fac",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_FireShapes",
+      "description": "The four dts\\FIRE.DTS roots, each a flipbook of billboards. dat\\FIRE.DAT -- a 4-byte count header and then one byte per shape -- names the bank each takes; retail is [0, 0, 0, 1] over fire0/fire1, and the roots hold 24, 24, 24 and 27 frames.",
+      "source": "docs/simulation/destruction-effects.md"
     }
   ]
 }

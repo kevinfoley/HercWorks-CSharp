@@ -491,8 +491,8 @@ Retail: 22 dependents and 29 pieces for every HERC, 1 and 1 for `SKIMMER`. Only 
 | Offset | Field | Evidence |
 |---|---|---|
 | `+0x00` | `short` `Armor` (max health) | `FUN_0040dbc0`'s `local_10 = *psVar5` |
-| `+0x02` | `signed char` — index into a debris/effect lookup (`FUN_004089bc`), sentinel `-1` = none | `FUN_0040d434`, on destruction, selects a specific debris/effect variant |
-| `+0x03` | `signed char` — index into a slot array on the mech itself (`*(int*)(mechThis+0x34)+8`, byte `[index]` written `=2` on destroy — a state-transition write, same "2" code seen for a damaged/destroyed HUD slot elsewhere) | `FUN_0040d434`, guarded by `-1 < value` (`-1` = no HUD slot) |
+| `+0x02` | `signed char` — the debris group this component throws, `-1` = fall back to group 2. See [`destruction-effects.md`](destruction-effects.md#the-two-database-index-space) | `FUN_0040d434`, on destruction |
+| `+0x03` | `signed char` — the `TSCellAnimPart` sequence this component drives on the machine's shape, stepped to its blank cell on destruction (`*(int*)(mechThis+0x34)+8`, `[index] = 2`), `-1` for a component with no geometry of its own. It also gates the fire — see [`../formats/mech-shape-drawing.md`](../formats/mech-shape-drawing.md) | `FUN_0040d434`, guarded by `-1 < value` |
 | `+0x04` | `signed char` `BoneId` — the **index of the parent component** this one hangs off, `-1` for none. Destroying component *n* queues every still-live piece whose `BoneId` is *n*. Retail: ACHILLES' leg chain runs 7→9→11, and its two weapon brackets (4, 5) carry components 19–25. SPIDER sets `-1` throughout, so nothing on it cascades | `FUN_0040d434`'s trailing loop |
 | `+0x05` | `byte` `DestructionFlags` bitfield: bit0=has dependents to cascade, bit1=alt destruction-effect mode, bit2=one-shot "major alert already fired" latch, bit3=triggers secondary effect callback | `FUN_0040da38`/`FUN_0040d434` |
 | `+0x06` | `short` dependent sub-component count | `FUN_0040cff8` (loader), `FUN_0040dbc0`'s loop bound |
@@ -551,8 +551,7 @@ This is **three different mechanisms**, not a 3-way partition of one index space
 to the per-component `Armor` field on `HercPiece` (`this+0x20a`/`this+0x206`) — not a separate
 third depleting pool distinct from "structure." Genuinely still open: whether shields
 differentiate by weapon type anywhere (checked, not found in the shield-absorption functions
-themselves — see "Weapon-type effectiveness" below), and the remaining `+0x02`/`+0x03` sub-byte
-semantics within `DebrisFlags`.
+themselves — see "Weapon-type effectiveness" below).
 
 ## Weapon-type effectiveness
 
@@ -735,11 +734,6 @@ each mount's vtable `+0x68` — is in
   assert string — the `objlist.cpp`/`flyersys.cpp` attributions are architecturally well-supported
   (shared object-list usage; a function that touches nothing but flyer state) but not proven the way
   `rocket.cpp`/`collide.cpp` were.
-- **`debris.cpp`'s `FUN_0040874c`** — a load-time debris-piece-list loader, reading per-piece
-  records via `FUN_004083f8`. Two angle-like `short` fields are each multiplied by `0xb6` (182)
-  after loading, unless the raw value is sentinel `-1`. `65536 / 360 ≈ 182.04`, so `×182` is very
-  likely a degrees→BAM conversion applied to debris piece orientation at load time — not
-  cross-checked against a second `×182` site.
 
 ## Port notes
 
@@ -782,7 +776,11 @@ diverted rather than dropped. The collision call site is `MechObject.CollisionDa
 Of the sweep's three call sites the plasma round is reachable; the drop pod's belongs to
 `Meteor_Tick` and the ram to a behaviour state, and neither layer exists yet.
 
+The destruction path's own effects — the debris, the fire and the explosion a lost component throws
+— are `Sim.ComponentDamage.DestructionEffects`; see
+[`destruction-effects.md`](destruction-effects.md).
+
 Not ported: the Shield Pod's own damage term in `Mech_ComputeShieldCapacity`, every alert sound, the
-salvage queue, the debris both a destroyed component and a destroyed mount throw, and — from the
-collision path — the "something ran into me" latch (`obj+0xb1`, written through vtable `+0x68`) and
-the nearby-structure lock-on candidate, both of which only the unported behaviour layer reads.
+salvage queue, and — from the collision path — the "something ran into me" latch (`obj+0xb1`, written
+through vtable `+0x68`) and the nearby-structure lock-on candidate, both of which only the unported
+behaviour layer reads.

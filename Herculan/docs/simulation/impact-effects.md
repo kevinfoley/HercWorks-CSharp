@@ -5,7 +5,8 @@ Addresses are DBSIM virtual addresses. Ported in
 
 What happens where a shot lands. An effect is a `dts\EXPLOS.DTS` root standing still at the point of
 impact, playing its flipbook of billboards ([`../formats/dts-billboards.md`](../formats/dts-billboards.md))
-through exactly once. Like a tracer or a travelling round it lives in the effect pool
+through exactly once — unlike a fire, which loops the same kind of flipbook until it burns out
+([`destruction-effects.md`](destruction-effects.md#fire)). Like a tracer or a travelling round it lives in the effect pool
 (`DAT_004a96a2`) that `Sim_MainTick` walks ahead of the machine list, so nothing can shoot it and
 nothing collides with it.
 

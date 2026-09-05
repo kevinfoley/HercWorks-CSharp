@@ -1,4 +1,5 @@
-using System.Numerics;
+﻿using System.Numerics;
+using HercWorks.Core.Data.File.Dat.Sim;
 using Herculan.Engine.Content;
 using Herculan.Engine.Gl;
 using Herculan.Engine.Numerics;
@@ -40,7 +41,10 @@ public sealed class MissionScene {
 			IReadOnlyDictionary<int, SceneModel> explosionModels,
 			IReadOnlyDictionary<int, IReadOnlyList<SceneModel>> rocketModels,
 			IReadOnlyDictionary<int, IReadOnlyList<SceneModel>> mechWeaponModels, Atmosphere atmosphere,
-			SurfaceRampTable? shadeRamps, PaletteRampTable? paletteRamp) {
+			SurfaceRampTable? shadeRamps, PaletteRampTable? paletteRamp,
+			IReadOnlyDictionary<string, IReadOnlyList<SceneModel?>> debrisModels,
+			IReadOnlyList<SceneModel?> fireModels,
+			IReadOnlyDictionary<int, SceneModel> hulkModels) {
 		Atmosphere = atmosphere;
 		ShadeRamps = shadeRamps;
 		PaletteRamp = paletteRamp;
@@ -49,6 +53,9 @@ public sealed class MissionScene {
 		ExplosionModels = explosionModels;
 		RocketModels = rocketModels;
 		MechWeaponModels = mechWeaponModels;
+		DebrisModels = debrisModels;
+		FireModels = fireModels;
+		HulkModels = hulkModels;
 		Mission = mission;
 		World = world;
 		Camera = camera;
@@ -171,6 +178,33 @@ public sealed class MissionScene {
 	/// </summary>
 	public IReadOnlyDictionary<int, IReadOnlyList<SceneModel>> MechWeaponModels { get; }
 
+	/// <summary>
+	/// The shapes wreckage is drawn as, keyed by the shape file a piece names
+	/// (<see cref="Sim.DebrisObject.ShapeLibrary"/>) and indexed by its root. Built up front from
+	/// every table this mission can reach — the two shared ones and one per HERC chassis on the field
+	/// — because a piece appears at the instant something is destroyed and has nowhere to load
+	/// anything from.
+	///
+	/// <para>An entry can be null: a table may name a root its shape file does not have, and a
+	/// missing shape is a piece that is simulated and not drawn rather than a reason to refuse the
+	/// throw.</para>
+	/// </summary>
+	public IReadOnlyDictionary<string, IReadOnlyList<SceneModel?>> DebrisModels { get; }
+
+	/// <summary>
+	/// The four roots of <c>dts\FIRE.DTS</c>, in order — a burning object's flipbook of billboards.
+	/// Indexed by <see cref="Sim.FireEffect.ShapeIndex"/>.
+	/// </summary>
+	public IReadOnlyList<SceneModel?> FireModels { get; }
+
+	/// <summary>
+	/// The wreck each structure type leaves behind, keyed by its
+	/// <see cref="BaseType.HulkTypeIndex"/> — a root of <c>dgs\BHULKS.DGS</c>, drawn in place of the
+	/// building once <see cref="Sim.BaseObject.ShowingHulk"/> is set. Only the types on this field
+	/// that state one are built.
+	/// </summary>
+	public IReadOnlyDictionary<int, SceneModel> HulkModels { get; }
+
 	/// <summary>How many placed objects have no model the engine can build yet.</summary>
 	public int UnmodelledCount => Objects.Count(o => o.Model == null);
 
@@ -214,7 +248,18 @@ public sealed class MissionScene {
 		// not at draw time.
 		var beams = BeamAppearance.Load(content, theater.PaletteName);
 
-		var world = new SimWorld(terrain, bullets, explosions, rockets, beams, mission.Header.ZoneIndex);
+		// The debris tables, headed by DEF_DEB. Debris_LoadResources loads that one at startup and
+		// Base_LoadResources loads BASE_DEB beside it; a chassis' own table is loaded with its type,
+		// which here means as the roster asks for it.
+		var debris = DebrisCatalog.Load(content);
+		debris?.Database(DebrisDatabase.StructureName);
+
+		// And how long each root of FIRE.DTS runs, which is what times a burning object's loop. The
+		// bank each root draws from is dat\FIRE.DAT: a four-byte header and then one byte per shape.
+		byte[]? fireBanks = content.Read(DebrisDatabase.ResourceFolder, FireEffect.BankTableResource);
+
+		var world = new SimWorld(terrain, bullets, explosions, rockets, beams, mission.Header.ZoneIndex,
+			debris);
 		var models = new SceneModelLibrary(content, theater);
 		var baseTypes = BaseTypeTable.Load(content);
 
@@ -333,6 +378,87 @@ public sealed class MissionScene {
 
 		explosions?.BindFrameCounts(explosionFrames);
 
+		// The wreckage shapes: the two shared tables, plus one per HERC chassis on the field. Each
+		// table's shapes come out of its own .DTS under the same base name, and only a chassis' are
+		// textured -- MechType_InitOne binds that chassis' own bank to every shape in its table and
+		// the two shared loads bind none.
+		var debrisModels = new Dictionary<string, IReadOnlyList<SceneModel?>>(
+			StringComparer.OrdinalIgnoreCase);
+
+		void LoadDebrisShapes(string tableName, string? bankName) {
+			string library = tableName + SimWorld.ShapeLibrarySuffix;
+			if (debrisModels.ContainsKey(library)) {
+				return;
+			}
+
+			int count = models.ShapeCount(library);
+			var shapes = new SceneModel?[count];
+			var radii = new int[count];
+			for (int i = 0; i < count; i++) {
+				shapes[i] = models.Debris(library, i, bankName);
+				radii[i] = shapes[i]?.RadiusWorldUnits ?? 0;
+			}
+
+			debrisModels[library] = shapes;
+			world.BindDebrisShapeRadii(library, radii);
+		}
+
+		if (debris != null) {
+			LoadDebrisShapes(DebrisDatabase.DefaultName, null);
+			LoadDebrisShapes(DebrisDatabase.StructureName, null);
+		}
+
+		foreach (var placed in objects) {
+			if (placed.Object is MechObject machine
+					&& machine.Type.DebrisTableName is { Length: > 0 } table
+					&& debris?.Database(table) != null) {
+				LoadDebrisShapes(table,
+					HercSimDat.TextureGroupDbaBaseName(machine.Type.Data.ModelSkinId));
+			}
+		}
+
+		// A gun shot off its mount is thrown as its own model out of a second weapon library, which is
+		// not a debris table and so is loaded on its own terms -- one shape per mount shape the roster
+		// carries, the same set MechWeaponModels covers.
+		{
+			int count = models.ShapeCount(WeaponMount.DebrisShapeLibraryName);
+			var shapes = new SceneModel?[count];
+			var radii = new int[count];
+			for (int i = 0; i < count; i++) {
+				shapes[i] = models.Debris(WeaponMount.DebrisShapeLibraryName, i,
+					SceneModelLibrary.MechWeaponBankName);
+				radii[i] = shapes[i]?.RadiusWorldUnits ?? 0;
+			}
+
+			debrisModels[WeaponMount.DebrisShapeLibraryName] = shapes;
+			world.BindDebrisShapeRadii(WeaponMount.DebrisShapeLibraryName, radii);
+		}
+
+		// The fire shapes, and how long each one's loop is.
+		int fireShapeCount = models.ShapeCount(FireEffect.ShapeLibraryName);
+		var fireModels = new SceneModel?[fireShapeCount];
+		var fireFrames = new int[fireShapeCount];
+		for (int i = 0; i < fireShapeCount; i++) {
+			int bank = fireBanks != null && FireEffect.BankTableHeaderLength + i < fireBanks.Length
+				? fireBanks[FireEffect.BankTableHeaderLength + i]
+				: 0;
+
+			fireModels[i] = models.Fire(i, bank);
+			fireFrames[i] = fireModels[i]?.Sprites.Length ?? 0;
+		}
+
+		world.BindFireShapeFrames(fireFrames);
+
+		// And the wrecks the structures on this field leave behind.
+		var hulkModels = new Dictionary<int, SceneModel>();
+		foreach (var placed in objects) {
+			if (placed.Object is BaseObject structure && structure.Type.HulkTypeIndex >= 0
+					&& !hulkModels.ContainsKey(structure.Type.HulkTypeIndex)
+					&& models.Hulk(structure.Type.HulkTypeIndex) is { } hulk) {
+				hulkModels[structure.Type.HulkTypeIndex] = hulk;
+			}
+		}
+
 		// One flipbook per weapon shape the roster actually carries, built after the machines are
 		// spawned because it is their fits that say which shapes those are. Several mounts share a
 		// shape freely: the cell each one shows is its own, the geometry is not.
@@ -357,7 +483,8 @@ public sealed class MissionScene {
 			terrainMesh, theater, terrainBank, playerObject,
 			beams, bulletModels, explosionModels,
 			rocketModels, mechWeaponModels, Atmosphere.From(terrain, models.Shading),
-			SurfaceRampTable.Build(models.Shading), PaletteRampTable.Build(models.Shading));
+			SurfaceRampTable.Build(models.Shading), PaletteRampTable.Build(models.Shading),
+			debrisModels, fireModels, hulkModels);
 	}
 
 	/// <summary>

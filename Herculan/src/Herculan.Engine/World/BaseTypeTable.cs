@@ -1,4 +1,4 @@
-using System.Buffers.Binary;
+﻿using System.Buffers.Binary;
 using Herculan.Engine.Content;
 using Herculan.Engine.Numerics;
 
@@ -40,8 +40,24 @@ public enum BaseShapeSource {
 /// draws it yet; it is carried because it is the only field that ties a component to the model.
 /// </param>
 /// <param name="DestroyedEffect">
-/// <c>+4</c> — which entry of DBSIM's small fixed effect table (<c>0049741c</c>) plays when this
-/// component is destroyed, or <c>-1</c> for none. The effect itself is not ported.
+/// <c>+4</c> — which of the four death sequences this part runs when it is destroyed, or <c>-1</c>
+/// for a part that simply stops existing. It indexes the small fixed tables in the executable at
+/// <c>004973fc</c> onward — see <see cref="Herculan.Engine.Sim.StructureDeathSequence"/>.
+/// </param>
+/// <param name="FireShapeIndex">
+/// <c>+6</c> — which root of <c>dts\FIRE.DTS</c> burns on this part at the end of its death
+/// sequence, or <c>-1</c> for a part that does not catch.
+/// </param>
+/// <param name="DebrisGroup">
+/// <c>+8</c> — the debris group this part throws as it collapses, in the two-database index space
+/// with <c>BASE_DEB</c> installed. A group above
+/// <see cref="Herculan.Engine.Sim.BaseObject.LargeDebrisGroup"/> throws two further fixed groups
+/// alongside it, which is how the big structures come apart in more pieces than the small ones.
+/// </param>
+/// <param name="EmitPoint">
+/// <c>+0x0a</c> — where on the structure the debris and the fire come from, in its own frame. Its X
+/// and Y repeat <paramref name="Position"/>'s on most types and its Z does not: this is up on the
+/// part, where <paramref name="Position"/> is at its base.
 /// </param>
 /// <param name="Position">
 /// <c>+0x10</c> — where this part sits in the structure's own frame, the point
@@ -50,8 +66,19 @@ public enum BaseShapeSource {
 /// three-part hangar sit at <c>(0, ±3500, 1000)</c> — and the eight-metre spread across a large
 /// building is the whole reason one end of it can be levelled by a blast while the other stands.
 /// </param>
+/// <param name="SmokeSpread">
+/// <c>+0x16</c> — the box, half-extents, that the death sequence scatters its smoke and secondary
+/// explosions inside, around <paramref name="Position"/>. A long hangar section states a long box,
+/// so the smoke walks its length rather than sitting on one point.
+/// </param>
+/// <param name="ParentComponent">
+/// <c>+0x1c</c> — the component this one hangs off, or an index no component has for one that hangs
+/// off nothing. Destroying a part takes every part naming it with it, which is the structure
+/// equivalent of a machine's bone group.
+/// </param>
 public readonly record struct BaseComponentType(
-	short MaxDamage, short DestroyedSubShape, short DestroyedEffect, Vec3i Position);
+	short MaxDamage, short DestroyedSubShape, short DestroyedEffect, short FireShapeIndex,
+	short DebrisGroup, Vec3i EmitPoint, Vec3i Position, Vec3i SmokeSpread, short ParentComponent);
 
 /// <summary>
 /// One entry of the base-type table: everything the engine needs to draw a placed structure and to
@@ -99,6 +126,18 @@ public readonly record struct BaseComponentType(
 /// <c>+0x32 != 0</c> - the same field that picks <c>VEHTEX</c> over <c>BASETEX</c>. Types 45-64 set
 /// it and are the mobile ground units; everything below is a building.
 /// </param>
+/// <param name="FireShapeIndex">
+/// <c>+0x08</c> — which root of <c>dts\FIRE.DTS</c> burns on the structure as a whole once every one
+/// of its parts is gone, or <c>-1</c>. It is the alternative to the per-part fire, not an addition to
+/// it: a type that states both burns whole rather than in pieces.
+/// </param>
+/// <param name="FirePoint">
+/// <c>+0x0a</c> — where that whole-structure fire sits, in the structure's own frame.
+/// </param>
+/// <param name="DestroyedEffect">
+/// <c>+0x10</c> — the death sequence the structure runs as a whole, in place of the failing part's
+/// own. Read only when this was the last part standing.
+/// </param>
 /// <param name="Components">
 /// <c>+0x14</c> — the type's destructible parts, in the order the file states them, which is the
 /// order both the health array and <c>BASECOL.DAT</c>'s component indices address them in.
@@ -106,8 +145,8 @@ public readonly record struct BaseComponentType(
 public readonly record struct BaseType(
 	int Index, int ShapeIndex, BaseShapeSource Source, string TextureBankName,
 	short HulkTypeIndex, int HitRadius, bool Invulnerable, bool HasCollisionModel,
-	short SilhouetteIndex, bool IsVehicle,
-	BaseComponentType[] Components);
+	short SilhouetteIndex, bool IsVehicle, short FireShapeIndex, Vec3i FirePoint,
+	short DestroyedEffect, BaseComponentType[] Components);
 
 /// <summary>
 /// <c>dat\BASES.DAT</c> — the game's table of structure types, the thing that turns a mission's
@@ -138,11 +177,9 @@ public readonly record struct BaseType(
 /// other side — exactly eight types select the animated library, and <c>BASES_AN.DTS</c> holds
 /// exactly eight roots, numbered 0-7 the way those eight types reference them.</para>
 ///
-/// <para>Fields still unread are left as skips rather than guessed at: <c>+0x00</c>, <c>+0x08</c>,
-/// <c>+0x0a</c> (6 bytes), <c>+0x10</c>, <c>+0x18</c> (6 bytes), <c>+0x20</c> (4 bytes),
-/// <c>+0x24</c>, <c>+0x26</c>, <c>+0x2c</c> and <c>+0x2e</c>. Two more of the component
-/// sub-record's own fields are known but unused: <c>+0x06</c>/<c>+0x08</c>, and a second point at
-/// <c>+0x0a</c> whose X and Y repeat <see cref="BaseComponentType.Position"/>'s.</para>
+/// <para>Fields still unread are left as skips rather than guessed at: <c>+0x00</c>, <c>+0x18</c>
+/// (6 bytes), <c>+0x20</c> (4 bytes), <c>+0x24</c>, <c>+0x26</c>, <c>+0x2c</c> and
+/// <c>+0x2e</c>.</para>
 /// </summary>
 public sealed class BaseTypeTable {
 	/// <summary>VOL folder and name of the table.</summary>
@@ -191,22 +228,22 @@ public sealed class BaseTypeTable {
 			short shapeIndex = Next();       // +0x02 — index into the selected library
 			short hulkTypeIndex = Next();    // +0x04
 			short animated = Next();         // +0x06 — 0 selects the static library
-			Next();                          // +0x08
-			offset += 6;                     // +0x0a
-			Next();                          // +0x10
+			short fireShape = Next();        // +0x08
+			var firePoint = new Vec3i(Next(), Next(), Next());   // +0x0a
+			short destroyedEffect = Next();  // +0x10
 			short componentCount = Next();   // +0x12 — count of the nested component array
 
 			var components = new BaseComponentType[componentCount < 0 ? 0 : componentCount];
 			for (int c = 0; c < components.Length; c++) {
-				var record = bytes.AsSpan(offset, ComponentRecordLength);
+				int at0 = offset;
+				short At(int at) => BinaryPrimitives.ReadInt16LittleEndian(bytes.AsSpan(at0 + at));
+
 				components[c] = new BaseComponentType(
-					BinaryPrimitives.ReadInt16LittleEndian(record),
-					BinaryPrimitives.ReadInt16LittleEndian(record[2..]),
-					BinaryPrimitives.ReadInt16LittleEndian(record[4..]),
-					new Vec3i(
-						BinaryPrimitives.ReadInt16LittleEndian(record[0x10..]),
-						BinaryPrimitives.ReadInt16LittleEndian(record[0x12..]),
-						BinaryPrimitives.ReadInt16LittleEndian(record[0x14..])));
+					At(0x00), At(0x02), At(0x04), At(0x06), At(0x08),
+					new Vec3i(At(0x0a), At(0x0c), At(0x0e)),
+					new Vec3i(At(0x10), At(0x12), At(0x14)),
+					new Vec3i(At(0x16), At(0x18), At(0x1a)),
+					At(0x1c));
 				offset += ComponentRecordLength;
 			}
 
@@ -233,6 +270,9 @@ public sealed class BaseTypeTable {
 				collisionModel != 0,
 				silhouette,
 				textureSelector != 0,
+				fireShape,
+				firePoint,
+				destroyedEffect,
 				components);
 		}
 

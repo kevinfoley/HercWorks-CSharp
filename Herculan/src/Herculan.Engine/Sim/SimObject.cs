@@ -325,4 +325,21 @@ public abstract class SimObject {
 	/// <see cref="SimWorld"/> maintains <see cref="SimMath.TickDelta"/> for exactly that.
 	/// </summary>
 	public abstract void Tick(SimWorld world);
+
+	/// <summary>
+	/// This object's shape-to-world frame — the transform every class keeps at <c>obj+0x12</c> with
+	/// its position in the translation, and what anything riding an object is placed through. The
+	/// base form is heading alone, which is all a class with no lean and no turret has; the classes
+	/// that carry more override it.
+	/// </summary>
+	public virtual Transform3 WorldFrame {
+		get {
+			var frame = Transform3.FromEuler(0, 0, (short)Heading);
+			var position = Position;
+			frame.X = position.X;
+			frame.Y = position.Y;
+			frame.Z = position.Z;
+			return frame;
+		}
+	}
 }

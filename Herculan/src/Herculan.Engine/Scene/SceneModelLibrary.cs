@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using HercWorks.Core.Data.File.Dat.Sim;
 using HercWorks.Core.Data.File.Dbsim;
 using HercWorks.Core.Data.File.Dgs;
@@ -449,6 +449,49 @@ public sealed class SceneModelLibrary {
 	public SceneModel? Explosion(int shapeIndex, int textureBankIndex) =>
 		Build(ExplosionCatalog.ShapeLibraryName, shapeIndex,
 			ExplosionCatalog.TextureBankPrefix + textureBankIndex, transparentBank: true);
+
+	/// <summary>
+	/// One root of a debris shape file — <c>dts\{name}_DEB.DTS</c>, or
+	/// <see cref="Sim.WeaponMount.DebrisShapeLibraryName"/> for a gun shot off its mount.
+	/// <c>Debris_LoadDatabase</c> loads the file and, when its caller supplies one, binds a single bank to
+	/// every shape in it: <c>MechType_InitOne</c> passes the chassis' own texture group, so a
+	/// machine's wreckage is painted in the machine's colours, while the two shared tables
+	/// (<c>DEF_DEB</c> and <c>BASE_DEB</c>) are loaded with no bank at all and draw flat-shaded
+	/// through the theater ramp.
+	/// </summary>
+	public SceneModel? Debris(string shapeLibrary, int shapeIndex, string? bankName) =>
+		Build(shapeLibrary, shapeIndex, bankName);
+
+	/// <summary>How many roots a debris shape file has, or zero when the install has none of it.</summary>
+	public int ShapeCount(string shapeLibrary) => LoadDts(shapeLibrary)?.Meshes?.Count ?? 0;
+
+	/// <summary>
+	/// One root of <c>dts\FIRE.DTS</c> — a burning object's looping flipbook of billboards, out of
+	/// <c>dba\FIRE0.DBA</c> or <c>FIRE1.DBA</c>. Which of the two is
+	/// <c>dat\FIRE.DAT</c>: a four-byte header and then one byte per shape, which
+	/// <see cref="Sim.FireEffect"/> documents and <see cref="MissionScene"/> reads.
+	/// </summary>
+	public SceneModel? Fire(int shapeIndex, int textureBankIndex) =>
+		Build(Sim.FireEffect.ShapeLibraryName, shapeIndex,
+			Sim.FireEffect.TextureBankPrefix + textureBankIndex, transparentBank: true);
+
+	/// <summary>
+	/// One root of <c>dgs\BHULKS.DGS</c> — the wreck a fallen structure is redrawn as, indexed by its
+	/// type's <see cref="BaseType.HulkTypeIndex"/>. <c>Base_LoadResources</c> loads the library beside
+	/// the two building ones and binds <c>BASETEX</c> to every shape in it, whatever bank the standing
+	/// building used.
+	/// </summary>
+	public SceneModel? Hulk(int shapeIndex) =>
+		BuildFromShapeLibrary(HulkLibraryName, shapeIndex, StructureBankName, transparentBank: true);
+
+	/// <summary>The wreck library <c>Base_LoadResources</c> opens, by the literal name <c>bhulks</c>.</summary>
+	public const string HulkLibraryName = "BHULKS.DGS";
+
+	/// <summary>And the bank it binds to every shape in it.</summary>
+	public const string StructureBankName = "BASETEX";
+
+	/// <summary>How many wrecks that library holds.</summary>
+	public int HulkCount => LoadShapeLibrary(HulkLibraryName)?.Shapes?.Length ?? 0;
 
 	private SceneModel? Build(string dtsName, int rootIndex, string? bankName,
 			bool segmented = false, bool transparentBank = false, int cellFrame = 0,

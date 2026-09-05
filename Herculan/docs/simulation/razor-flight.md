@@ -146,10 +146,8 @@ selects which source each game axis reads — which is why `Sim_PollPlayerInput`
 through a pointer-to-pointer.
 
 **No arrow-key-to-axis mapping can be recovered from the executable.** The per-key `(dx, dy)` table
-at `0049eb6d` is all zeroes in the image and is filled at runtime from the saved key configuration.
-What a retail keyboard actually reaches on a RAZOR therefore depends on that configuration, and the
-observed retail symptom — arrows produce turning and nothing else — is consistent with only one pair
-being bound to axes the flyer path uses, but is not proven here.
+at `0049eb6d` is all zeroes in the image and is filled at runtime from a saved key configuration.
+Note that the retail game only includes a menu for adjusting joystick bindings, not keyboard bindings.
 
 ## Control law (`FlightModel_Step`)
 
@@ -329,8 +327,10 @@ the machine. It runs for the player's machine alone and is silenced on death. Th
 
 - The gun-convergence pass (`maybe_Mech_ConvergeGunsOnRange`, `0041a74c`) that closes
   `Razor_MovementTick`. It is weapon aiming and has no counterpart in the engine for walkers either.
-- The debris effect the original spawns at the crash point, out of the secondary effect pool
-  (`FUN_004089bc` / `FUN_00408530`) nothing in the engine reaches yet.
+
+The wreckage a fatal contact sheds is ported — group 3 at the contact point, and only from the
+cockpit and fuselage probes, the two that can end the flight. See
+[`destruction-effects.md`](destruction-effects.md#spawn-sites).
 
 ## Rejected readings
 

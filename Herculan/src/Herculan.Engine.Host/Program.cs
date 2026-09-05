@@ -521,11 +521,20 @@ var disposables = new List<IDisposable>();
 SceneItem[]? items = null;
 SceneItem[]? pilotedItems = null;
 var movers = new List<(SceneObject Object, SceneItem Item)>();
+
+// The structures that can change what they are drawn as: one that leaves a wreck swaps its geometry
+// for the hulk the moment its last part collapses, and one that leaves nothing drops out of the
+// world. Neither moves otherwise, so they are not in `movers`.
+var wreckable = new List<(SceneObject Object, BaseObject Structure, SceneItem Item)>();
 var projectileItems = new List<SceneItem>();
 
 // The guns bolted to the machines on the field, rebuilt every frame for the same reason a rocket's
 // is: which mesh a mount draws is its muzzle-flash cell, and that moves tick to tick.
 var weaponItems = new List<SceneItem>();
+
+// And the wreckage in the air. Same deal: a piece of debris tumbles every tick and the pool churns
+// as pieces settle and burst, so the list is rebuilt each frame rather than kept.
+var debrisItems = new List<SceneItem>();
 
 // The billboards to draw this frame: the EMP rounds in flight and every impact effect playing. Both
 // churn from tick to tick, so the list is rebuilt each frame rather than kept — see SpriteRenderer.
@@ -692,6 +701,12 @@ window.Load += (gl, input) => {
 
 		if (isPlayer) {
 			playerItems.Add(item);
+		}
+
+		if (sceneObject.Object is BaseObject wreckableStructure
+			&& (wreckableStructure.Type.HulkTypeIndex >= 0
+				|| wreckableStructure.Type.Components.Length <= 1)) {
+			wreckable.Add((sceneObject, wreckableStructure, item));
 		}
 
 		// Anything that can move needs its transform refreshed every frame. Structures never do, so
@@ -1096,7 +1111,9 @@ window.Update += deltaSeconds => {
 		item.Transform = MissionScene.PosedTransformOf(mech, transformId);
 	}
 
+	RefreshWreckItems();
 	RefreshProjectileItems();
+	RefreshDebrisItems();
 	RefreshWeaponItems();
 	RefreshSpriteBatches();
 
@@ -1681,7 +1698,51 @@ void ApplyHddClick(HddLayout.Widget widget) {
 IEnumerable<SceneItem> VisibleItems() =>
 	((piloting && !externalView ? pilotedItems : items) ?? Array.Empty<SceneItem>())
 		.Concat(projectileItems)
-		.Concat(weaponItems);
+		.Concat(weaponItems)
+		.Concat(debrisItems);
+
+// The two things a collapsing structure does to what is on screen. A type that leaves a wreck is
+// redrawn as its BHULKS.DGS root the moment its last part falls -- the original writes that shape
+// straight onto the object's model instance, which is a mesh swap here. A type that leaves nothing
+// is dropped a hundred thousand units under the terrain, which is the original's own way of making a
+// small structure disappear, so its transform has to be refreshed once for it to go.
+void RefreshWreckItems() {
+	foreach (var (sceneObject, structure, item) in wreckable) {
+		if (structure.Sunk) {
+			item.Transform = MissionScene.TransformOf(sceneObject);
+			continue;
+		}
+
+		if (!structure.ShowingHulk
+			|| !scene.HulkModels.TryGetValue(structure.Type.HulkTypeIndex, out var hulk)
+			|| !modelMeshes.TryGetValue(hulk.Key, out var mesh)
+			|| ReferenceEquals(item.Mesh, mesh)) {
+			continue;
+		}
+
+		item.Mesh = mesh;
+		item.TextureHandle = modelTextures.TryGetValue(hulk.Key, out var bound) ? bound.Handle : null;
+	}
+}
+
+// One item per piece of wreckage in the air, from the shape file and root its own record names --
+// a debris table's .DTS for anything a destruction threw, and MECHWPN2.DTS for a gun knocked off its
+// hardpoint. The transform is the piece's own frame, so the tumble shows.
+void RefreshDebrisItems() {
+	debrisItems.Clear();
+
+	foreach (var piece in scene.World.DebrisInFlight) {
+		if (!scene.DebrisModels.TryGetValue(piece.ShapeLibrary, out var shapes)
+			|| piece.ShapeIndex < 0 || piece.ShapeIndex >= shapes.Count
+			|| shapes[piece.ShapeIndex] is not { } model
+			|| !modelMeshes.TryGetValue(model.Key, out var mesh)) {
+			continue;
+		}
+
+		uint? texture = modelTextures.TryGetValue(model.Key, out var bound) ? bound.Handle : null;
+		debrisItems.Add(new SceneItem(mesh, WorldScale.ToRenderMatrix(piece.WorldTransform), texture));
+	}
+}
 
 // One item per fitted, visibly-mounted weapon on every machine in the scene: the model its template
 // names for the mounting code it sits at, at the cell its own flipbook has reached.
@@ -1787,6 +1848,15 @@ void RefreshSpriteBatches() {
 	foreach (var effect in scene.World.Effects) {
 		if (scene.ExplosionModels.TryGetValue(effect.ShapeIndex, out var model)) {
 			Add(model, Matrix4x4.CreateTranslation(WorldScale.ToRender(effect.Position)), effect.Frame);
+		}
+	}
+
+	// A fire is the third: the same kind of billboard flipbook an impact effect is, upright at
+	// wherever its owner has carried it to, and looping rather than playing once.
+	foreach (var fire in scene.World.Fires) {
+		if (fire.ShapeIndex >= 0 && fire.ShapeIndex < scene.FireModels.Count
+			&& scene.FireModels[fire.ShapeIndex] is { } model) {
+			Add(model, Matrix4x4.CreateTranslation(WorldScale.ToRender(fire.Position)), fire.Frame);
 		}
 	}
 

@@ -1,4 +1,4 @@
-using HercWorks.Core.Data.File.Dat.Sim;
+﻿using HercWorks.Core.Data.File.Dat.Sim;
 using Herculan.Engine.Audio;
 using Herculan.Engine.Numerics;
 
@@ -455,10 +455,12 @@ public sealed partial class MechObject {
 	/// latches <see cref="Immobilised"/>, and with that set the aircraft stops integrating position
 	/// altogether — it is down, wherever it fell.</para>
 	///
-	/// <para>Not ported: the debris effect the original spawns at the crash point, out of the
-	/// secondary effect pool nothing in the engine reaches yet (see
-	/// <see cref="BaseObject.DirectFireHitTest"/>), and the gun-convergence pass that closes the
-	/// function, which is weapon aiming and has no counterpart here.</para>
+	/// <para><b>The two that end it also shed wreckage</b> — <see cref="CrashDebrisGroup"/> at the
+	/// contact point, and only on the contact that destroys the component. The four probes that
+	/// cannot end the flight throw nothing however hard they hit.</para>
+	///
+	/// <para>Not ported: the gun-convergence pass that closes the function, which is weapon aiming and
+	/// has no counterpart here.</para>
 	/// </summary>
 	private void FlyerMovementTick(SimWorld world, FlightModelRecord flight) {
 		var frame = Rotation();
@@ -651,10 +653,11 @@ public sealed partial class MechObject {
 		Pitch = (short)(Pitch + PitchRate);
 		_rotationValid = false;
 
-		ApplyContactDamage(world, ComponentCockpit, damage,
-			inGround ? new Vec3i(point.X, point.Y, ground) : point);
+		var contact = inGround ? new Vec3i(point.X, point.Y, ground) : point;
+		ApplyContactDamage(world, ComponentCockpit, damage, contact);
 
 		if (!AirframeIntact(ComponentCockpit)) {
+			world.SpawnDebris(CrashDebrisGroup, contact, DebrisTable(world));
 			Immobilised = true;
 		}
 	}
@@ -707,6 +710,7 @@ public sealed partial class MechObject {
 			(short)SimMath.Q10Multiply(airSpeed, FuselageGroundDamageGain), Position);
 
 		if (!AirframeIntact(ComponentFuselage)) {
+			world.SpawnDebris(CrashDebrisGroup, Position, DebrisTable(world));
 			Immobilised = true;
 		}
 	}
@@ -740,6 +744,11 @@ public sealed partial class MechObject {
 
 		ApplyDirectFireDamage(world, component, contact, point);
 	}
+
+	/// <summary>
+	/// What a fatal airframe contact throws — the original's literal 3, out of <c>DEF_DEB</c>.
+	/// </summary>
+	private const short CrashDebrisGroup = 3;
 
 	/// <summary>
 	/// The impact-effect table airframe contacts draw from — a hand-built <c>PROJ.DAT</c>-shaped

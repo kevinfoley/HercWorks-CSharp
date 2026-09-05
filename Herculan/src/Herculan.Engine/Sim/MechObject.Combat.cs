@@ -1,4 +1,4 @@
-using Herculan.Engine.World;
+﻿using Herculan.Engine.World;
 using Herculan.Engine.Numerics;
 
 namespace Herculan.Engine.Sim;
@@ -351,7 +351,7 @@ public sealed partial class MechObject {
 		short splash = (short)SimMath.Q10Multiply(shot.SplashFactor, armorDamage);
 		int band = _damage.DamagePercent(componentIndex) >> 5;
 
-		ComponentDamageWrite(world.Random, componentIndex, (short)(armorDamage - splash), shot.Owner);
+		ComponentDamageWrite(world, componentIndex, (short)(armorDamage - splash), shot.Owner);
 
 		// The diverted share, as its own explosion inside this machine. It is not a world sweep: the
 		// original calls this machine's own +0x70 slot directly, so the blast is confined to the
@@ -370,7 +370,31 @@ public sealed partial class MechObject {
 		}
 
 		world.SpawnImpactEffect(world.PickImpactEffect(shot.ImpactFx(group)), hitPoint);
+
+		// And a spray of wreckage off the impact point, but only for a hit that moved the component
+		// into a new band and did not finish it: a shot that merely scuffs the armour throws nothing,
+		// and one that destroys the part has the cascade's own, much larger throw instead. The group
+		// is the literal 2, which is DEF_DEB's, so it is the same three shapes off every machine
+		// however exotic its own wreckage table is.
+		if (group == WeaponShot.ImpactFxGroup.Armor && after != FullyDamaged) {
+			world.SpawnDebris(HitDebrisGroup, hitPoint, DebrisTable(world));
+		}
 	}
+
+	/// <summary>
+	/// The debris group a band-changing hit throws — <c>Mech_ApplyDirectFireDamage</c>'s own literal
+	/// 2, which lands in <c>DEF_DEB</c> whatever this machine has installed.
+	/// </summary>
+	private const short HitDebrisGroup = 2;
+
+	/// <summary>
+	/// This chassis' own debris table, <c>dat\&lt;DebrisFile&gt;_DEB.DAT</c> — what the original
+	/// keeps on the type record at <c>+0x212</c> and installs as the alternate database before every
+	/// throw a machine makes. Null for a chassis whose <c>.DAT</c> names none, in which case only the
+	/// <c>DEF_DEB</c> half of the index space resolves.
+	/// </summary>
+	private DebrisDatabase? DebrisTable(SimWorld world) =>
+		Type.DebrisTableName is { Length: > 0 } name ? world.Debris?.Database(name) : null;
 
 	/// <summary>
 	/// <c>Mech_ApplyExplosiveDamage</c> (<c>004187d0</c>), the mech's vtable <c>+0x70</c> — <b>the other
@@ -400,7 +424,8 @@ public sealed partial class MechObject {
 	/// machine's own direct-fire path for the splash share of a shot that hit it — see
 	/// <see cref="ApplyDirectFireDamage"/>.</para>
 	///
-	/// <para>Not ported: the pilot alerts, and the debris a component lost this way throws.</para>
+	/// <para>Not ported: the pilot alerts. The debris a component lost this way throws goes through
+	/// <see cref="ComponentDamage.ApplyDamage"/> like any other loss.</para>
 	/// </summary>
 	public override void ExplosiveDamage(SimWorld world, short damage, Vec3i hitPoint, int blastRadius,
 			SimObject? attacker) {
@@ -435,7 +460,7 @@ public sealed partial class MechObject {
 			}
 
 			ComponentDamageWrite(
-				world.Random, i, (short)((long)overflow * (blastRadius - distance) / blastRadius),
+				world, i, (short)((long)overflow * (blastRadius - distance) / blastRadius),
 				attacker);
 		}
 	}
@@ -514,12 +539,27 @@ public sealed partial class MechObject {
 	/// rather than from anywhere near where they are. A blast at head height reaches those parts less
 	/// readily than the geometry would suggest.</para>
 	/// </summary>
+	public Vec3i ComponentWorldPosition(short componentIndex) => ComponentPosition(componentIndex);
+
+	/// <inheritdoc cref="ComponentWorldPosition" />
 	private Vec3i ComponentPosition(short componentIndex) {
+		var (frame, point) = ComponentFrame(componentIndex);
+		return frame.TransformPoint(point.X, point.Y, point.Z);
+	}
+
+	/// <summary>
+	/// The frame one component is placed by and its anchor point within it. The destruction path
+	/// wants both: it throws the component's wreckage from the composed frame, with the component's
+	/// own world position dropped into the translation, so the pieces come off pointing the way the
+	/// part was pointing rather than the way the machine is.
+	/// </summary>
+	/// <returns>The node-composed frame, and the anchor point in it.</returns>
+	internal (Transform3 Frame, Vec3i Point) ComponentFrame(short componentIndex) {
 		_componentAnchors ??= BuildComponentAnchors();
 
 		if (componentIndex < 0 || componentIndex >= _componentAnchors.Length
 				|| _componentAnchors[componentIndex] is not { } anchor) {
-			return Position;
+			return (WorldTransform, default);
 		}
 
 		var frame = WorldTransform;
@@ -527,7 +567,22 @@ public sealed partial class MechObject {
 			frame = Transform3.Concat(posed, frame);
 		}
 
-		return frame.TransformPoint(anchor.X, anchor.Y, anchor.Z);
+		return (frame, new Vec3i(anchor.X, anchor.Y, anchor.Z));
+	}
+
+	/// <summary>
+	/// The frame a destroyed component throws its wreckage from — <see cref="ComponentFrame"/>'s
+	/// rotation with the component's world position in the translation, which is exactly the
+	/// transform <c>Component_DestroyAndCascade</c> builds on its stack and hands to the throw.
+	/// </summary>
+	public Transform3 ComponentThrowFrame(short componentIndex) {
+		var (frame, point) = ComponentFrame(componentIndex);
+		var world = frame.TransformPoint(point.X, point.Y, point.Z);
+
+		frame.X = world.X;
+		frame.Y = world.Y;
+		frame.Z = world.Z;
+		return frame;
 	}
 
 	/// <summary>
@@ -572,9 +627,9 @@ public sealed partial class MechObject {
 			return;
 		}
 
-		Weapons.ByComponent(componentIndex)?.Destroy();
+		Weapons.ByComponent(componentIndex)?.Destroy(world, this, rolled: true, DebrisTable(world));
 		_damage.Deactivate(componentIndex);
-		_damage.ApplyDamage(componentIndex, MountDestructionFinishOff);
+		_damage.ApplyDamage(componentIndex, MountDestructionFinishOff, world, this, DebrisTable(world));
 	}
 
 	/// <inheritdoc cref="RollWeaponMountDestruction"/>
@@ -627,7 +682,7 @@ public sealed partial class MechObject {
 	///
 	/// <para>Left out: every alert sound, and the debris the destruction path throws.</para>
 	/// </summary>
-	private void ComponentDamageWrite(SimRandom random, short componentIndex, short damage,
+	private void ComponentDamageWrite(SimWorld world, short componentIndex, short damage,
 			SimObject? attacker) {
 		if (_damage == null || !_damage.IsActive(componentIndex)) {
 			return;
@@ -638,11 +693,15 @@ public sealed partial class MechObject {
 			.Select(m => _damage.DamagePercent(m.LoadoutSlot + WeaponMounts.FirstMountComponent))
 			.ToList();
 
-		_damage.ApplyDamage(componentIndex, damage);
+		// The chassis' own debris table goes in as the installed alternate immediately before the
+		// write, exactly where Mech_ComponentDamageWrite installs it: everything the cascade throws
+		// reads its high indices against this machine's own wreckage.
+		_damage.ApplyDamage(componentIndex, damage, world, this, DebrisTable(world));
 
 		for (int i = 0; i < mounts.Count; i++) {
-			mounts[i].ConditionChanged(random, before[i],
-				_damage.DamagePercent(mounts[i].LoadoutSlot + WeaponMounts.FirstMountComponent));
+			mounts[i].ConditionChanged(world.Random, before[i],
+				_damage.DamagePercent(mounts[i].LoadoutSlot + WeaponMounts.FirstMountComponent),
+				world, this, DebrisTable(world));
 		}
 
 		Shields.SetMax(ShieldCapacity(Type.ShieldCapacity,
@@ -662,7 +721,7 @@ public sealed partial class MechObject {
 
 			// The original's own recursive finish-off, with no attacker so the kill is not credited
 			// twice. Destroyed is already set, so this pass cannot re-enter the death branch.
-			ComponentDamageWrite(random, CockpitFrontComponent, 30000, null);
+			ComponentDamageWrite(world, CockpitFrontComponent, 30000, null);
 		}
 
 		if (Reactor == ReactorCondition.Intact) {

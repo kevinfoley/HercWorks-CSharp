@@ -91,8 +91,12 @@ public static class SoundId {
 	/// <summary><c>missin.wav</c> — missile inbound, from <c>Rocket_TickUpdate</c>.</summary>
 	public const int MissileInbound = 0x32;
 
-	/// <summary><c>fire1a.wav</c> — the flamer's sustained burn, looped between start and stop.</summary>
-	public const int FlamerLoop = 0x33;
+	/// <summary>
+	/// <c>fire1a.wav</c> — something burning. <c>fire.cpp</c> starts it on the first live
+	/// <see cref="Sim.FireEffect"/> and stops it on the last, so it is one loop for every fire in the
+	/// mission at once; the original keeps it positioned on whichever fire is nearest the camera.
+	/// </summary>
+	public const int BurningObject = 0x33;
 
 	/// <summary>
 	/// The pitch <c>FUN_004328cc</c> hands the engine loop immediately after starting it, as a 16.16

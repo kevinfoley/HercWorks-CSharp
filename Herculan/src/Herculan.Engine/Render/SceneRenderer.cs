@@ -23,6 +23,14 @@ public sealed class SceneItem {
 	/// <summary>Model-to-world transform, in render space.</summary>
 	public Matrix4x4 Transform { get; set; }
 
+	/// <summary>
+	/// Whether this item is drawn at all this frame. It is how a shape built one cell at a time shows
+	/// the cell its object's <see cref="Sim.ShapeCellFrames"/> names and no other: every item under a
+	/// sequence goes false except the one standing on the cell it has reached. A machine's destroyed
+	/// limb lands on a blank cell and so comes off; a structure's collapsed part lands on its rubble.
+	/// </summary>
+	public bool Visible { get; set; } = true;
+
 	/// <summary>Optional texture for this item. If null, flat-shaded rendering is used.</summary>
 	public uint? TextureHandle { get; set; }
 
@@ -350,6 +358,10 @@ public sealed class SceneRenderer : IDisposable {
 		int uploadedLightCount = -1;
 
 		foreach (var item in items) {
+			if (!item.Visible) {
+				continue;
+			}
+
 			_shader.SetMatrix("uModel", item.Transform);
 
 			// FUN_00407098, run per drawn object just as ObjList_DrawEntryRender runs it — see

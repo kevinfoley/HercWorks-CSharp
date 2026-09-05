@@ -40,8 +40,6 @@ _ These are not organized in any particular order; this may not be the best orde
 - **A machine's LOD roots are not selected.** The original picks one of a `.DTS`'s roots per frame
   from projected size and a detail bias; the engine hard-codes root 0. See
   [`../formats/mech-shape-drawing.md`](../formats/mech-shape-drawing.md).
-- **A destroyed component's geometry is not hidden.** Every body part is a three-cell flipbook and
-  the original steps a lost component's to its blank cell; the engine builds cell 0 always. Same doc.
 - **The 3D view is not clipped to the `.VUE` viewport rect.** Equivalent while the canopy is opaque;
   not for RAZOR's non-stub heads-down view.
 - In retail, when a target is selected, chain-firing skips weapons for which the selected target is

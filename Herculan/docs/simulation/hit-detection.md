@@ -262,7 +262,7 @@ effectively destroyed by killing the core alone, which is how both seven-compone
 authored.
 
 Spawn-time health comes from the block-9 record's `param_1[0x19]`: `<0` or `100` = undamaged,
-`0` = spawned destroyed (and the component's sub-shape is hidden), anything else scales
+`0` = spawned destroyed (and the component steps to its collapsed cell), anything else scales
 `(100 - pct) * maxDamage / 100`. **Not read by the engine** — structures always spawn intact.
 
 ## `dat\BASES.DAT` runtime record
@@ -294,7 +294,7 @@ Component record, 30 bytes:
 | Offset | Meaning |
 |---|---|
 | `+0` | max damage (retail 1000–30000) |
-| `+2` | sub-shape hidden when destroyed, `-1` for none |
+| `+2` | the cell-animation sequence this component drives, stepped to its collapsed cell when the part falls; `-1` for none |
 | `+4` | which of the four death sequences this part runs, `-1` for none |
 | `+6` | fire shape this part burns at the end of that sequence, `-1` for none |
 | `+8` | debris group it throws as it collapses |
@@ -356,9 +356,9 @@ the corrected volume read in
 
 - **Node-placed clusters on structures** are tested in the object frame rather than the node's — the
   engine has no posed node transforms for structures. Only the eight animated types carry any.
-- The kill credit (`attacker+0x60`), the mission action a destroyed structure fires, and the
-  sub-shape a collapsed part hides. The death sequence itself, with its debris, its fire and its
-  hulk swap, is ported — [`destruction-effects.md`](destruction-effects.md).
+- The kill credit (`attacker+0x60`) and the mission action a destroyed structure fires. The death
+  sequence itself, with its debris, its fire, its hulk swap and its per-part cell step, is ported —
+  [`destruction-effects.md`](destruction-effects.md).
 - Spawn-time component health from the mission record.
 - Terrain flattening under a placed structure (`FUN_00470dc8`).
 - The second exclusion `Sim_RaycastObjectList` tests at the shot record's `+0x14`. The beam path

@@ -280,6 +280,15 @@ public abstract class SimObject {
 	public virtual int ShapeRadius => HitRadius;
 
 	/// <summary>
+	/// The object's shape instance's per-sequence cell-frame array, or null for one whose shape has
+	/// no cells the simulation drives. It is what makes a destroyed part stop being drawn — see
+	/// <see cref="ShapeCellFrames"/>. The three classes damage can take apart override it; nothing
+	/// else does, and a projectile's own flipbook is not this (it is stepped by the shot's frame
+	/// counter and drawn from a mesh built per cell).
+	/// </summary>
+	public virtual ShapeCellFrames? CellFrames => null;
+
+	/// <summary>
 	/// Vtable <c>+0x20</c> — <b>the hit test and the damage application are the same call</b>, which
 	/// is the shape of the original and not a shortcut here: <c>Sim_RaycastObjectList</c>
 	/// (<c>00426528</c>) offers each live object the shot and the object decides both whether it was

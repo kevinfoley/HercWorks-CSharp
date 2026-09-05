@@ -379,10 +379,8 @@ public sealed class ComponentDamage {
 	/// (<see cref="DebrisGroupOf"/>) is the wreckage the part throws — or
 	/// <see cref="DefaultDebrisGroup"/> when it names none.</para>
 	///
-	/// <para><b>The one thing still not ported is the blank cell itself.</b> Stepping one part of a
-	/// shape needs a per-part cell index through the mesh builder, which builds one frame for a whole
-	/// root; the sequence is recorded in <see cref="SubShapeHidden"/> so the state exists, and
-	/// nothing draws it yet. See docs/formats/mech-shape-drawing.md.</para>
+	/// <para>The blank cell is stepped to in <see cref="CellFrames"/>, which the renderer reads to
+	/// pick which cell of each sequence is on screen. See docs/formats/mech-shape-drawing.md.</para>
 	/// </summary>
 	private void DestroyAndCascade(int index, SimWorld? world, SimObject? owner,
 			DebrisDatabase? debris) {
@@ -455,7 +453,7 @@ public sealed class ComponentDamage {
 				}
 			}
 
-			SubShapeHidden[sequence] = true;
+			CellFrames[sequence] = DestroyedCell;
 		}
 
 		if (!_majorEffectFired) {
@@ -489,17 +487,18 @@ public sealed class ComponentDamage {
 	public static short SubShapeSequenceOf(short debrisFlags) => (sbyte)((debrisFlags >> 8) & 0xff);
 
 	/// <summary>
-	/// Which of the shape's cell-animation sequences have been stepped to their blank cell — one flag
-	/// per sequence, set by <see cref="SubShapeSequenceOf"/> as each component is destroyed. Nothing
-	/// draws it yet.
+	/// The machine's shape instance's per-sequence cell-frame array, which is what a destroyed
+	/// component's geometry disappears through — see <see cref="ShapeCellFrames"/>.
 	/// </summary>
-	public bool[] SubShapeHidden { get; } = new bool[SubShapeSequenceCount];
+	public ShapeCellFrames CellFrames { get; } = new();
 
 	/// <summary>
-	/// How many sequences the flag array covers — comfortably above the largest index any retail
-	/// <c>.DMG</c> names.
+	/// The cell a destroyed component's sequence is stepped to — the original's literal
+	/// <c>shapeInstance[+8][record+3] = 2</c>. Every body part of every retail chassis is a
+	/// three-cell flipbook whose third cell is a <c>TSPoly</c> that draws nothing, so arriving there
+	/// is how the part comes off.
 	/// </summary>
-	private const int SubShapeSequenceCount = 64;
+	public const short DestroyedCell = 2;
 
 	/// <summary><see cref="DestructionFlags"/> bit 1 — the whole object goes up, and its other fires go out.</summary>
 	public const int DestructionFlagWholeObjectFire = 0x2;

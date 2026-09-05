@@ -33,11 +33,6 @@ The mechanism is understood; what is left is engine work.
   part of the mission-deployment entry above) and the AI ramming attack (`FUN_0041e488`, part of the
   behaviour-tree entry below).
   → [`docs/simulation/damage-system.md`](docs/simulation/damage-system.md)
-- **Nothing draws a destroyed part's blank cell.** Every body part of a machine, and every
-  destructible section of a structure, is a flipbook whose last cell draws nothing, and the original
-  steps a lost part to it. The engine records which sequences should have been blanked and draws none
-  of them: `DtsMeshBuilder` takes one cell index for a whole root, so this needs a per-part one.
-  → [`docs/formats/mech-shape-drawing.md`](docs/formats/mech-shape-drawing.md)
 - **A machine's LOD roots are not selected.** Root 0 is hard-coded where the original picks one per
   frame from projected size and a detail bias.
   → [`docs/formats/mech-shape-drawing.md`](docs/formats/mech-shape-drawing.md)

@@ -117,6 +117,9 @@ public sealed class FlyerObject : SimObject {
 	/// <summary>Per-component health, or null for a type the install ships no <c>.DMG</c> for.</summary>
 	public ComponentDamage? Damage => _damage;
 
+	/// <inheritdoc />
+	public override ShapeCellFrames? CellFrames => _damage?.CellFrames;
+
 	/// <summary>
 	/// The flyer's shape-to-world transform. Like a structure it has no lean and no torso: its
 	/// heading is the whole of its orientation.

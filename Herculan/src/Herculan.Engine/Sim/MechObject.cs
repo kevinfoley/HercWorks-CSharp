@@ -485,6 +485,9 @@ public sealed partial class MechObject : SimObject {
 	/// </summary>
 	public ComponentDamage? Damage => _damage;
 
+	/// <inheritdoc />
+	public override ShapeCellFrames? CellFrames => _damage?.CellFrames;
+
 	// Post-collision back-off, for AI machines: a countdown during which desired speed is pinned to
 	// one extreme so the machine walks itself clear of whatever it hit.
 	private int _backoffTimer;

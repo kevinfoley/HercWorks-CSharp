@@ -528,7 +528,7 @@ public sealed class BaseObject : SimObject {
 	/// <see cref="BaseComponentType.Position"/>. Stage 4 exactly also cascades: every part hanging off
 	/// this one is finished off, so a tower goes when the block under it does.</item>
 	/// <item><b>Stage 1 is the collapse.</b> The sequence's own explosion goes off, the part throws
-	/// its debris out of <c>BASE_DEB</c>, and then either the part's sub-shape stops being drawn or —
+	/// its debris out of <c>BASE_DEB</c>, and then either the part is redrawn as its own rubble or —
 	/// for the last part of a type that leaves a wreck — the whole structure switches over to its
 	/// hulk.</item>
 	/// <item><b>Stage 0 is the fire</b>, and it is where the two scales meet: a type that states a
@@ -538,9 +538,9 @@ public sealed class BaseObject : SimObject {
 	/// a small object disappear.</item>
 	/// </list>
 	///
-	/// <para>The one thing the original does here that this does not is hide the collapsed part's
-	/// sub-shape: that needs a per-part cell index through the mesh builder, which builds one frame
-	/// for a whole shape. The state is recorded in <see cref="SubShapeHidden"/>.</para>
+	/// <para>The part changes through <see cref="CellFrames"/>: its sequence steps to
+	/// <see cref="CollapsedCell"/> and the renderer draws that cell of it instead, which for a
+	/// structure is the part's rubble rather than nothing.</para>
 	/// </summary>
 	private void DeathSequenceTick(SimWorld world) {
 		for (int i = 0; i < Type.Components.Length; i++) {
@@ -629,7 +629,7 @@ public sealed class BaseObject : SimObject {
 		}
 
 		if (component.DestroyedSubShape >= 0) {
-			SubShapeHidden.Add(component.DestroyedSubShape);
+			CellFrames[component.DestroyedSubShape] = CollapsedCell;
 			FinishDependents(world, index);
 		}
 	}
@@ -731,11 +731,22 @@ public sealed class BaseObject : SimObject {
 	public bool ShowingHulk { get; private set; }
 
 	/// <summary>
-	/// Which of the shape's sub-parts have collapsed and should stop being drawn — the
-	/// <see cref="BaseComponentType.DestroyedSubShape"/> of each fallen part. Recorded; nothing draws
-	/// it yet.
+	/// The structure's shape instance's per-sequence cell-frame array, which is what a collapsed
+	/// part's geometry disappears through — see <see cref="ShapeCellFrames"/>.
 	/// </summary>
-	public HashSet<short> SubShapeHidden { get; } = new();
+	public override ShapeCellFrames CellFrames { get; } = new();
+
+	/// <summary>
+	/// The cell a collapsed part's sequence is stepped to — the original's own literal, written
+	/// straight into the shape instance's array at
+	/// <see cref="BaseComponentType.DestroyedSubShape"/>.
+	///
+	/// <para>It is <b>1</b>, not the machine's <see cref="ComponentDamage.DestroyedCell"/>, and it
+	/// does not blank the part: a structure's parts are two-cell flipbooks whose <i>second cell is
+	/// its own rubble</i> — different geometry, not none. A collapsed building is redrawn as its
+	/// wreckage part by part, where a machine's destroyed component simply comes off.</para>
+	/// </summary>
+	public const short CollapsedCell = 1;
 
 	/// <summary>
 	/// The stage at which a part takes its dependents with it — the original's literal 4, tested for

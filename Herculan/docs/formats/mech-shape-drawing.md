@@ -99,10 +99,24 @@ map. The same byte gates the fire that component lights — see
 the damage arithmetic behind it is in
 [`../simulation/damage-system.md`](../simulation/damage-system.md).
 
+**The blank cell is blank because a `TSPoly` has no colour.** The surface index (`ColorIndexId`)
+lives on `TSSolidPoly`, and all three flat renderers the engine ships — `TSSolidPoly_Render`
+(`00474db4`), `TSShadedPoly_Render` (`0047542c`) and `TSTexture4Poly_Render` (`00474e9c`) — resolve
+their fill through it. A plain `TSPoly` carries no such field on disk, so there is nothing for a
+renderer to fill it with, and stepping to the third cell is what removes the part. This is read off
+the chunk layout and the set of renderers that exist, not off a disassembled `TSPoly` vtable slot.
+
+The same reasoning covers 14 plain `TSPoly`s reachable at cell 0 across every drawn root of the mech,
+flyer and structure libraries; the engine emits geometry for none of them.
+
+**No shape nests one `TSCellAnimPart` inside another** — across every `.DTS` a mission loads and both
+`.DGS` libraries, the deepest nesting is one. A piece of geometry therefore stands on at most one
+cell of one sequence, and whether it is drawn is a single test rather than a chain of them.
+
 ## HERCULAN Engine
 
 | Mechanism | Status |
 |---|---|
 | Hardpoint attachment slots | **Skipped**, not spliced — `DtsMeshBuilder.AttachmentPartIds` derives the id set from the `.GL` and `SceneModelLibrary.Mech` leaves those parts out of the mesh. The fitted case is drawn separately from `MECHWPNS.DTS` (`SceneModelLibrary.MechWeapon`), which is the same picture by a different route |
 | LOD root selection | Not implemented; root 0 is hard-coded. Correct only while `DAT_0049736c` is zero, which is unverified |
-| Component sub-shape cells | Not drawn; every part is built at cell 0, so a destroyed component keeps its intact geometry. Which sequences *should* have been blanked is recorded in `Sim.ComponentDamage.SubShapeHidden`, and drawing them needs a per-part cell index through `DtsMeshBuilder`, which takes one for a whole root |
+| Component sub-shape cells | **Drawn.** `DtsMeshBuilder.BuildSegments` builds every cell of every sequence into its own segment under a `CellGate`, and the renderer draws the one `Sim.ComponentDamage.CellFrames` names — the same array, per object, that `shapeInstance+8` is |

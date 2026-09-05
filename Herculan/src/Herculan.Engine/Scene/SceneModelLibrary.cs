@@ -40,9 +40,16 @@ namespace Herculan.Engine.Scene;
 /// effect) this is the whole model and <paramref name="Mesh"/> is empty instead. A caller draws both
 /// where both exist: they are different parts of one shape, not two versions of it.
 /// </param>
+/// <param name="Cells">
+/// The same geometry as <paramref name="Mesh"/> split by the cell each piece stands on, for an
+/// object whose shape loses parts to damage but does not animate — see
+/// <see cref="DtsMeshBuilder.BuildCells"/>. A caller draws either <paramref name="Mesh"/> or these,
+/// never both. Empty for every roster that does not ask for it.
+/// </param>
 public sealed record SceneModel(
 	string Key, MeshVertex[] Mesh, int TriangleVertexCount, TextureAtlas? Atlas,
-	int RadiusWorldUnits, int HeightWorldUnits, MeshSegment[] Segments, SpriteQuad[][] Sprites);
+	int RadiusWorldUnits, int HeightWorldUnits, MeshSegment[] Segments, SpriteQuad[][] Sprites,
+	MeshCell[] Cells);
 
 /// <summary>
 /// Loads and caches the models a mission needs, keyed so identical unit types share one mesh and one
@@ -276,8 +283,13 @@ public sealed class SceneModelLibrary {
 			hiddenPartIds: DtsMeshBuilder.AttachmentPartIds(MechHardpoints(mechName)));
 	}
 
-	/// <summary>The model for a flyer type, or null when the install has no <c>.DTS</c> for it.</summary>
-	public SceneModel? Flyer(string flyerName) => Build(flyerName + ".DTS", 0, bankName: null);
+	/// <summary>
+	/// The model for a flyer type, or null when the install has no <c>.DTS</c> for it. Split by cell
+	/// rather than by node: a flyer loses components like a machine but is drawn rigid, so a
+	/// destroyed part has to be able to stop being drawn without the shape animating — see
+	/// <see cref="DtsMeshBuilder.BuildCells"/>.
+	/// </summary>
+	public SceneModel? Flyer(string flyerName) => Build(flyerName + ".DTS", 0, bankName: null, celled: true);
 
 	/// <summary>
 	/// The shape a travelling shot is drawn as — a root of <c>dts\BULLETS.DTS</c>, textured from
@@ -405,13 +417,16 @@ public sealed class SceneModelLibrary {
 	/// record of <c>dgs\BASES.DGS</c> — see <see cref="BasesDgsTransformer"/> for how that record's
 	/// embedded DTS subtree resolves to the same <see cref="TSObject"/> shape either path builds
 	/// from. Null only when the install is missing the relevant file or the index is out of range.
+	///
+	/// <para>Split by cell, so that a collapsing part can be redrawn as its rubble — see
+	/// <see cref="DtsMeshBuilder.BuildCells"/> and <see cref="Sim.BaseObject.CellFrames"/>.</para>
 	/// </summary>
 	public SceneModel? Base(BaseType type) =>
 		type.Source == BaseShapeSource.AnimatedLibrary
 			? Build(BaseTypeTable.AnimatedLibraryName, type.ShapeIndex, type.TextureBankName,
-				transparentBank: true)
+				transparentBank: true, celled: true)
 			: BuildFromShapeLibrary(BaseTypeTable.StaticLibraryName, type.ShapeIndex, type.TextureBankName,
-				transparentBank: true);
+				transparentBank: true, celled: true);
 
 	/// <summary>
 	/// The hit geometry a structure type's shape carries, as distinct from the geometry it is drawn
@@ -495,14 +510,14 @@ public sealed class SceneModelLibrary {
 
 	private SceneModel? Build(string dtsName, int rootIndex, string? bankName,
 			bool segmented = false, bool transparentBank = false, int cellFrame = 0,
-			IReadOnlySet<short>? hiddenPartIds = null) {
+			IReadOnlySet<short>? hiddenPartIds = null, bool celled = false) {
 		string key = cellFrame == 0 ? $"dts\\{dtsName}#{rootIndex}" : $"dts\\{dtsName}#{rootIndex}@{cellFrame}";
 		if (_models.TryGetValue(key, out var cached)) {
 			return cached;
 		}
 
 		var model = BuildFromRoot(key, Root(dtsName, rootIndex), bankName, segmented, transparentBank,
-			cellFrame, hiddenPartIds);
+			cellFrame, hiddenPartIds, celled);
 		_models[key] = model;
 		return model;
 	}
@@ -514,7 +529,7 @@ public sealed class SceneModelLibrary {
 			: null;
 
 	private SceneModel? BuildFromShapeLibrary(string libraryName, int shapeIndex, string? bankName,
-			bool transparentBank = false) {
+			bool transparentBank = false, bool celled = false) {
 		string key = $"dgs\\{libraryName}#{shapeIndex}";
 		if (_models.TryGetValue(key, out var cached)) {
 			return cached;
@@ -526,14 +541,14 @@ public sealed class SceneModelLibrary {
 			root = shapes[shapeIndex].Geometry;
 		}
 
-		var model = BuildFromRoot(key, root, bankName, transparentBank: transparentBank);
+		var model = BuildFromRoot(key, root, bankName, transparentBank: transparentBank, celled: celled);
 		_models[key] = model;
 		return model;
 	}
 
 	private SceneModel? BuildFromRoot(string key, TSObject? root, string? bankName,
 			bool segmented = false, bool transparentBank = false, int cellFrame = 0,
-			IReadOnlySet<short>? hiddenPartIds = null) {
+			IReadOnlySet<short>? hiddenPartIds = null, bool celled = false) {
 		if (root == null) {
 			return null;
 		}
@@ -546,14 +561,16 @@ public sealed class SceneModelLibrary {
 		float radiusInRenderUnits = MathF.Max(extent.X, extent.Z) * 0.5f;
 
 		// Bounds and radius both come off the flat mesh whichever way the model ends up being drawn:
-		// they describe the machine at rest, and a walk cycle should not change how wide it is for
-		// collision purposes. Segments cost a second pass over the shape, so only the rosters that
-		// animate ask for them.
+		// they describe the machine at rest and undamaged, and neither a walk cycle nor a part coming
+		// off should change how wide it is for collision purposes. Both splits cost a second pass over
+		// the shape, so only the rosters that need one ask: segments for what animates, cells for what
+		// damage takes apart without animating.
 		return new SceneModel(key, build.Vertices, build.TriangleVertexCount, atlas,
 			(int)(radiusInRenderUnits * WorldScale.WorldUnitsPerMeter),
 			(int)(extent.Y * WorldScale.WorldUnitsPerMeter),
 			segmented ? DtsMeshBuilder.BuildSegments(root, atlas, _shading, hiddenPartIds) : Array.Empty<MeshSegment>(),
-			DtsSpriteBuilder.Build(root));
+			DtsSpriteBuilder.Build(root),
+			celled ? DtsMeshBuilder.BuildCells(root, atlas, _shading, hiddenPartIds) : Array.Empty<MeshCell>());
 	}
 
 	/// <summary>

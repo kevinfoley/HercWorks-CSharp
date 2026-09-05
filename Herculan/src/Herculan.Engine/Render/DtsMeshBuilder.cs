@@ -12,8 +12,34 @@ using Herculan.Engine.Gl;
 namespace Herculan.Engine.Render;
 
 /// <summary>
+/// Which cell of which cell-animation sequence a piece of geometry belongs to, and so whether it is
+/// on screen: a <see cref="TSCellAnimPart"/> draws exactly one of its children, the one its
+/// sequence's entry in the shape instance's cell-frame array names
+/// (<see cref="Sim.ShapeCellFrames"/>).
+///
+/// <para><see cref="Ungated"/> is geometry under no cell-animation part at all, which is always
+/// drawn. No retail shape nests one cell-animation part inside another — checked across every
+/// <c>.DTS</c> a mission loads and both <c>.DGS</c> libraries — so one gate per piece of geometry is
+/// the whole of the condition rather than the innermost of a chain.</para>
+/// </summary>
+/// <param name="Sequence">The part's <see cref="TSCellAnimPart.AnimSequence"/>, or -1 for ungated.</param>
+/// <param name="Frame">Which child of that part, or -1 for ungated.</param>
+public readonly record struct CellGate(short Sequence, short Frame) {
+	/// <summary>Geometry no cell-animation part encloses — always drawn.</summary>
+	public static CellGate Ungated { get; } = new(-1, -1);
+
+	/// <summary>Whether this piece is drawn only while its sequence stands on its frame.</summary>
+	public bool IsGated => Sequence >= 0;
+
+	/// <summary>Whether <paramref name="frames"/> puts this piece on screen.</summary>
+	public bool VisibleIn(Sim.ShapeCellFrames? frames) =>
+		!IsGated || (frames?[Sequence] ?? 0) == Frame;
+}
+
+/// <summary>
 /// One node's share of a shape's geometry: the triangles of every group that hangs from a single
-/// transform, in that node's own space rather than the shape's.
+/// transform <i>and</i> stands on one cell of one animation sequence, in that node's own space
+/// rather than the shape's.
 ///
 /// <para>A segment is drawn with the node's posed transform in front of the object's own, so the
 /// animation thread moving the node moves the geometry. Its vertices are therefore <i>not</i>
@@ -22,10 +48,23 @@ namespace Herculan.Engine.Render;
 /// </summary>
 /// <param name="TransformId">The node, in the id space <c>ShapeInstance.NodeTransform</c> takes.
 /// -1 for geometry no node places, which is drawn at the shape's origin.</param>
+/// <param name="Gate">The cell this segment stands on — see <see cref="CellGate"/>.</param>
 /// <param name="Vertices">Triangles then outline edges in the node's own space, ready to upload —
 /// see <see cref="MeshBuild"/>.</param>
 /// <param name="TriangleVertexCount">Where the outline edges start — see <see cref="MeshBuild"/>.</param>
-public readonly record struct MeshSegment(int TransformId, MeshVertex[] Vertices, int TriangleVertexCount);
+public readonly record struct MeshSegment(int TransformId, CellGate Gate, MeshVertex[] Vertices,
+	int TriangleVertexCount);
+
+/// <summary>
+/// One cell's share of a shape's geometry, at the rest pose <see cref="DtsMeshBuilder.BuildRoot"/>
+/// bakes — what a shape that has cells the simulation drives but no nodes to pose has to be split
+/// into. A structure and a flyer are both drawn this way; a machine, which does animate, is split by
+/// node as well and uses <see cref="MeshSegment"/> instead.
+/// </summary>
+/// <param name="Gate">The cell this piece stands on — see <see cref="CellGate"/>.</param>
+/// <param name="Vertices">Triangles then outline edges, placed, ready to upload.</param>
+/// <param name="TriangleVertexCount">Where the outline edges start — see <see cref="MeshBuild"/>.</param>
+public readonly record struct MeshCell(CellGate Gate, MeshVertex[] Vertices, int TriangleVertexCount);
 
 /// <summary>
 /// A built mesh: filled triangles first, then the outline edges that are drawn over them as lines,
@@ -121,6 +160,9 @@ public static class DtsMeshBuilder {
 		/// <summary>The transform id of the node this triangle's group hangs from, or -1.</summary>
 		public int TransformId { get; }
 
+		/// <summary>The cell-animation cell this triangle stands on — see <see cref="CellGate"/>.</summary>
+		public CellGate Gate { get; }
+
 		public Vector3 Color { get; }
 		public Vector2 UvA { get; }
 		public Vector2 UvB { get; }
@@ -163,7 +205,7 @@ public static class DtsMeshBuilder {
 		public Vector3? FaceNormal { get; }
 
 		public Triangle(Vector3 a, Vector3 b, Vector3 c, Vector3 color, int rank, int polyId,
-				Vector3 localA, Vector3 localB, Vector3 localC, int transformId,
+				Vector3 localA, Vector3 localB, Vector3 localC, int transformId, CellGate gate,
 				Vector2 uvA = default, Vector2 uvB = default, Vector2 uvC = default,
 				bool unlit = false, int shadeRamp = -1,
 				(Vector3 A, Vector3 B, Vector3 C)? vertexNormals = null,
@@ -181,6 +223,7 @@ public static class DtsMeshBuilder {
 			LocalB = localB;
 			LocalC = localC;
 			TransformId = transformId;
+			Gate = gate;
 			Color = color;
 			Rank = rank;
 			UvA = uvA;
@@ -196,13 +239,14 @@ public static class DtsMeshBuilder {
 	/// </summary>
 	private readonly struct OutlineEdge {
 		public OutlineEdge(Vector3 a, Vector3 b, Vector3 localA, Vector3 localB,
-				Vector3 color, int transformId, int polyId, bool standalone = false) {
+				Vector3 color, int transformId, CellGate gate, int polyId, bool standalone = false) {
 			A = a;
 			B = b;
 			LocalA = localA;
 			LocalB = localB;
 			Color = color;
 			TransformId = transformId;
+			Gate = gate;
 			PolyId = polyId;
 			Standalone = standalone;
 		}
@@ -225,6 +269,9 @@ public static class DtsMeshBuilder {
 
 		public int TransformId { get; }
 
+		/// <inheritdoc cref="Triangle.Gate" />
+		public CellGate Gate { get; }
+
 		/// <summary>The poly this edge belongs to — see <see cref="Triangle.PolyId"/>.</summary>
 		public int PolyId { get; }
 	}
@@ -237,6 +284,20 @@ public static class DtsMeshBuilder {
 		public List<Triangle> Triangles { get; } = new();
 
 		public List<OutlineEdge> Outlines { get; } = new();
+
+		/// <summary>
+		/// Whether the walk descends into <i>every</i> cell of a <see cref="TSCellAnimPart"/>, tagging
+		/// each with the gate it is drawn under, rather than picking the one cell
+		/// <see cref="Collect"/>'s <c>cellFrame</c> names. Set for the shapes damage takes apart,
+		/// where which cell is showing is per-object state the mesh cannot be built around.
+		/// </summary>
+		public bool AllCells { get; init; }
+
+		/// <summary>
+		/// The cell the walk is currently inside, pushed and restored around each cell-animation
+		/// child. <see cref="CellGate.Ungated"/> everywhere else.
+		/// </summary>
+		public CellGate Gate { get; set; } = CellGate.Ungated;
 
 		private int _nextPolyId;
 
@@ -378,13 +439,40 @@ public static class DtsMeshBuilder {
 	/// first, in the shared rest-pose space, exactly as it does for the flat build: a textured poly
 	/// and its flat-shaded twin always belong to the same group, so splitting afterwards keeps the
 	/// same survivor either way.</para>
+	///
+	/// <para>Every cell of every <see cref="TSCellAnimPart"/> is built, each into its own segment
+	/// under its own <see cref="CellGate"/>, because a machine's cells are damage state rather than
+	/// a flipbook the shape can be built around — see <see cref="Sim.ShapeCellFrames"/>. The
+	/// renderer draws the segment whose gate the object's cell frames name and leaves the rest
+	/// alone.</para>
 	/// </summary>
 	/// <param name="hiddenPartIds"><inheritdoc cref="BuildRoot" path="/param[@name='hiddenPartIds']"/></param>
 	public static MeshSegment[] BuildSegments(TSObject root, TextureAtlas? atlas = null,
 			SurfaceShading? shading = null, IReadOnlySet<short>? hiddenPartIds = null) {
-		var sink = new Collector();
+		var sink = new Collector { AllCells = true };
 		Collect(root, null, sink, atlas, shading, cellFrame: 0, hiddenPartIds);
 		return EmitSegments(sink);
+	}
+
+	/// <summary>
+	/// The same geometry as <see cref="BuildRoot"/> at cell zero — the placed rest pose — but split
+	/// by the cell each piece stands on, so that a shape the simulation takes apart can lose a part
+	/// without being rebuilt.
+	///
+	/// <para>This is the flat-mesh counterpart of <see cref="BuildSegments"/>, for the two classes
+	/// that have cells damage drives but no nodes anything poses: a structure, whose parts collapse
+	/// one at a time (<see cref="Sim.BaseObject.CellFrames"/>), and a flyer, which loses components
+	/// like a machine but is drawn rigid.</para>
+	///
+	/// <para>A shape with no cell-animation parts comes back as a single ungated piece, which is
+	/// <see cref="BuildRoot"/>'s mesh exactly.</para>
+	/// </summary>
+	/// <param name="hiddenPartIds"><inheritdoc cref="BuildRoot" path="/param[@name='hiddenPartIds']"/></param>
+	public static MeshCell[] BuildCells(TSObject root, TextureAtlas? atlas = null,
+			SurfaceShading? shading = null, IReadOnlySet<short>? hiddenPartIds = null) {
+		var sink = new Collector { AllCells = true };
+		Collect(root, null, sink, atlas, shading, cellFrame: 0, hiddenPartIds);
+		return EmitCells(sink);
 	}
 
 	/// <summary>
@@ -459,54 +547,109 @@ public static class DtsMeshBuilder {
 	}
 
 	/// <summary>
-	/// The surviving triangles grouped by the node that places them, each in that node's own space.
-	/// Segments come back in ascending transform id, which is only for stable output — nothing reads
-	/// the order.
+	/// The surviving triangles grouped by the node that places them and the cell they stand on, each
+	/// in that node's own space. Pieces come back in ascending transform id, then sequence, then
+	/// frame, which is only for stable output — nothing reads the order.
 	/// </summary>
-	private static MeshSegment[] EmitSegments(Collector sink) {
+	private static MeshSegment[] EmitSegments(Collector sink) =>
+		Partition(sink, local: true, (key, vertices, triangleVertices) =>
+			new MeshSegment(key.TransformId, key.Gate, vertices, triangleVertices));
+
+	/// <summary>
+	/// The same split by cell alone, at the baked rest pose <see cref="Emit"/> writes — for a shape
+	/// whose cells the simulation drives but whose nodes nothing poses. See <see cref="MeshCell"/>.
+	/// </summary>
+	private static MeshCell[] EmitCells(Collector sink) =>
+		Partition(sink, local: false, (key, vertices, triangleVertices) =>
+				new MeshCell(key.Gate, vertices, triangleVertices))
+			.GroupBy(cell => cell.Gate)
+			.Select(MergeCells)
+			.ToArray();
+
+	/// <summary>
+	/// One cell's geometry from however many nodes carried it. <see cref="Partition"/> keys on the
+	/// node as well because a segment needs it; a cell placed at the rest pose does not, so the
+	/// node's share of one cell is folded back together into a single piece.
+	/// </summary>
+	private static MeshCell MergeCells(IGrouping<CellGate, MeshCell> pieces) {
+		var parts = pieces.ToArray();
+		if (parts.Length == 1) {
+			return parts[0];
+		}
+
+		int triangleVertices = parts.Sum(part => part.TriangleVertexCount);
+		var vertices = new MeshVertex[parts.Sum(part => part.Vertices.Length)];
+
+		// Triangles first and outlines after, across the whole merged piece, because
+		// TriangleVertexCount is one boundary rather than one per part.
+		int atTriangle = 0;
+		int atEdge = triangleVertices;
+		foreach (var part in parts) {
+			Array.Copy(part.Vertices, 0, vertices, atTriangle, part.TriangleVertexCount);
+			atTriangle += part.TriangleVertexCount;
+
+			int edgeVertices = part.Vertices.Length - part.TriangleVertexCount;
+			Array.Copy(part.Vertices, part.TriangleVertexCount, vertices, atEdge, edgeVertices);
+			atEdge += edgeVertices;
+		}
+
+		return new MeshCell(pieces.Key, vertices, triangleVertices);
+	}
+
+	/// <summary>
+	/// The shared split behind <see cref="EmitSegments"/> and <see cref="EmitCells"/>: survivors
+	/// bucketed by node and cell, each bucket emitted as triangles then the outline edges belonging
+	/// to the same bucket.
+	/// </summary>
+	private static T[] Partition<T>(Collector sink, bool local,
+			Func<(int TransformId, CellGate Gate), MeshVertex[], int, T> make) {
 		var kept = DropCoincidentTwins(sink.Triangles);
 		var edges = SurvivingOutlines(kept, sink.Outlines);
 
-		var byNode = new Dictionary<int, List<Triangle>>();
+		var byNode = new Dictionary<(int, CellGate), List<Triangle>>();
 		foreach (var triangle in kept) {
-			if (!byNode.TryGetValue(triangle.TransformId, out var list)) {
-				byNode[triangle.TransformId] = list = new List<Triangle>();
+			var key = (triangle.TransformId, triangle.Gate);
+			if (!byNode.TryGetValue(key, out var list)) {
+				byNode[key] = list = new List<Triangle>();
 			}
 			list.Add(triangle);
 		}
 
-		// An outline rides the same node its poly does, so it goes into that node's segment. A node
-		// whose only geometry is line polys carries edges and no triangles, so the segment list below
-		// is the union of both keyings rather than the triangles' alone.
-		var edgesByNode = new Dictionary<int, List<OutlineEdge>>();
+		// An outline rides the same node and the same cell its poly does, so it goes into that
+		// bucket. A bucket whose only geometry is line polys carries edges and no triangles, so the
+		// list below is the union of both keyings rather than the triangles' alone.
+		var edgesByNode = new Dictionary<(int, CellGate), List<OutlineEdge>>();
 		foreach (var edge in edges) {
-			if (!edgesByNode.TryGetValue(edge.TransformId, out var list)) {
-				edgesByNode[edge.TransformId] = list = new List<OutlineEdge>();
+			var key = (edge.TransformId, edge.Gate);
+			if (!edgesByNode.TryGetValue(key, out var list)) {
+				edgesByNode[key] = list = new List<OutlineEdge>();
 			}
 			list.Add(edge);
 		}
 
-		var nodeIds = byNode.Keys.Concat(edgesByNode.Keys).Distinct().OrderBy(id => id).ToArray();
-		var segments = new MeshSegment[nodeIds.Length];
+		var keys = byNode.Keys.Concat(edgesByNode.Keys).Distinct()
+			.OrderBy(key => key.Item1).ThenBy(key => key.Item2.Sequence).ThenBy(key => key.Item2.Frame)
+			.ToArray();
+		var pieces = new T[keys.Length];
 		int next = 0;
-		foreach (int transformId in nodeIds) {
-			var list = byNode.TryGetValue(transformId, out var triangles) ? triangles : new List<Triangle>();
-			var nodeEdges = edgesByNode.TryGetValue(transformId, out var found) ? found : null;
+		foreach (var key in keys) {
+			var list = byNode.TryGetValue(key, out var triangles) ? triangles : new List<Triangle>();
+			var nodeEdges = edgesByNode.TryGetValue(key, out var found) ? found : null;
 
 			int triangleVertices = list.Count * 3;
 			var vertices = new MeshVertex[triangleVertices + (nodeEdges?.Count ?? 0) * 2];
 			for (int i = 0; i < list.Count; i++) {
-				EmitTriangle(list[i], local: true, vertices, i * 3);
+				EmitTriangle(list[i], local, vertices, i * 3);
 			}
 
 			for (int i = 0; i < (nodeEdges?.Count ?? 0); i++) {
-				EmitEdge(nodeEdges![i], local: true, vertices, triangleVertices + i * 2);
+				EmitEdge(nodeEdges![i], local, vertices, triangleVertices + i * 2);
 			}
 
-			segments[next++] = new MeshSegment(transformId, vertices, triangleVertices);
+			pieces[next++] = make(key, vertices, triangleVertices);
 		}
 
-		return segments;
+		return pieces;
 	}
 
 	/// <summary>
@@ -573,9 +716,15 @@ public static class DtsMeshBuilder {
 	///
 	/// <para>Grouping uses a coarsely-rounded centroid plus the absolute normal, so opposite-winding
 	/// duplicates of one surface land together while genuinely distinct nearby triangles do not.</para>
+	///
+	/// <para><b>The cell gate is part of the key</b>, because two cells of one part are usually the
+	/// same surface twice on purpose: a machine's body part carries its intact geometry in cell 0 and
+	/// the identical geometry moved to one dark ramp in cell 1, and those are alternatives rather
+	/// than a coincident pair. Only one of them is ever on screen, so neither hides the other and
+	/// discarding either would lose a state the part can be in.</para>
 	/// </summary>
 	private static List<Triangle> DropCoincidentTwins(List<Triangle> triangles) {
-		var groups = new Dictionary<(int, int, int, int, int, int), int>();
+		var groups = new Dictionary<(int, int, int, int, int, int, short, short), int>();
 		var keep = new bool[triangles.Count];
 		var order = new List<int>();
 
@@ -590,7 +739,8 @@ public static class DtsMeshBuilder {
 			var key = (
 				(int)MathF.Round(centroid.X * 40f), (int)MathF.Round(centroid.Y * 40f), (int)MathF.Round(centroid.Z * 40f),
 				(int)MathF.Round(MathF.Abs(normal.X) * 100f), (int)MathF.Round(MathF.Abs(normal.Y) * 100f),
-				(int)MathF.Round(MathF.Abs(normal.Z) * 100f));
+				(int)MathF.Round(MathF.Abs(normal.Z) * 100f),
+				triangle.Gate.Sequence, triangle.Gate.Frame);
 
 			if (!groups.TryGetValue(key, out int existing)) {
 				groups[key] = i;
@@ -652,9 +802,24 @@ public static class DtsMeshBuilder {
 				// Consecutive frames of one moving sub-part — a rocket's exhaust flame, say. Walking
 				// all of them stacks every frame of the motion on top of itself, so exactly one cell
 				// is taken, the way TSCellAnimPart_Render (004767e4) takes one:
-				// children[counter % childCount]. Everything the engine draws statically asks for
-				// cell zero, the rest pose.
+				// children[counter % childCount].
+				//
+				// Unless the simulation is what moves this counter, which it is for a machine's body
+				// parts and a structure's: there the mesh cannot be built around one cell, because
+				// which cell is showing is per-object damage state. Collector.AllCells walks all of
+				// them, gated, and the renderer picks — see MeshCell.
 				if (cellAnimPart.Parts is { Length: > 0 } cells) {
+					if (sink.AllCells) {
+						var outer = sink.Gate;
+						for (int i = 0; i < cells.Length; i++) {
+							sink.Gate = new CellGate(cellAnimPart.AnimSequence, (short)i);
+							Collect(cells[i], animList, sink, atlas, shading, cellFrame, hiddenPartIds);
+						}
+
+						sink.Gate = outer;
+						break;
+					}
+
 					Collect(cells[((cellFrame % cells.Length) + cells.Length) % cells.Length],
 						animList, sink, atlas, shading, cellFrame, hiddenPartIds);
 				}
@@ -750,7 +915,17 @@ public static class DtsMeshBuilder {
 			// One vertex is left out. Ten TSSolidPolys in MECHWPNS.DTS carry it and the original
 			// paints each as a single pixel; there is no point primitive here, and a lone pixel on a
 			// weapon barrel is below what this renderer resolves.
-			if (polyObject is not TSPoly poly || poly.VertexCount < 2) {
+			// A plain TSPoly — the exact base type — carries no colour field of any kind: the surface
+			// index lives on TSSolidPoly, which the three flat renderers the original ships
+			// (TSSolidPoly_Render 00474db4, TSShadedPoly_Render 0047542c, TSTexture4Poly_Render
+			// 00474e9c) all resolve their fill through. There is no TSPoly_Render, and nothing for one
+			// to fill with, so the base class's render slot draws nothing and neither does this.
+			//
+			// It is not a curiosity: the blank third cell of every body part of every retail chassis
+			// is exactly one of these, and it is what a destroyed component is stepped to. Emitting it
+			// would leave a grey shard standing where the part came off.
+			if (polyObject is not TSPoly poly || poly.VertexCount < 2
+					|| polyObject.GetType() == typeof(TSPoly)) {
 				continue;
 			}
 
@@ -825,7 +1000,7 @@ public static class DtsMeshBuilder {
 						: (quadWeights[0], quadWeights[i + 1], quadWeights[i + 2]);
 
 					sink.Triangles.Add(new Triangle(first, points[i1], points[i2], color, rank, polyId,
-						localFirst, localPoints[i1], localPoints[i2], group.Transform,
+						localFirst, localPoints[i1], localPoints[i2], group.Transform, sink.Gate,
 						UvAt(frame, 0) * weights.Item1,
 						UvAt(frame, i + 1) * weights.Item2,
 						UvAt(frame, i + 2) * weights.Item3,
@@ -839,7 +1014,7 @@ public static class DtsMeshBuilder {
 						: (vertexNormals[0], vertexNormals[i + 1], vertexNormals[i + 2]);
 
 					sink.Triangles.Add(new Triangle(first, points[i1], points[i2], color, rank, polyId,
-						localFirst, localPoints[i1], localPoints[i2], group.Transform,
+						localFirst, localPoints[i1], localPoints[i2], group.Transform, sink.Gate,
 						unlit: solid.HasValue, shadeRamp: shadeRamp, vertexNormals: corners,
 						faceNormal: faceNormal));
 				}
@@ -870,7 +1045,7 @@ public static class DtsMeshBuilder {
 					}
 
 					sink.Outlines.Add(new OutlineEdge(points[from], points[to],
-						localPoints[from], localPoints[to], lineColor, group.Transform, polyId,
+						localPoints[from], localPoints[to], lineColor, group.Transform, sink.Gate, polyId,
 						standalone: linePoly));
 				}
 			}

@@ -35,9 +35,11 @@ public enum BaseShapeSource {
 /// 30000, and a component sitting at exactly this figure is dead.
 /// </param>
 /// <param name="DestroyedSubShape">
-/// <c>+2</c> — which of the shape's sub-parts stops being drawn once this component is destroyed,
-/// or <c>-1</c> for a component with no separate geometry (every single-component type). Nothing
-/// draws it yet; it is carried because it is the only field that ties a component to the model.
+/// <c>+2</c> — which cell-animation sequence of the shape this component drives, or <c>-1</c> for a
+/// component with no separate geometry (every single-component type). It is the only field that
+/// ties a component to the model: when the part falls, the sequence steps to
+/// <see cref="Herculan.Engine.Sim.BaseObject.CollapsedCell"/> and the part is redrawn as its own
+/// rubble.
 /// </param>
 /// <param name="DestroyedEffect">
 /// <c>+4</c> — which of the four death sequences this part runs when it is destroyed, or <c>-1</c>

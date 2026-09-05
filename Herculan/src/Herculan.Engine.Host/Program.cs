@@ -525,7 +525,16 @@ var movers = new List<(SceneObject Object, SceneItem Item)>();
 // The structures that can change what they are drawn as: one that leaves a wreck swaps its geometry
 // for the hulk the moment its last part collapses, and one that leaves nothing drops out of the
 // world. Neither moves otherwise, so they are not in `movers`.
-var wreckable = new List<(SceneObject Object, BaseObject Structure, SceneItem Item)>();
+//
+// A structure is drawn one cell at a time (see `gatedParts`), so the swap covers a set of items and
+// puts a wreck item of its own in their place rather than overwriting one item's mesh.
+var wreckable = new List<(SceneObject Object, BaseObject Structure, SceneItem[] Items, SceneItem? Hulk)>();
+
+// Every drawn piece that stands on one cell of one animation sequence, and so is on screen only
+// while its object's ShapeCellFrames says that cell is showing. This is how a machine's destroyed
+// limb comes off and a structure's collapsed part turns to rubble: the shape holds all its cells
+// built and uploaded, and damage moves which one is picked -- see DtsMeshBuilder.BuildCells.
+var gatedParts = new List<(SimObject Object, CellGate Gate, SceneItem Item)>();
 var projectileItems = new List<SceneItem>();
 
 // The guns bolted to the machines on the field, rebuilt every frame for the same reason a rocket's
@@ -544,6 +553,10 @@ var spriteBatches = new List<SpriteBatch>();
 // segment riding one transform of one mech — see MissionScene.PosedTransformOf.
 var posedParts = new List<(MechObject Mech, int TransformId, SceneItem Item)>();
 var segmentMeshes = new Dictionary<string, GpuMesh[]>();
+
+// And the same for a shape split by cell rather than by node -- a structure or a flyer, which loses
+// parts to damage but has no posed nodes. One upload per distinct model, as with the other two.
+var cellMeshes = new Dictionary<string, GpuMesh[]>();
 IKeyboard? keyboard = null;
 IMouse? mouse = null;
 bool cameraKeyDown = false;
@@ -632,6 +645,11 @@ window.Load += (gl, input) => {
 		if (animatedKeys.Contains(model.Key)) {
 			segmentMeshes[model.Key] = model.Segments.Select(segment => new GpuMesh(gl, segment.Vertices, segment.TriangleVertexCount)).ToArray();
 			disposables.AddRange(segmentMeshes[model.Key]);
+		} else if (model.Cells.Length > 0) {
+			// A shape whose cells damage drives uploads every one of them and draws the ones its
+			// object's cell frames name, rather than being rebuilt each time a part comes off.
+			cellMeshes[model.Key] = model.Cells.Select(cell => new GpuMesh(gl, cell.Vertices, cell.TriangleVertexCount)).ToArray();
+			disposables.AddRange(cellMeshes[model.Key]);
 		} else if (model.Mesh.Length > 0) {
 			// A pure billboard shape — every EMP round, every impact effect — has no triangles at all
 			// and gets no mesh; its atlas below is the whole of it.
@@ -676,17 +694,52 @@ window.Load += (gl, input) => {
 
 		if (sceneObject.Object is MechObject mech && segmentMeshes.TryGetValue(model.Key, out var segments)) {
 			for (int i = 0; i < segments.Length; i++) {
-				int transformId = model.Segments[i].TransformId;
+				var segment = model.Segments[i];
 				var part = new SceneItem(segments[i],
-					MissionScene.PosedTransformOf(mech, transformId), texture) { LightSubject = mech };
+					MissionScene.PosedTransformOf(mech, segment.TransformId), texture) { LightSubject = mech };
 
 				built.Add(part);
-				posedParts.Add((mech, transformId, part));
+				posedParts.Add((mech, segment.TransformId, part));
+				if (segment.Gate.IsGated) {
+					gatedParts.Add((mech, segment.Gate, part));
+				}
+
 				if (isPlayer) {
 					playerItems.Add(part);
 				}
 			}
 
+			continue;
+		}
+
+		// A shape split by cell contributes one item per cell instead of one for the whole model,
+		// with the object's own transform on every one of them: unlike a machine's segments these
+		// are already placed, so only the gate differs between them.
+		if (cellMeshes.TryGetValue(model.Key, out var cells)) {
+			var cellItems = new SceneItem[cells.Length];
+			for (int i = 0; i < cells.Length; i++) {
+				var cell = model.Cells[i];
+				var part = new SceneItem(cells[i], MissionScene.TransformOf(sceneObject), texture) {
+					LightSubject = sceneObject.Object
+				};
+
+				cellItems[i] = part;
+				built.Add(part);
+				if (cell.Gate.IsGated) {
+					gatedParts.Add((sceneObject.Object, cell.Gate, part));
+				}
+
+				if (isPlayer) {
+					playerItems.Add(part);
+				}
+			}
+
+			if (sceneObject.Object is BaseObject celledStructure) {
+				RegisterWreckable(sceneObject, celledStructure, cellItems);
+			}
+
+			// Nothing that reaches here moves: this branch is the structures and the flyers, and
+			// FlyerObject.Tick is empty. A machine is drawn by node instead, above.
 			continue;
 		}
 
@@ -703,10 +756,8 @@ window.Load += (gl, input) => {
 			playerItems.Add(item);
 		}
 
-		if (sceneObject.Object is BaseObject wreckableStructure
-			&& (wreckableStructure.Type.HulkTypeIndex >= 0
-				|| wreckableStructure.Type.Components.Length <= 1)) {
-			wreckable.Add((sceneObject, wreckableStructure, item));
+		if (sceneObject.Object is BaseObject wreckableStructure) {
+			RegisterWreckable(sceneObject, wreckableStructure, new[] { item });
 		}
 
 		// Anything that can move needs its transform refreshed every frame. Structures never do, so
@@ -714,6 +765,31 @@ window.Load += (gl, input) => {
 		if (sceneObject.Object is MechObject) {
 			movers.Add((sceneObject, item));
 		}
+	}
+
+	// The two ways a structure can stop being drawn as itself. A type that leaves a wreck gets a
+	// second, hidden item carrying the hulk, so the swap is a visibility flip rather than a mesh
+	// rebuild at the moment the last part falls; a one-part type that leaves nothing sinks instead
+	// and needs only its transform refreshed. A type with neither does neither, and is not listed.
+	void RegisterWreckable(SceneObject sceneObject, BaseObject structure, SceneItem[] structureItems) {
+		if (structure.Type.HulkTypeIndex < 0 && structure.Type.Components.Length > 1) {
+			return;
+		}
+
+		SceneItem? hulkItem = null;
+		if (structure.Type.HulkTypeIndex >= 0
+				&& scene.HulkModels.TryGetValue(structure.Type.HulkTypeIndex, out var hulk)
+				&& modelMeshes.TryGetValue(hulk.Key, out var hulkMesh)) {
+			hulkItem = new SceneItem(hulkMesh, MissionScene.TransformOf(sceneObject),
+				modelTextures.TryGetValue(hulk.Key, out var hulkTexture) ? hulkTexture.Handle : null) {
+				LightSubject = structure,
+				Visible = false
+			};
+
+			built.Add(hulkItem);
+		}
+
+		wreckable.Add((sceneObject, structure, structureItems, hulkItem));
 	}
 
 	items = built.ToArray();
@@ -1109,6 +1185,13 @@ window.Update += deltaSeconds => {
 	// pose. That is the original's cadence too — see mech-locomotion.md's "Evaluation cadence".
 	foreach (var (mech, transformId, item) in posedParts) {
 		item.Transform = MissionScene.PosedTransformOf(mech, transformId);
+	}
+
+	// Which cell of each animation sequence is on screen, read straight off the object the way
+	// TSCellAnimPart_Render reads shapeInstance+8. Every piece the shape holds is already uploaded,
+	// so a destroyed component or a collapsed structure part costs a flag rather than a rebuild.
+	foreach (var (owner, gate, item) in gatedParts) {
+		item.Visible = gate.VisibleIn(owner.CellFrames);
 	}
 
 	RefreshWreckItems();
@@ -1703,25 +1786,33 @@ IEnumerable<SceneItem> VisibleItems() =>
 
 // The two things a collapsing structure does to what is on screen. A type that leaves a wreck is
 // redrawn as its BHULKS.DGS root the moment its last part falls -- the original writes that shape
-// straight onto the object's model instance, which is a mesh swap here. A type that leaves nothing
-// is dropped a hundred thousand units under the terrain, which is the original's own way of making a
-// small structure disappear, so its transform has to be refreshed once for it to go.
+// straight onto the object's model instance, which here is the building's own items going dark and
+// the wreck item built beside them coming up. A type that leaves nothing is dropped a hundred
+// thousand units under the terrain, which is the original's own way of making a small structure
+// disappear, so its transform has to be refreshed once for it to go.
+//
+// This runs after the per-frame cell-gate pass, and overrides it: once the whole building is a wreck,
+// which of its parts were still standing stops meaning anything.
 void RefreshWreckItems() {
-	foreach (var (sceneObject, structure, item) in wreckable) {
+	foreach (var (sceneObject, structure, structureItems, hulkItem) in wreckable) {
 		if (structure.Sunk) {
-			item.Transform = MissionScene.TransformOf(sceneObject);
+			var sunk = MissionScene.TransformOf(sceneObject);
+			foreach (var item in structureItems) {
+				item.Transform = sunk;
+			}
+
 			continue;
 		}
 
-		if (!structure.ShowingHulk
-			|| !scene.HulkModels.TryGetValue(structure.Type.HulkTypeIndex, out var hulk)
-			|| !modelMeshes.TryGetValue(hulk.Key, out var mesh)
-			|| ReferenceEquals(item.Mesh, mesh)) {
+		if (!structure.ShowingHulk || hulkItem == null) {
 			continue;
 		}
 
-		item.Mesh = mesh;
-		item.TextureHandle = modelTextures.TryGetValue(hulk.Key, out var bound) ? bound.Handle : null;
+		foreach (var item in structureItems) {
+			item.Visible = false;
+		}
+
+		hulkItem.Visible = true;
 	}
 }
 

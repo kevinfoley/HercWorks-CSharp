@@ -243,12 +243,15 @@ takes one off the stage, and:
   explosion, at the structure's origin or at the part's emission point on `0049740c`, and reloads
   the timer with the sequence's hold. Then `Base_ThrowDebris`, then the shape change: a type that
   leaves a wreck and has just lost its last part switches its model instance's shape pointer to
-  `hulkShapes[typeRec+0x04]` — the **hulk swap** — and anything else hides that part's sub-shape
-  (component record `+2`) and finishes its dependents.
+  `hulkShapes[typeRec+0x04]` — the **hulk swap** — and anything else steps the sequence the component
+  record's `+2` names to cell 1 (`shapeInstance[+8][rec+2] = 1`, the structure-scale counterpart of a
+  machine's `= 2`) and finishes its dependents. A structure's parts are two-cell `TSCellAnimPart`s
+  whose **second cell is that part's own rubble**, so a collapsing part is replaced by its wreckage
+  rather than removed — unlike a machine's, whose third cell is a bare `TSPoly` and draws nothing.
 - **Stage 0** — the fire. A type stating a whole-structure fire (`typeRec+0x08`) lights it at
   `typeRec+0x0a`, but only once `Base_EveryPartGone` reports every part either has no fire of its own
   or is fully damaged; otherwise the part lights its own at its emission point. A structure with
-  neither, one part, and no sub-shape to hide is instead **dropped through the floor** — `-100000`
+  neither, one part, and no cell sequence of its own is instead **dropped through the floor** — `-100000`
   written straight onto its Z, which is how a small object disappears.
 
 `Base_FinishDependents` (`00403890`) finishes every part naming this one at component record
@@ -276,16 +279,14 @@ The `BASES.DAT` record fields this section reads are tabulated in
 | Burning objects | `Sim.FireEffect`; `SimWorld.SpawnFire` and `ReleaseFires` |
 | The structure sequence | `Sim.StructureDeathSequence` and `Sim.BaseObject.DeathSequenceTick` |
 | Drawing | `Program.RefreshDebrisItems` (meshes), `RefreshSpriteBatches` (fires), `RefreshWreckItems` (the hulk swap) |
+| The sub-shape step, both scales | `Sim.ShapeCellFrames` is the port of `shapeInstance+8`; `ComponentDamage.CellFrames` and `BaseObject.CellFrames` are the per-object arrays. `DtsMeshBuilder` builds every cell into its own gated piece (`BuildSegments` for a machine, `BuildCells` for a structure or a flyer) and `Program`'s per-frame gate pass draws the one each sequence stands on |
 
 Every spawn site in the table above is ported. Both pools are capped at the original's sizes and
 both drop a spawn when full, as the original's allocator does.
 
 **Not ported:** the detail-level branches (this engine has no detail setting and always takes the
-full-detail figure), the flyer carrier velocity at `004a96e4` (`FlyerObject` holds no velocity to
-add), and the sub-shape blanking on both scales — `ComponentDamage.SubShapeHidden` and
-`BaseObject.SubShapeHidden` record which sequences and sub-shapes should have stopped being drawn,
-and nothing reads them, because `DtsMeshBuilder` takes one cell index for a whole root. See
-[`../formats/mech-shape-drawing.md`](../formats/mech-shape-drawing.md).
+full-detail figure) and the flyer carrier velocity at `004a96e4` (`FlyerObject` holds no velocity to
+add).
 
 **The arcs are large at this world scale.** A `DEF_DEB` group-2 throw peaks around 48 m and lands
 about 137 m out over 5 seconds. That follows from constants none of which are this engine's — the

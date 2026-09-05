@@ -144,6 +144,21 @@ public static class SimMath {
 	}
 
 	/// <summary>
+	/// <c>Timer_CountDown</c> (<c>004679a4</c>) — the 32-bit sibling of
+	/// <see cref="CountdownTimerTick"/>, for the countdowns that hold values a <c>short</c> cannot:
+	/// the AI's behaviour dwell runs to 50000 ms and its friendly-fire cooldown to 40000. DBSIM is
+	/// handed a pointer one byte before the value and steps the int that follows it, which is the
+	/// same operation without the unaligned-pointer arithmetic.
+	/// </summary>
+	public static int TimerCountDown(ref int timer) {
+		timer -= TickDelta;
+		if (timer < 0) {
+			timer = 0;
+		}
+		return timer;
+	}
+
+	/// <summary>
 	/// <c>Math_RateLimitedMoveToward</c> (<c>004679d8</c>) — generic per-tick slew-rate limiter.
 	/// Moves <paramref name="current"/> toward <paramref name="target"/> by at most
 	/// <paramref name="step"/> (never overshooting), and returns the remaining error — 0 once it

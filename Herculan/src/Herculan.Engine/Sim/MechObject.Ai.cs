@@ -1,0 +1,711 @@
+using Herculan.Engine.Numerics;
+using Herculan.Engine.Sim.Ai;
+
+namespace Herculan.Engine.Sim;
+
+/// <summary>
+/// The machine's half of the AI targeting slice: the behaviour block and its tick, the combat
+/// reassess and the three decisions hanging off it, and the combat rating everything weighs
+/// candidates by. The derivation is docs/simulation/ai-targeting.md and the dispatch model it cites
+/// is docs/simulation/ai-dispatch.md.
+/// </summary>
+public partial class MechObject {
+	/// <summary><c>mech+0x4d</c> — the behaviour block. See <see cref="BehaviourBlock"/>.</summary>
+	public BehaviourBlock Behaviour;
+
+	/// <summary>
+	/// <c>Mech_Constructor</c>'s initial install (<c>00415f33</c>/<c>f46</c>/<c>f59</c>): the player's
+	/// machine is settled at construction, everything else starts in <c>deciding</c> and waits for
+	/// its group's order — or, with the order layer unported, for something to shoot it.
+	/// </summary>
+	internal void InstallInitialBehaviour() =>
+		Behaviour.SetState(IsPlayer
+			? Type.IsFlyer ? BehaviourState.PlayerFly : BehaviourState.Player
+			: BehaviourState.Deciding);
+
+	/// <summary>
+	/// <c>Mech_AiTick</c> (<c>00411cec</c>) — one machine's AI frame. Its only caller is
+	/// <c>Group_OrderTick</c>, so this runs from <see cref="MissionGroup.AiTick"/> and a machine that
+	/// is not a live group member never thinks.
+	///
+	/// <para>The original's order is reassess, then the dwell countdown, then move, then think. The
+	/// two it ends with are not ported and cannot be: the move slot is <c>Mech_MovementTick</c>, which
+	/// <see cref="Tick"/> already runs for every machine, and the think functions belong to the AI
+	/// slices that are not reverse-engineered yet. What is left is the half that decides <i>which
+	/// state a machine is in</i>, which is this slice's subject.</para>
+	/// </summary>
+	public void AiTick(SimWorld world) {
+		if (Behaviour.State is not { } state) {
+			return;
+		}
+
+		if (Behaviour.DwellCountdown == 0) {
+			switch (state.Reassess) {
+				case ReassessSlot.SelectBehaviour:
+					SelectBehaviour(world);
+					break;
+				case ReassessSlot.CombatReassess:
+					CombatReassess(world);
+					break;
+			}
+		}
+
+		// Only the eight states whose flag bit 0 is clear ever count down; for the rest the countdown
+		// is loaded by Behaviour_SetState and never stepped, so their dwell value means nothing and
+		// they end on their own terms instead.
+		if (Behaviour.State is { SuppressesDwell: false }) {
+			SimMath.TimerCountDown(ref Behaviour.DwellCountdown);
+		}
+
+		Behaviour.TickCount++;
+	}
+
+	/// <summary>
+	/// <c>Mech_AiSelectBehaviour</c> (<c>0041eb34</c>) — picks and installs the next state. Three
+	/// mutually exclusive paths, of which only the first can be taken here.
+	///
+	/// <list type="number">
+	/// <item><b>The local player</b> takes <c>player fly</c> or <c>player</c> on the type record's
+	/// flyer flag, which is the same test the constructor makes.</item>
+	/// <item><b>A squad order</b> maps its verb onto <c>patrolling</c>, <c>guarding</c> or an engage.
+	/// Unported: squad orders are the squadmate slice, and <see cref="SquadOrderVerb"/> is always
+	/// zero.</item>
+	/// <item><b>A mission group order</b> maps verbs 0-6 onto seven states. Unported: the order array
+	/// is not read, so <see cref="MissionGroup.OrderVerb"/> answers <c>0x0b</c> — which is exactly
+	/// what the original substitutes for a null order entry, and it matches no case, so no descriptor
+	/// is installed and the machine keeps the state it already had.</item>
+	/// </list>
+	///
+	/// <para><b>Every path ends by dropping the target</b>, which is the original's own behaviour and
+	/// the reason a machine that finds nothing to fight also lets go of what it was holding.</para>
+	/// </summary>
+	private void SelectBehaviour(SimWorld world) {
+		if (IsPlayer) {
+			Behaviour.SetState(Type.IsFlyer ? BehaviourState.PlayerFly : BehaviourState.Player);
+		}
+
+		Target = null;
+	}
+
+	/// <summary>
+	/// <c>Mech_AiCombatReassess</c> (<c>0041cf18</c>) — the reassess slot of the five combat states
+	/// and <c>fleeing</c>. Radar, then keep-or-acquire, then the leader sweep, then the state.
+	/// </summary>
+	private void CombatReassess(SimWorld world) {
+		// A machine in a fight lights its radar up, which is what makes a distant enemy targetable by
+		// the player: the player-side [R] toggle only substitutes for this. A squadmate of the
+		// player's is put back to passive instead, so the squad does not paint the sky.
+		if (Group is not { LedByPlayer: true } || RadarForcedActive) {
+			if (RadarSilenceTimer == 0) {
+				Scanner = true;
+			}
+		} else {
+			Scanner = false;
+		}
+
+		if (_targetHandedOver) {
+			// Something has just given this machine a target; the acquisition is skipped for one pass.
+			_targetHandedOver = false;
+		} else if (SquadOrderVerb is SquadOrderNone or SquadOrderMove or SquadOrderPatrol) {
+			// The one case that gives a fight up: a machine that is already committed and has been
+			// told to move falls through to Mech_AiSelectBehaviour, which drops the target and puts it
+			// back on its order. Being told to move ends a fight.
+			bool movementOrder = SquadOrderVerb == SquadOrderMove
+				|| (SquadOrderVerb == SquadOrderNone && GroupOrderIsMovement);
+
+			if (!movementOrder || Behaviour.State is not { Committed: true }) {
+				Target = AiTargeting.SelectTarget(world, this, TargetFilter.MissionTargetOnly);
+			}
+
+			if (Target == null) {
+				SelectBehaviour(world);
+				return;
+			}
+		} else {
+			Target = SquadOrderTarget;
+
+			if (Target == null || Target is MechObject { Destroyed: true }) {
+				Target = AiTargeting.SelectTarget(world, this, TargetFilter.None);
+
+				if (Target == null) {
+					SelectBehaviour(world);
+					return;
+				}
+			}
+		}
+
+		// The leader drags the group in: one machine finding a fight commits every other member that
+		// is not already in one.
+		if (Group is { } group && ReferenceEquals(group.Leader, this)) {
+			for (int i = 0; i < group.Members.Count; i++) {
+				if (group.Members[i] is MechObject member && !ReferenceEquals(member, this)
+						&& !member.Neutralised && member.Behaviour.State is { Committed: false }) {
+					member.CombatReassess(world);
+				}
+			}
+		}
+
+		AimComponent = NoAimComponent;
+
+		if (FleeCheck(world)) {
+			return;
+		}
+
+		if (Target is not { } target) {
+			return;
+		}
+
+		switch (target.TargetClass) {
+			case TargetClass.Structure:
+			case TargetClass.Emplacement:
+				Behaviour.SetState(BehaviourState.AttackingBase);
+				return;
+			case TargetClass.Flyer:
+				Behaviour.SetState(BehaviourState.AttackingFlyer);
+				return;
+		}
+
+		Behaviour.SetState(CompareCombatRating(world, target) switch {
+			1 => BehaviourState.Attacking,
+			2 when !LegsCrippled && Type.FlankingGate > FlankingGateThreshold => BehaviourState.Flanking,
+			_ => BehaviourState.FacingOff
+		});
+
+		SelectAimComponent(world);
+	}
+
+	/// <summary>
+	/// <c>Mech_AiFleeCheck</c> (<c>0041cb94</c>) — whether the machine breaks off, and the one place
+	/// <c>fleeing</c> is installed. Returns true when it has taken the decision itself.
+	///
+	/// <para><b>Fear is damage.</b> It starts at the machine's overall damage reading and adds a
+	/// penalty for each of six components past each of three thresholds, so a machine that has been
+	/// shot apart runs from odds a fresh one would take. What it runs from is
+	/// <see cref="SimObject.TargetedBy"/> — how many machines are pointing at it — weighed against
+	/// the combined combat rating of those machines.</para>
+	/// </summary>
+	private bool FleeCheck(SimWorld world) {
+		if (Neutralised) {
+			// A machine that is out of the fight and still reassessing. The structure exception keys
+			// on BASES.DAT +0x2e, a field the format reads past without using, so the branch that
+			// would send it back to Mech_AiSelectBehaviour cannot be evaluated and it always flees.
+			Behaviour.SetState(BehaviourState.Fleeing);
+			return true;
+		}
+
+		int fear = OverallDamage;
+
+		if (Damage is { } damage) {
+			for (int band = 0; band < FearBandThresholds.Count; band++) {
+				bool any = false;
+
+				for (int i = 0; i < FearComponents.Count; i++) {
+					if (damage.DamagePercent(FearComponents[i]) > FearBandThresholds[band]) {
+						fear += FearBandPenalties[band];
+						any = true;
+					}
+				}
+
+				if (!any) {
+					break;
+				}
+			}
+		}
+
+		int holders = TargetedBy;
+		bool flee;
+
+		if (fear >= FearBreaking) {
+			StandoffRange = 1000;
+			flee = holders != 0;
+		} else if (fear >= FearShaken) {
+			StandoffRange = 600;
+			flee = holders >= 3
+				|| (holders != 0 && CombatRating < AiTargeting.SumAttackerRatings(world, this));
+		} else if (fear > FearSteady) {
+			StandoffRange = 300;
+			flee = holders > 2 && CombatRating < AiTargeting.SumAttackerRatings(world, this) / holders;
+		} else {
+			flee = false;
+		}
+
+		if (flee) {
+			Behaviour.SetState(BehaviourState.Fleeing);
+		}
+
+		return flee;
+	}
+
+	/// <summary>
+	/// <c>Mech_AiSelectAimComponent</c> (<c>0041ce08</c>) — which component slot the machine works at,
+	/// written to <see cref="AimComponent"/>. One roll picks a band — the target's systems, its weapon
+	/// mounts or its chassis — and within the band it takes the highest damage reading plus a jitter,
+	/// skipping slots the target no longer has.
+	///
+	/// <para><b>It reads its own damage, not the target's</b>, and that is reproduced: the original
+	/// passes <c>this+0x206</c> to <c>Component_ReadDamagePercent</c> at <c>0041cec9</c> while
+	/// walking the target's occupancy array. So a machine works at whichever of <i>its own</i>
+	/// components is worst hurt, constrained to slots the target still has.</para>
+	///
+	/// <para>The original also forces the systems band whenever a targeting computer pod is fitted and
+	/// its <c>+0x7f</c> reads under <c>0xaa</c>. What <c>+0x7f</c> means on a pod mount is untested —
+	/// the same field and the same doubt as the ECM roll in MechObject.Lock.cs — so the roll alone
+	/// chooses here.
+	/// </para>
+	/// </summary>
+	private void SelectAimComponent(SimWorld world) {
+		if (Target is not { } target) {
+			AimComponent = NoAimComponent;
+			return;
+		}
+
+		int roll = world.Random.NextMasked(0x7f);
+		int first;
+		int last;
+
+		if (target is MechObject { Collapsed: true }) {
+			first = 0;
+			last = 1;
+		} else if (roll < SystemsBandRoll) {
+			first = FirstSystemComponent;
+			last = WeaponMounts.FirstMountComponent;
+		} else if (roll < MountBandRoll) {
+			// The mount count is this machine's own, not the target's -- the same "reads itself"
+			// slip as the damage below, and from the same register.
+			first = WeaponMounts.FirstMountComponent;
+			last = WeaponMounts.FirstMountComponent + Weapons.Slots.Count;
+		} else {
+			first = 0;
+			last = FirstSystemComponent;
+		}
+
+		short best = NoAimComponent;
+		int bestReading = 0;
+
+		for (int i = first; i < last; i++) {
+			if (target is MechObject { Damage: { } targetDamage } && !targetDamage.IsActive(i)) {
+				continue;
+			}
+
+			int reading = (Damage?.DamagePercent(i) ?? 0) + world.Random.NextMasked(0x3f);
+			if (reading > bestReading) {
+				bestReading = reading;
+				best = (short)i;
+			}
+		}
+
+		AimComponent = best;
+	}
+
+	/// <summary>
+	/// <c>Mech_AiOnTakingFire</c> (<c>0041f7b8</c>, mech vtable <c>+0x50</c>) — something hit this
+	/// machine. It applies no damage; what it does is decide whether, and how, to answer.
+	/// </summary>
+	/// <param name="attacker">The object whose shot this was.</param>
+	/// <param name="damage">The shot's damage, which only feeds the accumulator below.</param>
+	public void OnTakingFire(SimWorld world, SimObject? attacker, short damage) {
+		if (attacker == null || Behaviour.State is not { } state) {
+			return;
+		}
+
+		bool inPlayerGroup = world.PlayerMech is { } player && Group != null
+			&& ReferenceEquals(Group, player.Group);
+
+		if (ReferenceEquals(attacker, world.PlayerMech) && inPlayerGroup) {
+			FriendlyFireComplaint(world);
+		}
+
+		if (attacker.Neutralised || attacker.Side == Side) {
+			return;
+		}
+
+		// Being shot is a way of being spotted: the whole side near the attacker learns where it is.
+		Detection.ShareContact(world, this, attacker);
+
+		UnderFireWindow = UnderFireWindowMs;
+
+		if (inPlayerGroup) {
+			DamageFromPlayerGroup += damage;
+			if (DamageFromPlayerGroup < PlayerGroupReactionDamage) {
+				return;
+			}
+		}
+
+		if (IsPlayer || RetargetCooldown != 0) {
+			return;
+		}
+
+		if (ReferenceEquals(attacker, Target) && state.Committed) {
+			return;
+		}
+
+		RetargetCooldown = RetargetCooldownMs;
+
+		if (!state.Committed && Group is { LedByPlayer: true }) {
+			if (attacker.TargetClass == TargetClass.Herc) {
+				PostSquadMessage(world, SquadMessageTakingFire);
+			}
+
+			// The original also clears mech+0x9a here, the latch that keeps a squadmate off the
+			// player's own selection. Nothing found writes it, and Ai_IsTargetable's test of it is
+			// not ported either, so the clear has nothing to clear.
+		}
+
+		if (state.HoldsPlace) {
+			// Defend the post rather than chase the shooter.
+			var post = GoalPosition();
+			var defence = AiTargeting.SelectDefenceTarget(world, this, post);
+			var chosen = defence ?? attacker;
+
+			Target = chosen;
+
+			if (chosen.TargetClass == TargetClass.Herc) {
+				Behaviour.SetState(BehaviourState.DrivingOffEnemy);
+				SelectAimComponent(world);
+			} else {
+				EngageOrderedTarget(world, chosen);
+			}
+
+			return;
+		}
+
+		if (state.IgnoresFire) {
+			return;
+		}
+
+		var previous = Target;
+		Target = AiTargeting.SelectTarget(world, this, TargetFilter.IgnoreCrowding | TargetFilter.IgnoreBearing);
+
+		if (Target == null) {
+			if (previous != null) {
+				SelectBehaviour(world);
+			}
+
+			return;
+		}
+
+		_targetHandedOver = true;
+		CombatReassess(world);
+	}
+
+	/// <summary>
+	/// <c>Mech_AiEngageOrderedTarget</c> (<c>0041c0f4</c>) — installs a target and the state that goes
+	/// with it: a HERC hands the choice to the combat reassess, anything else takes its own state
+	/// directly.
+	/// </summary>
+	private void EngageOrderedTarget(SimWorld world, SimObject target) {
+		Target = target;
+
+		switch (target.TargetClass) {
+			case TargetClass.Herc:
+				_targetHandedOver = true;
+				CombatReassess(world);
+				break;
+			case TargetClass.Flyer:
+				Behaviour.SetState(BehaviourState.AttackingFlyer);
+				break;
+			default:
+				Behaviour.SetState(BehaviourState.AttackingBase);
+				break;
+		}
+	}
+
+	/// <summary>
+	/// <c>Mech_AiGoalPosition</c> (<c>0041dbcc</c>) — the place this machine is working to. With squad
+	/// and group orders unported there is nothing to resolve but the machine's own position, which is
+	/// the post a guard is standing on anyway.
+	/// </summary>
+	private Vec3i GoalPosition() => SquadOrderTarget?.Position ?? Position;
+
+	/// <summary>
+	/// <c>Mech_AiFriendlyFireComplaint</c> (<c>0041f790</c>) — squad message 8, on a 40 s cooldown.
+	/// </summary>
+	internal void FriendlyFireComplaint(SimWorld world) {
+		if (ComplaintCooldown != 0) {
+			return;
+		}
+
+		ComplaintCooldown = ComplaintCooldownMs;
+		PostSquadMessage(world, SquadMessageFriendlyFire);
+	}
+
+	/// <summary>
+	/// <c>Ai_PostSquadMessage</c> (<c>00420a98</c>) — posts to the pilot-and-squad message port, the
+	/// second instance of the port the cockpit computer uses. That instance is not ported (see
+	/// docs/formats/audio.md), so the message is recorded and nothing says it aloud.
+	/// </summary>
+	private void PostSquadMessage(SimWorld world, int messageId) {
+		if (Destroyed) {
+			return;
+		}
+
+		LastSquadMessage = messageId;
+	}
+
+	/// <summary>
+	/// <c>Mech_CompareCombatRating</c> (<c>0041cabc</c>, mech vtable <c>+0x4c</c>) — this machine's
+	/// rating against a candidate's, as the index the AI's three weight tables share: 0 this
+	/// machine's is higher, 1 the two are within <see cref="RatingParity"/>, 2 the candidate's is
+	/// higher. Anything that is not a HERC answers 0.
+	///
+	/// <para>Both figures are jittered first, and the jitter is <c>rand &amp; 1000</c> where
+	/// <c>rand % 1000</c> was plainly meant — <c>AND AX,0x3e8</c> at <c>0041cadd</c> and
+	/// <c>0041caf8</c>. Masking against <c>0x3e8</c> can only produce the values that are subsets of
+	/// its bits, so the jitter spans 0-1000 but lands on very few of the numbers in between. It is
+	/// transcribed rather than corrected.</para>
+	/// </summary>
+	public int CompareCombatRating(SimWorld world, SimObject candidate) {
+		if (candidate is not MechObject other) {
+			return 0;
+		}
+
+		int mine = world.Random.NextMasked(RatingJitterMask) + CombatRating;
+		int theirs = world.Random.NextMasked(RatingJitterMask) + other.CombatRating;
+
+		int gap = System.Math.Abs(mine - theirs);
+		return gap < RatingParity ? 1 : theirs > mine ? 2 : 0;
+	}
+
+	/// <summary>
+	/// <c>mech+0x29e</c>, computed by <c>Mech_ComputeCombatRating</c> (<c>0041edd8</c>) — what this
+	/// machine is worth in a fight, and the figure both the target weights and the flee check read.
+	///
+	/// <para>It is the chassis' base, plus every live weapon mount's own value scaled by that mount's
+	/// condition, plus every component's maximum scaled by its condition, less a penalty for each
+	/// system past 70% damage — so it falls as the machine is shot apart. Retail states the same
+	/// base of 1000 and the same penalty of 500 for all 21 chassis, so what separates two machines is
+	/// entirely their guns, their armour and their damage.</para>
+	///
+	/// <para>The original caches it at <c>mech+0x29e</c> behind the <c>mech+0x94</c> dirty flag and
+	/// recomputes it from <c>Mech_PerTickSystemsUpdate</c>. Computing it on demand is the same value
+	/// with the cache left out.</para>
+	/// </summary>
+	public int CombatRating {
+		get {
+			if (Damage is not { } damage) {
+				return 0;
+			}
+
+			var readouts = damage.ReadDamageReadouts();
+			int rating = Type.AiRatingBase;
+
+			var slots = Weapons.Slots;
+			for (int i = 0; i < slots.Count; i++) {
+				int readout = readouts[ComponentDamage.FirstCombinedReadout + i];
+				if (slots[i] is not { } mount || readout < 0) {
+					continue;
+				}
+
+				rating += SimMath.Q8Multiply(mount.AiRatingValue, 0x100 - readout);
+			}
+
+			for (int i = 0; i < ComponentDamage.ArmorReadoutCount; i++) {
+				int readout = readouts[ComponentDamage.FirstArmorReadout + i];
+				if (readout < 0) {
+					continue;
+				}
+
+				rating += SimMath.Q8Multiply(damage.Piece(i)?.Armor ?? 0, 0x100 - readout);
+			}
+
+			for (int i = 0; i < RatingSystemCount; i++) {
+				if (readouts[ComponentDamage.FirstDependentReadout + i] > RatingSystemPenaltyThreshold) {
+					rating -= Type.AiRatingSystemPenalty(i);
+				}
+			}
+
+			return rating >> 4;
+		}
+	}
+
+	/// <summary>
+	/// Mech vtable <c>+0x40</c> (<c>Mech_GetOverallDamage</c>, <c>00415504</c>) — the machine's
+	/// overall damage figure, which is where <see cref="FleeCheck"/> starts from.
+	/// </summary>
+	public int OverallDamage => Damage?.DamagePercent(0) ?? 0;
+
+	/// <summary>
+	/// <c>mech+0x2a2</c> — the component slot this machine is working at, or
+	/// <see cref="NoAimComponent"/>. Written by <see cref="SelectAimComponent"/>; nothing reads it
+	/// until the AI weapon slice exists.
+	/// </summary>
+	public short AimComponent { get; private set; } = NoAimComponent;
+
+	/// <summary>
+	/// <c>mech+0xb4</c> — the machine has collapsed: latched when the death animation finishes
+	/// playing out (<c>Mech_LocomotionTick</c>) or when a fall cripples it outright
+	/// (<c>004178e8</c>). Neither is ported, so it never sets; the tests that read it are here
+	/// because the original has them.
+	/// </summary>
+	public bool Collapsed => false;
+
+	/// <summary>
+	/// <c>mech+0x2aa</c> — written by <see cref="FleeCheck"/> on each of its three live bands. No
+	/// reader has been found; it is kept because the write is the only evidence of what it is for.
+	/// </summary>
+	public int StandoffRange { get; private set; }
+
+	/// <summary>
+	/// <c>mech+0x273</c> — the retarget cooldown, which is what stops a machine under sustained fire
+	/// from re-deciding every hit. Stepped by <see cref="AiTimersTick"/>.
+	/// </summary>
+	public int RetargetCooldown { get; private set; }
+
+	/// <summary><c>mech+0x278</c> — the friendly-fire complaint cooldown.</summary>
+	public int ComplaintCooldown { get; private set; }
+
+	/// <summary>
+	/// <c>mech+0x27d</c> — the under-fire window. Its expiry is what clears
+	/// <see cref="DamageFromPlayerGroup"/>, so the accumulator is a rolling 30 s total rather than a
+	/// lifetime one.
+	/// </summary>
+	public int UnderFireWindow { get; private set; }
+
+	/// <summary>
+	/// <c>mech+0x281</c> — damage this machine has taken from the player's own group inside the
+	/// under-fire window. A squadmate ignores fire until it passes
+	/// <see cref="PlayerGroupReactionDamage"/>.
+	/// </summary>
+	public int DamageFromPlayerGroup { get; private set; }
+
+	/// <summary>
+	/// <c>mech+0x26b</c> — a countdown that holds the radar off. Nothing found writes it, so an AI
+	/// machine's radar comes on the moment it enters a fight.
+	/// </summary>
+	public int RadarSilenceTimer => 0;
+
+	/// <summary>
+	/// <c>mech+0xb2</c> — keeps a player squadmate's radar active where it would otherwise be forced
+	/// passive. Nothing found writes it; see docs/simulation/ai-targeting.md, "Open questions".
+	/// </summary>
+	public bool RadarForcedActive => false;
+
+	/// <summary>
+	/// The last id handed to <c>Ai_PostSquadMessage</c>, kept so the callouts are observable while the
+	/// squad channel itself is unported.
+	/// </summary>
+	public int LastSquadMessage { get; private set; }
+
+	/// <summary>
+	/// <c>mech+0x23e</c> — the standing squad order's verb. Squad orders are the squadmate slice and
+	/// are not ported, so this is always <see cref="SquadOrderNone"/>.
+	/// </summary>
+	public short SquadOrderVerb => SquadOrderNone;
+
+	/// <summary><c>mech+0x248</c> — the squad order's target object. Always null; see <see cref="SquadOrderVerb"/>.</summary>
+	public SimObject? SquadOrderTarget => null;
+
+	/// <summary>
+	/// <c>mech+0x250</c> — how finished the squad order wants its target before the machine may let
+	/// go, against <see cref="AiTargeting.TargetStateTier"/>.
+	/// </summary>
+	public int SquadOrderAbandonTier => 0;
+
+	/// <summary>
+	/// Whether the group's current order is one of the two that keep a machine moving — verbs 5 and 6,
+	/// travelling and following. Always false while the order layer is unported.
+	/// </summary>
+	private bool GroupOrderIsMovement =>
+		Group?.OrderVerb is 5 or 6;
+
+	/// <summary>
+	/// The three AI countdowns <c>Mech_PerTickSystemsUpdate</c> steps, and the accumulator the third
+	/// one clears. Called once per tick per machine from the systems pass.
+	/// </summary>
+	internal void AiTimersTick() {
+		int retarget = RetargetCooldown;
+		SimMath.TimerCountDown(ref retarget);
+		RetargetCooldown = retarget;
+
+		int complaint = ComplaintCooldown;
+		SimMath.TimerCountDown(ref complaint);
+		ComplaintCooldown = complaint;
+
+		int underFire = UnderFireWindow;
+		if (SimMath.TimerCountDown(ref underFire) == 0) {
+			DamageFromPlayerGroup = 0;
+		}
+
+		UnderFireWindow = underFire;
+	}
+
+	/// <summary><c>mech+0xac</c> — a target was just handed over; skip one acquisition.</summary>
+	private bool _targetHandedOver;
+
+	/// <summary>The value <see cref="AimComponent"/> takes when no component was chosen.</summary>
+	public const short NoAimComponent = -1;
+
+	/// <summary>Where the target's system components start; the chassis band runs below it.</summary>
+	public const int FirstSystemComponent = 7;
+
+	/// <summary>Below this roll of <c>rand &amp; 0x7f</c> the systems band is taken.</summary>
+	private const int SystemsBandRoll = 0x28;
+
+	/// <summary>Below this roll, and above <see cref="SystemsBandRoll"/>, the mount band is taken.</summary>
+	private const int MountBandRoll = 0x50;
+
+	/// <summary>Ratings within this of each other count as evenly matched.</summary>
+	public const int RatingParity = 400;
+
+	/// <summary>The original's <c>AND AX,0x3e8</c>. See <see cref="CompareCombatRating"/>.</summary>
+	private const int RatingJitterMask = 1000;
+
+	/// <summary>How many of the twelve system readouts the rating penalises.</summary>
+	private const int RatingSystemCount = 10;
+
+	/// <summary>Q8 damage past which a system costs the rating its penalty — 70%.</summary>
+	private const int RatingSystemPenaltyThreshold = 0xb4;
+
+	/// <summary>The type field the <c>flanking</c> branch is gated on; retail states 0 for every chassis.</summary>
+	private const int FlankingGateThreshold = 0xb9;
+
+	/// <summary>Fear at or above which any attacker at all is enough.</summary>
+	private const int FearBreaking = 71;
+
+	/// <summary>Fear at or above which three attackers, or a stronger pair, are enough.</summary>
+	private const int FearShaken = 51;
+
+	/// <summary>Fear at or below which the machine never breaks off.</summary>
+	private const int FearSteady = 30;
+
+	/// <summary><c>0049a328</c> — the six components the flee check weighs.</summary>
+	private static readonly IReadOnlyList<int> FearComponents = new[] { 0, 1, 4, 5, 6, 7 };
+
+	/// <summary><c>0049a33a</c> — the Q8 damage each fear band starts at.</summary>
+	private static readonly IReadOnlyList<int> FearBandThresholds = new[] { 60, 120, 180 };
+
+	/// <summary><c>0049a334</c> — what a component past each band costs in fear.</summary>
+	private static readonly IReadOnlyList<int> FearBandPenalties = new[] { 5, 25, 50 };
+
+	/// <summary>The under-fire window, in milliseconds.</summary>
+	private const int UnderFireWindowMs = 30000;
+
+	/// <summary>The retarget cooldown, in milliseconds.</summary>
+	private const int RetargetCooldownMs = 10000;
+
+	/// <summary>The friendly-fire complaint cooldown, in milliseconds.</summary>
+	private const int ComplaintCooldownMs = 40000;
+
+	/// <summary>
+	/// How much damage from the player's own group a squadmate absorbs before it reacts at all.
+	/// </summary>
+	public const int PlayerGroupReactionDamage = 8000;
+
+	/// <summary>Squad order verb 0 — none standing.</summary>
+	public const short SquadOrderNone = 0;
+
+	/// <summary>Squad order verb 1 — move, which is what ends a fight in the combat reassess.</summary>
+	public const short SquadOrderMove = 1;
+
+	/// <summary>Squad order verb 2 — patrol.</summary>
+	public const short SquadOrderPatrol = 2;
+
+	/// <summary>Squad order verb 4 — engage the order's target.</summary>
+	public const short SquadOrderEngage = 4;
+
+	/// <summary>Squad message 3 — taking fire.</summary>
+	public const int SquadMessageTakingFire = 3;
+
+	/// <summary>Squad message 8 — the player is shooting one of his own.</summary>
+	public const int SquadMessageFriendlyFire = 8;
+}

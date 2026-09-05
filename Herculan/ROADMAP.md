@@ -25,13 +25,15 @@ The mechanism is understood; what is left is engine work.
   unported, so the comm box never speaks or animates and nothing posts to that channel.
   → [`docs/formats/audio.md`](docs/formats/audio.md)
 - **Group orders.** `Group_OrderTick` (`00423a74`) advances a group through its row-15 orders. The
-  layer is decoded; nothing in the engine runs it.
+  layer is decoded; the engine builds the group records and runs the AI over their members, but
+  nothing reads the order array, so every group answers as one whose current order entry is null.
+  This is what leaves AI machines with no state to be in.
   → [`docs/formats/script-dat.md`](docs/formats/script-dat.md)
 - **Combat gaps.** Hit detection, weapon-mount destruction and the explosive blast sweep are
   complete for all three shootable classes. Two of the sweep's three call sites are still unreachable
   because the functions that own them are unported: the drop pod's landing detonation (`Meteor_Tick`,
   part of the mission-deployment entry above) and the AI ramming attack (`FUN_0041e488`, part of the
-  behaviour-tree entry below).
+  AI entry below).
   → [`docs/simulation/damage-system.md`](docs/simulation/damage-system.md)
 - **A machine's LOD roots are not selected.** Root 0 is hard-coded where the original picks one per
   frame from projected size and a detail bias.
@@ -53,14 +55,14 @@ bindings are hardcoded placeholders.
 
 The engine cannot be faithful here until the original is understood.
 
-- **AI / behaviour trees barely understood.** Blocks enemy mech behaviour and patrol movement, and
-  is why AI machines never select a target and so never fire. Each machine gets a behaviour class at
-  construction and a state within it; the state blocks (`0049991c` onward, stride `0x24`) are three
-  pointer-to-member triples each — a think slot, a per-tick move slot and an empty one — and their
-  class descriptors are filled at startup, so the image alone does not say which state is which. One
-  state is decoded end to end, the ramming attack at `00499b5c`; see
-  [`damage-system.md`](docs/simulation/damage-system.md#the-sweep--damage_explosiveblastsweep-00426a20).
-  → [`docs/simulation/target-selection.md`](docs/simulation/target-selection.md)
+- **What each AI behaviour state does.** The dispatch spine and the targeting slice are decoded and
+  ported: a machine holds a state, reassesses out of it, acquires and abandons targets, and answers
+  incoming fire. What no state can yet do is *act* — the think functions that would walk it, aim it
+  and fire it are undecoded, and so are the mission-group and squad orders that would put it in a
+  state in the first place. So an AI machine still only enters combat by being shot at, and then
+  stands there holding its target.
+  → [`docs/simulation/ai-dispatch.md`](docs/simulation/ai-dispatch.md),
+  [`docs/simulation/ai-targeting.md`](docs/simulation/ai-targeting.md)
 - **SimRandom's 56-entry seed table isn't extracted** from DBSIM's data section. The algorithm is a
   literal port; the seeding is not, and a roll's result also depends on generator-advance count —
   treat as statistically faithful, not replay faithful.

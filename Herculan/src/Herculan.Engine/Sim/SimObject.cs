@@ -84,15 +84,33 @@ public abstract class SimObject {
 	public virtual TargetClass TargetClass => TargetClass.None;
 
 	/// <summary>
+	/// <c>obj+0x45</c> — the mission group that placed this object, and the record every "is this one
+	/// of ours" test reads its side off. It is also what the AI is driven from: see
+	/// <see cref="MissionGroup"/>.
+	/// </summary>
+	public MissionGroup? Group { get; internal set; }
+
+	/// <summary>
 	/// Whether this object is out of the fight — the <c>obj+0x99 || obj+0xa4</c> pair the target
 	/// filter (<c>FUN_00433174</c>), the detection sweep (<c>FUN_004128f8</c>) and the AI's
-	/// "is my target finished" check (<c>FUN_0041c4a8</c>) all spell out identically.
+	/// "is my target finished" check (<c>Ai_ShouldAbandonTarget</c>) all spell out identically.
+	///
+	/// <para>The AI's own copies of the test add a third flag, <c>obj+0xa5</c>, which nothing found
+	/// so far writes — see docs/simulation/ai-targeting.md, "Open questions". Treating it as always
+	/// clear is what makes this property the AI's test too.</para>
 	///
 	/// <para>Both halves count, which is worth saying plainly: a HERC whose legs are gone is no
 	/// longer selectable even though it is still standing, still shooting and still solid. That is
 	/// the original's behaviour, not a simplification here.</para>
 	/// </summary>
 	public virtual bool Neutralised => false;
+
+	/// <summary>
+	/// <c>obj+0xb7</c> — whether this object cannot be hurt at all, which also puts it outside the
+	/// AI's candidate set entirely (<c>Ai_IsTargetable</c>). Only a structure can be: <c>Base_Construct</c>
+	/// latches it from <c>BASES.DAT +0x1e</c>.
+	/// </summary>
+	public virtual bool Invulnerable => false;
 
 	/// <summary>
 	/// <c>obj+0x95</c> — whether this object is currently showing on radar. Set by the detection

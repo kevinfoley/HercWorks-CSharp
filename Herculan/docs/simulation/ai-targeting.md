@@ -81,11 +81,15 @@ Both ratings are jittered before the comparison, and the jitter is `rand & 1000`
 
 ```
 rating = (typeRec+0x44                                                    // a per-type base
-        + sum over live mounts   Q8(mountData+0x4e, 256 - mountDamage)    // weapon value x condition
-        + sum over 19 components Q8(componentMax,   256 - damage)         // structure value x condition
+        + sum over live mounts   Q8(template+0x4e, 256 - mountDamage)     // weapon value x condition
+        + sum over 19 components Q8(componentMax,  256 - damage)          // structure value x condition
         - sum of typeRec+0x7e[i] for each of 10 systems over 70% damaged
         ) >> 4
 ```
+
+The weapon term reads the mount's own `+0x1c`, which `WeaponMount_CtorBase` (`0040df30`) sets to the `WEAPONS.DAT` template, so `+0x4e` is a template field. A mount counts when its vtable `+0x54` says so, and that slot is `return 1` on both the base and the pod class, so every mount counts.
+
+**Retail states the same two numbers for all 21 chassis** — a base of 1000 at `typeRec+0x44` and a penalty of 500 at each `typeRec+0x7e[i]` — so what separates two machines is entirely their guns, their armour and their damage.
 
 `Mech_ReadDamageReadouts` fills the three parallel readout blocks it reads — 19 components, 10 systems, 10 mounts — as Q8 damage. `Mech_PerTickSystemsUpdate` recomputes the rating whenever `mech+0x94` is clear, so it is a lazily refreshed cache that tracks battle damage: **a machine's worth as a target, and its own willingness to fight, both fall as it is shot apart.**
 
@@ -134,7 +138,9 @@ Coming out of either with no target also ends in `Mech_AiSelectBehaviour`.
 | Class 2 — flyer | `attacking flyer` (7) |
 | Class 0, rating index 0 — I outgun it | `facing off` (5) |
 | Class 0, rating index 1 — evenly matched | `attacking` (3) |
-| Class 0, rating index 2 — it outguns me | `flanking` (4), or `facing off` when the machine is overheating or shut down (`+0xa8`/`+0xa9`) or its type's `typeRec+0xc8` is 0xb9 or under |
+| Class 0, rating index 2 — it outguns me | `flanking` (4), or `facing off` when the machine's `+0xa8` or `+0xa9` is set or its type's `typeRec+0xc8` is 0xb9 or under |
+
+**`flanking` is unreachable in retail.** `typeRec+0xc8` is record field 198, which every one of the 21 shipped `.DAT` files states as zero, so the gate never opens and a machine that is outgunned takes `facing off` instead. `+0xa9` is the softer of the two leg states, which fits a manoeuvre a crippled machine should not attempt; `+0xa8` is unidentified.
 
 `Mech_AiSelectAimComponent` runs on the two class-0 branches that reach it.
 
@@ -188,6 +194,8 @@ Called from the think functions of `attacking`, `flanking`, `facing off` and `dr
 | 3 | `Mech_AiOnTakingFire`, for a squadmate of the player hit by a HERC |
 | 8 | `Mech_AiFriendlyFireComplaint`, when the player is the one shooting |
 
+There is a **second friendly-fire site**, in `Sim_RaycastObjectList` itself rather than in `Mech_AiOnTakingFire`: when the player hits a machine on his own side but in a different group, `Group_NearestLiveMember` (`00423974`) finds that machine's nearest live groupmate within 100000 and, if it is inside 30000 of the machine that was hit, that groupmate complains instead of the victim.
+
 `Mech_AiEnemySighted` fires once per enemy for the whole player group: `DAT_004a9b84[obj+0x4b]` is a per-object latch, set the first time either the machine or the player holds a contact on that object, and the callout is further rate-limited to one per 10 s by `DAT_004a9be9`. The local player's own machine sets the latch without ever calling out.
 
 The channel these post to is the pilot-and-squad message port, which is not ported — see [`../formats/audio.md`](../formats/audio.md).
@@ -214,6 +222,25 @@ Fields settled elsewhere link out rather than being restated.
 | `+0x2a2` | short | Component slot being aimed at, −1 for none |
 | `+0x2aa` | short | Written by the flee check, 300/600/1000; no reader found |
 | `+0x30b` | ptr | Targeting computer pod — [`missile-lock.md`](missile-lock.md) |
+
+## Engine port
+
+`Sim.Ai.AiTargeting` holds the shared routines, `Sim.Ai.BehaviourState` the 22 descriptors and the `mech+0x4d` block, `MechObject.Ai.cs` the machine's own half, and `Sim.MissionGroup` the record the AI is driven from. `MissionScene` builds one group per block-11 index, attaching objects in placement order so the group's first member is its leader, and `SimWorld` runs the groups' AI pass alongside the object updates and ahead of the sensor sweep.
+
+**What runs.** The behaviour block and its dwell clock, `Mech_AiTick`'s reassess dispatch, the combat reassess entire — radar, keep-or-acquire, the leader sweep, the flee check, the state install and the aim pick — `Mech_AiOnTakingFire` from the raycast's `+0x50` site, both friendly-fire sites, and `Ai_SelectTarget` with all four weight tables and the combat rating behind them. A structure's two acquisition call sites are not wired: `BaseObject` has no AI yet.
+
+**What that adds up to in a mission.** An AI machine is constructed in `deciding` and, with the order layer unported, nothing installs a state for it — so **it enters combat only by being shot at**, and then acquires, lights its radar, picks a combat state and holds the target for the 50 s dwell. It does not move or fire on it: the move slot is the locomotion tick every machine already runs, and the think functions are the slices this one does not cover.
+
+Deviations, all of them things the original reads that this engine has no value for:
+
+- **`mech+0xa5`**, the third out-of-action latch, has no writer. `SimObject.Neutralised` is the other two, so the AI's liveness tests are the original's minus a flag that is presumably never set.
+- **`mech+0x9a`** and **`DAT_004a9ed8`**, both of which narrow `Ai_IsTargetable`, are not modelled. Their absence can only let the AI consider more candidates than the original, never fewer.
+- **`mech+0xb2`** and **`mech+0x26b`** likewise: an AI machine's radar goes active the moment it enters a fight, with nothing to hold it off.
+- **`mech+0xb4`**, collapsed, is never set — the death animation is not played out, so nothing latches it.
+- **The aim band's targeting-computer override is not applied.** It turns on a pod field (`+0x7f`) whose meaning is untested, the same doubt the ECM roll records, so the roll alone picks the band.
+- **Squad orders and group orders are unported**, so the two paths in `Mech_AiSelectBehaviour` that read them install nothing, `Ai_ShouldAbandonTarget`'s squad branch is unreachable, and nothing is ever designated.
+
+Two things are reproduced rather than corrected: the `rand & 1000` jitter in the rating comparison, and the aim pick reading its own component damage.
 
 ## Open questions
 

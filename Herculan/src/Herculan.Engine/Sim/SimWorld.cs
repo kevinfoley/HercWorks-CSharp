@@ -135,6 +135,24 @@ public sealed class SimWorld {
 	/// <summary>Live simulation objects, including any flagged <see cref="SimObject.Removed"/>.</summary>
 	public IReadOnlyList<SimObject> Objects => _objects;
 
+	/// <summary>
+	/// The mission's groups, in block-11 order. The AI is driven from here rather than from
+	/// <see cref="Objects"/> — see <see cref="MissionGroup"/>.
+	/// </summary>
+	public IReadOnlyList<MissionGroup> Groups => _groups;
+
+	/// <summary>
+	/// <c>PlayerMech</c>, DBSIM's own global for the machine the player is flying. Several AI
+	/// decisions ask whether the player is the attacker, the group leader, or the holder of a target,
+	/// and each of them reads this.
+	/// </summary>
+	public MechObject? PlayerMech { get; set; }
+
+	/// <summary>Registers a group with the world so its members' AI ticks.</summary>
+	public void AddGroup(MissionGroup group) => _groups.Add(group);
+
+	private readonly List<MissionGroup> _groups = new();
+
 	/// <summary>Ticks elapsed since the world was created.</summary>
 	public long TickCount { get; private set; }
 
@@ -603,10 +621,9 @@ public sealed class SimWorld {
 	/// (<see cref="WeaponShot.Excluded"/>). The beam path writes only the first, so on a weapon shot
 	/// they are the same test twice; a flyer's airframe contact probe writes only the second.</para>
 	///
-	/// <para>Two things the original also does here are left out, both belonging to systems that do
-	/// not exist yet: the AI "something just shot at me" notification on each candidate's
-	/// <c>+0x50</c> slot, and the friendly-fire and lock-on filtering that reads each object's team
-	/// byte.</para>
+	/// <para>The AI "something just shot at me" notification on each candidate's <c>+0x50</c> slot is
+	/// here, and so is the friendly-fire complaint the original raises beside it. The lock-on
+	/// candidate the sweep also picks out is still left out.</para>
 	/// </summary>
 	/// <returns>The distance the shot travelled before it hit something, or zero if it hit nothing.</returns>
 	public int Raycast(WeaponShot shot) {
@@ -631,6 +648,24 @@ public sealed class SimWorld {
 			int struckAt = candidate.DirectFireHitTest(this, shot);
 			if (struckAt == 0) {
 				continue;
+			}
+
+			// "Something just shot at me", on the candidate's own +0x50 slot. The original puts it
+			// exactly here — past the hit test, so only what the ray actually reached hears about it,
+			// and gated on the object being alive. It applies no damage; what it decides is whether
+			// the machine answers, and how. See docs/simulation/ai-targeting.md.
+			if (candidate is MechObject { Destroyed: false } struck
+					&& (candidate.Side == shot.Owner?.Side || !candidate.Neutralised)) {
+				// The player hitting someone else's machine on his own side is complained about by
+				// whichever of that machine's group is nearest it, not by the machine he hit.
+				if (ReferenceEquals(shot.Owner, PlayerMech) && candidate.Side == shot.Owner?.Side
+						&& !ReferenceEquals(candidate.Group, shot.Owner?.Group)
+						&& candidate.Group?.NearestLiveMember(candidate) is MechObject witness
+						&& witness.Position.ApproxDistanceTo(candidate.Position) < 30000) {
+					witness.FriendlyFireComplaint(this);
+				}
+
+				struck.OnTakingFire(this, shot.Owner, shot.DamageArmor);
 			}
 
 			shot.Distance = struckAt;
@@ -936,6 +971,14 @@ public sealed class SimWorld {
 			}
 		}
 
+		// The AI, which is driven from the mission-group layer and not from the object list: a machine
+		// that is not a live group member never thinks. It runs here, alongside the object updates and
+		// ahead of the sensor sweep, so a machine reassesses on the contacts it had at the top of the
+		// tick rather than on ones made during it.
+		for (int i = 0; i < _groups.Count; i++) {
+			_groups[i].AiTick(this);
+		}
+
 		// Who can see whom, worked out from where everything has just finished moving to.
 		// Sim_MainTick puts it exactly here: after every pool's per-object update and after the
 		// player's input poll, immediately ahead of the per-mech systems pass. So a contact made this
@@ -948,6 +991,7 @@ public sealed class SimWorld {
 		// MechObject.Tick, where its inputs are last tick's and its position is free.
 		for (int i = 0; i < _objects.Count; i++) {
 			if (_objects[i] is MechObject { Removed: false, AwaitingDeployment: false, Destroyed: false } mech) {
+				mech.AiTimersTick();
 				mech.MissileLockTick(this);
 			}
 		}

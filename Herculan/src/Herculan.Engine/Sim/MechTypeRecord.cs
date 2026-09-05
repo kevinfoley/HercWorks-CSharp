@@ -252,6 +252,34 @@ public sealed class MechTypeRecord {
 	/// </summary>
 	public short ShieldCapacity => Data.ShieldMaxTotal;
 
+	/// <summary>
+	/// Record field 66 (the exe's <c>typeRecord+0x44</c>) — what the chassis is worth in a fight
+	/// before its guns, its armour and its damage are counted. Every retail chassis states 1000, so
+	/// it separates nothing on its own. See <see cref="MechObject.CombatRating"/>.
+	/// </summary>
+	public short AiRatingBase => Data.AiRatingBase;
+
+	/// <summary>
+	/// Record field 124 (the exe's <c>typeRecord+0x7e</c>) — what a system past 70% damage costs the
+	/// combat rating. Twelve entries, of which the rating reads the first ten; every retail chassis
+	/// states 500 for all twelve.
+	/// </summary>
+	public short AiRatingSystemPenalty(int system) =>
+		Data.AiRatingSystemPenalty is { } penalties && system >= 0 && system < penalties.Length
+			? penalties[system]
+			: (short)0;
+
+	/// <summary>
+	/// The exe's <c>typeRecord+0xc8</c> — record field 198, which the combat reassess requires to be
+	/// over 0xb9 before it will install <c>flanking</c>.
+	///
+	/// <para><b>Every retail chassis states zero</b>, verified across all 21 <c>.DAT</c> files, so the
+	/// branch is unreachable with retail data and a machine that is outgunned always takes
+	/// <c>facing off</c> instead. The record field is not parsed — <c>HercSimDat</c> reads past it as
+	/// blank — so this answers the constant the retail files hold.</para>
+	/// </summary>
+	public short FlankingGate => 0;
+
 	/// <summary>Record field 12 — walk sequence id.</summary>
 	public short WalkSequence => Data.AnimId_Walk;
 

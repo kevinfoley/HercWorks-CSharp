@@ -246,7 +246,7 @@ public static class Detection {
 	/// <see cref="ContactShareRange"/>, the spotter included. Nothing is shared to the other side, and
 	/// a spotter and a contact on the same side is not a contact at all.
 	/// </summary>
-	private static void ShareContact(SimWorld world, SimObject spotter, SimObject contact) {
+	internal static void ShareContact(SimWorld world, SimObject spotter, SimObject contact) {
 		if (spotter.Side == contact.Side) {
 			return;
 		}

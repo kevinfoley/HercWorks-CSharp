@@ -63,7 +63,7 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 			data.ModelLoDBoneIds[i] = IndexByte();
 		}
 
-		data.Unk66_Val1000 = IndexShortLE();
+		data.AiRatingBase = IndexShortLE();
 
 		data.AnimId_Death = IndexShortLE();
 		data.LegsCritFlags2 = IndexShortLE();
@@ -106,7 +106,7 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 		for (int i = 0; i < 12; i++) {
 			seg500[i] = IndexShortLE();
 		}
-		data.Unk124_all500 = seg500;
+		data.AiRatingSystemPenalty = seg500;
 
 		data.ModelSkinId = IndexShortLE();
 
@@ -198,7 +198,7 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 			outStream.WriteByte(data.ModelLoDBoneIds[i]);
 		}
 
-		Emit(outStream, WriteShortLE(data.Unk66_Val1000));
+		Emit(outStream, WriteShortLE(data.AiRatingBase));
 
 		Emit(outStream, WriteShortLE(data.AnimId_Death));
 		Emit(outStream, WriteShortLE(data.LegsCritFlags2));
@@ -244,7 +244,7 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 
 		// range
 		for (int i = 0; i < 12; i++) {
-			Emit(outStream, WriteShortLE(data.Unk124_all500![i]));
+			Emit(outStream, WriteShortLE(data.AiRatingSystemPenalty![i]));
 		}
 
 		Emit(outStream, WriteShortLE(data.ModelSkinId));

@@ -309,6 +309,28 @@ public sealed class MissionScene {
 			objects.Add(spawned);
 		}
 
+		// The group records. DBSim_BuildGroupRecord builds one per block-11 entry and attaches every
+		// object that entry placed, in placement order -- so the group's first member, which the AI
+		// reads as its leader, is the first one the mission listed. The AI is driven from these and
+		// not from the object list: see MissionGroup.
+		var groups = new Dictionary<int, MissionGroup>();
+		foreach (var placed in objects) {
+			int index = placed.Placement.GroupIndex;
+			if (!groups.TryGetValue(index, out var group)) {
+				group = new MissionGroup(index, placed.Object.Side);
+				groups.Add(index, group);
+				world.AddGroup(group);
+			}
+
+			group.Add(placed.Object);
+
+			if (placed.Object is MechObject machine) {
+				machine.InstallInitialBehaviour();
+			}
+		}
+
+		world.PlayerMech = playerObject?.Object as MechObject;
+
 		// Each base group that carries a formation layout repaints the ground it stands on with that
 		// formation's own material, which is what puts a base on a marked concrete pad instead of on
 		// open terrain, and marks the pad's own cells for the levelling below. The original does

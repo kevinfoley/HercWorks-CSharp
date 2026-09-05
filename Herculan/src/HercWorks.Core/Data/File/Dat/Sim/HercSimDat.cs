@@ -63,7 +63,14 @@ public class HercSimDat {
 
 	// 0x58-0x65 - extra boneId space in array, as seen in PITBULL.DAT
 
-	public short Unk66_Val1000 { get; set; } = 1000;
+	/// <summary>
+	/// Offset 66 (the exe's <c>typeRecord+0x44</c>) — the base term of the chassis' AI combat rating,
+	/// the figure DBSIM's target weighting and its flee check both weigh machines by. Every retail
+	/// chassis states 1000, so what separates two machines is entirely their guns, their armour and
+	/// their damage. Was <c>Unk66_Val1000</c>. See Herculan.Engine.Sim.MechObject.CombatRating and
+	/// docs/simulation/ai-targeting.md.
+	/// </summary>
+	public short AiRatingBase { get; set; } = 1000;
 
 	/// <summary>
 	/// Offset 68 — the death / fall sequence.
@@ -150,8 +157,15 @@ public class HercSimDat {
 	/// </summary>
 	public short AnimId_TurnInPlace { get; set; }
 
+	/// <summary>Entries in <see cref="AiRatingSystemPenalty"/>.</summary>
 	public static int Unk124_range { get; set; } = 12;
-	public short[]? Unk124_all500 { get; set; }
+
+	/// <summary>
+	/// Offsets 124-147 (the exe's <c>typeRecord+0x7e</c>) — twelve shorts, one per system, of which
+	/// the AI combat rating reads the first ten: what that system costs the rating once it is past
+	/// 70% damaged. Every retail chassis states 500 for all twelve. Was <c>Unk124_all500</c>.
+	/// </summary>
+	public short[]? AiRatingSystemPenalty { get; set; }
 
 	/// <summary>
 	/// File offset 148 — selects which shared texture atlas DBSIM binds to every TSShapeInstance

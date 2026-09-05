@@ -170,6 +170,9 @@ public sealed class BaseObject : SimObject {
 	/// <inheritdoc />
 	public override bool Neutralised => Destroyed;
 
+	/// <inheritdoc />
+	public override bool Invulnerable => Type.Invulnerable;
+
 	/// <summary>
 	/// The structure's shape-to-world transform. A structure has no lean and no torso: its heading
 	/// is the whole of its orientation, so this is a Z rotation with its world position in the

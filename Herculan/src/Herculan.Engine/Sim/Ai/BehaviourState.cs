@@ -1,0 +1,171 @@
+namespace Herculan.Engine.Sim.Ai;
+
+/// <summary>
+/// Which of the two reassess implementations a behaviour state installs in its <c>+0x30</c> slot.
+/// The roster splits cleanly in two and there is no third — see
+/// docs/simulation/ai-dispatch.md, "The 22 states".
+/// </summary>
+public enum ReassessSlot {
+	/// <summary>No reassess at all: the player's two states, <c>in limbo</c>, <c>dead</c>, <c>disabled</c>.</summary>
+	None,
+
+	/// <summary><c>Mech_AiSelectBehaviour</c> (<c>0041eb34</c>) — every live non-combat state.</summary>
+	SelectBehaviour,
+
+	/// <summary><c>Mech_AiCombatReassess</c> (<c>0041cf18</c>) — states 3-7 and 18.</summary>
+	CombatReassess
+}
+
+/// <summary>
+/// One of DBSIM's 22 behaviour state descriptors — the <c>0x3e</c>-byte records at
+/// <c>BehaviourStateTable</c> (<c>004993a4</c>) that <c>Behaviour_BuildStateTable</c>
+/// (<c>00413ed4</c>) fills at startup. Field meanings, the flag-bit consumers and the whole
+/// dispatch model are in docs/simulation/ai-dispatch.md; this is a transcription of the table the
+/// initialiser writes, read out of the disassembly rather than out of any data file.
+///
+/// <para><b>Think and move are not modelled.</b> Each descriptor also carries a think and a move
+/// member-function triple. The move is <c>Mech_MovementTick</c> for every state that has one, which
+/// <see cref="MechObject.Tick"/> already runs for every machine; the think functions are the subject
+/// of the AI slices that are not reverse-engineered yet. Adding two slots that are either a
+/// duplicate or a null would be indirection with nothing behind it, so
+/// <see cref="MechObject.AiTick"/> runs the reassess slot alone and says so.</para>
+/// </summary>
+public sealed class BehaviourState {
+	private BehaviourState(int index, string name, int dwellMs, int flags, ReassessSlot reassess) {
+		Index = index;
+		Name = name;
+		DwellMs = dwellMs;
+		Flags = flags;
+		Reassess = reassess;
+	}
+
+	/// <summary>The state's index into the three parallel tables — descriptor <c>004993a4 + 0x3e*N</c>.</summary>
+	public int Index { get; }
+
+	/// <summary>Descriptor <c>+0x00</c> — the game's own name for the state, out of <c>BehaviourStateNames</c>.</summary>
+	public string Name { get; }
+
+	/// <summary>
+	/// Descriptor <c>+0x04</c> — the dwell time in milliseconds. Only meaningful for the eight
+	/// states whose <see cref="SuppressesDwell"/> is clear; for the rest the countdown is loaded and
+	/// never stepped.
+	/// </summary>
+	public int DwellMs { get; }
+
+	/// <summary>
+	/// Descriptor <c>+0x08</c> as the 16-bit mask it is built from, before
+	/// <c>Behaviour_ExpandFlagBits</c> unpacks it to one byte per bit. Only bits 0-5 are ever set.
+	/// </summary>
+	public int Flags { get; }
+
+	/// <inheritdoc cref="ReassessSlot"/>
+	public ReassessSlot Reassess { get; }
+
+	/// <summary>
+	/// Bit 0 — <see cref="MechObject.AiTick"/> does not run the dwell countdown. True of every state
+	/// but <c>deciding</c>, the five combat states, <c>driving off en</c> and <c>fleeing</c>, so
+	/// those eight are the only ones a clock can end.
+	/// </summary>
+	public bool SuppressesDwell => (Flags & 0x01) != 0;
+
+	/// <summary>
+	/// Bit 1 — committed to a fight. Suppresses a fresh reaction to incoming fire, keeps the combat
+	/// reassess's leader sweep from re-entering this machine, and discounts a candidate that lacks it
+	/// in <see cref="AiTargeting.SelectTarget"/>.
+	/// </summary>
+	public bool Committed => (Flags & 0x02) != 0;
+
+	/// <summary>Bit 2 — holding a place: fire is answered by defending the post rather than chasing the shooter.</summary>
+	public bool HoldsPlace => (Flags & 0x04) != 0;
+
+	/// <summary>Bit 3 — incoming fire is ignored entirely.</summary>
+	public bool IgnoresFire => (Flags & 0x08) != 0;
+
+	/// <summary>
+	/// Bits 4 and 5 as <see cref="AiTargeting.TargetStateTier"/> reads them off a <i>target's</i>
+	/// descriptor: 2 for bit 5 (<c>in limbo</c>, <c>dead</c>, <c>disabled</c>), 1 for bit 4
+	/// (<c>fleeing</c>), 0 otherwise.
+	/// </summary>
+	public int DisengageTier => (Flags & 0x20) != 0 ? 2 : (Flags & 0x10) != 0 ? 1 : 0;
+
+	/// <inheritdoc />
+	public override string ToString() => Name;
+
+	// The table, in index order. Dwell times and flag masks are the immediates
+	// Behaviour_BuildStateTable writes; the reassess column is which of the two functions its +0x30
+	// triple names.
+	public static readonly BehaviourState Deciding = new(0, "deciding", 0, 0x00, ReassessSlot.SelectBehaviour);
+	public static readonly BehaviourState Player = new(1, "player", 10, 0x01, ReassessSlot.None);
+	public static readonly BehaviourState PlayerFly = new(2, "player fly", 10, 0x01, ReassessSlot.None);
+	public static readonly BehaviourState Attacking = new(3, "attacking", 50000, 0x02, ReassessSlot.CombatReassess);
+	public static readonly BehaviourState Flanking = new(4, "flanking", 50000, 0x02, ReassessSlot.CombatReassess);
+	public static readonly BehaviourState FacingOff = new(5, "facing off", 50000, 0x02, ReassessSlot.CombatReassess);
+	public static readonly BehaviourState AttackingBase = new(6, "attacking base", 50000, 0x02, ReassessSlot.CombatReassess);
+	public static readonly BehaviourState AttackingFlyer = new(7, "attacking flyer", 50000, 0x02, ReassessSlot.CombatReassess);
+	public static readonly BehaviourState Patrolling = new(8, "patrolling", 10, 0x01, ReassessSlot.SelectBehaviour);
+	public static readonly BehaviourState Travelling = new(9, "travelling", 10, 0x01, ReassessSlot.SelectBehaviour);
+	public static readonly BehaviourState Following = new(10, "following", 10, 0x01, ReassessSlot.SelectBehaviour);
+	public static readonly BehaviourState BulldogTravel = new(11, "bulldog travel", 10, 0x09, ReassessSlot.SelectBehaviour);
+	public static readonly BehaviourState SearchDestroy = new(12, "search/destroy", 10, 0x01, ReassessSlot.SelectBehaviour);
+	public static readonly BehaviourState Sleeping = new(13, "sleeping", 10, 0x09, ReassessSlot.SelectBehaviour);
+	public static readonly BehaviourState Skirting = new(14, "skirting", 10, 0x03, ReassessSlot.SelectBehaviour);
+	public static readonly BehaviourState Guarding = new(15, "guarding", 10, 0x05, ReassessSlot.SelectBehaviour);
+	public static readonly BehaviourState DrivingOffEnemy = new(16, "driving off en", 50000, 0x06, ReassessSlot.SelectBehaviour);
+	public static readonly BehaviourState Ramming = new(17, "ramming", 10, 0x09, ReassessSlot.SelectBehaviour);
+	public static readonly BehaviourState Fleeing = new(18, "fleeing", 15000, 0x12, ReassessSlot.CombatReassess);
+	public static readonly BehaviourState InLimbo = new(19, "in limbo", 10, 0x21, ReassessSlot.None);
+	public static readonly BehaviourState Dead = new(20, "dead", 0, 0x21, ReassessSlot.None);
+	public static readonly BehaviourState Disabled = new(21, "disabled", 0, 0x21, ReassessSlot.None);
+
+	/// <summary>All 22, in the order the descriptor table holds them.</summary>
+	public static readonly IReadOnlyList<BehaviourState> All = new[] {
+		Deciding, Player, PlayerFly, Attacking, Flanking, FacingOff, AttackingBase, AttackingFlyer,
+		Patrolling, Travelling, Following, BulldogTravel, SearchDestroy, Sleeping, Skirting,
+		Guarding, DrivingOffEnemy, Ramming, Fleeing, InLimbo, Dead, Disabled
+	};
+}
+
+/// <summary>
+/// The behaviour block embedded in every machine at <c>mech+0x4d</c> — <c>0x45</c> bytes running to
+/// <c>mech+0x91</c>, of which the three fields below are what the dispatch layer reads.
+/// <c>Behaviour_SetState</c> (<c>00413e50</c>) is the only writer, and it has 30 call sites, which
+/// are the state machine's edge list. See docs/simulation/ai-dispatch.md.
+/// </summary>
+public struct BehaviourBlock {
+	/// <summary>Block <c>+0x00</c> — the installed descriptor. Null before the constructor installs one.</summary>
+	public BehaviourState? State { get; private set; }
+
+	/// <summary>
+	/// Block <c>+0x05</c> — the dwell countdown, in milliseconds. Reaching zero is what makes
+	/// <see cref="MechObject.AiTick"/> run the reassess slot; only a state whose
+	/// <see cref="BehaviourState.SuppressesDwell"/> is clear ever counts down at all.
+	/// </summary>
+	public int DwellCountdown;
+
+	/// <summary>Block <c>+0x09</c> — incremented once per AI tick by <c>00413eb0</c>.</summary>
+	public int TickCount;
+
+	/// <summary>
+	/// <c>Behaviour_SetState</c> (<c>00413e50</c>): installs a descriptor and arms its countdown at
+	/// the descriptor's dwell plus a 0-15 ms jitter, zeroing the tick counter and the block's two
+	/// scratch regions — which here is everything the block holds.
+	/// </summary>
+	public void SetState(BehaviourState state) {
+		State = state;
+		DwellCountdown = state.DwellMs + NextJitter();
+		TickCount = 0;
+	}
+
+	/// <summary>
+	/// <c>DAT_004a9bf4</c>, the original's own process-wide global: stepped by 13 per state change
+	/// and masked to four bits, so the jitter is deterministic in call order rather than random.
+	/// Static here for the same reason <see cref="Numerics.SimMath.TickDelta"/> is — DBSIM runs one
+	/// simulation per process and the field is a plain global in it.
+	/// </summary>
+	private static int NextJitter() {
+		_jitter += 0xd;
+		return _jitter & 0xf;
+	}
+
+	private static int _jitter;
+}

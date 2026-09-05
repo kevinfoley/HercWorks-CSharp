@@ -1157,6 +1157,15 @@ public sealed class WeaponMount {
 	public short Barrels =>
 		_template?.Tail is { Length: >= 0x1c } tail ? BitConverter.ToInt16(tail, 0x1a) : (short)1;
 
+	/// <summary>
+	/// The template's <c>+0x4e</c> — what this weapon is worth to the AI's combat rating, scaled by
+	/// the mount's condition. Read by <c>Mech_ComputeCombatRating</c> (<c>0041edd8</c>) through the
+	/// mount's own <c>+0x1c</c>, which is this template; see
+	/// <see cref="MechObject.CombatRating"/> and docs/simulation/ai-targeting.md.
+	/// </summary>
+	public short AiRatingValue =>
+		_template?.Tail is { Length: >= 0x2e } tail ? BitConverter.ToInt16(tail, 0x2c) : (short)0;
+
 	/// <summary>The lateral half of the template's own muzzle triple, <c>+0x40</c> — the barrel spacing.</summary>
 	private short TemplateMuzzleX =>
 		_template?.Tail is { Length: >= 0x20 } tail ? BitConverter.ToInt16(tail, 0x1e) : (short)0;

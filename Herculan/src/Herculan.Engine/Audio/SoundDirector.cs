@@ -4,14 +4,24 @@ namespace Herculan.Engine.Audio;
 
 /// <summary>
 /// DBSIM's own <c>Sound_*</c> layer: the rules that sit between a catalog id and the mixer —
-/// variation rolls, the category split, the throttle, the distance cutoff and the stereo pan.
-/// See docs/formats/audio.md for where each of them comes from.
+/// variation rolls, the category split, the distance cutoff and the stereo pan. See
+/// docs/formats/audio.md for where each of them comes from.
 ///
-/// <para><b>One voice per catalog id.</b> The original allocates exactly one <c>SFX</c> voice per
-/// row of <c>SOUNDS.STR</c> and keeps it for the mission, so playing a sound that is already
-/// sounding restarts it rather than layering a second copy. That is not an implementation detail to
-/// improve on — it is why the throttle and variation attributes exist, and why two machines firing
-/// the same weapon in the same tick produce one report rather than two.</para>
+/// <para><b>One record per catalog id; copies of it overlap.</b> The original allocates exactly one
+/// <c>SFX</c> voice per row of <c>SOUNDS.STR</c> and keeps it for the mission, but that record is
+/// bookkeeping rather than a channel: <c>Sfx_Play</c> (<c>00463f34</c>) never tests the voice's own
+/// <c>0x100</c> playing flag and issues a fresh <c>sosDIGIStartSample</c> every call, so two
+/// machines firing the same weapon in the same tick are heard twice. The record holds this id's
+/// current volume, pan and pitch and the handle of the <b>newest</b> playback only — see
+/// docs/formats/audio.md, "A repeated play layers; it does not restart".</para>
+///
+/// <para>One consequence is worth knowing before it looks like a bug: because the settings are the
+/// id's and not the copy's, placing a new copy retunes the previous one. <see cref="Place"/> writes
+/// the volume and pan for the sound it is about to start, and <see cref="SetVolume"/> pushes them at
+/// whatever handle the record currently names — which until <see cref="Start"/> runs is the copy
+/// already sounding. The original does exactly this: <c>Sfx_SetVolume</c> (<c>00464514</c>) writes
+/// the record and then applies it to the backend handle at <c>+0x24</c> whenever the record is
+/// marked playing.</para>
 /// </summary>
 public sealed class SoundDirector : IDisposable {
 	/// <summary>The pan value that is dead centre — HMI SOS's own, and the voice default.</summary>
@@ -23,8 +33,17 @@ public sealed class SoundDirector : IDisposable {
 	private readonly SoundBank _bank;
 	private readonly IAudioBackend _backend;
 	private readonly SimRandom _random;
-	private readonly int[] _voices;
+
+	// One record per catalog id, which is what the original keeps: the sample the row names, the
+	// settings that row is currently carrying, and the handle of the LAST playback started from it.
+	// Older copies of the same id go on sounding but are no longer addressable -- see Start.
+	private readonly int[] _samples;
+	private readonly int[] _current;
+	private readonly float[] _gain;
+	private readonly float[] _pan;
+	private readonly float[] _pitch;
 	private readonly int[] _repeatsLeft;
+	private bool _suspended;
 	private bool _disposed;
 
 	/// <summary>
@@ -43,23 +62,17 @@ public sealed class SoundDirector : IDisposable {
 		_random = random ?? new SimRandom(0);
 
 		int count = bank.Catalog.Count;
-		_voices = new int[count];
+		_samples = new int[count];
+		_current = new int[count];
+		_gain = new float[count];
+		_pan = new float[count];
+		_pitch = new float[count];
 		_repeatsLeft = new int[count];
 
 		for (int id = 0; id < count; id++) {
-			_voices[id] = bank.Sample(id) is { } sample ? backend.CreateVoice(sample) : -1;
-
-			if (_voices[id] < 0) {
-				continue;
-			}
-
-			// Attribute byte 0 is a repeat count, so only 0 — play forever — is the backend's own
-			// looping flag. A finite count is re-triggered by Update.
-			var entry = bank.Catalog.Entries[id];
-			backend.SetLooping(_voices[id], entry.LoopCount == 0);
-			backend.SetGain(_voices[id], 0f);
-			backend.SetPan(_voices[id], 0f);
-			backend.SetPitch(_voices[id], 1f);
+			_samples[id] = bank.Sample(id) is { } sample ? backend.CreateSample(sample) : -1;
+			_current[id] = -1;
+			_pitch[id] = 1f;
 		}
 	}
 
@@ -215,11 +228,21 @@ public sealed class SoundDirector : IDisposable {
 	public void UpdatePosition(int id, Vec3i position) => Place(id, position);
 
 	/// <summary><c>Sound_Stop</c> (<c>004629c0</c>).</summary>
+	/// <remarks>
+	/// Stops the newest copy only. An id sounding more than once has older copies the record no
+	/// longer names, and they play out — the original loses them the same way, because its voice
+	/// record holds one backend handle (<c>+0x24</c>) and a fresh start overwrites it. Nothing in
+	/// the game stops a one-shot, so the loss is unreachable in practice; the loops that <i>are</i>
+	/// stopped (the engine hum, the flamer) are started once and never overlap themselves.
+	/// </remarks>
 	public void Stop(int id) {
-		if (Voice(id) is { } voice) {
-			_repeatsLeft[id] = 0;
-			_backend.Stop(voice);
+		if (id < 0 || id >= _current.Length) {
+			return;
 		}
+
+		_repeatsLeft[id] = 0;
+		_backend.Stop(_current[id]);
+		_current[id] = -1;
 	}
 
 	/// <summary>
@@ -227,16 +250,20 @@ public sealed class SoundDirector : IDisposable {
 	/// is already running — the torso servo does exactly that.
 	/// </summary>
 	public bool IsPlaying(int id) =>
-		Voice(id) is { } voice && (_backend.IsPlaying(voice) || _repeatsLeft[id] > 0);
+		id >= 0 && id < _current.Length
+			&& (_backend.IsPlaying(_current[id]) || _repeatsLeft[id] > 0);
 
 	/// <summary>
 	/// <c>Sound_SetPitch</c> (<c>00463010</c>) — the playback rate as the original's 16.16 ratio.
 	/// <c>FUN_004328cc</c> uses it to drop the engine loop to <see cref="SoundId.EngineLoopPitch"/>.
 	/// </summary>
 	public void SetPitch(int id, int ratioQ16) {
-		if (Voice(id) is { } voice) {
-			_backend.SetPitch(voice, ratioQ16 / (float)PitchOne);
+		if (id < 0 || id >= _pitch.Length) {
+			return;
 		}
+
+		_pitch[id] = ratioQ16 / (float)PitchOne;
+		_backend.SetPitch(_current[id], _pitch[id]);
 	}
 
 	/// <summary>
@@ -284,18 +311,21 @@ public sealed class SoundDirector : IDisposable {
 	/// the window loses focus.
 	/// </summary>
 	public void SuspendAll() {
-		for (int id = 0; id < _voices.Length; id++) {
+		_suspended = true;
+
+		for (int id = 0; id < _samples.Length; id++) {
 			var entry = _bank.Catalog.Entries[id];
 			entry.WasPlaying = IsPlaying(id);
-			if (Voice(id) is { } voice) {
-				_backend.Stop(voice);
-			}
+			_backend.Stop(_current[id]);
+			_current[id] = -1;
 		}
 	}
 
 	/// <summary><c>Sound_ResumeAll</c> (<c>00463134</c>) — replays what <see cref="SuspendAll"/> stopped.</summary>
 	public void ResumeAll() {
-		for (int id = 0; id < _voices.Length; id++) {
+		_suspended = false;
+
+		for (int id = 0; id < _samples.Length; id++) {
 			var entry = _bank.Catalog.Entries[id];
 			if (entry.WasPlaying) {
 				Start(id, entry);
@@ -308,6 +338,7 @@ public sealed class SoundDirector : IDisposable {
 	/// <summary>Stops everything at once — <c>Sfx_StopAll</c>.</summary>
 	public void StopAll() {
 		Array.Clear(_repeatsLeft);
+		Array.Fill(_current, -1);
 		_backend.StopAll();
 	}
 
@@ -318,20 +349,30 @@ public sealed class SoundDirector : IDisposable {
 	/// alerts all ask for five — and no backend this targets expresses that, so the repeats are
 	/// re-triggered here as each pass finishes. A count of 0 is endless and is the backend's own
 	/// looping flag instead, so it never reaches this.</para>
+	///
+	/// <para>It does nothing between a <see cref="SuspendAll"/> and its <see cref="ResumeAll"/>. A
+	/// suspended voice is a stopped voice, so without that gate the first serviced frame of a pause
+	/// reads every outstanding repeat as a pass that has just finished and starts the next one —
+	/// audibly, and spending the count that <see cref="ResumeAll"/> is holding for after the
+	/// pause.</para>
 	/// </summary>
 	public void Update() {
-		for (int id = 0; id < _voices.Length; id++) {
-			if (_repeatsLeft[id] <= 0 || _voices[id] < 0) {
+		if (_suspended) {
+			return;
+		}
+
+		for (int id = 0; id < _samples.Length; id++) {
+			if (_repeatsLeft[id] <= 0 || _samples[id] < 0) {
 				continue;
 			}
 
-			if (_backend.IsPlaying(_voices[id])) {
+			if (_backend.IsPlaying(_current[id])) {
 				continue;
 			}
 
 			_repeatsLeft[id]--;
 			if (_repeatsLeft[id] > 0) {
-				_backend.Play(_voices[id]);
+				_current[id] = _backend.Start(_samples[id], _gain[id], _pan[id], _pitch[id], false);
 			}
 		}
 	}
@@ -349,26 +390,46 @@ public sealed class SoundDirector : IDisposable {
 		return id + _random.NextBelow(entry.VariationCount);
 	}
 
+	/// <summary>
+	/// Begins one playback and records its handle as this id's current one.
+	///
+	/// <para>Nothing checks whether the id is already sounding, which is the whole of the original's
+	/// behaviour here: <c>Sfx_Play</c> (<c>00463f34</c>) never tests its voice's <c>0x100</c> playing
+	/// flag and issues a fresh <c>sosDIGIStartSample</c> every call, so the copies overlap. See
+	/// docs/formats/audio.md, "A repeated play layers; it does not restart".</para>
+	/// </summary>
 	private void Start(int id, SoundCatalog.Entry entry) {
-		if (Voice(id) is not { } voice) {
+		if (_samples[id] < 0) {
 			return;
 		}
 
-		// A finite count is tracked here; an endless one was handed to the backend at construction.
+		// Attribute byte 0 is a repeat count, so only 0 -- play forever -- is the backend's own
+		// looping flag. A finite count is tracked here and re-triggered by Update.
 		_repeatsLeft[id] = entry.LoopCount == 0 ? 0 : entry.LoopCount;
-		_backend.Play(voice);
+		_current[id] = _backend.Start(_samples[id], _gain[id], _pan[id], _pitch[id], entry.LoopCount == 0);
 	}
 
+	/// <summary>
+	/// Writes this id's volume and pushes it to the copy that is running, if one is. Both halves
+	/// matter: a play sets them before <see cref="Start"/> claims a channel, and
+	/// <see cref="UpdatePosition"/> sets them on a channel already going.
+	/// </summary>
 	private void SetVolume(int id, int volume0To100) {
-		if (Voice(id) is { } voice) {
-			_backend.SetGain(voice, Math.Clamp(volume0To100 / 100f, 0f, 1f));
+		if (id < 0 || id >= _gain.Length) {
+			return;
 		}
+
+		_gain[id] = Math.Clamp(volume0To100 / 100f, 0f, 1f);
+		_backend.SetGain(_current[id], _gain[id]);
 	}
 
 	private void SetPan(int id, int pan0To65535) {
-		if (Voice(id) is { } voice) {
-			_backend.SetPan(voice, (pan0To65535 - PanCentre) / (float)PanCentre);
+		if (id < 0 || id >= _pan.Length) {
+			return;
 		}
+
+		_pan[id] = (pan0To65535 - PanCentre) / (float)PanCentre;
+		_backend.SetPan(_current[id], _pan[id]);
 	}
 
 	/// <summary>The row's authored volume after the loader's headroom trim and its category scale.</summary>
@@ -380,9 +441,6 @@ public sealed class SoundDirector : IDisposable {
 
 	private SoundCatalog.Entry? Entry(int id) =>
 		_bank.Catalog[id] is { HasAttributes: true } entry ? entry : null;
-
-	private int? Voice(int id) =>
-		id >= 0 && id < _voices.Length && _voices[id] >= 0 ? _voices[id] : null;
 
 	/// <inheritdoc />
 	public void Dispose() {

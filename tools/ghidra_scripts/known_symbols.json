@@ -7006,7 +7006,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Sos_BindLibrary",
-      "description": "Binds the HMI Sound Operating System. GetVersion() picks sos32s03.dll under Win32s (high bit set, major <= 3) and sos9503.dll otherwise -- only sos9503.dll ships -- then walks the self-describing table at 004a6ab4: 0x24-byte records of {void **destination, char name[0x20]}, terminated by a NULL destination, GetProcAddress'ing each. 100 entry points: 44 sosDIGI*, 45 sosMIDI*, 8 sosTIMER*, sosGetErrorString, sosPrepare32Memory, sosUnPrepare32Memory. Refcounted at 004a6ab0, so repeated calls bind once.",
+      "description": "Loads the HMI SOS DLL -- sos9503.dll on Windows NT-family, sos32s03.dll otherwise -- and fills the 100-entry thunk pointer table by walking the descriptor array at 004a6ab4 (stride 0x24: void** destinationSlot, then the export name inline as char[0x20]) and calling GetProcAddress for each. Refcounted through 004a6ab0.",
       "source": "docs/formats/audio.md"
     },
     {
@@ -7015,7 +7015,7 @@
       "type": "data",
       "confidence": "high",
       "name": "SosBindingTable",
-      "description": "HMI SOS dynamic-binding table: 0x24-byte records {void **destination, char name[0x20]}, a NULL destination terminating. 100 records. Walked by Sos_BindLibrary.",
+      "description": "100 records of 0x24 bytes, terminated by a null destination: {void** destinationSlot; char exportName[0x20];}. SosApi_LoadDriver walks it to bind the SOS thunks at 00495xxx to the pointer slots at 006cbde4-006cbf70. This is how a thunk's slot address resolves to an export name.",
       "source": "docs/formats/audio.md"
     },
     {
@@ -7096,7 +7096,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Sos_StartVoice",
-      "description": "(resourceRecord+4, voiceRecord+4). Starts one voice on the backend. Branches three ways on the voice flags: bit 0 = MIDI song, bit 12 = the streamed-by-name path (00474630), otherwise a SOS digital sample -- packing volume into both 16-bit halves, translating loop count 0 to -1 (infinite) and n to n-1, and copying pan and callback into the sample object.",
+      "description": "(resourceRecord+4, voiceRecord+4). Starts one voice on the backend. Branches three ways on the voice flags: bit 0 = MIDI song, bit 12 = the streamed-by-name path (00474630), otherwise a SOS digital sample -- packing volume into both 16-bit halves, translating loop count 0 to -1 (infinite) and n to n-1, and copying pan and callback into the sample object. The sample path zeroes voiceRecord+0x20 and passes it to sosDIGIStartSample as the out-handle, so each call yields a fresh SOS handle and the previous one is dropped without being stopped.",
       "source": "docs/formats/audio.md"
     },
     {
@@ -7177,7 +7177,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Sfx_Play",
-      "description": "(manager, voiceHandle). Caches the resource on demand, starts it through Sos_StartVoice, sets the playing flag 0x100 and bumps the manager's playing-sample (+0x3c) or playing-song (+0x40) count.",
+      "description": "(manager, voiceHandle). Caches the resource on demand, starts it through Sos_StartVoice, sets the playing flag 0x100 and bumps the manager's playing-sample (+0x3c) or playing-song (+0x40) count. It does NOT test the 0x100 flag first: playing a voice that is already sounding starts a second concurrent copy on another SOS channel rather than restarting or being ignored, and the voice record keeps only the newest handle (+0x20), so Sfx_Stop can no longer reach the older copies.",
       "source": "docs/formats/audio.md"
     },
     {
@@ -7420,7 +7420,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Sound_ThrottleCheck",
-      "description": "(catalogId) -> may play. interval = (2 - detailSetting 004d1fc7) * attribute byte 3; interval 0 always plays, otherwise attribute byte 9 counts up (wrapping at 0x0f) and only every interval-th call passes. Keeps a sound fired by many objects at once from playing once per object.",
+      "description": "(catalogId) -> may play. interval = (2 - detailSetting 004d1fc7) * attribute byte 3; interval 0 always plays, otherwise attribute byte 9 counts up (wrapping at 0x0f) and only every interval-th call passes. Keeps a sound fired by many objects at once from playing once per object. Dead code in the shipped binary: no CALL to it exists anywhere in the code section and its address is stored nowhere, so the authored divisors in attribute byte 3 never take effect.",
       "source": "docs/formats/audio.md"
     },
     {
@@ -9772,6 +9772,33 @@
       "name": "Terrain_EdgeFaceBlocks",
       "description": "The mode-1 test for a step leaving a cell across a named edge (0=W/1=E/2=N/3=S): asks the triangle on this side of the edge first and the neighbouring cell's second. Returns 0 clear, 2 when this cell's own face stops the segment (the hit is the step's near end), 1 when the neighbour's does or either cell is off the grid (the hit is the far end). Which triangle borders which edge depends on the diagonal, so the north and south arms consult it and the east and west arms do not.",
       "source": "docs/simulation/ai-navigation.md"
+    },
+    {
+      "address": "00495d7a",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sos_StartSample",
+      "description": "Bound by Sos_BindLibrary through the SOS import slot at 006cbeac -> sosDIGIStartSample(driverHandle, sampleDescriptor, outHandle). Starts the sample on a free driver channel and returns a new handle; it neither stops nor reuses an existing playback, which is what makes a repeated Sound_Play layer rather than restart.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00495d93",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sos_StopSample",
+      "description": "Bound by Sos_BindLibrary through the SOS import slot at 006cbeb0 -> sosDIGIStopSample(driverHandle, sampleHandle).",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00495dab",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sos_StopAllSamples",
+      "description": "Bound by Sos_BindLibrary through the SOS import slot at 006cbeb4 -> sosDIGIStopAllSamples(driverHandle).",
+      "source": "docs/formats/audio.md"
     }
   ]
 }

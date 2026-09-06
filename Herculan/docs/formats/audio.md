@@ -130,6 +130,27 @@ Flag bits, all set by the setters as a side effect of a non-default value:
 | `0x0800` | pan is not centre |
 | `0x1000` | open type 2 — a third playback path, a file streamed by name through the window handle. No DBSIM caller found. |
 
+### A repeated play layers; it does not restart
+
+`Sfx_Play` (`00463f34`) never tests flag `0x100` before starting. It caches the resource if it has to and goes straight to `Sos_StartVoice` (`0047378c`), whose sample path zeroes the voice record's backend handle (`+0x24`) and hands that field to `sosDIGIStartSample` as an out-parameter. Every call is therefore given a **new** SOS handle, and the one it replaces is neither stopped nor reused: playing a catalog id that is already sounding starts a second concurrent copy on another driver channel.
+
+The record's bookkeeping is one deep and does not follow. It keeps only the newest handle, so `Sfx_Stop` and `Sfx_StopAll` (`004647dc`) — both through `sosDIGIStopSample` — can no longer reach the older copies, and the manager's playing-sample count (`+0x3c`) is bumped once per start against one completion callback per copy. The drift is inert: DBSIM binds `sosDIGISamplesPlaying` and `sosDIGISampleDone` but calls neither, and nothing else reads the count.
+
+Because the settings belong to the record and not to the copy, **placing a new copy retunes the one already sounding**. `Sound_Place` sets volume and pan for the sound it is about to start, and `Sfx_SetVolume` (`00464514`) writes the record and then applies it through `Sos_ApplyVolume` (`004739e0`) to the handle at `+0x24` whenever the record is marked playing — which, until the new start overwrites it, is the previous copy. A near footstep therefore takes on the placement of the distant one that follows it.
+
+[The throttle](#the-throttle) is what would have thinned this, and it is dead code in the shipped binary — so nothing does.
+
+### Binding the SOS DLL
+
+`Sos_BindLibrary` (`004957f1`) loads `sos9503.dll` on the NT-family branch of its `GetVersion` test and `sos32s03.dll` otherwise, then walks `SosBindingTable` (`004a6ab4`) calling `GetProcAddress` for each entry. The table is 100 records of `0x24` bytes, terminated by a null destination:
+
+```
++0x00  void**  destination slot   -- one of the pointers at 006cbde4-006cbf70
++0x04  char    exportName[0x20]   -- inline, not a pointer
+```
+
+Each slot has a one-line thunk in `00495xxx` that does nothing but call through it, so a thunk's meaning is recovered by reading its slot address out of the disassembly and finding that address in the table. The pointers live in BSS and are written only by this loop, which is why nothing in the disassembly appears to assign them.
+
 `Sfx_Open` (`00463910`) chooses the path from its third argument: 0 = `.hmp` song, 1 = sample, 2 =
 the streamed type. The caller decides by searching the filename for `.hmp` / `.wav`.
 
@@ -317,7 +338,9 @@ is about 245 m, and the largest — `herceng1`'s 50 — about 307 m.
 ### The throttle
 
 `Sound_ThrottleCheck` (`004626c4`) exists so that a sound fired by many objects at once does not play
-once per object:
+once per object. **Nothing in DBSIM calls it**: there is no `CALL` to it anywhere in the code section,
+and its address is stored nowhere, so it is not reached indirectly either. The authored divisors in
+attribute byte 3 are therefore inert in the shipped game, and every play goes through:
 
 ```
 interval = (2 - detailSetting) * attr[3]
@@ -633,15 +656,15 @@ frame to `-1`, which is what tells `HddGauge_PaintPilotFrame` the message is ove
 | The `battle1.wav` entries are the real music | The file ships in no archive. The ten slots are a stub; music is Red Book CD audio through MCI. |
 | A `.wav` name resolves under one directory | It resolves under `HMI\` or `HMX\` depending on the low-memory flag, and the two banks are not identical — `EXPLO5.WAV` is missing from `HMX\`. |
 | `herceng1` is the HERC engine hum | The name says so and the sample is one, but the only thing that starts it gates on type record `+0x50` — `InputFlagFlyer`, the RAZOR. A walking HERC never plays it. |
+| One voice per catalog id means one copy of that sound at a time | The voice record is bookkeeping, not a hardware channel. `Sfx_Play` starts a fresh `sosDIGIStartSample` every call without testing the `0x100` playing flag, so the copies overlap — see [A repeated play layers; it does not restart](#a-repeated-play-layers-it-does-not-restart). |
 
 ## Engine coverage
 
 `Herculan.Engine.Audio` covers the catalog and the effects path: `SoundCatalog` parses `SOUNDS.STR`
 with the attribute layout above, `SoundBank` picks the `HMI`/`HMX` folder and decodes the samples
 out of `SIMSOUND.VOL`, and `SoundDirector` is the `Sound_*` layer — one voice per catalog id, the
-variation roll, the category split, the throttle, `Sound_Place`'s rolloff and pan, and
-suspend/resume. `OpenAlBackend` stands in for HMI SOS; `NullAudioBackend` runs the same rules
-silently. `GameAudio` is the host-facing bundle and is itself the `ISoundSink` the simulation
+variation roll, the category split, `Sound_Place`'s rolloff and pan, and suspend/resume.
+`OpenAlBackend` stands in for HMI SOS; `NullAudioBackend` runs the same rules silently. `GameAudio` is the host-facing bundle and is itself the `ISoundSink` the simulation
 reaches through `SimWorld.Sounds`, with `PlayTableSound` applying the `+ 10` bias for `PROJ.DAT`,
 `ROCKETS.DAT` and `EXPLOS.DAT` ids.
 
@@ -677,6 +700,10 @@ The power-up always announces the nominal line: the gauge reading its alternativ
 not decompiled, and a machine taken at the start of a mission is undamaged and gets the nominal line
 either way.
 
+**Copies overlap, as they do in retail, but the channel ceiling is this engine's own.** `OpenAlBackend` keeps one buffer per sample and claims a source from a pool of `ChannelCount` (64) per play, so an id sounding twice occupies two sources; `SoundDirector` keeps the id's volume, pan and pitch and the newest handle, exactly as the original's voice record does. What is not reproduced is the ceiling: retail's is whatever its SOS driver was initialised with, and the `sosDIGIInitDriver` argument block at `006b5614` is filled field by field with nothing to name the words, so which one is the channel count is unrecovered. 64 is chosen against what the game asks for and against OpenAL Soft's own limit of 256 sources. A play that finds every channel busy is dropped, which is how `sosDIGIStartSample` fails too.
+
+`SoundDirector.ThrottleCheck` is a faithful port of `Sound_ThrottleCheck` and, like the original, has no caller. It is kept because the attribute it reads is parsed and documented, not because anything uses it.
+
 **The memory budget is not reproduced.** `SoundBank` decodes every sample the catalog names at
 startup instead of honouring the preload attribute and caching the rest on demand, so none of
 [Memory budget and eviction](#memory-budget-and-eviction) exists here — no cap, no refcount, no
@@ -687,3 +714,6 @@ matter for a bank the retail game does not ship.
 Not ported: CD music through MCI, the `.hmp` MIDI path, and squadmate and commander speech with its
 `.SNC` portrait scripts. `HercWorks.Core` has `Data/File/Cfg/SoundCfg.cs`, a `SOUND.CFG` key holder
 with no reader.
+
+### Mid-session audio recovery not yet implemented
+If the endpoint drops while you're playing (unplugging headphones, switching default device), the engine stays silent for good. OpenAL Soft exposes `ALC_EXT_disconnect/ALC_CONNECTED`; detecting it is cheap, but reconnecting means recreating the 64-source pool in`OpenChannels` and re-uploading every buffer `CreateSample` handed out, since sample ids are indices into `_buffers` that `SoundDirector` and `ComputerVoice` both hold. Those ids would need to stay stable across a re-open, or both holders would need re-registering.

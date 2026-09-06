@@ -31,7 +31,7 @@ public sealed class ComputerVoice {
 
 	private readonly GameContent _content;
 	private readonly IAudioBackend _backend;
-	private readonly Dictionary<int, int> _voices = new();
+	private readonly Dictionary<int, int> _samples = new();
 
 	private int _speaking = -1;
 
@@ -64,7 +64,7 @@ public sealed class ComputerVoice {
 	public int? Speaking { get; private set; }
 
 	/// <summary>Whether a clip for <paramref name="messageId"/> could be found and opened.</summary>
-	public bool CanSpeak(int messageId) => Voice(messageId) >= 0;
+	public bool CanSpeak(int messageId) => Sample(messageId) >= 0;
 
 	/// <summary>
 	/// Reads message <paramref name="messageId"/> aloud — the flat <c>SYSTEM.STR</c> id its call sites
@@ -77,20 +77,17 @@ public sealed class ComputerVoice {
 	/// goes up only once the last has come down.</para>
 	/// </summary>
 	public void Speak(int messageId) {
-		int voice = Voice(messageId);
-		if (voice < 0) {
+		int sample = Sample(messageId);
+		if (sample < 0) {
 			return;
 		}
 
-		if (_speaking >= 0 && _speaking != voice) {
-			_backend.Stop(_speaking);
-		}
+		// Cutting the running line first also frees its channel, so speech only ever needs one of the
+		// backend's and cannot be starved by a line of its own.
+		Stop();
 
-		_speaking = voice;
-		Speaking = messageId;
-		_backend.SetGain(voice, _volume);
-		_backend.SetPan(voice, 0f);
-		_backend.Play(voice);
+		_speaking = _backend.Start(sample, _volume, 0f, 1f, looping: false);
+		Speaking = _speaking >= 0 ? messageId : null;
 	}
 
 	/// <summary>
@@ -115,34 +112,30 @@ public sealed class ComputerVoice {
 	}
 
 	/// <summary>
-	/// The backend voice for a message's clip, opened on first use and kept.
+	/// The backend sample for a message's clip, decoded on first use and kept.
 	///
 	/// <para>The original keeps five slots and evicts the least recently used, because 66 clips of
 	/// 8-bit PCM did not fit its cache budget. Holding each one that is actually asked for costs a
 	/// few hundred kilobytes over a mission and removes the eviction path entirely, which is the same
 	/// trade <see cref="SoundBank"/> makes for the effect samples.</para>
 	/// </summary>
-	/// <returns>The voice handle, or -1 when the message, its clip or a device is missing.</returns>
-	private int Voice(int messageId) {
-		if (_voices.TryGetValue(messageId, out int cached)) {
+	/// <returns>The sample id, or -1 when the message, its clip or a device is missing.</returns>
+	private int Sample(int messageId) {
+		if (_samples.TryGetValue(messageId, out int cached)) {
 			return cached;
 		}
 
-		int voice = -1;
+		int id = -1;
 
 		if (Messages?[messageId] is { VoiceClip: > 0 } message) {
 			string name = string.Format(ClipNameFormat, message.VoiceClip);
 			if (_content.Read(ResourceFolder, name) is { } bytes
 					&& WaveSample.Decode(bytes) is { } sample) {
-				voice = _backend.CreateVoice(sample);
-				if (voice >= 0) {
-					_backend.SetLooping(voice, false);
-					_backend.SetPitch(voice, 1f);
-				}
+				id = _backend.CreateSample(sample);
 			}
 		}
 
-		_voices[messageId] = voice;
-		return voice;
+		_samples[messageId] = id;
+		return id;
 	}
 }

@@ -146,15 +146,25 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 				$"no {SoundCatalog.ResourceName} in the mounted archives — is {SoundBank.ArchiveName} mounted?");
 		}
 
-		var backend = (silent ? null : (IAudioBackend?)OpenAlBackend.TryCreate()) ?? new NullAudioBackend();
+		string? deviceFailure = null;
+		var backend = (silent ? null : (IAudioBackend?)OpenAlBackend.TryCreate(out deviceFailure))
+			?? new NullAudioBackend();
 		var director = new SoundDirector(bank, backend, random);
 		var voice = new ComputerVoice(content, messages, backend);
 
+		// The device's own account of itself goes in the status line either way. A launch that opened
+		// only on a retry sounds normal but is worth seeing, and one that gave up needs to say what it
+		// gave up on: OpenAlBackend.OpenAttempts explains why "no audio device" is not the whole story
+		// on Windows.
 		string status = backend.IsAvailable
 			? $"OpenAL, {bank.Catalog.Count} catalog entries"
 			: silent
 				? $"silenced by request; {bank.Catalog.Count} catalog entries loaded but not played"
-				: $"no audio device; {bank.Catalog.Count} catalog entries loaded but silent";
+				: $"no sound; {bank.Catalog.Count} catalog entries loaded but silent";
+
+		if (deviceFailure != null) {
+			status += $" ({deviceFailure})";
+		}
 
 		status += messages != null
 			? $", {messages.Count} computer messages"

@@ -17,7 +17,7 @@ it never reaches `Sim_DispatchCommand` or `WeaponMounts_HandleCommand`. Instead:
 | | |
 |---|---|
 | `Sim_PollPlayerInput` (`00460764`) | runs every frame, calls the next line for `LocalPlayerMech` |
-| `Mech_PlayerFireTick` (`00415608`) | calls the fire entry, then lays out the HUD lead-indicator trail on a successful shot |
+| `Mech_PlayerFireTick` (`00415608`) | calls the fire entry, then stamps the player's line of fire into `DAT_004a9c0c` on a successful shot — a keep-out line for the squad's obstacle avoidance, not a display; see [`ai-navigation.md`](ai-navigation.md#the-players-line-of-fire) |
 | `WeaponMounts_FireTrigger` (`00410dbc`) | the arbitration below |
 | `WeaponMount_TriggerHeld` (`0040f8ad`) | mount vtable `+0x30` — returns the input device struct's byte at `+0x0d`, the fire button, and nothing else |
 

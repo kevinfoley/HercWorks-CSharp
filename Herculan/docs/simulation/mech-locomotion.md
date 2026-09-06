@@ -19,7 +19,7 @@ a turn rate, and an animation playback rate.
 | `004160dc` | `Mech_ApplyThrottleInput` | Stick/key throttle → `mech+0x290`, computes desired speed |
 | `00416a04` | `Mech_LocomotionTick` | Control law: speed, turn rate, animation rate, gait state machine |
 | `0041693c` | `Mech_ApplyTerrainSlopeToSpeed` | Uphill/downhill speed modifier |
-| `00416274` | `Mech_AiObstacleAvoidance` | AI only — skipped when `mech == DAT_004a9c08` (player) |
+| `00416274` | `Mech_AiObstacleAvoidance` | AI only — skipped when `mech == DAT_004a9c08` (player). [`ai-navigation.md`](ai-navigation.md#obstacle-avoidance--mech_aiobstacleavoidance-00416274) |
 | `0041a360` | `Mech_MovementTick` | Per-tick physics: integrate, terrain-clamp Z, collide |
 | `00418f40` | `Mech_IntegrateMotion` | Steps animation, applies root motion |
 | `0040250c` | `SimObject_ApplyRootMotion` | Root-motion → world position/heading |
@@ -28,7 +28,7 @@ a turn rate, and an animation playback rate.
 | `004195c8` | `Mech_PlaceLegsOnGround` | Per-leg terrain placement |
 | `0041a550` / `0041a808` | `Mech_TorsoTwistTick` / `Mech_TorsoPitchTick` | Turret aim, not locomotion — [`torso-aim.md`](torso-aim.md) |
 
-`Mech_MovementTick` is the **move** slot of the AI behaviour state a machine currently holds, reached from `Sim_MainTick`'s object loop through mech vtable `+0x14` (`0049a296` → `00415afc`) and the state descriptor's `+0x24` triple. 18 of the 22 states share it; the exceptions are `player fly`, which takes `Razor_MovementTick`, `ramming`, which takes `Mech_BehaviourRamTick`, and `deciding` and `in limbo`, which have no move at all. Because it is a pointer-to-member call, Ghidra reports zero xrefs on it. See [`ai-dispatch.md`](ai-dispatch.md).
+`Mech_MovementTick` is the **move** slot of the AI behaviour state a machine currently holds, reached from `Mech_AiTick` through mech vtable `+0x14` (`0049a296` → `00415afc`) and the state descriptor's `+0x24` triple. 18 of the 22 states share it; the exceptions are `player fly`, which takes `Razor_MovementTick`, `ramming`, which takes `Mech_BehaviourRamTick`, and `deciding` and `in limbo`, which have no move at all. Because it is a pointer-to-member call, Ghidra reports zero xrefs on it. See [`ai-dispatch.md`](ai-dispatch.md).
 
 ## Mech instance fields
 
@@ -460,7 +460,3 @@ see [`damage-system.md`](damage-system.md#a-collision--mech_collisiontest-00418f
 latches "something ran into me" on the struck object (vtable `+0x68`, `obj+0xb1`) and, separately
 from the block test, records a nearby structure as a lock-on candidate at `mech+0x2b0`; only the
 behaviour layer reads either.
-
-## Outstanding
-
-- AI obstacle avoidance (`00416274`).

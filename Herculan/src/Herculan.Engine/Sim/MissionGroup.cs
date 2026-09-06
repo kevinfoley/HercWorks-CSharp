@@ -83,10 +83,30 @@ public sealed class MissionGroup {
 	public IReadOnlyList<Vec3i> Route { get; }
 
 	/// <summary>
-	/// <c>group+0x04</c> — the index of the waypoint last reached. Nothing advances it yet; route
-	/// following is the navigation slice.
+	/// <c>group+0x04</c> — the index of the waypoint last reached. Only
+	/// <c>Ai_FollowRoute</c> advances it, and it is shared by the whole group.
 	/// </summary>
 	public int RouteCursor { get; private set; }
+
+	/// <summary>
+	/// <c>Route_AdvanceCursor</c> (<c>0042313c</c>) — steps the cursor by one and <b>wraps it back to
+	/// zero when the route closes on itself</b>: with more than one waypoint, an index that has just
+	/// landed on the last one whose point is the same as the first restarts at zero. A closed route is
+	/// a patrol that never ends, and never completes its order; an open one runs out, and running out
+	/// is what finishes a movement order.
+	///
+	/// <para>The original compares the two waypoints' resolved <i>pointers</i>, which is identity. The
+	/// route here is a list of coordinates, so this compares positions — the same answer for a mission
+	/// that closes a route by naming one point twice, which is how every retail one does it.</para>
+	/// </summary>
+	internal void AdvanceRouteCursor() {
+		RouteCursor++;
+
+		if (Route.Count > 1 && RouteCursor == Route.Count - 1
+				&& Route[Route.Count - 1] == Route[0]) {
+			RouteCursor = 0;
+		}
+	}
 
 	/// <summary>
 	/// <c>Route_WaypointAt</c> (<c>00423b0c</c>) — a waypoint of the group's route, or null when

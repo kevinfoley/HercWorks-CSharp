@@ -17,26 +17,52 @@ public enum ReassessSlot {
 }
 
 /// <summary>
+/// Which think function a behaviour state installs in its <c>+0x18</c> slot. Only the states whose
+/// think is ported have a value of their own; the rest take <see cref="None"/> and stand still —
+/// see docs/simulation/ai-navigation.md and docs/simulation/ai-dispatch.md.
+/// </summary>
+public enum ThinkSlot {
+	/// <summary>No think, or one belonging to an AI slice that is not ported.</summary>
+	None,
+
+	/// <summary><c>Mech_BehaviourPatrolThink</c> (<c>0041d7d0</c>).</summary>
+	Patrol,
+
+	/// <summary><c>Mech_BehaviourSearchDestroyThink</c> (<c>0041d60c</c>).</summary>
+	SearchDestroy,
+
+	/// <summary><c>Mech_BehaviourTravelThink</c> (<c>0041d9cc</c>), shared by both travel states.</summary>
+	Travel,
+
+	/// <summary><c>Mech_BehaviourFollowThink</c> (<c>0041daac</c>).</summary>
+	Follow,
+
+	/// <summary><c>Mech_BehaviourGuardThink</c> (<c>0041e224</c>).</summary>
+	Guard
+}
+
+/// <summary>
 /// One of DBSIM's 22 behaviour state descriptors — the <c>0x3e</c>-byte records at
 /// <c>BehaviourStateTable</c> (<c>004993a4</c>) that <c>Behaviour_BuildStateTable</c>
 /// (<c>00413ed4</c>) fills at startup. Field meanings, the flag-bit consumers and the whole
 /// dispatch model are in docs/simulation/ai-dispatch.md; this is a transcription of the table the
 /// initialiser writes, read out of the disassembly rather than out of any data file.
 ///
-/// <para><b>Think and move are not modelled.</b> Each descriptor also carries a think and a move
-/// member-function triple. The move is <c>Mech_MovementTick</c> for every state that has one, which
-/// <see cref="MechObject.Tick"/> already runs for every machine; the think functions are the subject
-/// of the AI slices that are not reverse-engineered yet. Adding two slots that are either a
-/// duplicate or a null would be indirection with nothing behind it, so
-/// <see cref="MechObject.AiTick"/> runs the reassess slot alone and says so.</para>
+/// <para><b>The move slot is not modelled.</b> Each descriptor also carries one, and it is
+/// <c>Mech_MovementTick</c> for every state that has one — which <see cref="MechObject.Tick"/>
+/// already runs for every machine, ahead of the group pass that runs the think, so the original's
+/// "integrate on the last think's decisions" ordering falls out. A slot that is either a duplicate
+/// or a null would be indirection with nothing behind it.</para>
 /// </summary>
 public sealed class BehaviourState {
-	private BehaviourState(int index, string name, int dwellMs, int flags, ReassessSlot reassess) {
+	private BehaviourState(int index, string name, int dwellMs, int flags, ReassessSlot reassess,
+			ThinkSlot think = ThinkSlot.None) {
 		Index = index;
 		Name = name;
 		DwellMs = dwellMs;
 		Flags = flags;
 		Reassess = reassess;
+		Think = think;
 	}
 
 	/// <summary>The state's index into the three parallel tables — descriptor <c>004993a4 + 0x3e*N</c>.</summary>
@@ -60,6 +86,9 @@ public sealed class BehaviourState {
 
 	/// <inheritdoc cref="ReassessSlot"/>
 	public ReassessSlot Reassess { get; }
+
+	/// <inheritdoc cref="ThinkSlot"/>
+	public ThinkSlot Think { get; }
 
 	/// <summary>
 	/// Bit 0 — <see cref="MechObject.AiTick"/> does not run the dwell countdown. True of every state
@@ -102,14 +131,14 @@ public sealed class BehaviourState {
 	public static readonly BehaviourState FacingOff = new(5, "facing off", 50000, 0x02, ReassessSlot.CombatReassess);
 	public static readonly BehaviourState AttackingBase = new(6, "attacking base", 50000, 0x02, ReassessSlot.CombatReassess);
 	public static readonly BehaviourState AttackingFlyer = new(7, "attacking flyer", 50000, 0x02, ReassessSlot.CombatReassess);
-	public static readonly BehaviourState Patrolling = new(8, "patrolling", 10, 0x01, ReassessSlot.SelectBehaviour);
-	public static readonly BehaviourState Travelling = new(9, "travelling", 10, 0x01, ReassessSlot.SelectBehaviour);
-	public static readonly BehaviourState Following = new(10, "following", 10, 0x01, ReassessSlot.SelectBehaviour);
-	public static readonly BehaviourState BulldogTravel = new(11, "bulldog travel", 10, 0x09, ReassessSlot.SelectBehaviour);
-	public static readonly BehaviourState SearchDestroy = new(12, "search/destroy", 10, 0x01, ReassessSlot.SelectBehaviour);
+	public static readonly BehaviourState Patrolling = new(8, "patrolling", 10, 0x01, ReassessSlot.SelectBehaviour, ThinkSlot.Patrol);
+	public static readonly BehaviourState Travelling = new(9, "travelling", 10, 0x01, ReassessSlot.SelectBehaviour, ThinkSlot.Travel);
+	public static readonly BehaviourState Following = new(10, "following", 10, 0x01, ReassessSlot.SelectBehaviour, ThinkSlot.Follow);
+	public static readonly BehaviourState BulldogTravel = new(11, "bulldog travel", 10, 0x09, ReassessSlot.SelectBehaviour, ThinkSlot.Travel);
+	public static readonly BehaviourState SearchDestroy = new(12, "search/destroy", 10, 0x01, ReassessSlot.SelectBehaviour, ThinkSlot.SearchDestroy);
 	public static readonly BehaviourState Sleeping = new(13, "sleeping", 10, 0x09, ReassessSlot.SelectBehaviour);
 	public static readonly BehaviourState Skirting = new(14, "skirting", 10, 0x03, ReassessSlot.SelectBehaviour);
-	public static readonly BehaviourState Guarding = new(15, "guarding", 10, 0x05, ReassessSlot.SelectBehaviour);
+	public static readonly BehaviourState Guarding = new(15, "guarding", 10, 0x05, ReassessSlot.SelectBehaviour, ThinkSlot.Guard);
 	public static readonly BehaviourState DrivingOffEnemy = new(16, "driving off en", 50000, 0x06, ReassessSlot.SelectBehaviour);
 	public static readonly BehaviourState Ramming = new(17, "ramming", 10, 0x09, ReassessSlot.SelectBehaviour);
 	public static readonly BehaviourState Fleeing = new(18, "fleeing", 15000, 0x12, ReassessSlot.CombatReassess);

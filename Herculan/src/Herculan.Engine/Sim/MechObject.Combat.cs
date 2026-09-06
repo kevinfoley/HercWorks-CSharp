@@ -77,12 +77,50 @@ public sealed partial class MechObject {
 	/// is unported. Here that falls out of <see cref="Controls"/>, which is
 	/// <see cref="MechControls.Neutral"/> for everything the player is not flying.</para>
 	///
-	/// <para>The rest of <c>FUN_00415608</c> — the lead-indicator trail it lays down along the
-	/// bearing to the selected target on a successful shot — is a HUD feature and is not here.</para>
+	/// <para>The rest of <c>FUN_00415608</c> is the player's <b>line of fire</b>: on a shot it stamps
+	/// up to 40 points along the turret bearing at <see cref="FiringLineSpacing"/> spacing, cut to the
+	/// range of the selected target. Nothing draws them — their only reader is
+	/// <see cref="ObstacleAvoidance"/>, which steers the player's own squadmates out of the way. See
+	/// docs/simulation/ai-navigation.md.</para>
 	/// </summary>
 	private void FireTick(SimWorld world) {
-		Weapons.FireTick(this, world, Controls.Fire);
+		bool fired = Weapons.FireTick(this, world, Controls.Fire);
+
+		if (!IsPlayer) {
+			return;
+		}
+
+		if (!fired) {
+			world.ClearPlayerFiringLine();
+			return;
+		}
+
+		int count = FiringLineDefaultPoints;
+
+		if (Target is { } target) {
+			count = Position.ApproxDistanceTo(target.Position) >> FiringLineRangeShift;
+			count = count > FiringLineMaxPoints ? FiringLineMaxPoints : count < 1 ? 1 : count;
+		}
+
+		short cos = BinaryAngle.Cos((short)(Heading - TorsoTwistAngle));
+		short sin = BinaryAngle.Sin((short)(Heading - TorsoTwistAngle));
+		int stepX = (int)((-(long)FiringLineSpacing * sin + 0x2000) >> 14);
+		int stepY = (int)(((long)FiringLineSpacing * cos + 0x2000) >> 14);
+
+		world.SetPlayerFiringLine(Position, stepX, stepY, count);
 	}
+
+	/// <summary>How far apart the player's line-of-fire points are laid.</summary>
+	private const int FiringLineSpacing = 0x1000;
+
+	/// <summary>How many points the line runs to when the player has nothing selected.</summary>
+	private const int FiringLineDefaultPoints = 20;
+
+	/// <summary>The ceiling on the point count, and the size of the original's own vector.</summary>
+	private const int FiringLineMaxPoints = 40;
+
+	/// <summary>Target range is shifted by this to give the point count.</summary>
+	private const int FiringLineRangeShift = 12;
 
 	/// <summary>
 	/// <c>mech+0x1a4</c> — the machine's selected target, and the field the whole of homing hangs
@@ -92,8 +130,8 @@ public sealed partial class MechObject {
 	///
 	/// <para><b>Nothing in the simulation writes it for the player's machine.</b> The selection is
 	/// made in the cockpit and copied here once a frame — see <see cref="TargetSelection"/>, which is
-	/// where the RE for that lives. An AI machine's own writer (<c>FUN_0041c0f4</c>) is a separate
-	/// function and is not ported, so an AI machine currently never selects anything.</para>
+	/// where the RE for that lives. An AI machine writes it from its own think and from the combat
+	/// reassess.</para>
 	///
 	/// <para>The setter carries the two pieces of bookkeeping every writer of the field in the
 	/// original performs, both of which live outside the machine that made the change: the old

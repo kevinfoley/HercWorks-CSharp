@@ -337,8 +337,8 @@ Entity template/spawn; highest inheritance usage (48%). Three-way identity split
 | `0x02` | condition ref | 43% real (tier: rows #1/#3/#13/#14) |
 | `0x04` | parent/inherit | 48% real (highest in file); copies 4 blocks if set |
 | `0x06` | condition operand | 3.9% real; compound pair with `0x02` |
-| `0x08` | binary flag | 100% real; 0/1 |
-| `0x0A` | near-constant | 100% real; mostly `0` (91%); bitmask-like |
+| `0x08` | **AI weapons-free** | 100% real; 0/1. DBSIM copies it to `mech+0x97`, which is what `Ai_UpdateWeaponsFree` gates an AI machine's trigger on |
+| `0x0A` | **AI cruise speed** | 100% real; `0` in 91% of records, which means "use the `0xaa` default". Copied to `mech+0x252`, the speed `Ai_DriveToPoint` walks at |
 | `0x0C–0x2E` | dead zone (18 shorts) | **always `0`** — padding |
 | `0x30` | small discrete | 47% real; range 0–20 |
 | `0x32–0x44` | **weapon fit**, 10 slots | **real workhorse**: slot 0: 46% real → slot 9: 0.1%; bursty population. Resolved via `script.dat`: DBSIM hands this array straight to `Mech_ConfigureLoadout`, the same call the player's own fit from `player.mec` goes through |
@@ -353,7 +353,7 @@ Entity template/spawn; highest inheritance usage (48%). Three-way identity split
 | `0x8C` | ref→row #10 slot 2 | 2.4% dead |
 | `0x8E` | health modifier | 100% real; `100` (98.5%) or `50` (1.5%) |
 
-**Model:** Template/spawn with high inheritance/condition usage. The payload is the 10-slot **weapon fit** at `0x32`, plus the per-mech spawn-position and heading overrides at `0x46`/`0x48` — sparsely populated but live. Three identity patterns: reusable template (GUID+inherit), fresh template (GUID only), or conditional spawn (no GUID).
+**Model:** Template/spawn with high inheritance/condition usage. The payload is the 10-slot **weapon fit** at `0x32`, plus the per-mech spawn-position and heading overrides at `0x46`/`0x48` — sparsely populated but live, and the pair of AI settings at `0x08`/`0x0A` ([`ai-navigation.md`](../simulation/ai-navigation.md)). Three identity patterns: reusable template (GUID+inherit), fresh template (GUID only), or conditional spawn (no GUID).
 
 ## Row #17 field decode — "UnitSpawn58" (`DAT_0047064a`, 58 bytes/record)
 

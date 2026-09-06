@@ -50,14 +50,21 @@ bindings are hardcoded placeholders.
 
 The engine cannot be faithful here until the original is understood.
 
-- **What each AI behaviour state does.** The dispatch spine, the targeting slice and the mission-group
-  order layer are decoded and ported: a machine is given a state by its group's current order, holds
-  it, reassesses out of it, acquires and abandons targets, and answers incoming fire. What no state
-  can yet do is *act* — the think functions that would walk it, aim it and fire it are undecoded. So
-  an AI machine still only enters combat by being shot at, and then stands there holding its target.
+- **What the combat behaviour states do.** The dispatch spine, targeting, the mission-group order
+  layer and the five navigation states are decoded and ported: a machine takes a state from its
+  group's current order, walks its route or holds formation on its leader, steers round what is in
+  its way, acquires and abandons targets, and answers incoming fire. What is still undecoded is the
+  other half of the roster — `attacking`, `flanking`, `facing off`, `attacking base`,
+  `attacking flyer`, `skirting`, `driving off en`, `fleeing` — so a machine walks to its objective
+  and then stands still the moment it finds something to fight.
   → [`docs/simulation/ai-dispatch.md`](docs/simulation/ai-dispatch.md),
   [`docs/simulation/ai-targeting.md`](docs/simulation/ai-targeting.md),
-  [`docs/simulation/ai-goals.md`](docs/simulation/ai-goals.md)
+  [`docs/simulation/ai-goals.md`](docs/simulation/ai-goals.md),
+  [`docs/simulation/ai-navigation.md`](docs/simulation/ai-navigation.md)
+- **AI weapon choice and the fire decision.** Every navigation state settles a weapons-free flag
+  (`mech+0x96`) that nothing yet reads, and the two travel states pick something for the turret to
+  watch and then leave the turret alone.
+  → [`docs/simulation/ai-navigation.md`](docs/simulation/ai-navigation.md)
 - **Squad orders.** The standing orders the player gives their own squad (`mech+0x23e`), which
   `Mech_AiSelectBehaviour`'s second path reads. Undecoded, so that path installs nothing.
   → [`docs/simulation/ai-dispatch.md`](docs/simulation/ai-dispatch.md)

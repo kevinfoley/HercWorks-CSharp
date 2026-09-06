@@ -1,4 +1,4 @@
-﻿{
+{
   "schema_version": 1,
   "_readme": [
     "Confirmed address->meaning mappings for VSHELL.EXE / DBSIM.EXE, extracted from",
@@ -2175,7 +2175,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Terrain_RayWalk",
-      "description": "Ray-versus-terrain traversal, the largest function in the terrain module (5129 bytes). Halves the segment delta until every component fits +/-32000, derives four Q16 slopes via 0047df5c, classifies the ground-plane delta into an octant 0-7, then walks the height grid cell by cell with a two-phase step (a minor-axis crossing stashes the major-axis exit and replays it next iteration). Each step yields an exit point and an edge code 0=W/1=E/2=N/3=S, tested by Terrain_EdgeCrossingTest and refined by Terrain_CellSurfaceIntersect. param_6 selects the body: 0 = thin ray (weapon fire, via Sim_RaycastTerrain), 1 = swept volume (movement collision, via 0046fe84/0046ff74/0046fcac). Six multiplies in the octant-2/3 arms are 32-bit truncating imul/sar rather than Math_Q16Multiply.",
+      "description": "Ray-versus-terrain traversal, the largest function in the terrain module (5129 bytes). Halves the segment delta until every component fits +/-32000, derives four Q16 slopes via 0047df5c, classifies the ground-plane delta into an octant 0-7, then walks the height grid cell by cell with a two-phase step (a minor-axis crossing stashes the major-axis exit and replays it next iteration). param_6 selects the per-step surface test, and the two ask different questions. Mode 0, the thin ray (weapon fire, via Sim_RaycastTerrain), reports the ground wherever the segment is at or below it: each step yields an exit point and an edge code 0=W/1=E/2=N/3=S, tested by Terrain_EdgeCrossingTest and refined by Terrain_CellSurfaceIntersect. Mode 1 (movement collision) instead normalises the delta to a 0x800-length direction and asks Terrain_FaceBlocksAt / Terrain_EdgeFaceBlocks whether the face being crossed is too steep to walk, refining a hit with 0046fcac -- so a segment sliding along rolling ground reports nothing and only a wall stops it. Six multiplies in the octant-2/3 arms are 32-bit truncating imul/sar rather than Math_Q16Multiply.",
       "source": "docs/formats/terrain-heightmap.md 2026-08-24 (terrain clipping RE session)"
     },
     {
@@ -2498,7 +2498,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Formation_GetSlotOffset",
-      "description": "Returns a static 3-short {x, y, 0} formation offset: table[formationId * 0x1c + slot * 4 - 4] and the short after it. So a formation is 28 bytes = seven (x, y) short pairs, covering follower slots 1-7. OPEN: the table pointer _DAT_004a9df0 has exactly one reference in the whole binary -- this read -- and lives in uninitialised data, so nothing links it to a file. dat\\MFORMS.DAT fits the shape exactly (142 content bytes = count + five 28-byte formations, formation 0 a symmetric wedge at 10000-unit steps) but is unconfirmed. Contrast the base equivalent (FUN_00405b9c/Base_LoadFormationTable, 2026-08-14), whose load site IS confirmed -- this pointer never got the same treatment.",
+      "description": "Returns a static 3-short {x, y, 0} formation offset: table[formationId * 0x1c + slot * 4 - 4] and the short after it. So a formation is 28 bytes = seven (x, y) short pairs, covering follower slots 1-7. The table pointer _DAT_004a9df0 is written by Mech_LoadResources (0041fdb0), which reads dat\\MFORMS.DAT -- 142 content bytes = count + five 28-byte formations, byte-exact.",
       "source": "docs/formats/script-dat.md 2026-08-13 (mission placement)"
     },
     {
@@ -4461,7 +4461,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_AiObstacleAvoidance",
-      "description": "Terrain and obstacle avoidance applied to steering and desired speed. AI only -- Mech_LocomotionTick skips it when the mech is PlayerMech.",
+      "description": "Terrain and obstacle avoidance applied to steering and desired speed. AI only -- Mech_LocomotionTick skips it when the mech is PlayerMech. Reduces to the nearer obstruction on each side, both starting at 22000, from three sources: two 20000-unit body-space probes splaying +/-10000 (Sim_RaycastShapes and Terrain_RayWalk), a sweep of live machines at Q10(2000, range) inside a 45-degree arc, and -- for a squad led by the player -- the player's line of fire at Q10(1000, range) inside 67.5 degrees. Steer is +/-((22000 - closest) * gain / 22000), gain 700 or 1000 for the firing line; only the firing line ever cuts the speed. The mirrored reverse mode is written 0 at the top of the function and never set, which also makes the half-speed arm of the speed override unreachable.",
       "source": "docs/simulation/mech-locomotion.md 2026-08-21"
     },
     {
@@ -4470,7 +4470,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_MovementTick",
-      "description": "Per-tick mech physics step: push transform, integrate motion, clamp Z to Terrain_HeightQuery plus typeRec[+0x16], collision test, restore and reverse speed on hit, place legs. Dispatched via mech vtable +0x18 to 00415b38 to behaviour struct +0x18; its pointer lives in an unmarked 0x24-stride table from 00499928, so Ghidra reports zero xrefs.",
+      "description": "Per-tick mech physics step: push transform, integrate motion, clamp Z to Terrain_HeightQuery plus typeRec[+0x16], collision test, restore and reverse speed on hit, place legs. It steers nothing -- every AI movement decision is a think function calling Mech_LocomotionTick. Dispatched from Mech_AiTick through mech vtable +0x14 (Behaviour_DispatchMove) and the behaviour descriptor's +0x24 triple, so Ghidra reports zero xrefs. On a refused move for a non-player machine it arms the unstick manoeuvre: mech+0x26e = 10000, mech+0x254 = a coin-flipped +/-5000 side, mech+0xae = whether it was moving forward.",
       "source": "docs/simulation/mech-locomotion.md 2026-08-21"
     },
     {
@@ -5708,7 +5708,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_PlayerFireTick",
-      "description": "The player's fire path, called once a frame from Sim_PollPlayerInput with the input device struct. Calls WeaponMounts_FireTrigger(mech+0x202, inputDevice, mech); on a shot it also lays out the HUD lead-indicator trail along the bearing to the selected target (DAT_004a9c0c, count DAT_004a9d4c). The only caller of the trigger path -- AI machines fire from their own think function.",
+      "description": "The player's fire path, called once a frame from Sim_PollPlayerInput with the input device struct. Calls WeaponMounts_FireTrigger(mech+0x202, inputDevice, mech); on a shot it also stamps the player's LINE OF FIRE into DAT_004a9c0c -- up to 40 points at 0x1000 spacing along the turret bearing, cut to the selected target's range, count in DAT_004a9d4c, zeroed when the trigger produces nothing. Nothing draws it: its only reader is Mech_AiObstacleAvoidance, which steers the player's own squadmates out of it. The only caller of the trigger path -- AI machines fire from their own think function.",
       "source": "docs/simulation/weapon-firing.md 2026-08-24"
     },
     {
@@ -9592,6 +9592,186 @@
       "name": "Mission_ResolveRefByKind",
       "description": "Resolves a script.dat cross-reference to a runtime pointer given its kind discriminator: 0 = the mission group record at index*0x7a, 1/2/3 = the live mech/flyer/base object for that roster slot, via the slot-to-object maps at DAT_004aa812 / DAT_004aa90c / DAT_004aa9ca. Builds the order record's subject pointer at +0x0e.",
       "source": "docs/simulation/ai-goals.md"
+    },
+    {
+      "address": "0041fac4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Ai_DriveToPoint",
+      "description": "The AI's one steering primitive: Mech_LocomotionTick(mech, (Math_HeadingToward(point, mech) - mech.heading) >> 6, speed, 0) with speed = mech+0x252 or 0xaa when that is zero, and a Turbo Pod sprint at 0x100 past 30000 units that only a standing squad order can reach. Returns whether the GROUND-PLANE range is under 10000 -- arrival, and the only thing that advances a route cursor.",
+      "source": "docs/simulation/ai-navigation.md"
+    },
+    {
+      "address": "0041fb60",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Ai_FollowRoute",
+      "description": "Drives at the waypoint AFTER the group's route cursor, advancing the cursor through Route_AdvanceCursor when Ai_DriveToPoint reports arrival, and standing still with the throttle at zero when the route has run out. The sole writer of group+0x04 outside DBSim_BuildGroupRecord.",
+      "source": "docs/simulation/ai-navigation.md"
+    },
+    {
+      "address": "0041fbb8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Ai_KeepFormation",
+      "description": "Holds this machine's formation slot on the group leader: the post is the leader's position through Mech_ApplyFormationOffset, so the formation rotates with the leader. Four arms by range and by whether the leader is moving -- match the leader's heading when parked inside 2000, fly formation on a lateral/longitudinal error taken in the leader's frame (Math_TransposeRotation2D on the leader's Q14 matrix), back out at full reverse when facing more than 45 degrees off, or close the gap.",
+      "source": "docs/simulation/ai-navigation.md"
+    },
+    {
+      "address": "0041d598",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Ai_NavigationStep",
+      "description": "The movement half the patrol, search-and-destroy and guard thinks share: Ai_DriveToPoint at mech+0x240 under a standing squad order, Ai_FollowRoute for the group leader, Ai_KeepFormation for everyone else -- so ONLY THE LEADER READS THE ROUTE. Then Ai_UpdateWeaponsFree and Mech_CenterTorsoTick.",
+      "source": "docs/simulation/ai-navigation.md"
+    },
+    {
+      "address": "0041d5fc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Ai_NavigationStepThunk",
+      "description": "A bare tail call to Ai_NavigationStep. Named by no behaviour descriptor.",
+      "source": "docs/simulation/ai-navigation.md"
+    },
+    {
+      "address": "0041d7d0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_BehaviourPatrolThink",
+      "description": "Behaviour state 8, patrolling. Ai_NavigationStep, drop the target, then a gate that returns for any machine that is neither the group leader nor under a standing squad order -- so only the leader ever acquires. Past it, on the 10 s block-scratch timer at mech+0x5a: a machine out of action takes fleeing, otherwise it acquires (mask 1) only when the group order verb is 3 or the squad verb is 2, and hands the result to Mech_AiEnterCombat.",
+      "source": "docs/simulation/ai-navigation.md"
+    },
+    {
+      "address": "0041d60c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_BehaviourSearchDestroyThink",
+      "description": "Behaviour state 12, search/destroy. Mech_BehaviourPatrolThink's shape and the same leader gate, differing in that what it acquires must pass Group_IsOrderTarget -- the group fights only what its order names.",
+      "source": "docs/simulation/ai-navigation.md"
+    },
+    {
+      "address": "0041d9cc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_BehaviourTravelThink",
+      "description": "Behaviour states 9 and 11, travelling and bulldog travel. Calls Ai_FollowRoute DIRECTLY rather than through Ai_NavigationStep, so every member reads the route and every member can advance the shared cursor. Then drops the target and, on the mech+0x5a timer, acquires into mech+0x5f -- a turret look-at, never written to mech+0x1a4.",
+      "source": "docs/simulation/ai-navigation.md"
+    },
+    {
+      "address": "0041daac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_BehaviourFollowThink",
+      "description": "Behaviour state 10, following. Mech_BehaviourTravelThink with the route replaced by Group_OrderTargetObject's position and a 25000-unit stop. Touches no route cursor, while verb 6's completion test is a route test -- so a following order can only complete on a group whose route was empty to begin with.",
+      "source": "docs/simulation/ai-navigation.md"
+    },
+    {
+      "address": "0041e224",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_BehaviourGuardThink",
+      "description": "Behaviour state 15, guarding. A player squadmate with no standing order holds formation instead; everything else works a standoff ring on Mech_AiGoalPosition -- approach past 30000, hold facing OUTWARD (the -0x8000 in the steering term) between 10000 and 30000, walk away below 10000. Targets through Ai_SelectDefenceTarget, installing driving off en (16) or fleeing (18).",
+      "source": "docs/simulation/ai-navigation.md"
+    },
+    {
+      "address": "0041dc24",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Ai_LineOfSightBlocked",
+      "description": "Line of sight from this machine to its selected target, both endpoints lifted to their aim-node origins or by 500 units when there is no node: 0 clear, 1 blocked by a shape (Sim_RaycastShapes), 2 blocked by terrain as well. The trigger for the skirting state.",
+      "source": "docs/simulation/ai-navigation.md"
+    },
+    {
+      "address": "0041c3c8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Ai_UpdateWeaponsFree",
+      "description": "Copies mech+0xb2 into mech+0x96 for a machine in the player's squad and mech+0x97 -- the mission file's own per-mech flag -- for everyone else. The one write of the AI's weapons-free bit.",
+      "source": "docs/simulation/ai-navigation.md"
+    },
+    {
+      "address": "00404ca0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sim_RaycastShapes",
+      "description": "Swept probe between two world points against object shapes: builds the ray's frame with Math_EulerToward and BuildEulerRotationMatrixQ14, then Sim_RaycastShapeList. Writes the hit distance to param_1[0] and returns the hit flag in AX. param_5 is a side filter, -1 for any.",
+      "source": "docs/simulation/ai-navigation.md"
+    },
+    {
+      "address": "00404bc0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sim_RaycastShapeList",
+      "description": "Collects the objects Sim_RaycastShapes will test, then calls Sim_RaycastShapeVolume over them. The filter is the point: an object with no forward speed (a structure) always counts, and a machine counts ONLY when it is destroyed -- so the probe sees wrecks and buildings, never a live Herc.",
+      "source": "docs/simulation/ai-navigation.md"
+    },
+    {
+      "address": "004927c4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_GroundDistanceBetweenPoints",
+      "description": "Ground-plane distance between two int Vec3s: Vec2_Subtract then Vec2_Magnitude, returned in EAX, Z dropped entirely. EVERY navigation range in the AI is this, not the 3D Math_DistanceBetweenPoints -- a waypoint on a hilltop is as near as one at its foot.",
+      "source": "docs/simulation/ai-navigation.md"
+    },
+    {
+      "address": "004928f0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_OffsetPointByBearing",
+      "description": "Offsets an int Vec3's x and y by a distance along a BAM bearing, the bearing quarter-turned back because the sim's forward axis is model Y. The skirting state's circling step.",
+      "source": "docs/simulation/ai-navigation.md"
+    },
+    {
+      "address": "0047ddf8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_TransposeRotation2D",
+      "description": "Swaps the two off-diagonal shorts of a Q14 2D rotation matrix, which for a rotation is its inverse. Ai_KeepFormation uses it to take the delta from a formation post into the group leader's own frame.",
+      "source": "docs/simulation/ai-navigation.md"
+    },
+    {
+      "address": "0046fe40",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_FaceBlocksMovement",
+      "description": "Whether one terrain triangle stops a moving body, from the UPWARD COMPONENT OF ITS NORMAL ALONE: under 0x60e at the 0x800 normal scale -- about 41 degrees of slope -- is a wall and blocks, anything shallower does not. On the boundary value exactly it falls through to a dot product of the face normal against the segment direction, blocking under -8000000; that arm needs the normal to land on 0x60e to the unit and decides almost nothing. This is the whole of Terrain_RayWalk's mode 1, and the reason mode 1 exists: the AI's obstacle probes lie flat on the ground, and mode 0 would report a graze on every one of them.",
+      "source": "docs/simulation/ai-navigation.md"
+    },
+    {
+      "address": "0046fe84",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_FaceBlocksAt",
+      "description": "Terrain_FaceBlocksMovement applied at a world point: locate the cell, pick which of its two triangles the point falls in by the cell's own diagonal flag (+0x0f & 3, the same split the height query uses), and test that face. A point off the grid blocks.",
+      "source": "docs/simulation/ai-navigation.md"
+    },
+    {
+      "address": "0046ff74",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Terrain_EdgeFaceBlocks",
+      "description": "The mode-1 test for a step leaving a cell across a named edge (0=W/1=E/2=N/3=S): asks the triangle on this side of the edge first and the neighbouring cell's second. Returns 0 clear, 2 when this cell's own face stops the segment (the hit is the step's near end), 1 when the neighbour's does or either cell is off the grid (the hit is the far end). Which triangle borders which edge depends on the diagonal, so the north and south arms consult it and the east and west arms do not.",
+      "source": "docs/simulation/ai-navigation.md"
     }
   ]
 }

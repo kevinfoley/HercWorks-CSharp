@@ -356,6 +356,7 @@ public static class MissionLoader {
 
 			var group = claim.Group;
 			var record = script.SpawnRecords[slot];
+			var offset = mechFormations.OffsetFor(group.FormationId, claim.MemberIndex);
 			var position = Coordinate(script, record.PositionRef)
 				?? OffsetFromGroup(group, mechFormations, claim.MemberIndex);
 
@@ -370,7 +371,10 @@ public static class MissionLoader {
 				record.WeaponRefs,
 				record.WeaponSecondary,
 				AwaitingDeployment: group.AwaitsDeployment,
-				Side: group.Side));
+				Side: group.Side,
+				AiCruiseSpeed: record.AiCruiseSpeed,
+				AiWeaponsFree: record.AiWeaponsFree != 0,
+				FormationOffset: offset is { } o ? (o.X, o.Y) : null));
 		}
 
 		var flyerClaims = claims[MissionUnitKind.Flyer];

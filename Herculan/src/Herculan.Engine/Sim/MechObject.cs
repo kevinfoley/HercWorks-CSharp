@@ -32,6 +32,13 @@ public sealed partial class MechObject : SimObject {
 	/// </summary>
 	private const int CollisionBackoffTime = 10000;
 
+	/// <summary>
+	/// The side a collision commits an AI machine to while it clears, biasing
+	/// <see cref="ObstacleAvoidance"/> for the length of the back-off. Which sign it takes is a
+	/// coin flip, exactly as in the original.
+	/// </summary>
+	private const short CollisionBackoffSide = 5000;
+
 	private readonly int _hitRadius;
 	private readonly GunLayout? _hardpoints;
 	private readonly WeaponCatalog? _weapons;
@@ -488,10 +495,12 @@ public sealed partial class MechObject : SimObject {
 	/// <inheritdoc />
 	public override ShapeCellFrames? CellFrames => _damage?.CellFrames;
 
-	// Post-collision back-off, for AI machines: a countdown during which desired speed is pinned to
-	// one extreme so the machine walks itself clear of whatever it hit.
+	// Post-collision back-off, for AI machines: a countdown (mech+0x26e) during which desired speed
+	// is pinned to one extreme so the machine walks itself clear of whatever it hit, plus the side
+	// (mech+0x254) a coin flip committed it to, which biases the obstacle avoidance while it clears.
 	private int _backoffTimer;
 	private bool _backoffReverse;
+	private short _backoffSide;
 
 	// The player's slide down steep ground. DBSIM keeps these as three globals because only one
 	// mech is ever the player's; they are per-object here for the same reason SimWorld has no
@@ -531,6 +540,16 @@ public sealed partial class MechObject : SimObject {
 			// A flyer takes a different behaviour class entirely: no throttle law, no turret, and a
 			// move of its own. See MechObject.Flight.cs.
 			FlightTick(world, flight);
+			return;
+		}
+
+		if (UnderAiControl) {
+			// Mech_ApplyThrottleInput and the turret block are Sim_PollPlayerInput's, and it runs for
+			// LocalPlayerMech alone. A machine in a state whose think drives the control law itself
+			// reaches it from there instead — see MechObject.Navigation.cs — so running the input path
+			// for it here would bleed the throttle back to zero underneath every decision the think
+			// just made. Everything else keeps the pilot path, which is what Controls is for.
+			MovementTick(world);
 			return;
 		}
 
@@ -753,6 +772,7 @@ public sealed partial class MechObject : SimObject {
 
 		if (!IsPlayer) {
 			_backoffTimer = CollisionBackoffTime;
+			_backoffSide = (world.Random.NextMasked(1) == 0) ? CollisionBackoffSide : (short)-CollisionBackoffSide;
 			_backoffReverse = Speed > 0;
 		}
 

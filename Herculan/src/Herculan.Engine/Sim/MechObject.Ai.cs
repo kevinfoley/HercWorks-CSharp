@@ -29,11 +29,15 @@ public partial class MechObject {
 	/// <c>Group_OrderTick</c>, so this runs from <see cref="MissionGroup.AiTick"/> and a machine that
 	/// is not a live group member never thinks.
 	///
-	/// <para>The original's order is reassess, then the dwell countdown, then move, then think. The
-	/// two it ends with are not ported and cannot be: the move slot is <c>Mech_MovementTick</c>, which
-	/// <see cref="Tick"/> already runs for every machine, and the think functions belong to the AI
-	/// slices that are not reverse-engineered yet. What is left is the half that decides <i>which
-	/// state a machine is in</i>, which is this slice's subject.</para>
+	/// <para>The original's order is reassess, then the dwell countdown, then move, then think.
+	/// <see cref="Tick"/> runs the move slot for every machine, and it runs from the object pass that
+	/// precedes this one, so the machine is still integrated on the <i>previous</i> think's decisions
+	/// — the original's ordering, arrived at from the other side. Only the states whose think is
+	/// ported dispatch one; see <see cref="ThinkSlot"/>.</para>
+	///
+	/// <para>A think returning nonzero zeroes its own dwell countdown, which is a state saying it has
+	/// finished. None of the navigation thinks ever does — a movement order ends through
+	/// <see cref="MissionGroup.AiTick"/>, not through its think.</para>
 	/// </summary>
 	public void AiTick(SimWorld world) {
 		if (Behaviour.State is not { } state) {
@@ -56,6 +60,19 @@ public partial class MechObject {
 		// they end on their own terms instead.
 		if (Behaviour.State is { SuppressesDwell: false }) {
 			SimMath.TimerCountDown(ref Behaviour.DwellCountdown);
+		}
+
+		bool finished = Behaviour.State?.Think switch {
+			ThinkSlot.Patrol => PatrolThink(world),
+			ThinkSlot.SearchDestroy => SearchDestroyThink(world),
+			ThinkSlot.Travel => TravelThink(world),
+			ThinkSlot.Follow => FollowThink(world),
+			ThinkSlot.Guard => GuardThink(world),
+			_ => false
+		};
+
+		if (finished) {
+			Behaviour.DwellCountdown = 0;
 		}
 
 		Behaviour.TickCount++;

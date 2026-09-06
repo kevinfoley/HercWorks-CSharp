@@ -131,7 +131,7 @@ Nothing reaches it in retail. Across all twelve shipped `script.dat` handoffs ev
 What differs from the original, and why:
 
 - **A null order slot leaves the machine's state unchanged** rather than installing a null descriptor. The original's behaviour there is a crash, not a decision.
-- **Order completion for the three movement verbs can only fire on a route of one waypoint or none.** The route cursor never advances, because nothing follows a route yet — that is [`ai-navigation.md`](ai-navigation.md)'s slice.
+- **Only `patrolling` and `travelling` can finish a movement order.** The route cursor is advanced by `Ai_FollowRoute` alone, and `following` never calls it — see [`ai-navigation.md`](ai-navigation.md), which is the original's own behaviour rather than a gap here.
 - **The action path never fires**, because no mission action does; see [`mission-deployment.md`](mission-deployment.md).
 
 ## Open questions

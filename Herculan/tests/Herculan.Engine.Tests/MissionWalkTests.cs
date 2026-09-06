@@ -2,6 +2,7 @@ using Herculan.Engine.Content;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Scene;
 using Herculan.Engine.Sim;
+using Herculan.Engine.Sim.Ai;
 using Herculan.Engine.World;
 using Xunit;
 
@@ -46,28 +47,55 @@ public class MissionWalkTests {
 			+ mech.Type.RideHeight, mech.Position.Z);
 	}
 
+	/// <summary>
+	/// A machine with no pilot is driven by its behaviour state's think, and only the states the
+	/// navigation slice ports drive anything — so a mission's AI machines split in two. One under a
+	/// movement or guard order walks; one in a state whose think is unported stands where the mission
+	/// put it, because nothing calls the control law for it at all.
+	/// </summary>
 	[Fact]
-	public void OtherMachinesStayPutWithNoPilot() {
+	public void UnpilotedMachinesMoveOnlyUnderAThinkThatDrivesThem() {
 		if (Load() is not { } scene) {
 			return;
 		}
 
 		var others = scene.Objects
-			.Where(o => o.Object is MechObject mech && !mech.IsPlayer)
-			.Select(o => (Object: (MechObject)o.Object, Start: o.Object.Position))
+			.Select(o => o.Object)
+			.OfType<MechObject>()
+			.Where(mech => !mech.IsPlayer && mech.Thread != null)
+			.Select(mech => (Mech: mech, Start: mech.Position))
 			.ToList();
 
 		if (others.Count == 0) {
 			return;
 		}
 
+		// Sampled per tick rather than up front: every machine starts in `deciding`, whose think is
+		// none, and takes its real state from the reassess on the tick after.
+		var driven = new HashSet<MechObject>();
+
 		for (int i = 0; i < 100; i++) {
 			scene.World.Tick();
+
+			foreach (var (mech, _) in others) {
+				if (mech.Behaviour.State is { Think: not ThinkSlot.None }) {
+					driven.Add(mech);
+				}
+			}
 		}
 
-		foreach (var (mech, position) in others) {
-			Assert.Equal(position.X, mech.Position.X);
-			Assert.Equal(position.Y, mech.Position.Y);
+		foreach (var (mech, start) in others.Where(o => !driven.Contains(o.Mech))) {
+			Assert.Equal(start.X, mech.Position.X);
+			Assert.Equal(start.Y, mech.Position.Y);
+		}
+
+		// Not every driven machine has anywhere to be — a guard already on its post and a follower
+		// already on station both hold still on purpose — so this asks that the group order layer
+		// moved somebody rather than that it moved everybody.
+		if (driven.Count != 0) {
+			Assert.Contains(others.Where(o => driven.Contains(o.Mech)),
+				o => SimMath.FastMagnitude2D(
+					o.Mech.Position.X - o.Start.X, o.Mech.Position.Y - o.Start.Y) > 0);
 		}
 	}
 

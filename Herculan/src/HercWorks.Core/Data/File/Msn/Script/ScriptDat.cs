@@ -185,6 +185,23 @@ public class ScriptActionPair {
 public class ScriptSpawnRecordExport {
 	public byte[] HeadBytes { get; set; } = new byte[40];
 
+	/// <summary>
+	/// Source offset 0x08, the first field of <see cref="HeadBytes"/> — the machine's AI
+	/// weapons-free flag. <c>DBSim_SpawnMissionObjects</c> copies it to <c>mech+0x97</c>, which is
+	/// what an AI machine's trigger is gated on. 0/1 in every retail record.
+	/// </summary>
+	public short AiWeaponsFree => ReadHead(0);
+
+	/// <summary>
+	/// Source offset 0x0a — the speed the machine's AI walks at, copied to <c>mech+0x252</c>. Zero,
+	/// which is 91% of retail records, means the AI's own default. See
+	/// <c>docs/simulation/ai-navigation.md</c>.
+	/// </summary>
+	public short AiCruiseSpeed => ReadHead(2);
+
+	private short ReadHead(int offset) =>
+		HeadBytes.Length >= offset + 2 ? BitConverter.ToInt16(HeadBytes, offset) : (short)0;
+
 	/// <summary>Source offset 0x30 — the mech type, an index into <c>nam\MECHS.NAM</c>'s name list.</summary>
 	public short SmallDiscrete { get; set; }
 

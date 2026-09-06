@@ -148,6 +148,36 @@ public sealed class SimWorld {
 	/// </summary>
 	public MechObject? PlayerMech { get; set; }
 
+	/// <summary>
+	/// <c>DAT_004a9c0c</c>, count <c>DAT_004a9d4c</c> — the player's <b>line of fire</b>: the points
+	/// <see cref="MechObject.FireTick"/> stamps along his turret bearing on a shot. A global in the
+	/// original because only one machine is ever the player's.
+	///
+	/// <para><b>Nothing draws it.</b> Its one reader is <see cref="MechObject.ObstacleAvoidance"/>,
+	/// which steers a machine in the player's own squad out of the way — so the list exists only
+	/// while the trigger is actually producing shots.</para>
+	/// </summary>
+	public IReadOnlyList<Vec3i> PlayerFiringLine => _playerFiringLine;
+
+	/// <summary>Lays the line out from the player's position along a per-point step.</summary>
+	internal void SetPlayerFiringLine(Vec3i from, int stepX, int stepY, int count) {
+		_playerFiringLine.Clear();
+
+		int x = from.X;
+		int y = from.Y;
+
+		for (int i = 0; i < count; i++) {
+			x += stepX;
+			y += stepY;
+			_playerFiringLine.Add(new Vec3i(x, y, from.Z));
+		}
+	}
+
+	/// <summary>Drops the line, which the original does by zeroing its count on a tick with no shot.</summary>
+	internal void ClearPlayerFiringLine() => _playerFiringLine.Clear();
+
+	private readonly List<Vec3i> _playerFiringLine = new();
+
 	/// <summary>Registers a group with the world so its members' AI ticks.</summary>
 	public void AddGroup(MissionGroup group) => _groups.Add(group);
 

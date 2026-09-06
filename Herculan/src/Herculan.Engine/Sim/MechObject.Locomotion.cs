@@ -152,6 +152,14 @@ public sealed partial class MechObject {
 			desired = _backoffReverse ? type.MaxReverse : type.MaxForward;
 		}
 
+		if (UnderAiControl) {
+			// Mech_AiObstacleAvoidance amends the steer and the speed the caller settled on, in place.
+			// The original's own gate is "not the player's machine", which there is the same set as
+			// "driven by a think function" because only the player has a pilot. Here Controls can fly
+			// any machine, and a machine somebody is flying should not have its stick taken off it.
+			ObstacleAvoidance(world, ref turn, ref desired);
+		}
+
 		short previousSpeed = Speed;
 
 		turn = turn >= MechControls.AxisFull ? MechControls.AxisFull

@@ -612,6 +612,15 @@ public sealed class MissionScene {
 		simObject.AwaitingDeployment = placement.AwaitingDeployment;
 		simObject.Side = placement.Side;
 
+		if (simObject is MechObject machine) {
+			// The three per-machine AI settings DBSim_SpawnMissionObjects copies out of the block-7
+			// record. The formation offset is the one the spread already used; a follower needs it
+			// again every tick it holds station on its leader.
+			machine.CruiseSpeed = placement.AiCruiseSpeed;
+			machine.WeaponsFreeOrder = placement.AiWeaponsFree;
+			machine.FormationOffset = placement.FormationOffset;
+		}
+
 		// The original's hover-height substitution, applied at spawn because that is where it
 		// happens in FUN_00421ee8 — see FlyerObject.DefaultHoverHeight.
 		if (simObject is FlyerObject && placement.Position.Z == 0) {

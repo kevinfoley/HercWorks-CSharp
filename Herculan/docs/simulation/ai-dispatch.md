@@ -146,7 +146,7 @@ if (mech+0x4d has a descriptor) {
 Three things worth taking from the order:
 
 - **Reassess runs before move and think**, so a state change takes effect on the same tick it is decided.
-- **Move runs before think.** The machine is integrated on its old think's decisions, not the new ones.
+- **Move runs before think.** The machine is integrated on its old think's decisions, not the new ones. The think is where every steering decision is made — see [`ai-navigation.md`](ai-navigation.md).
 - **`mech+0xaf` suppresses think for exactly one tick** and clears itself. Whatever sets it gets a frame of movement with no new decisions.
 
 ## How the per-tick work reaches a state

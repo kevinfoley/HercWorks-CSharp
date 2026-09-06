@@ -26,11 +26,18 @@ Each slice is reverse-engineered to its topic doc, reviewed, then ported. The RE
 | 0 | **Dispatch** | `BehaviourStateTable` `004993a4`, `Mech_AiTick` `00411cec`, `Mech_AiSelectBehaviour` `0041eb34` | Doc written |
 | 1 | **Targeting** | `Ai_SelectTarget` `00411fa0`, `Mech_AiOnTakingFire` `0041f7b8`, `Mech_AiCombatReassess` `0041cf18`, `Ai_ShouldAbandonTarget` `0041c4a8` | Doc written; ported |
 | 2 | **Goals** | `Group_OrderTick` `00423a74`, the order array at `group+0x44` indexed by `group+0x6c` | `ai-goals.md` written; ported. Moved ahead of plan — see below |
-| 3 | **Navigation** | `Mech_AiObstacleAvoidance` `00416274`, the travel and patrol think functions (`0041d7d0`, `0041d9cc`, `0041daac`, `0041d60c`) | Not started |
+| 3 | **Navigation** | `Mech_AiObstacleAvoidance` `00416274`, the travel and patrol think functions (`0041d7d0`, `0041d9cc`, `0041daac`, `0041d60c`) | `ai-navigation.md` written; ported. Also took `guarding`'s think and `Terrain_RayWalk`'s mode 1 — see below |
 | 4 | **Weapons** | The `mech+0xb5` selection-suppression flag; the fire path in each combat think function | Not started |
 | 5 | **Behaviour states** | The remaining think functions — `flanking`, `facing off`, `skirting`, `guarding`, `driving off en`, `fleeing` — and the 30 `Behaviour_SetState` call sites as the transition graph | Not started |
 | 6 | **Squadmates** | `mech+0x23e` standing orders, `FUN_0041c0f4`, `Mech_ApplyFormationOffset` `00417898` | Not started |
 | 7 | **Flyer AI** | The flyer behaviour path; no retail mission places an AI RAZOR, so verification is synthetic | Not started |
+
+### What slice 3 pulled in
+
+Two things outside the AI turned out to be load-bearing for it.
+
+- **`Terrain_RayWalk`'s mode 1.** The obstacle probes lie flat on the ground, so the thin-ray query grazes on every tick of rolling terrain and pins the steer hard over. Mode 1 is a slope test instead — `Terrain_FaceBlocksMovement` (`0046fe40`) — and the engine had only mode 0. Ported here.
+- **`Sim_RaycastShapes` (`00404ca0`).** A standing animated structure's collision radius is zero, so the proximity sweep cannot see one; without the shape half of the probe a machine walks into a building and stands there. The engine has no swept-shape cast, so it stops at the bounding radius.
 
 ### Why goals moved up
 
@@ -40,7 +47,9 @@ The original ordering had goals fifth. The dispatch pass found that `Mech_AiTick
 
 - **The group-report cluster** at `00412f90` and `00413280`, and the visibility helpers around them (`00412ef4`, `00412d90`, `00412f5c`, `00412f28`, `00413950`, `004137b4`, `00413a08`, `00413920`, `00412d4c`). They read the same order records the AI does but produce string indices and write into a global variable table, so they read as the mission-objective and status-report layer. Not an `ai-*.md` subject; they want a doc of their own.
 - **Order `+0x02` and `+0x04`, and group `+0x1c`/`+0x30`** — resolved at load, no reader found. Listed as open questions in `ai-goals.md`.
-- **`FUN_0041fb60` / `FUN_0041fbb8` / `FUN_0041fac4`** are the route-following core the movement verbs need, and the only thing that advances the group's route cursor. They are slice 3's entry points, and until they exist a travel order can never finish.
+- **`Ai_LineOfSightBlocked` (`0041dc24`)** is decoded and is what triggers `skirting`. `FUN_0041dbfc` (the circling step's own bookkeeping) and the `skirting` think itself are slice 5's.
+- **`Ai_UpdateWeaponsFree` (`0041c3c8`)** settles `mech+0x96` from `mech+0x97` or, in the player's squad, `mech+0xb2`. Every navigation state calls it and nothing reads the result. That is slice 4's first thread to pull.
+- **`FUN_0041ea7c`** is the turret-aim-and-fire tail every combat state shares, and the two travel states call it too. Slice 4/5.
 
 ## Working method
 

@@ -68,6 +68,15 @@ public enum MissionSide {
 /// rather than per group because that is the form everything downstream wants: the simulation reads
 /// it off the object, not off a group record it does not have.
 /// </param>
+/// <param name="AiCruiseSpeed">
+/// Block 7 <c>+0x02</c> — the speed this machine's AI walks at, or 0 for the AI's own default.
+/// </param>
+/// <param name="AiWeaponsFree">Block 7 <c>+0x00</c> — whether this machine's AI may shoot.</param>
+/// <param name="FormationOffset">
+/// This member's unrotated spread offset out of <c>MFORMS.DAT</c>, or null for the group's slot 0
+/// and for a formation that names none. Resolved here because it is wanted twice: once to place the
+/// machine, and again every tick a follower holds formation on its leader.
+/// </param>
 public sealed record MissionPlacement(
 	MissionUnitKind Kind,
 	int TypeIndex,
@@ -80,7 +89,10 @@ public sealed record MissionPlacement(
 	IReadOnlyList<short> WeaponSecondary,
 	bool IsPlayerLance = false,
 	bool AwaitingDeployment = false,
-	MissionSide Side = MissionSide.Human);
+	MissionSide Side = MissionSide.Human,
+	short AiCruiseSpeed = 0,
+	bool AiWeaponsFree = false,
+	(int X, int Y)? FormationOffset = null);
 
 /// <summary>
 /// One patch of ground a base group paints with its formation's own material — the concrete pad a

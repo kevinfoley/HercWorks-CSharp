@@ -142,11 +142,17 @@ public static class MissionLoader {
 			coordinates.Add(new Vec3i(point.X, point.Y, point.Z));
 		}
 
-		var playerRoute = script.Entities164.Length > PlayerGroupIndex
-			? Route(script, script.Entities164[PlayerGroupIndex])
+		var playerRoute = groups.Length > PlayerGroupIndex
+			? Route(groups[PlayerGroupIndex].Orders)
 			: Array.Empty<Vec3i>();
 
-		return new Mission(scriptPath, header, placements, player, basePads, coordinates, playerRoute);
+		var groupOrders = new IReadOnlyList<MissionOrder?>[groups.Length];
+		for (int i = 0; i < groups.Length; i++) {
+			groupOrders[i] = groups[i].Orders;
+		}
+
+		return new Mission(scriptPath, header, placements, player, basePads, coordinates, playerRoute,
+			groupOrders);
 	}
 
 	/// <summary>
@@ -209,8 +215,15 @@ public static class MissionLoader {
 	/// the anchor move applied below, and the repaint of the same tile — see
 	/// <see cref="MissionBasePad"/> and <see cref="BaseFormationLayout"/>.
 	/// </param>
+	/// <param name="Orders">
+	/// The record's ten row-15 links resolved into order records, nulls kept in the slots it left
+	/// unset — <c>DBSim_BuildGroupRecord</c> (<c>00423b34</c>) copies the array position for position
+	/// into <c>group+0x44</c>, and <c>Group_OrderTick</c> reads it by index. See
+	/// docs/simulation/ai-goals.md.
+	/// </param>
 	private readonly record struct Group(int Index, MissionUnitKind Kind, Vec3i Position, int Heading,
-		int FormationId, bool AwaitsDeployment, MissionSide Side, bool PaintsGround);
+		int FormationId, bool AwaitsDeployment, MissionSide Side, bool PaintsGround,
+		MissionOrder?[] Orders);
 
 	/// <summary>
 	/// A roster slot's claim: which group activated it, and the slot's index within that group's
@@ -225,7 +238,8 @@ public static class MissionLoader {
 
 		for (int i = 0; i < groups.Length; i++) {
 			var record = script.Entities164[i];
-			var route = Route(script, record);
+			var orders = Orders(script, record);
+			var route = Route(orders);
 			var kind = KindOf(record.Discriminator);
 
 			var position = Coordinate(script, record.RefRow6)
@@ -252,7 +266,8 @@ public static class MissionLoader {
 				record.TriStateFlag == (short)MissionSide.Cybrid
 					? MissionSide.Cybrid
 					: MissionSide.Human,
-				record.BinaryFlag != 0);
+				record.BinaryFlag != 0,
+				orders);
 		}
 
 		return groups;
@@ -533,40 +548,56 @@ public static class MissionLoader {
 			: null;
 
 	/// <summary>
-	/// A group's route, as block-1 coordinates: its first row-15 link resolves to a waypoint group,
-	/// whose entries are coordinate refs. A group with no point of its own stands on the route's
-	/// first waypoint and faces along its first leg (see <see cref="RouteBearing"/>), which is how
-	/// every patrolling group and the player's own squad are placed in the retail missions.
-	///
-	/// <para>DBSIM reads the resolved pointer for row-15 <i>slot 0</i> only — both the position
-	/// fallback in <c>Mech_AttachToGroup</c> (<c>00417aa8</c>) and the heading fallback in
-	/// <c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>) go through the same
-	/// <c>groupRecord+0x44</c> entry. The remaining slots are scanned here only because a
-	/// hand-edited mission could leave slot 0 dangling where the original would fault; in retail
-	/// data slot 0 is the only populated one.</para>
+	/// A block-11 record's ten row-15 links, resolved into the order records DBSIM builds from the
+	/// same data — see <see cref="MissionOrder"/>. Slots the record left unset stay null, because
+	/// <c>Group_OrderTick</c> (<c>00423a74</c>) advances only while the <i>next</i> slot holds
+	/// something, so a gap stops a group where it stands.
 	/// </summary>
-	private static IReadOnlyList<Vec3i> Route(ScriptDat script, ScriptEntity164Export record) {
-		for (int i = 0; i < GroupRouteSlots && i < record.Row15Refs.Length; i++) {
+	private static MissionOrder?[] Orders(ScriptDat script, ScriptEntity164Export record) {
+		var orders = new MissionOrder?[MissionOrder.Slots];
+
+		for (int i = 0; i < orders.Length && i < record.Row15Refs.Length; i++) {
 			short linkRef = record.Row15Refs[i];
 			if (linkRef < 0 || linkRef >= script.LinkedRefs22.Length) {
 				continue;
 			}
 
-			short groupRef = script.LinkedRefs22[linkRef].RefRow8;
-			if (groupRef < 0 || groupRef >= script.WaypointGroups.Length) {
-				continue;
-			}
+			var link = script.LinkedRefs22[linkRef];
+			var kind = (MissionOrderSubject)link.DiscriminatorType;
 
-			var waypoints = script.WaypointGroups[groupRef].Waypoints
-				.Select(reference => Coordinate(script, reference))
-				.OfType<Vec3i>()
-				.ToArray();
-
-			if (waypoints.Length > 0) {
-				return waypoints;
-			}
+			orders[i] = new MissionOrder(
+				link.SmallInt1,
+				Enum.IsDefined(kind) ? kind : MissionOrderSubject.None,
+				link.DiscriminatedRef,
+				Waypoints(script, link.RefRow8),
+				link.RefRow10 >= 0);
 		}
 
-		return Array.Empty<Vec3i>();
+		return orders;
 	}
+
+	/// <summary>One block-3 waypoint group, resolved to block-1 coordinates.</summary>
+	private static IReadOnlyList<Vec3i> Waypoints(ScriptDat script, short waypointGroupRef) {
+		if (waypointGroupRef < 0 || waypointGroupRef >= script.WaypointGroups.Length) {
+			return Array.Empty<Vec3i>();
+		}
+
+		return script.WaypointGroups[waypointGroupRef].Waypoints
+			.Select(reference => Coordinate(script, reference))
+			.OfType<Vec3i>()
+			.ToArray();
+	}
+
+	/// <summary>
+	/// The route a group walks, and the fallback for a group with no point of its own: it stands on
+	/// the route's first waypoint and faces along its first leg (see <see cref="RouteBearing"/>),
+	/// which is how every patrolling group and the player's own squad are placed.
+	///
+	/// <para><b>Slot 0's route, and only slot 0's.</b> <c>DBSim_BuildGroupRecord</c>
+	/// (<c>00423b34</c>) loads the group's route cursor from the first order and nothing re-points
+	/// it, so a group that advances to a later order keeps walking this one — see
+	/// docs/simulation/ai-goals.md.</para>
+	/// </summary>
+	private static IReadOnlyList<Vec3i> Route(MissionOrder?[] orders) =>
+		orders[0]?.Route ?? Array.Empty<Vec3i>();
 }

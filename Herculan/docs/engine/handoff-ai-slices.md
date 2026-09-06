@@ -24,8 +24,8 @@ Each slice is reverse-engineered to its topic doc, reviewed, then ported. The RE
 | # | Slice | Entry points | Status |
 |---|---|---|---|
 | 0 | **Dispatch** | `BehaviourStateTable` `004993a4`, `Mech_AiTick` `00411cec`, `Mech_AiSelectBehaviour` `0041eb34` | Doc written |
-| 1 | **Targeting** | `Ai_SelectTarget` `00411fa0`, `Mech_AiOnTakingFire` `0041f7b8`, `Mech_AiCombatReassess` `0041cf18`, `Ai_ShouldAbandonTarget` `0041c4a8` | Doc written; ported. `MissionGroup.cs` stands up the group record the AI ticks from, with the order array stubbed as null |
-| 2 | **Goals** | `Group_OrderTick` `00423a74`, the order array at `group+0x44` indexed by `group+0x6c` | Started ahead of plan — see below |
+| 1 | **Targeting** | `Ai_SelectTarget` `00411fa0`, `Mech_AiOnTakingFire` `0041f7b8`, `Mech_AiCombatReassess` `0041cf18`, `Ai_ShouldAbandonTarget` `0041c4a8` | Doc written; ported |
+| 2 | **Goals** | `Group_OrderTick` `00423a74`, the order array at `group+0x44` indexed by `group+0x6c` | `ai-goals.md` written; ported. Moved ahead of plan — see below |
 | 3 | **Navigation** | `Mech_AiObstacleAvoidance` `00416274`, the travel and patrol think functions (`0041d7d0`, `0041d9cc`, `0041daac`, `0041d60c`) | Not started |
 | 4 | **Weapons** | The `mech+0xb5` selection-suppression flag; the fire path in each combat think function | Not started |
 | 5 | **Behaviour states** | The remaining think functions — `flanking`, `facing off`, `skirting`, `guarding`, `driving off en`, `fleeing` — and the 30 `Behaviour_SetState` call sites as the transition graph | Not started |
@@ -35,6 +35,12 @@ Each slice is reverse-engineered to its topic doc, reviewed, then ported. The RE
 ### Why goals moved up
 
 The original ordering had goals fifth. The dispatch pass found that `Mech_AiTick`'s only caller is `Group_OrderTick` — **a machine that is not a live member of a mission group never thinks** — which makes the group order layer structurally upstream of every other slice rather than a peer of them. Nothing else can be observed running in the engine until it exists, and the targeting port has already had to stand up `MissionGroup.cs` to get that far.
+
+## Leads left behind
+
+- **The group-report cluster** at `00412f90` and `00413280`, and the visibility helpers around them (`00412ef4`, `00412d90`, `00412f5c`, `00412f28`, `00413950`, `004137b4`, `00413a08`, `00413920`, `00412d4c`). They read the same order records the AI does but produce string indices and write into a global variable table, so they read as the mission-objective and status-report layer. Not an `ai-*.md` subject; they want a doc of their own.
+- **Order `+0x02` and `+0x04`, and group `+0x1c`/`+0x30`** — resolved at load, no reader found. Listed as open questions in `ai-goals.md`.
+- **`FUN_0041fb60` / `FUN_0041fbb8` / `FUN_0041fac4`** are the route-following core the movement verbs need, and the only thing that advances the group's route cursor. They are slice 3's entry points, and until they exist a travel order can never finish.
 
 ## Working method
 

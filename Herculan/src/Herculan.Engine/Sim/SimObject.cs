@@ -113,6 +113,15 @@ public abstract class SimObject {
 	public virtual bool Invulnerable => false;
 
 	/// <summary>
+	/// Object vtable <c>+0x40</c> — how far gone this object is, as a Q8 fraction: 0 pristine, 256
+	/// destroyed. Every shootable class implements it; the classes that cannot be shot answer 0.
+	///
+	/// <para>Two readers outside the class that owns the number: the AI's flee check, and the
+	/// mission-order layer's condition tier — see <see cref="MissionGroup"/>.</para>
+	/// </summary>
+	public virtual int OverallDamage => 0;
+
+	/// <summary>
 	/// <c>obj+0x95</c> — whether this object is currently showing on radar. Set by the detection
 	/// sweep when an active scanner on either side of a pair has line of sight to it, and cleared
 	/// wholesale each time its own contact list decays. Distinct from being a known contact

@@ -1,5 +1,6 @@
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Sim.Ai;
+using Herculan.Engine.World;
 
 namespace Herculan.Engine.Sim;
 
@@ -70,10 +71,11 @@ public partial class MechObject {
 	/// <item><b>A squad order</b> maps its verb onto <c>patrolling</c>, <c>guarding</c> or an engage.
 	/// Unported: squad orders are the squadmate slice, and <see cref="SquadOrderVerb"/> is always
 	/// zero.</item>
-	/// <item><b>A mission group order</b> maps verbs 0-6 onto seven states. Unported: the order array
-	/// is not read, so <see cref="MissionGroup.OrderVerb"/> answers <c>0x0b</c> — which is exactly
-	/// what the original substitutes for a null order entry, and it matches no case, so no descriptor
-	/// is installed and the machine keeps the state it already had.</item>
+	/// <item><b>A mission group order</b> maps verbs 0-6 onto seven states. A null order slot reads as
+	/// verb <c>0x0b</c> and matches no case, so no descriptor is installed and the machine keeps the
+	/// state it already had — <b>which is not what the original does</b>: there the descriptor to
+	/// install is a register nothing on that path wrote, and it is zero, so the original faults. See
+	/// docs/simulation/ai-goals.md, "A group with no order at all". No retail mission reaches it.</item>
 	/// </list>
 	///
 	/// <para><b>Every path ends by dropping the target</b>, which is the original's own behaviour and
@@ -82,6 +84,25 @@ public partial class MechObject {
 	private void SelectBehaviour(SimWorld world) {
 		if (IsPlayer) {
 			Behaviour.SetState(Type.IsFlyer ? BehaviourState.PlayerFly : BehaviourState.Player);
+			Target = null;
+			return;
+		}
+
+		var state = (Group?.OrderVerb ?? MissionGroup.NoOrder) switch {
+			MissionOrder.VerbSearchDestroy => BehaviourState.SearchDestroy,
+			MissionOrder.VerbRam => BehaviourState.Ramming,
+			MissionOrder.VerbGuard => BehaviourState.Guarding,
+			MissionOrder.VerbPatrol => BehaviourState.Patrolling,
+			MissionOrder.VerbSleep => BehaviourState.Sleeping,
+			MissionOrder.VerbTravel => Type.TravelsAsBulldog
+				? BehaviourState.BulldogTravel
+				: BehaviourState.Travelling,
+			MissionOrder.VerbFollow => BehaviourState.Following,
+			_ => null
+		};
+
+		if (state != null) {
+			Behaviour.SetState(state);
 		}
 
 		Target = null;
@@ -354,7 +375,8 @@ public partial class MechObject {
 		if (state.HoldsPlace) {
 			// Defend the post rather than chase the shooter.
 			var post = GoalPosition();
-			var defence = AiTargeting.SelectDefenceTarget(world, this, post);
+			var defence = AiTargeting.SelectDefenceTarget(world, this, post,
+				Group?.OrderTarget != null ? AiTargeting.DefenceRange : AiTargeting.OpenDefenceRange);
 			var chosen = defence ?? attacker;
 
 			Target = chosen;
@@ -411,11 +433,14 @@ public partial class MechObject {
 	}
 
 	/// <summary>
-	/// <c>Mech_AiGoalPosition</c> (<c>0041dbcc</c>) — the place this machine is working to. With squad
-	/// and group orders unported there is nothing to resolve but the machine's own position, which is
-	/// the post a guard is standing on anyway.
+	/// <c>Mech_AiGoalPosition</c> (<c>0041dbcc</c>) — the place this machine is working to: a squad
+	/// order's own target or point for verbs 3, 5 and 6, otherwise the mission group's current order
+	/// through <c>Group_OrderTargetPosition</c>. Squad orders are unported, so only the group half
+	/// resolves; a group with nothing to work to leaves the machine standing where it is, which is
+	/// the post a guard holds anyway.
 	/// </summary>
-	private Vec3i GoalPosition() => SquadOrderTarget?.Position ?? Position;
+	private Vec3i GoalPosition() =>
+		SquadOrderTarget?.Position ?? Group?.OrderTargetPosition ?? Position;
 
 	/// <summary>
 	/// <c>Mech_AiFriendlyFireComplaint</c> (<c>0041f790</c>) — squad message 8, on a 40 s cooldown.
@@ -520,9 +545,11 @@ public partial class MechObject {
 
 	/// <summary>
 	/// Mech vtable <c>+0x40</c> (<c>Mech_GetOverallDamage</c>, <c>00415504</c>) — the machine's
-	/// overall damage figure, which is where <see cref="FleeCheck"/> starts from.
+	/// overall damage figure, which is where <see cref="FleeCheck"/> starts from. The slot is one
+	/// instruction: <c>FUN_0040db2c(mech + 0x206)</c>, the whole-machine aggregate rather than any
+	/// one component's.
 	/// </summary>
-	public int OverallDamage => Damage?.DamagePercent(0) ?? 0;
+	public override int OverallDamage => Damage?.OverallDamage ?? 0;
 
 	/// <summary>
 	/// <c>mech+0x2a2</c> — the component slot this machine is working at, or

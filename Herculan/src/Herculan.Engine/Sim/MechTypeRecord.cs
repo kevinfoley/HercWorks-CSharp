@@ -320,6 +320,19 @@ public sealed class MechTypeRecord {
 	/// </summary>
 	public short TorsoTwistLimit => Data.TorsoTwistDegreeMax;
 
+	/// <summary>
+	/// Whether <c>Mech_AiSelectBehaviour</c> (<c>0041eb34</c>) gives this chassis <c>bulldog
+	/// travel</c> instead of <c>travelling</c> under order verb 5: it tests
+	/// <see cref="TorsoTwistLimit"/> against <c>0x7d00</c>, so the split is between a machine whose
+	/// turret barely turns and one that can bring its guns round while it walks.
+	///
+	/// <para><b>No shipped chassis passes it.</b> The limit is 14000 across the whole fleet against a
+	/// bar of 32000, so <c>bulldog travel</c> — and the one thing that distinguishes it, its
+	/// committed-to-a-fight flag — is dead in retail, the same way <c>flanking</c> is. See
+	/// KNOWN_ISSUES.md.</para>
+	/// </summary>
+	public bool TravelsAsBulldog => TorsoTwistLimit > 0x7d00;
+
 	/// <summary>Record field 34 — the torso-pitch sequence; see <see cref="TorsoTwistSequence"/>.</summary>
 	public short TorsoPitchSequence => Data.AnimId_TorsoPitch;
 

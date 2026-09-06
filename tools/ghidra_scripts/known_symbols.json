@@ -9493,6 +9493,105 @@
       "name": "Behaviour_BuildStateTable",
       "description": "The unmarked static initialiser that builds all 22 behaviour state descriptors at 004993a4 from the slot blocks at 004998f8: name, dwell time, the 16-bit flag mask expanded through Behaviour_ExpandFlagBits, the three member-function triples and the +0x3c short. Ghidra's analysis does not recognise it as a function; create one at this address to read it.",
       "source": "docs/simulation/ai-dispatch.md"
+    },
+    {
+      "address": "004239fc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Group_IsOrderComplete",
+      "description": "Whether a mission group's current order is finished, switched on the order's verb (order+0x00). Verb 0: the order subject's condition tier is 4 (destroyed). Verb 2: the order names a subject and either its tier is 4 or Group_NoRivalOrderOnSubject reports nothing hostile still assigned to it. Verbs 3, 5 and 6: the group's route cursor has no waypoint after the current index. Verbs 1 and 4 never complete and can only be ended by the order's action firing.",
+      "source": "docs/simulation/ai-goals.md"
+    },
+    {
+      "address": "0042313c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Route_AdvanceCursor",
+      "description": "Steps a group's route cursor -- the {short index; waypoint-group ptr} pair at group+0x04 -- by one, and wraps the index back to zero when the route closes on itself (more than one waypoint, the new index is the last, and the last waypoint's point pointer is the same object as the first's). A closed route is a patrol that never ends.",
+      "source": "docs/simulation/ai-goals.md"
+    },
+    {
+      "address": "00423b0c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Route_WaypointAt",
+      "description": "Reads one waypoint out of a route cursor: null when the cursor has no waypoint group or the index is past its count, otherwise the resolved block-1 point at that index. Every 'is there a waypoint after this one' test in the AI is a call to this with index+1.",
+      "source": "docs/simulation/ai-goals.md"
+    },
+    {
+      "address": "00412dc4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Group_OrderSubjectCondition",
+      "description": "The 0-4 condition tier of the subject a group's current order names. For an order naming an object (order+0x0c in 1..3): 4 when destroyed (+0x99) or collapsed (+0xb4), otherwise the object's vtable +0x40 overall damage banded at 0x32/0x80/0xc0. For an order naming a group (order+0x0c == 0): Group_ConditionTier over its members.",
+      "source": "docs/simulation/ai-goals.md"
+    },
+    {
+      "address": "00412e58",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Group_OrderSubjectDestroyed",
+      "description": "Whether Group_OrderSubjectCondition reports tier 4 for the group's current order subject. The completion test for order verb 0 and half of the test for verb 2.",
+      "source": "docs/simulation/ai-goals.md"
+    },
+    {
+      "address": "00412c8c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Group_ConditionTier",
+      "description": "A mission group's 0-4 condition tier: 4 when every member is removed (+0xa4) or destroyed (+0x99); else 3 when the lost fraction reaches 650/1024 or the mean overall damage across all members reaches 0xc1; else 2 at 250/1024 or 0x81; else 1 at mean damage 0x33; else 0. The mean includes dead members.",
+      "source": "docs/simulation/ai-goals.md"
+    },
+    {
+      "address": "00412be4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Group_IsWipedOut",
+      "description": "Whether every member of a mission group is gone -- destroyed (+0xa5), removed (+0xa4) or neutralised (+0x99). Returns 0 as soon as one member is still standing.",
+      "source": "docs/simulation/ai-goals.md"
+    },
+    {
+      "address": "00412e74",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Group_NoRivalOrderOnSubject",
+      "description": "Whether no other mission group on the opposite side, still holding live members, has a current order naming the same subject pointer as this group's. The second half of order verb 2's (guarding) completion test.",
+      "source": "docs/simulation/ai-goals.md"
+    },
+    {
+      "address": "00412bbc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Group_OrderSubjectObject",
+      "description": "The object a group's current order names -- order+0x0e read as an object pointer. Valid when the order's kind discriminator (order+0x0c) is 1, 2 or 3.",
+      "source": "docs/simulation/ai-goals.md"
+    },
+    {
+      "address": "00412bd0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Group_OrderSubjectGroup",
+      "description": "The group record a group's current order names -- order+0x0e read as a group pointer. Valid when the order's kind discriminator (order+0x0c) is 0. Identical code to Group_OrderSubjectObject; the two exist as separately typed accessors.",
+      "source": "docs/simulation/ai-goals.md"
+    },
+    {
+      "address": "00425348",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_ResolveRefByKind",
+      "description": "Resolves a script.dat cross-reference to a runtime pointer given its kind discriminator: 0 = the mission group record at index*0x7a, 1/2/3 = the live mech/flyer/base object for that roster slot, via the slot-to-object maps at DAT_004aa812 / DAT_004aa90c / DAT_004aa9ca. Builds the order record's subject pointer at +0x0e.",
+      "source": "docs/simulation/ai-goals.md"
     }
   ]
 }

@@ -115,6 +115,9 @@ public sealed class BaseObject : SimObject {
 		}
 	}
 
+	/// <inheritdoc />
+	public override int OverallDamage => DamageFraction;
+
 	/// <summary>The Q8 value <see cref="DamageFraction"/> reaches when nothing is left standing.</summary>
 	public const int FullyDestroyed = 0x100;
 

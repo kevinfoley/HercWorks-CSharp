@@ -188,10 +188,10 @@ Three mutually exclusive paths, tested in this order.
 | 2 | `guarding` |
 | 3 | `patrolling` |
 | 4 | `sleeping` |
-| 5 | `travelling`, or `bulldog travel` when `typeRec+0x22 >= 0x7d01` |
+| 5 | `travelling`, or `bulldog travel` when the chassis' torso-twist limit (`typeRec+0x22`) is above `0x7d00`. It is 14000 across the whole fleet, so **`bulldog travel` is never installed** |
 | 6 | `following` |
 
-A null order entry substitutes verb `0x0b`, which matches no case. This is the mission-order → AI seam; the order data itself belongs to [`ai-goals.md`](ai-goals.md) and [`msn-mission-file.md`](../formats/msn-mission-file.md).
+A null order entry substitutes verb `0x0b`, which matches no case — and falls through to `Behaviour_SetState` with a **null descriptor**, since the function is `__cdecl(mech)` and the descriptor it installs lives in `EDX`. See [`ai-goals.md`](ai-goals.md#a-group-with-no-order-at-all), which owns the order data along with [`msn-mission-file.md`](../formats/msn-mission-file.md).
 
 Every path ends the same way: the machine's selected target (`mech+0x1a4`) is released, the refcount at `target+0x1a2` decremented, and `mech+0x9d` set — so **a state change always drops the target**. See [`target-selection.md`](target-selection.md).
 
@@ -241,7 +241,6 @@ The AI-relevant mech vtable slots, as entry points for the topic docs. Slots who
 
 - **What `+0x3c` selects.** No reader found. Its values group the roster in a way nothing else does: 0 for `deciding`, the combat states, `skirting`, `driving off en` and `ramming`; 3 for the rest of the live roster; 5, 6, 6, 7 for `fleeing`, `in limbo`, `dead` and `disabled`.
 - **Bits 6–15 of descriptor `+0x08`.** No state sets one, so nothing can read one.
-- **The default path in `Mech_AiSelectBehaviour`.** With verb `0x0b` no case runs and no descriptor is installed, which would leave the machine in whatever state it already held. Ghidra types the function `__fastcall (param_1, param_2, param_3)` and the recursive call passes three arguments, so the convention is not certain; read the raw disassembly before concluding anything about the fall-through.
 - **Verbs 3 and 5 of the squad-order path**, which install nothing.
 
 ## Rejected readings
@@ -249,5 +248,6 @@ The AI-relevant mech vtable slots, as entry points for the topic docs. Slots who
 | Reading | Why it is wrong |
 |---|---|
 | The `0x24`-stride table starts at `00499928` and holds `Mech_MovementTick` at `+0x18`, one entry per mech type | Off by one triple. Blocks start at `004998f8` and the move slot is `+0x0c`; `00499928` is block 1's move. A raw byte search really does find `0041a360` at 18 sites of stride `0x24`, but those are the 18 **states** that share the walk move, not 18 mech types |
+| `Mech_AiSelectBehaviour` is `__fastcall` and takes three arguments | Ghidra types it that way, and its own recursive call obliges by passing three. The prologue is `MOV EBX,[EBP+8]` and nothing else: it is `__cdecl(mech)`, and the second "parameter" is the `EDX` the fall-through installs |
 | `Mech_MovementTick` is dispatched from mech vtable `+0x18` | `+0x18` is the **think** dispatcher. The move is vtable `+0x14` (`00415afc`), reading descriptor `+0x24`. For most states the think function drives locomotion itself, which is why the move slot looks like the tick entry |
 | The think and move functions are dead code | Every one has zero xrefs because it is only ever reached as a pointer-to-member through `00415afc` / `00415b38` / `00415b74` |

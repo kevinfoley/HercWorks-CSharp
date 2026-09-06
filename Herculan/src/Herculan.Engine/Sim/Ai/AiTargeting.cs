@@ -235,8 +235,9 @@ public static class AiTargeting {
 	/// <param name="self">The defender.</param>
 	/// <param name="post">The place being held — see <c>Mech_AiGoalPosition</c>.</param>
 	/// <param name="limit">
-	/// <see cref="DefenceRange"/> normally; the original widens it to 980000 when the group's current
-	/// order names no object, which with the order layer unported is always the case.
+	/// <see cref="DefenceRange"/> normally; <see cref="OpenDefenceRange"/> when the group's current
+	/// order names no object, which is what makes a guard with nothing specific to protect look much
+	/// further afield for whatever is coming.
 	/// </param>
 	public static SimObject? SelectDefenceTarget(SimWorld world, SimObject self, Vec3i post,
 			int limit = OpenDefenceRange) {

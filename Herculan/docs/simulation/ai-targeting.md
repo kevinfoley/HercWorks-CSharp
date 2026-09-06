@@ -229,7 +229,7 @@ Fields settled elsewhere link out rather than being restated.
 
 **What runs.** The behaviour block and its dwell clock, `Mech_AiTick`'s reassess dispatch, the combat reassess entire — radar, keep-or-acquire, the leader sweep, the flee check, the state install and the aim pick — `Mech_AiOnTakingFire` from the raycast's `+0x50` site, both friendly-fire sites, and `Ai_SelectTarget` with all four weight tables and the combat rating behind them. A structure's two acquisition call sites are not wired: `BaseObject` has no AI yet.
 
-**What that adds up to in a mission.** An AI machine is constructed in `deciding` and, with the order layer unported, nothing installs a state for it — so **it enters combat only by being shot at**, and then acquires, lights its radar, picks a combat state and holds the target for the 50 s dwell. It does not move or fire on it: the move slot is the locomotion tick every machine already runs, and the think functions are the slices this one does not cover.
+**What that adds up to in a mission.** An AI machine is constructed in `deciding` and its group's current order resolves that into the state the order asks for — [`ai-goals.md`](ai-goals.md). It still **enters combat only by being shot at**, because every non-combat state's own way in is its think function, and those belong to the slices this one does not cover; once it is in, it acquires, lights its radar, picks a combat state and holds the target for the 50 s dwell. It does not move or fire on it: the move slot is the locomotion tick every machine already runs.
 
 Deviations, all of them things the original reads that this engine has no value for:
 
@@ -238,7 +238,7 @@ Deviations, all of them things the original reads that this engine has no value 
 - **`mech+0xb2`** and **`mech+0x26b`** likewise: an AI machine's radar goes active the moment it enters a fight, with nothing to hold it off.
 - **`mech+0xb4`**, collapsed, is never set — the death animation is not played out, so nothing latches it.
 - **The aim band's targeting-computer override is not applied.** It turns on a pod field (`+0x7f`) whose meaning is untested, the same doubt the ECM roll records, so the roll alone picks the band.
-- **Squad orders and group orders are unported**, so the two paths in `Mech_AiSelectBehaviour` that read them install nothing, `Ai_ShouldAbandonTarget`'s squad branch is unreachable, and nothing is ever designated.
+- **Squad orders are unported**, so `Mech_AiSelectBehaviour`'s second path installs nothing and `Ai_ShouldAbandonTarget`'s squad branch is unreachable. Group orders are ported; what a designated target is, and which machines have one, is [`ai-goals.md`](ai-goals.md).
 
 Two things are reproduced rather than corrected: the `rand & 1000` jitter in the rating comparison, and the aim pick reading its own component damage.
 

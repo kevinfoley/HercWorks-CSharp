@@ -103,7 +103,8 @@ public sealed record MissionBasePad(Vec3i Anchor, BaseFormationLayout Layout);
 public sealed class Mission {
 	public Mission(string sourcePath, ScriptDatHeader header, IReadOnlyList<MissionPlacement> placements,
 			MissionPlacement? player, IReadOnlyList<MissionBasePad> basePads,
-			IReadOnlyList<Vec3i> coordinates, IReadOnlyList<Vec3i> playerRoute) {
+			IReadOnlyList<Vec3i> coordinates, IReadOnlyList<Vec3i> playerRoute,
+			IReadOnlyList<IReadOnlyList<MissionOrder?>> groupOrders) {
 		SourcePath = sourcePath;
 		Header = header;
 		Placements = placements;
@@ -111,6 +112,7 @@ public sealed class Mission {
 		BasePads = basePads;
 		Coordinates = coordinates;
 		PlayerRoute = playerRoute;
+		GroupOrders = groupOrders;
 	}
 
 	/// <summary>Where the <c>script.dat</c> was read from.</summary>
@@ -145,6 +147,13 @@ public sealed class Mission {
 	/// its first nine legs past the start as numbered waypoint markers.
 	/// </summary>
 	public IReadOnlyList<Vec3i> PlayerRoute { get; }
+
+	/// <summary>
+	/// Every group's order list, indexed by block-11 record index and ten slots wide with the unset
+	/// ones left null — what the group works through, and where its AI machines get a state to be in.
+	/// See <see cref="MissionOrder"/> and <see cref="Herculan.Engine.Sim.MissionGroup"/>.
+	/// </summary>
+	public IReadOnlyList<IReadOnlyList<MissionOrder?>> GroupOrders { get; }
 
 	/// <summary>How many placed objects of one kind the mission has.</summary>
 	public int CountOf(MissionUnitKind kind) => Placements.Count(p => p.Kind == kind);

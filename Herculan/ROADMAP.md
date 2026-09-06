@@ -24,11 +24,6 @@ The mechanism is understood; what is left is engine work.
   and squad channel: squadmate and commander lines with their `.SNC` portrait lip-sync scripts are
   unported, so the comm box never speaks or animates and nothing posts to that channel.
   → [`docs/formats/audio.md`](docs/formats/audio.md)
-- **Group orders.** `Group_OrderTick` (`00423a74`) advances a group through its row-15 orders. The
-  layer is decoded; the engine builds the group records and runs the AI over their members, but
-  nothing reads the order array, so every group answers as one whose current order entry is null.
-  This is what leaves AI machines with no state to be in.
-  → [`docs/formats/script-dat.md`](docs/formats/script-dat.md)
 - **Combat gaps.** Hit detection, weapon-mount destruction and the explosive blast sweep are
   complete for all three shootable classes. Two of the sweep's three call sites are still unreachable
   because the functions that own them are unported: the drop pod's landing detonation (`Meteor_Tick`,
@@ -55,14 +50,17 @@ bindings are hardcoded placeholders.
 
 The engine cannot be faithful here until the original is understood.
 
-- **What each AI behaviour state does.** The dispatch spine and the targeting slice are decoded and
-  ported: a machine holds a state, reassesses out of it, acquires and abandons targets, and answers
-  incoming fire. What no state can yet do is *act* — the think functions that would walk it, aim it
-  and fire it are undecoded, and so are the mission-group and squad orders that would put it in a
-  state in the first place. So an AI machine still only enters combat by being shot at, and then
-  stands there holding its target.
+- **What each AI behaviour state does.** The dispatch spine, the targeting slice and the mission-group
+  order layer are decoded and ported: a machine is given a state by its group's current order, holds
+  it, reassesses out of it, acquires and abandons targets, and answers incoming fire. What no state
+  can yet do is *act* — the think functions that would walk it, aim it and fire it are undecoded. So
+  an AI machine still only enters combat by being shot at, and then stands there holding its target.
   → [`docs/simulation/ai-dispatch.md`](docs/simulation/ai-dispatch.md),
-  [`docs/simulation/ai-targeting.md`](docs/simulation/ai-targeting.md)
+  [`docs/simulation/ai-targeting.md`](docs/simulation/ai-targeting.md),
+  [`docs/simulation/ai-goals.md`](docs/simulation/ai-goals.md)
+- **Squad orders.** The standing orders the player gives their own squad (`mech+0x23e`), which
+  `Mech_AiSelectBehaviour`'s second path reads. Undecoded, so that path installs nothing.
+  → [`docs/simulation/ai-dispatch.md`](docs/simulation/ai-dispatch.md)
 - **SimRandom's 56-entry seed table isn't extracted** from DBSIM's data section. The algorithm is a
   literal port; the seeding is not, and a roll's result also depends on generator-advance count —
   treat as statistically faithful, not replay faithful.

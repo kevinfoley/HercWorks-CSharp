@@ -74,9 +74,10 @@ public class ScriptDat {
 	public ScriptMiscEntityExport[] MiscEntities { get; set; } = [];
 
 	/// <summary>
-	/// Block 10 — row #15 (<see cref="LinkedRef22"/>) export, 14 bytes/record: <b>route links</b>.
-	/// DBSIM's first pass discards these, but its spawn pass resolves them — a group with no spawn
-	/// point of its own reaches its route through here, and
+	/// Block 10 — row #15 (<see cref="LinkedRef22"/>) export, 14 bytes/record: <b>mission-group
+	/// orders</b>. DBSIM's first pass discards these, but its spawn pass resolves them — a group
+	/// works through the ones its block-11 record names, and a group with no spawn point of its own
+	/// also reaches its route through the first of them, where
 	/// <see cref="ScriptLinkedRef22Export.RefRow8"/> names the waypoint group whose first waypoint it
 	/// starts at. VSHELL's `ShellMap` reader keeps the block in full for the same "what's this linked
 	/// to" reason.
@@ -310,9 +311,10 @@ public class ScriptMiscEntityExport {
 
 /// <summary>
 /// Block 10 entry — 14 bytes, row #15 (<see cref="LinkedRef22"/>)'s 7 payload fields (0x08-0x14)
-/// verbatim. DBSIM's pass 1 reads and discards it; pass 2 resolves it into the group's route link —
-/// a group's route and spawn point come from its slot-0 link's <c>0x08</c>. See
-/// docs/formats/script-dat.md.
+/// verbatim: <b>one mission-group order</b>. DBSIM's pass 1 reads and discards it; pass 2 resolves
+/// it into a 22-byte runtime order record, and a group's route and spawn point come from its slot-0
+/// order's <c>0x08</c>. See docs/formats/script-dat.md and
+/// Herculan/docs/simulation/ai-goals.md.
 /// </summary>
 public class ScriptLinkedRef22Export {
 	public short SmallInt1 { get; set; }

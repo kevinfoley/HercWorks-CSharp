@@ -1,3 +1,4 @@
+using Herculan.Engine.Numerics;
 using Herculan.Engine.World;
 
 namespace Herculan.Engine.Sim;
@@ -10,26 +11,31 @@ namespace Herculan.Engine.Sim;
 /// <para><b>The group, not the object, is what the AI is driven from.</b>
 /// <c>Mech_AiTick</c>'s sole caller is <c>Group_OrderTick</c> (<c>00423a74</c>), which runs it over
 /// every member of a group that has entered the mission — so a machine that is not a live group
-/// member never thinks at all. See docs/simulation/ai-dispatch.md, "The AI tick".</para>
-///
-/// <para><b>The order array is not here.</b> The record also carries the group's row-15 orders at
-/// <c>group+0x44</c> and the current index at <c>group+0x6c</c>, which is what
-/// <c>Mech_AiSelectBehaviour</c> reads to give a machine its state and what
-/// <see cref="OrderTarget"/> would name. That layer is decoded but unported (see ROADMAP.md, "Group
-/// orders"), so this record answers exactly as the original does for a group whose current order
-/// entry is null: <see cref="OrderVerb"/> is <see cref="NoOrder"/> and nothing is designated. Every
-/// consumer in <see cref="Ai.AiTargeting"/> already has that case, because the original has it.</para>
+/// member never thinks at all. That function also walks the group through its orders, which is what
+/// gives each member a state to be in; see docs/simulation/ai-goals.md for the whole layer and
+/// docs/simulation/ai-dispatch.md for what a verb turns into.</para>
 /// </summary>
 public sealed class MissionGroup {
 	/// <summary>
-	/// The verb <c>Mech_AiSelectBehaviour</c> substitutes for a null order entry. It matches no case
-	/// in either the state map or <see cref="Ai.AiTargeting.SelectTarget"/>'s designation test.
+	/// The verb <c>Mech_AiSelectBehaviour</c> substitutes for a null order entry — see
+	/// <see cref="MissionOrder.VerbNone"/>.
 	/// </summary>
-	public const short NoOrder = 0x0b;
+	public const short NoOrder = MissionOrder.VerbNone;
 
-	public MissionGroup(int index, MissionSide side) {
+	/// <summary>
+	/// The condition tier <c>Group_OrderSubjectCondition</c> (<c>00412dc4</c>) answers for a subject
+	/// that is gone. It is what every completion test asks about.
+	/// </summary>
+	public const int ConditionDestroyed = 4;
+
+	public MissionGroup(int index, MissionSide side, IReadOnlyList<MissionOrder?> orders) {
 		Index = index;
 		Side = side;
+		_orders = orders;
+		_subjectGroups = new MissionGroup?[orders.Count];
+		_subjectObjects = new SimObject?[orders.Count];
+		_completed = new bool[orders.Count];
+		Route = orders.Count > 0 ? orders[0]?.Route ?? Array.Empty<Vec3i>() : Array.Empty<Vec3i>();
 	}
 
 	/// <summary>Which block-11 record this is, which is also what a placement's group index names.</summary>
@@ -53,26 +59,93 @@ public sealed class MissionGroup {
 	/// <summary>Whether the group is led by the machine the player is flying.</summary>
 	public bool LedByPlayer => Leader is { LocallyPiloted: true };
 
-	/// <summary>
-	/// <c>group+0x44[group+0x6c]</c>'s first <c>short</c> — the current order's verb, or
-	/// <see cref="NoOrder"/> when the entry is null, which is the only answer this record can give
-	/// until the order layer is ported.
-	/// </summary>
-	public short OrderVerb => NoOrder;
+	/// <summary><c>group+0x44</c> — the ten order slots, unset ones left null.</summary>
+	public IReadOnlyList<MissionOrder?> Orders => _orders;
+
+	/// <summary><c>group+0x6c</c> — which slot the group is working.</summary>
+	public int OrderIndex { get; private set; }
+
+	/// <summary>The order in force, or null when the slot is empty.</summary>
+	public MissionOrder? CurrentOrder =>
+		OrderIndex >= 0 && OrderIndex < _orders.Count ? _orders[OrderIndex] : null;
 
 	/// <summary>
-	/// <c>Group_OrderTargetObject</c> (<c>004238a0</c>) — the object the current order names, or null.
-	/// Always null here; see the class remarks.
+	/// The current order's verb, or <see cref="NoOrder"/> when the slot is empty — the
+	/// "<c>or 0x0b</c>" idiom every reader of the order array spells out inline.
 	/// </summary>
-	public SimObject? OrderTarget => null;
+	public short OrderVerb => CurrentOrder?.Verb ?? NoOrder;
+
+	/// <summary>
+	/// <c>group+0x06</c> — the waypoint group the route cursor runs over. Loaded once, from order
+	/// slot 0, and never re-pointed however many orders the group works through; see
+	/// docs/simulation/ai-goals.md.
+	/// </summary>
+	public IReadOnlyList<Vec3i> Route { get; }
+
+	/// <summary>
+	/// <c>group+0x04</c> — the index of the waypoint last reached. Nothing advances it yet; route
+	/// following is the navigation slice.
+	/// </summary>
+	public int RouteCursor { get; private set; }
+
+	/// <summary>
+	/// <c>Route_WaypointAt</c> (<c>00423b0c</c>) — a waypoint of the group's route, or null when
+	/// there is no route or the index is past its end. Asking for <see cref="RouteCursor"/><c> + 1</c>
+	/// is how every "is there anywhere left to go" test in the AI is spelled.
+	/// </summary>
+	public Vec3i? WaypointAt(int index) =>
+		index >= 0 && index < Route.Count ? Route[index] : null;
+
+	/// <summary>
+	/// <c>group+0x70</c> — whether the order in that slot has been flagged finished. Set only by the
+	/// completion path, not by a mission action firing under an unfinished order. Nothing in the AI
+	/// reads it; it is kept because it is the only record of which orders a group got through.
+	/// </summary>
+	public bool OrderCompleted(int slot) =>
+		slot >= 0 && slot < _completed.Length && _completed[slot];
+
+	/// <summary>The group the current order names, when it names one.</summary>
+	public MissionGroup? OrderSubjectGroup =>
+		OrderIndex >= 0 && OrderIndex < _subjectGroups.Length ? _subjectGroups[OrderIndex] : null;
+
+	/// <summary>The object the current order names, when it names one.</summary>
+	public SimObject? OrderSubjectObject =>
+		OrderIndex >= 0 && OrderIndex < _subjectObjects.Length ? _subjectObjects[OrderIndex] : null;
+
+	/// <summary>
+	/// <c>Group_OrderTargetObject</c> (<c>004238a0</c>) — the object the current order names: the
+	/// first member of the group it holds, or the object directly.
+	/// </summary>
+	public SimObject? OrderTarget => CurrentOrder?.SubjectKind switch {
+		MissionOrderSubject.Group => OrderSubjectGroup?.Leader,
+		MissionOrderSubject.Mech or MissionOrderSubject.Flyer or MissionOrderSubject.Base =>
+			OrderSubjectObject,
+		_ => null
+	};
+
+	/// <summary>
+	/// <c>Group_OrderTargetPosition</c> (<c>004238d4</c>) — the position the current order works to:
+	/// the subject's own origin, falling back to the first waypoint of the group's route when the
+	/// order names nothing.
+	/// </summary>
+	public Vec3i? OrderTargetPosition => CurrentOrder?.SubjectKind switch {
+		MissionOrderSubject.Group => OrderSubjectGroup?.Leader?.Position,
+		MissionOrderSubject.Mech or MissionOrderSubject.Flyer or MissionOrderSubject.Base =>
+			OrderSubjectObject?.Position,
+		_ => WaypointAt(0)
+	} ?? WaypointAt(0);
 
 	/// <summary>
 	/// <c>Group_IsOrderTarget</c> (<c>00423918</c>) — whether an object is what the current order
 	/// names, by group identity for a group-valued order and by object identity otherwise.
 	/// </summary>
-	public bool IsOrderTarget(SimObject candidate) =>
-		OrderTarget is { } target
-			&& (ReferenceEquals(target, candidate) || ReferenceEquals(target.Group, candidate.Group));
+	public bool IsOrderTarget(SimObject candidate) => CurrentOrder?.SubjectKind switch {
+		MissionOrderSubject.Group => OrderSubjectGroup is { } subject
+			&& ReferenceEquals(candidate.Group, subject),
+		MissionOrderSubject.Mech or MissionOrderSubject.Flyer or MissionOrderSubject.Base =>
+			OrderSubjectObject is { } subject && ReferenceEquals(candidate, subject),
+		_ => false
+	};
 
 	/// <summary>
 	/// <c>FUN_00423974</c> — the live member nearest a given object, within 100000 units, excluding
@@ -109,11 +182,60 @@ public sealed class MissionGroup {
 	}
 
 	/// <summary>
-	/// <c>Group_OrderTick</c> (<c>00423a74</c>), reduced to the half that exists: it runs the AI over
-	/// every member. The other half — advancing the group through its row-15 orders, and zeroing
-	/// every member's dwell countdown when it does — belongs to the unported order layer.
+	/// Resolves one order slot's subject to the group or object it names. This is a separate step
+	/// because an order may name a group that has not been built when its own group is, which is the
+	/// same reason <c>DBSim_SpawnMissionObjects</c> resolves the order array before it builds any
+	/// group record.
+	/// </summary>
+	public void BindOrderSubject(int slot, MissionGroup? subjectGroup, SimObject? subjectObject) {
+		if (slot < 0 || slot >= _orders.Count) {
+			return;
+		}
+
+		_subjectGroups[slot] = subjectGroup;
+		_subjectObjects[slot] = subjectObject;
+	}
+
+	/// <summary>
+	/// <c>Group_OrderTick</c> (<c>00423a74</c>) — advance the group through its orders, then run the
+	/// AI over every member.
+	///
+	/// <para>An order ends in one of two ways: it finishes on its own terms, which also flags it at
+	/// <c>group+0x70</c>, or the mission action it hangs on fires, which does not. Either way the
+	/// group only moves on while the <i>next</i> slot holds an order, so a group that finishes its
+	/// last one stays on it for the rest of the mission. Advancing zeroes every member's dwell
+	/// countdown, which forces each one's reassess on the very next tick — that is what makes a new
+	/// order take effect at once rather than after the old state's dwell.</para>
+	///
+	/// <para>The original ticks every member unconditionally; the filtering is <c>Mech_AiTick</c>'s,
+	/// and it is by whether the machine has a behaviour descriptor at all, which is how the base
+	/// groups pass through harmlessly. The <see cref="SimObject.Removed"/> and
+	/// <see cref="SimObject.AwaitingDeployment"/> tests here stand in for that: neither class holds a
+	/// behaviour block in this engine.</para>
 	/// </summary>
 	public void AiTick(SimWorld world) {
+		var order = CurrentOrder;
+		bool advance = false;
+
+		if (order != null) {
+			if (IsOrderComplete(world, order)) {
+				advance = true;
+				_completed[OrderIndex] = true;
+			} else if (order.GatedOnAction && ActionFired) {
+				advance = true;
+			}
+		}
+
+		if (advance && OrderIndex + 1 < _orders.Count && _orders[OrderIndex + 1] != null) {
+			OrderIndex++;
+
+			for (int i = 0; i < _members.Count; i++) {
+				if (_members[i] is MechObject member) {
+					member.Behaviour.DwellCountdown = 0;
+				}
+			}
+		}
+
 		for (int i = 0; i < _members.Count; i++) {
 			if (_members[i] is MechObject { Removed: false, AwaitingDeployment: false } mech) {
 				mech.AiTick(world);
@@ -121,5 +243,138 @@ public sealed class MissionGroup {
 		}
 	}
 
+	/// <summary>
+	/// <c>Group_IsOrderComplete</c> (<c>004239fc</c>) — switched on the verb. Verbs 1 and 4 have no
+	/// test at all and can only be ended by their action firing; the three movement verbs end when
+	/// the route runs out; the two subject verbs end when the subject does. See
+	/// docs/simulation/ai-goals.md for the table.
+	/// </summary>
+	private bool IsOrderComplete(SimWorld world, MissionOrder order) => order.Verb switch {
+		MissionOrder.VerbSearchDestroy => SubjectCondition() == ConditionDestroyed,
+
+		MissionOrder.VerbGuard => (OrderSubjectGroup != null || OrderSubjectObject != null)
+			&& (SubjectCondition() == ConditionDestroyed || NoRivalOrderOnSubject(world)),
+
+		MissionOrder.VerbPatrol or MissionOrder.VerbTravel or MissionOrder.VerbFollow =>
+			WaypointAt(RouteCursor + 1) == null,
+
+		_ => false
+	};
+
+	/// <summary>
+	/// <c>Group_OrderSubjectCondition</c> (<c>00412dc4</c>) — how far gone the thing the current
+	/// order names is, on a 0-4 scale where 4 is destroyed.
+	///
+	/// <para>An unresolved subject answers 0. The original would dereference a null there, so this
+	/// is the engine's own answer, chosen because "not destroyed" keeps an order that names something
+	/// the mission never placed from finishing the instant it starts.</para>
+	/// </summary>
+	private int SubjectCondition() {
+		if (CurrentOrder?.SubjectKind == MissionOrderSubject.Group) {
+			return OrderSubjectGroup is { } subject ? subject.ConditionTier() : 0;
+		}
+
+		if (OrderSubjectObject is not { } target) {
+			return 0;
+		}
+
+		if (target.Neutralised || target is MechObject { Collapsed: true }) {
+			return ConditionDestroyed;
+		}
+
+		int damage = target.OverallDamage;
+
+		return damage < 0x32 ? 0 : damage < 0x80 ? 1 : damage < 0xc0 ? 2 : 3;
+	}
+
+	/// <summary>
+	/// <c>Group_ConditionTier</c> (<c>00412c8c</c>) — a group's own 0-4 condition, from how many
+	/// members it has lost and how hurt the whole roster is. The damage mean counts every member,
+	/// the dead included, which is what lets a group be written off by damage alone.
+	/// </summary>
+	private int ConditionTier() {
+		if (_members.Count == 0) {
+			return 0;
+		}
+
+		int lost = 0;
+		int damage = 0;
+
+		for (int i = 0; i < _members.Count; i++) {
+			var member = _members[i];
+
+			if (member.Removed || member.Neutralised) {
+				lost++;
+			}
+
+			damage += member.OverallDamage;
+		}
+
+		if (lost == _members.Count) {
+			return ConditionDestroyed;
+		}
+
+		int average = damage / _members.Count;
+		int lostFraction = (lost << 10) / _members.Count;
+
+		return lostFraction >= 0x28a || average >= 0xc1 ? 3
+			: lostFraction >= 0xfa || average >= 0x81 ? 2
+			: average >= 0x33 ? 1
+			: 0;
+	}
+
+	/// <summary>
+	/// <c>Group_NoRivalOrderOnSubject</c> (<c>00412e74</c>) — whether no group on the other side,
+	/// still holding a live member, has a current order naming the same subject. The other half of a
+	/// guard order's completion: the post is finished when nothing is assigned against it any more,
+	/// not merely when it survives.
+	/// </summary>
+	private bool NoRivalOrderOnSubject(SimWorld world) {
+		for (int i = 0; i < world.Groups.Count; i++) {
+			var rival = world.Groups[i];
+
+			if (ReferenceEquals(rival, this) || rival.Side == Side || rival.CurrentOrder == null) {
+				continue;
+			}
+
+			bool sameSubject = ReferenceEquals(rival.OrderSubjectGroup, OrderSubjectGroup)
+				&& ReferenceEquals(rival.OrderSubjectObject, OrderSubjectObject);
+
+			if (sameSubject && !rival.IsWipedOut()) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/// <summary>
+	/// <c>Group_IsWipedOut</c> (<c>00412be4</c>) — whether every member is destroyed, removed or
+	/// neutralised. One machine still standing is enough to answer no.
+	/// </summary>
+	private bool IsWipedOut() {
+		for (int i = 0; i < _members.Count; i++) {
+			var member = _members[i];
+
+			if (!member.Removed && !member.Neutralised
+					&& member is not MechObject { Destroyed: true }) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/// <summary>
+	/// Whether the mission action the current order hangs on has fired. No block-5 action is ported,
+	/// so it never has — the same gap that keeps a group awaiting deployment from ever arriving. See
+	/// docs/simulation/mission-deployment.md.
+	/// </summary>
+	private static bool ActionFired => false;
+
+	private readonly IReadOnlyList<MissionOrder?> _orders;
+	private readonly MissionGroup?[] _subjectGroups;
+	private readonly SimObject?[] _subjectObjects;
+	private readonly bool[] _completed;
 	private readonly List<SimObject> _members = new();
 }

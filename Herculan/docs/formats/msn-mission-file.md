@@ -153,7 +153,7 @@ Spatial validation: consecutive waypoints have median distance ~191k units (tigh
 
 ## Row #15 field decode — "LinkedRef22" (`DAT_00470658`, 22 bytes/record)
 
-"Typed link" record; heavily references row #8 (637 real instances across 62 files).
+**A mission-group order.** Row #16 names up to ten of these and works through them in slot order; what each does is [`../simulation/ai-goals.md`](../simulation/ai-goals.md). 637 real instances across 62 files.
 
 | offset | field | notes |
 |---|---|---|
@@ -161,13 +161,13 @@ Spatial validation: consecutive waypoints have median distance ~191k units (tigh
 | `0x02` | condition ref | 5/637 real (0.8%); **compound pair** with `0x06` |
 | `0x04` | parent/template | **dead** — always `-1` |
 | `0x06` | condition operand | correlates 100% with real `0x02`; values {1, -99} |
-| `0x08` | small int | range 0–6; meaning unclear |
-| `0x0A` | small int | range 0–3; meaning unclear |
-| `0x0C` | ref→row #6 | 7% real |
-| `0x0E` | ref→row #8 | **94% real** — primary payload |
-| `0x10` | discriminator | 0/−1/1/3 (445/159/25/8); `2` never occurs |
-| `0x12` | discriminated ref | → rows #12/#13/#14/#16 per `0x10` |
-| `0x14` | ref→row #10 | 2% real |
+| `0x08` | **the verb** | range 0–6, the whole span DBSIM switches on: search/destroy, ram, guard, patrol, sleep, travel, follow |
+| `0x0A` | small int | range 0–3; resolved into the order record and never read |
+| `0x0C` | ref→row #6 | 7% real — a point; resolved into the order record and never read |
+| `0x0E` | ref→row #8 | **94% real** — the route. Only the group's first order's is ever used |
+| `0x10` | discriminator | what `0x12` names: `-1` nothing, 0 a group (row #16), 1 a HERC (#12), 3 a structure (#14). `2` (a flyer, #13) never occurs |
+| `0x12` | discriminated ref | **the order's subject** — what to hunt, guard or follow |
+| `0x14` | ref→row #10 | 2% real — an action that, when it fires, moves the group to its next order |
 
 
 ## Row #9 field decode — "LinkOrReward12" (`DAT_0047065e`, 12 bytes/record)
@@ -315,7 +315,7 @@ Entity-activation directive; position/flag/route/action + 20-entry discriminated
 | `0x34` | ref→row #7 | 45% real — **the group's heading** |
 | `0x36` | ref→row #8 | 43% real — the group's patrol route |
 | `0x38–0x5E` | 20-entry discriminated refs | slot 0: 89% real → slot 8: 0.6% → slots 9–19: never used |
-| `0x60–0x72` | 10-entry ref→row #15 | slot 0: 47% real → slot 3+: never used |
+| `0x60–0x72` | 10-entry ref→row #15 | **the group's orders**, worked through in slot order — slot 0: 47% real → slot 3+: never used. Slot 0's is also where the group's route and its spawn-point fallback come from |
 | `0x74` | tri-state flag | 89% real; 0/1 or `-1` |
 | `0x76` | ref→row #10 | 31% real |
 | `0x78` | discriminator | 100% real; 0/1/2 (97%/2.8%/0.5%); selects trailing payload |

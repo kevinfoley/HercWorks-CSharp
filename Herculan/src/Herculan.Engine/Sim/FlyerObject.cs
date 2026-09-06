@@ -118,6 +118,9 @@ public sealed class FlyerObject : SimObject {
 	public ComponentDamage? Damage => _damage;
 
 	/// <inheritdoc />
+	public override int OverallDamage => _damage?.OverallDamage ?? 0;
+
+	/// <inheritdoc />
 	public override ShapeCellFrames? CellFrames => _damage?.CellFrames;
 
 	/// <summary>

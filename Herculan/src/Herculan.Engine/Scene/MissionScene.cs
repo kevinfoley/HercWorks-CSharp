@@ -317,7 +317,7 @@ public sealed class MissionScene {
 		foreach (var placed in objects) {
 			int index = placed.Placement.GroupIndex;
 			if (!groups.TryGetValue(index, out var group)) {
-				group = new MissionGroup(index, placed.Object.Side);
+				group = new MissionGroup(index, placed.Object.Side, OrdersOf(mission, index));
 				groups.Add(index, group);
 				world.AddGroup(group);
 			}
@@ -328,6 +328,8 @@ public sealed class MissionScene {
 				machine.InstallInitialBehaviour();
 			}
 		}
+
+		BindOrderSubjects(groups, objects);
 
 		world.PlayerMech = playerObject?.Object as MechObject;
 
@@ -542,6 +544,51 @@ public sealed class MissionScene {
 	/// point, so raising an object by its mesh's lowest point sinks the one shape authored off the
 	/// ground. See docs/formats/dgs-hd0-notes.md, "Shape origin".</para>
 	/// </summary>
+	/// <summary>
+	/// A group's order slots, or ten empty ones for a block-11 record the mission carries no orders
+	/// for. See <see cref="MissionOrder"/>.
+	/// </summary>
+	private static IReadOnlyList<MissionOrder?> OrdersOf(Mission mission, int groupIndex) =>
+		groupIndex >= 0 && groupIndex < mission.GroupOrders.Count
+			? mission.GroupOrders[groupIndex]
+			: new MissionOrder?[MissionOrder.Slots];
+
+	/// <summary>
+	/// Resolves every order's subject once all the objects exist, which is why it is a second pass:
+	/// an order routinely names a group built after its own. An order naming a roster slot nothing
+	/// placed, or a group that is waiting to deploy and so is not in the world at all, resolves to
+	/// nothing — see <see cref="MissionGroup.BindOrderSubject"/>.
+	/// </summary>
+	private static void BindOrderSubjects(Dictionary<int, MissionGroup> groups,
+			List<SceneObject> objects) {
+		var bySlot = new Dictionary<(MissionUnitKind, int), SimObject>();
+		foreach (var placed in objects) {
+			bySlot[(placed.Placement.Kind, placed.Placement.SlotIndex)] = placed.Object;
+		}
+
+		foreach (var group in groups.Values) {
+			for (int slot = 0; slot < group.Orders.Count; slot++) {
+				if (group.Orders[slot] is not { } order
+						|| order.SubjectKind == MissionOrderSubject.None || order.SubjectRef < 0) {
+					continue;
+				}
+
+				if (order.SubjectKind == MissionOrderSubject.Group) {
+					group.BindOrderSubject(slot, groups.GetValueOrDefault(order.SubjectRef), null);
+					continue;
+				}
+
+				var kind = order.SubjectKind switch {
+					MissionOrderSubject.Mech => MissionUnitKind.Mech,
+					MissionOrderSubject.Flyer => MissionUnitKind.Flyer,
+					_ => MissionUnitKind.Base
+				};
+
+				group.BindOrderSubject(slot, null, bySlot.GetValueOrDefault((kind, order.SubjectRef)));
+			}
+		}
+	}
+
 	public static Matrix4x4 TransformOf(SceneObject sceneObject) =>
 		Matrix4x4.CreateRotationY(BinaryAngle.ToRadians(sceneObject.Object.Heading))
 			* Matrix4x4.CreateTranslation(WorldScale.ToRender(sceneObject.Object.Position));

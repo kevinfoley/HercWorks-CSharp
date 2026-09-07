@@ -578,7 +578,9 @@ public sealed partial class MechObject : SimObject {
 	/// the mode does afterwards is measured against that one number.
 	///
 	/// <para>The two centring commands are exclusive. Each one's dispatch clears the other's global,
-	/// so pressing [Backspace] mid-manoeuvre abandons this and brings the turret home instead.</para>
+	/// so pressing [Backspace] mid-manoeuvre abandons this and brings the turret home instead. Both
+	/// also clear ATT (<c>manager+0x14</c>): a pilot who has asked for the turret back does not get
+	/// it taken again by the tracker.</para>
 	/// </summary>
 	private void LatchCenterBody() {
 		var controls = Controls;
@@ -586,6 +588,7 @@ public sealed partial class MechObject : SimObject {
 		if (controls.CenterBody && !_centerBodyHeld) {
 			_centeringBody = true;
 			_centeringTorso = false;
+			Weapons.AutoTrack = false;
 			_centerBodyReference = (short)((short)Heading - TorsoTwistAngle);
 		}
 
@@ -685,24 +688,51 @@ public sealed partial class MechObject : SimObject {
 
 	/// <summary>
 	/// <c>Sim_PollPlayerInput</c>'s turret block (<c>00460764</c>), which runs between the throttle
-	/// and the move. Either the pilot is holding the turret axes, or the centring command is latched
-	/// and drives them instead — touching either axis clears it, which is why the original tests the
-	/// axes before it tests the mode.
+	/// and the move. Three cases, in the original's own order of tests: the pilot is holding the
+	/// turret axes, Automatic Turret Tracking is flying the turret for him, or the centring command
+	/// is latched and drives them instead.
 	///
-	/// <para>Automatic Turret Tracking, the third case there, needs a selected target and is not
-	/// ported.</para>
+	/// <para><b>The axes come first</b>, because touching either one drops both of the other two:
+	/// tracking is skipped for the tick and the centring latch is cleared outright. That is the
+	/// manual's "take manual control of the turret" — the pilot always wins the axis he is
+	/// holding.</para>
+	///
+	/// <para><b>Automatic Turret Tracking (ATT, [T])</b> is the middle case. It needs the TRACK latch
+	/// (<see cref="WeaponMounts.AutoTrack"/>), a selected target, and that target not destroyed
+	/// (<c>+0x99</c> alone — a crippled target is still tracked, unlike everywhere the AI tests
+	/// liveness). It aims at the target's <see cref="SimObject.AimPoint"/>, which for a HERC is its
+	/// cockpit node and is what the manual means by "ATT aims at the target's center", and it clears
+	/// the centring latch on the way past. <see cref="TrackWorldPoint"/> runs both axis ticks itself,
+	/// convergence included, so the manual pair below is skipped for the tick.</para>
 	/// </summary>
 	private void TorsoTick() {
 		var controls = Controls;
+		bool tracked = false;
+
+		if (controls.CenterTorso) {
+			LatchCenterTorso();
+		}
 
 		if (controls.TorsoTwist != 0 || controls.TorsoPitch != 0) {
 			_centeringTorso = false;
-		} else if (controls.CenterTorso) {
-			_centeringTorso = true;
+		} else if (Weapons.AutoTrack) {
+			if (Target is { Destroyed: false } target) {
+				TrackWorldPoint(target.AimPoint);
+				_centeringTorso = false;
+				tracked = true;
+			} else if (Target == null && SimMath.CountdownTimerTick(ref _autoTrackIdle) == 0) {
+				// ATT left holding nothing brings the turret home once its timer runs out, and does
+				// not clear the latch: selecting again puts the turret straight back on a target.
+				_centeringTorso = true;
+			}
 		}
 
 		if (_centeringTorso) {
-			CenterTorsoTick();
+			CenterTorsoTick(GunConvergenceRange);
+			return;
+		}
+
+		if (tracked) {
 			return;
 		}
 
@@ -717,6 +747,46 @@ public sealed partial class MechObject : SimObject {
 	/// </summary>
 	private int GunConvergenceRange =>
 		Target is { } target ? Position.ApproxDistanceTo(target.Position) : 0;
+
+	/// <summary>
+	/// <c>ConsoleButtons_ToggleAutoTrack</c> (<c>00441f7c</c>) — flips ATT and announces the new
+	/// state, which is the whole of what the console's TRACK button does. Both messages are withdrawn
+	/// before the new one is posted, so flipping twice quickly says where it ended up rather than
+	/// reading out the sequence; the radar toggle is written the same way.
+	///
+	/// <para>The [T] command is this plus a tail: turning ATT <i>off</i> that way also centres the
+	/// turret. See <see cref="LatchCenterTorso"/>.</para>
+	/// </summary>
+	/// <returns>Whether ATT is now on.</returns>
+	public bool ToggleAutoTrack(SimWorld? world = null) {
+		Weapons.AutoTrack = !Weapons.AutoTrack;
+
+		if (world?.Sounds is { } sounds) {
+			sounds.Unsay(Content.SystemMessages.AutoTrackingEngaged);
+			sounds.Unsay(Content.SystemMessages.AutoTrackingDisabled);
+			sounds.Say(Weapons.AutoTrack
+				? Content.SystemMessages.AutoTrackingEngaged
+				: Content.SystemMessages.AutoTrackingDisabled);
+		}
+
+		return Weapons.AutoTrack;
+	}
+
+	/// <summary>
+	/// The three writes <c>Sim_DispatchCommand</c> makes wherever the "Center Turret" command is
+	/// issued — its scancode <c>0x0e</c> case ([Backspace]) and the tail of its <c>0x14</c> case
+	/// ([T], when the toggle it just ran turned ATT <i>off</i>): the centring mode goes on, Center
+	/// Body goes off, and ATT's own latch (<c>manager+0x14</c>) is cleared.
+	///
+	/// <para>ATT is cleared here rather than left alone because a pilot who has asked for the turret
+	/// back would otherwise have it taken again by the tracker on the very next tick. It is also what
+	/// the manual says the command does.</para>
+	/// </summary>
+	public void LatchCenterTorso() {
+		_centeringTorso = true;
+		_centeringBody = false;
+		Weapons.AutoTrack = false;
+	}
 
 	/// <summary>Whether [Backspace] centring is latched, for the debug readout.</summary>
 	public bool CenteringTorso => _centeringTorso;

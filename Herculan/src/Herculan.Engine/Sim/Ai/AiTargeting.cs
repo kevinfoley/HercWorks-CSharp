@@ -75,7 +75,7 @@ public static class AiTargeting {
 			return false;
 		}
 
-		if (IsWrecked(candidate)) {
+		if (candidate.Destroyed) {
 			return false;
 		}
 
@@ -323,22 +323,11 @@ public static class AiTargeting {
 		}
 
 		if (self.Group is { } group && group.IsOrderTarget(target)) {
-			return self.Side == World.MissionSide.Human ? target.Neutralised : IsWrecked(target);
+			return self.Side == World.MissionSide.Human ? target.Neutralised : target.Destroyed;
 		}
 
 		return target.Neutralised;
 	}
-
-	/// <summary>
-	/// <c>obj+0x99</c> alone, without the crippled half <see cref="SimObject.Neutralised"/> folds in.
-	/// The three shootable classes each carry their own flag; nothing else can be destroyed.
-	/// </summary>
-	private static bool IsWrecked(SimObject candidate) => candidate switch {
-		MechObject mech => mech.Destroyed,
-		BaseObject structure => structure.Destroyed,
-		FlyerObject flyer => flyer.Destroyed,
-		_ => false
-	};
 
 	/// <summary>
 	/// The bearing from this object's facing to a candidate, the way the acquisition measures it.

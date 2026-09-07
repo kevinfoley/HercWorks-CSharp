@@ -106,6 +106,15 @@ public abstract class SimObject {
 	public virtual bool Neutralised => false;
 
 	/// <summary>
+	/// <c>obj+0x99</c> alone — <b>destroyed</b>, without the crippled half
+	/// <see cref="Neutralised"/> folds in. The two are different tests in the original and different
+	/// answers for a HERC: one whose legs are gone is neutralised but not destroyed.
+	///
+	/// <para>Only the three shootable classes override it; nothing else can be destroyed.</para>
+	/// </summary>
+	public virtual bool Destroyed => false;
+
+	/// <summary>
 	/// <c>obj+0xb7</c> — whether this object cannot be hurt at all, which also puts it outside the
 	/// AI's candidate set entirely (<c>Ai_IsTargetable</c>). Only a structure can be: <c>Base_Construct</c>
 	/// latches it from <c>BASES.DAT +0x1e</c>.

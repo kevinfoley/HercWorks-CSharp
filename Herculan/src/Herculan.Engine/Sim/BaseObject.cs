@@ -83,7 +83,9 @@ public sealed class BaseObject : SimObject {
 	/// is set by <see cref="ApplyDamage"/> the moment <see cref="DamageFraction"/> reaches full, and
 	/// once set the structure takes no further damage.
 	/// </summary>
-	public bool Destroyed { get; private set; }
+	public override bool Destroyed => _destroyed;
+
+	private bool _destroyed;
 
 	/// <summary>Whether one of the type's components is still standing.</summary>
 	public bool ComponentAlive(int index) =>
@@ -383,7 +385,7 @@ public sealed class BaseObject : SimObject {
 		LastAttacker = attacker;
 
 		if (DamageFraction == FullyDestroyed) {
-			Destroyed = true;
+			_destroyed = true;
 		}
 
 		// And the part starts to fall. A component that names no sequence is simply gone the instant

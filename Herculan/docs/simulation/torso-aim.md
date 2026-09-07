@@ -137,6 +137,41 @@ Nothing is inconsistent as a result: `Cockpit_TargetAnglesFromCameraBone` (`0041
 node's own composed transform, so the HUD, the aim and the view all agree with the drawn pose. The
 angle field is control state, not a direction.
 
+## Automatic Turret Tracking — [T]
+
+ATT flies the turret at the selected target on its own. Its latch is the weapon manager's
+`manager+0x14`, which the console's TRACK button and the [T] command both toggle; the input path's
+turret block is the only thing that reads it.
+
+The block's three cases, in its own order of tests:
+
+1. **Either turret axis non-zero** — the pilot has the turret. Tracking is skipped for the tick and
+   the centring latch is cleared.
+2. **ATT latched, a target selected, and that target's `+0x99` clear** — `FUN_0041b728` takes the
+   target's aim point and hands it to `Cockpit_TargetAnglesFromCameraBone`, which runs both axis
+   ticks itself. Note the liveness test is `+0x99` **alone**: unlike every AI test, a crippled
+   (`+0xa4`) target is still tracked.
+3. **Otherwise** the centring mode or the plain axis ticks, as before.
+
+**Both centring commands turn ATT off.** `Sim_DispatchCommand`'s scancode `0x0e` ([Backspace]) and
+`0x2b` (`\`) each write `manager+0x14 = 0` alongside their own latch, so a pilot who asks for the
+turret back keeps it.
+
+**[T] turning ATT off also centres the turret.** Scancode `0x14` toggles the TRACK widget
+(`FUN_00441f7c`, which is also the console button's whole click action) and then, *only if that
+turned it off*, runs the same three writes the [Backspace] case does. Clicking TRACK off with the
+mouse therefore leaves the turret where the tracker had it; pressing [T] brings it home. The
+asymmetry is the dispatch case's, not the button's.
+
+Toggling it either way announces the new state on the computer's channel — `0x26`
+`AUTO TRACKING ENGAGED` and `0x27` `AUTO TRACKING DISABLED`, both withdrawn before the new one is
+posted, the same shape as the radar toggle's pair ([`../formats/audio.md`](../formats/audio.md#posters)).
+
+**ATT with nothing selected gives up after a delay.** `Player_PerFrameCockpitUpdate` (`0041b130`)
+arms `mech+0x31c` with `0x1194` on the selection change that leaves the latch holding nothing, counts
+it down every frame the pair still holds, and latches the centring mode when it reaches zero. It does
+not clear the latch, so selecting again puts the turret straight back on a target.
+
 ## Centring — [Backspace]
 
 `Mech_CenterTorsoTick` (`0041e8d4`) drives both axes from the angles themselves and enables the snap,
@@ -146,10 +181,14 @@ so the turret runs home fast, eases off as it arrives, and stops exactly on cent
 twistAxis = -clamp(Q10(0xfa, twistAngle), ±0x100)   // pitch likewise
 ```
 
-It is a **mode**, not a keypress. Scancode `0x0e` latches `DAT_004d2588` and clears the ATT flag;
-the input path clears it again the moment either turret axis is non-zero, which is why it tests the
-axes before it tests the mode. Nothing clears it on arrival — with the turret centred the axes are
-zero and nothing moves, so it simply idles until the pilot takes the turret back.
+Its second argument is the gun convergence range, passed straight to the pitch tick, so the guns keep
+toeing in on the selected target while the turret comes home. The input path is the only caller that
+gives it one; every AI caller passes zero.
+
+It is a **mode**, not a keypress: scancode `0x0e` latches `DAT_004d2588`, and the input path clears
+it again the moment either turret axis is non-zero. Nothing clears it on arrival — with the turret
+centred the axes are zero and nothing moves, so it simply idles until the pilot takes the turret
+back.
 
 Scancode `0x2b` (`\`, "Center Body") sets the opposite flag `g_CenterBodyMode` (`004d2af4`), which
 turns the legs under the turret rather than the turret back to the legs. It substitutes the steering
@@ -175,6 +214,8 @@ pitch turn the view with nothing having to add them to it.
 | `Sim/MechObject.Torso.cs` | Both ticks, the centring command |
 | `Sim/MechObject.cs` | The three threads, `EyeTransform` |
 | `Sim/MechControls.cs` | `TorsoTwist`, `TorsoPitch`, `CenterTorso`, `CenterBody` |
+| `Sim/MechObject.cs` | `TorsoTick`, the three-case turret block, and `LatchCenterTorso` |
+| `Sim/WeaponMounts.cs` | `AutoTrack`, the `manager+0x14` latch |
 | `Content/RotationIndicator.cs`, `Render/Overlay2DRenderer.cs` | The HUD rotation indicator — see [`cockpit-hud.md`](../formats/cockpit-hud.md#front-window-hud--the-gunsight-complex) |
 
 `MechObject.EyeTransform` is the pilot's whole frame, orientation included; `EyePosition` is its
@@ -192,12 +233,15 @@ node changes nothing about a machine with its turret centred. One real differenc
 MONGOOSE's camera node has a −570 (−3.1°) rest pitch that a heading-only camera discarded.
 
 Host keys follow the manual's keyboard turret set — `J`/`K` twist, `I`/`M` pitch, `Backspace`
-centres. `--turret <twist> <pitch>` holds the axes for a `--screenshot` run.
+centres, `T` toggles ATT. `--turret <twist> <pitch>` holds the axes for a `--screenshot` run and
+`--track` powers up with ATT latched, which needs `--target` beside it to have anything to hold.
+
+The idle timer is run down in the turret block rather than in the cockpit update, which is the only
+consumer of its result; the arming stays on the target change, where the original puts it.
 
 ## Not ported
 
-- **Automatic Turret Tracking** ([T]), the third branch of the input path's turret block. Target
-  selection is in place ([`target-selection.md`](target-selection.md)) and so is the primitive the
-  branch needs (`MechObject.TrackWorldPoint`); what is missing is the branch itself.
+- **The HUD's "ATT" legend**, which the manual puts at the upper left of the HUD while tracking. Not
+  located in the cockpit widget set yet.
 - **The servo sound** (`0041a6d0` / `0041a994`): sound 0x21, started when the axis exceeds 0xc0 and
   the angle is still changing, stopped when the axis centres or the angle stops.

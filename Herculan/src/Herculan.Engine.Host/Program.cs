@@ -36,6 +36,7 @@ int? initialWeaponRow = null;
 bool initialLink = false;
 bool heldFire = false;
 bool acquireTarget = false;
+bool autoTrack = false;
 bool waitForEffectLight = false;
 bool silentAudio = false;
 int initialHddPilot = -1;
@@ -100,6 +101,11 @@ for (int i = 0; i < args.Length; i++) {
 		// screen all have nothing to show until something is selected. It switches the scanner on
 		// first, as [R] does, because a passive HERC can only see what it has eyes on.
 		acquireTarget = true;
+	} else if (args[i] == "--track") {
+		// Power up with Automatic Turret Tracking latched, for the same reason as --target, which it
+		// only does anything alongside: a --screenshot run never sees a keystroke, and the turret
+		// only slews on its own once ATT has something to hold.
+		autoTrack = true;
 	} else if (args[i] == "--no-sound" || args[i] == "--silent") {
 		// Skip the output device entirely. Same effect as running on a machine with no sound card:
 		// the catalog, the director and the message port all still run, nothing is heard. For a
@@ -385,6 +391,11 @@ bool clearTargetKeyDown = false;
 // selection needs at any real range — see MechObject.ToggleScanner.
 bool radarKeyDown = false;
 
+// [T], Automatic Turret Tracking — the same toggle as the console's TRACK button, on the scancode
+// (0x14) Sim_DispatchCommand switches on. Turning it *off* also centres the turret there, which is
+// the one asymmetry in the pair.
+bool autoTrackKeyDown = false;
+
 // The weapon panel's row keys, in row order: [1] is row 1 and [0] is row 10, which is the same
 // wrap-around the row's own printed digit uses ((slot + 1) % 10).
 Key[] weaponRowKeys = {
@@ -446,6 +457,10 @@ if (acquireTarget && pilotMech != null) {
 	pilotMech.ToggleScanner(scene.World);
 }
 
+if (autoTrack && pilotMech != null) {
+	pilotMech.Weapons.AutoTrack = true;
+}
+
 // The cockpit powers up the moment the player has a machine — the start-up sequence and, for a
 // flyer, the engine hum that runs for the rest of the mission. See GameAudio.PowerUp.
 //
@@ -471,6 +486,9 @@ if (pilotMech != null) {
 		+ "around the machine; vertical orbit is clamped to 45 degrees up or down.");
 	Console.WriteLine("J/K twist the turret, I/M pitch it, Backspace re-centres it — the manual's own "
 		+ "keyboard turret set. The cockpit view looks where the turret points.");
+	Console.WriteLine("T or the TRACK button toggles Automatic Turret Tracking, which holds the "
+		+ "turret on the selected target; turning it off with T re-centres the turret, and touching "
+		+ "either turret axis overrides it for as long as you hold the key.");
 	Console.WriteLine(throttleTrack != null
 		? "Drag the console's throttle slider with the mouse to set it; it tracks the keys either way."
 		: "No throttle slider in this herc's .GAU — keyboard throttle only.");
@@ -945,6 +963,19 @@ window.Update += deltaSeconds => {
 		}
 		radarKeyDown = radarKey;
 
+		// [T] toggles ATT. The command display owns [T] as an order hotkey while it is down, so the
+		// two are split the same way the arrows and [Backspace] are, and for the same reason.
+		bool autoTrackKey = !HddCommandHasKeyboard() && controls.IsKeyPressed(Key.T);
+		if (autoTrackKey && !autoTrackKeyDown) {
+			// Sim_DispatchCommand's 0x14 case toggles the TRACK widget and, if that turned it off,
+			// latches the centring mode — so [T] off brings the turret home rather than leaving it
+			// wherever the tracker had it. Backspace's own case is the mirror image.
+			if (!pilotMech.ToggleAutoTrack(scene.World)) {
+				pilotMech.LatchCenterTorso();
+			}
+		}
+		autoTrackKeyDown = autoTrackKey;
+
 		// Target selection. It is the cockpit's, not the machine's, so it is driven from here and
 		// copied onto the machine below — see TargetSelection.
 		if (scene.Targeting is { } targeting) {
@@ -987,8 +1018,7 @@ window.Update += deltaSeconds => {
 		// rather than re-centring the turret. This is the one place the two keyboards are separated
 		// rather than allowed to overlap, because scrolling the map and turning the machine with the
 		// same press is the one overlap that would fight the player.
-		bool mapHasArrows = hddCommand != null && cockpitPan.AtHeadsDown
-			&& hudState.Hdd == HddPage.CommandDisplay;
+		bool mapHasArrows = HddCommandHasKeyboard();
 		pilotMech.Controls = new MechControls(
 			(short)((mapHasArrows
 				? Axis(controls, Key.Keypad6, Key.Keypad4)
@@ -1678,9 +1708,16 @@ void ApplyMfdAuxClick(int index) {
 	}
 }
 
-// The three console buttons, from FUN_0044212c's own child switch. TRACK's flag is latched here
-// because that is what makes the button look right; nothing reads it — automatic turret tracking is
-// not ported.
+// Whether the command display is down and holding the letter keys. Both the split that leaves the
+// arrows scrolling its map and the one that leaves [T] as an order hotkey rather than the ATT toggle
+// read it; the original has no such clash, its own screens owning the keyboard outright while up.
+bool HddCommandHasKeyboard() =>
+	hddCommand != null && cockpitPan.AtHeadsDown && hudState.Hdd == HddPage.CommandDisplay;
+
+// The three console buttons, from ConsoleButtons_OnChildClick's own child switch. TRACK toggles ATT
+// and nothing else: the centring that [T] does on the way off belongs to Sim_DispatchCommand's
+// scancode case, not to the button, so clicking TRACK off leaves the turret where the tracker had
+// it.
 void ApplyConsoleClick(ConsoleButton button) {
 	if (pilotMech == null) {
 		return;
@@ -1696,7 +1733,7 @@ void ApplyConsoleClick(ConsoleButton button) {
 			break;
 
 		case ConsoleButton.Track:
-			pilotMech.Weapons.AutoTrack = !pilotMech.Weapons.AutoTrack;
+			pilotMech.ToggleAutoTrack(scene.World);
 			break;
 	}
 }

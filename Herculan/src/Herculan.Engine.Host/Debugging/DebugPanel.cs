@@ -252,6 +252,9 @@ sealed class DebugPanel {
 		ImGui.Text(pilotMech.CenteringBody
 			? $"Centring: body, onto {Degrees(pilotMech.CenterBodyReference):F1} deg"
 			: pilotMech.CenteringTorso ? "Centring: turret" : "Centring: none");
+		ImGui.Text("ATT: " + (!pilotMech.Weapons.AutoTrack ? "off"
+			: pilotMech.Target != null ? "tracking"
+			: $"idle, centring in {pilotMech.AutoTrackIdleTimer}"));
 
 		ImGui.Separator();
 		ImGui.Text($"Throttle: {pilotMech.Throttle} / {ThrottleTrack.Full}");

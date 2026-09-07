@@ -304,7 +304,7 @@ A remote machine gets the base class and never has either read.
 | `+0x1d` | armed mount index, `0xff` for none |
 | `+0x1f`, `+0x25`, `+0x2b` | the three fire-group arrays, one `short` per mount |
 | `+0x31` | target range, gating the readiness test |
-| `+0x14` | TRACK's latch — automatic turret tracking |
+| `+0x14` | TRACK's latch — Automatic Turret Tracking, read by the input path's turret block ([`torso-aim.md`](torso-aim.md#automatic-turret-tracking--t)) |
 | `+0x18` | single-fire flag, below |
 
 **Every non-pod mount starts in group I and groups II and III start empty.** The constructor writes
@@ -399,8 +399,6 @@ from its own `+0x40` latch. **LINK never stays lit**; the link state lives on th
   [`../formats/weapons-dat-sim.md`](../formats/weapons-dat-sim.md).
 - **Firing** is in [`weapon-firing.md`](weapon-firing.md). All three dispatch branches are ported;
   auto-fire is not.
-- **Auto turret tracking.** `manager+0x14` is latched by the TRACK button and read by nothing in
-  Herculan; the tracking itself is unported.
 - **A pod's on/off toggle.** Clicking a pod's row in the original flips `gauge+0xc2`
   (`FUN_004419fc`), which re-fonts its name. No pod carries an on/off state here.
 

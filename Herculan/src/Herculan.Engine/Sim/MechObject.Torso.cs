@@ -102,12 +102,17 @@ public sealed partial class MechObject {
 	/// <c>FUN_0041e8d4</c> — the [Backspace] "Center Turret" command, run every tick until the pilot
 	/// takes the torso back. It drives both axes from the angles themselves, so the torso runs home
 	/// fast and eases off as it arrives, and enables the snap so it stops exactly on centre.
+	///
+	/// <para><paramref name="convergeRange"/> is passed straight through to the pitch tick's
+	/// convergence pass, so the guns keep toeing in on the selected target while the turret comes
+	/// home. The player's input path is the only caller that has a range to give; every AI caller
+	/// passes zero.</para>
 	/// </summary>
-	public void CenterTorsoTick() {
+	public void CenterTorsoTick(int convergeRange = 0) {
 		TorsoTwistTick((short)-ClampAxis(SimMath.Q10Multiply(CenterGain, TorsoTwistAngle)),
 			snapTarget: 0, snapEnable: true);
 		TorsoPitchTick((short)-ClampAxis(SimMath.Q10Multiply(CenterGain, TorsoPitchAngle)),
-			convergeRange: 0, snapTarget: 0, snapEnable: true);
+			convergeRange: convergeRange, snapTarget: 0, snapEnable: true);
 	}
 
 	/// <summary>

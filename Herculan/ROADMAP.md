@@ -34,14 +34,15 @@ The mechanism is understood; what is left is engine work.
   frame from projected size and a detail bias.
   → [`docs/formats/mech-shape-drawing.md`](docs/formats/mech-shape-drawing.md)
 - **Weapon input divergences.** A right press dragged off its widget before release fires nothing
-  here, where the original re-hits on release; TRACK latches but nothing reads it; clicking a pod's
-  row does nothing, where the original toggles the pod.
+  here, where the original re-hits on release; clicking a pod's row does nothing, where the original
+  toggles the pod.
   → [`docs/simulation/weapon-mounts.md`](docs/simulation/weapon-mounts.md)
 - **Terrain raycast, swept-volume mode.** Only thin-ray mode is ported; the swept-volume mode
   (movement collision) is not, because nothing in the engine needs it yet.
   → [`docs/formats/terrain-heightmap.md`](docs/formats/terrain-heightmap.md)
-- **Automatic turret tracking (`[T]`).** The primitive it needs is in place — `TrackWorldPoint`,
-  which the AI's fire path already drives; what is missing is the input path's third branch.
+- **The HUD's "ATT" legend.** Automatic Turret Tracking itself works, but the manual's upper-left
+  "ATT" readout has not been located in the cockpit widget set, so nothing on screen says the tracker
+  is on but the TRACK button's own lamp and the computer's spoken confirmation.
   → [`docs/simulation/torso-aim.md`](docs/simulation/torso-aim.md)
 - **Mission difficulty.** Nothing sets it, so the two systems that index it — the AI's aim scatter
   and the explosive damage scale — run on entry 0.

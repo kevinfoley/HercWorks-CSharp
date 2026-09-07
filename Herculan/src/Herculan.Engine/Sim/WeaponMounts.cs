@@ -64,10 +64,13 @@ public sealed class WeaponMounts {
 	public bool SingleFire { get; private set; }
 
 	/// <summary>
-	/// <c>manager+0x14</c>, the TRACK button's latch — automatic turret tracking. The console button
+	/// <c>manager+0x14</c>, the TRACK button's latch — Automatic Turret Tracking. The console button
 	/// sets and clears it (<c>FUN_00410f04</c> and <c>FUN_00410b40</c>'s own else branch), which is
-	/// why TRACK is the one console button that stays lit. <b>Nothing acts on it yet:</b> turret
-	/// tracking is unported, so this is the switch without the machinery behind it.
+	/// why TRACK is the one console button that stays lit, and so does the [T] command.
+	///
+	/// <para>Read by <see cref="MechObject.TorsoTick"/>, which flies the turret at the selected
+	/// target while it is set. Both centring commands clear it — see
+	/// <see cref="MechObject.LatchCenterTorso"/>.</para>
 	/// </summary>
 	public bool AutoTrack { get; set; }
 

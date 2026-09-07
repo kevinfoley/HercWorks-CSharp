@@ -153,6 +153,10 @@ public sealed partial class MechObject {
 
 			if (_target != null) {
 				_target.TargetedBy++;
+			} else if (Weapons.AutoTrack) {
+				// Player_PerFrameCockpitUpdate arms mech+0x31c here, on the change that leaves ATT
+				// with nothing to track. See MechObject.TorsoTick, which runs it down.
+				_autoTrackIdle = AutoTrackIdleDelay;
 			}
 
 			TargetChanged = true;
@@ -169,6 +173,22 @@ public sealed partial class MechObject {
 	/// that can, and leaving it out would mean revisiting the setter later.
 	/// </summary>
 	public bool TargetChanged { get; set; }
+
+	/// <summary>
+	/// <c>mech+0x31c</c> — how long Automatic Turret Tracking waits, with the latch on and nothing
+	/// selected, before it gives up and brings the turret home. <c>Player_PerFrameCockpitUpdate</c>
+	/// (<c>0041b130</c>) arms it from the selection change that cleared the target and runs it down
+	/// every frame the pair still holds; the engine runs it down in the turret block instead, which
+	/// is the only thing that reads the result. See <see cref="AutoTrackIdleDelay"/>.
+	/// </summary>
+	public short AutoTrackIdleTimer => _autoTrackIdle;
+
+	/// <summary>
+	/// What that timer is armed with — the original's own <c>0x1194</c>, about 55 ticks.
+	/// </summary>
+	public const short AutoTrackIdleDelay = 0x1194;
+
+	private short _autoTrackIdle;
 
 	/// <summary>
 	/// Total damage this machine has taken, <c>mech+0x288</c> — the running sum the original keeps of
@@ -188,7 +208,9 @@ public sealed partial class MechObject {
 	/// either cockpit section is gone or life support or the pilot has been destroyed; see there for
 	/// the whole of the test.
 	/// </summary>
-	public bool Destroyed { get; private set; }
+	public override bool Destroyed => _destroyed;
+
+	private bool _destroyed;
 
 	/// <summary>
 	/// <c>mech+0xa4</c> — whether the machine can no longer move under its own power. Latched, never
@@ -758,7 +780,7 @@ public sealed partial class MechObject {
 				|| _damage.FullyDestroyed(CockpitRearComponent)
 				|| _damage.DependentPercent(PilotDependent) == FullyDamaged
 				|| _damage.DependentPercent(LifeSupportDependent) == FullyDamaged)) {
-			Destroyed = true;
+			_destroyed = true;
 			LastAttacker ??= attacker;
 
 			// The original's own recursive finish-off, with no attacker so the kill is not credited

@@ -120,6 +120,15 @@ public sealed class SystemMessages {
 	/// </summary>
 	public const int PowerUpDamaged = 0x22;
 
+	/// <summary>
+	/// <c>AUTO TRACKING ENGAGED</c> — posted by <c>ConsoleButtons_ToggleAutoTrack</c>
+	/// (<c>00441f7c</c>), which withdraws both of the pair first exactly as the radar toggle does.
+	/// </summary>
+	public const int AutoTrackingEngaged = 0x26;
+
+	/// <summary><c>AUTO TRACKING DISABLED</c> — its other half.</summary>
+	public const int AutoTrackingDisabled = 0x27;
+
 	/// <summary><c>ACTIVE RADAR MODE</c> — posted by <c>Mech_ToggleRadarMode</c> (<c>0041b468</c>).</summary>
 	public const int ActiveRadarMode = 0x2c;
 

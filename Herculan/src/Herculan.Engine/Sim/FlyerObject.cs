@@ -106,7 +106,9 @@ public sealed class FlyerObject : SimObject {
 	/// <c>+0x2e</c>); with no flight model to fall through, this only records that it is a wreck, and
 	/// a wreck still stops shots.
 	/// </summary>
-	public bool Destroyed { get; private set; }
+	public override bool Destroyed => _destroyed;
+
+	private bool _destroyed;
 
 	/// <summary>
 	/// Who landed the shot that finished it, for the kill credit the original passes back through the
@@ -235,7 +237,7 @@ public sealed class FlyerObject : SimObject {
 			return;
 		}
 
-		Destroyed = true;
+		_destroyed = true;
 		LastAttacker = attacker;
 	}
 

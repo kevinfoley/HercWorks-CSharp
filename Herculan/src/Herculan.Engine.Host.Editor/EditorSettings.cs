@@ -68,7 +68,11 @@ public sealed class EditorSettings {
 	}
 
 	/// <summary>A detached copy, for holding the pre-edit values behind a Cancel button.</summary>
-	public EditorSettings Clone() => new() { RenderFog = RenderFog, ShowGrid = ShowGrid };
+	public EditorSettings Clone() {
+		var newSettings = new EditorSettings();
+		newSettings.CopyFrom(this);
+		return newSettings;
+	}
 
 	/// <summary>Copies every value out of <paramref name="other"/> — the other half of Cancel.</summary>
 	public void CopyFrom(EditorSettings other) {

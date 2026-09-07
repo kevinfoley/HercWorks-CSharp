@@ -1,4 +1,4 @@
-using Herculan.Engine.Numerics;
+﻿using Herculan.Engine.Numerics;
 using Herculan.Engine.Sim.Ai;
 using Herculan.Engine.World;
 
@@ -339,7 +339,17 @@ public partial class MechObject {
 	/// proximity sweep cannot see one at all, and without this a machine walks into a building and
 	/// stands there for the rest of the mission.</para>
 	/// </summary>
-	private void ProbeShapes(SimWorld world, Vec3i start, Vec3i end, ref int nearest) {
+	private void ProbeShapes(SimWorld world, Vec3i start, Vec3i end, ref int nearest) =>
+		ProbeShapes(world, start, end, ref nearest, out _);
+
+	/// <inheritdoc cref="ProbeShapes(SimWorld, Vec3i, Vec3i, ref int)"/>
+	/// <param name="struck">
+	/// The nearest candidate the segment reached, which <see cref="LineOfSightToTarget"/> needs and
+	/// the avoidance probe does not — the original's raycast context carries it either way.
+	/// </param>
+	private void ProbeShapes(SimWorld world, Vec3i start, Vec3i end, ref int nearest,
+			out SimObject? struck) {
+		struck = null;
 		int spanX = end.X - start.X;
 		int spanY = end.Y - start.Y;
 		int spanLength = SimMath.FastMagnitude2D(spanX, spanY);
@@ -376,8 +386,45 @@ public partial class MechObject {
 
 			if (range < nearest) {
 				nearest = range;
+				struck = other;
 			}
 		}
+	}
+
+	/// <summary>
+	/// <c>Ai_LineOfSightBlocked</c> (<c>0041dc24</c>) — whether this machine can see its target, and
+	/// the trigger for <c>skirting</c>. Both endpoints are lifted to their objects' aim-node heights
+	/// before the cast. See docs/simulation/ai-navigation.md.
+	///
+	/// <para><b>The two nonzero answers are not "shape" and "terrain".</b>
+	/// <see cref="LineOfSight.BlockedByShape"/> is anything the machine cannot get past — a shape, or
+	/// ground whose slope the mode-1 walk says it could not climb — and
+	/// <see cref="LineOfSight.BlockedByTerrain"/> is ground it <i>could</i>: the thin ray grazes a
+	/// rise the machine can simply crest.</para>
+	/// </summary>
+	private LineOfSight LineOfSightToTarget(SimWorld world) {
+		if (Target is not { } target) {
+			return LineOfSight.Clear;
+		}
+
+		var from = new Vec3i(Position.X, Position.Y, Position.Z + SightHeight);
+		var to = new Vec3i(target.Position.X, target.Position.Y,
+			target.Position.Z + target.SightHeight);
+
+		bool tooSteep = world.Terrain.RayWalkVolume(from, to, out _);
+
+		int nearest = int.MaxValue;
+		ProbeShapes(world, from, to, ref nearest, out var struck);
+
+		if (struck != null && !ReferenceEquals(struck, target)) {
+			return LineOfSight.BlockedByShape;
+		}
+
+		if (!world.Terrain.RayWalk(from, to, out _)) {
+			return LineOfSight.Clear;
+		}
+
+		return tooSteep ? LineOfSight.BlockedByShape : LineOfSight.BlockedByTerrain;
 	}
 
 	/// <summary>
@@ -417,7 +464,7 @@ public partial class MechObject {
 
 			if (Target != null) {
 				AimComponentClear();
-				Behaviour.SetState(BehaviourState.Fleeing);
+				SetBehaviourState(BehaviourState.Fleeing);
 			}
 
 			return false;
@@ -462,7 +509,7 @@ public partial class MechObject {
 
 			if (Target != null) {
 				AimComponentClear();
-				Behaviour.SetState(BehaviourState.Fleeing);
+				SetBehaviourState(BehaviourState.Fleeing);
 			}
 
 			return false;
@@ -591,11 +638,11 @@ public partial class MechObject {
 
 		if (OutOfAction) {
 			AimComponentClear();
-			Behaviour.SetState(BehaviourState.Fleeing);
+			SetBehaviourState(BehaviourState.Fleeing);
 			return false;
 		}
 
-		Behaviour.SetState(BehaviourState.DrivingOffEnemy);
+		SetBehaviourState(BehaviourState.DrivingOffEnemy);
 		SelectAimComponent(world);
 
 		if (Group is not { LedByPlayer: true } || RadarForcedActive) {

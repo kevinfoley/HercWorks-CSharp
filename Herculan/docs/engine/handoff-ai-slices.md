@@ -13,6 +13,7 @@ Six docs, split by what each owns. The rule throughout is one fact, one home: ci
 | `ai-navigation.md` | Route and waypoint following, obstacle avoidance, terrain handling, arrival and stop conditions |
 | `ai-weapons.md` | Weapon choice, engagement envelope, fire decisions, gun convergence for AI |
 | `ai-goals.md` | The mission-group order layer: the order array, how orders advance, and how a verb becomes a behaviour state |
+| `ai-combat-states.md` | The nine thinks that are not navigation: the five combat states, `skirting`, `driving off en`, `fleeing`, and the two inert ones. The combat geometry block, the move step, the circling step, and the `Behaviour_SetState` transition graph |
 | `ai-squadmates.md` | The player's own squad — standing orders at `mech+0x23e`, formations in motion, mutual support. Written only if this proves to be its own mechanism rather than a special case of `ai-goals.md` |
 
 Docs outside this set that the AI work amends rather than owns: `target-selection.md` (the shared selection mechanism and `mech+0x1a4`), `mech-locomotion.md` (the locomotion model), `mission-deployment.md` (group arrival), `damage-system.md`.
@@ -28,7 +29,7 @@ Each slice is reverse-engineered to its topic doc, reviewed, then ported. The RE
 | 2 | **Goals** | `Group_OrderTick` `00423a74`, the order array at `group+0x44` indexed by `group+0x6c` | `ai-goals.md` written; ported. Moved ahead of plan — see below |
 | 3 | **Navigation** | `Mech_AiObstacleAvoidance` `00416274`, the travel and patrol think functions (`0041d7d0`, `0041d9cc`, `0041daac`, `0041d60c`) | `ai-navigation.md` written; ported. Also took `guarding`'s think and `Terrain_RayWalk`'s mode 1 — see below |
 | 4 | **Weapons** | `Ai_AimAndFire` `0041ea7c`, `Ai_FireAtPoint` `0041f5a0`, `Ai_ChooseWeapon` `0041f358`, `Mech_ConvergeGunsOnRange` `0041a74c` | `ai-weapons.md` written; ported. Corrected the radar reading — see below |
-| 5 | **Behaviour states** | The remaining think functions — `flanking`, `facing off`, `skirting`, `guarding`, `driving off en`, `fleeing` — and the 30 `Behaviour_SetState` call sites as the transition graph | Not started |
+| 5 | **Behaviour states** | The remaining think functions and the 30 `Behaviour_SetState` call sites as the transition graph | `ai-combat-states.md` written; ported. Found `skirting`'s caller — see below |
 | 6 | **Squadmates** | `mech+0x23e` standing orders, `FUN_0041c0f4`, `Mech_ApplyFormationOffset` `00417898` | Not started |
 | 7 | **Flyer AI** | The flyer behaviour path; no retail mission places an AI RAZOR, so verification is synthetic | Not started |
 
@@ -45,6 +46,12 @@ Two things outside the AI turned out to be load-bearing for it.
 
 It also closed three of `ai-targeting.md`'s "no writer found" entries: `mech+0xa5` is *no weapons left* and `Ai_ChooseWeapon` writes it, `mech+0x26b` is the ARM radar-silence timer and `Mech_DirectFireHitTest` writes it, and `mech+0xb2` is written by the squad command handler. And it traced the gun convergence's consumer, which `weapon-firing.md` had recorded as inert on every retail chassis when it is in fact live on all of them.
 
+### What slice 5 corrected
+
+- **`skirting` is reachable, and `Sim_RaycastObjectList` is what reaches it.** Mech vtable `+0x64` looked uncalled because the decompiler renders the slot in decimal (`+ 100`); four call sites exist. The state fires when a machine's own shot stops on something that is not what it aimed at.
+- **`Ai_LineOfSightBlocked`'s two nonzero answers are not "shape" and "terrain".** `1` is anything the machine cannot get past, `2` is ground it could walk over — which is what makes `skirting` arc around the first and drive straight at the second. `ai-navigation.md` carried the wrong pair.
+- **`BASES.DAT +0x2e` is read in two places, not one**, and both treat nonzero as *this target is dangerous*. It closed `ai-targeting.md`'s open question and gained the base type table a field.
+
 ### Why goals moved up
 
 The original ordering had goals fifth. The dispatch pass found that `Mech_AiTick`'s only caller is `Group_OrderTick` — **a machine that is not a live member of a mission group never thinks** — which makes the group order layer structurally upstream of every other slice rather than a peer of them. Nothing else can be observed running in the engine until it exists, and the targeting port has already had to stand up `MissionGroup.cs` to get that far.
@@ -53,9 +60,8 @@ The original ordering had goals fifth. The dispatch pass found that `Mech_AiTick
 
 - **The group-report cluster** at `00412f90` and `00413280`, and the visibility helpers around them (`00412ef4`, `00412d90`, `00412f5c`, `00412f28`, `00413950`, `004137b4`, `00413a08`, `00413920`, `00412d4c`). They read the same order records the AI does but produce string indices and write into a global variable table, so they read as the mission-objective and status-report layer. Not an `ai-*.md` subject; they want a doc of their own.
 - **Order `+0x02` and `+0x04`, and group `+0x1c`/`+0x30`** — resolved at load, no reader found. Listed as open questions in `ai-goals.md`.
-- **`FUN_0041de9c`** is the gate every combat think opens with: `mech+0xad` set stashes the current descriptor in the block scratch and installs `skirting` (14), recording the range to `mech+0x31e`. Decoded in slice 4 but left unnamed — the state it installs is slice 5's.
-- **`FUN_0041c72c`** is the circling step `flanking` and `attacking base` share: on the `mech+0x5f`/`mech+0x62` timers it offsets the target's position 15000 units to one side and steers at that instead, latching `mech+0x66` so the machine alternates between circling and squaring up. Decoded in slice 4, ported nowhere.
-- **`Ai_LineOfSightBlocked` (`0041dc24`)** is decoded and is what triggers `skirting`. `FUN_0041dbfc` (the circling step's own bookkeeping) and the `skirting` think itself are slice 5's.
+- **`mech+0x5d`**, written zero by the circling step and read nowhere, and **`mech+0x9e`**, set by `Sim_RaycastObjectList` when a shot reaches the shooter's own target. Listed as open questions in `ai-combat-states.md`.
+- **Seven of the eight AI machines in mission 1 never leave `deciding`**, and it is not an order problem: every Cybrid group in that mission carries verb 0 in slot 0. They are `AwaitingDeployment`, so `MissionGroup.AiTick` skips them before the think is ever reached, and nothing in the engine clears that flag. It is the deployment layer — [`mission-deployment.md`](../simulation/mission-deployment.md) — and only the one already-deployed group exercises the AI at all.
 
 ## Working method
 

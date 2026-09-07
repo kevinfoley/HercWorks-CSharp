@@ -148,7 +148,7 @@ Coming out of either with no target also ends in `Mech_AiSelectBehaviour`.
 
 Returns nonzero when it has taken the decision itself, which is how the reassess above knows to stop.
 
-A machine that is itself out of action (`+0xa5`, `+0xa4` or `+0x99`) takes `fleeing` (18), unless its target is a structure whose `BASES.DAT +0x2e` is zero, which sends it to `Mech_AiSelectBehaviour` instead. What `+0x2e` distinguishes is not known — [`base-type-table`](../../src/Herculan.Engine/World/BaseTypeTable.cs) reads past the field without using it.
+A machine that is itself out of action (`+0xa5`, `+0xa4` or `+0x99`) takes `fleeing` (18), unless its target is a structure whose `BASES.DAT +0x2e` is zero, which sends it to `Mech_AiSelectBehaviour` instead — so a crippled machine breaks off from a structure that can hurt it and presses on against one that cannot. The field is [`ai-combat-states.md`](ai-combat-states.md#basesdat-0x2e)'s.
 
 Otherwise it builds a **fear** value: `Mech_GetOverallDamage` (mech vtable `+0x40`) plus, for each of 6 components (`0049a328` = 0, 1, 4, 5, 6, 7) whose Q8 damage exceeds a band threshold, that band's penalty — `+5` over 60, `+25` over 120, `+50` over 180, cumulative, stopping at the first band no component reaches. Fear then decides against `+0x1a2`, the number of machines holding this one as their target:
 
@@ -245,7 +245,6 @@ Two things are reproduced rather than corrected: the `rand & 1000` jitter in the
 ## Open questions
 
 - **`DAT_004a9ed8 == 3`**, which makes a player-led group's own machines refuse the group order's target in `Ai_IsTargetable`. Reads like a squad-command or difficulty mode.
-- **`BASES.DAT +0x2e`**, the flee check's structure exception.
 - **What sets `mech+0x9a`.** Read here against the player's group; the writer is presumably in the squadmate command path, as `mech+0xb2`'s is.
 
 ## Rejected readings

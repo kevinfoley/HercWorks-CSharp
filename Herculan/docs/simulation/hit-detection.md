@@ -285,9 +285,10 @@ disk and a pointer at `+0x14`.
 | `+0x2a` | `int16` | body radius, vtable `+0x5c` (`Base_GetBodyRadius`, `004035a4`), and `+0x7c` for an animated type; four types state 0 |
 | `+0x30` | `int16` | non-zero installs `BASECOL.DAT`'s model at runtime `+0x38` |
 | `+0x38` | ptr | runtime only: the installed `BASECOL.DAT` model. Null selects the volume hit path **and** makes the type immune to blasts |
+| `+0x2e` | `int16` | non-zero marks a type the AI treats as dangerous — [`ai-combat-states.md`](ai-combat-states.md#basesdat-0x2e) |
 | `+0x32` | `int16` | texture bank selector |
 
-Unread: `+0x00`, `+0x18` (6 bytes), `+0x20` (4 bytes), `+0x24`–`+0x28`, `+0x2c`, `+0x2e`.
+Unread: `+0x00`, `+0x18` (6 bytes), `+0x20` (4 bytes), `+0x24`–`+0x28`, `+0x2c`.
 
 Component record, 30 bytes:
 

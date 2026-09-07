@@ -182,7 +182,16 @@ Its target handling is the exception among the five: it runs `Ai_SelectDefenceTa
 
 ## Line of sight — `Ai_LineOfSightBlocked` (`0041dc24`)
 
-Not navigation, but it is built out of the same two probe primitives, and it is what sends a machine into `skirting` (14): 0 clear, 1 blocked by a shape, 2 blocked by terrain. Both endpoints are lifted to their objects' aim-node origins (or by 500 units when there is no node) before the cast. `skirting` itself is a behaviour-state subject; it stashes the descriptor to come back to in the block scratch at `mech+0x5a` and circles the blocked target with `Math_OffsetPointByBearing` (`004928f0`) until the line clears.
+Not navigation, but it is built out of the same two probe primitives, and it is what sends a machine into `skirting` (14). Both endpoints are lifted to their objects' aim-node origins, or by 500 units when there is no node, and then:
+
+```
+steep    = Terrain_RayWalk(from, to, mode 1)          // is a face in the way too steep to walk
+if (Sim_RaycastShapes(from, to) hit something that is not the target) return 1
+if (!Terrain_RayWalk(from, to, mode 0))               return 0      // the ground is clear
+return steep ? 1 : 2
+```
+
+**The two nonzero answers are not "shape" and "terrain".** `1` is anything the machine cannot get past — a shape, or ground whose slope `Terrain_FaceBlocksMovement` says it could not walk. `2` is ground it *could* walk: the thin ray grazes a rise the machine can simply crest. That is what makes the reading matter to the one consumer — see [`ai-combat-states.md`](ai-combat-states.md#skirting-14--mech_behaviourskirtthink-0041dd64), which owns the state.
 
 ## Mech and mission fields this layer owns
 

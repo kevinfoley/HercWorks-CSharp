@@ -1,4 +1,4 @@
-{
+﻿{
   "schema_version": 1,
   "_readme": [
     "Confirmed address->meaning mappings for VSHELL.EXE / DBSIM.EXE, extracted from",
@@ -9880,6 +9880,132 @@
       "name": "Mech_ComponentNearestAim",
       "description": "Mech vtable +0x54. Walks the machine's 29 component slots, places each through vtable +0x58, and returns the one nearest the given machine's aim in |dyaw| + |dpitch|. Base_FirstLiveComponent is the structure class's counterpart.",
       "source": "docs/simulation/ai-weapons.md"
+    },
+    {
+      "address": "0041c594",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_BehaviourAttackThink",
+      "description": "Behaviour state 3 (attacking). Skirt gate, combat geometry, then a standoff point 18000 units off the target's beam when the target is facing this machine (|aspect| < 8000) -- reflected through this machine's own position on the reverse arm -- or a plain square-up when it is not. Leaves the built-in 15000/30000 standoff ring.",
+      "source": "docs/simulation/ai-combat-states.md"
+    },
+    {
+      "address": "0041d4e4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_BehaviourFlankThink",
+      "description": "Behaviour state 4 (flanking). The shared combat shape with Ai_CircleStep between the geometry and the move step. Unreachable in retail: the combat reassess gates it on typeRec+0xc8, zero on all 21 chassis.",
+      "source": "docs/simulation/ai-combat-states.md"
+    },
+    {
+      "address": "0041d41c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_BehaviourFaceOffThink",
+      "description": "Behaviour state 5 (facing off), and the whole of state 16 (driving off en). Approach = -1 past 0x1fff of bearing error, else 1; standoffs 16000/35000. Never steers anywhere but at the target.",
+      "source": "docs/simulation/ai-combat-states.md"
+    },
+    {
+      "address": "0041c86c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_BehaviourAttackBaseThink",
+      "description": "Behaviour state 6 (attacking base). Forces the aspect to 32000 when the target's BASES.DAT +0x2e is zero, so Ai_CircleStep stands off instead of circling; standoffs 25000 / -20536, which makes the ring mandatory. Its completion test demands destruction, not merely being out of action, for a structure the mission order names.",
+      "source": "docs/simulation/ai-combat-states.md"
+    },
+    {
+      "address": "0041c9cc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_BehaviourAttackFlyerThink",
+      "description": "Behaviour state 7 (attacking flyer). No skirt gate; standoffs 0/1000000 put both move-step arms out of reach so the state owns the approach flag outright. Advances only inside 2000 BAM of bearing error with the flyer past 35000 and not facing back. Returns finished past 150000 range.",
+      "source": "docs/simulation/ai-combat-states.md"
+    },
+    {
+      "address": "0041dd64",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_BehaviourSkirtThink",
+      "description": "Behaviour state 14 (skirting). Walks an arc around whatever blocked the line of fire, at a point 90 degrees off the line to the position stashed at mech+0x31e, re-testing Ai_LineOfSightBlocked every 5000 ms and restoring the stashed descriptor from mech+0x5a when it comes back clear. A terrain block (reading 2) gets no arc.",
+      "source": "docs/simulation/ai-combat-states.md"
+    },
+    {
+      "address": "0041def0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_BehaviourDriveOffThink",
+      "description": "Behaviour state 16 (driving off en). Ai_BeginSkirtIfBlocked, then Mech_BehaviourFaceOffThink verbatim. The states differ only in their descriptors: this one holds a place and reassesses through Mech_AiSelectBehaviour.",
+      "source": "docs/simulation/ai-combat-states.md"
+    },
+    {
+      "address": "0041d2c4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_BehaviourFleeThink",
+      "description": "Behaviour state 18 (fleeing). Moves the selected target into the block scratch at mech+0x61 and releases the selection, then reverses with the steer a half turn away while the threat is within 0x3000 of the nose and runs off at +/-0x6000 once turned, flipping side every 4000 ms. Engages the Turbo Pod every tick and still fires at the stash.",
+      "source": "docs/simulation/ai-combat-states.md"
+    },
+    {
+      "address": "0041c418",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_BehaviourSleepThink",
+      "description": "Behaviour state 13 (sleeping). Releases the target, Mech_LocomotionTick(0,0,0), Ai_UpdateWeaponsFree. Still ticked, detectable and able to answer fire.",
+      "source": "docs/simulation/ai-combat-states.md"
+    },
+    {
+      "address": "0041e554",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_BehaviourInertThink",
+      "description": "Behaviour states 20 (dead) and 21 (disabled). Mech_LocomotionTick(mech, 0, 0, 0) and nothing else.",
+      "source": "docs/simulation/ai-combat-states.md"
+    },
+    {
+      "address": "0041c72c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Ai_CircleStep",
+      "description": "The circling step flanking and attacking base share. On mech+0x60 (1000 ms break-off) it reverses in a straight line; otherwise it circles a target whose |aspect| is under the mech+0x66 hysteresis threshold (0x6000 circling, 0x4000 squared up) by steering at a point 15000 units out from the target on this machine's approach line rotated +/-6000, and squares up on one that is not, standing still while its own turret twist is inside 2000. The break-off is armed only once mech+0x288 (total damage taken) passes 100.",
+      "source": "docs/simulation/ai-combat-states.md"
+    },
+    {
+      "address": "0041de9c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Ai_BeginSkirtIfBlocked",
+      "description": "The gate at the top of every combat think. When mech+0xad is set it stashes the current descriptor at mech+0x5a, installs skirting (descriptor 0x499708), records the 3D range to mech+0x31e at mech+0x67, and returns true so the think does nothing else.",
+      "source": "docs/simulation/ai-combat-states.md"
+    },
+    {
+      "address": "0041dd2c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_AiOnLineOfFireBlocked",
+      "description": "Mech vtable +0x64. Copies the selected target's position to mech+0x31e and sets mech+0xad, which makes the next combat think enter skirting. Its one caller is the tail of Sim_RaycastObjectList: a shot that stopped nearer than the shooter's target and within 0x2000 of the same bearing. The base and flyer classes leave the slot empty.",
+      "source": "docs/simulation/ai-combat-states.md"
+    },
+    {
+      "address": "0041c478",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Ai_ClearSquadEngageOrder",
+      "description": "The tail of every combat think's completion test. Returns 1, and clears a standing squad engage order (mech+0x23e == 4) whose target at mech+0x248 is the one being let go.",
+      "source": "docs/simulation/ai-combat-states.md"
     }
   ]
 }

@@ -732,6 +732,33 @@ public sealed class SimWorld {
 				playSound: false);
 		}
 
+		// "My line of fire is blocked", on the shooter's own +0x64 slot, and the only caller of it in
+		// the image. A shot that stopped nearer than the target it was aimed at and within 45 degrees
+		// of the same bearing is the shooter hitting something in the way — which is what sends a
+		// machine into `skirting` to walk around it. Only a machine implements the slot.
+		//
+		// A shot that reached the target does not count, which is what keeps the state off a machine
+		// that is shooting perfectly well: the original clears the "what was struck" pointer, and only
+		// that, when the candidate it just resolved is the shooter's own target.
+		if (hit && shot.Owner is MechObject { Target: { } aimedAt } shooter
+				&& !ReferenceEquals(shot.HitObject, aimedAt)) {
+			var stopped = shot.Muzzle.TransformPoint(0, shot.Distance, 0);
+
+			// The original measures the two the two different ways: the ground plane to where the shot
+			// stopped, three dimensions to the target.
+			int toStop = SimMath.FastMagnitude2D(
+				shooter.Position.X - stopped.X, shooter.Position.Y - stopped.Y);
+
+			if (toStop < shooter.Position.ApproxDistanceTo(aimedAt.Position)) {
+				short spread = (short)(Detection.HeadingToward(stopped, shooter.Position)
+					- Detection.HeadingToward(aimedAt.Position, shooter.Position));
+
+				if (System.Math.Abs((int)spread) < BlockedLineOfFireArc) {
+					shooter.OnLineOfFireBlocked();
+				}
+			}
+		}
+
 		return hit ? shot.Distance + 1 : 0;
 	}
 
@@ -1044,4 +1071,11 @@ public sealed class SimWorld {
 	/// terrain-avoidance autopilot both ask "how high is the ground under this object".
 	/// </summary>
 	public int GroundHeightAt(Vec3i position) => Terrain.HeightAtWorld(position.X, position.Y);
+
+	/// <summary>
+	/// Half-arc, either side of the bearing to the target, inside which a shot that stopped short
+	/// counts as the shooter's own line of fire being blocked. 45°; see
+	/// docs/simulation/ai-combat-states.md.
+	/// </summary>
+	private const int BlockedLineOfFireArc = 0x2000;
 }

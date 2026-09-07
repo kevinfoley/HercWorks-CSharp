@@ -140,6 +140,12 @@ public readonly record struct BaseComponentType(
 /// <c>+0x10</c> — the death sequence the structure runs as a whole, in place of the failing part's
 /// own. Read only when this was the last part standing.
 /// </param>
+/// <param name="ThreatensAttackers">
+/// <c>+0x2e != 0</c> — the AI treats this type as dangerous. Nonzero on the two armed structures
+/// (gun tower, missile tower), the mobile missile vehicle, the generator and the transport, and it
+/// changes two decisions: a crippled machine flees from one instead of pressing the attack, and an
+/// attacking machine circles one instead of standing off. See docs/simulation/ai-combat-states.md.
+/// </param>
 /// <param name="Components">
 /// <c>+0x14</c> — the type's destructible parts, in the order the file states them, which is the
 /// order both the health array and <c>BASECOL.DAT</c>'s component indices address them in.
@@ -148,7 +154,7 @@ public readonly record struct BaseType(
 	int Index, int ShapeIndex, BaseShapeSource Source, string TextureBankName,
 	short HulkTypeIndex, int HitRadius, bool Invulnerable, bool HasCollisionModel,
 	short SilhouetteIndex, bool IsVehicle, short FireShapeIndex, Vec3i FirePoint,
-	short DestroyedEffect, BaseComponentType[] Components);
+	short DestroyedEffect, bool ThreatensAttackers, BaseComponentType[] Components);
 
 /// <summary>
 /// <c>dat\BASES.DAT</c> — the game's table of structure types, the thing that turns a mission's
@@ -180,8 +186,7 @@ public readonly record struct BaseType(
 /// exactly eight roots, numbered 0-7 the way those eight types reference them.</para>
 ///
 /// <para>Fields still unread are left as skips rather than guessed at: <c>+0x00</c>, <c>+0x18</c>
-/// (6 bytes), <c>+0x20</c> (4 bytes), <c>+0x24</c>, <c>+0x26</c>, <c>+0x2c</c> and
-/// <c>+0x2e</c>.</para>
+/// (6 bytes), <c>+0x20</c> (4 bytes), <c>+0x24</c>, <c>+0x26</c> and <c>+0x2c</c>.</para>
 /// </summary>
 public sealed class BaseTypeTable {
 	/// <summary>VOL folder and name of the table.</summary>
@@ -257,7 +262,7 @@ public sealed class BaseTypeTable {
 			short silhouette = Next();       // +0x28 - silhouette frame and type-name index
 			short hitRadius = Next();        // +0x2a
 			Next();                          // +0x2c
-			Next();                          // +0x2e
+			short threatens = Next();        // +0x2e
 			short collisionModel = Next();   // +0x30
 			short textureSelector = Next();  // +0x32
 
@@ -275,6 +280,7 @@ public sealed class BaseTypeTable {
 				fireShape,
 				firePoint,
 				destroyedEffect,
+				threatens != 0,
 				components);
 		}
 

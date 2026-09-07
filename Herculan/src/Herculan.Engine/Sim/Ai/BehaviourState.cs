@@ -1,4 +1,4 @@
-namespace Herculan.Engine.Sim.Ai;
+﻿namespace Herculan.Engine.Sim.Ai;
 
 /// <summary>
 /// Which of the two reassess implementations a behaviour state installs in its <c>+0x30</c> slot.
@@ -17,12 +17,13 @@ public enum ReassessSlot {
 }
 
 /// <summary>
-/// Which think function a behaviour state installs in its <c>+0x18</c> slot. Only the states whose
-/// think is ported have a value of their own; the rest take <see cref="None"/> and stand still —
-/// see docs/simulation/ai-navigation.md and docs/simulation/ai-dispatch.md.
+/// Which think function a behaviour state installs in its <c>+0x18</c> slot. <see cref="None"/> is
+/// the states that genuinely have none, plus <c>ramming</c> and the player's two, whose thinks are
+/// not this layer's — see docs/simulation/ai-navigation.md, docs/simulation/ai-combat-states.md and
+/// docs/simulation/ai-dispatch.md.
 /// </summary>
 public enum ThinkSlot {
-	/// <summary>No think, or one belonging to an AI slice that is not ported.</summary>
+	/// <summary>No think: <c>deciding</c>, <c>in limbo</c>, and the two player states.</summary>
 	None,
 
 	/// <summary><c>Mech_BehaviourPatrolThink</c> (<c>0041d7d0</c>).</summary>
@@ -38,7 +39,37 @@ public enum ThinkSlot {
 	Follow,
 
 	/// <summary><c>Mech_BehaviourGuardThink</c> (<c>0041e224</c>).</summary>
-	Guard
+	Guard,
+
+	/// <summary><c>Mech_BehaviourAttackThink</c> (<c>0041c594</c>).</summary>
+	Attack,
+
+	/// <summary><c>Mech_BehaviourFlankThink</c> (<c>0041d4e4</c>).</summary>
+	Flank,
+
+	/// <summary><c>Mech_BehaviourFaceOffThink</c> (<c>0041d41c</c>).</summary>
+	FaceOff,
+
+	/// <summary><c>Mech_BehaviourAttackBaseThink</c> (<c>0041c86c</c>).</summary>
+	AttackBase,
+
+	/// <summary><c>Mech_BehaviourAttackFlyerThink</c> (<c>0041c9cc</c>).</summary>
+	AttackFlyer,
+
+	/// <summary><c>Mech_BehaviourSkirtThink</c> (<c>0041dd64</c>).</summary>
+	Skirt,
+
+	/// <summary><c>Mech_BehaviourDriveOffThink</c> (<c>0041def0</c>), which is <see cref="FaceOff"/>'s.</summary>
+	DriveOff,
+
+	/// <summary><c>Mech_BehaviourFleeThink</c> (<c>0041d2c4</c>).</summary>
+	Flee,
+
+	/// <summary><c>Mech_BehaviourSleepThink</c> (<c>0041c418</c>).</summary>
+	Sleep,
+
+	/// <summary><c>Mech_BehaviourInertThink</c> (<c>0041e554</c>), shared by <c>dead</c> and <c>disabled</c>.</summary>
+	Inert
 }
 
 /// <summary>
@@ -126,25 +157,25 @@ public sealed class BehaviourState {
 	public static readonly BehaviourState Deciding = new(0, "deciding", 0, 0x00, ReassessSlot.SelectBehaviour);
 	public static readonly BehaviourState Player = new(1, "player", 10, 0x01, ReassessSlot.None);
 	public static readonly BehaviourState PlayerFly = new(2, "player fly", 10, 0x01, ReassessSlot.None);
-	public static readonly BehaviourState Attacking = new(3, "attacking", 50000, 0x02, ReassessSlot.CombatReassess);
-	public static readonly BehaviourState Flanking = new(4, "flanking", 50000, 0x02, ReassessSlot.CombatReassess);
-	public static readonly BehaviourState FacingOff = new(5, "facing off", 50000, 0x02, ReassessSlot.CombatReassess);
-	public static readonly BehaviourState AttackingBase = new(6, "attacking base", 50000, 0x02, ReassessSlot.CombatReassess);
-	public static readonly BehaviourState AttackingFlyer = new(7, "attacking flyer", 50000, 0x02, ReassessSlot.CombatReassess);
+	public static readonly BehaviourState Attacking = new(3, "attacking", 50000, 0x02, ReassessSlot.CombatReassess, ThinkSlot.Attack);
+	public static readonly BehaviourState Flanking = new(4, "flanking", 50000, 0x02, ReassessSlot.CombatReassess, ThinkSlot.Flank);
+	public static readonly BehaviourState FacingOff = new(5, "facing off", 50000, 0x02, ReassessSlot.CombatReassess, ThinkSlot.FaceOff);
+	public static readonly BehaviourState AttackingBase = new(6, "attacking base", 50000, 0x02, ReassessSlot.CombatReassess, ThinkSlot.AttackBase);
+	public static readonly BehaviourState AttackingFlyer = new(7, "attacking flyer", 50000, 0x02, ReassessSlot.CombatReassess, ThinkSlot.AttackFlyer);
 	public static readonly BehaviourState Patrolling = new(8, "patrolling", 10, 0x01, ReassessSlot.SelectBehaviour, ThinkSlot.Patrol);
 	public static readonly BehaviourState Travelling = new(9, "travelling", 10, 0x01, ReassessSlot.SelectBehaviour, ThinkSlot.Travel);
 	public static readonly BehaviourState Following = new(10, "following", 10, 0x01, ReassessSlot.SelectBehaviour, ThinkSlot.Follow);
 	public static readonly BehaviourState BulldogTravel = new(11, "bulldog travel", 10, 0x09, ReassessSlot.SelectBehaviour, ThinkSlot.Travel);
 	public static readonly BehaviourState SearchDestroy = new(12, "search/destroy", 10, 0x01, ReassessSlot.SelectBehaviour, ThinkSlot.SearchDestroy);
-	public static readonly BehaviourState Sleeping = new(13, "sleeping", 10, 0x09, ReassessSlot.SelectBehaviour);
-	public static readonly BehaviourState Skirting = new(14, "skirting", 10, 0x03, ReassessSlot.SelectBehaviour);
+	public static readonly BehaviourState Sleeping = new(13, "sleeping", 10, 0x09, ReassessSlot.SelectBehaviour, ThinkSlot.Sleep);
+	public static readonly BehaviourState Skirting = new(14, "skirting", 10, 0x03, ReassessSlot.SelectBehaviour, ThinkSlot.Skirt);
 	public static readonly BehaviourState Guarding = new(15, "guarding", 10, 0x05, ReassessSlot.SelectBehaviour, ThinkSlot.Guard);
-	public static readonly BehaviourState DrivingOffEnemy = new(16, "driving off en", 50000, 0x06, ReassessSlot.SelectBehaviour);
+	public static readonly BehaviourState DrivingOffEnemy = new(16, "driving off en", 50000, 0x06, ReassessSlot.SelectBehaviour, ThinkSlot.DriveOff);
 	public static readonly BehaviourState Ramming = new(17, "ramming", 10, 0x09, ReassessSlot.SelectBehaviour);
-	public static readonly BehaviourState Fleeing = new(18, "fleeing", 15000, 0x12, ReassessSlot.CombatReassess);
+	public static readonly BehaviourState Fleeing = new(18, "fleeing", 15000, 0x12, ReassessSlot.CombatReassess, ThinkSlot.Flee);
 	public static readonly BehaviourState InLimbo = new(19, "in limbo", 10, 0x21, ReassessSlot.None);
-	public static readonly BehaviourState Dead = new(20, "dead", 0, 0x21, ReassessSlot.None);
-	public static readonly BehaviourState Disabled = new(21, "disabled", 0, 0x21, ReassessSlot.None);
+	public static readonly BehaviourState Dead = new(20, "dead", 0, 0x21, ReassessSlot.None, ThinkSlot.Inert);
+	public static readonly BehaviourState Disabled = new(21, "disabled", 0, 0x21, ReassessSlot.None, ThinkSlot.Inert);
 
 	/// <summary>All 22, in the order the descriptor table holds them.</summary>
 	public static readonly IReadOnlyList<BehaviourState> All = new[] {

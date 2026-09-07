@@ -2,7 +2,7 @@
 
 The structural spine of the AI: how a machine's current behaviour is represented, how the per-tick work reaches it, and how it changes. Every other `ai-*.md` doc cites state indices and mech field offsets from here rather than restating them.
 
-What each state actually *does* is out of scope. Movement lives in [`ai-navigation.md`](ai-navigation.md), target handling in [`ai-targeting.md`](ai-targeting.md), weapon choice in [`ai-weapons.md`](ai-weapons.md), and where a state's orders come from in [`ai-goals.md`](ai-goals.md).
+What each state actually *does* is out of scope. The walking states live in [`ai-navigation.md`](ai-navigation.md) and the fighting ones in [`ai-combat-states.md`](ai-combat-states.md); target handling is [`ai-targeting.md`](ai-targeting.md), weapon choice [`ai-weapons.md`](ai-weapons.md), and where a state's orders come from [`ai-goals.md`](ai-goals.md).
 
 ## Three parallel tables
 
@@ -197,16 +197,7 @@ Every path ends the same way: the machine's selected target (`mech+0x1a4`) is re
 
 ### Transitions
 
-`Behaviour_SetState` (`00413e50`) has **30 call sites**, which are the state machine's edge list:
-
-```
-00415f33 00415f46 00415f59 0041829b 004185ff 00418674 0041c15f 0041c185
-0041cc38 0041cdf6 0041d2b3 0041d74a 0041d920 0041de09 0041debd 0041e387
-0041e3a6 0041eb67 0041ec14 0041ec6c 0041ed89 0041f9a5 004212d6 00421369
-00421491 0042153c 0042172d 00421c61 00422c02 00422d80
-```
-
-Three of them (`00415f33`/`f46`/`f59`) are `Mech_Constructor`'s initial install. `0041f9a5` sits in `Mech_AiOnTakingFire` (`0041f7b8`, mech vtable `+0x50`) — taking fire changes state.
+`Behaviour_SetState` (`00413e50`) has **30 call sites**, which are the state machine's edge list. Which function installs which state is [`ai-combat-states.md`](ai-combat-states.md#the-transition-graph).
 
 ## Mech fields the AI owns
 
@@ -234,7 +225,7 @@ The AI-relevant mech vtable slots, as entry points for the topic docs. Slots who
 | `+0x48` | `Mech_AiEnemySighted` (`00412800`) | The "enemy detected" callout — [`ai-targeting.md`](ai-targeting.md#radio-callouts) |
 | `+0x4c` | `Mech_CompareCombatRating` (`0041cabc`) | This machine's combat rating against a candidate's — [`ai-targeting.md`](ai-targeting.md#relative-combat-rating) |
 | `+0x50` | `Mech_AiOnTakingFire` (`0041f7b8`) | "This object just took fire" — [`ai-targeting.md`](ai-targeting.md#taking-fire--mech_aiontakingfire-0041f7b8-mech-vtable-0x50). Holds one of the 30 `Behaviour_SetState` call sites |
-| `+0x64` | `FUN_0041dd2c` | Unidentified. Adjacent to `skirting`'s think function (`0041dd64`) |
+| `+0x64` | `Mech_AiOnLineOfFireBlocked` (`0041dd2c`) | "My shot hit something that is not what I aimed at" — the trigger for `skirting`, [`ai-combat-states.md`](ai-combat-states.md#how-it-is-reached) |
 | `+0x68` | `FUN_0042200c` | "Something ran into me" — [`mech-locomotion.md`](mech-locomotion.md) |
 
 ## Open questions

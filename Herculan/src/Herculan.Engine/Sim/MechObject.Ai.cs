@@ -1,4 +1,4 @@
-using Herculan.Engine.Numerics;
+﻿using Herculan.Engine.Numerics;
 using Herculan.Engine.Sim.Ai;
 using Herculan.Engine.World;
 
@@ -20,7 +20,7 @@ public partial class MechObject {
 	/// its group's order — or, with the order layer unported, for something to shoot it.
 	/// </summary>
 	internal void InstallInitialBehaviour() =>
-		Behaviour.SetState(IsPlayer
+		SetBehaviourState(IsPlayer
 			? Type.IsFlyer ? BehaviourState.PlayerFly : BehaviourState.Player
 			: BehaviourState.Deciding);
 
@@ -68,6 +68,16 @@ public partial class MechObject {
 			ThinkSlot.Travel => TravelThink(world),
 			ThinkSlot.Follow => FollowThink(world),
 			ThinkSlot.Guard => GuardThink(world),
+			ThinkSlot.Attack => AttackThink(world),
+			ThinkSlot.Flank => FlankThink(world),
+			ThinkSlot.FaceOff => FaceOffThink(world),
+			ThinkSlot.AttackBase => AttackBaseThink(world),
+			ThinkSlot.AttackFlyer => AttackFlyerThink(world),
+			ThinkSlot.Skirt => SkirtThink(world),
+			ThinkSlot.DriveOff => DriveOffThink(world),
+			ThinkSlot.Flee => FleeThink(world),
+			ThinkSlot.Sleep => SleepThink(world),
+			ThinkSlot.Inert => InertThink(world),
 			_ => false
 		};
 
@@ -100,7 +110,7 @@ public partial class MechObject {
 	/// </summary>
 	private void SelectBehaviour(SimWorld world) {
 		if (IsPlayer) {
-			Behaviour.SetState(Type.IsFlyer ? BehaviourState.PlayerFly : BehaviourState.Player);
+			SetBehaviourState(Type.IsFlyer ? BehaviourState.PlayerFly : BehaviourState.Player);
 			Target = null;
 			return;
 		}
@@ -119,7 +129,7 @@ public partial class MechObject {
 		};
 
 		if (state != null) {
-			Behaviour.SetState(state);
+			SetBehaviourState(state);
 		}
 
 		Target = null;
@@ -196,14 +206,14 @@ public partial class MechObject {
 		switch (target.TargetClass) {
 			case TargetClass.Structure:
 			case TargetClass.Emplacement:
-				Behaviour.SetState(BehaviourState.AttackingBase);
+				SetBehaviourState(BehaviourState.AttackingBase);
 				return;
 			case TargetClass.Flyer:
-				Behaviour.SetState(BehaviourState.AttackingFlyer);
+				SetBehaviourState(BehaviourState.AttackingFlyer);
 				return;
 		}
 
-		Behaviour.SetState(CompareCombatRating(world, target) switch {
+		SetBehaviourState(CompareCombatRating(world, target) switch {
 			1 => BehaviourState.Attacking,
 			2 when !LegsCrippled && Type.FlankingGate > FlankingGateThreshold => BehaviourState.Flanking,
 			_ => BehaviourState.FacingOff
@@ -227,7 +237,7 @@ public partial class MechObject {
 			// A machine that is out of the fight and still reassessing. The structure exception keys
 			// on BASES.DAT +0x2e, a field the format reads past without using, so the branch that
 			// would send it back to Mech_AiSelectBehaviour cannot be evaluated and it always flees.
-			Behaviour.SetState(BehaviourState.Fleeing);
+			SetBehaviourState(BehaviourState.Fleeing);
 			return true;
 		}
 
@@ -268,7 +278,7 @@ public partial class MechObject {
 		}
 
 		if (flee) {
-			Behaviour.SetState(BehaviourState.Fleeing);
+			SetBehaviourState(BehaviourState.Fleeing);
 		}
 
 		return flee;
@@ -399,7 +409,7 @@ public partial class MechObject {
 			Target = chosen;
 
 			if (chosen.TargetClass == TargetClass.Herc) {
-				Behaviour.SetState(BehaviourState.DrivingOffEnemy);
+				SetBehaviourState(BehaviourState.DrivingOffEnemy);
 				SelectAimComponent(world);
 			} else {
 				EngageOrderedTarget(world, chosen);
@@ -441,10 +451,10 @@ public partial class MechObject {
 				CombatReassess(world);
 				break;
 			case TargetClass.Flyer:
-				Behaviour.SetState(BehaviourState.AttackingFlyer);
+				SetBehaviourState(BehaviourState.AttackingFlyer);
 				break;
 			default:
-				Behaviour.SetState(BehaviourState.AttackingBase);
+				SetBehaviourState(BehaviourState.AttackingBase);
 				break;
 		}
 	}

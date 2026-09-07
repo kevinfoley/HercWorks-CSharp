@@ -28,8 +28,13 @@ The mechanism is understood; what is left is engine work.
   complete for all three shootable classes. Two of the sweep's three call sites are still unreachable
   because the functions that own them are unported: the drop pod's landing detonation (`Meteor_Tick`,
   part of the mission-deployment entry above) and the AI ramming attack (`FUN_0041e488`, part of the
-  AI entry below).
+  `ramming` entry below).
   → [`docs/simulation/damage-system.md`](docs/simulation/damage-system.md)
+- **The `ramming` behaviour state.** Every other behaviour state's think is ported; state 17's pair
+  (`Mech_BehaviourRamThink` `0041e570`, `Mech_BehaviourRamTick` `0041e488`) is not, so a group given
+  order verb 1 takes the state and stands still in it.
+  → [`docs/simulation/ai-combat-states.md`](docs/simulation/ai-combat-states.md),
+  [`docs/simulation/damage-system.md`](docs/simulation/damage-system.md)
 - **A machine's LOD roots are not selected.** Root 0 is hard-coded where the original picks one per
   frame from projected size and a detail bias.
   → [`docs/formats/mech-shape-drawing.md`](docs/formats/mech-shape-drawing.md)
@@ -59,20 +64,6 @@ bindings are hardcoded placeholders.
 
 The engine cannot be faithful here until the original is understood.
 
-- **What the combat behaviour states do.** The dispatch spine, targeting, the mission-group order
-  layer and the five navigation states are decoded and ported: a machine takes a state from its
-  group's current order, walks its route or holds formation on its leader, steers round what is in
-  its way, acquires and abandons targets, and answers incoming fire. What is still undecoded is the
-  other half of the roster — `attacking`, `flanking`, `facing off`, `attacking base`,
-  `attacking flyer`, `skirting`, `driving off en`, `fleeing` — so a machine walks to its objective
-  and then stands still the moment it finds something to fight. Its weapons are decoded and ported
-  and reach it through `travelling` and `following` alone; the combat states have no think to call
-  them from.
-  → [`docs/simulation/ai-dispatch.md`](docs/simulation/ai-dispatch.md),
-  [`docs/simulation/ai-targeting.md`](docs/simulation/ai-targeting.md),
-  [`docs/simulation/ai-goals.md`](docs/simulation/ai-goals.md),
-  [`docs/simulation/ai-navigation.md`](docs/simulation/ai-navigation.md),
-  [`docs/simulation/ai-weapons.md`](docs/simulation/ai-weapons.md)
 - **Squad orders.** The standing orders the player gives their own squad (`mech+0x23e`), which
   `Mech_AiSelectBehaviour`'s second path reads. Undecoded, so that path installs nothing.
   → [`docs/simulation/ai-dispatch.md`](docs/simulation/ai-dispatch.md)

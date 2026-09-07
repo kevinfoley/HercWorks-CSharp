@@ -253,7 +253,7 @@ public sealed partial class MechObject {
 	/// along a bearing on the ground plane, the bearing quarter-turned back because the simulation's
 	/// forward axis is model Y.
 	/// </summary>
-	private static Vec3i OffsetByBearing(Vec3i point, short bearing, short distance) {
+	private static Vec3i OffsetByBearing(Vec3i point, short bearing, int distance) {
 		short turned = (short)(bearing + BinaryAngle.QuarterTurn);
 		return new Vec3i(
 			point.X + SimMath.Q14Multiply(distance, SimTrig.Cos(turned)),

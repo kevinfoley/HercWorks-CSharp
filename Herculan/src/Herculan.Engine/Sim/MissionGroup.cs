@@ -15,7 +15,7 @@ namespace Herculan.Engine.Sim;
 /// gives each member a state to be in; see docs/simulation/ai-goals.md for the whole layer and
 /// docs/simulation/ai-dispatch.md for what a verb turns into.</para>
 /// </summary>
-public sealed class MissionGroup {
+public sealed partial class MissionGroup {
 	/// <summary>
 	/// The verb <c>Mech_AiSelectBehaviour</c> substitutes for a null order entry — see
 	/// <see cref="MissionOrder.VerbNone"/>.
@@ -28,12 +28,25 @@ public sealed class MissionGroup {
 	/// </summary>
 	public const int ConditionDestroyed = 4;
 
-	public MissionGroup(int index, MissionSide side, IReadOnlyList<MissionOrder?> orders) {
+	/// <param name="index">Which block-11 record this is.</param>
+	/// <param name="kind">Which roster its members came from — the record's own discriminator.</param>
+	/// <param name="side">Whose side it is on.</param>
+	/// <param name="orders">Its ten order slots.</param>
+	/// <param name="deploymentAction">
+	/// <c>group+0x14</c> — the block-5 action the group is waiting on, or null for a group that is in
+	/// the mission from the start. <b>This is the gate</b>: while it is set the group is not in the
+	/// world, and clearing it is what puts it there. See <see cref="AwaitingDeployment"/>.
+	/// </param>
+	public MissionGroup(int index, MissionUnitKind kind, MissionSide side,
+			IReadOnlyList<MissionOrder?> orders, MissionActionState? deploymentAction = null) {
 		Index = index;
+		Kind = kind;
 		Side = side;
 		_orders = orders;
+		_deploymentAction = deploymentAction;
 		_subjectGroups = new MissionGroup?[orders.Count];
 		_subjectObjects = new SimObject?[orders.Count];
+		_orderActions = new MissionActionState?[orders.Count];
 		_completed = new bool[orders.Count];
 		Route = orders.Count > 0 ? orders[0]?.Route ?? Array.Empty<Vec3i>() : Array.Empty<Vec3i>();
 	}
@@ -43,6 +56,13 @@ public sealed class MissionGroup {
 
 	/// <summary><c>group+0x12</c> — the side every member of the group is on.</summary>
 	public MissionSide Side { get; }
+
+	/// <summary>
+	/// <c>group+0x00</c> — the block-11 record's roster discriminator, and so what class every member
+	/// of the group is. Read by the three trigger subject types that sweep by class; see
+	/// <see cref="MissionTriggers.Evaluate"/>.
+	/// </summary>
+	public MissionUnitKind Kind { get; }
 
 	/// <summary>
 	/// <c>group+0x0c</c>/<c>+0x10</c> — the member array and its count, in attachment order.
@@ -229,9 +249,9 @@ public sealed class MissionGroup {
 	///
 	/// <para>The original ticks every member unconditionally; the filtering is <c>Mech_AiTick</c>'s,
 	/// and it is by whether the machine has a behaviour descriptor at all, which is how the base
-	/// groups pass through harmlessly. The <see cref="SimObject.Removed"/> and
-	/// <see cref="SimObject.AwaitingDeployment"/> tests here stand in for that: neither class holds a
-	/// behaviour block in this engine.</para>
+	/// groups pass through harmlessly. The <see cref="SimObject.Removed"/> test here stands in for
+	/// that. There is no deployment test: a group that has not arrived never reaches this function —
+	/// it runs <see cref="DeploymentCheck"/> instead.</para>
 	/// </summary>
 	public void AiTick(SimWorld world) {
 		var order = CurrentOrder;
@@ -257,7 +277,7 @@ public sealed class MissionGroup {
 		}
 
 		for (int i = 0; i < _members.Count; i++) {
-			if (_members[i] is MechObject { Removed: false, AwaitingDeployment: false } mech) {
+			if (_members[i] is MechObject { Removed: false } mech) {
 				mech.AiTick(world);
 			}
 		}
@@ -386,15 +406,28 @@ public sealed class MissionGroup {
 	}
 
 	/// <summary>
-	/// Whether the mission action the current order hangs on has fired. No block-5 action is ported,
-	/// so it never has — the same gap that keeps a group awaiting deployment from ever arriving. See
-	/// docs/simulation/mission-deployment.md.
+	/// <c>order+0x12</c> — whether the mission action the current order hangs on has fired. An order
+	/// gated on one ends when it fires, whether or not the order finished on its own terms; see
+	/// <see cref="AiTick"/>.
 	/// </summary>
-	private static bool ActionFired => false;
+	private bool ActionFired =>
+		OrderIndex >= 0 && OrderIndex < _orderActions.Length
+			&& _orderActions[OrderIndex] is { Fired: true };
+
+	/// <summary>
+	/// Resolves one order slot's <c>+0x12</c> action, the same separate step
+	/// <see cref="BindOrderSubject"/> is and for the same reason.
+	/// </summary>
+	public void BindOrderAction(int slot, MissionActionState? action) {
+		if (slot >= 0 && slot < _orderActions.Length) {
+			_orderActions[slot] = action;
+		}
+	}
 
 	private readonly IReadOnlyList<MissionOrder?> _orders;
 	private readonly MissionGroup?[] _subjectGroups;
 	private readonly SimObject?[] _subjectObjects;
+	private readonly MissionActionState?[] _orderActions;
 	private readonly bool[] _completed;
 	private readonly List<SimObject> _members = new();
 }

@@ -1,4 +1,4 @@
-﻿using Herculan.Engine.Numerics;
+using Herculan.Engine.Numerics;
 using Herculan.Engine.Sim.Ai;
 using Herculan.Engine.World;
 
@@ -156,18 +156,26 @@ public partial class MechObject {
 	/// offset itself is resolved once, at mission load, by the same table lookup that spread the
 	/// group over its spawn point.
 	/// </summary>
-	private Vec3i FormationPost(MechObject leader) {
+	private Vec3i FormationPost(MechObject leader) =>
+		FormationPostAround(leader.Position, leader.Heading);
+
+	/// <summary>
+	/// The same offset applied to an arbitrary anchor and heading rather than to the leader's live
+	/// ones — what a group arriving on foot dresses its members with, where the anchor is the point
+	/// the arrival picked. See <see cref="MissionGroup.PlaceOnFoot"/>.
+	/// </summary>
+	internal Vec3i FormationPostAround(Vec3i anchor, int heading) {
 		if (FormationOffset is not { } offset) {
-			return leader.Position;
+			return anchor;
 		}
 
-		short cos = BinaryAngle.Cos(leader.Heading);
-		short sin = BinaryAngle.Sin(leader.Heading);
+		short cos = BinaryAngle.Cos(heading);
+		short sin = BinaryAngle.Sin(heading);
 
 		return new Vec3i(
-			leader.Position.X + (int)(((long)offset.X * cos - (long)offset.Y * sin + 0x2000) >> 14),
-			leader.Position.Y + (int)(((long)offset.X * sin + (long)offset.Y * cos + 0x2000) >> 14),
-			leader.Position.Z);
+			anchor.X + (int)(((long)offset.X * cos - (long)offset.Y * sin + 0x2000) >> 14),
+			anchor.Y + (int)(((long)offset.X * sin + (long)offset.Y * cos + 0x2000) >> 14),
+			anchor.Z);
 	}
 
 	/// <summary>

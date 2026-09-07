@@ -2,7 +2,7 @@
 
 ## Earthsiege 2 (original retail game)
 
-_Bugs listed in this section were tested on Windows 11. It's possible that some bugs would not occur on original 1990s hardware. Bugs in this section are reproduced as-is in HERCULAN Engine unless otherwise noted._
+_Bugs listed in this section were tested on Windows 11. It's possible that some bugs would not occur on original 1990s hardware. Bugs in this section are reproduced as-is in HERCULAN Engine unless otherwise noted. Note that Claude frequently concludes that a memory address is unreachable and unused in retail, when in fact the mechanism for accessing this address simply has not been found yet; any claim to this effect should be viewed with skepticism._
 
 _Note to Claude: Detailed technical descriptions belong in their respective docs, not here. Give a short plain-English summary._
 
@@ -21,7 +21,6 @@ _Note to Claude: Detailed technical descriptions belong in their respective docs
 - Samson: When firing lasers from the two lowest hardpoints, the beams emerge from a little above the barrels. Not sure if this happens with all lasers or if it's hardpoint specific. Only visible in third-person view.
 - The Heads-Down Display's command display blinks the wrong map marker for the selected squadmate. HERCULAN Engine blinks the selected pilot's own marker instead. See [`docs/formats/heads-down-display.md`](docs/formats/heads-down-display.md#markers).
 - The MFD TARGET screen (F5) can never read `SHIELDS DN` for a HERC target: the shields-down alert latch only the machine the player is flying can ever set, so a HERC reads `OK` however much armour it has lost. Reproduced as-is. See [`docs/formats/mfd.md`](docs/formats/mfd.md#viewport-and-condition-per-class).
-- An explosion's damage past a drained shield facing is **four times** its `PROJ.DAT` face value. Reproduced as-is. See [`docs/simulation/damage-system.md`](docs/simulation/damage-system.md#a-mech--mech_applyexplosivedamage-004187d0).
 - The effect-light allocator has no full-table guard: with all twenty slots busy, the claim overruns into the caller's own position vector and the manager's embedded light object. Not reproduced in HERCULAN Engine. See [`docs/formats/effect-lights.md`](docs/formats/effect-lights.md#the-allocator-overruns-when-all-twenty-slots-are-busy).
 - The impact point of a machine-versus-machine collision mixes two coordinate frames. On level ground near sea level the two nearly agree; on a hill the blast goes off well below the machines, and its falloff reaches their legs rather than their torsos. Reproduced as-is. See [`docs/simulation/damage-system.md`](docs/simulation/damage-system.md#a-collision--mech_collisiontest-00418f74).
 - A Razor nacelle strike draws its impact effect at the **left** nacelle whichever nacelle was struck. Reproduced as-is. See [`docs/simulation/razor-flight.md`](docs/simulation/razor-flight.md#contact-probes).
@@ -65,3 +64,4 @@ _Note to Claude: This section is for listing outstanding issues with features wh
 - A plasma round's blast damage is not scaled by mission difficulty. See [`docs/simulation/projectiles.md`](docs/simulation/projectiles.md#the-plasma-branch).
 - Steering a Razor from the keyboard uses hardcoded placeholder keys. See [`docs/simulation/razor-flight.md`](docs/simulation/razor-flight.md#the-keyboard).
 - Mid-session audio system recovery is not implemented. If the endpoint drops during gameplay, the engine stays silent for good. See [`docs/formats/audio.md`](docs/formats/audio.md#Mid-session-audio-recovery-not-yet-implemented)
+- Player weapon convergence not implemented.

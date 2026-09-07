@@ -44,7 +44,8 @@ public sealed class MissionScene {
 			SurfaceRampTable? shadeRamps, PaletteRampTable? paletteRamp,
 			IReadOnlyDictionary<string, IReadOnlyList<SceneModel?>> debrisModels,
 			IReadOnlyList<SceneModel?> fireModels,
-			IReadOnlyDictionary<int, SceneModel> hulkModels) {
+			IReadOnlyDictionary<int, SceneModel> hulkModels,
+			SceneModel? dropPodModel, IReadOnlyList<SceneModel> dropPodOpeningModels) {
 		Atmosphere = atmosphere;
 		ShadeRamps = shadeRamps;
 		PaletteRamp = paletteRamp;
@@ -56,6 +57,8 @@ public sealed class MissionScene {
 		DebrisModels = debrisModels;
 		FireModels = fireModels;
 		HulkModels = hulkModels;
+		DropPodModel = dropPodModel;
+		DropPodOpeningModels = dropPodOpeningModels;
 		Mission = mission;
 		World = world;
 		Camera = camera;
@@ -205,6 +208,19 @@ public sealed class MissionScene {
 	/// </summary>
 	public IReadOnlyDictionary<int, SceneModel> HulkModels { get; }
 
+	/// <summary>
+	/// The drop pod in the air — root 0 of <c>dts\METEOR.DTS</c>. Null when the install has no such
+	/// file, which leaves a pod that is simulated and not drawn, as a missing debris root does.
+	/// </summary>
+	public SceneModel? DropPodModel { get; }
+
+	/// <summary>
+	/// And the pod on the ground, one entry per cell of its opening flipbook —
+	/// <see cref="Sim.MeteorObject.AnimationFrame"/> picks. Its <i>length</i> is load-bearing as well
+	/// as its contents: it is what ends the animation, and so when the pod hands its group over.
+	/// </summary>
+	public IReadOnlyList<SceneModel> DropPodOpeningModels { get; }
+
 	/// <summary>How many placed objects have no model the engine can build yet.</summary>
 	public int UnmodelledCount => Objects.Count(o => o.Model == null);
 
@@ -313,11 +329,38 @@ public sealed class MissionScene {
 		// object that entry placed, in placement order -- so the group's first member, which the AI
 		// reads as its leader, is the first one the mission listed. The AI is driven from these and
 		// not from the object list: see MissionGroup.
+		// The mission's actions first: a group's record names one as its arrival gate, so the states
+		// have to exist before any group does. DBSim_LoadScriptDat builds the array in its own pass,
+		// ahead of the spawn pass, for the same reason.
+		var actions = new MissionActionState[mission.Actions.Count];
+		for (int i = 0; i < actions.Length; i++) {
+			actions[i] = new MissionActionState(mission.Actions[i]);
+		}
+
+		world.SetActions(actions);
+
+		// And the timers that fire them. A pair's own refs are resolved here rather than in the loader
+		// for the same reason an order's subject is: the states have to exist first.
+		var pairs = new MissionActionPairState[mission.ActionPairs.Count];
+		for (int i = 0; i < pairs.Length; i++) {
+			var record = mission.ActionPairs[i];
+			var sequence = new MissionActionState?[MissionActionPair.SequenceSlots];
+			for (int slot = 0; slot < sequence.Length && slot < record.SequenceRefs.Count; slot++) {
+				sequence[slot] = ActionAt(actions, record.SequenceRefs[slot]);
+			}
+
+			pairs[i] = new MissionActionPairState(record,
+				ActionAt(actions, record.PrimaryActionRef), sequence);
+		}
+
+		world.SetActionPairs(pairs);
+
 		var groups = new Dictionary<int, MissionGroup>();
 		foreach (var placed in objects) {
 			int index = placed.Placement.GroupIndex;
 			if (!groups.TryGetValue(index, out var group)) {
-				group = new MissionGroup(index, placed.Object.Side, OrdersOf(mission, index));
+				group = new MissionGroup(index, KindOfGroup(mission, index), placed.Object.Side,
+					OrdersOf(mission, index), ActionAt(actions, DeploymentActionOf(mission, index)));
 				groups.Add(index, group);
 				world.AddGroup(group);
 			}
@@ -330,6 +373,16 @@ public sealed class MissionScene {
 		}
 
 		BindOrderSubjects(groups, objects);
+		BindOrderActions(groups, actions);
+		BindActionSubjects(actions, groups, objects);
+
+		// Each object's own two actions -- the one it fires when an enemy closes on it and the one it
+		// fires when it dies. DBSim_SpawnMissionObjects resolves both as it builds the object; here
+		// they wait for the action states, which are built above.
+		foreach (var placed in objects) {
+			placed.Object.EngagementAction = ActionAt(actions, placed.Placement.EngagementActionRef);
+			placed.Object.LossAction = ActionAt(actions, placed.Placement.LossActionRef);
+		}
 
 		world.PlayerMech = playerObject?.Object as MechObject;
 
@@ -483,6 +536,13 @@ public sealed class MissionScene {
 			}
 		}
 
+		// The drop pod, loaded up front for the reason the debris shapes are: a pod appears the moment
+		// a mission action fires and has nowhere to load anything from. Meteor_LoadResources runs at
+		// startup in the original, not per mission, which is the same "always there" arrangement.
+		var dropPodModel = models.DropPod();
+		var dropPodOpening = models.DropPodOpening();
+		world.BindDropPodFrameCount(dropPodOpening.Count);
+
 		// One flipbook per weapon shape the roster actually carries, built after the machines are
 		// spawned because it is their fits that say which shapes those are. Several mounts share a
 		// shape freely: the cell each one shows is its own, the geometry is not.
@@ -508,7 +568,7 @@ public sealed class MissionScene {
 			beams, bulletModels, explosionModels,
 			rocketModels, mechWeaponModels, Atmosphere.From(terrain, models.Shading),
 			SurfaceRampTable.Build(models.Shading), PaletteRampTable.Build(models.Shading),
-			debrisModels, fireModels, hulkModels);
+			debrisModels, fireModels, hulkModels, dropPodModel, dropPodOpening);
 	}
 
 	/// <summary>
@@ -589,6 +649,70 @@ public sealed class MissionScene {
 		}
 	}
 
+	/// <summary>
+	/// Points each order slot at the action it hangs on — the order record's own <c>+0x12</c>, which
+	/// is a different action from the group's arrival gate and resolved on the same second pass as
+	/// the order subjects.
+	/// </summary>
+	private static void BindOrderActions(Dictionary<int, MissionGroup> groups,
+			MissionActionState[] actions) {
+		foreach (var group in groups.Values) {
+			for (int slot = 0; slot < group.Orders.Count; slot++) {
+				if (group.Orders[slot] is { } order) {
+					group.BindOrderAction(slot, ActionAt(actions, order.ActionRef));
+				}
+			}
+		}
+	}
+
+	/// <summary>
+	/// Resolves each action's own <c>+0x36</c> target, which is what trigger types 7-10 test the
+	/// position of. The type says which roster the ref indexes, exactly as an order's discriminator
+	/// does; types 0-6 name no target and their ref is left unread.
+	/// </summary>
+	private static void BindActionSubjects(MissionActionState[] actions,
+			Dictionary<int, MissionGroup> groups, List<SceneObject> objects) {
+		var bySlot = new Dictionary<(MissionUnitKind, int), SimObject>();
+		foreach (var placed in objects) {
+			bySlot[(placed.Placement.Kind, placed.Placement.SlotIndex)] = placed.Object;
+		}
+
+		foreach (var action in actions) {
+			int reference = action.Record.TargetRef;
+			if (reference < 0) {
+				continue;
+			}
+
+			switch (action.Record.Type) {
+				case MissionAction.SubjectTargetMech:
+					action.TargetObject = bySlot.GetValueOrDefault((MissionUnitKind.Mech, reference));
+					break;
+				case MissionAction.SubjectTargetFlyer:
+					action.TargetObject = bySlot.GetValueOrDefault((MissionUnitKind.Flyer, reference));
+					break;
+				case MissionAction.SubjectTargetBase:
+					action.TargetObject = bySlot.GetValueOrDefault((MissionUnitKind.Base, reference));
+					break;
+				case MissionAction.SubjectTargetGroup:
+					action.TargetGroup = groups.GetValueOrDefault(reference);
+					break;
+			}
+		}
+	}
+
+	private static MissionActionState? ActionAt(MissionActionState[] actions, int reference) =>
+		reference >= 0 && reference < actions.Length ? actions[reference] : null;
+
+	private static int DeploymentActionOf(Mission mission, int groupIndex) =>
+		groupIndex >= 0 && groupIndex < mission.GroupDeploymentActions.Count
+			? mission.GroupDeploymentActions[groupIndex]
+			: -1;
+
+	private static MissionUnitKind KindOfGroup(Mission mission, int groupIndex) =>
+		groupIndex >= 0 && groupIndex < mission.GroupKinds.Count
+			? mission.GroupKinds[groupIndex]
+			: MissionUnitKind.Mech;
+
 	public static Matrix4x4 TransformOf(SceneObject sceneObject) =>
 		Matrix4x4.CreateRotationY(BinaryAngle.ToRadians(sceneObject.Object.Heading))
 			* Matrix4x4.CreateTranslation(WorldScale.ToRender(sceneObject.Object.Position));
@@ -609,7 +733,6 @@ public sealed class MissionScene {
 
 		simObject.Position = placement.Position;
 		simObject.Heading = placement.Heading;
-		simObject.AwaitingDeployment = placement.AwaitingDeployment;
 		simObject.Side = placement.Side;
 
 		if (simObject is MechObject machine) {

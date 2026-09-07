@@ -1,4 +1,4 @@
-using Herculan.Engine.Numerics;
+﻿using Herculan.Engine.Numerics;
 using Herculan.Engine.World;
 
 namespace Herculan.Engine.Sim;
@@ -30,9 +30,7 @@ namespace Herculan.Engine.Sim;
 /// are missing because they are not needed, not because they were dropped here.</para>
 ///
 /// <para><b>Not ported:</b> the "enemy detected" callout each new contact plays (mech vtable
-/// <c>+0x48</c>, <c>FUN_00412800</c>, which is sound plus a once-per-contact latch), and the
-/// engagement flag <c>obj+0x9e</c> with the mission action it fires at 50000 units — mission actions
-/// do not exist in the engine, so the flag would have no reader.</para>
+/// <c>+0x48</c>, <c>FUN_00412800</c>, which is sound plus a once-per-contact latch).</para>
 /// </summary>
 public static class Detection {
 	/// <summary>
@@ -111,6 +109,13 @@ public static class Detection {
 	/// it neither sees nor is seen, and — the part that matters — it does not sweep, which would
 	/// otherwise have a free camera spotting for the player's side.</para>
 	/// </summary>
+	/// <summary>
+	/// How close a hostile that already has contact has to come for both parties to count as
+	/// <see cref="SimObject.Engaged"/> and to fire their engagement actions — the sweep's own 50000,
+	/// well inside <see cref="VisualRange"/>.
+	/// </summary>
+	public const int EngagementRange = 50000;
+
 	private static bool InSensorModel(SimObject simObject) =>
 		!simObject.Removed && !simObject.AwaitingDeployment
 			&& simObject.TargetClass != TargetClass.None;
@@ -125,9 +130,9 @@ public static class Detection {
 	/// <item><b>The sweeps.</b> Every live human-side object looks for Cybrids — except the machine
 	/// the player is flying, which is held back and swept last, so that contacts its squadmates make
 	/// this tick have already been shared to it by the time it looks.</item>
-	/// <item><b>The per-tick latch</b> the original clears at the end (<c>obj+0xa2</c>, which stops
-	/// one object firing its engagement action more than once a tick) has nothing to reset here — see
-	/// this class's summary.</item>
+	/// <item><b>A per-object byte</b> the original touches at the end (<c>obj+0xa2</c>, which gates
+	/// the engagement action in <see cref="Sweep"/>). No writer of it has been located, so nothing is
+	/// modelled here and the gate reads as open — see <see cref="SimObject.FireEngagementAction"/>.</item>
 	/// </list>
 	/// </summary>
 	public static void Tick(SimWorld world) {
@@ -215,9 +220,17 @@ public static class Detection {
 				continue;
 			}
 
-			// A pair that already sees each other has nothing left to establish. The original also
-			// fires both objects' engagement actions here at 50000 units; see the class summary.
+			// A pair that already sees each other has nothing left to establish -- except that closing
+			// to engagement range is itself a mission event. Both parties latch it and both fire their
+			// own engagement action, which is the third of the four ways a mission action fires.
 			if (self.Detects(other) && other.Detects(self)) {
+				if (distance < EngagementRange) {
+					other.Engaged = true;
+					self.FireEngagementAction(world);
+					self.Engaged = true;
+					other.FireEngagementAction(world);
+				}
+
 				continue;
 			}
 

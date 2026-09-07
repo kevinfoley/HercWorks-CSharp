@@ -61,7 +61,7 @@ The original ordering had goals fifth. The dispatch pass found that `Mech_AiTick
 - **The group-report cluster** at `00412f90` and `00413280`, and the visibility helpers around them (`00412ef4`, `00412d90`, `00412f5c`, `00412f28`, `00413950`, `004137b4`, `00413a08`, `00413920`, `00412d4c`). They read the same order records the AI does but produce string indices and write into a global variable table, so they read as the mission-objective and status-report layer. Not an `ai-*.md` subject; they want a doc of their own.
 - **Order `+0x02` and `+0x04`, and group `+0x1c`/`+0x30`** — resolved at load, no reader found. Listed as open questions in `ai-goals.md`.
 - **`mech+0x5d`**, written zero by the circling step and read nowhere, and **`mech+0x9e`**, set by `Sim_RaycastObjectList` when a shot reaches the shooter's own target. Listed as open questions in `ai-combat-states.md`.
-- **Seven of the eight AI machines in mission 1 never leave `deciding`**, and it is not an order problem: every Cybrid group in that mission carries verb 0 in slot 0. They are `AwaitingDeployment`, so `MissionGroup.AiTick` skips them before the think is ever reached, and nothing in the engine clears that flag. It is the deployment layer — [`mission-deployment.md`](../simulation/mission-deployment.md) — and only the one already-deployed group exercises the AI at all.
+- **Most of the shipped mission's AI machines start out of the world**, in groups awaiting deployment, so only one group exercises the AI until the first mission action fires. Each wave that arrives puts more of them under a think — see [`mission-deployment.md`](../simulation/mission-deployment.md).
 
 ## Working method
 

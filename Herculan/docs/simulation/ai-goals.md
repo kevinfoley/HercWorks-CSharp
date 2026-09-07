@@ -132,7 +132,7 @@ What differs from the original, and why:
 
 - **A null order slot leaves the machine's state unchanged** rather than installing a null descriptor. The original's behaviour there is a crash, not a decision.
 - **Only `patrolling` and `travelling` can finish a movement order.** The route cursor is advanced by `Ai_FollowRoute` alone, and `following` never calls it — see [`ai-navigation.md`](ai-navigation.md), which is the original's own behaviour rather than a gap here.
-- **The action path never fires**, because no mission action does; see [`mission-deployment.md`](mission-deployment.md).
+- **The action path is live**: `MissionGroup.BindOrderAction` resolves each slot's `+0x12` and the group advances when it fires — see [`mission-deployment.md`](mission-deployment.md).
 
 ## Open questions
 

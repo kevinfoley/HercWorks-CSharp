@@ -553,6 +553,10 @@ var wreckable = new List<(SceneObject Object, BaseObject Structure, SceneItem[] 
 // limb comes off and a structure's collapsed part turns to rubble: the shape holds all its cells
 // built and uploaded, and damage moves which one is picked -- see DtsMeshBuilder.BuildCells.
 var gatedParts = new List<(SimObject Object, CellGate Gate, SceneItem Item)>();
+
+// The objects the mission has not deployed yet, with the items that draw them and the visibility
+// each was built with. Entries leave the list the frame their group arrives; see the build loop.
+var undeployed = new List<(SimObject Object, (SceneItem Item, bool Visible)[] Parts)>();
 var projectileItems = new List<SceneItem>();
 
 // The guns bolted to the machines on the field, rebuilt every frame for the same reason a rocket's
@@ -562,6 +566,7 @@ var weaponItems = new List<SceneItem>();
 // And the wreckage in the air. Same deal: a piece of debris tumbles every tick and the pool churns
 // as pieces settle and burst, so the list is rebuilt each frame rather than kept.
 var debrisItems = new List<SceneItem>();
+var dropPodItems = new List<SceneItem>();
 
 // The billboards to draw this frame: the EMP rounds in flight and every impact effect playing. Both
 // churn from tick to tick, so the list is rebuilt each frame rather than kept — see SpriteRenderer.
@@ -699,14 +704,6 @@ window.Load += (gl, input) => {
 			continue;
 		}
 
-		// A unit whose group is still waiting on its arrival action is not in the mission, and
-		// maybe_Scene_SubmitFrameObjects does not submit it. Nothing deploys yet, so leaving it out
-		// of the scene here is enough; once arrival exists this becomes a per-frame filter, as it is
-		// in the original. See SimObject.AwaitingDeployment.
-		if (sceneObject.Object.AwaitingDeployment) {
-			continue;
-		}
-
 		uint? texture = modelTextures.TryGetValue(model.Key, out var bound) ? bound.Handle : null;
 		bool isPlayer = ReferenceEquals(sceneObject, scene.PlayerObject);
 
@@ -808,6 +805,26 @@ window.Load += (gl, input) => {
 		}
 
 		wreckable.Add((sceneObject, structure, structureItems, hulkItem));
+	}
+
+	// A unit whose group is still waiting on its arrival action is not in the mission, and
+	// maybe_Scene_SubmitFrameObjects does not submit it -- but it does submit it the moment the group
+	// arrives, so this is a per-frame filter and not a build-time one. Its geometry is built like
+	// everything else's and hidden until then; skipping the build instead leaves an arrived machine
+	// with no body at all, and only its weapons, which are rebuilt every frame, on screen.
+	//
+	// The built-time visibility is captured rather than assumed: a wreckable structure's hulk item is
+	// built hidden, and un-hiding it on arrival would show every waiting building as its own rubble.
+	undeployed = built
+		.Where(entry => entry.LightSubject is { AwaitingDeployment: true })
+		.GroupBy(entry => entry.LightSubject!)
+		.Select(group => (group.Key, group.Select(entry => (entry, entry.Visible)).ToArray()))
+		.ToList();
+
+	foreach (var (_, parts) in undeployed) {
+		foreach (var (part, _) in parts) {
+			part.Visible = false;
+		}
 	}
 
 	items = built.ToArray();
@@ -1217,16 +1234,33 @@ window.Update += deltaSeconds => {
 		item.Transform = MissionScene.PosedTransformOf(mech, transformId);
 	}
 
+	// The arrival gate, run before the sequence gate below so that a part which is both waiting and
+	// gated is answered by the gate once its group is in the mission. An entry is dropped the frame
+	// it arrives -- a group deploys once and never goes back.
+	for (int i = undeployed.Count - 1; i >= 0; i--) {
+		var (owner, parts) = undeployed[i];
+		if (owner.AwaitingDeployment) {
+			continue;
+		}
+
+		foreach (var (part, visible) in parts) {
+			part.Visible = visible;
+		}
+
+		undeployed.RemoveAt(i);
+	}
+
 	// Which cell of each animation sequence is on screen, read straight off the object the way
 	// TSCellAnimPart_Render reads shapeInstance+8. Every piece the shape holds is already uploaded,
 	// so a destroyed component or a collapsed structure part costs a flag rather than a rebuild.
 	foreach (var (owner, gate, item) in gatedParts) {
-		item.Visible = gate.VisibleIn(owner.CellFrames);
+		item.Visible = !owner.AwaitingDeployment && gate.VisibleIn(owner.CellFrames);
 	}
 
 	RefreshWreckItems();
 	RefreshProjectileItems();
 	RefreshDebrisItems();
+	RefreshDropPodItems();
 	RefreshWeaponItems();
 	RefreshSpriteBatches();
 
@@ -1819,7 +1853,8 @@ IEnumerable<SceneItem> VisibleItems() =>
 	((piloting && !externalView ? pilotedItems : items) ?? Array.Empty<SceneItem>())
 		.Concat(projectileItems)
 		.Concat(weaponItems)
-		.Concat(debrisItems);
+		.Concat(debrisItems)
+		.Concat(dropPodItems);
 
 // The two things a collapsing structure does to what is on screen. A type that leaves a wreck is
 // redrawn as its BHULKS.DGS root the moment its last part falls -- the original writes that shape
@@ -1850,6 +1885,29 @@ void RefreshWreckItems() {
 		}
 
 		hulkItem.Visible = true;
+	}
+}
+
+// One item per drop pod, from whichever of the pod's two shapes it is showing: the plain root while
+// it falls, and the cell of its opening flipbook its own counter has reached once it is down. That
+// swap is Meteor_Render's own -- the original keeps the two as separate shape instances on the
+// object and draws one or the other.
+void RefreshDropPodItems() {
+	dropPodItems.Clear();
+
+	foreach (var pod in scene.World.DropPods) {
+		var model = pod.Landed
+			? (pod.AnimationFrame < scene.DropPodOpeningModels.Count
+				? scene.DropPodOpeningModels[pod.AnimationFrame]
+				: null)
+			: scene.DropPodModel;
+
+		if (model == null || !modelMeshes.TryGetValue(model.Key, out var mesh)) {
+			continue;
+		}
+
+		uint? texture = modelTextures.TryGetValue(model.Key, out var bound) ? bound.Handle : null;
+		dropPodItems.Add(new SceneItem(mesh, WorldScale.ToRenderMatrix(pod.WorldTransform), texture));
 	}
 }
 

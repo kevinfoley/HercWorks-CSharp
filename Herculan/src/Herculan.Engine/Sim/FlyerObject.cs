@@ -226,9 +226,10 @@ public sealed class FlyerObject : SimObject {
 	///
 	/// <para>Unlike a mech, which weighs limbs and cockpit sections against each other before it
 	/// decides it is dead, a flyer's death test is that one component index. Everything the original
-	/// does past setting the flag belongs to systems that are not here: the fall it starts, the
-	/// mission action it fires, the kill credit through the shooter's <c>+0x60</c> slot (recorded on
-	/// <see cref="LastAttacker"/> instead) and the alert it plays for the player.</para>
+	/// does past setting the flag belongs to systems that are not here: the fall it starts, the kill
+	/// credit through the shooter's <c>+0x60</c> slot (recorded on <see cref="LastAttacker"/>
+	/// instead) and the alert it plays for the player. The mission action it fires <i>is</i> here —
+	/// see <see cref="SimObject.LossAction"/>.</para>
 	/// </summary>
 	private void ApplyDamage(int componentIndex, short damage, SimObject? attacker,
 			SimWorld? world = null) {
@@ -237,8 +238,13 @@ public sealed class FlyerObject : SimObject {
 			return;
 		}
 
+		bool wasDestroyed = _destroyed;
 		_destroyed = true;
 		LastAttacker = attacker;
+
+		if (!wasDestroyed && world != null) {
+			FireLossAction(world);
+		}
 	}
 
 	/// <summary>Holds station. See the type summary for why there is no terrain query here.</summary>

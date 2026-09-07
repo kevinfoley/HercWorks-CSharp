@@ -192,6 +192,98 @@ public sealed class SimWorld {
 
 	private readonly List<MissionGroup> _groups = new();
 
+	/// <summary>
+	/// <c>DAT_004a9eac</c>, count <c>DAT_004a9ea8</c> — the mission's block-5 actions, in file order.
+	/// The trigger layer walks them once a frame; see <see cref="MissionTriggers"/>.
+	/// </summary>
+	public IReadOnlyList<MissionActionState> Actions => _actions;
+
+	/// <summary>Installs the mission's action array. Done once, at load.</summary>
+	public void SetActions(IReadOnlyList<MissionActionState> actions) {
+		_actions.Clear();
+		_actions.AddRange(actions);
+	}
+
+	private readonly List<MissionActionState> _actions = new();
+
+	/// <summary>
+	/// <c>DAT_004a9ebc</c>, count <c>DAT_004a9eb8</c> — the mission's block-6 action pairs, its
+	/// timers. See <see cref="MissionActionPairState"/>.
+	/// </summary>
+	public IReadOnlyList<MissionActionPairState> ActionPairs => _actionPairs;
+
+	/// <summary>Installs the mission's action-pair array. Done once, at load.</summary>
+	public void SetActionPairs(IReadOnlyList<MissionActionPairState> pairs) {
+		_actionPairs.Clear();
+		_actionPairs.AddRange(pairs);
+	}
+
+	private readonly List<MissionActionPairState> _actionPairs = new();
+
+	/// <summary>
+	/// <c>DAT_004a9ef4</c> — the mission counter array a firing action bumps or clears. Nothing in
+	/// the ported simulation reads it back, but the original does not read it during a mission either:
+	/// <c>FUN_0042412c</c> writes the whole block to <c>mission_var</c> as the mission ends, so these
+	/// are the campaign's variables and their reader is the layer that is not ported.
+	///
+	/// <para>Two other things write them: an action firing (<see cref="MissionActionState.Fire"/>)
+	/// and a group's own completion hook (<c>FUN_00423f30</c>), which is not ported.</para>
+	/// </summary>
+	public IReadOnlyList<short> MissionCounters => _missionCounters;
+
+	/// <summary>Adds to one counter. Refs outside the array are dropped rather than throwing.</summary>
+	internal void BumpMissionCounter(int index, short amount) {
+		if ((uint)index < MissionCounterSlots) {
+			_missionCounters[index] = (short)(_missionCounters[index] + amount);
+		}
+	}
+
+	/// <summary>Zeroes one counter.</summary>
+	internal void ClearMissionCounter(int index) {
+		if ((uint)index < MissionCounterSlots) {
+			_missionCounters[index] = 0;
+		}
+	}
+
+	/// <summary>
+	/// How many counters the array holds — 1000, read off the campaign's own save:
+	/// <c>FUN_0042412c</c> writes 2,000 bytes from <c>DAT_004a9ef4</c> into <c>mission_var</c> when a
+	/// mission ends, so the block is 1,000 shorts wide. That file is what makes these persist between
+	/// missions, which is what they are for.
+	/// </summary>
+	public const int MissionCounterSlots = 1000;
+
+	private readonly short[] _missionCounters = new short[MissionCounterSlots];
+
+	/// <summary>
+	/// The drop pods in the air — <c>g_MeteorPool</c>. See <see cref="MeteorObject"/>; a mission
+	/// group launches one from <see cref="MissionGroup.DeploymentCheck"/>.
+	/// </summary>
+	public IReadOnlyList<MeteorObject> DropPods => _meteors;
+
+	/// <summary>
+	/// <c>Group_DeploymentCheck</c>'s pod branch — takes a pod off the pool and puts it in the air
+	/// over <paramref name="target"/>. A full pool delivers nothing, which is the original's own
+	/// answer to an exhausted pool: it checks the allocation and quietly does without.
+	/// </summary>
+	internal void LaunchDropPod(Vec3i target, MissionGroup group) {
+		if (_meteors.Count >= MeteorObject.PoolSize) {
+			return;
+		}
+
+		_meteors.Add(new MeteorObject(target, group, Random));
+	}
+
+	/// <summary>
+	/// How many cells the pod's opening shape has, which is what ends its animation — supplied by
+	/// whoever loaded the shapes, for the reason <see cref="BindFireShapeFrames"/> is. Until it is,
+	/// a pod opens on the tick after it lands.
+	/// </summary>
+	public void BindDropPodFrameCount(int frames) => _dropPodFrames = frames;
+
+	private int _dropPodFrames;
+	private readonly List<MeteorObject> _meteors = new();
+
 	/// <summary>Ticks elapsed since the world was created.</summary>
 	public long TickCount { get; private set; }
 
@@ -777,9 +869,9 @@ public sealed class SimWorld {
 	/// does not shield either, which is the original's behaviour and not a simplification.</para>
 	///
 	/// <para>The original has exactly three call sites, all terminal events rather than routine fire:
-	/// the drop pod touching down, a plasma round going off (<see cref="Projectile"/>), and a
-	/// machine's own death throe. The first and the last belong to functions that are not ported, so
-	/// the plasma round is the only one reaching it here.</para>
+	/// the drop pod touching down (<see cref="MeteorObject"/>), a plasma round going off
+	/// (<see cref="Projectile"/>), and a machine's own death throe. The death throe is not ported;
+	/// the other two both reach it here.</para>
 	/// </summary>
 	/// <param name="hitPoint">Where the explosion went off, in world units.</param>
 	/// <param name="blastRadius">How far it reaches, and the denominator of each victim's falloff.</param>
@@ -789,8 +881,15 @@ public sealed class SimWorld {
 	/// One object the blast passes over — the sweep's own <c>param_5</c>, which the machine death
 	/// throe uses to keep a wreck from blowing itself up a second time.
 	/// </param>
-	public void ExplosiveBlastSweep(Vec3i hitPoint, int blastRadius, short damage,
+	/// <returns>
+	/// Whether the blast <i>caught</i> anything — set beside the damage call and so before that call
+	/// can decide the target's shields swallowed it, which is the original's own arrangement. The
+	/// drop pod's <c>+0x4c</c> latch is the one caller that reads it; see <see cref="MeteorObject"/>.
+	/// </returns>
+	public bool ExplosiveBlastSweep(Vec3i hitPoint, int blastRadius, short damage,
 			SimObject? attacker, SimObject? excluded) {
+		bool hit = false;
+
 		for (int i = 0; i < _objects.Count; i++) {
 			var candidate = _objects[i];
 
@@ -808,7 +907,10 @@ public sealed class SimWorld {
 			}
 
 			candidate.ExplosiveDamage(this, damage, hitPoint, blastRadius, attacker);
+			hit = true;
 		}
+
+		return hit;
 	}
 
 	/// <summary>
@@ -1007,6 +1109,15 @@ public sealed class SimWorld {
 			}
 		}
 
+		// The drop pods are a pool like the rest and Sim_MainTick walks them with the rest, before it
+		// reaches the groups. That ordering is what lets a pod deliver its group and have the group go
+		// live on the same tick rather than the next one.
+		for (int i = _meteors.Count - 1; i >= 0; i--) {
+			if (_meteors[i].Tick(this, _dropPodFrames)) {
+				_meteors.RemoveAt(i);
+			}
+		}
+
 		// Wreckage and fires are pool objects too, and walked with the rest of them. A piece that
 		// bursts as it is ticked appends its children to the same list; iterating backwards means they
 		// wait for the next tick rather than moving twice on this one, which is the deal every other
@@ -1041,9 +1152,29 @@ public sealed class SimWorld {
 		// that is not a live group member never thinks. It runs here, alongside the object updates and
 		// ahead of the sensor sweep, so a machine reassesses on the contacts it had at the top of the
 		// tick rather than on ones made during it.
+		//
+		// A group that has not entered the mission takes the other branch instead: Sim_MainTick sends
+		// it to Group_DeploymentCheck and not to its order tick, and it is one or the other, never
+		// both. See MissionGroup.AwaitingDeployment.
 		for (int i = 0; i < _groups.Count; i++) {
-			_groups[i].AiTick(this);
+			var group = _groups[i];
+
+			if (group.AwaitingDeployment) {
+				group.DeploymentCheck(this);
+			} else {
+				group.AiTick(this);
+			}
 		}
+
+		// The mission's timers, then its triggers. Sim_MainTick runs FUN_00426b48 and
+		// Actions_EvaluateTriggers back to back and -- the part that is easy to get backwards --
+		// *after* the group pass, not before it. So an action that fires this tick is not seen by the
+		// group waiting on it until the next one, and a group arrives a tick after its trigger.
+		for (int i = 0; i < _actionPairs.Count; i++) {
+			_actionPairs[i].Tick(this);
+		}
+
+		MissionTriggers.Evaluate(this);
 
 		// Who can see whom, worked out from where everything has just finished moving to.
 		// Sim_MainTick puts it exactly here: after every pool's per-object update and after the

@@ -1,4 +1,4 @@
-using Herculan.Engine.Numerics;
+﻿using Herculan.Engine.Numerics;
 
 namespace Herculan.Engine.Terrain;
 
@@ -575,6 +575,15 @@ public sealed partial class HeightGrid {
 	/// cell's two triangles the point falls in by the same diagonal split the height query uses, and
 	/// ask <see cref="FaceBlocks"/>. A point off the grid blocks, as the original's null cell does.
 	/// </summary>
+	/// <summary>
+	/// <c>Terrain_FaceBlocksAt</c> (<c>0046fe84</c>) asked with no direction, which is how
+	/// <c>Deployment_PickPointNearPlayer</c> (<c>0042354c</c>) asks it: a zero direction makes the
+	/// head-on dot product zero, so the test reduces to the steepness of the face under the point,
+	/// and a point off the grid blocks. This is "can something stand here".
+	/// </summary>
+	public bool BlocksMovementAt(int worldX, int worldY) =>
+		FaceBlocksAt(worldX, worldY, 0, 0, 0);
+
 	private bool FaceBlocksAt(int worldX, int worldY, int dirX, int dirY, int dirZ) {
 		int cellX = worldX >> CellShift;
 		int cellY = worldY >> CellShift;

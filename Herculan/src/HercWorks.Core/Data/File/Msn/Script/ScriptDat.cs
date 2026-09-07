@@ -1,4 +1,4 @@
-namespace HercWorks.Core.Data.File.Msn.Script;
+﻿namespace HercWorks.Core.Data.File.Msn.Script;
 
 /// <summary>
 /// <c>data\script.dat</c> — DBSIM's real gameplay handoff format, written by VSHELL immediately
@@ -270,6 +270,34 @@ public class ScriptSpawnRecordExport {
 		BitConverter.GetBytes(value).CopyTo(TailBytes, SecondaryOffset + slot * 2);
 	}
 
+	/// <summary>
+	/// Exported offset <c>0x80</c> — the mission action this machine fires when it is <b>engaged</b>:
+	/// <c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>) resolves it into <c>mech+0x1b2</c>, and
+	/// <c>Detection_Sweep</c> (<c>004128f8</c>) fires it once a hostile that already has contact on
+	/// this machine closes to 50,000 units. <c>-1</c> for a record that names none.
+	/// </summary>
+	public short EngagementActionRef => ReadTail(EngagementActionOffset);
+
+	/// <summary>
+	/// Exported offset <c>0x82</c> — the mission action this machine fires when it is
+	/// <b>destroyed</b>, resolved into <c>mech+0x1b6</c> and fired by
+	/// <c>Mech_ComponentDamageWrite</c> (<c>00417de4</c>) at the moment the machine dies.
+	///
+	/// <para><b>This is how a retail mission chains its reinforcements.</b> The shipped
+	/// <c>script.dat</c> has five of its ten mech records naming one, which is what brings each wave
+	/// in as the last is killed — see docs/simulation/mission-deployment.md.</para>
+	/// </summary>
+	public short LossActionRef => ReadTail(LossActionOffset);
+
+	private short ReadTail(int offset) =>
+		TailBytes.Length >= offset + 2 ? BitConverter.ToInt16(TailBytes, offset) : (short)-1;
+
+	/// <summary>Where <see cref="EngagementActionRef"/> sits in <see cref="TailBytes"/> (0x80 less 0x42).</summary>
+	private const int EngagementActionOffset = 62;
+
+	/// <summary>And <see cref="LossActionRef"/> (0x82 less 0x42).</summary>
+	private const int LossActionOffset = 64;
+
 	/// <summary>Where <see cref="WeaponSecondary"/> starts inside <see cref="TailBytes"/> (source 0x72 less 0x4a).</summary>
 	private const int SecondaryOffset = 40;
 
@@ -300,6 +328,35 @@ public class ScriptEntity102Export {
 	public short BinaryField { get; set; }
 
 	public byte[] TailBytes { get; set; } = new byte[46];
+
+	/// <inheritdoc cref="ScriptSpawnRecordExport.EngagementActionRef" />
+	/// <remarks>Exported offset <c>0x56</c>; the flyer's own <c>+0x1b2</c>.</remarks>
+	public short EngagementActionRef => ScriptActionRefs.Read(TailBytes, ScriptActionRefs.SmallEngagement);
+
+	/// <inheritdoc cref="ScriptSpawnRecordExport.LossActionRef" />
+	/// <remarks>
+	/// Exported offset <c>0x58</c>; the flyer's own <c>+0x1b6</c>, fired by
+	/// <c>Flyer_ComponentDamageWrite</c> (<c>00421bb4</c>).
+	/// </remarks>
+	public short LossActionRef => ScriptActionRefs.Read(TailBytes, ScriptActionRefs.SmallDestruction);
+}
+
+/// <summary>
+/// Where the two per-object mission-action refs sit inside a flyer's or a structure's exported
+/// tail. Both records place them at the same distance into <see cref="ScriptEntity102Export.TailBytes"/>/
+/// <see cref="ScriptMiscEntityExport.TailBytes"/>, four bytes before the trailing field; a mech's
+/// tail starts further back and carries its own offsets.
+/// </summary>
+internal static class ScriptActionRefs {
+	/// <summary>The engaged-action ref's index into either tail.</summary>
+	public const int SmallEngagement = 40;
+
+	/// <summary>And the destroyed-action ref's.</summary>
+	public const int SmallDestruction = 42;
+
+	/// <summary>Reads one, answering <c>-1</c> for a tail too short to hold it.</summary>
+	public static short Read(byte[] tail, int offset) =>
+		tail.Length >= offset + 2 ? BitConverter.ToInt16(tail, offset) : (short)-1;
 }
 
 /// <summary>
@@ -324,6 +381,17 @@ public class ScriptMiscEntityExport {
 	public short HeadingRef { get; set; }
 
 	public byte[] TailBytes { get; set; } = new byte[46];
+
+	/// <inheritdoc cref="ScriptSpawnRecordExport.EngagementActionRef" />
+	/// <remarks>Exported offset <c>0x2e</c>; the structure's own <c>+0x1b2</c>.</remarks>
+	public short EngagementActionRef => ScriptActionRefs.Read(TailBytes, ScriptActionRefs.SmallEngagement);
+
+	/// <inheritdoc cref="ScriptSpawnRecordExport.LossActionRef" />
+	/// <remarks>
+	/// Exported offset <c>0x30</c>; the structure's own <c>+0x1b6</c>, fired by
+	/// <c>Base_ApplyDamage</c> (<c>00404d70</c>) when the last component goes.
+	/// </remarks>
+	public short LossActionRef => ScriptActionRefs.Read(TailBytes, ScriptActionRefs.SmallDestruction);
 }
 
 /// <summary>

@@ -13,10 +13,6 @@ outstanding.
 
 The mechanism is understood; what is left is engine work.
 
-- **Mission deployment.** A group waiting on a mission action is correctly held out of the world,
-  but no trigger ever fires, so drop pods (the falling `METEOR` that delivers Cybrid reinforcements)
-  and walk-on arrivals never happen and those units never appear.
-  → [`docs/simulation/mission-deployment.md`](docs/simulation/mission-deployment.md)
 - **CD music and squad speech.** The effects half of the catalog is ported, and so is the cockpit
   computer's channel entire — the message port's queue, timings, repeat suppression and preemption,
   the scrolling ticker, and `SYSTEM.STR`'s lines read from their `CVM` clips. Red Book music through
@@ -25,9 +21,8 @@ The mechanism is understood; what is left is engine work.
   unported, so the comm box never speaks or animates and nothing posts to that channel.
   → [`docs/formats/audio.md`](docs/formats/audio.md)
 - **Combat gaps.** Hit detection, weapon-mount destruction and the explosive blast sweep are
-  complete for all three shootable classes. Two of the sweep's three call sites are still unreachable
-  because the functions that own them are unported: the drop pod's landing detonation (`Meteor_Tick`,
-  part of the mission-deployment entry above) and the AI ramming attack (`FUN_0041e488`, part of the
+  complete for all three shootable classes. One of the sweep's three call sites is still unreachable
+  because the function that owns it is unported: the AI ramming attack (`FUN_0041e488`, part of the
   `ramming` entry below).
   → [`docs/simulation/damage-system.md`](docs/simulation/damage-system.md)
 - **The `ramming` behaviour state.** Every other behaviour state's think is ported; state 17's pair
@@ -53,9 +48,10 @@ The mechanism is understood; what is left is engine work.
   and the explosive damage scale — run on entry 0.
   → [`docs/simulation/ai-weapons.md`](docs/simulation/ai-weapons.md),
   [`docs/simulation/projectiles.md`](docs/simulation/projectiles.md)
-- **The object's own mission action.** `Ai_ChooseWeapon` fires `mech+0x1b6` when a machine runs out
-  of weapons, and so does the damage path; the engine has no per-object action to fire.
-  → [`docs/simulation/ai-weapons.md`](docs/simulation/ai-weapons.md)
+- **An unpiloted flyer's own tick.** `FlyerObject.Tick` is empty, so a mission's flyers hold station
+  where they spawn. They are a live group like any other, so this also costs a mission any trigger a
+  flying group would have crossed — which can make an action fire later here than in retail.
+  → [`docs/simulation/mission-deployment.md`](docs/simulation/mission-deployment.md)
 - **Flyer control bindings.** The flight model is ported and the axis roles are known, but key
 bindings are hardcoded placeholders.
   → [`docs/simulation/razor-flight.md`](docs/simulation/razor-flight.md)
@@ -74,6 +70,15 @@ The engine cannot be faithful here until the original is understood.
 - **Flyer texture banks.** Which `.DBA` DBSIM binds for a flyer is untraced, so flyers draw
   flat-shaded.
   → [`docs/formats/dts-texture-binding.md`](docs/formats/dts-texture-binding.md)
+- **The mission message an action queues.** `Action_Fire` queues the line named at action `+0x34`;
+  the id is decoded and carried but `data\mission.str` is not loaded, so nothing is posted.
+  → [`docs/simulation/mission-deployment.md`](docs/simulation/mission-deployment.md)
+- **The mission counters' reader.** `DAT_004a9ef4` is written by a firing action and dumped to
+  `mission_var` at mission end; the campaign layer that reads it back is not ported.
+  → [`docs/simulation/mission-deployment.md`](docs/simulation/mission-deployment.md)
+- **The drop pod's ground mark.** The leftover effect a landed pod spawns comes from the theater's
+  `flat`/`flat2` shape pool, which is not ported.
+  → [`docs/simulation/mission-deployment.md`](docs/simulation/mission-deployment.md)
 - **Flyer formation spread.** `FUN_00421ee8` untraced; no multi-flyer groups observed in retail
   missions so far.
   → [`docs/simulation/mission-deployment.md`](docs/simulation/mission-deployment.md)

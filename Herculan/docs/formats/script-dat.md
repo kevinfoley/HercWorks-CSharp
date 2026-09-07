@@ -84,11 +84,14 @@ Per record type, what pass 2 reads (offsets into the exported record, not the `.
 | | | `0x40` | ref → block 2 (heading) |
 | | | `0x42`-`0x69` | two more 10-slot arrays → `FUN_00411b90` |
 | | | `0x6a`-`0x7d` | ammunition type, 10 slots, paired with the weapon fit → `Mech_ConfigureLoadout`'s second array. Only the four launchers read it; every other slot carries the filler 5 |
-| | | `0x80`/`0x82` | refs → block 5 (actions) |
+| | | `0x80` | ref → block 5 — the action this machine fires when it is **engaged** (`mech+0x1b2`) |
+| | | `0x82` | ref → block 5 — the action it fires when it is **lost** (`mech+0x1b6`). Five of the shipped mission's ten mech records carry one, and that is what chains its reinforcement waves |
 | 8 (flyers) | 92B | `0x28` | ref → block 1 (position) |
+| | | `0x56` / `0x58` | refs → block 5, the flyer's own engaged/lost actions |
 | | | `0x2a` | ref → block 2 (heading) |
 | | | `0x2c` | flyer type → index into `nam\FLYERS.NAM` |
 | 9 (bases) | 52B | `0x00` | base type → index into `dat\BASES.DAT`'s 65-entry table |
+| | | `0x2e` / `0x30` | refs → block 5, the structure's own engaged/lost actions |
 | | | `0x02` | ref → block 1 (position) |
 | | | `0x04` | ref → block 2 (heading) |
 | 11 (groups) | 156B | `0x28` | discriminator: 0/1/2 → block 7/8/9 |
@@ -280,7 +283,7 @@ pass 2 goes back for.
 | 3 | #8 `WaypointGroup` | count + per record: nested-count (2B) + nested-count×2B (waypoint refs into block 1) | yes | full, nested refs resolved to block-1 pointers (stride 3 ints) | full, same resolution |
 | 4 | #9 `LinkOrReward12` | count + count×6B (`0x06` type flag, `0x08` ref1, `0x0A` ref2/literal) | yes | full, resolved by `FUN_00423358` into a 10-byte record — **a trigger area**: type flag, block-1 pointer, then either a second block-1 pointer (type 0, an XY box) or the literal × 10 (type != 0, a radius). Tested by `FUN_004233a4` | **skipped** (seek past, discarded) |
 | 5 | #10 `Action82` | count + count×74B (`0x06` type, `0x08` verb, `0x0A`-`0x19` ref[0..7] into row 9, `0x1C`/`0x1E`-stride interleaved 20-short span, `0x44`-`0x4D` herc-LUT ref[0..4], `0x4E` secondary, `0x50` target) | yes | reads all 74B but only **keeps** type, verb, the 8 refs (resolved to row-9 pointers), the 40-byte interleaved span, secondary (decremented by 1), and target — **the herc-LUT refs are read then discarded**, DBSIM has no use for the cosmetic/economy LUT | **skipped** (seek past, discarded) |
-| 6 | #11 `ActionPair30` | count + count×24B (`0x06` ref into row10, `0x08` type/timer, `0x0A`-`0x1D` 10-slot ref array into row10) | yes | full, resolved via `DBSim_BuildActionPairRecord` (`FUN_00423104`) into target+type+10×ref | **skipped** (seek past, discarded) |
+| 6 | #11 `ActionPair30` | count + count×24B (`0x06` ref into row10, `0x08` delay, `0x0A`-`0x1D` 10-slot ref array into row10) | yes | full, resolved via `DBSim_BuildActionPairRecord` (`FUN_00423104`) — **a mission timer**, see below | **skipped** (seek past, discarded) |
 | 7 | #12 (144B type) | count + count×134B (`0x08`-`0x2F` 40B span, `0x30` `SmallDiscrete`, `0x32`-`0x45` 20B span, `0x46`/`0x48` 2 shorts, two 20-short interleaved spans, `0x74`-`0x87` 20B span, 4 trailing shorts; `SmallDiscrete2` at `0x4A` is the one field of row #12 skipped/not exported) | yes | reads all 134B but keeps **only `SmallDiscrete` (`0x30`)**, the mech type — confirmed via the writer's own assert string on this field ("Invalid mech type"). Pass 2 comes back for the rest | **full 134B kept** — the map editor needs the whole record (name, position refs, etc.) to render/edit a placed unit |
 | 8 | #13 `UnkEntity102Bytes` | count + count×92B (`0x08`-`0x33` `FlagsA`+refs, `0x34` `BinaryField`, `0x38`-`0x5F` `FlagsB`, `0x60`-`0x64` refs+`UnkVal_100`; `Unk36` at `0x36` is skipped/not exported) | yes | reads all 92B but keeps only **`BinaryField` (`0x34`)**, the flyer type. Pass 2 comes back for the rest | **skipped** (seek past, discarded) |
 | 9 | #14 `MiscEntityInfo` | count + count×52B (`0x08` `TypeLikeScalar`, `0x0A`-`0x3D` refs+`SparseBlock`+`TrailingField`) | yes | reads all 52B but keeps only **`TypeLikeScalar` (`0x08`)** — the base type, an index into `dat\BASES.DAT`'s 65-entry table. Pass 2 comes back for the rest | **full 52B kept** |
@@ -291,18 +294,39 @@ pass 2 goes back for.
 
 ### Block 5 in memory — 58 bytes (`0x3a`)
 
-The runtime action record `DBSim_LoadScriptDat` builds, since two of its fields drive deployment
-([`../simulation/mission-deployment.md`](../simulation/mission-deployment.md)):
+The runtime action record `DBSim_LoadScriptDat` builds. **The field-to-offset mapping is that
+function's read order**, which is the only statement of it: two shorts, sixteen bytes of block-4
+refs into a stack buffer, twenty bytes to `+0x0c`, twenty more to `+0x20`, ten bytes read and
+dropped, then `+0x34` and `+0x36`. What each field then means is
+[`../simulation/mission-deployment.md`](../simulation/mission-deployment.md)'s.
 
-| offset | field |
-|---|---|
-| `0x00` | type — selects whose position the trigger tests |
-| `0x02` | verb — selects how a group holding this action arrives |
-| `0x04` / `0x06` | count of, and pointer to, the resolved block-4 trigger areas |
-| `0x0a` | **fired flag** — zeroed at load, set once by `Action_Fire` (`00423430`) |
-| `0x0c` / `0x20` | the two 20-byte de-interleaved spans |
-| `0x34` | secondary (file value − 1) — the mission message queued on firing |
-| `0x36` | target ref, later resolved in place to an object or group pointer |
+| offset | from | field |
+|---|---|---|
+| `0x00` | `0x06` | type — selects whose position the trigger tests |
+| `0x02` | `0x08` | verb — selects how a group holding this action arrives |
+| `0x04` / `0x06` | `0x0A`-`0x19` | count of, and pointer to, the resolved block-4 trigger areas. **The count stops at the first negative ref**, not at the eighth slot |
+| `0x0a` | — | **fired flag** — runtime only, zeroed at load, set once by `Action_Fire` (`00423430`) |
+| `0x0c` | `0x1C`-stride span | ten mission-counter refs |
+| `0x20` | `0x1E`-stride span | ten parallel operations: 6 increments the counter, 5 clears it |
+| `0x34` | `0x4E` | the mission message queued on firing, **file value − 1** |
+| `0x36` | `0x50` | target ref, resolved in place to an object or group pointer by `DBSim_SpawnMissionObjects` |
+
+The herc-LUT refs at `0x44`-`0x4D` are the ten bytes read and dropped; DBSIM has no use for them.
+
+### Block 6 in memory — 49 bytes (`0x31`)
+
+`DBSim_BuildActionPairRecord` (`00423104`) resolves each ref to a block-5 record pointer and arms
+the timer through `FUN_004679c0`, which stores the file value **shifted left 11** — so the on-disk
+unit is 2.048 seconds.
+
+| offset | from | field |
+|---|---|---|
+| `0x00` | `0x06` | the primary action, or null. Null means the timer runs from mission start |
+| `0x04`-`0x28` | `0x0A`-`0x1D` | ten action pointers, fired together when the timer expires |
+| `0x2c` | `0x08` | the countdown, in milliseconds |
+
+This is the mission's timer, and it is why an action carrying no trigger area of its own is ordinary
+rather than dead.
 
 ## Verification
 

@@ -1,4 +1,4 @@
-using HercWorks.Core.Data.File.Msn.Script;
+﻿using HercWorks.Core.Data.File.Msn.Script;
 using HercWorks.Core.Data.File.Sav;
 using HercWorks.Core.Io.Transform.Common;
 using Herculan.Engine.Content;
@@ -59,10 +59,10 @@ namespace Herculan.Engine.World;
 /// they arrive somewhere else entirely.</para>
 ///
 /// <para><b>Arrival</b> is <c>Group_DeploymentCheck</c> (<c>004236c4</c>), whose per-verb rules —
-/// drop pod, on foot, or in place — are in docs/simulation/mission-deployment.md. None of it is
-/// implemented: the engine marks these groups
-/// <see cref="MissionPlacement.AwaitingDeployment"/> and leaves them out of the mission, which
-/// matches the original up to the moment a trigger would fire.</para>
+/// drop pod, on foot, or in place — are in docs/simulation/mission-deployment.md and implemented in
+/// <see cref="Sim.MissionGroup.DeploymentCheck"/>. What this loader owes it is <b>which</b> action a
+/// group waits on, not merely that it waits on one: the same record carries the verb the group
+/// arrives on.</para>
 /// </summary>
 public static class MissionLoader {
 	/// <summary>Folder inside an install root holding the loose mission handoff files.</summary>
@@ -151,9 +151,125 @@ public static class MissionLoader {
 			groupOrders[i] = groups[i].Orders;
 		}
 
+		var actions = ResolveActions(script);
+		var actionPairs = ResolveActionPairs(script);
+
+		var deploymentActions = new int[groups.Length];
+		var groupKinds = new MissionUnitKind[groups.Length];
+		var groupSides = new MissionSide[groups.Length];
+		for (int i = 0; i < groups.Length; i++) {
+			deploymentActions[i] = groups[i].DeploymentAction;
+			groupKinds[i] = groups[i].Kind;
+			groupSides[i] = groups[i].Side;
+		}
+
 		return new Mission(scriptPath, header, placements, player, basePads, coordinates, playerRoute,
-			groupOrders);
+			groupOrders, actions, actionPairs, deploymentActions, groupKinds, groupSides);
 	}
+
+	/// <summary>
+	/// Block 6 — the mission's timers, as <c>DBSim_LoadScriptDat</c> (<c>00424308</c>) resolves them
+	/// through <c>DBSim_BuildActionPairRecord</c> (<c>00423104</c>). The stored delay is shifted into
+	/// milliseconds here, which is what <c>FUN_004679c0</c> does as it arms the countdown.
+	/// </summary>
+	private static MissionActionPair[] ResolveActionPairs(ScriptDat script) {
+		var pairs = new MissionActionPair[script.ActionPairs.Length];
+
+		for (int i = 0; i < pairs.Length; i++) {
+			var record = script.ActionPairs[i];
+			pairs[i] = new MissionActionPair(
+				ActionRef(script, record.PrimaryActionRef),
+				record.TimerValue << MissionActionPair.DelayShift,
+				record.SequenceRefs);
+		}
+
+		return pairs;
+	}
+
+	/// <summary>
+	/// One block-5 ref, bounds-checked against the action array. Everything that names an action —
+	/// a group's arrival gate, an order, a pair, and a roster record's own two — goes through this.
+	/// </summary>
+	private static short ActionRef(ScriptDat script, short reference) =>
+		reference >= 0 && reference < script.Actions.Length ? reference : (short)-1;
+
+	/// <summary>
+	/// Block 5, with each record's block-4 refs resolved into trigger areas — the load-time half of
+	/// <c>DBSim_LoadScriptDat</c> (<c>00424308</c>)'s action pass.
+	///
+	/// <para><b>The record's field-to-offset mapping is that pass's read order</b>, which is the only
+	/// statement of it anywhere: two shorts, then sixteen bytes of block-4 refs into a stack buffer,
+	/// then twenty bytes to the runtime record's <c>+0x0c</c> and twenty more to its <c>+0x20</c>,
+	/// then ten bytes read and dropped, then <c>+0x34</c> and <c>+0x36</c>. So
+	/// <see cref="ScriptAction.ArrayA"/> is the counter refs, <see cref="ScriptAction.ArrayB"/> the
+	/// operations that go with them, <see cref="ScriptAction.LutRefs"/> is read and discarded by
+	/// DBSIM entirely, <see cref="ScriptAction.SecondaryValue"/> is the mission message and
+	/// <see cref="ScriptAction.Target"/> the trigger's own subject.</para>
+	///
+	/// <para>Two things the pass does that reading the file alone would not show: it <b>subtracts one
+	/// from the message id</b> as it stores it, and it stops counting block-4 refs at the first
+	/// negative one rather than at the eighth slot.</para>
+	/// </summary>
+	private static MissionAction[] ResolveActions(ScriptDat script) {
+		var actions = new MissionAction[script.Actions.Length];
+
+		for (int i = 0; i < actions.Length; i++) {
+			var record = script.Actions[i];
+			var areas = new List<MissionTriggerArea>(MissionAction.AreaSlots);
+
+			for (int slot = 0; slot < MissionAction.AreaSlots && slot < record.RefsRow9.Length; slot++) {
+				short reference = record.RefsRow9[slot];
+				if (reference < 0) {
+					break;
+				}
+
+				if (TriggerArea(script, reference) is { } area) {
+					areas.Add(area);
+				}
+			}
+
+			actions[i] = new MissionAction(
+				record.Type,
+				record.Verb,
+				areas,
+				record.ArrayA,
+				record.ArrayB,
+				(short)(record.SecondaryValue - 1),
+				record.Target);
+		}
+
+		return actions;
+	}
+
+	/// <summary>
+	/// One block-4 record resolved — <c>TriggerArea_Resolve</c> (<c>00423358</c>). The type flag
+	/// picks what the record's second field is: another coordinate, making a box, or a literal that
+	/// is scaled by ten into a radius.
+	/// </summary>
+	private static MissionTriggerArea? TriggerArea(ScriptDat script, short reference) {
+		if (reference >= script.LinksOrRewards.Length) {
+			return null;
+		}
+
+		var record = script.LinksOrRewards[reference];
+		if (Coordinate(script, record.RefA) is not { } anchor) {
+			return null;
+		}
+
+		if (record.TypeFlag != 0) {
+			return new MissionTriggerArea(MissionTriggerShape.Circle, anchor, anchor,
+				record.RefBOrLiteral * TriggerRadiusScale);
+		}
+
+		return Coordinate(script, record.RefBOrLiteral) is { } opposite
+			? new MissionTriggerArea(MissionTriggerShape.Box, anchor, opposite, 0)
+			: null;
+	}
+
+	/// <summary>
+	/// What a circular trigger's stored literal is multiplied by, once, as the record is resolved.
+	/// </summary>
+	private const int TriggerRadiusScale = 10;
 
 	/// <summary>
 	/// The ground each base group repaints. <c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>) runs
@@ -196,11 +312,12 @@ public static class MissionLoader {
 	}
 
 	/// <summary>A block-11 record reduced to what placement needs.</summary>
-	/// <param name="AwaitsDeployment">
-	/// Whether the record names a block-5 action (its <c>RefRow10</c>), which DBSIM resolves into the
-	/// group record's <c>+0x14</c> action pointer. Such a group has not entered the mission yet — see
-	/// this class's doc comment for how it arrives, and <see cref="Sim.SimObject.AwaitingDeployment"/>
-	/// for what that means while it waits.
+	/// <param name="DeploymentAction">
+	/// <b>Which</b> block-5 action the record names (its <c>RefRow10</c>), or <c>-1</c>. DBSIM
+	/// resolves it into the group record's <c>+0x14</c> action pointer, and that pointer is both the
+	/// gate and the arrival instruction: which verb the group turns up on is read off this very
+	/// action. Reducing it to a bool loses the arrival — see this class's doc comment, and
+	/// <see cref="Sim.MissionGroup.DeploymentCheck"/>.
 	/// </param>
 	/// <param name="Side">
 	/// The record's <c>0x6e</c> — <c>ScriptEntity164Export.TriStateFlag</c>, which lands at the
@@ -222,7 +339,7 @@ public static class MissionLoader {
 	/// docs/simulation/ai-goals.md.
 	/// </param>
 	private readonly record struct Group(int Index, MissionUnitKind Kind, Vec3i Position, int Heading,
-		int FormationId, bool AwaitsDeployment, MissionSide Side, bool PaintsGround,
+		int FormationId, int DeploymentAction, MissionSide Side, bool PaintsGround,
 		MissionOrder?[] Orders);
 
 	/// <summary>
@@ -262,7 +379,7 @@ public static class MissionLoader {
 				position,
 				Heading(script, record.RefRow7) ?? RouteBearing(route),
 				record.SmallDiscrete,
-				record.RefRow10 >= 0,
+				ActionRef(script, record.RefRow10),
 				record.TriStateFlag == (short)MissionSide.Cybrid
 					? MissionSide.Cybrid
 					: MissionSide.Human,
@@ -370,11 +487,12 @@ public static class MissionLoader {
 				Heading(script, record.HeadingRef) ?? group.Heading,
 				record.WeaponRefs,
 				record.WeaponSecondary,
-				AwaitingDeployment: group.AwaitsDeployment,
 				Side: group.Side,
 				AiCruiseSpeed: record.AiCruiseSpeed,
 				AiRadarActive: record.AiRadarActive != 0,
-				FormationOffset: offset is { } o ? (o.X, o.Y) : null));
+				FormationOffset: offset is { } o ? (o.X, o.Y) : null,
+				EngagementActionRef: ActionRef(script, record.EngagementActionRef),
+				LossActionRef: ActionRef(script, record.LossActionRef)));
 		}
 
 		var flyerClaims = claims[MissionUnitKind.Flyer];
@@ -395,8 +513,9 @@ public static class MissionLoader {
 				Heading(script, record.HeadingRef) ?? group.Heading,
 				Array.Empty<short>(),
 				Array.Empty<short>(),
-				AwaitingDeployment: group.AwaitsDeployment,
-				Side: group.Side));
+				Side: group.Side,
+				EngagementActionRef: ActionRef(script, record.EngagementActionRef),
+				LossActionRef: ActionRef(script, record.LossActionRef)));
 		}
 
 		var baseClaims = claims[MissionUnitKind.Base];
@@ -421,8 +540,9 @@ public static class MissionLoader {
 					?? HeadingFromGroup(group, baseFormations, claim.MemberIndex),
 				Array.Empty<short>(),
 				Array.Empty<short>(),
-				AwaitingDeployment: group.AwaitsDeployment,
-				Side: group.Side));
+				Side: group.Side,
+				EngagementActionRef: ActionRef(script, record.EngagementActionRef),
+				LossActionRef: ActionRef(script, record.LossActionRef)));
 		}
 	}
 
@@ -516,7 +636,6 @@ public static class MissionLoader {
 				entry.WeaponRefs,
 				entry.WeaponAmmoTypes,
 				IsPlayerLance: true,
-				AwaitingDeployment: spawn.AwaitsDeployment,
 				Side: spawn.Side);
 
 			placements.Add(placement);
@@ -574,7 +693,7 @@ public static class MissionLoader {
 				Enum.IsDefined(kind) ? kind : MissionOrderSubject.None,
 				link.DiscriminatedRef,
 				Waypoints(script, link.RefRow8),
-				link.RefRow10 >= 0);
+				ActionRef(script, link.RefRow10));
 		}
 
 		return orders;

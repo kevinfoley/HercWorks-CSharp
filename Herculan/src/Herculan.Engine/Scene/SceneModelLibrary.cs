@@ -481,6 +481,37 @@ public sealed class SceneModelLibrary {
 	public int ShapeCount(string shapeLibrary) => LoadDts(shapeLibrary)?.Meshes?.Count ?? 0;
 
 	/// <summary>
+	/// The drop pod in the air — root 0 of <c>dts\METEOR.DTS</c>, textured from
+	/// <c>dba\IMPACT.DBA</c>. <c>Meteor_LoadResources</c> (<c>00409a34</c>) loads the shape group
+	/// and binds that one bank into every shape in it.
+	/// </summary>
+	public SceneModel? DropPod() =>
+		Build(Sim.MeteorObject.ShapeLibraryName, Sim.MeteorObject.FallingShapeIndex,
+			Sim.MeteorObject.TextureBankName);
+
+	/// <summary>
+	/// And the pod on the ground — root 1 of the same file, one entry per cell of its opening
+	/// flipbook. The original keeps this as a <i>second</i> shape instance on the object
+	/// (<c>obj+0x41</c>) and swaps to it the moment the pod lands; see <c>Meteor_Render</c>
+	/// (<c>00409cd0</c>).
+	/// </summary>
+	public IReadOnlyList<SceneModel> DropPodOpening() {
+		if (Root(Sim.MeteorObject.ShapeLibraryName, Sim.MeteorObject.OpeningShapeIndex) is not { } root) {
+			return Array.Empty<SceneModel>();
+		}
+
+		var cells = new List<SceneModel>();
+		for (int cell = 0; cell < DtsMeshBuilder.CellFrameCount(root); cell++) {
+			if (Build(Sim.MeteorObject.ShapeLibraryName, Sim.MeteorObject.OpeningShapeIndex,
+					Sim.MeteorObject.TextureBankName, cellFrame: cell) is { } model) {
+				cells.Add(model);
+			}
+		}
+
+		return cells;
+	}
+
+	/// <summary>
 	/// One root of <c>dts\FIRE.DTS</c> — a burning object's looping flipbook of billboards, out of
 	/// <c>dba\FIRE0.DBA</c> or <c>FIRE1.DBA</c>. Which of the two is
 	/// <c>dat\FIRE.DAT</c>: a four-byte header and then one byte per shape, which

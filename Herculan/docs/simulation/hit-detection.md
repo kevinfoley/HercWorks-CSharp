@@ -357,8 +357,9 @@ the corrected volume read in
 
 - **Node-placed clusters on structures** are tested in the object frame rather than the node's — the
   engine has no posed node transforms for structures. Only the eight animated types carry any.
-- The kill credit (`attacker+0x60`) and the mission action a destroyed structure fires. The death
-  sequence itself, with its debris, its fire, its hulk swap and its per-part cell step, is ported —
+- The kill credit (`attacker+0x60`). The mission action a destroyed structure fires is ported
+  (`SimObject.LossAction`, [`mission-deployment.md`](mission-deployment.md)), as is the death
+  sequence itself with its debris, its fire, its hulk swap and its per-part cell step —
   [`destruction-effects.md`](destruction-effects.md).
 - Spawn-time component health from the mission record.
 - Terrain flattening under a placed structure (`FUN_00470dc8`).

@@ -676,7 +676,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Damage_ExplosiveBlastSweep",
-      "description": "Radius-based splash-damage entry point. Args (impactPos, blastRadius, damage, attacker, excluded). Sweeps the live-object list, skipping an object whose mission group still carries an action and the excluded object; distance - obj[+0x5c] < blastRadius calls that object's +0x70. Note it truncates its int blastRadius to a short when handing it on. Exactly 3 call sites, all terminal: Meteor_Tick's drop-pod landing, the Plasma-cannon bullet type 9 branch in Bullet_TickUpdate, and Mech_BehaviourRamTick. It is NOT the only way +0x70 is reached -- Mech_ApplyDirectFireDamage and Mech_CollisionTest both call it directly.",
+      "description": "Radius-based splash-damage entry point. Sweeps the live-object list, skipping an object whose mission group still carries an action and the excluded object; distance - obj[+0x5c] < blastRadius calls that object +0x70. Note it truncates its int blastRadius to a short when handing it on. RETURNS 1 IF ANYTHING WAS IN RANGE, not if anything was damaged -- the flag is set beside the +0x70 call, before that call can decide the target shields swallowed it. Its one reader is the drop pod +0x4c latch. Exactly 3 call sites, all terminal: Meteor_Tick drop-pod landing, the Plasma-cannon bullet type 9 branch in Bullet_TickUpdate, and Mech_BehaviourRamTick. It is NOT the only way +0x70 is reached -- Mech_ApplyDirectFireDamage and Mech_CollisionTest both call it directly.",
       "source": "docs/simulation/damage-system.md",
       "signature": "short __cdecl Damage_ExplosiveBlastSweep(int *hitPoint, int blastRadius, short damage, int *attacker, int *excluded)"
     },
@@ -696,8 +696,9 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_ShieldAbsorb_Explosive",
-      "description": "Explosion path's own separate shield-absorption implementation (parallel to, not shared with, Mech_ShieldAbsorb_DirectFire). scaledDamage=(weaponDamage*1000)>>8 comes off the zone; a negative zone clamps to 0 and returns overflow*0x400/1000. The two scales do not cancel -- net 0x400/256, so overflow past a drained facing is 4x the weapon's face value. Symmetric inverse of the >>8 would be 0x100; suspected retail bug, see KNOWN_ISSUES.md.",
-      "source": "docs/simulation/damage-system.md"
+      "description": "Explosion path own separate shield-absorption implementation (parallel to, not shared with, Mech_ShieldAbsorb_DirectFire). scaledDamage = Math_Q10Multiply(1000, damage) comes off the chosen facing (a zero front argument selects the second short, the rear); a negative facing clamps to 0 and the function returns overflow*0x400/1000. THE TWO SCALES ARE EXACT INVERSES -- 1000/1024 in and 1024/1000 out -- so a blast overflow is its own face value and the exchange rate matches direct fire. Reading the input scale as >>8 makes this look like a 4x amplification and a retail bug; the instruction is Math_Q10Multiply and there is no bug.",
+      "source": "docs/simulation/damage-system.md",
+      "signature": "int __cdecl Mech_ShieldAbsorb_Explosive(short *shieldPair, short front, short damage)"
     },
     {
       "address": "00409d2c",
@@ -706,7 +707,8 @@
       "confidence": "high",
       "name": "Meteor_Tick",
       "description": "The drop pod's per-tick update, walked by Sim_MainTick over g_MeteorPool (its only caller). Falling phase (+0x4b clear): integrates position by the velocity at +0x45, pitches the shape to atan2(2000, vz), plays sound 0x2f once below altitude 50000, and on ground contact (Terrain_HeightQuery) sets the landed flag, snaps to ground, plays sound 0x30 and calls Damage_ExplosiveBlastSweep(pos, 3000, 10000, 0, null), setting +0x4c if that hit anything. Landed phase: advances +0x4d at rate 0x5dc and drives the shape frame from +0x4d>>10 (the pod opening); when the flipbook ends it copies its landed position onto the carried group's leader and clears that group's +0x14 action pointer -- the moment the group enters the mission -- unless +0x4c is set, then spawns a leftover effect from pool 004a9711, frees its shape and returns 1 so Sim_MainTick releases it. RENAMED 2026-08-27: was 'Rocket_GroundImpactDetonate'; it is not a rocket or missile handler and has nothing to do with the rocket path. A rocket's own ground-impact detonation has not been located.",
-      "source": "docs/simulation/mission-deployment.md"
+      "source": "docs/simulation/mission-deployment.md",
+      "signature": "short __cdecl Meteor_Tick(int *pod)"
     },
     {
       "address": "004236c4",
@@ -714,8 +716,9 @@
       "type": "function",
       "confidence": "high",
       "name": "Group_DeploymentCheck",
-      "description": "Per-frame arrival check for a mission group that has not entered the world yet, run by Sim_MainTick for exactly the groups whose record +0x14 action pointer is non-null. No-ops until that action's runtime fired flag (action+0x0a) is set. Then the action's verb (action+0x02) picks the arrival: 2 or 3 spawn a METEOR drop pod 150000 units from the player (bearing +-90 deg for 2, +-22.5 deg for 3) carrying the group, leaving +0x14 set for the pod to clear on landing; 4 or 5 place the group's leader directly at 90000 units behind (4) or 150000 ahead (5), run every other member through vtable +0x78 for its formation offset, and clear +0x14; any other verb just clears +0x14 so the group goes live where it stands. All arrival points come from Deployment_PickPointNearPlayer.",
-      "source": "docs/simulation/mission-deployment.md"
+      "description": "Per-frame arrival check for a mission group that has not entered the world yet, run by Sim_MainTick for exactly the groups whose record +0x14 action pointer is non-null. No-ops until that action runtime fired flag (action+0x0a) is set. Then the action verb (action+0x02) picks the arrival: 2 or 3 spawn a METEOR drop pod 150000 units from the player (bearing +-90 deg for 2, +-22.5 deg for 3) carrying the group, leaving +0x14 set for the pod to clear on landing and latching group+0x13 so only one pod is ever launched; 4 or 5 place the group leader at 90000 units behind (4) or 150000 ahead (5) facing bearing-0x8000, run every other member through vtable +0x78 for its formation offset, and clear +0x14; any other verb just clears +0x14 so the group goes live where it stands. All arrival points come from Deployment_PickPointNearPlayer.",
+      "source": "docs/simulation/mission-deployment.md",
+      "signature": "void __cdecl Group_DeploymentCheck(int *group)"
     },
     {
       "address": "0042354c",
@@ -723,8 +726,29 @@
       "type": "function",
       "confidence": "high",
       "name": "Deployment_PickPointNearPlayer",
-      "description": "Picks a clear arrival point for a deploying group or drop pod: offsets from the player's position at (player heading + the caller's bearing) by the caller's distance, then steps outward in 2000-unit increments until the point clears every already-deployed object (skipping any whose group +0x14 is still set), FUN_00404ae4's static obstacles, and the terrain validity test FUN_0046fe84.",
-      "source": "docs/simulation/mission-deployment.md"
+      "description": "Picks a clear arrival point for a deploying group or drop pod: offsets from the player position by distance at (player heading + bearing), then steps outward in 2000-unit increments until the point clears three tests in order. (1) Already-deployed objects, within their own vtable +0x7c collision radius plus 5000 -- APPLIED ONLY WHEN avoidDeployedObjects IS NONZERO, which Group_DeploymentCheck passes for the two walk-on verbs and clears for a drop pod, so a pod may come down on top of a machine. (2) Structure_GatherWalkCandidates collision volumes at radius 5000. (3) Terrain_FaceBlocksAt with a zero direction, which reduces to the steepness of the face under the point. The loop is unbounded.",
+      "source": "docs/simulation/mission-deployment.md",
+      "signature": "void __cdecl Deployment_PickPointNearPlayer(int *outPoint, int distance, short bearing, int avoidDeployedObjects)"
+    },
+    {
+      "address": "00426b48",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ActionPairs_Tick",
+      "description": "Walks the whole resolved block-6 array at DAT_004a9ebc (count DAT_004a9eb8, stride 0x31) calling ActionPair_Tick on each. Sim_MainTick calls it immediately before Actions_EvaluateTriggers and both AFTER the per-group Group_OrderTick/Group_DeploymentCheck pass, so a group waiting on an action arrives on the tick after it fires.",
+      "source": "docs/simulation/mission-deployment.md",
+      "signature": "void __cdecl ActionPairs_Tick(void)"
+    },
+    {
+      "address": "004230a4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ActionPair_Tick",
+      "description": "One script.dat block-6 action pair per frame -- the mission timer, and the second of the four ways a mission action fires. Counts the millisecond countdown at pair+0x2c down through Timer_CountDown, but only while the primary action at pair+0x00 has fired or the pair names none (in which case it runs from mission start). On expiry it calls Action_Fire on each of the ten resolved action pointers at pair+0x04..+0x28 and re-arms the countdown with 30000, which through the <<11 in FUN_004679c0 is about seventeen hours -- so the pair effectively fires once. This is why an action carrying no trigger area of its own is ordinary rather than dead.",
+      "source": "docs/simulation/mission-deployment.md",
+      "signature": "void __cdecl ActionPair_Tick(int *pair)"
     },
     {
       "address": "00423430",
@@ -732,8 +756,9 @@
       "type": "function",
       "confidence": "high",
       "name": "Action_Fire",
-      "description": "Fires one block-5 mission action, once: sets the action's runtime fired flag at +0x0a (zeroed at load), walks its 10 counter refs bumping or clearing the mission counter array DAT_004a9ef4, and queues the mission message named by action+0x34.",
-      "source": "docs/simulation/mission-deployment.md"
+      "description": "Fires one block-5 mission action, once: sets the action runtime fired flag at +0x0a (zeroed at load), then walks ten (counter ref, operation) pairs at +0x0c/+0x20, skipping a pair whose ref is negative and otherwise bumping (op 6) or clearing (op 5) the mission counter array DAT_004a9ef4. The queue of the mission message at +0x34 is INSIDE that loop, so an action naming five counters posts its line five times and one naming none posts it not at all.",
+      "source": "docs/simulation/mission-deployment.md",
+      "signature": "void __cdecl Action_Fire(int *action)"
     },
     {
       "address": "004234b8",
@@ -742,7 +767,8 @@
       "confidence": "high",
       "name": "Action_TestTrigger",
       "description": "Tests a position against one action's trigger areas. Returns 1 immediately if the action has already fired (+0x0a set); otherwise offers the position to each resolved block-4 area (count at +0x04, pointer array at +0x06) via FUN_004233a4 and calls Action_Fire on the first hit.",
-      "source": "docs/simulation/mission-deployment.md"
+      "source": "docs/simulation/mission-deployment.md",
+      "signature": "short __cdecl Action_TestTrigger(int *action, int *position)"
     },
     {
       "address": "00423508",
@@ -751,7 +777,8 @@
       "confidence": "high",
       "name": "Action_TestTriggerForGroup",
       "description": "Action_TestTrigger applied to every member of a group in turn (member array at group+0x0c, count at group+0x10), stopping at the first that fires it.",
-      "source": "docs/simulation/mission-deployment.md"
+      "source": "docs/simulation/mission-deployment.md",
+      "signature": "short __cdecl Action_TestTriggerForGroup(int *group, int *action)"
     },
     {
       "address": "004233a4",
@@ -760,7 +787,8 @@
       "confidence": "high",
       "name": "TriggerArea_ContainsPoint",
       "description": "Tests a position against one resolved block-4 trigger area. Type flag 0: axis-aligned XY box strictly between the two block-1 coordinates the record points at, Z ignored. Non-zero type flag: distance from the single coordinate less than the stored radius (the file literal times 10).",
-      "source": "docs/simulation/mission-deployment.md"
+      "source": "docs/simulation/mission-deployment.md",
+      "signature": "short __cdecl TriggerArea_ContainsPoint(short *area, int *position)"
     },
     {
       "address": "00423358",
@@ -769,7 +797,8 @@
       "confidence": "high",
       "name": "TriggerArea_Resolve",
       "description": "Load-time resolve of one script.dat block-4 (row #9) record into the 10-byte trigger-area record TriggerArea_ContainsPoint reads: type flag at +0, pointer to block-1 coordinate RefA at +2, and at +6 either a pointer to coordinate RefB (type 0) or the record's literal times 10 (other types).",
-      "source": "docs/simulation/mission-deployment.md"
+      "source": "docs/simulation/mission-deployment.md",
+      "signature": "void __cdecl TriggerArea_Resolve(short *area, short *record, int coordinateBase)"
     },
     {
       "address": "00426b70",
@@ -804,8 +833,9 @@
       "type": "function",
       "confidence": "high",
       "name": "Meteor_Construct",
-      "description": "Builds a drop pod at a picked ground point: random heading, 70000 plus up to 25000 units of altitude above it, a downward velocity at +0x45 and the matching constant acceleration, landed flag +0x4b and open-animation counter +0x4d cleared, and the group it delivers stored at +0x55.",
-      "source": "docs/simulation/mission-deployment.md"
+      "description": "Builds a drop pod aimed at a picked ground point. It is NOT dropped straight down: it draws a random heading and a HORIZONTAL RUN-IN of 70000 plus up to 25000 units, starts that far short of the target along that heading, and flies in at a flat 2000 units per tick. The launch height is derived from the run-in -- n = runIn/2000 ticks, height = (n*n>>1)*50, so 30600 to 55200 units up -- and both axes are then flown at constant velocity, so the descent is a straight line. Reading the 70000-95000 figure as an altitude puts the pod at twice the height it belongs at. Velocity at +0x45, landed flag +0x4b and open-animation counter +0x4d cleared, delivered group at +0x55.",
+      "source": "docs/simulation/mission-deployment.md",
+      "signature": "int * __cdecl Meteor_Construct(int *pod, int *targetPoint, int *group)"
     },
     {
       "address": "00409cd0",
@@ -814,7 +844,8 @@
       "confidence": "high",
       "name": "Meteor_Render",
       "description": "Draws a drop pod: while falling, the plain shape; once landed (+0x4b set), builds its rotation matrix from its euler triple if stale and draws the opening-animation shape instance at +0x41 instead.",
-      "source": "docs/simulation/mission-deployment.md"
+      "source": "docs/simulation/mission-deployment.md",
+      "signature": "void __cdecl Meteor_Render(int *pod)"
     },
     {
       "address": "00409f78",

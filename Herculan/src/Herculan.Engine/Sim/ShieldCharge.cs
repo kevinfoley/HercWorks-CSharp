@@ -1,4 +1,4 @@
-using Herculan.Engine.Numerics;
+﻿using Herculan.Engine.Numerics;
 
 namespace Herculan.Engine.Sim;
 
@@ -226,9 +226,10 @@ public sealed class ShieldCharge {
 	/// original writes the hard cap twice, once per damage pathway, and the two do not scale their
 	/// input the same way.
 	///
-	/// <para><b>The two scales do not cancel</b>, and a blast's overflow comes out four times its
-	/// face value — reproduced as written, and suspected to be a retail bug. The arithmetic and the
-	/// case for the reading are in docs/simulation/damage-system.md, "Explosive damage".</para>
+	/// <para><b>The two scales are exact inverses.</b> The blast is scaled into charge units by
+	/// <c>1000/1024</c> on the way in and the leftover is scaled back by <c>1024/1000</c> on the way
+	/// out, so a blast's overflow is its own face value to within a rounding step — the same exchange
+	/// rate direct fire has. See docs/simulation/damage-system.md, "Explosive damage".</para>
 	///
 	/// <para>Unlike <see cref="AbsorbDirectFire"/> nothing here is returned by reference: the caller
 	/// wants only what got through, and what the facing absorbed is implied.</para>
@@ -237,7 +238,7 @@ public sealed class ShieldCharge {
 	/// <param name="damage">The blast's damage figure, before scaling.</param>
 	/// <returns>What carried through to structure, or zero for a blast the facing swallowed whole.</returns>
 	public short AbsorbExplosion(bool front, short damage) {
-		int scaled = (damage * ExplosionDamageScale) >> 8;
+		int scaled = SimMath.Q10Multiply(ExplosionDamageScale, damage);
 		int charge = (front ? _front : Rear) - scaled;
 
 		if (front) {
@@ -251,18 +252,17 @@ public sealed class ShieldCharge {
 			: (short)(-charge * ExplosionOverflowScale / ExplosionDamageScale);
 	}
 
-	/// <inheritdoc cref="AbsorbExplosion"/>
+	/// <summary>
+	/// What a blast's face value is multiplied by to reach charge units — through
+	/// <see cref="SimMath.Q10Multiply"/>, so the ratio is <c>1000/1024</c>.
+	/// </summary>
 	private const int ExplosionDamageScale = 1000;
 
-	/// <inheritdoc cref="AbsorbExplosion"/>
-	private const int ExplosionOverflowScale = 0x400;
-
 	/// <summary>
-	/// The net of the two scales, <c>0x400 / 256</c> — how much larger the overflow
-	/// <see cref="AbsorbExplosion"/> hands back is than the blast figure it was given. Callers that
-	/// have to compare the two need it; nothing in the absorption itself does.
+	/// And what the leftover is multiplied by to come back out, over
+	/// <see cref="ExplosionDamageScale"/> — <c>1024/1000</c>, the exact inverse.
 	/// </summary>
-	public const int ExplosionOverflowFactor = ExplosionOverflowScale / 256;
+	private const int ExplosionOverflowScale = 0x400;
 
 	/// <summary>
 	/// <c>Shield_BalanceAdjust</c> (<c>00413af8</c>) — one press of the manual's <c>[</c> (rear) and

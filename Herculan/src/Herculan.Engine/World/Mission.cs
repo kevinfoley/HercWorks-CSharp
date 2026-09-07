@@ -1,4 +1,4 @@
-using Herculan.Engine.Numerics;
+﻿using Herculan.Engine.Numerics;
 
 namespace Herculan.Engine.World;
 
@@ -58,11 +58,6 @@ public enum MissionSide {
 /// <param name="IsPlayerLance">
 /// Whether this came from <c>player.mec</c> rather than the mission's own roster.
 /// </param>
-/// <param name="AwaitingDeployment">
-/// Whether the block-11 record that placed it is waiting on a mission action, in which case the unit
-/// is not in the mission yet and <see cref="Position"/> is a placeholder its arrival replaces — see
-/// <see cref="Herculan.Engine.Sim.SimObject.AwaitingDeployment"/> and <see cref="MissionLoader"/>.
-/// </param>
 /// <param name="Side">
 /// Whose side the group that placed it is on — see <see cref="MissionSide"/>. Carried per placement
 /// rather than per group because that is the form everything downstream wants: the simulation reads
@@ -72,6 +67,15 @@ public enum MissionSide {
 /// Block 7 <c>+0x02</c> — the speed this machine's AI walks at, or 0 for the AI's own default.
 /// </param>
 /// <param name="AiRadarActive">Block 7 <c>+0x00</c> — this machine's standing radar setting, PASSIVE or ACTIVE.</param>
+/// <param name="EngagementActionRef">
+/// The roster record's <c>0x80</c> — the mission action this object fires when an enemy that
+/// already sees it closes to engagement range, or <c>-1</c>. See
+/// <see cref="Herculan.Engine.Sim.SimObject.EngagementAction"/>.
+/// </param>
+/// <param name="LossActionRef">
+/// The roster record's <c>0x82</c> — the mission action this object fires when it is destroyed, or
+/// <c>-1</c>. See <see cref="Herculan.Engine.Sim.SimObject.LossAction"/>.
+/// </param>
 /// <param name="FormationOffset">
 /// This member's unrotated spread offset out of <c>MFORMS.DAT</c>, or null for the group's slot 0
 /// and for a formation that names none. Resolved here because it is wanted twice: once to place the
@@ -88,11 +92,12 @@ public sealed record MissionPlacement(
 	IReadOnlyList<short> WeaponRefs,
 	IReadOnlyList<short> WeaponSecondary,
 	bool IsPlayerLance = false,
-	bool AwaitingDeployment = false,
 	MissionSide Side = MissionSide.Human,
 	short AiCruiseSpeed = 0,
 	bool AiRadarActive = false,
-	(int X, int Y)? FormationOffset = null);
+	(int X, int Y)? FormationOffset = null,
+	int EngagementActionRef = -1,
+	int LossActionRef = -1);
 
 /// <summary>
 /// One patch of ground a base group paints with its formation's own material — the concrete pad a
@@ -116,7 +121,12 @@ public sealed class Mission {
 	public Mission(string sourcePath, ScriptDatHeader header, IReadOnlyList<MissionPlacement> placements,
 			MissionPlacement? player, IReadOnlyList<MissionBasePad> basePads,
 			IReadOnlyList<Vec3i> coordinates, IReadOnlyList<Vec3i> playerRoute,
-			IReadOnlyList<IReadOnlyList<MissionOrder?>> groupOrders) {
+			IReadOnlyList<IReadOnlyList<MissionOrder?>> groupOrders,
+			IReadOnlyList<MissionAction> actions,
+			IReadOnlyList<MissionActionPair> actionPairs,
+			IReadOnlyList<int> groupDeploymentActions,
+			IReadOnlyList<MissionUnitKind> groupKinds,
+			IReadOnlyList<MissionSide> groupSides) {
 		SourcePath = sourcePath;
 		Header = header;
 		Placements = placements;
@@ -125,6 +135,11 @@ public sealed class Mission {
 		Coordinates = coordinates;
 		PlayerRoute = playerRoute;
 		GroupOrders = groupOrders;
+		Actions = actions;
+		ActionPairs = actionPairs;
+		GroupDeploymentActions = groupDeploymentActions;
+		GroupKinds = groupKinds;
+		GroupSides = groupSides;
 	}
 
 	/// <summary>Where the <c>script.dat</c> was read from.</summary>
@@ -166,6 +181,34 @@ public sealed class Mission {
 	/// See <see cref="MissionOrder"/> and <see cref="Herculan.Engine.Sim.MissionGroup"/>.
 	/// </summary>
 	public IReadOnlyList<IReadOnlyList<MissionOrder?>> GroupOrders { get; }
+
+	/// <summary>
+	/// Block 5 in file order — every mission action, with its trigger areas resolved. See
+	/// <see cref="MissionAction"/>; <see cref="Herculan.Engine.Sim.MissionTriggers"/> runs them.
+	/// </summary>
+	public IReadOnlyList<MissionAction> Actions { get; }
+
+	/// <summary>
+	/// Block 6 in file order — the mission's timers. See <see cref="MissionActionPair"/>.
+	/// </summary>
+	public IReadOnlyList<MissionActionPair> ActionPairs { get; }
+
+	/// <summary>
+	/// Which action each group is waiting on, by block-11 record index, with <c>-1</c> for a group
+	/// that is in the mission from the start — the record's <c>0x70</c>, which becomes the group
+	/// record's <c>+0x14</c> gate. See
+	/// <see cref="Herculan.Engine.Sim.MissionGroup.AwaitingDeployment"/>.
+	/// </summary>
+	public IReadOnlyList<int> GroupDeploymentActions { get; }
+
+	/// <summary>
+	/// Each group's roster discriminator, by block-11 record index. A group with no live members
+	/// still has one, which is why it is carried on the mission and not derived from a placement.
+	/// </summary>
+	public IReadOnlyList<MissionUnitKind> GroupKinds { get; }
+
+	/// <summary>And each group's side, on the same terms.</summary>
+	public IReadOnlyList<MissionSide> GroupSides { get; }
 
 	/// <summary>How many placed objects of one kind the mission has.</summary>
 	public int CountOf(MissionUnitKind kind) => Placements.Count(p => p.Kind == kind);

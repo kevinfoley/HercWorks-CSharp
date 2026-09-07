@@ -502,12 +502,11 @@ public sealed partial class MechObject {
 
 		short overflow = Shields.AbsorbExplosion(front, damage);
 
-		// What the facing swallowed, back in the blast's own units — see
-		// ShieldCharge.ExplosionOverflowFactor for why the overflow has to be divided before the two
-		// can be subtracted. The original's own write of this field on this path has not been read;
-		// the field is kept consistent here so that it means what its name says whichever way a
-		// machine was hurt.
-		DamageTaken += damage - overflow / ShieldCharge.ExplosionOverflowFactor;
+		// What the facing swallowed. The overflow comes back in the blast's own units -- the two shield
+		// scales are exact inverses -- so the two subtract directly. The original's own write of this
+		// field on this path has not been read; the field is kept consistent here so that it means
+		// what its name says whichever way a machine was hurt.
+		DamageTaken += damage - overflow;
 
 		if (overflow <= 0) {
 			return;
@@ -782,6 +781,12 @@ public sealed partial class MechObject {
 				|| _damage.DependentPercent(LifeSupportDependent) == FullyDamaged)) {
 			_destroyed = true;
 			LastAttacker ??= attacker;
+
+			// The machine's own mission action, fired at the one moment it crosses into destroyed --
+			// the original fires it from both of this function's death branches, and both are guarded
+			// on the machine not already being dead, so it goes off once. See
+			// SimObject.LossAction; this is what brings a retail mission's next wave in.
+			FireLossAction(world);
 
 			// The original's own recursive finish-off, with no attacker so the kill is not credited
 			// twice. Destroyed is already set, so this pass cannot re-enter the death branch.

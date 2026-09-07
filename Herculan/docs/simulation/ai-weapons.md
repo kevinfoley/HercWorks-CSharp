@@ -209,5 +209,5 @@ What differs from the original, and why:
 - **`mech+0x96` is `MechObject.Scanner` throughout.** The navigation slice ported it a second time as `WeaponsFree`; the two were the same byte and are now one property.
 - **`mech+0xa5` is `MechObject.Disarmed`, and the AI's liveness tests read it through `SimObject.OutOfAction`** rather than through `Neutralised`. The detection sweep, the player's target selection and the group's completion test all read the latter, and none of them consults `+0xa5` in the original.
 - **The one-sided aim scatter is reproduced**, since it is what the retail enemy's aim actually does. `SimWorld.Difficulty` indexes the table and nothing sets it, so the engine runs on entry 0 — the widest scatter of the five.
-- **The mission action a machine fires on running dry is not.** `Ai_ChooseWeapon` calls `Action_Fire` on `mech+0x1b6`, and the engine has no per-object action to fire; the latch itself is set.
+- **The mission action a machine fires on running dry is `SimObject.LossAction`**, the same one its death fires — see [`mission-deployment.md`](mission-deployment.md).
 - **The gun convergence runs for the player too**, which is the original's arrangement: the range it converges on is the distance to the selected target, and centring the turret squares the guns up.

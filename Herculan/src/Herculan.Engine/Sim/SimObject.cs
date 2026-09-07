@@ -1,4 +1,4 @@
-using Herculan.Engine.Numerics;
+﻿using Herculan.Engine.Numerics;
 using Herculan.Engine.World;
 
 namespace Herculan.Engine.Sim;
@@ -296,13 +296,55 @@ public abstract class SimObject {
 	/// in the world</b>. It is not drawn, not simulated, and not collided with, exactly as if it had
 	/// not spawned; the position it holds is a placeholder its arrival overwrites.
 	///
-	/// <para>The original spells this as one pointer, the group record's <c>+0x14</c>; its three test
-	/// sites, why an undeployed group's placed position is meaningless, and how such a group arrives
-	/// are in docs/simulation/mission-deployment.md. All three gate effects are honoured here.
-	/// Arrival is not implemented: nothing clears this flag, so a group that waits on an action stays
-	/// out of the mission for the whole run.</para>
+	/// <para>The original spells this as one pointer, the group record's <c>+0x14</c>, and so does
+	/// this engine: the flag lives on <see cref="MissionGroup.AwaitingDeployment"/> and <b>this is a
+	/// read of it</b>, not a copy, because arrival is a group operation and two flags could disagree
+	/// about a group half-way through one. An object with no group is in the mission.</para>
+	///
+	/// <para>Its three test sites, why an undeployed group's placed position is meaningless, and how
+	/// such a group arrives are in docs/simulation/mission-deployment.md.</para>
 	/// </summary>
-	public bool AwaitingDeployment { get; set; }
+	public bool AwaitingDeployment => Group is { AwaitingDeployment: true };
+
+	/// <summary>
+	/// <c>obj+0x1b2</c> — the mission action this object fires when it is <b>engaged</b>: a hostile
+	/// that already has contact on it has closed to <see cref="Detection.EngagementRange"/>. Set from
+	/// its roster record's own ref; see <c>ScriptSpawnRecordExport.EngagementActionRef</c>.
+	/// </summary>
+	public MissionActionState? EngagementAction { get; set; }
+
+	/// <summary>
+	/// <c>obj+0x1b6</c> — the mission action this object fires when it is <b>lost</b>, from its own
+	/// roster record. Four sites fire it and they are the four ways an object stops being a threat:
+	/// a machine, a flyer or a structure being destroyed, and a machine running out of working
+	/// weapons — which is <see cref="OutOfAction"/>'s own pair of conditions.
+	///
+	/// <para><b>This is how a retail mission chains its waves</b>: defeating the machine in front of
+	/// the player is what brings the next group in. See docs/simulation/mission-deployment.md.</para>
+	/// </summary>
+	// TODO: consider renaming to "DefeatedAction"
+	public MissionActionState? LossAction { get; set; }
+
+	/// <summary>
+	/// <c>obj+0x9e</c> — whether this object has been closed with by an enemy that can see it. Set by
+	/// <see cref="Detection.Sweep"/> alongside the engagement action, on both parties at once.
+	/// </summary>
+	public bool Engaged { get; internal set; }
+
+	/// <summary>
+	/// Fires <see cref="EngagementAction"/>, if there is one. The original also gates this on
+	/// <c>obj+0xa2</c> being clear; no writer of that byte has been located, so it is not modelled
+	/// and the gate reads as open. It would only ever suppress a second firing, which
+	/// <see cref="MissionActionState.Fire"/> already refuses.
+	/// </summary>
+	internal void FireEngagementAction(SimWorld world) => EngagementAction?.Fire(world);
+
+	/// <summary>
+	/// Fires <see cref="LossAction"/>, if there is one. Every site guards on the object not already
+	/// being in that state, so it goes off once — and <see cref="MissionActionState.Fire"/> is
+	/// one-shot regardless.
+	/// </summary>
+	internal void FireLossAction(SimWorld world) => LossAction?.Fire(world);
 
 	/// <summary>
 	/// The object's body radius, in world units. The blast sweep subtracts it from every candidate's

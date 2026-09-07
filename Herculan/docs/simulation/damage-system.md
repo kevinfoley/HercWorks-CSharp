@@ -211,20 +211,18 @@ implementations.
    path it is the machine's facing that decides, not the geometry of a ray.
 2. **Shields — `Mech_ShieldAbsorb_Explosive` (`00413c68`)**, the explosion path's own implementation
    of what `Mech_ShieldAbsorb_DirectFire` does for direct fire. Computes
-   `scaledDamage = (damage × 1000) >> 8`, takes it out of the chosen zone, and returns
+   `scaledDamage = Math_Q10Multiply(1000, damage)`, takes it out of the chosen zone, and returns
    `overflow × 0x400 / 1000` if the zone went negative and 0 otherwise. A facing that swallows the
    blast ends it here. Confirms shields gate both pathways, matching the manual: "shields cause
    missiles to explode on contact, preventing most of their blast power from reaching the HERC's
    armor."
 
-   **The two scales do not cancel, and a blast's face value is worth four times a beam's.** Input is
-   multiplied by `1000/256`, output divided by `1000/0x400` — a net `0x400/256`, exactly 4. So a
-   blast of face value *d* removes `d × 1000/256` from the facing, and against an empty facing hands
-   `4d` to the components behind it. The exchange rate is nearly unchanged (`1000/1024` ≈ 0.977
-   charge per point delivered, against direct fire's 1.0); it is the *units* that differ, so
-   `PROJ.DAT`'s two damage figures are not comparable between the two pathways. **Suspected retail
-   bug**: the symmetric inverse of the `>> 8` going in is `0x100`, and `0x400` is the Q10 constant
-   one shift away from it. Reproduced as-is; see [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
+   **The two scales are exact inverses.** Input is multiplied by `1000/1024` and output by
+   `1024/1000`, so a blast of face value *d* removes `0.977d` from the facing and, against an empty
+   one, hands the components behind it *d* — the same exchange rate direct fire has, and
+   `PROJ.DAT`'s two damage figures are directly comparable. The return is a `short`, so an overflow
+   past 32767 would wrap; the largest blast in the game is the drop pod's 10000, which reaches about
+   6400 against a full facing.
 3. **A roll per component**, over a fixed 29 slots. Each live one draws `rand & 0xfff < 0x802`
    (≈51%) to be considered at all, so two identical blasts do not wreck the same parts.
 4. **Distance and falloff.** The component's `+0x58` position against the hit point; inside
@@ -774,8 +772,10 @@ which is where the original's loadout step puts it) and `BaseObject.ComponentPos
 `ShieldCharge.AbsorbExplosion` is the explosion path's shield step, and `SplashFactor`'s share is
 diverted rather than dropped. The collision call site is `MechObject.CollisionDamage`.
 
-Of the sweep's three call sites the plasma round is reachable; the drop pod's belongs to
-`Meteor_Tick` and the ram to a behaviour state, and neither layer exists yet.
+Of the sweep's three call sites the plasma round and the drop pod's landing (`Sim.MeteorObject`,
+[`mission-deployment.md`](mission-deployment.md)) are both reachable; the ram belongs to a behaviour
+state that does not exist yet. The sweep returns whether it caught anything, which only the pod
+reads — a pod that lands on something delivers nothing.
 
 The destruction path's own effects — the debris, the fire and the explosion a lost component throws
 — are `Sim.ComponentDamage.DestructionEffects`; see

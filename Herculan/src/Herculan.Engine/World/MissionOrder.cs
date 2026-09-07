@@ -1,4 +1,4 @@
-using Herculan.Engine.Numerics;
+﻿using Herculan.Engine.Numerics;
 
 namespace Herculan.Engine.World;
 
@@ -48,16 +48,20 @@ public enum MissionOrderSubject {
 /// Record <c>+0x08</c> resolved to block-1 points. Only slot 0's is ever installed as the group's
 /// route; see <see cref="Sim.MissionGroup.Route"/>.
 /// </param>
-/// <param name="GatedOnAction">
-/// Whether record <c>+0x12</c> names a block-5 action. When it fires the group moves to its next
-/// order whether or not this one finished. No mission action is ported, so it never does.
+/// <param name="ActionRef">
+/// Record <c>+0x12</c> — the block-5 action this order hangs on, or <c>-1</c>. When it fires the
+/// group moves to its next order whether or not this one finished; see
+/// <see cref="Sim.MissionGroup.AiTick"/>.
 /// </param>
 public sealed record MissionOrder(
 	short Verb,
 	MissionOrderSubject SubjectKind,
 	int SubjectRef,
 	IReadOnlyList<Vec3i> Route,
-	bool GatedOnAction) {
+	int ActionRef) {
+
+	/// <summary>Whether the order names an action at all.</summary>
+	public bool GatedOnAction => ActionRef >= 0;
 
 	/// <summary>Hunt down what the order names — installs <c>search/destroy</c>.</summary>
 	public const short VerbSearchDestroy = 0;

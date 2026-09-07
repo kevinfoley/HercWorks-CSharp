@@ -1,4 +1,4 @@
-using Herculan.Engine.Numerics;
+﻿using Herculan.Engine.Numerics;
 
 namespace Herculan.Engine.Sim;
 
@@ -215,8 +215,10 @@ public sealed partial class MechObject {
 
 		if (!anyArmed && !Disarmed) {
 			// Running dry is a mission event: the machine's own block-5 action fires and the radio
-			// channel is held open for the callout.
+			// channel is held open for the callout. This is the fourth of that action's firing sites
+			// and the only one that is not a death -- see SimObject.LossAction.
 			Disarmed = true;
+			FireLossAction(world);
 		}
 
 		return chosen;

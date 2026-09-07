@@ -1,0 +1,145 @@
+using Herculan.Engine.Numerics;
+
+namespace Herculan.Engine.Sim;
+
+/// <summary>
+/// Where an arriving mission group turns up — <c>Deployment_PickPointNearPlayer</c>
+/// (<c>0042354c</c>), the one function both arrival paths and the drop pod share.
+///
+/// <para>Every reinforcement in the game is placed <b>relative to the player</b>, never at a point
+/// the mission names. That is why an undeployed group's placed position is meaningless: it is never
+/// read.</para>
+/// </summary>
+public static class Deployment {
+	/// <summary>How far the search steps outward each time the point it has is refused.</summary>
+	public const int SearchStep = 2000;
+
+	/// <summary>
+	/// The clearance an already-deployed object is given: its own collision radius plus this. Only
+	/// applied when the caller asks for the object test at all.
+	/// </summary>
+	public const int ObjectClearance = 5000;
+
+	/// <summary>The radius the structure sweep is asked about, which it uses as its own reach.</summary>
+	public const int StructureClearance = 5000;
+
+	/// <summary>
+	/// A ceiling on the outward search. The original has none — it steps until the point clears —
+	/// and cannot fail because the terrain test eventually walks off the grid, which blocks, and it
+	/// would then loop forever. This engine stops instead and hands back the last point tried; see
+	/// the remarks.
+	/// </summary>
+	/// <remarks>
+	/// The original's loop is genuinely unbounded and would hang on a zone with no clear ground in
+	/// the search direction. It never does in practice: the step is 2,000 units against a zone
+	/// thousands of times that, and the very first point is usually clear. The cap is this engine's
+	/// own, chosen so a headless test on a stub terrain terminates rather than reproducing a hang.
+	/// </remarks>
+	public const int MaxSearchSteps = 512;
+
+	/// <summary>
+	/// Picks a clear point at <paramref name="distance"/> from the player along
+	/// (player heading + <paramref name="bearing"/>), stepping outward in
+	/// <see cref="SearchStep"/> increments until it clears everything that could be standing there.
+	///
+	/// <para>Three tests, in the original's order and with the original's asymmetry:</para>
+	/// <list type="number">
+	/// <item><b>Deployed objects</b>, and <i>only when <paramref name="avoidObjects"/></i> — which is
+	/// set for the two walk-on verbs and clear for the drop pod. A pod is allowed to come down on top
+	/// of a machine, which is exactly the case its own landing blast latch exists to handle. Objects
+	/// still awaiting deployment are skipped, so a group never lands on one that has not arrived, and
+	/// an object with no collision radius is skipped too.</item>
+	/// <item><b>Structures</b>, through the same volume sweep a walking machine is stopped by.</item>
+	/// <item><b>The ground</b>, through the movement-collision face test — anything too steep to
+	/// stand on, or off the grid entirely.</item>
+	/// </list>
+	///
+	/// <para>The offset is built as the vector <c>(0, distance, 0)</c> rotated by the bearing, which
+	/// is the sim's forward axis; the player's own position is then added, Z included, so the point
+	/// comes back at the player's height rather than the ground's.</para>
+	/// </summary>
+	/// <param name="world">The running world — the player, the object list and the terrain.</param>
+	/// <param name="distance">How far out to start, in world units.</param>
+	/// <param name="bearing">Offset from the player's heading, as a binary angle.</param>
+	/// <param name="avoidObjects">Whether the deployed-object test is applied.</param>
+	public static Vec3i PickPointNearPlayer(SimWorld world, int distance, short bearing,
+			bool avoidObjects) {
+		var player = world.PlayerMech;
+		var origin = player?.Position ?? Vec3i.Zero;
+		int heading = (player?.Heading ?? 0) + bearing;
+
+		short cos = BinaryAngle.Cos(heading);
+		short sin = BinaryAngle.Sin(heading);
+
+		var point = origin;
+
+		for (int step = 0; step < MaxSearchSteps; step++) {
+			int reach = distance + step * SearchStep;
+
+			// The rotated (0, reach, 0): x picks up -sin and y picks up cos.
+			point = new Vec3i(
+				origin.X + (int)(((long)-reach * sin + 0x2000) >> 14),
+				origin.Y + (int)(((long)reach * cos + 0x2000) >> 14),
+				origin.Z);
+
+			if (avoidObjects && ObjectInTheWay(world, point)) {
+				continue;
+			}
+
+			if (StructureInTheWay(world, point)) {
+				continue;
+			}
+
+			if (world.Terrain.BlocksMovementAt(point.X, point.Y)) {
+				continue;
+			}
+
+			return point;
+		}
+
+		return point;
+	}
+
+	/// <summary>
+	/// Whether a deployed object stands within its own collision radius plus
+	/// <see cref="ObjectClearance"/> of the point. The radius is the same "zero means walk through
+	/// me" figure the walking collision test reads, so a flyer and a static structure are both
+	/// invisible here — the structure by the sweep below instead.
+	/// </summary>
+	private static bool ObjectInTheWay(SimWorld world, Vec3i point) {
+		var objects = world.Objects;
+
+		for (int i = 0; i < objects.Count; i++) {
+			var candidate = objects[i];
+
+			if (candidate.Removed || candidate.AwaitingDeployment || candidate.CollisionRadius == 0) {
+				continue;
+			}
+
+			if (candidate.Position.ApproxDistanceTo(point) < candidate.CollisionRadius + ObjectClearance) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/// <summary>
+	/// <c>Structure_GatherWalkCandidates</c> (<c>00404ae4</c>) at the point — the same structure
+	/// sweep <c>Mech_CollisionTest</c> makes, which is what that function collects for. It is not a
+	/// separate obstacle list: it gathers every structure that blocks by volume rather than by radius
+	/// and hands the lot to <see cref="BaseObject.BlocksWalker"/>.
+	/// </summary>
+	private static bool StructureInTheWay(SimWorld world, Vec3i point) {
+		var objects = world.Objects;
+
+		for (int i = 0; i < objects.Count; i++) {
+			if (objects[i] is BaseObject structure && !structure.Removed
+					&& !structure.AwaitingDeployment && structure.BlocksWalker(point)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+}

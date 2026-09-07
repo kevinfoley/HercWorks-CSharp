@@ -169,7 +169,8 @@ Deviations:
   their place a destroyed target stays locked. It drops on death alone and deliberately does **not**
   re-run the selectability test: that also asks whether the object is currently known, which radar
   decay makes come and go, so testing it would drop a live target every few ticks.
+- `obj+0x9e` and the engagement action it fires at 50000 units are `SimObject.Engaged` and
+  `SimObject.EngagementAction` — [`mission-deployment.md`](mission-deployment.md).
 - Not ported: the "enemy detected" callout (vtable `+0x48`, `Mech_AiEnemySighted` — see
-  [`ai-targeting.md`](ai-targeting.md#radio-callouts)), `obj+0x9e` and its engagement action (no
-  mission actions exist), and the second viewing object `DAT_004d2708` selects when watching another
-  machine.
+  [`ai-targeting.md`](ai-targeting.md#radio-callouts)), and the second viewing object `DAT_004d2708`
+  selects when watching another machine.

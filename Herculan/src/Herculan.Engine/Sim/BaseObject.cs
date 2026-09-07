@@ -249,7 +249,7 @@ public sealed class BaseObject : SimObject {
 		// The damage goes in before the effect, and only while the structure is standing: a wreck is
 		// still solid and still stops shots, it just has nothing left to lose.
 		if (!Destroyed) {
-			ApplyDamage(world.Random, component, damage, shot.Owner);
+			ApplyDamage(world.Random, component, damage, shot.Owner, world);
 		}
 
 		// Always the armour array. Unlike a mech, a structure has no shields to flash and no
@@ -347,7 +347,12 @@ public sealed class BaseObject : SimObject {
 	/// </param>
 	/// <param name="damage">The shot's armour damage.</param>
 	/// <param name="attacker">Who fired, recorded on the component that falls.</param>
-	public void ApplyDamage(SimRandom random, int componentIndex, int damage, SimObject? attacker) {
+	/// <param name="world">
+	/// The running world, when the caller has one — needed only so the structure can fire its own
+	/// mission action the moment it is destroyed. See <see cref="SimObject.LossAction"/>.
+	/// </param>
+	public void ApplyDamage(SimRandom random, int componentIndex, int damage, SimObject? attacker,
+			SimWorld? world = null) {
 		if (Type.Invulnerable) {
 			return;
 		}
@@ -384,8 +389,14 @@ public sealed class BaseObject : SimObject {
 		_alive[index] = false;
 		LastAttacker = attacker;
 
-		if (DamageFraction == FullyDestroyed) {
+		if (DamageFraction == FullyDestroyed && !_destroyed) {
 			_destroyed = true;
+
+			// And the structure's own mission action, where Base_ApplyDamage fires it. See
+			// SimObject.LossAction.
+			if (world != null) {
+				FireLossAction(world);
+			}
 		}
 
 		// And the part starts to fall. A component that names no sequence is simply gone the instant
@@ -476,7 +487,7 @@ public sealed class BaseObject : SimObject {
 				continue;
 			}
 
-			ApplyDamage(world.Random, i, (blastRadius - distance) * damage / blastRadius, attacker);
+			ApplyDamage(world.Random, i, (blastRadius - distance) * damage / blastRadius, attacker, world);
 		}
 	}
 
@@ -690,7 +701,7 @@ public sealed class BaseObject : SimObject {
 				continue;
 			}
 
-			ApplyDamage(world.Random, i, Type.Components[i].MaxDamage, LastAttacker);
+			ApplyDamage(world.Random, i, Type.Components[i].MaxDamage, LastAttacker, world);
 			FinishDependents(world, i);
 		}
 	}

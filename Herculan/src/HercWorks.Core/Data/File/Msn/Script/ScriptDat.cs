@@ -186,11 +186,11 @@ public class ScriptSpawnRecordExport {
 	public byte[] HeadBytes { get; set; } = new byte[40];
 
 	/// <summary>
-	/// Source offset 0x08, the first field of <see cref="HeadBytes"/> — the machine's AI
-	/// weapons-free flag. <c>DBSim_SpawnMissionObjects</c> copies it to <c>mech+0x97</c>, which is
-	/// what an AI machine's trigger is gated on. 0/1 in every retail record.
+	/// Source offset 0x08, the first field of <see cref="HeadBytes"/> — the machine's standing AI
+	/// radar setting. <c>DBSim_SpawnMissionObjects</c> copies it to <c>mech+0x97</c>, which is the
+	/// PASSIVE/ACTIVE an AI machine walks its route on. 0/1 in every retail record.
 	/// </summary>
-	public short AiWeaponsFree => ReadHead(0);
+	public short AiRadarActive => ReadHead(0);
 
 	/// <summary>
 	/// Source offset 0x0a — the speed the machine's AI walks at, copied to <c>mech+0x252</c>. Zero,

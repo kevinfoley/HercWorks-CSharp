@@ -391,20 +391,7 @@ public sealed class MechTypeRecord {
 	/// which a flyer's record does not describe.
 	/// </summary>
 	public int DisplayAirSpeedKph(int airSpeed, int airSpeedMax) =>
-		airSpeedMax != 0 ? MapRange(airSpeed, 0, airSpeedMax, 0, HudSpeedScale) : 0;
-
-	/// <summary>
-	/// <c>Math_MapRange</c> (<c>0047de3c</c>) — a linear remap of <paramref name="value"/> from
-	/// <c>[fromLow, fromHigh]</c> onto <c>[toLow, toHigh]</c>, with a rounding bias of one less than
-	/// the input span, signed to match the output's direction.
-	/// </summary>
-	private static int MapRange(int value, int fromLow, int fromHigh, int toLow, int toHigh) {
-		int span = fromHigh - fromLow;
-		long bias = System.Math.Abs(span) - 1;
-		if (toHigh < toLow) {
-			bias = -bias;
-		}
-
-		return (int)(((long)(value - fromLow) * (toHigh - toLow) + bias) / span) + toLow;
-	}
+		airSpeedMax != 0
+			? Numerics.SimMath.MapRange(airSpeed, 0, airSpeedMax, 0, HudSpeedScale)
+			: 0;
 }

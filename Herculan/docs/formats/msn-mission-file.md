@@ -337,7 +337,7 @@ Entity template/spawn; highest inheritance usage (48%). Three-way identity split
 | `0x02` | condition ref | 43% real (tier: rows #1/#3/#13/#14) |
 | `0x04` | parent/inherit | 48% real (highest in file); copies 4 blocks if set |
 | `0x06` | condition operand | 3.9% real; compound pair with `0x02` |
-| `0x08` | **AI weapons-free** | 100% real; 0/1. DBSIM copies it to `mech+0x97`, which is what `Ai_UpdateWeaponsFree` gates an AI machine's trigger on |
+| `0x08` | **AI radar setting** | 100% real; 0/1. DBSIM copies it to `mech+0x97`, which is the standing PASSIVE/ACTIVE the machine walks its route on — see [`../simulation/ai-weapons.md`](../simulation/ai-weapons.md) |
 | `0x0A` | **AI cruise speed** | 100% real; `0` in 91% of records, which means "use the `0xaa` default". Copied to `mech+0x252`, the speed `Ai_DriveToPoint` walks at |
 | `0x0C–0x2E` | dead zone (18 shorts) | **always `0`** — padding |
 | `0x30` | small discrete | 47% real; range 0–20 |

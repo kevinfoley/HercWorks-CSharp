@@ -40,8 +40,16 @@ The mechanism is understood; what is left is engine work.
 - **Terrain raycast, swept-volume mode.** Only thin-ray mode is ported; the swept-volume mode
   (movement collision) is not, because nothing in the engine needs it yet.
   → [`docs/formats/terrain-heightmap.md`](docs/formats/terrain-heightmap.md)
-- **Automatic turret tracking (`[T]`) and AI turret aiming.**
+- **Automatic turret tracking (`[T]`).** The primitive it needs is in place — `TrackWorldPoint`,
+  which the AI's fire path already drives; what is missing is the input path's third branch.
   → [`docs/simulation/torso-aim.md`](docs/simulation/torso-aim.md)
+- **Mission difficulty.** Nothing sets it, so the two systems that index it — the AI's aim scatter
+  and the explosive damage scale — run on entry 0.
+  → [`docs/simulation/ai-weapons.md`](docs/simulation/ai-weapons.md),
+  [`docs/simulation/projectiles.md`](docs/simulation/projectiles.md)
+- **The object's own mission action.** `Ai_ChooseWeapon` fires `mech+0x1b6` when a machine runs out
+  of weapons, and so does the damage path; the engine has no per-object action to fire.
+  → [`docs/simulation/ai-weapons.md`](docs/simulation/ai-weapons.md)
 - **Flyer control bindings.** The flight model is ported and the axis roles are known, but key
 bindings are hardcoded placeholders.
   → [`docs/simulation/razor-flight.md`](docs/simulation/razor-flight.md)
@@ -56,15 +64,14 @@ The engine cannot be faithful here until the original is understood.
   its way, acquires and abandons targets, and answers incoming fire. What is still undecoded is the
   other half of the roster — `attacking`, `flanking`, `facing off`, `attacking base`,
   `attacking flyer`, `skirting`, `driving off en`, `fleeing` — so a machine walks to its objective
-  and then stands still the moment it finds something to fight.
+  and then stands still the moment it finds something to fight. Its weapons are decoded and ported
+  and reach it through `travelling` and `following` alone; the combat states have no think to call
+  them from.
   → [`docs/simulation/ai-dispatch.md`](docs/simulation/ai-dispatch.md),
   [`docs/simulation/ai-targeting.md`](docs/simulation/ai-targeting.md),
   [`docs/simulation/ai-goals.md`](docs/simulation/ai-goals.md),
-  [`docs/simulation/ai-navigation.md`](docs/simulation/ai-navigation.md)
-- **AI weapon choice and the fire decision.** Every navigation state settles a weapons-free flag
-  (`mech+0x96`) that nothing yet reads, and the two travel states pick something for the turret to
-  watch and then leave the turret alone.
-  → [`docs/simulation/ai-navigation.md`](docs/simulation/ai-navigation.md)
+  [`docs/simulation/ai-navigation.md`](docs/simulation/ai-navigation.md),
+  [`docs/simulation/ai-weapons.md`](docs/simulation/ai-weapons.md)
 - **Squad orders.** The standing orders the player gives their own squad (`mech+0x23e`), which
   `Mech_AiSelectBehaviour`'s second path reads. Undecoded, so that path installs nothing.
   → [`docs/simulation/ai-dispatch.md`](docs/simulation/ai-dispatch.md)

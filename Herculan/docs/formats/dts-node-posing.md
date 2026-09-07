@@ -37,7 +37,7 @@ transform id); `DAT_006b7c14` is the current object-to-view transform. `&DAT_006
 
 A negative transform id skips the composition and leaves the object-to-view transform standing.
 
-`TSBasePart.Transform` at offset `+4` is the same field `Mech_TargetRelativeToPilot` (`0041ef14`) and
+`TSBasePart.Transform` at offset `+4` is the same field `Cockpit_TargetAnglesFromCameraBone` (`0041ef14`) and
 the cockpit eye resolve `CameraBoneId` through — one field, one meaning, geometry and named nodes
 alike.
 

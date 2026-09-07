@@ -228,7 +228,9 @@ public sealed class Rocket {
 		// record's two damage figures apply at face value. The clearance is the ROCKETS.DAT record's
 		// own — 200 for the four ordinary missiles, 300 for the big one, which is what makes BMSL the
 		// more forgiving hit.
-		var shot = new WeaponShot(_frame, step, Data, 0, Owner, ClipRadius(_record));
+		var shot = new WeaponShot(_frame, step, Data, 0, Owner, ClipRadius(_record)) {
+			WeaponClass = Data.MissileId
+		};
 		if (world.Raycast(shot) != 0) {
 			HitObject = shot.HitObject;
 			world.RecordProjectileHit(shot);
@@ -324,16 +326,15 @@ public sealed class Rocket {
 	/// class of launcher had lock — see <see cref="SimWorld.FireRocket"/>. Fired without lock it
 	/// flies where it was pointed, exactly as the original does.</para>
 	///
-	/// <para>Three gates the original applies are not ported. The emission gate below is written as
-	/// a branch; these are not, because the inputs they test do not exist here yet:</para>
+	/// <para>The emission gate and the electro-optical round's selection suppression are written as
+	/// branches below. Two more the original applies are not, because the inputs they test do not
+	/// exist here yet:</para>
 	///
 	/// <list type="bullet">
 	/// <item><b>The lead point.</b> A round whose lock is on a specific node of the target
 	/// (<c>+0x5a</c>, filled at launch from the target's own vtable <c>+0x54</c>) steers at that
 	/// node's world position rather than at the object's origin; a round without one steers at the
 	/// target's extrapolated position.</item>
-	/// <item><b>The emission gate.</b> <see cref="AntiRadiationSubtype"/> steers only while the target
-	/// has its scanner or its jammer on.</item>
 	/// <item><b>The spoofing wobble.</b> When the launching machine's own <c>+0x9c</c> flag is set —
 	/// which <c>Mech_PerTickSystemsUpdate</c> (<c>0041aa5c</c>) rolls for each tick the machine's
 	/// selected target is jamming — every subtype but the anti-radiation one has its aim error pushed
@@ -354,6 +355,13 @@ public sealed class Rocket {
 		if (MissileId == AntiRadiationSubtype
 				&& !Target.ScannerActive && !Target.JammerActive) {
 			return;
+		}
+
+		// An electro-optical round in flight suppresses its launcher's next AI weapon selection, once
+		// per tick it steers — the machine's equivalent of a pilot flying it, and the only writer of
+		// mech+0xb5. See docs/simulation/ai-weapons.md.
+		if (MissileId == PlayerFlownSubtype && Owner is MechObject launcher) {
+			launcher.WeaponSelectionSuppressed = true;
 		}
 
 		var (bearingX, _, bearingZ) = SimTrig.EulerToward(Target.AimPoint, Position);

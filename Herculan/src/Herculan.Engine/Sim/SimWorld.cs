@@ -98,6 +98,15 @@ public sealed class SimWorld {
 	public SimRandom Random { get; }
 
 	/// <summary>
+	/// <c>DAT_004a9ee0</c> — the mission difficulty, 0 to 4. Nothing sets it yet: the campaign layer
+	/// that would is unported, so the engine runs on index 0, which is the retail table's easiest
+	/// setting and the one that throws a Cybrid machine's aim off the furthest. Its other consumer in
+	/// the original, <c>Damage_ScaleByDifficulty</c>, is not applied — see
+	/// docs/simulation/projectiles.md.
+	/// </summary>
+	public int Difficulty { get; set; }
+
+	/// <summary>
 	/// Where the simulation's noises go, or null to run silent — which is what a headless tick, a
 	/// test, and a machine with no audio device all do.
 	///

@@ -76,7 +76,7 @@ Per record type, what pass 2 reads (offsets into the exported record, not the `.
 
 | block | record | offset | field |
 |---|---|---|---|
-| 7 (mechs) | 134B | `0x00` | AI weapons-free → `mech+0x97` |
+| 7 (mechs) | 134B | `0x00` | AI radar setting → `mech+0x97` |
 | | | `0x02` | AI cruise speed → `mech+0x252`; 0 means the default. Both are [`ai-navigation.md`](../simulation/ai-navigation.md)'s |
 | | | `0x28` | mech type → index into `nam\MECHS.NAM` |
 | | | `0x2a`-`0x3d` | weapon fit, 10 slots → `Mech_ConfigureLoadout` |

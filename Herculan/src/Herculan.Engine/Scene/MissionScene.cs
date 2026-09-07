@@ -617,7 +617,7 @@ public sealed class MissionScene {
 			// record. The formation offset is the one the spread already used; a follower needs it
 			// again every tick it holds station on its leader.
 			machine.CruiseSpeed = placement.AiCruiseSpeed;
-			machine.WeaponsFreeOrder = placement.AiWeaponsFree;
+			machine.RadarOrder = placement.AiRadarActive;
 			machine.FormationOffset = placement.FormationOffset;
 		}
 

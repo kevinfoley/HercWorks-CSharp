@@ -71,11 +71,13 @@ public sealed partial class MechObject {
 	/// differences are the fields it works on and that its limits are asymmetric: a HERC looks
 	/// further up than down.
 	///
-	/// <para>The original also takes the range to the current target here and runs
-	/// <c>FUN_0041a74c</c> with it, which converges the gun mounts. That is weapon aiming rather than
-	/// torso movement and is not ported.</para>
+	/// <para>Its third argument is the range the guns are to converge on — the distance to whatever
+	/// the machine is aiming at, and zero for nothing. That is the original's own placement: the
+	/// convergence pass is this tick's tail. See
+	/// <see cref="WeaponMounts.ConvergeOnRange"/>.</para>
 	/// </summary>
-	public void TorsoPitchTick(short axis, short snapTarget = -1, bool snapEnable = false) {
+	public void TorsoPitchTick(short axis, int convergeRange = 0, short snapTarget = -1,
+			bool snapEnable = false) {
 		short previousAngle = TorsoPitchAngle;
 		short rate = TorsoPitchRate;
 		short angle = TorsoPitchAngle;
@@ -92,6 +94,8 @@ public sealed partial class MechObject {
 		}
 
 		TorsoPitchThread?.SeekToPosition(Type.TorsoPitchSequence, SequencePosition(TorsoPitchAngle));
+
+		Weapons.ConvergeOnRange(this, convergeRange);
 	}
 
 	/// <summary>
@@ -103,8 +107,78 @@ public sealed partial class MechObject {
 		TorsoTwistTick((short)-ClampAxis(SimMath.Q10Multiply(CenterGain, TorsoTwistAngle)),
 			snapTarget: 0, snapEnable: true);
 		TorsoPitchTick((short)-ClampAxis(SimMath.Q10Multiply(CenterGain, TorsoPitchAngle)),
-			snapTarget: 0, snapEnable: true);
+			convergeRange: 0, snapTarget: 0, snapEnable: true);
 	}
+
+	/// <summary>
+	/// <c>Cockpit_TargetAnglesFromCameraBone</c> (<c>0041ef14</c>) — bring <paramref name="point"/>
+	/// into the pilot's own frame, drive both turret axes at it, and hand back what is left of the
+	/// error. It is the whole of "point the turret at that", and the AI's fire path reaches it exactly
+	/// as the player's automatic tracking does.
+	///
+	/// <list type="bullet">
+	/// <item>Each axis' demand is the residual angle scaled by <see cref="CenterGain"/>, clamped to
+	/// the stick's own <c>±0x100</c> and then <b>squared</b> (<c>Q8(|v|, v)</c>), so the turret runs
+	/// hard while it is far off and eases as it arrives.</item>
+	/// <item>Past <see cref="TrackFarRange"/> a small residual is damped and a very small one is
+	/// discarded outright — a dead band that stops the turret hunting on a distant target.</item>
+	/// <item>The snap target is the angle the turret <i>would</i> have if it were already on the
+	/// point, so the axis stops exactly there rather than swinging through it.</item>
+	/// </list>
+	/// </summary>
+	/// <returns>The residual aim error: yaw and pitch, in binary angle.</returns>
+	public (short Yaw, short Pitch) TrackWorldPoint(Vec3i point) {
+		var local = CameraNodeTransform.Inverted().TransformPoint(point.X, point.Y, point.Z);
+		local = new Vec3i(local.X, local.Y, local.Z - Type.EyeOffsetZ);
+
+		var (pitchError, _, yawError) = SimTrig.EulerToward(local, default);
+
+		int yawDemand = SimMath.Q10Multiply(CenterGain, yawError);
+		int pitchDemand = SimMath.Q10Multiply(CenterGain, pitchError);
+
+		if (local.Y > TrackFarRange) {
+			yawDemand = DampedFarDemand(yawDemand, SaturatingAbs(yawError), TrackYawDeadband);
+			pitchDemand = DampedFarDemand(pitchDemand, SaturatingAbs(pitchError), TrackPitchDeadband);
+		}
+
+		short yawAxis = (short)-ClampAxis(yawDemand);
+		short pitchAxis = (short)ClampAxis(pitchDemand);
+
+		TorsoTwistTick((short)SimMath.Q8Multiply(SaturatingAbs(yawAxis), yawAxis),
+			snapTarget: (short)(TorsoTwistAngle - yawError), snapEnable: true);
+		TorsoPitchTick((short)SimMath.Q8Multiply(SaturatingAbs(pitchAxis), pitchAxis),
+			convergeRange: SimMath.FastMagnitude3D(local.X, local.Y, local.Z),
+			snapTarget: (short)(TorsoPitchAngle + pitchError), snapEnable: true);
+
+		return (yawError, pitchError);
+	}
+
+	/// <summary>
+	/// The far-range dead band: below <paramref name="deadband"/> of error the axis is stilled
+	/// outright, and otherwise its demand is cut to <see cref="TrackFarGain"/>.
+	/// </summary>
+	private static int DampedFarDemand(int demand, short error, short deadband) {
+		if (error >= TrackTrackingBand) {
+			return demand;
+		}
+
+		return error < deadband ? 0 : SimMath.Q10Multiply(TrackFarGain, demand);
+	}
+
+	/// <summary>Beyond this range in the pilot's frame the dead band applies — the original's 50000.</summary>
+	public const int TrackFarRange = 50000;
+
+	/// <summary>The error the far-range damping applies below, in binary angle.</summary>
+	private const short TrackTrackingBand = 1000;
+
+	/// <summary>Q10 gain the far-range damping cuts the demand to.</summary>
+	private const int TrackFarGain = 700;
+
+	/// <summary>Yaw error the far-range band stills the axis under.</summary>
+	private const short TrackYawDeadband = 0x32;
+
+	/// <summary>Pitch error the far-range band stills the axis under — larger than the yaw's.</summary>
+	private const short TrackPitchDeadband = 0x55;
 
 	/// <summary>How hard the centring command pulls, Q10 — the original's own <c>0xfa</c>.</summary>
 	private const int CenterGain = 0xfa;

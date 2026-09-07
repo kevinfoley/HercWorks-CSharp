@@ -379,7 +379,7 @@ motion with. The pose pipeline is three calls, in `ShapeInstance_StepAnimation` 
 
 Three arrays on the shape instance: `+0x12` per-node **local** transforms (stride `0xc`), `+0xe`
 per-node dirty flags, `+0x16` per-node **world** transforms (stride `0x20`, indexed by transform id —
-the array `Mech_TargetRelativeToPilot` and the cockpit eye read).
+the array `Cockpit_TargetAnglesFromCameraBone` and the cockpit eye read).
 
 `AnimThread_EvalNodeLocals`, per animated column:
 

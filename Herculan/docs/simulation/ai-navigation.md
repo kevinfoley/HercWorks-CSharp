@@ -11,7 +11,7 @@ How an AI machine gets from where it is to where its order wants it. The order l
 | `0041fac4` | `Ai_DriveToPoint` | Walk at a fixed point. Returns "arrived" |
 | `0041fb60` | `Ai_FollowRoute` | Walk the group's route, one waypoint at a time. The only thing that advances the cursor |
 | `0041fbb8` | `Ai_KeepFormation` | Hold a formation slot on the group leader |
-| `0041d598` | `Ai_NavigationStep` | Picks between the three, then updates the turret and the weapons-free flag |
+| `0041d598` | `Ai_NavigationStep` | Picks between the three, then updates the turret and the radar mode |
 
 `Ai_NavigationStep` is the whole choice:
 
@@ -19,7 +19,7 @@ How an AI machine gets from where it is to where its order wants it. The order l
 if (mech+0x23e != 0)                  Ai_DriveToPoint(mech, mech+0x240)   // a standing squad order
 else if (mech == group.members[0])    Ai_FollowRoute(mech)                // the leader
 else                                  Ai_KeepFormation(mech)              // everyone else
-Ai_UpdateWeaponsFree(mech)                                                // 0041c3c8
+Ai_UpdateWeaponsFree(mech)                                                // 0041c3c8, the radar mode
 Mech_CenterTorsoTick(mech, 0)
 ```
 
@@ -160,7 +160,7 @@ The same shape and the same leader gate, with one difference that is the whole s
 
 That also means the cursor can be stepped several times in a tick, once by each member that is within 10000 of the waypoint the previous step just made current. A tightly-packed group crossing a dense stretch of route skips through it faster than one machine would.
 
-It then drops its target, and on the same 10 s timer acquires one into `mech+0x5f` — a *look-at*, not a target: it is never written to `mech+0x1a4`, and all it does is aim the turret at whatever is worth watching while the machine keeps walking. `mech+0x96`, the weapons-free flag, is set whenever there is something to watch.
+It then drops its target, and on the same 10 s timer acquires one into `mech+0x5f` — a *look-at*, not a target: it is never written to `mech+0x1a4`. It is nonetheless **shot at**: the state closes with `Ai_AimAndFire`, the same tail the combat states use, so a machine walking a route engages what it watches without ever selecting it. See [`ai-weapons.md`](ai-weapons.md). The radar (`mech+0x96`) goes ACTIVE whenever there is something to watch.
 
 ### `following` (10) — `Mech_BehaviourFollowThink` (`0041daac`)
 
@@ -194,8 +194,8 @@ Not navigation, but it is built out of the same two probe primitives, and it is 
 | `+0x252` | short | AI cruise speed, from block 7 `+0x02`. Zero means `0xaa` |
 | `+0x5a` | timer | The navigation states' own 10 s decision clock, in the behaviour block's scratch |
 | `+0x5f` | ptr | What `travelling` and `following` point the turret at. Not a selected target |
-| `+0x97` | byte | AI weapons-free, from block 7 `+0x00` |
-| `+0x96` | byte | Weapons free this tick, written by `Ai_UpdateWeaponsFree` from `+0x97`, or from `+0xb2` in the player's squad |
+| `+0x97` | byte | The mission file's standing radar setting for this machine, from block 7 `+0x00` — [`ai-weapons.md`](ai-weapons.md) |
+| `+0x96` | byte | Radar mode, written here from `+0x97`, or from `+0xb2` in the player's squad — [`target-selection.md`](target-selection.md) |
 | `+0xb6` | byte | Would let a non-leader run the patrol, search-and-destroy and guard thinks. **No writer exists** |
 
 Block 7's `+0x00` and `+0x02` are `.MSN` row #12's `+0x08` and `+0x0a`; see [`msn-mission-file.md`](../formats/msn-mission-file.md) and [`script-dat.md`](../formats/script-dat.md).
@@ -208,13 +208,11 @@ What differs from the original, and why:
 
 - **The shape probe stops at the bounding radius.** The original casts a swept volume against each candidate's shape; the engine has no such cast, so the probe takes the coarse reject that cast opens with — the candidate's bounding radius against the segment's closest approach. It reports a structure from slightly further out than its shape would, which errs toward steering earlier. It cannot be left out: a standing animated structure's collision radius is zero, so the proximity sweep is blind to every building in a retail mission and a machine walks into one and stands there for the rest of it.
 - **The mode-1 hit point is the walk's own point for the step**, not the refinement `FUN_0046fcac` solves against the blocking face. Both callers only measure a range from it, and the two differ by less than a cell.
-- **`Ai_UpdateWeaponsFree` writes the flag and nothing reads it**, as in the original at this stage — AI firing is the weapons slice.
-- **The turret look-at in `travelling` and `following` aims and does not fire**, for the same reason.
 - **The Turbo Pod sprint is not reachable**, since it is gated on a standing squad order and those are the squadmate slice.
 
 ## Open questions
 
-- **`mech+0xb6`.** Read by three think functions, written by nothing in the image. With it permanently clear, a non-leader in `patrolling` or `search/destroy` never acquires a target on its own. Whether that is the shipped intent or a lost initialiser is not answerable from the binary — the same shape as `mech+0xa5` in [`ai-targeting.md`](ai-targeting.md).
+- **`mech+0xb6`.** Read by three think functions, written by nothing in the image. With it permanently clear, a non-leader in `patrolling` or `search/destroy` never acquires a target on its own. Whether that is the shipped intent or a lost initialiser is not answerable from the binary.
 - **Descriptor `+0x3c`** groups `skirting` and `ramming` with the combat states against the rest of the navigation roster. Still no reader; see [`ai-dispatch.md`](ai-dispatch.md).
 - **Why the firing line is the only source that cuts speed.** The distance thresholds for the other two are zero, which reads more like an unfinished tuning pass than a decision.
 

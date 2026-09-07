@@ -53,6 +53,21 @@ public static class SimMath {
 	/// what <c>MechType_InitOne</c> does to rescale a mech type's speed fields at load
 	/// (see <see cref="Sim.MechTypeRecord"/>).
 	/// </summary>
+	/// <summary>
+	/// <c>Math_MapRange</c> (<c>0047de3c</c>) — a linear remap of <paramref name="value"/> from
+	/// <c>[fromLow, fromHigh]</c> onto <c>[toLow, toHigh]</c>, with a rounding bias of one less than
+	/// the input span, signed to match the output's direction.
+	/// </summary>
+	public static int MapRange(int value, int fromLow, int fromHigh, int toLow, int toHigh) {
+		int span = fromHigh - fromLow;
+		long bias = System.Math.Abs(span) - 1;
+		if (toHigh < toLow) {
+			bias = -bias;
+		}
+
+		return (int)(((long)(value - fromLow) * (toHigh - toLow) + bias) / span) + toLow;
+	}
+
 	public static int Q16Multiply(int a, int b) => (int)(((long)a * b) >> 16);
 
 	/// <summary>

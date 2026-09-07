@@ -373,7 +373,7 @@ public static class MissionLoader {
 				AwaitingDeployment: group.AwaitsDeployment,
 				Side: group.Side,
 				AiCruiseSpeed: record.AiCruiseSpeed,
-				AiWeaponsFree: record.AiWeaponsFree != 0,
+				AiRadarActive: record.AiRadarActive != 0,
 				FormationOffset: offset is { } o ? (o.X, o.Y) : null));
 		}
 

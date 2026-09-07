@@ -143,9 +143,12 @@ The frame is the **firing hardpoint's own model bone**, posed as it stands this 
 with the machine's world transform. A beam follows the torso because the gun bone does: nothing adds
 the twist or pitch angle, and nothing needs to.
 
-The prologue also composes a per-hardpoint aim rotation over the top, from two node ids at `.GL`
-`+2`/`+4`. **Both read -1 on every retail chassis**, so that rotation is the identity throughout the
-retail fleet.
+The prologue also composes a per-hardpoint aim rotation over the top: the **gun convergence**, which
+toes each hardpoint in on the range the turret is aiming at. `mount+0x5b` and `+0x5f` gate its two
+halves, and `WeaponMount_CtorBase` writes each of them zero when the `.GL` node id it comes from
+(`+2`/`+4`) is negative. Both read -1 on every retail chassis, so both gates are open and the
+convergence applies throughout the retail fleet. See
+[`ai-weapons.md`](ai-weapons.md#gun-convergence--mech_convergegunsonrange-0041a74c).
 
 The muzzle point is three offsets summed in bone space:
 

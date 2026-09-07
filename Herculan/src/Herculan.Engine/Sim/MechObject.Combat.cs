@@ -249,6 +249,10 @@ public sealed partial class MechObject {
 			return 0;
 		}
 
+		// The radar reaction sits here in the original, past the range reject and ahead of the shield
+		// absorb, so a round that reaches the machine at all provokes it whether or not it penetrates.
+		RadarReactionToHit(shot.WeaponClass);
+
 		// Machine space to muzzle space, the two hops the original composes: this machine's own
 		// world transform, then the world-to-muzzle one the raycast cached.
 		var toMuzzleSpace = Transform3.Concat(WorldTransform, shot.MuzzleInverse);

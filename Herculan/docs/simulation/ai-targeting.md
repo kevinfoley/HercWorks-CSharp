@@ -208,19 +208,20 @@ Fields settled elsewhere link out rather than being restated.
 |---|---|---|
 | `+0x94` | byte | Combat rating cached; clear means recompute |
 | `+0x9a` | byte | Do not take the player's current selection as a target |
+| `+0xa5` | byte | No weapons left; written by `Ai_ChooseWeapon` — [`ai-weapons.md`](ai-weapons.md) |
 | `+0xac` | byte | A target was just handed to this machine; skip one acquisition |
-| `+0xb2` | byte | Keeps a player squadmate's radar active |
+| `+0xb2` | byte | Keeps a player squadmate's radar active; written by the squad command handler — [`ai-weapons.md`](ai-weapons.md) |
 | `+0xb4` | byte | Collapsed — latched when the death animation finishes (`Mech_LocomotionTick`) or a fall cripples the machine outright (`004178e8`) |
 | `+0xb7` | byte | Invulnerable; `Base_Construct` sets it from `BASES.DAT +0x1e` |
 | `+0x250` | short | Squad order's abandon threshold |
-| `+0x26b` | short | Countdown that holds the radar off |
+| `+0x26b` | short | Countdown that holds the radar off, 6000 after an ARM hit — [`ai-weapons.md`](ai-weapons.md) |
 | `+0x273` | int | Retarget cooldown, 10000 on reacting to fire |
 | `+0x278` | int | Friendly-fire complaint cooldown, 40000 |
 | `+0x27d` | int | Under-fire window, 30000; its expiry clears `+0x281` |
 | `+0x281` | int | Damage accumulated from the player's group, threshold 8000 |
 | `+0x29e` | short | Combat rating |
 | `+0x2a2` | short | Component slot being aimed at, −1 for none |
-| `+0x2aa` | short | Written by the flee check, 300/600/1000; no reader found |
+| `+0x2aa` | short | Fear: written by the flee check, 300/600/1000, and read as the AI's weapon-score floor — [`ai-weapons.md`](ai-weapons.md) |
 | `+0x30b` | ptr | Targeting computer pod — [`missile-lock.md`](missile-lock.md) |
 
 ## Engine port
@@ -233,9 +234,8 @@ Fields settled elsewhere link out rather than being restated.
 
 Deviations, all of them things the original reads that this engine has no value for:
 
-- **`mech+0xa5`**, the third out-of-action latch, has no writer. `SimObject.Neutralised` is the other two, so the AI's liveness tests are the original's minus a flag that is presumably never set.
 - **`mech+0x9a`** and **`DAT_004a9ed8`**, both of which narrow `Ai_IsTargetable`, are not modelled. Their absence can only let the AI consider more candidates than the original, never fewer.
-- **`mech+0xb2`** and **`mech+0x26b`** likewise: an AI machine's radar goes active the moment it enters a fight, with nothing to hold it off.
+- **`mech+0xb2`** is not modelled, so a player squadmate is always put back to passive on entering a fight. Its writer is the squad command path, which is unported.
 - **`mech+0xb4`**, collapsed, is never set — the death animation is not played out, so nothing latches it.
 - **The aim band's targeting-computer override is not applied.** It turns on a pod field (`+0x7f`) whose meaning is untested, the same doubt the ECM roll records, so the roll alone picks the band.
 - **Squad orders are unported**, so `Mech_AiSelectBehaviour`'s second path installs nothing and `Ai_ShouldAbandonTarget`'s squad branch is unreachable. Group orders are ported; what a designated target is, and which machines have one, is [`ai-goals.md`](ai-goals.md).
@@ -245,10 +245,8 @@ Two things are reproduced rather than corrected: the `rand & 1000` jitter in the
 ## Open questions
 
 - **`DAT_004a9ed8 == 3`**, which makes a player-led group's own machines refuse the group order's target in `Ai_IsTargetable`. Reads like a squad-command or difficulty mode.
-- **`mech+0xa5`**, the third out-of-action latch beside `+0xa4` and `+0x99`. Every "dead or dying" test in the AI reads all three; no writer found.
 - **`BASES.DAT +0x2e`**, the flee check's structure exception.
-- **`mech+0x2aa`** has no reader in the functions this slice reaches.
-- **What sets `mech+0x9a` and `mech+0xb2`.** Both are read here against the player's group; the writers are presumably in the squadmate command path.
+- **What sets `mech+0x9a`.** Read here against the player's group; the writer is presumably in the squadmate command path, as `mech+0xb2`'s is.
 
 ## Rejected readings
 

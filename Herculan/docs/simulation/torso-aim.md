@@ -24,7 +24,7 @@ sequence. Nothing rotates the torso; an animation is seeked to match the angle.
 | `00415488` | `Mech_GetTorsoTwistAngle` | Twist-angle accessor, mech vtable `+0x3c` |
 
 Three callers, all once per tick: `Sim_PollPlayerInput` (`00460764`) for the player,
-`Mech_TargetRelativeToPilot`'s caller for AI aiming, and `Mech_CenterTorsoTick` for centring.
+`Cockpit_TargetAnglesFromCameraBone`'s caller for AI aiming, and `Mech_CenterTorsoTick` for centring.
 `Mech_MovementTick` does **not** call them — the turret is driven from the input path, between the
 throttle and the move.
 
@@ -133,7 +133,7 @@ twist sequence (8 frames of 100 ticks, node 4, rotation about Z only) steps
 `0, −7280, −15470, −23660, −31850, −40238, −48428, −56618` — summing to exactly −65536, one full
 turn, but in uneven strides. At the 14000 limit the eye ends up 13004 round.
 
-Nothing is inconsistent as a result: `Mech_TargetRelativeToPilot` (`0041ef14`) reads the camera
+Nothing is inconsistent as a result: `Cockpit_TargetAnglesFromCameraBone` (`0041ef14`) reads the camera
 node's own composed transform, so the HUD, the aim and the view all agree with the drawn pose. The
 angle field is control state, not a direction.
 
@@ -158,8 +158,10 @@ and the twist axis both, and is documented with the rest of the steering in
 
 ## The pilot's frame
 
-`Mech_TargetRelativeToPilot` (`0041ef14`) composes the camera node's world transform with the
-machine's and brings a target into that frame to place it on the HUD. **That frame's orientation is
+`Cockpit_TargetAnglesFromCameraBone` (`0041ef14`) composes the camera node's world transform with the
+machine's and brings a target into that frame to place it on the HUD. It is also **the "point the
+turret at that" primitive**: it drives both ticks below from the residual angle and hands that
+residual back — see [`ai-weapons.md`](ai-weapons.md#the-fire-decision--ai_fireatpoint-0041f5a0). **That frame's orientation is
 what "the direction the pilot is looking" means in DBSIM** — the camera node hangs below both turret
 nodes (see [`mech-locomotion.md`](mech-locomotion.md#cockpit-eye-and-bob)'s chain table), so twist and
 pitch turn the view with nothing having to add them to it.
@@ -195,13 +197,7 @@ centres. `--turret <twist> <pitch>` holds the axes for a `--screenshot` run.
 ## Not ported
 
 - **Automatic Turret Tracking** ([T]), the third branch of the input path's turret block. Target
-  selection is in place ([`target-selection.md`](target-selection.md)); what is missing is the
-  branch itself, feeding a snap target from `Mech_TargetRelativeToPilot` into the twist/pitch axes.
-- **AI turret aiming**, the caller that feeds `Mech_TargetRelativeToPilot`'s output back into these
-  two ticks with a snap target derived from the target's bearing.
-- **`FUN_0041a74c`**, gun convergence: the pitch tick's third argument is the range to the current
-  target, and it writes a per-gun aim vector from it using record field 100. A flyer reaches it from
-  `Razor_MovementTick` instead, which has no pitch tick — see
-  [`razor-flight.md`](razor-flight.md).
+  selection is in place ([`target-selection.md`](target-selection.md)) and so is the primitive the
+  branch needs (`MechObject.TrackWorldPoint`); what is missing is the branch itself.
 - **The servo sound** (`0041a6d0` / `0041a994`): sound 0x21, started when the axis exceeds 0xc0 and
   the angle is still changing, stopped when the axis centres or the angle stops.

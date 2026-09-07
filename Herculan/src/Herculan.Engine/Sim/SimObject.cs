@@ -179,6 +179,30 @@ public abstract class SimObject {
 	public virtual short AimTwist => 0;
 
 	/// <summary>
+	/// Vtable <c>+0x38</c> — how fast this object is travelling, in the units the rest of the
+	/// simulation quotes distances in. Zero for a structure, which is why the AI leads a shot at a
+	/// machine and fires straight at a building.
+	/// </summary>
+	public virtual short TravelSpeed => 0;
+
+	/// <summary>
+	/// The AI's own "out of the fight" test: <c>+0x99</c>, <c>+0xa4</c> and <c>+0xa5</c> together,
+	/// where <see cref="Neutralised"/> is the first two. Only a HERC can answer the third — it is the
+	/// no-weapons-left latch — so everything else answers the same as <see cref="Neutralised"/>.
+	///
+	/// <para>Deliberately not folded into <see cref="Neutralised"/>: the detection sweep, the player's
+	/// target selection and the group's completion test all read that one, and none of them consults
+	/// <c>+0xa5</c> in the original.</para>
+	/// </summary>
+	public virtual bool OutOfAction => Neutralised;
+
+	/// <summary>
+	/// Vtable <c>+0x34</c> — the shield facing <paramref name="heading"/> points at, front within
+	/// ±90° and rear outside it. Zero for everything but a HERC.
+	/// </summary>
+	public virtual short ShieldByHeading(short heading) => 0;
+
+	/// <summary>
 	/// <c>obj+0xa3</c> — whether this object is the machine the player is flying. The detection tick
 	/// treats it specially twice over: it is swept <b>last</b>, after every other friendly object, and
 	/// a contact it makes for itself is not shared with its side. See <see cref="Detection.Tick"/>.

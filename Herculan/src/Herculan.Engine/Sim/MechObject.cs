@@ -210,6 +210,9 @@ public sealed partial class MechObject : SimObject {
 	public override bool Neutralised => Destroyed || Immobilised;
 
 	/// <inheritdoc />
+	public override bool OutOfAction => Neutralised || Disarmed;
+
+	/// <inheritdoc />
 	/// <remarks>Mech vtable <c>+0x3c</c> (<c>FUN_00415488</c>), which returns <c>mech+0x298</c>.</remarks>
 	public override short AimTwist => TorsoTwistAngle;
 
@@ -420,7 +423,7 @@ public sealed partial class MechObject : SimObject {
 	/// (<c>004155c4</c>) built out of the type record. Without it the eye sits at the node's own
 	/// origin, which on a HERC is around its waist.</para>
 	///
-	/// <para>The orientation is not decorative either: <c>Mech_TargetRelativeToPilot</c>
+	/// <para>The orientation is not decorative either: <c>Cockpit_TargetAnglesFromCameraBone</c>
 	/// (<c>0041ef14</c>) brings a target into exactly this frame to work out where the HUD should
 	/// draw it, and the view takes its whole euler triple — roll included — from it. It is also why
 	/// torso twist and pitch turn the view without anything having to add them to it: the camera node
@@ -442,7 +445,7 @@ public sealed partial class MechObject : SimObject {
 	/// Where one part of this machine's model has ended up in the world, orientation included: the
 	/// part's posed node transform composed with the machine's own. The camera bone and every weapon
 	/// hardpoint are both resolved this way — <c>WeaponMount_PrepareShot</c> (<c>0040e788</c>) reads
-	/// the firing hardpoint's bone exactly as <c>Mech_TargetRelativeToPilot</c> reads the pilot's.
+	/// the firing hardpoint's bone exactly as <c>Cockpit_TargetAnglesFromCameraBone</c> reads the pilot's.
 	///
 	/// <para>Falls back to the machine's own frame for a part the model does not have, which is what
 	/// the original's own fallback transform amounts to.</para>
@@ -644,7 +647,7 @@ public sealed partial class MechObject : SimObject {
 
 		ApplyThrottleInput(world, (short)steer);
 		TorsoTwistTick((short)twist);
-		TorsoPitchTick(Controls.TorsoPitch);
+		TorsoPitchTick(Controls.TorsoPitch, GunConvergenceRange);
 	}
 
 	/// <summary>
@@ -653,7 +656,18 @@ public sealed partial class MechObject : SimObject {
 	/// travelling shot adds the whole of it to its own speed, so a round fired from a machine running
 	/// forward flies faster than one fired standing still (see <see cref="Projectile.Speed"/>).
 	/// </summary>
-	public short TravelSpeed => (short)SimMath.Q10Multiply(TravelSpeedScale, Speed);
+	public override short TravelSpeed => (short)SimMath.Q10Multiply(TravelSpeedScale, Speed);
+
+	/// <summary>
+	/// <c>Mech_GetShieldByHeading</c> (<c>004154d0</c>), the mech vtable's <c>+0x34</c>: the facing
+	/// within ±90° of <paramref name="heading"/>. The damage path asks it with a real bearing; the
+	/// AI's weapon choice asks it with a boolean, which is a bug in the original — see
+	/// docs/simulation/ai-weapons.md.
+	/// </summary>
+	public override short ShieldByHeading(short heading) =>
+		(ushort)(heading + BinaryAngle.QuarterTurn) < BinaryAngle.HalfTurn
+			? Shields.Front
+			: Shields.Rear;
 
 	/// <summary>The accessor's own Q10 factor.</summary>
 	private const int TravelSpeedScale = 2000;
@@ -693,8 +707,16 @@ public sealed partial class MechObject : SimObject {
 		}
 
 		TorsoTwistTick(controls.TorsoTwist);
-		TorsoPitchTick(controls.TorsoPitch);
+		TorsoPitchTick(controls.TorsoPitch, GunConvergenceRange);
 	}
+
+	/// <summary>
+	/// What <c>Sim_PollPlayerInput</c> hands the pitch tick to converge the guns on: the 3D distance to
+	/// the selected target, or zero with nothing selected. So the player's guns toe in on whatever the
+	/// targeting system is holding, and square up when it is let go.
+	/// </summary>
+	private int GunConvergenceRange =>
+		Target is { } target ? Position.ApproxDistanceTo(target.Position) : 0;
 
 	/// <summary>Whether [Backspace] centring is latched, for the debug readout.</summary>
 	public bool CenteringTorso => _centeringTorso;

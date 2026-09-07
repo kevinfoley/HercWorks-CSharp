@@ -44,7 +44,7 @@ public partial class MechObject {
 			KeepFormation(world);
 		}
 
-		UpdateWeaponsFree();
+		UpdateRadarMode();
 		CenterTorsoTick();
 	}
 
@@ -381,13 +381,13 @@ public partial class MechObject {
 	}
 
 	/// <summary>
-	/// <c>Ai_UpdateWeaponsFree</c> (<c>0041c3c8</c>) — the one write of the AI's weapons-free bit. A
-	/// machine in the player's squad takes it from <c>mech+0xb2</c>, everything else from
-	/// <see cref="WeaponsFreeOrder"/>, the mission file's own per-mech flag. Nothing reads it yet;
-	/// AI firing is the weapons slice.
+	/// <c>Ai_UpdateWeaponsFree</c> (<c>0041c3c8</c>) — the AI's radar switch, misnamed after the
+	/// mission-file field that feeds it. A machine in the player's squad takes its mode from
+	/// <c>mech+0xb2</c>, the squad's radar order; everything else from <see cref="RadarOrder"/>, the
+	/// mission file's own standing setting. See docs/simulation/ai-weapons.md.
 	/// </summary>
-	private void UpdateWeaponsFree() =>
-		WeaponsFree = Group is { LedByPlayer: true } ? RadarForcedActive : WeaponsFreeOrder;
+	private void UpdateRadarMode() =>
+		Scanner = Group is { LedByPlayer: true } ? RadarForcedActive : RadarOrder;
 
 	/// <summary>
 	/// <c>Mech_BehaviourPatrolThink</c> (<c>0041d7d0</c>) — behaviour state 8.
@@ -412,7 +412,7 @@ public partial class MechObject {
 
 		_navDecisionTimer = NavDecisionInterval;
 
-		if (Neutralised) {
+		if (OutOfAction) {
 			Target = AiTargeting.SelectTarget(world, this, TargetFilter.None);
 
 			if (Target != null) {
@@ -457,7 +457,7 @@ public partial class MechObject {
 
 		_navDecisionTimer = NavDecisionInterval;
 
-		if (Neutralised) {
+		if (OutOfAction) {
 			Target = AiTargeting.SelectTarget(world, this, TargetFilter.None);
 
 			if (Target != null) {
@@ -523,15 +523,19 @@ public partial class MechObject {
 	/// The tail <see cref="TravelThink"/> and <see cref="FollowThink"/> share: on the same 10 s clock,
 	/// pick something worth watching into <see cref="LookAt"/> and point the turret at it.
 	///
-	/// <para><b>It is not a target.</b> The original never writes it to <c>mech+0x1a4</c>, and all
-	/// that reads it is the turret aim — which needs the AI weapon slice, so here the choice is made
-	/// and recorded and the turret is left alone.</para>
+	/// <para><b>It is not a target.</b> The original never writes it to <c>mech+0x1a4</c> — but it
+	/// does shoot at it: the state closes with <see cref="AimAndFire"/>, the same tail the combat
+	/// states use. See docs/simulation/ai-weapons.md.</para>
 	/// </summary>
 	private void LookAtTick(SimWorld world) {
 		if (SimMath.TimerCountDown(ref _navDecisionTimer) == 0) {
 			LookAt = AiTargeting.SelectTarget(world, this, TargetFilter.None);
 			_navDecisionTimer = NavDecisionInterval;
-			WeaponsFree = LookAt != null || WeaponsFreeOrder;
+			Scanner = LookAt != null || RadarOrder;
+		}
+
+		if (LookAt is { } watched) {
+			AimAndFire(world, watched, AspectOf(watched));
 		}
 	}
 
@@ -560,13 +564,13 @@ public partial class MechObject {
 		if (defence == null) {
 			if (!holdsPost) {
 				KeepFormation(world);
-				UpdateWeaponsFree();
+				UpdateRadarMode();
 				CenterTorsoTick();
 				return false;
 			}
 
 			CenterTorsoTick();
-			UpdateWeaponsFree();
+			UpdateRadarMode();
 
 			int range = GroundDistanceTo(post);
 
@@ -585,7 +589,7 @@ public partial class MechObject {
 
 		Target = defence;
 
-		if (Neutralised) {
+		if (OutOfAction) {
 			AimComponentClear();
 			Behaviour.SetState(BehaviourState.Fleeing);
 			return false;
@@ -595,7 +599,7 @@ public partial class MechObject {
 		SelectAimComponent(world);
 
 		if (Group is not { LedByPlayer: true } || RadarForcedActive) {
-			WeaponsFree = true;
+			Scanner = true;
 		}
 
 		return false;
@@ -627,13 +631,10 @@ public partial class MechObject {
 	public short CruiseSpeed { get; set; }
 
 	/// <summary>
-	/// <c>mech+0x97</c> — the mission file's per-mech weapons-free flag (block 7 <c>+0x00</c>), which
-	/// is what <see cref="UpdateWeaponsFree"/> gates an ordinary AI machine's trigger on.
+	/// <c>mech+0x97</c> — the mission file's standing radar setting for this machine (block 7
+	/// <c>+0x00</c>), which is the PASSIVE/ACTIVE <see cref="UpdateRadarMode"/> re-asserts each tick.
 	/// </summary>
-	public bool WeaponsFreeOrder { get; set; }
-
-	/// <summary><c>mech+0x96</c> — weapons free this tick. Written here; read by the weapons slice.</summary>
-	public bool WeaponsFree { get; private set; }
+	public bool RadarOrder { get; set; }
 
 	/// <summary>
 	/// <c>mech+0x5f</c> — what <c>travelling</c> and <c>following</c> point the turret at while they

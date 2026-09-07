@@ -71,7 +71,7 @@ public enum MissionSide {
 /// <param name="AiCruiseSpeed">
 /// Block 7 <c>+0x02</c> — the speed this machine's AI walks at, or 0 for the AI's own default.
 /// </param>
-/// <param name="AiWeaponsFree">Block 7 <c>+0x00</c> — whether this machine's AI may shoot.</param>
+/// <param name="AiRadarActive">Block 7 <c>+0x00</c> — this machine's standing radar setting, PASSIVE or ACTIVE.</param>
 /// <param name="FormationOffset">
 /// This member's unrotated spread offset out of <c>MFORMS.DAT</c>, or null for the group's slot 0
 /// and for a formation that names none. Resolved here because it is wanted twice: once to place the
@@ -91,7 +91,7 @@ public sealed record MissionPlacement(
 	bool AwaitingDeployment = false,
 	MissionSide Side = MissionSide.Human,
 	short AiCruiseSpeed = 0,
-	bool AiWeaponsFree = false,
+	bool AiRadarActive = false,
 	(int X, int Y)? FormationOffset = null);
 
 /// <summary>

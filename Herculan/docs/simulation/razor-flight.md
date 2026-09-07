@@ -316,8 +316,10 @@ the machine. It runs for the player's machine alone and is silenced on death. Th
 
 ## Not ported
 
-- The gun-convergence pass (`maybe_Mech_ConvergeGunsOnRange`, `0041a74c`) that closes
-  `Razor_MovementTick`. It is weapon aiming and has no counterpart in the engine for walkers either.
+- `Razor_MovementTick`'s own call to `Mech_ConvergeGunsOnRange` (`0041a74c`). A flyer has no pitch
+  tick to reach it from, so the convergence a walker gets there (see
+  [`ai-weapons.md`](ai-weapons.md#gun-convergence--mech_convergegunsonrange-0041a74c)) has to be
+  driven from the movement tick instead, and is not.
 
 The wreckage a fatal contact sheds is ported — group 3 at the contact point, and only from the
 cockpit and fuselage probes, the two that can end the flight. See

@@ -104,6 +104,11 @@ public sealed class WeaponMount {
 	private readonly Weapons.WeaponMountTemplate? _template;
 	private readonly GunLayout.HardpointEntry _hardpoint;
 	private short _refireTimer;
+
+	/// <summary><c>mount+0x24</c> and <c>+0x28</c> — see <see cref="ConvergeOnRange"/>.</summary>
+	private short _convergePitch;
+
+	private short _convergeYaw;
 	private bool _firedSinceShuffle;
 	private bool _firedThisTick;
 	private bool _flashPlaying;
@@ -898,6 +903,12 @@ public sealed class WeaponMount {
 	public const int Elf2WeaponId = 22;
 
 	/// <summary>
+	/// The first-generation ELF. With <see cref="Elf2WeaponId"/> it is the pair the AI's fire path
+	/// latches on, because only a sustained beam wants the same mount on the next tick.
+	/// </summary>
+	public const int ElfWeaponId = 6;
+
+	/// <summary>
 	/// What the ammunition gauge's own printed count does between the shot and the next: the mount
 	/// keeps two figures, the true round count at <c>+0x7b</c> which a shot drops instantly, and a
 	/// display figure at <c>+0x7d</c> in 256ths which chases it down at
@@ -1158,6 +1169,73 @@ public sealed class WeaponMount {
 		_template?.Tail is { Length: >= 0x1c } tail ? BitConverter.ToInt16(tail, 0x1a) : (short)1;
 
 	/// <summary>
+	/// The template's <c>+0x2c</c> — the minimum range this weapon will engage at, the lower half of
+	/// <see cref="RangeAllows"/>'s window. <b>Zero in all 33 retail templates</b>, so it exists in the
+	/// format and never bites; see docs/formats/weapons-dat-sim.md.
+	/// </summary>
+	public int MinimumRange =>
+		_template?.Tail is { Length: >= 0x0e } tail ? BitConverter.ToInt32(tail, 0x0a) : 0;
+
+	/// <summary>
+	/// The template's <c>+0x34</c> — what firing this weapon costs the AI in
+	/// <see cref="MechObject.ChooseWeapon"/>'s score. 500-600 for a launcher down to 5 for an ELF, and
+	/// large enough against the damage credit that heavy ordnance is only ever worth the shot that
+	/// breaks a shield. See docs/simulation/ai-weapons.md.
+	/// </summary>
+	public short AiShotCost =>
+		_template?.Tail is { Length: >= 0x14 } tail ? BitConverter.ToInt16(tail, 0x12) : (short)0;
+
+	/// <summary>
+	/// <c>FUN_0040e5f8</c> — whether a target at <paramref name="range"/> is inside this weapon's
+	/// engagement window, <see cref="MinimumRange"/> exclusive to <see cref="Range"/> exclusive. Both
+	/// the AI's weapon choice and its ELF latch ask it.
+	/// </summary>
+	public bool RangeAllows(int range) => MinimumRange < range && range < Range;
+
+	/// <summary>
+	/// <c>Mech_ConvergeGunsOnRange</c> (<c>0041a74c</c>) — the toe-in that makes this hardpoint's
+	/// shots cross the sight line at <paramref name="range"/>. Run from
+	/// <see cref="MechObject.TorsoPitchTick"/> for every machine, so the player's guns and the AI's
+	/// converge the same way; a range of zero squares them up again.
+	/// </summary>
+	internal void ConvergeOnRange(MechObject owner, int range) {
+		if (range == 0) {
+			_convergePitch = 0;
+			_convergeYaw = 0;
+			return;
+		}
+
+		var muzzle = MuzzleOffset;
+		var (pitch, _, yaw) = SimTrig.EulerToward(
+			new Vec3i(0, range, 0),
+			new Vec3i(muzzle.X, muzzle.Y, muzzle.Z - owner.Type.EyeOffsetZ));
+
+		_convergePitch = pitch;
+		_convergeYaw = yaw;
+	}
+
+	/// <summary>
+	/// The convergence rotation <see cref="PrepareShot"/> composes under the firing bone, or the
+	/// identity when the hardpoint's own two gates are shut. <c>WeaponMount_CtorBase</c> resolves each
+	/// gate from a <c>.GL</c> node id and writes zero when that id is negative — which every retail
+	/// hardpoint's is, so both halves apply throughout the fleet.
+	/// </summary>
+	private Transform3 ConvergenceRotation => Transform3.FromEuler(
+		ConvergencePitchLocked ? (short)0 : _convergePitch,
+		0,
+		ConvergenceYawLocked ? (short)0 : _convergeYaw);
+
+	/// <summary>
+	/// <c>mount+0x5b</c>, from the hardpoint's <c>.GL +0x02</c>: a model part this hardpoint's pitch is
+	/// pinned to instead of converging. <c>WeaponMount_CtorBase</c> writes zero for a negative id, and
+	/// every retail hardpoint's is <c>-1</c>, so nothing is ever locked.
+	/// </summary>
+	private bool ConvergencePitchLocked => _hardpoint.Unk1_val >= 0;
+
+	/// <summary><c>mount+0x5f</c>, the yaw half, from <c>.GL +0x04</c>.</summary>
+	private bool ConvergenceYawLocked => _hardpoint.Unk2_val >= 0;
+
+	/// <summary>
 	/// The template's <c>+0x4e</c> — what this weapon is worth to the AI's combat rating, scaled by
 	/// the mount's condition. Read by <c>Mech_ComputeCombatRating</c> (<c>0041edd8</c>) through the
 	/// mount's own <c>+0x1c</c>, which is this template; see
@@ -1186,9 +1264,7 @@ public sealed class WeaponMount {
 	/// <para>The frame is the firing hardpoint's own model bone, posed as it stands this tick and
 	/// composed with the machine's world transform, so <b>a beam follows the torso because the gun
 	/// bone does</b>: nothing here adds the twist or the pitch angle, and nothing needs to. The
-	/// original also composes a per-hardpoint aim rotation over the top of it, but both angles are
-	/// resolved from <c>.GL</c> fields that read -1 on every retail chassis, so that rotation is the
-	/// identity throughout the retail fleet and is not modelled.</para>
+	/// gun convergence goes on under it — see <see cref="ConvergenceRotation"/>.</para>
 	///
 	/// <para>The muzzle point itself is three offsets summed in the bone's own space: the weapon
 	/// template's, the hardpoint's, and a side offset the template holds separately and the hardpoint
@@ -1202,7 +1278,9 @@ public sealed class WeaponMount {
 	/// its euler triple and for placing any further barrels.
 	/// </returns>
 	private (Transform3 Bone, Vec3i Muzzle) PrepareShot(MechObject owner) {
-		var bone = owner.PartTransform(_hardpoint.BoneId);
+		// The convergence goes on innermost, under the bone's own pose: the original composes it with
+		// the node transform and only then with the machine's, and composition is associative.
+		var bone = Transform3.Concat(ConvergenceRotation, owner.PartTransform(_hardpoint.BoneId));
 		var offset = MuzzleOffset;
 
 		_refireTimer = RefireDelay;

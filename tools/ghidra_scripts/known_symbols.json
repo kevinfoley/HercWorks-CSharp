@@ -4668,10 +4668,10 @@
       "address": "0041a74c",
       "binary": "DBSIM",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Mech_ConvergeGunsOnRange",
-      "description": "Run from Mech_TorsoPitchTick with the range to the current target. Walks the mech's gun list (mech+0x202) and writes a per-gun aim vector at gun+0x24/+0x28, built from the gun's own muzzle position (FUN_0040f540) offset by record field 100; a range of 0 zeroes it instead. Named from that structural role -- the vector's consumer was not traced. Not ported.",
-      "source": "docs/simulation/torso-aim.md 2026-08-22"
+      "confidence": "high",
+      "name": "Mech_ConvergeGunsOnRange",
+      "description": "Gun convergence, run at the tail of Mech_TorsoPitchTick with that tick's range argument -- the distance to the aim point, so the player's guns and the AI's both toe in on whatever the turret is tracking. For each mount, Math_EulerToward from the muzzle offset (its z less typeRec+0x66, the sight height) to (0, range, 0), stored at mount+0x24 and +0x28; a range of zero clears them. WeaponMount_PrepareShot is the consumer, composing them under the firing bone. Both gates (mount+0x5b/+0x5f, from .GL +0x02/+0x04) read zero on every retail chassis, so the convergence applies fleet-wide.",
+      "source": "docs/simulation/ai-weapons.md"
     },
     {
       "address": "00415488",
@@ -5735,8 +5735,8 @@
       "type": "function",
       "confidence": "high",
       "name": "WeaponMount_PrepareShot",
-      "description": "The fire prologue both dispatchers open with. Resolves the firing hardpoint's bone (.GL +0) to its posed node transform, composes it with the mech's own transform (mech+0x12) into the global shot transform at 004a98b8, transforms the muzzle offset into world space at 004a98d8, extracts the firing euler triple to 004a98e4, and arms the refire timer as Q10Multiply(mount+0x63, template+0x4c). The per-hardpoint aim rotation it also composes is identity on every retail chassis (.GL +2 and +4 both read -1).",
-      "source": "docs/simulation/weapon-firing.md 2026-08-24"
+      "description": "The fire prologue both dispatchers open with. Resolves the firing hardpoint's bone (.GL +0) to its posed node transform, composes the gun convergence (mount+0x24/+0x28, gated on mount+0x5b/+0x5f) under it and the mech's own transform (mech+0x12) over it into the global shot transform at 004a98b8, transforms the muzzle offset into world space at 004a98d8, extracts the firing euler triple to 004a98e4, and arms the refire timer as Q10Multiply(mount+0x63, template+0x4c). Both convergence gates read zero fleet-wide, so the rotation is live.",
+      "source": "docs/simulation/weapon-firing.md; docs/simulation/ai-weapons.md"
     },
     {
       "address": "0040f540",
@@ -9698,8 +9698,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Ai_UpdateWeaponsFree",
-      "description": "Copies mech+0xb2 into mech+0x96 for a machine in the player's squad and mech+0x97 -- the mission file's own per-mech flag -- for everyone else. The one write of the AI's weapons-free bit.",
-      "source": "docs/simulation/ai-navigation.md"
+      "description": "The AI's radar switch, not a weapons gate: mech+0x96 is the PASSIVE/ACTIVE scanner mode. Copies mech+0xb2 (the squad's radar order) for a machine whose group is led by the player and mech+0x97 -- the mission file's own standing setting -- for everyone else. Every navigation state calls it; the detection sweep and the anti-radiation seeker are what read the result.",
+      "source": "docs/simulation/ai-weapons.md"
     },
     {
       "address": "00404ca0",
@@ -9799,6 +9799,87 @@
       "name": "Sos_StopAllSamples",
       "description": "Bound by Sos_BindLibrary through the SOS import slot at 006cbeb4 -> sosDIGIStopAllSamples(driverHandle).",
       "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "0041ea7c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Ai_AimAndFire",
+      "description": "The aim-and-fire tail every combat think ends on, and which travelling/following call against their look-at object -- so a walking machine shoots at what it watches without selecting it. Switches on the target's TargetClass (obj+0x1a8) to pick the aim point: class 0 goes to Ai_AimAndFireAtMech, class 1 to the structure's first live component (vtable +0x54 with a null second argument, then +0x58), anything else to the object's position plus its own aim offset (vtable +0x30). A null third argument means mech+0x1a4.",
+      "source": "docs/simulation/ai-weapons.md"
+    },
+    {
+      "address": "0041e984",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Ai_AimAndFireAtMech",
+      "description": "Ai_AimAndFire's machine branch. Refuses the shot and centres the turret when the bearing error exceeds the chassis' torso-twist limit (typeRec+0x22, 14000 fleet-wide). Aims at the chosen component (mech+0x2a2) only when the 3D range is in [5000, 20000); otherwise at the target's aim node origin. Ends in Ai_FireAtPoint.",
+      "source": "docs/simulation/ai-weapons.md"
+    },
+    {
+      "address": "0041f5a0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Ai_FireAtPoint",
+      "description": "The AI's fire decision. Reuses the latched mount at mech+0x2ac while it is ready and in range, else spends mech+0xb5 or runs Ai_ChooseWeapon. Aims the turret through Cockpit_TargetAnglesFromCameraBone whether or not anything fires. Leads the point by range*targetSpeed/projectileSpeed along the target's heading, adds the difficulty aim scatter for a Cybrid group only, and fires -- a launcher immediately, a gun only inside 1000 BAM in both axes. Latches ELF and ELF2 back into mech+0x2ac.",
+      "source": "docs/simulation/ai-weapons.md"
+    },
+    {
+      "address": "0041f358",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Ai_ChooseWeapon",
+      "description": "Scores every mount and returns the best above a floor mapped from mech+0x2aa (fear) through [0,0x400] -> [150,-100]; nothing above the floor means the machine aims and does not shoot. Score is Q10(100, damage credit) - Q10(1000, template+0x34) plus rand(35)*rand(35), where the credit is DamageArmor with no shield, DamageShield when the shield holds, and DamageArmor+10000 on the shot that breaks it. Gates launchers on manager+0x0a lock, turns the radar on for an in-range SARH launcher, and latches mech+0xa5 -- no weapons left -- when every mount is gone.",
+      "source": "docs/simulation/ai-weapons.md"
+    },
+    {
+      "address": "0040e5f8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMount_RangeAllows",
+      "description": "template+0x2c < range < template+0x30: the weapon's engagement window. The lower bound is zero in all 33 retail templates. Asked by Ai_ChooseWeapon and by Ai_FireAtPoint's ELF latch.",
+      "source": "docs/simulation/ai-weapons.md"
+    },
+    {
+      "address": "0041e758",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Ai_BuildCombatGeometry",
+      "description": "Fills the 0x18-byte block every combat think passes down: +0x00 bearing to target, +0x02 bearing error, +0x04 its magnitude, +0x06 the target's aspect (bearing back to me in its turret frame), +0x08 its magnitude, +0x0a 3D range, +0x0e approach flag, +0x10/+0x14 the 15000/30000 standoff pair. The aspect's only consumer is Ai_ChooseWeapon's shield-facing test.",
+      "source": "docs/simulation/ai-weapons.md"
+    },
+    {
+      "address": "0041e828",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Ai_CombatMoveStep",
+      "description": "The combat states' movement: sets the block's approach flag from the range against the standoff pair -- choosing the sign so the machine opens or closes the range whichever way it is facing -- stashes it at mech+0x5a, and drives Mech_LocomotionTick with the bearing error >> 6 and +/-0x100. The range arms read the magnitude Ai_BuildCombatGeometry left, before the caller's own steering override is folded in.",
+      "source": "docs/simulation/ai-weapons.md"
+    },
+    {
+      "address": "00406868",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_FirstLiveComponent",
+      "description": "Base vtable +0x54. With a null second argument returns the first component index whose damage word is non-zero, which is what Ai_AimAndFire asks for. With a mech it instead returns the component whose world position is nearest that machine's aim in |dyaw| + |dpitch|.",
+      "source": "docs/simulation/ai-weapons.md"
+    },
+    {
+      "address": "0041b534",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_ComponentNearestAim",
+      "description": "Mech vtable +0x54. Walks the machine's 29 component slots, places each through vtable +0x58, and returns the one nearest the given machine's aim in |dyaw| + |dpitch|. Base_FirstLiveComponent is the structure class's counterpart.",
+      "source": "docs/simulation/ai-weapons.md"
     }
   ]
 }

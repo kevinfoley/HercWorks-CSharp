@@ -223,7 +223,7 @@ public partial class MechObject {
 	/// the combined combat rating of those machines.</para>
 	/// </summary>
 	private bool FleeCheck(SimWorld world) {
-		if (Neutralised) {
+		if (OutOfAction) {
 			// A machine that is out of the fight and still reassessing. The structure exception keys
 			// on BASES.DAT +0x2e, a field the format reads past without using, so the branch that
 			// would send it back to Mech_AiSelectBehaviour cannot be evaluated and it always flees.
@@ -254,14 +254,14 @@ public partial class MechObject {
 		bool flee;
 
 		if (fear >= FearBreaking) {
-			StandoffRange = 1000;
+			Fear = 1000;
 			flee = holders != 0;
 		} else if (fear >= FearShaken) {
-			StandoffRange = 600;
+			Fear = 600;
 			flee = holders >= 3
 				|| (holders != 0 && CombatRating < AiTargeting.SumAttackerRatings(world, this));
 		} else if (fear > FearSteady) {
-			StandoffRange = 300;
+			Fear = 300;
 			flee = holders > 2 && CombatRating < AiTargeting.SumAttackerRatings(world, this) / holders;
 		} else {
 			flee = false;
@@ -584,10 +584,11 @@ public partial class MechObject {
 	public bool Collapsed => false;
 
 	/// <summary>
-	/// <c>mech+0x2aa</c> — written by <see cref="FleeCheck"/> on each of its three live bands. No
-	/// reader has been found; it is kept because the write is the only evidence of what it is for.
+	/// <c>mech+0x2aa</c> — how frightened this machine is, written by <see cref="FleeCheck"/> on each
+	/// of its three live bands. Its one reader is <see cref="ChooseWeapon"/>, where it sets the floor a
+	/// weapon has to score above: a frightened machine fires anything it has.
 	/// </summary>
-	public int StandoffRange { get; private set; }
+	public int Fear { get; private set; }
 
 	/// <summary>
 	/// <c>mech+0x273</c> — the retarget cooldown, which is what stops a machine under sustained fire
@@ -613,10 +614,35 @@ public partial class MechObject {
 	public int DamageFromPlayerGroup { get; private set; }
 
 	/// <summary>
-	/// <c>mech+0x26b</c> — a countdown that holds the radar off. Nothing found writes it, so an AI
-	/// machine's radar comes on the moment it enters a fight.
+	/// <c>mech+0x26b</c> — a countdown that holds the radar off. <c>Mech_DirectFireHitTest</c> loads it
+	/// with <see cref="RadarSilenceOnArmHit"/> when an anti-radiation round lands: the machine goes
+	/// dark and stays dark long enough for the seeker to lose it. See docs/simulation/ai-weapons.md.
 	/// </summary>
-	public int RadarSilenceTimer => 0;
+	public short RadarSilenceTimer { get; private set; }
+
+	/// <summary>How long an ARM hit holds an AI machine's radar off — the original's own 6000.</summary>
+	public const short RadarSilenceOnArmHit = 6000;
+
+	/// <summary>
+	/// <c>Mech_DirectFireHitTest</c>'s radar reaction, which runs on a hit against any machine but the
+	/// player's. A round of the two radar-guided launcher classes lights the target's scanner up; an
+	/// anti-radiation round (class 2) shuts it down and silences it, which is the whole point of the
+	/// weapon.
+	/// </summary>
+	private void RadarReactionToHit(short weaponClass) {
+		if (LocallyPiloted) {
+			return;
+		}
+
+		if (weaponClass is 0 or 1) {
+			if (RadarSilenceTimer == 0) {
+				Scanner = true;
+			}
+		} else if (weaponClass == 2) {
+			Scanner = false;
+			RadarSilenceTimer = RadarSilenceOnArmHit;
+		}
+	}
 
 	/// <summary>
 	/// <c>mech+0xb2</c> — keeps a player squadmate's radar active where it would otherwise be forced
@@ -664,6 +690,10 @@ public partial class MechObject {
 		int complaint = ComplaintCooldown;
 		SimMath.TimerCountDown(ref complaint);
 		ComplaintCooldown = complaint;
+
+		short silence = RadarSilenceTimer;
+		SimMath.CountdownTimerTick(ref silence);
+		RadarSilenceTimer = silence;
 
 		int underFire = UnderFireWindow;
 		if (SimMath.TimerCountDown(ref underFire) == 0) {

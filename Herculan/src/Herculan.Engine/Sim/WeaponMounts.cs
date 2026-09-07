@@ -133,6 +133,17 @@ public sealed class WeaponMounts {
 	/// makes linking visible: both rows light together. <c>FUN_00410b40</c> computes exactly this and
 	/// pushes it to each row's gauge.
 	/// </summary>
+	/// <summary>
+	/// <c>Mech_ConvergeGunsOnRange</c>'s loop — every mount toed in on the range the turret is aiming
+	/// at. Run from <see cref="MechObject.TorsoPitchTick"/>, so it happens for the player and the AI
+	/// alike; see docs/simulation/ai-weapons.md.
+	/// </summary>
+	internal void ConvergeOnRange(MechObject owner, int range) {
+		foreach (var mount in Mounts) {
+			mount.ConvergeOnRange(owner, range);
+		}
+	}
+
 	public bool IsArmedRow(int mountIndex) {
 		if (mountIndex == Selected) {
 			return true;

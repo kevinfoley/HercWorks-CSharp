@@ -44,14 +44,13 @@ A function typed `MechObject *` decompiles with named field accesses and at leas
 
 ## Left undone
 
-- **The flyer table (`0049a5e0`) and the five structure vtables `Base_Construct` switches between are not in `known_vtables.json`.** The flyer is fully dumped and is the same 34-slot shape as `SimObjectVtable` — a two-line change whenever wanted.
 
 ## Gotchas that cost time here
 
 - **`ES2DumpVtable` resolves any valid address.** The word after a vtable's last slot is often a pointer into an adjacent class-descriptor record — `0046b7c8` and `0040c3d8` both resolve and disassemble fine and are neither functions nor slots. A plausible code address is not evidence of a slot. Check for a function prologue and for an actual call site.
 - **`ES2DisasmRange` and `ES2FindFieldRefs` parse lengths with `Integer.parseInt`**, so a `0x40` argument throws. Pass decimal.
-- **Line endings differ by file type in the working tree.** The `known_*.json` files are LF and carry a UTF-8 BOM (read them with `utf-8-sig`); the `.java` files are CRLF. A patch script that matches on a bare newline silently finds nothing in a `.java`. Normalise on read, restore on write, and always use `read_bytes`/`write_bytes` — `write_text` rewrites the endings.
-- **Editing a JSON by round-tripping it through `json.dumps` reformats the whole file.** `known_vtables.json` is hand-formatted one slot per line and comes back as a 250-line diff. Match and replace on the raw text instead, and check `git diff --stat` before moving on.
+- **Assume nothing about line endings; normalise on read and restore on write.** The repo stores LF, but git checks these files out as CRLF, so a file's endings change the moment git touches it — a patch script that matched yesterday can silently match nothing today. Scratchpad `.py` files are written CRLF too, which breaks a multi-line triple-quoted search string; build those with an explicit newline join. `known_*.json` also carries a UTF-8 BOM, so read with `utf-8-sig` and always use `read_bytes`/`write_bytes`.
+- **Editing a JSON by round-tripping it through `json.dumps` reformats the whole file.** `known_vtables.json` is hand-formatted one slot per line and comes back as a 250-line diff. Match and replace on the raw text instead, and check `git diff --stat` before moving on. Validate the spliced text with `json.loads` **before** writing it — a bad splice that reaches disk costs a `git checkout` to undo.
 - **`tools/gh.sh` greps its output and truncates at 20 lines.** For a script that prints more than that, call `analyzeHeadless.bat` directly with your own filter.
 - **One bad `.java` in `-scriptPath` breaks every script in the directory** with a misleading OSGi error. If everything suddenly fails, suspect the file you just added, not the environment.
 - **Heredocs into the Bash tool are unreliable for long Python** — they eat a backslash level, so an escaped quote inside a string quietly changes it and a match that should hit will miss. Write the script to the scratchpad and run it by path.

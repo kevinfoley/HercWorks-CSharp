@@ -88,6 +88,36 @@
           "address": "0049a282",
           "label": "MechVtable",
           "description": "The HERC class. Installed by Mech_Constructor (00415bb0) at 00415c60, after the base table. Overrides 26 of the 34 slots; the table ends at +0x88, where a data block of literals begins."
+        },
+        {
+          "address": "0049a5e0",
+          "label": "FlyerVtable",
+          "description": "The flyer class. Installed by Flyer_Constructor (004215f4) at 00421624, after the base table. Same 34-slot shape as the base; it is a sibling of the mech rather than a subset -- its objects come from a different pool and are 0x291 bytes to the mech's 0x36a."
+        },
+        {
+          "address": "00497940",
+          "label": "StructureVtable",
+          "description": "The structure base class, and the concrete class for a plain building: BASES.DAT types 0-4, 7, 9, 0x0c-0x1c, 0x1f, 0x21 and 0x24-0x2c. Base_Construct (00405314) installs it FIRST in every one of its five branches and the other four tables then overwrite it, so those four are derived from this one. Its +0x3c returns the shared 00411a5c zero stub -- a plain building has no aim angle -- and Base_Construct sets disarmed (+0xa5) on it at spawn."
+        },
+        {
+          "address": "004979d4",
+          "label": "StructureRadarVtable",
+          "description": "BASES.DAT types 5, 6, 0x1d and 0x1e. Derived from StructureVtable, and the only slot it overrides is the destructor -- its think and its aim angle are the plain building's. What makes it a radar mast is the construction, not the table: Base_Construct latches scannerActive (+0x96) on, and disarmed (+0xa5) with it."
+        },
+        {
+          "address": "004978ac",
+          "label": "StructureArmedVtable",
+          "description": "BASES.DAT types 8, 0x0b, 0x20 and 0x23, and the parent of StructureEmplacementVtable. Derived from StructureVtable. THIS IS THE CLASS THAT AIMS: it replaces the +0x3c zero stub with Base_GetTurretAngle (00403594), which returns the structure's own angle at +0x20f, and its think (FUN_00404100) maintains the selected-target refcount at +0x1a2. Base_Construct does not set disarmed on it, which is the same conclusion reached from the other direction."
+        },
+        {
+          "address": "00497818",
+          "label": "StructureEmplacementVtable",
+          "description": "BASES.DAT types 0x2d-0x3d, the types Base_Construct classifies as targetClass 3 and gives a hit radius of 10 rather than 5. Derived from StructureArmedVtable -- Base_Construct installs StructureVtable, then StructureArmedVtable, then this -- so it inherits the turret angle and overrides only the destructor and the think (FUN_0046a5d0)."
+        },
+        {
+          "address": "00497784",
+          "label": "StructureType0x22Vtable",
+          "description": "BASES.DAT type 0x22 alone. Derived from StructureVtable, overriding the destructor and the think (FUN_004045c8), which latches disarmed (+0xa5) once every one of the type's components has been destroyed -- so this class starts armed and can lose it, where a plain building is born disarmed. It does not override the aim angle. The role of the type is not established; the label names the type index rather than guessing one."
         }
       ]
     },

@@ -10125,6 +10125,15 @@
       "name": "SimObjectBase_Constructor",
       "description": "The shared base-object constructor helper every SimObject-derived class calls immediately after storing its own vtable pointer. The common prefix of the object layout is initialised here.",
       "source": "docs/engine/planning.md 'Simulation object architecture'"
+    },
+    {
+      "address": "00403594",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_GetTurretAngle",
+      "description": "Structure vtable +0x3c: returns the short at structure+0x20f, the aim offset the sensor and target-selection arcs are measured from on top of the heading. Only StructureArmedVtable (004978ac) and StructureEmplacementVtable (00497818) install it; the plain building, the radar mast and the flyer all keep the shared 00411a5c zero stub. Which class installs this is what separates a structure that aims from one that does not.",
+      "source": "tools/ghidra_scripts/known_vtables.json; slot diff across the five Base_Construct tables"
     }
   ]
 }

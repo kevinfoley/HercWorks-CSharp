@@ -35,10 +35,16 @@ root (004a0b98)                     ── SimObjectBase_Constructor (00402188)
     └── SimObject (0049a54c)
         ├── MechObject  (0049a282)  ── Mech_Constructor  (00415bb0)
         ├── FlyerObject (0049a5e0)  ── Flyer_Constructor (004215f4)
-        └── structure   (five type-switched tables) ── Base_Construct (00405314)
+        └── StructureVtable (00497940)         ── Base_Construct (00405314)
+            ├── StructureRadarVtable    (004979d4)
+            ├── StructureType0x22Vtable (00497784)
+            └── StructureArmedVtable    (004978ac)
+                └── StructureEmplacementVtable (00497818)
 ```
 
-The structure branch is the odd one: `Base_Construct` switches on the BASES.DAT type index and installs one of five vtables (`00497784`, `00497818`, `004978ac`, `00497940`, `004979d4`), all layered on the same `SimObjectBaseVtable` shape.
+The structure branch is the odd one: `Base_Construct` switches on the BASES.DAT type index. **Every branch installs `StructureVtable` first and then overwrites it**, which is what establishes the four others as derived from it — and the emplacement branch installs three in a row, so that class is two levels down. All five are the same 34-slot shape.
+
+Only three slots differ across the five, which is the fastest way to see what separates them: the destructor, `ThinkTick` (`+0x18`), and `GetTorsoTwistAngle` (`+0x3c`). **That last one is the armed/unarmed line.** `StructureArmedVtable` and `StructureEmplacementVtable` install `Base_GetTurretAngle` (`00403594`), which returns a real aim angle from `structure+0x20f`; the plain building and the radar mast keep the shared `00411a5c` zero stub. That agrees with `Base_Construct` setting `disarmed` (`+0xa5`) at spawn on exactly the two that keep the stub.
 
 ## Sizes come from the pool, not from the highest known offset
 
@@ -98,6 +104,8 @@ None of the three means "removed from the simulation". Which subset a test reads
 | `+0xa4` is "removed" and `+0xa5` is "destroyed" | `+0xa4` is written where a machine loses its legs and a RAZOR loses its fuselage, and the flyer's position integration refuses to run while it is set — it is *immobilised*. `+0xa5` is written by the weapon chooser and by `Base_Construct` for unarmed structure types — it is *disarmed*. `+0x99` is the one the damage paths write. |
 
 ## Open questions
+
+- **The word at `+0x88`, just past the last slot.** Every one of these tables sits on a uniform `0x94` stride — 34 slots, then one code address, then eight zero bytes — and the code address is in the same thunk block as the class's destructor (`00427xxx` for the object classes, `00406xxx` for the structures). That is suggestive, but across the 116 simulation functions that take an object, the highest slot anything calls through is `+0x7c`. Nothing calls `+0x88`, so it stays outside the definition.
 
 - **What `obj+0x92` is in the source.** Whether it is a sub-object the compiler is addressing or just a base register it chose is not settled, so `known_structs.json` places those bytes at their absolute offsets rather than inside an invented struct.
 - **What class `004a0b98` is.** The projectile base derives from it and `SimObjectBase_Constructor` installs it, but the `0046bxxx` block its slots point into is shared engine code and none of it is named.

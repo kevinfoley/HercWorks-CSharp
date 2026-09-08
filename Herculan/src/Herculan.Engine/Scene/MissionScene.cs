@@ -381,7 +381,7 @@ public sealed class MissionScene {
 		// they wait for the action states, which are built above.
 		foreach (var placed in objects) {
 			placed.Object.EngagementAction = ActionAt(actions, placed.Placement.EngagementActionRef);
-			placed.Object.LossAction = ActionAt(actions, placed.Placement.LossActionRef);
+			placed.Object.DefeatAction = ActionAt(actions, placed.Placement.DefeatActionRef);
 		}
 
 		world.PlayerMech = playerObject?.Object as MechObject;

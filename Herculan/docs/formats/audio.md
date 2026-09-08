@@ -291,7 +291,9 @@ at all and are never opened.
 
 `0x33` is not the flamer: it is the burning-object loop, started by the first live
 [`FireEffect`](../simulation/destruction-effects.md#fire) and stopped by the last, and kept
-positioned on whichever fire is nearest the camera.
+positioned on whichever fire is nearest the camera — see
+[`../simulation/destruction-effects.md`](../simulation/destruction-effects.md#where-the-shared-sound-is-heard)
+for how that one is picked.
 
 This resolves the sound ids scattered through the other docs: `0x0b` is `laser1.wav`, the beam muzzle
 sound of [`../simulation/weapon-firing.md`](../simulation/weapon-firing.md); `0x16` the target-lost

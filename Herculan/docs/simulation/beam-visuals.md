@@ -23,7 +23,7 @@ exception-frame state, not data.
 
 ## The tracer object — `BeamTracer_Ctor` (`0040b804`)
 
-Constructed as `(obj, subtypeId, startPoint, endPoint, owner)`; vtable `PTR_FUN_004987c4`, type 3.
+Constructed as `(obj, subtypeId, startPoint, endPoint, owner)`; vtable `BeamTracerVtable` (`004987c4`), type 3.
 
 | Field | Meaning |
 |---|---|

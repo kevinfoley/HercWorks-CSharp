@@ -349,7 +349,7 @@ public sealed class BaseObject : SimObject {
 	/// <param name="attacker">Who fired, recorded on the component that falls.</param>
 	/// <param name="world">
 	/// The running world, when the caller has one — needed only so the structure can fire its own
-	/// mission action the moment it is destroyed. See <see cref="SimObject.LossAction"/>.
+	/// mission action the moment it is destroyed. See <see cref="SimObject.DefeatAction"/>.
 	/// </param>
 	public void ApplyDamage(SimRandom random, int componentIndex, int damage, SimObject? attacker,
 			SimWorld? world = null) {
@@ -393,9 +393,9 @@ public sealed class BaseObject : SimObject {
 			_destroyed = true;
 
 			// And the structure's own mission action, where Base_ApplyDamage fires it. See
-			// SimObject.LossAction.
+			// SimObject.DefeatAction.
 			if (world != null) {
-				FireLossAction(world);
+				FireDefeatAction(world);
 			}
 		}
 

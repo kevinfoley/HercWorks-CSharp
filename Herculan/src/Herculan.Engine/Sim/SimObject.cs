@@ -5,13 +5,10 @@ namespace Herculan.Engine.Sim;
 
 /// <summary>
 /// What an object counts as when something is deciding whether to shoot it — the shared
-/// <c>obj+0x1a8</c> that every constructor writes and every target filter reads.
-///
-/// <para>The values are the constructors' own literals: <c>Mech_Constructor</c> (<c>00415bb0</c>)
-/// writes 0, <c>Flyer_Constructor</c> (<c>004215f4</c>) writes 2, and <c>Base_Construct</c>
-/// (<c>00405314</c>) writes 1 for every structure except its last group of types (<c>0x2d</c>-
-/// <c>0x3d</c>), which get 3. All three constructors write <see cref="None"/> first and overwrite
-/// it, so an object that never finishes construction stays unclassified.</para>
+/// <c>obj+0x1a8</c> that every constructor writes and every target filter reads. Every constructor
+/// writes <see cref="None"/> first and overwrites it, so an object that never finishes construction
+/// stays unclassified. Which type gets which class is in docs/simulation/target-selection.md,
+/// "Object classification".
 /// </summary>
 public enum TargetClass : short {
 	/// <summary>Unclassified — the <c>0xffff</c> every constructor starts from.</summary>
@@ -27,27 +24,20 @@ public enum TargetClass : short {
 	Flyer = 2,
 
 	/// <summary>
-	/// The second structure family — <c>BASES.DAT</c> types <c>0x2d</c>-<c>0x3d</c>, which get a
+	/// The second structure family — the <c>BASES.DAT</c> types <c>Base_Construct</c> gives a
 	/// further-derived class of their own and a hit radius of 10 rather than 5.
 	/// </summary>
 	Emplacement = 3
 }
 
 /// <summary>
-/// Base class for everything the simulation ticks — mechs, projectiles, flyers. This is the
-/// traditional OOP / virtual-dispatch model docs/engine/planning.md settles on instead of ECS, and
-/// the choice is grounded in RE evidence rather than a guess about 1996-era convention: DBSIM's own
-/// simulation objects are built on a shared base-object constructor (<c>FUN_00402188</c>) called by
-/// every derived class right after its vtable pointer is set, with a 34-slot vtable for the Mech
-/// class and smaller 6–9-slot ones for rockets and bullets.
+/// Base class for everything the simulation ticks — mechs, projectiles, flyers. Traditional OOP
+/// and virtual dispatch rather than ECS, mirroring the vtable shape of DBSIM's own simulation
+/// objects: see docs/engine/planning.md, "Simulation object architecture", for the evidence.
 ///
-/// <para>Only the slots the engine currently needs are declared. Several more are already
-/// identified in the disassembly — direct-fire hit-test-and-damage (<c>+0x20</c>), the shield
-/// charge getter (<c>+0x34</c>), the AI "I just took fire" notification (<c>+0x50</c>), the
-/// lock-on tracking-handle request (<c>+0x54</c>) and the shared component health write
-/// (<c>+0x74</c>) — but declaring them before combat exists would only mean stubbing them on every
-/// subclass. They get added alongside the systems that call them; the point
-/// of recording the shape here is that when that happens it is a translation, not a redesign.</para>
+/// <para>Only the slots the engine currently needs are declared. The rest are identified in the
+/// disassembly and get added alongside the systems that call them, so that each arrives as a
+/// translation rather than a redesign.</para>
 /// </summary>
 public abstract class SimObject {
 	/// <summary>Position in world units, X/Y on the ground plane and Z up (see <see cref="Vec3i"/>).</summary>
@@ -58,7 +48,7 @@ public abstract class SimObject {
 
 	/// <summary>
 	/// <c>obj+0x4b</c> — this object's slot in the world's single live-object list, written by
-	/// <c>ObjectList_Add</c> (<c>FUN_00411dd4</c>) as the object joins it and never changed after.
+	/// <c>ObjectList_Add</c> (<c>00411dd4</c>) as the object joins it and never changed after.
 	///
 	/// <para>It is not a diagnostic: it is the index everything that keeps a <i>per-object</i> table
 	/// uses to address a row. <see cref="Detects"/> is one such table and the line-of-sight cache
@@ -91,13 +81,10 @@ public abstract class SimObject {
 	public MissionGroup? Group { get; internal set; }
 
 	/// <summary>
-	/// Whether this object is out of the fight — the <c>obj+0x99 || obj+0xa4</c> pair the target
-	/// filter (<c>FUN_00433174</c>), the detection sweep (<c>FUN_004128f8</c>) and the AI's
-	/// "is my target finished" check (<c>Ai_ShouldAbandonTarget</c>) all spell out identically.
-	///
-	/// <para>The AI's own copies of the test add a third flag, <c>obj+0xa5</c>, which nothing found
-	/// so far writes — see docs/simulation/ai-targeting.md, "Open questions". Treating it as always
-	/// clear is what makes this property the AI's test too.</para>
+	/// Whether this object is out of the fight — the <c>obj+0x99 || obj+0xa4</c> pair that
+	/// <c>TargetSelect_CanTarget</c> (<c>00433174</c>), <c>Detection_Sweep</c> (<c>004128f8</c>) and
+	/// the AI's <c>Ai_ShouldAbandonTarget</c> all spell out identically. The AI's own copies add a
+	/// third flag — see <see cref="OutOfAction"/>.
 	///
 	/// <para>Both halves count, which is worth saying plainly: a HERC whose legs are gone is no
 	/// longer selectable even though it is still standing, still shooting and still solid. That is
@@ -141,10 +128,10 @@ public abstract class SimObject {
 
 	/// <summary>
 	/// <c>obj+0x96</c> — whether this object's active scanner is running. The pilot toggles it
-	/// (<c>FUN_0041b468</c>); <c>Base_Construct</c> latches it on for structure types 5, 6,
-	/// <c>0x1d</c> and <c>0x1e</c>, which is what makes those buildings radar masts. It both extends
-	/// what this object can see and makes it visible at range to everything else, and it is one of
-	/// the two emissions the anti-radiation missile homes on.
+	/// (<c>Mech_ToggleRadarMode</c>, <c>0041b468</c>); <c>Base_Construct</c> latches it on for
+	/// structure types 5, 6, <c>0x1d</c> and <c>0x1e</c>, which is what makes those buildings radar
+	/// masts. It both extends what this object can see and makes it visible at range to everything
+	/// else, and it is one of the two emissions the anti-radiation missile homes on.
 	/// </summary>
 	public virtual bool ScannerActive => false;
 
@@ -157,14 +144,14 @@ public abstract class SimObject {
 
 	/// <summary>
 	/// <b>Where this object is aimed at</b> — vtable <c>+0x24</c>, which both guidance routines
-	/// (<c>Rocket_HomingSteer</c> <c>0040a254</c>, <c>Bullet_HomingSteer</c> <c>0040aff0</c>) and the
-	/// HUD's target indicator (<c>FUN_0041b728</c>) take instead of the object's position.
+	/// (<c>Rocket_HomingSteer</c>, <c>0040a254</c>; <c>Bullet_HomingSteer</c>, <c>0040aff0</c>) and
+	/// the HUD's target indicator (<c>Player_ResolveTargetAimPoint</c>, <c>0041b728</c>) take
+	/// instead of the object's position.
 	///
-	/// <para>The base returns the origin, and for two of the three shootable classes that is the
-	/// whole story: the flyer and structure classes both install <c>FUN_00411a9c</c> in that slot,
-	/// which is <c>return 0</c>, and every caller's null branch falls back to the raw origin. Only
+	/// <para>The base returns the origin, which is what a flyer and a structure both keep. Only
 	/// <see cref="MechObject"/> overrides it — see there for which node it names and why aiming at a
-	/// HERC's position puts a missile between its feet.</para>
+	/// HERC's position puts a missile between its feet, and docs/simulation/target-selection.md,
+	/// "Aim point", for the fallback every caller shares.</para>
 	/// </summary>
 	public virtual Vec3i AimPoint => Position;
 
@@ -174,9 +161,9 @@ public abstract class SimObject {
 	/// <i>model-space</i> Z. <see cref="Detection.LineOfSight"/> raises both ends of its terrain ray
 	/// by it.
 	///
-	/// <para>The base is <c>FUN_00412608</c>'s own literal 500, used whenever that slot returns
-	/// nothing — so a flyer and a structure always sight from 500 and only a HERC sights from its own
-	/// geometry.</para>
+	/// <para>The base is <c>Detection_LineOfSight</c>'s (<c>00412608</c>) own literal 500, used
+	/// whenever that slot returns nothing — so a flyer and a structure always sight from 500 and only
+	/// a HERC sights from its own geometry.</para>
 	/// </summary>
 	public virtual int SightHeight => Detection.DefaultSightHeight;
 
@@ -286,8 +273,8 @@ public abstract class SimObject {
 
 	/// <summary>
 	/// Whether the object is still part of the simulation. DBSIM's per-frame tick
-	/// (<c>FUN_0045f464</c>) walks its global object lists and skips entries flagged removed rather
-	/// than compacting the list mid-walk; <see cref="SimWorld"/> does the same.
+	/// (<c>Sim_MainTick</c>, <c>0045f464</c>) walks its global object lists and skips entries flagged
+	/// removed rather than compacting the list mid-walk; <see cref="SimWorld"/> does the same.
 	/// </summary>
 	public bool Removed { get; set; }
 
@@ -314,16 +301,15 @@ public abstract class SimObject {
 	public MissionActionState? EngagementAction { get; set; }
 
 	/// <summary>
-	/// <c>obj+0x1b6</c> — the mission action this object fires when it is <b>lost</b>, from its own
-	/// roster record. Four sites fire it and they are the four ways an object stops being a threat:
-	/// a machine, a flyer or a structure being destroyed, and a machine running out of working
-	/// weapons — which is <see cref="OutOfAction"/>'s own pair of conditions.
+	/// <c>obj+0x1b6</c> — the mission action this object fires when it is <b>defeated</b>, from its
+	/// own roster record. Four sites fire it and they are the four ways an object stops being a
+	/// threat: a machine, a flyer or a structure being destroyed, and a machine running out of
+	/// working weapons. <b>It is not a death action</b>, which is why it is not named for one.
 	///
 	/// <para><b>This is how a retail mission chains its waves</b>: defeating the machine in front of
 	/// the player is what brings the next group in. See docs/simulation/mission-deployment.md.</para>
 	/// </summary>
-	// TODO: consider renaming to "DefeatedAction"
-	public MissionActionState? LossAction { get; set; }
+	public MissionActionState? DefeatAction { get; set; }
 
 	/// <summary>
 	/// <c>obj+0x9e</c> — whether this object has been closed with by an enemy that can see it. Set by
@@ -340,11 +326,11 @@ public abstract class SimObject {
 	internal void FireEngagementAction(SimWorld world) => EngagementAction?.Fire(world);
 
 	/// <summary>
-	/// Fires <see cref="LossAction"/>, if there is one. Every site guards on the object not already
+	/// Fires <see cref="DefeatAction"/>, if there is one. Every site guards on the object not already
 	/// being in that state, so it goes off once — and <see cref="MissionActionState.Fire"/> is
 	/// one-shot regardless.
 	/// </summary>
-	internal void FireLossAction(SimWorld world) => LossAction?.Fire(world);
+	internal void FireDefeatAction(SimWorld world) => DefeatAction?.Fire(world);
 
 	/// <summary>
 	/// The object's body radius, in world units. The blast sweep subtracts it from every candidate's
@@ -394,12 +380,11 @@ public abstract class SimObject {
 	/// Vtable <c>+0x20</c> — <b>the hit test and the damage application are the same call</b>, which
 	/// is the shape of the original and not a shortcut here: <c>Sim_RaycastObjectList</c>
 	/// (<c>00426528</c>) offers each live object the shot and the object decides both whether it was
-	/// struck and what that did to it. See <c>Mech_DirectFireHitTest</c> (<c>00418ba8</c>) for the
-	/// only implementation that exists.
+	/// struck and what that did to it.
 	///
-	/// <para>The base returns "missed"; <see cref="MechObject"/>, <see cref="BaseObject"/> and
-	/// <see cref="FlyerObject"/> each override it with the original's own — see
-	/// docs/simulation/hit-detection.md.</para>
+	/// <para>The base returns "missed"; <see cref="MechObject"/> (<c>Mech_DirectFireHitTest</c>,
+	/// <c>00418ba8</c>), <see cref="BaseObject"/> and <see cref="FlyerObject"/> each override it with
+	/// the original's own — see docs/simulation/hit-detection.md.</para>
 	///
 	/// <para>The world is passed because a hit is more than a number: an implementation spawns the
 	/// shot's impact effect from in here, which is where the original spawns it too — see

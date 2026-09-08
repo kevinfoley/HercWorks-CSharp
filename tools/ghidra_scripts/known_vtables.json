@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "_readme": [
+    "Vtable layouts for DBSIM.EXE's simulation-object class hierarchy, applied to the Ghidra",
+    "project by ES2ApplyVtables.java (tools/ghidra_scripts/). Re-run that script after adding",
+    "entries here -- it is idempotent.",
+    "",
+    "This is the companion to known_symbols.json, which owns address->function findings. This file",
+    "owns the SHAPE of a class: which slot means what, and which addresses hold a table of that",
+    "shape. A slot's meaning is recorded once here rather than once per doc that happens to call",
+    "through it.",
+    "",
+    "Per vtable definition:",
+    "  name        - Ghidra data-type name, created under category /ES2.",
+    "  binary      - 'VSHELL' or 'DBSIM' (must match the -process file name at apply time).",
+    "  description - what the class is; becomes the data type's description.",
+    "  slots       - ordered, one per 4-byte slot, starting at +0x0 with no gaps. Each has:",
+    "                  name        - the slot's ROLE, not any one class's implementation name.",
+    "                                A slot whose meaning is not established is named",
+    "                                'slot_0xNN' -- never given a guessed role name, so a guess",
+    "                                can never masquerade as a confirmed one (the same rule",
+    "                                known_symbols.json applies to low-confidence functions).",
+    "                  description - evidence and the implementations seen in it.",
+    "  instances   - the addresses holding a table of this shape. Each has an 'address', a 'label'",
+    "                naming that particular class's table, and a 'description'.",
+    "",
+    "SLOT COUNT IS A FINDING, NOT A GUESS. A table is followed in memory by whatever the linker",
+    "put next, and an over-long definition would type that as function pointers -- a fabrication",
+    "that reads as confirmed. A definition's length is established by call sites and by what the",
+    "trailing words actually are, and the bytes past it are left undefined. A plausible-looking",
+    "code address in the word after the last slot is not evidence: two of the tables here hold a",
+    "pointer into a class-descriptor record there, which resolves and disassembles like anything",
+    "else. Growing a definition later costs nothing; a wrong one has to be noticed first.",
+    "",
+    "NO SIGNATURES. Each slot becomes a function definition with the default (undefined) return and",
+    "no declared parameters -- the least the shape can claim. Argument",
+    "lists are a separate, per-function finding: record one in known_symbols.json's 'signature'",
+    "field, under the rule stated there, not here."
+  ],
+  "vtables": [
+    {
+      "name": "SimObjectVtable",
+      "binary": "DBSIM",
+      "description": "The 34-slot vtable every full simulation object carries -- the base class, the mech class and the flyer class all lay their tables out this way. Its first six slots are ProjectileVtable's, unchanged, so the two hierarchies share a base interface: slots +0x4, +0xc and +0x10 hold the same three functions (0046b801, 004785bf and SimObject_GetShapeRadius) in every table in this file. Slot names are the base class's roles; see the individual instances for what overrides what. The port of this interface is Herculan.Engine.Sim.SimObject.",
+      "slots": [
+        { "offset": 0,   "name": "Draw",                  "description": "Draw the object. Base installs Shape_DrawAtDetailLevel (004033e4); the mech overrides with Mech_Draw (004174c8)." },
+        { "offset": 4,   "name": "slot_0x04",             "description": "0046b801 in every table seen -- base, mech, flyer and all four projectile classes. Role not established." },
+        { "offset": 8,   "name": "Destructor",            "description": "Per-class destructor thunk in the 00427xxx block: base 00427081, mech 00427127, flyer 004271bf. None is a defined function in the database yet." },
+        { "offset": 12,  "name": "slot_0x0c",             "description": "004785bf in every table seen. Role not established." },
+        { "offset": 16,  "name": "GetShapeRadius",        "description": "SimObject_GetShapeRadius (0046b80c) in every table -- reads the radius off the instanced shape rather than any type record. Ported as SimObject.ShapeRadius; see docs/simulation/hit-detection.md." },
+        { "offset": 20,  "name": "Tick",                  "description": "The object's per-tick update. The mech installs Behaviour_DispatchMove (00415afc), which forwards to the current behaviour class rather than moving anything itself; the projectile classes install their own TickUpdate in the same slot." },
+        { "offset": 24,  "name": "ThinkTick",             "description": "Mech: Behaviour_DispatchThink (00415b38). Second of the three behaviour-class dispatchers; see docs/simulation/ai-dispatch.md." },
+        { "offset": 28,  "name": "ReassessTick",          "description": "Mech: Behaviour_DispatchReassess (00415b74). Third behaviour-class dispatcher." },
+        { "offset": 32,  "name": "DirectFireHitTest",     "description": "Hit test AND damage application in one call, offered to each candidate by Sim_RaycastObjectList (00426528). Mech_DirectFireHitTest (00418ba8), Flyer_DirectFireHitTest (00421c8c); the base answers the shared 00496684 stub. See docs/simulation/damage-system.md and hit-detection.md." },
+        { "offset": 36,  "name": "GetAimNodeTransform",   "description": "The node transform a shot aims at: its +0x14 is the aim point and its +0x1c the sight height. Mech_GetAimNodeTransform (00417b98); base and flyer both install SimObject_GetAimNodeTransform_None (00411a9c), which returns 0 so every caller falls back to the raw origin. See docs/simulation/target-selection.md, 'Aim point'." },
+        { "offset": 40,  "name": "slot_0x28",             "description": "Base 00411a64, mech 00420ad4, flyer 00411a64. Role not established." },
+        { "offset": 44,  "name": "HandleCommand",         "description": "Mech_HandleCommand (004157c8). Base and flyer install generic stubs (00411a6c / 004215c0)." },
+        { "offset": 48,  "name": "slot_0x30",             "description": "Base 00411a74, mech 004155c4. Role not established." },
+        { "offset": 52,  "name": "GetShieldByHeading",    "description": "Given a heading, returns the front or rear shield by which side is within +/-90 degrees. Mech_GetShieldByHeading (004154d0); base and flyer both answer the 00411a4c stub, i.e. zero. Ported as SimObject.ShieldByHeading." },
+        { "offset": 56,  "name": "GetSpeed",              "description": "How fast the object is travelling, in the units the rest of the simulation quotes distances in. Mech_GetSpeed (00415498). Ported as SimObject.TravelSpeed -- a structure answers zero, which is why the AI leads a shot at a machine and fires straight at a building." },
+        { "offset": 60,  "name": "GetTorsoTwistAngle",    "description": "The aim offset the sensor and target-selection arcs are measured from, on top of the heading. Mech_GetTorsoTwistAngle (00415488); zero for everything else. Ported as SimObject.AimTwist." },
+        { "offset": 64,  "name": "GetOverallDamage",      "description": "How far gone the object is, as a Q8 fraction: 0 pristine, 256 destroyed. Mech_GetOverallDamage (00415504). Read by the AI's flee check and the mission-order layer's condition tier. Ported as SimObject.OverallDamage." },
+        { "offset": 68,  "name": "BearingInSensorArc",    "description": "SimObject_BearingInSensorArc (00411acc) in base, mech and flyer alike -- not overridden by any class seen." },
+        { "offset": 72,  "name": "AiEnemySighted",        "description": "Mech_AiEnemySighted (00412800); base and flyer share 004127f8. Called out of the detection sweep." },
+        { "offset": 76,  "name": "CompareCombatRating",   "description": "Mech_CompareCombatRating (0041cabc). Base and flyer answer the 00411ac0 stub." },
+        { "offset": 80,  "name": "AiOnTakingFire",        "description": "Called with (attacker, damage) when something hits this object; applies no damage of its own. Mech_AiOnTakingFire (0041f7b8). Base and flyer install Mech_ShareContact (00411aec), which does the contact-sharing half only. See docs/simulation/ai-targeting.md." },
+        { "offset": 84,  "name": "ComponentNearestAim",   "description": "Which component a shot or a seeker should aim at. Mech_ComponentNearestAim (0041b534); the rocket seeker calls it through the target to fill its steer point (docs/simulation/rockets.md), and a structure's implementation returns its first surviving component (docs/simulation/ai-weapons.md)." },
+        { "offset": 88,  "name": "ComponentPosition",     "description": "Places the component ComponentNearestAim chose, in world space. Mech_ComponentPosition (0041b60c). Also the per-component position the explosive falloff measures from." },
+        { "offset": 92,  "name": "GetBodyRadius",         "description": "Mech_GetBodyRadius (00415518) -- the flat 750 of MechTypeRecord.BodyRadius. Ported as SimObject.HitRadius; distinct from GetShapeRadius. See docs/simulation/hit-detection.md, 'The three radius slots'." },
+        { "offset": 96,  "name": "slot_0x60",             "description": "Base 00411b2c, mech 00415710. Role not established." },
+        { "offset": 100, "name": "AiOnLineOfFireBlocked", "description": "Mech_AiOnLineOfFireBlocked (0041dd2c): copies the machine's current target position to mech+0x31e and sets mech+0xad. Called from the tail of Sim_RaycastObjectList. See docs/simulation/ai-combat-states.md." },
+        { "offset": 104, "name": "slot_0x68",             "description": "0042200c in base, mech and flyer alike. Role not established." },
+        { "offset": 108, "name": "MissileLockState",      "description": "Mech_MissileLockState (004155ac): returns the per-missile-subtype LOCK flag, NOT an ammunition count. Rocket_Fire will not attach a target without it. See known_symbols.json's entry for 004155ac." },
+        { "offset": 112, "name": "ApplyExplosiveDamage",  "description": "What an explosion does to this object, called on every object the blast sweep finds in range. Mech_ApplyExplosiveDamage (004187d0); base and flyer share SimObject_ApplyExplosiveDamage (00411b3c). See docs/simulation/damage-system.md, 'Explosive damage'." },
+        { "offset": 116, "name": "ComponentDamageWrite",  "description": "The shared component-health write every damage path funnels into. Mech_ComponentDamageWrite (00417de4), Flyer_ComponentDamageWrite (00421bb4); both of the mech's death branches fire the object's defeat action from here. The base answers the 00496684 stub." },
+        { "offset": 120, "name": "ApplyFormationOffset",  "description": "Places a group member at its formation offset from the leader. Mech_ApplyFormationOffset (00417898); run over every non-leader member by Group_DeploymentCheck for the walk-on arrival verbs. See docs/simulation/mission-deployment.md." },
+        { "offset": 124, "name": "GetCollisionRadius",    "description": "The radius at which this object blocks a walking machine; zero means walk through me. Mech_GetCollisionRadius (0041552c). Ported as SimObject.CollisionRadius." },
+        { "offset": 128, "name": "slot_0x80",             "description": "Base 00411b1c, mech 00415558. Role not established." },
+        { "offset": 132, "name": "slot_0x84",             "description": "Base 00411b10, mech 00415540. Role not established." }
+      ],
+      "instances": [
+        {
+          "address": "0049a54c",
+          "label": "SimObjectBaseVtable",
+          "description": "The base class's own table, installed first by Mech_Constructor (00415bb0) at 00415bf4 before the mech's own replaces it at 00415c60. Most slots hold generic 00411axx stubs; the shared 00496684 stands in for the ones a bare object cannot answer."
+        },
+        {
+          "address": "0049a282",
+          "label": "MechVtable",
+          "description": "The HERC class. Installed by Mech_Constructor (00415bb0) at 00415c60, after the base table. Overrides 26 of the 34 slots; the table ends at +0x88, where a data block of literals begins."
+        }
+      ]
+    },
+    {
+      "name": "ProjectileVtable",
+      "binary": "DBSIM",
+      "description": "The six-slot table the projectile classes carry, and the interface SimObjectVtable's first six slots extend -- which is what lets the draw pass and the raycast walk a projectile and a machine the same way. SIX IS ESTABLISHED, not a floor, on four independent grounds. (1) No code in the class family's own region (0040a100-0040c500: all five constructors, destructors, tick and draw functions) calls any slot above +0x14 on itself. (2) The six CALL dword ptr [reg + 0x18] sites in that region are all the same deleting-destructor call on the MEMBER object at this+0x34, under a null check and with the flag argument 3 -- Bullet_Construct's destructor at 0040b6af and the base's at 0040c38d are byte-for-byte the same sequence -- so +0x18 belongs to that member's class, not this one. (3) The word after +0x14 is not a code pointer in two of the five tables: 00000001 in the bullet's, 00000000 in the beam tracer's. (4) Where it does look like one it is descriptor data -- the base's 0040c3d8 sits inside a class-descriptor record next to the string 'BEAM *', and the rocket's 0046b7c8 at the head of one whose name string is 'TSShapeInstance'; neither address has a function prologue and neither is reached by any call. The class 004a0b98, which the projectile base derives from, independently shows the same six slots followed by two null words before the next table begins.",
+      "slots": [
+        { "offset": 0,  "name": "Draw",           "description": "Bullet_Draw (0040a120) for the launcher round and the gun round alike; BeamTracer_Draw (0040bc14) for the beam class. See docs/simulation/beam-visuals.md." },
+        { "offset": 4,  "name": "slot_0x04",      "description": "0046b801, the same value SimObjectVtable's +0x04 holds. Role not established." },
+        { "offset": 8,  "name": "Destructor",     "description": "The deleting destructor: 0040ab8d (rocket), 0040b64d (bullet), BeamTracer_Dtor (0040ba94), 0040ad2c (the dead Type-3 class), 0040c324 (base), 0046b890 (the class the base derives from). Takes a flags argument whose low bit asks it to free the object, which it does through 0047743c. None is a defined function in the database yet." },
+        { "offset": 12, "name": "slot_0x0c",      "description": "004785bf, as in SimObjectVtable. Role not established." },
+        { "offset": 16, "name": "GetShapeRadius", "description": "SimObject_GetShapeRadius (0046b80c), shared with the full simulation objects." },
+        { "offset": 20, "name": "Tick",           "description": "Rocket_TickUpdate (0040a538), Bullet_TickUpdate (0040b124), BeamTracer_LifeTick (0040c2a0). The base answers the 00496684 stub. See docs/simulation/rockets.md and projectiles.md." }
+      ],
+      "instances": [
+        {
+          "address": "004a0b98",
+          "label": "ProjectileSuperBaseVtable",
+          "description": "The class the projectile base derives from: its destructor (0040c324) installs this table at 0040c353 after restoring its own, which is the ordinary base-before-teardown sequence. Six slots, then two null words before the next table of the same shape at 004a0bb8. Which class it is has not been established -- the 0046bxxx block its slots point into is shared engine code, and SimObject_GetShapeRadius (0046b80c) at +0x10 is the same function every table in this file holds there."
+        },
+        {
+          "address": "004987a0",
+          "label": "ProjectileBaseVtable",
+          "description": "The projectile base class's own table, installed first by both Missile_Construct (0040a948, at 0040a97a) and Bullet_Construct (0040af6c, at 0040af9e) before each derived table replaces it."
+        },
+        {
+          "address": "00498448",
+          "label": "RocketVtable",
+          "description": "The launcher round -- PROJ.DAT Type 0, 14-byte type table out of ROCKETS.DAT. Installed by Missile_Construct (0040a948) at 0040a99c. See docs/simulation/rockets.md."
+        },
+        {
+          "address": "00498628",
+          "label": "BulletVtable",
+          "description": "The travelling gun round -- PROJ.DAT Type 2, own 14-byte type table out of BULLETS.DAT. Installed by Bullet_Construct (0040af6c) at 0040afbe. See docs/simulation/projectiles.md."
+        },
+        {
+          "address": "004987c4",
+          "label": "BeamTracerVtable",
+          "description": "The beam tracer -- PROJ.DAT Type 3, both the straight beam and the jagged ELF/ELF2 chain. See docs/simulation/beam-visuals.md."
+        },
+        {
+          "address": "004984fc",
+          "label": "DeadBulletVtable",
+          "description": "DEAD CODE. The Type-3 constructor that builds against this table is never called, and its Tick slot is FUN_0040acb4 (return 0), so an instance would never move or die. Retail Type-3 records are unreachable data -- see known_symbols.json's entry for that constructor. Typed here so the table is not mistaken for a live class later."
+        }
+      ]
+    }
+  ]
+}

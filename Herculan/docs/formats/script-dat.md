@@ -85,13 +85,13 @@ Per record type, what pass 2 reads (offsets into the exported record, not the `.
 | | | `0x42`-`0x69` | two more 10-slot arrays → `FUN_00411b90` |
 | | | `0x6a`-`0x7d` | ammunition type, 10 slots, paired with the weapon fit → `Mech_ConfigureLoadout`'s second array. Only the four launchers read it; every other slot carries the filler 5 |
 | | | `0x80` | ref → block 5 — the action this machine fires when it is **engaged** (`mech+0x1b2`) |
-| | | `0x82` | ref → block 5 — the action it fires when it is **lost** (`mech+0x1b6`). Five of the shipped mission's ten mech records carry one, and that is what chains its reinforcement waves |
+| | | `0x82` | ref → block 5 — the action it fires when it is **defeated** (`mech+0x1b6`). Five of the shipped mission's ten mech records carry one, and that is what chains its reinforcement waves |
 | 8 (flyers) | 92B | `0x28` | ref → block 1 (position) |
-| | | `0x56` / `0x58` | refs → block 5, the flyer's own engaged/lost actions |
+| | | `0x56` / `0x58` | refs → block 5, the flyer's own engaged/defeated actions |
 | | | `0x2a` | ref → block 2 (heading) |
 | | | `0x2c` | flyer type → index into `nam\FLYERS.NAM` |
 | 9 (bases) | 52B | `0x00` | base type → index into `dat\BASES.DAT`'s 65-entry table |
-| | | `0x2e` / `0x30` | refs → block 5, the structure's own engaged/lost actions |
+| | | `0x2e` / `0x30` | refs → block 5, the structure's own engaged/defeated actions |
 | | | `0x02` | ref → block 1 (position) |
 | | | `0x04` | ref → block 2 (heading) |
 | 11 (groups) | 156B | `0x28` | discriminator: 0/1/2 → block 7/8/9 |

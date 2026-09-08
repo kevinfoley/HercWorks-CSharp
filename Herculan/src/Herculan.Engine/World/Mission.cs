@@ -72,9 +72,9 @@ public enum MissionSide {
 /// already sees it closes to engagement range, or <c>-1</c>. See
 /// <see cref="Herculan.Engine.Sim.SimObject.EngagementAction"/>.
 /// </param>
-/// <param name="LossActionRef">
-/// The roster record's <c>0x82</c> — the mission action this object fires when it is destroyed, or
-/// <c>-1</c>. See <see cref="Herculan.Engine.Sim.SimObject.LossAction"/>.
+/// <param name="DefeatActionRef">
+/// The roster record's <c>0x82</c> — the mission action this object fires when it is defeated, or
+/// <c>-1</c>. See <see cref="Herculan.Engine.Sim.SimObject.DefeatAction"/>.
 /// </param>
 /// <param name="FormationOffset">
 /// This member's unrotated spread offset out of <c>MFORMS.DAT</c>, or null for the group's slot 0
@@ -97,7 +97,7 @@ public sealed record MissionPlacement(
 	bool AiRadarActive = false,
 	(int X, int Y)? FormationOffset = null,
 	int EngagementActionRef = -1,
-	int LossActionRef = -1);
+	int DefeatActionRef = -1);
 
 /// <summary>
 /// One patch of ground a base group paints with its formation's own material — the concrete pad a

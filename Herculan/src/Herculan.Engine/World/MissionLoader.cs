@@ -492,7 +492,7 @@ public static class MissionLoader {
 				AiRadarActive: record.AiRadarActive != 0,
 				FormationOffset: offset is { } o ? (o.X, o.Y) : null,
 				EngagementActionRef: ActionRef(script, record.EngagementActionRef),
-				LossActionRef: ActionRef(script, record.LossActionRef)));
+				DefeatActionRef: ActionRef(script, record.DefeatActionRef)));
 		}
 
 		var flyerClaims = claims[MissionUnitKind.Flyer];
@@ -515,7 +515,7 @@ public static class MissionLoader {
 				Array.Empty<short>(),
 				Side: group.Side,
 				EngagementActionRef: ActionRef(script, record.EngagementActionRef),
-				LossActionRef: ActionRef(script, record.LossActionRef)));
+				DefeatActionRef: ActionRef(script, record.DefeatActionRef)));
 		}
 
 		var baseClaims = claims[MissionUnitKind.Base];
@@ -542,7 +542,7 @@ public static class MissionLoader {
 				Array.Empty<short>(),
 				Side: group.Side,
 				EngagementActionRef: ActionRef(script, record.EngagementActionRef),
-				LossActionRef: ActionRef(script, record.LossActionRef)));
+				DefeatActionRef: ActionRef(script, record.DefeatActionRef)));
 		}
 	}
 

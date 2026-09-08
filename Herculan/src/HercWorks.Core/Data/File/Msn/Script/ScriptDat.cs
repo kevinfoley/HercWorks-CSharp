@@ -280,14 +280,15 @@ public class ScriptSpawnRecordExport {
 
 	/// <summary>
 	/// Exported offset <c>0x82</c> — the mission action this machine fires when it is
-	/// <b>destroyed</b>, resolved into <c>mech+0x1b6</c> and fired by
-	/// <c>Mech_ComponentDamageWrite</c> (<c>00417de4</c>) at the moment the machine dies.
+	/// <b>defeated</b>, resolved into <c>mech+0x1b6</c>. A machine fires it on death
+	/// (<c>Mech_ComponentDamageWrite</c>, <c>00417de4</c>) and again on running out of working
+	/// weapons; it is not a death action alone.
 	///
 	/// <para><b>This is how a retail mission chains its reinforcements.</b> The shipped
 	/// <c>script.dat</c> has five of its ten mech records naming one, which is what brings each wave
-	/// in as the last is killed — see docs/simulation/mission-deployment.md.</para>
+	/// in as the last is beaten — see docs/simulation/mission-deployment.md.</para>
 	/// </summary>
-	public short LossActionRef => ReadTail(LossActionOffset);
+	public short DefeatActionRef => ReadTail(DefeatActionOffset);
 
 	private short ReadTail(int offset) =>
 		TailBytes.Length >= offset + 2 ? BitConverter.ToInt16(TailBytes, offset) : (short)-1;
@@ -295,8 +296,8 @@ public class ScriptSpawnRecordExport {
 	/// <summary>Where <see cref="EngagementActionRef"/> sits in <see cref="TailBytes"/> (0x80 less 0x42).</summary>
 	private const int EngagementActionOffset = 62;
 
-	/// <summary>And <see cref="LossActionRef"/> (0x82 less 0x42).</summary>
-	private const int LossActionOffset = 64;
+	/// <summary>And <see cref="DefeatActionRef"/> (0x82 less 0x42).</summary>
+	private const int DefeatActionOffset = 64;
 
 	/// <summary>Where <see cref="WeaponSecondary"/> starts inside <see cref="TailBytes"/> (source 0x72 less 0x4a).</summary>
 	private const int SecondaryOffset = 40;
@@ -333,12 +334,12 @@ public class ScriptEntity102Export {
 	/// <remarks>Exported offset <c>0x56</c>; the flyer's own <c>+0x1b2</c>.</remarks>
 	public short EngagementActionRef => ScriptActionRefs.Read(TailBytes, ScriptActionRefs.SmallEngagement);
 
-	/// <inheritdoc cref="ScriptSpawnRecordExport.LossActionRef" />
+	/// <inheritdoc cref="ScriptSpawnRecordExport.DefeatActionRef" />
 	/// <remarks>
 	/// Exported offset <c>0x58</c>; the flyer's own <c>+0x1b6</c>, fired by
 	/// <c>Flyer_ComponentDamageWrite</c> (<c>00421bb4</c>).
 	/// </remarks>
-	public short LossActionRef => ScriptActionRefs.Read(TailBytes, ScriptActionRefs.SmallDestruction);
+	public short DefeatActionRef => ScriptActionRefs.Read(TailBytes, ScriptActionRefs.SmallDestruction);
 }
 
 /// <summary>
@@ -386,12 +387,12 @@ public class ScriptMiscEntityExport {
 	/// <remarks>Exported offset <c>0x2e</c>; the structure's own <c>+0x1b2</c>.</remarks>
 	public short EngagementActionRef => ScriptActionRefs.Read(TailBytes, ScriptActionRefs.SmallEngagement);
 
-	/// <inheritdoc cref="ScriptSpawnRecordExport.LossActionRef" />
+	/// <inheritdoc cref="ScriptSpawnRecordExport.DefeatActionRef" />
 	/// <remarks>
 	/// Exported offset <c>0x30</c>; the structure's own <c>+0x1b6</c>, fired by
 	/// <c>Base_ApplyDamage</c> (<c>00404d70</c>) when the last component goes.
 	/// </remarks>
-	public short LossActionRef => ScriptActionRefs.Read(TailBytes, ScriptActionRefs.SmallDestruction);
+	public short DefeatActionRef => ScriptActionRefs.Read(TailBytes, ScriptActionRefs.SmallDestruction);
 }
 
 /// <summary>

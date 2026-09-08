@@ -70,7 +70,7 @@ class for `Type == 3` records, **nothing calls it**, and its vtable's per-tick s
 
 ## Flight — `Rocket_TickUpdate` (`0040a538`)
 
-Vtable `+0x14` of `PTR_Bullet_Draw_00498448`; draw is `Bullet_Draw`, shared with the bullet class.
+Vtable `+0x14` of `RocketVtable` (`00498448`); draw is `Bullet_Draw`, shared with the bullet class.
 
 1. **Animation.** When `record[+0x08]` is nonzero, a countdown at `+0x5c` steps the shape instance's
    cell-frame entry for sequence `record[+0x0a]`, modulo the shape's own frame count for that

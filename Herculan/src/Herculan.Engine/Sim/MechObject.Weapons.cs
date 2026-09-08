@@ -216,9 +216,9 @@ public sealed partial class MechObject {
 		if (!anyArmed && !Disarmed) {
 			// Running dry is a mission event: the machine's own block-5 action fires and the radio
 			// channel is held open for the callout. This is the fourth of that action's firing sites
-			// and the only one that is not a death -- see SimObject.LossAction.
+			// and the only one that is not a death -- see SimObject.DefeatAction.
 			Disarmed = true;
-			FireLossAction(world);
+			FireDefeatAction(world);
 		}
 
 		return chosen;

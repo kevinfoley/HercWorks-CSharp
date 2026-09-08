@@ -229,7 +229,7 @@ public sealed class FlyerObject : SimObject {
 	/// does past setting the flag belongs to systems that are not here: the fall it starts, the kill
 	/// credit through the shooter's <c>+0x60</c> slot (recorded on <see cref="LastAttacker"/>
 	/// instead) and the alert it plays for the player. The mission action it fires <i>is</i> here —
-	/// see <see cref="SimObject.LossAction"/>.</para>
+	/// see <see cref="SimObject.DefeatAction"/>.</para>
 	/// </summary>
 	private void ApplyDamage(int componentIndex, short damage, SimObject? attacker,
 			SimWorld? world = null) {
@@ -243,7 +243,7 @@ public sealed class FlyerObject : SimObject {
 		LastAttacker = attacker;
 
 		if (!wasDestroyed && world != null) {
-			FireLossAction(world);
+			FireDefeatAction(world);
 		}
 	}
 

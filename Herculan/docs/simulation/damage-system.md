@@ -625,8 +625,8 @@ literal category constant, and each corresponds to a genuinely different project
 
 | `Type` | Constructor | Object kind | Real `PROJ.DAT` shape |
 |---|---|---|---|
-| `0` | `Missile_Construct` (`0040a948`) | the launcher round (14-byte type table `ROCKETS.DAT`, vtable `PTR_Bullet_Draw_00498448`) — see [`rockets.md`](rockets.md) | 5 entries, `SplashFactor=500` uniformly, real `Speed`, armor≫shield |
-| `2` | `Bullet_Construct` (`0040af6c`) | the travelling gun round (own 14-byte type table `BULLETS.DAT`, own vtable `PTR_FUN_00498628`) — see [`projectiles.md`](projectiles.md) | mixed: ATC20/35/50-shaped progression *and* EMP-shaped high-shield entries — `SplashFactor=0` for all but `MissileId=9` (Plasma cannon, below) |
+| `0` | `Missile_Construct` (`0040a948`) | the launcher round (14-byte type table `ROCKETS.DAT`, vtable `RocketVtable` (`00498448`)) — see [`rockets.md`](rockets.md) | 5 entries, `SplashFactor=500` uniformly, real `Speed`, armor≫shield |
+| `2` | `Bullet_Construct` (`0040af6c`) | the travelling gun round (own 14-byte type table `BULLETS.DAT`, own vtable `BulletVtable` (`00498628`)) — see [`projectiles.md`](projectiles.md) | mixed: ATC20/35/50-shaped progression *and* EMP-shaped high-shield entries — `SplashFactor=0` for all but `MissileId=9` (Plasma cannon, below) |
 | `3` | `Rocket_ConstructGuided` (`0040ac3c`) | **dead code** — nothing calls it, and its vtable's per-tick slot is `FUN_0040acb4`, a stub returning zero, so an instance would never move and never die | 3 entries, shield==armor exactly, `SplashFactor` 1000/500/500, all unreachable |
 | `4` | `Bullet_FireBurst` (`0040bf74`) | **no persistent simulated object at all** — resolves its raycast hit synchronously inside the call itself, then spawns pure-visual tracer segments | every `Type=4` record has `Speed=0`, no exceptions |
 
@@ -646,7 +646,7 @@ where noted confirmed:
   while `BMSL` takes the fifth. `Type 3`'s three entries are data for a class that never runs.
 
 **Plasma cannon — confirmed.** The one `Type 2` outlier (`DamageShield==DamageArmor==3000`,
-`SplashFactor=1000`) is `MissileId 9`. The `Bullet` class's vtable (`PTR_FUN_00498628`) per-tick
+`SplashFactor=1000`) is `MissileId 9`. The `Bullet` class's vtable (`BulletVtable` (`00498628`)) per-tick
 slot (`+0x14`) is `FUN_0040b124`, whose `type == 9` branch (checked via
 `*(char*)(this+0x41) == '\t'`) calls the explosion formula directly instead of the ordinary
 single-target hit path — `this+0x41` is exactly where every projectile constructor

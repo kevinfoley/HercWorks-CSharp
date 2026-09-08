@@ -785,8 +785,8 @@ public sealed partial class MechObject {
 			// The machine's own mission action, fired at the one moment it crosses into destroyed --
 			// the original fires it from both of this function's death branches, and both are guarded
 			// on the machine not already being dead, so it goes off once. See
-			// SimObject.LossAction; this is what brings a retail mission's next wave in.
-			FireLossAction(world);
+			// SimObject.DefeatAction; this is what brings a retail mission's next wave in.
+			FireDefeatAction(world);
 
 			// The original's own recursive finish-off, with no attacker so the kill is not credited
 			// twice. Destroyed is already set, so this pass cannot re-enter the death branch.

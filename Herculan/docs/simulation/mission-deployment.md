@@ -25,7 +25,7 @@ times and one naming none posts it not at all.
 | its own trigger areas | `Actions_EvaluateTriggers` (`00426b70`) | a subject stands in one of them |
 | an action pair's timer | `ActionPair_Tick` (`004230a4`) | the pair's delay runs out |
 | an object being engaged | `Detection_Sweep` (`004128f8`) | that object's `+0x1b2`, at 50000 units |
-| an object being lost | four sites below | that object's `+0x1b6` |
+| an object being defeated | four sites below | that object's `+0x1b6` |
 
 **None of these is the primary and the others fallbacks.** One action commonly carries two routes —
 in the shipped mission, action 0 has both a trigger area and a machine whose death fires it, and
@@ -114,7 +114,7 @@ object closes to 50000 units; both parties latch `+0x9e` and both fire their own
 `obj+0xa2` being clear — **no writer of that byte has been located**, so what would suppress the
 firing is open.
 
-**`+0x1b6` — lost.** Four sites, and they are the four ways an object stops being a threat:
+**`+0x1b6` — defeated.** Four sites, and they are the four ways an object stops being a threat:
 
 | site | when |
 |---|---|

@@ -432,7 +432,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Rocket_ConstructGuided",
-      "description": "DEAD CODE: constructs a PROJ.DAT Type-3 object, but nothing calls it and its vtable PTR_Bullet_Draw_004984fc has FUN_0040acb4 (return 0) in the per-tick slot, so an instance would never move or die. Retail Type-3 records are unreachable data.",
+      "description": "DEAD CODE: constructs a PROJ.DAT Type-3 object, but nothing calls it and its vtable DeadBulletVtable (004984fc) has FUN_0040acb4 (return 0) in the per-tick slot, so an instance would never move or die. Retail Type-3 records are unreachable data.",
       "source": "docs/simulation/rockets.md 2026-08-27"
     },
     {
@@ -441,7 +441,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Bullet_Construct",
-      "description": "Constructs the Type-2 Bullet-class object (own vtable PTR_FUN_00498628, own 14-byte type table). PROJ.DAT category 2; MissileId 9 is the confirmed Plasma cannon.",
+      "description": "Constructs the Type-2 Bullet-class object (own vtable BulletVtable (00498628), own 14-byte type table). PROJ.DAT category 2; MissileId 9 is the confirmed Plasma cannon.",
       "source": "docs/simulation/dbsim-physics-notes.md"
     },
     {
@@ -5857,7 +5857,7 @@
       "confidence": "high",
       "name": "BeamTracer_Ctor",
       "signature": "void * __cdecl BeamTracer_Ctor(void *tracer, short subtypeId, int *startPoint, int *endPoint, void *owner)",
-      "description": "Beam tracer constructor; vtable PTR_FUN_004987c4, type 3. A straight beam stores two points (muzzle, hit) at +0x58, quad count 1 at +0x54, jagged flag 0 at +0x55, and arms the life timer at +0x5d to 0x38 -- 27 ms in the Q8-of-125ms tick unit, less than one SimTickDelta, so a tracer never survives a second tick. Subtype ids 1 and 7 (ELF, ELF2) take a jagged branch instead: nodeCount = (char)(Math_DistanceBetweenPoints >> 10) + 1 at +0x54 and pointCount = nodeCount*2+2 at +0x56, walking a step that is the start->end delta through Math_NormalizeVec3ToLength(0x400). The LAST node restarts from the exact endpoint rather than the walked position; every node but the FIRST -- the last one included -- is then jittered on each axis by Math_RandomNext()&0x7f, one-sided 0..127. Each node writes a pair: points[2k] with BEAM.DAT's half-width added to its z, points[2k+1] without, so the ribbon stands vertically in the world.",
+      "description": "Beam tracer constructor; vtable BeamTracerVtable (004987c4), type 3. A straight beam stores two points (muzzle, hit) at +0x58, quad count 1 at +0x54, jagged flag 0 at +0x55, and arms the life timer at +0x5d to 0x38 -- 27 ms in the Q8-of-125ms tick unit, less than one SimTickDelta, so a tracer never survives a second tick. Subtype ids 1 and 7 (ELF, ELF2) take a jagged branch instead: nodeCount = (char)(Math_DistanceBetweenPoints >> 10) + 1 at +0x54 and pointCount = nodeCount*2+2 at +0x56, walking a step that is the start->end delta through Math_NormalizeVec3ToLength(0x400). The LAST node restarts from the exact endpoint rather than the walked position; every node but the FIRST -- the last one included -- is then jittered on each axis by Math_RandomNext()&0x7f, one-sided 0..127. Each node writes a pair: points[2k] with BEAM.DAT's half-width added to its z, points[2k+1] without, so the ribbon stands vertically in the world.",
       "source": "docs/simulation/beam-visuals.md"
     },
     {
@@ -8147,6 +8147,15 @@
       "source": "docs/formats/dts-texture-binding.md"
     },
     {
+      "address": "0046b084",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FireEffect_PerFrameReset",
+      "description": "The burning-object pool's phase-5 subsystem hook, registered by FireEffect_RegisterSubsystem and driven once a frame from maybe_Sim_RenderFrame. Returns the pool's dead entries (FUN_00478538 over DAT_006b4fb8/g_FirePool) and resets DAT_006b4fc0 to 0x7fffffff -- the running nearest-fire distance FireEffect_TickUpdate tests before it calls Sound_UpdatePosition(0x33), which is what keeps the one shared burning loop on the fire nearest the camera. No prologue; it is the tail of the 0046b0xx block, ending at 0046b0a3 where FireEffect_LoadResources begins.",
+      "source": "docs/simulation/destruction-effects.md"
+    },
+    {
       "address": "0046b0a4",
       "binary": "DBSIM",
       "type": "function",
@@ -9225,7 +9234,7 @@
       "confidence": "high",
       "name": "FireEffect_TickUpdate",
       "signature": "short __cdecl FireEffect_TickUpdate(int *fire)",
-      "description": "Burning-object vtable +0x14. Counts the frame timer at +0x57 down, reloads it to 0x40 and steps the shape's cell animation, decrementing the loop count at +0x59 each time the frame wraps to zero -- so a fire LOOPS its flipbook where an impact effect plays it once, and ends when that count reaches zero. Then re-places itself from wherever the owner has carried it to, and keeps the shared burning sound on whichever live fire is nearest the camera.",
+      "description": "Burning-object vtable +0x14. Counts the frame timer at +0x57 down, reloads it to 0x40 and steps the shape's cell animation, decrementing the loop count at +0x59 each time the frame wraps to zero -- so a fire LOOPS its flipbook where an impact effect plays it once, and ends when that count reaches zero. Then re-places itself from wherever the owner has carried it to, and keeps the shared burning sound on whichever live fire is nearest the camera: isqrt(FUN_0047de90) of the squared offset to ViewObjectPtr, tested against the running minimum DAT_006b4fc0 that FireEffect_PerFrameReset clears each frame, and Sound_UpdatePosition(0x33) on a win. That test sits above the loops-remaining test, so a fire counts on the tick it goes out. The three squares are 32-bit IMULs and the sum wraps past about 46341 units, which is what makes a distant fire able to read as the nearest one.",
       "source": "docs/simulation/destruction-effects.md"
     },
     {

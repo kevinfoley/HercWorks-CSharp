@@ -202,6 +202,28 @@ the loop count each time the frame wraps to zero, then re-place the effect from 
 has carried it to. It ends when the loop count reaches zero. So a fire **loops** where an impact
 effect plays once.
 
+### Where the shared sound is heard
+
+`Sound_Play(0x33)` is not positional, so on its own the loop would sit centred at the row's own
+volume. What places it is the tail of `FireEffect_TickUpdate`, which every live fire runs:
+
+```
+d = isqrt(dx*dx + dy*dy + dz*dz)      // to ViewObjectPtr, the camera
+if ((int)d < (int)DAT_006b4fc0) { Sound_UpdatePosition(0x33, firePosition); DAT_006b4fc0 = d; }
+```
+
+`DAT_006b4fc0` is a running minimum reset to `0x7fffffff` once a frame by the pool's own phase-5
+subsystem hook (`LAB_0046b084`, registered by `FireEffect_RegisterSubsystem` and driven from
+`maybe_Sim_RenderFrame`). So each frame the last fire to beat the minimum keeps the sound, which is
+the nearest one. The placement sits **above** the loops-remaining test, so a fire counts on the tick
+it goes out. `FireEffect_Ctor` calls the tick itself, which is why a fire's sound is placed from the
+moment it is lit rather than a frame later.
+
+The three squares are 32-bit `IMUL`s and the sum wraps. Distance is in world units (166.667/unit
+metre), so the sum passes `2^31` at about 278 m and `2^32` at about 393 m — and a fire near a wrap
+boundary reads as *close*, captures the loop, and is then placed past the row's own 25×1024 cutoff,
+i.e. at volume zero. See [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
+
 `FireEffect_ReleaseForOwner` (`0046b528`) returns every entry whose owner matches — called from
 exactly one place, the whole-object destruction branch below.
 

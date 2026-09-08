@@ -187,8 +187,9 @@ public abstract class SimObject {
 	/// no-weapons-left latch — so everything else answers the same as <see cref="Neutralised"/>.
 	///
 	/// <para>Deliberately not folded into <see cref="Neutralised"/>: the detection sweep, the player's
-	/// target selection and the group's completion test all read that one, and none of them consults
-	/// <c>+0xa5</c> in the original.</para>
+	/// target selection and a group's condition tier all read that one, and none of them consults
+	/// <c>+0xa5</c> in the original. The one place that does is a guard order's rival test — see
+	/// <c>MissionGroup.IsWipedOut</c>, which is why that reads this and not <see cref="Neutralised"/>.</para>
 	/// </summary>
 	public virtual bool OutOfAction => Neutralised;
 

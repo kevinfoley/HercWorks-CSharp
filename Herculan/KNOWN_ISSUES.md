@@ -65,4 +65,5 @@ _Note to Claude: This section is for listing outstanding issues with features wh
 - A plasma round's blast damage is not scaled by mission difficulty. See [`docs/simulation/projectiles.md`](docs/simulation/projectiles.md#the-plasma-branch).
 - Steering a Razor from the keyboard uses hardcoded placeholder keys. See [`docs/simulation/razor-flight.md`](docs/simulation/razor-flight.md#the-keyboard).
 - Mid-session audio system recovery is not implemented. If the endpoint drops during gameplay, the engine stays silent for good. See [`docs/formats/audio.md`](docs/formats/audio.md#Mid-session-audio-recovery-not-yet-implemented)
-- Player weapon convergence not implemented.
+- Player weapon convergence not implemented (verify).
+- Claude made many mistakes in the AI code by confusing different status conditions for mechs. For example, "disarmed" has a different meaning than "immobilized" or "destroyed", so even if they are used equivalently by some functions, treating them as synonymous throughout the code causes bugs. Several issues have been fixed, but more may exist, so we need a full-pass review against retail.

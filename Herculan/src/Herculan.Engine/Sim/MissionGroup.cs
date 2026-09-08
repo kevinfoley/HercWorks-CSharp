@@ -318,7 +318,11 @@ public sealed partial class MissionGroup {
 			return 0;
 		}
 
-		if (target.Neutralised || target is MechObject { Collapsed: true }) {
+		// Destroyed, not neutralised: the original reads +0x99 and +0xb4 here and NOT the
+		// immobilised +0xa4, so a HERC whose legs are gone has not completed a "destroy this" order
+		// against it. It is still standing and still shooting, and the order stays open until it is
+		// actually killed.
+		if (target.Destroyed || target is MechObject { Collapsed: true }) {
 			return ConditionDestroyed;
 		}
 
@@ -389,15 +393,22 @@ public sealed partial class MissionGroup {
 	}
 
 	/// <summary>
-	/// <c>Group_IsWipedOut</c> (<c>00412be4</c>) — whether every member is destroyed, removed or
-	/// neutralised. One machine still standing is enough to answer no.
+	/// <c>Group_IsWipedOut</c> (<c>00412be4</c>) — whether every member is out of the fight. One
+	/// member still in it is enough to answer no.
+	///
+	/// <para><b>It reads <see cref="SimObject.OutOfAction"/>, not <see cref="SimObject.Neutralised"/></b>
+	/// — the original's test is all three of <c>+0x99</c>, <c>+0xa4</c> and <c>+0xa5</c>, so a
+	/// machine that is alive and mobile but has lost every weapon counts as gone. That is the point
+	/// of the question rather than an oversight: the only caller asks whether an enemy group can
+	/// still contest a guard post, and a disarmed machine cannot. Despite the name this is not a
+	/// "has this group been destroyed" test and must not be reused as one — see
+	/// docs/simulation/ai-goals.md.</para>
 	/// </summary>
 	private bool IsWipedOut() {
 		for (int i = 0; i < _members.Count; i++) {
 			var member = _members[i];
 
-			if (!member.Removed && !member.Neutralised
-					&& member is not MechObject { Destroyed: true }) {
+			if (!member.Removed && !member.OutOfAction) {
 				return false;
 			}
 		}

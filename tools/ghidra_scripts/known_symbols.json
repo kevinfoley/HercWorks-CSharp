@@ -38,9 +38,25 @@
     "  low    - open/unconfirmed ('unknown', 'not yet observed', 'meaning not confirmed').",
     "           Comment only, no rename.",
     "",
-    "Struct-instance offsets (e.g. 'mech+0x222' for the shield struct) are deliberately NOT",
-    "included here -- they aren't fixed Ghidra addresses, so they'd need a proper structure",
-    "data type to label meaningfully, which is out of scope for this file/script."
+    "WHO OWNS A PARAMETER'S TYPE. A function that carries a 'signature' here owns its whole parameter",
+    "list, struct types included -- write 'SimObject *this', not 'int *this', and do not also list that",
+    "parameter in known_structs.json's 'applications'. A function with no signature here gets its",
+    "parameter types from that file instead. The two must not describe the same parameter: applying a",
+    "signature REPLACES the parameter list, so a disagreement would silently undo the struct typing on",
+    "every run. ES2ApplySymbolNames guards against it -- a parameter already typed with a pointer into",
+    "category /ES2 is captured before the signature apply and restored after, with a WARN naming the",
+    "two files -- but the guard is a safety net, not a licence to record the same fact twice.",
+    "",
+    "RUN ORDER only matters on a database that has never had these files applied: a signature naming a",
+    "struct type cannot resolve until that type exists, so the structures go first. Once the /ES2 types",
+    "are in the project they stay there, and from then on any of the three scripts can be run alone, in",
+    "any order, as often as you like. After a fresh import run tools/scripts/ghidra_apply_all.sh, which",
+    "does all three in the right order; after that, run whichever one you need directly.",
+    "",
+    "Struct-instance offsets (e.g. 'mech+0x222' for the shield block) belong in known_structs.json,",
+    "which owns field layout -- offset, width and meaning inside an object -- and is applied by",
+    "ES2ApplyStructures.java. They are not fixed addresses, so they have no entry here.",
+    "Vtable slot meanings belong in known_vtables.json."
   ],
   "entries": [
     {
@@ -8952,7 +8968,7 @@
       "name": "SimObject_ApplyExplosiveDamage",
       "description": "The SimObject base class's vtable +0x70, and the implementation a FLYER uses -- the flyer class does not override the slot. No roll, no component selection, no shields and no range test (the sweep has already made it): applies (blastRadius - (distance - obj[+0x5c])) * damage / blastRadius to component 0 through vtable +0x74. Because the object's own +0x5c is subtracted, a blast inside the body radius scales by more than one -- though a flyer's +0x5c is 0.",
       "source": "docs/simulation/damage-system.md",
-      "signature": "void __cdecl SimObject_ApplyExplosiveDamage(int *this, short damage, int *hitPoint, short blastRadius, int *attacker)"
+      "signature": "void __cdecl SimObject_ApplyExplosiveDamage(SimObject *this, short damage, int *hitPoint, short blastRadius, SimObject *attacker)"
     },
     {
       "address": "0041e570",
@@ -9585,7 +9601,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Group_ConditionTier",
-      "description": "A mission group's 0-4 condition tier: 4 when every member is removed (+0xa4) or destroyed (+0x99); else 3 when the lost fraction reaches 650/1024 or the mean overall damage across all members reaches 0xc1; else 2 at 250/1024 or 0x81; else 1 at mean damage 0x33; else 0. The mean includes dead members.",
+      "description": "A mission group's 0-4 condition tier: 4 when every member is immobilised (+0xa4) or destroyed (+0x99); else 3 when the lost fraction reaches 650/1024 or the mean overall damage across all members reaches 0xc1; else 2 at 250/1024 or 0x81; else 1 at mean damage 0x33; else 0. The mean includes dead members.",
       "source": "docs/simulation/ai-goals.md"
     },
     {
@@ -9594,7 +9610,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Group_IsWipedOut",
-      "description": "Whether every member of a mission group is gone -- destroyed (+0xa5), removed (+0xa4) or neutralised (+0x99). Returns 0 as soon as one member is still standing.",
+      "description": "Whether every member of a mission group is out of the fight -- destroyed (+0x99), immobilised (+0xa4) or disarmed (+0xa5). Returns 0 as soon as one member is still in it. Its ONLY caller is Group_NoRivalOrderOnSubject (00412e74), the guarding-order completion test, so the +0xa5 term means a group of ordinary structures -- which Base_Construct spawns already disarmed -- reads as wiped out from the moment it is built.",
       "source": "docs/simulation/ai-goals.md"
     },
     {
@@ -10046,6 +10062,69 @@
       "name": "Ai_ClearSquadEngageOrder",
       "description": "The tail of every combat think's completion test. Returns 1, and clears a standing squad engage order (mech+0x23e == 4) whose target at mech+0x248 is the one being let go.",
       "source": "docs/simulation/ai-combat-states.md"
+    },
+    {
+      "address": "0040c324",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ProjectileBase_Dtor",
+      "description": "Deleting destructor of the projectile base class -- slot +0x8 of ProjectileBaseVtable (004987a0). Reinstalls its own table at 0040c345 and then the super-base's (004a0b98) at 0040c353, which is what establishes the derivation. Takes a flags argument whose low bit asks it to free the object, via 0047743c.",
+      "source": "tools/ghidra_scripts/known_vtables.json (Destructor slot); disassembly of the vtable-pointer stores"
+    },
+    {
+      "address": "0046b890",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ProjectileSuperBase_Dtor",
+      "description": "Deleting destructor of the class the projectile base derives from -- slot +0x8 of ProjectileSuperBaseVtable (004a0b98), which it installs at 0046b8b0. Same flags argument as the rest of the hierarchy.",
+      "source": "tools/ghidra_scripts/known_vtables.json (Destructor slot); disassembly of the vtable-pointer stores"
+    },
+    {
+      "address": "0040ab8d",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Rocket_Dtor",
+      "description": "Deleting destructor of the rocket class -- slot +0x8 of RocketVtable (00498448).",
+      "source": "tools/ghidra_scripts/known_vtables.json (Destructor slot); disassembly of the vtable-pointer stores"
+    },
+    {
+      "address": "0040b64d",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Bullet_Dtor",
+      "description": "Deleting destructor of the bullet class -- slot +0x8 of BulletVtable (00498628).",
+      "source": "tools/ghidra_scripts/known_vtables.json (Destructor slot); disassembly of the vtable-pointer stores"
+    },
+    {
+      "address": "0040ad2c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "DeadBullet_Dtor",
+      "description": "Deleting destructor of the projectile class whose vtable (004984fc) no constructor installs -- slot +0x8 of that table.",
+      "source": "tools/ghidra_scripts/known_vtables.json (Destructor slot); disassembly of the vtable-pointer stores"
+    },
+    {
+      "address": "00411dd4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjectList_Add",
+      "description": "Appends an object to the world's single live-object list and records the slot it landed in at obj+0x4b. That index is what addresses both the per-object contact table (obj+0xc2) and the line-of-sight cache (obj+0x132).",
+      "source": "docs/simulation/target-selection.md; Herculan.Engine/Sim/SimWorld.cs"
+    },
+    {
+      "address": "00402188",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObjectBase_Constructor",
+      "description": "The shared base-object constructor helper every SimObject-derived class calls immediately after storing its own vtable pointer. The common prefix of the object layout is initialised here.",
+      "source": "docs/engine/planning.md 'Simulation object architecture'"
     }
   ]
 }

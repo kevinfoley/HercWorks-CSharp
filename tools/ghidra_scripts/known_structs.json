@@ -1,0 +1,521 @@
+{
+  "schema_version": 1,
+  "_readme": [
+    "Structure layouts for DBSIM.EXE's simulation objects, applied to the Ghidra project by",
+    "ES2ApplyStructures.java (tools/ghidra_scripts/). Re-run that script after adding entries here --",
+    "it is idempotent.",
+    "",
+    "Third of three files. known_symbols.json owns address->function findings; known_vtables.json owns",
+    "which vtable slot means what; this file owns FIELD LAYOUT -- offset, width and meaning inside an",
+    "object. A field offset is recorded once here rather than once per doc that happens to read it.",
+    "",
+    "Per struct definition:",
+    "  name        - Ghidra data-type name, created under category /ES2.",
+    "  binary      - 'VSHELL' or 'DBSIM' (must match the -process file name at apply time).",
+    "  size        - total length in bytes. THIS IS A FINDING, NOT THE HIGHEST OFFSET ANYONE HAS",
+    "                DOCUMENTED. See 'Sizes' below.",
+    "  vtable      - OPTIONAL, the known_vtables.json type the field at offset 0 points to.",
+    "  description - what the class is; becomes the data type's description.",
+    "  notes       - OPTIONAL, things known about the layout that are not placeable fields: a",
+    "                sub-object whose extent is still open, a codegen idiom that makes a field hard to",
+    "                find, a disagreement between two docs.",
+    "  fields      - sparse, in offset order. Each has:",
+    "                  offset      - byte offset from the start of the struct.",
+    "                  width       - byte width. Checked against the resolved data type's own length;",
+    "                                a mismatch is an error, not a coercion.",
+    "                  type        - 'byte', 'sbyte', 'short', 'ushort', 'int', 'uint', 'void *',",
+    "                                'undefined1|2|4', '<Name> *' for a pointer to a named type,",
+    "                                '<Name>[n]' for an array, or '<Name>' for a struct defined",
+    "                                earlier in this file or already present under /ES2.",
+    "                  name        - OMITTED for 'low' confidence, so a guess can never look like a",
+    "                                confirmed field. 'medium' names carry a 'maybe_' prefix. An",
+    "                                unnamed field still earns its place: it pins the WIDTH, which is",
+    "                                what stops the decompiler swallowing its neighbours.",
+    "                  confidence  - 'high' | 'medium' | 'low', same guide as known_symbols.json.",
+    "                  description - evidence: which instruction settled the width, which function",
+    "                                reads or writes it.",
+    "",
+    "WIDTH IS THE LOAD-BEARING FIELD. A wrong name is a nuisance; a wrong width makes the decompiler",
+    "lie in every function that touches the object, and it lies plausibly. Only record a width the",
+    "access instruction pins -- MOV byte ptr / MOVSX EAX, word ptr / MOV EAX, dword ptr. Where two",
+    "readers disagree, that is a finding: leave the field out and say so in 'notes'. Never average.",
+    "",
+    "SIZES. Every one here comes from the free-list pool the class is allocated from, not from the",
+    "highest documented offset. Pool_Init (004719cc) takes (pool, count, elementSize) and the allocator",
+    "(00471a24) hands back node+8, so the element size is the object's true length: mech 0x36a from",
+    "00425185, flyer 0x291 from 00425220, structure 0x26d from 00405e1e. SimObject itself is never",
+    "allocated alone; its length is bounded above by where the derived classes start their own fields",
+    "-- 0x1f2 for both the mech and the structure, 0x1fa for the flyer.",
+    "",
+    "INHERITANCE IS EMBEDDING. A derived class embeds its base at offset 0 rather than restating the",
+    "base's fields, so one recorded fact serves every class that has it.",
+    "",
+    "APPLICATIONS. Defining a struct renders nothing on its own: a function's parameter has to be typed",
+    "with it. Each entry names a function (by address, so a rename cannot break it), the zero-based",
+    "parameter index, and the struct to point that parameter at. Only list a parameter whose type was",
+    "read out of the function, not assumed from its name.",
+    "",
+    "A function that carries a 'signature' in known_symbols.json owns its whole parameter list there,",
+    "struct types included -- do not list its parameters here as well. Applying a signature replaces",
+    "the parameter list, so two files describing one parameter would fight. ES2ApplySymbolNames keeps",
+    "a parameter typed with a pointer into /ES2 across a signature apply and WARNs when the two",
+    "disagree, which is how you find out you have written the fact down twice.",
+    "",
+    "RUN ORDER only matters on a database that has never had these files applied: a signature naming a",
+    "struct type cannot resolve until that type exists, so the structures go first. Once the /ES2 types",
+    "are in the project they stay there, and from then on any of the three scripts can be run alone, in",
+    "any order, as often as you like. After a fresh import run tools/scripts/ghidra_apply_all.sh, which",
+    "does all three in the right order; after that, run whichever one you need directly."
+  ],
+  "structs": [
+    {
+      "name": "Transform32",
+      "binary": "DBSIM",
+      "size": 32,
+      "description": "The engine's 32-byte transform: a 3x3 Q14 rotation matrix, a rank byte that says how much of it is meaningful, and an int32 translation. Every object keeps one, every hit test composes one, and Transform_Concat (0047f914) branches on the rank byte to skip the work a translation-only or Z-only frame does not need.",
+      "fields": [
+        {
+          "offset": 0,
+          "width": 18,
+          "type": "short[9]",
+          "name": "m",
+          "confidence": "high",
+          "description": "Row-major 3x3, Q14. Written by BuildEulerRotationMatrixQ14 (0047eaac), read by Transform_ApplyToPoint (00480330) and Transform_ApplyToShortPoint (004800c8)."
+        },
+        {
+          "offset": 18,
+          "width": 1,
+          "type": "byte",
+          "name": "rank",
+          "confidence": "high",
+          "description": "+0x12 -- translation-only / Z-rotation-only / full 3x3. An optimisation switch in Transform_Concat, not a behavioural difference."
+        },
+        {
+          "offset": 19,
+          "width": 1,
+          "type": "undefined1",
+          "confidence": "low",
+          "description": "+0x13 -- sits between the rank byte and the int32 translation. No reader or writer located; recorded to pin where x starts, not because it is established as padding."
+        },
+        {
+          "offset": 20,
+          "width": 4,
+          "type": "int",
+          "name": "x",
+          "confidence": "high",
+          "description": "+0x14. Transform_Concat and both Transform_ApplyTo* treat +0x14/+0x18/+0x1c as the translation."
+        },
+        {
+          "offset": 24,
+          "width": 4,
+          "type": "int",
+          "name": "y",
+          "confidence": "high",
+          "description": "+0x18."
+        },
+        {
+          "offset": 28,
+          "width": 4,
+          "type": "int",
+          "name": "z",
+          "confidence": "high",
+          "description": "+0x1c."
+        }
+      ]
+    },
+    {
+      "name": "CountdownTimer",
+      "binary": "DBSIM",
+      "size": 3,
+      "description": "The 3-byte packed countdown record Math_CountdownTimerTick (00467944) steps. THE COUNTER IS THE SHORT AT +1, NOT AT +0 -- verified across all 40 call sites. Records sit in stride-3 runs, so a base whose sibling code reads a short one byte higher is one of these.",
+      "fields": [
+        {
+          "offset": 0,
+          "width": 1,
+          "type": "undefined1",
+          "confidence": "low",
+          "description": "+0x0 -- untouched by Math_CountdownTimerTick, and for all four global instances (004a9be8, 004a9bec, 004a9ee6, 004a9ee9) never read or written anywhere in DBSIM, only address-taken. Meaning OPEN, not settled as padding."
+        },
+        {
+          "offset": 1,
+          "width": 2,
+          "type": "short",
+          "name": "counter",
+          "confidence": "high",
+          "description": "+0x1 -- decremented by SimTickDelta and clamped at 0; the tick returns its new value in AX. Every reload site writes this short, not the record base."
+        }
+      ]
+    },
+    {
+      "name": "BehaviourBlock",
+      "binary": "DBSIM",
+      "size": 69,
+      "description": "The AI behaviour state a machine currently holds -- 0x45 bytes embedded in the object at +0x4d, not a pointer field. Behaviour_SetState (00413e50) is the only writer, and its 30 call sites are the state machine's edge list. Both Mech_Constructor and Flyer_Constructor hand it obj+0x4d, so it is a base member rather than a mech one.",
+      "fields": [
+        {
+          "offset": 0,
+          "width": 4,
+          "type": "void *",
+          "name": "descriptor",
+          "confidence": "high",
+          "description": "+0x00 -- the state descriptor installed by Behaviour_SetState. The three dispatcher vtable slots read a triple out of it and return 0 without calling when that triple is entirely zero."
+        },
+        {
+          "offset": 4,
+          "width": 1,
+          "type": "byte",
+          "confidence": "low",
+          "description": "+0x04 -- not written by Behaviour_SetState. Timer_CountDown (004679a4) is handed this address and steps the int that FOLLOWS it, the same base-is-not-the-counter shape as CountdownTimer."
+        },
+        {
+          "offset": 5,
+          "width": 4,
+          "type": "int",
+          "name": "dwellCountdown",
+          "confidence": "high",
+          "description": "+0x05 -- milliseconds, loaded as descriptor+0x04 plus a 0-15 ms jitter (DAT_004a9bf4 stepped by 13 per state change and masked to 4 bits, so deterministic in call order rather than random). Only eight states actually step it; for the rest it is loaded and never expires."
+        },
+        {
+          "offset": 9,
+          "width": 4,
+          "type": "int",
+          "name": "tickCount",
+          "confidence": "high",
+          "description": "+0x09 -- zeroed on a state change, incremented once per AI tick by 00413eb0."
+        },
+        {
+          "offset": 13,
+          "width": 40,
+          "type": "byte[40]",
+          "confidence": "low",
+          "description": "+0x0d -- 0x28 bytes zeroed on a state change. Contents not established."
+        },
+        {
+          "offset": 53,
+          "width": 16,
+          "type": "byte[16]",
+          "confidence": "low",
+          "description": "+0x35 -- 0x10 bytes zeroed on a state change, after which +0x36 is set to 1. Contents not established."
+        }
+      ]
+    },
+    {
+      "name": "SimObject",
+      "binary": "DBSIM",
+      "size": 498,
+      "vtable": "SimObjectVtable",
+      "description": "The base every object the simulation ticks derives from -- mech, flyer and structure. Its extent is bounded above by where the derived classes start their own fields: 0x1f2 for the mech (Mech_Constructor's HERCS.DAT record store) and the structure (Base_Construct's BASES.DAT record store), 0x1fa for the flyer. Below that boundary the three constructors write an identical block, which is what identifies the layout as shared rather than coincidental.",
+      "notes": [
+        "THE FLAG BLOCK IS ADDRESSED THROUGH obj+0x92. Every reader of the bytes from 0x92 up materialises that address first -- 'LEA ECX,[EBX + 0x92]' -- and then uses a small displacement off it: TargetSelect_CanTarget reads destroyed as [EDX + 0x7] and Mech_Constructor writes 0xa7 as [EAX + 0x15]. So a scalar search for 0x95, 0x99, 0xa1, 0xa5 or 0xa7 returns ZERO sites across the whole binary, and that is not evidence the field is unused. Whether obj+0x92 is a sub-object in the source or just a base register the compiler chose is not settled, so the fields are placed at their absolute offsets here rather than inside an invented struct.",
+        "+0x1a4 (a machine's selected target) FALLS INSIDE THIS STRUCT'S EXTENT but is documented as mech+0x1a4 and is not known to be written by any other class. Left out until a flyer or a structure is seen to touch it.",
+        "+0x99, +0xa4 and +0xa5 ARE THE 'OUT OF THE FIGHT' TRIPLE, and they are three different conditions rather than three damage latches: destroyed, cannot move, cannot shoot. Each has its own writers and none of them is 'removed from the simulation' -- that is 'Removed', a separate concept the engine models on its own. Which tests read which subset is the behaviour: the detection sweep, the player's target selection and the mission group's condition tier read +0x99 and +0xa4 only; the AI's own tests add +0xa5."
+      ],
+      "fields": [
+        {
+          "offset": 0,
+          "width": 4,
+          "type": "SimObjectVtable *",
+          "name": "vtbl",
+          "confidence": "high",
+          "description": "The class vtable -- SimObjectBaseVtable (0049a54c) for a structure, MechVtable (0049a282) for a mech, 0049a5e0 for a flyer. Typing this is what makes an indirect call render as a named method."
+        },
+        {
+          "offset": 12,
+          "width": 6,
+          "type": "short[3]",
+          "name": "eulerAngles",
+          "confidence": "high",
+          "description": "+0xc -- the object's orientation as three binary angles, and the input BuildEulerRotationMatrixQ14 turns into 'frame'. Zeroed by SimObjectBase_Constructor (00402188); Flyer_Constructor passes it as the source when it seeds the matrix itself."
+        },
+        {
+          "offset": 18,
+          "width": 32,
+          "type": "Transform32",
+          "name": "frame",
+          "confidence": "high",
+          "description": "+0x12 -- the shape-to-world frame. SimObject_InstallModelTransform (00401fe4) builds it from eulerAngles when 'frameValid' is clear. ITS TRANSLATION IS THE OBJECT'S WORLD POSITION: obj+0x26/+0x2a/+0x2e, which is what TargetSelect_CanTarget hands to Math_DistanceBetweenPoints, are this record's x/y/z."
+        },
+        {
+          "offset": 50,
+          "width": 2,
+          "type": "short",
+          "name": "frameValid",
+          "confidence": "high",
+          "description": "+0x32 -- clear means 'frame' has not been built from eulerAngles yet. Zeroed by SimObjectBase_Constructor; set to 1 by SimObject_InstallModelTransform and by Flyer_Constructor after it seeds the matrix itself."
+        },
+        {
+          "offset": 52,
+          "width": 4,
+          "type": "void *",
+          "name": "shapeInstance",
+          "confidence": "high",
+          "description": "+0x34 -- the object's TSShapeInstance. Built by the root constructor from its second argument through FUN_00490a58, and tested and released by every deleting destructor in both hierarchies ('MOV ESI,dword ptr [EBX + 0x34]' in ProjectileBase_Dtor). Its per-node world transform array at shapeInstance+0x16 is what ShapeInst_BuildWorldTransforms fills."
+        },
+        {
+          "offset": 65,
+          "width": 4,
+          "type": "void *",
+          "name": "maybe_typeShapeRecord",
+          "confidence": "medium",
+          "description": "+0x41 -- a pointer into the class's own type table, stored by the shape layer of the constructor chain (0040332c, 00403368, 004033a4). A mech gets its HERCS.DAT row + 0xde. Distinct from the full type record each derived class stores for itself at +0x1f2."
+        },
+        {
+          "offset": 69,
+          "width": 4,
+          "type": "void *",
+          "name": "group",
+          "confidence": "high",
+          "description": "+0x45 -- the mission group that placed this object. group+0x12 is the side byte every friend-or-foe test compares, and group+0x14 is the 'awaiting deployment' pointer Sim_DetectionTick skips on. Written by Mech_AttachToGroup (00417aa8) and Base_AttachToGroup (00405c3c)."
+        },
+        {
+          "offset": 75,
+          "width": 2,
+          "type": "short",
+          "name": "listIndex",
+          "confidence": "high",
+          "description": "+0x4b -- the slot ObjectList_Add (00411dd4) put this object in, and the index that addresses a row of another object's 'contacts' and 'lineOfSightClear'. 'MOV DX,word ptr [EAX + 0x4b]' in Ai_KnowsObject settles the width."
+        },
+        {
+          "offset": 77,
+          "width": 69,
+          "type": "BehaviourBlock",
+          "name": "behaviour",
+          "confidence": "high",
+          "description": "+0x4d -- the AI behaviour state, embedded rather than pointed to; it runs to +0x91, ending exactly where the flag block begins. See BehaviourBlock."
+        },
+        {
+          "offset": 149,
+          "width": 1,
+          "type": "byte",
+          "name": "radarVisible",
+          "confidence": "high",
+          "description": "+0x95 -- set by Detection_Sweep (004128f8) when an active scanner on either side of a pair has line of sight, cleared wholesale by Detection_DecayContacts. A property of the object, unlike a contact, which is a property of a pair."
+        },
+        {
+          "offset": 150,
+          "width": 1,
+          "type": "byte",
+          "name": "scannerActive",
+          "confidence": "high",
+          "description": "+0x96 -- this object's own active scanner. Toggled by Mech_ToggleRadarMode (0041b468); latched on by Base_Construct for structure types 5, 6, 0x1d and 0x1e. One of the two emissions the anti-radiation missile homes on."
+        },
+        {
+          "offset": 152,
+          "width": 1,
+          "type": "byte",
+          "confidence": "low",
+          "description": "+0x98 -- written to 1 by Mech_Constructor and Flyer_Constructor as '[EDI + 0x6]' off the 0x92 base, in the identical block all three constructors share. No reader located."
+        },
+        {
+          "offset": 153,
+          "width": 1,
+          "type": "byte",
+          "name": "destroyed",
+          "confidence": "high",
+          "description": "+0x99 -- destroyed. Written only by the three classes' damage-write paths (Mech_ComponentDamageWrite when a core component reaches full damage, Flyer_ComponentDamageWrite, Base_ApplyDamage) and by Base_Construct for a structure spawned already destroyed. 'CMP byte ptr [EDX + 0x7],0x0' in TargetSelect_CanTarget (00433174) settles the width. The mech's writer also applies 30000 damage through vtable +0x74, clears scannerActive and fires the defeatAction."
+        },
+        {
+          "offset": 154,
+          "width": 1,
+          "type": "byte",
+          "confidence": "low",
+          "description": "+0x9a -- read by Ai_IsTargetable of the ASKING machine, gating a rejection of the object the cockpit view already holds. Meaning not established."
+        },
+        {
+          "offset": 158,
+          "width": 1,
+          "type": "byte",
+          "name": "engaged",
+          "confidence": "high",
+          "description": "+0x9e -- 'this object has been closed with by an enemy that can see it'. Written to 1 by Detection_Sweep on both parties at once, alongside firing the engagement action."
+        },
+        {
+          "offset": 161,
+          "width": 1,
+          "type": "byte",
+          "name": "maybe_jammerActive",
+          "confidence": "medium",
+          "description": "+0xa1 -- the object's jammer, read by the anti-radiation missile's emission gate (Rocket_HomingSteer, 0040a254) and the ECM spoofing roll. Nothing in DBSIM has been seen to turn one on."
+        },
+        {
+          "offset": 162,
+          "width": 1,
+          "type": "byte",
+          "name": "perTickActionLatch",
+          "confidence": "high",
+          "description": "+0xa2 -- cleared on every object by Sim_DetectionTick's third pass and tested before an engagement action fires, so it suppresses a second firing within a tick. That clear is the only writer located."
+        },
+        {
+          "offset": 163,
+          "width": 1,
+          "type": "byte",
+          "name": "locallyPiloted",
+          "confidence": "high",
+          "description": "+0xa3 -- the machine the player is flying. Sim_DetectionTick holds it back to sweep LAST, after every other friendly object, so squadmates' contacts reach it first."
+        },
+        {
+          "offset": 164,
+          "width": 1,
+          "type": "byte",
+          "name": "immobilised",
+          "confidence": "high",
+          "description": "+0xa4 -- this object can no longer move under its own power. Latched, never cleared. Mech_ComponentDamageWrite (00417de4) sets it when half or more of the legs have reached full damage, and Razor_MovementTick (004198f4) when the airframe loses its nose or belly -- for a flyer it is the harder stop, because the position integration refuses to run while it is set. Both writers also release the object's target and fire its defeatAction. NOT 'removed from the simulation'."
+        },
+        {
+          "offset": 165,
+          "width": 1,
+          "type": "byte",
+          "name": "disarmed",
+          "confidence": "high",
+          "description": "+0xa5 -- this object has no working weapon. NOT a damage latch. Ai_ChooseWeapon (0041f358) latches it the first time it walks a machine's whole mount list and finds nothing, and fires the defeatAction on the way, which is the fourth of that action's four firing sites. A STRUCTURE IS BORN WITH IT: Base_Construct sets it for the ordinary-building vtable (00497940) and the radar-mast vtable (004979d4), and not for the three armed families (004978ac, 00497784, 00497818), so 'has no weapons' is the reading the structure branch confirms independently of the mech one."
+        },
+        {
+          "offset": 167,
+          "width": 1,
+          "type": "byte",
+          "confidence": "low",
+          "description": "+0xa7 -- written to 1 by Mech_Constructor and Flyer_Constructor as '[EAX + 0x15]' off the 0x92 base. No reader located."
+        },
+        {
+          "offset": 180,
+          "width": 1,
+          "type": "byte",
+          "name": "maybe_collapsed",
+          "confidence": "medium",
+          "description": "+0xb4 -- rejects a candidate in Ai_IsTargetable, separately from destroyed (+0x99) and invulnerable (+0xb7)."
+        },
+        {
+          "offset": 183,
+          "width": 1,
+          "type": "byte",
+          "name": "invulnerable",
+          "confidence": "high",
+          "description": "+0xb7 -- cannot be hurt at all, and outside the AI's candidate set entirely (Ai_IsTargetable). Only a structure sets it; Base_Construct latches it from BASES.DAT +0x1e."
+        },
+        {
+          "offset": 194,
+          "width": 112,
+          "type": "byte[112]",
+          "name": "contacts",
+          "confidence": "high",
+          "description": "+0xc2 -- one byte per object, indexed by the OTHER object's listIndex: 'iVar6 + 0xc2 + *(short *)(obj + 0x4b)' in TargetSelect_CanTarget. Filled by Detection_Sweep, emptied by Detection_DecayContacts. The length is the 0x70 gap to lineOfSightClear, corroborated by the identical 0x70 gap from there to targetedBy."
+        },
+        {
+          "offset": 306,
+          "width": 112,
+          "type": "byte[112]",
+          "name": "lineOfSightClear",
+          "confidence": "high",
+          "description": "+0x132 -- the same shape as 'contacts' and the same index: the cached answer to whether this object can see that one, rate-limited by sightCacheTimer. Detection_LineOfSight (00412608) is the only reader and writer."
+        },
+        {
+          "offset": 418,
+          "width": 2,
+          "type": "short",
+          "name": "targetedBy",
+          "confidence": "high",
+          "description": "+0x1a2 -- how many machines currently hold this object as their selected target. 'DEC word ptr [ECX + 0x1a2]' / 'INC word ptr [EAX + 0x1a2]' settles the width; every writer of a machine's target decrements the old one and increments the new."
+        },
+        {
+          "offset": 424,
+          "width": 2,
+          "type": "short",
+          "name": "targetClass",
+          "confidence": "high",
+          "description": "+0x1a8 -- what this object counts as when something decides whether to shoot it: -1 unclassified, 0 HERC, 1 structure, 2 flyer or ground vehicle, 3 emplacement. Every constructor writes 0xffff first and overwrites it, so an object that never finishes construction stays unclassified."
+        },
+        {
+          "offset": 434,
+          "width": 4,
+          "type": "void *",
+          "name": "engagementAction",
+          "confidence": "high",
+          "description": "+0x1b2 -- the mission action this object fires when a hostile that already has contact on it closes to engagement range. Zeroed by all three constructors; set from the object's roster record."
+        },
+        {
+          "offset": 438,
+          "width": 4,
+          "type": "void *",
+          "name": "defeatAction",
+          "confidence": "high",
+          "description": "+0x1b6 -- the mission action this object fires when it stops being a threat, which is how a retail mission chains its waves. NOT a death action: a machine that has run out of working weapons fires it too."
+        },
+        {
+          "offset": 442,
+          "width": 2,
+          "type": "short",
+          "confidence": "low",
+          "description": "+0x1ba -- written to 0xffff by all three constructors ('MOV word ptr [EDX + 0x1ba],AX' in Base_Construct). Meaning not established."
+        },
+        {
+          "offset": 444,
+          "width": 2,
+          "type": "short",
+          "confidence": "low",
+          "description": "+0x1bc -- written to 0xffff by all three constructors. Meaning not established."
+        },
+        {
+          "offset": 446,
+          "width": 2,
+          "type": "short",
+          "confidence": "low",
+          "description": "+0x1be -- written to 0xffff by all three constructors. Meaning not established."
+        },
+        {
+          "offset": 482,
+          "width": 3,
+          "type": "CountdownTimer",
+          "name": "sightCacheTimer",
+          "confidence": "high",
+          "description": "+0x1e2 -- rate-limits lineOfSightClear. Ticked by Sim_DetectionTick's first pass through Math_CountdownTimerTick; reloaded with 5000 plus a roll of 1000 by Detection_LineOfSight."
+        },
+        {
+          "offset": 485,
+          "width": 3,
+          "type": "CountdownTimer",
+          "name": "contactDecayTimer",
+          "confidence": "high",
+          "description": "+0x1e5 -- the gap between passes of Detection_DecayContacts. On expiry Sim_DetectionTick reloads the counter at +0x1e6 with 10000 plus a roll of 1000 and runs the decay, so an object re-examines what it can see a few times a minute and the roll keeps a mission's objects off the same tick."
+        }
+      ]
+    }
+  ],
+  "applications": [
+    {
+      "function": "00433174",
+      "parameter": 1,
+      "struct": "SimObject",
+      "description": "TargetSelect_CanTarget's candidate. Parameter 0 is the asking object but one branch replaces it with a global, so it is not typed."
+    },
+    {
+      "function": "004128f8",
+      "parameter": 0,
+      "struct": "SimObject",
+      "description": "Detection_Sweep's subject."
+    },
+    {
+      "function": "0041251c",
+      "parameter": 0,
+      "struct": "SimObject",
+      "description": "Detection_DecayContacts' subject."
+    },
+    {
+      "function": "00411e80",
+      "parameter": 0,
+      "struct": "SimObject",
+      "description": "Ai_IsTargetable's asking machine -- reads +0x45, the 0x92 flag block and +0x1a8 off it."
+    },
+    {
+      "function": "00411e80",
+      "parameter": 1,
+      "struct": "SimObject",
+      "description": "Ai_IsTargetable's candidate."
+    },
+    {
+      "function": "00411c58",
+      "parameter": 1,
+      "struct": "SimObject",
+      "description": "Ai_KnowsObject's candidate -- the object whose listIndex indexes the asker's contact row."
+    }
+  ]
+}

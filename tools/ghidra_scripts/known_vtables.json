@@ -5,10 +5,10 @@
     "project by ES2ApplyVtables.java (tools/ghidra_scripts/). Re-run that script after adding",
     "entries here -- it is idempotent.",
     "",
-    "This is the companion to known_symbols.json, which owns address->function findings. This file",
-    "owns the SHAPE of a class: which slot means what, and which addresses hold a table of that",
-    "shape. A slot's meaning is recorded once here rather than once per doc that happens to call",
-    "through it.",
+    "This is one of three companion files. known_symbols.json owns address->function findings and",
+    "known_structs.json owns field layout inside an object. This file owns the SHAPE of a class:",
+    "which slot means what, and which addresses hold a table of that shape. A slot's meaning is",
+    "recorded once here rather than once per doc that happens to call through it.",
     "",
     "Per vtable definition:",
     "  name        - Ghidra data-type name, created under category /ES2.",
@@ -98,7 +98,7 @@
       "slots": [
         { "offset": 0,  "name": "Draw",           "description": "Bullet_Draw (0040a120) for the launcher round and the gun round alike; BeamTracer_Draw (0040bc14) for the beam class. See docs/simulation/beam-visuals.md." },
         { "offset": 4,  "name": "slot_0x04",      "description": "0046b801, the same value SimObjectVtable's +0x04 holds. Role not established." },
-        { "offset": 8,  "name": "Destructor",     "description": "The deleting destructor: 0040ab8d (rocket), 0040b64d (bullet), BeamTracer_Dtor (0040ba94), 0040ad2c (the dead Type-3 class), 0040c324 (base), 0046b890 (the class the base derives from). Takes a flags argument whose low bit asks it to free the object, which it does through 0047743c. None is a defined function in the database yet." },
+        { "offset": 8,  "name": "Destructor",     "description": "The deleting destructor: Rocket_Dtor (0040ab8d), Bullet_Dtor (0040b64d), BeamTracer_Dtor (0040ba94), DeadBullet_Dtor (0040ad2c), ProjectileBase_Dtor (0040c324), ProjectileSuperBase_Dtor (0046b890). Takes a flags argument whose low bit asks it to free the object, which it does through 0047743c." },
         { "offset": 12, "name": "slot_0x0c",      "description": "004785bf, as in SimObjectVtable. Role not established." },
         { "offset": 16, "name": "GetShapeRadius", "description": "SimObject_GetShapeRadius (0046b80c), shared with the full simulation objects." },
         { "offset": 20, "name": "Tick",           "description": "Rocket_TickUpdate (0040a538), Bullet_TickUpdate (0040b124), BeamTracer_LifeTick (0040c2a0). The base answers the 00496684 stub. See docs/simulation/rockets.md and projectiles.md." }

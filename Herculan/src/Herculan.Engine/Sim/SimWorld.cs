@@ -693,12 +693,23 @@ public sealed class SimWorld {
 			_fires.RemoveAt(weakest);
 		}
 
-		if (_fires.Count == 0) {
+		bool first = _fires.Count == 0;
+		if (first) {
 			Sounds?.Play(SoundId.BurningObject);
 		}
 
-		_fires.Add(new FireEffect(owner, componentIndex, localPoint, shapeIndex,
-			_fireShapeFrames[shapeIndex], FireEffect.LoopCount));
+		var fire = new FireEffect(owner, componentIndex, localPoint, shapeIndex,
+			_fireShapeFrames[shapeIndex], FireEffect.LoopCount);
+		_fires.Add(fire);
+
+		// Sound_Play is not positional, so the loop would sound centred at the row's own volume until
+		// the tick below placed it. The original does not have that gap: FireEffect_Ctor ends by
+		// calling FireEffect_TickUpdate, which places the sound on the fire it just built. With this
+		// the only live fire it is trivially the nearest, so placing it directly is that call's
+		// outcome without ticking the flipbook a frame early.
+		if (first) {
+			Sounds?.MoveTo(SoundId.BurningObject, fire.Position);
+		}
 	}
 
 	/// <summary>
@@ -1128,13 +1139,38 @@ public sealed class SimWorld {
 			}
 		}
 
+		// One sound serves every fire in the mission, so it is placed on whichever of them is nearest
+		// the camera: FireEffect_TickUpdate measures its own distance to ViewObjectPtr and calls
+		// Sound_UpdatePosition(0x33) whenever it beats the running minimum at DAT_006b4fc0, which the
+		// pool's phase-5 hook (LAB_0046b084, run from maybe_Sim_RenderFrame) resets to 0x7fffffff
+		// every frame. Taking the minimum across the walk and placing once is the same outcome.
+		//
+		// A burnt-out fire still counts towards the minimum on the tick it goes out, as it does in the
+		// original: the placement happens above the loops-remaining test, not after it.
+		long nearest = long.MaxValue;
+		Vec3i nearestPosition = default;
+
 		for (int i = _fires.Count - 1; i >= 0; i--) {
-			if (_fires[i].Tick(this)) {
+			bool done = _fires[i].Tick(this);
+
+			var offset = _fires[i].Position - ListenerPosition;
+			long distance = (long)offset.X * offset.X + (long)offset.Y * offset.Y
+				+ (long)offset.Z * offset.Z;
+			if (distance < nearest) {
+				nearest = distance;
+				nearestPosition = _fires[i].Position;
+			}
+
+			if (done) {
 				_fires.RemoveAt(i);
 				if (_fires.Count == 0) {
 					Sounds?.Stop(SoundId.BurningObject);
 				}
 			}
+		}
+
+		if (_fires.Count > 0) {
+			Sounds?.MoveTo(SoundId.BurningObject, nearestPosition);
 		}
 
 

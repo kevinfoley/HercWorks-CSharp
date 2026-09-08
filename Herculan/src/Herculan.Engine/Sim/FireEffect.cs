@@ -91,10 +91,11 @@ public sealed class FireEffect {
 	/// <c>FireEffect_TickUpdate</c>, vtable <c>+0x14</c>. Steps the flipbook on its own timer, then re-places
 	/// the fire from wherever its owner is now. Returns whether it has burnt out.
 	///
-	/// <para>The original also keeps the shared burning-object sound (<c>0x33</c>) on whichever live
-	/// fire is nearest the camera, which is why the loop measures its distance to the view. That is
-	/// the audio director's business here, and <see cref="SimWorld.SpawnFire"/> and
-	/// <see cref="SimWorld.ReleaseFires"/> hold the same one-sound-for-all-of-them rule the original
+	/// <para>The shared burning-object sound (<c>0x33</c>) is placed on whichever live fire is
+	/// nearest the camera, which is why the original's tick measures its own distance to the view.
+	/// The nearest-of-all choice is taken across the whole pool in <see cref="SimWorld.Tick"/>
+	/// instead of by each fire against a running minimum; <see cref="SimWorld.SpawnFire"/> and
+	/// <see cref="SimWorld.ReleaseFires"/> hold the one-sound-for-all-of-them rule the original
 	/// counts with <c>DAT_006b4fbc</c>.</para>
 	/// </summary>
 	internal bool Tick(SimWorld world) {

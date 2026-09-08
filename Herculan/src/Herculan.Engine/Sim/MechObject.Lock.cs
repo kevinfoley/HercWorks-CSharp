@@ -77,7 +77,8 @@ public sealed partial class MechObject {
 	/// One countdown per missile subtype — <c>mech+0x258</c>, <c>+0x25b</c>, <c>+0x25e</c> and
 	/// <c>+0x264</c> in the original, which are four separate fields rather than an array. They are
 	/// gathered here because they are addressed by the same subtype index everything else in this
-	/// file is; slot 3 is never used, exactly as the original has no field for it.
+	/// file is. Slot 3 is never used: the original reserves the field at <c>+0x261</c> — the run's
+	/// stride of 3 runs through it to reach <c>+0x264</c> — but no tick ever names it.
 	/// </summary>
 	private readonly short[] _lockTimer = new short[WeaponMount.NotAMissile];
 

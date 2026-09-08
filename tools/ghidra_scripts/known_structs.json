@@ -39,6 +39,13 @@
     "lie in every function that touches the object, and it lies plausibly. Only record a width the",
     "access instruction pins -- MOV byte ptr / MOVSX EAX, word ptr / MOV EAX, dword ptr. Where two",
     "readers disagree, that is a finding: leave the field out and say so in 'notes'. Never average.",
+    "ES2ApplyStructures checks the declared width against the resolved type's own length, refuses a",
+    "field that overlaps its neighbour, and refuses one that runs past the declared size. Widen the",
+    "schema rather than working around those checks.",
+    "",
+    "DEFINITION ORDER MATTERS WITHIN 'structs'. A field naming another struct resolves only against",
+    "types defined EARLIER in this array (or already present under /ES2), so a sub-object goes above",
+    "the class that embeds it.",
     "",
     "SIZES. Every one here comes from the free-list pool the class is allocated from, not from the",
     "highest documented offset. Pool_Init (004719cc) takes (pool, count, elementSize) and the allocator",
@@ -147,6 +154,29 @@
       ]
     },
     {
+      "name": "LongCountdownTimer",
+      "binary": "DBSIM",
+      "size": 5,
+      "description": "The engine's second countdown record, stepped by Timer_CountDown (004679a4): the same byte-then-counter shape as CountdownTimer but with an int counter, so it holds a window longer than a short can carry. Which of the two a field is cannot be read off the field itself -- it is settled by which function ticks it. BehaviourBlock +0x04 is one of these (Timer_CountDown is called on mech+0x51, and the block starts at mech+0x4d).",
+      "fields": [
+        {
+          "offset": 0,
+          "width": 1,
+          "type": "undefined1",
+          "confidence": "low",
+          "description": "+0x00 -- Timer_CountDown is handed this address and works on +0x01, so the byte here is never touched by the tick. No reader or writer located; recorded to pin where the counter starts."
+        },
+        {
+          "offset": 1,
+          "width": 4,
+          "type": "int",
+          "name": "counter",
+          "confidence": "high",
+          "description": "+0x01 -- milliseconds remaining. Timer_CountDown subtracts SimTickDelta and clamps at 0. The unaligned offset is the whole reason this record has a spare byte in front of it."
+        }
+      ]
+    },
+    {
       "name": "BehaviourBlock",
       "binary": "DBSIM",
       "size": 69,
@@ -162,18 +192,11 @@
         },
         {
           "offset": 4,
-          "width": 1,
-          "type": "byte",
-          "confidence": "low",
-          "description": "+0x04 -- not written by Behaviour_SetState. Timer_CountDown (004679a4) is handed this address and steps the int that FOLLOWS it, the same base-is-not-the-counter shape as CountdownTimer."
-        },
-        {
-          "offset": 5,
-          "width": 4,
-          "type": "int",
-          "name": "dwellCountdown",
+          "width": 5,
+          "type": "LongCountdownTimer",
+          "name": "dwellTimer",
           "confidence": "high",
-          "description": "+0x05 -- milliseconds, loaded as descriptor+0x04 plus a 0-15 ms jitter (DAT_004a9bf4 stepped by 13 per state change and masked to 4 bits, so deterministic in call order rather than random). Only eight states actually step it; for the rest it is loaded and never expires."
+          "description": "+0x04 -- the state's dwell countdown, stepped by Timer_CountDown(mech+0x51); docs cite its counter as mech+0x52, which is this record's own +0x01. Behaviour_SetState does not touch the leading byte. The counter is loaded as descriptor+0x04 plus a 0-15 ms jitter (DAT_004a9bf4 stepped by 13 per state change and masked to 4 bits, so deterministic in call order rather than random). Only eight states actually step it; for the rest it is loaded and never expires."
         },
         {
           "offset": 9,
@@ -478,6 +501,633 @@
           "description": "+0x1e5 -- the gap between passes of Detection_DecayContacts. On expiry Sim_DetectionTick reloads the counter at +0x1e6 with 10000 plus a roll of 1000 and runs the decay, so an object re-examines what it can see a few times a minute and the roll keeps a mission's objects off the same tick."
         }
       ]
+    },
+    {
+      "name": "ComponentDamageArrays",
+      "binary": "DBSIM",
+      "size": 28,
+      "description": "The per-component damage header a machine keeps at mech+0x206. Three parallel arrays of accumulated damage plus the reference data they are read against; the arrays are heap blocks, the header is embedded. Allocated by Component_AllocDamageArrays (0040d2cc) with (29 components, 22 dependent subpieces) and wired up by Component_LinkMaxRefData (0040d354). Zero means undamaged, not destroyed -- these accumulate damage rather than hold remaining health.",
+      "fields": [
+        {
+          "offset": 0,
+          "width": 4,
+          "type": "short *",
+          "name": "dependentDamage",
+          "confidence": "high",
+          "description": "+0x00 -- the 22-entry dependent-subpiece damage array. Allocated as param_3*2 bytes and zeroed."
+        },
+        {
+          "offset": 4,
+          "width": 4,
+          "type": "short *",
+          "name": "componentDamage",
+          "confidence": "high",
+          "description": "+0x04 -- the 29-entry main-component damage array. Allocated as param_2*2 bytes and zeroed."
+        },
+        {
+          "offset": 8,
+          "width": 4,
+          "type": "short *",
+          "name": "componentActive",
+          "confidence": "high",
+          "description": "+0x08 -- the 29-entry active-flag array, memset to 0x01 rather than zeroed. This is the one Mech_ApplyDirectFireDamage clears a slot in (docs write it as mech+0x20e[i] = 0) before writing the damage, so a destroyed mount stops being a target."
+        },
+        {
+          "offset": 12,
+          "width": 4,
+          "type": "void *",
+          "name": "maxRefData",
+          "confidence": "high",
+          "description": "+0x0c -- the .DMG-derived per-component maximum/reference record, which is the mech's own mech+0x1fa handed in as Component_LinkMaxRefData's param_3. Mech_AiFleeCheck reads a component maximum through it."
+        },
+        {
+          "offset": 16,
+          "width": 4,
+          "type": "void *",
+          "name": "collisionRecord",
+          "confidence": "high",
+          "description": "+0x10 -- the Collision_RegisterObject registration, the mech's own mech+0x1f6."
+        },
+        {
+          "offset": 20,
+          "width": 4,
+          "type": "void *",
+          "name": "owner",
+          "confidence": "high",
+          "description": "+0x14 -- back-pointer to the object the header is embedded in."
+        },
+        {
+          "offset": 24,
+          "width": 2,
+          "type": "short",
+          "name": "componentCount",
+          "confidence": "high",
+          "description": "+0x18 -- Component_AllocDamageArrays stores its param_2 here; 29 for a mech."
+        },
+        {
+          "offset": 26,
+          "width": 2,
+          "type": "short",
+          "name": "dependentCount",
+          "confidence": "high",
+          "description": "+0x1a -- its param_3; 22 for a mech."
+        }
+      ]
+    },
+    {
+      "name": "ShieldBlock",
+      "binary": "DBSIM",
+      "size": 10,
+      "description": "A machine's shield array: five shorts at mech+0x222, initialised by Shield_Init (00413a90) from the type record's +0xc0. There is one pool, not two -- max caps the SUM of the two facings and balance decides the split, which is why the manual can only say power is redistributed. docs/simulation/damage-system.md owns the recharge, absorb and balance-slew behaviour.",
+      "fields": [
+        {
+          "offset": 0,
+          "width": 2,
+          "type": "short",
+          "name": "front",
+          "confidence": "high",
+          "description": "+0x00 -- front charge. Shield_Init seeds it to max>>1. Mech_GetShieldByHeading (004154d0) returns this facing within +/-90 degrees of the given heading."
+        },
+        {
+          "offset": 2,
+          "width": 2,
+          "type": "short",
+          "name": "rear",
+          "confidence": "high",
+          "description": "+0x02 -- rear charge, seeded the same way."
+        },
+        {
+          "offset": 4,
+          "width": 2,
+          "type": "short",
+          "name": "balance",
+          "confidence": "high",
+          "description": "+0x04 -- Q10 over 0-1024; Shield_Init writes 0x200, an even split."
+        },
+        {
+          "offset": 6,
+          "width": 2,
+          "type": "short",
+          "name": "max",
+          "confidence": "high",
+          "description": "+0x06 -- caps front + rear. Raised by a Shield Pod, so this is the live figure."
+        },
+        {
+          "offset": 8,
+          "width": 2,
+          "type": "short",
+          "name": "baseMax",
+          "confidence": "high",
+          "description": "+0x08 -- the type's capacity before any pod. Shield_Init writes the same value to both and nothing writes this one again."
+        }
+      ]
+    },
+    {
+      "name": "MechObject",
+      "binary": "DBSIM",
+      "size": 874,
+      "description": "A HERC -- the class every walking machine and the RAZOR are instances of. Embeds SimObject at offset 0 (so the vtable, transform, behaviour block and flag block are the base's fields) and starts its own at +0x1f2, running to 0x36a. Constructed by Mech_Constructor (00415bb0), allocated from the pool set up at 00425185 whose element size is this struct's length.",
+      "notes": [
+        "THE FLIGHT BLOCK AT +0x2b9 BELONGS TO THIS STRUCT, not to FlyerObject: a RAZOR is a mech with the type record's flyer flag set, which docs/simulation/razor-flight.md establishes and owns. The layout corroborates it -- +0x2b9 is past the end of the flyer class (0x291), and Mech_Constructor is what zeroes the block and seeds the airspeed.",
+        "THE TWO TIMER FLAVOURS ARE NOT DISTINGUISHABLE FROM THE FIELD, only from which function ticks it. +0x258 through +0x26c are seven 3-byte CountdownTimers stepped by Math_CountdownTimerTick; +0x26d through +0x280 are four 5-byte LongCountdownTimers stepped by Timer_CountDown. Both keep their counter at +1, which is why every doc cites these fields one byte above the record: mech+0x26b IS the counter of the timer based at +0x26a, not a field of its own. Searching for the cited offset finds the accesses; searching for it as a record base finds nothing.",
+        "+0x261 IS A LOCK TIMER SLOT THAT NOTHING TICKS. The run from +0x258 has a regular stride of 3 and +0x264 is the fifth element of it, so the fourth exists in the layout; no call to Math_CountdownTimerTick names it, matching the engine port's note that missile subtype 3 is never used.",
+        "THE GAPS AT +0x1fe, +0x24c, +0x2a4 AND +0x301 ARE UNREAD, NOT ESTABLISHED AS PADDING. No access to them was located; they are left out rather than filled so a later finding does not have to displace an invented field.",
+        "THE EXTENT OF +0x240 IS DERIVED, NOT READ. Ai_DriveToPoint takes it as a point pointer and every other world point in this struct is three int32s, but +0x248 holds an object pointer, so it cannot run past +0x247. Recorded as two int32s on that ground alone."
+      ],
+      "fields": [
+        {
+          "offset": 0,
+          "width": 498,
+          "type": "SimObject",
+          "name": "base",
+          "confidence": "high",
+          "description": "+0x00 -- the base class, embedded. Field 0 of it is the vtable, which Mech_Constructor points at MechVtable (0049a282)."
+        },
+        {
+          "offset": 498,
+          "width": 4,
+          "type": "void *",
+          "name": "typeRecord",
+          "confidence": "high",
+          "description": "+0x1f2 -- this chassis' 0x21e-byte type record, indexed out of DAT_004a9de8 by Mech_Constructor. Read by nearly every mech method for the chassis figures."
+        },
+        {
+          "offset": 502,
+          "width": 4,
+          "type": "void *",
+          "name": "collisionModel",
+          "confidence": "high",
+          "description": "+0x1f6 -- the Collision_RegisterObject registration for the type's .COL file."
+        },
+        {
+          "offset": 506,
+          "width": 4,
+          "type": "void *",
+          "name": "damageRecord",
+          "confidence": "high",
+          "description": "+0x1fa -- the type's .DMG file, loaded by Damage_LoadMechDmgFile. Handed straight to Component_LinkMaxRefData, so it is also componentDamage.maxRefData."
+        },
+        {
+          "offset": 514,
+          "width": 4,
+          "type": "void *",
+          "name": "weaponMounts",
+          "confidence": "high",
+          "description": "+0x202 -- the weapon-mount manager. Its +0x04 is the mount array and +0x08 the count, which is how Mech_ComputeCombatRating walks the machine's hardpoints."
+        },
+        {
+          "offset": 518,
+          "width": 28,
+          "type": "ComponentDamageArrays",
+          "name": "componentDamage",
+          "confidence": "high",
+          "description": "+0x206 -- allocated in place by Component_AllocDamageArrays(mech+0x206, 0x1d, 0x16)."
+        },
+        {
+          "offset": 546,
+          "width": 10,
+          "type": "ShieldBlock",
+          "name": "shield",
+          "confidence": "high",
+          "description": "+0x222 -- Shield_Init(mech+0x222, typeRecord+0xc0)."
+        },
+        {
+          "offset": 556,
+          "width": 4,
+          "type": "void *",
+          "name": "locomotionThread",
+          "confidence": "high",
+          "description": "+0x22c -- the animation thread the walk cycle is seeked on, built from typeRecord+0x12, or null when the chassis has no such sequence. Mech_LocomotionTick drives it."
+        },
+        {
+          "offset": 560,
+          "width": 4,
+          "type": "void *",
+          "name": "turretTwistThread",
+          "confidence": "high",
+          "description": "+0x230 -- the same for the torso twist, from typeRecord+0x1c."
+        },
+        {
+          "offset": 564,
+          "width": 4,
+          "type": "void *",
+          "name": "turretPitchThread",
+          "confidence": "high",
+          "description": "+0x234 -- and the pitch, from typeRecord+0x24."
+        },
+        {
+          "offset": 568,
+          "width": 4,
+          "type": "void *",
+          "name": "parts",
+          "confidence": "high",
+          "description": "+0x238 -- a malloc'd array of pointers to the machine's own child objects, one per entry in the type record's list at +0x72. Mech_PlaceLegsOnGround walks it to place the legs."
+        },
+        {
+          "offset": 572,
+          "width": 2,
+          "type": "short",
+          "name": "partCount",
+          "confidence": "high",
+          "description": "+0x23c -- how many, counted by Mech_Constructor off the same list."
+        },
+        {
+          "offset": 574,
+          "width": 2,
+          "type": "short",
+          "name": "squadOrderVerb",
+          "confidence": "high",
+          "description": "+0x23e -- the standing squad order, 0 for none. Verb 4 is engage, and Ai_ClearSquadEngageOrder (0041c478) clears it when its target is let go."
+        },
+        {
+          "offset": 576,
+          "width": 8,
+          "type": "int[2]",
+          "name": "squadOrderDestination",
+          "confidence": "medium",
+          "description": "+0x240 -- where a standing squad order sends the machine; Ai_NavigationStep hands it to Ai_DriveToPoint. See the note on its extent."
+        },
+        {
+          "offset": 584,
+          "width": 4,
+          "type": "SimObject *",
+          "name": "squadOrderTarget",
+          "confidence": "high",
+          "description": "+0x248 -- the order's target object, compared against the selected target at +0x1a4 by Ai_ClearSquadEngageOrder."
+        },
+        {
+          "offset": 592,
+          "width": 2,
+          "type": "short",
+          "name": "squadOrderAbandonTier",
+          "confidence": "high",
+          "description": "+0x250 -- how finished the order wants its target before the machine may drop it. Ai_ShouldAbandonTarget (0041c4a8) compares Ai_TargetStateTier against it."
+        },
+        {
+          "offset": 594,
+          "width": 2,
+          "type": "short",
+          "name": "cruiseSpeed",
+          "confidence": "high",
+          "description": "+0x252 -- the speed Ai_DriveToPoint walks at, out of the mission file. Zero means the 0xaa default, which is what 91% of retail records carry."
+        },
+        {
+          "offset": 596,
+          "width": 2,
+          "type": "short",
+          "name": "avoidanceBias",
+          "confidence": "high",
+          "description": "+0x254 -- +/-5000, picked by a coin flip when the machine gets stuck, biasing obstacle avoidance to one side for as long as unstickTimer runs."
+        },
+        {
+          "offset": 598,
+          "width": 2,
+          "type": "short",
+          "name": "reactorRate",
+          "confidence": "high",
+          "description": "+0x256 -- the reactor's output rate, which Mech_PerTickSystemsUpdate runs through Math_IntegrateRateOverTick into the energy pool. The reactor is a rate; the pool is a capacitor."
+        },
+        {
+          "offset": 600,
+          "width": 3,
+          "type": "CountdownTimer",
+          "name": "lockTimer0",
+          "confidence": "high",
+          "description": "+0x258 -- missile-subtype 0's lock countdown, ticked by Mech_PerTickSystemsUpdate through Math_CountdownTimerTick(mech + 600)."
+        },
+        {
+          "offset": 603,
+          "width": 3,
+          "type": "CountdownTimer",
+          "name": "lockTimer1",
+          "confidence": "high",
+          "description": "+0x25b -- subtype 1."
+        },
+        {
+          "offset": 606,
+          "width": 3,
+          "type": "CountdownTimer",
+          "name": "lockTimer2",
+          "confidence": "high",
+          "description": "+0x25e -- subtype 2."
+        },
+        {
+          "offset": 609,
+          "width": 3,
+          "type": "CountdownTimer",
+          "confidence": "medium",
+          "description": "+0x261 -- subtype 3's slot. Placed on the run's stride rather than on an access; see the note."
+        },
+        {
+          "offset": 612,
+          "width": 3,
+          "type": "CountdownTimer",
+          "name": "lockTimer4",
+          "confidence": "high",
+          "description": "+0x264 -- subtype 4."
+        },
+        {
+          "offset": 615,
+          "width": 3,
+          "type": "CountdownTimer",
+          "name": "ecmRollTimer",
+          "confidence": "high",
+          "description": "+0x267 -- the gap between ECM spoof rolls against a jamming target. Mech_PerTickSystemsUpdate reloads the counter at +0x268 with 5000 after a roll that spoofed and 0x5dc after one that did not."
+        },
+        {
+          "offset": 618,
+          "width": 3,
+          "type": "CountdownTimer",
+          "name": "radarSilenceTimer",
+          "confidence": "high",
+          "description": "+0x26a -- how long the radar is held off. Mech_DirectFireHitTest loads 6000 into the counter at +0x26b on an anti-radiation missile hit, and that is the ARM working: the machine goes dark long enough for a seeker to lose it."
+        },
+        {
+          "offset": 621,
+          "width": 5,
+          "type": "LongCountdownTimer",
+          "name": "unstickTimer",
+          "confidence": "high",
+          "description": "+0x26d -- the post-collision back-off. Mech_MovementTick loads 10000 into the counter at +0x26e, and while it runs the machine ignores its desired speed and drives at the chassis maximum, avoidanceBias deciding which way."
+        },
+        {
+          "offset": 626,
+          "width": 5,
+          "type": "LongCountdownTimer",
+          "name": "retargetCooldown",
+          "confidence": "high",
+          "description": "+0x272 -- Mech_AiOnTakingFire loads 10000 into +0x273, which is what stops a machine under sustained fire from re-picking a target every tick."
+        },
+        {
+          "offset": 631,
+          "width": 5,
+          "type": "LongCountdownTimer",
+          "name": "friendlyFireComplaintCooldown",
+          "confidence": "high",
+          "description": "+0x277 -- the gap between friendly-fire callouts; counter at +0x278."
+        },
+        {
+          "offset": 636,
+          "width": 5,
+          "type": "LongCountdownTimer",
+          "name": "underFireWindow",
+          "confidence": "high",
+          "description": "+0x27c -- Mech_AiOnTakingFire loads 30000 into +0x27d. Its expiry is what clears damageFromPlayerGroup."
+        },
+        {
+          "offset": 641,
+          "width": 4,
+          "type": "int",
+          "name": "damageFromPlayerGroup",
+          "confidence": "high",
+          "description": "+0x281 -- damage taken from the player's own group inside underFireWindow, summed by Mech_AiOnTakingFire and tested against 8000. Mech_PerTickSystemsUpdate zeroes it."
+        },
+        {
+          "offset": 645,
+          "width": 3,
+          "type": "CountdownTimer",
+          "confidence": "low",
+          "description": "+0x285 -- ticked by Mech_PerTickSystemsUpdate, which reloads the counter at +0x286 with 4000. What it gates is not established."
+        },
+        {
+          "offset": 648,
+          "width": 4,
+          "type": "int",
+          "name": "damageTaken",
+          "confidence": "high",
+          "description": "+0x288 -- the running total of damage this machine has taken. Mech_DirectFireHitTest adds to it; the AI's circling step spends it, breaking off only past 100."
+        },
+        {
+          "offset": 652,
+          "width": 2,
+          "type": "short",
+          "name": "turnRate",
+          "confidence": "high",
+          "description": "+0x28c -- binary angle per tick, added straight to the heading by Mech_LocomotionTick. There is no velocity vector anywhere in this struct: movement is animation root motion."
+        },
+        {
+          "offset": 654,
+          "width": 2,
+          "type": "short",
+          "name": "speed",
+          "confidence": "high",
+          "description": "+0x28e -- the walker speed scalar, which scales the animation rather than integrating a position. Never written on a flight path; Mech_GetSpeed returns Q10(2000, this) for a walker."
+        },
+        {
+          "offset": 656,
+          "width": 2,
+          "type": "short",
+          "name": "throttle",
+          "confidence": "high",
+          "description": "+0x290 -- throttle setting, Q10 over +/-0x400, its sign the direction of travel. Written by Mech_ApplyThrottleInput and, when the cockpit gauge is being dragged, by Player_PerFrameCockpitUpdate."
+        },
+        {
+          "offset": 658,
+          "width": 2,
+          "type": "short",
+          "name": "energyPool",
+          "confidence": "high",
+          "description": "+0x292 -- the Master Energy Pool. Mech_Constructor seeds 10000 and the tick clamps back to it; every consumer draws on this, never on the reactor."
+        },
+        {
+          "offset": 660,
+          "width": 2,
+          "type": "short",
+          "name": "turretTwistRate",
+          "confidence": "high",
+          "description": "+0x294 -- binary angle per second, built up toward what the stick asks for."
+        },
+        {
+          "offset": 662,
+          "width": 2,
+          "type": "short",
+          "name": "turretPitchRate",
+          "confidence": "high",
+          "description": "+0x296 -- the pitch counterpart."
+        },
+        {
+          "offset": 664,
+          "width": 2,
+          "type": "short",
+          "name": "turretTwist",
+          "confidence": "high",
+          "description": "+0x298 -- the turret's twist angle relative to the machine's own heading. Mech vtable +0x3c returns it, and the front window's Rotation Indicator reads it exactly."
+        },
+        {
+          "offset": 666,
+          "width": 2,
+          "type": "short",
+          "name": "turretPitch",
+          "confidence": "high",
+          "description": "+0x29a -- positive looks up."
+        },
+        {
+          "offset": 668,
+          "width": 2,
+          "type": "short",
+          "confidence": "low",
+          "description": "+0x29c -- zeroed by Mech_Constructor. No other access located."
+        },
+        {
+          "offset": 670,
+          "width": 2,
+          "type": "short",
+          "name": "combatRating",
+          "confidence": "high",
+          "description": "+0x29e -- what this machine is worth as a target and how willing it is to fight, computed by Mech_ComputeCombatRating (0041edd8) and cached behind the +0x94 dirty flag. It falls as the machine is shot apart."
+        },
+        {
+          "offset": 672,
+          "width": 2,
+          "type": "short",
+          "name": "animationRate",
+          "confidence": "high",
+          "description": "+0x2a0 -- animation playback rate. In steady state it equals speed; Mech_MovementTick negates it and Mech_PlaceLegsOnGround reads its sign to tell walking from reversing."
+        },
+        {
+          "offset": 674,
+          "width": 2,
+          "type": "short",
+          "name": "aimComponentSlot",
+          "confidence": "high",
+          "description": "+0x2a2 -- the component slot the machine is working at, or -1. Written by Mech_AiSelectAimComponent (0041ce08); Mech_AiCombatReassess resets it to -1."
+        },
+        {
+          "offset": 682,
+          "width": 2,
+          "type": "short",
+          "name": "fear",
+          "confidence": "high",
+          "description": "+0x2aa -- 0 at construction, then 1000, 600 or 300 as Mech_AiFleeCheck (0041cb94) raises it. Mapped through [0, 1024] -> [150, -100] it becomes Ai_ChooseWeapon's score floor, so a frightened machine fires almost anything it has left."
+        },
+        {
+          "offset": 684,
+          "width": 4,
+          "type": "void *",
+          "name": "latchedMount",
+          "confidence": "high",
+          "description": "+0x2ac -- the weapon mount held across ticks. Only an ELF is ever kept, which is what lets an AI machine sustain a burst instead of re-rolling its choice; Ai_FireAtPoint (0041f5a0) clears it as soon as the mount stops being ready or in range."
+        },
+        {
+          "offset": 688,
+          "width": 4,
+          "type": "SimObject *",
+          "name": "collisionLockCandidate",
+          "confidence": "high",
+          "description": "+0x2b0 -- a structure recorded as a lock-on candidate by Mech_CollisionTest, separately from its block test. Only the behaviour layer reads it."
+        },
+        {
+          "offset": 692,
+          "width": 4,
+          "type": "byte[4]",
+          "name": "legArmed",
+          "confidence": "high",
+          "description": "+0x2b4 -- one arming byte a leg. Mech_PlaceLegsOnGround takes this as a char cursor and walks it alongside the parts array; a foot swings forward past the arming figure and plants as it comes back through the trigger."
+        },
+        {
+          "offset": 696,
+          "width": 1,
+          "type": "byte",
+          "confidence": "medium",
+          "description": "+0x2b8 -- the arming byte Mech_PlaceLegsOnGround switches its cursor to for the part matching the type record's +0x46, so it is a fifth arming flag outside the leg run rather than part of it. Mech_Constructor seeds it to 1 where the four legs get 0."
+        },
+        {
+          "offset": 697,
+          "width": 12,
+          "type": "int[3]",
+          "name": "bodyVelocity",
+          "confidence": "high",
+          "description": "+0x2b9 -- velocity in the airframe's own frame: X sideslip (-X is port), Y airspeed, Z vertical. Mech_Constructor zeroes 0x4e bytes from here, which is the whole flight block, and seeds the Y component to 1000."
+        },
+        {
+          "offset": 709,
+          "width": 12,
+          "type": "int[3]",
+          "name": "worldVelocity",
+          "confidence": "high",
+          "description": "+0x2c5 -- the same velocity in world space, and what Razor_MovementTick integrates into the position."
+        },
+        {
+          "offset": 721,
+          "width": 2,
+          "type": "short",
+          "name": "pitchRate",
+          "confidence": "high",
+          "description": "+0x2d1 -- binary angle per unit time."
+        },
+        {
+          "offset": 723,
+          "width": 2,
+          "type": "short",
+          "name": "rollRate",
+          "confidence": "high",
+          "description": "+0x2d3."
+        },
+        {
+          "offset": 725,
+          "width": 2,
+          "type": "short",
+          "name": "yawRate",
+          "confidence": "high",
+          "description": "+0x2d5 -- what the rudder builds, distinct from the heading rate the bank produces."
+        },
+        {
+          "offset": 727,
+          "width": 2,
+          "type": "short",
+          "name": "flyerThrottle",
+          "confidence": "high",
+          "description": "+0x2d7 -- the flyer's own throttle, a second copy of throttle rather than the same field. Razor_ApplyFlightInput copies it onto +0x290 and sets the +0x93 dirty flag, and Player_PerFrameCockpitUpdate writes both under the type record's flyer flag -- which is the only path by which the cockpit slider reaches a RAZOR."
+        },
+        {
+          "offset": 729,
+          "width": 4,
+          "type": "short *",
+          "name": "eulerAnglesPtr",
+          "confidence": "high",
+          "description": "+0x2d9 -- back-pointer to the object's own euler triple at +0x0c, set by Mech_Constructor. Every flight path addresses the block through it."
+        },
+        {
+          "offset": 733,
+          "width": 32,
+          "type": "Transform32",
+          "name": "previousFrameInverse",
+          "confidence": "high",
+          "description": "+0x2dd -- last tick's transform, transposed and with the translation negated and rotated. Mech_Constructor builds it from +0x12 and +0x26 and then inverts it in place; the docs cite +0x2f1 separately, which is this transform's own translation."
+        },
+        {
+          "offset": 765,
+          "width": 4,
+          "type": "int",
+          "name": "bankHeadingRate",
+          "confidence": "high",
+          "description": "+0x2fd -- the heading rate the current bank angle is producing. This is what turns a RAZOR: there is no rudder-driven yaw in the heading."
+        },
+        {
+          "offset": 775,
+          "width": 20,
+          "type": "void *[5]",
+          "name": "equipmentPods",
+          "confidence": "high",
+          "description": "+0x307 -- ECM, targeting computer, Shield Pod, Energy Pod, Turbo Pod, in that slot order. MechLoadout_FileEquipmentPods (0040fb2c) memsets 0x14 bytes and files five specific catalog ids out of the finished mount list, so a slot is null unless that pod is fitted."
+        },
+        {
+          "offset": 796,
+          "width": 2,
+          "type": "short",
+          "name": "attWaitTimer",
+          "confidence": "high",
+          "description": "+0x31c -- how long Automatic Turret Tracking waits with the latch on and nothing selected. Player_PerFrameCockpitUpdate arms it with 0x1194."
+        },
+        {
+          "offset": 798,
+          "width": 12,
+          "type": "int[3]",
+          "name": "blockedLineOfFirePoint",
+          "confidence": "high",
+          "description": "+0x31e -- where the machine last had its line of fire blocked. Mech_AiOnLineOfFireBlocked (0041dd2c) copies the target's position here and sets +0xad; Mech_BehaviourSkirtThink then walks an arc around it."
+        }
+      ]
     }
   ],
   "applications": [
@@ -516,6 +1166,270 @@
       "parameter": 1,
       "struct": "SimObject",
       "description": "Ai_KnowsObject's candidate -- the object whose listIndex indexes the asker's contact row."
+    },
+    {
+      "function": "00415bb0",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_Constructor's object. It is the widest single reader of this struct: it writes the type record, both sub-object headers, the animation threads, the parts array, the flight block and the pods."
+    },
+    {
+      "function": "00416a04",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_LocomotionTick's machine."
+    },
+    {
+      "function": "0041a360",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_MovementTick's machine."
+    },
+    {
+      "function": "004160dc",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_ApplyThrottleInput's machine. Declared 'int param_1' by the decompiler, so its field offsets read as byte displacements already."
+    },
+    {
+      "function": "004195c8",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_PlaceLegsOnGround's machine -- walks parts/partCount against legArmed."
+    },
+    {
+      "function": "00415498",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_GetSpeed's machine. Mech vtable +0x38; branches on the type record's flyer flag between bodyVelocity[1] and speed."
+    },
+    {
+      "function": "0041b130",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Player_PerFrameCockpitUpdate's piloted machine."
+    },
+    {
+      "function": "0041cb94",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_AiFleeCheck's machine -- the sole writer of fear."
+    },
+    {
+      "function": "0041edd8",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_ComputeCombatRating's machine -- the sole writer of combatRating."
+    },
+    {
+      "function": "0041cf18",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_AiCombatReassess' machine."
+    },
+    {
+      "function": "0041ce08",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_AiSelectAimComponent's machine -- the sole writer of aimComponentSlot."
+    },
+    {
+      "function": "0041c0f4",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_AiEngageOrderedTarget's machine."
+    },
+    {
+      "function": "0041c478",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Ai_ClearSquadEngageOrder's machine."
+    },
+    {
+      "function": "0041c4a8",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Ai_ShouldAbandonTarget's machine."
+    },
+    {
+      "function": "0041d598",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Ai_NavigationStep's machine."
+    },
+    {
+      "function": "0041fac4",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Ai_DriveToPoint's machine. Parameter 1 is a bare world point, not an object."
+    },
+    {
+      "function": "0041fb60",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Ai_FollowRoute's machine."
+    },
+    {
+      "function": "0041fbb8",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Ai_KeepFormation's machine."
+    },
+    {
+      "function": "0041f5a0",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Ai_FireAtPoint's machine -- reads and clears latchedMount."
+    },
+    {
+      "function": "0041f358",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Ai_ChooseWeapon's machine."
+    },
+    {
+      "function": "0041c3c8",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Ai_UpdateWeaponsFree's machine -- the AI's radar switch."
+    },
+    {
+      "function": "00411fa0",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Ai_SelectTarget's asking machine."
+    },
+    {
+      "function": "0041e828",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Ai_CombatMoveStep's machine."
+    },
+    {
+      "function": "0041de9c",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Ai_BeginSkirtIfBlocked's machine."
+    },
+    {
+      "function": "0041dd64",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_BehaviourSkirtThink's machine -- reads blockedLineOfFirePoint."
+    },
+    {
+      "function": "0041f7b8",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_AiOnTakingFire's machine. Mech vtable slot; loads retargetCooldown and underFireWindow."
+    },
+    {
+      "function": "00418ba8",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_DirectFireHitTest's struck machine. Mech vtable slot."
+    },
+    {
+      "function": "004188c8",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_ApplyDirectFireDamage's struck machine. Mech vtable slot."
+    },
+    {
+      "function": "00417de4",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_ComponentDamageWrite's machine. Mech vtable +0x74."
+    },
+    {
+      "function": "004154d0",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_GetShieldByHeading's machine. Mech vtable +0x34; returns shield.front or shield.rear."
+    },
+    {
+      "function": "00417aa8",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_AttachToGroup's machine."
+    },
+    {
+      "function": "00417898",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_ApplyFormationOffset's machine. Mech vtable +0x78."
+    },
+    {
+      "function": "004157c8",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_HandleCommand's machine. Mech vtable +0x2c."
+    },
+    {
+      "function": "00417b98",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_GetAimNodeTransform's machine. Mech vtable +0x24."
+    },
+    {
+      "function": "00415504",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_GetOverallDamage's machine. Mech vtable +0x40."
+    },
+    {
+      "function": "004174c8",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_Draw's machine. Mech vtable +0x00."
+    },
+    {
+      "function": "0041cabc",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_CompareCombatRating's asking machine. Mech vtable +0x4c. Its candidate is left untyped: the function returns 0 for every non-HERC, so the parameter is not a mech."
+    },
+    {
+      "function": "00412800",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_AiEnemySighted's machine. Mech vtable +0x48."
+    },
+    {
+      "function": "0041b534",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_ComponentNearestAim's machine. Mech vtable +0x54."
+    },
+    {
+      "function": "0041dd2c",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_AiOnLineOfFireBlocked's machine. Mech vtable +0x64; the sole writer of blockedLineOfFirePoint."
+    },
+    {
+      "function": "004155ac",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_MissileLockState's machine. Mech vtable +0x6c."
+    },
+    {
+      "function": "0040d2cc",
+      "parameter": 0,
+      "struct": "ComponentDamageArrays",
+      "description": "Component_AllocDamageArrays' header -- the one place the three array pointers and the two counts are written."
+    },
+    {
+      "function": "0040d354",
+      "parameter": 0,
+      "struct": "ComponentDamageArrays",
+      "description": "Component_LinkMaxRefData's header -- writes the three reference fields at +0x0c, +0x10 and +0x14."
+    },
+    {
+      "function": "00413a90",
+      "parameter": 0,
+      "struct": "ShieldBlock",
+      "description": "Shield_Init's block."
     }
   ]
 }

@@ -619,7 +619,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Razor_MovementTick",
-      "signature": "short __cdecl Razor_MovementTick(int *mech)",
+      "signature": "short __cdecl Razor_MovementTick(MechObject *mech)",
       "description": "The flyer chassis' per-tick move, the counterpart of Mech_MovementTick and NOT an autopilot. Integrates the world velocity at mech+0x2c5 into the position (skipped once mech+0xa4 is set), then runs six airframe contact probes -- the two wings, the two nacelles, the cockpit and the fuselage, the game's own names for them from STRINGS0 group 14 -- each against the terrain under it and, bar the fuselage, against a ray one tick's travel long. A contact damages that component through Mech_ApplyDirectFireDamage with the hand-built shot record at 0049a170, kicks the airframe away from what it touched, and scales the damage by airspeed. Destroying the cockpit or the fuselage latches mech+0xa4 and the aircraft stops moving. Ends with the engine-note pitch and maybe_Mech_ConvergeGunsOnRange. Reached as slot +0x0c of the flyer behaviour class at FlyerBehaviourSlots, not through the mech vtable.",
       "source": "docs/simulation/razor-flight.md"
     },
@@ -1033,7 +1033,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_PerTickSystemsUpdate",
-      "signature": "void __cdecl Mech_PerTickSystemsUpdate(void *mech)",
+      "signature": "void __cdecl Mech_PerTickSystemsUpdate(MechObject *mech)",
       "description": "Per-mech-per-tick reactor/energy bookkeeping (integrates reactor output rate into the energy pool at +0x292), then dispatches weapon-energy arbitration and shield-recharge via Shield_RechargeTick.",
       "source": "docs/simulation/dbsim-physics-notes.md"
     },
@@ -4564,7 +4564,7 @@
       "name": "Mech_CollisionTest",
       "description": "Returns nonzero when the just-integrated position is refused. Three separate tests: (1) the live-object list, with an ASYMMETRIC gap -- this machine's vtable +0x5c against the other object's +0x7c, and an object whose +0x7c is 0 is skipped entirely; (2) FUN_00404ae4's structure-volume sweep, which covers exactly the structures test 1 skips; (3) terrain steeper than |normal.z| < 0x5aa, which for the player becomes a slide downhill whose landing damages the leg components scaled by the difficulty table at 0049a058. A block against another HERC also calls BOTH parties' +0x70 with a momentum-difference damage at radius 0x4b0, and latches the struck object's +0x68. It additionally records a nearby structure at mech+0x2b0 as a lock-on candidate.",
       "source": "docs/simulation/mech-locomotion.md",
-      "signature": "char __cdecl Mech_CollisionTest(int *this)"
+      "signature": "char __cdecl Mech_CollisionTest(MechObject *this)"
     },
     {
       "address": "004195c8",
@@ -4791,7 +4791,7 @@
       "name": "Mech_AiTick",
       "description": "One machine's whole AI frame, and the only caller of the three behaviour dispatchers. No-ops unless a descriptor is installed at mech+0x4d. Order: reassess (vtable +0x1c) when the dwell countdown at mech+0x52 has reached 0; Timer_CountDown against that countdown unless descriptor+0x08[0] is set, which is true of every state but deciding, the five combat states, driving off en and fleeing; move (vtable +0x14); then think (vtable +0x18) unless mech+0xaf is set, in which case think is skipped and the flag cleared -- a think returning nonzero zeroes its own countdown. Ends by incrementing the block counter at +0x09 via 00413eb0. ITS ONLY CALLER IS Group_OrderTick (00423a74) at 00423af5, so the AI is driven from the mission-group layer and a machine that is not a live group member never thinks.",
       "source": "docs/simulation/ai-dispatch.md",
-      "signature": "void __cdecl Mech_AiTick(int *mech)"
+      "signature": "void __cdecl Mech_AiTick(MechObject *mech)"
     },
     {
       "address": "004679a4",
@@ -8831,7 +8831,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Razor_ApplyFlightInput",
-      "signature": "void __cdecl Razor_ApplyFlightInput(int *mech, int aileron, int elevator, int throttle, int rudder)",
+      "signature": "void __cdecl Razor_ApplyFlightInput(MechObject *mech, int aileron, int elevator, int throttle, int rudder)",
       "description": "The flyer's input hand-off, called by Sim_PollPlayerInput in place of Mech_ApplyThrottleInput AND both turret ticks -- which is why a RAZOR's turret never moves. Packs the four device axes, Terrain_HeightQuery at the machine's position and four wing-destroyed flags (component array at mech+0x20e, entries 7/8/4/5) into a stack record and calls FlightModel_Step with the type record's flight model at typeRec+0x1dc. The axes are remapped against the walker's: device +0x0e (steer) is the aileron, +0x10 (throttle) the elevator, +0x12 (turret twist) the rudder and +0x14 (turret pitch) the throttle. On a tick the throttle axis moved it copies mech+0x2d7 to mech+0x290 and sets the mech+0x93 dirty flag, so the cockpit gauge follows the flight model.",
       "source": "docs/simulation/razor-flight.md"
     },

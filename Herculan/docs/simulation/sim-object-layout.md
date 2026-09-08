@@ -2,7 +2,7 @@
 
 What a DBSIM simulation object *is* in memory: how the classes derive from one another, how long each one is, and where the shared fields sit.
 
-The field-by-field and slot-by-slot inventories are **not here**. They live in two machine-readable files under `tools/ghidra_scripts/`, because they are applied to the Ghidra database rather than read by a human, and because scattering 34 vtable slots and 48 field offsets across ten topic docs is what those files exist to stop:
+The field-by-field and slot-by-slot inventories are **not here**. They live in two machine-readable files under `tools/ghidra_scripts/`, because they are applied to the Ghidra database rather than read by a human, and because scattering 40 vtable slots and 124 field offsets across ten topic docs is what those files exist to stop:
 
 | File | Owns | Applied by |
 |---|---|---|
@@ -22,7 +22,9 @@ and after that run whichever one you need:
 sh tools/gh.sh ES2ApplyStructures "E:\ES2Stuff\tools\ghidra_scripts\known_structs.json"
 ```
 
-Once a function's parameter is typed with `SimObject *`, the decompiler renders `*(char *)(param_2 + 0x99)` as `param_2->destroyed` and `(**(code **)(*param_1 + 0x48))(...)` as `(*param_1->vtbl->AiEnemySighted)(...)`. That is the whole point of the exercise: an offset recorded once in the JSON reads back named in every function that touches an object.
+Once a function's parameter is typed with `SimObject *` or `MechObject *`, the decompiler renders `*(char *)(param_2 + 0x99)` as `param_2->destroyed`, `*(short *)((int)mech + 0x252)` as `mech->cruiseSpeed`, and `(**(code **)(*param_1 + 0x48))(...)` as `(*param_1->vtbl->AiEnemySighted)(...)`. That is the whole point of the exercise: an offset recorded once in the JSON reads back named in every function that touches an object.
+
+**Defining a struct renders nothing on its own** — a function's parameter has to be typed with it, and that is where the labour is. A function carrying a `signature` in `known_symbols.json` owns its whole parameter list there, struct types included; one without gets typed from `known_structs.json`'s `applications`. Never both: applying a signature replaces the parameter list, so two files describing one parameter would fight.
 
 ## Two hierarchies, one root
 
@@ -78,6 +80,19 @@ Below that line all three constructors write an *identical* block — `+0x1a8 = 
 
 `obj+0xc2` is the contact table and `obj+0x132` the line-of-sight cache, both flat byte arrays indexed by the *other* object's `listIndex` (`obj+0x4b`, assigned by `ObjectList_Add`). Neither has a length written down anywhere; both are `0x70` = 112 bytes, from the gap between them, corroborated by the identical `0x70` gap from `+0x132` to the next member at `+0x1a2`. **112 is therefore the simulation's object cap**, and it is why the engine's `SimObject.EnsureTableSize` is a deliberate divergence rather than a port.
 
+## Countdowns keep their counter one byte past the record
+
+There are two countdown records, and both are addressed by a pointer to a leading byte the tick never touches:
+
+| Record | Size | Counter | Stepped by |
+|---|---|---|---|
+| `CountdownTimer` | 3 | `short` at `+0x01` | `Math_CountdownTimerTick` (`00467944`) |
+| `LongCountdownTimer` | 5 | `int` at `+0x01` | `Timer_CountDown` (`004679a4`) |
+
+Nothing in the field itself says which flavour it is — only which of the two functions is called on it does. A mech carries seven of the short kind in a run from `+0x258` to `+0x26c`, then four of the long kind from `+0x26d` to `+0x280`; the AI behaviour block's dwell countdown is a long one at `+0x4d`+`0x04`.
+
+**This is why almost every doc cites one of these fields one byte above its record.** `mech+0x26b` is the *counter* of the timer based at `+0x26a`, and `mech+0x52` is the counter of the block's dwell timer at `+0x51`. Both spellings name the same storage; only the second is a record you can call the tick on.
+
 ## The "out of the fight" triple — `+0x99`, `+0xa4`, `+0xa5`
 
 Read together by `Group_IsWipedOut` (`00412be4`) and `Ai_IsTargetable` (`00411e80`), and separately by everything else. They are **three different conditions, not three damage latches**, and each has its own writers:
@@ -98,7 +113,9 @@ None of the three means "removed from the simulation". Which subset a test reads
 
 | Reading | Why it is wrong |
 |---|---|
-| A field the scalar search cannot find is unused | Every reader of the flag bytes from `obj+0x92` up materialises that address first (`LEA ECX,[EBX + 0x92]`) and then uses a small displacement off it — `destroyed` is read as `[EDX + 0x7]`, `+0xa7` written as `[EAX + 0x15]`. `ES2FindFieldRefs` on `0x95`, `0x99`, `0xa1`, `0xa5` or `0xa7` returns **zero sites in the whole binary**, and all five are live fields. |
+| A field the scalar search cannot find is unused | Every reader of the flag bytes from `obj+0x92` up materialises that address first (`LEA ECX,[EBX + 0x92]`) and then uses a small displacement off it — `destroyed` is read as `[EDX + 0x7]`, `+0xa7` written as `[EAX + 0x15]`. `ES2FindFieldRefs` on `0x95`, `0x99`, `0xa1`, `0xa5` or `0xa7` returns **zero sites in the whole binary**, and all five are live fields. Search for the base offset the `LEA` uses, not the field's own. |
+| The offset a doc cites is the start of the field | For a countdown it is the counter, one byte into the record — see above. Laying a `CountdownTimer` at the cited offset puts every subsequent field three bytes out. |
+| A plausible code address after a vtable's last slot is a 35th slot | `ES2DumpVtable` resolves and disassembles any valid address. The word past the end is usually a pointer into the adjacent class-descriptor record: `0046b7c8` and `0040c3d8` both look like code and are neither functions nor slots. Check for a prologue *and* for a real call site. |
 | The allocation site's argument is the object's size | It is the pool pointer. See "Sizes" above. |
 | A mech's length can be inferred from the highest documented offset | The highest offset anyone has written down is a lower bound that moves every time someone reads another function. `0x36a` is a fact about the binary. |
 | `+0xa4` is "removed" and `+0xa5` is "destroyed" | `+0xa4` is written where a machine loses its legs and a RAZOR loses its fuselage, and the flyer's position integration refuses to run while it is set — it is *immobilised*. `+0xa5` is written by the weapon chooser and by `Base_Construct` for unarmed structure types — it is *disarmed*. `+0x99` is the one the damage paths write. |

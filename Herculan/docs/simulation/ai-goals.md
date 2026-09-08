@@ -96,13 +96,15 @@ The state column is [`ai-dispatch.md`](ai-dispatch.md#choosing-a-state--mech_ais
 A 0-4 scale, where 4 means gone. Which of two readings applies is the order's `+0x0c`:
 
 - **An object** (kinds 1-3). Destroyed (`+0x99`) or collapsed (`+0xb4`) is 4. Otherwise its own vtable `+0x40` overall-damage figure, banded: below `0x32` → 0, below `0x80` → 1, below `0xc0` → 2, else 3.
-- **A group** (kind 0) is `Group_ConditionTier` (`00412c8c`), which weighs the same scale across the members. Let *lost* be the members that are removed (`+0xa4`) or destroyed (`+0x99`), and *average* the mean of every member's overall damage — **including the dead ones**, each contributing whatever its damage figure last read. Then: all lost → 4; else *lost* at or above 650/1024 of the group **or** *average* at or above `0xc1` → 3; else 250/1024 or `0x81` → 2; else *average* at or above `0x33` → 1; else 0.
+- **A group** (kind 0) is `Group_ConditionTier` (`00412c8c`), which weighs the same scale across the members. Let *lost* be the members that are immobilised (`+0xa4`) or destroyed (`+0x99`), and *average* the mean of every member's overall damage — **including the dead ones**, each contributing whatever its damage figure last read. Then: all lost → 4; else *lost* at or above 650/1024 of the group **or** *average* at or above `0xc1` → 3; else 250/1024 or `0x81` → 2; else *average* at or above `0x33` → 1; else 0.
 
 So a group is written off either by losing enough machines or by having enough damage spread across the ones it keeps.
 
 ### No rival group is still working to it — `Group_NoRivalOrderOnSubject` (`00412e74`)
 
-Walks every mission group and answers false the moment it finds one that is **on the other side**, whose own current order names **the same subject pointer**, and that is not wiped out (`Group_IsWipedOut`, `00412be4` — every member removed or destroyed). A guard order therefore ends when the thing being guarded is gone *or* when nothing hostile is assigned against it any more: the post is finished, not just survived.
+Walks every mission group and answers false the moment it finds one that is **on the other side**, whose own current order names **the same subject pointer**, and that still has a member in the fight. A guard order therefore ends when the thing being guarded is gone *or* when nothing hostile is assigned against it any more: the post is finished, not just survived.
+
+**"In the fight" here is the full three-byte test, not just the damage ones.** `Group_IsWipedOut` (`00412be4`) passes a member that is destroyed (`+0x99`), immobilised (`+0xa4`) **or disarmed** (`+0xa5`) — see [`sim-object-layout.md`](sim-object-layout.md#the-out-of-the-fight-triple--0x99-0xa4-0xa5). Including the disarmed term is the point rather than an oversight: the question this order asks is whether anything can still contest the post, and a machine with no working hardpoint cannot. It does mean a rival group of ordinary structures never blocks a guard order at all, because `Base_Construct` sets `+0xa5` on an unarmed building type at spawn — again the right answer to the question being asked, and the reason the function's name is worth reading as "out of the fight" rather than "destroyed".
 
 The comparison is on the subject pointer, not on the guarded position, so two groups only count as rivals when the mission gave them literally the same subject.
 

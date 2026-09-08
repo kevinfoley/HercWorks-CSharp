@@ -207,7 +207,7 @@ if (mount+0x5f == 0 || mount+0x5b == 0) {
 What differs from the original, and why:
 
 - **`mech+0x96` is `MechObject.Scanner` throughout.** The navigation slice ported it a second time as `WeaponsFree`; the two were the same byte and are now one property.
-- **`mech+0xa5` is `MechObject.Disarmed`, and the AI's liveness tests read it through `SimObject.OutOfAction`** rather than through `Neutralised`. The detection sweep, the player's target selection and the group's completion test all read the latter, and none of them consults `+0xa5` in the original.
+- **`mech+0xa5` is `MechObject.Disarmed`, and the AI's liveness tests read it through `SimObject.OutOfAction`** rather than through `Neutralised`. The detection sweep, the player's target selection and a group's condition tier read the latter and never consult `+0xa5`. A guard order's rival test (`Group_IsWipedOut`) is the one place outside the AI that does — see [`ai-goals.md`](ai-goals.md).
 - **The one-sided aim scatter is reproduced**, since it is what the retail enemy's aim actually does. `SimWorld.Difficulty` indexes the table and nothing sets it, so the engine runs on entry 0 — the widest scatter of the five.
 - **The mission action a machine fires on running dry is `SimObject.DefeatAction`**, the same one its death fires — see [`mission-deployment.md`](mission-deployment.md).
 - **The gun convergence runs for the player too**, which is the original's arrangement: the range it converges on is the distance to the selected target, and centring the turret squares the guns up.

@@ -6,16 +6,22 @@ import ghidra.app.cmd.function.ApplyFunctionSignatureCmd;
 import ghidra.app.script.GhidraScript;
 import ghidra.app.util.parser.FunctionSignatureParser;
 import ghidra.program.model.address.Address;
+import ghidra.program.model.data.CategoryPath;
+import ghidra.program.model.data.DataType;
 import ghidra.program.model.data.FunctionDefinitionDataType;
+import ghidra.program.model.data.Pointer;
 import ghidra.program.model.listing.CodeUnit;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.FunctionManager;
 import ghidra.program.model.listing.Listing;
+import ghidra.program.model.listing.Parameter;
 import ghidra.program.model.symbol.SourceType;
 import ghidra.program.model.symbol.Symbol;
 import ghidra.program.model.symbol.SymbolTable;
 import java.io.FileReader;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 
 // args[0] = path to known_symbols.json (see that file's _readme for the schema).
@@ -36,6 +42,14 @@ import java.util.Set;
 //
 // Entries with no "name" (low-confidence findings) only get the plate comment -- never a
 // rename/label, so a guess can never masquerade as a confirmed symbol in the database.
+//
+// Applying a signature REPLACES the whole parameter list, including data types this file says
+// nothing about. known_structs.json owns parameter types -- it is what points a param_1 at
+// SimObject* so the decompiler names field accesses -- and those types survive here: a
+// parameter already typed with a pointer into category /ES2 is captured before the signature
+// apply and restored after it, and a signature that disagrees is reported rather than silently
+// winning. Without that, this script would quietly undo ES2ApplyStructures on every run, and
+// the damage would show up only as a decompilation that had stopped naming fields.
 //
 // Idempotent: safe to re-run after known_symbols.json gains new entries or existing descriptions
 // change -- renames/labels are skipped if already correct, and plate comments are always
@@ -65,7 +79,7 @@ public class ES2ApplySymbolNames extends GhidraScript {
         SymbolTable st = currentProgram.getSymbolTable();
         Listing listing = currentProgram.getListing();
 
-        int renamed = 0, signatured = 0, labeled = 0, commented = 0, skippedOtherBinary = 0, skippedNoTarget = 0, errors = 0;
+        int renamed = 0, signatured = 0, labeled = 0, commented = 0, skippedOtherBinary = 0, skippedNoTarget = 0, errors = 0, restored = 0;
 
         // One address, one entry. Two entries sharing an address make the plate comment depend on
         // file order (the later one wins outright), and if their names differ the run can never
@@ -160,15 +174,20 @@ public class ES2ApplySymbolNames extends GhidraScript {
                             // preserveCallingConvention=false, or the convention just set is ignored
                             // and the function keeps the decompiler's (wrong) __stdcall guess.
                             // forceSetName=false: the rename above already handled the name.
+                            Map<Integer, DataType> owned = capturePointersIntoES2(f);
                             ApplyFunctionSignatureCmd cmd = new ApplyFunctionSignatureCmd(
                                 addr, def, SourceType.USER_DEFINED, false, false);
                             if (cmd.applyTo(currentProgram, monitor)) {
                                 signatured++;
+                                restored += restorePointersIntoES2(f, owned);
                             } else {
                                 println("WARN: signature rejected at " + addr + ": " + cmd.getStatusMsg());
                             }
                         } catch (Exception e) {
-                            println("ERROR: bad signature at " + addr + " (" + signature + "): " + e.getMessage());
+                            println("ERROR: bad signature at " + addr + " (" + signature + "): "
+                                + e.getMessage()
+                                + " -- if it names a struct type, that type has to exist first:"
+                                + " run ES2ApplyStructures before this script on a fresh database.");
                             errors++;
                         }
                     }
@@ -199,7 +218,81 @@ public class ES2ApplySymbolNames extends GhidraScript {
         }
 
         println(String.format(
-            "ES2ApplySymbolNames [%s]: renamed=%d signatured=%d labeled=%d commented=%d skipped(other binary)=%d skipped(no target)=%d errors=%d",
-            progName, renamed, signatured, labeled, commented, skippedOtherBinary, skippedNoTarget, errors));
+            "ES2ApplySymbolNames [%s]: renamed=%d signatured=%d labeled=%d commented=%d skipped(other binary)=%d skipped(no target)=%d structParamsKept=%d errors=%d",
+            progName, renamed, signatured, labeled, commented, skippedOtherBinary, skippedNoTarget, restored, errors));
+    }
+
+    // A parameter typed with a pointer into Ghidra category /ES2 belongs to known_structs.json, not
+    // to this file. Capture those before a signature apply so they can be put back after it. The
+    // test is the category rather than SourceType.USER_DEFINED, so it says WHY the type is
+    // preserved and cannot be tripped by some later script that commits parameters that way.
+    private Map<Integer, DataType> capturePointersIntoES2(Function f) {
+        Map<Integer, DataType> owned = new LinkedHashMap<>();
+        Parameter[] params = f.getParameters();
+        for (int i = 0; i < params.length; i++) {
+            if (pointsIntoES2(params[i].getDataType())) {
+                owned.put(i, params[i].getDataType());
+            }
+        }
+        return owned;
+    }
+
+    private int restorePointersIntoES2(Function f, Map<Integer, DataType> owned) {
+        int restored = 0;
+        for (Map.Entry<Integer, DataType> e : owned.entrySet()) {
+            int index = e.getKey();
+            if (index >= f.getParameterCount()) {
+                println("WARN: " + f.getName() + " -- the signature dropped parameter " + index
+                    + ", which known_structs.json had typed " + e.getValue().getDisplayName()
+                    + ". The two files disagree about this function's arity; fix one.");
+                continue;
+            }
+            Parameter p = f.getParameter(index);
+            // Compared by what the pointer ultimately points AT, not with isEquivalent: a type the
+            // signature parser resolved and the same type held on a parameter are separate
+            // DataType instances that isEquivalent reports as different, which would warn about a
+            // signature that in fact agrees.
+            if (pointeePath(e.getValue()).equals(pointeePath(p.getDataType()))) {
+                continue;
+            }
+            println("WARN: " + f.getName() + " -- the signature would retype parameter " + index
+                + " from " + e.getValue().getDisplayName() + " to "
+                + p.getDataType().getDisplayName() + ". Keeping known_structs.json's; drop one of"
+                + " the two so they stop disagreeing.");
+            try {
+                p.setDataType(e.getValue(), SourceType.USER_DEFINED);
+                restored++;
+            } catch (Exception ex) {
+                println("ERROR restoring " + f.getName() + " parameter " + index + ": "
+                    + ex.getMessage());
+            }
+        }
+        return restored;
+    }
+
+    // "<levels of indirection>:<pointee category path and name>", or "" for a non-pointer.
+    private static String pointeePath(DataType dt) {
+        int depth = 0;
+        DataType target = dt;
+        while (target instanceof Pointer) {
+            target = ((Pointer) target).getDataType();
+            depth++;
+        }
+        if (depth == 0 || target == null) {
+            return "";
+        }
+        return depth + ":" + target.getPathName();
+    }
+
+    private static boolean pointsIntoES2(DataType dt) {
+        if (!(dt instanceof Pointer)) {
+            return false;
+        }
+        DataType target = ((Pointer) dt).getDataType();
+        while (target instanceof Pointer) {
+            target = ((Pointer) target).getDataType();
+        }
+        return target != null && target.getCategoryPath() != null
+            && target.getCategoryPath().isAncestorOrSelf(new CategoryPath("/ES2"));
     }
 }

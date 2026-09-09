@@ -120,7 +120,7 @@ per record, 16 bytes:
   int16   +0x02   mass, tons
   int16   +0x04   top speed, kph
   int16   +0x06   hardpoints
-  int16   +0x08   price, in tons -- x1000 gives the credit cost
+  int16   +0x08   price, in tons -- x1000 gives the salvage cost
   int16   +0x0a   no reader traced
   int16   +0x0c   build time, in missions
   int16   +0x0e   availability flag
@@ -140,7 +140,7 @@ The first four stats are exactly what the Herc Construction screen prints, which
 | Maverick | 25 | 85 | 4 | 55 | 30 | 1 | no |
 | Razor | 50 | 200 | 7 | 120 | 70 | 3 | no |
 
-`+0x08` is the record's load-bearing field: `Herc_Order` (`00411019`) returns `herc_inf[type].+0x08 * 1000` as the price to charge, and the purchase screen tests the credit pool against the same product.
+`+0x08` is the record's load-bearing field: `Herc_Order` (`00411019`) returns `herc_inf[type].+0x08 * 1000` as the price to charge, and the purchase screen tests the salvage pool against the same product.
 
 `+0x0c` is copied into the new chassis's `+0x78` by `Herc_Order`, and `Herc_BuildTick` (`00411086`) decrements it and recomputes the percentage:
 

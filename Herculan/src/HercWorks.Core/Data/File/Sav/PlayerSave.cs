@@ -5,9 +5,16 @@ using HercWorks.Core.Data.Struct.Vshell.Sav;
 namespace HercWorks.Core.Data.File.Sav;
 
 /// <summary>
-/// FILE - [root]/SAV/&lt;player name&gt;.sav
-///   0 - UINT16 unknown flag, 2 - UINT8 spacer/possibly unknown value, 3 - UINT8 begin
-///   Inventory segment, 3+X - UINT16 ...
+/// FILE - [root]/SAV/GAME_?.SAV — the campaign save. Slots are named by index, not by pilot:
+/// <c>GAME_0</c>-<c>GAME_9</c> are the player-named slots, <c>GAME_R</c> the campaign autosave and
+/// <c>GAME_T</c> the training autosave. <c>sav\GAMEFILE.STR</c> is the directory that maps a slot to
+/// its filename and display label.
+///
+/// <para>There is no header, no magic and no length field — the file is a bare concatenation of the
+/// blocks in the property order below, so it must be parsed by structure. Its writer opens without
+/// <c>O_TRUNC</c>, so a shorter save over a longer one leaves a stale tail that is not a parse
+/// failure. See <c>docs/formats/save-games.md</c>.</para>
+///
 /// Ported from org.hercworks.core.data.file.sav.PlayerSave.
 /// </summary>
 public class PlayerSave {
@@ -38,6 +45,9 @@ public class PlayerSave {
 	public Dictionary<HercLUT, short> UnlockedHercs { get; set; } = new();
 	public int SalvageTotal { get; set; }
 
-	/// <summary>Massive chunk of save values after relevant data.</summary>
+	/// <summary>
+	/// Everything past the salvage pool, carried verbatim: the 2000-byte campaign flag array, the
+	/// 2-byte game state, a 20-byte block, and any stale tail the non-truncating writer left behind.
+	/// </summary>
 	public byte[]? UnknownSaveValues { get; set; }
 }

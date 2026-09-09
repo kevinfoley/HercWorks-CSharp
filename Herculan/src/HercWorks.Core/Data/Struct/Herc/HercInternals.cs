@@ -17,7 +17,7 @@ public sealed class HercInternals {
 	public static readonly HercInternals ShieldGen = new(4, "Shield Generator");
 	public static readonly HercInternals Engine = new(5, "Engine");
 	public static readonly HercInternals Hydraulics = new(6, "Hydraulics");
-	public static readonly HercInternals Stabilizers = new(7, "Stabiliziers");
+	public static readonly HercInternals Stabilizers = new(7, "Stabilizers");
 	public static readonly HercInternals LifeSupport = new(8, "Life Support");
 	public static readonly HercInternals Pilot = new(9, "Pilot");
 	public static readonly HercInternals ServosLegLeftRear = new(10, "Rear Left Leg Servos");

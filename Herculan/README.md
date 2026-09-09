@@ -17,10 +17,10 @@ is the separate register for what the engine does not implement yet.
 | Module | Java LOC | Status |
 |---|---|---|
 | ES2Vol → `HercWorks.Vol` | ~1,300 | **Done** — `.vol` archive reader/writer |
-| ES2Core → `HercWorks.Core` | ~18,000 | **In progress** — everything done except `io/transform/dbsim` (12 files) and `io/transform/shell` (10 files) |
-| ES2TransferApi | ~8,700 | Not started |
+| ES2Core → `HercWorks.Core` | ~18,000 | **Done** — data model, `io/read`, `io/write`, and all three `io/transform` families |
+| ES2TransferApi | ~8,700 | **In progress** — the DTO layer only (`Dto/File`, `Dto/Struct/Dbsim`) |
 | ES2Excavator (CLI) | ~2,100 | Not started (logic will become WinForms menu actions) |
-| WinForms UI | n/a | Shell in place: open/browse/unpack a `.vol` file |
+| WinForms UI | n/a | **In progress** — VOL browsing, plus editors for the hangar, squad, campaign resources, herc and weapon stats and mission scripts, and image/model viewers |
 
 ### ES2Core progress detail
 
@@ -39,10 +39,9 @@ is the separate register for what the engine does not implement yet.
   export feature the engine port will never call, and `Core` otherwise has no `System.Drawing`
   dependency at all.
 
-**Bugs found and ported literally (not silently fixed):** the ones still reproduced are listed in [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md) under "HercWorks toolkit — inherited from the Java original".
+**Bugs found in the Java original** are listed under [Notes on the port](#notes-on-the-port) below, which says for each whether it was fixed or ported literally.
 
-**Not started:** `io/transform/dbsim` (12 files), `io/transform/shell` (10 files) — the last ~22
-files in ES2Core.
+**`io/transform/dbsim` (22 files) and `io/transform/shell` (10 files) — both ported.**
 
 ### ES2Core progress detail
 
@@ -73,8 +72,8 @@ reader/writer/transformer extends — was ported earlier. Applying the verified 
 semantics (see below) turned up two of the same "name says one thing, does another" pattern:
 - `IndexSegmentLE()` calls `.byteOrder(LE).array()` — since `.array()` ignores that tag, this
   method is **byte-identical to `IndexSegment()`** despite its name. Ported literally.
-- `PeekAt()` doesn't actually read/dereference anything — it just returns `index + at` as a
-  number. Ported literally; see [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
+- `PeekAt()` didn't read anything in the Java original — it just returned `index + at` as a number.
+  Fixed rather than carried over; see [Notes on the port](#notes-on-the-port).
 - By contrast, `IndexShortLE`/`IndexShort`/`IndexIntLE` (call `.toShort()`/`.toInt()`, not just
   `.array()`) and `WriteIntLE`/`WriteShortLE` (call `.reverse()`) genuinely are correct
   endian-aware reads/writes — confirmed by the same source-level check.
@@ -96,9 +95,9 @@ semantics (see below) turned up two of the same "name says one thing, does anoth
 - Replaced the earlier placeholder `DynamixBitmapArray` stub (written ahead of that package
   existing, several rounds back) with the real port once `data/file/dyn/` was reached.
 
-**Not started:** `io/read` (3 files), `io/write` (3 files), `io/transform/dbsim` (12 files),
-`io/transform/shell` (10 files) — ~28 files left in ES2Core, all in the same
-highest-risk-but-now-well-understood byte-parsing category as `transform/common` above.
+**`io/transform/dbsim` (22 files) and `io/transform/shell` (10 files) — both complete**, in the same
+byte-parsing category as `transform/common` above. With `io/read` and `io/write` done, that is all of
+ES2Core.
 
 ## Structure
 
@@ -167,7 +166,6 @@ Both solutions build clean (0 warnings) and the test suites pass.
 
 ## Next steps
 
-`io/transform/dbsim` (12 files) and `io/transform/shell` (10 files) — the last per-file-type
-byte transformers in ES2Core, following the same pattern as `io/transform/common`. After that,
-ES2Core is fully done and the remaining work is ES2TransferApi (~8,700 lines, JSON DTO layer)
-and ES2Excavator (~2,100 lines, CLI logic to become WinForms menu actions).
+ES2Core is fully ported. The remaining work is ES2TransferApi (~8,700 lines, JSON DTO layer — the
+DTO classes are started, the transfer logic is not) and ES2Excavator (~2,100 lines, CLI logic to
+become WinForms menu actions).

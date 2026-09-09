@@ -134,7 +134,7 @@ public class PlayerSaveRoundTripTests {
 
 	/// <summary>
 	/// A save with the retail block order and sizes: 33 inventory records, the workshop queue, the
-	/// career block, 36 squadmates, the player, one hangar bay, the chassis unlocks, the credit
+	/// career block, 36 squadmates, the player, one hangar bay, the chassis unlocks, the salvage
 	/// total, and a short tail standing in for the campaign flag array.
 	/// </summary>
 	private static byte[] BuildSave() {
@@ -190,7 +190,7 @@ public class PlayerSaveRoundTripTests {
 			Short(b, (short)(i % 2));
 		}
 
-		// Block 8 — credits.
+		// Block 8 — the salvage pool.
 		Int(b, 107000);
 
 		// Blocks 9-11 land in the tail the transformer keeps verbatim.

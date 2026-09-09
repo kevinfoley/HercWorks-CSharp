@@ -26,7 +26,7 @@ FUN_0040eae7();        // consume results.dat
 `maybe_CampaignFlagArray` (`00482af8`, 1000 `int16`) is the same array three separate systems touch:
 
 - the `.msn` condition/trigger opcodes compare against it while filtering record arrays at load ([`../formats/msn-mission-file.md`](../formats/msn-mission-file.md));
-- it is persisted in every save slot, immediately after the credit pool ([`../formats/save-games.md`](../formats/save-games.md));
+- it is persisted in every save slot, immediately after the salvage pool ([`../formats/save-games.md`](../formats/save-games.md));
 - it is the entire content of `data\mission.var`, in both directions.
 
 Slot 0 is overwritten at debrief with the mission's outcome code (`_maybe_CampaignFlagArray = DAT_00482ae9`). On the simulator side the same array is `DAT_004a9ef4`, which an activating action bumps or clears and `FUN_0042412c` dumps to `mission_var` at mission end — see [`../simulation/mission-deployment.md`](../simulation/mission-deployment.md).
@@ -35,13 +35,13 @@ It is also what unlocks weapons: the mission-load path grants a pending unlock w
 
 ## Starting a campaign — `FUN_0040e2ed`
 
-Takes the pilot name and the mode flag (`DAT_0048260c`: 1 campaign, 0 training; the training entry points pass the literal `TRAINEE`). It loads `gam\weapons.dat`, generates the pilot roster, loads `gam\hercs.dat`, initializes the career position, and seeds the credit pool:
+Takes the pilot name and the mode flag (`DAT_0048260c`: 1 campaign, 0 training; the training entry points pass the literal `TRAINEE`). It loads `gam\weapons.dat`, generates the pilot roster, loads `gam\hercs.dat`, initializes the career position, and seeds the salvage pool:
 
 ```
 DAT_00482af4 = rand(0..10) * 1000 + 100000;
 ```
 
-Retail `GAME_T.SAV` holds exactly 107,000 credits — an untouched training start. The pool is in kilograms and every screen divides by 1000 to print tons ([`armory.md`](armory.md#one-currency-two-units)).
+Retail `GAME_T.SAV` holds exactly 107,000 salvage — an untouched training start. The pool is in kilograms and every screen divides by 1000 to print tons ([`armory.md`](armory.md#one-currency-two-units)).
 
 The two catalog loads also stock the player: `gam\weapons.dat`'s trailing block gives the armory 39 weapon units ([`../formats/weapons-dat.md`](../formats/weapons-dat.md#file-level-format)) and `gam\hercs.dat` puts four Outlaws and one part-built Razor in the hangar ([`../formats/herc-catalogs.md`](../formats/herc-catalogs.md#gamhercsdat--the-starting-hangar)).
 
@@ -134,7 +134,7 @@ The whole layout is verified byte-exact against every retail `player.mec` — th
 The longest function in `game.cpp` and the whole of the post-mission accounting.
 
 1. Read `data\mission.var` back into the flag array.
-2. Open `data\results.dat` and read: `int16` outcome to `00482ae9`, `int32` credits added to the pool, then `int16 count` and that many `{ int16, int16 }` salvage pairs, each applied by `FUN_0041229d` in campaign mode only.
+2. Open `data\results.dat` and read: `int16` outcome to `00482ae9`, an `int32` added to the salvage pool, then `int16 count` and that many `{ int16, int16 }` salvage pairs, each applied by `FUN_0041229d` in campaign mode only.
 3. Copy the outcome into flag slot 0.
 4. For the player, then for each on-strength squad member in order: read the HERC's 66-byte status block over its `+0x08` span (`FUN_00411720`, which also destroys any mount whose condition arrived at 0), set the pilot's condition from that machine's overall condition (`FUN_00411d06(block, 1, 9)`), read the pilot's three mission counters and accumulate them (`FUN_0041000e`), and settle the machine (`FUN_00410c7c`) — a HERC below 30 condition is scrapped out of the hangar for its salvage value, anything above is reset to 100.
 5. Deduct repairs — `FUN_0040e804`, charged per surviving pilot.
@@ -144,7 +144,7 @@ Written out, the file is:
 
 ```
 int16   outcome
-int32   credits awarded
+int32   salvage awarded to the pool
 int16   salvageCount
         salvageCount x { int16, int16 }
 per machine, the player's first then each on-strength squad member in order:

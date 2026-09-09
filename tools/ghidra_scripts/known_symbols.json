@@ -263,7 +263,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Game_SaveSlot",
-      "description": "game.cpp. Writes sav\\GAME_?.SAV for the given slot: armory stock, career block, 3x12 pilot roster, the player, the hangar, 9 shorts, credits, the 2000-byte campaign flag array, game state and a 20-byte tail. Slot 10 becomes 11 when DAT_0048260c is 0 (training). Validated by parsing all nine retail saves.",
+      "description": "game.cpp. Writes sav\\GAME_?.SAV for the given slot: armory stock, career block, 3x12 pilot roster, the player, the hangar, 9 shorts, the salvage pool, the 2000-byte campaign flag array, game state and a 20-byte tail. Slot 10 becomes 11 when DAT_0048260c is 0 (training). Validated by parsing all nine retail saves.",
       "source": "docs/formats/save-games.md"
     },
     {
@@ -281,7 +281,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Game_ProcessMissionResults",
-      "description": "game.cpp. The post-mission debrief: reads data\\mission.var back, then data\\results.dat (outcome, credits, salvage pairs, per-HERC damage and per-pilot counters), bills repairs, advances the campaign via Career_Advance and sets the next screen in 0048260e.",
+      "description": "game.cpp. The post-mission debrief: reads data\\mission.var back, then data\\results.dat (outcome, a salvage award, salvage pairs, per-HERC damage and per-pilot counters), bills repairs, advances the campaign via Career_Advance and sets the next screen in 0048260e.",
       "source": "docs/shell/campaign-loop.md"
     },
     {
@@ -317,7 +317,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Game_NewCareer",
-      "description": "game.cpp. Starts a career: loads weapons.dat, generates the pilot roster, loads hercs.dat, sets the career position and seeds credits to rand(0..10)*1000 + 100000.",
+      "description": "game.cpp. Starts a career: loads weapons.dat, generates the pilot roster, loads hercs.dat, sets the career position and seeds the salvage pool to rand(0..10)*1000 + 100000.",
       "source": "docs/shell/campaign-loop.md"
     },
     {
@@ -478,8 +478,8 @@
       "binary": "VSHELL",
       "type": "data",
       "confidence": "high",
-      "name": "CareerCredits",
-      "description": "The career credit pool, int32. Seeded to rand(0..10)*1000 + 100000, credited from results.dat and salvage, debited by repairs and armory purchases. Immediately precedes the campaign flag array in memory and in the save file.",
+      "name": "CareerSalvage",
+      "description": "The career salvage pool, int32 -- the game's single currency, held in kilograms and printed in tons. Seeded to rand(0..10)*1000 + 100000, credited from results.dat, debited by repairs and armory purchases. Immediately precedes the campaign flag array in memory and in the save file.",
       "source": "docs/formats/save-games.md"
     },
     {
@@ -506,7 +506,7 @@
       "type": "data",
       "confidence": "high",
       "name": "maybe_CampaignFlagArray",
-      "description": "The campaign flag store: 1000 int16 compared against by the .MSN condition/trigger opcode system (switch 0x119-0x11e: ==, !=, <, <=, >, >=). Confirmed campaign-persistent by three independent serializers that each move exactly 2000 bytes of it: the save file writes it after the credit pool (FUN_0040e37b/FUN_0040e4f2), FUN_0040e9cb writes it to data\\mission.var before a mission and FUN_0040ea59 reads it back at debrief, where slot 0 is overwritten with the mission outcome. DBSIM's counterpart is DAT_004a9ef4. The 'maybe_' prefix is stale; rename to CampaignFlagArray on the next Ghidra pass.",
+      "description": "The campaign flag store: 1000 int16 compared against by the .MSN condition/trigger opcode system (switch 0x119-0x11e: ==, !=, <, <=, >, >=). Confirmed campaign-persistent by three independent serializers that each move exactly 2000 bytes of it: the save file writes it after the salvage pool (FUN_0040e37b/FUN_0040e4f2), FUN_0040e9cb writes it to data\\mission.var before a mission and FUN_0040ea59 reads it back at debrief, where slot 0 is overwritten with the mission outcome. DBSIM's counterpart is DAT_004a9ef4. The 'maybe_' prefix is stale; rename to CampaignFlagArray on the next Ghidra pass.",
       "source": "docs/shell/campaign-loop.md; docs/formats/msn-mission-file.md"
     },
     {
@@ -10857,7 +10857,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Armory_TrimQueueToBudget",
-      "description": "Clears build-queue slots from the front while the queued total exceeds the credit pool, restoring one workspace slot per entry cleared.",
+      "description": "Clears build-queue slots from the front while the queued total exceeds the salvage pool, restoring one workspace slot per entry cleared.",
       "source": "docs/shell/armory.md"
     },
     {

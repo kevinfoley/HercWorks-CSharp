@@ -4,7 +4,7 @@ What the shell does with the numbers in [`../formats/herc-catalogs.md`](../forma
 
 ## One currency, two units
 
-There is a single resource — salvage — held in the credit pool at `00482af4`, seeded at career start ([`campaign-loop.md`](campaign-loop.md#starting-a-campaign--fun_0040e2ed)) and spent on everything below.
+There is a single resource — **salvage** — and it lives in one pool at `00482af4`, seeded at career start ([`campaign-loop.md`](campaign-loop.md#starting-a-campaign--fun_0040e2ed)) and spent on everything below.
 
 **The pool is in kilograms and every screen prints tons.** The crew screen divides by 1000 before formatting against `estext.bin` `0x2f` (`Tons`), and the two catalog price fields are stored in tons and multiplied by 1000 when charged:
 

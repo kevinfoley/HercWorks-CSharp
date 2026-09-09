@@ -136,12 +136,19 @@ public sealed class HudFont {
 	}
 
 	/// <summary>
-	/// Loads and parses <c>hfn\&lt;name&gt;.HFN</c>. Returns null when the resource is missing or does
-	/// not parse as a panel resource — callers draw no text rather than substituting another font,
-	/// since in this format the font *is* the colour.
+	/// Loads and parses <c>&lt;folder&gt;\&lt;name&gt;.&lt;FOLDER&gt;</c>. Returns null when the
+	/// resource is missing or does not parse as a panel resource — callers draw no text rather than
+	/// substituting another font, since in this format the font *is* the colour.
 	/// </summary>
-	public static HudFont? Load(GameContent content, string name) {
-		if (content.Read(ResourceFolder, name + "." + ResourceFolder.ToUpperInvariant()) is not { } bytes
+	/// <param name="folder">
+	/// Resource folder, which is also the extension. Defaults to <see cref="ResourceFolder"/>, the
+	/// simulator's 640-wide set. The shell ships its own fonts only as <c>dfn\</c> and draws them
+	/// unscaled on a 640-wide canvas, which is a different arrangement from DBSIM's
+	/// <c>dfn</c>/<c>hfn</c> pair but the same file format — see <see cref="Shell.ShellArt"/>.
+	/// </param>
+	public static HudFont? Load(GameContent content, string name, string? folder = null) {
+		folder ??= ResourceFolder;
+		if (content.Read(folder, name + "." + folder.ToUpperInvariant()) is not { } bytes
 			|| bytes.Length < 34) {
 			return null;
 		}

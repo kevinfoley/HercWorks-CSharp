@@ -24,7 +24,7 @@ The reader ignores the leading length and stops after the second count block. Bo
 | 10 | `GAME_R.SAV` | `RESUME` | campaign autosave |
 | 11 | `GAME_T.SAV` | `TRAINING` | training autosave |
 
-Slot 10 and 11 are one slot from the caller's side. `FUN_0040e37b` and `FUN_0040e4f2` both open with `if (slot == 10 && DAT_0048260c == 0) slot = 11`, so `DAT_0048260c` is the campaign/training mode flag — 1 selects `GAME_R`, 0 selects `GAME_T`. Retail `GAME_T.SAV` holds pilot `TRAINEE` and career stage 0; `GAME_R.SAV` is byte-identical in length, credits and career position to `GAME_6.SAV`, the newest ordinary save.
+Slot 10 and 11 are one slot from the caller's side. `FUN_0040e37b` and `FUN_0040e4f2` both open with `if (slot == 10 && DAT_0048260c == 0) slot = 11`, so `DAT_0048260c` is the campaign/training mode flag — 1 selects `GAME_R`, 0 selects `GAME_T`. Retail `GAME_T.SAV` holds pilot `TRAINEE` and career stage 0; `GAME_R.SAV` is byte-identical in length, salvage and career position to `GAME_6.SAV`, the newest ordinary save.
 
 **An empty slot's label is completed at load time.** After reading a label the reader tests `label[4]`, and when it is NUL appends string `0x21` from `estext.bin`. A stored `" 8. "` becomes `" 8. EMPTY"` in a localized build. Once such a slot is written back the completed label is in the file, which is why every retail label already reads `EMPTY`.
 
@@ -55,12 +55,12 @@ No header, no magic, no length field: the file is the concatenation below. Writt
 | 5 | varies | the player: `int16`, `int16`, then one pilot record — **the same shape as a squadmate's**, roster id included | `FUN_0041016d` / `FUN_004101b8` |
 | 6 | varies | hangar: `int16` count, then that many `{ int16 slot; HERC record }` | `FUN_00410658` / `FUN_0041080a` |
 | 7 | 18 | the 9 chassis availability flags — `herc_inf.dat` record `+0x0e`, stride 16 from `00483b62` | `FUN_00411954` / `FUN_00411989` |
-| 8 | 4 | credits (`00482af4`) | inline |
+| 8 | 4 | the salvage pool (`00482af4`) | inline |
 | 9 | 2000 | the campaign flag array (`00482af8`) | inline |
 | 10 | 2 | game state (`0048260e`) | inline |
 | 11 | 20 | `004832c8` | inline |
 
-Blocks 8, 9 and 11 are one contiguous span in memory: credits at `00482af4`, the flag array immediately after at `00482af8`, and its 2000 bytes ending exactly at `004832c8`. Block 10 comes from `0048260e`, elsewhere entirely. Block 11 is the 20 bytes past the end of what `data\mission.var` carries; only the save writer and reader are traced touching them.
+Blocks 8, 9 and 11 are one contiguous span in memory: the salvage pool at `00482af4`, the flag array immediately after at `00482af8`, and its 2000 bytes ending exactly at `004832c8`. Block 10 comes from `0048260e`, elsewhere entirely. Block 11 is the 20 bytes past the end of what `data\mission.var` carries; only the save writer and reader are traced touching them.
 
 Block 7 walks `herc_inf.dat`'s in-memory table at a 16-byte stride, so the nine `int16` are the availability flag of each chassis — campaign state rather than catalog data, and the counterpart of block 1's per-weapon unlock byte. See [`herc-catalogs.md`](herc-catalogs.md#chassis-unlocks--herc_grantunlocks-004118c5).
 
@@ -105,7 +105,7 @@ Serialized by `FUN_0040fd5f`, read by `FUN_0040fefc`, initialized by `FUN_0040fc
 
 The three pairs are proved by `FUN_0041000e`, which reads the per-mission counters from `results.dat` in the order Herc, Base, Flyer and then accumulates `+0x33 += +0x2d`, `+0x35 += +0x2f`, `+0x37 += +0x31`, `+0x39 += 1`.
 
-What names them is the crew screen, which stages each pilot into a 67-byte record — the 59-byte pilot record, then `int32` credits, `int16` career stage and `int16` mission — and prints six of these fields as a `Current`/`Total` pair per row against the labels ` Herc Kills:`, `Flyer Kills:` and ` Base Kills:` (`estext.bin` `0x27`-`0x29`). The player's own staging copy is filled field-by-field from `00482aa9` upward, which is the pilot record embedded at `00482a7c`, so each screen offset binds to one pilot offset directly. `FUN_00410066` reads the same naming back: it promotes on `+0x33 + +0x35`, the two kill kinds that are machines, and never on `+0x37`.
+What names them is the crew screen, which stages each pilot into a 67-byte record — the 59-byte pilot record, then `int32` salvage, `int16` career stage and `int16` mission — and prints six of these fields as a `Current`/`Total` pair per row against the labels ` Herc Kills:`, `Flyer Kills:` and ` Base Kills:` (`estext.bin` `0x27`-`0x29`). The player's own staging copy is filled field-by-field from `00482aa9` upward, which is the pilot record embedded at `00482a7c`, so each screen offset binds to one pilot offset directly. `FUN_00410066` reads the same naming back: it promotes on `+0x33 + +0x35`, the two kill kinds that are machines, and never on `+0x37`.
 
 Skill and rank advance separately, in `FUN_00410066` — see [`../shell/campaign-loop.md`](../shell/campaign-loop.md#pilot-progression).
 

@@ -57,7 +57,8 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 			save.WorkshopSlots[w] = WeaponLUT.GetById(IndexShortLE())!;
 		}
 
-		// Campaign flags, series of INT16's
+		// Career block — 76 shorts. Not the campaign flag array, which is 2000 bytes and sits in the
+		// tail read below.
 		for (int f = 0; f < save.Unk4_stateFlags.Length; f++) {
 			save.Unk4_stateFlags[f] = IndexShortLE();
 		}
@@ -69,7 +70,7 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 		}
 		save.Squadmates = squad;
 
-		// Unknown post-pilot, pre-player 9-short range.
+		// The six shorts closing the squad block plus the two opening the player block — eight.
 		for (int r = 0; r < save.UnkRange_prePlayer.Length; r++) {
 			save.UnkRange_prePlayer[r] = IndexShortLE();
 		}
@@ -96,7 +97,8 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 		// Total available salvage
 		save.SalvageTotal = IndexIntLE();
 
-		// Unknown tail bytes
+		// Tail: the 2000-byte campaign flag array, the 2-byte game state, and a 20-byte block — plus
+		// whatever stale bytes the non-truncating writer left past the payload. Carried verbatim.
 		using var fragmentFlags = new MemoryStream();
 		while (Index < GetBytes().Length) {
 			byte b = IndexByte();
@@ -159,7 +161,9 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 			herc.HealthExternals[e] = new ShellHercPart(e.Id, e.Label, IndexShortLE());
 		}
 
-		// TODO (carried over from Java): struct here caps internals to just bipedal hercs.
+		// Ids 0-9 only: 0-8 are the nine named components and 9 is the machine's overall condition.
+		// Ids 10-12 are not in the file at all, so stopping short of them is the format, not a gap.
+		// See HercInternals.
 		herc.HealthInternals = new Dictionary<HercInternals, ShellHercPart>();
 		foreach (var internalPart in HercInternals.Values()) {
 			if (internalPart.Id < HercInternals.ServosLegLeftRear.Id) {
@@ -217,7 +221,7 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 			WriteAndCount(outStream, WriteShortLE((short)save.WorkshopSlots[w].Id));
 		}
 
-		// CAMPAIGN FLAGS
+		// CAREER BLOCK
 		foreach (var f in save.Unk4_stateFlags) {
 			WriteAndCount(outStream, WriteShortLE(f));
 		}
@@ -256,7 +260,7 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 		// SALVAGE
 		WriteAndCount(outStream, WriteIntLE(save.SalvageTotal));
 
-		// UNKNOWN TAIL SEGMENT
+		// TAIL SEGMENT
 		foreach (var b in save.UnknownSaveValues!) {
 			outStream.WriteByte(b);
 			_dbgBuffer += 1;

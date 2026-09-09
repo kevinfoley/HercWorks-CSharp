@@ -21,7 +21,7 @@ public class HercInfEntry {
 	/// </summary>
 	public short HardpointTotal { get; set; }
 
-	/// <summary>Price in tons; VSHELL multiplies by 1000 to charge the credit pool, which is in Kg.</summary>
+	/// <summary>Price in tons; VSHELL multiplies by 1000 to charge the salvage pool, which is in Kg.</summary>
 	public short SalvageReq { get; set; }
 
 	/// <summary>

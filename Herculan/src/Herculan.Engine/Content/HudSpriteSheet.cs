@@ -125,9 +125,17 @@ public sealed class HudSpriteSheet {
 	/// bitmap of exactly the same shape as a sprite frame, so one bank entry per font — its glyphs in
 	/// character order — makes <see cref="Sprite"/> address glyphs as well.</para>
 	/// </summary>
+	/// <param name="resourceFolder">
+	/// Folder and extension the banks are read from. Defaults to <see cref="ResourceFolder"/>; the
+	/// shell keeps its own banks in <c>dba\</c> at full canvas scale rather than as a 320-wide half,
+	/// so it passes that and takes no doubling with it (see <see cref="Shell.ShellArt"/>).
+	/// </param>
+	/// <param name="fontFolder">Folder the fonts are read from — see <see cref="HudFont.Load"/>.</param>
 	public static HudSpriteSheet? Load(GameContent content, DynamixPalette? palette,
 			IEnumerable<string> bankNames, IEnumerable<string>? fontNames = null,
-			IEnumerable<string>? loResBankNames = null, IEnumerable<string>? indexedBankNames = null) {
+			IEnumerable<string>? loResBankNames = null, IEnumerable<string>? indexedBankNames = null,
+			string? resourceFolder = null, string? fontFolder = null) {
+		resourceFolder ??= ResourceFolder;
 		var frames = new List<DynamixBitmap>();
 		var banks = new Dictionary<string, Bank>(StringComparer.OrdinalIgnoreCase);
 		var fonts = new Dictionary<string, HudFont>(StringComparer.OrdinalIgnoreCase);
@@ -140,7 +148,7 @@ public sealed class HudSpriteSheet {
 				continue;
 			}
 
-			if (content.Read(ResourceFolder, name + "." + ResourceFolder.ToUpperInvariant()) is not { } bytes
+			if (content.Read(resourceFolder, name + "." + resourceFolder.ToUpperInvariant()) is not { } bytes
 				|| new DynamixBitmapArrayTransformer().Parse(bytes) is not DynamixBitmapArray bank
 				|| bank.Images is not { Length: > 0 } images) {
 				continue;
@@ -172,7 +180,7 @@ public sealed class HudSpriteSheet {
 		}
 
 		foreach (string name in fontNames ?? Array.Empty<string>()) {
-			if (banks.ContainsKey(name) || HudFont.Load(content, name) is not { } font) {
+			if (banks.ContainsKey(name) || HudFont.Load(content, name, fontFolder) is not { } font) {
 				continue;
 			}
 

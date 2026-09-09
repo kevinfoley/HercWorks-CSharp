@@ -8,7 +8,7 @@ Ported in `Sim.TargetSelection`, `Sim.Detection`, `MechObject.Target`.
 machine nothing in the simulation writes it.** The selection is made in the cockpit widget tree at
 `CockpitViewInstance+0x210` and copied onto the machine once a frame by
 `Player_PerFrameCockpitUpdate` (`0041b130`). AI machines get theirs from a separate family, decoded in
-[`ai-targeting.md`](ai-targeting.md) and not ported.
+[`ai-targeting.md`](ai-targeting.md) and ported in `Sim.Ai.AiTargeting`.
 
 Every writer of `mech+0x1a4` also maintains `target+0x1a2`, a count of how many machines hold that
 object, and raises `mech+0x9d` ("target changed"), which suppresses lock for one tick.

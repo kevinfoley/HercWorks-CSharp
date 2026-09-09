@@ -5,7 +5,7 @@ namespace HercWorks.Core.Data.File.Msn;
 /// <see cref="TypeFlag"/>: a **link** (0, two refs to row #6 world positions forming a path leg —
 /// real position-distance data shows the two endpoints are at genuine map distance, not spatially
 /// adjacent) or a **reward/value marker** (1, one ref to a row #6 position plus a literal
-/// round-number quantity — most likely a credits/reward value given the game's credit-based
+/// round-number quantity — most likely a salvage/reward value given the game's salvage-based
 /// Herc/weapon economy). See docs/formats/msn-mission-file.md, "Row #9 field decode".
 /// </summary>
 public class LinkOrReward12 : MapObject {

@@ -528,9 +528,12 @@ original's behaviour:
 
 - **A comm box's name** is the machine's own type name. The original stores a pointer per gauge,
   filled from the pilot roster in the player's save, which VSHELL owns and this engine does not read.
-- **Its OBJECTIVE: line** is the last order transmitted to that slot. The original reads the
-  machine's current AI state (`FUN_0041bac8`) and indexes group 40 with it, which is what the pilot is
-  *doing* rather than what they were last told.
+- **Its OBJECTIVE: line** is what the pilot is *doing* rather than what they were last told.
+  `Mech_SquadOrderLineIndex` (`0041bac8`) indexes group 40 with the machine's behaviour descriptor
+  `+0x3c` ([`../simulation/ai-dispatch.md`](../simulation/ai-dispatch.md)), then overrides that with
+  the standing squad order at `mech+0x23e` (1→`TRAVEL`, 2→`PATROL`, 3 or 6→`GUARD`) — but only for a
+  machine that is neither immobilised nor destroyed and is not fleeing, so a downed squadmate always
+  reads `DEAD` or `IMMOBILE` whatever it was ordered to do.
 - **A transmitted order** is recorded against the slot and nothing else. There is no squad AI to
   receive it.
 

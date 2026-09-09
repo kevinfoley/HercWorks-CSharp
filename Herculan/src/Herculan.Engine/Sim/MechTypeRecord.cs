@@ -358,10 +358,16 @@ public sealed class MechTypeRecord {
 	public short ReverseGaitThreshold { get; }
 
 	/// <summary>
-	/// Record field 68 — the death / fall sequence. Not a leg-damage flag word, which this field was
-	/// long named for.
+	/// Record field 68 — the death / fall sequence an immobilised machine goes down in. See
+	/// <see cref="MechObject.FallDown"/>, which is its only consumer here.
 	/// </summary>
 	public short DeathSequence => Data.AnimId_Death;
+
+	/// <summary>
+	/// Record field 74 (the exe's <c>typeRecord+0x4c</c>) — this chassis leaves no wreck, and dies
+	/// into <c>in limbo</c> rather than <c>dead</c>. The SPIDER alone.
+	/// </summary>
+	public bool VanishesOnDeath => Data.VanishesOnDeath != 0;
 
 	/// <summary>
 	/// Record field 122 — the turn-in-place sequence. Uniform

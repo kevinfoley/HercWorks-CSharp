@@ -66,6 +66,13 @@ public sealed class AnimationThread {
 	/// <summary>The frame currently playing.</summary>
 	public int Frame => _frame;
 
+	/// <summary>
+	/// The frame playback will advance to next. It equals <see cref="Frame"/> only at the end of a
+	/// sequence that does not loop, which is how a one-shot is known to have played out — see
+	/// <c>MechObject.FallDown</c>.
+	/// </summary>
+	public int NextFrame => _nextFrame;
+
 	/// <summary>The sequence <see cref="SetTarget"/> last asked for, or -1.</summary>
 	public int TargetSequence => _targetSequence;
 

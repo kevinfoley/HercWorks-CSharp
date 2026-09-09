@@ -97,7 +97,17 @@ public sealed record MissionPlacement(
 	bool AiRadarActive = false,
 	(int X, int Y)? FormationOffset = null,
 	int EngagementActionRef = -1,
-	int DefeatActionRef = -1);
+	int DefeatActionRef = -1,
+	short StartingCondition = 100) {
+
+	/// <summary>
+	/// The condition a machine the mission says nothing about starts in — full health, and the
+	/// literal default of the constructor parameter above. Anything below
+	/// <see cref="Sim.MechObject.UndamagedCondition"/> is pre-damaged at spawn; see
+	/// <see cref="Sim.MechObject.ApplyStartingCondition"/>.
+	/// </summary>
+	public const short PristineCondition = 100;
+}
 
 /// <summary>
 /// One patch of ground a base group paints with its formation's own material — the concrete pad a

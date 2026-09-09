@@ -211,7 +211,7 @@ Fields settled elsewhere link out rather than being restated.
 | `+0xa5` | byte | No weapons left; written by `Ai_ChooseWeapon` — [`ai-weapons.md`](ai-weapons.md) |
 | `+0xac` | byte | A target was just handed to this machine; skip one acquisition |
 | `+0xb2` | byte | Keeps a player squadmate's radar active; written by the squad command handler — [`ai-weapons.md`](ai-weapons.md) |
-| `+0xb4` | byte | Collapsed — latched when the death animation finishes (`Mech_LocomotionTick`) or a fall cripples the machine outright (`004178e8`) |
+| `+0xb4` | byte | Collapsed — the machine has finished going down and is lying on the ground. Latched when the death animation plays out ([`mech-locomotion.md`](mech-locomotion.md#going-down)), or at spawn for a machine the mission places as a wreck ([`damage-system.md`](damage-system.md#starting-condition--mech_applystartingcondition-004178e8)) |
 | `+0xb7` | byte | Invulnerable; `Base_Construct` sets it from `BASES.DAT +0x1e` |
 | `+0x250` | short | Squad order's abandon threshold |
 | `+0x26b` | short | Countdown that holds the radar off, 6000 after an ARM hit — [`ai-weapons.md`](ai-weapons.md) |
@@ -236,7 +236,6 @@ Deviations, all of them things the original reads that this engine has no value 
 
 - **`mech+0x9a`** and **`DAT_004a9ed8`**, both of which narrow `Ai_IsTargetable`, are not modelled. Their absence can only let the AI consider more candidates than the original, never fewer.
 - **`mech+0xb2`** is not modelled, so a player squadmate is always put back to passive on entering a fight. Its writer is the squad command path, which is unported.
-- **`mech+0xb4`**, collapsed, is never set — the death animation is not played out, so nothing latches it.
 - **The aim band's targeting-computer override is not applied.** It turns on a pod field (`+0x7f`) whose meaning is untested, the same doubt the ECM roll records, so the roll alone picks the band.
 - **Squad orders are unported**, so `Mech_AiSelectBehaviour`'s second path installs nothing and `Ai_ShouldAbandonTarget`'s squad branch is unreachable. Group orders are ported; what a designated target is, and which machines have one, is [`ai-goals.md`](ai-goals.md).
 

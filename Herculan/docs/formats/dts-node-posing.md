@@ -50,6 +50,25 @@ All 18 retail HERCs: geometry occupies **11 groups**, on transform ids **1-11**,
 `ANAnimList.DefaultTransforms` points at has all three euler shorts zero, fleet-wide. Rotation is
 something an *animated* node acquires; a rest pose is pure translation.
 
+## Cyclic and one-shot sequences
+
+An animation list holds two kinds of sequence, and the difference is the **chunk's class**, not a
+flag: `ANCyclicSequence` loops, plain `ANSequence` plays once. DBSIM reaches the frame step through
+the sequence object's own vtable, so one list mixes both freely.
+
+| Slot | Cyclic | One-shot |
+|---|---|---|
+| `+0x20` next frame | `004786d8` — wraps to 0 past the last frame | `00478654` — **clamps**, returning the last frame forever |
+| `+0x24` previous frame | `004786f8` — wraps to the last frame | `00478670` — holds at 0 |
+
+The clamp is what makes a one-shot observable: `frame == nextFrame` is true only on a played-out
+non-cyclic sequence, and that equality is the sole end-of-sequence test in the simulation. See
+[`mech-locomotion.md`](../simulation/mech-locomotion.md#going-down).
+
+**Every retail chassis carries exactly one one-shot**, and its own `AnimId_Death` names it: index 7
+on the 18 bipeds, 2 on the PITBULL, 1 on the SPIDER. The RAZOR's list holds a single sequence and
+its `AnimId_Death` of 7 is out of range, which never bites because a flyer has no locomotion thread.
+
 ## HERCULAN Engine implementation
 
 `DtsMeshBuilder.BuildSegments` produces one `MeshSegment` per transform id — the same triangles

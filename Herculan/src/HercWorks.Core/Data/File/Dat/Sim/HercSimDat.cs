@@ -73,13 +73,31 @@ public class HercSimDat {
 	public short AiRatingBase { get; set; } = 1000;
 
 	/// <summary>
-	/// Offset 68 — the death / fall sequence.
+	/// Offset 68 (the exe's <c>typeRecord+0x46</c>) — the death / fall sequence, and it is a real
+	/// one: every biped states 7, the PITBULL 2, the SPIDER 1, and on the walkers that id names a
+	/// full-body sequence the shape carries which nothing else references.
+	///
+	/// <para><c>Mech_LocomotionTick</c> transitions an <i>immobilised</i> machine into it — this is
+	/// the fall a HERC makes when its legs go, and the pose at the sequence's last frame is where
+	/// the wreck stays. <c>Mech_PlaceLegsOnGround</c> reads it a second time, to take a different
+	/// contact test while the fall plays. Both read it off a base register holding
+	/// <c>typeRecord + 2</c>, so the field appears in the disassembly at displacement
+	/// <c>0x44</c>. See Herculan.Engine.Sim.MechObject.FallDown.</para>
 	/// </summary>
 	public short AnimId_Death { get; set; }
 
 	public short LegsCritFlags2 { get; set; }
 	public short ModelLegsTotal { get; set; }
-	public short ModelFlagNoDebris { get; set; }
+
+	/// <summary>
+	/// Offset 74 (the exe's <c>typeRecord+0x4c</c>) — <b>this chassis leaves no wreck</b>. On death
+	/// <c>Mech_ComponentDamageWrite</c> takes a different branch for it: the machine drops to
+	/// <c>in limbo</c> rather than <c>dead</c>, is sunk to z = -100000, and every child part it owns
+	/// is deleted. Set only on the SPIDER, which is also the one chassis with no legs and no mass.
+	/// Was <c>ModelFlagNoDebris</c>, which it is not — the debris a destroyed component throws is
+	/// unaffected. See Herculan.Engine.Sim.MechObject.ComponentDamageWrite.
+	/// </summary>
+	public short VanishesOnDeath { get; set; }
 
 	/// <summary>
 	/// Offset 76 (the exe's <c>typeRecord+0x4e</c>) — the chassis' <b>mass</b>, the Q10 term each

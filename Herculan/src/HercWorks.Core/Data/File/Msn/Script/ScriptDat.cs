@@ -290,6 +290,23 @@ public class ScriptSpawnRecordExport {
 	/// </summary>
 	public short DefeatActionRef => ReadTail(DefeatActionOffset);
 
+	/// <summary>
+	/// Exported offset <c>0x84</c> — the machine's <b>starting condition, as a percentage</b>. 100 is
+	/// pristine; anything under 80 has <c>DBSim_SpawnMissionObjects</c> pre-damage the machine
+	/// through <c>Mech_ApplyStartingCondition</c> (<c>004178e8</c>) before it ever takes a shot, in
+	/// four widening bands at 80 / 60 / 40 / 20. Below 20 the machine is placed as a <b>wreck</b>:
+	/// a leg destroyed outright, immobilised and collapsed where it stands. See
+	/// Herculan.Engine.Sim.MechObject.ApplyStartingCondition for the grades.
+	///
+	/// <para>It is the same 0-100 convention as the herc catalog's build percentage
+	/// (docs/formats/herc-catalogs.md). How much the campaign actually uses it is <b>not
+	/// established</b>: the available <c>script.dat</c> files are saves formatted from a handful of
+	/// the 50-odd <c>.MSN</c> missions, and across those ten, 138 of 139 mech records read 100 with
+	/// one at 50 — a sample too small and too self-selected to say anything about the mission set.
+	/// Answering that means reading the <c>.MSN</c> files themselves.</para>
+	/// </summary>
+	public short StartingCondition => ReadTail(StartingConditionOffset);
+
 	private short ReadTail(int offset) =>
 		TailBytes.Length >= offset + 2 ? BitConverter.ToInt16(TailBytes, offset) : (short)-1;
 
@@ -298,6 +315,9 @@ public class ScriptSpawnRecordExport {
 
 	/// <summary>And <see cref="DefeatActionRef"/> (0x82 less 0x42).</summary>
 	private const int DefeatActionOffset = 64;
+
+	/// <summary>And <see cref="StartingCondition"/> (0x84 less 0x42).</summary>
+	private const int StartingConditionOffset = 66;
 
 	/// <summary>Where <see cref="WeaponSecondary"/> starts inside <see cref="TailBytes"/> (source 0x72 less 0x4a).</summary>
 	private const int SecondaryOffset = 40;

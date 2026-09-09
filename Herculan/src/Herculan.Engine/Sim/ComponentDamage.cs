@@ -147,6 +147,29 @@ public sealed class ComponentDamage {
 	}
 
 	/// <summary>
+	/// <c>FUN_0040dc58</c> — everything a component has to lose: its own armour plus the maximum of
+	/// every internal mapped onto it. It is <see cref="DamagePercent"/>'s denominator, exposed
+	/// because the impact roll scales its damage by it — see
+	/// <see cref="MechObject.SpreadImpactDamage"/>, which is what makes a heavy component take a
+	/// heavier share of the same fall.
+	/// </summary>
+	public int TotalArmor(int index) {
+		if (Piece(index) is not { } piece) {
+			return 0;
+		}
+
+		int maximum = piece.Armor;
+		foreach (var dependent in piece.MappedInternals ?? Array.Empty<HercSimDamage.InternalsTarget>()) {
+			int slot = dependent.InternalsId?.Id ?? -1;
+			if (slot >= 0 && slot < _dependentDamage.Length) {
+				maximum += DependentMaximum(slot);
+			}
+		}
+
+		return maximum;
+	}
+
+	/// <summary>
 	/// <c>FUN_0040db2c</c> - the whole machine's damage as one Q8 fraction, 0 pristine and 256
 	/// destroyed. It is the object's vtable <c>+0x40</c> for a HERC (<c>FUN_00415504</c>), and it is
 	/// what the MFD status screen's structural-integrity readout prints.
@@ -611,6 +634,21 @@ public sealed class ComponentDamage {
 	/// One dependent's maximum, out of the <c>.DMG</c>'s flat leading array. Every retail HERC states
 	/// 22 of these and the skimmer one, matching the slot counts the constructors allocate.
 	/// </summary>
+	/// <summary>
+	/// Writes a dependent's accumulated damage directly, bypassing the cascade and the death gate.
+	/// The one caller is <see cref="MechObject.ApplyStartingCondition"/>, which needs to state a
+	/// machine's condition as it is spawned rather than damage it into that condition — the original
+	/// writes the array element in exactly the same way, for the same reason.
+	/// </summary>
+	internal void SetDependentDamage(int slot, short damage) {
+		if (slot >= 0 && slot < _dependentDamage.Length) {
+			_dependentDamage[slot] = damage;
+		}
+	}
+
+	/// <summary>The most damage a dependent can take before it reads destroyed.</summary>
+	internal short DependentMax(int slot) => DependentMaximum(slot);
+
 	private short DependentMaximum(int slot) {
 		var internals = _model.Internals;
 		return internals != null && slot >= 0 && slot < internals.Length

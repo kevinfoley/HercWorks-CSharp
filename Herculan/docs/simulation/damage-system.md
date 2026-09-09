@@ -523,11 +523,75 @@ The Java author's own doc comment on `HercSimDamage.cs` lists real component nam
 
 `FUN_00417de4` itself, beyond wrapping the health write above, does per-subsystem percentage
 tracking with 8-level bucketing and fires distinct alert sounds at multiple thresholds (~55%,
-~31%, fully destroyed). It tracks the leg/limb subset in pairs (above) and — the mech-death
-trigger — **if enough limbs are fully destroyed, kills the mech outright**: clears its target,
-calls a destruction handler, sets flags, and finishes off remaining components via a recursive
-self-call with a flat 30000 damage. It also processes weapon-mount ratios (from `this+0x202`, see
-"Weapon mounts" below) and a distinct "torso"-like aggregate with its own thresholds (75%/50%).
+~31%, fully destroyed). It also processes weapon-mount ratios (from `this+0x202`, see "Weapon
+mounts" below) and a distinct "torso"-like aggregate with its own thresholds (75%/50%).
+
+### Going out of the fight
+
+Two independent branches, and they are **not** two readings of one condition. Losing legs disables;
+losing the cockpit, the pilot or life support kills. A machine reaches the second having usually
+already been through the first.
+
+**Disabled** — the leg branch, non-flyers only. A leg whose servos read fully destroyed has its child
+object deleted, so `Mech_PlaceLegsOnGround` stops placing it; that runs whatever else is true of the
+machine. Then, if it is not already immobilised and half or more of its legs are gone:
+
+1. the attacker is told, through *its own* vtable `+0x60`, with "was already immobilised" clear;
+2. the machine's own defeat action fires;
+3. `disabled` (21) is installed;
+4. `mech+0xa4` immobilised is latched and the target released.
+
+**Dead** — the cockpit/pilot/life-support gate. `mech+0x99` is set, then, in this order:
+
+1. **the reading of `+0xa4` is sampled**, because the next step invalidates it;
+2. the recursive finish-off, a flat 30000 on component 0 with no attacker, which is why a kill leaves
+   a machine comprehensively wrecked rather than merely stopped — and which re-enters the leg branch,
+   harmlessly, since both branches are guarded on `+0x99` being clear;
+3. the attacker is told, carrying that sampled reading;
+4. **the defeat action fires only if the machine was not already immobilised**, so it goes off once
+   per machine rather than once per way of stopping it;
+5. target released, scanner forced passive;
+6. the state: `in limbo` (19) when the chassis' `typeRecord+0x4c` is set, otherwise `dead` (20) for a
+   non-flyer. **A flyer takes neither**, and keeps whatever state it was in.
+
+`typeRecord+0x4c` means *this chassis leaves no wreck*, and the SPIDER is the only one that sets it:
+that branch also sinks the object to z = -100000 and deletes every child part it owns. It is never
+removed from the object list.
+
+The three state indices and their think are [`ai-combat-states.md`](ai-combat-states.md)'s. What a
+machine does *after* the state is installed — the fall, and the collapse that ends it — is
+[`mech-locomotion.md`](mech-locomotion.md#going-down)'s.
+
+### Spread impact damage — `Mech_SpreadImpactDamage` (`00417a04`)
+
+One impact spread over the whole machine, rather than a shot aimed at a component. Every live
+component draws its own roll out of 256 against `odds`; one that is caught takes
+`Q8(rand(maxDamage) + maxDamage/2, totalArmor)` — so the share scales with what that component had
+to lose. `totalArmor` is `Component_TotalArmor` (`0040dc58`), a component's own armour plus the
+maximum of every internal mapped onto it, which is also the denominator the damage percentage uses.
+A `maxDamage` of zero returns immediately.
+
+The damage goes in through this same `+0x74` endpoint, cascade and death gate included. Two callers:
+the collapse landing ([`mech-locomotion.md`](mech-locomotion.md#going-down)) and the starting
+condition below.
+
+### Starting condition — `Mech_ApplyStartingCondition` (`004178e8`)
+
+Called once from `DBSim_SpawnMissionObjects`, immediately after the machine's two mission actions are
+resolved, with the percentage at [`../formats/script-dat.md`](../formats/script-dat.md)'s block 7
+`0x84`. The odds are always the damage figure plus 25.
+
+| Condition | Effect |
+|---|---|
+| ≥ 80, or negative | untouched |
+| 60–79 | 50 damage at 75 |
+| 40–59 | 80 at 105 |
+| 20–39 | 120 at 145, and the **reactor dependent is set to its own maximum** — written off outright rather than damaged toward it |
+| < 20 | a **wreck**: one of components 7/8 destroyed with 32000 (and one of 13/14 on a four-legged chassis), `+0xa4` immobilised and `+0xb4` collapsed, then 150 at 175 over the rest |
+
+The order matters: writing a leg off can fire the death gate, so the defeat action has to be attached
+first. The wreck grade places a derelict as scenery — already down, so it never falls, and never
+targetable.
 
 ## Structural / Internal / Weaponry
 
@@ -781,7 +845,19 @@ The destruction path's own effects — the debris, the fire and the explosion a 
 — are `Sim.ComponentDamage.DestructionEffects`; see
 [`destruction-effects.md`](destruction-effects.md).
 
+Both out-of-the-fight branches are ported entire, including the behaviour-state installs, the
+sampled-before-the-finish-off ordering the defeat action depends on, and the vtable `+0x60` kill
+credit (`MechObject.CreditNeutralised`). `Mech_SpreadImpactDamage` is
+`MechObject.SpreadImpactDamage` and `Component_TotalArmor` is `ComponentDamage.TotalArmor`;
+`Mech_ApplyStartingCondition` is `MechObject.ApplyStartingCondition`, called from
+`Scene.MissionScene` where the original calls it.
+
 Not ported: the Shield Pod's own damage term in `Mech_ComputeShieldCapacity`, every alert sound, the
-salvage queue, and — from the collision path — the "something ran into me" latch (`obj+0xb1`, written
-through vtable `+0x68`) and the nearby-structure lock-on candidate, both of which only the unported
-behaviour layer reads.
+salvage queue, `Mech_ReportOutOfAction`'s mission-variable writes (the status-report layer, which
+nothing else in the engine has yet), `mech+0xb3`, `obj+0x38`, and — from the collision path — the
+"something ran into me" latch (`obj+0xb1`, written through vtable `+0x68`) and the nearby-structure
+lock-on candidate, both of which only the unported behaviour layer reads.
+
+A chassis that leaves no wreck is sunk but its child parts are not deleted: the engine holds a
+machine's parts as nodes of its one shape rather than as objects of their own, so there is nothing to
+delete and the sink alone takes it off the screen.

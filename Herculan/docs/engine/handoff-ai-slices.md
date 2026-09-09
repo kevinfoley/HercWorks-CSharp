@@ -30,6 +30,7 @@ Each slice is reverse-engineered to its topic doc, reviewed, then ported. The RE
 | 3 | **Navigation** | `Mech_AiObstacleAvoidance` `00416274`, the travel and patrol think functions (`0041d7d0`, `0041d9cc`, `0041daac`, `0041d60c`) | `ai-navigation.md` written; ported. Also took `guarding`'s think and `Terrain_RayWalk`'s mode 1 — see below |
 | 4 | **Weapons** | `Ai_AimAndFire` `0041ea7c`, `Ai_FireAtPoint` `0041f5a0`, `Ai_ChooseWeapon` `0041f358`, `Mech_ConvergeGunsOnRange` `0041a74c` | `ai-weapons.md` written; ported. Corrected the radar reading — see below |
 | 5 | **Behaviour states** | The remaining think functions and the 30 `Behaviour_SetState` call sites as the transition graph | `ai-combat-states.md` written; ported. Found `skirting`'s caller — see below |
+| 5b | **Death and disablement** | `Mech_ComponentDamageWrite` `00417de4`'s two out-of-the-fight branches, `Mech_LocomotionTick`'s immobilised arm | Ported. Closed `ai-dispatch.md`'s `+0x3c` question and `ai-goals.md`'s group `+0x1c`/`+0x30` — see below |
 | 6 | **Squadmates** | `mech+0x23e` standing orders, `FUN_0041c0f4`, `Mech_ApplyFormationOffset` `00417898` | Not started |
 | 7 | **Flyer AI** | The flyer behaviour path; no retail mission places an AI RAZOR, so verification is synthetic | Not started |
 
@@ -56,10 +57,26 @@ It also closed three of `ai-targeting.md`'s "no writer found" entries: `mech+0xa
 
 The original ordering had goals fifth. The dispatch pass found that `Mech_AiTick`'s only caller is `Group_OrderTick` — **a machine that is not a live member of a mission group never thinks** — which makes the group order layer structurally upstream of every other slice rather than a peer of them. Nothing else can be observed running in the engine until it exists, and the targeting port has already had to stand up `MissionGroup.cs` to get that far.
 
+### What slice 5b corrected
+
+The three inert states existed in the table and nothing installed them, so a machine kept fighting after losing its legs or its cockpit. Fixing that pulled in four things outside the AI:
+
+- **`Mech_LocomotionTick` owns the consequences of being immobilised**, not the AI. It zeroes throttle and steer, skips obstacle avoidance, and plays the machine's death animation — a chassis' one non-cyclic sequence, which the engine had been flattening into a looping one. [`mech-locomotion.md`](../simulation/mech-locomotion.md#going-down), [`dts-node-posing.md`](../formats/dts-node-posing.md#cyclic-and-one-shot-sequences).
+- **The defeat action fires once per machine, not once per way of stopping it** — the death branch samples the immobilised flag *before* its own recursive finish-off and skips the action if the legs already fired it.
+- **`script.dat` block 7 `+0x84` is a starting condition**, and under 20% the mission places a machine as a wreck. [`damage-system.md`](../simulation/damage-system.md#starting-condition--mech_applystartingcondition-004178e8).
+- **Descriptor `+0x3c` is a display string index**, not a behaviour parameter: the F7 comm box's `OBJECTIVE:` line.
+
+Two method failures worth not repeating, both of which produced a confidently wrong "this is never used":
+
+- **A scalar search for a field offset is defeated by a rebased base pointer.** `Mech_LocomotionTick` and `Mech_PlaceLegsOnGround` both hold `typeRecord + 2` in a register, so `+0x46` is read as `[ESI + 0x44]` and a search for `0x46` comes back clean. Read the prologue for `ADD reg, k` and search `displacement - k` too.
+- **Sweeping one setter's call sites is not enumerating what sets a field.** `AnimThread_SetSequence` has no call site passing the death sequence; `AnimThread_SetTarget` (`00479570`) does. Both existing C# doc comments on `MechTypeRecord.DeathSequence` and `MechObject.Collapsed` already said so, and were not consulted.
+
 ## Leads left behind
 
+- **`mech+0xb3`**, raised by `Mech_ApplyStartingCondition` on its two worst grades and read nowhere traced, and **`obj+0x38`**, a byte set when a chassis that leaves no wreck is sunk. Both left out of the port rather than guessed at.
+- **`Mech_CreditNeutralisedTarget` (`00415710`) has no derived signature.** Ghidra renders it `__thiscall` with a leading parameter the vtable call sites do not support; the argument list needs reading off the disassembly before the prototype can be recorded.
 - **The group-report cluster** at `00412f90` and `00413280`, and the visibility helpers around them (`00412ef4`, `00412d90`, `00412f5c`, `00412f28`, `00413950`, `004137b4`, `00413a08`, `00413920`, `00412d4c`). They read the same order records the AI does but produce string indices and write into a global variable table, so they read as the mission-objective and status-report layer. Not an `ai-*.md` subject; they want a doc of their own.
-- **Order `+0x02` and `+0x04`, and group `+0x1c`/`+0x30`** — resolved at load, no reader found. Listed as open questions in `ai-goals.md`.
+- **Order `+0x02` and `+0x04`** — resolved at load, no reader found. Listed as an open question in `ai-goals.md`. Group `+0x1c`/`+0x30` are answered: they are the group's own mission-variable slots, run by `Group_ReportIfAllOutOfAction` (`00423f30`) once every member is out of the fight.
 - **`mech+0x5d`**, written zero by the circling step and read nowhere, and **`mech+0x9e`**, set by `Sim_RaycastObjectList` when a shot reaches the shooter's own target. Listed as open questions in `ai-combat-states.md`.
 - **Most of the shipped mission's AI machines start out of the world**, in groups awaiting deployment, so only one group exercises the AI until the first mission action fires. Each wave that arrives puts more of them under a think — see [`mission-deployment.md`](../simulation/mission-deployment.md).
 

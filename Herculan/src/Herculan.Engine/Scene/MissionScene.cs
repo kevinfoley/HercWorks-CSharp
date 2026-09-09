@@ -382,6 +382,15 @@ public sealed class MissionScene {
 		foreach (var placed in objects) {
 			placed.Object.EngagementAction = ActionAt(actions, placed.Placement.EngagementActionRef);
 			placed.Object.DefeatAction = ActionAt(actions, placed.Placement.DefeatActionRef);
+
+			// And the condition the mission says it starts in, which for anything under 80% means it
+			// spawns already damaged -- or, under 20%, already a wreck. DBSim_SpawnMissionObjects
+			// makes this call in the same place, immediately after resolving the two actions, and the
+			// order matters for the wreck grade: writing a leg off can fire the death gate, and the
+			// defeat action has to be attached before it can go off.
+			if (placed.Object is MechObject spawned) {
+				spawned.ApplyStartingCondition(world, placed.Placement.StartingCondition);
+			}
 		}
 
 		world.PlayerMech = playerObject?.Object as MechObject;

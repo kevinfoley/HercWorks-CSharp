@@ -1,4 +1,5 @@
-﻿using Herculan.Engine.World;
+﻿using Herculan.Engine.Sim.Ai;
+using Herculan.Engine.World;
 using Herculan.Engine.Numerics;
 
 namespace Herculan.Engine.Sim;
@@ -50,6 +51,12 @@ public sealed partial class MechObject {
 	/// is not ported, so there is nothing to key off it here.
 	/// </summary>
 	private const int LegsCrippledDamage = 0x8d;
+
+	/// <summary>
+	/// And the lower of the two leg thresholds, <c>mech+0xa8</c>'s — reached at a little under a
+	/// third of a side gone.
+	/// </summary>
+	private const int LegsDamagedAlert = 0x50;
 
 	/// <summary>Reactor-damage thresholds, from the same function: <c>0xc0</c> and <c>0x80</c>.</summary>
 	private const int ReactorCriticalDamage = 0xc0;
@@ -225,10 +232,18 @@ public sealed partial class MechObject {
 	public bool Immobilised { get; private set; }
 
 	/// <summary>
-	/// <c>mech+0xa9</c> — the softer of the two leg states: the legs are past
-	/// <see cref="LegsCrippledDamage"/> but not enough of them are actually destroyed.
+	/// <c>mech+0xa9</c> — the harder of the two graded leg states: a side reads
+	/// <see cref="LegsCrippledDamage"/> or worse, but not enough legs are actually destroyed to
+	/// immobilise the machine. Costs it most of its speed, and keeps it out of <c>flanking</c>.
 	/// </summary>
 	public bool LegsCrippled { get; private set; }
+
+	/// <summary>
+	/// <c>mech+0xa8</c> — the softer one: neither side is crippled, but one is past
+	/// <see cref="LegsDamagedAlert"/>. In the original it exists mainly to raise the pilot's alert
+	/// once; its one mechanical effect is the milder speed penalty. Latched, like its partner.
+	/// </summary>
+	public bool LegsDamaged { get; private set; }
 
 	/// <summary>
 	/// The reactor's condition as the two latching flags <c>mech+0xaa</c> and <c>mech+0xab</c>
@@ -240,6 +255,68 @@ public sealed partial class MechObject {
 
 	/// <summary>Who landed the shot that killed it, for the kill credit the original hands back.</summary>
 	public SimObject? LastAttacker { get; private set; }
+
+	/// <summary>
+	/// How far under the map a chassis that leaves no wreck is put — the original's own literal,
+	/// written straight into the object's Z. See <see cref="MechTypeRecord.VanishesOnDeath"/>.
+	///
+	/// <para>The original also sets a byte at <c>obj+0x38</c> on the way. Its role is not
+	/// established and nothing ported reads it, so it is left out rather than guessed at; the sink
+	/// and the dropped parts are what take the machine off the screen either way.</para>
+	/// </summary>
+	private const int VanishedDepth = -100000;
+
+	/// <summary>
+	/// Which of this machine's legs have come off — <c>mech+0x238</c>'s dropped entries. The original
+	/// holds a child object per leg and deletes one outright when its servos read fully destroyed;
+	/// here the legs are nodes of the one shape, so what is modelled is the consequence rather than
+	/// the allocation. See <see cref="GradeLegs"/> and <see cref="PlaceLegsOnGround"/>.
+	/// </summary>
+	private bool[] _legsLost = System.Array.Empty<bool>();
+
+	/// <summary>Whether leg <paramref name="leg"/> has been shot off.</summary>
+	public bool LegLost(int leg) => leg >= 0 && leg < _legsLost.Length && _legsLost[leg];
+
+	/// <summary>
+	/// <c>FUN_00415710</c>, the mech's vtable <c>+0x60</c> — told to the machine that just put
+	/// <paramref name="victim"/> out of the fight, from both of
+	/// <see cref="ComponentDamageWrite"/>'s branches. The base class' slot
+	/// (<c>FUN_00411b2c</c>) is an empty stub, so only a HERC credits anything.
+	///
+	/// <para><paramref name="wasImmobilised"/> is the victim's reading from <i>before</i> this
+	/// change, and it is what stops a machine being counted twice: a HERC whose legs went first was
+	/// already credited then, so finishing it off scores nothing more. Only a first, cross-team
+	/// neutralisation adds to the tally — which the original keeps per chassis type, one counter a
+	/// type at <c>mech+0x2a4</c>.</para>
+	///
+	/// <para>Left out: the two squad callouts the original posts from here — the killer's
+	/// "splash one" and the victim's own — because the pilot-and-squad message port they go to is
+	/// not ported. See <see cref="PostSquadMessage"/>.</para>
+	/// </summary>
+	internal void CreditNeutralised(MechObject victim, bool wasImmobilised) {
+		if (wasImmobilised || Group == null || victim.Group == null
+				|| Group.Side == victim.Group.Side) {
+			return;
+		}
+
+		_killsByType.TryGetValue(victim.Name, out int kills);
+		_killsByType[victim.Name] = kills + 1;
+		ScoredAKill = true;
+	}
+
+	/// <summary>
+	/// <c>mech+0x2a4</c> — how many of each chassis type this machine has put out of the fight,
+	/// counted once per victim. The original sizes it by the mech-type table and indexes it by that
+	/// table's slot number; the engine has no such table, so this keys on the chassis' own
+	/// <see cref="Name"/> and holds only the types actually scored against.
+	/// </summary>
+	public IReadOnlyDictionary<string, int> KillsByType => _killsByType;
+
+	private readonly Dictionary<string, int> _killsByType =
+		new(StringComparer.OrdinalIgnoreCase);
+
+	/// <summary><c>mech+0xa6</c> — raised by the first kill this machine scores. Latched.</summary>
+	public bool ScoredAKill { get; private set; }
 
 	/// <summary>
 	/// <c>Mech_DirectFireHitTest</c> (<c>00418ba8</c>), the mech's vtable <c>+0x20</c> — the hit test
@@ -772,7 +849,7 @@ public sealed partial class MechObject {
 			Pods.ShieldPod, (short)0));
 
 		if (!Type.IsFlyer) {
-			GradeLegs(attacker);
+			GradeLegs(world, attacker);
 		}
 
 		if (!Destroyed && (_damage.FullyDestroyed(CockpitFrontComponent)
@@ -782,15 +859,51 @@ public sealed partial class MechObject {
 			_destroyed = true;
 			LastAttacker ??= attacker;
 
-			// The machine's own mission action, fired at the one moment it crosses into destroyed --
-			// the original fires it from both of this function's death branches, and both are guarded
-			// on the machine not already being dead, so it goes off once. See
-			// SimObject.DefeatAction; this is what brings a retail mission's next wave in.
-			ActivateDefeatAction(world);
+			// Sampled BEFORE the finish-off, because the finish-off is what makes it stale: the
+			// recursion below runs the whole of this function again, GradeLegs included, on a
+			// machine whose components have just been written off wholesale. The original keeps the
+			// same local across the same call for the same reason, and everything after the
+			// recursion reads the answer from before the kill rather than after it.
+			bool wasImmobilised = Immobilised;
 
 			// The original's own recursive finish-off, with no attacker so the kill is not credited
-			// twice. Destroyed is already set, so this pass cannot re-enter the death branch.
+			// twice. Destroyed is already set, so this pass cannot re-enter the death branch -- nor
+			// can the disabled branch inside GradeLegs, which is guarded on the same flag.
 			ComponentDamageWrite(world, CockpitFrontComponent, 30000, null);
+
+			(attacker as MechObject)?.CreditNeutralised(this, wasImmobilised);
+
+			// The machine's own mission action -- fired at the one moment it goes out of the fight,
+			// which for a machine whose legs went first was already the disabled branch in
+			// GradeLegs. This
+			// is why it is guarded on the reading from before the kill rather than on Destroyed: the
+			// action goes off once per machine, not once per way of stopping it. See
+			// SimObject.DefeatAction; this is what brings a retail mission's next wave in.
+			if (!wasImmobilised) {
+				ActivateDefeatAction(world);
+			}
+
+			// A wreck holds nothing and paints nothing. The setter takes the target's own
+			// TargetedBy count back down with it.
+			Target = null;
+			Scanner = false;
+
+			if (Type.VanishesOnDeath) {
+				// The SPIDER, and only the SPIDER: it leaves no wreck. The original sinks it a
+				// hundred thousand units under the map and deletes every child part it owns, which
+				// between them are what take it off the screen -- it is never removed from the
+				// object list. The sink is the half that carries here; the engine holds a chassis'
+				// parts as nodes of its one shape rather than as objects of their own, so there is
+				// nothing to delete, and a machine put that far under the terrain is not drawn.
+				Position = new Vec3i(Position.X, Position.Y, VanishedDepth);
+				SetBehaviourState(BehaviourState.InLimbo);
+			} else if (!Type.IsFlyer) {
+				SetBehaviourState(BehaviourState.Dead);
+			}
+
+			// A flyer takes neither branch: nothing installs a state on it, and it keeps whatever
+			// it was in. That is the original's own reading of typeRecord+0x4c and +0x50, not an
+			// omission here -- see FlyerMovementTick for what actually stops a downed aircraft.
 		}
 
 		if (Reactor == ReactorCondition.Intact) {
@@ -804,10 +917,17 @@ public sealed partial class MechObject {
 	/// <summary>
 	/// The leg half of <c>Mech_ComponentDamageWrite</c>. The readings are the servo dependents' own,
 	/// not the leg components': a HERC's legs are graded by what is inside them.
+	///
+	/// <para>Two things happen here, and only the second is guarded on the machine still being able
+	/// to walk. <b>A leg that reads fully destroyed is dropped</b> — the original deletes that leg's
+	/// child object outright, so <c>Mech_PlaceLegsOnGround</c> stops placing it and it stops
+	/// planting; that runs whatever else is already true of the machine. <b>Half the legs gone
+	/// immobilises it</b>, which is the disabled branch: the machine goes out of the fight there and
+	/// then, on the same terms a kill does.</para>
 	/// </summary>
-	private void GradeLegs(SimObject? attacker) {
+	private void GradeLegs(SimWorld world, SimObject? attacker) {
 		int legCount = Type.LegCount;
-		if (_damage == null || legCount == 0 || Immobilised) {
+		if (_damage == null || legCount == 0) {
 			return;
 		}
 
@@ -815,16 +935,38 @@ public sealed partial class MechObject {
 			? FrontLegServoDependents.Concat(RearLegServoDependents).ToArray()
 			: FrontLegServoDependents;
 
+		if (_legsLost.Length < legCount) {
+			_legsLost = new bool[legCount];
+		}
+
 		int destroyed = 0;
+		int leg = 0;
 		foreach (int slot in slots.Take(legCount)) {
 			if (_damage.DependentPercent(slot) == FullyDamaged) {
 				destroyed++;
+				_legsLost[leg] = true;
 			}
+
+			leg++;
+		}
+
+		if (Immobilised) {
+			return;
 		}
 
 		if (destroyed >= legCount / 2) {
+			// The original's order, and it matters: everything that reacts to the machine going out
+			// of the fight runs while Immobilised is still clear, so the kill credit and the mission
+			// action see the transition rather than the state after it.
+			if (!Destroyed) {
+				(attacker as MechObject)?.CreditNeutralised(this, wasImmobilised: false);
+				ActivateDefeatAction(world);
+				SetBehaviourState(BehaviourState.Disabled);
+			}
+
 			Immobilised = true;
 			LastAttacker ??= attacker;
+			Target = null;
 			return;
 		}
 
@@ -839,6 +981,8 @@ public sealed partial class MechObject {
 
 		if (left >= LegsCrippledDamage || right >= LegsCrippledDamage) {
 			LegsCrippled = true;
+		} else if (left > LegsDamagedAlert || right > LegsDamagedAlert) {
+			LegsDamaged = true;
 		}
 	}
 }

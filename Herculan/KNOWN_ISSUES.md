@@ -63,4 +63,5 @@ _Note to Claude: This section is for listing outstanding issues with features wh
 - Steering a Razor from the keyboard uses hardcoded placeholder keys. See [`docs/simulation/razor-flight.md`](docs/simulation/razor-flight.md#the-keyboard).
 - Mid-session audio system recovery is not implemented. If the endpoint drops during gameplay, the engine stays silent for good. See [`docs/formats/audio.md`](docs/formats/audio.md#Mid-session-audio-recovery-not-yet-implemented)
 - Claude made many mistakes in the AI code by confusing different status conditions for mechs. For example, "disarmed" has a different meaning than "immobilized" or "destroyed", so even if they are used equivalently by some functions, treating them as synonymous throughout the code causes bugs. Several issues have been fixed, but more may exist, so we need a full-pass review against retail.
-- Disabled/destroyed enemy Hercs continue to run their normal AI behaviors.
+- Clicking the shield gauge has no effect (in retail, clicking the forward or rear section balances shields one step in that direction)
+- No sound effect plays when adjusting shield balance with the keyboard

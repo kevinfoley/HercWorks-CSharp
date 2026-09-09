@@ -492,7 +492,8 @@ public static class MissionLoader {
 				AiRadarActive: record.AiRadarActive != 0,
 				FormationOffset: offset is { } o ? (o.X, o.Y) : null,
 				EngagementActionRef: ActionRef(script, record.EngagementActionRef),
-				DefeatActionRef: ActionRef(script, record.DefeatActionRef)));
+				DefeatActionRef: ActionRef(script, record.DefeatActionRef),
+				StartingCondition: record.StartingCondition));
 		}
 
 		var flyerClaims = claims[MissionUnitKind.Flyer];

@@ -49,7 +49,7 @@
 Real files: `ES2\DATA\script.dat` (the live file) plus 9 distinct save-slot snapshots in `ES2\SAV\`
 (`script0.dat`–`script11.dat`; two pairs are byte-identical to each other and to the live file, so 9
 genuinely distinct files there — 10 total). **Note:** these 10 are snapshots of the format, not 10
-distinct retail missions — how many distinct missions exist is a separate, unverified question.
+distinct retail missions.
 
 **Every file is exactly 13,520 bytes** despite wildly different real record counts per block (e.g.
 row #16's count ranges 7-40 across the corpus) — a fixed-size preallocated buffer, not a
@@ -86,6 +86,7 @@ Per record type, what pass 2 reads (offsets into the exported record, not the `.
 | | | `0x6a`-`0x7d` | ammunition type, 10 slots, paired with the weapon fit → `Mech_ConfigureLoadout`'s second array. Only the four launchers read it; every other slot carries the filler 5 |
 | | | `0x80` | ref → block 5 — the action this machine fires when it is **engaged** (`mech+0x1b2`) |
 | | | `0x82` | ref → block 5 — the action it fires when it is **defeated** (`mech+0x1b6`). Five of the shipped mission's ten mech records carry one, and that is what chains its reinforcement waves |
+| | | `0x84` | **starting condition, per cent.** 100 is pristine; under 80 the machine spawns pre-damaged and under 20 it is placed as a wreck — `Mech_ApplyStartingCondition` (`004178e8`), whose bands are in [`../simulation/damage-system.md`](../simulation/damage-system.md#starting-condition--mech_applystartingcondition-004178e8). The available `script.dat` files are **saves**, formatted from a handful of the 50-odd `.MSN` missions, so they cannot say how the campaign uses this: across those ten, 138 of 139 mech records read 100 and one reads 50 |
 | 8 (flyers) | 92B | `0x28` | ref → block 1 (position) |
 | | | `0x56` / `0x58` | refs → block 5, the flyer's own engaged/defeated actions |
 | | | `0x2a` | ref → block 2 (heading) |
@@ -107,7 +108,7 @@ Per record type, what pass 2 reads (offsets into the exported record, not the `.
 
 1. **Existence.** Every block-11 record *past the first* activates its members. A roster slot no
    block-11 record names never spawns, which is why a mission's rosters are routinely bigger than
-   its live object count (the retail `script.dat` fields 7 of its 13 mechs).
+   its live object count.
 2. **Position.** `FUN_00423b34` builds each block-11 record into a group record carrying its point,
    heading and member list; `FUN_00417aa8` (mechs) / `FUN_00421ee8` (flyers) / `FUN_00405c3c`
    (bases) then attach each member, filling in the member's position **only if it does not already
@@ -123,7 +124,7 @@ Per record type, what pass 2 reads (offsets into the exported record, not the `.
    which is `atan2(dy, dx) - 0x4000` — the quarter turn every bearing in the sim carries, since a
    machine's forward axis is model Y. Fewer than two waypoints leaves it at zero. **Every mech group
    in every retail mission reaches this**, the player's squad included; none of them carry a heading
-   ref, so ignoring it faces a whole mission due north and rotates every formation spread wrongly.
+   ref.
 5. **Ground height** is not in the file. Mechs and bases get `Terrain_HeightQuery` plus the type's
    own foot offset (`typeRecord+0x16`, and +5000 when `typeRecord+0x50` is set); flyers get no query
    at all — they hold the spawn coordinate's Z, or 5000 units when that is zero. Bases are then

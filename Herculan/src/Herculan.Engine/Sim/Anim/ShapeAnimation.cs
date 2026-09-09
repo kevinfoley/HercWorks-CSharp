@@ -80,13 +80,14 @@ public readonly record struct AnimTransition(
 /// </summary>
 public sealed class AnimSequence {
 	internal AnimSequence(short[] frameDurations, short[] transitionCounts, short[] firstTransitions,
-			short[] transformIndices, short[] partIds, bool groundMovement) {
+			short[] transformIndices, short[] partIds, bool groundMovement, bool cyclic) {
 		FrameDurations = frameDurations;
 		TransitionCounts = transitionCounts;
 		FirstTransitions = firstTransitions;
 		TransformIndices = transformIndices;
 		PartIds = partIds;
 		GroundMovement = groundMovement;
+		Cyclic = cyclic;
 	}
 
 	/// <summary>Each frame's length in animation ticks.</summary>
@@ -137,18 +138,38 @@ public sealed class AnimSequence {
 	public int FrameCount => FrameDurations.Length;
 
 	/// <summary>
-	/// The frame after <paramref name="frame"/>, wrapping (<c>FUN_004786d8</c>).
+	/// Whether the sequence loops. It is the parsed chunk's own class — <c>ANCyclicSequence</c>
+	/// against plain <c>ANSequence</c> — and in DBSIM it is not a flag at all but the pair of vtable
+	/// slots the two classes install, which is why one list mixes both freely.
+	///
+	/// <para>Nearly everything a machine plays is cyclic. The exception that matters is the death
+	/// fall: on every chassis it is the one plain <c>ANSequence</c> in the list, and that is the
+	/// whole of why a machine goes down once and stays down. See <see cref="NextFrame"/> and
+	/// <c>MechObject.FallDown</c>.</para>
 	/// </summary>
-	/// <remarks>
-	/// DBSIM reaches this through a per-class vtable slot, and both implementations found in the
-	/// binary wrap. A non-wrapping pair may exist for plain (non-cyclic) sequences; it was not
-	/// located, and it would not change locomotion either way — walk, run and turn-in-place are
-	/// cyclic, and the stop sequences are left by transition rather than by running off the end.
-	/// </remarks>
-	public int NextFrame(int frame) => frame < FrameCount - 1 ? frame + 1 : 0;
+	public bool Cyclic { get; }
 
-	/// <summary>The frame before <paramref name="frame"/>, wrapping (<c>FUN_004786f8</c>).</summary>
-	public int PreviousFrame(int frame) => frame != 0 ? frame - 1 : FrameCount - 1;
+	/// <summary>
+	/// The frame after <paramref name="frame"/> — vtable <c>+0x20</c> on the sequence itself, which
+	/// is <c>AnimSequence_NextFrameCyclic</c> (<c>004786d8</c>) for a cyclic sequence and
+	/// <c>AnimSequence_NextFrame</c> (<c>00478654</c>) for a plain one. The cyclic one wraps to 0;
+	/// the plain one <b>clamps</b>, returning the last frame forever once playback reaches it.
+	///
+	/// <para>That clamp is load-bearing rather than a detail: it is the only way anything can tell
+	/// that a one-shot has played out, because the test for it is <c>frame == nextFrame</c> — true
+	/// on a clamped sequence and never true on a wrapping one.</para>
+	/// </summary>
+	public int NextFrame(int frame) =>
+		frame < FrameCount - 1 ? frame + 1 : Cyclic ? 0 : frame;
+
+	/// <summary>
+	/// The frame before <paramref name="frame"/> — vtable <c>+0x24</c>,
+	/// <c>AnimSequence_PrevFrameCyclic</c> (<c>004786f8</c>) and <c>AnimSequence_PrevFrame</c>
+	/// (<c>00478670</c>), with the same asymmetry: the cyclic one wraps to the last frame, the plain
+	/// one holds at 0.
+	/// </summary>
+	public int PreviousFrame(int frame) =>
+		frame != 0 ? frame - 1 : Cyclic ? FrameCount - 1 : 0;
 }
 
 /// <summary>
@@ -320,7 +341,8 @@ public sealed class ShapeAnimation {
 			durations, transitionCounts, firstTransitions,
 			sequence?.TransformIndices ?? Array.Empty<short>(),
 			sequence?.PartIds ?? Array.Empty<short>(),
-			sequence?.GroundMovement != 0);
+			sequence?.GroundMovement != 0,
+			sequence is ANCyclicSequence);
 	}
 
 	private static ANAnimList? FirstAnimList(IEnumerable<TSObject> chunks) {

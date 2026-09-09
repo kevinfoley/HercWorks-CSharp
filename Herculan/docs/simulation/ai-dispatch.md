@@ -66,7 +66,7 @@ Notes the table makes visible:
 | `+0x18` | triple | **Think** — `{func, thisDelta, vtableIndex}` |
 | `+0x24` | triple | **Move** |
 | `+0x30` | triple | **Reassess** |
-| `+0x3c` | short | 0, 3, 5, 6 or 7; role not established |
+| `+0x3c` | short | The string index the F7 comm box prints on a squadmate's `OBJECTIVE:` line — `STRINGS0` group 40, `ATTACK`/`TRAVEL`/`PATROL`/`FORM UP`/`GUARD`/`FLEE`/`DEAD`/`IMMOBILE`. Read only by `Mech_SquadOrderLineIndex` (`0041bac8`); see [`../formats/heads-down-display.md`](../formats/heads-down-display.md) |
 
 ### The flag bits
 
@@ -230,7 +230,6 @@ The AI-relevant mech vtable slots, as entry points for the topic docs. Slots who
 
 ## Open questions
 
-- **What `+0x3c` selects.** No reader found. Its values group the roster in a way nothing else does: 0 for `deciding`, the combat states, `skirting`, `driving off en` and `ramming`; 3 for the rest of the live roster; 5, 6, 6, 7 for `fleeing`, `in limbo`, `dead` and `disabled`.
 - **Bits 6–15 of descriptor `+0x08`.** No state sets one, so nothing can read one.
 - **Verbs 3 and 5 of the squad-order path**, which install nothing.
 

@@ -80,7 +80,7 @@ stripped).
 | 26–32 | `+0x1c`–`+0x22` | `AnimId_TorsoTwist`, `TorsoTwist*` | Turret twist sequence, rate, accel, limit |
 | 34–42 | `+0x24`–`+0x2c` | `AnimId_TorsoPitch`, `TorsoPitch*` | The same for pitch — see [`torso-aim.md`](torso-aim.md) |
 | 44 | `+0x2e` | `GaitThreshold` | Walk↔run threshold speed |
-| 68 | `+0x46` | `AnimId_Death` | Death/fall sequence id |
+| 68 | `+0x46` | `AnimId_Death` | The sequence an immobilised machine goes down in — see [Going down](#going-down). The chassis' one non-cyclic sequence |
 | 76 | `+0x4e` | `Mass` | Chassis mass, the Q10 weight each party's speed carries in a collision. 5000 light … 20000 PITBULL, **0 SPIDER**. Was `Unk76_Val` |
 | 78 | `+0x50` | `InputFlagFlyer` | 1 = Razor. Selects the flight paths and the `fm\<NAME>.FM` load — [`razor-flight.md`](razor-flight.md) |
 | 84 | `+0x56` | `Unk84_val` | Whether a hit can knock this chassis' weapon mounts out — 1 on every biped, **0 on the PITBULL**. `Mech_ApplyDirectFireDamage` tests it before rolling; see [`damage-system.md`](damage-system.md#weapon-mount-destruction) |
@@ -316,22 +316,68 @@ mechanism, not the readout.
 
 ## Damage effects on movement
 
-Out of scope for the locomotion milestone. Note the first term is **maximal** at full health, not
-zero, so omitting it is not neutral on an undamaged machine.
+Three terms, applied to the speed the machine is *asking* for rather than to the speed it has, so a
+damaged machine still accelerates at its own rate. They sit after the obstacle-avoidance step, which
+writes a speed of its own.
+
+- **The flat penalties**, one pair of thresholds over two independent conditions:
+
+  | | 39% (`Q10 × 400`) | 73% (`Q10 × 750`) |
+  |---|---|---|
+  | Legs | `mech+0xa9` — a side at `0x8d` damage or worse | `mech+0xa8` — a side past `0x50` |
+  | Reactor | `mech+0xab` critical | `mech+0xaa` degraded |
+
+  The severe pair wins outright where both apply. Both leg flags are written by the leg grading in
+  [`damage-system.md`](damage-system.md); the reactor pair cuts power and mobility together — see
+  [reactor-energy-pool.md](reactor-energy-pool.md#reactor-damage-flags).
 
 - `mech+0x317` is the **Turbo Pod** (`TURB`, catalog id 31), one of the five equipment-pod slots
   filled by `FUN_0040fb2c` at loadout — see
   [reactor-energy-pool.md](reactor-energy-pool.md#equipment-pods--mech0x307-filled-by-fun_0040fb2c).
   It adds a term to desired speed *in the current direction of travel*, worth ~98% of max at full
   and fading to ~20% before cutting out entirely past 225/256 damage. A speed bonus that degrades,
-  not a throttle runaway.
+  not a throttle runaway — and **maximal at full health**, so omitting it is not neutral on an
+  undamaged machine.
   > Reading the curve requires care: the health accessor returns **accumulated damage**, not health,
   > so the term runs the opposite way to how it first scans. See
   > [damage-system.md](damage-system.md#the-component-damage-system).
-- Flat multiplicative penalties of 73% (`Q10 × 750`) and 39% (`Q10 × 400`), gated on damage flags at
-  `mech+0x2a`, `+0xa9`, `+0xaa`, `+0xab`. The latter two are the **reactor** damage flags, which cut
-  power and mobility together — see
-  [reactor-energy-pool.md](reactor-energy-pool.md#reactor-damage-flags).
+
+## Going down
+
+`Mech_LocomotionTick`'s own branch for an **immobilised** machine, and the whole of how a HERC that
+has lost its legs ends up face down. It is an animation, not a physics result: there is no rigid
+body, no angular velocity and no ground-contact solve anywhere in the mech path, and the pitch you
+see is the last keyframe of a sequence.
+
+Two things happen before the gait machine is even reached:
+
+1. **The inputs are taken away.** Throttle and steer are zeroed, the unstick countdown does not run,
+   the slope term and the clamp are skipped, and obstacle avoidance does not run. Everything below
+   still runs, so the machine decelerates through the same rate limiter and walks its remaining
+   momentum off over the next few ticks rather than stopping dead.
+2. **The fall**, taken instead of the gait machine once the thread is settled — unless the machine is
+   turning in place, which wins, so one immobilised mid-pirouette keeps turning.
+
+| Thread state | What happens |
+|---|---|
+| Neither running nor targeting `AnimId_Death` | Aim playback at it with `AnimThread_SetTarget` (`00479570`) so the list's own transition is used; a machine in the reverse step-off is first snapped to the forward one, which is the only one with a transition to take. Sound `0x1e`. Rate 100 |
+| Running it | Rate `0x78` |
+| Running it, and `frame == nextFrame` | It has played out: latch `mech+0xb4` **collapsed**, take the landing damage, sound `0x29` |
+
+The end-of-sequence test works only because the death sequence is the chassis' one **non-cyclic**
+sequence — see [`../formats/dts-node-posing.md`](../formats/dts-node-posing.md#cyclic-and-one-shot-sequences).
+
+`mech+0xb4` is a third condition distinct from destroyed and immobilised, and the one that takes a
+machine off the AI's books completely: [`ai-targeting.md`](ai-targeting.md)'s targetability test and
+the mission group's condition test both reject a collapsed candidate, while one still falling is
+still a target.
+
+The landing calls `Mech_SpreadImpactDamage` (`00417a04`) with `(150, 120)` — see
+[`damage-system.md`](damage-system.md#spread-impact-damage--mech_spreadimpactdamage-00417a04), which
+owns that primitive. A bad enough landing can therefore finish a machine off through the death gate.
+
+`Mech_PlaceLegsOnGround` has a death-sequence arm of its own, but it leaves the sound id unset and so
+can never reach the footfall it guards. Nothing to port.
 
 ## Cockpit eye and bob
 

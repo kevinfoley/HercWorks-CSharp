@@ -68,7 +68,9 @@ public sealed partial class MechObject {
 		} else if (sequence == type.RunSequence) {
 			gait = GaitRunning;
 		} else {
-			// Any other sequence — a death or a jump — has no walk cycle to take steps from.
+			// Any other sequence — the death fall, a torso sweep — has no walk cycle to take steps
+			// from. The original has a death-sequence arm of its own here, but it leaves the sound
+			// id unset and so can never reach the footfall it guards: nothing to port.
 			return;
 		}
 
@@ -79,7 +81,10 @@ public sealed partial class MechObject {
 		short rearm = type.FootfallRearm(gait);
 
 		for (int leg = 0; leg < legs; leg++) {
-			if (type.LegKind(leg) != 0) {
+			if (type.LegKind(leg) != 0 || LegLost(leg)) {
+				// A leg the machine has had shot off plants nothing. The original deletes that leg's
+				// child object, and this loop is the walk over that array — a deleted slot is simply
+				// not there any more. See MechObject.GradeLegs.
 				continue;
 			}
 

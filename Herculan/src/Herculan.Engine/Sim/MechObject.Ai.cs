@@ -586,12 +586,21 @@ public partial class MechObject {
 	public short AimComponent { get; private set; } = NoAimComponent;
 
 	/// <summary>
-	/// <c>mech+0xb4</c> — the machine has collapsed: latched when the death animation finishes
-	/// playing out (<c>Mech_LocomotionTick</c>) or when a fall cripples it outright
-	/// (<c>004178e8</c>). Neither is ported, so it never sets; the tests that read it are here
-	/// because the original has them.
+	/// <c>mech+0xb4</c> — the machine has collapsed: it has finished going down and is lying on the
+	/// ground. Latched when the death animation plays out its last frame, in
+	/// <see cref="FallDown"/>.
+	///
+	/// <para>It is a separate condition from <see cref="Destroyed"/> and from
+	/// <see cref="Immobilised"/>, and it is the one that takes a machine off the AI's books
+	/// entirely: <see cref="Ai.AiTargeting.IsTargetable"/> rejects a collapsed candidate outright,
+	/// and so does the mission group's condition test. A machine that is merely down but still
+	/// falling is still a target.</para>
+	///
+	/// <para>The second writer is <see cref="ApplyStartingCondition"/>, which sets it together with
+	/// <see cref="Immobilised"/> at spawn for a machine the mission places as a wreck. Such a machine
+	/// is already down, so it never plays the fall.</para>
 	/// </summary>
-	public bool Collapsed => false;
+	public bool Collapsed { get; private set; }
 
 	/// <summary>
 	/// <c>mech+0x2aa</c> — how frightened this machine is, written by <see cref="FleeCheck"/> on each

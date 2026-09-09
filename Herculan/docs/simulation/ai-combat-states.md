@@ -229,9 +229,13 @@ Mech_CenterTorsoTick(mech, 0)
 
 Release the target, `Mech_LocomotionTick(mech, 0, 0, 0)`, `Ai_UpdateWeaponsFree`. A sleeping machine stands with its throttle at zero and its radar on whatever the mission file set, and holds no target — but it is still ticked, still detectable, and still answers fire through its vtable `+0x50` like any other.
 
-## `dead` (20) and `disabled` (21) — `Mech_BehaviourInertThink` (`0041e554`)
+## `dead` (20), `disabled` (21) and `in limbo` (19) — `Mech_BehaviourInertThink` (`0041e554`)
 
-`Mech_LocomotionTick(mech, 0, 0, 0)`. Nothing else. The two states share the think and differ only in their descriptors' `+0x3c`.
+`Mech_LocomotionTick(mech, 0, 0, 0)`. Nothing else. `dead` and `disabled` share the think and differ only in their descriptors' `+0x3c`; `in limbo` has none at all.
+
+All three are installed by `Mech_ComponentDamageWrite` and by nothing else — `disabled` when half a machine's legs are gone, `dead` when its cockpit, pilot or life support is, and `in limbo` in place of `dead` for a chassis that leaves no wreck. The conditions and their order are [`damage-system.md`](damage-system.md#going-out-of-the-fight)'s.
+
+**A stopped machine is not an idle one.** The think's zero throttle is a *deceleration request*, so a machine killed at speed walks its momentum off over the next few ticks; and an immobilised one takes `Mech_LocomotionTick`'s own separate branch and goes down in its death animation — [`mech-locomotion.md`](mech-locomotion.md#going-down).
 
 ## The circling step — `Ai_CircleStep` (`0041c72c`)
 

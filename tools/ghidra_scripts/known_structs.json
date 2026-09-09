@@ -403,9 +403,9 @@
           "offset": 180,
           "width": 1,
           "type": "byte",
-          "name": "maybe_collapsed",
+          "name": "collapsed",
           "confidence": "medium",
-          "description": "+0xb4 -- rejects a candidate in Ai_IsTargetable, separately from destroyed (+0x99) and invulnerable (+0xb7)."
+          "description": "+0xb4 -- the machine has finished going down and is lying on the ground. Two writers, both now known: Mech_LocomotionTick latches it on the frame the death animation plays out, and Mech_ApplyStartingCondition sets it at spawn for a machine the mission places as a wreck. A THIRD condition alongside destroyed (+0x99) and immobilised (+0xa4), not a synonym: it is what rejects a candidate in Ai_IsTargetable and in the mission group's condition tier, so a machine that is down but still falling is still a target. See docs/simulation/mech-locomotion.md."
         },
         {
           "offset": 183,

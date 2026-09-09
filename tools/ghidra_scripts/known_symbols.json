@@ -10886,6 +10886,159 @@
       "name": "WeaponsDat_IdAtRank",
       "description": "Weapon catalog id holding the given rank in WeaponsDat_RankTable, skipping rank 99; -1 when no id has it. This is the rank table only established use -- catalog ordering.",
       "source": "docs/formats/weapons-dat.md"
+    },
+    {
+      "address": "004178e8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_ApplyStartingCondition",
+      "signature": "void __cdecl Mech_ApplyStartingCondition(MechObject *mech, short conditionPercent)",
+      "description": "Applies a mission record's starting condition, as a percentage, once from DBSim_SpawnMissionObjects right after the machine's engagement/defeat actions are resolved. 100 is pristine; bands are >=0x50 untouched, >=0x3c 50 damage, >=0x28 80, >=0x14 120 plus the reactor dependent written off outright, and below 0x14 a WRECK: one of components 7/8 destroyed with 32000 (plus one of 13/14 when typeRec+0x4a>2), mech+0xa4 immobilised and mech+0xb4 collapsed. Each band ends in Mech_SpreadImpactDamage(mech, n, n+0x19). The condition comes from script.dat block 7 +0x84. Args derived from disassembly: two pushes with ADD ESP,0x8 at 004259b0; [EBP+8] mech, [EBP+0xc] word.",
+      "source": "docs/simulation/damage-system.md"
+    },
+    {
+      "address": "00417a04",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_SpreadImpactDamage",
+      "signature": "void __cdecl Mech_SpreadImpactDamage(MechObject *mech, short maxDamage, short odds)",
+      "description": "Spreads one impact over the whole machine instead of aiming it. Each of the 29 live components draws its own (rand & 0xff) < odds roll; a component that is caught takes Q8Multiply(rand(maxDamage) + maxDamage/2, Component_TotalArmor(i)) through vtable +0x74, so the share scales with what that component had to lose. maxDamage 0 returns immediately. Callers: the collapse landing in Mech_LocomotionTick (150, 120) and Mech_ApplyStartingCondition. Args derived from disassembly: [EBP+8] mech, [EBP+0xc] and [EBP+0x10] words, plain RET.",
+      "source": "docs/simulation/damage-system.md"
+    },
+    {
+      "address": "0040dc58",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Component_TotalArmor",
+      "signature": "int __cdecl Component_TotalArmor(ComponentDamageArrays *arrays, short componentIndex)",
+      "description": "Everything a component has to lose: its own armour plus the maximum of every internal mapped onto it, walking the piece's MappedInternals list. The denominator Component_ReadDamagePercent divides by, and the scale Mech_SpreadImpactDamage multiplies by. Args derived from disassembly: [EBP+8] pointer, [EBP+0xc] word.",
+      "source": "docs/simulation/damage-system.md"
+    },
+    {
+      "address": "0041bac8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_SquadOrderLineIndex",
+      "signature": "short __cdecl Mech_SquadOrderLineIndex(MechObject *mech)",
+      "description": "The string index the F7 heads-down comm box prints on a squadmate's OBJECTIVE: line, into STRINGS0 group 40 (ATTACK/TRAVEL/PATROL/FORM UP/GUARD/FLEE/DEAD/IMMOBILE). Starts from the machine's behaviour descriptor +0x3c, then overrides with the standing squad order at mech+0x23e (1->1, 2->2, 3 or 6->4), but only when the machine is neither immobilised (+0xa4) nor destroyed (+0x99), its +0x3c is not 5, and the behaviour block's +0x09 is zero. Sole caller HddGauge_PaintIdle; this settles descriptor +0x3c's role. Args derived from disassembly: [EBP+8] only.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "00479570",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AnimThread_SetTarget",
+      "signature": "void __cdecl AnimThread_SetTarget(void *thread, short sequence, short frame, short flags)",
+      "description": "Asks playback to reach a sequence via whatever transition leads there rather than snapping to it: writes thread+0x16/+0x18/+0x1a, clears the at-target bit and runs FUN_004792c8 to find the transition. frame -1 means any frame will do; flags bit 0 stops playback dead on arrival. This, not AnimThread_SetSequence, is how the death fall is started, so sweeping the latter's call sites alone does not enumerate what plays a sequence. Args derived from disassembly: four pushes with ADD ESP,0x10 at 00416db5.",
+      "source": "docs/simulation/mech-locomotion.md"
+    },
+    {
+      "address": "004786d8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AnimSequence_NextFrameCyclic",
+      "signature": "short __cdecl AnimSequence_NextFrameCyclic(void *sequence, short frame)",
+      "description": "ANCyclicSequence vtable +0x20: frame < frameCount-1 ? frame+1 : 0, i.e. wraps. Args derived from disassembly: [EBP+8] sequence, [EBP+0xc] frame, plain RET.",
+      "source": "docs/formats/dts-node-posing.md"
+    },
+    {
+      "address": "00478654",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AnimSequence_NextFrame",
+      "signature": "short __cdecl AnimSequence_NextFrame(void *sequence, short frame)",
+      "description": "Plain ANSequence vtable +0x20: frame >= frameCount-1 ? frame : frame+1, i.e. CLAMPS rather than wrapping. That clamp is the only way a one-shot's end is observable, because the end-of-sequence test everywhere is frame == nextFrame. Every retail chassis carries exactly one non-cyclic sequence and its AnimId_Death names it. Args derived from disassembly: [EBP+8] sequence, [EBP+0xc] frame.",
+      "source": "docs/formats/dts-node-posing.md"
+    },
+    {
+      "address": "004786f8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AnimSequence_PrevFrameCyclic",
+      "signature": "short __cdecl AnimSequence_PrevFrameCyclic(void *sequence, short frame)",
+      "description": "ANCyclicSequence vtable +0x24: frame != 0 ? frame-1 : frameCount-1, i.e. wraps. Args derived from disassembly: [EBP+8] sequence, [EBP+0xc] frame.",
+      "source": "docs/formats/dts-node-posing.md"
+    },
+    {
+      "address": "00478670",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AnimSequence_PrevFrame",
+      "signature": "short __cdecl AnimSequence_PrevFrame(void *sequence, short frame)",
+      "description": "Plain ANSequence vtable +0x24: frame != 0 ? frame-1 : 0, i.e. holds at the first frame. Args derived from disassembly: only [EBP+0xc] is read, the sequence pointer being unused on this arm.",
+      "source": "docs/formats/dts-node-posing.md"
+    },
+    {
+      "address": "00415710",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_CreditNeutralisedTarget",
+      "description": "Mech vtable +0x60, called on the ATTACKER from both of Mech_ComponentDamageWrite's branches with the victim and the victim's immobilised reading from BEFORE the change. On a first cross-team neutralisation it increments the killer's per-chassis-type tally at mech+0x2a4 and latches mech+0xa6, and posts the killer's callout when the killer is a player squadmate. Always, if the VICTIM is in the player's group, posts the victim's own callout (4 when merely immobilised, 0x25 when destroyed) and counts a player-scored own-squad kill in DAT_004a9f08. The base class slot FUN_00411b2c is an empty stub. Argument list NOT yet derived from disassembly: Ghidra renders it __thiscall with an extra leading parameter the vtable call sites do not support.",
+      "source": "docs/simulation/damage-system.md"
+    },
+    {
+      "address": "00411bc8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_ReportOutOfAction",
+      "description": "Run from both of Mech_ComponentDamageWrite's out-of-the-fight branches, before the defeat action. Calls Group_ReportIfAllOutOfAction for the machine's own group, then walks the machine's 10 mission-variable slots (indices at mech+0x1ba, opcodes at mech+0x1ce) writing the global variable table DAT_004a9ef4: opcode 1 zeroes the variable, 2 increments it, 0xd-0x10 store opcode-0xc. Part of the mission-objective/status-report layer, not the AI.",
+      "source": "docs/simulation/damage-system.md"
+    },
+    {
+      "address": "00423f30",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Group_ReportIfAllOutOfAction",
+      "description": "Walks a mission group's member list (group+0xc, count group+0x10) skipping one nominated member; if every other member is immobilised (+0xa4) or destroyed (+0x99) it runs the group's own 10 mission-variable slots (indices at group+0x1c, opcodes at group+0x30) against DAT_004a9ef4 with the opcode set Mech_ReportOutOfAction uses. It does NOT remove the member from the group: a dead machine stays in the roster and keeps being ticked, which is why the inert behaviour states exist. Resolves ai-goals.md's open question on group +0x1c and +0x30.",
+      "source": "docs/simulation/ai-goals.md"
+    },
+    {
+      "address": "0047851c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjectPool_QueueForDelete",
+      "description": "Appends an object to a deferred-delete queue (pointer at queue+0, count at queue+4), used with the global DAT_004a9715. Nothing is destructed here.",
+      "source": "docs/simulation/damage-system.md"
+    },
+    {
+      "address": "00478538",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjectPool_FlushDeleteQueue",
+      "description": "Drains the queue ObjectPool_QueueForDelete fills: destructs each entry through its vtable +0x08, returns it to the pool, then zeroes the count.",
+      "source": "docs/simulation/damage-system.md"
+    },
+    {
+      "address": "00409904",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sim_FlushDeleteQueue",
+      "description": "One-line wrapper running ObjectPool_FlushDeleteQueue(DAT_004a9715, DAT_004a9711). Mech_ComponentDamageWrite ends with it, which is what commits the child parts a lost leg or a vanishing chassis queued during the damage write.",
+      "source": "docs/simulation/damage-system.md"
+    },
+    {
+      "address": "004240f4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sim_DamageToPlayerDisabled",
+      "description": "Two-global predicate gating the very first line of Mech_ComponentDamageWrite for the locally piloted machine: if DAT_004a9ed6 is zero the answer is DAT_004a9ede == 1, otherwise DAT_004a9ee0 == 0. Reads as an invulnerability or practice setting; neither global's writer was traced.",
+      "source": "docs/simulation/damage-system.md"
     }
   ]
 }

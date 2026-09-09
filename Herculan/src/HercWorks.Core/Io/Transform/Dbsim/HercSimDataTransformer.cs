@@ -68,7 +68,7 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 		data.AnimId_Death = IndexShortLE();
 		data.LegsCritFlags2 = IndexShortLE();
 		data.ModelLegsTotal = IndexShortLE();
-		data.ModelFlagNoDebris = IndexShortLE();
+		data.VanishesOnDeath = IndexShortLE();
 
 		data.Mass = IndexShortLE();
 
@@ -203,7 +203,7 @@ public class HercSimDataTransformer : ByteTransformer<HercSimDat> {
 		Emit(outStream, WriteShortLE(data.AnimId_Death));
 		Emit(outStream, WriteShortLE(data.LegsCritFlags2));
 		Emit(outStream, WriteShortLE(data.ModelLegsTotal));
-		Emit(outStream, WriteShortLE(data.ModelFlagNoDebris));
+		Emit(outStream, WriteShortLE(data.VanishesOnDeath));
 
 		Emit(outStream, WriteShortLE(data.Mass));
 

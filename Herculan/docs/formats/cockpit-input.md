@@ -227,7 +227,10 @@ Traced end to end as a concrete proof the whole pipeline above is real, not just
    for its 13 buttons.
 2. A click hits `ShieldFacing_OnClick` (`00438e3c`) via `Widget_OnMouseUp`. Gated on the left
    button bit; forwards to the owner (a pointer stashed at the facing's own `+0x24`, set to the
-   parent `ShieldsGauge` at construction) as `owner->vtable[0](owner, self, buttonFlags)`.
+   parent `ShieldsGauge` at construction) as `owner->vtable[0](owner, self, buttonFlags)`. It then
+   repaints itself and calls slot `+8` of the object at its own `+0x20`, which for this class is
+   `Widget_ClickSound` — so the rocker sounds `0x11` before anything has been decided by the click
+   (see [`audio.md`](audio.md#sounds-a-cockpit-control-makes)).
 3. `ShieldsGauge`'s vtable slot 0 is `ShieldsGauge_OnClick` (`0044380c`) — structurally identical
    to `MfdButton_OnClick`: searches its own `+0x18` table for the clicked child, then sets a state
    byte: index 0 (front) → `+0xc2=1`, index 1 (rear) → `+0xc3=1`.
@@ -239,6 +242,21 @@ Traced end to end as a concrete proof the whole pipeline above is real, not just
    (`00443858`) — which also sets a dirty flag (`+0xb0=2`) if the values changed.
 5. `ShieldsGauge_Update` (`00443748`, the per-frame HUD-paint-pass slot, separate from the click
    pipeline) checks that dirty flag and, if set, refreshes the ring palette and readouts.
+
+**The `[` and `]` keys join at step 2, not at step 4.** `Mech_HandleCommand` (`004157c8`) answers
+scancodes `0x1a`/`0x1b` with a single
+`Widget_PressChild(CockpitViewInstance+0x1e9, key != 0x1b, 1)` — the shield gauge, child 1 for `[`
+and child 0 for `]`, with the left-button bit as the flags. That dispatches the facing's own press
+slot, which is `ShieldFacing_OnClick` again. So the key and the click are one code path from step 2
+onward: same flag byte, same click sound, and the same ~10-coarse-tick auto-release
+(`FUN_00453078`) that pops the widget back up afterwards. Nothing in the image calls
+`Shield_BalanceAdjust` except `Shield_BalanceInputRead`, and nothing writes `+0xc2`/`+0xc3` except
+`ShieldsGauge_OnClick`.
+
+RAZOR is the exception on the key side only: `Mech_HandleCommand` is a mech vtable slot and the
+flyer class installs a stub there (`004215c0`), so the brackets do nothing in a RAZOR — but its
+facings are still built and still take clicks, over what is an altimeter rather than a shield meter
+in that cockpit (see [`herc-catalogs.md`](herc-catalogs.md) and `HShieldDisplay`).
 
 So the click sets a flag; a gameplay tick consumes the flag into real sim state and a dirty bit;
 the widget's own per-frame update slot is what actually repaints from that bit. This
@@ -304,6 +322,7 @@ active.
 | `CockpitWidgets_HandleCommand` | `00432bc8` | The widget tree's command handler; codes 0x02-0x0b press the ten weapon gauges |
 | `ConsoleButtons_HandleCommand` | `004421a0` | Console panel's command slot: 0x26 (L) presses LINK, 0x29 (`) presses the chain button |
 | `Widget_PressChild` | `00438d9c` | Dispatches a child's press slot as if clicked — how a key reaches a button |
+| `Widget_ClickSound` | `00438e2c` | `push 0x11; call Sound_Play` — the console click, in fifteen widget vtables |
 | `ShieldsGauge_GetStateBlock` / `_SetStateBlock` | `004438e0` / `00443858` | Read/write the 15-byte live state block |
 | `ShieldsGauge_Paint` / `_Update` | `00443730` / `00443748` | Paint slot; per-frame dirty-flag-gated update |
 | `ShieldFacing_Paint` | `00444b5c` | Visibility test only — rings are palette-animated, not drawn |

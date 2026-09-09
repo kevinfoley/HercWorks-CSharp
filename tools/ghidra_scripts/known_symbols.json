@@ -5811,7 +5811,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_HandleCommand",
-      "description": "Mech vtable +0x2c. Offers the command code to the machine's weapon-mount manager (WeaponMounts_HandleCommand) first and returns if that consumed it; otherwise handles the turret, throttle and shield commands itself.",
+      "description": "Mech vtable +0x2c. Offers the command code to the machine's weapon-mount manager (WeaponMounts_HandleCommand) first and returns if that consumed it; otherwise handles the turret, throttle and shield commands itself. The shield commands are scancodes 0x1a/0x1b ([ and ]): it answers both with one Widget_PressChild(CockpitViewInstance+0x1e9, key != 0x1b, 1), pressing the shield gauge's rear child for [ and its front child for ] -- so a bracket key and a click on the meter are one code path from ShieldFacing_OnClick onward, click sound included. A flyer installs a stub at this slot, so the brackets do nothing in a RAZOR.",
       "source": "docs/simulation/weapon-mounts.md 2026-08-24"
     },
     {
@@ -5968,6 +5968,15 @@
       "name": "Widget_GetButtonValue",
       "description": "The default GetValue vtable slot (+0x10) for a widget class that does not override it: returns the global mouse-button word 0049db6c, which CockpitMouse_ProcessQueue sets to buttons|1 on a left release and buttons|2 on a right one. A click's 'value' is therefore which button clicked it, and the weapon rows branch on exactly that -- left arms, right toggles chain membership.",
       "source": "docs/formats/cockpit-input.md 2026-08-24"
+    },
+    {
+      "address": "00438e2c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_ClickSound",
+      "description": "push 0x11; call Sound_Play; ret -- the console click, and the image's only reference to catalog id 0x11. Nothing calls it directly: it sits at slot +8 of fifteen widget notify vtables (0049ca01 is the shield facing's), so a widget clicks because of what kind of widget it is and not because its handler did anything. That is why a button wired to nothing still clicks. The fifteen are counted, not estimated: a raw dword scan for 00438e2c returns exactly these slots -- 0049b7a0, 0049c784, 0049c808, 0049c848, 0049ca09, 0049cf0c, 0049cf4c, 0049cf8c, 0049d5d0, 0049d638, 0049d930, 0049d970, 0049ded0, 0049df10, 0049e048. Only 0049ca09 has its owning table established (the shield facing's notify vtable at 0049ca01, so slot +8); the other fourteen classes are undecoded and none of these tables is in known_vtables.json, which covers the simulation-object hierarchy only. Reached by the shield rocker from both the mouse and the [ and ] keys, which share one code path from ShieldFacing_OnClick onward.",
+      "source": "docs/formats/cockpit-input.md; docs/formats/audio.md"
     },
     {
       "address": "00438d9c",

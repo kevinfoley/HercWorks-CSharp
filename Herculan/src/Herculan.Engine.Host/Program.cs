@@ -975,13 +975,21 @@ window.Update += deltaSeconds => {
 		// edge: the original clears the gauge's flag byte after acting on it, so a held key nudges
 		// once, not once a tick. Nothing is spent moving the balance; it changes where the next
 		// recharge tick puts the charge it is already holding.
+		//
+		// They click, because in the original the key does not call the adjust at all: Mech_HandleCommand
+		// (004157c8) hands scancodes 0x1a/0x1b to Widget_PressChild on the shield gauge, which fires the
+		// facing's own press slot — ShieldFacing_OnClick, which calls slot +8 of its notify vtable
+		// (0049ca01), and that slot is Widget_ClickSound: catalog id 0x11. Pressing the widget is also
+		// what makes the two input routes agree by construction.
 		bool shieldRearKey = controls.IsKeyPressed(Key.LeftBracket);
 		bool shieldFrontKey = controls.IsKeyPressed(Key.RightBracket);
 		if (shieldRearKey && !shieldRearKeyDown) {
 			pilotMech.Shields.AdjustBalance(towardFront: false);
+			audio.Director?.Play(SoundId.ButtonClick);
 		}
 		if (shieldFrontKey && !shieldFrontKeyDown) {
 			pilotMech.Shields.AdjustBalance(towardFront: true);
+			audio.Director?.Play(SoundId.ButtonClick);
 		}
 		shieldRearKeyDown = shieldRearKey;
 		shieldFrontKeyDown = shieldFrontKey;
@@ -1728,6 +1736,15 @@ void ApplyCockpitClick(CockpitClick click) {
 
 		case CockpitWidgetKind.ConsoleButton when pilotMech != null:
 			ApplyConsoleClick(click.Id.AsConsoleButton!.Value);
+			break;
+
+		// A shield facing: the manual's "click the respective shield symbol". Clicking the forward half
+		// moves one step of balance forward and the rear half one step back — the same
+		// Shield_BalanceAdjust the bracket keys reach, because in the original the key presses this
+		// very widget (Mech_HandleCommand, 004157c8) rather than calling the adjust itself.
+		case CockpitWidgetKind.ShieldFacing when pilotMech != null:
+			pilotMech.Shields.AdjustBalance(
+				towardFront: click.Id.AsShieldFacing!.Value == ShieldFacing.Front);
 			break;
 	}
 }

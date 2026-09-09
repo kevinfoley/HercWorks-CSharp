@@ -1,4 +1,5 @@
 using HercWorks.Core.Data.File.Gau;
+using HercWorks.Core.Data.Struct;
 using Herculan.Engine.Render;
 
 namespace Herculan.Engine.Content;
@@ -35,6 +36,22 @@ public enum CockpitWidgetKind {
 	/// <see cref="HddCommandState"/>.
 	/// </summary>
 	HddMapArea = 6,
+
+	/// <summary>One half of the shield-balance rocker — index is a <see cref="Content.ShieldFacing"/>.</summary>
+	ShieldFacing = 7,
+}
+
+/// <summary>
+/// Which half of the shield-balance rocker, in <c>ShieldsGauge_Ctor</c>'s own child order — the order
+/// <c>ShieldsGauge_OnClick</c> (<c>0044380c</c>) switches on, and the order <c>Mech_HandleCommand</c>
+/// (<c>004157c8</c>) indexes when a bracket key presses one.
+/// </summary>
+public enum ShieldFacing {
+	/// <summary>The forward facing, child 0 — the <c>]</c> key, and the <c>.GAU</c> rect at 632.</summary>
+	Front = 0,
+
+	/// <summary>The rear facing, child 1 — the <c>[</c> key, and the rect at 648.</summary>
+	Rear = 1,
 }
 
 /// <summary>
@@ -73,6 +90,10 @@ public readonly record struct CockpitWidgetId(CockpitWidgetKind Kind, int Index)
 	/// <summary>The command display's map viewport.</summary>
 	public static CockpitWidgetId HddMapArea { get; } = new(CockpitWidgetKind.HddMapArea, 0);
 
+	/// <summary>One facing of the shield-balance rocker.</summary>
+	public static CockpitWidgetId ShieldFacing(ShieldFacing facing) =>
+		new(CockpitWidgetKind.ShieldFacing, (int)facing);
+
 	/// <summary>Weapon panel row <paramref name="gaugeSlot"/>, zero-based.</summary>
 	public static CockpitWidgetId Weapon(int gaugeSlot) => new(CockpitWidgetKind.WeaponRow, gaugeSlot);
 
@@ -97,6 +118,10 @@ public readonly record struct CockpitWidgetId(CockpitWidgetKind Kind, int Index)
 
 	/// <summary>This id as an MFD button index, or null when it is not one.</summary>
 	public int? AsMfdButton => Kind == CockpitWidgetKind.MfdButton ? Index : null;
+
+	/// <summary>This id as a shield facing, or null when it is not one.</summary>
+	public ShieldFacing? AsShieldFacing =>
+		Kind == CockpitWidgetKind.ShieldFacing ? (ShieldFacing)Index : null;
 }
 
 /// <summary>
@@ -198,9 +223,47 @@ public static class CockpitWidgets {
 			yield return widget;
 		}
 
+		foreach (var widget in VisibleShieldFacings(art)) {
+			yield return widget;
+		}
+
 		if (VisibleThrottle(art) is { } throttle) {
 			yield return throttle;
 		}
+	}
+
+	/// <summary>
+	/// The shield-balance rocker's two facings, front first — <c>ShieldsGauge_Ctor</c>'s two children
+	/// over the <c>.GAU</c> rects at 632 and 648, each registered with <c>Widget_RegisterClickable</c>
+	/// like any button. They draw nothing of their own (<c>ShieldFacing_Paint</c> only tests
+	/// visibility): the rings inside them live in the canopy art's palette slots 66-71, which is why
+	/// the rocker looks like part of the bezel and yet takes clicks.
+	///
+	/// <para>The gauge is always showing — nothing hides it — and it is never lit: a facing has no
+	/// pressed frame to draw, so a press is invisible however it arrives.</para>
+	///
+	/// <para>RAZOR is the one machine where this block is not a shield meter at all but its
+	/// altimeter (see <see cref="HShieldDisplay"/>); its facings are still built and still clickable,
+	/// exactly as the original's are.</para>
+	/// </summary>
+	public static IEnumerable<CockpitWidget> VisibleShieldFacings(CockpitArt art) {
+		ArgumentNullException.ThrowIfNull(art);
+		if (art.Gau.ShieldDisplay is not { } shields) {
+			yield break;
+		}
+
+		const int scale = (int)CockpitArt.GauToPixelScale;
+
+		CockpitWidget Facing(ShieldFacing facing, PixelPoint origin, PixelSize size) =>
+			new(CockpitWidgetId.ShieldFacing(facing), CockpitSurface.Forward,
+				X0: origin.X * scale,
+				Y0: origin.Y * scale,
+				X1: (origin.X + size.Width) * scale + scale - 1,
+				Y1: (origin.Y + size.Height) * scale + scale - 1,
+				Lit: false);
+
+		yield return Facing(ShieldFacing.Front, shields.FrontBox, shields.FrontBoxSize);
+		yield return Facing(ShieldFacing.Rear, shields.RearBox, shields.RearBoxSize);
 	}
 
 	/// <summary>

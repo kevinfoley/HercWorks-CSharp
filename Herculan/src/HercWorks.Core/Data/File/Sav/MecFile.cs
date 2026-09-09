@@ -14,9 +14,10 @@ namespace HercWorks.Core.Data.File.Sav;
 /// position carried by <c>script.dat</c> block 11's <b>record 0</b>, which exists purely to place
 /// it — DBSIM overwrites that record's member list with these entries.</para>
 ///
-/// <para>Like <c>script.dat</c>, the real file is longer than its content: the retail sample is 263
-/// bytes and its two entries account for 228, with the rest stale. Nothing here reads past the last
-/// declared entry, matching DBSIM.</para>
+/// <para>The 35 bytes past the last entry in the retail 263-byte sample are not slack: VSHELL's
+/// <c>FUN_00412253</c> closes the export with <c>int16 33</c> and then 33 bytes, one per weapon
+/// catalog id, carrying that weapon's <c>weapons.dat</c> <c>+0x16</c> unlock flag. They are
+/// <see cref="WeaponFlags"/>. See <c>docs/shell/campaign-loop.md</c>.</para>
 ///
 /// <para>Replaces a never-implemented stub that guessed this file held a single VSHELL
 /// <c>ShellHercPart</c>.</para>
@@ -31,16 +32,39 @@ public class MecFile {
 
 	/// <summary>The squad, in the order DBSIM appends them to the mission's mech list.</summary>
 	public MecEntry[] Entries { get; set; } = [];
+
+	/// <summary>
+	/// The weapon-unlock table VSHELL writes after the last entry — one byte per weapon catalog id,
+	/// 33 of them in every retail file, each that weapon's <c>weapons.dat</c> <c>+0x16</c> field:
+	/// whether the campaign has unlocked that weapon for purchase.
+	///
+	/// <para>Duplicated state, and nothing traced reads it back: VSHELL reopens this file only in
+	/// its map screen and takes just the two leading shorts, and DBSIM's reader stops at the last
+	/// entry. The save slot is where these flags are authoritative — this file is regenerated from
+	/// it at every mission launch — so the table is preserved for byte-fidelity, not because the
+	/// game depends on it.</para>
+	///
+	/// <para>Empty when the source file carried no table, which is the case for files written
+	/// before it was decoded; retail accepts those. An empty table is written back as no table at
+	/// all rather than as zeroes, because the flags cannot be reconstructed from anything else in
+	/// this file and inventing them would state something false about the player's armory.</para>
+	/// </summary>
+	public byte[] WeaponFlags { get; set; } = [];
 }
 
 /// <summary>
-/// One machine in the player's squad. The two leading fields have no confirmed meaning yet — they
-/// are read but never used along the paths traced so far — and the three trailing spans are copied
+/// One machine in the player's squad. DBSIM reads the two leading fields but never uses them along
+/// the paths traced so far; they carry the entry's pilot, and the three trailing spans are copied
 /// wholesale into the mech's in-memory record, so they round-trip raw rather than being guessed at.
 /// </summary>
 public class MecEntry {
+	/// <summary>
+	/// The pilot's name index into <c>esnames.bin</c> — pilot record <c>+0x02</c> on the shell side.
+	/// See <c>docs/shell/campaign-loop.md</c> for the writer, VSHELL's <c>FUN_004106b7</c>.
+	/// </summary>
 	public short Unk00 { get; set; }
 
+	/// <summary>The pilot's skill tier, 0-3 — pilot record <c>+0x25</c> on the shell side.</summary>
 	public short Unk02 { get; set; }
 
 	/// <summary>The mech type, an index into <c>nam\MECHS.NAM</c>'s name list — the same numbering
@@ -72,12 +96,23 @@ public class MecEntry {
 
 	public short Unk3A { get; set; }
 
-	/// <summary>26 bytes copied to the mech record at <c>+0x3c</c>.</summary>
+	/// <summary>
+	/// 26 bytes copied to the mech record at <c>+0x3c</c>. Still undecoded on the shell side too.
+	/// </summary>
 	public byte[] BlockA { get; set; } = new byte[26];
 
-	/// <summary>20 bytes copied to the mech record at <c>+0x56</c>.</summary>
+	/// <summary>
+	/// 20 bytes copied to the mech record at <c>+0x56</c> — ten <c>int16</c> condition values on the
+	/// shell side, of which index 9 is the machine's overall condition: the value the debrief reads
+	/// to set its pilot's, and resets to 100 for a machine it does not scrap. Retail data holds
+	/// 0-100 throughout.
+	/// </summary>
 	public byte[] BlockB { get; set; } = new byte[20];
 
-	/// <summary>20 bytes copied to the mech record at <c>+0x6a</c>.</summary>
+	/// <summary>
+	/// 20 bytes copied to the mech record at <c>+0x6a</c> — ten <c>int16</c> per-hardpoint condition
+	/// values, one per weapon slot, in the same slot order as <see cref="MecEntry.WeaponRefs"/>. The
+	/// shell destroys a mount whose value reaches 0.
+	/// </summary>
 	public byte[] BlockC { get; set; } = new byte[20];
 }

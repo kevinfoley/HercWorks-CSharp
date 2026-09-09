@@ -75,8 +75,10 @@ The engine cannot be faithful here until the original is understood.
   the id is decoded and carried but `data\mission.str` is not loaded, so nothing is posted.
   → [`docs/simulation/mission-deployment.md`](docs/simulation/mission-deployment.md)
 - **The mission counters' reader.** `DAT_004a9ef4` is written by an activating action and dumped to
-  `mission_var` at mission end; the campaign layer that reads it back is not ported.
-  → [`docs/simulation/mission-deployment.md`](docs/simulation/mission-deployment.md)
+  `mission_var` at mission end. The reader is VSHELL's campaign layer (`MissionVar_Read`,
+  `0040ea59`), which is not ported: nothing in this engine consumes the counters, persists them
+  across missions, or gates `.msn` conditions on them.
+  → [`docs/shell/campaign-loop.md`](docs/shell/campaign-loop.md)
 - **The drop pod's ground mark.** The leftover effect a landed pod spawns comes from the theater's
   `flat`/`flat2` shape pool, which is not ported.
   → [`docs/simulation/mission-deployment.md`](docs/simulation/mission-deployment.md)

@@ -4,7 +4,8 @@ Reimplementation of Earthsiege 2 (1996) in C#, reverse-engineered from the retai
 `VSHELL.EXE`. `HercWorks.*` is the data-file toolkit; `Herculan.Engine` is the game engine.
 
 - `Herculan/docs/formats/` — file formats
-- `Herculan/docs/simulation/` — simulation behaviour
+- `Herculan/docs/simulation/` — simulation behaviour (DBSIM)
+- `Herculan/docs/shell/` — shell behaviour (VSHELL): campaign, career, armory, front end
 - `Herculan/docs/engine/planning.md` — architecture decisions and their rationale
 - `Herculan/KNOWN_ISSUES.md` — retail bugs, and where this engine diverges from retail
 

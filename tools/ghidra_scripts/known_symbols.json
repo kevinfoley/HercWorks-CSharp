@@ -242,28 +242,271 @@
       "address": "00412a71",
       "binary": "VSHELL",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Career_SaveSlotCopyA",
-      "description": "career.cpp. Part of the confirmed save-slot handoff copy mechanism (sav\\script%d.dat<->data\\script.dat, sav\\missn%d.str<->data\\mission.str, sav\\player%d.mec<->data\\player.mec) -- which specific direction/pair this function handles wasn't individually pinned down.",
-      "source": "docs/formats/msn-mission-file.md"
+      "confidence": "high",
+      "name": "Career_SaveSlot",
+      "description": "career.cpp. Writes the 152-byte career block (stage, mission-in-stage, and the three mission.str line-index arrays) to the save stream, then copies data\\script.dat, data\\mission.str and data\\player.mec out to sav\\script%d.dat, sav\\missn%d.str and sav\\player%d.mec. The save direction; Career_LoadSlot is the reverse.",
+      "source": "docs/formats/save-games.md"
     },
     {
       "address": "00412bbf",
       "binary": "VSHELL",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Career_SaveSlotCopyB",
-      "description": "career.cpp. Part of the confirmed save-slot handoff copy mechanism -- see maybe_Career_SaveSlotCopyA.",
-      "source": "docs/formats/msn-mission-file.md"
+      "confidence": "high",
+      "name": "Career_LoadSlot",
+      "description": "career.cpp. Reads the 152-byte career block back and copies sav\\script%d.dat, sav\\missn%d.str and sav\\player%d.mec in to data\\. Its third parameter, when set, also rebuilds the assembled briefing text from the restored data\\mission.str (FUN_00412f97). The load direction; Career_SaveSlot is the reverse.",
+      "source": "docs/formats/save-games.md"
+    },
+    {
+      "address": "0040e37b",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Game_SaveSlot",
+      "description": "game.cpp. Writes sav\\GAME_?.SAV for the given slot: armory stock, career block, 3x12 pilot roster, the player, the hangar, 9 shorts, credits, the 2000-byte campaign flag array, game state and a 20-byte tail. Slot 10 becomes 11 when DAT_0048260c is 0 (training). Validated by parsing all nine retail saves.",
+      "source": "docs/formats/save-games.md"
+    },
+    {
+      "address": "0040e4f2",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Game_LoadSlot",
+      "description": "game.cpp. Field-for-field mirror of Game_SaveSlot. Refuses a slot whose in-use byte (00482610 table, +0x5d) is clear.",
+      "source": "docs/formats/save-games.md"
+    },
+    {
+      "address": "0040eae7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Game_ProcessMissionResults",
+      "description": "game.cpp. The post-mission debrief: reads data\\mission.var back, then data\\results.dat (outcome, credits, salvage pairs, per-HERC damage and per-pilot counters), bills repairs, advances the campaign via Career_Advance and sets the next screen in 0048260e.",
+      "source": "docs/shell/campaign-loop.md"
+    },
+    {
+      "address": "0040f0d4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Game_ExportMissionHandoff",
+      "description": "game.cpp. Pre-launch export: writes data\\mission.var, removes the stale export file, then writes the player's HERC record plus every on-strength squad member's name index, skill tier and HERC. The output path is referenced as a bare address (0046f521) so its text is not in the decompile; data\\player.mec is the reading.",
+      "source": "docs/shell/campaign-loop.md"
+    },
+    {
+      "address": "0040e9cb",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MissionVar_Write",
+      "description": "game.cpp. Writes the 2000-byte campaign flag array to data\\mission.var before a mission launches.",
+      "source": "docs/shell/campaign-loop.md"
+    },
+    {
+      "address": "0040ea59",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MissionVar_Read",
+      "description": "game.cpp. Reads data\\mission.var back into the campaign flag array at debrief -- the reader for the block DBSIM's FUN_0042412c dumps at mission end.",
+      "source": "docs/shell/campaign-loop.md"
+    },
+    {
+      "address": "0040e2ed",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Game_NewCareer",
+      "description": "game.cpp. Starts a career: loads weapons.dat, generates the pilot roster, loads hercs.dat, sets the career position and seeds credits to rand(0..10)*1000 + 100000.",
+      "source": "docs/shell/campaign-loop.md"
+    },
+    {
+      "address": "0040fa31",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squad_GenerateRoster",
+      "description": "Generates 3 squads x 12 pilots at new-career time. Per squad it draws a 4- and a 3-element shuffle, giving each pilot a roster id (0-11) and an esnames.bin name index (0-35); the name string is copied out of esnames.bin.",
+      "source": "docs/shell/campaign-loop.md"
+    },
+    {
+      "address": "0040f95c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Util_Shuffle",
+      "description": "Fills an int16 array of the given length with a random permutation of 0..n-1 (fill with -1, then place each value into the k-th still-empty slot).",
+      "source": "docs/shell/campaign-loop.md"
+    },
+    {
+      "address": "00412dc7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Career_Advance",
+      "description": "career.cpp. Loads the mission named by the current (stage, mission) position, then advances the position -- unconditionally, whatever the outcome. Returns 1 past the last stage (campaign complete), 0 on a failed mission at a stage boundary, else 2. Fires the hard-coded squad events at stage 1 mission 3 and stage 1 mission 6.",
+      "source": "docs/shell/campaign-loop.md"
+    },
+    {
+      "address": "00412864",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "CareerDat_ReadStage",
+      "description": "career.cpp. Reads one gam\\career.dat stage: an int16 campaign index, an int16 mission count, then that many int16 name indices, each resolved through missions.bin at load. Verified byte-exact against the retail 148-byte file: 6 stages, stage 0 the 11 training missions and stages 1-5 the ten missions of each campaign chapter.",
+      "source": "docs/shell/campaign-loop.md"
+    },
+    {
+      "address": "00411d06",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HercStatus_Get",
+      "description": "Indexed accessor into a HERC's 66-byte status block (record +0x08): mode 1 reads block+0x1a+index*2 (10 condition values, index 9 being the machine's overall condition), mode 2 reads block+0x2e+index*2 (10 per-hardpoint conditions). NOT an average -- (block,1,9) is one element, not a mean over 9 sections. FUN_00411cbd is the matching setter.",
+      "source": "docs/formats/save-games.md"
+    },
+    {
+      "address": "00411720",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Herc_ReadStatusBlock",
+      "description": "Reads a machine's 66-byte status block from results.dat straight over the record's +0x08 span, then destroys any mount whose per-hardpoint condition arrived at 0, decrementing the occupied count at +0x4e.",
+      "source": "docs/shell/campaign-loop.md"
+    },
+    {
+      "address": "00410c7c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Herc_SettleAfterMission",
+      "description": "Debrief settlement for one hangar slot: a machine whose aggregate condition is below 30 is scrapped out of the hangar and returns its salvage value; anything above has its overall condition reset to 100.",
+      "source": "docs/shell/campaign-loop.md"
+    },
+    {
+      "address": "00412253",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PlayerMec_WriteUnlockTable",
+      "description": "Closes the data\\player.mec export with int16 33 then 33 bytes, each weapon catalog record's +0x16 unlock flag at the 29-byte stride. Present in all ten retail player.mec files. Nothing traced reads it back.",
+      "source": "docs/shell/campaign-loop.md"
+    },
+    {
+      "address": "00412f97",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Career_BuildBriefingText",
+      "description": "career.cpp. Loads data\\mission.str and concatenates the lines named by the career block's 10- and 30-entry index arrays into single strings (-1 skips a slot).",
+      "source": "docs/formats/save-games.md"
+    },
+    {
+      "address": "0041000e",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Pilot_AccumulateMissionStats",
+      "description": "Reads a pilot's three per-mission counters from results.dat in the order +0x2d, +0x31, +0x2f, adds them into the career totals at +0x33/+0x35/+0x37 and increments the missions-flown count at +0x39.",
+      "source": "docs/formats/save-games.md"
+    },
+    {
+      "address": "0040fd5f",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Pilot_Write",
+      "description": "Serializes one 59-byte pilot record; FUN_0040fefc is the reader. Name is length-prefixed, so the on-disk size varies.",
+      "source": "docs/formats/save-games.md"
+    },
+    {
+      "address": "0041123e",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Herc_Write",
+      "description": "herc.cpp. Serializes one 122-byte HERC record and its occupied mounts, each preceded by its slot index; FUN_004110c2 is the reader. The writer loops to the mount capacity at +0x4c but the reader loops the occupied count at +0x4e.",
+      "source": "docs/formats/save-games.md"
+    },
+    {
+      "address": "004121cf",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_Write",
+      "description": "armory.cpp. Writes all 33 weapons.dat catalog records' armory state: the +0x16 byte, the owned-unit count at +0x17, and that many 10-byte units from the +0x19 list. FUN_0041215d is the reader.",
+      "source": "docs/formats/weapons-dat.md"
+    },
+    {
+      "address": "0040ddc8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GameFileStr_Read",
+      "description": "Reads sav\\GAMEFILE.STR, the 12-slot directory: a leading length, then two count-prefixed blocks of length-prefixed strings (filenames, then labels with an in-use byte). A label whose 5th byte is NUL is completed with estext.bin string 0x21.",
+      "source": "docs/formats/save-games.md"
+    },
+    {
+      "address": "0040df4b",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "GameFileStr_Write",
+      "description": "Writes sav\\GAMEFILE.STR, both blocks with a literal count of 12, then seeks back to patch the leading length with lseek(END)-4 -- which measures the physical file, stale tail included.",
+      "source": "docs/formats/save-games.md"
+    },
+    {
+      "address": "0044e46c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FileWStream_Open",
+      "description": "The write-stream open behind every shell-written file: _open(path, 0x8102, 0x180) = O_BINARY|O_CREAT|O_RDWR with no O_TRUNC. Writing a shorter payload over a longer file leaves the old tail; two retail saves and GAMEFILE.STR carry one.",
+      "source": "docs/formats/save-games.md"
+    },
+    {
+      "address": "00482610",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "SaveSlotTable",
+      "description": "12 save slots, 94-byte (0x5e) stride: filename at +0x00 (13 bytes), display label at +0x0d (80 bytes), in-use byte at +0x5d. Slots 10 and 11 are the RESUME and TRAINING autosaves.",
+      "source": "docs/formats/save-games.md"
+    },
+    {
+      "address": "00482af4",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "CareerCredits",
+      "description": "The career credit pool, int32. Seeded to rand(0..10)*1000 + 100000, credited from results.dat and salvage, debited by repairs and armory purchases. Immediately precedes the campaign flag array in memory and in the save file.",
+      "source": "docs/formats/save-games.md"
+    },
+    {
+      "address": "0048260c",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "CampaignModeFlag",
+      "description": "1 for a campaign, 0 for training. Selects which autosave slot 10 resolves to (GAME_R vs GAME_T) and gates salvage awards at debrief.",
+      "source": "docs/shell/campaign-loop.md"
+    },
+    {
+      "address": "00424db0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_ReadSquadHeader",
+      "description": "shellmap.cpp (source line 0x1f5). The only place VSHELL reads data\\player.mec back, and it takes just the two leading int16 -- the player entry index and the squad size -- before closing it and opening data\\mforms.dat for formation layout. Establishes that the rest of player.mec, including the trailing weapon-unlock table, is write-only as far as the shell is concerned.",
+      "source": "docs/shell/campaign-loop.md"
     },
     {
       "address": "00482af8",
       "binary": "VSHELL",
       "type": "data",
-      "confidence": "medium",
+      "confidence": "high",
       "name": "maybe_CampaignFlagArray",
-      "description": "Global flag/counter array compared against by the .MSN condition/trigger opcode system (switch 0x119-0x11e: ==, !=, <, <=, >, >=). 'Almost certainly' the campaign-progress flag store the original Java doc predicted but never located -- not independently cross-checked against a known campaign flag.",
-      "source": "docs/formats/msn-mission-file.md"
+      "description": "The campaign flag store: 1000 int16 compared against by the .MSN condition/trigger opcode system (switch 0x119-0x11e: ==, !=, <, <=, >, >=). Confirmed campaign-persistent by three independent serializers that each move exactly 2000 bytes of it: the save file writes it after the credit pool (FUN_0040e37b/FUN_0040e4f2), FUN_0040e9cb writes it to data\\mission.var before a mission and FUN_0040ea59 reads it back at debrief, where slot 0 is overwritten with the mission outcome. DBSIM's counterpart is DAT_004a9ef4. The 'maybe_' prefix is stale; rename to CampaignFlagArray on the next Ghidra pass.",
+      "source": "docs/shell/campaign-loop.md; docs/formats/msn-mission-file.md"
     },
     {
       "address": "00417610",

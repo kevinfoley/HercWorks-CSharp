@@ -14,11 +14,13 @@
   and `data\maplabel.str` as string tables, then reads `data\script.dat` directly via `FUN_004243d7`
   (source `shellmap.cpp`) — a UI-facing consumer of the same data exported from `.msn` parsing.
   See [`script-dat.md`](script-dat.md) for the relationship.
-- Also confirmed (from `FUN_00412a71`/`FUN_00412bbf`, source `career.cpp`): the literal
-  save-slot↔handoff copy mechanism — `sav\script%d.dat`↔`data\script.dat`,
-  `sav\missn%d.str`↔`data\mission.str`, `sav\player%d.mec`↔`data\player.mec` — matches the old dev
-  note in `herc-works-mdk-main/docs/arch/3space_filetypes_sav.txt` exactly, now with real function
-  addresses.
+- The save-slot handoff copies the three loose working files in and out of a numbered slot, and the
+  two directions are separate functions (source `career.cpp`): `FUN_00412a71` saves, `data\` to
+  `sav\`, and `FUN_00412bbf` loads, `sav\` to `data\`. The pairs are
+  `data\script.dat`/`sav\script%d.dat`, `data\mission.str`/`sav\missn%d.str` and
+  `data\player.mec`/`sav\player%d.mec`, matching the dev note in
+  `herc-works-mdk-main/docs/arch/3space_filetypes_sav.txt`. See
+  [`save-games.md`](save-games.md).
 
 ## `FUN_00417b67` — the raw `.MSN` parser
 
@@ -45,9 +47,9 @@ The first record type's type-0 branch is a `switch` on the value `0x119`–`0x11
 | 0x11d | `>`  (operands swapped) |
 | 0x11e | `>=` (operands swapped) |
 
-Each compares a value against `DAT_00482af8[recordField]` — a global flag/counter array, almost
-certainly the campaign-progress flag store (the herc-unlock/weapon-unlock flag system the original
-`MissionFile.cs` doc comment predicted but never located). Record types 1–3 use different evaluator
+Each compares a value against `DAT_00482af8[recordField]` — the campaign flag store: 1,000 `int16`
+persisted in every save slot and round-tripped to DBSIM through `data\mission.var`, where the same
+array is `DAT_004a9ef4`. See [`../shell/campaign-loop.md`](../shell/campaign-loop.md). Record types 1–3 use different evaluator
 functions (`FUN_004659ec`, `FUN_004159d0` — a `-99`-sentinel-or-range-check, `FUN_00417610` again)
 — plausibly other trigger-condition flavors (dialogue/event flags, numeric range checks) rather than
 pure flag comparisons.

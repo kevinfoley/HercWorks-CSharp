@@ -109,8 +109,22 @@ Verified byte-exact against all 3 language copies (identical; weapon names not l
                                id order (offsets[0] = "None", offsets[1] = "Autocannon 20mm", etc.)
 ```
 
-Read by DBSIM.EXE: `FUN_00408240` (weapon-id lookup via `offsets[id] + stringPoolStart`),
-called from `FUN_00408605` which opens `"weapons.bin"` from `VSHELL.EXE`'s string table.
+Read by VSHELL: `WeaponsBin_LookupName` (`00408240`) indexes it as `offsets[id] + stringPoolStart`,
+and `WeaponsBin_Open` (`00408605`) opens it by literal filename.
+
+**The container is not weapon-specific.** That same open/lookup pair loads four `.BIN` files; the
+names those two functions carry in this project's symbol set record the first file identified, not
+the format's scope.
+
+| File | Handle | Entries | Contents |
+|---|---|---|---|
+| `weapons.bin` | `maybe_WeaponsBinFileHandle` | 33 | the weapon names above |
+| `estext.bin` | `0046dcc0` | 342 | the shell's UI text — `[2]` `MAIN MENU`, `[0x21]` `EMPTY`, `[0x3d]` `REPAIR` |
+| `esnames.bin` | local to `FUN_0040fa31` | 36 | the pilot-name pool: `DUGGAN`, `BRUTUS`, `BUTCHER`, `RIGGS` … `HOYLE` |
+| `missions.bin` | `0046fb34` | 61 | mission paths, `MSN\TRAIN1.MSN` … `MSN\C5_10.MSN`, indexed by `gam\career.dat` |
+
+All four walk byte-exact against the retail files: `8 + count*2 + poolSize` equals the file length in
+every case. All four live in `LANG0.VOL`, under `ENG\`, `FRE\` and `GER\`.
 
 All 33 names are in the id-space table above, transcribed from `WEAPONS_ENG.BIN`.
 
@@ -125,12 +139,34 @@ in-memory as a flat array at `DAT_00483be4`, 29-byte (`0x1d`) stride per weapon 
            the catalog code is the string inside it, see below
 0x14–0x15  uint16, scaled ×1000 at load time — plausibly price/cost in tons of salvage. Used in
            cost calculations (`FUN_00412428`, `FUN_0041266a`) as (price/1000) × field_0x17 / 10.
-0x16       byte, read raw at load, usage not yet found
-0x17–0x18  short, used in FUN_0041266a as a multiplier against the price field — plausibly an
-           ammo/quantity count, not confirmed by a load-time read (may be inside the 0x00-0x13
-           raw block, or set some other way)
-0x19–0x1c  (4 bytes) not yet observed
+0x16       byte — the player's unlock flag for this weapon (see below)
+0x17–0x18  short — how many units of this weapon the player owns. Not a catalog value: it counts
+           the runtime list at 0x19, and FUN_0041266a multiplies it by the price to value the stock
+0x19–0x1c  head of that owned-unit list ({ entry*, next* } nodes, 10-byte entries), runtime only —
+           which is why the file never supplies it
 ```
+
+`0x16`, `0x17` and the `0x19` list are the armory's per-weapon inventory, and the save file is where
+they persist: [`save-games.md`](save-games.md) documents the block that writes all 33 of them, and
+the armory itself is `armory.cpp` (`FUN_00411efd` appends a purchased unit to the list).
+
+### `0x16` is the weapon-unlock flag
+
+The catalog ships a starting value per weapon; from then on it is campaign state, and four VSHELL
+sites establish what it means:
+
+- **Campaign progress sets it.** In the mission-load path, for each pending unlock whose slot in the
+  campaign flag array holds the expected value, a `0` byte is set to `1` and that flag slot is
+  cleared — an unlock granted and consumed. This is the weapon-unlock mechanism the campaign
+  condition system feeds; see [`../shell/campaign-loop.md`](../shell/campaign-loop.md).
+- **The armory screen gates display on it.** Where it is `0` the weapon's panel is disabled — enable
+  field at panel `+0x49` cleared, its four buttons greyed, its price never drawn. Where it is `1`
+  the panel is live and prints the `0x14` price.
+- **Purchasing skips a locked weapon**, whatever the player can afford.
+- One HERC-fit check refuses to accept the weapon while the flag is clear.
+
+All 33 flags are also exported to `data\player.mec`, which nothing traced reads back — see
+[`../shell/campaign-loop.md`](../shell/campaign-loop.md).
 
 **The catalog codes are in the file.** Each record carries its own code as a NUL-terminated
 ASCII string followed by nine bytes, so walking name-then-9 from the first record recovers all
@@ -140,6 +176,13 @@ above; the codes never need hand-transcribing.
 File-level format: 2-byte record count, then per record: 2-byte id, the 29-byte body above
 (`FUN_00411d57`), then a 2-byte value stored in a *separate* parallel array
 (`DAT_00483fa2[id]`, not part of the 29-byte struct) — meaning not confirmed.
+
+## Rejected readings
+
+| Reading | Why it is wrong |
+|---|---|
+| `0x17` is an ammo or round count | It is the number of units the player owns. The save writes it as the length of the `0x19` linked list and then serializes exactly that many 10-byte units (`FUN_00411e64`), and the reader allocates that many nodes back. Round counts do exist — `BMSL` carries 36 — but they live elsewhere, most likely in the undecoded `0x00–0x13` block |
+| `0x19–0x1c` is unread file data | It is a runtime list head. `WeaponsDat_ReadRecord` fills only `0x00`–`0x16` from the file — 23 of the 29 bytes; the last six are filled by the armory and the save loader |
 
 ## How to apply
 

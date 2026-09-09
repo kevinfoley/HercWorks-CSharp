@@ -5,9 +5,13 @@ namespace HercWorks.Core.Io.Transform.Common;
 
 /// <summary>
 /// Transforms byte[] data to and from <c>ES2\DATA\player.mec</c> — see <see cref="MecFile"/> for the
-/// format and the RE it came from. Reads exactly what DBSIM reads and stops there: two leading
-/// shorts, then that many variable-length entries. Anything past the last entry is stale buffer
-/// content (the retail sample has 35 such bytes) and is neither consumed nor written back.
+/// format and the RE it came from: two leading shorts, that many variable-length entries, then the
+/// armory flag table VSHELL closes every export with (<c>FUN_00412253</c>).
+///
+/// <para>The flag table is optional on the way in and preserved on the way out, so a retail file
+/// round-trips byte for byte while a file written before the table was decoded — which DBSIM
+/// accepts — still parses and is written back unchanged in shape. It is read only when the bytes
+/// are actually there and self-consistent, since the base reader is unchecked.</para>
 /// </summary>
 public class MecFileTransformer : ByteTransformer<MecFile> {
 	public override MecFile? Parse(byte[]? inputArray) {
@@ -41,7 +45,26 @@ public class MecFileTransformer : ByteTransformer<MecFile> {
 		}
 
 		data.Entries = entries;
+		data.WeaponFlags = IndexWeaponFlags();
 		return data;
+	}
+
+	/// <summary>
+	/// Reads the trailing armory flag table, or returns empty if this file has none. Every step is
+	/// bounds-checked because the base reader is not, and because a file that ends at its last entry
+	/// is legitimate rather than malformed.
+	/// </summary>
+	private byte[] IndexWeaponFlags() {
+		if (Bytes == null || Bytes.Length - Index < 2) {
+			return [];
+		}
+
+		short count = IndexShortLE();
+		if (count <= 0 || Bytes.Length - Index < count) {
+			return [];
+		}
+
+		return IndexSegment(count);
 	}
 
 	public override byte[]? Write(MecFile? data) {
@@ -65,6 +88,11 @@ public class MecFileTransformer : ByteTransformer<MecFile> {
 			Emit(outStream, entry.BlockA);
 			Emit(outStream, entry.BlockB);
 			Emit(outStream, entry.BlockC);
+		}
+
+		if (data.WeaponFlags.Length > 0) {
+			Emit(outStream, WriteShortLE((short)data.WeaponFlags.Length));
+			Emit(outStream, data.WeaponFlags);
 		}
 
 		return outStream.ToArray();

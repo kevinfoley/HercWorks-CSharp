@@ -240,6 +240,13 @@ these are the **campaign's** variables and their reader is outside the simulatio
 them during a mission: `Action_Activate`, and a group's own completion hook `FUN_00423f30` (ops 1 clear,
 2 increment, 0x0d-0x10 set to op − 0x0c), which is not ported.
 
+The reader is VSHELL's `MissionVar_Read` (`0040ea59`), which loads the file straight back into the
+same array — `00482af8` there, the store the `.msn` condition opcodes test and every save slot
+carries. VSHELL also writes `mission_var` from that array before launching a mission
+(`MissionVar_Write`, `0040e9cb`); whether DBSIM reads it at mission start, rather than only writing
+it at the end, is a question for the DBSIM side. See
+[`../shell/campaign-loop.md`](../shell/campaign-loop.md).
+
 ## The shipped mission, end to end
 
 A worked example, because it is the only place the four mechanisms are visible together. The live

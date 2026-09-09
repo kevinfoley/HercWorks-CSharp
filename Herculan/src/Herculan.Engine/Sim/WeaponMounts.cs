@@ -64,8 +64,15 @@ public sealed class WeaponMounts {
 	public bool SingleFire { get; private set; }
 
 	/// <summary>
+	/// <c>manager+0x31</c> — the distance from the machine to its selected target, in world units,
+	/// refreshed once a frame by <see cref="PerFrameUpdate"/>. <b>Zero means no target</b>, and
+	/// <see cref="CanFireNow"/> skips its range gate entirely in that case.
+	/// </summary>
+	public int TargetRange { get; private set; }
+
+	/// <summary>
 	/// <c>manager+0x14</c>, the TRACK button's latch — Automatic Turret Tracking. The console button
-	/// sets and clears it (<c>FUN_00410f04</c> and <c>FUN_00410b40</c>'s own else branch), which is
+	/// sets and clears it (<c>FUN_00410f04</c> and <c>WeaponMounts_PerFrameUpdate</c>'s own else branch), which is
 	/// why TRACK is the one console button that stays lit, and so does the [T] command.
 	///
 	/// <para>Read by <see cref="MechObject.TorsoTick"/>, which flies the turret at the selected
@@ -133,7 +140,7 @@ public sealed class WeaponMounts {
 	/// <summary>
 	/// Whether cockpit weapon row <paramref name="mountIndex"/> draws as armed. The armed mount does,
 	/// and so does the other half of a linked pair when its partner is the armed one — which is what
-	/// makes linking visible: both rows light together. <c>FUN_00410b40</c> computes exactly this and
+	/// makes linking visible: both rows light together. <c>WeaponMounts_PerFrameUpdate</c> computes exactly this and
 	/// pushes it to each row's gauge.
 	/// </summary>
 	/// <summary>
@@ -417,8 +424,9 @@ public sealed class WeaponMounts {
 	}
 
 	/// <summary>
-	/// The manager's own per-frame pass, <c>FUN_00410b40</c> and <c>FUN_00410a3c</c>, minus the input
-	/// block it reads (the host drives those directly) and the auto-fire it performs.
+	/// The manager's own per-frame pass, <c>WeaponMounts_PerFrameUpdate</c> (<c>00410b40</c>) and
+	/// <c>WeaponMounts_AdvanceToReady</c> (<c>00410a3c</c>), minus the input block it reads (the host
+	/// drives those directly) and the auto-fire it performs.
 	///
 	/// <list type="bullet">
 	/// <item><b>The chain advances the armed weapon.</b> Unless <see cref="SingleFire"/> is set, a
@@ -427,8 +435,18 @@ public sealed class WeaponMounts {
 	/// <item><b>A destroyed mount breaks its link.</b> A linked pair whose half is destroyed or out
 	/// of ammunition unlinks both halves and hands the selection to the partner.</item>
 	/// </list>
+	///
+	/// <para>The range comes in first, before the advance, exactly as the original orders it: a
+	/// weapon that cannot reach the selected target is not ready, so the chain steps past it and its
+	/// row lights red. The armed weapon still fires — <see cref="FireTick"/> asks the mount alone
+	/// and never consults this.</para>
 	/// </summary>
-	public void PerFrameUpdate() {
+	/// <param name="targetRange">
+	/// Distance to the selected target in world units, or zero when nothing is selected — see
+	/// <see cref="TargetRange"/>.
+	/// </param>
+	public void PerFrameUpdate(int targetRange = 0) {
+		TargetRange = targetRange;
 		foreach (var mount in Mounts.ToList()) {
 			if (!mount.Linked || PartnerOf(mount) is not { } partner) {
 				continue;
@@ -461,18 +479,39 @@ public sealed class WeaponMounts {
 	}
 
 	/// <summary>
-	/// <c>FUN_00410970</c> reduced to what the engine models: the mount's own readiness, and for a
-	/// linked pair, both halves'. The original also gates on the selected target's range, which is
-	/// not ported. It does <i>not</i> gate on <c>manager+0x0a</c> here — those are the per-subtype
-	/// missile-lock flags (see <see cref="MissileLock"/>), read on the launcher fire path rather than
-	/// on general readiness. See docs/simulation/weapon-mounts.md.
+	/// <c>WeaponMounts_MountIsReady</c> (<c>00410970</c>): the mount's own readiness, gated on the
+	/// selected target's range, and for a linked pair, both halves'. One predicate serves two
+	/// purposes — it is the flag a row's state box is lit green or red by
+	/// (<see cref="Herculan.Engine.Content.WeaponRowState.Ready"/>) and the test
+	/// <see cref="PerFrameUpdate"/> steps the chain past.
+	///
+	/// <para>The range gate is <see cref="WeaponMount.RangeAllows"/> against
+	/// <see cref="TargetRange"/>, and it is skipped outright when that is zero — which is what the
+	/// original does with no target selected, and what stops every row going red when nothing is
+	/// locked.</para>
+	///
+	/// <para><b>Not ported:</b> the original's third gate, which requires a launcher's subtype to hold
+	/// missile lock (<see cref="MissileLock"/>) before its row counts as ready. See
+	/// docs/simulation/weapon-mounts.md.</para>
 	/// </summary>
-	private bool CanFireNow(int mountIndex) {
+	/// <param name="followLink">
+	/// The original's fourth argument. Clear on the outer call and set on the recursion into the link
+	/// partner, so a pair is tested once each way round rather than endlessly.
+	/// </param>
+	public bool CanFireNow(int mountIndex, bool followLink = false) {
 		if (_slots.ElementAtOrDefault(mountIndex) is not { } mount || !mount.CanFire) {
 			return false;
 		}
 
-		return !mount.Linked || PartnerOf(mount) is not { } partner || partner.CanFire;
+		if (TargetRange != 0 && !mount.RangeAllows(TargetRange)) {
+			return false;
+		}
+
+		if (followLink || !mount.Linked || PartnerOf(mount) is not { } partner) {
+			return true;
+		}
+
+		return CanFireNow(partner.MountIndex, followLink: true);
 	}
 
 	/// <summary>

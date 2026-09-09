@@ -121,6 +121,8 @@ if (DAT_004a9ee7 < 1000) DAT_004a9ee7 = 1000     // the radio cooldown
 
 The same test gates the ELF latch at the top of `Ai_FireAtPoint`, and the range it is asked about there is the ground-plane one, not the 3D range `Ai_AimAndFireAtMech` measured a moment earlier.
 
+It is not the AI's alone: the player's cockpit asks it once a frame per mount against the selected target's range, which is what reddens a weapon row and makes the firing chain skip past it. See [`weapon-mounts.md`](weapon-mounts.md#readiness--weaponmounts_mountisready-00410970).
+
 ## Radar, not weapons free — `Ai_UpdateWeaponsFree` (`0041c3c8`)
 
 `mech+0x96` is the PASSIVE/ACTIVE radar mode ([`target-selection.md`](target-selection.md#radar-mode)), and this function is what an AI machine's radar switch is wired to:

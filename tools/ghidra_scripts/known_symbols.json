@@ -5512,8 +5512,8 @@
       "type": "function",
       "confidence": "high",
       "name": "WeaponMounts_PerFrameUpdate",
-      "description": "The mount manager's per-frame pass: reads the weapon-panel input block, applies the chain/link commands, then walks every mount and calls its vtable+0x50 gauge push with three state bytes -- selected (index == manager+0x1d), in the current fire group (groups[manager+0x1c][index]), and ready (WeaponMounts_MountIsReady).",
-      "source": "docs/simulation/weapon-mounts.md 2026-08-23"
+      "description": "The mount manager's per-frame pass. Stores its range argument -- the distance to the selected target, measured by Player_PerFrameCockpitUpdate -- into manager+0x31 BEFORE running WeaponMounts_AdvanceToReady, so the chain advance and the row lamps both see this frame's range. Then reads the weapon-panel input block, applies the chain/link commands, and walks every mount calling its vtable+0x50 gauge push with three state bytes: selected (index == manager+0x1d), in the current fire group (groups[manager+0x1c][index]), and ready (WeaponMounts_MountIsReady).",
+      "source": "docs/simulation/weapon-mounts.md"
     },
     {
       "address": "00410970",
@@ -5521,8 +5521,9 @@
       "type": "function",
       "confidence": "high",
       "name": "WeaponMounts_MountIsReady",
-      "description": "The readiness flag a weapon row's state box is lit by: the mount's own vtable+0x2c test, gated on target range when manager+0x31 is set, then gated again on ammunition availability -- vtable+0x60's code is taken as always-available for 5 and 3, and otherwise checked against manager[0x0a + code*2]. No writer for that counter array was found along the paths traced.",
-      "source": "docs/simulation/weapon-mounts.md 2026-08-23"
+      "description": "The readiness predicate behind BOTH the weapon row's green/red state box and the firing chain's skip: the mount's own vtable+0x2c test, then WeaponMount_RangeAllows against the selected target's range at manager+0x31 (skipped outright when that is zero, i.e. no target), then a missile-lock gate -- vtable+0x60's subtype is exempt for 5 (not a launcher) and 3 (EO, which is pilot-flown and never latches a flag), and otherwise must have its flag set in manager[0x0a + code*2]. A linked mount recurses once into its partner, so a pair is ready only when both halves are. The lock array is written by Mech_PerTickSystemsUpdate -- see docs/simulation/missile-lock.md.",
+      "source": "docs/simulation/weapon-mounts.md",
+      "signature": "short __cdecl WeaponMounts_MountIsReady(void *manager, void *mount, int mountIndex, short followLink)"
     },
     {
       "address": "00441524",
@@ -5651,13 +5652,24 @@
       "source": "docs/simulation/weapon-mounts.md 2026-08-24"
     },
     {
+      "address": "00410a04",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMounts_ChainReady",
+      "description": "WeaponMounts_AdvanceToReady's own wrapper around WeaponMounts_MountIsReady, and the only caller of it that is not the gauge push. Returns 1 without asking -- so the chain never steps -- while the single-fire flag manager+0x18 is set or the auto-step latch DAT_004d25aa is up; otherwise forwards to the full predicate with followLink clear.",
+      "signature": "short __cdecl WeaponMounts_ChainReady(void *manager, void *mount, short mountIndex)",
+      "source": "docs/simulation/weapon-mounts.md"
+    },
+    {
       "address": "00410a3c",
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
       "name": "WeaponMounts_AdvanceToReady",
-      "description": "The firing chain's own advance, run every frame from WeaponMounts_PerFrameUpdate: if the armed mount cannot fire, step through the chain until one that can is found, and put the original back if none is. Gated off entirely while the single-fire flag (manager+0x18) is set, which is the manual's 'select a weapon to single-fire ... once you fire, the current firing chain will resume'.",
-      "source": "docs/simulation/weapon-mounts.md 2026-08-24"
+      "description": "The firing chain's own advance, run every frame from WeaponMounts_PerFrameUpdate: if the armed mount cannot fire, step through the chain until one that can is found, and put the original back if none is. Asks WeaponMounts_ChainReady rather than WeaponMounts_MountIsReady directly, which is what gates it off while the single-fire flag (manager+0x18) is set -- the manual's 'select a weapon to single-fire ... once you fire, the current firing chain will resume'. Because the predicate is range-gated, this is also what steps the chain past a weapon that cannot reach the target.",
+      "source": "docs/simulation/weapon-mounts.md",
+      "signature": "void __cdecl WeaponMounts_AdvanceToReady(void *manager)"
     },
     {
       "address": "0044212c",
@@ -9898,8 +9910,9 @@
       "type": "function",
       "confidence": "high",
       "name": "WeaponMount_RangeAllows",
-      "description": "template+0x2c < range < template+0x30: the weapon's engagement window. The lower bound is zero in all 33 retail templates. Asked by Ai_ChooseWeapon and by Ai_FireAtPoint's ELF latch.",
-      "source": "docs/simulation/ai-weapons.md"
+      "description": "template+0x2c < range < template+0x30, both bounds exclusive: the weapon's engagement window. The lower bound is zero in all 33 retail templates. Asked by Ai_ChooseWeapon, by Ai_FireAtPoint's ELF latch, and by WeaponMounts_MountIsReady, which is what reddens a player's row and makes the firing chain skip a weapon that cannot reach the selected target.",
+      "source": "docs/simulation/ai-weapons.md, docs/simulation/weapon-mounts.md",
+      "signature": "int __cdecl WeaponMount_RangeAllows(void *mount, int range)"
     },
     {
       "address": "0041e758",

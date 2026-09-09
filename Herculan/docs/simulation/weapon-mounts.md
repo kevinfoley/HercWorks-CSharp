@@ -303,7 +303,7 @@ A remote machine gets the base class and never has either read.
 | `+0x1c` | current fire group, 0–2 |
 | `+0x1d` | armed mount index, `0xff` for none |
 | `+0x1f`, `+0x25`, `+0x2b` | the three fire-group arrays, one `short` per mount |
-| `+0x31` | target range, gating the readiness test |
+| `+0x31` | range to the selected target — see [Readiness](#readiness--weaponmounts_mountisready-00410970) |
 | `+0x14` | TRACK's latch — Automatic Turret Tracking, read by the input path's turret block ([`torso-aim.md`](torso-aim.md#automatic-turret-tracking--t)) |
 | `+0x18` | single-fire flag, below |
 
@@ -311,9 +311,48 @@ A remote machine gets the base class and never has either read.
 `group == wanted` into all three arrays with `wanted` fixed at 0 for a weapon and −1 for a pod. The
 initial selection is the first non-pod mount in *mount* order.
 
-`FUN_00410b40`, the per-frame pass, reads the console panel's three-field input block, applies the
-chain and LINK commands from it, and then pushes three flags to each row's gauge: armed, in the
-current group, and ready (`FUN_00410970`).
+`WeaponMounts_PerFrameUpdate` (`00410b40`), the per-frame pass, reads the console panel's
+three-field input block, applies the chain and LINK commands from it, and then pushes three flags to
+each row's gauge: armed, in the current group, and ready.
+
+## Readiness — `WeaponMounts_MountIsReady` (`00410970`)
+
+**One predicate answers two questions**: it is what lights a row's state box green rather than red,
+and it is what the firing chain skips a mount on. Three gates in order, plus the link recursion:
+
+```
+mount->vtable+0x2c                                       // the class's own CanFire
+&& (manager+0x31 == 0 || WeaponMount_RangeAllows(mount, manager+0x31))
+&& (subtype == 5 || subtype == 3 || manager[0x0a + subtype*2])
+&& (followLink || !mount+0x4b || MountIsReady(partner, followLink: 1))
+```
+
+**The range gate is what makes a weapon that cannot reach the target red and skippable.**
+`WeaponMount_RangeAllows` (`0040e5f8`) is the same engagement window the AI's weapon choice uses —
+`template+0x2c < range < template+0x30`, both bounds exclusive, upper bound 15000–75000 across the
+table; see [`ai-weapons.md`](ai-weapons.md#the-engagement-envelope--weaponmount_rangeallows-0040e5f8).
+
+`manager+0x31` is the distance to the **selected target**, written by
+`Player_PerFrameCockpitUpdate` (`0041b130`) through `WeaponMounts_PerFrameUpdate`'s argument, and
+`Math_DistanceBetweenPoints` measures it from the machine to `target+0x26` each frame. **Zero when
+nothing is selected**, and the gate is skipped outright on zero — which is what stops every row
+going red on a machine with no target rather than the window's exclusive lower bound failing them
+all. The store happens *before* the chain advance, so both readers see the same frame's range.
+
+> The measurement's origin is the machine's own position, except while `DAT_0049ef5c` is set and
+> this is the local player, when it is the watched object `DAT_004d2708` — the spectator camera,
+> not ported ([`target-selection.md`](target-selection.md)).
+
+The third gate is **missile lock**, not ammunition: the mount's `vtable+0x60` subtype must have its
+flag up in `manager+0x0a`. Two subtypes are exempt — 5, which is "not a launcher", and 3, the
+electro-optical missile, which never latches a flag because the pilot flies it
+([`missile-lock.md`](missile-lock.md)). Without that exemption an EO launcher's row could never go
+green.
+
+**The armed weapon fires anyway.** `WeaponMounts_FireTrigger` asks the mount's own `vtable+0x2c` and
+`+0x30` and never consults this predicate, so range never stops a shot — it only decides which
+weapon the chain hands you and what colour the lamp is. See
+[`weapon-firing.md`](weapon-firing.md).
 
 ## Arming, chaining and linking
 
@@ -352,10 +391,13 @@ half's partner offset is negative. That is what keeps a pair's two rows agreeing
 
 **Single fire (`+0x18`).** Set by arming a weapon by hand, cleared by `[W]`/`[Alt]`+`[W]` and by
 firing. While it is set, the per-frame pass leaves the selection alone however unready the weapon
-is; while it is clear, `FUN_00410a3c` hands the selection to the next mount in the chain that could
-fire. That is the whole of the manual's "select a weapon to single-fire … once you fire, the current
-firing chain will resume". The flag is cleared at the key handler, not inside `FUN_0041074c`, so the
-chain switch and the per-frame advance both step the selection without clearing it.
+is; while it is clear, `WeaponMounts_AdvanceToReady` (`00410a3c`) hands the selection to the next
+mount in the chain that is [ready](#readiness--weaponmounts_mountisready-00410970). That is the whole
+of the manual's "select a weapon to single-fire … once you fire, the current firing chain will
+resume". The gate is not in the advance itself but in `WeaponMounts_ChainReady` (`00410a04`), the
+wrapper it asks: with `+0x18` set that returns ready without testing anything, so the chain cannot
+step. The flag is cleared at the key handler, not inside `FUN_0041074c`, so the chain switch and the
+per-frame advance both step the selection without clearing it.
 
 `FUN_0041074c` steps to the next mount that is selectable, in the current chain, and either unlinked
 or the *first* half of a linked pair.
@@ -374,10 +416,10 @@ non-zero), and that partner carries the **same weapon id**. Both halves' `+0x4b`
 manual states the same rule from the other side — "any two identical weapons mounted symmetrically
 on the HERC (on opposite hard points)".
 
-Linking is visible because `FUN_00410b40` lights a linked mount's row when its *partner* is the
-armed one, so both rows of a pair draw armed together. Readiness is joined too: `FUN_00410970`
-recurses into the partner, so a pair is ready only when both halves are. A destroyed or empty half
-unlinks the pair and hands the selection to the survivor.
+Linking is visible because `WeaponMounts_PerFrameUpdate` lights a linked mount's row when its *partner* is the
+armed one, so both rows of a pair draw armed together. [Readiness](#readiness--weaponmounts_mountisready-00410970)
+is joined too, so a pair is ready only when both halves are. A destroyed or empty half unlinks the
+pair and hands the selection to the survivor.
 
 > One LINK press runs the toggle **three** times in the original: the button's own click handler
 > (`FUN_0044202c`), the manager's next per-frame pass reading the button's latch byte, and that
@@ -393,8 +435,9 @@ from its own `+0x40` latch. **LINK never stays lit**; the link state lives on th
 
 ## Open
 
-- **The missile row's state box.** `FUN_00410970` colours it from the per-subtype lock flags at
-  `manager+0x0a`; the engine does not colour that box yet.
+- **The missile-lock gate on readiness.** The engine's `CanFireNow` carries the mount test, the
+  range gate and the link recursion, but not the third one: a launcher whose subtype holds no lock
+  should read red and be skipped, and does not.
 - Template fields other than those named here — see
   [`../formats/weapons-dat-sim.md`](../formats/weapons-dat-sim.md).
 - **Firing** is in [`weapon-firing.md`](weapon-firing.md). All three dispatch branches are ported;

@@ -689,12 +689,15 @@ meter is grey.
 - the slot number again, recoloured `[13]` `GREEN` when selected / `[11]` `GRAY`;
 - the state box, `PWEAPONS` 6x14 frames — **only when the mount is armed or in the current fire
   group**, otherwise the box area is filled with the row background. Frame 4 (green, index 14) when
-  the mount could fire this instant, frame 5 (red) when it could not. A pod is in no fire group, so
-  a pod row never has one;
+  the mount is ready, frame 5 (red) when it is not — including when the selected target is outside
+  the weapon's range, which is also what makes the firing chain skip it
+  ([`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#readiness--weaponmounts_mountisready-00410970)).
+  A pod is in no fire group, so a pod row never has one;
 - last, the row plate: `PWEAPONS` frame 0 selected / frame 1 not, at the rect **minus one device
   pixel on both axes** — its 116x18 art overhangs the 110x12 rect evenly.
 
-The three state flags come from `FUN_00410b40`, the mount manager's per-frame pass.
+The three state flags come from `WeaponMounts_PerFrameUpdate` (`00410b40`), the mount manager's
+per-frame pass.
 
 ## Console buttons
 

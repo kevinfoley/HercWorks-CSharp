@@ -38,7 +38,7 @@ fire action, or the default keyboard binding at `DAT_004d23e4`/`DAT_004d23f4`.
 4. Armed fires through `+0x28`, then the partner.
 5. Single-fire (`manager+0x18`) is cleared once the armed mount is no longer ready. That is the whole
    of the manual's "once you fire, the current firing chain will resume" — the chain advance in
-   `FUN_00410a3c` takes the selection back on the next frame.
+   `WeaponMounts_AdvanceToReady` takes the selection back on the next frame.
 
 It also passes a "this shot is free" flag built from `DAT_004a9ed6`/`DAT_004a9edc`, which only the
 ammunition class reads, and raises an alert pair when the armed mount's `+0x60` reports ammunition

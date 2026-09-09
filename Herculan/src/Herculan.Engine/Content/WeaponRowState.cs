@@ -24,7 +24,11 @@ namespace Herculan.Engine.Content;
 /// </param>
 /// <param name="InGroup">Whether the mount is in the current fire group. With <paramref name="Selected"/>
 /// clear too, the state box is not drawn at all — which is what a pod's row always looks like.</param>
-/// <param name="Ready">Whether the mount could fire right now — the state box's lit frame rather than its dark one.</param>
+/// <param name="Ready">Whether the mount could fire right now — <c>WeaponMounts_MountIsReady</c>,
+/// which is the mount's own readiness, its link partner's, and whether the selected target is inside
+/// the weapon's engagement window. The state box takes its green frame from this and its red one
+/// from the absence of it, so a weapon that cannot reach the target reddens here and is stepped past
+/// by the chain; see <see cref="WeaponMounts.CanFireNow"/>.</param>
 /// <param name="Rounds">Rounds remaining, for an ammunition row.</param>
 /// <param name="ChargeMeter">
 /// An energy row's bar value over the LED bar's own 0-1024 range. A full capacitor reads about
@@ -109,7 +113,7 @@ public readonly record struct WeaponRowState(
 				mount.Kind,
 				mounts.IsArmedRow(mount.MountIndex),
 				mounts.InCurrentGroup(mount.MountIndex),
-				mount.CanFire,
+				mounts.CanFireNow(mount.MountIndex),
 				mount.Rounds,
 				mount.ChargeMeterValue);
 		}

@@ -1332,9 +1332,14 @@ window.Update += deltaSeconds => {
 	}
 
 	if (cockpitArt != null && pilotMech != null) {
-		// Player_PerFrameCockpitUpdate's own order: the weapon manager's pass, then the gauge and the
-		// machine settle which of them moved this frame, then the readouts are taken from the machine.
-		pilotMech.Weapons.PerFrameUpdate();
+		// Player_PerFrameCockpitUpdate's own order: the range to the selected target, then the weapon
+		// manager's pass, then the gauge and the machine settle which of them moved this frame, then
+		// the readouts are taken from the machine. The range is zero when nothing is selected, which
+		// is what turns the manager's range gate off.
+		int targetRange = pilotMech.Target is { } weaponTarget
+			? pilotMech.Position.ApproxDistanceTo(weaponTarget.Position)
+			: 0;
+		pilotMech.Weapons.PerFrameUpdate(targetRange);
 		throttleGauge = pilotMech.ExchangeCockpitThrottle(throttleGauge);
 		hudState = hudState with {
 			SpeedKph = pilotMech.DisplaySpeedKph,

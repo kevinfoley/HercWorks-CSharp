@@ -93,4 +93,3 @@ The engine cannot be faithful here until the original is understood.
 - Currently missing is a quirk from retail where the player's shield meter fills in over ~10 seconds at the start of a mission. Claude says there's no explanation for this in the shield code, where the shields start out at full charge, and would take ~30 seconds to fully charge from empty. The fade-in-over-10-seconds may be a HUD animation that hasn't been discovered during RE yet.
 - Similarly to the previous, currently missing is an animation where weapon buttons wink on one-at-a-time when the simulation first starts.
 - The Preferences screen is not implemented.
-- In retail, weapons in a firing chain which are out of range of the selected target will have a red indicator light and won't fire when the trigger is held.

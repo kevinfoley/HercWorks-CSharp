@@ -732,7 +732,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Group_DeploymentCheck",
-      "description": "Per-frame arrival check for a mission group that has not entered the world yet, run by Sim_MainTick for exactly the groups whose record +0x14 action pointer is non-null. No-ops until that action runtime fired flag (action+0x0a) is set. Then the action verb (action+0x02) picks the arrival: 2 or 3 spawn a METEOR drop pod 150000 units from the player (bearing +-90 deg for 2, +-22.5 deg for 3) carrying the group, leaving +0x14 set for the pod to clear on landing and latching group+0x13 so only one pod is ever launched; 4 or 5 place the group leader at 90000 units behind (4) or 150000 ahead (5) facing bearing-0x8000, run every other member through vtable +0x78 for its formation offset, and clear +0x14; any other verb just clears +0x14 so the group goes live where it stands. All arrival points come from Deployment_PickPointNearPlayer.",
+      "description": "Per-frame arrival check for a mission group that has not entered the world yet, run by Sim_MainTick for exactly the groups whose record +0x14 action pointer is non-null. No-ops until that action runtime activation flag (action+0x0a) is set. Then the action verb (action+0x02) picks the arrival: 2 or 3 spawn a METEOR drop pod 150000 units from the player (bearing +-90 deg for 2, +-22.5 deg for 3) carrying the group, leaving +0x14 set for the pod to clear on landing and latching group+0x13 so only one pod is ever launched; 4 or 5 place the group leader at 90000 units behind (4) or 150000 ahead (5) facing bearing-0x8000, run every other member through vtable +0x78 for its formation offset, and clear +0x14; any other verb just clears +0x14 so the group goes live where it stands. All arrival points come from Deployment_PickPointNearPlayer.",
       "source": "docs/simulation/mission-deployment.md",
       "signature": "void __cdecl Group_DeploymentCheck(int *group)"
     },
@@ -751,30 +751,30 @@
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "ActionPairs_Tick",
-      "description": "Walks the whole resolved block-6 array at DAT_004a9ebc (count DAT_004a9eb8, stride 0x31) calling ActionPair_Tick on each. Sim_MainTick calls it immediately before Actions_EvaluateTriggers and both AFTER the per-group Group_OrderTick/Group_DeploymentCheck pass, so a group waiting on an action arrives on the tick after it fires.",
+      "name": "ActionTimers_Tick",
+      "description": "Walks the whole resolved block-6 array at DAT_004a9ebc (count DAT_004a9eb8, stride 0x31) calling ActionTimer_Tick on each. Sim_MainTick calls it immediately before Actions_EvaluateTriggers and both AFTER the per-group Group_OrderTick/Group_DeploymentCheck pass, so a group waiting on an action arrives on the tick after it activates.",
       "source": "docs/simulation/mission-deployment.md",
-      "signature": "void __cdecl ActionPairs_Tick(void)"
+      "signature": "void __cdecl ActionTimers_Tick(void)"
     },
     {
       "address": "004230a4",
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "ActionPair_Tick",
-      "description": "One script.dat block-6 action pair per frame -- the mission timer, and the second of the four ways a mission action fires. Counts the millisecond countdown at pair+0x2c down through Timer_CountDown, but only while the primary action at pair+0x00 has fired or the pair names none (in which case it runs from mission start). On expiry it calls Action_Fire on each of the ten resolved action pointers at pair+0x04..+0x28 and re-arms the countdown with 30000, which through the <<11 in FUN_004679c0 is about seventeen hours -- so the pair effectively fires once. This is why an action carrying no trigger area of its own is ordinary rather than dead.",
+      "name": "ActionTimer_Tick",
+      "description": "One script.dat block-6 action timer per frame -- the second of the four ways a mission action activates. Counts the millisecond countdown at timer+0x2c down through Timer_CountDown, but only while the primary action at timer+0x00 has activated or the record names none (in which case it runs from mission start). On expiry it calls Action_Activate on each of the ten resolved action pointers at timer+0x04..+0x28 and re-arms the countdown with 30000, which through the <<11 in FUN_004679c0 is about seventeen hours -- so a timer effectively activates once. This is why an action carrying no trigger area of its own is ordinary rather than dead.",
       "source": "docs/simulation/mission-deployment.md",
-      "signature": "void __cdecl ActionPair_Tick(int *pair)"
+      "signature": "void __cdecl ActionTimer_Tick(int *timer)"
     },
     {
       "address": "00423430",
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "Action_Fire",
-      "description": "Fires one block-5 mission action, once: sets the action runtime fired flag at +0x0a (zeroed at load), then walks ten (counter ref, operation) pairs at +0x0c/+0x20, skipping a pair whose ref is negative and otherwise bumping (op 6) or clearing (op 5) the mission counter array DAT_004a9ef4. The queue of the mission message at +0x34 is INSIDE that loop, so an action naming five counters posts its line five times and one naming none posts it not at all.",
+      "name": "Action_Activate",
+      "description": "Activates one block-5 mission action, once: sets the action runtime activation flag at +0x0a (zeroed at load), then walks ten (counter ref, operation) pairs at +0x0c/+0x20, skipping a pair whose ref is negative and otherwise bumping (op 6) or clearing (op 5) the mission counter array DAT_004a9ef4. The queue of the mission message at +0x34 is INSIDE that loop, so an action naming five counters posts its line five times and one naming none posts it not at all.",
       "source": "docs/simulation/mission-deployment.md",
-      "signature": "void __cdecl Action_Fire(int *action)"
+      "signature": "void __cdecl Action_Activate(int *action)"
     },
     {
       "address": "004234b8",
@@ -782,7 +782,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Action_TestTrigger",
-      "description": "Tests a position against one action's trigger areas. Returns 1 immediately if the action has already fired (+0x0a set); otherwise offers the position to each resolved block-4 area (count at +0x04, pointer array at +0x06) via FUN_004233a4 and calls Action_Fire on the first hit.",
+      "description": "Tests a position against one action's trigger areas. Returns 1 immediately if the action has already activated (+0x0a set); otherwise offers the position to each resolved block-4 area (count at +0x04, pointer array at +0x06) via FUN_004233a4 and calls Action_Activate on the first hit.",
       "source": "docs/simulation/mission-deployment.md",
       "signature": "short __cdecl Action_TestTrigger(int *action, int *position)"
     },
@@ -792,7 +792,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Action_TestTriggerForGroup",
-      "description": "Action_TestTrigger applied to every member of a group in turn (member array at group+0x0c, count at group+0x10), stopping at the first that fires it.",
+      "description": "Action_TestTrigger applied to every member of a group in turn (member array at group+0x0c, count at group+0x10), stopping at the first that activates it.",
       "source": "docs/simulation/mission-deployment.md",
       "signature": "short __cdecl Action_TestTriggerForGroup(int *group, int *action)"
     },
@@ -831,7 +831,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Group_OrderTick",
-      "description": "Per-frame tick for a group that has entered the mission (the branch Sim_MainTick takes when group+0x14 is null). Runs the group's current order -- the row-15 link at group+0x44 indexed by the current-order index at group+0x6c -- and advances to the next when FUN_004239fc reports it complete or its own action has fired, flagging the finished order in the byte array at group+0x70 and clearing each member's +0x52. Then ticks every member via FUN_00411cec.",
+      "description": "Per-frame tick for a group that has entered the mission (the branch Sim_MainTick takes when group+0x14 is null). Runs the group's current order -- the row-15 link at group+0x44 indexed by the current-order index at group+0x6c -- and advances to the next when FUN_004239fc reports it complete or its own action has activated, flagging the finished order in the byte array at group+0x70 and clearing each member's +0x52. Then ticks every member via FUN_00411cec.",
       "source": "docs/simulation/mission-deployment.md"
     },
     {
@@ -1251,7 +1251,7 @@
       "type": "function",
       "confidence": "high",
       "name": "DBSim_LoadScriptDat",
-      "description": "DBSIM's reader for data\\script.dat, called from World::ctor-equivalent init path (also opens player.mec and mission.str at nearby offsets). Reads a fixed 20-byte header into DAT_004a9ed2 and uses it twice: World_LoadTheater(&header) takes the int16 at 0 as the theater and the int16 at 18 as its variant, and Terrain_LoadZone(header[2]) takes the int16 at 2 as THE ZONE INDEX -- verified against all ten retail script.dat files, every offset-2 value is a zone that ships. It also zeroes the field at offset 4 before use. Then 13 count-prefixed blocks in exact order matching VSHELL's WriteScriptDatFile (0041ac54): row6-coords(12B), row7-heading(2B, x0xb6 degrees->BAM), row8-nested-waypoints, row9(6B), row10-Action82(74B read, only 1 field of the row10-referencing sub-block reused), row11-ActionPair30(24B, resolved via FUN_00423104), row12(134B raw, only the mech-type-ref field at rec-offset 40 kept), row13(92B raw, only rec-offset 44 field kept), row14(52B raw, only the type field kept), row15(14B, read and fully discarded), row16(156B, nested 20-entry crossref with a 3-way discriminator that marks row6/row7/row14 slots 'live' -- this is DBSIM's actual entity-activation mechanism), row17(54B, read and fully discarded), then a final flat count+array tail = row4's populated LUT-ref prefix (the mission's herc/weapon unlock package). See docs/formats/script-dat.md.",
+      "description": "DBSIM's reader for data\\script.dat, called from World::ctor-equivalent init path (also opens player.mec and mission.str at nearby offsets). Reads a fixed 20-byte header into DAT_004a9ed2 and uses it twice: World_LoadTheater(&header) takes the int16 at 0 as the theater and the int16 at 18 as its variant, and Terrain_LoadZone(header[2]) takes the int16 at 2 as THE ZONE INDEX -- verified against all ten retail script.dat files, every offset-2 value is a zone that ships. It also zeroes the field at offset 4 before use. Then 13 count-prefixed blocks in exact order matching VSHELL's WriteScriptDatFile (0041ac54): row6-coords(12B), row7-heading(2B, x0xb6 degrees->BAM), row8-nested-waypoints, row9(6B), row10-Action82(74B read, only 1 field of the row10-referencing sub-block reused), row11-ActionTimer30(24B, resolved via FUN_00423104), row12(134B raw, only the mech-type-ref field at rec-offset 40 kept), row13(92B raw, only rec-offset 44 field kept), row14(52B raw, only the type field kept), row15(14B, read and fully discarded), row16(156B, nested 20-entry crossref with a 3-way discriminator that marks row6/row7/row14 slots 'live' -- this is DBSIM's actual entity-activation mechanism), row17(54B, read and fully discarded), then a final flat count+array tail = row4's populated LUT-ref prefix (the mission's herc/weapon unlock package). See docs/formats/script-dat.md.",
       "source": "docs/formats/script-dat.md"
     },
     {
@@ -1259,8 +1259,8 @@
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "DBSim_BuildActionPairRecord",
-      "description": "Small helper called once per row11 (ActionPair30) record inside DBSim_LoadScriptDat: builds a resolved in-memory record from a target ref + a type/verb short + a 10-slot ref array, all already resolved to row10-array pointers by the caller.",
+      "name": "DBSim_BuildActionTimerRecord",
+      "description": "Small helper called once per row11 (ActionTimer30) record inside DBSim_LoadScriptDat: builds a resolved in-memory action timer from a primary-action ref + the delay short + a 10-slot ref array, all already resolved to row10-array pointers by the caller.",
       "source": "docs/formats/script-dat.md"
     },
     {
@@ -6321,7 +6321,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Base_ApplyDamage",
-      "description": "Structure vtable +0x74. Writes one component's damage against its BASES.DAT template max. Past half the maximum it rolls once per tenth of health the shot moved through, each a ~10% chance (rand & 0xfff <= 0x199) of destroying the component outright. On a kill it clears the alive flag, records the attacker at state+7, and if Base_DamageFraction reads 0x100 marks the structure destroyed (obj+0x99), fires its mission action (obj+0x1b6) and credits the kill through attacker vtable +0x60. Returns early when typeRec+0x1e (invulnerable) is set.",
+      "description": "Structure vtable +0x74. Writes one component's damage against its BASES.DAT template max. Past half the maximum it rolls once per tenth of health the shot moved through, each a ~10% chance (rand & 0xfff <= 0x199) of destroying the component outright. On a kill it clears the alive flag, records the attacker at state+7, and if Base_DamageFraction reads 0x100 marks the structure destroyed (obj+0x99), activates its mission action (obj+0x1b6) and credits the kill through attacker vtable +0x60. Returns early when typeRec+0x1e (invulnerable) is set.",
       "source": "docs/simulation/hit-detection.md 2026-08-27"
     },
     {

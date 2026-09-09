@@ -1,4 +1,4 @@
-﻿using Herculan.Engine.Numerics;
+using Herculan.Engine.Numerics;
 using Herculan.Engine.World;
 
 namespace Herculan.Engine.Sim;
@@ -319,19 +319,19 @@ public abstract class SimObject {
 	public bool Engaged { get; internal set; }
 
 	/// <summary>
-	/// Fires <see cref="EngagementAction"/>, if there is one. The original also gates this on
+	/// Activates <see cref="EngagementAction"/>, if there is one. The original also gates this on
 	/// <c>obj+0xa2</c> being clear; no writer of that byte has been located, so it is not modelled
-	/// and the gate reads as open. It would only ever suppress a second firing, which
-	/// <see cref="MissionActionState.Fire"/> already refuses.
+	/// and the gate reads as open. It would only ever suppress a second activation, which
+	/// <see cref="MissionActionState.Activate"/> already refuses.
 	/// </summary>
-	internal void FireEngagementAction(SimWorld world) => EngagementAction?.Fire(world);
+	internal void ActivateEngagementAction(SimWorld world) => EngagementAction?.Activate(world);
 
 	/// <summary>
-	/// Fires <see cref="DefeatAction"/>, if there is one. Every site guards on the object not already
-	/// being in that state, so it goes off once — and <see cref="MissionActionState.Fire"/> is
+	/// Activates <see cref="DefeatAction"/>, if there is one. Every site guards on the object not already
+	/// being in that state, so it goes off once — and <see cref="MissionActionState.Activate"/> is
 	/// one-shot regardless.
 	/// </summary>
-	internal void FireDefeatAction(SimWorld world) => DefeatAction?.Fire(world);
+	internal void ActivateDefeatAction(SimWorld world) => DefeatAction?.Activate(world);
 
 	/// <summary>
 	/// The object's body radius, in world units. The blast sweep subtracts it from every candidate's

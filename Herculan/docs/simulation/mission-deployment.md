@@ -1,34 +1,35 @@
 # Mission actions, deployment and drop pods (DBSIM.EXE)
 
 Addresses are DBSIM virtual addresses. Ported in `Herculan.Engine.Sim`: `MissionActionState`,
-`MissionActionPairState`, `MissionTriggers`, `MissionGroup.DeploymentCheck`, `Deployment` and
+`MissionActionTimerState`, `MissionTriggers`, `MissionGroup.DeploymentCheck`, `Deployment` and
 `MeteorObject`.
 
 A **mission action** is a `script.dat` block-5 record: a one-shot latch with consequences hanging
-off it. Something fires it, and everything waiting on it acts. It is the only scripting the
+off it. Something activates it, and everything waiting on it acts. It is the only scripting the
 simulation has — mission progression, reinforcement waves and the drop pods are all this one
 mechanism.
 
 See [`../formats/script-dat.md`](../formats/script-dat.md) for the record layouts and for how
 groups are placed in the first place.
 
-## The four ways an action fires
+## The four ways an action activates
 
-`Action_Fire` (`00423430`) is one-shot: it sets the action's runtime fired flag (in-memory `+0x0a`,
-zeroed at load), walks the ten (counter ref, operation) pairs at `+0x0c`/`+0x20` bumping (op 6) or
-clearing (op 5) the mission-counter array `DAT_004a9ef4`, and queues the message at `+0x34`. **The
+`Action_Activate` (`00423430`) is one-shot: it sets the action's runtime activation flag (in-memory
+`+0x0a`, zeroed at load), walks the ten (counter ref, operation) pairs at `+0x0c`/`+0x20` bumping
+(op 6) or clearing (op 5) the mission-counter array `DAT_004a9ef4`, and queues the message at
+`+0x34`. **The
 message queue is inside the counter loop**, so an action naming five counters posts its line five
 times and one naming none posts it not at all.
 
-| fired by | site | condition |
+| activated by | site | condition |
 |---|---|---|
 | its own trigger areas | `Actions_EvaluateTriggers` (`00426b70`) | a subject stands in one of them |
-| an action pair's timer | `ActionPair_Tick` (`004230a4`) | the pair's delay runs out |
+| an action timer | `ActionTimer_Tick` (`004230a4`) | the timer's delay runs out |
 | an object being engaged | `Detection_Sweep` (`004128f8`) | that object's `+0x1b2`, at 50000 units |
 | an object being defeated | four sites below | that object's `+0x1b6` |
 
 **None of these is the primary and the others fallbacks.** One action commonly carries two routes —
-in the shipped mission, action 0 has both a trigger area and a machine whose death fires it, and
+in the shipped mission, action 0 has both a trigger area and a machine whose death activates it, and
 whichever happens first wins.
 
 Both per-frame evaluators run from `Sim_MainTick` (`0045f464`), back to back and **after** the group
@@ -36,11 +37,11 @@ pass, not before it:
 
 ```
 per group: group+0x14 ? Group_DeploymentCheck : Group_OrderTick
-FUN_00426b48      // every action pair
+FUN_00426b48      // every action timer
 Actions_EvaluateTriggers(PlayerMech)
 ```
 
-So a group waiting on an action arrives on the tick *after* it fires.
+So a group waiting on an action arrives on the tick *after* it activates.
 
 ### Trigger areas — `Actions_EvaluateTriggers` (`00426b70`)
 
@@ -58,11 +59,11 @@ Walks the whole action array and, per action, picks whose position `Action_TestT
 
 **The deployment gate is part of the test**: types 2-6 skip a group whose `+0x14` is still set, so an
 undeployed group cannot trip an action, including the one it is itself waiting on. Each sweep stops
-at the first subject that fires the action.
+at the first subject that activates the action.
 
-`Action_TestTrigger` returns "in the area" for an action that has already fired without testing
+`Action_TestTrigger` returns "in the area" for an action that has already activated without testing
 anything, so the caller stops offering subjects. Otherwise it offers the position to each resolved
-block-4 area in turn (count `+0x04`, pointer array `+0x06`) and fires on the first hit.
+block-4 area in turn (count `+0x04`, pointer array `+0x06`) and activates it on the first hit.
 
 `DBSim_SpawnMissionObjects` (`004253d8`) resolves `+0x36` in a final pass over the array: types 7/8/9
 resolve it as a mech/flyer/base roster slot, type 10 as a group, and types 0-6 have it zeroed.
@@ -81,27 +82,27 @@ The resolved list stops at the **first negative ref**, not at the eighth slot: t
 up to the first `-1` and allocates exactly that many, so a populated slot behind a gap is never
 tested.
 
-### Action pairs — `ActionPair_Tick` (`004230a4`)
+### Action timers — `ActionTimer_Tick` (`004230a4`)
 
 The mission's timer, and the reason an action carrying no trigger area of its own is ordinary rather
-than dead. One block-6 record names a primary action, a delay and up to ten actions to fire:
+than dead. One block-6 record names a primary action, a delay and up to ten actions to activate:
 
 ```
-if (pair.primary == null || pair.primary.fired) {
-    if (Timer_CountDown(&pair.timer) == 0) {
-        for each of the ten sequence refs: if set, Action_Fire(it)
+if (timer.primary == null || timer.primary.activated) {
+    if (Timer_CountDown(&timer.countdown) == 0) {
+        for each of the ten sequence refs: if set, Action_Activate(it)
         re-arm the timer with 30000
     }
 }
 ```
 
-The delay is the file's stored value `<< 11`, so its unit is 2.048 s. A pair with no primary runs
-from mission start; one with a primary runs from the moment that action fires. The re-arm is through
-the same shift — about seventeen hours — and by then every action the pair names has fired, so the
-later expiry does nothing.
+The delay is the file's stored value `<< 11`, so its unit is 2.048 s. A timer with no primary runs
+from mission start; one with a primary runs from the moment that action activates. The re-arm is
+through the same shift — about seventeen hours — and by then every action the timer names has
+activated, so the later expiry does nothing.
 
-Chaining two of them staggers a sequence: `script6.dat` has action 1 arm a 92-second pair that fires
-action 2, which arms a 123-second pair that fires action 3.
+Chaining two of them staggers a sequence: `script6.dat` has action 1 arm a 92-second timer that
+activates action 2, which arms a 123-second timer that activates action 3.
 
 ### An object's own two actions — `+0x1b2` and `+0x1b6`
 
@@ -109,10 +110,10 @@ Every mech, flyer and structure carries two action pointers, resolved by
 `DBSim_SpawnMissionObjects` from its roster record's own refs (block 7 `0x80`/`0x82`, block 8
 `0x56`/`0x58`, block 9 `0x2e`/`0x30`).
 
-**`+0x1b2` — engaged.** `Detection_Sweep` fires it when a hostile that already has contact on this
-object closes to 50000 units; both parties latch `+0x9e` and both fire their own. It is gated on
+**`+0x1b2` — engaged.** `Detection_Sweep` activates it when a hostile that already has contact on this
+object closes to 50000 units; both parties latch `+0x9e` and both activate their own. It is gated on
 `obj+0xa2` being clear — **no writer of that byte has been located**, so what would suppress the
-firing is open.
+activation is open.
 
 **`+0x1b6` — defeated.** Four sites, and they are the four ways an object stops being a threat:
 
@@ -148,7 +149,7 @@ original, because nothing above can see or touch them.
 
 ## Arrival — `Group_DeploymentCheck` (`004236c4`)
 
-Runs every frame for every waiting group; does nothing until that group's action has fired. Once it
+Runs every frame for every waiting group; does nothing until that group's action has activated. Once it
 has, the action's **verb** (in-memory `+0x02`) picks how the group turns up. Every arrival point is
 relative to the player and comes from `Deployment_PickPointNearPlayer`.
 
@@ -236,15 +237,15 @@ drop-pod group has exactly one member.
 
 1,000 shorts: `FUN_0042412c` writes 2,000 bytes of the block to `mission_var` as a mission ends, so
 these are the **campaign's** variables and their reader is outside the simulation. Two things write
-them during a mission: `Action_Fire`, and a group's own completion hook `FUN_00423f30` (ops 1 clear,
+them during a mission: `Action_Activate`, and a group's own completion hook `FUN_00423f30` (ops 1 clear,
 2 increment, 0x0d-0x10 set to op − 0x0c), which is not ported.
 
 ## The shipped mission, end to end
 
 A worked example, because it is the only place the four mechanisms are visible together. The live
-`script.dat` fields 3 actions, 1 trigger area, 0 action pairs, and 8 Cybrid HERCs in six groups:
+`script.dat` fields 3 actions, 1 trigger area, 0 action timers, and 8 Cybrid HERCs in six groups:
 
-| stage | what fires it | who arrives |
+| stage | what activates it | who arrives |
 |---|---|---|
 | start | — | group 2, one ACHILLES, north of the player; group 8, two flyers |
 | wave 1 | group 2's machine dies (`+0x1b6` → action 0), **or** it walks into action 0's circle | groups 3 (two ACHILLES) and 4 (one), **in place** |
@@ -260,8 +261,8 @@ and 2 carry no area, so their only route is the kill.
 ## What is ported
 
 `MissionLoader` resolves blocks 4, 5 and 6 and every action ref — a group's `0x70`, an order's
-`+0x12`, a pair's, and each roster record's own two. `MissionScene` builds the runtime states and
-binds them. `SimWorld` holds the action array, the pair array, the counters and the pod pool, and
+`+0x12`, a timer's, and each roster record's own two. `MissionScene` builds the runtime states and
+binds them. `SimWorld` holds the action array, the timer array, the counters and the pod pool, and
 ticks them in `Sim_MainTick`'s order.
 
 `MissionGroup.AwaitingDeployment` is `group+0x14` and `SimObject.AwaitingDeployment` is a *read* of
@@ -277,14 +278,14 @@ Not ported, and each is a gap in something else rather than in this layer:
 
 The two walk-on verbs are implemented but unexercised: no mission has been found that uses them.
 Flyers do not move in this engine, so a flyer group can never trip a trigger area it would reach in
-retail — which can make a trigger fire later here than it does there.
+retail — which can make a trigger activate later here than it does there.
 
 ## Rejected readings
 
 | reading | why it is wrong |
 |---|---|
-| An action with no trigger area is unreachable | Three other things fire it; a mission's later actions routinely carry no area at all |
+| An action with no trigger area is unreachable | Three other things activate it; a mission's later actions routinely carry no area at all |
 | `Meteor_Construct`'s 70,000-95,000 is the spawn altitude | It is the horizontal run-in. The altitude is derived from it and is 30,600-55,200 |
 | `Deployment_PickPointNearPlayer` avoids deployed objects | Only for the walk-on verbs; a drop pod's point is picked without that test |
 | `Actions_EvaluateTriggers` runs before the group pass | `Sim_MainTick` runs it after, so a group arrives a tick after its trigger |
-| `obj+0x1b6` is a death action | It is also fired when a machine runs out of weapons |
+| `obj+0x1b6` is a death action | It is also activated when a machine runs out of weapons |

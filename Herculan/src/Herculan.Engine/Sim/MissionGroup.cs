@@ -261,7 +261,7 @@ public sealed partial class MissionGroup {
 			if (IsOrderComplete(world, order)) {
 				advance = true;
 				_completed[OrderIndex] = true;
-			} else if (order.GatedOnAction && ActionFired) {
+			} else if (order.GatedOnAction && ActionActivated) {
 				advance = true;
 			}
 		}
@@ -417,13 +417,13 @@ public sealed partial class MissionGroup {
 	}
 
 	/// <summary>
-	/// <c>order+0x12</c> — whether the mission action the current order hangs on has fired. An order
-	/// gated on one ends when it fires, whether or not the order finished on its own terms; see
+	/// <c>order+0x12</c> — whether the mission action the current order hangs on has activated. An
+	/// order gated on one ends when it activates, whether or not the order finished on its own terms; see
 	/// <see cref="AiTick"/>.
 	/// </summary>
-	private bool ActionFired =>
+	private bool ActionActivated =>
 		OrderIndex >= 0 && OrderIndex < _orderActions.Length
-			&& _orderActions[OrderIndex] is { Fired: true };
+			&& _orderActions[OrderIndex] is { Activated: true };
 
 	/// <summary>
 	/// Resolves one order slot's <c>+0x12</c> action, the same separate step

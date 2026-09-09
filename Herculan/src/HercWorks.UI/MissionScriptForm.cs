@@ -38,7 +38,7 @@ public partial class MissionScriptForm : Form {
 	private readonly BindingList<ScriptRouteRow> _routeRows = new();
 	private readonly BindingList<ScriptLinkRewardRow> _linkRows = new();
 	private readonly BindingList<ScriptActionRow> _actionRows = new();
-	private readonly BindingList<ScriptActionPairRow> _actionPairRows = new();
+	private readonly BindingList<ScriptActionTimerRow> _actionTimerRows = new();
 	private readonly BindingList<ScriptMechRow> _mechRows = new();
 	private readonly BindingList<ScriptWeaponSlotRow> _slotRows = new();
 	private readonly BindingList<ScriptFlyerRow> _flyerRows = new();
@@ -64,7 +64,7 @@ public partial class MissionScriptForm : Form {
 		_routesGrid.DataSource = _routeRows;
 		_linksGrid.DataSource = _linkRows;
 		_actionsGrid.DataSource = _actionRows;
-		_actionPairsGrid.DataSource = _actionPairRows;
+		_actionTimersGrid.DataSource = _actionTimerRows;
 		_mechsGrid.DataSource = _mechRows;
 		_loadoutGrid.DataSource = _slotRows;
 		_flyersGrid.DataSource = _flyerRows;
@@ -157,7 +157,7 @@ public partial class MissionScriptForm : Form {
 		Refill(_routeRows, script.WaypointGroups, (src, i) => new ScriptRouteRow { Index = i, Source = src });
 		Refill(_linkRows, script.LinksOrRewards, (src, i) => new ScriptLinkRewardRow { Index = i, Source = src });
 		Refill(_actionRows, script.Actions, (src, i) => new ScriptActionRow { Index = i, Source = src });
-		Refill(_actionPairRows, script.ActionPairs, (src, i) => new ScriptActionPairRow { Index = i, Source = src });
+		Refill(_actionTimerRows, script.ActionTimers, (src, i) => new ScriptActionTimerRow { Index = i, Source = src });
 		// A combo column rejects a value it has no item for, so any type or weapon id the file
 		// carries that MECHS.NAM/WeaponLUT has no name for needs an entry in the list first. Order
 		// matters both ways: the rows still bound here are the previously loaded file's, whose
@@ -419,10 +419,10 @@ public partial class MissionScriptForm : Form {
 			CheckRefs(warnings, $"Action {i} link refs", script.Actions[i].RefsRow9, script.LinksOrRewards.Length, "links/rewards");
 		}
 
-		for (int i = 0; i < script.ActionPairs.Length; i++) {
-			var pair = script.ActionPairs[i];
-			CheckRef(warnings, $"Action pair {i} action ref", pair.PrimaryActionRef, script.Actions.Length, "actions");
-			CheckRefs(warnings, $"Action pair {i} sequence refs", pair.SequenceRefs, script.Actions.Length, "actions");
+		for (int i = 0; i < script.ActionTimers.Length; i++) {
+			var timer = script.ActionTimers[i];
+			CheckRef(warnings, $"Action timer {i} action ref", timer.PrimaryActionRef, script.Actions.Length, "actions");
+			CheckRefs(warnings, $"Action timer {i} sequence refs", timer.SequenceRefs, script.Actions.Length, "actions");
 		}
 
 		for (int i = 0; i < script.SpawnRecords.Length; i++) {

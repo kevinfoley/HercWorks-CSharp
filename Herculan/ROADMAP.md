@@ -71,10 +71,10 @@ The engine cannot be faithful here until the original is understood.
 - **Flyer texture banks.** Which `.DBA` DBSIM binds for a flyer is untraced, so flyers draw
   flat-shaded.
   → [`docs/formats/dts-texture-binding.md`](docs/formats/dts-texture-binding.md)
-- **The mission message an action queues.** `Action_Fire` queues the line named at action `+0x34`;
+- **The mission message an action queues.** `Action_Activate` queues the line named at action `+0x34`;
   the id is decoded and carried but `data\mission.str` is not loaded, so nothing is posted.
   → [`docs/simulation/mission-deployment.md`](docs/simulation/mission-deployment.md)
-- **The mission counters' reader.** `DAT_004a9ef4` is written by a firing action and dumped to
+- **The mission counters' reader.** `DAT_004a9ef4` is written by an activating action and dumped to
   `mission_var` at mission end; the campaign layer that reads it back is not ported.
   → [`docs/simulation/mission-deployment.md`](docs/simulation/mission-deployment.md)
 - **The drop pod's ground mark.** The leftover effect a landed pod spawns comes from the theater's

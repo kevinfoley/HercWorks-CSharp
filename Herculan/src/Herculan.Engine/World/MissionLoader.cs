@@ -152,7 +152,7 @@ public static class MissionLoader {
 		}
 
 		var actions = ResolveActions(script);
-		var actionPairs = ResolveActionPairs(script);
+		var actionTimers = ResolveActionTimers(script);
 
 		var deploymentActions = new int[groups.Length];
 		var groupKinds = new MissionUnitKind[groups.Length];
@@ -164,31 +164,31 @@ public static class MissionLoader {
 		}
 
 		return new Mission(scriptPath, header, placements, player, basePads, coordinates, playerRoute,
-			groupOrders, actions, actionPairs, deploymentActions, groupKinds, groupSides);
+			groupOrders, actions, actionTimers, deploymentActions, groupKinds, groupSides);
 	}
 
 	/// <summary>
 	/// Block 6 — the mission's timers, as <c>DBSim_LoadScriptDat</c> (<c>00424308</c>) resolves them
-	/// through <c>DBSim_BuildActionPairRecord</c> (<c>00423104</c>). The stored delay is shifted into
+	/// through <c>DBSim_BuildActionTimerRecord</c> (<c>00423104</c>). The stored delay is shifted into
 	/// milliseconds here, which is what <c>FUN_004679c0</c> does as it arms the countdown.
 	/// </summary>
-	private static MissionActionPair[] ResolveActionPairs(ScriptDat script) {
-		var pairs = new MissionActionPair[script.ActionPairs.Length];
+	private static MissionActionTimer[] ResolveActionTimers(ScriptDat script) {
+		var timers = new MissionActionTimer[script.ActionTimers.Length];
 
-		for (int i = 0; i < pairs.Length; i++) {
-			var record = script.ActionPairs[i];
-			pairs[i] = new MissionActionPair(
+		for (int i = 0; i < timers.Length; i++) {
+			var record = script.ActionTimers[i];
+			timers[i] = new MissionActionTimer(
 				ActionRef(script, record.PrimaryActionRef),
-				record.TimerValue << MissionActionPair.DelayShift,
+				record.TimerValue << MissionActionTimer.DelayShift,
 				record.SequenceRefs);
 		}
 
-		return pairs;
+		return timers;
 	}
 
 	/// <summary>
 	/// One block-5 ref, bounds-checked against the action array. Everything that names an action —
-	/// a group's arrival gate, an order, a pair, and a roster record's own two — goes through this.
+	/// a group's arrival gate, an order, a timer, and a roster record's own two — goes through this.
 	/// </summary>
 	private static short ActionRef(ScriptDat script, short reference) =>
 		reference >= 0 && reference < script.Actions.Length ? reference : (short)-1;

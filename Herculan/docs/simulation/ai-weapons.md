@@ -109,7 +109,7 @@ When every mount is either absent or destroyed, and the flag is not already up:
 
 ```
 mech+0xa5 = 1
-if (mech+0x1b6) Action_Fire(mech+0x1b6)          // the object's own mission action
+if (mech+0x1b6) Action_Activate(mech+0x1b6)      // the object's own mission action
 if (DAT_004a9ee7 < 1000) DAT_004a9ee7 = 1000     // the radio cooldown
 ```
 

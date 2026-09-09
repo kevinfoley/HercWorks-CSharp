@@ -395,7 +395,7 @@ public sealed class BaseObject : SimObject {
 			// And the structure's own mission action, where Base_ApplyDamage fires it. See
 			// SimObject.DefeatAction.
 			if (world != null) {
-				FireDefeatAction(world);
+				ActivateDefeatAction(world);
 			}
 		}
 

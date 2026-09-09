@@ -50,8 +50,8 @@ public class ScriptDat {
 	/// <summary>Block 5 — row #10 (<see cref="Action82"/>) export: every field except GUID/condition/Unk04.</summary>
 	public ScriptAction[] Actions { get; set; } = [];
 
-	/// <summary>Block 6 — row #11 (<see cref="ActionPair30"/>) export: the resolved target/type/refs only.</summary>
-	public ScriptActionPair[] ActionPairs { get; set; } = [];
+	/// <summary>Block 6 — row #11 (<see cref="ActionTimer30"/>) export: the resolved target/type/refs only.</summary>
+	public ScriptActionTimer[] ActionTimers { get; set; } = [];
 
 	/// <summary>
 	/// Block 7 — row #12 (<see cref="EntityTemplate144"/>) export, 134 bytes/record: <b>the mech
@@ -161,7 +161,7 @@ public class ScriptAction {
 }
 
 /// <summary>Block 6 entry — 24 bytes, row #11's resolved target/type/refs only.</summary>
-public class ScriptActionPair {
+public class ScriptActionTimer {
 	public short PrimaryActionRef { get; set; }
 	public short TimerValue { get; set; }
 	public short[] SequenceRefs { get; set; } = new short[10];

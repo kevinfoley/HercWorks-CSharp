@@ -49,7 +49,7 @@ public sealed partial class MissionGroup {
 	/// </list>
 	/// </summary>
 	public void DeploymentCheck(SimWorld world) {
-		if (_deploymentAction is not { Fired: true } action) {
+		if (_deploymentAction is not { Activated: true } action) {
 			return;
 		}
 

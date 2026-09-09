@@ -99,7 +99,7 @@ testing it against every real file — see "Verification note" below):
 | 8 | `DAT_00470656` | **variable**: 10 fixed bytes/record + (nested-count × 2) bytes | `DAT_0047061c` | #6 (nested entries) | **decoded — see "Row #8 field decode" below.** A named, orderable list of row #6 world positions (`WaypointGroup`) — a patrol route/waypoint chain, with real evidence of both spatial coherence and closed-loop (patrol circuit) structure |
 | 9 | `DAT_0047065e` | 12 (`0xc`) bytes/record | `DAT_0047062c` | #6, self | **decoded — see "Row #9 field decode" below.** A typed dual-purpose record: a GUID-pair "link" (two refs into row #6) when its type flag is 0, or a single row-#6 ref plus a round-number literal (likely a credit/reward value) when the flag is 1 |
 | 10 | `DAT_00470660` | 82 (`0x52`) bytes/record | `DAT_00470630` | #9 (8 shorts), LUT `DAT_00470664` (5 shorts) | referenced later by a **4-way type-discriminated remap** (codes 7/8/9/10 → #12/#13/#14/#16) — strong candidate for an "action/objective" record |
-| 11 | `DAT_00470662` | 30 (`0x1e`) bytes/record | `DAT_00470634` | #10 (once) + #10 again (10 shorts) | **decoded — see "Row #11 field decode" below.** The nominal 10-slot "sequence" array is a red herring in practice: **96% of real records use at most 1 of its 10 slots**, same "declared capacity, barely used" pattern as row #10's own sub-arrays. Functionally an action-to-action pairing, not a multi-step sequence |
+| 11 | `DAT_00470662` | 30 (`0x1e`) bytes/record | `DAT_00470634` | #10 (once) + #10 again (10 shorts) | **decoded — see "Row #11 field decode" below.** A mission timer: an action that arms it, a delay, and the actions fired on expiry. DBSIM reads all ten sequence slots, but not all of them are always used |
 | 12 | `DAT_00470652` | 144 (`0x90`) bytes/record | `DAT_00470614` | #6, #7, #10 (×2) — sparse in retail (≤2.4% used) but all live at runtime; real payload is a 10-slot weapon fit | **decoded — see "Row #12 field decode" below.** The mission's **mech roster**: one record per HERC it can field, with type, weapon fit and optional placement. A second, distinct 144-byte type from #4; heaviest template-inheritance usage of any decoded row (48%) |
 | 13 | `DAT_00470654` | 102 (`0x66`) bytes/record | `DAT_00470618` | #6, #7 (both declared, both dead in retail), #10 (×2, only the 2nd slot real) | **decoded — see "Row #13 field decode" below.** `UnkEntity102Bytes` — real structure is a 20-flag boolean array + a mostly-inert second 20-slot span + a constant trailing field (always `100`), not the flat `Flags[49]` the old hypothesis assumed; the macro pass's "inherit only" note missed all four real cross-refs |
 | 14 | `DAT_0047065c` | 62 (`0x3e`) bytes/record | `DAT_00470628` | #6, #7, #10 (×2) | **decoded — see "Row #14 field decode" below.** `MiscEntityInfo` — 4 real cross-refs, not the 3 the macro pass found (it missed #7); a type-like field at `0x08` correlates ~99% with the trailing constant field being `100` vs `0` |
@@ -229,18 +229,19 @@ Heading record (degrees → BAM conversion). 105 real instances; simplest record
 | `0x08` | payload | 0/1/10 (62%/34%/4%); multiplied by 182 → degrees to BAM |
 
 
-## Row #11 field decode — "ActionPair30" (`DAT_00470662`, 30 bytes/record)
+## Row #11 field decode — "ActionTimer30" (`DAT_00470662`, 30 bytes/record)
 
-Paired actions; nominal 10-slot array is dead (96% use ≤1 slot). 72 real instances.
+A mission timer: an action that arms it, a delay, and the actions fired when the delay runs out. 72
+real instances.
 
 | offset | field | notes |
 |---|---|---|
 | `0x00` | GUID | identity key |
 | `0x02` | condition ref | **dead** — always `-1` |
 | `0x04` | ? | **dead** — always `-1` |
-| `0x06` | ref→row #10 | 82% real; dominant field |
-| `0x08` | timer | round numbers (10/30/60/120 etc.); seconds likely |
-| `0x0A–0x1D` | nominal ref[1..9]→row #10 | **dead** — 96% use only slot 0; rest always `-1` |
+| `0x06` | ref→row #10 | the action that arms the timer; 82% real. Unset means it runs from mission start |
+| `0x08` | delay | DBSIM shifts it left 11 into milliseconds, so the unit is 2.048 s |
+| `0x0A–0x1D` | ref[0..9]→row #10 | the actions fired on expiry. **Unused in retail data past slot 0**, but not dead: DBSIM resolves and fires all ten |
 
 
 ## Row #4 field decode — "RewardPackage144" (`DAT_00470668`, 144 bytes/record)

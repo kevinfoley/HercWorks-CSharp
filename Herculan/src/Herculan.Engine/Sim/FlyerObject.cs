@@ -243,7 +243,7 @@ public sealed class FlyerObject : SimObject {
 		LastAttacker = attacker;
 
 		if (!wasDestroyed && world != null) {
-			FireDefeatAction(world);
+			ActivateDefeatAction(world);
 		}
 	}
 

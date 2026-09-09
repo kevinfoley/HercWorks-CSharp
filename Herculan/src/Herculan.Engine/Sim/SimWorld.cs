@@ -207,18 +207,18 @@ public sealed class SimWorld {
 	private readonly List<MissionActionState> _actions = new();
 
 	/// <summary>
-	/// <c>DAT_004a9ebc</c>, count <c>DAT_004a9eb8</c> — the mission's block-6 action pairs, its
-	/// timers. See <see cref="MissionActionPairState"/>.
+	/// <c>DAT_004a9ebc</c>, count <c>DAT_004a9eb8</c> — the mission's block-6 timers. See
+	/// <see cref="MissionActionTimerState"/>.
 	/// </summary>
-	public IReadOnlyList<MissionActionPairState> ActionPairs => _actionPairs;
+	public IReadOnlyList<MissionActionTimerState> ActionTimers => _actionTimers;
 
-	/// <summary>Installs the mission's action-pair array. Done once, at load.</summary>
-	public void SetActionPairs(IReadOnlyList<MissionActionPairState> pairs) {
-		_actionPairs.Clear();
-		_actionPairs.AddRange(pairs);
+	/// <summary>Installs the mission's action-timer array. Done once, at load.</summary>
+	public void SetActionTimers(IReadOnlyList<MissionActionTimerState> timers) {
+		_actionTimers.Clear();
+		_actionTimers.AddRange(timers);
 	}
 
-	private readonly List<MissionActionPairState> _actionPairs = new();
+	private readonly List<MissionActionTimerState> _actionTimers = new();
 
 	/// <summary>
 	/// <c>DAT_004a9ef4</c> — the mission counter array a firing action bumps or clears. Nothing in
@@ -1206,8 +1206,8 @@ public sealed class SimWorld {
 		// Actions_EvaluateTriggers back to back and -- the part that is easy to get backwards --
 		// *after* the group pass, not before it. So an action that fires this tick is not seen by the
 		// group waiting on it until the next one, and a group arrives a tick after its trigger.
-		for (int i = 0; i < _actionPairs.Count; i++) {
-			_actionPairs[i].Tick(this);
+		for (int i = 0; i < _actionTimers.Count; i++) {
+			_actionTimers[i].Tick(this);
 		}
 
 		MissionTriggers.Evaluate(this);

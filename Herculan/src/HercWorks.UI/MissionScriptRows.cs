@@ -115,8 +115,8 @@ internal sealed class ScriptActionRow : ScriptRow {
 }
 
 /// <summary>Block 6.</summary>
-internal sealed class ScriptActionPairRow : ScriptRow {
-	public required ScriptActionPair Source { get; init; }
+internal sealed class ScriptActionTimerRow : ScriptRow {
+	public required ScriptActionTimer Source { get; init; }
 
 	public short PrimaryActionRef { get => Source.PrimaryActionRef; set => Source.PrimaryActionRef = value; }
 	public short TimerValue { get => Source.TimerValue; set => Source.TimerValue = value; }

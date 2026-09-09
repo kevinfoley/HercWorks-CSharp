@@ -132,7 +132,7 @@ public static class Detection {
 	/// this tick have already been shared to it by the time it looks.</item>
 	/// <item><b>A per-object byte</b> the original touches at the end (<c>obj+0xa2</c>, which gates
 	/// the engagement action in <see cref="Sweep"/>). No writer of it has been located, so nothing is
-	/// modelled here and the gate reads as open — see <see cref="SimObject.FireEngagementAction"/>.</item>
+	/// modelled here and the gate reads as open — see <see cref="SimObject.ActivateEngagementAction"/>.</item>
 	/// </list>
 	/// </summary>
 	public static void Tick(SimWorld world) {
@@ -226,9 +226,9 @@ public static class Detection {
 			if (self.Detects(other) && other.Detects(self)) {
 				if (distance < EngagementRange) {
 					other.Engaged = true;
-					self.FireEngagementAction(world);
+					self.ActivateEngagementAction(world);
 					self.Engaged = true;
-					other.FireEngagementAction(world);
+					other.ActivateEngagementAction(world);
 				}
 
 				continue;

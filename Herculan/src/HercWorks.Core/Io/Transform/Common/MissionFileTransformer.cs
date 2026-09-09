@@ -41,7 +41,7 @@ public class MissionFileTransformer : ByteTransformer<MissionFile> {
 		data.WaypointGroups = ReadArray(ParseRow8);
 		data.LinksOrRewards = ReadArray(ParseRow9);
 		data.Actions = ReadArray(ParseRow10);
-		data.ActionPairs = ReadArray(ParseRow11);
+		data.ActionTimers = ReadArray(ParseRow11);
 		data.SpawnRecords = ReadArray(ParseRow12);
 		data.Entities102 = ReadArray(ParseRow13);
 		data.MiscEntities = ReadArray(ParseRow14);
@@ -155,9 +155,9 @@ public class MissionFileTransformer : ByteTransformer<MissionFile> {
 		Target = IndexShortLE()
 	};
 
-	// ---- Row #11: ActionPair30 (30 bytes) ---------------------------------------------------
+	// ---- Row #11: ActionTimer30 (30 bytes) ---------------------------------------------------
 
-	private ActionPair30 ParseRow11() => new() {
+	private ActionTimer30 ParseRow11() => new() {
 		GUID = IndexShortLE(),
 		ConditionRef = IndexShortLE(),
 		Unk04 = IndexShortLE(),
@@ -343,7 +343,7 @@ public class MissionFileTransformer : ByteTransformer<MissionFile> {
 		WriteArray(outStream, data.WaypointGroups!, WriteRow8);
 		WriteArray(outStream, data.LinksOrRewards!, WriteRow9);
 		WriteArray(outStream, data.Actions!, WriteRow10);
-		WriteArray(outStream, data.ActionPairs!, WriteRow11);
+		WriteArray(outStream, data.ActionTimers!, WriteRow11);
 		WriteArray(outStream, data.SpawnRecords!, WriteRow12);
 		WriteArray(outStream, data.Entities102!, WriteRow13);
 		WriteArray(outStream, data.MiscEntities!, WriteRow14);
@@ -441,7 +441,7 @@ public class MissionFileTransformer : ByteTransformer<MissionFile> {
 		Emit(o, WriteShortLE(e.Target));
 	}
 
-	private void WriteRow11(MemoryStream o, ActionPair30 e) {
+	private void WriteRow11(MemoryStream o, ActionTimer30 e) {
 		Emit(o, WriteShortLE(e.GUID));
 		Emit(o, WriteShortLE(e.ConditionRef));
 		Emit(o, WriteShortLE(e.Unk04));

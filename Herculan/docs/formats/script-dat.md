@@ -32,7 +32,7 @@
 | #8 `WaypointGroup` | `DAT_00470656` | `DAT_0047061c` | variable |
 | #9 `LinkOrReward12` | `DAT_0047065e` | `DAT_0047062c` | 12B |
 | #10 `Action82` | `DAT_00470660` | `DAT_00470630` | 82B |
-| #11 `ActionPair30` | `DAT_00470662` | `DAT_00470634` | 30B |
+| #11 `ActionTimer30` | `DAT_00470662` | `DAT_00470634` | 30B |
 | #12 (144B type) | `DAT_00470652` | `DAT_00470614` | 144B |
 | #13 `UnkEntity102Bytes` | `DAT_00470654` | `DAT_00470618` | 102B |
 | #14 `MiscEntityInfo` | `DAT_0047065c` | `DAT_00470628` | 62B |
@@ -65,7 +65,7 @@ DBSIM reads `script.dat` **twice**, and the two passes want different things:
 
 | pass | function | what it does |
 |---|---|---|
-| 1 | `DBSim_LoadScriptDat` (`00424308`) | Counts. Keeps blocks 1-6 (the shared reference tables: coordinates, headings, waypoint groups, links, actions, action pairs). For blocks 7-9 it keeps **only the type field** of each record, and for block 11 it keeps **only which slots each record activates**. It then allocates one object pool per class, sized to the live count. Nothing is placed. |
+| 1 | `DBSim_LoadScriptDat` (`00424308`) | Counts. Keeps blocks 1-6 (the shared reference tables: coordinates, headings, waypoint groups, links, actions, action timers). For blocks 7-9 it keeps **only the type field** of each record, and for block 11 it keeps **only which slots each record activates**. It then allocates one object pool per class, sized to the live count. Nothing is placed. |
 | 2 | `DBSim_SpawnMissionObjects` (`004253d8`) | Builds. Re-opens the file, skips blocks 1-6, and re-reads blocks 7-13 in full — constructing each live object and reading its position ref, heading ref, weapon fit and action links straight out of its own record, then grouping them from block 11. |
 
 **Pass 1 alone looks like `script.dat` carries no placement data** (blocks 7-9 reduced to one field
@@ -283,7 +283,7 @@ pass 2 goes back for.
 | 3 | #8 `WaypointGroup` | count + per record: nested-count (2B) + nested-count×2B (waypoint refs into block 1) | yes | full, nested refs resolved to block-1 pointers (stride 3 ints) | full, same resolution |
 | 4 | #9 `LinkOrReward12` | count + count×6B (`0x06` type flag, `0x08` ref1, `0x0A` ref2/literal) | yes | full, resolved by `FUN_00423358` into a 10-byte record — **a trigger area**: type flag, block-1 pointer, then either a second block-1 pointer (type 0, an XY box) or the literal × 10 (type != 0, a radius). Tested by `FUN_004233a4` | **skipped** (seek past, discarded) |
 | 5 | #10 `Action82` | count + count×74B (`0x06` type, `0x08` verb, `0x0A`-`0x19` ref[0..7] into row 9, `0x1C`/`0x1E`-stride interleaved 20-short span, `0x44`-`0x4D` herc-LUT ref[0..4], `0x4E` secondary, `0x50` target) | yes | reads all 74B but only **keeps** type, verb, the 8 refs (resolved to row-9 pointers), the 40-byte interleaved span, secondary (decremented by 1), and target — **the herc-LUT refs are read then discarded**, DBSIM has no use for the cosmetic/economy LUT | **skipped** (seek past, discarded) |
-| 6 | #11 `ActionPair30` | count + count×24B (`0x06` ref into row10, `0x08` delay, `0x0A`-`0x1D` 10-slot ref array into row10) | yes | full, resolved via `DBSim_BuildActionPairRecord` (`FUN_00423104`) — **a mission timer**, see below | **skipped** (seek past, discarded) |
+| 6 | #11 `ActionTimer30` | count + count×24B (`0x06` ref into row10, `0x08` delay, `0x0A`-`0x1D` 10-slot ref array into row10) | yes | full, resolved via `DBSim_BuildActionTimerRecord` (`FUN_00423104`) — **a mission timer**, see below | **skipped** (seek past, discarded) |
 | 7 | #12 (144B type) | count + count×134B (`0x08`-`0x2F` 40B span, `0x30` `SmallDiscrete`, `0x32`-`0x45` 20B span, `0x46`/`0x48` 2 shorts, two 20-short interleaved spans, `0x74`-`0x87` 20B span, 4 trailing shorts; `SmallDiscrete2` at `0x4A` is the one field of row #12 skipped/not exported) | yes | reads all 134B but keeps **only `SmallDiscrete` (`0x30`)**, the mech type — confirmed via the writer's own assert string on this field ("Invalid mech type"). Pass 2 comes back for the rest | **full 134B kept** — the map editor needs the whole record (name, position refs, etc.) to render/edit a placed unit |
 | 8 | #13 `UnkEntity102Bytes` | count + count×92B (`0x08`-`0x33` `FlagsA`+refs, `0x34` `BinaryField`, `0x38`-`0x5F` `FlagsB`, `0x60`-`0x64` refs+`UnkVal_100`; `Unk36` at `0x36` is skipped/not exported) | yes | reads all 92B but keeps only **`BinaryField` (`0x34`)**, the flyer type. Pass 2 comes back for the rest | **skipped** (seek past, discarded) |
 | 9 | #14 `MiscEntityInfo` | count + count×52B (`0x08` `TypeLikeScalar`, `0x0A`-`0x3D` refs+`SparseBlock`+`TrailingField`) | yes | reads all 52B but keeps only **`TypeLikeScalar` (`0x08`)** — the base type, an index into `dat\BASES.DAT`'s 65-entry table. Pass 2 comes back for the rest | **full 52B kept** |
@@ -305,24 +305,24 @@ dropped, then `+0x34` and `+0x36`. What each field then means is
 | `0x00` | `0x06` | type — selects whose position the trigger tests |
 | `0x02` | `0x08` | verb — selects how a group holding this action arrives |
 | `0x04` / `0x06` | `0x0A`-`0x19` | count of, and pointer to, the resolved block-4 trigger areas. **The count stops at the first negative ref**, not at the eighth slot |
-| `0x0a` | — | **fired flag** — runtime only, zeroed at load, set once by `Action_Fire` (`00423430`) |
+| `0x0a` | — | **activation flag** — runtime only, zeroed at load, set once by `Action_Activate` (`00423430`) |
 | `0x0c` | `0x1C`-stride span | ten mission-counter refs |
 | `0x20` | `0x1E`-stride span | ten parallel operations: 6 increments the counter, 5 clears it |
-| `0x34` | `0x4E` | the mission message queued on firing, **file value − 1** |
+| `0x34` | `0x4E` | the mission message queued on activation, **file value − 1** |
 | `0x36` | `0x50` | target ref, resolved in place to an object or group pointer by `DBSim_SpawnMissionObjects` |
 
 The herc-LUT refs at `0x44`-`0x4D` are the ten bytes read and dropped; DBSIM has no use for them.
 
 ### Block 6 in memory — 49 bytes (`0x31`)
 
-`DBSim_BuildActionPairRecord` (`00423104`) resolves each ref to a block-5 record pointer and arms
+`DBSim_BuildActionTimerRecord` (`00423104`) resolves each ref to a block-5 record pointer and arms
 the timer through `FUN_004679c0`, which stores the file value **shifted left 11** — so the on-disk
 unit is 2.048 seconds.
 
 | offset | from | field |
 |---|---|---|
 | `0x00` | `0x06` | the primary action, or null. Null means the timer runs from mission start |
-| `0x04`-`0x28` | `0x0A`-`0x1D` | ten action pointers, fired together when the timer expires |
+| `0x04`-`0x28` | `0x0A`-`0x1D` | ten action pointers, activated together when the timer expires |
 | `0x2c` | `0x08` | the countdown, in milliseconds |
 
 This is the mission's timer, and it is why an action carrying no trigger area of its own is ordinary

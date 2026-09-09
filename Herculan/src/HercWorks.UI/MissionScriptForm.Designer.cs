@@ -79,8 +79,8 @@ partial class MissionScriptForm {
 		_acArrayAColumn = new DataGridViewTextBoxColumn();
 		_acArrayBColumn = new DataGridViewTextBoxColumn();
 
-		_actionPairsTab = new TabPage();
-		_actionPairsGrid = new DataGridView();
+		_actionTimersTab = new TabPage();
+		_actionTimersGrid = new DataGridView();
 		_apIndexColumn = new DataGridViewTextBoxColumn();
 		_apPrimaryColumn = new DataGridViewTextBoxColumn();
 		_apTimerColumn = new DataGridViewTextBoxColumn();
@@ -180,8 +180,8 @@ partial class MissionScriptForm {
 		((System.ComponentModel.ISupportInitialize)_linksGrid).BeginInit();
 		_actionsTab.SuspendLayout();
 		((System.ComponentModel.ISupportInitialize)_actionsGrid).BeginInit();
-		_actionPairsTab.SuspendLayout();
-		((System.ComponentModel.ISupportInitialize)_actionPairsGrid).BeginInit();
+		_actionTimersTab.SuspendLayout();
+		((System.ComponentModel.ISupportInitialize)_actionTimersGrid).BeginInit();
 		_mechsTab.SuspendLayout();
 		((System.ComponentModel.ISupportInitialize)_mechsSplit).BeginInit();
 		_mechsSplit.Panel1.SuspendLayout();
@@ -252,7 +252,7 @@ partial class MissionScriptForm {
 		_tabs.Controls.Add(_routesTab);
 		_tabs.Controls.Add(_linksTab);
 		_tabs.Controls.Add(_actionsTab);
-		_tabs.Controls.Add(_actionPairsTab);
+		_tabs.Controls.Add(_actionTimersTab);
 		_tabs.Controls.Add(_mechsTab);
 		_tabs.Controls.Add(_flyersTab);
 		_tabs.Controls.Add(_basesTab);
@@ -693,32 +693,32 @@ partial class MissionScriptForm {
 		_acArrayBColumn.ReadOnly = true;
 		_acArrayBColumn.Width = 200;
 		//
-		// _actionPairsTab
+		// _actionTimersTab
 		//
-		_actionPairsTab.Controls.Add(_actionPairsGrid);
-		_actionPairsTab.Location = new Point(4, 44);
-		_actionPairsTab.Name = "_actionPairsTab";
-		_actionPairsTab.Padding = new Padding(3);
-		_actionPairsTab.Size = new Size(1052, 556);
-		_actionPairsTab.TabIndex = 6;
-		_actionPairsTab.Text = "Action Pairs";
-		_actionPairsTab.UseVisualStyleBackColor = true;
+		_actionTimersTab.Controls.Add(_actionTimersGrid);
+		_actionTimersTab.Location = new Point(4, 44);
+		_actionTimersTab.Name = "_actionTimersTab";
+		_actionTimersTab.Padding = new Padding(3);
+		_actionTimersTab.Size = new Size(1052, 556);
+		_actionTimersTab.TabIndex = 6;
+		_actionTimersTab.Text = "Action Timers";
+		_actionTimersTab.UseVisualStyleBackColor = true;
 		//
-		// _actionPairsGrid
+		// _actionTimersGrid
 		//
-		_actionPairsGrid.AllowUserToAddRows = false;
-		_actionPairsGrid.AllowUserToDeleteRows = false;
-		_actionPairsGrid.AutoGenerateColumns = false;
-		_actionPairsGrid.Columns.AddRange(new DataGridViewColumn[] {
+		_actionTimersGrid.AllowUserToAddRows = false;
+		_actionTimersGrid.AllowUserToDeleteRows = false;
+		_actionTimersGrid.AutoGenerateColumns = false;
+		_actionTimersGrid.Columns.AddRange(new DataGridViewColumn[] {
 			_apIndexColumn, _apPrimaryColumn, _apTimerColumn, _apSequenceColumn
 		});
-		_actionPairsGrid.Dock = DockStyle.Fill;
-		_actionPairsGrid.Location = new Point(3, 3);
-		_actionPairsGrid.Name = "_actionPairsGrid";
-		_actionPairsGrid.RowHeadersVisible = false;
-		_actionPairsGrid.Size = new Size(1046, 550);
-		_actionPairsGrid.TabIndex = 0;
-		_actionPairsGrid.DataError += OnGridDataError;
+		_actionTimersGrid.Dock = DockStyle.Fill;
+		_actionTimersGrid.Location = new Point(3, 3);
+		_actionTimersGrid.Name = "_actionTimersGrid";
+		_actionTimersGrid.RowHeadersVisible = false;
+		_actionTimersGrid.Size = new Size(1046, 550);
+		_actionTimersGrid.TabIndex = 0;
+		_actionTimersGrid.DataError += OnGridDataError;
 		//
 		// _apIndexColumn
 		//
@@ -1420,8 +1420,8 @@ partial class MissionScriptForm {
 		((System.ComponentModel.ISupportInitialize)_linksGrid).EndInit();
 		_actionsTab.ResumeLayout(false);
 		((System.ComponentModel.ISupportInitialize)_actionsGrid).EndInit();
-		_actionPairsTab.ResumeLayout(false);
-		((System.ComponentModel.ISupportInitialize)_actionPairsGrid).EndInit();
+		_actionTimersTab.ResumeLayout(false);
+		((System.ComponentModel.ISupportInitialize)_actionTimersGrid).EndInit();
 		_mechsTab.ResumeLayout(false);
 		_mechsSplit.Panel1.ResumeLayout(false);
 		_mechsSplit.Panel2.ResumeLayout(false);
@@ -1511,8 +1511,8 @@ partial class MissionScriptForm {
 	private DataGridViewTextBoxColumn _acArrayAColumn;
 	private DataGridViewTextBoxColumn _acArrayBColumn;
 
-	private TabPage _actionPairsTab;
-	private DataGridView _actionPairsGrid;
+	private TabPage _actionTimersTab;
+	private DataGridView _actionTimersGrid;
 	private DataGridViewTextBoxColumn _apIndexColumn;
 	private DataGridViewTextBoxColumn _apPrimaryColumn;
 	private DataGridViewTextBoxColumn _apTimerColumn;

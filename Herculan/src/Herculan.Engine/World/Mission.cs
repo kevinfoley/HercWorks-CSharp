@@ -123,7 +123,7 @@ public sealed class Mission {
 			IReadOnlyList<Vec3i> coordinates, IReadOnlyList<Vec3i> playerRoute,
 			IReadOnlyList<IReadOnlyList<MissionOrder?>> groupOrders,
 			IReadOnlyList<MissionAction> actions,
-			IReadOnlyList<MissionActionPair> actionPairs,
+			IReadOnlyList<MissionActionTimer> actionTimers,
 			IReadOnlyList<int> groupDeploymentActions,
 			IReadOnlyList<MissionUnitKind> groupKinds,
 			IReadOnlyList<MissionSide> groupSides) {
@@ -136,7 +136,7 @@ public sealed class Mission {
 		PlayerRoute = playerRoute;
 		GroupOrders = groupOrders;
 		Actions = actions;
-		ActionPairs = actionPairs;
+		ActionTimers = actionTimers;
 		GroupDeploymentActions = groupDeploymentActions;
 		GroupKinds = groupKinds;
 		GroupSides = groupSides;
@@ -189,9 +189,9 @@ public sealed class Mission {
 	public IReadOnlyList<MissionAction> Actions { get; }
 
 	/// <summary>
-	/// Block 6 in file order — the mission's timers. See <see cref="MissionActionPair"/>.
+	/// Block 6 in file order — the mission's timers. See <see cref="MissionActionTimer"/>.
 	/// </summary>
-	public IReadOnlyList<MissionActionPair> ActionPairs { get; }
+	public IReadOnlyList<MissionActionTimer> ActionTimers { get; }
 
 	/// <summary>
 	/// Which action each group is waiting on, by block-11 record index, with <c>-1</c> for a group

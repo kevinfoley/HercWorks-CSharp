@@ -35,7 +35,7 @@ public class ScriptDatTransformer : ByteTransformer<ScriptDat> {
 		data.WaypointGroups = ReadArray(ParseWaypointGroup);
 		data.LinksOrRewards = ReadArray(ParseLinkOrReward);
 		data.Actions = ReadArray(ParseAction);
-		data.ActionPairs = ReadArray(ParseActionPair);
+		data.ActionTimers = ReadArray(ParseActionTimer);
 		data.SpawnRecords = ReadArray(ParseSpawnRecordExport);
 		data.Entities102 = ReadArray(ParseEntity102Export);
 		data.MiscEntities = ReadArray(ParseMiscEntityExport);
@@ -97,9 +97,9 @@ public class ScriptDatTransformer : ByteTransformer<ScriptDat> {
 		Target = IndexShortLE()
 	};
 
-	// ---- Block 6: ScriptActionPair (24 bytes) --------------------------------------------------
+	// ---- Block 6: ScriptActionTimer (24 bytes) --------------------------------------------------
 
-	private ScriptActionPair ParseActionPair() => new() {
+	private ScriptActionTimer ParseActionTimer() => new() {
 		PrimaryActionRef = IndexShortLE(),
 		TimerValue = IndexShortLE(),
 		SequenceRefs = IndexShortLEArray(10)
@@ -195,7 +195,7 @@ public class ScriptDatTransformer : ByteTransformer<ScriptDat> {
 		WriteArray(outStream, data.WaypointGroups, WriteWaypointGroup);
 		WriteArray(outStream, data.LinksOrRewards, WriteLinkOrReward);
 		WriteArray(outStream, data.Actions, WriteAction);
-		WriteArray(outStream, data.ActionPairs, WriteActionPair);
+		WriteArray(outStream, data.ActionTimers, WriteActionTimer);
 		WriteArray(outStream, data.SpawnRecords, WriteSpawnRecordExport);
 		WriteArray(outStream, data.Entities102, WriteEntity102Export);
 		WriteArray(outStream, data.MiscEntities, WriteMiscEntityExport);
@@ -248,7 +248,7 @@ public class ScriptDatTransformer : ByteTransformer<ScriptDat> {
 		Emit(o, WriteShortLE(e.Target));
 	}
 
-	private void WriteActionPair(MemoryStream o, ScriptActionPair e) {
+	private void WriteActionTimer(MemoryStream o, ScriptActionTimer e) {
 		Emit(o, WriteShortLE(e.PrimaryActionRef));
 		Emit(o, WriteShortLE(e.TimerValue));
 		Emit(o, WriteShortLESegment(e.SequenceRefs));

@@ -339,21 +339,21 @@ public sealed class MissionScene {
 
 		world.SetActions(actions);
 
-		// And the timers that fire them. A pair's own refs are resolved here rather than in the loader
+		// And the timers that activate them. A timer's own refs are resolved here rather than in the loader
 		// for the same reason an order's subject is: the states have to exist first.
-		var pairs = new MissionActionPairState[mission.ActionPairs.Count];
-		for (int i = 0; i < pairs.Length; i++) {
-			var record = mission.ActionPairs[i];
-			var sequence = new MissionActionState?[MissionActionPair.SequenceSlots];
+		var timers = new MissionActionTimerState[mission.ActionTimers.Count];
+		for (int i = 0; i < timers.Length; i++) {
+			var record = mission.ActionTimers[i];
+			var sequence = new MissionActionState?[MissionActionTimer.SequenceSlots];
 			for (int slot = 0; slot < sequence.Length && slot < record.SequenceRefs.Count; slot++) {
 				sequence[slot] = ActionAt(actions, record.SequenceRefs[slot]);
 			}
 
-			pairs[i] = new MissionActionPairState(record,
+			timers[i] = new MissionActionTimerState(record,
 				ActionAt(actions, record.PrimaryActionRef), sequence);
 		}
 
-		world.SetActionPairs(pairs);
+		world.SetActionTimers(timers);
 
 		var groups = new Dictionary<int, MissionGroup>();
 		foreach (var placed in objects) {

@@ -52,8 +52,8 @@ public class MissionFile {
 	/// <summary>Row #10 — mission action/objective records.</summary>
 	public Action82[]? Actions { get; set; }
 
-	/// <summary>Row #11 — action-to-action pairings.</summary>
-	public ActionPair30[]? ActionPairs { get; set; }
+	/// <summary>Row #11 — mission timers.</summary>
+	public ActionTimer30[]? ActionTimers { get; set; }
 
 	/// <summary>Row #12 — entity/spawn-style records; second, distinct 144-byte type from row #4.</summary>
 	public EntityTemplate144[]? SpawnRecords { get; set; }
@@ -91,7 +91,7 @@ public class MissionFile {
 	public WaypointGroup? GetWaypointGroup(short guid) => FindByGuid(WaypointGroups, guid);
 	public LinkOrReward12? GetLinkOrReward(short guid) => FindByGuid(LinksOrRewards, guid);
 	public Action82? GetAction(short guid) => FindByGuid(Actions, guid);
-	public ActionPair30? GetActionPair(short guid) => FindByGuid(ActionPairs, guid);
+	public ActionTimer30? GetActionTimer(short guid) => FindByGuid(ActionTimers, guid);
 	public EntityTemplate144? GetSpawnRecord(short guid) => FindByGuid(SpawnRecords, guid);
 	public UnkEntity102Bytes? GetEntity102(short guid) => FindByGuid(Entities102, guid);
 	public MiscEntityInfo? GetMiscEntity(short guid) => FindByGuid(MiscEntities, guid);

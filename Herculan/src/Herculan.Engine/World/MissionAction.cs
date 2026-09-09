@@ -169,31 +169,31 @@ public sealed record MissionAction(
 }
 
 /// <summary>
-/// One <b>action pair</b> — a <c>script.dat</c> block-6 record, which is the mission's timer. It
-/// names a primary action, a delay, and up to ten actions to fire when that delay runs out.
+/// One <b>action timer</b> — a <c>script.dat</c> block-6 record. It names a primary action, a
+/// delay, and up to ten actions to activate when that delay runs out.
 ///
-/// <para><c>ActionPair_Tick</c> (<c>004230a4</c>), walked every frame from <c>Sim_MainTick</c>,
-/// counts the delay down only while the primary action has fired — or unconditionally when the
-/// record names no primary. So a pair is either "N seconds into the mission, do this" or "N seconds
-/// after that happened, do this", and chaining two of them is how a mission staggers a sequence:
-/// <c>script6.dat</c> has action 1 arm a 92-second pair that fires action 2, which arms a
-/// 123-second pair that fires action 3.</para>
+/// <para><c>ActionTimer_Tick</c> (<c>004230a4</c>), walked every frame from <c>Sim_MainTick</c>,
+/// counts the delay down only while the primary action has activated — or unconditionally when the
+/// record names no primary. So a timer is either "N seconds into the mission, do this" or "N
+/// seconds after that happened, do this", and chaining two of them is how a mission staggers a
+/// sequence: <c>script6.dat</c> has action 1 arm a 92-second timer that activates action 2, which
+/// arms a 123-second timer that activates action 3.</para>
 ///
-/// <para><b>This is the second of four ways an action fires</b>, and the reason an action carrying
-/// no trigger area of its own is ordinary rather than dead. The other three are its own areas, an
+/// <para><b>This is the second of four ways an action activates</b>, and the reason an action
+/// carrying no trigger area of its own is ordinary rather than dead. The other three are its own areas, an
 /// object being engaged, and an object being destroyed — see
 /// <see cref="Sim.MissionActionState"/>.</para>
 /// </summary>
 /// <param name="PrimaryActionRef">
-/// The action that arms the timer, or <c>-1</c> for a pair that runs from mission start.
+/// The action that arms the timer, or <c>-1</c> for one that runs from mission start.
 /// </param>
 /// <param name="Delay">
 /// How long the timer runs, in milliseconds. The file states it in <see cref="DelayShift"/>-bit
 /// units, which <c>FUN_004679c0</c> converts on the way in.
 /// </param>
-/// <param name="SequenceRefs">The actions the pair fires, ten slots with unused ones <c>-1</c>.</param>
-public sealed record MissionActionPair(int PrimaryActionRef, int Delay, IReadOnlyList<short> SequenceRefs) {
-	/// <summary>Actions a pair can fire.</summary>
+/// <param name="SequenceRefs">The actions the timer activates, ten slots with unused ones <c>-1</c>.</param>
+public sealed record MissionActionTimer(int PrimaryActionRef, int Delay, IReadOnlyList<short> SequenceRefs) {
+	/// <summary>Actions one timer can activate.</summary>
 	public const int SequenceSlots = 10;
 
 	/// <summary>
@@ -204,10 +204,10 @@ public sealed record MissionActionPair(int PrimaryActionRef, int Delay, IReadOnl
 	public const int DelayShift = 11;
 
 	/// <summary>
-	/// What the timer is reloaded with once the pair has fired — <c>ActionPair_Tick</c>'s literal
-	/// 30000, through the same shift, which is about seventeen hours. The pair does run again on
+	/// What the timer is reloaded with once it expires — <c>ActionTimer_Tick</c>'s literal 30000,
+	/// through the same shift, which is about seventeen hours. It does run again on
 	/// that schedule; it just has nothing left to do, because every action it names has already
-	/// fired and <c>Action_Fire</c> is one-shot.
+	/// activated and <c>Action_Activate</c> is one-shot.
 	/// </summary>
 	public const int SpentReload = 30000 << DelayShift;
 }

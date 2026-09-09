@@ -17,8 +17,9 @@ The mechanism is understood; what is left is engine work.
   computer's channel entire — the message port's queue, timings, repeat suppression and preemption,
   the scrolling ticker, and `SYSTEM.STR`'s lines read from their `CVM` clips. Red Book music through
   MCI is not, so a mission runs without its track. Neither is the port's second instance, the pilot
-  and squad channel: squadmate and commander lines with their `.SNC` portrait lip-sync scripts are
-  unported, so the comm box never speaks or animates and nothing posts to that channel.
+  and squad channel, where messages wrap several lines instead of scrolling one line: squadmate and
+  commander lines with their `.SNC` portrait lip-sync scripts are unported, so the comm box never 
+  speaks or animates and nothing posts to that channel.
   → [`docs/formats/audio.md`](docs/formats/audio.md)
 - **Combat gaps.** Hit detection, weapon-mount destruction and the explosive blast sweep are
   complete for all three shootable classes. One of the sweep's three call sites is still unreachable
@@ -87,3 +88,9 @@ The engine cannot be faithful here until the original is understood.
   `Render/ExternalCamera.cs` is the single place a real rule would replace the guess.
 - **Pause (`[P]`) is a placeholder** that just stops the fixed-timestep tick loop. Retail DBSIM's own
   pause has not been traced.
+
+## Other unported features
+- Currently missing is a quirk from retail where the player's shield meter fills in over ~10 seconds at the start of a mission. Claude says there's no explanation for this in the shield code, where the shields start out at full charge, and would take ~30 seconds to fully charge from empty. The fade-in-over-10-seconds may be a HUD animation that hasn't been discovered during RE yet.
+- Similarly to the previous, currently missing is an animation where weapon buttons wink on one-at-a-time when the simulation first starts.
+- The Preferences screen is not implemented.
+- In retail, weapons in a firing chain which are out of range of the selected target will have a red indicator light and won't fire when the trigger is held.

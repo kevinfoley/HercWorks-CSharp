@@ -85,6 +85,9 @@ The engine cannot be faithful here until the original is understood.
 - **Flyer formation spread.** `FUN_00421ee8` untraced; no multi-flyer groups observed in retail
   missions so far.
   → [`docs/simulation/mission-deployment.md`](docs/simulation/mission-deployment.md)
+- **The cockpit widget class family's vtables.** `known_vtables.json` covers the simulation-object hierarchy only, so not one widget class is in it, and the slot offsets are not uniform across the family: a new cockpit control has to be reached by dumping its own class's table afresh rather than by looking a shape up. Fifteen tables are known to carry `Widget_ClickSound`, and of those only the shield facing's is tied to the class that owns it.
+  → [`docs/formats/cockpit-input.md`](docs/formats/cockpit-input.md),
+  [`docs/formats/cockpit-hud.md`](docs/formats/cockpit-hud.md)
 - **External view (`[V]` chase camera) is entirely engine-invented.** DBSIM's own external view
   placement, transitions, terrain handling and overlay chrome are unrecovered.
   `Render/ExternalCamera.cs` is the single place a real rule would replace the guess.
@@ -108,4 +111,8 @@ eight captioned tabs, hit-tested and latching — and nothing behind it. What is
 ## Other unported features
 - Currently missing is a quirk from retail where the player's shield meter fills in over ~10 seconds at the start of a mission. Claude says there's no explanation for this in the shield code, where the shields start out at full charge, and would take ~30 seconds to fully charge from empty. The fade-in-over-10-seconds may be a HUD animation that hasn't been discovered during RE yet.
 - Similarly to the previous, currently missing is an animation where weapon buttons wink on one-at-a-time when the simulation first starts.
-- The Preferences screen is not implemented.
+- The Preferences screen (F12) is not implemented.
+
+## Debugging features
+- Launch option to disable AI (so units other than the player remain stationary, though still subject to damage and destruction)
+- Support for editing the current script.dat in the Mission Editor, to facilitate setting up scenarios for rapid testing? The main short-term needs would be moving Cybrid or player spawnpoints)

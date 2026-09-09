@@ -33,10 +33,10 @@ public static class DatFileReader {
 		};
 		cursor += 2;
 
-		iniStats.Data.HealthRatio = EndianOps.ToShort(data, cursor, ByteOrder.LittleEndian);
+		iniStats.Data.BuildPercent = EndianOps.ToShort(data, cursor, ByteOrder.LittleEndian);
 		cursor += 2;
 
-		iniStats.Data.BuildCompleteLevel = EndianOps.ToShort(data, cursor, ByteOrder.LittleEndian);
+		iniStats.Data.BuildStepNum = EndianOps.ToShort(data, cursor, ByteOrder.LittleEndian);
 		cursor += 2;
 
 		// WARN (carried over from Java): this does not sync up to the herc's total hardpoint

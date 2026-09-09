@@ -20,8 +20,8 @@ public class InitHercTransformer : ByteTransformer<InitHerc> {
 		var data = new ShellHercData();
 
 		data.HercId = IndexShortLE();
-		data.HealthRatio = IndexShortLE();
-		data.BuildCompleteLevel = IndexShortLE();
+		data.BuildPercent = IndexShortLE();
+		data.BuildStepNum = IndexShortLE();
 
 		short hardpointCount = IndexShortLE();
 		data.Hardpoints = new Dictionary<short, UiWeaponEntry>();
@@ -46,8 +46,8 @@ public class InitHercTransformer : ByteTransformer<InitHerc> {
 		void Emit(byte[] bytes) => output.Write(bytes, 0, bytes.Length);
 
 		Emit(WriteShortLE(herc.HercId));
-		Emit(WriteShortLE(herc.HealthRatio));
-		Emit(WriteShortLE(herc.BuildCompleteLevel));
+		Emit(WriteShortLE(herc.BuildPercent));
+		Emit(WriteShortLE(herc.BuildStepNum));
 		Emit(WriteShortLE((short)herc.Hardpoints!.Count));
 
 		foreach (var id in herc.Hardpoints.Keys) {

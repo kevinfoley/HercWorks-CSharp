@@ -1,6 +1,14 @@
 namespace HercWorks.Core.Data.Struct.Herc;
 
-/// <summary>Ported from org.hercworks.core.data.struct.herc.HercInternals.</summary>
+/// <summary>
+/// Ported from org.hercworks.core.data.struct.herc.HercInternals.
+///
+/// <para><b>Only ids 0-9 exist on disk.</b> The internal condition array is ten shorts: ids 0-8 are
+/// the nine components the repair bay names, and id 9 is the machine's overall condition — the mean
+/// of the externals and internals, which the debrief copies into the pilot's own condition, hence
+/// the <c>Pilot</c> label. Ids 10-12 are not in the file at all, which is why readers and editors
+/// stop at <see cref="ServosLegLeftRear"/>. See <c>docs/formats/save-games.md</c>.</para>
+/// </summary>
 public sealed class HercInternals {
 	public static readonly HercInternals ServosLegLeft = new(0, "Left Leg Servos");
 	public static readonly HercInternals ServosLegRight = new(1, "Right Leg Servos");

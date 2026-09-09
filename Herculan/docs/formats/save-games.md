@@ -49,18 +49,20 @@ No header, no magic, no length field: the file is the concatenation below. Writt
 | # | Bytes | Content | Writer / reader |
 |---|---|---|---|
 | 1 | varies | armory stock — 33 records, one per `weapons.dat` catalog id | `FUN_004121cf` / `FUN_0041215d` |
-| 2 | 22 | `int16` at `0046f8d4`, then 5x `{ int16 index; int16 value }` from `0046f8d6` | same |
+| 2 | 22 | the armory build queue: free-slot count (`0046f8d4`), then 5x `{ int16 slot; int16 weapon id }` from `0046f8d6` | same |
 | 3 | 152 | career block (below) | `FUN_00412a71` / `FUN_00412bbf` |
 | 4 | varies | 3 squads x 12 pilot records, then 3x `int16` at `00483b48` and 3x `int16` at `00483b4e` | `FUN_0040fc16` / `FUN_0040fc77` |
-| 5 | varies | the player: `int16`, `int16`, then one pilot record | `FUN_0041016d` / `FUN_004101b8` |
+| 5 | varies | the player: `int16`, `int16`, then one pilot record — **the same shape as a squadmate's**, roster id included | `FUN_0041016d` / `FUN_004101b8` |
 | 6 | varies | hangar: `int16` count, then that many `{ int16 slot; HERC record }` | `FUN_00410658` / `FUN_0041080a` |
-| 7 | 18 | 9x `int16`, the first field of each 8-byte record at `00483b62` | `FUN_00411954` / `FUN_00411989` |
+| 7 | 18 | the 9 chassis availability flags — `herc_inf.dat` record `+0x0e`, stride 16 from `00483b62` | `FUN_00411954` / `FUN_00411989` |
 | 8 | 4 | credits (`00482af4`) | inline |
 | 9 | 2000 | the campaign flag array (`00482af8`) | inline |
 | 10 | 2 | game state (`0048260e`) | inline |
 | 11 | 20 | `004832c8` | inline |
 
-Blocks 8, 9 and 11 are one contiguous span in memory: credits at `00482af4`, the flag array immediately after at `00482af8`, and its 2000 bytes ending exactly at `004832c8`. Block 10 comes from `0048260e`, elsewhere entirely.
+Blocks 8, 9 and 11 are one contiguous span in memory: credits at `00482af4`, the flag array immediately after at `00482af8`, and its 2000 bytes ending exactly at `004832c8`. Block 10 comes from `0048260e`, elsewhere entirely. Block 11 is the 20 bytes past the end of what `data\mission.var` carries; only the save writer and reader are traced touching them.
+
+Block 7 walks `herc_inf.dat`'s in-memory table at a 16-byte stride, so the nine `int16` are the availability flag of each chassis — campaign state rather than catalog data, and the counterpart of block 1's per-weapon unlock byte. See [`herc-catalogs.md`](herc-catalogs.md#chassis-unlocks--herc_grantunlocks-004118c5).
 
 The hangar holds up to 8 HERCs. Both the hangar and each HERC's mounts serialize **sparsely** — occupied entries only, each preceded by its slot index — so a reader must use the count field and cannot assume dense packing.
 
@@ -71,14 +73,16 @@ One per catalog id, all 33 written unconditionally:
 ```
 byte    weapons.dat record +0x16
 int16   number of owned units (weapons.dat record +0x17)
-        that many 10-byte stock entries: 5x int16
+        that many 10-byte weapon unit records
 ```
 
-The byte is the weapon's unlock flag and the owned units are a linked list at the catalog record's `+0x19` at runtime. See [`weapons-dat.md`](weapons-dat.md) for the catalog record those fields belong to.
+The byte is the weapon's unlock flag and the owned units are a linked list at the catalog record's `+0x19` at runtime. See [`weapons-dat.md`](weapons-dat.md) for the catalog record those fields belong to and [`herc-catalogs.md`](herc-catalogs.md#the-weapon-unit-record) for the unit record, which is the same five `int16` a HERC's mounts serialize.
 
 ### Pilot record — 59 bytes (`0x3b`) in memory
 
-Serialized by `FUN_0040fd5f`, read by `FUN_0040fefc`, initialized by `FUN_0040fcd8` and `FUN_0040fd17`.
+Serialized by `FUN_0040fd5f`, read by `FUN_0040fefc`, initialized by `FUN_0040fcd8` and `FUN_0040fd17`. On disk it is 31 bytes plus the name: three `int16` lead — roster id, name index, then the name's length — and eleven follow the on-strength byte.
+
+**One record shape serves both the squad block and the player block.** Block 5's two leading `int16` belong to the block, not to the record; a reader that treats the player's record as a shorter form of a squadmate's lands its name two bytes early and desynchronizes everything after it.
 
 | Offset | On disk | Field |
 |---|---|---|
@@ -87,48 +91,75 @@ Serialized by `FUN_0040fd5f`, read by `FUN_0040fefc`, initialized by `FUN_0040fc
 | `+0x04` | `int16 len` + `char[len]` | name, copied from `esnames.bin`; 30 bytes in memory |
 | `+0x22` | `int16` | assigned hangar slot; `-1` when unassigned |
 | `+0x24` | `byte` | on strength — gates repair billing, results accounting and the `player.mec` export |
-| `+0x25` | `int16` | skill tier `0-3`, drawn against the weight table at `0046f5ec` |
-| `+0x27` | `int16` | squad slot; initialized `-1` |
-| `+0x29` | `int16` | rating, looked up from the tier via `0046f5f4` |
+| `+0x25` | `int16` | skill `0-3` — `ROOKIE`, `REGULAR`, `VETERAN`, `ELITE` (`estext.bin` `0x35`-`0x38`), drawn against the weight table at `0046f5ec` |
+| `+0x27` | `int16` | squad slot; initialized `-1`. Selects the promotion divisors in `FUN_00410066` |
+| `+0x29` | `int16` | rank `0-3` — `Lieutenant`, `Captain`, `Major`, `Lt Colonel` (`estext.bin` `0x39`-`0x3c`), seeded from the skill via `0046f5f4` |
 | `+0x2b` | `int16` | condition, initialized 100 and overwritten at debrief from the HERC's damage |
-| `+0x2d` | `int16` | last mission, counter A |
-| `+0x2f` | `int16` | last mission, counter B |
-| `+0x31` | `int16` | last mission, counter C |
-| `+0x33` | `int16` | career total A |
-| `+0x35` | `int16` | career total B |
-| `+0x37` | `int16` | career total C |
+| `+0x2d` | `int16` | Herc kills, this mission |
+| `+0x2f` | `int16` | Flyer kills, this mission |
+| `+0x31` | `int16` | Base kills, this mission |
+| `+0x33` | `int16` | Herc kills, career total |
+| `+0x35` | `int16` | Flyer kills, career total |
+| `+0x37` | `int16` | Base kills, career total |
 | `+0x39` | `int16` | missions flown |
 
-The three pairs are proved by `FUN_0041000e`, which reads the per-mission counters from `results.dat` in the order A, C, B and then accumulates `+0x33 += +0x2d`, `+0x35 += +0x2f`, `+0x37 += +0x31`, `+0x39 += 1`.
+The three pairs are proved by `FUN_0041000e`, which reads the per-mission counters from `results.dat` in the order Herc, Base, Flyer and then accumulates `+0x33 += +0x2d`, `+0x35 += +0x2f`, `+0x37 += +0x31`, `+0x39 += 1`.
+
+What names them is the crew screen, which stages each pilot into a 67-byte record — the 59-byte pilot record, then `int32` credits, `int16` career stage and `int16` mission — and prints six of these fields as a `Current`/`Total` pair per row against the labels ` Herc Kills:`, `Flyer Kills:` and ` Base Kills:` (`estext.bin` `0x27`-`0x29`). The player's own staging copy is filled field-by-field from `00482aa9` upward, which is the pilot record embedded at `00482a7c`, so each screen offset binds to one pilot offset directly. `FUN_00410066` reads the same naming back: it promotes on `+0x33 + +0x35`, the two kill kinds that are machines, and never on `+0x37`.
+
+Skill and rank advance separately, in `FUN_00410066` — see [`../shell/campaign-loop.md`](../shell/campaign-loop.md#pilot-progression).
 
 ### HERC record — 122 bytes (`0x7a`) in memory
 
 Serialized by `FUN_0041123e`, read by `FUN_004110c2`.
 
 ```
-int16   +0x00
-int16   +0x02
+int16   +0x00  chassis type, 0-8
+int16   +0x02  chassis type again, via the identity map at 0046f728
 66 B    +0x08 -- the status block, below
-int16   +0x4a
-int16   +0x78
+int16   +0x4a  build progress, percent complete
+int16   +0x78  build time remaining, in missions
 int16   +0x4c  mount capacity
 int16   +0x4e  mounts occupied
-        that many { int16 slot; 10-byte stock entry }
+        that many { int16 slot; 10-byte weapon unit record }
 ```
+
+`+0x00` and `+0x02` are two id spaces that coincide: `+0x02` is `+0x00` passed through `FUN_00410d30`, a search of the nine-entry table at `0046f728` whose contents are `0`–`8` in order. `+0x02` is the one the chassis stat table and the `estext.bin` name are indexed by, `+0x00` the one the mount-capacity table is. The `+0x4a`/`+0x78` pair is construction state, not damage — see [`herc-catalogs.md`](herc-catalogs.md#gamherc_infdat--the-chassis-stat-table).
 
 **`+0x4c` and `+0x4e` are not interchangeable.** The writer loops to the capacity at `+0x4c` and emits only non-null mounts; the reader loops exactly `+0x4e` times. Reading the writer alone yields a record that desynchronizes whenever a HERC has an empty hardpoint.
 
+The same record has a shorter form in `gam\hercs.dat` and `gam\ini_*.dat`, where the file carries four fields and the rest are derived at load ([`herc-catalogs.md`](herc-catalogs.md#the-herc-catalog-record)).
+
 #### The 66-byte status block
 
-`FUN_00411d06(block, mode, index)` is the accessor and `FUN_00411cbd` the matching setter: mode 1 addresses `block + 0x1a + index*2`, mode 2 addresses `block + 0x2e + index*2`. That splits the block three ways, and the split is exactly `player.mec`'s `BlockA`/`BlockB`/`BlockC`, which were derived independently from the offsets DBSIM copies them to.
+Three condition arrays, all initialized to 100 by `FUN_00411b88` and all holding 0–100 in retail data. `FUN_00411d06(block, mode, index)` is the accessor and `FUN_00411cbd` the matching setter, and the three modes are the three arrays — mode 1 addresses `block + 0x1a + index*2`, mode 2 `block + 0x2e + index*2`, and mode 0 averages a group of the first array. The split is exactly `player.mec`'s `BlockA`/`BlockB`/`BlockC`, which were derived independently from the offsets DBSIM copies them to.
 
 | Span | Size | Content |
 |---|---|---|
-| `+0x00`–`+0x19` | 26 | not decoded |
-| `+0x1a`–`+0x2d` | 20 | 10x `int16` condition. Index 9 is the machine's overall condition — read as `(block, 1, 9)` at debrief to set the pilot's, and reset to 100 by `FUN_00411cbd(block, 1, 9, 100)` when a HERC is kept rather than scrapped |
+| `+0x00`–`+0x19` | 26 | 13x `int16` external component condition |
+| `+0x1a`–`+0x2d` | 20 | 10x `int16` internal component condition. Indices 0–8 are the nine internals; **index 9 is the machine's overall condition** — read as `(block, 1, 9)` at debrief to set the pilot's, and reset to 100 by `FUN_00411cbd(block, 1, 9, 100)` when a HERC is kept rather than scrapped |
 | `+0x2e`–`+0x41` | 20 | 10x `int16` per-hardpoint condition, one per mount slot. A mount whose entry reaches 0 is destroyed and `+0x4e` decremented (`FUN_00411720`) |
 
-Retail data agrees: both arrays hold 0–100, the per-hardpoint array carries most of the partial figures, and a machine at full health reads 100 throughout.
+`FUN_00411bd4(block, hardpoints)` is what proves the 13/9 split and index 9's role: it sums the 13 external entries, the first 9 internal entries and one per occupied hardpoint, then divides by `hardpoints + 0x16` — exactly `13 + 9 + hardpoints`. Index 9 is excluded from its own average, and `FUN_00410c7c` writes the result back there at debrief.
+
+**The 13 external entries are facets, not named components.** Mode 0 addresses them through the group table at `0046f8a4` — six groups of up to three indices each, `-1` terminated, partitioning all 13 exactly once — and it is the *group* that carries a name and the granularity the repair bay and the scrap valuation price at ([`../shell/armory.md`](../shell/armory.md#repairing-and-scrapping)). `FUN_00411c29` returns a group's mean.
+
+| Group | Facets | Name (`estext.bin`) | Facet meaning |
+|---|---|---|---|
+| 0 | `{0, 1}` | `0x4e` `Cockpit` | front, rear |
+| 1 | `{2, 4}` | `0x4f` `Left Torso` | front, rear |
+| 2 | `{3, 5}` | `0x50` `Right Torso` | front, rear |
+| 3 | `{6}` | `0x51` `Chassis` | — |
+| 4 | `{7, 9, 11}` | `0x52` `Left Leg` | thigh, calf, foot |
+| 5 | `{8, 10, 12}` | `0x53` `Right Leg` | thigh, calf, foot |
+
+The facet meanings are `HercWorks.Core.Data.Struct.Herc.HercExternals`, decoded independently of this group table; the two agree exactly, which is what makes the front/rear and thigh/calf/foot readings solid rather than inferred from the grouping alone.
+
+The nine internal entries are named one-for-one by `estext.bin` `0x54`–`0x5c` — `Left Leg Servos`, `Right Leg Servos`, `Sensor Array`, `Targeting Computer`, `Shield Generator`, `Engine`, `Hydraulics`, `Stabilizers`, `Life Support` — matching `HercInternals` indices 0-8 in order.
+
+`estext.bin` `0x5d`–`0x63` holds seven more names — `Left Nacelle`, `Right Nacelle`, `Fuselage`, `Left Wing`, `Right Wing`, `Left Wing Servos`, `Right Wing Servos` — which are the Razor's parts in place of a walker's legs. Which names a given chassis shows comes from its `gam\rpr_*.dat` component list ([`herc-catalogs.md`](herc-catalogs.md#gamrpr_dat--repair-bay-layout)), and the Razor's is the only one with twelve entries where the walkers have four or six.
+
+Retail data agrees throughout: the per-hardpoint array carries most of the partial figures, and a machine at full health reads 100 everywhere.
 
 Because the span is copied verbatim into `player.mec`, a machine's status bytes are identical in the save and in the export ([`../shell/campaign-loop.md`](../shell/campaign-loop.md)).
 

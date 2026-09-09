@@ -29,8 +29,8 @@ public class HercsStartTransformer : ByteTransformer<Hercs> {
 
 			entry.BayId = IndexShortLE();
 			entry.Herc.HercId = IndexShortLE();
-			entry.Herc.HealthRatio = IndexShortLE();
-			entry.Herc.BuildCompleteLevel = IndexShortLE();
+			entry.Herc.BuildPercent = IndexShortLE();
+			entry.Herc.BuildStepNum = IndexShortLE();
 
 			short hardpointCount = IndexShortLE();
 			entry.Herc.Hardpoints = new Dictionary<short, UiWeaponEntry>();
@@ -60,8 +60,8 @@ public class HercsStartTransformer : ByteTransformer<Hercs> {
 
 			Emit(WriteShortLE(entry.BayId));
 			Emit(WriteShortLE(entry.Herc!.HercId));
-			Emit(WriteShortLE(entry.Herc.HealthRatio));
-			Emit(WriteShortLE(entry.Herc.BuildCompleteLevel));
+			Emit(WriteShortLE(entry.Herc.BuildPercent));
+			Emit(WriteShortLE(entry.Herc.BuildStepNum));
 			Emit(WriteShortLE((short)entry.Herc.Hardpoints!.Count));
 
 			for (int h = 0; h < entry.Herc.Hardpoints.Count; h++) {

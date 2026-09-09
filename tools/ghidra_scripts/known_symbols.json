@@ -162,17 +162,18 @@
       "address": "00412428",
       "binary": "VSHELL",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Armory_TotalCostCalc",
-      "description": "Armory total-cost calculation; sums the price field (0x14) as a direct per-item cost contribution.",
-      "source": "memory project_es2_exe_recon 2026-08-08"
+      "confidence": "high",
+      "name": "Armory_DeliverQueue",
+      "description": "Delivers the whole weapon build queue: per occupied slot allocates a ten-byte weapon unit, initializes it with ammo type 1 for the missile racks (ids 13-16) and 5 otherwise, appends it to that catalog record via Armory_AddUnit, and accumulates the price. Returns the total to charge -- it is a delivery with a running total, not a pure cost calculation.",
+      "source": "docs/shell/armory.md"
     },
     {
       "address": "00483fa2",
       "binary": "VSHELL",
       "type": "data",
-      "confidence": "low",
-      "description": "A 2-byte value per weapon id, stored in a separate parallel array from the 29-byte WeaponsDat_RecordArray record at load time. Meaning not confirmed.",
+      "confidence": "high",
+      "name": "WeaponsDat_RankTable",
+      "description": "One int16 per weapon id, read from weapons.dat after each record into an array parallel to WeaponsDat_RecordArray. Sorts the catalog: ranks 1-28 are a permutation over the ordinary weapons, NONE and the three Bull weapons hold 99, and MFAC holds 0.",
       "source": "docs/formats/weapons-dat.md"
     },
     {
@@ -379,8 +380,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Herc_SettleAfterMission",
-      "description": "Debrief settlement for one hangar slot: a machine whose aggregate condition is below 30 is scrapped out of the hangar and returns its salvage value; anything above has its overall condition reset to 100.",
-      "source": "docs/shell/campaign-loop.md"
+      "description": "Scraps or keeps a machine after a mission. Below 30 overall condition it is valued, freed and removed from the hangar; at 30 or above only the overall-condition slot is reset to 100. Returns the salvage credited.",
+      "source": "docs/shell/armory.md"
     },
     {
       "address": "00412253",
@@ -1736,9 +1737,9 @@
       "binary": "VSHELL",
       "type": "function",
       "confidence": "high",
-      "name": "Warning_BuildScreen",
-      "description": "warmingi.cpp (warning screen) builder, located via __FILE__ assert-string xref. Same hardcoded-rect-literal widget-construction pattern; no file I/O.",
-      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL screen-layout pass"
+      "name": "Arming_BuildScreen",
+      "description": "warmingi.cpp: builds the weapon-fitting screen, reading gam\\arm_weap.dat against dba\\arm_weap.dba. Its 26 weapon panels are the authoritative set of buyable weapon ids; the four trailing panels are the ARM/ARH/SARH/EO guidance kinds.",
+      "source": "docs/formats/herc-catalogs.md"
     },
     {
       "address": "00440eb8",
@@ -10390,6 +10391,501 @@
       "name": "Base_GetTurretAngle",
       "description": "Structure vtable +0x3c: returns the short at structure+0x20f, the aim offset the sensor and target-selection arcs are measured from on top of the heading. Only StructureArmedVtable (004978ac) and StructureEmplacementVtable (00497818) install it; the plain building, the radar mast and the flyer all keep the shared 00411a5c zero stub. Which class installs this is what separates a structure that aims from one that does not.",
       "source": "tools/ghidra_scripts/known_vtables.json; slot diff across the five Base_Construct tables"
+    },
+    {
+      "address": "00410e79",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HercRecord_ReadCatalogForm",
+      "description": "Reads the gam\\*.dat form of a HERC record (type, build percent, build missions remaining, occupied hardpoint count, then sparse 6-byte mounts). Capacity, the +0x02 index and the name pointer are derived after the read, and the status block is left at the ctor's uniform 100.",
+      "source": "docs/formats/herc-catalogs.md"
+    },
+    {
+      "address": "00410d30",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Herc_TypeToIndex",
+      "description": "Searches the nine-entry table at 0046f728 for a chassis type and returns its position. Retail contents are 0-8 in order, so the map is identity.",
+      "source": "docs/formats/herc-catalogs.md"
+    },
+    {
+      "address": "00410d54",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Herc_CapacityForType",
+      "description": "Hardpoint capacity for a chassis type: Herc_TypeToIndex then 0046f73a[index]. This, not herc_inf.dat +0x06, is the figure every hardpoint loop uses.",
+      "source": "docs/formats/herc-catalogs.md"
+    },
+    {
+      "address": "00410d7a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HercRecord_Ctor",
+      "description": "Zero-state HERC record: type and +0x02 to -1, capacity and occupancy 0, +0x4a build percent 100, +0x78 0, all three status-block condition arrays to 100 via HercStatus_InitAll.",
+      "source": "docs/formats/herc-catalogs.md"
+    },
+    {
+      "address": "00410de4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HercRecord_ClearMounts",
+      "description": "Frees every mounted weapon unit, zeroes the occupied count and resets each per-hardpoint condition to 100.",
+      "source": "docs/formats/herc-catalogs.md"
+    },
+    {
+      "address": "00410e31",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HercRecord_ResolveName",
+      "description": "Sets the record's +0x04 name pointer to estext.bin string 0x6e + record +0x02, which is what fixes the chassis type order (0 Outlaw through 8 Razor). Type -1 resolves to string 0.",
+      "source": "docs/formats/herc-catalogs.md"
+    },
+    {
+      "address": "00410fde",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Herc_SetType",
+      "description": "Re-types an existing HERC record in place: clears mounts, sets +0x00, derives capacity, +0x02 and the name.",
+      "source": "docs/formats/herc-catalogs.md"
+    },
+    {
+      "address": "00411019",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Herc_Order",
+      "description": "Buys a chassis. Clears mounts, sets the type and capacity, build percent 0 and occupancy 0, copies herc_inf.dat +0x0c into +0x78 as the build time, and returns herc_inf.dat +0x08 * 1000 as the price to charge.",
+      "source": "docs/shell/armory.md"
+    },
+    {
+      "address": "00411086",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Herc_BuildTick",
+      "description": "One mission of construction: decrements +0x78 and recomputes +0x4a as ((buildTime - remaining) * 100) / buildTime, the \"% Complete\" figure.",
+      "source": "docs/shell/armory.md"
+    },
+    {
+      "address": "00411795",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Herc_StripMounts",
+      "description": "Empties a chassis's hardpoints when it is scrapped: a mount at 80 condition or better is returned to armory stock via Armory_AddUnit, anything below is destroyed.",
+      "source": "docs/shell/armory.md"
+    },
+    {
+      "address": "004118c5",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Herc_GrantUnlocks",
+      "description": "Grants chassis availability from campaign progress. For each locked herc_inf.dat record, tests one campaign-flag slot against an expected value and sets +0x0e on a match, clearing the slot either way: Raptor II 0x3c/2, Maverick 0x3d/2, Ogre 0x3e/2, Razor 0x3f/1.",
+      "source": "docs/formats/herc-catalogs.md"
+    },
+    {
+      "address": "00411b88",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HercStatus_InitAll",
+      "description": "Initializes all three status-block condition arrays to 100: 13 external at +0x00, 10 at +0x1a (9 internals plus the overall slot), 10 per-hardpoint at +0x2e.",
+      "source": "docs/formats/save-games.md"
+    },
+    {
+      "address": "00411bd4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HercStatus_OverallCondition",
+      "description": "Mean condition over 13 external entries, the first 9 internal entries and one per occupied hardpoint, divided by hardpoints + 0x16. The divisor is what proves the 13/9 split and that internal index 9 is excluded from its own average.",
+      "source": "docs/formats/save-games.md"
+    },
+    {
+      "address": "00411c29",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HercStatus_GroupMean",
+      "description": "Mean of one external component group, read through the -1-terminated group table at 0046f8a4. This is accessor mode 0.",
+      "source": "docs/formats/save-games.md"
+    },
+    {
+      "address": "004119b4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Weapon_ClassIndexForId",
+      "description": "Searches the thirty-entry table at 0046f868 for a weapon catalog id and returns its position. The table holds ids 0-18 and 22-32, so the three Bull weapons resolve to -1.",
+      "source": "docs/formats/herc-catalogs.md"
+    },
+    {
+      "address": "004119d8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponUnit_Ctor",
+      "description": "Zero-state weapon unit: { -1, -1, 100, 100, 5 }. The trailing 5 is the \"nothing guided\" ammo type that reaches data\\player.mec as the empty-hardpoint filler.",
+      "source": "docs/formats/herc-catalogs.md"
+    },
+    {
+      "address": "004119fd",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponUnit_Init",
+      "description": "Fills a weapon unit from an id and three values, deriving the class index at +0x02 via Weapon_ClassIndexForId.",
+      "source": "docs/formats/herc-catalogs.md"
+    },
+    {
+      "address": "00411a36",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponUnit_ReadCatalogForm",
+      "description": "Reads the 6-byte gam\\*.dat form of a weapon unit: id, condition, ammo type. The class index is derived and +0x04 stays at the ctor's 100.",
+      "source": "docs/formats/herc-catalogs.md"
+    },
+    {
+      "address": "00411aa6",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponUnit_ReadSaveForm",
+      "description": "Reads all five int16 of a weapon unit, the form the save file and the armory stock use.",
+      "source": "docs/formats/save-games.md"
+    },
+    {
+      "address": "00411aff",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponUnit_WriteSaveForm",
+      "description": "Writes all five int16 of a weapon unit. Mirror of WeaponUnit_ReadSaveForm.",
+      "source": "docs/formats/save-games.md"
+    },
+    {
+      "address": "00411efd",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_AddUnit",
+      "description": "armory.cpp: pushes a weapon unit onto its catalog record's +0x19 owned-unit list and increments the +0x17 owned count.",
+      "source": "docs/shell/armory.md"
+    },
+    {
+      "address": "0041213d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_ResetQueue",
+      "description": "Resets the weapon build queue: five free workspace slots at 0046f8d4, all five slot ids at 0046f8d6 cleared.",
+      "source": "docs/shell/armory.md"
+    },
+    {
+      "address": "00412586",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_QueuedTotal",
+      "description": "Sums weapons.dat +0x14 over the occupied build-queue slots. This is the \"Allocated:\" figure, and purchases are gated on the pool covering it plus the new item.",
+      "source": "docs/shell/armory.md"
+    },
+    {
+      "address": "004125bb",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_FirstFreeSlot",
+      "description": "Index of the first empty build-queue slot, or -1 when the workspace count is 0 or all five are taken.",
+      "source": "docs/shell/armory.md"
+    },
+    {
+      "address": "0041381c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_LevelForCondition",
+      "description": "First level 0-5 whose band floor in 0046fd84 is at or below the given condition; 0 when none matches.",
+      "source": "docs/shell/armory.md"
+    },
+    {
+      "address": "00413838",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_TargetForLevel",
+      "description": "Target condition for a repair level: 0046fd78[0] for level 0, else 0046fd78[level] + 1.",
+      "source": "docs/shell/armory.md"
+    },
+    {
+      "address": "0041392a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_ItemCost",
+      "description": "Cost to bring one component from its current condition to a target: zero when already at or above it, else (levelTarget - current) * unitValue / 100.",
+      "source": "docs/shell/armory.md"
+    },
+    {
+      "address": "004139f7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_HercCost",
+      "description": "Total repair cost for a machine to a target condition: Repair_ItemCost over the six external groups, the nine internals, and each occupied hardpoint at its weapon's scrap value.",
+      "source": "docs/shell/armory.md"
+    },
+    {
+      "address": "00411328",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_Auto",
+      "description": "The Auto Repair mode. Steps down repair levels while the cost exceeds the budget, stopping once the machine's own average condition reaches the level under test, then applies through Repair_Apply. Repairs and charges nothing when no level is affordable.",
+      "source": "docs/shell/armory.md"
+    },
+    {
+      "address": "004113af",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_Apply",
+      "description": "Writes a target condition across all three status-block arrays, leaving an empty hardpoint at 100.",
+      "source": "docs/shell/armory.md"
+    },
+    {
+      "address": "00413b50",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Herc_ScrapValue",
+      "description": "Salvage yield for scrapping a machine: sum of condition * unitValue / 100 over the six external groups and nine internals, plus each mount under 80 condition (the complement of what Herc_StripMounts returns to stock). The under-construction branch divides before multiplying and yields 0 for every progress figure from 1 to 99 -- confirmed in raw disassembly, idiv ecx at 00413b8d preceding imul ecx at 00413b9d and imul edi,eax,1000 at 00413b9f.",
+      "source": "docs/shell/armory.md"
+    },
+    {
+      "address": "00413968",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_DrawItemCost",
+      "description": "Display counterpart of Repair_ItemCost: picks the unit value by accessor mode -- external group table, internal table, or the per-weapon scrap table -- and formats it.",
+      "source": "docs/shell/armory.md"
+    },
+    {
+      "address": "00410066",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Pilot_Progress",
+      "description": "Advances one pilot's skill (+0x25) and rank (+0x29), both capped at 3. Skill steps when career Herc + Flyer kills hit a multiple of the divisor and only for non-player pilots; rank steps on missions flown. +0x27 selects the divisor pair: 0 gives 20 kills / 10 missions, non-zero gives 10 / 15. Confirmed in raw disassembly: the jnz at 0041009f skips the whole skill block for the player, and the skill test examines only the idiv remainder (test edx,edx at 004100b3) with no guard on the kill sum -- so a zero total satisfies it.",
+      "source": "docs/shell/campaign-loop.md"
+    },
+    {
+      "address": "004103ba",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squad_ProgressAll",
+      "description": "Post-mission progression pass over the player and every on-strength squad member: Pilot_Progress for survivors, replacement from the roster for a pilot at zero condition.",
+      "source": "docs/shell/campaign-loop.md"
+    },
+    {
+      "address": "00446cfa",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Herc_BuildScreenRefresh",
+      "description": "Refreshes the Herc Construction stat panel from herc_inf.dat: mass as \"%d TONS\", speed as \"%d KPH\", hardpoints bare, price as \"%d TONS\". This is what names those four fields.",
+      "source": "docs/formats/herc-catalogs.md"
+    },
+    {
+      "address": "00413d1c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "LoadRepairLayouts",
+      "description": "hercdisp.cpp: loads all nine gam\\rpr_*.dat repair-bay layouts into a per-chassis structure of 33 counts followed by 33 record pointers, 0xc6 bytes per chassis.",
+      "source": "docs/formats/herc-catalogs.md"
+    },
+    {
+      "address": "00414a6b",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "LoadArmoryLayouts",
+      "description": "hercdisp.cpp: loads all nine gam\\arm_*.dat armory layouts. Two leading records per chassis instead of a counted list, and two 8-byte rect blocks per record instead of one.",
+      "source": "docs/formats/herc-catalogs.md"
+    },
+    {
+      "address": "00450a84",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "FixedMulQ10",
+      "description": "Q10 fixed-point multiply, (a * b) >> 10 through a 64-bit intermediate. The scale step behind every value damage.dat expands.",
+      "source": "docs/formats/herc-catalogs.md"
+    },
+    {
+      "address": "00483b54",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "HercInfoTable",
+      "description": "gam\\herc_inf.dat in memory: 9 records of 16 bytes. int16 each of chassis type, mass in tons, top speed in kph, hardpoints, price in tons, an unread field, build time in missions, and the availability flag. Stride and the +0x08 price offset confirmed via raw disassembly in Herc_ScrapValue (shl edx,4 then movsx ecx,word [edx+0x00483b5c] at 00413b93), not decompiler pointer math. The flag array is save block 7.",
+      "source": "docs/formats/herc-catalogs.md"
+    },
+    {
+      "address": "0046f728",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "HercTypeIdTable",
+      "description": "Nine int16 searched by Herc_TypeToIndex to map a chassis type to its catalog index. Retail contents are 0-8 in order.",
+      "source": "docs/formats/herc-catalogs.md"
+    },
+    {
+      "address": "0046f73a",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "HercCapacityTable",
+      "description": "Hardpoint capacity per chassis index: 3, 5, 5, 8, 9, 9, 10, 4, 7. Diverges from herc_inf.dat +0x06 for the Raptor II, where this table wins.",
+      "source": "docs/formats/herc-catalogs.md"
+    },
+    {
+      "address": "0046f868",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "WeaponClassTable",
+      "description": "Thirty int16 searched by Weapon_ClassIndexForId: weapon catalog ids 0-18 then 22-32, omitting the three Bull weapons.",
+      "source": "docs/formats/herc-catalogs.md"
+    },
+    {
+      "address": "0046f8a4",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "HercComponentGroupTable",
+      "description": "Six groups of up to three int16, each -1 terminated, partitioning the 13 external component indices exactly once: {0,1} {2,4} {3,5} {6} {7,9,11} {8,10,12}. The granularity the repair bay and scrap valuation price externals at.",
+      "source": "docs/formats/save-games.md"
+    },
+    {
+      "address": "0046f8d4",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ArmoryQueueFreeSlots",
+      "description": "Free weapon-build workspace slots, 0-5. Printed as \"Workspace Available:\", and 5 minus it as \"Workspace In Use:\". Save block 2 opens with this value.",
+      "source": "docs/shell/armory.md"
+    },
+    {
+      "address": "0046f8d6",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ArmoryQueueSlots",
+      "description": "Five int16, one weapon catalog id per build-queue slot, 0 for empty. The rest of save block 2.",
+      "source": "docs/shell/armory.md"
+    },
+    {
+      "address": "0046fd78",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "RepairTargetTable",
+      "description": "Six int16 repair targets by level: 100, 89, 79, 59, 29, 0.",
+      "source": "docs/shell/armory.md"
+    },
+    {
+      "address": "0046fd84",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "RepairLevelTable",
+      "description": "Six int16 condition-band floors by repair level: 90, 80, 60, 30, 1, 0.",
+      "source": "docs/shell/armory.md"
+    },
+    {
+      "address": "004840cc",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "HercExternalGroupValues",
+      "description": "Per-chassis unit values for the six external component groups, 9 rows of 33 int16. Expanded at load from damage.dat percentages against herc_inf.dat prices through FixedMulQ10.",
+      "source": "docs/formats/herc-catalogs.md"
+    },
+    {
+      "address": "004840e6",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "HercInternalValues",
+      "description": "Per-chassis unit values for the nine internal components. Column 13 of the same 9x33 int16 table as HercExternalGroupValues.",
+      "source": "docs/formats/herc-catalogs.md"
+    },
+    {
+      "address": "0048431e",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "WeaponScrapValues",
+      "description": "Per-weapon scrap value, 33 int16, expanded from damage.dat. The source column is the weapon's weapons.dat price times 100 for all thirty non-Bull ids, with the Bull trio zeroed.",
+      "source": "docs/formats/herc-catalogs.md"
+    },
+    {
+      "address": "00412341",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_AutoFillQueue",
+      "description": "Resets the build queue then walks the catalog in rank order via WeaponsDat_IdAtRank, enqueueing each weapon that is unlocked (record +0x16), that the player owns fewer than two of (record +0x17), and that the cumulative total leaves affordable.",
+      "source": "docs/shell/armory.md"
+    },
+    {
+      "address": "004123ba",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_TrimQueueToBudget",
+      "description": "Clears build-queue slots from the front while the queued total exceeds the credit pool, restoring one workspace slot per entry cleared.",
+      "source": "docs/shell/armory.md"
+    },
+    {
+      "address": "004125e7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_Enqueue",
+      "description": "Puts a weapon catalog id in the first free build-queue slot and decrements the workspace count. No-op when the queue is full.",
+      "source": "docs/shell/armory.md"
+    },
+    {
+      "address": "0041260d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_Dequeue",
+      "description": "Clears every build-queue slot holding the given weapon catalog id, incrementing the workspace count once per slot cleared.",
+      "source": "docs/shell/armory.md"
+    },
+    {
+      "address": "0041230c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponsDat_IdAtRank",
+      "description": "Weapon catalog id holding the given rank in WeaponsDat_RankTable, skipping rank 99; -1 when no id has it. This is the rank table only established use -- catalog ordering.",
+      "source": "docs/formats/weapons-dat.md"
     }
   ]
 }

@@ -21,8 +21,8 @@ public class TrainingHercsTransform : ByteTransformer<TrainingHercs> {
 		while (Index < Bytes!.Length) {
 			var herc = new ShellHercData();
 			herc.HercId = IndexShortLE();
-			herc.HealthRatio = IndexShortLE();
-			herc.BuildCompleteLevel = IndexShortLE();
+			herc.BuildPercent = IndexShortLE();
+			herc.BuildStepNum = IndexShortLE();
 			herc.Hardpoints = new Dictionary<short, UiWeaponEntry>();
 			int activeHardpoints = IndexShortLE();
 
@@ -46,8 +46,8 @@ public class TrainingHercsTransform : ByteTransformer<TrainingHercs> {
 
 		foreach (var herc in training.Data!) {
 			Emit(WriteShortLE(herc.HercId));
-			Emit(WriteShortLE(herc.HealthRatio));
-			Emit(WriteShortLE(herc.BuildCompleteLevel));
+			Emit(WriteShortLE(herc.BuildPercent));
+			Emit(WriteShortLE(herc.BuildStepNum));
 			Emit(WriteShortLE((short)herc.Hardpoints!.Count));
 
 			foreach (var id in herc.Hardpoints.Keys) {

@@ -39,6 +39,7 @@ public partial class CampaignResourcesForm : Form {
 			combo.Items.AddRange(WeaponLUT.Values().ToArray());
 		}
 
+		_sqSkillColumn.Items.AddRange(PilotSkill.Values().Select(s => s.Label).Cast<object>().ToArray());
 		_sqRankColumn.Items.AddRange(PilotRank.Values().Select(r => r.Label).Cast<object>().ToArray());
 		_hercBayHercColumn.Items.AddRange(HercLUT.Values().Cast<object>().ToArray());
 

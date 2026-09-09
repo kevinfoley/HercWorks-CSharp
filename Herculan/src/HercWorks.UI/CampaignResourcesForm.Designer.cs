@@ -52,9 +52,9 @@ partial class CampaignResourcesForm {
 		_sqNameColumn = new DataGridViewTextBoxColumn();
 		_sqBayIdColumn = new DataGridViewTextBoxColumn();
 		_sqActiveColumn = new DataGridViewTextBoxColumn();
-		_sqRankColumn = new DataGridViewComboBoxColumn();
+		_sqSkillColumn = new DataGridViewComboBoxColumn();
 		_sqCrewRowColumn = new DataGridViewTextBoxColumn();
-		_sqUnk2Column = new DataGridViewTextBoxColumn();
+		_sqRankColumn = new DataGridViewComboBoxColumn();
 		_sqHealthColumn = new DataGridViewTextBoxColumn();
 		_sqKillsHercsColumn = new DataGridViewTextBoxColumn();
 		_sqKillsFlyersColumn = new DataGridViewTextBoxColumn();
@@ -63,7 +63,7 @@ partial class CampaignResourcesForm {
 		_sqTotalKillFlyerColumn = new DataGridViewTextBoxColumn();
 		_sqTotalKillBldngColumn = new DataGridViewTextBoxColumn();
 		_sqMissionCountColumn = new DataGridViewTextBoxColumn();
-		_sqUnk5Column = new DataGridViewTextBoxColumn();
+		_sqNameIdxColumn = new DataGridViewTextBoxColumn();
 		_inventoryTab = new TabPage();
 		_inventoryGrid = new DataGridView();
 		_inventoryNameColumn = new DataGridViewTextBoxColumn();
@@ -349,10 +349,11 @@ partial class CampaignResourcesForm {
 		_squadmatesGrid.AllowUserToDeleteRows = false;
 		_squadmatesGrid.AutoGenerateColumns = false;
 		_squadmatesGrid.Columns.AddRange(new DataGridViewColumn[] {
-			_sqRoleColumn, _sqIdColumn, _sqNameColumn, _sqBayIdColumn, _sqActiveColumn, _sqRankColumn,
-			_sqCrewRowColumn, _sqUnk2Column, _sqHealthColumn, _sqKillsHercsColumn, _sqKillsFlyersColumn,
-			_sqKillsBuildingColumn, _sqTotalKillHercColumn, _sqTotalKillFlyerColumn, _sqTotalKillBldngColumn,
-			_sqMissionCountColumn, _sqUnk5Column
+			_sqRoleColumn, _sqIdColumn, _sqNameIdxColumn, _sqNameColumn, _sqBayIdColumn,
+			_sqActiveColumn, _sqSkillColumn, _sqRankColumn, _sqCrewRowColumn, _sqHealthColumn,
+			_sqKillsHercsColumn, _sqKillsFlyersColumn, _sqKillsBuildingColumn,
+			_sqTotalKillHercColumn, _sqTotalKillFlyerColumn, _sqTotalKillBldngColumn,
+			_sqMissionCountColumn
 		});
 		_squadmatesGrid.Dock = DockStyle.Fill;
 		_squadmatesGrid.Location = new Point(3, 3);
@@ -398,6 +399,13 @@ partial class CampaignResourcesForm {
 		_sqActiveColumn.Name = "_sqActiveColumn";
 		_sqActiveColumn.Width = 70;
 		//
+		// _sqSkillColumn
+		//
+		_sqSkillColumn.DataPropertyName = "SkillLabel";
+		_sqSkillColumn.HeaderText = "Skill";
+		_sqSkillColumn.Name = "_sqSkillColumn";
+		_sqSkillColumn.Width = 100;
+		//
 		// _sqRankColumn
 		//
 		_sqRankColumn.DataPropertyName = "RankLabel";
@@ -411,13 +419,6 @@ partial class CampaignResourcesForm {
 		_sqCrewRowColumn.HeaderText = "Crew Row";
 		_sqCrewRowColumn.Name = "_sqCrewRowColumn";
 		_sqCrewRowColumn.Width = 70;
-		//
-		// _sqUnk2Column
-		//
-		_sqUnk2Column.DataPropertyName = "Unk2Uint16";
-		_sqUnk2Column.HeaderText = "Unk2";
-		_sqUnk2Column.Name = "_sqUnk2Column";
-		_sqUnk2Column.Width = 60;
 		//
 		// _sqHealthColumn
 		//
@@ -475,12 +476,13 @@ partial class CampaignResourcesForm {
 		_sqMissionCountColumn.Name = "_sqMissionCountColumn";
 		_sqMissionCountColumn.Width = 70;
 		//
-		// _sqUnk5Column
+		// _sqNameIdxColumn
 		//
-		_sqUnk5Column.DataPropertyName = "Unk5Uint16";
-		_sqUnk5Column.HeaderText = "Unk5";
-		_sqUnk5Column.Name = "_sqUnk5Column";
-		_sqUnk5Column.Width = 60;
+		_sqNameIdxColumn.DataPropertyName = "NameIndex";
+		_sqNameIdxColumn.HeaderText = "Name Idx";
+		_sqNameIdxColumn.Name = "_sqNameIdxColumn";
+		_sqNameIdxColumn.ReadOnly = true;
+		_sqNameIdxColumn.Width = 70;
 		//
 		// _inventoryTab
 		//
@@ -688,9 +690,9 @@ partial class CampaignResourcesForm {
 	private DataGridViewTextBoxColumn _sqNameColumn;
 	private DataGridViewTextBoxColumn _sqBayIdColumn;
 	private DataGridViewTextBoxColumn _sqActiveColumn;
+	private DataGridViewComboBoxColumn _sqSkillColumn;
 	private DataGridViewComboBoxColumn _sqRankColumn;
 	private DataGridViewTextBoxColumn _sqCrewRowColumn;
-	private DataGridViewTextBoxColumn _sqUnk2Column;
 	private DataGridViewTextBoxColumn _sqHealthColumn;
 	private DataGridViewTextBoxColumn _sqKillsHercsColumn;
 	private DataGridViewTextBoxColumn _sqKillsFlyersColumn;
@@ -699,7 +701,7 @@ partial class CampaignResourcesForm {
 	private DataGridViewTextBoxColumn _sqTotalKillFlyerColumn;
 	private DataGridViewTextBoxColumn _sqTotalKillBldngColumn;
 	private DataGridViewTextBoxColumn _sqMissionCountColumn;
-	private DataGridViewTextBoxColumn _sqUnk5Column;
+	private DataGridViewTextBoxColumn _sqNameIdxColumn;
 	private TabPage _inventoryTab;
 	private DataGridView _inventoryGrid;
 	private DataGridViewTextBoxColumn _inventoryNameColumn;

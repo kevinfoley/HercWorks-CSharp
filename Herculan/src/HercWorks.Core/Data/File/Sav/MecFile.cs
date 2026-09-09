@@ -97,15 +97,21 @@ public class MecEntry {
 	public short Unk3A { get; set; }
 
 	/// <summary>
-	/// 26 bytes copied to the mech record at <c>+0x3c</c>. Still undecoded on the shell side too.
+	/// 26 bytes copied to the mech record at <c>+0x3c</c> — thirteen <c>int16</c> external component
+	/// conditions on the shell side, the facets enumerated by
+	/// <see cref="Struct.Herc.HercExternals"/>. They are facets rather than named parts: the shell
+	/// groups them six ways (cockpit front/rear, each torso front/rear, chassis, each leg's
+	/// thigh/calf/foot) and only the group carries a name and a repair price. Retail data holds
+	/// 0-100 throughout. See <c>docs/formats/save-games.md</c>.
 	/// </summary>
 	public byte[] BlockA { get; set; } = new byte[26];
 
 	/// <summary>
 	/// 20 bytes copied to the mech record at <c>+0x56</c> — ten <c>int16</c> condition values on the
-	/// shell side, of which index 9 is the machine's overall condition: the value the debrief reads
-	/// to set its pilot's, and resets to 100 for a machine it does not scrap. Retail data holds
-	/// 0-100 throughout.
+	/// shell side. Indices 0-8 are the nine internal components named by
+	/// <see cref="Struct.Herc.HercInternals"/>; index 9 is the machine's overall condition, the mean
+	/// of the externals and internals that the debrief reads to set its pilot's, and resets to 100
+	/// for a machine it does not scrap. Retail data holds 0-100 throughout.
 	/// </summary>
 	public byte[] BlockB { get; set; } = new byte[20];
 

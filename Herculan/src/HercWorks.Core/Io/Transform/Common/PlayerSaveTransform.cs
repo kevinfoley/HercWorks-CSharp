@@ -65,7 +65,7 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 		// Squadmate segment
 		var squad = new PilotEntry[36]; // 36 squadmates
 		for (int s = 0; s < squad.Length; s++) {
-			squad[s] = IndexSquadmate();
+			squad[s] = IndexPilot();
 		}
 		save.Squadmates = squad;
 
@@ -74,8 +74,9 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 			save.UnkRange_prePlayer[r] = IndexShortLE();
 		}
 
-		// Pilot segment
-		save.PlayerPilot = IndexPlayerPilot();
+		// Pilot segment — the same record shape as a squadmate's; the two shorts that precede it were
+		// consumed with UnkRange_prePlayer above.
+		save.PlayerPilot = IndexPilot();
 
 		// Herc bay data
 		short baySlots = IndexShortLE();
@@ -106,47 +107,35 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 		return save;
 	}
 
-	private PilotEntry IndexSquadmate() {
-		var entry = new PilotEntry {
-			SquadmateId = IndexShortLE()
-		};
-
-		short nameLen = IndexShortLE();
-		byte[] name = IndexSegment(nameLen);
-
-		entry.Name = BytesToLatin1String(name).Substring(0, nameLen - 1);
-
-		entry.BayId = IndexShortLE();
-		entry.Active = IndexByte();
-		entry.Rank = PilotRank.GetById(IndexShortLE());
-		entry.CrewRowNum = IndexShortLE();
-		entry.Unk2Uint16 = IndexShortLE();
-		entry.ProbablyHealth = IndexShortLE();
-		entry.KillsHercs = IndexShortLE();
-		entry.KillsFlyers = IndexShortLE();
-		entry.KillsBuilding = IndexShortLE();
-		entry.TotalKillHerc = IndexShortLE();
-		entry.TotalKillFlyer = IndexShortLE();
-		entry.TotalKillBldng = IndexShortLE();
-		entry.MissionCount = IndexShortLE();
-		entry.Unk5Uint16 = IndexShortLE();
-
-		return entry;
-	}
-
-	/// <summary>Player data drops the last shorts vs an AI squadmate's data, not sure why ATM.</summary>
-	private PilotEntry IndexPlayerPilot() {
+	/// <summary>
+	/// One pilot record. <b>The player's is the same shape as a squadmate's</b> — VSHELL reads both
+	/// with <c>FUN_0040fefc</c> and writes both with <c>FUN_0040fd5f</c>, roster id included. What
+	/// makes the player's segment look different is that two shorts of its own precede the record;
+	/// those belong to the surrounding block and are read with <c>UnkRange_prePlayer</c>.
+	///
+	/// <para>Three shorts precede the name — roster id, esnames index, then the length — and eleven
+	/// follow the on-strength byte. Every count here matters: taking the esnames index for the length
+	/// desynchronizes the whole squad segment, reading a twelfth trailing short eats into the block
+	/// that follows, and dropping the roster id for the player alone lands its name two bytes early.
+	/// See <c>docs/formats/save-games.md</c>.</para>
+	/// </summary>
+	private PilotEntry IndexPilot() {
 		var entry = new PilotEntry();
 
+		entry.SquadmateId = IndexShortLE();
+		entry.NameIndex = IndexShortLE();
+
 		short nameLen = IndexShortLE();
 		byte[] name = IndexSegment(nameLen);
+		entry.Name = nameLen > 0
+			? BytesToLatin1String(name).Substring(0, nameLen - 1)
+			: string.Empty;
 
-		entry.Name = BytesToLatin1String(name).Substring(0, nameLen - 1);
 		entry.BayId = IndexShortLE();
 		entry.Active = IndexByte();
-		entry.Rank = PilotRank.GetById(IndexShortLE());
+		entry.Skill = PilotSkill.GetById(IndexShortLE());
 		entry.CrewRowNum = IndexShortLE();
-		entry.Unk2Uint16 = IndexShortLE();
+		entry.Rank = PilotRank.GetById(IndexShortLE());
 		entry.ProbablyHealth = IndexShortLE();
 		entry.KillsHercs = IndexShortLE();
 		entry.KillsFlyers = IndexShortLE();
@@ -235,16 +224,16 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 
 		// PILOT DATA
 		foreach (var pilot in save.Squadmates!) {
-			WritePilotData(pilot, outStream, false);
+			WritePilotData(pilot, outStream);
 		}
 
-		// UNKNOWN PILOT DATA
+		// SQUAD BLOCK TAIL + PLAYER BLOCK HEAD
 		foreach (var unk in save.UnkRange_prePlayer) {
 			WriteAndCount(outStream, WriteShortLE(unk));
 		}
 
 		// PLAYER PILOT
-		WritePilotData(save.PlayerPilot!, outStream, true);
+		WritePilotData(save.PlayerPilot!, outStream);
 
 		// HERC DATA — keyed by actual bay id, not a 0..Count-1 sequential index: real saves have
 		// sparse bay ids (e.g. missing bay 2 or bay 7), so indexing by loop counter threw
@@ -276,12 +265,14 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 		return outStream.ToArray();
 	}
 
-	private void WritePilotData(PilotEntry pilot, MemoryStream outArr, bool isPlayer) {
-		if (!isPlayer) {
-			WriteAndCount(outArr, WriteShortLE(pilot.SquadmateId));
-		}
+	/// <summary>Mirror of <see cref="IndexPilot"/>, field for field, player and squadmate alike.</summary>
+	private void WritePilotData(PilotEntry pilot, MemoryStream outArr) {
+		WriteAndCount(outArr, WriteShortLE(pilot.SquadmateId));
+		WriteAndCount(outArr, WriteShortLE(pilot.NameIndex));
 
-		var nameBytes = Encoding.UTF8.GetBytes(pilot.Name ?? string.Empty);
+		// Latin-1 to match the read side: the shell's own names are ASCII, but a player-typed name
+		// with a high byte has to come back as the same single byte it went out as.
+		var nameBytes = Encoding.Latin1.GetBytes(pilot.Name ?? string.Empty);
 		var arr = new byte[nameBytes.Length + 1];
 		Array.Copy(nameBytes, arr, nameBytes.Length);
 		arr[^1] = 0x00;
@@ -293,9 +284,9 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 		WriteAndCount(outArr, WriteShortLE(pilot.BayId));
 		outArr.WriteByte(pilot.Active);
 		_dbgBuffer += 1;
-		WriteAndCount(outArr, WriteShortLE(pilot.Rank!.Id));
+		WriteAndCount(outArr, WriteShortLE(pilot.Skill?.Id ?? PilotSkill.Rookie.Id));
 		WriteAndCount(outArr, WriteShortLE(pilot.CrewRowNum));
-		WriteAndCount(outArr, WriteShortLE(pilot.Unk2Uint16));
+		WriteAndCount(outArr, WriteShortLE(pilot.Rank?.Id ?? PilotRank.Lieutenant.Id));
 		WriteAndCount(outArr, WriteShortLE(pilot.ProbablyHealth));
 		WriteAndCount(outArr, WriteShortLE(pilot.KillsHercs));
 		WriteAndCount(outArr, WriteShortLE(pilot.KillsFlyers));
@@ -304,10 +295,6 @@ public class PlayerSaveTransform : ByteTransformer<PlayerSave> {
 		WriteAndCount(outArr, WriteShortLE(pilot.TotalKillFlyer));
 		WriteAndCount(outArr, WriteShortLE(pilot.TotalKillBldng));
 		WriteAndCount(outArr, WriteShortLE(pilot.MissionCount));
-
-		if (!isPlayer) {
-			WriteAndCount(outArr, WriteShortLE(pilot.Unk5Uint16));
-		}
 	}
 
 	private void WriteHercEntry(short bayId, HercBayEntry herc, MemoryStream outArr) {

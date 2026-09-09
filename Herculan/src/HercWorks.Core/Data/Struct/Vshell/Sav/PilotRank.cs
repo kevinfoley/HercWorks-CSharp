@@ -1,20 +1,26 @@
 namespace HercWorks.Core.Data.Struct.Vshell.Sav;
 
-/// <summary>Ported from org.hercworks.core.data.struct.vshell.sav.PilotRank.</summary>
+/// <summary>
+/// A pilot's rank, held at pilot record <c>+0x29</c> as a 0-3 value. Seeded from the pilot's skill
+/// at roster generation and stepped up by VSHELL's post-mission pass whenever missions flown reach a
+/// multiple of their divisor, capped at Lt Colonel. Unlike skill, it advances for the player too.
+///
+/// <para>Distinct from <see cref="PilotSkill"/>, the separate 0-3 field at <c>+0x25</c>. The eight
+/// UI strings behind the two ladders are one contiguous run — skill indexes it from the start and
+/// rank from four in — so a single 0-7 enum will appear to display correctly while conflating two
+/// fields the game keeps apart and caps independently.</para>
+///
+/// Ported from org.hercworks.core.data.struct.vshell.sav.PilotRank.
+/// See <c>docs/formats/save-games.md</c> and <c>docs/shell/campaign-loop.md</c>.
+/// </summary>
 public sealed class PilotRank {
-	public static readonly PilotRank Rookie = new(0, "Rookie");
-	public static readonly PilotRank Regular = new(1, "Regular");
-	public static readonly PilotRank Veteran = new(2, "Veteran");
-	public static readonly PilotRank Elite = new(3, "Elite");
-	public static readonly PilotRank Lieutenant = new(4, "Lieutenant");
-	public static readonly PilotRank Captain = new(5, "Captain");
-	public static readonly PilotRank Major = new(6, "Major");
-	public static readonly PilotRank LtColonel = new(7, "Lt Colonel");
+	public static readonly PilotRank Lieutenant = new(0, "Lieutenant");
+	public static readonly PilotRank Captain = new(1, "Captain");
+	public static readonly PilotRank Major = new(2, "Major");
+	public static readonly PilotRank LtColonel = new(3, "Lt Colonel");
 
-	private static readonly IReadOnlyList<PilotRank> All = new[]
-	{
-		Rookie, Regular, Veteran, Elite, Lieutenant, Captain, Major, LtColonel
-	};
+	private static readonly IReadOnlyList<PilotRank> All =
+		new[] { Lieutenant, Captain, Major, LtColonel };
 
 	private static readonly Dictionary<short, PilotRank> ById = All.ToDictionary(r => r.Id);
 
@@ -31,9 +37,9 @@ public sealed class PilotRank {
 	/// <summary>Equivalent of Java's enum .values().</summary>
 	public static IReadOnlyList<PilotRank> Values() => All;
 
-	/// <summary>Original Java defaults to ROOKIE when no name matches; preserved here.</summary>
+	/// <summary>Original Java defaults to the lowest rank when no name matches; preserved here.</summary>
 	public static PilotRank GetByName(string name) =>
-		All.FirstOrDefault(r => string.Equals(name, r.Label, StringComparison.OrdinalIgnoreCase)) ?? Rookie;
+		All.FirstOrDefault(r => string.Equals(name, r.Label, StringComparison.OrdinalIgnoreCase)) ?? Lieutenant;
 
 	public override string ToString() => Label;
 }

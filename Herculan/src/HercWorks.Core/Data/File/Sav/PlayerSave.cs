@@ -16,13 +16,23 @@ public class PlayerSave {
 	public WeaponLUT[] WorkshopSlots { get; set; } = new WeaponLUT[5];
 
 	/// <summary>
-	/// 0x00 - UINT16 - ?; 0x02 - UINT16 - mission number (just cosmetic! VSHELL grabs the correct
-	/// script.dat for the actual mission); somewhere in this range: .DPL index num for briefing map.
+	/// The career block, 76 shorts / 152 bytes: campaign stage, mission within the stage, then three
+	/// counted arrays of line indices into <c>data\mission.str</c> holding the briefing and debrief
+	/// prose, then one trailing short. The mission number here is cosmetic — VSHELL takes the actual
+	/// mission from the slot's own <c>script.dat</c>.
+	///
+	/// <para>Size is load-bearing: 152 bytes is the only length that leaves the 36 pilot records
+	/// following it aligned. See <c>docs/formats/save-games.md</c>.</para>
 	/// </summary>
-	public short[] Unk4_stateFlags { get; set; } = new short[77];
+	public short[] Unk4_stateFlags { get; set; } = new short[76];
 
 	public PilotEntry[]? Squadmates { get; set; }
-	public short[] UnkRange_prePlayer { get; set; } = new short[9];
+
+	/// <summary>
+	/// The six shorts closing the squad block plus the two opening the player block — eight in all,
+	/// sitting between the last squadmate record and the player's own pilot record.
+	/// </summary>
+	public short[] UnkRange_prePlayer { get; set; } = new short[8];
 	public PilotEntry? PlayerPilot { get; set; }
 	public Dictionary<short, HercBayEntry> HercBay { get; set; } = new();
 	public Dictionary<HercLUT, short> UnlockedHercs { get; set; } = new();

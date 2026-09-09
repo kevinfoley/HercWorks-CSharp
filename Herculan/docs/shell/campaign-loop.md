@@ -41,7 +41,9 @@ Takes the pilot name and the mode flag (`DAT_0048260c`: 1 campaign, 0 training; 
 DAT_00482af4 = rand(0..10) * 1000 + 100000;
 ```
 
-Retail `GAME_T.SAV` holds exactly 107,000 credits — an untouched training start.
+Retail `GAME_T.SAV` holds exactly 107,000 credits — an untouched training start. The pool is in kilograms and every screen divides by 1000 to print tons ([`armory.md`](armory.md#one-currency-two-units)).
+
+The two catalog loads also stock the player: `gam\weapons.dat`'s trailing block gives the armory 39 weapon units ([`../formats/weapons-dat.md`](../formats/weapons-dat.md#file-level-format)) and `gam\hercs.dat` puts four Outlaws and one part-built Razor in the hangar ([`../formats/herc-catalogs.md`](../formats/herc-catalogs.md#gamhercsdat--the-starting-hangar)).
 
 ### The pilot roster is generated, not authored — `FUN_0040fa31`
 
@@ -106,7 +108,7 @@ This is `data\player.mec`, and the record it emits is the one `HercWorks.Core.Da
 
 The player's own entry reads its two leading fields from `00482a7e` and `00482aa1`, which are the same two pilot fields reached directly: the player structure at `00482a78` embeds its pilot record at `+0x04`, putting the name index at `00482a7e` and the skill tier at `00482aa1`.
 
-The `5` filler that [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md) observes in every non-launcher slot is written here — it is this function's literal default for a hardpoint with no unit mounted.
+The `5` filler that [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md) observes in every non-launcher slot is written here — it is this function's literal default for a hardpoint with no unit mounted. Where a unit *is* mounted the field is that unit's own ammo type, which the armory sets to `1` for a missile rack and `5` for everything else ([`../formats/herc-catalogs.md`](../formats/herc-catalogs.md#the-weapon-unit-record)), so `5` reaches the file by two routes and means the same thing on both.
 
 ### The trailing weapon table
 
@@ -153,6 +155,43 @@ per machine, the player's first then each on-strength squad member in order:
 ```
 
 DBSIM writes this file, so there is no writer in VSHELL to mirror it against, but the retail `data\results.dat` walks exactly: 152 bytes = the 8-byte header, no salvage, and two 72-byte machine blocks — matching the two entries in the `player.mec` beside it.
+
+### Pilot progression
+
+After the results stream is closed the debrief calls `FUN_004103ba(00482a78)`, the squad-wide progression pass. It runs `FUN_00410066` on the player when the player's HERC condition is non-zero, then on every on-strength squad member whose condition is non-zero; a squad member at zero condition is replaced by a fresh pilot from `FUN_0040fb4f` and the squad count drops.
+
+`FUN_00410066(pilot, isPlayer)` advances two independent ladders, both capped at 3 and both keyed on the pilot's counters ([`../formats/save-games.md`](../formats/save-games.md#pilot-record--59-bytes-0x3b-in-memory)):
+
+```
+divisors = (pilot +0x27 == 0) ? { kills: 20, missions: 10 }
+                             : { kills: 10, missions: 15 };
+if (pilot +0x25 < 3 && !isPlayer && (pilot +0x33 + pilot +0x35) % divisors.kills == 0)
+    pilot +0x25 += 1;                 // skill
+if (pilot +0x29 < 3 && pilot +0x39 % divisors.missions == 0)
+    pilot +0x29 += 1;                 // rank
+```
+
+Two consequences worth holding onto:
+
+- **The player's skill never changes.** The player is the one call site passing `isPlayer = 1`, and the `jnz` at `0041009f` jumps clear of the skill block on that argument — so the level chosen on the registration screen stands for the whole career, while the player's rank still advances on missions flown.
+- **Skill counts machines only.** The test sums Herc and Flyer kills and ignores Base kills entirely.
+
+The counters have already been accumulated and `+0x39` already incremented by the `FUN_0041000e` loop above, so a pilot's first debrief tests `missionsFlown == 1`. The kill test has no such offset: a squad pilot whose Herc and Flyer totals are still `0` satisfies `0 % divisor == 0` and takes a skill step on every mission survived until the cap.
+
+That last point is confirmed in the instruction stream — the sum is never tested, only the remainder:
+
+```
+004100a1  0f bf 41 33       movsx eax, word [ecx+0x33]   ; career Herc kills
+004100a5  0f bf 51 35       movsx edx, word [ecx+0x35]   ; career Flyer kills
+004100a9  03 c2             add   eax, edx               ; the sum -- never examined again
+004100b0  99                cdq
+004100b1  f7 fb             idiv  ebx
+004100b3  85 d2             test  edx, edx               ; the remainder, and nothing else
+004100b5  75 04             jnz   004100bb
+004100b7  66 ff 41 25       inc   word [ecx+0x25]        ; skill++
+```
+
+Seven jumps in the function resolve to four targets — `00410088`, `00410090`, `004100bb`, `004100d9` — and the instruction-length chain from the entry point hits all four, ending at the `ret` at `004100dc`, so the decode is bounded on every branch.
 
 ### Where the debrief goes next
 

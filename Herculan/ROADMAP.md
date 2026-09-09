@@ -91,6 +91,20 @@ The engine cannot be faithful here until the original is understood.
 - **Pause (`[P]`) is a placeholder** that just stops the fixed-timestep tick loop. Retail DBSIM's own
   pause has not been traced.
 
+## The shell front end
+`--shell` draws the frame every tab screen shares — the tiled backdrop, the square button and the
+eight captioned tabs, hit-tested and latching — and nothing behind it. What is missing:
+- **The eight tab screens themselves.** Each has its own builder in the executable and its own
+  hundred-odd widget rects; none is ported, so every tab shows the bare frame.
+  → [`docs/shell/screen-layout.md`](docs/shell/screen-layout.md)
+- **The tab gate.** Retail clears widget `+0x49` on tab 5 at build and rewrites it on tabs 2-6 from
+  `DAT_0048260c`; neither the flag's meaning nor the campaign state behind it is read, so the engine
+  leaves every tab enabled.
+- **The palette by name.** The shell picks one by index into an undecoded table; the engine takes a
+  name, defaulting to the one the bay screen's own resource name suggests.
+- **The mouse cursor.** `dba\cursor.dba` is not drawn — the host shows the OS pointer.
+- **Sound.** `SHLSOUND.VOL` is not mounted and no widget makes a noise.
+
 ## Other unported features
 - Currently missing is a quirk from retail where the player's shield meter fills in over ~10 seconds at the start of a mission. Claude says there's no explanation for this in the shield code, where the shields start out at full charge, and would take ~30 seconds to fully charge from empty. The fade-in-over-10-seconds may be a HUD animation that hasn't been discovered during RE yet.
 - Similarly to the previous, currently missing is an animation where weapon buttons wink on one-at-a-time when the simulation first starts.

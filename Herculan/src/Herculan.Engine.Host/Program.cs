@@ -3,6 +3,7 @@ using Herculan.Engine;
 using Herculan.Engine.Audio;
 using Herculan.Engine.Content;
 using Herculan.Engine.Gl;
+using Herculan.Engine.Host;
 using Herculan.Engine.Host.Debugging;
 using Herculan.Engine.Input;
 using Herculan.Engine.Numerics;
@@ -41,6 +42,8 @@ bool waitForEffectLight = false;
 bool silentAudio = false;
 int initialHddPilot = -1;
 HddOrder? initialHddOrder = null;
+bool runShell = false;
+string? shellPalette = null;
 
 // Ticks to let the sensor model run before --target takes its pick: nothing is targetable until a
 // sweep has painted it, and the sweep only runs from the world tick.
@@ -106,6 +109,15 @@ for (int i = 0; i < args.Length; i++) {
 		// only does anything alongside: a --screenshot run never sees a keystroke, and the turret
 		// only slews on its own once ATT has something to hold.
 		autoTrack = true;
+	} else if (args[i] == "--shell") {
+		// Run the front end instead of a mission — see ShellHost. It shares the install lookup below
+		// and nothing else, so it takes over before any mission loading happens.
+		runShell = true;
+	} else if (args[i] == "--shell-palette" && i + 1 < args.Length) {
+		// Which dpl\<name>.DPL the shell decodes its art through. The default is inferred rather than
+		// read; see ShellArt's class remarks for what is and is not known about the palette table.
+		shellPalette = args[++i];
+		runShell = true;
 	} else if (args[i] == "--no-sound" || args[i] == "--silent") {
 		// Skip the output device entirely. Same effect as running on a machine with no sound card:
 		// the catalog, the director and the message port all still run, nothing is heard. For a
@@ -145,6 +157,12 @@ if (installRoot == null) {
 		$"Pass its path as the first argument, or set {GameInstall.PathVariable}.\n" +
 		$"The path should be the folder containing the '{GameInstall.ArchiveFolderName}' directory.");
 	return 1;
+}
+
+// --shell runs the front end instead, and shares nothing below this point: different archives, no
+// zone, no simulation, no fixed timestep. See ShellHost.
+if (runShell) {
+	return ShellHost.Run(installRoot, shellPalette, screenshotPath);
 }
 
 // The mission handoff VSHELL writes and DBSIM reads. It states its own zone and theater, so nothing
@@ -1479,7 +1497,7 @@ window.Render += (_, gl) => {
 			&& (!shotWanted || scene.World.Tracers.Count > 0 || scene.World.Projectiles.Count > 0
 				|| scene.World.RocketsInFlight.Count > 0)) {
 		screenshotTaken = true;
-		CaptureScreenshot(gl, size.X, size.Y, screenshotPath);
+		Screenshot.Capture(gl, size.X, size.Y, screenshotPath);
 		window.Close();
 	}
 };
@@ -2144,51 +2162,6 @@ static Camera ClonePanelCamera(Camera source, int yawOffset) => new() {
 	NearPlane = source.NearPlane,
 	FarPlane = source.FarPlane,
 };
-
-// Dependency-free 24bpp BMP writer — no System.Drawing/ImageSharp, per Herculan.Engine's
-// no-imaging-dependency precedent (see docs/engine/planning.md's Milestone 1 notes). Reads straight
-// from the framebuffer via glReadPixels; BMP's standard bottom-up row order matches GL's own
-// bottom-left-origin convention, so no row flip is needed.
-static void CaptureScreenshot(GL gl, int width, int height, string path) {
-	int rowSize = width * 3;
-	int rowPadding = (4 - rowSize % 4) % 4;
-	int paddedRowSize = rowSize + rowPadding;
-	int pixelDataSize = paddedRowSize * height;
-
-	var pixels = new byte[width * height * 3];
-	gl.ReadPixels(0, 0, (uint)width, (uint)height, PixelFormat.Bgr, PixelType.UnsignedByte, pixels.AsSpan());
-
-	using var file = new FileStream(path, FileMode.Create, FileAccess.Write);
-	using var writer = new BinaryWriter(file);
-
-	int fileSize = 14 + 40 + pixelDataSize;
-	writer.Write((byte)'B'); writer.Write((byte)'M');
-	writer.Write(fileSize);
-	writer.Write(0); // reserved
-	writer.Write(14 + 40); // pixel data offset
-
-	writer.Write(40); // DIB header size (BITMAPINFOHEADER)
-	writer.Write(width);
-	writer.Write(height); // positive = bottom-up row order
-	writer.Write((short)1); // planes
-	writer.Write((short)24); // bits per pixel
-	writer.Write(0); // no compression
-	writer.Write(pixelDataSize);
-	writer.Write(2835); // ~72 DPI
-	writer.Write(2835);
-	writer.Write(0); // colors used
-	writer.Write(0); // important colors
-
-	var padding = new byte[rowPadding];
-	for (int row = 0; row < height; row++) {
-		writer.Write(pixels, row * rowSize, rowSize);
-		if (rowPadding > 0) {
-			writer.Write(padding);
-		}
-	}
-
-	Console.WriteLine($"Wrote screenshot to {path} ({width}x{height}).");
-}
 
 static CameraInput ReadInput(IKeyboard? keyboard) {
 	if (keyboard == null) {

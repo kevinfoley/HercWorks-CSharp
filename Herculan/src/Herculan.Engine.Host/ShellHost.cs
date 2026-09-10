@@ -31,7 +31,8 @@ static class ShellHost {
 	private const int ScreenshotFrame = 5;
 
 	public static int Run(string installRoot, string? paletteName, string? screenshotPath = null,
-			ShellCampaignMode mode = ShellCampaignMode.Campaign, bool followTabPalettes = false) {
+			ShellCampaignMode mode = ShellCampaignMode.Campaign, bool followTabPalettes = false,
+			int startTab = ShellScreen.MainMenuTab) {
 		var content = GameContent.Mount(GameInstall.ArchiveDirectory(installRoot), ShellArt.Archives);
 		Console.WriteLine($"Mounted archives: {string.Join(", ", content.MountedArchives)}");
 
@@ -65,15 +66,28 @@ static class ShellHost {
 		// on screen and read as a palette bug. An explicit --shell-palette pins one entry instead.
 		bool followTabPalette = followTabPalettes && paletteName == null;
 
-		var screen = ShellScreen.CreateFrame(art.Text, mode: mode);
+		// The save screen reads real files: sav\GAMEFILE.STR for the slot list and each GAME_?.SAV it
+		// says is in use for that slot's summary. Both are loose files beside the VOL folder rather than
+		// archive entries, so they are read from the install root and not through GameContent.
+		var slots = ShellSaveSlots.Load(installRoot, art.Text);
+		var saveScreen = new ShellSaveScreen(slots);
+		var contentSurface = new ShellSurface();
+		Console.WriteLine(slots.Count > 0
+			? $"Save slots: {slots.Count(s => s.InUse)} of {slots.Count} in use — "
+			  + string.Join(", ", slots.Take(ShellSaveScreen.RowCount).Select(s => s.Label.Trim()))
+			: $"No {ShellSaveSlots.DirectoryFileName} in {ShellSaveSlots.Directory(installRoot)} — "
+			  + "the save screen draws its furniture and no rows.");
+
+		var screen = ShellScreen.CreateFrame(art.Text, startTab, mode);
 		Console.WriteLine(art.Text != null
 			? $"Tabs: {string.Join(", ", screen.Buttons.Where(b => b.Caption != null).Select(b => b.Caption))}"
 			: "No estext.bin — the tabs draw their plates and no captions.");
 		Console.WriteLine(mode == ShellCampaignMode.Training
 			? "Training campaign: REPAIR, BUILD and ARMORY are gated off, as the strip refresh gates them."
 			: "Campaign: every tab is live.");
-		Console.WriteLine("The tab strip is the whole of the shell so far; no tab has a screen behind it "
-			+ "yet. Click one to latch it. Close the window to quit.");
+		Console.WriteLine("SAVE is the one tab with a screen behind it. Click a slot row to select it and "
+			+ "the summary panel follows; the other seven tabs latch and show the frame. Close the "
+			+ "window to quit.");
 		Console.WriteLine(followTabPalette
 			? "Palettes follow the tab, as the original's do. The four tabs on dpl\\arming.dpl draw the "
 			  + "bay backdrop through a palette that is not its own — so does retail, which covers it "
@@ -94,6 +108,7 @@ static class ShellHost {
 			gl = loadedGl;
 			renderer = new ShellRenderer(loadedGl, art);
 			mouse = input.Mice.Count > 0 ? input.Mice[0] : null;
+			RepaintContent();
 		};
 
 		window.Update += _ => {
@@ -115,8 +130,13 @@ static class ShellHost {
 			if (held && !pointerHeld) {
 				screen.PointerDown(canvasX, canvasY);
 			} else if (!held && pointerHeld) {
+				// The strip gets first refusal: it is drawn over the content and its buttons are the only
+				// ones ShellScreen tracks. A release the strip does not claim falls through to whatever
+				// tab is up.
 				if (screen.PointerUp(canvasX, canvasY) is { } activated) {
 					Activate(activated);
+				} else {
+					ClickContent(canvasX, canvasY);
 				}
 			} else {
 				screen.PointerMoved(canvasX, canvasY);
@@ -165,9 +185,57 @@ static class ShellHost {
 			screen.SelectTab(id);
 			Console.WriteLine($"Tab {id}"
 				+ (screen.Button(id)?.Caption is { } caption ? $" ({caption})" : string.Empty)
-				+ " — no screen behind it yet.");
+				+ (id == ShellScreen.SaveTab ? "." : " — no screen behind it yet."));
 
 			SwitchPalette(id);
+			RepaintContent();
+		}
+
+		// A click the strip did not take, handed to the tab that is up. Only the save screen has
+		// anything to hand it to so far.
+		void ClickContent(float canvasX, float canvasY) {
+			if (screen.SelectedTab != ShellScreen.SaveTab) {
+				return;
+			}
+
+			if (saveScreen.RowAt(canvasX, canvasY) is { } slot) {
+				// Clicking the row already selected is a no-op, the same early return the original's
+				// selection move opens with.
+				if (slot == saveScreen.SelectedSlot) {
+					return;
+				}
+
+				saveScreen.SelectSlot(slot);
+				RepaintContent();
+				Console.WriteLine($"Slot {slot + 1}: "
+					+ (saveScreen.Slots.ElementAtOrDefault(slot) is { InUse: true, Summary: { } summary }
+						? $"{summary.PilotName}, sector {summary.Sector}, mission {summary.Mission + 1}, "
+						  + $"{summary.SalvageKilograms} kg salvage"
+						: "empty."));
+				return;
+			}
+
+			if (saveScreen.ButtonAt(canvasX, canvasY) is { } button) {
+				Console.WriteLine($"{button} — the button is live and its action is not ported yet.");
+			}
+		}
+
+		// Rasterizes the current tab's content and hands it to the renderer. Called on a state change
+		// rather than per frame: it resolves a whole canvas of palette indices and uploads a texture,
+		// which is the same "repaint only what moved" the original's widget paints are driven by.
+		void RepaintContent() {
+			if (renderer == null) {
+				return;
+			}
+
+			if (screen.SelectedTab != ShellScreen.SaveTab) {
+				renderer.SetContent(null);
+				return;
+			}
+
+			contentSurface.Clear();
+			saveScreen.Paint(contentSurface, art.Text, art.Sprites);
+			renderer.SetContent(contentSurface);
 		}
 
 		// The tab's own palette, as FUN_0043b162 picks it. The original writes an index into the palette
@@ -190,6 +258,10 @@ static class ShellHost {
 			art = reloaded;
 			renderer?.Dispose();
 			renderer = new ShellRenderer(gl, art);
+
+			// The new renderer has no content texture, and the old one's was resolved through the old
+			// palette anyway — so the tab's content is rasterized again through the palette it is now
+			// being drawn in. Activate calls RepaintContent after this returns.
 			Console.WriteLine($"Palette {index} — dpl\\{name}.DPL.");
 		}
 	}

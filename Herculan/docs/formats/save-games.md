@@ -30,11 +30,19 @@ Slot 10 and 11 are one slot from the caller's side. `FUN_0040e37b` and `FUN_0040
 
 The in-memory slot table is a 94-byte (`0x5e`) stride at `00482610`: filename at `+0x00` (13 bytes), label at `+0x0d` (80 bytes), in-use byte at `+0x5d`. `FUN_0040e150` builds the path to open by prefixing the filename with the string at `0046f434`.
 
+## The slot summary — `stats.cpp`'s scan
+
+The save screen shows a slot's pilot and career position without loading it. Eleven [staging records](#pilot-record--59-bytes-0x3b-in-memory) at `0048cddc` hold that summary, one per slot; `Stats_ScanSlots` (`00430378`, `stats.cpp`) fills them from the files and `FUN_0043084c(slot)` writes one from the live game.
+
+**The scan walks every block of a save with explicit skip counts**, which makes it a second, independent statement of the whole [block order](#savgame_sav--block-order). For each slot the directory marks in use it skips 33 records of `{ byte; int16 count; count x 10 }` for the armory stock; skips 2 + 10 + 10 for the build queue; reads the stage and the mission off the head of the career block and skips its remaining 148 bytes; skips 36 pilot records of `4 + (int16 len + name) + 2 + 1 + 22`; skips 12 for the eight shorts between the squad and the player; skips the player block's two leading `int16` and reads the pilot record itself; walks the hangar's counted list at `0x48` fixed bytes plus 12 per occupied mount; skips 18 for the chassis flags; reads the salvage pool; and stops without touching blocks 9 to 11. Every count agrees with the table below.
+
+It reaches those fields by seeking rather than reading — `FUN_0044e864` is tell and `FUN_0044e880` is seek — so what reads as a stream loop in a decompile is a run of binary skips.
+
 ## Streams never truncate
 
 `FUN_0044e46c`, the write-stream open behind every file in this doc, calls `_open(path, 0x8102, 0x180)` — `O_BINARY | O_CREAT | O_RDWR`, with **no `O_TRUNC`**. Writing a shorter payload over a longer file leaves the old tail in place.
 
-This is observable in retail data. `GAME_4.SAV` carries 164 bytes past its last field and `GAME_T.SAV` 36; `GAMEFILE.STR` carries 11, the remains of a longer label block. Consequences for any reader:
+This is observable in retail data. `GAME_4.SAV` carries 164 bytes past its last field and `GAME_T.SAV` 36; `GAMEFILE.STR` is 345 bytes of which the reader consumes 338, so 7 are the remains of a longer label block. Consequences for any reader:
 
 - **Parse by structure, never by file size.** Trailing bytes are not a parse failure.
 - `GAMEFILE.STR`'s leading length is `lseek(fd, 0, SEEK_END) - 4` taken *after* writing (`FUN_0044e518`), so it measures the physical file including stale tail, not the payload.
@@ -105,7 +113,7 @@ Serialized by `FUN_0040fd5f`, read by `FUN_0040fefc`, initialized by `FUN_0040fc
 
 The three pairs are proved by `FUN_0041000e`, which reads the per-mission counters from `results.dat` in the order Herc, Base, Flyer and then accumulates `+0x33 += +0x2d`, `+0x35 += +0x2f`, `+0x37 += +0x31`, `+0x39 += 1`.
 
-What names them is the crew screen, which stages each pilot into a 67-byte record — the 59-byte pilot record, then `int32` salvage, `int16` career stage and `int16` mission — and prints six of these fields as a `Current`/`Total` pair per row against the labels ` Herc Kills:`, `Flyer Kills:` and ` Base Kills:` (`estext.bin` `0x27`-`0x29`). The player's own staging copy is filled field-by-field from `00482aa9` upward, which is the pilot record embedded at `00482a7c`, so each screen offset binds to one pilot offset directly. `FUN_00410066` reads the same naming back: it promotes on `+0x33 + +0x35`, the two kill kinds that are machines, and never on `+0x37`.
+What names them is the save screen, whose detail panel prints six of these fields as a `Current`/`Total` pair per row against the labels ` Herc Kills:`, `Flyer Kills:` and ` Base Kills:` (`estext.bin` `0x27`-`0x29`) — see [`../shell/screen-layout.md`](../shell/screen-layout.md#the-save-screen). It reads them out of a **67-byte (`0x43`) staging record**: this record, then `int32` salvage in kilograms, `int16` campaign stage and `int16` mission within the stage. `FUN_0043084c` fills the player's copy field by field from `00482aa9` upward, which is the pilot record embedded at `00482a7c`, so each screen offset binds to one pilot offset directly — and that binding is what settles this table's `+0x25`, `+0x29` and six kill offsets rather than leaving them inferred from order. `FUN_00410066` reads the same naming back: it promotes on `+0x33 + +0x35`, the two kill kinds that are machines, and never on `+0x37`.
 
 Skill and rank advance separately, in `FUN_00410066` — see [`../shell/campaign-loop.md`](../shell/campaign-loop.md#pilot-progression).
 

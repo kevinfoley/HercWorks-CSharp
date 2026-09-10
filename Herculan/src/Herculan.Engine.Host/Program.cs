@@ -47,6 +47,7 @@ bool runShell = false;
 string? shellPalette = null;
 var shellMode = ShellCampaignMode.Campaign;
 bool shellTabPalettes = false;
+int shellTab = ShellScreen.MainMenuTab;
 
 // Ticks to let the sensor model run before --target takes its pick: nothing is targetable until a
 // sweep has painted it, and the sweep only runs from the world tick.
@@ -127,6 +128,14 @@ for (int i = 0; i < args.Length; i++) {
 		// content that would cover the bay backdrop is not ported — see ShellHost.
 		shellTabPalettes = true;
 		runShell = true;
+	} else if (args[i] == "--shell-tab" && i + 1 < args.Length
+			&& int.TryParse(args[i + 1], out int requestedTab)) {
+		// Which tab the shell comes up on, 0-7. The original always enters on the main menu; this is here
+		// so --screenshot can land on a tab that has content, and so the save screen is one argument away
+		// rather than a click away.
+		shellTab = Math.Clamp(requestedTab, 0, ShellLayout.TabCount - 1);
+		i++;
+		runShell = true;
 	} else if (args[i] == "--shell-training") {
 		// Run the front end as the training campaign rather than the real one — DAT_0048260c, the flag
 		// that gates REPAIR, BUILD and ARMORY off. Nothing loads a save yet, so this is how that half of
@@ -177,7 +186,8 @@ if (installRoot == null) {
 // --shell runs the front end instead, and shares nothing below this point: different archives, no
 // zone, no simulation, no fixed timestep. See ShellHost.
 if (runShell) {
-	return ShellHost.Run(installRoot, shellPalette, screenshotPath, shellMode, shellTabPalettes);
+	return ShellHost.Run(installRoot, shellPalette, screenshotPath, shellMode, shellTabPalettes,
+		shellTab);
 }
 
 // The mission handoff VSHELL writes and DBSIM reads. It states its own zone and theater, so nothing

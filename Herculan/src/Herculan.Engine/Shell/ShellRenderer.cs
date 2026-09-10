@@ -30,6 +30,9 @@ public sealed class ShellRenderer : IDisposable {
 	private readonly GpuTexture _backdrop;
 	private readonly GpuTexture? _sprites;
 	private readonly List<Overlay2DVertex> _vertices = new();
+	private GpuTexture? _content;
+	private int _contentWidth;
+	private int _contentHeight;
 
 	public ShellRenderer(GL gl, ShellArt art) {
 		_gl = gl;
@@ -38,6 +41,29 @@ public sealed class ShellRenderer : IDisposable {
 		_mesh = new GpuOverlayMesh(gl);
 		_backdrop = new GpuTexture(gl, art.Backdrop.Pixels, art.Backdrop.Width, art.Backdrop.Height);
 		_sprites = art.Sprites is { } sheet ? new GpuTexture(gl, sheet.Atlas) : null;
+	}
+
+	/// <summary>
+	/// Hands over the tab content to draw between the backdrop and the strip, or null to draw none.
+	/// The surface is resolved through the art's palette and uploaded here, so this is the expensive
+	/// call and belongs on a state change rather than in the frame loop — which is also how the
+	/// original works, repainting a widget only when something it shows moves.
+	///
+	/// <para>Whatever the surface left as index 0 comes out fully transparent, so the backdrop shows
+	/// through it. A tab screen covers only part of the canvas and relies on that.</para>
+	/// </summary>
+	public void SetContent(ShellSurface? surface) {
+		_content?.Dispose();
+		_content = null;
+
+		if (surface == null || surface.Width <= 0 || surface.Height <= 0) {
+			return;
+		}
+
+		var image = surface.ToImage(_art.Palette);
+		_contentWidth = image.Width;
+		_contentHeight = image.Height;
+		_content = new GpuTexture(_gl, image.Pixels, image.Width, image.Height);
 	}
 
 	/// <summary>
@@ -61,6 +87,15 @@ public sealed class ShellRenderer : IDisposable {
 		AddBackdrop(layout);
 		_shader.SetSamplerTexture("uTexture", _backdrop.Handle, 0);
 		_mesh.SubmitAndDraw(CollectionsMarshal.AsSpan(_vertices));
+
+		// The tab's content, over the backdrop and under the strip. It is one quad at canvas scale
+		// whatever is on it, because a whole screen's chrome was rasterized into it — see ShellSurface.
+		if (_content != null) {
+			_vertices.Clear();
+			AddQuad(layout, 0f, 0f, _contentWidth, _contentHeight, new AtlasRect(0f, 0f, 1f, 1f));
+			_shader.SetSamplerTexture("uTexture", _content.Handle, 0);
+			_mesh.SubmitAndDraw(CollectionsMarshal.AsSpan(_vertices));
+		}
 
 		if (_art.Sprites is { } sheet && _sprites != null) {
 			_vertices.Clear();
@@ -165,5 +200,6 @@ public sealed class ShellRenderer : IDisposable {
 		_shader.Dispose();
 		_backdrop.Dispose();
 		_sprites?.Dispose();
+		_content?.Dispose();
 	}
 }

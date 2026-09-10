@@ -35,3 +35,5 @@ Herculan/src/HercWorks.TransferApi/obj/
 MusicRip/
 Herculan/docs/shell/handoff-vshell-re.md
 .vs/
+tools/ghidra_scripts/known_symbols.json.bak
+tools/ghidra_scripts/known_structs.json.bak

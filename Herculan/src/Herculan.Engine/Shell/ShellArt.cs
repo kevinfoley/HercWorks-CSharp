@@ -80,6 +80,14 @@ public sealed class ShellArt {
 	/// <summary>The font tab captions are drawn in — <c>DAT_0046dccc</c>, the handle each strip button is given.</summary>
 	public const string ButtonFont = "BLACK";
 
+	/// <summary>
+	/// The font every tab screen's own content is drawn in. The shell's init loads <c>font2.dfn</c>
+	/// twice, into <c>0046dcc4</c> and <c>0046dcc8</c>, and a screen builder hands out both — the save
+	/// screen gives its buttons the first and its title, slot rows and readouts the second — so the two
+	/// handles are one typeface and there is nothing to choose between them.
+	/// </summary>
+	public const string ScreenFont = "FONT2";
+
 	private ShellArt(string paletteName, DynamixPalette palette, ShellImage backdrop,
 			HudSpriteSheet? sprites, ShellText? text) {
 		PaletteName = paletteName;

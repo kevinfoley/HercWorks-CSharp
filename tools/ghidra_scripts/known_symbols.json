@@ -11457,10 +11457,10 @@
       "address": "00439b0c",
       "binary": "VSHELL",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_SaveScreen_Show",
-      "description": "Built by tab 1's handler. Identified from its dispatch position only.",
-      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+      "confidence": "high",
+      "name": "SaveScreen_Enter",
+      "description": "Tab 1's entry routine. Sets all ten row texts from the GAMEFILE.STR labels, gates SAVE on 0048260a and RESTORE on the selected slot's in-use byte, highlights the selected row and refreshes the detail panel. Does not build: FUN_004385b0 does that once.",
+      "source": "docs/shell/screen-layout.md#the-save-screen"
     },
     {
       "address": "0043f548",
@@ -11741,6 +11741,321 @@
       "name": "CampaignMissionInStage",
       "description": "Mission within the stage, second half of the career position pair. Zero is what makes the mission tab open on the campaign map rather than a briefing.",
       "source": "docs/shell/campaign-loop.md"
+    },
+    {
+      "address": "0041eb5c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_SetRect",
+      "description": "Stores a constructor's rect verbatim into +0x25/+0x29/+0x2d/+0x31 -- left, top, right, bottom, parent-relative -- then attaches to the parent and has FUN_0041ef45 derive the absolute rect into +0x15/+0x19/+0x1d/+0x21. FUN_0041ec33 confirms the relation by adding a parent's +0x15 to a child's +0x25.",
+      "source": "docs/shell/screen-layout.md#how-a-widget-paints"
+    },
+    {
+      "address": "0041ebef",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_MoveRect",
+      "description": "Moves a widget after construction: rewrites the parent-relative rect at +0x25, rederives the absolute one and repaints. The only mover in the shell, and it is called on one widget (0048d7dc) -- so every other screen's geometry is exactly what its builder passed.",
+      "source": "docs/shell/screen-layout.md#how-a-widget-paints"
+    },
+    {
+      "address": "004385b0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "SaveScreen_BuildScreen",
+      "description": "Builds tab 1, SAVED GAMES: the backdrop root, the titled content panel, the slot list frame, ten editable slot rows, five buttons and the detail panel's 22 text fields. Every rect is four immediates on its own stack; opens no file.",
+      "source": "docs/shell/screen-layout.md#the-save-screen"
+    },
+    {
+      "address": "00439d66",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_SaveScreen_Teardown",
+      "description": "Called first by the EXIT button's handler. Parks the selection on slot 10 and makes four visibility calls over the save screen's root, content panel and both detail panels. Whether those calls show or hide turns on the polarity of the +0x11 bit, which is unresolved.",
+      "source": "docs/shell/screen-layout.md#the-palette"
+    },
+    {
+      "address": "0043712c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "SaveScreen_RefreshDetail",
+      "description": "Rewrites the detail panel's twelve value fields from the selected slot's staging record: name, skill and rank words, six kill counters, salvage in tons, sector word and mission plus one. Writes estext.bin entry 0, the empty string, into all twelve when the slot holds no save.",
+      "source": "docs/shell/screen-layout.md#the-detail-panel"
+    },
+    {
+      "address": "0043795f",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "SaveScreen_SelectSlot",
+      "description": "Moves the slot selection. Returns early for the slot already selected unless a rename is live, repaints the outgoing row at 0x27 and the incoming at 0x29, regates SAVE and RESTORE, then refreshes the detail panel.",
+      "source": "docs/shell/screen-layout.md#the-save-screen"
+    },
+    {
+      "address": "00437b3d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "SaveScreen_SetRowText",
+      "description": "Sets one slot row's string: the GAMEFILE.STR label when the second argument is zero, otherwise a formatted '%2d. %s' of the slot number and that argument.",
+      "source": "docs/shell/screen-layout.md#the-save-screen"
+    },
+    {
+      "address": "00437d94",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "SaveScreen_OnExit",
+      "description": "The EXIT button. Tears the screen down and then returns to where 0048d344 says: 0 rebuilds the main menu, 8 installs palette case 8 and refreshes the tab strip.",
+      "source": "docs/shell/screen-layout.md#the-save-screen"
+    },
+    {
+      "address": "00430378",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stats_ScanSlots",
+      "description": "stats.cpp. Fills the eleven-entry slot summary table at 0048cddc by opening every save the directory marks in use and seeking block by block to the pilot record, the salvage pool and the career position. Its skip counts are a second independent statement of the whole GAME_?.SAV block order.",
+      "source": "docs/formats/save-games.md#the-slot-summary--statscpps-scan"
+    },
+    {
+      "address": "0043084c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stats_StageCurrentGame",
+      "description": "Writes one slot's summary from the live game rather than from a file: the player's pilot record fields copied one at a time out of 00482a7c, then CareerSalvage, the campaign stage and the mission. This is what binds each summary offset to a named pilot-record offset.",
+      "source": "docs/formats/save-games.md#pilot-record--59-bytes-0x3b-in-memory"
+    },
+    {
+      "address": "0040a726",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Panel_FillAndBorder",
+      "description": "The fill and border under every panel paint, and the whole of Panel_Paint. Optionally clears the interior to a literal 0x10, then draws a chamfered border in +0x4d: four edges each stopping a pixel short at both ends, with the four pixels one step inside the corners painted instead. Returns immediately when +0x51 is clear.",
+      "source": "docs/shell/screen-layout.md#how-a-widget-paints"
+    },
+    {
+      "address": "0040b439",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Text_Paint",
+      "description": "The Text widget's paint, reached by event type 4. Optionally clears its rect to +0xc5 when +0xc1 is set, draws the string at a baseline of H - (H + 1 - cellHeight) / 2 - 2 with the alignment in +0x45, then remaps the font's ink index 0x29 to +0xb5 over the rect.",
+      "source": "docs/shell/screen-layout.md#text-placement-and-colour"
+    },
+    {
+      "address": "0040bbf4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "EditField_Ctor",
+      "description": "The editable text field class (0xc3 struct, esdialog.cpp). String buffer at +0x45, permitted-character set at +0x9f defaulting to the upper-case alphabet, font at +0xa3, length at +0xab, pixel width at +0xaf, caret enable at +0xb3 and text colour at +0xbb. The save screen's ten slot rows are these.",
+      "source": "docs/shell/screen-layout.md#the-save-screen"
+    },
+    {
+      "address": "0040bce4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "EditField_SetString",
+      "description": "Copies a string into an edit field's +0x45 buffer, asserting at 90 characters, then caches its length at +0xab and its summed pixel width at +0xaf.",
+      "source": "docs/shell/screen-layout.md#the-save-screen"
+    },
+    {
+      "address": "0040c14f",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "EditField_Paint",
+      "description": "Clears the field to 0x10, draws its string left-aligned one pixel in at a baseline of cellHeight / 2 + (H + 1) / 2, draws a 7x3 caret block at 0x27 past the text when +0xa7 and +0xb3 are both set, then remaps the font's ink index 0x29 to +0xbb.",
+      "source": "docs/shell/screen-layout.md#text-placement-and-colour"
+    },
+    {
+      "address": "004097da",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Control_HandleEvent",
+      "description": "The widget base's event handler, and the answer to what stops a gated widget responding: mouse events (type 0x20) are processed only when +0x49 is non-zero, so a cleared enable flag skips the whole switch. Sub-event 2 presses (+0x45 = 1, repaint), 1 releases (dispatch the widget's own callback via 0041f5d4, clear +0x45, repaint) and 0x10 cancels. Type 4 is a repaint, type 2 the shown event.",
+      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+    },
+    {
+      "address": "00409b0f",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Button_HandleEvent",
+      "description": "The button's mouse handler. Plays the hover/press sound (0042eecf) on mouse sub-events 2 and 4 when the widget is enabled and sound is on, then defers to Control_HandleEvent unconditionally. The +0x49 test here gates only the sound, not the dispatch.",
+      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+    },
+    {
+      "address": "0041f585",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_BeginPaint",
+      "description": "The first call in all five widget paints: binds the drawing context to the widget and clips to it. The paints depend on that clip rather than measuring -- the titled panel's hatch is drawn over 700 pixels wide whatever the widget's size.",
+      "source": "docs/shell/screen-layout.md#how-a-widget-paints"
+    },
+    {
+      "address": "0041f5d4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_DispatchCallback",
+      "description": "Calls the widget's own handler at +0x3d if it has one. This is what a click actually reaches, and what the palette scope's on-shown hook goes through.",
+      "source": "docs/shell/screen-layout.md#the-palette"
+    },
+    {
+      "address": "0045409c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Font_DrawString",
+      "description": "Draws a run of glyphs. Tests the draw context's +0x231 for 1 and then 2, so alignment is 0 left, 1 right, 2 centred against the field width at +0x235; then advances glyph by glyph. The y it is given is an ink baseline.",
+      "source": "docs/shell/screen-layout.md#text-placement-and-colour"
+    },
+    {
+      "address": "00453fb4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Font_DrawGlyph",
+      "description": "Blits one glyph, placing its top-left at { x, y - font[+0x16] } -- and font +0x16 is the .DFN header's inkHeight field, so the caller's y is an ink baseline rather than a top or a cell bottom.",
+      "source": "docs/shell/screen-layout.md#text-placement-and-colour"
+    },
+    {
+      "address": "00453f40",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Font_GlyphWidth",
+      "description": "One glyph's advance: the per-glyph width table at font +0x2a indexed by the character less font +0x08, unless font +0x0c holds a fixed width other than -1.",
+      "source": "docs/formats/dfn-hfn-dci.md"
+    },
+    {
+      "address": "00453f6c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Font_MeasureString",
+      "description": "Sums Font_GlyphWidth over a string, with no tracking. What right and centred alignment subtract from the field width.",
+      "source": "docs/formats/dfn-hfn-dci.md"
+    },
+    {
+      "address": "00453fa8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Font_CellHeight",
+      "description": "Returns font +0x0a, the glyph cell height. FUN_00453f9c is a byte-identical second copy at a different address. Both text paints centre with this, not with the ink height -- which is font +0x16 and is what the glyph blitter subtracts.",
+      "source": "docs/shell/screen-layout.md#text-placement-and-colour"
+    },
+    {
+      "address": "00457364",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gfx_FillRect",
+      "description": "Fills a rect of four int32s, corners inclusive, through the {mode, colour} pair at context +0x22c: mode 0 is a solid fill, mode 6 a blit through a 256-entry lookup table. Callers normalize their corners before every call.",
+      "source": "docs/shell/screen-layout.md#how-a-widget-paints"
+    },
+    {
+      "address": "004552e4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gfx_DrawLine",
+      "description": "Draws a one-pixel line between two inclusive {x, y} endpoints in the pen colour at context +0x228. The shell asks for horizontal, vertical and 45-degree runs only.",
+      "source": "docs/shell/screen-layout.md#how-a-widget-paints"
+    },
+    {
+      "address": "0045999c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gfx_PlotPixel",
+      "description": "Plots one pixel at an {x, y} pair. Every checkerboard dither in the shell is a double loop over this, which is what proves it is a plot rather than a line-to.",
+      "source": "docs/shell/screen-layout.md#how-a-widget-paints"
+    },
+    {
+      "address": "0044e864",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_Tell",
+      "description": "Returns a stream's current offset. Paired with Stream_Seek to skip a block; a decompile loses the return value and renders the pair as two unrelated calls, which makes a run of binary skips read like a stream loop.",
+      "source": "docs/formats/save-games.md#the-slot-summary--statscpps-scan"
+    },
+    {
+      "address": "0044e880",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Stream_Seek",
+      "description": "Seeks a stream to an absolute offset. Stats_ScanSlots walks a whole save file with Stream_Tell/Stream_Seek pairs rather than reading the blocks it does not need.",
+      "source": "docs/formats/save-games.md#the-slot-summary--statscpps-scan"
+    },
+    {
+      "address": "0048cddc",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "SaveSlotSummaryTable",
+      "description": "Eleven 67-byte (0x43) staging records, one per save slot: a 59-byte pilot record, then int32 salvage in kilograms, int16 campaign stage and int16 mission within the stage. What the save screen's detail panel prints.",
+      "source": "docs/formats/save-games.md#the-slot-summary--statscpps-scan"
+    },
+    {
+      "address": "00482a7c",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "PlayerPilotRecord",
+      "description": "The player's own 59-byte pilot record, same shape as a squadmate's. Its name buffer is at +0x04, which is why the copies in Stats_StageCurrentGame start four bytes into the record.",
+      "source": "docs/formats/save-games.md#pilot-record--59-bytes-0x3b-in-memory"
+    },
+    {
+      "address": "00474f42",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "SaveScreen_SelectedSlot",
+      "description": "Which save slot the list has selected. Parked at 10 on leaving the screen, which is past every row, so both SAVE and RESTORE test it against 10 before anything else.",
+      "source": "docs/shell/screen-layout.md#the-save-screen"
+    },
+    {
+      "address": "00474f40",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "medium",
+      "name": "maybe_SaveScreen_EditMode",
+      "description": "Gates the slot selection move and the SAVE/RESTORE gating. 1 while a slot rename is live -- the SAVE button's handler sets it and greys the other three buttons -- and 2 blocks the selection move entirely. The third state's meaning is untraced.",
+      "source": "docs/shell/screen-layout.md#the-save-screen"
+    },
+    {
+      "address": "0048d344",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "SaveScreen_ExitTarget",
+      "description": "Where the EXIT button returns to: 0 rebuilds the main menu, 8 installs palette case 8 and refreshes the tab strip. Tab 1's handler writes 8 before entering.",
+      "source": "docs/shell/screen-layout.md#the-save-screen"
+    },
+    {
+      "address": "0048260a",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "medium",
+      "name": "maybe_HasGameInProgress",
+      "description": "The save screen's SAVE button is enabled only on this and a real row being selected, so it reads as whether there is a game to write out. Nothing that sets it has been traced.",
+      "source": "docs/shell/screen-layout.md#the-save-screen"
     }
   ]
 }

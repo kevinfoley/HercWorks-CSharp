@@ -97,11 +97,18 @@ The engine cannot be faithful here until the original is understood.
 ## The shell front end
 `--shell` draws the frame every tab screen shares — the tiled backdrop, the square button and the
 eight captioned tabs, hit-tested, latching on the six tabs that latch, gated by campaign mode and
-switching palette per tab — and nothing behind it. What is missing:
-- **The eight tab screens themselves.** Each has its own builder in the executable and its own
-  hundred-odd widget rects; none is ported, so every tab shows the bare frame. The dispatch that
-  reaches them, and which builder each tab calls, is read.
+switching palette per tab — plus the save screen behind tab 1. The five widget paints are ported
+onto an indexed software canvas, so a further screen is layout, text and hit-testing rather than new
+drawing code. What is missing:
+- **Seven of the eight tab screens.** Each has its own builder in the executable and its own
+  hundred-odd widget rects. Tab 1, `SAVED GAMES`, is drawn from the real `GAMEFILE.STR` and the real
+  saves; the other seven show the bare frame. The dispatch that reaches them, and which builder each
+  tab calls, is read.
   → [`docs/shell/screen-layout.md`](docs/shell/screen-layout.md)
+- **Every save-screen action.** The slot list, its selection and the summary panel work; renaming a
+  slot — the rows are editable text fields with their own character set — and the SAVE, RESTORE and
+  EXIT buttons do nothing, so no save is written, loaded or left.
+  → [`docs/shell/screen-layout.md`](docs/shell/screen-layout.md#the-save-screen)
 - **The per-slot chassis panel `wsquadi.cpp` shares across four tabs.** Its show/hide and the
   selected-slot state are read; the roster list itself (`Squad_BuildRosterList`, `0043c999`) is not,
   and none of it is ported.

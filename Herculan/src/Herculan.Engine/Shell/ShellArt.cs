@@ -21,13 +21,13 @@ public sealed record ShellImage(byte[] Pixels, int Width, int Height);
 /// its own size with no doubling. The same goes for <c>dfn\</c>: the shell has no <c>hfn\</c> half,
 /// and its fonts are the text at canvas scale rather than a half-scale set to double.</para>
 ///
-/// <para><b>The palette is inferred, not read.</b> VSHELL selects one by index into a pointer table
-/// at <c>0046dcdc</c> whose first entry is <c>dpl\intr_pt1.dpl</c>, and neither the table's contents
-/// nor the rest of its indices have been decoded. Index 1 is what the shell installs on entry
-/// (<c>esglobal.cpp</c>, <c>004073bc</c>) and what the service bay re-installs whenever it is shown
-/// (<c>0043b23d</c>), and <c>dpl\bay.dpl</c> is the archive's own name for that screen's palette —
-/// hence <see cref="DefaultPaletteName"/>. Pass another name to <see cref="Load"/> to try one of the
-/// archive's other palettes.</para>
+/// <para><b>The palette comes from the table, by index.</b> VSHELL selects one with
+/// <c>FUN_004075b2(index)</c> into the pointer table at <c>0046dcdc</c>, and that table is decoded —
+/// see <see cref="ShellPalette"/>, which also carries which screen picks which. Index 1,
+/// <c>dpl\palette.dpl</c>, is what the shell installs on entry (<c>esglobal.cpp</c>,
+/// <c>004073bc</c>) and what the service bay re-installs whenever it is shown (<c>0043b23d</c>),
+/// hence <see cref="DefaultPaletteName"/>. Pass another name to <see cref="Load"/> to draw the frame
+/// through one of the other nineteen.</para>
 /// </summary>
 public sealed class ShellArt {
 	/// <summary>
@@ -36,8 +36,11 @@ public sealed class ShellArt {
 	/// </summary>
 	public static readonly string[] Archives = { "SHELL0.VOL", "LANG0.VOL" };
 
-	/// <summary>See the class remarks — inferred from the palette index the shell and the bay both select.</summary>
-	public const string DefaultPaletteName = "BAY";
+	/// <summary>
+	/// Entry <see cref="ShellPalette.ServiceBay"/> of the palette table: the one the shell installs on
+	/// entry and the one the bay, the main menu and the save screen are drawn through.
+	/// </summary>
+	public static readonly string DefaultPaletteName = ShellPalette.Names[ShellPalette.ServiceBay];
 
 	/// <summary>
 	/// The backdrop every tab screen's root widget is textured with, loaded once by the shell's global
@@ -77,12 +80,21 @@ public sealed class ShellArt {
 	/// <summary>The font tab captions are drawn in — <c>DAT_0046dccc</c>, the handle each strip button is given.</summary>
 	public const string ButtonFont = "BLACK";
 
-	private ShellArt(DynamixPalette palette, ShellImage backdrop, HudSpriteSheet? sprites, ShellText? text) {
+	private ShellArt(string paletteName, DynamixPalette palette, ShellImage backdrop,
+			HudSpriteSheet? sprites, ShellText? text) {
+		PaletteName = paletteName;
 		Palette = palette;
 		Backdrop = backdrop;
 		Sprites = sprites;
 		Text = text;
 	}
+
+	/// <summary>
+	/// Which <c>dpl\</c> entry everything here was decoded through. The art is decoded once per palette
+	/// rather than re-mapped per frame, so switching palettes means loading a second
+	/// <see cref="ShellArt"/> — this is what says whether that is needed.
+	/// </summary>
+	public string PaletteName { get; }
 
 	/// <summary>The palette every image and glyph here was decoded through.</summary>
 	public DynamixPalette Palette { get; }
@@ -112,12 +124,13 @@ public sealed class ShellArt {
 	/// back as a null property instead.
 	/// </summary>
 	public static ShellArt? Load(GameContent content, string? paletteName = null) {
-		if (ReadPalette(content, paletteName ?? DefaultPaletteName) is not { } palette
+		string name = paletteName ?? DefaultPaletteName;
+		if (ReadPalette(content, name) is not { } palette
 			|| LoadImage(content, BitmapFolder, BackdropName + ".DBM", palette) is not { } backdrop) {
 			return null;
 		}
 
-		return new ShellArt(palette, backdrop,
+		return new ShellArt(name, palette, backdrop,
 			HudSpriteSheet.Load(content, palette, BankNames, FontNames,
 				resourceFolder: BankFolder, fontFolder: FontFolder),
 			ShellText.Load(content));

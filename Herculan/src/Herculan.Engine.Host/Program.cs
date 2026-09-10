@@ -9,6 +9,7 @@ using Herculan.Engine.Input;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Render;
 using Herculan.Engine.Scene;
+using Herculan.Engine.Shell;
 using Herculan.Engine.Sim;
 using Herculan.Engine.Sim.Anim;
 using Herculan.Engine.World;
@@ -44,6 +45,8 @@ int initialHddPilot = -1;
 HddOrder? initialHddOrder = null;
 bool runShell = false;
 string? shellPalette = null;
+var shellMode = ShellCampaignMode.Campaign;
+bool shellTabPalettes = false;
 
 // Ticks to let the sensor model run before --target takes its pick: nothing is targetable until a
 // sweep has painted it, and the sweep only runs from the world tick.
@@ -114,9 +117,21 @@ for (int i = 0; i < args.Length; i++) {
 		// and nothing else, so it takes over before any mission loading happens.
 		runShell = true;
 	} else if (args[i] == "--shell-palette" && i + 1 < args.Length) {
-		// Which dpl\<name>.DPL the shell decodes its art through. The default is inferred rather than
-		// read; see ShellArt's class remarks for what is and is not known about the palette table.
+		// Which dpl\<name>.DPL the shell decodes its art through, pinned for the whole run. Without it
+		// the palette follows the tab, as the original's does — see ShellPalette for the table and for
+		// which screen picks which entry.
 		shellPalette = args[++i];
+		runShell = true;
+	} else if (args[i] == "--shell-tab-palette") {
+		// Let the palette follow the tab, as the original's does. Off by default only because the tab
+		// content that would cover the bay backdrop is not ported — see ShellHost.
+		shellTabPalettes = true;
+		runShell = true;
+	} else if (args[i] == "--shell-training") {
+		// Run the front end as the training campaign rather than the real one — DAT_0048260c, the flag
+		// that gates REPAIR, BUILD and ARMORY off. Nothing loads a save yet, so this is how that half of
+		// the strip refresh is reachable at all.
+		shellMode = ShellCampaignMode.Training;
 		runShell = true;
 	} else if (args[i] == "--no-sound" || args[i] == "--silent") {
 		// Skip the output device entirely. Same effect as running on a machine with no sound card:
@@ -162,7 +177,7 @@ if (installRoot == null) {
 // --shell runs the front end instead, and shares nothing below this point: different archives, no
 // zone, no simulation, no fixed timestep. See ShellHost.
 if (runShell) {
-	return ShellHost.Run(installRoot, shellPalette, screenshotPath);
+	return ShellHost.Run(installRoot, shellPalette, screenshotPath, shellMode, shellTabPalettes);
 }
 
 // The mission handoff VSHELL writes and DBSIM reads. It states its own zone and theater, so nothing

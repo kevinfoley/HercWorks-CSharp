@@ -3,7 +3,14 @@ using HercWorks.Vol;
 
 namespace HercWorks.Core.Io.Transform.Shell;
 
-/// <summary>Ported from org.hercworks.core.io.transform.shell.HardpointOverlayTransformer.</summary>
+/// <summary>
+/// Reads and writes <c>gam\arm_hots.dat</c> and <c>gam\rpr_hots.dat</c>, which share one format —
+/// see <see cref="HardpointOverlayConfig"/> for it and for the evidence. Mirrors
+/// <c>Squad_BuildScreen</c>'s own reader (<c>0043c1a0</c>): a count, then that many groups of a
+/// chassis id, an area count and that many four-int32 rects.
+///
+/// <para>Ported from <c>org.hercworks.core.io.transform.shell.HardpointOverlayTransformer</c>.</para>
+/// </summary>
 public class HardpointOverlayTransformer : ByteTransformer<HardpointOverlayConfig> {
 	public override HardpointOverlayConfig? Parse(byte[]? inputArray) {
 		if (inputArray == null || inputArray.Length <= 0) {
@@ -25,10 +32,10 @@ public class HardpointOverlayTransformer : ByteTransformer<HardpointOverlayConfi
 			for (int c = 0; c < coords.Length; c++) {
 				var seg = entry.NewSegment();
 				seg.Id = c;
-				seg.X = IndexIntLE();
-				seg.Y = IndexIntLE();
-				seg.Width = IndexIntLE();
-				seg.Height = IndexIntLE();
+				seg.X0 = IndexIntLE();
+				seg.Y0 = IndexIntLE();
+				seg.X1 = IndexIntLE();
+				seg.Y1 = IndexIntLE();
 				coords[c] = seg;
 			}
 			entry.Areas = coords;
@@ -54,10 +61,10 @@ public class HardpointOverlayTransformer : ByteTransformer<HardpointOverlayConfi
 			for (int c = 0; c < entry.Areas.Length; c++) {
 				var seg = entry.Areas[c];
 
-				Emit(WriteIntLE(seg.X));
-				Emit(WriteIntLE(seg.Y));
-				Emit(WriteIntLE(seg.Width));
-				Emit(WriteIntLE(seg.Height));
+				Emit(WriteIntLE(seg.X0));
+				Emit(WriteIntLE(seg.Y0));
+				Emit(WriteIntLE(seg.X1));
+				Emit(WriteIntLE(seg.Y1));
 			}
 		}
 

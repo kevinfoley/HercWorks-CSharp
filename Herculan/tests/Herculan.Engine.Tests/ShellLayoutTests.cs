@@ -167,4 +167,116 @@ public class ShellLayoutTests {
 		screen.PointerDown(tab.X0 + 1, tab.Y0 + 1);
 		Assert.Null(screen.PointerUp(tab.X0 + 1, tab.Y0 + 1));
 	}
+
+	/// <summary>
+	/// The main menu and the save screen leave the whole strip unlit, where the six from WEAPONS on
+	/// latch their own plate. Both are still the screen that is up.
+	/// </summary>
+	[Theory]
+	[InlineData(ShellScreen.MainMenuTab, false)]
+	[InlineData(ShellScreen.SaveTab, false)]
+	[InlineData(ShellScreen.WeaponsTab, true)]
+	[InlineData(ShellScreen.MissionTab, true)]
+	public void OnlyTheTabsFromWeaponsOnLatch(int tab, bool latches) {
+		var screen = ShellScreen.CreateFrame(null);
+
+		screen.SelectTab(tab);
+
+		Assert.Equal(tab, screen.SelectedTab);
+		Assert.Equal(latches ? 1 : 0, screen.Buttons.Count(button => button.Selected));
+		Assert.Equal(latches, screen.Button(tab)!.Selected);
+	}
+
+	/// <summary>
+	/// The strip refresh's gate: the three tabs behind the salvage economy answer only in the campaign.
+	/// It writes five tabs and no others, so MISSION stays live in training too.
+	/// </summary>
+	[Theory]
+	[InlineData(ShellCampaignMode.Campaign, true)]
+	[InlineData(ShellCampaignMode.Training, false)]
+	public void TrainingGatesRepairBuildAndArmory(ShellCampaignMode mode, bool economy) {
+		var screen = ShellScreen.CreateFrame(null, mode: mode);
+
+		Assert.Equal(economy, screen.Button(ShellScreen.RepairTab)!.Enabled);
+		Assert.Equal(economy, screen.Button(ShellScreen.BuildTab)!.Enabled);
+		Assert.Equal(economy, screen.Button(ShellScreen.ArmoryTab)!.Enabled);
+
+		Assert.True(screen.Button(ShellScreen.WeaponsTab)!.Enabled);
+		Assert.True(screen.Button(ShellScreen.CrewTab)!.Enabled);
+		Assert.True(screen.Button(ShellScreen.MainMenuTab)!.Enabled);
+		Assert.True(screen.Button(ShellScreen.SaveTab)!.Enabled);
+		Assert.True(screen.Button(ShellScreen.MissionTab)!.Enabled);
+		Assert.True(screen.Button(ShellScreen.MenuButtonId)!.Enabled);
+	}
+
+	/// <summary>
+	/// The palette table at <c>0046dcdc</c>, read out of the executable's data segment. Pinned in full
+	/// because three separate runs are indexed into it by arithmetic — a name inserted or dropped
+	/// anywhere in it silently moves every stage-indexed palette after that point.
+	/// </summary>
+	[Fact]
+	public void PaletteTableIsTheExecutablesOwn() {
+		Assert.Equal(new[] {
+			"INTR_PT1", "PALETTE", "ARMING", "CAM_ER", "CAM_MOON",
+			"BR_W1", "BR_W2", "BR_W3", "BR_W4", "BR_W5",
+			"DB_W1", "DB_W2", "DB_W3", "DB_W4", "DB_W5",
+			"ALPH", "DELT", "OMIC", "BRAV", "LUNA",
+		}, ShellPalette.Names);
+
+		Assert.Null(ShellPalette.Name(-1));
+		Assert.Null(ShellPalette.Name(ShellPalette.Names.Length));
+		Assert.Equal(ShellPalette.Arming, ShellPalette.IndexOf("arming"));
+	}
+
+	/// <summary>Which palette each tab is drawn through, as <c>FUN_0043b162</c> picks it.</summary>
+	[Theory]
+	[InlineData(ShellScreen.MainMenuTab, ShellPalette.ServiceBay)]
+	[InlineData(ShellScreen.SaveTab, ShellPalette.ServiceBay)]
+	[InlineData(ShellScreen.WeaponsTab, ShellPalette.Arming)]
+	[InlineData(ShellScreen.RepairTab, ShellPalette.ServiceBay)]
+	[InlineData(ShellScreen.BuildTab, ShellPalette.Arming)]
+	[InlineData(ShellScreen.ArmoryTab, ShellPalette.Arming)]
+	[InlineData(ShellScreen.CrewTab, ShellPalette.Arming)]
+	public void TabPaletteMatchesTheOriginalsSwitch(int tab, int index) =>
+		Assert.Equal(index, ShellPalette.ForTab(tab));
+
+	/// <summary>
+	/// The mission tab's three faces, each indexed by the campaign stage. The map's Earth-to-Moon
+	/// boundary and the last briefing and debrief entries all land on stage 5, which is what says the
+	/// stage counts from one at runtime.
+	/// </summary>
+	[Fact]
+	public void MissionTabPaletteFollowsTheStage() {
+		for (int stage = 1; stage <= ShellPalette.StageCount; stage++) {
+			Assert.Equal($"BR_W{stage}",
+				ShellPalette.Name(ShellPalette.ForTab(ShellScreen.MissionTab, ShellMissionView.Briefing, stage)!.Value));
+			Assert.Equal($"DB_W{stage}",
+				ShellPalette.Name(ShellPalette.ForTab(ShellScreen.MissionTab, ShellMissionView.Debriefing, stage)!.Value));
+
+			Assert.Equal(stage == ShellPalette.LunarStage ? ShellPalette.CampaignMapMoon : ShellPalette.CampaignMapEarth,
+				ShellPalette.ForTab(ShellScreen.MissionTab, ShellMissionView.Map, stage));
+		}
+	}
+
+	/// <summary>
+	/// The theater palette for a stage, from the mission screen's location update. The five run
+	/// ALPH, DELT, OMIC, BRAV, LUNA — the same five names, in the same order, that the location art's
+	/// own four-entry table names and stops one short of.
+	/// </summary>
+	[Fact]
+	public void TheaterPaletteFollowsTheStage() {
+		Assert.Equal("ALPH", ShellPalette.Name(ShellPalette.ForStage(1)));
+		Assert.Equal("DELT", ShellPalette.Name(ShellPalette.ForStage(2)));
+		Assert.Equal("OMIC", ShellPalette.Name(ShellPalette.ForStage(3)));
+		Assert.Equal("BRAV", ShellPalette.Name(ShellPalette.ForStage(4)));
+		Assert.Equal("LUNA", ShellPalette.Name(ShellPalette.ForStage(ShellPalette.LunarStage)));
+	}
+
+	/// <summary>The palette scope covers the canvas below the strip and never overlaps it.</summary>
+	[Fact]
+	public void PaletteScopeSitsBelowTheTabStrip() {
+		Assert.Equal(new ShellRect(0, 0x1e, ShellLayout.CanvasWidth - 1, ShellLayout.CanvasHeight - 1),
+			ShellLayout.PaletteScope);
+		Assert.True(ShellLayout.PaletteScope.Y0 > ShellLayout.TabBottom);
+	}
 }

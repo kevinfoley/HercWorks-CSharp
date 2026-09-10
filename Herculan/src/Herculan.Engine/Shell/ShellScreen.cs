@@ -1,6 +1,19 @@
 namespace Herculan.Engine.Shell;
 
 /// <summary>
+/// Which campaign the shell is running — <c>DAT_0048260c</c>, the flag that also picks
+/// <c>GAME_R.SAV</c> over <c>GAME_T.SAV</c> (docs/formats/save-games.md). It is what gates three of
+/// the eight tabs; see <see cref="ShellScreen.ApplyTabGate"/>.
+/// </summary>
+public enum ShellCampaignMode {
+	/// <summary>The training campaign, which has no salvage economy and so no repair, build or armory.</summary>
+	Training = 0,
+
+	/// <summary>The real campaign, where every tab is live.</summary>
+	Campaign = 1,
+}
+
+/// <summary>
 /// One shell screen: the widgets on it, which one the pointer is over, and which one it is holding
 /// down.
 ///
@@ -15,13 +28,17 @@ namespace Herculan.Engine.Shell;
 /// hardcodes what the tabs are called or has to be corrected when the string table is read properly.
 /// A tab with no caption available draws its plate and no text.</para>
 ///
-/// <para><b>No tab is gated here, and retail gates several.</b> The builder clears <c>+0x49</c> on
-/// tab 5 as it constructs it, and the strip's refresh (<c>0043b0c8</c>) rewrites that flag on tabs 2
-/// to 6 from campaign state held in <c>DAT_0048260c</c>. <c>Control_Ctor</c> defaults it to 1, and
-/// the button's own paint reads it for one thing only — whether the caption takes the pressed nudge —
-/// so whatever stops a gated tab responding is elsewhere and is not read. The campaign state behind
-/// it is not read either, so <see cref="ShellButton.Enabled"/> is left true throughout and the gate is
-/// left for the pass that reads both.</para>
+/// <para><b>Three tabs are gated in the training campaign.</b> The builder clears <c>+0x49</c> on tab
+/// 5 as it constructs it, and the strip's refresh (<c>0043b0c8</c>) rewrites that flag on tabs 2 to 6
+/// from <c>DAT_0048260c</c> — REPAIR, BUILD and ARMORY off in training, everything on in the
+/// campaign. See <see cref="ApplyTabGate"/>.</para>
+///
+/// <para><b>Tabs 0 and 1 never latch.</b> Every handler starts by clearing the lit flag on all nine
+/// strip buttons (<c>00439dcb</c>); the six from WEAPONS on then write their own back to 1, and the
+/// main menu's and the save screen's do not. So the strip is drawn with nothing lit while either of
+/// those two is up, which <see cref="SelectTab"/> reproduces — <see cref="SelectedTab"/> is
+/// <c>DAT_0047581c</c>, which screen is up, and the latch is a separate thing that only six of the
+/// eight ever take.</para>
 /// </summary>
 public sealed class ShellScreen {
 	/// <summary>Id of the square button at the left of the strip, past the eight tab ids.</summary>
@@ -47,9 +64,10 @@ public sealed class ShellScreen {
 
 	/// <summary>
 	/// Builds the shell frame: the tab strip, captioned from <paramref name="text"/>, with
-	/// <paramref name="selectedTab"/> latched.
+	/// <paramref name="selectedTab"/> current and <paramref name="mode"/>'s tabs gated.
 	/// </summary>
-	public static ShellScreen CreateFrame(ShellText? text, int selectedTab = 0) {
+	public static ShellScreen CreateFrame(ShellText? text, int selectedTab = 0,
+			ShellCampaignMode mode = ShellCampaignMode.Campaign) {
 		var screen = new ShellScreen();
 
 		// The strip's leftmost button, whose two faces come from the ONLINE bank rather than the tab
@@ -65,9 +83,58 @@ public sealed class ShellScreen {
 				caption: text?.Text(ShellLayout.FirstTabCaption + i)));
 		}
 
+		screen.ApplyTabGate(mode);
 		screen.SelectTab(selectedTab);
 		return screen;
 	}
+
+	/// <summary>
+	/// The strip refresh, <c>0043b0c8</c>: REPAIR, BUILD and ARMORY answer only in the campaign, while
+	/// WEAPONS and CREW answer in both. It writes those five and no others — the two leftmost tabs,
+	/// MISSION and the square button are never gated — and it leaves <see cref="SelectedTab"/> alone,
+	/// where the original also parks <c>DAT_0047581c</c> at <c>0xffff</c> so the next tab clicked is
+	/// never mistaken for the one already up.
+	///
+	/// <para><b>The flag is <c>+0x49</c>.</b> Two things say it is the enable flag: which tabs it
+	/// selects here — the three the training campaign has no salvage economy for — and the repair
+	/// panel, which writes it alongside two greying colour fields on a test of whether the player can
+	/// afford the button. What actually stops a cleared widget responding is in the base class's click
+	/// dispatch and has not been traced; the button's own paint reads the flag only to decide whether
+	/// the caption takes the pressed nudge.</para>
+	/// </summary>
+	public void ApplyTabGate(ShellCampaignMode mode) {
+		bool economy = mode == ShellCampaignMode.Campaign;
+		SetTabEnabled(WeaponsTab, true);
+		SetTabEnabled(RepairTab, economy);
+		SetTabEnabled(BuildTab, economy);
+		SetTabEnabled(ArmoryTab, economy);
+		SetTabEnabled(CrewTab, true);
+	}
+
+	private void SetTabEnabled(int tab, bool enabled) {
+		if (Button(tab) is { } button) {
+			button.Enabled = enabled;
+		}
+	}
+
+	/// <summary>
+	/// The tabs the gate and the palette switch name. The captions they carry are
+	/// <c>estext.bin</c>'s and are fetched, not hardcoded — these are only the indices.
+	/// </summary>
+	public const int MainMenuTab = 0;
+	public const int SaveTab = 1;
+	public const int WeaponsTab = 2;
+	public const int RepairTab = 3;
+	public const int BuildTab = 4;
+	public const int ArmoryTab = 5;
+	public const int CrewTab = 6;
+	public const int MissionTab = 7;
+
+	/// <summary>
+	/// The two tabs whose handlers leave the whole strip unlit — see the class remarks. Everything from
+	/// here up writes its own lit flag back after the clear.
+	/// </summary>
+	public const int FirstLatchingTab = WeaponsTab;
 
 	/// <summary>
 	/// The tab plate's two faces in <see cref="ShellArt.ButtonBank"/>. The builder hands the class a
@@ -76,7 +143,11 @@ public sealed class ShellScreen {
 	private const int UnlitFrame = 1;
 	private const int LitFrame = 2;
 
-	/// <summary>Latches one tab down and releases the rest. Out-of-range indices are ignored.</summary>
+	/// <summary>
+	/// Makes one tab the screen that is up, and latches it if it is one of the six that latch. Every
+	/// other plate is released either way, which is the clear all nine handlers start with. Out-of-range
+	/// indices are ignored.
+	/// </summary>
 	public void SelectTab(int index) {
 		if (index < 0 || index >= ShellLayout.TabCount) {
 			return;
@@ -85,7 +156,7 @@ public sealed class ShellScreen {
 		SelectedTab = index;
 		foreach (var button in _buttons) {
 			if (button.Id < ShellLayout.TabCount) {
-				button.Selected = button.Id == index;
+				button.Selected = button.Id == index && index >= FirstLatchingTab;
 			}
 		}
 	}

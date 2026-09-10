@@ -46,6 +46,14 @@ public static class ShellLayout {
 	/// </summary>
 	public static readonly ShellRect MenuButton = new(7, 4, 0x17, 0x1b);
 
+	/// <summary>
+	/// The palette scope: everything below the tab strip, <c>{0, 0x1e, 0x27f, 0x1df}</c>. It is a
+	/// widget in its own right rather than a region — the builder gives it only a new top-left and
+	/// leaves the full-screen panel's far corner on the stack — and showing it is what installs the
+	/// screen's palette. See <see cref="ShellPalette"/>.
+	/// </summary>
+	public static readonly ShellRect PaletteScope = new(0, 0x1e, CanvasWidth - 1, CanvasHeight - 1);
+
 	/// <summary>How many tabs the strip carries.</summary>
 	public const int TabCount = 8;
 

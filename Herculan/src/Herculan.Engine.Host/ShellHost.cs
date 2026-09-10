@@ -30,12 +30,14 @@ static class ShellHost {
 	/// </summary>
 	private const int ScreenshotFrame = 5;
 
-	public static int Run(string installRoot, string? paletteName, string? screenshotPath = null) {
+	public static int Run(string installRoot, string? paletteName, string? screenshotPath = null,
+			ShellCampaignMode mode = ShellCampaignMode.Campaign, bool followTabPalettes = false) {
 		var content = GameContent.Mount(GameInstall.ArchiveDirectory(installRoot), ShellArt.Archives);
 		Console.WriteLine($"Mounted archives: {string.Join(", ", content.MountedArchives)}");
 
-		var art = ShellArt.Load(content, paletteName);
-		if (art == null) {
+		// Reassigned when a tab switches palette, since the art is decoded through one palette at load
+		// rather than re-mapped per frame — see SwitchPalette.
+		if (ShellArt.Load(content, paletteName) is not { } loaded) {
 			Console.Error.WriteLine(
 				$"Could not load the shell's art from {GameInstall.ArchiveDirectory(installRoot)}.\n" +
 				$"It needs {string.Join(" and ", ShellArt.Archives)}, a "
@@ -44,30 +46,53 @@ static class ShellHost {
 			return 1;
 		}
 
+		var art = loaded;
+
 		Console.WriteLine(
 			$"Shell art loaded — {ShellArt.BackdropName} backdrop {art.Backdrop.Width}x{art.Backdrop.Height}, "
-			+ $"palette {paletteName ?? ShellArt.DefaultPaletteName}. "
+			+ $"palette {art.PaletteName}. "
 			+ (art.Sprites is { } sheet
 				? $"Banks and fonts: {string.Join(", ", sheet.BankNames)} in a "
 				  + $"{sheet.Atlas.Width}x{sheet.Atlas.Height} atlas."
 				: "No sprite banks or fonts could be loaded — backdrop only."));
 
-		var screen = ShellScreen.CreateFrame(art.Text);
+		// Following the tab is opt-in, and that is a presentation choice rather than a fidelity one.
+		// The original has exactly one backdrop bitmap for the whole shell — bay2a_84, loaded once by
+		// esglobal.cpp into DAT_0046dcd4, and all eight screen builders texture their root with that
+		// same handle — so on the four tabs that install arming.dpl the bay art really is being drawn
+		// through a palette that is not its own. Retail never shows it: those screens' content covers
+		// the canvas. This one draws the frame and nothing else, so the switch would put a mangled bay
+		// on screen and read as a palette bug. An explicit --shell-palette pins one entry instead.
+		bool followTabPalette = followTabPalettes && paletteName == null;
+
+		var screen = ShellScreen.CreateFrame(art.Text, mode: mode);
 		Console.WriteLine(art.Text != null
 			? $"Tabs: {string.Join(", ", screen.Buttons.Where(b => b.Caption != null).Select(b => b.Caption))}"
 			: "No estext.bin — the tabs draw their plates and no captions.");
+		Console.WriteLine(mode == ShellCampaignMode.Training
+			? "Training campaign: REPAIR, BUILD and ARMORY are gated off, as the strip refresh gates them."
+			: "Campaign: every tab is live.");
 		Console.WriteLine("The tab strip is the whole of the shell so far; no tab has a screen behind it "
 			+ "yet. Click one to latch it. Close the window to quit.");
+		Console.WriteLine(followTabPalette
+			? "Palettes follow the tab, as the original's do. The four tabs on dpl\\arming.dpl draw the "
+			  + "bay backdrop through a palette that is not its own — so does retail, which covers it "
+			  + "with screen content this engine has not ported yet."
+			: $"Palette pinned to {art.PaletteName}. Pass --shell-tab-palette to let it follow the tab "
+			  + "as the original does; with no screen content ported yet that shows the bay backdrop "
+			  + "through the arming palette on four of the eight tabs.");
 
 		using var window = new EngineWindow("HERCULAN Engine — shell");
 
 		ShellRenderer? renderer = null;
+		GL? gl = null;
 		IMouse? mouse = null;
 		bool pointerHeld = false;
 		int framesRendered = 0;
 
-		window.Load += (gl, input) => {
-			renderer = new ShellRenderer(gl, art);
+		window.Load += (loadedGl, input) => {
+			gl = loadedGl;
+			renderer = new ShellRenderer(loadedGl, art);
 			mouse = input.Mice.Count > 0 ? input.Mice[0] : null;
 		};
 
@@ -100,18 +125,18 @@ static class ShellHost {
 			pointerHeld = held;
 		};
 
-		window.Render += (_, gl) => {
+		window.Render += (_, frameGl) => {
 			// Black behind the canvas: the shell is a fixed 640x480 layout scaled to the window, so a
 			// window that is not 4:3 has margin left over and the original has nothing to put in it.
-			gl.ClearColor(0f, 0f, 0f, 1f);
-			gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+			frameGl.ClearColor(0f, 0f, 0f, 1f);
+			frameGl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
 			var framebuffer = window.FramebufferSize;
 			renderer?.Draw(ShellScreenLayout.Create(framebuffer.X, framebuffer.Y), screen);
 
 			framesRendered++;
 			if (screenshotPath != null && framesRendered == ScreenshotFrame) {
-				Screenshot.Capture(gl, framebuffer.X, framebuffer.Y, screenshotPath);
+				Screenshot.Capture(frameGl, framebuffer.X, framebuffer.Y, screenshotPath);
 				window.Close();
 			}
 		};
@@ -130,10 +155,42 @@ static class ShellHost {
 				return;
 			}
 
+			// Clicking the tab you are already on is a no-op in the original: every handler returns
+			// early when DAT_0047581c already holds its own index, before the teardown, the palette and
+			// the click sound.
+			if (id == screen.SelectedTab) {
+				return;
+			}
+
 			screen.SelectTab(id);
 			Console.WriteLine($"Tab {id}"
 				+ (screen.Button(id)?.Caption is { } caption ? $" ({caption})" : string.Empty)
 				+ " — no screen behind it yet.");
+
+			SwitchPalette(id);
+		}
+
+		// The tab's own palette, as FUN_0043b162 picks it. The original writes an index into the palette
+		// widget and shows it; here the whole of the art is decoded through one palette at load, so a
+		// change means loading it again and rebuilding the renderer's textures. That is a few
+		// milliseconds on a click, and it happens only when the index actually moves.
+		void SwitchPalette(int tab) {
+			if (!followTabPalette || gl == null
+					|| ShellPalette.ForTab(tab) is not { } index
+					|| ShellPalette.Name(index) is not { } name
+					|| string.Equals(name, art.PaletteName, StringComparison.OrdinalIgnoreCase)) {
+				return;
+			}
+
+			if (ShellArt.Load(content, name) is not { } reloaded) {
+				Console.WriteLine($"Palette {index} ({name}) could not be loaded — keeping {art.PaletteName}.");
+				return;
+			}
+
+			art = reloaded;
+			renderer?.Dispose();
+			renderer = new ShellRenderer(gl, art);
+			Console.WriteLine($"Palette {index} — dpl\\{name}.DPL.");
 		}
 	}
 }

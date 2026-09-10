@@ -1719,9 +1719,9 @@
       "binary": "VSHELL",
       "type": "function",
       "confidence": "high",
-      "name": "Squad_BuildScreen",
-      "description": "wsquadi.cpp (squad/pilot assignment tab) screen builder, located via __FILE__ assert-string xref (short param_1 selects a sub-mode/rebuild variant). Same hardcoded-rect-literal pattern as ServiceBay_BuildScreen; no file I/O.",
-      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL screen-layout pass"
+      "name": "Hotspots_BuildOverlay",
+      "description": "wsquadi.cpp. Builds the clickable-region overlay for the arming tab (mode 2, gam\\arm_hots.dat) or the repair tab (mode 3, gam\\rpr_hots.dat), one Panel per area over each of the eight bay slots' chassis pictures. Not the squad roster list: the name it carried before described the module, not the function.",
+      "source": "docs/formats/herc-catalogs.md#gamarm_hotsdat-and-gamrpr_hotsdat--the-clickable-regions"
     },
     {
       "address": "0043c999",
@@ -11048,6 +11048,699 @@
       "name": "Sim_DamageToPlayerDisabled",
       "description": "Two-global predicate gating the very first line of Mech_ComponentDamageWrite for the locally piloted machine: if DAT_004a9ed6 is zero the answer is DAT_004a9ede == 1, otherwise DAT_004a9ee0 == 0. Reads as an invulnerability or practice setting; neither global's writer was traced.",
       "source": "docs/simulation/damage-system.md"
+    },
+    {
+      "address": "004075b2",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shell_InstallPalette",
+      "description": "esglobal.cpp. Frees the palette at 0046dcd0 and loads dpl\\<name>.dpl named by index into the 20-entry table at 0046dcdc, then sets the dirty flag at 0046dcd8.",
+      "source": "docs/shell/screen-layout.md#the-palette"
+    },
+    {
+      "address": "0040766b",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shell_CommitPalette",
+      "description": "Installs the palette loaded by Shell_InstallPalette to the display when 0046dcd8 is set, then clears it.",
+      "source": "docs/shell/screen-layout.md#the-palette"
+    },
+    {
+      "address": "0046dcdc",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "PaletteNameTable",
+      "description": "20 char* to dpl\\*.dpl, indexed by Shell_InstallPalette. 0 intr_pt1, 1 palette, 2 arming, 3 cam_er, 4 cam_moon, 5-9 br_w1..br_w5, 10-14 db_w1..db_w5, 15-19 alph/delt/omic/brav/luna. Read out of the data segment; the three per-stage runs are what show the campaign stage counts from 1 at runtime.",
+      "source": "docs/shell/screen-layout.md#the-palette"
+    },
+    {
+      "address": "0046dcd0",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "CurrentPaletteHandle",
+      "description": "The palette object Shell_InstallPalette last loaded.",
+      "source": "docs/shell/screen-layout.md#the-palette"
+    },
+    {
+      "address": "0046dcd8",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "medium",
+      "name": "maybe_PaletteDirtyFlag",
+      "description": "Set by Shell_InstallPalette, tested and cleared by Shell_CommitPalette. Only those two touch it.",
+      "source": "docs/shell/screen-layout.md#the-palette"
+    },
+    {
+      "address": "0046dcc0",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "EsTextBinHandle",
+      "description": "bin\\estext.bin, 342 entries; every shell caption and label is fetched through WeaponsBin_LookupName with this handle. Dump at tools/analysis_out/ESTEXT_STRINGS.txt.",
+      "source": "docs/shell/screen-layout.md#what-the-whole-front-end-shares"
+    },
+    {
+      "address": "0046dccc",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellButtonFontHandle",
+      "description": "dfn\\black.dfn, the font every tab caption is drawn in.",
+      "source": "docs/shell/screen-layout.md#what-the-whole-front-end-shares"
+    },
+    {
+      "address": "0046dcd4",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellBackdropBitmap",
+      "description": "dbm\\bay2a_84.dbm. Written exactly once, by esglobal.cpp's init, and all eight screen builders texture their root widget with this one handle -- so the shell has a single backdrop and the screens that install arming.dpl cover it rather than replacing it.",
+      "source": "docs/shell/screen-layout.md#what-the-whole-front-end-shares"
+    },
+    {
+      "address": "0040ca6c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PaletteScope_Ctor",
+      "description": "Window subclass whose +0x45 is a palette index rather than a lit flag; installs vtable PTR_FUN_0046ef04 and zeroes the index. Allocation size 0x47.",
+      "source": "docs/shell/screen-layout.md#the-palette"
+    },
+    {
+      "address": "0040ca97",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PaletteScope_SetIndex",
+      "description": "Writes +0x45 then installs and commits that palette.",
+      "source": "docs/shell/screen-layout.md#the-palette"
+    },
+    {
+      "address": "0040cab7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PaletteScope_HandleEvent",
+      "description": "Event 2 (shown) installs and commits the palette named by +0x45; event 4 goes to 0040cb40. This is why hiding the widget, writing +0x45 and showing it again changes palette.",
+      "source": "docs/shell/screen-layout.md#the-palette"
+    },
+    {
+      "address": "0048d444",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "PaletteScopeWidget",
+      "description": "The shell's palette scope, {0, 0x1e, 0x27f, 0x1df} -- the canvas below the tab strip.",
+      "source": "docs/shell/screen-layout.md#the-palette"
+    },
+    {
+      "address": "00439da0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shell_SetPaletteScope",
+      "description": "Hides PaletteScopeWidget, writes the palette index to its +0x45 and shows it again, which installs that palette.",
+      "source": "docs/shell/screen-layout.md#the-palette"
+    },
+    {
+      "address": "0043b162",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shell_SelectTabPalette",
+      "description": "Picks a tab's palette index and hands it to Shell_SetPaletteScope. Tab 3 takes 1, tabs 2 and 4-6 take 2, tab 7 takes stage+4 (briefing), stage+9 (debrief) or 3/4 (map). Case 8 is not a tab: it hides the shell root.",
+      "source": "docs/shell/screen-layout.md#the-palette"
+    },
+    {
+      "address": "0043b23d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ServiceBay_Show",
+      "description": "Shows the shell panel and root and installs palette 1 (dpl\\palette.dpl).",
+      "source": "docs/shell/screen-layout.md#the-palette"
+    },
+    {
+      "address": "0043b0c8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ServiceBay_RefreshTabStrip",
+      "description": "The tab gate. Hides the shell panel, then writes +0x49 on tabs 2-6 from CampaignModeFlag -- REPAIR, BUILD and ARMORY off in training, all five on in the campaign -- and parks CurrentTabIndex at 0xffff.",
+      "source": "docs/shell/screen-layout.md#the-tab-gate"
+    },
+    {
+      "address": "00439dcb",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TabStrip_ClearAllLit",
+      "description": "Clears +0x45 on all nine strip buttons and repaints them. Every tab handler starts here; tabs 2-7 then write their own back to 1 and the main menu's and save's do not, which is why the strip is drawn unlit while either of those is up.",
+      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+    },
+    {
+      "address": "00439ea7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shell_TeardownCurrentTab",
+      "description": "Tears down whatever tab CurrentTabIndex names, dispatching per tab; the squad panel's hide (Squad_HidePanel) is part of four of the cases.",
+      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+    },
+    {
+      "address": "0047581c",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "CurrentTabIndex",
+      "description": "Which tab screen is up, 0-7, or 0xffff after a strip refresh. Every tab handler returns early when it already holds its own index, so clicking the tab you are on is a no-op.",
+      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+    },
+    {
+      "address": "0048d440",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellRootWidget",
+      "description": "The backdrop-textured root every shell screen parents to.",
+      "source": "docs/shell/screen-layout.md#the-widget-tree-of-a-tab-screen"
+    },
+    {
+      "address": "0048d448",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellPanelWidget",
+      "description": "The full-screen panel at {0, 0, 0x27f, 0x1df}; every widget on the tab strip is its child.",
+      "source": "docs/shell/screen-layout.md#the-widget-tree-of-a-tab-screen"
+    },
+    {
+      "address": "0048d44c",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "TabStripMenuButton",
+      "description": "The square button at {7, 4, 0x17, 0x1b}, dba\\online.dba frames 0 and 1.",
+      "source": "docs/shell/screen-layout.md#the-tab-strip"
+    },
+    {
+      "address": "0048d450",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "TabButtonMainMenu",
+      "description": "Tab 0, caption estext.bin 0x13.",
+      "source": "docs/shell/screen-layout.md#the-tab-strip"
+    },
+    {
+      "address": "0048d454",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "TabButtonSave",
+      "description": "Tab 1, caption estext.bin 0x14.",
+      "source": "docs/shell/screen-layout.md#the-tab-strip"
+    },
+    {
+      "address": "0048d458",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "TabButtonWeapons",
+      "description": "Tab 2, caption estext.bin 0x15.",
+      "source": "docs/shell/screen-layout.md#the-tab-strip"
+    },
+    {
+      "address": "0048d45c",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "TabButtonRepair",
+      "description": "Tab 3, caption estext.bin 0x16. Gated off in the training campaign.",
+      "source": "docs/shell/screen-layout.md#the-tab-gate"
+    },
+    {
+      "address": "0048d460",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "TabButtonBuild",
+      "description": "Tab 4, caption estext.bin 0x17. Gated off in the training campaign.",
+      "source": "docs/shell/screen-layout.md#the-tab-gate"
+    },
+    {
+      "address": "0048d464",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "TabButtonArmory",
+      "description": "Tab 5, caption estext.bin 0x18. The builder clears its +0x49 at construction and the strip refresh rewrites it; gated off in the training campaign.",
+      "source": "docs/shell/screen-layout.md#the-tab-gate"
+    },
+    {
+      "address": "0048d468",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "TabButtonCrew",
+      "description": "Tab 6, caption estext.bin 0x19.",
+      "source": "docs/shell/screen-layout.md#the-tab-strip"
+    },
+    {
+      "address": "0048d46c",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "TabButtonMission",
+      "description": "Tab 7, caption estext.bin 0x1a.",
+      "source": "docs/shell/screen-layout.md#the-tab-strip"
+    },
+    {
+      "address": "00439f2d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TabHandler_MenuButton",
+      "description": "The square button's click handler; calls into wmain.cpp at 004317ea.",
+      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+    },
+    {
+      "address": "00439fdc",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TabHandler_MainMenu",
+      "description": "Tab 0. Tears down, installs palette 1, autosaves through Game_SaveSlot(10, NULL), then builds the main menu. Does not latch its own plate.",
+      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+    },
+    {
+      "address": "0043a0d8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TabHandler_Save",
+      "description": "Tab 1. Tears down, installs palette 1, sets 0048d344 to 8 and builds the save screen. Does not latch its own plate.",
+      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+    },
+    {
+      "address": "0043a1d2",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TabHandler_Weapons",
+      "description": "Tab 2. Latches its plate, shows the squad panel and builds the arming screen.",
+      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+    },
+    {
+      "address": "0043a2d2",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TabHandler_Repair",
+      "description": "Tab 3. Latches its plate, shows the squad panel and builds the repair screen.",
+      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+    },
+    {
+      "address": "0043a3d2",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TabHandler_Build",
+      "description": "Tab 4. Latches its plate, shows the squad panel and builds the build screen.",
+      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+    },
+    {
+      "address": "0043a4d2",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TabHandler_Armory",
+      "description": "Tab 5. Latches its plate and builds the armory screen; the only latching tab with no squad panel.",
+      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+    },
+    {
+      "address": "0043a5ca",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TabHandler_Crew",
+      "description": "Tab 6. Latches its plate, shows the squad panel and builds the crew screen.",
+      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+    },
+    {
+      "address": "0043a6ca",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "TabHandler_Mission",
+      "description": "Tab 7. Picks the mission sub-mode -- 0 (campaign map) when 004778aa and CampaignMissionInStage are both zero, else 1 (briefing) -- and calls Mission_ShowView.",
+      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+    },
+    {
+      "address": "0043a857",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_ShowView",
+      "description": "Stores the mission sub-mode in MissionScreenView, installs that view's palette and builds the mission screen. Also called by the campaign layer with the debrief mode.",
+      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+    },
+    {
+      "address": "0048106c",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "MissionScreenView",
+      "description": "Which face the mission tab is showing: 0 the campaign map, 1 the briefing, 4 the debrief. Selects that view's palette and its screen content.",
+      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+    },
+    {
+      "address": "00477fcc",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "MissionLocationDbaTable",
+      "description": "Four char* -- dba\\alph2.dba, dba\\delt1.dba, dba\\omic1.dba, dba\\brav1.dba -- indexed by campaign stage minus one. Stage 5 branches to the lunar cutscene before the lookup, which is one of the three facts showing the stage counts from 1.",
+      "source": "docs/shell/screen-layout.md#the-palette"
+    },
+    {
+      "address": "0042ee89",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Shell_PlayClickSound",
+      "description": "Called at the tail of every successful tab switch, after CurrentTabIndex is written. Plays the sound object at 0048cdd4 through the device at 004731f0 when sound is enabled. Read from its call position and its guards, not from the catalog.",
+      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+    },
+    {
+      "address": "0046c08c",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "low",
+      "description": "Tested first by all nine tab-strip handlers, which return without doing anything when it is zero -- before even the already-on-this-tab check. Nothing that writes it has been traced, so whether it is an input gate, a shell-running flag or something else is unknown.",
+      "source": "docs/shell/handoff-vshell-re.md"
+    },
+    {
+      "address": "004310a0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_MainMenu_Show",
+      "description": "Built by tab 0's handler. Identified from its dispatch position only; nothing inside it has been read.",
+      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+    },
+    {
+      "address": "00439b0c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_SaveScreen_Show",
+      "description": "Built by tab 1's handler. Identified from its dispatch position only.",
+      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+    },
+    {
+      "address": "0043f548",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Arming_Show",
+      "description": "Built by tab 2's handler, and sits directly after Arming_BuildScreen in warmingi.cpp. Identified from its dispatch position only.",
+      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+    },
+    {
+      "address": "004332ec",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Repair_Show",
+      "description": "Built by tab 3's handler. Identified from its dispatch position only.",
+      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+    },
+    {
+      "address": "0044690d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Build_Show",
+      "description": "Built by tab 4's handler. Identified from its dispatch position only.",
+      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+    },
+    {
+      "address": "004494f7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Armory_Show",
+      "description": "Built by tab 5's handler. Identified from its dispatch position only.",
+      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+    },
+    {
+      "address": "00441a01",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Crew_Show",
+      "description": "Built by tab 6's handler. Identified from its dispatch position only.",
+      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+    },
+    {
+      "address": "004441e3",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Mission_Show",
+      "description": "Built by Mission_ShowView, in wmissini.cpp. Identified from its dispatch position only.",
+      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+    },
+    {
+      "address": "0043cfe7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squad_ShowPanel",
+      "description": "Shows the per-slot panel four tabs share: hides the seven widgets at 0048d4e0-0048d4f8 and the selected slot's picture, and colours the eight slot rows -- 0x29 on the selected one, 0x10 on the rest.",
+      "source": "docs/shell/handoff-vshell-re.md"
+    },
+    {
+      "address": "0043d0e9",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squad_HidePanel",
+      "description": "The mirror of Squad_ShowPanel, run from Shell_TeardownCurrentTab.",
+      "source": "docs/shell/handoff-vshell-re.md"
+    },
+    {
+      "address": "00482ae5",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "SelectedBaySlot",
+      "description": "Which of the eight HERC bay slots is selected, 0-7, or -1 for none. Indexes the bay pointer array at 00482ac3 and the per-slot widget arrays.",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots"
+    },
+    {
+      "address": "0048d4bc",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "SquadSlotPictureWidgets",
+      "description": "Eight widgets, one per bay slot: the chassis picture each screen's hotspot overlay is parented to.",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots"
+    },
+    {
+      "address": "0048d4fc",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "SquadSlotRowWidgets",
+      "description": "Eight widgets, one per bay slot: the roster rows, whose +0x4d Squad_ShowPanel sets to 0x29 for the selected slot and 0x10 for the rest.",
+      "source": "docs/shell/handoff-vshell-re.md"
+    },
+    {
+      "address": "0048d53c",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "HotspotHandlerTable",
+      "description": "The click handlers Hotspots_BuildOverlay indexes by an area's position within its chassis group -- ten entries for the arming tab, sixteen for the repair tab, written at the top of that function.",
+      "source": "docs/formats/herc-catalogs.md#gamarm_hotsdat-and-gamrpr_hotsdat--the-clickable-regions"
+    },
+    {
+      "address": "0048d1f8",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "RepairHotspotHandlers",
+      "description": "Twenty-five thunks in one table, filled by 00431f3c: sixteen for column 0 (the rects over the chassis picture) then nine for column 1 (the internal-component list). Each calls Repair_SelectHotspot with its own (column, row).",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots"
+    },
+    {
+      "address": "00433eb9",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_SelectHotspot",
+      "description": "Takes (column, row), returns early if that pair is already selected, refuses a hardpoint row past the machine's mount capacity (+0x4c) or with nothing fitted, then repaints old and new, stores the pair and its resolved category and index, and refreshes the panel.",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots"
+    },
+    {
+      "address": "00433410",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_HotspotCategory",
+      "description": "(column, row) to condition-array category: 1 for any non-zero column, 2 for column 0 rows above 5, else 0. These are the same three modes HercStatus_Get takes -- 0 external group, 1 internal, 2 hardpoint.",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots"
+    },
+    {
+      "address": "00433431",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_HotspotIndex",
+      "description": "Index within the category: row minus 6 for category 2, otherwise row.",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots"
+    },
+    {
+      "address": "00433445",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_RefreshPanel",
+      "description": "Rewrites the detail panel: the selected component's cost, its condition word and colour, the whole machine's rebuild cost, and the salvage available -- which is CareerSalvage minus Armory_QueuedTotal. Also gates three buttons on affordability, writing +0x49 alongside two greying colour fields.",
+      "source": "docs/shell/screen-layout.md#the-condition-readout"
+    },
+    {
+      "address": "00433e3c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Repair_PaintEntry",
+      "description": "Repaints one repair entry in a colour pair -- called as (column, row, 0x10, 0x27) for the outgoing selection and (column, row, 0x29, 0x29) for the incoming. Read from its two call sites only; the body has not been traced, and it is the only thing that maps a (column, row) back to a widget.",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots"
+    },
+    {
+      "address": "0043dbb2",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Arming_SelectHardpoint",
+      "description": "The arming screen's counterpart to Repair_SelectHotspot: one hardpoint index, a no-op when it is already selected, and it reads the fitted weapon id from the mount pointer at herc+0x50+index*4.",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots"
+    },
+    {
+      "address": "004765bc",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ArmingSelectedHardpoint",
+      "description": "Which hardpoint the arming screen has selected.",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots"
+    },
+    {
+      "address": "00473ff8",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "RepairSelectedColumn",
+      "description": "Column of the repair screen's current selection: 0 the chassis picture, 1 the internal list.",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots"
+    },
+    {
+      "address": "00473ffa",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "RepairSelectedCategory",
+      "description": "The selection's condition-array category, as Repair_HotspotCategory returns it.",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots"
+    },
+    {
+      "address": "00473ffc",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "RepairSelectedRow",
+      "description": "Row of the repair screen's current selection.",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots"
+    },
+    {
+      "address": "00473ffe",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "RepairSelectedIndex",
+      "description": "The selection's index within its category, as Repair_HotspotIndex returns it. With RepairSelectedCategory this is a HercStatus_Get argument pair.",
+      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots"
+    },
+    {
+      "address": "00411454",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Repair_ComponentCost",
+      "description": "Returns the repair cost of one component given (herc, category, index); quoted by Repair_RefreshPanel and compared against available salvage to gate a button. Presumably wraps Repair_ItemCost (0041392a), but the body has not been read and the two have not been reconciled.",
+      "source": "docs/shell/screen-layout.md#the-condition-readout"
+    },
+    {
+      "address": "0043d9cf",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_DamageLevel",
+      "signature": "int __cdecl Repair_DamageLevel(short condition)",
+      "description": "Damage level 0-5 of a 0-100 condition: the first index of DamageLevelBands the condition is strictly greater than, or 5 if none. Hand-decoded from the instruction stream -- the counter lives in EAX (xor eax,eax / inc eax) and the comparison is kept in CX/DX, which is what makes the return the level and not the threshold. Bands match Repair_LevelForCondition's exactly.",
+      "source": "docs/shell/screen-layout.md#the-condition-readout"
+    },
+    {
+      "address": "0043da0f",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_DamageLevelColor",
+      "description": "Calls Repair_DamageLevel and returns DamageLevelColors[level].",
+      "source": "docs/shell/screen-layout.md#the-condition-readout"
+    },
+    {
+      "address": "004765c0",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "DamageLevelBands",
+      "description": "Five int16, {89, 79, 59, 29, 0}, walked by Repair_DamageLevel with a strictly-greater test. Partitions identically to Repair_LevelForCondition's {90, 80, 60, 30, 1, 0} tested with <=.",
+      "source": "docs/shell/screen-layout.md#the-condition-readout"
+    },
+    {
+      "address": "004765ca",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "DamageLevelColors",
+      "description": "Six int16 palette entries, {14, 13, 12, 11, 10, 39}, indexed by damage level. Six colours against only four damage words in estext.bin, which is the retail overrun recorded in KNOWN_ISSUES.md.",
+      "source": "docs/shell/screen-layout.md#the-condition-readout"
+    },
+    {
+      "address": "0046fb18",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "CampaignStage",
+      "description": "The player's campaign stage, first half of the career position pair. Counts from 1 at runtime where the save stores it from 0: the briefing, debrief and theater palette runs are all reached as stage plus a constant, and the campaign map's Earth-to-Moon switch and the location-art table's fourth entry both fall at stage 5.",
+      "source": "docs/shell/screen-layout.md#the-palette"
+    },
+    {
+      "address": "0046fb1a",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "CampaignMissionInStage",
+      "description": "Mission within the stage, second half of the career position pair. Zero is what makes the mission tab open on the campaign map rather than a briefing.",
+      "source": "docs/shell/campaign-loop.md"
     }
   ]
 }

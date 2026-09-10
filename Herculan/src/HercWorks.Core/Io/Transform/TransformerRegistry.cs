@@ -13,9 +13,7 @@ namespace HercWorks.Core.Io.Transform;
 /// ThreeSpaceByteTransformer (e.g. MapInfo, MapLOCS, Theater, Mech.BND/MechSys.BND/MechView.BND/
 /// AppInput.BND, WorldData) — those
 /// intentionally have no registration here and will report "no parser available" rather than
-/// risk a wrong/guessed match. One borderline case was left out for the same reason:
-/// HardpointOverlayTransformer is only confirmed here for RPR_HOTS.DAT — its doc comment doesn't
-/// establish it also covers ARM_HOTS.DAT, so that file is left unmatched rather than guessed.
+/// risk a wrong/guessed match.
 ///
 /// HercSimDataTransformer's target ("dat\[herc].dat") can't be distinguished from other .DAT
 /// files by name/path, so it's matched instead by the 4-byte VolEntry.MagicPrefix observed on
@@ -30,7 +28,10 @@ public static class TransformerRegistry {
 			() => new Shell.ArmHercTransformer()),
 		new("Armory Weapon Icons", e => NameIs(e, "ARM_WEAP.DAT"), () => new Shell.ArmWeapTransformer()),
 		new("Career Missions", e => NameIs(e, "CAREER.DAT"), () => new Shell.CareerDataTransformer()),
-		new("Repair Hardpoint Overlay", e => NameIs(e, "RPR_HOTS.DAT"), () => new Shell.HardpointOverlayTransformer()),
+		// One format, two files: Squad_BuildScreen (0043c1a0) reads both through the same code,
+		// picking the name on which tab it is building for. Both parse to EOF.
+		new("Hardpoint Overlay", e => NameIs(e, "RPR_HOTS.DAT") || NameIs(e, "ARM_HOTS.DAT"),
+			() => new Shell.HardpointOverlayTransformer()),
 		new("Herc Info", e => NameIs(e, "HERC_INF.DAT"), () => new Shell.HercInfoTransformer()),
 		new("Starting Hercs", e => NameIs(e, "HERCS.DAT"), () => new Shell.HercsStartTransformer()),
 		new("Herc Init Data", e => NameStartsWith(e, "INI_"), () => new Shell.InitHercTransformer()),

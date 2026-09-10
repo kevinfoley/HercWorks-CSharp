@@ -96,17 +96,28 @@ The engine cannot be faithful here until the original is understood.
 
 ## The shell front end
 `--shell` draws the frame every tab screen shares — the tiled backdrop, the square button and the
-eight captioned tabs, hit-tested and latching — and nothing behind it. What is missing:
+eight captioned tabs, hit-tested, latching on the six tabs that latch, gated by campaign mode and
+switching palette per tab — and nothing behind it. What is missing:
 - **The eight tab screens themselves.** Each has its own builder in the executable and its own
-  hundred-odd widget rects; none is ported, so every tab shows the bare frame.
+  hundred-odd widget rects; none is ported, so every tab shows the bare frame. The dispatch that
+  reaches them, and which builder each tab calls, is read.
   → [`docs/shell/screen-layout.md`](docs/shell/screen-layout.md)
-- **The tab gate.** Retail clears widget `+0x49` on tab 5 at build and rewrites it on tabs 2-6 from
-  `DAT_0048260c`; neither the flag's meaning nor the campaign state behind it is read, so the engine
-  leaves every tab enabled.
-- **The palette by name.** The shell picks one by index into an undecoded table; the engine takes a
-  name, defaulting to the one the bay screen's own resource name suggests.
+- **The per-slot chassis panel `wsquadi.cpp` shares across four tabs.** Its show/hide and the
+  selected-slot state are read; the roster list itself (`Squad_BuildRosterList`, `0043c999`) is not,
+  and none of it is ported.
+  → [`docs/shell/screen-layout.md`](docs/shell/screen-layout.md)
+- **The arming and repair hotspots.** Fully reverse-engineered — the file format, which component
+  each area selects, and both screens' selection rules — and nothing is ported: no chassis picture is
+  drawn, no area is hit-tested, and no component condition is displayed.
+  → [`docs/shell/screen-layout.md`](docs/shell/screen-layout.md),
+  [`docs/formats/herc-catalogs.md`](docs/formats/herc-catalogs.md)
+- **Nothing sets the campaign mode.** The tab gate is ported and correct, but the flag behind it
+  (`DAT_0048260c`) comes from the save the shell opened, and the shell host loads no save — so it is
+  driven by `--shell-training` instead.
+  → [`docs/shell/screen-layout.md`](docs/shell/screen-layout.md)
 - **The mouse cursor.** `dba\cursor.dba` is not drawn — the host shows the OS pointer.
-- **Sound.** `SHLSOUND.VOL` is not mounted and no widget makes a noise.
+- **Sound.** `SHLSOUND.VOL` is not mounted and no widget makes a noise. The shell's own click is
+  `0042ee89`, fired at the end of every tab switch.
 
 ## Other unported features
 - Currently missing is a quirk from retail where the player's shield meter fills in over ~10 seconds at the start of a mission. Claude says there's no explanation for this in the shield code, where the shields start out at full charge, and would take ~30 seconds to fully charge from empty. The fade-in-over-10-seconds may be a HUD animation that hasn't been discovered during RE yet.

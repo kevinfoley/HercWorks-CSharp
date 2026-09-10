@@ -1,4 +1,4 @@
-{
+﻿{
   "schema_version": 1,
   "_readme": [
     "Structure layouts for DBSIM.EXE's simulation objects, applied to the Ghidra project by",
@@ -1128,6 +1128,47 @@
           "description": "+0x31e -- where the machine last had its line of fire blocked. Mech_AiOnLineOfFireBlocked (0041dd2c) copies the target's position here and sets +0xad; Mech_BehaviourSkirtThink then walks an arc around it."
         }
       ]
+    },
+    {
+      "name": "ShellRect",
+      "binary": "VSHELL",
+      "size": 16,
+      "description": "The widget box every VSHELL screen builder writes onto its own stack and hands to a constructor, and the record gam\\arm_hots.dat and gam\\rpr_hots.dat store on disk. BOTH CORNERS ARE INCLUSIVE, which is why the full-screen panel is {0, 0, 0x27f, 0x1df} rather than {0, 0, 640, 480}. A builder writes one of these, calls a constructor, then overwrites it for the next widget -- so the same four stack slots are reused across a whole screen and only some fields are rewritten between widgets.",
+      "notes": "Widths are pinned by the store, not inferred: ServiceBay_BuildScreen writes the panel's far corner as C7 45 A8 7F 02 00 00 / C7 45 AC DF 01 00 00 at 0043aa61 and 0043aa68 -- 'mov dword ptr [ebp-0x58], 0x27f' and 'mov dword ptr [ebp-0x54], 0x1df', four bytes apart. The same 16 bytes arrive from disk in the two *_hots.dat files, read by a bulk read and passed straight to Panel_Ctor's rect parameter, which is what ties the file record to this type.",
+      "fields": [
+        {
+          "offset": 0,
+          "width": 4,
+          "type": "int",
+          "name": "x0",
+          "confidence": "high",
+          "description": "Left edge, inclusive."
+        },
+        {
+          "offset": 4,
+          "width": 4,
+          "type": "int",
+          "name": "y0",
+          "confidence": "high",
+          "description": "Top edge, inclusive."
+        },
+        {
+          "offset": 8,
+          "width": 4,
+          "type": "int",
+          "name": "x1",
+          "confidence": "high",
+          "description": "Right edge, INCLUSIVE -- 0x27f for a full-width widget. Pinned by the C7 /0 imm32 store at 0043aa61."
+        },
+        {
+          "offset": 12,
+          "width": 4,
+          "type": "int",
+          "name": "y1",
+          "confidence": "high",
+          "description": "Bottom edge, INCLUSIVE -- 0x1df for a full-height widget. Pinned by the C7 /0 imm32 store at 0043aa68."
+        }
+      ]
     }
   ],
   "applications": [
@@ -1430,6 +1471,48 @@
       "parameter": 0,
       "struct": "ShieldBlock",
       "description": "Shield_Init's block."
+    },
+    {
+      "function": "0040a6f4",
+      "parameter": 2,
+      "struct": "ShellRect",
+      "description": "Panel_Ctor's rect. Every call site passes the address of the four-dword block the builder just wrote."
+    },
+    {
+      "function": "00409a54",
+      "parameter": 2,
+      "struct": "ShellRect",
+      "description": "Button_Ctor's rect."
+    },
+    {
+      "function": "00409d14",
+      "parameter": 2,
+      "struct": "ShellRect",
+      "description": "ButtonIcon_Ctor's rect -- the tab strip's nine buttons all come through here."
+    },
+    {
+      "function": "0040b278",
+      "parameter": 2,
+      "struct": "ShellRect",
+      "description": "Text_Ctor's rect."
+    },
+    {
+      "function": "0040a96c",
+      "parameter": 2,
+      "struct": "ShellRect",
+      "description": "FramedPanel_Ctor's rect."
+    },
+    {
+      "function": "00409970",
+      "parameter": 2,
+      "struct": "ShellRect",
+      "description": "Window_Ctor's rect; PaletteScope_Ctor forwards its own third argument here unchanged."
+    },
+    {
+      "function": "0040b698",
+      "parameter": 2,
+      "struct": "ShellRect",
+      "description": "maybe_Widget_InitRect's rect -- how each screen's root widget is sized."
     }
   ]
 }

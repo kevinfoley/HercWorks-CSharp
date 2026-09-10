@@ -255,12 +255,32 @@ layout record, 22 bytes on disk into a 26-byte struct:
 
 The group records' first two `int32` are each incremented by one as they are read — a one-pixel inset applied at load.
 
-`gam\arm_hots.dat` and `gam\rpr_hots.dat` are the two chassis-independent companions, opened by `warmoryi.cpp` and `wsrvbayi.cpp` (`00447e34`, `0043a944`).
+### `gam\arm_hots.dat` and `gam\rpr_hots.dat` — the clickable regions
+
+The two files are one format, read by the same code: `Squad_BuildScreen` (`0043c1a0`, `wsquadi.cpp`) opens `arm_hots.dat` when it is building for the arming tab and `rpr_hots.dat` for the repair tab, and does nothing else differently.
+
+```
+int16   groupCount            -- 9; the reader asserts it
+groupCount x {
+  int16   hercId              -- 0-8, sequential in both retail files
+  int16   areaCount
+  areaCount x { int32 x0; int32 y0; int32 x1; int32 y1 }
+}
+```
+
+Both walk exactly to EOF — 998 and 902 bytes of content.
+
+Each area becomes one `Panel` parented to that chassis's picture, and **the area's index within its group is what selects the panel's click handler**: the builder holds a table of handler pointers at `0048d53c` and passes `table[areaIndex]`. So these files carry position only; which hardpoint or which body location an area *is* comes from its ordering.
+
+`arm_hots.dat` carries the weapon hardpoints — counts 3, 5, 5, 8, 9, 9, 10, 4, 7 across the nine chassis, 60 in all, matching each chassis's mount capacity, and the widest at 10 is exactly the length of the arming screen's handler table. `rpr_hots.dat` carries six areas for every chassis, the HERC's damage locations; the repair screen's handler table is 16 long because it covers those six *and* up to ten weapon mounts, which the same loop places from `rpr_*.dat` geometry starting at index 6. Two of the nine repair groups pad their tail with all-zero rects, for chassis with fewer distinct parts.
+
+The four `int32` are an inclusive rect and not a position and a size: the 16 bytes go straight to `Panel_Ctor` as its rect argument, which is `{x0, y0, x1, y1}` everywhere else in the executable ([`../shell/screen-layout.md`](../shell/screen-layout.md#the-canvas-is-640x480-and-rects-are-inclusive)), and the first chassis's first two arming areas — `(37, 94, 70, 125)` and `(157, 94, 191, 125)` — are a left and right hardpoint mirrored about x≈114, which only holds read as two corners.
 
 ## Rejected readings
 
 | Reading | Why it is wrong |
 |---|---|
+| An `*_hots.dat` area is a position and a size — `{x, y, w, h}` | Four `int32` beginning with a plausible top-left invites it, and the retail values stay inside the canvas read either way, so a parse alone will not settle it. They are two inclusive corners: the bytes are handed straight to `Panel_Ctor`, and the left/right hardpoint pairs are only mirror images when read that way |
 | `herc_inf.dat` `+0x06` gives a chassis's hardpoint count | It is what the Herc Construction screen *prints*, and for the Raptor II it prints 4 where the machine the player receives has 5. `Herc_CapacityForType` reads the in-code table at `0046f73a`, and that is the figure `+0x4c` and every hardpoint loop use. The other eight chassis agree, so a reader checking one file will not notice |
 | The 26 bytes at HERC status block `+0x00` are opaque | They are 13 `int16` component conditions, initialized to 100 alongside the other two arrays by `FUN_00411b88` and averaged with them by `FUN_00411bd4`, whose divisor is `13 + 9 + hardpoints`. See [`save-games.md`](save-games.md#the-66-byte-status-block) |
 | `hercs.dat`'s fifth entry is a wrecked Razor | Its `+0x4a` of 0 is build progress, not condition. The status block a `gam\*.dat` chassis carries is never read from the file and stays at the constructor's uniform 100 |

@@ -141,7 +141,7 @@ Five of the 22 states are navigation rather than combat. All five return zero al
 
 ### `patrolling` (8) — `Mech_BehaviourPatrolThink` (`0041d7d0`)
 
-`Ai_NavigationStep`, then the target drops, and then a gate: **a machine that is not the group leader and has no standing squad order returns here and does nothing else.** It does not even hold a target — the drop is above the gate — so the leader is the group's only scout.
+`Ai_NavigationStep`, then the target drops, and then a gate: **a machine that is not the group leader, has no standing squad order and has not been told to fire at will returns here and does nothing else.** It does not even hold a target — the drop is above the gate — so by default the leader is the group's only scout. The squad verb is sampled *before* the movement, which can clear it. `mech+0xb6` is `FIRE AT WILL` and is what buys a follower the right to scout; see [`ai-squadmates.md`](ai-squadmates.md).
 
 That is not the same as a follower never fighting. Two things reach one: `Mech_AiOnTakingFire`, and the combat reassess's leader sweep, which the leader's own think triggers the moment it finds something. **A member dragged in that way acquires its own target**, through its own `Ai_SelectTarget` on the same branch the leader took; it never reads the leader's `mech+0x1a4`. So a follower cannot *notice* a fight, only join one — and the acquisition score's crowding divisor then spreads the group across targets rather than onto the leader's. See [`ai-targeting.md`](ai-targeting.md).
 
@@ -152,7 +152,7 @@ Past the gate, on a 10 s timer in the behaviour block's scratch (`mech+0x5a`):
 
 ### `search/destroy` (12) — `Mech_BehaviourSearchDestroyThink` (`0041d60c`)
 
-The same shape and the same leader gate, with one difference that is the whole state: what it acquires must pass `Group_IsOrderTarget`. **A search-and-destroy group fights only what its order names** and walks past everything else. The flee arm is as in `patrolling`.
+The same shape and the same gate less its squad-verb term — only leadership and `mech+0xb6` open this one — with one difference that is the whole state: what it acquires must pass `Group_IsOrderTarget`. **A search-and-destroy group fights only what its order names** and walks past everything else. The flee arm is as in `patrolling`.
 
 ### `travelling` (9) and `bulldog travel` (11) — `Mech_BehaviourTravelThink` (`0041d9cc`)
 
@@ -168,7 +168,7 @@ Identical but for its first two lines: instead of a route it drives at `Group_Or
 
 ### `guarding` (15) — `Mech_BehaviourGuardThink` (`0041e224`)
 
-The post is `Mech_AiGoalPosition` (`0041dbcc`). A player squadmate with no standing order skips the whole state and holds formation instead. Everything else works a standoff ring, on ground range to the post:
+The post is `Mech_AiGoalPosition` (`0041dbcc`). A player squadmate with no standing order skips the whole state and holds formation instead. Everything else works a standoff ring, on ground range to the post — and the defence acquisition also runs for a machine told to fire at will, taking the standing engage order's own target (`mech+0x248`) when there is one in place of `Ai_SelectDefenceTarget`'s pick:
 
 | Range | Behaviour |
 |---|---|
@@ -204,8 +204,8 @@ return steep ? 1 : 2
 | `+0x5a` | timer | The navigation states' own 10 s decision clock, in the behaviour block's scratch |
 | `+0x5f` | ptr | What `travelling` and `following` point the turret at. Not a selected target |
 | `+0x97` | byte | The mission file's standing radar setting for this machine, from block 7 `+0x00` — [`ai-weapons.md`](ai-weapons.md) |
-| `+0x96` | byte | Radar mode, written here from `+0x97`, or from `+0xb2` in the player's squad — [`target-selection.md`](target-selection.md) |
-| `+0xb6` | byte | Would let a non-leader run the patrol, search-and-destroy and guard thinks. **No writer exists** |
+| `+0x96` | byte | Radar mode, written here from `+0x97`, or from `+0xb2` in the player's squad — [`ai-weapons.md`](ai-weapons.md) |
+| `+0xb6` | byte | `FIRE AT WILL` — lets a non-leader run the patrol, search-and-destroy and guard thinks. Written by [`ai-squadmates.md`](ai-squadmates.md) |
 
 Block 7's `+0x00` and `+0x02` are `.MSN` row #12's `+0x08` and `+0x0a`; see [`msn-mission-file.md`](../formats/msn-mission-file.md) and [`script-dat.md`](../formats/script-dat.md).
 
@@ -217,12 +217,10 @@ What differs from the original, and why:
 
 - **The shape probe stops at the bounding radius.** The original casts a swept volume against each candidate's shape; the engine has no such cast, so the probe takes the coarse reject that cast opens with — the candidate's bounding radius against the segment's closest approach. It reports a structure from slightly further out than its shape would, which errs toward steering earlier. It cannot be left out: a standing animated structure's collision radius is zero, so the proximity sweep is blind to every building in a retail mission and a machine walks into one and stands there for the rest of it.
 - **The mode-1 hit point is the walk's own point for the step**, not the refinement `FUN_0046fcac` solves against the blocking face. Both callers only measure a range from it, and the two differ by less than a cell.
-- **The Turbo Pod sprint is not reachable**, since it is gated on a standing squad order and those are the squadmate slice.
 
 ## Open questions
 
-- **`mech+0xb6`.** Read by three think functions, written by nothing in the image. With it permanently clear, a non-leader in `patrolling` or `search/destroy` never acquires a target on its own. Whether that is the shipped intent or a lost initialiser is not answerable from the binary.
-- **Descriptor `+0x3c`** groups `skirting` and `ramming` with the combat states against the rest of the navigation roster. Still no reader; see [`ai-dispatch.md`](ai-dispatch.md).
+- **Descriptor `+0x3c`** groups `skirting` and `ramming` with the combat states against the rest of the navigation roster, which is a stronger distinction than its one reader needs; see [`ai-dispatch.md`](ai-dispatch.md).
 - **Why the firing line is the only source that cuts speed.** The distance thresholds for the other two are zero, which reads more like an unfinished tuning pass than a decision.
 
 ## Rejected readings

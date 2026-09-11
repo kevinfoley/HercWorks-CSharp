@@ -35,9 +35,8 @@ public partial class MechObject {
 	/// </summary>
 	private void NavigationStep(SimWorld world) {
 		if (SquadOrderVerb != SquadOrderNone) {
-			// A standing squad order overrides the group's route with its own destination. Squad
-			// orders are the squadmate slice, so this arm is unreachable for now.
-			DriveToPoint(world, SquadOrderTarget?.Position ?? Position);
+			// A standing squad order overrides the group's route with its own destination.
+			DriveToPoint(world, SquadOrderDestination);
 		} else if (Group is { } group && ReferenceEquals(group.Leader, this)) {
 			FollowRoute(world, group);
 		} else {
@@ -59,9 +58,8 @@ public partial class MechObject {
 	/// <b>range is measured on the ground plane</b>, never in three dimensions, so a waypoint on a
 	/// hilltop is as near as one at its foot.</para>
 	///
-	/// <para>The original's Turbo Pod sprint past 30000 units is gated on a standing squad order, so
-	/// it is not reachable here for the same reason that arm of <see cref="NavigationStep"/> is
-	/// not.</para>
+	/// <para>The Turbo Pod sprint past 30000 units is gated on a standing squad order, so only a
+	/// machine the player has sent somewhere ever uses one.</para>
 	/// </summary>
 	private bool DriveToPoint(SimWorld world, Vec3i point) {
 		short bearing = Detection.HeadingToward(point, Position);
@@ -438,8 +436,9 @@ public partial class MechObject {
 	/// <summary>
 	/// <c>Ai_UpdateWeaponsFree</c> (<c>0041c3c8</c>) — the AI's radar switch, misnamed after the
 	/// mission-file field that feeds it. A machine in the player's squad takes its mode from
-	/// <c>mech+0xb2</c>, the squad's radar order; everything else from <see cref="RadarOrder"/>, the
-	/// mission file's own standing setting. See docs/simulation/ai-weapons.md.
+	/// <see cref="RadarForcedActive"/>, which is what SCAN FOR HOSTILES and EMCON write; everything
+	/// else from <see cref="RadarOrder"/>, the mission file's own standing setting. See
+	/// docs/simulation/ai-weapons.md.
 	/// </summary>
 	private void UpdateRadarMode() =>
 		Scanner = Group is { LedByPlayer: true } ? RadarForcedActive : RadarOrder;
@@ -450,14 +449,17 @@ public partial class MechObject {
 	/// <para>The gate after the movement is the state's shape: <b>a machine that is neither the group
 	/// leader nor under a standing squad order does nothing else</b>. Only the leader ever acquires,
 	/// and it is the combat reassess's leader sweep that drags the rest of the group in once it has
-	/// found a fight. The original's <c>mech+0xb6</c>, which would let a follower think for itself,
-	/// has no writer anywhere in the image.</para>
+	/// found a fight — unless the player has told this one to <see cref="FireAtWill"/>, which is
+	/// exactly what that order buys.</para>
 	/// </summary>
 	private bool PatrolThink(SimWorld world) {
+		// Sampled before the movement, because the movement can clear it.
+		short standing = SquadOrderVerb;
 		NavigationStep(world);
 		Target = null;
 
-		if (Group is not { } group || !ReferenceEquals(group.Leader, this)) {
+		if (Group is not { } group
+				|| (!FireAtWill && standing == SquadOrderNone && !ReferenceEquals(group.Leader, this))) {
 			return false;
 		}
 
@@ -478,7 +480,10 @@ public partial class MechObject {
 			return false;
 		}
 
-		if (group.OrderVerb != MissionOrder.VerbPatrol) {
+		// A machine told to patrol a gridpoint acquires on its own account; otherwise only a group
+		// whose own order is patrol does.
+		if (standing != SquadOrderPatrol
+				&& (standing != SquadOrderNone || group.OrderVerb != MissionOrder.VerbPatrol)) {
 			return false;
 		}
 
@@ -502,7 +507,7 @@ public partial class MechObject {
 		NavigationStep(world);
 		Target = null;
 
-		if (Group is not { } group || !ReferenceEquals(group.Leader, this)) {
+		if (Group is not { } group || (!FireAtWill && !ReferenceEquals(group.Leader, this))) {
 			return false;
 		}
 
@@ -611,9 +616,11 @@ public partial class MechObject {
 		Target = null;
 		SimObject? defence = null;
 
-		if (holdsPost && SimMath.TimerCountDown(ref _navDecisionTimer) == 0) {
-			defence = AiTargeting.SelectDefenceTarget(world, this, post,
-				Group?.OrderTarget != null ? AiTargeting.DefenceRange : AiTargeting.OpenDefenceRange);
+		if ((holdsPost || FireAtWill) && SimMath.TimerCountDown(ref _navDecisionTimer) == 0) {
+			defence = SquadOrderVerb == SquadOrderEngage && SquadOrderTarget != null
+				? SquadOrderTarget
+				: AiTargeting.SelectDefenceTarget(world, this, post,
+					Group?.OrderTarget != null ? AiTargeting.DefenceRange : AiTargeting.OpenDefenceRange);
 		}
 
 		if (defence == null) {

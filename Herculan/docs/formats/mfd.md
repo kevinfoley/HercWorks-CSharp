@@ -158,6 +158,8 @@ current mode: mode 0 steps the status screen's own subject cursor (`+0x318`, a s
 other mode calls `TargetSelect_Cycle`. So F5's SELECT and F4's TARGET are the same action, and both
 do what [Enter] does.
 
+10 `XMIT` opens a transmission on FLASH COMM.
+
 ### Screen background
 
 `MFD` frames 0-2 are three pieces of screen chrome, all 196x122: **0** two boxes split by a central
@@ -184,8 +186,9 @@ frame 2's box edge at frame-local x 64-65 plus the inset.
 | Title | `4,0 – 40,9` | `WHITE` (`ColorSchemePanels[10]`) | left |
 | Message | `22,46 – 74,52` | `DARK` (`[12]`) | centre |
 
-The message label carries the incoming-transmission caption `MfdDisplay_Update` fills from the same
-object that drives FLASH COMM's talking-head frames; blank outside a transmission.
+The message label carries the speaking pilot's name during a transmission ([below](#transmissions)),
+and is blank otherwise. Its font is the text colour only; the plate behind it is filled with the
+speaker's own `COLORS.DAT` id, which the comm box publishes alongside the name.
 
 ### Label placement
 
@@ -315,11 +318,87 @@ in by `1 << XCoordShift` and bottom-right out by the same, giving x 6-190 and y0
 `7 << YCoordShift` = 14 device. Both nudges use `XCoordShift` on the y axis — no effect in any retail
 video mode.
 
-Font `ColorSchemePanels[1]` `CPGREEN`, alternate `[2]` `CPRED` at `+0x21` for orders the squad cannot
-take, background id 0x11, text margin `2 << XCoordShift` = 4 device. Text is the first six of the 18
-squadmate orders.
+Text margin `2 << XCoordShift` = 4 device — the only nonzero label margin on the display. Four fonts:
 
-`MfdDisplay_Update` draws the transmitting pilot's frames at `inset + (0x14, 0)` GAU.
+| Font | When |
+|---|---|
+| `ColorSchemePanels[1]` `CPGREEN` | an ordinary row |
+| `[3]` `CPYLW` | the selected row, which the paint re-fonts as it fills it |
+| `[6]` `CPOFF` | an unavailable row. **No retail row reaches it**: neither of the two functions that set and clear the unavailable bit (`FUN_0043f9f4`, `FUN_0043fa14`) has a caller in the image |
+| `[2]` `CPRED` | the row's alternate at `+0x21`, which is **not** an unavailable state — `FUN_00438aac` redraws exactly one character of the row in it, at the index the order's own attribute byte names, which is how the hotkey letter is picked out. The [F7] order list uses the same mechanism |
+
+The selected row also carries a plate: `MFD` frames 11-13, 91x8 GAU, blitted by `FUN_0043fa34`
+**after** the text so the hollow rounded rect frames it rather than covering it. Frame 11 unpressed,
+12 while XMIT is held — the index is `0xb +` that button's own press byte — and 13 the plain plate
+that erases a row which has just stopped being selected. `FUN_0043f878` repaints exactly those two
+rows when the cursor moves, rather than the whole block.
+
+The screen is flooded with **palette index `0x11`** before any of it goes down — a constructor
+immediate, so an index and not a logical id ([`cockpit-hud.md`](cockpit-hud.md#datcolorsdat--logical-colour-ids)).
+
+The six rows are six *positions*, not six of the eighteen orders: `MfdFlashComm_SelectedVerb`
+(`0043f998`) reads the selected row at `screen+0x32` and adds 3 when that row's own state byte at
+`screen+0x2c + row` has bit 1 set, so the page covers `STRINGS0` group 0 verbs 0-5 or 3-8. `FUN_0043f9d0`
+is what flips that bit after a transmission, and it **returns immediately unless the row is 4 or 5**.
+XMIT (`MfdFlashComm_Transmit`, `00447220`) writes the resolved verb into the shared order record and
+broadcasts it to the whole of the player's group —
+[`../simulation/ai-squadmates.md`](../simulation/ai-squadmates.md).
+
+Screen fields, based at `MfdDisplay+0xd1`:
+
+| Offset | Contents |
+|---|---|
+| `+0x08` | Pointer to the display's shared state block (`display+0xb1`), whose first int is the selected row |
+| `+0x14` | Six row label pointers |
+| `+0x2c` | Six row state bytes — bit 0 unavailable, bit 1 showing the second verb |
+| `+0x32` | The screen's own row, which is what XMIT resolves |
+| `+0x36` | Dirty flag |
+| `+0x37` | The previously-selected row, `-1` for none |
+| `+0x39` | The row block's rect |
+
+#### Keyboard
+
+Two dispatches, not one. `CockpitWidgets_HandleCommand` (`00432bc8`) offers every code to
+`FUN_00446c10` first and then to the MFD widget's own command slot `FUN_004469c0`. Codes are PC set-1
+scancodes, `+0x200` for [Alt].
+
+| Code | Handler | Effect |
+|---|---|---|
+| `0x1e` `0x22` `0x23` `0x18` `0x2e` `0x12` `0x21` (A G H O C E F) | `FUN_004469c0` | Select rows 0, 1, 2, 3, 4, 4, 5. Gated on the display being on mode 1 |
+| the same seven `+0x200` | `FUN_00446c10` | Select **and transmit**, from any screen. `0x22e` only transmits when the resolved verb is 4 and `0x212` only when it is 7 |
+| `0x2d` (X) | `FUN_004469c0` | Press button 10 if the current mode shows it |
+| `0x33` `0x34` (`,` `.`) | `FUN_004469c0` | Previous / next available row, wrapping |
+| `0x20` (D) | `FUN_004469c0` | Press button 7 SELECT if visible |
+
+`FUN_00447130(display, widget, row)` writes the display's shared row **only when the mode is 1**,
+which is what lets an [Alt] hotkey pressed from another screen transmit a row the cursor never moved
+to. `FUN_00447098` is the mouse path: a click on the selected row presses XMIT and transmits, a click
+on any other selects it.
+
+### Transmissions
+
+A squadmate answering takes the whole inset, whichever screen is up. `MfdDisplay_Update` reads a
+block published at `CockpitViewInstance+0x1f9` — **the heads-down display's pilot roster**, not the
+MFD — and draws from it *before* it ever reaches the current screen's update slot, jumping past both
+that and the title refresh. So a transmission replaces the screen rather than sitting on it, and the
+title is absent for as long as it lasts.
+
+| Offset | Contents |
+|---|---|
+| `+0x766` | The transmitting pilot's name pointer, and the claim on the block — set only while it is 0 |
+| `+0x76a` | The frame to blit |
+| `+0x772`, `+0x776` | Its `.OFS` offset pair |
+| `+0x782` | Valid-this-frame flag, which the update also uses as its blit count |
+| `+0x786` | The caption plate's `COLORS.DAT` id — the speaker's own comm-box colour |
+| `+0x788` | The box's state; the caption is written only when it is 2 |
+
+Both of the comm box's video paints write it, *before* their own visibility test, so it works with
+the heads-down display panned up — [`heads-down-display.md`](heads-down-display.md#squad-comm-boxes)
+owns the box and its state machine.
+
+The update floods the inset with palette index `0x11` and blits at
+`inset + (0x14 << XCoordShift, 0)` **plus the `.OFS` pair added raw** — the frame is drawn doubled,
+the offset is not.
 
 ### `MFDMap` — mode 2
 
@@ -342,14 +421,25 @@ so the first pass is not overdrawn.
 ## Engine coverage
 
 Drawn: screen background, F-key column with lit state, per-mode aux buttons, titles and captions, the
-flash-comm order list, the nav map's background flood, and **both status screens driven from a live
-subject** — `Herculan.Engine.Content.MfdStatusSubject`, one record for F1 and F5 as in the original.
-The scanner is drawn too — see its own doc, and so are the paper doll's per-region damage tints. Not
-drawn: the mode-switch sweep animation, the missile camera, map terrain and transmission frames, all
-of which need a map rasterizer or an animation path.
+nav map's background flood, and **both status screens driven from a live subject** —
+`Herculan.Engine.Content.MfdStatusSubject`, one record for F1 and F5 as in the original. The scanner
+is drawn too — see its own doc, and so are the paper doll's per-region damage tints. Not drawn: the
+mode-switch sweep animation, the missile camera and map terrain, which need a map rasterizer or an
+animation path.
+
+FLASH COMM is complete: `MfdFlashCommScreen` keeps the row states and resolves the verb, and
+`Overlay2DRenderer` draws the list with its four fonts, its hotkey character and its plate, and the
+transmission over the top of whichever screen is up. Transmissions come from `SquadCommChannel`
+([`audio.md`](audio.md#the-pilot-and-squad-channel)).
+
+Buttons: the F-key column sets the mode, and `Program.ApplyMfdAuxClick` carries 8 `RANGE`, the shared
+7/9 `SELECT`/`TARGET` case, 10 `XMIT`, and 11 `PASS` / 12 `ACTIVE`. **One is not wired**: mode 0's arm
+of the shared case, which steps a squad roster the engine has no equivalent of. Every row of the order
+list draws available, which is what retail does too — nothing sets the unavailable bit.
 
 `Herculan.Engine.Host` takes `--mfd <0-5>` to pick the initial screen and `--target` to acquire one,
-since a `--screenshot` run never sees a keystroke.
+since a `--screenshot` run never sees a keystroke; `--flash-comm <0-5>`, `--flash-comm-xmit` and
+`--wait-transmission` drive the order list and hold the run open until a reply is on screen.
 
 Status-screen deviations: there is no pilot roster, so only the machine being flown reads `ID:`/`YOU`
 and a squadmate reads `TARGET:` plus its type name; a flyer's name comes from `FLYERS.DAT`
@@ -360,7 +450,7 @@ and a squadmate reads `TARGET:` plus its type name; a flyer's name comes from `F
 - `mfd_dmg` (7 frames, 192x118) is built into three animation sequences of 3/2/3 frames by
   `MfdDisplay_Ctor` from count table `0049cb40` and six frame-index tables at `0049cb4c`-`0049cb88`.
   Trigger and meaning not traced; consistent with display-damage static.
-- `MFD` frames 11-13 (182x16) have no located consumer. **Frames 14-18 do**: they are the whole of
-  the scanner screen, see [`mfd-scanner.md`](mfd-scanner.md). Frame 14 matching the `radar` bank's
-  frame size is not a coincidence either — that bank holds the sweep played over the same dish.
+- Frames 14-18 are the whole of the scanner screen, see [`mfd-scanner.md`](mfd-scanner.md). Frame 14
+  matching the `radar` bank's frame size is not a coincidence either — that bank holds the sweep
+  played over the same dish.
 - Mode 5, the missile camera, beyond its button and background layout.

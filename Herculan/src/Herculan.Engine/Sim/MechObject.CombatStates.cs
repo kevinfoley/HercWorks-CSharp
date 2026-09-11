@@ -475,15 +475,6 @@ public sealed partial class MechObject {
 	}
 
 	/// <summary>
-	/// <c>Ai_ClearSquadEngageOrder</c> (<c>0041c478</c>) — always answers "this state is finished", and
-	/// on the way clears a standing squad engage order whose target is the one being let go.
-	/// </summary>
-	private static bool ClearSquadEngageOrder() =>
-		// Squad orders are the squadmate slice; SquadOrderVerb is always zero here, so the clear has
-		// nothing to clear.
-		true;
-
-	/// <summary>
 	/// <c>Ai_BeginSkirtIfBlocked</c> (<c>0041de9c</c>) — the gate at the top of every combat think but
 	/// <c>attacking flyer</c>'s. It stashes the state it interrupted <i>in the scratch it has just
 	/// cleared</i>, which is what makes <c>skirting</c> an excursion rather than a decision: the

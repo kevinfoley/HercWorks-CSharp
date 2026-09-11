@@ -11,6 +11,7 @@ using Herculan.Engine.Render;
 using Herculan.Engine.Scene;
 using Herculan.Engine.Shell;
 using Herculan.Engine.Sim;
+using Herculan.Engine.Sim.Ai;
 using Herculan.Engine.Sim.Anim;
 using Herculan.Engine.World;
 using ImGuiNET;
@@ -43,6 +44,11 @@ bool waitForEffectLight = false;
 bool silentAudio = false;
 int initialHddPilot = -1;
 HddOrder? initialHddOrder = null;
+bool initialHddTransmit = false;
+
+// Set by --hdd-xmit, and called again once the run has ticked so a standing order can be seen to
+// survive its own reassess rather than only to have been installed.
+Action<string>? reportSquadOrders = null;
 bool runShell = false;
 string? shellPalette = null;
 var shellMode = ShellCampaignMode.Campaign;
@@ -52,6 +58,9 @@ int shellTab = ShellScreen.MainMenuTab;
 // Ticks to let the sensor model run before --target takes its pick: nothing is targetable until a
 // sweep has painted it, and the sweep only runs from the world tick.
 int acquireTargetDelay = 5;
+int initialFlashCommRow = -1;
+bool initialFlashCommTransmit = false;
+bool waitForTransmission = false;
 for (int i = 0; i < args.Length; i++) {
 	if (args[i] == "--screenshot" && i + 1 < args.Length) {
 		screenshotPath = args[++i];
@@ -169,6 +178,26 @@ for (int i = 0; i < args.Length; i++) {
 			&& int.TryParse(args[++i], out int orderIndex)
 			&& orderIndex >= 0 && orderIndex < HddLayout.OrderCount) {
 		initialHddOrder = (HddOrder)orderIndex;
+	} else if (args[i] == "--flash-comm" && i + 1 < args.Length
+			&& int.TryParse(args[++i], out int flashCommRow)
+			&& flashCommRow >= 0 && flashCommRow < MfdFlashCommScreen.RowCount) {
+		// Which FLASH COMM row the cursor sits on at power-up. The seven order letters do it live;
+		// this exists for the same reason --mfd does.
+		initialFlashCommRow = flashCommRow;
+	} else if (args[i] == "--flash-comm-xmit") {
+		// Presses XMIT on that row once the mission is up — the [X] key, or a click on the button, or
+		// a second click on the row. A --screenshot run sees no keystroke, so this is the only way to
+		// reach the squad broadcast and the reply that comes back from it.
+		initialFlashCommTransmit = true;
+	} else if (args[i] == "--wait-transmission") {
+		// Holds the capture until a squadmate's portrait is actually up rather than the static either
+		// side of it, which is the one frame worth photographing. Only useful with --flash-comm-xmit.
+		waitForTransmission = true;
+	} else if (args[i] == "--hdd-xmit") {
+		// Presses XMIT on the armed order once the screen is up, and reports what the squad did with
+		// it. A --screenshot run sees no keystroke and no map click, so this is the only way to reach
+		// the squadmate AI from the command line; an order that wants a pick takes the map centre.
+		initialHddTransmit = true;
 	} else {
 		positional.Add(args[i]);
 	}
@@ -272,9 +301,20 @@ Console.WriteLine($"Theater {mission.Header.TheaterIndex} ({scene.Theater.Palett
 // cockpit colour scheme installed over slots 42-65. See CockpitPalette.
 // Every other machine in the mission goes in with it: F5 draws the *target's* paper doll, and a doll
 // is that machine's own .HBA frames placed by its own .PDG, so both have to be resident.
+// The squad's portrait banks go in with them: a comm box talks with dba\PILOT<n>.DBA, n being that
+// pilot's roster index over three, and which three are in the mission is only known here.
+var squadPlacements = scene.Objects
+	.Where(o => o.Placement.IsPlayerLance && !ReferenceEquals(o.Object, scene.PlayerObject?.Object))
+	.Take(SquadCommChannel.SlotCount)
+	.ToList();
+
 var cockpitArt = mission.Player?.TypeName is { } pilotHerc
 	? CockpitArt.Load(content, pilotHerc, scene.Theater.PaletteName,
-		scene.World.Objects.OfType<MechObject>().Select(m => m.Name).Distinct())
+		scene.World.Objects.OfType<MechObject>().Select(m => m.Name).Distinct(),
+		squadPlacements
+			.Where(o => o.Placement.PilotIndex >= 0)
+			.Select(o => PilotRoster.BankName(PilotRoster.PortraitOf(o.Placement.PilotIndex)))
+			.Distinct())
 	: null;
 if (cockpitArt != null) {
 	Console.WriteLine(
@@ -335,16 +375,13 @@ HddCommandScreen? hddCommand = null;
 if (cockpitArt?.HeadsDownLayout is { } commandLayout && scene.World is { } commandWorld) {
 	var mapBounds = HddMapBounds.Of(scene.Mission.Coordinates);
 	var mapViewport = commandLayout.MapViewport;
-	var squad = scene.Objects
-		.Where(o => o.Placement.IsPlayerLance && !ReferenceEquals(o.Object, scene.PlayerObject?.Object))
-		.Select(o => o.Object)
-		.Take(HddLayout.PilotSlotCount)
-		.ToList();
+	var squad = squadPlacements.Select(o => o.Object).ToList();
 
 	hddCommand = new HddCommandScreen(
 		new HddMapView(mapBounds, mapViewport.Width, mapViewport.Height),
 		HddMapRaster.Build(commandWorld.Terrain, mapBounds, cockpitArt.PaletteEntry),
-		squad);
+		squad,
+		commandWorld);
 
 	if (initialHddPilot >= 0) {
 		hddCommand.SelectPilot(initialHddPilot);
@@ -354,10 +391,124 @@ if (cockpitArt?.HeadsDownLayout is { } commandLayout && scene.World is { } comma
 		hddCommand.SelectOrder(startOrder);
 	}
 
+	if (initialHddTransmit) {
+		if (hddCommand.AwaitingPick) {
+			// The camera is not on the player until the first paint, and a map click is read through
+			// it. Put it there first so the centre of the viewport is where the player is standing.
+			if (scene.PlayerObject?.Object is { } commandSubject) {
+				hddCommand.View.Follow(commandSubject.Position);
+			}
+
+			// The two orders that want a unit get one picked for them: the nearest of the side they
+			// take, hostile for ATTACK ENEMY and friendly for DEFEND POSITION. The rest take the
+			// centre of the viewport, which is where the player is standing.
+			var pick = HddCommandState.NeedsUnit(initialHddOrder ?? HddOrder.Disengage)
+				? commandWorld.Objects
+					.Where(candidate => !candidate.Removed && !candidate.AwaitingDeployment
+						&& candidate.TargetClass != TargetClass.None
+						&& (candidate.Side == MissionSide.Cybrid)
+							== (initialHddOrder == HddOrder.AttackEnemy)
+						&& !ReferenceEquals(candidate, scene.PlayerObject?.Object))
+					.OrderBy(candidate => scene.PlayerObject?.Object is { } from
+						? candidate.Position.ApproxDistanceTo(from.Position)
+						: 0)
+					.FirstOrDefault()
+				: null;
+
+			float pickX = pick != null
+				? hddCommand.View.ToScreenX(pick.Position.X)
+				: mapViewport.Width / 2f;
+			float pickY = pick != null
+				? hddCommand.View.ToScreenY(pick.Position.Y)
+				: mapViewport.Height / 2f;
+
+			hddCommand.ClickMap(pickX, pickY, commandWorld.Objects);
+		}
+
+		Console.WriteLine($"Command display: XMIT {initialHddOrder} to slot {initialHddPilot} "
+			+ (hddCommand.Transmit() ? "reached its recipient." : "found nobody."));
+
+		reportSquadOrders = when => {
+			for (int slot = 0; slot < squad.Count; slot++) {
+				if (squad[slot] is MechObject mate) {
+					Console.WriteLine($"  {when} tick {commandWorld.TickCount}, slot {slot}: squad order {mate.SquadOrderVerb}, "
+						+ $"state {mate.Behaviour.State?.Name ?? "none"}, "
+						+ $"destination {mate.SquadOrderDestination}, "
+						+ $"at {mate.Position}, "
+						+ $"target {(mate.SquadOrderTarget == null ? "none" : mate.SquadOrderTarget.TargetClass.ToString())}, "
+						+ $"reply {mate.LastSquadMessage}, radar {(mate.Scanner ? "ACTIVE" : "PASSIVE")}");
+				}
+			}
+		};
+
+		reportSquadOrders("on receipt,");
+	}
+
 	Console.WriteLine($"Command display map: mission box {mapBounds.MinX},{mapBounds.MinY} - "
 		+ $"{mapBounds.MaxX},{mapBounds.MaxY}, {hddCommand.View.FullScale >> HddMapView.ScaleShift} "
 		+ $"world units per pixel zoomed out, {squad.Count} squadmate(s) on the comm boxes.");
 }
+
+// The MFD's FLASH COMM page and the comm channel behind it. The page is six order rows and a
+// selection; the channel is the three video boxes and the queue in front of them, which is what turns
+// a squadmate's reply into static, a talking portrait and a recorded line. Both are per-mission: the
+// boxes have to know who is in them, and that comes off each machine's own pilot index.
+var flashComm = new MfdFlashCommScreen();
+var pilotRoster = PilotRoster.Load(content);
+var squadComm = new SquadCommChannel(content, pilotRoster, scene.World.Random);
+var squadSeats = new SimObject?[SquadCommChannel.SlotCount];
+var pilotVideos = new SquadTransmission?[SquadCommChannel.SlotCount];
+
+for (int slot = 0; slot < squadPlacements.Count; slot++) {
+	squadComm.Seat(slot, squadPlacements[slot].Placement.PilotIndex, squadPlacements[slot].Object);
+	squadSeats[slot] = squadPlacements[slot].Object;
+}
+
+audio.AttachSquad(squadComm);
+
+// A comm box captions itself with its pilot's roster name, the same one the MFD's transmission plate
+// carries — both are the gauge's own +0x137.
+if (hddCommand != null) {
+	hddCommand.PilotNameOf = squadComm.Name;
+}
+
+if (initialFlashCommRow >= 0) {
+	flashComm.Select(initialFlashCommRow, flashCommIsUp: true);
+}
+
+if (initialFlashCommTransmit && scene.World is { } flashCommStartWorld) {
+	int verb = flashComm.SelectedVerb;
+	bool taken = flashComm.Transmit(flashCommStartWorld, flashCommStartWorld.PlayerMech?.Group);
+	Console.WriteLine($"FLASH COMM: XMIT row {flashComm.SelectedRow} (group 0 verb {verb}) "
+		+ (taken ? "was taken." : "was refused by everyone."));
+}
+Console.WriteLine(pilotRoster != null
+	? $"Squad comm: {squadPlacements.Count} box(es) — "
+	  + string.Join(", ", Enumerable.Range(0, squadPlacements.Count)
+		  .Select(slot => squadComm.Occupied(slot)
+			  ? $"{pilotRoster.Name(squadPlacements[slot].Placement.PilotIndex)} "
+				+ $"(pilot {squadPlacements[slot].Placement.PilotIndex}, "
+				+ $"portrait {PilotRoster.PortraitOf(squadPlacements[slot].Placement.PilotIndex)}, "
+				+ $"voice {squadComm.VoiceBank(slot)})"
+			  : "empty"))
+	: $"No {PilotRoster.ResourceName} — the comm boxes have no names and no portraits.");
+
+// FLASH COMM's seven order keys, in the order FUN_00446c10 and FUN_004469c0 both switch on their
+// scancodes: which row each selects, and — for the two rows that carry two orders — which verb has to
+// be showing before [Alt] will transmit it. -1 means transmit whatever the row reads.
+(Key Key, int Row, int Verb)[] FlashCommKeys = {
+	(Key.A, 0, -1),   // ATTACK MY TARGET
+	(Key.G, 1, -1),   // IGNORE MY TARGET
+	(Key.H, 2, -1),   // HELP ME OUT!
+	(Key.O, 3, -1),   // JOIN ON ME
+	(Key.C, 4, (int)SquadCommand.ScanForHostiles),
+	(Key.E, 4, (int)SquadCommand.Emcon),
+	(Key.F, 5, -1),   // FIRE AT WILL / HOLD YOUR FIRE
+};
+bool[] flashCommKeysDown = new bool[FlashCommKeys.Length];
+bool flashCommTransmitKeyDown = false;
+bool flashCommNextRowKeyDown = false;
+bool flashCommPreviousRowKeyDown = false;
 
 // Edge state for the command display's keyboard — see the block that reads them.
 //
@@ -543,6 +694,9 @@ Console.WriteLine("Free camera: W/A/S/D move, R/F rise and fall, arrow keys look
 Console.WriteLine("Esc opens the debug panel (skeleton view, animation readouts) — it no longer quits; "
 	+ "close the window for that.");
 Console.WriteLine("F1-F6 switch the MFD screen: STATUS, FLASH COMM, NAV MAP, SCANNER, TARGET, MISSILE CAM.");
+Console.WriteLine("On FLASH COMM, A/G/H/O/C/E/F pick an order (, and . step through them) and X "
+	+ "transmits it; Alt with any of those seven transmits that order straight from whichever screen "
+	+ "is showing.");
 Console.WriteLine("F7/F8 pan down to the Heads-Down Display's command and damage screens; "
 	+ "F1-F6 pan back up.");
 Console.WriteLine("On the damage screen, S/I/W switch between structural, internal and weapon systems.");
@@ -949,7 +1103,7 @@ window.Update += deltaSeconds => {
 	// [C] swaps between flying the observer camera and piloting the machine, on the key's own edge
 	// so holding it does not flicker between the two.
 	if (pilotMech != null && controls != null) {
-		bool cameraKey = controls.IsKeyPressed(Key.C);
+		bool cameraKey = !FlashCommHasKeyboard() && controls.IsKeyPressed(Key.C);
 		if (cameraKey && !cameraKeyDown) {
 			piloting = !piloting;
 		}
@@ -1119,6 +1273,73 @@ window.Update += deltaSeconds => {
 		cockpitPan.Request(headsDown: false);
 	}
 
+	// FLASH COMM's own keyboard, from the two dispatches that share it. The bare letters
+	// (FUN_004469c0's tail) only move the cursor and only while the page is up; the same letters with
+	// [Alt] (FUN_00446c10) select the row and transmit it in one go, from whichever screen is showing,
+	// which is why they are the shortcuts the manual gives. Each letter is the one its order's own
+	// attribute byte draws in red.
+	//
+	// Two of the six positions carry two orders, and the two keys that share them are not
+	// interchangeable: [C] SCAN FOR HOSTILES and [E] EMCON both select row 4, but each only transmits
+	// while that row is showing its own verb, so [Alt+C] on a row already reading EMCON selects and
+	// says nothing. [F] has no such partner — row 5 transmits whichever of FIRE AT WILL and HOLD YOUR
+	// FIRE it currently reads.
+	if (controls != null && scene.World is { } flashCommWorld) {
+		bool flashCommUp = FlashCommHasKeyboard();
+		bool alt = controls.IsKeyPressed(Key.AltLeft) || controls.IsKeyPressed(Key.AltRight);
+
+		bool Transmit() {
+			bool accepted = flashComm.Transmit(flashCommWorld, flashCommWorld.PlayerMech?.Group);
+			audio.Director?.Play(SoundId.ButtonClick);
+			return accepted;
+		}
+
+		for (int i = 0; i < FlashCommKeys.Length; i++) {
+			var (key, row, requiredVerb) = FlashCommKeys[i];
+			if (!Edge(key, ref flashCommKeysDown[i])) {
+				continue;
+			}
+
+			if (!alt) {
+				if (flashCommUp) {
+					flashComm.Select(row, flashCommIsUp: true);
+				}
+
+				continue;
+			}
+
+			// The [Alt] arm writes the screen's own row first and only then tests the verb, so a key
+			// whose order is not the one showing still moves the cursor. FUN_00447130 is what refuses
+			// to move the display's row from another screen.
+			flashComm.Select(row, flashCommIsUp: hudState.Mfd == MfdMode.FlashComm);
+			if (requiredVerb < 0 || flashComm.SelectedVerb == requiredVerb) {
+				Transmit();
+			}
+		}
+
+		if (flashCommUp) {
+			// [X] presses XMIT, which is aux button 10 — the same press a click on the button makes.
+			if (Edge(Key.X, ref flashCommTransmitKeyDown)) {
+				Transmit();
+			}
+
+			// [.] and [,] walk the list past any row the squad cannot take.
+			if (Edge(Key.Period, ref flashCommNextRowKeyDown)) {
+				flashComm.StepRow(1);
+			}
+			if (Edge(Key.Comma, ref flashCommPreviousRowKeyDown)) {
+				flashComm.StepRow(-1);
+			}
+		}
+
+		bool Edge(Key key, ref bool held) {
+			bool down = controls.IsKeyPressed(key);
+			bool edge = down && !held;
+			held = down;
+			return edge;
+		}
+	}
+
 	// F7 (Command Display) and F8 (Damage Detail) are the two HDD functions, and per the manual
 	// either one opens the display — so each both pans down and selects its own screen, which is
 	// what the display's own two page buttons dispatch (FUN_0044a5e4 with the button's index).
@@ -1256,6 +1477,13 @@ window.Update += deltaSeconds => {
 	}
 
 	hddCommand?.Update(TimeSpan.FromSeconds(deltaSeconds));
+
+	// The page's paint copies the display's row onto the screen every time it runs, and here every
+	// frame the page is up is a repaint.
+	if (hudState.Mfd == MfdMode.FlashComm) {
+		flashComm.Sync();
+	}
+
 	cockpitPan.Advance(deltaSeconds);
 
 	// Clamping the accumulator stops a long stall (a breakpoint, a window drag) from turning into
@@ -1369,6 +1597,14 @@ window.Update += deltaSeconds => {
 	audio.SetListener(camera.Position, -camera.Yaw & 0xffff);
 	audio.Update(TimeSpan.FromSeconds(deltaSeconds));
 
+	// A destroyed squadmate's comms are out, which is what puts their box on static and stops them
+	// answering. The original's idle paint reads the machine's own destroyed flag; the latch is where
+	// this engine keeps that, so it has to be refreshed from the machine each frame.
+	for (int slot = 0; slot < SquadCommChannel.SlotCount; slot++) {
+		squadComm.SetCommsOut(slot, squadSeats[slot] is { Destroyed: true });
+		pilotVideos[slot] = squadComm.Video(slot);
+	}
+
 	// What the debug panel reports about the walk — see DebugPanel.Sample for why it is measured
 	// every frame rather than only while the panel is up.
 	debugPanel.Sample(pilotMech);
@@ -1423,9 +1659,49 @@ window.Update += deltaSeconds => {
 				? commandScreen.Build(pilotMech, scene.World?.Objects ?? Array.Empty<SimObject>(),
 					scene.Mission.PlayerRoute, cockpitArt.Strings)
 				: hudState.Command,
+
+			// FUN_0043f7a4's first act is to copy the display's row onto the screen, so the page's own
+			// row only survives between repaints — which is what lets an [Alt] hotkey pressed from
+			// another screen transmit a row the cursor never moved to.
+			FlashComm = flashComm.Snapshot(),
+
+			// The comm channel has already run for this frame inside audio.Update, above, on the same
+			// clock as the computer's port.
+			Transmission = squadComm.Transmission,
+
+			// And the line that goes with it, over the canopy. Composed here rather than in the port
+			// because the name in front of it is the comm box's, not the message's — FUN_00435d0c
+			// asks the box for it through Squad_IndexOf.
+			PilotMessage = ComposePilotMessage(squadComm),
+
+			// Each box's own picture. The MFD shows one box's, full screen; the display shows all
+			// three in place, and a destroyed squadmate's sits on static there without ever having
+			// had a message to open it.
+			PilotVideos = pilotVideos,
 		};
 	}
 };
+
+// The pilot and squad channel's line, composed the way FUN_00435d0c composes it: the speaker's name,
+// ": ", then the message, capped at the composer's own strncat length. The name comes from the comm
+// box rather than from the queued record — FUN_00435d0c resolves the record's speaker to a slot with
+// Squad_IndexOf and asks the display for that box's name.
+//
+// Nothing is drawn while the channel is on VoiceOnly: the paint's first test is PilotMessageMode != 1.
+PilotMessageLine? ComposePilotMessage(SquadCommChannel channel) {
+	if (channel.Port.Mode == MessageChannelMode.VoiceOnly
+		|| channel.Port.Current is not { Text.Length: > 0 } current) {
+		return null;
+	}
+
+	string text = current.Text.Length > PilotMessageBoxLayout.MaxTextLength
+		? current.Text[..PilotMessageBoxLayout.MaxTextLength]
+		: current.Text;
+	string name = channel.Name(current.Slot);
+	return new PilotMessageLine(
+		name.Length > 0 ? name + PilotMessageBoxLayout.NameSeparator + text : text,
+		current.Slot);
+}
 
 // Where the selection lands on the canopy, for the front-window target box and arrow — the original's
 // own projection rather than the GL one: view-space offsets scaled by the focal length about the
@@ -1525,11 +1801,14 @@ window.Render += (_, gl) => {
 	bool lightWanted = waitForEffectLight
 		&& !scene.World.EffectLights.Slots.Any(slot => slot.IsLive);
 
+	bool transmissionWanted = waitForTransmission && squadComm.Transmission is not { ShowName: true };
+
 	if (screenshotPath != null && !screenshotTaken && framesRendered >= 30 && !acquireTarget
-			&& !lightWanted
+			&& !lightWanted && !transmissionWanted
 			&& (!shotWanted || scene.World.Tracers.Count > 0 || scene.World.Projectiles.Count > 0
 				|| scene.World.RocketsInFlight.Count > 0)) {
 		screenshotTaken = true;
+		reportSquadOrders?.Invoke($"after {framesRendered} frames,");
 		Screenshot.Capture(gl, size.X, size.Y, screenshotPath);
 		window.Close();
 	}
@@ -1722,6 +2001,19 @@ void ApplyCockpitClick(CockpitClick click) {
 			ApplyMfdAuxClick(click.Id.Index);
 			break;
 
+		// A click on a FLASH COMM row: on the row already selected it presses XMIT and transmits, on
+		// any other it moves the cursor — FUN_00447098's own two arms, and the same shortcut the
+		// command display's order list has.
+		case CockpitWidgetKind.MfdFlashCommRow when scene.World is { } clickedWorld:
+			int pickedRow = click.Id.Index;
+			if (pickedRow == flashComm.SelectedRow) {
+				flashComm.Transmit(clickedWorld, clickedWorld.PlayerMech?.Group);
+			} else {
+				flashComm.Select(pickedRow, flashCommIsUp: true);
+			}
+
+			break;
+
 		case CockpitWidgetKind.HddWidget:
 			ApplyHddClick(click.Id.AsHddWidget!.Value);
 			break;
@@ -1781,9 +2073,13 @@ void ApplyCockpitClick(CockpitClick click) {
 // F5's SELECT and F4's TARGET are the same action, and both do what [Enter] does. F1's arm walks a
 // squad roster the engine has no equivalent of, so it is left alone.
 //
-// XMIT (10) opens a transmission and is likewise not wired.
+// XMIT (10) transmits the FLASH COMM page's selected row to the whole of the player's group.
 void ApplyMfdAuxClick(int index) {
 	switch (index) {
+		case MfdLayout.TransmitButton when hudState.Mfd == MfdMode.FlashComm && scene.World is { } xmitWorld:
+			flashComm.Transmit(xmitWorld, xmitWorld.PlayerMech?.Group);
+			break;
+
 		case 8 when hudState.Mfd == MfdMode.Scanner:
 			hudState = hudState with {
 				Scanner = hudState.Scanner with {
@@ -1812,6 +2108,14 @@ void ApplyMfdAuxClick(int index) {
 // read it; the original has no such clash, its own screens owning the keyboard outright while up.
 bool HddCommandHasKeyboard() =>
 	hddCommand != null && cockpitPan.AtHeadsDown && hudState.Hdd == HddPage.CommandDisplay;
+
+// The same split for FLASH COMM's own letters. In the original both of the page's key dispatches are
+// mode-gated the same way — FUN_004469c0 returns immediately unless the MFD is on mode 1 — and none
+// of the seven letters means anything else anywhere in the cockpit. Here they collide with this
+// host's camera and view keys, so the page only takes them while it is the screen showing and the
+// Heads-Down Display is not down over it.
+bool FlashCommHasKeyboard() =>
+	hudState.Mfd == MfdMode.FlashComm && !cockpitPan.AtHeadsDown;
 
 // The three console buttons, from ConsoleButtons_OnChildClick's own child switch. TRACK toggles ATT
 // and nothing else: the centring that [T] does on the way off belongs to Sim_DispatchCommand's

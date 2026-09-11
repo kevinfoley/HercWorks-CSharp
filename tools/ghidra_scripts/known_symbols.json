@@ -8159,12 +8159,63 @@
       "source": "docs/formats/audio.md"
     },
     {
+      "address": "00435d0c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PilotMessagePort_ComposeLine",
+      "signature": "char * __cdecl PilotMessagePort_ComposeLine(void *port, void *message)",
+      "description": "Builds the pilot/squad channel's display line into the buffer at DAT_004d0d73 and returns it: the speaker's name, \": \", then the message text strncat'd at 0x4a characters. The name comes from the speaker's comm box through Squad_PilotName, or from the fallback at 004342b8 when the record names no object. Reached through the port's vtable; the port argument is not read.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00434298",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squad_PilotName",
+      "signature": "char * __cdecl Squad_PilotName(int slot)",
+      "description": "The name in comm-box slot `slot`, by way of HddGauge_Name on the heads-down display at CockpitViewInstance+0x1f9.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044b900",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddGauge_Name",
+      "signature": "char * __cdecl HddGauge_Name(void *display, int slot)",
+      "description": "Returns comm-box gauge `slot`'s name pointer (+0x137), the one HddGauge_LoadPilotFrames filled by walking PILOTS.STR to the machine's pilot index. The display argument is ignored: the gauge vector is reached through the global at 0049d230 instead.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044b83c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CommBox_PushVideoClip",
+      "signature": "void __cdecl CommBox_PushVideoClip(void *box)",
+      "description": "Pushes a render context clipped to a comm box's video rect (box+0x1d..+0x29), translated out of the current context's origin and the heads-down pan, so a portrait taller than its box is cut off at the bezel. CommBox_PopVideoClip takes it back off.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044b8f8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CommBox_PopVideoClip",
+      "signature": "void __cdecl CommBox_PopVideoClip(void)",
+      "description": "Pops the render context CommBox_PushVideoClip installed.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
       "address": "00435d9c",
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
       "name": "PilotMessagePort_Speak",
-      "description": "The pilot/squad channel's voice dispatch. Builds its P*_* filename out of the message id and the queued record's +0x16 digit the same way CommBox_BeginMessage does.",
+      "signature": "char __cdecl PilotMessagePort_Speak(void *port)",
+      "description": "Paints the pilot/squad channel's box: one line, sized to its own measured width plus a 10-unit margin each side and centred on the screen, filled with the speaking squadmate's COLORS.DAT colour and framed in the palette entry one below it, in ColorSchemePanels[2] CPRED. A message with no squadmate behind it takes ids 19 and 9 instead. Named for the BC_00000 voice arm it opens with, which is dead -- see docs/formats/audio.md, Rejected readings.",
       "source": "docs/formats/audio.md"
     },
     {
@@ -8173,7 +8224,7 @@
       "type": "function",
       "confidence": "high",
       "name": "PilotMessagePort_WrapText",
-      "description": "Word-wraps a pilot/squad message to that channel's box width. It paints several wrapped lines where the computer's ticker scrolls one.",
+      "description": "Word-wraps a pilot/squad message for PilotMessagePort_Paint: 80 characters in the 640-wide mode and 60 in the 320-wide one, into 0x78-byte lines at DAT_004d0e13, and sets the box height to (lines + 1) * (8 << YCoordShift) and its width to the widest line measured.",
       "source": "docs/formats/audio.md"
     },
     {
@@ -8182,7 +8233,7 @@
       "type": "function",
       "confidence": "high",
       "name": "PilotMessagePort_Paint",
-      "description": "Paints the pilot/squad channel's several wrapped lines. Its box is the .GAU field at content offset 1668 -- full screen width, ten units tall -- read by Gau_BuildCockpitWidgets rather than by Gau_Load.",
+      "description": "Paints the pilot/squad channel as several word-wrapped lines in the computer's own black and red, with no speaker colour in it -- a different picture from the speaker-coloured single line PilotMessagePort_Speak draws, which is what retail shows. Its box is the .GAU field at content offset 1668, read by Gau_BuildCockpitWidgets rather than by Gau_Load; only the rect's vertical half survives, the horizontal being recomputed from the text every paint.",
       "source": "docs/formats/audio.md"
     },
     {
@@ -12056,6 +12107,96 @@
       "name": "maybe_HasGameInProgress",
       "description": "The save screen's SAVE button is enabled only on this and a real row being selected, so it reads as whether there is a game to write out. Nothing that sets it has been traced.",
       "source": "docs/shell/screen-layout.md#the-save-screen"
+    },
+    {
+      "address": "00420ad4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_ReceiveSquadOrder",
+      "signature": "short __cdecl Mech_ReceiveSquadOrder(MechObject *mech, SquadOrderRecord *order, short priorReply)",
+      "description": "Mech vtable +0x28. One machine receiving one transmitted squad order: switches on the record's verb (STRINGS0 group 0, 0-0x11) over thirteen cases and installs the standing order at mech+0x23e, its destination at +0x240, its target at +0x248, its guard subject at +0x24c and its abandon tier at +0x250. Verbs 1/2 and 0xd/0xe write patrol and move, 0/2/0xb write engage, 0xc writes guard; 3/0xa/0xf clear the order and reinstall patrolling; 4/0x10 and 7/0x11 are the radar pair, writing mech+0xb2 and mech+0x96; 5 and 8 are the FIRE AT WILL / HOLD YOUR FIRE pair, writing mech+0xb6; 1 sets the ignore-the-player's-selection latch at mech+0x9a, which 0, 2 and 5 clear. Returns 1 when the order was taken. Each case picks a reply id for Ai_PostSquadMessage, posted only when priorReply is 0, or 1 with an accepted order. Args derived from disassembly: [EBP+8], [EBP+0xc], [EBP+0x10]; the vtable call site at 0043164d pushes three and does ADD ESP,0xc.",
+      "source": "docs/simulation/ai-squadmates.md"
+    },
+    {
+      "address": "00431610",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squad_SendOrderToSlot",
+      "signature": "void __cdecl Squad_SendOrderToSlot(int cockpitView, SquadOrderRecord *order, short slot)",
+      "description": "The [F7] command display's XMIT: addresses one squadmate by comm-box slot out of DAT_004d044c, stamps the record's issuer field at +0x02 with the player's machine (view+0x203), and calls that machine's vtable +0x28. Skips an empty slot, the player's own machine and a destroyed pilot; withdraws message 0x22 from the pilot-and-squad port (view+0x207) either way. Args derived from disassembly: [EBP+8], [EBP+0xc], [EBP+0x10].",
+      "source": "docs/simulation/ai-squadmates.md"
+    },
+    {
+      "address": "004231a4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squad_BroadcastOrder",
+      "signature": "bool __cdecl Squad_BroadcastOrder(int group, SquadOrderRecord *order)",
+      "description": "The MFD FLASH COMM page's transmit: sends one order to the whole of the player's group, best-suited machine first. Each pass scores every member not yet told -- verbs 0/2/5 prefer a machine whose behaviour descriptor +0x09 (committed) is clear, 1/8/0xf one where it is set, 4 and 7 one not already in the radar mode being asked for -- keeps the highest score and breaks ties on range to the issuer, then calls that machine's vtable +0x28 with the reply so far, so only the first recipient or the first to accept says anything. Verbs 0 and 2 stop at the first acceptance; the rest go round until everyone has been told. The score local is not initialised, so a verb with no case leaves every member tied and the group is walked in range order. Args derived from disassembly: [EBP+8], [EBP+0xc].",
+      "source": "docs/simulation/ai-squadmates.md"
+    },
+    {
+      "address": "0043166c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squad_BroadcastOrderFromCockpit",
+      "signature": "void __cdecl Squad_BroadcastOrderFromCockpit(int cockpitView, SquadOrderRecord *order)",
+      "description": "Stamps the order record's issuer field at +0x02 with the player's machine (view+0x203) and hands it to Squad_BroadcastOrder against the player's group (DAT_0049b0f8). Args derived from disassembly: [EBP+8], [EBP+0xc].",
+      "source": "docs/simulation/ai-squadmates.md"
+    },
+    {
+      "address": "00447220",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdFlashComm_Transmit",
+      "signature": "void __cdecl MfdFlashComm_Transmit(int mfdScreen)",
+      "description": "The FLASH COMM page's XMIT widget: resolves the selected row to a verb through MfdFlashComm_SelectedVerb, writes it into the shared order record at DAT_004d0458 and broadcasts it through Squad_BroadcastOrderFromCockpit. Args derived from disassembly: [EBP+8] only.",
+      "source": "docs/simulation/ai-squadmates.md"
+    },
+    {
+      "address": "0043f998",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdFlashComm_SelectedVerb",
+      "signature": "int __cdecl MfdFlashComm_SelectedVerb(int flashComm)",
+      "description": "The STRINGS0 group 0 verb the FLASH COMM page's selected row names: the row index at screen+0x32, plus 3 when that row's own state byte at screen+0x2c+row has bit 1 set. So the six rows cover verbs 0-5 or 3-8. Args derived from disassembly: [EBP+8] only.",
+      "source": "docs/simulation/ai-squadmates.md"
+    },
+    {
+      "address": "0044db24",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddCommandScreen_FillOrderRecord",
+      "signature": "void __cdecl HddCommandScreen_FillOrderRecord(int commandScreen, SquadOrderRecord *order)",
+      "description": "Copies the armed order's committed pick into the transmit record: a gridpoint pick into the record's x/y/z at +0x06/+0x0a/+0x0e, a unit pick into its subject pointer at +0x12. Which of the two is decided by the per-order pick-kind field the previous call to HddCommandScreen_CommitPick latched. This is what settles the record's layout. Args derived from disassembly: [EBP+8], [EBP+0xc].",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044db74",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddCommandScreen_CommitPick",
+      "signature": "void __cdecl HddCommandScreen_CommitPick(int commandScreen)",
+      "description": "Promotes the armed order's pending map pick to its committed one -- the point triple or the subject pointer, per the order's pick kind -- and latches that kind alongside it, so the following HddCommandScreen_FillOrderRecord knows which to copy. XMIT calls the pair in that order. Args derived from disassembly: [EBP+8] only.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "0044a178",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddDisplay_HandleWidgetPress",
+      "signature": "void __cdecl HddDisplay_HandleWidgetPress(int hddDisplay)",
+      "description": "The heads-down display's widget-press dispatch, switched on the pressed-widget index at display+0x528 and clearing it to 0xff on the way out. Cases 0-1 pick the page, 2-7 the four map pans and the two zooms on page 0 and the damage screen's subject and category steps on page 1, 10-12 select a comm box, 13 is XMIT -- HddCommandScreen_CommitPick, HddCommandScreen_FillOrderRecord, Squad_SendOrderToSlot -- and 14 is CANCEL. Args derived from disassembly: [EBP+8] only.",
+      "source": "docs/formats/heads-down-display.md"
     }
   ]
 }

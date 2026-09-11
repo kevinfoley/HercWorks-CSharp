@@ -34,10 +34,11 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	private bool _suspended;
 
 	private GameAudio(SoundDirector? director, SoundBank? bank, ComputerVoice? voice,
-			SystemMessages? messages, string status) {
+			SystemMessages? messages, string status, SquadVoice? squadVoice = null) {
 		_director = director;
 		Bank = bank;
 		Voice = voice;
+		SquadSpeech = squadVoice;
 		Status = status;
 		Messages = new MessagePort(messages);
 
@@ -53,6 +54,12 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	/// <see cref="ComputerVoice"/>.
 	/// </summary>
 	public ComputerVoice? Voice { get; }
+
+	/// <summary>
+	/// The squadmates' speaking channel, or null when there is no device — the other half of the
+	/// original's five-slot speech pool. See <see cref="SquadVoice"/>.
+	/// </summary>
+	public SquadVoice? SquadSpeech { get; }
 
 	/// <summary>
 	/// The cockpit's message port. Not an audio object — it owns the on-screen ticker as much as the
@@ -99,6 +106,39 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 
 	/// <inheritdoc />
 	void ISoundSink.Unsay(int messageId) => Messages.Withdraw(messageId);
+
+	/// <inheritdoc />
+	void ISoundSink.SquadSay(int messageId, object speaker) => Squad?.Post(messageId, speaker);
+
+	/// <summary>
+	/// The pilot and squad channel — the three comm boxes, their queue and the portraits they play.
+	/// Null until <see cref="AttachSquad"/> is called, because which pilots are in the boxes is a
+	/// per-mission fact; a post to it before then is simply dropped.
+	/// </summary>
+	public SquadCommChannel? Squad { get; private set; }
+
+	/// <summary>
+	/// Hands this the mission's comm boxes and connects their two outputs: the recorded line goes to
+	/// <see cref="SquadSpeech"/> and the static to the effect catalog, which is the same split the
+	/// computer's port takes. From here on <see cref="Update"/> runs the channel on the port's own
+	/// clock, so it stops with everything else across a suspend.
+	/// </summary>
+	public void AttachSquad(SquadCommChannel squad) {
+		ArgumentNullException.ThrowIfNull(squad);
+
+		Squad = squad;
+		squad.Speak += (voiceBank, messageId, variant) =>
+			SquadSpeech?.Speak(voiceBank, messageId, variant);
+
+		// CommBox_OnMessageBegin tests whether the hiss is already running before starting it, so a
+		// second box opening under the first does not layer a second copy — see the note on
+		// Sound_Play in docs/formats/audio.md.
+		squad.Hiss += id => {
+			if (_director is { } director && !director.IsPlaying(id)) {
+				director.Play(id);
+			}
+		};
+	}
 
 	/// <summary>The rule layer, for a caller that wants to play something directly.</summary>
 	public SoundDirector? Director => _director;
@@ -151,6 +191,7 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 			?? new NullAudioBackend();
 		var director = new SoundDirector(bank, backend, random);
 		var voice = new ComputerVoice(content, messages, backend);
+		var squadVoice = new SquadVoice(content, backend);
 
 		// The device's own account of itself goes in the status line either way. A launch that opened
 		// only on a retry sounds normal but is worth seeing, and one that gave up needs to say what it
@@ -176,7 +217,7 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 			status += $" (no sample for: {string.Join(", ", bank.Missing)})";
 		}
 
-		return new GameAudio(director, bank, voice, messages, status);
+		return new GameAudio(director, bank, voice, messages, status, squadVoice);
 	}
 
 	/// <summary>
@@ -281,6 +322,14 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 
 		Messages.PilotDisabled = _pilot is { Destroyed: true };
 		Messages.Update((long)_messageTicks);
+
+		// The squad channel runs on the same clock: it is the second instance of the same port, and
+		// its comm boxes count their static in the same coarse ticks.
+		SquadSpeech?.Update();
+		if (Squad is { } squad) {
+			squad.Port.PilotDisabled = Messages.PilotDisabled;
+			squad.Update((long)_messageTicks);
+		}
 
 		if (_director == null) {
 			return;

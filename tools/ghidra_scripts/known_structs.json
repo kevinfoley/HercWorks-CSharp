@@ -631,8 +631,8 @@
         "THE FLIGHT BLOCK AT +0x2b9 BELONGS TO THIS STRUCT, not to FlyerObject: a RAZOR is a mech with the type record's flyer flag set, which docs/simulation/razor-flight.md establishes and owns. The layout corroborates it -- +0x2b9 is past the end of the flyer class (0x291), and Mech_Constructor is what zeroes the block and seeds the airspeed.",
         "THE TWO TIMER FLAVOURS ARE NOT DISTINGUISHABLE FROM THE FIELD, only from which function ticks it. +0x258 through +0x26c are seven 3-byte CountdownTimers stepped by Math_CountdownTimerTick; +0x26d through +0x280 are four 5-byte LongCountdownTimers stepped by Timer_CountDown. Both keep their counter at +1, which is why every doc cites these fields one byte above the record: mech+0x26b IS the counter of the timer based at +0x26a, not a field of its own. Searching for the cited offset finds the accesses; searching for it as a record base finds nothing.",
         "+0x261 IS A LOCK TIMER SLOT THAT NOTHING TICKS. The run from +0x258 has a regular stride of 3 and +0x264 is the fifth element of it, so the fourth exists in the layout; no call to Math_CountdownTimerTick names it, matching the engine port's note that missile subtype 3 is never used.",
-        "THE GAPS AT +0x1fe, +0x24c, +0x2a4 AND +0x301 ARE UNREAD, NOT ESTABLISHED AS PADDING. No access to them was located; they are left out rather than filled so a later finding does not have to displace an invented field.",
-        "THE EXTENT OF +0x240 IS DERIVED, NOT READ. Ai_DriveToPoint takes it as a point pointer and every other world point in this struct is three int32s, but +0x248 holds an object pointer, so it cannot run past +0x247. Recorded as two int32s on that ground alone."
+        "THE GAPS AT +0x1fe, +0x2a4 AND +0x301 ARE UNREAD, NOT ESTABLISHED AS PADDING. No access to them was located; they are left out rather than filled so a later finding does not have to displace an invented field.",
+        "THE EXTENT OF +0x240 IS DERIVED, NOT READ. Ai_DriveToPoint takes it as a point pointer and every other world point in this struct is three int32s, but +0x248 holds an object pointer, so it cannot run past +0x247. Recorded as two int32s on that ground alone -- and Mech_ReceiveSquadOrder writes exactly two, the order record's x and y."
       ],
       "fields": [
         {
@@ -754,6 +754,14 @@
           "name": "squadOrderTarget",
           "confidence": "high",
           "description": "+0x248 -- the order's target object, compared against the selected target at +0x1a4 by Ai_ClearSquadEngageOrder."
+        },
+        {
+          "offset": 588,
+          "width": 4,
+          "type": "SimObject *",
+          "name": "squadOrderGuardSubject",
+          "confidence": "high",
+          "description": "+0x24c -- the friendly unit a DEFEND POSITION order was pointed at, or null when it was pointed at bare ground. Written by Mech_ReceiveSquadOrder's verb 0xc case; Mech_AiGoalPosition (0041dbcc) prefers it over the stored point at +0x240."
         },
         {
           "offset": 592,
@@ -1167,6 +1175,46 @@
           "name": "y1",
           "confidence": "high",
           "description": "Bottom edge, INCLUSIVE -- 0x1df for a full-height widget. Pinned by the C7 /0 imm32 store at 0043aa68."
+        }
+      ]
+    },
+    {
+      "name": "SquadOrderRecord",
+      "binary": "DBSIM",
+      "size": 22,
+      "description": "The record the player's two order screens fill in and both squad-order dispatchers hand to every recipient's Mech_ReceiveSquadOrder (mech vtable +0x28). Packed and unaligned. One instance exists, the global at DAT_004d0458, which both screens write in place before transmitting.",
+      "fields": [
+        {
+          "offset": 0,
+          "width": 2,
+          "type": "short",
+          "name": "verb",
+          "confidence": "high",
+          "description": "+0x00 -- the order, as a STRINGS0 group 0 index. 0-8 are the MFD FLASH COMM page and 0xa-0x11 the [F7] command display's eight; 6 and 9 have neither text nor a case. Written by MfdFlashComm_Transmit and by the command display's XMIT."
+        },
+        {
+          "offset": 2,
+          "width": 4,
+          "type": "SimObject *",
+          "name": "issuer",
+          "confidence": "high",
+          "description": "+0x02 -- who sent it. Stamped by the dispatcher (Squad_SendOrderToSlot, Squad_BroadcastOrderFromCockpit) with the player's own machine rather than by the screen that built the rest, and read by Squad_BroadcastOrder to rank recipients by range and to skip the issuer."
+        },
+        {
+          "offset": 6,
+          "width": 12,
+          "type": "int[3]",
+          "name": "point",
+          "confidence": "high",
+          "description": "+0x06 -- the gridpoint the order names, for the four verbs that take one. Written by HddCommandScreen_FillOrderRecord; Mech_ReceiveSquadOrder copies x and y into mech+0x240."
+        },
+        {
+          "offset": 18,
+          "width": 4,
+          "type": "SimObject *",
+          "name": "subject",
+          "confidence": "high",
+          "description": "+0x12 -- the unit the order names, for the three verbs that take one. Lands on mech+0x248 for an engage and mech+0x24c for a guard."
         }
       ]
     }

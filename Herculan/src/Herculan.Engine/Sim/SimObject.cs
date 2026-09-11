@@ -295,6 +295,14 @@ public abstract class SimObject {
 	public bool AwaitingDeployment => Group is { AwaitingDeployment: true };
 
 	/// <summary>
+	/// <c>mech+0x29c</c> — which of <c>str\PILOTS.STR</c>'s 36 pilots flies this machine, or -1 for
+	/// one no pilot is named for. Only the player's own squad ever carries one, from
+	/// <c>player.mec</c>; it names that machine's comm box and picks the portrait that talks in it.
+	/// See <see cref="Content.PilotRoster"/>.
+	/// </summary>
+	public int PilotIndex { get; set; } = -1;
+
+	/// <summary>
 	/// <c>obj+0x1b2</c> — the mission action this object fires when it is <b>engaged</b>: a hostile
 	/// that already has contact on it has closed to <see cref="Detection.EngagementRange"/>. Set from
 	/// its roster record's own ref; see <c>ScriptSpawnRecordExport.EngagementActionRef</c>.

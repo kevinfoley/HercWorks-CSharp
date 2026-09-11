@@ -49,6 +49,14 @@ public interface ISoundSink {
 	void Say(int messageId);
 
 	/// <summary>
+	/// Posts what one squadmate has to say, on the cockpit's <i>other</i> message port
+	/// (<c>view+0x207</c>) — <c>Ai_PostSquadMessage</c> (<c>00420a98</c>). The id names a line in that
+	/// pilot's own <c>PILOT&lt;bank&gt;.STR</c>, and the machine saying it is what picks the comm box,
+	/// the portrait and the recorded voice. See <see cref="Content.SquadCommChannel"/>.
+	/// </summary>
+	void SquadSay(int messageId, object speaker);
+
+	/// <summary>
 	/// Withdraws a posted message that has not been said yet — <c>FUN_00435ac8</c>, which the radar
 	/// toggle uses on both of its own lines before posting the one it wants.
 	/// </summary>

@@ -210,8 +210,8 @@ Fields first read or written by the dispatch layer. Fields whose meaning is sett
 | `+0x9d` | byte | Set whenever the selected target is released |
 | `+0xa3` | byte | This is the locally-piloted machine |
 | `+0xaf` | byte | Suppress think for one tick; `Mech_AiTick` clears it |
-| `+0x23e` | short | Standing squad order verb |
-| `+0x248` | ptr | Squad order target object |
+| `+0x23e` | short | Standing squad order verb — [`ai-squadmates.md`](ai-squadmates.md) |
+| `+0x248` | ptr | Squad order target object — [`ai-squadmates.md`](ai-squadmates.md) |
 | `+0x1a4` / `+0x1a2` | ptr / short | Selected target and its refcount — [`target-selection.md`](target-selection.md) |
 | `+0x1f2` | ptr | Type record — [`mech-locomotion.md`](mech-locomotion.md#mech-instance-fields) |
 
@@ -222,6 +222,7 @@ The AI-relevant mech vtable slots, as entry points for the topic docs. Slots who
 | Vtable | Function | Lands in |
 |---|---|---|
 | `+0x40` | `Mech_GetOverallDamage` (`00415504`) | The flee check's base fear — [`ai-targeting.md`](ai-targeting.md#the-flee-check--mech_aifleecheck-0041cb94) |
+| `+0x28` | `Mech_ReceiveSquadOrder` (`00420ad4`) | "The player has transmitted an order to me" — [`ai-squadmates.md`](ai-squadmates.md#receiving-one--mech_receivesquadorder-00420ad4-mech-vtable-0x28) |
 | `+0x48` | `Mech_AiEnemySighted` (`00412800`) | The "enemy detected" callout — [`ai-targeting.md`](ai-targeting.md#radio-callouts) |
 | `+0x4c` | `Mech_CompareCombatRating` (`0041cabc`) | This machine's combat rating against a candidate's — [`ai-targeting.md`](ai-targeting.md#relative-combat-rating) |
 | `+0x50` | `Mech_AiOnTakingFire` (`0041f7b8`) | "This object just took fire" — [`ai-targeting.md`](ai-targeting.md#taking-fire--mech_aiontakingfire-0041f7b8-mech-vtable-0x50). Holds one of the 30 `Behaviour_SetState` call sites |
@@ -231,7 +232,6 @@ The AI-relevant mech vtable slots, as entry points for the topic docs. Slots who
 ## Open questions
 
 - **Bits 6–15 of descriptor `+0x08`.** No state sets one, so nothing can read one.
-- **Verbs 3 and 5 of the squad-order path**, which install nothing.
 
 ## Rejected readings
 

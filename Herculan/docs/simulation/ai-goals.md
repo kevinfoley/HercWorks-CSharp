@@ -33,7 +33,7 @@ A mission group's own record is `0x7a` bytes, built by `DBSim_BuildGroupRecord` 
 | `+0x0c` / `+0x10` | ptr / short | Member array and count |
 | `+0x12` | byte | Side — [`mission-deployment.md`](mission-deployment.md) |
 | `+0x14` | ptr | Deployment action; non-null means the group is not in the mission yet |
-| `+0x1c` / `+0x30` | short[10] x2 | Block 11's two interleaved 10-short arrays, copied verbatim. No reader identified |
+| `+0x1c` / `+0x30` | short[10] x2 | The group's own ten mission-variable slots — indices and opcodes — run by `Group_ReportIfAllOutOfAction` (`00423f30`) once every member but one is immobilised or destroyed. Same opcode set as `Mech_ReportOutOfAction` |
 | `+0x44` | ptr[10] | **The order array**, a null in every slot the block-11 record left unset |
 | `+0x6c` | int | **The current order's index** |
 | `+0x70` | byte[10] | One flag per order, set when that order reaches completion |
@@ -140,7 +140,6 @@ What differs from the original, and why:
 
 - **Order `+0x02` and `+0x04`.** Both are resolved at load and never read. `+0x04` is a real block-1 point in 7% of retail records and `+0x02` holds 0, 1 or 3.
 - **The order-completed flags at group `+0x70`.** Written by `Group_OrderTick`, read by nothing in the AI.
-- **Group `+0x1c` and `+0x30`**, the two 10-short arrays copied out of the block-11 record.
 - **The group-report cluster at `00412f90` / `00413280`.** A second family that reads the same order records — `00412f90` maps a verb and the group's condition tier onto a small integer that looks like a string index, and `00413280` walks a global array of records with a comparison discriminator and writes back into a variable table. It reads as the mission-objective and status-report layer rather than the AI, and `00412f90` has no caller Ghidra can see.
 
 ## Rejected readings

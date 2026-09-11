@@ -324,7 +324,7 @@ public partial class PlayerSquadForm : Form {
 
 		var template = (_squadGrid.CurrentRow?.DataBoundItem as PlayerSquadRow ?? _rows[0]).Source;
 		var clone = new MecEntry {
-			Unk00 = template.Unk00,
+			PilotNameIndex = template.PilotNameIndex,
 			Unk02 = template.Unk02,
 			MechType = template.MechType,
 			SlotCount = template.SlotCount,

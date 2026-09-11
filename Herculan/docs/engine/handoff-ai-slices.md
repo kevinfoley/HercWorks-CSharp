@@ -14,7 +14,7 @@ Six docs, split by what each owns. The rule throughout is one fact, one home: ci
 | `ai-weapons.md` | Weapon choice, engagement envelope, fire decisions, gun convergence for AI |
 | `ai-goals.md` | The mission-group order layer: the order array, how orders advance, and how a verb becomes a behaviour state |
 | `ai-combat-states.md` | The nine thinks that are not navigation: the five combat states, `skirting`, `driving off en`, `fleeing`, and the two inert ones. The combat geometry block, the move step, the circling step, and the `Behaviour_SetState` transition graph |
-| `ai-squadmates.md` | The player's own squad — standing orders at `mech+0x23e`, formations in motion, mutual support. Written only if this proves to be its own mechanism rather than a special case of `ai-goals.md` |
+| `ai-squadmates.md` | The player's own squad — the two transmit paths, the order record, the eighteen verbs and `Mech_ReceiveSquadOrder`, the standing order at `mech+0x23e` and the three latches it sets |
 
 Docs outside this set that the AI work amends rather than owns: `target-selection.md` (the shared selection mechanism and `mech+0x1a4`), `mech-locomotion.md` (the locomotion model), `mission-deployment.md` (group arrival), `damage-system.md`.
 
@@ -31,7 +31,7 @@ Each slice is reverse-engineered to its topic doc, reviewed, then ported. The RE
 | 4 | **Weapons** | `Ai_AimAndFire` `0041ea7c`, `Ai_FireAtPoint` `0041f5a0`, `Ai_ChooseWeapon` `0041f358`, `Mech_ConvergeGunsOnRange` `0041a74c` | `ai-weapons.md` written; ported. Corrected the radar reading — see below |
 | 5 | **Behaviour states** | The remaining think functions and the 30 `Behaviour_SetState` call sites as the transition graph | `ai-combat-states.md` written; ported. Found `skirting`'s caller — see below |
 | 5b | **Death and disablement** | `Mech_ComponentDamageWrite` `00417de4`'s two out-of-the-fight branches, `Mech_LocomotionTick`'s immobilised arm | Ported. Closed `ai-dispatch.md`'s `+0x3c` question and `ai-goals.md`'s group `+0x1c`/`+0x30` — see below |
-| 6 | **Squadmates** | `mech+0x23e` standing orders, `FUN_0041c0f4`, `Mech_ApplyFormationOffset` `00417898` | Not started |
+| 6 | **Squadmates** | `mech+0x23e` standing orders, `FUN_0041c0f4`, `Mech_ApplyFormationOffset` `00417898` | `ai-squadmates.md` written; ported. Closed three latches and a struct gap — see below |
 | 7 | **Flyer AI** | The flyer behaviour path; no retail mission places an AI RAZOR, so verification is synthetic | Not started |
 
 ### What slice 3 pulled in
@@ -52,6 +52,20 @@ It also closed three of `ai-targeting.md`'s "no writer found" entries: `mech+0xa
 - **`skirting` is reachable, and `Sim_RaycastObjectList` is what reaches it.** Mech vtable `+0x64` looked uncalled because the decompiler renders the slot in decimal (`+ 100`); four call sites exist. The state fires when a machine's own shot stops on something that is not what it aimed at.
 - **`Ai_LineOfSightBlocked`'s two nonzero answers are not "shape" and "terrain".** `1` is anything the machine cannot get past, `2` is ground it could walk over — which is what makes `skirting` arc around the first and drive straight at the second. `ai-navigation.md` carried the wrong pair.
 - **`BASES.DAT +0x2e` is read in two places, not one**, and both treat nonzero as *this target is dangerous*. It closed `ai-targeting.md`'s open question and gained the base type table a field.
+
+### What slice 6 corrected
+
+The order handler is mech vtable `+0x28` (`Mech_ReceiveSquadOrder`, `00420ad4`), and it is the sole writer of three fields earlier slices had recorded as having none:
+
+- **`mech+0x9a` is `IGNORE MY TARGET`.** `Ai_IsTargetable` refuses that machine the player's current selection while it is set. Closed `ai-targeting.md`'s "what sets `mech+0x9a`".
+- **`mech+0xb6` is `FIRE AT WILL`**, the bit that lets a follower past the leader gate in three thinks. `ai-navigation.md` had "no writer exists".
+- **`mech+0xb2`** is `SCAN FOR HOSTILES` / `EMCON` precisely, where slice 4 had only "the squad command handler".
+
+It also closed **`mech+0x24c`**, one of `known_structs.json`'s four "unread gaps" on `MechObject`: it is `DEFEND POSITION`'s subject object, and `Mech_AiGoalPosition` prefers it over the stored point.
+
+Two shapes worth not re-deriving. The order record is 22 packed bytes with the issuer at `+0x02`, and `HddCommandScreen_FillOrderRecord` is what settles it. The FLASH COMM page's six rows are six *positions*, each naming one of two verbs on its own state bit, so the page covers verbs 0-8 rather than 0-5.
+
+Drained from earlier slices while here: group `+0x1c`/`+0x30` were still listed as open in `ai-goals.md` despite `Group_ReportIfAllOutOfAction` being decoded, and `ai-navigation.md` still called descriptor `+0x3c` unread.
 
 ### Why goals moved up
 
@@ -74,9 +88,10 @@ Two method failures worth not repeating, both of which produced a confidently wr
 ## Leads left behind
 
 - **`mech+0xb3`**, raised by `Mech_ApplyStartingCondition` on its two worst grades and read nowhere traced, and **`obj+0x38`**, a byte set when a chassis that leaves no wreck is sunk. Both left out of the port rather than guessed at.
+- **The pilot-and-squad message port's catalog.** `Mech_ReceiveSquadOrder` raises eighteen reply ids and nothing decodes what they say. It is the same port `Ai_PostSquadMessage`'s other three ids go to, so this is one subject, not two — see `audio.md`.
 - **`Mech_CreditNeutralisedTarget` (`00415710`) has no derived signature.** Ghidra renders it `__thiscall` with a leading parameter the vtable call sites do not support; the argument list needs reading off the disassembly before the prototype can be recorded.
 - **The group-report cluster** at `00412f90` and `00413280`, and the visibility helpers around them (`00412ef4`, `00412d90`, `00412f5c`, `00412f28`, `00413950`, `004137b4`, `00413a08`, `00413920`, `00412d4c`). They read the same order records the AI does but produce string indices and write into a global variable table, so they read as the mission-objective and status-report layer. Not an `ai-*.md` subject; they want a doc of their own.
-- **Order `+0x02` and `+0x04`** — resolved at load, no reader found. Listed as an open question in `ai-goals.md`. Group `+0x1c`/`+0x30` are answered: they are the group's own mission-variable slots, run by `Group_ReportIfAllOutOfAction` (`00423f30`) once every member is out of the fight.
+- **Order `+0x02` and `+0x04`** — resolved at load, no reader found. Listed as an open question in `ai-goals.md`.
 - **`mech+0x5d`**, written zero by the circling step and read nowhere, and **`mech+0x9e`**, set by `Sim_RaycastObjectList` when a shot reaches the shooter's own target. Listed as open questions in `ai-combat-states.md`.
 - **Most of the shipped mission's AI machines start out of the world**, in groups awaiting deployment, so only one group exercises the AI until the first mission action fires. Each wave that arrives puts more of them under a think — see [`mission-deployment.md`](../simulation/mission-deployment.md).
 

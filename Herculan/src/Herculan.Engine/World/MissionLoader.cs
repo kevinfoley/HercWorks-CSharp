@@ -637,6 +637,7 @@ public static class MissionLoader {
 				entry.WeaponRefs,
 				entry.WeaponAmmoTypes,
 				IsPlayerLance: true,
+				PilotIndex: entry.PilotNameIndex,
 				Side: spawn.Side);
 
 			placements.Add(placement);

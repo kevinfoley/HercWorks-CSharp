@@ -177,7 +177,7 @@ if (mount+0x5f == 0 || mount+0x5b == 0) {
 | `+0x96` | byte | Radar mode, PASSIVE/ACTIVE — [`target-selection.md`](target-selection.md) |
 | `+0x97` | byte | The mission file's standing radar setting for this machine |
 | `+0xa5` | byte | No weapons left |
-| `+0xb2` | byte | The player squad's radar order. Written by the squad command handler (mech vtable `+0x28`) and the Heads-Down command screen; the command path is [`ai-squadmates.md`](ai-squadmates.md)'s |
+| `+0xb2` | byte | The player squad's radar order. Written by `SCAN FOR HOSTILES` and `EMCON` in `Mech_ReceiveSquadOrder` (mech vtable `+0x28`) — [`ai-squadmates.md`](ai-squadmates.md) |
 | `+0xb5` | byte | Skip weapon selection for one tick — an EO missile is in the air |
 | `+0x26b` | short | Radar-silence countdown, 6000 after an ARM hit |
 | `+0x2aa` | short | Fear, from `Mech_AiFleeCheck`. The weapon-score floor is mapped from it |

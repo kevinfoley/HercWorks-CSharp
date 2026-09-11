@@ -53,7 +53,7 @@ public class MecFileRoundTripTests {
 
 		Assert.Equal(0, parsed.PlayerEntryIndex);
 		MecEntry entry = Assert.Single(parsed.Entries);
-		Assert.Equal(7, entry.Unk00);
+		Assert.Equal(7, entry.PilotNameIndex);
 		Assert.Equal(2, entry.Unk02);
 		Assert.Equal(5, entry.MechType);
 		Assert.Equal(2, entry.SlotCount);

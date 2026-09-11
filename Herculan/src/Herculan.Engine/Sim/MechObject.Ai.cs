@@ -95,9 +95,9 @@ public partial class MechObject {
 	/// <list type="number">
 	/// <item><b>The local player</b> takes <c>player fly</c> or <c>player</c> on the type record's
 	/// flyer flag, which is the same test the constructor makes.</item>
-	/// <item><b>A squad order</b> maps its verb onto <c>patrolling</c>, <c>guarding</c> or an engage.
-	/// Unported: squad orders are the squadmate slice, and <see cref="SquadOrderVerb"/> is always
-	/// zero.</item>
+	/// <item><b>A squad order</b>, for a machine in the player's own group, maps its verb onto
+	/// <c>patrolling</c>, <c>guarding</c> or an engage — and the group's own order is never read at
+	/// all. An engage whose target is already destroyed clears the order and re-enters.</item>
 	/// <item><b>A mission group order</b> maps verbs 0-6 onto seven states. A null order slot reads as
 	/// verb <c>0x0b</c> and matches no case, so no descriptor is installed and the machine keeps the
 	/// state it already had — <b>which is not what the original does</b>: there the descriptor to
@@ -111,6 +111,33 @@ public partial class MechObject {
 	private void SelectBehaviour(SimWorld world) {
 		if (IsPlayer) {
 			SetBehaviourState(Type.IsFlyer ? BehaviourState.PlayerFly : BehaviourState.Player);
+			Target = null;
+			return;
+		}
+
+		if (Group is { LedByPlayer: true } && SquadOrderVerb != SquadOrderNone) {
+			switch (SquadOrderVerb) {
+				case SquadOrderMove:
+				case SquadOrderPatrol:
+					SetBehaviourState(BehaviourState.Patrolling);
+					break;
+				case SquadOrderEngage:
+					if (SquadOrderTarget is { Destroyed: false } ordered) {
+						EngageOrderedTarget(world, ordered);
+						return;
+					}
+
+					SquadOrderVerb = SquadOrderNone;
+					SelectBehaviour(world);
+					return;
+				case SquadOrderGuard:
+					SetBehaviourState(BehaviourState.Guarding);
+					break;
+				default:
+					// Verbs 3 and 5 install nothing at all; the machine keeps the state it has.
+					return;
+			}
+
 			Target = null;
 			return;
 		}
@@ -394,9 +421,11 @@ public partial class MechObject {
 				PostSquadMessage(world, SquadMessageTakingFire);
 			}
 
-			// The original also clears mech+0x9a here, the latch that keeps a squadmate off the
-			// player's own selection. Nothing found writes it, and Ai_IsTargetable's test of it is
-			// not ported either, so the clear has nothing to clear.
+			// Being shot at by the very thing the player told this machine to leave alone cancels
+			// that order: the latch drops and the shooter becomes targetable again.
+			if (ReferenceEquals(attacker, world.PlayerMech?.Target)) {
+				IgnoresPlayerSelection = false;
+			}
 		}
 
 		if (state.HoldsPlace) {
@@ -404,6 +433,13 @@ public partial class MechObject {
 			var post = GoalPosition();
 			var defence = AiTargeting.SelectDefenceTarget(world, this, post,
 				Group?.OrderTarget != null ? AiTargeting.DefenceRange : AiTargeting.OpenDefenceRange);
+
+			if (defence is not MechObject { Target: { } held } || !ReferenceEquals(held, this)) {
+				if (SquadOrderVerb == SquadOrderEngage) {
+					defence = SquadOrderTarget;
+				}
+			}
+
 			var chosen = defence ?? attacker;
 
 			Target = chosen;
@@ -423,7 +459,20 @@ public partial class MechObject {
 		}
 
 		var previous = Target;
-		Target = AiTargeting.SelectTarget(world, this, TargetFilter.IgnoreCrowding | TargetFilter.IgnoreBearing);
+		var picked = AiTargeting.SelectTarget(world, this,
+			TargetFilter.IgnoreCrowding | TargetFilter.IgnoreBearing);
+
+		if (picked is not MechObject { Target: { } aimed } || !ReferenceEquals(aimed, this)) {
+			if (SquadOrderVerb == SquadOrderEngage) {
+				if (SquadOrderTarget is { Neutralised: false } ordered) {
+					picked = ordered;
+				} else {
+					SquadOrderVerb = SquadOrderNone;
+				}
+			}
+		}
+
+		Target = picked;
 
 		if (Target == null) {
 			if (previous != null) {
@@ -460,14 +509,18 @@ public partial class MechObject {
 	}
 
 	/// <summary>
-	/// <c>Mech_AiGoalPosition</c> (<c>0041dbcc</c>) — the place this machine is working to: a squad
-	/// order's own target or point for verbs 3, 5 and 6, otherwise the mission group's current order
-	/// through <c>Group_OrderTargetPosition</c>. Squad orders are unported, so only the group half
-	/// resolves; a group with nothing to work to leaves the machine standing where it is, which is
-	/// the post a guard holds anyway.
+	/// <c>Mech_AiGoalPosition</c> (<c>0041dbcc</c>) — the place this machine is working to. A guard
+	/// order works to the unit it was pointed at or, pointed at bare ground, to the stored point;
+	/// anything else falls through to the mission group's current order target. A group with nothing
+	/// to work to leaves the machine standing where it is, which is the post a guard holds anyway.
+	///
+	/// <para>Verbs 3 and 5 have arms here too, and nothing writes either verb — see
+	/// docs/simulation/ai-squadmates.md.</para>
 	/// </summary>
 	private Vec3i GoalPosition() =>
-		SquadOrderTarget?.Position ?? Group?.OrderTargetPosition ?? Position;
+		SquadOrderVerb == SquadOrderGuard
+			? SquadOrderGuardSubject?.Position ?? SquadOrderDestination
+			: Group?.OrderTargetPosition ?? Position;
 
 	/// <summary>
 	/// <c>Mech_AiFriendlyFireComplaint</c> (<c>0041f790</c>) — squad message 8, on a 40 s cooldown.
@@ -483,8 +536,12 @@ public partial class MechObject {
 
 	/// <summary>
 	/// <c>Ai_PostSquadMessage</c> (<c>00420a98</c>) — posts to the pilot-and-squad message port, the
-	/// second instance of the port the cockpit computer uses. That instance is not ported (see
-	/// docs/formats/audio.md), so the message is recorded and nothing says it aloud.
+	/// second instance of the port the cockpit computer uses. A destroyed machine says nothing; the
+	/// original's third argument, which forces the post anyway, has no caller that sets it.
+	///
+	/// <para>The id is also kept, because it is observable without a sound device and the tests read
+	/// it — the port itself decides whether anything is heard, and drops the post entirely for a
+	/// machine that is not one of the player's three squadmates.</para>
 	/// </summary>
 	private void PostSquadMessage(SimWorld world, int messageId) {
 		if (Destroyed) {
@@ -492,6 +549,7 @@ public partial class MechObject {
 		}
 
 		LastSquadMessage = messageId;
+		world.Sounds?.SquadSay(messageId, this);
 	}
 
 	/// <summary>
@@ -664,35 +722,14 @@ public partial class MechObject {
 	}
 
 	/// <summary>
-	/// <c>mech+0xb2</c> — keeps a player squadmate's radar active where it would otherwise be forced
-	/// passive. Nothing found writes it; see docs/simulation/ai-targeting.md, "Open questions".
-	/// </summary>
-	public bool RadarForcedActive => false;
-
-	/// <summary>
 	/// The last id handed to <c>Ai_PostSquadMessage</c>, kept so the callouts are observable while the
 	/// squad channel itself is unported.
 	/// </summary>
 	public int LastSquadMessage { get; private set; }
 
 	/// <summary>
-	/// <c>mech+0x23e</c> — the standing squad order's verb. Squad orders are the squadmate slice and
-	/// are not ported, so this is always <see cref="SquadOrderNone"/>.
-	/// </summary>
-	public short SquadOrderVerb => SquadOrderNone;
-
-	/// <summary><c>mech+0x248</c> — the squad order's target object. Always null; see <see cref="SquadOrderVerb"/>.</summary>
-	public SimObject? SquadOrderTarget => null;
-
-	/// <summary>
-	/// <c>mech+0x250</c> — how finished the squad order wants its target before the machine may let
-	/// go, against <see cref="AiTargeting.TargetStateTier"/>.
-	/// </summary>
-	public int SquadOrderAbandonTier => 0;
-
-	/// <summary>
 	/// Whether the group's current order is one of the two that keep a machine moving — verbs 5 and 6,
-	/// travelling and following. Always false while the order layer is unported.
+	/// travelling and following.
 	/// </summary>
 	private bool GroupOrderIsMovement =>
 		Group?.OrderVerb is 5 or 6;
@@ -795,6 +832,9 @@ public partial class MechObject {
 
 	/// <summary>Squad order verb 4 — engage the order's target.</summary>
 	public const short SquadOrderEngage = 4;
+
+	/// <summary>Squad order verb 6 — guard the order's post.</summary>
+	public const short SquadOrderGuard = 6;
 
 	/// <summary>Squad message 3 — taking fire.</summary>
 	public const int SquadMessageTakingFire = 3;

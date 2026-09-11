@@ -34,7 +34,7 @@ internal sealed class PlayerSquadRow {
 	/// </summary>
 	public string WeaponFit => WeaponFitOption.Summarize(Source.WeaponRefs, Source.WeaponAmmoTypes);
 
-	public short Unk00 { get => Source.Unk00; set => Source.Unk00 = value; }
+	public short PilotNameIndex { get => Source.PilotNameIndex; set => Source.PilotNameIndex = value; }
 	public short Unk02 { get => Source.Unk02; set => Source.Unk02 = value; }
 	public short Unk3A { get => Source.Unk3A; set => Source.Unk3A = value; }
 }

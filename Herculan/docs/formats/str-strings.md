@@ -52,7 +52,7 @@ Groups referenced by decoded code:
 
 | Group | Count | Contents |
 |---|---|---|
-| 0 | 18 | Squadmate orders. First six are the FLASH COMM page: `ATTACK MY TARGET`, `IGNORE MY TARGET`, `HELP ME OUT!`, `JOIN ON ME`, `SCAN FOR HOSTILES`, `FIRE AT WILL`. |
+| 0 | 18 | Squadmate orders, and the verb `Mech_ReceiveSquadOrder` switches on. Entries 0-8 are the MFD's FLASH COMM page and 10-17 the [F7] command display's; 6 and 9 are empty. The full table is in [`../simulation/ai-squadmates.md`](../simulation/ai-squadmates.md). |
 | 1 | 3 | `RED1`-`RED3` |
 | 2 | 1 | `OFFLINE` — what a destroyed mount's cockpit weapon row prints in place of its name |
 | 3 | 1 | `" POD"` — appended to a pod row's name, giving `" SHIELD POD"` |
@@ -84,5 +84,9 @@ Groups referenced by decoded code:
 | 40 | 8 | Squad comm box's current-order line: `ATTACK`, `TRAVEL`, `PATROL`, `FORM UP`, `GUARD`, `FLEE`, `DEAD`, `IMMOBILE` |
 
 Other files: `SYSTEM.STR` the cockpit computer's 63 messages
-([`audio.md`](audio.md#the-computers-messages)), `COMMAND*.STR` mission briefing and tutorial
-dialogue, `PILOTS.STR` 36 pilot surnames, `SOUNDS.STR` a 57-entry sample catalog ([`audio.md`](audio.md)).
+([`audio.md`](audio.md#the-computers-messages)), `PILOT0/1/2/4.STR` what a squadmate can say, keyed
+the same way but with seven attribute bytes and live variants
+([`audio.md`](audio.md#the-pilot-and-squad-channel)), `COMMAND*.STR` mission briefing and tutorial
+dialogue, `PILOTS.STR` 36 pilot surnames indexed by a machine's own pilot index
+([`heads-down-display.md`](heads-down-display.md#squad-comm-boxes)), `SOUNDS.STR` a 57-entry sample
+catalog ([`audio.md`](audio.md)).

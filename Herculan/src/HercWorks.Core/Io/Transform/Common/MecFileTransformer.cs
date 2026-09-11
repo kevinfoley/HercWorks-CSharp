@@ -28,7 +28,7 @@ public class MecFileTransformer : ByteTransformer<MecFile> {
 		var entries = new MecEntry[IndexShortLE()];
 		for (int i = 0; i < entries.Length; i++) {
 			var entry = new MecEntry {
-				Unk00 = IndexShortLE(),
+				PilotNameIndex = IndexShortLE(),
 				Unk02 = IndexShortLE(),
 				MechType = IndexShortLE(),
 				SlotCount = IndexShortLE()
@@ -78,7 +78,7 @@ public class MecFileTransformer : ByteTransformer<MecFile> {
 		Emit(outStream, WriteShortLE((short)data.Entries.Length));
 
 		foreach (var entry in data.Entries) {
-			Emit(outStream, WriteShortLE(entry.Unk00));
+			Emit(outStream, WriteShortLE(entry.PilotNameIndex));
 			Emit(outStream, WriteShortLE(entry.Unk02));
 			Emit(outStream, WriteShortLE(entry.MechType));
 			Emit(outStream, WriteShortLE(entry.SlotCount));

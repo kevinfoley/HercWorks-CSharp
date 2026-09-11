@@ -334,8 +334,8 @@ partial class PlayerSquadForm {
 		//
 		// _unk00Column
 		//
-		_unk00Column.DataPropertyName = "Unk00";
-		_unk00Column.HeaderText = "Unk 00";
+		_unk00Column.DataPropertyName = "PilotNameIndex";
+		_unk00Column.HeaderText = "Pilot";
 		_unk00Column.Name = "_unk00Column";
 		_unk00Column.Width = 70;
 		//

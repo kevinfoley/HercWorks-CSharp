@@ -89,7 +89,7 @@ public sealed class CockpitArt {
 	/// <c>MfdStatusScreen_Ctor</c> asks for <c>bases</c>, <c>vehicles</c> and <c>flyers</c> together as
 	/// its target silhouettes, but only the first two exist in <c>hba</c>.
 	/// </summary>
-	public static readonly string[] LoResHudBankNames = { "FLYERS" };
+	public static readonly string[] LoResHudBankNames = { "FLYERS", SquadCommChannel.StaticBank };
 
 	/// <summary>
 	/// The <c>.HFN</c> fonts the cockpit draws text with, out of the 18 <c>ColorSchemePanels</c>
@@ -101,9 +101,10 @@ public sealed class CockpitArt {
 	/// and <c>HUD1</c>/<c>HUD2</c>/<c>HUD3</c>, the three theater-coloured fonts the gunsight
 	/// complex's readouts use.
 	/// </summary>
-	/// <para><c>CPGREEN</c> and <c>CPRED</c> are <c>ColorSchemePanels[1]</c> and <c>[2]</c>, the pair
-	/// the MFD's FLASH COMM screen lists its squadmate orders in — available orders in green, ones the
-	/// squad cannot take in red.</para>
+	/// <para><c>CPGREEN</c> is <c>ColorSchemePanels[1]</c>, the font the MFD's FLASH COMM screen lists
+	/// its squadmate orders in, with <c>CPRED</c> (<c>[2]</c>) as each row's alternate for its hotkey
+	/// character and <c>CPOFF</c> (<c>[6]</c>) for a row the squad cannot take — see
+	/// <see cref="MfdFlashCommScreen"/>, whose remarks say why no retail row ever reads the last.</para>
 	/// <para><c>CPON</c> and <c>CPPRESS</c> are <c>[4]</c> and <c>[5]</c>, which the Heads-Down
 	/// Display's XMIT and CANCEL buttons caption themselves in unlit and lit
 	/// (<see cref="HddLayout.TransmitButtonFont"/>); <c>CPYLW</c> is <c>[3]</c>, that display's
@@ -113,7 +114,7 @@ public sealed class CockpitArt {
 	/// <see cref="PaperDollDamage.RowFont"/>.</para>
 	public static readonly string[] HudFontNames = {
 		"WHITE", "GRAY", "GREEN", "DARK", "RED", "HUD1", "HUD2", "HUD3",
-		"CPGREEN", "CPRED", "CPON", "CPPRESS", "CPYLW", "CPBLUE", "CPORANGE", "CPGREY",
+		"CPGREEN", "CPRED", "CPON", "CPPRESS", "CPYLW", "CPBLUE", "CPORANGE", "CPGREY", "CPOFF",
 	};
 
 	private CockpitArt(CockpitFrame front, CockpitFrame side, CockpitFrame? headsDown, GAUFile gau, HudSpriteSheet? sprites,
@@ -323,8 +324,14 @@ public sealed class CockpitArt {
 	/// resource is missing from the mounted archives, in which case the caller should fall back to
 	/// drawing no cockpit overlay rather than a partially-wrong one.
 	/// </summary>
+	/// <param name="extraLoResBankNames">
+	/// Further <c>dba</c>-only banks to pack alongside <see cref="LoResHudBankNames"/>. The squad's
+	/// <c>PILOT&lt;n&gt;</c> portraits go in this way: which three they are is a per-mission fact, and
+	/// loading all twelve to avoid asking would cost about a megapixel of atlas for nine banks nothing
+	/// will draw.
+	/// </param>
 	public static CockpitArt? Load(GameContent content, string hercName, string? worldPaletteName = null,
-			IEnumerable<string>? targetHercNames = null) {
+			IEnumerable<string>? targetHercNames = null, IEnumerable<string>? extraLoResBankNames = null) {
 		int schemeIndex = ReadColorSchemeIndex(content, hercName);
 		if (CockpitPalette.Load(content, worldPaletteName, schemeIndex) is not { } palette) {
 			return null;
@@ -366,7 +373,8 @@ public sealed class CockpitArt {
 		var banks = HudBankNames.Concat(hercBanks).ToArray();
 
 		return new CockpitArt(front, side, headsDown, gau,
-			HudSpriteSheet.Load(content, palette, banks, HudFontNames, LoResHudBankNames, hercBanks),
+			HudSpriteSheet.Load(content, palette, banks, HudFontNames,
+				LoResHudBankNames.Concat(extraLoResBankNames ?? Array.Empty<string>()), hercBanks),
 			colors,
 			ResolveGaugeColors(colors, palette),
 			schemeIndex,

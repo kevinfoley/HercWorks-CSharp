@@ -1,6 +1,7 @@
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Render;
 using Herculan.Engine.Sim;
+using Herculan.Engine.Sim.Ai;
 
 namespace Herculan.Engine.Content;
 
@@ -16,13 +17,12 @@ namespace Herculan.Engine.Content;
 /// order, <c>FUN_0044d6b8</c> resolves a map click into a unit or a gridpoint, and
 /// <c>FUN_0044dbe8</c> tears the whole thing back down.</para>
 ///
-/// <para><b>What a transmitted order does.</b> In the original it reaches the squadmate's AI, which
-/// then reports back through the comm box's OBJECTIVE: line (<c>FUN_0041bac8</c> reads the machine's
-/// current AI state and indexes <c>STRINGS0.STR</c> group 40 with it). There is no squad AI here
-/// yet, so a transmitted order is recorded against the slot and shown on that line directly — see
-/// <see cref="Objective"/>. That is this engine's stand-in, not the original's behaviour: the
-/// original's line reports what the pilot is <i>doing</i>, which can differ from what they were last
-/// told.</para>
+/// <para><b>What a transmitted order does.</b> It reaches the addressed squadmate's AI through
+/// <see cref="SquadOrders.SendToSlot"/>, which is where the eight orders turn into standing squad
+/// orders; the comm box's OBJECTIVE: line then reports back what that pilot is <i>doing</i>, which
+/// can differ from what they were last told. Built without a <see cref="Sim.SimWorld"/> — a screen
+/// with no mission under it — the screen still runs its own state machine and simply has nobody to
+/// transmit to.</para>
 /// </remarks>
 public sealed class HddCommandScreen {
 	/// <summary>
@@ -51,13 +51,11 @@ public sealed class HddCommandScreen {
 	public const int BlinkTicks = 30;
 
 	/// <summary>
-	/// What a squadmate's OBJECTIVE: line reads before anything has been transmitted: group 40's
-	/// <c>FORM UP</c>, the state a squad that spawned on the player's own formation point is in. The
-	/// original takes this from the machine's AI rather than assuming it.
+	/// What an empty comm box's OBJECTIVE: line reads: group 40's <c>FORM UP</c>, the state a squad
+	/// that spawned on the player's own formation point is in.
 	/// </summary>
 	public const int DefaultObjective = 3;
 
-	private readonly int[] _objectives = new int[HddLayout.PilotSlotCount];
 	private double _blinkTicks;
 
 	/// <param name="view">The map camera, sized to the herc's own map viewport.</param>
@@ -66,12 +64,17 @@ public sealed class HddCommandScreen {
 	/// The squadmates the three comm boxes address, in slot order — the original's
 	/// <c>DAT_004d044c</c>. Fewer than three leaves the remaining boxes empty.
 	/// </param>
-	public HddCommandScreen(HddMapView view, HddMapRaster? raster, IReadOnlyList<SimObject> squad) {
+	/// <param name="world">The simulation a transmitted order is delivered into, or null for none.</param>
+	public HddCommandScreen(HddMapView view, HddMapRaster? raster, IReadOnlyList<SimObject> squad,
+			SimWorld? world = null) {
 		View = view ?? throw new ArgumentNullException(nameof(view));
 		Raster = raster;
 		Squad = squad ?? Array.Empty<SimObject>();
-		Array.Fill(_objectives, DefaultObjective);
+		World = world;
 	}
+
+	/// <summary>The simulation transmitted orders are delivered into, or null.</summary>
+	public SimWorld? World { get; }
 
 	/// <summary>The map camera.</summary>
 	public HddMapView View { get; }
@@ -81,6 +84,14 @@ public sealed class HddCommandScreen {
 
 	/// <summary>The squadmates the three comm boxes address.</summary>
 	public IReadOnlyList<SimObject> Squad { get; }
+
+	/// <summary>
+	/// The name across a box, by slot — the gauge's own <c>+0x137</c>, which
+	/// <c>HddGauge_LoadPilotFrames</c> fills by walking <c>str\PILOTS.STR</c> to the machine's pilot
+	/// index. Supply <see cref="SquadCommChannel.Name"/>; without it a box falls back to the machine's
+	/// type name.
+	/// </summary>
+	public Func<int, string>? PilotNameOf { get; set; }
 
 	/// <summary>Which comm box is selected, or -1.</summary>
 	public int SelectedPilot { get; private set; } = -1;
@@ -106,9 +117,14 @@ public sealed class HddCommandScreen {
 			&& ((HddCommandState.NeedsUnit(order) && ChosenUnit == null)
 				|| (HddCommandState.NeedsPoint(order) && ChosenPoint == null));
 
-	/// <summary>The order last transmitted to <paramref name="slot"/>, as a group-40 index.</summary>
+	/// <summary>
+	/// What <paramref name="slot"/>'s pilot is currently doing, as a group-40 index —
+	/// <c>Mech_SquadOrderLineIndex</c>, through <see cref="MechObject.SquadOrderLineIndex"/>.
+	/// </summary>
 	public int Objective(int slot) =>
-		slot >= 0 && slot < _objectives.Length ? _objectives[slot] : DefaultObjective;
+		slot >= 0 && slot < Squad.Count && Squad[slot] is MechObject mate
+			? mate.SquadOrderLineIndex
+			: DefaultObjective;
 
 	/// <summary>Advances the blink. Wall time, not simulation time, exactly as the original's is.</summary>
 	public void Update(TimeSpan elapsed) {
@@ -182,7 +198,7 @@ public sealed class HddCommandScreen {
 			// ATTACK ENEMY takes a hostile, DEFEND POSITION a friendly; either one falling on nothing
 			// eligible drops through to the gridpoint, which is what the original does with it too.
 			if (HddCommandState.NeedsUnit(order) && hit != null
-				&& (hit.Side == World.MissionSide.Cybrid) == (order == HddOrder.AttackEnemy)) {
+				&& (hit.Side == Engine.World.MissionSide.Cybrid) == (order == HddOrder.AttackEnemy)) {
 				ChosenUnit = hit;
 				ChosenPoint = null;
 				return true;
@@ -206,7 +222,8 @@ public sealed class HddCommandScreen {
 	/// <summary>
 	/// Sends the armed order — the XMIT button and [X]. Refuses, as the original does, when there is
 	/// no pilot, no order, or the order still wants something picked; the caller plays the accepted or
-	/// rejected blip on the result.
+	/// rejected blip on the result, which is whether the order found a recipient at all rather than
+	/// whether that recipient agreed to it.
 	/// </summary>
 	public bool Transmit() {
 		if (SelectedPilot < 0 || SelectedOrder is not { } order
@@ -215,10 +232,17 @@ public sealed class HddCommandScreen {
 			return false;
 		}
 
-		_objectives[SelectedPilot] = ObjectiveFor(order);
+		// The screen counts its eight orders from zero; the verb is the group-0 entry they name.
+		var message = new SquadOrderMessage(
+			(SquadCommand)((int)order + HddLayout.FirstCommandOrder),
+			Point: ChosenPoint ?? ChosenUnit?.Position ?? default,
+			Subject: ChosenUnit);
+
+		bool reached = World == null || SquadOrders.SendToSlot(World, Squad, SelectedPilot, message);
+
 		ClearOrder();
 		SelectPilot(-1);
-		return true;
+		return reached;
 	}
 
 	/// <summary>
@@ -265,7 +289,7 @@ public sealed class HddCommandScreen {
 				Occupied: true,
 				Name: PilotName(i, mate),
 				ConditionIndex: ConditionOf(mate),
-				OrderIndex: _objectives[i]);
+				OrderIndex: Objective(i));
 		}
 
 		return new HddCommandState(View, Raster, markers, pilots, SelectedPilot, SelectedOrder,
@@ -293,21 +317,6 @@ public sealed class HddCommandScreen {
 					: SelectCommandPrompt;
 		}
 	}
-
-	/// <summary>
-	/// The group-40 line a transmitted order leaves on the comm box. Engine-side: see this class's
-	/// remarks for why the original does not need such a mapping. SCAN FOR HOSTILES and EMCON change
-	/// only the pilot's radar, so they leave the objective alone.
-	/// </summary>
-	private int ObjectiveFor(HddOrder order) => order switch {
-		HddOrder.Disengage => 5,
-		HddOrder.AttackEnemy => 0,
-		HddOrder.DefendPosition => 4,
-		HddOrder.PatrolGridpoint => 2,
-		HddOrder.GotoGridpoint => 1,
-		HddOrder.JoinOnMe => 3,
-		_ => _objectives[SelectedPilot],
-	};
 
 	private void ClearOrder() {
 		SelectedOrder = null;
@@ -347,8 +356,9 @@ public sealed class HddCommandScreen {
 	/// roster the player's save carries — which this engine does not read, since that file is
 	/// VSHELL's. The machine's own type name stands in, so the box has something true to draw.
 	/// </summary>
-	private static string PilotName(int slot, SimObject mate) =>
-		mate is MechObject mech ? mech.Name.ToUpperInvariant() : $"WING {slot + 1}";
+	private string PilotName(int slot, SimObject mate) =>
+		PilotNameOf?.Invoke(slot) is { Length: > 0 } pilot ? pilot
+			: mate is MechObject mech ? mech.Name.ToUpperInvariant() : $"WING {slot + 1}";
 
 	/// <summary>
 	/// <c>HddGauge_ConditionIndex</c>: the mean of the machine's structural readings, bucketed into

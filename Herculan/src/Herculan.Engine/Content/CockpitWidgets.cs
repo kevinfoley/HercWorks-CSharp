@@ -39,6 +39,13 @@ public enum CockpitWidgetKind {
 
 	/// <summary>One half of the shield-balance rocker — index is a <see cref="Content.ShieldFacing"/>.</summary>
 	ShieldFacing = 7,
+
+	/// <summary>
+	/// A row of the MFD's FLASH COMM order list. As with <see cref="HddOrderRow"/> the original has no
+	/// widget per row — <c>FUN_00447098</c> walks the six label rects under the display's own base
+	/// panel widget — and splitting it into six regions here reaches the same row from the same rects.
+	/// </summary>
+	MfdFlashCommRow = 8,
 }
 
 /// <summary>
@@ -83,6 +90,10 @@ public readonly record struct CockpitWidgetId(CockpitWidgetKind Kind, int Index)
 	/// <summary>The throttle slider.</summary>
 	public static CockpitWidgetId Throttle { get; } = new(CockpitWidgetKind.Throttle, 0);
 
+	/// <summary>Row <paramref name="row"/> of the MFD's FLASH COMM order list.</summary>
+	public static CockpitWidgetId MfdFlashCommRow(int row) =>
+		new(CockpitWidgetKind.MfdFlashCommRow, row);
+
 	/// <summary>Order row <paramref name="order"/> of the command display's list.</summary>
 	public static CockpitWidgetId HddOrder(HddOrder order) =>
 		new(CockpitWidgetKind.HddOrderRow, (int)order);
@@ -118,6 +129,10 @@ public readonly record struct CockpitWidgetId(CockpitWidgetKind Kind, int Index)
 
 	/// <summary>This id as an MFD button index, or null when it is not one.</summary>
 	public int? AsMfdButton => Kind == CockpitWidgetKind.MfdButton ? Index : null;
+
+	/// <summary>This id as a FLASH COMM row index, or null when it is not one.</summary>
+	public int? AsMfdFlashCommRow =>
+		Kind == CockpitWidgetKind.MfdFlashCommRow ? Index : null;
 
 	/// <summary>This id as a shield facing, or null when it is not one.</summary>
 	public ShieldFacing? AsShieldFacing =>
@@ -208,6 +223,10 @@ public static class CockpitWidgets {
 		ArgumentNullException.ThrowIfNull(art);
 
 		foreach (var widget in VisibleMfdButtons(art, state)) {
+			yield return widget;
+		}
+
+		foreach (var widget in VisibleMfdFlashCommRows(art, state)) {
 			yield return widget;
 		}
 
@@ -416,6 +435,36 @@ public static class CockpitWidgets {
 				Y1: (inset.Y + button.Y1) * scale + scale - 1,
 				Lit: MfdLayout.IsLatching(i) ? selected : state.PressedWidget == id,
 				Selected: selected);
+		}
+	}
+
+	/// <summary>
+	/// FLASH COMM's six order rows, when that is the screen the MFD is showing. <c>FUN_00447098</c>
+	/// hit-tests each row's own label rect and does two different things with a hit: a click on the
+	/// row already selected presses XMIT and transmits, and a click on any other row selects it. The
+	/// rows report <c>Lit</c> for the selected one so a caller can tell which is which without going
+	/// back to the layout.
+	/// </summary>
+	public static IEnumerable<CockpitWidget> VisibleMfdFlashCommRows(CockpitArt art, CockpitHudState state) {
+		ArgumentNullException.ThrowIfNull(art);
+		if (state.Mfd != MfdMode.FlashComm || MfdLayout.InsetOrigin(art.Gau) is not { } inset) {
+			yield break;
+		}
+
+		const int scale = (int)CockpitArt.GauToPixelScale;
+		var rows = MfdLayout.FlashCommRows;
+		int insetX = inset.X * scale;
+		int insetY = inset.Y * scale;
+
+		for (int i = 0; i < MfdLayout.FlashCommRowCount; i++) {
+			int top = insetY + rows.Y0 + i * rows.RowHeight;
+			yield return new CockpitWidget(CockpitWidgetId.MfdFlashCommRow(i), CockpitSurface.Forward,
+				X0: insetX + rows.X0,
+				Y0: top,
+				X1: insetX + rows.X1,
+				Y1: top + rows.RowHeight,
+				Lit: state.FlashComm.SelectedRow == i,
+				Selected: state.FlashComm.SelectedRow == i);
 		}
 	}
 

@@ -207,13 +207,13 @@ Fields settled elsewhere link out rather than being restated.
 | Offset | Type | Meaning |
 |---|---|---|
 | `+0x94` | byte | Combat rating cached; clear means recompute |
-| `+0x9a` | byte | Do not take the player's current selection as a target |
+| `+0x9a` | byte | Do not take the player's current selection as a target; written by `IGNORE MY TARGET` — [`ai-squadmates.md`](ai-squadmates.md) |
 | `+0xa5` | byte | No weapons left; written by `Ai_ChooseWeapon` — [`ai-weapons.md`](ai-weapons.md) |
 | `+0xac` | byte | A target was just handed to this machine; skip one acquisition |
-| `+0xb2` | byte | Keeps a player squadmate's radar active; written by the squad command handler — [`ai-weapons.md`](ai-weapons.md) |
+| `+0xb2` | byte | Keeps a player squadmate's radar active; written by `SCAN FOR HOSTILES` and `EMCON` — [`ai-squadmates.md`](ai-squadmates.md) |
 | `+0xb4` | byte | Collapsed — the machine has finished going down and is lying on the ground. Latched when the death animation plays out ([`mech-locomotion.md`](mech-locomotion.md#going-down)), or at spawn for a machine the mission places as a wreck ([`damage-system.md`](damage-system.md#starting-condition--mech_applystartingcondition-004178e8)) |
 | `+0xb7` | byte | Invulnerable; `Base_Construct` sets it from `BASES.DAT +0x1e` |
-| `+0x250` | short | Squad order's abandon threshold |
+| `+0x250` | short | Squad order's abandon threshold — [`ai-squadmates.md`](ai-squadmates.md) |
 | `+0x26b` | short | Countdown that holds the radar off, 6000 after an ARM hit — [`ai-weapons.md`](ai-weapons.md) |
 | `+0x273` | int | Retarget cooldown, 10000 on reacting to fire |
 | `+0x278` | int | Friendly-fire complaint cooldown, 40000 |
@@ -230,21 +230,18 @@ Fields settled elsewhere link out rather than being restated.
 
 **What runs.** The behaviour block and its dwell clock, `Mech_AiTick`'s reassess dispatch, the combat reassess entire — radar, keep-or-acquire, the leader sweep, the flee check, the state install and the aim pick — `Mech_AiOnTakingFire` from the raycast's `+0x50` site, both friendly-fire sites, and `Ai_SelectTarget` with all four weight tables and the combat rating behind them. A structure's two acquisition call sites are not wired: `BaseObject` has no AI yet.
 
-**What that adds up to in a mission.** An AI machine is constructed in `deciding` and its group's current order resolves that into the state the order asks for — [`ai-goals.md`](ai-goals.md). It still **enters combat only by being shot at**, because every non-combat state's own way in is its think function, and those belong to the slices this one does not cover; once it is in, it acquires, lights its radar, picks a combat state and holds the target for the 50 s dwell. It does not move or fire on it: the move slot is the locomotion tick every machine already runs.
+**What that adds up to in a mission.** An AI machine is constructed in `deciding` and its group's current order resolves that into the state the order asks for — [`ai-goals.md`](ai-goals.md), or, for a player squadmate under a standing order, [`ai-squadmates.md`](ai-squadmates.md).
 
 Deviations, all of them things the original reads that this engine has no value for:
 
-- **`mech+0x9a`** and **`DAT_004a9ed8`**, both of which narrow `Ai_IsTargetable`, are not modelled. Their absence can only let the AI consider more candidates than the original, never fewer.
-- **`mech+0xb2`** is not modelled, so a player squadmate is always put back to passive on entering a fight. Its writer is the squad command path, which is unported.
+- **`DAT_004a9ed8`**, which narrows `Ai_IsTargetable`, is not modelled. Its absence can only let the AI consider more candidates than the original, never fewer.
 - **The aim band's targeting-computer override is not applied.** It turns on a pod field (`+0x7f`) whose meaning is untested, the same doubt the ECM roll records, so the roll alone picks the band.
-- **Squad orders are unported**, so `Mech_AiSelectBehaviour`'s second path installs nothing and `Ai_ShouldAbandonTarget`'s squad branch is unreachable. Group orders are ported; what a designated target is, and which machines have one, is [`ai-goals.md`](ai-goals.md).
 
 Two things are reproduced rather than corrected: the `rand & 1000` jitter in the rating comparison, and the aim pick reading its own component damage.
 
 ## Open questions
 
 - **`DAT_004a9ed8 == 3`**, which makes a player-led group's own machines refuse the group order's target in `Ai_IsTargetable`. Reads like a squad-command or difficulty mode.
-- **What sets `mech+0x9a`.** Read here against the player's group; the writer is presumably in the squadmate command path, as `mech+0xb2`'s is.
 
 ## Rejected readings
 

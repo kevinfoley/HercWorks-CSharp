@@ -87,14 +87,23 @@ public enum ThinkSlot {
 /// </summary>
 public sealed class BehaviourState {
 	private BehaviourState(int index, string name, int dwellMs, int flags, ReassessSlot reassess,
-			ThinkSlot think = ThinkSlot.None) {
+			ThinkSlot think = ThinkSlot.None, int objectiveLine = 3) {
 		Index = index;
 		Name = name;
 		DwellMs = dwellMs;
 		Flags = flags;
 		Reassess = reassess;
 		Think = think;
+		ObjectiveLine = objectiveLine;
 	}
+
+	/// <summary>
+	/// Descriptor <c>+0x3c</c> — the <c>STRINGS0.STR</c> group 40 index the [F7] comm box prints on a
+	/// squadmate's <c>OBJECTIVE:</c> line. Four values are used across the table: 0 <c>ATTACK</c>,
+	/// 3 <c>FORM UP</c>, 5 <c>FLEE</c>, 6 <c>DEAD</c> and 7 <c>IMMOBILE</c>. Read only by
+	/// <see cref="MechObject.SquadOrderLineIndex"/>.
+	/// </summary>
+	public int ObjectiveLine { get; }
 
 	/// <summary>The state's index into the three parallel tables — descriptor <c>004993a4 + 0x3e*N</c>.</summary>
 	public int Index { get; }
@@ -142,6 +151,12 @@ public sealed class BehaviourState {
 	public bool IgnoresFire => (Flags & 0x08) != 0;
 
 	/// <summary>
+	/// Bit 4 — this machine has already broken off, which is <c>fleeing</c> and nothing else. The
+	/// squad order handler refuses <c>ATTACK MY TARGET</c> to a machine in it.
+	/// </summary>
+	public bool BrokenOff => (Flags & 0x10) != 0;
+
+	/// <summary>
 	/// Bits 4 and 5 as <see cref="AiTargeting.TargetStateTier"/> reads them off a <i>target's</i>
 	/// descriptor: 2 for bit 5 (<c>in limbo</c>, <c>dead</c>, <c>disabled</c>), 1 for bit 4
 	/// (<c>fleeing</c>), 0 otherwise.
@@ -157,25 +172,25 @@ public sealed class BehaviourState {
 	public static readonly BehaviourState Deciding = new(0, "deciding", 0, 0x00, ReassessSlot.SelectBehaviour);
 	public static readonly BehaviourState Player = new(1, "player", 10, 0x01, ReassessSlot.None);
 	public static readonly BehaviourState PlayerFly = new(2, "player fly", 10, 0x01, ReassessSlot.None);
-	public static readonly BehaviourState Attacking = new(3, "attacking", 50000, 0x02, ReassessSlot.CombatReassess, ThinkSlot.Attack);
-	public static readonly BehaviourState Flanking = new(4, "flanking", 50000, 0x02, ReassessSlot.CombatReassess, ThinkSlot.Flank);
-	public static readonly BehaviourState FacingOff = new(5, "facing off", 50000, 0x02, ReassessSlot.CombatReassess, ThinkSlot.FaceOff);
-	public static readonly BehaviourState AttackingBase = new(6, "attacking base", 50000, 0x02, ReassessSlot.CombatReassess, ThinkSlot.AttackBase);
-	public static readonly BehaviourState AttackingFlyer = new(7, "attacking flyer", 50000, 0x02, ReassessSlot.CombatReassess, ThinkSlot.AttackFlyer);
+	public static readonly BehaviourState Attacking = new(3, "attacking", 50000, 0x02, ReassessSlot.CombatReassess, ThinkSlot.Attack, objectiveLine: 0);
+	public static readonly BehaviourState Flanking = new(4, "flanking", 50000, 0x02, ReassessSlot.CombatReassess, ThinkSlot.Flank, objectiveLine: 0);
+	public static readonly BehaviourState FacingOff = new(5, "facing off", 50000, 0x02, ReassessSlot.CombatReassess, ThinkSlot.FaceOff, objectiveLine: 0);
+	public static readonly BehaviourState AttackingBase = new(6, "attacking base", 50000, 0x02, ReassessSlot.CombatReassess, ThinkSlot.AttackBase, objectiveLine: 0);
+	public static readonly BehaviourState AttackingFlyer = new(7, "attacking flyer", 50000, 0x02, ReassessSlot.CombatReassess, ThinkSlot.AttackFlyer, objectiveLine: 0);
 	public static readonly BehaviourState Patrolling = new(8, "patrolling", 10, 0x01, ReassessSlot.SelectBehaviour, ThinkSlot.Patrol);
 	public static readonly BehaviourState Travelling = new(9, "travelling", 10, 0x01, ReassessSlot.SelectBehaviour, ThinkSlot.Travel);
 	public static readonly BehaviourState Following = new(10, "following", 10, 0x01, ReassessSlot.SelectBehaviour, ThinkSlot.Follow);
 	public static readonly BehaviourState BulldogTravel = new(11, "bulldog travel", 10, 0x09, ReassessSlot.SelectBehaviour, ThinkSlot.Travel);
 	public static readonly BehaviourState SearchDestroy = new(12, "search/destroy", 10, 0x01, ReassessSlot.SelectBehaviour, ThinkSlot.SearchDestroy);
 	public static readonly BehaviourState Sleeping = new(13, "sleeping", 10, 0x09, ReassessSlot.SelectBehaviour, ThinkSlot.Sleep);
-	public static readonly BehaviourState Skirting = new(14, "skirting", 10, 0x03, ReassessSlot.SelectBehaviour, ThinkSlot.Skirt);
+	public static readonly BehaviourState Skirting = new(14, "skirting", 10, 0x03, ReassessSlot.SelectBehaviour, ThinkSlot.Skirt, objectiveLine: 0);
 	public static readonly BehaviourState Guarding = new(15, "guarding", 10, 0x05, ReassessSlot.SelectBehaviour, ThinkSlot.Guard);
-	public static readonly BehaviourState DrivingOffEnemy = new(16, "driving off en", 50000, 0x06, ReassessSlot.SelectBehaviour, ThinkSlot.DriveOff);
-	public static readonly BehaviourState Ramming = new(17, "ramming", 10, 0x09, ReassessSlot.SelectBehaviour);
-	public static readonly BehaviourState Fleeing = new(18, "fleeing", 15000, 0x12, ReassessSlot.CombatReassess, ThinkSlot.Flee);
-	public static readonly BehaviourState InLimbo = new(19, "in limbo", 10, 0x21, ReassessSlot.None);
-	public static readonly BehaviourState Dead = new(20, "dead", 0, 0x21, ReassessSlot.None, ThinkSlot.Inert);
-	public static readonly BehaviourState Disabled = new(21, "disabled", 0, 0x21, ReassessSlot.None, ThinkSlot.Inert);
+	public static readonly BehaviourState DrivingOffEnemy = new(16, "driving off en", 50000, 0x06, ReassessSlot.SelectBehaviour, ThinkSlot.DriveOff, objectiveLine: 0);
+	public static readonly BehaviourState Ramming = new(17, "ramming", 10, 0x09, ReassessSlot.SelectBehaviour, objectiveLine: 0);
+	public static readonly BehaviourState Fleeing = new(18, "fleeing", 15000, 0x12, ReassessSlot.CombatReassess, ThinkSlot.Flee, objectiveLine: 5);
+	public static readonly BehaviourState InLimbo = new(19, "in limbo", 10, 0x21, ReassessSlot.None, objectiveLine: 6);
+	public static readonly BehaviourState Dead = new(20, "dead", 0, 0x21, ReassessSlot.None, ThinkSlot.Inert, objectiveLine: 6);
+	public static readonly BehaviourState Disabled = new(21, "disabled", 0, 0x21, ReassessSlot.None, ThinkSlot.Inert, objectiveLine: 7);
 
 	/// <summary>All 22, in the order the descriptor table holds them.</summary>
 	public static readonly IReadOnlyList<BehaviourState> All = new[] {

@@ -91,8 +91,20 @@ public static class MfdLayout {
 		_ => null,
 	};
 
+	/// <summary>
+	/// The <c>MFD</c> frame that is the screen chrome for a mode that has any, and the frame whose
+	/// 196x122 size <i>is</i> the inset region — which is what a full-screen flood measures against.
+	/// </summary>
+	public const int ScreenFrame = 1;
+
 	/// <summary>How many screens the display has, and how many mode buttons therefore exist.</summary>
 	public const int ModeCount = 6;
+
+	/// <summary>
+	/// The aux button FLASH COMM shows: XMIT, index 10. It shares a rect with 7 SELECT — one
+	/// top-right button under two names — and it is its press byte the selected row's plate follows.
+	/// </summary>
+	public const int TransmitButton = 10;
 
 	/// <summary>Every button the constructor builds, mode selectors included.</summary>
 	public const int ButtonCount = 13;
@@ -302,6 +314,13 @@ public static class MfdLayout {
 	public static readonly (int X0, int Y0, int X1, int Y1) MessageRect = (22, 46, 74, 52);
 
 	/// <summary>
+	/// The font that caption is written in — <c>ColorSchemePanels[12]</c>, <c>DARK</c>. It is the
+	/// text colour only; the plate behind it is the transmitting comm box's own
+	/// <c>COLORS.DAT</c> id, which the box publishes alongside the name.
+	/// </summary>
+	public const string MessageFont = "DARK";
+
+	/// <summary>
 	/// The status screens' damage-wireframe viewport, GAU, relative to the inset origin —
 	/// <c>(+0x2d, +0xd)</c>-<c>(+0x5f, +0x3a)</c> in the shared constructor at <c>0043a2e0</c>. Its
 	/// left edge is also the five labels' right edge, so text and diagram tile the screen exactly.
@@ -395,14 +414,67 @@ public static class MfdLayout {
 	public const int FlashCommTextMarginX = 4;
 
 	/// <summary>
-	/// Font FLASH COMM lists its orders in — <c>ColorSchemePanels[1]</c>, i.e. <c>CPGREEN</c>. The
-	/// constructor also hands each row <c>[2]</c> <c>CPRED</c> as an alternate at <c>+0x21</c>, for
-	/// orders the squad cannot currently take.
+	/// Font FLASH COMM lists its orders in — <c>ColorSchemePanels[1]</c>, i.e. <c>CPGREEN</c>.
 	/// </summary>
 	public const string FlashCommFont = "CPGREEN";
 
-	/// <summary>The alternate font above.</summary>
-	public const string FlashCommUnavailableFont = "CPRED";
+	/// <summary>
+	/// The font the selected row is re-written in — <c>ColorSchemePanels[3]</c>, <c>CPYLW</c>. The
+	/// page paint (<c>FUN_0043f7a4</c>) fonts every row as it fills it, so the selected row differs
+	/// from its neighbours by colour as well as by the plate laid over it.
+	/// </summary>
+	public const string FlashCommSelectedFont = "CPYLW";
+
+	/// <summary>
+	/// The font a row that cannot currently be taken is written in — <c>ColorSchemePanels[6]</c>,
+	/// <c>CPOFF</c>. No retail row ever reaches it: the two functions that set and clear the
+	/// unavailable bit (<c>FUN_0043f9f4</c>, <c>FUN_0043fa14</c>) have no caller in the image.
+	/// </summary>
+	public const string FlashCommUnavailableFont = "CPOFF";
+
+	/// <summary>
+	/// The <i>alternate</i> font each row carries at <c>+0x21</c> — <c>ColorSchemePanels[2]</c>,
+	/// <c>CPRED</c>. It is not an unavailable state: <c>FUN_00438aac</c> redraws exactly one
+	/// character of the row in it, at the index the order's own attribute byte names, which is how
+	/// the hotkey letter is picked out. The [F7] order list uses the same mechanism.
+	/// </summary>
+	public const string FlashCommHotkeyFont = "CPRED";
+
+	/// <summary>
+	/// The plate laid over the selected row — <c>MFD</c> frame 11, a 91x8 GAU hollow rounded rect,
+	/// blitted by <c>FUN_0043fa34</c> <b>after</b> the row's text so it frames rather than covers it.
+	/// The frame index is <c>0xb +</c> the XMIT button's own press byte, so holding XMIT swaps it for
+	/// <see cref="FlashCommRowPlatePressedFrame"/>.
+	/// </summary>
+	public const int FlashCommRowPlateFrame = 11;
+
+	/// <inheritdoc cref="FlashCommRowPlateFrame"/>
+	public const int FlashCommRowPlatePressedFrame = 12;
+
+	/// <summary>
+	/// Frame 13, the plain plate the same function lays over a row that has just <i>stopped</i> being
+	/// selected — the erase half of the two-row repaint the page does when the cursor moves.
+	/// </summary>
+	public const int FlashCommRowPlateClearFrame = 13;
+
+	/// <summary>
+	/// The colour an MFD screen floods its own area with before painting — <c>MfdDisplay_Update</c>'s
+	/// and the page paint's <c>0x11</c>.
+	///
+	/// <para><b>A raw palette index, not a <c>COLORS.DAT</c> id</b>, by the same rule
+	/// <see cref="MfdScanner.BackgroundPaletteIndex"/> follows: the paint states it as an immediate.
+	/// It resolves to (12,12,12), the same near-black the screen chrome's own interior is. Read as an
+	/// id instead it would land on a mid grey and fill the whole screen with it.</para>
+	/// </summary>
+	public const int ScreenFillPaletteIndex = 0x11;
+
+	/// <summary>
+	/// Where a transmission's video is drawn, GAU, relative to the inset origin —
+	/// <c>MfdDisplay_Update</c>'s <c>inset + (0x14 &lt;&lt; XCoordShift, 0 &lt;&lt; YCoordShift)</c>.
+	/// The frame's own <c>.OFS</c> offset is added to this <b>unshifted</b>, so it stays in the bank's
+	/// 320-wide space while the frame itself is blitted doubled.
+	/// </summary>
+	public static readonly (int X, int Y) TransmissionOrigin = (0x14, 0);
 
 	/// <summary>
 	/// The panel's outer rect in GAU units, or null when the herc's <c>.GAU</c> had no MFD block.

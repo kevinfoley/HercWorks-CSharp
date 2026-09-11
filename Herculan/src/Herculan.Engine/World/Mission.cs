@@ -58,6 +58,13 @@ public enum MissionSide {
 /// <param name="IsPlayerLance">
 /// Whether this came from <c>player.mec</c> rather than the mission's own roster.
 /// </param>
+/// <param name="PilotIndex">
+/// Which of <c>str\PILOTS.STR</c>'s 36 pilots flies it, or -1 for a machine no pilot is named for.
+/// Only the player's own squad carries one: <c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>) stamps
+/// <c>player.mec</c>'s own <see cref="HercWorks.Core.Data.File.Sav.MecEntry.PilotNameIndex"/> onto the
+/// machine at <c>mech+0x29c</c> and nothing else ever writes that field. It is what names a comm box
+/// and picks the portrait that talks in it — see <see cref="Sim.MechObject.PilotIndex"/>.
+/// </param>
 /// <param name="Side">
 /// Whose side the group that placed it is on — see <see cref="MissionSide"/>. Carried per placement
 /// rather than per group because that is the form everything downstream wants: the simulation reads
@@ -92,6 +99,7 @@ public sealed record MissionPlacement(
 	IReadOnlyList<short> WeaponRefs,
 	IReadOnlyList<short> WeaponSecondary,
 	bool IsPlayerLance = false,
+	int PilotIndex = -1,
 	MissionSide Side = MissionSide.Human,
 	short AiCruiseSpeed = 0,
 	bool AiRadarActive = false,

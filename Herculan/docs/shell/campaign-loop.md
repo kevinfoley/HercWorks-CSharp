@@ -97,7 +97,7 @@ This is `data\player.mec`, and the record it emits is the one `HercWorks.Core.Da
 |---|---|
 | *(file header)* `PlayerEntryIndex` | literal `0` — the player is always entry 0 |
 | *(file header)* entry count | `00482a7a` |
-| `Unk00` | the pilot's `esnames.bin` name index (pilot `+0x02`) |
+| `PilotNameIndex` | the pilot's `esnames.bin` name index (pilot `+0x02`). DBSIM reads the same field as an index into `str\PILOTS.STR` — [`heads-down-display.md`](../formats/heads-down-display.md#who-is-in-it) |
 | `Unk02` | the pilot's skill tier (pilot `+0x25`) |
 | `MechType` | HERC record `+0x00` |
 | `SlotCount` | HERC record `+0x4c`, the mount capacity |

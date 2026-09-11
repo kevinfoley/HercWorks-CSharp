@@ -89,7 +89,7 @@ namespace HercWorks.Core.Data.File.Gau;
 ///       the multiplayer path.
 ///     - 1668-1683: the pilot and squad message port's box, a 16-byte rect read by the `.GAU`
 ///       loader's *caller* (`FUN_00431bf8`) rather than the loader itself. Full screen width, ten
-///       units tall. Not surfaced as a typed field: nothing reads it yet.
+///       units tall — <see cref="PilotMessagePort"/>.
 ///     - 1684-1699: the cockpit message ticker's box, the same way — <see cref="MessageTicker"/>.
 /// NAVBAR is a **confirmed negative**, not an unexplored gap: it is nowhere in this file. Two DBSIM
 /// string-table keyword sweeps (torso/twist/navbar/compass/reticle/hud/panel/gadget/indicator, then
@@ -155,6 +155,13 @@ public class GAUFile {
 	/// <see cref="GunsightArea"/> is.
 	/// </summary>
 	public HHudScanner? HudScanner { get; set; }
+
+	/// <summary>
+	/// The pilot and squad channel's message box at content offset 1668 - see
+	/// <see cref="HPilotMessagePort"/>. Surfaced from <see cref="Remainder"/> the same way
+	/// <see cref="GunsightArea"/> is.
+	/// </summary>
+	public HPilotMessagePort? PilotMessagePort { get; set; }
 
 	/// <summary>
 	/// The cockpit message ticker's box at content offset 1684, the file's last field - see

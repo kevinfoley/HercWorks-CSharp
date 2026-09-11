@@ -13,13 +13,10 @@ outstanding.
 
 The mechanism is understood; what is left is engine work.
 
-- **CD music and squad speech.** The effects half of the catalog is ported, and so is the cockpit
-  computer's channel entire — the message port's queue, timings, repeat suppression and preemption,
-  the scrolling ticker, and `SYSTEM.STR`'s lines read from their `CVM` clips. Red Book music through
-  MCI is not, so a mission runs without its track. Neither is the port's second instance, the pilot
-  and squad channel, where messages wrap several lines instead of scrolling one line: squadmate and
-  commander lines with their `.SNC` portrait lip-sync scripts are unported, so the comm box never 
-  speaks or animates and nothing posts to that channel.
+- **CD music.** Both message ports are ported — the cockpit computer's ticker and the pilot and
+  squad channel, with its `PILOT<n>.STR` sets, its speaker-coloured box, the `P*_*` voice clips and
+  the comm box's `.SNC` portrait animation. Red Book music through MCI is not, so a mission runs
+  without its track.
   → [`docs/formats/audio.md`](docs/formats/audio.md)
 - **Combat gaps.** Hit detection, weapon-mount destruction and the explosive blast sweep are
   complete for all three shootable classes. One of the sweep's three call sites is still unreachable
@@ -61,9 +58,6 @@ bindings are hardcoded placeholders.
 
 The engine cannot be faithful here until the original is understood.
 
-- **Squad orders.** The standing orders the player gives their own squad (`mech+0x23e`), which
-  `Mech_AiSelectBehaviour`'s second path reads. Undecoded, so that path installs nothing.
-  → [`docs/simulation/ai-dispatch.md`](docs/simulation/ai-dispatch.md)
 - **SimRandom's 56-entry seed table isn't extracted** from DBSIM's data section. The algorithm is a
   literal port; the seeding is not, and a roll's result also depends on generator-advance count —
   treat as statistically faithful, not replay faithful.

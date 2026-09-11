@@ -63,14 +63,15 @@ public static class AiTargeting {
 	/// invulnerable, currently <see cref="Knows"/>n, not a dead flyer, and with
 	/// <see cref="TargetFilter.RejectOwnClass"/> not the asking object's own class.
 	///
-	/// <para>Two of the original's tests are not here. One reads a global
-	/// (<c>DAT_004a9ed8 == 3</c>) whose meaning is unresolved; the other refuses the player's current
-	/// selection to a machine whose <c>+0x9a</c> is set, and nothing found so far writes that field.
-	/// Both are listed under docs/simulation/ai-targeting.md, "Open questions". Their effect is to
-	/// <i>narrow</i> the candidate set, so leaving them out can only make the AI consider more than
-	/// the original would, never less.</para>
+	/// <para>One of the original's tests is not here: it reads a global (<c>DAT_004a9ed8 == 3</c>)
+	/// whose meaning is unresolved, and is listed under docs/simulation/ai-targeting.md, "Open
+	/// questions". Its effect is to <i>narrow</i> the candidate set, so leaving it out can only make
+	/// the AI consider more than the original would, never less.</para>
 	/// </summary>
-	public static bool IsTargetable(SimObject self, SimObject candidate, TargetFilter filter) {
+	public static bool IsTargetable(SimWorld world, SimObject self, SimObject candidate,
+			TargetFilter filter) {
+		ArgumentNullException.ThrowIfNull(world);
+
 		if (candidate.Side == self.Side || candidate.Removed || candidate.AwaitingDeployment) {
 			return false;
 		}
@@ -92,7 +93,14 @@ public static class AiTargeting {
 		}
 
 		// A flyer gets the extra liveness test the original spells out for target class 2 alone.
-		return candidate.TargetClass != TargetClass.Flyer || !candidate.Neutralised;
+		if (candidate.TargetClass == TargetClass.Flyer && candidate.Neutralised) {
+			return false;
+		}
+
+		// IGNORE MY TARGET: while the latch is set this machine will not take the object the player
+		// currently has selected, whatever else recommends it.
+		return self is not MechObject { IgnoresPlayerSelection: true }
+			|| !ReferenceEquals(candidate, world.PlayerMech?.Target);
 	}
 
 	/// <summary>
@@ -132,7 +140,7 @@ public static class AiTargeting {
 		var objects = world.Objects;
 		for (int i = 0; i < objects.Count; i++) {
 			var candidate = objects[i];
-			if (!IsTargetable(self, candidate, filter)) {
+			if (!IsTargetable(world, self, candidate, filter)) {
 				continue;
 			}
 
@@ -248,7 +256,7 @@ public static class AiTargeting {
 		var objects = world.Objects;
 		for (int i = 0; i < objects.Count; i++) {
 			if (objects[i] is not MechObject candidate
-					|| !IsTargetable(self, candidate, TargetFilter.None)
+					|| !IsTargetable(world, self, candidate, TargetFilter.None)
 					|| candidate.Immobilised) {
 				continue;
 			}
@@ -310,8 +318,8 @@ public static class AiTargeting {
 	/// target, dead or crippled on the human side but only destroyed on the Cybrid side; otherwise
 	/// dead or dying.
 	///
-	/// <para>The squad-order branch cannot be reached here — squad orders belong to the unported
-	/// squadmate slice, so <see cref="MechObject.SquadOrderVerb"/> is always zero.</para>
+	/// <para>The squad-order branch is what makes an ordered kill stick: the tier the order was given
+	/// at is latched on the machine, so the target has to get further along than it already was.</para>
 	/// </summary>
 	public static bool ShouldAbandonTarget(MechObject self) {
 		if (self.Target is not { } target) {

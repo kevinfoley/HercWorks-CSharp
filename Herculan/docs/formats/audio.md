@@ -445,8 +445,8 @@ snc    = "P" + ('A' + slot) + suffix     in snc/
 ```
 
 `voiceBank` is `(slot >> 2) + 1`, with 3 remapped to 4 — so twelve squad slots share three recorded
-voices, `P1_`, `P2_`, `P4_`. That is the same 1/2/4 grouping as `str\PILOT0.STR`, `PILOT1.STR`,
-`PILOT2.STR`, `PILOT4.STR`. `SIMVOICE.VOL` holds 147 `P*_*.WAV` and 66 `CVM_*.WAV`, the cockpit
+voices, `P1_`, `P2_`, `P4_`. That is the same 1/2/4 grouping as the channel's own message sets
+([below](#its-message-sets)). `SIMVOICE.VOL` holds 147 `P*_*.WAV` and 66 `CVM_*.WAV`, the cockpit
 computer's own lines.
 
 The three name templates live together in DATA as literals the loader patches digits into:
@@ -518,8 +518,9 @@ the line exactly as TEXT OFF does, lifecycle and all. Its `+0x1c` is a byte the 
 returns on. Neither field's owner is decoded.
 
 Both boxes are the herc's own, the last two fields of its `.GAU`: the pilot channel's at content
-offset 1668 (full screen width, ten units tall) and the ticker's at 1684, `100,y - 220,y+9` — a
-120x9 box centred horizontally, at `y = 34` in seven cockpits, 43 in APOCA's and 100 in RAZOR's.
+offset 1668, `0,y - 320,y+10`, of which only the height is ever drawn ([below](#its-box)), and the
+ticker's at 1684, `100,y - 220,y+9` — a 120x9 box centred horizontally, at `y = 34` in seven
+cockpits, 43 in APOCA's and 100 in RAZOR's.
 Both are coordinate-shifted into device pixels by the `.GAU` loader's caller
 (`Gau_BuildCockpitWidgets`, `00431bf8`) before the constructor sees them.
 
@@ -610,9 +611,61 @@ cellHeight) >> 1) + inkHeight + 1` and the glyph blitter (`HudFont_DrawGlyph`, `
 At 16 ms a coarse tick the power-up announcement lands 3.2 s in, inside `start3`'s five seconds
 rather than after them.
 
-The pilot channel's voice dispatch is `PilotMessagePort_Speak` (`00435d9c`), which builds its `P*_*`
-filename out of the message id and the record's `+0x16` digit the same way `CommBox_BeginMessage`
-does — the way in to squad speech.
+## The pilot and squad channel
+
+The port's second instance, at `view+0x207`. Same queue, same lifecycle, same four timings; a
+different catalog, a different box, and a squadmate's face on the comm portrait beside it.
+
+### Its message sets
+
+`str\PILOT0.STR`, `PILOT1.STR`, `PILOT2.STR` and `PILOT4.STR`, one per voice bank, keyed the same way
+`SYSTEM.STR` is but with **seven** attribute bytes rather than eight: the clip number is absent because the filename is built from the id and the variant instead
+(see [File naming](#file-naming)). `SystemMessages_Index(port, 2, slot, bank)` scatters a bank into a
+per-slot table at `DAT_004d04e8 + slot * 0x183`, 43 ids of 9 bytes each, so each comm box carries its
+own speaker's set.
+
+Unlike the computer's, **the variant roll is live here**: ids 2, 3, 21, 30 and 31 carry two to four
+recordings apiece, and `MessagePort_PickVariant` chooses between them. `PILOT0.STR` is keyed by no
+voice bank — `(slot >> 2) + 1` with 3 remapped to 4 never yields 0.
+
+The ids a squadmate answers an order with are in
+[`../simulation/ai-squadmates.md`](../simulation/ai-squadmates.md).
+
+### Its box
+
+`PilotMessagePort_Speak` (`00435d9c`) paints it, and it looks nothing like the ticker. The box is
+**sized to its line and centred on the screen**: the paint measures the composed text, sets
+`x0 = (screen / 2) - (width / 2) - (10 << XCoordShift)` and `x1 = x0 + width + (0x14 << XCoordShift)`,
+and takes y from the `.GAU` rect unchanged. Every retail file authors that rect as
+`0,y - 320,y+10`, so the authored width is discarded and only the height reaches the screen. The line
+sits at `(screen / 2) - (width / 2)`, vertically at `bottom - ((height - inkHeight) >> 1)` — the
+**ink** centred in the box, where the ticker centres the cell.
+
+**The colours are the speaker's.** The paint resolves the message record's `+0x02` through
+`Squad_IndexOf` and, for a squadmate, fills with that slot's own `COLORS.DAT` colour and frames it in
+the palette entry **one below** the fill:
+
+```
+slot   = record->speaker ? Squad_IndexOf(record->speaker) : -1
+fill   = slot < 0 ? COLORS.DAT[19] : HudColorTable_Get(slot)
+border = slot < 0 ? COLORS.DAT[9]  : fill - 1
+```
+
+That subtraction is arithmetic on the already-resolved palette index, not a second logical id — slot
+0's id 0 lands on palette 14, green, and its frame on palette 13, yellow. Only a message with no
+squadmate behind it falls back to the computer's black and red. The text is `ColorSchemePanels[2]`
+`CPRED` either way, so red on green is what a squadmate's reply looks like.
+
+`PilotMessagePort_ComposeLine` (`00435d0c`) builds the line: the speaker's name from their comm box
+(`Squad_PilotName` (`00434298`) into `HddGauge_Name` (`0044b900`), the gauge's own `+0x137`), or the
+fallback at `004342b8` when the record names no object; then `": "`; then the message text,
+`strncat`ed at 0x4a characters.
+
+`PilotMessagePort_Paint` (`0043660c`) is a second, different picture of the same port: several
+word-wrapped lines — `PilotMessagePort_WrapText` (`00436318`) wraps at 80 characters in the 640-wide
+mode and 60 in the 320-wide one, and the box grows to `(lines + 1) * (8 << YCoordShift)` — in the
+computer's own black and red, with no speaker colour anywhere in it. What is on screen in
+`Reference/MFD_Talking_head.png` is the speaker-coloured single line.
 
 ## `.SNC` — portrait lip-sync scripts
 
@@ -657,6 +710,7 @@ frame to `-1`, which is what tells `HddGauge_PaintPilotFrame` the message is ove
 | Attribute byte 2 is "looping" | It is the preload flag; `Sfx_Cache` is a load call, not a play call. Looping is byte 0. |
 | The `battle1.wav` entries are the real music | The file ships in no archive. The ten slots are a stub; music is Red Book CD audio through MCI. |
 | A `.wav` name resolves under one directory | It resolves under `HMI\` or `HMX\` depending on the low-memory flag, and the two banks are not identical — `EXPLO5.WAV` is missing from `HMX\`. |
+| `PilotMessagePort_Speak` dispatches the squad's voice | It is named for the `BC_00000` template it patches, and that arm is dead: it patches **`id + 1`** rather than the id, no `BC_*` clip ships in any voice archive, and it is gated on the queued record's `+0x2c` — a byte past the seven a `PILOT<n>.STR` entry supplies, and 0 throughout. What the function actually does on every call is paint the channel's box. A squadmate's voice comes solely from the comm box, through `CommBox_BeginMessage`. |
 | `herceng1` is the HERC engine hum | The name says so and the sample is one, but the only thing that starts it gates on type record `+0x50` — `InputFlagFlyer`, the RAZOR. A walking HERC never plays it. |
 | One voice per catalog id means one copy of that sound at a time | The voice record is bookkeeping, not a hardware channel. `Sfx_Play` starts a fresh `sosDIGIStartSample` every call without testing the `0x100` playing flag, so the copies overlap — see [A repeated play layers; it does not restart](#a-repeated-play-layers-it-does-not-restart). |
 
@@ -688,9 +742,19 @@ gates — the show's mode-4 refusal and the paint's `+0x1c` byte, both on the ob
 returns — are not reproduced,
 because neither field's owner is decoded.
 
-The pilot and squad channel, the port's second instance, is not ported: it needs squad speech, and
-nothing posts to it. `PilotMessagePort_WrapText` (`00436318`) is its word wrap and
-`PilotMessagePort_Paint` (`0043660c`) its paint.
+The pilot and squad channel is complete too. `SquadMessages` parses a `PILOT<n>.STR` bank with the
+seven-byte attribute layout and its live variants; `SquadMessagePort` is the second port, with the
+same lifecycle and the begin/end callbacks the comm box hangs off it; `SquadVoice` opens the
+`P*_*.WAV` clips. `SquadCommChannel` owns the three boxes and their state machine
+([`heads-down-display.md`](heads-down-display.md#squad-comm-boxes)), and publishes both what the MFD
+draws full-screen and what each box draws in place. The line over the canopy is
+`PilotMessageBoxLayout` plus `Overlay2DRenderer.AddPilotMessage` — the herc's own `.GAU` box
+(surfaced as `GAUFile.PilotMessagePort`), the speaker-coloured fill with its palette-minus-one frame,
+and the composed `NAME: line` in `CPRED`. The word-wrapped multi-line paint is not ported; nothing
+retail shows reaches it.
+
+The channel's own deviation is the one the computer's port has: its clock is `GameAudio`'s wall time
+rather than `GetTickCount`.
 
 Triggers ported so far: the beam report, the two table-driven fire sounds and the impact sound (with
 the ground hit's suppression), footfalls, the console click, the radar mode tone and its spoken

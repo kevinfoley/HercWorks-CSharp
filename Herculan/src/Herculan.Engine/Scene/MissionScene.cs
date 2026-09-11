@@ -380,6 +380,7 @@ public sealed class MissionScene {
 		// fires when it dies. DBSim_SpawnMissionObjects resolves both as it builds the object; here
 		// they wait for the action states, which are built above.
 		foreach (var placed in objects) {
+			placed.Object.PilotIndex = placed.Placement.PilotIndex;
 			placed.Object.EngagementAction = ActionAt(actions, placed.Placement.EngagementActionRef);
 			placed.Object.DefeatAction = ActionAt(actions, placed.Placement.DefeatActionRef);
 

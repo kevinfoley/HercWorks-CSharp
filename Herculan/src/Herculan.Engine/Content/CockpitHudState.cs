@@ -84,9 +84,27 @@
 /// the map camera and its markers, the three comm boxes, and which pilot and order are selected. See
 /// <see cref="HddCommandState"/>.
 /// </param>
+/// <param name="FlashComm">
+/// What F2's order list shows — which row the cursor is on and what each row currently names. See
+/// <see cref="MfdFlashCommScreen"/>.
+/// </param>
+/// <param name="Transmission">
+/// What a squadmate's video box is showing this frame, or null when nobody is transmitting. Drawn
+/// over whichever MFD screen is up, because the original's update draws it before the screen's own
+/// paint slot ever runs — see <see cref="SquadCommChannel"/>.
+/// </param>
 /// <param name="Scanner">
 /// What F4's scanner plots — its contacts, its display range and the radar mode it mirrors from the
 /// machine. See <see cref="MfdScannerState"/>.
+/// </param>
+/// <param name="PilotVideos">
+/// What each of the Heads-Down Display's three comm boxes is showing, or a null entry for a box on
+/// its idle labels — <see cref="SquadCommChannel.Video"/>.
+/// </param>
+/// <param name="PilotMessage">
+/// The line the pilot and squad channel is showing over the canopy, or null when it is quiet. A
+/// separate port from <paramref name="Message"/> with its own box and its own colours — see
+/// <see cref="PilotMessageBoxLayout"/>.
 /// </param>
 public readonly record struct CockpitHudState(
 	IReadOnlyList<WeaponRowState> Weapons,
@@ -110,7 +128,11 @@ public readonly record struct CockpitHudState(
 	MfdScannerState Scanner = default,
 	MessageTicker Message = default,
 	HddCommandState Command = default,
-	IReadOnlyList<int>? HardpointSlots = null) {
+	IReadOnlyList<int>? HardpointSlots = null,
+	MfdFlashCommState FlashComm = default,
+	SquadTransmission? Transmission = null,
+	IReadOnlyList<SquadTransmission?>? PilotVideos = null,
+	PilotMessageLine? PilotMessage = null) {
 
 	/// <summary>
 	/// Power-up state: an even shield balance printing 100/100 the way <c>ShieldsGauge_UpdateReadouts</c>
@@ -144,5 +166,20 @@ public readonly record struct CockpitHudState(
 		Scanner: MfdScannerState.Empty,
 		Message: default,
 		Command: default,
-		HardpointSlots: Array.Empty<int>());
+		HardpointSlots: Array.Empty<int>(),
+		FlashComm: MfdFlashCommState.Default,
+		Transmission: null,
+		PilotVideos: null,
+		PilotMessage: null);
 }
+
+/// <summary>
+/// One line on the pilot and squad channel, already composed the way <c>FUN_00435d0c</c> composes it
+/// — the speaker's name, <see cref="PilotMessageBoxLayout.NameSeparator"/>, then their message.
+/// </summary>
+/// <param name="Text">The composed line.</param>
+/// <param name="Slot">
+/// Which comm box is speaking, which is what picks the box's colours, or -1 for a message with no
+/// squadmate behind it — see <see cref="PilotMessageBoxLayout"/>.
+/// </param>
+public readonly record struct PilotMessageLine(string Text, int Slot);

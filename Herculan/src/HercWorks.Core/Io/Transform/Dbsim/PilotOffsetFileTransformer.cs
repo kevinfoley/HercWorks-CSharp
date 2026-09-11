@@ -6,7 +6,7 @@ namespace HercWorks.Core.Io.Transform.Dbsim;
 /// <summary>
 /// Transforms byte[] data to and from .OFS pilot-portrait-offset files (see
 /// <see cref="PilotOffsetFile"/> for the format writeup). New: no Java equivalent, not a ported
-/// format — reverse-engineered directly against real retail data.
+/// format — read from DBSIM's own loader.
 /// </summary>
 public class PilotOffsetFileTransformer : ByteTransformer<PilotOffsetFile> {
 	private const int EntrySize = 12;
@@ -23,12 +23,9 @@ public class PilotOffsetFileTransformer : ByteTransformer<PilotOffsetFile> {
 
 		for (int i = 0; i < count; i++) {
 			entries[i] = new PilotOffsetFile.Entry {
-				Index = IndexShortLE(),
-				Unk1 = IndexShortLE(),
-				OffsetA = IndexShortLE(),
-				OffsetB = IndexShortLE(),
-				OffsetC = IndexShortLE(),
-				OffsetD = IndexShortLE(),
+				Index = IndexIntLE(),
+				X = IndexIntLE(),
+				Y = IndexIntLE(),
 			};
 		}
 
@@ -47,12 +44,9 @@ public class PilotOffsetFileTransformer : ByteTransformer<PilotOffsetFile> {
 		void Emit(byte[] bytes) => outStream.Write(bytes, 0, bytes.Length);
 
 		foreach (var entry in ofs.Entries ?? Array.Empty<PilotOffsetFile.Entry>()) {
-			Emit(WriteShortLE(entry.Index));
-			Emit(WriteShortLE(entry.Unk1));
-			Emit(WriteShortLE(entry.OffsetA));
-			Emit(WriteShortLE(entry.OffsetB));
-			Emit(WriteShortLE(entry.OffsetC));
-			Emit(WriteShortLE(entry.OffsetD));
+			Emit(WriteIntLE(entry.Index));
+			Emit(WriteIntLE(entry.X));
+			Emit(WriteIntLE(entry.Y));
 		}
 
 		return outStream.ToArray();

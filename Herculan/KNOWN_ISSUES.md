@@ -57,7 +57,6 @@ _Note to Claude: This section is for listing outstanding issues with features wh
 - Due to nearest-neighbor scaling, text often looks bad when window height isn't an integer multiple of 240.
 - In the Scramble practice mission while piloting an Apocalypse, a Particle Beam Weapon is equipped to slot 8. In HERCULAN, when this PBW is fired the beam visibly clips off near the corner of the screen. This may be a camera near-clip plane issue.
 - The message port draws whenever it has a line, where retail gates the display half on two further fields that aren't decoded. See "The port" in [`docs/formats/audio.md`](docs/formats/audio.md#the-computers-messages).
-- The Heads-Down Display's squad comm boxes read stand-in state. See "Engine coverage" in [`docs/formats/heads-down-display.md`](docs/formats/heads-down-display.md#engine-coverage).
 - The `[V]` external view is placeholder rather than retail's. See [`ROADMAP.md`](ROADMAP.md).
 - The `[P]` pause is a placeholder that just stops the fixed-timestep tick loop. See [`ROADMAP.md`](ROADMAP.md).
 - I think computer voiceover ("Powerup initiated", "Active radar mode", etc) is much higher-fidelity than in retail, but I can't get sound working in my retail copy on Windows 11 so I'm unable to check. The voiceover may be downsampled in retail. Will investigate later and maybe eventually add a vanilla setting.

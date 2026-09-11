@@ -55,12 +55,12 @@ public enum HddOrder {
 /// <param name="OrderIndex">
 /// Index into group 40, the OBJECTIVE: line: the order the pilot is currently carrying out.
 /// </param>
-/// <param name="Broadcasting">
-/// Whether the pilot is talking, in which case the original replaces the five labels with a frame of
-/// that slot's <c>pilot&lt;n&gt;</c> bank. Not drawn — see docs/formats/heads-down-display.md.
-/// </param>
+/// <remarks>
+/// A box showing a picture instead of these labels is not described here: what it draws comes from
+/// the comm box's own state machine, through <see cref="CockpitHudState.PilotVideos"/>.
+/// </remarks>
 public readonly record struct HddPilotSlot(bool Occupied, string Name, int ConditionIndex,
-	int OrderIndex, bool Broadcasting = false);
+	int OrderIndex);
 
 /// <summary>
 /// Everything the command display draws that comes from the simulation rather than from the herc's

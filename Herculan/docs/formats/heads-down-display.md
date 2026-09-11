@@ -461,9 +461,20 @@ Three, at widgets 10-12, backed by `0x14e`-byte gauges in a vector at `+0x12d`. 
 from block offset `0x50`; every retail file sets the highlight mode to 1, the branch that fills the
 marker beside the box rather than the box itself.
 
-`HddGauge_LoadPilotFrames` (`0044a7c0`) loads one squadmate's `pilot<n>` bank from `dba\` (hardcoded,
-like `corners`) plus its 27-entry `.OFS` animation-offset table, and builds six labels relative to
-the box rect, each `0x21` bytes:
+### Who is in it
+
+The machine's own pilot index — `MecEntry.PilotNameIndex`, the leading field of its `player.mec`
+record ([`../shell/campaign-loop.md`](../shell/campaign-loop.md)), stamped onto the spawned machine at `mech+0x29c` by
+`DBSim_SpawnMissionObjects` (`004253d8`). `HddGauge_LoadPilotFrames` walks `str\PILOTS.STR` to it for
+the box's name, takes `index / 3` (`FUN_00434240`) as the portrait bank `dba\PILOT<n>.DBA` +
+`ofs\PILOT<n>.OFS`, and `(n >> 2) + 1` with 3 remapped to 4 (`FUN_00434260`) as the voice bank
+([`audio.md`](audio.md#file-naming)). So the simulator's 36-name table and VSHELL's own roster are
+indexed by the same number.
+
+### The gauge
+
+`HddGauge_LoadPilotFrames` (`0044a7c0`) loads the bank from `dba\` (hardcoded, like `corners`) plus
+its `.OFS` offsets, and builds six labels relative to the box rect, each `0x21` bytes:
 
 | Label | Rect | Font | Text |
 |---|---|---|---|
@@ -476,15 +487,50 @@ the box rect, each `0x21` bytes:
 
 Offsets are device pixels. The name's per-slot background — `COLORS.DAT` entries 0, 1, 2 = palette
 14, 15, 31 — is the manual's "squad members are shown on the map in the same color that highlights
-their name on the comm screen".
+their name on the comm screen", and it is the same id the pilot channel's own box fills with
+([`audio.md`](audio.md#its-box)).
 
-Paint state, matching the manual:
+`ofs\PILOT<n>.OFS` has no header and no count: a flat array of three-`int32` entries —
+`{ frameIndex, x, y }` — of which the loader reads a fixed 27, copying each pair to
+`gauge + frameIndex * 8 + 0x3d`. The pair is signed and in the bank's own 320-wide space: it is the
+frame's position inside the box, added **raw** while the frame itself is blitted doubled, and it
+reaches the MFD's full-screen copy unchanged ([`mfd.md`](mfd.md#transmissions)). The first 24 entries
+are the talking-head frames and share one offset per pilot — `PILOT2`, whose last frame differs, is
+the only exception; entries 24-26 cover the three wider frames at the tail of the bank, which nothing
+in the shipped code path draws.
 
-| Condition | Function | Draws |
-|---|---|---|
-| Not broadcasting | `HddGauge_PaintIdle` `0044ae78` | Box flooded id 19, five labels |
-| Broadcasting | `HddGauge_PaintPilotFrame` `0044b120` | `pilot<n>` frame at its `.OFS` offset |
-| Comms out | `HddGauge_PaintStatic` `0044b3b4` | `static` bank, 5 frames cycled |
+### The state machine — `FUN_0044b5f8`
+
+Per gauge, state at gauge-relative `+0x13b`:
+
+| State | Behaviour |
+|---|---|
+| 0 idle | `HddGauge_PaintIdle` |
+| 1 | Static, until `now >= +0x143`; then falls straight through into 2 |
+| 2 | On entry starts the `.SNC` script; `Snc_GetFrame` drives the portrait until it returns -1, then state 3, deadline `now + 0x14`, and `Sound_Play(0x1c)` |
+| 3 | Static, until the deadline; then state 0 |
+
+`CommBox_OnMessageBegin` (`0044b4ec`) enters state 1 — the port's begin callback
+([`audio.md`](audio.md#the-port)) — with deadline `now + 0x14`, plays `0x1c` if it is not already
+playing, and claims the published block at `+0x766` that the MFD reads. So a reply is static,
+portrait, static, and back to the labels.
+
+Other gauge fields: `+0x12e` static frame cycle 0-4, `+0x12f` the speech slot, `+0x133` the
+frame-indirection flag, `+0x135` the portrait number, `+0x137` the name pointer (`HddGauge_Name`,
+`0044b900`), `+0x13f` the previous state, `+0x143` the deadline, `+0x147` the comms-out latch.
+
+### The three paints
+
+| Function | Draws |
+|---|---|
+| `HddGauge_PaintIdle` `0044ae78` | Video rect flooded id 19, five labels. **Hands a destroyed squadmate's box straight to `HddGauge_PaintStatic` instead** |
+| `HddGauge_PaintPilotFrame` `0044b120` | The same flood, then the `pilot<n>` frame at its `.OFS` offset |
+| `HddGauge_PaintStatic` `0044b3b4` | The `static` bank's 5 frames, cycled one per paint |
+
+The two video paints refresh the name label and **nothing else**, so the plate stays and the four
+status lines under it are simply not drawn while a picture is up. Both clip to the video rect —
+`CommBox_PushVideoClip` (`0044b83c`) installs it and `CommBox_PopVideoClip` (`0044b8f8`) takes it
+back off — which is why a portrait taller than its box is cut off at the bezel.
 
 `HddGauge_ConditionIndex` (`0044adf4`) averages the subject's 19 structural damage bytes into a 0-100
 integrity percentage and buckets it at 90 / 74 / 51 / 1 into group 28's five conditions.
@@ -515,34 +561,36 @@ own fitted hardpoints — each with its live percentage and its state's font.
 Everything the command display draws is drawn: the terrain raster, the grid, the mission border,
 every marker with its heading frame and its range falloff, the route waypoints, the order list with
 its availability, selection, hotkey characters and highlight plate, the message row, XMIT and CANCEL,
-and the three comm boxes with their names, conditions and objectives. Zoom, pan, recentring, pilot
-selection and target designation are all wired to both the widgets and the keys. Three of those
-labels are fed by stand-in state, below.
+and the three comm boxes with their pilots' names, conditions and objectives. Zoom, pan, recentring,
+pilot selection and target designation are all wired to both the widgets and the keys.
 
-Not drawn: pilot video and its static — the `pilot<n>` and `static` banks ship 320-wide only (see
-Open) and a squadmate has nothing to say until there is squad AI. The damage rows do not scroll
-either: the engine has no row offset, so a 19-row structural list shows its first 13.
+The comm boxes run their four-state machine and draw what it says: the `pilot<n>` portrait at its
+`.OFS` offset or the cycling `static`, clipped to the box, with the name plate left over it and the
+four status lines suppressed. Both 320-wide-only banks are taken from `dba\` and blitted doubled, the
+way the original doubles them. A destroyed squadmate's box sits on static: the original's idle paint
+reads the machine's own destroyed flag, and `SquadCommChannel.SetCommsOut` is where this engine keeps
+that.
 
-**Stand-ins.** Three things read state the simulation does not carry yet, and none of them is the
-original's behaviour:
+Not drawn: the damage rows do not scroll — the engine has no row offset, so a 19-row structural list
+shows its first 13.
 
-- **A comm box's name** is the machine's own type name. The original stores a pointer per gauge,
-  filled from the pilot roster in the player's save, which VSHELL owns and this engine does not read.
-- **Its OBJECTIVE: line** is what the pilot is *doing* rather than what they were last told.
-  `Mech_SquadOrderLineIndex` (`0041bac8`) indexes group 40 with the machine's behaviour descriptor
-  `+0x3c` ([`../simulation/ai-dispatch.md`](../simulation/ai-dispatch.md)), then overrides that with
-  the standing squad order at `mech+0x23e` (1→`TRAVEL`, 2→`PATROL`, 3 or 6→`GUARD`) — but only for a
-  machine that is neither immobilised nor destroyed and is not fleeing, so a downed squadmate always
-  reads `DEAD` or `IMMOBILE` whatever it was ordered to do.
-- **A transmitted order** is recorded against the slot and nothing else. There is no squad AI to
-  receive it.
+XMIT delivers a real order — [`../simulation/ai-squadmates.md`](../simulation/ai-squadmates.md) owns
+the transmit path and what the squadmate does with it. The OBJECTIVE: line reports back through
+`Mech_SquadOrderLineIndex` (`0041bac8`), which indexes group 40 with the machine's behaviour
+descriptor `+0x3c` ([`../simulation/ai-dispatch.md`](../simulation/ai-dispatch.md)) and lets the
+standing order override it (1→`TRAVEL`, 2→`PATROL`, 3 or 6→`GUARD`) — but only for a machine that is
+neither immobilised nor destroyed, is not fleeing and is not committed to a fight, so a downed
+squadmate reads `DEAD` or `IMMOBILE` whatever it was ordered to do and one that has found a fight
+reads `ATTACK`.
 
 The map raster is built as one texel per grid cell and sampled bilinearly rather than Gouraud-shaded
 into an intermediate bitmap. The colour rule is the original's exactly; what is dropped is the round
 trip through a software rasterizer's scratch buffer.
 
-`Herculan.Engine.Host` takes `--hdd [0|1]`, `--hdd-damage [0-2]`, `--hdd-pilot [0-2]` and
-`--hdd-order [0-7]`, since a `--screenshot` run never sees a keystroke — and the order list only
+`Herculan.Engine.Host` takes `--hdd [0|1]`, `--hdd-damage [0-2]`, `--hdd-pilot [0-2]`,
+`--hdd-order [0-7]` and `--hdd-xmit` — which presses XMIT on the armed order, taking the map centre
+or the nearest eligible unit as its pick, and reports the squad's standing orders before and after
+the run — since a `--screenshot` run never sees a keystroke — and the order list only
 leaves its unavailable blue once a pilot is selected. Key bindings that collide with the host's own
 are gated on the relevant page being down: `[S]`/`[I]`/`[W]` on the damage page, the order hotkeys and
 `[1]`-`[3]` on the command display. The one binding actually taken away rather than shared is the four
@@ -552,8 +600,11 @@ keeps steering throughout.
 ## Open
 
 - `static` and `pilot<n>` ship in `dba\` only, at 320-wide sizes, so a 640-wide mode has no matching
-  art for them. `static` is loaded through the shared `dba`/`hba` folder global, which selects `hba`
-  in that mode and would miss.
+  art for them. `pilot<n>` names its folder outright; `static` is loaded through the shared
+  `dba`/`hba` folder global, which selects `hba` in that mode and would miss.
+- `gauge+0x133`, the frame-indirection flag `HddGauge_PaintPilotFrame` branches on, is set to 1 for
+  every slot the loader builds, so the `DAT_0049d1f6` lookup table and the
+  `Math_RandomNext % 3 + 0x18` arm above it are never reached.
 - Block indices 2-3 (1220) and `0x5d` (1584) are read by no constructor.
 - The comm-box highlight mode's 0 branch, which fills the box rect rather than the marker, is
   unexercised by retail data.

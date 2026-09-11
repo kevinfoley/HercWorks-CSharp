@@ -261,8 +261,36 @@ public sealed class Overlay2DRenderer : IDisposable {
 			}
 
 			var r = sprite.Rect;
-			AddTexturedQuad(Dx(left), Dy(top), Dx(left + sprite.Width), Dy(top + sprite.Height),
+			float drawn = sprite.Scale;
+			AddTexturedQuad(Dx(left), Dy(top), Dx(left + sprite.Width * drawn), Dy(top + sprite.Height * drawn),
 				r.U0, r.V0, r.U1, r.V1);
+		}
+
+		// The same blit trimmed to a rect, for the one thing on this display that does not fit the box
+		// it goes in: a comm box's picture. The original does it with a clip rect installed round the
+		// blit (FUN_0044b83c), which is why a portrait taller than its box is cut off at the bezel
+		// instead of hanging over it. Trimming the quad and its UVs by the same fraction keeps the
+		// whole display one batch, exactly as the message ticker's per-glyph trim does.
+		void BlitClipped(string bank, int frame, float left, float top, HddLayout.Rect clip) {
+			if (sprites.Sprite(bank, frame) is not { } sprite || sprite.Width <= 0 || sprite.Height <= 0) {
+				return;
+			}
+
+			float drawn = sprite.Scale;
+			float width = sprite.Width * drawn;
+			float height = sprite.Height * drawn;
+			float x0 = Math.Max(left, clip.X0), x1 = Math.Min(left + width, clip.X1 + 1);
+			float y0 = Math.Max(top, clip.Y0), y1 = Math.Min(top + height, clip.Y1 + 1);
+			if (x1 <= x0 || y1 <= y0) {
+				return;
+			}
+
+			var r = sprite.Rect;
+			AddTexturedQuad(Dx(x0), Dy(y0), Dx(x1), Dy(y1),
+				r.U0 + (r.U1 - r.U0) * ((x0 - left) / width),
+				r.V0 + (r.V1 - r.V0) * ((y0 - top) / height),
+				r.U1 - (r.U1 - r.U0) * ((left + width - x1) / width),
+				r.V1 - (r.V1 - r.V0) * ((top + height - y1) / height));
 		}
 
 		// One run of glyphs left to right, with the character at hotkeyIndex drawn in an alternate
@@ -349,8 +377,14 @@ public sealed class Overlay2DRenderer : IDisposable {
 		// drawn on the damage screen too. An occupied slot gets HddGauge_PaintIdle's flood and five
 		// labels; an empty one gets the display's own fill of the box inset one device pixel, and no
 		// labels at all.
+		//
+		// A box with a picture in it takes the other branch of the same dispatch: the two video paints
+		// (HddGauge_PaintPilotFrame, HddGauge_PaintStatic) flood the same rect, blit one frame into it
+		// and then refresh the name label and nothing else — so the plate stays and the four status
+		// lines under it are simply not drawn that frame.
 		if (background is { } boxFill) {
 			var pilots = state.Command.PilotBoxes;
+			var videos = state.PilotVideos;
 			for (int i = 0; i < HddLayout.PilotSlotCount; i++) {
 				var box = layout[HddLayout.Widget.PilotBox0 + i];
 				Fill(box.Inset(1, 1), boxFill);
@@ -360,12 +394,26 @@ public sealed class Overlay2DRenderer : IDisposable {
 				}
 
 				var pilot = pilots[i];
+				var video = videos is not null && i < videos.Count ? videos[i] : null;
+
+				// The frame's own .OFS pair places it inside the box, and is added raw while the frame
+				// itself is blitted doubled — the same split the MFD's full-screen copy makes. Static
+				// publishes (0, 0) and covers the box on its own.
+				if (video is { } picture) {
+					BlitClipped(picture.Bank, picture.Frame,
+						box.X0 + picture.OffsetX, box.Y0 + picture.OffsetY, box.Inset(1, 1));
+				}
+
 				var nameBox = new HddLayout.Rect(box.X0 + 4, box.Y0 + 8, box.X1 - 4, box.Y0 + 8 + PilotLabelHeight);
 				if (hud.LogicalColor(HudColorTable.PilotColorId(i)) is { } nameFill) {
 					Fill(nameBox, nameFill);
 				}
 
 				DrawLabel(HddLayout.PilotNameFont, string.Empty, pilot.Name, -1, nameBox, centered: true);
+
+				if (video is not null) {
+					continue;
+				}
 
 				PilotLine(box, 32, HddLayout.PilotCaptionFont,
 					strings?.Text(HddLayout.PilotCaptionGroup, 0));
@@ -944,22 +992,31 @@ public sealed class Overlay2DRenderer : IDisposable {
 		}
 
 		// Draws one run of glyphs left to right from a device-pixel top-left and reports where the run
-		// ended — the original chains its readouts by measuring the previous one the same way.
-		float DrawText(string fontName, string text, float deviceLeft, float deviceTop) {
+		// ended — the original chains its readouts by measuring the previous one the same way. The
+		// character at hotkeyIndex is drawn in an alternate font, which is all FUN_00438aac does over
+		// a plain Label_SetText: it measures the prefix, then redraws that one glyph in the label's
+		// own +0x21 alternate. Pass -1 for a plain run.
+		float DrawRun(string fontName, string alternateFont, string text, int hotkeyIndex,
+				float deviceLeft, float deviceTop) {
 			if (sprites.Font(fontName) is not { } font) {
 				return deviceLeft;
 			}
 
 			float pen = deviceLeft;
-			foreach (char c in text) {
-				if (font.GlyphIndex(c) is { } glyph) {
-					BlitDevice(fontName, glyph, pen, deviceTop);
-					pen += font.Width(c);
+			for (int i = 0; i < text.Length; i++) {
+				string face = i == hotkeyIndex && sprites.Font(alternateFont) != null ? alternateFont : fontName;
+				var metrics = sprites.Font(face)!;
+				if (metrics.GlyphIndex(text[i]) is { } glyph) {
+					BlitDevice(face, glyph, pen, deviceTop);
+					pen += metrics.Width(text[i]);
 				}
 			}
 
 			return pen;
 		}
+
+		float DrawText(string fontName, string text, float deviceLeft, float deviceTop) =>
+			DrawRun(fontName, string.Empty, text, -1, deviceLeft, deviceTop);
 
 		// A label paints its own background before its text: the constructors write a background colour
 		// id into the label object's field 0x1d — 0x2e for a weapon row, DAT_004d3c26 (colour id 19,
@@ -983,7 +1040,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 			DrawText(fontName, text, textX, textY);
 		}
 
-		AddMfd(hud, state, BlitDevice, BlitRotatedDevice, DrawText,
+		AddMfd(hud, state, BlitDevice, BlitRotatedDevice, DrawRun,
 			(x0, y0, x1, y1, color) => AddFilledRect(Dx(x0), Dy(y0), Dx(x1), Dy(y1), color));
 		BlitAt("HUDHTICK", 0, gau.TorsoTwist);
 
@@ -1047,6 +1104,67 @@ public sealed class Overlay2DRenderer : IDisposable {
 		// The message port is the view's own last child, constructed after every gauge, so its box
 		// goes over whatever it overlaps rather than under it.
 		AddMessageTicker(hud, sprites, state.Message, Dx, Dy, scale);
+
+		// And the second port of the same class, built from the rect immediately before the ticker's.
+		AddPilotMessage(hud, sprites, state.PilotMessage, Dx, Dy, scale);
+	}
+
+	/// <summary>
+	/// The pilot and squad channel's line — a box in the speaking squadmate's own colour, framed one
+	/// palette entry below it, with the composed <c>NAME: message</c> centred in it.
+	/// <see cref="PilotMessageBoxLayout"/> carries the geometry and the colour rule and says where
+	/// both come from.
+	///
+	/// <para>No horizontal clip, unlike the ticker: this box is built <i>around</i> its text rather
+	/// than the text scrolled through it, so nothing can overhang an edge.</para>
+	/// </summary>
+	private void AddPilotMessage(CockpitArt hud, HudSpriteSheet sprites, PilotMessageLine? line,
+			Func<float, float> dx, Func<float, float> dy, float scale) {
+		if (line is not { Text.Length: > 0 } message
+			|| PilotMessageBoxLayout.From(hud) is not { } box
+			|| sprites.Font(PilotMessageBoxLayout.Font) is not { } font) {
+			return;
+		}
+
+		const int screen = CockpitViewGeometry.ViewWidth;
+		int textWidth = font.Measure(message.Text);
+		int left = PilotMessageBoxLayout.Left(screen, textWidth);
+		int right = PilotMessageBoxLayout.Right(screen, textWidth);
+
+		// A squadmate's slot resolves to their own comm-box colour and the frame is the palette entry
+		// one below it — index arithmetic on the resolved index, not a second logical id. Anything
+		// without a squadmate behind it takes the computer's black and red instead.
+		Vector3? fill, border;
+		if (message.Slot >= 0
+			&& hud.Colors?.PaletteIndex(HudColorTable.PilotColorId(message.Slot)) is { } index) {
+			fill = hud.PaletteEntry(index);
+			border = hud.PaletteEntry(index - 1);
+		} else {
+			fill = hud.LogicalColor(PilotMessageBoxLayout.NoSpeakerFillColorId);
+			border = hud.LogicalColor(PilotMessageBoxLayout.NoSpeakerBorderColorId);
+		}
+
+		if (fill is { } background) {
+			AddFilledRect(dx(left), dy(box.Top), dx(right), dy(box.Bottom), background);
+		}
+
+		if (border is { } frame) {
+			AddRectOutline(dx(left), dy(box.Top), dx(right), dy(box.Bottom), scale, frame);
+		}
+
+		float pen = PilotMessageBoxLayout.TextLeft(screen, textWidth);
+		float top = box.TextTop(font);
+
+		foreach (char c in message.Text) {
+			if (font.GlyphIndex(c) is { } glyph
+				&& sprites.Sprite(PilotMessageBoxLayout.Font, glyph) is { Width: > 0, Height: > 0 } cell) {
+				var r = cell.Rect;
+				AddTexturedQuad(dx(pen), dy(top), dx(pen + cell.Width), dy(top + cell.Height),
+					r.U0, r.V0, r.U1, r.V1);
+			}
+
+			pen += font.Width(c);
+		}
 	}
 
 	/// <summary>
@@ -1617,7 +1735,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	private static void AddMfd(CockpitArt hud, CockpitHudState state,
 			Action<string, int, float, float> blitDevice,
 			Action<string, int, float, float, short> blitRotatedDevice,
-			Func<string, string, float, float, float> drawText,
+			MfdTextWriter drawText,
 			Action<float, float, float, float, Vector3> fillRect) {
 		if (hud.Sprites is not { } sprites || MfdLayout.InsetOrigin(hud.Gau) is not { } inset) {
 			return;
@@ -1637,13 +1755,19 @@ public sealed class Overlay2DRenderer : IDisposable {
 		// — see HudFont.Place, which is where that pair's arithmetic lives.
 		void DrawLabel(string font, string text, float x0, float y0, float x1, float y1,
 				LabelAlign align, float marginX = 0f) {
+			DrawHotkeyLabel(font, string.Empty, text, -1, x0, y0, x1, y1, align, marginX);
+		}
+
+		// The same placement with one character re-fonted — the form the FLASH COMM rows are built in.
+		void DrawHotkeyLabel(string font, string alternateFont, string text, int hotkeyIndex,
+				float x0, float y0, float x1, float y1, LabelAlign align, float marginX = 0f) {
 			if (sprites.Font(font) is not { } metrics) {
 				return;
 			}
 
 			var (textX, textY) = metrics.Place(text, (int)x0, (int)y0, (int)x1, (int)y1,
 				align, (int)marginX);
-			drawText(font, text, textX, textY);
+			drawText(font, alternateFont, text, hotkeyIndex, textX, textY);
 		}
 
 		if (MfdLayout.BackgroundFrame(state.Mfd) is { } background) {
@@ -1688,7 +1812,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 				AddMfdStatusScreen(hud, state.TargetSubject, blitDevice, DrawLabel, fillRect, X, Y);
 				break;
 			case MfdMode.FlashComm:
-				AddMfdFlashComm(strings, DrawLabel, insetX, insetY);
+				AddMfdFlashComm(hud, state, strings, blitDevice, DrawHotkeyLabel, insetX, insetY);
 				break;
 			case MfdMode.Scanner:
 				AddMfdScanner(hud, state.Scanner, state.TorsoTwist,
@@ -1699,11 +1823,23 @@ public sealed class Overlay2DRenderer : IDisposable {
 				break;
 		}
 
+		// A squadmate answering takes the whole screen: MfdDisplay_Update floods the inset and blits
+		// the transmitting comm box's own frame there before it ever reaches the current screen's
+		// update slot, so the order list is simply not drawn while a reply is coming in.
+		if (state.Transmission is { } transmission) {
+			AddMfdTransmission(hud, transmission, blitDevice, DrawLabel, fillRect, insetX, insetY, X, Y);
+		}
+
 		// The title goes down last, after the screen has painted — the repaint's own order, so a
 		// screen that draws into the header strip cannot cover its own caption. Left-aligned, not
 		// centred: the title passes alignment 1 where the button captions pass 2, and retail's own
 		// "STATUS" starts 44 device pixels from the panel's left edge, which is this rect's left edge.
-		if (MfdLayout.Title(strings, state.Mfd) is { Length: > 0 } title) {
+		//
+		// A transmission has no title at all. The flood covers the header strip along with the rest
+		// of the screen, and the branch that draws the pilot jumps past the title refresh as well as
+		// past the screen update — the caption comes back with the full repaint the display queues
+		// when the transmission ends.
+		if (state.Transmission is null && MfdLayout.Title(strings, state.Mfd) is { Length: > 0 } title) {
 			DrawLabel("WHITE", title,
 				X(MfdLayout.TitleRect.X0), Y(MfdLayout.TitleRect.Y0),
 				X(MfdLayout.TitleRect.X1), Y(MfdLayout.TitleRect.Y1), LabelAlign.Left);
@@ -1874,29 +2010,106 @@ public sealed class Overlay2DRenderer : IDisposable {
 	}
 
 	/// <summary>
-	/// FLASH COMM's order list (<c>0043f5d8</c>): six evenly stacked rows spanning almost the whole
-	/// screen, listing the first six of the eighteen squadmate orders the string table holds. Rows are
-	/// 7 GAU units apart and drawn in <c>CPGREEN</c>.
+	/// FLASH COMM's order list (<c>FUN_0043f7a4</c>): six evenly stacked rows spanning almost the whole
+	/// screen, 7 GAU units apart, each naming one of the squad orders in
+	/// <see cref="MfdLayout.OrderGroup"/>.
 	///
-	/// <para>The original highlights the row the cursor is on and re-fonts orders the squad cannot
-	/// currently take; both need squad state, so every row draws available here.</para>
+	/// <para>Three things vary per row and all three come from <see cref="MfdFlashCommScreen"/>. The
+	/// <b>verb</b> is the row index, or that index plus 3 when the row has been toggled, so rows 4 and
+	/// 5 read <c>EMCON</c> and <c>HOLD YOUR FIRE</c> once those orders have been given. The <b>font</b>
+	/// is <c>CPYLW</c> for the row the cursor is on, <c>CPOFF</c> for one the squad cannot take and
+	/// <c>CPGREEN</c> otherwise. And <b>one character</b> of every row is redrawn in <c>CPRED</c>, at
+	/// the index the order's own attribute byte names — the key that gives that order, stored beside
+	/// the string rather than in the code, exactly as the [F7] command display's list does it.</para>
+	///
+	/// <para>The plate under the selected row is <c>MFD</c> frame 11, or 12 while XMIT is held: the
+	/// frame index is <c>11 + </c> the XMIT button's own press byte, which is why pressing the button
+	/// lights the row too. It is a hollow rounded rect and goes down <i>after</i> the text, which is
+	/// the paint's own order.</para>
 	/// </summary>
-	private static void AddMfdFlashComm(SimStringTable? strings, MfdLabelWriter drawLabel,
+	private static void AddMfdFlashComm(CockpitArt hud, CockpitHudState state, SimStringTable? strings,
+			Action<string, int, float, float> blitDevice, MfdHotkeyLabelWriter drawLabel,
 			float insetX, float insetY) {
 		var rows = MfdLayout.FlashCommRows;
 		var orders = strings?.Group(MfdLayout.OrderGroup);
+		var page = state.FlashComm;
+
 		if (orders == null) {
 			return;
 		}
 
-		for (int i = 0; i < MfdLayout.FlashCommRowCount && i < orders.Count; i++) {
-			if (orders[i].Text is { Length: > 0 } text) {
-				float top = insetY + rows.Y0 + i * rows.RowHeight;
-				drawLabel(MfdLayout.FlashCommFont, text,
-					insetX + rows.X0, top, insetX + rows.X1, top + rows.RowHeight,
-					LabelAlign.Left, MfdLayout.FlashCommTextMarginX);
+		for (int i = 0; i < MfdLayout.FlashCommRowCount; i++) {
+			int verb = page.Verb(i);
+			if (verb < 0 || verb >= orders.Count || orders[verb].Text is not { Length: > 0 } text) {
+				continue;
 			}
+
+			bool selected = i == page.SelectedRow;
+			string font = selected ? MfdLayout.FlashCommSelectedFont
+				: page.CanTake(i) ? MfdLayout.FlashCommFont
+				: MfdLayout.FlashCommUnavailableFont;
+
+			// Unlike the command display's list, the alternate is passed on every row: the page
+			// re-fonts the whole line rather than dropping the hotkey, so even the selected yellow row
+			// keeps its red letter.
+			int hotkey = orders[verb].Attributes is { Length: > 0 } attributes ? attributes[0] : -1;
+
+			float top = insetY + rows.Y0 + i * rows.RowHeight;
+			drawLabel(font, MfdLayout.FlashCommHotkeyFont, text, hotkey,
+				insetX + rows.X0, top, insetX + rows.X1, top + rows.RowHeight,
+				LabelAlign.Left, MfdLayout.FlashCommTextMarginX);
 		}
+
+		int plate = state.PressedWidget == CockpitWidgetId.Mfd(MfdLayout.TransmitButton)
+			? MfdLayout.FlashCommRowPlatePressedFrame
+			: MfdLayout.FlashCommRowPlateFrame;
+
+		blitDevice(MfdLayout.Bank, plate,
+			insetX + rows.X0, insetY + rows.Y0 + page.SelectedRow * rows.RowHeight);
+	}
+
+	/// <summary>
+	/// A squadmate answering on the radio (<c>MfdDisplay_Update</c>, <c>00446328</c>): the inset is
+	/// flooded, one frame of that pilot's video is blitted at <see cref="MfdLayout.TransmissionOrigin"/>
+	/// plus the frame's own <c>.OFS</c> offset, and — only while the picture is up rather than the
+	/// static either side of it — their name goes in the message label on their own comm-box colour.
+	///
+	/// <para>This runs whichever of the six screens is selected. The update draws it before it ever
+	/// reaches the current screen's update slot and jumps past that slot afterwards, so a transmission
+	/// replaces the screen rather than sitting on it.</para>
+	///
+	/// <para>The frame is blitted doubled, as every <c>dba</c>-only bank is, but the offset pair is
+	/// added raw — see <see cref="SquadTransmission.OffsetX"/>.</para>
+	/// </summary>
+	private static void AddMfdTransmission(CockpitArt hud, SquadTransmission transmission,
+			Action<string, int, float, float> blitDevice, MfdLabelWriter drawLabel,
+			Action<float, float, float, float, Vector3> fillRect,
+			float insetX, float insetY, Func<int, float> x, Func<int, float> y) {
+		const float S = CockpitArt.GauToPixelScale;
+
+		// The flood is the inset rect the display carries at +0xeb, whose extent is the screen
+		// chrome's own frame — and a sprite's Width/Height are already device pixels, so the GAU
+		// doubling must not be applied to them a second time.
+		if (hud.Sprites?.Sprite(MfdLayout.Bank, MfdLayout.ScreenFrame) is { } screen
+			&& hud.PaletteEntry(MfdLayout.ScreenFillPaletteIndex) is { } fill) {
+			fillRect(insetX, insetY, insetX + screen.Width, insetY + screen.Height, fill);
+		}
+
+		blitDevice(transmission.Bank, transmission.Frame,
+			insetX + MfdLayout.TransmissionOrigin.X * S + transmission.OffsetX,
+			insetY + MfdLayout.TransmissionOrigin.Y * S + transmission.OffsetY);
+
+		if (!transmission.ShowName || transmission.Name is not { Length: > 0 } name) {
+			return;
+		}
+
+		var label = MfdLayout.MessageRect;
+		if (hud.LogicalColor(transmission.NameColorId) is { } plate) {
+			fillRect(x(label.X0), y(label.Y0), x(label.X1 + 1), y(label.Y1 + 1), plate);
+		}
+
+		drawLabel(MfdLayout.MessageFont, name,
+			x(label.X0), y(label.Y0), x(label.X1), y(label.Y1), LabelAlign.Center, 0f);
 	}
 
 	/// <summary>
@@ -2032,6 +2245,17 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// </summary>
 	private delegate void MfdLabelWriter(string font, string text,
 		float x0, float y0, float x1, float y1, LabelAlign align, float marginX);
+
+	/// <summary>
+	/// <see cref="MfdLabelWriter"/> with the alternate font one character is re-drawn in, and that
+	/// character's index. Only the FLASH COMM rows need it.
+	/// </summary>
+	private delegate void MfdHotkeyLabelWriter(string font, string alternateFont, string text,
+		int hotkeyIndex, float x0, float y0, float x1, float y1, LabelAlign align, float marginX);
+
+	/// <summary>One run of glyphs, with the character at <c>hotkeyIndex</c> in an alternate font.</summary>
+	private delegate float MfdTextWriter(string font, string alternateFont, string text,
+		int hotkeyIndex, float deviceLeft, float deviceTop);
 
 	/// <summary>
 	/// The three console buttons: a <c>PWEAPONS</c> plate with a caption centred on it.

@@ -43,6 +43,9 @@ public class GauFileTransformer : ByteTransformer<GAUFile> {
 	/// <summary>And <see cref="HHudScanner"/>'s point, content offset 1196 inside the same remainder.</summary>
 	private const int HudScannerRemainderOffset = 52;
 
+	/// <summary>And <see cref="HPilotMessagePort"/>'s rect, content offset 1668.</summary>
+	private const int PilotMessagePortRemainderOffset = 524;
+
 	/// <summary>And <see cref="HMessageTicker"/>'s rect, content offset 1684 — the file's last field.</summary>
 	private const int MessageTickerRemainderOffset = 540;
 
@@ -124,6 +127,17 @@ public class GauFileTransformer : ByteTransformer<GAUFile> {
 			Origin = new PixelPoint(
 				IntLE(gau.Remainder, HudScannerRemainderOffset),
 				IntLE(gau.Remainder, HudScannerRemainderOffset + 4)),
+		};
+
+		// Offset 1668, the four ints before those: the pilot and squad channel's box — see
+		// HPilotMessagePort. Surfaced the same way as the two above.
+		int pilotX0 = IntLE(gau.Remainder, PilotMessagePortRemainderOffset);
+		int pilotY0 = IntLE(gau.Remainder, PilotMessagePortRemainderOffset + 4);
+		int pilotX1 = IntLE(gau.Remainder, PilotMessagePortRemainderOffset + 8);
+		int pilotY1 = IntLE(gau.Remainder, PilotMessagePortRemainderOffset + 12);
+		gau.PilotMessagePort = new HPilotMessagePort {
+			Origin = new PixelPoint(pilotX0, pilotY0),
+			Size = new PixelSize(pilotX1 - pilotX0, pilotY1 - pilotY0),
 		};
 
 		// Offset 1684, the file's last four ints: the cockpit message ticker's box — see

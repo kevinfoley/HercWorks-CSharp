@@ -284,8 +284,6 @@ Not ported, and each is a gap in something else rather than in this layer:
 - `obj+0xa2`, the suppressor on the engagement action — see above.
 
 The two walk-on verbs are implemented but unexercised: no mission has been found that uses them.
-Flyers do not move in this engine, so a flyer group can never trip a trigger area it would reach in
-retail — which can make a trigger activate later here than it does there.
 
 ## Rejected readings
 

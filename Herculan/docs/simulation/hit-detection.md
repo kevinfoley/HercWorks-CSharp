@@ -333,8 +333,9 @@ if (hit) {
 A flyer's health record is **one component with one dependent** — `FUN_004215f4` allocates the
 arrays with literal counts of 1, which is exactly what `SKIMMER.DMG` ships. Its vtable `+0x74`
 (`FUN_00421bb4`) is a thin wrapper: destroy component 0 and the aircraft is lost (`obj+0x99`), it
-fires its mission action, credits the kill, and is given a large negative rate at `obj+0x2e` to
-fall.
+fires its mission action, credits the kill, and has `-100000` written into `obj+0x2e` — its world Z,
+not a rate — so the wreck drops out of the world. See
+[`ai-flyers.md`](ai-flyers.md#death).
 
 Retail ships a `.COL` and a `.DMG` for `SKIMMER` only, so `HOVTANK` and `DROPSHIP` cannot be shot
 at all — in the original as much as here.

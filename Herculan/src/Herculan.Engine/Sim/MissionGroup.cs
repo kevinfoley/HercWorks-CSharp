@@ -270,15 +270,25 @@ public sealed partial class MissionGroup {
 			OrderIndex++;
 
 			for (int i = 0; i < _members.Count; i++) {
-				if (_members[i] is MechObject member) {
-					member.Behaviour.DwellCountdown = 0;
+				switch (_members[i]) {
+					case MechObject member:
+						member.Behaviour.DwellCountdown = 0;
+						break;
+					case FlyerObject aircraft:
+						aircraft.Behaviour.DwellCountdown = 0;
+						break;
 				}
 			}
 		}
 
 		for (int i = 0; i < _members.Count; i++) {
-			if (_members[i] is MechObject { Removed: false } mech) {
-				mech.AiTick(world);
+			switch (_members[i]) {
+				case MechObject { Removed: false } mech:
+					mech.AiTick(world);
+					break;
+				case FlyerObject { Removed: false } aircraft:
+					aircraft.AiTick(world);
+					break;
 			}
 		}
 	}

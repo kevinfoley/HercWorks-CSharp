@@ -38,7 +38,8 @@ Ported as `MechObject.Flight.cs` and `FlightModelRecord.cs`.
 These are states 0, 1 and 2 of the 22-entry AI behaviour table, and the names are the game's own; the full roster and the dispatch mechanism are in [`ai-dispatch.md`](ai-dispatch.md). Each descriptor holds three pointer-to-member-function triples `{func, thisDelta, vtableIndex}` filled in at startup from a 0x24-stride source block. Block 1 (`0049991c`) is the walker set and its `+0x0c` slot is `Mech_MovementTick`; `FlyerBehaviourSlots` (`00499940`) is block 2 and its `+0x0c` slot is `Razor_MovementTick`. Because these are member pointers reached through the vtable dispatchers rather than vtable entries directly, Ghidra reports no xrefs on either move function.
 
 **Only the player's RAZOR flies.** An AI-controlled one takes the not-the-player branch and the
-walker move, which would walk it. No retail mission places one.
+walker move, which would walk it. No retail mission places one. The Cybrid aircraft are a different
+class entirely and fly under their own AI — see [`ai-flyers.md`](ai-flyers.md).
 
 The input side is gated separately, in `Sim_PollPlayerInput` (`00460764`), on the flyer flag alone.
 

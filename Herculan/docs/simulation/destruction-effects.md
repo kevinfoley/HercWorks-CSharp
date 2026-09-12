@@ -137,7 +137,8 @@ Per tick, in order:
 3. The move, by the **average of the speed before and after** this tick's changes. Verified against
    the raw disassembly at `00408ca1`: it is `ADD dword [pos], movsx word [avg]` — the average is
    taken and shifted in 16 bits (`SAR word`), and it is added **un-integrated**, so a debris
-   velocity is per-tick where a flyer's is per-second.
+   velocity is per-tick where a RAZOR's is per-second. A Cybrid flyer's is per-tick too — see
+   [`ai-flyers.md`](ai-flyers.md#the-move--flyer_movementtick-004218c4).
 4. Ground: below `terrainHeight + Q10Multiply(500, shapeRadius)` the piece is snapped up to it and
    bounces at `-Q10Multiply(450, vz)`, its countdown cleared. A rebound under `0x2d` has stopped.
 5. For a piece with a child group: the countdown is ticked only while it is still flying, so ground
@@ -306,9 +307,12 @@ The `BASES.DAT` record fields this section reads are tabulated in
 Every spawn site in the table above is ported. Both pools are capped at the original's sizes and
 both drop a spawn when full, as the original's allocator does.
 
-**Not ported:** the detail-level branches (this engine has no detail setting and always takes the
-full-detail figure) and the flyer carrier velocity at `004a96e4` (`FlyerObject` holds no velocity to
-add).
+The carrier velocity at `004a96e4` is `Flyer_ComponentDamageWrite`'s alone: it points the global at
+the aircraft's own world velocity for the length of that call, so the wreckage a shot-down flyer
+sheds keeps flying. `Sim.SimWorld.DebrisCarrierVelocity` is the port.
+
+**Not ported:** the detail-level branches — this engine has no detail setting and always takes the
+full-detail figure.
 
 **The arcs are large at this world scale.** A `DEF_DEB` group-2 throw peaks around 48 m and lands
 about 137 m out over 5 seconds. That follows from constants none of which are this engine's — the

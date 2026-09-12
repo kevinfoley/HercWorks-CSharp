@@ -14,6 +14,7 @@ Six docs, split by what each owns. The rule throughout is one fact, one home: ci
 | `ai-weapons.md` | Weapon choice, engagement envelope, fire decisions, gun convergence for AI |
 | `ai-goals.md` | The mission-group order layer: the order array, how orders advance, and how a verb becomes a behaviour state |
 | `ai-combat-states.md` | The nine thinks that are not navigation: the five combat states, `skirting`, `driving off en`, `fleeing`, and the two inert ones. The combat geometry block, the move step, the circling step, and the `Behaviour_SetState` transition graph |
+| `ai-flyers.md` | The `Flyer` class' whole AI — its own seven-state table, its thinks, its station keeping, its attack run, its control law and its move. Cites this set for the dispatch model it shares |
 | `ai-squadmates.md` | The player's own squad — the two transmit paths, the order record, the eighteen verbs and `Mech_ReceiveSquadOrder`, the standing order at `mech+0x23e` and the three latches it sets |
 
 Docs outside this set that the AI work amends rather than owns: `target-selection.md` (the shared selection mechanism and `mech+0x1a4`), `mech-locomotion.md` (the locomotion model), `mission-deployment.md` (group arrival), `damage-system.md`.
@@ -32,7 +33,7 @@ Each slice is reverse-engineered to its topic doc, reviewed, then ported. The RE
 | 5 | **Behaviour states** | The remaining think functions and the 30 `Behaviour_SetState` call sites as the transition graph | `ai-combat-states.md` written; ported. Found `skirting`'s caller — see below |
 | 5b | **Death and disablement** | `Mech_ComponentDamageWrite` `00417de4`'s two out-of-the-fight branches, `Mech_LocomotionTick`'s immobilised arm | Ported. Closed `ai-dispatch.md`'s `+0x3c` question and `ai-goals.md`'s group `+0x1c`/`+0x30` — see below |
 | 6 | **Squadmates** | `mech+0x23e` standing orders, `FUN_0041c0f4`, `Mech_ApplyFormationOffset` `00417898` | `ai-squadmates.md` written; ported. Closed three latches and a struct gap — see below |
-| 7 | **Flyer AI** | The flyer behaviour path. Remember that the Razor is a player vehicle; the Cybrids (AI enemies) have their own flyer(s) (possibly named Flyer or Skimmer or something similar) | Not started |
+| 7 | **Flyer AI** | `FlyerBehaviourStateTable` `00499cf8`, `Flyer_AiSelectBehaviour` `00422d00`, `Flyer_AttackRun` `004226a0`, `Flyer_MovementTick` `004218c4` | `ai-flyers.md` written; ported. Pulled in deployment, drawing and the shared flight model — see below |
 
 ### What slice 3 pulled in
 
@@ -66,6 +67,28 @@ It also closed **`mech+0x24c`**, one of `known_structs.json`'s four "unread gaps
 Two shapes worth not re-deriving. The order record is 22 packed bytes with the issuer at `+0x02`, and `HddCommandScreen_FillOrderRecord` is what settles it. The FLASH COMM page's six rows are six *positions*, each naming one of two verbs on its own state bit, so the page covers verbs 0-8 rather than 0-5.
 
 Drained from earlier slices while here: group `+0x1c`/`+0x30` were still listed as open in `ai-goals.md` despite `Group_ReportIfAllOutOfAction` being decoded, and `ai-navigation.md` still called descriptor `+0x3c` unread.
+
+### What slice 7 pulled in
+
+The `Flyer` class turned out to have a complete AI of its own rather than a branch of the mech one:
+a second behaviour table at `00499cf8` with its own names, built by an unrecognised static
+initialiser (`00414c65`) sitting immediately after `Behaviour_BuildStateTable`'s `RET`. Only the
+dispatch is shared. Four things outside the AI were load-bearing for it.
+
+- **`dat\FFORMS.DAT`** was undecoded. Three one-based slots per formation and the offset carries a
+  **Z**, where `MFORMS`/`BFORMS` are two-dimensional.
+- **The flight model had to be shared.** `Flyer_ApplyFlightCommand` calls the same
+  `FlightModel_Step` the RAZOR does, so the port was extracted out of `MechObject` into
+  `Sim.FlightPhysics` + `Sim.FlightBlock` and both classes now drive it.
+- **A flyer was never drawn where it was.** The renderer's cell-split path baked the object
+  transform at build time — correct for structures, which is what that path had carried until now.
+- **The flyers' texture bank.** One fixed slot, `ENEMY.DBA`, which
+  [`dts-texture-binding.md`](../formats/dts-texture-binding.md) had recorded as untraced.
+
+One method failure worth not repeating: `Flyer_MovementTick` and `Razor_MovementTick` read almost
+identically, and the flyer's position update was ported as the RAZOR's. It is not — the flyer adds
+its world velocity **raw** where the RAZOR integrates it, so the aircraft crawled. Two functions that
+do the same job in the same class family still have to be read side by side.
 
 ### Why goals moved up
 

@@ -119,6 +119,23 @@ public sealed class WeaponCatalog {
 	}
 
 	/// <summary>
+	/// <c>Proj_LookupRecordByIndex</c> (<c>0040ffb0</c>) — a <c>PROJ.DAT</c> record by its flat
+	/// position in the table, which is a different thing from the <c>(category, subtype)</c> search
+	/// <see cref="Lookup"/> performs. The flyer AI's lead calculation is handed a flat index.
+	/// </summary>
+	public ProjectileData.Projectile? ProjectileAt(int index) =>
+		_projectiles.Data is { } records && index >= 0 && index < records.Length
+			? records[index]
+			: null;
+
+	/// <summary>
+	/// <c>Proj_LookupRecord</c> (<c>0040ffc8</c>) — the linear search by category and subtype id that
+	/// <c>Bullet_Construct</c> and <c>Missile_Construct</c> resolve a fire call's first argument with.
+	/// </summary>
+	public ProjectileData.Projectile? Lookup(ProjectileType category, short subtypeId) =>
+		_projectiles.Data?.FirstOrDefault(r => r.Type == category && r.MissileId == subtypeId);
+
+	/// <summary>
 	/// The name a mount's gauge prints — <c>FUN_0040e18c</c>.
 	///
 	/// <para>Two cases, and the discriminator is the resolved projectile rather than the weapon id: a

@@ -46,10 +46,6 @@ The mechanism is understood; what is left is engine work.
   and the explosive damage scale — run on entry 0.
   → [`docs/simulation/ai-weapons.md`](docs/simulation/ai-weapons.md),
   [`docs/simulation/projectiles.md`](docs/simulation/projectiles.md)
-- **An unpiloted flyer's own tick.** `FlyerObject.Tick` is empty, so a mission's flyers hold station
-  where they spawn. They are a live group like any other, so this also costs a mission any trigger a
-  flying group would have crossed — which can make an action fire later here than in retail.
-  → [`docs/simulation/mission-deployment.md`](docs/simulation/mission-deployment.md)
 - **Flyer control bindings.** The flight model is ported and the axis roles are known, but key
 bindings are hardcoded placeholders.
   → [`docs/simulation/razor-flight.md`](docs/simulation/razor-flight.md)
@@ -62,9 +58,6 @@ The engine cannot be faithful here until the original is understood.
   literal port; the seeding is not, and a roll's result also depends on generator-advance count —
   treat as statistically faithful, not replay faithful.
   → [`docs/simulation/dbsim-physics-notes.md`](docs/simulation/dbsim-physics-notes.md)
-- **Flyer texture banks.** Which `.DBA` DBSIM binds for a flyer is untraced, so flyers draw
-  flat-shaded.
-  → [`docs/formats/dts-texture-binding.md`](docs/formats/dts-texture-binding.md)
 - **The mission message an action queues.** `Action_Activate` queues the line named at action `+0x34`;
   the id is decoded and carried but `data\mission.str` is not loaded, so nothing is posted.
   → [`docs/simulation/mission-deployment.md`](docs/simulation/mission-deployment.md)
@@ -75,9 +68,6 @@ The engine cannot be faithful here until the original is understood.
   → [`docs/shell/campaign-loop.md`](docs/shell/campaign-loop.md)
 - **The drop pod's ground mark.** The leftover effect a landed pod spawns comes from the theater's
   `flat`/`flat2` shape pool, which is not ported.
-  → [`docs/simulation/mission-deployment.md`](docs/simulation/mission-deployment.md)
-- **Flyer formation spread.** `FUN_00421ee8` untraced; no multi-flyer groups observed in retail
-  missions so far.
   → [`docs/simulation/mission-deployment.md`](docs/simulation/mission-deployment.md)
 - **The cockpit widget class family's vtables.** `known_vtables.json` covers the simulation-object hierarchy only, so not one widget class is in it, and the slot offsets are not uniform across the family: a new cockpit control has to be reached by dumping its own class's table afresh rather than by looking a shape up. Fifteen tables are known to carry `Widget_ClickSound`, and of those only the shield facing's is tied to the class that owns it.
   → [`docs/formats/cockpit-input.md`](docs/formats/cockpit-input.md),

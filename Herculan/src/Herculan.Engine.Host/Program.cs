@@ -941,6 +941,12 @@ window.Load += (gl, input) => {
 					gatedParts.Add((sceneObject.Object, cell.Gate, part));
 				}
 
+				// A flyer flies, and every cell of it rides the one object transform, so all of them
+				// need refreshing each frame. Structures, the other class drawn this way, never move.
+				if (sceneObject.Object is FlyerObject) {
+					movers.Add((sceneObject, part));
+				}
+
 				if (isPlayer) {
 					playerItems.Add(part);
 				}
@@ -950,8 +956,6 @@ window.Load += (gl, input) => {
 				RegisterWreckable(sceneObject, celledStructure, cellItems);
 			}
 
-			// Nothing that reaches here moves: this branch is the structures and the flyers, and
-			// FlyerObject.Tick is empty. A machine is drawn by node instead, above.
 			continue;
 		}
 

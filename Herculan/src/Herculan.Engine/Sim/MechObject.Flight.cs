@@ -8,75 +8,13 @@ namespace Herculan.Engine.Sim;
 // instead of walking. Ported from Razor_ApplyFlightInput (0041bb9c, the input hand-off),
 // FlightModel_Step (00466a54, the flight model proper) and Razor_MovementTick (004198f4, the
 // per-tick move). See docs/simulation/razor-flight.md.
-public sealed partial class MechObject {
+public sealed partial class MechObject : IFlightBody {
 	/// <summary>
 	/// The airspeed a flyer powers up at — <c>Mech_Constructor</c>'s literal into <c>mech+0x2bd</c>.
 	/// An aircraft cannot be handed to the pilot at rest, and this is well above the RAZOR's own
 	/// idle airspeed of 250.
 	/// </summary>
 	private const int InitialAirSpeed = 1000;
-
-	/// <summary>Full throttle either way — the same ±0x400 range the walker's throttle spans.</summary>
-	private const short FlightThrottleFull = 0x400;
-
-	/// <summary>Q8 gain from the throttle axis to throttle movement per unit time.</summary>
-	private const int FlightThrottleRate = 100;
-
-	/// <summary>
-	/// Q10 gain from pitch attitude to demanded airspeed, <b>nose down</b>. Four times the nose-up
-	/// figure, so a dive builds speed far faster than a climb sheds it. This is the whole of the
-	/// aircraft's gravity, and note where it lands: on the speed the throttle asks for, not on
-	/// velocity. Level out and the speed returns to whatever the throttle wants — there is no
-	/// momentum to trade.
-	/// </summary>
-	private const int DiveSpeedGain = 250;
-
-	/// <inheritdoc cref="DiveSpeedGain"/>
-	private const int ClimbSpeedGain = 62;
-
-	/// <summary>Q10 gain from how far over the ceiling the aircraft is to the nose-down push.</summary>
-	private const int CeilingPushGain = 10;
-
-	/// <summary>
-	/// The fraction of any forward speed lost to a turn that is handed straight back, Q10. Velocity
-	/// is re-expressed in the airframe's new body frame every tick, which costs forward speed
-	/// whenever it rotates; 900/1024 of that is returned, so a hard turn scrubs about 12% and no
-	/// more.
-	/// </summary>
-	private const int TurnSpeedRecovery = 900;
-
-	/// <summary>The bank angle a lost wing drifts the aircraft toward — 0x1000 is 22.5°.</summary>
-	private const short LostWingBank = 0x1000;
-
-	/// <summary>The Q14 gain toward <see cref="LostWingBank"/>. Small: it is a lean, not a spin.</summary>
-	private const int LostWingGain = 0x14;
-
-	/// <summary>
-	/// The airframe components the flight path knows by name, in the game's own terms: the
-	/// <c>STRINGS0</c> group 14 damage-readout list a flyer subject takes in place of the walker's
-	/// group 13 reads 0 COCKPIT ARMOR, 4/5 L/R NACELLE ARMOR, 6 FUSELAGE ARMOR and 7/8 L/R WING
-	/// ARMOR. The wings and nacelles are the four the flight model answers to; the cockpit and
-	/// fuselage are the two whose loss ends the flight.
-	///
-	/// <para>Component 4 being the <i>left</i> nacelle is also what settles the frame's handedness:
-	/// its probe point sits at negative X, so -X is port and +X starboard.</para>
-	/// </summary>
-	private const int ComponentCockpit = 0;
-
-	/// <inheritdoc cref="ComponentCockpit"/>
-	private const int ComponentLeftNacelle = 4;
-
-	/// <inheritdoc cref="ComponentCockpit"/>
-	private const int ComponentRightNacelle = 5;
-
-	/// <inheritdoc cref="ComponentCockpit"/>
-	private const int ComponentFuselage = 6;
-
-	/// <inheritdoc cref="ComponentCockpit"/>
-	private const int ComponentLeftWing = 7;
-
-	/// <inheritdoc cref="ComponentCockpit"/>
-	private const int ComponentRightWing = 8;
 
 	/// <summary>
 	/// This chassis' flight parameters, or null when it does not fly. Non-null is what puts the
@@ -94,10 +32,16 @@ public sealed partial class MechObject {
 	/// <para>A flyer having a velocity vector at all is what most sets it apart from a HERC, which
 	/// has only a speed scalar the walk animation consumes — see the type summary.</para>
 	/// </summary>
-	public Vec3i FlightVelocity { get; private set; }
+	public Vec3i FlightVelocity {
+		get => _flight.BodyVelocity;
+		private set => _flight.BodyVelocity = value;
+	}
 
 	/// <summary>The same velocity in world space — <c>mech+0x2c5</c>, and what the move integrates.</summary>
-	public Vec3i FlightWorldVelocity { get; private set; }
+	public Vec3i FlightWorldVelocity {
+		get => _flight.WorldVelocity;
+		private set => _flight.WorldVelocity = value;
+	}
 
 	/// <summary>
 	/// Airspeed — <c>mech+0x2bd</c>, and what <c>Mech_GetSpeed</c> (<c>00415498</c>) returns for a
@@ -107,16 +51,16 @@ public sealed partial class MechObject {
 	public int AirSpeed => FlightVelocity.Y;
 
 	/// <summary>Pitch rate, <c>mech+0x2d1</c>, in binary angle per unit time.</summary>
-	public short PitchRate { get; private set; }
+	public short PitchRate { get => _flight.PitchRate; private set => _flight.PitchRate = value; }
 
 	/// <summary>Roll rate, <c>mech+0x2d3</c>.</summary>
-	public short RollRate { get; private set; }
+	public short RollRate { get => _flight.RollRate; private set => _flight.RollRate = value; }
 
 	/// <summary>
 	/// Yaw rate, <c>mech+0x2d5</c> — what the rudder builds. Distinct from
 	/// <see cref="BankTurnRate"/>, which is not a rate the airframe carries.
 	/// </summary>
-	public short YawRate { get; private set; }
+	public short YawRate { get => _flight.YawRate; private set => _flight.YawRate = value; }
 
 	/// <summary>
 	/// <c>mech+0x2fd</c> — the heading rate the current bank angle is producing. <b>This is the
@@ -124,7 +68,7 @@ public sealed partial class MechObject {
 	/// nose round the sky is the bank: roll the wings and the heading follows, at a rate the flight
 	/// model reads straight off the bank angle. A RAZOR pilot turns by rolling, not by steering.
 	/// </summary>
-	public int BankTurnRate { get; private set; }
+	public int BankTurnRate => _flight.BankTurnRate;
 
 	/// <summary>
 	/// <c>mech+0x2d7</c> — the flyer's own throttle setting, a second copy of <see cref="Throttle"/>
@@ -132,13 +76,28 @@ public sealed partial class MechObject {
 	/// onto <see cref="Throttle"/> whenever the pilot moved the axis, so the cockpit gauge follows
 	/// the flight model rather than driving it.
 	/// </summary>
-	public short FlightThrottle { get; private set; }
+	public short FlightThrottle {
+		get => _flight.Throttle;
+		private set => _flight.Throttle = value;
+	}
 
-	// mech+0x2dd and mech+0x2f1 — last tick's transform, inverted. The flight model needs it twice:
-	// to bring the world-space drag back into the body frame, and to re-express world velocity in
-	// the new body frame after the airframe has rotated.
-	private Transform3 _previousInverse;
-	private bool _previousInverseValid;
+	/// <summary>
+	/// <c>mech+0x2b9</c> — the whole 0x4e-byte flight block, and the state
+	/// <see cref="FlightPhysics.Step"/> works on. The properties above are views onto it.
+	/// </summary>
+	private FlightBlock _flight;
+
+	/// <inheritdoc />
+	int IFlightBody.PositionZ => Position.Z;
+
+	/// <inheritdoc />
+	Transform3 IFlightBody.FlightFrame => Rotation();
+
+	/// <inheritdoc />
+	void IFlightBody.FlightAttitudeChanged() => _rotationValid = false;
+
+	/// <inheritdoc />
+	bool IFlightBody.AirframeIntact(int component) => AirframeIntact(component);
 
 	/// <summary>
 	/// One tick of the flight path, replacing the walker's throttle law, turret tick and move
@@ -181,12 +140,13 @@ public sealed partial class MechObject {
 	private void FlightControlTick(SimWorld world, FlightModelRecord flight) {
 		var controls = Controls;
 
-		FlightModelStep(flight,
+		FlightPhysics.Step(this, ref _flight, flight,
 			aileron: controls.Turn,
 			elevator: controls.Throttle,
 			rudder: controls.TorsoTwist,
 			throttleAxis: controls.TorsoPitch,
-			groundHeight: world.GroundHeightAt(Position));
+			groundHeight: world.GroundHeightAt(Position),
+			analogueThrottle: controls.ThrottleLever != 0);
 
 		// Only a tick the pilot actually moved the throttle axis on pushes the setting onto the
 		// machine's throttle field, so a gauge being dragged is not immediately overwritten. It is
@@ -198,245 +158,6 @@ public sealed partial class MechObject {
 		}
 	}
 
-	/// <summary>
-	/// <c>FlightModel_Step</c> (<c>00466a54</c>) — the flight model. It settles, in this order: the
-	/// throttle setting and
-	/// the airspeed it asks for, the sideslip drag, the three angular rates, the new attitude, and
-	/// finally the velocity vector in that new attitude.
-	///
-	/// <para><b>Nothing here moves the aircraft</b>, exactly as nothing in the walker's control law
-	/// moves a HERC. What it produces is <see cref="FlightWorldVelocity"/>, which
-	/// <see cref="FlyerMovementTick"/> integrates.</para>
-	/// </summary>
-	private void FlightModelStep(FlightModelRecord flight, short aileron, short elevator,
-			short rudder, short throttleAxis, int groundHeight) {
-		var fm = flight.Data;
-
-		if (!_previousInverseValid) {
-			// The original builds this in the constructor. Here it is seeded on the first tick
-			// instead, because a mech is positioned and headed after it is constructed and the
-			// constructor's copy would be of an attitude the machine never actually had.
-			_previousInverse = Rotation().Inverted();
-			_previousInverseValid = true;
-		}
-
-		// --- Throttle ---------------------------------------------------------------------------
-		if (Controls.ThrottleLever != 0) {
-			// An analogue throttle is a position, not a rate. Half the axis' travel covers the whole
-			// range, and unlike the walker's lever there is no inverted sense and no clamp to one
-			// side of zero — a flyer's throttle spans the same signed range either way. The original
-			// gates this on an input-preferences byte rather than on the walker's lever global; the
-			// host signal is the same one either way.
-			FlightThrottle = ClampThrottle(throttleAxis << 3);
-		} else {
-			short rate = (short)SimMath.Q8Multiply(FlightThrottleRate, throttleAxis);
-			if (rate != 0) {
-				FlightThrottle =
-					ClampThrottle(FlightThrottle + SimMath.IntegrateRateOverTick(rate));
-			}
-		}
-
-		// --- Airspeed ---------------------------------------------------------------------------
-		int speedRange = fm.AirSpeedMax - fm.AirSpeedMin;
-		int demand = SimMath.Q10Multiply(speedRange, (FlightThrottle + FlightThrottleFull) >> 1)
-			+ fm.AirSpeedMin;
-		demand -= SimMath.Q10Multiply(Pitch < 0 ? DiveSpeedGain : ClimbSpeedGain, Pitch);
-
-		int airSpeed = FlightVelocity.Y;
-		MoveToward(ref airSpeed, demand, SimMath.IntegrateRateOverTick(fm.ThrustResponse));
-
-		// --- Sideslip drag ----------------------------------------------------------------------
-		// The sideways and vertical components of body velocity are taken into world space, scaled
-		// down, brought back through *last* tick's frame and subtracted. Forward is excluded, which
-		// is what makes this drag rather than braking, and it is why a RAZOR flies where it is
-		// pointing instead of sliding round its own turns.
-		var frame = Rotation();
-		int lateral = FlightVelocity.X;
-		int vertical = FlightVelocity.Z;
-
-		var slip = frame.RotateVector(lateral, 0, vertical);
-
-		// Only the two ground-plane components are scaled by the coefficient; the world-vertical one
-		// is subtracted whole, at an effective coefficient of 1. The asymmetry is the original's and
-		// is spelled out in its own instructions (00466c26-00466c67 scales two of the three), and it
-		// is load-bearing: it is why a RAZOR sheds vertical speed far harder than sideslip, and so
-		// why it settles onto its flight path rather than floating.
-		var drag = _previousInverse.RotateVector(
-			SimMath.Q10Multiply(fm.LateralDrag, slip.X),
-			SimMath.Q10Multiply(fm.LateralDrag, slip.Y),
-			slip.Z);
-
-		lateral -= SimMath.IntegrateRateOverTick((short)drag.X);
-		airSpeed -= SimMath.IntegrateRateOverTick((short)drag.Y);
-		vertical -= SimMath.IntegrateRateOverTick((short)drag.Z);
-
-		FlightVelocity = new Vec3i(lateral, airSpeed, vertical);
-		FlightWorldVelocity = frame.RotateVector(lateral, airSpeed, vertical);
-
-		// --- Angular commands -------------------------------------------------------------------
-		short previousPitchRate = PitchRate;
-		short previousRollRate = RollRate;
-		short previousYawRate = YawRate;
-
-		bool leftWingGone = !AirframeIntact(ComponentLeftWing);
-		bool rightWingGone = !AirframeIntact(ComponentRightWing);
-		bool leftNacelleGone = !AirframeIntact(ComponentLeftNacelle);
-		bool rightNacelleGone = !AirframeIntact(ComponentRightNacelle);
-
-		short roll = Roll;
-		int ceiling = flight.Ceiling(airSpeed);
-
-		if (rightNacelleGone || leftNacelleGone) {
-			// A nacelle gone takes the elevator with it and jams it nose-down, resolved through
-			// the bank so that "down" stays down however the aircraft is lying.
-			elevator = (short)(-(int)SimTrig.Cos(roll) >> 6);
-		}
-
-		int pitchCommand;
-		int pitchDamping = 0;
-		if (elevator == 0) {
-			// Pitch self-levelling, which on retail data is switched off: both flight models state a
-			// shift of 16, and a 16-bit angle shifted 16 is nothing. An aircraft holds the attitude
-			// it was trimmed to and bleeds its pitch rate off through the damping term instead.
-			pitchCommand = -(int)Pitch >> (fm.PitchLevelShift & 0x1f);
-			pitchDamping = -SimMath.Q10Multiply(fm.AngularDamping, PitchRate);
-		} else {
-			pitchCommand = SimMath.Q8Multiply(fm.MaxPitchRate, elevator);
-		}
-
-		int yawCommand = SimMath.Q8Multiply(fm.MaxYawRate, -rudder);
-
-		int altitudeAboveGround = Position.Z - groundHeight;
-		if (ceiling < altitudeAboveGround) {
-			// Over the ceiling. The push is a vector in the aircraft's own frame pointing at the
-			// ground — cosine of the bank onto pitch, its quarter-turn shift onto yaw — so a RAZOR
-			// held over the ceiling inverted is pushed the way that actually takes it down. Note it
-			// only ever *lowers* the pitch command: it can refuse a climb but never force one.
-			short push =
-				(short)-SimMath.Q10Multiply(CeilingPushGain, altitudeAboveGround - ceiling);
-
-			yawCommand = (short)SimMath.Q14Multiply(
-				SimTrig.Cos((short)(roll - BinaryAngle.QuarterTurn)), push);
-
-			int pitchPush = (short)SimMath.Q14Multiply(SimTrig.Cos(roll), push);
-			if (pitchPush < pitchCommand) {
-				pitchCommand = pitchPush;
-			}
-		} else if (elevator == 0) {
-			// The original recomputes here the damping it already has; transcribed rather than
-			// folded away so the two branches stay comparable with the disassembly.
-			pitchDamping = -SimMath.Q10Multiply(fm.AngularDamping, PitchRate);
-		}
-
-		// --- Aileron, and what a lost wing does to it ---------------------------------------------
-		int aileronCommand = aileron;
-		if (rightNacelleGone) {
-			aileronCommand = MechControls.AxisFull;
-		} else if (leftNacelleGone) {
-			aileronCommand = -MechControls.AxisFull;
-		} else if (rightWingGone) {
-			// A lost wing is survivable where a lost nacelle is not: rather than pinning the
-			// stick it adds a small bias that settles the aircraft at a permanent 22.5° lean, which
-			// the pilot can hold off but has to keep holding off.
-			if (roll < LostWingBank) {
-				aileronCommand += (short)SimMath.Q14Multiply(
-					LostWingGain, (short)(LostWingBank - roll));
-			}
-		} else if (leftWingGone) {
-			if (roll > -LostWingBank) {
-				aileronCommand -= (short)SimMath.Q14Multiply(
-					LostWingGain, (short)(roll + LostWingBank));
-			}
-		}
-
-		int bankMagnitude = roll == short.MinValue ? short.MaxValue : System.Math.Abs((int)roll);
-
-		// Past a quarter turn of bank the sense inverts, measured from the half turn instead — which
-		// is what lets an inverted RAZOR turn the way its wings say rather than backwards.
-		BankTurnRate = bankMagnitude < BinaryAngle.QuarterTurn
-			? -(int)roll >> (fm.BankTurnShift & 0x1f)
-			: (short)(roll - short.MinValue) >> (fm.BankTurnShift & 0x1f);
-
-		int rollCommand;
-		int rollDamping = 0;
-		if (aileronCommand == 0) {
-			rollCommand = -(int)roll >> (fm.RollLevelShift & 0x1f);
-			rollDamping = -SimMath.Q10Multiply(fm.AngularDamping, RollRate);
-
-			short settled = (short)(RollRate + rollDamping);
-			int settledMagnitude =
-				settled == short.MinValue ? short.MaxValue : System.Math.Abs((int)settled);
-
-			if (bankMagnitude < settledMagnitude) {
-				// The wings would cross level this tick. Stop them exactly there rather than let the
-				// self-levelling term carry them past and set up a wallow.
-				rollCommand = 0;
-				rollDamping = -bankMagnitude - RollRate;
-			}
-		} else {
-			rollCommand = SimMath.Q8Multiply(fm.MaxRollRate, aileronCommand);
-
-			// Damping only when the stick is fighting the roll already under way, so reversing a
-			// roll is crisp while holding one costs nothing.
-			if ((aileronCommand > 0 && RollRate < 0) || (aileronCommand < 0 && RollRate > 0)) {
-				rollDamping = -SimMath.Q10Multiply(fm.AngularDamping, RollRate);
-			}
-		}
-
-		// --- Rates --------------------------------------------------------------------------------
-		// Each axis' command is clamped to a maximum acceleration, the damping goes on outside that
-		// clamp, and the resulting rate is clamped to a maximum rate. Yaw takes the roll axis' own
-		// acceleration limit; the flight model has only the two.
-		short pitchAccel =
-			(short)(pitchDamping + ClampSymmetric((short)pitchCommand, fm.MaxPitchAccel));
-		short rollAccel = (short)(rollDamping + ClampSymmetric((short)rollCommand, fm.MaxRollAccel));
-		short yawAccel = (short)(ClampSymmetric((short)yawCommand, fm.MaxRollAccel)
-			- SimMath.Q10Multiply(fm.AngularDamping, YawRate));
-
-		PitchRate = ClampSymmetric(
-			(short)(PitchRate + SimMath.IntegrateRateOverTick(pitchAccel)), fm.MaxPitchRate);
-		RollRate = ClampSymmetric(
-			(short)(RollRate + SimMath.IntegrateRateOverTick(rollAccel)), fm.MaxRollRate);
-		YawRate = ClampSymmetric(
-			(short)(YawRate + SimMath.IntegrateRateOverTick(yawAccel)), fm.MaxYawRate);
-
-		// --- Attitude -----------------------------------------------------------------------------
-		// The rotation is integrated as a *matrix*, from the mean of this tick's rates and last
-		// tick's, and the euler triple is read back out of the result. That is what keeps a RAZOR
-		// flyable through a vertical climb, where integrating the three angles directly would
-		// gimbal — and it is the one place in the simulation that composes a rotation this way.
-		var step = Transform3.FromEuler(
-			(short)SimMath.IntegrateRateOverTick(Mean(previousPitchRate, PitchRate)),
-			(short)SimMath.IntegrateRateOverTick(Mean(previousRollRate, RollRate)),
-			(short)SimMath.IntegrateRateOverTick(Mean(previousYawRate, YawRate)));
-
-		var (pitch, rolled, heading) = Transform3.Concat(step, frame).ToEuler();
-		Pitch = pitch;
-		Roll = rolled;
-
-		// The bank-driven turn goes on top of the integrated attitude rather than through it, which
-		// is why a banked RAZOR turns about the world's vertical axis and not about its own.
-		Heading = (heading + SimMath.IntegrateRateOverTick((short)BankTurnRate)) & 0xffff;
-		_rotationValid = false;
-
-		var settledFrame = Rotation();
-		_previousInverse = settledFrame.Inverted();
-
-		// --- Velocity in the new frame -------------------------------------------------------------
-		short before = (short)FlightVelocity.Y;
-		var body = _previousInverse.RotateVector(
-			FlightWorldVelocity.X, FlightWorldVelocity.Y, FlightWorldVelocity.Z);
-		FlightVelocity = body;
-
-		if (body.Y < before) {
-			// Rotating velocity into the new attitude costs forward speed. Most of it is handed
-			// straight back, so a hard turn scrubs a little energy rather than stalling the aircraft.
-			FlightVelocity = new Vec3i(body.X,
-				body.Y + SimMath.Q10Multiply(TurnSpeedRecovery, before - body.Y), body.Z);
-			FlightWorldVelocity = settledFrame.RotateVector(
-				FlightVelocity.X, FlightVelocity.Y, FlightVelocity.Z);
-		}
-	}
 
 	/// <summary>
 	/// <c>Razor_MovementTick</c> (<c>004198f4</c>) — the flyer's move, in place of
@@ -478,14 +199,14 @@ public sealed partial class MechObject {
 
 		// The wing pair. Contact rolls the airframe away from what it touched, hard enough that a
 		// wing dragged along a hillside flips the aircraft off it.
-		WingProbe(world, ProbeRightWing, ComponentRightWing, frame, airSpeed, rollAway: -1);
-		WingProbe(world, ProbeLeftWing, ComponentLeftWing, frame, airSpeed, rollAway: 1);
+		WingProbe(world, ProbeRightWing, FlightPhysics.ComponentRightWing, frame, airSpeed, rollAway: -1);
+		WingProbe(world, ProbeLeftWing, FlightPhysics.ComponentLeftWing, frame, airSpeed, rollAway: 1);
 
 		// The nacelles, which have no terrain check at all — only the object ray, at half the wings'
 		// clearance. They sit inboard and low, where the ground is already the wings' and the
 		// fuselage's business.
-		NacelleProbe(world, ProbeLeftNacelle, ComponentLeftNacelle, frame, airSpeed, rollAway: 1);
-		NacelleProbe(world, ProbeRightNacelle, ComponentRightNacelle, frame, airSpeed, rollAway: -1);
+		NacelleProbe(world, ProbeLeftNacelle, FlightPhysics.ComponentLeftNacelle, frame, airSpeed, rollAway: 1);
+		NacelleProbe(world, ProbeRightNacelle, FlightPhysics.ComponentRightNacelle, frame, airSpeed, rollAway: -1);
 
 		CockpitProbe(world, frame, airSpeed);
 		GroundAvoidance(world, Rotation());
@@ -622,7 +343,7 @@ public sealed partial class MechObject {
 	/// section outright ends the flight.
 	/// </summary>
 	private void CockpitProbe(SimWorld world, in Transform3 frame, int airSpeed) {
-		if (!AirframeIntact(ComponentCockpit)) {
+		if (!AirframeIntact(FlightPhysics.ComponentCockpit)) {
 			return;
 		}
 
@@ -654,9 +375,9 @@ public sealed partial class MechObject {
 		_rotationValid = false;
 
 		var contact = inGround ? new Vec3i(point.X, point.Y, ground) : point;
-		ApplyContactDamage(world, ComponentCockpit, damage, contact);
+		ApplyContactDamage(world, FlightPhysics.ComponentCockpit, damage, contact);
 
-		if (!AirframeIntact(ComponentCockpit)) {
+		if (!AirframeIntact(FlightPhysics.ComponentCockpit)) {
 			world.SpawnDebris(CrashDebrisGroup, contact, DebrisTable(world));
 			Immobilised = true;
 		}
@@ -671,8 +392,8 @@ public sealed partial class MechObject {
 	/// alive. A RAZOR that has lost any of the three flies straight into the hill.</para>
 	/// </summary>
 	private void GroundAvoidance(SimWorld world, in Transform3 frame) {
-		if (!AirframeIntact(ComponentLeftNacelle) || !AirframeIntact(ComponentRightNacelle)
-				|| !AirframeIntact(ComponentCockpit)) {
+		if (!AirframeIntact(FlightPhysics.ComponentLeftNacelle) || !AirframeIntact(FlightPhysics.ComponentRightNacelle)
+				|| !AirframeIntact(FlightPhysics.ComponentCockpit)) {
 			return;
 		}
 
@@ -706,10 +427,10 @@ public sealed partial class MechObject {
 		Position = new Vec3i(Position.X, Position.Y, ground);
 		_rotationValid = false;
 
-		ApplyContactDamage(world, ComponentFuselage,
+		ApplyContactDamage(world, FlightPhysics.ComponentFuselage,
 			(short)SimMath.Q10Multiply(airSpeed, FuselageGroundDamageGain), Position);
 
-		if (!AirframeIntact(ComponentFuselage)) {
+		if (!AirframeIntact(FlightPhysics.ComponentFuselage)) {
 			world.SpawnDebris(CrashDebrisGroup, Position, DebrisTable(world));
 			Immobilised = true;
 		}
@@ -805,34 +526,4 @@ public sealed partial class MechObject {
 	/// </summary>
 	private bool AirframeIntact(int component) => _damage == null || _damage.IsActive(component);
 
-	private static short ClampThrottle(int value) =>
-		value >= FlightThrottleFull ? FlightThrottleFull
-		: value <= -FlightThrottleFull ? (short)-FlightThrottleFull
-		: (short)value;
-
-	private static short ClampSymmetric(short value, short limit) {
-		short low = (short)-limit;
-		return value >= limit ? limit : value <= low ? low : value;
-	}
-
-	private static short Mean(short a, short b) => (short)((a + b) >> 1);
-
-	/// <summary>
-	/// <c>Math_RateLimitedMoveTowardInt</c> (<c>00467a24</c>) —
-	/// <see cref="SimMath.RateLimitedMoveToward"/> on a 32-bit value. Airspeed
-	/// is an int where every rate the walker slews is a short, so the original has both.
-	/// </summary>
-	private static void MoveToward(ref int current, int target, int step) {
-		if (target < current) {
-			current -= step;
-			if (current < target) {
-				current = target;
-			}
-		} else if (current < target) {
-			current += step;
-			if (target < current) {
-				current = target;
-			}
-		}
-	}
 }

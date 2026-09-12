@@ -25,7 +25,7 @@ public class FlyerSimDataTransformer : ByteTransformer<FlyerSimData> {
 		data.DecelTurning = IndexShortLE();
 		data.CameraBoneId = IndexShortLE();
 		data.AnimId_Walk = IndexShortLE();
-		data.Unk14_val = IndexShortLE();
+		data.MaxBankAngle = IndexShortLE();
 		data.Unk16_val = IndexShortLE();
 
 		data.NameBytes = IndexSegment(NameFieldLen);
@@ -43,7 +43,7 @@ public class FlyerSimDataTransformer : ByteTransformer<FlyerSimData> {
 		Emit(outStream, WriteShortLE(data.DecelTurning));
 		Emit(outStream, WriteShortLE(data.CameraBoneId));
 		Emit(outStream, WriteShortLE(data.AnimId_Walk));
-		Emit(outStream, WriteShortLE(data.Unk14_val));
+		Emit(outStream, WriteShortLE(data.MaxBankAngle));
 		Emit(outStream, WriteShortLE(data.Unk16_val));
 
 		outStream.Write(data.NameBytes!, 0, data.NameBytes!.Length);

@@ -89,7 +89,7 @@ Switched on the verb. Two verbs have no completion test at all and can only be e
 | 5 | `travelling` / `bulldog travel` | The route has no waypoint after the cursor |
 | 6 | `following` | The route has no waypoint after the cursor |
 
-The state column is [`ai-dispatch.md`](ai-dispatch.md#choosing-a-state--mech_aiselectbehaviour-0041eb34)'s; it is repeated here only as a key.
+The state column is [`ai-dispatch.md`](ai-dispatch.md#choosing-a-state--mech_aiselectbehaviour-0041eb34)'s; it is repeated here only as a key. A flyer group's members map the same verbs onto their own states — see [`ai-flyers.md`](ai-flyers.md#orders--flyer_aiselectbehaviour-00422d00).
 
 ### The subject's condition — `Group_OrderSubjectCondition` (`00412dc4`)
 

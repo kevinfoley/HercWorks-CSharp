@@ -151,6 +151,13 @@ content + 1 trailer, matching the function's `0xd8` = 216-byte read):
 | 5 | razortex | RAZOR |
 | 6 | newhercs | OGRE, MAVERICK, RAPTOR2 |
 
+### The flyers' bank
+
+Every flyer chassis shares **one** bank, and it is group 3's `ENEMY`. `maybe_FlyerType_LoadResources`
+(`00422ed0`) writes the literal slot address `0x004a9e0e` into the shape's `+0x26`, which is
+`g_MechTextureGroupSlots` plus `3 * 8` — there is no per-chassis choice, which fits a roster that is
+entirely Cybrid. See [`../simulation/ai-flyers.md`](../simulation/ai-flyers.md#drawing).
+
 Consumed by `Model3DViewerForm.TryLoadDefaultTextureBank()` (best-effort, with "Load Texture Bank"
 as a manual override) and by `Scene.SceneModelLibrary`.
 

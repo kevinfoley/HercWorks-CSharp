@@ -126,13 +126,15 @@ public static class MissionLoader {
 		var mechNames = UnitTypeNames.LoadMechs(content);
 		var flyerNames = UnitTypeNames.LoadFlyers(content);
 		var mechFormations = MechFormationTable.Load(content);
+		var flyerFormations = FlyerFormationTable.Load(content);
 		var baseFormations = BaseFormationTable.Load(content);
 
 		var groups = ResolveGroups(script, baseFormations);
 		var claims = ClaimSlots(script, groups);
 
 		var placements = new List<MissionPlacement>();
-		AddRoster(script, claims, mechNames, flyerNames, mechFormations, baseFormations, placements);
+		AddRoster(script, claims, mechNames, flyerNames, mechFormations, flyerFormations, baseFormations,
+			placements);
 
 		var player = LoadPlayerLance(scriptPath, groups, mechFormations, mechNames, placements);
 		var basePads = ResolveBasePads(groups, claims[MissionUnitKind.Base], baseFormations, placements);
@@ -464,7 +466,8 @@ public static class MissionLoader {
 	private static void AddRoster(ScriptDat script,
 			Dictionary<MissionUnitKind, Dictionary<int, Claim>> claims,
 			UnitTypeNames mechNames, UnitTypeNames flyerNames, MechFormationTable mechFormations,
-			BaseFormationTable baseFormations, List<MissionPlacement> placements) {
+			FlyerFormationTable flyerFormations, BaseFormationTable baseFormations,
+			List<MissionPlacement> placements) {
 		var mechClaims = claims[MissionUnitKind.Mech];
 		for (int slot = 0; slot < script.SpawnRecords.Length; slot++) {
 			if (!mechClaims.TryGetValue(slot, out var claim)) {
@@ -504,17 +507,20 @@ public static class MissionLoader {
 
 			var group = claim.Group;
 			var record = script.Entities102[slot];
+			var offset = flyerFormations.OffsetFor(group.FormationId, claim.MemberIndex);
 			placements.Add(new MissionPlacement(
 				MissionUnitKind.Flyer,
 				record.BinaryField,
 				flyerNames[record.BinaryField],
 				slot,
 				group.Index,
-				Coordinate(script, record.PositionRef) ?? group.Position,
+				Coordinate(script, record.PositionRef)
+					?? OffsetFromGroup(group, flyerFormations, claim.MemberIndex),
 				Heading(script, record.HeadingRef) ?? group.Heading,
 				Array.Empty<short>(),
 				Array.Empty<short>(),
 				Side: group.Side,
+				FlyerFormationOffset: offset,
 				EngagementActionRef: ActionRef(script, record.EngagementActionRef),
 				DefeatActionRef: ActionRef(script, record.DefeatActionRef)));
 		}
@@ -579,6 +585,22 @@ public static class MissionLoader {
 	private static Vec3i OffsetFromGroup(Group group, MechFormationTable mechFormations, int memberIndex) {
 		var offset = mechFormations.OffsetFor(group.FormationId, memberIndex);
 		return offset is { } o ? Rotate(group.Position, group.Heading, o.X, o.Y) : group.Position;
+	}
+
+	/// <summary>
+	/// A flyer's spawn point when its own record names no coordinate — <c>FUN_00421ee8</c>'s
+	/// unset-position branch, which takes the group's point and runs it through the flyer's own
+	/// <c>+0x78</c> formation slot. The Z rides along, which is what staggers a flight vertically;
+	/// the ground classes' offsets have none.
+	/// </summary>
+	private static Vec3i OffsetFromGroup(Group group, FlyerFormationTable flyerFormations,
+			int memberIndex) {
+		if (flyerFormations.OffsetFor(group.FormationId, memberIndex) is not { } offset) {
+			return group.Position;
+		}
+
+		var spread = Rotate(group.Position, group.Heading, offset.X, offset.Y);
+		return new Vec3i(spread.X, spread.Y, spread.Z + offset.Z);
 	}
 
 	/// <summary>

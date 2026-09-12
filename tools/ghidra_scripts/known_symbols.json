@@ -6718,9 +6718,9 @@
       "address": "00422ed0",
       "binary": "DBSIM",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_FlyerType_LoadResources",
-      "description": "Per-flyer-type resource load into a 0x70-byte type record: the shape, the .dmg component file (+0x2e), and the col/<NAME>.COL hit-sphere model via Collision_RegisterObject (+0x32, which is what the flyer's own vtable +0x20 Flyer_DirectFireHitTest passes to Mech_SelectStruckComponent).",
+      "confidence": "high",
+      "name": "FlyerType_LoadResources",
+      "description": "Per-flyer-type resource load into a 0x70-byte type record: the dat/<NAME>.DAT stats over the record's first 0x2e bytes, the shape, the .dmg component file (+0x2e), the col/<NAME>.COL hit-sphere model via Collision_RegisterObject (+0x32, which is what the flyer's own vtable +0x20 Flyer_DirectFireHitTest passes to Mech_SelectStruckComponent), and the fm/<NAME>.FM flight model (+0x3a, 0x36 bytes) whose ceiling slope it derives into +0x48. It also binds the shape's texture bank by writing the LITERAL slot address 0x004a9e0e into TSShapeInstance+0x26 -- g_MechTextureGroupSlots + 3*8, texture group 3 (ENEMY) -- so every flyer type shares one bank rather than choosing per chassis the way MechType_InitOne does.",
       "source": "docs/simulation/hit-detection.md 2026-08-27"
     },
     {
@@ -12197,6 +12197,307 @@
       "signature": "void __cdecl HddDisplay_HandleWidgetPress(int hddDisplay)",
       "description": "The heads-down display's widget-press dispatch, switched on the pressed-widget index at display+0x528 and clearing it to 0xff on the way out. Cases 0-1 pick the page, 2-7 the four map pans and the two zooms on page 0 and the damage screen's subject and category steps on page 1, 10-12 select a comm box, 13 is XMIT -- HddCommandScreen_CommitPick, HddCommandScreen_FillOrderRecord, Squad_SendOrderToSlot -- and 14 is CANCEL. Args derived from disassembly: [EBP+8] only.",
       "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "00414c65",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_BuildStateTable",
+      "description": "Static initialiser for the Flyer class' own behaviour state table: seven 0x3c-byte descriptors at FlyerBehaviourStateTable (00499cf8), each taking its name from FlyerBehaviourStateNames (00499f98), a dwell immediate, a 16-bit flag mask through Behaviour_ExpandFlagBits, and its three {func,thisDelta,vtableIndex} triples copied from FlyerBehaviourSlotBlocks (00499e9c). Sits immediately after Behaviour_BuildStateTable's RET and is reached only as a C++ static init, so nothing calls it.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
+    },
+    {
+      "address": "00499cf8",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "FlyerBehaviourStateTable",
+      "description": "The Flyer class' seven behaviour descriptors, stride 0x3c. Zero-filled in the image and built by Flyer_BuildStateTable (00414c65). Two bytes shorter than the mech table's 0x3e because a flyer descriptor carries no OBJECTIVE: string index. Order: deciding, attacking, patrolling, search and destroy, sleeping, scouting, dead.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
+    },
+    {
+      "address": "00499e9c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "FlyerBehaviourSlotBlocks",
+      "description": "Seven 0x24-byte source blocks, one per flyer behaviour state, holding the think/move/reassess member-function triples Flyer_BuildStateTable copies into each descriptor's +0x18..+0x3b.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
+    },
+    {
+      "address": "00499f98",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "FlyerBehaviourStateNames",
+      "description": "Seven packed NUL-terminated names for the flyer behaviour states, the game's own: deciding, attacking, patrolling, search and destroy, sleeping, scouting, dead.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
+    },
+    {
+      "address": "004217fc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_DispatchMove",
+      "description": "Flyer vtable +0x14. Calls the installed behaviour descriptor's +0x24 move triple (the descriptor pointer is at flyer+0x4d). The flyer twin of the mech dispatchers; Mech_AiTick (00411cec) is what reaches it.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
+    },
+    {
+      "address": "0042184c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_DispatchThink",
+      "description": "Flyer vtable +0x18. Calls the installed behaviour descriptor's +0x18 think triple.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
+    },
+    {
+      "address": "00421888",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_DispatchReassess",
+      "description": "Flyer vtable +0x1c. Calls the installed behaviour descriptor's +0x30 reassess triple, which for every flyer state is Flyer_AiSelectBehaviour (00422d00).",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
+    },
+    {
+      "address": "004218c4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_MovementTick",
+      "description": "The flyer's per-tick move, the +0x24 slot of the four behaviour states that have one. Adds the world velocity at flyer+0x24f to the position RAW -- three plain ADDs at 0042190a, with no Math_IntegrateRateOverTick, so a flyer's world velocity is a per-tick step where Razor_MovementTick's is a rate. Then four terrain probes (two wingtips at (+/-1000,-420,-300) that roll the airframe away, a nose point at (0,1000,0) and a look-ahead at (0,15000,-1500) that pitch it up), a clamp of the origin to terrain+500, and the flyby loop (sound 0x31) started or released at 30000 units from the view object. No damage, no object sweep, and no gate on being wrecked.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
+    },
+    {
+      "address": "00421584",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_GetSpeed",
+      "description": "Flyer vtable +0x38: Q10(1000, flyer+0x233), where +0x233 is the type record's +0x04 SpeedForward copied in by Flyer_Constructor and never written again. A chassis constant, not anything the aircraft is doing.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice",
+      "signature": "short __cdecl Flyer_GetSpeed(void *flyer)"
+    },
+    {
+      "address": "004215cc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_Draw",
+      "description": "Flyer vtable +0x00. Sets the shared draw-state global from DAT_004a9e48, calls Shape_DrawAtDetailLevel, clears it again.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
+    },
+    {
+      "address": "00421e84",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_GetOverallDamage",
+      "description": "Flyer vtable +0x40: Component_ReadOverallDamage on the health header at flyer+0x200.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
+    },
+    {
+      "address": "00421e98",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_ApplyFormationOffset",
+      "description": "Flyer vtable +0x78. No-ops for member index 0 (the flight leader); otherwise reads the three-int16 station offset FlyerFormation_GetSlotOffset (00423044) resolves out of dat/FFORMS.DAT and hands it to Formation_RotateAndAddOffset (00411d64), which rotates it by the GROUP LEADER's heading and adds it to the caller's point. Unlike a mech's or a base's, the offset carries a Z, which is what stacks a flight vertically.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
+    },
+    {
+      "address": "00421ee8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_AttachToGroup",
+      "description": "Attaches a flyer to its mission group: stores the group at flyer+0x45 and the member index at +0x49; with flyer+0x0c holding the -0x8000 sentinel takes the group's heading and zeroes pitch and roll; with the Z position holding the sentinel takes the group's own point (group+0x18, else route waypoint 0), applies the formation offset through vtable +0x78, and finally substitutes 5000 for a Z that came out zero.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
+    },
+    {
+      "address": "00422098",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_PitchCommand",
+      "description": "Elevator command that holds a pitch attitude: Q16(desiredPitch - flyer.pitch, 1500), resolved through cos(roll) at Q14, less Q16(pitchRate, 8000).",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
+    },
+    {
+      "address": "00422108",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_PitchToAltitude",
+      "description": "Elevator command that flies the aircraft to a world Z: Atan2Guarded(targetZ - flyer.z, 10000) into Flyer_PitchCommand. The 10000 is a fixed horizontal run, so the demanded angle depends on the height error alone. Its other arm, gated on flyer+0xae and reading flyer+0x23c, belongs to the walking machine's obstacle avoidance and leg placement and cannot fire on a flyer: nothing on any flyer path writes either field.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
+    },
+    {
+      "address": "0042215c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_CommandRoll",
+      "description": "Fills the command array's aileron element with Q16(desiredRoll - flyer.roll, 2500) + Q16(rollRate, -5000) and runs Flyer_ApplyFlightCommand. The arm Flyer_SteerAndFly takes whenever it is holding or limiting a bank rather than commanding one.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
+    },
+    {
+      "address": "004221a8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_ApplyFlightCommand",
+      "description": "Hand-off into FlightModel_Step (00466a54). Squares the aileron and elevator elements with their sign kept ((v*v)>>8) and clamps them to +/-0x100, then calls the model with the flyer's flight block at +0x243, the .FM record at typeRecord+0x3a, and a stack array of four zeros as the wing-damage argument, which is why a Flyer never takes the model's lost-wing or lost-nacelle arms.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
+    },
+    {
+      "address": "00422260",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_FormationThrottle",
+      "description": "Works a throttle figure out of the station error, the bearing to the leader and the two chassis' +0x233 speeds, clamps it to [0x8c,0x100] and writes flyer+0x21c. That field has no reader anywhere in the image, and the control law leaves FlightModel_Step's throttle element zero at every site, so nothing a Cybrid flyer decides can change its airspeed.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
+    },
+    {
+      "address": "004222fc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_SteerAndFly",
+      "description": "The flyer's steering channel and the function every think ends in. Builds a 16-bit bank command from Q16(-turn,2500) + Q16(bankTurnRate at flyer+0x287, 32000) + Q16(rollRate,-5000); holds the aircraft at +/-(typeRecord+0x0e MaxBankAngle) with a 1500 hysteresis band when the bank would take it further over; answers a steering command under 2000 with rudder (Q16(-turn,4000)) and level wings instead of a bank, and only if the roll is already under 800. Fills the command array's fifth element with the terrain height under the aircraft, which is FlightModel_Step's ceiling reference. Its leader term reads leader+0x1f8, a field written nowhere in the image.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
+    },
+    {
+      "address": "004224c4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_LeadRouteStep",
+      "description": "The flight leader's route step. Takes the waypoint one past the group's cursor, advances the cursor when it is within 15000 ground units, else falls back to the cursor's own waypoint; holds altitude 30000 through Flyer_PitchToAltitude and steers with Q16(bearingError, 28000) through Flyer_SteerAndFly.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
+    },
+    {
+      "address": "00422598",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_FormationStep",
+      "description": "A wingman's station-keeping. The station is the leader's position offset 0x2000 along the leader's heading plus this aircraft's FFORMS.DAT slot; a wingman that is ahead of its station while still aligned with the leader and inside 10000 units has its steering command mirrored (-0x8000 - err) rather than reversed. Ends in Flyer_SteerAndFly and then Flyer_FormationThrottle.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
+    },
+    {
+      "address": "004226a0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_AttackRun",
+      "description": "The attack run, and the only place a Cybrid flyer shoots. A two-phase circuit on flyer+0x1fe: phase 0 extends AWAY from the target holding targetZ+10000 until the range passes 90000, phase 1 runs in and inside 65000 aims at the target itself, breaking off again when the bearing leaves +/-0x2000, the height over the target drops under 3000, or the range closes inside 10000. The aim is led along the target's heading by (range>>3)*(targetSpeed*8)/shotSpeed, where shotSpeed becomes PROJ.DAT row 2's speed once the run is close enough to shoot. Firing needs bearing and pitch both within +/-1000 and the flyer+0x21e countdown expired: the first shot of a pass inside 30000 is Rocket_Fire(0) off the (500,200,-100) muzzle and every later one is a pair of Bullet_Fire(2) off that point and its mirror, reloading the countdown with 1500.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
+    },
+    {
+      "address": "00422a50",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_FollowStep",
+      "description": "The movement step the three non-combat flyer thinks all open with: Flyer_LeadRouteStep for the group's first member, Flyer_FormationStep for everybody else, then flyer+0x96 (the radar mode) zeroed.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
+    },
+    {
+      "address": "00422a80",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_BehaviourSearchDestroyThink",
+      "description": "search and destroy's think. Flyer_FollowStep, then for the flight leader only and only once the flyer+0x5b countdown expires (reloaded with 10000): Ai_SelectTarget with mask 0x11 (mission target only, reject own class), checked against Group_IsOrderTarget before it is taken, then Flyer_EngageWithFlight.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
+    },
+    {
+      "address": "00422b34",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_BehaviourPatrolThink",
+      "description": "patrolling's think. The same shape as Flyer_BehaviourSearchDestroyThink with mask 0x10 and no order-target check, so a flight on patrol takes anything it can see that is not another aircraft.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
+    },
+    {
+      "address": "00422bdc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_BehaviourScoutThink",
+      "description": "scouting's think: Flyer_FollowStep and nothing else.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
+    },
+    {
+      "address": "00422bf0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_EngageWithFlight",
+      "description": "Puts the whole flight onto the leader's target: installs the attacking descriptor (00499d34) on itself, then for the group's first member only hands every surviving member the same target (obj+0x1a4, with the +0x1a2 counters and the +0x9d changed flag) and recurses into it. The recursion terminates because only the leader takes the loop.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
+    },
+    {
+      "address": "00422ca8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_BehaviourAttackThink",
+      "description": "attacking's think. Returns finished as soon as the target is immobilised (+0xa4) or destroyed (+0x99), which zeroes the dwell and sends the aircraft back through the reassess; otherwise Flyer_AttackRun for the flight leader and Flyer_FormationStep for everyone else.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
+    },
+    {
+      "address": "00422d00",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_AiSelectBehaviour",
+      "description": "The reassess slot of all seven flyer states: maps the group's current order verb onto a descriptor. 0 -> search and destroy (00499dac), 3 -> patrolling (00499d70), 4 -> sleeping (00499de8), 5 -> scouting (00499e24); 4 and 5 also latch flyer+0xa5, the out-of-the-fight byte. Verbs 1, 2 and 6 and an empty order slot match no case and leave ECX unwritten, so Behaviour_SetState is handed the caller's register: the same defect Mech_AiSelectBehaviour has for an empty slot.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice",
+      "signature": "short __cdecl Flyer_AiSelectBehaviour(void *flyer)"
+    },
+    {
+      "address": "00422d8f",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Flyer_LoadResources",
+      "description": "The flyer subsystem's loader (flyersys.cpp). Resets the 0x22-entry type-slot table at 004a9e50 to 0xff, then opens dat/fforms, reads a 2-byte record count into DAT_004a9e7c and count*0x12 bytes of formation records into the vector at DAT_004a9e80.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
+    },
+    {
+      "address": "00422e80",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FlyerType_RecordIndex",
+      "description": "Maps a FLYERS.NAM index to its slot in the loaded type-record array, out of the 0x22-entry table at DAT_004a9e50. 0xff means the type is not loaded.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice",
+      "signature": "unsigned char __cdecl FlyerType_RecordIndex(short nameIndex)"
+    },
+    {
+      "address": "00422e90",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FlyerType_Register",
+      "description": "Claims a type-record slot for a FLYERS.NAM index the mission needs, if it has none yet, bumping the loaded-type count at DAT_004a9e4e.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice",
+      "signature": "void __cdecl FlyerType_Register(short nameIndex)"
+    },
+    {
+      "address": "00423044",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "FlyerFormation_GetSlotOffset",
+      "description": "dat/FFORMS.DAT slot lookup: DAT_004a9e80 + formationId*0x12 + slot*6 - 6. Three follower slots per formation, three int16 each (x, y, z), and the slot index is one-based: the flight leader takes no offset.",
+      "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
     }
   ]
 }

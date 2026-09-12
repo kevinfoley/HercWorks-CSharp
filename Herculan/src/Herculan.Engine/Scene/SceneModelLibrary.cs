@@ -59,9 +59,9 @@ public sealed record SceneModel(
 /// <list type="bullet">
 /// <item><b>Mechs</b> — <c>dts\&lt;name&gt;.DTS</c> root 0, textured by the bank
 /// <c>HercSimDat.ModelSkinId</c> selects (see docs/formats/dts-texture-binding.md).</item>
-/// <item><b>Flyers</b> — <c>dts\&lt;name&gt;.DTS</c> root 0, untextured: which bank DBSIM binds for a
-/// flyer has not been traced, and drawing them flat-shaded is honest about that where picking
-/// <c>VEHICLES.DBA</c> because the name looks right would not be.</item>
+/// <item><b>Flyers</b> — <c>dts\&lt;name&gt;.DTS</c> root 0, textured from <c>ENEMY.DBA</c>: the flyer
+/// type loader binds one fixed slot rather than choosing by chassis, and that slot is the Cybrid
+/// mechs' own (see <see cref="FlyerTextureGroup"/>).</item>
 /// <item><b>Structures</b> — either a root of <c>dts\BASES_AN.DTS</c> (the 8 animated types) or a
 /// record of <c>dgs\BASES.DGS</c> (the other 57, static types), textured by the bank
 /// <c>dat\BASES.DAT</c> names — see <see cref="BasesDgsTransformer"/> for how the latter resolves
@@ -289,7 +289,22 @@ public sealed class SceneModelLibrary {
 	/// destroyed part has to be able to stop being drawn without the shape animating — see
 	/// <see cref="DtsMeshBuilder.BuildCells"/>.
 	/// </summary>
-	public SceneModel? Flyer(string flyerName) => Build(flyerName + ".DTS", 0, bankName: null, celled: true);
+	public SceneModel? Flyer(string flyerName) =>
+		Build(flyerName + ".DTS", 0, HercSimDat.TextureGroupDbaBaseName(FlyerTextureGroup),
+			celled: true);
+
+	/// <summary>
+	/// Which texture group every flyer chassis is drawn from — <b>3, the Cybrid mechs' own
+	/// <c>ENEMY.DBA</c></b>.
+	///
+	/// <para>Where a HERC picks its bank per chassis (<c>MechType_InitOne</c> writes
+	/// <c>&amp;g_MechTextureGroupSlots + ModelSkinId*8</c> into the shape's <c>+0x26</c>), the flyer
+	/// type loader (<c>maybe_FlyerType_LoadResources</c>, <c>00422ed0</c>) writes a <i>literal</i>
+	/// slot address, <c>0x004a9e0e</c>. That is <c>g_MechTextureGroupSlots</c> (<c>004a9df6</c>) plus
+	/// <c>3 * 8</c>, so every flyer type shares one bank and it is the enemy one — which makes sense
+	/// of a roster that is entirely Cybrid. See docs/formats/dts-texture-binding.md.</para>
+	/// </summary>
+	public const short FlyerTextureGroup = 3;
 
 	/// <summary>
 	/// The shape a travelling shot is drawn as — a root of <c>dts\BULLETS.DTS</c>, textured from

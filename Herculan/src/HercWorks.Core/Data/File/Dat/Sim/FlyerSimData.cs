@@ -11,10 +11,14 @@ namespace HercWorks.Core.Data.File.Dat.Sim;
 /// AnimId_Walk) — DecelTurning matches both the position AND the exact value (150) seen on every
 /// known Herc, CameraBoneId matches position with a small plausible bone id, and AnimId_Walk
 /// matches position with the exact -1 "no walk animation" value RAZOR.DAT (the one Herc that's
-/// also a flyer) uses. The pattern breaks after that — the next value (14000) is nothing like an
-/// AnimId — so this is treated as its own distinct, shorter layout rather than a truncated
-/// HercSimDat, and the two trailing shorts are left as Unk. Revisit all of this if a second flyer
-/// .DAT sample turns up.
+/// also a flyer) uses. The pattern breaks after that: the short at 0x0e is the flyer AI's bank
+/// angle limit, which no Herc record has. This is therefore its own distinct, shorter layout rather
+/// than a truncated HercSimDat.
+///
+/// DBSIM reads the payload straight into the first 0x2e bytes of its 0x70-byte flyer type record
+/// (maybe_FlyerType_LoadResources, 00422ed0), so the offsets here are that record's offsets too:
+/// SpeedForward at +4 is what the flyer's vtable +0x38 travel speed reads, and MaxBankAngle at +0x0e
+/// is what its roll controller clamps to.
 /// </summary>
 public class FlyerSimData {
 	public short SpeedTurn { get; set; }
@@ -31,7 +35,15 @@ public class FlyerSimData {
 	/// <summary>-1 in the one known sample — same byte offset and value as RAZOR.DAT's HercSimDat.AnimId_Walk.</summary>
 	public short AnimId_Walk { get; set; }
 
-	public short Unk14_val { get; set; }
+	/// <summary>
+	/// Payload offset 0x0e — the <b>bank angle limit</b>, as a binary angle. Read only by the flyer
+	/// AI's roll controller (<c>FUN_004222fc</c>), which clamps the commanded bank to it (with a
+	/// 1500-unit hysteresis band) rather than letting the aircraft roll past. 14000 in the one known
+	/// sample, which is about 77 degrees.
+	/// </summary>
+	public short MaxBankAngle { get; set; }
+
+	/// <summary>Payload offset 0x10 — 1500 in the one known sample. No reader traced in DBSIM.</summary>
 	public short Unk16_val { get; set; }
 
 	/// <summary>Payload offset 0x12-0x2D (18, 28 bytes) — null-padded ASCII name, e.g. "Landskimmer".</summary>

@@ -13,14 +13,18 @@ namespace Herculan.Engine.Sim;
 /// <para>The one behavioural detail carried over from that attach function is the hover height: a
 /// flyer does <b>not</b> get the terrain query mechs and structures get — it takes its Z straight
 /// from its spawn coordinate, and if that leaves it at zero the original substitutes 5000 world
-/// units (30 m). So a flyer holds an absolute altitude rather than following the ground, which is
-/// how they read in game. Flight model and patrol behaviour are still out of scope.</para>
+/// units (30 m). So a flyer starts at an absolute altitude rather than following the ground.</para>
+///
+/// <para><b>It flies, and it fights.</b> The class has its own seven-state behaviour table and its
+/// own three descriptor dispatchers, so the same <c>Mech_AiTick</c> that drives a HERC drives an
+/// aircraft — see <see cref="FlyerObject.AiTick"/> — and the flight model underneath it is the one
+/// the player's RAZOR uses. See <see cref="FlyerObject.MovementTick"/>.</para>
 ///
 /// <para><b>It is shootable</b>, and by the simplest of the three hit paths: no shields, no volume,
 /// just the type's <c>col\&lt;NAME&gt;.COL</c> sphere model and a one-component health record. See
 /// <see cref="DirectFireHitTest"/>.</para>
 /// </summary>
-public sealed class FlyerObject : SimObject {
+public sealed partial class FlyerObject : SimObject {
 	/// <summary>
 	/// Altitude the original substitutes when a flyer's spawn coordinate carries no Z, in world
 	/// units. Straight from <c>FUN_00421ee8</c>'s trailing <c>if (z == 0) z = 5000;</c>.
@@ -60,13 +64,26 @@ public sealed class FlyerObject : SimObject {
 	/// The type's <c>dmg\&lt;NAME&gt;.DMG</c> health record, sized to a flyer's one component and one
 	/// dependent. Null alongside a missing <c>.COL</c>, for the same reason.
 	/// </param>
+	/// <param name="flight">
+	/// The type's <c>fm\&lt;NAME&gt;.FM</c>, which the flyer type loader reads into the type record at
+	/// <c>+0x3a</c>. Null leaves the aircraft unable to fly at all; only <c>SKIMMER</c> ships one.
+	/// </param>
 	public FlyerObject(string name, FlyerSimData? simData, int shapeRadius,
-			ColliderNode[]? collision = null, ComponentDamage? damage = null) {
+			ColliderNode[]? collision = null, ComponentDamage? damage = null,
+			FlightModelRecord? flight = null) {
 		Name = name;
 		SimData = simData;
 		_shapeRadius = shapeRadius;
 		_collision = collision ?? Array.Empty<ColliderNode>();
 		_damage = damage;
+		Flight = flight;
+
+		// Flyer_Constructor's own seeding of the flight block: the airspeed and the throttle, in the
+		// 0x4e bytes it has just zeroed.
+		_flight.BodyVelocity = new Vec3i(0, InitialAirSpeed, 0);
+		_flight.Throttle = InitialThrottle;
+
+		InstallInitialBehaviour();
 	}
 
 	/// <summary>Base name of the flyer's data files, e.g. <c>SKIMMER</c>.</summary>
@@ -100,11 +117,24 @@ public sealed class FlyerObject : SimObject {
 	/// <remarks>A flyer has no legs to lose, so only the destroyed half of the pair applies.</remarks>
 	public override bool Neutralised => Destroyed;
 
+	/// <inheritdoc />
+	/// <remarks>
+	/// An aircraft can answer the third byte of the triple: <see cref="Disarmed"/> is what
+	/// <c>FUN_00422d00</c> latches when the group's order is <c>sleep</c> or <c>travel</c>.
+	/// </remarks>
+	public override bool OutOfAction => Neutralised || Disarmed;
+
 	/// <summary>
-	/// <c>obj+0x99</c> — whether the flyer's one component has been destroyed. The original also
-	/// drops it out of the sky from here (it writes a large negative rate into the object's own
-	/// <c>+0x2e</c>); with no flight model to fall through, this only records that it is a wreck, and
-	/// a wreck still stops shots.
+	/// <c>flyer+0xa5</c> — this aircraft is not contesting anything. Latched by the reassess on the
+	/// two orders that send a flight somewhere rather than send it to fight, and never cleared. Read
+	/// by <c>Group_IsWipedOut</c> through <see cref="OutOfAction"/>.
+	/// </summary>
+	public bool Disarmed { get; set; }
+
+	/// <summary>
+	/// <c>obj+0x99</c> — whether the flyer's one component has been destroyed, which for an aircraft
+	/// is the whole of it. A wreck still stops shots, for as long as it is anywhere a shot can reach:
+	/// see <see cref="ApplyDamage"/> for where the original puts it.
 	/// </summary>
 	public override bool Destroyed => _destroyed;
 
@@ -126,8 +156,8 @@ public sealed class FlyerObject : SimObject {
 	public override ShapeCellFrames? CellFrames => _damage?.CellFrames;
 
 	/// <summary>
-	/// The flyer's shape-to-world transform. Like a structure it has no lean and no torso: its
-	/// heading is the whole of its orientation.
+	/// The flyer's shape-to-world transform — its full attitude, bank and pitch included, with its
+	/// world position in the translation. See <see cref="WorldFrame"/>.
 	/// </summary>
 	public Transform3 WorldTransform => WorldFrame;
 
@@ -225,29 +255,68 @@ public sealed class FlyerObject : SimObject {
 	/// the aircraft.
 	///
 	/// <para>Unlike a mech, which weighs limbs and cockpit sections against each other before it
-	/// decides it is dead, a flyer's death test is that one component index. Everything the original
-	/// does past setting the flag belongs to systems that are not here: the fall it starts, the kill
-	/// credit through the shooter's <c>+0x60</c> slot (recorded on <see cref="LastAttacker"/>
-	/// instead) and the alert it plays for the player. The mission action it fires <i>is</i> here —
-	/// see <see cref="SimObject.DefeatAction"/>.</para>
+	/// decides it is dead, a flyer's death test is that one component index. What follows the flag is
+	/// the aircraft leaving: it goes into its behaviour table's <c>dead</c> state, which has neither
+	/// a think nor a move, and <b>its Z is set to -100000 in the same breath</b> — so the wreck drops
+	/// straight out of the world rather than hanging where it was shot. Nothing moves it afterwards,
+	/// because the state it is now in has no move slot to clamp it back to the ground.</para>
+	///
+	/// <para>The wreckage the cascade sheds inherits the aircraft's world velocity, through the
+	/// global <see cref="SimWorld.DebrisCarrierVelocity"/> the original points at
+	/// <c>flyer+0x24f</c> for the length of this call. Two things here belong to systems that are not
+	/// in the engine: the kill credit through the shooter's <c>+0x60</c> slot (recorded on
+	/// <see cref="LastAttacker"/> instead) and the alert it plays when the player's own selected
+	/// target is what just went down. The mission action it fires <i>is</i> here — see
+	/// <see cref="SimObject.DefeatAction"/>.</para>
 	/// </summary>
 	private void ApplyDamage(int componentIndex, short damage, SimObject? attacker,
 			SimWorld? world = null) {
-		if (_damage == null || !_damage.ApplyDamage(componentIndex, damage, world, this)
-				|| componentIndex != 0) {
+		if (_damage == null) {
+			return;
+		}
+
+		if (world != null) {
+			world.DebrisCarrierVelocity = FlightWorldVelocity;
+		}
+
+		bool lost = _damage.ApplyDamage(componentIndex, damage, world, this);
+
+		if (world != null) {
+			world.DebrisCarrierVelocity = default;
+		}
+
+		if (!lost || componentIndex != 0) {
 			return;
 		}
 
 		bool wasDestroyed = _destroyed;
 		_destroyed = true;
 		LastAttacker = attacker;
+		Behaviour.SetState(Ai.FlyerBehaviourState.Dead);
+		Position = new Vec3i(Position.X, Position.Y, WreckDropHeight);
+		StopFlybySound(world);
 
 		if (!wasDestroyed && world != null) {
 			ActivateDefeatAction(world);
 		}
 	}
 
-	/// <summary>Holds station. See the type summary for why there is no terrain query here.</summary>
+	/// <summary>
+	/// Where a shot-down aircraft is put — the original's literal <c>-100000</c> into
+	/// <c>flyer+0x2e</c>, which is the object's world Z and not a rate.
+	/// </summary>
+	private const int WreckDropHeight = -100000;
+
+	/// <summary>
+	/// The object pass' tick, which for an aircraft is its behaviour descriptor's <c>+0x24</c> move
+	/// slot — <see cref="MovementTick"/> for the four states that carry one, and nothing at all for
+	/// <c>deciding</c>, <c>sleeping</c> and <c>dead</c>, whose triples are null. The think runs from
+	/// the group pass that follows, in <see cref="AiTick"/>, so the aircraft is integrated on the
+	/// previous think's decisions — the original's own ordering.
+	/// </summary>
 	public override void Tick(SimWorld world) {
+		if (Behaviour.State is { Moves: true } && Flight != null) {
+			MovementTick(world);
+		}
 	}
 }

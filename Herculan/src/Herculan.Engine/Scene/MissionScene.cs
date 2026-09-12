@@ -1,5 +1,6 @@
 ﻿using System.Numerics;
 using HercWorks.Core.Data.File.Dat.Sim;
+using HercWorks.Core.Data.Struct;
 using Herculan.Engine.Content;
 using Herculan.Engine.Gl;
 using Herculan.Engine.Numerics;
@@ -601,7 +602,8 @@ public sealed class MissionScene {
 
 	/// <summary>
 	/// Model-to-world transform for one placed object, in render space: heading rotation, then its
-	/// world position. Nothing else — the shape's own origin is where the original stands it.
+	/// world position. Nothing else — the shape's own origin is where the original stands it — except
+	/// for a <see cref="FlyerObject"/>, whose whole attitude comes through.
 	///
 	/// <para>The rotation sign is the simulation's, not the camera's. A HERC's forward vector is
 	/// <c>(-sin h, cos h)</c> in world XY — that falls out of <c>BuildEulerRotationMatrixQ14</c>'s
@@ -724,8 +726,13 @@ public sealed class MissionScene {
 			: MissionUnitKind.Mech;
 
 	public static Matrix4x4 TransformOf(SceneObject sceneObject) =>
-		Matrix4x4.CreateRotationY(BinaryAngle.ToRadians(sceneObject.Object.Heading))
-			* Matrix4x4.CreateTranslation(WorldScale.ToRender(sceneObject.Object.Position));
+		// An aircraft banks and pitches, so the heading-only form would draw a Cybrid flyer flat
+		// through every turn it makes. Its own frame is let through instead, the way
+		// PosedTransformOf lets a machine's lean through.
+		sceneObject.Object is FlyerObject aircraft
+			? WorldScale.ToRenderMatrix(aircraft.WorldTransform)
+			: Matrix4x4.CreateRotationY(BinaryAngle.ToRadians(sceneObject.Object.Heading))
+				* Matrix4x4.CreateTranslation(WorldScale.ToRender(sceneObject.Object.Position));
 
 	/// <summary>
 	/// Builds and positions the simulation object for one placement. Returns null when the placement
@@ -744,6 +751,11 @@ public sealed class MissionScene {
 		simObject.Position = placement.Position;
 		simObject.Heading = placement.Heading;
 		simObject.Side = placement.Side;
+
+		if (simObject is FlyerObject aircraft) {
+			// Its FFORMS.DAT station, which a wingman re-reads every tick it holds formation.
+			aircraft.FormationOffset = placement.FlyerFormationOffset;
+		}
 
 		if (simObject is MechObject machine) {
 			// The three per-machine AI settings DBSim_SpawnMissionObjects copies out of the block-7
@@ -812,7 +824,15 @@ public sealed class MissionScene {
 						model?.RadiusWorldUnits ?? 0,
 						models.Collision(placement.TypeName),
 						ComponentDamageFor(models, placement.TypeName,
-							ComponentDamage.FlyerComponentCount, ComponentDamage.FlyerDependentCount, random)),
+							ComponentDamage.FlyerComponentCount, ComponentDamage.FlyerDependentCount, random),
+						models.FlightModelFor(placement.TypeName) is { } fm
+							? new FlightModelRecord(fm)
+							: null) {
+						// The two PROJ.DAT rows the flyer AI names by literal — see FlyerObject.AttackRun.
+						GunProjectile = weapons?.ProjectileAt(FlyerObject.GunProjectileIndex),
+						MissileProjectile = weapons?.Lookup(
+							ProjectileType.Missile, FlyerObject.MissileSubtype)
+					},
 					model);
 			}
 

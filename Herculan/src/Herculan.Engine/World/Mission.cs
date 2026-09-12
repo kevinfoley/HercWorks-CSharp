@@ -88,6 +88,11 @@ public enum MissionSide {
 /// and for a formation that names none. Resolved here because it is wanted twice: once to place the
 /// machine, and again every tick a follower holds formation on its leader.
 /// </param>
+/// <param name="FlyerFormationOffset">
+/// The flyer twin of <paramref name="FormationOffset"/>, out of <c>FFORMS.DAT</c> and carrying a Z
+/// as well — see <see cref="FlyerFormationTable"/>. A flyer wingman re-reads it every tick it holds
+/// station, through <see cref="Sim.FlyerObject.FormationOffset"/>.
+/// </param>
 public sealed record MissionPlacement(
 	MissionUnitKind Kind,
 	int TypeIndex,
@@ -104,6 +109,7 @@ public sealed record MissionPlacement(
 	short AiCruiseSpeed = 0,
 	bool AiRadarActive = false,
 	(int X, int Y)? FormationOffset = null,
+	Vec3i? FlyerFormationOffset = null,
 	int EngagementActionRef = -1,
 	int DefeatActionRef = -1,
 	short StartingCondition = 100) {

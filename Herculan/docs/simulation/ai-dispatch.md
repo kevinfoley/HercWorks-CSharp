@@ -4,9 +4,11 @@ The structural spine of the AI: how a machine's current behaviour is represented
 
 What each state actually *does* is out of scope. The walking states live in [`ai-navigation.md`](ai-navigation.md) and the fighting ones in [`ai-combat-states.md`](ai-combat-states.md); target handling is [`ai-targeting.md`](ai-targeting.md), weapon choice [`ai-weapons.md`](ai-weapons.md), and where a state's orders come from [`ai-goals.md`](ai-goals.md).
 
+**The tables below are the `Mech` class'.** The `Flyer` class has a parallel set of its own — seven states, its own names, its own dispatchers — and everything in this doc but the specific indices applies to it unchanged. See [`ai-flyers.md`](ai-flyers.md#the-seven-states).
+
 ## Three parallel tables
 
-DBSIM holds 22 behaviour states as three static arrays that share one index. They are contiguous, and the third begins exactly where the second ends, which is what fixes the element count at 22.
+DBSIM holds a machine's 22 behaviour states as three static arrays that share one index. They are contiguous, and the third begins exactly where the second ends, which is what fixes the element count at 22.
 
 | Address | Name | Stride | Contents |
 |---|---|---|---|

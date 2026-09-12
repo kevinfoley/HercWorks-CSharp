@@ -450,9 +450,8 @@ public sealed class SimWorld {
 	///
 	/// <para>The launch itself is <c>Debris_Launch</c>: the pitch is drawn between
 	/// <paramref name="pitchMin"/> and <paramref name="pitchMax"/>, and the speed is
-	/// <paramref name="speedScale"/> shifted up ten over the piece's own mass. The original also adds a carrier velocity from a global that only
-	/// <c>Flyer_ComponentDamageWrite</c> ever sets, so a shot-down aircraft's wreckage keeps flying;
-	/// this engine's flyers hold no velocity to add.</para>
+	/// <paramref name="speedScale"/> shifted up ten over the piece's own mass, plus
+	/// <see cref="DebrisCarrierVelocity"/>.</para>
 	/// </summary>
 	/// <param name="groupIndex">The group, in the two-database index space — see <see cref="DebrisCatalog"/>.</param>
 	/// <param name="frame">Where and how it is thrown from.</param>
@@ -593,20 +592,30 @@ public sealed class SimWorld {
 	/// divided by the piece's mass, split into a horizontal part by the pitch and then onto the two
 	/// horizontal axes by the bearing.
 	///
-	/// <para>The original also adds a carrier velocity from a global that only
-	/// <c>Flyer_ComponentDamageWrite</c> ever sets, so a shot-down aircraft's wreckage keeps flying;
-	/// this engine's flyers hold no velocity to add.</para>
+	/// <para>The launch velocity has <see cref="DebrisCarrierVelocity"/> added to it, so a shot-down
+	/// aircraft's wreckage keeps flying rather than dropping out of the sky where the aircraft
+	/// was.</para>
 	/// </summary>
-	private static (short X, short Y, short Z) LaunchVelocity(short bearing, short pitch, short mass,
+	private (short X, short Y, short Z) LaunchVelocity(short bearing, short pitch, short mass,
 			int speedScale) {
 		int speed = mass != 0 ? (speedScale << 10) / mass : 0;
 		int horizontal = SimMath.Q14Multiply(speed, SimTrig.Cos(pitch));
+		var carrier = DebrisCarrierVelocity;
 
 		return (
-			(short)SimMath.Q14Multiply(horizontal, SimTrig.Cos((short)(bearing + BinaryAngle.QuarterTurn))),
-			(short)SimMath.Q14Multiply(horizontal, SimTrig.Cos(bearing)),
-			(short)SimMath.Q14Multiply(speed, SimTrig.Cos((short)(pitch - BinaryAngle.QuarterTurn))));
+			(short)(SimMath.Q14Multiply(horizontal, SimTrig.Cos((short)(bearing + BinaryAngle.QuarterTurn))) + carrier.X),
+			(short)(SimMath.Q14Multiply(horizontal, SimTrig.Cos(bearing)) + carrier.Y),
+			(short)(SimMath.Q14Multiply(speed, SimTrig.Cos((short)(pitch - BinaryAngle.QuarterTurn))) + carrier.Z));
 	}
+
+	/// <summary>
+	/// <c>DAT_004a96e4</c> — a velocity every piece of wreckage thrown while it is set inherits.
+	/// <c>Flyer_ComponentDamageWrite</c> (<c>00421bb4</c>) is the only writer: it points the global at
+	/// the aircraft's own world velocity for the length of the call and clears it again afterwards,
+	/// so the debris the component cascade sheds keeps the speed the aircraft was doing. The hit
+	/// test's own throw happens after the clear and gets nothing.
+	/// </summary>
+	internal Vec3i DebrisCarrierVelocity;
 
 	/// <summary>The tumble: always the same direction, between 800 and 2500 BAM a second.</summary>
 	private short DrawSpinRate() =>
@@ -1034,11 +1043,13 @@ public sealed class SimWorld {
 	/// <c>Rocket_Fire</c> (<c>0040a9c4</c>) — spawns one launcher round. There is no powered form: a
 	/// rocket comes off a rack, never out of a capacitor, so the record's damage is what it does.
 	///
-	/// <para><b>A target is attached only when this class of launcher has lock</b> — the machine's
+	/// <para><b>A target is attached only when this class of launcher has lock</b> — the launcher's
 	/// vtable <c>+0x6c</c> (<c>Mech_MissileAmmoCount</c>, <c>004155ac</c>), which despite its name
 	/// reads the per-subtype lock flags at <c>manager+0x0a</c> rather than any ammunition count. See
 	/// <see cref="MechObject.MissileLockTick"/> for what builds them. A round fired without lock
-	/// flies where it was pointed, which is exactly what the original does.</para>
+	/// flies where it was pointed, which is exactly what the original does. <b>A
+	/// <see cref="FlyerObject"/>'s slot is a <c>return 1</c> stub</b>, so its rounds always have
+	/// one.</para>
 	///
 	/// <para>The one exception is the original's own: a machine that is <b>not</b> locally piloted
 	/// firing <see cref="Rocket.PlayerFlownSubtype"/> skips the lock gate outright, because that
@@ -1071,6 +1082,11 @@ public sealed class SimWorld {
 				&& (launching.MissileLocked(projectile.MissileId)
 					|| (!launching.LocallyPiloted && projectile.MissileId == Rocket.PlayerFlownSubtype))) {
 			round.Target = launching.Target;
+		} else if (owner is FlyerObject aircraft) {
+			// The lock gate is the launcher's own vtable +0x6c, and the Flyer class' slot is a
+			// `return 1` stub (FUN_00411b04) — so a Cybrid flyer's missile is always given the
+			// aircraft's selected target, whatever it is carrying.
+			round.Target = aircraft.Target;
 		}
 
 		_rockets.Add(round);

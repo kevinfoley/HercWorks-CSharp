@@ -234,10 +234,12 @@ public struct BehaviourBlock {
 	/// <summary>
 	/// <c>DAT_004a9bf4</c>, the original's own process-wide global: stepped by 13 per state change
 	/// and masked to four bits, so the jitter is deterministic in call order rather than random.
+	/// Shared with <see cref="FlyerBehaviourBlock"/>, which changes state through the same
+	/// <c>Behaviour_SetState</c>.
 	/// Static here for the same reason <see cref="Numerics.SimMath.TickDelta"/> is — DBSIM runs one
 	/// simulation per process and the field is a plain global in it.
 	/// </summary>
-	private static int NextJitter() {
+	internal static int NextJitter() {
 		_jitter += 0xd;
 		return _jitter & 0xf;
 	}

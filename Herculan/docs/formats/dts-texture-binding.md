@@ -75,6 +75,29 @@ from the decompiled assignment sequence `_DAT_0048a190`..`_DAT_0048a1ac` =
 frame is independently cropped rather than a shared atlas with nonzero offsets, consistent with
 `HercWorks.Core`'s `DynamixBitmap` parsing.
 
+### Three-vertex texture polys
+
+The name says quad, but 40 `TSTexture4Poly`s across the retail fleet carry **three** vertices, and
+the original textures them like any other.
+
+There is no vertex-count branch in the UV setup of either binary's render method: both fill all four
+corners unconditionally and pass the poly's own `VertexCount` on to the rasterizer, which walks the
+corner array one entry per vertex. Traced in DBSIM — `Raster_SetupTexturedSpan` (`00468078`) steps
+`param_2 += 2` inside a `param_3`-bounded loop, `param_3` being what `TSTexture4Poly_Render`
+(`00474e9c`) reads from `poly+8`. A triangle therefore takes `V0`, `V1`, `V2` — the frame's
+top-left, top-right and bottom-right — and the fourth corner is written but never read.
+
+DBSIM's back-face case swaps positions 1 and 3 and corners 1 and 3 to reverse the winding, which on
+a triangle touches slot 3 and so cannot apply. Nothing selects the back pair on retail data (see the
+front/back note under "Implementation status"), so this is untested rather than contradicted.
+
+Over every `dts\*.DTS` the VOLs ship, 3 and 4 are the only vertex counts this type takes. Six each
+on `APOCA`, `APOC_DEB` and `TOMA_DEB`; three each on `HYPERION` and `HYPE_DEB`; two each on
+`CERBERUS`, `COLOSSUS`, `COLO_DEB`, `OUTLAW`, `OUTL_DEB`, `SAMSON`, `SAMS_DEB` and `TOMAHAWK`.
+Every one resolves to an in-range frame of its mech's bank. A count outside `[3, 4]` would run past
+the exe's own four-corner array; the engine falls back to the placeholder colour there rather than
+guessing, and no retail shape has one.
+
 ### Type identification
 
 `TSTexture4Poly` is a mesh poly: it lives in a `TSGroup` and references real 3D vertices via
@@ -181,10 +204,8 @@ Every `dts\*.DTS` with a matching `dat\*.DAT`, 22 mechs:
 - **TOMAHAWK has 4 anomalous polys**, all identical: `ColorIndexId = 0` into a 1-entry `Surfaces`
   array with `FrontColor == BackColor == 3084` (`0xC0C`) against a 36-frame bank. Reads as a
   degenerate group in the source art. They fall back to the placeholder colour.
-- **13 `TSTexture4Poly`s across 6 mechs have 3 vertices, not 4** (SAMSON, COLOSSUS, CERBERUS,
-  HYPERION, OUTLAW, TOMAHAWK). The engine flat-shades these. The exe's UV builder populates a
-  4-entry array and its 3-vertex branch has not been traced. Follow-up: decompile the vertex-count
-  branch of `TSTexture4Poly_Render`'s UV setup.
+- **Three-vertex texture polys are textured**, on the same corner order as quads — see
+  "Three-vertex texture polys" above for the counts and the mechanism.
 
 ### Coincident twins
 
@@ -486,7 +507,7 @@ its *vertices* on the axes at level 1 — a 45-degree difference in cross-sectio
 
 | Mechanism | Status |
 |---|---|
-| `TSTexture4Poly` UV mapping | Exact, 4-vertex quads only, mapped projectively so both triangles share one map ("Quad mapping on triangle hardware"); falls back to a placeholder colour with no bank |
+| `TSTexture4Poly` UV mapping | Exact for the 3- and 4-vertex polys retail ships. A quad is mapped projectively so both triangles share one map ("Quad mapping on triangle hardware"); a triangle needs no such correction and takes corners 0-2 ("Three-vertex texture polys"). Falls back to a placeholder colour with no bank |
 | `TSSolidPoly` fill + outline | Exact; outline is a second primitive range in the same buffer (`MeshBuild.TriangleVertexCount`) |
 | Two-vertex line polys | Drawn, as one edge in that same range (`OutlineEdge.Standalone`). Where the surface names no distinct line colour the engine falls back to the fill rather than drawing nothing — a line poly has no fill beneath it for a matching outline to disappear into, so the `line != fill` suppression above cannot be what the original does here. What it does instead was not traced; the fallback is this engine's reading, and it decides 12 of the 92 |
 | One-vertex polys | Not drawn; there is no point primitive |

@@ -32,7 +32,7 @@ Each slice is reverse-engineered to its topic doc, reviewed, then ported. The RE
 | 5 | **Behaviour states** | The remaining think functions and the 30 `Behaviour_SetState` call sites as the transition graph | `ai-combat-states.md` written; ported. Found `skirting`'s caller — see below |
 | 5b | **Death and disablement** | `Mech_ComponentDamageWrite` `00417de4`'s two out-of-the-fight branches, `Mech_LocomotionTick`'s immobilised arm | Ported. Closed `ai-dispatch.md`'s `+0x3c` question and `ai-goals.md`'s group `+0x1c`/`+0x30` — see below |
 | 6 | **Squadmates** | `mech+0x23e` standing orders, `FUN_0041c0f4`, `Mech_ApplyFormationOffset` `00417898` | `ai-squadmates.md` written; ported. Closed three latches and a struct gap — see below |
-| 7 | **Flyer AI** | The flyer behaviour path; no retail mission places an AI RAZOR, so verification is synthetic | Not started |
+| 7 | **Flyer AI** | The flyer behaviour path. Remember that the Razor is a player vehicle; the Cybrids (AI enemies) have their own flyer(s) (possibly named Flyer or Skimmer or something similar) | Not started |
 
 ### What slice 3 pulled in
 

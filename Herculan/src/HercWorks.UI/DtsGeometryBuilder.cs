@@ -131,9 +131,10 @@ public static class DtsGeometryBuilder {
 	private const int MaxTransformChainSteps = 64;
 	private static readonly Color TextureFallbackColor = Color.FromArgb(255, 120, 150, 190);
 
-	// Vertex-order UV corners for a TSTexture4Poly quad — RE-confirmed order (top-left/top-right/
+	// Vertex-order UV corners for a TSTexture4Poly — RE-confirmed order (top-left/top-right/
 	// bottom-right/bottom-left), see class doc comment's "UV-corner mapping" note for the one
-	// remaining unconfirmed assumption (no shared-atlas frames).
+	// remaining unconfirmed assumption (no shared-atlas frames). A three-vertex poly takes the
+	// first three: the exe fills all four and the rasterizer reads one per vertex.
 	private static readonly Vector2[] QuadUvCorners = {
 		new(0f, 0f), new(1f, 0f), new(1f, 1f), new(0f, 1f)
 	};
@@ -521,7 +522,11 @@ public static class DtsGeometryBuilder {
 			Vector3 v0 = worldPoints[v0Index];
 
 			DtsTexture? texture = null;
-			if (poly is TSTexture4Poly tex4Poly && texCtx != null && poly.VertexCount == 4) {
+			// Three-vertex TSTexture4Polys are textured too — the exe builds all four UV corners
+			// and the rasterizer reads only as many as the poly has vertices, so a triangle takes
+			// corners 0-2. Anything outside [3, 4] would run past that 4-corner array, so it stays
+			// on the placeholder colour; no retail shape has one.
+			if (poly is TSTexture4Poly tex4Poly && texCtx != null && poly.VertexCount is 3 or 4) {
 				int? frameIndex = ResolveTextureFrame(tex4Poly, group.Surfaces);
 				if (frameIndex is int fi) {
 					texture = texCtx.Resolve(fi);

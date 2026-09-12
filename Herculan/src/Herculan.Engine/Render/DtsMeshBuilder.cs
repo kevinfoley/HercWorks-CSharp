@@ -134,10 +134,14 @@ public static class DtsMeshBuilder {
 	private static readonly Vector3 TextureFallbackColor = new(0.47f, 0.59f, 0.75f);
 
 	/// <summary>
-	/// Vertex-order UV corners for a textured quad, as fractions of the frame's own rect.
+	/// Vertex-order UV corners for a textured poly, as fractions of the frame's own rect.
 	/// RE-confirmed order (top-left, top-right, bottom-right, bottom-left) — the exe builds
 	/// <c>[(F0,F1), (F2,F1), (F2,F3), (F0,F3)]</c> from a per-frame descriptor, see
 	/// docs/formats/dts-texture-binding.md's "Render path and UV generation".
+	///
+	/// <para>The exe fills all four unconditionally and then hands the rasterizer the poly's own
+	/// vertex count, which walks this array one entry per vertex — so a three-vertex
+	/// <see cref="TSTexture4Poly"/> takes the first three and the fourth is simply never read.</para>
 	/// </summary>
 	private static readonly Vector2[] QuadCorners = {
 		new(0f, 0f), new(1f, 0f), new(1f, 1f), new(0f, 1f)
@@ -939,9 +943,12 @@ public static class DtsMeshBuilder {
 				continue;
 			}
 
-			// A TSTexture4Poly is a quad by definition; anything else claiming to be one has a layout
-			// this UV mapping was never confirmed against, so it falls back rather than guessing.
-			AtlasRect? rect = poly is TSTexture4Poly && poly.VertexCount == 4
+			// The name says quad, but the type also ships as a triangle — 40 of them across the
+			// fleet, six on APOCA alone — and the original textures those too: see
+			// docs/formats/dts-texture-binding.md's "Three-vertex texture polys". A count outside
+			// [3, 4] would run off the end of the exe's own 4-corner UV array, so it still falls
+			// back rather than guessing; no retail shape has one.
+			AtlasRect? rect = poly is TSTexture4Poly && poly.VertexCount is 3 or 4
 				? ResolveFrame(poly, group.Surfaces, atlas)
 				: null;
 
@@ -978,8 +985,9 @@ public static class DtsMeshBuilder {
 			int polyId = sink.NextPolyId();
 
 			// A textured quad is mapped as a quad by the original, not as two triangles — see
-			// QuadUvWeights.
-			float[]? quadWeights = rect.HasValue
+			// QuadUvWeights. A textured triangle needs none of that: the affine map taking three
+			// corners to three UVs is already the only one there is.
+			float[]? quadWeights = rect.HasValue && poly.VertexCount == 4
 				? QuadUvWeights(points, group.Indexes, listStart)
 				: null;
 
@@ -1148,7 +1156,8 @@ public static class DtsMeshBuilder {
 	}
 
 	/// <summary>
-	/// Maps one of the four RE-confirmed quad corners onto a frame's rect inside the atlas.
+	/// Maps one of the four RE-confirmed corners (<see cref="QuadCorners"/>) onto a frame's rect
+	/// inside the atlas.
 	/// </summary>
 	private static Vector2 UvAt(AtlasRect frame, int corner) {
 		Vector2 unit = QuadCorners[corner];

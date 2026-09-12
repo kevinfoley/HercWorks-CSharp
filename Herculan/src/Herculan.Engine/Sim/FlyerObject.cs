@@ -1,5 +1,6 @@
 ﻿using HercWorks.Core.Data.File.Dbsim;
 using HercWorks.Core.Data.File.Dat.Sim;
+using Herculan.Engine.Content;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.World;
 
@@ -265,9 +266,9 @@ public sealed partial class FlyerObject : SimObject {
 	/// global <see cref="SimWorld.DebrisCarrierVelocity"/> the original points at
 	/// <c>flyer+0x24f</c> for the length of this call. Two things here belong to systems that are not
 	/// in the engine: the kill credit through the shooter's <c>+0x60</c> slot (recorded on
-	/// <see cref="LastAttacker"/> instead) and the alert it plays when the player's own selected
-	/// target is what just went down. The mission action it fires <i>is</i> here — see
-	/// <see cref="SimObject.DefeatAction"/>.</para>
+	/// <see cref="LastAttacker"/> instead). The alert it plays when the player's own selected target
+	/// is what just went down is here, on the guard all three damage endpoints share, and so is the
+	/// mission action it fires — see <see cref="SimObject.DefeatAction"/>.</para>
 	/// </summary>
 	private void ApplyDamage(int componentIndex, short damage, SimObject? attacker,
 			SimWorld? world = null) {
@@ -298,6 +299,7 @@ public sealed partial class FlyerObject : SimObject {
 
 		if (!wasDestroyed && world != null) {
 			ActivateDefeatAction(world);
+			AnnounceNeutralised(world, attacker, this, SystemMessages.EnemyTargetDestroyed);
 		}
 	}
 

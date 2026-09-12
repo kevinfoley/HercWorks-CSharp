@@ -18,6 +18,10 @@ Additionally, the game data includes an unused particle-beam weapon for the Cybr
 
 - **A second, unused guided-projectile class.**
 
+## Sound effects
+
+- Computer voiceover lines "Primary objective completed", "Secondary objective completed", "Mission objectives completed"
+
 ## Miscellaneous features
 
 - **Last-known-position scanner blips.** The F4 scanner's hostile branch has a complete implementation of a blinking last-known-position marker, plotted on every other coarse tick. Every object constructor sets the byte that gates it and nothing ever clears it, and nothing writes the stored position either.

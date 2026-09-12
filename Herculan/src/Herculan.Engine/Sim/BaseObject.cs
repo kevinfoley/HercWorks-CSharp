@@ -1,4 +1,5 @@
 ﻿using HercWorks.Core.Data.File.Dbsim;
+using Herculan.Engine.Content;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.World;
 
@@ -392,10 +393,12 @@ public sealed class BaseObject : SimObject {
 		if (DamageFraction == FullyDestroyed && !_destroyed) {
 			_destroyed = true;
 
-			// And the structure's own mission action, where Base_ApplyDamage fires it. See
-			// SimObject.DefeatAction.
+			// And the structure's own mission action, where Base_ApplyDamage fires it, together with
+			// the announcement that what the player was shooting at has come down. See
+			// SimObject.DefeatAction and SimObject.AnnounceNeutralised.
 			if (world != null) {
 				ActivateDefeatAction(world);
+				AnnounceNeutralised(world, attacker, this, SystemMessages.EnemyTargetDestroyed);
 			}
 		}
 

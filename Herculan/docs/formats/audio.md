@@ -609,14 +609,22 @@ shared helper the first row stands for.
 
 | Poster | Messages |
 |---|---|
-| `Computer_PostMessage`'s eighteen callers | The damage set `0x03`, `0x04`, `0x08`, `0x0c`, `0x10`, `0x12`, `0x13`, `0x15`; `0x19` `MISSION TARGET DETECTED` and `0x1d` `WAYPOINT REACHED` from the player's think; `0x2a`/`0x2b` jamming; `0x2e` `ENEMY TARGET DESTROYED` and `0x2f` `ENEMY TARGET DISABLED`; and the data link's `0x34`-`0x37` and `0x38` |
+| `Computer_PostMessage`'s eighteen callers | The damage set `0x03`, `0x04`, `0x08`, `0x0c`, `0x10`, `0x13`, `0x15`; `0x19` `MISSION TARGET DETECTED` and `0x1d` `WAYPOINT REACHED` from the player's think; `0x2a`/`0x2b` jamming; `0x2e` `ENEMY TARGET DESTROYED` and `0x2f` `ENEMY TARGET DISABLED`; and the data link's `0x34`-`0x37` and `0x38`. Plus `0x12`, below |
 | `Mission_Status` (`004135e8`) | `0x16` `MISSION FAILED`, `0x17` `MISSION SUCCESSFUL`, `0x1e` `APPROACHING MISSION ZONE BOUNDARY`, `0x20` `RULES OF ENGAGEMENT VIOLATED` — see [`../simulation/mission-objectives.md`](../simulation/mission-objectives.md#what-the-computer-says) |
 | `Cockpit_PowerUpTick` (`00432924`) | Once `200 <` coarse ticks have passed since the sequence began, it walks the ten heads-down gauges (`FUN_0041b514`, then `Damage_ToConditionState` (`00438700`) under `0x5a`) and posts `0x22` `POWERUP INITIATED. INTERNAL DAMAGE DETECTED.` if any is under, else `0x21` `... ALL SYSTEMS NOMINAL.` |
 | `NavMarker_Tick` (`004349ac`) | `0x1d` `WAYPOINT REACHED` again, on returning to a dropped marker — [`../simulation/player-waypoints.md`](../simulation/player-waypoints.md#the-nav-marker) |
 | `Mech_ToggleRadarMode` (`0041b468`) | Withdraws **both** `0x2c` `ACTIVE RADAR MODE` and `0x2d` `PASSIVE RADAR MODE`, then posts the one the mode just became — so flipping twice quickly announces where it ended up rather than reading out the sequence |
 | `ConsoleButtons_ToggleAutoTrack` (`00441f7c`) | The same shape with `0x26` `AUTO TRACKING ENGAGED` and `0x27` `AUTO TRACKING DISABLED` |
 
-Those twenty-nine ids are the whole set, so **over half the file's sixty-three lines are posted by
+**`0x12` `DAMAGE LEVEL CRITICAL` has a call site it cannot reach.** In
+`Mech_ApplyDirectFireDamage` (`004188c8`) the struck component's damage percent is read before the
+write and again after, and the post needs the **later** read under 100 and the earlier one over it —
+the reading would have to have fallen. It only falls if the write is negative, which needs the shot's
+diverted splash share to exceed its own armour damage; the largest `SplashFactor` in retail
+`PROJ.DAT` is 1000 against the Q10 unit of 1024, so it never is. The cockpit jolt (`FUN_00434010`)
+sits above the test and does fire. A hand-edited `PROJ.DAT` would reach the line.
+
+Those ids are the whole set, so **over half the file's sixty-three lines are posted by
 nothing** — among them `MISSION OBJECTIVES COMPLETE` (`0x1a`), `PRIMARY OBJECTIVE COMPLETE` (`0x1b`),
 `SECONDARY OBJECTIVE COMPLETE` (`0x1c`), `MISSION ABORTED` (`0x18`), `FRIENDLY TARGET DESTROYED`
 (`0x30`), `AUTO PILOT ENGAGED`/`DISABLED`, `FOLLOW MODE ENGAGED`/`DISABLED` and the `10...9...8...`
@@ -626,6 +634,9 @@ them — the switch is written wider than the game reaches.
 **`0x2e` and `0x2f` do not test sides.** Their guard is only that the player fired the killing shot
 and that the victim is the player's own selected target (`mech+0x1a4`), so destroying a friendly you
 had boxed announces `ENEMY TARGET DESTROYED` and the two `FRIENDLY` lines are unreachable.
+
+The damage set's own guards — which reading of what, and which latch byte stops each line repeating
+— are [`../simulation/damage-system.md`](../simulation/damage-system.md#what-the-endpoint-announces)'s.
 
 At 16 ms a coarse tick the power-up announcement lands 3.2 s in, inside `start3`'s five seconds
 rather than after them.
@@ -778,8 +789,14 @@ rather than `GetTickCount`.
 Triggers ported so far: the beam report, the two table-driven fire sounds and the impact sound (with
 the ground hit's suppression), footfalls, the console click, the radar mode tone and its spoken
 announcement, the lock/acquire/loss tones, the power-up with its announcement and its flyer hum, and
-the missile-inbound warning. Only the power-up and the radar toggle post to the message port; the
-other 60 lines have no poster yet because the state they report on does not exist.
+the missile-inbound warning.
+
+**Every poster above is ported but one.** The damage set, the mission-status four, the player think's
+two, the data link's five, the auto-track pair, the radar pair and the power-up pair all post where
+the original posts them. `0x2a`/`0x2b` jamming is the exception, and it is blocked rather than
+skipped: nothing in the engine turns a jammer on yet (`SimObject.JammerActive`), so the toggle that
+would announce it has no state to report. `0x12` is not a gap either — it is unreachable in retail.
+The rest of the file's sixty-three lines have no poster in the original.
 
 The power-up always announces the nominal line: the gauge reading its alternative is chosen by is
 not decompiled, and a machine taken at the start of a mission is undamaged and gets the nominal line

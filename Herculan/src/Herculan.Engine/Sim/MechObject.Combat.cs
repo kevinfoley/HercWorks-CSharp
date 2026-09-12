@@ -1,4 +1,5 @@
-﻿using Herculan.Engine.Sim.Ai;
+﻿using Herculan.Engine.Content;
+using Herculan.Engine.Sim.Ai;
 using Herculan.Engine.World;
 using Herculan.Engine.Numerics;
 
@@ -47,14 +48,15 @@ public sealed partial class MechObject {
 
 	/// <summary>
 	/// Where the legs count as crippled — <c>Mech_ComponentDamageWrite</c>'s own <c>0x8d</c>, Q8 over
-	/// 256 with 0 pristine. Its second band at <c>0x50</c> only raises an alert for the pilot, which
-	/// is not ported, so there is nothing to key off it here.
+	/// 256 with 0 pristine. Crossing it latches <see cref="LegsCrippled"/>, which costs the machine
+	/// most of its speed and, on the player's own, announces <c>STRUCTURAL FAILURE IMMINENT</c>.
 	/// </summary>
 	private const int LegsCrippledDamage = 0x8d;
 
 	/// <summary>
-	/// And the lower of the two leg thresholds, <c>mech+0xa8</c>'s — reached at a little under a
-	/// third of a side gone.
+	/// And the lower of the two leg thresholds, <see cref="LegsDamaged"/>'s — reached at a little
+	/// under a third of a side gone, for the milder speed penalty and
+	/// <c>INTERNAL DAMAGE: LEG SERVOS</c>.
 	/// </summary>
 	private const int LegsDamagedAlert = 0x50;
 
@@ -370,6 +372,7 @@ public sealed partial class MechObject {
 		// reads for its SHIELDS DN condition, which is why a target never shows that state.
 		if (LocallyPiloted && !ShieldsDownAlert && Shields.Total < ShieldsDownAlertCharge) {
 			ShieldsDownAlert = true;
+			world.Sounds?.Say(SystemMessages.ShieldsCritical);
 		}
 
 		if (shieldDamage == 0) {
@@ -481,7 +484,11 @@ public sealed partial class MechObject {
 	/// <para><b>A band change on a mount component rolls to knock that mount out</b> — see
 	/// <see cref="RollWeaponMountDestruction"/>, which is the other half of this function.</para>
 	///
-	/// <para>Not ported: the pilot alerts the original plays throughout.</para>
+	/// <para>The one thing here that is deliberately absent is <c>0x12</c>
+	/// <c>DAMAGE LEVEL CRITICAL</c>, whose call site sits between the two readings and needs the
+	/// later one to have <i>fallen</i> below the earlier. No retail <c>PROJ.DAT</c> record can make
+	/// the write negative, so the line is unreachable — see docs/formats/audio.md. The cockpit jolt
+	/// above the test is a separate effect and is also unported.</para>
 	/// </summary>
 	private void ApplyDirectFireDamage(SimWorld world, short componentIndex, WeaponShot shot, Vec3i hitPoint) {
 		if (_damage == null) {
@@ -565,7 +572,8 @@ public sealed partial class MechObject {
 	/// machine's own direct-fire path for the splash share of a shot that hit it — see
 	/// <see cref="ApplyDirectFireDamage"/>.</para>
 	///
-	/// <para>Not ported: the pilot alerts. The debris a component lost this way throws goes through
+	/// <para>The computer's damage warnings are posted from the shared endpoint, so a blast raises
+	/// them exactly as a beam does. The debris a component lost this way throws goes through
 	/// <see cref="ComponentDamage.ApplyDamage"/> like any other loss.</para>
 	/// </summary>
 	public override void ExplosiveDamage(SimWorld world, short damage, Vec3i hitPoint, int blastRadius,
@@ -820,7 +828,10 @@ public sealed partial class MechObject {
 	/// the reading of a mount several components away. The original allocates the same array of
 	/// per-mount readings on its own stack for exactly that reason.</para>
 	///
-	/// <para>Left out: every alert sound, and the debris the destruction path throws.</para>
+	/// <para>The computer's warnings this posts along the way — the shield generator's two, the
+	/// weapon-mount one, the leg grade's pair, the reactor's and the kill announcement — are all
+	/// gated on <see cref="SimObject.LocallyPiloted"/>, so only the machine the player is flying
+	/// says anything. See docs/simulation/damage-system.md.</para>
 	/// </summary>
 	private void ComponentDamageWrite(SimWorld world, short componentIndex, short damage,
 			SimObject? attacker) {
@@ -833,19 +844,43 @@ public sealed partial class MechObject {
 			.Select(m => _damage.DamagePercent(m.LoadoutSlot + WeaponMounts.FirstMountComponent))
 			.ToList();
 
+		// The generator's own reading, for the two warnings below that are differences across the
+		// write rather than states after it.
+		int generatorBefore = _damage.DependentPercent(ShieldGeneratorDependent);
+
 		// The chassis' own debris table goes in as the installed alternate immediately before the
 		// write, exactly where Mech_ComponentDamageWrite installs it: everything the cascade throws
 		// reads its high indices against this machine's own wreckage.
 		_damage.ApplyDamage(componentIndex, damage, world, this, DebrisTable(world));
 
+		bool mountLost = false;
 		for (int i = 0; i < mounts.Count; i++) {
-			mounts[i].ConditionChanged(world.Random, before[i],
-				_damage.DamagePercent(mounts[i].LoadoutSlot + WeaponMounts.FirstMountComponent),
-				world, this, DebrisTable(world));
+			int after = _damage.DamagePercent(mounts[i].LoadoutSlot + WeaponMounts.FirstMountComponent);
+			mountLost |= before[i] < FullyDamaged && after == FullyDamaged;
+			mounts[i].ConditionChanged(world.Random, before[i], after, world, this, DebrisTable(world));
 		}
 
-		Shields.SetMax(ShieldCapacity(Type.ShieldCapacity,
-			(short)_damage.DependentPercent(ShieldGeneratorDependent),
+		// Once for the write, not once per mount: the original raises its flag inside the walk and
+		// posts after it, so a cascade that strips several hardpoints at once says this one line.
+		if (mountLost && LocallyPiloted) {
+			world.Sounds?.Say(SystemMessages.WeaponDestroyed);
+		}
+
+		int generatorAfter = _damage.DependentPercent(ShieldGeneratorDependent);
+
+		// The two guards are independent, not two arms of one test, so the hit that takes an
+		// untouched generator out says both lines.
+		if (LocallyPiloted) {
+			if (generatorBefore == 0 && generatorAfter != 0) {
+				world.Sounds?.Say(SystemMessages.InternalDamageShieldGenerator);
+			}
+
+			if (generatorBefore < FullyDamaged && generatorAfter == FullyDamaged) {
+				world.Sounds?.Say(SystemMessages.ShieldGeneratorDestroyed);
+			}
+		}
+
+		Shields.SetMax(ShieldCapacity(Type.ShieldCapacity, (short)generatorAfter,
 			Pods.ShieldPod, (short)0));
 
 		if (!Type.IsFlyer) {
@@ -858,6 +893,10 @@ public sealed partial class MechObject {
 				|| _damage.DependentPercent(LifeSupportDependent) == FullyDamaged)) {
 			_destroyed = true;
 			LastAttacker ??= attacker;
+
+			// Before the finish-off, so the announcement is made against the machine as the killing
+			// shot left it rather than against the wreck the recursion below makes of it.
+			AnnounceNeutralised(world, attacker, this, SystemMessages.EnemyTargetDestroyed);
 
 			// Sampled BEFORE the finish-off, because the finish-off is what makes it stale: the
 			// recursion below runs the whole of this function again, GradeLegs included, on a
@@ -911,6 +950,13 @@ public sealed partial class MechObject {
 			Reactor = reactor > ReactorCriticalDamage ? ReactorCondition.Critical
 				: reactor > ReactorDegradedDamage ? ReactorCondition.Degraded
 				: ReactorCondition.Intact;
+
+			// The original holds a latch per band and posts this same line from both. Reaching
+			// either one is what announces the reactor, and because the grade is only read while
+			// both latches are clear a machine says it once however far it goes on degrading.
+			if (Reactor != ReactorCondition.Intact && LocallyPiloted) {
+				world.Sounds?.Say(SystemMessages.InternalDamageEngine);
+			}
 		}
 	}
 
@@ -961,6 +1007,7 @@ public sealed partial class MechObject {
 			if (!Destroyed) {
 				(attacker as MechObject)?.CreditNeutralised(this, wasImmobilised: false);
 				ActivateDefeatAction(world);
+				AnnounceNeutralised(world, attacker, this, SystemMessages.EnemyTargetDisabled);
 				SetBehaviourState(BehaviourState.Disabled);
 			}
 
@@ -979,9 +1026,20 @@ public sealed partial class MechObject {
 			right = (right + _damage.DependentPercent(RearLegServoDependents[1])) >> 1;
 		}
 
+		// Each latch is also the warning's own one-shot: it is why a machine that keeps taking hits
+		// in the same band does not keep repeating itself, and it is separate from the message
+		// port's 4.8 s repeat swallow, which would not be enough on its own.
 		if (left >= LegsCrippledDamage || right >= LegsCrippledDamage) {
+			if (!LegsCrippled && LocallyPiloted) {
+				world.Sounds?.Say(SystemMessages.StructuralFailureImminent);
+			}
+
 			LegsCrippled = true;
 		} else if (left > LegsDamagedAlert || right > LegsDamagedAlert) {
+			if (!LegsDamaged && LocallyPiloted) {
+				world.Sounds?.Say(SystemMessages.InternalDamageLegServos);
+			}
+
 			LegsDamaged = true;
 		}
 	}

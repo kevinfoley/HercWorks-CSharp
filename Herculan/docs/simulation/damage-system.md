@@ -515,16 +515,47 @@ The Java author's own doc comment on `HercSimDamage.cs` lists real component nam
 - **Dependent-array (22-entry) slots read by literal offset in `FUN_00417de4`**, not by a loop.
   0 and 1 are the front leg servos, joined by 10 and 11 (the rear pair) when
   `typeRecord+0x4a` is 4; the pair(s) are averaged before being compared against `0x8d` (crippled)
-  and `0x50` (an alert only), and half of them destroyed immobilises the machine. 4 is the shield
+  and `0x50` (the milder grade), and half of them destroyed immobilises the machine. 4 is the shield
   generator, which `Mech_ComputeShieldCapacity` reads — so shooting it shrinks the array the machine
   can hold, and that recompute happens **here as well as at spawn**. 5 is the reactor, latching the
   two output-damage flags. 8 and 9 are life support and the pilot: either destroyed, or either
   cockpit slot fully gone, and the machine dies.
 
-`FUN_00417de4` itself, beyond wrapping the health write above, does per-subsystem percentage
-tracking with 8-level bucketing and fires distinct alert sounds at multiple thresholds (~55%,
-~31%, fully destroyed). It also processes weapon-mount ratios (from `this+0x202`, see "Weapon
-mounts" below) and a distinct "torso"-like aggregate with its own thresholds (75%/50%).
+### What the endpoint announces
+
+`FUN_00417de4` is also where the cockpit computer's damage warnings are posted, and **every one of
+them is gated on `obj+0xa3`** — the machine being the one the player is flying — so an AI machine
+losing a leg says nothing. The ids are `SYSTEM.STR`'s and the port they go to is
+[`../formats/audio.md`](../formats/audio.md#the-port)'s.
+
+| id | line | guard |
+|---|---|---|
+| `0x03` | `INTERNAL DAMAGE: SHIELD GENERATOR` | dependent 4's reading was 0 before the write and is not after |
+| `0x0c` | `SHIELD GENERATOR DESTROYED` | that reading was under `0x100` and is now `0x100`. Independent of `0x03`'s test rather than its other arm, so a hit that takes an untouched generator out posts both |
+| `0x10` | `WEAPON DESTROYED` | a mount's own component was under `0x100` before the write and is `0x100` after. **Once per write, not once per mount** — the walk over the mounts raises a flag and the post comes after it, so a cascade that strips several hardpoints says it once |
+| `0x08` | `INTERNAL DAMAGE: LEG SERVOS` | fewer than half the servos gone, both graded sides under `0x8d`, one of them over `0x50`, and `mech+0xa8` clear |
+| `0x13` | `STRUCTURAL FAILURE IMMINENT` | the same with a side at or past `0x8d`, on `mech+0xa9` |
+| `0x04` | `INTERNAL DAMAGE: ENGINE` | the reactor grade crossing either band. Two call sites, one per latch — `mech+0xaa` for `0x81`-`0xc0`, `mech+0xab` past `0xc0` — posting the same line; but the grade is only read while **both** latches are clear, so a machine announces its reactor once however far it goes on degrading |
+| `0x2e` | `ENEMY TARGET DESTROYED` | the death gate, on the shared predicate below |
+| `0x2f` | `ENEMY TARGET DISABLED` | the leg branch's immobilise, on that same predicate |
+
+`0x15` `SHIELDS CRITICAL` belongs to the same family from one function further out:
+`Mech_DirectFireHitTest` posts it where it sets `mech+0xb0`, on the first shot to land on the
+player's own machine with under 500 points of charge left across both facings.
+
+**The five latch bytes are one-shots and are never cleared.** They are why a machine that keeps
+taking hits in the same band does not repeat itself, and they are separate from the port's own 4.8 s
+repeat swallow, which would not be enough on its own. Four of the five are load-bearing elsewhere as
+well: `+0xa8`/`+0xa9` are the two speed penalties
+([`mech-locomotion.md`](mech-locomotion.md)), `+0xaa`/`+0xab` the reactor's output grades, and
+`+0xb0` is what the MFD status screen reads for its `SHIELDS DN` condition.
+
+**`0x2e` and `0x2f` share a predicate, and it does not test sides**: the attacker is the machine the
+player is flying, and the victim is that machine's own selected target (`mech+0x1a4`). Nothing is
+asked about whose side the victim was on. `0x2e` has **three** call sites — this endpoint, the
+flyer's `+0x74` (`FUN_00421bb4`) and `Base_ApplyDamage` (`FUN_00404d70`) — so it covers a HERC, an
+aircraft and a building alike. What the missing side test costs is in
+[`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
 
 ### Going out of the fight
 
@@ -821,7 +852,7 @@ The traps, not a summary — everything else here is stated once above and does 
 
 `Herculan.Engine.Sim.MechObject.Combat` (the hit test, `Mech_ApplyDirectFireDamage`, and the parts
 of `Mech_ComponentDamageWrite` that change behaviour: the shield-capacity recompute, leg grading,
-the death gate, the reactor flags), `Sim.ComponentDamage` (the whole `+0x206` header — the three
+the death gate, the reactor flags, and the warnings all four of those post), `Sim.ComponentDamage` (the whole `+0x206` header — the three
 arrays, the aggregate read, the spill and the cascade), `Sim.ShieldCharge`, `Sim.MechObject.Power`
 (capacity and reactor rate), and `MechTypeRecord.HitRadius`/`HitCenterHeight`/`LegCount`/`Mass`.
 
@@ -852,8 +883,12 @@ credit (`MechObject.CreditNeutralised`). `Mech_SpreadImpactDamage` is
 `Mech_ApplyStartingCondition` is `MechObject.ApplyStartingCondition`, called from
 `Scene.MissionScene` where the original calls it.
 
-Not ported: the Shield Pod's own damage term in `Mech_ComputeShieldCapacity`, every alert sound, the
-salvage queue, `Mech_ReportOutOfAction`'s mission-variable writes (the status-report layer, which
+The computer's warnings are posted from the sites above through `SimWorld.Sounds.Say`, with the
+five latches already carried as `MechObject.LegsDamaged`, `LegsCrippled`, `Reactor` and
+`ShieldsDownAlert`; `SimObject.AnnounceNeutralised` is the `0x2e`/`0x2f` predicate, called from all
+three endpoints. The ids are `Content.SystemMessages`'.
+
+Not ported: the Shield Pod's own damage term in `Mech_ComputeShieldCapacity`, the salvage queue, `Mech_ReportOutOfAction`'s mission-variable writes (the status-report layer, which
 nothing else in the engine has yet), `mech+0xb3`, `obj+0x38`, and — from the collision path — the
 "something ran into me" latch (`obj+0xb1`, written through vtable `+0x68`) and the nearby-structure
 lock-on candidate, both of which only the unported behaviour layer reads.

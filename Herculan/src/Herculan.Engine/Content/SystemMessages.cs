@@ -181,6 +181,65 @@ public sealed class SystemMessages {
 	public const int PassiveRadarMode = 0x2d;
 
 	/// <summary>
+	/// <c>INTERNAL DAMAGE: SHIELD GENERATOR</c> — the damage endpoint, the first hit that puts any
+	/// damage at all on the shield-generator dependent: its reading was zero before the write and is
+	/// not after. See <see cref="Sim.MechObject"/>.
+	/// </summary>
+	public const int InternalDamageShieldGenerator = 0x03;
+
+	/// <summary>
+	/// <c>INTERNAL DAMAGE: ENGINE</c> — the same endpoint, on the reactor dependent crossing either
+	/// of its two grading thresholds. The original holds a latch per threshold and both post this
+	/// one line; because the grade is only read while both latches are clear, a machine announces its
+	/// reactor once and then never again however far it degrades.
+	/// </summary>
+	public const int InternalDamageEngine = 0x04;
+
+	/// <summary>
+	/// <c>INTERNAL DAMAGE: LEG SERVOS</c> — the leg grade, on the softer of its two bands: neither
+	/// side crippled, one side past its alert threshold, and the leg-damaged latch still clear.
+	/// </summary>
+	public const int InternalDamageLegServos = 0x08;
+
+	/// <summary><c>SHIELD GENERATOR DESTROYED</c> — that dependent's reading reaching full.</summary>
+	public const int ShieldGeneratorDestroyed = 0x0c;
+
+	/// <summary>
+	/// <c>WEAPON DESTROYED</c> — a hardpoint's own component reaching full damage. Posted <b>once per
+	/// damage write</b> rather than once per mount: the original raises a flag inside the walk over
+	/// the mounts and posts after it, so a cascade that takes several hardpoints at once says this
+	/// once.
+	/// </summary>
+	public const int WeaponDestroyed = 0x10;
+
+	/// <summary>
+	/// <c>STRUCTURAL FAILURE IMMINENT</c> — the harder leg band: a side at or past the crippled
+	/// threshold, with the machine still standing.
+	/// </summary>
+	public const int StructuralFailureImminent = 0x13;
+
+	/// <summary>
+	/// <c>SHIELDS CRITICAL</c> — the hit test, the first shot to land with under
+	/// <see cref="Sim.MechObject.ShieldsDownAlertCharge"/> of charge left across both facings.
+	/// </summary>
+	public const int ShieldsCritical = 0x15;
+
+	/// <summary>
+	/// <c>ENEMY TARGET DESTROYED</c> — posted from all three damage endpoints (a HERC's, a flyer's
+	/// and a structure's) on the same guard: the player's own machine landed the killing shot and the
+	/// thing that died is what the player had selected. <b>It does not test sides</b>, so a friendly
+	/// you had boxed is announced as an enemy and <c>FRIENDLY TARGET DESTROYED</c> (<c>0x30</c>) is
+	/// unreachable. Retail behaviour, reproduced deliberately — see KNOWN_ISSUES.md.
+	/// </summary>
+	public const int EnemyTargetDestroyed = 0x2e;
+
+	/// <summary>
+	/// <c>ENEMY TARGET DISABLED</c> — the same guard on a HERC going immobilised rather than dying,
+	/// and <c>FRIENDLY TARGET DISABLED</c> (<c>0x31</c>) is unreachable for the same reason.
+	/// </summary>
+	public const int EnemyTargetDisabled = 0x2f;
+
+	/// <summary>
 	/// <c>TRANSFERRING DATA</c> — the one message the port treats specially. It is the only entry
 	/// whose timings differ from the rest of the file (10 s and 20 s against 3 s and 6 s), and
 	/// <c>FUN_00436abc</c> switches on its id to make it blink; <c>FUN_00436cec</c> then centres it in

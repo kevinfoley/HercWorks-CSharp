@@ -357,6 +357,26 @@ public abstract class SimObject {
 	internal void ActivateDefeatAction(SimWorld world) => DefeatAction?.Activate(world);
 
 	/// <summary>
+	/// The guard all three damage endpoints share before they announce that something the player was
+	/// shooting at has gone down — a HERC's, a flyer's and a structure's, posting
+	/// <c>ENEMY TARGET DESTROYED</c> or <c>ENEMY TARGET DISABLED</c>.
+	///
+	/// <para><b>It does not test sides</b>, and that is the original's own guard rather than an
+	/// omission here: it asks only that the killing shot came from the machine the player is flying
+	/// and that <paramref name="victim"/> is what that machine had selected. So destroying a friendly
+	/// you had boxed announces it as an enemy, and the two recorded <c>FRIENDLY</c> lines
+	/// (<c>0x30</c> and <c>0x31</c>) can never be reached. Diverging here would be a silent behaviour
+	/// change; see KNOWN_ISSUES.md.</para>
+	/// </summary>
+	private protected static void AnnounceNeutralised(SimWorld world, SimObject? attacker,
+			SimObject victim, int messageId) {
+		if (attacker is MechObject killer && killer.LocallyPiloted
+				&& ReferenceEquals(killer.Target, victim)) {
+			world.Sounds?.Say(messageId);
+		}
+	}
+
+	/// <summary>
 	/// The object's body radius, in world units. The blast sweep subtracts it from every candidate's
 	/// distance before comparing against the blast radius, and the collision test uses the moving
 	/// machine's as its own half of the gap.

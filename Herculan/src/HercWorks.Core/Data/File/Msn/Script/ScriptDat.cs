@@ -111,12 +111,17 @@ public class ScriptDat {
 	public ScriptUnitSpawn58Export[] LinkedRefs58 { get; set; } = [];
 
 	/// <summary>
-	/// Block 13 — the mission's herc/weapon unlock package: the populated prefix of row #4's
-	/// (<see cref="RewardPackage144"/>) <c>LutRefsA</c> sub-array, re-counted from scratch by the
-	/// writer (assumes real entries are always front-packed with no gaps, matching
-	/// <see cref="MissionFile"/>'s own real-data findings for that field).
+	/// Block 13 — the flat tail: <b>the mission's objective list as the player is shown it</b>, one
+	/// index per line into <c>data\mission.str</c>. <c>DBSim_LoadScriptDat</c> (<c>00424308</c>)
+	/// reads the count into <c>DAT_004a9ec8</c> and the shorts into <c>DAT_004a9ecc</c>, and the
+	/// in-mission objectives panel (<c>obj_alrt</c>, <c>FUN_0045751c</c>) is the only reader: it
+	/// prints one label per entry.
+	///
+	/// <para><b>It is separate data from block 12</b>, which holds the conditions the simulation
+	/// actually tests. Nothing reconciles the two, so a mission can list an objective it does not
+	/// test and test one it does not list.</para>
 	/// </summary>
-	public short[] UnlockedLutRefs { get; set; } = [];
+	public short[] ObjectiveTextRefs { get; set; } = [];
 }
 
 /// <summary>Block 1 entry — 12 bytes (int32 X/Y/Z), a positions-only export of row #6.</summary>

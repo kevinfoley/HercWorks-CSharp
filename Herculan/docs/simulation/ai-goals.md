@@ -140,7 +140,7 @@ What differs from the original, and why:
 
 - **Order `+0x02` and `+0x04`.** Both are resolved at load and never read. `+0x04` is a real block-1 point in 7% of retail records and `+0x02` holds 0, 1 or 3.
 - **The order-completed flags at group `+0x70`.** Written by `Group_OrderTick`, read by nothing in the AI.
-- **The group-report cluster at `00412f90` / `00413280`.** A second family that reads the same order records — `00412f90` maps a verb and the group's condition tier onto a small integer that looks like a string index, and `00413280` walks a global array of records with a comparison discriminator and writes back into a variable table. It reads as the mission-objective and status-report layer rather than the AI, and `00412f90` has no caller Ghidra can see.
+- **`00412f90`**, which maps an order verb and the group's condition tier onto a small integer that looks like a string index. It has no caller Ghidra can see. Its neighbour `00413280`, which reads the same order records, is the mission objective evaluator — [`mission-objectives.md`](mission-objectives.md).
 
 ## Rejected readings
 

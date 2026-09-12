@@ -48,6 +48,12 @@ public enum MissionOrderSubject {
 /// Record <c>+0x08</c> resolved to block-1 points. Only slot 0's is ever installed as the group's
 /// route; see <see cref="Sim.MissionGroup.Route"/>.
 /// </param>
+/// <param name="RouteRef">
+/// Record <c>+0x08</c> <i>unresolved</i> — the block-3 waypoint group index, or <c>-1</c>. The AI
+/// never wants it, but the mission objective layer does: a "get there" objective names the order it
+/// is about by the route that order runs on rather than by slot. See
+/// <see cref="Sim.MissionGroup.OrderCompletedForRoute"/>.
+/// </param>
 /// <param name="ActionRef">
 /// Record <c>+0x12</c> — the block-5 action this order hangs on, or <c>-1</c>. When it fires the
 /// group moves to its next order whether or not this one finished; see
@@ -58,7 +64,8 @@ public sealed record MissionOrder(
 	MissionOrderSubject SubjectKind,
 	int SubjectRef,
 	IReadOnlyList<Vec3i> Route,
-	int ActionRef) {
+	int ActionRef,
+	int RouteRef = -1) {
 
 	/// <summary>Whether the order names an action at all.</summary>
 	public bool GatedOnAction => ActionRef >= 0;

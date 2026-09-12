@@ -221,6 +221,31 @@ public sealed class SimWorld {
 	private readonly List<MissionActionTimerState> _actionTimers = new();
 
 	/// <summary>
+	/// The mission's objective layer — block 12's records and the status they add up to. Empty until
+	/// a scene installs one, which is what a headless test or a mission with no objectives leaves it.
+	/// See <see cref="MissionObjectives"/>.
+	/// </summary>
+	public MissionObjectives Objectives { get; private set; } = MissionObjectives.Empty;
+
+	/// <summary>Installs the mission's objective layer. Done once, at load.</summary>
+	public void SetObjectives(MissionObjectives objectives) => Objectives = objectives;
+
+	/// <summary>
+	/// <c>DAT_004aa6c4</c>-<c>d0</c> — the mission's bounding box, which
+	/// <c>DBSim_LoadScriptDat</c> accumulates over block 1 as it reads the coordinates. Two things
+	/// read it: the Heads-Down Display's map frames itself on it, and the objective layer's two
+	/// boundary statuses are the player leaving it. An empty box turns both off.
+	/// </summary>
+	public HddMapBounds MissionBounds { get; set; } =
+		new(int.MaxValue, int.MaxValue, int.MinValue, int.MinValue);
+
+	/// <summary>
+	/// The status the objective poll last handed up, and has not been shown yet. The original raises
+	/// a modal alert panel here; this engine has none, so the value is latched for whatever draws it.
+	/// </summary>
+	public MissionStatus PendingMissionAlert { get; set; } = MissionStatus.None;
+
+	/// <summary>
 	/// <c>DAT_004a9ef4</c> — the mission counter array a firing action bumps or clears. Nothing in
 	/// the ported simulation reads it back, but the original does not read it during a mission either:
 	/// <c>FUN_0042412c</c> writes the whole block to <c>mission_var</c> as the mission ends, so these
@@ -235,6 +260,13 @@ public sealed class SimWorld {
 	internal void BumpMissionCounter(int index, short amount) {
 		if ((uint)index < MissionCounterSlots) {
 			_missionCounters[index] = (short)(_missionCounters[index] + amount);
+		}
+	}
+
+	/// <summary>Writes one counter outright — the objective layer's operation 4, which sets it to 1.</summary>
+	internal void SetMissionCounter(int index, short value) {
+		if ((uint)index < MissionCounterSlots) {
+			_missionCounters[index] = value;
 		}
 	}
 
@@ -1242,6 +1274,16 @@ public sealed class SimWorld {
 			if (_objects[i] is MechObject { Removed: false, AwaitingDeployment: false, Destroyed: false } mech) {
 				mech.AiTimersTick();
 				mech.MissileLockTick(this);
+			}
+		}
+
+		// And last, the mission's own verdict on how the player is doing -- Sim_MainTick's final act,
+		// after the systems pass and gated on the player's machine still being alive. It is throttled
+		// hard inside: see MissionObjectives.Poll.
+		if (PlayerMech is { Removed: false, Destroyed: false } pilot) {
+			var alert = Objectives.Poll(this, pilot);
+			if (alert != MissionStatus.None) {
+				PendingMissionAlert = alert;
 			}
 		}
 

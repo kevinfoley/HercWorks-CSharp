@@ -63,10 +63,11 @@ public static class AiTargeting {
 	/// invulnerable, currently <see cref="Knows"/>n, not a dead flyer, and with
 	/// <see cref="TargetFilter.RejectOwnClass"/> not the asking object's own class.
 	///
-	/// <para>One of the original's tests is not here: it reads a global (<c>DAT_004a9ed8 == 3</c>)
-	/// whose meaning is unresolved, and is listed under docs/simulation/ai-targeting.md, "Open
-	/// questions". Its effect is to <i>narrow</i> the candidate set, so leaving it out can only make
-	/// the AI consider more than the original would, never less.</para>
+	/// <para>One of the original's tests is the mission objective layer reaching into the AI: on a
+	/// <b>data-link mission of type 3</b>, a group led by the player's own machine will not target
+	/// what its current order names. That is the thing the player came to read, and the shield is
+	/// what stops their own squad shooting it while they do. Type 7, the other data-link type, does
+	/// not get it. See <see cref="World.ScriptDatHeader.ObjectiveType"/>.</para>
 	/// </summary>
 	public static bool IsTargetable(SimWorld world, SimObject self, SimObject candidate,
 			TargetFilter filter) {
@@ -94,6 +95,13 @@ public static class AiTargeting {
 
 		// A flyer gets the extra liveness test the original spells out for target class 2 alone.
 		if (candidate.TargetClass == TargetClass.Flyer && candidate.Neutralised) {
+			return false;
+		}
+
+		// The data-link shield: the order's own subject is off limits to the player's squad.
+		if (world.Objectives.ObjectiveType == MechObject.ObjectiveTypeDataLink
+				&& self.Group is { Leader: { LocallyPiloted: true } } led
+				&& ReferenceEquals(led.OrderTarget, candidate)) {
 			return false;
 		}
 

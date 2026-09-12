@@ -74,6 +74,9 @@ public static class MissionLoader {
 	/// <summary>The player's lance, written beside it.</summary>
 	public const string PlayerFileName = "player.mec";
 
+	/// <summary>The mission's own text, written beside it as well.</summary>
+	public const string TextFileName = "mission.str";
+
 	/// <summary>
 	/// The lance file that goes with a mission file. The live pair in <c>DATA\</c> is
 	/// <c>script.dat</c>/<c>player.mec</c>; the save-slot snapshots in <c>SAV\</c> keep the same
@@ -88,6 +91,26 @@ public static class MissionLoader {
 			: string.Empty;
 
 		return Path.Combine(directory, $"player{slot}.mec");
+	}
+
+	/// <summary>
+	/// The text file that goes with a mission file. The live triple in <c>DATA\</c> is
+	/// <c>script.dat</c>/<c>player.mec</c>/<c>mission.str</c>; the save-slot snapshots in <c>SAV\</c>
+	/// keep the pairing but rename the text half, so <c>script3.dat</c> goes with
+	/// <c>missn3.str</c>. DBSIM itself only ever opens the <c>DATA\</c> one — VSHELL copies a slot's
+	/// into place before launching it — so the second spelling is this loader's, for opening a
+	/// snapshot where it lies.
+	/// </summary>
+	public static string TextPathFor(string scriptPath) {
+		string directory = Path.GetDirectoryName(scriptPath) ?? ".";
+		string name = Path.GetFileNameWithoutExtension(scriptPath);
+
+		if (!name.StartsWith("script", StringComparison.OrdinalIgnoreCase)) {
+			return Path.Combine(directory, TextFileName);
+		}
+
+		string slot = name["script".Length..];
+		return Path.Combine(directory, slot.Length == 0 ? TextFileName : $"missn{slot}.str");
 	}
 
 	/// <summary>
@@ -155,6 +178,8 @@ public static class MissionLoader {
 
 		var actions = ResolveActions(script);
 		var actionTimers = ResolveActionTimers(script);
+		var objectives = ResolveObjectives(script);
+		var text = LoadText(TextPathFor(scriptPath));
 
 		var deploymentActions = new int[groups.Length];
 		var groupKinds = new MissionUnitKind[groups.Length];
@@ -166,8 +191,77 @@ public static class MissionLoader {
 		}
 
 		return new Mission(scriptPath, header, placements, player, basePads, coordinates, playerRoute,
-			groupOrders, actions, actionTimers, deploymentActions, groupKinds, groupSides);
+			groupOrders, actions, actionTimers, deploymentActions, groupKinds, groupSides,
+			objectives, Array.ConvertAll(script.ObjectiveTextRefs, line => (int)line), text);
 	}
+
+	/// <summary>
+	/// Block 12 — the mission's objectives, as <c>DBSim_SpawnMissionObjects</c> (<c>004253d8</c>)
+	/// builds them in its final pass. <b>Pass 1 reads this block and throws it away</b>, which is why
+	/// reading only that pass leaves the block looking dead; the spawn pass comes back for it and
+	/// turns each 54-byte record into a 76-byte one with its refs resolved. See
+	/// <see cref="MissionObjective"/>.
+	/// </summary>
+	private static MissionObjective[] ResolveObjectives(ScriptDat script) {
+		var objectives = new MissionObjective[script.LinkedRefs58.Length];
+
+		for (int i = 0; i < objectives.Length; i++) {
+			var record = script.LinkedRefs58[i];
+			var kind = (MissionObjectiveSubject)record.Discriminator;
+
+			objectives[i] = new MissionObjective(
+				record.Unk02,
+				record.Unk04,
+				kind,
+				record.DiscriminatedRef,
+				Coordinate(script, record.RefRow6),
+				record.RefRow8,
+				record.LutRef,
+				record.PairRefs,
+				record.PairTags);
+		}
+
+		return objectives;
+	}
+
+	/// <summary>
+	/// <c>data\mission.str</c>, flattened to one list of lines. It is an ordinary <c>.STR</c> table
+	/// of a single group with no attribute bytes, and the original loads at most
+	/// <see cref="TextLineLimit"/> of them into a pointer array. A mission with no text file loads
+	/// with none rather than failing: nothing in the simulation needs it, only what displays it.
+	/// </summary>
+	private static IReadOnlyList<string> LoadText(string textPath) {
+		if (!File.Exists(textPath)) {
+			return Array.Empty<string>();
+		}
+
+		if (SimStringTable.Parse(File.ReadAllBytes(textPath)) is not { } table) {
+			return Array.Empty<string>();
+		}
+
+		var lines = new List<string>();
+
+		for (int group = 0; group < table.GroupCount && lines.Count < TextLineLimit; group++) {
+			foreach (var entry in table.Group(group)) {
+				if (lines.Count >= TextLineLimit) {
+					break;
+				}
+
+				// The load pass strips one trailing newline per line, which is how the retail file
+				// authors an intentional line break at the end of a briefing paragraph without it
+				// reaching the screen.
+				lines.Add(entry.Text.EndsWith('\n') ? entry.Text[..^1] : entry.Text);
+			}
+		}
+
+		return lines;
+	}
+
+	/// <summary>
+	/// Lines the original's <c>mission.str</c> pointer array holds — its literal 0x32. A file with
+	/// more is read no further.
+	/// </summary>
+	public const int TextLineLimit = 0x32;
 
 	/// <summary>
 	/// Block 6 — the mission's timers, as <c>DBSim_LoadScriptDat</c> (<c>00424308</c>) resolves them
@@ -717,7 +811,8 @@ public static class MissionLoader {
 				Enum.IsDefined(kind) ? kind : MissionOrderSubject.None,
 				link.DiscriminatedRef,
 				Waypoints(script, link.RefRow8),
-				ActionRef(script, link.RefRow10));
+				ActionRef(script, link.RefRow10),
+				link.RefRow8);
 		}
 
 		return orders;

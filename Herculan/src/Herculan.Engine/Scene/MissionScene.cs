@@ -377,6 +377,13 @@ public sealed class MissionScene {
 		BindOrderActions(groups, actions);
 		BindActionSubjects(actions, groups, objects);
 
+		// The mission's objectives, on the same second pass and for the same reason: an objective
+		// names a group or a roster slot, and neither exists until every group has been built. The
+		// bounding box the two boundary statuses test is block 1's own extent, which the loader has
+		// already read.
+		world.SetObjectives(BuildObjectives(mission, groups, objects));
+		world.MissionBounds = Content.HddMapBounds.Of(mission.Coordinates);
+
 		// Each object's own two actions -- the one it fires when an enemy closes on it and the one it
 		// fires when it dies. DBSim_SpawnMissionObjects resolves both as it builds the object; here
 		// they wait for the action states, which are built above.
@@ -710,6 +717,54 @@ public sealed class MissionScene {
 					break;
 			}
 		}
+	}
+
+	/// <summary>
+	/// Block 12's records turned into runtime state, with each one's subject resolved the way the
+	/// order and action subjects above are. An objective naming a roster slot nothing placed, or a
+	/// group the mission does not have, resolves to nothing and its condition simply never comes
+	/// true — which for a mandatory record means the mission cannot be completed, exactly as the
+	/// original's own null subject would behave once it stopped crashing.
+	/// </summary>
+	private static MissionObjectives BuildObjectives(Mission mission,
+			Dictionary<int, MissionGroup> groups, List<SceneObject> objects) {
+		var bySlot = new Dictionary<(MissionUnitKind, int), SimObject>();
+		foreach (var placed in objects) {
+			bySlot[(placed.Placement.Kind, placed.Placement.SlotIndex)] = placed.Object;
+		}
+
+		var states = new MissionObjectiveState[mission.Objectives.Count];
+
+		for (int i = 0; i < states.Length; i++) {
+			var record = mission.Objectives[i];
+			var state = new MissionObjectiveState(record);
+
+			if (record.SubjectRef >= 0) {
+				if (record.SubjectKind == MissionObjectiveSubject.Group) {
+					state.SubjectGroup = groups.GetValueOrDefault(record.SubjectRef);
+				} else {
+					var kind = record.SubjectKind switch {
+						MissionObjectiveSubject.Mech => MissionUnitKind.Mech,
+						MissionObjectiveSubject.Flyer => MissionUnitKind.Flyer,
+						_ => MissionUnitKind.Base
+					};
+
+					state.SubjectObject = bySlot.GetValueOrDefault((kind, record.SubjectRef));
+				}
+			}
+
+			states[i] = state;
+		}
+
+		var briefing = new int[mission.BriefingLines.Count];
+		for (int i = 0; i < briefing.Length; i++) {
+			briefing[i] = mission.BriefingLines[i];
+		}
+
+		return new MissionObjectives(states) {
+			BriefingLines = briefing,
+			ObjectiveType = mission.Header.ObjectiveType
+		};
 	}
 
 	private static MissionActionState? ActionAt(MissionActionState[] actions, int reference) =>

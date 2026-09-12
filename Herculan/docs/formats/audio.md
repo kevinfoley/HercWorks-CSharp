@@ -602,11 +602,30 @@ cellHeight) >> 1) + inkHeight + 1` and the glyph blitter (`HudFont_DrawGlyph`, `
 
 ### Posters
 
+**This is every poster.** The port is constructed once, in `Gau_BuildCockpitWidgets`, and stored at
+`view+0x20b`, so anything that posts has to load that displacement; there are eighteen such loads in
+the image and five of the functions holding them post. `Computer_PostMessage` (`00420a68`) is the
+shared helper the first row stands for.
+
 | Poster | Messages |
 |---|---|
+| `Computer_PostMessage`'s eighteen callers | The damage set `0x03`, `0x04`, `0x08`, `0x0c`, `0x10`, `0x12`, `0x13`, `0x15`; `0x19` `MISSION TARGET DETECTED` and `0x1d` `WAYPOINT REACHED` from the player's think; `0x2a`/`0x2b` jamming; `0x2e` `ENEMY TARGET DESTROYED` and `0x2f` `ENEMY TARGET DISABLED`; and the data link's `0x34`-`0x37` and `0x38` |
+| `Mission_Status` (`004135e8`) | `0x16` `MISSION FAILED`, `0x17` `MISSION SUCCESSFUL`, `0x1e` `APPROACHING MISSION ZONE BOUNDARY`, `0x20` `RULES OF ENGAGEMENT VIOLATED` — see [`../simulation/mission-objectives.md`](../simulation/mission-objectives.md#what-the-computer-says) |
 | `Cockpit_PowerUpTick` (`00432924`) | Once `200 <` coarse ticks have passed since the sequence began, it walks the ten heads-down gauges (`FUN_0041b514`, then `Damage_ToConditionState` (`00438700`) under `0x5a`) and posts `0x22` `POWERUP INITIATED. INTERNAL DAMAGE DETECTED.` if any is under, else `0x21` `... ALL SYSTEMS NOMINAL.` |
+| `NavMarker_Tick` (`004349ac`) | `0x1d` `WAYPOINT REACHED` again, on returning to a dropped marker — [`../simulation/player-waypoints.md`](../simulation/player-waypoints.md#the-nav-marker) |
 | `Mech_ToggleRadarMode` (`0041b468`) | Withdraws **both** `0x2c` `ACTIVE RADAR MODE` and `0x2d` `PASSIVE RADAR MODE`, then posts the one the mode just became — so flipping twice quickly announces where it ended up rather than reading out the sequence |
 | `ConsoleButtons_ToggleAutoTrack` (`00441f7c`) | The same shape with `0x26` `AUTO TRACKING ENGAGED` and `0x27` `AUTO TRACKING DISABLED` |
+
+Those twenty-nine ids are the whole set, so **over half the file's sixty-three lines are posted by
+nothing** — among them `MISSION OBJECTIVES COMPLETE` (`0x1a`), `PRIMARY OBJECTIVE COMPLETE` (`0x1b`),
+`SECONDARY OBJECTIVE COMPLETE` (`0x1c`), `MISSION ABORTED` (`0x18`), `FRIENDLY TARGET DESTROYED`
+(`0x30`), `AUTO PILOT ENGAGED`/`DISABLED`, `FOLLOW MODE ENGAGED`/`DISABLED` and the `10...9...8...`
+countdown. Every one has a recorded `CVM` clip, and `MessagePort_Show`'s tone switch names several of
+them — the switch is written wider than the game reaches.
+
+**`0x2e` and `0x2f` do not test sides.** Their guard is only that the player fired the killing shot
+and that the victim is the player's own selected target (`mech+0x1a4`), so destroying a friendly you
+had boxed announces `ENEMY TARGET DESTROYED` and the two `FRIENDLY` lines are unreachable.
 
 At 16 ms a coarse tick the power-up announcement lands 3.2 s in, inside `start3`'s five seconds
 rather than after them.

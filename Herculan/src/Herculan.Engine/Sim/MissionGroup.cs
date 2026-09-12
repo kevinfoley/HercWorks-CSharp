@@ -155,6 +155,31 @@ public sealed partial class MissionGroup {
 	public bool OrderCompleted(int slot) =>
 		slot >= 0 && slot < _completed.Length && _completed[slot];
 
+	/// <summary>
+	/// <c>Mission_GroupOrderCompleteOnRoute</c> (<c>0041324c</c>) — whether the order slot that runs
+	/// a given block-3 waypoint group has been flagged finished. The mission objective layer is the
+	/// only caller, and it is how a "get there" objective names <i>which</i> of a group's ten orders
+	/// it is about: not by slot, but by the route that slot runs on.
+	///
+	/// <para>The original matches the resolved waypoint-group <i>pointer</i>; the ref is compared
+	/// here, which is the same identity for a table nothing rebuilds. A slot with no order, or one
+	/// whose order names no route, matches nothing — including an objective that names no route
+	/// either, since a negative ref cannot equal a slot's.</para>
+	/// </summary>
+	public bool OrderCompletedForRoute(int routeRef) {
+		if (routeRef < 0) {
+			return false;
+		}
+
+		for (int slot = 0; slot < _orders.Count && slot < MissionOrder.Slots; slot++) {
+			if (_orders[slot] is { } order && order.RouteRef == routeRef) {
+				return OrderCompleted(slot);
+			}
+		}
+
+		return false;
+	}
+
 	/// <summary>The group the current order names, when it names one.</summary>
 	public MissionGroup? OrderSubjectGroup =>
 		OrderIndex >= 0 && OrderIndex < _subjectGroups.Length ? _subjectGroups[OrderIndex] : null;
@@ -357,7 +382,7 @@ public sealed partial class MissionGroup {
 	/// members it has lost and how hurt the whole roster is. The damage mean counts every member,
 	/// the dead included, which is what lets a group be written off by damage alone.
 	/// </summary>
-	private int ConditionTier() {
+	public int ConditionTier() {
 		if (_members.Count == 0) {
 			return 0;
 		}

@@ -27,7 +27,7 @@ All of them maintain the target's `+0x1a2` holder count and raise `mech+0x9d` th
 - not currently known — `Ai_KnowsObject` (`00411c58`): radar-visible (`+0x95`) within **999999**, or a contact this machine holds (`this+0xc2 + candidate[0x4b]`) at any range. **The AI's knowledge test is far looser than the player's**, which caps radar at 200000 and contacts at 30000/60000;
 - with `mask & 0x10`, a candidate of this machine's own object class (`+0x1a8`);
 - a flyer (class 2) that is dead or dying;
-- the group's own order target, while this machine's group is led by the local player and `DAT_004a9ed8 == 3`;
+- the group's own order target, while this machine's group is led by the local player and the mission's objective type is 3 -- the data-link shield, see [`mission-objectives.md`](mission-objectives.md#the-player-thinks-objective-arms);
 - when `this+0x9a` is set, whatever the player currently has selected (`CockpitViewInstance+0x210`) — the courtesy that stops the squad piling onto the player's target. `Mech_AiOnTakingFire` clears `+0x9a` when the player's target is the thing shooting at this machine.
 
 ## Acquisition — `Ai_SelectTarget` (`00411fa0`)
@@ -234,14 +234,9 @@ Fields settled elsewhere link out rather than being restated.
 
 Deviations, all of them things the original reads that this engine has no value for:
 
-- **`DAT_004a9ed8`**, which narrows `Ai_IsTargetable`, is not modelled. Its absence can only let the AI consider more candidates than the original, never fewer.
 - **The aim band's targeting-computer override is not applied.** It turns on a pod field (`+0x7f`) whose meaning is untested, the same doubt the ECM roll records, so the roll alone picks the band.
 
 Two things are reproduced rather than corrected: the `rand & 1000` jitter in the rating comparison, and the aim pick reading its own component damage.
-
-## Open questions
-
-- **`DAT_004a9ed8 == 3`**, which makes a player-led group's own machines refuse the group order's target in `Ai_IsTargetable`. Reads like a squad-command or difficulty mode.
 
 ## Rejected readings
 

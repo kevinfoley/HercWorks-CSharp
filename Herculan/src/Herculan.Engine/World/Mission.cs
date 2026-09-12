@@ -150,7 +150,10 @@ public sealed class Mission {
 			IReadOnlyList<MissionActionTimer> actionTimers,
 			IReadOnlyList<int> groupDeploymentActions,
 			IReadOnlyList<MissionUnitKind> groupKinds,
-			IReadOnlyList<MissionSide> groupSides) {
+			IReadOnlyList<MissionSide> groupSides,
+			IReadOnlyList<MissionObjective>? objectives = null,
+			IReadOnlyList<int>? briefingLines = null,
+			IReadOnlyList<string>? text = null) {
 		SourcePath = sourcePath;
 		Header = header;
 		Placements = placements;
@@ -164,6 +167,9 @@ public sealed class Mission {
 		GroupDeploymentActions = groupDeploymentActions;
 		GroupKinds = groupKinds;
 		GroupSides = groupSides;
+		Objectives = objectives ?? Array.Empty<MissionObjective>();
+		BriefingLines = briefingLines ?? Array.Empty<int>();
+		Text = text ?? Array.Empty<string>();
 	}
 
 	/// <summary>Where the <c>script.dat</c> was read from.</summary>
@@ -233,6 +239,47 @@ public sealed class Mission {
 
 	/// <summary>And each group's side, on the same terms.</summary>
 	public IReadOnlyList<MissionSide> GroupSides { get; }
+
+	/// <summary>
+	/// Block 12 in file order — what the mission wants done, and what loses it. See
+	/// <see cref="MissionObjective"/>; <see cref="Herculan.Engine.Sim.MissionObjectives"/> runs them.
+	/// </summary>
+	public IReadOnlyList<MissionObjective> Objectives { get; }
+
+	/// <summary>
+	/// Block 13 — the <see cref="Text"/> lines the in-mission objectives screen lists, in the order
+	/// it lists them. <b>Separate data from <see cref="Objectives"/></b>: an author writes what the
+	/// player is told and what the simulation tests independently, and nothing reconciles the two.
+	/// </summary>
+	public IReadOnlyList<int> BriefingLines { get; }
+
+	/// <summary>
+	/// <c>data\mission.str</c>, flattened — the mission's own text: the objective lines the briefing
+	/// screen lists, the description an objective's failure alert prints, and the line a mission
+	/// action queues on the computer's ticker. VSHELL writes it beside <c>script.dat</c> for the
+	/// mission it is launching, so it is per-mission and not a shared catalogue.
+	/// </summary>
+	public IReadOnlyList<string> Text { get; }
+
+	/// <summary>One line of <see cref="Text"/>, or the empty string for a ref outside it.</summary>
+	public string TextAt(int reference) =>
+		reference >= 0 && reference < Text.Count ? Text[reference] : string.Empty;
+
+	/// <summary>
+	/// The <see cref="MissionObjective.TextLines"/> consecutive lines that describe one objective,
+	/// with a fourth empty one appended — the four the failure alert lays out. Lines past the end of
+	/// the file come back empty, as the original's own pointer copy would leave them.
+	/// </summary>
+	public IReadOnlyList<string> DescriptionOf(MissionObjective objective) {
+		var lines = new string[MissionObjective.TextLines + 1];
+
+		for (int i = 0; i < MissionObjective.TextLines; i++) {
+			lines[i] = objective.TextRef < 0 ? string.Empty : TextAt(objective.TextRef + i);
+		}
+
+		lines[MissionObjective.TextLines] = string.Empty;
+		return lines;
+	}
 
 	/// <summary>How many placed objects of one kind the mission has.</summary>
 	public int CountOf(MissionUnitKind kind) => Placements.Count(p => p.Kind == kind);

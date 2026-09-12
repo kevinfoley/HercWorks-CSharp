@@ -52,12 +52,10 @@ for the squad's movement orders, and the squad's own `travelling` members can st
 
 ### The three arms this doc does not cover
 
-Past the waypoint arm the function switches on `DAT_004a9ed8`, a mission-objective selector, into
-three more arms: an order target coming into range (`MISSION TARGET DETECTED`, `0x19`), closing
-within 40000 of `Mech_AiGoalPosition`, and standing still inside 10000 of a data-link subject facing
-it, which runs a four-message sequence on a timer (`ENGAGING DATA LINK` `0x34` through
-`DATA TRANSFER COMPLETE` `0x37`, or `DATA TRANSFER ABORTED` `0x38` on breaking off). They belong to
-the mission objective layer, which is not otherwise decoded. None of them touches the route.
+Past the waypoint arm the function switches on the mission's own objective type — `script.dat`'s
+header at `+0x06` — into one of three more arms. They belong to the mission objective layer and are
+[`mission-objectives.md`](mission-objectives.md#the-player-thinks-objective-arms)'s. None of them
+touches the route.
 
 ## The nav marker
 
@@ -90,7 +88,8 @@ manual does not mention the marker at all.
 by the host beside the mission clock because it is cockpit-view state rather than the machine's.
 `Content.WaypointMark` resolves either subject to the bearing, range and number the HUD draws.
 
-The three objective arms are not ported, and neither is `DAT_004a9ed8` that selects them.
+The three objective arms live beside the waypoint one in `MechObject.PlayerThink.cs`; see
+[`mission-objectives.md`](mission-objectives.md#engine-port).
 
 ## Rejected readings
 

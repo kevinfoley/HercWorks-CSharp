@@ -327,6 +327,21 @@ public abstract class SimObject {
 	public bool Engaged { get; internal set; }
 
 	/// <summary>
+	/// <c>obj+0x9f</c> — this object has reached what the mission set it. Written in exactly one
+	/// place, <see cref="MechObject.PlayerThink"/>, and only ever onto the player's own machine: the
+	/// order target has come into range, or the machine has closed on its goal position. Read back by
+	/// the AI's group-report cluster (<c>FUN_00412ef4</c>).
+	/// </summary>
+	public bool MissionGoalReached { get; internal set; }
+
+	/// <summary>
+	/// <c>obj+0xa0</c> — this object has completed a data link. Written in the same one place and,
+	/// again, only onto the player's machine, at the end of the four-message transfer sequence. It is
+	/// what objective conditions 3, 4, 9 and 10 read — see <see cref="World.MissionObjective"/>.
+	/// </summary>
+	public bool DataLinkComplete { get; internal set; }
+
+	/// <summary>
 	/// Activates <see cref="EngagementAction"/>, if there is one. The original also gates this on
 	/// <c>obj+0xa2</c> being clear; no writer of that byte has been located, so it is not modelled
 	/// and the gate reads as open. It would only ever suppress a second activation, which

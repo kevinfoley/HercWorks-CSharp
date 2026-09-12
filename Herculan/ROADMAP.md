@@ -48,10 +48,17 @@ The mechanism is understood; what is left is engine work.
   original slides a two-frame window across the bank from the heading. The waypoint indicators over
   it are correct, so they and the compass disagree.
   → [`docs/formats/cockpit-hud.md`](docs/formats/cockpit-hud.md#heading-tape)
-- **The player think's three objective arms.** The waypoint arm is ported; the mission-objective
-  arms beside it — target detected, goal reached, and the data-link sequence — are not, and neither
-  is the `DAT_004a9ed8` selector that chooses between them.
-  → [`docs/simulation/player-waypoints.md`](docs/simulation/player-waypoints.md)
+- **The objective layer's two panels.** The records, the status and the four lines the computer
+  speaks are ported; neither panel that shows them is. The modal alert (`gnl_alrt`, `FUN_00455934`)
+  that a status change raises is latched on `SimWorld.PendingMissionAlert` and nothing draws it, and
+  the in-mission objectives list (`obj_alrt`, `FUN_0045751c`) has its data on `Mission.BriefingLines`
+  and `Mission.Text` and nothing lists it.
+  → [`docs/simulation/mission-objectives.md`](docs/simulation/mission-objectives.md)
+- **The computer's damage messages.** The engine speaks the objective set, the waypoint, the radar
+  and auto-track toggles and the power-up line. The rest of `Computer_PostMessage`'s traffic — the
+  `INTERNAL DAMAGE` family, `WEAPON DESTROYED`, `DAMAGE LEVEL CRITICAL`, `SHIELDS CRITICAL`, and
+  `ENEMY TARGET DESTROYED`/`DISABLED` when the player kills what they had selected — is not posted.
+  → [`docs/formats/audio.md`](docs/formats/audio.md#posters)
 - **Mission difficulty.** Nothing sets it, so the two systems that index it — the AI's aim scatter
   and the explosive damage scale — run on entry 0.
   → [`docs/simulation/ai-weapons.md`](docs/simulation/ai-weapons.md),
@@ -68,9 +75,12 @@ The engine cannot be faithful here until the original is understood.
   literal port; the seeding is not, and a roll's result also depends on generator-advance count —
   treat as statistically faithful, not replay faithful.
   → [`docs/simulation/dbsim-physics-notes.md`](docs/simulation/dbsim-physics-notes.md)
-- **The mission message an action queues.** `Action_Activate` queues the line named at action `+0x34`;
-  the id is decoded and carried but `data\mission.str` is not loaded, so nothing is posted.
-  → [`docs/simulation/mission-deployment.md`](docs/simulation/mission-deployment.md)
+- **The mission message an action queues.** `Action_Activate` queues the line named at action `+0x34`
+  on the **pilot and squad** port (`view+0x207`), not the computer's ticker. `data\mission.str` is now
+  loaded onto `Mission.Text`, but how that port resolves an id whose record names no speaker — its own
+  catalog is the per-slot `PILOT*.STR` scatter — is not established, so nothing is posted.
+  → [`docs/simulation/mission-deployment.md`](docs/simulation/mission-deployment.md),
+  [`docs/formats/audio.md`](docs/formats/audio.md#the-pilot-and-squad-channel)
 - **The mission counters' reader.** `DAT_004a9ef4` is written by an activating action and dumped to
   `mission_var` at mission end. The reader is VSHELL's campaign layer (`MissionVar_Read`,
   `0040ea59`), which is not ported: nothing in this engine consumes the counters, persists them

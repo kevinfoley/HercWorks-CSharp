@@ -117,6 +117,43 @@ public sealed class SystemMessages {
 	public const int WaypointReached = 0x1d;
 
 	/// <summary>
+	/// <c>MISSION FAILED</c> — posted by the objective layer when a failure condition comes true and
+	/// the player is clear of contact. See <see cref="Sim.MissionObjectives"/>.
+	/// </summary>
+	public const int MissionFailed = 0x16;
+
+	/// <summary><c>MISSION SUCCESSFUL</c> — the other end of the same test.</summary>
+	public const int MissionSuccessful = 0x17;
+
+	/// <summary>
+	/// <c>MISSION TARGET DETECTED</c> — the player's think, once per mission, the first time the
+	/// player selects the target their group's order names. Only on objective type 0.
+	/// </summary>
+	public const int MissionTargetDetected = 0x19;
+
+	/// <summary>
+	/// <c>APPROACHING MISSION ZONE BOUNDARY</c> — the player has left the mission's own bounding box,
+	/// which is block 1's extent and nothing to do with the terrain grid's edge.
+	/// </summary>
+	public const int ApproachingZoneBoundary = 0x1e;
+
+	/// <summary>
+	/// <c>RULES OF ENGAGEMENT VIOLATED. MISSION ABORTED.</c> — the same box, overshot by
+	/// <see cref="Sim.MissionObjectives.RulesOfEngagementMargin"/>.
+	/// </summary>
+	public const int RulesOfEngagementViolated = 0x20;
+
+	/// <summary>
+	/// <c>ENGAGING DATA LINK</c> — the first of the four consecutive ids the data-link sequence walks
+	/// (<c>0x34</c> to <c>0x37</c>), which is why the sequence adds its step number to this rather
+	/// than naming each one.
+	/// </summary>
+	public const int EngagingDataLink = 0x34;
+
+	/// <summary><c>DATA TRANSFER ABORTED</c> — posted on breaking the link part-way.</summary>
+	public const int DataTransferAborted = 0x38;
+
+	/// <summary>
 	/// <c>POWERUP INITIATED. ALL SYSTEMS NOMINAL.</c> — posted by the cockpit's power-up sequence
 	/// (<c>FUN_00432924</c>) once the start-up run finishes with no damaged component found.
 	/// </summary>

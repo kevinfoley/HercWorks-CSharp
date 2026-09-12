@@ -44,7 +44,7 @@ public class ScriptDatTransformer : ByteTransformer<ScriptDat> {
 		data.LinkedRefs58 = ReadArray(ParseUnitSpawn58Export);
 
 		int lutCount = IndexShortLE();
-		data.UnlockedLutRefs = IndexShortLEArray(lutCount);
+		data.ObjectiveTextRefs = IndexShortLEArray(lutCount);
 
 		return data;
 	}
@@ -203,8 +203,8 @@ public class ScriptDatTransformer : ByteTransformer<ScriptDat> {
 		WriteArray(outStream, data.Entities164, WriteEntity164Export);
 		WriteArray(outStream, data.LinkedRefs58, WriteUnitSpawn58Export);
 
-		Emit(outStream, WriteShortLE((short)data.UnlockedLutRefs.Length));
-		Emit(outStream, WriteShortLESegment(data.UnlockedLutRefs));
+		Emit(outStream, WriteShortLE((short)data.ObjectiveTextRefs.Length));
+		Emit(outStream, WriteShortLESegment(data.ObjectiveTextRefs));
 
 		return outStream.ToArray();
 	}

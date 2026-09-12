@@ -176,7 +176,7 @@ public partial class MissionScriptForm : Form {
 		Refill(_entityLinkRows, script.LinkedRefs58, (src, i) => new ScriptEntityLinkRow { Index = i, Source = src });
 
 		_unlockRows.Clear();
-		foreach (short value in script.UnlockedLutRefs) {
+		foreach (short value in script.ObjectiveTextRefs) {
 			_unlockRows.Add(new ScriptUnlockRow { Value = value });
 		}
 
@@ -333,7 +333,7 @@ public partial class MissionScriptForm : Form {
 		}
 
 		ApplyHeader(_loaded);
-		_loaded.UnlockedLutRefs = _unlockRows.Select(r => r.Value).ToArray();
+		_loaded.ObjectiveTextRefs = _unlockRows.Select(r => r.Value).ToArray();
 
 		var warnings = Validate(_loaded);
 		if (warnings.Count > 0 && !ConfirmDespiteWarnings(warnings)) {

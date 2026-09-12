@@ -290,8 +290,8 @@ pass 2 goes back for.
 | 9 | #14 `MiscEntityInfo` | count + count×52B (`0x08` `TypeLikeScalar`, `0x0A`-`0x3D` refs+`SparseBlock`+`TrailingField`) | yes | reads all 52B but keeps only **`TypeLikeScalar` (`0x08`)** — the base type, an index into `dat\BASES.DAT`'s 65-entry table. Pass 2 comes back for the rest | **full 52B kept** |
 | 10 | #15 `LinkedRef22` | count + count×14B (`0x08`-`0x14`, the 7 fields `msn-mission-file.md` decoded as small-int/refs/discriminator) | yes | pass 1 reads all 14B and discards it; **pass 2 resolves it** into a 22-byte **mission-group order** — `0x00` verb, `0x04` block-1 point, `0x08` block-3 waypoint group, `0x0e` subject object/group, `0x12` block-5 action, laid out in [`../simulation/ai-goals.md`](../simulation/ai-goals.md) — and a group's route and spawn point come from its slot-0 link's `0x08` | **full 14B kept** — this is exactly the UI-relevant "which route/position/entity is this linked to" data a map editor needs |
 | 11 | #16 `EntitySpawn164` | count + count×156B (two 40B/20B spans, a 20-entry nested cross-ref array with a 3-way discriminator, trailing shorts) | yes | **this is DBSIM's entity-activation mechanism**: for each populated cross-ref entry, the discriminator (0/1/2) marks the referenced **block-7/block-8/block-9** slot as a *live, simulated* object (via `DAT_004aa7ae`/`DAT_004aa8da`/`DAT_004aa93e`+`DAT_004aaa56` flag arrays), turning declared roster entries into things DBSIM actually spawns. **Record 0 is skipped here** — it is the player-squad placeholder. Pass 2 comes back for the group's own position/heading/route | full 156B kept, cross-refs resolved to annotate the kept row-#14 records (a UI/display-oriented resolution, not the "activation" one) |
-| 12 | #17 `UnitSpawn58` | count (unfiltered — all records, matching row #17's "no GUID field" nature) + count×54B | **no** | reads all 54B and **discards it entirely** | **skipped** (seek past, discarded) |
-| 13 | #4 (no stable name) | flat tail: **one** count (how many of row #4's 10-slot sub-array A are populated, from its front — assumes no gaps) + that many×2B (the populated LUT-ref prefix itself) | n/a — single mission-level record, not a per-entity array | full — **this is the mission's herc/weapon unlock package** reaching DBSIM, matching `msn-mission-file.md`'s row #4 "working model: per-mission reward/unlock package" | not read (VSHELL's `ShellMap` reader stops after block 12; it has no use for player loadout data) |
+| 12 | #17 `UnitSpawn58` | count (unfiltered — all records, matching row #17's "no GUID field" nature) + count×54B | **no** | reads all 54B and discards it; **pass 2 comes back and builds the mission's objectives** from it — see below | **skipped** (seek past, discarded) |
+| 13 | #4 (no stable name) | flat tail: **one** count (how many of row #4's 10-slot sub-array A are populated, from its front — assumes no gaps) + that many×2B (the refs themselves) | n/a — single mission-level record, not a per-entity array | full — **the mission's objective list as the player is shown it**: one `data\mission.str` line index per entry. Count into `DAT_004a9ec8`, refs into `DAT_004a9ecc`, and the only reader is the in-mission objectives panel (`obj_alrt`, `FUN_0045751c`), which prints one label per entry | not read (VSHELL's `ShellMap` reader stops after block 12) |
 
 ### Block 5 in memory — 58 bytes (`0x3a`)
 
@@ -329,6 +329,26 @@ unit is 2.048 seconds.
 This is the mission's timer, and it is why an action carrying no trigger area of its own is ordinary
 rather than dead.
 
+### Block 12 in memory — 76 bytes (`0x4c`)
+
+The **mission objective** record. `DBSim_SpawnMissionObjects` (`004253d8`) reads the 54 bytes pass 1
+threw away into a stack buffer and resolves them in that buffer's own order, which is the only
+statement of the file layout. What each field then means is
+[`../simulation/mission-objectives.md`](../simulation/mission-objectives.md)'s.
+
+| offset | from | field |
+|---|---|---|
+| `0x00` | `0x00` | required flag |
+| `0x02` | `0x02` | condition code |
+| `0x04` | `0x04` | subject kind, 0-3 |
+| `0x06` | `0x06` | subject ref, resolved by kind through `Mission_ResolveRefByKind` (`00425348`) |
+| `0x0a` | `0x08` | block-1 point, or null. Read by nothing |
+| `0x0e` | `0x0a` | block-3 waypoint group, or null |
+| `0x12`-`0x21` | `0x0c` | **four `char*`**: three consecutive `data\mission.str` lines from the stored index, then the empty string at `0049a870` |
+| `0x22` | — | runtime only, zeroed by the allocation |
+| `0x24` | `0x0e` | ten mission-counter refs |
+| `0x38` | `0x22` | ten parallel operations |
+
 ## Verification
 
 Three independent real readers (`DBSim_LoadScriptDat`, `DBSim_SpawnMissionObjects` and
@@ -347,10 +367,11 @@ and every placed object lands inside its zone's bounds.
 | 0 | theater index, 0-4 — selects `wld\world<index * 2 + variant>.wld` (texture bank, palette) |
 | 2 | zone index — passed to `Terrain_LoadZone` |
 | 4 | (zeroed by reader before use) |
+| 6 | **mission objective type** (`DAT_004a9ed8`) — which arm of the player's think watches for progress, and whether the AI is kept off the data-link subject. See [`../simulation/mission-objectives.md`](../simulation/mission-objectives.md#the-player-thinks-objective-arms). All ten files in the retail install carry 0 |
 | 18 | theater variant, 0 or 1 — low bit of world number |
 | rest | constant across corpus |
 
-All three are confirmed by `DBSim_LoadScriptDat` → `Terrain_LoadZone` / `maybe_World_LoadTheater`. See [`terrain-texturing.md`](terrain-texturing.md) for theater details.
+The three world fields are confirmed by `DBSim_LoadScriptDat` → `Terrain_LoadZone` / `maybe_World_LoadTheater`. See [`terrain-texturing.md`](terrain-texturing.md) for theater details.
 
 ## Reading script.dat
 
@@ -361,7 +382,7 @@ Stop after block 13's declared end and ignore trailing bytes. Files may have sta
 - `HercWorks.Core.Data.File.Msn.Script.ScriptDat` (model) + `HercWorks.Core.Io.Transform.Common.ScriptDatTransformer` (reader/writer) — round-trip verified byte-exact against all 10 real files (through end of block 13). Deliberately does not pad.
 - `HercWorks.UI.MissionScriptForm` — WinForms editor (Edit ▸ Mission Script), a tab per block.
   Records are edited in place, never added/removed, since every block indexes the others by array
-  position; the block-13 unlock list is the exception and is rebuilt from its grid. Save runs an
+  position; the block-13 objective-line list is the exception and is rebuilt from its grid. Save runs an
   advisory cross-block ref range check. The Hercs tab is master-detail: the block-7 roster on top,
   the selected record's ten hardpoints below it, each picking its weapon by name and — for the four
   launchers, the only mounts that read it — its ammunition type out of the parallel second array.
@@ -372,6 +393,10 @@ Stop after block 13's declared end and ignore trailing bytes. Files may have sta
   the selected entry's slots are edited one per row, weapon and ammunition type by name, and slots
   are added/removed to both parallel arrays at once so their lengths cannot drift apart.
 - `Herculan.Engine.World.ScriptDatHeader` — the engine-side header port.
+- `Herculan.Engine.World.MissionObjective` — the block-12 record, resolved by `MissionLoader`
+  alongside blocks 5 and 6. Block 13 becomes `Mission.BriefingLines` and `data\mission.str`
+  `Mission.Text`; the runtime layer is
+  [`../simulation/mission-objectives.md`](../simulation/mission-objectives.md).
 - `Herculan.Engine.World.MissionLoader` — the two-pass placement rule above, producing a `Mission`
   of resolved placements. `UnitTypeNames` (`nam\MECHS.NAM`/`FLYERS.NAM`) and `BaseTypeTable`
   (`dat\BASES.DAT`) resolve the three type numberings.
@@ -386,3 +411,5 @@ Stop after block 13's declared end and ignore trailing bytes. Files may have sta
 |---|---|
 | The anchor formula's three operands are the trailer's three `int32`s in file order | They are `+0x14`, `+0x0c`, `+0x10`. File order feeds the material index in where `dim` belongs, and a material index of 6 makes `mask` `0xbfff` — not a power of two minus one — so structures land tens of thousands of world units away while still passing a distinct-positions check |
 | The `BinaryFlag` anchor move is the structure-footprint flattening, or feeds it directly | The flattening is per-object, driven by each structure's own shape radius, and reads nothing from `BFORMS.DAT`. What the flag's `BFORMS.DAT` record contributes there is the layout map's cell marks, not the move |
+| Block 13 is the mission's herc/weapon unlock package | Its source, row #4's sub-array A, is described as refs into a small shared LUT, and DBSIM's own field name for the row #17 twin is a LUT ref — so "unlocks reaching DBSIM" is the obvious reading. It is a list of `data\mission.str` line indices: the values run to 243 in the `.MSN` corpus, they are consecutive runs, and the one consumer prints them as labels. Weapon unlocks reach a mission through the tail of `data\player.mec` and are authoritative in the save slot — see [`save-games.md`](save-games.md) |
+| Block 12 is dead because the load pass reads and discards it | Pass 1 discards it exactly as it discards most of blocks 7-9; pass 2 comes back. Anything reading only `DBSim_LoadScriptDat` reaches the same wrong conclusion about the roster |

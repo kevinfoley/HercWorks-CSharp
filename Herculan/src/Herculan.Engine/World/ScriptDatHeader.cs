@@ -6,7 +6,7 @@ namespace Herculan.Engine.World;
 /// The 20-byte header of <c>data\script.dat</c>, the mission handoff VSHELL writes and DBSIM reads
 /// (see docs/formats/script-dat.md for the 13 record blocks that follow it).
 ///
-/// <para>Two of its fields are what a scene needs before anything else, and both are now decoded
+/// <para>Two of its fields are what a scene needs before anything else, and both are decoded
 /// from <c>DBSim_LoadScriptDat</c> (<c>00424308</c>), which reads the header into one global and then
 /// uses it twice: it hands the whole 20 bytes to <c>maybe_World_LoadTheater</c> (which takes the
 /// short at 0 and the short at 18 as <c>world&lt;index * 2 + variant&gt;</c>) and passes the short at
@@ -22,9 +22,10 @@ public readonly struct ScriptDatHeader {
 	/// <summary>Bytes the header occupies; the original reads exactly this many in one call.</summary>
 	public const int Size = 20;
 
-	private ScriptDatHeader(int theaterIndex, int zoneIndex, int theaterVariant) {
+	private ScriptDatHeader(int theaterIndex, int zoneIndex, int objectiveType, int theaterVariant) {
 		TheaterIndex = theaterIndex;
 		ZoneIndex = zoneIndex;
+		ObjectiveType = objectiveType;
 		TheaterVariant = theaterVariant;
 	}
 
@@ -35,6 +36,20 @@ public readonly struct ScriptDatHeader {
 	public int ZoneIndex { get; }
 
 	/// <summary>
+	/// Offset 6 — <c>DAT_004a9ed8</c>, the <b>mission objective type</b>. It selects which arm of the
+	/// player's own think watches for progress: 0 the order target coming into range, 5 closing on
+	/// the goal position, 3 or 7 the data-link sequence. Type 3 also takes the data-link subject out
+	/// of the AI's candidate set, so the player's squad does not shoot the thing they came to read.
+	/// See <see cref="Sim.MechObject.PlayerThink"/> and
+	/// <see cref="Sim.Ai.AiTargeting.IsTargetable"/>.
+	///
+	/// <para>Every one of the ten files in the retail install carries 0, which is what a save-slot
+	/// snapshot of a conventional mission would; the other three arms are reached from the
+	/// campaign's own missions.</para>
+	/// </summary>
+	public int ObjectiveType { get; }
+
+	/// <summary>
 	/// Selects between a theater's two descriptors. Every retail file carries 0, so what the
 	/// second variant of each theater is for (weather? time of day?) is not established here.
 	/// </summary>
@@ -43,7 +58,9 @@ public readonly struct ScriptDatHeader {
 	/// <summary>
 	/// Reads the header from the start of a <c>script.dat</c>'s bytes. The remaining fields are left
 	/// undecoded rather than exposed as raw numbers — <c>DBSim_LoadScriptDat</c> zeroes the one at
-	/// offset 4 before use, and the rest are constant across every retail file.
+	/// offset 4 before use, and the rest are constant across every retail file. The fourth decoded
+	/// field, <see cref="ObjectiveType"/>, is not the theater's: it is the mission layer's, and its
+	/// reader is <c>Mech_BehaviourPlayerThink</c>.
 	/// </summary>
 	public static ScriptDatHeader Read(ReadOnlySpan<byte> scriptDat) {
 		if (scriptDat.Length < Size) {
@@ -54,6 +71,7 @@ public readonly struct ScriptDatHeader {
 		return new ScriptDatHeader(
 			BinaryPrimitives.ReadInt16LittleEndian(scriptDat),
 			BinaryPrimitives.ReadInt16LittleEndian(scriptDat[2..]),
+			BinaryPrimitives.ReadInt16LittleEndian(scriptDat[6..]),
 			BinaryPrimitives.ReadInt16LittleEndian(scriptDat[18..]));
 	}
 }

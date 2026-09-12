@@ -109,6 +109,14 @@ public sealed class SystemMessages {
 	public const int MaxDelayAttribute = 6;
 
 	/// <summary>
+	/// <c>WAYPOINT REACHED</c> — posted by the player's own think (<c>Mech_BehaviourPlayerThink</c>,
+	/// <c>0041c194</c>) as it steps the player group's route cursor, and again by the nav marker
+	/// (<see cref="NavMarker"/>) when the player comes back to one. Nothing an AI machine does posts
+	/// it: an AI arrival is silent.
+	/// </summary>
+	public const int WaypointReached = 0x1d;
+
+	/// <summary>
 	/// <c>POWERUP INITIATED. ALL SYSTEMS NOMINAL.</c> — posted by the cockpit's power-up sequence
 	/// (<c>FUN_00432924</c>) once the start-up run finishes with no damaged component found.
 	/// </summary>

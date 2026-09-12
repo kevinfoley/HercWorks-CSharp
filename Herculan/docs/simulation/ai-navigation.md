@@ -9,7 +9,7 @@ How an AI machine gets from where it is to where its order wants it. The order l
 | Address | Name | What it does |
 |---|---|---|
 | `0041fac4` | `Ai_DriveToPoint` | Walk at a fixed point. Returns "arrived" |
-| `0041fb60` | `Ai_FollowRoute` | Walk the group's route, one waypoint at a time. The only thing that advances the cursor |
+| `0041fb60` | `Ai_FollowRoute` | Walk the group's route, one waypoint at a time. The only AI-machine path that advances the cursor |
 | `0041fbb8` | `Ai_KeepFormation` | Hold a formation slot on the group leader |
 | `0041d598` | `Ai_NavigationStep` | Picks between the three, then updates the turret and the radar mode |
 
@@ -55,7 +55,7 @@ if (next == null)                      Mech_LocomotionTick(mech, 0, 0, 0)     //
 else if (Ai_DriveToPoint(mech, next))  Route_AdvanceCursor(group.routeCursor)
 ```
 
-The whole route mechanism, and the only writer of `group+0x04` outside construction. It always drives at the waypoint **after** the cursor, so the cursor names the last one reached and a fresh group walks at waypoint 1, not waypoint 0.
+The whole route mechanism for a walking AI machine. It always drives at the waypoint **after** the cursor, so the cursor names the last one reached and a fresh group walks at waypoint 1, not waypoint 0. It is not the only caller of `Route_AdvanceCursor` — the player's own think steps the same cursor on the same 10000-unit test, and announces it: [`player-waypoints.md`](player-waypoints.md).
 
 A route that runs out leaves the machine standing on the spot with its throttle at zero — and, through `Group_IsOrderComplete`, ends the order. `Route_AdvanceCursor` (`0042313c`) wraps to zero on a closed route, so a patrol never runs out and a patrol order never completes; see [`ai-goals.md`](ai-goals.md#the-route-cursor-is-loaded-once).
 

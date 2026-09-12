@@ -1018,6 +1018,37 @@ public sealed class Overlay2DRenderer : IDisposable {
 		float DrawText(string fontName, string text, float deviceLeft, float deviceTop) =>
 			DrawRun(fontName, string.Empty, text, -1, deviceLeft, deviceTop);
 
+		// One waypoint indicator: the diamond while its subject is inside the tape's span, an arrow
+		// parked past whichever end it is beyond otherwise, and — for the route indicator alone — the
+		// WAYPOINT line under the compass. The caption's prefix is a string-table entry, so a file
+		// that has not got it leaves the line off rather than printing a bare number.
+		void DrawWaypointMark(WaypointIndicator geometry, WaypointMark? mark) {
+			if (mark is not { } subject || hud.LogicalColor(subject.ColorId) is not { } color) {
+				return;
+			}
+
+			Vector2 At((int X, int Y) point) => new(Dx(point.X), Dy(point.Y));
+
+			if (WaypointIndicator.OnTape(subject.BearingError)) {
+				var (bottom, left, top, right) = geometry.Diamond(subject.BearingError);
+				AddFilledTriangle(At(bottom), At(left), At(top), color);
+				AddFilledTriangle(At(bottom), At(top), At(right), color);
+			} else {
+				var (tip, baseA, baseB) =
+					geometry.Arrow(WaypointIndicator.PointsRight(subject.BearingError));
+				AddFilledTriangle(At(tip), At(baseA), At(baseB), color);
+			}
+
+			if (subject.Number == WaypointMark.NoCaption
+				|| hud.Strings?.Text(WaypointIndicator.CaptionGroup, WaypointIndicator.CaptionIndex)
+					is not { } prefix) {
+				return;
+			}
+
+			var (x0, y0, x1, y1) = geometry.LabelRect;
+			DrawTextCentered(WaypointIndicator.LabelFont, subject.Caption(prefix), x0, y0, x1, y1);
+		}
+
 		// A label paints its own background before its text: the constructors write a background colour
 		// id into the label object's field 0x1d — 0x2e for a weapon row, DAT_004d3c26 (colour id 19,
 		// black) for the shield readouts — which is why retail's "100" sits on solid black rather than
@@ -1095,6 +1126,14 @@ public sealed class Overlay2DRenderer : IDisposable {
 				new Vector2(Dx(a.X), Dy(a.Y)),
 				new Vector2(Dx(b.X), Dy(b.Y)),
 				new Vector2(Dx(c.X), Dy(c.Y)), color));
+
+		// Children 7 and 8, in construction order: the nav marker's indicator and the route's. Both
+		// hang off the heading tape's rect and are filled polygons rather than sprites — see
+		// WaypointIndicator, which owns all of the arithmetic.
+		if (WaypointIndicator.From(hud) is { } waypoints) {
+			DrawWaypointMark(waypoints, state.NavMarker);
+			DrawWaypointMark(waypoints, state.RouteWaypoint);
+		}
 
 		// And last of all, after every child, the floating scanner repeater — the gunsight's paint
 		// calls it once the child loop is done.

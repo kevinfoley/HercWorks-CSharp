@@ -103,8 +103,9 @@ public sealed partial class MissionGroup {
 	public IReadOnlyList<Vec3i> Route { get; }
 
 	/// <summary>
-	/// <c>group+0x04</c> — the index of the waypoint last reached. Only
-	/// <c>Ai_FollowRoute</c> advances it, and it is shared by the whole group.
+	/// <c>group+0x04</c> — the index of the waypoint last reached, shared by the whole group. Both
+	/// <c>Ai_FollowRoute</c> and the player's own think advance it; see
+	/// docs/simulation/player-waypoints.md.
 	/// </summary>
 	public int RouteCursor { get; private set; }
 
@@ -135,6 +136,16 @@ public sealed partial class MissionGroup {
 	/// </summary>
 	public Vec3i? WaypointAt(int index) =>
 		index >= 0 && index < Route.Count ? Route[index] : null;
+
+	/// <summary>
+	/// <c>FUN_00423170</c> — whether the waypoint after the cursor is the duplicate a closed route
+	/// ends with: the one <see cref="AdvanceRouteCursor"/> would immediately wrap off. Only the
+	/// player's think asks, and it is what stops a patrol circuit announcing a waypoint the player has
+	/// already been told about, at the point it started from.
+	/// </summary>
+	public bool NextWaypointClosesRoute =>
+		Route.Count > 1 && RouteCursor + 1 == Route.Count - 1
+			&& Route[RouteCursor + 1] == Route[0];
 
 	/// <summary>
 	/// <c>group+0x70</c> — whether the order in that slot has been flagged finished. Set only by the

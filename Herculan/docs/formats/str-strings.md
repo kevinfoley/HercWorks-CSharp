@@ -80,6 +80,7 @@ Groups referenced by decoded code:
 | 29 | 2 | `ACT`, `PASS` — consumer not located; the scanner's own toggles caption from group 5 |
 | 30, 31 | 1,1 | `TRG:` and `RNG:`, the scanner's two corner captions (`DAT_004d16b4`/`b8`) |
 | 33 | 2 | `STATUS:` and `OBJECTIVE:`, the squad comm box's two fixed captions |
+| 37 | 2 | `ATT` and `"WAYPOINT "` (trailing space) — the Automatic Turret Tracking legend and the waypoint indicator's caption prefix, both of them the gunsight complex's ([`cockpit-hud.md`](cockpit-hud.md#front-window-hud--the-gunsight-complex)) |
 | 38, 39 | 1,1 | `TIME:`, `SPEED:` — the gunsight readouts |
 | 40 | 8 | Squad comm box's current-order line: `ATTACK`, `TRAVEL`, `PATROL`, `FORM UP`, `GUARD`, `FLEE`, `DEAD`, `IMMOBILE` |
 

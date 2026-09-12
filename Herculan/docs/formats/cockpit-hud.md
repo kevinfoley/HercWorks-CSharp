@@ -726,7 +726,15 @@ Everything drawn over the live 3D view, rather than on the console, belongs to o
 | `[0xc]`,`[0xd]` | 1136, 1140 | Reticle point |
 | `[0xe]` | 1144 | Half-extent of child 4's rect about the reticle point. Zero in all 9 retail files, and unread by that child's paint |
 | `[0xf..0x12]` | 1148-1163 | Rect shared by children 0, 5 and 6 — `GAUFile.GunsightArea`, the target arrow's safe area |
+| `[0x13..0x16]` | 1164-1179 | The **`ATT` legend's** rect — see below |
+| `[0x17..0x1a]` | 1180-1195 | A second label of the same kind, at the widget's `+0x107`. Neither gunsight paint reaches it |
 | `[0x1b]`,`[0x1c]` | 1196, 1200 | Top-left of the floating scanner repeater — `GAUFile.HudScanner`, a bare point with no size. Per herc; see [`mfd-scanner.md`](mfd-scanner.md) |
+
+The complex also builds two `ColorSchemePanels[12]` (`dark`) labels of its own, at `+0x103` and
+`+0x107`. The first is the manual's **`ATT` legend**: while the weapon manager's auto-track flag
+(`manager+0xb3`) is set, both paints blit `HUD` bank frame 14 as its plate and set its text to
+`STRINGS0.STR` group 37 entry 0 — see [`../simulation/torso-aim.md`](../simulation/torso-aim.md) for
+the tracker itself.
 
 `Gunsight_AddChild` (`0043d5a4`) appends to a pointer array at the widget's `+0xd7`, so construction
 order *is* child index. `Gunsight_Paint` (`0043d5c8`) walks that array calling each child's slot 0,
@@ -747,7 +755,7 @@ receive the 38-byte state block described in
 | 4 | `FUN_0043b344`, vtable `0049c124` inline | The reticle |
 | 5 | `FUN_0043b928` (vtable `0049c1c4`) | The target box and its off-screen arrow |
 | 6 | `FUN_0043c240` | Constructed and fed the state block, but its **paint slot is `ret`** (`FUN_0043c260`) |
-| 7, 8 | `FUN_0043c268` | Waypoint indicators on the heading tape's rect, limits ±`0xe38`; `Hud_UpdateWaypointIndicator` (`0043c3e4`) is their paint |
+| 7, 8 | `HudWaypointIndicator_Ctor` (`0043c268`) | The two waypoint indicators, below. 7 takes the `+0x45` flag that makes it the nav marker's |
 
 Children 4 and 5: [`hud-target-indicator.md`](hud-target-indicator.md).
 
@@ -764,9 +772,15 @@ widget caches them at `+0xb1`/`+0xb3`/`+0xb5` and forwards each one's **delta** 
 | twist | 2 | `old - new` |
 | pitch | 3 | `old - new` |
 
-`HudSlideBar_AddDelta` (`0043b3f8`) does `value -= delta`, clamped to the bar's limits, so the two
-`old - new` children *track* their angle and the heading child scrolls against it. All three start at
-zero, which is where the machine's angles start.
+Children 2 and 3 are slide bars, and `HudSlideBar_AddDelta` (`0043b3f8`) does `value -= delta`
+clamped to the bar's limits, so they *track* their angle. Both start at zero, which is where the
+machine's angles start.
+
+**The heading's delta reaches a waypoint indicator, and does nothing.** Child 7 overrides slot `+0xc`
+with `HudWaypointIndicator_ShiftLimits` (`0043c3d0`), which adds the delta to `+0x24` and `+0x26`
+rather than to a value — and `Hud_UpdateWaypointIndicator` reads neither, only the range `+0x2c` that
+an equal shift of both leaves alone. The heading tape, child 1, is driven separately and directly
+from `mech+0x10` by the gunsight's own update slot.
 
 The same call copies the whole 38-byte state block into children 4 and 5. Everything in it past the
 three angles is filled by the gunsight's own update slot (`FUN_0043d6dc`) from the target block at
@@ -792,6 +806,68 @@ Frame 13 is green and 12 yellow; the 299 threshold is about 1.6°, so any delibe
 The trailing `-15` undoes the `+15` the rect carries, which centres the 31-unit-wide bar on the mapped
 point. The ±`0x38e3` limit is about 80°, deliberately wider than any herc's own 14000 twist limit,
 so the bar never reaches the ends of its track.
+
+### Heading tape
+
+Child 1, the manual's Heading Indicator. `HudHeadingTape_Recompute` (`0043b5dc`) caches the rect's
+width at `+0x28` and the `hudhtick` bank's last and first frames at `+0x48`/`+0x4c`;
+`HudHeadingTape_SetHeading` (`0043b654`) converts the heading into a frame pair and a sub-frame
+offset:
+
+```
+total   = Math_Q16Multiply(heading, framePixels)     // +0x40, bankFrames * rectWidth in Q16
+frame   = total / rectWidth,  offset = total % rectWidth   // both wrapped at bankFrames
++0x44   = rect.x0 - offset
++0x48   = bank[frame],  +0x4c = bank[frame + 1]
+```
+
+The paint (`0043b6dc`) narrows the canvas clip to the rect and blits those two frames at `+0x44` and
+`+0x44 + rectWidth`, so the tape is a strip of full-width frames sliding through a window: the whole
+compass, degree labels included, is art, and the heading picks which slice of it shows.
+
+### Waypoint indicators
+
+Children 7 and 8, the manual's Waypoint Indicator. Both are `HudWaypointIndicator_Ctor`
+(`0043c268`) — `HudRotationIndicator_Ctor`'s object with vtable `0049c154`, a label child, and the
+`±0xe38` limits the gunsight hands them. **Neither has a `.GAU` rect of its own**: the complex passes
+both of them the heading tape's rect (offset 1104), so a mark rides the same span of bearing the
+compass under it does. The `+0x45` flag separates them:
+
+| Child | `+0x45` | Subject | Colour id | Caption |
+|---|---|---|---|---|
+| 7 | 1 | `NavMarker_Position` (`0043495c`) | `DAT_004d3c1e`, id 15 → palette 13 yellow | none |
+| 8 | 0 | The player group's route, or `mech+0x1a4` on a branch that never runs | table entry 0 → palette 14 green | `WAYPOINT n: d M.` |
+
+What each points at, and the branch that never runs, are
+[`../simulation/player-waypoints.md`](../simulation/player-waypoints.md).
+
+`Hud_UpdateWaypointIndicator` (`0043c3e4`) is the shared paint. It takes the ground range with
+`Vec2_DistanceBetween` and the bearing with the `Math_Atan2Guarded(dx, dy) - 0x4000` that
+`Math_HeadingToward` is, then works the error `mech.heading - bearing` as an unsigned short:
+
+| Error | Shape |
+|---|---|
+| ≤ `0xe38` or ≥ `0xf1c8` | Diamond, on the tape |
+| `0xe39`-`0x7fff` | Arrow past the rect's **right** end, pointing right |
+| `0x8000`-`0xf1c7` | Arrow past its **left** end, pointing left |
+
+Simulation headings run counter-clockwise, so a positive error is a subject off to the player's
+right — which is the end its arrow parks at, and the side of centre its diamond sits on.
+
+Both shapes are filled polygons through `Raster_DrawPolygonDispatch`, not sprites, and both hang off
+the rect's **top** edge lifted `4 << YCoordShift`. The diamond's centre is
+`rect.x0 + rectWidth/2 + error * rectWidth / 0x1c70` — the widget's own `+0x28` width over its `+0x2c`
+range — so it reaches the rect's ends exactly at the limits; it is `5 << XCoordShift` by
+`5 << YCoordShift` about that point. An arrow's base sits `2 << XCoordShift` past the rect's end with
+its tip `4 << XCoordShift` further out and its base `5 << YCoordShift` tall.
+
+The caption is the label child, given the tape's rect dropped `3 << YCoordShift` and centred in it —
+which puts the line below the compass while the marks sit above. Font is
+`ColorSchemePanels[17]` (`HUD3`, the same face the speed and time *values* use). The text is
+`STRINGS0.STR` group 37 entry 1 (`"WAYPOINT "`, trailing space included) then the waypoint number,
+`": "`, the range in metres and `" M."`. The number is the route cursor plus one and the range is
+`Hud_WorldUnitsToMetres`, so it is always a multiple of six — see
+[`../engine/planning.md`](../engine/planning.md#world-scale).
 
 ### Speed and time readouts
 

@@ -63,6 +63,7 @@ public partial class MechObject {
 		}
 
 		bool finished = Behaviour.State?.Think switch {
+			ThinkSlot.Player => PlayerThink(world),
 			ThinkSlot.Patrol => PatrolThink(world),
 			ThinkSlot.SearchDestroy => SearchDestroyThink(world),
 			ThinkSlot.Travel => TravelThink(world),

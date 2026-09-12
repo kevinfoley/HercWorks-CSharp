@@ -38,10 +38,20 @@ The mechanism is understood; what is left is engine work.
 - **Terrain raycast, swept-volume mode.** Only thin-ray mode is ported; the swept-volume mode
   (movement collision) is not, because nothing in the engine needs it yet.
   → [`docs/formats/terrain-heightmap.md`](docs/formats/terrain-heightmap.md)
-- **The HUD's "ATT" legend.** Automatic Turret Tracking itself works, but the manual's upper-left
-  "ATT" readout has not been located in the cockpit widget set, so nothing on screen says the tracker
-  is on but the TRACK button's own lamp and the computer's spoken confirmation.
-  → [`docs/simulation/torso-aim.md`](docs/simulation/torso-aim.md)
+- **The HUD's "ATT" legend.** Automatic Turret Tracking itself works, and the legend is a label of
+  the gunsight complex's, but the engine does not draw it — so nothing on screen says the tracker is
+  on but the TRACK button's own lamp and the computer's spoken confirmation.
+  → [`docs/formats/cockpit-hud.md`](docs/formats/cockpit-hud.md#front-window-hud--the-gunsight-complex),
+  [`docs/simulation/torso-aim.md`](docs/simulation/torso-aim.md)
+- **The heading tape does not scroll.** The engine blits `hudhtick` frame 0 at the tape's rect and
+  leaves it there, so the compass reads the same degrees whichever way the machine faces. The
+  original slides a two-frame window across the bank from the heading. The waypoint indicators over
+  it are correct, so they and the compass disagree.
+  → [`docs/formats/cockpit-hud.md`](docs/formats/cockpit-hud.md#heading-tape)
+- **The player think's three objective arms.** The waypoint arm is ported; the mission-objective
+  arms beside it — target detected, goal reached, and the data-link sequence — are not, and neither
+  is the `DAT_004a9ed8` selector that chooses between them.
+  → [`docs/simulation/player-waypoints.md`](docs/simulation/player-waypoints.md)
 - **Mission difficulty.** Nothing sets it, so the two systems that index it — the AI's aim scatter
   and the explosive damage scale — run on entry 0.
   → [`docs/simulation/ai-weapons.md`](docs/simulation/ai-weapons.md),
@@ -114,6 +124,7 @@ drawing code. What is missing:
 - Currently missing is a quirk from retail where the player's shield meter fills in over ~10 seconds at the start of a mission. Claude says there's no explanation for this in the shield code, where the shields start out at full charge, and would take ~30 seconds to fully charge from empty. The fade-in-over-10-seconds may be a HUD animation that hasn't been discovered during RE yet.
 - Similarly to the previous, currently missing is an animation where weapon buttons wink on one-at-a-time when the simulation first starts.
 - The Preferences screen (F12) is not implemented.
+- Cheats (other than Alt-D to drop a waypoint at your position, which is implemented; this one isn't documented but also doesn't really seem like a cheat).
 
 ## Debugging features
 - Launch option to disable AI (so units other than the player remain stationary, though still subject to damage and destruction)

@@ -71,8 +71,8 @@ public partial class MechObject {
 	}
 
 	/// <summary>
-	/// <c>Ai_FollowRoute</c> (<c>0041fb60</c>) — walk the group's route, and the only thing in the
-	/// simulation that advances its cursor.
+	/// <c>Ai_FollowRoute</c> (<c>0041fb60</c>) — walk the group's route. The AI's only way of
+	/// advancing its cursor; <see cref="PlayerThink"/> is the other one.
 	///
 	/// <para>It always drives at the waypoint <i>after</i> the cursor, so the cursor names the last
 	/// one reached and a fresh group walks at waypoint 1. A route that has run out leaves the machine

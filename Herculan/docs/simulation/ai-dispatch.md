@@ -27,7 +27,7 @@ Index `N` names descriptor `004993a4 + 0x3e*N` and block `004998f8 + 0x24*N`. Th
 | # | Name | Think | Move | Reassess | `+0x04` | `+0x3c` |
 |---|---|---|---|---|---|---|
 | 0 | `deciding` | — | — | `0041eb34` | 0 | 3 |
-| 1 | `player` | `0041c194` | walk | — | 10 | 3 |
+| 1 | `player` | `0041c194` `Mech_BehaviourPlayerThink` | walk | — | 10 | 3 |
 | 2 | `player fly` | `0041c194` | `004198f4` `Razor_MovementTick` | — | 10 | 3 |
 | 3 | `attacking` | `0041c594` | walk | `0041cf18` | 50000 | 0 |
 | 4 | `flanking` | `0041d4e4` | walk | `0041cf18` | 50000 | 0 |
@@ -52,6 +52,7 @@ Index `N` names descriptor `004993a4 + 0x3e*N` and block `004998f8 + 0x24*N`. Th
 Notes the table makes visible:
 
 - **`deciding` (0) has no think and no move.** It is not a state a machine runs in; it is the state a machine is *put* in so that the reassess slot resolves it into a real one.
+- **The player's two states share a think, and it is not an AI one.** `Mech_BehaviourPlayerThink` watches the player's own progress through the mission rather than steering anything — [`player-waypoints.md`](player-waypoints.md).
 - **`travelling` (9) and `bulldog travel` (11) share a think function.** They differ only in which descriptor — and so which timing — is installed.
 - **`dead` (20) and `disabled` (21) share a think function** and still take the normal walk move.
 - **The reassess slot splits the roster cleanly in two.** Combat states (3–7, 18) use `Mech_AiCombatReassess` (`0041cf18`); every other live state uses `0041eb34`, the state-selection function itself. The combat form falls back on `0041eb34` when it finds nothing to fight — see [`ai-targeting.md`](ai-targeting.md#the-combat-reassess--mech_aicombatreassess-0041cf18).

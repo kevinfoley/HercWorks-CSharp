@@ -18,13 +18,20 @@ public enum ReassessSlot {
 
 /// <summary>
 /// Which think function a behaviour state installs in its <c>+0x18</c> slot. <see cref="None"/> is
-/// the states that genuinely have none, plus <c>ramming</c> and the player's two, whose thinks are
+/// the states that genuinely have none, plus <c>ramming</c>, whose think is
 /// not this layer's — see docs/simulation/ai-navigation.md, docs/simulation/ai-combat-states.md and
 /// docs/simulation/ai-dispatch.md.
 /// </summary>
 public enum ThinkSlot {
-	/// <summary>No think: <c>deciding</c>, <c>in limbo</c>, and the two player states.</summary>
+	/// <summary>No think: <c>deciding</c> and <c>in limbo</c>.</summary>
 	None,
+
+	/// <summary>
+	/// <c>Mech_BehaviourPlayerThink</c> (<c>0041c194</c>), shared by <c>player</c> and
+	/// <c>player fly</c>: the mission-progress slot the machine the player is flying runs in place of
+	/// an AI one. See docs/simulation/player-waypoints.md.
+	/// </summary>
+	Player,
 
 	/// <summary><c>Mech_BehaviourPatrolThink</c> (<c>0041d7d0</c>).</summary>
 	Patrol,
@@ -170,8 +177,8 @@ public sealed class BehaviourState {
 	// Behaviour_BuildStateTable writes; the reassess column is which of the two functions its +0x30
 	// triple names.
 	public static readonly BehaviourState Deciding = new(0, "deciding", 0, 0x00, ReassessSlot.SelectBehaviour);
-	public static readonly BehaviourState Player = new(1, "player", 10, 0x01, ReassessSlot.None);
-	public static readonly BehaviourState PlayerFly = new(2, "player fly", 10, 0x01, ReassessSlot.None);
+	public static readonly BehaviourState Player = new(1, "player", 10, 0x01, ReassessSlot.None, ThinkSlot.Player);
+	public static readonly BehaviourState PlayerFly = new(2, "player fly", 10, 0x01, ReassessSlot.None, ThinkSlot.Player);
 	public static readonly BehaviourState Attacking = new(3, "attacking", 50000, 0x02, ReassessSlot.CombatReassess, ThinkSlot.Attack, objectiveLine: 0);
 	public static readonly BehaviourState Flanking = new(4, "flanking", 50000, 0x02, ReassessSlot.CombatReassess, ThinkSlot.Flank, objectiveLine: 0);
 	public static readonly BehaviourState FacingOff = new(5, "facing off", 50000, 0x02, ReassessSlot.CombatReassess, ThinkSlot.FaceOff, objectiveLine: 0);

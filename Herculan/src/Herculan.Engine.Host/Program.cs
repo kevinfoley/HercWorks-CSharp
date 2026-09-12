@@ -32,6 +32,7 @@ bool startOnHeadsDown = false;
 HddPage initialHddPage = CockpitHudState.Default.Hdd;
 HddDamageView initialHddDamageView = CockpitHudState.Default.HddDamage;
 short initialThrottle = 0;
+int? initialHeading = null;
 bool startExternal = false;
 short heldTwist = 0;
 short heldPitch = 0;
@@ -85,6 +86,13 @@ for (int i = 0; i < args.Length; i++) {
 		// --screenshot run never sees a keystroke, and a walking machine is the only way to see the
 		// gait, the cockpit bob or the slider anywhere but its centre. ±1024 is full travel.
 		initialThrottle = (short)Math.Clamp(throttleSetting, -ThrottleTrack.Full, ThrottleTrack.Full);
+	} else if (args[i] == "--heading" && i + 1 < args.Length
+			&& int.TryParse(args[++i], out int headingAngle)) {
+		// Point the machine's lower body somewhere other than along the first leg of its route, which
+		// is where the mission spawns it. A --screenshot run never sees a steering key, so this is the
+		// only way to reach anything the body's own heading drives — the compass tape, and the
+		// waypoint indicator's off-tape arrows. A binary angle: 0x4000 is a quarter turn.
+		initialHeading = headingAngle;
 	} else if (args[i] == "--turret" && i + 2 < args.Length
 			&& int.TryParse(args[i + 1], out int twistAxis) && int.TryParse(args[i + 2], out int pitchAxis)) {
 		// Hold the two turret axes for the whole run, for the same reason as --throttle: a
@@ -640,10 +648,20 @@ string debugFontPath = Path.Combine(AppContext.BaseDirectory,
 // which is what stalls it in the external view, exactly as the original's does.
 var missionClock = new MissionClock();
 
+// The nav marker the player drops on themselves with [Alt+D], and the second subject the front
+// window's waypoint indicators can be pointing at. Cockpit-view state, not the machine's, so it
+// lives here beside the clock.
+var navMarker = new NavMarker();
+bool navMarkerKeyDown = false;
+
 // The console's throttle slider and the machine's throttle setting are two-way bound, so the gauge's
 // own value is state in its own right: it is what the machine reads on any frame the machine did not
 // itself move the throttle. See MechObject.ExchangeCockpitThrottle.
 var throttleTrack = cockpitArt != null ? ThrottleTrack.From(cockpitArt) : null;
+if (pilotMech != null && initialHeading is { } stagedHeading) {
+	pilotMech.Heading = (ushort)stagedHeading;
+}
+
 short throttleGauge = initialThrottle;
 if (pilotMech != null && initialThrottle != 0) {
 	pilotMech.Throttle = initialThrottle;
@@ -1340,6 +1358,12 @@ window.Update += deltaSeconds => {
 			}
 		}
 
+		// [Alt+D] is command 0x220, which the cockpit view claims in its own handler before the panel
+		// below it ever sees it: it drops a nav marker rather than transmitting DISENGAGE.
+		if (alt && Edge(Key.D, ref navMarkerKeyDown) && flashCommWorld.PlayerMech is { } marking) {
+			navMarker.Drop(marking.Position);
+		}
+
 		bool Edge(Key key, ref bool held) {
 			bool down = controls.IsKeyPressed(key);
 			bool edge = down && !held;
@@ -1643,6 +1667,10 @@ window.Update += deltaSeconds => {
 			missionClock.Advance(deltaSeconds);
 		}
 
+		// FUN_004349ac runs from the cockpit's own paint, one frame apart, and is what arms the marker
+		// on leaving it and clears it — announcing WAYPOINT REACHED — on coming back.
+		navMarker.Tick(pilotMech.Position, audio.Messages);
+
 		hudState = hudState with {
 			MissionTime = missionClock.Text,
 			SpeedKph = pilotMech.DisplaySpeedKph,
@@ -1694,6 +1722,12 @@ window.Update += deltaSeconds => {
 			// three in place, and a destroyed squadmate's sits on static there without ever having
 			// had a message to open it.
 			PilotVideos = pilotVideos,
+
+			// The two waypoint indicators over the compass. The route one follows the player group's
+			// cursor, which the player's own think steps on arrival; the marker one is only there
+			// while the player has dropped one.
+			RouteWaypoint = WaypointMark.ForRoute(pilotMech),
+			NavMarker = WaypointMark.ForNavMarker(pilotMech, navMarker),
 		};
 	}
 };

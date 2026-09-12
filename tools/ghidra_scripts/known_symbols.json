@@ -2641,8 +2641,9 @@
       "type": "function",
       "confidence": "high",
       "name": "Hud_UpdateWaypointIndicator",
-      "description": "Per-frame HUD waypoint indicator: picks the active waypoint (or the nav-target position), computes the 2D ground distance from the player mech via Math_FastMagnitude2D, converts it with Hud_WorldUnitsToMetres, and builds the on-screen string as <prefix> + itoa(waypointNumber) + ': ' + itoa(metres) + ' M.'. Also draws the direction diamond/arrow triangles.",
-      "source": "docs/engine/planning.md 2026-08-13 (world scale recovery)"
+      "description": "Paint shared by gunsight children 7 and 8. The +0x45 flag picks the subject: set, NavMarker_Position and colour id 15; clear, the waypoint after the player group's route cursor with colour table entry 0, or -- on a branch gated by DAT_004d2af0, which nothing writes -- the player's selected target. Takes the ground range with Vec2_DistanceBetween and the bearing as Math_Atan2Guarded(dx, dy) - 0x4000, then draws the error (mech.heading - bearing) as a filled diamond on the tape within +/-0xe38 and as a filled arrow past the rect's right or left end beyond it. Child 8 also composes 'WAYPOINT ' + cursor+1 + ': ' + Hud_WorldUnitsToMetres(range) + ' M.' into its label.",
+      "source": "docs/formats/cockpit-hud.md",
+      "signature": "void __cdecl Hud_UpdateWaypointIndicator(void *widget)"
     },
     {
       "address": "0043dc78",
@@ -7080,8 +7081,9 @@
       "type": "function",
       "confidence": "high",
       "name": "HudWaypointIndicator_Ctor",
-      "description": "Gunsight children 7 and 8, both on the heading tape's rect with limits +/-0xe38. Built on HudRotationIndicator_Ctor, then given vtable 0049c154 whose paint is Hud_UpdateWaypointIndicator, plus a label child. Child 7 additionally sets its +0x45 flag.",
-      "source": "docs/formats/cockpit-hud.md 2026-08-30"
+      "description": "Gunsight children 7 and 8, the manual's Waypoint Indicator. HudRotationIndicator_Ctor's object given vtable 0049c154 (paint Hud_UpdateWaypointIndicator, AddDelta HudWaypointIndicator_ShiftLimits) plus a label child at +0x4e on the rect it was handed dropped 3 << YCoordShift. Both children are handed the HEADING TAPE's rect and its +/-0xe38 limits; child 7 additionally sets its +0x45 flag, which is what makes it the nav marker's rather than the route's. The eight file-scope globals it writes are the diamond and arrow extents.",
+      "source": "docs/formats/cockpit-hud.md",
+      "signature": "void * __cdecl HudWaypointIndicator_Ctor(void *widget, int *deviceRect)"
     },
     {
       "address": "0043d6dc",
@@ -12498,6 +12500,106 @@
       "name": "FlyerFormation_GetSlotOffset",
       "description": "dat/FFORMS.DAT slot lookup: DAT_004a9e80 + formationId*0x12 + slot*6 - 6. Three follower slots per formation, three int16 each (x, y, z), and the slot index is one-based: the flight leader takes no offset.",
       "source": "docs/simulation/ai-dispatch.md; flyer AI slice"
+    },
+    {
+      "address": "0041c194",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_BehaviourPlayerThink",
+      "signature": "short __cdecl Mech_BehaviourPlayerThink(MechObject *mech)",
+      "description": "Think slot of behaviour states 1 player and 2 player fly. Gated on the machine being its group's leader, and always returns 0. Its first arm is the player's own waypoint arrival: the waypoint after the group's route cursor, inside 10000 units of ground range and not a closed route's terminating duplicate (Route_NextWaypointClosesRoute), posts WAYPOINT REACHED and steps the shared cursor. Three further arms switch on DAT_004a9ed8 into mission-objective work -- MISSION TARGET DETECTED, a 40000-unit goal proximity, and the four-message data-link sequence -- none of which touches the route.",
+      "source": "docs/simulation/player-waypoints.md"
+    },
+    {
+      "address": "00423170",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Route_NextWaypointClosesRoute",
+      "signature": "int __cdecl Route_NextWaypointClosesRoute(short *routeCursor)",
+      "description": "Answers 1 when the waypoint after a route cursor is both the route's last and the same point object as its first -- the duplicate a closed patrol circuit ends on, and the one Route_AdvanceCursor would wrap straight off. Only Mech_BehaviourPlayerThink asks; it is what stops a circuit announcing its start point over and over.",
+      "source": "docs/simulation/player-waypoints.md"
+    },
+    {
+      "address": "00420a68",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Computer_PostMessage",
+      "signature": "void __cdecl Computer_PostMessage(short messageId)",
+      "description": "Posts a SYSTEM.STR message id to the cockpit computer's ticker -- the port at CockpitView+0x20b -- through its vtable slot 0, as a {short id, int subject} record with a null subject. The sibling for the pilot and squad channel is Ai_PostSquadMessage (00420a98).",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00434974",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "NavMarker_DropAtPlayer",
+      "signature": "void __cdecl NavMarker_DropAtPlayer(void)",
+      "description": "Drops the cockpit's nav marker on the player machine's own position: copies mech+0x26 to view+0x25e, sets the marker flag at view+0x26a and clears the armed flag at +0x26b, so a marker dropped where the player stands cannot clear on the frame it appeared. Reached from CockpitWidgets_HandleCommand on command 0x220, which is [Alt+D].",
+      "source": "docs/simulation/player-waypoints.md"
+    },
+    {
+      "address": "004349ac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "NavMarker_Tick",
+      "signature": "void __cdecl NavMarker_Tick(void)",
+      "description": "The nav marker's whole lifecycle, run once a frame from the cockpit's own paint (FUN_004327ac). With a marker down, takes the ground range to it: unarmed, leaving 10000 units arms it; armed, returning inside 10000 clears the marker and posts WAYPOINT REACHED (0x1d) to the computer's ticker.",
+      "source": "docs/simulation/player-waypoints.md"
+    },
+    {
+      "address": "0043495c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "NavMarker_Position",
+      "signature": "int * __cdecl NavMarker_Position(void)",
+      "description": "Accessor for the cockpit nav marker's position: view+0x25e while the flag at view+0x26a is set, otherwise null. Read only by gunsight child 7's paint.",
+      "source": "docs/simulation/player-waypoints.md"
+    },
+    {
+      "address": "0043c3d0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HudWaypointIndicator_ShiftLimits",
+      "signature": "void __cdecl HudWaypointIndicator_ShiftLimits(void *widget, short delta)",
+      "description": "Slide-bar slot +0xc as the waypoint indicator overrides it: adds the delta to BOTH limits at +0x24/+0x26 rather than to a value the way HudSlideBar_AddDelta does. Gunsight_SetValues sends child 7 the heading delta here, and it has no visible effect -- Hud_UpdateWaypointIndicator reads neither limit, only the range at +0x2c, which an equal shift of both leaves alone.",
+      "source": "docs/formats/cockpit-hud.md"
+    },
+    {
+      "address": "0043b5dc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HudHeadingTape_Recompute",
+      "signature": "void __cdecl HudHeadingTape_Recompute(void *widget)",
+      "description": "Slide-bar slot +8 for the heading tick tape: caches the rect width at +0x28, the bank's frame span in Q16 at +0x40, the scroll x at +0x44 and the two frames to blit at +0x48/+0x4c, seeded to the bank's last and first.",
+      "source": "docs/formats/cockpit-hud.md"
+    },
+    {
+      "address": "0043b654",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HudHeadingTape_SetHeading",
+      "signature": "void __cdecl HudHeadingTape_SetHeading(void *widget, short heading)",
+      "description": "Slot +0xc for the heading tick tape: maps a heading onto the hudhtick bank with Math_Q16Multiply against +0x40, splitting the product into a frame index and a sub-frame pixel offset, both wrapped at the bank's frame count. Writes the scroll x at +0x44 = rect.x0 - offset and the consecutive frame pair at +0x48/+0x4c. The compass degrees are art, so the heading only picks which slice of the strip shows.",
+      "source": "docs/formats/cockpit-hud.md"
+    },
+    {
+      "address": "0043b6dc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HudHeadingTape_Paint",
+      "signature": "void __cdecl HudHeadingTape_Paint(void *widget)",
+      "description": "Narrows the canvas clip to the tape's own rect, then blits the two frames HudHeadingTape_SetHeading chose at +0x44 and +0x44 + rectWidth, so the tape reads as a strip sliding through a window. Restores the four clip fields it borrowed before returning.",
+      "source": "docs/formats/cockpit-hud.md"
     }
   ]
 }

@@ -109,6 +109,15 @@
 /// separate port from <paramref name="Message"/> with its own box and its own colours — see
 /// <see cref="PilotMessageBoxLayout"/>.
 /// </param>
+/// <param name="RouteWaypoint">
+/// Where the next waypoint of the player group's route lies, for the diamond over the compass and
+/// the <c>WAYPOINT n: d M.</c> line under it, or null when the route has run out — see
+/// <see cref="WaypointIndicator"/>.
+/// </param>
+/// <param name="NavMarker">
+/// The same for the marker the player drops on themselves, which wears its own colour and prints no
+/// line. Null while none is down — see <see cref="Content.NavMarker"/>.
+/// </param>
 public readonly record struct CockpitHudState(
 	IReadOnlyList<WeaponRowState> Weapons,
 	IReadOnlyList<string> HardpointNames,
@@ -135,7 +144,9 @@ public readonly record struct CockpitHudState(
 	MfdFlashCommState FlashComm = default,
 	SquadTransmission? Transmission = null,
 	IReadOnlyList<SquadTransmission?>? PilotVideos = null,
-	PilotMessageLine? PilotMessage = null) {
+	PilotMessageLine? PilotMessage = null,
+	WaypointMark? RouteWaypoint = null,
+	WaypointMark? NavMarker = null) {
 
 	/// <summary>
 	/// Power-up state: an even shield balance printing 100/100 the way <c>ShieldsGauge_UpdateReadouts</c>
@@ -173,7 +184,9 @@ public readonly record struct CockpitHudState(
 		FlashComm: MfdFlashCommState.Default,
 		Transmission: null,
 		PilotVideos: null,
-		PilotMessage: null);
+		PilotMessage: null,
+		RouteWaypoint: null,
+		NavMarker: null);
 }
 
 /// <summary>

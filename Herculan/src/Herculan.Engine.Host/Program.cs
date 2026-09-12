@@ -55,6 +55,7 @@ string? shellPalette = null;
 var shellMode = ShellCampaignMode.Campaign;
 bool shellTabPalettes = false;
 int shellTab = ShellScreen.MainMenuTab;
+int shellBay = 0;
 
 // Ticks to let the sensor model run before --target takes its pick: nothing is targetable until a
 // sweep has painted it, and the sweep only runs from the world tick.
@@ -153,6 +154,14 @@ for (int i = 0; i < args.Length; i++) {
 		shellTab = Math.Clamp(requestedTab, 0, ShellLayout.TabCount - 1);
 		i++;
 		runShell = true;
+	} else if (args[i] == "--shell-bay" && i + 1 < args.Length
+			&& int.TryParse(args[i + 1], out int requestedBay)) {
+		// Which hangar bay the repair tab works on, 0-7 — DAT_00482ae5. In the original the squad roster
+		// down the left of the screen is what moves it; that panel is not ported, so this is the only way
+		// to reach a bay other than the first one holding a finished machine.
+		shellBay = Math.Clamp(requestedBay, 0, ShellHangar.BayCount - 1);
+		i++;
+		runShell = true;
 	} else if (args[i] == "--shell-training") {
 		// Run the front end as the training campaign rather than the real one — DAT_0048260c, the flag
 		// that gates REPAIR, BUILD and ARMORY off. Nothing loads a save yet, so this is how that half of
@@ -224,7 +233,7 @@ if (installRoot == null) {
 // zone, no simulation, no fixed timestep. See ShellHost.
 if (runShell) {
 	return ShellHost.Run(installRoot, shellPalette, screenshotPath, shellMode, shellTabPalettes,
-		shellTab);
+		shellTab, shellBay);
 }
 
 // The mission handoff VSHELL writes and DBSIM reads. It states its own zone and theater, so nothing

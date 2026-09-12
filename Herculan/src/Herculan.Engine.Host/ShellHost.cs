@@ -32,7 +32,7 @@ static class ShellHost {
 
 	public static int Run(string installRoot, string? paletteName, string? screenshotPath = null,
 			ShellCampaignMode mode = ShellCampaignMode.Campaign, bool followTabPalettes = false,
-			int startTab = ShellScreen.MainMenuTab) {
+			int startTab = ShellScreen.MainMenuTab, int startBay = 0) {
 		var content = GameContent.Mount(GameInstall.ArchiveDirectory(installRoot), ShellArt.Archives);
 		Console.WriteLine($"Mounted archives: {string.Join(", ", content.MountedArchives)}");
 
@@ -78,6 +78,37 @@ static class ShellHost {
 			: $"No {ShellSaveSlots.DirectoryFileName} in {ShellSaveSlots.Directory(installRoot)} — "
 			  + "the save screen draws its furniture and no rows.");
 
+		// The repair screen works over a loaded game, which the shell only has after a RESTORE. Nothing
+		// here loads one yet, so it opens the first slot the directory marks in use — enough to put a
+		// real machine's damage on the screen, and stated rather than hidden.
+		var loadedGame = slots.FirstOrDefault(s => s.InUse) is { } inUse
+			? ShellSaveSlots.LoadSave(installRoot, inUse.FileName) : null;
+		var hangar = ShellHangar.From(loadedGame);
+		var repairCosts = ShellRepairCosts.Load(content);
+		var repairScreen = new ShellRepairScreen(hangar, repairCosts, startBay);
+		Console.WriteLine(repairCosts == null
+			? $"No gam\\{ShellRepairCosts.ValuesResourceName} or gam\\{ShellRepairCosts.ChassisResourceName}"
+			  + " — the repair screen draws its labels and no cost figures."
+			: $"Repair costs loaded for {repairCosts.ChassisCount} chassis.");
+
+		// Every bay, not just the one the screen opens on: the squad roster that would let a player move
+		// between them is not ported, so --shell-bay plus this listing is the only way to see the others.
+		for (int bay = 0; bay < ShellHangar.BayCount; bay++) {
+			if (hangar.Bay(bay) is not { } machine) {
+				continue;
+			}
+
+			Console.WriteLine($"  bay {bay}: chassis type {machine.ChassisType}, "
+				+ $"{machine.MountCapacity} hardpoints, {machine.BuildPercent}% built"
+				+ (machine.IsFlightworthy ? string.Empty : ", not flightworthy")
+				+ $", rebuild {repairCosts?.HercCost(machine) ?? 0} kg");
+		}
+
+		Console.WriteLine(repairScreen.SelectedBay >= 0
+			? $"Repair opens on bay {repairScreen.SelectedBay}, "
+			  + $"{repairScreen.AvailableKilograms} kg available."
+			: "No built machine in any hangar bay — the repair screen draws empty rows.");
+
 		var screen = ShellScreen.CreateFrame(art.Text, startTab, mode);
 		Console.WriteLine(art.Text != null
 			? $"Tabs: {string.Join(", ", screen.Buttons.Where(b => b.Caption != null).Select(b => b.Caption))}"
@@ -85,9 +116,9 @@ static class ShellHost {
 		Console.WriteLine(mode == ShellCampaignMode.Training
 			? "Training campaign: REPAIR, BUILD and ARMORY are gated off, as the strip refresh gates them."
 			: "Campaign: every tab is live.");
-		Console.WriteLine("SAVE is the one tab with a screen behind it. Click a slot row to select it and "
-			+ "the summary panel follows; the other seven tabs latch and show the frame. Close the "
-			+ "window to quit.");
+		Console.WriteLine("SAVE and REPAIR are the two tabs with a screen behind them. Click a save slot "
+			+ "row or a repair list row to select it and the panels beside it follow; the other six tabs "
+			+ "latch and show the frame. Close the window to quit.");
 		Console.WriteLine(followTabPalette
 			? "Palettes follow the tab, as the original's do. The four tabs on dpl\\arming.dpl draw the "
 			  + "bay backdrop through a palette that is not its own — so does retail, which covers it "
@@ -191,9 +222,13 @@ static class ShellHost {
 			RepaintContent();
 		}
 
-		// A click the strip did not take, handed to the tab that is up. Only the save screen has
-		// anything to hand it to so far.
+		// A click the strip did not take, handed to the tab that is up.
 		void ClickContent(float canvasX, float canvasY) {
+			if (screen.SelectedTab == ShellScreen.RepairTab) {
+				ClickRepair(canvasX, canvasY);
+				return;
+			}
+
 			if (screen.SelectedTab != ShellScreen.SaveTab) {
 				return;
 			}
@@ -220,6 +255,29 @@ static class ShellHost {
 			}
 		}
 
+		// The repair screen's own clicks: a row moves the selection and the detail panel follows, which
+		// is the whole of what the original's FUN_00433eb9 does before its own refill.
+		void ClickRepair(float canvasX, float canvasY) {
+			if (repairScreen.RowAt(canvasX, canvasY) is { } cell) {
+				// A hardpoint row past the machine's capacity, or one holding no weapon, refuses the
+				// selection outright — nothing moves and nothing repaints.
+				if (!repairScreen.Select(cell.Column, cell.Row)) {
+					return;
+				}
+
+				RepaintContent();
+				var category = ShellRepairScreen.CategoryOf(cell.Column, cell.Row);
+				Console.WriteLine($"{category} {ShellRepairScreen.IndexOf(category, cell.Row)}: "
+					+ $"condition {repairScreen.SelectionCondition}, "
+					+ $"{repairScreen.SelectionCost} kg to repair one level.");
+				return;
+			}
+
+			if (repairScreen.ButtonAt(canvasX, canvasY) is { } repairButton) {
+				Console.WriteLine($"{repairButton} — the button is live and its action is not ported yet.");
+			}
+		}
+
 		// Rasterizes the current tab's content and hands it to the renderer. Called on a state change
 		// rather than per frame: it resolves a whole canvas of palette indices and uploads a texture,
 		// which is the same "repaint only what moved" the original's widget paints are driven by.
@@ -228,13 +286,18 @@ static class ShellHost {
 				return;
 			}
 
-			if (screen.SelectedTab != ShellScreen.SaveTab) {
+			if (screen.SelectedTab != ShellScreen.SaveTab && screen.SelectedTab != ShellScreen.RepairTab) {
 				renderer.SetContent(null);
 				return;
 			}
 
 			contentSurface.Clear();
-			saveScreen.Paint(contentSurface, art.Text, art.Sprites);
+			if (screen.SelectedTab == ShellScreen.RepairTab) {
+				repairScreen.Paint(contentSurface, art.Text, art.Sprites);
+			} else {
+				saveScreen.Paint(contentSurface, art.Text, art.Sprites);
+			}
+
 			renderer.SetContent(contentSurface);
 		}
 

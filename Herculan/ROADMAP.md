@@ -91,14 +91,25 @@ The engine cannot be faithful here until the original is understood.
 ## The shell front end
 `--shell` draws the frame every tab screen shares — the tiled backdrop, the square button and the
 eight captioned tabs, hit-tested, latching on the six tabs that latch, gated by campaign mode and
-switching palette per tab — plus the save screen behind tab 1. The five widget paints are ported
-onto an indexed software canvas, so a further screen is layout, text and hit-testing rather than new
-drawing code. What is missing:
-- **Seven of the eight tab screens.** Each has its own builder in the executable and its own
+switching palette per tab — plus the save and repair screens behind tabs 1 and 3. The five widget
+paints are ported onto an indexed software canvas, so a further screen is layout, text and
+hit-testing rather than new drawing code. What is missing:
+- **Six of the eight tab screens.** Each has its own builder in the executable and its own
   hundred-odd widget rects. Tab 1, `SAVED GAMES`, is drawn from the real `GAMEFILE.STR` and the real
-  saves; the other seven show the bare frame. The dispatch that reaches them, and which builder each
-  tab calls, is read.
+  saves, and tab 3, `REPAIR`, from a real save's hangar bay and the real `damage.dat` price list; the
+  other six show the bare frame. The dispatch that reaches them, and which builder each tab calls, is
+  read.
   → [`docs/shell/screen-layout.md`](docs/shell/screen-layout.md)
+- **Every repair-screen action.** Both damage lists, their selection rules, the three readout panels
+  and the affordability gating work; REPAIR, REPAIR ALL, SCRAP and CANCEL do nothing, so no machine
+  is ever repaired or scrapped and no salvage is spent. The manual/auto mode readout shows the flag
+  and nothing changes it.
+  → [`docs/shell/screen-layout.md`](docs/shell/screen-layout.md#the-repair-screen)
+- **The repair screen's damage diagram.** The eight per-bay grids the builder puts down the left of
+  the canvas, and the exploded chassis picture the squad panel puts over the same rect, are not
+  drawn — so the six body groups have their list rows and no hotspots. Which `dba\` bank and frame
+  each part binds is read.
+  → [`docs/shell/screen-layout.md`](docs/shell/screen-layout.md#the-damage-diagram)
 - **Every save-screen action.** The slot list, its selection and the summary panel work; renaming a
   slot — the rows are editable text fields with their own character set — and the SAVE, RESTORE and
   EXIT buttons do nothing, so no save is written, loaded or left.
@@ -108,13 +119,15 @@ drawing code. What is missing:
   and none of it is ported.
   → [`docs/shell/screen-layout.md`](docs/shell/screen-layout.md)
 - **The arming and repair hotspots.** Fully reverse-engineered — the file format, which component
-  each area selects, and both screens' selection rules — and nothing is ported: no chassis picture is
-  drawn, no area is hit-tested, and no component condition is displayed.
+  each area selects, and both screens' selection rules. The repair screen's rules are ported and its
+  component conditions are displayed; no chassis picture is drawn and no hotspot is hit-tested, on
+  either screen.
   → [`docs/shell/screen-layout.md`](docs/shell/screen-layout.md),
   [`docs/formats/herc-catalogs.md`](docs/formats/herc-catalogs.md)
 - **Nothing sets the campaign mode.** The tab gate is ported and correct, but the flag behind it
-  (`DAT_0048260c`) comes from the save the shell opened, and the shell host loads no save — so it is
-  driven by `--shell-training` instead.
+  (`DAT_0048260c`) comes from the save the shell opened, and the shell host has no loaded game — the
+  repair screen reads the first in-use slot directly instead, and the gate is driven by
+  `--shell-training`.
   → [`docs/shell/screen-layout.md`](docs/shell/screen-layout.md)
 - **The mouse cursor.** `dba\cursor.dba` is not drawn — the host shows the OS pointer.
 - **Sound.** `SHLSOUND.VOL` is not mounted and no widget makes a noise. The shell's own click is

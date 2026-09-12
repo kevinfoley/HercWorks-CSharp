@@ -59,7 +59,24 @@ Two six-entry `int16` tables in the image drive the whole thing:
 
 `Repair_LevelForCondition` (`0041381c`) returns the first level whose band floor is at or below the condition — so 90 and up is level 0, 80–89 level 1, 60–79 level 2, 30–59 level 3, 1–29 level 4, and 0 level 5.
 
-`Repair_ItemCost` (`0041392a`) prices one component: nothing if it is already at or above the target, otherwise `(target - current) * unitValue / 100`. `Repair_HercCost` (`004139f7`) sums that over the six external groups, the nine internals and every occupied hardpoint, taking each hardpoint's unit value from the per-weapon table at `0048431e`.
+`Repair_ItemCost` (`0041392a`) prices one component: nothing if it is already at or above the target, otherwise `(target - current) * unitValue / 100`. `Repair_HercCost` (`004139f7`) sums that over the six external groups, the nine internals and every occupied hardpoint, taking each hardpoint's unit value from the per-weapon table at `0048431e`. A hardpoint whose condition has already reached 0 is skipped: a destroyed mount is not a repairable one.
+
+### What one repair level costs
+
+`FUN_00413871(unitValue, condition, mode)` prices a **single step up the ladder**, and it is what the repair screen quotes for whatever the player has selected — reached through `FUN_00411454(herc, category, index)`, which picks the unit value for the selection and, for a hardpoint, keys the weapon table by the fitted weapon's id rather than by the slot number.
+
+With `mode` set — the only form the shell uses — the target is the floor of the level *above* the one the component is in, and only a component already at level 0 is priced all the way to 100:
+
+| Level | Condition | Repaired to |
+|---|---|---|
+| 0 | 90-100 | 100 |
+| 1 | 80-89 | 90 |
+| 2 | 60-79 | 80 |
+| 3 | 30-59 | 60 |
+| 4 | 1-29 | 30 |
+| 5 | 0 | 1 |
+
+The targets are the second table read one index down — the caller indexes `0046fd82 + level*2`, which for level 1 and up lands in `0046fd84`'s band floors. So the detail panel's figure and the `REPAIR ALL` figure beside it are different quantities, not one scaled from the other: a component at 70 is quoted the 10 points that would take it to 80, while the rebuild beside it is quoted the 30 that would take it to 100.
 
 `Repair_Auto` (`00411328`) is the `Auto Repair` mode (`estext.bin` `0x42`): start at level 0, step down a level at a time while the cost exceeds the budget, stop once the machine's own average condition already sits at the level under consideration, then apply through `Repair_Apply` (`004113af`) — which writes the chosen target across all three arrays, leaving an empty hardpoint at 100. If no level is affordable nothing is repaired and nothing is charged.
 

@@ -28,6 +28,7 @@ public static class TransformerRegistry {
 			() => new Shell.ArmHercTransformer()),
 		new("Armory Weapon Icons", e => NameIs(e, "ARM_WEAP.DAT"), () => new Shell.ArmWeapTransformer()),
 		new("Career Missions", e => NameIs(e, "CAREER.DAT"), () => new Shell.CareerDataTransformer()),
+		new("Component Value Table", e => NameIs(e, "DAMAGE.DAT"), () => new Shell.DamageRepairCostTransformer()),
 		// One format, two files: Squad_BuildScreen (0043c1a0) reads both through the same code,
 		// picking the name on which tab it is building for. Both parse to EOF.
 		new("Hardpoint Overlay", e => NameIs(e, "RPR_HOTS.DAT") || NameIs(e, "ARM_HOTS.DAT"),

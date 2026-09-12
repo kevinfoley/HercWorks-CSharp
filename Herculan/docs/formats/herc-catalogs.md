@@ -228,11 +228,14 @@ int16   groupCount
 groupCount x { int16 weaponId; int16 count; count x layout record }
 
 layout record, 14 bytes on disk into a 26-byte struct:
-  int16   +0x00
-  8 B     +0x02
-  int16   +0x12
+  int16   +0x00   part id within its picture
+  int32   +0x02   x
+  int32   +0x06   y
+  int16   +0x12   frame index into the matching dba\ sheet
   2 B     +0x16
 ```
+
+`FUN_004140a9` is what names those fields: it walks the counted list placing one grid part per record at `(+0x02, +0x06)` from frame `+0x12` of `dba\rpr_<chassis>.dba`, and looks a fitted weapon's record up in the per-weapon groups by id and by `slot + 6`. **The trailing single record is the internals diagram** — one part from `dba\<chassis>_int.dba`, over the same rect, shown while the internals list is the one being worked in ([`../shell/screen-layout.md`](../shell/screen-layout.md#the-damage-diagram)).
 
 Retail's component counts are 4, 6 or 12 — the Razor's twelve against the walkers' four or six, which is the flyer's own component set.
 
@@ -246,10 +249,10 @@ int16   groupCount
 groupCount x { int16 weaponId; int16 count; count x layout record }
 
 layout record, 22 bytes on disk into a 26-byte struct:
-  int16   +0x00
-  8 B     +0x02
-  8 B     +0x0a
-  int16   +0x12
+  int16   +0x00   part id within its picture
+  8 B     +0x02   x, y
+  8 B     +0x0a   a second x, y
+  int16   +0x12   frame index into the matching dba\ sheet
   2 B     +0x16
 ```
 

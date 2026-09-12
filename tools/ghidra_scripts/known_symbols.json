@@ -1548,18 +1548,18 @@
       "binary": "VSHELL",
       "type": "function",
       "confidence": "high",
-      "name": "Widget_ShowRecursive",
-      "description": "Recursive show/attach cascade: sets the +0x11 'attached' state bit, recurses into every child (+0xd child-list head, +5 sibling-next) not already attached, then posts a type=2 event (via a small event-record alloc + FUN_00468440 dispatch) targeting the widget. Mirror of Widget_HideRecursive.",
-      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL widget-class disambiguation pass"
+      "name": "Widget_HideRecursive",
+      "description": "Hides a widget subtree: sets bit 2 of the +0x11 flags word, which is a HIDDEN bit, sets bit 4 when the effective parent is hidden too, recurses into every child that is not already hidden (+0xd child-list head, +5 sibling-next), then posts a type=2 event via FUN_00468440. VSHELL_FULL.txt names this Widget_ShowRecursive; the two are swapped there. Text_Paint (0040b439) draws only when bit 2 is clear, and the repair tab's entry (004332ec) calls the other one on its own panels while its teardown (004333eb) calls this. Mirror of Widget_ShowRecursive (0041f2e6).",
+      "source": "docs/shell/screen-layout.md#showing-and-hiding-a-widget"
     },
     {
       "address": "0041f2e6",
       "binary": "VSHELL",
       "type": "function",
       "confidence": "high",
-      "name": "Widget_HideRecursive",
-      "description": "Recursive hide/detach cascade: clears the +0x11 'attached'/'parent-shown' state bits, posts type=1 (self) and type=4 (parent-directed) events, then recurses over a z-order sibling list (+9 offset). Mirror of Widget_ShowRecursive.",
-      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL widget-class disambiguation pass"
+      "name": "Widget_ShowRecursive",
+      "description": "Shows a widget subtree: clears bits 2 and 4 of the +0x11 flags word, refusing to run while the effective parent is still hidden, posts type=1 (self) and type=4 (parent-directed) events, then walks the +9 chain. Type 4 is what reaches Text_Paint. VSHELL_FULL.txt names this Widget_HideRecursive; the two are swapped there. Mirror of Widget_HideRecursive (0041f469).",
+      "source": "docs/shell/screen-layout.md#showing-and-hiding-a-widget"
     },
     {
       "address": "0040a6f4",
@@ -10738,9 +10738,9 @@
       "binary": "VSHELL",
       "type": "function",
       "confidence": "high",
-      "name": "Repair_DrawItemCost",
-      "description": "Display counterpart of Repair_ItemCost: picks the unit value by accessor mode -- external group table, internal table, or the per-weapon scrap table -- and formats it.",
-      "source": "docs/shell/armory.md"
+      "name": "Repair_UnitValueCost",
+      "description": "Picks the unit value by accessor mode -- HercExternalGroupValues and HercInternalValues at chassisType*0x21 + index, WeaponScrapValues at the weapon id -- and calls Repair_LevelStepCost (00413871) on it. Named Repair_DrawItemCost in VSHELL_FULL.txt and in earlier notes; it formats nothing and draws nothing, it returns a cost.",
+      "source": "docs/shell/armory.md#what-one-repair-level-costs"
     },
     {
       "address": "00410066",
@@ -11528,10 +11528,118 @@
       "address": "004332ec",
       "binary": "VSHELL",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Repair_Show",
-      "description": "Built by tab 3's handler. Identified from its dispatch position only.",
-      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+      "confidence": "high",
+      "name": "Repair_Enter",
+      "description": "Brings the repair screen up: shows the content panel and both list panels, sets the mode readout from DAT_004824e4, moves the bay selection to the first built machine when the current bay holds nothing workable, fills both lists (00433caf), snapshots the machine (004338f6) and seeds the selection at (0, 0).",
+      "source": "docs/shell/screen-layout.md#the-repair-screen"
+    },
+    {
+      "address": "00432037",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_BuildScreen",
+      "description": "Builds every widget of tab 3, REPAIR: eight per-bay damage grids over {0x10,0x2f,0xe0,0x12f}, the content TitledPanel {0xf1,0x2b,0x278,0x1d9}, the External and Internal list panels with their 16 and 9 rows, the mode and salvage readouts, three FramedPanel readout panels with REPAIR / REPAIR ALL / SCRAP, and CANCEL. Opens no file; every rect is four immediates on its own stack.",
+      "source": "docs/shell/screen-layout.md#the-repair-screen"
+    },
+    {
+      "address": "004333eb",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_Leave",
+      "description": "Tab 3's teardown, reached from the dispatcher at 00439ea7: hides the content panel and both list panels. Counterpart of Repair_Enter (004332ec).",
+      "source": "docs/shell/screen-layout.md#the-repair-screen"
+    },
+    {
+      "address": "004339b2",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_FillRow",
+      "description": "Fills one (column, row) of the repair lists: reads the condition through HercStatus_Get, formats it '%d%%' into the row's fourth text child in the damage band's colour, and for a hardpoint row also writes the fitted weapon's name (estext 0x7e + id, or 0x7d --Empty--) and the one-based mount number. A row past the machine's mount capacity is blanked to estext entry 1.",
+      "source": "docs/shell/screen-layout.md#a-row-is-four-text-columns"
+    },
+    {
+      "address": "00433caf",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_FillAllRows",
+      "description": "Calls Repair_FillRow over column 0's sixteen rows and column 1's nine, then Repair_RefreshDetail.",
+      "source": "docs/shell/screen-layout.md#a-row-is-four-text-columns"
+    },
+    {
+      "address": "00433cdf",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_SetComponentNames",
+      "description": "Writes the fifteen component names into the two lists' name columns from one of two fifteen-entry estext index tables, at 00474000 for a walker and 0047401e when the machine's chassis type is 8, the Razor. Driven by a bay change (0043d64d), not by screen entry.",
+      "source": "docs/shell/screen-layout.md#which-names-a-chassis-shows"
+    },
+    {
+      "address": "0043393d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_SwapDiagram",
+      "description": "Swaps the two per-bay pictures as the selection crosses between columns: the internals diagram (0048d118) is shown while the internals list is selected and the exploded external picture (0048d4bc) while column 0 is.",
+      "source": "docs/shell/screen-layout.md#the-damage-diagram"
+    },
+    {
+      "address": "004140a9",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_BuildDiagrams",
+      "description": "Fills both per-bay damage pictures for all eight bays. Externals: one grid part per gam\\rpr_*.dat component record at its (+0x02, +0x06) from frame +0x12 of dba\\rpr_<chassis>.dba, plus one per occupied hardpoint found by FUN_00413ccc on the per-weapon groups. Internals: the single trailing record at 00484534, from dba\\<chassis>_int.dba, with a second part for the Razor. Bank path tables at 0046fedc and 0046ff04, handles cached in 0046fdc4 and 0046fdec.",
+      "source": "docs/shell/screen-layout.md#the-damage-diagram"
+    },
+    {
+      "address": "00413871",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_LevelStepCost",
+      "description": "Prices one component up a single repair level: (target - condition) * unitValue / 100, where the target is RepairTargetTable[0] = 100 at level 0 and otherwise the band floor of the level above, read as 0046fd82 + level*2. The repair screen's per-item figure, as against Repair_HercCost's rebuild to 100. param_3 == 0 selects the opposite direction, which the shell does not use.",
+      "source": "docs/shell/armory.md#what-one-repair-level-costs"
+    },
+    {
+      "address": "00410add",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Herc_HasSingleDeployable",
+      "description": "True when exactly one of the eight bays holds a machine that is occupied, fully built and flightworthy (FUN_00410a9d). The repair screen's SCRAP button is dead while it holds.",
+      "source": "docs/shell/screen-layout.md#what-the-buttons-are-gated-on"
+    },
+    {
+      "address": "00411681",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Herc_IsFlightworthy",
+      "description": "True when internals 0, 1, 5 and 8 -- both leg servos, the engine and life support -- are all above 50.",
+      "source": "docs/shell/screen-layout.md#what-the-buttons-are-gated-on"
+    },
+    {
+      "address": "00410c2a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Herc_FirstBuiltBay",
+      "description": "The first of the eight bays holding a machine whose +0x4a is 100, or -1. What Repair_Enter falls back to when the selected bay holds nothing workable.",
+      "source": "docs/shell/screen-layout.md#the-repair-screen"
+    },
+    {
+      "address": "0040a310",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ListRow_AddColumns",
+      "description": "Gives a row Panel four Text children at +0x55, +0x59, +0x5d and +0x61, each spanning from the previous column's right edge to its own, the last ending two pixels inside the row. All four are opaque (+0xc1 = 1) so a refresh overwrites cleanly. FUN_0040a4d6 sets one by index and FUN_0040a58b recolours one.",
+      "source": "docs/shell/screen-layout.md#a-row-is-four-text-columns"
     },
     {
       "address": "0044690d",
@@ -11664,18 +11772,18 @@
       "binary": "VSHELL",
       "type": "function",
       "confidence": "high",
-      "name": "Repair_RefreshPanel",
-      "description": "Rewrites the detail panel: the selected component's cost, its condition word and colour, the whole machine's rebuild cost, and the salvage available -- which is CareerSalvage minus Armory_QueuedTotal. Also gates three buttons on affordability, writing +0x49 alongside two greying colour fields.",
-      "source": "docs/shell/screen-layout.md#the-condition-readout"
+      "name": "Repair_RefreshDetail",
+      "description": "Refills the three readout panels from the selection: the selected component's one-level repair cost (Repair_SelectionCost, 00411454), its condition word and colour, Repair_HercCost(herc, 100), and CareerSalvage minus Armory_QueuedTotal, all suffixed estext 0xc8 'kg'. Then writes the greying trio at REPAIR, REPAIR ALL and SCRAP -- the first two on affordability, SCRAP on there being a machine that is not the last deployable one.",
+      "source": "docs/shell/screen-layout.md#what-the-buttons-are-gated-on"
     },
     {
       "address": "00433e3c",
       "binary": "VSHELL",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Repair_PaintEntry",
-      "description": "Repaints one repair entry in a colour pair -- called as (column, row, 0x10, 0x27) for the outgoing selection and (column, row, 0x29, 0x29) for the incoming. Read from its two call sites only; the body has not been traced, and it is the only thing that maps a (column, row) back to a widget.",
-      "source": "docs/shell/screen-layout.md#the-arming-and-repair-hotspots"
+      "confidence": "high",
+      "name": "Repair_ColorRow",
+      "description": "Repaints one repair list row in a colour pair -- called as (column, row, 0x10, 0x27) for the outgoing selection and (column, row, 0x29, 0x29) for the incoming. It writes the row Panel's border at +0x4d and its first text child's ink, indexing the sixteen widgets at 0048d140 for column 0 and the nine at 0048d184 for column 1, so this is what maps a (column, row) back to the widget that draws it.",
+      "source": "docs/shell/screen-layout.md#the-repair-screen"
     },
     {
       "address": "0043dbb2",
@@ -11735,10 +11843,10 @@
       "address": "00411454",
       "binary": "VSHELL",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Repair_ComponentCost",
-      "description": "Returns the repair cost of one component given (herc, category, index); quoted by Repair_RefreshPanel and compared against available salvage to gate a button. Presumably wraps Repair_ItemCost (0041392a), but the body has not been read and the two have not been reconciled.",
-      "source": "docs/shell/screen-layout.md#the-condition-readout"
+      "confidence": "high",
+      "name": "Repair_SelectionCost",
+      "description": "Returns the repair cost of one component given (herc, category, index): reads the condition through HercStatus_Get, then Repair_UnitValueCost (00413968) to pick the unit value and price it. It is not Repair_ItemCost's wrapper -- it goes through Repair_LevelStepCost instead, so it prices one level up rather than a rebuild to 100. A hardpoint keys the weapon value table by the fitted weapon's id at herc + 0x50 + slot*4, not by the slot number.",
+      "source": "docs/shell/armory.md#what-one-repair-level-costs"
     },
     {
       "address": "0043d9cf",

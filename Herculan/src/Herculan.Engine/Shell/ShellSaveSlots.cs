@@ -124,7 +124,19 @@ public static class ShellSaveSlots {
 	public static string Complete(string label, string? emptyWord) =>
 		label.Length > LabelPrefixLength ? label : label + (emptyWord ?? string.Empty);
 
-	private static ShellSaveSummary? ReadSummary(string folder, string fileName) {
+	/// <summary>
+	/// Parses one slot's save in full, or returns null when it is missing or will not read. The save
+	/// screen only wants the staging record, but every other tab works over the whole thing — the
+	/// hangar bays, the armory stock, the squad — so this is what a screen with more than a summary to
+	/// draw asks for.
+	/// </summary>
+	public static PlayerSave? LoadSave(string installRoot, string fileName) =>
+		ReadSave(Directory(installRoot), fileName);
+
+	private static ShellSaveSummary? ReadSummary(string folder, string fileName) =>
+		ShellSaveSummary.From(ReadSave(folder, fileName));
+
+	private static PlayerSave? ReadSave(string folder, string fileName) {
 		string path = Path.Combine(folder, fileName);
 		if (!File.Exists(path)) {
 			return null;
@@ -133,7 +145,7 @@ public static class ShellSaveSlots {
 		// A save that will not parse leaves the slot listed with no summary rather than dropping the row:
 		// the row's label comes from the directory, which is a separate file and may well still be good.
 		try {
-			return ShellSaveSummary.From(new PlayerSaveTransform().Parse(ReadOrNull(path)));
+			return new PlayerSaveTransform().Parse(ReadOrNull(path));
 		} catch (Exception) {
 			return null;
 		}

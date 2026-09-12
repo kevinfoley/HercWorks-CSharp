@@ -165,7 +165,7 @@ The facet meanings are `HercWorks.Core.Data.Struct.Herc.HercExternals`, decoded 
 
 The nine internal entries are named one-for-one by `estext.bin` `0x54`–`0x5c` — `Left Leg Servos`, `Right Leg Servos`, `Sensor Array`, `Targeting Computer`, `Shield Generator`, `Engine`, `Hydraulics`, `Stabilizers`, `Life Support` — matching `HercInternals` indices 0-8 in order.
 
-`estext.bin` `0x5d`–`0x63` holds seven more names — `Left Nacelle`, `Right Nacelle`, `Fuselage`, `Left Wing`, `Right Wing`, `Left Wing Servos`, `Right Wing Servos` — which are the Razor's parts in place of a walker's legs. Which names a given chassis shows comes from its `gam\rpr_*.dat` component list ([`herc-catalogs.md`](herc-catalogs.md#gamrpr_dat--repair-bay-layout)), and the Razor's is the only one with twelve entries where the walkers have four or six.
+`estext.bin` `0x5d`–`0x63` holds seven more names — `Left Nacelle`, `Right Nacelle`, `Fuselage`, `Left Wing`, `Right Wing`, `Left Wing Servos`, `Right Wing Servos` — which are the Razor's parts in place of a walker's torsos, chassis, legs and leg servos. **The substitution is per chassis type, not per component.** `FUN_00433cdf` holds two fifteen-entry tables of string indices and picks the second whenever the machine's type is 8, replacing all fifteen names at once ([`../shell/screen-layout.md`](../shell/screen-layout.md#which-names-a-chassis-shows)). The condition arrays themselves are unchanged — a Razor's thirteen external facets group the same six ways as a walker's.
 
 Retail data agrees throughout: the per-hardpoint array carries most of the partial figures, and a machine at full health reads 100 everywhere.
 

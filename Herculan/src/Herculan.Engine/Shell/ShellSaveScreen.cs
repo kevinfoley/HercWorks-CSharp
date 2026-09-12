@@ -66,10 +66,10 @@ public sealed class ShellSaveScreen {
 	/// <summary>
 	/// A sixth panel the builder constructs over the summary panel's top two thirds,
 	/// <c>{0x74, 0xcc, 0x15b, 0x136}</c>, with no children of its own — an empty box where the summary
-	/// would be. It is not painted here: the entry routine fills the summary's fields and gates RESTORE
-	/// on the selected slot's contents, which only makes sense if the summary is what shows. Which of
-	/// the two the original puts in front turns on the visibility-bit polarity in
-	/// docs/shell/screen-layout.md, "The palette", and is not settled.
+	/// would be. It is not painted here, and that is the original's arrangement rather than a guess:
+	/// the entry routine calls <c>FUN_0041f2e6</c> on the summary panel and <c>FUN_0041f469</c> on this
+	/// one, which are the show and the hide respectively (docs/shell/screen-layout.md, "Showing and
+	/// hiding a widget"), so the summary is what tab 1 puts in front.
 	/// </summary>
 	public static readonly ShellRect StubPanelRect = new(0x74, 0xcc, 0x15b, 0x136);
 

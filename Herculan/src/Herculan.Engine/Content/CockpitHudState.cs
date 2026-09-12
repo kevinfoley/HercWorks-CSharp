@@ -47,7 +47,10 @@
 /// shows. Binary angle relative to the machine's own heading, positive to the same side
 /// <see cref="Herculan.Engine.Sim.MechControls.TorsoTwist"/> positive drives it.
 /// </param>
-/// <param name="MissionTime">Mission clock, rendered mm:ss.</param>
+/// <param name="MissionTime">
+/// The front window's <c>TIME:</c> readout, already rendered — see <see cref="MissionClock"/>, which
+/// carries it as ASCII digits rather than as a duration.
+/// </param>
 /// <param name="ChainGroup">
 /// Which of the three fire chains is selected, 0-2 — <c>WeaponMounts.Group</c>. The chain button is
 /// captioned with that many <c>I</c>s from a literal table in the executable, so chain 0 reads "I".
@@ -115,7 +118,7 @@ public readonly record struct CockpitHudState(
 	int SpeedKph,
 	short Throttle,
 	short TorsoTwist,
-	TimeSpan MissionTime,
+	string MissionTime,
 	int ChainGroup,
 	bool AutoTrack,
 	MfdMode Mfd,
@@ -153,7 +156,7 @@ public readonly record struct CockpitHudState(
 		SpeedKph: 0,
 		Throttle: 0,
 		TorsoTwist: 0,
-		MissionTime: TimeSpan.Zero,
+		MissionTime: "",
 		ChainGroup: 0,
 		AutoTrack: false,
 		Mfd: MfdMode.Scanner,

@@ -2346,7 +2346,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 		drawText("HUD3", $"{state.SpeedKph} K/H", speedEnd + ReadoutGap, row);
 
 		float timeLeft = timeRight - values.Measure(TimeFieldReservation);
-		drawText("HUD3", state.MissionTime.ToString(@"mm\:ss"), timeLeft, row);
+		drawText("HUD3", state.MissionTime, timeLeft, row);
 		drawText("HUD2", TimeCaption, timeLeft - ReadoutGap - captions.Measure(TimeCaption), row);
 	}
 

@@ -636,6 +636,10 @@ var debugPanel = new DebugPanel();
 string debugFontPath = Path.Combine(AppContext.BaseDirectory,
 	"Assets", "Fonts", "Open_Sans", "static", "OpenSans-Regular.ttf");
 
+// The front window's TIME: readout. It is driven from the frames the gunsight is painted on,
+// which is what stalls it in the external view, exactly as the original's does.
+var missionClock = new MissionClock();
+
 // The console's throttle slider and the machine's throttle setting are two-way bound, so the gauge's
 // own value is state in its own right: it is what the machine reads on any frame the machine did not
 // itself move the throttle. See MechObject.ExchangeCockpitThrottle.
@@ -1632,7 +1636,15 @@ window.Update += deltaSeconds => {
 			: 0;
 		pilotMech.Weapons.PerFrameUpdate(targetRange);
 		throttleGauge = pilotMech.ExchangeCockpitThrottle(throttleGauge);
+
+		// FUN_0043dcac runs inside the gunsight's paint, so a view with no gunsight in it does not
+		// advance the clock at all.
+		if (!ExternalViewActive()) {
+			missionClock.Advance(deltaSeconds);
+		}
+
 		hudState = hudState with {
+			MissionTime = missionClock.Text,
 			SpeedKph = pilotMech.DisplaySpeedKph,
 			Throttle = throttleGauge,
 			TorsoTwist = pilotMech.TorsoTwistAngle,

@@ -80,15 +80,18 @@ public sealed class CockpitArt {
 	/// is built. Ninety frames of nine-frame rotation groups, and the only consumer is the command
 	/// display's map — see <see cref="HddMap"/>.</para>
 	/// </summary>
-	/// <para><c>OBJ_ALRT</c> and <c>GNL_ALRT</c> are the two modal alert panels' plates and
+	/// <para><c>OBJ_ALRT</c> and <c>GNL_ALRT</c> are two of the modal alert panels' plates and
 	/// <c>ALERT</c> the button plate they share (<see cref="ObjectivesPanel"/>,
-	/// <see cref="StatusAlertPanel"/>). They come from SIMALERT.VOL rather than the main archive, and
+	/// <see cref="StatusAlertPanel"/>); <c>PRF_ALRT</c> and <c>CTL_ALRT</c> are the preferences and
+	/// controls panels', which carry their own button art rather than sharing that one
+	/// (<see cref="PreferencesPanel"/>, <see cref="ControlsPanel"/>).
+	/// They come from SIMALERT.VOL rather than the main archive, and
 	/// the original loads each when its panel is constructed rather than up front; packing them with
 	/// the rest costs one atlas entry each and keeps a panel to a single texture bind.</para>
 	public static readonly string[] HudBankNames = {
 		"HUD", "HUDHTICK", "MFD", "RADAR", "THROTTLE", "WPN_DMG", "PWEAPONS", "HDD", "BASES", "VEHICLES",
 		"ICONS", ObjectivesPanel.BackgroundBank, StatusAlertPanelLayout.PlateBank,
-		AlertPanelLayout.ButtonBank,
+		AlertPanelLayout.ButtonBank, PreferencesPanelLayout.PlateBank, ControlsPanelLayout.PlateBank,
 	};
 
 	/// <summary>
@@ -120,17 +123,18 @@ public sealed class CockpitArt {
 	/// <para><c>CPGREY</c> and <c>CPORANGE</c> are <c>[7]</c> and <c>[9]</c>, two of the five a damage
 	/// detail row cycles through as its component is worn down — see
 	/// <see cref="PaperDollDamage.RowFont"/>.</para>
-	/// <para><c>TITLE</c>, <c>ACTIVE</c>, <c>PUSHED</c> and <c>GREEN6X8</c> are four of the seven
-	/// <c>maybe_CockpitFontsAndCorners_Init</c> (<c>004544a4</c>) loads outside the
-	/// <c>ColorSchemePanels</c> set: a modal alert panel titles itself in the first, captions its
-	/// buttons in the next two — unheld and held — and the status alert sets its body in the last,
-	/// which is where that panel's green comes from. <c>INACTIVE</c>, the third button state, is
-	/// loaded alongside them in the original but no panel this engine draws reaches it.</para>
+	/// <para><c>TITLE</c>, <c>ACTIVE</c>, <c>PUSHED</c>, <c>INACTIVE</c> and <c>GREEN6X8</c> are five
+	/// of the seven <c>maybe_CockpitFontsAndCorners_Init</c> (<c>004544a4</c>) loads outside the
+	/// <c>ColorSchemePanels</c> set, and they are the alert family's. A panel titles itself in the
+	/// first and captions its buttons in the next three — at rest, held and disabled, which is
+	/// <c>PanelButton_Ctor</c>'s own four-entry table. The last is both the status alert's body and
+	/// the preferences and controls panels' value readouts
+	/// (<see cref="PreferencesPanelLayout.ValueFont"/>).</para>
 	public static readonly string[] HudFontNames = {
 		"WHITE", "GRAY", "GREEN", "DARK", "RED", "HUD1", "HUD2", "HUD3",
 		"CPGREEN", "CPRED", "CPON", "CPPRESS", "CPYLW", "CPBLUE", "CPORANGE", "CPGREY", "CPOFF",
 		AlertPanelLayout.TitleFont, AlertPanelLayout.ButtonFont, AlertPanelLayout.ButtonPressedFont,
-		StatusAlertPanelLayout.BodyFont,
+		AlertPanelLayout.DisabledButtonFont, StatusAlertPanelLayout.BodyFont,
 	};
 
 	private CockpitArt(CockpitFrame front, CockpitFrame side, CockpitFrame? headsDown, GAUFile gau, HudSpriteSheet? sprites,

@@ -1,9 +1,10 @@
 namespace Herculan.Engine.Content;
 
 /// <summary>
-/// Which halves of a message channel are live — <c>DAT_004d1fbf</c> for the computer's channel and
-/// <c>DAT_004d1fbe</c> for the pilots', two bytes of one four-byte array at <c>DAT_004d1fbc</c> the
-/// preferences screen writes. See docs/formats/audio.md, "The computer's messages".
+/// Which halves of a message channel are live — options 3 and 2 of
+/// <see cref="SimulatorPreferences"/>, which the preferences screen's COMPUTER MESSAGE and PILOT
+/// MESSAGE rows write. Three values, not four: the row offers no OFF. See docs/formats/audio.md,
+/// "The computer's messages".
 /// </summary>
 public enum MessageChannelMode {
 	/// <summary>Text drawn, nothing spoken. The port tests <c>!= 0</c> before it speaks.</summary>

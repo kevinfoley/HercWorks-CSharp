@@ -2435,6 +2435,27 @@ public sealed class Overlay2DRenderer : IDisposable {
 
 
 	/// <summary>
+	/// One line of panel text: the font it is set in, what it says, the rect it is placed in and how
+	/// it sits in that rect. Every panel but the preferences one centres with no margin.
+	/// </summary>
+	private readonly record struct PanelLine(string Font, string Text, AlertPanelLayout.Rect Rect,
+		LabelAlign Align = LabelAlign.Center, int MarginX = 0);
+
+	/// <summary>
+	/// One panel button: its caption, its rect, and the plate frame and caption font its current
+	/// widget state selects. Three of the four panels take those last two from the shared
+	/// <see cref="AlertPanelLayout.ButtonBank"/> via <see cref="SharedButton"/>; the preferences panel
+	/// blits its own bank instead.
+	/// </summary>
+	private readonly record struct PanelButton(string Caption, AlertPanelLayout.Rect Rect,
+		string Bank, int Frame, string Font);
+
+	/// <summary>A button drawn from the bank the alert-panel family shares, in one of its two states.</summary>
+	private static PanelButton SharedButton(string caption, AlertPanelLayout.Rect rect, bool pressed) =>
+		new(caption, rect, AlertPanelLayout.ButtonBank, AlertPanelLayout.ButtonFrame(pressed),
+			AlertPanelLayout.CaptionFont(pressed));
+
+	/// <summary>
 	/// The [F11] objectives panel, drawn over the whole window — <c>obj_alrt</c>
 	/// (<c>ObjectivesPanel_Ctor</c>, <c>0045751c</c>) and its paint (<c>ObjectivesPanel_Paint</c>,
 	/// <c>00457b58</c>), in that paint's own order: the background plate at the panel's origin, the
@@ -2445,9 +2466,9 @@ public sealed class Overlay2DRenderer : IDisposable {
 		ArgumentNullException.ThrowIfNull(panel);
 		ArgumentNullException.ThrowIfNull(sprites);
 
-		var lines = new List<(string Font, string Text, AlertPanelLayout.Rect Rect)>(panel.Lines.Count);
+		var lines = new List<PanelLine>(panel.Lines.Count);
 		for (int i = 0; i < panel.Lines.Count; i++) {
-			lines.Add((ObjectiveLineFont, panel.Lines[i], ObjectivesPanelLayout.Line(i)));
+			lines.Add(new PanelLine(ObjectiveLineFont, panel.Lines[i], ObjectivesPanelLayout.Line(i)));
 		}
 
 		DrawAlertPanel(windowWidth, windowHeight, spriteTexture, sprites,
@@ -2455,7 +2476,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 			ObjectivesPanel.BackgroundBank, 0,
 			panel.Title, ObjectivesPanelLayout.Title(Measure(sprites, AlertPanelLayout.TitleFont, panel.Title)),
 			lines,
-			new[] { (panel.ButtonCaption, ObjectivesPanelLayout.Button, panel.ButtonPressed) });
+			new[] { SharedButton(panel.ButtonCaption, ObjectivesPanelLayout.Button, panel.ButtonPressed) });
 	}
 
 	/// <summary>
@@ -2477,15 +2498,15 @@ public sealed class Overlay2DRenderer : IDisposable {
 
 		bool pause = panel.Variant == AlertPanelVariant.Pause;
 		int firstRow = StatusAlertPanelLayout.FirstRowFor(panel.Body.Count);
-		var lines = new List<(string Font, string Text, AlertPanelLayout.Rect Rect)>(panel.Body.Count);
+		var lines = new List<PanelLine>(panel.Body.Count);
 		for (int i = 0; i < panel.Body.Count; i++) {
-			lines.Add((StatusAlertPanelLayout.BodyFont, panel.Body[i],
+			lines.Add(new PanelLine(StatusAlertPanelLayout.BodyFont, panel.Body[i],
 				StatusAlertPanelLayout.BodyRow(firstRow + i)));
 		}
 
-		var buttons = new (string Caption, AlertPanelLayout.Rect Rect, bool Pressed)[panel.Buttons.Count];
+		var buttons = new PanelButton[panel.Buttons.Count];
 		for (int i = 0; i < buttons.Length; i++) {
-			buttons[i] = (panel.Buttons[i],
+			buttons[i] = SharedButton(panel.Buttons[i],
 				StatusAlertPanel.ButtonRect(panel.Variant, i, buttons.Length),
 				panel.PressedButton == i);
 		}
@@ -2500,6 +2521,116 @@ public sealed class Overlay2DRenderer : IDisposable {
 			pause ? PausePanelLayout.Title(titleWidth) : StatusAlertPanelLayout.Title(titleWidth),
 			lines, buttons);
 	}
+
+	/// <summary>
+	/// The [F12] preferences panel — <c>PreferencesPanel_Ctor</c> (<c>004566c4</c>), drawn in its
+	/// paint's own order: the plate at the panel's origin, the title, the nine value readouts, then
+	/// the eleven buttons.
+	///
+	/// <para>Two things set it apart from the rest of the family. Its buttons come from its own
+	/// <c>PRF_ALRT</c> bank rather than the shared <c>ALERT</c> one, four frames that differ only in
+	/// border colour, and the nine option buttons sit in widget state 3 while CONTROLS and DONE sit in
+	/// state 0 — which is the whole of why the bottom pair's border reads brighter than the rows
+	/// above. And its readouts are left-aligned with a four-pixel inset where every other label on
+	/// every other panel is centred. With no sound device the first four rows grey to state 2, the
+	/// same way the controls panel's do with no stick.</para>
+	///
+	/// <para><c>Label_SetText</c> would also flood each readout's rect with <c>COLORS.DAT</c> id 19
+	/// first, that being the label's <c>+0x1d</c> background colour. Nothing is drawn for it here: the
+	/// plate already paints a black box behind each readout that is larger than the rect on both axes,
+	/// so the fill lands entirely inside its own background.</para>
+	/// </summary>
+	public void DrawPreferencesPanel(int windowWidth, int windowHeight, GpuTexture spriteTexture,
+			HudSpriteSheet sprites, PreferencesPanel panel) {
+		ArgumentNullException.ThrowIfNull(panel);
+		ArgumentNullException.ThrowIfNull(sprites);
+
+		var values = new List<PanelLine>(panel.Values.Count);
+		for (int i = 0; i < panel.Values.Count; i++) {
+			values.Add(new PanelLine(PreferencesPanelLayout.ValueFont, panel.Values[i],
+				PreferencesPanelLayout.Value(i), LabelAlign.Left, PreferencesPanelLayout.ValueMarginX));
+		}
+
+		var buttons = new PanelButton[panel.Captions.Count];
+		for (int i = 0; i < buttons.Length; i++) {
+			int state = panel.RowState(i);
+			buttons[i] = new PanelButton(panel.Captions[i], PreferencesPanelLayout.Button(i),
+				PreferencesPanelLayout.PlateBank, PreferencesPanelLayout.ButtonFrame(i, state),
+				PanelButtonFont(state));
+		}
+
+		DrawAlertPanel(windowWidth, windowHeight, spriteTexture, sprites,
+			PreferencesPanelLayout.Place(windowWidth, windowHeight),
+			PreferencesPanelLayout.PlateBank, PreferencesPanelLayout.PlateFrame,
+			panel.Title,
+			PreferencesPanelLayout.Title(Measure(sprites, AlertPanelLayout.TitleFont, panel.Title)),
+			values, buttons);
+	}
+
+	/// <summary>
+	/// The CONTROLS panel — <c>ControlsPanel_Ctor</c> (<c>00457d1c</c>), drawn in its paint's own
+	/// order (<c>FUN_00458c68</c>): the plate at the panel's origin, the title, the fourteen buttons,
+	/// the twelve value readouts, then the OPTIONS caption. The option rows go down with the readouts,
+	/// both being <see cref="ControlsPanelLayout.ValueFont"/> labels the paint refreshes together.
+	///
+	/// <para>Its buttons come from its own <c>CTL_ALRT</c> bank in three sizes, each with a four-frame
+	/// state set of its own, so every button carries a frame base as well as a state — see
+	/// <see cref="ControlsPanelLayout.ButtonFrame"/>. A greyed row is state 2, which is how the panel
+	/// reads with no stick attached.</para>
+	///
+	/// <para>The OPTIONS caption is the one label on this panel with no background colour of its own,
+	/// which is why its rect can overlap the list box's top border without erasing it; every other
+	/// label's fill lands inside a black well the plate already paints.</para>
+	/// </summary>
+	public void DrawControlsPanel(int windowWidth, int windowHeight, GpuTexture spriteTexture,
+			HudSpriteSheet sprites, ControlsPanel panel) {
+		ArgumentNullException.ThrowIfNull(panel);
+		ArgumentNullException.ThrowIfNull(sprites);
+
+		var lines = new List<PanelLine>(
+			panel.Values.Count + ControlsPanelLayout.OptionRowCount + 1);
+
+		for (int i = 0; i < panel.Values.Count; i++) {
+			lines.Add(new PanelLine(ControlsPanelLayout.ValueFont, panel.Values[i],
+				ControlsPanelLayout.Value(i), LabelAlign.Left, ControlsPanelLayout.LabelMarginX));
+		}
+
+		var optionRows = panel.OptionRows();
+		for (int i = 0; i < optionRows.Count; i++) {
+			lines.Add(new PanelLine(ControlsPanelLayout.ValueFont, optionRows[i],
+				ControlsPanelLayout.OptionRow(i), LabelAlign.Center, ControlsPanelLayout.LabelMarginX));
+		}
+
+		lines.Add(new PanelLine(AlertPanelLayout.TitleFont, panel.OptionsCaption,
+			ControlsPanelLayout.OptionsTitle(), LabelAlign.Center, ControlsPanelLayout.LabelMarginX));
+
+		var buttons = new PanelButton[panel.Captions.Count];
+		for (int i = 0; i < buttons.Length; i++) {
+			int state = panel.RowState(i);
+			buttons[i] = new PanelButton(panel.Captions[i], ControlsPanelLayout.Button(i),
+				ControlsPanelLayout.PlateBank, ControlsPanelLayout.ButtonFrame(i, state),
+				PanelButtonFont(state));
+		}
+
+		DrawAlertPanel(windowWidth, windowHeight, spriteTexture, sprites,
+			ControlsPanelLayout.Place(windowWidth, windowHeight),
+			ControlsPanelLayout.PlateBank, ControlsPanelLayout.PlateFrame,
+			panel.Title,
+			ControlsPanelLayout.Title(Measure(sprites, AlertPanelLayout.TitleFont, panel.Title)),
+			lines, buttons);
+	}
+
+	/// <summary>
+	/// The caption font for a panel button in widget state 0-3 — <c>PanelButton_Ctor</c>'s own
+	/// four-entry table at <c>+0x40</c>: ACTIVE at rest, PUSHED held, INACTIVE disabled, and ACTIVE
+	/// again for the fourth state. The controls panel is the only one this engine draws that reaches
+	/// the third entry.
+	/// </summary>
+	private static string PanelButtonFont(int state) => state switch {
+		1 => AlertPanelLayout.ButtonPressedFont,
+		2 => AlertPanelLayout.DisabledButtonFont,
+		_ => AlertPanelLayout.ButtonFont,
+	};
 
 	/// <summary>
 	/// One modal alert panel, drawn over the whole window in the order every panel of the family
@@ -2518,8 +2649,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	private void DrawAlertPanel(int windowWidth, int windowHeight, GpuTexture spriteTexture,
 			HudSpriteSheet sprites, AlertPanelLayout.Placement place, string plateBank, int plateFrame,
 			string title, AlertPanelLayout.Rect titleRect,
-			IReadOnlyList<(string Font, string Text, AlertPanelLayout.Rect Rect)> lines,
-			IReadOnlyList<(string Caption, AlertPanelLayout.Rect Rect, bool Pressed)> buttons) {
+			IReadOnlyList<PanelLine> lines, IReadOnlyList<PanelButton> buttons) {
 		ArgumentNullException.ThrowIfNull(spriteTexture);
 
 		_gl.Viewport(0, 0, (uint)Math.Max(windowWidth, 1), (uint)Math.Max(windowHeight, 1));
@@ -2532,17 +2662,17 @@ public sealed class Overlay2DRenderer : IDisposable {
 		_vertices.Clear();
 
 		Blit(plateBank, plateFrame, 0, 0);
-		Label(AlertPanelLayout.TitleFont, title, titleRect);
+		Label(AlertPanelLayout.TitleFont, title, titleRect, LabelAlign.Center);
 
-		foreach (var (font, text, rect) in lines) {
-			Label(font, text, rect);
+		foreach (var line in lines) {
+			Label(line.Font, line.Text, line.Rect, line.Align, line.MarginX);
 		}
 
 		// A button's plate art is larger than its widget rect on both axes and is blitted at the
 		// rect's origin, so it overhangs to the right and below — the original's own placement.
-		foreach (var (caption, rect, pressed) in buttons) {
-			Blit(AlertPanelLayout.ButtonBank, AlertPanelLayout.ButtonFrame(pressed), rect.X0, rect.Y0);
-			Label(AlertPanelLayout.CaptionFont(pressed), caption, rect);
+		foreach (var button in buttons) {
+			Blit(button.Bank, button.Frame, button.Rect.X0, button.Rect.Y0);
+			Label(button.Font, button.Caption, button.Rect, LabelAlign.Center);
 		}
 
 		if (_vertices.Count > 0) {
@@ -2564,13 +2694,15 @@ public sealed class Overlay2DRenderer : IDisposable {
 			AddTexturedQuad(x0, y0, x1, y1, r.U0, r.V0, r.U1, r.V1);
 		}
 
-		// Every label on these panels is centred, which is the one alignment their constructors pass.
-		void Label(string fontName, string text, AlertPanelLayout.Rect rect) {
+		// Titles and button captions are centred with no margin; only the preferences panel's value
+		// readouts pass anything else, and they pass left with the constructor's own 4px inset.
+		void Label(string fontName, string text, AlertPanelLayout.Rect rect, LabelAlign align,
+				int marginX = 0) {
 			if (text.Length == 0 || sprites.Font(fontName) is not { } font) {
 				return;
 			}
 
-			var (textX, textY) = font.Place(text, rect.X0, rect.Y0, rect.X1, rect.Y1, LabelAlign.Center);
+			var (textX, textY) = font.Place(text, rect.X0, rect.Y0, rect.X1, rect.Y1, align, marginX);
 			float pen = textX;
 			foreach (char c in text) {
 				if (font.GlyphIndex(c) is { } glyph) {

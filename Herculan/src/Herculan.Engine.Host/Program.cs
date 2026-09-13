@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using HercWorks.Core.Data.Struct.Herc;
 using Herculan.Engine;
 using Herculan.Engine.Audio;
 using Herculan.Engine.Content;
@@ -64,6 +65,9 @@ int initialFlashCommRow = -1;
 bool initialFlashCommTransmit = false;
 bool waitForTransmission = false;
 bool startWithObjectives = false;
+bool startWithPreferences = false;
+bool startWithControls = false;
+var stagedJoystick = JoystickCapabilities.None;
 bool startWithStatusAlert = false;
 int stagedStatusAlert = -1;
 for (int i = 0; i < args.Length; i++) {
@@ -90,6 +94,26 @@ for (int i = 0; i < args.Length; i++) {
 		// Power up with the [F11] objectives panel already open, for the same reason as --mfd: a
 		// --screenshot run never sees a keystroke.
 		startWithObjectives = true;
+	} else if (args[i] == "--preferences") {
+		// Likewise for the [F12] preferences panel.
+		startWithPreferences = true;
+	} else if (args[i] == "--controls") {
+		// And for the CONTROLS panel it raises, which opens over it.
+		startWithPreferences = true;
+		startWithControls = true;
+	} else if (args[i] == "--joystick") {
+		// Tells the CONTROLS panel a fully-featured stick is attached, so its rows go live and show
+		// what prefs.cfg has them bound to. This engine has no joystick input, so nothing else in it
+		// changes; the panel is the only thing that asks. An optional count sets how many of the eight
+		// button rows are live.
+		stagedJoystick = new JoystickCapabilities(Present: true,
+			ButtonCount: JoystickCapabilities.MaxButtons,
+			HasThrottle: true, HasRudder: true, HasHat: true);
+		if (i + 1 < args.Length && int.TryParse(args[i + 1], out int stickButtons)
+			&& stickButtons >= 0 && stickButtons <= JoystickCapabilities.MaxButtons) {
+			i++;
+			stagedJoystick = stagedJoystick with { ButtonCount = stickButtons };
+		}
 	} else if (args[i] == "--hdd") {
 		// Power up already panned down to the Heads-Down Display, for the same reason as --mfd: a
 		// --screenshot run never sees a keystroke. An optional 0 or 1 picks which of its two screens
@@ -353,9 +377,32 @@ var objectivesPanel = ObjectivesPanel.Build(content, mission.BriefingLines, miss
 // each owns the input while it is -- so they share the pointer's press state.
 var statusAlertPanel = StatusAlertPanel.Build(content);
 
+// The [F12] preferences panel, showing the install's own data\prefs.cfg — the same file the terrain
+// draw distance is already read out of, and the same folder the mission's script.dat came from.
+var simulatorPreferences = SimulatorPreferences.Load(Path.GetDirectoryName(scriptPath));
+// The two gates the original's own panel reads. SfxManager being null greys its first four rows, and
+// DAT_0049e9cd -- which FUN_00459d6c sets by trying to fopen the localised simvoice archive -- is
+// what lets the two message rows be stepped at all.
+bool soundAvailable = audio.Director != null;
+bool voiceAvailable = content.MountedArchives.Any(
+	name => name.StartsWith("SIMVOIC", StringComparison.OrdinalIgnoreCase));
+var preferencesPanel = PreferencesPanel.Build(content, simulatorPreferences,
+	soundAvailable, voiceAvailable);
+
+// The CONTROLS panel the preferences panel raises. Which half of CTL_ALRT.STR it is, and which
+// twelve bytes of prefs.cfg it reads, both hang off whether the player's machine is the RAZOR --
+// DBSim_LoadScriptDat's own `playerMechType == 8`. This engine has no joystick input, so the panel
+// is built with no capabilities and every row greys itself, which is what retail also shows for a
+// stick it cannot enumerate.
+bool pilotingRazor = scene.PlayerObject is { Placement.TypeName: { } playerTypeName }
+	&& HercLUT.GetByAbbrev(playerTypeName)?.Id == ControlsPanel.RazorTypeIndex;
+var controlsPanel = ControlsPanel.Build(content, simulatorPreferences, pilotingRazor, stagedJoystick);
+
 int objectivesKeysDown = 0;
+int preferencesKeysDown = 0;
 int statusAlertKeysDown = 0;
 bool panelMouseDown = false;
+bool panelRightButtonDown = false;
 bool missionOver = false;
 
 var cockpitArt = mission.Player?.TypeName is { } pilotHerc
@@ -407,6 +454,14 @@ if (startWithObjectives) {
 	objectivesPanel?.Open();
 }
 
+if (startWithPreferences) {
+	preferencesPanel?.Open();
+}
+
+if (startWithControls) {
+	controlsPanel?.Open();
+}
+
 Console.WriteLine(statusAlertPanel != null
 	? "[Q] mission-status alert: GNL_ALRT.STR loaded."
 	: "[Q] mission-status alert: GNL_ALRT.STR is missing; the panel will not open.");
@@ -414,6 +469,17 @@ Console.WriteLine(statusAlertPanel != null
 Console.WriteLine(objectivesPanel is { } objectivesSummary
 	? $"[F11] objectives panel: {objectivesSummary.Lines.Count} line(s) of block-13 text."
 	: "[F11] objectives panel: OBJ_ALRT.STR is missing; the panel will not open.");
+
+Console.WriteLine(preferencesPanel is { } preferencesSummary
+	? $"[F12] preferences panel: {string.Join(", ", preferencesSummary.Values)}."
+	: "[F12] preferences panel: PRF_ALRT.STR is missing; the panel will not open.");
+
+Console.WriteLine(controlsPanel is { } controlsSummary
+	? $"CONTROLS panel: {controlsSummary.Title}, "
+	  + (controlsSummary.Capabilities.Present
+		  ? string.Join(", ", controlsSummary.Values)
+		  : "no joystick, so every row is greyed and reads blank.")
+	: "CONTROLS panel: CTL_ALRT.STR is missing; the panel will not open.");
 
 if (cockpitArt?.HeadsDown != null) {
 	Console.WriteLine(
@@ -775,6 +841,12 @@ Console.WriteLine("F7/F8 pan down to the Heads-Down Display's command and damage
 Console.WriteLine("On the damage screen, S/I/W switch between structural, internal and weapon systems.");
 Console.WriteLine("F11 shows the mission objectives; Return, Esc or the RETURN button puts it away. "
 	+ "The simulation is stopped while it is up, as it is in the original.");
+Console.WriteLine("F12 shows the simulator preferences; Return, Esc or DONE puts it away. Clicking a "
+	+ "row steps its setting and the right button steps back, where that row allows it.");
+Console.WriteLine("CONTROLS opens the joystick bindings over it. An axis row steps on every click; a "
+	+ "button row selects on the first click and steps on the next, and RECOMMEND writes the "
+	+ "recommended set. Changes are in memory only — nothing is written back to prefs.cfg and "
+	+ "nothing takes effect in the sim yet.");
 Console.WriteLine("Q asks how the mission stands and offers a way out of it. Return, Esc or the "
 	+ "left button carries on; the right button, when the status offers one, ends the mission.");
 Console.WriteLine("P pauses the mission and Ctrl+Q asks to leave the game — the same panel at a "
@@ -1154,12 +1226,13 @@ window.Load += (gl, input) => {
 window.Update += deltaSeconds => {
 	imgui?.Update((float)deltaSeconds);
 
-	// The two modal panels take the keyboard before anything else does. They are modal in the
+	// The modal panels take the keyboard before anything else does. They are modal in the
 	// original — each runs its own event loop, which owns input until the panel comes down — and
-	// [Esc], which dismisses either, is this host's debug-panel key, so they have to be asked first
-	// or two things would act on one keystroke. Both are asked every frame — a single `|`, not `||` —
-	// so each keeps its own key-edge state whether or not the other claimed the keystroke.
-	bool objectivesHandledKey = ReadStatusAlertKeys() | ReadObjectivesKeys();
+	// [Esc], which dismisses any of them, is this host's debug-panel key, so they have to be asked
+	// first or two things would act on one keystroke. All are asked every frame — single `|`, not
+	// `||` — so each keeps its own key-edge state whether or not another claimed the keystroke.
+	bool objectivesHandledKey =
+		ReadStatusAlertKeys() | ReadObjectivesKeys() | ReadPreferencesKeys();
 
 	// [Esc] opens and closes the debug panel. Read before the capture gate below, so the key that
 	// opens the panel is also the key that closes it however ImGui feels about focus.
@@ -1522,7 +1595,8 @@ window.Update += deltaSeconds => {
 	// Nothing to click while the cockpit is off screen, so the whole click path sits out the external
 	// view rather than hit-testing a console the player cannot see — and likewise while the pointer is
 	// over the debug panel, so a click on a checkbox is not also a click on the console behind it.
-	if (statusAlertPanel is { IsOpen: true } || objectivesPanel is { IsOpen: true }) {
+	if (statusAlertPanel is { IsOpen: true } || objectivesPanel is { IsOpen: true }
+			|| preferencesPanel is { IsOpen: true } || controlsPanel is { IsOpen: true }) {
 		// The modal owns the pointer: the cockpit behind it takes no clicks, and the queue is drained
 		// to nothing so a click made while it was up cannot land on a console button afterwards.
 		var framebufferForPanel = window.FramebufferSize;
@@ -1531,12 +1605,33 @@ window.Update += deltaSeconds => {
 			// different sizes and so centre to different origins.
 			ReadPanelPointer(
 				liveAlert.Place(framebufferForPanel.X, framebufferForPanel.Y),
-				liveAlert.PointerDown, liveAlert.PointerUp);
+				liveAlert.PointerDown, (x, y, _) => liveAlert.PointerUp(x, y));
 		} else if (objectivesPanel is { IsOpen: true } liveObjectives) {
 			ReadPanelPointer(
 				ObjectivesPanelLayout.Place(framebufferForPanel.X, framebufferForPanel.Y),
 				(x, y) => liveObjectives.PointerDown(x, y),
-				(x, y) => liveObjectives.PointerUp(x, y));
+				(x, y, _) => liveObjectives.PointerUp(x, y));
+		} else if (controlsPanel is { IsOpen: true } liveControls) {
+			// The controls panel is the one modal this engine draws that opens over another: it takes the
+			// pointer while it is up and the preferences strip below it stays visible but inert.
+			ReadPanelPointer(
+				ControlsPanelLayout.Place(framebufferForPanel.X, framebufferForPanel.Y),
+				(x, y) => liveControls.PointerDown(x, y),
+				(x, y, right) => liveControls.PointerUp(x, y, right));
+		} else if (preferencesPanel is { IsOpen: true } livePreferences) {
+			// This one is pinned to the bottom of the screen rather than centred, so its placement is
+			// its own — see PreferencesPanelLayout.
+			ReadPanelPointer(
+				PreferencesPanelLayout.Place(framebufferForPanel.X, framebufferForPanel.Y),
+				(x, y) => livePreferences.PointerDown(x, y),
+				(x, y, right) => livePreferences.PointerUp(x, y, right));
+
+			// CONTROLS raises the controls panel over this one, which is how the original reaches it
+			// and the only way in.
+			if (livePreferences.ControlsRequested) {
+				livePreferences.ClearControlsRequest();
+				controlsPanel?.Open();
+			}
 		}
 
 		cockpitInput.Drain(deltaSeconds, (_, _) => null);
@@ -1942,6 +2037,14 @@ window.Render += (_, gl) => {
 			overlay.DrawStatusAlertPanel(size.X, size.Y, hudSpriteTexture, panelSprites, openAlert);
 		} else if (objectivesPanel is { IsOpen: true } openObjectives) {
 			overlay.DrawObjectivesPanel(size.X, size.Y, hudSpriteTexture, panelSprites, openObjectives);
+		} else if (preferencesPanel is { IsOpen: true } openPreferences) {
+			overlay.DrawPreferencesPanel(size.X, size.Y, hudSpriteTexture, panelSprites, openPreferences);
+
+			// And the controls panel over it, in that order: the original's AlertPanel_Enter saves the
+			// screen under the panel it raises, so the strip it was opened from is still there behind it.
+			if (controlsPanel is { IsOpen: true } openControls) {
+				overlay.DrawControlsPanel(size.X, size.Y, hudSpriteTexture, panelSprites, openControls);
+			}
 		}
 	}
 
@@ -2029,10 +2132,10 @@ bool ReadStatusAlertKeys() {
 		return statusAlertPanel.HandleKey(enter, escape) || q || pause;
 	}
 
-	// Only from inside the machine, and not while the objectives panel is up: in the original these
+	// Only from inside the machine, and not while another panel is up: in the original these
 	// commands reach the dispatcher through the cockpit, and one modal is already holding the input.
 	if (missionOver || cockpitArt == null || ExternalViewActive()
-		|| objectivesPanel is { IsOpen: true }) {
+		|| objectivesPanel is { IsOpen: true } || preferencesPanel is { IsOpen: true }) {
 		return false;
 	}
 
@@ -2084,11 +2187,11 @@ bool ReadObjectivesKeys() {
 		return objectivesPanel.HandleKey(enter, escape) || open;
 	}
 
-	// Only from inside the machine, and not while the status alert is up: the command reaches the
+	// Only from inside the machine, and not while another panel is up: the command reaches the
 	// panel through the cockpit's own widget tree, which is not on screen in the external view, and
 	// one modal is already holding the input.
 	if (open && cockpitArt != null && !ExternalViewActive()
-		&& statusAlertPanel is not { IsOpen: true }) {
+		&& statusAlertPanel is not { IsOpen: true } && preferencesPanel is not { IsOpen: true }) {
 		objectivesPanel.Open();
 		return true;
 	}
@@ -2105,12 +2208,64 @@ bool ReadObjectivesKeys() {
 	}
 }
 
+// [F12] puts the preferences panel up, and [Return] or [Esc] takes it down — scancode 0x58 through
+// CockpitWidgets_HandleCommand on the way in (PreferencesPanel_Raise, 0045cfd4), and the panel's own
+// handler on the way out, where [Esc] presses the cancel widget the constructor set to DONE. As with
+// [F11], nothing in the panel's loop answers 0x58, so a second press does not close it.
+//
+// The original also reaches this panel on [Alt+P], command 0x219. Not bound here: [P] alone is the
+// pause panel, and this host has no Alt-modified command bank yet.
+//
+// Returns whether the panel claimed the keystroke, so [Esc] does not also reach the debug panel.
+bool ReadPreferencesKeys() {
+	if (preferencesPanel == null || keyboard == null
+		|| (imgui != null && ImGui.GetIO().WantCaptureKeyboard)) {
+		preferencesKeysDown = 0;
+		return false;
+	}
+
+	bool open = Edge(Key.F12, 0);
+	// `|`, not `||`: both edges must be read every frame or the one that is skipped never updates
+	// its held state, and the next press of it is swallowed.
+	bool enter = Edge(Key.Enter, 1) | Edge(Key.KeypadEnter, 2);
+	bool escape = Edge(Key.Escape, 3);
+
+	// The controls panel is modal over this one: while it is up it answers [Return] and [Esc], and
+	// this panel answers nothing.
+	if (controlsPanel is { IsOpen: true } liveControls) {
+		return liveControls.HandleKey(enter, escape) || open;
+	}
+
+	if (preferencesPanel.IsOpen) {
+		return preferencesPanel.HandleKey(enter, escape) || open;
+	}
+
+	// Only from inside the machine, and not while another modal is up — the same gate the objectives
+	// panel takes, and for the same reason.
+	if (open && cockpitArt != null && !ExternalViewActive()
+		&& statusAlertPanel is not { IsOpen: true } && objectivesPanel is not { IsOpen: true }) {
+		preferencesPanel.Open();
+		return true;
+	}
+
+	return false;
+
+	bool Edge(Key key, int bit) {
+		bool down = keyboard.IsKeyPressed(key);
+		bool edge = down && (preferencesKeysDown & (1 << bit)) == 0;
+		preferencesKeysDown = down
+			? preferencesKeysDown | (1 << bit)
+			: preferencesKeysDown & ~(1 << bit);
+		return edge;
+	}
+}
+
 // A modal panel's buttons, pressed and released. Read straight off the device rather than through
 // CockpitInput: that queue is the cockpit's, and while a modal is up the cockpit is not taking
 // clicks at all. Press and release must both land on the same button for it to fire, which is
 // Widget_OnMouseUp's own re-hit-test.
 void ReadPanelPointer(AlertPanelLayout.Placement place, Action<float, float> onDown,
-		Action<float, float> onUp) {
+		Action<float, float, bool> onUp) {
 	if (mouse == null) {
 		return;
 	}
@@ -2121,11 +2276,17 @@ void ReadPanelPointer(AlertPanelLayout.Placement place, Action<float, float> onD
 		mouse.Position.X * framebuffer.X / Math.Max(client.X, 1),
 		mouse.Position.Y * framebuffer.Y / Math.Max(client.Y, 1));
 
-	bool down = mouse.IsButtonPressed(MouseButton.Left);
+	// Both buttons press a widget; which one was released is what the click carries, since
+	// CockpitMouse_ProcessQueue ORs the button bit into the click value on the release edge and the
+	// panel reads bit 1 off it. Two of these panels step a setting backwards on the right button.
+	bool right = mouse.IsButtonPressed(MouseButton.Right);
+	bool down = mouse.IsButtonPressed(MouseButton.Left) || right;
 	if (down && !panelMouseDown) {
+		panelRightButtonDown = right;
 		onDown(panelX, panelY);
 	} else if (!down && panelMouseDown) {
-		onUp(panelX, panelY);
+		onUp(panelX, panelY, panelRightButtonDown);
+		panelRightButtonDown = false;
 	}
 
 	panelMouseDown = down;

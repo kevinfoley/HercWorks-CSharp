@@ -1,0 +1,315 @@
+# Preferences and controls (DBSIM.EXE)
+
+The two panels [F12] reaches, and the file they edit. Both are members of the modal alert-panel
+family whose shared base, paint conventions and button widget are in
+[`mission-objectives.md`](mission-objectives.md#the-status-alert--gnl_alrt-00455934); this doc owns
+only what is particular to them.
+
+`PreferencesPanel_Raise` (`0045cfd4`) is what commands `0x58` ([F12]) and `0x219` ([Alt+P]) reach
+([`../formats/cockpit-input.md`](../formats/cockpit-input.md#keyboard-commands-are-scancodes)). It
+raises `DAT_004d2576` to stop the simulation for as long as the panel is up, snapshots the view
+object's whole settings block beforehand and writes it back on the way out. The CONTROLS button then
+builds the second panel over the first, which stays on screen behind it.
+
+## `data\prefs.cfg` — the option array
+
+**The file is the array.** `Prefs_LoadOptions` (`00459754`) memsets `SimOptions` (`004d1fbc`) to zero
+for `0x36` bytes and reads the file straight over it with no parse at all, so **an option's index is
+its byte offset** and a retail `prefs.cfg` is 54 bytes.
+
+Three functions write it, all through `Prefs_SetOption` (`0045993c`), which saves the outgoing byte
+to the shadow array at `004d2028`, stores the new one, and — when told to apply — calls that option's
+handler from the parallel table at `004d2060`:
+
+| | |
+|---|---|
+| `Prefs_ToggleOption` (`00459980`) | `value ^ 1` |
+| `Prefs_StepOption` (`004599b8`) | `value + 1`, wrapping to 0 at the caller's modulus |
+| `Prefs_StepOptionBack` (`004599f4`) | `value - 1`, wrapping to `modulus - 1` below zero |
+
+The caller supplies the modulus, which is why one pair drives a three-value row and a five-value one.
+
+`Prefs_Init` (`0045a19c`) registers the handler table and loads the file. **Five options have a
+handler and the other 49 have none**, so most settings are read where they are used rather than
+pushed anywhere: 0, 1 and 2 take `00459c98`, `00459c6c` and `00459cc4`, 8 takes `00459d4c`, and
+**`0x0e` takes `Input_SetThrottleLeverMode`** — which is the herc controls block's THROTTLE row, and
+so an independent corroboration of where that block starts.
+
+### What each byte is
+
+| Option | Row | Values |
+|---|---|---|
+| 0 | MUSIC | off / on |
+| 1 | SOUNDS | off / on |
+| 2 | PILOT MESSAGE | 0 text only, 1 voice only, 2 both |
+| 3 | COMPUTER MESSAGE | as option 2 |
+| 7 | TERRAIN DISTANCE | 0-2, the draw radius ([`../formats/terrain-texturing.md`](../formats/terrain-texturing.md#the-terrain-detail-setting)) |
+| 8 | TERRAIN TEXTURE | off / on |
+| 9 | HERC DETAIL | 0-4 |
+| 10 | STRUCTURE DETAIL | 0-2 |
+| 11 | EFFECTS DETAIL | 0-2, and `Sound_DetailSetting` ([`../formats/audio.md`](../formats/audio.md)) |
+| 13-24 | the controls panel's twelve, walking a HERC | [below](#the-bindings-are-twelve-bytes-of-the-same-file) |
+| 25-36 | the same twelve, flying the RAZOR | |
+
+`ControlsOptionBase` (`004d25fb`) selects between the last two blocks: `Sim_InitMissionSession`
+(`004614fc`) sets it to `0x19` when `PilotingRazor` (`004d25f5`) is set and `0x0d` otherwise, and
+`PreferencesManager_Reset` (`0045cad8`) starts it on `0x0d`. **The two blocks are independent** — a
+binding made in a walker does not disturb the RAZOR's.
+
+Options 4-6, 12 and 37-53 are not identified. Neither panel reads them.
+
+## The preferences panel — `prf_alrt` (`004566c4`)
+
+Nine settings and two plain buttons, as a strip along the bottom of the screen with the frozen
+cockpit above it. It is the one member of the family that **does not centre**: its constructor calls
+`AlertPanel_SetRect` with an origin outright where the other three go through
+`AlertPanel_CenterRect`.
+
+### Its text
+
+`str\PRF_ALRT.STR`, five groups read in file order:
+
+| Group | Holds |
+|---|---|
+| 0 | `PREFERENCES` |
+| 1 | the eleven button captions, in widget order |
+| 2 | `OFF`, `ON` |
+| 3 | `TEXT ONLY`, `VOICE ONLY`, `TEXT / VOICE` |
+| 4 | `LOW`, `MED LOW`, `MED HIGH`, `HIGH`, `MAXIMUM` |
+
+`hba\PRF_ALRT.HBA` frame 0 is the 630x170 plate, with the group boxes and a black well behind every
+readout painted into it. Frames 1-4 are the 133x22 button in four border colours; all eleven buttons
+use them.
+
+### Geometry
+
+The constructor writes the block into `.bss` once as `value << VideoMode_?CoordShift`, so every
+number is an authored 320-wide coordinate doubled. Rects are panel-local.
+
+| Global | Device | Is |
+|---|---|---|
+| `004d1f64`/`66` | 638 x 178 | the declared size. The plate is 630 wide, so eight columns at the right end are empty |
+| `004d1f68`/`6a` | (0, 300) | the screen origin, given rather than derived |
+| `004d1f6e`/`70` | y 0, height 16 | the title bar |
+| `004d1f7a`/`7c` | (4, 0) | the readouts' label margin |
+| `004d1f6c`, `72` | 0 | title margins |
+
+Nine parallel `short[]` tables carry the rects — `0049e224` onwards for the eleven buttons' x, y,
+width, height and first plate frame, `0049e292` onwards for the nine readouts' x, y, width and
+height. Every width and height entry repeats one value: buttons are 132x18 (art 133x22, blitted at
+the rect origin so it overhangs) and readouts 126x14. The layout is two columns of five and four
+rows at x 18 and 312, the readouts three pixels past their button, and CONTROLS and DONE at
+(312, 142) and (450, 142).
+
+### What a row reads — `PreferencesPanel_RefreshRow` (`004571f4`)
+
+Nine cases, one per row, each setting one readout's label. Rows 0-3 and 5 index their string group
+with the option byte directly; the four detail rows index group 4 through a five-entry `short[]` map
+of their own:
+
+| Row | Option | Group | Map |
+|---|---|---|---|
+| MUSIC, SOUNDS | 0, 1 | 2 | direct |
+| PILOT MESSAGE, COMPUTER MESSAGE | 2, 3 | 3 | direct |
+| TERRAIN DISTANCE | 7 | 4 | `0049e2da` = {0, 2, 4, 0, 0} |
+| TERRAIN TEXTURE | 8 | 2 | direct |
+| HERC DETAIL | 9 | 4 | `0049e2e4` = {0, 1, 2, 3, 4} |
+| STRUCTURE DETAIL | 10 | 4 | `0049e2ee` = {0, 2, 4, 0, 0} |
+| EFFECTS DETAIL | 11 | 4 | `0049e2f8` = {0, 2, 4, 0, 0} |
+
+The three `{0, 2, 4, 0, 0}` maps are why a three-setting row reads `LOW` / `MED HIGH` / `MAXIMUM` and
+skips the two intermediate words. **All four maps are five entries wide** — they sit 10 bytes apart —
+so a map is not itself evidence of how many settings its row has; what bounds a row is the modulus
+its click case passes.
+
+### What a click does — `PreferencesPanel_Run` (`00456d4c`)
+
+The click handler (`004573a8`) records the widget index and, for the nine option rows, moves the
+highlight: the row that had it goes back to widget state 3 and the clicked one to state 0. The loop
+then acts on the index, and **three different rules are in play**:
+
+| Rows | Rule |
+|---|---|
+| MUSIC, SOUNDS, TERRAIN TEXTURE | toggle |
+| TERRAIN DISTANCE, HERC DETAIL | step forward on a left click, back on a right one |
+| STRUCTURE DETAIL, EFFECTS DETAIL | step **forward on either button** — see [Rejected readings](#rejected-readings) |
+| PILOT MESSAGE, COMPUTER MESSAGE | step forward only, and only while `VoiceArchivePresent` is set |
+
+`VoiceArchivePresent` (`0049e9cd`) is set once by `Voice_ArchiveExists` (`00459d6c`), which builds
+the localised `simvoice` name and simply tries to `fopen` it. When it is clear, `Prefs_Init` forces
+options 2 and 3 to 0 and neither row can be clicked off it, so the player cannot ask for voice the
+install does not carry.
+
+**With no sound device the first four rows are greyed** — the loop puts widgets 0-3 into state 2
+before it starts, on `SfxManager` being null. `Widget_HitTestChildren` skips a state-2 widget, so
+they are not merely inert but invisible to the hit test.
+
+CONTROLS builds the controls panel and runs it inline; DONE calls `FUN_004574cc` and closes.
+
+## The controls panel — `ctl_alrt` (`00457d1c`)
+
+Four joystick axis assignments and one action per joystick button, with the action list of the
+selected button beside them. 370x372, centred, over whatever is already on screen.
+
+### It is two panels in one file
+
+`str\CTL_ALRT.STR` carries thirteen groups and the constructor reads eight — title, the fourteen
+captions, the twenty-one action names, the OPTIONS caption, then a three-word set per axis row. When
+`PilotingRazor` (`004d25f5`) is set it reads **five more** and overwrites the title and all four axis
+sets with them:
+
+| Group | Walking | Flying |
+|---|---|---|
+| title | 0 `HERC CONTROLS` | 8 `RAZOR CONTROLS` |
+| JOYSTICK | 4: `NO JOYSTICK`, `MOVEMENT`, `TURRET` | 9: `NO JOYSTICK`, `PITCH / ROLL`, `THROTTLE / YAW` |
+| THROTTLE | 5: `NO THROTTLE`, `THROTTLE`, `TURRET ELEVATION` | 10: `NO THROTTLE`, `PITCH`, `THROTTLE` |
+| RUDDER | 6: `NO RUDDER`, `DIRECTION`, `TURRET ROTATION` | 11: `NO RUDDER`, `ROLL`, `YAW` |
+| HAT | 7: `NO HAT`, `VIEWS`, `TURRET` | 12: `NO HAT`, `VIEWS`, `THROTTLE / YAW` |
+
+Group 1 is the fourteen captions (JOYSTICK, THROTTLE, RUDDER, HAT, BUTTON 1-8, RECOMMEND, DONE),
+group 2 the twenty-one action names indexed by action code, and group 3 the `OPTIONS` caption.
+
+`DAT_004d25f5` is written in one place: `DBSim_LoadScriptDat` sets it from
+`playerMechType == 8`, the RAZOR.
+
+### Geometry
+
+Same shape as the preferences panel's block, at `004d1fa8`: 370 x 372, title bar y 0 height 16, label
+margin (4, 0). `AlertPanel_CenterRect` puts it at (135, 54) on the 640x480 screen. The constructor
+takes an optional screen origin instead, and every reachable call site passes none.
+
+Ten parallel `short[]` tables: `0049e510` onwards for the fourteen buttons' x, y, width, height,
+first plate frame and caption margin, `0049e5b8` onwards for the twelve readouts' x, y, width and
+height. `0049e618` is the write-once flag guarding the `.bss` block.
+
+**Three button sizes, each with its own four-frame set** in `hba\CTL_ALRT.HBA` (frame 0 is the
+372x374 plate): the four axis rows are 136x18 on frames 5-8, the eight button rows 68x18 on frames
+1-4, and RECOMMEND and DONE 90x18 on frames 9-12. A button draws `base + state`, and **the three sets
+do not order their four colours alike** — 1-4 and 5-8 run rest, held, disabled, option, while 9-12
+run option, rest, held, disabled. That is a property of the art; the paint indexes all three the
+same way.
+
+The OPTIONS list sits at x 226-354: its caption at y 138 height 10, then twelve rows at pitch 14
+starting a **whole pitch below** the caption, the constructor advancing its running rect before each
+`Label_SetRect` rather than after. The caption is the one label on the panel given no background
+colour, which is why its rect can overlap the border the plate paints across that band without
+erasing it.
+
+### The capability block — `Input_QueryCapabilities` (`004777f8`)
+
+Eight bytes rebuilt on every call, and the whole of what the panel greys its rows against:
+
+| Field | Is |
+|---|---|
+| `+0` | 2, or 1 when `DAT_006bb728` is set. **Never 0** |
+| `+2` | button count, `DAT_006bb438 + DAT_006bb5cc` clamped to 8 |
+| `+4` | has a throttle, from the device flags' bit 0 |
+| `+5` | has a rudder, bit 1 |
+| `+6` | has a hat, bit 4 |
+
+The panel reaches it in two steps. `FUN_0045c508(3)` is asked first, and when it answers null or with
+its low bit clear the panel takes **no block at all** and greys all twelve rows at once — which is
+what a stick the retail code cannot enumerate produces. Only past that gate does it read the fields
+above and grey rows one at a time. The JOYSTICK row has no field of its own: once a stick is present
+it is always live.
+
+`ControlsPanel_RefreshRow` (`00458d20`) gates every one of its twelve cases on the same capability
+and **sets no text at all** when it fails, so a greyed row reads blank rather than showing a stale
+binding.
+
+### The bindings are twelve bytes of the same file
+
+At `ControlsOptionBase` + 0..11. An axis row's byte indexes its three-word set directly; a button
+row's byte is an action code into the twenty-one names, also directly.
+
+Which actions a button row may be **bound to** is a separate table, read by `ControlsPanel_ActionAt`
+(`00457cdc`): eight rows of thirteen bytes at `0049e619` walking and `0049e681` flying. **Code 0
+terminates a row rather than meaning OFF** — the constructor counts a row's length by walking until
+it reads a zero — so although `OFF` is action name 0 it is never an offered choice, only what a row
+displays when its stored byte is 0. BUTTON 1 is the extreme case: one entry, `FIRE`, so the trigger
+cannot be rebound. The other seven rows carry twelve actions each and **alternate between two lists**,
+one holding `NEXT WEAPON` and the other `PREV WEAPON`.
+
+### What a click does — `ControlsPanel_Run` (`00458650`)
+
+The click handler (`00458ebc`) moves the highlight the same way the preferences panel's does, then
+decides between selecting and acting: a button row is *selected* only when it is not already the
+selected one, and otherwise its action is queued. **So a button row takes two clicks to change** —
+the first points the OPTIONS list at it, the second and later ones step it. An axis row is never
+selected, so every click on one steps it and clears the list selection.
+
+| Widget | Action |
+|---|---|
+| 0-3 | step that axis's option over its three words, forward on a left click and back on a right one; clear the list selection |
+| 4-11 | select, or step that button row |
+| 12 | RECOMMEND |
+| 13 | DONE — closes the panel |
+
+A button row steps by **slot index within its own list** (`panel+0x462`, wrapping at that row's
+length in `panel+0x46a`), not by action code: `ControlsPanel_StepButton` (`00459320`) forward and
+`ControlsPanel_StepButtonBack` (`0045938c`) back both advance the slot and then write out whatever
+code that slot holds. The slot is seeded at construction by searching the row's list for the stored code, and
+left at 0 when it is not there — so a row showing a code its own list does not offer starts stepping
+from the top rather than from what it shows.
+
+`ControlsPanel_FillOptionList` (`004593f8`) refills the twelve OPTIONS labels from the selected row's
+list, writing an empty string for every row when nothing is selected and past the end of the list
+otherwise. A freshly raised panel has none selected, so the box starts blank.
+
+### RECOMMEND
+
+`Input_RecommendedBindings` (`0045a258`) returns a twelve-byte block — four axis modes then eight
+action codes — and case 13 pushes every byte through `Prefs_SetOption`:
+
+| | Axes | Buttons |
+|---|---|---|
+| Walking | 1, 0, 2, 2 | `FIRE`, `TARGET`, `CENTER TURRET`, `ATT TOGGLE`, `NEXT CHAIN`, `NEXT WEAPON`, `SHIELDS FRONT`, `SHIELDS REAR` |
+| Flying | 1, 0, 2, 2 | `FIRE`, `TARGET`, `LINK WEAPON`, `MFD DISPLAYS`, `NEXT CHAIN`, `NEXT WEAPON`, `SHIELDS FRONT`, `SHIELDS REAR` |
+
+The eight button bytes take a detour: the code searches the row's list for the recommended code,
+stores the slot it found — **0 when it is not there** — and writes back whatever code *that slot*
+holds. See [Rejected readings](#rejected-readings) for what that costs.
+
+That function also carries an arm that zeroes the block, taken when the capability block's `+0` is 0.
+`Input_QueryCapabilities` writes 1 or 2 into that field unconditionally and is the only thing that
+fills the block, so the arm cannot be reached through its own input. With no stick the panel greys
+its twelve rows but leaves RECOMMEND live, so pressing it still writes this set; the readouts stay
+blank because the refresh is gated on the same missing capabilities.
+
+## Engine port
+
+`Content.SimulatorPreferences` is the file and the three write primitives. `Content.PreferencesPanel`
+and `Content.ControlsPanel` hold each panel's text, its state and its click rules;
+`Content.PreferencesPanelLayout` and `Content.ControlsPanelLayout` hold the geometry tables above,
+over the same `Content.AlertPanelLayout` the other two panels use, which gained an uncentred
+placement for the preferences strip and the `INACTIVE` caption font for a greyed row.
+`Content.JoystickCapabilities` is the capability block. `Render.Overlay2DRenderer.DrawPreferencesPanel`
+and `DrawControlsPanel` paint them through the shared `DrawAlertPanel`, which carries a per-button
+bank, frame and font and a per-label alignment for these two. Both plates are packed into the
+cockpit's sprite atlas with the rest. `Terrain.TerrainDetail` reads its setting through
+`SimulatorPreferences` rather than parsing the file itself.
+
+Divergences:
+
+- **Changes are in memory only.** `SimulatorPreferences.Set` models the store half of
+  `Prefs_SetOption` and neither of the other two: the shadow copy at `004d2028` is a revert path and
+  the handler table at `004d2060` an apply path, so a changed setting moves the number the panel
+  shows and nothing else. Nothing is written back to `prefs.cfg`.
+- **No joystick input exists**, so the controls panel is built with no capabilities and greys every
+  row unless the host is told otherwise. That is also what the retail install shows on hardware it
+  cannot enumerate.
+- **The panels are placed against the window**, as the other two are.
+- **The RAZOR half is selected by the player's chassis id**, resolved through `HercLUT`, where the
+  original reads the global the mission load wrote.
+
+## Rejected readings
+
+| Reading | Why it is wrong |
+|---|---|
+| `004d1fbc` is a four-byte array of message-channel modes | It is the base of the whole 54-byte option array. The two message modes are entries 2 and 3 of it |
+| The message-channel setting offers an OFF | Its string group holds three words and the byte indexes them directly: 0 is text only, 1 voice only, 2 both. The display half runs when the byte is not 1 and the voice half when it is not 0, which is three behaviours, not four |
+| Every stepping row can be stepped both ways | STRUCTURE DETAIL and EFFECTS DETAIL cannot. Their cases test the right-button flag and then call the **forward** step down both arms, where the other two stepping rows call the backward one |
+| RECOMMEND leaves every row on the recommended action | It writes the code held by the slot it *found*, and a code the row does not offer resolves to slot 0. Walking, `NEXT WEAPON` is recommended for BUTTON 6 and is not in that row's list, so retail's own RECOMMEND binds it to `LINK WEAPON` |
+| A binding the readout shows is a binding its option list can reach | Rows alternate between a `NEXT WEAPON` list and a `PREV WEAPON` one, and nothing rejects a write of the other. A retail install can sit on a binding its own list cannot step to |
+| `0049e9cd` is a dead constant because it is zero in the image | `Voice_ArchiveExists` writes it at startup from whether the localised `simvoice` archive opens |
+| Widget state 2 means a panel button is not drawn | `PanelButton_Paint` has no state test at all: it indexes the frame and font tables with the state, so a state-2 button draws its third frame in `INACTIVE`. The "refused by Paint" rule is the cockpit widget classes', not this family's |

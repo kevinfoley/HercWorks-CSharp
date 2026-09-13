@@ -117,13 +117,21 @@ any widget whose state byte (`+0x1b`) is `2`. This is how an off-screen panel's 
 intercept clicks: nothing removes them from the list when their panel isn't showing, only
 `Widget_Hide`/`Widget_Show` (`00452c8c`/`00452c64`) toggling that one state byte.
 
-Widget state byte (`+0x1b`), as read by every traced `Paint` slot:
+Widget state byte (`+0x1b`):
 
 | Value | Meaning |
 |---|---|
 | 0 | Normal |
 | 1 | Lit — either held down, or selected (a mode button's current screen). Not hover; there is none |
-| 2 | Hidden — excluded from hit-testing and refused by Paint |
+| 2 | Excluded from hit-testing by `Widget_HitTestChildren`, whatever the class does about drawing |
+| 3 | A fourth state only the alert family's `PanelButton` uses: the resting state of a preferences or controls option row |
+
+**What state 2 does to drawing is per class.** The cockpit widget classes traced here refuse to
+paint in it, which is how an off-screen panel's buttons stay invisible. `PanelButton_Paint`
+(`00454ff8`) has no state test at all — it indexes a four-entry plate-frame table at `+0x30` and a
+four-entry caption-font table at `+0x40` with the state — so a state-2 panel button draws its third
+frame in `INACTIVE`, which is what a greyed controls row looks like
+([`../simulation/preferences.md`](../simulation/preferences.md#the-capability-block--input_querycapabilities-004777f8)).
 
 ## 6. Hit test: rectangle or circle
 
@@ -220,7 +228,7 @@ commands in the manual's `MISC.` block are decoded, and all four agree with the 
 | `0x57` | `F11` | the objectives panel |
 | `0x10` | `Q` | the mission-status alert |
 | `0x410` | `Ctrl+Q` | `EXIT EARTHSIEGE?` |
-| `0x58`, `0x219` | `F12`, `Alt+P` | the preferences panel, `ctl_alrt` (`FUN_004566c4`) via `FUN_0045cfd4`, which pauses the simulation with `DAT_004d2576` while it is up. Its contents are not decoded |
+| `0x58`, `0x219` | `F12`, `Alt+P` | the preferences panel, `prf_alrt` (`004566c4`) via `PreferencesPanel_Raise` (`0045cfd4`), which pauses the simulation with `DAT_004d2576` while it is up — [`../simulation/preferences.md`](../simulation/preferences.md) |
 
 The manual lists an on-line manual on that block too. Which command raises it was not traced.
 

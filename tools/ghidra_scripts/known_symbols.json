@@ -8352,9 +8352,9 @@
       "binary": "DBSIM",
       "type": "data",
       "confidence": "high",
-      "name": "MessageChannelModes",
-      "description": "Four-byte array of message channel enable bytes the preferences screen writes, offered as OFF / TEXT ONLY / VOICE ONLY / TEXT-VOICE. Entries 2 and 3 are PilotMessageMode and ComputerMessageMode.",
-      "source": "docs/formats/audio.md"
+      "name": "SimOptions",
+      "description": "Base of the simulator's 0x36-byte option array -- data\\prefs.cfg read straight over it by Prefs_LoadOptions with no parse, so an option's index is its byte offset. Prefs_SetOption indexes it, the shadow copy of the outgoing value goes to 004d2028 and the per-option handler table is 004d2060. Options 0-3 and 7-11 are the preferences panel's nine rows, 13-24 the controls panel's twelve walking a HERC and 25-36 the same twelve flying the RAZOR. Previously recorded as a four-byte message-channel array, which was only entries 2 and 3 of it.",
+      "source": "docs/simulation/preferences.md"
     },
     {
       "address": "004d1fbe",
@@ -8362,8 +8362,8 @@
       "type": "data",
       "confidence": "high",
       "name": "PilotMessageMode",
-      "description": "MessageChannelModes[2]: the PILOT MESSAGE preference, gating the pilot/squad port's two halves.",
-      "source": "docs/formats/audio.md"
+      "description": "SimOptions[2]: the PILOT MESSAGE preference, gating the pilot/squad port's two halves. 0 text only, 1 voice only, 2 both -- three settings, so the row offers no OFF.",
+      "source": "docs/simulation/preferences.md"
     },
     {
       "address": "004d1fbf",
@@ -8371,8 +8371,8 @@
       "type": "data",
       "confidence": "high",
       "name": "ComputerMessageMode",
-      "description": "MessageChannelModes[3]: the COMPUTER MESSAGE preference. The display runs when the byte is not 1 and the voice when it is not 0 -- three behaviours, not four, so which of the screen's four labels carries which value is not settled by the code. With the display off the port still runs the whole lifecycle and only skips the drawing (port+0x4d2).",
-      "source": "docs/formats/audio.md"
+      "description": "SimOptions[3]: the COMPUTER MESSAGE preference, gating the computer ticker's two halves. Same three values as PilotMessageMode.",
+      "source": "docs/simulation/preferences.md"
     },
     {
       "address": "00429820",
@@ -13073,10 +13073,225 @@
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "PreferencesPanel_Run",
+      "name": "PreferencesPanel_Raise",
       "signature": "void __cdecl PreferencesPanel_Run(void)",
-      "description": "What [F12] and [Alt+P] reach (commands 0x58 and 0x219): builds ctl_alrt, raises DAT_004d2576 to stop the simulation while it is up, and snapshots the view object's own settings block so the panel can edit it. The manual's Preferences screen. Its contents are not decoded.",
-      "source": "docs/simulation/mission-objectives.md"
+      "description": "What commands 0x58 ([F12]) and 0x219 ([Alt+P]) reach: builds prf_alrt (PreferencesPanel_Ctor, 004566c4 -- NOT ctl_alrt, which is 00457d1c), raises DAT_004d2576 to stop the simulation while it is up and restores whatever it was on the way out, and snapshots the view object's whole settings block before the panel opens to write back afterwards. The modal loop itself is PreferencesPanel_Run (00456d4c).",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "00459980",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Prefs_ToggleOption",
+      "signature": "uchar __cdecl Prefs_ToggleOption(short index, char apply)",
+      "description": "Flips one option between 0 and 1 -- literally value ^ 1 -- and hands it to Prefs_SetOption. Returns the new value. The preferences panel's MUSIC, SOUNDS and TERRAIN TEXTURE rows take this where the other six take the step pair. Args derived from raw disassembly: two stack slots at EBP+8 (MOVSX from AX, so short) and EBP+0xc (read as a byte), RET with no operand.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "004599b8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Prefs_StepOption",
+      "signature": "uchar __cdecl Prefs_StepOption(short index, char modulus, char apply)",
+      "description": "Steps one option forward, wrapping to 0 when the incremented value equals the caller's modulus, and hands it to Prefs_SetOption. Returns the new value. The caller supplying the modulus is why one pair drives a three-value row and a five-value one. Args derived from raw disassembly: EBP+8 (MOVSX from AX), EBP+0xc and EBP+0x10 (both read as bytes), RET with no operand.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "004599f4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Prefs_StepOptionBack",
+      "signature": "uchar __cdecl Prefs_StepOptionBack(short index, char modulus, char apply)",
+      "description": "Prefs_StepOption's twin, stepping back and wrapping to modulus-1 when the decrement reaches 0xff. Reached only on a right-click, and only from four of the eleven rows that offer stepping at all. Same argument derivation as Prefs_StepOption.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "0045a19c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Prefs_Init",
+      "description": "Preferences subsystem init: registers the five per-option handlers into the 004d2060 table via FUN_00459c58 (indices 0, 1, 2, 8 and 0x0e -- the last being Input_SetThrottleLeverMode, which is the herc controls block's THROTTLE row and so corroborates that block starting at 13), calls Prefs_LoadOptions, then sets VoiceArchivePresent from Voice_ArchiveExists and forces options 2 and 3 to 0 when it is clear.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "00459d6c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Voice_ArchiveExists",
+      "description": "Builds the localised simvoice archive name via Voice_ArchiveName, fopens it, closes it again and returns whether it opened. Its answer is VoiceArchivePresent (0049e9cd), which is the whole of what lets the preferences panel's two message rows be stepped.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "0049e9cd",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "VoiceArchivePresent",
+      "description": "Byte set once by Voice_ArchiveExists at Prefs_Init time: whether the localised simvoice archive is on disk. Zero in the image, so it looks like a dead constant in a static read -- it is not; Prefs_Init writes it. When clear, options 2 and 3 are forced to 0 and the preferences panel's PILOT MESSAGE and COMPUTER MESSAGE rows refuse every click.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "004566c4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PreferencesPanel_Ctor",
+      "description": "prf_alrt: the [F12] preferences panel, the fourth member of the alert-panel family and the only one that does not centre -- it calls AlertPanel_SetRect with an explicit origin, (0, 0x96) << the coord shifts, for a 0x13f x 0x59 strip along the bottom of the screen. Loads hba\\PRF_ALRT.HBA (plate frame 0, button frames 1-4) and str\\PRF_ALRT.STR (five groups: title, 11 captions, OFF/ON, the three message words, the five detail words), then builds eleven buttons from the rect tables at 0049e224 and nine GREEN6X8 readouts from those at 0049e292. The nine option buttons are left in widget state 3 and CONTROLS and DONE put back to 0.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "00456d4c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PreferencesPanel_Run",
+      "description": "The preferences panel's modal loop and its nine-case action switch. Greys widgets 0-3 to state 2 when SfxManager is null before it starts. Cases 0, 1 and 5 toggle their option; 4 and 6 step forward on a left click and back on a right; 10 and 11 call the FORWARD step down both arms of their right-button test, so STRUCTURE DETAIL and EFFECTS DETAIL cannot be stepped backwards; 2 and 3 step forward only and only while VoiceArchivePresent is set. Case 9 constructs ctl_alrt and runs it inline, case 10 closes.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "004571f4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PreferencesPanel_RefreshRow",
+      "description": "Sets one of the nine readout labels from its option byte. Rows 0-3 and 5 index their string group directly; the four detail rows index the five-word group through a five-entry short[] map of their own at 0049e2da, 0049e2e4, 0049e2ee and 0049e2f8. The three {0,2,4,0,0} maps are why a three-setting row reads LOW / MED HIGH / MAXIMUM.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "004573a8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PreferencesPanel_OnClick",
+      "description": "The preferences panel's click slot (vtable +0xc). Records the right-button flag at panel+0x2ff from bit 1 of the click value, walks the widget list for the clicked child, moves the highlight for widgets 0-8 (the row that had it back to state 3, this one to 0) and queues the widget index at panel+0x356 for the loop to act on.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "00457d1c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ControlsPanel_Ctor",
+      "description": "ctl_alrt: the joystick-binding panel the preferences panel's CONTROLS button raises. 0xb9 x 0xba << the coord shifts, centred when its third argument is null, which every reachable call site passes. Loads hba\\CTL_ALRT.HBA (plate frame 0, then three button sizes at frames 1-4, 5-8 and 9-12) and eight groups of str\\CTL_ALRT.STR -- and, when PilotingRazor is set, five more that overwrite the title and all four axis word sets, which is how the same panel becomes RAZOR CONTROLS. Builds fourteen buttons from the rect tables at 0049e510, twelve readouts from those at 0049e5b8, the OPTIONS caption and twelve list labels, then counts each button row's action list via ControlsPanel_ActionAt into panel+0x46a.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "00458650",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ControlsPanel_Run",
+      "description": "The controls panel's modal loop and its 14-case action switch. First asks FUN_0045c508(3) for a joystick and, when that answers null or with bit 0 clear, greys all twelve rows to state 2; otherwise reads Input_QueryCapabilities and greys the THROTTLE, RUDDER and HAT rows and every button row past the reported count. Cases 1-4 step an axis option over three values and clear the list selection; 5-12 step that button row; 13 writes Input_RecommendedBindings' twelve bytes; 14 closes.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "00458d20",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ControlsPanel_RefreshRow",
+      "description": "Sets one of the twelve readout labels, 1-based: 1-4 are the axis rows and index their own three-word group through a cached byte, 5-12 are the button rows and index the twenty-one action names with the option byte directly. Every case is gated on that row's capability and sets NO text when it fails, which is why a greyed row reads blank rather than showing a stale binding.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "00458ebc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ControlsPanel_OnClick",
+      "description": "The controls panel's click slot (vtable +0xc). Records the right-button flag at panel+0x2ff, moves the highlight for widgets 0-11, and then decides between selecting and acting: a button row (widgets 4-11) is SELECTED only when it is not already the selected one, and otherwise its action is queued -- so a button row takes two clicks to change. An axis row is never selected, so every click on one is an action.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "00457cdc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ControlsPanel_ActionAt",
+      "signature": "uchar __cdecl ControlsPanel_ActionAt(short row, short slot)",
+      "description": "Reads the per-button action table: eight rows of thirteen bytes at 0049e619 walking and 0049e681 flying, selected by PilotingRazor. Code 0 TERMINATES a row rather than meaning OFF -- the constructor counts a row's length by walking until it reads one -- so although OFF is action name 0 it is never an offered choice. Row 0 (BUTTON 1) holds one entry, FIRE. Args derived from raw disassembly: two stack slots at EBP+8 and EBP+0xc, both MOVSX from 16-bit (AX, DX); the row stride is 13 (LEA r,[x+x*2] then LEA r,[x+r*4]); RET with no operand.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "00459320",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ControlsPanel_StepButton",
+      "signature": "void __cdecl ControlsPanel_StepButton(void *panel, int row)",
+      "description": "Steps one button row to the next action in its own list: increments the slot index at panel+0x462+row, wraps to 0 past the row's length at panel+0x46a, then writes out whatever code ControlsPanel_ActionAt holds at that slot -- so the cycling is over slots, not codes, and a row whose stored code is not in its list steps from the top. Args derived from raw disassembly: EBP+8 into ESI (the panel, used as a base for +0x462/+0x46a) and EBP+0xc into EBX (the row, used as a byte index and added to ControlsOptionBase); RET with no operand.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "0045938c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ControlsPanel_StepButtonBack",
+      "signature": "void __cdecl ControlsPanel_StepButtonBack(void *panel, int row)",
+      "description": "ControlsPanel_StepButton's twin, decrementing the slot and wrapping to the row's length when it reaches 0xff. Same argument derivation.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "004593f8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ControlsPanel_FillOptionList",
+      "description": "Refills the twelve OPTIONS labels from the selected button row's action list. Writes an empty string into every one when the selection is -1, and past the end of that row's list otherwise, which is why a freshly raised panel's list box is blank.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "0045912c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ControlsPanel_CaptionAt",
+      "signature": "char * __cdecl ControlsPanel_CaptionAt(void *panel, int index)",
+      "description": "The controls panel's caption slot (vtable +0x14), which PanelButton_Paint calls through the button's owner pointer to get the text for the index the button was built with. Returns *(panel + 0x336 + index*4), one of the fourteen str\\CTL_ALRT.STR group-1 captions. Args derived from raw disassembly: EBP+8 and EBP+0xc, a single scaled-index load, RET with no operand.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "0045a258",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Input_RecommendedBindings",
+      "signature": "uchar * __cdecl Input_RecommendedBindings(int razor)",
+      "description": "Fills and returns the twelve-byte recommended binding block at 004d2139: four axis modes then eight action codes. Walking {1,0,2,2, 01,02,04,06,12,13,09,0a}, flying {1,0,2,2, 01,02,0d,0e,12,13,09,0a}. It also carries an arm that memsets the block to zero when the first word of Input_QueryCapabilities' block is 0, and that word is written unconditionally as 1 or 2, so the arm cannot be reached through its own input. Args derived from raw disassembly: one stack slot at EBP+8, tested as 0 / 1 / anything else; returns EBX, the literal 0x4d2139; RET with no operand.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "004777f8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Input_QueryCapabilities",
+      "description": "Rebuilds the eight-byte joystick capability block at 006bb72c on every call and returns it: +0 is 2 or 1 and never 0, +2 the button count (DAT_006bb438 + DAT_006bb5cc clamped to 8), and +4/+5/+6 whether a throttle, rudder and hat are present, from the device flag word's bits 0, 1 and 4. The controls panel greys its rows against it, and Input_SetThrottleLeverMode reads +4.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "004d25f5",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "PilotingRazor",
+      "description": "Byte set by DBSim_LoadScriptDat as (playerMechType == 8), the RAZOR. It selects the controls panel's flight half -- title and all four axis word sets -- the flight per-button action table at 0049e681, and, through ControlsOptionBase, the second twelve-byte binding block in prefs.cfg.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "004d25fb",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ControlsOptionBase",
+      "description": "Which SimOptions index the controls panel's twelve options start at: 0x0d walking and 0x19 flying. Sim_InitMissionSession sets it from PilotingRazor after DBSim_LoadScriptDat, and PreferencesManager_Reset starts it on 0x0d. The two blocks are independent, so a binding made in a walker does not disturb the RAZOR's.",
+      "source": "docs/simulation/preferences.md"
     }
   ]
 }

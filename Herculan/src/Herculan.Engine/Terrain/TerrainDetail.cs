@@ -1,3 +1,5 @@
+using Herculan.Engine.Content;
+
 namespace Herculan.Engine.Terrain;
 
 /// <summary>
@@ -27,20 +29,6 @@ public static class TerrainDetail {
 	/// </summary>
 	public const int DefaultLevel = 2;
 
-	/// <summary>Where the simulator keeps the setting, relative to the game's data folder.</summary>
-	public const string PreferencesFileName = "prefs.cfg";
-
-	/// <summary>
-	/// Which byte of that file is the setting. The file is not parsed: <c>Prefs_LoadOptions</c> (<c>00459754</c>) reads its
-	/// 0x36 bytes straight over the option array at <c>DAT_004d1fbc</c>, so the file <i>is</i> the
-	/// array and an option's index is its offset. The terrain-detail option is
-	/// <c>DAT_004d1fc3</c>, seven bytes in.
-	/// </summary>
-	public const int PreferencesOffset = 7;
-
-	/// <summary>How many bytes the simulator reads, and so how long a usable file is.</summary>
-	private const int PreferencesLength = 0x36;
-
 	/// <summary>
 	/// The draw radius one setting selects, in cells, with the shift-15 correction applied — the
 	/// whole of <c>Terrain_SetupVisibleRegion</c>'s write.
@@ -55,33 +43,13 @@ public static class TerrainDetail {
 	/// <see cref="DefaultLevel"/> when there is no readable preferences file there. Reading it rather
 	/// than picking one keeps the engine's draw distance in step with the retail install beside it,
 	/// which is what a side-by-side capture is comparing against.
+	///
+	/// <para>The file itself is <see cref="SimulatorPreferences"/>, which owns the layout and the
+	/// index this setting sits at; here it is one of nine options the [F12] panel shows.</para>
 	/// </summary>
 	/// <param name="dataDirectory">The game's <c>data</c> folder — where its <c>script.dat</c> is.</param>
-	public static int LevelFrom(string? dataDirectory) {
-		if (string.IsNullOrEmpty(dataDirectory)) {
-			return DefaultLevel;
-		}
-
-		try {
-			string path = Path.Combine(dataDirectory, PreferencesFileName);
-			if (!File.Exists(path)) {
-				return DefaultLevel;
-			}
-
-			byte[] bytes = File.ReadAllBytes(path);
-
-			// A short file is not a partial one: the simulator memsets the array to zero and only
-			// then reads over it, so anything it could not fill is option 0. Here that would silently
-			// drop the draw distance to its lowest setting, which is worse than saying "unknown".
-			if (bytes.Length < PreferencesLength) {
-				return DefaultLevel;
-			}
-
-			return Math.Clamp(bytes[PreferencesOffset], 0, RadiusInCells.Length - 1);
-		} catch (IOException) {
-			return DefaultLevel;
-		} catch (UnauthorizedAccessException) {
-			return DefaultLevel;
-		}
-	}
+	public static int LevelFrom(string? dataDirectory) =>
+		SimulatorPreferences.Load(dataDirectory) is { } prefs
+			? Math.Clamp(prefs[SimulatorPreferences.TerrainDistanceOption], 0, RadiusInCells.Length - 1)
+			: DefaultLevel;
 }

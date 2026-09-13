@@ -138,19 +138,18 @@ its two outputs remain undecoded.
 
 ### The terrain-detail setting
 
-`DAT_004a0bcc` is three `int16`s — **6, 10, 14** cells. `DAT_0049e2da`, the map from the same setting
-onto the option panel's labels (`FUN_004571f4` case 4), is also three entries, which is the second
-source for there being exactly three.
+`DAT_004a0bcc` is three `int16`s — **6, 10, 14** cells, and its three entries are the whole of why
+the setting has three values: nothing else bounds it, the preferences panel's own label map being
+five entries wide with its last two zero.
 
-The setting is `DAT_004d1fc3`, and it has no writer of its own: the options are a byte array based at
-`DAT_004d1fbc` that `Prefs_SetOption` (`0045993c`) indexes, making the terrain detail **option 7**.
-`Prefs_LoadOptions` (`00459754`) fills that array by `memset`ting 0x36 bytes to zero and reading
-`data\prefs.cfg` straight over them, so **the file is the array, unparsed** — an option's index is
-its byte offset, and the file is 54 bytes. So the draw distance is a player setting, not a property
-of the zone.
+The setting is **option 7** of the simulator's option array, and it has no writer of its own — the
+preferences panel's TERRAIN DISTANCE row is the only thing that moves it. The array and the file it
+is read from are in
+[`../simulation/preferences.md`](../simulation/preferences.md#dataprefscfg--the-option-array). So the
+draw distance is a player setting, not a property of the zone.
 
-Ported in `TerrainDetail`, which reads byte 7 of the `prefs.cfg` beside the mission's `script.dat`
-and falls back to the highest setting when there is none.
+Ported in `TerrainDetail`, which reads the setting through `SimulatorPreferences` and falls back to
+the highest when there is no readable file.
 
 ## Who writes `cell[+0xf]`
 

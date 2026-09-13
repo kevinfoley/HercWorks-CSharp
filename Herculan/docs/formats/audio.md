@@ -503,12 +503,12 @@ Messages reach the **cockpit's message port** (`PMSGPORT.BND`) through a vtable 
 view holds two instances of the same class: the computer's ticker at `view+0x20b` and the pilot and
 squad channel at `view+0x207`. Each is a queue of ten records plus one lifecycle, and the
 preferences screen's COMPUTER MESSAGE and PILOT MESSAGE settings are their two enable bytes —
-`DAT_004d1fbf` and `DAT_004d1fbe`, entries 3 and 2 of one four-byte array at `DAT_004d1fbc`, offered
-as OFF / TEXT ONLY / VOICE ONLY / TEXT-VOICE.
+options 3 and 2 of the simulator's option array
+([`../simulation/preferences.md`](../simulation/preferences.md#dataprefscfg--the-option-array)),
+offered as TEXT ONLY / VOICE ONLY / TEXT / VOICE.
 
 The byte gates the two halves separately: the display runs when it is not 1 and the voice when it is
-not 0. That is three behaviours, not four, so which label carries which value is not settled by the
-code. With the display off the port still runs the whole lifecycle and only skips the drawing —
+not 0 — three behaviours for three settings, which is why that row offers no OFF. With the display off the port still runs the whole lifecycle and only skips the drawing —
 `port+0x4d2`, the suppression flag every paint entry point tests alongside `port+0x49e`, "a line is
 up".
 

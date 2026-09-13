@@ -294,7 +294,8 @@ modal loop and destroying it. **Nothing in that loop answers `0x57` again**, so 
 not take the panel back down.
 
 Its resources are SIMALERT.VOL's, alongside the [status alert](#the-status-alert--gnl_alrt-00455934)'s
-and the other two panels' (`ctl_alrt`, `prf_alrt`):
+and the other two panels' (`prf_alrt` and `ctl_alrt`, both in
+[`preferences.md`](preferences.md)):
 
 | Resource | Holds |
 |---|---|

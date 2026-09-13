@@ -63,6 +63,9 @@ int acquireTargetDelay = 5;
 int initialFlashCommRow = -1;
 bool initialFlashCommTransmit = false;
 bool waitForTransmission = false;
+bool startWithObjectives = false;
+bool startWithStatusAlert = false;
+int stagedStatusAlert = -1;
 for (int i = 0; i < args.Length; i++) {
 	if (args[i] == "--screenshot" && i + 1 < args.Length) {
 		screenshotPath = args[++i];
@@ -71,6 +74,22 @@ for (int i = 0; i < args.Length; i++) {
 		// Which MFD screen to power up on. F1-F6 switch it live; this exists so a --screenshot run,
 		// which never sees a keystroke, can be pointed at a specific screen.
 		initialMfdMode = (MfdMode)mfdIndex;
+	} else if (args[i] == "--quit") {
+		// Power up with the [Q] mission-status alert already raised, for the same reason as
+		// --objectives. With no argument it shows whatever the mission evaluates to at that moment,
+		// which is what pressing [Q] would give; an optional status number forces one of the twenty
+		// GNL_ALRT.STR rows instead, so the one-button and single-line layouts — and 0 and 1, the
+		// pause panel's own two — can be looked at without arranging a mission that produces them.
+		startWithStatusAlert = true;
+		if (i + 1 < args.Length && int.TryParse(args[i + 1], out int forcedStatus)
+			&& forcedStatus >= 0 && forcedStatus < StatusAlertPanel.StatusCount) {
+			i++;
+			stagedStatusAlert = forcedStatus;
+		}
+	} else if (args[i] == "--objectives") {
+		// Power up with the [F11] objectives panel already open, for the same reason as --mfd: a
+		// --screenshot run never sees a keystroke.
+		startWithObjectives = true;
 	} else if (args[i] == "--hdd") {
 		// Power up already panned down to the Heads-Down Display, for the same reason as --mfd: a
 		// --screenshot run never sees a keystroke. An optional 0 or 1 picks which of its two screens
@@ -325,6 +344,20 @@ var squadPlacements = scene.Objects
 	.Take(SquadCommChannel.SlotCount)
 	.ToList();
 
+// The [F11] objectives panel. Built once with the mission's own block-13 text rather than on every
+// press, which is the one place this diverges from the original's own lifetime: it constructs the
+// panel, runs it and destroys it per press. Nothing in it changes during a mission.
+var objectivesPanel = ObjectivesPanel.Build(content, mission.BriefingLines, mission.TextAt);
+
+// The two modal alert panels. Only one can be up at a time -- they are modal in the original, and
+// each owns the input while it is -- so they share the pointer's press state.
+var statusAlertPanel = StatusAlertPanel.Build(content);
+
+int objectivesKeysDown = 0;
+int statusAlertKeysDown = 0;
+bool panelMouseDown = false;
+bool missionOver = false;
+
 var cockpitArt = mission.Player?.TypeName is { } pilotHerc
 	? CockpitArt.Load(content, pilotHerc, scene.Theater.PaletteName,
 		scene.World.Objects.OfType<MechObject>().Select(m => m.Name).Distinct(),
@@ -369,6 +402,18 @@ if (startOnHeadsDown) {
 	cockpitPan.Request(headsDown: true);
 	cockpitPan.Advance(CockpitPan.DurationSeconds);
 }
+
+if (startWithObjectives) {
+	objectivesPanel?.Open();
+}
+
+Console.WriteLine(statusAlertPanel != null
+	? "[Q] mission-status alert: GNL_ALRT.STR loaded."
+	: "[Q] mission-status alert: GNL_ALRT.STR is missing; the panel will not open.");
+
+Console.WriteLine(objectivesPanel is { } objectivesSummary
+	? $"[F11] objectives panel: {objectivesSummary.Lines.Count} line(s) of block-13 text."
+	: "[F11] objectives panel: OBJ_ALRT.STR is missing; the panel will not open.");
 
 if (cockpitArt?.HeadsDown != null) {
 	Console.WriteLine(
@@ -635,15 +680,9 @@ float externalOrbitPitch = ExternalCamera.DefaultOrbitPitchRadians;
 bool externalOrbitDragging = false;
 System.Numerics.Vector2 externalOrbitLastMouse = System.Numerics.Vector2.Zero;
 
-// [P] pauses and unpauses the simulation: the frame still draws and the debug panel still reads,
-// only the fixed-timestep tick loop stops advancing.
-//
-// PLACEHOLDER — NOT REVERSE-ENGINEERED. Retail DBSIM has its own pause and none of it has been
-// traced: which key it is really on, whether it stops the whole sim or only parts of it, what the
-// cockpit and HUD show while paused, and whether it is allowed at all mid-mission. This is a
-// development stop-the-world; replace it once the original's pause has been RE'd.
-bool paused = false;
-bool pauseKeyDown = false;
+// Retail's pause is a modal panel, not a mode: [P] raises PAUSE over the frozen cockpit and
+// [Return], [Esc] or its CONTINUE button puts it away. It is the same panel class as the [Q] status
+// alert — see StatusAlertPanel — so the pause lives there and nothing is needed here.
 
 // The debug panel, on [Esc] — which therefore no longer quits; close the window for that. It owns
 // its own view options and readouts; see DebugPanel for what it shows and why it is ImGui rather
@@ -719,8 +758,6 @@ if (pilotMech != null) {
 		: "No throttle slider in this herc's .GAU — keyboard throttle only.");
 }
 
-Console.WriteLine("P pauses and unpauses the simulation (placeholder — retail's own pause has not "
-	+ "been reverse-engineered yet).");
 Console.WriteLine("Free camera: W/A/S/D move, R/F rise and fall, arrow keys look, Shift boosts.");
 Console.WriteLine("Esc opens the debug panel (skeleton view, animation readouts) — it no longer quits; "
 	+ "close the window for that.");
@@ -731,6 +768,12 @@ Console.WriteLine("On FLASH COMM, A/G/H/O/C/E/F pick an order (, and . step thro
 Console.WriteLine("F7/F8 pan down to the Heads-Down Display's command and damage screens; "
 	+ "F1-F6 pan back up.");
 Console.WriteLine("On the damage screen, S/I/W switch between structural, internal and weapon systems.");
+Console.WriteLine("F11 shows the mission objectives; Return, Esc or the RETURN button puts it away. "
+	+ "The simulation is stopped while it is up, as it is in the original.");
+Console.WriteLine("Q asks how the mission stands and offers a way out of it. Return, Esc or the "
+	+ "left button carries on; the right button, when the status offers one, ends the mission.");
+Console.WriteLine("P pauses the mission and Ctrl+Q asks to leave the game — the same panel at a "
+	+ "smaller size. Return, Esc or CONTINUE dismisses either.");
 Console.WriteLine("On the command display, 1-3 pick a squadmate, D/A/F/T/G/O/C/E pick an order "
 	+ "(, and . step through them), X transmits and Backspace cancels.");
 Console.WriteLine("Its map: + and - or the two magnifiers zoom, the arrows scroll it (the keypad "
@@ -1106,34 +1149,23 @@ window.Load += (gl, input) => {
 window.Update += deltaSeconds => {
 	imgui?.Update((float)deltaSeconds);
 
+	// The two modal panels take the keyboard before anything else does. They are modal in the
+	// original — each runs its own event loop, which owns input until the panel comes down — and
+	// [Esc], which dismisses either, is this host's debug-panel key, so they have to be asked first
+	// or two things would act on one keystroke. Both are asked every frame — a single `|`, not `||` —
+	// so each keeps its own key-edge state whether or not the other claimed the keystroke.
+	bool objectivesHandledKey = ReadStatusAlertKeys() | ReadObjectivesKeys();
+
 	// [Esc] opens and closes the debug panel. Read before the capture gate below, so the key that
 	// opens the panel is also the key that closes it however ImGui feels about focus.
-	debugPanel.ReadToggleKey(keyboard);
+	if (!objectivesHandledKey) {
+		debugPanel.ReadToggleKey(keyboard);
+	}
 
 	// Everything below reads `controls` rather than the device itself: while the panel has keyboard
 	// focus it is null, so piloting and camera keys go dead instead of the panel and the machine both
 	// acting on the same keystroke.
 	var controls = imgui != null && ImGui.GetIO().WantCaptureKeyboard ? null : keyboard;
-
-	// [P] pauses the simulation, on the key's own edge, and outside the piloting block below so it
-	// works from the free camera too. See the placeholder note where `paused` is declared.
-	if (controls != null) {
-		bool pauseKey = controls.IsKeyPressed(Key.P);
-		if (pauseKey && !pauseKeyDown) {
-			paused = !paused;
-
-			// A paused simulation makes no new sound, but the loops it left running would carry on,
-			// so pausing silences them and unpausing puts back exactly what was going.
-			if (paused) {
-				audio.Suspend();
-			} else {
-				audio.Resume();
-			}
-		}
-		pauseKeyDown = pauseKey;
-	} else {
-		pauseKeyDown = false;
-	}
 
 	// [C] swaps between flying the observer camera and piloting the machine, on the key's own edge
 	// so holding it does not flicker between the two.
@@ -1485,7 +1517,30 @@ window.Update += deltaSeconds => {
 	// Nothing to click while the cockpit is off screen, so the whole click path sits out the external
 	// view rather than hit-testing a console the player cannot see — and likewise while the pointer is
 	// over the debug panel, so a click on a checkbox is not also a click on the console behind it.
-	if (cockpitArt != null && !ExternalViewActive()
+	if (statusAlertPanel is { IsOpen: true } || objectivesPanel is { IsOpen: true }) {
+		// The modal owns the pointer: the cockpit behind it takes no clicks, and the queue is drained
+		// to nothing so a click made while it was up cannot land on a console button afterwards.
+		var framebufferForPanel = window.FramebufferSize;
+		if (statusAlertPanel is { IsOpen: true } liveAlert) {
+			// The panel's own placement, not a fixed one: the status alert and the pause panel are
+			// different sizes and so centre to different origins.
+			ReadPanelPointer(
+				liveAlert.Place(framebufferForPanel.X, framebufferForPanel.Y),
+				liveAlert.PointerDown, liveAlert.PointerUp);
+		} else if (objectivesPanel is { IsOpen: true } liveObjectives) {
+			ReadPanelPointer(
+				ObjectivesPanelLayout.Place(framebufferForPanel.X, framebufferForPanel.Y),
+				(x, y) => liveObjectives.PointerDown(x, y),
+				(x, y) => liveObjectives.PointerUp(x, y));
+		}
+
+		cockpitInput.Drain(deltaSeconds, (_, _) => null);
+
+		// And nothing behind it stays depressed: entering a panel calls FUN_00452b94, which swaps the
+		// panel's own clickable list in and clears Widget_PressedIndex to -1, dropping whatever the
+		// cockpit had held when the panel was raised.
+		hudState = hudState with { PressedWidget = null };
+	} else if (cockpitArt != null && !ExternalViewActive()
 			&& (imgui == null || !ImGui.GetIO().WantCaptureMouse)) {
 		var framebuffer = window.FramebufferSize;
 		var inputLayout = CockpitScreenLayout.Create(framebuffer.X, framebuffer.Y, cockpitArt,
@@ -1528,12 +1583,39 @@ window.Update += deltaSeconds => {
 	cockpitPan.Advance(deltaSeconds);
 
 	// Clamping the accumulator stops a long stall (a breakpoint, a window drag) from turning into
-	// a burst of catch-up ticks that would teleport everything. A paused sim neither ticks nor
-	// accumulates, so unpausing carries on from where it stopped rather than catching up.
-	if (!paused) {
+	// a burst of catch-up ticks that would teleport everything. A frozen sim neither ticks nor
+	// accumulates, so dismissing a panel carries on from where it stopped rather than catching up.
+	// The objectives panel stops the clock the same way: the original's modal loop polls input,
+	// repaints its own widgets and presents, and never reaches the sim tick.
+	// The poll raises the same panel by itself once the mission is decided — Sim_MainTick's own
+	// arm, latched on SimWorld.PendingMissionAlert by the tick that produced it.
+	if (scene.World is { PendingMissionAlert: not MissionStatus.None } alerted
+		&& statusAlertPanel is { IsOpen: false } && objectivesPanel is not { IsOpen: true }
+		&& !missionOver) {
+		var raised = alerted.PendingMissionAlert;
+		alerted.PendingMissionAlert = MissionStatus.None;
+		OpenStatusAlert(raised, alerted.Objectives);
+	}
+
+	// --quit stages the [Q] panel, which needs a ticked world to evaluate against, so it is raised on
+	// the first update rather than at load.
+	if (startWithStatusAlert) {
+		startWithStatusAlert = false;
+		if (stagedStatusAlert >= 0) {
+			OpenStatusAlert((MissionStatus)stagedStatusAlert, scene.World.Objectives);
+		} else {
+			RaiseStatusAlertForQuit();
+		}
+	}
+
+	ApplyStatusAlertAnswer();
+
+	bool frozen = missionOver
+		|| objectivesPanel is { IsOpen: true } || statusAlertPanel is { IsOpen: true };
+	if (!frozen) {
 		tickAccumulator = Math.Min(tickAccumulator + deltaSeconds, MaxAccumulatedSeconds);
 	}
-	while (!paused && tickAccumulator >= SecondsPerTick) {
+	while (!frozen && tickAccumulator >= SecondsPerTick) {
 		scene.World.Tick();
 
 		// Beams are resolved and forgotten inside the tick, so anything that wants to see one has to
@@ -1841,6 +1923,17 @@ window.Render += (_, gl) => {
 	// otherwise the panel is squeezed into the right-hand cockpit panel's rectangle and mostly
 	// scissored away, which is why it only ever appeared in the external view.
 	gl.Viewport(0, 0, (uint)Math.Max(size.X, 1), (uint)Math.Max(size.Y, 1));
+
+	// Both panels are modal, so they go over everything the cockpit drew — and over the external view
+	// too, where one stays up if the player switched views with it open. Only one can be up at a time.
+	if (cockpitArt?.Sprites is { } panelSprites && hudSpriteTexture != null) {
+		if (statusAlertPanel is { IsOpen: true } openAlert) {
+			overlay.DrawStatusAlertPanel(size.X, size.Y, hudSpriteTexture, panelSprites, openAlert);
+		} else if (objectivesPanel is { IsOpen: true } openObjectives) {
+			overlay.DrawObjectivesPanel(size.X, size.Y, hudSpriteTexture, panelSprites, openObjectives);
+		}
+	}
+
 	debugPanel.Draw(
 		new DebugPanelContext(piloting, externalView, pilotMech, scene.Targeting, scene.World,
 			scene.PlayerObject?.Model?.Segments.Length ?? 0, terrain),
@@ -1896,6 +1989,201 @@ window.Closing += () => {
 window.Run();
 
 return 0;
+
+// The three keys that raise a panel of the status-alert family, and the two that answer one.
+//
+// [Q] asks how the mission stands, [Ctrl+Q] asks to leave the game, and [P] pauses — the manual's
+// own "Quit Mission", "Quit EarthSiege 2" and "Pause Mission", and Sim_DispatchCommand's commands
+// 0x10, 0x410 and 0x19. [Return] and [Esc] both answer with button 0, which is CONTINUE on every
+// one of them. While a panel is up nothing else may act: AlertPanel_HandleEvent answers those two
+// keys and the panel's own loop owns the rest.
+//
+// Returns whether the panel claimed the keystroke.
+bool ReadStatusAlertKeys() {
+	if (statusAlertPanel == null || keyboard == null
+		|| (imgui != null && ImGui.GetIO().WantCaptureKeyboard)) {
+		statusAlertKeysDown = 0;
+		return false;
+	}
+
+	bool ctrl = keyboard.IsKeyPressed(Key.ControlLeft) || keyboard.IsKeyPressed(Key.ControlRight);
+	bool q = Edge(Key.Q, 0);
+	// `|`, not `||`: both edges must be read every frame or the one that is skipped never updates
+	// its held state, and the next press of it is swallowed.
+	bool enter = Edge(Key.Enter, 1) | Edge(Key.KeypadEnter, 2);
+	bool escape = Edge(Key.Escape, 3);
+	bool pause = Edge(Key.P, 4);
+
+	if (statusAlertPanel.IsOpen) {
+		return statusAlertPanel.HandleKey(enter, escape) || q || pause;
+	}
+
+	// Only from inside the machine, and not while the objectives panel is up: in the original these
+	// commands reach the dispatcher through the cockpit, and one modal is already holding the input.
+	if (missionOver || cockpitArt == null || ExternalViewActive()
+		|| objectivesPanel is { IsOpen: true }) {
+		return false;
+	}
+
+	// [Ctrl+Q] is command 0x410 — the Ctrl bit over Q's own scancode — and asks to leave the game
+	// rather than the mission. [Q] alone asks how the mission stands, and [P] pauses.
+	if (q) {
+		return ctrl
+			? OpenStatusAlert((MissionStatus)StatusAlertPanel.ExitGameStatus, scene.World.Objectives)
+			: RaiseStatusAlertForQuit();
+	}
+
+	if (pause) {
+		return OpenStatusAlert((MissionStatus)StatusAlertPanel.PauseStatus, scene.World.Objectives);
+	}
+
+	return false;
+
+	bool Edge(Key key, int bit) {
+		bool down = keyboard.IsKeyPressed(key);
+		bool edge = down && (statusAlertKeysDown & (1 << bit)) == 0;
+		statusAlertKeysDown = down
+			? statusAlertKeysDown | (1 << bit)
+			: statusAlertKeysDown & ~(1 << bit);
+		return edge;
+	}
+}
+
+// [F11] puts the objectives panel up, and [Return] or [Esc] takes it down — the three keys the
+// original answers, scancode 0x57 through CockpitWidgets_HandleCommand (00432bc8) on the way in and
+// 0x1c/0x01 through the panel's own handler (FUN_00454e10) on the way out. Nothing in that handler
+// answers 0x57, so [F11] does not close the panel it opened; that is retail behaviour, not an
+// oversight here.
+//
+// Returns whether the panel claimed the keystroke, so [Esc] does not also reach the debug panel.
+bool ReadObjectivesKeys() {
+	if (objectivesPanel == null || keyboard == null
+		|| (imgui != null && ImGui.GetIO().WantCaptureKeyboard)) {
+		objectivesKeysDown = 0;
+		return false;
+	}
+
+	bool open = Edge(Key.F11, 0);
+	// `|`, not `||`: both edges must be read every frame or the one that is skipped never updates
+	// its held state, and the next press of it is swallowed.
+	bool enter = Edge(Key.Enter, 1) | Edge(Key.KeypadEnter, 2);
+	bool escape = Edge(Key.Escape, 3);
+
+	if (objectivesPanel.IsOpen) {
+		return objectivesPanel.HandleKey(enter, escape) || open;
+	}
+
+	// Only from inside the machine, and not while the status alert is up: the command reaches the
+	// panel through the cockpit's own widget tree, which is not on screen in the external view, and
+	// one modal is already holding the input.
+	if (open && cockpitArt != null && !ExternalViewActive()
+		&& statusAlertPanel is not { IsOpen: true }) {
+		objectivesPanel.Open();
+		return true;
+	}
+
+	return false;
+
+	bool Edge(Key key, int bit) {
+		bool down = keyboard.IsKeyPressed(key);
+		bool edge = down && (objectivesKeysDown & (1 << bit)) == 0;
+		objectivesKeysDown = down
+			? objectivesKeysDown | (1 << bit)
+			: objectivesKeysDown & ~(1 << bit);
+		return edge;
+	}
+}
+
+// A modal panel's buttons, pressed and released. Read straight off the device rather than through
+// CockpitInput: that queue is the cockpit's, and while a modal is up the cockpit is not taking
+// clicks at all. Press and release must both land on the same button for it to fire, which is
+// Widget_OnMouseUp's own re-hit-test.
+void ReadPanelPointer(AlertPanelLayout.Placement place, Action<float, float> onDown,
+		Action<float, float> onUp) {
+	if (mouse == null) {
+		return;
+	}
+
+	var client = window.ClientSize;
+	var framebuffer = window.FramebufferSize;
+	var (panelX, panelY) = place.ToPanel(
+		mouse.Position.X * framebuffer.X / Math.Max(client.X, 1),
+		mouse.Position.Y * framebuffer.Y / Math.Max(client.Y, 1));
+
+	bool down = mouse.IsButtonPressed(MouseButton.Left);
+	if (down && !panelMouseDown) {
+		onDown(panelX, panelY);
+	} else if (!down && panelMouseDown) {
+		onUp(panelX, panelY);
+	}
+
+	panelMouseDown = down;
+}
+
+// [Q] asks the mission how it stands and offers a way out of it -- Sim_DispatchCommand's scancode
+// 0x10, which calls Mission_Status with its "just answer the question" flag set, raises the status
+// alert for the answer, and takes the button pressed as the decision. The same call records the
+// answer as the status already raised, so the poll will not raise that same status again as a
+// change, and it disarms the poll's pending alert delay.
+//
+// Returns whether the panel was raised, so [Q] does not also reach anything below it.
+bool RaiseStatusAlertForQuit() {
+	if (statusAlertPanel == null || scene.World is not { } quitWorld
+		|| quitWorld.PlayerMech is not { } quitPlayer || quitWorld.Objectives is not { } quitObjectives) {
+		return false;
+	}
+
+	var status = quitObjectives.QueryForPlayer(quitWorld, quitPlayer);
+	return OpenStatusAlert(status, quitObjectives);
+}
+
+// The panel for one status, with the outstanding objective's own failure text alongside it -- the
+// substitution the constructor makes for status 5 and no other.
+bool OpenStatusAlert(MissionStatus status, MissionObjectives objectives) {
+	if (statusAlertPanel == null || !StatusAlertPanel.CanShow((int)status)) {
+		return false;
+	}
+
+	var failure = objectives.Outstanding is { } outstanding
+		? mission.DescriptionOf(outstanding.Record)
+		: null;
+
+	if (!statusAlertPanel.Open((int)status, failure)) {
+		return false;
+	}
+
+	panelMouseDown = mouse?.IsButtonPressed(MouseButton.Left) ?? false;
+	return true;
+}
+
+// What the player answered. Only the button the status's own table names ends the mission; every
+// other answer just puts the panel away and carries on.
+void ApplyStatusAlertAnswer() {
+	if (statusAlertPanel == null || !statusAlertPanel.TryTakeAnswer(out int button, out bool ends)) {
+		return;
+	}
+
+	if (!ends) {
+		return;
+	}
+
+	// Both endings leave the simulator. EXIT EARTHSIEGE? is not a mission outcome at all -- its QUIT
+	// sets DAT_004d2582, the global quit flag that AlertPanel_Present also watches to tear down any
+	// panel still up -- while a mission-ending answer goes up through Sim_PollPlayerInput and
+	// Sim_MainTick and hands control to the shell, which writes (status == 9) into results.dat and
+	// advances the campaign.
+	//
+	// PLACEHOLDER for that second path: there is no shell to return to yet, so a finished mission
+	// closes the window the same way quitting the game does. The latch stops the last few frames
+	// before the window actually goes from ticking or raising another panel.
+	missionOver = true;
+	Console.WriteLine(statusAlertPanel.Status == StatusAlertPanel.ExitGameStatus
+		? "Quitting EarthSiege 2."
+		: $"Mission over — status {statusAlertPanel.Status} "
+			+ $"({(MissionStatus)statusAlertPanel.Status}), answered "
+			+ $"'{statusAlertPanel.Buttons[button]}'. Exiting; the shell is not ported yet.");
+	window.Close();
+}
 
 // Draws the front/left/right panels side by side, each sized by its own cockpit-art image's native
 // aspect ratio fit to the full window height — not an equal three-way split of the window — so the

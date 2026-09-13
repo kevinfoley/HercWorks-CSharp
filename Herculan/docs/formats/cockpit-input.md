@@ -202,11 +202,27 @@ Sliders override the slot and return a real value instead (`SliderWidget_GetValu
 ### Keyboard commands are scancodes
 
 The same handlers are reachable from the keyboard, and the command codes that travel through
-`FUN_0045fdac` to the widget tree (`FUN_00432bc8`) are **PC set-1 scancodes**, with `0x200` added
-for `[Alt]` — `0x26` is `L`, `0x29` is `` ` ``, `0x11`/`0x211` are `W`/`Alt+W`, `0x1a`/`0x1b` are
-`[`/`]`, `0x3b`–`0x40` are `F1`–`F6`. Codes `0x02`–`0x0b` (the number row) index the cockpit's own
-ten weapon gauges at `CockpitViewInstance+0x70` and press each one's select gadget, which is how a
-key and a click end up in one handler rather than two.
+`Sim_DispatchCommand` to the widget tree (`CockpitWidgets_HandleCommand`) are **PC set-1
+scancodes**, with `0x200` added for `[Alt]` and `0x400` for `[Ctrl]` — `0x26` is `L`, `0x29` is
+`` ` ``, `0x11`/`0x211` are `W`/`Alt+W`, `0x1a`/`0x1b` are `[`/`]`, `0x3b`–`0x40` are `F1`–`F6`.
+Codes `0x02`–`0x0b` (the number row) index the cockpit's own ten weapon gauges at
+`CockpitViewInstance+0x70` and press each one's select gadget, which is how a key and a click end up
+in one handler rather than two.
+
+The `0x400` bank is fixed by the manual: `0x410` raises the `EXIT EARTHSIEGE?` prompt, and the
+manual's controls page gives that as `[Ctrl]+[Q]` against `0x10` for `[Q]` alone. Four of the
+commands in the manual's `MISC.` block are decoded, and all four agree with the dispatcher —
+[`../simulation/mission-objectives.md`](../simulation/mission-objectives.md#the-pause-panel--004561c0):
+
+| Command | Key | Raises |
+|---|---|---|
+| `0x19` | `P` | `PAUSE` |
+| `0x57` | `F11` | the objectives panel |
+| `0x10` | `Q` | the mission-status alert |
+| `0x410` | `Ctrl+Q` | `EXIT EARTHSIEGE?` |
+| `0x58`, `0x219` | `F12`, `Alt+P` | the preferences panel, `ctl_alrt` (`FUN_004566c4`) via `FUN_0045cfd4`, which pauses the simulation with `DAT_004d2576` while it is up. Its contents are not decoded |
+
+The manual lists an on-line manual on that block too. Which command raises it was not traced.
 
 `Widget_Repaint` calls a widget's own Paint slot — but **the slot's numeric vtable offset is not
 uniform across classes**. Confirmed at `+4` for both `MfdDisplay` (`MfdDisplay_Repaint`) and
@@ -338,7 +354,9 @@ active.
 - Which vtable slot the throttle and the ordinary MFD/HDD leaf buttons (as opposed to their owning
   display objects) put `OnClick` at — neither was checked. See §7 for the two shapes found so far.
 - Where the command-code queue at `004d2148` is filled from. The codes' meaning is settled (§7,
-  scancodes with an `0x200` Alt bank), but the raw-keystroke-to-queue step was not traced.
+  scancodes with `0x200` Alt and `0x400` Ctrl banks) and `FUN_0045a47c` is what appends to the
+  queue, registered as a callback by `FUN_0045b670`; the binding table it is registered against, and
+  so the step that turns a keystroke into a code, was not traced.
 - The exact leaf "Button" widget class MFD buttons construct through (`FUN_004472e4` /
   `FUN_0044741c`, called from `MfdDisplay_Ctor`) — the forward-to-owner shape is inferred from the
   shield-facing case, not independently decompiled for this class.

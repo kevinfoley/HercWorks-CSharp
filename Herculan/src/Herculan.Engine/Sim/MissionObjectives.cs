@@ -1,4 +1,4 @@
-using Herculan.Engine.Content;
+﻿using Herculan.Engine.Content;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.World;
 
@@ -115,6 +115,24 @@ public sealed class MissionObjectives {
 	}
 
 	/// <summary>
+	/// <c>Mission_StatusForAlert</c> (<c>00413180</c>) with its publish flag set — the [Q] path.
+	/// Evaluates quietly, then records the answer as <see cref="Announced"/> and disarms the poll's
+	/// pending alert, which is the whole of what that flag does.
+	///
+	/// <para>Both of those matter to what the player sees next. Recording the answer means the poll
+	/// will not raise the same status again as a change, so a player who presses [Q], reads
+	/// <c>MISSION OBJECTIVES COMPLETE</c> and carries on is not shown it a second time ten seconds
+	/// later; disarming the delay means a status that was part-way through its ten-second wait starts
+	/// that wait again.</para>
+	/// </summary>
+	public MissionStatus QueryForPlayer(SimWorld world, MechObject player) {
+		var status = Evaluate(world, player, quiet: true);
+		Announced = status;
+		_alertArmed = false;
+		return status;
+	}
+
+	/// <summary>
 	/// <c>Mission_Status</c> (<c>004135e8</c>) — the whole judgement, in the original's order: the
 	/// player's own condition first, then the mission box, then the objectives.
 	///
@@ -127,7 +145,11 @@ public sealed class MissionObjectives {
 	/// </summary>
 	/// <param name="quiet">
 	/// The original's third argument. Set, it skips the lockout, the mission-box arms and the message
-	/// post, and just answers the question — what the player's own "how am I doing" key uses.
+	/// post, and just answers the question — what <see cref="QueryForPlayer"/>, the [Q] key's path,
+	/// uses. <b>A quiet evaluation can therefore never answer
+	/// <see cref="MissionStatus.LeavingMissionZone"/> or
+	/// <see cref="MissionStatus.RulesOfEngagementViolated"/></b>: those two are the arms it skips, so
+	/// [Q] outside the mission box reports on the objectives as though the player were inside it.
 	/// </param>
 	public MissionStatus Evaluate(SimWorld world, MechObject player, bool quiet) {
 		if (!quiet && SimMath.CountdownTimerTick(ref _messageLockout) != 0) {

@@ -1,4 +1,4 @@
-using HercWorks.Vol;
+﻿using HercWorks.Vol;
 using HercWorks.Vol.Io;
 
 namespace Herculan.Engine.Content;
@@ -20,8 +20,15 @@ namespace Herculan.Engine.Content;
 /// </summary>
 public sealed class GameContent {
 	/// <summary>
-	/// The archives DBSIM needs for a terrain-and-one-mech scene: the main simulator archive, its
-	/// retail patch, the zone heightmaps, the effect sample bank and the English voice archive.
+	/// The archives DBSIM needs for a terrain-and-one-mech scene: the main simulator archive, the
+	/// alert panels' own art and text, its retail patch, the zone heightmaps, the effect sample bank
+	/// and the English voice archive.
+	///
+	/// <para>SIMALERT.VOL carries the four modal panels DBSIM puts over the cockpit — <c>gnl_alrt</c>,
+	/// <c>ctl_alrt</c>, <c>obj_alrt</c> and <c>prf_alrt</c> — as a plate bank and a string table each,
+	/// plus the shared <c>ALERT</c> button bank. Its folder labels are the same <c>hba</c>/<c>dba</c>/
+	/// <c>str</c> the main archive uses, so nothing but the mount changes for a caller; it also carries
+	/// French and German string folders (<c>stf</c>, <c>stg</c>) which nothing here reads.</para>
 	///
 	/// <para>The two other voice archives are the same recordings in French and German —
 	/// <c>Voice_ArchiveName</c> (<c>0045ef68</c>) picks between them by patching the last character
@@ -30,7 +37,7 @@ public sealed class GameContent {
 	/// selection means changing which name is in this list, not adding to it.</para>
 	/// </summary>
 	public static readonly string[] SimulatorArchives =
-		{ "SIMVOL0.VOL", "SIMPATCH.VOL", "ZONES.VOL", "SIMSOUND.VOL", "SIMVOICE.VOL" };
+		{ "SIMVOL0.VOL", "SIMALERT.VOL", "SIMPATCH.VOL", "ZONES.VOL", "SIMSOUND.VOL", "SIMVOICE.VOL" };
 
 	private readonly Dictionary<string, VolEntry> _entries = new(StringComparer.OrdinalIgnoreCase);
 	private readonly List<Voln> _mounted = new();

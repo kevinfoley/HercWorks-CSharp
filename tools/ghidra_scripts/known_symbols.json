@@ -12708,6 +12708,365 @@
       "signature": "void __cdecl HudHeadingTape_Paint(void *widget)",
       "description": "Narrows the canvas clip to the tape's own rect, then blits the two frames HudHeadingTape_SetHeading chose at +0x44 and +0x44 + rectWidth, so the tape reads as a strip sliding through a window. Restores the four clip fields it borrowed before returning.",
       "source": "docs/formats/cockpit-hud.md"
+    },
+    {
+      "address": "0045751c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjectivesPanel_Ctor",
+      "signature": "void * __cdecl ObjectivesPanel_Ctor(void *panel, char ownsBackingStore, int *rect)",
+      "description": "Builds obj_alrt, the [F11] objectives panel: 630x278 device, centred on the screen when rect is null. Writes its layout block to DAT_004d1f84..004d1fa4 once, loads hba\\OBJ_ALRT.HBA as the plate and str\\OBJ_ALRT.STR as its two captions, copies block 13's mission.str pointers (count DAT_004a9ec8, refs DAT_004a9ecc) into +0x34a, then builds the title label, the RETURN button with its ALERT bank plates, and seven objective-line labels at y 34 on a 20px pitch.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "00455934",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "StatusAlertPanel_Ctor",
+      "signature": "void * __cdecl StatusAlertPanel_Ctor(void *panel, int status, char ownsBackingStore, int *rect)",
+      "description": "Builds gnl_alrt, the modal alert a mission-status change raises: 444x218 device, one or two buttons chosen by the status code, title and four body lines out of its own string table. Status 5 takes its body from DAT_004d1f1c, the first unsatisfied objective's text.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "00457b58",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjectivesPanel_Paint",
+      "signature": "void __cdecl ObjectivesPanel_Paint(int *panel)",
+      "description": "obj_alrt's vtable slot 0. Blits the plate at the panel origin plus the global blit offset, sets the title label, then walks block 13's resolved pointers filling line labels - skipping an empty string rather than leaving its row blank, and stopping once seven are filled. Finally calls each clickable child's own paint.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "00457ae4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjectivesPanel_RunModal",
+      "signature": "byte __cdecl ObjectivesPanel_RunModal(int *panel)",
+      "description": "obj_alrt's modal loop, vtable slot +8. Enters via AlertPanel_Enter, focuses widget 0, then polls input, hands the event to the panel's slot +0x10 handler, ticks each clickable child and presents, until the close flag at +0x2d1 is set. It never calls the sim tick, which is why the simulation is stopped while a panel is up. gnl_alrt has its own near-identical copy at StatusAlertPanel_RunModal.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "00457c30",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjectivesPanel_OnChildClick",
+      "signature": "void __cdecl ObjectivesPanel_OnChildClick(int panel, int child)",
+      "description": "obj_alrt's vtable slot +0xc. Sets the close flag when the clicked child is child 0, which is the panel's only widget - the RETURN button.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "00457c6c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ObjectivesPanel_GetButtonCaption",
+      "signature": "char * __cdecl ObjectivesPanel_GetButtonCaption(int panel)",
+      "description": "obj_alrt's vtable slot +0x14: returns +0x346, the RETURN caption a button's paint asks its owner for.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "00454174",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AlertPanel_CtorBase",
+      "signature": "void * __cdecl AlertPanel_CtorBase(void *panel, char ownsBackingStore, int *rect)",
+      "description": "The alert panels' shared base constructor. Stores the screen rect at +0x04..+0x10 and the same rect panel-local (origin 0,0) at +0x1c..+0x28, allocates the offscreen backing store the panel restores the screen from, builds the widget list at +0x285, and sets the cancel widget +0x2fb to -1.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "00454f34",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AlertPanel_CenterRect",
+      "signature": "void * __cdecl AlertPanel_CenterRect(int width, int height)",
+      "description": "Centres a panel rect of the given size on the screen: ((screenW - w) >> 1, (screenH - h) >> 1) against DAT_004d1ef4/DAT_004d1ef8.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "00454ef8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AlertPanel_SetRect",
+      "signature": "void * __cdecl AlertPanel_SetRect(int x, int y, int width, int height)",
+      "description": "Writes a panel rect to the shared four-int scratch at DAT_004d1f0c and returns it, which is what a panel constructor hands its base.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "00454630",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AlertPanel_Enter",
+      "signature": "void __cdecl AlertPanel_Enter(void *panel)",
+      "description": "Puts a modal alert panel up: pauses both message ports, saves the current input state block, consumes buttons 1-4 so one held at open does not act, clears Widget_PressedIndex and swaps in the panel's own clickable list, installs the panel's render context, loads the alert cursor, copies the screen under the panel into the backing store and calls the panel's own paint.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "004548ac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AlertPanel_Leave",
+      "signature": "void __cdecl AlertPanel_Leave(int panel)",
+      "description": "The inverse of AlertPanel_Enter: restores the saved screen, the previous render context and clickable list, puts the input state block back and resumes both message ports.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "00454e10",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AlertPanel_HandleEvent",
+      "signature": "undefined4 __cdecl AlertPanel_HandleEvent(int panel, ushort *input)",
+      "description": "The alert panels' shared vtable slot +0x10. Joystick button 1 (+0xd) and [Return] (0x1c) press the focused widget; [Esc] (0x01) presses the cancel widget at +0x2fb; joystick button 2 (+0x17), [Tab] (0x0f) and keypad Insert (0x52) walk the focus forward and Shift+Tab (0x80f) back. Anything else returns 0.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "00454ab0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AlertPanel_Present",
+      "signature": "void __cdecl AlertPanel_Present(int panel)",
+      "description": "One pass of the modal loop's tail: services sound, repaints dirty widgets, holds the close flag back while a widget is still animating its release, and flips the frame on the repaint interval.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "00454c7c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AlertPanel_SetFocus",
+      "signature": "void __cdecl AlertPanel_SetFocus(int panel, int index)",
+      "description": "Moves the panel's focus to widget index, storing it at +0x2f7. Focus is the pointer: it warps the cursor to the widget's centre. Index -1 instead adopts whichever widget the cursor is already over.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "00454d7c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AlertPanel_FocusNext",
+      "signature": "void __cdecl AlertPanel_FocusNext(int panel)",
+      "description": "Focus to the next widget, wrapping at the count in +0x2cd.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "00454da0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AlertPanel_FocusPrevious",
+      "signature": "void __cdecl AlertPanel_FocusPrevious(int panel)",
+      "description": "Focus to the previous widget, wrapping at zero.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "00454dcc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AlertPanel_PressWidget",
+      "signature": "void __cdecl AlertPanel_PressWidget(int panel, int index, undefined4 flags)",
+      "description": "Presses one of the panel's widgets from the keyboard: calls its click slot unless it is hidden (state 2), then arms the auto-release that pops it back up.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "00454b58",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AlertPanel_SetTitleText",
+      "signature": "void __cdecl AlertPanel_SetTitleText(int panel, byte *text)",
+      "description": "The alert panels' shared vtable slot +4: sets the title label at +0x44 to the given text.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "00454f64",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PanelButton_Ctor",
+      "signature": "void * __cdecl PanelButton_Ctor(void *button, int *rect, void *owner, int index)",
+      "description": "An alert panel's button widget. Stores the owner and the index it reports back to it, and takes its four caption fonts from the cockpit set: ACTIVE at rest (+0x40), PUSHED held (+0x44), INACTIVE disabled (+0x48), ACTIVE again (+0x4c). Its two plate frames are filled in by the panel that builds it.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "00454ff8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PanelButton_Paint",
+      "signature": "void __cdecl PanelButton_Paint(int button)",
+      "description": "Blits the plate frame for the button's current state from +0x30, asks its owner (slot +0x14) for its caption, overwrites the caption label's font with the state's entry from +0x40 and sets the text. The font overwrite is why a button caption is never drawn in the font its label was constructed with.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "00455080",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PanelButton_OnClick",
+      "signature": "void __cdecl PanelButton_OnClick(int button, undefined4 flags)",
+      "description": "Forwards the click to the owner's slot +0xc with the button's own index, repaints, then sounds the shared widget click.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "00455064",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PanelButton_Tick",
+      "signature": "void __cdecl PanelButton_Tick(int button)",
+      "description": "The per-pass slot the modal loop calls on each child: repaints while the auto-release counter at +0x1f is running down.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "004387ac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Label_Ctor",
+      "signature": "void * __cdecl Label_Ctor(void *label, void *font, char panelRelative)",
+      "description": "A 0x21-byte HUD text label: zeroes it, stores the font at +0x00 and the panel-relative flag at +0x18 that makes Label_SetText subtract the global blit offset. Paired with Label_SetRect and Label_SetText.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "0045395c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "StringTable_LoadGroup",
+      "signature": "short __cdecl StringTable_LoadGroup(int *table, void **destination, int capacity, void **attributeDestination)",
+      "description": "Pops the next .STR group into a destination pointer array, one entry per string, advancing the table's own cursor. The capacity argument is the destination array's size and is not read; the group's own count decides how many are written.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "00452b94",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_ClearPressed",
+      "signature": "void __cdecl Widget_ClearPressed(void *clickableList)",
+      "description": "Swaps in a clickable list as the active one and clears Widget_PressedIndex to -1, so nothing that was held under the previous list stays armed.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "00413180",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_StatusForAlert",
+      "signature": "short __cdecl Mission_StatusForAlert(int playerMech, short publish)",
+      "description": "The wrapper both alert paths go through: calls Mission_Status with the script.dat objective selector and the publish flag, and when publish is set also records the answer in DAT_004a9ed0, the status already raised. The poll passes 0; [Q] passes 1, so reading the status yourself is enough to stop the poll announcing it. Returns the status in AX.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "00455fe4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "StatusAlertPanel_RunModal",
+      "signature": "byte __cdecl StatusAlertPanel_RunModal(int *panel)",
+      "description": "gnl_alrt's modal loop, vtable slot +8. Same shape as the objectives panel's but it also watches DAT_004d25b6, the input poll's abort flag, which closes the panel from under it. Returns the close flag & 1, so button 0 reads 0 and button 1 reads 1.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "00456068",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "StatusAlertPanel_Paint",
+      "signature": "void __cdecl StatusAlertPanel_Paint(int *panel)",
+      "description": "gnl_alrt's vtable slot 0. Plate at the panel origin, title, then the body: counts the rows up to the first empty or null one (max 4) and draws them from row 0 -- except that a one-line body is drawn on row 1 instead, so a short message sits nearer the middle of the plate. Then each button's own paint.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "00456160",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "StatusAlertPanel_OnChildClick",
+      "signature": "void __cdecl StatusAlertPanel_OnChildClick(int panel, int child)",
+      "description": "gnl_alrt's vtable slot +0xc. Writes close flag 2 for child 0 and 3 for child 1; the loop returns that & 1, which is what lets the caller tell the two buttons apart.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "004561ac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "StatusAlertPanel_GetButtonCaption",
+      "signature": "char * __cdecl StatusAlertPanel_GetButtonCaption(int panel, int index)",
+      "description": "gnl_alrt's vtable slot +0x14: indexes the two-entry caption pointer at +0x336 that the constructor pointed at this status's row of GNL_ALRT.STR group 1.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "004561c0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PausePanel_Ctor",
+      "signature": "void * __cdecl PausePanel_Ctor(void *panel, int status, char ownsBackingStore, int *rect)",
+      "description": "The small 178x68 sibling of the status alert, built on GNL_ALRT.HBA frame 1 and the same three GNL_ALRT.STR groups. Only statuses 0 and 1 have a case -- PAUSE with one button and EXIT EARTHSIEGE? with two -- and both reach it as constants from Sim_DispatchCommand. Any other status leaves it with no buttons.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "0049f5d8",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "AlertPanel_EndsMissionButton",
+      "description": "Per alert status, the index of the button whose press ends the mission. Both of the status alert's call sites compare the modal loop's return against this entry and nothing else decides it. Entry 7 is 1 against a one-button panel, which is what makes the mission-boundary warning an acknowledgement rather than a choice.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "00455908",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "StatusAlertPanel_CtorMinimal",
+      "signature": "void * __cdecl StatusAlertPanel_CtorMinimal(void *panel, int status, char ownsBackingStore, int *rect)",
+      "description": "Chains AlertPanel_CtorBase and installs gnl_alrt's vtable, nothing else. Both the status alert and the pause panel start here and then build their own widgets; the pause panel goes on to overwrite the vtable pointer with its own duplicate of the same six entries.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "0045a47c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimCommandQueue_Push",
+      "signature": "undefined4 __cdecl SimCommandQueue_Push(undefined2 command)",
+      "description": "Appends one command code to the queue at DAT_004d2148 that Sim_PollPlayerInput drains into Sim_DispatchCommand, or returns 2 when the queue is closed (DAT_0049eacc). Registered as a callback by SimInput_SetEnabled rather than called directly, which is why it has no call site.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "0045b670",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimInput_SetEnabled",
+      "signature": "undefined4 __cdecl SimInput_SetEnabled(byte enabled)",
+      "description": "Toggles the simulator's keyboard input on and off. Turning it on registers FUN_0045a308 and SimCommandQueue_Push with the input system; turning it off clears the three 15-byte key-state blocks at DAT_004d2418.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "0045cfd4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PreferencesPanel_Run",
+      "signature": "void __cdecl PreferencesPanel_Run(void)",
+      "description": "What [F12] and [Alt+P] reach (commands 0x58 and 0x219): builds ctl_alrt, raises DAT_004d2576 to stop the simulation while it is up, and snapshots the view object's own settings block so the panel can edit it. The manual's Preferences screen. Its contents are not decoded.",
+      "source": "docs/simulation/mission-objectives.md"
     }
   ]
 }

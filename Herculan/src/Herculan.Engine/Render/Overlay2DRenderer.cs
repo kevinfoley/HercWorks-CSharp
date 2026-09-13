@@ -2408,6 +2408,163 @@ public sealed class Overlay2DRenderer : IDisposable {
 	private const float ReadoutGap = 2 * CockpitArt.GauToPixelScale;
 
 
+	/// <summary>
+	/// The [F11] objectives panel, drawn over the whole window — <c>obj_alrt</c>
+	/// (<c>ObjectivesPanel_Ctor</c>, <c>0045751c</c>) and its paint (<c>ObjectivesPanel_Paint</c>,
+	/// <c>00457b58</c>), in that paint's own order: the background plate at the panel's origin, the
+	/// title, the objective lines, then the one widget the panel owns.
+	/// </summary>
+	public void DrawObjectivesPanel(int windowWidth, int windowHeight, GpuTexture spriteTexture,
+			HudSpriteSheet sprites, ObjectivesPanel panel) {
+		ArgumentNullException.ThrowIfNull(panel);
+		ArgumentNullException.ThrowIfNull(sprites);
+
+		var lines = new List<(string Font, string Text, AlertPanelLayout.Rect Rect)>(panel.Lines.Count);
+		for (int i = 0; i < panel.Lines.Count; i++) {
+			lines.Add((ObjectiveLineFont, panel.Lines[i], ObjectivesPanelLayout.Line(i)));
+		}
+
+		DrawAlertPanel(windowWidth, windowHeight, spriteTexture, sprites,
+			ObjectivesPanelLayout.Place(windowWidth, windowHeight),
+			ObjectivesPanel.BackgroundBank, 0,
+			panel.Title, ObjectivesPanelLayout.Title(Measure(sprites, AlertPanelLayout.TitleFont, panel.Title)),
+			lines,
+			new[] { (panel.ButtonCaption, ObjectivesPanelLayout.Button, panel.ButtonPressed) });
+	}
+
+	/// <summary>
+	/// The mission-status alert — <c>gnl_alrt</c> (<c>StatusAlertPanel_Ctor</c>, <c>00455934</c>) and
+	/// its paint (<c>StatusAlertPanel_Paint</c>, <c>00456068</c>) — or the pause panel, which shares
+	/// that same paint and differs only in its plate and its rects. Same shape as the objectives
+	/// panel and the same draw; what differs is a green body font instead of a yellow one, and one or
+	/// two buttons instead of exactly one.
+	///
+	/// <para><b>A one-line body starts on the second row</b>, not the first — the paint's own
+	/// <c>lineCount == 1</c> test, which centres a short message in the block instead of hanging it
+	/// from the top. <see cref="StatusAlertPanelLayout.FirstRowFor"/>. The pause panel never reaches
+	/// it: its two statuses carry no body text at all.</para>
+	/// </summary>
+	public void DrawStatusAlertPanel(int windowWidth, int windowHeight, GpuTexture spriteTexture,
+			HudSpriteSheet sprites, StatusAlertPanel panel) {
+		ArgumentNullException.ThrowIfNull(panel);
+		ArgumentNullException.ThrowIfNull(sprites);
+
+		bool pause = panel.Variant == AlertPanelVariant.Pause;
+		int firstRow = StatusAlertPanelLayout.FirstRowFor(panel.Body.Count);
+		var lines = new List<(string Font, string Text, AlertPanelLayout.Rect Rect)>(panel.Body.Count);
+		for (int i = 0; i < panel.Body.Count; i++) {
+			lines.Add((StatusAlertPanelLayout.BodyFont, panel.Body[i],
+				StatusAlertPanelLayout.BodyRow(firstRow + i)));
+		}
+
+		var buttons = new (string Caption, AlertPanelLayout.Rect Rect, bool Pressed)[panel.Buttons.Count];
+		for (int i = 0; i < buttons.Length; i++) {
+			buttons[i] = (panel.Buttons[i],
+				StatusAlertPanel.ButtonRect(panel.Variant, i, buttons.Length),
+				panel.PressedButton == i);
+		}
+
+		int titleWidth = Measure(sprites, AlertPanelLayout.TitleFont, panel.Title);
+
+		DrawAlertPanel(windowWidth, windowHeight, spriteTexture, sprites,
+			panel.Place(windowWidth, windowHeight),
+			pause ? PausePanelLayout.PlateBank : StatusAlertPanelLayout.PlateBank,
+			pause ? PausePanelLayout.PlateFrame : StatusAlertPanelLayout.PlateFrame,
+			panel.Title,
+			pause ? PausePanelLayout.Title(titleWidth) : StatusAlertPanelLayout.Title(titleWidth),
+			lines, buttons);
+	}
+
+	/// <summary>
+	/// One modal alert panel, drawn over the whole window in the order every panel of the family
+	/// paints itself: the plate at the panel's own origin, the title, the body rows, then each
+	/// button — its plate for the state it is in, and its caption over that.
+	///
+	/// <para>It is its own viewport and its own draw rather than a layer on a cockpit panel: the
+	/// original's panels are screen-space modals centred on the 640x480 screen, not something
+	/// anchored to a piece of canopy art, and they have to sit over all three cockpit panels and the
+	/// heads-down view at once. The <see cref="AlertPanelLayout.Placement"/> the caller passes is the
+	/// transform, and the input path takes the same one so a click cannot drift off its button.</para>
+	///
+	/// <para>Everything comes out of the cockpit's shared atlas — the plates are banks in it and the
+	/// fonts are glyph runs in it — so a whole panel is one bind and one draw.</para>
+	/// </summary>
+	private void DrawAlertPanel(int windowWidth, int windowHeight, GpuTexture spriteTexture,
+			HudSpriteSheet sprites, AlertPanelLayout.Placement place, string plateBank, int plateFrame,
+			string title, AlertPanelLayout.Rect titleRect,
+			IReadOnlyList<(string Font, string Text, AlertPanelLayout.Rect Rect)> lines,
+			IReadOnlyList<(string Caption, AlertPanelLayout.Rect Rect, bool Pressed)> buttons) {
+		ArgumentNullException.ThrowIfNull(spriteTexture);
+
+		_gl.Viewport(0, 0, (uint)Math.Max(windowWidth, 1), (uint)Math.Max(windowHeight, 1));
+		_gl.Disable(EnableCap.DepthTest);
+		_gl.Enable(EnableCap.Blend);
+		_gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+
+		_shader.Use();
+		_shader.SetVector2("uViewportSize", new Vector2(windowWidth, windowHeight));
+		_vertices.Clear();
+
+		Blit(plateBank, plateFrame, 0, 0);
+		Label(AlertPanelLayout.TitleFont, title, titleRect);
+
+		foreach (var (font, text, rect) in lines) {
+			Label(font, text, rect);
+		}
+
+		// A button's plate art is larger than its widget rect on both axes and is blitted at the
+		// rect's origin, so it overhangs to the right and below — the original's own placement.
+		foreach (var (caption, rect, pressed) in buttons) {
+			Blit(AlertPanelLayout.ButtonBank, AlertPanelLayout.ButtonFrame(pressed), rect.X0, rect.Y0);
+			Label(AlertPanelLayout.CaptionFont(pressed), caption, rect);
+		}
+
+		if (_vertices.Count > 0) {
+			_shader.SetSamplerTexture("uTexture", spriteTexture.Handle, 0);
+			_mesh.SubmitAndDraw(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_vertices));
+		}
+
+		_gl.Disable(EnableCap.Blend);
+		_gl.Enable(EnableCap.DepthTest);
+
+		void Blit(string bank, int frame, float left, float top) {
+			if (sprites.Sprite(bank, frame) is not { } sprite || sprite.Width <= 0 || sprite.Height <= 0) {
+				return;
+			}
+
+			var (x0, y0) = place.ToWindow(left, top);
+			var (x1, y1) = place.ToWindow(left + sprite.Width * sprite.Scale, top + sprite.Height * sprite.Scale);
+			var r = sprite.Rect;
+			AddTexturedQuad(x0, y0, x1, y1, r.U0, r.V0, r.U1, r.V1);
+		}
+
+		// Every label on these panels is centred, which is the one alignment their constructors pass.
+		void Label(string fontName, string text, AlertPanelLayout.Rect rect) {
+			if (text.Length == 0 || sprites.Font(fontName) is not { } font) {
+				return;
+			}
+
+			var (textX, textY) = font.Place(text, rect.X0, rect.Y0, rect.X1, rect.Y1, LabelAlign.Center);
+			float pen = textX;
+			foreach (char c in text) {
+				if (font.GlyphIndex(c) is { } glyph) {
+					Blit(fontName, glyph, pen, textY);
+					pen += font.Width(c);
+				}
+			}
+		}
+	}
+
+	private static int Measure(HudSpriteSheet sprites, string fontName, string text) =>
+		sprites.Font(fontName)?.Measure(text) ?? 0;
+
+	/// <summary>
+	/// The objectives panel's line font, <c>DAT_004d1ea0</c> — the cockpit yellow the retail
+	/// screenshot shows. Both panels construct their button captions in it too, and neither is ever
+	/// drawn in it: a button's paint overwrites the label's font from its own state table every time.
+	/// </summary>
+	private const string ObjectiveLineFont = "CPYLW";
+
 	private void AddTexturedQuad(float x0, float y0, float x1, float y1, float u0, float v0, float u1, float v1) {
 		var a = new Overlay2DVertex(new Vector2(x0, y0), new Vector2(u0, v0));
 		var b = new Overlay2DVertex(new Vector2(x1, y0), new Vector2(u1, v0));

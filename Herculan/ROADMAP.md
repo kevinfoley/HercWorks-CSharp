@@ -48,12 +48,18 @@ The mechanism is understood; what is left is engine work.
   original slides a two-frame window across the bank from the heading. The waypoint indicators over
   it are correct, so they and the compass disagree.
   → [`docs/formats/cockpit-hud.md`](docs/formats/cockpit-hud.md#heading-tape)
-- **The objective layer's two panels.** The records, the status and the four lines the computer
-  speaks are ported; neither panel that shows them is. The modal alert (`gnl_alrt`, `FUN_00455934`)
-  that a status change raises is latched on `SimWorld.PendingMissionAlert` and nothing draws it, and
-  the in-mission objectives list (`obj_alrt`, `FUN_0045751c`) has its data on `Mission.BriefingLines`
-  and `Mission.Text` and nothing lists it.
-  → [`docs/simulation/mission-objectives.md`](docs/simulation/mission-objectives.md)
+- **What happens after a mission ends.** The objective layer, both its panels and the answer that
+  ends a mission are ported, but the engine has nowhere to hand that answer: the original returns it
+  up through `Sim_MainTick` and the shell writes `(status == 9)` into `results.dat` and advances the
+  campaign. Here the window simply closes.
+  → [`docs/simulation/mission-objectives.md`](docs/simulation/mission-objectives.md),
+  [`docs/formats/save-games.md`](docs/formats/save-games.md)
+- **The preferences panel.** `ctl_alrt` (`FUN_004566c4`), which `[F12]` and `[Alt+P]` raise through
+  `FUN_0045cfd4` and which pauses the simulation while it is up — the manual's Preferences screen,
+  with the music, sound and graphics-detail switches on it. Its contents are not decoded, and
+  neither is `prf_alrt` (`FUN_00457d1c`), the fourth panel of the family, which is built from a
+  modal of its own (`FUN_00456d4c`) rather than from the dispatcher.
+  → [`docs/formats/cockpit-input.md`](docs/formats/cockpit-input.md#keyboard-commands-are-scancodes)
 - **The computer's damage messages.** The engine speaks the objective set, the waypoint, the radar
   and auto-track toggles and the power-up line. The rest of `Computer_PostMessage`'s traffic — the
   `INTERNAL DAMAGE` family, `WEAPON DESTROYED`, `DAMAGE LEVEL CRITICAL`, `SHIELDS CRITICAL`, and

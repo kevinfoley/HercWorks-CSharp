@@ -779,13 +779,12 @@ machine's angles start.
 **The heading's delta reaches a waypoint indicator, and does nothing.** Child 7 overrides slot `+0xc`
 with `HudWaypointIndicator_ShiftLimits` (`0043c3d0`), which adds the delta to `+0x24` and `+0x26`
 rather than to a value — and `Hud_UpdateWaypointIndicator` reads neither, only the range `+0x2c` that
-an equal shift of both leaves alone. The heading tape, child 1, is driven separately and directly
-from `mech+0x10` by the gunsight's own update slot.
+an equal shift of both leaves alone. The heading tape, child 1, is not driven from here at all.
 
 The same call copies the whole 38-byte state block into children 4 and 5. Everything in it past the
-three angles is filled by the gunsight's own update slot (`FUN_0043d6dc`) from the target block at
-`CockpitView+0x26c` — see [`hud-target-indicator.md`](hud-target-indicator.md). `FUN_0043d6dc` also
-drives child 1 from `mech+0x10` and runs each child's slot `+4`.
+three angles is filled by the gunsight's own update slot, `Gunsight_UpdateAndPaint` (`0043d6dc`), from
+the target block at `CockpitView+0x26c` — see [`hud-target-indicator.md`](hud-target-indicator.md).
+That slot also drives child 1 and runs each child's slot `+4`.
 
 ### Rotation indicator
 
@@ -811,8 +810,8 @@ so the bar never reaches the ends of its track.
 
 Child 1, the manual's Heading Indicator. `HudHeadingTape_Recompute` (`0043b5dc`) caches the rect's
 width at `+0x28` and the `hudhtick` bank's last and first frames at `+0x48`/`+0x4c`;
-`HudHeadingTape_SetHeading` (`0043b654`) converts the heading into a frame pair and a sub-frame
-offset:
+`HudHeadingTape_SetHeading` (`0043b654`) converts the angle it is given into a frame pair and a
+sub-frame offset:
 
 ```
 total   = Math_Q16Multiply(heading, framePixels)     // +0x40, bankFrames * rectWidth in Q16
@@ -823,7 +822,53 @@ frame   = total / rectWidth,  offset = total % rectWidth   // both wrapped at ba
 
 The paint (`0043b6dc`) narrows the canvas clip to the rect and blits those two frames at `+0x44` and
 `+0x44 + rectWidth`, so the tape is a strip of full-width frames sliding through a window: the whole
-compass, degree labels included, is art, and the heading picks which slice of it shows.
+compass, degree labels included, is art, and the angle picks which slice of it shows. Retail's bank is
+nine 256x16 frames against a 240-device-pixel window, so the pair always covers it with no seam.
+
+**The angle is the heading negated.** `Gunsight_UpdateAndPaint` reads the viewing object's
+`mech+0x10` and calls child 1's `+0xc` with `-heading`. Without that sign the strip would run opposite
+to the simulation's own bearings, and a tick would slide one way while the waypoint diamond naming the
+same bearing slid the other. Because the art's degrees rise left to right, the negation is also what
+makes the readout count *up* as the machine turns right, the ordinary compass convention, out of
+headings that run counter-clockwise.
+
+#### Power-up wind-up
+
+On taking a machine the tape starts at north and winds round to the real heading. Two fields of the
+shared widget base carry it — `+0x8c` armed, `+0x8d` done — cleared by the base constructor
+(`00438b20`) and set by `Widget_BeginPowerUpAnimation` (`00438ddc`), which also stamps `+0x90` with
+`Time_GetCoarseTicks`. While armed and not done, `Gunsight_UpdateAndPaint` substitutes a ramp for the
+heading:
+
+```
+ramp = (ushort)((coarseTicks - +0x90) * 0x32)
+heading <= 0x8000:  angle = ramp,   done when heading <= ramp
+heading >  0x8000:  angle = -ramp,  done when -ramp <= heading
+```
+
+`0x32` a coarse tick is about 17°/s, so the longest wind-up is some ten seconds. It always takes the
+short way round: below half a turn the angle climbs from north, above it the angle descends.
+`Cockpit_PowerUpTick` (`00432924`) arms the gunsight on the first tick after
+`Cockpit_PowerUpSound` stamps the sequence's start, and arms the ten heads-down gauges on their own
+delays.
+
+**Two things stop it, which is why it is not seen every mission.**
+
+- **A flyer never winds up.** `Gau_BuildCockpitWidgets` (`00431bf8`) ends with a branch taken when the
+  piloted machine's type record has `InputFlagFlyer` set — `mech+0x1f2 -> +0x50`, the RAZOR alone (see
+  [`../simulation/mech-locomotion.md`](../simulation/mech-locomotion.md)'s type-record table). It
+  arms *and* immediately marks done the gunsight and the ten gauges, and sets `cockpit+0x245`, which
+  stops `Cockpit_PowerUpSound` ever stamping the start time. So a RAZOR cockpit reads true from its
+  first frame; the same flag gates the engine hum, [`audio.md`](audio.md#the-cockpit-power-up).
+- **A heading past half a turn never winds up either.** The descending branch is done as soon as
+  `-ramp <= heading`, and on the frame the widget is armed `ramp` is still zero — which is at or below
+  every heading in that half. The arm and the first paint fall in the same pass, so a machine facing
+  anywhere past `0x8000` is done before it has moved. The climbing branch survives that frame, since a
+  climbing zero is below every heading but zero itself. Listed in
+  [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
+
+Only the tape is ramped. The waypoint indicators over it go on reading the true heading throughout,
+so they and the compass visibly disagree for as long as the wind-up lasts.
 
 ### Waypoint indicators
 

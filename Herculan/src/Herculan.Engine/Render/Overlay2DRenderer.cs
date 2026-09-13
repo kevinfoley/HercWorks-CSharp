@@ -957,6 +957,30 @@ public sealed class Overlay2DRenderer : IDisposable {
 		void BlitDevice(string bank, int frame, float deviceLeft, float deviceTop) =>
 			Blit(bank, frame, Dx(deviceLeft), Dy(deviceTop));
 
+		// The same blit trimmed to a span of device columns, for the one thing on the front window that is
+		// drawn wider than the box it belongs in: the heading tape's strip. The original installs a clip
+		// rect round the pair (HudHeadingTape_Paint narrows the canvas context to the tape's own rect and
+		// restores it after), so the frames hanging out either end are cut at the window's edges rather
+		// than painted over the canopy. Trimming the quad and its UVs by the same fraction keeps the whole
+		// cockpit one batch, exactly as the Heads-Down Display's own clipped blit does.
+		void BlitDeviceClippedX(string bank, int frame, float deviceLeft, float deviceTop,
+				float clipLeft, float clipRight) {
+			if (sprites.Sprite(bank, frame) is not { } sprite || sprite.Width <= 0 || sprite.Height <= 0) {
+				return;
+			}
+
+			float width = sprite.Width * sprite.Scale;
+			float x0 = Math.Max(deviceLeft, clipLeft), x1 = Math.Min(deviceLeft + width, clipRight);
+			if (x1 <= x0) {
+				return;
+			}
+
+			var r = sprite.Rect;
+			AddTexturedQuad(Dx(x0), Dy(deviceTop), Dx(x1), Dy(deviceTop + sprite.Height * sprite.Scale),
+				r.U0 + (r.U1 - r.U0) * ((x0 - deviceLeft) / width), r.V0,
+				r.U1 - (r.U1 - r.U0) * ((deviceLeft + width - x1) / width), r.V1);
+		}
+
 		// A sprite rotated about its own top-left corner rather than blitted axis-aligned — the MFD
 		// scanner's turret wedge is the one thing on the cockpit drawn this way. The pivot is the
 		// corner and not the centre because Bitmap_BlitRotatedScaled (00488a8c) builds its destination
@@ -983,12 +1007,6 @@ public sealed class Overlay2DRenderer : IDisposable {
 
 			AddTexturedQuad(pivot, pivot + right, pivot + right + down, pivot + down,
 				r.U0, r.V0, r.U1, r.V1);
-		}
-
-		void BlitAt(string bank, int frame, WidgetBase? widget) {
-			if (widget != null) {
-				Blit(bank, frame, Px(widget.Origin.X), Py(widget.Origin.Y));
-			}
 		}
 
 		// Draws one run of glyphs left to right from a device-pixel top-left and reports where the run
@@ -1073,7 +1091,15 @@ public sealed class Overlay2DRenderer : IDisposable {
 
 		AddMfd(hud, state, BlitDevice, BlitRotatedDevice, DrawRun,
 			(x0, y0, x1, y1, color) => AddFilledRect(Dx(x0), Dy(y0), Dx(x1), Dy(y1), color));
-		BlitAt("HUDHTICK", 0, gau.TorsoTwist);
+		// The heading tape. The whole compass — ticks, degree labels and all — is the hudhtick bank's
+		// art laid end to end, and the heading picks which slice of it shows: two consecutive frames a
+		// rect-width apart, clipped to the rect, sliding through it as the machine turns. See HeadingTape.
+		if (HeadingTape.From(hud) is { } tape) {
+			var (frame, next, scrollX) = tape.Slice(state.Heading);
+			BlitDeviceClippedX(HeadingTape.SpriteBank, frame, scrollX, tape.Top, tape.Left, tape.Left + tape.Width);
+			BlitDeviceClippedX(HeadingTape.SpriteBank, next, scrollX + tape.Width, tape.Top,
+				tape.Left, tape.Left + tape.Width);
+		}
 
 		// The Rotation Indicator, above the heading tape: a fixed track with a bar sliding along it at
 		// the turret's twist angle, in one of two colours depending on whether the turret is centred.

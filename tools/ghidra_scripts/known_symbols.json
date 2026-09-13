@@ -1414,7 +1414,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Gau_BuildCockpitWidgets",
-      "description": "Caller of Gau_Load. Builds a per-herc cockpit object and constructs 7 top-level HUD widgets from fixed literal byte offsets (468, 548, 616, 728, 1000, 1088, 1212) into the loaded .GAU struct.",
+      "description": "Caller of Gau_Load. Builds a per-herc cockpit object and constructs 7 top-level HUD widgets from fixed literal byte offsets (468, 548, 616, 728, 1000, 1088, 1212) into the loaded .GAU struct, storing them at cockpit+0x1e9..+0x1f9 (offset 1088, the roving gunsight, at +0x1f5). Ends with the flyer branch: when the piloted machine's type record has a non-zero +0x50 (InputFlagFlyer, the RAZOR alone) it marks the power-up already finished at cockpit+0x245 and both arms and immediately latches (+0x8d = 1) the ten gauges and the three widgets at +0x1e9/+0x1f5/+0x1ed, so none of them plays its power-up animation and Cockpit_PowerUpSound never stamps a start tick.",
       "source": "memory project_es2_exe_recon 2026-08-10"
     },
     {
@@ -7091,7 +7091,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Gunsight_UpdateAndPaint",
-      "description": "The roving gunsight's vtable +8, called once a frame from maybe_Sim_RenderFrame. Copies CockpitView+0x26c..+0x27e (target, world aim point, component id) into the widget's state block at +0xb7..+0xc9, adds the target's heading (+0xc7), its shape radius from vtable +0x10 (+0xcd) and a literal 2000 (+0xd1), drives child 1 from the viewing object's heading, then runs every child's slot +4 and repaints the whole complex.",
+      "description": "The roving gunsight's vtable +8, called once a frame from maybe_Sim_RenderFrame. Copies CockpitView+0x26c..+0x27e (target, world aim point, component id) into the widget's state block at +0xb7..+0xc9, adds the target's heading (+0xc7), its shape radius from vtable +0x10 (+0xcd) and a literal 2000 (+0xd1), drives child 1, the heading tape, with the NEGATED viewing object's heading -- the sign that makes the compass strip run the same way the simulation's own bearings do -- then runs every child's slot +4 and repaints the whole complex. While the armed byte +0x8c is set and the done byte +0x8d clear, child 1 is given the power-up wind-up ramp (coarseTicks - +0x90) * 0x32 as a ushort instead: climbing from zero for a heading <= 0x8000, counting down from zero above it, latching +0x8d the frame it reaches the heading.",
       "source": "docs/formats/hud-target-indicator.md 2026-08-30"
     },
     {
@@ -8320,12 +8320,22 @@
       "source": "docs/formats/audio.md"
     },
     {
+      "address": "00438ddc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_BeginPowerUpAnimation",
+      "signature": "void __cdecl Widget_BeginPowerUpAnimation(void * widget)",
+      "description": "Starts one cockpit widget's power-up animation: sets the armed byte at widget+0x8c and stamps widget+0x90 with Time_GetCoarseTicks. Both live on the shared widget base, cleared by its constructor (00438b20) along with the done byte at +0x8d, and each class reads them in its own paint -- for the roving gunsight that is the compass wind-up in Gunsight_UpdateAndPaint. Cdecl with one stack argument and no used return: all eight call sites, in Cockpit_PowerUpTick and the flyer tail of Gau_BuildCockpitWidgets, discard EAX and pop their own argument.",
+      "source": "docs/formats/cockpit-hud.md"
+    },
+    {
       "address": "00432924",
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
       "name": "Cockpit_PowerUpTick",
-      "description": "The cockpit power-up sequence. Once 200 < coarse ticks have passed since it began, walks the ten heads-down gauges (FUN_0041b514, then FUN_00438700 < 0x5a) and posts message 0x22 POWERUP INITIATED. INTERNAL DAMAGE DETECTED. if any is under, else 0x21 ... ALL SYSTEMS NOMINAL. At 16 ms a coarse tick that lands 3.2 s in, inside start3's five seconds rather than after them.",
+      "description": "The cockpit power-up sequence, gated on the start tick Cockpit_PowerUpSound stamps at cockpit+0x241. Each pass arms any widget not yet armed with Widget_BeginPowerUpAnimation: the ten heads-down gauges each after their own delay from the DAT_0049b05a table, and cockpit+0x1e9, +0x1f5 (the roving gunsight) and +0x1ed as soon as elapsed is non-zero. Separately, once 200 < coarse ticks have passed, walks the ten gauges (FUN_0041b514, then FUN_00438700 < 0x5a) and posts message 0x22 POWERUP INITIATED. INTERNAL DAMAGE DETECTED. if any is under, else 0x21 ... ALL SYSTEMS NOMINAL. At 16 ms a coarse tick that lands 3.2 s in, inside start3's five seconds rather than after them.",
       "source": "docs/formats/audio.md"
     },
     {

@@ -89,6 +89,14 @@ public sealed class HudSpriteSheet {
 	}
 
 	/// <summary>
+	/// How many frames <paramref name="bank"/> holds, or zero when it never loaded. The heading tape
+	/// needs this: its scroll maps a whole turn onto the whole bank, so the bank's own length is the
+	/// scale — the original reads it out of the loaded resource the same way.
+	/// </summary>
+	public int FrameCount(string bank) =>
+		_banks.TryGetValue(bank, out var entry) ? entry.FrameSizes.Length : 0;
+
+	/// <summary>
 	/// One frame of a bank loaded with <c>keepIndexed</c>, still as the palette indices the file
 	/// holds. The atlas has already resolved those to RGBA, which loses the identity a paper-doll
 	/// tint needs: it repaints only the pixels holding one particular index (see

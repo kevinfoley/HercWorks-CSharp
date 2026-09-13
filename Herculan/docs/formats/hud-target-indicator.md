@@ -12,7 +12,7 @@ Engine implementation: `Herculan.Engine.Content.{TargetBox, TargetIndicator}`,
 | Step | Symbol | What it does |
 |---|---|---|
 | 1 | `Player_PerFrameCockpitUpdate` (`0041b130`) | Computes the target's world aim point via `FUN_0041b728` and parks it at `CockpitView+0x26c`..`+0x27e` (`FUN_00434a24`) |
-| 2 | `FUN_0043d6dc` (gunsight vtable `+8`) | Reads that block back into the gunsight's own state block at `+0xb1` |
+| 2 | `Gunsight_UpdateAndPaint` (`0043d6dc`, gunsight vtable `+8`) | Reads that block back into the gunsight's own state block at `+0xb1` |
 | 3 | `Gunsight_SetValues` (`0043d98c`) | Copies the state block into children 4 and 5 (`+0xe7`, `+0xeb`) |
 
 The 38-byte state block, offsets from the gunsight's `+0xb1` and from a child's `+0x14`:

@@ -47,6 +47,12 @@
 /// shows. Binary angle relative to the machine's own heading, positive to the same side
 /// <see cref="Herculan.Engine.Sim.MechControls.TorsoTwist"/> positive drives it.
 /// </param>
+/// <param name="Heading">
+/// The angle the gunsight hands the front window's Heading Indicator. That is the machine's own
+/// heading, <c>mech+0x10</c>, every frame but the cockpit's power-up wind-up, when it is that ramp
+/// instead — see <see cref="HeadingTapeSweep"/>. A binary angle; <see cref="HeadingTape"/> negates
+/// and slides the compass strip behind its window by it.
+/// </param>
 /// <param name="MissionTime">
 /// The front window's <c>TIME:</c> readout, already rendered — see <see cref="MissionClock"/>, which
 /// carries it as ASCII digits rather than as a duration.
@@ -127,6 +133,7 @@ public readonly record struct CockpitHudState(
 	int SpeedKph,
 	short Throttle,
 	short TorsoTwist,
+	short Heading,
 	string MissionTime,
 	int ChainGroup,
 	bool AutoTrack,
@@ -167,6 +174,7 @@ public readonly record struct CockpitHudState(
 		SpeedKph: 0,
 		Throttle: 0,
 		TorsoTwist: 0,
+		Heading: 0,
 		MissionTime: "",
 		ChainGroup: 0,
 		AutoTrack: false,

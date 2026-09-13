@@ -43,11 +43,6 @@ The mechanism is understood; what is left is engine work.
   on but the TRACK button's own lamp and the computer's spoken confirmation.
   → [`docs/formats/cockpit-hud.md`](docs/formats/cockpit-hud.md#front-window-hud--the-gunsight-complex),
   [`docs/simulation/torso-aim.md`](docs/simulation/torso-aim.md)
-- **The heading tape does not scroll.** The engine blits `hudhtick` frame 0 at the tape's rect and
-  leaves it there, so the compass reads the same degrees whichever way the machine faces. The
-  original slides a two-frame window across the bank from the heading. The waypoint indicators over
-  it are correct, so they and the compass disagree.
-  → [`docs/formats/cockpit-hud.md`](docs/formats/cockpit-hud.md#heading-tape)
 - **What happens after a mission ends.** The objective layer, both its panels and the answer that
   ends a mission are ported, but the engine has nowhere to hand that answer: the original returns it
   up through `Sim_MainTick` and the shell writes `(status == 9)` into `results.dat` and advances the

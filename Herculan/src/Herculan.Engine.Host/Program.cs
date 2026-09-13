@@ -734,9 +734,14 @@ if (autoTrack && pilotMech != null) {
 // be judged inaudible, never started, and never retried. The camera does not exist yet at this point
 // in setup and would not be positioned if it did, so the machine's own eye stands in — which is where
 // the camera opens anyway.
+// The compass winds up from north over the same power-up, on a walking machine only — the sweep
+// decides that for itself off the same InputFlagFlyer the engine hum is gated on. Built here rather
+// than at cockpit-build time because it needs the tick the power-up began on.
+HeadingTapeSweep? headingSweep = null;
 if (pilotMech != null) {
 	audio.SetListener(pilotMech.EyePosition, pilotMech.Heading);
 	audio.PowerUp(pilotMech);
+	headingSweep = HeadingTapeSweep.ForPowerUp(pilotMech, audio.CoarseTicks);
 }
 
 if (pilotMech != null) {
@@ -1767,6 +1772,12 @@ window.Update += deltaSeconds => {
 			SpeedKph = pilotMech.DisplaySpeedKph,
 			Throttle = throttleGauge,
 			TorsoTwist = pilotMech.TorsoTwistAngle,
+
+			// What the gunsight hands the heading tape: the machine's own heading out of mech+0x10, except
+			// while the cockpit's power-up wind-up is still running, when it is that ramp instead. The
+			// sweep latches itself as it goes, so this is the once-a-frame call it expects.
+			Heading = headingSweep?.Angle((short)pilotMech.Heading, audio.CoarseTicks)
+				?? (short)pilotMech.Heading,
 			ShieldFront = pilotMech.Shields.FrontReadout,
 			ShieldRear = pilotMech.Shields.RearReadout,
 			EnergyFraction = pilotMech.EnergyPoolFraction,

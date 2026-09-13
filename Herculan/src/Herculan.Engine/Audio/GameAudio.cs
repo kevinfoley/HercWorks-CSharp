@@ -25,6 +25,13 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	/// </summary>
 	public const double CoarseTickSeconds = 0.016;
 
+	/// <summary>
+	/// <c>Time_GetCoarseTicks</c> as this session has counted it — the same clock the message port
+	/// runs on, and the one the cockpit's power-up animations are timed against. Exposed because the
+	/// compass's wind-up is stamped and ramped in it; see <see cref="Content.HeadingTapeSweep"/>.
+	/// </summary>
+	public long CoarseTicks => (long)_messageTicks;
+
 	private readonly SoundDirector? _director;
 	private MechObject? _engineLoopOwner;
 	private MechObject? _pilot;

@@ -147,13 +147,15 @@ hit-testing rather than new drawing code. What is missing:
 ## Other unported features
 - Currently missing is a quirk from retail where the player's shield meter fills in over ~10 seconds at the start of a mission. Claude says there's no explanation for this in the shield code, where the shields start out at full charge, and would take ~30 seconds to fully charge from empty. The fade-in-over-10-seconds may be a HUD animation that hasn't been discovered during RE yet.
 - Similarly to the previous, currently missing is an animation where weapon buttons wink on one-at-a-time when the simulation first starts.
-- Preferences and Controls (F12): both screens are laid out, read the install's own `data\prefs.cfg`
-  and cycle their settings, but nothing is persisted or applied. Writing the array back to the file
-  is unported, and so is the per-option handler table (`004d2060`) that makes a changed setting take
-  effect while the panel is still up — five options have one, including the joystick throttle-lever
-  mode. There is also no joystick input, so the Controls screen greys every row as retail does on
-  hardware it cannot enumerate.
+- Preferences (F12): the screen is laid out, reads the install's own `data\prefs.cfg` and cycles its
+  settings, but a changed setting is not applied while the panel is still up. The per-option handler
+  table (`004d2060`) is unported — five options have one. Writing the file back is implemented and
+  byte-exact, but opt-in behind `--write-prefs` because it touches the player's retail install.
   → [`docs/simulation/preferences.md`](docs/simulation/preferences.md)
+- The outside and chase views. The joystick's `OUTSIDE VIEW` and `CHASE VIEW` actions step a chain of
+  external cameras (`DAT_004d2572`, four states) that the engine has no equivalent of, so those two
+  bindings do nothing.
+  → [`docs/formats/joystick-input.md`](docs/formats/joystick-input.md#the-buttons)
 - Cheats (other than Alt-D to drop a waypoint at your position, which is implemented; this one isn't documented but also doesn't really seem like a cheat).
 
 ## Debugging features

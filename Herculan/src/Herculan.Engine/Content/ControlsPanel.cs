@@ -135,7 +135,8 @@ public sealed class ControlsPanel {
 		_values = new string[ControlsPanelLayout.RowCount];
 		_actionNames = actionNames;
 		_buttonActions = buttonActions;
-		Capabilities = capabilities;
+		// The field, not the property: the setter refreshes, and _values has to exist first.
+		_capabilities = capabilities;
 		IsRazor = razor;
 		RefreshValues();
 	}
@@ -149,8 +150,33 @@ public sealed class ControlsPanel {
 	/// <summary>Whether this is the flight half. Settled by the player's machine, not by the panel.</summary>
 	public bool IsRazor { get; }
 
-	/// <summary>What the input layer reports, and so which rows are live.</summary>
-	public JoystickCapabilities Capabilities { get; }
+	/// <summary>
+	/// What the input layer reports, and so which rows are live.
+	///
+	/// <para>Settable because the original re-reads it every time the panel goes up rather than
+	/// holding what it was built with: <c>ControlsPanel_Run</c> (<c>00458650</c>) asks
+	/// <c>FUN_0045c508(3)</c> and then <c>Input_QueryCapabilities</c> at the top of its own loop, and
+	/// that function rebuilds its eight bytes from scratch on every call. So a stick plugged in
+	/// mid-session lights the rows up.</para>
+	///
+	/// <para>Changing it refreshes the readouts, because a row's text is written only when its
+	/// capability allows — <c>ControlsPanel_RefreshRow</c> (<c>00458d20</c>) sets none at all
+	/// otherwise. Without that, a panel opened before the input layer knew what it had would keep the
+	/// blanks it was refreshed with even once the rows went live.</para>
+	/// </summary>
+	public JoystickCapabilities Capabilities {
+		get => _capabilities;
+		set {
+			if (_capabilities == value) {
+				return;
+			}
+
+			_capabilities = value;
+			RefreshValues();
+		}
+	}
+
+	private JoystickCapabilities _capabilities;
 
 	/// <summary>The fourteen button captions, in widget order.</summary>
 	public IReadOnlyList<string> Captions => _captions;

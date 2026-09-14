@@ -195,23 +195,17 @@ starting a **whole pitch below** the caption, the constructor advancing its runn
 colour, which is why its rect can overlap the border the plate paints across that band without
 erasing it.
 
-### The capability block — `Input_QueryCapabilities` (`004777f8`)
+### The capability block
 
-Eight bytes rebuilt on every call, and the whole of what the panel greys its rows against:
-
-| Field | Is |
-|---|---|
-| `+0` | 2, or 1 when `DAT_006bb728` is set. **Never 0** |
-| `+2` | button count, `DAT_006bb438 + DAT_006bb5cc` clamped to 8 |
-| `+4` | has a throttle, from the device flags' bit 0 |
-| `+5` | has a rudder, bit 1 |
-| `+6` | has a hat, bit 4 |
+What the panel greys its rows against is `Input_QueryCapabilities`' eight bytes, whose fields the
+input layer owns —
+[`../formats/joystick-input.md`](../formats/joystick-input.md#the-capability-block--input_querycapabilities-004777f8).
 
 The panel reaches it in two steps. `FUN_0045c508(3)` is asked first, and when it answers null or with
 its low bit clear the panel takes **no block at all** and greys all twelve rows at once — which is
 what a stick the retail code cannot enumerate produces. Only past that gate does it read the fields
-above and grey rows one at a time. The JOYSTICK row has no field of its own: once a stick is present
-it is always live.
+and grey rows one at a time: `+2` bounds the button rows, `+4`, `+5` and `+6` gate THROTTLE, RUDDER
+and HAT. The JOYSTICK row has no field of its own: once a stick is present it is always live.
 
 `ControlsPanel_RefreshRow` (`00458d20`) gates every one of its twelve cases on the same capability
 and **sets no text at all** when it fails, so a greyed row reads blank rather than showing a stale
@@ -220,7 +214,9 @@ binding.
 ### The bindings are twelve bytes of the same file
 
 At `ControlsOptionBase` + 0..11. An axis row's byte indexes its three-word set directly; a button
-row's byte is an action code into the twenty-one names, also directly.
+row's byte is an action code into the twenty-one names, also directly. What the input layer then
+does with them — which game axes a row's 0, 1 and 2 select, and what each action code dispatches —
+is [`../formats/joystick-input.md`](../formats/joystick-input.md#applying-the-bindings--fun_0045a7f4).
 
 Which actions a button row may be **bound to** is a separate table, read by `ControlsPanel_ActionAt`
 (`00457cdc`): eight rows of thirteen bytes at `0049e619` walking and `0049e681` flying. **Code 0
@@ -287,17 +283,21 @@ placement for the preferences strip and the `INACTIVE` caption font for a greyed
 and `DrawControlsPanel` paint them through the shared `DrawAlertPanel`, which carries a per-button
 bank, frame and font and a per-label alignment for these two. Both plates are packed into the
 cockpit's sprite atlas with the rest. `Terrain.TerrainDetail` reads its setting through
-`SimulatorPreferences` rather than parsing the file itself.
+`SimulatorPreferences` rather than parsing the file itself. What reads the twelve binding bytes at
+run time is `Input.JoystickBindings` —
+[`../formats/joystick-input.md`](../formats/joystick-input.md#engine-port).
 
 Divergences:
 
-- **Changes are in memory only.** `SimulatorPreferences.Set` models the store half of
-  `Prefs_SetOption` and neither of the other two: the shadow copy at `004d2028` is a revert path and
-  the handler table at `004d2060` an apply path, so a changed setting moves the number the panel
-  shows and nothing else. Nothing is written back to `prefs.cfg`.
-- **No joystick input exists**, so the controls panel is built with no capabilities and greys every
-  row unless the host is told otherwise. That is also what the retail install shows on hardware it
-  cannot enumerate.
+- **A changed setting is not applied while the panel is up.** `SimulatorPreferences.Set` models the
+  store half of `Prefs_SetOption` and neither of the other two: the shadow copy at `004d2028` is a
+  revert path and the handler table at `004d2060` an apply path. So the five options with a handler
+  do not take effect until something reads them again. The controls block is the exception, being
+  read fresh every tick by the input layer, so a rebinding is live on the next frame.
+- **Writing the file back is opt-in.** `SimulatorPreferences.Save` is byte-exact over the array that
+  was read, so the nineteen options nothing here interprets survive the round trip and the retail
+  simulator reads back what it wrote — but it touches the player's own install, so the host only
+  calls it under `--write-prefs`.
 - **The panels are placed against the window**, as the other two are.
 - **The RAZOR half is selected by the player's chassis id**, resolved through `HercLUT`, where the
   original reads the global the mission load wrote.

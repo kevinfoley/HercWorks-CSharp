@@ -174,4 +174,34 @@ public sealed class SimulatorPreferences {
 			return null;
 		}
 	}
+
+	/// <summary>
+	/// Writes the array back over the file, and clears <see cref="Changed"/>.
+	///
+	/// <para><b>Byte for byte.</b> The array is what was read, whole: a longer-than-54-byte file keeps
+	/// its tail, and the nineteen options nothing here interprets — 4-6, 12 and 37-53 — are carried
+	/// out exactly as they came in. That is the whole of what keeps a rebinding done here readable by
+	/// the retail simulator, which reads the file straight over its own 54 bytes with no parse at
+	/// all.</para>
+	///
+	/// <para>Nothing calls this on its own. It touches the player's real install, so the caller has to
+	/// ask for it — see the host's <c>--write-prefs</c>.</para>
+	/// </summary>
+	/// <param name="dataDirectory">The game's <c>data</c> folder, as <see cref="Load"/> takes it.</param>
+	/// <returns>Whether the file was written.</returns>
+	public bool Save(string? dataDirectory) {
+		if (string.IsNullOrEmpty(dataDirectory)) {
+			return false;
+		}
+
+		try {
+			File.WriteAllBytes(Path.Combine(dataDirectory, FileName), _options);
+			Changed = false;
+			return true;
+		} catch (IOException) {
+			return false;
+		} catch (UnauthorizedAccessException) {
+			return false;
+		}
+	}
 }

@@ -13292,6 +13292,96 @@
       "name": "ControlsOptionBase",
       "description": "Which SimOptions index the controls panel's twelve options start at: 0x0d walking and 0x19 flying. Sim_InitMissionSession sets it from PilotingRazor after DBSim_LoadScriptDat, and PreferencesManager_Reset starts it on 0x0d. The two blocks are independent, so a binding made in a walker does not disturb the RAZOR's.",
       "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "0045a7f4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Input_BuildPlayerDevice",
+      "description": "The per-frame input build: reads the twelve controls-block bytes at ControlsOptionBase and routes the joystick's four normalised axes, hat and eight buttons into the device struct at DAT_004d234a that Sim_PollPlayerInput consumes. Each axis row's byte selects a DESTINATION pair (0 unassigned, 1 the movement pair, 2 the turret pair), not a source; a control whose destination is taken falls to a second rank that wins when both have moved, and the keyboard pairs are the last fallback. Also: pulls the FIRE-bound button out to +0x0d and zeroes its byte (using a hardcoded 0x11 rather than ControlsOptionBase+4, so a RAZOR finds its trigger through the walker's block), applies the press-once button latch FUN_0045b718 sets, writes the hat over the turret pair at 0xc0 under HAT=2, and applies keyjoy.cfg's Backturn and Rudder reversals.",
+      "source": "docs/formats/joystick-input.md"
+    },
+    {
+      "address": "00477568",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Joystick_Enumerate",
+      "description": "joyGetDevCapsA over joystick ids 0 and 1 only, into JOYCAPS blocks at DAT_006bb3fc (stride 0x194), stamping each MMRESULT at DAT_006bb724; then one joyGetPosEx per device. Sets each JOYINFOEX's dwSize to 0x34 and dwFlags to 0xccf -- X, Y, Z, R, POV, BUTTONS, CENTERED, USEDEADZONE. U and V are never requested.",
+      "source": "docs/formats/joystick-input.md"
+    },
+    {
+      "address": "00477614",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Joystick_Poll",
+      "description": "Polls both sticks with joyGetPosEx and packs the 0x12-byte device reading. Stick 0's X and Y always; its Z as the throttle and R as the rudder when JOYCAPS_HASZ/HASR, else stick 1's X and Y. dwPOV is matched against exactly 0/18000/27000/9000 into bits 0-3 of one byte -- no diagonal matches. Stick 1's button mask is OR'd in shifted left by stick 0's wMaxButtons.",
+      "source": "docs/formats/joystick-input.md"
+    },
+    {
+      "address": "00477750",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Joystick_NormaliseAxes",
+      "description": "Maps each of the four raw joyGetPosEx axes onto a signed byte: (raw << 8) / 0xffff - 0x80, giving -0x80..+0x7f. The width comes from the device object's resolution field +0x16, which FUN_004774d0 sets to 7. No JOYCAPS min/max is consulted -- the game leans entirely on Windows' own calibration.",
+      "source": "docs/formats/joystick-input.md"
+    },
+    {
+      "address": "0045c314",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Joystick_ReadWithResponse",
+      "description": "The joystick device object's vtable +4: normalises, applies the deadzone and the response curve selected by the object's +0x28, then expands the button mask and hat bits into the 0x1d-byte block at DAT_004d24b0. A joystick is always built with mode 1 (FUN_00459dd4 passes it to FUN_0045c27c), the SQUARED curve: deadzone 0x19 SUBTRACTED to give +/-103, then |x|^2 scaled by 1/((103*103)>>8), so full deflection is 103*103/41 = 258, just over the 0x100 the control laws clamp at. Modes 0 and 2 are linear and unused by the joystick; reading the deadzone as their linear rescale puts full deflection on 0x80 and halves every downstream response.",
+      "source": "docs/formats/joystick-input.md"
+    },
+    {
+      "address": "0045c27c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "JoystickDevice_Ctor",
+      "description": "Constructs the joystick input device: base ctor FUN_004774d0 (which enumerates and sets the resolution field +0x16 to 7), registers it in the device table as kind 3, installs vtable PTR_FUN_0049ec9c at +0x24 and stores the response-curve selector at +0x28. Its one caller FUN_00459dd4 passes (3, 0x201, 0xf, 1).",
+      "source": "docs/formats/joystick-input.md"
+    },
+    {
+      "address": "00459dd4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Joystick_InitAndSeedBindings",
+      "description": "Creates the joystick device and, when it enumerated, seeds both controls blocks of prefs.cfg from Input_RecommendedBindings -- options 0x0d-0x18 walking and 0x19-0x24 flying. When it did not, and DAT_004d1fc8 says a stick was expected, zeroes the walking block instead. Gated on DAT_004d1fc8, so it neither re-seeds nor clears on an install that has already been configured.",
+      "source": "docs/formats/joystick-input.md"
+    },
+    {
+      "address": "0045b718",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Input_LatchButton",
+      "description": "Marks one of the eight joystick buttons as acted on: sets DAT_004d237a[i] and stores the state to suppress at DAT_004d2382[i]. FUN_0045a7f4 then forces that button's byte to zero on every following tick until the player releases it, which is the whole of the press-once rule. Sim_PollPlayerInput calls it for every button whose action it dispatches.",
+      "source": "docs/formats/joystick-input.md"
+    },
+    {
+      "address": "0045b78c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Keyjoy_LoadConfig",
+      "description": "Reads data\\keyjoy.cfg once at input init: four GetPrivateProfileStringA calls against section [Keyjoy] for Tilt, Backturn, Missile and Rudder, each a case-insensitive compare against the word Reverse setting DAT_0049eab8/eabc/eac0/eac4. Anything else, the shipped Default included, leaves the flag clear. Nothing writes the file.",
+      "source": "docs/formats/joystick-input.md"
+    },
+    {
+      "address": "0045c508",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Input_GetDevice",
+      "description": "Returns the registered input device of the given kind from the table at DAT_004d24ec, offset back to the object base, or 0 for none. Kind 3 is the joystick, and FUN_0045c508(3) is the presence test the CONTROLS panel gates on -- Input_QueryCapabilities' +0 is 1 or 2 and never 0, so it cannot answer that question.",
+      "source": "docs/formats/joystick-input.md"
     }
   ]
 }

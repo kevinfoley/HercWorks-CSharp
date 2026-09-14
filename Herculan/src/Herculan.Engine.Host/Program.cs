@@ -68,6 +68,9 @@ bool startWithObjectives = false;
 bool startWithPreferences = false;
 bool startWithControls = false;
 var stagedJoystick = JoystickCapabilities.None;
+bool probeJoystick = false;
+bool writeJoystickMap = false;
+bool writePreferences = false;
 bool startWithStatusAlert = false;
 int stagedStatusAlert = -1;
 for (int i = 0; i < args.Length; i++) {
@@ -102,10 +105,10 @@ for (int i = 0; i < args.Length; i++) {
 		startWithPreferences = true;
 		startWithControls = true;
 	} else if (args[i] == "--joystick") {
-		// Tells the CONTROLS panel a fully-featured stick is attached, so its rows go live and show
-		// what prefs.cfg has them bound to. This engine has no joystick input, so nothing else in it
-		// changes; the panel is the only thing that asks. An optional count sets how many of the eight
-		// button rows are live.
+		// Pretends a fully-featured stick is attached, so the CONTROLS panel's rows go live and show
+		// what prefs.cfg has them bound to even where there is no hardware — a --screenshot run has
+		// none. A real device, when one is attached, overrides this. An optional count sets how many of
+		// the eight button rows are live.
 		stagedJoystick = new JoystickCapabilities(Present: true,
 			ButtonCount: JoystickCapabilities.MaxButtons,
 			HasThrottle: true, HasRudder: true, HasHat: true);
@@ -114,6 +117,21 @@ for (int i = 0; i < args.Length; i++) {
 			i++;
 			stagedJoystick = stagedJoystick with { ButtonCount = stickButtons };
 		}
+	} else if (args[i] == "--joystick-probe") {
+		// Prints each axis and button of the attached stick as it moves. Its whole purpose is filling
+		// in data\herculan-joystick.cfg by hand: a modern stick's axis order is its own, and nothing
+		// but moving each control in turn will say which index is the throttle.
+		probeJoystick = true;
+	} else if (args[i] == "--write-joystick-map") {
+		// Writes the map the engine is actually using out to data\herculan-joystick.cfg, comments and
+		// all, so there is something to edit rather than a file to compose from scratch. With no file
+		// there already, that is the device's own reported shape in retail's X/Y/Z/R order.
+		writeJoystickMap = true;
+	} else if (args[i] == "--write-prefs") {
+		// Lets a rebinding reach the player's real data\prefs.cfg on the way out. Off by default
+		// because that file belongs to their retail install; the write is byte-exact over the array
+		// that was read, so the simulator still reads it.
+		writePreferences = true;
 	} else if (args[i] == "--hdd") {
 		// Power up already panned down to the Heads-Down Display, for the same reason as --mfd: a
 		// --screenshot run never sees a keystroke. An optional 0 or 1 picks which of its two screens
@@ -378,8 +396,14 @@ var objectivesPanel = ObjectivesPanel.Build(content, mission.BriefingLines, miss
 var statusAlertPanel = StatusAlertPanel.Build(content);
 
 // The [F12] preferences panel, showing the install's own data\prefs.cfg — the same file the terrain
-// draw distance is already read out of, and the same folder the mission's script.dat came from.
-var simulatorPreferences = SimulatorPreferences.Load(Path.GetDirectoryName(scriptPath));
+// draw distance is already read out of, and the same folder the mission's script.dat came from. The
+// same folder holds keyjoy.cfg, the four axis-sense switches, and Herculan's own device map.
+string? dataDirectory = Path.GetDirectoryName(scriptPath);
+// Nullable only long enough to answer "was there a file?", which is what --write-prefs is gated on:
+// an install with no prefs.cfg should not have one invented for it. Everything downstream shares the
+// one instance, so a rebinding made on the CONTROLS panel is the same array the input layer reads.
+var loadedPreferences = SimulatorPreferences.Load(dataDirectory);
+var simulatorPreferences = loadedPreferences ?? SimulatorPreferences.Defaults();
 // The two gates the original's own panel reads. SfxManager being null greys its first four rows, and
 // DAT_0049e9cd -- which FUN_00459d6c sets by trying to fopen the localised simvoice archive -- is
 // what lets the two message rows be stepped at all.
@@ -397,6 +421,23 @@ var preferencesPanel = PreferencesPanel.Build(content, simulatorPreferences,
 bool pilotingRazor = scene.PlayerObject is { Placement.TypeName: { } playerTypeName }
 	&& HercLUT.GetByAbbrev(playerTypeName)?.Id == ControlsPanel.RazorTypeIndex;
 var controlsPanel = ControlsPanel.Build(content, simulatorPreferences, pilotingRazor, stagedJoystick);
+
+// The stick, once the window has an input context to enumerate it with. The bindings themselves are
+// the twelve bytes of prefs.cfg either way — nothing about them changes when the hardware does, which
+// is the whole point of the split; JoystickDeviceMap is what absorbs a modern device's own shape.
+JoystickSource? joystick = null;
+bool joystickAnnounced = false;
+var joystickBindings = new JoystickBindings {
+	PilotingRazor = pilotingRazor,
+	Keyjoy = dataDirectory is null
+		? KeyjoyConfig.Defaults
+		: KeyjoyConfig.Load(Path.Combine(dataDirectory, KeyjoyConfig.FileName)),
+};
+var joystickInput = JoystickPilotInput.None;
+// CENTER LEGS has no latch of its own on the machine — MechObject reads it off the controls
+// record's rising edge, the way [\] reaches it — so a button press has to hold the flag up for
+// the one frame that record is built.
+bool joystickCenterBody = false;
 
 int objectivesKeysDown = 0;
 int preferencesKeysDown = 0;
@@ -1190,6 +1231,15 @@ window.Load += (gl, input) => {
 		: items;
 	keyboard = input.Keyboards.Count > 0 ? input.Keyboards[0] : null;
 
+	// The stick. Its capabilities are what the CONTROLS panel greys its rows against, and the original
+	// re-reads them every time that panel goes up rather than at startup, so nothing here has to be
+	// the last word — but a device present now should light the rows up now.
+	// Nothing is read off the device here. Silk.NET's GLFW backend reports a connected stick with zero
+	// axes, buttons and hats until the first Update, so anything derived from its shape at load time
+	// maps nothing at all — see JoystickSource. What it can do is announced on the first frame that
+	// knows, in AnnounceJoystick.
+	joystick = JoystickSource.Open(input, dataDirectory, probeJoystick);
+
 	// Mouse events are queued here and nowhere else: everything that decides what a click means runs
 	// once per frame in Update, out of CockpitInput.Drain. That is the original's own split — its
 	// listener callback pushes a record and returns, and CockpitMouse_ProcessQueue does the work a
@@ -1225,6 +1275,8 @@ window.Load += (gl, input) => {
 
 window.Update += deltaSeconds => {
 	imgui?.Update((float)deltaSeconds);
+
+	AnnounceJoystick();
 
 	// The modal panels take the keyboard before anything else does. They are modal in the
 	// original — each runs its own event loop, which owns input until the panel comes down — and
@@ -1286,6 +1338,28 @@ window.Update += deltaSeconds => {
 	}
 
 	if (piloting && pilotMech != null && controls != null) {
+		// The stick, read once and used twice: its axes go into MechControls at the bottom of this
+		// block and its button edges are dispatched here. Both come out of the same twelve bytes of
+		// prefs.cfg, resolved by JoystickBindings — the panel edits those bytes live, so a rebinding
+		// takes effect on the next tick with nothing to reload.
+		joystickInput = joystick is null
+			? JoystickPilotInput.None
+			: joystickBindings.Resolve(joystick.Read(), joystick.Capabilities, simulatorPreferences);
+
+		joystickCenterBody = false;
+		foreach (var action in joystickInput.Pressed) {
+			ApplyJoystickAction(action, pilotMech);
+		}
+
+		// The hat under VIEWS. The original passes its four bytes straight to
+		// CockpitView_PollViewDevice (00432b14), which queues view commands 1, 0, 5 and 4 — up, down,
+		// and the two outside-view steps. Only the pair this engine has a view for is wired.
+		if (joystickInput.Views.HasFlag(JoystickHat.North)) {
+			cockpitPan.Request(headsDown: false);
+		} else if (joystickInput.Views.HasFlag(JoystickHat.South)) {
+			cockpitPan.Request(headsDown: true);
+		}
+
 		// Keypad [5], all stop: zero the throttle and let the gauge follow the machine this frame
 		// rather than putting the old setting straight back. On its own edge, so holding it does not
 		// fight a throttle the player is trying to open again.
@@ -1385,27 +1459,51 @@ window.Update += deltaSeconds => {
 		// rather than re-centring the turret. This is the one place the two keyboards are separated
 		// rather than allowed to overlap, because scrolling the map and turning the machine with the
 		// same press is the one overlap that would fight the player.
+		//
+		// The stick is combined with all of that rather than replacing it: the original registers the
+		// keyboard's two axis pairs in the same source table as the joystick's four axes and takes
+		// whichever has moved, so a pilot can steer with one hand and nudge with the other. What the
+		// stick reaches at all is the twelve binding bytes' business — see JoystickBindings.
 		bool mapHasArrows = HddCommandHasKeyboard();
-		pilotMech.Controls = new MechControls(
+		var keyboardAxes = new PilotAxes(
 			(short)((mapHasArrows
 				? Axis(controls, Key.Keypad6, Key.Keypad4)
 				: Axis(controls, Key.Right, Key.Left, Key.Keypad6, Key.Keypad4)) * MechControls.KeyboardAxis),
 			(short)((mapHasArrows
 				? Axis(controls, Key.Keypad2, Key.Keypad8)
 				: Axis(controls, Key.Down, Key.Up, Key.Keypad2, Key.Keypad8)) * MechControls.KeyboardAxis),
-			ThrottleLever: 0,
-			TorsoTwist: TurretAxis(Axis(controls, Key.K, Key.J), heldTwist),
-			TorsoPitch: TurretAxis(Axis(controls, Key.I, Key.M), heldPitch),
+			TurretAxis(Axis(controls, Key.K, Key.J), heldTwist),
+			TurretAxis(Axis(controls, Key.I, Key.M), heldPitch));
+
+		var axes = joystickBindings.Combine(joystickInput, keyboardAxes);
+
+		pilotMech.Controls = new MechControls(
+			axes.Steer,
+			axes.Throttle,
+			// Set when the stick has a lever and it is bound to THROTTLE rather than to the turret —
+			// Input_SetThrottleLeverMode's own pair of conditions (FUN_00459d20). It is what closes the
+			// throttle clamp to one side of zero, so a lever pilot cannot walk backwards through the
+			// detent the way a keyboard one does.
+			ThrottleLever: joystickBindings.ThrottleLeverMode(
+				joystick?.Capabilities ?? JoystickCapabilities.None, simulatorPreferences),
+			TorsoTwist: axes.TorsoTwist,
+			TorsoPitch: axes.TorsoPitch,
 			CenterTorso: !mapHasArrows && controls.IsKeyPressed(Key.Backspace),
-			CenterBody: controls.IsKeyPressed(Key.BackSlash),
+			CenterBody: joystickCenterBody || controls.IsKeyPressed(Key.BackSlash),
 			// [Space] is held, not pressed — see MechControls.Fire. Holding it keeps the armed weapon
-			// firing as fast as its refire delay and its capacitor allow.
-			Fire: heldFire || controls.IsKeyPressed(Key.Space));
+			// firing as fast as its refire delay and its capacitor allow. So is the joystick trigger,
+			// for the same reason and through the same byte.
+			Fire: heldFire || joystickInput.Fire || controls.IsKeyPressed(Key.Space));
 	} else {
 		scene.Camera.Input = ReadInput(controls);
 		if (pilotMech != null) {
 			pilotMech.Controls = MechControls.Neutral;
 		}
+
+		// Hands off the stick, but keep swallowing whatever is held on it: a button pressed to dismiss
+		// a panel must not also fire its action the moment the panel goes down.
+		joystickInput = JoystickPilotInput.None;
+		joystickBindings.Suspend(joystick?.Read() ?? JoystickReading.Neutral);
 	}
 
 	// F1-F6 pick the MFD screen, the same keys and the same order as the original's own mode buttons
@@ -1630,6 +1728,15 @@ window.Update += deltaSeconds => {
 			// and the only way in.
 			if (livePreferences.ControlsRequested) {
 				livePreferences.ClearControlsRequest();
+
+				// Re-read what the stick can do on the way in rather than trusting what it could at
+				// startup: ControlsPanel_Run (00458650) asks Input_QueryCapabilities at the top of its own
+				// loop, and that function rebuilds its eight bytes every call. So a stick plugged in
+				// mid-mission lights the rows up, and one unplugged greys them.
+				if (controlsPanel is not null && joystick is { Capabilities.Present: true } liveStick) {
+					controlsPanel.Capabilities = liveStick.Capabilities;
+				}
+
 				controlsPanel?.Open();
 			}
 		}
@@ -2081,6 +2188,15 @@ window.Render += (_, gl) => {
 };
 
 window.Closing += () => {
+	// The one write that touches the player's retail install, and only when they asked for it. It is
+	// the array that was read, byte for byte — the nineteen options nothing here interprets included —
+	// so the retail simulator reads back what it wrote. See SimulatorPreferences.Save.
+	if (writePreferences && loadedPreferences is { Changed: true }) {
+		Console.WriteLine(loadedPreferences.Save(dataDirectory)
+			? $"Wrote {Path.Combine(dataDirectory ?? ".", SimulatorPreferences.FileName)}."
+			: "Could not write prefs.cfg; the bindings changed this session are lost.");
+	}
+
 	audio.Dispose();
 	imgui?.Dispose();
 	renderer?.Dispose();
@@ -2958,6 +3074,154 @@ bool ExternalViewActive() => externalView && piloting && pilotMech != null;
 //   [L]             toggle link fire on the armed pair -> FUN_00410f14
 //   [-] / [=]       lower/raise the armed weapon's power -> the armed mount's vtable +0x38
 //
+// Says what the stick can do, once — and not before it will answer.
+//
+// Silk.NET's GLFW backend publishes a connected device a frame before it publishes that device's axis,
+// button and hat counts, so this waits for a map to exist rather than running at load. Anything keyed
+// off the device's shape has to wait with it: the derived map itself, the CONTROLS panel's
+// capabilities, and --write-joystick-map.
+void AnnounceJoystick() {
+	if (joystickAnnounced || joystick is not { Map: { } map }) {
+		return;
+	}
+
+	joystickAnnounced = true;
+
+	foreach (string line in joystick.Describe()) {
+		Console.WriteLine(line);
+	}
+
+	// Only when a stick really answered: with none attached the panel keeps whatever --joystick staged,
+	// which is the whole point of that flag.
+	if (controlsPanel is not null && joystick.Capabilities.Present) {
+		controlsPanel.Capabilities = joystick.Capabilities;
+	}
+
+	if (probeJoystick) {
+		Console.WriteLine("Move one control at a time; put what it prints into "
+			+ $"data\\{JoystickDeviceMap.FileName}.");
+	}
+
+	if (writeJoystickMap && dataDirectory is not null) {
+		string mapPath = Path.Combine(dataDirectory, JoystickDeviceMap.FileName);
+		try {
+			map.Save(mapPath);
+			Console.WriteLine($"Wrote {mapPath}.");
+		} catch (Exception error) when (error is IOException or UnauthorizedAccessException) {
+			Console.WriteLine($"Could not write {mapPath}: {error.Message}");
+		}
+	}
+}
+
+// One joystick button's action — Sim_PollPlayerInput's own twenty-case switch (00460764), which it
+// runs over SimOptions[ControlsOptionBase + 4 + button] once per pressed button per tick.
+//
+// FIRE is not here: it is read as a held state one step earlier and never reaches the switch. Nor is
+// OFF, which is what a row displays when its byte is zero rather than something it can be set to.
+//
+// Every case reaches the same code a key or a click does, which is also true in the original — the
+// switch is almost entirely made of calls into the widget tree and the mech's own command handler
+// rather than of gameplay of its own.
+void ApplyJoystickAction(JoystickAction action, MechObject mech) {
+	switch (action) {
+		case JoystickAction.Target:
+			scene.Targeting?.Cycle();
+			break;
+
+		case JoystickAction.TargetNearest:
+			scene.Targeting?.SelectNearest();
+			break;
+
+		case JoystickAction.CenterLegs:
+			joystickCenterBody = true;
+			break;
+
+		case JoystickAction.CenterTurret:
+			mech.LatchCenterTorso();
+			break;
+
+		// The lever's sense, and only when there is a lever bound to the throttle — the original tests
+		// the capability block's +4 and the THROTTLE row together before it will move the mode, so on a
+		// stick without one this button does nothing at all.
+		case JoystickAction.ChangeDirection
+			when joystickBindings.ThrottleLeverMode(
+				joystick?.Capabilities ?? JoystickCapabilities.None, simulatorPreferences) != 0:
+			joystickBindings.ThrottleLeverInverted = !joystickBindings.ThrottleLeverInverted;
+			break;
+
+		// Command 0x14, the same one [T] dispatches: toggling ATT off also latches the centring mode,
+		// so the turret comes home rather than staying where the tracker left it.
+		case JoystickAction.AttitudeToggle:
+			if (!mech.ToggleAutoTrack(scene.World)) {
+				mech.LatchCenterTorso();
+			}
+
+			break;
+
+		case JoystickAction.AllStop:
+			mech.AllStop();
+			break;
+
+		// Mech commands 0x1a and 0x1b. They press the gauge's own facing widget rather than calling the
+		// adjust, which is why they click — see the bracket keys.
+		case JoystickAction.ShieldsFront:
+		case JoystickAction.ShieldsRear:
+			mech.Shields.AdjustBalance(towardFront: action == JoystickAction.ShieldsFront);
+			audio.Director?.Play(SoundId.ButtonClick);
+			break;
+
+		// The original picks between entering the heads-down display and leaving it on FUN_00429820's
+		// return, a global object pointer whose relation to the current view is not decoded — the two
+		// branches send F7 and [Esc], which together are plainly a toggle, so that is what this is.
+		case JoystickAction.HddView:
+			cockpitPan.Request(headsDown: !cockpitPan.HeadsDownRequested);
+			break;
+
+		case JoystickAction.CockpitView:
+			cockpitPan.Request(headsDown: false);
+			break;
+
+		case JoystickAction.LinkWeapon:
+			mech.Weapons.ToggleLink();
+			break;
+
+		// FUN_00446e14: step the MFD's mode, wrapping at six. Selecting a screen also pans back up,
+		// which is the manual's own rule for leaving the heads-down display.
+		case JoystickAction.MfdDisplays:
+			hudState = hudState with { Mfd = (MfdMode)(((int)hudState.Mfd + 1) % MfdLayout.ModeCount) };
+			cockpitPan.Request(headsDown: false);
+			break;
+
+		// Weapon-manager command 0x202, which WeaponMounts_HandleCommand answers with
+		// ToggleChainMember(0) — [Alt]+[1], row 1's fire-chain membership, and not a general toggle
+		// despite the caption.
+		case JoystickAction.WeaponToggle:
+			mech.Weapons.ToggleChain(0);
+			break;
+
+		// The console chain button, scancode 0x29.
+		case JoystickAction.NextChain:
+			mech.Weapons.SetGroup((mech.Weapons.Group + 1) % WeaponMounts.GroupCount);
+			break;
+
+		case JoystickAction.NextWeapon:
+			mech.Weapons.CycleSelection(1);
+			break;
+
+		case JoystickAction.PreviousWeapon:
+			mech.Weapons.CycleSelection(-1);
+			break;
+
+		// OUTSIDE VIEW and CHASE VIEW step a chain of external cameras this engine does not have.
+		// Nothing is wired rather than something approximate: the original's own two cases walk
+		// DAT_004d2572 through four states with a mission-time gate on one of them, and guessing at
+		// that would be inventing behaviour rather than porting it.
+		case JoystickAction.OutsideView:
+		case JoystickAction.ChaseView:
+			break;
+	}
+}
+
 // All fire on their own key-down edge: they are toggles and steps, not held states. [Space] is the
 // exception and is not here — the trigger is a held state read straight off the device struct, so it
 // travels with the rest of the pilot's input in MechControls.

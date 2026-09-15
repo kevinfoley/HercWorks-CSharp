@@ -1,6 +1,7 @@
 ﻿using HercWorks.Core.Data.File.Dat.Sim;
 using HercWorks.Core.Data.File.Dbsim;
 using Herculan.Engine.Numerics;
+using Herculan.Engine.Sim.Ai;
 using Herculan.Engine.Sim.Anim;
 using Herculan.Engine.World;
 
@@ -552,7 +553,13 @@ public sealed partial class MechObject : SimObject {
 			// reaches it from there instead — see MechObject.Navigation.cs — so running the input path
 			// for it here would bleed the throttle back to zero underneath every decision the think
 			// just made. Everything else keeps the pilot path, which is what Controls is for.
-			MovementTick(world);
+			if (Behaviour.State == BehaviourState.Ramming) {
+				// The one state that installs a move slot of its own. See MechObject.Ramming.cs.
+				RamTick(world);
+			} else {
+				MovementTick(world);
+			}
+
 			return;
 		}
 
@@ -972,9 +979,9 @@ public sealed partial class MechObject : SimObject {
 				continue;
 			}
 
-			// The original also latches "something ran into me" on the struck object here. Exactly
-			// one AI behaviour state reads it back, and no behaviour state is ported, so there is
-			// nothing yet that would notice.
+			// "Something ran into me", on whatever was blocked rather than only on a machine. Its one
+			// reader is the ramming state's move slot -- see SimObject.RunInto.
+			other.RunInto = true;
 
 			// Only a machine is hurt by the impact -- the original's gate is the struck object's
 			// target class, and MechObject is the only class that answers TargetClass.Herc.

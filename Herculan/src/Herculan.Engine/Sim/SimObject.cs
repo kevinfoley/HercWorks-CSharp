@@ -1,4 +1,4 @@
-using Herculan.Engine.Numerics;
+﻿using Herculan.Engine.Numerics;
 using Herculan.Engine.World;
 
 namespace Herculan.Engine.Sim;
@@ -213,6 +213,22 @@ public abstract class SimObject {
 	/// increments the new one's).
 	/// </summary>
 	public int TargetedBy { get; internal set; }
+
+	/// <summary>
+	/// <c>obj+0xb1</c>, written through vtable <c>+0x68</c> (<c>SimObject_SetRunInto</c>,
+	/// <c>0042200c</c>) — something walked into this object. Raised on whatever a move was blocked by,
+	/// whatever class that object is.
+	///
+	/// <para><b>It is never lowered</b>, and it has one reader: <c>Mech_BehaviourRamTick</c>, which
+	/// detonates a ramming machine carrying it. So a machine bumped once at any earlier point in the
+	/// mission blows up the moment it is ordered to ram, whether or not it has reached anything.</para>
+	///
+	/// <para>The original raises it from two sweeps, of which only <c>Mech_CollisionTest</c> is ported
+	/// — the other is inside <c>StructureEmplacementVtable</c>'s tick slot, which the engine has no
+	/// equivalent of, so here only a machine's own move can mark anything. See
+	/// docs/simulation/ai-combat-states.md, "The ramming attack".</para>
+	/// </summary>
+	public bool RunInto { get; internal set; }
 
 	/// <summary>
 	/// Whether this object holds <paramref name="other"/> as a known contact — one row of

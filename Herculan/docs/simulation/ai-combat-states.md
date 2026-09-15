@@ -1,6 +1,6 @@
-# AI combat states
+﻿# AI combat states
 
-The nine behaviour thinks that are not navigation: the five a machine fights in, the two it disengages in, and the two it stands still in. What state a machine is in and how the think is reached is [`ai-dispatch.md`](ai-dispatch.md); which object it fights is [`ai-targeting.md`](ai-targeting.md); how it shoots once it is pointed is [`ai-weapons.md`](ai-weapons.md); the walking states are [`ai-navigation.md`](ai-navigation.md).
+The ten behaviour thinks that are not navigation: the five a machine fights in, the two it disengages in, the two it stands still in, and the one it kills itself in. What state a machine is in and how the think is reached is [`ai-dispatch.md`](ai-dispatch.md); which object it fights is [`ai-targeting.md`](ai-targeting.md); how it shoots once it is pointed is [`ai-weapons.md`](ai-weapons.md); the walking states are [`ai-navigation.md`](ai-navigation.md).
 
 **A combat state decides one thing: where to stand.** Every one of them ends in the same two calls — `Ai_CombatMoveStep` to walk and `Ai_AimAndFire` to shoot — and differs only in the steering and standoff it hands the first of those. The target is already chosen when the think runs, and the weapon is chosen inside the second.
 
@@ -237,6 +237,60 @@ All three are installed by `Mech_ComponentDamageWrite` and by nothing else — `
 
 **A stopped machine is not an idle one.** The think's zero throttle is a *deceleration request*, so a machine killed at speed walks its momentum off over the next few ticks; and an immobilised one takes `Mech_LocomotionTick`'s own separate branch and goes down in its death animation — [`mech-locomotion.md`](mech-locomotion.md#going-down).
 
+## `ramming` (17) — `Mech_BehaviourRamThink` (`0041e570`)
+
+The odd one out twice over. It is the only state that installs a **move slot of its own**, `Mech_BehaviourRamTick` (`0041e488`), and the only behaviour in the simulation whose success kills the machine running it. Nothing in it is shared with the section above: no geometry block, no move step, no `Ai_AimAndFire` — a rammer never shoots.
+
+```
+if (Timer_CountDown(&mech+0x5a) == 0) {            // retarget, every 10000 ms
+    <select Ai_SelectTarget(mech, 6, 0) into mech+0x1a4, maintaining +0x1a2 and +0x9d>
+    mech+0x5b = 10000
+}
+if (no target) { Mech_LocomotionTick(mech, 0, 0, 1); return 0 }
+
+steer()                                            // below
+if (mech+0x5f == 0) {                              // approaching
+    if (Math_CountdownTimerTick(&mech+0x61) == 0) {
+        mech+0x5f = 1;  mech+0x62 = 3000 + rand(1500)
+    }
+    return 0
+}
+Mech_BehaviourRamTick(mech);  if (no target) return 0     // charging
+steer();  Mech_BehaviourRamTick(mech);  if (no target) return 0
+steer()
+if (Math_CountdownTimerTick(&mech+0x61) == 0) {
+    mech+0x5f = 0;  mech+0x62 = 8000 + rand(4000)
+}
+return 0
+```
+
+`steer()` is `Mech_LocomotionTick(mech, (bearing - heading) >> 8, 0x100, 1)`: **full throttle, and the bearing error's top byte**. Every other state steers at `>> 6`, so a rammer turns a quarter as hard — it commits to a line rather than tracking a target that sidesteps.
+
+The target is acquired with mask `6`, which drops the "it is shooting at me" weight and the crowding divisor both — [`ai-targeting.md`](ai-targeting.md). Nothing else in the state releases it, and its dwell flag keeps the reassess from running, so a rammer holds one target for ten seconds at a time whatever happens to it.
+
+**The timer arms the phase it is entering, not the one it is leaving.** Both flag and countdown start at zero out of `Behaviour_SetState`, so the first think flips straight to charging: a machine takes the state and begins its run at once, then alternates 3000–4500 ms charging with 8000–12000 ms approaching.
+
+### The charge — `Mech_BehaviourRamTick` (`0041e488`)
+
+The state's move slot, so it runs once a tick from the dispatch like any other move; charging, the think runs it **twice more**, which is why a charging machine covers three ticks of ground in one and arrives at three times its walking speed.
+
+```
+Mech_IntegrateMotion(mech)
+mech.z = Terrain_HeightQuery(grid, mech.pos) + typeRec+0x16
+Mech_PlaceLegsOnGround(mech)
+if (Mech_CollisionTest(mech) || mech+0xb1) {
+    Damage_ExplosiveBlastSweep(mech.pos, 3000, 2000, 0, mech)
+    for (i = 0; i < 29; i++) if (mech+0x20e[i]) mech->vtbl+0x74(mech, i, 32000, mech)
+}
+return 1
+```
+
+It is `Mech_MovementTick` with the undo removed. The walking move restores the step and backs away from a block ([`mech-locomotion.md`](mech-locomotion.md)); this detonates instead — a blast the machine excludes *itself* from, and then a flat 32000 on every component it still has, through the same endpoint a shot reaches. There is no roll, no falloff and no survival; the blast is only what it does to everyone else on the way out. Damage and radius are [`damage-system.md`](damage-system.md#the-sweep--damage_explosiveblastsweep-00426a20)'s third call site.
+
+**What sets it off is any block at all** — a rock, a building, a wingman — not contact with the target, and not this tick's contact either. `mech+0xb1` is the "something ran into me" latch, and this is its one reader in the image. It is written by `SimObject_SetRunInto` (`0042200c`), vtable `+0x68` in all eight `SimObject`-shaped tables with no class overriding it, on whatever object blocked a move and whatever class that object is. Two sweeps call it: `Mech_CollisionTest`, and the one inside `StructureEmplacementVtable`'s tick slot (`FUN_0046a5d0` → `FUN_0046a510`), which is not ported — so in the engine a machine can only be marked by another machine's move. **Nothing ever lowers the byte.** A machine bumped once at any earlier point in the mission blows up on its first tick in the state, before it has gone anywhere.
+
+Because the move slot runs whether or not the think is charging, the detonation is live in the approach phase too. The phases change how fast the machine closes, not whether contact kills it.
+
 ## The circling step — `Ai_CircleStep` (`0041c72c`)
 
 Shared by `flanking` and `attacking base`, and the only thing in the AI that alternates between two manoeuvres on a clock. It reads a hysteresis byte at `mech+0x66` and two timers in the block scratch: `mech+0x60`, the break-off timer, and `mech+0x63`, the interval between break-offs.
@@ -296,13 +350,16 @@ The behaviour block's scratch (`mech+0x5a` to `mech+0x81`, zeroed by every `Beha
 | `+0x5a` | every combat state | The approach flag the move step wrote. No reader |
 | `+0x5a` | `skirting` | The descriptor to go back to |
 | `+0x5b` | `fleeing` | Side-switch countdown, 4000 ms |
-| `+0x5d` | `Ai_CircleStep` | Written zero on the square-up arm. No reader |
+| `+0x5b` | `ramming` | Retarget countdown, 10000 ms |
+| `+0x5d` | `Ai_CircleStep` | Written zero on the square-up arm, as a `word` that also covers `+0x5e`. **The write is the field's only instruction in the image** |
 | `+0x5e` | `skirting` | The state has started |
 | `+0x5f` | `fleeing` | Which side to run to |
+| `+0x5f` | `ramming` | Charging rather than approaching |
 | `+0x60` | `Ai_CircleStep` | Break-off countdown, 1000 ms |
 | `+0x60` | `skirting` | Which way round to go |
 | `+0x61` | `skirting` | The last line-of-sight reading |
 | `+0x61` | `fleeing` | The object being run from |
+| `+0x62` | `ramming` | Phase countdown |
 | `+0x63` | `Ai_CircleStep` | Interval between break-offs, 4000 ms |
 | `+0x63` | `skirting` | Line-of-sight re-test countdown, 5000 ms |
 | `+0x66` | `Ai_CircleStep` | Circling or squared up — the aspect threshold's hysteresis |
@@ -313,14 +370,17 @@ Fields outside the block:
 | Offset | Type | Meaning |
 |---|---|---|
 | `+0xad` | byte | The line of fire is blocked. Written by `Mech_AiOnLineOfFireBlocked`, cleared when `skirting` ends |
+| `+0xb1` | byte | Something ran into this object. Written by `Mech_CollisionTest` through vtable `+0x68`, read by `Mech_BehaviourRamTick`, never cleared |
 | `+0x288` | int | Total damage taken — [`damage-system.md`](damage-system.md). Read here as the gate on the circling break-off |
 | `+0x31e` | `int32`×3 | Where the target was when the line of fire was found blocked |
 
 ## Open questions
 
-- **`mech+0x5d`**, written zero by the circling step's square-up arm and read nowhere.
 - **`BASES.DAT +0x2e`'s generator and transport entries**, and why the missile tower alone states 2 when both readers only test for zero.
-- **`mech+0x9e`**, set by `Sim_RaycastObjectList` when the object a shot struck is the shooter's own target. No reader found.
+
+`mech+0x5d` is settled as far as it can be: a scan of the whole disassembly that follows `LEA reg,[base + k]` rebases as well as bare displacements finds `0041c858` and nothing else, against a control run on `+0x60` that finds the circling step's write and `skirting`'s reader. Nothing consumes it.
+
+`mech+0x9e` has readers, and they are outside the AI: it is the *engaged* flag, and the mission-objective layer's condition 6 asks it of a group and of an object — [`mission-objectives.md`](mission-objectives.md), [`target-selection.md`](target-selection.md).
 
 ## Rejected readings
 
@@ -334,7 +394,9 @@ Fields outside the block:
 
 ## Engine port
 
-`MechObject.CombatStates.cs` holds the nine thinks, the geometry block, the move step and the circling step; `BehaviourState` gains a `ThinkSlot` for each; `SimWorld.Raycast` gains the blocked-line-of-fire notification.
+`MechObject.CombatStates.cs` holds nine of the ten thinks, the geometry block, the move step and the circling step, and `MechObject.Ramming.cs` the tenth with its move slot; `BehaviourState` gains a `ThinkSlot` for each; `SimWorld.Raycast` gains the blocked-line-of-fire notification.
+
+`ramming`'s move slot is branched on in `MechObject.Tick` rather than dispatched through a field on the descriptor, since it is the roster's only exception. `mech+0xb1` is `SimObject.RunInto`.
 
 What differs from the original, and why:
 

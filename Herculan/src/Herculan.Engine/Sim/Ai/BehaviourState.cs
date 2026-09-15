@@ -18,9 +18,8 @@ public enum ReassessSlot {
 
 /// <summary>
 /// Which think function a behaviour state installs in its <c>+0x18</c> slot. <see cref="None"/> is
-/// the states that genuinely have none, plus <c>ramming</c>, whose think is
-/// not this layer's — see docs/simulation/ai-navigation.md, docs/simulation/ai-combat-states.md and
-/// docs/simulation/ai-dispatch.md.
+/// the two states that genuinely have none — see docs/simulation/ai-navigation.md,
+/// docs/simulation/ai-combat-states.md and docs/simulation/ai-dispatch.md.
 /// </summary>
 public enum ThinkSlot {
 	/// <summary>No think: <c>deciding</c> and <c>in limbo</c>.</summary>
@@ -76,7 +75,10 @@ public enum ThinkSlot {
 	Sleep,
 
 	/// <summary><c>Mech_BehaviourInertThink</c> (<c>0041e554</c>), shared by <c>dead</c> and <c>disabled</c>.</summary>
-	Inert
+	Inert,
+
+	/// <summary><c>Mech_BehaviourRamThink</c> (<c>0041e570</c>), the one think with a move slot of its own.</summary>
+	Ram
 }
 
 /// <summary>
@@ -86,11 +88,11 @@ public enum ThinkSlot {
 /// dispatch model are in docs/simulation/ai-dispatch.md; this is a transcription of the table the
 /// initialiser writes, read out of the disassembly rather than out of any data file.
 ///
-/// <para><b>The move slot is not modelled.</b> Each descriptor also carries one, and it is
-/// <c>Mech_MovementTick</c> for every state that has one — which <see cref="MechObject.Tick"/>
+/// <para><b>The move slot is not modelled as a slot.</b> Each descriptor carries one, and it is
+/// <c>Mech_MovementTick</c> for every state but <c>ramming</c> — which <see cref="MechObject.Tick"/>
 /// already runs for every machine, ahead of the group pass that runs the think, so the original's
-/// "integrate on the last think's decisions" ordering falls out. A slot that is either a duplicate
-/// or a null would be indirection with nothing behind it.</para>
+/// "integrate on the last think's decisions" ordering falls out. <c>ramming</c>'s own move is
+/// branched on there rather than dispatched through a field, since it is the only exception.</para>
 /// </summary>
 public sealed class BehaviourState {
 	private BehaviourState(int index, string name, int dwellMs, int flags, ReassessSlot reassess,
@@ -193,7 +195,7 @@ public sealed class BehaviourState {
 	public static readonly BehaviourState Skirting = new(14, "skirting", 10, 0x03, ReassessSlot.SelectBehaviour, ThinkSlot.Skirt, objectiveLine: 0);
 	public static readonly BehaviourState Guarding = new(15, "guarding", 10, 0x05, ReassessSlot.SelectBehaviour, ThinkSlot.Guard);
 	public static readonly BehaviourState DrivingOffEnemy = new(16, "driving off en", 50000, 0x06, ReassessSlot.SelectBehaviour, ThinkSlot.DriveOff, objectiveLine: 0);
-	public static readonly BehaviourState Ramming = new(17, "ramming", 10, 0x09, ReassessSlot.SelectBehaviour, objectiveLine: 0);
+	public static readonly BehaviourState Ramming = new(17, "ramming", 10, 0x09, ReassessSlot.SelectBehaviour, ThinkSlot.Ram, objectiveLine: 0);
 	public static readonly BehaviourState Fleeing = new(18, "fleeing", 15000, 0x12, ReassessSlot.CombatReassess, ThinkSlot.Flee, objectiveLine: 5);
 	public static readonly BehaviourState InLimbo = new(19, "in limbo", 10, 0x21, ReassessSlot.None, objectiveLine: 6);
 	public static readonly BehaviourState Dead = new(20, "dead", 0, 0x21, ReassessSlot.None, ThinkSlot.Inert, objectiveLine: 6);

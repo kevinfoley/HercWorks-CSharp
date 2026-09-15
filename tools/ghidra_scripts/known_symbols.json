@@ -1135,12 +1135,39 @@
       "source": "docs/formats/script-dat.md"
     },
     {
+      "address": "0046a510",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Emplacement_CollisionTest",
+      "description": "The live-object half of Mech_CollisionTest's sweep, standing alone and for the emplacement class instead of the mech: same group +0x14 action gate, same asymmetric vtable +0x5c versus +0x7c radius pair, same Structure_GatherWalkCandidates tail. On a block it calls the blocker's vtable +0x68 (SimObject_SetRunInto) and returns, which makes it the SECOND of the two writers of obj+0xb1. Declared void by the decompiler but its one caller reads the result out of AX, so the return is real. Its only reference is FUN_0046a5d0.",
+      "source": "docs/simulation/ai-combat-states.md"
+    },
+    {
+      "address": "0046a5d0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Emplacement_ThinkTick",
+      "description": "StructureEmplacementVtable's +0x18 tick slot (slot address 00497830) -- the slot every structure class fills differently, and the only one of the five that moves. Branches on the group's first member's targetClass == 3 and on typeRec+0x2e, saves position and both angles, runs a move and maybe_Emplacement_CollisionTest, and on a block restores the save and arms the back-off pair at +0x223/+0x227 the same way Mech_MovementTick does. NOT FULLY DECODED: FUN_0046a70c, FUN_004029d8, FUN_00403ca8, FUN_00403d5c and FUN_00404100 are unresolved, and what class actually reaches this slot in a retail mission has not been established.",
+      "source": "docs/simulation/ai-combat-states.md"
+    },
+    {
+      "address": "0042200c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_SetRunInto",
+      "description": "Vtable +0x68 in ALL EIGHT SimObject-shaped tables -- base, mech, flyer and the five structure classes -- with no override anywhere. Two instructions: obj+0xb1 = 1, \"something ran into me\". TWO call sites through the slot, both collision sweeps calling it on whatever object blocked the move, whatever class that object is: Mech_CollisionTest (0041903a) and FUN_0046a510 (0046a581), the sweep inside StructureEmplacementVtable's +0x18 tick slot FUN_0046a5d0. Mech_BehaviourRamTick is the byte's only reader, and NOTHING clears it. Both the write and the read rebase (ADD reg, 0x92) and use displacement 0x1f, so a scalar search for 0xb1 finds neither -- search byte ptr [reg + 0x1f] instead.",
+      "source": "docs/simulation/ai-combat-states.md"
+    },
+    {
       "address": "0041e488",
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
       "name": "Mech_BehaviourRamTick",
-      "description": "The per-tick MOVE slot of one AI behaviour state, NOT a death throe: block 00499b5c's +0x0c, whose think slot Mech_BehaviourRamThink (0041e570) charges the machine's selected target at full throttle and calls this three times a tick once its charge timer fires. Integrates motion, snaps the machine to terrain height + typeRec+0x16, places its legs, and runs Mech_CollisionTest; on a block (or once mech+0xb1 is latched) it detonates Damage_ExplosiveBlastSweep(pos, 3000, 2000, 0, self) and then finishes off every one of its own 29 components with a flat 32000 through vtable +0x74 -- a guaranteed self-destruction, no roll and no falloff. Ghidra's function boundary starts one prologue late at 0041e48e.",
+      "description": "The per-tick MOVE slot of one AI behaviour state, NOT a death throe: block 00499b5c's +0x0c, whose think slot Mech_BehaviourRamThink (0041e570) charges the machine's selected target at full throttle and calls this three times a tick once its charge timer fires. Integrates motion, snaps the machine to terrain height + typeRec+0x16, places its legs, and runs Mech_CollisionTest; on a block (or once mech+0xb1 is latched) it detonates Damage_ExplosiveBlastSweep(pos, 3000, 2000, 0, self) and then finishes off every one of its own 29 components with a flat 32000 through vtable +0x74 -- a guaranteed self-destruction, no roll and no falloff. Ghidra's function boundary starts one prologue late at 0041e48e. The mech+0xb1 arm is the 'something ran into me' latch Mech_CollisionTest raises through vtable +0x68 (SimObject_SetRunInto, 0042200c) on whatever blocked it; that byte has exactly one writer and this one reader in the image and is NEVER cleared, so a machine bumped earlier in the mission detonates on its first tick in the state.",
       "source": "docs/simulation/damage-system.md",
       "signature": "short __cdecl Mech_BehaviourRamTick(int *this)"
     },
@@ -9304,7 +9331,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_BehaviourRamThink",
-      "description": "The think slot (+0x00) of AI behaviour state block 00499b5c, the ramming attack. Acquires a target through FUN_00411fa0(this, 6, 0) into mech+0x1a4 and maintains its +0x1a2 refcount, then drives Mech_LocomotionTick at full throttle (0x100) toward it. A two-phase timer at mech+0x5f: phase 0 approaches until a 3000 + rand(1500) countdown expires, phase 1 runs Mech_BehaviourRamTick up to three times a tick (interleaved with locomotion) until 8000 + rand(4000) expires. This is what makes the ram reachable.",
+      "description": "The think slot (+0x00) of AI behaviour state block 00499b5c, the ramming attack. Acquires a target through Ai_SelectTarget(this, 6, 0) into mech+0x1a4 every 10000 ms (timer at mech+0x5a), maintaining its +0x1a2 refcount, then steers with Mech_LocomotionTick(turn = (bearing - heading) >> 8, throttle 0x100) -- a QUARTER the steer gain every other state uses. A two-phase flag at mech+0x5f over a countdown at mech+0x62, each phase arming the timer it ENTERS: approaching (0) lasts 8000 + rand(4000), charging (1) lasts 3000 + rand(1500). Charging, it calls Mech_BehaviourRamTick TWICE, interleaved with two more steers -- three RamTicks a tick counting the move slot's own. Both fields start zeroed by Behaviour_SetState, so entering the state charges immediately. Always returns 0.",
       "source": "docs/simulation/damage-system.md",
       "signature": "int __cdecl Mech_BehaviourRamThink(int *this)"
     },

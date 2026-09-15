@@ -515,6 +515,9 @@ public sealed partial class MechObject {
 		_circleBreakOffTimer = 0;
 		_circleIntervalTimer = 0;
 		_circleSquaredUp = false;
+		_ramRetargetTimer = 0;
+		_ramCharging = false;
+		_ramPhaseTimer = 0;
 
 		Behaviour.SetState(state);
 	}

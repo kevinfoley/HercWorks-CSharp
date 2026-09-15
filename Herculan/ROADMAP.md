@@ -18,16 +18,6 @@ The mechanism is understood; what is left is engine work.
   the comm box's `.SNC` portrait animation. Red Book music through MCI is not, so a mission runs
   without its track.
   → [`docs/formats/audio.md`](docs/formats/audio.md)
-- **Combat gaps.** Hit detection, weapon-mount destruction and the explosive blast sweep are
-  complete for all three shootable classes. One of the sweep's three call sites is still unreachable
-  because the function that owns it is unported: the AI ramming attack (`FUN_0041e488`, part of the
-  `ramming` entry below).
-  → [`docs/simulation/damage-system.md`](docs/simulation/damage-system.md)
-- **The `ramming` behaviour state.** Every other behaviour state's think is ported; state 17's pair
-  (`Mech_BehaviourRamThink` `0041e570`, `Mech_BehaviourRamTick` `0041e488`) is not, so a group given
-  order verb 1 takes the state and stands still in it.
-  → [`docs/simulation/ai-combat-states.md`](docs/simulation/ai-combat-states.md),
-  [`docs/simulation/damage-system.md`](docs/simulation/damage-system.md)
 - **A machine's LOD roots are not selected.** Root 0 is hard-coded where the original picks one per
   frame from projected size and a detail bias.
   → [`docs/formats/mech-shape-drawing.md`](docs/formats/mech-shape-drawing.md)

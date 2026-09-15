@@ -1,4 +1,4 @@
-# DBSIM.EXE damage system — shields, components, weapon effectiveness
+﻿# DBSIM.EXE damage system — shields, components, weapon effectiveness
 
 Reverse-engineered from `DBSIM.EXE` disassembly (Ghidra project `ES2Recon`). All addresses are
 DBSIM.EXE virtual addresses. Confirmed against the official *Earthsiege 2 - On-Line Manual.pdf*
@@ -162,15 +162,13 @@ Exactly **3 call sites**, all terminal events rather than routine fire:
    bullet subtype rather than bullets as a class: `(pos, 4000, armourDamage, owner, null)`. It
    empties its own shot record first, so the blast is the whole of the weapon; see
    [`projectiles.md`](projectiles.md#the-plasma-branch).
-3. **`Mech_BehaviourRamTick` (`0041e488`)** — an **AI ramming attack**. It is the per-tick *move*
-   slot of one behaviour state (block `00499b5c`, whose think slot `Mech_BehaviourRamThink`
-   (`0041e570`) charges the selected target at full throttle and then runs this three times a tick).
-   It integrates motion, snaps the machine to the ground, and on `Mech_CollisionTest` reporting a
-   block detonates
-   `(pos, 3000, 2000, 0, self)` and then finishes off **every one of its own 29 components with a
-   flat 32000** through `+0x74` — a guaranteed self-destruction, no roll and no falloff. Reaching it
-   needs behaviour state 17, `ramming`, which a mission group reaches through order verb 1; see
-   [`ai-dispatch.md`](ai-dispatch.md).
+3. **`Mech_BehaviourRamTick` (`0041e488`)** — an **AI ramming attack**, and the move slot of
+   behaviour state 17, which a mission group reaches through order verb 1. A block — or the
+   "something ran into me" latch at `mech+0xb1` — detonates `(pos, 3000, 2000, 0, self)` and then
+   finishes off **every one of its own 29 components with a flat 32000** through `+0x74`: a
+   guaranteed self-destruction, no roll and no falloff, with the blast excluding the machine itself.
+   The state and the two functions are
+   [`ai-combat-states.md`](ai-combat-states.md#ramming-17--mech_behaviourramthink-0041e570)'s.
 
 ### Where a component stands — the `+0x58` slot
 

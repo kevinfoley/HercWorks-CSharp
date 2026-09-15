@@ -950,10 +950,10 @@ public sealed class SimWorld {
 	/// stop, shorten or care about order: everything in range is hit, and a wall between two of them
 	/// does not shield either, which is the original's behaviour and not a simplification.</para>
 	///
-	/// <para>The original has exactly three call sites, all terminal events rather than routine fire:
-	/// the drop pod touching down (<see cref="MeteorObject"/>), a plasma round going off
-	/// (<see cref="Projectile"/>), and a machine's own death throe. The death throe is not ported;
-	/// the other two both reach it here.</para>
+	/// <para>Exactly three call sites, all terminal events rather than routine fire, and all three
+	/// reach it here: the drop pod touching down (<see cref="MeteorObject"/>), a plasma round going
+	/// off (<see cref="Projectile"/>), and a machine ending its ramming charge on something — see
+	/// MechObject.Ramming.cs.</para>
 	/// </summary>
 	/// <param name="hitPoint">Where the explosion went off, in world units.</param>
 	/// <param name="blastRadius">How far it reaches, and the denominator of each victim's falloff.</param>

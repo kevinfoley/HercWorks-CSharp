@@ -400,6 +400,14 @@
           "description": "+0xa7 -- written to 1 by Mech_Constructor and Flyer_Constructor as '[EAX + 0x15]' off the 0x92 base. No reader located."
         },
         {
+          "offset": 177,
+          "width": 1,
+          "type": "byte",
+          "name": "runInto",
+          "confidence": "high",
+          "description": "+0xb1 -- something ran into this object. SimObject_SetRunInto (0042200c, vtable +0x68) is the only writer instruction, reached from two collision sweeps that name whatever blocked the move: Mech_CollisionTest and FUN_0046a510, inside StructureEmplacementVtable's tick slot. Mech_BehaviourRamTick is the only reader, and nothing clears it. Width from 'MOV byte ptr [EAX + 0x1f],0x1' off the 0x92 base -- both instructions rebase, which is why a scalar search for 0xb1 finds neither."
+        },
+        {
           "offset": 180,
           "width": 1,
           "type": "byte",

@@ -79,6 +79,7 @@ public partial class MechObject {
 			ThinkSlot.Flee => FleeThink(world),
 			ThinkSlot.Sleep => SleepThink(world),
 			ThinkSlot.Inert => InertThink(world),
+			ThinkSlot.Ram => RamThink(world),
 			_ => false
 		};
 

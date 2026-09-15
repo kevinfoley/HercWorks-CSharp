@@ -1,4 +1,4 @@
-{
+﻿{
   "schema_version": 1,
   "_readme": [
     "Vtable layouts for DBSIM.EXE's simulation-object class hierarchy, applied to the Ghidra",
@@ -69,7 +69,7 @@
         { "offset": 92,  "name": "GetBodyRadius",         "description": "Mech_GetBodyRadius (00415518) -- the flat 750 of MechTypeRecord.BodyRadius. Ported as SimObject.HitRadius; distinct from GetShapeRadius. See docs/simulation/hit-detection.md, 'The three radius slots'." },
         { "offset": 96,  "name": "OnTargetNeutralised",    "description": "Base 00411b2c is an empty stub; mech 00415710 is Mech_CreditNeutralisedTarget. Called on the ATTACKER by Mech_ComponentDamageWrite when its victim goes out of the fight, carrying the victim and the victim's immobilised reading from before the change -- kill credit and the two squad callouts. See docs/simulation/damage-system.md." },
         { "offset": 100, "name": "AiOnLineOfFireBlocked", "description": "Mech_AiOnLineOfFireBlocked (0041dd2c): copies the machine's current target position to mech+0x31e and sets mech+0xad. Called from the tail of Sim_RaycastObjectList. See docs/simulation/ai-combat-states.md." },
-        { "offset": 104, "name": "slot_0x68",             "description": "0042200c in base, mech and flyer alike. Role not established." },
+        { "offset": 104, "name": "SetRunInto",            "description": "SimObject_SetRunInto (0042200c) in all eight instances, with no override: obj+0xb1 = 1, \"something ran into me\". Two callers, both collision sweeps naming whatever blocked a move -- Mech_CollisionTest and FUN_0046a510, the sweep in StructureEmplacementVtable's tick slot. Mech_BehaviourRamTick is the only reader and nothing clears the byte." },
         { "offset": 108, "name": "MissileLockState",      "description": "Mech_MissileLockState (004155ac): returns the per-missile-subtype LOCK flag, NOT an ammunition count. Rocket_Fire will not attach a target without it. See known_symbols.json's entry for 004155ac." },
         { "offset": 112, "name": "ApplyExplosiveDamage",  "description": "What an explosion does to this object, called on every object the blast sweep finds in range. Mech_ApplyExplosiveDamage (004187d0); base and flyer share SimObject_ApplyExplosiveDamage (00411b3c). See docs/simulation/damage-system.md, 'Explosive damage'." },
         { "offset": 116, "name": "ComponentDamageWrite",  "description": "The shared component-health write every damage path funnels into. Mech_ComponentDamageWrite (00417de4), Flyer_ComponentDamageWrite (00421bb4); both of the mech's death branches fire the object's defeat action from here. The base answers the 00496684 stub." },

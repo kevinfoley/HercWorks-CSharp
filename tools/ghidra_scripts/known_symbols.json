@@ -13382,6 +13382,96 @@
       "name": "Input_GetDevice",
       "description": "Returns the registered input device of the given kind from the table at DAT_004d24ec, offset back to the object base, or 0 for none. Kind 3 is the joystick, and FUN_0045c508(3) is the presence test the CONTROLS panel gates on -- Input_QueryCapabilities' +0 is 1 or 2 and never 0, so it cannot answer that question.",
       "source": "docs/formats/joystick-input.md"
+    },
+    {
+      "address": "0045981c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Prefs_SaveAllOptions",
+      "signature": "void __cdecl Prefs_SaveAllOptions(void)",
+      "description": "Opens the prefs path at DAT_0049e844 for write and writes all 0x36 bytes of SimOptions straight over it, with no read-modify-write. UNREFERENCED: ES2FindAddressRefs on 0045981c returns nothing of any kind, against a fired positive control on 00459b78 which returns its four callers. Every save retail actually performs goes through Prefs_SaveSelectedOptions instead.",
+      "source": "docs/simulation/preferences.md, 'Writing it back'"
+    },
+    {
+      "address": "00459b78",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Prefs_SaveSelectedOptions",
+      "signature": "void __cdecl Prefs_SaveSelectedOptions(short count, short *indices)",
+      "description": "The only save path retail reaches. Re-reads the current 0x36-byte prefs.cfg into a local buffer, copies just the count options named in indices[] out of SimOptions over it, then writes the merged buffer back. So an option this call does not name keeps whatever is on disk rather than whatever is in memory. Four callers: PreferencesPanel_Save (9 options), ControlsPanel_Save (13), Joystick_InitAndSeedBindings (25, first run only) and the single-option wrapper Prefs_SaveOption.",
+      "source": "docs/simulation/preferences.md, 'Writing it back'"
+    },
+    {
+      "address": "00459b64",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Prefs_SaveOption",
+      "signature": "void __cdecl Prefs_SaveOption(short index)",
+      "description": "One-option wrapper over Prefs_SaveSelectedOptions, taking the index off the stack. Called once, from MAIN's startup at 0045f413, immediately after Prefs_SetOption(6, ...) -- so option 6 is written to disk at every launch.",
+      "source": "docs/simulation/preferences.md, 'Writing it back'"
+    },
+    {
+      "address": "00459b04",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Prefs_RevertSelectedOptions",
+      "signature": "void __cdecl Prefs_RevertSelectedOptions(short count, short *indices)",
+      "description": "Copies the named options back out of the load-time shadow at DAT_004d1ff2 over SimOptions -- the revert half of the preferences panel. Memory only; it does not touch the file.",
+      "source": "docs/simulation/preferences.md, 'Writing it back'"
+    },
+    {
+      "address": "00459c38",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Prefs_OptionChanged",
+      "signature": "bool __cdecl Prefs_OptionChanged(short index)",
+      "description": "Whether SimOptions[index] differs from the load-time shadow at DAT_004d1ff2. Note it reads the load-time shadow, not the per-write outgoing shadow at DAT_004d2028.",
+      "source": "docs/simulation/preferences.md, 'Writing it back'"
+    },
+    {
+      "address": "00459878",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Prefs_CommitOptions",
+      "signature": "void __cdecl Prefs_CommitOptions(char apply)",
+      "description": "Walks all 0x36 options: where SimOptions differs from the load-time shadow at DAT_004d1ff2 it calls that option's handler (when apply is set) and re-baselines the shadow, and it refreshes the outgoing shadow at DAT_004d2028 unconditionally. ControlsPanel_Run calls it at 00458c0f immediately after saving, so the controls panel applies and re-baselines on the way out.",
+      "source": "docs/simulation/preferences.md, 'Writing it back'"
+    },
+    {
+      "address": "004574cc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PreferencesPanel_Save",
+      "signature": "void __cdecl PreferencesPanel_Save(void)",
+      "description": "Prefs_SaveSelectedOptions(9, DAT_0049e304), that list being options 0, 1, 2, 3, 7, 8, 9, 10, 11 -- the preferences panel's nine rows. Its one caller is PreferencesPanel_Run at 0045707a, on the arm that closes the panel; the CONTROLS arm jumps past it, so raising the controls panel does not save.",
+      "source": "docs/simulation/preferences.md, 'Writing it back'"
+    },
+    {
+      "address": "004574e0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PreferencesPanel_Revert",
+      "signature": "void __cdecl PreferencesPanel_Revert(void)",
+      "description": "Tests the same nine options with Prefs_OptionChanged and, if any changed, calls Prefs_RevertSelectedOptions over them. UNREFERENCED: ES2FindAddressRefs on 004574e0 returns nothing, against a fired positive control on 004574cc which returns its one caller. So the preferences panel has no reachable cancel -- leaving it saves.",
+      "source": "docs/simulation/preferences.md, 'Writing it back'"
+    },
+    {
+      "address": "00459140",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ControlsPanel_Save",
+      "signature": "void __cdecl ControlsPanel_Save(void)",
+      "description": "Builds a 13-entry index list spanning ControlsOptionBase-1 through ControlsOptionBase+11 -- option 12 plus the twelve bindings for a walker -- then Prefs_SaveSelectedOptions over it. The list is built once and latched by DAT_0049e7fc, so it keeps whatever ControlsOptionBase was at the first save. Called by ControlsPanel_Run at 00458c07, immediately before Prefs_CommitOptions.",
+      "source": "docs/simulation/preferences.md, 'Writing it back'"
     }
   ]
 }

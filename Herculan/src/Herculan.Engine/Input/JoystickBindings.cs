@@ -55,8 +55,19 @@ public sealed class JoystickBindings {
 	public bool ThrottleLeverInverted { get; set; }
 
 	/// <summary>
+	/// Whether the lever is read centre-zero — <see cref="JoystickDeviceMap.BipolarThrottle"/>,
+	/// which the host copies here because the control law reaches the mode through this and not
+	/// through the map. <b>This engine's invention</b>; retail has only the end-to-end lever.
+	/// </summary>
+	public bool BipolarThrottle { get; set; }
+
+	/// <summary>
 	/// <c>Input_SetThrottleLeverMode</c> (<c>FUN_00459d20</c>): 0 when no physical lever is driving the
-	/// throttle, otherwise ±1 for one that is, the sign being <see cref="ThrottleLeverInverted"/>.
+	/// throttle, otherwise non-zero for one, the sign being <see cref="ThrottleLeverInverted"/>.
+	///
+	/// <para>The magnitude is the mode: <see cref="Sim.MechControls.ThrottleLeverUnipolar"/>, or
+	/// <see cref="Sim.MechControls.ThrottleLeverBipolar"/> when <see cref="BipolarThrottle"/> is
+	/// set. Retail returns only the first.</para>
 	///
 	/// <para>Both of its conditions have to hold — the device must report a throttle control
 	/// <b>and</b> the THROTTLE row must be assigned to <see cref="JoystickAxisAssignment.Movement"/>,
@@ -69,7 +80,11 @@ public sealed class JoystickBindings {
 			return 0;
 		}
 
-		return ThrottleLeverInverted ? -1 : 1;
+		int mode = BipolarThrottle
+			? Sim.MechControls.ThrottleLeverBipolar
+			: Sim.MechControls.ThrottleLeverUnipolar;
+
+		return ThrottleLeverInverted ? -mode : mode;
 	}
 
 	/// <summary>Drops every latch, so a held button fires once more.</summary>

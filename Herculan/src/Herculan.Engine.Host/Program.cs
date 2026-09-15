@@ -70,7 +70,7 @@ bool startWithControls = false;
 var stagedJoystick = JoystickCapabilities.None;
 bool probeJoystick = false;
 bool writeJoystickMap = false;
-bool writePreferences = false;
+bool writePreferences = true;
 bool startWithStatusAlert = false;
 int stagedStatusAlert = -1;
 for (int i = 0; i < args.Length; i++) {
@@ -127,11 +127,11 @@ for (int i = 0; i < args.Length; i++) {
 		// all, so there is something to edit rather than a file to compose from scratch. With no file
 		// there already, that is the device's own reported shape in retail's X/Y/Z/R order.
 		writeJoystickMap = true;
-	} else if (args[i] == "--write-prefs") {
-		// Lets a rebinding reach the player's real data\prefs.cfg on the way out. Off by default
-		// because that file belongs to their retail install; the write is byte-exact over the array
-		// that was read, so the simulator still reads it.
-		writePreferences = true;
+	} else if (args[i] == "--no-write-prefs") {
+		// Leaves data\prefs.cfg alone. Saving is on by default, as it is in the original: each panel
+		// writes its own options back as it closes. This is the way out for anyone who would rather
+		// their retail install were not touched at all.
+		writePreferences = false;
 	} else if (args[i] == "--hdd") {
 		// Power up already panned down to the Heads-Down Display, for the same reason as --mfd: a
 		// --screenshot run never sees a keystroke. An optional 0 or 1 picks which of its two screens
@@ -399,11 +399,15 @@ var statusAlertPanel = StatusAlertPanel.Build(content);
 // draw distance is already read out of, and the same folder the mission's script.dat came from. The
 // same folder holds keyjoy.cfg, the four axis-sense switches, and Herculan's own device map.
 string? dataDirectory = Path.GetDirectoryName(scriptPath);
-// Nullable only long enough to answer "was there a file?", which is what --write-prefs is gated on:
-// an install with no prefs.cfg should not have one invented for it. Everything downstream shares the
-// one instance, so a rebinding made on the CONTROLS panel is the same array the input layer reads.
+// Nullable only long enough to answer "was there a file?": an install with no prefs.cfg should not
+// have one invented for it, and SimulatorPreferences.Save refuses to write where it did not read.
+// Everything downstream shares the one instance, so a rebinding made on the CONTROLS panel is the
+// same array the input layer reads.
 var loadedPreferences = SimulatorPreferences.Load(dataDirectory);
 var simulatorPreferences = loadedPreferences ?? SimulatorPreferences.Defaults();
+// Each panel writes its own options back as it closes, which is the original's own timing. --no-write-prefs
+// is the way out; a Defaults() instance has nowhere to write to and so is inert either way.
+simulatorPreferences.SaveEnabled = writePreferences;
 // The two gates the original's own panel reads. SfxManager being null greys its first four rows, and
 // DAT_0049e9cd -- which FUN_00459d6c sets by trying to fopen the localised simvoice archive -- is
 // what lets the two message rows be stepped at all.
@@ -1817,8 +1821,14 @@ window.Update += deltaSeconds => {
 
 	ApplyStatusAlertAnswer();
 
+	// Every modal freezes the simulation behind it, which is the original's own behaviour: each of
+	// these panels raises DAT_004d2576 while it is up and restores it on the way out --
+	// PreferencesPanel_Raise (0045cfd4) for the preferences panel, and the controls panel is raised
+	// over that one. The accumulator is held with it, so closing a panel does not pay back the time
+	// it was up as a burst of catch-up ticks.
 	bool frozen = missionOver
-		|| objectivesPanel is { IsOpen: true } || statusAlertPanel is { IsOpen: true };
+		|| objectivesPanel is { IsOpen: true } || statusAlertPanel is { IsOpen: true }
+		|| preferencesPanel is { IsOpen: true } || controlsPanel is { IsOpen: true };
 	if (!frozen) {
 		tickAccumulator = Math.Min(tickAccumulator + deltaSeconds, MaxAccumulatedSeconds);
 	}
@@ -2188,15 +2198,6 @@ window.Render += (_, gl) => {
 };
 
 window.Closing += () => {
-	// The one write that touches the player's retail install, and only when they asked for it. It is
-	// the array that was read, byte for byte — the nineteen options nothing here interprets included —
-	// so the retail simulator reads back what it wrote. See SimulatorPreferences.Save.
-	if (writePreferences && loadedPreferences is { Changed: true }) {
-		Console.WriteLine(loadedPreferences.Save(dataDirectory)
-			? $"Wrote {Path.Combine(dataDirectory ?? ".", SimulatorPreferences.FileName)}."
-			: "Could not write prefs.cfg; the bindings changed this session are lost.");
-	}
-
 	audio.Dispose();
 	imgui?.Dispose();
 	renderer?.Dispose();
@@ -3090,6 +3091,10 @@ void AnnounceJoystick() {
 	foreach (string line in joystick.Describe()) {
 		Console.WriteLine(line);
 	}
+
+	// The lever's mode lives in the map but is read through the bindings, the control law having no
+	// route to the map. Derived maps never set it, so this only ever carries a file's own choice.
+	joystickBindings.BipolarThrottle = map.BipolarThrottle;
 
 	// Only when a stick really answered: with none attached the panel keeps whatever --joystick staged,
 	// which is the whole point of that flag.

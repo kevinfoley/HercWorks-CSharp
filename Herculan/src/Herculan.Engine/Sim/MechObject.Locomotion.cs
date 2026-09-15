@@ -14,6 +14,12 @@ public sealed partial class MechObject {
 	private const short ThrottleFull = 0x400;
 
 	/// <summary>
+	/// The band around an absolute lever's idle position that reads as a closed throttle, on the
+	/// scaled setting rather than on the axis. DBSIM's own literal, in <c>Mech_ApplyThrottleInput</c>.
+	/// </summary>
+	private const int LeverDeadband = 100;
+
+	/// <summary>
 	/// What a machine's asked-for speed is scaled by once its legs are past
 	/// <see cref="LegsCrippledDamage"/> or its reactor is <see cref="ReactorCondition.Critical"/> —
 	/// the original's Q10 400, so a little under two fifths.
@@ -73,13 +79,28 @@ public sealed partial class MechObject {
 		var controls = Controls;
 		short throttleAxis = controls.Throttle;
 
+		bool bipolarLever =
+			System.Math.Abs(controls.ThrottleLever) == MechControls.ThrottleLeverBipolar;
+
 		if (controls.ThrottleLever != 0) {
-			// The absolute-lever path: the axis is a position, not a rate. It is measured from the
-			// lever's own centre detent at 0x100 and doubled to cover the throttle's range, with a
-			// deadband around the detent, and the rate path below is then skipped for this tick.
-			int fromCentre = System.Math.Abs(throttleAxis - MechControls.AxisFull);
-			int setting = fromCentre * 2;
-			if (setting < 100) {
+			// The absolute-lever path: the axis is a position, not a rate, and the rate path below is
+			// then skipped for this tick because this zeroes the axis it works from.
+			int setting;
+			if (bipolarLever) {
+				// This engine's own mode. Idle is the middle of the travel and the sign of the axis
+				// is the direction of travel, so the lever reaches reverse without CHANGE DIRECTION.
+				// Negated for the same reason the rate path negates: on this axis forward is
+				// negative, which is also the end retail's arm measures full throttle at.
+				// Quadrupled rather than doubled: each half of the travel covers the whole range,
+				// clamped because the response curve reaches 258 rather than exactly AxisFull.
+				setting = System.Math.Clamp(-throttleAxis * 4, -ThrottleFull, ThrottleFull);
+			} else {
+				// Retail's. Measured from the lever's own idle stop at 0x100 and doubled to cover the
+				// range, so the whole travel is spent on one direction.
+				setting = System.Math.Abs(throttleAxis - MechControls.AxisFull) * 2;
+			}
+
+			if (System.Math.Abs(setting) < LeverDeadband) {
 				setting = 0;
 			} else if (controls.ThrottleLever < 0) {
 				setting = -setting;
@@ -111,9 +132,10 @@ public sealed partial class MechObject {
 			short next = (short)(step + Throttle);
 
 			if (Throttle == 0 || next < 0 == Throttle < 0) {
-				// With no lever both limits stand, which is what lets the keyboard reach reverse.
-				short upper = controls.ThrottleLever < 0 ? (short)0 : ThrottleFull;
-				short lower = controls.ThrottleLever > 0 ? (short)0 : (short)-ThrottleFull;
+				// With no lever both limits stand, which is what lets the keyboard reach reverse. A
+				// bipolar lever keeps them for the same reason: its own travel already spans both.
+				short upper = !bipolarLever && controls.ThrottleLever < 0 ? (short)0 : ThrottleFull;
+				short lower = !bipolarLever && controls.ThrottleLever > 0 ? (short)0 : (short)-ThrottleFull;
 				Throttle = next >= upper ? upper : next <= lower ? lower : next;
 			} else {
 				Throttle = 0;

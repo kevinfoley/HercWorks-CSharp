@@ -255,10 +255,19 @@ public sealed class PreferencesPanel {
 		ControlsRequested = false;
 	}
 
-	/// <summary>Takes the panel down, however it was dismissed.</summary>
+	/// <summary>
+	/// Takes the panel down, however it was dismissed, and writes its nine options back —
+	/// <c>PreferencesPanel_Run</c> calls <c>PreferencesPanel_Save</c> (<c>004574cc</c>) at
+	/// <c>0045707a</c> as it closes.
+	///
+	/// <para><b>However it was dismissed is the whole of it.</b> The original's revert,
+	/// <c>PreferencesPanel_Revert</c> (<c>004574e0</c>), is unreferenced, so leaving this panel
+	/// saves whichever button leaves it.</para>
+	/// </summary>
 	public void Close() {
 		IsOpen = false;
 		PressedButton = -1;
+		_preferences.Save(SimulatorPreferences.PreferencesPanelOptions);
 	}
 
 	/// <summary>

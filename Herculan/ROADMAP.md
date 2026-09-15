@@ -49,12 +49,6 @@ The mechanism is understood; what is left is engine work.
   campaign. Here the window simply closes.
   → [`docs/simulation/mission-objectives.md`](docs/simulation/mission-objectives.md),
   [`docs/formats/save-games.md`](docs/formats/save-games.md)
-- **The preferences panel.** `ctl_alrt` (`FUN_004566c4`), which `[F12]` and `[Alt+P]` raise through
-  `FUN_0045cfd4` and which pauses the simulation while it is up — the manual's Preferences screen,
-  with the music, sound and graphics-detail switches on it. Its contents are not decoded, and
-  neither is `prf_alrt` (`FUN_00457d1c`), the fourth panel of the family, which is built from a
-  modal of its own (`FUN_00456d4c`) rather than from the dispatcher.
-  → [`docs/formats/cockpit-input.md`](docs/formats/cockpit-input.md#keyboard-commands-are-scancodes)
 - **The computer's damage messages.** The engine speaks the objective set, the waypoint, the radar
   and auto-track toggles and the power-up line. The rest of `Computer_PostMessage`'s traffic — the
   `INTERNAL DAMAGE` family, `WEAPON DESTROYED`, `DAMAGE LEVEL CRITICAL`, `SHIELDS CRITICAL`, and
@@ -149,8 +143,8 @@ hit-testing rather than new drawing code. What is missing:
 - Similarly to the previous, currently missing is an animation where weapon buttons wink on one-at-a-time when the simulation first starts.
 - Preferences (F12): the screen is laid out, reads the install's own `data\prefs.cfg` and cycles its
   settings, but a changed setting is not applied while the panel is still up. The per-option handler
-  table (`004d2060`) is unported — five options have one. Writing the file back is implemented and
-  byte-exact, but opt-in behind `--write-prefs` because it touches the player's retail install.
+  table (`004d2060`) is unported — five options have one. Writing the file back is implemented on
+  retail's own terms: each panel merges its own options into a fresh read of the file as it closes.
   → [`docs/simulation/preferences.md`](docs/simulation/preferences.md)
 - The outside and chase views. The joystick's `OUTSIDE VIEW` and `CHASE VIEW` actions step a chain of
   external cameras (`DAT_004d2572`, four states) that the engine has no equivalent of, so those two

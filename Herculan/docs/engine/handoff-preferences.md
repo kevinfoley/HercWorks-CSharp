@@ -8,18 +8,25 @@ here that outlives the next session should be drained into one of those and dele
 ## State
 
 Done: both panels' layout, text and cycling; reading and writing the install's own `prefs.cfg`
-(byte-exact, opt-in behind `--write-prefs`); the joystick path from Silk.NET through the device map
+(each panel merging its own options in as it closes); the joystick path from Silk.NET through the device map
 and the twelve binding bytes to the axes, the trigger and the action dispatch.
 
-Verified on real hardware (a Thrustmaster T.Flight HOTAS, 4 axes / 17 buttons / 1 hat as GLFW reports
-it): the CONTROLS panel lights every row and reads the install's own bindings, and the binding
-resolution routes axes, hat and button edges correctly for a given device-axis assignment.
+Verified on real hardware (a Thrustmaster T.Flight HOTAS): the CONTROLS panel lights every row and
+reads the install's own bindings, and the binding resolution routes axes, hat and button edges
+correctly for a given device-axis assignment.
+
+**Check the mode switch on the base of a HOTAS before reading anything into its numbering.** The
+T.Flight's PC position numbers buttons and axes the way the retail format expects — the trigger is
+button 1, the throttle is the throttle — and its PS3 position renumbers both, which looks exactly
+like the engine inferring the wrong convention.
+
+`Herculan/examples/herculan-joystick.cfg` is a worked map for that stick in PC mode.
 
 ### The open problem: which axis is the throttle
 
-**Silk.NET reports axes positionally and nothing says what any of them is.** On the T.Flight the
-throttle and the rudder come out swapped against the order the retail format assumes, so the stick
-only works once `data\herculan-joystick.cfg` has been written by hand.
+**Silk.NET reports axes positionally and nothing says what any of them is.** The order a device
+enumerates in is its own, and a HOTAS that separates twist from rudder paddles will hand over more
+than the four axes the format binds, so which four to take is a question only the player can answer.
 
 This is not a bug with a fix hiding behind it, and the next session should not go looking for one:
 
@@ -47,6 +54,18 @@ What is left is what every flight sim does: let the player assign axes. Two rout
 
 Until then `--joystick-probe` prints each axis and button as it moves and `--write-joystick-map`
 drops an editable file, which is the whole of the configuration story.
+
+### Settled since
+
+- **A fifth axis is reachable** as a *choice* of four: `Rudder = 4` takes a throttle's paddles
+  instead of the stick's twist. Four slots remains the limit.
+- **`BipolarThrottle`** puts idle at the middle of a lever's travel and reverse behind it, in place
+  of retail's end-to-end lever and its `CHANGE DIRECTION` flip. Off by default. The engine's
+  invention; `../formats/joystick-input.md` carries it.
+- **BUTTON 1's FIRE-only option list is a UI table**, `DAT_0049e619`, read by the panel and by
+  nothing else. `FUN_0045a7f4` finds the trigger by scanning the eight bytes for action code 1, so
+  any row can hold it, and retail's own RECOMMEND writes a code into BUTTON 6 that its row does not
+  offer. Lifting the restriction needs no simulation change.
 
 ### Also not done
 
@@ -77,7 +96,7 @@ drops an editable file, which is the whole of the configuration story.
 | `Input.KeyjoyConfig` | `data\keyjoy.cfg` |
 | host `JoystickSource` | Silk.NET enumeration and polling |
 | `Render.Overlay2DRenderer.DrawPreferencesPanel` / `DrawControlsPanel` | over the shared `DrawAlertPanel` |
-| host | `--preferences`, `--controls`, `--joystick [count]`, `--joystick-probe`, `--write-joystick-map`, `--write-prefs` |
+| host | `--preferences`, `--controls`, `--joystick [count]`, `--joystick-probe`, `--write-joystick-map`, `--no-write-prefs` |
 
 ## Traps
 

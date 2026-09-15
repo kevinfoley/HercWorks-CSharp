@@ -402,10 +402,20 @@ public sealed class ControlsPanel {
 		RefreshValues();
 	}
 
-	/// <summary>Takes the panel down, however it was dismissed.</summary>
+	/// <summary>
+	/// Takes the panel down, however it was dismissed, and writes its thirteen options back —
+	/// <c>ControlsPanel_Run</c> calls <c>ControlsPanel_Save</c> (<c>00459140</c>) at <c>00458c07</c>
+	/// on its way out. Only this panel's own options are written; see
+	/// <see cref="SimulatorPreferences.Save"/>.
+	///
+	/// <para>Not modelled alongside it: <c>Prefs_CommitOptions</c> (<c>00459878</c>) one instruction
+	/// later, which applies the five options that have a handler and re-baselines both shadows. The
+	/// controls block needs neither — the input layer re-reads it every tick.</para>
+	/// </summary>
 	public void Close() {
 		IsOpen = false;
 		PressedButton = -1;
+		_preferences.Save(SimulatorPreferences.ControlsPanelOptions(IsRazor));
 	}
 
 	/// <summary>

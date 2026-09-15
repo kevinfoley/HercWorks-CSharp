@@ -35,6 +35,41 @@ pushed anywhere: 0, 1 and 2 take `00459c98`, `00459c6c` and `00459cc4`, 8 takes 
 **`0x0e` takes `Input_SetThrottleLeverMode`** — which is the herc controls block's THROTTLE row, and
 so an independent corroboration of where that block starts.
 
+### Writing it back — `Prefs_SaveSelectedOptions` (`00459b78`)
+
+**Every save is a read-modify-write of named options, never a dump of the array.** The function
+re-reads the current 54 bytes off disk into a local buffer, copies just the options its
+`(count, short *indices)` argument names out of `SimOptions` over that buffer, and writes the buffer
+back. An option it does not name keeps whatever is on disk rather than whatever is in memory.
+
+`Prefs_SaveAllOptions` (`0045981c`) is the dump — open the path, write all `0x36` bytes, close — and
+nothing calls it. It has no references of any kind.
+
+Four callers, and between them they are every write the simulator makes:
+
+| Caller | Saves | When |
+|---|---|---|
+| `PreferencesPanel_Save` (`004574cc`) | 9: options 0-3 and 7-11 (`DAT_0049e304`) | `PreferencesPanel_Run` closing the panel |
+| `ControlsPanel_Save` (`00459140`) | 13: `ControlsOptionBase - 1` through `+11` | `ControlsPanel_Run` closing the panel, at `00458c07` |
+| `Joystick_InitAndSeedBindings` (`00459dd4`) | 25: options 12-36 (`DAT_0049e9d0`) — both blocks | First run only, gated on `DAT_004d1fc8` |
+| `Prefs_SaveOption` (`00459b64`) | 1 | MAIN at `0045f413`, on option 6, at every launch |
+
+**There is no cancel.** `PreferencesPanel_Revert` (`004574e0`) tests the same nine options with
+`Prefs_OptionChanged` (`00459c38`) and rolls the changed ones back out of the load-time shadow at
+`004d1ff2` through `Prefs_RevertSelectedOptions` (`00459b04`) — and it is unreferenced, as
+`Prefs_SaveAllOptions` is. Leaving the preferences panel saves, whichever button does it.
+
+The controls panel pairs its save with `Prefs_CommitOptions` (`00459878`) one instruction later,
+which walks all 54 options, calls the handler of each one that differs from the load-time shadow, and
+re-baselines both shadows. That is the apply step the panels otherwise lack.
+
+**The controls panel's index list is latched.** `ControlsPanel_Save` builds it from
+`ControlsOptionBase` the first time it runs and sets `DAT_0049e7fc`, so the list keeps whatever base
+that was. Within one run of the simulator the player's machine is fixed by the mission load, so the
+latch has nothing to go stale against. It also means the `- 1` entry is option 12, the
+joystick-configured flag, only for a walker; flying a RAZOR it is option 24, the walker's last button
+binding, which is rewritten with its own unchanged value.
+
 ### What each byte is
 
 | Option | Row | Values |
@@ -294,10 +329,9 @@ Divergences:
   revert path and the handler table at `004d2060` an apply path. So the five options with a handler
   do not take effect until something reads them again. The controls block is the exception, being
   read fresh every tick by the input layer, so a rebinding is live on the next frame.
-- **Writing the file back is opt-in.** `SimulatorPreferences.Save` is byte-exact over the array that
-  was read, so the nineteen options nothing here interprets survive the round trip and the retail
-  simulator reads back what it wrote — but it touches the player's own install, so the host only
-  calls it under `--write-prefs`.
+- **`--no-write-prefs` can turn saving off**, which the original has no equivalent of. Saving itself
+  is the original's: each panel merges its own options into a fresh read of the file as it closes,
+  and a file the engine did not read is never written.
 - **The panels are placed against the window**, as the other two are.
 - **The RAZOR half is selected by the player's chassis id**, resolved through `HercLUT`, where the
   original reads the global the mission load wrote.

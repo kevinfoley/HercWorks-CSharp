@@ -261,10 +261,10 @@ Silk.NET half — enumeration and polling, in place of `joyGetPosEx` — and `Pr
 action codes into the same handlers a key or a click reaches, as the original's switch does.
 
 `--joystick-probe` prints each axis and button as it moves and `--write-joystick-map` writes the map
-in force out to the install, which together are how a stick is configured. `--write-prefs` lets a
-rebinding reach the install's own `prefs.cfg` on the way out; all three are off by default because
-those files belong to the player's retail install, and the `prefs.cfg` write is byte-exact over the
-array that was read.
+in force out to the install, which together are how a stick is configured. Both are off by default,
+the map file being the player's to own. A rebinding made on the CONTROLS panel reaches the install's
+own `prefs.cfg` as that panel closes, which is retail's own timing — `--no-write-prefs` is the way
+out of it.
 
 ### `data\herculan-joystick.cfg` — this engine's invention
 
@@ -283,6 +283,33 @@ order as the default.
 button, a second hat, or a hat diagonal. Those are limits of the twelve bytes, and keeping the file
 readable by the retail simulator means keeping them.
 
+A *fifth axis* is the one of those the map does reach, because an axis number is the map's own and
+not the format's: `Rudder = 4` reads the device's fifth axis into the rudder slot, which is how a
+HOTAS whose paddles and twist grip are separate controls gets the paddles rather than the twist. What
+cannot be expressed is a fifth axis *as well as* the other four — there are four slots, and naming a
+sixth control means giving one of them up.
+
+#### `BipolarThrottle` — the centre-zero lever
+
+**This engine's invention.** Retail's lever is end-to-end: `Mech_ApplyThrottleInput` reads it as
+`|axis - 0x100| x 2`, so idle sits at one stop, full at the other, and the whole travel is spent on
+one direction. Which direction is `ThrottleLeverMode`'s sign, a global that `CHANGE DIRECTION` and
+the cockpit slider flip; the axis has no say in it, and the rate path's clamp closes to the same side
+of zero so nothing else can cross it either. That is the right shape for a 1996 gameport throttle,
+which had no centre detent to make anything else meaningful.
+
+With the setting on, the lever is read `-axis x 4` instead: the middle of the travel is idle, forward
+of it is forward and aft of it is reverse, each half covering the whole range. The negation is the
+axis' own sense rather than a choice — **negative is forward on this axis throughout**, which is why
+the rate path steps by `Q8(rate, -axis)` and why retail's arm measures full throttle at `-0x100`. The deadband and the
+mode's sign are unchanged, so `CHANGE DIRECTION` still reverses the lever bodily — of no use in this
+mode, but it costs nothing to leave working. The clamp keeps both limits, as it does with no lever at
+all.
+
+The mode travels as the *magnitude* of `ThrottleLever` (`MechControls.ThrottleLeverUnipolar` and
+`ThrottleLeverBipolar`), leaving its sign to mean what it always did. The flyer needs none of this:
+`FlightPhysics.Step`'s analogue arm is already signed across the whole range.
+
 ### Divergences
 
 - **The trigger is found in the current block**, not always the walking one. See KNOWN_ISSUES.
@@ -293,6 +320,8 @@ readable by the retail simulator means keeping them.
   its two branches send F7 and [Esc], which together are a toggle.
 - **A hat diagonal can be made to resolve** into its two cardinals, which retail never does. Off by
   default.
+- **A throttle lever can be read centre-zero**, reaching reverse without `CHANGE DIRECTION`. Off by
+  default; see `BipolarThrottle` above.
 
 ## Rejected readings
 

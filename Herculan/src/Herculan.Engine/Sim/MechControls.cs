@@ -32,14 +32,20 @@ namespace Herculan.Engine.Sim;
 /// instead, and the rate path is skipped.</para>
 /// </param>
 /// <param name="ThrottleLever">
-/// Whether a physical throttle lever is driving the throttle, and which way round: 0 for none —
-/// keyboard and plain stick, and the value everything in Herculan currently produces — +1 for a
-/// lever, and -1 for a lever whose sense is inverted.
+/// Whether a physical throttle lever is driving the throttle, in what mode, and which way round.
+/// Magnitude picks the mode and sign picks the sense: 0 for no lever — keyboard and plain stick —
+/// <see cref="ThrottleLeverUnipolar"/> for retail's lever, and
+/// <see cref="ThrottleLeverBipolar"/> for this engine's centre-zero one. A negative value is
+/// either mode read upside down.
 ///
 /// <para>This is the original's <c>DAT_0049a06e</c>, which is <b>not</b> a forward/reverse gear
 /// selector despite the name in the symbol table — docs/simulation/mech-locomotion.md carries the
 /// argument. What matters here is that it gates the throttle clamp: at 0 the setting is free to
-/// take either sign, and with a lever present the clamp closes to one side of zero.</para>
+/// take either sign, and with a unipolar lever present the clamp closes to one side of zero.</para>
+///
+/// <para><b><see cref="ThrottleLeverBipolar"/> is this engine's invention, not retail behaviour.</b>
+/// DBSIM has only the unipolar mode: its lever spends its whole travel on one direction and
+/// <c>CHANGE DIRECTION</c> flips which. See docs/formats/joystick-input.md.</para>
 /// </param>
 /// <param name="TorsoTwist">
 /// The turret axis, left/right. Full deflection at ±0x100, as the two above. It is a
@@ -78,6 +84,19 @@ public readonly record struct MechControls(short Turn, short Throttle, int Throt
 		bool CenterBody = false, bool Fire = false) {
 	/// <summary>Full stick deflection, in either direction.</summary>
 	public const short AxisFull = 0x100;
+
+	/// <summary>
+	/// <see cref="ThrottleLever"/>'s magnitude for retail's lever: the travel runs from idle at one
+	/// stop to full at the other, all of it in the direction the sign names.
+	/// </summary>
+	public const int ThrottleLeverUnipolar = 1;
+
+	/// <summary>
+	/// <see cref="ThrottleLever"/>'s magnitude for the centre-zero lever — <b>this engine's
+	/// invention</b>. Idle sits at the middle of the travel, forward of it is forward and aft of it
+	/// is reverse, so the lever reaches both directions without <c>CHANGE DIRECTION</c>.
+	/// </summary>
+	public const int ThrottleLeverBipolar = 2;
 
 	/// <summary>
 	/// What a held direction key is worth — <b>half</b> a stick's full deflection, not all of it.

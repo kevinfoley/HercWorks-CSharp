@@ -24,9 +24,24 @@ public sealed class SimulatorPreferences {
 
 	private readonly byte[] _options;
 
-	private SimulatorPreferences(byte[] options) {
+	private SimulatorPreferences(byte[] options, string? sourceDirectory = null) {
 		_options = options;
+		SourceDirectory = sourceDirectory;
 	}
+
+	/// <summary>
+	/// The <c>data</c> folder this was read from, or null when it was not read from one. A
+	/// <see cref="Save"/> goes back where it came from, as the original's does — it keeps the one path
+	/// buffer at <c>DAT_0049e844</c> that <c>Prefs_LoadOptions</c> reads through.
+	/// </summary>
+	public string? SourceDirectory { get; }
+
+	/// <summary>
+	/// Whether <see cref="Save"/> may touch the file. On by default; the host clears it for
+	/// <c>--no-write-prefs</c>. Nothing in the original corresponds — retail has no reason to doubt
+	/// that it owns its own install.
+	/// </summary>
+	public bool SaveEnabled { get; set; } = true;
 
 	/// <summary>MUSIC — CD audio on or off.</summary>
 	public const int MusicOption = 0;
@@ -79,6 +94,33 @@ public sealed class SimulatorPreferences {
 
 	/// <summary>Which block the machine being flown reads — the whole of what <c>DAT_004d25f5</c> selects.</summary>
 	public static int ControlsBase(bool razor) => razor ? RazorControlsBase : HercControlsBase;
+
+	/// <summary>
+	/// The nine options the preferences panel saves — <c>DAT_0049e304</c>, the list
+	/// <c>PreferencesPanel_Save</c> (<c>004574cc</c>) hands to
+	/// <c>Prefs_SaveSelectedOptions</c>. Its own rows, and nothing else.
+	/// </summary>
+	public static readonly int[] PreferencesPanelOptions =
+		{ 0, 1, 2, 3, 7, 8, 9, 10, 11 };
+
+	/// <summary>
+	/// The thirteen options the controls panel saves — <c>ControlsPanel_Save</c> (<c>00459140</c>),
+	/// which builds the list at run time as <c>ControlsOptionBase - 1</c> through <c>+11</c>.
+	///
+	/// <para>That leading entry is option 12, the joystick-configured flag, only for a walker. Flying
+	/// the RAZOR the base is 0x19, so it is option 24 — the walker block's last button binding, which
+	/// is rewritten with its own unchanged value. Reproduced rather than corrected: it writes what it
+	/// read, so it changes nothing, and the arithmetic is the original's.</para>
+	/// </summary>
+	public static int[] ControlsPanelOptions(bool razor) {
+		int start = ControlsBase(razor) - 1;
+		var options = new int[ControlsOptionCount + 1];
+		for (int i = 0; i < options.Length; i++) {
+			options[i] = start + i;
+		}
+
+		return options;
+	}
 
 	/// <summary>
 	/// The options as the simulator would hold them: all zero where no file was read, since that is
@@ -167,7 +209,7 @@ public sealed class SimulatorPreferences {
 			}
 
 			byte[] bytes = File.ReadAllBytes(path);
-			return bytes.Length < Length ? null : new SimulatorPreferences(bytes);
+			return bytes.Length < Length ? null : new SimulatorPreferences(bytes, dataDirectory);
 		} catch (IOException) {
 			return null;
 		} catch (UnauthorizedAccessException) {
@@ -176,28 +218,66 @@ public sealed class SimulatorPreferences {
 	}
 
 	/// <summary>
-	/// Writes the array back over the file, and clears <see cref="Changed"/>.
+	/// Writes the named options back into the file — <c>Prefs_SaveSelectedOptions</c>
+	/// (<c>00459b78</c>), and the only shape of save the original performs.
 	///
-	/// <para><b>Byte for byte.</b> The array is what was read, whole: a longer-than-54-byte file keeps
-	/// its tail, and the nineteen options nothing here interprets — 4-6, 12 and 37-53 — are carried
-	/// out exactly as they came in. That is the whole of what keeps a rebinding done here readable by
-	/// the retail simulator, which reads the file straight over its own 54 bytes with no parse at
-	/// all.</para>
+	/// <para><b>It is a read-modify-write, not a dump.</b> The file on disk is re-read, only the
+	/// options <paramref name="indices"/> names are copied out of this array over it, and the merged
+	/// bytes go back. So an option this call does not name keeps whatever is on disk rather than
+	/// whatever is in memory, which is what lets each panel own its own rows: the CONTROLS panel
+	/// cannot push out a sound setting, and neither can push out the nineteen options nothing here
+	/// interprets. <c>Prefs_SaveAllOptions</c> (<c>0045981c</c>) is the dump, and nothing in the
+	/// original calls it.</para>
 	///
-	/// <para>Nothing calls this on its own. It touches the player's real install, so the caller has to
-	/// ask for it — see the host's <c>--write-prefs</c>.</para>
+	/// <para>The file's own length is kept: a longer-than-54-byte file keeps its tail, and a file
+	/// that has gone missing or short since it was read is not written at all rather than being
+	/// replaced with a fresh 54 bytes.</para>
+	///
+	/// <para>Clears <see cref="Changed"/> only when every option is back in step with the file,
+	/// which after a partial save it need not be.</para>
 	/// </summary>
-	/// <param name="dataDirectory">The game's <c>data</c> folder, as <see cref="Load"/> takes it.</param>
-	/// <returns>Whether the file was written.</returns>
-	public bool Save(string? dataDirectory) {
-		if (string.IsNullOrEmpty(dataDirectory)) {
+	/// <param name="indices">
+	/// Which options to write — <see cref="PreferencesPanelOptions"/> or
+	/// <see cref="ControlsPanelOptions"/>. An index outside the array is skipped, as the original's
+	/// own byte-indexed copy would leave it.
+	/// </param>
+	/// <returns>Whether the file was written. False also when it did not need to be.</returns>
+	public bool Save(IReadOnlyList<int> indices) {
+		ArgumentNullException.ThrowIfNull(indices);
+
+		if (!SaveEnabled || SourceDirectory is not { Length: > 0 } directory) {
 			return false;
 		}
 
 		try {
-			File.WriteAllBytes(Path.Combine(dataDirectory, FileName), _options);
-			Changed = false;
-			return true;
+			string path = Path.Combine(directory, FileName);
+			if (!File.Exists(path)) {
+				return false;
+			}
+
+			byte[] bytes = File.ReadAllBytes(path);
+			if (bytes.Length < Length) {
+				return false;
+			}
+
+			bool dirty = false;
+			foreach (int index in indices) {
+				if (index < 0 || index >= Length || bytes[index] == _options[index]) {
+					continue;
+				}
+
+				bytes[index] = _options[index];
+				dirty = true;
+			}
+
+			if (dirty) {
+				File.WriteAllBytes(path, bytes);
+			}
+
+			// What is left over: the options this save did not name and that still differ from the
+			// file. After the second panel has closed there are none, and this lands back on false.
+			Changed = !bytes.AsSpan(0, Length).SequenceEqual(_options.AsSpan(0, Length));
+			return dirty;
 		} catch (IOException) {
 			return false;
 		} catch (UnauthorizedAccessException) {

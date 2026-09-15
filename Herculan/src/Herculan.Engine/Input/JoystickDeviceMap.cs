@@ -83,6 +83,22 @@ public sealed class JoystickDeviceMap {
 	public int Deadzone { get; init; } = JoystickReading.Deadzone;
 
 	/// <summary>
+	/// Whether the throttle lever is read centre-zero rather than end-to-end — <b>this engine's
+	/// invention, and a divergence from retail</b>, which has only the end-to-end mode.
+	///
+	/// <para>Off, the retail reading: the whole travel runs idle-to-full in one direction and
+	/// <c>CHANGE DIRECTION</c> flips which, because a 1996 gameport throttle had no centre detent.
+	/// On: the middle of the travel is idle, forward of it is forward and aft of it is reverse, so
+	/// one lever reaches both directions. Worth having on a HOTAS whose throttle has a detent, and
+	/// unpleasant on one that does not, since idle then sits at no particular place.</para>
+	///
+	/// <para><see cref="InvertThrottle"/> still applies first and decides which half is forward.
+	/// <c>CHANGE DIRECTION</c> keeps working and reverses the whole lever, which is of no use here
+	/// but costs nothing to leave alone.</para>
+	/// </summary>
+	public bool BipolarThrottle { get; init; }
+
+	/// <summary>
 	/// Whether a hat diagonal resolves to its two components. <b>Off by default, which is retail:</b>
 	/// <c>FUN_00477614</c> tests <c>dwPOV</c> against the four cardinals exactly and reports nothing
 	/// for anything between them, so a diagonal does nothing at all in the original.
@@ -225,6 +241,7 @@ public sealed class JoystickDeviceMap {
 			InvertRudder = Bool("invertrudder", defaults.InvertRudder),
 			Deadzone = Math.Clamp(Int("deadzone", defaults.Deadzone), 0, JoystickReading.RawFull - 1),
 			HatDiagonals = Bool("hatdiagonals", defaults.HatDiagonals),
+			BipolarThrottle = Bool("bipolarthrottle", defaults.BipolarThrottle),
 			Buttons = buttons,
 		};
 	}
@@ -262,6 +279,8 @@ public sealed class JoystickDeviceMap {
 			$"of {JoystickReading.RawFull}; the original uses {JoystickReading.Deadzone}"));
 		text.AppendLine(Line("HatDiagonals", HatDiagonals,
 			"the original drops them; on resolves one into its two cardinals"));
+		text.AppendLine(Line("BipolarThrottle", BipolarThrottle,
+			"on: centre of travel is idle, aft of it is reverse"));
 		text.AppendLine();
 		text.AppendLine(";; BUTTON 1-8 as the CONTROLS panel numbers them. The format binds eight and");
 		text.AppendLine(";; no more, so a stick with more has to leave the rest out.");

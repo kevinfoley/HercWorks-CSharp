@@ -128,7 +128,9 @@ None of them is a squad order; all three are per-machine flags this handler is t
 
 ## The replies
 
-`Ai_PostSquadMessage` (`00420a98`) ids raised here: `0x0b` `0x0c` `0x0d` `0x0f` `0x11` `0x12` `0x14` `0x16` `0x17` `0x1a` `0x1b` `0x1c` `0x1d` `0x1e` `0x20` `0x26` `0x28` `0x2a`. They index the speaker's own `PILOT<n>.STR` set — [`audio.md`](../formats/audio.md#the-pilot-and-squad-channel). Which situation raises which is in the case table above and in the engine's own constants.
+`Ai_PostSquadMessage` (`00420a98`) ids raised here: `0x0b` `0x0c` `0x0d` `0x0f` `0x11` `0x12` `0x14` `0x16` `0x17` `0x1a` `0x1b` `0x1c` `0x1d` `0x1e` `0x20` `0x26` `0x28` `0x2a`. They index the speaker's own `PILOT<n>.STR` set; what each says is [`audio.md`](../formats/audio.md#what-each-id-says)'s catalog, and which situation raises which is the case table above.
+
+**`0x1e` is `AFFIRMATIVE!`, not a refusal.** Several of the arms that post it are refusals — a machine already carrying the order, or already formed up — so the squadmate answers yes to an order it is declining to act on. That is the right line and the wrong arm to name it after. The generic no, `0x1f`, is posted by nothing in the simulator.
 
 ## Engine port
 

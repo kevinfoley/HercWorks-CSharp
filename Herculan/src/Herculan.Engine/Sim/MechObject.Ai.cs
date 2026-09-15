@@ -537,15 +537,16 @@ public partial class MechObject {
 
 	/// <summary>
 	/// <c>Ai_PostSquadMessage</c> (<c>00420a98</c>) — posts to the pilot-and-squad message port, the
-	/// second instance of the port the cockpit computer uses. A destroyed machine says nothing; the
-	/// original's third argument, which forces the post anyway, has no caller that sets it.
+	/// second instance of the port the cockpit computer uses. A destroyed machine says nothing unless
+	/// <paramref name="force"/> is set, which is how a machine gets to cry out as it dies — see
+	/// <see cref="CreditNeutralised"/>, the original's only caller that sets it.
 	///
 	/// <para>The id is also kept, because it is observable without a sound device and the tests read
 	/// it — the port itself decides whether anything is heard, and drops the post entirely for a
 	/// machine that is not one of the player's three squadmates.</para>
 	/// </summary>
-	private void PostSquadMessage(SimWorld world, int messageId) {
-		if (Destroyed) {
+	private void PostSquadMessage(SimWorld world, int messageId, bool force = false) {
+		if (Destroyed && !force) {
 			return;
 		}
 
@@ -842,4 +843,13 @@ public partial class MechObject {
 
 	/// <summary>Squad message 8 — the player is shooting one of his own.</summary>
 	public const int SquadMessageFriendlyFire = 8;
+
+	/// <summary>Squad message 2 — a squadmate put something out of the fight.</summary>
+	public const int SquadMessageScoredAKill = 2;
+
+	/// <summary>Squad message 4 — a squadmate stopped but not destroyed.</summary>
+	public const int SquadMessageWentDown = 4;
+
+	/// <summary>Squad message 0x25 — a squadmate destroyed.</summary>
+	public const int SquadMessageDestroyed = 0x25;
 }

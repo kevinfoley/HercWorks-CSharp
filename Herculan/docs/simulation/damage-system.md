@@ -617,12 +617,40 @@ resolved, with the percentage at [`../formats/script-dat.md`](../formats/script-
 | ≥ 80, or negative | untouched |
 | 60–79 | 50 damage at 75 |
 | 40–59 | 80 at 105 |
-| 20–39 | 120 at 145, and the **reactor dependent is set to its own maximum** — written off outright rather than damaged toward it |
-| < 20 | a **wreck**: one of components 7/8 destroyed with 32000 (and one of 13/14 on a four-legged chassis), `+0xa4` immobilised and `+0xb4` collapsed, then 150 at 175 over the rest |
+| 20–39 | 120 at 145, the **reactor dependent is set to its own maximum** — written off outright rather than damaged toward it — and `+0xb3` is raised |
+| < 20 | a **wreck**: one of components 7/8 destroyed with 32000 (and one of 13/14 on a four-legged chassis), `+0xa4` immobilised, `+0xb3` raised and `+0xb4` collapsed, then 150 at 175 over the rest |
 
 The order matters: writing a leg off can fire the death gate, so the defeat action has to be attached
 first. The wreck grade places a derelict as scenery — already down, so it never falls, and never
 targetable.
+
+**`+0xb3` is *worth no salvage*** — below.
+
+### What a wreck is worth — `Mech_SalvageValue` (`00418e60`)
+
+What the player's side takes home. `Mission_TotalSalvage` (`00423e88`) walks the object list at the
+end of the run and sums this function over every machine that is on the other side from the player's
+and is destroyed (`+0x99`) or immobilised (`+0xa4`); the total is scaled by `Q10(2500)` and added to
+the campaign's salvage pool ([`../formats/save-games.md`](../formats/save-games.md)) as the mission
+writes its results.
+
+Per machine, in order:
+
+1. **`mech+0xb3` short-circuits it to zero.** A machine the mission placed already broken — the two
+   worst starting-condition grades above — is worth nothing, so a mission cannot be farmed by
+   authoring derelicts into it.
+2. **Each surviving hardpoint is queued.** For every mount whose component is under `0x80` damage,
+   `maybe_Salvage_QueueDestroyedWeapon` (`00426ac8`) takes `{template+0x56, (0x100 - damage) * 100 /
+   256}` — the weapon's catalog id and its condition as a percentage. This is the same queue the
+   mount-destruction path appends to; see [Weapon-mount destruction](#weapon-mount-destruction).
+3. **The chassis itself** is `Q10(Mech_WeightedArmorRemaining(mech), typeRec+0x54)`, and `typeRec+0x54`
+   is **halved when component 0 is at full damage** — a chassis blown apart is worth half one merely
+   stopped. `Mech_WeightedArmorRemaining` (`0041537c`) sums `(maxArmor - damage) * weight / maxArmor`
+   over the live components, against the weight table at `00499fe0`; `maxArmor` is the component's own
+   `.DMG` record and a component at or past 150 damage contributes nothing.
+
+So a machine pays for what survived, not for what was wrecked, and its guns pay separately by how
+intact each one is.
 
 ## Structural / Internal / Weaponry
 
@@ -878,7 +906,13 @@ The destruction path's own effects — the debris, the fire and the explosion a 
 
 Both out-of-the-fight branches are ported entire, including the behaviour-state installs, the
 sampled-before-the-finish-off ordering the defeat action depends on, and the vtable `+0x60` kill
-credit (`MechObject.CreditNeutralised`). `Mech_SpreadImpactDamage` is
+credit (`MechObject.CreditNeutralised`) with both of its radio callouts — the scorer's `0x02` and the
+victim's `0x25`/`0x04`, the latter being the original's only forced post
+([`../formats/audio.md`](../formats/audio.md#what-each-id-says)).
+
+`Mech_CreditNeutralisedTarget` is `void __cdecl(SimObject *attacker, SimObject *victim, short
+victimAlreadyImmobilised)` — plain `__cdecl` on three stack arguments, whatever the decompiler's
+`__thiscall` rendering of the vtable slot says. All four call sites push three and clean 12 bytes. `Mech_SpreadImpactDamage` is
 `MechObject.SpreadImpactDamage` and `Component_TotalArmor` is `ComponentDamage.TotalArmor`;
 `Mech_ApplyStartingCondition` is `MechObject.ApplyStartingCondition`, called from
 `Scene.MissionScene` where the original calls it.
@@ -888,11 +922,19 @@ five latches already carried as `MechObject.LegsDamaged`, `LegsCrippled`, `React
 `ShieldsDownAlert`; `SimObject.AnnounceNeutralised` is the `0x2e`/`0x2f` predicate, called from all
 three endpoints. The ids are `Content.SystemMessages`'.
 
-Not ported: the Shield Pod's own damage term in `Mech_ComputeShieldCapacity`, the salvage queue, `Mech_ReportOutOfAction`'s mission-variable writes (the status-report layer, which
-nothing else in the engine has yet), `mech+0xb3`, `obj+0x38`, and — from the collision path — the
-"something ran into me" latch (`obj+0xb1`, written through vtable `+0x68`) and the nearby-structure
-lock-on candidate, both of which only the unported behaviour layer reads.
+Not ported: the Shield Pod's own damage term in `Mech_ComputeShieldCapacity`, the salvage pass
+([above](#what-a-wreck-is-worth--mech_salvagevalue-00418e60)) and with it `mech+0xb3`, `Mech_ReportOutOfAction`'s
+mission-variable writes, and — from the collision path — the nearby-structure lock-on candidate at
+`mech+0x2b0`, which nothing reads. The collision path's other by-product, the "something ran into me"
+latch at `obj+0xb1`, is ported: it is what a ramming machine detonates on.
+
+_ Note: Claude often incorrectly determines that code is unused. Treat the following paragraph with skepticism._
 
 A chassis that leaves no wreck is sunk but its child parts are not deleted: the engine holds a
 machine's parts as nodes of its one shape rather than as objects of their own, so there is nothing to
-delete and the sink alone takes it off the screen.
+delete and the sink alone takes it off the screen. **The sink also raises `obj+0x38`, and that byte
+has no reader.** All three classes' no-wreck branches write it — `0040399a` for a structure,
+`004185ec` for a machine, `00421c33` for a flyer — and a scan of the whole disassembly that follows
+`LEA reg,[base + k]` rebases as well as bare displacements finds no read of it anywhere, against a
+control on `obj+0x39` (the shape layer's own flag beside it) that finds two. It is left out for that
+reason rather than as a gap.

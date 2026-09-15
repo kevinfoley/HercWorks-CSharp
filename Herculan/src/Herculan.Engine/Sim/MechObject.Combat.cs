@@ -291,19 +291,37 @@ public sealed partial class MechObject {
 	/// neutralisation adds to the tally — which the original keeps per chassis type, one counter a
 	/// type at <c>mech+0x2a4</c>.</para>
 	///
-	/// <para>Left out: the two squad callouts the original posts from here — the killer's
-	/// "splash one" and the victim's own — because the pilot-and-squad message port they go to is
-	/// not ported. See <see cref="PostSquadMessage"/>.</para>
+	/// <para>Two callouts go out from here, and only the first is under
+	/// <paramref name="wasImmobilised"/>: a squadmate that scored says so, and a squadmate that has
+	/// just been stopped cries out whether or not this was the blow that counted. The second is the
+	/// one place in the original that forces a post past a destroyed machine's own silence — see
+	/// <see cref="PostSquadMessage"/>.</para>
+	///
+	/// <para>Left out: the player's own running kill count at <c>DAT_004a9f08</c>, which nothing in
+	/// the simulator reads back.</para>
 	/// </summary>
-	internal void CreditNeutralised(MechObject victim, bool wasImmobilised) {
-		if (wasImmobilised || Group == null || victim.Group == null
-				|| Group.Side == victim.Group.Side) {
-			return;
+	internal void CreditNeutralised(SimWorld world, MechObject victim, bool wasImmobilised) {
+		MechObject? player = world.PlayerMech;
+
+		if (!wasImmobilised && Group != null && victim.Group != null
+				&& Group.Side != victim.Group.Side) {
+			if (player != null && !ReferenceEquals(player, this)
+					&& ReferenceEquals(player.Group, Group)) {
+				PostSquadMessage(world, SquadMessageScoredAKill);
+			}
+
+			_killsByType.TryGetValue(victim.Name, out int kills);
+			_killsByType[victim.Name] = kills + 1;
+			ScoredAKill = true;
 		}
 
-		_killsByType.TryGetValue(victim.Name, out int kills);
-		_killsByType[victim.Name] = kills + 1;
-		ScoredAKill = true;
+		if (player != null && !ReferenceEquals(player, victim)
+				&& ReferenceEquals(player.Group, victim.Group)) {
+			victim.PostSquadMessage(
+				world,
+				victim.Destroyed ? SquadMessageDestroyed : SquadMessageWentDown,
+				force: true);
+		}
 	}
 
 	/// <summary>
@@ -910,7 +928,7 @@ public sealed partial class MechObject {
 			// can the disabled branch inside GradeLegs, which is guarded on the same flag.
 			ComponentDamageWrite(world, CockpitFrontComponent, 30000, null);
 
-			(attacker as MechObject)?.CreditNeutralised(this, wasImmobilised);
+			(attacker as MechObject)?.CreditNeutralised(world, this, wasImmobilised);
 
 			// The machine's own mission action -- fired at the one moment it goes out of the fight,
 			// which for a machine whose legs went first was already the disabled branch in
@@ -1005,7 +1023,7 @@ public sealed partial class MechObject {
 			// of the fight runs while Immobilised is still clear, so the kill credit and the mission
 			// action see the transition rather than the state after it.
 			if (!Destroyed) {
-				(attacker as MechObject)?.CreditNeutralised(this, wasImmobilised: false);
+				(attacker as MechObject)?.CreditNeutralised(world, this, wasImmobilised: false);
 				ActivateDefeatAction(world);
 				AnnounceNeutralised(world, attacker, this, SystemMessages.EnemyTargetDisabled);
 				SetBehaviourState(BehaviourState.Disabled);

@@ -27,12 +27,6 @@ load-bearing. What *is* settled is in
 
 _ These are not organized in any particular order; this may not be the best order to complete these tasks in._
 
-- AI machines never select anything, so they never fire and never switch their radar on — which is
-  also why a hostile is only targetable at long range once the player goes ACTIVE. The setter is
-  `FUN_0041c0f4`; the state functions that call it are `FUN_0041c418`, `FUN_0041cf18`, `FUN_0041d60c`,
-  `FUN_0041d7d0`, `FUN_0041d9cc`, `FUN_0041daac` and `FUN_0041e224`, which also drive `mech+0x96`
-  from a per-state flag table at `mech+0x92`.
-
 - **Structures clip.** Projectiles and impact effects visibly sink into buildings, which retail does
   not do. **Hit geometry is ruled out** — measured, see
   [`../simulation/hit-detection.md`](../simulation/hit-detection.md), "Measured: hit geometry versus

@@ -403,6 +403,62 @@ rather than 3 s and 6 s and the port will not let a message yield before its min
 operation while the simulation has already finished it: `+0xa0` goes up when the last line is
 *queued*.
 
+## The group report, and why nothing shows it
+
+_NOTE: Claude often incorrectly decides that code is unused, when in fact Claude just hasn't yet
+found the mechanism that calls the code. Treat this section with skepticism._
+
+Eight functions sit among the ones above, read the same order records and the same per-machine flags,
+and produce a small integer that is plainly a line index. **None of them is reachable.**
+`Group_StatusLineIndex` (`00412f90`) is the head of the set, and it has no caller: no relative call
+anywhere in the code section, and the little-endian dword `90 2f 41 00` occurs nowhere in
+`DBSIM.EXE`, so no vtable, table or callback holds it either. Everything it calls is called by it
+alone.
+
+```
+Group_StatusLineIndex(group, verb):
+    writtenOff = Group_ConditionTier(group) == 4
+    tier       = min(Group_ConditionTier(group), 3)
+    switch (verb) {
+        0  writtenOff || !anyMember(+0x9f) ? tier+6 : anyMember(+0x9e) ? tier+2 : 1
+        1  !routeExhausted ? tier+6 : tier == 0 && anyMember(+0xa6)     ? 1 : tier+2
+        2  !routeExhausted ? tier+6 : tier == 0 && subjectCondition == 4 ? 1 : tier+2
+        3  member[0] destroyed || !anyMember(+0xa0) ? tier+5 : tier+1
+        4  !subjectArrivedAndClear || subjectCondition > 2 ? tier+5
+           : subjectCondition == 0 && tier < 2 ? 1 : max(tier, 1) + 1
+        5  subjectArrivedAndClear && anyMember(+0x9f) && subjectCondition != 4 ? tier+1 : tier+5
+        6  subjectCondition != 4 ? tier+6 : tier == 0 && !anyMember(+0x9e) ? 1 : tier+2
+    }
+    return result - 1
+```
+
+`routeExhausted` is the **group's own** route cursor at `+0x04`, not the subject's. So each verb
+answers in one of three bands — 0 for done cleanly, `tier+1`/`tier+2` for done, `tier+5`/`tier+6` for
+still running — with the group's damage tier sliding the answer inside its band. It is a per-group
+"how is this squad doing" line, one the mission never asks for.
+
+The six helpers it owns:
+
+| | Asks |
+|---|---|
+| `Group_AnyMemberEngaged` (`00412d90`) | any member's `+0x9e` |
+| `Group_AnyMemberObjectiveSighted` (`00412ef4`) | any member's `+0x9f` |
+| `Group_AnyMemberDataLinked` (`00412f28`) | any member's `+0xa0` |
+| `Group_AnyMemberScoredAKill` (`00412f5c`) | any member's `+0xa6` |
+| `Group_OrderSubjectEngaged` (`00412d4c`) | the current order's subject — the group form for kind 0, the object's own `+0x9e` otherwise |
+| `Group_OrderSubjectArrivedAndClear` (`00413a08`) | the current order's subject is deployed and clear of threats |
+
+`Group_AnyMemberEngaged` is the exception: `Mission_EvaluateObjectives` calls it too, which is what
+makes condition 6 work. The other five are dead with their caller.
+
+`Group_OrderSubjectRouteExhausted` (`004139a0`) sits in the middle of the set and is one step further
+out still — nothing calls it, the chooser included.
+
+**`mech+0xa6` therefore has no live reader.** `Mech_CreditNeutralisedTarget` latches it on a machine's
+first cross-side kill ([`damage-system.md`](damage-system.md#what-a-wreck-is-worth--mech_salvagevalue-00418e60)) and only
+`Group_AnyMemberScoredAKill` ever asks. The same goes for `+0x9f` and `+0xa0` *in their group form* —
+the objective conditions read the player's own copies directly rather than through these helpers.
+
 ## Engine port
 
 `World.MissionObjective` is the record and `Sim.MissionObjectiveState` its runtime half;

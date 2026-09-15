@@ -110,7 +110,7 @@ public partial class MechObject {
 				var wanted = world.PlayerMech?.Target;
 
 				if (OutOfAction) {
-					said = ReplyNegative;
+					said = ReplyAffirmative;
 				} else if (wanted == null) {
 					said = ReplyNoTarget;
 				} else {
@@ -194,7 +194,7 @@ public partial class MechObject {
 
 				// The reply says how far there is to come back, and nothing else differs.
 				int home = Group?.Leader is { } leader ? Position.ApproxDistanceTo(leader.Position) : 0;
-				said = home < FormedUpRange ? ReplyNegative : ReplyOnMyWayBack;
+				said = home < FormedUpRange ? ReplyAffirmative : ReplyOnMyWayBack;
 
 				// Patrolling with no standing verb is the state that holds formation on the leader.
 				SetBehaviourState(BehaviourState.Patrolling);
@@ -445,8 +445,11 @@ public partial class MechObject {
 	/// <summary>Past this the machine will not count something as threatening the player at all.</summary>
 	private const int HelpRange = 60000;
 
-	// The reply ids. They index the pilot-and-squad channel's own catalog, which is not ported; the
-	// names below say what raises each one rather than what it reads out. See PostSquadMessage.
+	// The reply ids. They index the pilot-and-squad channel's own catalog (Content.SquadMessages);
+	// the names below say what raises each one rather than what it reads out, and docs/formats/
+	// audio.md carries the line each one speaks. ReplyAffirmative is the one whose line and whose
+	// arms disagree: several of the arms that post it are refusals, and the line is "AFFIRMATIVE!".
+	// See PostSquadMessage.
 	private const int NoReply = -1;
 	private const int ReplyOnMyWay = 0x0b;
 	private const int ReplyHoldingFire = 0x0c;
@@ -461,7 +464,7 @@ public partial class MechObject {
 	private const int ReplyOutOfAction = 0x1b;
 	private const int ReplyEngagingAtWill = 0x1c;
 	private const int ReplyNothingFound = 0x1d;
-	private const int ReplyNegative = 0x1e;
+	private const int ReplyAffirmative = 0x1e;
 	private const int ReplyAlreadyThere = 0x20;
 	private const int ReplyRadarActive = 0x26;
 	private const int ReplyRadarPassive = 0x28;

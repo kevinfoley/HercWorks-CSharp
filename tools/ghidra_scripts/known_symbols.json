@@ -11055,8 +11055,9 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_CreditNeutralisedTarget",
-      "description": "Mech vtable +0x60, called on the ATTACKER from both of Mech_ComponentDamageWrite's branches with the victim and the victim's immobilised reading from BEFORE the change. On a first cross-team neutralisation it increments the killer's per-chassis-type tally at mech+0x2a4 and latches mech+0xa6, and posts the killer's callout when the killer is a player squadmate. Always, if the VICTIM is in the player's group, posts the victim's own callout (4 when merely immobilised, 0x25 when destroyed) and counts a player-scored own-squad kill in DAT_004a9f08. The base class slot FUN_00411b2c is an empty stub. Argument list NOT yet derived from disassembly: Ghidra renders it __thiscall with an extra leading parameter the vtable call sites do not support.",
-      "source": "docs/simulation/damage-system.md"
+      "description": "Mech vtable +0x60, told to the machine that just put victim out of the fight. Plain __cdecl on three stack arguments -- every call site pushes three and cleans 12 bytes, so the decompiler's __thiscall rendering with a leading parameter is wrong. victimAlreadyImmobilised suppresses the kill half only: the per-chassis tally at mech+0x2a4, the +0xa6 latch and the scorer's 0x02 callout. The victim's own 0x25/0x04 cry goes out either way, and is the image's only Ai_PostSquadMessage call that forces a post past a destroyed machine.",
+      "source": "docs/simulation/damage-system.md",
+      "signature": "void __cdecl Mech_CreditNeutralisedTarget(SimObject *attacker, SimObject *victim, short victimAlreadyImmobilised)"
     },
     {
       "address": "00411bc8",
@@ -13661,6 +13662,186 @@
       "name": "PlayerPilotSkill",
       "description": "The player pilot record's +0x25 (record base 00482a7c). Chosen once at registration, never advanced, saved with the career, and copied into script.dat's header as the mission difficulty.",
       "source": "docs/simulation/difficulty.md"
+    },
+    {
+      "address": "00418e60",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_SalvageValue",
+      "description": "What one machine is worth to the player's side at mission end. Zero when mech+0xb3 is set. Otherwise queues every hardpoint under 0x80 damage to the salvage list as {template+0x56, (0x100-damage)*100/256}, then returns Q10(Mech_WeightedArmorRemaining(mech), typeRec+0x54) with typeRec+0x54 halved when component 0 is at full damage.",
+      "source": "docs/simulation/damage-system.md",
+      "signature": "int __cdecl Mech_SalvageValue(MechObject *mech)"
+    },
+    {
+      "address": "00423e88",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_TotalSalvage",
+      "description": "Sums Mech_SalvageValue over every object on the other side from the player's that is destroyed (+0x99) or immobilised (+0xa4). Called once as the mission writes its results; the total is scaled by Q10(2500) into the campaign salvage pool.",
+      "source": "docs/simulation/damage-system.md",
+      "signature": "int __cdecl Mission_TotalSalvage(void *playerGroup, short unused)"
+    },
+    {
+      "address": "0041537c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_WeightedArmorRemaining",
+      "description": "Sum of (maxArmor - damage) * weight / maxArmor over a machine's live components, against the weight table at 00499fe0. maxArmor is the component's .DMG record; a component at or past 150 damage contributes nothing.",
+      "source": "docs/simulation/damage-system.md"
+    },
+    {
+      "address": "00412f90",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Group_StatusLineIndex",
+      "description": "Maps a mission group and an order verb onto a status line index -- the group report. UNREACHABLE: no relative call in the code section and the dword 00412f90 occurs nowhere in the file, so no table or vtable holds it. The six Group_AnyMember*/Group_OrderSubject* helpers below exist for it, and all but Group_AnyMemberEngaged are dead with it.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "00412d90",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Group_AnyMemberEngaged",
+      "description": "True when any member of the group has been engaged (+0x9e). The one helper of Group_StatusLineIndex that is also live: Mission_EvaluateObjectives calls it for objective condition 6.",
+      "source": "docs/simulation/mission-objectives.md",
+      "signature": "short __cdecl Group_AnyMemberEngaged(void *group)"
+    },
+    {
+      "address": "00412ef4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Group_AnyMemberObjectiveSighted",
+      "description": "True when any member of the group has +0x9f set. Called only from Group_StatusLineIndex, which is unreachable.",
+      "source": "docs/simulation/mission-objectives.md",
+      "signature": "short __cdecl Group_AnyMemberObjectiveSighted(void *group)"
+    },
+    {
+      "address": "00412f28",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Group_AnyMemberDataLinked",
+      "description": "True when any member of the group has +0xa0 set. Called only from Group_StatusLineIndex, which is unreachable.",
+      "source": "docs/simulation/mission-objectives.md",
+      "signature": "short __cdecl Group_AnyMemberDataLinked(void *group)"
+    },
+    {
+      "address": "00412f5c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Group_AnyMemberScoredAKill",
+      "description": "True when any member of the group has +0xa6 set. Called only from Group_StatusLineIndex, which is unreachable -- so mech+0xa6, latched by Mech_CreditNeutralisedTarget, has no live reader.",
+      "source": "docs/simulation/mission-objectives.md",
+      "signature": "short __cdecl Group_AnyMemberScoredAKill(void *group)"
+    },
+    {
+      "address": "00412d4c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Group_OrderSubjectEngaged",
+      "description": "Whether the group's current order's subject has been engaged: Group_AnyMemberEngaged of the subject group for order kind 0, the subject object's own +0x9e otherwise. No caller.",
+      "source": "docs/simulation/mission-objectives.md",
+      "signature": "short __cdecl Group_OrderSubjectEngaged(void *group)"
+    },
+    {
+      "address": "004139a0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Group_OrderSubjectRouteExhausted",
+      "description": "Whether the current order's subject has no waypoint left after its route cursor. No caller -- not even Group_StatusLineIndex.",
+      "source": "docs/simulation/mission-objectives.md",
+      "signature": "short __cdecl Group_OrderSubjectRouteExhausted(void *group)"
+    },
+    {
+      "address": "00413a08",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Group_OrderSubjectArrivedAndClear",
+      "description": "Whether the current order's subject is deployed (its group has no pending deployment action) and clear of threats. Called only from Group_StatusLineIndex, which is unreachable.",
+      "source": "docs/simulation/mission-objectives.md",
+      "signature": "short __cdecl Group_OrderSubjectArrivedAndClear(void *group)"
+    },
+    {
+      "address": "00413280",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_EvaluateObjectives",
+      "description": "Walks the mission's objective array (script.dat block 12) each poll and reduces it to a status: a failure condition holding, every required record holding, or neither, each split by whether the player is clear of threats.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "004135e8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_Status",
+      "description": "The mission judgement: the player's own condition, then the mission box, then Mission_EvaluateObjectives. The third argument suppresses the hold, both box arms and the SYSTEM.STR post.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "004131ac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_PollStatus",
+      "description": "Sim_MainTick's last act. Steps the 10 s poll interval and the 10 s alert delay, and hands up a status worth raising.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "0041324c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_GroupOrderCompleteOnRoute",
+      "description": "Objective condition 0: finds the group's order slot whose route (+0x08) is the record's waypoint group and answers that slot's completion flag at group+0x70.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "004137b4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_IsClearOfThreats",
+      "description": "Whether nothing hostile is working on this object: no live enemy knows it within 80000 (100000 if it is that machine's own selection), and no group whose order names it is still inbound.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "00413920",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Group_IsWrittenOff",
+      "description": "A group's condition tier against its side's threshold -- 3 for a human group, 4 for a Cybrid one.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "00413950",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Group_AllMembersClearOfThreats",
+      "description": "False when the group is written off, or when any member that is not destroyed fails Mission_IsClearOfThreats.",
+      "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "0041373c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_AccumulateBounds",
+      "description": "Grows the mission box as block 1's coordinates are read at load.",
+      "source": "docs/simulation/mission-objectives.md"
     }
   ]
 }

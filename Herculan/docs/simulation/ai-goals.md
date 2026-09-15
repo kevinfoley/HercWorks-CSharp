@@ -13,12 +13,14 @@ The file half of the subject — how block 10 and block 11 are written and read 
 | Offset | Type | Built from | Meaning |
 |---|---|---|---|
 | `+0x00` | short | block 10 `0x08` | **The verb.** 0–6; see below |
-| `+0x02` | short | block 10 `0x0a` | Copied verbatim. No reader |
-| `+0x04` | ptr | block 10 `0x0c` → block 1 | A point. No reader |
+| `+0x02` | short | block 10 `0x0a` | Copied verbatim. **No reader exists** |
+| `+0x04` | ptr | block 10 `0x0c` → block 1 | A point. **No reader exists** |
 | `+0x08` | ptr | block 10 `0x0e` → block 3 | **The route** — a waypoint group. Read once, by `DBSim_BuildGroupRecord`, and only from slot 0 |
 | `+0x0c` | short | block 10 `0x10` | **What kind of thing the order names**: `-1` nothing, 0 a group, 1 a mech, 2 a flyer, 3 a base |
 | `+0x0e` | ptr | block 10 `0x12` | **The subject**, resolved against `+0x0c` by `FUN_00425348` — a group record for kind 0, an object for 1-3 |
 | `+0x12` | ptr | block 10 `0x14` → block 5 | **A mission action.** When it fires, the group moves on |
+
+**`+0x02` and `+0x04` are dead fields, not untraced ones.** An order is only ever reached as `group.orders[group.orderIndex]`, and the whole image holds 29 such fetches; every one of them goes on to read `+0x00`, `+0x0c`, `+0x0e` or `+0x12` and none reads either of these two. `+0x04` is a real block-1 point in 7% of retail records and `+0x02` holds 0, 1 or 3, so both are authored and both are ignored.
 
 The verb's range is the first confirmation the field is what it looks like: across the 62 retail `.MSN` files that parse, block 10's `0x08` only ever holds 0-6, which is exactly the span of the switch in `Mech_AiSelectBehaviour`.
 
@@ -36,7 +38,7 @@ A mission group's own record is `0x7a` bytes, built by `DBSim_BuildGroupRecord` 
 | `+0x1c` / `+0x30` | short[10] x2 | The group's own ten mission-variable slots — indices and opcodes — run by `Group_ReportIfAllOutOfAction` (`00423f30`) once every member but one is immobilised or destroyed. Same opcode set as `Mech_ReportOutOfAction` |
 | `+0x44` | ptr[10] | **The order array**, a null in every slot the block-11 record left unset |
 | `+0x6c` | int | **The current order's index** |
-| `+0x70` | byte[10] | One flag per order, set when that order reaches completion |
+| `+0x70` | byte[10] | One flag per order, set when that order reaches completion. Nothing in the AI reads it; the mission-objective layer does — [`mission-objectives.md`](mission-objectives.md) |
 
 `Sim_MainTick` runs exactly one of two things per group per frame: `Group_DeploymentCheck` (`004236c4`) when `+0x14` is set, `Group_OrderTick` (`00423a74`) otherwise. **A group waiting to arrive runs no orders and no AI.**
 
@@ -70,7 +72,7 @@ for each member: Mech_AiTick(member)
 
 Four things the shape settles:
 
-- **Two ways forward, and only one of them flags the order.** Completing it sets the `+0x70` byte; a mission action firing under it does not. Nothing reads `+0x70` in the AI, so it exists for something outside this layer.
+- **Two ways forward, and only one of them flags the order.** Completing it sets the `+0x70` byte; a mission action firing under it does not. The flag is read outside this layer, by objective condition 0 — so an objective written against a route is satisfied by the group finishing that order and not by its action firing.
 - **The advance is capped by the next slot, not by the count.** A group that finishes its last order stays on it, re-testing (and re-flagging) it every frame for the rest of the mission.
 - **The dwell reset is what makes an advance visible immediately.** Zeroing every member's countdown forces each one's reassess on the very next tick, so the new order takes effect at once rather than after the old state's dwell — see [`ai-dispatch.md`](ai-dispatch.md#what-the-dwell-time-buys).
 - **Every member is ticked, live or not.** There is no filter here; `Mech_AiTick` handles a machine with no descriptor by doing nothing, which is how the base groups — which have no orders and no behaviour block — pass through harmlessly.
@@ -138,9 +140,7 @@ What differs from the original, and why:
 
 ## Open questions
 
-- **Order `+0x02` and `+0x04`.** Both are resolved at load and never read. `+0x04` is a real block-1 point in 7% of retail records and `+0x02` holds 0, 1 or 3.
-- **The order-completed flags at group `+0x70`.** Written by `Group_OrderTick`, read by nothing in the AI.
-- **`00412f90`**, which maps an order verb and the group's condition tier onto a small integer that looks like a string index. It has no caller Ghidra can see. Its neighbour `00413280`, which reads the same order records, is the mission objective evaluator — [`mission-objectives.md`](mission-objectives.md).
+None.
 
 ## Rejected readings
 

@@ -1,5 +1,6 @@
 ﻿using HercWorks.Core.Data.File.Dbsim;
 using Herculan.Engine.Content;
+using Herculan.Engine.Sim.Anim;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.World;
 
@@ -23,7 +24,7 @@ namespace Herculan.Engine.Sim;
 /// <see cref="ApplyDamage"/> are; see those for the two very different pieces of geometry that
 /// answer "did this shot hit this building".</para>
 /// </summary>
-public sealed class BaseObject : SimObject {
+public sealed partial class BaseObject : SimObject {
 	private readonly ShapeVolume? _volume;
 	private readonly ColliderNode[] _collision;
 	private readonly int _shapeRadius;
@@ -64,8 +65,45 @@ public sealed class BaseObject : SimObject {
 	/// type's own radius stands in there, which is close enough for a reject that only has to be
 	/// generous.</para>
 	/// </param>
-	public BaseObject(BaseType type, ShapeVolume? volume, ColliderNode[]? collision, int shapeRadius) {
+	/// <param name="animCellCount">
+	/// How many frames <see cref="BaseType.AnimCellSequence"/> holds — the modulus
+	/// <see cref="ThinkTick"/> steps it round. One, the default, makes the step a no-op, which is the
+	/// right answer for every type that does not animate.
+	/// </param>
+	/// <param name="animation">
+	/// The type's animation data, or null for a type whose shape carries none. Shared per shape, as a
+	/// mech type's is.
+	/// </param>
+	public BaseObject(BaseType type, ShapeVolume? volume, ColliderNode[]? collision, int shapeRadius,
+			int animCellCount = 1, ShapeAnimation? animation = null) {
 		Type = type;
+		_animCellCount = animCellCount < 1 ? 1 : animCellCount;
+		_animCellTimer = type.AnimCellInterval;
+
+		// Base_Construct's tail, which runs for every class: one thread per sequence the type asks
+		// for, from sequence 0 up, each started at its own rate out of BaseType.AnimThreadRates. A
+		// count of zero -- every static-library type -- leaves the structure with no shape instance at
+		// all, which is the original's arrangement too.
+		if (animation != null && type.AnimThreadCount > 0) {
+			Animation = animation;
+			Shape = new ShapeInstance(animation);
+
+			for (int i = 0; i < _threads.Length && i < type.AnimThreadCount; i++) {
+				if (!animation.HasSequence(i)) {
+					continue;
+				}
+
+				_threads[i] = Shape.AddThread(i);
+				_threads[i]!.Rate = type.AnimThreadRates[i];
+
+				// The constructor's own seed for the second thread: parked a little over a third of
+				// the way through its sequence rather than at its start.
+				if (i == SeededThread) {
+					_threads[i]!.SeekToPosition(i, SeededThreadPosition);
+				}
+			}
+		}
+
 		_volume = volume;
 		_collision = collision ?? Array.Empty<ColliderNode>();
 		_shapeRadius = shapeRadius != 0 ? shapeRadius : type.HitRadius;
@@ -145,11 +183,11 @@ public sealed class BaseObject : SimObject {
 
 	/// <summary>
 	/// The <c>BASES.DAT</c> type indices <c>Base_Construct</c> (<c>00405314</c>) sends down its last
-	/// branch, which derives a further class and writes <see cref="Sim.TargetClass.Emplacement"/>
+	/// branch, which derives a further class and writes <see cref="Sim.TargetClass.GroundVehicle"/>
 	/// (<c>0x00405848</c>) where every other branch writes <see cref="Sim.TargetClass.Structure"/>.
 	/// The list is the switch's own case labels.
 	/// </summary>
-	private static readonly HashSet<int> EmplacementTypes = new() {
+	private static readonly HashSet<int> GroundVehicleTypes = new() {
 		0x2d, 0x2e, 0x2f, 0x30, 0x31, 0x32, 0x33, 0x34,
 		0x37, 0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d
 	};
@@ -161,6 +199,50 @@ public sealed class BaseObject : SimObject {
 	/// </summary>
 	private static readonly HashSet<int> ScannerTypes = new() { 5, 6, 0x1d, 0x1e };
 
+	/// <summary>
+	/// Which of the five structure classes <c>Base_Construct</c>'s switch gives a type index, and so
+	/// which function fills its <c>+0x18</c> tick slot. The case labels are the original's own; the
+	/// six indices that match no case (<c>0x0a</c>, <c>0x35</c>, <c>0x36</c>, <c>0x3e</c>-<c>0x40</c>)
+	/// fall through to <see cref="StructureClass.Unclassified"/>.
+	/// </summary>
+	public enum StructureClass {
+		/// <summary>No case matches — the original leaves its object pointer uninitialised.</summary>
+		Unclassified,
+
+		/// <summary><c>StructureVtable</c> (<c>00497940</c>), tick <c>Base_ThinkTick</c> (<c>00403ca8</c>).</summary>
+		Plain,
+
+		/// <summary><c>StructureRadarVtable</c> (<c>004979d4</c>), which keeps <see cref="Plain"/>'s tick.</summary>
+		Radar,
+
+		/// <summary><c>StructureArmedVtable</c> (<c>004978ac</c>), tick <c>00404100</c>.</summary>
+		Armed,
+
+		/// <summary><c>StructureType0x22Vtable</c> (<c>00497784</c>), tick <c>004045c8</c> — not ported.</summary>
+		TripleTurret,
+
+		/// <summary><c>StructureGroundVehicleVtable</c> (<c>00497818</c>), tick <c>0046a5d0</c>.</summary>
+		GroundVehicle
+	}
+
+	/// <inheritdoc cref="StructureClass"/>
+	public StructureClass Class => Classify(Type.Index);
+
+	private static StructureClass Classify(int typeIndex) =>
+		ScannerTypes.Contains(typeIndex) ? StructureClass.Radar
+		: typeIndex is 8 or 0xb or 0x20 or 0x23 ? StructureClass.Armed
+		: typeIndex == 0x22 ? StructureClass.TripleTurret
+		: GroundVehicleTypes.Contains(typeIndex) ? StructureClass.GroundVehicle
+		: PlainTypes.Contains(typeIndex) ? StructureClass.Plain
+		: StructureClass.Unclassified;
+
+	/// <summary>The first arm of <c>Base_Construct</c>'s switch, as its own case labels.</summary>
+	private static readonly HashSet<int> PlainTypes = new() {
+		0, 1, 2, 3, 4, 7, 9, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16,
+		0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1f, 0x21, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29,
+		0x2a, 0x2b, 0x2c
+	};
+
 	/// <inheritdoc />
 	/// <remarks>
 	/// Six of the 65 type indices (<c>0x0a</c>, <c>0x35</c>, <c>0x36</c> and <c>0x3e</c>-<c>0x40</c>)
@@ -168,7 +250,18 @@ public sealed class BaseObject : SimObject {
 	/// than classifying them; they are taken as ordinary structures here.
 	/// </remarks>
 	public override TargetClass TargetClass =>
-		EmplacementTypes.Contains(Type.Index) ? TargetClass.Emplacement : TargetClass.Structure;
+		GroundVehicleTypes.Contains(Type.Index) ? TargetClass.GroundVehicle : TargetClass.Structure;
+
+	/// <inheritdoc />
+	/// <remarks>
+	/// The structure's vtable <c>+0x30</c> (<c>0040351c</c>): the base accessor zeroes the offset
+	/// triple and this one writes <see cref="BaseType.AimPointHeight"/> into its Z, and the caller
+	/// adds it to the position unrotated. So a building is aimed at a stated height up its side
+	/// rather than at the ground point its model origin sits on — which is what every shooter in the
+	/// game reads when it shoots a structure.
+	/// </remarks>
+	public override Vec3i AimPoint =>
+		new(Position.X, Position.Y, Position.Z + Type.AimPointHeight);
 
 	/// <inheritdoc />
 	public override bool ScannerActive => ScannerTypes.Contains(Type.Index);
@@ -531,12 +624,124 @@ public sealed class BaseObject : SimObject {
 	/// Sits the structure on the ground and runs whatever is still falling off it. Same ground
 	/// treatment mechs get, and for the same reason: the mission states X and Y, and the terrain
 	/// states Z.
+	///
+	/// <para>A ground vehicle that actually drove this tick is the exception: its own
+	/// <c>ConformToTerrain</c> has already set Z, from four ground samples rather than one, and
+	/// clamping it here again would undo the lean.</para>
 	/// </summary>
 	public override void Tick(SimWorld world) {
-		DeathSequenceTick(world);
+		if (Class == StructureClass.GroundVehicle) {
+			if (GroundVehicleThinkTick(world)) {
+				return;
+			}
+		} else if (Class == StructureClass.Armed) {
+			ArmedThinkTick(world);
+		} else {
+			ThinkTick(world);
+		}
+
 		Position = new Vec3i(Position.X, Position.Y,
 			Sunk ? SunkDepth : world.GroundHeightAt(Position));
 	}
+
+	/// <summary>
+	/// <c>Base_ThinkTick</c> (<c>00403ca8</c>) — <c>StructureVtable</c>'s <c>+0x18</c> slot, the plain
+	/// building's whole per-tick behaviour, and the one of the family's four that the ordinary
+	/// building and the radar mast both install.
+	///
+	/// <para>The death sequence first, and then — only while the structure is still standing — one
+	/// step of its idle flipbook: when the countdown at <c>structure+0x1f6</c> expires it reloads from
+	/// <see cref="BaseType.AnimCellInterval"/> and advances
+	/// <see cref="BaseType.AnimCellSequence"/>'s cell by one, wrapping on that sequence's own frame
+	/// count. This is what turns a radar dish. A type whose record states a negative sequence has no
+	/// flipbook and the whole branch is skipped.</para>
+	///
+	/// <para>The tick's other arm is <see cref="StepAnimation"/>, run for a type that states any
+	/// animation threads at all. That is what turns a radar mast's dish: the flipbook and the thread
+	/// are two unrelated mechanisms, and the four radar types use the thread and state no flipbook at
+	/// all.</para>
+	/// </summary>
+	private void ThinkTick(SimWorld world) {
+		DeathSequenceTick(world);
+
+		if (!Destroyed && Type.AnimThreadCount != 0) {
+			StepAnimation();
+		}
+
+		// Only the two classes that install Base_ThinkTick free-run the flipbook. The armed and
+		// triple-turret classes step the same cell array from their own ticks, once per shot, as a
+		// muzzle flash -- free-running it for them would leave their guns permanently flashing. Both
+		// of those ticks, and the ground vehicle's, are unported; see docs/simulation/structure-behaviour.md.
+		if (Class is not (StructureClass.Plain or StructureClass.Radar)
+				|| Destroyed || Type.AnimCellSequence < 0) {
+			return;
+		}
+
+		if (SimMath.CountdownTimerTick(ref _animCellTimer) != 0) {
+			return;
+		}
+
+		_animCellTimer = Type.AnimCellInterval;
+		CellFrames[Type.AnimCellSequence] =
+			(short)((CellFrames[Type.AnimCellSequence] + 1) % _animCellCount);
+	}
+
+	// structure+0x1f6 -- the idle flipbook's frame countdown, and the frame count its step wraps on.
+	// The count is the shape's, so it is handed in rather than read from the type record. The armed
+	// tick drives the same pair as a one-shot muzzle flash; see BaseObject.Armed.cs.
+	private short _animCellTimer;
+	private readonly int _animCellCount;
+
+	/// <summary><c>base+0x1f9</c> — the structure's animation threads, at most two.</summary>
+	private readonly AnimationThread?[] _threads = new AnimationThread?[MaxAnimThreads];
+
+	/// <summary>How many threads <c>Base_Construct</c>'s loop can build — its own literal 2.</summary>
+	private const int MaxAnimThreads = 2;
+
+	/// <summary>Which thread the constructor seeds to a position rather than leaving at frame 0.</summary>
+	private const int SeededThread = 1;
+
+	/// <summary>The Q14 sequence position it is seeded to — the constructor's literal 6000.</summary>
+	private const short SeededThreadPosition = 6000;
+
+	/// <summary>
+	/// <c>SimObject_ApplyRootMotionIfEnabled(this, 100)</c> (<c>00402604</c>) — step every thread on
+	/// the shape by one tick's worth of animation time and apply whatever ground movement came out of
+	/// the first one, exactly as <see cref="MechObject.IntegrateMotion"/> does for a HERC.
+	///
+	/// <para>The <i>stepping</i> is the point for a structure: it is what plays a radar dish's sweep,
+	/// and it is what re-poses the turret nodes a seek has moved. <b>The root motion is inert on
+	/// retail data</b> — none of <c>BASES_AN.DTS</c>'s eleven sequences sets the ground-movement
+	/// flag, so the delta read back is always identity. It is applied anyway because the original
+	/// applies it, and because a hand-authored shape could carry one.</para>
+	///
+	/// <para>Only the translation and the heading are taken. The original adds the delta's whole euler
+	/// triple to the shared pitch/roll/heading fields, and a structure in this engine has no pitch or
+	/// roll to add to — which costs nothing while the delta stays identity, and is where the mobile
+	/// ground vehicle will have to start when it lands (it needs them for the terrain conform anyway).</para>
+	/// </summary>
+	private void StepAnimation() {
+		if (Shape is not { } shape) {
+			return;
+		}
+
+		var root = _threads[0];
+		root?.WriteRoot(Transform3.Identity);
+
+		// Q8(SimTickDelta, 100), the same animation-time-per-sim-time constant the mech passes.
+		shape.StepAnimation((short)SimMath.IntegrateRateOverTick(AnimationTimeRate));
+
+		if (root == null) {
+			return;
+		}
+
+		var motion = root.ReadRoot();
+		Position = WorldFrame.RotateVector(motion.X, motion.Y, motion.Z) + Position;
+		Heading = (Heading + motion.ToEuler().Z) & 0xffff;
+	}
+
+	/// <summary>Animation time per unit of simulation time — the tick's own literal 100.</summary>
+	private const short AnimationTimeRate = 100;
 
 	/// <summary>
 	/// <c>Base_DeathSequenceTick</c> — steps every part that is coming down through the next stage of its

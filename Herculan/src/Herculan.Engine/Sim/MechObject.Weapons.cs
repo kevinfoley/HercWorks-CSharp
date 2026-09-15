@@ -40,7 +40,7 @@ public sealed partial class MechObject {
 
 			// Everything else takes its own aim offset over its position — the original's vtable +0x30,
 			// which is the type record's own pair. No engine class answers TargetClass.Flyer yet, so in
-			// practice this is the emplacement branch.
+			// practice this is the ground vehicle branch.
 			default:
 				FireAtPoint(world, target.AimPoint, aspect, target);
 				return;
@@ -111,7 +111,7 @@ public sealed partial class MechObject {
 		short travel = target.TravelSpeed;
 
 		if (weapon.Projectile is { Speed: > 0 } projectile && travel != 0) {
-			point = OffsetByBearing(point, (short)target.Heading,
+			point = SimTrig.OffsetPointByBearing(point, (short)target.Heading,
 				(short)((range >> 2) * travel * 4 / projectile.Speed));
 		}
 
@@ -250,18 +250,6 @@ public sealed partial class MechObject {
 		return -1;
 	}
 
-	/// <summary>
-	/// <c>Math_OffsetPointByBearing</c> (<c>004928f0</c>) — moves a point <paramref name="distance"/>
-	/// along a bearing on the ground plane, the bearing quarter-turned back because the simulation's
-	/// forward axis is model Y.
-	/// </summary>
-	private static Vec3i OffsetByBearing(Vec3i point, short bearing, int distance) {
-		short turned = (short)(bearing + BinaryAngle.QuarterTurn);
-		return new Vec3i(
-			point.X + SimMath.Q14Multiply(distance, SimTrig.Cos(turned)),
-			point.Y + SimMath.Q14Multiply(distance, SimTrig.Sin(turned)),
-			point.Z);
-	}
 
 	/// <summary>
 	/// <c>mech+0xb5</c> — skip the next weapon selection. Its only writer is the seeker of an

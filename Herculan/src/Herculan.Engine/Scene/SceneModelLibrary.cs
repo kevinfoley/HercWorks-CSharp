@@ -568,6 +568,50 @@ public sealed class SceneModelLibrary {
 		return model;
 	}
 
+	/// <summary>
+	/// How many frames a structure type's idle flipbook has — the modulus
+	/// <see cref="Sim.BaseObject.ThinkTick"/> steps <see cref="World.BaseType.AnimCellSequence"/>
+	/// round. One for a type that does not animate, which makes the step a no-op.
+	///
+	/// <para>Both libraries can carry one — on retail data the two types that actually free-run a
+	/// flipbook are both static-library shapes — so the root is taken from whichever library the
+	/// type selects.</para>
+	/// </summary>
+	public int BaseAnimCellCount(BaseType type) {
+		if (type.AnimCellSequence < 0) {
+			return 1;
+		}
+
+		var root = type.Source == BaseShapeSource.AnimatedLibrary
+			? Root(BaseTypeTable.AnimatedLibraryName, type.ShapeIndex)
+			: LoadShapeLibrary(BaseTypeTable.StaticLibraryName)?.Shapes is { Length: > 0 } shapes
+					&& type.ShapeIndex >= 0 && type.ShapeIndex < shapes.Length
+				? shapes[type.ShapeIndex].Geometry
+				: null;
+
+		return DtsMeshBuilder.CellFrameCount(root, type.AnimCellSequence);
+	}
+
+	/// <summary>
+	/// A structure type's animation data, or null for one whose shape carries none — which is every
+	/// <see cref="BaseShapeSource.StaticLibrary"/> type, since <c>BASES.DGS</c> holds no
+	/// <c>ANAnimList</c> at all. Shared per shape, as a mech type's is.
+	/// </summary>
+	public ShapeAnimation? BaseAnimation(BaseType type) {
+		if (type.Source != BaseShapeSource.AnimatedLibrary) {
+			return null;
+		}
+
+		string key = $"{BaseTypeTable.AnimatedLibraryName}#{type.ShapeIndex}";
+		if (_animations.TryGetValue(key, out var cached)) {
+			return cached;
+		}
+
+		var animation = ShapeAnimation.FromRoot(Root(BaseTypeTable.AnimatedLibraryName, type.ShapeIndex));
+		_animations[key] = animation;
+		return animation;
+	}
+
 	/// <summary>One root of a shape file, or null when the file or the index is missing.</summary>
 	private TSObject? Root(string dtsName, int rootIndex) =>
 		LoadDts(dtsName)?.Meshes is { Count: > 0 } roots && rootIndex >= 0 && rootIndex < roots.Count

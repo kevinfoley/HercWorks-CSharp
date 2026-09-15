@@ -371,7 +371,7 @@ public sealed class MissionObjectives {
 			}
 
 			if (knows) {
-				int range = ReferenceEquals(SelectedTargetOf(other), subject)
+				int range = ReferenceEquals(other.Target, subject)
 					? DesignatedThreatRange
 					: ThreatRange;
 
@@ -428,12 +428,6 @@ public sealed class MissionObjectives {
 	/// <c>obj+0x1a4</c> — what this object is shooting at. Declared on the two classes that can hold
 	/// one rather than on <see cref="SimObject"/>, so the threat sweep asks for it here.
 	/// </summary>
-	private static SimObject? SelectedTargetOf(SimObject subject) => subject switch {
-		MechObject mech => mech.Target,
-		FlyerObject flyer => flyer.Target,
-		_ => null
-	};
-
 	/// <summary>
 	/// <c>FUN_0041373c</c> — whether a position is outside the mission's bounding box, grown by
 	/// <paramref name="margin"/> on every side. The box is block 1's own extent, accumulated as the

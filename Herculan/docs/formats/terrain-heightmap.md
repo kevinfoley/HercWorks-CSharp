@@ -107,7 +107,7 @@ fills it in.
 Ported in `HeightGrid.MarkStructureFootprint` / `HeightGrid.FlattenStructureFootprints`
 (`HeightGrid.Footprints.cs`), driven from `MissionScene.Load`.
 
-A zone heightmap marks an emplacement with a **single raised sample**: `ZONE555` puts one cell of
+A zone heightmap marks a ground vehicle with a **single raised sample**: `ZONE555` puts one cell of
 120 in a plain of 97 under each of its five turrets, and 120 is the only even value anywhere in that
 half of the file's histogram. Read as corner samples — which is what `Terrain_HeightQuery` and
 `Terrain_DrawCellQuad` both do — one raised sample is the apex of a four-quad pyramid standing at the

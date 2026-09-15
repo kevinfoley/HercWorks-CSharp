@@ -1,4 +1,4 @@
-﻿{
+{
   "schema_version": 1,
   "_readme": [
     "Confirmed address->meaning mappings for VSHELL.EXE / DBSIM.EXE, extracted from",
@@ -1135,22 +1135,177 @@
       "source": "docs/formats/script-dat.md"
     },
     {
-      "address": "0046a510",
+      "address": "00471abc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Pool_Free",
+      "description": "Returns one node to a free-list pool: decrements the in-use count, unlinks the node from the in-use list through the prev pointer at node-4, pushes it onto the free list and clears its prev. Takes node+8 (what the allocator handed out) and steps back to the header. It does NOT zero the node, so a reissued slot carries the previous tenant's bytes. Exactly one caller in the image, ObjectPool_FlushDeleteQueue -- so a deferred-delete queue is the only route back into any pool.",
+      "source": "docs/simulation/ai-combat-states.md"
+    },
+    {
+      "address": "00471a90",
       "binary": "DBSIM",
       "type": "function",
       "confidence": "medium",
-      "name": "maybe_Emplacement_CollisionTest",
-      "description": "The live-object half of Mech_CollisionTest's sweep, standing alone and for the emplacement class instead of the mech: same group +0x14 action gate, same asymmetric vtable +0x5c versus +0x7c radius pair, same Structure_GatherWalkCandidates tail. On a block it calls the blocker's vtable +0x68 (SimObject_SetRunInto) and returns, which makes it the SECOND of the two writers of obj+0xb1. Declared void by the decompiler but its one caller reads the result out of AX, so the return is real. Its only reference is FUN_0046a5d0.",
+      "name": "maybe_Pool_AllocZeroed",
+      "description": "Pool_Alloc followed by a memset of the node to its element size -- the zeroing allocator. UNREFERENCED: no E8 call, no E9 tail jump, no Ghidra reference, and the literal address appears as a raw dword nowhere in the image (control: SimObject_SetRunInto's address appears in its 8 vtable slots under the same scan). Every pool allocation in DBSIM therefore goes through the non-zeroing 00471a24, which is why a recycled node keeps stale field values.",
+      "source": "docs/simulation/ai-combat-states.md"
+    },
+    {
+      "address": "00401d94",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Subsystem_RunPhase",
+      "description": "Walks the registration table RegisterSubsystemLoader fills (DAT_004a80d0, 6-byte entries, count at DAT_00497074) and calls every entry whose 2-byte id equals the argument. Seven call sites: phases 0, 1, 3, 4 and 6 from the session setup/teardown at 0045f144, phase 2 from Sim_InitMissionSession, and PHASE 5 FROM THE TOP OF maybe_Sim_RenderFrame -- so phase 5 runs once per frame. NOTE FOR SEARCHES: a function reached only through this table has no E8/E9 caller and no static data reference, because the table is populated at runtime; neither a call scan nor a raw dword scan of the image can find it.",
+      "source": "docs/simulation/ai-combat-states.md"
+    },
+    {
+      "address": "0041bc5c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_MechModule_StaticInit",
+      "description": "The mech module's C++ static initialiser. Registers LAB_00415464 as subsystem phase 2 (create the mech pool) and LAB_0041544c as phase 5 (flush the mech delete queue, run once a frame), zeroes GlobalMechList (004a9bfe, which is the mech pool object itself) and vector-news DAT_004a9c0c. The two registered stubs are undefined functions in Ghidra and have no direct callers -- they are reached only through Subsystem_RunPhase.",
+      "source": "docs/simulation/ai-combat-states.md"
+    },
+    {
+      "address": "0041544c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_MechPool_FlushPhase",
+      "description": "Subsystem phase 5's mech entry, registered by maybe_MechModule_StaticInit and so run once per frame from maybe_Sim_RenderFrame: ObjectPool_FlushDeleteQueue(DAT_004a9c02, DAT_004a9bfe). The queue at DAT_004a9c02 is written once by DBSim_LoadScriptDat and read only here -- NOTHING EVER QUEUES A MACHINE ONTO IT, so this drains an empty queue every frame and no mech node is ever returned to the pool during a mission. That is what makes obj+0xb1 un-inheritable for a machine; see docs/simulation/ai-combat-states.md.",
+      "source": "docs/simulation/ai-combat-states.md"
+    },
+    {
+      "address": "00403ca8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_ThinkTick",
+      "description": "StructureVtable's and StructureRadarVtable's +0x18 tick slot -- the plain building's whole per-tick behaviour. Base_DeathSequenceTick, then while standing: if typeRec+0x24 >= 0, step cell sequence typeRec+0x24 by one modulo that sequence's own frame count, on a countdown at +0x1f6 reloaded from typeRec+0x26 (milliseconds); and if typeRec+0x06 is non-zero, SimObject_ApplyRootMotionIfEnabled(this, 100), which steps the structure's animation threads. Eight retail types state a cell sequence but only types 9 and 0x1a reach this function; the rest are Armed or the triple turret, which step the same array as a muzzle flash instead. The flipbook is NOT what turns a radar dish -- all four radar types state -1 for it and spin a free-running thread instead.",
+      "source": "docs/simulation/structure-behaviour.md"
+    },
+    {
+      "address": "00404100",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_ArmedThinkTick",
+      "description": "StructureArmedVtable's +0x18 tick slot (BASES.DAT types 8, 0x0b, 0x20, 0x23). A structure that has already fallen hands the whole tick to Base_ThinkTick. While standing: retargets every 10000 ms via Ai_SelectTarget(this, 0x30, 0) and drops a target past 60000; steps the muzzle-flash cell on the +0x1f6 countdown while that countdown's own value at +0x1f7 is still non-zero, reloading it only while the cell has not wrapped back to 0, so the flash plays through once and stops; leads the target by range*targetSpeed/PROJ-record-2 speed inside 40000, which only a GUN tower does because the launcher form never looks the speed up; aims through Base_AimTurret; and fires both barrels from (+/-300, 400, 0) in the turret node's frame on a 1500 ms countdown at +0x211. typeRec+0x2e is the ARMAMENT CLASS read as a value: 2 fires Rocket_Fire(0,..) and everything else Bullet_Fire(2,..). The LAUNCHER, not the gun, rolls rand & 0x1f == 0 -- for barrel 0 and, only if that failed, for barrel 1 -- so it puts at most one round up per opportunity. The countdown at +0x86 is a FIRING WINDOW, not a barrel selector: each expiry flips the flag at +0x21b and reloads from the pair at 004973e0 (both 10000), so the tower fires for ten seconds and holds for ten. Fire is gated on that flag, on aim error inside +/-1000 on both axes, and on range inside 40000.",
+      "source": "docs/simulation/structure-behaviour.md"
+    },
+    {
+      "address": "004045c8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Base_TripleTurretThinkTick",
+      "description": "StructureType0x22Vtable's +0x18 tick slot, BASES.DAT type 0x22 alone. Aims THREE turrets from one object by rewriting its own heading field: heading += 0x1555, then three passes 0x5554 (120 degrees) apart, restoring the original heading at the end. Each turret runs three weapon slots against DAT_004a9640, an 11-short descriptor table; slot 0 fires Rocket_Fire(3,..) and slots 1-2 Bullet_FireBurst(3,..) via WeaponMountTemplate_GetByWeaponId(8). Acquisition is Ai_SelectTarget(this, 0x10, 0x3000) -- the 0x3000 bearing cone. A slot fires only while its own component is undamaged, and the missile slot installs the target on this+0x1a4 across the Rocket_Fire call and clears it immediately after, purely to give the round a lock.",
+      "source": "docs/simulation/structure-behaviour.md"
+    },
+    {
+      "address": "00403eec",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_AimTurret",
+      "description": "Transforms an aim point into a structure turret's own frame -- the object's world transform inverted, then shape PART 2's (transform 2 on all four armed BASES_AN roots, the barrel node hanging off the traversing base at transform 1) inverted -- takes the aim error from Math_EulerToward into DAT_004a9670, and hands it to the turret seek (00403d5c). Returns DAT_004a9670, a static triple, so the result is not reentrant.",
+      "source": "docs/simulation/structure-behaviour.md"
+    },
+    {
+      "address": "00403d5c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_TurretSeek",
+      "description": "The structure turret seek, two axes. Axis 0 is the ELEVATION and takes Math_EulerToward's X straight; axis 1 is the TRAVERSE and takes its Z NEGATED. Per axis: clamp(angle >> 3) to +/-0x100, a square-law gain Q8(Q8(|in|, in), gain), Math_RateLimitedMoveToward into the per-axis rate at +0x209, accumulate that into the angle at +0x20d clamped between the per-axis stops, then AnimThread_SeekToPosition(thread[axis], axis, (unsigned)angle >> 2). Tails into SimObject_ApplyRootMotionIfEnabled(this, 100), which re-poses the nodes. Gain 004973e4 = {2000, 2500}; rate limit 004973e8 = {200, 800}; lower stop 004973ec = {-4000, -32768}; upper stop 004973f0 = {4000, 32767} -- so the traverse is unlimited and only the elevation is held, to +/-4000. Same mechanism as the HERC turret: the angle seeks a position in a full-sweep animation rather than rotating a node.",
+      "source": "docs/simulation/structure-behaviour.md"
+    },
+    {
+      "address": "004029d8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_ConformToTerrain",
+      "description": "Sits an object on sloped ground. Samples Terrain_HeightQuery at +/-r forward and +/-r right (r from vtable +0x10, the shape's own radius), takes pitch from Math_Atan2Bam(2r, front - back) and roll from the left/right pair -- Math_Atan2Bam's argument order is (x, y), so the span is the x -- and writes Z as the mean of the four samples (sum >> 2). Clears the rotation-valid flag so the matrix rebuilds. Its only caller is GroundVehicle_ThinkTick, which makes it the only thing in the simulation that writes a structure's pitch and roll.",
+      "source": "docs/simulation/structure-behaviour.md"
+    },
+    {
+      "address": "0046a70c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GroundVehicle_Advance",
+      "description": "Steers a ground vehicle and steps it forward. Picks the group leader through 0046a4b8; if that is this object it drives the route (0046a8e4), otherwise it keeps formation on the leader (0046a95c). Then transforms (0, speed, 0) -- speed from +0x220, forward being model Y -- through the object's own frame at +0x12, rebuilding that frame first if +0x32 says it is stale, and writes the result as the new position. The frame includes the pitch and roll SimObject_ConformToTerrain gave it last tick, so the ground distance covered is foreshortened on a slope.",
+      "source": "docs/simulation/structure-behaviour.md"
+    },
+    {
+      "address": "0046a4b8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Group_FirstAbleMember",
+      "description": "Returns the first of up to four of a group's members that is neither immobilised (+0xa4) nor destroyed (+0x99), or null. The ground-vehicle layer's notion of the group leader.",
+      "source": "docs/simulation/structure-behaviour.md"
+    },
+    {
+      "address": "0046a8e4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GroundVehicle_LeaderSteer",
+      "description": "The group leader's route follow for a ground vehicle. No waypoint after the cursor means GroundVehicle_LocomotionTick(this, 0, 0) -- steer and speed both zero; otherwise it drives at that waypoint with GroundVehicle_DriveToPoint on the bearing between it and the cursor's own, passing speed 0 so the drive takes its own 0xaa default, and advances the route cursor when the drive reports arrival.",
+      "source": "docs/simulation/structure-behaviour.md"
+    },
+    {
+      "address": "0046a95c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GroundVehicle_FollowerSteer",
+      "description": "A non-leader ground vehicle's formation keeping. Takes Group_FirstAbleMember's position, asks its own vtable +0x78 for the formation slot -- note that Formation_RotateAndAddOffset rotates the offset by the group's member array SLOT 0, not by the able leader it is anchored on -- and branches on heading agreement. Inside 0x4000 it matches speed (the leader's own +0x220 minus the along-track error in the leader's frame >> 5, clamped +0x100 / -0x96) and drives at a point 20000 ahead of the post along the leader's heading, with no lateral steering term at all. Outside 0x4000 it abandons the leader's heading and turns straight at the post at (distance >> 5) capped the same way.",
+      "source": "docs/simulation/structure-behaviour.md"
+    },
+    {
+      "address": "0046a510",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GroundVehicle_CollisionTest",
+      "description": "The two object sweeps of Mech_CollisionTest standing alone, for the ground vehicle class instead of the mech: same group +0x14 action gate, same asymmetric vtable +0x5c versus +0x7c radius pair, same Structure_GatherWalkCandidates volume sweep behind them. Declared void by the decompiler, but the return is real and is set in two places: AX = 1 on an object block, and otherwise whatever the GatherWalkCandidates tail reports. It drops the mech version's other two arms -- no terrain steepness test, so a ground vehicle drives up anything, and no collision damage. On an object block it still calls the blocker's vtable +0x68 (SimObject_SetRunInto), which makes it the SECOND of the two writers of obj+0xb1. Its only reference is GroundVehicle_ThinkTick.",
       "source": "docs/simulation/ai-combat-states.md"
     },
     {
       "address": "0046a5d0",
       "binary": "DBSIM",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Emplacement_ThinkTick",
-      "description": "StructureEmplacementVtable's +0x18 tick slot (slot address 00497830) -- the slot every structure class fills differently, and the only one of the five that moves. Branches on the group's first member's targetClass == 3 and on typeRec+0x2e, saves position and both angles, runs a move and maybe_Emplacement_CollisionTest, and on a block restores the save and arms the back-off pair at +0x223/+0x227 the same way Mech_MovementTick does. NOT FULLY DECODED: FUN_0046a70c, FUN_004029d8, FUN_00403ca8, FUN_00403d5c and FUN_00404100 are unresolved, and what class actually reaches this slot in a retail mission has not been established.",
-      "source": "docs/simulation/ai-combat-states.md"
+      "confidence": "high",
+      "name": "GroundVehicle_ThinkTick",
+      "description": "StructureGroundVehicleVtable's +0x18 tick slot (slot address 00497830), the only one of the five structure classes that moves. Gated on the group's first member answering targetClass 3, so a ground-vehicle type in a group led by anything else is an ordinary building. Fights with Base_ArmedThinkTick -- plus, with nothing on +0x1a4, a Base_TurretSeek with its own two turret angles fed back negated, which walks the turret to centre -- or for typeRec+0x2e == 0 just Base_ThinkTick. Then saves position/pitch/heading, runs GroundVehicle_Advance and SimObject_ConformToTerrain, and on a block from GroundVehicle_CollisionTest restores the save, zeroes speed and arms the back-off pair at +0x223/+0x227 the way Mech_MovementTick does. Its steering helpers are GroundVehicle_LocomotionTick (0046a798) and GroundVehicle_DriveToPoint (0046a854).",
+      "source": "docs/simulation/structure-behaviour.md"
+    },
+    {
+      "address": "0046a798",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GroundVehicle_LocomotionTick",
+      "description": "The ground vehicle's whole control law and the counterpart of Mech_LocomotionTick: (this, steer, speed). While the back-off countdown at +0x222 is still running it REPLACES the speed with +/-200 by the reverse flag at +0x227 and leaves the steer alone, so a blocked vehicle keeps navigating while it crawls clear. Then the steer is clamped to +/-0x100, the speed slews into +0x220 through Math_RateLimitedMoveToward at 0x1e a tick, and heading (+0x10) takes Math_Q8Multiply(200, steer) added straight on -- there is no turn rate and no inertia in the heading, only in the speed. Finally clears the rotation-valid flag at +0x32. Nothing here is scaled by the tick length. Called by both steering halves and by 0046a854.",
+      "source": "docs/simulation/structure-behaviour.md",
+      "signature": "void __cdecl GroundVehicle_LocomotionTick(void *vehicle, short steer, short speed)"
+    },
+    {
+      "address": "0046a854",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "GroundVehicle_DriveToPoint",
+      "description": "(this, point, legBearing, speed) -> arrived. The ground vehicle's Ai_DriveToPoint, with the same 10000-unit ground-range arrival test and two differences. It does NOT steer at the point it is given: it offsets a copy of it along legBearing by (9000 - range) with Math_OffsetPointByBearing and steers at that, so beyond 9000 the aim point sits short of the destination back down the incoming line and inside 9000 it swings past -- which pulls a convoy onto the leg between two waypoints instead of letting each vehicle cut its own corner. And its gain is four times a HERC's: (Math_HeadingToward(aim, this) - heading) >> 4, not >> 6. The shift is encoded SAR EDX, 0x64, which x86 masks to 4. A speed argument of zero means none stated and takes 0xaa, the same default Ai_DriveToPoint uses.",
+      "source": "docs/simulation/structure-behaviour.md",
+      "signature": "int __cdecl GroundVehicle_DriveToPoint(void *vehicle, int *point, short legBearing, int speed)"
     },
     {
       "address": "0042200c",
@@ -1158,7 +1313,7 @@
       "type": "function",
       "confidence": "high",
       "name": "SimObject_SetRunInto",
-      "description": "Vtable +0x68 in ALL EIGHT SimObject-shaped tables -- base, mech, flyer and the five structure classes -- with no override anywhere. Two instructions: obj+0xb1 = 1, \"something ran into me\". TWO call sites through the slot, both collision sweeps calling it on whatever object blocked the move, whatever class that object is: Mech_CollisionTest (0041903a) and FUN_0046a510 (0046a581), the sweep inside StructureEmplacementVtable's +0x18 tick slot FUN_0046a5d0. Mech_BehaviourRamTick is the byte's only reader, and NOTHING clears it. Both the write and the read rebase (ADD reg, 0x92) and use displacement 0x1f, so a scalar search for 0xb1 finds neither -- search byte ptr [reg + 0x1f] instead.",
+      "description": "Vtable +0x68 in ALL EIGHT SimObject-shaped tables -- base, mech, flyer and the five structure classes -- with no override anywhere. Two instructions: obj+0xb1 = 1, \"something ran into me\". TWO call sites through the slot, both collision sweeps calling it on whatever object blocked the move, whatever class that object is: Mech_CollisionTest (0041903a) and FUN_0046a510 (0046a581), the sweep inside StructureGroundVehicleVtable's +0x18 tick slot FUN_0046a5d0. Mech_BehaviourRamTick is the byte's only reader, and NOTHING clears it. Both the write and the read rebase (ADD reg, 0x92) and use displacement 0x1f, so a scalar search for 0xb1 finds neither -- search byte ptr [reg + 0x1f] instead.",
       "source": "docs/simulation/ai-combat-states.md"
     },
     {
@@ -2343,7 +2498,7 @@
       "confidence": "high",
       "name": "Terrain_FlattenStructureFootprints",
       "signature": "void __cdecl Terrain_FlattenStructureFootprints(void *grid)",
-      "description": "THE REASON A TURRET STANDS ON A FLAT-TOPPED MOUND. A zone heightmap marks each emplacement with a single raised sample (ZONE555: one cell of 120 in a plain of 97 under each turret), which as a corner sample is the apex of a four-quad pyramid at the cell's CORNER while the structure stands near its centre. This levels it instead: walk every cell, and where the scratch byte is marked (bit 0) but not yet counted (bit 1), flood-fill the connected region with Terrain_AccumulateFootprint to get its raw-height sum and count, then write sum/count back over it with Terrain_WriteFootprintHeight. Finishes with Terrain_BuildSurface, since every normal, diagonal selector and baked shade is now stale. Called once by DBSim_SpawnMissionObjects (at 004263d9) after the whole roster is placed, which then re-queries every base's ground height. Walks both axes to 1 << widthShift, which would half-cover a taller-than-wide zone; every retail zone is square.",
+      "description": "THE REASON A TURRET STANDS ON A FLAT-TOPPED MOUND. A zone heightmap marks each ground vehicle with a single raised sample (ZONE555: one cell of 120 in a plain of 97 under each turret), which as a corner sample is the apex of a four-quad pyramid at the cell's CORNER while the structure stands near its centre. This levels it instead: walk every cell, and where the scratch byte is marked (bit 0) but not yet counted (bit 1), flood-fill the connected region with Terrain_AccumulateFootprint to get its raw-height sum and count, then write sum/count back over it with Terrain_WriteFootprintHeight. Finishes with Terrain_BuildSurface, since every normal, diagonal selector and baked shade is now stale. Called once by DBSim_SpawnMissionObjects (at 004263d9) after the whole roster is placed, which then re-queries every base's ground height. Walks both axes to 1 << widthShift, which would half-cover a taller-than-wide zone; every retail zone is square.",
       "source": "docs/formats/terrain-heightmap.md, 'Structure footprints -- the flattening pass'"
     },
     {
@@ -6593,8 +6748,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Base_Construct",
-      "description": "Builds a structure from a script.dat block-9 record: switches on the type index to pick one of five vtables, allocates the per-component alive-flag array (obj+0x201) and state array (obj+0x205, 11 bytes/entry), seeds each component's damage from the mission record's health percentage (param_1[0x19]: <0 or 100 = intact, 0 = spawned destroyed), and stores the BASES.DAT type record at obj+0x1f2.",
-      "source": "docs/simulation/hit-detection.md 2026-08-27"
+      "description": "Builds a structure from a script.dat block-9 record: switches on the type index to pick one of five vtables, allocates the per-component alive-flag array (obj+0x201) and state array (obj+0x205, 11 bytes/entry), seeds each component's damage from the mission record's health percentage (param_1[0x19]: <0 or 100 = intact, 0 = spawned destroyed), and stores the BASES.DAT type record at obj+0x1f2. Its tail then builds one animation thread per sequence from 0 up, for as many as BASES.DAT +0x06 states (0-2): each is registered on the shape instance by ShapeInst_AddThread (00402374), started at the rate in the +0x20 short pair, and thread 1 is additionally seeded with AnimThread_SeekToPosition(thread, 1, 6000). So +0x06 is a THREAD COUNT, not merely a library selector -- the library is picked per case in the switch (the four Radar and four Armed cases take dts\\BASES_AN.DTS, every other case dgs\\BASES.DGS) and the two agree on all retail data. +0x20 is the per-thread playback rate pair.",
+      "source": "docs/simulation/hit-detection.md; docs/simulation/structure-behaviour.md"
     },
     {
       "address": "00404d70",
@@ -10488,7 +10643,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Base_GetTurretAngle",
-      "description": "Structure vtable +0x3c: returns the short at structure+0x20f, the aim offset the sensor and target-selection arcs are measured from on top of the heading. Only StructureArmedVtable (004978ac) and StructureEmplacementVtable (00497818) install it; the plain building, the radar mast and the flyer all keep the shared 00411a5c zero stub. Which class installs this is what separates a structure that aims from one that does not.",
+      "description": "Structure vtable +0x3c: returns the short at structure+0x20f, the aim offset the sensor and target-selection arcs are measured from on top of the heading. Only StructureArmedVtable (004978ac) and StructureGroundVehicleVtable (00497818) install it; the plain building, the radar mast and the flyer all keep the shared 00411a5c zero stub. Which class installs this is what separates a structure that aims from one that does not.",
       "source": "tools/ghidra_scripts/known_vtables.json; slot diff across the five Base_Construct tables"
     },
     {
@@ -13869,6 +14024,60 @@
       "name": "Mission_AccumulateBounds",
       "description": "Grows the mission box as block 1's coordinates are read at load.",
       "source": "docs/simulation/mission-objectives.md"
+    },
+    {
+      "address": "00402374",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShapeInst_AddThread",
+      "description": "Builds one animation thread on an object's shape instance (obj+0x34): allocates 0x52 bytes, binds it to the shape's animation list, cuts it to the given sequence at frame 0 (FUN_004791a0), sets its playback rate to zero and registers it on the instance (FUN_00478930). A caller that wants the thread running sets the rate itself. Called by Mech_Constructor for a HERC's three threads and by Base_Construct for a structure's two.",
+      "source": "docs/simulation/structure-behaviour.md"
+    },
+    {
+      "address": "00403368",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObjectBase_ConstructStatic",
+      "description": "The static-shape structure base constructor: SimObjectBase_Constructor, then installs the shape-drawing vtable. The shape holder it leaves at obj+0x34 is the two-field cell-frames form (ShapeInstance_CtorCellFrames, 00402fc0) and obj+0x39 stays clear, so no animation thread can be built on it and SimObject_ApplyRootMotionIfEnabled does nothing. Base_Construct uses it for the Plain, triple-turret and GroundVehicle cases, which draw from dgs\\BASES.DGS.",
+      "source": "docs/simulation/structure-behaviour.md"
+    },
+    {
+      "address": "0040332c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObjectBase_ConstructAnimated",
+      "description": "The animated-shape structure base constructor: FUN_00402278, then the same shape-drawing vtable SimObjectBase_ConstructStatic installs. FUN_00402278 allocates a real 0x42-byte TSShapeInstance at obj+0x34 and sets the root-motion-enabled byte at obj+0x39, which is what lets SimObject_ApplyRootMotionIfEnabled step the object's threads. Base_Construct uses it for the Radar and Armed cases, which draw from dts\\BASES_AN.DTS.",
+      "source": "docs/simulation/structure-behaviour.md"
+    },
+    {
+      "address": "0040351c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_GetAimPoint",
+      "description": "The structure class's vtable +0x30 -- where on a structure anything aiming at it should aim. Calls SimObject_GetAimPointZero (00411a74) to clear both out triples, then writes BASES.DAT +0x2c into the offset triple's Z. Every caller adds the offset to the object's position unrotated, so this is a height up the structure's side. All 65 retail types state one, 1000 to 2000 world units. This settles BASES.DAT +0x2c, the last unread field of the record besides +0x00 and the six bytes at +0x18.",
+      "source": "docs/simulation/structure-behaviour.md"
+    },
+    {
+      "address": "00411a74",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_GetAimPointZero",
+      "description": "The shared base's vtable +0x30: memsets both 6-byte out triples to zero, i.e. aim at the object's own origin with no offset. The FlyerVtable installs it unchanged; the structure tables wrap it in Base_GetAimPoint (0040351c) and the mech table replaces it with 004155c4.",
+      "source": "docs/simulation/structure-behaviour.md"
+    },
+    {
+      "address": "00411ac0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_CompareCombatRatingStub",
+      "description": "The shared base's vtable +0x4c: `return 1`. Ai_SelectTarget (00411fa0) dispatches this slot on the ASKING object, so a structure or a flyer -- both of whose tables install this stub -- scores every candidate against column 1 of the four Q10 weight tables at 0049933c/42/48, whatever the ratings actually are. Only the mech table replaces it, with Mech_CompareCombatRating (0041cabc).",
+      "source": "docs/simulation/structure-behaviour.md"
     }
   ]
 }

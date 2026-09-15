@@ -21,6 +21,22 @@ public enum BaseShapeSource {
 }
 
 /// <summary>
+/// What a structure type shoots — <c>BASES.DAT</c> <c>+0x2e</c>, which is read as a value and not
+/// just a flag: the armed tick branches on it to pick the projectile, and the ground vehicle tick
+/// branches on it to decide whether the vehicle fights at all.
+/// </summary>
+public enum BaseArmament {
+	/// <summary>Zero — unarmed. A ground vehicle with this runs the plain tick instead of the armed one.</summary>
+	None,
+
+	/// <summary>One — a gun. Fires <c>PROJ.DAT</c> row 2 and leads its target by that round's speed.</summary>
+	Gun,
+
+	/// <summary>Two — a launcher. Fires <c>ROCKETS.DAT</c> row 0, which tracks, so it does not lead.</summary>
+	Launcher
+}
+
+/// <summary>
 /// One destructible part of a structure — the 30-byte sub-record a type's nested array holds, of
 /// which four fields are read by the two damage paths (<c>Base_ApplyDamage</c>, <c>00404d70</c>, and
 /// the blast sweep's position accessor <c>Base_ComponentPosition</c>) and the rest are not touched by anything
@@ -140,11 +156,47 @@ public readonly record struct BaseComponentType(
 /// <c>+0x10</c> — the death sequence the structure runs as a whole, in place of the failing part's
 /// own. Read only when this was the last part standing.
 /// </param>
+/// <param name="AimPointHeight">
+/// <c>+0x2c</c> — how far up the structure anything aiming at it aims, in world units. The type's
+/// vtable <c>+0x30</c> (<c>0040351c</c>) zeroes the offset triple and then writes this into its Z, and
+/// every caller adds the triple to the structure's position unrotated. All 65 retail types state one,
+/// 1000 to 2000, so a building is never shot at its own ground origin.
+/// </param>
+/// <param name="Armament">
+/// <c>+0x2e</c> — what the type shoots, and the same field <see cref="ThreatensAttackers"/> reads as
+/// a flag. See <see cref="BaseArmament"/>.
+/// </param>
+/// <param name="AnimThreadCount">
+/// <c>+0x06</c> — how many animation threads <c>Base_Construct</c> (<c>00405314</c>) builds on the
+/// structure, one per sequence of its shape from sequence 0 up. Retail states 0, 1 or 2, and the
+/// eight types that state a non-zero count are exactly the eight the constructor draws from
+/// <see cref="BaseShapeSource.AnimatedLibrary"/> — each of whose roots carries an <c>ANAnimList</c>
+/// with exactly this many sequences.
+///
+/// <para>The library choice itself is <i>not</i> read from this field: the original hardcodes it per
+/// case in the constructor's switch, and the two agree on retail data. <see cref="Source"/> is
+/// derived from this field anyway, which is the same answer everywhere the shipped table reaches.</para>
+/// </param>
+/// <param name="AnimThreadRates">
+/// <c>+0x20</c> — two <c>short</c>s, the playback rate each of those threads is started at. A rate
+/// of zero leaves the thread parked for something else to position it, which is what an armed
+/// structure's turret seek does with both of its; the radar masts state real rates and spin freely.
+/// </param>
 /// <param name="ThreatensAttackers">
 /// <c>+0x2e != 0</c> — the AI treats this type as dangerous. Nonzero on the two armed structures
 /// (gun tower, missile tower), the mobile missile vehicle, the generator and the transport, and it
 /// changes two decisions: a crippled machine flees from one instead of pressing the attack, and an
 /// attacking machine circles one instead of standing off. See docs/simulation/ai-combat-states.md.
+/// </param>
+/// <param name="AnimCellSequence">
+/// <c>+0x24</c> — which cell sequence <c>Base_ThinkTick</c> (<c>00403ca8</c>) steps to animate the
+/// standing structure, or negative for a type that does not animate. It is the same per-sequence
+/// cell array damage moves (<see cref="Sim.ShapeCellFrames"/>); this is the idle flipbook rather
+/// than a damage state, and it is what makes a radar dish turn.
+/// </param>
+/// <param name="AnimCellInterval">
+/// <c>+0x26</c> — how long one frame of <paramref name="AnimCellSequence"/> holds, in milliseconds.
+/// Reloaded into the structure's own countdown each time it expires.
 /// </param>
 /// <param name="Components">
 /// <c>+0x14</c> — the type's destructible parts, in the order the file states them, which is the
@@ -154,7 +206,17 @@ public readonly record struct BaseType(
 	int Index, int ShapeIndex, BaseShapeSource Source, string TextureBankName,
 	short HulkTypeIndex, int HitRadius, bool Invulnerable, bool HasCollisionModel,
 	short SilhouetteIndex, bool IsVehicle, short FireShapeIndex, Vec3i FirePoint,
-	short DestroyedEffect, bool ThreatensAttackers, BaseComponentType[] Components);
+	short DestroyedEffect, short AimPointHeight, BaseArmament Armament,
+	short AnimCellSequence, short AnimCellInterval,
+	short AnimThreadCount, short[] AnimThreadRates, BaseComponentType[] Components) {
+
+	/// <inheritdoc cref="BaseTypeTable"/>
+	/// <summary>
+	/// <c>+0x2e != 0</c> — see <see cref="Armament"/>, which is the same field read as the value it
+	/// is.
+	/// </summary>
+	public bool ThreatensAttackers => Armament != BaseArmament.None;
+}
 
 /// <summary>
 /// <c>dat\BASES.DAT</c> — the game's table of structure types, the thing that turns a mission's
@@ -185,8 +247,8 @@ public readonly record struct BaseType(
 /// other side — exactly eight types select the animated library, and <c>BASES_AN.DTS</c> holds
 /// exactly eight roots, numbered 0-7 the way those eight types reference them.</para>
 ///
-/// <para>Fields still unread are left as skips rather than guessed at: <c>+0x00</c>, <c>+0x18</c>
-/// (6 bytes), <c>+0x20</c> (4 bytes), <c>+0x24</c>, <c>+0x26</c> and <c>+0x2c</c>.</para>
+/// <para>Fields still unread are left as skips rather than guessed at: <c>+0x00</c> and <c>+0x18</c>
+/// (6 bytes).</para>
 /// </summary>
 public sealed class BaseTypeTable {
 	/// <summary>VOL folder and name of the table.</summary>
@@ -234,7 +296,7 @@ public sealed class BaseTypeTable {
 			Next();                          // +0x00 — unread here
 			short shapeIndex = Next();       // +0x02 — index into the selected library
 			short hulkTypeIndex = Next();    // +0x04
-			short animated = Next();         // +0x06 — 0 selects the static library
+			short animated = Next();         // +0x06 — how many animation threads, 0 for none
 			short fireShape = Next();        // +0x08
 			var firePoint = new Vec3i(Next(), Next(), Next());   // +0x0a
 			short destroyedEffect = Next();  // +0x10
@@ -256,12 +318,12 @@ public sealed class BaseTypeTable {
 
 			offset += 6;                     // +0x18
 			short invulnerable = Next();     // +0x1e
-			offset += 4;                     // +0x20
-			Next();                          // +0x24
-			Next();                          // +0x26
+			var threadRates = new[] { Next(), Next() };   // +0x20 - one playback rate per thread
+			short animCellSequence = Next(); // +0x24 - which cell sequence the idle flipbook steps
+			short animCellInterval = Next(); // +0x26 - and how long each of its frames holds
 			short silhouette = Next();       // +0x28 - silhouette frame and type-name index
 			short hitRadius = Next();        // +0x2a
-			Next();                          // +0x2c
+			short aimPointHeight = Next();   // +0x2c - how far up the structure a shooter aims
 			short threatens = Next();        // +0x2e
 			short collisionModel = Next();   // +0x30
 			short textureSelector = Next();  // +0x32
@@ -280,7 +342,12 @@ public sealed class BaseTypeTable {
 				fireShape,
 				firePoint,
 				destroyedEffect,
-				threatens != 0,
+				aimPointHeight,
+				(BaseArmament)threatens,
+				animCellSequence,
+				animCellInterval,
+				animated,
+				threadRates,
 				components);
 		}
 

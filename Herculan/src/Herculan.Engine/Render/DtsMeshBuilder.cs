@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using HercWorks.Core.Data.File.Dbsim;
 using HercWorks.Core.Data.File.Dts;
 using HercWorks.Core.Data.File.Dts.Anim;
@@ -415,9 +415,18 @@ public static class DtsMeshBuilder {
 	/// carries <c>AnimSequence == 0</c>, and so does every <c>ROCKETS.DAT</c> record's own sequence
 	/// field. A shape with no flipbook reports one frame, which is the shape itself.</para>
 	/// </summary>
-	public static int CellFrameCount(TSObject? root) =>
-		root is TSShape { SequenceList: { Length: > 0 } sequences } && sequences[0] > 1
-			? System.Math.Min((int)sequences[0], MaxCellFrames)
+	public static int CellFrameCount(TSObject? root) => CellFrameCount(root, 0);
+
+	/// <summary>
+	/// The same array read at an arbitrary sequence, which is what a structure's idle flipbook needs:
+	/// <c>Base_ThinkTick</c> steps the sequence its <c>BASES.DAT</c> record names
+	/// (<see cref="World.BaseType.AnimCellSequence"/>) rather than sequence zero, and takes its
+	/// modulus from that sequence's own entry.
+	/// </summary>
+	public static int CellFrameCount(TSObject? root, int sequence) =>
+		root is TSShape { SequenceList: { } sequences } && sequence >= 0 && sequence < sequences.Length
+				&& sequences[sequence] > 1
+			? System.Math.Min((int)sequences[sequence], MaxCellFrames)
 			: 1;
 
 	/// <summary>Guard against a file claiming a flipbook longer than anything could reasonably hold.</summary>

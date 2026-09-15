@@ -1,4 +1,5 @@
 ﻿using Herculan.Engine.Numerics;
+using Herculan.Engine.Sim.Anim;
 using Herculan.Engine.World;
 
 namespace Herculan.Engine.Sim;
@@ -27,7 +28,7 @@ public enum TargetClass : short {
 	/// The second structure family — the <c>BASES.DAT</c> types <c>Base_Construct</c> gives a
 	/// further-derived class of their own and a hit radius of 10 rather than 5.
 	/// </summary>
-	Emplacement = 3
+	GroundVehicle = 3
 }
 
 /// <summary>
@@ -43,7 +44,18 @@ public abstract class SimObject {
 	/// <summary>Position in world units, X/Y on the ground plane and Z up (see <see cref="Vec3i"/>).</summary>
 	public Vec3i Position { get; set; }
 
-	/// <summary>Facing as a binary angle (see <see cref="BinaryAngle"/>).</summary>
+	/// <summary>
+	/// Body pitch, as a binary angle — the X of the euler triple the original keeps at
+	/// <c>obj+0x0c</c>, on the shared base rather than on any one class. A walker and a standing
+	/// structure keep it at zero; it is a flyer's primary control axis and a ground vehicle's lean
+	/// into the slope it is standing on (<see cref="BaseObject.ConformToTerrain"/>).
+	/// </summary>
+	public short Pitch { get; set; }
+
+	/// <summary>Body roll — the triple's Y. The same three classes write it, for the same reasons.</summary>
+	public short Roll { get; set; }
+
+	/// <summary>Facing as a binary angle (see <see cref="BinaryAngle"/>) — the triple's Z.</summary>
 	public int Heading { get; set; }
 
 	/// <summary>
@@ -224,7 +236,7 @@ public abstract class SimObject {
 	/// mission blows up the moment it is ordered to ram, whether or not it has reached anything.</para>
 	///
 	/// <para>The original raises it from two sweeps, of which only <c>Mech_CollisionTest</c> is ported
-	/// — the other is inside <c>StructureEmplacementVtable</c>'s tick slot, which the engine has no
+	/// — the other is inside <c>StructureGroundVehicleVtable</c>'s tick slot, which the engine has no
 	/// equivalent of, so here only a machine's own move can mark anything. See
 	/// docs/simulation/ai-combat-states.md, "The ramming attack".</para>
 	/// </summary>
@@ -428,6 +440,74 @@ public abstract class SimObject {
 	public virtual int ShapeRadius => HitRadius;
 
 	/// <summary>
+	/// <c>obj+0x1a4</c> — this object's selected target. It is on this class because it is on the
+	/// original's shared base: <c>Ai_SelectTarget</c> reads <b>every candidate's</b> <c>+0x1a4</c>
+	/// generically, and so does <see cref="MissionObjectives.IsClearOfThreats"/>, so a machine's, an
+	/// aircraft's and an armed structure's are all the same field.
+	///
+	/// <para>The setter carries the bookkeeping every writer of the field in the original performs,
+	/// which lives outside the object that made the change: the old target's
+	/// <see cref="TargetedBy"/> count goes down and the new one's goes up. What a class does
+	/// <i>besides</i> that is <see cref="OnTargetChanged"/>.</para>
+	/// </summary>
+	public SimObject? Target {
+		get => _target;
+		set {
+			if (ReferenceEquals(_target, value)) {
+				return;
+			}
+
+			var previous = _target;
+
+			if (_target != null) {
+				_target.TargetedBy--;
+			}
+
+			_target = value;
+
+			if (_target != null) {
+				_target.TargetedBy++;
+			}
+
+			OnTargetChanged(previous);
+		}
+	}
+
+	private SimObject? _target;
+
+	/// <summary>
+	/// What this class does when <see cref="Target"/> changes, over and above the refcount. A
+	/// structure does nothing — the original writes <c>base+0x9d</c> from the armed tick as shared
+	/// boilerplate and no structure-side reader of it exists.
+	/// </summary>
+	private protected virtual void OnTargetChanged(SimObject? previous) { }
+
+	/// <summary>
+	/// The object's animation data, or null when its shape carries no <c>ANAnimList</c>. Shared by
+	/// every object of the type: a thread holds only a cursor into it.
+	/// </summary>
+	public ShapeAnimation? Animation { get; private protected init; }
+
+	/// <summary>
+	/// <c>obj+0x34</c> — the object's animated shape: its <see cref="Animation"/> plus the threads
+	/// playing on it. Null when it has none.
+	///
+	/// <para>It is on this class rather than on <see cref="MechObject"/> because it is on the
+	/// original's common base too: a structure's turret seek reaches the same field, and so does the
+	/// root-motion step both classes share. What is <i>not</i> shared is the threads — a HERC names
+	/// its three (<c>mech+0x22c</c>), a structure keeps an indexed pair (<c>base+0x1f9</c>) — so each
+	/// class holds its own.</para>
+	/// </summary>
+	public ShapeInstance? Shape { get; private protected init; }
+
+	/// <summary>
+	/// One node of this object's shape, posed as it stands this tick — see
+	/// <see cref="ShapeInstance.NodeTransform"/>. Identity when it has no animation.
+	/// </summary>
+	public Transform3 NodeTransform(int transformId) =>
+		Shape?.NodeTransform(transformId) ?? Transform3.Identity;
+
+	/// <summary>
 	/// The object's shape instance's per-sequence cell-frame array, or null for one whose shape has
 	/// no cells the simulation drives. It is what makes a destroyed part stop being drawn — see
 	/// <see cref="ShapeCellFrames"/>. The three classes damage can take apart override it; nothing
@@ -483,14 +563,22 @@ public abstract class SimObject {
 	public abstract void Tick(SimWorld world);
 
 	/// <summary>
+	/// <c>Math_GroundDistanceBetweenPoints</c> (<c>004927c4</c>) — the range every navigation
+	/// decision in the simulation is made on. Z is dropped before the magnitude is taken, so a
+	/// waypoint on a hilltop is as near as one at its foot.
+	/// </summary>
+	protected int GroundDistanceTo(Vec3i point) =>
+		SimMath.FastMagnitude2D(Position.X - point.X, Position.Y - point.Y);
+
+	/// <summary>
 	/// This object's shape-to-world frame — the transform every class keeps at <c>obj+0x12</c> with
 	/// its position in the translation, and what anything riding an object is placed through. The
-	/// base form is heading alone, which is all a class with no lean and no turret has; the classes
-	/// that carry more override it.
+	/// base form is the euler triple, which is all a class with no turret has; the classes that carry
+	/// more — and the two that cache the matrix behind an <c>obj+0x32</c> valid flag — override it.
 	/// </summary>
 	public virtual Transform3 WorldFrame {
 		get {
-			var frame = Transform3.FromEuler(0, 0, (short)Heading);
+			var frame = Transform3.FromEuler(Pitch, Roll, (short)Heading);
 			var position = Position;
 			frame.X = position.X;
 			frame.Y = position.Y;

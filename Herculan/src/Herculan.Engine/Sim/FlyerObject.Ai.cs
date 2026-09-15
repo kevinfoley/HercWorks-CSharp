@@ -95,33 +95,10 @@ public sealed partial class FlyerObject {
 	public FlyerBehaviourBlock Behaviour;
 
 	/// <summary>
-	/// <c>flyer+0x1a4</c> — this aircraft's selected target, with the same bookkeeping every writer
-	/// of the field in the original performs: the old target's
-	/// <see cref="SimObject.TargetedBy"/> count goes down, the new one's goes up, and
-	/// <c>flyer+0x9d</c> is raised.
+	/// <c>flyer+0x9d</c> — what this aircraft adds to a <see cref="SimObject.Target"/> change. The
+	/// field and its refcount bookkeeping are the shared base's.
 	/// </summary>
-	public SimObject? Target {
-		get => _target;
-		set {
-			if (ReferenceEquals(_target, value)) {
-				return;
-			}
-
-			if (_target != null) {
-				_target.TargetedBy--;
-			}
-
-			_target = value;
-
-			if (_target != null) {
-				_target.TargetedBy++;
-			}
-
-			TargetChanged = true;
-		}
-	}
-
-	private SimObject? _target;
+	private protected override void OnTargetChanged(SimObject? previous) => TargetChanged = true;
 
 	/// <summary>
 	/// <c>flyer+0x9d</c> — raised whenever <see cref="Target"/> changes. Set for the same reason
@@ -443,7 +420,7 @@ public sealed partial class FlyerObject {
 	/// goes on unrotated, which is what stacks a flight vertically.
 	/// </summary>
 	private Vec3i FormationStation(SimObject leader) {
-		var station = OffsetByBearing(leader.Position, (short)leader.Heading, StationLead);
+		var station = SimTrig.OffsetPointByBearing(leader.Position, (short)leader.Heading, StationLead);
 
 		if (FormationOffset is not { } offset) {
 			return station;
@@ -503,7 +480,7 @@ public sealed partial class FlyerObject {
 		if (shotSpeed > 0 && targetSpeed != 0) {
 			int capped = range > LeadRangeCap ? LeadRangeCap : range;
 			short lead = (short)((short)(capped >> 3) * (targetSpeed << 3) / shotSpeed);
-			aim = OffsetByBearing(aim, (short)target.Heading, lead);
+			aim = SimTrig.OffsetPointByBearing(aim, (short)target.Heading, lead);
 			bearing = (short)(Detection.HeadingToward(aim, Position) - (short)Heading);
 		}
 
@@ -575,24 +552,6 @@ public sealed partial class FlyerObject {
 	private int ElevationToward(Vec3i point) =>
 		SimTrig.Atan2Guarded(point.Z - Position.Z, GroundDistanceTo(point));
 
-	/// <summary>
-	/// <c>Math_GroundDistanceBetweenPoints</c> (<c>004927c4</c>) — Z dropped before the magnitude, so
-	/// height never counts toward a range the AI decides on.
-	/// </summary>
-	private int GroundDistanceTo(Vec3i point) =>
-		SimMath.FastMagnitude2D(Position.X - point.X, Position.Y - point.Y);
-
-	/// <summary>
-	/// <c>Math_OffsetPointByBearing</c> (<c>004928f0</c>) — moves a point along a bearing on the
-	/// ground plane, the bearing quarter-turned back because the simulation's forward axis is model Y.
-	/// </summary>
-	private static Vec3i OffsetByBearing(Vec3i point, short bearing, int distance) {
-		short turned = (short)(bearing + BinaryAngle.QuarterTurn);
-		return new Vec3i(
-			point.X + SimMath.Q14Multiply(distance, SimTrig.Cos(turned)),
-			point.Y + SimMath.Q14Multiply(distance, SimTrig.Sin(turned)),
-			point.Z);
-	}
 
 	/// <summary>
 	/// Whether this aircraft is its group's first member, which is the whole of what the flyer AI

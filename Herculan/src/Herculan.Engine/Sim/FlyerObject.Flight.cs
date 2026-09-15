@@ -114,12 +114,6 @@ public sealed partial class FlyerObject : IFlightBody {
 	/// </summary>
 	private FlightBlock _flight;
 
-	/// <summary>Body pitch, <c>flyer+0x0c</c>, as a binary angle.</summary>
-	public short Pitch { get; set; }
-
-	/// <summary>Body roll, <c>flyer+0x0e</c> — how an aircraft turns.</summary>
-	public short Roll { get; set; }
-
 	/// <summary>Airspeed — <c>flyer+0x247</c>, the Y of the body-frame velocity.</summary>
 	public int AirSpeed => _flight.BodyVelocity.Y;
 

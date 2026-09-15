@@ -421,7 +421,7 @@ public sealed class MissionScene {
 
 		// The whole roster is down, so the ground can now be levelled under each structure and every
 		// normal and diagonal rebuilt over it -- the point DBSim_SpawnMissionObjects runs the same
-		// pass. See HeightGrid.FlattenStructureFootprints for what a zone's single-sample emplacement
+		// pass. See HeightGrid.FlattenStructureFootprints for what a zone's single-sample ground vehicle
 		// marks turn into.
 		terrain.FlattenStructureFootprints();
 
@@ -815,6 +815,12 @@ public sealed class MissionScene {
 			aircraft.FormationOffset = placement.FlyerFormationOffset;
 		}
 
+		if (simObject is BaseObject structure) {
+			// Its BFORMS.DAT station. Only a mobile ground vehicle reads it again after the
+			// spread that placed it, and only while it is following a leader.
+			structure.FormationOffset = placement.FormationOffset;
+		}
+
 		if (simObject is MechObject machine) {
 			// The three per-machine AI settings DBSim_SpawnMissionObjects copies out of the block-7
 			// record. The formation offset is the one the spread already used; a follower needs it
@@ -902,7 +908,14 @@ public sealed class MissionScene {
 				var model = models.Base(type);
 				var (boundingRadius, volume) = models.BaseShapeCollision(type);
 				return (
-					new BaseObject(type, volume, baseCollision[type.Index], boundingRadius),
+					new BaseObject(type, volume, baseCollision[type.Index], boundingRadius,
+						models.BaseAnimCellCount(type), models.BaseAnimation(type)) {
+						// The two PROJ.DAT rows the armed structure's tick names by literal, the same
+						// way the flyer AI does — see BaseObject.ArmedThinkTick.
+						GunProjectile = weapons?.ProjectileAt(BaseObject.GunProjectileIndex),
+						MissileProjectile = weapons?.Lookup(
+							ProjectileType.Missile, BaseObject.MissileSubtype)
+					},
 					model);
 			}
 

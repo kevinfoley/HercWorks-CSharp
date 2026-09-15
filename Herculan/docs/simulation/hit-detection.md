@@ -275,20 +275,25 @@ disk and a pointer at `+0x14`.
 |---|---|---|
 | `+0x02` | `int16` | shape index into the selected library |
 | `+0x04` | `int16` | wreck type index, `-1` for none |
-| `+0x06` | `int16` | 0 selects `dgs\BASES.DGS`, else `dts\BASES_AN.DTS` |
+| `+0x06` | `int16` | how many animation threads the constructor builds — [`structure-behaviour.md`](structure-behaviour.md#the-animation-threads). The eight types that state a non-zero count are exactly the eight drawn from `dts\BASES_AN.DTS` rather than `dgs\BASES.DGS`, but the library is picked per case in the switch and not from this field |
 | `+0x08` | `int16` | whole-structure fire shape, `-1` for none |
 | `+0x0a` | `int16`×3 | where that fire sits, in the structure's own frame |
 | `+0x10` | `int16` | whole-structure death sequence, used in place of the last part's own |
 | `+0x12` | `int16` | component count |
 | `+0x14` | array | components, 30 bytes each |
 | `+0x1e` | `int16` | non-zero = invulnerable (types 21, 22, 23) |
+| `+0x20` | `int16`×2 | playback rate for each of those threads — [`structure-behaviour.md`](structure-behaviour.md#the-animation-threads) |
+| `+0x24` | `int16` | idle cell-flipbook sequence, `-1` for none — [`structure-behaviour.md`](structure-behaviour.md#the-plain-tick--base_thinktick-00403ca8) |
+| `+0x26` | `int16` | that flipbook's frame interval, in milliseconds |
+| `+0x28` | `int16` | MFD silhouette frame and type-name index |
 | `+0x2a` | `int16` | body radius, vtable `+0x5c` (`Base_GetBodyRadius`, `004035a4`), and `+0x7c` for an animated type; four types state 0 |
 | `+0x30` | `int16` | non-zero installs `BASECOL.DAT`'s model at runtime `+0x38` |
 | `+0x38` | ptr | runtime only: the installed `BASECOL.DAT` model. Null selects the volume hit path **and** makes the type immune to blasts |
-| `+0x2e` | `int16` | non-zero marks a type the AI treats as dangerous — [`ai-combat-states.md`](ai-combat-states.md#basesdat-0x2e) |
+| `+0x2c` | `int16` | how far up the structure anything aiming at it aims, vtable `+0x30` (`0040351c`) — [`structure-behaviour.md`](structure-behaviour.md#what-a-structure-is-aimed-at) |
+| `+0x2e` | `int16` | what the type shoots: 0 unarmed, 1 gun, 2 launcher — [`structure-behaviour.md`](structure-behaviour.md#the-armed-tick--00404100). Non-zero also marks a type the AI treats as dangerous — [`ai-combat-states.md`](ai-combat-states.md#basesdat-0x2e) |
 | `+0x32` | `int16` | texture bank selector |
 
-Unread: `+0x00`, `+0x18` (6 bytes), `+0x20` (4 bytes), `+0x24`–`+0x28`, `+0x2c`.
+Unread: `+0x00` and `+0x18` (6 bytes).
 
 Component record, 30 bytes:
 

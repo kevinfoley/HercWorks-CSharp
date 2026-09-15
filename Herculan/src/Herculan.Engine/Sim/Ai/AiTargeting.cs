@@ -1,4 +1,4 @@
-using Herculan.Engine.Numerics;
+﻿using Herculan.Engine.Numerics;
 
 namespace Herculan.Engine.Sim.Ai;
 
@@ -137,6 +137,12 @@ public static class AiTargeting {
 	/// An optional bearing limit in binary-angle units, rejecting anything outside it. Zero means no
 	/// limit; a base turret passes <c>0x3000</c>.
 	/// </param>
+	/// <summary>
+	/// What vtable <c>+0x4c</c> answers for an asker that is not a HERC — the literal 1 both the
+	/// structure and the flyer tables return.
+	/// </summary>
+	private const int NonMechCombatRating = 1;
+
 	public static SimObject? SelectTarget(SimWorld world, SimObject self, TargetFilter filter,
 			short coneLimit = 0) {
 		short orderVerb = self.Group?.OrderVerb ?? MissionGroup.NoOrder;
@@ -193,10 +199,15 @@ public static class AiTargeting {
 				score = System.Math.Max(score, bearingTerm / divisor);
 			}
 
-			int rating = self is MechObject asker ? asker.CompareCombatRating(world, candidate) : 0;
+			// Vtable +0x4c. Only the HERC class computes a rating; the structure and flyer tables both
+			// install FUN_00411ac0, a `return 1`, so a tower or an aircraft scores every candidate
+			// through the middle column of the four weight tables rather than the first.
+			int rating = self is MechObject asker
+				? asker.CompareCombatRating(world, candidate)
+				: NonMechCombatRating;
 
 			if (!filter.HasFlag(TargetFilter.IgnoreIncoming)
-					&& candidate is MechObject { Target: { } held } && ReferenceEquals(held, self)) {
+					&& candidate.Target is { } held && ReferenceEquals(held, self)) {
 				score = SimMath.Q10Multiply(score, ShootingAtMe[rating]);
 			}
 
@@ -208,14 +219,15 @@ public static class AiTargeting {
 				score = SimMath.Q10Multiply(score, NotEngaged[rating]);
 			}
 
-			if (candidate is MechObject { Target: { } other } && !ReferenceEquals(other, self)) {
+			if (candidate.Target is { } other && !ReferenceEquals(other, self)) {
 				score = SimMath.Q10Multiply(score, AlreadyTaken[rating]);
 			}
 
 			// A structure that is shooting at this object is re-indexed as a HERC, which gives it a
-			// HERC's weight instead of a building's.
+			// HERC's weight instead of a building's. The only object that can reach this branch is an
+			// armed structure, since nothing else both holds a target and answers class 1.
 			int classIndex = (int)candidate.TargetClass;
-			if (candidate is MechObject { Target: { } aimed } && ReferenceEquals(aimed, self)
+			if (candidate.Target is { } aimed && ReferenceEquals(aimed, self)
 					&& classIndex == (int)TargetClass.Structure) {
 				classIndex = (int)TargetClass.Herc;
 			}
@@ -226,8 +238,7 @@ public static class AiTargeting {
 
 			// The asking object's own hold is not counted against the candidate, so re-picking what
 			// it already has is not penalised for being taken.
-			int holders = candidate.TargetedBy
-				- (self is MechObject holder && ReferenceEquals(holder.Target, candidate) ? 1 : 0);
+			int holders = candidate.TargetedBy - (ReferenceEquals(self.Target, candidate) ? 1 : 0);
 
 			if (!filter.HasFlag(TargetFilter.IgnoreCrowding) && holders != 0) {
 				score /= holders + 1;
@@ -387,6 +398,6 @@ public static class AiTargeting {
 	/// <summary><c>00499348</c> — the candidate is already someone else's target.</summary>
 	private static readonly IReadOnlyList<int> AlreadyTaken = new[] { 700, 850, 1000 };
 
-	/// <summary><c>0049934e</c> — by object class: HERC, structure, flyer, emplacement.</summary>
+	/// <summary><c>0049934e</c> — by object class: HERC, structure, flyer, ground vehicle.</summary>
 	private static readonly IReadOnlyList<int> ByClass = new[] { 1500, 700, 500, 500 };
 }

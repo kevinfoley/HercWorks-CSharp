@@ -484,7 +484,7 @@ public static class HddMap {
 				return Rotating(hostile ? EnemyFlyerIcon : FriendlyFlyerIcon, UnitMarkerSize, -1);
 
 			case TargetClass.Structure:
-			case TargetClass.Emplacement: {
+			case TargetClass.GroundVehicle: {
 				var type = (subject as BaseObject)?.Type;
 				int color = hostile ? HostileMarkerColorId : FriendlyMarkerColorId;
 

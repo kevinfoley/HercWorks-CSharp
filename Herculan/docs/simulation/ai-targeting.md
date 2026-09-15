@@ -6,7 +6,7 @@ How an AI machine acquires, shares, keeps and abandons a target.
 
 `Ai_SelectTarget` is not mech-only: structures call it too — `FUN_00404100` with mask `0x30` and `FUN_004045c8` with mask `0x10` inside a `0x3000` cone — so it is the sim's one target-acquisition routine.
 
-## The writers of `mech+0x1a4`
+## The writers of `+0x1a4`
 
 | Writer | When |
 |---|---|
@@ -69,11 +69,15 @@ Inside 360 m the proximity term takes over completely — at point-blank `b / 1`
 | `W_taken` `00499348` | 700, 850, 1000 | relative combat rating |
 | `W_class` `0049934e` | 1500, 700, 500, 500 | object class `+0x1a8` |
 
-A machine strongly prefers what is already shooting at it, discounts anything not yet engaged — hardest when that thing outguns it — and mildly discounts what someone else already holds. A structure that is shooting at this machine is re-indexed as class 0, giving it a HERC's weight.
+A machine strongly prefers what is already shooting at it, discounts anything not yet engaged — hardest when that thing outguns it — and mildly discounts what someone else already holds. A structure that is shooting at this machine is re-indexed as class 0, giving it a HERC's weight; an armed tower is the only thing that can reach that branch, since nothing else both answers class 1 and holds a target.
+
+All four of those tests read the **candidate's** `+0x1a4` off the shared base, so they see an armed structure's selection exactly as they see a machine's — and the holder count the divisor works from is every object holding the candidate, structures included. `W_idle` is the exception: it reads the candidate's behaviour descriptor, which a structure has none of, and the original's null check skips it.
 
 ## Relative combat rating
 
-**`Mech_CompareCombatRating` (`0041cabc`, mech vtable `+0x4c`)** returns the index those three weight tables share: **0** this machine's rating is the higher, **1** the two are within 400, **2** the candidate's is higher. It returns 0 for every non-HERC candidate, so structures and flyers always score against column 0.
+**`Mech_CompareCombatRating` (`0041cabc`, mech vtable `+0x4c`)** returns the index those three weight tables share: **0** this machine's rating is the higher, **1** the two are within 400, **2** the candidate's is higher. It returns 0 for every non-HERC *candidate*, so a machine scores a structure or a flyer against column 0.
+
+The slot is dispatched on the **asker**, though, and only the HERC class fills it with that function: the structure and flyer tables both install `FUN_00411ac0`, a bare `return 1`. So a base turret and a Cybrid aircraft score every candidate against **column 1** — the middle of each table — however the ratings actually compare.
 
 Both ratings are jittered before the comparison, and the jitter is `rand & 1000` where `rand % 1000` was plainly meant: `AND AX,0x3e8` at `0041cadd` and `0041caf8`. Masking against `0x3e8` can only produce the 32 values that are subsets of its bits, so the jitter spans 0–1000 but lands on very few of them.
 

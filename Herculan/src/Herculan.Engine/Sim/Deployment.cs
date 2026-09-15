@@ -129,8 +129,12 @@ public static class Deployment {
 	/// sweep <c>Mech_CollisionTest</c> makes, which is what that function collects for. It is not a
 	/// separate obstacle list: it gathers every structure that blocks by volume rather than by radius
 	/// and hands the lot to <see cref="BaseObject.BlocksWalker"/>.
+	///
+	/// <para>Shared, because three sweeps in the original make this same call: the deployment probe
+	/// here, <c>Mech_CollisionTest</c> (<c>00418f74</c>) and the ground vehicle's own
+	/// <c>0046a510</c>.</para>
 	/// </summary>
-	private static bool StructureInTheWay(SimWorld world, Vec3i point) {
+	internal static bool StructureInTheWay(SimWorld world, Vec3i point) {
 		var objects = world.Objects;
 
 		for (int i = 0; i < objects.Count; i++) {

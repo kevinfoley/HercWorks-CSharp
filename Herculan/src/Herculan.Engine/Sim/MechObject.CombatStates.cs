@@ -138,7 +138,7 @@ public sealed partial class MechObject {
 				? BinaryAngle.QuarterTurn
 				: -BinaryAngle.QuarterTurn);
 
-			var point = OffsetByBearing(target.Position, (short)((short)target.Heading + side),
+			var point = SimTrig.OffsetPointByBearing(target.Position, (short)((short)target.Heading + side),
 				AttackBeamOffset);
 
 			if (geometry.Approach == -1) {
@@ -377,7 +377,7 @@ public sealed partial class MechObject {
 
 		if (_skirtBlocking == LineOfSight.BlockedByShape) {
 			short outward = Detection.HeadingToward(Position, point);
-			point = OffsetByBearing(point,
+			point = SimTrig.OffsetPointByBearing(point,
 				(short)(outward + (_skirtToTheLeft ? -BinaryAngle.QuarterTurn : BinaryAngle.QuarterTurn)),
 				_skirtRange);
 		}
@@ -447,7 +447,7 @@ public sealed partial class MechObject {
 		if (geometry.AspectMagnitude < threshold) {
 			short side = geometry.BearingError >= 0 ? CircleTangent : (short)-CircleTangent;
 
-			var point = OffsetByBearing(target.Position,
+			var point = SimTrig.OffsetPointByBearing(target.Position,
 				(short)(geometry.Bearing + BinaryAngle.HalfTurn + side), CircleRadius);
 
 			geometry.NearStandoff = 0;

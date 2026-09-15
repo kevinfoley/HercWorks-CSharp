@@ -132,6 +132,8 @@ public sealed partial class MechObject {
 	private const int FiringLineRangeShift = 12;
 
 	/// <summary>
+	/// <inheritdoc cref="SimObject.Target"/>
+	/// <summary>
 	/// <c>mech+0x1a4</c> — the machine's selected target, and the field the whole of homing hangs
 	/// off: <c>Bullet_FirePowered</c> reads it to give a plasma round something to chase and
 	/// <c>Rocket_Fire</c> reads it to give a missile a lock, so before anything wrote it every guided
@@ -142,37 +144,18 @@ public sealed partial class MechObject {
 	/// where the RE for that lives. An AI machine writes it from its own think and from the combat
 	/// reassess.</para>
 	///
-	/// <para>The setter carries the two pieces of bookkeeping every writer of the field in the
-	/// original performs, both of which live outside the machine that made the change: the old
-	/// target's <see cref="SimObject.TargetedBy"/> count goes down and the new one's goes up, and
-	/// <see cref="TargetChanged"/> is raised.</para>
+	/// <para>The field and its refcount bookkeeping are <see cref="SimObject.Target"/>'s, because the
+	/// original keeps them on the shared base; what a HERC adds on top of them is here.</para>
 	/// </summary>
-	public SimObject? Target {
-		get => _target;
-		set {
-			if (ReferenceEquals(_target, value)) {
-				return;
-			}
-
-			if (_target != null) {
-				_target.TargetedBy--;
-			}
-
-			_target = value;
-
-			if (_target != null) {
-				_target.TargetedBy++;
-			} else if (Weapons.AutoTrack) {
-				// Player_PerFrameCockpitUpdate arms mech+0x31c here, on the change that leaves ATT
-				// with nothing to track. See MechObject.TorsoTick, which runs it down.
-				_autoTrackIdle = AutoTrackIdleDelay;
-			}
-
-			TargetChanged = true;
+	private protected override void OnTargetChanged(SimObject? previous) {
+		if (Target == null && Weapons.AutoTrack) {
+			// Player_PerFrameCockpitUpdate arms mech+0x31c here, on the change that leaves ATT
+			// with nothing to track. See MechObject.TorsoTick, which runs it down.
+			_autoTrackIdle = AutoTrackIdleDelay;
 		}
-	}
 
-	private SimObject? _target;
+		TargetChanged = true;
+	}
 
 	/// <summary>
 	/// <c>mech+0x9d</c> — raised whenever <see cref="Target"/> changes and never cleared by the write

@@ -1,4 +1,4 @@
-namespace Herculan.Engine.Numerics;
+﻿namespace Herculan.Engine.Numerics;
 
 /// <summary>
 /// DBSIM's own trigonometry tables, ported. These are the ones the rotation-matrix and
@@ -185,4 +185,17 @@ public static class SimTrig {
 	/// coincident pair reads as a bearing along +x rather than +y.</para>
 	/// </summary>
 	public static int Atan2Guarded(int y, int x) => Atan2(y, y == 0 && x == 0 ? 1 : x);
+
+	/// <summary>
+	/// <c>Math_OffsetPointByBearing</c> (<c>004928f0</c>) — moves a point <paramref name="distance"/>
+	/// along a bearing on the ground plane, the bearing quarter-turned back because the simulation's
+	/// forward axis is model Y. Z is untouched.
+	/// </summary>
+	public static Vec3i OffsetPointByBearing(Vec3i point, short bearing, int distance) {
+		short turned = (short)(bearing + BinaryAngle.QuarterTurn);
+		return new Vec3i(
+			point.X + SimMath.Q14Multiply(distance, Cos(turned)),
+			point.Y + SimMath.Q14Multiply(distance, Sin(turned)),
+			point.Z);
+	}
 }

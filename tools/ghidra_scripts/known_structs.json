@@ -405,7 +405,7 @@
           "type": "byte",
           "name": "runInto",
           "confidence": "high",
-          "description": "+0xb1 -- something ran into this object. SimObject_SetRunInto (0042200c, vtable +0x68) is the only writer instruction, reached from two collision sweeps that name whatever blocked the move: Mech_CollisionTest and FUN_0046a510, inside StructureEmplacementVtable's tick slot. Mech_BehaviourRamTick is the only reader, and nothing clears it. Width from 'MOV byte ptr [EAX + 0x1f],0x1' off the 0x92 base -- both instructions rebase, which is why a scalar search for 0xb1 finds neither."
+          "description": "+0xb1 -- something ran into this object. SimObject_SetRunInto (0042200c, vtable +0x68) is the only writer instruction, reached from two collision sweeps that name whatever blocked the move: Mech_CollisionTest and FUN_0046a510, inside StructureGroundVehicleVtable's tick slot. Mech_BehaviourRamTick is the only reader, and nothing clears it. Width from 'MOV byte ptr [EAX + 0x1f],0x1' off the 0x92 base -- both instructions rebase, which is why a scalar search for 0xb1 finds neither."
         },
         {
           "offset": 180,
@@ -453,7 +453,7 @@
           "type": "short",
           "name": "targetClass",
           "confidence": "high",
-          "description": "+0x1a8 -- what this object counts as when something decides whether to shoot it: -1 unclassified, 0 HERC, 1 structure, 2 flyer or ground vehicle, 3 emplacement. Every constructor writes 0xffff first and overwrites it, so an object that never finishes construction stays unclassified."
+          "description": "+0x1a8 -- what this object counts as when something decides whether to shoot it: -1 unclassified, 0 HERC, 1 structure, 2 flyer or ground vehicle, 3 ground vehicle. Every constructor writes 0xffff first and overwrites it, so an object that never finishes construction stays unclassified."
         },
         {
           "offset": 434,

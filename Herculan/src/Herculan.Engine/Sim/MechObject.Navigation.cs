@@ -674,14 +674,6 @@ public partial class MechObject {
 	/// </summary>
 	private short SteerToward(short bearing) => (short)((short)(bearing - (short)Heading) >> 6);
 
-	/// <summary>
-	/// <c>Math_GroundDistanceBetweenPoints</c> (<c>004927c4</c>) — the range every navigation
-	/// decision is made on. Z is dropped before the magnitude is taken, so a waypoint on a hilltop is
-	/// as near as one at its foot.
-	/// </summary>
-	private int GroundDistanceTo(Vec3i point) =>
-		SimMath.FastMagnitude2D(Position.X - point.X, Position.Y - point.Y);
-
 	/// <summary>The original's own <c>|x|</c>, with <c>-0x8000</c> saturating rather than wrapping.</summary>
 	private static int Abs(short value) => value == short.MinValue ? short.MaxValue
 		: value < 0 ? -value : value;

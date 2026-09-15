@@ -28,6 +28,13 @@ public static class SimMath {
 	/// Everything scaled by it is a "per this tick" quantity, not "per second" — which is what
 	/// makes DBSIM a discrete fixed/semi-fixed timestep sim rather than a continuous-time
 	/// integrator.
+	///
+	/// <para><b>It is Q8 where 1.0 = 125 ms</b>, not a count of milliseconds:
+	/// <c>Time_BeginSimTick</c> (<c>004677bc</c>) waits out its 40 ms frame cap and then writes
+	/// <c>clamp((elapsedMs &lt;&lt; 8) / 125, 0x40, 0x1c2)</c>, which is
+	/// <see cref="VanillaTickDelta"/>'s 81 on hardware that keeps up. That makes the unit of every
+	/// countdown in the simulation 125/256 ms ≈ 0.49 ms — so a timer reload of 10000 is about 4.9
+	/// seconds of wall clock, and a rate is "per 125 ms".</para>
 	/// </summary>
 	public static short TickDelta { get; set; }
 
@@ -149,6 +156,12 @@ public static class SimMath {
 	/// is the same operation without the unaligned-pointer arithmetic.
 	/// The owning record is 3 bytes and the meaning of its leading byte is still open — see
 	/// <c>docs/simulation/dbsim-physics-notes.md</c>.
+	///
+	/// <para><b>These counters are not in milliseconds.</b> What is subtracted is
+	/// <see cref="TickDelta"/>, which is Q8 with 1.0 = 125 ms, so one count is 125/256 ms ≈ 0.49 ms
+	/// and a reload of 10000 expires in about 4.9 seconds — not ten. Every constant handed to this
+	/// function or to <see cref="TimerCountDown"/> is in that unit, and reading one as milliseconds
+	/// overstates it by a factor of about two. See <see cref="TickDelta"/>.</para>
 	/// </summary>
 	public static short CountdownTimerTick(ref short timer) {
 		timer = (short)(timer - TickDelta);

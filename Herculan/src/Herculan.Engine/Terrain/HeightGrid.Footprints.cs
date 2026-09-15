@@ -2,7 +2,7 @@ namespace Herculan.Engine.Terrain;
 
 /// <summary>
 /// The structure-footprint flattening pass — why a turret stands on a flat-topped mound rather than
-/// beside the point of a pyramid. A zone's heightmap marks each emplacement with one raised sample,
+/// beside the point of a pyramid. A zone's heightmap marks each ground vehicle with one raised sample,
 /// which as a corner sample is an apex at the cell's corner rather than a mound at its centre;
 /// DBSIM levels the marked cells to their own average at spawn time instead. The derivation, the
 /// data evidence and the call chain are in docs/formats/terrain-heightmap.md, "Structure footprints

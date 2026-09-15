@@ -1,17 +1,22 @@
 # Target selection and the sensor model
 
-Ported in `Sim.TargetSelection`, `Sim.Detection`, `MechObject.Target`.
+Ported in `Sim.TargetSelection`, `Sim.Detection`, `SimObject.Target`.
 
 ## Where the selection lives
 
-`mech+0x1a4` is the selected target every homing weapon and most of the AI reads. **For the player's
-machine nothing in the simulation writes it.** The selection is made in the cockpit widget tree at
+`+0x1a4` is the selected target every homing weapon and most of the AI reads. It is a field of the
+**shared base**, not of the HERC class: an aircraft and an armed structure keep theirs at the same
+offset, and the two places that read another object's selection — `Ai_SelectTarget`'s scoring and
+`Mission_IsClearOfThreats` — read it off whatever object they are holding without asking what class
+it is. **For the player's machine nothing in the simulation writes it.** The selection is made in the cockpit widget tree at
 `CockpitViewInstance+0x210` and copied onto the machine once a frame by
 `Player_PerFrameCockpitUpdate` (`0041b130`). AI machines get theirs from a separate family, decoded in
 [`ai-targeting.md`](ai-targeting.md) and ported in `Sim.Ai.AiTargeting`.
 
-Every writer of `mech+0x1a4` also maintains `target+0x1a2`, a count of how many machines hold that
-object, and raises `mech+0x9d` ("target changed"), which suppresses lock for one tick.
+Every writer of `+0x1a4` also maintains `target+0x1a2`, a count of how many objects hold that one, and
+raises `+0x9d` ("target changed"), which suppresses lock for one tick. The armed and triple-turret
+structure ticks raise `+0x9d` too, as shared boilerplate; **nothing reads a structure's copy** — the
+two readers (`Mech_PerTickSystemsUpdate` and `Mech_LockTonePlay`) are both mech-only.
 
 | Key | Scancode | Function | What it does |
 |---|---|---|---|

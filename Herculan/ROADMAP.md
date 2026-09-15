@@ -13,6 +13,15 @@ outstanding.
 
 The mechanism is understood; what is left is engine work.
 
+- **The triple turret does not shoot.** Four of the five structure classes now fill their `+0x18`
+  tick slot; type `0x22`'s three-turrets-from-one-object tick (`004045c8`) is the one left, and it
+  needs the 11-`short` weapon descriptor table at `DAT_004a9640` dumped out of the data section.
+  → [`docs/simulation/structure-behaviour.md`](docs/simulation/structure-behaviour.md)
+- **A structure's animation is simulated but never drawn.** A gun tower's turret tracks and its shots
+  leave the right muzzle point, and a radar mast's thread sweeps, but neither moves on screen: the
+  renderer splits a model into per-node segments only for a `MechObject`, and a structure's model is
+  split by cell instead for its damage states. Drawing a shape both ways at once is the work.
+  → [`docs/simulation/structure-behaviour.md`](docs/simulation/structure-behaviour.md#engine-port)
 - **CD music.** Both message ports are ported — the cockpit computer's ticker and the pilot and
   squad channel, with its `PILOT<n>.STR` sets, its speaker-coloured box, the `P*_*` voice clips and
   the comm box's `.SNC` portrait animation. Red Book music through MCI is not, so a mission runs

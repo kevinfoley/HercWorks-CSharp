@@ -253,6 +253,22 @@ public sealed class ShapeAnimation {
 		return From(list, partTransforms);
 	}
 
+	/// <summary>
+	/// The same for <b>one root</b> of a multi-root file, which is what a shape library needs:
+	/// <c>BASES_AN.DTS</c>'s eight roots are eight unrelated structures, each with its own
+	/// <c>ANAnimList</c>, and flattening the file as a whole would give all eight the first one's
+	/// data and mix their part-id maps.
+	/// </summary>
+	public static ShapeAnimation? FromRoot(TSObject? root) {
+		if (root == null || FirstAnimList(new[] { root }) is not { } list) {
+			return null;
+		}
+
+		var partTransforms = new Dictionary<int, int>();
+		CollectPartTransforms(root, partTransforms, 0);
+		return From(list, partTransforms);
+	}
+
 	/// <summary>Flattens a parsed <c>ANAnimList</c>. Null when it is missing any of its three pools.</summary>
 	/// <param name="list">The parsed animation list.</param>
 	/// <param name="partTransformIds">

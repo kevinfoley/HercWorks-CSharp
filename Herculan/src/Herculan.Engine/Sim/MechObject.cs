@@ -137,15 +137,6 @@ public sealed partial class MechObject : SimObject {
 	/// <summary>The weapon fit the mission gave this machine — see the type's summary.</summary>
 	public MechLoadout Loadout { get; }
 
-	/// <summary>The type's animation data, or null when its model carried none.</summary>
-	public ShapeAnimation? Animation { get; }
-
-	/// <summary>
-	/// This machine's animated shape — its animation data plus the three threads playing on it.
-	/// Null when its model carried no animation.
-	/// </summary>
-	public ShapeInstance? Shape { get; }
-
 	/// <summary>
 	/// This machine's locomotion thread, the first of the three and the only one that ever plays.
 	/// Null when it has no animation.
@@ -160,13 +151,6 @@ public sealed partial class MechObject : SimObject {
 
 	/// <summary>The pitch counterpart (<c>mech+0x234</c>).</summary>
 	public AnimationThread? TorsoPitchThread { get; }
-
-	/// <summary>
-	/// One node of this machine's shape, posed as it stands this tick — see
-	/// <see cref="ShapeInstance.NodeTransform"/>. Identity when the machine has no animation.
-	/// </summary>
-	public Transform3 NodeTransform(int transformId) =>
-		Shape?.NodeTransform(transformId) ?? Transform3.Identity;
 
 	/// <summary>Whether this is the machine the player pilots. Only it slides on steep ground.</summary>
 	public bool IsPlayer { get; set; }
@@ -368,15 +352,6 @@ public sealed partial class MechObject : SimObject {
 
 	/// <summary>Animation playback rate (<c>mech+0x2a0</c>). In steady state it equals <see cref="Speed"/>.</summary>
 	public short AnimRate { get; set; }
-
-	/// <summary>
-	/// Body pitch, as a binary angle. A walking HERC keeps it at zero — nothing tilts its legs — but
-	/// it is the flight path's primary control axis; see <see cref="MechObject.FlightVelocity"/>.
-	/// </summary>
-	public short Pitch { get; set; }
-
-	/// <summary>Body roll, as a binary angle. The same: level on a walker, and how a flyer turns.</summary>
-	public short Roll { get; set; }
 
 	/// <summary>
 	/// The speed the HUD would read for this machine, in km/h. <c>Mech_GetDisplaySpeedKph</c>
@@ -994,11 +969,8 @@ public sealed partial class MechObject : SimObject {
 
 		// The second object test, and a wholly separate one: every structure the radius test above
 		// passes over is stopped here by its collision volume instead.
-		for (int i = 0; i < objects.Count; i++) {
-			if (objects[i] is BaseObject structure && !structure.Removed
-					&& !structure.AwaitingDeployment && structure.BlocksWalker(position)) {
-				return true;
-			}
+		if (Deployment.StructureInTheWay(world, position)) {
+			return true;
 		}
 
 		var normal = world.Terrain.SurfaceNormalAt(position.X, position.Y);

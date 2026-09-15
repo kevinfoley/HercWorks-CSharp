@@ -234,7 +234,7 @@ public partial class MechObject {
 
 		switch (target.TargetClass) {
 			case TargetClass.Structure:
-			case TargetClass.Emplacement:
+			case TargetClass.GroundVehicle:
 				SetBehaviourState(BehaviourState.AttackingBase);
 				return;
 			case TargetClass.Flyer:

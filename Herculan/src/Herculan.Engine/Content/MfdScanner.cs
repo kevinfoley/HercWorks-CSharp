@@ -235,7 +235,7 @@ public static class MfdScanner {
 		bool hostile = side != MissionSide.Human;
 		return targetClass switch {
 			TargetClass.Herc => hostile ? HercHostileColorId : HercFriendlyColorId,
-			TargetClass.Structure or TargetClass.Emplacement =>
+			TargetClass.Structure or TargetClass.GroundVehicle =>
 				hostile ? StructureHostileColorId : StructureFriendlyColorId,
 			TargetClass.Flyer => hostile ? FlyerHostileColorId : FlyerFriendlyColorId,
 			_ => UnknownColorId,

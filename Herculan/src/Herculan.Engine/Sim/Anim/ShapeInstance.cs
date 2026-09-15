@@ -46,6 +46,22 @@ public sealed class ShapeInstance {
 	}
 
 	/// <summary>
+	/// <c>AnimThread_StepAll</c>'s (<c>004789a0</c>) advance half — every thread on this shape moved
+	/// on by one timestep's worth of animation time. The original then reads the first thread's
+	/// ramped root transform into the node array; a caller that wants that root motion asks the
+	/// thread for it directly (<see cref="AnimationThread.ReadRoot"/>), as
+	/// <see cref="MechObject.IntegrateMotion"/> and <see cref="BaseObject.StepAnimation"/> both do.
+	///
+	/// <para>A thread whose rate is zero is unmoved by this, which is why a turret thread parked by
+	/// <see cref="AnimationThread.SeekToPosition"/> stays where the seek put it.</para>
+	/// </summary>
+	public void StepAnimation(short delta) {
+		foreach (var thread in _threads) {
+			thread.Advance(delta);
+		}
+	}
+
+	/// <summary>
 	/// One node's pose in shape space: its own local transform composed up its parent chain.
 	///
 	/// <para>Identity for an unknown id, so a shape with no such node puts whatever rides it at the

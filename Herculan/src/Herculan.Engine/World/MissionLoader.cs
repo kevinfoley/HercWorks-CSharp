@@ -627,6 +627,7 @@ public static class MissionLoader {
 
 			var group = claim.Group;
 			var record = script.MiscEntities[slot];
+			var offset = baseFormations.OffsetFor(group.FormationId, claim.MemberIndex);
 			var position = Coordinate(script, record.PositionRef)
 				?? OffsetFromGroup(group, baseFormations, claim.MemberIndex);
 
@@ -642,6 +643,7 @@ public static class MissionLoader {
 				Array.Empty<short>(),
 				Array.Empty<short>(),
 				Side: group.Side,
+				FormationOffset: offset is { } o ? (o.X, o.Y) : null,
 				EngagementActionRef: ActionRef(script, record.EngagementActionRef),
 				DefeatActionRef: ActionRef(script, record.DefeatActionRef)));
 		}

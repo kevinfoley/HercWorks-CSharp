@@ -83,9 +83,6 @@ public sealed class FlyCameraObject : SimObject {
 	/// <summary>The control input to apply on the next tick; the host sets this each frame.</summary>
 	public CameraInput Input { get; set; }
 
-	/// <summary>Current pitch, as a binary angle. Positive looks up.</summary>
-	public int Pitch { get; private set; }
-
 	private short _forwardSpeed;
 	private short _strafeSpeed;
 	private short _verticalSpeed;
@@ -107,12 +104,8 @@ public sealed class FlyCameraObject : SimObject {
 
 		Heading = (Heading + SimMath.IntegrateRateOverTick(_yawRate)) & 0xffff;
 
-		Pitch += SimMath.IntegrateRateOverTick(_pitchRate);
-		if (Pitch > PitchLimit) {
-			Pitch = PitchLimit;
-		} else if (Pitch < -PitchLimit) {
-			Pitch = -PitchLimit;
-		}
+		int pitch = Pitch + SimMath.IntegrateRateOverTick(_pitchRate);
+		Pitch = (short)(pitch > PitchLimit ? PitchLimit : pitch < -PitchLimit ? -PitchLimit : pitch);
 
 		int forwardStep = SimMath.IntegrateRateOverTick(_forwardSpeed);
 		int strafeStep = SimMath.IntegrateRateOverTick(_strafeSpeed);

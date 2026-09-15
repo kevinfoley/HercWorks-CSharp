@@ -41,12 +41,12 @@ root (004a0b98)                     ── SimObjectBase_Constructor (00402188)
             ├── StructureRadarVtable    (004979d4)
             ├── StructureType0x22Vtable (00497784)
             └── StructureArmedVtable    (004978ac)
-                └── StructureEmplacementVtable (00497818)
+                └── StructureGroundVehicleVtable (00497818)
 ```
 
-The structure branch is the odd one: `Base_Construct` switches on the BASES.DAT type index. **Every branch installs `StructureVtable` first and then overwrites it**, which is what establishes the four others as derived from it — and the emplacement branch installs three in a row, so that class is two levels down. All five are the same 34-slot shape.
+The structure branch is the odd one: `Base_Construct` switches on the BASES.DAT type index. **Every branch installs `StructureVtable` first and then overwrites it**, which is what establishes the four others as derived from it — and the ground vehicle branch installs three in a row, so that class is two levels down. All five are the same 34-slot shape.
 
-Only three slots differ across the five, which is the fastest way to see what separates them: the destructor, `ThinkTick` (`+0x18`), and `GetTorsoTwistAngle` (`+0x3c`). **That last one is the armed/unarmed line.** `StructureArmedVtable` and `StructureEmplacementVtable` install `Base_GetTurretAngle` (`00403594`), which returns a real aim angle from `structure+0x20f`; the plain building and the radar mast keep the shared `00411a5c` zero stub. That agrees with `Base_Construct` setting `disarmed` (`+0xa5`) at spawn on exactly the two that keep the stub.
+Only three slots differ across the five, which is the fastest way to see what separates them: the destructor, `ThinkTick` (`+0x18`), and `GetTorsoTwistAngle` (`+0x3c`). **That last one is the armed/unarmed line.** `StructureArmedVtable` and `StructureGroundVehicleVtable` install `Base_GetTurretAngle` (`00403594`), which returns a real aim angle from `structure+0x20f`; the plain building and the radar mast keep the shared `00411a5c` zero stub. That agrees with `Base_Construct` setting `disarmed` (`+0xa5`) at spawn on exactly the two that keep the stub.
 
 ## Sizes come from the pool, not from the highest known offset
 

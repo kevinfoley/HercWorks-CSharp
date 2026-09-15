@@ -276,7 +276,10 @@ public sealed class MissionScene {
 		byte[]? fireBanks = content.Read(DebrisDatabase.ResourceFolder, FireEffect.BankTableResource);
 
 		var world = new SimWorld(terrain, bullets, explosions, rockets, beams, mission.Header.ZoneIndex,
-			debris);
+			debris) {
+			// The shell chose this before it wrote the script — see SimWorld.Difficulty.
+			Difficulty = mission.Header.Difficulty
+		};
 		var models = new SceneModelLibrary(content, theater);
 		var baseTypes = BaseTypeTable.Load(content);
 

@@ -173,7 +173,7 @@ if (pilot +0x29 < 3 && pilot +0x39 % divisors.missions == 0)
 
 Two consequences worth holding onto:
 
-- **The player's skill never changes.** The player is the one call site passing `isPlayer = 1`, and the `jnz` at `0041009f` jumps clear of the skill block on that argument — so the level chosen on the registration screen stands for the whole career, while the player's rank still advances on missions flown.
+- **The player's skill never changes.** The player is the one call site passing `isPlayer = 1`, and the `jnz` at `0041009f` jumps clear of the skill block on that argument — so the level chosen on the registration screen stands for the whole career, while the player's rank still advances on missions flown. That level is also **the simulator's difficulty setting**, handed over in every `script.dat` the campaign writes — see [`../simulation/difficulty.md`](../simulation/difficulty.md).
 - **Skill counts machines only.** The test sums Herc and Flyer kills and ignores Base kills entirely.
 
 The counters have already been accumulated and `+0x39` already incremented by the `FUN_0041000e` loop above, so a pilot's first debrief tests `missionsFlown == 1`. The kill test has no such offset: a squad pilot whose Herc and Flyer totals are still `0` satisfies `0 % divisor == 0` and takes a skill step on every mission survived until the cap.

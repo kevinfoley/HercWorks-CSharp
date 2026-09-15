@@ -88,11 +88,10 @@ in the blast like any other. A proximity fuze detonates it within 2000 units of 
 once the bearing error exceeds a quarter turn.
 
 The blast figure is the record's **armour** damage, power-scaled — the two are equal on the one
-record this reaches. On the way in it is scaled by `Damage_ScaleByDifficulty` (`00426b04`), a Q10 factor out of a pair of
-four-entry tables (`0049a73c` for a shot fired by side 0, `0049a744` for anything else) indexed by
-the mission difficulty at `DAT_004a9ee0`. It runs 3.42× down to 1.37× on the first table and 0.29×
-up to 0.98× on the second, so difficulty scales the two sides' blast damage in opposite directions.
-`Mech_CollisionTest`'s slide-landing damage indexes a third such table the same way.
+record this reaches. On the way in it is scaled by `Damage_ScaleByDifficulty` (`00426b04`), the same
+difficulty scale `Sim_RaycastObjectList` puts on every other shot's two damage figures. Emptying the
+shot record first is what keeps this round from being scaled twice; the scale itself and the four
+tables that drive it are in [`difficulty.md`](difficulty.md).
 
 The one reader of the stash is a structure struck on its collision-volume path, which puts the
 armour figure back — see
@@ -113,9 +112,9 @@ target into a quarter turn of pitch; it is worth stating because it did exactly 
 
 `Sim.Projectile`, `Sim.BulletCatalog`, `SimWorld.{FireBullet, Projectiles, Impacts}`. Deviations:
 
-- **The difficulty scale is not applied.** Nothing in the engine has a difficulty setting to index
-  `Damage_ScaleByDifficulty`'s tables with, so the blast figure goes in unscaled; that belongs with a difficulty
-  system rather than with the round. Everything else on the plasma path — the stash and empty
+- **The difficulty scale is applied in `Detonate` rather than before the raycast**, which is the same
+  arithmetic in a place that suits the port: the original scales its own copy of the blast figure up
+  front, and this recomputes that figure at the blast instead. Everything else on the plasma path — the stash and empty
   (`WeaponShot.StashDamage`), the unexcluded 4000-unit sweep, the 2000-unit proximity fuze — is
   ported, and all three of the blast slot's implementations are in place, so plasma hurts machines,
   buildings and aircraft alike. See

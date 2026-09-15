@@ -185,6 +185,24 @@ public sealed class WeaponShot {
 	public short StashedDamageShield { get; private set; }
 
 	/// <summary>
+	/// Both damage figures scaled by the firing side's mission-difficulty factor —
+	/// <c>Damage_ScaleByDifficulty</c> (<c>00426b04</c>) called twice, on the record's <c>+0x06</c>
+	/// and <c>+0x04</c>, at the top of <see cref="SimWorld.Raycast"/>.
+	///
+	/// <para>It is applied there rather than at construction, and that placement matters twice over:
+	/// a shot with no attacker is not scaled at all (the original's own <c>+0x0e != 0</c> gate, which
+	/// is what leaves a flyer's airframe contacts alone), and a plasma round has already emptied the
+	/// record by then, so its figures are scaled once — in <see cref="Projectile.Detonate"/> —
+	/// rather than twice. What <see cref="StashDamage"/> puts aside is likewise the unscaled figure,
+	/// as the original's <c>Bullet_StashDirectFireDamage</c> stashes it before the scale runs.</para>
+	/// </summary>
+	/// <param name="scaleQ10">The factor from <see cref="SimWorld.DamageScaleFor"/>.</param>
+	internal void ApplyDifficultyScale(int scaleQ10) {
+		DamageArmor = (short)SimMath.Q10Multiply(scaleQ10, DamageArmor);
+		DamageShield = (short)SimMath.Q10Multiply(scaleQ10, DamageShield);
+	}
+
+	/// <summary>
 	/// The plasma round's own preparation before it raycasts: put both damage figures aside and then
 	/// <b>empty the record</b> — damage, shields and splash share alike — so that the raycast reports
 	/// contact and nothing else. Everything the round does, it does through the blast that follows.

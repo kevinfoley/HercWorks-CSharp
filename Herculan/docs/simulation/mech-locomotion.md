@@ -502,7 +502,8 @@ run after every move. Three things refuse it, in order:
    about 45°. Off the grid counts as steep, which is what keeps a machine inside the zone. For the
    player only, a *downhill* refusal turns into a slide instead: the slope's X/Y accumulate at Q10
    10 per tick, and a long enough slide damages the leg components on landing, scaled by the
-   mission difficulty (`DAT_0049a058`).
+   mission difficulty through the four-entry table at `0049a058` — see
+   [`difficulty.md`](difficulty.md#what-the-difficulty-changes).
 
 A block against another **machine** also hurts both of them, through the explosive-damage slot —
 see [`damage-system.md`](damage-system.md#a-collision--mech_collisiontest-00418f74). It additionally

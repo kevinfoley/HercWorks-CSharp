@@ -366,12 +366,23 @@ and every placed object lands inside its zone's bounds.
 |---|---|
 | 0 | theater index, 0-4 — selects `wld\world<index * 2 + variant>.wld` (texture bank, palette) |
 | 2 | zone index — passed to `Terrain_LoadZone` |
-| 4 | (zeroed by reader before use) |
+| 4 | a mode flag (`DAT_004a9ed6`). The writer emits a literal 1 and the reader stores 0 over it before anything reads it, so the value on disk never reaches a consumer; what it gates is [the two cheat fields below](#the-training-fields) |
 | 6 | **mission objective type** (`DAT_004a9ed8`) — which arm of the player's think watches for progress, and whether the AI is kept off the data-link subject. See [`../simulation/mission-objectives.md`](../simulation/mission-objectives.md#the-player-thinks-objective-arms). All ten files in the retail install carry 0 |
-| 18 | theater variant, 0 or 1 — low bit of world number |
-| rest | constant across corpus |
+| 10 | **unlimited ammunition and energy** (`DAT_004a9edc`) when 1 |
+| 12 | **player invulnerable** (`DAT_004a9ede`) when 1 |
+| 14 | **mission difficulty**, 0-3 (`DAT_004a9ee0`) — see [`../simulation/difficulty.md`](../simulation/difficulty.md). All ten files in the retail install carry 2 |
+| 18 | theater variant, 0 or 1 — low bit of world number, and the single-mission screen's `Day` / `Night` row |
+| 8, 16 | zero across the corpus and unread by `DBSim_LoadScriptDat` |
 
 The three world fields are confirmed by `DBSim_LoadScriptDat` → `Terrain_LoadZone` / `maybe_World_LoadTheater`. See [`terrain-texturing.md`](terrain-texturing.md) for theater details.
+
+### The training fields
+
+Offsets 10, 12 and 14 are written by `MsnGen_LoadMission` (`0041c73d`, VSHELL) rather than parsed
+out of the `.msn`, which zeroes all ten header globals before it starts. In a campaign the two cheat
+fields are forced to 0 and the difficulty is the player pilot's skill; outside one all three come
+from the single-mission setup screen, which keeps them in `data\prefs.cfg`. The whole chain is in
+[`../simulation/difficulty.md`](../simulation/difficulty.md).
 
 ## Reading script.dat
 

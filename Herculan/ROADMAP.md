@@ -54,10 +54,10 @@ The mechanism is understood; what is left is engine work.
   `INTERNAL DAMAGE` family, `WEAPON DESTROYED`, `DAMAGE LEVEL CRITICAL`, `SHIELDS CRITICAL`, and
   `ENEMY TARGET DESTROYED`/`DISABLED` when the player kills what they had selected — is not posted.
   → [`docs/formats/audio.md`](docs/formats/audio.md#posters)
-- **Mission difficulty.** Nothing sets it, so the two systems that index it — the AI's aim scatter
-  and the explosive damage scale — run on entry 0.
-  → [`docs/simulation/ai-weapons.md`](docs/simulation/ai-weapons.md),
-  [`docs/simulation/projectiles.md`](docs/simulation/projectiles.md)
+- **The single-mission cheat settings.** `script.dat`'s header carries the setup screen's
+  invulnerability and unlimited-ammunition flags beside the difficulty, and nothing reads either. The
+  difficulty itself is ported.
+  → [`docs/simulation/difficulty.md`](docs/simulation/difficulty.md#the-two-sibling-cheats)
 - **Flyer control bindings.** The flight model is ported and the axis roles are known, but key
 bindings are hardcoded placeholders.
   → [`docs/simulation/razor-flight.md`](docs/simulation/razor-flight.md)

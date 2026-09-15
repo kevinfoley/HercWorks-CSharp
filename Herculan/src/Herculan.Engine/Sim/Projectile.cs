@@ -184,13 +184,6 @@ public sealed class Projectile {
 	/// nothing more, and everything the round does it does through the sweep — which is why the
 	/// struck object is <i>not</i> excluded from it. The one thing the stash is read back for is a
 	/// structure struck on its collision-volume path; see <see cref="BaseObject.DirectFireHitTest"/>.</para>
-	///
-	/// <para><b>One deviation.</b> The original scales the blast figure by a Q10 factor from one of
-	/// two four-entry tables, one per side, indexed by the mission's difficulty — 3.42x down to 1.37x
-	/// for a shot fired by side 0 and 0.29x up to 0.98x for one fired by anything else, so it is not
-	/// a rounding correction. Nothing here has a difficulty setting to index those tables with, so
-	/// the figure goes in unscaled; it belongs with a difficulty system rather than with the
-	/// round.</para>
 	/// </summary>
 	/// <returns>Whether the shot is finished and should be freed.</returns>
 	internal bool Tick(SimWorld world) {
@@ -251,6 +244,11 @@ public sealed class Projectile {
 	///
 	/// <para>The blast's figure is the record's <b>armour</b> damage, power-scaled, and not its
 	/// shield damage. On the one record this reaches the two are equal.</para>
+	///
+	/// <para>It is then scaled by the mission difficulty, which every other shot gets inside the
+	/// raycast instead — this round cannot, having emptied its record before firing the ray. What
+	/// <see cref="WeaponShot.StashDamage"/> put aside stays unscaled, as it does in the original:
+	/// <c>Bullet_StashDirectFireDamage</c> runs before the scale.</para>
 	/// </summary>
 	private void Detonate(SimWorld world, Vec3i at) {
 		if (MissileId != PlasmaSubtype) {
@@ -260,6 +258,10 @@ public sealed class Projectile {
 		short damage = Power == 0
 			? Data.DamageArmor
 			: (short)SimMath.Q10Multiply(Power, Data.DamageArmor);
+
+		if (Owner is { } attacker) {
+			damage = (short)SimMath.Q10Multiply(world.DamageScaleFor(attacker.Side), damage);
+		}
 
 		world.ExplosiveBlastSweep(at, PlasmaBlastRadius, damage, Owner, null);
 	}

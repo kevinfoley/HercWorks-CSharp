@@ -64,7 +64,7 @@ Six things it settles.
 
 **The lead is exact, and only a travelling shot gets one.** `range × targetSpeed ÷ projectileSpeed` along the target's own heading, from the `PROJ.DAT` record's `Speed` at `+0x0a`. A `Beam` record carries speed 0 and so takes no lead, which is right; a structure returns speed 0 from vtable `+0x38` and takes none either.
 
-**The scatter is Cybrid-only and one-sided.** `group+0x12` is the group's side, so a machine in the *player's* squad never has its aim perturbed at all. The table at `0049a30c` is indexed by the difficulty level (`004a9ee0`, the same global `Damage_ScaleByDifficulty` reads) and holds `1000, 800, 400, 200, 0` — the enemy shoots straighter the harder the game is set. `Math_RandomBelow` draws in `[0, bound)`, so all three components are displaced in the **positive** direction only; see [`KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
+**The scatter is Cybrid-only and one-sided.** `group+0x12` is the group's side, so a machine in the *player's* squad never has its aim perturbed at all. The table at `0049a30c` is indexed by the mission difficulty (`004a9ee0`, the same global `Damage_ScaleByDifficulty` reads) and holds `1000, 800, 400, 200` — the enemy shoots straighter the harder the game is set. Where that number comes from is [`difficulty.md`](difficulty.md). `Math_RandomBelow` draws in `[0, bound)`, so all three components are displaced in the **positive** direction only; see [`KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
 
 **`mech+0x2ac` is the ELF latch.** Only weapon ids 6 and 22 are kept, and only while the mount stays ready and in range. That is what lets an AI machine sustain an ELF burst across ticks instead of re-rolling its choice each one — `ElfMount_CanFire`'s sustain clause needs the mount fired on the previous tick.
 
@@ -210,6 +210,6 @@ What differs from the original, and why:
 
 - **`mech+0x96` is `MechObject.Scanner` throughout.** The navigation slice ported it a second time as `WeaponsFree`; the two were the same byte and are now one property.
 - **`mech+0xa5` is `MechObject.Disarmed`, and the AI's liveness tests read it through `SimObject.OutOfAction`** rather than through `Neutralised`. The detection sweep, the player's target selection and a group's condition tier read the latter and never consult `+0xa5`. A guard order's rival test (`Group_IsWipedOut`) is the one place outside the AI that does — see [`ai-goals.md`](ai-goals.md).
-- **The one-sided aim scatter is reproduced**, since it is what the retail enemy's aim actually does. `SimWorld.Difficulty` indexes the table and nothing sets it, so the engine runs on entry 0 — the widest scatter of the five.
+- **The one-sided aim scatter is reproduced**, since it is what the retail enemy's aim actually does, and `SimWorld.Difficulty` indexes the table as the original does — see [`difficulty.md`](difficulty.md).
 - **The mission action a machine fires on running dry is `SimObject.DefeatAction`**, the same one its death fires — see [`mission-deployment.md`](mission-deployment.md).
 - **The gun convergence runs for the player too**, which is the original's arrangement: the range it converges on is the distance to the selected target, and centring the turret squares the guns up.

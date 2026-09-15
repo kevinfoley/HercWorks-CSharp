@@ -85,13 +85,19 @@ binding, which is rewritten with its own unchanged value.
 | 11 | EFFECTS DETAIL | 0-2, and `Sound_DetailSetting` ([`../formats/audio.md`](../formats/audio.md)) |
 | 13-24 | the controls panel's twelve, walking a HERC | [below](#the-bindings-are-twelve-bytes-of-the-same-file) |
 | 25-36 | the same twelve, flying the RAZOR | |
+| 37-41 | **VSHELL's**, not the simulator's: the single-mission setup screen's five rows, difficulty among them | [`difficulty.md`](difficulty.md#outside-a-campaign-it-is-a-prefscfg-byte) |
 
 `ControlsOptionBase` (`004d25fb`) selects between the last two blocks: `Sim_InitMissionSession`
 (`004614fc`) sets it to `0x19` when `PilotingRazor` (`004d25f5`) is set and `0x0d` otherwise, and
 `PreferencesManager_Reset` (`0045cad8`) starts it on `0x0d`. **The two blocks are independent** — a
 binding made in a walker does not disturb the RAZOR's.
 
-Options 4-6, 12 and 37-53 are not identified. Neither panel reads them.
+Options 4-6, 12 and 42-53 are not identified. Neither panel reads them.
+
+**The file is shared with VSHELL**, which keeps the same 54-byte array, the same load-time shadow and
+the same handler table, and reads and writes the same path. Options 37-41 are its side of that
+sharing: the simulator carries them and never reads one. See
+[`difficulty.md`](difficulty.md#outside-a-campaign-it-is-a-prefscfg-byte).
 
 ## The preferences panel — `prf_alrt` (`004566c4`)
 

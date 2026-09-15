@@ -22,11 +22,16 @@ public readonly struct ScriptDatHeader {
 	/// <summary>Bytes the header occupies; the original reads exactly this many in one call.</summary>
 	public const int Size = 20;
 
-	private ScriptDatHeader(int theaterIndex, int zoneIndex, int objectiveType, int theaterVariant) {
+	/// <summary>How many difficulty levels there are; see <see cref="Difficulty"/>.</summary>
+	public const int DifficultyLevels = 4;
+
+	private ScriptDatHeader(int theaterIndex, int zoneIndex, int objectiveType, int theaterVariant,
+			int difficulty) {
 		TheaterIndex = theaterIndex;
 		ZoneIndex = zoneIndex;
 		ObjectiveType = objectiveType;
 		TheaterVariant = theaterVariant;
+		Difficulty = difficulty;
 	}
 
 	/// <summary>Theater to load, 0-4 — see <see cref="TheaterDescriptor"/>.</summary>
@@ -50,17 +55,30 @@ public readonly struct ScriptDatHeader {
 	public int ObjectiveType { get; }
 
 	/// <summary>
-	/// Selects between a theater's two descriptors. Every retail file carries 0, so what the
-	/// second variant of each theater is for (weather? time of day?) is not established here.
+	/// Selects between a theater's two descriptors: it is <b>time of day</b>, written by the shell's
+	/// single-mission setup screen from a <c>Day</c> / <c>Night</c> row. Every retail file carries 0.
 	/// </summary>
 	public int TheaterVariant { get; }
 
 	/// <summary>
+	/// Offset 14 — <c>DAT_004a9ee0</c>, the <b>mission difficulty</b>, <c>0</c>-<c>3</c>. The shell
+	/// writes the player pilot's own skill here in a campaign and the single-mission screen's setting
+	/// outside one, which is why every retail file carries 2 (<c>VETERAN</c>). Four things in the
+	/// original index a four-entry table with it, of which three are ported — see
+	/// <see cref="Sim.SimWorld.Difficulty"/> and docs/simulation/difficulty.md.
+	///
+	/// <para><b>Clamped on the way in.</b> The original indexes those tables with whatever the file
+	/// says and would read past them; a hand-edited file is held to the four levels here instead.</para>
+	/// </summary>
+	public int Difficulty { get; }
+
+	/// <summary>
 	/// Reads the header from the start of a <c>script.dat</c>'s bytes. The remaining fields are left
 	/// undecoded rather than exposed as raw numbers — <c>DBSim_LoadScriptDat</c> zeroes the one at
-	/// offset 4 before use, and the rest are constant across every retail file. The fourth decoded
-	/// field, <see cref="ObjectiveType"/>, is not the theater's: it is the mission layer's, and its
-	/// reader is <c>Mech_BehaviourPlayerThink</c>.
+	/// offset 4 before use, offsets 8 and 16 are unread, and offsets 10 and 12 are the difficulty's
+	/// two sibling cheat flags (unlimited ammunition and player invulnerability), which nothing in
+	/// the engine consumes yet. <see cref="ObjectiveType"/> is not the theater's: it is the mission
+	/// layer's, and its reader is <c>Mech_BehaviourPlayerThink</c>.
 	/// </summary>
 	public static ScriptDatHeader Read(ReadOnlySpan<byte> scriptDat) {
 		if (scriptDat.Length < Size) {
@@ -72,6 +90,8 @@ public readonly struct ScriptDatHeader {
 			BinaryPrimitives.ReadInt16LittleEndian(scriptDat),
 			BinaryPrimitives.ReadInt16LittleEndian(scriptDat[2..]),
 			BinaryPrimitives.ReadInt16LittleEndian(scriptDat[6..]),
-			BinaryPrimitives.ReadInt16LittleEndian(scriptDat[18..]));
+			BinaryPrimitives.ReadInt16LittleEndian(scriptDat[18..]),
+			System.Math.Clamp(
+				(int)BinaryPrimitives.ReadInt16LittleEndian(scriptDat[14..]), 0, DifficultyLevels - 1));
 	}
 }

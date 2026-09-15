@@ -42,7 +42,7 @@ world<N> descriptor file  ──(a string field in the data)──▶  dba\<name
 |---|---|---|---|---|---|---|---|---|---|---|
 | bank | urban | urban | bsnow | bsnow | volcan | volcan | ice | ice | moon | moon |
 
-Five theaters, two variants each. Retail missions use variant 0; variant 1 purpose (weather/time-of-day) unknown. Which theater, variant and zone a mission runs is the `script.dat` header's — see
+Five theaters, two variants each. The variant is **time of day**: the single-mission setup screen's `Day` / `Night` row writes it straight into the header field, and the ten retail files all carry `Day`. See [`../simulation/difficulty.md`](../simulation/difficulty.md#outside-a-campaign-it-is-a-prefscfg-byte). Which theater, variant and zone a mission runs is the `script.dat` header's — see
 [`script-dat.md`](script-dat.md#header-format).
 
 Alongside the terrain bank, `maybe_World_LoadTheater` loads the theater palette `dpl\world<N>.dpl`,

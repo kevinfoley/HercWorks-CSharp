@@ -2,8 +2,8 @@ namespace HercWorks.Core.Data.File.Msn;
 
 /// <summary>
 /// Row #7 (10 bytes/record) — the simplest record type in the file: a minimal `{GUID, payload}`
-/// entry. Nothing else in the file references it. Real payload is a narrow 3-valued discrete flag
-/// (0/1/10) — plausibly a per-entity toggle or difficulty-tier marker, not confirmed further.
+/// entry. Nothing else in the file references it. The payload is a <b>heading in degrees</b>, which
+/// DBSIM multiplies by 182 to reach BAM at load; the three values seen are 0, 1 and 10.
 /// See docs/formats/msn-mission-file.md, "Row #7 field decode".
 /// </summary>
 public class Heading10 : MapObject {
@@ -16,6 +16,6 @@ public class Heading10 : MapObject {
 	/// <summary>0x06 — always -1; same dead-field shape as elsewhere in this file.</summary>
 	public short Unk06 { get; set; }
 
-	/// <summary>0x08 — small discrete payload; real values 0 (62%), 1 (34%), or 10 (4%).</summary>
+	/// <summary>0x08 — heading in degrees, x182 to BAM at load; real values 0 (62%), 1 (34%), 10 (4%).</summary>
 	public short Payload { get; set; }
 }

@@ -108,8 +108,10 @@ in [`weapon-mounts.md`](weapon-mounts.md).
 - Ammunition mounts consume nothing — their slot-`0x34` override returns the budget untouched.
 - PLAS (id 25) is half-efficiency: its deficit counts double and only half of what it draws is
   stored.
-- An infinite-energy debug path exists (`DAT_004a9ed6 == 0 && DAT_004a9edc == 1`, player only):
-  consumption is refunded at the end of the pass. Not ported.
+- The **unlimited energy and ammunition** setting refunds the whole pass's consumption, player only
+  (`DAT_004a9ed6 == 0 && DAT_004a9edc == 1`). Both globals are `script.dat` header fields and the
+  single-mission screen is what sets them — see [`difficulty.md`](difficulty.md#the-two-sibling-cheats).
+  Not ported.
 
 An idle machine draws nothing: every energy mount powers up with `+0x7d` already at `+0x7b`, so the
 deficit is zero until a shot is demanded.

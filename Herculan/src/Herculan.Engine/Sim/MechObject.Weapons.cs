@@ -321,9 +321,9 @@ public sealed partial class MechObject {
 	private const short PilotFlownHomingType = 3;
 
 	/// <summary>
-	/// <c>DAT_0049a30c</c> — how far a Cybrid machine's aim is thrown off, by difficulty. The enemy
-	/// shoots straighter the harder the game is set, and a machine in the player's own squad is never
-	/// perturbed at all.
+	/// <c>DAT_0049a30c</c> — how far a Cybrid machine's aim is thrown off, by
+	/// <see cref="SimWorld.Difficulty"/>. The enemy shoots straighter the harder the game is set, and
+	/// a machine in the player's own squad is never perturbed at all.
 	/// </summary>
-	public static readonly short[] AiAimScatter = { 1000, 800, 400, 200, 0 };
+	public static readonly short[] AiAimScatter = { 1000, 800, 400, 200 };
 }

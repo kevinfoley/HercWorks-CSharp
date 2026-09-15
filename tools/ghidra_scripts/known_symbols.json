@@ -13472,6 +13472,195 @@
       "signature": "void __cdecl ControlsPanel_Save(void)",
       "description": "Builds a 13-entry index list spanning ControlsOptionBase-1 through ControlsOptionBase+11 -- option 12 plus the twelve bindings for a walker -- then Prefs_SaveSelectedOptions over it. The list is built once and latched by DAT_0049e7fc, so it keeps whatever ControlsOptionBase was at the first save. Called by ControlsPanel_Run at 00458c07, immediately before Prefs_CommitOptions.",
       "source": "docs/simulation/preferences.md, 'Writing it back'"
+    },
+    {
+      "address": "004a9ee0",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "MissionDifficulty",
+      "description": "script.dat header +0x0e. The mission difficulty, 0-3 (ROOKIE/REGULAR/VETERAN/ELITE). Written only by the header read in DBSim_LoadScriptDat; four readers -- Damage_ScaleByDifficulty, Ai_FireAtPoint, Mech_CollisionTest and Sim_DamageToPlayerDisabled.",
+      "source": "docs/simulation/difficulty.md"
+    },
+    {
+      "address": "004a9edc",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "UnlimitedAmmoFlag",
+      "description": "script.dat header +0x0a. 1 = the single-mission screen's Unlimited setting; refunds weapon energy in WeaponMounts_ArbitrateEnergy and ammunition via WeaponMounts_FireTrigger's free-shot flag. Gated on MissionModeFlag being 0.",
+      "source": "docs/simulation/difficulty.md"
+    },
+    {
+      "address": "004a9ede",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "PlayerInvulnerableFlag",
+      "description": "script.dat header +0x0c. 1 = the single-mission screen's Invulnerable setting; Sim_DamageToPlayerDisabled returns true and the player's component damage is skipped.",
+      "source": "docs/simulation/difficulty.md"
+    },
+    {
+      "address": "004a9ed6",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "MissionModeFlag",
+      "description": "script.dat header +0x04. The writer emits 1 and DBSim_LoadScriptDat stores 0 over it before any reader runs, so the two cheat flags beside it are always read on their live arm.",
+      "source": "docs/simulation/difficulty.md"
+    },
+    {
+      "address": "004a9ed2",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ScriptDatHeader",
+      "description": "The 20 bytes DBSim_LoadScriptDat reads out of data\\script.dat in one call: theater, zone, mode flag, objective type, the two cheat flags, the difficulty and the theater variant.",
+      "source": "docs/simulation/difficulty.md"
+    },
+    {
+      "address": "0049a30c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "AiAimScatterByDifficulty",
+      "description": "short[4] {1000, 800, 400, 200} -- how far Ai_FireAtPoint throws a Cybrid machine's aim off, indexed by MissionDifficulty.",
+      "source": "docs/simulation/difficulty.md"
+    },
+    {
+      "address": "0049a73c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "DamageScaleBySide0Difficulty",
+      "description": "short[4] {3500, 2800, 2100, 1400} -- Q10 damage factor Damage_ScaleByDifficulty applies to a shot fired by side 0, indexed by MissionDifficulty.",
+      "source": "docs/simulation/difficulty.md"
+    },
+    {
+      "address": "0049a744",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "DamageScaleByCybridDifficulty",
+      "description": "short[4] {300, 600, 800, 1000} -- the same factor for a shot fired by any other side.",
+      "source": "docs/simulation/difficulty.md"
+    },
+    {
+      "address": "0049a058",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "SlideDamageScaleByDifficulty",
+      "description": "short[4] {400, 800, 1200, 1600} -- scale on the damage Mech_CollisionTest deals the player for a long downhill slide, indexed by MissionDifficulty.",
+      "source": "docs/simulation/difficulty.md"
+    },
+    {
+      "address": "004761ac",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "RegistrationSkillChoice",
+      "description": "The skill (and so the campaign difficulty) the registration screen is showing, 0-3. Stepped modulo 4 by FUN_0043bd15 and FUN_0043c01d, printed as estext.bin 0x35 + value, and passed to Game_NewCareer as the new player pilot's +0x25.",
+      "source": "docs/simulation/difficulty.md"
+    },
+    {
+      "address": "004824b8",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellOptions",
+      "description": "VSHELL's copy of the 54-byte data\\prefs.cfg option array -- the same file, layout, shadow and handler-table design DBSIM uses. Options 0x25-0x29 are the single-mission setup screen's five rows.",
+      "source": "docs/simulation/difficulty.md"
+    },
+    {
+      "address": "004824ee",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellOptionsShadow",
+      "description": "Load-time shadow of ShellOptions; ShellOptions_Commit fires each changed option's handler against it.",
+      "source": "docs/simulation/difficulty.md"
+    },
+    {
+      "address": "00482524",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellOptionHandlers",
+      "description": "Per-option handler table, parallel to ShellOptions.",
+      "source": "docs/simulation/difficulty.md"
+    },
+    {
+      "address": "0040d6a3",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellOptions_Load",
+      "description": "Zeroes ShellOptions, reads data\\prefs.cfg straight over it, then fires every registered handler and re-baselines the shadow.",
+      "source": "docs/simulation/difficulty.md"
+    },
+    {
+      "address": "0040d752",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellOptions_SaveAll",
+      "description": "Writes all 54 bytes of ShellOptions back to data\\prefs.cfg. Called by the single-mission launch handler.",
+      "source": "docs/simulation/difficulty.md"
+    },
+    {
+      "address": "0040d846",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellOptions_SetOption",
+      "description": "Stores one option byte and, when told to apply, calls its handler.",
+      "source": "docs/simulation/difficulty.md"
+    },
+    {
+      "address": "0040d8a3",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellOptions_StepOption",
+      "description": "value + 1, wrapping to 0 at the caller's modulus.",
+      "source": "docs/simulation/difficulty.md"
+    },
+    {
+      "address": "0040d8d0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellOptions_StepOptionBack",
+      "description": "value - 1, wrapping to modulus - 1 below zero.",
+      "source": "docs/simulation/difficulty.md"
+    },
+    {
+      "address": "0040d7b6",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellOptions_Commit",
+      "description": "Walks all 54 options, calls the handler of each that differs from the shadow, and re-baselines it.",
+      "source": "docs/simulation/difficulty.md"
+    },
+    {
+      "address": "0040fcd8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Pilot_Init",
+      "description": "Writes a pilot record: roster id, name index, name, skill at +0x25 and rank at +0x29, then the per-record defaults.",
+      "source": "docs/simulation/difficulty.md"
+    },
+    {
+      "address": "00482aa1",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "PlayerPilotSkill",
+      "description": "The player pilot record's +0x25 (record base 00482a7c). Chosen once at registration, never advanced, saved with the career, and copied into script.dat's header as the mission difficulty.",
+      "source": "docs/simulation/difficulty.md"
     }
   ]
 }

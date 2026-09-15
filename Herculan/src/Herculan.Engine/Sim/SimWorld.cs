@@ -98,13 +98,36 @@ public sealed class SimWorld {
 	public SimRandom Random { get; }
 
 	/// <summary>
-	/// <c>DAT_004a9ee0</c> — the mission difficulty, 0 to 4. Nothing sets it yet: the campaign layer
-	/// that would is unported, so the engine runs on index 0, which is the retail table's easiest
-	/// setting and the one that throws a Cybrid machine's aim off the furthest. Its other consumer in
-	/// the original, <c>Damage_ScaleByDifficulty</c>, is not applied — see
-	/// docs/simulation/projectiles.md.
+	/// <c>DAT_004a9ee0</c> — the mission difficulty, <c>0</c>-<c>3</c>, out of
+	/// <see cref="World.ScriptDatHeader.Difficulty"/>. It is the player pilot's own skill in a
+	/// campaign and the single-mission screen's setting outside one, so the shell picks it once and
+	/// the simulator only reads it.
+	///
+	/// <para>Three things index it: <see cref="DamageScaleFor"/>, which every direct-fire shot and
+	/// the plasma round's blast pass through, and <see cref="MechObject.AiAimScatter"/>. The fourth
+	/// consumer in the original is <c>Mech_CollisionTest</c>'s slide-landing damage, which is not
+	/// implemented at all. See docs/simulation/difficulty.md.</para>
 	/// </summary>
 	public int Difficulty { get; set; }
+
+	/// <summary>
+	/// <c>Damage_ScaleByDifficulty</c> (<c>00426b04</c>) — the Q10 factor a shot fired by
+	/// <paramref name="side"/> has its damage multiplied by at this difficulty.
+	///
+	/// <para><b>The two sides move in opposite directions.</b> A human shot is scaled <i>up</i> at
+	/// every level and a Cybrid one <i>down</i> at every level, and each step closes the gap: at
+	/// <c>ROOKIE</c> the player hits for 3.42x and the enemy for 0.29x, at <c>ELITE</c> for 1.37x and
+	/// 0.98x. Side is the <i>firing</i> side, and it is the group's — so a squadmate's shots scale
+	/// like the player's.</para>
+	/// </summary>
+	public int DamageScaleFor(World.MissionSide side) =>
+		(side == World.MissionSide.Human ? DamageScaleHuman : DamageScaleCybrid)[Difficulty];
+
+	/// <summary><c>DAT_0049a73c</c> — <see cref="DamageScaleFor"/>'s table for a shot fired by side 0.</summary>
+	private static readonly int[] DamageScaleHuman = { 3500, 2800, 2100, 1400 };
+
+	/// <summary><c>DAT_0049a744</c> — the same, for a shot fired by any other side.</summary>
+	private static readonly int[] DamageScaleCybrid = { 300, 600, 800, 1000 };
 
 	/// <summary>
 	/// Where the simulation's noises go, or null to run silent — which is what a headless tick, a
@@ -810,6 +833,13 @@ public sealed class SimWorld {
 	/// </summary>
 	/// <returns>The distance the shot travelled before it hit something, or zero if it hit nothing.</returns>
 	public int Raycast(WeaponShot shot) {
+		// The mission difficulty scales both damage figures before anything is tested, which is where
+		// the original puts it too. A shot with no attacker has no side to scale by and is left alone
+		// — the original's own gate, and what keeps a flyer's airframe contacts out of it.
+		if (shot.Owner is { } attacker) {
+			shot.ApplyDifficultyScale(DamageScaleFor(attacker.Side));
+		}
+
 		bool hit = RaycastTerrain(shot);
 
 		for (int i = 0; i < _objects.Count; i++) {

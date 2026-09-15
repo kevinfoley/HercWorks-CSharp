@@ -116,8 +116,8 @@ than jump.
 | Offset | Field |
 |---|---|
 | `+0x00` | pointer to the ray record below |
-| `+0x04` | `Q10Multiply(power, DamageArmor)` |
-| `+0x06` | `Q10Multiply(power, DamageShield)` |
+| `+0x04` | `Q10Multiply(power, DamageArmor)`, then scaled by the mission difficulty |
+| `+0x06` | `Q10Multiply(power, DamageShield)`, the same |
 | `+0x08` | `SplashFactor`, the Q10 secondary-explosion fraction |
 | `+0x0a` | pointer to the record's three `ImpactFX` arrays, indexed as one 12-entry array — see [`impact-effects.md`](impact-effects.md#which-effect-a-shot-spawns) |
 | `+0x0e` | the owner machine, which the sweep skips |
@@ -133,7 +133,9 @@ The ray record:
 | `+0x0a` | the world-to-muzzle transform, cached by the sweep for every hit test to work in |
 
 **Both damage figures are scaled Q10 by the shot's power**, against a capacitor scaled to 1200 — so a
-mount holding more than 1024 makes a shot worth slightly more than the record's face value.
+mount holding more than 1024 makes a shot worth slightly more than the record's face value. They are
+then scaled a second time, by the firing side's mission-difficulty factor, at the top of
+`Sim_RaycastObjectList` itself — see [`difficulty.md`](difficulty.md#the-damage-scale-reaches-all-direct-fire-not-just-plasma).
 `SplashFactor`'s own multiply, one step further down in `Mech_ApplyDirectFireDamage`, is Q10 as well
 (`Math_Q10Multiply`, `0047dfa4`).
 

@@ -24,6 +24,24 @@ public sealed class AnimationThread {
 	/// <summary>Set while the current frame is a transition frame rather than a sequence frame.</summary>
 	private const int FlagInTransition = 2;
 
+	/// <summary>
+	/// Fixed-point scale of the sub-tick remainder <see cref="SeekToPosition"/> keeps — 14 bits,
+	/// which is the whole of what the original's own Q14 scaling discards, so nothing is lost twice.
+	/// </summary>
+	private const int SeekFractionBits = 14;
+
+	/// <summary>
+	/// Whether <see cref="SeekToPosition"/> keeps the sub-tick remainder of the position it is
+	/// handed, rather than truncating to a whole animation tick as the original does.
+	///
+	/// <para><b>Not the original's behaviour</b>, and on by default, which is deliberate and against
+	/// this engine's usual rule; clearing it restores the original's arithmetic exactly. Nothing does
+	/// yet — it is the hook for the compatibility settings. What the truncation costs the turret, and
+	/// what is left once this is on, are in docs/simulation/torso-aim.md, "Sub-tick seek
+	/// interpolation".</para>
+	/// </summary>
+	public static bool InterpolateSeekPosition { get; set; } = true;
+
 	private readonly ShapeAnimation _animation;
 
 	private short _sequence;
@@ -45,6 +63,10 @@ public sealed class AnimationThread {
 
 	private short _frameAccumulator;
 	private short _frameDuration;
+
+	// Sub-tick remainder of _frameAccumulator, in SeekFractionBits fixed point. Only a seek produces
+	// one; playback zeroes it, and it is zero throughout on every thread that is only ever advanced.
+	private int _frameAccumulatorFraction;
 
 	private bool _hasGroundMotion;
 	private short _groundX, _groundY, _groundZ;
@@ -117,6 +139,7 @@ public sealed class AnimationThread {
 		var current = _animation.Sequences[_sequence];
 		_nextFrame = (short)current.NextFrame(_frame);
 		_frameAccumulator = accumulator;
+		_frameAccumulatorFraction = 0;
 		_frameDuration = current.FrameDurations[_frame];
 
 		LoadGroundTransform(_sequence, _frame);
@@ -163,8 +186,10 @@ public sealed class AnimationThread {
 
 	/// <summary>
 	/// The whole thread state, for the save/restore a blocked move needs — <c>FUN_00402628</c> and
-	/// <c>FUN_004027fc</c> copy exactly these 0x52 bytes per thread so a rejected step can be
-	/// replayed without the animation having advanced twice.
+	/// <c>FUN_004027fc</c> copy the thread's whole 0x52 bytes so a rejected step can be replayed
+	/// without the animation having advanced twice. <see cref="FrameAccumulatorFraction"/> is this
+	/// engine's own field and has no counterpart in them; it rides along so that the cursor
+	/// round-trips whole.
 	/// </summary>
 	public readonly record struct State(
 		short Sequence, short Frame, short NextSequence, short NextFrame, short ScanFrame,
@@ -173,7 +198,7 @@ public sealed class AnimationThread {
 		short FrameAccumulator, short FrameDuration, bool HasGroundMotion,
 		short GroundX, short GroundY, short GroundZ,
 		short GroundRotationX, short GroundRotationY, short GroundRotationZ,
-		Transform3 Root, short Rate, int Flags);
+		Transform3 Root, short Rate, int Flags, int FrameAccumulatorFraction);
 
 	/// <summary>Captures the state <see cref="Restore"/> puts back.</summary>
 	public State Capture() => new(
@@ -181,7 +206,8 @@ public sealed class AnimationThread {
 		_transitionSequence, _transitionFrame, _transitionDuration, _transitionTransform,
 		_targetSequence, _targetFrame, _targetFlags, _frameAccumulator, _frameDuration,
 		_hasGroundMotion, _groundX, _groundY, _groundZ,
-		_groundRotationX, _groundRotationY, _groundRotationZ, _root, _rate, _flags);
+		_groundRotationX, _groundRotationY, _groundRotationZ, _root, _rate, _flags,
+		_frameAccumulatorFraction);
 
 	/// <summary>Puts back a state captured by <see cref="Capture"/>.</summary>
 	public void Restore(in State state) {
@@ -198,6 +224,7 @@ public sealed class AnimationThread {
 		_targetFrame = state.TargetFrame;
 		_targetFlags = state.TargetFlags;
 		_frameAccumulator = state.FrameAccumulator;
+		_frameAccumulatorFraction = state.FrameAccumulatorFraction;
 		_frameDuration = state.FrameDuration;
 		_hasGroundMotion = state.HasGroundMotion;
 		_groundX = state.GroundX;
@@ -225,6 +252,12 @@ public sealed class AnimationThread {
 		if (step == 0) {
 			return;
 		}
+
+		// A thread that is advancing is no longer parked where a seek put it, and every path below
+		// moves the accumulator on its own terms. Nothing in the engine both seeks and advances one
+		// thread — the torso's two never advance, the locomotion one is never seeked — so this is
+		// hygiene rather than a case that arises.
+		_frameAccumulatorFraction = 0;
 
 		step = (short)(_frameAccumulator + step);
 
@@ -299,6 +332,9 @@ public sealed class AnimationThread {
 	/// them a rate of zero — and the twist and pitch sequences are one full sweep of their node, so
 	/// setting a position in the sequence <i>is</i> setting an angle. See
 	/// <see cref="MechObject.TorsoTwistTick"/>.</para>
+	///
+	/// <para>The sub-tick remainder of the scaled position is kept unless
+	/// <see cref="InterpolateSeekPosition"/> is cleared; <see cref="FrameFraction"/> spends it.</para>
 	/// </summary>
 	public void SeekToPosition(int sequence, short position) {
 		var target = _animation.Sequences[sequence];
@@ -309,8 +345,12 @@ public sealed class AnimationThread {
 		}
 
 		// The original walks off the end of the frame list if this ever exceeds the total; it cannot,
-		// since position is a 14-bit fraction and this scales it by total - 1.
-		int remaining = SimMath.Q14Multiply(position, (short)(total - 1));
+		// since position is a 14-bit fraction and this scales it by total - 1. The original's own
+		// Q14Multiply is that product shifted down; the shift is taken apart here so the bits it
+		// throws away can be kept.
+		int scaled = position * (short)(total - 1);
+		int remaining = scaled >> SeekFractionBits;
+		int fraction = InterpolateSeekPosition ? scaled & ((1 << SeekFractionBits) - 1) : 0;
 
 		int frame = 0;
 		while (frame < target.FrameCount - 1 && remaining >= target.FrameDurations[frame]) {
@@ -319,6 +359,9 @@ public sealed class AnimationThread {
 		}
 
 		SetSequence(sequence, frame, (short)remaining);
+
+		// After SetSequence, which clears the fraction along with the rest of the cursor.
+		_frameAccumulatorFraction = fraction;
 	}
 
 	/// <summary>
@@ -369,9 +412,28 @@ public sealed class AnimationThread {
 	/// by. That both the pose and the ground movement ride the one fraction is the whole reason the
 	/// original looks smooth at any speed: a slow walk stretches the keyframes out in time, and the
 	/// pose keeps moving between them rather than stepping.</para>
+	///
+	/// <para>A seeked pose spends <see cref="_frameAccumulatorFraction"/> here as well, which is the
+	/// whole of <see cref="InterpolateSeekPosition"/>. Q10 carries it with room to spare — the margin
+	/// against <see cref="Numerics.SimTrig.Cos"/>'s own step is in the doc named there.</para>
 	/// </summary>
-	private int FrameFraction() =>
-		_frameDuration == 0 ? 0 : (_frameAccumulator * 0x400 + _frameDuration / 2) / _frameDuration;
+	private int FrameFraction() {
+		if (_frameDuration == 0) {
+			return 0;
+		}
+
+		if (_frameAccumulatorFraction == 0) {
+			return (_frameAccumulator * 0x400 + _frameDuration / 2) / _frameDuration;
+		}
+
+		// The same expression with both terms scaled up by the fraction's own bits. It is kept
+		// separate from the line above rather than replacing it because the two disagree by one Q10
+		// unit on an odd duration, where the original's `duration / 2` rounding bias truncates and
+		// this one does not — and every advanced thread must keep the original's answer.
+		long elapsed = ((long)_frameAccumulator << SeekFractionBits) + _frameAccumulatorFraction;
+		long duration = (long)_frameDuration << SeekFractionBits;
+		return (int)((elapsed * 0x400 + duration / 2) / duration);
+	}
 
 	/// <summary>
 	/// Which entry of the transform pool a node holds on one frame: that frame's if the playing

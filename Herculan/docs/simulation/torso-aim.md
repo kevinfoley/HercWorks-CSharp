@@ -110,6 +110,14 @@ rather than off the front.
 The threads themselves never play: `Mech_Constructor` gives every thread a rate of zero and only the
 locomotion tick ever raises one, so `AnimThread_Advance` returns immediately for these two.
 
+The intra-frame offset lands on a whole animation tick, because the scale-down truncates. A twist
+sequence is 8 frames of 100 ticks, so a full turn has 799 drawable positions and **the turret steps
+about 0.45° at a time**; the pitch sequences are the same size over a much smaller travel, which
+leaves ~67 positions across OUTLAW's 30° of pitch. Below roughly 10°/s the steps are far enough apart
+in time to read as a stutter rather than as motion — at 0.55°/s, one step per second. Only an
+analogue stick can hold a rate that low: a held key is worth `0x80` on the axis, which is 22°/s.
+HERCULAN keeps the bits the truncation drops — see [below](#sub-tick-seek-interpolation--not-retail).
+
 ### Three threads per machine
 
 `Mech_Constructor` (`00415bb0`) builds them in this order, skipping any whose sequence id is
@@ -129,7 +137,7 @@ That is the retail data's own behaviour.
 ### The angle is not the drawn direction
 
 The two drift apart by up to ~7%, because the sequences' keyframes are not evenly spaced. OUTLAW's
-twist sequence (8 frames of 100 ticks, node 4, rotation about Z only) steps
+twist sequence (node 4, rotation about Z only) steps
 `0, −7280, −15470, −23660, −31850, −40238, −48428, −56618` — summing to exactly −65536, one full
 turn, but in uneven strides. At the 14000 limit the eye ends up 13004 round.
 
@@ -238,6 +246,24 @@ centres, `T` toggles ATT. `--turret <twist> <pitch>` holds the axes for a `--scr
 
 The idle timer is run down in the turret block rather than in the cockpit update, which is the only
 consumer of its result; the arming stays on the target change, where the original puts it.
+
+### Sub-tick seek interpolation — not retail
+
+`AnimationThread.SeekToPosition` keeps the remainder the original's Q14 scale-down discards, and
+`FrameFraction` spends it, so a seeked pose is no longer quantised to a whole animation tick. Against
+OUTLAW: 1747 drawn twist poses across the 76.9° travel where retail has 170, and the drawn view moves
+every tick from half stick up rather than from three quarters.
+
+`AnimationThread.InterpolateSeekPosition` is the switch, and clearing it restores the original's
+arithmetic exactly. It defaults **on** — the deliberate exception to this engine's retail-by-default
+rule — and is the hook for the compatibility settings
+([`ROADMAP.md`](../../ROADMAP.md#other-unported-features)). Playback is untouched: only a seek
+produces a remainder, and the locomotion thread is never seeked.
+
+What is left is the cosine table rather than the animation. `SimTrig.Cos` quantises a rotation to its
+16-BAM step, so the drawn view moves in 0.101° increments and a twist under about 2°/s still steps.
+Q10 is enough to carry the fraction past that point: one Q10 unit is 8 binary angle across a torso
+sweep's 45° keyframe interval.
 
 ## Not ported
 

@@ -151,6 +151,10 @@ hit-testing rather than new drawing code. What is missing:
   bindings do nothing.
   → [`docs/formats/joystick-input.md`](docs/formats/joystick-input.md#the-buttons)
 - Cheats (other than Alt-D to drop a waypoint at your position, which is implemented; this one isn't documented but also doesn't really seem like a cheat).
+- Compatibility settings: the switchboard for the places this engine deliberately departs from
+  retail, so a player can ask for the original behaviour. Nothing exists yet; the deviations carry
+  their own switches and default to whichever behaviour their doc names.
+  → `AnimationThread.InterpolateSeekPosition`, [`docs/simulation/torso-aim.md`](docs/simulation/torso-aim.md#sub-tick-seek-interpolation--not-retail)
 
 ## Debugging features
 - Launch option to disable AI (so units other than the player remain stationary, though still subject to damage and destruction)

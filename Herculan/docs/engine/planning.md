@@ -166,3 +166,8 @@ Symbols: `Hud_WorldUnitsToMetres`, `Hud_UpdateWaypointIndicator`, `Hud_UpdateSpe
 Moved to [`../../ROADMAP.md`](../../ROADMAP.md), which is now the single list of what the engine does
 not implement yet. Behavioural divergences — implemented but wrong — stay in
 [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
+
+How divergences get *found* rather than recorded is
+[`plan-differential-harness.md`](plan-differential-harness.md): a proposal to run retail and this
+engine over the same mission and diff their state tick by tick, which reaches the classes of
+divergence playtesting cannot.

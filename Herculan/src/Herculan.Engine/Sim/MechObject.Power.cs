@@ -72,16 +72,20 @@ public sealed partial class MechObject {
 	public ShieldCharge Shields { get; private set; } = new(0);
 
 	/// <summary>
-	/// <c>mech+0xb0</c> - the shields-down alert latch. <c>Mech_DirectFireHitTest</c> sets it the first
-	/// time a shot lands on the locally piloted machine with under
-	/// <see cref="ShieldsDownAlertCharge"/> points of charge left across both facings, plays alert
-	/// <c>0x15</c>, and never clears it. Nothing but the player's own machine can set it, which is why
-	/// the MFD status screen's SHIELDS DN condition only ever appears on F1.
+	/// <c>mech+0xb0</c> - the shields-down alert latch, and the one alert latch that re-arms. The hit
+	/// test raises it below <see cref="ShieldsDownAlertCharge"/> and plays alert <c>0x15</c>;
+	/// <see cref="PowerTick"/> releases it above <see cref="ShieldsDownAlertClearCharge"/>. Only the
+	/// player's own machine touches it, which is why the MFD status screen's SHIELDS DN condition
+	/// only ever appears on F1. The two thresholds and what the gap between them buys are in
+	/// docs/simulation/damage-system.md, "What the endpoint announces".
 	/// </summary>
 	public bool ShieldsDownAlert { get; internal set; }
 
 	/// <summary>The charge the latch trips below - the original's own literal.</summary>
 	public const int ShieldsDownAlertCharge = 500;
+
+	/// <summary>The charge the latch re-arms above, <c>0x5dc</c> - the original's own literal.</summary>
+	public const int ShieldsDownAlertClearCharge = 1500;
 
 	/// <summary>
 	/// This machine's weapon mounts, <c>mech+0x202</c> — built from its own hardpoint list and the fit
@@ -208,6 +212,8 @@ public sealed partial class MechObject {
 	/// consumption is not a subtraction, it is that the pool is rebuilt from whatever survived the
 	/// pass.</item>
 	/// <item>The pool is clamped to 0..<see cref="EnergyPoolMax"/>.</item>
+	/// <item>On the player's own machine, <see cref="ShieldsDownAlert"/> is released once the array
+	/// holds more than <see cref="ShieldsDownAlertClearCharge"/>.</item>
 	/// </list>
 	///
 	/// <para>The ordering is the answer to the manual's claim that energy goes to "movement, shields,
@@ -229,6 +235,11 @@ public sealed partial class MechObject {
 
 		EnergyPool = unchecked((short)(budget + EnergyPoolReserve));
 		EnergyPool = Math.Clamp(EnergyPool, (short)0, EnergyPoolMax);
+
+		// The shields-down latch re-arms here, where the original clears it, and on the same guard.
+		if (LocallyPiloted && Shields.Total > ShieldsDownAlertClearCharge) {
+			ShieldsDownAlert = false;
+		}
 	}
 
 	/// <summary>

@@ -92,7 +92,7 @@ public class ProjectileData {
 		/// secondary small-radius explosion — reusing the same blast-sweep formula explosive
 		/// weapons use — instead of going straight to the struck component's health. Zero (the
 		/// common case in real data) means no secondary explosion: the full armor-damage amount
-		/// applies directly. Nonzero for every <see cref="ProjectileType.Rocket"/> (Type 3) entry
+		/// applies directly. Nonzero for every <see cref="ProjectileType.Grenade"/> (Type 3) entry
 		/// (uniform DamageShield==DamageArmor, unlike every other type) and every
 		/// <see cref="ProjectileType.Missile"/> (Type 0) entry — i.e. the two splash-capable
 		/// types, consistent with this being that splash's actual damage-delivery mechanism.

@@ -674,7 +674,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Rocket_Fire",
-      "description": "Rocket_Fire(missileId, muzzleWorldPoint, aimEulerTriple, ownerMech, ownerTravelSpeed) -- spawns one PROJ.DAT Type-0 Missile from the effect pool DAT_004a9746. Always builds via Missile_Construct; Rocket_ConstructGuided is never called. Speed = ownerTravelSpeed + literal 500. Attaches mech+0x1a4 (selected target) only when mech vtable +0x6c returns nonzero. Plays ROCKETS.DAT +0x0c + 10.",
+      "description": "Rocket_Fire(missileId, muzzleWorldPoint, aimEulerTriple, ownerMech, ownerTravelSpeed) -- spawns one PROJ.DAT Type-0 Missile from the effect pool DAT_004a9746. Always builds via Missile_Construct; Grenade_Construct is never called. Speed = ownerTravelSpeed + literal 500. Attaches mech+0x1a4 (selected target) only when mech vtable +0x6c returns nonzero. Plays ROCKETS.DAT +0x0c + 10.",
       "source": "docs/simulation/rockets.md 2026-08-27"
     },
     {
@@ -691,8 +691,8 @@
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "Rocket_ConstructGuided",
-      "description": "DEAD CODE: constructs a PROJ.DAT Type-3 object, but nothing calls it and its vtable DeadBulletVtable (004984fc) has FUN_0040acb4 (return 0) in the per-tick slot, so an instance would never move or die. Retail Type-3 records are unreachable data.",
+      "name": "Grenade_Construct",
+      "description": "DEAD CODE, and the class is GRENADE -- its Borland class descriptor at 0040ad0c names it, sitting ahead of its destructor exactly as ROCKET (0040ab6d), BULLET (0040b62d) and PROJECTILE (0040c300) do, and carrying the same base pointer 0040c2d0 as ROCKET and BULLET. Constructs a PROJ.DAT Type-3 object. A whole-image scan for 0040ac3c -- every section, bare LE dword and E8/E9 rel32 targets -- finds it nowhere but its own prologue, so nothing calls it; its vtable GrenadeVtable (004984fc) has FUN_0040acb4 (return 0) in the per-tick slot, so an instance would never move or die. Retail Type-3 records are unreachable data for a cut grenade weapon.",
       "source": "docs/simulation/rockets.md 2026-08-27"
     },
     {
@@ -873,7 +873,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Sim_RaycastObjectList",
-      "description": "Generic ray-vs-live-object-list query. Exactly 5 confirmed call sites: rocket homing, bullet tick/burst, and the flyer terrain-avoidance autopilot. Calls each candidate's vtable +0x20 (hit-test) and +0x50 (AI threat-tracking).",
+      "description": "Generic ray-vs-live-object-list query. Nine call sites in four functions: Rocket_TickUpdate (1), Bullet_TickUpdate (2), Bullet_FireBurst (1) and Razor_MovementTick (5, the airframe contact probes). Calls each candidate's vtable +0x20 (hit-test) and +0x50 (AI threat-tracking). The shot record's second exclusion at +0x14 is written only by Razor_MovementTick; all three weapon callers leave that stack slot uninitialised.",
       "source": "docs/simulation/dbsim-physics-notes.md"
     },
     {
@@ -2666,7 +2666,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Terrain_CellSurfaceIntersect",
-      "description": "Solves exactly where a segment meets the ground inside one cell, once Terrain_EdgeCrossingTest has reported a crossing. Builds a plane from each of the cell's two face normals (cell+0x1 and cell+0x7) through a corner that triangle contains, and intersects via Math_PlaneSegmentIntersect; works in cell-local X/Y with world Z and adds the cell origin back on the way out. Result returned in the statics at DAT_006b50e0. Near triangle first, selected by cell+0xf&3 the same way Terrain_HeightQuery selects. Two quirks: selector 0's far triangle has no corner in this cell, so it shifts one cell east and uses corner (x+1,y); selector 2's far plane keeps the NEAR triangle's plane constant rather than recomputing it against the far normal.",
+      "description": "Solves exactly where a segment meets the ground inside one cell, once Terrain_EdgeCrossingTest has reported a crossing. Builds a plane from each of the cell's two face normals (cell+0x1 and cell+0x7) through a corner that triangle contains, and intersects via Math_PlaneSegmentIntersect; works in cell-local X/Y with world Z and adds the cell origin back on the way out. Result returned in the statics at DAT_006b50e0. Near triangle first, selected by cell+0xf&3 the same way Terrain_HeightQuery selects. Its fourth parameter -- Terrain_RayWalk's walk radius, the literal 200 the weapon ray record carries -- is never read, in any mode, and this is that value's only destination, so the walk radius has no effect on any result. Two quirks: selector 0's far triangle has no corner in this cell, so it shifts one cell east and uses corner (x+1,y); selector 2's far plane keeps the NEAR triangle's plane constant rather than recomputing it against the far normal.",
       "source": "docs/formats/terrain-heightmap.md 2026-08-24 (terrain clipping RE session)"
     },
     {
@@ -4989,7 +4989,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_CollisionTest",
-      "description": "Returns nonzero when the just-integrated position is refused. Three separate tests: (1) the live-object list, with an ASYMMETRIC gap -- this machine's vtable +0x5c against the other object's +0x7c, and an object whose +0x7c is 0 is skipped entirely; (2) FUN_00404ae4's structure-volume sweep, which covers exactly the structures test 1 skips; (3) terrain steeper than |normal.z| < 0x5aa, which for the player becomes a slide downhill whose landing damages the leg components scaled by the difficulty table at 0049a058. A block against another HERC also calls BOTH parties' +0x70 with a momentum-difference damage at radius 0x4b0, and latches the struck object's +0x68. It additionally records a nearby structure at mech+0x2b0 as a lock-on candidate.",
+      "description": "Returns nonzero when the just-integrated position is refused. Three separate tests: (1) the live-object list, with an ASYMMETRIC gap -- this machine's vtable +0x5c against the other object's +0x7c, and an object whose +0x7c is 0 is skipped entirely; (2) FUN_00404ae4's structure-volume sweep, which covers exactly the structures test 1 skips; (3) terrain steeper than |normal.z| < 0x5aa, which for the player becomes a slide downhill whose landing damages the leg components scaled by the difficulty table at 0049a058. A block against another HERC also calls BOTH parties' +0x70 with a momentum-difference damage at radius 0x4b0, and latches the struck object's +0x68. It additionally records at mech+0x2b0 the last structure (TargetClass 1) whose body radius contains the machine, clearing the field on entry; that is a render-side hand-off, not an aim aid -- maybe_Scene_SubmitFrameObjects reads it every frame and buckets the machine with that structure instead of by its own radius.",
       "source": "docs/simulation/mech-locomotion.md",
       "signature": "char __cdecl Mech_CollisionTest(MechObject *this)"
     },
@@ -10615,7 +10615,7 @@
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "DeadBullet_Dtor",
+      "name": "Grenade_Dtor",
       "description": "Deleting destructor of the projectile class whose vtable (004984fc) no constructor installs -- slot +0x8 of that table.",
       "source": "tools/ghidra_scripts/known_vtables.json (Destructor slot); disassembly of the vtable-pointer stores"
     },

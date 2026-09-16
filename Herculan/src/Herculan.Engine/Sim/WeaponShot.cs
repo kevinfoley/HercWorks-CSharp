@@ -285,10 +285,11 @@ public sealed class WeaponShot {
 	/// the same thing: <see cref="Owner"/> is who gets the kill credit, this is only who the ray
 	/// passes through.
 	///
-	/// <para>The beam path leaves it unwritten, which is why it went unmodelled for so long. The
-	/// airframe contact probes (<see cref="MechObject"/>'s flight path) are the site that needs it:
-	/// they sweep a ray out of the aircraft's own wingtip and have to ignore the aircraft, while
-	/// crediting the resulting damage to nobody at all.</para>
+	/// <para>The airframe contact probes (<see cref="MechObject"/>'s flight path) are the only site
+	/// that writes it: they sweep a ray out of the aircraft's own wingtip and have to ignore the
+	/// aircraft, while crediting the resulting damage to nobody at all. Every weapon path leaves it
+	/// null, which is the intent but not quite what the original does — see
+	/// docs/simulation/damage-system.md, "The shared raycast".</para>
 	/// </summary>
 	public SimObject? Excluded { get; }
 

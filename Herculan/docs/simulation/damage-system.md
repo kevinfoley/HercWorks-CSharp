@@ -15,11 +15,10 @@ multi-component, distance falloff, also shield-gated but via a separate parallel
 
 ## The shared raycast: `FUN_00426528`
 
-A generic ray-vs-live-object-list query, not weapon-specific. Exactly 5 call sites: the launcher
-round's per-tick step (`Rocket_TickUpdate`, `0040a538`), bullet per-tick and burst-fire
-(`FUN_0040b124`/`FUN_0040bf74`,
-below), and a flyer's airframe contact probes
-(`Razor_MovementTick`, see [`razor-flight.md`](razor-flight.md#contact-probes)).
+A generic ray-vs-live-object-list query, not weapon-specific. Nine call sites in four functions: the
+launcher round's per-tick step (`Rocket_TickUpdate`, `0040a538`, once), bullet per-tick
+(`FUN_0040b124`, twice) and burst-fire (`FUN_0040bf74`, once, below), and a flyer's airframe contact
+probes (`Razor_MovementTick`, five, see [`razor-flight.md`](razor-flight.md#contact-probes)).
 A single raycast primitive reused for weapon hit-scan **and** obstacle sensing — most likely
 `objlist.cpp` (shares the global live-object list, `DAT_004a9b7c`/`DAT_004a9b82`, with the
 confirmed-`objlist.cpp` functions at `0x004281b0`/`0x004282f8`; not confirmed by a direct
@@ -34,12 +33,29 @@ separate "apply damage" step visible from the caller's side. `FUN_00426528` also
 unrelated vtable call per candidate (`+0x50`, `FUN_0041f7b8`) — AI threat-tracking ("this object
 just took fire, update who it thinks is attacking it"), not damage.
 
+**Reaching the shooter's own selected target is a mission event**, and the two halves land on
+opposite objects: the *shooter's* engaged flag `obj+0x9e` is raised (`0042671f`) and the *struck*
+object's engagement action at `+0x1b2` fires. So shooting at what you have boxed engages it with
+nothing in detection range of it — the other way into mission-objective condition 6 besides
+`Detection_Sweep`'s closing test. The action is gated on the struck object's `+0xa2`, a per-tick
+latch `Mech_PerTickSystemsUpdate` raises (`0041abd8`) on whatever the machine's targeting-computer
+pod holds a lock on and `Sim_DetectionTick` clears on everything at the end of the pass; since
+`Action_Activate` is itself one-shot, that gate can only ever suppress a duplicate inside one tick.
+
+Hitting that same target is also what the blocked-line-of-fire report excludes: the shooter's `+0x64`
+is called with whatever stopped the ray, and the branch that recognises its own target passes null
+instead, so a machine does not report its target as blocking the shot at it.
+
 Four properties a port has to preserve:
 
 - The **candidate filter** is three tests, all before the vtable call: not the shot's owner
   (`shotData+0x0e`), not the object at `shotData+0x14`, and **not an object whose mission group
-  still carries an action** (`*(int*)(obj[+0x45] + 0x14) != 0`). The middle one excludes nothing on
-  the beam path, which never writes that field. The last one matters — see
+  still carries an action** (`*(int*)(obj[+0x45] + 0x14) != 0`). The middle one is a second
+  exclusion, and the only caller that fills it is `Razor_MovementTick`, which puts the flyer itself
+  there (`00419bef`) so its own airframe probes cannot strike it. The three weapon callers leave
+  that slot alone: it is **uninitialised stack**, not an empty field, so the comparison runs against
+  whatever the previous frame left — a port should write the shooter or null rather than drop the
+  test. The last one matters — see
   [`hit-detection.md`](hit-detection.md). The team byte
   (`obj[+0x45][+0x12]`) is read only *after* a hit, for the AI notification and friendly-fire
   warnings; it does not gate the hit itself.
@@ -52,7 +68,9 @@ Four properties a port has to preserve:
 - It opens with a **ray-versus-terrain query**, `Sim_RaycastTerrain` (`00428048`) →
   `Terrain_RayWalk` (`0046e87c`) against `ActiveHeightGrid`. A ground hit clips the ray before any
   object is tested, so a beam cannot shoot through a hillside. The ray record's own 200 is passed
-  through as a walk radius but the thin-ray mode never reads it. Solved — see
+  down as a walk radius and has no effect on the result: `Terrain_RayWalk` forwards it to
+  `Terrain_CellSurfaceIntersect` (`0047068c`) — its only destination — which never reads that
+  parameter. See
   [`../formats/terrain-heightmap.md`](../formats/terrain-heightmap.md#ray-versus-terrain--terrain_raywalk-0046e87c).
   Returns `hitDistance + 1`, or 0 for a clean miss.
 
@@ -133,14 +151,14 @@ path applies damage directly to a locked target.
 
 ## Explosive damage — the `+0x70` slot
 
-Every simulation object carries a vtable `+0x70` that says what an explosion does to it. **Four
-things call it, and only one of them is a sweep:**
+Every simulation object carries a vtable `+0x70` that says what an explosion does to it. **Three
+functions call it, at four call sites, and only one of them is a sweep:**
 
 | Caller | Shape | Damage | Radius |
 |---|---|---|---|
 | `Damage_ExplosiveBlastSweep` (`00426a20`) | sweep of the live-object list | the caller's | the caller's |
 | `Mech_ApplyDirectFireDamage` (`004188c8`) | direct, on the struck object only | the shot's `SplashFactor` share | 500 |
-| `Mech_CollisionTest` (`00418f74`) | direct, on both parties | momentum difference | 1200 |
+| `Mech_CollisionTest` (`00418f74`) | direct, on both parties — the two sites | momentum difference | 1200 |
 
 The three implementations share the falloff's shape and nothing else. All take
 `(this, short damage, int *hitPoint, short blastRadius, void *attacker)`.
@@ -200,7 +218,18 @@ implementations.
   `BASECOL.DAT` geometry a shot is tested against, and several types put the blast point above the
   spheres.
 - **A flyer** inherits the base class's `00411a3c`, which is `push ebp; pop ebp; ret` — it never
-  writes its out-parameter. Nothing calls it: the flyer's `+0x70` uses the object origin directly.
+  writes its out-parameter, and nothing reaches it, but not because the slot goes unused. Of the
+  nine `+0x58` call sites, six are already on a mech or a structure and one is a weapon mount's own
+  unrelated vtable. The two that dispatch on an arbitrary object are both fenced off by a component
+  index that comes back `-1` for anything that is not a mech:
+  - `Rocket_HomingSteer` (`0040a2fd`) asks only when `rocket+0x5a >= 0`, and `Rocket_Fire` fills
+    that from the target's `+0x54`, which for a flyer is `00411a44` — a bare `return -1`.
+  - the targeting pod behind `Player_ResolveTargetAimPoint` (`FUN_0040e4dc`, `0040e530`) asks only
+    when `pod+0x7d >= 0`, and `FUN_0040e484` writes `-1` there for every target whose `TargetClass`
+    (`obj+0x1a8`) is not 0.
+
+  A port that resolves a component position generically has to keep one of those guards, or it will
+  ask a flyer where its component 0 is and get an answer the original never had to produce.
 
 ### A mech — `Mech_ApplyExplosiveDamage` (`004187d0`)
 
@@ -538,15 +567,21 @@ losing a leg says nothing. The ids are `SYSTEM.STR`'s and the port they go to is
 | `0x2f` | `ENEMY TARGET DISABLED` | the leg branch's immobilise, on that same predicate |
 
 `0x15` `SHIELDS CRITICAL` belongs to the same family from one function further out:
-`Mech_DirectFireHitTest` posts it where it sets `mech+0xb0`, on the first shot to land on the
-player's own machine with under 500 points of charge left across both facings.
+`Mech_DirectFireHitTest` posts it where it sets `mech+0xb0` (`00418dc7`), on the first shot to land
+on the player's own machine with under 500 points of charge left across both facings.
 
-**The five latch bytes are one-shots and are never cleared.** They are why a machine that keeps
+**Four of the five latch bytes are one-shots that are never cleared** — `+0xa8`/`+0xa9`/`+0xaa`/`+0xab`,
+each written `1` exactly once, in `Mech_ComponentDamageWrite`. They are why a machine that keeps
 taking hits in the same band does not repeat itself, and they are separate from the port's own 4.8 s
-repeat swallow, which would not be enough on its own. Four of the five are load-bearing elsewhere as
-well: `+0xa8`/`+0xa9` are the two speed penalties
-([`mech-locomotion.md`](mech-locomotion.md)), `+0xaa`/`+0xab` the reactor's output grades, and
-`+0xb0` is what the MFD status screen reads for its `SHIELDS DN` condition.
+repeat swallow, which would not be enough on its own. All four are load-bearing elsewhere as well:
+`+0xa8`/`+0xa9` are the two speed penalties ([`mech-locomotion.md`](mech-locomotion.md)) and
+`+0xaa`/`+0xab` the reactor's output grades.
+
+**`+0xb0` is the exception: it re-arms.** `Mech_PerTickSystemsUpdate` clears it (`0041ab25`) on the
+player's own machine every tick that `front + rear` exceeds `0x5dc` (1500), so `SHIELDS CRITICAL` is
+hysteretic — it fires under 500 and can fire again once the array has rebuilt past 1500, with the
+band between the two thresholds leaving the latch as it was. The same byte is what the MFD status
+screen reads for its `SHIELDS DN` condition, so that indicator clears itself on the same threshold.
 
 **`0x2e` and `0x2f` share a predicate, and it does not test sides**: the attacker is the machine the
 player is flying, and the victim is that machine's own selected target (`mech+0x1a4`). Nothing is
@@ -584,8 +619,10 @@ machine. Then, if it is not already immobilised and half or more of its legs are
    non-flyer. **A flyer takes neither**, and keeps whatever state it was in.
 
 `typeRecord+0x4c` means *this chassis leaves no wreck*, and the SPIDER is the only one that sets it:
-that branch also sinks the object to z = -100000 and deletes every child part it owns. It is never
-removed from the object list.
+that branch also sinks the object to z = -100000, raises `obj+0x38` ([below](#the-no-wreck-sinks-flag-byte--obj0x38)),
+and hands every child part in `mech+0x238` to `ObjectPool_QueueForDelete` (`00418634`), nulling each
+slot and zeroing the count at `mech+0x23c`. The machine itself is not queued — the branch takes it
+off the screen by sinking it, not by removing it from the object list.
 
 The three state indices and their think are [`ai-combat-states.md`](ai-combat-states.md)'s. What a
 machine does *after* the state is installed — the fall, and the collapse that ends it — is
@@ -740,21 +777,47 @@ reads its count + 36-byte records in one flat read into `DAT_004a9980`, linear-s
 
 ### `Type` — a firing-mechanism selector
 
-Traced all 5 callers of `FUN_0040ffc8` and both callers of `FUN_0040bf74`. Each caller hardcodes a
-literal category constant, and each corresponds to a genuinely different projectile *class*
-(different vtable, different construction):
+Traced all 5 callers of `FUN_0040ffc8` and all 3 of `FUN_0040bf74` — the two weapon-mount fire
+dispatches (`WeaponMount_FireDispatch_GunBeam` `0040eae0`, `ElfMount_FireDispatch` `0040ecc5`) and
+`maybe_Base_TripleTurretThinkTick` (`00404a65`), so a **structure's turret fires beams through the
+same path a HERC does**. Each caller hardcodes a literal category constant, and each corresponds to
+a genuinely different projectile *class* (different vtable, different construction):
 
 | `Type` | Constructor | Object kind | Real `PROJ.DAT` shape |
 |---|---|---|---|
 | `0` | `Missile_Construct` (`0040a948`) | the launcher round (14-byte type table `ROCKETS.DAT`, vtable `RocketVtable` (`00498448`)) — see [`rockets.md`](rockets.md) | 5 entries, `SplashFactor=500` uniformly, real `Speed`, armor≫shield |
 | `2` | `Bullet_Construct` (`0040af6c`) | the travelling gun round (own 14-byte type table `BULLETS.DAT`, own vtable `BulletVtable` (`00498628`)) — see [`projectiles.md`](projectiles.md) | mixed: ATC20/35/50-shaped progression *and* EMP-shaped high-shield entries — `SplashFactor=0` for all but `MissileId=9` (Plasma cannon, below) |
-| `3` | `Rocket_ConstructGuided` (`0040ac3c`) | **dead code** — nothing calls it, and its vtable's per-tick slot is `FUN_0040acb4`, a stub returning zero, so an instance would never move and never die | 3 entries, shield==armor exactly, `SplashFactor` 1000/500/500, all unreachable |
+| `3` | `Grenade_Construct` (`0040ac3c`) | **dead code** — a cut `Grenade` class, see below | 3 entries, shield==armor exactly, `SplashFactor` 1000/500/500, all unreachable |
 | `4` | `Bullet_FireBurst` (`0040bf74`) | **no persistent simulated object at all** — resolves its raycast hit synchronously inside the call itself, then spawns pure-visual tracer segments | every `Type=4` record has `Speed=0`, no exceptions |
 
 `Type=4`'s "no persistent object, resolves at the call site, always `Speed=0`" combination is the
 concrete mechanical definition of a beam/hitscan weapon. Only `0` and `2` are live classes: the
 ammunition dispatch (`WeaponMount_FireDispatch_Missile`) tests for `Type == 0` and sends everything
 else to `Bullet_Fire`, and `Rocket_Fire` always builds the `Type 0` class.
+
+**`Type 3` is unreachable, and this one is settled rather than inferred from a caller sweep.** A scan
+of the whole image for the constructor's address — every section, as a bare little-endian dword as
+well as an `E8`/`E9` rel32 branch target, so a factory table or a jump thunk would show — finds the
+address nowhere but in its own prologue. Everything downstream follows: `Grenade_Construct` is
+the only caller that hands `Proj_LookupRecord` a category of 3, so the three `Type 3` records are
+never looked up; `GrenadeVtable` (`004984fc`) is installed only by it; and that vtable's per-tick
+slot is `FUN_0040acb4`, a bare `return 0`, so an instance would never move and never die.
+
+**The class is `Grenade`, and the binary says so itself** — the symbol table carries it as
+`Grenade_Construct`/`Grenade_Dtor`/`GrenadeVtable`. Borland emits a descriptor block for each
+class immediately ahead of its destructor: the NUL-terminated class name padded to a dword, then a
+pointer to the base class's block, then the fixed tail `0, 3, 0, 0, 0`. The projectile family lays
+out identically — `"ROCKET"` (`0040ab6d`) before `Rocket_Dtor`, `"BULLET"` (`0040b62d`) before
+`Bullet_Dtor`, `"PROJECTILE"` (`0040c300`) before `ProjectileBase_Dtor`, `"SMOKE_BALL"` (`00409663`)
+— and `"GRENADE"` (`0040ad0c`) sits in exactly that slot for the dead class, ahead of the destructor
+its vtable's `+0x08` names. Its base pointer is `0040c2d0`, the same one `ROCKET` and `BULLET` carry,
+so `Grenade` is their sibling under `Projectile` — which is what the vtables show, all three
+installing `ProjectileBaseVtable` before their own. `ROCKET` and `BULLET` each carry a second
+`"ROCKET *"`/`"BULLET *"` pointer-type name; `Grenade` has none, consistent with a class no
+reachable code ever handles through a pointer.
+
+So `Type 3` is a cut **grenade** weapon class, not an unnamed stub, and its three `PROJ.DAT` records
+are that weapon's data left in the shipped file — see [`../cut-content.md`](../cut-content.md#projectiles).
 
 Mapping onto the weapon taxonomy — flagged as a reasoned hypothesis from mechanism + shape except
 where noted confirmed:
@@ -771,7 +834,7 @@ where noted confirmed:
 slot (`+0x14`) is `FUN_0040b124`, whose `type == 9` branch (checked via
 `*(char*)(this+0x41) == '\t'`) calls the explosion formula directly instead of the ordinary
 single-target hit path — `this+0x41` is exactly where every projectile constructor
-(`Missile_Construct`/`Bullet_Construct`/`Rocket_ConstructGuided`) stores its own `MissileId`
+(`Missile_Construct`/`Bullet_Construct`/`Grenade_Construct`) stores its own `MissileId`
 argument, so this is
 checking `MissileId==9` on a live `Bullet` instance. `(Type=2, MissileId=9)` is mechanically a
 `Bullet` (real flight time, unlike true `Beam`s) that explodes with splash on impact (unlike every
@@ -921,18 +984,39 @@ five latches already carried as `MechObject.LegsDamaged`, `LegsCrippled`, `React
 three endpoints. The ids are `Content.SystemMessages`'.
 
 Not ported: the Shield Pod's own damage term in `Mech_ComputeShieldCapacity`, the salvage pass
-([above](#what-a-wreck-is-worth--mech_salvagevalue-00418e60)) and with it `mech+0xb3`, `Mech_ReportOutOfAction`'s
-mission-variable writes, and — from the collision path — the nearby-structure lock-on candidate at
-`mech+0x2b0`, which nothing reads. The collision path's other by-product, the "something ran into me"
-latch at `obj+0xb1`, is ported: it is what a ramming machine detonates on.
+([above](#what-a-wreck-is-worth--mech_salvagevalue-00418e60)) and with it `mech+0xb3`, and
+`Mech_ReportOutOfAction`'s mission-variable writes.
 
-_ Note: Claude often incorrectly determines that code is unused. Treat the following paragraph with skepticism._
+`MechObject.ShieldsDownAlert` is a pure one-shot: it lacks the `+0xb0` clear the original's per-tick
+systems update runs above 1500 charge, so in this engine `SHIELDS CRITICAL` announces once per
+mission and the MFD's `SHIELDS DN` never goes out again
+([`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md)).
 
-A chassis that leaves no wreck is sunk but its child parts are not deleted: the engine holds a
-machine's parts as nodes of its one shape rather than as objects of their own, so there is nothing to
-delete and the sink alone takes it off the screen. **The sink also raises `obj+0x38`, and that byte
-has no reader.** All three classes' no-wreck branches write it — `0040399a` for a structure,
-`004185ec` for a machine, `00421c33` for a flyer — and a scan of the whole disassembly that follows
-`LEA reg,[base + k]` rebases as well as bare displacements finds no read of it anywhere, against a
-control on `obj+0x39` (the shape layer's own flag beside it) that finds two. It is left out for that
-reason rather than as a gap.
+Both by-products of the collision path are live in the original: the "something ran into me" latch at
+`obj+0xb1`, ported, is what a ramming machine detonates on, and `mech+0x2b0` is the nearby-structure
+record below.
+
+### The collision path's structure record — `mech+0x2b0`
+
+`Mech_CollisionTest` clears it on entry and, for each candidate whose `TargetClass` is 1 and whose
+body radius contains the machine, stores that structure (`00418fb2`/`00419016`). It is a render-side
+hand-off, not an aim or lock-on aid: `maybe_Scene_SubmitFrameObjects` reads it every frame
+(`00428519`) and, when it is set, submits the machine through `FUN_004283b4(mech, structure+0x1e8)`
+instead of the ordinary `FUN_0042837c(mech, GetBodyRadius())` — a machine standing inside a
+building's footprint is bucketed with the building rather than by its own radius. Not ported; the
+engine's scene pass does not have the bucket this feeds.
+
+### The no-wreck sink's flag byte — `obj+0x38`
+
+The sink raises `obj+0x38` alongside dropping z to -100000, and **that byte has no reader**. All
+three classes' no-wreck branches write it — `004039a1` for a structure, `004185ec` for a machine,
+`00421c36` for a flyer — and it sits inside the 8 bytes `SimObjectBase_Constructor` zeroes at
+`00402250`, so it is a deliberately maintained flag rather than padding. A scan of the whole
+disassembly that resolves `LEA reg,[base + k]`, `ADD reg,k` rebasing and Borland's spill-and-reload
+of a rebased pointer finds no read of it on a sim object, against a control on `obj+0x39` (the shape
+layer's own flag beside it) that finds three — `FUN_00402400`, `SimObject_ApplyRootMotionIfEnabled`
+and `Sim_PollPlayerInput`.
+
+**This is a null result and nothing more.** The byte carries a meaningful value, so the absence of a
+reader rests entirely on the scan being exhaustive, which it cannot be shown to be. Treat it as a
+reason the port leaves the byte out, not as a proven property of the original.

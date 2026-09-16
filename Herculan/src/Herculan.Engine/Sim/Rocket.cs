@@ -38,10 +38,12 @@ namespace Herculan.Engine.Sim;
 /// </list>
 ///
 /// <para>Only <c>PROJ.DAT</c> <see cref="ProjectileType.Missile"/> records reach here.
-/// <see cref="ProjectileType.Rocket"/> (type 3) records exist in retail data and are unreachable:
-/// <c>Rocket_ConstructGuided</c> (<c>0040ac3c</c>) builds their class, nothing calls it, and its
-/// vtable's per-tick slot is <c>FUN_0040acb4</c> — a stub returning zero, so an instance of it would
-/// never move and never die. The ammunition dispatch tests for type 0 and nothing else.</para>
+/// <see cref="ProjectileType.Grenade"/> (type 3) records exist in retail data and are unreachable:
+/// <c>Grenade_Construct</c> (<c>0040ac3c</c>) builds their class and nothing calls it, and its
+/// vtable's per-tick slot is <c>FUN_0040acb4</c>, a bare <c>return 0</c>, so an instance would never
+/// move and never die. The ammunition dispatch tests for type 0 and nothing else. What settles the
+/// class name and the unreachability is in docs/simulation/damage-system.md, "Type — a
+/// firing-mechanism selector".</para>
 /// </summary>
 public sealed class Rocket {
 	private readonly ProjMissileDatEntry _record;

@@ -6,9 +6,9 @@ Retail content that was authored, shipped in the data files or the binary, and c
 
 Three weapons appear in the `SHELL0/GAM` catalog with a code, a full name in `WEAPONS.BIN` and a price, but are not actually accessible in the campaign. Similar weapons later appeared in *Starsiege*.
 
-- **`LAEW` — Locust Launcher** (id 26)
-- **`MINE` — Mine Launcher** (id 27)
-- **`MFAC` — MagnetoFusion Cannon** (id 28) is a different case from those two: its template is complete and it works, firing the Plasma Cannon's round (`PROJ.DAT` row 22) at nearly twice the range.
+- **`LAEW` — Locust Launcher** (id 26), incomplete and unusable.
+- **`MINE` — Mine Launcher** (id 27), incomplete and unusable.
+- **`MFAC` — MagnetoFusion Cannon** (id 28), a functional weapon firing the Plasma Cannon's round (`PROJ.DAT` row 22) at nearly twice the range.
 
 **`MFAC` is fitted to three chassis in `gam\trn_herc.dat`**, a nine-record stock-fit set that is otherwise a near-copy of the `ini_*.dat` files. It is the only retail data that arms a player machine with a cut weapon. No reader for that file has been traced in either binary, so it does not overturn the above — but a reader who finds `MFAC` there will reasonably think it does. See [`formats/herc-catalogs.md`](formats/herc-catalogs.md#gamtrn_hercdat--a-second-stock-fit-set).
 
@@ -16,7 +16,7 @@ Additionally, the game data includes an unused particle-beam weapon for the Cybr
 
 ## Projectiles
 
-- **A second, unused guided-projectile class.**
+- **An unused "Grenade" projectile type** appears in the code, with no functionality.
 
 ## Sound effects
 

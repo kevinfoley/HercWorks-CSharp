@@ -824,12 +824,11 @@ public sealed class SimWorld {
 	///
 	/// <para>Both of the original's exclusions are here: the attacker at the shot record's
 	/// <c>+0x0e</c> (<see cref="WeaponShot.Owner"/>) and the second one at <c>+0x14</c>
-	/// (<see cref="WeaponShot.Excluded"/>). The beam path writes only the first, so on a weapon shot
-	/// they are the same test twice; a flyer's airframe contact probe writes only the second.</para>
+	/// (<see cref="WeaponShot.Excluded"/>), which only a flyer's airframe contact probe ever fills.</para>
 	///
 	/// <para>The AI "something just shot at me" notification on each candidate's <c>+0x50</c> slot is
-	/// here, and so is the friendly-fire complaint the original raises beside it. The lock-on
-	/// candidate the sweep also picks out is still left out.</para>
+	/// here, and so is the friendly-fire complaint the original raises beside it, and the engagement
+	/// pair below.</para>
 	/// </summary>
 	/// <returns>The distance the shot travelled before it hit something, or zero if it hit nothing.</returns>
 	public int Raycast(WeaponShot shot) {
@@ -861,6 +860,15 @@ public sealed class SimWorld {
 			int struckAt = candidate.DirectFireHitTest(this, shot);
 			if (struckAt == 0) {
 				continue;
+			}
+
+			// The engagement pair, and the two halves land on opposite objects: the shooter is marked
+			// engaged, the struck object's action fires. See docs/simulation/damage-system.md, "The
+			// shared raycast".
+			if (shot.Owner is { } firer
+					&& ReferenceEquals(candidate, SimObject.SelectedTargetOf(firer))) {
+				firer.Engaged = true;
+				candidate.ActivateEngagementAction(this);
 			}
 
 			// "Something just shot at me", on the candidate's own +0x50 slot. The original puts it

@@ -128,7 +128,7 @@
       "slots": [
         { "offset": 0,  "name": "Draw",           "description": "Bullet_Draw (0040a120) for the launcher round and the gun round alike; BeamTracer_Draw (0040bc14) for the beam class. See docs/simulation/beam-visuals.md." },
         { "offset": 4,  "name": "slot_0x04",      "description": "0046b801, the same value SimObjectVtable's +0x04 holds. Role not established." },
-        { "offset": 8,  "name": "Destructor",     "description": "The deleting destructor: Rocket_Dtor (0040ab8d), Bullet_Dtor (0040b64d), BeamTracer_Dtor (0040ba94), DeadBullet_Dtor (0040ad2c), ProjectileBase_Dtor (0040c324), ProjectileSuperBase_Dtor (0046b890). Takes a flags argument whose low bit asks it to free the object, which it does through 0047743c." },
+        { "offset": 8,  "name": "Destructor",     "description": "The deleting destructor: Rocket_Dtor (0040ab8d), Bullet_Dtor (0040b64d), BeamTracer_Dtor (0040ba94), Grenade_Dtor (0040ad2c), ProjectileBase_Dtor (0040c324), ProjectileSuperBase_Dtor (0046b890). Takes a flags argument whose low bit asks it to free the object, which it does through 0047743c." },
         { "offset": 12, "name": "slot_0x0c",      "description": "004785bf, as in SimObjectVtable. Role not established." },
         { "offset": 16, "name": "GetShapeRadius", "description": "SimObject_GetShapeRadius (0046b80c), shared with the full simulation objects." },
         { "offset": 20, "name": "Tick",           "description": "Rocket_TickUpdate (0040a538), Bullet_TickUpdate (0040b124), BeamTracer_LifeTick (0040c2a0). The base answers the 00496684 stub. See docs/simulation/rockets.md and projectiles.md." }
@@ -161,7 +161,7 @@
         },
         {
           "address": "004984fc",
-          "label": "DeadBulletVtable",
+          "label": "GrenadeVtable",
           "description": "DEAD CODE. The Type-3 constructor that builds against this table is never called, and its Tick slot is FUN_0040acb4 (return 0), so an instance would never move or die. Retail Type-3 records are unreachable data -- see known_symbols.json's entry for that constructor. Typed here so the table is not mistaken for a live class later."
         }
       ]

@@ -219,8 +219,13 @@ finds nothing it still returns "hit" with its output buffer left unwritten.
 
 `Sim_RaycastTerrain` (`00428048`) is the weapon-fire caller: it builds the ray's far end as the
 muzzle frame's own `(0, distance, 0)`, walks, and measures the ground hit back to the muzzle with the
-fast-magnitude approximation. The ray record's `+0x08` (a literal 200) is passed through as a "walk
-radius" but **mode 0 never reads it**. See
+fast-magnitude approximation.
+
+**The walk radius is dead in both modes.** The ray record's `+0x08` (a literal 200) arrives as
+`Terrain_RayWalk`'s fourth argument, and mode 0 does read it — at `0046fb35`, `0046fba7` and
+`0046fc1b`, the three sites that hand it to `Terrain_CellSurfaceIntersect` (`0047068c`). That is
+where it stops: the callee never reads that parameter, and those three are its only callers, so
+nothing downstream of the walk is a function of the radius. See
 [`../simulation/weapon-firing.md`](../simulation/weapon-firing.md).
 
 ## Consumers outside the terrain system

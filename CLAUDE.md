@@ -51,3 +51,14 @@ status. Drain them into topic docs and delete what you moved.
 - Cite the original symbol alongside the port: `Mech_LocomotionTick (00416a04)`.
 - Say plainly when something is this engine's invention rather than read from the binary, so it is
   not later mistaken for vanilla behaviour.
+- **Never write "nothing calls this", "nothing reads this" or "dead code" from a failed grep.** A
+  text search of the dumps misses references through data tables, and misses field accesses through
+  Borland's `LEA`/`ADD`-rebase and stack-spill idioms. Two tools settle these, and both print their
+  own caveats:
+  - `tools/scripts/es2_xref.py ADDR|SymbolName` — every rel32 branch, stored pointer and vtable slot
+    holding an address, over the whole PE. A clean sweep is what "unreachable" has to mean.
+  - `tools/scripts/es2_fieldscan.py OFFSET [--range LO-HI]` — every access to a struct field,
+    resolving those idioms. Reports the union of two alias passes because neither is sound alone.
+
+  Both are null-result tools. A field that carries a meaningful value is never *proven* unread; say
+  so rather than asserting it.

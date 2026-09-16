@@ -971,7 +971,7 @@ public sealed class WeaponMount {
 	/// <para><b>All three branches are live.</b> A <see cref="ProjectileType.Beam"/> record resolves
 	/// its hit synchronously and is over inside this call; a <see cref="ProjectileType.Bullet"/>
 	/// record becomes a travelling <see cref="Projectile"/>; a <see cref="ProjectileType.Missile"/>
-	/// record becomes a <see cref="Rocket"/>. <see cref="ProjectileType.Rocket"/> is the fourth value
+	/// record becomes a <see cref="Rocket"/>. <see cref="ProjectileType.Grenade"/> is the fourth value
 	/// and no dispatch tests for it — its class is built by a constructor nothing calls, so those
 	/// records are unreachable in the original too.</para>
 	///

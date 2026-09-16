@@ -108,6 +108,127 @@ public class ComputerWarningTests {
 	}
 
 	/// <summary>
+	/// <c>SHIELDS CRITICAL</c>'s latch is the one in this family that re-arms, so it gets its own
+	/// check: it survives a tick inside the hysteresis band and is released by a tick above it.
+	///
+	/// <para>Only the release is exercised here — <c>Mech_DirectFireHitTest</c> owns the set, and
+	/// reaching it needs a shot in flight.</para>
+	/// </summary>
+	[Fact]
+	public void TheShieldsCriticalLatchIsReleasedOnlyAboveTheClearThreshold() {
+		if (Content() is not { } content || Spawn(content, "OUTLAW") is not { } mech) {
+			return;
+		}
+
+		mech.IsPlayer = true;
+		var world = FlatWorld(new MessageLog(), mech);
+
+		// Empty, latched — where a machine sits the moment the warning fires.
+		mech.Shields.Empty();
+		mech.ShieldsDownAlert = true;
+
+		world.Tick();
+		Assert.True(mech.Shields.Total <= MechObject.ShieldsDownAlertClearCharge,
+			"a tick's recharge should not have carried the array over the threshold on its own");
+		Assert.True(mech.ShieldsDownAlert, "the latch should hold while the array is still below the threshold");
+
+		// Refilled to the chassis' full 3500, which clears the threshold outright.
+		mech.Shields.RefillToBalance();
+		Assert.True(mech.Shields.Total > MechObject.ShieldsDownAlertClearCharge, "the refill should clear the threshold");
+
+		world.Tick();
+		Assert.False(mech.ShieldsDownAlert, "the latch should be released once the array is back above the threshold");
+	}
+
+	/// <summary>
+	/// And the release is gated on the same <c>mech+0xa3</c> the set is: an AI machine's latch is not
+	/// touched by its own power tick, however full its array is.
+	/// </summary>
+	[Fact]
+	public void AnAiMachineNeverReleasesTheShieldsCriticalLatch() {
+		if (Content() is not { } content || Spawn(content, "OUTLAW") is not { } mech) {
+			return;
+		}
+
+		mech.IsPlayer = false;
+		var world = FlatWorld(new MessageLog(), mech);
+
+		mech.ShieldsDownAlert = true;
+		Assert.True(mech.Shields.Total > MechObject.ShieldsDownAlertClearCharge, "the machine should spawn with a full array");
+
+		world.Tick();
+		Assert.True(mech.ShieldsDownAlert, "only the locally piloted machine's latch is released");
+	}
+
+	/// <summary>
+	/// A ray that reaches the shooter's own selected target marks the <i>shooter</i> engaged —
+	/// <c>Sim_RaycastObjectList</c>'s half of <c>obj+0x9e</c>, which is reached with nothing in
+	/// detection range of either machine. A ray that reaches something else does not.
+	/// </summary>
+	[Fact]
+	public void ShootingTheSelectedTargetMarksTheShooterEngaged() {
+		if (Content() is not { } content
+				|| Spawn(content, "OUTLAW") is not { } shooter
+				|| Spawn(content, "OUTLAW") is not { } target
+				|| Spawn(content, "OUTLAW") is not { } bystander) {
+			return;
+		}
+
+		var world = FlatWorld(new MessageLog(), shooter, target, bystander);
+
+		// The bystander stands down the shooter's +Y axis, where the ray goes. The target stands well
+		// off to the side, so the ray never reaches it at all — the sweep shortens rather than stops,
+		// so a target merely *behind* the bystander would still be struck, and still engaged.
+		bystander.Position = shooter.Position + new Vec3i(0, 6000, 0);
+		target.Position = shooter.Position + new Vec3i(20000, 0, 0);
+
+		// The positive control: the ray does stop on the bystander, so "not engaged" below cannot be
+		// a shot that simply missed everything.
+		var probe = Shot(shooter);
+		Assert.NotEqual(0, world.Raycast(probe));
+		Assert.Same(bystander, probe.HitObject);
+
+		// Selected the machine off to the side: the ray never reaches it, so nobody is engaged.
+		shooter.Target = target;
+		world.Raycast(Shot(shooter));
+		Assert.False(shooter.Engaged, "stopping on something else is not engaging the target");
+		Assert.False(target.Engaged);
+
+		// Now the selected target is the machine the ray actually reaches.
+		shooter.Target = bystander;
+		world.Raycast(Shot(shooter));
+		Assert.True(shooter.Engaged, "the shooter is the one marked engaged, not the machine it hit");
+		Assert.False(bystander.Engaged, "the struck object fires its action but is not itself marked");
+	}
+
+	/// <summary>
+	/// A hitscan shot straight down the shooter's +Y axis, owned by it. The muzzle is lifted to
+	/// torso height: fired from the machine's own origin it starts at ground level, and the terrain
+	/// query clips the ray to nothing before an object is ever tested.
+	/// </summary>
+	private static WeaponShot Shot(MechObject shooter) {
+		var muzzle = shooter.WorldTransform;
+		muzzle.Z += MuzzleHeight;
+		return new WeaponShot(muzzle, ShotRange, ShotDamage, ShotDamage, TestRound, shooter, excluded: null);
+	}
+
+	/// <summary>Roughly the hit cylinder's own centre height, <c>typeRecord+0x18</c>.</summary>
+	private const int MuzzleHeight = 1000;
+
+	private const int ShotRange = 30000;
+	private const short ShotDamage = 100;
+
+	/// <summary>A bare <c>PROJ.DAT</c> row — only the impact-effect arrays are read off it.</summary>
+	private static readonly ProjectileData.Projectile TestRound = new() {
+		DamageArmor = ShotDamage,
+		DamageShield = ShotDamage,
+		SplashFactor = 0,
+		ImpactFXShield = new short[] { 11, 11, 11, 11 },
+		ImpactFXGround = new short[] { 0, 1, 4, 5 },
+		ImpactFXArmor = new short[] { 0, 1, 4, 5 },
+	};
+
+	/// <summary>
 	/// Walks one machine from pristine to wrecked with repeated blasts on its own position, and hands
 	/// back everything the computer said on the way. Null when there is no install to read.
 	/// </summary>

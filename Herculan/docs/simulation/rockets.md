@@ -63,10 +63,14 @@ the same line an autocannon does.
   (target vtable `+0x54`) into `+0x5a`, which is the point the seeker steers at.
 - Plays `record[+0x0c] + 10`.
 
-Only the `Type == 0` class is ever built. `Rocket_ConstructGuided` (`0040ac3c`) builds a second
-class for `Type == 3` records, **nothing calls it**, and its vtable's per-tick slot is
-`FUN_0040acb4`, a stub returning zero — an instance would never move and never die. Retail's three
-`Type 3` records are unreachable data.
+Only the `Type == 0` class is ever built. `Grenade_Construct` (`0040ac3c`) builds a second class for
+`Type == 3` records — the cut `Grenade` class, named by its own Borland class descriptor at
+`0040ad0c`. **Nothing calls it**: a scan of the whole image for its address, every section, as a bare
+little-endian dword as well as an `E8`/`E9` rel32 branch target, finds it nowhere but in its own
+prologue. Its vtable's per-tick slot is `FUN_0040acb4`, a bare `return 0` — an instance would never
+move and never die. Retail's three `Type 3` records are unreachable data; see
+[`damage-system.md`](damage-system.md#type--a-firing-mechanism-selector) and
+[`../cut-content.md`](../cut-content.md#projectiles).
 
 ## Flight — `Rocket_TickUpdate` (`0040a538`)
 

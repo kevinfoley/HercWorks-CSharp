@@ -349,8 +349,11 @@ public abstract class SimObject {
 	public MissionActionState? DefeatAction { get; set; }
 
 	/// <summary>
-	/// <c>obj+0x9e</c> — whether this object has been closed with by an enemy that can see it. Set by
-	/// <see cref="Detection.Sweep"/> alongside the engagement action, on both parties at once.
+	/// <c>obj+0x9e</c> — whether this object has been closed with by an enemy that can see it. Two
+	/// setters: <see cref="Detection.Sweep"/> raises it on both objects of a pair that have closed to
+	/// <see cref="Detection.EngagementRange"/>, and <see cref="SimWorld.Raycast"/> raises it on the
+	/// shooter alone. Read by <see cref="MissionObjective.ConditionEngaged"/> and its negation. Why
+	/// the two mark different parties is in docs/simulation/damage-system.md, "The shared raycast".
 	/// </summary>
 	public bool Engaged { get; internal set; }
 
@@ -370,10 +373,21 @@ public abstract class SimObject {
 	public bool DataLinkComplete { get; internal set; }
 
 	/// <summary>
+	/// <c>obj+0x1a4</c> — what this object is shooting at. The original reads it off a bare object
+	/// pointer; here it is declared on the two classes that can hold one rather than on
+	/// <see cref="SimObject"/>, so every caller comes through this.
+	/// </summary>
+	internal static SimObject? SelectedTargetOf(SimObject subject) => subject switch {
+		MechObject mech => mech.Target,
+		FlyerObject flyer => flyer.Target,
+		_ => null
+	};
+
+	/// <summary>
 	/// Activates <see cref="EngagementAction"/>, if there is one. The original also gates this on
-	/// <c>obj+0xa2</c> being clear; no writer of that byte has been located, so it is not modelled
-	/// and the gate reads as open. It would only ever suppress a second activation, which
-	/// <see cref="MissionActionState.Activate"/> already refuses.
+	/// <c>obj+0xa2</c>, a per-tick latch that cannot change the outcome because
+	/// <see cref="MissionActionState.Activate"/> is one-shot already — see
+	/// docs/simulation/damage-system.md, "The shared raycast".
 	/// </summary>
 	internal void ActivateEngagementAction(SimWorld world) => EngagementAction?.Activate(world);
 

@@ -11,36 +11,69 @@ namespace Herculan.Engine.Numerics;
 /// it down further (<c>&amp; 0xfff</c> for the terrain material roll and the explosion's
 /// per-component ~51% roll), so <see cref="NextMasked"/> is the shape simulation code actually uses.
 ///
-/// <para><b>Not yet vanilla — the seed state.</b> The algorithm above is a literal translation, but
-/// the 56 initial table values live in DBSIM's data section and have not been extracted, so this
-/// starts from a locally-generated table instead. Bit-exact parity with the original would need
-/// more than that table anyway: a roll's result depends on how many times the generator was already
-/// advanced before that point in the frame, so matching a specific run means matching the whole call
-/// history, not just the seed. Nothing this generator currently drives is visible in the first
-/// milestone (terrain material bits select detail textures, which aren't rendered yet), but anything
-/// built on it later — the explosion damage roll especially — should be treated as
-/// statistically-faithful rather than replay-faithful until that gap is closed.</para>
+/// <para><b>The seed state is vanilla; the call history is not.</b> <see cref="SimRandom()"/> starts
+/// from DBSIM's own initial state, so the two generators produce identical streams from the same
+/// starting point. That is only half of replay parity: a given roll's result also depends on how
+/// many times the generator was advanced before it, and this engine does not yet make the same
+/// number of draws in the same order as the original. Treat a specific roll as replay-faithful only
+/// once the call history is matched too — see docs/simulation/random-generator.md.</para>
 /// </summary>
 public sealed class SimRandom {
 	/// <summary>Table length, from the original's <c>== '8'</c> (0x38) cursor wrap test.</summary>
 	private const int TableLength = 0x38;
+
+	/// <summary>
+	/// DBSIM's own starting table, the 112 bytes at <c>004a6958</c> that <c>FUN_00492d7c</c>
+	/// <c>memmove</c>s into the state block. Static initialised data, not built at runtime: the
+	/// generator has no clock or entropy input anywhere, which is what makes the original's
+	/// simulation replay identically on every run.
+	/// </summary>
+	private static readonly short[] VanillaTable = {
+		-8925, -27341, -3123, 19394, -2078, -23841, -21904,
+		24746, 5195, -30392, 6442, 27405, -25077, -1039,
+		-31225, 18013, -5388, 27133, 27716, 6951, -9359,
+		-7281, -21580, -9145, 4062, 19854, -899, -29384,
+		22856, -7313, -21982, 12070, 17402, -19035, 8427,
+		-4731, -2621, -32353, 11676, -19859, -5845, -26667,
+		15777, -30227, -7180, 29877, 44, -11425, 15112,
+		3573, -3458, -15760, 9609, 11915, 25426, -9683
+	};
+
+	/// <summary>
+	/// The destination cursor's start, <c>state+0x71</c>'s literal <c>0x37</c>. This is the entry the
+	/// step writes and returns.
+	/// </summary>
+	private const int VanillaCursorI = 0x37;
+
+	/// <summary>The addend cursor's start, <c>state+0x70</c>'s literal <c>0x18</c>.</summary>
+	private const int VanillaCursorJ = 0x18;
 
 	private readonly short[] _table = new short[TableLength];
 	private int _cursorI;
 	private int _cursorJ;
 
 	/// <summary>
-	/// Creates a generator with a locally-seeded table (see the type's "not yet vanilla" note). The
-	/// cursor offsets reproduce the original's lag: DBSIM stores them as two independent bytes that
-	/// each wrap at 56, and both start from whatever the data section holds.
+	/// DBSIM's generator as it stands the moment <c>FUN_00492d7c</c> has seeded it — the same table
+	/// and the same two cursors, so this and the original step in lockstep from here.
+	/// </summary>
+	public SimRandom() {
+		VanillaTable.CopyTo(_table, 0);
+		_cursorI = VanillaCursorI;
+		_cursorJ = VanillaCursorJ;
+	}
+
+	/// <summary>
+	/// <b>Not a ported mechanic.</b> An independently-seeded stream, for the places this engine wants
+	/// variation the original gets from sharing one global generator across everything. The cursors
+	/// start where the original's do; only the table differs.
 	/// </summary>
 	public SimRandom(int seed) {
 		var seeder = new Random(seed);
 		for (int i = 0; i < TableLength; i++) {
 			_table[i] = (short)seeder.Next(short.MinValue, short.MaxValue + 1);
 		}
-		_cursorI = 0;
-		_cursorJ = TableLength / 2;
+		_cursorI = VanillaCursorI;
+		_cursorJ = VanillaCursorJ;
 	}
 
 	/// <summary>

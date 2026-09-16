@@ -234,10 +234,12 @@ public sealed class MissionScene {
 		var materials = TerrainMaterialTable.Load(content);
 		var theater = TheaterDescriptor.Load(content, mission.Header.TheaterIndex, mission.Header.TheaterVariant);
 
-		// Terrain material assignment is a randomised load-time pass in the original; the seed used
-		// here is the engine's own, since DBSIM's generator state hasn't been recovered (see
-		// SimRandom). It selects detail textures only, which nothing renders yet.
-		var random = new SimRandom(mission.Header.ZoneIndex);
+		// The one generator the whole session rolls on, at DBSIM's own starting state — the terrain
+		// material pass below is a randomised load-time pass in the original, and it draws from the
+		// same generator every later roll comes out of, so the same instance goes on to the world.
+		// Whether the original has already drawn from it by the time the terrain populates is not
+		// established; see SimRandom.
+		var random = new SimRandom();
 
 		// How far this mission draws is a player setting, not a property of the zone — see
 		// TerrainDetail. The simulator keeps it beside the script it was handed, so this looks for it
@@ -275,8 +277,7 @@ public sealed class MissionScene {
 		// bank each root draws from is dat\FIRE.DAT: a four-byte header and then one byte per shape.
 		byte[]? fireBanks = content.Read(DebrisDatabase.ResourceFolder, FireEffect.BankTableResource);
 
-		var world = new SimWorld(terrain, bullets, explosions, rockets, beams, mission.Header.ZoneIndex,
-			debris) {
+		var world = new SimWorld(terrain, bullets, explosions, rockets, beams, random, debris) {
 			// The shell chose this before it wrote the script — see SimWorld.Difficulty.
 			Difficulty = mission.Header.Difficulty
 		};

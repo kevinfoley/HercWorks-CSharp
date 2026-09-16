@@ -10,7 +10,9 @@ Scope is the shared fixed-point primitives and the collision-bound build. Projec
 [`projectiles.md`](projectiles.md) and [`rockets.md`](rockets.md); combat damage resolution
 (shields, components, weapon effectiveness) is in [`damage-system.md`](damage-system.md); the
 terrain heightmap format and query is in
-[`../formats/terrain-heightmap.md`](../formats/terrain-heightmap.md).
+[`../formats/terrain-heightmap.md`](../formats/terrain-heightmap.md). The pseudo-random
+generator is a math-library utility of the same kind as the helpers below but is not a
+fixed-point primitive, and has its own page: [`random-generator.md`](random-generator.md).
 
 ## Fixed-point math toolkit
 

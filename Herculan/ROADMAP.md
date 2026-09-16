@@ -65,10 +65,12 @@ bindings are hardcoded placeholders.
 
 The engine cannot be faithful here until the original is understood.
 
-- **SimRandom's 56-entry seed table isn't extracted** from DBSIM's data section. The algorithm is a
-  literal port; the seeding is not, and a roll's result also depends on generator-advance count —
-  treat as statistically faithful, not replay faithful.
-  → [`docs/simulation/dbsim-physics-notes.md`](docs/simulation/dbsim-physics-notes.md)
+- **How many times DBSIM has advanced its generator before any given roll.** The algorithm, the
+  56-entry seed table and both cursor starts are ported, so the two generators produce identical
+  streams from the same starting point — but a roll's result depends on its position in that stream,
+  and this engine does not yet make the same draws in the same order. Replay parity needs the call
+  history matched, which is really a question about tick order, not about the generator.
+  → [`docs/simulation/random-generator.md`](docs/simulation/random-generator.md)
 - **The mission message an action queues.** `Action_Activate` queues the line named at action `+0x34`
   on the **pilot and squad** port (`view+0x207`), not the computer's ticker. `data\mission.str` is now
   loaded onto `Mission.Text`, but how that port resolves an id whose record names no speaker — its own

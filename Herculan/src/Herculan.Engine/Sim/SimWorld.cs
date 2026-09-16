@@ -51,17 +51,22 @@ public sealed class SimWorld {
 	/// The debris databases, headed by <c>DEF_DEB</c> — see <see cref="SpawnDebris"/>. Null leaves
 	/// every destruction throwing nothing, which is what this engine did before the pool existed.
 	/// </param>
-	/// <param name="seed">Seed for <see cref="Random"/>.</param>
+	/// <param name="random">
+	/// The generator this world rolls on. DBSIM has exactly one, shared by everything from the
+	/// load-time terrain pass onward, so a caller that rolls before the world exists should build it
+	/// and hand the same instance in rather than letting this make a second one. Omitted, it starts
+	/// at <see cref="SimRandom"/>'s vanilla state.
+	/// </param>
 	public SimWorld(HeightGrid terrain, BulletCatalog? bullets = null,
 			ExplosionCatalog? explosions = null, RocketCatalog? rockets = null,
-			BeamAppearance? beams = null, int seed = 0, DebrisCatalog? debris = null) {
+			BeamAppearance? beams = null, SimRandom? random = null, DebrisCatalog? debris = null) {
 		Terrain = terrain;
 		Bullets = bullets;
 		Explosions = explosions;
 		Rockets = rockets;
 		BeamTable = beams;
 		Debris = debris;
-		Random = new SimRandom(seed);
+		Random = random ?? new SimRandom();
 	}
 
 	private int[] _fireShapeFrames = Array.Empty<int>();

@@ -270,15 +270,17 @@ public sealed class MechTypeRecord {
 			: (short)0;
 
 	/// <summary>
-	/// The exe's <c>typeRecord+0xc8</c> — record field 198, which the combat reassess requires to be
-	/// over 0xb9 before it will install <c>flanking</c>.
+	/// The exe's <c>typeRecord+0xc8</c>, which the combat reassess requires to be over <c>0xb9</c>
+	/// (185) before it will install <c>flanking</c>.
 	///
-	/// <para><b>Every retail chassis states zero</b>, verified across all 21 <c>.DAT</c> files, so the
-	/// branch is unreachable with retail data and a machine that is outgunned always takes
-	/// <c>facing off</c> instead. The record field is not parsed — <c>HercSimDat</c> reads past it as
-	/// blank — so this answers the constant the retail files hold.</para>
+	/// <para><b>It is not a record field.</b> The file's own word at that offset is zero on every
+	/// chassis, but <c>MechType_InitOne</c> (<c>004202c1</c>) overwrites it at load with a copy of
+	/// <c>typeRecord+0x06</c> — <see cref="RawMaxForward"/>. So the gate is on forward speed: an
+	/// outgunned machine flanks if it is fast enough to get round, and squares up into
+	/// <c>facing off</c> if it is not. Retail speeds run 140 to 325, so 13 of the 21 chassis pass.
+	/// See docs/simulation/ai-targeting.md.</para>
 	/// </summary>
-	public short FlankingGate => 0;
+	public short FlankingGate => RawMaxForward;
 
 	/// <summary>Record field 12 — walk sequence id.</summary>
 	public short WalkSequence => Data.AnimId_Walk;
@@ -315,8 +317,9 @@ public sealed class MechTypeRecord {
 	public short TorsoTwistAccel => Data.TorsoRotateAccel;
 
 	/// <summary>
-	/// Record field 32 — how far the torso may twist either way, as a binary angle. 14000 across the
-	/// whole fleet, which is 76.9 degrees.
+	/// Record field 32 — how far the torso may twist either way, as a binary angle. 14000 (76.9
+	/// degrees) on twenty of the twenty-one chassis; the Pitbull states 32767, the sentinel for a
+	/// turret with no stop at all.
 	/// </summary>
 	public short TorsoTwistLimit => Data.TorsoTwistDegreeMax;
 
@@ -326,10 +329,10 @@ public sealed class MechTypeRecord {
 	/// <see cref="TorsoTwistLimit"/> against <c>0x7d00</c>, so the split is between a machine whose
 	/// turret barely turns and one that can bring its guns round while it walks.
 	///
-	/// <para><b>No shipped chassis passes it.</b> The limit is 14000 across the whole fleet against a
-	/// bar of 32000, so <c>bulldog travel</c> — and the one thing that distinguishes it, its
-	/// committed-to-a-fight flag — is dead in retail, the same way <c>flanking</c> is. See
-	/// KNOWN_ISSUES.md.</para>
+	/// <para><b>The Pitbull passes it, and nothing else does</b> — 32767 against a bar of 32000,
+	/// where the rest of the fleet states 14000. So <c>bulldog travel</c> is live in retail, on one
+	/// chassis, and what it buys that chassis is the committed-to-a-fight flag its descriptor
+	/// carries and <c>travelling</c>'s does not.</para>
 	/// </summary>
 	public bool TravelsAsBulldog => TorsoTwistLimit > 0x7d00;
 

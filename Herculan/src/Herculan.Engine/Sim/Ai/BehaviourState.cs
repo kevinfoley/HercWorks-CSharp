@@ -9,7 +9,7 @@ public enum ReassessSlot {
 	/// <summary>No reassess at all: the player's two states, <c>in limbo</c>, <c>dead</c>, <c>disabled</c>.</summary>
 	None,
 
-	/// <summary><c>Mech_AiSelectBehaviour</c> (<c>0041eb34</c>) — every live non-combat state.</summary>
+	/// <summary><c>Mech_AiSelectBehaviour</c> (<c>0041eb34</c>) — <c>deciding</c> and states 8-17.</summary>
 	SelectBehaviour,
 
 	/// <summary><c>Mech_AiCombatReassess</c> (<c>0041cf18</c>) — states 3-7 and 18.</summary>

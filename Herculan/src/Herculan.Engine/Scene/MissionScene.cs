@@ -284,7 +284,7 @@ public sealed class MissionScene {
 		var models = new SceneModelLibrary(content, theater);
 		var baseTypes = BaseTypeTable.Load(content);
 
-		// The structure hit-sphere table, read straight after the type table as Bases_LoadTypeTable
+		// The structure hit-sphere table, read straight after the type table as Base_LoadResources
 		// reads it, and sized by it: BASECOL.DAT carries no count of its own.
 		var baseCollision = BaseCollisionTable.Load(content, baseTypes.Count);
 

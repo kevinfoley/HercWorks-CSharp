@@ -789,7 +789,10 @@ public partial class MechObject {
 	/// <summary>Q8 damage past which a system costs the rating its penalty — 70%.</summary>
 	private const int RatingSystemPenaltyThreshold = 0xb4;
 
-	/// <summary>The type field the <c>flanking</c> branch is gated on; retail states 0 for every chassis.</summary>
+	/// <summary>
+	/// Forward speed at or below which an outgunned machine squares up instead of flanking — see
+	/// <see cref="MechTypeRecord.FlankingGate"/> for why the gate reads speed.
+	/// </summary>
 	private const int FlankingGateThreshold = 0xb9;
 
 	/// <summary>Fear at or above which any attacker at all is enough.</summary>

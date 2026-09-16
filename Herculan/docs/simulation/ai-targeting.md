@@ -144,7 +144,7 @@ Coming out of either with no target also ends in `Mech_AiSelectBehaviour`.
 | Class 0, rating index 1 — evenly matched | `attacking` (3) |
 | Class 0, rating index 2 — it outguns me | `flanking` (4), or `facing off` when the machine's `+0xa8` or `+0xa9` is set or its type's `typeRec+0xc8` is 0xb9 or under |
 
-**`flanking` is unreachable in retail.** `typeRec+0xc8` is record field 198, which every one of the 21 shipped `.DAT` files states as zero, so the gate never opens and a machine that is outgunned takes `facing off` instead. `+0xa9` is the softer of the two leg states, which fits a manoeuvre a crippled machine should not attempt; `+0xa8` is unidentified.
+**The `flanking` gate is forward speed.** `typeRec+0xc8` is not a record field: the file's own word at that offset is zero on all 21 chassis, but `MechType_InitOne` (`004202c1`) overwrites it at load with a copy of `typeRec+0x06`, the chassis' forward speed. Retail speeds run 140 to 325 against a bar of 0xb9 (185), so **13 of the 21 chassis records clear it and 8 do not** — an outgunned machine goes round what outguns it if it is fast enough to, and stands and takes it if it is not. One of the 13 is RAZOR, which no retail mission gives an AI to fight in, so twelve ground chassis flank in practice. `+0xa9` is the softer of the two leg states, which fits a manoeuvre a crippled machine should not attempt; `+0xa8` is unidentified.
 
 `Mech_AiSelectAimComponent` runs on the two class-0 branches that reach it.
 

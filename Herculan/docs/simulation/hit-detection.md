@@ -65,7 +65,7 @@ nodeCount
 ```
 
 - **Structures** read 65 of these back to back out of `dat\BASECOL.DAT`, in `BASES.DAT` type order,
-  as one continuous stream at the tail of `Bases_LoadTypeTable` (`0043a2e0`). `componentIndex`
+  as one continuous stream partway through `Base_LoadResources` (`00405fac`). `componentIndex`
   indexes the type's `BASES.DAT` component array.
 - **Mechs and flyers** each read one whole file, `col\<NAME>.COL`, through
   `Collision_RegisterObject` (`0040cd88`) — the mech from `Mech_Constructor` (`00415bb0`, into
@@ -267,9 +267,14 @@ Spawn-time health comes from the block-9 record's `param_1[0x19]`: `<0` or `100`
 
 ## `dat\BASES.DAT` runtime record
 
-`Bases_LoadTypeTable` reads straight into a 60-byte struct offset by offset, so **the file's field
-order is the runtime record's field order**. The only divergence is the component array, inline on
-disk and a pointer at `+0x14`.
+`Base_LoadResources` (`00405fac`) reads straight into a 60-byte struct offset by offset, so **the
+file's field order is the runtime record's field order**. The only divergence is the component array,
+inline on disk and a pointer at `+0x14`.
+
+It reaches the file through a plain-file-read helper with no container header, so the first bytes of
+`dat\BASES.DAT` are its own content: an `int16` record count. A copy pulled out of a VOL to disk
+instead keeps that container's nine-byte entry prefix, which is what makes a naive parse of one land
+a few bytes into the wrong field.
 
 | Offset | Type | Meaning |
 |---|---|---|

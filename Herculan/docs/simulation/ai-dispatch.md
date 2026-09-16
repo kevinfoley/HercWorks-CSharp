@@ -22,7 +22,7 @@ Ghidra reports no xrefs on any of the three: the descriptors are reached by imme
 
 ## The 22 states
 
-Index `N` names descriptor `004993a4 + 0x3e*N` and block `004998f8 + 0x24*N`. The move slot is `Mech_MovementTick` (`0041a360`) for every state that has one bar `player fly`, so only the exceptions are spelled out.
+Index `N` names descriptor `004993a4 + 0x3e*N` and block `004998f8 + 0x24*N`. The move slot is `Mech_MovementTick` (`0041a360`) in 18 of the 22 blocks — every state that has one bar `player fly` and `ramming`, which each carry their own — so only the exceptions are spelled out.
 
 | # | Name | Think | Move | Reassess | `+0x04` | `+0x3c` |
 |---|---|---|---|---|---|---|
@@ -55,7 +55,7 @@ Notes the table makes visible:
 - **The player's two states share a think, and it is not an AI one.** `Mech_BehaviourPlayerThink` watches the player's own progress through the mission rather than steering anything — [`player-waypoints.md`](player-waypoints.md).
 - **`travelling` (9) and `bulldog travel` (11) share a think function.** They differ only in which descriptor — and so which timing — is installed.
 - **`dead` (20) and `disabled` (21) share a think function** and still take the normal walk move.
-- **The reassess slot splits the roster cleanly in two.** Combat states (3–7, 18) use `Mech_AiCombatReassess` (`0041cf18`); every other live state uses `0041eb34`, the state-selection function itself. The combat form falls back on `0041eb34` when it finds nothing to fight — see [`ai-targeting.md`](ai-targeting.md#the-combat-reassess--mech_aicombatreassess-0041cf18).
+- **The reassess slot splits the roster in two, and five states have none.** Combat states (3–7, 18) use `Mech_AiCombatReassess` (`0041cf18`); `deciding` and the walking states (8–17) use `0041eb34`, the state-selection function itself. The player's two states and the three out-of-action states leave the slot zero, so `Behaviour_DispatchReassess` returns without calling. The combat form falls back on `0041eb34` when it finds nothing to fight — see [`ai-targeting.md`](ai-targeting.md#the-combat-reassess--mech_aicombatreassess-0041cf18).
 
 `ramming` (17) is what anchors the indexing: its two slots are the independently-identified `Mech_BehaviourRamThink` / `Mech_BehaviourRamTick` pair (see [`damage-system.md`](damage-system.md)), and `player` (1) / `player fly` (2) match the three constructor branches in [`razor-flight.md`](razor-flight.md#how-the-flyer-paths-are-reached).
 
@@ -99,7 +99,7 @@ The initialiser copies block `+0x00 → +0x18`, `+0x0c → +0x24`, `+0x18 → +0
 
 ## The mech's behaviour block — `mech+0x4d`
 
-Not a pointer field: `0x45` bytes embedded in the mech, running `mech+0x4d` to `mech+0x91`. `Behaviour_SetState` (`00413e50`) is the only writer.
+Not a pointer field: `0x45` bytes embedded in the mech, running `mech+0x4d` to `mech+0x91`. `Behaviour_SetState` (`00413e50`) is the only writer of the descriptor pointer, and the only thing that touches the block as a whole; it takes `&block`, not the mech. Two parts of what it lays down are then written by other code: the countdown below, and the scratch from `+0x0d` on, which each state lays its own fields over — [`ai-combat-states.md`](ai-combat-states.md#fields-this-layer-owns).
 
 | Offset | Type | Set on state change to |
 |---|---|---|
@@ -114,7 +114,7 @@ Not a pointer field: `0x45` bytes embedded in the mech, running `mech+0x4d` to `
 
 ### What the dwell time buys
 
-`Timer_CountDown` (`004679a4`) subtracts `SimTickDelta` from the countdown each AI tick and clamps it at zero, so `descriptor+0x04` is **milliseconds**. But `Mech_AiTick` only runs the countdown when descriptor flag bit 0 is *clear*, and that is true of exactly eight states: `deciding`, the five combat states, `driving off en` and `fleeing`. **For every other state the countdown is loaded and never stepped**, so its dwell value — 10 ms throughout — never expires and never means anything. Those states end on their own terms instead, through the two paths below.
+`Timer_CountDown` (`004679a4`) subtracts `SimTickDelta` from the countdown each AI tick and clamps it at zero, so `descriptor+0x04` is **milliseconds**. It is handed `&block+0x04` and steps only the `int` that follows, never touching the byte it is given. But `Mech_AiTick` only runs the countdown when descriptor flag bit 0 is *clear*, and that is true of exactly eight states: `deciding`, the five combat states, `driving off en` and `fleeing`. **For every other state the countdown is loaded and never stepped**, so its dwell value — 10 ms, bar `dead` and `disabled` at 0 — never expires on its own. Those states end on their own terms instead, through the paths below.
 
 The eight that do run a clock:
 
@@ -124,7 +124,13 @@ The eight that do run a clock:
 
 The 0–15 ms jitter is noise against all three figures.
 
-Two things cut a dwell short. `Group_OrderTick` (`00423a74`) zeroes every member's countdown when the group advances to its next order, and a think function returning nonzero zeroes its own — the state's way of saying it is finished.
+Three things cut a dwell short, and they are the whole of what writes `block+0x05` outside `Behaviour_SetState`:
+
+- `Group_OrderTick` (`00423adf`) zeroes every member's countdown when the group advances to its next order.
+- `Mech_AiTick` (`00411d51`) zeroes the machine's own when its think returns nonzero — the state's way of saying it is finished.
+- `Mech_ReceiveSquadOrder` (`00420d53`) zeroes it when the order names the target the machine already holds *and* the current descriptor carries the "holding a place" flag bit.
+
+Because a zeroed countdown is what lets the reassess slot run, the first and third of these reach even a state whose flag bit 0 stops the clock — so "the countdown never expires" is not the same as "nothing outside the state can end it."
 
 ## The AI tick — `Mech_AiTick` (`00411cec`)
 
@@ -150,7 +156,7 @@ Three things worth taking from the order:
 
 - **Reassess runs before move and think**, so a state change takes effect on the same tick it is decided.
 - **Move runs before think.** The machine is integrated on its old think's decisions, not the new ones. The think is where every steering decision is made — see [`ai-navigation.md`](ai-navigation.md).
-- **`mech+0xaf` suppresses think for exactly one tick** and clears itself. Whatever sets it gets a frame of movement with no new decisions.
+- **`mech+0xaf` would suppress think for exactly one tick**, clearing itself as it does. No writer that raises it has been found: a field scan of the whole image, resolving the `LEA`/`ADD` rebases and the spill-and-reload idiom, reports `Mech_AiTick`'s own clear at `00411d3d` as the only write to the byte, and the neighbours a wider store could straddle it from (`+0xae`, `+0xac`, `+0xad`) are byte fields with byte-wide accesses. A null result is not proof, but on the evidence the branch is never taken and every tick runs its think.
 
 ## How the per-tick work reaches a state
 
@@ -191,12 +197,14 @@ Three mutually exclusive paths, tested in this order.
 | 2 | `guarding` |
 | 3 | `patrolling` |
 | 4 | `sleeping` |
-| 5 | `travelling`, or `bulldog travel` when the chassis' torso-twist limit (`typeRec+0x22`) is above `0x7d00`. It is 14000 across the whole fleet, so **`bulldog travel` is never installed** |
+| 5 | `travelling`, or `bulldog travel` when the chassis' torso-twist limit (`typeRec+0x22`) is above `0x7d00`. Twenty chassis state 14000; the **Pitbull states 32767**, the sentinel for a turret with no stop, so it is the one machine that travels as a bulldog |
 | 6 | `following` |
 
-A null order entry substitutes verb `0x0b`, which matches no case — and falls through to `Behaviour_SetState` with a **null descriptor**, since the function is `__cdecl(mech)` and the descriptor it installs lives in `EDX`. See [`ai-goals.md`](ai-goals.md#a-group-with-no-order-at-all), which owns the order data along with [`msn-mission-file.md`](../formats/msn-mission-file.md).
+A null order entry substitutes verb `0x0b`, which matches no case — and falls through to `Behaviour_SetState` with whatever is in `EDX`, since the function is `__cdecl(mech)` and the descriptor it installs lives in that register. Reached through the reassess dispatcher, that `EDX` is **null**: `Behaviour_DispatchReassess` leaves the descriptor's `+0x38` there, and every reassess triple in the table is `{func, 0, 0}`. The eight direct callers leave their own values. See [`ai-goals.md`](ai-goals.md#a-group-with-no-order-at-all), which owns the order data along with [`msn-mission-file.md`](../formats/msn-mission-file.md).
 
-Every path ends the same way: the machine's selected target (`mech+0x1a4`) is released, the refcount at `target+0x1a2` decremented, and `mech+0x9d` set — so **a state change always drops the target**. See [`target-selection.md`](target-selection.md).
+Four of this function's paths — the player branch, squad verbs 1/2 and 6, and the order-verb fall-through — end the same way: if the machine holds a selected target (`mech+0x1a4`), it is released, the refcount at `target+0x1a2` decremented, and `mech+0x9d` set. The release block is skipped whole when the field is already null, so `mech+0x9d` is not set then. See [`target-selection.md`](target-selection.md).
+
+The paths that install no state — squad verbs 3 and 5, and any verb above 6 — leave the target alone, and so does verb 4, which hands off to `Mech_AiEngageOrderedTarget` (`0041c0f4`); that function *acquires* the order's target before installing `attacking base` or `attacking flyer`. Dropping the target is this function's habit, not a property of changing state: the other 26 `Behaviour_SetState` call sites do not do it.
 
 ### Transitions
 
@@ -212,7 +220,7 @@ Fields first read or written by the dispatch layer. Fields whose meaning is sett
 | `+0x4d` | 0x45 B | The behaviour block, above |
 | `+0x9d` | byte | Set whenever the selected target is released |
 | `+0xa3` | byte | This is the locally-piloted machine |
-| `+0xaf` | byte | Suppress think for one tick; `Mech_AiTick` clears it |
+| `+0xaf` | byte | Suppress think for one tick. `Mech_AiTick`'s clear is the only write found in the image; nothing raises it |
 | `+0x23e` | short | Standing squad order verb — [`ai-squadmates.md`](ai-squadmates.md) |
 | `+0x248` | ptr | Squad order target object — [`ai-squadmates.md`](ai-squadmates.md) |
 | `+0x1a4` / `+0x1a2` | ptr / short | Selected target and its refcount — [`target-selection.md`](target-selection.md) |
@@ -243,4 +251,6 @@ The AI-relevant mech vtable slots, as entry points for the topic docs. Slots who
 | The `0x24`-stride table starts at `00499928` and holds `Mech_MovementTick` at `+0x18`, one entry per mech type | Off by one triple. Blocks start at `004998f8` and the move slot is `+0x0c`; `00499928` is block 1's move. A raw byte search really does find `0041a360` at 18 sites of stride `0x24`, but those are the 18 **states** that share the walk move, not 18 mech types |
 | `Mech_AiSelectBehaviour` is `__fastcall` and takes three arguments | Ghidra types it that way, and its own recursive call obliges by passing three. The prologue is `MOV EBX,[EBP+8]` and nothing else: it is `__cdecl(mech)`, and the second "parameter" is the `EDX` the fall-through installs |
 | `Mech_MovementTick` is dispatched from mech vtable `+0x18` | `+0x18` is the **think** dispatcher. The move is vtable `+0x14` (`00415afc`), reading descriptor `+0x24`. For most states the think function drives locomotion itself, which is why the move slot looks like the tick entry |
-| The think and move functions are dead code | Every one has zero xrefs because it is only ever reached as a pointer-to-member through `00415afc` / `00415b38` / `00415b74` |
+| The think and move functions are dead code | Every one has zero xrefs because it is only ever reached as a pointer-to-member through `00415afc` / `00415b38` / `00415b74`. A whole-image sweep finds each of them as a stored dword in `BehaviourSlotBlocks` and nowhere else — `Mech_MovementTick` at 18 sites, one per state that walks |
+| Changing state drops the machine's target | Four of `Mech_AiSelectBehaviour`'s paths release it, which is most of what one reads when following the reassess, and every other doc's state change goes through that function. It is still local to those four sites: `Mech_AiEngageOrderedTarget` acquires a target on its way into `attacking base`, and the damage, flee-check and taking-fire installers leave the selection standing |
+| A state whose flag bit 0 stops the dwell clock can only be left on its own terms | The clock is what gates the *reassess slot*, and three functions zero the countdown directly. A group advancing its order, or a squad order arriving, resolves a machine out of any state with a reassess — see "What the dwell time buys" |

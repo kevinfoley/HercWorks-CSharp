@@ -5,8 +5,8 @@ namespace Herculan.Engine.World;
 
 /// <summary>
 /// <c>dat\BASECOL.DAT</c> — one hit-sphere model per structure type, in the same order as
-/// <c>dat\BASES.DAT</c>'s 65 types, read as one continuous stream at the tail of
-/// <c>Bases_LoadTypeTable</c> (<c>0043a2e0</c>). The record format and the reader are
+/// <c>dat\BASES.DAT</c>'s 65 types, read as one continuous stream partway through
+/// <c>Base_LoadResources</c> (<c>00405fac</c>). The record format and the reader are
 /// <see cref="CollisionModelReader"/>; this type is only the per-type walk over it.
 ///
 /// <para><b>Verified against the retail file</b> (4,938 content bytes): the walk lands exactly on

@@ -235,10 +235,10 @@ public abstract class SimObject {
 	/// detonates a ramming machine carrying it. So a machine bumped once at any earlier point in the
 	/// mission blows up the moment it is ordered to ram, whether or not it has reached anything.</para>
 	///
-	/// <para>The original raises it from two sweeps, of which only <c>Mech_CollisionTest</c> is ported
-	/// — the other is inside <c>StructureGroundVehicleVtable</c>'s tick slot, which the engine has no
-	/// equivalent of, so here only a machine's own move can mark anything. See
-	/// docs/simulation/ai-combat-states.md, "The ramming attack".</para>
+	/// <para>Two sweeps raise it, and both are ported: a machine's own move
+	/// (<see cref="MechObject.CollisionTest"/>) and the ground vehicle tick's
+	/// (<c>GroundVehicleCollisionTest</c>). See docs/simulation/ai-combat-states.md,
+	/// "The ramming attack".</para>
 	/// </summary>
 	public bool RunInto { get; internal set; }
 

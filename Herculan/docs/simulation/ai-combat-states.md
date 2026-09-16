@@ -56,7 +56,7 @@ Four things it fixes.
 - **The two range tests read the magnitude the geometry left**, before the recompute on the next line — so they judge by where the *target* is, not by where the state has pointed the machine.
 - **Speed is `±0x100` and nothing else.** A combat state never cruises; it is at the stop or stopped.
 
-`mech+0x5a` is the behaviour block's scratch, and the approach flag written there is read nowhere. It is a `short` laid over the same bytes as the `int` timer `fleeing` steps at `mech+0x5b`, so a fleeing machine's side-switch clock has its low byte rewritten every tick by whichever sign the flag took. The clock is 4000 ms; the aliasing moves it between 3840 and 4095.
+`mech+0x5a` is the behaviour block's scratch, and the approach flag written there is read nowhere. It is a `short` laid over the same bytes as the `int` timer `fleeing` steps at `mech+0x5b`, so a fleeing machine's side-switch clock has its low byte rewritten every tick by whichever sign the flag took: `1` writes `01 00` and lands `00` on the clock's low byte, `-1` writes `ff ff` and lands `ff`. The clock is 4000 (`0x0fa0`); the aliasing pins it to 3840 or 4095 immediately after every move step. `fleeing` never leaves the flag at zero, so this happens on every one of its ticks.
 
 ## `attacking` (3) — `Mech_BehaviourAttackThink` (`0041c594`)
 
@@ -76,13 +76,13 @@ The side works out to the target's right when it lies ahead-right or behind-left
 
 **The target is not looking at me.** No point is built at all: `approach = 0` when the target is within 45° of the nose and `-1` otherwise, and the bearing error is left pointing straight at it. So the machine squares up and shoots, and gives ground only while it is still turning.
 
-The standoff pair is left at 15000/30000, which is the only combat state that uses the built-in ring.
+The standoff pair is left at 15000/30000. Of the states that write one at all it is the only one that keeps both, but `flanking` keeps the far figure on every tick and the near one whenever `Ai_CircleStep` takes its square-up arm — that arm writes neither, and nothing in the circling step ever writes the far standoff.
 
 ## `flanking` (4) — `Mech_BehaviourFlankThink` (`0041d4e4`)
 
 The shared shape with `Ai_CircleStep` (below) between the geometry and the move. Nothing else.
 
-**No retail mission can install it.** The combat reassess gates `flanking` on `typeRec+0xc8`, which is zero on all 21 chassis — see [`ai-targeting.md`](ai-targeting.md#the-combat-reassess--mech_aicombatreassess-0041cf18). The circling step it is built out of is reachable, because `attacking base` shares it.
+**It is what a fast machine does when outgunned.** The combat reassess gates `flanking` on `typeRec+0xc8`, which `MechType_InitOne` loads with a copy of the chassis' forward speed; 13 of the 21 chassis clear the bar of 185 — see [`ai-targeting.md`](ai-targeting.md#the-combat-reassess--mech_aicombatreassess-0041cf18). The circling step it is built out of is reachable by the other eight too, because `attacking base` shares it.
 
 ## `facing off` (5) — `Mech_BehaviourFaceOffThink` (`0041d41c`)
 
@@ -168,7 +168,7 @@ Two legs. While the threat is still within 67.5° of the nose the machine revers
 
 **It still shoots at what it is running from.** `Ai_AimAndFire` is called against the stash, and `Mech_AiFleeCheck` has already set `mech+0x2aa` to 300, 600 or 1000, which drops `Ai_ChooseWeapon`'s score floor to near or below zero — so a fleeing machine fires almost anything it still has.
 
-The state ends when the thing it is running from is out of action. Nothing else ends it but the descriptor's 15 s dwell.
+The state ends when the thing it is running from is out of action: that is the think's only nonzero return, and it zeroes the state's own dwell so the combat reassess runs on the next tick. Otherwise the descriptor's 15 s dwell ends it, or one of the two external routes any state can be cut short by — damage, or a group order advancing ([`ai-dispatch.md`](ai-dispatch.md#what-the-dwell-time-buys)).
 
 ## `skirting` (14) — `Mech_BehaviourSkirtThink` (`0041dd64`)
 
@@ -185,7 +185,7 @@ if (something was struck && shooter has a target
         shooter->vtable+0x64(hitObject)
 ```
 
-So a shot that stops on terrain or on a third object, nearer than the intended target and within 45° of the same line, tells the shooter its line of fire is blocked. The base and flyer classes leave the slot empty, so only a machine reacts.
+So a shot that stops on terrain or on a third object, nearer than the intended target and within 45° of the same line, tells the shooter its line of fire is blocked. The call is unconditional, so no vtable can leave the slot empty: every `SimObject`-shaped table but `MechVtable` fills it with `FUN_00411b34`, a shared stub that is a frame set-up and a `RET`. Only a machine reacts.
 
 `Ai_BeginSkirtIfBlocked` (`0041de9c`) is the gate at the top of every combat think and turns that flag into the state:
 
@@ -222,7 +222,7 @@ Mech_CenterTorsoTick(mech, 0)
 
 - **It walks at a point 90° off its own line to the stash**, at the range it currently stands at — an arc around the obstruction, always to the same side, chosen once from where the machine stood when the state began.
 - **The line of sight is re-tested every 5 seconds, not every tick**, and only a *clear* reading ends the state. `Ai_LineOfSightBlocked` ([`ai-navigation.md`](ai-navigation.md#line-of-sight--ai_lineofsightblocked-0041dc24)) answers 1 for anything the machine cannot get past and 2 for ground it could simply walk over, and **only the 1 gets the arc**: on a 2 the machine drives straight at the stash and crests the rise that is in the way.
-- **It does not shoot and it does not steer around anything else.** The torso is centred, the throttle is at the stop, and nothing but the 5 s clock can end it.
+- **It does not shoot and it does not steer around anything else.** The torso is centred and the throttle is at the stop. The think has one exit and always returns 0, so the only way out from inside the state is the clear reading on the 5 s re-test; what can still take a machine out of it is external — `Mech_ComponentDamageWrite` installing an out-of-action state, or a group order advancing, which zeroes the dwell countdown and lets the reassess resolve the machine into something else ([`ai-dispatch.md`](ai-dispatch.md#what-the-dwell-time-buys)).
 - The stash is a *position*, taken once. The state never looks at the target again, so a machine skirting after a moving target walks to where that target was.
 
 ## `sleeping` (13) — `Mech_BehaviourSleepThink` (`0041c418`)
@@ -239,7 +239,7 @@ All three are installed by `Mech_ComponentDamageWrite` and by nothing else — `
 
 ## `ramming` (17) — `Mech_BehaviourRamThink` (`0041e570`)
 
-The odd one out twice over. It is the only state that installs a **move slot of its own**, `Mech_BehaviourRamTick` (`0041e488`), and the only behaviour in the simulation whose success kills the machine running it. Nothing in it is shared with the section above: no geometry block, no move step, no `Ai_AimAndFire` — a rammer never shoots.
+The odd one out twice over. It is the only AI state whose **move slot is not the walk**, `Mech_BehaviourRamTick` (`0041e488`) rather than `Mech_MovementTick` — `player fly` is the roster's other exception and belongs to the player path — and the only behaviour in the simulation whose success kills the machine running it. Nothing in it is shared with the section above: no geometry block, no move step, no `Ai_AimAndFire` — a rammer never shoots.
 
 ```
 if (Timer_CountDown(&mech+0x5a) == 0) {            // retarget, every 10000 ms
@@ -287,7 +287,7 @@ return 1
 
 It is `Mech_MovementTick` with the undo removed. The walking move restores the step and backs away from a block ([`mech-locomotion.md`](mech-locomotion.md)); this detonates instead — a blast the machine excludes *itself* from, and then a flat 32000 on every component it still has, through the same endpoint a shot reaches. There is no roll, no falloff and no survival; the blast is only what it does to everyone else on the way out. Damage and radius are [`damage-system.md`](damage-system.md#the-sweep--damage_explosiveblastsweep-00426a20)'s third call site.
 
-**What sets it off is any block at all** — a rock, a building, a wingman — not contact with the target, and not this tick's contact either. `mech+0xb1` is the "something ran into me" latch, and this is its one reader in the image. It is written by `SimObject_SetRunInto` (`0042200c`), vtable `+0x68` in all eight `SimObject`-shaped tables with no class overriding it, on whatever object blocked a move and whatever class that object is. Two sweeps call it: `Mech_CollisionTest`, and `GroundVehicle_CollisionTest` inside the ground vehicle tick ([`structure-behaviour.md`](structure-behaviour.md#the-ground vehicle-tick--0046a5d0)), which is not ported — so in the engine a machine can only be marked by another machine's move. **Nothing ever lowers the byte.** A machine bumped once at any earlier point in the mission blows up on its first tick in the state, before it has gone anywhere.
+**What sets it off is any block at all** — a rock, a building, a wingman — not contact with the target, and not this tick's contact either. `mech+0xb1` is the "something ran into me" latch, and this is its one reader in the image. It is written by `SimObject_SetRunInto` (`0042200c`), vtable `+0x68` in all eight `SimObject`-shaped tables with no class overriding it, on whatever object blocked a move and whatever class that object is. Two sweeps call it, and the engine has both: `Mech_CollisionTest`, and `GroundVehicle_CollisionTest` inside the ground vehicle tick ([`structure-behaviour.md`](structure-behaviour.md#the-ground vehicle-tick--0046a5d0)). **Nothing ever lowers the byte.** A machine bumped once at any earlier point in the mission blows up on its first tick in the state, before it has gone anywhere.
 
 That "nothing lowers it" is a negative claim, so here is what it rests on. A whole-program decompile of all 3051 functions grepped for `0xb1` finds this read and that write and no third site on any simulation object — and the decompiler is the right instrument because **both instructions rebase**: each does `ADD reg, 0x92` and then addresses `[reg + 0x1f]`, so a scalar search for the displacement finds neither. The neighbours that a wider write could straddle it from — `+0xae`, `+0xaf`, `+0xb0` — are all byte fields with byte-wide accesses. Neither `Mech_Constructor`'s `memset` nor `Flyer_Constructor`'s covers it (both are in the `0x2xx` range) and `Base_Construct` has none.
 
@@ -297,7 +297,7 @@ Because the move slot runs whether or not the think is charging, the detonation 
 
 ## The circling step — `Ai_CircleStep` (`0041c72c`)
 
-Shared by `flanking` and `attacking base`, and the only thing in the AI that alternates between two manoeuvres on a clock. It reads a hysteresis byte at `mech+0x66` and two timers in the block scratch: `mech+0x60`, the break-off timer, and `mech+0x63`, the interval between break-offs.
+Shared by `flanking` and `attacking base`. It reads a hysteresis byte at `mech+0x66` and two countdowns in the block scratch: `mech+0x60`, the break-off timer, and `mech+0x63`, the interval between break-offs. Each is stepped by `Math_CountdownTimerTick` through the byte below it — `mech+0x5f` and `mech+0x62` — which the timer takes as a handle and never reads.
 
 ```
 if (mech+0x60 still running) {                      // breaking off
@@ -343,15 +343,17 @@ if (|aspect| < threshold) {                         // the target is facing me: 
 | `Mech_AiOnTakingFire` (`0041f7b8`) | `driving off en` |
 | The squad command handler (`00420ad4`) | `patrolling` ×3, `guarding` |
 
-Five states have no installer of their own and can only be reached through `Mech_AiSelectBehaviour`'s order-verb table: `search/destroy`, `travelling`, `following`, `sleeping` and `ramming`. `bulldog travel` is in that table and still unreachable — see [`ai-dispatch.md`](ai-dispatch.md#choosing-a-state--mech_aiselectbehaviour-0041eb34).
+Six states have no installer of their own and can only be reached through `Mech_AiSelectBehaviour`'s order-verb table: `search/destroy`, `travelling`, `following`, `sleeping`, `ramming` and `bulldog travel`, the last of them only for the one chassis whose torso-twist limit clears its gate — see [`ai-dispatch.md`](ai-dispatch.md#choosing-a-state--mech_aiselectbehaviour-0041eb34).
 
 ## Fields this layer owns
 
-The behaviour block's scratch (`mech+0x5a` to `mech+0x81`, zeroed by every `Behaviour_SetState`) is a union: each state lays its own fields over it, and the same bytes mean different things in two states. Only the uses below exist.
+The behaviour block's scratch (`mech+0x5a` to `mech+0x81`, zeroed by every `Behaviour_SetState`) is a union: each state lays its own fields over it, and the same bytes mean different things in two states. Below are this layer's uses. The walking states lay their own fields over the same bytes — `+0x5b` as a 10000 ms countdown in all four travel-shaped thinks, `+0x5f` as a route or leader pointer in two of them — and are [`ai-navigation.md`](ai-navigation.md)'s.
+
+`Timer_CountDown` and `Math_CountdownTimerTick` both take a pointer and step only what follows it, so a countdown here is always named by the byte *below* the field the timer steps: `+0x5a` is the handle for `fleeing`'s and `ramming`'s clocks, `+0x5f` and `+0x62` for the circling step's, `+0x62` for `skirting`'s. A handle byte is never read.
 
 | Offset | State | Meaning |
 |---|---|---|
-| `+0x5a` | every combat state | The approach flag the move step wrote. No reader |
+| `+0x5a` | every combat state | The approach flag the move step wrote. No reader: the only other code to touch the bytes is `skirting`'s stash and the two timers, which take the address and step what follows it |
 | `+0x5a` | `skirting` | The descriptor to go back to |
 | `+0x5b` | `fleeing` | Side-switch countdown, 4000 ms |
 | `+0x5b` | `ramming` | Retarget countdown, 10000 ms |
@@ -405,11 +407,11 @@ Fields outside the block:
 What differs from the original, and why:
 
 - **The block scratch is named fields, not a union.** Two states never run at once, so the aliasing carries no behaviour — except `fleeing`'s clock, which the approach flag really does rewrite in the original and which is reproduced by rounding the reload the same way.
-- **`flanking` is ported and unreachable**, exactly as in retail: the type field its gate reads is zero on every chassis. It is here because `attacking base` shares the circling step, and because a modded chassis could open the gate.
+- **`flanking`'s gate is `MechTypeRecord.FlankingGate`**, which returns the chassis' forward speed rather than the record word at `+0xc8`, because forward speed is what `MechType_InitOne` copies over that word at load. Reading the file field instead makes the state unreachable, which is the trap the retail data sets.
 - **`attacking flyer` has nothing to fly against.** `FlyerObject` answers `TargetClass.Flyer` and the acquisition can pick one, but no retail mission places an AI flyer to fight — see [`razor-flight.md`](razor-flight.md).
 - **The skirt stash is a `Vec3i` and the state to return to is a `BehaviourState`**, rather than a raw descriptor pointer in the scratch.
 - **`Math_OffsetPointByBearing`'s distance is an `int`.** `skirting` passes a range that does not fit the `short` the earlier port used.
 - **The Turbo Pod engage `fleeing` makes is left out.** The pod's speed bonus is not modelled at all — see [`mech-locomotion.md`](mech-locomotion.md) — so there is nothing for the call to reach.
 - **Every state change goes through one helper that clears the scratch**, because the original's zeroing of the block is what makes a freshly installed state start from nothing, and named C# fields do not get that for free.
 
-Observed running mission 1: a machine on an `attacking base` order cycles `attacking base` → `skirting` → `attacking base` as its shots stop on the compound's other buildings, and can orbit the ring for a minute at a time when the building it is on has others all the way round it. That is the mechanism working as written rather than a divergence — nothing in `skirting` bounds it, since its dwell flag keeps the reassess from ever running.
+Observed running mission 1: a machine on an `attacking base` order cycles `attacking base` → `skirting` → `attacking base` as its shots stop on the compound's other buildings, and can orbit the ring for a minute at a time when the building it is on has others all the way round it. That is the mechanism working as written rather than a divergence: `skirting` bounds itself only by the clear line-of-sight reading, and its dwell flag stops the countdown that would otherwise let the reassess pick something else, so nothing short of the group's next order or the machine's death cuts the cycle.

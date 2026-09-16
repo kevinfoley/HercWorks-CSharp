@@ -223,7 +223,7 @@ public readonly record struct BaseType(
 /// block-9 type number into a model, a texture bank and a set of destructible parts. 65 entries in
 /// the retail file.
 ///
-/// <para>Read from <c>Bases_LoadTypeTable</c> (<c>0043a2e0</c>, <c>base.cpp</c>'s resource-load
+/// <para>Read from <c>Base_LoadResources</c> (<c>00405fac</c>, <c>base.cpp</c>'s resource-load
 /// sequence), which streams a count and then fixed-shape records with one nested variable-length
 /// array each, and from <c>BaseType_LoadShape</c> (<c>00405ebc</c>), which is the whole of the model
 /// selection:</para>
@@ -238,7 +238,7 @@ public readonly record struct BaseType(
 /// borrows RAZOR's mech texture bank rather than either structure bank.</para>
 ///
 /// <para><b>The file's field order is the runtime record's field order.</b>
-/// <c>Bases_LoadTypeTable</c> reads straight into a 60-byte struct offset by offset, and the only
+/// <c>Base_LoadResources</c> reads straight into a 60-byte struct offset by offset, and the only
 /// place the two diverge is the nested component array, inline on disk and a pointer at
 /// <c>+0x14</c> in memory. So every offset named in this file's doc comments is both.</para>
 ///

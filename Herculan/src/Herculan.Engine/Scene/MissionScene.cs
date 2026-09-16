@@ -594,21 +594,28 @@ public sealed class MissionScene {
 	}
 
 	/// <summary>
-	/// Where one node of an animating machine's shape stands, in render space: the node's own posed
-	/// transform followed by the machine's shape-to-world one. A caller draws each
-	/// <see cref="MeshSegment"/> with the matrix for its own transform id, which is what makes the
-	/// legs move.
+	/// Where one node of an animating object's shape stands, in render space: the node's own posed
+	/// transform followed by the object's shape-to-world one. A caller draws each
+	/// <see cref="MeshSegment"/> with the matrix for its own transform id, which is what makes a
+	/// machine's legs move and a radar mast's dish turn.
+	///
+	/// <para>This is <c>Shape_DrawAtDetailLevel</c> (<c>004033e4</c>) and
+	/// <c>TSGroup_BindNodeTransform</c> (<c>00476014</c>) between them, and it is the same pair for
+	/// every class: the draw slot installs the object's model transform and hands the whole shape to
+	/// the shape instance's own render, which composes each group's node transform in front of it.
+	/// The structure classes install that draw unchanged — the machine is the one that overrides it,
+	/// to splice its hardpoints first.</para>
 	///
 	/// <para>One thing differs from <see cref="TransformOf"/>, and it is the simulation being let
-	/// through rather than approximated: the machine's own transform is
-	/// <see cref="MechObject.WorldTransform"/>, so its lean over sloping ground comes with it, where
-	/// the rigid path has only a heading rotation.</para>
+	/// through rather than approximated: the object's own transform is
+	/// <see cref="SimObject.WorldFrame"/>, so a machine's lean over sloping ground comes with it,
+	/// where the rigid path has only a heading rotation.</para>
 	/// </summary>
-	public static Matrix4x4 PosedTransformOf(MechObject mech, int transformId) {
-		var world = WorldScale.ToRenderMatrix(mech.WorldTransform);
+	public static Matrix4x4 PosedTransformOf(SimObject subject, int transformId) {
+		var world = WorldScale.ToRenderMatrix(subject.WorldFrame);
 		return transformId < 0
 			? world
-			: WorldScale.ToRenderMatrix(mech.NodeTransform(transformId)) * world;
+			: WorldScale.ToRenderMatrix(subject.NodeTransform(transformId)) * world;
 	}
 
 	/// <summary>
@@ -785,13 +792,12 @@ public sealed class MissionScene {
 			: MissionUnitKind.Mech;
 
 	public static Matrix4x4 TransformOf(SceneObject sceneObject) =>
-		// An aircraft banks and pitches, so the heading-only form would draw a Cybrid flyer flat
-		// through every turn it makes. Its own frame is let through instead, the way
-		// PosedTransformOf lets a machine's lean through.
-		sceneObject.Object is FlyerObject aircraft
-			? WorldScale.ToRenderMatrix(aircraft.WorldTransform)
-			: Matrix4x4.CreateRotationY(BinaryAngle.ToRadians(sceneObject.Object.Heading))
-				* Matrix4x4.CreateTranslation(WorldScale.ToRender(sceneObject.Object.Position));
+		// The object's whole attitude, not its heading alone: SimObject_InstallModelTransform
+		// (00401fe4) builds the model transform every draw installs out of the object's euler
+		// TRIPLE at obj+0xc, for a structure the same as for a machine. A heading-only rotation
+		// draws a Cybrid flyer flat through every turn it makes, and a ground vehicle level over
+		// every hill it drives up.
+		WorldScale.ToRenderMatrix(sceneObject.Object.WorldFrame);
 
 	/// <summary>
 	/// Builds and positions the simulation object for one placement. Returns null when the placement

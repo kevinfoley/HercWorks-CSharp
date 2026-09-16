@@ -14,7 +14,7 @@ comments in Ghidra before re-deriving anything.
 
 ## What is left
 
-One of the five classes, and one render gap.
+One of the five classes.
 
 ### 1. The triple turret — `Base_ArmedThinkTick`'s sibling at `004045c8`
 
@@ -33,27 +33,14 @@ see. The boundary of what a tower's AI is and is not is in
 [the topic doc](../simulation/structure-behaviour.md#what-the-turrets-ai-is-and-is-not); check there
 before adding to it.
 
-### 2. Nothing draws a structure's animation
-
-The simulation poses the nodes and the shots leave the right muzzle point, but a tower's turret does
-not visibly turn and a radar mast's dish does not sweep. `Herculan.Engine.Host` draws per-node
-segments only for a `MechObject` (`animatedKeys`, and `MissionScene.PosedTransformOf`, which takes a
-`MechObject`), and `SceneModelLibrary.Base` builds a structure model `celled` rather than `segmented`
-because a structure needs its cells for damage states. A shape has to be split **both** ways at once
-before this can work; the sim side is ready for it and `PosedTransformOf` only needs widening to
-`SimObject`, which now carries `Shape` and `NodeTransform`.
-
-A mobile ground vehicle now leans with the ground it drives over, which the renderer does follow — its
-frame is `WorldFrame` like every other object's — so that half needs nothing.
-
-### 3. `MissionLoader` cannot read a `.MSN`
+### 2. `MissionLoader` cannot read a `.MSN`
 
 Not structure work, but it is what stops the ground vehicle's follower arm being exercised at all: the
 only mission the engine can load is the `script.dat` handoff, whose single ground vehicle is parked by
 the class gate. Every `.MSN` in `ZONES.VOL` throws out of the loader. Until that is fixed, a convoy
 can only be built by hand.
 
-### 4. Timer constants are mislabelled "milliseconds" outside this subsystem
+### 3. Timer constants are mislabelled "milliseconds" outside this subsystem
 
 `Math_CountdownTimerTick` and `Timer_CountDown` subtract `SimTickDelta`, which is Q8 with 1.0 = 125 ms — so one count is about 0.49 ms and a reload of 10000 is about 4.9 seconds, not ten. `SimMath` and the structure docs now say so, and `BeamTracer` and `BulletCatalog` already did, but several files still call these counters milliseconds and so overstate every interval by about two:
 
@@ -66,6 +53,13 @@ The *code* is right everywhere (it subtracts `TickDelta`); only the prose is wro
 
 ## Method notes that cost time here
 
+- **"The renderer follows it" is a claim about the renderer, not about the simulation.** A
+  ground vehicle's frame carries the pitch and roll its terrain conform writes, and its position
+  moves every tick — and none of that reached the screen, because `MissionScene.TransformOf` built
+  a heading-only rotation for everything that was not a flyer and the host refreshed that transform
+  only for a flyer or a machine. Reading the sim side and stopping there says nothing about what is
+  drawn; the two lists the host keeps (`movers`, `posedParts`) are the whole of the answer and are
+  quick to check.
 - **Do not invent a term that fights its ordinary English meaning.** This family was called
   "emplacement" for months; an emplacement is a fixed position, and these are the one structure
   class that drives around, so every sentence about them read as a contradiction. They are

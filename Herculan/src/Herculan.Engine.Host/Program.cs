@@ -937,9 +937,11 @@ var movers = new List<(SceneObject Object, SceneItem Item)>();
 // for the hulk the moment its last part collapses, and one that leaves nothing drops out of the
 // world. Neither moves otherwise, so they are not in `movers`.
 //
-// A structure is drawn one cell at a time (see `gatedParts`), so the swap covers a set of items and
-// puts a wreck item of its own in their place rather than overwriting one item's mesh.
-var wreckable = new List<(SceneObject Object, BaseObject Structure, SceneItem[] Items, SceneItem? Hulk)>();
+// A structure is drawn a piece at a time -- one per cell, or one per node and cell for a type that
+// animates -- so the swap covers a set of items and puts a wreck item of its own in their place
+// rather than overwriting one item's mesh.
+var wreckable = new List<(SceneObject Object, BaseObject Structure, SceneItem[] Items,
+	SceneItem? Hulk, bool Posed)>();
 
 // Every drawn piece that stands on one cell of one animation sequence, and so is on screen only
 // while its object's ShapeCellFrames says that cell is showing. This is how a machine's destroyed
@@ -965,13 +967,16 @@ var dropPodItems = new List<SceneItem>();
 // churn from tick to tick, so the list is rebuilt each frame rather than kept — see SpriteRenderer.
 var spriteBatches = new List<SpriteBatch>();
 
-// A machine whose shape animates is drawn a node at a time, so each entry here is one geometry
-// segment riding one transform of one mech — see MissionScene.PosedTransformOf.
-var posedParts = new List<(MechObject Mech, int TransformId, SceneItem Item)>();
+// An object whose shape animates is drawn a node at a time, so each entry here is one geometry
+// segment riding one transform of one object — see MissionScene.PosedTransformOf. A machine and an
+// animated structure are both drawn this way: a radar mast's dish and an armed tower's turret are
+// nodes an animation thread moves, exactly as a leg is.
+var posedParts = new List<(SimObject Subject, int TransformId, SceneItem Item)>();
 var segmentMeshes = new Dictionary<string, GpuMesh[]>();
 
-// And the same for a shape split by cell rather than by node -- a structure or a flyer, which loses
-// parts to damage but has no posed nodes. One upload per distinct model, as with the other two.
+// And the same for a shape split by cell rather than by node -- a flyer, or a structure of one of the
+// 57 types that carry no animation, which loses parts to damage but has no posed nodes. One upload
+// per distinct model, as with the other two.
 var cellMeshes = new Dictionary<string, GpuMesh[]>();
 IKeyboard? keyboard = null;
 IMouse? mouse = null;
@@ -1045,11 +1050,15 @@ window.Load += (gl, input) => {
 	}
 
 	// Which models are actually going to be drawn a node at a time: one whose segments exist *and*
-	// whose object has an animation thread to pose them with. A machine whose shape carries no
-	// ANAnimList has neither, and has to keep the flat mesh, which has the rest pose baked in — its
+	// whose object has an animation thread to pose them with. A shape that carries no ANAnimList has
+	// neither, and has to keep the flat mesh or its cells, which have the rest pose baked in — its
 	// segments alone would put every part at the shape's origin.
+	//
+	// The question is asked of the object rather than of its class: the eight animated-library
+	// structure types get a shape instance and threads out of Base_Construct's tail the same way a
+	// machine does (see BaseObject's constructor), and every other structure type gets neither.
 	var animatedKeys = scene.Objects
-		.Where(o => o.Object is MechObject { Thread: not null } && o.Model is { } m && m.Segments.Length > 0)
+		.Where(o => o.Object.Shape is { Threads.Count: > 0 } && o.Model is { } m && m.Segments.Length > 0)
 		.Select(o => o.Model!.Key)
 		.ToHashSet(StringComparer.OrdinalIgnoreCase);
 
@@ -1100,21 +1109,36 @@ window.Load += (gl, input) => {
 		uint? texture = modelTextures.TryGetValue(model.Key, out var bound) ? bound.Handle : null;
 		bool isPlayer = ReferenceEquals(sceneObject, scene.PlayerObject);
 
-		if (sceneObject.Object is MechObject mech && segmentMeshes.TryGetValue(model.Key, out var segments)) {
+		if (segmentMeshes.TryGetValue(model.Key, out var segments)) {
+			var subject = sceneObject.Object;
+			var segmentItems = new SceneItem[segments.Length];
+
 			for (int i = 0; i < segments.Length; i++) {
 				var segment = model.Segments[i];
 				var part = new SceneItem(segments[i],
-					MissionScene.PosedTransformOf(mech, segment.TransformId), texture) { LightSubject = mech };
+					MissionScene.PosedTransformOf(subject, segment.TransformId), texture) {
+					LightSubject = subject
+				};
 
+				segmentItems[i] = part;
 				built.Add(part);
-				posedParts.Add((mech, segment.TransformId, part));
+				posedParts.Add((subject, segment.TransformId, part));
 				if (segment.Gate.IsGated) {
-					gatedParts.Add((mech, segment.Gate, part));
+					gatedParts.Add((subject, segment.Gate, part));
 				}
 
 				if (isPlayer) {
 					playerItems.Add(part);
 				}
+			}
+
+			// Nothing here goes in `movers`: the posed refresh carries the object's own frame in
+			// front of each node's, so a segmented object that moves is followed by that alone.
+			//
+			// An animated structure still leaves a wreck like any other, and every one of the eight
+			// types that reach here does have a hulk.
+			if (subject is BaseObject segmentedStructure) {
+				RegisterWreckable(sceneObject, segmentedStructure, segmentItems, posed: true);
 			}
 
 			continue;
@@ -1138,8 +1162,10 @@ window.Load += (gl, input) => {
 				}
 
 				// A flyer flies, and every cell of it rides the one object transform, so all of them
-				// need refreshing each frame. Structures, the other class drawn this way, never move.
-				if (sceneObject.Object is FlyerObject) {
+				// need refreshing each frame. So does a ground vehicle, the one structure class that
+				// drives; every other structure stands still and keeps the transform built here.
+				if (sceneObject.Object is FlyerObject
+						or BaseObject { Class: BaseObject.StructureClass.GroundVehicle }) {
 					movers.Add((sceneObject, part));
 				}
 
@@ -1183,7 +1209,8 @@ window.Load += (gl, input) => {
 	// second, hidden item carrying the hulk, so the swap is a visibility flip rather than a mesh
 	// rebuild at the moment the last part falls; a one-part type that leaves nothing sinks instead
 	// and needs only its transform refreshed. A type with neither does neither, and is not listed.
-	void RegisterWreckable(SceneObject sceneObject, BaseObject structure, SceneItem[] structureItems) {
+	void RegisterWreckable(SceneObject sceneObject, BaseObject structure, SceneItem[] structureItems,
+			bool posed = false) {
 		if (structure.Type.HulkTypeIndex < 0 && structure.Type.Components.Length > 1) {
 			return;
 		}
@@ -1201,7 +1228,7 @@ window.Load += (gl, input) => {
 			built.Add(hulkItem);
 		}
 
-		wreckable.Add((sceneObject, structure, structureItems, hulkItem));
+		wreckable.Add((sceneObject, structure, structureItems, hulkItem, posed));
 	}
 
 	// A unit whose group is still waiting on its arrival action is not in the mission, and
@@ -1849,8 +1876,8 @@ window.Update += deltaSeconds => {
 	// Reading more often than the simulation ticks costs nothing and gains nothing: the thread's
 	// intra-frame fraction only moves in Advance, so consecutive reads between ticks return the same
 	// pose. That is the original's cadence too — see mech-locomotion.md's "Evaluation cadence".
-	foreach (var (mech, transformId, item) in posedParts) {
-		item.Transform = MissionScene.PosedTransformOf(mech, transformId);
+	foreach (var (subject, transformId, item) in posedParts) {
+		item.Transform = MissionScene.PosedTransformOf(subject, transformId);
 	}
 
 	// The arrival gate, run before the sequence gate below so that a part which is both waiting and
@@ -2871,11 +2898,16 @@ IEnumerable<SceneItem> VisibleItems() =>
 // This runs after the per-frame cell-gate pass, and overrides it: once the whole building is a wreck,
 // which of its parts were still standing stops meaning anything.
 void RefreshWreckItems() {
-	foreach (var (sceneObject, structure, structureItems, hulkItem) in wreckable) {
+	foreach (var (sceneObject, structure, structureItems, hulkItem, posed) in wreckable) {
 		if (structure.Sunk) {
-			var sunk = MissionScene.TransformOf(sceneObject);
-			foreach (var item in structureItems) {
-				item.Transform = sunk;
+			// A posed structure's items are in node space and the posed refresh above has already
+			// put the sunk position on every one of them; writing the object transform over them
+			// would stack each node's geometry at the shape's origin.
+			if (!posed) {
+				var sunk = MissionScene.TransformOf(sceneObject);
+				foreach (var item in structureItems) {
+					item.Transform = sunk;
+				}
 			}
 
 			continue;

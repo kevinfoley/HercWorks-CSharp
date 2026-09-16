@@ -435,11 +435,20 @@ public sealed class SceneModelLibrary {
 	///
 	/// <para>Split by cell, so that a collapsing part can be redrawn as its rubble — see
 	/// <see cref="DtsMeshBuilder.BuildCells"/> and <see cref="Sim.BaseObject.CellFrames"/>.</para>
+	///
+	/// <para>An <see cref="BaseShapeSource.AnimatedLibrary"/> type is split <b>by node as well</b>,
+	/// because its shape moves: a radar mast's dish free-runs and an armed tower's turret is seeked
+	/// to its aim. Those are the eight types <see cref="BaseType.AnimThreadCount"/> is non-zero for,
+	/// and they are exactly the roots of <c>BASES_AN.DTS</c>. A <see cref="MeshSegment"/> carries a
+	/// <see cref="CellGate"/> of its own, so the segments are the two splits at once and a caller
+	/// drawing them needs the cells for nothing — but both are built, because which one is drawn is
+	/// the <i>object</i>'s question (a shape instance with no thread on it has nothing to pose the
+	/// nodes with) and the model is shared by every object of the type.</para>
 	/// </summary>
 	public SceneModel? Base(BaseType type) =>
 		type.Source == BaseShapeSource.AnimatedLibrary
 			? Build(BaseTypeTable.AnimatedLibraryName, type.ShapeIndex, type.TextureBankName,
-				transparentBank: true, celled: true)
+				segmented: true, transparentBank: true, celled: true)
 			: BuildFromShapeLibrary(BaseTypeTable.StaticLibraryName, type.ShapeIndex, type.TextureBankName,
 				transparentBank: true, celled: true);
 

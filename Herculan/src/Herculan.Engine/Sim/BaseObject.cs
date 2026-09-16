@@ -273,9 +273,11 @@ public sealed partial class BaseObject : SimObject {
 	public override bool Invulnerable => Type.Invulnerable;
 
 	/// <summary>
-	/// The structure's shape-to-world transform. A structure has no lean and no torso: its heading
-	/// is the whole of its orientation, so this is a Z rotation with its world position in the
-	/// translation.
+	/// The structure's shape-to-world transform — the euler triple with its world position in the
+	/// translation, which is what every draw installs (<c>SimObject_InstallModelTransform</c>,
+	/// <c>00401fe4</c>). A standing structure has no lean, so for all but one class this is a Z
+	/// rotation; a <see cref="StructureClass.GroundVehicle"/> carries the pitch and roll its terrain
+	/// conform writes.
 	/// </summary>
 	public Transform3 WorldTransform => WorldFrame;
 
@@ -670,8 +672,9 @@ public sealed partial class BaseObject : SimObject {
 
 		// Only the two classes that install Base_ThinkTick free-run the flipbook. The armed and
 		// triple-turret classes step the same cell array from their own ticks, once per shot, as a
-		// muzzle flash -- free-running it for them would leave their guns permanently flashing. Both
-		// of those ticks, and the ground vehicle's, are unported; see docs/simulation/structure-behaviour.md.
+		// muzzle flash -- free-running it for them would leave their guns permanently flashing. The
+		// triple turret's tick is the one of the five still unported; see
+		// docs/simulation/structure-behaviour.md.
 		if (Class is not (StructureClass.Plain or StructureClass.Radar)
 				|| Destroyed || Type.AnimCellSequence < 0) {
 			return;
@@ -715,10 +718,11 @@ public sealed partial class BaseObject : SimObject {
 	/// flag, so the delta read back is always identity. It is applied anyway because the original
 	/// applies it, and because a hand-authored shape could carry one.</para>
 	///
-	/// <para>Only the translation and the heading are taken. The original adds the delta's whole euler
-	/// triple to the shared pitch/roll/heading fields, and a structure in this engine has no pitch or
-	/// roll to add to — which costs nothing while the delta stays identity, and is where the mobile
-	/// ground vehicle will have to start when it lands (it needs them for the terrain conform anyway).</para>
+	/// <para>Only the translation and the heading are taken, where the original adds the delta's whole
+	/// euler triple to the shared pitch/roll/heading fields. That costs nothing while the delta stays
+	/// identity, which on retail data it always does — and the one class that has a pitch and a roll
+	/// to add to, the ground vehicle, writes both from its terrain conform on a tick that never
+	/// reaches here.</para>
 	/// </summary>
 	private void StepAnimation() {
 		if (Shape is not { } shape) {

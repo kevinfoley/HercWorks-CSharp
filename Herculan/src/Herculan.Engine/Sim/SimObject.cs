@@ -578,8 +578,9 @@ public abstract class SimObject {
 
 	/// <summary>
 	/// <c>Math_GroundDistanceBetweenPoints</c> (<c>004927c4</c>) — the range every navigation
-	/// decision in the simulation is made on. Z is dropped before the magnitude is taken, so a
-	/// waypoint on a hilltop is as near as one at its foot.
+	/// <i>steer</i> is computed from. Z is dropped before the magnitude is taken, so a waypoint on a
+	/// hilltop is as near as one at its foot. A couple of ranges that only gate a decision use
+	/// <see cref="Vec3i.ApproxDistanceTo"/> instead; docs/simulation/ai-navigation.md names them.
 	/// </summary>
 	protected int GroundDistanceTo(Vec3i point) =>
 		SimMath.FastMagnitude2D(Position.X - point.X, Position.Y - point.Y);

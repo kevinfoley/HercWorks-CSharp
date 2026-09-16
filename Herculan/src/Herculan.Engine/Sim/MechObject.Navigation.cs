@@ -55,11 +55,13 @@ public partial class MechObject {
 	/// <para>Two things it fixes for everything downstream. <b>Steering is the bearing error divided
 	/// by 64</b>, against a turn axis the control law clamps at <see cref="MechControls.AxisFull"/> —
 	/// so the stick is hard over past a quarter turn of error and proportional inside it. And
-	/// <b>range is measured on the ground plane</b>, never in three dimensions, so a waypoint on a
-	/// hilltop is as near as one at its foot.</para>
+	/// <b>range is measured on the ground plane</b>, so a waypoint on a hilltop is as near as one at
+	/// its foot.</para>
 	///
-	/// <para>The Turbo Pod sprint past 30000 units is gated on a standing squad order, so only a
-	/// machine the player has sent somewhere ever uses one.</para>
+	/// <para>The original's Turbo Pod sprint past 30000 units is gated on a standing squad order, so
+	/// nothing on mission orders sprints to a waypoint. The pod's speed bonus is not modelled at all
+	/// — see <see cref="FleeThink"/> and docs/simulation/mech-locomotion.md — so neither call site
+	/// is transcribed.</para>
 	/// </summary>
 	private bool DriveToPoint(SimWorld world, Vec3i point) {
 		short bearing = Detection.HeadingToward(point, Position);
@@ -71,8 +73,9 @@ public partial class MechObject {
 	}
 
 	/// <summary>
-	/// <c>Ai_FollowRoute</c> (<c>0041fb60</c>) — walk the group's route. The AI's only way of
-	/// advancing its cursor; <see cref="PlayerThink"/> is the other one.
+	/// <c>Ai_FollowRoute</c> (<c>0041fb60</c>) — walk the group's route. One of four places that
+	/// advance a group's cursor, alongside <see cref="PlayerThink"/> and the flyer and ground-vehicle
+	/// route steps; all four step the cursor of the group they belong to.
 	///
 	/// <para>It always drives at the waypoint <i>after</i> the cursor, so the cursor names the last
 	/// one reached and a fresh group walks at waypoint 1. A route that has run out leaves the machine
@@ -123,7 +126,7 @@ public partial class MechObject {
 		bool leaderMoving = (ushort)(leader.Speed + 0x19) > 0x31;
 		short bearing = Detection.HeadingToward(post, Position);
 
-		if (distance >= FormationTrailRange || !leaderMoving) {
+		if (distance > FormationTrailRange || !leaderMoving) {
 			short closing = distance < FormationTrailRange
 				? (short)(distance >> 7)
 				: MechControls.AxisFull;
@@ -188,10 +191,10 @@ public partial class MechObject {
 	/// other two sources, so terrain and machines are steered around at unchanged throttle.</para>
 	///
 	/// <para>Two of the original's three obstruction sources are here. The two body-space probes test
-	/// terrain but not shapes — <c>Sim_RaycastShapes</c> (<c>00404ca0</c>) collects only structures
-	/// and <i>destroyed</i> machines, and the engine has no swept-shape cast against a wreck, so a
-	/// wreck is left to the collision test and a structure is picked up by the proximity sweep
-	/// instead, which is the same answer at a coarser resolution.</para>
+	/// terrain but not shapes — <c>Sim_RaycastShapes</c> (<c>00404ca0</c>) collects static structures
+	/// and <i>wrecked</i> animated ones, the exact set whose <see cref="SimObject.CollisionRadius"/>
+	/// is zero, and the engine has no swept-shape cast, so a wreck is left to the collision test and
+	/// a structure is picked up by the proximity sweep instead at a coarser resolution.</para>
 	///
 	/// <para>The terrain half goes through <see cref="Terrain.HeightGrid.RayWalkVolume"/>, the
 	/// original's own mode 1, and it has to: the probes lie flat on the ground, so the thin-ray query
@@ -226,7 +229,8 @@ public partial class MechObject {
 				continue;
 			}
 
-			int range = SimMath.Q10Multiply(ObjectRangeGain, GroundDistanceTo(other.Position));
+			// The one range in this layer the original takes in three dimensions.
+			int range = SimMath.Q10Multiply(ObjectRangeGain, Position.ApproxDistanceTo(other.Position));
 			if (range >= nearLeft && range >= nearRight) {
 				continue;
 			}
@@ -729,7 +733,10 @@ public partial class MechObject {
 	/// <summary>Heading error against the leader past which a member backs out rather than turning through.</summary>
 	private const short FormationBreakoutError = 0x2000;
 
-	/// <summary>Ground range at which <c>following</c> stops short of what it is following.</summary>
+	/// <summary>
+	/// Range at which <c>following</c> stops short of what it is following. Three-dimensional, unlike
+	/// every range a steer is computed from — see docs/simulation/ai-navigation.md.
+	/// </summary>
 	private const int FollowStandoffRange = 25000;
 
 	/// <summary>Ground range past which a guard walks back to its post.</summary>

@@ -9465,7 +9465,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Base_GetCollisionRadius",
-      "description": "Structure vtable +0x7c: the radius at which this structure blocks a walking machine, read only by Mech_CollisionTest and only of the other object. Returns BASES.DAT +0x2a only for an ANIMATED type (typeRec+0x06 nonzero) that is not a wreck-with-hulk; 0 otherwise, and 0 means walk through me. The static types it returns 0 for are the ones FUN_00404ae4's collision-volume sweep covers instead, so the two sets are exact complements.",
+      "description": "Structure vtable +0x7c: the radius at which this structure blocks a walking machine, read by Mech_CollisionTest of the object being walked into, and by Mech_AiObstacleAvoidance through the same vtable slot to decide whether a candidate is worth sweeping. Returns BASES.DAT +0x2a only for an ANIMATED type (typeRec+0x06 nonzero) that is not a wreck-with-hulk; 0 otherwise, and 0 means walk through me. The static types it returns 0 for are the ones FUN_00404ae4's collision-volume sweep covers instead, so the two sets are exact complements.",
       "source": "docs/simulation/hit-detection.md",
       "signature": "short __cdecl Base_GetCollisionRadius(int *this)"
     },
@@ -9515,7 +9515,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_GetCollisionRadius",
-      "description": "Mech vtable +0x7c: a byte-identical copy of Mech_GetBodyRadius (00415518), returning the same typeRec+0x70. Read only by Mech_CollisionTest, and only of the object being walked into.",
+      "description": "Mech vtable +0x7c: a byte-identical copy of Mech_GetBodyRadius (00415518), returning the same typeRec+0x70 -- 750 on all 21 retail chassis, so it is never zero for a machine. Read by Mech_CollisionTest of the object being walked into, and by Mech_AiObstacleAvoidance through the same vtable slot.",
       "source": "docs/simulation/hit-detection.md",
       "signature": "short __cdecl Mech_GetCollisionRadius(int this)"
     },
@@ -10174,7 +10174,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Ai_DriveToPoint",
-      "description": "The AI's one steering primitive: Mech_LocomotionTick(mech, (Math_HeadingToward(point, mech) - mech.heading) >> 6, speed, 0) with speed = mech+0x252 or 0xaa when that is zero, and a Turbo Pod sprint at 0x100 past 30000 units that only a standing squad order can reach. Returns whether the GROUND-PLANE range is under 10000 -- arrival, and the only thing that advances a route cursor.",
+      "description": "The AI's one steering primitive: Mech_LocomotionTick(mech, (Math_HeadingToward(point, mech) - mech.heading) >> 6, speed, 0) with speed = mech+0x252 or 0xaa when that is zero, and a Turbo Pod sprint at 0x100 past 30000 units that only a standing squad order can reach. Returns whether the GROUND-PLANE range is under 10000 -- arrival, which is what Ai_FollowRoute steps the route cursor on.",
       "source": "docs/simulation/ai-navigation.md"
     },
     {
@@ -10183,7 +10183,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Ai_FollowRoute",
-      "description": "Drives at the waypoint AFTER the group's route cursor, advancing the cursor through Route_AdvanceCursor when Ai_DriveToPoint reports arrival, and standing still with the throttle at zero when the route has run out. The sole writer of group+0x04 outside DBSim_BuildGroupRecord.",
+      "description": "Drives at the waypoint AFTER the group's route cursor, advancing the cursor through Route_AdvanceCursor when Ai_DriveToPoint reports arrival, and standing still with the throttle at zero when the route has run out. One of four callers of Route_AdvanceCursor, with Mech_BehaviourPlayerThink, Flyer_LeadRouteStep and GroundVehicle_LeaderSteer; all four step the group+0x04 of the group they belong to.",
       "source": "docs/simulation/ai-navigation.md"
     },
     {
@@ -10246,7 +10246,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_BehaviourFollowThink",
-      "description": "Behaviour state 10, following. Mech_BehaviourTravelThink with the route replaced by Group_OrderTargetObject's position and a 25000-unit stop. Touches no route cursor, while verb 6's completion test is a route test -- so a following order can only complete on a group whose route was empty to begin with.",
+      "description": "Behaviour state 10, following. Mech_BehaviourTravelThink with the route replaced by Group_OrderTargetObject's position and a 25000-unit stop, that stop being a 3D Math_DistanceBetweenPoints range rather than the ground one every steer uses. Touches no route cursor, while verb 6's completion test is a route test -- so a following order can only complete on a group whose route was empty to begin with.",
       "source": "docs/simulation/ai-navigation.md"
     },
     {
@@ -10291,7 +10291,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Sim_RaycastShapeList",
-      "description": "Collects the objects Sim_RaycastShapes will test, then calls Sim_RaycastShapeVolume over them. The filter is the point: an object with no forward speed (a structure) always counts, and a machine counts ONLY when it is destroyed -- so the probe sees wrecks and buildings, never a live Herc.",
+      "description": "Collects the objects Sim_RaycastShapes will test, then calls Sim_RaycastShapeVolume over them. The filter is the point, and it is Base_GetCollisionRadius's test read the other way round: typeRec+0x06 zero -- a STATIC structure -- always counts, and anything animated (an animated structure, or a machine) counts ONLY once it is a wreck. So this probe sees exactly the set whose collision radius is zero, and the proximity sweep sees the rest.",
       "source": "docs/simulation/ai-navigation.md"
     },
     {

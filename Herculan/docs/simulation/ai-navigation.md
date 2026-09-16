@@ -9,7 +9,7 @@ How an AI machine gets from where it is to where its order wants it. The order l
 | Address | Name | What it does |
 |---|---|---|
 | `0041fac4` | `Ai_DriveToPoint` | Walk at a fixed point. Returns "arrived" |
-| `0041fb60` | `Ai_FollowRoute` | Walk the group's route, one waypoint at a time. The only AI-machine path that advances the cursor |
+| `0041fb60` | `Ai_FollowRoute` | Walk the group's route, one waypoint at a time, advancing the cursor |
 | `0041fbb8` | `Ai_KeepFormation` | Hold a formation slot on the group leader |
 | `0041d598` | `Ai_NavigationStep` | Picks between the three, then updates the turret and the radar mode |
 
@@ -41,11 +41,11 @@ return dist < 10000
 Four things it fixes for everything downstream:
 
 - **Steering is the bearing error divided by 64.** `Mech_LocomotionTick` clamps its turn axis at `±0x100`, so the stick is hard over at any error past 16384 BAM — a quarter turn — and proportional inside that. Every AI steering decision in the game is this expression.
-- **Range is measured on the ground plane**, never in three dimensions. `Math_GroundDistanceBetweenPoints` (`004927c4`) subtracts and takes a 2D magnitude, so a waypoint on a hilltop is as near as one at its foot. `Math_DistanceBetweenPoints` (`00492780`), the 3D form, is used for target ranges but not for navigation.
+- **Range is measured on the ground plane.** `Math_GroundDistanceBetweenPoints` (`004927c4`) subtracts and takes a 2D magnitude, so a waypoint on a hilltop is as near as one at its foot. Every range a *steering* decision is made on is this one; the 3D form, `Math_DistanceBetweenPoints` (`00492780`), reaches the navigation layer in exactly two places — the avoidance's machine sweep and `following`'s standoff, both below.
 - **The cruise speed is per machine**, out of the mission file: `mech+0x252`, set at spawn from block 7's `+0x02` and zero in 91% of retail records. Zero means `0xaa`, about two thirds of the `0x100` that saturates a chassis' maximum.
 - **Arrival is 10000 units** — 60 metres, and again on the ground plane.
 
-The Turbo Pod sprint only fires under a standing squad order, so an AI machine on mission orders never uses one however far it has to walk.
+`Ai_DriveToPoint`'s Turbo Pod sprint fires only under a standing squad order, so nothing a machine does on mission orders sprints it to a waypoint however far it has to walk. It is not the pod's only user: `Mech_BehaviourFleeThink` (`0041d3a4`) engages it with no gate at all, which is the one place in the AI a pod fires on mission orders. Both call sites reach `mech+0x317` and there is no third; the pod's own speed bonus belongs to [`mech-locomotion.md`](mech-locomotion.md).
 
 ### Follow the route — `Ai_FollowRoute` (`0041fb60`)
 
@@ -55,9 +55,18 @@ if (next == null)                      Mech_LocomotionTick(mech, 0, 0, 0)     //
 else if (Ai_DriveToPoint(mech, next))  Route_AdvanceCursor(group.routeCursor)
 ```
 
-The whole route mechanism for a walking AI machine. It always drives at the waypoint **after** the cursor, so the cursor names the last one reached and a fresh group walks at waypoint 1, not waypoint 0. It is not the only caller of `Route_AdvanceCursor` — the player's own think steps the same cursor on the same 10000-unit test, and announces it: [`player-waypoints.md`](player-waypoints.md).
+The whole route mechanism for a walking AI machine. It always drives at the waypoint **after** the cursor, so the cursor names the last one reached and a fresh group walks at waypoint 1, not waypoint 0.
 
-A route that runs out leaves the machine standing on the spot with its throttle at zero — and, through `Group_IsOrderComplete`, ends the order. `Route_AdvanceCursor` (`0042313c`) wraps to zero on a closed route, so a patrol never runs out and a patrol order never completes; see [`ai-goals.md`](ai-goals.md#the-route-cursor-is-loaded-once).
+`Route_AdvanceCursor` (`0042313c`) has four callers, and all four hand it the same `group+0x04` — every class that walks a route steps the cursor of the group it belongs to, at its own arrival range:
+
+| Caller | Arrival | |
+|---|---|---|
+| `Ai_FollowRoute` (`0041fb99`) | 10000 | this layer |
+| `Mech_BehaviourPlayerThink` (`0041c208`) | 10000 | announces it: [`player-waypoints.md`](player-waypoints.md) |
+| `Flyer_LeadRouteStep` (`00422539`) | 15000 | [`ai-flyers.md`](ai-flyers.md) |
+| `GroundVehicle_LeaderSteer` (`0046a93d`) | `GroundVehicle_DriveToPoint`'s own | [`structure-behaviour.md`](structure-behaviour.md) |
+
+A route that runs out leaves the machine standing on the spot with its throttle at zero — and, through `Group_IsOrderComplete`, ends the order. The cursor wraps to zero on a closed route, so a patrol never runs out and a patrol order never completes; see [`ai-goals.md`](ai-goals.md#the-route-cursor-is-loaded-once).
 
 ### Keep formation — `Ai_KeepFormation` (`0041fbb8`)
 
@@ -66,8 +75,8 @@ Steers off the group leader rather than off the route. The post is the leader's 
 | Condition | Turn | Speed |
 |---|---|---|
 | `dist < 2000` | `-(mech.heading - leader.heading) >> 6` | 0 |
-| `dist < 25000`, leader moving, heading error under `0x2000` | bearing error, plus the lateral offset in the leader's frame `>> 5` | `leader.speed + (-longitudinal >> 5)` |
-| `dist < 25000`, leader moving, heading error `0x2000` or more | `±0x100` | `-0x100` |
+| `dist ≤ 25000`, leader moving, heading error under `0x2000` | bearing error, plus the lateral offset in the leader's frame `>> 5` | `leader.speed + (-longitudinal >> 5)` |
+| `dist ≤ 25000`, leader moving, heading error `0x2000` or more | `±0x100` | `-0x100` |
 | otherwise | bearing error `>> 6` | `dist >> 7`, or `0x100` past 25000 |
 
 - **On station it matches the leader's heading, not its bearing to the post** — that is what keeps a stopped formation dressed rather than pointing inward.
@@ -94,17 +103,21 @@ right:  ( 1500, 0, 0)  ->  ( 10000, 20000, 0)
 
 Each is transformed to world space, flattened onto the machine's own terrain height, and tested twice: against shapes by `Sim_RaycastShapes` (`00404ca0`) and against the ground by `Terrain_RayWalk`. Whichever hit is nearer becomes that side's number.
 
-`Sim_RaycastShapes` collects candidates before it casts, and the filter is the interesting half: an object with no forward speed — a structure — always counts, and a machine counts **only when it is destroyed**. Wrecks are obstacles; live machines are not, because they are handled by the next pass.
+`Sim_RaycastShapes` collects candidates before it casts (`Sim_RaycastShapeList`, `00404bc0`), and the filter is the interesting half. It is the **same test `Base_GetCollisionRadius` (`004035b8`) uses**, read the other way round: `typeRec+0x06` zero means a static structure, which always counts, and anything animated — a structure with an animation, or a machine — counts **only once it is a wreck**.
+
+So the two sources are exact complements rather than overlapping. What has a collision radius is what the proximity sweep below sees, and it is precisely what this probe skips: a standing animated structure, and every live machine.
 
 **The ground half is `Terrain_RayWalk`'s mode 1, and it has to be.** The probes lie flat on the surface, so mode 0 — the thin ray, which reports the ground wherever the segment is at or below it — would graze on every tick of rolling terrain and pin the steer hard over. Mode 1 asks a different question at each cell the segment crosses: is the face it is crossing one movement can pass? `Terrain_FaceBlocksMovement` (`0046fe40`) answers it from the face normal's upward component alone — under `0x60e` at `0x800` scale, about 41° of slope, is a wall and stops the segment; anything shallower does not. So the probes see cliffs and nothing else. The threshold sits just *shallower* than `Mech_CollisionTest`'s own `0x5aa`, which is what gives a machine a band of slope it will steer away from before the move is refused outright.
 
 ### Other machines
 
-A linear sweep of the live-object list. A candidate is weighed when it is not this machine, its group has entered the mission, and its collision radius (vtable `+0x7c`) is non-zero. Its ground range is scaled by `Q10(2000, d)` — very nearly twice the true distance, so a machine reads as an obstruction from twice as far as its actual range — and if that lands inside 45° of dead ahead it claims whichever side it lies on.
+A linear sweep of the live-object list. A candidate is weighed when it is not this machine, its group has entered the mission, and its collision radius (vtable `+0x7c`) is non-zero — which for a machine is `typeRec+0x70`, 750 on all 21 chassis, so the test only ever rejects the structures the probes already cover.
+
+**This range is taken in three dimensions** — `Math_DistanceBetweenPoints` (`0041662f`), not the ground form every steering decision uses; `following`'s standoff is the layer's only other. It is then scaled by `Q10(2000, d)` — very nearly twice the true distance, so a machine reads as an obstruction from twice as far as its actual range — and if that lands inside 45° of dead ahead it claims whichever side it lies on. A machine on a rise therefore reads as further off than the steer would otherwise make it.
 
 ### The player's line of fire
 
-The third source runs only for a machine whose group is **led by the player**, and what it reads is `DAT_004a9c0c`: a trail of up to 40 points that `Mech_PlayerFireTick` (`00415608`) stamps along the player's turret bearing every time the trigger produces a shot, spaced `0x1000` apart and cut to the range of the player's selected target. Nothing draws it. Its only reader is this function.
+The third source runs only for a machine whose group is **led by the player**, and what it reads is `DAT_004a9c0c`: a trail of up to 40 points that `Mech_PlayerFireTick` (`00415608`) stamps along the player's turret bearing every time the trigger produces a shot, spaced `0x1000` apart and cut to the range of the player's selected target. The array has exactly three references in the image: `maybe_MechModule_StaticInit` (`0041bcac`) builds it — 40 elements of 8 bytes, which is where the cap comes from — `Mech_PlayerFireTick` writes it, and this function reads it. Nothing draws it.
 
 **So the squad gets out of the player's line of fire.** These points are scaled by `Q10(1000, d)` — near enough the true range — and claim a side inside a wider 67.5° arc than a machine does. Not firing zeroes the count, so the line exists only while the player is actually shooting.
 
@@ -137,7 +150,7 @@ For those ten seconds `Mech_LocomotionTick` ignores the desired speed it was han
 
 ## The navigation states
 
-Five of the 22 states are navigation rather than combat. All five return zero always, so none of them ever ends itself — a movement order ends through `Group_IsOrderComplete`, never through its think.
+Six of the 22 states are navigation rather than combat — 8, 9, 10, 11, 12 and 15 — across five think functions, since `travelling` and `bulldog travel` share one. Every one of them returns zero unconditionally, so none ever ends itself: a movement order ends through `Group_IsOrderComplete`, never through its think.
 
 ### `patrolling` (8) — `Mech_BehaviourPatrolThink` (`0041d7d0`)
 
@@ -164,7 +177,9 @@ It then drops its target, and on the same 10 s timer acquires one into `mech+0x5
 
 ### `following` (10) — `Mech_BehaviourFollowThink` (`0041daac`)
 
-Identical but for its first two lines: instead of a route it drives at `Group_OrderTargetObject`'s position, and it stops at 25000 rather than closing to 10000. Nothing here touches the route cursor, and verb 6's completion test is a route test — so **a `following` order can only ever complete on a group whose route was already empty**.
+Identical but for its first two lines: instead of a route it drives at `Group_OrderTargetObject`'s position, and it stops at 25000 rather than closing to 10000. **That 25000 is the layer's other three-dimensional range** — `Math_DistanceBetweenPoints` at `0041dad3` — so a machine holds further back from something above or below it than from something level with it.
+
+Nothing here touches the route cursor, and verb 6's completion test is a route test — so **a `following` order can only ever complete on a group whose route was already empty**. The group can still leave the order without completing it, through the action path in `Group_OrderTick`; see [`ai-goals.md`](ai-goals.md).
 
 ### `guarding` (15) — `Mech_BehaviourGuardThink` (`0041e224`)
 
@@ -215,7 +230,8 @@ Block 7's `+0x00` and `+0x02` are `.MSN` row #12's `+0x08` and `+0x0a`; see [`ms
 
 What differs from the original, and why:
 
-- **The shape probe stops at the bounding radius.** The original casts a swept volume against each candidate's shape; the engine has no such cast, so the probe takes the coarse reject that cast opens with — the candidate's bounding radius against the segment's closest approach. It reports a structure from slightly further out than its shape would, which errs toward steering earlier. It cannot be left out: a standing animated structure's collision radius is zero, so the proximity sweep is blind to every building in a retail mission and a machine walks into one and stands there for the rest of it.
+- **The shape probe stops at the bounding radius.** The original casts a swept volume against each candidate's shape; the engine has no such cast, so the probe takes the coarse reject that cast opens with — the candidate's bounding radius against the segment's closest approach. It reports a structure from slightly further out than its shape would, which errs toward steering earlier. It cannot be left out: a static structure's collision radius is zero, and so is a wrecked animated one, so the proximity sweep never sees either and a machine walks into one and stands there for the rest of the mission.
+- **The machine sweep's range is the ground one.** The original's is 3D. The two agree on level ground and the sweep reads a machine on a rise as further off than the engine does, so the engine steers around it marginally earlier.
 - **The mode-1 hit point is the walk's own point for the step**, not the refinement `FUN_0046fcac` solves against the blocking face. Both callers only measure a range from it, and the two differ by less than a cell.
 
 ## Open questions
@@ -228,8 +244,9 @@ What differs from the original, and why:
 | Reading | Why it is wrong |
 |---|---|
 | `Mech_MovementTick`, the move slot 18 states share, is where AI movement happens | It integrates and collides; it steers nothing. Every AI steering decision is a think function calling `Mech_LocomotionTick` |
-| `DAT_004a9c0c` is the HUD's lead-indicator trail | Nothing draws it. `Mech_PlayerFireTick` writes it and `Mech_AiObstacleAvoidance` reads it, and there is no third reference in the binary — it is a friendly-fire keep-out line, not a display |
+| `DAT_004a9c0c` is the HUD's lead-indicator trail | Nothing draws it. Its three references are the static initialiser that builds it, `Mech_PlayerFireTick`'s write and `Mech_AiObstacleAvoidance`'s read — it is a friendly-fire keep-out line, not a display |
 | Obstacle avoidance has a mirrored mode for a machine walking backwards | It has the code for one — a flag that flips the probe length negative and rotates every bearing test by a half turn — and the flag is written zero at the top of the function and never anywhere else. The half-speed arm of the speed override is unreachable for the same reason |
 | The whole group follows the route | Only the group leader does, through `Ai_NavigationStep`. The exception is `travelling`, which bypasses that chooser entirely and has every member reading the route at once |
 | A `following` order ends when the group reaches what it is following | Its completion test is the route test the other two movement verbs use, and nothing in `following` advances the route cursor |
-| Navigation ranges are 3D | Every one of them is `Math_GroundDistanceBetweenPoints`, which drops Z before it takes the magnitude. The 3D form exists and the navigation layer never calls it |
+| Every navigation range is the ground one | Every range a *steer* is computed from is, which is the bulk of them and the reason a hilltop waypoint is as near as its foot. Two ranges that only gate a decision are 3D: the avoidance's machine sweep and `following`'s standoff |
+| `Sim_RaycastShapes`' filter turns on whether the candidate moves | `typeRec+0x06` is a machine's top speed and a structure's animated flag, and the probe wants the second reading. A standing *animated* structure is skipped here and picked up by the collision-radius sweep instead |

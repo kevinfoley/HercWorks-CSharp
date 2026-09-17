@@ -24,6 +24,7 @@
   <ItemGroup>
     <ProjectReference Include="..\HercWorks.Core\HercWorks.Core.csproj" />
     <ProjectReference Include="..\HercWorks.Vol\HercWorks.Vol.csproj" />
+    <ProjectReference Include="..\HercWorks.Video\HercWorks.Video.csproj" />
   </ItemGroup>
 
   <ItemGroup>

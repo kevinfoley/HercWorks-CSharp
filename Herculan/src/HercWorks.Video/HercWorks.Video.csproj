@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>HercWorks.Video</RootNamespace>
+    <AssemblyName>HercWorks.Video</AssemblyName>
+    <!-- Deliberately no AllowUnsafeBlocks. Every byte this assembly touches came out of a file on
+         disk, so the CLR's bounds checks are the last line of defence and are not given up for
+         speed. See docs/formats/avi-video.md, "Security posture". -->
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The Indeo 3 codebook tests check the expansion against the seed area and against the retail
+         DLL, neither of which is reachable through CodecRegistry. -->
+    <InternalsVisibleTo Include="HercWorks.Video.Tests" />
+  </ItemGroup>
+
+  <!-- No PackageReference and no ProjectReference, on purpose. This assembly parses hostile input,
+       so it depends on nothing but the BCL: there is no transitive code to audit, and it can be
+       referenced from both solutions without dragging either one's dependencies into the other. -->
+
+</Project>

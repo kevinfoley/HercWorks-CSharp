@@ -18,6 +18,19 @@ public sealed class WaveSample {
 		SampleRate = sampleRate;
 	}
 
+	/// <summary>
+	/// Wraps samples that were decoded somewhere other than a <c>.WAV</c> file.
+	///
+	/// <para>Movie soundtracks arrive this way: <c>HercWorks.Video</c> pulls them out of an AVI's
+	/// interleaved audio packets, so they never exist as a RIFF file for <see cref="Decode"/> to
+	/// parse. The mono contract is the caller's to meet, as it is for every other sample here.</para>
+	/// </summary>
+	public static WaveSample FromSamples(short[] samples, int sampleRate) {
+		ArgumentNullException.ThrowIfNull(samples);
+		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+		return new WaveSample(samples, sampleRate);
+	}
+
 	/// <summary>Signed 16-bit mono PCM.</summary>
 	public short[] Samples { get; }
 

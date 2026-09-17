@@ -38,3 +38,7 @@ Herculan/docs/shell/handoff-vshell-re.md
 tools/ghidra_scripts/known_symbols.json.bak
 tools/ghidra_scripts/known_structs.json.bak
 .claude/settings.local.json
+Herculan/src/HercWorks.Video/bin/
+Herculan/src/HercWorks.Video/obj/
+Herculan/tests/HercWorks.Video.Tests/bin/
+Herculan/tests/HercWorks.Video.Tests/obj/

@@ -52,6 +52,7 @@ bool initialHddTransmit = false;
 // survive its own reassess rather than only to have been installed.
 Action<string>? reportSquadOrders = null;
 bool runShell = false;
+string? moviePath = null;
 string? shellPalette = null;
 var shellMode = ShellCampaignMode.Campaign;
 bool shellTabPalettes = false;
@@ -192,6 +193,11 @@ for (int i = 0; i < args.Length; i++) {
 		// only does anything alongside: a --screenshot run never sees a keystroke, and the turret
 		// only slews on its own once ATT has something to hold.
 		autoTrack = true;
+	} else if (args[i] == "--movie" && i + 1 < args.Length) {
+		// Play one cutscene instead of a mission — see MovieHost. Takes a path, or a name to look up
+		// in the install's AVI folder. It exists so a video decoder can be looked at rather than only
+		// asserted about; see docs/formats/avi-video.md.
+		moviePath = args[++i];
 	} else if (args[i] == "--shell") {
 		// Run the front end instead of a mission — see ShellHost. It shares the install lookup below
 		// and nothing else, so it takes over before any mission loading happens.
@@ -295,6 +301,11 @@ if (installRoot == null) {
 if (runShell) {
 	return ShellHost.Run(installRoot, shellPalette, screenshotPath, shellMode, shellTabPalettes,
 		shellTab, shellBay);
+}
+
+// --movie shares even less: no archives, no zone, no shell art — one file and a quad. See MovieHost.
+if (moviePath != null) {
+	return MovieHost.Run(installRoot, moviePath, screenshotPath, silentAudio);
 }
 
 // The mission handoff VSHELL writes and DBSIM reads. It states its own zone and theater, so nothing

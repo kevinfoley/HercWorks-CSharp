@@ -23,6 +23,17 @@ public sealed record CockpitFrame(byte[] Pixels, int Width, int Height) {
 	/// </summary>
 	public int[][] ShieldRingPixels { get; init; } =
 		Enumerable.Range(0, CockpitPalette.ShieldRampLength).Select(_ => Array.Empty<int>()).ToArray();
+
+	/// <summary>
+	/// The same frame expanded through the damage-flash palette instead, or null when that palette
+	/// was not available. Built at load rather than on each toggle: the flash alternates several times
+	/// a second, and re-expanding a 640x480 frame at that rate would be visible as a hitch.
+	/// </summary>
+	public byte[]? ImpactPixels { get; init; }
+
+	/// <summary>Which buffer to upload this frame from — see <see cref="ImpactPixels"/>.</summary>
+	public byte[] PixelsFor(bool flashActive) =>
+		flashActive && ImpactPixels is { } impact ? impact : Pixels;
 }
 
 /// <summary>
@@ -137,8 +148,38 @@ public sealed class CockpitArt {
 		AlertPanelLayout.DisabledButtonFont, StatusAlertPanelLayout.BodyFont,
 	};
 
+	/// <summary>
+	/// Everything this class resolves out of <i>one</i> palette: the pre-resolved tuples a widget that
+	/// names a fixed id or index wants, and the two tables a widget that picks at draw time reads.
+	///
+	/// <para>Two of these are built — one against the live palette, one against the damage-flash
+	/// palette — and <see cref="FlashActive"/> picks between them. Retail's flash swaps the whole
+	/// palette, and these colours are its HUD half: twenty of <c>COLORS.DAT</c>'s twenty-seven entries
+	/// move, most of them a long way, so a HUD that kept its own colours through a flash would be the
+	/// one part of the screen visibly refusing to.</para>
+	/// </summary>
+	private sealed record PaletteColors(
+		(Vector3, Vector3, Vector3)? Gauge,
+		(Vector3, Vector3, Vector3)? HeadsDown,
+		(Vector3, Vector3)? TargetArrow,
+		(Vector3, Vector3) WeaponBar,
+		Vector3?[]? Logical,
+		Vector3?[] Entries);
+
+	private readonly PaletteColors _colors;
+	private readonly PaletteColors? _flashColors;
+
+	/// <summary>
+	/// Whether the HUD draws through the damage-flash palette. The host sets it from
+	/// <c>CockpitHitShake.FlashActive</c>; it does nothing when the theater supplied no impact
+	/// palette. See docs/formats/cockpit-hud.md, "The damage shake".
+	/// </summary>
+	public bool FlashActive { get; set; }
+
+	private PaletteColors Live => FlashActive && _flashColors is { } flash ? flash : _colors;
+
 	private CockpitArt(CockpitFrame front, CockpitFrame side, CockpitFrame? headsDown, GAUFile gau, HudSpriteSheet? sprites,
-			HudColorTable? colors, (Vector3, Vector3, Vector3)? gaugeColors,
+			HudColorTable? colors, PaletteColors resolved, PaletteColors? flashResolved,
 			int colorSchemeIndex, bool clipRegionsLoaded, string hercName, SimStringTable? strings) {
 		Front = front;
 		Side = side;
@@ -146,7 +187,8 @@ public sealed class CockpitArt {
 		Gau = gau;
 		Sprites = sprites;
 		Colors = colors;
-		GaugeColors = gaugeColors;
+		_colors = resolved;
+		_flashColors = flashResolved;
 		ColorSchemeIndex = colorSchemeIndex;
 		ClipRegionsLoaded = clipRegionsLoaded;
 		HercName = hercName;
@@ -207,7 +249,7 @@ public sealed class CockpitArt {
 	/// <c>COLORS.DAT</c> is missing, in which case the display draws its sprites and text and floods
 	/// nothing — better than flooding a colour of the engine's own choosing over the art.
 	/// </summary>
-	public (Vector3 Background, Vector3 Indicator, Vector3 SubjectPlate)? HeadsDownColors { get; private init; }
+	public (Vector3 Background, Vector3 Indicator, Vector3 SubjectPlate)? HeadsDownColors => Live.HeadsDown;
 
 	/// <summary>
 	/// The two colours the front-window HUD's off-screen target arrow is filled with, unlocked then
@@ -215,7 +257,7 @@ public sealed class CockpitArt {
 	/// through <c>COLORS.DAT</c>, green and red. The arrow is a flat polygon rather than a sprite,
 	/// which is why it needs a resolved colour at all.
 	/// </summary>
-	public (Vector3 Unlocked, Vector3 Locked)? TargetArrowColors { get; private init; }
+	public (Vector3 Unlocked, Vector3 Locked)? TargetArrowColors => Live.TargetArrow;
 
 
 	/// <summary>
@@ -286,7 +328,7 @@ public sealed class CockpitArt {
 	/// remainder (see <see cref="HudColorTable.GaugeFillEvenId"/>). Null when <c>COLORS.DAT</c> is
 	/// missing, in which case gauges draw nothing rather than a colour of the engine's own choosing.
 	/// </summary>
-	public (Vector3 FillEven, Vector3 FillOdd, Vector3 Remainder)? GaugeColors { get; }
+	public (Vector3 FillEven, Vector3 FillOdd, Vector3 Remainder)? GaugeColors => Live.Gauge;
 
 	/// <summary>
 	/// Every <c>COLORS.DAT</c> id resolved against the live palette, or null when the table or the
@@ -294,7 +336,7 @@ public sealed class CockpitArt {
 	/// triple; this is for the ones that pick an id at draw time from what they are drawing — the
 	/// scanner's contacts, whose colour is a function of the contact's class and side.
 	/// </summary>
-	private Vector3?[]? LogicalColors { get; init; }
+	private Vector3?[]? LogicalColors => Live.Logical;
 
 	/// <summary>
 	/// One <c>COLORS.DAT</c> id as a colour, or null when the id is out of range, the table is
@@ -304,7 +346,26 @@ public sealed class CockpitArt {
 		LogicalColors is { } table && id >= 0 && id < table.Length ? table[id] : null;
 
 	/// <summary>Every live-palette slot as a colour — see <see cref="PaletteEntry"/>.</summary>
-	private Vector3?[]? PaletteEntries { get; init; }
+	private Vector3?[]? PaletteEntries => Live.Entries;
+
+	/// <summary>
+	/// <see cref="Sprites"/>' atlas expanded through the damage-flash palette, or null when the
+	/// theater supplied none. The host uploads it as a second texture and binds whichever the flash
+	/// is showing — see <see cref="CockpitFrame.ImpactPixels"/>, which is the canopy's half of the
+	/// same arrangement.
+	/// </summary>
+	public byte[]? ImpactSpritePixels { get; private init; }
+
+	/// <summary>
+	/// One raw palette index as the damage flash would colour it, or null when the theater supplied no
+	/// impact palette. <see cref="PaletteEntry"/> already follows <see cref="FlashActive"/>; this is
+	/// for the one consumer that has to resolve <i>both</i> up front rather than per draw — the
+	/// heads-down map's relief raster, which is rasterized once at load.
+	/// </summary>
+	public Vector3? FlashPaletteEntry(int index) =>
+		_flashColors is { } flash && index >= 0 && index < flash.Entries.Length
+			? flash.Entries[index]
+			: null;
 
 	/// <summary>
 	/// One <b>raw</b> palette index as a colour, or null when the palette has no such slot.
@@ -331,7 +392,7 @@ public sealed class CockpitArt {
 	/// which lands in the <c>.GAU</c>'s confirmed-zero padding in every retail file — so the override
 	/// always applies.</para>
 	/// </summary>
-	public (Vector3 FillEven, Vector3 FillOdd)? WeaponBarColors { get; private init; }
+	public (Vector3 FillEven, Vector3 FillOdd)? WeaponBarColors => Live.WeaponBar;
 
 	/// <summary>Palette index for the even columns of a weapon row's charge bar.</summary>
 	public const int WeaponBarFillEvenIndex = 0x20;
@@ -350,29 +411,47 @@ public sealed class CockpitArt {
 	/// loading all twelve to avoid asking would cost about a megapixel of atlas for nine banks nothing
 	/// will draw.
 	/// </param>
+	/// <param name="impactPaletteName">
+	/// The theater's <c>IMPACT&lt;n&gt;.DPL</c> (<c>TheaterDescriptor.ImpactPaletteName</c>). Supplying
+	/// it decodes the canopy frames a second time through the damage-flash palette so the panel can
+	/// flash with the world; leaving it out costs the panel's half of the flash and nothing else. See
+	/// <see cref="CockpitFrame.ImpactPixels"/>.
+	/// </param>
 	public static CockpitArt? Load(GameContent content, string hercName, string? worldPaletteName = null,
-			IEnumerable<string>? targetHercNames = null, IEnumerable<string>? extraLoResBankNames = null) {
+			IEnumerable<string>? targetHercNames = null, IEnumerable<string>? extraLoResBankNames = null,
+			string? impactPaletteName = null) {
 		int schemeIndex = ReadColorSchemeIndex(content, hercName);
 		if (CockpitPalette.Load(content, worldPaletteName, schemeIndex) is not { } palette) {
 			return null;
 		}
+
+		var impactPalette = CockpitPalette.LoadImpact(content, impactPaletteName, schemeIndex);
 
 		byte[]? gauBytes = content.Read("gau", hercName + ".GAU");
 		if (gauBytes == null || new GauFileTransformer().Parse(gauBytes) is not { } gau) {
 			return null;
 		}
 
-		var front = LoadFrame(content, "hb0", hercName + ".HB0", palette);
-		var side = LoadFrame(content, "hb2", hercName + ".HB2", palette);
+		var front = LoadFrame(content, "hb0", hercName + ".HB0", palette, impactPalette);
+		var side = LoadFrame(content, "hb2", hercName + ".HB2", palette, impactPalette);
 		if (front == null || side == null) {
 			return null;
 		}
 
 		// Not required: a missing HB1 costs the heads-down view, not the cockpit.
-		var headsDown = LoadFrame(content, "hb1", hercName + ".HB1", palette);
+		var headsDown = LoadFrame(content, "hb1", hercName + ".HB1", palette, impactPalette);
 
 		bool clipped = CutViewportHole(content, hercName, ForwardViewIndex, front)
 			& CutViewportHole(content, hercName, SideViewIndex, side);
+
+		// The hole is punched into the alpha channel after the expansion, and both cutout paths write
+		// only the ordinary buffer — one of them by reading the art's colour, which is the ordinary
+		// palette's. Carrying the result across is what keeps the flash from filling the viewport in.
+		CopyAlphaToImpact(front);
+		CopyAlphaToImpact(side);
+		if (headsDown != null) {
+			CopyAlphaToImpact(headsDown);
+		}
 
 		var colors = HudColorTable.Load(content);
 		var viewGeometry = CockpitViewGeometry.Load(content, hercName);
@@ -392,18 +471,21 @@ public sealed class CockpitArt {
 
 		var banks = HudBankNames.Concat(hercBanks).ToArray();
 
+		var sprites = HudSpriteSheet.Load(content, palette, banks, HudFontNames,
+			LoResHudBankNames.Concat(extraLoResBankNames ?? Array.Empty<string>()), hercBanks);
+
 		return new CockpitArt(front, side, headsDown, gau,
-			HudSpriteSheet.Load(content, palette, banks, HudFontNames,
-				LoResHudBankNames.Concat(extraLoResBankNames ?? Array.Empty<string>()), hercBanks),
+			sprites,
 			colors,
-			ResolveGaugeColors(colors, palette),
+			Resolve(colors, palette),
+			impactPalette != null ? Resolve(colors, impactPalette) : null,
 			schemeIndex,
 			clipped,
 			hercName.ToUpperInvariant(),
 			SimStringTable.Load(content)) {
-			WeaponBarColors = (
-				PaletteColor(palette, WeaponBarFillEvenIndex),
-				PaletteColor(palette, WeaponBarFillOddIndex)),
+			ImpactSpritePixels = impactPalette != null && sprites != null
+				? sprites.Atlas.ExpandThrough(impactPalette)
+				: null,
 			PaperDoll = LoadPaperDoll(content, hercName),
 			PaperDolls = hercBanks
 				.Select(name => (Name: name, Doll: LoadPaperDoll(content, name)))
@@ -413,12 +495,17 @@ public sealed class CockpitArt {
 			HeadsDownLayout = HddLayout.Load(gau,
 				viewGeometry?.CanvasOriginY(CockpitViewGeometry.HeadsDownViewIndex)
 					?? CockpitViewGeometry.DefaultHeadsDownOriginY),
-			HeadsDownColors = ResolveHeadsDownColors(colors, palette),
-			TargetArrowColors = ResolveArrowColors(colors, palette),
-			LogicalColors = ResolveLogicalColors(colors, palette),
-			PaletteEntries = ResolvePaletteEntries(palette),
 		};
 	}
+
+	/// <summary>Every colour one palette yields — see <see cref="PaletteColors"/>.</summary>
+	private static PaletteColors Resolve(HudColorTable? colors, DynamixPalette palette) =>
+		new(ResolveGaugeColors(colors, palette),
+			ResolveHeadsDownColors(colors, palette),
+			ResolveArrowColors(colors, palette),
+			(PaletteColor(palette, WeaponBarFillEvenIndex), PaletteColor(palette, WeaponBarFillOddIndex)),
+			ResolveLogicalColors(colors, palette),
+			ResolvePaletteEntries(palette));
 
 	/// <summary>One machine's <c>pdg&lt;HERC&gt;.PDG</c>, or null when it is missing or unparseable.</summary>
 	private static PaperDollGraphic? LoadPaperDoll(GameContent content, string hercName) =>
@@ -558,6 +645,15 @@ public sealed class CockpitArt {
 					frame.Pixels[offset] = color.R;
 					frame.Pixels[offset + 1] = color.G;
 					frame.Pixels[offset + 2] = color.B;
+
+					// The same six colours into the flash buffer, not the impact palette's entries for
+					// those slots: the gauge writes these literals into whichever palette is active, so
+					// the rings keep their own colour through a flash in the original too.
+					if (frame.ImpactPixels is { } impact) {
+						impact[offset] = color.R;
+						impact[offset + 1] = color.G;
+						impact[offset + 2] = color.B;
+					}
 				}
 			}
 		}
@@ -569,7 +665,8 @@ public sealed class CockpitArt {
 	/// special-casing of index 0 here — the viewport cutout is a separate, deliberate pass, not a
 	/// side effect of decoding).
 	/// </summary>
-	private static CockpitFrame? LoadFrame(GameContent content, string folder, string name, DynamixPalette palette) {
+	private static CockpitFrame? LoadFrame(GameContent content, string folder, string name,
+			DynamixPalette palette, DynamixPalette? impactPalette) {
 		byte[]? bytes = content.Read(folder, name);
 		if (bytes == null
 			|| new DynamixBitmapArrayTransformer().Parse(bytes) is not DynamixBitmapArray array
@@ -582,6 +679,7 @@ public sealed class CockpitArt {
 		int width = frame.Cols;
 		int height = frame.Rows;
 		var pixels = new byte[width * height * 4];
+		var impactPixels = impactPalette != null ? new byte[width * height * 4] : null;
 		byte[] indices = frame.ImageData ?? Array.Empty<byte>();
 		int count = Math.Min(indices.Length, width * height);
 
@@ -592,14 +690,10 @@ public sealed class CockpitArt {
 
 		for (int i = 0; i < count; i++) {
 			int index = indices[i];
-			var color = palette.Colors.TryGetValue(index, out var entry)
-				? entry.GetColor()
-				: new HercWorks.Core.Data.Struct.RgbaColor(255, (byte)index, (byte)index, (byte)index);
-
-			pixels[i * 4] = color.R;
-			pixels[i * 4 + 1] = color.G;
-			pixels[i * 4 + 2] = color.B;
-			pixels[i * 4 + 3] = 255;
+			Expand(palette, index, pixels, i * 4);
+			if (impactPixels != null) {
+				Expand(impactPalette!, index, impactPixels, i * 4);
+			}
 
 			int slot = index - CockpitPalette.ShieldRampFirstSlot;
 			if (slot >= 0 && slot < CockpitPalette.ShieldRampLength) {
@@ -609,7 +703,38 @@ public sealed class CockpitArt {
 
 		return new CockpitFrame(pixels, width, height) {
 			ShieldRingPixels = ringPixels.Select(list => list.ToArray()).ToArray(),
+			ImpactPixels = impactPixels,
 		};
+	}
+
+	/// <summary>
+	/// Carries a frame's alpha channel into its flash buffer, so both agree about which pixels are
+	/// the 3D viewport's hole.
+	/// </summary>
+	private static void CopyAlphaToImpact(CockpitFrame frame) {
+		if (frame.ImpactPixels is not { } impact) {
+			return;
+		}
+
+		for (int at = 3; at < frame.Pixels.Length; at += 4) {
+			impact[at] = frame.Pixels[at];
+		}
+	}
+
+	/// <summary>
+	/// One index to one RGBA pixel. An index the palette does not carry is written as grey of its own
+	/// value rather than black, so a frame decoded against the wrong palette is visibly odd instead of
+	/// silently holed.
+	/// </summary>
+	private static void Expand(DynamixPalette palette, int index, byte[] pixels, int at) {
+		var color = palette.Colors.TryGetValue(index, out var entry)
+			? entry.GetColor()
+			: new HercWorks.Core.Data.Struct.RgbaColor(255, (byte)index, (byte)index, (byte)index);
+
+		pixels[at] = color.R;
+		pixels[at + 1] = color.G;
+		pixels[at + 2] = color.B;
+		pixels[at + 3] = 255;
 	}
 
 	/// <summary>

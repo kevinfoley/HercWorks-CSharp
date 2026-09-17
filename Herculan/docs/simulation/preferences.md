@@ -338,6 +338,12 @@ Divergences:
 - **`--no-write-prefs` can turn saving off**, which the original has no equivalent of. Saving itself
   is the original's: each panel merges its own options into a fresh read of the file as it closes,
   and a file the engine did not read is never written.
+- **Eight of the nine settings are stepped, saved and then read by nothing.** Only TERRAIN DISTANCE
+  (through `Terrain.TerrainDetail`) and the twelve control bindings (through `Input.JoystickBindings`)
+  have a consumer. MUSIC, SOUNDS, PILOT MESSAGE, COMPUTER MESSAGE, TERRAIN TEXTURE, HERC DETAIL,
+  STRUCTURE DETAIL and EFFECTS DETAIL round-trip the file correctly and change nothing on screen or
+  in the mix. Wiring them up lands in three separate places — the audio sink, the message port and
+  renderer LOD.
 - **The panels are placed against the window**, as the other two are.
 - **The RAZOR half is selected by the player's chassis id**, resolved through `HercLUT`, where the
   original reads the global the mission load wrote.

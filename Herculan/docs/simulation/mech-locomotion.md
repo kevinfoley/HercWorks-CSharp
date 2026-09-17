@@ -521,9 +521,11 @@ cascades, can cripple or immobilise, and is stopped by the invulnerability setti
 else ([`difficulty.md`](difficulty.md#the-two-sibling-cheats)). It carries no attacker, so nothing is
 credited if it kills.
 
-The original then calls `FUN_00434010` — a cockpit effect on its own pair of timers at `0049b0fc` and
-`0049b100`, reached from nothing else traced so far and not ported — and `Sound_Play(0x29)`, the
-collision thump.
+It then calls `Cockpit_StartHitShake` (`00434010`), the same view shake and palette flash a hit on
+the cockpit raises ([`../formats/cockpit-hud.md`](../formats/cockpit-hud.md#the-damage-shake)), and
+`Sound_Play(0x29)`, the collision thump. This is the shake's ungated trigger: the direct-fire one
+tests who is flying and how far gone the cockpit is, and this one fires on any landing that got past
+the distance threshold.
 
 A block against another **machine** also hurts both of them, through the explosive-damage slot —
 see [`damage-system.md`](damage-system.md#a-collision--mech_collisiontest-00418f74). It additionally

@@ -40,6 +40,7 @@ short heldPitch = 0;
 int? initialWeaponRow = null;
 bool initialLink = false;
 bool heldFire = false;
+bool stageHitShake = false;
 bool acquireTarget = false;
 bool autoTrack = false;
 bool waitForEffectLight = false;
@@ -172,6 +173,11 @@ for (int i = 0; i < args.Length; i++) {
 		initialWeaponRow = weaponRow - 1;
 	} else if (args[i] == "--link") {
 		initialLink = true;
+	} else if (args[i] == "--hit-shake") {
+		// Take a hit on the cockpit, for the same reason as --fire: a --screenshot run never sees one
+		// land, and the shake and its palette flash are gone again in under a second. The capture then
+		// holds until the flash is actually up, so the frame photographed is a red one.
+		stageHitShake = true;
 	} else if (args[i] == "--fire") {
 		// Hold the trigger down for the whole run, for the same reason as --turret: a --screenshot
 		// run never sees a keystroke, and a beam is only on screen for the tick after it was fired.
@@ -392,6 +398,9 @@ Console.WriteLine($"Theater {mission.Header.TheaterIndex} ({scene.Theater.Palett
 // is that machine's own .HBA frames placed by its own .PDG, so both have to be resident.
 // The squad's portrait banks go in with them: a comm box talks with dba\PILOT<n>.DBA, n being that
 // pilot's roster index over three, and which three are in the mission is only known here.
+// The heads-down map's relief through the damage-flash palette, built beside the ordinary one below.
+HddMapRaster? hddMapFlashRaster = null;
+
 var squadPlacements = scene.Objects
 	.Where(o => o.Placement.IsPlayerLance && !ReferenceEquals(o.Object, scene.PlayerObject?.Object))
 	.Take(SquadCommChannel.SlotCount)
@@ -467,7 +476,8 @@ var cockpitArt = mission.Player?.TypeName is { } pilotHerc
 		squadPlacements
 			.Where(o => o.Placement.PilotIndex >= 0)
 			.Select(o => PilotRoster.BankName(PilotRoster.PortraitOf(o.Placement.PilotIndex)))
-			.Distinct())
+			.Distinct(),
+		scene.Theater.ImpactPaletteName)
 	: null;
 if (cockpitArt != null) {
 	Console.WriteLine(
@@ -501,6 +511,11 @@ var cockpitPan = new CockpitPan(
 // The step kick. It rides the projection centre alongside the pan, which is where the original puts
 // it too — see CockpitViewKick.
 var cockpitViewKick = new CockpitViewKick();
+
+// And the damage shake, which rides the same centre and is ticked beside the kick in the original's
+// own cockpit pass — see CockpitHitShake.
+var cockpitHitShake = new CockpitHitShake();
+
 if (startOnHeadsDown) {
 	cockpitPan.Request(headsDown: true);
 	cockpitPan.Advance(CockpitPan.DurationSeconds);
@@ -560,6 +575,11 @@ if (cockpitArt?.HeadsDownLayout is { } commandLayout && scene.World is { } comma
 	var mapBounds = HddMapBounds.Of(scene.Mission.Coordinates);
 	var mapViewport = commandLayout.MapViewport;
 	var squad = squadPlacements.Select(o => o.Object).ToList();
+
+	// The same relief through the damage-flash palette. Rasterized here beside the ordinary one
+	// rather than on each toggle: it is one texel per terrain cell, so a second copy is small, and
+	// rebuilding it inside a flash would stutter.
+	hddMapFlashRaster = HddMapRaster.Build(commandWorld.Terrain, mapBounds, cockpitArt.FlashPaletteEntry);
 
 	hddCommand = new HddCommandScreen(
 		new HddMapView(mapBounds, mapViewport.Width, mapViewport.Height),
@@ -932,6 +952,56 @@ GpuTexture? cockpitSideTexture = null;
 GpuTexture? cockpitHeadsDownTexture = null;
 GpuTexture? hudSpriteTexture = null;
 GpuTexture? hddMapTexture = null;
+bool hitShakeStaged = false;
+// Whether the scene and the canopy are currently showing the theater's impact palette. Tracked so
+// the swap costs nothing on the frames — the great majority — where it did not change: the scene
+// half is two texture handles, but the canopy half re-uploads three full-panel textures.
+bool damageFlashShown = false;
+
+void ApplyDamageFlash(bool active) {
+	if (active == damageFlashShown || renderer == null) {
+		return;
+	}
+
+	damageFlashShown = active;
+	renderer.ImpactPaletteActive = active;
+
+	// The HUD's own colours — the resolved COLORS.DAT ids and raw palette slots every widget draws
+	// through. Twenty of the twenty-seven move under the impact palette, so without this the
+	// instruments would be the one part of the screen refusing to flash.
+	if (cockpitArt != null) {
+		cockpitArt.FlashActive = active;
+	}
+
+	// The sky and the fog colour come out of the palette too, and in an open zone they are most of
+	// what is on screen — see Scene.ImpactFlash.
+	if (scene.ImpactFlash is { } flash) {
+		(active ? flash.Atmosphere : scene.Atmosphere).ApplyTo(renderer);
+	}
+
+	if (cockpitArt is { } art && cockpitFrontTexture != null) {
+		cockpitFrontTexture.Update(art.Front.PixelsFor(active), art.Front.Width, art.Front.Height);
+		cockpitSideTexture?.Update(art.Side.PixelsFor(active), art.Side.Width, art.Side.Height);
+		if (art.HeadsDown is { } headsDown && cockpitHeadsDownTexture != null) {
+			cockpitHeadsDownTexture.Update(headsDown.PixelsFor(active), headsDown.Width, headsDown.Height);
+		}
+
+		// And the plates and glyphs themselves. One handle re-uploaded rather than a second texture
+		// bound per draw: the sheet goes into a dozen overlay calls, and a flash is a one-second event.
+		if (art.Sprites is { Atlas: { } atlas } && art.ImpactSpritePixels is { } flashPixels
+				&& hudSpriteTexture != null) {
+			hudSpriteTexture.Update(active ? flashPixels : atlas.Pixels, atlas.Width, atlas.Height);
+		}
+	}
+
+	// And the heads-down map's relief, for a player who takes a hit while panned down to it.
+	if (hddMapTexture != null && hddMapFlashRaster is { } flashRaster
+			&& hddCommand?.Raster is { } raster) {
+		var shown = active ? flashRaster : raster;
+		hddMapTexture.Update(shown.Pixels, shown.Width, shown.Height);
+	}
+}
+
 var modelMeshes = new Dictionary<string, GpuMesh>();
 var modelTextures = new Dictionary<string, GpuTexture>();
 
@@ -995,6 +1065,10 @@ bool cameraKeyDown = false;
 var cockpitInput = new CockpitInput();
 var camera = new Camera();
 int framesRendered = 0;
+
+// How long a --screenshot run lets the scene settle before it captures. Long enough for the
+// power-up sequence and the first sensor sweep, which is what most staged flags wait on.
+const int ScreenshotWarmupFrames = 30;
 bool screenshotTaken = false;
 
 // Fixed-timestep accumulator: the simulation always advances in whole ticks of the same length, so
@@ -1023,6 +1097,11 @@ window.Load += (gl, input) => {
 	// SurfaceRampTable.
 	renderer.SetShadeRamps(scene.ShadeRamps);
 	renderer.SetPaletteRamp(scene.PaletteRamp);
+
+	// And the same two through the theater's damage-flash palette, which the cockpit shake swaps the
+	// scene to for a fraction of a second at a time — see Scene.ImpactFlash. After the two above,
+	// which this is measured against.
+	renderer.SetImpactRamps(scene.ImpactFlash?.ShadeRamps, scene.ImpactFlash?.PaletteRamp);
 
 	overlay = new Overlay2DRenderer(gl);
 	wireframe = new WireframeRenderer(gl);
@@ -1921,13 +2000,32 @@ window.Update += deltaSeconds => {
 	RefreshWeaponItems();
 	RefreshSpriteBatches();
 
+	// Dropping out of the cockpit for the fly camera puts the palette back rather than leaving a
+	// flash up with nothing ticking it. The piloted case is applied below, after the shake's own tick.
+	if (!piloting || pilotMech == null) {
+		ApplyDamageFlash(false);
+	}
+
 	if (piloting && pilotMech != null) {
-		// The kick is the pilot's own, so it runs only from inside the cockpit.
+		// The kick and the shake are the pilot's own, so they run only from inside the cockpit. The
+		// original's view mode 4 drops a shake in progress rather than pausing it, which is what
+		// Reset does here.
 		if (externalView) {
 			cockpitViewKick.Reset();
+			cockpitHitShake.Reset();
 		} else {
 			cockpitViewKick.Update(deltaSeconds, pilotMech.Footfalls);
+			cockpitHitShake.Update(deltaSeconds, pilotMech.CockpitHits);
 		}
+
+		// Staged once, at the earliest frame the capture could fire: a shake lasts under a second and
+		// restarting it would stop the view half — see CockpitHitShake.
+		if (stageHitShake && !hitShakeStaged && framesRendered >= ScreenshotWarmupFrames) {
+			hitShakeStaged = true;
+			cockpitHitShake.Start();
+		}
+
+		ApplyDamageFlash(cockpitHitShake.FlashActive);
 
 		if (externalView) {
 			// Orbit chase view, ~10 m from the machine. Placeholder geometry — see ExternalCamera.
@@ -2130,7 +2228,7 @@ TargetIndicator? ResolveTargetIndicator(MechObject pilot) {
 
 	return new TargetIndicator(
 		ScreenX: centerX + across * Camera.FocalLengthPixels / MathF.Max(depth, camera.NearPlane),
-		ScreenY: centerY - cockpitViewKick.OffsetPixels
+		ScreenY: centerY - cockpitViewKick.OffsetPixels + cockpitHitShake.OffsetPixels
 			- Vector3.Dot(offset, up) * Camera.FocalLengthPixels / MathF.Max(depth, camera.NearPlane),
 		InFront: inFront,
 		BehindToLeft: across < 0f,
@@ -2158,11 +2256,16 @@ window.Render += (_, gl) => {
 			CockpitPalette.ShieldFacingCharge(shieldRings.Rear, shieldRings.BaseMax));
 
 		if (repainted) {
+			// Through whichever buffer the damage flash is currently showing — the repaint writes the
+			// rings into both, and re-uploading the other one here would cancel a flash mid-shake.
 			var frontFrame = cockpitArt.Front;
-			cockpitFrontTexture.Update(frontFrame.Pixels, frontFrame.Width, frontFrame.Height);
-			cockpitSideTexture?.Update(cockpitArt.Side.Pixels, cockpitArt.Side.Width, cockpitArt.Side.Height);
+			cockpitFrontTexture.Update(frontFrame.PixelsFor(damageFlashShown),
+				frontFrame.Width, frontFrame.Height);
+			cockpitSideTexture?.Update(cockpitArt.Side.PixelsFor(damageFlashShown),
+				cockpitArt.Side.Width, cockpitArt.Side.Height);
 			if (cockpitArt.HeadsDown is { } headsDownFrame && cockpitHeadsDownTexture != null) {
-				cockpitHeadsDownTexture.Update(headsDownFrame.Pixels, headsDownFrame.Width, headsDownFrame.Height);
+				cockpitHeadsDownTexture.Update(headsDownFrame.PixelsFor(damageFlashShown),
+					headsDownFrame.Width, headsDownFrame.Height);
 			}
 		}
 	}
@@ -2224,7 +2327,13 @@ window.Render += (_, gl) => {
 
 	bool transmissionWanted = waitForTransmission && squadComm.Transmission is not { ShowName: true };
 
-	if (screenshotPath != null && !screenshotTaken && framesRendered >= 30 && !acquireTarget
+	// --hit-shake waits for the palette half to be up. It alternates on its own 0-9 tick timer, so
+	// without this the capture would land on whichever side of the flash the frame count happened to
+	// fall on.
+	bool flashWanted = stageHitShake && !cockpitHitShake.FlashActive;
+
+	if (screenshotPath != null && !screenshotTaken && framesRendered >= ScreenshotWarmupFrames
+			&& !flashWanted && !acquireTarget
 			&& !lightWanted && !transmissionWanted
 			&& (!shotWanted || scene.World.Tracers.Count > 0 || scene.World.Projectiles.Count > 0
 				|| scene.World.RocketsInFlight.Count > 0)) {
@@ -2591,11 +2700,13 @@ Vector2 PanelPrincipalPoint(CockpitScreenLayout.PlacedSurface surface) {
 	var (centerX, centerY) = viewGeometry?.ProjectionCenter(CockpitViewGeometry.ForwardViewIndex)
 		?? (CockpitViewGeometry.DefaultProjectionCenterX, CockpitViewGeometry.DefaultProjectionCenterY);
 
-	// The step kick moves the centre itself, in the art's own pixels, so it goes through the same
-	// art-to-window transform as everything else on the panel — which is how the original applies it:
-	// straight onto the projection centre, before the view is installed. Art y runs downward, so a
-	// positive kick subtracts.
-	var (windowX, windowY) = surface.ArtToWindow(centerX, centerY - cockpitViewKick.OffsetPixels);
+	// The step kick and the damage shake both move the centre itself, in the art's own pixels, so
+	// they go through the same art-to-window transform as everything else on the panel — which is how
+	// the original applies them: straight onto the projection centre, before the view is installed.
+	// Art y runs downward, and the two carry the original's opposite sign conventions — see
+	// CockpitHitShake.OffsetPixels.
+	var (windowX, windowY) = surface.ArtToWindow(centerX,
+		centerY - cockpitViewKick.OffsetPixels + cockpitHitShake.OffsetPixels);
 	var viewport = surface.Viewport;
 
 	return new Vector2(

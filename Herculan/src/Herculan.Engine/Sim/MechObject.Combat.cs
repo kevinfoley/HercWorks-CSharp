@@ -73,6 +73,22 @@ public sealed partial class MechObject {
 	public const int FullyDamaged = 0x100;
 
 	/// <summary>
+	/// How many times this machine's cockpit has been jolted — a hit on one of its two cockpit
+	/// components, or a slide landing. The host watches it for the edge rather than a flag, the same
+	/// way it watches <see cref="Footfalls"/>, so a jolt taken between two frames is not missed. See
+	/// <c>CockpitHitShake</c>, and docs/formats/cockpit-hud.md, "The damage shake".
+	/// </summary>
+	public int CockpitHits { get; private set; }
+
+	/// <summary>
+	/// A cockpit component past this reading no longer shakes the view — the same function's literal
+	/// <c>0x64</c>, on <see cref="ComponentDamage.DamagePercent"/>'s 0-<see cref="FullyDamaged"/>
+	/// scale. So the jolt stops once the cockpit is about 40% gone, and a machine being finished off
+	/// takes its last hits in a steady view.
+	/// </summary>
+	private const int CockpitShakeDamageLimit = 100;
+
+	/// <summary>
 	/// <c>FUN_00415608</c>, the player's own fire path, called once a frame from
 	/// <c>Sim_PollPlayerInput</c> with the input device struct.
 	///
@@ -490,7 +506,8 @@ public sealed partial class MechObject {
 	/// <c>DAMAGE LEVEL CRITICAL</c>, whose call site sits between the two readings and needs the
 	/// later one to have <i>fallen</i> below the earlier. No retail <c>PROJ.DAT</c> record can make
 	/// the write negative, so the line is unreachable — see docs/formats/audio.md. The cockpit jolt
-	/// above the test is a separate effect and is also unported.</para>
+	/// that shares its gate is a separate effect and is raised, through
+	/// <see cref="CockpitHits"/>.</para>
 	/// </summary>
 	private void ApplyDirectFireDamage(SimWorld world, short componentIndex, WeaponShot shot, Vec3i hitPoint) {
 		if (_damage == null) {
@@ -516,6 +533,15 @@ public sealed partial class MechObject {
 			: WeaponShot.ImpactFxGroup.Armor;
 
 		if (group == WeaponShot.ImpactFxGroup.Armor) {
+			// The cockpit jolt, which is inside the band-change branch and not on every hit: a shot
+			// that only scuffs the cockpit's armour is not felt, and one that moves it into a new
+			// band is. See CockpitHitShake.
+			if (LocallyPiloted && after < CockpitShakeDamageLimit
+					&& (componentIndex == CockpitFrontComponent
+						|| componentIndex == CockpitRearComponent)) {
+				CockpitHits++;
+			}
+
 			RollWeaponMountDestruction(world, componentIndex, after);
 		}
 

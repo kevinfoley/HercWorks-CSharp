@@ -73,11 +73,6 @@ The engine cannot be faithful here until the original is understood.
   `0040ea59`), which is not ported: nothing in this engine consumes the counters, persists them
   across missions, or gates `.msn` conditions on them.
   → [`docs/shell/campaign-loop.md`](docs/shell/campaign-loop.md)
-- **The cockpit effect a slide landing raises.** `FUN_00434010`, called beside the leg damage at the
-  bottom of a slide, runs on its own pair of timers (`0049b0fc`, `0049b100`) with a random 0-9 tick
-  jitter and reaches three further unidentified functions. Nothing else traced calls it, so what it
-  looks like on screen is unknown and the landing is silent-but-damaging without it.
-  → [`docs/simulation/mech-locomotion.md`](docs/simulation/mech-locomotion.md#the-landing)
 - **The drop pod's ground mark.** The leftover effect a landed pod spawns comes from the theater's
   `flat`/`flat2` shape pool, which is not ported.
   → [`docs/simulation/mission-deployment.md`](docs/simulation/mission-deployment.md)
@@ -139,9 +134,13 @@ hit-testing rather than new drawing code. What is missing:
 - Currently missing is a quirk from retail where the player's shield meter fills in over ~10 seconds at the start of a mission. Claude says there's no explanation for this in the shield code, where the shields start out at full charge, and would take ~30 seconds to fully charge from empty. The fade-in-over-10-seconds may be a HUD animation that hasn't been discovered during RE yet.
 - Similarly to the previous, currently missing is an animation where weapon buttons wink on one-at-a-time when the simulation first starts.
 - Preferences (F12): the screen is laid out, reads the install's own `data\prefs.cfg` and cycles its
-  settings, but a changed setting is not applied while the panel is still up. The per-option handler
-  table (`004d2060`) is unported — five options have one. Writing the file back is implemented on
-  retail's own terms: each panel merges its own options into a fresh read of the file as it closes.
+  settings, but eight of the nine rows change nothing — MUSIC, SOUNDS, PILOT MESSAGE, COMPUTER
+  MESSAGE, TERRAIN TEXTURE, HERC DETAIL, STRUCTURE DETAIL and EFFECTS DETAIL are saved to the file
+  and read by no consumer, so wiring them up means reaching into the audio sink, the message port and
+  renderer LOD. Separately, a changed setting is not applied while the panel is still up: the
+  per-option handler table (`004d2060`) is unported, and five options have one. Writing the file back
+  is implemented on retail's own terms: each panel merges its own options into a fresh read of the
+  file as it closes.
   → [`docs/simulation/preferences.md`](docs/simulation/preferences.md)
 - The outside and chase views. The joystick's `OUTSIDE VIEW` and `CHASE VIEW` actions step a chain of
   external cameras (`DAT_004d2572`, four states) that the engine has no equivalent of, so those two

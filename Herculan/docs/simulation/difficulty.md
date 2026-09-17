@@ -107,7 +107,9 @@ Three deliberate differences:
 - **The damage scale reads the side off `SimObject.Side`** where the original reaches it through the group pointer. The side is copied onto the object at spawn and nothing changes it mid-mission, so the two are the same byte, and reading it off the object removes an unguarded dereference. The aim scatter still reads `Group.Side`, which is the same value by a longer path.
 - **`WeaponMounts.FireTick` tests the owner** where `WeaponMounts_FireTrigger` relies on its caller being the player's poll. The engine runs the trigger path for every machine, so the test restores what that caller guarantees.
 
-The fourth table, `0049a058`, is `MechObject.SlideDamageScale`, read by `MechObject.SlideLandingDamage` where a slide ends. What is still missing there is the cockpit effect the original raises beside the damage — see [`mech-locomotion.md`](mech-locomotion.md#the-landing).
+The fourth table, `0049a058`, is `MechObject.SlideDamageScale`, read by `MechObject.SlideLandingDamage` where a slide ends, which also raises the cockpit shake the original raises beside the damage — see [`mech-locomotion.md`](mech-locomotion.md#the-landing).
+
+**Nothing in the engine writes any of the three fields.** They arrive only from a `script.dat` on disk: the MDK's mission-script Header tab exposes theater, zone and variant alone (`MissionScriptForm.ApplyHeader`), and the shell's single-mission setup screen — the one place retail sets them — is not ported. An editor toggle or a host flag would make them reachable.
 
 ## Rejected readings
 
@@ -117,3 +119,4 @@ The fourth table, `0049a058`, is `MechObject.SlideDamageScale`, read by `MechObj
 | Difficulty is a property of the mission | `MsnGen_ParseMsnFile` zeroes the header global before parsing and only `MsnGen_LoadMission` fills it. A `.msn` file cannot carry one |
 | The difficulty scale applies to plasma blast damage only | That is one of `Damage_ScaleByDifficulty`'s three call sites. The other two are in `Sim_RaycastObjectList`, on the two damage figures of every direct-fire shot |
 | `DAT_004a9ee0 == 0` makes the player invulnerable | It is one arm of `Sim_DamageToPlayerDisabled`, and the arm the loader's zeroing of `DAT_004a9ed6` makes unreachable. Invulnerability is its own header field |
+| `prefs.cfg` options `0x25`/`0x26` are the two cheats DBSIM reads | They are VSHELL's half of a file the two programs share. The simulator reads neither: it tests the `script.dat` header fields against `== 1`. The option bytes are the shell's record of what the player asked for, not the switch |

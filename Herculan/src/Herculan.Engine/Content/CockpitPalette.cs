@@ -24,6 +24,15 @@ public static class CockpitPalette {
 	/// <summary>The shared cockpit palette resource — source of the per-herc scheme window only.</summary>
 	public const string CockpitPaletteName = "COCKPIT";
 
+	/// <summary>
+	/// Its damage-flash counterpart, the <b>same-index</b> scheme table — step 6 of
+	/// <c>CockpitViewManager_LoadViews</c> installs this herc's own scheme out of it into the impact
+	/// palette, exactly as step 5 does out of <see cref="CockpitPaletteName"/>. Retail's file is the
+	/// same 1040 bytes and the same 256 entries with no shade-ramp table, so the two are
+	/// interchangeable sources here.
+	/// </summary>
+	public const string ImpactCockpitPaletteName = "IMPACTCP";
+
 	/// <summary>First live palette slot the cockpit scheme owns (<c>Palette_InstallRange</c>'s base, <c>0x2a</c>).</summary>
 	public const int CockpitSchemeFirstSlot = 42;
 
@@ -50,8 +59,24 @@ public static class CockpitPalette {
 	/// theater (i.e. every real mission) should always pass its
 	/// <c>TheaterDescriptor.PaletteName</c>.</para>
 	/// </summary>
-	public static DynamixPalette? Load(GameContent content, string? worldPaletteName, int cockpitSchemeIndex) {
-		var cockpit = ReadPalette(content, CockpitPaletteName);
+	public static DynamixPalette? Load(GameContent content, string? worldPaletteName, int cockpitSchemeIndex) =>
+		Load(content, worldPaletteName, cockpitSchemeIndex, CockpitPaletteName);
+
+	/// <summary>
+	/// The damage flash's live palette: the theater's <c>IMPACT&lt;n&gt;.DPL</c> as the base with this
+	/// herc's scheme out of <see cref="ImpactCockpitPaletteName"/> over the same 24 slots. The
+	/// original builds it the same way and from the same pair — see docs/formats/cockpit-hud.md,
+	/// "The damage shake".
+	/// </summary>
+	public static DynamixPalette? LoadImpact(GameContent content, string? impactPaletteName,
+			int cockpitSchemeIndex) =>
+		impactPaletteName == null
+			? null
+			: Load(content, impactPaletteName, cockpitSchemeIndex, ImpactCockpitPaletteName);
+
+	private static DynamixPalette? Load(GameContent content, string? worldPaletteName,
+			int cockpitSchemeIndex, string cockpitPaletteName) {
+		var cockpit = ReadPalette(content, cockpitPaletteName);
 		var palette = ReadPalette(content, worldPaletteName) ?? cockpit;
 		if (palette == null) {
 			return null;

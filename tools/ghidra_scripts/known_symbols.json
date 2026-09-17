@@ -14087,6 +14087,114 @@
       "name": "SimObject_CompareCombatRatingStub",
       "description": "The shared base's vtable +0x4c: `return 1`. Ai_SelectTarget (00411fa0) dispatches this slot on the ASKING object, so a structure or a flyer -- both of whose tables install this stub -- scores every candidate against column 1 of the four Q10 weight tables at 0049933c/42/48, whatever the ratings actually are. Only the mech table replaces it, with Mech_CompareCombatRating (0041cabc).",
       "source": "docs/simulation/structure-behaviour.md"
+    },
+    {
+      "address": "00434010",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Cockpit_StartHitShake",
+      "description": "Starts (or restarts) the cockpit's damage shake: swaps the active palette to the theater's impact palette (ImpactPaletteObject, 0049aef8), seeds the view-offset band through CockpitView_SetShakeBand(5 << VideoMode_YCoordShift) and arms the two timers -- HitShakeEndTick at now + 0x3c coarse ticks and HitShakeNextToggleTick at now + rand%10. Returns immediately in view mode 4. Its two callers are Mech_ApplyDirectFireDamage (a hit on either of the player's own two cockpit components, while that component still reads under 0x64 damaged) and Mech_CollisionTest (the landing at the bottom of a long slide). Restarting over a running shake restores the palette and clears the view band, then skips the arm block because HitShakeNextToggleTick is still set -- so it extends the window without putting either back.",
+      "source": "docs/simulation/mech-locomotion.md"
+    },
+    {
+      "address": "0043408c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Cockpit_HitShakeTick",
+      "description": "Per-frame half of the damage shake, called from the cockpit frame pass (FUN_004327ac) immediately before the footfall kick's own tick. While HitShakeEndTick is in the future it flips the impact palette each time HitShakeNextToggleTick expires (rearming it at now + rand%10) and calls CockpitView_StepShake(rand%5) every frame; on expiry it restores the palette and the view. Returns whether the shake is running, which its caller ignores.",
+      "source": "docs/simulation/mech-locomotion.md"
+    },
+    {
+      "address": "0042d2f8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitView_SetShakeBand",
+      "description": "Seeds the shake's vertical band: copies the resting view offset into 004cfae4/004cfae8 and sets the two limits at 004cfaec/004cfaf0 to that offset and that offset plus or minus the amplitude argument, the sign chosen by the view mode enum at FUN_00429820's +0x14. Sets CockpitViewShakeArmed. Also reached from CockpitView_StepViewTransition.",
+      "source": "docs/simulation/mech-locomotion.md"
+    },
+    {
+      "address": "0042d4a8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitView_StepShake",
+      "description": "One frame of the shake: moves the view's y offset (004cfae8) by up to the step argument toward whichever of CockpitView_SetShakeBand's two limits is farther away, so the view ping-pongs across the band rather than settling, then reinstalls the projection. Does nothing unless CockpitViewShakeArmed is set, and nothing in view mode 4.",
+      "source": "docs/simulation/mech-locomotion.md"
+    },
+    {
+      "address": "0042ea44",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Palette_ActivateImpact",
+      "description": "Swaps the active palette to ImpactPaletteObject through Palette_SetActive, saving the previous one at 004cfd8c/004cfd90 and latching 0049aef3. The flash half of the cockpit damage shake.",
+      "source": "docs/simulation/mech-locomotion.md"
+    },
+    {
+      "address": "0042ea70",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Palette_ToggleImpact",
+      "description": "Swaps the saved and active palettes and flips 0049aef3, so repeated calls alternate between the theater palette and its impact palette. Called once per HitShakeNextToggleTick expiry while the shake runs.",
+      "source": "docs/simulation/mech-locomotion.md"
+    },
+    {
+      "address": "0042ea94",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Palette_RestoreFromImpact",
+      "description": "Puts the palette Palette_ActivateImpact saved back. Called when the shake ends and when a new shake restarts over a running one.",
+      "source": "docs/simulation/mech-locomotion.md"
+    },
+    {
+      "address": "0049aef8",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ImpactPaletteObject",
+      "description": "The theater's impact palette, loaded by World_LoadTheater (0042e010) from the third trailing string of wld/WORLD<n>.WLD -- IMPACT0.DPL through IMPACT9.DPL, which the port already parses as TheaterDescriptor.ImpactPaletteName. Its only readers are the three Palette_*Impact functions that flash it during the cockpit damage shake.",
+      "source": "docs/simulation/mech-locomotion.md"
+    },
+    {
+      "address": "0049b0fc",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "HitShakeEndTick",
+      "description": "The Time_GetCoarseTicks value at which the cockpit damage shake ends -- set to now + 0x3c (60 units, 0.96 s) by Cockpit_StartHitShake. Zero means no shake is running.",
+      "source": "docs/simulation/mech-locomotion.md"
+    },
+    {
+      "address": "0049b100",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "HitShakeNextToggleTick",
+      "description": "The Time_GetCoarseTicks value at which the damage shake next flips the impact palette, pushed to now + rand%10 each time it fires.",
+      "source": "docs/simulation/mech-locomotion.md"
+    },
+    {
+      "address": "0049ac44",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "CockpitViewShakeArmed",
+      "description": "Set by CockpitView_SetShakeBand and tested first by CockpitView_StepShake, which does nothing until a band has been seeded.",
+      "source": "docs/simulation/mech-locomotion.md"
+    },
+    {
+      "address": "0042d624",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitView_ClearShake",
+      "description": "Undoes CockpitView_SetShakeBand: restores the view offset from the resting copy at 004cfadc/004cfae0, reinstalls the projection and clears CockpitViewShakeArmed. No-op when that byte is clear or the view mode is 4. Called when the cockpit damage shake ends or restarts, from CockpitView_ApplyViewState, and from the two mech-death screen flashes.",
+      "source": "docs/formats/cockpit-hud.md"
     }
   ]
 }

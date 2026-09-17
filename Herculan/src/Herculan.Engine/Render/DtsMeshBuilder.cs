@@ -148,6 +148,9 @@ public static class DtsMeshBuilder {
 	};
 
 	private readonly struct Triangle {
+		/// <inheritdoc cref="Gl.MeshVertex.SolidPaletteIndex"/>
+		public int SolidPaletteIndex { get; }
+
 		public Vector3 A { get; }
 		public Vector3 B { get; }
 		public Vector3 C { get; }
@@ -214,9 +217,11 @@ public static class DtsMeshBuilder {
 				bool unlit = false, int shadeRamp = -1,
 				(Vector3 A, Vector3 B, Vector3 C)? vertexNormals = null,
 				Vector3? faceNormal = null,
-				(float A, float B, float C) uvWeights = default) {
+				(float A, float B, float C) uvWeights = default,
+				int solidPaletteIndex = -1) {
 			Unlit = unlit;
 			ShadeRamp = shadeRamp;
+			SolidPaletteIndex = solidPaletteIndex;
 			VertexNormals = vertexNormals;
 			FaceNormal = faceNormal;
 			PolyId = polyId;
@@ -242,8 +247,13 @@ public static class DtsMeshBuilder {
 	/// is kept in — see <see cref="MeshBuild"/>.
 	/// </summary>
 	private readonly struct OutlineEdge {
+		/// <inheritdoc cref="Gl.MeshVertex.SolidPaletteIndex"/>
+		public int SolidPaletteIndex { get; }
+
 		public OutlineEdge(Vector3 a, Vector3 b, Vector3 localA, Vector3 localB,
-				Vector3 color, int transformId, CellGate gate, int polyId, bool standalone = false) {
+				Vector3 color, int transformId, CellGate gate, int polyId, bool standalone = false,
+				int solidPaletteIndex = -1) {
+			SolidPaletteIndex = solidPaletteIndex;
 			A = a;
 			B = b;
 			LocalA = localA;
@@ -555,8 +565,10 @@ public static class DtsMeshBuilder {
 		Vector3 a = local ? edge.LocalA : edge.A;
 		Vector3 b = local ? edge.LocalB : edge.B;
 
-		vertices[at] = new MeshVertex(a, Vector3.UnitY, edge.Color, unlit: true);
-		vertices[at + 1] = new MeshVertex(b, Vector3.UnitY, edge.Color, unlit: true);
+		vertices[at] = new MeshVertex(a, Vector3.UnitY, edge.Color, unlit: true,
+			solidPaletteIndex: edge.SolidPaletteIndex);
+		vertices[at + 1] = new MeshVertex(b, Vector3.UnitY, edge.Color, unlit: true,
+			solidPaletteIndex: edge.SolidPaletteIndex);
 	}
 
 	/// <summary>
@@ -702,11 +714,14 @@ public static class DtsMeshBuilder {
 		bool textured = triangle.Rank == Ranks.Textured;
 
 		vertices[at] = new MeshVertex(a, normalA, triangle.Color, triangle.UvA, textured, triangle.Unlit,
-			shadeRamp: triangle.ShadeRamp, faceNormal: normal, uvWeight: triangle.UvWeights.A);
+			shadeRamp: triangle.ShadeRamp, faceNormal: normal, uvWeight: triangle.UvWeights.A,
+			solidPaletteIndex: triangle.SolidPaletteIndex);
 		vertices[at + 1] = new MeshVertex(b, normalB, triangle.Color, triangle.UvB, textured, triangle.Unlit,
-			shadeRamp: triangle.ShadeRamp, faceNormal: normal, uvWeight: triangle.UvWeights.B);
+			shadeRamp: triangle.ShadeRamp, faceNormal: normal, uvWeight: triangle.UvWeights.B,
+			solidPaletteIndex: triangle.SolidPaletteIndex);
 		vertices[at + 2] = new MeshVertex(c, normalC, triangle.Color, triangle.UvC, textured, triangle.Unlit,
-			shadeRamp: triangle.ShadeRamp, faceNormal: normal, uvWeight: triangle.UvWeights.C);
+			shadeRamp: triangle.ShadeRamp, faceNormal: normal, uvWeight: triangle.UvWeights.C,
+			solidPaletteIndex: triangle.SolidPaletteIndex);
 	}
 
 	/// <summary>
@@ -1033,7 +1048,8 @@ public static class DtsMeshBuilder {
 					sink.Triangles.Add(new Triangle(first, points[i1], points[i2], color, rank, polyId,
 						localFirst, localPoints[i1], localPoints[i2], group.Transform, sink.Gate,
 						unlit: solid.HasValue, shadeRamp: shadeRamp, vertexNormals: corners,
-						faceNormal: faceNormal));
+						faceNormal: faceNormal,
+						solidPaletteIndex: solid?.FillIndex ?? -1));
 				}
 			}
 
@@ -1047,6 +1063,9 @@ public static class DtsMeshBuilder {
 			// and here there is no filled face. Twelve of MECHWPNS.DTS's 92 line polys state a line
 			// colour that resolves to their fill, and they are struts like any other.
 			Vector3? edgeColor = poly.VertexCount == 2 ? solid?.Line ?? solid?.Fill : solid?.Line;
+			int edgeIndex = poly.VertexCount == 2 && solid is { Line: null }
+				? solid?.FillIndex ?? -1
+				: solid?.LineIndex ?? -1;
 
 			if (edgeColor is { } lineColor) {
 				// A line poly's edge loop would run 0->1 and then 1->0, the same segment drawn twice,
@@ -1061,9 +1080,12 @@ public static class DtsMeshBuilder {
 						continue;
 					}
 
+					// Whichever entry supplied lineColor above supplied its index too, so the outline
+					// resolves through the same table its fill does.
 					sink.Outlines.Add(new OutlineEdge(points[from], points[to],
 						localPoints[from], localPoints[to], lineColor, group.Transform, sink.Gate, polyId,
-						standalone: linePoly));
+						standalone: linePoly,
+						solidPaletteIndex: edgeIndex));
 				}
 			}
 		}
@@ -1365,6 +1387,8 @@ public static class DtsMeshBuilder {
 			return null;
 		}
 
+		int lineIndex = -1;
+
 		// The line colour is guarded exactly as the fill is — a nonzero flag means the entry is not a
 		// plain colour, and retail's own "no outline" entries are the flagged -1 pair. Past that, the
 		// original's test is on the ramp's output, so this one is too.
@@ -1373,14 +1397,21 @@ public static class DtsMeshBuilder {
 			&& shading.Ramp.Lookup(surface.FrontLineColor, ShadeRamp.UnlitShade)
 				!= shading.Ramp.Lookup(surface.FrontColor, ShadeRamp.UnlitShade)) {
 			line = shading.Ramp.Resolve(surface.FrontLineColor, ShadeRamp.UnlitShade, shading.Palette);
+			lineIndex = surface.FrontLineColor;
 		}
 
-		return new SolidColors(fill, line);
+		return new SolidColors(fill, line, surface.FrontColor, lineIndex);
 	}
 
 	/// <summary>
 	/// The two colours a flat solid surface carries — see <see cref="ResolveSolidColors"/>.
 	/// <paramref name="Line"/> is null when the surface draws no outline.
 	/// </summary>
-	private readonly record struct SolidColors(Vector3 Fill, Vector3? Line);
+	/// <summary>
+	/// A flat solid face's two resolved colours and the palette indices they came from. The indices
+	/// travel to the GPU so the lookup can be redone there against whichever table the damage flash
+	/// has bound; the colours remain the fallback for a theater with no palette ramp. See
+	/// <see cref="Gl.MeshVertex.SolidPaletteIndex"/>.
+	/// </summary>
+	private readonly record struct SolidColors(Vector3 Fill, Vector3? Line, int FillIndex, int LineIndex);
 }

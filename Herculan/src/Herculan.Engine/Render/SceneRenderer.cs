@@ -119,8 +119,11 @@ public sealed class SceneRenderer : IDisposable {
 	private readonly bool _hasGrid;
 	private GpuTexture? _shadeRampTexture;
 	private GpuTexture? _paletteRampTexture;
+	private GpuTexture? _impactShadeRampTexture;
+	private GpuTexture? _impactPaletteRampTexture;
 	private int _paletteRampRows;
 	private int _paletteRampShadeRows;
+	private int _paletteRampUnlitRow;
 	private int _depthSlices;
 	private int _shadeRampRows;
 	private int _shadeRampGouraudRow;
@@ -204,8 +207,45 @@ public sealed class SceneRenderer : IDisposable {
 			: new GpuTexture(_gl, table.Pixels, PaletteRampTable.Width, table.Height);
 		_paletteRampRows = table?.Height ?? 0;
 		_paletteRampShadeRows = table?.ShadeRows ?? 0;
+		_paletteRampUnlitRow = table?.UnlitRow ?? 0;
 		_depthSlices = table?.DepthSlices ?? _depthSlices;
 	}
+
+	/// <summary>
+	/// Installs the counterparts of the two tables above built against the theater's damage-flash
+	/// palette, which <see cref="ImpactPaletteActive"/> then swaps to and from. Both stay resident:
+	/// the flash toggles several times a second and rebuilding a table at that rate would stutter.
+	///
+	/// <para>Call this <b>after</b> <see cref="SetShadeRamps"/> and <see cref="SetPaletteRamp"/>: it
+	/// measures each table against the one already installed.</para>
+	///
+	/// <para>A table whose dimensions do not match the one it stands in for is <b>dropped</b> rather
+	/// than installed, because the row counts are uploaded as uniforms once and the swap does not
+	/// re-derive them. Nothing in retail data can trip this — both sides are built from the same
+	/// theater <c>.RMP</c> — so it would mean a hand-made palette, and a silently mis-rowed lookup
+	/// reads as corrupted geometry colour rather than as a bad file.</para>
+	/// </summary>
+	public void SetImpactRamps(SurfaceRampTable? shadeRamps, PaletteRampTable? paletteRamp) {
+		_impactShadeRampTexture?.Dispose();
+		_impactShadeRampTexture = shadeRamps != null && shadeRamps.Height == _shadeRampRows
+			&& shadeRamps.GouraudBlockRow == _shadeRampGouraudRow
+			? new GpuTexture(_gl, shadeRamps.Pixels, SurfaceRampTable.Width, shadeRamps.Height)
+			: null;
+
+		_impactPaletteRampTexture?.Dispose();
+		_impactPaletteRampTexture = paletteRamp != null && paletteRamp.Height == _paletteRampRows
+			&& paletteRamp.ShadeRows == _paletteRampShadeRows
+			&& paletteRamp.UnlitRow == _paletteRampUnlitRow
+			? new GpuTexture(_gl, paletteRamp.Pixels, PaletteRampTable.Width, paletteRamp.Height)
+			: null;
+	}
+
+	/// <summary>
+	/// Whether the scene draws through the damage-flash palette this frame. The cockpit's shake owns
+	/// it — see <c>CockpitHitShake.FlashActive</c> — and it does nothing until
+	/// <see cref="SetImpactRamps"/> has supplied a table to swap to.
+	/// </summary>
+	public bool ImpactPaletteActive { get; set; }
 
 	/// <summary>
 	/// What distant geometry fades into. The theater's own ramp knows this colour — see
@@ -316,9 +356,17 @@ public sealed class SceneRenderer : IDisposable {
 			_shader.SetFloat("uGridFadeEnd", MathF.Max(Grid.FadeEndMeters, Grid.FadeStartMeters + 0.001f));
 		}
 
+		// Which of each pair the flash is showing. Both are the same shape, so only the handle moves.
+		var shadeRampTexture = ImpactPaletteActive && _impactShadeRampTexture != null
+			? _impactShadeRampTexture
+			: _shadeRampTexture;
+		var paletteRampTexture = ImpactPaletteActive && _impactPaletteRampTexture != null
+			? _impactPaletteRampTexture
+			: _paletteRampTexture;
+
 		// Unit 1, so a per-item atlas can keep unit 0 without rebinding this every draw.
-		if (_shadeRampTexture != null) {
-			_shader.SetSamplerTexture("uShadeRampTable", _shadeRampTexture.Handle, 1);
+		if (shadeRampTexture != null) {
+			_shader.SetSamplerTexture("uShadeRampTable", shadeRampTexture.Handle, 1);
 			_shader.SetInt("uShadeRampEnabled", 1);
 			_shader.SetFloat("uShadeRampRows", _shadeRampRows);
 			_shader.SetFloat("uShadeRampGouraudRow", _shadeRampGouraudRow);
@@ -326,11 +374,12 @@ public sealed class SceneRenderer : IDisposable {
 			_shader.SetInt("uShadeRampEnabled", 0);
 		}
 
-		if (_paletteRampTexture != null) {
-			_shader.SetSamplerTexture("uPaletteRamp", _paletteRampTexture.Handle, 2);
+		if (paletteRampTexture != null) {
+			_shader.SetSamplerTexture("uPaletteRamp", paletteRampTexture.Handle, 2);
 			_shader.SetInt("uPaletteRampEnabled", 1);
 			_shader.SetFloat("uShadeLevels", _paletteRampShadeRows);
 			_shader.SetFloat("uPaletteRampRows", _paletteRampRows);
+			_shader.SetFloat("uPaletteRampUnlitRow", _paletteRampUnlitRow);
 		} else {
 			_shader.SetInt("uPaletteRampEnabled", 0);
 		}
@@ -485,6 +534,8 @@ public sealed class SceneRenderer : IDisposable {
 		_skyShader.Dispose();
 		_shadeRampTexture?.Dispose();
 		_paletteRampTexture?.Dispose();
+		_impactShadeRampTexture?.Dispose();
+		_impactPaletteRampTexture?.Dispose();
 		_gl.DeleteVertexArray(_skyVertexArray);
 	}
 }

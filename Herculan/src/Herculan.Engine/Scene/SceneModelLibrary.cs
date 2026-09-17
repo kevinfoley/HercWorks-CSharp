@@ -76,6 +76,7 @@ public sealed class SceneModelLibrary {
 	private readonly GameContent _content;
 	private readonly DynamixPalette? _palette;
 	private readonly SurfaceShading? _shading;
+	private readonly SurfaceShading? _impactShading;
 
 	private readonly Dictionary<string, SceneModel?> _models = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, TextureAtlas?> _atlases = new(StringComparer.OrdinalIgnoreCase);
@@ -125,6 +126,18 @@ public sealed class SceneModelLibrary {
 				$"WARNING: theater palette {theater.PaletteName}.DPL has no shade-ramp table; " +
 				"lit flat surfaces will draw untextured and unlit.");
 		}
+
+		// The same theater, through its damage-flash palette instead. Only the palette changes: the
+		// original swaps the palette object alone and there is no IMPACT<n>.RMP in retail data, so the
+		// ramp below is deliberately the theater's own.
+		byte[]? impactBytes = content.Read("dpl", theater.ImpactPaletteName + ".DPL");
+		var impactPalette = impactBytes != null
+			? new DynamixPaletteTransformer().Parse(impactBytes) as DynamixPalette
+			: null;
+
+		_impactShading = impactPalette != null && _shading != null
+			? _shading with { Palette = impactPalette }
+			: null;
 	}
 
 	/// <summary>Every model built so far, in first-requested order.</summary>
@@ -136,6 +149,14 @@ public sealed class SceneModelLibrary {
 	/// <see cref="Atmosphere"/>.
 	/// </summary>
 	public SurfaceShading? Shading => _shading;
+
+	/// <summary>
+	/// The same pair with the theater's <c>IMPACT&lt;n&gt;.DPL</c> in place of its ordinary palette —
+	/// what the whole scene is drawn through while the cockpit damage flash is up. Null when that
+	/// palette is missing, in which case the flash simply does not recolour anything. See
+	/// docs/formats/cockpit-hud.md, "The damage shake".
+	/// </summary>
+	public SurfaceShading? ImpactShading => _impactShading;
 
 	/// <summary>The mech type's stats, or null when the install has no <c>dat\&lt;name&gt;.DAT</c>.</summary>
 	public HercSimDat? MechData(string mechName) {

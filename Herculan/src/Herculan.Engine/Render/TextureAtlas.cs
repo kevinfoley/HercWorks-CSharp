@@ -69,6 +69,32 @@ public sealed class TextureAtlas {
 	/// </summary>
 	public byte[] IndexPixels { get; }
 
+	/// <summary>
+	/// The same packing expanded through a <i>different</i> palette — for the cockpit's damage flash,
+	/// which swaps the whole live palette and so recolours every HUD plate and glyph with it.
+	///
+	/// <para>Built from <see cref="IndexPixels"/> rather than by re-reading and re-packing the source
+	/// banks, so it costs one pass over the atlas and cannot disagree with it about where a frame
+	/// landed. Alpha is carried across unchanged: it records which texels are the cutout, which is a
+	/// property of the art and not of the palette.</para>
+	/// </summary>
+	public byte[] ExpandThrough(DynamixPalette palette) {
+		var expanded = new byte[Pixels.Length];
+
+		for (int at = 0; at < expanded.Length; at += 4) {
+			if (palette.Colors.TryGetValue(IndexPixels[at], out var entry)) {
+				var color = entry.GetColor();
+				expanded[at] = color.R;
+				expanded[at + 1] = color.G;
+				expanded[at + 2] = color.B;
+			}
+
+			expanded[at + 3] = IndexPixels[at + 3];
+		}
+
+		return expanded;
+	}
+
 	public int Width { get; }
 
 	public int Height { get; }

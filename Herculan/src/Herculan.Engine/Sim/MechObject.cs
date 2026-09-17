@@ -1070,8 +1070,10 @@ public sealed partial class MechObject : SimObject {
 	/// the kill if it finishes the machine off. An invulnerable machine takes none of it, because
 	/// that gate is inside the write.</para>
 	///
-	/// <para>The original also calls <c>FUN_00434010</c> here, an unported cockpit effect it shares
-	/// with nothing else in the traced code. See docs/simulation/mech-locomotion.md.</para>
+	/// <para>The landing also jolts the cockpit, through <see cref="CockpitHits"/> — the second of
+	/// the shake's two triggers, and the ungated one: the direct-fire site tests who is flying and
+	/// how far gone the cockpit is, and this one calls it on any landing that got past the distance
+	/// threshold. See docs/formats/cockpit-hud.md, "The damage shake".</para>
 	/// </summary>
 	private void SlideLandingDamage(SimWorld world, int slideDistance) {
 		if (slideDistance <= SlideDamageMinimumDistance) {
@@ -1088,6 +1090,7 @@ public sealed partial class MechObject : SimObject {
 				unchecked((short)(world.Random.NextBelow(spread) + baseDamage)), null);
 		}
 
+		CockpitHits++;
 		world.Sounds?.Play(Audio.SoundId.Collision);
 	}
 

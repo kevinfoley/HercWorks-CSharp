@@ -29,6 +29,8 @@ VARYING float vTextured;
 VARYING float vUnlit;
 VARYING float vShade;
 VARYING float vShadeRamp;
+// The palette index a flat solid face names, or -1. See MeshVertex.SolidPaletteIndex.
+VARYING float vSolidPaletteIndex;
 VARYING float vLightShade;
 VARYING float vViewDistance;
 
@@ -50,6 +52,7 @@ layout (location = 6) in float aShade;
 layout (location = 7) in float aShadeRamp;
 layout (location = 8) in vec3 aFaceNormal;
 layout (location = 9) in float aUvWeight;
+layout (location = 10) in float aSolidPaletteIndex;
 
 uniform mat4 uModel;
 uniform mat4 uView;
@@ -149,6 +152,7 @@ void main() {
 	vUnlit = aUnlit;
 	vShade = aShade;
 	vShadeRamp = aShadeRamp;
+	vSolidPaletteIndex = aSolidPaletteIndex;
 	// Depth along the view axis, not distance from the eye. That is the quantity the original
 	// fogs against: its view space is (across, depth, up) — Raster_PerspectiveDivide (0048c4f0)
 	// divides components 0 and 2 by component 1 to project — and Terrain_DrawCellQuad hands
@@ -191,6 +195,9 @@ uniform sampler2D uPaletteRamp;
 uniform bool uPaletteRampEnabled;
 uniform float uShadeLevels;
 uniform float uPaletteRampRows;
+// The row a flat solid face reads: ShadeRamp.UnlitShade's row in slice 0, the fixed shade
+// TSSolidPoly_Render passes. See PaletteRampTable.UnlitRow.
+uniform float uPaletteRampUnlitRow;
 uniform float uDepthSlices;
 uniform float uFogDepthBias;
 uniform bool uFullbright;
@@ -349,10 +356,19 @@ void main() {
 
 		lit = texture(uShadeRampTable,
 			vec2((floor(shade) + 0.5) / 256.0, (row + 0.5) / uShadeRampRows)).rgb;
+	} else if (uPaletteRampEnabled && vSolidPaletteIndex >= 0.0) {
+		// A plain TSSolidPoly. Its surface value is a palette INDEX, and the original resolves it
+		// as rampRow(UnlitShade)[index] — one fixed row of the same table a lit textured texel is
+		// read from, never lit and never fogged through the ramp. Resolving it here rather than on
+		// the CPU is what lets it follow the damage flash's palette swap, and it is the identical
+		// byte either way: DtsMeshBuilder.ResolveSolidColors computes this very lookup.
+		lit = texture(uPaletteRamp,
+			vec2((floor(vSolidPaletteIndex + 0.5) + 0.5) / 256.0,
+				(uPaletteRampUnlitRow + 0.5) / uPaletteRampRows)).rgb;
 	} else {
-		// What is left is untextured and names no material ramp: a plain TSSolidPoly, whose
-		// colour already came out of the theater ramp at a fixed shade and is never lit, or a
-		// fallback colour for a surface nothing could resolve. Both are final as they stand.
+		// What is left names no palette index either: a fallback colour for a surface nothing
+		// could resolve, or any solid face in a theater whose palette ramp did not load — where
+		// baseColor still holds the colour the mesh builder baked. Final as it stands.
 		lit = baseColor;
 	}
 

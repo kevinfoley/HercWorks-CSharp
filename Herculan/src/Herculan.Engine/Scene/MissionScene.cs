@@ -42,7 +42,7 @@ public sealed class MissionScene {
 			IReadOnlyDictionary<int, SceneModel> explosionModels,
 			IReadOnlyDictionary<int, IReadOnlyList<SceneModel>> rocketModels,
 			IReadOnlyDictionary<int, IReadOnlyList<SceneModel>> mechWeaponModels, Atmosphere atmosphere,
-			SurfaceRampTable? shadeRamps, PaletteRampTable? paletteRamp,
+			SurfaceRampTable? shadeRamps, PaletteRampTable? paletteRamp, ImpactFlash? impactFlash,
 			IReadOnlyDictionary<string, IReadOnlyList<SceneModel?>> debrisModels,
 			IReadOnlyList<SceneModel?> fireModels,
 			IReadOnlyDictionary<int, SceneModel> hulkModels,
@@ -50,6 +50,7 @@ public sealed class MissionScene {
 		Atmosphere = atmosphere;
 		ShadeRamps = shadeRamps;
 		PaletteRamp = paletteRamp;
+		ImpactFlash = impactFlash;
 		Beams = beams;
 		BulletModels = bulletModels;
 		ExplosionModels = explosionModels;
@@ -91,6 +92,12 @@ public sealed class MissionScene {
 	/// bind indexed atlases — see <see cref="PaletteRampTable"/>.
 	/// </summary>
 	public PaletteRampTable? PaletteRamp { get; }
+
+	/// <summary>
+	/// The same three, rebuilt against the theater's damage-flash palette, or null when that palette
+	/// is missing — see <see cref="Scene.ImpactFlash"/>.
+	/// </summary>
+	public ImpactFlash? ImpactFlash { get; }
 
 	/// <summary>The mission this scene was built from.</summary>
 	public Mission Mission { get; }
@@ -592,6 +599,10 @@ public sealed class MissionScene {
 			beams, bulletModels, explosionModels,
 			rocketModels, mechWeaponModels, Atmosphere.From(terrain, models.Shading),
 			SurfaceRampTable.Build(models.Shading), PaletteRampTable.Build(models.Shading),
+			models.ImpactShading is { } impact
+				? new ImpactFlash(SurfaceRampTable.Build(impact), PaletteRampTable.Build(impact),
+					Atmosphere.From(terrain, impact))
+				: null,
 			debrisModels, fireModels, hulkModels, dropPodModel, dropPodOpening);
 	}
 

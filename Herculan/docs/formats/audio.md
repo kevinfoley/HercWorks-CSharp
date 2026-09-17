@@ -621,8 +621,8 @@ shared helper the first row stands for.
 write and again after, and the post needs the **later** read under 100 and the earlier one over it —
 the reading would have to have fallen. It only falls if the write is negative, which needs the shot's
 diverted splash share to exceed its own armour damage; the largest `SplashFactor` in retail
-`PROJ.DAT` is 1000 against the Q10 unit of 1024, so it never is. The cockpit jolt (`FUN_00434010`)
-sits above the test and does fire. A hand-edited `PROJ.DAT` would reach the line.
+`PROJ.DAT` is 1000 against the Q10 unit of 1024, so it never is. The cockpit jolt (`Cockpit_StartHitShake`, `00434010`)
+shares the gate, sits above the test and does fire. A hand-edited `PROJ.DAT` would reach the line.
 
 Those ids are the whole set, so **over half the file's sixty-three lines are posted by
 nothing** — among them `MISSION OBJECTIVES COMPLETE` (`0x1a`), `PRIMARY OBJECTIVE COMPLETE` (`0x1b`),

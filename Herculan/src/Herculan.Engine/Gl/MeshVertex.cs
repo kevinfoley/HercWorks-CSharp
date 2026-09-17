@@ -105,9 +105,26 @@ public struct MeshVertex {
 	/// </summary>
 	public float UvWeight;
 
+	/// <summary>
+	/// The <b>palette index</b> a flat solid face names, or -1 for every other surface — the default,
+	/// and what a fallback colour carries.
+	///
+	/// <para><c>TSSolidPoly_Render</c> (<c>00474db4</c>) resolves its surface value as
+	/// <c>rampRow(UnlitShade)[index]</c>, which is one row of
+	/// <see cref="Render.PaletteRampTable"/> — the same table a lit textured texel is resolved
+	/// through, read at a fixed row instead of the light's. So this travels to the GPU for the same
+	/// reason <see cref="ShadeRamp"/> does: the table is swapped wholesale for the cockpit's damage
+	/// flash (<see cref="Scene.ImpactFlash"/>), and a colour resolved on the CPU cannot follow that.
+	/// </para>
+	///
+	/// <para><see cref="Color"/> still carries the resolved colour and is what draws when no palette
+	/// ramp is installed, so a theater whose palette did not load is unaffected by this path.</para>
+	/// </summary>
+	public float SolidPaletteIndex;
+
 	public MeshVertex(Vector3 position, Vector3 normal, Vector3 color, Vector2 uv = default,
 			bool textured = false, bool unlit = false, float shade = 1f, int shadeRamp = -1,
-			Vector3? faceNormal = null, float uvWeight = 0f) {
+			Vector3? faceNormal = null, float uvWeight = 0f, int solidPaletteIndex = -1) {
 		Position = position;
 		Normal = normal;
 		FaceNormal = faceNormal ?? normal;
@@ -118,8 +135,9 @@ public struct MeshVertex {
 		Shade = shade;
 		ShadeRamp = shadeRamp;
 		UvWeight = uvWeight;
+		SolidPaletteIndex = solidPaletteIndex;
 	}
 
 	/// <summary>Bytes per vertex, used as the vertex-attribute stride.</summary>
-	public const uint SizeInBytes = 19 * sizeof(float);
+	public const uint SizeInBytes = 20 * sizeof(float);
 }

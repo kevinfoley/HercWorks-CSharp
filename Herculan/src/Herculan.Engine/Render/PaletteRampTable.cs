@@ -48,6 +48,14 @@ public sealed class PaletteRampTable {
 	public byte[] Pixels { get; }
 
 	/// <summary>
+	/// The row a <b>flat solid face</b> reads — <see cref="ShadeRamp.UnlitShade"/>'s row in slice 0,
+	/// the fixed shade <c>TSSolidPoly_Render</c> passes. Sampling this row at the surface's palette
+	/// index is byte-for-byte what <c>DtsMeshBuilder.ResolveSolidColors</c> computes on the CPU, so
+	/// the two are interchangeable and the shader uses whichever table the damage flash has bound.
+	/// </summary>
+	public int UnlitRow { get; private init; }
+
+	/// <summary>
 	/// The ramp's own rows — <see cref="ShadeRamp.ShadeLevels"/>, 32 in every retail theater. The
 	/// shade byte selects among these; <see cref="FullbrightRow"/> sits past them.
 	/// </summary>
@@ -124,6 +132,8 @@ public sealed class PaletteRampTable {
 			}
 		}
 
-		return new PaletteRampTable(pixels, shadeRows, slices);
+		return new PaletteRampTable(pixels, shadeRows, slices) {
+			UnlitRow = ramp.RowFor(ShadeRamp.UnlitShade),
+		};
 	}
 }

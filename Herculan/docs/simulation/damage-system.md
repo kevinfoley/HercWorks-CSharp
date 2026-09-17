@@ -471,7 +471,14 @@ modeled underneath it (exact sub-piece breakdown per component not traced).
 
 **Write and cascade: `Component_ApplyDamageAndCascade` (`0040da38`)**, called from
 `Mech_ComponentDamageWrite` (`00417de4`, mech vtable `+0x74`) and `FUN_00421bb4` (the flyer's) — the
-shared endpoint both damage pathways call into:
+shared endpoint both damage pathways call into.
+
+`Mech_ComponentDamageWrite`'s own first line is `if (obj+0xa3 && Sim_DamageToPlayerDisabled()) return`
+— the mission's invulnerability setting ([`difficulty.md`](difficulty.md#the-two-sibling-cheats)),
+and the one thing that can stop the write and everything below it. Shields are outside it, since they
+are spent in the pathways above.
+
+
 
 ```
 destroyed = Component_AddDamage(&mainDamage[i], piece.Armor, &damage)   // FUN_0040d3ec

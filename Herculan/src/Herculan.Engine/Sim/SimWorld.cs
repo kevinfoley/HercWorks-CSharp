@@ -116,6 +116,23 @@ public sealed class SimWorld {
 	public int Difficulty { get; set; }
 
 	/// <summary>
+	/// <c>DAT_004a9edc</c> — the mission's <b>unlimited ammunition and energy</b> flag, out of
+	/// <see cref="World.ScriptDatHeader.UnlimitedAmmunition"/>. It reaches two places, both of them
+	/// the locally piloted machine's mounts: <see cref="WeaponMounts.FireTick"/> passes it to the
+	/// shot as its free-shot flag, and <see cref="WeaponMounts.ChargeTick"/> refunds the whole tick's
+	/// draw to the Master Energy Pool. See docs/simulation/difficulty.md.
+	/// </summary>
+	public bool UnlimitedAmmunition { get; set; }
+
+	/// <summary>
+	/// <c>DAT_004a9ede</c> — the mission's <b>player invulnerability</b> flag, out of
+	/// <see cref="World.ScriptDatHeader.PlayerInvulnerable"/>, and the whole of
+	/// <c>Sim_DamageToPlayerDisabled</c> (<c>004240f4</c>) once the gate that function shares with
+	/// the difficulty is accounted for. Read where the damage write starts.
+	/// </summary>
+	public bool PlayerInvulnerable { get; set; }
+
+	/// <summary>
 	/// <c>Damage_ScaleByDifficulty</c> (<c>00426b04</c>) — the Q10 factor a shot fired by
 	/// <paramref name="side"/> has its damage multiplied by at this difficulty.
 	///

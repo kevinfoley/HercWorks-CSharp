@@ -527,10 +527,8 @@ public sealed class WeaponMounts {
 	/// weapon armed by hand keeps the selection until its shot leaves it unready, and then the chain
 	/// takes over again on the next <see cref="PerFrameUpdate"/>.</para>
 	///
-	/// <para>Two things in the original are not here. It passes the mounts a flag off a pair of
-	/// globals which only the ammunition class reads, as its "this shot is free" gate; and it asks the
-	/// armed mount for its ammunition type and raises an alert flag for type 3, which an energy mount
-	/// can never report.</para>
+	/// <para>One thing in the original is not here: it asks the armed mount for its ammunition type
+	/// and raises an alert flag for type 3, which an energy mount can never report.</para>
 	/// </summary>
 	/// <param name="owner">The machine firing, which the shot's geometry and the raycast both need.</param>
 	/// <param name="world">The world the shot is resolved against.</param>
@@ -558,8 +556,13 @@ public sealed class WeaponMounts {
 			return false;
 		}
 
-		armed.Fire(owner, world);
-		partner?.Fire(owner, world);
+		// The free-shot flag off DAT_004a9edc. The original builds it from the globals alone, because
+		// the only caller of this is the player's own trigger poll; here the trigger path runs for
+		// every machine, so the owner is tested for what that caller guarantees.
+		bool freeShot = owner.LocallyPiloted && world.UnlimitedAmmunition;
+
+		armed.Fire(owner, world, freeShot);
+		partner?.Fire(owner, world, freeShot);
 
 		// The original re-tests the armed mount after each of the two shots, and the partner's shot
 		// cannot change the armed mount's readiness, so the two tests are one.
@@ -606,6 +609,12 @@ public sealed class WeaponMounts {
 	/// pass that reports <see cref="WeaponMount.AutoFireDue"/> is dispatched again immediately, with
 	/// no trigger read and no readiness test. Only the charge-up gun branch ever arms that, and only
 	/// on <c>EMP2</c>, so this is the second of that weapon's two volleys and nothing else.</para>
+	///
+	/// <para><b>The energy half of the unlimited-ammunition cheat is here</b>, and it is a refund
+	/// rather than a suspension: the mounts are served and charged exactly as they otherwise would
+	/// be, and then the budget the pool gets back is the one it came in with, so a player machine
+	/// with the cheat set never spends reactor energy on its guns. See
+	/// <see cref="SimWorld.UnlimitedAmmunition"/>.</para>
 	/// </summary>
 	/// <param name="budget">The pool less its reserve.</param>
 	/// <param name="selected">
@@ -618,6 +627,9 @@ public sealed class WeaponMounts {
 		if (_slots.Length == 0) {
 			return budget;
 		}
+
+		bool freeShot = owner.LocallyPiloted && world.UnlimitedAmmunition;
+		short unspent = budget;
 
 		var served = new bool[_slots.Length];
 		bool yieldToOther = false;
@@ -645,12 +657,12 @@ public sealed class WeaponMounts {
 			budget = next.ChargeTick(budget, yieldToOther);
 
 			if (next.AutoFireDue) {
-				next.Fire(owner, world);
+				next.Fire(owner, world, freeShot);
 			}
 
 			yieldToOther |= next.Charging;
 		}
 
-		return budget;
+		return freeShot ? unspent : budget;
 	}
 }

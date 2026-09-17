@@ -84,16 +84,30 @@ So a difficulty step changes what **every weapon in the game** does, on both sid
 - `Sim_DamageToPlayerDisabled` (`004240f4`) — which gates the first line of the player's own component damage — answers `DAT_004a9ede == 1`. Invulnerability is live; the `DAT_004a9ee0 == 0` arm beside it is the one the zeroing takes out, so **`ROOKIE` is not an invulnerability setting**.
 - `WeaponMounts_ArbitrateEnergy` (`004107e4`) and `WeaponMounts_FireTrigger` (`00410dbc`) build their free-shot flag as `DAT_004a9edc == 1`, refunding energy and ammunition.
 
+Both are `== 1`, not "nonzero", and both are the header field alone: `prefs.cfg`'s options `0x25` and `0x26` are what VSHELL steps to *write* those fields, and DBSIM never opens that half of the file.
+
+Each reaches exactly one mechanism, and both are the player's machine alone:
+
+- **Invulnerability takes out the whole damage write.** The gate is at `Mech_ComponentDamageWrite`'s entry, so none of that function's consequences — the shield-capacity recompute, the leg grading, the death gate, the reactor latches, the mounts' condition pass — run for the machine either ([`damage-system.md`](damage-system.md#the-component-damage-system)). **Shields are not covered**: absorption happens a function further out, before the write, so the array still drains and still recharges.
+- **Unlimited ammunition is one free-shot flag and one refund.** The flag is the third argument every fire dispatch takes and only the ammunition class reads, where it skips the round spend ([`weapon-firing.md`](weapon-firing.md#the-ammunition-dispatch)); energy is not skipped but refunded, by the arbitration returning the budget it was called with ([`reactor-energy-pool.md`](reactor-energy-pool.md#weapon-energy-arbitration--fun_004107e4)).
+
+`Ai_FireAtPoint` (`0041f5a0`) pushes a literal 0 into that dispatch slot, so no AI machine can reach either half of the free shot. `WeaponMounts_FireTrigger` builds the flag from the globals without testing the owner, because `Mech_PlayerFireTick` (`00415608`) is its only caller; the arbitration, which every machine runs, tests `owner+0xa3` itself.
+
 ## Engine port
 
-`ScriptDatHeader.Difficulty` decodes offset 14 and `MissionScene` hands it to `SimWorld.Difficulty`, which three things index: `SimWorld.DamageScaleFor` holds both damage tables, `WeaponShot.ApplyDifficultyScale` applies it to a shot's two figures at the top of `SimWorld.Raycast`, `Projectile.Detonate` applies it to the plasma blast, and `MechObject.AiAimScatter` is read where the AI aims.
+`ScriptDatHeader` decodes all three fields and `MissionScene` hands them to `SimWorld.Difficulty`, `SimWorld.PlayerInvulnerable` and `SimWorld.UnlimitedAmmunition`.
 
-Two deliberate differences:
+The difficulty is indexed by three things: `SimWorld.DamageScaleFor` holds both damage tables, `WeaponShot.ApplyDifficultyScale` applies it to a shot's two figures at the top of `SimWorld.Raycast`, `Projectile.Detonate` applies it to the plasma blast, and `MechObject.AiAimScatter` is read where the AI aims.
+
+The two cheats sit where the original puts them: `MechObject.ComponentDamageWrite` returns at its head for an invulnerable locally piloted machine, `WeaponMount.Fire` takes the free-shot flag and `WeaponMount.FireAmmunition` is the only branch that reads it, and `WeaponMounts.ChargeTick` returns its incoming budget unspent.
+
+Three deliberate differences:
 
 - **The header value is clamped to 0-3 on the way in.** The original indexes four-entry tables with whatever the file says and reads past them; a hand-edited `script.dat` is held to the four levels instead.
 - **The damage scale reads the side off `SimObject.Side`** where the original reaches it through the group pointer. The side is copied onto the object at spawn and nothing changes it mid-mission, so the two are the same byte, and reading it off the object removes an unguarded dereference. The aim scatter still reads `Group.Side`, which is the same value by a longer path.
+- **`WeaponMounts.FireTick` tests the owner** where `WeaponMounts_FireTrigger` relies on its caller being the player's poll. The engine runs the trigger path for every machine, so the test restores what that caller guarantees.
 
-What is still missing is the fourth consumer: **the slide-landing damage is unimplemented**, so `0049a058` has no reader. So are the two sibling cheats — nothing reads the header's offsets 10 and 12.
+The fourth table, `0049a058`, is `MechObject.SlideDamageScale`, read by `MechObject.SlideLandingDamage` where a slide ends. What is still missing there is the cockpit effect the original raises beside the damage — see [`mech-locomotion.md`](mech-locomotion.md#the-landing).
 
 ## Rejected readings
 

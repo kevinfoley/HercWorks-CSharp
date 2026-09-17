@@ -998,12 +998,10 @@ public sealed partial class MechObject : SimObject {
 			}
 		} else if (_sliding) {
 			_sliding = false;
-
-			// A long enough slide hurts on landing. The damage itself needs the component system,
-			// so for now only the slide's own bookkeeping is reproduced.
 			_lastSlideDistance = SimMath.FastMagnitude2D(_slideX, _slideY);
 			_slideX = 0;
 			_slideY = 0;
+			SlideLandingDamage(world, _lastSlideDistance);
 		}
 
 		return false;
@@ -1055,6 +1053,62 @@ public sealed partial class MechObject : SimObject {
 		ExplosiveDamage(world, (short)damage, at, CollisionBlastRadius, other);
 		other.ExplosiveDamage(world, (short)damage, at, CollisionBlastRadius, this);
 	}
+
+	/// <summary>
+	/// The landing at the bottom of a slide — the fourth and last thing
+	/// <see cref="SimWorld.Difficulty"/> scales, and the player's alone, since only the player's
+	/// machine slides.
+	///
+	/// <para>Six leg components are each written a figure drawn independently: a base of
+	/// <c>slideDistance</c> scaled by the difficulty, plus a roll over three times that base. So the
+	/// spread is wide and no two legs take the same damage, and a harder setting hurts more — this
+	/// is the one difficulty table that runs against the player in both directions at once, since it
+	/// is their own machine it is applied to.</para>
+	///
+	/// <para>The damage goes through <see cref="ComponentDamageWrite"/> with no attacker, so it
+	/// cascades and can cripple or immobilise exactly as a shot would, and nothing is credited with
+	/// the kill if it finishes the machine off. An invulnerable machine takes none of it, because
+	/// that gate is inside the write.</para>
+	///
+	/// <para>The original also calls <c>FUN_00434010</c> here, an unported cockpit effect it shares
+	/// with nothing else in the traced code. See docs/simulation/mech-locomotion.md.</para>
+	/// </summary>
+	private void SlideLandingDamage(SimWorld world, int slideDistance) {
+		if (slideDistance <= SlideDamageMinimumDistance) {
+			return;
+		}
+
+		// Short, and deliberately so: the original's own casts, and a long enough slide wraps them.
+		short baseDamage = unchecked((short)SimMath.Q10Multiply(
+			SlideDamageScale[world.Difficulty], slideDistance));
+		short spread = unchecked((short)(baseDamage * 3));
+
+		for (int component = FirstLegComponent; component <= LastLegComponent; component++) {
+			ComponentDamageWrite(world, (short)component,
+				unchecked((short)(world.Random.NextBelow(spread) + baseDamage)), null);
+		}
+
+		world.Sounds?.Play(Audio.SoundId.Collision);
+	}
+
+	/// <summary>
+	/// <c>DAT_0049a058</c> — the Q10 factor the slide's length becomes damage through, by
+	/// <see cref="SimWorld.Difficulty"/>. Unlike the other three difficulty tables this one is only
+	/// ever applied to the player's own machine.
+	/// </summary>
+	public static readonly short[] SlideDamageScale = { 400, 800, 1200, 1600 };
+
+	/// <summary>A slide shorter than this lands for nothing — the original's literal <c>0xfa</c>.</summary>
+	private const int SlideDamageMinimumDistance = 0xfa;
+
+	/// <summary>
+	/// The six leg components the landing writes, which the original names by literal index rather
+	/// than reading any table: the two upper legs and what hangs off them.
+	/// </summary>
+	private const int FirstLegComponent = 7;
+
+	/// <inheritdoc cref="FirstLegComponent"/>
+	private const int LastLegComponent = 12;
 
 	/// <summary>
 	/// The model-space height of the machine's cockpit-eye node, or zero when the shape has no such

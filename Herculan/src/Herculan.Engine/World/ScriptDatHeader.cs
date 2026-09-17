@@ -25,13 +25,21 @@ public readonly struct ScriptDatHeader {
 	/// <summary>How many difficulty levels there are; see <see cref="Difficulty"/>.</summary>
 	public const int DifficultyLevels = 4;
 
+	/// <summary>
+	/// The value <see cref="UnlimitedAmmunition"/> and <see cref="PlayerInvulnerable"/> are tested
+	/// against. Their readers compare for equality with 1, so a 2 in a hand-edited file is off.
+	/// </summary>
+	public const short CheatEnabled = 1;
+
 	private ScriptDatHeader(int theaterIndex, int zoneIndex, int objectiveType, int theaterVariant,
-			int difficulty) {
+			int difficulty, bool unlimitedAmmunition, bool playerInvulnerable) {
 		TheaterIndex = theaterIndex;
 		ZoneIndex = zoneIndex;
 		ObjectiveType = objectiveType;
 		TheaterVariant = theaterVariant;
 		Difficulty = difficulty;
+		UnlimitedAmmunition = unlimitedAmmunition;
+		PlayerInvulnerable = playerInvulnerable;
 	}
 
 	/// <summary>Theater to load, 0-4 — see <see cref="TheaterDescriptor"/>.</summary>
@@ -73,12 +81,29 @@ public readonly struct ScriptDatHeader {
 	public int Difficulty { get; }
 
 	/// <summary>
+	/// Offset 10 — <c>DAT_004a9edc</c>, <b>unlimited ammunition and energy</b> when the file says
+	/// exactly 1. The shell's single-mission screen sets it; a campaign forces it to 0. What it does
+	/// is two things, both for the player's machine alone and both in
+	/// <see cref="Sim.WeaponMounts"/>: a shot spends no ammunition, and the mounts hand the Master
+	/// Energy Pool back everything they drew this tick. See docs/simulation/difficulty.md.
+	/// </summary>
+	public bool UnlimitedAmmunition { get; }
+
+	/// <summary>
+	/// Offset 12 — <c>DAT_004a9ede</c>, <b>player invulnerable</b> when the file says exactly 1. It
+	/// gates the whole of the damage write for the locally piloted machine, so its components take
+	/// nothing; its shields still absorb and still drain, because that happens before the write.
+	/// </summary>
+	public bool PlayerInvulnerable { get; }
+
+	/// <summary>
 	/// Reads the header from the start of a <c>script.dat</c>'s bytes. The remaining fields are left
 	/// undecoded rather than exposed as raw numbers — <c>DBSim_LoadScriptDat</c> zeroes the one at
-	/// offset 4 before use, offsets 8 and 16 are unread, and offsets 10 and 12 are the difficulty's
-	/// two sibling cheat flags (unlimited ammunition and player invulnerability), which nothing in
-	/// the engine consumes yet. <see cref="ObjectiveType"/> is not the theater's: it is the mission
-	/// layer's, and its reader is <c>Mech_BehaviourPlayerThink</c>.
+	/// offset 4 before use, and offsets 8 and 16 are unread. <see cref="ObjectiveType"/> is not the
+	/// theater's: it is the mission layer's, and its reader is <c>Mech_BehaviourPlayerThink</c>.
+	///
+	/// <para>The two cheat flags are read as <c>== 1</c> rather than as "nonzero", which is how both
+	/// of their readers spell the test.</para>
 	/// </summary>
 	public static ScriptDatHeader Read(ReadOnlySpan<byte> scriptDat) {
 		if (scriptDat.Length < Size) {
@@ -92,6 +117,8 @@ public readonly struct ScriptDatHeader {
 			BinaryPrimitives.ReadInt16LittleEndian(scriptDat[6..]),
 			BinaryPrimitives.ReadInt16LittleEndian(scriptDat[18..]),
 			System.Math.Clamp(
-				(int)BinaryPrimitives.ReadInt16LittleEndian(scriptDat[14..]), 0, DifficultyLevels - 1));
+				(int)BinaryPrimitives.ReadInt16LittleEndian(scriptDat[14..]), 0, DifficultyLevels - 1),
+			BinaryPrimitives.ReadInt16LittleEndian(scriptDat[10..]) == CheatEnabled,
+			BinaryPrimitives.ReadInt16LittleEndian(scriptDat[12..]) == CheatEnabled);
 	}
 }

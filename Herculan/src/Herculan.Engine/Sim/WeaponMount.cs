@@ -979,7 +979,12 @@ public sealed class WeaponMount {
 	/// code says it is visible (<c>.GL +6 &lt; 4</c>). It is the muzzle flash, and nothing here draws
 	/// one.</para>
 	/// </summary>
-	internal void Fire(MechObject owner, SimWorld world) {
+	/// <param name="freeShot">
+	/// The mission's unlimited-ammunition cheat, <see cref="SimWorld.UnlimitedAmmunition"/>, reaching
+	/// the dispatch as the third argument every one of them takes. <b>Only the ammunition class reads
+	/// it</b> — the other two take it and hand it to the shared prologue, which has two parameters.
+	/// </param>
+	internal void Fire(MechObject owner, SimWorld world, bool freeShot = false) {
 		var (bone, muzzle) = PrepareShot(owner);
 
 		if (Projectile is not { } projectile) {
@@ -996,7 +1001,7 @@ public sealed class WeaponMount {
 				break;
 
 			case WeaponMountKind.Ammunition:
-				FireAmmunition(owner, world, projectile, bone, muzzle);
+				FireAmmunition(owner, world, projectile, bone, muzzle, freeShot);
 				break;
 		}
 	}
@@ -1124,11 +1129,15 @@ public sealed class WeaponMount {
 	/// globals, which is the one thing that can skip the spend. Nothing in the engine sets it.</para>
 	/// </summary>
 	private void FireAmmunition(MechObject owner, SimWorld world, ProjectileData.Projectile projectile,
-			in Transform3 bone, Vec3i muzzle) {
-		ChargeTarget -= ShotCost;
-		if (ChargeTarget < 1) {
-			ChargeTarget = 0;
-			Selectable = false;
+			in Transform3 bone, Vec3i muzzle, bool freeShot) {
+		// The whole of what the free-shot flag buys: the round count is left alone, so the mount also
+		// never empties itself out of the selection chain below.
+		if (!freeShot) {
+			ChargeTarget -= ShotCost;
+			if (ChargeTarget < 1) {
+				ChargeTarget = 0;
+				Selectable = false;
+			}
 		}
 
 		var aim = bone.ToEuler();

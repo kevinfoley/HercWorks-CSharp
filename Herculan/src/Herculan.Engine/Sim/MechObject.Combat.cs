@@ -837,6 +837,14 @@ public sealed partial class MechObject {
 	/// </summary>
 	private void ComponentDamageWrite(SimWorld world, short componentIndex, short damage,
 			SimObject? attacker) {
+		// Sim_DamageToPlayerDisabled (004240f4), asked at the very top and of nothing else in the
+		// simulation. It takes out the whole write, so an invulnerable machine loses no component and
+		// none of the consequences below — the death test included — ever run for it. Its shields are
+		// not covered: they are spent before the damage reaches here.
+		if (LocallyPiloted && world.PlayerInvulnerable) {
+			return;
+		}
+
 		if (_damage == null || !_damage.IsActive(componentIndex)) {
 			return;
 		}

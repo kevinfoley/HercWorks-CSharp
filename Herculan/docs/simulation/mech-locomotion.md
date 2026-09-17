@@ -501,9 +501,29 @@ run after every move. Three things refuse it, in order:
 3. **Ground too steep**, `|normal.z| < 0x5aa` against normals scaled to the height grid's own one —
    about 45°. Off the grid counts as steep, which is what keeps a machine inside the zone. For the
    player only, a *downhill* refusal turns into a slide instead: the slope's X/Y accumulate at Q10
-   10 per tick, and a long enough slide damages the leg components on landing, scaled by the
-   mission difficulty through the four-entry table at `0049a058` — see
-   [`difficulty.md`](difficulty.md#what-the-difficulty-changes).
+   10 per tick, and the landing is [below](#the-landing).
+
+### The landing
+
+A slide that carried the machine more than `0xfa` (250) world units, measured as
+`Math_FastMagnitude2D` over the two accumulated axes, hurts on arrival:
+
+```
+base   = Q10Multiply(slideDamageScale[difficulty], distance)     // 0049a058: 400, 800, 1200, 1600
+spread = base * 3
+for component in 7..12:                                          // the six leg components
+    vtable+0x74(component, RandomBelow(spread) + base, no attacker)
+```
+
+Every component is rolled separately over a window three times the base wide, so the six readings
+scatter rather than moving together. The write is the ordinary damage endpoint, so the landing
+cascades, can cripple or immobilise, and is stopped by the invulnerability setting like anything
+else ([`difficulty.md`](difficulty.md#the-two-sibling-cheats)). It carries no attacker, so nothing is
+credited if it kills.
+
+The original then calls `FUN_00434010` — a cockpit effect on its own pair of timers at `0049b0fc` and
+`0049b100`, reached from nothing else traced so far and not ported — and `Sound_Play(0x29)`, the
+collision thump.
 
 A block against another **machine** also hurts both of them, through the explosive-damage slot —
 see [`damage-system.md`](damage-system.md#a-collision--mech_collisiontest-00418f74). It additionally

@@ -109,9 +109,10 @@ in [`weapon-mounts.md`](weapon-mounts.md).
 - PLAS (id 25) is half-efficiency: its deficit counts double and only half of what it draws is
   stored.
 - The **unlimited energy and ammunition** setting refunds the whole pass's consumption, player only
-  (`DAT_004a9ed6 == 0 && DAT_004a9edc == 1`). Both globals are `script.dat` header fields and the
-  single-mission screen is what sets them — see [`difficulty.md`](difficulty.md#the-two-sibling-cheats).
-  Not ported.
+  (`DAT_004a9ed6 == 0 && DAT_004a9edc == 1`): the mounts are served and charged as they otherwise
+  would be, and the budget handed back to the pool is the one the pass was called with. Both globals
+  are `script.dat` header fields and the single-mission screen is what sets them — see
+  [`difficulty.md`](difficulty.md#the-two-sibling-cheats).
 
 An idle machine draws nothing: every energy mount powers up with `+0x7d` already at `+0x7b`, so the
 deficit is zero until a shot is demanded.

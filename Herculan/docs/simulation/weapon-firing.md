@@ -40,9 +40,10 @@ fire action, or the default keyboard binding at `DAT_004d23e4`/`DAT_004d23f4`.
    of the manual's "once you fire, the current firing chain will resume" — the chain advance in
    `WeaponMounts_AdvanceToReady` takes the selection back on the next frame.
 
-It also passes a "this shot is free" flag built from `DAT_004a9ed6`/`DAT_004a9edc`, which only the
-ammunition class reads, and raises an alert pair when the armed mount's `+0x60` reports ammunition
-type 3, which an energy mount never can.
+It also passes a "this shot is free" flag built from `DAT_004a9ed6`/`DAT_004a9edc` — the mission's
+unlimited-ammunition setting, [`difficulty.md`](difficulty.md#the-two-sibling-cheats) — which only
+the ammunition class reads, and raises an alert pair when the armed mount's `+0x60` reports
+ammunition type 3, which an energy mount never can.
 
 ## The fire dispatch — vtable `+0x28`
 
@@ -103,7 +104,9 @@ check spelled as a data comparison. The follow-up shot is dispatched from the en
 autocannon, against magazines of 500 to 2000) and clears `+0x4c` (selectable) at zero, dropping an
 empty weapon out of the selection cycle. It spends **before** it looks at the projectile type, so a
 launcher pays a round on the `Rocket_Fire` path too. The one thing that can skip the spend is the
-"this shot is free" flag the manager passes from a pair of debug globals.
+"this shot is free" flag above, which skips the clear of `+0x4c` with it, so a cheating player's
+launcher never drops out of the selection cycle. The energy and ELF dispatches take the same flag and
+hand it to `WeaponMount_PrepareShot`, which has two parameters: only this dispatch reads it.
 
 `+0x7d` is the *displayed* count, in 256ths, and lags: `WeaponMount_PushAmmoGaugeState` (`0040f330`)
 decays it toward `+0x7b * 256` at 250 per 125 ms, which is what makes the cockpit counter roll rather

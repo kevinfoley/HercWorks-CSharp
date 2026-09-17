@@ -48,10 +48,6 @@ The mechanism is understood; what is left is engine work.
   `INTERNAL DAMAGE` family, `WEAPON DESTROYED`, `DAMAGE LEVEL CRITICAL`, `SHIELDS CRITICAL`, and
   `ENEMY TARGET DESTROYED`/`DISABLED` when the player kills what they had selected — is not posted.
   → [`docs/formats/audio.md`](docs/formats/audio.md#posters)
-- **The single-mission cheat settings.** `script.dat`'s header carries the setup screen's
-  invulnerability and unlimited-ammunition flags beside the difficulty, and nothing reads either. The
-  difficulty itself is ported.
-  → [`docs/simulation/difficulty.md`](docs/simulation/difficulty.md#the-two-sibling-cheats)
 - **Flyer control bindings.** The flight model is ported and the axis roles are known, but key
 bindings are hardcoded placeholders.
   → [`docs/simulation/razor-flight.md`](docs/simulation/razor-flight.md)
@@ -77,6 +73,11 @@ The engine cannot be faithful here until the original is understood.
   `0040ea59`), which is not ported: nothing in this engine consumes the counters, persists them
   across missions, or gates `.msn` conditions on them.
   → [`docs/shell/campaign-loop.md`](docs/shell/campaign-loop.md)
+- **The cockpit effect a slide landing raises.** `FUN_00434010`, called beside the leg damage at the
+  bottom of a slide, runs on its own pair of timers (`0049b0fc`, `0049b100`) with a random 0-9 tick
+  jitter and reaches three further unidentified functions. Nothing else traced calls it, so what it
+  looks like on screen is unknown and the landing is silent-but-damaging without it.
+  → [`docs/simulation/mech-locomotion.md`](docs/simulation/mech-locomotion.md#the-landing)
 - **The drop pod's ground mark.** The leftover effect a landed pod spawns comes from the theater's
   `flat`/`flat2` shape pool, which is not ported.
   → [`docs/simulation/mission-deployment.md`](docs/simulation/mission-deployment.md)

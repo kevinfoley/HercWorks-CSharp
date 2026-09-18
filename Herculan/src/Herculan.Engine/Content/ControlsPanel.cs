@@ -421,6 +421,9 @@ public sealed class ControlsPanel {
 	/// <summary>
 	/// A key the panel's own handler answers. [Esc] presses the cancel widget, which the constructor
 	/// set to the last one it built — DONE — and [Return] presses the focused widget, the same one.
+	/// <c>ControlsPanel_HandleEvent</c> (<c>00458f9c</c>) does exactly this; what it also does, and
+	/// this does not, is let a joystick button select and step its own row — see
+	/// docs/simulation/preferences.md.
 	/// </summary>
 	/// <returns>True when the key was the panel's to answer.</returns>
 	public bool HandleKey(bool enter, bool escape) {
@@ -515,5 +518,33 @@ public sealed class ControlsPanel {
 		}
 
 		CycleButton(buttonRow, rightButton);
+	}
+
+	/// <summary>
+	/// A press of physical joystick button <paramref name="row"/> (0-7) while the panel is up, which
+	/// picks that button's row rather than pressing a widget — the first half of
+	/// <c>ControlsPanel_HandleEvent</c> (<c>00458f9c</c>), and why this panel has a handler of its own
+	/// (docs/simulation/preferences.md, "What a joystick button does").
+	///
+	/// <para>The rule is the mouse's: a press on a row that is not the selected one selects it, and a
+	/// press on the row that is steps it. <see cref="HighlightedRow"/> follows the pressed row.</para>
+	///
+	/// <para>The caller passes the device's own eight buttons, the trigger among them — this is not
+	/// the post-binding set, in which the trigger's slot is zeroed — and owns the press-once latch.
+	/// See the host's <c>ReadControlsPanelJoystick</c>.</para>
+	/// </summary>
+	public void PressButtonRow(int row) {
+		if (!IsOpen || row < 0 || row >= LiveButtonRows) {
+			return;
+		}
+
+		HighlightedRow = row + ControlsPanelLayout.AxisRowCount;
+
+		if (SelectedButtonRow != row) {
+			SelectedButtonRow = row;
+			return;
+		}
+
+		CycleButton(row, rightButton: false);
 	}
 }

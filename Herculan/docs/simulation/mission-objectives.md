@@ -349,8 +349,8 @@ Poll input, hand the event to the panel's key handler, repaint the widgets, pres
 the close flag is set. **It never calls the sim tick**, and entering (`FUN_00454630`) pauses both
 message ports and saves the framebuffer — so the cockpit behind the panel is frozen, not merely
 undrawn. Input the loop polls is still dispatched to the cockpit's own widget tree and to the
-player's machine by `FUN_0045a7f4`, so piloting keys are not swallowed; with the tick stopped they
-just have nothing to act on.
+player's machine by `Input_BuildPlayerDevice`, so piloting keys are not swallowed; with the tick
+stopped they just have nothing to act on.
 
 What closes it, from `FUN_00454e10`:
 

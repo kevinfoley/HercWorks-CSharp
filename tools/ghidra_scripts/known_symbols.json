@@ -8569,17 +8569,19 @@
       "address": "00429820",
       "binary": "DBSIM",
       "type": "function",
-      "confidence": "low",
-      "description": "One-line accessor returning DAT_004cfa20. MessagePort_Show reads its +0x14 as a mode enum and refuses to display a message in mode 4, suppressing the line exactly as the TEXT-OFF preference does while the lifecycle runs on. The enum's values and the object's class are not decoded. Distinct from CockpitViewManagerInstance despite the matching offset Sim_DispatchCommand tests there.",
-      "source": "docs/formats/audio.md"
+      "confidence": "high",
+      "description": "Returns CockpitViewManagerPublished (004cfa20) -- the cockpit view manager, or null before the cockpit is built. Sim_PollPlayerInput's HDD VIEW case tests the pointer itself rather than any field of it, which is the retail bug recorded in KNOWN_ISSUES.",
+      "source": "docs/formats/cockpit-hud.md",
+      "name": "CockpitViewManager_Published"
     },
     {
       "address": "004cfa20",
       "binary": "DBSIM",
       "type": "data",
-      "confidence": "low",
-      "description": "The object FUN_00429820 returns. Two of its fields gate the computer message display: +0x14, the mode enum MessagePort_Show refuses mode 4 on, and +0x1c, a byte MessageTicker_Paint tests first and returns on. The object's class is not decoded.",
-      "source": "docs/formats/audio.md"
+      "confidence": "high",
+      "description": "A second global holding CockpitViewManagerInstance (004d2544), published at the tail of CockpitViewManager_LoadViews through the setter at 00429810 and read back through the accessor at 00429820. Same object, same fields: +0x14 is the current view index, which is what MessagePort_Show tests when it refuses to draw a line in view 4.",
+      "source": "docs/formats/cockpit-hud.md",
+      "name": "CockpitViewManagerPublished"
     },
     {
       "address": "0040df30",
@@ -14195,6 +14197,204 @@
       "name": "CockpitView_ClearShake",
       "description": "Undoes CockpitView_SetShakeBand: restores the view offset from the resting copy at 004cfadc/004cfae0, reinstalls the projection and clears CockpitViewShakeArmed. No-op when that byte is clear or the view mode is 4. Called when the cockpit damage shake ends or restarts, from CockpitView_ApplyViewState, and from the two mech-death screen flashes.",
       "source": "docs/formats/cockpit-hud.md"
+    },
+    {
+      "address": "00459c98",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Prefs_ApplyMusicOption",
+      "description": "Handler for prefs option 0 (MUSIC) in the table at 004d2060. Stores the byte through Sound_SetMusicEnabled (00462c3c), then -- unless PrefsInitInProgress (004d2138) is up -- calls Sound_UnmuteMusic or Sound_MuteMusic. Byte-for-byte the twin of Prefs_ApplySoundsOption.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "00459c6c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Prefs_ApplySoundsOption",
+      "description": "Handler for prefs option 1 (SOUNDS). Stores the byte through Sound_SetEffectsEnabled (00462c58), then -- unless PrefsInitInProgress (004d2138) is up -- calls Sound_UnmuteEffects or Sound_MuteEffects. Ghidra leaves this undefined as LAB_00459c6c; Prefs_Init registers it by address.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "00459cc4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Prefs_ApplyPilotMessageOption",
+      "description": "Handler for prefs option 2 (PILOT MESSAGE). Sets Sound_SpeechEnabled (0049f97e) from the byte being non-zero, so text-only (0) silences the voice half and both other settings enable it.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "00459d4c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Prefs_ApplyTerrainTextureOption",
+      "description": "Handler for prefs option 8 (TERRAIN TEXTURE). Sets TerrainTexturingEnabled (004aab2c) to 0 or 1. Terrain_LoadZone writes the same global from the same option byte, so the setting still reaches the terrain on the next zone load without the handler.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "00459c58",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Prefs_RegisterOptionHandler",
+      "description": "Writes one entry of the option handler table at 004d2060. Called five times by Prefs_Init.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "004d2138",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "PrefsInitInProgress",
+      "description": "Raised for the duration of Prefs_Init and read by the MUSIC and SOUNDS handlers, which skip their mute/unmute call while it is up -- so loading the file cannot drive the mixer before the sound system is built. Four references in the image: those two reads, and Prefs_Init's own set and clear.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "00462c3c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sound_SetMusicEnabled",
+      "description": "Stores the music enable flag when it differs from the current value. No side effect of its own; the caller mutes or unmutes.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00462c58",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sound_SetEffectsEnabled",
+      "description": "Stores the effects enable flag when it differs from the current value. No side effect of its own; the caller mutes or unmutes.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004aab2c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "TerrainTexturingEnabled",
+      "description": "Prefs option 8, TERRAIN TEXTURE. Written by Prefs_ApplyTerrainTextureOption and by Terrain_LoadZone from the option byte; read by Terrain_DrawCellQuad, which picks the textured span writers on 1 and the flat ones on 0. FUN_0043fe1c saves, zeroes and restores it around the heads-down map's own terrain pass, so that view is never textured.",
+      "source": "docs/formats/terrain-texturing.md"
+    },
+    {
+      "address": "00429810",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitViewManager_Publish",
+      "description": "Stores its argument in CockpitViewManagerPublished (004cfa20). One call site: the tail of CockpitViewManager_LoadViews, passing the manager itself.",
+      "source": "docs/formats/cockpit-hud.md"
+    },
+    {
+      "address": "00458f9c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ControlsPanel_HandleEvent",
+      "description": "The controls panel's own event handler, vtable slot +0x10, in place of the family's AlertPanel_HandleEvent. Copies the device block's trigger byte (+0x0d) back over button state 0 so BUTTON 1 is live on the panel although the input build zeroes it, then walks the eight button states: a press on the selected row steps that row's action, a press on any other row selects it, and either way Input_LatchButton holds the button. Then the keys: [Return] presses +0x2f7 or focuses widget 0, [Esc] presses the cancel widget +0x2fb, [Tab] and scancode 0x52 focus next, [Shift+Tab] focuses previous.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "004824bc",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellOption_GameResolution",
+      "description": "prefs.cfg option 4. The PREFERENCES screen row Game Resolution: 0 = High Res (640x480), 1 = Low Res (320x240). DBSIM's VideoMode_Configure freads the same byte out of the file and treats 1 as 320x240 and everything else as hi-res.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "004824bd",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellOption_ShellMusicTrack",
+      "description": "prefs.cfg option 5. Selects the shell's background music: non-zero loads hmi/shell1.wav, zero hmi/shell2.wav. Read only there; DBSIM never reads it.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "004824be",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellOption_DisplayMode",
+      "description": "prefs.cfg option 6. The PREFERENCES screen row Display Mode: 0 = Window, 1 = Full Screen. DBSIM reads the same byte in VideoMode_Configure and writes it back at shutdown when the live state differs.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "004824e2",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellOption_CampaignMode",
+      "description": "prefs.cfg option 42. Seeds CampaignModeFlag (0048260c) in FUN_0040e17e, so campaign-versus-training survives a restart.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "004824e3",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellOption_Language",
+      "description": "prefs.cfg option 43. The LANG0.VOL folder: 0 eng, 1 fre, 2 ger. Copied into 0048227a by the shell's global init and read there by WeaponsBin_Open, which prefixes every .BIN it opens with that folder.",
+      "source": "docs/formats/weapons-dat.md"
+    },
+    {
+      "address": "004824e4",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellOption_RepairMode",
+      "description": "prefs.cfg option 44. The PREFERENCES screen row Repair Options, three ways -- 0 AutoRepair All Hercs, 1 Manually Repair My Herc, 2 Manually Repair All Hercs (estext.bin 0x113-0x115). Repair_Enter also prints it as the repair screen's mode readout, but branches only on 0 and 1.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "004824e5",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellOption_WeaponsBuildMode",
+      "description": "prefs.cfg option 45. The PREFERENCES screen row Weapons Building -- 0 AutoBuild Weapons, 1 Manually Build Weapons (estext.bin 0x111/0x112).",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "004824e6",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellOption_MissionHercExtra",
+      "description": "prefs.cfg option 46. The single-mission screen's extra machine selector: FUN_0044befb reads it, calls the selector with index option+8 and steps the option mod 3, so it cycles the three entries past the eight the screen shows as buttons. The selector writes the chosen chassis into option 40.",
+      "source": "docs/simulation/difficulty.md"
+    },
+    {
+      "address": "004824e7",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "ShellOption_SkipSierraIni",
+      "description": "prefs.cfg option 47. Non-zero skips the startup read of Sierra.ini in FUN_00401525. A retail prefs.cfg ships 1, so that file is never read in a retail install.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "00434f08",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PreferencesScreen_Build",
+      "description": "Builds VSHELL's PREFERENCES screen (estext.bin 0x103): the Music and Sound Effects checkboxes (prefs options 0 and 1), Repair Options three ways (option 44), Weapons Building two (45), Game Resolution two (4) and Display Mode two (6). It is the one screen that edits the half of prefs.cfg DBSIM shares.",
+      "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "004366b5",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "PreferencesScreen_Enter",
+      "description": "Seeds the PREFERENCES screen from the option array: options 0 and 1 into the two checkboxes, then 44, 45, 4 and 6 through their setters, each of which writes the option back and relights its radio group.",
+      "source": "docs/simulation/preferences.md"
     }
   ]
 }

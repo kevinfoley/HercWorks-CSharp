@@ -15,10 +15,10 @@ namespace Herculan.Engine.Shell;
 /// <c>WeaponsBin_LookupName</c> (<c>00408240</c>) against the handle at <c>0046dcc0</c>, opened by
 /// literal filename in the shell's global init (<c>esglobal.cpp</c>, <c>004073bc</c>).</para>
 ///
-/// <para>It lives in <c>LANG0.VOL</c>, not <c>SHELL0.VOL</c>, under one folder per language. The
-/// three folders are byte-identical in the retail build, so <see cref="LanguageFolders"/> is a
-/// fallback chain rather than a language setting — picking a different one changes nothing until
-/// somebody ships a translated archive.</para>
+/// <para>It lives in <c>LANG0.VOL</c>, not <c>SHELL0.VOL</c>, under one folder per language. Retail
+/// picks one by <c>prefs.cfg</c> option 43; this tries them in turn instead, which reaches the same
+/// file because the three folders are byte-identical in the retail build — so the setting changes
+/// nothing until somebody ships a translated archive.</para>
 /// </summary>
 public sealed class ShellText {
 	/// <summary>The shell's own string table.</summary>

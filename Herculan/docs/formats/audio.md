@@ -512,10 +512,12 @@ not 0 — three behaviours for three settings, which is why that row offers no O
 `port+0x4d2`, the suppression flag every paint entry point tests alongside `port+0x49e`, "a line is
 up".
 
-Two further gates sit on the display half, both fields of the object `FUN_00429820` returns
-(`DAT_004cfa20`). Its `+0x14` is a mode enum: the show refuses to display in mode 4 and suppresses
+Two further gates sit on the display half, both fields of the cockpit view manager, which
+`CockpitViewManager_Published` (`00429820`) hands back
+([`cockpit-hud.md`](cockpit-hud.md#object-model)). Its `+0x14` is the **current view index**: the
+show refuses to display while it reads 4 — the value outside the four canopy views — and suppresses
 the line exactly as TEXT OFF does, lifecycle and all. Its `+0x1c` is a byte the paint tests first and
-returns on. Neither field's owner is decoded.
+returns on, and that one is not decoded.
 
 Both boxes are the herc's own, the last two fields of its `.GAU`: the pilot channel's at content
 offset 1668, `0,y - 320,y+10`, of which only the height is ever drawn ([below](#its-box)), and the
@@ -827,9 +829,8 @@ Three things differ. The port's clock is wall time accumulated by `GameAudio` in
 than `GetTickCount`, and it stops across `Suspend`/`Resume`, which is what the original's pause pair
 achieves by shifting every deadline instead. The text is clipped per glyph in geometry rather than
 by a raster clip rect, so the whole cockpit panel stays one draw. And the display's two further
-gates — the show's mode-4 refusal and the paint's `+0x1c` byte, both on the object `FUN_00429820`
-returns — are not reproduced,
-because neither field's owner is decoded.
+gates — the refusal to draw while the cockpit view manager's `+0x14` reads 4, and the paint's `+0x1c`
+byte — are not reproduced.
 
 The pilot and squad channel is complete too. `SquadMessages` parses a `PILOT<n>.STR` bank with the
 seven-byte attribute layout and its live variants; `SquadMessagePort` is the second port, with the

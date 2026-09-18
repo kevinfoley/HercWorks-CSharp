@@ -143,9 +143,14 @@ Salvage Required: 5,000 kg`, an empty line, and two description lines. Their `Sa
 figures agree with this file's `0x14` price times 1000 for all 26 slots, which is what confirms both
 the indexing and the unit. See [`herc-catalogs.md`](herc-catalogs.md#gamarm_weapdat).
 
+**Which folder is `prefs.cfg`'s.** `WeaponsBin_Open` prefixes every name with `eng\`, `fre\` or
+`ger\` chosen by option 43, which the shell's global init copies out of the option array
+([`../simulation/preferences.md`](../simulation/preferences.md#what-each-byte-is)). A retail file
+holds 0.
+
 **`LANG0.VOL` is not localized.** Every entry — all six `.BIN` files and `CAMPAIGN.STR` — is
 byte-identical across the `ENG\`, `FRE\` and `GER\` directories, so the three language trees in the
-retail build are three copies of the English text.
+retail build are three copies of the English text, and that setting changes nothing.
 
 All 33 names are in the id-space table above, transcribed from `WEAPONS_ENG.BIN`.
 

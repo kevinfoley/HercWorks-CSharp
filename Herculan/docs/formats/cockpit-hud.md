@@ -19,6 +19,7 @@ How a mouse click on any of these widgets reaches its own click handler:
 | `CockpitViewManagerInstance` | `004d2544` | Cockpit view state: current view, pending command, per-view assets. 0x37 bytes. Built in `Sim_InitMissionSession`. |
 | `CockpitViewManager_Ctor` | `00429660` | Constructs the above; loads `dpl\cockpit` under a singleton guard. |
 | `CockpitViewManager_LoadViews` | `00429834` | Whole cockpit bring-up (below). |
+| `CockpitViewManagerPublished` | `004cfa20` | The same manager object again, stored at the tail of `CockpitViewManager_LoadViews` by `CockpitViewManager_Publish` (`00429810`) and read back by `CockpitViewManager_Published` (`00429820`). How a module that does not have the manager to hand reaches it — the message port and the joystick's `HDD VIEW` action both do. |
 | `CockpitViewInstance` | `0049b088` | The GAU widget tree, owned by the manager. |
 | `Gau_BuildCockpitWidgets` | `00431bf8` | Builds that tree from `gau\<HERC>.GAU`. |
 
@@ -500,13 +501,20 @@ impact one.
 
 ## Video modes
 
-`VideoMode_Configure` (`0045e4f4`) sets the whole block from a mode byte read out of the prefs file.
+`VideoMode_Configure` (`0045e4f4`) sets the whole block from a mode argument.
 
 | Mode | `VideoMode_UseHiResPanels` (`004d25bb`) | `VideoMode_UseHiResBanks` (`004d25f0`) | Viewport | Canvas | Coord shifts |
 |---|---|---|---|---|---|
 | 0 | 0 | 0 | 320x240 | 320x480 | 0 |
 | 1 | 3 | 0 | 640x480 | 640x960 | 1 |
-| 2 | 3 | 1 | 640x480 | 640x960 | 1 |
+| 2 and up | 3 | 1 | 640x480 | 640x960 | 1 |
+
+**The argument is the player's only on the command line.** The first call — `WinMain`'s, passing 0 —
+discards what it was given and reads `data\prefs.cfg` instead, taking option 4 and mapping it to
+**0 for a stored 1 and 3 for anything else**, so the file reaches mode 0 or the last row and never
+the middle one. That first call also latches a once-only gate, so the later `-v<n>` call keeps its
+own argument, and `-v1` is the only way to the low-res banks at 640x480. See
+[`../simulation/preferences.md`](../simulation/preferences.md#the-video-mode-and-full-screen-bytes).
 
 `UseHiResPanels == 3` selects `.HFN` fonts, `hba\` sprite banks, `hb<n>` canopy art and `hd<n>` clip
 files. `UseHiResBanks` separately selects hi-res banks for `hudhtick`, `mfd`, `radar`, `hdd`,

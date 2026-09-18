@@ -7,8 +7,9 @@ namespace Herculan.Engine.Input;
 ///
 /// <para>The codes are dispatched by <c>Sim_PollPlayerInput</c> (<c>00460764</c>), whose switch runs
 /// over <c>SimOptions[ControlsOptionBase + 4 + button]</c>. <see cref="Fire"/> never reaches that
-/// switch: the button bound to it is pulled out one step earlier, in <c>FUN_0045a7f4</c>, and copied
-/// into the device struct's held trigger byte at <c>+0x0d</c> — its own byte is zeroed on the way, so
+/// switch: the button bound to it is pulled out one step earlier, in
+/// <c>Input_BuildPlayerDevice</c>, and copied into the device struct's held trigger byte at
+/// <c>+0x0d</c> — its own byte is zeroed on the way, so
 /// the dispatch loop never sees it.</para>
 ///
 /// <para><see cref="Off"/> is the name a row displays when its stored byte is 0. It is never an

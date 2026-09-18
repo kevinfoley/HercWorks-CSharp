@@ -8,13 +8,13 @@ below them. Mouse routing and keyboard command codes are
 [`cockpit-input.md`](cockpit-input.md)'s.
 
 ```
-joyGetDevCapsA / joyGetPosEx        FUN_00477568 / FUN_00477614
+joyGetDevCapsA / joyGetPosEx     FUN_00477568 / FUN_00477614
   -> raw X, Y, Z, R + POV + buttons, two devices merged
-  -> FUN_00477750                   normalise each axis to +/-0x80
-  -> FUN_0045c314                   deadzone and the squared response curve, to +/-0x100
-  -> FUN_0045ba8c                   the device block at DAT_004d247a
-  -> FUN_0045a7f4                   apply the bindings; write the four game axes and eight buttons
-  -> Sim_PollPlayerInput            the control laws, and the button action switch
+  -> FUN_00477750                normalise each axis to +/-0x80
+  -> FUN_0045c314                deadzone and the squared response curve, to +/-0x100
+  -> FUN_0045ba8c                the device block at DAT_004d247a
+  -> Input_BuildPlayerDevice     apply the bindings; write the four game axes and eight buttons
+  -> Sim_PollPlayerInput         the control laws, and the button action switch
 ```
 
 **The bindings name no hardware.** Four bytes say which *pair of game axes* each control feeds and
@@ -112,7 +112,7 @@ writes, the four joystick axes, and the buttons — so that a binding is a choic
 than a hardcoded path. That indirection is the mechanism the whole scheme rests on: the control laws
 never learn which device moved an axis, and so never need a joystick case.
 
-## Applying the bindings — `FUN_0045a7f4`
+## Applying the bindings — `Input_BuildPlayerDevice` (`0045a7f4`)
 
 The per-frame input build, and where the twelve bytes are read. `ControlsOptionBase`
 (`DAT_004d25fb`) selects the walking block or the RAZOR's.
@@ -181,8 +181,8 @@ RAZOR the trigger is therefore found through the walker's bindings.
 
 **Everything else is press-once.** `Sim_PollPlayerInput` (`00460764`) walks the eight bytes and
 switches on `SimOptions[ControlsOptionBase + 4 + i]`; acting on one calls `FUN_0045b718`, which
-latches it, and the next `FUN_0045a7f4` masks that button to zero until the player lets go. Holding
-a button repeats nothing.
+latches it, and the next `Input_BuildPlayerDevice` masks that button to zero until the player lets
+go. Holding a button repeats nothing.
 
 The switch's twenty cases, against `CTL_ALRT.STR` group 2's names:
 
@@ -197,7 +197,7 @@ The switch's twenty cases, against `CTL_ALRT.STR` group 2's names:
 | 7 | `ALL STOP` | throttle to zero, and the gauge dirty flag |
 | 8 | `TARGET NEAREST` | `TargetSelect_Nearest`, ['] |
 | 9, 10 | `SHIELDS FRONT`, `SHIELDS REAR` | mech commands `0x1a` / `0x1b`, the bracket keys |
-| 11 | `HDD VIEW` | scancode `0x41` (F7) or `1` ([Esc]) to the widget tree, on `FUN_00429820` |
+| 11 | `HDD VIEW` | scancode `0x41` (F7) or `1` ([Esc]) to the widget tree — but see [below](#hdd-view-can-only-leave) |
 | 12, 15 | `OUTSIDE VIEW`, `CHASE VIEW` | step `DAT_004d2572` through the external views; 15 is gated on `DAT_004d25ff` |
 | 13 | `LINK WEAPON` | presses the console LINK button, scancode `0x26` |
 | 14 | `MFD DISPLAYS` | `FUN_00446e14` — step the MFD's mode, wrapping at six |
@@ -207,6 +207,18 @@ The switch's twenty cases, against `CTL_ALRT.STR` group 2's names:
 | 19, 20 | `NEXT WEAPON`, `PREV WEAPON` | weapon commands `0x11` / `0x211`, [W] and [Alt]+[W] |
 
 Code 0 is `OFF`, which a row displays when its byte is zero and which the switch has no case for.
+
+#### `HDD VIEW` can only leave
+
+The case picks between F7 and [Esc] on `CockpitViewManager_Published` (`00429820`), and it tests
+**the pointer, not a field of it** — so it asks whether the cockpit view manager exists, not which
+view is up. `CockpitViewManager_LoadViews` publishes that pointer while the cockpit is being built
+and nothing ever clears it, so by the time `Sim_PollPlayerInput` runs it is always non-null and the
+button always sends [Esc]. A button bound to `HDD VIEW` can therefore leave the heads-down display
+and never enter it; see [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md). The two branches read as
+the toggle the action's name promises, which is what the engine implements.
+
+#### One action per tick
 
 **At most one action fires per tick.** The loop keeps a 21-entry array to stop two buttons bound to
 the same action acting twice, but indexes it with the *button byte* — always 0 or 1 — rather than
@@ -244,6 +256,15 @@ Y, Z and R and nothing else. Which physical control is which is a question only 
 which is what `data\herculan-joystick.cfg` and `--joystick-probe` are for, and what a real axis
 assignment step would be for if this ever grows one.
 
+Resting position does not identify a lever either: a throttle parked mid-travel reads 0.00, the same
+as a self-centring twist.
+
+**Check the mode switch on the base of a HOTAS before reading anything into its numbering.** A
+Thrustmaster T.Flight's PC position numbers buttons and axes the way the retail format expects — the
+trigger is button 1 and the throttle is the throttle — and its PS3 position renumbers both, which
+looks exactly like the engine inferring the wrong convention. `Herculan/examples/herculan-joystick.cfg`
+is a worked map for that stick in PC mode.
+
 **Two GLFW behaviours shape the rest.** It publishes a fixed sixteen joystick slots and leaves the
 unused ones reporting `IsConnected` false, so a device must be chosen by connectedness rather than by
 index; and a connected device reports **zero** axes, buttons and hats until the first `Update`, the
@@ -259,6 +280,13 @@ reason: a panel opened before the shape arrived would keep the blanks it was bui
 is the four game axes. `Input.KeyjoyConfig` is the side file. The host's `JoystickSource` is the
 Silk.NET half — enumeration and polling, in place of `joyGetPosEx` — and `Program.cs` dispatches the
 action codes into the same handlers a key or a click reaches, as the original's switch does.
+
+**A modal takes the stick.** `Sim_PollPlayerInput` is reached only from `Sim_MainTick`, and each of
+the four alert panels runs a loop of its own that never calls it — so while a panel is up the action
+switch does not run, no axis reaches the control laws, and the twelve bytes can be rebound with the
+stick without any of it touching the machine. The engine suspends the whole pilot-input path,
+keyboard included, for as long as any panel is open, and refreshes every edge latch while it is, so
+nothing fires as the panel closes.
 
 `--joystick-probe` prints each axis and button as it moves and `--write-joystick-map` writes the map
 in force out to the install, which together are how a stick is configured. Both are off by default,
@@ -315,9 +343,9 @@ The mode travels as the *magnitude* of `ThrottleLever` (`MechControls.ThrottleLe
 - **The trigger is found in the current block**, not always the walking one. See KNOWN_ISSUES.
 - **`OUTSIDE VIEW` and `CHASE VIEW` do nothing**: the engine has no external view chain to step, and
   approximating `DAT_004d2572`'s four states would be invention rather than a port.
-- **`HDD VIEW` toggles.** The original picks between entering and leaving the heads-down display on
-  `FUN_00429820`'s return, a global object pointer whose relation to the current view is undecoded;
-  its two branches send F7 and [Esc], which together are a toggle.
+- **`HDD VIEW` toggles**, where the original's test of the view-manager pointer leaves it able only
+  to leave ([above](#hdd-view-can-only-leave)). The engine sends the branch the current view calls
+  for, which is what the two branches were plainly meant to be.
 - **A hat diagonal can be made to resolve** into its two cardinals, which retail never does. Off by
   default.
 - **A throttle lever can be read centre-zero**, reaching reverse without `CHANGE DIRECTION`. Off by
@@ -332,4 +360,5 @@ The mode travels as the *magnitude* of `ThrottleLever` (`MechControls.ThrottleLe
 | The four axis rows each have their own meaning for 0, 1 and 2 | The numbers are the same three destinations on all four rows; only the words differ, because a one-axis control reaches half of a pair and the stick reaches both |
 | The hat's VIEWS setting is dead because nothing reads `DAT_004d2368`-`236b` by name | `CockpitView_PollViewDevice` reads them off the device-struct pointer `Sim_PollPlayerInput` hands it, at `+0x1e`..`+0x21`, which produces no direct address reference |
 | A second joystick is a second controller | It is a donor. Its X and Y stand in for a throttle and rudder the first stick lacks, and its buttons are OR'd into the first's mask |
+| A `winmm` backend would identify the throttle, `dwZpos` being semantic where an ordered array is not | It is not: for a device whose `JOYCAPS.wCaps` reports only X, Y, Z and R — `0x33` on a T.Flight — GLFW enumerates those same four in that same order, so winmm's `Z` *is* GLFW's axis 2 and the mapping is identical. A platform-specific dependency for no behavioural difference |
 | `Input_QueryCapabilities`' `+0` says whether a stick is present | It is 1 or 2 and never 0. Presence is `FUN_0045c508(3)`, a lookup in the device table |

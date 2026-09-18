@@ -11,6 +11,13 @@ raises `DAT_004d2576` to stop the simulation for as long as the panel is up, sna
 object's whole settings block beforehand and writes it back on the way out. The CONTROLS button then
 builds the second panel over the first, which stays on screen behind it.
 
+**A panel's loop is not the simulator's.** `AlertPanel_Enter`, then poll the device, run the panel's
+handler, paint, present — and never `Sim_MainTick`, which is the only caller of
+`Sim_PollPlayerInput`. So while any of these panels is up no key or joystick button reaches the
+player's machine at all, which is what lets the CONTROLS panel read the stick as a configuration
+device. The pause flag is the belt to that pair of braces: it gates the world updates *inside*
+`Sim_MainTick` for the frames the simulator does run.
+
 ## `data\prefs.cfg` — the option array
 
 **The file is the array.** `Prefs_LoadOptions` (`00459754`) memsets `SimOptions` (`004d1fbc`) to zero
@@ -29,11 +36,28 @@ handler from the parallel table at `004d2060`:
 
 The caller supplies the modulus, which is why one pair drives a three-value row and a five-value one.
 
-`Prefs_Init` (`0045a19c`) registers the handler table and loads the file. **Five options have a
-handler and the other 49 have none**, so most settings are read where they are used rather than
-pushed anywhere: 0, 1 and 2 take `00459c98`, `00459c6c` and `00459cc4`, 8 takes `00459d4c`, and
-**`0x0e` takes `Input_SetThrottleLeverMode`** — which is the herc controls block's THROTTLE row, and
-so an independent corroboration of where that block starts.
+`Prefs_Init` (`0045a19c`) registers the handler table through `Prefs_RegisterOptionHandler`
+(`00459c58`) and loads the file. **Five options have a handler and the other 49 have none**, so most
+settings are read where they are used rather than pushed anywhere:
+
+| Option | Handler | Does |
+|---|---|---|
+| 0 MUSIC | `Prefs_ApplyMusicOption` (`00459c98`) | `Sound_SetMusicEnabled`, then `Sound_UnmuteMusic` / `Sound_MuteMusic` |
+| 1 SOUNDS | `Prefs_ApplySoundsOption` (`00459c6c`) | `Sound_SetEffectsEnabled`, then `Sound_UnmuteEffects` / `Sound_MuteEffects` |
+| 2 PILOT MESSAGE | `Prefs_ApplyPilotMessageOption` (`00459cc4`) | `Sound_SpeechEnabled = byte != 0`, so text-only silences the voice half |
+| 8 TERRAIN TEXTURE | `Prefs_ApplyTerrainTextureOption` (`00459d4c`) | `TerrainTexturingEnabled` (`004aab2c`) |
+| `0x0e` THROTTLE | `Input_SetThrottleLeverMode` | the herc controls block's THROTTLE row, and so an independent corroboration of where that block starts |
+
+The first two are the same function with the music and effects halves swapped, and both skip their
+mute call while `PrefsInitInProgress` (`004d2138`) is up — which is exactly the span of `Prefs_Init`,
+so reading the file cannot drive the mixer before the sound system exists.
+
+**Three of the five are the only route their setting has.** The handler is the only writer of
+`Sound_SpeechEnabled`, and the music and effects handlers are the only things that mute and unmute,
+so without the apply step those three settings do nothing at all. The other two have a second writer:
+`Terrain_LoadZone` sets `TerrainTexturingEnabled` from option 8 as it loads, and
+`Input_SetThrottleLeverMode` is called from the input layer as well
+([`mech-locomotion.md`](mech-locomotion.md)).
 
 ### Writing it back — `Prefs_SaveSelectedOptions` (`00459b78`)
 
@@ -52,7 +76,7 @@ Four callers, and between them they are every write the simulator makes:
 | `PreferencesPanel_Save` (`004574cc`) | 9: options 0-3 and 7-11 (`DAT_0049e304`) | `PreferencesPanel_Run` closing the panel |
 | `ControlsPanel_Save` (`00459140`) | 13: `ControlsOptionBase - 1` through `+11` | `ControlsPanel_Run` closing the panel, at `00458c07` |
 | `Joystick_InitAndSeedBindings` (`00459dd4`) | 25: options 12-36 (`DAT_0049e9d0`) — both blocks | First run only, gated on `DAT_004d1fc8` |
-| `Prefs_SaveOption` (`00459b64`) | 1 | MAIN at `0045f413`, on option 6, at every launch |
+| `Prefs_SaveOption` (`00459b64`) | 1 | MAIN at `0045f413`, on option 6, at shutdown and only when the live full-screen state differs from the byte that was loaded |
 
 **There is no cancel.** `PreferencesPanel_Revert` (`004574e0`) tests the same nine options with
 `Prefs_OptionChanged` (`00459c38`) and rolls the changed ones back out of the load-time shadow at
@@ -78,26 +102,62 @@ binding, which is rewritten with its own unchanged value.
 | 1 | SOUNDS | off / on |
 | 2 | PILOT MESSAGE | 0 text only, 1 voice only, 2 both |
 | 3 | COMPUTER MESSAGE | as option 2 |
+| 4 | **VSHELL's** `Game Resolution` | 0 `High Res (640x480)`, 1 `Low Res (320x240)` — and the byte `VideoMode_Configure` reads, [below](#the-video-mode-and-full-screen-bytes) |
+| 5 | **VSHELL's** shell music track | non-zero `hmi\shell1.wav`, zero `hmi\shell2.wav` |
+| 6 | `Display Mode` | 0 `Window`, 1 `Full Screen`. Both programs read it and the simulator writes it back |
 | 7 | TERRAIN DISTANCE | 0-2, the draw radius ([`../formats/terrain-texturing.md`](../formats/terrain-texturing.md#the-terrain-detail-setting)) |
 | 8 | TERRAIN TEXTURE | off / on |
 | 9 | HERC DETAIL | 0-4 |
 | 10 | STRUCTURE DETAIL | 0-2 |
 | 11 | EFFECTS DETAIL | 0-2, and `Sound_DetailSetting` ([`../formats/audio.md`](../formats/audio.md)) |
+| 12 | the joystick-configured flag | gates `Joystick_InitAndSeedBindings`' one-time seeding |
 | 13-24 | the controls panel's twelve, walking a HERC | [below](#the-bindings-are-twelve-bytes-of-the-same-file) |
 | 25-36 | the same twelve, flying the RAZOR | |
 | 37-41 | **VSHELL's**, not the simulator's: the single-mission setup screen's five rows, difficulty among them | [`difficulty.md`](difficulty.md#outside-a-campaign-it-is-a-prefscfg-byte) |
+| 42 | **VSHELL's** campaign-or-training flag | seeds `CampaignModeFlag`, so the mode survives a restart |
+| 43 | **VSHELL's** language | the `LANG0.VOL` folder every `.BIN` is opened under: 0 `eng\`, 1 `fre\`, 2 `ger\` ([`../formats/weapons-dat.md`](../formats/weapons-dat.md#the-bin-string-tables)) |
+| 44 | **VSHELL's** `Repair Options:` | 0 `AutoRepair All Hercs`, 1 `Manually Repair My Herc`, 2 `Manually Repair All Hercs` |
+| 45 | **VSHELL's** `Weapons Building:` | 0 `AutoBuild Weapons`, 1 `Manually Build Weapons` |
+| 46 | **VSHELL's** single-mission extra machine | a three-way cycle past the eight chassis the screen shows as buttons; writes its choice into option 40 |
+| 47 | **VSHELL's** `Sierra.ini` gate | non-zero skips reading that file at startup. A retail `prefs.cfg` ships 1 |
 
 `ControlsOptionBase` (`004d25fb`) selects between the last two blocks: `Sim_InitMissionSession`
 (`004614fc`) sets it to `0x19` when `PilotingRazor` (`004d25f5`) is set and `0x0d` otherwise, and
 `PreferencesManager_Reset` (`0045cad8`) starts it on `0x0d`. **The two blocks are independent** — a
 binding made in a walker does not disturb the RAZOR's.
 
-Options 4-6, 12 and 42-53 are not identified. Neither panel reads them.
+Options 48-53 have no reference in either image and are zero in a retail file. Neither panel reads
+them.
 
 **The file is shared with VSHELL**, which keeps the same 54-byte array, the same load-time shadow and
-the same handler table, and reads and writes the same path. Options 37-41 are its side of that
-sharing: the simulator carries them and never reads one. See
+the same handler table, and reads and writes the same path. Options 37-47 are its side of that
+sharing, and the simulator reads only 4 and 6 of them. See
 [`difficulty.md`](difficulty.md#outside-a-campaign-it-is-a-prefscfg-byte).
+
+**VSHELL's own PREFERENCES screen** (`PreferencesScreen_Build`, `00434f08`, `estext.bin` `0x103`) is
+where six of these are edited — options 0 and 1 as checkboxes, then 44, 45, 4 and 6 as radio groups.
+Each row's setter writes the option through `ShellOptions_SetOption` and relights its group, so the
+shell edits the same two sound bytes the simulator's own panel does.
+
+### The video-mode and full-screen bytes
+
+`VideoMode_Configure` (`0045e4f4`) does not go through the option array at all: on its first call it
+`fread`s **seven bytes of `data\prefs.cfg`** into a local buffer and takes byte 4 as its mode and
+byte 6 as the full-screen flag. So the two settings reach the simulator before `Prefs_LoadOptions`
+has a say, and the file's own layout is what makes that work.
+
+Byte 4 is reduced to two cases — **1 gives the 320x240 block and anything else the 640x480 block with
+hi-res banks**, which is the mode a retail file's 0 selects. The middle mode (`640x480`, low-res
+banks) is unreachable from the file and only `-v1` on the command line produces it
+([`../formats/cockpit-hud.md`](../formats/cockpit-hud.md#video-modes)). `-v` also bypasses the
+once-only gate, because the gate is set on the first call and the command line is parsed after
+`WinMain`'s own `VideoMode_Configure(0)`.
+
+Byte 6 non-zero makes `FUN_00465054` size the window to the desktop and place it topmost, and
+`WinMain` then clears the flag and calls the toggle at `004666c4`, which takes DirectDraw exclusive
+and sets an 8-bit display mode. `-Z1` and `-Z0` override it. Because the player can toggle
+full-screen during the session, the byte is written back at shutdown when it no longer matches what
+was loaded.
 
 ## The preferences panel — `prf_alrt` (`004566c4`)
 
@@ -257,7 +317,7 @@ binding.
 At `ControlsOptionBase` + 0..11. An axis row's byte indexes its three-word set directly; a button
 row's byte is an action code into the twenty-one names, also directly. What the input layer then
 does with them — which game axes a row's 0, 1 and 2 select, and what each action code dispatches —
-is [`../formats/joystick-input.md`](../formats/joystick-input.md#applying-the-bindings--fun_0045a7f4).
+is [`../formats/joystick-input.md`](../formats/joystick-input.md#applying-the-bindings--input_buildplayerdevice-0045a7f4).
 
 Which actions a button row may be **bound to** is a separate table, read by `ControlsPanel_ActionAt`
 (`00457cdc`): eight rows of thirteen bytes at `0049e619` walking and `0049e681` flying. **Code 0
@@ -281,6 +341,26 @@ selected, so every click on one steps it and clears the list selection.
 | 4-11 | select, or step that button row |
 | 12 | RECOMMEND |
 | 13 | DONE — closes the panel |
+
+### What a joystick button does — `ControlsPanel_HandleEvent` (`00458f9c`)
+
+The panel installs a handler of its own in vtable slot `+0x10` where the rest of the family uses
+`AlertPanel_HandleEvent`, because on this panel a stick's buttons must not press widgets — they have
+to show the player which row they just pressed. The loop hands it the device block
+`Input_BuildPlayerDevice` returns, and it does three things with it.
+
+**The trigger is put back.** Byte `+0x0d` is copied over button state 0 before anything reads them,
+undoing the extraction `Input_BuildPlayerDevice` performs
+([`../formats/joystick-input.md`](../formats/joystick-input.md#the-buttons)). Without it BUTTON 1's
+row would be the one row a stick could not reach.
+
+**Then the eight states, first pressed one wins.** A press on the row that is already selected steps
+that row's action, exactly as a second click does; a press on any other row selects it and moves the
+highlight to widget `row + 4`. `Input_LatchButton` then holds the button, so one press is one step.
+
+**Then the keys**, which are the family's convention and not a departure from it: [Return] presses
+the widget at `+0x2f7`, or focuses widget 0 when that is unset; [Esc] presses the cancel widget at
+`+0x2fb`; [Tab] and scancode `0x52` focus the next widget and [Shift+Tab] the previous.
 
 A button row steps by **slot index within its own list** (`panel+0x462`, wrapping at that row's
 length in `panel+0x46a`), not by action code: `ControlsPanel_StepButton` (`00459320`) forward and
@@ -316,7 +396,8 @@ blank because the refresh is gated on the same missing capabilities.
 ## Engine port
 
 `Content.SimulatorPreferences` is the file and the three write primitives. `Content.PreferencesPanel`
-and `Content.ControlsPanel` hold each panel's text, its state and its click rules;
+and `Content.ControlsPanel` hold each panel's text, its state and its click rules, the controls
+panel's `PressButtonRow` being the joystick's way in;
 `Content.PreferencesPanelLayout` and `Content.ControlsPanelLayout` hold the geometry tables above,
 over the same `Content.AlertPanelLayout` the other two panels use, which gained an uncentred
 placement for the preferences strip and the `INACTIVE` caption font for a greyed row.
@@ -332,18 +413,26 @@ Divergences:
 
 - **A changed setting is not applied while the panel is up.** `SimulatorPreferences.Set` models the
   store half of `Prefs_SetOption` and neither of the other two: the shadow copy at `004d2028` is a
-  revert path and the handler table at `004d2060` an apply path. So the five options with a handler
-  do not take effect until something reads them again. The controls block is the exception, being
-  read fresh every tick by the input layer, so a rebinding is live on the next frame.
+  revert path and the handler table at `004d2060` an apply path. So MUSIC, SOUNDS and PILOT MESSAGE,
+  whose handler is the only route their setting has, do not reach the audio sink at all. The controls
+  block is the exception, being read fresh every tick by the input layer, so a rebinding is live on
+  the next frame.
 - **`--no-write-prefs` can turn saving off**, which the original has no equivalent of. Saving itself
   is the original's: each panel merges its own options into a fresh read of the file as it closes,
   and a file the engine did not read is never written.
-- **Eight of the nine settings are stepped, saved and then read by nothing.** Only TERRAIN DISTANCE
-  (through `Terrain.TerrainDetail`) and the twelve control bindings (through `Input.JoystickBindings`)
-  have a consumer. MUSIC, SOUNDS, PILOT MESSAGE, COMPUTER MESSAGE, TERRAIN TEXTURE, HERC DETAIL,
-  STRUCTURE DETAIL and EFFECTS DETAIL round-trip the file correctly and change nothing on screen or
-  in the mix. Wiring them up lands in three separate places — the audio sink, the message port and
-  renderer LOD.
+- **Five of the nine settings are stepped, saved and then read by nothing.** TERRAIN DISTANCE (through
+  `Terrain.TerrainDetail`), TERRAIN TEXTURE (the terrain item's texture binding, re-read every frame),
+  EFFECTS DETAIL (`SoundDirector.DetailSetting`, which is the row's audio half and all this engine
+  knows of it) and the twelve control bindings (through `Input.JoystickBindings`) have a consumer.
+  MUSIC, SOUNDS, PILOT MESSAGE, COMPUTER MESSAGE and HERC DETAIL round-trip the file correctly and
+  change nothing on screen or in the mix; STRUCTURE DETAIL has nothing to change yet, the engine
+  drawing `TSDetailPart`'s finest level unconditionally.
+- **A joystick button's press reaches the panel from the host**, not from an event handler, because
+  this engine has no widget-tree event to carry it: `ControlsPanel.PressButtonRow` is the select-or-
+  step half and the host's `ReadControlsPanelJoystick` owns the latch. Retail keeps one latch for the
+  panel and the simulation both, in the device block; here the panel has its own, primed from
+  whatever is held while the panel is down so that a button pressed for something else does not also
+  step a row as the panel comes up.
 - **The panels are placed against the window**, as the other two are.
 - **The RAZOR half is selected by the player's chassis id**, resolved through `HercLUT`, where the
   original reads the global the mission load wrote.

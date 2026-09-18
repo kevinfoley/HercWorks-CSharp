@@ -4,8 +4,8 @@ namespace Herculan.Engine.Input;
 
 /// <summary>
 /// Turns a <see cref="JoystickReading"/> into pilot input according to the twelve binding bytes of a
-/// <c>prefs.cfg</c> controls block — the joystick arm of <c>FUN_0045a7f4</c>, the per-frame input
-/// build, plus the button dispatch <c>Sim_PollPlayerInput</c> (<c>00460764</c>) runs off it.
+/// <c>prefs.cfg</c> controls block — the joystick arm of <c>Input_BuildPlayerDevice</c>, the
+/// per-frame input build, plus the button dispatch <c>Sim_PollPlayerInput</c> (<c>00460764</c>) runs off it.
 ///
 /// <para><b>The bindings name no hardware.</b> Four bytes say which pair of game axes each control
 /// feeds and eight say which action each button fires; nothing in the file identifies a device, an
@@ -15,8 +15,8 @@ namespace Herculan.Engine.Input;
 ///
 /// <para>Held state (the axes and the trigger) is recomputed every tick; the eight buttons are
 /// <b>press-once</b>. <c>FUN_0045b718</c> latches a button the moment its action fires and
-/// <c>FUN_0045a7f4</c> masks it to zero on every following tick until the player lets go, so holding
-/// a button repeats nothing. This class keeps that latch, which is why it is an instance rather than
+/// <c>Input_BuildPlayerDevice</c> masks it to zero on every following tick until the player lets go,
+/// so holding a button repeats nothing. This class keeps that latch, which is why it is an instance rather than
 /// a static.</para>
 /// </summary>
 public sealed class JoystickBindings {

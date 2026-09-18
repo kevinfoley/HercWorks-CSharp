@@ -439,9 +439,10 @@ var preferencesPanel = PreferencesPanel.Build(content, simulatorPreferences,
 
 // The CONTROLS panel the preferences panel raises. Which half of CTL_ALRT.STR it is, and which
 // twelve bytes of prefs.cfg it reads, both hang off whether the player's machine is the RAZOR --
-// DBSim_LoadScriptDat's own `playerMechType == 8`. This engine has no joystick input, so the panel
-// is built with no capabilities and every row greys itself, which is what retail also shows for a
-// stick it cannot enumerate.
+// DBSim_LoadScriptDat's own `playerMechType == 8`. It is built with whatever --joystick staged, which
+// is nothing by default: GLFW does not publish a device's shape until a frame after enumeration, so
+// the real capabilities arrive later through AnnounceJoystick. Until they do every row greys itself,
+// which is what retail also shows for a stick it cannot enumerate.
 bool pilotingRazor = scene.PlayerObject is { Placement.TypeName: { } playerTypeName }
 	&& HercLUT.GetByAbbrev(playerTypeName)?.Id == ControlsPanel.RazorTypeIndex;
 var controlsPanel = ControlsPanel.Build(content, simulatorPreferences, pilotingRazor, stagedJoystick);
@@ -451,6 +452,10 @@ var controlsPanel = ControlsPanel.Build(content, simulatorPreferences, pilotingR
 // is the whole point of the split; JoystickDeviceMap is what absorbs a modern device's own shape.
 JoystickSource? joystick = null;
 bool joystickAnnounced = false;
+
+// Which of the eight the CONTROLS panel has already acted on and is waiting to see released —
+// Input_LatchButton's mask, kept here because the panel's presses never go through JoystickBindings.
+byte controlsPanelLatched = 0;
 var joystickBindings = new JoystickBindings {
 	PilotingRazor = pilotingRazor,
 	Keyjoy = dataDirectory is null
@@ -921,8 +926,9 @@ Console.WriteLine("F12 shows the simulator preferences; Return, Esc or DONE puts
 	+ "row steps its setting and the right button steps back, where that row allows it.");
 Console.WriteLine("CONTROLS opens the joystick bindings over it. An axis row steps on every click; a "
 	+ "button row selects on the first click and steps on the next, and RECOMMEND writes the "
-	+ "recommended set. Changes are in memory only — nothing is written back to prefs.cfg and "
-	+ "nothing takes effect in the sim yet.");
+	+ "recommended set. Pressing a button on the stick itself picks that button's row, and pressing "
+	+ "it again steps it. A rebinding is live on the next tick, and the panel merges its own options "
+	+ "into prefs.cfg as it closes — --no-write-prefs turns that off.");
 Console.WriteLine("Q asks how the mission stands and offers a way out of it. Return, Esc or the "
 	+ "left button carries on; the right button, when the status offers one, ends the mission.");
 Console.WriteLine("P pauses the mission and Ctrl+Q asks to leave the game — the same panel at a "
@@ -947,6 +953,10 @@ SpriteRenderer? sprites = null;
 ImGuiController? imgui = null;
 GpuMesh? terrainMesh = null;
 GpuTexture? terrainTexture = null;
+
+// The terrain's own draw item, kept because its texture follows the TERRAIN TEXTURE preference and so
+// changes after the item list is built -- see the per-frame update.
+SceneItem? terrainItem = null;
 GpuTexture? cockpitFrontTexture = null;
 GpuTexture? cockpitSideTexture = null;
 GpuTexture? cockpitHeadsDownTexture = null;
@@ -1183,9 +1193,10 @@ window.Load += (gl, input) => {
 	disposables.AddRange(modelTextures.Values);
 	disposables.AddRange(spriteTextures.Values);
 
-	var built = new List<SceneItem> {
-		new(terrainMesh, Matrix4x4.Identity, terrainTexture?.Handle) { CellQuantisedFog = true }
+	terrainItem = new SceneItem(terrainMesh, Matrix4x4.Identity, TerrainTextureHandle()) {
+		CellQuantisedFog = true,
 	};
+	var built = new List<SceneItem> { terrainItem };
 
 	// The player's own machine, kept aside so the cockpit view can leave it out — see below. A
 	// segmented machine contributes one item per node, so this is a set rather than one item.
@@ -1458,7 +1469,31 @@ window.Update += deltaSeconds => {
 		externalOrbitDragging = false;
 	}
 
-	if (piloting && pilotMech != null && controls != null) {
+	// A modal takes the player's input away entirely — the stick as well as the keyboard, and not just
+	// the command keys the key handler already gates. Each of these panels runs a loop of its own in
+	// the original (AlertPanel_Enter, poll the device, present) and that loop never calls Sim_MainTick,
+	// so Sim_PollPlayerInput and its twenty-case action switch do not run at all while one is up.
+	// Nothing the player does on the stick reaches the machine, which is what makes pressing a button
+	// on the CONTROLS panel safe: it picks that button's row and does not also fire what it is bound to.
+	//
+	// Every edge latch is refreshed rather than left alone, so a key or button pressed to work the
+	// panel does not fire the moment the panel goes down.
+	if (piloting && pilotMech != null && controls != null && AnyModalPanelOpen()) {
+		pilotMech.Controls = MechControls.Neutral;
+		joystickInput = JoystickPilotInput.None;
+		joystickCenterBody = false;
+		joystickBindings.Suspend(joystick?.Read() ?? JoystickReading.Neutral);
+
+		allStopKeyDown = controls.IsKeyPressed(Key.Keypad5);
+		shieldRearKeyDown = controls.IsKeyPressed(Key.LeftBracket);
+		shieldFrontKeyDown = controls.IsKeyPressed(Key.RightBracket);
+		radarKeyDown = controls.IsKeyPressed(Key.R);
+		autoTrackKeyDown = !HddCommandHasKeyboard() && controls.IsKeyPressed(Key.T);
+		cycleTargetKeyDown = controls.IsKeyPressed(Key.Enter);
+		nearestTargetKeyDown = controls.IsKeyPressed(Key.Apostrophe);
+		clearTargetKeyDown = controls.IsKeyPressed(Key.Semicolon);
+		ApplyWeaponKeys(controls, null);
+	} else if (piloting && pilotMech != null && controls != null) {
 		// The stick, read once and used twice: its axes go into MechControls at the bottom of this
 		// block and its button edges are dispatched here. Both come out of the same twelve bytes of
 		// prefs.cfg, resolved by JoystickBindings — the panel edits those bytes live, so a rebinding
@@ -1814,8 +1849,16 @@ window.Update += deltaSeconds => {
 	// Nothing to click while the cockpit is off screen, so the whole click path sits out the external
 	// view rather than hit-testing a console the player cannot see — and likewise while the pointer is
 	// over the debug panel, so a click on a checkbox is not also a click on the console behind it.
-	if (statusAlertPanel is { IsOpen: true } || objectivesPanel is { IsOpen: true }
-			|| preferencesPanel is { IsOpen: true } || controlsPanel is { IsOpen: true }) {
+	// Everything held while the CONTROLS panel is down counts as already acted on, so a button being
+	// used for something else when the panel comes up does not also step a row. The mask then decays
+	// to the buttons actually held as ReadControlsPanelJoystick intersects it — which on the panel's
+	// first frame is exactly the set to swallow. It is the same priming JoystickBindings.Suspend does
+	// for the simulation's own latch, and for the same reason.
+	if (controlsPanel is not { IsOpen: true }) {
+		controlsPanelLatched = 0xff;
+	}
+
+	if (AnyModalPanelOpen()) {
 		// The modal owns the pointer: the cockpit behind it takes no clicks, and the queue is drained
 		// to nothing so a click made while it was up cannot land on a console button afterwards.
 		var framebufferForPanel = window.FramebufferSize;
@@ -1837,6 +1880,10 @@ window.Update += deltaSeconds => {
 				ControlsPanelLayout.Place(framebufferForPanel.X, framebufferForPanel.Y),
 				(x, y) => liveControls.PointerDown(x, y),
 				(x, y, right) => liveControls.PointerUp(x, y, right));
+
+			// And the stick itself, which on this one panel is an input device rather than a pair of
+			// menu keys — see ControlsPanel.PressButtonRow.
+			ReadControlsPanelJoystick(liveControls);
 		} else if (preferencesPanel is { IsOpen: true } livePreferences) {
 			// This one is pinned to the bottom of the screen rather than centred, so its placement is
 			// its own — see PreferencesPanelLayout.
@@ -1938,14 +1985,27 @@ window.Update += deltaSeconds => {
 
 	ApplyStatusAlertAnswer();
 
+	// TERRAIN TEXTURE, re-read every frame rather than watched for changes: it is one byte and one
+	// nullable handle, and the preferences panel that steps it is drawn over a frozen scene that is
+	// still being rendered behind it — so the player sees the ground change under the panel, which is
+	// what the original shows them too.
+	if (terrainItem is not null) {
+		terrainItem.TextureHandle = TerrainTextureHandle();
+	}
+
+	// EFFECTS DETAIL's audio half, the same way: Sound_DetailSetting (004d1fc7) is prefs option 11,
+	// and the sound throttle scales its interval against it. Whatever the row does to the *effects*
+	// is not decoded — see ROADMAP.
+	if (audio.Director is { } soundDirector) {
+		soundDirector.DetailSetting = simulatorPreferences[SimulatorPreferences.EffectsDetailOption];
+	}
+
 	// Every modal freezes the simulation behind it, which is the original's own behaviour: each of
 	// these panels raises DAT_004d2576 while it is up and restores it on the way out --
 	// PreferencesPanel_Raise (0045cfd4) for the preferences panel, and the controls panel is raised
 	// over that one. The accumulator is held with it, so closing a panel does not pay back the time
 	// it was up as a burst of catch-up ticks.
-	bool frozen = missionOver
-		|| objectivesPanel is { IsOpen: true } || statusAlertPanel is { IsOpen: true }
-		|| preferencesPanel is { IsOpen: true } || controlsPanel is { IsOpen: true };
+	bool frozen = missionOver || AnyModalPanelOpen();
 	if (!frozen) {
 		tickAccumulator = Math.Min(tickAccumulator + deltaSeconds, MaxAccumulatedSeconds);
 	}
@@ -3235,6 +3295,55 @@ bool ExternalViewActive() => externalView && piloting && pilotMech != null;
 // button and hat counts, so this waits for a map to exist rather than running at load. Anything keyed
 // off the device's shape has to wait with it: the derived map itself, the CONTROLS panel's
 // capabilities, and --write-joystick-map.
+// The terrain's texture, or none when the player has TERRAIN TEXTURE off — prefs option 8, which in
+// the original reaches the draw as TerrainTexturingEnabled (004aab2c) and is tested per triangle by
+// Terrain_DrawCellQuad. The mesh here is built once at zone load and carries both treatments already:
+// every vertex holds the height/slope ramp colour beside its atlas UV, and the shader falls back to
+// the colour when no texture is bound. So the switch is the texture binding and nothing else, and it
+// applies on the frame it is thrown, as the original's does.
+uint? TerrainTextureHandle() =>
+	simulatorPreferences[SimulatorPreferences.TerrainTextureOption] != 0
+		? terrainTexture?.Handle
+		: null;
+
+// Whether a modal is up, and so holding the input. All four freeze the simulation behind them and all
+// four take the keyboard's command keys; the stick goes with them.
+bool AnyModalPanelOpen() =>
+	statusAlertPanel is { IsOpen: true } || objectivesPanel is { IsOpen: true }
+	|| preferencesPanel is { IsOpen: true } || controlsPanel is { IsOpen: true };
+
+// The stick as the CONTROLS panel reads it, which is not how the rest of the session reads it: here a
+// button press picks the row it belongs to rather than firing whatever that row is bound to. The panel
+// owns what a press means (ControlsPanel.PressButtonRow); this owns only which press is new.
+//
+// JoystickReading.Buttons is the device's own eight, before JoystickBindings lifts the trigger out of
+// them, so BUTTON 1's row is reachable with the trigger — the thing ControlsPanel_HandleEvent restores
+// by hand before it reads the device block.
+//
+// Retail latches the button it acts on and the next input build masks it to zero, so a held button is
+// one step and no more, and the panel sees a latched button as not pressed at all. Masking first is
+// the same arrangement, and it is why this can simply take the lowest pressed row — the original
+// breaks at the first set byte it finds, which is the same row.
+void ReadControlsPanelJoystick(ControlsPanel panel) {
+	if (joystick is not { Capabilities.Present: true }) {
+		return;
+	}
+
+	byte pressed = joystick.Read().Buttons;
+	controlsPanelLatched &= pressed;
+
+	for (int row = 0; row < JoystickCapabilities.MaxButtons; row++) {
+		int bit = 1 << row;
+		if ((pressed & ~controlsPanelLatched & bit) == 0) {
+			continue;
+		}
+
+		controlsPanelLatched |= (byte)bit;
+		panel.PressButtonRow(row);
+		return;
+	}
+}
+
 void AnnounceJoystick() {
 	if (joystickAnnounced || joystick is not { Map: { } map }) {
 		return;
@@ -3384,16 +3493,20 @@ void ApplyJoystickAction(JoystickAction action, MechObject mech) {
 // All fire on their own key-down edge: they are toggles and steps, not held states. [Space] is the
 // exception and is not here — the trigger is a held state read straight off the device struct, so it
 // travels with the rest of the pilot's input in MechControls.
-void ApplyWeaponKeys(IKeyboard keyboard, WeaponMounts mounts) {
+//
+// A null <paramref name="mounts"/> is the swallow: every latch is brought up to date and nothing acts,
+// which is what a modal wants — no machine is listening while one is up, and a key pressed to work the
+// panel must not fire as it closes.
+void ApplyWeaponKeys(IKeyboard keyboard, WeaponMounts? mounts) {
 	bool alt = keyboard.IsKeyPressed(Key.AltLeft) || keyboard.IsKeyPressed(Key.AltRight);
 
 	for (int slot = 0; slot < weaponRowKeys.Length; slot++) {
 		bool down = keyboard.IsKeyPressed(weaponRowKeys[slot]);
 		if (down && !weaponRowKeyDown[slot]) {
 			if (alt) {
-				mounts.ToggleChain(slot);
+				mounts?.ToggleChain(slot);
 			} else {
-				mounts.SelectBySlot(slot);
+				mounts?.SelectBySlot(slot);
 			}
 		}
 
@@ -3402,14 +3515,14 @@ void ApplyWeaponKeys(IKeyboard keyboard, WeaponMounts mounts) {
 
 	bool cycleKey = keyboard.IsKeyPressed(Key.W);
 	if (cycleKey && !cycleWeaponKeyDown) {
-		mounts.CycleSelection(alt ? -1 : 1);
+		mounts?.CycleSelection(alt ? -1 : 1);
 	}
 
 	cycleWeaponKeyDown = cycleKey;
 
 	bool linkKey = keyboard.IsKeyPressed(Key.L);
 	if (linkKey && !linkKeyDown) {
-		mounts.ToggleLink();
+		mounts?.ToggleLink();
 	}
 
 	linkKeyDown = linkKey;
@@ -3419,10 +3532,10 @@ void ApplyWeaponKeys(IKeyboard keyboard, WeaponMounts mounts) {
 	bool powerUpKey = keyboard.IsKeyPressed(Key.Equal) || keyboard.IsKeyPressed(Key.KeypadAdd);
 	bool powerDownKey = keyboard.IsKeyPressed(Key.Minus) || keyboard.IsKeyPressed(Key.KeypadSubtract);
 	if (powerUpKey && !powerUpKeyDown) {
-		mounts.AdjustPower(raise: true);
+		mounts?.AdjustPower(raise: true);
 	}
 	if (powerDownKey && !powerDownKeyDown) {
-		mounts.AdjustPower(raise: false);
+		mounts?.AdjustPower(raise: false);
 	}
 
 	powerUpKeyDown = powerUpKey;

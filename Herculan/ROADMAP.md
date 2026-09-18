@@ -134,11 +134,19 @@ hit-testing rather than new drawing code. What is missing:
 - Currently missing is a quirk from retail where the player's shield meter fills in over ~10 seconds at the start of a mission. Claude says there's no explanation for this in the shield code, where the shields start out at full charge, and would take ~30 seconds to fully charge from empty. The fade-in-over-10-seconds may be a HUD animation that hasn't been discovered during RE yet.
 - Similarly to the previous, currently missing is an animation where weapon buttons wink on one-at-a-time when the simulation first starts.
 - Preferences (F12): the screen is laid out, reads the install's own `data\prefs.cfg` and cycles its
-  settings, but eight of the nine rows change nothing — MUSIC, SOUNDS, PILOT MESSAGE, COMPUTER
-  MESSAGE, TERRAIN TEXTURE, HERC DETAIL, STRUCTURE DETAIL and EFFECTS DETAIL are saved to the file
-  and read by no consumer, so wiring them up means reaching into the audio sink, the message port and
-  renderer LOD. Separately, a changed setting is not applied while the panel is still up: the
-  per-option handler table (`004d2060`) is unported, and five options have one. Writing the file back
+  settings, but five of the nine rows still change nothing — MUSIC, SOUNDS, PILOT MESSAGE, COMPUTER
+  MESSAGE and HERC DETAIL are saved to the file and read by no consumer, so wiring them up means
+  reaching into the audio sink and the message port. TERRAIN DISTANCE, TERRAIN TEXTURE and the audio
+  half of EFFECTS DETAIL are live. What the other two want is not a hookup but a feature each:
+  STRUCTURE DETAIL is the bias in `TSDetailPart`'s level selection, and the engine draws the finest
+  level unconditionally rather than choosing one by projected size
+  (→ [`docs/formats/dts-texture-binding.md`](docs/formats/dts-texture-binding.md#tsdetailpart-level-selection-and-structure-detail));
+  what EFFECTS DETAIL does to the effects themselves, as against to the sound throttle, is undecoded,
+  and HERC DETAIL is undecoded outright.
+  Separately, a changed setting is not applied while the panel is still up: the
+  per-option handler table (`004d2060`) is unported. All five of its handlers are decoded; MUSIC,
+  SOUNDS and PILOT MESSAGE have no other route to their setting, so those three are where wiring the
+  table up would begin. Writing the file back
   is implemented on retail's own terms: each panel merges its own options into a fresh read of the
   file as it closes.
   → [`docs/simulation/preferences.md`](docs/simulation/preferences.md)

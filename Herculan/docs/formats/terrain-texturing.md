@@ -151,6 +151,22 @@ draw distance is a player setting, not a property of the zone.
 Ported in `TerrainDetail`, which reads the setting through `SimulatorPreferences` and falls back to
 the highest when there is no readable file.
 
+### The terrain-texture switch
+
+**Option 8**, the panel's TERRAIN TEXTURE row, reaches the draw path as `TerrainTexturingEnabled`
+(`004aab2c`), which `Terrain_DrawCellQuad` tests per triangle: 1 picks the textured span writers and
+0 the flat ones. Two things write it — the option's own handler (`00459d4c`) and `Terrain_LoadZone`,
+from the same byte — so the setting lands on the next zone whether or not the handler ever runs.
+`FUN_0043fe1c` saves it, forces it to 0 and restores it around the heads-down map's terrain pass,
+which is why that view's terrain is never textured however the setting reads.
+
+The engine reaches the same place differently. Its terrain mesh is built once at zone load and every
+vertex carries the height/slope ramp colour beside its atlas UV, so the switch is the texture binding
+on the terrain's own draw item and nothing else: bound, each cell takes its material's frame; unbound,
+the shader falls back to the vertex colour. The option is re-read every frame, so the ground changes
+under the preferences panel as the row is stepped, which is what the original's per-triangle test
+gives the player too.
+
 ## Who writes `cell[+0xf]`
 
 The byte holds two fields: the low two bits are the diagonal-split selector, bits `[2:7]` the

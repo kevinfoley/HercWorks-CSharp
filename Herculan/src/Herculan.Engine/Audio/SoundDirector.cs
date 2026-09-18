@@ -96,9 +96,16 @@ public sealed class SoundDirector : IDisposable {
 
 	/// <summary>
 	/// The options-screen 0-2 detail value (<c>004d1fc7</c>) the throttle divisor scales against.
-	/// 2 lets every call through; 0 halves the rate the divisor already sets.
+	/// 2 lets every call through; 0 halves the rate the divisor already sets. Clamped on the way in
+	/// because it arrives from <c>prefs.cfg</c>, which is a byte array a player can edit and the
+	/// original reads back without validating — and a value above 2 would make the interval negative.
 	/// </summary>
-	public int DetailSetting { get; set; } = 2;
+	public int DetailSetting {
+		get => _detailSetting;
+		set => _detailSetting = Math.Clamp(value, 0, 2);
+	}
+
+	private int _detailSetting = 2;
 
 	/// <summary>Where the listener is — the camera, as it is in the original.</summary>
 	public Vec3i ListenerPosition { get; set; }

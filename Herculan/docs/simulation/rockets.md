@@ -127,8 +127,8 @@ three gates the plasma round has none of.
 ## `Rocket_PlayerSteer` (`0040a488`) — the player flying the missile
 
 Not a "non-homing variant". It reads two axis accumulators out of the **global player input block**
-at `0x4d234a` (memset each frame by `FUN_0045a7f4`, also the VCR playback sink), steers by
-`Q8Multiply(0x500, axis)` per tick with no rate limit and no deadband, and zeroes them. The gate
+at `0x4d234a` (memset each frame by `Input_BuildPlayerDevice`, also the VCR playback sink), steers
+by `Q8Multiply(0x500, axis)` per tick with no rate limit and no deadband, and zeroes them. The gate
 `0x4d2357` is "missile control active", which `Rocket_TickUpdate` clears when the round ends —
 this is the electro-optical missile's nose camera. With that flag clear the function instead drops
 the round's target and rewrites its subtype id to 0.

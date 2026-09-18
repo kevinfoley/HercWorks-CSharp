@@ -236,7 +236,7 @@ nothing downstream of the walk is a function of the radius. See
 - **A flyer's airframe contact probes** (`Razor_MovementTick`, likely `flyersys.cpp`, unconfirmed by
   assert string). Six points on the airframe are each transformed into world space and tested against
   `Terrain_HeightQuery`, and all but one also raycast via `FUN_00426528` (see
-  [`../simulation/damage-system.md`](../simulation/damage-system.md#the-shared-raycast-fun_00426528)).
+  [`../simulation/damage-system.md`](../simulation/damage-system.md#the-shared-raycast--sim_raycastobjectlist-00426528)).
   A contact damages the component that touched and kicks the airframe away from it. This is the
   flyer's whole collision model, not an assist — see
   [`../simulation/razor-flight.md`](../simulation/razor-flight.md#contact-probes).

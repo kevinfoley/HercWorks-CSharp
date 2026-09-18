@@ -31,7 +31,7 @@ Widget fields the builders and the tab handlers write directly:
 |---|---|
 | `+0x45` | the lit flag. The widget's own mouse handler toggles it 0/1, and the paint picks the button's face from it. A tab handler writes 1 and repaints before building its screen, which is what latches the active tab lit; `0043b0c8` clears it across all nine. On the palette scope, a different class, the same offset is a palette index instead |
 | `+0x49` | 1 from the constructor, and the enable flag. The tab gate clears it on the three tabs the training campaign has no economy for, and the repair panel writes it alongside two greying colour fields on a test of whether the player can afford the button ([below](#the-condition-readout)) — moving with the greying, on an affordability test, is what makes it the enable flag rather than a style bit. The button's own paint reads it for one thing, whether the caption takes the pressed nudge; what stops a cleared widget responding is in the base class's click dispatch and is not read |
-| `+0x51` | 1 from `Panel_Ctor`, and the gate on drawing any chrome at all: `FUN_0040a726` returns immediately when it is clear. Written 0 on both the root and the full-screen panel, which is how each shows its bitmap with no fill and no border. Not the button field of the same offset — different class, different layout past the base |
+| `+0x51` | 1 from `Panel_Ctor`, and the gate on drawing any chrome at all: `Panel_FillAndBorder` (0040a726) returns immediately when it is clear. Written 0 on both the root and the full-screen panel, which is how each shows its bitmap with no fill and no border. Not the button field of the same offset — different class, different layout past the base |
 
 ## What a tab click does
 
@@ -99,33 +99,33 @@ Those captions corroborate three of the assert-string module identifications ind
 
 `ButtonIcon_Ctor` (`00409d14`) stores three frame pointers, at `+0x51`, `+0x55` and `+0x59`, and **a button has only two faces**: both of the class's paints — `0040a05d` and the subclass's `0040a26d` — pick between the first two and never read the third. Every button on the strip passes `mnu_bttn` frame 3 as that unread third, including the square one whose two faces come from a different bank.
 
-The caption is an embedded `Text` child at `+0x4d`, sized to the button's full client rect, drawn in the font at `DAT_0046dccc` and fetched with `WeaponsBin_LookupName(DAT_0046dcc0, index)` from `estext.bin`. The paint places it one pixel above its vertically-centred row when the button is idle and one below when it is lit, so a lit caption sits two pixels lower than an idle one — the pressed nudge. The centring itself is a baseline, `(FUN_00453fa8(text +0xb1) + rectHeight + 1) / 2`: `+0xb1` is the `Text` widget's font handle and `FUN_00453fa8` returns that font's glyph cell height ([above](#text-placement-and-colour)).
+The caption is an embedded `Text` child at `+0x4d`, sized to the button's full client rect, drawn in the font at `DAT_0046dccc` and fetched with `WeaponsBin_LookupName(DAT_0046dcc0, index)` from `estext.bin`. The paint places it one pixel above its vertically-centred row when the button is idle and one below when it is lit, so a lit caption sits two pixels lower than an idle one — the pressed nudge. The centring itself is a baseline, `(Font_CellHeight(text +0xb1) + rectHeight + 1) / 2`: `+0xb1` is the `Text` widget's font handle and `Font_CellHeight` (00453fa8) returns that font's glyph cell height ([above](#text-placement-and-colour)).
 
 The strip is rebuilt by each tab screen's own builder at these same coordinates rather than shared between them.
 
 ## Showing and hiding a widget
 
-**The dump's two names are the wrong way round.** `FUN_0041f2e6`, which it calls `Widget_HideRecursive`, is the **show**; `FUN_0041f469`, which it calls `Widget_ShowRecursive`, is the **hide**. Bit 2 of the flags word at `+0x11` is a *hidden* bit: `FUN_0041f469` sets it and `FUN_0041f2e6` clears it, each returning immediately if it is already in the state it would write.
+**The dump's two names are the wrong way round.** `Widget_ShowRecursive` (0041f2e6), which the dump calls `Widget_HideRecursive`, is the **show**; `Widget_HideRecursive` (0041f469), which the dump calls `Widget_ShowRecursive`, is the **hide**. Bit 2 of the flags word at `+0x11` is a *hidden* bit: `Widget_HideRecursive` sets it and `Widget_ShowRecursive` clears it, each returning immediately if it is already in the state it would write.
 
 Three things say so independently:
 
 - **`Text_Paint` (`0040b439`) draws only when `(+0x11 & 2) == 0`.** A widget that paints when the bit is clear is visible when the bit is clear, so the call that sets the bit is the hide.
-- **The repair tab's entry and teardown are a matched pair.** `FUN_004332ec`, which tab 3's handler calls to bring the screen up, calls `FUN_0041f2e6` on its content panel and both list panels; `FUN_004333eb`, which the teardown dispatcher `00439ea7` calls on the way out, calls `FUN_0041f469` on the same three. Under the dump's names an entry routine would hide its own screen and a teardown would show it.
-- **The repair screen's two pictures swap with the selection.** `FUN_0043393d(oldColumn, newColumn)` calls `FUN_0041f2e6` on the internals diagram when the selection moves into the internals list and on the exploded external picture when it moves back ([below](#the-damage-diagram)) — the right way round only if that function is the show.
+- **The repair tab's entry and teardown are a matched pair.** `Repair_Enter` (004332ec), which tab 3's handler calls to bring the screen up, calls `Widget_ShowRecursive` on its content panel and both list panels; `Repair_Leave` (004333eb), which the teardown dispatcher `00439ea7` calls on the way out, calls `Widget_HideRecursive` on the same three. Under the dump's names an entry routine would hide its own screen and a teardown would show it.
+- **The repair screen's two pictures swap with the selection.** `Repair_SwapDiagram(oldColumn, newColumn)` (0043393d) calls `Widget_ShowRecursive` on the internals diagram when the selection moves into the internals list and on the exploded external picture when it moves back ([below](#the-damage-diagram)) — the right way round only if that function is the show.
 
-`TitledPanel_Ctor` ends by hiding the panel it just built, so a screen's widgets are constructed dark and its entry routine is what puts them up. The edit-field constructor `FUN_0040bbf4` does the opposite and leaves its widget visible.
+`TitledPanel_Ctor` ends by hiding the panel it just built, so a screen's widgets are constructed dark and its entry routine is what puts them up. The edit-field constructor `EditField_Ctor` (0040bbf4) does the opposite and leaves its widget visible.
 
 Both consult the widget's effective parent, which `FUN_0041f283` finds by walking up the `+9` chain while a node's bit 1 is clear. The show refuses to run at all while that parent is itself hidden, and the hide sets bit 4 when it is — so bit 2 is the widget's own state and bit 4 records that an ancestor is hiding it as well, which is what lets a subtree come back up in the state it went down in.
 
 ## How a widget paints
 
-**A widget carries its rect twice.** `Widget_SetRect` (`0041eb5c`) stores the constructor's rect verbatim into `+0x25`/`+0x29`/`+0x2d`/`+0x31` — left, top, right, bottom, **parent-relative** — and `FUN_0041ef45` derives the absolute rect into `+0x15`/`+0x19`/`+0x1d`/`+0x21`. `FUN_0041ec33` shows the relation directly: it adds the parent's `+0x15` to a child's `+0x25` to get the child's `+0x1d`. Only `FUN_0041ebef` moves a widget afterwards, and it rewrites the relative pair and rederives the absolute one.
+**A widget carries its rect twice.** `Widget_SetRect` (`0041eb5c`) stores the constructor's rect verbatim into `+0x25`/`+0x29`/`+0x2d`/`+0x31` — left, top, right, bottom, **parent-relative** — and `FUN_0041ef45` derives the absolute rect into `+0x15`/`+0x19`/`+0x1d`/`+0x21`. `FUN_0041ec33` shows the relation directly: it adds the parent's `+0x15` to a child's `+0x25` to get the child's `+0x1d`. Only `Widget_MoveRect` (0041ebef) moves a widget afterwards, and it rewrites the relative pair and rederives the absolute one.
 
-Five paints are the whole visual vocabulary of a shell screen. All of them work in **widget-local coordinates**, where the extent they draw against is `+0x2d - +0x25`. Because that is a difference it is the same in either space — one less than the inclusive width — so a paint never reads an origin at all: `FUN_0041f585` opens every one of them and binds the drawing context to the widget's absolute rect and clips to it.
+Five paints are the whole visual vocabulary of a shell screen. All of them work in **widget-local coordinates**, where the extent they draw against is `+0x2d - +0x25`. Because that is a difference it is the same in either space — one less than the inclusive width — so a paint never reads an origin at all: `Widget_BeginPaint` (0041f585) opens every one of them and binds the drawing context to the widget's absolute rect and clips to it.
 
-**Colour is always a palette index**, taken from a widget field, and the drawing context carries a `{mode, colour}` pair: mode 0 at `+0x22c` is a solid fill, mode 6 is a blit through a 256-entry lookup table. `FUN_00457364` fills a rect, `FUN_004552e4` draws a line between two inclusive endpoints, and `FUN_0045999c` plots one pixel.
+**Colour is always a palette index**, taken from a widget field, and the drawing context carries a `{mode, colour}` pair: mode 0 at `+0x22c` is a solid fill, mode 6 is a blit through a 256-entry lookup table. `Gfx_FillRect` (00457364) fills a rect, `Gfx_DrawLine` (004552e4) draws a line between two inclusive endpoints, and `Gfx_PlotPixel` (0045999c) plots one pixel.
 
-**The border is a chamfer.** `FUN_0040a726(widget, fill)` optionally clears the interior to a literal `0x10` — the shell's one background colour, in all five paints — and then draws four edges each stopping one pixel short at both ends, so the true corners stay empty, and paints the four pixels one step *inside* those corners instead. That clipped-corner box is every panel and every button in the shell. It draws nothing at all when `+0x51` is clear, which is how a screen's backdrop-textured root shows its bitmap and no chrome.
+**The border is a chamfer.** `Panel_FillAndBorder(widget, fill)` optionally clears the interior to a literal `0x10` — the shell's one background colour, in all five paints — and then draws four edges each stopping one pixel short at both ends, so the true corners stay empty, and paints the four pixels one step *inside* those corners instead. That clipped-corner box is every panel and every button in the shell. It draws nothing at all when `+0x51` is clear, which is how a screen's backdrop-textured root shows its bitmap and no chrome.
 
 | Class | Paint | What it adds |
 |---|---|---|
@@ -141,9 +141,9 @@ Five paints are the whole visual vocabulary of a shell screen. All of them work 
 
 ### Text placement and colour
 
-`FUN_0045409c(font, {x, y}, text)` draws a run: it tests the context's `+0x231` for 1 and then for 2, so **0 is left, 1 is right and 2 is centred**, against the field width at `+0x235`; then it advances glyph by glyph. `Text` takes that mode from its own `+0x45`, so a label's alignment is a constructor argument. Every field label on a screen is right-aligned and its value left-aligned, which is what makes a label's colon meet its value.
+`Font_DrawString(font, {x, y}, text)` (0045409c) draws a run: it tests the context's `+0x231` for 1 and then for 2, so **0 is left, 1 is right and 2 is centred**, against the field width at `+0x235`; then it advances glyph by glyph. `Text` takes that mode from its own `+0x45`, so a label's alignment is a constructor argument. Every field label on a screen is right-aligned and its value left-aligned, which is what makes a label's colon meet its value.
 
-The `y` is an **ink baseline**: `FUN_00453fb4` places each glyph's top row at `y - font[+0x16]`, and `+0x16` is the `.DFN` header's `inkHeight`. `FUN_00453fa8` and `FUN_00453f9c` both return `font[+0x0a]`, the glyph cell height. The two classes centre differently and neither is derived from the other — `Text` uses `H - (H + 1 - cellHeight) / 2 - 2` and the edit field `cellHeight / 2 + (H + 1) / 2`.
+The `y` is an **ink baseline**: `Font_DrawGlyph` (00453fb4) places each glyph's top row at `y - font[+0x16]`, and `+0x16` is the `.DFN` header's `inkHeight`. `Font_CellHeight` and `FUN_00453f9c` both return `font[+0x0a]`, the glyph cell height. The two classes centre differently and neither is derived from the other — `Text` uses `H - (H + 1 - cellHeight) / 2 - 2` and the edit field `cellHeight / 2 + (H + 1) / 2`.
 
 **A widget picks its text colour by remapping, not by choosing a pen.** The fonts carry one ink index each ([`../formats/dfn-hfn-dci.md`](../formats/dfn-hfn-dci.md)) and the shell's is `0x29`, so both text paints draw the string in whatever the font has and then re-blit the area through an identity table with entry `0x29` replaced — by `Text`'s `+0xb5`, or the edit field's `+0xbb`. One font therefore serves a label at `0x1a`, a value at `0x29` and a resting list row at `0x27`, and a selection highlight costs nothing but a different replacement.
 
@@ -151,7 +151,7 @@ The `y` is an **ink baseline**: `FUN_00453fb4` places each glyph's top row at `y
 
 ## The save screen
 
-Tab 1, `SAVED GAMES`. Built by `FUN_004385b0`, entered by `FUN_00439b0c`, its selection moved by `FUN_0043795f` and its detail panel refilled by `FUN_0043712c`. Every rect is four immediates on the builder's stack, and they are **parent-relative**: the panel sits in the canvas, the list and the button column in the panel, and two buttons in the list.
+Tab 1, `SAVED GAMES`. Built by `SaveScreen_BuildScreen` (004385b0), entered by `SaveScreen_Enter` (00439b0c), its selection moved by `SaveScreen_SelectSlot` (0043795f) and its detail panel refilled by `SaveScreen_RefreshDetail` (0043712c). Every rect is four immediates on the builder's stack, and they are **parent-relative**: the panel sits in the canvas, the list and the button column in the panel, and two buttons in the list.
 
 | Widget | Class | Rect (in its parent) | Content |
 |---|---|---|---|
@@ -170,11 +170,11 @@ The panel is centred on x=320 rather than on the canvas's own inclusive midpoint
 
 **The rows are 13 tall on a 12-pixel pitch**, so each overlaps its neighbour's border row, and the first and last are inset two pixels further from the left edge than the eight between them. Their right edge is computed from the list panel's absolute corners rather than written, at two pixels inside it. Each carries a permitted-character set at `+0x9f` — `"0123456789abcdefghijklmnopqrstu…"` in place of the class's `"ABCDEFGHIJKLMNOPQRSTUVWXYZ"` — so **renaming a slot is typing into its row**, and `CANCEL`/`ACCEPT` are that edit's two buttons rather than the screen's. The rows clear `+0xb3`, so they show no caret. Selection is `+0xbb`: `0x27` resting, `0x29` selected.
 
-Three buttons are gated, each written as the trio [the repair panel uses](#the-condition-readout): `SAVE` on a row being selected and there being a game to write (`DAT_0048260a`), `RESTORE` on the selected slot's in-use byte, and both `CANCEL` and `ACCEPT` on the rename being live. `EXIT` never gates. `FUN_00437d94`, its handler, returns to the main menu or to the tab strip on `DAT_0048d344` — 0 and 8 respectively, and the save tab sets 8.
+Three buttons are gated, each written as the trio [the repair panel uses](#the-condition-readout): `SAVE` on a row being selected and there being a game to write (`DAT_0048260a`), `RESTORE` on the selected slot's in-use byte, and both `CANCEL` and `ACCEPT` on the rename being live. `EXIT` never gates. `SaveScreen_OnExit` (00437d94), its handler, returns to the main menu or to the tab strip on `DAT_0048d344` — 0 and 8 respectively, and the save tab sets 8.
 
 ### The detail panel
 
-`FUN_0043712c` writes 12 value fields from the selected slot's [staging record](../formats/save-games.md#the-slot-summary--statscpps-scan), or from `estext.bin` entry 0 — the empty string — when the slot holds no save, so the labels stay and the figures blank.
+`SaveScreen_RefreshDetail` writes 12 value fields from the selected slot's [staging record](../formats/save-games.md#the-slot-summary--statscpps-scan), or from `estext.bin` entry 0 — the empty string — when the slot holds no save, so the labels stay and the figures blank.
 
 | Row | Label | Value |
 |---|---|---|
@@ -192,7 +192,7 @@ The label indices run out of layout order: `Salvage:`, `Sector:` and `Mission:` 
 
 ## The repair screen
 
-Tab 3, `REPAIR`. Its widgets are built once by `FUN_00432037`, the screen is brought up by `FUN_004332ec` and taken down by `FUN_004333eb`, its rows are filled by `FUN_004339b2`, its component names set by `FUN_00433cdf`, its selection moved by `FUN_00433eb9` and its three readout panels refilled by `FUN_00433445`. Every rect is four immediates on the builder's stack and they are parent-relative, as everywhere else.
+Tab 3, `REPAIR`. Its widgets are built once by `Repair_BuildScreen` (00432037), the screen is brought up by `Repair_Enter` and taken down by `Repair_Leave`, its rows are filled by `Repair_FillRow` (004339b2), its component names set by `Repair_SetComponentNames` (00433cdf), its selection moved by `Repair_SelectHotspot` (00433eb9) and its three readout panels refilled by `Repair_RefreshDetail` (00433445). Every rect is four immediates on the builder's stack and they are parent-relative, as everywhere else.
 
 The content panel takes the right two thirds of the canvas; the left is the machine's damage diagram and the squad roster, neither of which this builder owns.
 
@@ -226,17 +226,17 @@ Each row carries a click handler from the 25-thunk table at `0048d1f8`, one per 
 
 The three `FramedPanel`s keep the constructor's `+0x55` of `0x25`, so their bodies carry a visible checkerboard — where the save screen flattens its own to `0x10`. The content panel keeps `+0x59` at the constructor's 1, so its body is filled rather than dithered and no backdrop shows through it.
 
-**The condition readout's damage colour never reaches the screen.** `FUN_00433445` looks the band colour up with `FUN_0043da0f` and writes it into that widget's `+0xb5`, and then calls `Text_SetString(widget, word, 2, 0x17, 1)` — which sets `+0xb5` from its fourth argument before painting, so the box is drawn in the same grey as every other readout. The write is dead. The *list rows* are colour-coded, because `FUN_004339b2` passes the band colour to `Text_SetString` rather than writing it beside the call. Read from the decompile only; `Text_SetString`'s argument order is corroborated by `Text_Ctor` and by `FUN_004332ec`, both of which pass a widget's own `+0x45` and `+0xb5` back in to mean "keep what is there".
+**The condition readout's damage colour never reaches the screen.** `Repair_RefreshDetail` looks the band colour up with `Repair_DamageLevelColor` (0043da0f) and writes it into that widget's `+0xb5`, and then calls `Text_SetString(widget, word, 2, 0x17, 1)` — which sets `+0xb5` from its fourth argument before painting, so the box is drawn in the same grey as every other readout. The write is dead. The *list rows* are colour-coded, because `Repair_FillRow` passes the band colour to `Text_SetString` rather than writing it beside the call. Read from the decompile only; `Text_SetString`'s argument order is corroborated by `Text_Ctor` and by `Repair_Enter`, both of which pass a widget's own `+0x45` and `+0xb5` back in to mean "keep what is there".
 
 ### A row is four text columns
 
-`FUN_0040a310(panel, font, t0, …)` gives a row `Text` children at `+0x55`, `+0x59`, `+0x5d` and `+0x61`, each spanning from the previous one's right edge to its own, and the repair screen passes the same four edges for all 25 rows: `2`-`0x94` left-aligned, a zero-width second column that is never written, `0x94`-`0xab` centred, and `0xab` to two inside the row's right edge, right-aligned. So a row reads as a name, a number and a percentage.
+`ListRow_AddColumns(panel, font, t0, …)` (0040a310) gives a row `Text` children at `+0x55`, `+0x59`, `+0x5d` and `+0x61`, each spanning from the previous one's right edge to its own, and the repair screen passes the same four edges for all 25 rows: `2`-`0x94` left-aligned, a zero-width second column that is never written, `0x94`-`0xab` centred, and `0xab` to two inside the row's right edge, right-aligned. So a row reads as a name, a number and a percentage.
 
-`FUN_004339b2(column, row)` fills one. The name column is the component's, the last column is `HercStatus_Get`'s reading of it formatted `"%d%%"`, and the colour that last column is drawn in is the damage band's ([below](#the-condition-readout)). A hardpoint row additionally puts the mount number, one-based, in the third column, and takes its name from the fitted weapon — `estext.bin` `0x7e + id`, or `0x7d` `--Empty--` for an empty mount, whose percentage is replaced by the string at `0047465c` — two bytes, `20 00`, a single space, so the column reads blank rather than showing the 100 an empty slot's condition entry actually holds. **A row past the machine's mount capacity is blanked**, all three columns set to the string table's single space, rather than left showing the last machine's fitting.
+`Repair_FillRow(column, row)` fills one. The name column is the component's, the last column is `HercStatus_Get` (00411d06)'s reading of it formatted `"%d%%"`, and the colour that last column is drawn in is the damage band's ([below](#the-condition-readout)). A hardpoint row additionally puts the mount number, one-based, in the third column, and takes its name from the fitted weapon — `estext.bin` `0x7e + id`, or `0x7d` `--Empty--` for an empty mount, whose percentage is replaced by the string at `0047465c` — two bytes, `20 00`, a single space, so the column reads blank rather than showing the 100 an empty slot's condition entry actually holds. **A row past the machine's mount capacity is blanked**, all three columns set to the string table's single space, rather than left showing the last machine's fitting.
 
 ### Which names a chassis shows
 
-`FUN_00433cdf` holds two fifteen-entry tables of `estext.bin` indices — six group names then nine internal names — and picks the second **when the machine's chassis type is 8**, the Razor. It is a per-chassis substitution of all fifteen names at once, not a per-component list.
+`Repair_SetComponentNames` holds two fifteen-entry tables of `estext.bin` indices — six group names then nine internal names — and picks the second **when the machine's chassis type is 8**, the Razor. It is a per-chassis substitution of all fifteen names at once, not a per-component list.
 
 ```
 00474000   4e 4f 50 51 52 53  54 55 56 57 58 59 5a 5b 5c   walker
@@ -245,31 +245,31 @@ The three `FramedPanel`s keep the constructor's `+0x55` of `0x25`, so their bodi
 
 The Razor spends each of `0x5d`-`0x63` exactly once: the two torsos become nacelles, the chassis a fuselage, the legs wings, and the leg servos wing servos. Its cockpit and its last seven internals are the walker's. The condition arrays behind them are unchanged — a Razor's thirteen external facets group the same six ways.
 
-It is driven by the bay selection rather than by screen entry: `FUN_0043d64d` calls it when the selected bay changes, and `FUN_004332ec` reaches it only when the bay it opens on holds nothing it can work on. The builder's own construction-time indices are the walker set, `0x4e + row` and `0x54 + row`.
+It is driven by the bay selection rather than by screen entry: `FUN_0043d64d` calls it when the selected bay changes, and `Repair_Enter` reaches it only when the bay it opens on holds nothing it can work on. The builder's own construction-time indices are the walker set, `0x4e + row` and `0x54 + row`.
 
 ### The damage diagram
 
-`FUN_004140a9` builds both pictures over the same rect, one pair per bay, and binds their art:
+`Repair_BuildDiagrams` (004140a9) builds both pictures over the same rect, one pair per bay, and binds their art:
 
 - **`0048d4bc[bay]`, the exploded external picture.** For each of the chassis's `gam\rpr_*.dat` component records it places one part at the record's two `int32` as an x and a y, drawing frame `+0x12` of `dba\rpr_<chassis>.dba`; then, for each occupied hardpoint, it looks the fitted weapon up in that file's per-weapon group list (`FUN_00413ccc`, keyed by weapon id and by `slot + 6`) and places that part from a shared weapons bank. This is the picture the six `rpr_hots.dat` areas overlay.
 - **`0048d118[bay]`, the internals diagram.** One part only, from the single further layout record per chassis at `00484534` — which is what that record is for — drawing frame `+0x12` of `dba\<chassis>_int.dba`. The Razor gets a second part at `(0x1d, 0xe)` from a third bank.
 
 So `+0x12` of a layout record is a frame index into the matching `dba\` sheet, and the two `int32` at `+0x02` and `+0x06` are the part's position ([`../formats/herc-catalogs.md`](../formats/herc-catalogs.md#gamrpr_dat--repair-bay-layout)).
 
-**Which of the two is up follows the selection.** `FUN_0043393d` shows the internals diagram when the selection moves into the internals list and the exploded picture when it moves back, so the picture always matches the list being worked in.
+**Which of the two is up follows the selection.** `Repair_SwapDiagram` shows the internals diagram when the selection moves into the internals list and the exploded picture when it moves back, so the picture always matches the list being worked in.
 
 ### What the buttons are gated on
 
-`FUN_00433445` writes the same greying trio ([below](#the-condition-readout)) at three of the four:
+`Repair_RefreshDetail` writes the same greying trio ([below](#the-condition-readout)) at three of the four:
 
 | Button | Live when |
 |---|---|
 | `REPAIR` | the salvage pool, net of the build queue, covers lifting the selected component one level ([`armory.md`](armory.md#what-one-repair-level-costs)) |
 | `REPAIR ALL` | it covers `Repair_HercCost(herc, 100)` — the whole machine to full, a different figure |
-| `SCRAP` | there is a machine, it is not the only deployable one in the eight bays (`FUN_00410add`), and a third per-chassis term, `(&DAT_00483b62)[type * 8]`, which is not identified |
+| `SCRAP` | there is a machine, it is not the only deployable one in the eight bays (`Herc_HasSingleDeployable`, 00410add), and a third per-chassis term, `(&DAT_00483b62)[type * 8]`, which is not identified |
 | `CANCEL` | always — no trio is written for it |
 
-"Deployable" is `FUN_00410a9d`: the bay is occupied, `+0x4a` is 100 so the machine is built, and `FUN_00411681` holds — both leg servos, the engine and life support all above 50.
+"Deployable" is `FUN_00410a9d`: the bay is occupied, `+0x4a` is 100 so the machine is built, and `Herc_IsFlightworthy` (00411681) holds — both leg servos, the engine and life support all above 50.
 
 ## The arming and repair hotspots
 
@@ -277,17 +277,17 @@ Both screens lay clickable rects over a picture of the selected machine. The geo
 
 `DAT_00482ae5` is the selected bay slot, 0-7 and `-1` for none, and both screens read the machine out of the eight-pointer array at `00482ac3`.
 
-**Arming** — `FUN_0043dbb2(hardpoint)`, ten thunks, `0043e15f`-`0043e4c8`. It returns immediately when the click is on the hardpoint already selected, then reads the mount pointer at `herc + 0x50 + hardpoint*4` — null for an empty slot, otherwise its first `int16` is the fitted weapon id — and repaints.
+**Arming** — `Arming_SelectHardpoint(hardpoint)` (0043dbb2), ten thunks, `0043e15f`-`0043e4c8`. It returns immediately when the click is on the hardpoint already selected, then reads the mount pointer at `herc + 0x50 + hardpoint*4` — null for an empty slot, otherwise its first `int16` is the fitted weapon id — and repaints.
 
-**Repair** — `FUN_00433eb9(column, row)`, twenty-five thunks in one table at `0048d1f8` (`004340b5`-`00434ac8`). Sixteen are column 0, the hotspots on the picture; nine are column 1, a list beside it. The pair is resolved into a category and an index within it:
+**Repair** — `Repair_SelectHotspot(column, row)`, twenty-five thunks in one table at `0048d1f8` (`004340b5`-`00434ac8`). Sixteen are column 0, the hotspots on the picture; nine are column 1, a list beside it. The pair is resolved into a category and an index within it:
 
-| | `FUN_00433410` category | `FUN_00433431` index | Count | What it selects |
+| | `Repair_HotspotCategory` (00433410) category | `Repair_HotspotIndex` (00433431) index | Count | What it selects |
 |---|---|---|---|---|
 | column 0, rows 0-5 | 0 | `row` | 6 | the external component **groups** |
 | column 0, rows 6-15 | 2 | `row - 6` | 10 | the per-hardpoint conditions |
 | column 1, rows 0-8 | 1 | `row` | 9 | the internal components |
 
-**That category is the status block's own accessor mode.** `FUN_00411d06(block, mode, index)` takes exactly these three: mode 0 averages an external group, mode 1 addresses the nine internals and mode 2 the ten hardpoints ([`../formats/save-games.md`](../formats/save-games.md#the-66-byte-status-block)). Three independent things agree — the counts, the mode semantics, and `rpr_hots.dat` carrying exactly six areas per chassis — so the six hotspots on the picture are the six named groups `Cockpit`, `Left Torso`, `Right Torso`, `Chassis`, `Left Leg`, `Right Leg`, in that order.
+**That category is the status block's own accessor mode.** `HercStatus_Get(block, mode, index)` takes exactly these three: mode 0 averages an external group, mode 1 addresses the nine internals and mode 2 the ten hardpoints ([`../formats/save-games.md`](../formats/save-games.md#the-66-byte-status-block)). Three independent things agree — the counts, the mode semantics, and `rpr_hots.dat` carrying exactly six areas per chassis — so the six hotspots on the picture are the six named groups `Cockpit`, `Left Torso`, `Right Torso`, `Chassis`, `Left Leg`, `Right Leg`, in that order.
 
 The ten weapon rows are not in `rpr_hots.dat`: the same builder loop places them from the per-chassis `rpr_*.dat` geometry, starting at handler index 6. A row is refused — the selection does not move and nothing repaints — when its slot is past the machine's mount capacity at `+0x4c`, or when the slot is empty. So an unfitted hardpoint cannot be selected on the repair screen at all.
 
@@ -295,9 +295,9 @@ Selection repaints the outgoing entry with `(0x10, 0x27)` and the incoming with 
 
 ### The condition readout
 
-`FUN_00433445` refreshes the detail panel from the selection, writing four text fields: the selected component's repair cost, its condition, the whole machine's rebuild cost (`Repair_HercCost(herc, 100)`), and the salvage available — which is `CareerSalvage` **minus** `Armory_QueuedTotal()`, so the figure the repair screen quotes is already net of what the build queue has committed. All four suffix `estext.bin` `0xc8` `kg`.
+`Repair_RefreshDetail` refreshes the detail panel from the selection, writing four text fields: the selected component's repair cost, its condition, the whole machine's rebuild cost (`Repair_HercCost(herc, 100)`), and the salvage available — which is `CareerSalvage` **minus** `Armory_QueuedTotal()`, so the figure the repair screen quotes is already net of what the build queue has committed. All four suffix `estext.bin` `0xc8` `kg`.
 
-The condition itself goes through two functions over two in-image tables. `FUN_0043d9cf(condition)` walks `004765c0` = `{89, 79, 59, 29, 0}` and returns the first index whose entry the condition is **strictly greater** than, or 5 if it is greater than none:
+The condition itself goes through two functions over two in-image tables. `Repair_DamageLevel(condition)` (0043d9cf) walks `004765c0` = `{89, 79, 59, 29, 0}` and returns the first index whose entry the condition is **strictly greater** than, or 5 if it is greater than none:
 
 | Level | Condition | `estext.bin` word | Colour (`004765ca`) |
 |---|---|---|---|
@@ -310,9 +310,9 @@ The condition itself goes through two functions over two in-image tables. `FUN_0
 
 **The bands are the repair ladder's.** `Repair_LevelForCondition`'s own table is `{90, 80, 60, 30, 1, 0}` tested with `<=` where this one is `{89, 79, 59, 29, 0}` tested with `<`, which partitions identically ([`armory.md`](armory.md#repair-levels)) — the word the screen prints *is* the repair level the machine would be worked to.
 
-**The last two rows are a retail bug.** The word run in `estext.bin` is only four long: `0x67` is the label `Condition:`, `0x68`-`0x6b` are the four words, and `0x6c`/`0x6d` are `% Complete` and `Unassigned`, which belong to the build screen and the crew screen. Nothing in the table is a fifth or sixth damage word — there is no `Critical` or `Destroyed` anywhere in the 342 entries. The index really is the level plus a fixed base, read off the instruction stream rather than the decompiler: `FUN_0043d9cf` returns its loop counter in `EAX` (`xor eax,eax` … `inc eax`, with the comparison kept in `CX`/`DX`), and the caller does `mov esi,eax` / `add si,0x68` before the lookup. Recorded in [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
+**The last two rows are a retail bug.** The word run in `estext.bin` is only four long: `0x67` is the label `Condition:`, `0x68`-`0x6b` are the four words, and `0x6c`/`0x6d` are `% Complete` and `Unassigned`, which belong to the build screen and the crew screen. Nothing in the table is a fifth or sixth damage word — there is no `Critical` or `Destroyed` anywhere in the 342 entries. The index really is the level plus a fixed base, read off the instruction stream rather than the decompiler: `Repair_DamageLevel` returns its loop counter in `EAX` (`xor eax,eax` … `inc eax`, with the comparison kept in `CX`/`DX`), and the caller does `mov esi,eax` / `add si,0x68` before the lookup. Recorded in [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
 
-**Greying a button is three writes, not one.** `+0xb5` and `+0x4d` go to `0x26` when it is disabled and to `0x29`/`0x22` when it is not, and `+0x49` follows. That pairing is what makes `+0x49` the enable flag rather than a style bit: it moves with the colours, on a test of whether the player can act. `FUN_00433445` writes the trio at three of the repair screen's four buttons, and what each is tested on is [above](#what-the-buttons-are-gated-on).
+**Greying a button is three writes, not one.** `+0xb5` and `+0x4d` go to `0x26` when it is disabled and to `0x29`/`0x22` when it is not, and `+0x49` follows. That pairing is what makes `+0x49` the enable flag rather than a style bit: it moves with the colours, on a test of whether the player can act. `Repair_RefreshDetail` writes the trio at three of the repair screen's four buttons, and what each is tested on is [above](#what-the-buttons-are-gated-on).
 
 ## What the whole front end shares
 
@@ -332,11 +332,11 @@ The condition itself goes through two functions over two in-image tables. `FUN_0
 
 ## The palette
 
-**The palette is a widget, not a call.** `DAT_0048d444` is the palette scope from the widget tree above: a `Window` subclass built by `0040ca6c` (vtable `PTR_FUN_0046ef04`, allocation `0x47`) whose `+0x45` is a palette index rather than a lit flag. Its event handler `0040cab7` responds to event 2 by calling `FUN_004075b2(+0x45)` and committing the result. So the shell changes palette by writing `+0x45` between the two visibility calls of `00439da0(index)`, and the second of them is what fires the install.
+**The palette is a widget, not a call.** `DAT_0048d444` is the palette scope from the widget tree above: a `Window` subclass built by `0040ca6c` (vtable `PTR_FUN_0046ef04`, allocation `0x47`) whose `+0x45` is a palette index rather than a lit flag. Its event handler `0040cab7` responds to event 2 by calling `Shell_InstallPalette(+0x45)` and committing the result. So the shell changes palette by writing `+0x45` between the two visibility calls of `00439da0(index)`, and the second of them is what fires the install.
 
 **The scope is installed by being hidden**, which follows from [the visibility pair](#showing-and-hiding-a-widget): `00439da0` shows the scope, writes the index and hides it again, and it is the hide that posts event 2. That is consistent rather than odd — the scope draws nothing, so its two states are only ever a way to fire the callback, and the pair works repeatedly because each call leaves the bit where the next one needs it.
 
-`FUN_004075b2(index)` reads a pointer table of `dpl\*.dpl` paths at `0046dcdc`, twenty entries long:
+`Shell_InstallPalette(index)` (004075b2) reads a pointer table of `dpl\*.dpl` paths at `0046dcdc`, twenty entries long:
 
 | # | Name | Used for |
 |---|---|---|
@@ -353,7 +353,7 @@ The condition itself goes through two functions over two in-image tables. `FUN_0
 
 **The stage counts from one at runtime**, where the save stores it from zero ([`campaign-loop.md`](campaign-loop.md)). Three independent tables say so: the briefing and debrief runs are five long and reached by `stage + 4` and `stage + 9`, the map's Earth-to-Moon switch fires at the same stage the theater run's `luna` sits at, and `maybe_Mission_UpdateLocationTab` carries four `dba\` location names — `alph2`, `delt1`, `omic1`, `brav1` — and branches away to a cutscene entirely when `stage - 1 == 4`. The arithmetic is unguarded in all three places.
 
-That last function also installs the theater palette directly, as `FUN_004075b2(stage + 0xe)`. Because stage 5 branches away before the call, `luna` is in the table and unreached by this path.
+That last function also installs the theater palette directly, as `Shell_InstallPalette(stage + 0xe)`. Because stage 5 branches away before the call, `luna` is in the table and unreached by this path.
 
 ## Engine coverage
 
@@ -383,5 +383,5 @@ Not drawn: the other six tabs' content, both damage diagrams, the mouse cursor (
 | `warmingi.cpp` is a warning dialog | It is `w` + `arming` + `i`, the weapon-fitting screen, in the same naming pattern as `wsrvbayi.cpp`, `wcrewi.cpp` and `warmoryi.cpp` |
 | The tab screens are drawn through `dpl\bay.dpl` | `SHELL0.VOL` carries one, and the bay screen's own name makes it the obvious candidate for the palette the bay installs. The table at `0046dcdc` does not contain it: index 1 is `dpl\palette.dpl`. Nothing traced so far selects `bay.dpl` at all |
 | Exactly one tab is latched at all times | Seven of the nine handlers latch their own plate and it is easy to assume the other two do too. `MAIN MENU` and `SAVE` clear all nine and write none back, so the strip is drawn with nothing lit while either is up |
-| `Widget_ShowRecursive` shows a widget and `Widget_HideRecursive` hides it | Those are the names in the Ghidra dump and in `known_symbols.json`, and the shape of each function supports them — one sets a state bit and recurses into children, the other clears it. They are swapped: `+0x11` bit 2 is a *hidden* bit, so the setter is the hide. Three witnesses agree; see [Showing and hiding a widget](#showing-and-hiding-a-widget). The dump still carries the old names, so grep by address |
-| The repair screen's detail figure and its `REPAIR ALL` figure are the same cost scaled | Both say `Salvage Required:` in kg and both come from the same unit-value tables, so a per-item share of the whole is the obvious reading. They use different functions with different targets: `Repair_HercCost` prices the machine to 100, and `FUN_00413871` prices the selected component up to the floor of the next band only ([`armory.md`](armory.md#what-one-repair-level-costs)) |
+| `FUN_0041f2e6` shows a widget and `FUN_0041f469` hides it, matching their names in the raw Ghidra dump | The dump's own names support that reading — one sets a state bit and recurses into children, the other clears it, and the names line up with which is which. They are swapped: `+0x11` bit 2 is a *hidden* bit, so the setter is the hide. `known_symbols.json` carries the corrected assignment (`Widget_ShowRecursive` at 0041f2e6, `Widget_HideRecursive` at 0041f469); only the raw dump still has it backwards. Three witnesses agree; see [Showing and hiding a widget](#showing-and-hiding-a-widget) |
+| The repair screen's detail figure and its `REPAIR ALL` figure are the same cost scaled | Both say `Salvage Required:` in kg and both come from the same unit-value tables, so a per-item share of the whole is the obvious reading. They use different functions with different targets: `Repair_HercCost` prices the machine to 100, and `Repair_LevelStepCost` (00413871) prices the selected component up to the floor of the next band only ([`armory.md`](armory.md#what-one-repair-level-costs)) |

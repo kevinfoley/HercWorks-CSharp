@@ -216,7 +216,7 @@ For a fixed-cost weapon this changes nothing but the cockpit bar. For a charge-u
 `Bullet_FireBurst` calls `Sim_RaycastObjectList` (`00426528`) **before** it spawns any tracer, so the
 hit is already resolved when the visual is built — see [`beam-visuals.md`](beam-visuals.md) for what
 it then builds. The sweep itself and the per-mech hit test are documented in
-[`damage-system.md`](damage-system.md#the-shared-raycast-fun_00426528); it clips at terrain first, shortens the
+[`damage-system.md`](damage-system.md#the-shared-raycast--sim_raycastobjectlist-00426528); it clips at terrain first, shortens the
 ray per hit rather than stopping at the first, and applies damage inside the hit test.
 
 Two consequences belong to this caller specifically. The ray record's `+0x08` is passed along as a

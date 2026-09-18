@@ -138,7 +138,7 @@ The record's bookkeeping is one deep and does not follow. It keeps only the newe
 
 Because the settings belong to the record and not to the copy, **placing a new copy retunes the one already sounding**. `Sound_Place` sets volume and pan for the sound it is about to start, and `Sfx_SetVolume` (`00464514`) writes the record and then applies it through `Sos_ApplyVolume` (`004739e0`) to the handle at `+0x24` whenever the record is marked playing — which, until the new start overwrites it, is the previous copy. A near footstep therefore takes on the placement of the distant one that follows it.
 
-[The throttle](#the-throttle) is what would have thinned this, and it is dead code in the shipped binary — so nothing does.
+[The play-request gate](#the-play-request-gate) is what would have thinned this, and it is dead code in the shipped binary — so nothing does.
 
 ### Binding the SOS DLL
 
@@ -197,13 +197,13 @@ scratch that the loader initialises in place.
 | 0 | loop count — `Sfx_SetLooping`. `0` = loop forever, `1` = once, `n` = n times |
 | 1 | volume, 0-100, applied as `Math_Q16Multiply(v, 65000)` |
 | 2 | preload — nonzero caches the sample at startup instead of on first play |
-| 3 | throttle divisor (see below) |
+| 3 | play requests per play (see below) |
 | 4 | rolloff start distance, in units of 1024 world units. `0xff` becomes 5 |
 | 5 | cutoff distance, same units. `0xff` becomes 100 |
 | 6 | variation count — playing id *i* actually plays `i + rand(count)` when count > 1 |
 | 7 | *runtime*: "was playing" flag, for suspend/resume |
 | 8 | *runtime*: category volume percentage, initialised to 100 |
-| 9 | *runtime*: throttle counter |
+| 9 | *runtime*: play requests counted |
 
 Because `.STR` attribute blobs point directly into the loaded file buffer, bytes 7-9 of one entry
 overlap the next entry's length field and first name byte. That is inert — every pointer is
@@ -337,9 +337,9 @@ front to back.
 At 166.667 world units per metre ([`../engine/planning.md`](../engine/planning.md)), a `max` of 40
 is about 245 m, and the largest — `herceng1`'s 50 — about 307 m.
 
-### The throttle
+### The play-request gate
 
-`Sound_ThrottleCheck` (`004626c4`) exists so that a sound fired by many objects at once does not play
+`Sound_ConsumeRequest` (`004626c4`) exists so that a sound fired by many objects at once does not play
 once per object. **Nothing in DBSIM calls it**: there is no `CALL` to it anywhere in the code section,
 and its address is stored nowhere, so it is not reached indirectly either. The authored divisors in
 attribute byte 3 are therefore inert in the shipped game, and every play goes through:
@@ -864,7 +864,7 @@ either way.
 
 **Copies overlap, as they do in retail, but the channel ceiling is this engine's own.** `OpenAlBackend` keeps one buffer per sample and claims a source from a pool of `ChannelCount` (64) per play, so an id sounding twice occupies two sources; `SoundDirector` keeps the id's volume, pan and pitch and the newest handle, exactly as the original's voice record does. What is not reproduced is the ceiling: retail's is whatever its SOS driver was initialised with, and the `sosDIGIInitDriver` argument block at `006b5614` is filled field by field with nothing to name the words, so which one is the channel count is unrecovered. 64 is chosen against what the game asks for and against OpenAL Soft's own limit of 256 sources. A play that finds every channel busy is dropped, which is how `sosDIGIStartSample` fails too.
 
-`SoundDirector.ThrottleCheck` is a faithful port of `Sound_ThrottleCheck` and, like the original, has no caller. It is kept because the attribute it reads is parsed and documented, not because anything uses it.
+`SoundDirector.ConsumeRequest` is a faithful port of `Sound_ConsumeRequest` and, like the original, has no caller. It is kept because the attribute it reads is parsed and documented, not because anything uses it.
 
 **The memory budget is not reproduced.** `SoundBank` decodes every sample the catalog names at
 startup instead of honouring the preload attribute and caching the rest on demand, so none of

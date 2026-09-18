@@ -13,7 +13,7 @@ namespace Herculan.Engine.Audio;
 ///
 /// <para><b>The runtime bytes.</b> The original reads a ten-byte record where the file supplies
 /// seven, so bytes 7-9 land in the loaded file buffer past the authored data. They are per-entry
-/// mutable state — a suspend/resume flag, a category volume percentage and a throttle counter — and
+/// mutable state — a suspend/resume flag, a category volume percentage and a play-request counter — and
 /// live here as ordinary fields on <see cref="Entry"/> rather than as bytes off the end of a
 /// buffer.</para>
 /// </summary>
@@ -61,7 +61,7 @@ public sealed class SoundCatalog {
 			LoopCount = attributes[0];
 			Volume = attributes[1];
 			Preload = attributes[2] != 0;
-			ThrottleDivisor = attributes[3];
+			RequestsPerPlay = attributes[3];
 			MinRange = attributes[4] == 0xff ? DefaultMinRange : attributes[4];
 			MaxRange = attributes[5] == 0xff ? DefaultMaxRange : attributes[5];
 			VariationCount = Math.Max((byte)1, attributes[6]);
@@ -90,10 +90,11 @@ public sealed class SoundCatalog {
 		public bool Preload { get; }
 
 		/// <summary>
-		/// Attribute byte 3 — the throttle divisor. See
-		/// <see cref="SoundDirector.ThrottleCheck"/> for what it does with the detail setting.
+		/// Attribute byte 3 — how many play requests it takes to sound this row once, so that a sound
+		/// fired by many objects in the same tick is heard once rather than once per object. See
+		/// <see cref="SoundDirector.ConsumeRequest"/>, which scales it by the detail setting.
 		/// </summary>
-		public byte ThrottleDivisor { get; }
+		public byte RequestsPerPlay { get; }
 
 		/// <summary>Attribute byte 4 — where rolloff starts, in <see cref="RangeUnit"/>s.</summary>
 		public byte MinRange { get; }
@@ -120,8 +121,8 @@ public sealed class SoundCatalog {
 		/// </summary>
 		public byte CategoryVolume { get; internal set; } = 100;
 
-		/// <summary>Runtime byte 9 — the throttle counter, which wraps at 0x0f.</summary>
-		public byte ThrottleCounter { get; internal set; }
+		/// <summary>Runtime byte 9 — the play requests counted against <see cref="RequestsPerPlay"/>; wraps at 0x0f.</summary>
+		public byte RequestCount { get; internal set; }
 
 		/// <inheritdoc />
 		public override string ToString() =>

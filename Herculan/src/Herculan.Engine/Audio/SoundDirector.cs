@@ -95,8 +95,9 @@ public sealed class SoundDirector : IDisposable {
 	public bool EffectsEnabled { get; set; } = true;
 
 	/// <summary>
-	/// The options-screen 0-2 detail value (<c>004d1fc7</c>) the throttle divisor scales against.
-	/// 2 lets every call through; 0 halves the rate the divisor already sets. Clamped on the way in
+	/// The options-screen 0-2 detail value (<c>004d1fc7</c>) that
+	/// <see cref="SoundCatalog.Entry.RequestsPerPlay"/> scales against. 2 lets every request through;
+	/// 0 halves the rate the row already sets. Clamped on the way in
 	/// because it arrives from <c>prefs.cfg</c>, which is a byte array a player can edit and the
 	/// original reads back without validating — and a value above 2 would make the interval negative.
 	/// </summary>
@@ -274,29 +275,32 @@ public sealed class SoundDirector : IDisposable {
 	}
 
 	/// <summary>
-	/// <c>Sound_ThrottleCheck</c> (<c>004626c4</c>) — the "one in n" gate that keeps a sound fired by
-	/// many objects in the same tick from playing once per object.
+	/// <c>Sound_ConsumeRequest</c> (<c>004626c4</c>) — spends one play request against
+	/// <see cref="SoundCatalog.Entry.RequestsPerPlay"/> and says whether this one is the request that
+	/// sounds, so that a sound fired by many objects in the same tick is heard once rather than once
+	/// per object.
 	///
-	/// <para>The counter is per catalog row and wraps at 0x0f, exactly as the original's runtime
-	/// attribute byte does.</para>
+	/// <para>The count is per catalog row and wraps at 0x0f, exactly as the original's runtime
+	/// attribute byte does. It advances on every call, so two calls for the same id need not answer
+	/// the same, and a call made speculatively spends a request.</para>
 	/// </summary>
-	/// <returns>Whether this call is one of the ones allowed through.</returns>
-	public bool ThrottleCheck(int id) {
+	/// <returns>Whether this request is the one that plays.</returns>
+	public bool ConsumeRequest(int id) {
 		if (Entry(id) is not { } entry) {
 			return false;
 		}
 
-		if (entry.ThrottleCounter == 0x0f) {
-			entry.ThrottleCounter = 0;
+		if (entry.RequestCount == 0x0f) {
+			entry.RequestCount = 0;
 		}
 
-		int interval = (2 - DetailSetting) * entry.ThrottleDivisor;
+		int interval = (2 - DetailSetting) * entry.RequestsPerPlay;
 		if (interval == 0) {
 			return true;
 		}
 
-		entry.ThrottleCounter++;
-		return entry.ThrottleCounter % interval == 0;
+		entry.RequestCount++;
+		return entry.RequestCount % interval == 0;
 	}
 
 	/// <summary>

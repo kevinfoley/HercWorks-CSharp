@@ -7924,7 +7924,7 @@
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "Sound_ThrottleCheck",
+      "name": "Sound_ConsumeRequest",
       "description": "(catalogId) -> may play. interval = (2 - detailSetting 004d1fc7) * attribute byte 3; interval 0 always plays, otherwise attribute byte 9 counts up (wrapping at 0x0f) and only every interval-th call passes. Keeps a sound fired by many objects at once from playing once per object. Dead code in the shipped binary: no CALL to it exists anywhere in the code section and its address is stored nowhere, so the authored divisors in attribute byte 3 never take effect.",
       "source": "docs/formats/audio.md"
     },
@@ -8240,7 +8240,7 @@
       "type": "data",
       "confidence": "high",
       "name": "Sound_DetailSetting",
-      "description": "An options-screen 0-2 value the sound throttle scales against: Sound_ThrottleCheck computes its interval as (2 - this) * the catalog row's throttle divisor, so 2 zeroes the interval and lets every call through while 0 doubles the authored divisor. Also read by an options-screen label (FUN_004571f4 case 8) and by FUN_00403914 and FUN_00408bd8.",
+      "description": "An options-screen 0-2 value the play-request gate scales against: Sound_ConsumeRequest computes its interval as (2 - this) * the catalog row's attribute byte 3 (play requests per play), so 2 zeroes the interval and lets every call through while 0 doubles the authored divisor. Also read by an options-screen label (FUN_004571f4 case 8) and by FUN_00403914 and FUN_00408bd8.",
       "source": "docs/formats/audio.md"
     },
     {

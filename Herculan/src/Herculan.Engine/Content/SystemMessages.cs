@@ -223,6 +223,15 @@ public sealed class SystemMessages {
 	public const int WeaponDestroyed = 0x10;
 
 	/// <summary>
+	/// <c>DAMAGE LEVEL CRITICAL</c> — the cockpit's own reading crossing
+	/// <see cref="Sim.MechObject.CockpitShakeDamageLimit"/>. <b>Retail never posts it</b> due to
+	/// a typo in the code.
+	/// 
+	/// See docs/formats/audio.md and KNOWN_ISSUES.md.
+	/// </summary>
+	public const int DamageLevelCritical = 0x12;
+
+	/// <summary>
 	/// <c>STRUCTURAL FAILURE IMMINENT</c> — the harder leg band: a side at or past the crippled
 	/// threshold, with the machine still standing.
 	/// </summary>

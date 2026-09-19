@@ -89,6 +89,13 @@ public sealed partial class MechObject {
 	private const int CockpitShakeDamageLimit = 100;
 
 	/// <summary>
+	/// Whether the reconstructed <c>DAMAGE LEVEL CRITICAL</c> announcement is raised. Always false:
+	/// retail cannot reach that line, so raising it is a divergence, and it waits on the
+	/// compatibility menu to become the player's choice. See <see cref="ApplyDirectFireDamage"/>.
+	/// </summary>
+	private const bool FixDamageLevelCriticalPost = false;
+
+	/// <summary>
 	/// <c>FUN_00415608</c>, the player's own fire path, called once a frame from
 	/// <c>Sim_PollPlayerInput</c> with the input device struct.
 	///
@@ -555,12 +562,12 @@ public sealed partial class MechObject {
 	/// <para><b>A band change on a mount component rolls to knock that mount out</b> — see
 	/// <see cref="RollWeaponMountDestruction"/>, which is the other half of this function.</para>
 	///
-	/// <para>The one thing here that is deliberately absent is <c>0x12</c>
-	/// <c>DAMAGE LEVEL CRITICAL</c>, whose call site sits between the two readings and needs the
-	/// later one to have <i>fallen</i> below the earlier. No retail <c>PROJ.DAT</c> record can make
-	/// the write negative, so the line is unreachable — see docs/formats/audio.md. The cockpit jolt
-	/// that shares its gate is a separate effect and is raised, through
-	/// <see cref="CockpitHits"/>.</para>
+	/// <para><b><c>0x12</c> <c>DAMAGE LEVEL CRITICAL</c> is never said.</b> Its call site sits
+	/// between the two readings and needs the later one to have <i>fallen</i> below the earlier; no
+	/// retail <c>PROJ.DAT</c> record can make the write negative, so the line is unreachable — see
+	/// docs/formats/audio.md. The cockpit jolt that shares its gate is a separate effect and is
+	/// raised, through <see cref="CockpitHits"/>. What the test reads as having been meant is
+	/// implemented beside that jolt under <see cref="FixDamageLevelCriticalPost"/>.</para>
 	/// </summary>
 	private void ApplyDirectFireDamage(SimWorld world, short componentIndex, WeaponShot shot, Vec3i hitPoint) {
 		if (_damage == null) {
@@ -569,7 +576,8 @@ public sealed partial class MechObject {
 
 		short armorDamage = shot.DamageArmor;
 		short splash = (short)SimMath.Q10Multiply(shot.SplashFactor, armorDamage);
-		int band = _damage.DamagePercent(componentIndex) >> 5;
+		int before = _damage.DamagePercent(componentIndex);
+		int band = before >> 5;
 
 		ComponentDamageWrite(world, componentIndex, (short)(armorDamage - splash), shot.Owner);
 
@@ -593,6 +601,20 @@ public sealed partial class MechObject {
 					&& (componentIndex == CockpitFrontComponent
 						|| componentIndex == CockpitRearComponent)) {
 				CockpitHits++;
+			}
+
+			// The announcement the jolt above was meant to carry, reconstructed. Retail's own call
+			// site is inside that block and tests the *pre*-write reading against the same limit,
+			// which asks for a cockpit that came out of the hit less damaged than it went in; taking
+			// each test from the other reading turns it into the upward crossing it reads as
+			// intended to be. That swap is this engine's reading of the intent, not something the
+			// binary states. Held at false until the compatibility menu can offer it, since retail
+			// never says this line — see SystemMessages.DamageLevelCritical and KNOWN_ISSUES.md.
+			if (FixDamageLevelCriticalPost && LocallyPiloted
+					&& before < CockpitShakeDamageLimit && CockpitShakeDamageLimit < after
+					&& (componentIndex == CockpitFrontComponent
+						|| componentIndex == CockpitRearComponent)) {
+				world.Sounds?.Say(SystemMessages.DamageLevelCritical);
 			}
 
 			RollWeaponMountDestruction(world, componentIndex, after);

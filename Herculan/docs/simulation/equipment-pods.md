@@ -154,10 +154,12 @@ and then the toggle. `[Alt]` and a number is the other command bank, `0x202`-`0x
 weapon manager answers itself and which therefore never reaches a pod.
 
 **The button is visible in the row's own name.** `FUN_0044171c`, the pod row's paint, picks the name
-label's font and ink from the two state bytes: the destroyed byte at `+0xc3` wins outright and prints
-the offline text across the widened label, and failing that the button at `+0xc2` selects `gray` ink
-`0x2e` when it is off and `dark` at `COLORS.DAT` id 12 — green — when it is on. That is the only
-feedback a pod's row gives, since it has no state box.
+label's font and background from the two state bytes: the destroyed byte at `+0xc3` wins outright and
+prints the offline text across the widened label, and failing that the button at `+0xc2` selects the
+`gray` font over background `0x2e` when it is off and the `dark` font over `COLORS.DAT` id 12 —
+green — when it is on. Both go into the label itself, the font at `label+0` and the background at
+`label+0x1d`, so an engaged pod reads as dark lettering on a green plate filling the label rect. That
+is the only feedback a pod's row gives, since it has no state box.
 
 **The Shield and Energy pods read their damage live** — `Component_ReadDamagePercent` against the
 mount's own component, `.GL +0x17` + 19 — where the Targeting Pod caches its reading in `+0x7f` from

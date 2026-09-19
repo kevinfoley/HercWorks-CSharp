@@ -790,9 +790,9 @@ group 3 (`" POD"`) into the room left — `" SHIELD POD"`. A destroyed mount's r
 (`"OFFLINE"`) in place of the name.
 
 **The Turbo Pod's row is the exception.** `TurboPodGauge_Ctor` (`00441a34`) overwrites that buffer
-with a plain 11-char `strncpy` of the name — so the row reads `TURBO`, not `" TURBO POD"` — narrows
-the name label to x0+6 and gives the freed right-hand end an `LedBarGraph` over `pod+0x7d`, its
-charge. The bar's range is 2500 where `TurboPod_ChargeTick` caps the charge at 2000, so a fully
+with a plain 11-char `strncpy` of the name — so the row reads `TURBO`, not `" TURBO POD"` — rebuilds
+the name label at `x0+6 .. x0+34`, `y0+1 .. y0+5` and gives the freed right-hand end an `LedBarGraph`
+over `pod+0x7d`, its charge. The bar's range is 2500 where `TurboPod_ChargeTick` caps the charge at 2000, so a fully
 charged Turbo Pod shows four fifths of a bar. Which pod gets which gauge class, and why only two of
 the five have a button at all, is in
 [`../simulation/equipment-pods.md`](../simulation/equipment-pods.md#only-two-pods-have-a-button).
@@ -806,6 +806,15 @@ retail file, so retail never mirrors):
 | hardpoint state box | `x0+6 .. x0+9`, `y0 .. y0+7` | `WeaponSelectGadget_Ctor` (`00442488`) |
 | weapon-name label | `x0+11 .. x0+35`, `y0 .. y0+5` | `WeaponSelectGadget_Ctor` |
 | value field | `x0+36 .. x0+53`, `y0 .. y0+5` | `FUN_00440a68` / `FUN_00440f78` |
+| pod name label | `x0+11 .. x0+53`, `y0 .. y0+5` | `PodGauge_Ctor` (`00441524`) |
+| Turbo Pod name label | `x0+6 .. x0+34`, `y0+1 .. y0+5` | `TurboPodGauge_Ctor` (`00441a34`) |
+
+The two pod labels are the only sub-rects that are ever painted rather than merely written in: a pod
+row with its button on floods its label with `COLORS.DAT` id 12 and prints the name over it in the
+`dark` font ([`../simulation/equipment-pods.md`](../simulation/equipment-pods.md#only-two-pods-have-a-button)).
+Both edges are inclusive, so the Turbo Pod's plate is 57x9 device pixels against a plain pod's 85x11.
+The label's *text* does not follow its rect — every row on the panel prints its name at the same
+`x0+11`, the Turbo Pod's included, which is why that plate has green to the left of the `T`.
 
 `FUN_00442950` then drops the bar's own top edge one GAU unit below the value field's, and builds it
 over `0x400` with colour **palette indices** `0x20`/`0x22` and remainder `0x2e` written straight
@@ -823,8 +832,11 @@ meter is grey.
   the weapon's range, which is also what makes the firing chain skip it
   ([`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#readiness--weaponmounts_mountisready-00410970)).
   A pod is in no fire group, so a pod row never has one;
-- last, the row plate: `PWEAPONS` frame 0 selected / frame 1 not, at the rect **minus one device
-  pixel on both axes** — its 116x18 art overhangs the 110x12 rect evenly.
+- last, the row plate: `PWEAPONS` frame 0 selected / frame 1 not, at the rect **minus two device
+  pixels on both axes**. The 116x18 art is not a plate but a frame — a 112x14 hole of palette index
+  0 is punched out of it, so what fills a row is the console bitmap showing through and all the
+  sprite contributes is a two-pixel bezel. That offset lands the hole's top-left corner exactly on
+  the rect, which is what puts the 14-pixel state box and an engaged pod's plate inside it.
 
 The three state flags come from `WeaponMounts_PerFrameUpdate` (`00410b40`), the mount manager's
 per-frame pass.

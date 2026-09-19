@@ -1,4 +1,4 @@
-using Herculan.Engine.Sim;
+﻿using Herculan.Engine.Sim;
 
 namespace Herculan.Engine.Content;
 
@@ -43,9 +43,10 @@ namespace Herculan.Engine.Content;
 /// </param>
 /// <param name="PodButton">
 /// Whether this pod row's on/off button is on — <c>gauge+0xc2</c>, which only the ECM and Turbo rows
-/// ever have moved. It is what <c>FUN_0044171c</c>, the pod row's paint, re-fonts the name on: off
-/// draws it in the <c>gray</c> font the constructor seeded and on draws it in <c>dark</c>. Always
-/// false on a row that is not a pod.
+/// ever have moved. It is what <c>FUN_0044171c</c>, the pod row's paint, re-dresses the name on: off
+/// draws it in the <c>gray</c> font the constructor seeded over the plate's own background, and on
+/// draws it in <c>dark</c> over a green plate flooded across the whole name label. Always false on a
+/// row that is not a pod, and on a destroyed one.
 /// </param>
 public readonly record struct WeaponRowState(
 	string Name,
@@ -97,7 +98,10 @@ public readonly record struct WeaponRowState(
 	/// mount's name as it is; a pod row is built as <c>" " + name</c> capped at
 	/// <see cref="PodNameLength"/> and then <c>" POD"</c> appended into whatever room is left, so
 	/// <c>SHIELD</c> becomes <c>" SHIELD POD"</c> and <c>ENERGY</c> becomes <c>" ENERGY POD"</c>
-	/// exactly filling the buffer. A destroyed mount prints <c>OFFLINE</c> instead of any of it.</para>
+	/// exactly filling the buffer. The Turbo Pod is the exception: <c>TurboPodGauge_Ctor</c> overwrites
+	/// that buffer with a plain <c>strncpy</c> of the mount name, so its row reads <c>TURBO</c> with
+	/// neither the leading space nor the suffix — its value field is taken by the charge bar and there
+	/// is no room for either. A destroyed mount prints <c>OFFLINE</c> instead of any of it.</para>
 	/// </summary>
 	/// <param name="mounts">The machine's mounts.</param>
 	/// <param name="slots">How many weapon rows this herc's <c>.GAU</c> declares.</param>
@@ -117,13 +121,16 @@ public readonly record struct WeaponRowState(
 				continue;
 			}
 
+			bool turbo = mount.WeaponId == MechPods.TurboPodWeaponId;
+
 			string name = mount.Disabled
 				? offline
-				: mount.Kind == WeaponMountKind.Pod
-					? PodName(mount.Name, podSuffix)
-					: Truncate(mount.Name, NameLength);
+				: mount.Kind != WeaponMountKind.Pod
+					? Truncate(mount.Name, NameLength)
+					: turbo
+						? Truncate(mount.Name, PodNameLength)
+						: PodName(mount.Name, podSuffix);
 
-			bool turbo = mount.WeaponId == MechPods.TurboPodWeaponId;
 			rows[slot] = new WeaponRowState(
 				name,
 				mount.Kind,
@@ -136,7 +143,10 @@ public readonly record struct WeaponRowState(
 				// reads four-fifths of a bar exactly as a charged energy weapon does.
 				turbo ? (mount.Charge << 10) / WeaponMount.TurboMeterRange : mount.ChargeMeterValue,
 				ChargeBar: turbo || mount.Kind is WeaponMountKind.Energy or WeaponMountKind.Elf,
-				PodButton: mount.PodButton);
+				// The destroyed byte at +0xc3 wins outright in the pod row's paint, which never reaches
+				// the button at +0xc2 — so an offline pod's row draws neither the dark font nor the
+				// green plate, whatever the button was left at.
+				PodButton: mount.PodButton && !mount.Disabled);
 		}
 
 		return rows;

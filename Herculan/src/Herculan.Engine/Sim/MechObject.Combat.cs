@@ -565,9 +565,10 @@ public sealed partial class MechObject {
 	/// <para><b><c>0x12</c> <c>DAMAGE LEVEL CRITICAL</c> is never said.</b> Its call site sits
 	/// between the two readings and needs the later one to have <i>fallen</i> below the earlier; no
 	/// retail <c>PROJ.DAT</c> record can make the write negative, so the line is unreachable — see
-	/// docs/formats/audio.md. The cockpit jolt that shares its gate is a separate effect and is
-	/// raised, through <see cref="CockpitHits"/>. What the test reads as having been meant is
-	/// implemented beside that jolt under <see cref="FixDamageLevelCriticalPost"/>.</para>
+	/// docs/formats/cockpit-messages.md, "Posters". The cockpit jolt that shares its gate is a
+	/// separate effect and is raised, through <see cref="CockpitHits"/>. What the test reads as
+	/// having been meant is implemented beside that jolt under
+	/// <see cref="FixDamageLevelCriticalPost"/>.</para>
 	/// </summary>
 	private void ApplyDirectFireDamage(SimWorld world, short componentIndex, WeaponShot shot, Vec3i hitPoint) {
 		if (_damage == null) {

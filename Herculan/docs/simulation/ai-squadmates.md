@@ -128,7 +128,7 @@ None of them is a squad order; all three are per-machine flags this handler is t
 
 ## The replies
 
-`Ai_PostSquadMessage` (`00420a98`) ids raised here: `0x0b` `0x0c` `0x0d` `0x0f` `0x11` `0x12` `0x14` `0x16` `0x17` `0x1a` `0x1b` `0x1c` `0x1d` `0x1e` `0x20` `0x26` `0x28` `0x2a`. They index the speaker's own `PILOT<n>.STR` set; what each says is [`audio.md`](../formats/audio.md#what-each-id-says)'s catalog, and which situation raises which is the case table above.
+`Ai_PostSquadMessage` (`00420a98`) ids raised here: `0x0b` `0x0c` `0x0d` `0x0f` `0x11` `0x12` `0x14` `0x16` `0x17` `0x1a` `0x1b` `0x1c` `0x1d` `0x1e` `0x20` `0x26` `0x28` `0x2a`. They index the speaker's own `PILOT<n>.STR` set; what each says is [`cockpit-messages.md`](../formats/cockpit-messages.md#what-each-id-says)'s catalog, and which situation raises which is the case table above.
 
 **`0x1e` is `AFFIRMATIVE!`, not a refusal.** Several of the arms that post it are refusals — a machine already carrying the order, or already formed up — so the squadmate answers yes to an order it is declining to act on. That is the right line and the wrong arm to name it after. The generic no, `0x1f`, is posted by nothing in the simulator.
 
@@ -136,7 +136,7 @@ None of them is a squad order; all three are per-machine flags this handler is t
 
 `Sim.Ai.SquadOrder.cs` holds the verb enum, the record and both dispatchers; `MechObject.Squad.cs` holds the standing-order fields, the handler, `Ai_ClearSquadEngageOrder` and `Mech_SquadOrderLineIndex`. `BehaviourState` carries descriptor `+0x3c` as `ObjectiveLine` and bit 4 as `BrokenOff`.
 
-**What runs.** Both dispatchers deliver a real order: all eight verbs install, survive their own reassess, and drive the machine. The [F7] command display's XMIT sends to one slot and the MFD's FLASH COMM page broadcasts to the group ([`mfd.md`](../formats/mfd.md#mfdflashcomm--mode-1)), and a squadmate's reply is spoken and drawn on the pilot channel ([`audio.md`](../formats/audio.md#the-pilot-and-squad-channel)). `Herculan.Engine.Host` takes `--hdd-xmit` and `--flash-comm-xmit`, which press XMIT on the order each screen armed and report each squadmate's standing order before and after the run — a `--screenshot` run sees no keystroke and no map click, so they are the only way to reach this from the command line.
+**What runs.** Both dispatchers deliver a real order: all eight verbs install, survive their own reassess, and drive the machine. The [F7] command display's XMIT sends to one slot and the MFD's FLASH COMM page broadcasts to the group ([`mfd.md`](../formats/mfd.md#mfdflashcomm--mode-1)), and a squadmate's reply is spoken and drawn on the pilot channel ([`cockpit-messages.md`](../formats/cockpit-messages.md#the-pilot-and-squad-channel)). `Herculan.Engine.Host` takes `--hdd-xmit` and `--flash-comm-xmit`, which press XMIT on the order each screen armed and report each squadmate's standing order before and after the run — a `--screenshot` run sees no keystroke and no map click, so they are the only way to reach this from the command line.
 
 What differs from the original:
 

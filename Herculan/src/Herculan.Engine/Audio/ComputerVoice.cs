@@ -4,8 +4,8 @@ namespace Herculan.Engine.Audio;
 
 /// <summary>
 /// The cockpit computer's speaking voice — <c>SYSTEM.STR</c>'s messages, read aloud from the
-/// <c>CVM_nnnn.WAV</c> clips in the voice archive. See docs/formats/audio.md, "The computer's
-/// messages".
+/// <c>CVM_nnnn.WAV</c> clips in the voice archive. See docs/formats/cockpit-messages.md, "The
+/// computer's messages".
 ///
 /// <para><b>It is not part of the sound catalog and does not go through
 /// <see cref="SoundDirector"/>.</b> Speech has its own channel pool in the original, opened at

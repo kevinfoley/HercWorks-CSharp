@@ -328,7 +328,7 @@ The plan view, its turret wedge and its contact list: [`mfd-scanner.md`](mfd-sca
 
 Drawn: screen background, F-key column with lit state, per-mode aux buttons, titles and captions, the nav map's background flood, and **both status screens driven from a live subject** — `Herculan.Engine.Content.MfdStatusSubject`, one record for F1 and F5 as in the original. The scanner is drawn too — see its own doc, and so are the paper doll's per-region damage tints. Not drawn: the mode-switch sweep animation, the missile camera and map terrain, which need a map rasterizer or an animation path.
 
-FLASH COMM is complete: `MfdFlashCommScreen` keeps the row states and resolves the verb, and `Overlay2DRenderer` draws the list with its four fonts, its hotkey character and its plate, and the transmission over the top of whichever screen is up. Transmissions come from `SquadCommChannel` ([`audio.md`](audio.md#the-pilot-and-squad-channel)).
+FLASH COMM is complete: `MfdFlashCommScreen` keeps the row states and resolves the verb, and `Overlay2DRenderer` draws the list with its four fonts, its hotkey character and its plate, and the transmission over the top of whichever screen is up. Transmissions come from `SquadCommChannel` ([`cockpit-messages.md`](cockpit-messages.md#the-pilot-and-squad-channel)).
 
 Buttons: the F-key column sets the mode, and `Program.ApplyMfdAuxClick` carries 8 `RANGE`, the shared 7/9 `SELECT`/`TARGET` case, 10 `XMIT`, and 11 `PASS` / 12 `ACTIVE`. **One is not wired**: mode 0's arm of the shared case, which steps a squad roster the engine has no equivalent of. Every row of the order list draws available, which is what retail does too — nothing sets the unavailable bit.
 

@@ -302,7 +302,7 @@ The Java author's own doc comment on `HercSimDamage.cs` lists real component nam
 
 ### What the endpoint announces
 
-`Mech_ComponentDamageWrite` is also where the cockpit computer's damage warnings are posted, and **every one of them is gated on `obj+0xa3`** — the machine being the one the player is flying — so an AI machine losing a leg says nothing. The ids are `SYSTEM.STR`'s and the port they go to is [`../formats/audio.md`](../formats/audio.md#the-port)'s.
+`Mech_ComponentDamageWrite` is also where the cockpit computer's damage warnings are posted, and **every one of them is gated on `obj+0xa3`** — the machine being the one the player is flying — so an AI machine losing a leg says nothing. The ids are `SYSTEM.STR`'s and the port they go to is [`../formats/cockpit-messages.md`](../formats/cockpit-messages.md#the-port)'s.
 
 | id | line | guard |
 |---|---|---|
@@ -514,7 +514,7 @@ Of the sweep's three call sites the plasma round and the drop pod's landing (`Si
 
 The destruction path's own effects — the debris, the fire and the explosion a lost component throws — are `Sim.ComponentDamage.DestructionEffects`; see [`destruction-effects.md`](destruction-effects.md).
 
-Both out-of-the-fight branches are ported entire, including the behaviour-state installs, the sampled-before-the-finish-off ordering the defeat action depends on, and the vtable `+0x60` kill credit (`MechObject.CreditNeutralised`) with both of its radio callouts — the scorer's `0x02` and the victim's `0x25`/`0x04`, the latter being the original's only forced post ([`../formats/audio.md`](../formats/audio.md#what-each-id-says)).
+Both out-of-the-fight branches are ported entire, including the behaviour-state installs, the sampled-before-the-finish-off ordering the defeat action depends on, and the vtable `+0x60` kill credit (`MechObject.CreditNeutralised`) with both of its radio callouts — the scorer's `0x02` and the victim's `0x25`/`0x04`, the latter being the original's only forced post ([`../formats/cockpit-messages.md`](../formats/cockpit-messages.md#what-each-id-says)).
 
 `Mech_CreditNeutralisedTarget` is `void __cdecl(SimObject *attacker, SimObject *victim, short victimAlreadyImmobilised)` — plain `__cdecl` on three stack arguments, whatever the decompiler's `__thiscall` rendering of the vtable slot says. All four call sites push three and clean 12 bytes. `Mech_SpreadImpactDamage` is `MechObject.SpreadImpactDamage` and `Component_TotalArmor` is `ComponentDamage.TotalArmor`; `Mech_ApplyStartingCondition` is `MechObject.ApplyStartingCondition`, called from `Scene.MissionScene` where the original calls it.
 

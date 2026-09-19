@@ -368,9 +368,43 @@ The machine's own pilot index — `MecEntry.PilotNameIndex`, the leading field o
 | `+0x13d` | full width, `y0+80` | `[2]` | group 40 current order |
 | `+0x141` | `x0 .. x0+20`, bottom 20 | `[2]` | slot number, background id 15 |
 
-Offsets are device pixels. The name's per-slot background — `COLORS.DAT` entries 0, 1, 2 = palette 14, 15, 31 — is the manual's "squad members are shown on the map in the same color that highlights their name on the comm screen", and it is the same id the pilot channel's own box fills with ([`audio.md`](audio.md#its-box)).
+Offsets are device pixels. The name's per-slot background — `COLORS.DAT` entries 0, 1, 2 = palette 14, 15, 31 — is the manual's "squad members are shown on the map in the same color that highlights their name on the comm screen", and it is the same id the pilot channel's own box fills with ([`cockpit-messages.md`](cockpit-messages.md#its-box)).
 
 `ofs\PILOT<n>.OFS` has no header and no count: a flat array of three-`int32` entries — `{ frameIndex, x, y }` — of which the loader reads a fixed 27, copying each pair to `gauge + frameIndex * 8 + 0x3d`. The pair is signed and in the bank's own 320-wide space: it is the frame's position inside the box, added **raw** while the frame itself is blitted doubled, and it reaches the MFD's full-screen copy unchanged ([`mfd.md`](mfd.md#transmissions)). The first 24 entries are the talking-head frames and share one offset per pilot — `PILOT2`, whose last frame differs, is the only exception; entries 24-26 cover the three wider frames at the tail of the bank, which nothing in the shipped code path draws.
+
+### `.SNC` — portrait lip-sync scripts
+
+**`.SNC` is not an audio format.** It is the frame timeline that animates the talking pilot
+portrait in a comm box while the matching `.wav` plays.
+
+556 files in `snc\` (in both `SIMVOL0.VOL` and `SIMSOUND.VOL`): twelve speakers `PA`-`PL` times
+46-47 messages. **The twelve copies of a message are byte-identical** apart from their `.VOL`
+timestamps — the per-speaker naming exists only because the loader builds the name from the
+speaker letter.
+
+After the 9-byte `.VOL` entry prefix:
+
+```
+int32  length            -- bytes that follow
+length/2 x {
+    int8  frame          -- index into the pilot<n>.DBA portrait bank
+    int8  delta          -- coarse ticks until the NEXT event
+}
+```
+
+The `0xff` terminator is **not in the file** — `Snc_Load` (`00463270`) reads the declared length
+into the slot's 100-byte buffer and appends `0xff` itself. With no script at all the buffer is just
+`0xff`, and the voice plays with the portrait held.
+
+**Verified across all 556 files**: length always even, always `fileLength - 14`, never containing a
+`0xff` byte, 2-28 pairs (so at most 61 bytes in the 100-byte buffer). Frame values are 0-23 —
+matching the 24 same-sized frames at the head of a `pilot<n>.DBA` bank, described
+[above](#the-gauge) — and deltas 2-74 ticks.
+
+`Snc_Advance` (`004633ac`) reads pairs until the accumulated time passes now, publishes the frame at
+slot `+0x08`, and re-inserts the slot into a small global event queue (`004d2efa`, 8-byte
+`{ time, slot }` entries) that `Snc_ServiceQueue` (`004631c0`) drains. Reaching the `0xff` sets the
+frame to `-1`, which is what tells `HddGauge_PaintPilotFrame` the message is over.
 
 ### The state machine — `FUN_0044b5f8`
 
@@ -383,7 +417,7 @@ Per gauge, state at gauge-relative `+0x13b`:
 | 2 | On entry starts the `.SNC` script; `Snc_GetFrame` drives the portrait until it returns -1, then state 3, deadline `now + 0x14`, and `Sound_Play(0x1c)` |
 | 3 | Static, until the deadline; then state 0 |
 
-`CommBox_OnMessageBegin` (`0044b4ec`) enters state 1 — the port's begin callback ([`audio.md`](audio.md#the-port)) — with deadline `now + 0x14`, plays `0x1c` if it is not already playing, and claims the published block at `+0x766` that the MFD reads. So a reply is static, portrait, static, and back to the labels.
+`CommBox_OnMessageBegin` (`0044b4ec`) enters state 1 — the port's begin callback ([`cockpit-messages.md`](cockpit-messages.md#the-port)) — with deadline `now + 0x14`, plays `0x1c` if it is not already playing, and claims the published block at `+0x766` that the MFD reads. So a reply is static, portrait, static, and back to the labels.
 
 Other gauge fields: `+0x12e` static frame cycle 0-4, `+0x12f` the speech slot, `+0x133` the frame-indirection flag, `+0x135` the portrait number, `+0x137` the name pointer (`HddGauge_Name`, `0044b900`), `+0x13f` the previous state, `+0x143` the deadline, `+0x147` the comms-out latch.
 

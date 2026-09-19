@@ -4,8 +4,8 @@ namespace Herculan.Engine.Content;
 
 /// <summary>
 /// Where the cockpit's message ticker sits and how its one line is placed in it — the geometry half
-/// of <see cref="MessagePort"/>, whose own state has no pixels in it. See docs/formats/audio.md,
-/// "The computer's messages".
+/// of <see cref="MessagePort"/>, whose own state has no pixels in it. See
+/// docs/formats/cockpit-messages.md, "The ticker".
 ///
 /// <para><b>The box is the herc's, not the game's.</b> Its rect is the last field of the
 /// <c>.GAU</c> (<see cref="GAUFile.MessageTicker"/>), which is why the ticker sits low in the RAZOR's

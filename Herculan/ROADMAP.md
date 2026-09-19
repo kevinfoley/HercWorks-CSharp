@@ -43,7 +43,7 @@ The mechanism is understood; what is left is engine work.
   and auto-track toggles and the power-up line. The rest of `Computer_PostMessage`'s traffic — the
   `INTERNAL DAMAGE` family, `WEAPON DESTROYED`, `DAMAGE LEVEL CRITICAL`, `SHIELDS CRITICAL`, and
   `ENEMY TARGET DESTROYED`/`DISABLED` when the player kills what they had selected — is not posted.
-  → [`docs/formats/audio.md`](docs/formats/audio.md#posters)
+  → [`docs/formats/cockpit-messages.md`](docs/formats/cockpit-messages.md#posters)
 - **Flyer control bindings.** The flight model is ported and the axis roles are known, but key
 bindings are hardcoded placeholders.
   → [`docs/simulation/razor-flight.md`](docs/simulation/razor-flight.md)
@@ -63,7 +63,7 @@ The engine cannot be faithful here until the original is understood.
   loaded onto `Mission.Text`, but how that port resolves an id whose record names no speaker — its own
   catalog is the per-slot `PILOT*.STR` scatter — is not established, so nothing is posted.
   → [`docs/simulation/mission-deployment.md`](docs/simulation/mission-deployment.md),
-  [`docs/formats/audio.md`](docs/formats/audio.md#the-pilot-and-squad-channel)
+  [`docs/formats/cockpit-messages.md`](docs/formats/cockpit-messages.md#the-pilot-and-squad-channel)
 - **The mission counters' reader.** `DAT_004a9ef4` is written by an activating action and dumped to
   `mission_var` at mission end. The reader is VSHELL's campaign layer (`MissionVar_Read`,
   `0040ea59`), which is not ported: nothing in this engine consumes the counters, persists them

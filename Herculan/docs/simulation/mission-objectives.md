@@ -89,7 +89,7 @@ Four statuses carry a `SYSTEM.STR` line, posted on the **change** rather than ea
 | 8 | `0x20` RULES OF ENGAGEMENT VIOLATED. MISSION ABORTED. |
 | 9 | `0x17` MISSION SUCCESSFUL |
 
-After a post the answer is held still for 500 ms so the caller's next poll cannot queue the line twice; the running baseline catches up on the first evaluation after that, which is what sequences the spoken line ahead of the alert panel. `MISSION OBJECTIVES COMPLETE`, `PRIMARY OBJECTIVE COMPLETE` and `SECONDARY OBJECTIVE COMPLETE` are recorded but posted by nothing — see [`../formats/audio.md`](../formats/audio.md#posters).
+After a post the answer is held still for 500 ms so the caller's next poll cannot queue the line twice; the running baseline catches up on the first evaluation after that, which is what sequences the spoken line ahead of the alert panel. `MISSION OBJECTIVES COMPLETE`, `PRIMARY OBJECTIVE COMPLETE` and `SECONDARY OBJECTIVE COMPLETE` are recorded but posted by nothing — see [`../formats/cockpit-messages.md`](../formats/cockpit-messages.md#posters).
 
 ## The poll — `Mission_PollStatus` (`004131ac`)
 
@@ -257,7 +257,7 @@ The player parks in front of what their order names and holds position. Holding 
 
 Four lines are spoken, `0x34` to `0x37`, each after the delay the table at `0049a318` gives for the step before it: 5000, 5000, `0xffff9c40`, 0. **The link therefore takes ten seconds of holding station**; the third entry is negative, `Timer_CountDown` clamps at zero, and `DATA TRANSFER COMPLETE` is queued the tick after `TRANSFERRING DATA`.
 
-That is not what the player sees. The two are queued a tick apart but shown ten seconds apart, because `TRANSFERRING DATA` is the one `SYSTEM.STR` entry whose display timings are 10 s and 20 s rather than 3 s and 6 s and the port will not let a message yield before its minimum ([`../formats/audio.md`](../formats/audio.md#the-port)). So the transfer reads on screen as a long operation while the simulation has already finished it: `+0xa0` goes up when the last line is *queued*.
+That is not what the player sees. The two are queued a tick apart but shown ten seconds apart, because `TRANSFERRING DATA` is the one `SYSTEM.STR` entry whose display timings are 10 s and 20 s rather than 3 s and 6 s and the port will not let a message yield before its minimum ([`../formats/cockpit-messages.md`](../formats/cockpit-messages.md#the-port)). So the transfer reads on screen as a long operation while the simulation has already finished it: `+0xa0` goes up when the last line is *queued*.
 
 ## The group report, and why nothing shows it
 

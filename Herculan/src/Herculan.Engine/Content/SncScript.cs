@@ -2,8 +2,8 @@ namespace Herculan.Engine.Content;
 
 /// <summary>
 /// One <c>snc\P?_?????.SNC</c> — the frame timeline that animates a talking pilot's portrait while
-/// the matching <c>.WAV</c> plays. It carries no audio; see docs/formats/audio.md, "<c>.SNC</c> —
-/// portrait lip-sync scripts".
+/// the matching <c>.WAV</c> plays. It carries no audio; see docs/formats/heads-down-display.md,
+/// "<c>.SNC</c> — portrait lip-sync scripts".
 ///
 /// <para>Layout after the VOL entry prefix (which <see cref="GameContent.Read"/> has already
 /// stripped): an <c>int32</c> length, then <c>length / 2</c> pairs of <c>{ frame, delta }</c>, the

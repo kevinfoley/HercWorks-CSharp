@@ -2,7 +2,8 @@ namespace Herculan.Engine.Content;
 
 /// <summary>
 /// <c>str\SYSTEM.STR</c> — the cockpit computer's own message set: every line it says, and for each
-/// one the recorded clip that says it. See docs/formats/audio.md, "The computer's messages".
+/// one the recorded clip that says it. See docs/formats/cockpit-messages.md, "The computer's
+/// messages".
 ///
 /// <para>The file is an ordinary <c>.STR</c> string table (see docs/formats/str-strings.md) of two
 /// groups, 40 entries then 23, each carrying eight attribute bytes. <b>The groups are not a
@@ -227,7 +228,7 @@ public sealed class SystemMessages {
 	/// <see cref="Sim.MechObject.CockpitShakeDamageLimit"/>. <b>Retail never posts it</b> due to
 	/// a typo in the code.
 	/// 
-	/// See docs/formats/audio.md and KNOWN_ISSUES.md.
+	/// See docs/formats/cockpit-messages.md and KNOWN_ISSUES.md.
 	/// </summary>
 	public const int DamageLevelCritical = 0x12;
 

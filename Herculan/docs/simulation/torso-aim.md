@@ -121,7 +121,7 @@ The block's three cases, in its own order of tests:
 
 **[T] turning ATT off also centres the turret.** Scancode `0x14` toggles the TRACK widget (`FUN_00441f7c`, which is also the console button's whole click action) and then, *only if that turned it off*, runs the same three writes the [Backspace] case does. Clicking TRACK off with the mouse therefore leaves the turret where the tracker had it; pressing [T] brings it home. The asymmetry is the dispatch case's, not the button's.
 
-Toggling it either way announces the new state on the computer's channel — `0x26` `AUTO TRACKING ENGAGED` and `0x27` `AUTO TRACKING DISABLED`, both withdrawn before the new one is posted, the same shape as the radar toggle's pair ([`../formats/audio.md`](../formats/audio.md#posters)).
+Toggling it either way announces the new state on the computer's channel — `0x26` `AUTO TRACKING ENGAGED` and `0x27` `AUTO TRACKING DISABLED`, both withdrawn before the new one is posted, the same shape as the radar toggle's pair ([`../formats/cockpit-messages.md`](../formats/cockpit-messages.md#posters)).
 
 **ATT with nothing selected gives up after a delay.** `Player_PerFrameCockpitUpdate` (`0041b130`) arms `mech+0x31c` with `0x1194` on the selection change that leaves the latch holding nothing, counts it down every frame the pair still holds, and latches the centring mode when it reaches zero. It does not clear the latch, so selecting again puts the turret straight back on a target.
 

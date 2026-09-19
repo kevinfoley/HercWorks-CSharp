@@ -56,7 +56,8 @@ public readonly record struct SquadTransmission(
 /// <summary>
 /// The three squad comm boxes and the transmission they publish — <c>CommBox_OnMessageBegin</c>
 /// (<c>0044b4ec</c>) and the per-frame service loop <c>FUN_0044b5f8</c> that runs their state machine.
-/// Derivation: docs/formats/heads-down-display.md and docs/formats/audio.md.
+/// Derivation: docs/formats/heads-down-display.md, docs/formats/cockpit-messages.md and
+/// docs/formats/audio.md.
 ///
 /// <para>A reply from a squadmate reaches this through <see cref="SquadMessagePort"/>: the port decides
 /// when the line is due, and its begin callback puts that pilot's box into

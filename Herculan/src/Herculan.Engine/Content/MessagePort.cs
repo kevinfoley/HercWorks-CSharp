@@ -3,8 +3,8 @@ namespace Herculan.Engine.Content;
 /// <summary>
 /// Which halves of a message channel are live — options 3 and 2 of
 /// <see cref="SimulatorPreferences"/>, which the preferences screen's COMPUTER MESSAGE and PILOT
-/// MESSAGE rows write. Three values, not four: the row offers no OFF. See docs/formats/audio.md,
-/// "The computer's messages".
+/// MESSAGE rows write. Three values, not four: the row offers no OFF. See
+/// docs/formats/cockpit-messages.md, "The computer's messages".
 /// </summary>
 public enum MessageChannelMode {
 	/// <summary>Text drawn, nothing spoken. The port tests <c>!= 0</c> before it speaks.</summary>
@@ -43,8 +43,8 @@ public readonly record struct MessageTicker(string? Text, long ScrollTicks, bool
 /// <summary>
 /// The cockpit's message port — the object at <c>view+0x20b</c> that queues what the computer has to
 /// say, decides when to say it, scrolls it across the front window and reads it aloud. Roughly thirty
-/// functions at <c>00434e50</c>-<c>00436fd0</c> in DBSIM; the derivation is in docs/formats/audio.md,
-/// "The computer's messages".
+/// functions at <c>00434e50</c>-<c>00436fd0</c> in DBSIM; the derivation is in
+/// docs/formats/cockpit-messages.md, "The computer's messages".
 ///
 /// <para><b>Both halves, one object.</b> Text and speech are not two features that happen to agree:
 /// the port shows a line and speaks it in the same call, and the timings that decide how long it

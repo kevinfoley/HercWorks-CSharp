@@ -13,13 +13,10 @@ namespace Herculan.Engine.Audio;
 ///
 /// <para><b>Deliberately not a 3D audio API.</b> Distance rolloff, panning and the audible cutoff
 /// are the original's own rules and are computed in <see cref="SoundDirector.Place"/> before
-/// anything reaches here — see docs/formats/audio.md. A backend that applied its own distance model
-/// on top would fight them, so this interface takes a finished gain and a finished pan and no
-/// listener at all.</para>
+/// anything reaches here — see docs/formats/audio.md.</para>
 ///
-/// <para>The abstraction exists for the reason docs/engine/planning.md gives for the rendering
-/// backend: Windows is the development target but OS-specific paths are kept behind an interface
-/// from the start. It is also what lets the simulation and its tests run with no audio device
+/// <para>The abstraction will enable building different audio backends for different platforms. It
+/// is also what lets the simulation and its tests run with no audio device
 /// present, through <see cref="NullAudioBackend"/>.</para>
 /// </summary>
 public interface IAudioBackend : IDisposable {
@@ -36,15 +33,11 @@ public interface IAudioBackend : IDisposable {
 	/// <summary>
 	/// Begins a playback of <paramref name="sample"/> on a free channel.
 	///
-	/// <para>Gain, pan and pitch are passed in rather than set afterwards because the channel does
-	/// not exist until this call: they are the caller's own per-sound state, which
-	/// <see cref="SoundDirector"/> keeps exactly as the original keeps it on the voice record.</para>
+	/// <para>Gain, pan and pitch are passed in rather than set afterwards; they are the caller's own
+	/// per-sound state, which <see cref="SoundDirector"/> keeps exactly as the original keeps it on 
+	/// the voice record.</para>
 	/// </summary>
-	/// <param name="looping">
-	/// Endless repetition. Finite repeat counts are not a backend concern —
-	/// <see cref="SoundDirector"/> re-triggers those itself, because no backend this targets
-	/// expresses "play exactly n times".
-	/// </param>
+	/// <param name="looping">Endless repetition.</param>
 	/// <returns>
 	/// A handle naming this playback, or -1 when the sample is unknown or every channel is busy.
 	/// A refusal is not an error: the original's own <c>sosDIGIStartSample</c> fails the same way

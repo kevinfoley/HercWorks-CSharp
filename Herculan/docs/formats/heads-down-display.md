@@ -558,11 +558,8 @@ titles, the screen flood, the paper doll per category with its region tints, and
 `.PDG` region order — structural and internal named from the string table, weapons from the player's
 own fitted hardpoints — each with its live percentage and its state's font.
 
-Everything the command display draws is drawn: the terrain raster, the grid, the mission border,
-every marker with its heading frame and its range falloff, the route waypoints, the order list with
-its availability, selection, hotkey characters and highlight plate, the message row, XMIT and CANCEL,
-and the three comm boxes with their pilots' names, conditions and objectives. Zoom, pan, recentring,
-pilot selection and target designation are all wired to both the widgets and the keys.
+Everything the command display draws is drawn. Zoom, pan, recentring, pilot selection and target 
+designation are all wired to both the widgets and the keys.
 
 The comm boxes run their four-state machine and draw what it says: the `pilot<n>` portrait at its
 `.OFS` offset or the cycling `static`, clipped to the box, with the name plate left over it and the
@@ -572,7 +569,8 @@ reads the machine's own destroyed flag, and `SquadCommChannel.SetCommsOut` is wh
 that.
 
 Not drawn: the damage rows do not scroll — the engine has no row offset, so a 19-row structural list
-shows its first 13.
+shows its first 13. TODO: verify if this is a divergence from retail that should be marked as an open
+task.
 
 XMIT delivers a real order — [`../simulation/ai-squadmates.md`](../simulation/ai-squadmates.md) owns
 the transmit path and what the squadmate does with it. The OBJECTIVE: line reports back through

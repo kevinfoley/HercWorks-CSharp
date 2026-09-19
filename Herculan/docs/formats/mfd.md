@@ -305,9 +305,18 @@ divide by zero. None does: every retail view 2 states a subset of these eight, s
 chassis. The condition line takes no part in this — it is scanned from the internals, so **armour
 damage moves the doll and nothing else**.
 
-Also drawn, but unreachable here: with a hostile subject and a component id at `CockpitView+0x27e`,
-the paint outlines that component's `.PDG` region in `COLORS.DAT` id 16. The id only ever comes from
-a targeting computer pod (`mech+0x30b`), which is not ported.
+Last of all, over the tints: with a hostile subject and the Targeting Pod's present flag at
+`CockpitView+0x27c` set, the paint fills the `.PDG` region holding the component id beside it at
+`+0x27e` with `COLORS.DAT` id 16, the region's own rect grown one device pixel on each side. It goes
+down after the damage tints, so the highlight blots the region out rather than outlining it, and it
+stops at the first region that matches. The id only ever comes from a Targeting Pod (`mech+0x30b`) —
+[`../simulation/target-selection.md`](../simulation/target-selection.md#component-targeting--the-targeting-pod).
+
+A region that does not state the component id itself is reached through a merge mapping, because the
+compact view folds each three-deep limb stack into one region: 1 → 0, 9 and 11 → 7, 10 and 12 → 8,
+15 and 17 → 13, and **16 and 18 → 13 as well**, where the tint pass reads region 14 as the mean of
+14, 16 and 18. That last pair is a transcription slip in the original and cannot be observed: the
+pod's rotation only ever produces 0, 4, 5, 7, 8, 9 and 10.
 
 ### `MFDFlashComm` — mode 1
 

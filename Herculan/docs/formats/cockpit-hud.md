@@ -782,12 +782,20 @@ loads `pweapons` and `wpn_dmg` and builds a two-sequence frame table for the lat
 |---|---|---|
 | energy | `FUN_00432074` → `FUN_00440a68` | `LEDBarGraph` (`FUN_00442950`) |
 | ammunition | `FUN_00432124` → `FUN_00440f78` | round count, `itoa` (`FUN_004411b4`) |
-| pod | `FUN_004321d4` → `FUN_00441524` | none — the name label widens over both fields |
+| pod | `CockpitView_CreatePodGauge` → one of three `PodGauge` classes | none — the name label widens over both fields — except the Turbo Pod's |
 
 All three `strncpy` 12 bytes of the mount's name (`FUN_0040e18c`) into the gauge at `+0xb1`. The pod
 class instead seeds an 11-char buffer with a space, appends the name, then appends `STRINGS0.STR`
 group 3 (`" POD"`) into the room left — `" SHIELD POD"`. A destroyed mount's row prints group 2
 (`"OFFLINE"`) in place of the name.
+
+**The Turbo Pod's row is the exception.** `TurboPodGauge_Ctor` (`00441a34`) overwrites that buffer
+with a plain 11-char `strncpy` of the name — so the row reads `TURBO`, not `" TURBO POD"` — narrows
+the name label to x0+6 and gives the freed right-hand end an `LedBarGraph` over `pod+0x7d`, its
+charge. The bar's range is 2500 where `TurboPod_ChargeTick` caps the charge at 2000, so a fully
+charged Turbo Pod shows four fifths of a bar. Which pod gets which gauge class, and why only two of
+the five have a button at all, is in
+[`../simulation/equipment-pods.md`](../simulation/equipment-pods.md#only-two-pods-have-a-button).
 
 Sub-rects, all relative to the `.GAU` hardpoint rect and mirrored from its right edge when the
 constructor's slot-mask byte is set (that byte lands in the `.GAU`'s confirmed-zero padding in every

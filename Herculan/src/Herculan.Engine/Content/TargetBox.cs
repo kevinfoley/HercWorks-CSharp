@@ -9,7 +9,7 @@ namespace Herculan.Engine.Content;
 /// <c>FUN_0043b950</c>. The complex feeds it a 38-byte state block once a frame
 /// (<c>Gunsight_SetValues</c>, <c>0043d98c</c>) that <c>FUN_0043d6dc</c> has just filled from
 /// <c>CockpitView+0x26c</c>..<c>+0x27e</c> — the selected object, its world aim point, and the
-/// component the targeting computer has picked out of it.</para>
+/// component the Targeting Pod has picked out of it.</para>
 ///
 /// <para><b>Everything is measured from the reticle point</b>, the <c>.GAU</c>'s offset-1136 point
 /// (<see cref="HercWorks.Core.Data.File.Gau.HReticle"/>), not from the middle of the view — and

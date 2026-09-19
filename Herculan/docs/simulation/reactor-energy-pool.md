@@ -29,7 +29,7 @@ Consumption is not a subtraction: the pool is **rebuilt** each tick from whateve
   wrong on both count and order; locomotion never reads the pool. The consequence it describes is
   real: shields only ever get what the weapons leave.
 
-## Reactor output rate — `FUN_00417d08`
+## Reactor output rate — `Mech_ComputeReactorRate` (`00417d08`)
 
 ```
 rate = 20                                  // MOV ESI,0x14 — a literal
@@ -42,13 +42,14 @@ if (EnergyPod && podDamage < 225)
 **Base rate is uniform across the fleet.** The function never reads the mech type record. At the
 25 Hz tick `IntegrateRateOverTick(20)` yields 6 pool units/tick, i.e. 150/s.
 
-**Computed once, at spawn.** `FUN_00417d08` has exactly one reference in the binary — the tail of
-`Mech_ConfigureLoadout` (`004175dc`), itself only reached on spawn. Damage taken mid-mission never
-changes the rate; the damage terms still matter because a machine can spawn already damaged.
+**Computed once, at spawn.** `Mech_ComputeReactorRate` has exactly one reference in the binary —
+the tail of `Mech_ConfigureLoadout` (`004175dc`), itself only reached on spawn. Damage taken
+mid-mission never changes the rate; the damage terms still matter because a machine can spawn
+already damaged.
 
-Its sibling `FUN_00417bec` (shield capacity) is **not** like this: `Mech_ComponentDamageWrite`
-(`00417de4`) calls it as well as the spawn path, so shield capacity really does shrink as the
-generator is shot.
+Its sibling `Mech_ComputeShieldCapacity` (`00417bec`) is **not** like this:
+`Mech_ComponentDamageWrite` (`00417de4`) calls it as well as the spawn path, so shield capacity
+really does shrink as the generator is shot.
 
 ### Reactor damage flags
 
@@ -64,34 +65,21 @@ Identified as the reactor by effect: the same pair cuts power and mobility toget
 are never cleared, and the check is gated on **both** being clear — so once `+0xaa` sets, `+0xab` is
 only reachable by a single hit crossing both thresholds at once.
 
-## Equipment pods — `mech+0x307`, filled by `FUN_0040fb2c`
+## Equipment pods
 
-Pods are ordinary weapon mounts on ordinary hardpoints. At the end of `Mech_ConfigureLoadout`,
-`FUN_0040fb2c` walks the finished mount list and files five weapon ids into a five-pointer array.
-The switch keys on the mount template's `+0x56`, which `Weapons_LoadResourceTables` (`0040fc8c`)
-writes as the record's own table index — so it is the `SHELL0.VOL` `gam\WEAPONS.DAT` catalog id.
-
-| Slot | Offset | Id | Name | Effect |
-|---|---|---|---|---|
-| 0 | `+0x307` | 18 | ECM | not traced |
-| 1 | `+0x30b` | 29 | TARG | targeting; not traced |
-| 2 | `+0x30f` | 30 | SHLD | shield capacity, `FUN_00417bec` |
-| 3 | `+0x313` | 32 | ENRG | reactor rate, `FUN_00417d08` |
-| 4 | `+0x317` | 31 | TURB | speed, see [mech-locomotion.md](mech-locomotion.md) |
-
-Slot order is not id order (`0x1f`→[4], `0x20`→[3]). The switch assigns rather than accumulates, so a
-second copy of a pod fills the same slot and contributes nothing — the last mount in hardpoint order
-wins. Ported in `Sim.MechPods`.
-
-**Both pod bonuses share one curve**, gated off entirely at 225/256 damage:
-`scale = 1024 - 204 * (damage / 51)`, Q10 — five steps from 1024 (pristine) down to 208, then
-nothing. A pristine pod is worth `Q10(1024, base) = base`: it **doubles** the stat.
+Five non-firing pods hang off the weapon-mount factory, filed into a five-pointer array at
+`mech+0x307` by `MechLoadout_FileEquipmentPods` (`0040fb2c`). Two of them are read from this page —
+the **Energy Pod** at `+0x313` by `Mech_ComputeReactorRate` above, and the **Turbo Pod** at `+0x317`,
+which is the only pod that draws on the pool. The family itself — the five classes, what each
+overrides, their cockpit rows, when they tick and the damage curve they share — is
+[`equipment-pods.md`](equipment-pods.md).
 
 > The manual says the Energy Pod doubles the pool's *capacity*. It does not — 10000 is a literal in
 > both the constructor and the clamp. It doubles the recharge *rate*, which is the manual's own
 > afterthought ("a modest increase in the Pool recharge rate").
 
-## Weapon energy arbitration — `FUN_004107e4`
+
+## Weapon energy arbitration — `WeaponMounts_ArbitrateEnergy` (`004107e4`)
 
 Vtable slot 0 of the mount-manager object at `mech+0x202`, for both the local (`00499238`) and
 remote (`00499338`) manager classes. Ported in `WeaponMounts.ChargeTick`; the mounts it serves are
@@ -101,8 +89,8 @@ in [`weapon-mounts.md`](weapon-mounts.md).
   mount already mid-charge (`+0x43`) reports 10000 and jumps the queue.
 - The player's selected mount (`manager+0x1d`) is served before the ranking is consulted; the AI
   passes `-1` and goes straight to the ranking.
-- Per mount (`FUN_0040f00c`): takes `min(chargeRate +0x7f, budget, capacitor deficit)` into `+0x7d`
-  and passes the remainder on.
+- Per mount, `WeaponMount_ChargeCapacitor` (`0040f00c`) takes
+  `min(chargeRate +0x7f, budget, capacitor deficit)` into `+0x7d` and passes the remainder on.
 - Once any mount reports itself mid-charge, every mount after it targets zero instead and **bleeds
   its capacitor back into the pool** at 5/tick. One energy weapon charges at a time.
 - Ammunition mounts consume nothing — their slot-`0x34` override returns the budget untouched.

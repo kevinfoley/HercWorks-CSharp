@@ -149,6 +149,12 @@ public sealed class WeaponMount {
 				break;
 		}
 
+		// The Targeting Pod is the one pod class with state of its own, and the one mount class that
+		// overrides the condition slot below. Everything it holds is in TargetingPodLock.
+		if (weaponId == MechPods.TargetingWeaponId) {
+			ComponentLock = new TargetingPodLock();
+		}
+
 		// FUN_0040df30 sets +0x4c on every mount it builds; the pod base constructor
 		// (FUN_0040e234) immediately clears it again, which is one of the two independent reasons a
 		// pod can never be armed.
@@ -179,6 +185,13 @@ public sealed class WeaponMount {
 	/// the only thing that changes it after construction.</para>
 	/// </summary>
 	public int ModelShapeIndex { get; private set; }
+
+	/// <summary>
+	/// The Targeting Pod's component lock, on the one mount that is a Targeting Pod and null on every
+	/// other. See <see cref="TargetingPodLock"/>; <see cref="MechPods.TargetingMount"/> is how the
+	/// machine reaches it.
+	/// </summary>
+	public TargetingPodLock? ComponentLock { get; }
 
 	/// <summary>
 	/// How many cells the weapon model's flipbook has — the shape's <c>SequenceList[0]</c>,
@@ -424,6 +437,12 @@ public sealed class WeaponMount {
 	/// <param name="after">The same reading after it.</param>
 	internal void ConditionChanged(SimRandom random, int before, int after, SimWorld? world = null,
 			MechObject? owner = null, DebrisDatabase? debris = null) {
+		// TargetingPod_ConditionChanged (0040ef6c): the base slot, then the reading cached. It is the
+		// only override of this slot on any mount class, and the only writer of the cache.
+		if (ComponentLock != null) {
+			ComponentLock.ComponentDamage = (short)after;
+		}
+
 		if (after == MechObject.FullyDamaged) {
 			Destroy(world, owner, rolled: false, debris);
 		}

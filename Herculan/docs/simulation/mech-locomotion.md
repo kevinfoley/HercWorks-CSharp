@@ -332,8 +332,8 @@ writes a speed of its own.
   [reactor-energy-pool.md](reactor-energy-pool.md#reactor-damage-flags).
 
 - `mech+0x317` is the **Turbo Pod** (`TURB`, catalog id 31), one of the five equipment-pod slots
-  filled by `FUN_0040fb2c` at loadout — see
-  [reactor-energy-pool.md](reactor-energy-pool.md#equipment-pods--mech0x307-filled-by-fun_0040fb2c).
+  filled by `MechLoadout_FileEquipmentPods` at loadout — see
+  [equipment-pods.md](equipment-pods.md).
   It adds a term to desired speed *in the current direction of travel*, worth ~98% of max at full
   and fading to ~20% before cutting out entirely past 225/256 damage. A speed bonus that degrades,
   not a throttle runaway — and **maximal at full health**, so omitting it is not neutral on an

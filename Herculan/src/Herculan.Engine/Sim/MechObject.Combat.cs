@@ -170,8 +170,61 @@ public sealed partial class MechObject {
 			_autoTrackIdle = AutoTrackIdleDelay;
 		}
 
+		// And the Targeting Pod's lock restarts on the same change. Both gates are
+		// Player_PerFrameCockpitUpdate's own: it runs for the piloted machine alone, and it calls the
+		// reset only when the new selection is something — clearing the target leaves the lock where
+		// it was. See TargetingPodLock.ResetComponentLock.
+		if (LocallyPiloted && Target != null) {
+			Pods.TargetingMount?.ComponentLock?.ResetComponentLock(Target);
+		}
+
 		TargetChanged = true;
 	}
+
+	/// <summary>
+	/// <c>[Tab]</c> — <c>CockpitWidgets_HandleCommand</c>'s <c>0x0f</c> case, which steps the
+	/// Targeting Pod's component lock on the selected machine. A machine with no pod, or with nothing
+	/// selected, does nothing.
+	///
+	/// <para>The command only reaches the pod while the heads-down display is <i>not</i> down: in view
+	/// mode 1 the same scancode goes to the display's own command slot instead, which is the manual's
+	/// <c>Zoom Map In/Out</c>. That split is the host's to make — see
+	/// docs/formats/cockpit-input.md.</para>
+	/// </summary>
+	public void CycleTargetComponent() => Pods.TargetingMount?.ComponentLock?.CycleComponent(Target);
+
+	/// <summary>
+	/// <c>Player_ResolveTargetAimPoint</c> (<c>0041b728</c>) — the point the HUD aims at on the
+	/// selected target, and which component of it that is. With a Targeting Pod fitted and the target
+	/// inside <see cref="ComponentAimRange"/> the pod answers both; otherwise it is the target's own
+	/// <see cref="SimObject.AimPoint"/> and no component.
+	///
+	/// <para>Both halves reach the cockpit through <c>CockpitView_SetTargetBlock</c>: the flag lands
+	/// at <c>+0x27c</c> and drops the target box to its bare pip, and the component id lands at
+	/// <c>+0x27e</c> and highlights that region of the MFD's paper doll. See
+	/// docs/formats/hud-target-indicator.md and docs/formats/mfd.md.</para>
+	/// </summary>
+	/// <returns>Where to aim, whether a component was singled out, and which.</returns>
+	public (Vec3i Point, bool ComponentTargeted, short Component) ResolveTargetAimPoint() {
+		if (Target is not { } target) {
+			return (Position, false, 0);
+		}
+
+		if (Pods.TargetingMount?.ComponentLock is { } pod
+			&& Position.ApproxDistanceTo(target.Position) < ComponentAimRange) {
+			bool targeted = pod.ResolveAimPoint(target, out var point, out short component);
+			return (point, targeted, component);
+		}
+
+		return (target.AimPoint, false, 0);
+	}
+
+	/// <summary>
+	/// How close the selected machine has to be before the Targeting Pod is asked for a component aim
+	/// point at all — the original's literal 30000, 180 m, the manual's "close range". Outside it the
+	/// pod is skipped entirely and the box goes back to whole.
+	/// </summary>
+	public const int ComponentAimRange = 30000;
 
 	/// <summary>
 	/// <c>mech+0x9d</c> — raised whenever <see cref="Target"/> changes and never cleared by the write
@@ -715,7 +768,44 @@ public sealed partial class MechObject {
 	/// rather than from anywhere near where they are. A blast at head height reaches those parts less
 	/// readily than the geometry would suggest.</para>
 	/// </summary>
-	public Vec3i ComponentWorldPosition(short componentIndex) => ComponentPosition(componentIndex);
+	public override Vec3i ComponentWorldPosition(short componentIndex) => ComponentPosition(componentIndex);
+
+	/// <summary>
+	/// <c>Mech_NextTargetableComponent</c> (<c>00415558</c>), vtable <c>+0x80</c> — the Targeting
+	/// Pod's rotation over <see cref="TargetingPodLock.ComponentRotation"/>, skipping any slot the
+	/// machine has lost and wrapping at seven.
+	///
+	/// <para><b>The slot the cursor starts on is never tested.</b> The walk steps before it looks, and
+	/// stops when it comes back to where it began — so a machine with only its current slot left
+	/// answers "nothing", and a cursor of <see cref="TargetingPodLock.NoComponent"/> starts from
+	/// position 0 and so gives rotation entry 1, component 4, rather than component 0. Both are the
+	/// original's.</para>
+	/// </summary>
+	public override int NextTargetableComponent(int cursor, out int componentId) {
+		int start = cursor < 0 ? 0 : cursor;
+		int at = start;
+
+		do {
+			at++;
+			if (at == TargetingPodLock.ComponentRotation.Length) {
+				at = 0;
+			}
+		} while (at != start && !ComponentPresent(TargetingPodLock.ComponentRotation[at]));
+
+		if (at == start) {
+			componentId = TargetingPodLock.NoComponent;
+			return TargetingPodLock.NoComponent;
+		}
+
+		componentId = TargetingPodLock.ComponentRotation[at];
+		return at;
+	}
+
+	/// <summary>
+	/// <c>Mech_ComponentPresent</c> (<c>00415540</c>), vtable <c>+0x84</c> — one entry of the
+	/// occupancy array at <c>mech+0x20e</c>, which is <see cref="ComponentDamage.IsActive"/>.
+	/// </summary>
+	public override bool ComponentPresent(int componentId) => _damage?.IsActive(componentId) ?? false;
 
 	/// <inheritdoc cref="ComponentWorldPosition" />
 	private Vec3i ComponentPosition(short componentIndex) {
@@ -916,8 +1006,10 @@ public sealed partial class MechObject {
 			}
 		}
 
+		// The pod's own term is read live, after the write, for the same reason the generator's is:
+		// this write may have been the one that took the pod's hardpoint.
 		Shields.SetMax(ShieldCapacity(Type.ShieldCapacity, (short)generatorAfter,
-			Pods.ShieldPod, (short)0));
+			Pods.ShieldPod, MechPods.DamageOf(Pods.ShieldPodMount, _damage)));
 
 		if (!Type.IsFlyer) {
 			GradeLegs(world, attacker);

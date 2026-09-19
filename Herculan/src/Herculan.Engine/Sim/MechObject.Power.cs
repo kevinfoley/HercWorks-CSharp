@@ -9,8 +9,8 @@ namespace Herculan.Engine.Sim;
 public sealed partial class MechObject {
 	/// <summary>
 	/// Reactor output for an undamaged HERC with no Energy Pod, in pool units per unit time —
-	/// <c>FUN_00417d08</c>'s bare <c>0x14</c>. It is a literal, not a per-type stat: every machine in
-	/// the fleet, from the STINGRAY to the APOCALYPSE, runs the same reactor.
+	/// <c>Mech_ComputeReactorRate</c>'s bare <c>0x14</c>. It is a literal, not a per-type stat: every
+	/// machine in the fleet, from the STINGRAY to the APOCALYPSE, runs the same reactor.
 	/// </summary>
 	public const short BaseReactorOutputRate = 0x14;
 
@@ -52,8 +52,8 @@ public sealed partial class MechObject {
 	/// <summary>
 	/// This machine's reactor output rate, computed once when its loadout was configured.
 	///
-	/// <para><b>It is not recomputed.</b> <c>FUN_00417d08</c> has exactly one reference in the whole
-	/// of DBSIM — the tail of <c>Mech_ConfigureLoadout</c>, which itself is only reached on spawn —
+	/// <para><b>It is not recomputed.</b> <c>Mech_ComputeReactorRate</c> has exactly one reference in
+	/// the whole of DBSIM — the tail of <c>Mech_ConfigureLoadout</c>, only reached on spawn —
 	/// so every damage term it reads is sampled at that one moment and the number stands for the rest
 	/// of the mission. A HERC whose reactor is shot to pieces mid-fight keeps generating exactly what
 	/// it generated when it rolled out. The damage terms are ported anyway, because they are what the
@@ -107,35 +107,36 @@ public sealed partial class MechObject {
 	/// <summary>
 	/// <c>Mech_ConfigureLoadout</c> (<c>004175dc</c>), in its own order: build the weapon mounts from
 	/// the chassis' hardpoint list, file the pods out of the finished mount list, size the shield
-	/// array and fill it, then work out the reactor rate. Everything damage-dependent in here is
-	/// sampled now and not looked at again.
+	/// array and fill it, then work out the reactor rate.
+	///
+	/// <para><b>Every damage term is sampled from the machine's own condition, here and now.</b> The
+	/// original takes no arguments for them either — it reads the shield generator's dependent and
+	/// each pod's component straight off <c>mech+0x206</c>. That matters for a machine that spawns
+	/// already damaged, which the campaign's between-mission repair state routinely produces: it
+	/// powers up with the smaller array and the slower reactor its condition earns it, not with a
+	/// fresh chassis' figures.</para>
+	///
+	/// <para>Only the reactor rate is a one-off. Shield capacity is recomputed on every component
+	/// write — see <see cref="ShieldCapacity"/>.</para>
 	/// </summary>
-	/// <param name="bodyDamage">
-	/// Damage on sub-piece 4, Q8 over 0-256 with 0 pristine — the chassis term in the shield-capacity
-	/// formula. Zero until the component system lands.
-	/// </param>
-	/// <param name="shieldPodDamage">Damage on the Shield Pod's own component slot, same scale.</param>
-	/// <param name="energyPodDamage">Damage on the Energy Pod's own component slot, same scale.</param>
-	/// <param name="reactor">The reactor's condition as the damage endpoint's two flags describe it.</param>
-	public void ConfigureLoadout(
-			short bodyDamage = 0,
-			short shieldPodDamage = 0,
-			short energyPodDamage = 0,
-			ReactorCondition reactor = ReactorCondition.Intact) {
-
+	public void ConfigureLoadout() {
 		Weapons = WeaponMounts.Build(_hardpoints, Loadout, _weapons, _weaponModelCellCount);
 		Pods = MechPods.FromLoadout(Weapons);
 
+		short generator = (short)(_damage?.DependentPercent(ShieldGeneratorDependent) ?? 0);
+
 		Shields = new ShieldCharge(Type.ShieldCapacity);
-		Shields.SetMax(ShieldCapacity(Type.ShieldCapacity, bodyDamage, Pods.ShieldPod, shieldPodDamage));
+		Shields.SetMax(ShieldCapacity(Type.ShieldCapacity, generator, Pods.ShieldPod,
+			MechPods.DamageOf(Pods.ShieldPodMount, _damage)));
 		Shields.RefillToBalance();
 
-		ReactorOutputRate = ReactorRate(Pods.EnergyPod, energyPodDamage, reactor);
+		ReactorOutputRate = ReactorRate(Pods.EnergyPod,
+			MechPods.DamageOf(Pods.EnergyPodMount, _damage), Reactor);
 		EnergyPool = EnergyPoolMax;
 	}
 
 	/// <summary>
-	/// <c>FUN_00417d08</c> — the reactor's output rate.
+	/// <c>Mech_ComputeReactorRate</c> (<c>00417d08</c>) — the reactor's output rate.
 	///
 	/// <para>A flat <see cref="BaseReactorOutputRate"/>, replaced outright (not scaled) by a much
 	/// smaller figure when either reactor-damage flag is up, plus an Energy Pod's contribution. The
@@ -164,23 +165,29 @@ public sealed partial class MechObject {
 	}
 
 	/// <summary>
-	/// <c>FUN_00417bec</c> — the shield array's total capacity, the sibling of
-	/// <see cref="ReactorRate"/> and built the same way.
+	/// <c>Mech_ComputeShieldCapacity</c> (<c>00417bec</c>) — the shield array's total capacity, the
+	/// sibling of <see cref="ReactorRate"/> and built the same way.
 	///
-	/// <para>Heavy chassis damage scales the base capacity down: past 50% damage it drops in five
+	/// <para>Damage to the shield generator scales the base capacity down: past 50% it drops in five
 	/// steps to half. A Shield Pod then adds up to a second full base capacity on top — the manual's
 	/// "doubles the effective size of your shield reserves", exactly — degrading with the pod's own
 	/// damage on the same five-step curve the Energy Pod uses. The pod's share is a fraction of the
-	/// <i>undamaged</i> base, not of the chassis-reduced figure, which is the original's own
+	/// <i>undamaged</i> base, not of the generator-reduced figure, which is the original's own
 	/// arithmetic and means a battered machine still gets the full pod bonus.</para>
 	/// </summary>
-	public static short ShieldCapacity(short baseCapacity, short bodyDamage, bool shieldPod, short podDamage) {
+	/// <param name="generatorDamage">
+	/// Dependent sub-piece 4 — the shield generator — as a Q8 fraction, 0 pristine. The original
+	/// spells this reading out inline rather than going through <c>Component_ReadDamagePercent</c>.
+	/// </param>
+	public static short ShieldCapacity(short baseCapacity, short generatorDamage, bool shieldPod,
+			short podDamage) {
 		short capacity = baseCapacity;
 
-		// Chassis wear, on its own curve: 25-damage steps against a 102/1024 penalty each, so the
+		// Generator wear, on its own curve: 25-damage steps against a 102/1024 penalty each, so the
 		// worst case is 514/1024 of base rather than zero.
-		if (bodyDamage > 0x7f) {
-			capacity = (short)SimMath.Q10Multiply(baseCapacity, ((bodyDamage - 0x80) / 0x19) * -0x66 + 0x400);
+		if (generatorDamage > 0x7f) {
+			capacity = (short)SimMath.Q10Multiply(baseCapacity,
+				((generatorDamage - 0x80) / 0x19) * -0x66 + 0x400);
 		}
 
 		if (shieldPod && DamageScale(podDamage) is { } scale) {
@@ -191,11 +198,11 @@ public sealed partial class MechObject {
 	}
 
 	/// <summary>
-	/// The five-step curve both pods degrade on, shared verbatim between <c>FUN_00417d08</c> and
-	/// <c>FUN_00417bec</c>: <c>1024 - 204 * (damage / 51)</c>, Q10, gated off entirely at 225 damage
-	/// out of 256. Null means the pod is too far gone to contribute — which is not the same as a
-	/// scale of zero, and the original's gate is why the last step is 208/1024 rather than a smooth
-	/// fade to nothing.
+	/// The five-step curve both pods degrade on, shared verbatim between
+	/// <c>Mech_ComputeReactorRate</c> and <c>Mech_ComputeShieldCapacity</c>:
+	/// <c>1024 - 204 * (damage / 51)</c>, Q10, gated off entirely at 225 damage out of 256. Null
+	/// means the pod is too far gone to contribute — which is not the same as a scale of zero, and
+	/// the original's gate is why the last step is 208/1024 rather than a smooth fade to nothing.
 	/// </summary>
 	private static short? DamageScale(short damage) =>
 		damage < 0xe1 ? (short)((damage / 0x33) * -0xcc + 0x400) : null;

@@ -226,9 +226,10 @@ implementations.
   index that comes back `-1` for anything that is not a mech:
   - `Rocket_HomingSteer` (`0040a2fd`) asks only when `rocket+0x5a >= 0`, and `Rocket_Fire` fills
     that from the target's `+0x54`, which for a flyer is `00411a44` — a bare `return -1`.
-  - the targeting pod behind `Player_ResolveTargetAimPoint` (`FUN_0040e4dc`, `0040e530`) asks only
-    when `pod+0x7d >= 0`, and `FUN_0040e484` writes `-1` there for every target whose `TargetClass`
-    (`obj+0x1a8`) is not 0.
+  - `TargetingPod_ResolveAimPoint` (`0040e4dc`), behind `Player_ResolveTargetAimPoint`, asks at
+    `0040e530` only when `pod+0x7d >= 0`, and `TargetingPod_ResetComponentLock` (`0040e484`) writes
+    `-1` there for every target whose `TargetClass` (`obj+0x1a8`) is not 0 — see
+    [`target-selection.md`](target-selection.md#component-targeting--the-targeting-pod).
 
   A port that resolves a component position generically has to keep one of those guards, or it will
   ask a flyer where its component 0 is and get an answer the original never had to produce.
@@ -355,21 +356,27 @@ directly (`HercSimDat.ShieldMaxTotal`; the in-memory record is the 216-byte file
 `+2`). Every retail HERC `.DAT` carries **3500** there; only the non-HERC SPIDER differs, at 0. A
 Shield Pod is the only thing that moves it.
 
-**Capacity at loadout — `Mech_ComputeShieldCapacity` (`00417bec`).** Runs once, from
-`Mech_ConfigureLoadout`, and writes `+0x228` via `Shield_SetMax` (`00413ab8`);
-`Shield_RefillToBalance` (`00413ac8`) then refills to `max` at the current balance.
+**Capacity — `Mech_ComputeShieldCapacity` (`00417bec`).** Writes `+0x228` via `Shield_SetMax`
+(`00413ab8`). Called from `Mech_ConfigureLoadout`, where `Shield_RefillToBalance` (`00413ac8`) then
+refills to `max` at the current balance, **and again from `Mech_ComponentDamageWrite`** — so the
+array a machine can hold shrinks as its generator is shot, and both damage terms below are read
+fresh on each call rather than sampled at spawn.
 
 ```
 capacity = 3500
-if (bodyDamage > 0x80)                     // dependent-subpiece 4
-    capacity = Q10(3500, ((bodyDamage - 0x80) / 0x19) * -0x66 + 0x400)   // → 50% at worst
+if (generatorDamage > 0x80)                // dependent-subpiece 4, read inline
+    capacity = Q10(3500, ((generatorDamage - 0x80) / 0x19) * -0x66 + 0x400)  // → 50% at worst
 if (ShieldPod && podDamage < 225)
-    capacity += Q10(1024 - 204*(podDamage/51), 3500)                     // → doubles at best
+    capacity += Q10(1024 - 204*(podDamage/51), 3500)                         // → doubles at best
 ```
+
+`podDamage` is `Component_ReadDamagePercent(mech+0x206, pod.GL[+0x17] + 19)` — the pod's own
+hardpoint component, like any other mount's, so it is shooting the hardpoint a pod sits on that
+degrades it.
 
 The pod's share is a fraction of the *undamaged* base, so a battered machine still gets the full pod
 bonus. The pod curve is shared verbatim with the Energy Pod — see
-[reactor-energy-pool.md](reactor-energy-pool.md#equipment-pods--mech0x307-filled-by-fun_0040fb2c).
+[equipment-pods.md](equipment-pods.md).
 
 **Getter:** `Mech_GetShieldByHeading` (`004154d0`, mech vtable `+0x34`) — given a heading angle,
 returns `+0x222` within ±90° of front, else `+0x224`.
@@ -398,6 +405,15 @@ capacity and DBSIM's hard 25 Hz cap that is 700 ticks — **28 s from empty**, c
 retail. The front slew runs whether or not anything was granted, which is why moving the balance
 redistributes charge on an already-full array. The `10000` step is effectively a snap, reachable
 only when `max` drops below the charge held.
+
+**The draw does not scale with capacity.** `max` is read only to size the deficit; the 5 is an
+immediate, so a Shield Pod's doubled array costs the pool the same 5 per tick and takes twice as
+long — 56 s from empty — to get there. That is the manual's "without increasing the drain on your
+Master Energy Pool", and the same page's "You cannot divert extra power to the shields": the shield
+system has exactly one rate and nothing, pod or player, moves it. The clause names the absence of a
+scaling the code never had, but it is not vacuous for the family — the Turbo Pod *does* buy its
+charge out of the same leftover budget, on the pool turn a Shield Pod inherits as a no-op
+([equipment-pods.md](equipment-pods.md#what-each-class-actually-overrides)).
 
 ### Balance-adjustment input — player's own mech only
 

@@ -174,6 +174,16 @@ public sealed class SystemMessages {
 	/// <summary><c>AUTO TRACKING DISABLED</c> — its other half.</summary>
 	public const int AutoTrackingDisabled = 0x27;
 
+	/// <summary>
+	/// <c>JAMMING ENGAGED</c> — posted by <c>EcmPod_Tick</c> (<c>0040f184</c>) when the ECM pod row's
+	/// button comes on. The pod tick runs on the player's own machine only, so this is never said
+	/// about anybody else's jammer.
+	/// </summary>
+	public const int JammingEngaged = 0x2a;
+
+	/// <summary><c>JAMMING DISABLED</c> — the other arm of the same post.</summary>
+	public const int JammingDisabled = 0x2b;
+
 	/// <summary><c>ACTIVE RADAR MODE</c> — posted by <c>Mech_ToggleRadarMode</c> (<c>0041b468</c>).</summary>
 	public const int ActiveRadarMode = 0x2c;
 

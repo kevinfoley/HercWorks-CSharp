@@ -65,6 +65,12 @@ public enum MfdSilhouetteKind {
 /// Whether the subject's chassis is the flyer kind (<see cref="Sim.MechTypeRecord.IsFlyer"/>). It
 /// selects the doll's region-to-component mapping and, on the damage detail, the flyer name tables.
 /// </param>
+/// <param name="HighlightComponent">
+/// The component a Targeting Pod has singled out of this subject, or -1 for none — the original's
+/// <c>CockpitView+0x27e</c>, gated on the present flag beside it. It is filled by the caller rather
+/// than by <see cref="For"/>, because the pod belongs to the machine doing the looking and not to the
+/// subject. See <see cref="MfdLayout.ComponentHighlightColorId"/>.
+/// </param>
 public readonly record struct MfdStatusSubject(
 	bool Present,
 	bool Identified,
@@ -79,7 +85,8 @@ public readonly record struct MfdStatusSubject(
 	int SilhouetteFrame,
 	string? PaperDollName,
 	IReadOnlyList<short>? Readings = null,
-	bool FlyerVariant = false) {
+	bool FlyerVariant = false,
+	int HighlightComponent = -1) {
 
 	/// <summary>Nothing selected — the state F5 sits in until the player picks something.</summary>
 	public static MfdStatusSubject None { get; } = new(

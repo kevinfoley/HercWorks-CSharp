@@ -23,16 +23,17 @@ The 38-byte state block, offsets from the gunsight's `+0xb1` and from a child's 
 | 6 | Selected object, or 0 |
 | 10, 14, 18 | Its world aim point (`SimObject.AimPoint`) |
 | 22 | The target's own heading |
-| 24 | The component a targeting computer has singled out, 0 for none |
+| 24 | Whether a Targeting Pod has singled out a component — `CockpitView+0x27c`, the pod's **present flag**. The component id beside it at `+0x27e` never reaches the gunsight; only the MFD reads that |
 | 28 | The target's shape radius (vtable `+0x10`), which sizes the box |
 | 32 | Literal 2000, unread |
 | 36 | **Indicator armed.** Set to 1 by all three selection entry points and never cleared; the box's paint refuses to draw until it is set |
 | 37 | `mech+0x9b`, missile lock |
 
-`FUN_0041b728` has two branches. With a targeting computer fitted (`mech+0x30b`) and the target inside
-30000 units it asks the pod for a component aim point and a component id; otherwise it takes the
-target's vtable `+0x24` aim node and writes 0 to the component id. Only the second is ported — the pod
-is not — so offset 24 is always 0 here.
+`FUN_0041b728` has two branches. With a Targeting Pod fitted (`mech+0x30b`) and the target inside
+30000 units — 180 m, the manual's "close range" — it hands off to `TargetingPod_ResolveAimPoint`
+(`0040e4dc`) for a component aim point and a component id; otherwise it takes the target's vtable
+`+0x24` aim node and writes 0 to the component id. The pod side is
+[`../simulation/target-selection.md`](../simulation/target-selection.md#component-targeting--the-targeting-pod)'s.
 
 ## Child 4 — the reticle
 
@@ -87,7 +88,7 @@ Four `HUD` bank frames, base 3 unlocked and base 7 when `mech+0x9b` is set:
 The minimum box side of 25 is two corner brackets plus one pixel, so at its smallest the box closes
 into an unbroken frame.
 
-The brackets and ticks are drawn only when state-block offset 24 is 0. A targeting computer that has
+The brackets and ticks are drawn only when state-block offset 24 is 0. A Targeting Pod that has
 singled out a component reduces the box to the bare pip.
 
 ### The arrow
@@ -156,6 +157,5 @@ canopy quad, whose alpha comes from the same `CockpitClipRegions` data.
 - The projection is the original's (`centre ± v * focal / depth` about the `.VUE` projection centre,
   including the step kick) rather than the GL one. They agree because the camera's field of view is
   derived from the same focal length.
-- No targeting computer pod, so the box never reduces to its pip and no component id reaches the MFD.
 - The paint's guard that discards a projection whose view-space z exceeds the approximate 3D
   magnitude is not ported; it is unreachable in exact arithmetic.

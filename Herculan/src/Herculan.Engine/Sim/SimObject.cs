@@ -454,6 +454,38 @@ public abstract class SimObject {
 	public virtual int ShapeRadius => HitRadius;
 
 	/// <summary>
+	/// Vtable <c>+0x80</c> — step a <see cref="TargetingPodLock"/>'s cursor to the next component
+	/// this object still has, answering the new cursor and writing the component id out. The base
+	/// answers <see cref="TargetingPodLock.NoComponent"/> to both (<c>SimObject_NextTargetableComponent_None</c>,
+	/// <c>00411b1c</c>), which is what a flyer keeps: an aircraft has no parts to single out.
+	///
+	/// <para>The pod is the only caller of this slot or of <see cref="ComponentPresent"/>, and its own
+	/// <see cref="TargetClass"/> fence means only <see cref="MechObject"/>'s override is ever reached.
+	/// A structure's (<c>Base_NextTargetableComponent</c>, <c>00403624</c>, over its type's whole
+	/// component list) is installed in the original and unreachable, and is left unported for that
+	/// reason. See docs/simulation/target-selection.md.</para>
+	/// </summary>
+	public virtual int NextTargetableComponent(int cursor, out int componentId) {
+		componentId = TargetingPodLock.NoComponent;
+		return TargetingPodLock.NoComponent;
+	}
+
+	/// <summary>
+	/// Vtable <c>+0x84</c> — whether this object still has that component. The base answers 1 for
+	/// anything (<c>SimObject_ComponentPresent_Always</c>), so only a machine can lose one. Asked
+	/// only by <see cref="TargetingPodLock.ResolveAimPoint"/>, to notice that the component it had
+	/// locked has been shot off between presses.
+	/// </summary>
+	public virtual bool ComponentPresent(int componentId) => true;
+
+	/// <summary>
+	/// Vtable <c>+0x58</c> — where one of this object's components stands in the world. The base
+	/// answers the object's own origin, which is what a flyer and (here) a structure give; only
+	/// <see cref="MechObject"/> places components apart from the machine.
+	/// </summary>
+	public virtual Vec3i ComponentWorldPosition(short componentIndex) => Position;
+
+	/// <summary>
 	/// <c>obj+0x1a4</c> — this object's selected target. It is on this class because it is on the
 	/// original's shared base: <c>Ai_SelectTarget</c> reads <b>every candidate's</b> <c>+0x1a4</c>
 	/// generically, and so does <see cref="MissionObjectives.IsClearOfThreats"/>, so a machine's, an

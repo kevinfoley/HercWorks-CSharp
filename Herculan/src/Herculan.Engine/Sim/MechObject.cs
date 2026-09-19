@@ -269,10 +269,19 @@ public sealed partial class MechObject : SimObject {
 	public override bool ScannerActive => Scanner;
 
 	/// <summary>
-	/// <c>mech+0xa1</c> — this machine's jammer. Nothing toggles it yet either; see
-	/// <see cref="SimObject.JammerActive"/> for why it is declared.
+	/// <c>mech+0xa1</c> — this machine's jammer, derived once per tick by
+	/// <see cref="JammerTick"/> and not settable from outside.
 	/// </summary>
-	public bool Jammer { get; set; }
+	public bool Jammer { get; private set; }
+
+	/// <summary>
+	/// The ECM pod row's on/off button (<c>pod+0x7d</c>), which is what the <i>player's</i> jammer
+	/// follows. <c>EcmPod_Tick</c> copies it out of the cockpit gauge every frame, and the cockpit
+	/// weapon rows take no input in this engine yet — neither a click nor a number key reaches them —
+	/// so nothing flips this and the player's own ECM stays off. That is the one missing piece; an
+	/// AI machine's jammer does not go through here at all. See <see cref="JammerTick"/>.
+	/// </summary>
+	public bool EcmEnabled { get; set; }
 
 	/// <inheritdoc />
 	public override bool JammerActive => Jammer;
@@ -514,6 +523,10 @@ public sealed partial class MechObject : SimObject {
 		// control law comes in from the input poll or the AI think — but it runs once per mech per
 		// tick either way, and its inputs are last tick's, so its position within the tick is free.
 		PowerTick(world);
+
+		// The jammer, from the same original function. Before the flight branch because a turretless
+		// chassis carries hardpoints and can fit the pod like anything else.
+		JammerTick();
 
 		if (Flight is { } flight) {
 			// A flyer takes a different behaviour class entirely: no throttle law, no turret, and a

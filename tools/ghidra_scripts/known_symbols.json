@@ -14395,6 +14395,385 @@
       "name": "PreferencesScreen_Enter",
       "description": "Seeds the PREFERENCES screen from the option array: options 0 and 1 into the two checkboxes, then 44, 45, 4 and 6 through their setters, each of which writes the option back and relights its radio group.",
       "source": "docs/simulation/preferences.md"
+    },
+    {
+      "address": "0040e484",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TargetingPod_ResetComponentLock",
+      "description": "Targeting Pod (mech+0x30b): the selection changed, so restart the component rotation. Sets the cursor pod+0x7d to 0 when the new target exists and its TargetClass (obj+0x1a8) is 0, and to -1 otherwise -- which is what fences component targeting, and with it the target's vtable +0x58/+0x80/+0x84, off everything that is not a HERC. Called once per selection change by Player_PerFrameCockpitUpdate, which is the only writer of the player's mech+0x1a4.",
+      "source": "docs/simulation/target-selection.md",
+      "signature": "void __cdecl TargetingPod_ResetComponentLock(void *pod, void *target)"
+    },
+    {
+      "address": "0040e4ac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TargetingPod_CycleComponent",
+      "description": "Targeting Pod: step the component lock on. Asks the target's vtable +0x80 (NextTargetableComponent) for the next component it still has, storing the new cursor in pod+0x7d and letting the slot write the resolved component id into pod+0x86. This is the manual's [Tab]: CockpitWidgets_HandleCommand's scancode 0x0f case calls it directly. TargetingPod_ResolveAimPoint calls it too, to move off a component that has since been shot away.",
+      "source": "docs/simulation/target-selection.md",
+      "signature": "void __cdecl TargetingPod_CycleComponent(void *pod, void *target)"
+    },
+    {
+      "address": "0040e4dc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TargetingPod_ResolveAimPoint",
+      "description": "Targeting Pod: the pod half of Player_ResolveTargetAimPoint. With a live cursor (pod+0x7d >= 0) and pod damage under 0x9b it reports the locked component's position through the target's vtable +0x58 and its id through outComponentId, advancing the lock first if vtable +0x84 says the component is gone; past 0x68 of damage it also runs a 5 s countdown at pod+0x81 that drops the lock. Otherwise it falls back to the target's vtable +0x24 aim node, or the raw origin, and reports no component. The fourth parameter -- the caller passes the target's occupancy-array pointer mech+0x20e -- is never read: [EBP+0x14] is untouched in the whole body.",
+      "source": "docs/simulation/target-selection.md",
+      "signature": "void __cdecl TargetingPod_ResolveAimPoint(void *pod, void *target, int *outPoint, void *unused, short *outHasComponent, short *outComponentId)"
+    },
+    {
+      "address": "0040e234",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Pod_CtorBase",
+      "description": "Shared constructor for the five equipment pods, run between WeaponMount_CtorBase and each pod's own. Installs the pod base vtable 00498cdc and writes -1 to the catalog id at pod+0x77. A pod diverges from the weapon-mount layout here: +0x77 is a short catalog id and +0x79 the cockpit gauge handle, where an ammunition mount keeps the gauge handle at +0x77.",
+      "source": "docs/simulation/reactor-energy-pool.md",
+      "signature": "void * __cdecl Pod_CtorBase(void *pod, int shapeInstance, int hardpoint, int weaponTemplate)"
+    },
+    {
+      "address": "0040e274",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "EcmPod_Ctor",
+      "description": "ECM pod (catalog id 0x12, mech+0x307). Vtable 00498c64.",
+      "source": "docs/simulation/reactor-energy-pool.md"
+    },
+    {
+      "address": "0040e308",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TargetingPod_Ctor",
+      "description": "Targeting Pod (catalog id 0x1d, mech+0x30b). Vtable 00498b74, object size 0x8a -- the extra bytes over the other pods are the component lock at +0x7d/+0x86 and its decay timer at +0x81. It writes none of them, so a pod starts with whatever its arena block holds; the cursor is always set by TargetingPod_ResetComponentLock before anything reads it.",
+      "source": "docs/simulation/target-selection.md"
+    },
+    {
+      "address": "0040e344",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShieldPod_Ctor",
+      "description": "Shield Pod (catalog id 0x1e, mech+0x30f). Vtable 00498afc.",
+      "source": "docs/simulation/reactor-energy-pool.md"
+    },
+    {
+      "address": "0040e380",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "EnergyPod_Ctor",
+      "description": "Energy Pod (catalog id 0x20, mech+0x313). Vtable 00498a84.",
+      "source": "docs/simulation/reactor-energy-pool.md"
+    },
+    {
+      "address": "0040e2bc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TurboPod_Ctor",
+      "description": "Turbo Pod (catalog id 0x1f, mech+0x317). Vtable 00498bec, and the only pod whose constructor arms anything: 2000 of charge at +0x7d and the engaged flag at +0x81 clear.",
+      "source": "docs/simulation/reactor-energy-pool.md"
+    },
+    {
+      "address": "0040e3bc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "EcmPod_CreateGauge",
+      "description": "ECM pod vtable +0x64.",
+      "source": "docs/simulation/reactor-energy-pool.md"
+    },
+    {
+      "address": "0040e3e4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TurboPod_CreateGauge",
+      "description": "Turbo Pod vtable +0x64.",
+      "source": "docs/simulation/reactor-energy-pool.md"
+    },
+    {
+      "address": "0040e40c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "EnergyPod_CreateGauge",
+      "description": "Energy Pod vtable +0x64.",
+      "source": "docs/simulation/reactor-energy-pool.md"
+    },
+    {
+      "address": "0040e434",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShieldPod_CreateGauge",
+      "description": "Shield Pod vtable +0x64.",
+      "source": "docs/simulation/reactor-energy-pool.md"
+    },
+    {
+      "address": "0040e45c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TargetingPod_CreateGauge",
+      "description": "Targeting Pod vtable +0x64.",
+      "source": "docs/simulation/reactor-energy-pool.md"
+    },
+    {
+      "address": "0040ef6c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TargetingPod_ConditionChanged",
+      "description": "Targeting Pod vtable +0x68, and the only pod that overrides the base notification: after WeaponMount_ConditionChangedBase it caches the component reading the damage write just produced in pod+0x7f. Every degradation of the pod is a threshold on that cached value. The Shield and Energy pods take the other route and read their damage live through Component_ReadDamagePercent.",
+      "source": "docs/simulation/target-selection.md",
+      "signature": "void __cdecl TargetingPod_ConditionChanged(void *pod, void *mech, int before, int after)"
+    },
+    {
+      "address": "0040f184",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "EcmPod_Tick",
+      "description": "ECM pod vtable +0x50. Reads the pod gauge's on/off byte, mirrors it into pod+0x7d and pod+0x7f, and posts the jamming messages 0x2a and 0x2b on a change; the flag it pushes back carries the destroyed byte at +0x49.",
+      "source": "docs/simulation/reactor-energy-pool.md"
+    },
+    {
+      "address": "0040f0d0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TurboPod_ChargeTick",
+      "description": "Turbo Pod vtable +0x34, the only pod that overrides the pool turn -- every other pod inherits WeaponMount_RefireTick there and so consumes nothing. While engaged (pod+0x81) it spends 35 of the charge at pod+0x7d per tick, disengaging and zeroing the charge when it runs out; then, if the mount is not destroyed, it runs WeaponMount_RefireTick and takes min(20, budget, 2000 - charge) back out of the weapons' leftover budget, returning the remainder. 2000 is the value TurboPod_Ctor starts the charge at.",
+      "source": "docs/simulation/reactor-energy-pool.md",
+      "signature": "short __cdecl TurboPod_ChargeTick(void *pod, short budget)"
+    },
+    {
+      "address": "0040f1f0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TurboPod_Tick",
+      "description": "Turbo Pod vtable +0x50. Engages when the gauge's button byte is set and the charge at pod+0x7d is over 600, playing sound 0x2c, and disengages when the charge runs out.",
+      "source": "docs/simulation/reactor-energy-pool.md"
+    },
+    {
+      "address": "0040f144",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Pod_TickBase",
+      "description": "Pod base vtable +0x50, inherited unchanged by the Shield, Targeting and Energy pods -- the three classes whose gauge row has no button. It is a display refresh and nothing else: it takes the gauge's 8-byte state block through PodGauge_GetStateBlock, replaces byte 1 with the mount's destroyed flag at pod+0x49, leaves byte 0 (the button) and the remaining six bytes as they were, and pushes the block back through PodGauge_SetStateBlock. It reads and writes no pod field. EcmPod_Tick and TurboPod_Tick are the overrides that do the same refresh and act on the button as well.",
+      "source": "docs/simulation/reactor-energy-pool.md",
+      "signature": "void __cdecl Pod_TickBase(void *pod)"
+    },
+    {
+      "address": "004321d4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitView_CreatePodGauge",
+      "description": "Builds the cockpit weapon-row gauge for one equipment pod, switching on the pod's catalog id at pod+0x77: 0x12 (ECM) gets TogglePodGauge_Ctor, 0x1f (TURB) gets TurboPodGauge_Ctor, and 0x1d, 0x1e and 0x20 (TARG, SHLD, ENRG) get the plain PodGauge_Ctor. The split matches the tick table exactly -- the two classes with a tick of their own are the two with a gauge class of their own.",
+      "source": "docs/simulation/reactor-energy-pool.md",
+      "signature": "int __cdecl CockpitView_CreatePodGauge(int cockpitView, short hardpoint, void *pod)"
+    },
+    {
+      "address": "00441988",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PodGauge_OnClick",
+      "description": "PodGauge vtable slot 0 (0049c8d0), reached the usual way -- the row's WeaponSelectGadget child forwards its click to the owner's slot 0, after sounding Widget_ClickSound. It sets the repaint byte at +0xb0 and returns. A Shield, Targeting or Energy pod row therefore clicks and sounds but holds no on/off state; TogglePodGauge_OnClick is the ECM/Turbo override that does.",
+      "source": "docs/formats/cockpit-input.md",
+      "signature": "void __cdecl PodGauge_OnClick(int gauge)"
+    },
+    {
+      "address": "00441948",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PodGauge_SetStateBlock",
+      "description": "PodGauge vtable +0x14. Writes the caller's 8 bytes over gauge+0xc2 and marks the widget dirty, but only when the destroyed byte at +0xc3 has changed -- the button byte at +0xc2 cannot make this class repaint. TogglePodGauge_SetStateBlock compares both bytes.",
+      "source": "docs/formats/cockpit-input.md",
+      "signature": "void __cdecl PodGauge_SetStateBlock(int gauge, char *block)"
+    },
+    {
+      "address": "00441978",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PodGauge_GetStateBlock",
+      "description": "PodGauge vtable +0x18, shared by every pod gauge class: returns gauge+0xc2, an 8-byte block whose byte 0 is the button and byte 1 the mount's destroyed flag.",
+      "source": "docs/formats/cockpit-input.md",
+      "signature": "int __cdecl PodGauge_GetStateBlock(int gauge)"
+    },
+    {
+      "address": "00441998",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TogglePodGauge_Ctor",
+      "description": "PodGauge_Ctor followed by the vtable 0049c8a4 -- the pod gauge row that carries an on/off state. Built for the ECM pod directly and for the Turbo pod through TurboPodGauge_Ctor; no other pod gets it.",
+      "source": "docs/simulation/reactor-energy-pool.md",
+      "signature": "void * __cdecl TogglePodGauge_Ctor(void *gauge, int *rect, int cockpitView, short hardpoint, void *pod)"
+    },
+    {
+      "address": "004419fc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TogglePodGauge_OnClick",
+      "description": "TogglePodGauge vtable slot 0 -- structurally identical to ShieldsGauge_OnClick: searches its own child table at +0x18 (count at +0x68) for the widget that was clicked and, for child 0, XORs the button byte at +0xc2 and marks the row dirty. This is the whole of a pod's on/off toggle, and only the ECM and Turbo rows have it.",
+      "source": "docs/formats/cockpit-input.md",
+      "signature": "void __cdecl TogglePodGauge_OnClick(int gauge, int child)"
+    },
+    {
+      "address": "004419c4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TogglePodGauge_SetStateBlock",
+      "description": "TogglePodGauge vtable +0x14: PodGauge_SetStateBlock's override, repainting when either the button byte at +0xc2 or the destroyed byte at +0xc3 has changed rather than the destroyed byte alone.",
+      "source": "docs/formats/cockpit-input.md",
+      "signature": "void __cdecl TogglePodGauge_SetStateBlock(int gauge, char *block)"
+    },
+    {
+      "address": "00441a34",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TurboPodGauge_Ctor",
+      "description": "TogglePodGauge_Ctor followed by the vtable 0049c878 and one extra child widget -- the Turbo pod's charge bar over pod+0x7d.",
+      "source": "docs/simulation/reactor-energy-pool.md",
+      "signature": "void * __cdecl TurboPodGauge_Ctor(void *gauge, int *rect, int cockpitView, short hardpoint, void *pod)"
+    },
+    {
+      "address": "00415558",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_NextTargetableComponent",
+      "description": "MechVtable +0x80. Steps a targeting pod's component cursor over the seven-entry rotation TargetingPodComponentRotation, skipping any slot the machine has lost (its occupancy array at +0x20e) and wrapping at 7. Answers the new cursor and writes the component id it names through the out-parameter, both -1 when the walk comes back to where it started.",
+      "source": "docs/simulation/target-selection.md",
+      "signature": "int __cdecl Mech_NextTargetableComponent(void *mech, int cursor, int *outComponentId)"
+    },
+    {
+      "address": "00415540",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mech_ComponentPresent",
+      "description": "MechVtable +0x84. One entry of the occupancy array at mech+0x20e, by component slot. The targeting pod asks it to notice that the component it had locked has been shot off. The index is not bounds-checked; the pod cannot pass a bad one because the cursor and the id it holds are written together by Mech_NextTargetableComponent.",
+      "source": "docs/simulation/target-selection.md",
+      "signature": "int __cdecl Mech_ComponentPresent(void *mech, int componentId)"
+    },
+    {
+      "address": "00403624",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_NextTargetableComponent",
+      "description": "Structure vtables +0x80, the structure's Mech_NextTargetableComponent: the same walk over its type's whole component list (count at type+0x12, occupancy at structure+0x201) with the component id equal to the cursor. Not reached in retail -- a targeting pod's lock is set to -1 for every target whose TargetClass is not 0, the same fence damage-system.md records for vtable +0x58.",
+      "source": "docs/simulation/target-selection.md",
+      "signature": "void __cdecl Base_NextTargetableComponent(void *structure, int cursor, int *outComponentId)"
+    },
+    {
+      "address": "0040360c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_ComponentPresent",
+      "description": "Structure vtables +0x84, the structure's Mech_ComponentPresent, over structure+0x201.",
+      "source": "docs/simulation/target-selection.md",
+      "signature": "int __cdecl Base_ComponentPresent(void *structure, int componentId)"
+    },
+    {
+      "address": "00411b1c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_NextTargetableComponent_None",
+      "description": "SimObjectBaseVtable and FlyerVtable +0x80: answers -1 and writes -1, so a flyer has no components a targeting pod can single out.",
+      "source": "docs/simulation/target-selection.md"
+    },
+    {
+      "address": "00411b10",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObject_ComponentPresent_Always",
+      "description": "SimObjectBaseVtable and FlyerVtable +0x84: a bare return 1.",
+      "source": "docs/simulation/target-selection.md"
+    },
+    {
+      "address": "0049a060",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "TargetingPodComponentRotation",
+      "description": "The seven component slots [Tab] cycles a HERC target through: 0, 4, 5, 7, 8, 9, 10. Read only by Mech_NextTargetableComponent, twice. Seven of the machine's twenty-nine slots, across both the chassis band and the systems band of Mech_AiSelectAimComponent's table.",
+      "source": "docs/simulation/target-selection.md"
+    },
+    {
+      "address": "00477390",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mem_AllocZeroed",
+      "description": "Allocates and ZEROES. Takes the small-request path -- FUN_00476e00 out of the 0x6bb37c pool followed by memset(0, size) -- when the size fits both DAT_006bb388 and the pool's own answer, and otherwise falls through to Mem_AllocZeroedCalloc. Both paths hand back zeroed memory, which is what settles what an uninitialised object field holds at construction.",
+      "source": "docs/simulation/target-selection.md"
+    },
+    {
+      "address": "004773e4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mem_AllocZeroedTagged",
+      "description": "Mem_AllocZeroed with an 8-byte header added to the request. Same two paths, same zeroing. This is the fallback Arena_Alloc drops to when there is no arena or the arena is full.",
+      "source": "docs/simulation/target-selection.md"
+    },
+    {
+      "address": "00477370",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mem_AllocZeroedCalloc",
+      "description": "calloc(1, size), adding the block's own recorded size to the DAT_006bb390 accounting total. The large-request path of Mem_AllocZeroed and Mem_AllocZeroedTagged, and what Arena_Push allocates an arena with.",
+      "source": "docs/simulation/target-selection.md"
+    },
+    {
+      "address": "0047a1bc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Arena_Alloc",
+      "description": "Bump-allocates from the {base, limit, cursor} arena it is handed: advances the cursor and returns base + old cursor, with NO zeroing of its own. A null or exhausted arena falls back to Mem_AllocZeroedTagged. Every weapon mount comes from here, out of the arena MechLoadout_ConstructWeaponMounts pushes -- and that arena is calloc'd, so a mount block is zero however it was served.",
+      "source": "docs/simulation/target-selection.md"
+    },
+    {
+      "address": "00474ab0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Arena_Push",
+      "description": "Allocates a new arena block with Mem_AllocZeroedCalloc -- so the block is ZEROED -- and pushes it onto the DAT_006c59ec arena stack through FUN_0047a2f0. Paired with Arena_Pop. MechLoadout_ConstructWeaponMounts pushes 200000 bytes around its per-hardpoint loop.",
+      "source": "docs/simulation/target-selection.md"
+    },
+    {
+      "address": "00474ad8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Arena_Pop",
+      "description": "realloc's the top arena down to the bytes actually used, corrects the DAT_006bb390 accounting and pops the stack.",
+      "source": "docs/simulation/target-selection.md"
     }
   ]
 }

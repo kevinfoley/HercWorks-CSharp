@@ -790,6 +790,10 @@ bool cycleTargetKeyDown = false;
 bool nearestTargetKeyDown = false;
 bool clearTargetKeyDown = false;
 
+// And [Tab] (0x0f), the fourth, which is the Targeting Pod's rather than the selection's: it steps
+// the component lock on whatever is already selected. See MechObject.CycleTargetComponent.
+bool cycleComponentKeyDown = false;
+
 // [R], the manual's radar mode: PASSIVE at power-up, ACTIVE once pressed. It is the input target
 // selection needs at any real range — see MechObject.ToggleScanner.
 bool radarKeyDown = false;
@@ -1492,6 +1496,7 @@ window.Update += deltaSeconds => {
 		cycleTargetKeyDown = controls.IsKeyPressed(Key.Enter);
 		nearestTargetKeyDown = controls.IsKeyPressed(Key.Apostrophe);
 		clearTargetKeyDown = controls.IsKeyPressed(Key.Semicolon);
+		cycleComponentKeyDown = controls.IsKeyPressed(Key.Tab);
 		ApplyWeaponKeys(controls, null);
 	} else if (piloting && pilotMech != null && controls != null) {
 		// The stick, read once and used twice: its axes go into MechControls at the bottom of this
@@ -1594,6 +1599,16 @@ window.Update += deltaSeconds => {
 			nearestTargetKeyDown = nearestTargetKey;
 			clearTargetKeyDown = clearTargetKey;
 		}
+
+		// [Tab] steps the Targeting Pod's component lock. CockpitWidgets_HandleCommand hands scancode
+		// 0x0f to the pod only when the view is not the heads-down one; while the display is down the
+		// same case goes to its own command slot, which is the manual's Zoom Map In/Out.
+		bool cycleComponentKey = !cockpitPan.AtHeadsDown && controls.IsKeyPressed(Key.Tab);
+		if (cycleComponentKey && !cycleComponentKeyDown) {
+			pilotMech.CycleTargetComponent();
+		}
+
+		cycleComponentKeyDown = cycleComponentKey;
 
 		// Stick sign convention is the device's, not the game's: forward and left are negative. No
 		// throttle lever, so the throttle's range spans both directions and holding [Down] takes the
@@ -2175,6 +2190,11 @@ window.Update += deltaSeconds => {
 		// on leaving it and clears it — announcing WAYPOINT REACHED — on coming back.
 		navMarker.Tick(pilotMech.Position, audio.Messages);
 
+		// Player_ResolveTargetAimPoint, once a frame and once only: it runs the Targeting Pod's decay
+		// countdown as a side effect, so asking twice would halve how long a damaged pod holds a
+		// component. Both consumers — the front-window target box and the MFD's F5 doll — read this.
+		var targetAim = pilotMech.ResolveTargetAimPoint();
+
 		hudState = hudState with {
 			MissionTime = missionClock.Text,
 			SpeedKph = pilotMech.DisplaySpeedKph,
@@ -2193,9 +2213,13 @@ window.Update += deltaSeconds => {
 				cockpitArt.Gau.WeaponListTotal, cockpitArt.Strings),
 			ChainGroup = pilotMech.Weapons.Group,
 			AutoTrack = pilotMech.Weapons.AutoTrack,
-			Target = ResolveTargetIndicator(pilotMech),
+			Target = ResolveTargetIndicator(pilotMech, targetAim),
 			StatusSubject = MfdStatusSubject.For(pilotMech, pilotMech, cockpitArt.Strings),
-			TargetSubject = MfdStatusSubject.For(scene.Targeting?.Selected, pilotMech, cockpitArt.Strings),
+			// F5's subject is the selection, and it carries the Targeting Pod's component on top of what
+			// the subject itself says — the pod belongs to the machine looking, not to what it is
+			// looking at. Only the id the pod's own present flag vouches for reaches it.
+			TargetSubject = MfdStatusSubject.For(scene.Targeting?.Selected, pilotMech, cockpitArt.Strings)
+				with { HighlightComponent = targetAim.ComponentTargeted ? targetAim.Component : -1 },
 
 			// Rebuilt every frame, whichever of the two scanners is up. The MFD screen's own update
 			// slot runs while F4 is showing (mode 3's dirty flag is the one MfdDisplay_Update never
@@ -2268,7 +2292,8 @@ PilotMessageLine? ComposePilotMessage(SquadCommChannel channel) {
 // herc's .VUE projection centre, which is what FUN_0043b950 does with Raster_ProjectToScreen. It
 // agrees with the GL projection because the camera's field of view is derived from the same focal
 // length and PanelPrincipalPoint installs the same centre, including the step kick.
-TargetIndicator? ResolveTargetIndicator(MechObject pilot) {
+TargetIndicator? ResolveTargetIndicator(MechObject pilot,
+		(Vec3i Point, bool ComponentTargeted, short Component) aimPoint) {
 	if (scene.Targeting is not { IndicatorArmed: true, Selected: { } target }) {
 		return null;
 	}
@@ -2276,7 +2301,9 @@ TargetIndicator? ResolveTargetIndicator(MechObject pilot) {
 	var (centerX, centerY) = viewGeometry?.ProjectionCenter(CockpitViewGeometry.ForwardViewIndex)
 		?? (CockpitViewGeometry.DefaultProjectionCenterX, CockpitViewGeometry.DefaultProjectionCenterY);
 
-	var aim = target.AimPoint;
+	// With a Targeting Pod fitted and the target close enough, the aim point is a component of it
+	// rather than its aim node, and the box reduces to its pip.
+	var aim = aimPoint.Point;
 	var offset = WorldScale.ToRender(aim) - WorldScale.ToRender(camera.Position);
 	var forward = camera.Forward;
 	var up = camera.Up;
@@ -2294,7 +2321,8 @@ TargetIndicator? ResolveTargetIndicator(MechObject pilot) {
 		BehindToLeft: across < 0f,
 		ShapeRadius: target.ShapeRadius,
 		Distance: pilot.Position.ApproxDistanceTo(aim),
-		Locked: pilot.LockAcquired);
+		Locked: pilot.LockAcquired,
+		ComponentTargeted: aimPoint.ComponentTargeted);
 }
 
 window.Render += (_, gl) => {

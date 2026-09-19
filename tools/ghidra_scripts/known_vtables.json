@@ -75,8 +75,8 @@
         { "offset": 116, "name": "ComponentDamageWrite",  "description": "The shared component-health write every damage path funnels into. Mech_ComponentDamageWrite (00417de4), Flyer_ComponentDamageWrite (00421bb4); both of the mech's death branches fire the object's defeat action from here. The base answers the 00496684 stub." },
         { "offset": 120, "name": "ApplyFormationOffset",  "description": "Places a group member at its formation offset from the leader. Mech_ApplyFormationOffset (00417898); run over every non-leader member by Group_DeploymentCheck for the walk-on arrival verbs. See docs/simulation/mission-deployment.md." },
         { "offset": 124, "name": "GetCollisionRadius",    "description": "The radius at which this object blocks a walking machine; zero means walk through me. Mech_GetCollisionRadius (0041552c). Ported as SimObject.CollisionRadius." },
-        { "offset": 128, "name": "slot_0x80",             "description": "Base 00411b1c, mech 00415558. Role not established." },
-        { "offset": 132, "name": "slot_0x84",             "description": "Base 00411b10, mech 00415540. Role not established." }
+        { "offset": 128, "name": "NextTargetableComponent", "description": "(this, cursor, int *componentId) -- step a targeting-pod component lock to the next component this object still has, answering the new cursor and writing the component id out. Mech_NextTargetableComponent (00415558) walks a fixed seven-slot rotation, Base_NextTargetableComponent (00403624) walks the structure type's whole component list, and the base class answers -1. The targeting pod is the only caller; see docs/simulation/target-selection.md." },
+        { "offset": 132, "name": "ComponentPresent",        "description": "(this, componentId) -- whether this object still has that component, from its occupancy array. Mech_ComponentPresent (00415540), Base_ComponentPresent (0040360c); the base class answers 1 for anything. Asked only by the targeting pod, to notice that the component it had locked has been shot off. See docs/simulation/target-selection.md." }
       ],
       "instances": [
         {

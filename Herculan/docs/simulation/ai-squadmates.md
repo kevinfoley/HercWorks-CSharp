@@ -89,7 +89,7 @@ Verbs 0xc, 0xd and 0xe write `+0x240` — and 0xc also `+0x24c` — **whether or
 
 Verbs 0, 2, 3, 8 and 0xb clear the damage accumulator at `+0x281` ([`ai-targeting.md`](ai-targeting.md)).
 
-The three that engage all go through `Mech_AiEngageOrderedTarget` (`0041c0f4`), which picks the state — [`ai-targeting.md`](ai-targeting.md#the-writers-of-mech0x1a4).
+The three that engage all go through `Mech_AiEngageOrderedTarget` (`0041c0f4`), which picks the state — [`ai-targeting.md`](ai-targeting.md#the-writers-of-0x1a4).
 
 ## The standing order
 
@@ -113,7 +113,7 @@ None of them is a squad order; all three are per-machine flags this handler is t
 |---|---|---|---|
 | `+0x9a` | verb 1 | verbs 0, 2, 5; and `Mech_AiOnTakingFire` when the shooter *is* the player's selection | `Ai_IsTargetable` (`00411e80`), which refuses this machine the player's current selection while it is set |
 | `+0xb6` | verb 5 | verb 8 | The leader gate in `Mech_BehaviourPatrolThink`, `Mech_BehaviourSearchDestroyThink` and `Mech_BehaviourGuardThink` — [`ai-navigation.md`](ai-navigation.md) |
-| `+0xb2` | verbs 4, 16 | verbs 7, 17 | `Ai_UpdateWeaponsFree` and the combat reassess's radar step — [`ai-weapons.md`](ai-weapons.md) |
+| `+0xb2` | verbs 4, 16 | verbs 7, 17 | `Ai_UpdateWeaponsFree` and the combat reassess's radar step — [`ai-weapons.md`](ai-weapons.md). Also switches a squadmate's **ECM pod**, which follows the radar mode — [`equipment-pods.md`](equipment-pods.md#what-each-class-actually-overrides) |
 
 ## Mech fields this slice owns
 

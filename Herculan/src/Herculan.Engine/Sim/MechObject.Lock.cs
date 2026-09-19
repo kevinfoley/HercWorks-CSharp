@@ -64,6 +64,13 @@ public sealed partial class MechObject {
 	/// </summary>
 	private const int EcmRollWeight = 0x14 * 0x29;
 
+	/// <summary>
+	/// The same numerator for a machine carrying a healthy Targeting Pod — the block's own
+	/// <c>5 * 0x29</c>, a quarter of <see cref="EcmRollWeight"/>. See
+	/// <see cref="TargetingPodLock.EcmAssistLimit"/>.
+	/// </summary>
+	private const int EcmRollWeightWithPod = 5 * 0x29;
+
 	/// <inheritdoc cref="EcmRollWeight"/>
 	private const int EcmRollRange = 0x1000;
 
@@ -311,6 +318,34 @@ public sealed partial class MechObject {
 	}
 
 	/// <summary>
+	/// <summary>
+	/// <c>Mech_PerTickSystemsUpdate</c>'s jammer block, through <c>FUN_0041aa10</c> — the only writer
+	/// of <c>mech+0xa1</c>.
+	///
+	/// <para>An ECM pod is the outer gate: without one the answer is false and nothing else is
+	/// consulted. With one, who is flying decides which switch is read.</para>
+	///
+	/// <list type="bullet">
+	/// <item><b>An AI machine reads its radar mode.</b> It jams exactly while its scanner is ACTIVE,
+	/// which <see cref="CombatReassess"/> turns on the moment it enters a fight and off again for a
+	/// squadmate of the player's. It has no cockpit row to press, so this is the whole of its
+	/// control.</item>
+	/// <item><b>The player reads the pod row's button</b> (<see cref="EcmEnabled"/>) and their own
+	/// radar mode does not enter into it — running active radar neither starts nor stops their
+	/// jammer.</item>
+	/// </list>
+	///
+	/// <para>Called from <see cref="Tick"/> rather than from <see cref="MissileLockTick"/>, so every
+	/// machine's jammer is current before any lock is stepped against it. The original derives and
+	/// steps within one per-mech pass, so a lock there reads a jammer that is one tick stale for the
+	/// machines later in the list; at a roll that re-rolls every few seconds the difference cannot be
+	/// observed, and running it as two passes is what keeps a headless tick order-independent.</para>
+	/// </summary>
+	internal void JammerTick() {
+		Jammer = Pods.Ecm && (LocallyPiloted ? EcmEnabled : ScannerActive);
+	}
+
+	/// <summary>
 	/// The ECM roll. A target that is not a HERC, or one with its jammer off, clears
 	/// <see cref="EcmSpoofed"/> outright; a jamming HERC re-rolls it whenever
 	/// <see cref="_ecmRollTimer"/> expires, and the interval that follows depends on which way the
@@ -332,11 +367,14 @@ public sealed partial class MechObject {
 			return false;
 		}
 
-		// The original scales the weight down to a quarter when mech+0x30b — the targeting computer
-		// pod's mount (see MechPods) — is present and its +0x7f is under 0x33. What +0x7f means on a
-		// pod mount is untested, so the base weight is always used here. That makes ECM at most as
-		// strong as the original's, never more.
-		if ((world.Random.Next() & (EcmRollRange - 1)) < EcmRollWeight) {
+		// A Targeting Pod on THIS machine — the one holding the lock, not the one jamming it — cuts
+		// the weight to a quarter while its own cached damage is under TargetingPodLock.EcmAssistLimit.
+		// docs/simulation/target-selection.md has all four of the pod's thresholds.
+		int weight = Pods.TargetingMount?.ComponentLock is { ComponentDamage: < TargetingPodLock.EcmAssistLimit }
+			? EcmRollWeightWithPod
+			: EcmRollWeight;
+
+		if ((world.Random.Next() & (EcmRollRange - 1)) < weight) {
 			EcmSpoofed = true;
 			_ecmRollTimer = EcmSpoofedInterval;
 			return true;

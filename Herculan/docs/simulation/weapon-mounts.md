@@ -69,12 +69,19 @@ mount is:
 | Ammunition | `WeaponMount_CtorAmmunition` | 1–5, 13–16, 21, 26 | rounds | numeric (`FUN_00432124` → `FUN_00440f78`) |
 | Energy | `WeaponMount_CtorEnergy` | 7–12, 17, 19, 20, 23–25, 28 | a capacitor | LED bar (`FUN_00432074` → `FUN_00440a68`) |
 | ELF | `WeaponMount_CtorEnergy`, then vtable `ElfMountVtable` | 6, 22 | a capacitor | LED bar, as Energy |
-| Pod | `FUN_0040e274`/`e308`/`e344`/`e2bc`/`e380` | 18, 29–32 | nothing | name only (`FUN_004321d4` → `FUN_00441524`) |
+| Pod | `EcmPod_Ctor`/`TargetingPod_Ctor`/`ShieldPod_Ctor`/`TurboPod_Ctor`/`EnergyPod_Ctor` | 18, 29–32 | nothing, bar the Turbo Pod's charge | name only (`CockpitView_CreatePodGauge` → one of three `PodGauge` classes) |
 
 The ELF case is the only one that is not just a constructor call: the factory runs the energy
 constructor and then **overwrites the object's vtable pointer** with `ElfMountVtable` (`004992c0`).
 The two classes therefore share every field and differ only in the five slots that table replaces —
 see [ELF and ELF2](#elf-and-elf2).
+
+Five pod classes hang off `Pod_CtorBase` (`0040e234`) and are laid out differently past `+0x77`.
+Only the ECM and Turbo pods override anything behavioural; the Shield, Targeting and Energy pods
+inherit the base's `Pod_TickBase` and its do-nothing pool turn, and only the first two have a button
+on their cockpit row — see
+[`equipment-pods.md`](equipment-pods.md).
+The table below is the two weapon-carrying classes only.
 
 Shared mount fields mean different things per class:
 

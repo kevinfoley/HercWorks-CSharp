@@ -131,8 +131,11 @@ public static class Detection {
 	/// the player is flying, which is held back and swept last, so that contacts its squadmates make
 	/// this tick have already been shared to it by the time it looks.</item>
 	/// <item><b>A per-object byte</b> the original touches at the end (<c>obj+0xa2</c>, which gates
-	/// the engagement action in <see cref="Sweep"/>). No writer of it has been located, so nothing is
-	/// modelled here and the gate reads as open — see <see cref="SimObject.ActivateEngagementAction"/>.</item>
+	/// the engagement action in <see cref="Sweep"/>). Its one setter is the ECM block of
+	/// <c>Mech_PerTickSystemsUpdate</c>, which raises it on a jamming machine's own selected target —
+	/// in practice the player's alone, since an AI machine's pod never fills the field the block
+	/// reads. Nothing is modelled here regardless, because the gate cannot change the outcome — see
+	/// <see cref="SimObject.ActivateEngagementAction"/>.</item>
 	/// </list>
 	/// </summary>
 	public static void Tick(SimWorld world) {

@@ -1538,10 +1538,10 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// <see cref="TargetBox.Bounds"/> — one sprite mirrored into each — and four ticks stood off the
 	/// box's edges but lined up on the <i>target's</i> own row and column rather than the box's centre.
 	///
-	/// <para>The corner brackets and the ticks are the half a targeting computer suppresses, leaving
-	/// the bare pip, once it has singled out a component of the target. The engine has no targeting
-	/// computer pod, so the full box is always drawn — which is what both retail reference captures
-	/// show.</para>
+	/// <para>The corner brackets and the ticks are the half a Targeting Pod suppresses once it has
+	/// singled out a component of the target, leaving the bare pip —
+	/// <see cref="TargetIndicator.ComponentTargeted"/>. Both retail reference captures show the full
+	/// box, which is what a machine with no pod gets.</para>
 	/// </summary>
 	private static void AddTargetBox(HudSpriteSheet sprites, TargetIndicator target, Vector2 point,
 			Action<string, int, float, float, bool, bool> blit) {
@@ -1555,6 +1555,10 @@ public sealed class Overlay2DRenderer : IDisposable {
 			blit(TargetBox.SpriteBank, first + frame, left, top, flipX, flipY);
 
 		Draw(TargetBox.PipFrame, point.X - pip.Width / 2f, point.Y - pip.Height / 2f);
+
+		if (target.ComponentTargeted) {
+			return;
+		}
 
 		var (x0, y0, x1, y1) = TargetBox.Bounds(point.X, point.Y, target.ShapeRadius, target.Distance);
 		Draw(TargetBox.CornerFrame, x0, y0);
@@ -1999,6 +2003,25 @@ public sealed class Overlay2DRenderer : IDisposable {
 							MfdLayout.WireframeViewIndex, region,
 							PaperDollDamage.StatusRegionReading(region.Index, subject.FlyerVariant, readings),
 							dollLeft, dollTop, fillRect);
+					}
+				}
+
+				// And last, over the tints: the Targeting Pod's component highlight. The paint stops at
+				// the first region that holds the component, directly or through the merge mapping, and
+				// fills its rect one device pixel proud on each side.
+				if (subject.Hostile && subject.HighlightComponent >= 0 && view.Regions is { } highlightRegions
+					&& hud.LogicalColor(MfdLayout.ComponentHighlightColorId) is { } highlight) {
+					int alias = MfdLayout.ComponentHighlightRegion(subject.HighlightComponent);
+					foreach (var region in highlightRegions) {
+						if (region.Index != subject.HighlightComponent && region.Index != alias) {
+							continue;
+						}
+
+						fillRect(
+							dollLeft + region.TopLeft.X * S - 1, dollTop + region.TopLeft.Y * S - 1,
+							dollLeft + region.BottomRight.X * S + 2, dollTop + region.BottomRight.Y * S + 2,
+							highlight);
+						break;
 					}
 				}
 

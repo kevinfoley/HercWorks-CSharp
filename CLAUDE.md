@@ -41,6 +41,11 @@ The docs state what is true now. How the project got there belongs in `git log`.
 `tools/scripts/doc_lint.py` enforces 1, 4 and 6, and runs automatically after any edit under
 `Herculan/docs/`. `/doc-lint` runs it over the whole set. It cannot catch 2, 3, 5 or 7.
 
+`tools/scripts/doc_links.py` resolves every cross-reference — that the file exists and that a
+`#fragment` still names a heading. **A heading owns its anchor**, so retitling one breaks inbound
+links in files the rename never touched; that is why it has no `--staged` mode and always checks the
+whole set. `--code` adds the doc paths named in C# doc comments.
+
 Handoff docs (`docs/engine/handoff-*.md`) are exempt: ephemeral scratchpads, never authoritative for
 status. Drain them into topic docs and delete what you moved.
 

@@ -172,7 +172,7 @@ Writes `mech+0x2a2`, the component slot the machine aims at, or −1. One roll o
 | Roll | Band | Slots |
 |---|---|---|
 | — | Target has collapsed (`+0xb4`) | 0 only |
-| < 0x28, **or** a targeting computer at `mech+0x30b` whose `+0x7f` is under 0xaa | Systems | 7 … 18 |
+| < 0x28, **or** a Targeting Pod at `mech+0x30b` whose cached damage `+0x7f` is under 0xaa | Systems | 7 … 18 |
 | < 0x50 | Weapon mounts | 19 … 19 + mount count |
 | otherwise | Chassis | 0 … 6 |
 
@@ -226,7 +226,7 @@ Fields settled elsewhere link out rather than being restated.
 | `+0x29e` | short | Combat rating |
 | `+0x2a2` | short | Component slot being aimed at, −1 for none |
 | `+0x2aa` | short | Fear: written by the flee check, 300/600/1000, and read as the AI's weapon-score floor — [`ai-weapons.md`](ai-weapons.md) |
-| `+0x30b` | ptr | Targeting computer pod — [`missile-lock.md`](missile-lock.md) |
+| `+0x30b` | ptr | Targeting Pod — [`target-selection.md`](target-selection.md#component-targeting--the-targeting-pod) |
 
 ## Engine port
 

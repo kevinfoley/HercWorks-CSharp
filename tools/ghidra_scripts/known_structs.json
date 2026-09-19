@@ -1,4 +1,4 @@
-﻿{
+{
   "schema_version": 1,
   "_readme": [
     "Structure layouts for DBSIM.EXE's simulation objects, applied to the Ghidra project by",
@@ -356,9 +356,9 @@
           "offset": 161,
           "width": 1,
           "type": "byte",
-          "name": "maybe_jammerActive",
+          "name": "jammerActive",
           "confidence": "medium",
-          "description": "+0xa1 -- the object's jammer, read by the anti-radiation missile's emission gate (Rocket_HomingSteer, 0040a254) and the ECM spoofing roll. Nothing in DBSIM has been seen to turn one on."
+          "description": "+0xa1 -- the object's jammer, read by the anti-radiation missile's emission gate (Rocket_HomingSteer, 0040a254) and the ECM spoofing roll. Mech_PerTickSystemsUpdate writes it on every tick of every mech, from FUN_0041aa10. An ECM pod at mech+0x307 is the outer gate -- without one the answer is zero and nothing else is consulted. With one, +0xa3 selects: an AI machine reads its radar mode at +0x96, so it jams exactly while its radar is ACTIVE (Mech_ToggleRadarMode XORs bit 0 and a HERC powers up PASSIVE, so 0 is PASSIVE); the locally-piloted machine reads the pod row's button at +0x7d instead, and its radar mode does not enter into it."
         },
         {
           "offset": 162,
@@ -366,7 +366,7 @@
           "type": "byte",
           "name": "perTickActionLatch",
           "confidence": "high",
-          "description": "+0xa2 -- cleared on every object by Sim_DetectionTick's third pass and tested before an engagement action fires, so it suppresses a second firing within a tick. That clear is the only writer located."
+          "description": "+0xa2 -- cleared on every object by Sim_DetectionTick's third pass and tested before an engagement action fires, so it suppresses a second firing within a tick. A second writer SETS it: Mech_PerTickSystemsUpdate raises it on a machine's own selected target (+0x1a4) whenever its ECM pod's +0x7f is non-zero, so an active ECM pod appears to suppress its target's engagement action for that tick. PLAYER ONLY in practice: EcmPod_Ctor clears +0x7f and EcmPod_Tick is its only writer, and the pod tick at vtable +0x50 is reached solely from WeaponMounts_PerFrameUpdate under Player_PerFrameCockpitUpdate, so an AI machine's pod holds 0 there for the whole mission. The latch's meaning is high-confidence and the write is plain, but the two have not been run together -- treat the gameplay consequence as a lead."
         },
         {
           "offset": 163,

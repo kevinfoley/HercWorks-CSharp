@@ -53,11 +53,13 @@ expires: `(rand & 0xfff) < 0x14 * 0x29` — about 20% — holding for 5000 on a 
 after `0x5dc` otherwise. While the flag stands, no subtype but 2 can complete a lock. It is the same
 flag that makes a missile already in the air weave.
 
-The original scales the weight to a quarter when `mech+0x30b` is present and its `+0x7f` is under
-`0x33`. That slot is the **targeting computer** pod's mount (catalog id 29 — see
-[`reactor-energy-pool.md`](reactor-energy-pool.md)); what `+0x7f` means on a pod mount is untested,
-since on a weapon mount it is the energy charge rate. The port always uses the base weight, which
-makes ECM at most as strong as the original's, never more.
+The weight scales to a quarter when `mech+0x30b` is present and its `+0x7f` is under `0x33`. That
+slot is the **Targeting Pod** (catalog id 29), and its `+0x7f` is the pod's own component damage,
+cached there by the pod's vtable `+0x68` — not the charge rate the same offset holds on a weapon
+mount. So a pilot's intact Targeting Pod quarters the odds that an enemy's ECM spoofs their lock, and
+the assist is gone by a fifth of the pod's health; see
+[`target-selection.md`](target-selection.md#a-damaged-pod-degrades-in-four-steps). **It is the
+observer's pod, not the jammer's**: the machine holding the lock is the one whose mount is read.
 
 ## The lock lamp
 

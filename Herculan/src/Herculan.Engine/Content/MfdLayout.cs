@@ -344,6 +344,38 @@ public static class MfdLayout {
 	public const int WireframeViewIndex = 2;
 
 	/// <summary>
+	/// <c>COLORS.DAT</c> id the Targeting Pod's component highlight is filled with, and the last thing
+	/// the status screen paints: a flat rect over the <c>.PDG</c> region holding the component the pod
+	/// has singled out, the region's own rect grown one device pixel on every side. It goes down after
+	/// the damage tints, so the highlight blots the region out rather than outlining it.
+	///
+	/// <para>Drawn only for a hostile subject on F5 with the pod's component-present flag set
+	/// (<c>CockpitView+0x27c</c>), so the player's own machine on F1 never shows one. See
+	/// <see cref="Sim.TargetingPodLock"/>.</para>
+	/// </summary>
+	public const int ComponentHighlightColorId = 16;
+
+	/// <summary>
+	/// The region a component is highlighted in, when no region states that component id itself. The
+	/// compact view merges each three-deep limb stack into one region, so the outer two components of
+	/// a stack have to be mapped onto the region the innermost one names.
+	///
+	/// <para><b>The two rear stacks are mapped wrong in the original</b>: 15 and 17 go to region 13
+	/// and 16 and 18 go to region 13 as well, where the tint pass reads region 14 as the mean of 14,
+	/// 16 and 18. It cannot be observed — the pod's rotation
+	/// (<see cref="Sim.TargetingPodLock.ComponentRotation"/>) only ever produces 0, 4, 5, 7, 8, 9 and
+	/// 10 — and it is transcribed rather than corrected.</para>
+	/// </summary>
+	public static int ComponentHighlightRegion(int componentId) => componentId switch {
+		1 => 0,
+		9 or 11 => 7,
+		10 or 12 => 8,
+		15 or 17 => 13,
+		16 or 18 => 13,
+		_ => componentId,
+	};
+
+	/// <summary>
 	/// The status screens' five text labels, GAU, relative to the inset origin. x0 is 6 for all five
 	/// (<c>0049bd84</c>), y0 comes from <c>0049bd8e</c>, and each is 6 units tall and runs right to
 	/// <see cref="WireframeRect"/>'s left edge.

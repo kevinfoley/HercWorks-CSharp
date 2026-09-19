@@ -324,11 +324,10 @@ public partial class MechObject {
 	/// walking the target's occupancy array. So a machine works at whichever of <i>its own</i>
 	/// components is worst hurt, constrained to slots the target still has.</para>
 	///
-	/// <para>The original also forces the systems band whenever a targeting computer pod is fitted and
-	/// its <c>+0x7f</c> reads under <c>0xaa</c>. What <c>+0x7f</c> means on a pod mount is untested —
-	/// the same field and the same doubt as the ECM roll in MechObject.Lock.cs — so the roll alone
-	/// chooses here.
-	/// </para>
+	/// <para><b>A Targeting Pod forces the systems band</b> while its own cached damage is at or under
+	/// <see cref="TargetingPodLock.AiSystemsBandLimit"/>, whatever the roll said — so a Cybrid
+	/// carrying one goes for the internals rather than the armour. It is the only use an AI machine
+	/// has for the pod: the three drivers that make it a <c>[Tab]</c> lock are all player-side.</para>
 	/// </summary>
 	private void SelectAimComponent(SimWorld world) {
 		if (Target is not { } target) {
@@ -337,13 +336,15 @@ public partial class MechObject {
 		}
 
 		int roll = world.Random.NextMasked(0x7f);
+		bool podPrefersSystems =
+			Pods.TargetingMount?.ComponentLock is { ComponentDamage: <= TargetingPodLock.AiSystemsBandLimit };
 		int first;
 		int last;
 
 		if (target is MechObject { Collapsed: true }) {
 			first = 0;
 			last = 1;
-		} else if (roll < SystemsBandRoll) {
+		} else if (roll < SystemsBandRoll || podPrefersSystems) {
 			first = FirstSystemComponent;
 			last = WeaponMounts.FirstMountComponent;
 		} else if (roll < MountBandRoll) {
@@ -641,8 +642,9 @@ public partial class MechObject {
 
 	/// <summary>
 	/// <c>mech+0x2a2</c> — the component slot this machine is working at, or
-	/// <see cref="NoAimComponent"/>. Written by <see cref="SelectAimComponent"/>; nothing reads it
-	/// until the AI weapon slice exists.
+	/// <see cref="NoAimComponent"/>. Written by <see cref="SelectAimComponent"/> and read by
+	/// <see cref="AimAndFireAtMech"/>, which puts a shot on that component instead of on the target's aim
+	/// node — but only inside <see cref="AimComponentNearRange"/>..<see cref="AimComponentFarRange"/>.
 	/// </summary>
 	public short AimComponent { get; private set; } = NoAimComponent;
 

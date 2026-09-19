@@ -131,7 +131,7 @@ paint in it, which is how an off-screen panel's buttons stay invisible. `PanelBu
 (`00454ff8`) has no state test at all — it indexes a four-entry plate-frame table at `+0x30` and a
 four-entry caption-font table at `+0x40` with the state — so a state-2 panel button draws its third
 frame in `INACTIVE`, which is what a greyed controls row looks like
-([`../simulation/preferences.md`](../simulation/preferences.md#the-capability-block--input_querycapabilities-004777f8)).
+([`../simulation/preferences.md`](../simulation/preferences.md#the-capability-block)).
 
 ## 6. Hit test: rectangle or circle
 
@@ -212,7 +212,8 @@ Sliders override the slot and return a real value instead (`SliderWidget_GetValu
 The same handlers are reachable from the keyboard, and the command codes that travel through
 `Sim_DispatchCommand` to the widget tree (`CockpitWidgets_HandleCommand`) are **PC set-1
 scancodes**, with `0x200` added for `[Alt]` and `0x400` for `[Ctrl]` — `0x26` is `L`, `0x29` is
-`` ` ``, `0x11`/`0x211` are `W`/`Alt+W`, `0x1a`/`0x1b` are `[`/`]`, `0x3b`–`0x40` are `F1`–`F6`.
+`` ` ``, `0x11`/`0x211` are `W`/`Alt+W`, `0x1a`/`0x1b` are `[`/`]`, `0x3b`–`0x40` are `F1`–`F6`, and
+`0x0f` is `Tab` — [`../simulation/target-selection.md`](../simulation/target-selection.md#component-targeting--the-targeting-pod).
 Codes `0x02`–`0x0b` (the number row) index the cockpit's own ten weapon gauges at
 `CockpitViewInstance+0x70` and press each one's select gadget, which is how a key and a click end up
 in one handler rather than two.

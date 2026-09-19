@@ -34,6 +34,13 @@ namespace Herculan.Engine.Content;
 /// <c>mech+0x9b</c> — whether the armed missile mount has lock. It picks the indicator's second set
 /// of frames and the arrow's second colour, and nothing else.
 /// </param>
+/// <param name="ComponentTargeted">
+/// Whether a Targeting Pod has singled out a component of the target — state-block offset 24, which
+/// <c>Gunsight_UpdateAndPaint</c> copies from <c>CockpitView+0x27c</c>. <b>It is the pod's
+/// component-present flag and not the component id</b>, which never reaches the gunsight at all. The
+/// box drops its brackets and ticks on it, leaving the bare pip. See
+/// <see cref="Sim.TargetingPodLock"/>.
+/// </param>
 public readonly record struct TargetIndicator(
 	float ScreenX,
 	float ScreenY,
@@ -41,4 +48,5 @@ public readonly record struct TargetIndicator(
 	bool BehindToLeft,
 	int ShapeRadius,
 	int Distance,
-	bool Locked);
+	bool Locked,
+	bool ComponentTargeted = false);

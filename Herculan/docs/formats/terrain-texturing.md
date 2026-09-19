@@ -170,7 +170,11 @@ Data-driven, theater-indexed via mission. Core components:
 - **`Render/TerrainMeshBuilder`** — per-corner UVs from rect; **`Gl/MeshVertex.Textured`** flag allows cells that fail texture lookup to keep height/slope ramp colour.
 - **`Terrain/HeightGrid.FormationPads`** — `PaintFormationPad`, the base-pad pass, driven from `MissionScene.Load` over `Mission.BasePads`.
 
-Known constraints: the material roll uses the engine's own generator, so which cells are drawn with frame 1 differs from retail (see `KNOWN_ISSUES.md`); the shelf-packed atlas uses 4 MB/theater. Pads are exact — they are placed from the file, not rolled.
+Known constraints: the shelf-packed atlas uses 4 MB/theater. Pads are exact — they are placed from the file, not rolled.
+
+### Detail-texture scatter RNG (unresolved)
+
+Roughly 30% of 2x2 cell blocks roll frame 1 instead of frame 0 (the `TerrainZone_PopulateFromBitmap` roll, capped at material 1 — see above); which blocks get it differs from retail. The engine now seeds its generator from DBSIM's own seed table and cursors, and the zone pass draws from the same instance the rest of the session uses, matching retail's single shared RNG. What is not established is whether DBSIM has already drawn from that instance before the terrain populates on a given zone load — if it has, the draw sequence is offset and the scatter lands on different cells even with the same seed and algorithm. Needs a comparison against a retail screenshot to confirm or rule out. Base pads (frames 2–12) are unaffected — those are placed from `BFORMS.DAT`, not rolled.
 
 ## Rejected readings
 

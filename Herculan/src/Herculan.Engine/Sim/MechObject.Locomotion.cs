@@ -162,10 +162,6 @@ public sealed partial class MechObject {
 	/// same rate limiter, so it walks its remaining momentum off over the next few ticks rather than
 	/// stopping dead. Its obstacle avoidance is skipped with it.</para>
 	///
-	/// <para>One of the original's terms is still not modelled: the Turbo Pod's speed bonus
-	/// (<c>mech+0x317</c>, catalog id 31), which is <i>maximal</i> at full health and decays with
-	/// damage — so a machine here runs slightly slower than a fully-podded vanilla one, not faster.
-	/// See docs/simulation/mech-locomotion.md, "Damage effects on movement".</para>
 	/// </summary>
 	private void LocomotionTick(SimWorld world, short turn, short desired) {
 		if (Thread is not { } thread) {
@@ -219,6 +215,10 @@ public sealed partial class MechObject {
 			: LegsDamaged || Reactor == ReactorCondition.Degraded
 				? (short)SimMath.Q10Multiply(LightlyDamagedSpeedScale, desired)
 				: desired;
+
+		// And the Turbo Pod's term, on top of the penalties rather than inside them: an engaged pod
+		// adds to what a damaged machine could ask for. See TurboSpeedBonus.
+		desired += TurboSpeedBonus();
 
 		short previousSpeed = Speed;
 

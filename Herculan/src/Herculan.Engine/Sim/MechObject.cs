@@ -276,10 +276,9 @@ public sealed partial class MechObject : SimObject {
 
 	/// <summary>
 	/// The ECM pod row's on/off button (<c>pod+0x7d</c>), which is what the <i>player's</i> jammer
-	/// follows. <c>EcmPod_Tick</c> copies it out of the cockpit gauge every frame, and the cockpit
-	/// weapon rows take no input in this engine yet — neither a click nor a number key reaches them —
-	/// so nothing flips this and the player's own ECM stays off. That is the one missing piece; an
-	/// AI machine's jammer does not go through here at all. See <see cref="JammerTick"/>.
+	/// follows. <see cref="PodTick"/> copies it out of the row's own button every frame, and pressing
+	/// that row — by click or by its number key — is the only thing that moves it. An AI machine's
+	/// jammer does not go through here at all. See <see cref="JammerTick"/>.
 	/// </summary>
 	public bool EcmEnabled { get; set; }
 

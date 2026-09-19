@@ -147,6 +147,12 @@ public sealed class WeaponMount {
 				Charge = EnergyCapacitorFull;
 				ChargeRate = EnergyChargeRate;
 				break;
+
+			// TurboPod_Ctor (0040e2bc) is the one pod constructor that arms anything: a full tank at
+			// +0x7d and the engaged flag at +0x81 clear. Every other pod leaves both at zero.
+			case WeaponMountKind.Pod when weaponId == MechPods.TurboPodWeaponId:
+				Charge = TurboChargeFull;
+				break;
 		}
 
 		// The Targeting Pod is the one pod class with state of its own, and the one mount class that
@@ -325,6 +331,81 @@ public sealed class WeaponMount {
 	/// <c>OFFLINE</c> in place of the weapon's name. <see cref="Destroy"/> is what sets it.
 	/// </summary>
 	public bool Disabled { get; internal set; }
+
+	/// <summary>
+	/// The on/off button on this mount's cockpit row — the pod gauge's own byte at <c>gauge+0xc2</c>,
+	/// which <c>TogglePodGauge_OnClick</c> (<c>004419fc</c>) XORs when the row is pressed.
+	///
+	/// <para><b>It lives on the gauge in the original, not on the mount</b>, and the pod's tick copies
+	/// it across each frame. It is kept here because the cockpit's rows are rebuilt from sim state
+	/// every frame rather than being objects that persist, so the mount is the only thing on the
+	/// press's side of the frame that outlives it. Only the two pods with a
+	/// <see cref="HasPodButton"/> gauge class ever have it moved.</para>
+	/// </summary>
+	public bool PodButton { get; internal set; }
+
+	/// <summary>
+	/// Whether this row's press has anything to toggle: <c>CockpitView_CreatePodGauge</c>
+	/// (<c>004321d4</c>) builds a <c>TogglePodGauge</c> for the ECM pod and a <c>TurboPodGauge</c>
+	/// derived from it for the Turbo pod, and the plain <c>PodGauge</c> — whose click sets the repaint
+	/// byte and returns — for the other three. See docs/simulation/equipment-pods.md.
+	/// </summary>
+	public bool HasPodButton => Kind == WeaponMountKind.Pod
+		&& WeaponId is MechPods.EcmWeaponId or MechPods.TurboPodWeaponId;
+
+	/// <summary>
+	/// <c>pod+0x81</c>, the Turbo Pod's engaged flag, and the only thing
+	/// <see cref="MechObject.TurboSpeedBonus"/> is gated on. Raised by <see cref="EngageTurbo"/> and
+	/// dropped either by the row's button going off or by the tank running dry.
+	/// </summary>
+	public bool TurboEngaged { get; internal set; }
+
+	/// <summary>What <c>TurboPod_Ctor</c> fills the tank to, and the ceiling the pool refills it to.</summary>
+	public const int TurboChargeFull = 2000;
+
+	/// <summary>
+	/// The charge <c>TurboPod_Engage</c> (<c>0040f09c</c>) demands before it will engage — so a pod
+	/// that has just run itself dry cannot be switched straight back on.
+	/// </summary>
+	public const int TurboEngageCharge = 600;
+
+	/// <summary>What an engaged Turbo Pod spends per tick — <c>TurboPod_ChargeTick</c>'s <c>0x23</c>.</summary>
+	public const int TurboSpendRate = 0x23;
+
+	/// <summary>And what it buys back per tick out of the weapons' leftover pool budget.</summary>
+	public const short TurboRefillRate = 0x14;
+
+	/// <summary>
+	/// The range the Turbo row's LED bar is built with — <c>TurboPodGauge_Ctor</c>'s literal
+	/// <c>0x9c4</c>. It is larger than the tank, so a full pod fills four-fifths of its bar, the same
+	/// way an energy weapon's does.
+	/// </summary>
+	public const int TurboMeterRange = 0x9c4;
+
+	/// <summary>
+	/// <c>TurboPod_Engage</c> (<c>0040f09c</c>): engage if the pod is idle and holds more than
+	/// <see cref="TurboEngageCharge"/>. Both the player's row button and the two AI sites that sprint
+	/// — the flee behaviour and a long drive under a standing squad order — come through here, which
+	/// is why an AI machine engages one at all despite never ticking its pods.
+	/// </summary>
+	/// <param name="world">Optional, and only so the engage tone has somewhere to go.</param>
+	/// <param name="audible">
+	/// Whether to sound it. The original gates the sound on the pod having a cockpit gauge
+	/// (<c>+0x79</c>), which no AI machine's pod has.
+	/// </param>
+	/// <returns>Whether the pod engaged just now.</returns>
+	internal bool EngageTurbo(SimWorld? world = null, bool audible = false) {
+		if (TurboEngaged || Charge <= TurboEngageCharge) {
+			return false;
+		}
+
+		TurboEngaged = true;
+		if (audible) {
+			world?.Sounds?.Play(Audio.SoundId.Throttle);
+		}
+
+		return true;
+	}
 
 	/// <summary>
 	/// <c>WeaponMount_Destroy</c> (<c>0040f57c</c>) — the mount side of losing a hardpoint, reached
@@ -720,6 +801,10 @@ public sealed class WeaponMount {
 	/// <param name="yieldToOther">Whether some earlier mount has already declared itself mid-charge.</param>
 	/// <returns>The budget with this mount's draw removed — negative draws put charge back.</returns>
 	internal short ChargeTick(short budget, bool yieldToOther) {
+		if (Kind == WeaponMountKind.Pod) {
+			return WeaponId == MechPods.TurboPodWeaponId ? TurboChargeTick(budget) : budget;
+		}
+
 		if (Disabled) {
 			return budget;
 		}
@@ -768,6 +853,39 @@ public sealed class WeaponMount {
 			Charge -= draw >> 1;
 		}
 
+		return (short)(budget - draw);
+	}
+
+	/// <summary>
+	/// <c>TurboPod_ChargeTick</c> (<c>0040f0d0</c>) — the Turbo Pod's own <c>+0x34</c> override, and
+	/// the only pod turn at the Master Energy Pool that costs anything. Every other pod inherits
+	/// <c>WeaponMount_RefireTick</c> there and hands the budget straight back.
+	///
+	/// <para>Spending and refilling are gated differently: an engaged pod burns
+	/// <see cref="TurboSpendRate"/> a tick whether or not the mount is destroyed, and cuts out when
+	/// that empties it, but only a live mount buys any back. So shooting the hardpoint a Turbo Pod
+	/// sits on leaves the pilot whatever is in the tank and no more.</para>
+	/// </summary>
+	private short TurboChargeTick(short budget) {
+		if (TurboEngaged) {
+			Charge -= TurboSpendRate;
+			if (Charge < 1) {
+				TurboEngaged = false;
+				Charge = 0;
+			}
+		}
+
+		if (Disabled) {
+			return budget;
+		}
+
+		short deficit = (short)(TurboChargeFull - Charge);
+		if (deficit < 1) {
+			return budget;
+		}
+
+		short draw = Math.Min(Math.Min(TurboRefillRate, budget), deficit);
+		Charge += draw;
 		return (short)(budget - draw);
 	}
 

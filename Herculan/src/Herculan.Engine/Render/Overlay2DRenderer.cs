@@ -1673,7 +1673,12 @@ public sealed class Overlay2DRenderer : IDisposable {
 		for (int i = 0; i < slots; i++) {
 			var rect = weapons[i];
 			var row = i < state.Weapons.Count ? state.Weapons[i] : WeaponRowState.Empty;
-			string font = row.Selected ? "WHITE" : "GRAY";
+
+			// A pod row's own paint (FUN_0044171c) picks its font from its button rather than from the
+			// selection, which a pod never has: gray while the button is off, dark while it is on. It
+			// tints the ink with COLORS.DAT id 12 on top of that, which this text path has no way to
+			// apply — see KNOWN_ISSUES.md.
+			string font = row.PodButton ? "DARK" : row.Selected ? "WHITE" : "GRAY";
 			float left = rect.Origin.X * S;
 			float top = rect.Origin.Y * S;
 
@@ -1692,9 +1697,11 @@ public sealed class Overlay2DRenderer : IDisposable {
 					drawText(font, row.Rounds.ToString(), left + ValueFieldLeft * S, top);
 					break;
 
-				// The ELF class keeps the energy class's gauge slot (+0x50), so it prints the same bar.
-				case WeaponMountKind.Energy or WeaponMountKind.Elf
-					when barColors is var (fillEven, fillOdd):
+				// The ELF class keeps the energy class's gauge slot (+0x50), so it prints the same bar,
+				// and the Turbo Pod's gauge adds one of its own over the same span — see
+				// WeaponRowState.ChargeBar, which is what says whether this row has one.
+				case not WeaponMountKind.Ammunition
+					when row.ChargeBar && barColors is var (fillEven, fillOdd):
 					AddChargeBar(row.ChargeMeter,
 						left + ValueFieldLeft * S, top + ChargeBarTop * S,
 						(ValueFieldRight - ValueFieldLeft) * S,

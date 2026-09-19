@@ -193,9 +193,10 @@ slot with that value, then clears the pressed state and repaints via `Widget_Rep
 
 **Only the left button presses.** `CockpitMouse_ProcessQueue` calls `Widget_OnMouseDown` for a left
 press and not a right one, so a right click never arms a widget — the release's own re-hit-test
-plus that second condition is the whole of what makes it work. Herculan arms on either button and
-requires press and release on the same widget for both, which reaches the same outcome for a normal
-click and diverges only for a right press dragged off its widget before release.
+plus that second condition is the whole of what makes it work. The two buttons are therefore not
+symmetric: a left press dragged off its widget fires nothing, while a right press fires on whatever
+the release happens to be over, and a right press lights nothing on the way down because no widget
+was ever marked pressed.
 
 ### The click value carries the mouse button
 
@@ -215,8 +216,12 @@ scancodes**, with `0x200` added for `[Alt]` and `0x400` for `[Ctrl]` — `0x26` 
 `` ` ``, `0x11`/`0x211` are `W`/`Alt+W`, `0x1a`/`0x1b` are `[`/`]`, `0x3b`–`0x40` are `F1`–`F6`, and
 `0x0f` is `Tab` — [`../simulation/target-selection.md`](../simulation/target-selection.md#component-targeting--the-targeting-pod).
 Codes `0x02`–`0x0b` (the number row) index the cockpit's own ten weapon gauges at
-`CockpitViewInstance+0x70` and press each one's select gadget, which is how a key and a click end up
-in one handler rather than two.
+`CockpitViewInstance+0x70` and, per gauge, call `WeaponMounts_SelectByGauge` **and then** press its
+select gadget with the left-button bit — which is how a key and a click end up in one handler rather
+than two, and why a number key on a pod's row toggles the pod
+([`../simulation/equipment-pods.md`](../simulation/equipment-pods.md#only-two-pods-have-a-button)).
+`[Alt]` and a number is the separate `0x202`–`0x20b` bank, answered by the weapon manager rather than
+by the gauge.
 
 The `0x400` bank is fixed by the manual: `0x410` raises the `EXIT EARTHSIEGE?` prompt, and the
 manual's controls page gives that as `[Ctrl]+[Q]` against `0x10` for `[Q]` alone. Four of the

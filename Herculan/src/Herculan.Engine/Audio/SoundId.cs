@@ -70,7 +70,10 @@ public static class SoundId {
 	/// <summary><c>explo2.wav</c> — the collision thump, from <c>Mech_CollisionTest</c> and the death fall.</summary>
 	public const int Collision = 0x29;
 
-	/// <summary><c>throtl.wav</c> — the throttle lever moving.</summary>
+	/// <summary>
+	/// <c>throtl.wav</c> — the throttle lever moving, and the Turbo Pod engaging
+	/// (<c>TurboPod_Engage</c>, <c>0040f09c</c>), which sounds the same servo.
+	/// </summary>
 	public const int Throttle = 0x2c;
 
 	/// <summary><c>herceng1.wav</c> — the HERC engine hum, looped for the machine's whole life.</summary>

@@ -14774,6 +14774,56 @@
       "name": "Arena_Pop",
       "description": "realloc's the top arena down to the bytes actually used, corrects the DAT_006bb390 accounting and pops the stack.",
       "source": "docs/simulation/target-selection.md"
+    },
+    {
+      "address": "0040f09c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TurboPod_Engage",
+      "description": "Engages the Turbo Pod: if the engaged flag at pod+0x81 is clear and the charge at pod+0x7d is over 600, sets the flag and plays sound 0x2c (throtl.wav, the same servo the throttle lever uses) -- but only when the pod has a cockpit gauge at +0x79, which no AI machine's pod has. Called from TurboPod_Tick for the player's own row button and directly from Mech_BehaviourFleeThink and Ai_DriveToPoint, which is the only way an AI machine engages one since its pods are never ticked.",
+      "source": "docs/simulation/equipment-pods.md",
+      "signature": "void __cdecl TurboPod_Engage(int pod)"
+    },
+    {
+      "address": "0044171c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PodGauge_Paint",
+      "description": "PodGauge vtable +4, shared by all three pod gauge classes. Picks the name label's font and ink from the two state bytes: the destroyed byte at +0xc3 wins and prints the offline text across the widened label while hiding the row's select gadget (state 2), and failing that the button byte at +0xc2 selects the gray font 0049b0d8 with ink 0x2e when off and the dark font 0049b0dc with HudColorTable id 12 when on. That re-fonting is the only feedback a pod row gives, since it has no state box.",
+      "source": "docs/simulation/equipment-pods.md",
+      "signature": "void __cdecl PodGauge_Paint(int gauge)"
+    },
+    {
+      "address": "00440ef0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "EnergyWeaponGauge_OnChildClick",
+      "description": "The energy weapon row's vtable slot 0, which its WeaponSelectGadget child forwards to. Searches the child table at +0x18 (count +0x68): child 0 is the select gadget, and it chains the row via WeaponMounts_ToggleChainMember when bit 1 of the click value (the mouse-button word 0049db6c) is set and arms it via CockpitView_ArmWeaponByGauge otherwise; child 1 is the LED charge bar, whose value is clamped to 0..0x400 and stored at +0xc6.",
+      "source": "docs/simulation/weapon-mounts.md",
+      "signature": "void __cdecl EnergyWeaponGauge_OnChildClick(int gauge, int child, uint value)"
+    },
+    {
+      "address": "004414b4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AmmoWeaponGauge_OnChildClick",
+      "description": "The ammunition weapon row's vtable slot 0, the twin of EnergyWeaponGauge_OnChildClick: child 0 chains the row on the right-button bit of the click value and arms it otherwise, then marks the row for repaint at +0xb0. It is also the PodGauge vtable's +0x2c entry.",
+      "source": "docs/simulation/weapon-mounts.md",
+      "signature": "uint __cdecl AmmoWeaponGauge_OnChildClick(int gauge, int child, uint value)"
+    },
+    {
+      "address": "00432a50",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitView_ArmWeaponByGauge",
+      "description": "Thin wrapper: WeaponMounts_SelectByGauge on the player mech's weapon manager, returning whether anything was armed. Both the row gadget's click handlers and CockpitWidgets_HandleCommand's number-key case go through it.",
+      "source": "docs/simulation/weapon-mounts.md",
+      "signature": "bool __cdecl CockpitView_ArmWeaponByGauge(int cockpitView, int gauge)"
     }
   ]
 }

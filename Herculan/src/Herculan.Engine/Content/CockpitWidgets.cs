@@ -292,9 +292,9 @@ public static class CockpitWidgets {
 	/// energy row's value-field child overlaps it.
 	///
 	/// <para>Rows past the herc's own weapon count are not built at all, so they are not listed. A
-	/// row whose mount is a pod <i>is</i>: it is clickable in the original too, where the click
-	/// toggles the pod on and off. Nothing models a pod's on/off state yet, so such a click is
-	/// swallowed rather than acted on.</para>
+	/// row whose mount is a pod <i>is</i>: on an ECM or Turbo row the press works the pod's on/off
+	/// button, and on the other three it clicks, sounds and changes nothing. Which of those a row
+	/// does is decided by its gauge class — see <see cref="WeaponMounts.PressRow"/>.</para>
 	/// </summary>
 	public static IEnumerable<CockpitWidget> VisibleWeaponRows(CockpitArt art, CockpitHudState state) {
 		ArgumentNullException.ThrowIfNull(art);

@@ -1,6 +1,8 @@
 # DBSIM.EXE equipment pods
 
-Ported in `Herculan.Engine.Sim.MechPods`.
+Ported in `Herculan.Engine.Sim.MechPods`, with the row button and the two ticks in
+`MechObject.PodTick`, the Turbo Pod's charge in `WeaponMount.TurboChargeTick` and its speed term in
+`MechObject.TurboSpeedBonus`.
 
 The five non-firing pods a HERC can carry — ECM, TARG, SHLD, TURB, ENRG. This doc owns the pod as an
 **object**: how the five classes are built, what each one overrides, how their cockpit rows behave,
@@ -27,7 +29,7 @@ ids into a five-pointer array. The switch keys on the mount template's `+0x56`, 
 | 1 | `+0x30b` | 29 | TARG | component targeting, [`target-selection.md`](target-selection.md#component-targeting--the-targeting-pod) |
 | 2 | `+0x30f` | 30 | SHLD | shield capacity, `Mech_ComputeShieldCapacity` (`00417bec`) |
 | 3 | `+0x313` | 32 | ENRG | reactor rate, `Mech_ComputeReactorRate` (`00417d08`) |
-| 4 | `+0x317` | 31 | TURB | speed, `TurboPod_Tick` (`0040f1f0`) and [mech-locomotion.md](mech-locomotion.md) |
+| 4 | `+0x317` | 31 | TURB | speed while engaged, `TurboPod_Tick` (`0040f1f0`) and [mech-locomotion.md](mech-locomotion.md) |
 
 Slot order is not id order (`0x1f`→[4], `0x20`→[3]). The switch assigns rather than accumulates, so a
 second copy of a pod fills the same slot and contributes nothing — the last mount in hardpoint order
@@ -77,11 +79,15 @@ result.
 
 **The `+0x50` tick runs on the player's machine only.** Its one call site is
 `WeaponMounts_PerFrameUpdate` (`00410b40`), whose one caller is `Player_PerFrameCockpitUpdate` — so
-an AI machine's pods are never ticked at all. Two consequences follow, both checkable in play:
+an AI machine's pods are never ticked at all. What that does and does not cost such a machine, both
+checkable in play:
 
-- **An AI machine never engages its Turbo Pod.** `TurboPod_Ctor` clears the engaged flag at `+0x81`
-  and `TurboPod_Tick` is its only writer, while `Mech_LocomotionTick` gates the speed bonus on that
-  flag. A squadmate fitted with one loses the hardpoint and gets nothing.
+- **An AI machine engages its Turbo Pod without the tick.** The flag at `+0x81` has three writers,
+  not one: `TurboPod_Tick`, the pool turn `TurboPod_ChargeTick` that drops it when the tank empties,
+  and `TurboPod_Engage` (`0040f09c`), which `Mech_BehaviourFleeThink` and `Ai_DriveToPoint` call
+  directly. So a fleeing or sprinting AI machine does get the speed bonus, and gets it silently — but
+  it has no button, so nothing engages one anywhere else, and it holds the pod on for exactly as long
+  as the behaviour keeps asking.
 - **An AI machine's ECM pod never sets `+0x7f`**, which `EcmPod_Ctor` clears and `EcmPod_Tick` alone
   writes. That is the field `Mech_PerTickSystemsUpdate` uses to raise the per-tick action latch on
   the jamming machine's own target, so that half of ECM is the player's alone. The other half — the
@@ -138,9 +144,67 @@ So a Shield, Targeting or Energy pod row clicks and sounds but has no on/off sta
 is `[Tab]`, through `CockpitWidgets_HandleCommand`
 ([`target-selection.md`](target-selection.md#component-targeting--the-targeting-pod)).
 
+**A pod row does not care which mouse button pressed it.** Every other weapon row's handler branches
+on the button bit its `GetValue` slot returned — left arms, right chains — but
+`TogglePodGauge_OnClick` takes only the gauge and the child, so a right click toggles a pod exactly
+as a left one does and neither arms nor chains anything. The number keys reach it too:
+`CockpitWidgets_HandleCommand` answers codes `0x02`-`0x0b` by calling `WeaponMounts_SelectByGauge` on
+the row's gauge *and* pressing its select gadget, so the bare key runs the arm (which a pod refuses)
+and then the toggle. `[Alt]` and a number is the other command bank, `0x202`-`0x20b`, which the
+weapon manager answers itself and which therefore never reaches a pod.
+
+**The button is visible in the row's own name.** `FUN_0044171c`, the pod row's paint, picks the name
+label's font and ink from the two state bytes: the destroyed byte at `+0xc3` wins outright and prints
+the offline text across the widened label, and failing that the button at `+0xc2` selects `gray` ink
+`0x2e` when it is off and `dark` at `COLORS.DAT` id 12 — green — when it is on. That is the only
+feedback a pod's row gives, since it has no state box.
+
 **The Shield and Energy pods read their damage live** — `Component_ReadDamagePercent` against the
 mount's own component, `.GL +0x17` + 19 — where the Targeting Pod caches its reading in `+0x7f` from
 its vtable `+0x68`. Same quantity, two mechanisms.
+
+### What the two ticks do with the button
+
+`EcmPod_Tick` (`0040f184`) is the simpler: it posts `JAMMING ENGAGED` (`0x2a`) or `JAMMING DISABLED`
+(`0x2b`) whenever the button differs from what it copied last, then mirrors it into both `+0x7d` and
+`+0x7f`, and pushes the block back with the destroyed byte refreshed. It **posts rather than
+replaces**, unlike the radar and auto-track toggles, so a run of quick presses reads the whole
+sequence out.
+
+`TurboPod_Tick` (`0040f1f0`) is a state machine over the pod's charge at `+0x7d` and its engaged flag
+at `+0x81`:
+
+- The button off drops the flag, full stop.
+- The button on and the pod idle engages it — through `TurboPod_Engage` (`0040f09c`), which demands
+  more than 600 of charge and sounds `0x2c`, the same servo the throttle lever uses. **So a pod that
+  has just run itself dry cannot be switched straight back on.**
+- The button on and the pod engaged cuts out the moment the charge reaches zero.
+- Then **the pod writes the button back from the flag**, so a row pressed with too little charge
+  lights for one frame and goes out again by itself. Nothing else in the cockpit clears a button it
+  did not set.
+
+`TurboPod_Engage` is also the AI's way in, and the only one it has: an AI machine's pods are never
+ticked, so its Turbo Pod is engaged by a direct call from `Mech_BehaviourFleeThink` (every tick of a
+run) and from `Ai_DriveToPoint` (past 30000 ground units, and only under a standing squad order —
+nothing on mission orders sprints). The engage tone is gated on the pod having a cockpit gauge, which
+no AI machine's has, so those sprints are silent.
+
+The charge itself is the Turbo Pod's `+0x34` pool turn, `TurboPod_ChargeTick` (`0040f0d0`) — see
+[`reactor-energy-pool.md`](reactor-energy-pool.md#equipment-pods). An engaged pod spends 35 a tick
+whether or not the mount is destroyed, and only a live mount buys any back, so shooting the hardpoint
+a pod sits on leaves the pilot whatever is in the tank and no more.
+
+### What the Turbo Pod is worth
+
+`Mech_LocomotionTick`'s own term (`00416b64`), and the one bonus that is not a capacity: an engaged
+pod adds `Q10(scale, 1000)` of the machine's top speed **in the direction it is already travelling**
+— the type's reverse figure at a speed under 1 and its forward figure otherwise — where `scale` is
+the shared damage curve below. Two gates, both the original's: the pod must be engaged, and the
+machine must already be moving (`speed != 0`), so the pod accelerates a walk rather than starting
+one.
+
+A pristine pod is therefore worth about 98% of top speed, not a round 100%: the curve is taken
+against a literal 1000 rather than the 1024 that would double it.
 
 ## The damage curve both bonuses share
 
@@ -148,8 +212,16 @@ Gated off entirely at 225/256 damage: `scale = 1024 - 204 * (damage / 51)`, Q10 
 1024 (pristine) down to 208, then nothing. A pristine pod is worth `Q10(1024, base) = base`: it
 **doubles** the stat it feeds.
 
-Only the Shield and Energy pods use it, and each applies it to its own base — see
+Three pods use it, each against its own base — see
 [`damage-system.md`](damage-system.md#the-shield-system) and
 [`reactor-energy-pool.md`](reactor-energy-pool.md#reactor-output-rate--mech_computereactorrate-00417d08)
-for what "doubles" amounts to in each case, and for the manual's claim about the Energy Pod that
-the pool's own literals disprove.
+for what "doubles" amounts to for the Shield and Energy pods, and for the manual's claim about the
+Energy Pod that the pool's own literals disprove. The Turbo Pod is the exception to the doubling: its
+base is a literal 1000, so a pristine one is worth a shade under top speed rather than a second one.
+
+## Rejected readings
+
+| Reading | Why it is wrong |
+|---|---|
+| The `+0x50` tick runs on the player's machine alone, so an AI machine never engages its Turbo Pod | The engaged flag at `+0x81` is not the tick's to write: `TurboPod_Engage` (`0040f09c`) is called straight from `Mech_BehaviourFleeThink` and `Ai_DriveToPoint`, and `TurboPod_ChargeTick` drops the flag when the tank empties. The tick is how the *player* engages one, not how anybody does |
+| A pod row's click handler branches on the mouse button like every other weapon row's | `TogglePodGauge_OnClick` takes the gauge and the child and no value at all, so a right click toggles the pod rather than chaining it. Only the energy and ammunition row classes read the button bit |

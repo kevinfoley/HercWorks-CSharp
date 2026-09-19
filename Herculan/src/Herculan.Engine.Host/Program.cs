@@ -2178,6 +2178,10 @@ window.Update += deltaSeconds => {
 			? pilotMech.Position.ApproxDistanceTo(weaponTarget.Position)
 			: 0;
 		pilotMech.Weapons.PerFrameUpdate(targetRange);
+
+		// The pods' own tick runs from inside that pass in the original, and only ever for the machine
+		// the cockpit belongs to. It is what carries the ECM and Turbo rows' buttons into the sim.
+		pilotMech.PodTick(scene.World);
 		throttleGauge = pilotMech.ExchangeCockpitThrottle(throttleGauge);
 
 		// FUN_0043dcac runs inside the gunsight's paint, so a view with no gunsight in it does not
@@ -2912,16 +2916,12 @@ void ApplyCockpitClick(CockpitClick click) {
 				scene.World?.Objects ?? Array.Empty<SimObject>());
 			break;
 
-		// A weapon row: the left button arms it, the right button adds or removes it from the current
-		// fire chain. Both are the row gadget's one click handler (FUN_00440ef0 / FUN_004414b4)
-		// branching on the mouse-button bit its GetValue slot returns.
+		// A weapon row, dispatched by the class of gauge the row is — arm or chain on a weapon row,
+		// the on/off button on an ECM or Turbo row, nothing at all on the other three pods. See
+		// WeaponMounts.PressRow, which the number keys reach too.
 		case CockpitWidgetKind.WeaponRow when pilotMech != null:
-			if (click.Button.HasFlag(CockpitMouseButtons.Right)) {
-				pilotMech.Weapons.ToggleChain(click.Id.Index);
-			} else {
-				pilotMech.Weapons.SelectBySlot(click.Id.Index);
-			}
-
+			pilotMech.Weapons.PressRow(click.Id.Index,
+				click.Button.HasFlag(CockpitMouseButtons.Right));
 			break;
 
 		case CockpitWidgetKind.ConsoleButton when pilotMech != null:
@@ -3531,10 +3531,13 @@ void ApplyWeaponKeys(IKeyboard keyboard, WeaponMounts? mounts) {
 	for (int slot = 0; slot < weaponRowKeys.Length; slot++) {
 		bool down = keyboard.IsKeyPressed(weaponRowKeys[slot]);
 		if (down && !weaponRowKeyDown[slot]) {
+			// [Alt] and a number is command 0x202-0x20b, which the weapon manager answers itself; the
+			// bare number is 0x02-0x0b, which CockpitWidgets_HandleCommand answers by pressing the
+			// row's own select gadget. That is why only the bare key can toggle a pod.
 			if (alt) {
 				mounts?.ToggleChain(slot);
 			} else {
-				mounts?.SelectBySlot(slot);
+				mounts?.PressRow(slot);
 			}
 		}
 

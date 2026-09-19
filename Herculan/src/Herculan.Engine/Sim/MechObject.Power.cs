@@ -136,6 +136,93 @@ public sealed partial class MechObject {
 	}
 
 	/// <summary>
+	/// The pods' own <c>+0x50</c> tick — <c>EcmPod_Tick</c> (<c>0040f184</c>) and
+	/// <c>TurboPod_Tick</c> (<c>0040f1f0</c>), the two overrides that read their cockpit row's button.
+	/// The other three pods inherit <c>Pod_TickBase</c>, which refreshes the row's display and touches
+	/// no pod field, so there is nothing here for them.
+	///
+	/// <para><b>It runs on the player's machine only.</b> The original's one call site is inside
+	/// <c>WeaponMounts_PerFrameUpdate</c> (<c>00410b40</c>), whose own one caller is
+	/// <c>Player_PerFrameCockpitUpdate</c> — an AI machine's pods are never ticked at all. That is why
+	/// a squadmate fitted with a Turbo Pod never engages it from here, and why an AI machine's ECM
+	/// follows its radar mode instead (see <see cref="JammerTick"/>): neither has a row to press.</para>
+	///
+	/// <list type="bullet">
+	/// <item><b>ECM</b> copies the button into <see cref="EcmEnabled"/> and announces the change. It
+	/// posts rather than replaces, so unlike the radar and auto-track toggles a run of quick presses
+	/// reads the whole sequence out.</item>
+	/// <item><b>Turbo</b> engages on a button that is on over <see cref="WeaponMount.TurboEngageCharge"/>
+	/// of charge, cuts out when the tank empties, and <b>clears its own button</b> whenever it is not
+	/// engaged — so a row pressed with an empty tank lights for one frame and goes out again.</item>
+	/// </list>
+	/// </summary>
+	/// <param name="world">Optional, and only so the engage tone and the messages have somewhere to go.</param>
+	public void PodTick(SimWorld? world = null) {
+		if (!LocallyPiloted) {
+			return;
+		}
+
+		if (Pods.EcmMount is { } ecm && EcmEnabled != ecm.PodButton) {
+			EcmEnabled = ecm.PodButton;
+			world?.Sounds?.Say(EcmEnabled
+				? Content.SystemMessages.JammingEngaged
+				: Content.SystemMessages.JammingDisabled);
+		}
+
+		if (Pods.TurboPodMount is not { } turbo) {
+			return;
+		}
+
+		if (!turbo.PodButton) {
+			turbo.TurboEngaged = false;
+			return;
+		}
+
+		if (!turbo.TurboEngaged) {
+			turbo.EngageTurbo(world, audible: true);
+		} else if (turbo.Charge < 1) {
+			turbo.TurboEngaged = false;
+			turbo.Charge = 0;
+		}
+
+		turbo.PodButton = turbo.TurboEngaged;
+	}
+
+	/// <summary>
+	/// <c>Mech_LocomotionTick</c>'s Turbo Pod term (<c>00416b64</c>): what an engaged pod adds to the
+	/// speed the pilot asked for, as a Q10 fraction of the machine's own top speed in the direction it
+	/// is already travelling.
+	///
+	/// <para><b>Maximal at full health.</b> It is <see cref="DamageScale"/> — the curve the Shield and
+	/// Energy pods share — taken against a literal 1000 rather than 1024, so a pristine pod is worth
+	/// about 98% of top speed and a badly chewed one about 20%, with nothing at all past 225/256
+	/// damage. Omitting it is therefore not neutral on an undamaged machine.</para>
+	///
+	/// <para>A stationary machine gets nothing: the original's gate is <c>speed != 0</c>, on the speed
+	/// carried over from the previous tick, so the pod accelerates a machine that is already moving
+	/// rather than starting one.</para>
+	/// </summary>
+	/// <returns>The term to add to desired speed, in the same units, or zero when no pod applies.</returns>
+	private short TurboSpeedBonus() {
+		if (Pods.TurboPodMount is not { TurboEngaged: true } turbo) {
+			return 0;
+		}
+
+		int scale = Speed != 0 && DamageScale(MechPods.DamageOf(turbo, _damage)) is { } curve
+			? SimMath.Q10Multiply(curve, TurboSpeedScale)
+			: 0;
+
+		return (short)SimMath.Q10Multiply(scale, Speed < 1 ? Type.MaxReverse : Type.MaxForward);
+	}
+
+	/// <summary>
+	/// What the Turbo Pod's damage curve is taken against — the literal <c>1000</c> in
+	/// <c>Mech_LocomotionTick</c>, one Q10 unit short of the 1024 that would make a pristine pod
+	/// worth a whole second top speed.
+	/// </summary>
+	public const short TurboSpeedScale = 1000;
+
+	/// <summary>
 	/// <c>Mech_ComputeReactorRate</c> (<c>00417d08</c>) — the reactor's output rate.
 	///
 	/// <para>A flat <see cref="BaseReactorOutputRate"/>, replaced outright (not scaled) by a much

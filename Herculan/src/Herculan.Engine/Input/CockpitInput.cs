@@ -45,10 +45,11 @@ public readonly record struct CockpitDrag(CockpitWidgetId Id, CockpitSurface Sur
 ///
 /// <para><b>What is reproduced.</b> Events are queued as they arrive and processed once per frame
 /// rather than handled in the callback (§3-4), because that is what keeps input aligned to the sim
-/// tick. A press arms a widget; a release completes the click only if it lands back on the widget
-/// that was pressed (§7) and within <see cref="ClickHoldSeconds"/> of the press (§4) — the original's
-/// click-vs-drag gate, which is player-visible: hold a cockpit button down for half a second and
-/// releasing it does nothing at all.</para>
+/// tick. A <i>left</i> press arms a widget; a release completes the click only if it lands back on
+/// the widget that was pressed (§7) and within <see cref="ClickHoldSeconds"/> of the press (§4) — the
+/// original's click-vs-drag gate, which is player-visible: hold a cockpit button down for half a
+/// second and releasing it does nothing at all. A right click arms nothing and fires on whatever its
+/// release is over, which is the original's own asymmetry rather than a simplification.</para>
 ///
 /// <para>A held button's widget draws depressed while the pointer is on it and pops back up when the
 /// pointer leaves — see <see cref="Depressed"/>. There is deliberately <b>no hover state</b>: the
@@ -229,7 +230,15 @@ public sealed class CockpitInput {
 			var releasedNow = _lastButtons & ~e.Buttons;
 			_lastButtons = e.Buttons;
 
+			// Either button starts the hold clock — the gate is on the queued records' own timestamps,
+			// not on which button moved — but only the left one presses. CockpitMouse_ProcessQueue
+			// calls Widget_OnMouseDown for a left press and not a right one, so a right press arms
+			// nothing and lights nothing, and a right click works entirely off its own release below.
 			if (pressedNow != CockpitMouseButtons.None) {
+				_pressedAtSeconds = _elapsedSeconds;
+			}
+
+			if (pressedNow.HasFlag(CockpitMouseButtons.Left)) {
 				OnPress(hit);
 			}
 
@@ -241,7 +250,12 @@ public sealed class CockpitInput {
 			}
 
 			if (releasedNow != CockpitMouseButtons.None) {
-				var (releaseX, releaseY) = toArt?.Invoke(_pressedSurface, e.X, e.Y) ?? (e.X, e.Y);
+				// A right release fires on whatever the release itself is over, so its coordinates
+				// belong to that widget's surface rather than to the pressed one's.
+				var surface = !_capturing && releasedNow.HasFlag(CockpitMouseButtons.Right) && hit is { } over
+					? over.Surface
+					: _pressedSurface;
+				var (releaseX, releaseY) = toArt?.Invoke(surface, e.X, e.Y) ?? (e.X, e.Y);
 				OnRelease(hit, releasedNow, releaseX, releaseY);
 			}
 		}
@@ -283,16 +297,22 @@ public sealed class CockpitInput {
 	}
 
 	/// <summary>
-	/// §7's <c>Widget_OnMouseUp</c>, gated by §4's hold timer: the click fires only when the release
-	/// lands back on the armed widget and soon enough after the press. A captured widget ends its
-	/// drag here and fires nothing — the original's release path takes the capture branch instead of
-	/// the click one.
+	/// §7's <c>Widget_OnMouseUp</c>, gated by §4's hold timer. The release re-hit-tests, and what it
+	/// does with the answer depends on which button came up:
+	///
+	/// <list type="bullet">
+	/// <item><b>Left:</b> the click fires only if the release landed back on the widget the press
+	/// armed — a button dragged off and let go does nothing.</item>
+	/// <item><b>Right:</b> it fires on whatever the release is over, full stop. The original's second
+	/// condition is the right-button bit of the click value word, which short-circuits the
+	/// same-widget test; since a right press never armed anything in the first place, that bit is the
+	/// whole of what makes a right click work.</item>
+	/// </list>
+	///
+	/// <para>A captured widget ends its drag here and fires nothing — the original's release path
+	/// takes the capture branch instead of the click one.</para>
 	/// </summary>
 	private void OnRelease(CockpitWidget? hit, CockpitMouseButtons released, float artX, float artY) {
-		if (_pressed is not { } armed) {
-			return;
-		}
-
 		if (_capturing) {
 			_capturing = false;
 			_pressed = null;
@@ -300,15 +320,17 @@ public sealed class CockpitInput {
 			return;
 		}
 
+		var armed = _pressed;
 		_pressed = null;
 		Depressed = null;
 
-		if (_elapsedSeconds - _pressedAtSeconds > ClickHoldSeconds) {
+		if (_elapsedSeconds - _pressedAtSeconds > ClickHoldSeconds || hit is not { } widget) {
 			return;
 		}
 
-		if (hit is { } widget && widget.Id == armed && widget.Surface == _pressedSurface) {
-			_clicks.Add(new CockpitClick(armed, released, artX, artY));
+		bool rightRelease = released.HasFlag(CockpitMouseButtons.Right);
+		if (rightRelease || (widget.Id == armed && widget.Surface == _pressedSurface)) {
+			_clicks.Add(new CockpitClick(widget.Id, released, artX, artY));
 		}
 	}
 

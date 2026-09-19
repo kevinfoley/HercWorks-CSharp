@@ -25,15 +25,6 @@ The mechanism is understood; what is left is engine work.
 - **A machine's LOD roots are not selected.** Root 0 is hard-coded where the original picks one per
   frame from projected size and a detail bias.
   → [`docs/formats/mech-shape-drawing.md`](docs/formats/mech-shape-drawing.md)
-- **The cockpit weapon rows take no input at all.** Neither a click nor a number key reaches them,
-  so nothing arms a mount, toggles fire-chain membership, or presses a pod's button from the panel.
-  That last one is what holds the **player's** ECM and Turbo pods off: both follow their row's
-  button, and `MechObject.EcmEnabled` is the single flag a row press needs to flip. An AI machine's
-  ECM does not go through the panel and works. The other three pod rows click and sound in the
-  original without changing anything, which is what the engine already does. A right press dragged
-  off its widget before release also fires nothing here, where the original re-hits on release.
-  → [`docs/simulation/weapon-mounts.md`](docs/simulation/weapon-mounts.md),
-  [`docs/simulation/equipment-pods.md`](docs/simulation/equipment-pods.md#only-two-pods-have-a-button)
 - **Terrain raycast, swept-volume mode.** Only thin-ray mode is ported; the swept-volume mode
   (movement collision) is not, because nothing in the engine needs it yet.
   → [`docs/formats/terrain-heightmap.md`](docs/formats/terrain-heightmap.md)

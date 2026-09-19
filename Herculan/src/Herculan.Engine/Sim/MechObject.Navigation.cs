@@ -58,19 +58,32 @@ public partial class MechObject {
 	/// <b>range is measured on the ground plane</b>, so a waypoint on a hilltop is as near as one at
 	/// its foot.</para>
 	///
-	/// <para>The original's Turbo Pod sprint past 30000 units is gated on a standing squad order, so
-	/// nothing on mission orders sprints to a waypoint. The pod's speed bonus is not modelled at all
-	/// — see <see cref="FleeThink"/> and docs/simulation/mech-locomotion.md — so neither call site
-	/// is transcribed.</para>
+	/// <para><b>The sprint is gated on a standing squad order</b>, so a machine on mission orders
+	/// never uses it however far it has to go: only one the player has given an order to drives at
+	/// <see cref="SprintSpeed"/> and engages its Turbo Pod with it.</para>
 	/// </summary>
 	private bool DriveToPoint(SimWorld world, Vec3i point) {
 		short bearing = Detection.HeadingToward(point, Position);
 		int distance = GroundDistanceTo(point);
 		short speed = CruiseSpeed != 0 ? CruiseSpeed : DefaultCruiseSpeed;
 
+		if (SquadOrderVerb != SquadOrderNone && distance > SprintRange) {
+			Pods.TurboPodMount?.EngageTurbo();
+			speed = SprintSpeed;
+		}
+
 		LocomotionTick(world, SteerToward(bearing), speed);
 		return distance < ArrivalRange;
 	}
+
+	/// <summary>
+	/// How far off a point has to be before <see cref="DriveToPoint"/> will sprint at it — the
+	/// original's literal 30000 ground units.
+	/// </summary>
+	public const int SprintRange = 30000;
+
+	/// <summary>The speed it drives at once it does: a flat <c>0x100</c>, replacing the cruise speed.</summary>
+	public const short SprintSpeed = 0x100;
 
 	/// <summary>
 	/// <c>Ai_FollowRoute</c> (<c>0041fb60</c>) — walk the group's route. One of four places that

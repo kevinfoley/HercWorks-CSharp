@@ -34,6 +34,19 @@ namespace Herculan.Engine.Content;
 /// An energy row's bar value over the LED bar's own 0-1024 range. A full capacitor reads about
 /// four-fifths of the bar, not all of it — see <see cref="WeaponMount.EnergyChargeScale"/>.
 /// </param>
+/// <param name="ChargeBar">
+/// Whether this row's value field holds an LED bar reading <paramref name="ChargeMeter"/>. True for
+/// the energy and ELF rows, whose gauge builds one, and for the <b>Turbo Pod's</b> row, which is the
+/// one pod row with a value field at all — <c>TurboPodGauge_Ctor</c> adds a bar over the pod's charge
+/// and pulls the name label back out of its way. Every other pod row widens its name across both
+/// fields and has nothing to draw there.
+/// </param>
+/// <param name="PodButton">
+/// Whether this pod row's on/off button is on — <c>gauge+0xc2</c>, which only the ECM and Turbo rows
+/// ever have moved. It is what <c>FUN_0044171c</c>, the pod row's paint, re-fonts the name on: off
+/// draws it in the <c>gray</c> font the constructor seeded and on draws it in <c>dark</c>. Always
+/// false on a row that is not a pod.
+/// </param>
 public readonly record struct WeaponRowState(
 	string Name,
 	WeaponMountKind Kind,
@@ -41,7 +54,9 @@ public readonly record struct WeaponRowState(
 	bool InGroup,
 	bool Ready,
 	int Rounds,
-	int ChargeMeter) {
+	int ChargeMeter,
+	bool ChargeBar = false,
+	bool PodButton = false) {
 
 	/// <summary>A <c>.GAU</c> slot with no mount on it.</summary>
 	public static WeaponRowState Empty { get; } =
@@ -108,6 +123,7 @@ public readonly record struct WeaponRowState(
 					? PodName(mount.Name, podSuffix)
 					: Truncate(mount.Name, NameLength);
 
+			bool turbo = mount.WeaponId == MechPods.TurboPodWeaponId;
 			rows[slot] = new WeaponRowState(
 				name,
 				mount.Kind,
@@ -115,7 +131,12 @@ public readonly record struct WeaponRowState(
 				mounts.InCurrentGroup(mount.MountIndex),
 				mounts.CanFireNow(mount.MountIndex),
 				mount.Rounds,
-				mount.ChargeMeterValue);
+				// Each bar is scaled to the range its own gauge was built with, so both arrive here in
+				// the LED bar's 0-1024 units. The Turbo's range is wider than its tank, so a full pod
+				// reads four-fifths of a bar exactly as a charged energy weapon does.
+				turbo ? (mount.Charge << 10) / WeaponMount.TurboMeterRange : mount.ChargeMeterValue,
+				ChargeBar: turbo || mount.Kind is WeaponMountKind.Energy or WeaponMountKind.Elf,
+				PodButton: mount.PodButton);
 		}
 
 		return rows;

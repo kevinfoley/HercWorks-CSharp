@@ -70,9 +70,12 @@ only reachable by a single hit crossing both thresholds at once.
 Five non-firing pods hang off the weapon-mount factory, filed into a five-pointer array at
 `mech+0x307` by `MechLoadout_FileEquipmentPods` (`0040fb2c`). Two of them are read from this page —
 the **Energy Pod** at `+0x313` by `Mech_ComputeReactorRate` above, and the **Turbo Pod** at `+0x317`,
-which is the only pod that draws on the pool. The family itself — the five classes, what each
-overrides, their cockpit rows, when they tick and the damage curve they share — is
-[`equipment-pods.md`](equipment-pods.md).
+which is the only pod that draws on the pool. Its `+0x34` override `TurboPod_ChargeTick` (`0040f0d0`)
+takes its turn like a weapon mount's: an engaged pod spends 35 of its own charge a tick and then, if
+the mount is alive, buys back `min(20, budget, 2000 - charge)` out of what the guns left. So it
+competes with the weapons for the same budget and a machine firing hard refills it slowly. The family
+itself — the five classes, what each overrides, their cockpit rows, when they tick and the damage
+curve they share — is [`equipment-pods.md`](equipment-pods.md).
 
 > The manual says the Energy Pod doubles the pool's *capacity*. It does not — 10000 is a literal in
 > both the constructor and the clamp. It doubles the recharge *rate*, which is the manual's own

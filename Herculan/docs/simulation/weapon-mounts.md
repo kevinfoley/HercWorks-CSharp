@@ -374,12 +374,17 @@ each of them two ways:
 | Link the armed weapon | `[L]` | the LINK button | `FUN_00410f14` |
 | Next fire chain | `` [`] `` | the chain button | `FUN_00410ae4` |
 
-The two routes converge rather than duplicating: a number key indexes the cockpit's own ten-gauge
-array at `CockpitViewInstance+0x70` and presses that gauge's select gadget, which is the same gadget
-the mouse hits. The mouse's own split is not a modifier but the **button**: a row gadget's click
-handler (`FUN_00440ef0` for an energy row, `FUN_004414b4` for an ammunition one) branches on bit 1
-of the value it is handed, and that value is the mouse-button word `0049db6c` — bit 0 left, bit 1
-right.
+The two routes converge rather than duplicating: `CockpitWidgets_HandleCommand` answers a number key
+by indexing the cockpit's own ten-gauge array at `CockpitViewInstance+0x70`, calling
+`WeaponMounts_SelectByGauge` on that gauge and then pressing its select gadget — the same gadget the
+mouse hits, with the left-button bit. So the key runs the arm twice over, which is harmless, and
+anything the gadget does beyond arming it gets as well.
+
+The mouse's own split is not a modifier but the **button**: a row gadget's click handler
+(`FUN_00440ef0` for an energy row, `FUN_004414b4` for an ammunition one) branches on bit 1 of the
+value it is handed, and that value is the mouse-button word `0049db6c` — bit 0 left, bit 1 right.
+**A pod's row is the exception**: its handler takes no value at all, so both buttons toggle the pod
+and neither chains it ([`equipment-pods.md`](equipment-pods.md#only-two-pods-have-a-button)).
 
 > Command codes are **PC set-1 scancodes**, with `0x200` added for `[Alt]`. `0x26` is `L` and
 > `0x29` is `` ` ``, which is how `FUN_004421a0` binds them to the console panel's LINK and chain
@@ -449,8 +454,6 @@ from its own `+0x40` latch. **LINK never stays lit**; the link state lives on th
   [`../formats/weapons-dat-sim.md`](../formats/weapons-dat-sim.md).
 - **Firing** is in [`weapon-firing.md`](weapon-firing.md). All three dispatch branches are ported;
   auto-fire is not.
-- **A pod's on/off toggle.** Clicking a pod's row in the original flips `gauge+0xc2`
-  (`FUN_004419fc`), which re-fonts its name. No pod carries an on/off state here.
 
 ## Rejected readings
 

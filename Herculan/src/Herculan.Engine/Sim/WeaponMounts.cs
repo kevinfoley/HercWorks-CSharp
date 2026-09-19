@@ -272,6 +272,46 @@ public sealed class WeaponMounts {
 	}
 
 	/// <summary>
+	/// A press on cockpit weapon row <paramref name="gaugeSlot"/>, dispatched the way the original
+	/// dispatches it: <b>by the row's gauge class</b>, not by a switch on what the mount is.
+	///
+	/// <list type="bullet">
+	/// <item>An energy or ammunition row (<c>FUN_00440ef0</c> / <c>FUN_004414b4</c>) branches on the
+	/// mouse-button bit its <c>GetValue</c> slot handed it: the left button arms the mount, the right
+	/// button toggles its membership of the current fire chain.</item>
+	/// <item>An ECM or Turbo row (<c>TogglePodGauge_OnClick</c>, <c>004419fc</c>) flips its button
+	/// byte. <b>It never looks at which button pressed it</b> — the slot takes only the gauge and the
+	/// child — so a right press toggles the pod exactly as a left one does, and neither arms nor
+	/// chains anything.</item>
+	/// <item>A Shield, Targeting or Energy pod row (<c>PodGauge_OnClick</c>, <c>00441988</c>) marks
+	/// itself for repaint and returns. It clicks, it sounds, and nothing changes.</item>
+	/// </list>
+	///
+	/// <para>Both the mouse and the number keys arrive here. <c>CockpitWidgets_HandleCommand</c>
+	/// (<c>00432bc8</c>) answers codes <c>0x02</c>-<c>0x0b</c> by calling
+	/// <c>WeaponMounts_SelectByGauge</c> on the gauge <i>and</i> pressing its select gadget with the
+	/// left-button bit, so a number key runs the arm twice over on a weapon row and reaches the pod
+	/// toggle on a pod row. <c>[Alt]</c> and a number is a different command bank entirely
+	/// (<c>0x202</c>-<c>0x20b</c>), answered by the weapon manager rather than by the gauge, which is
+	/// why it chains and never toggles a pod.</para>
+	/// </summary>
+	/// <param name="gaugeSlot">The row pressed, zero-based — the number it prints minus one.</param>
+	/// <param name="rightButton">Whether the right button completed the press.</param>
+	/// <returns>Whether the press changed anything.</returns>
+	public bool PressRow(int gaugeSlot, bool rightButton = false) {
+		if (BySlot(gaugeSlot) is { Kind: WeaponMountKind.Pod } pod) {
+			if (!pod.HasPodButton) {
+				return false;
+			}
+
+			pod.PodButton = !pod.PodButton;
+			return true;
+		}
+
+		return rightButton ? ToggleChain(gaugeSlot) : SelectBySlot(gaugeSlot);
+	}
+
+	/// <summary>
 	/// Arm the mount that owns cockpit weapon row <paramref name="gaugeSlot"/> — what a left click on
 	/// that row and the matching number key both do. The original reaches this by two different
 	/// routes that meet in <c>FUN_004106ac</c>: a click goes through the row gadget

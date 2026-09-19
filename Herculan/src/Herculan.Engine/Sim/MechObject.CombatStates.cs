@@ -324,9 +324,10 @@ public sealed partial class MechObject {
 		geometry.NearStandoff = FleeNearStandoff;
 		geometry.FarStandoff = FleeFarStandoff;
 
-		// The original engages the Turbo Pod here, on every tick — the one place in the AI that uses
-		// one on mission orders. The pod's speed bonus is not modelled (see
-		// docs/simulation/mech-locomotion.md), so there is nothing for the call to do.
+		// The Turbo Pod goes on here, on every tick of the run — the one place in the AI that engages
+		// one without a standing squad order behind it. Silent: the original gates the engage tone on
+		// the pod having a cockpit gauge, which only the player's has.
+		Pods.TurboPodMount?.EngageTurbo();
 
 		CombatMoveStep(world, ref geometry);
 

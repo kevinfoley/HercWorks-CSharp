@@ -332,12 +332,13 @@ writes a speed of its own.
   [reactor-energy-pool.md](reactor-energy-pool.md#reactor-damage-flags).
 
 - `mech+0x317` is the **Turbo Pod** (`TURB`, catalog id 31), one of the five equipment-pod slots
-  filled by `MechLoadout_FileEquipmentPods` at loadout — see
-  [equipment-pods.md](equipment-pods.md).
-  It adds a term to desired speed *in the current direction of travel*, worth ~98% of max at full
-  and fading to ~20% before cutting out entirely past 225/256 damage. A speed bonus that degrades,
-  not a throttle runaway — and **maximal at full health**, so omitting it is not neutral on an
-  undamaged machine.
+  filled by `MechLoadout_FileEquipmentPods` at loadout. It adds a term to desired speed *in the
+  current direction of travel* while it is engaged, worth ~98% of max at full and fading to ~20%
+  before cutting out entirely past 225/256 damage — a speed bonus that degrades, not a throttle
+  runaway, and **maximal at full health**. A stationary machine gets nothing: the term is gated on
+  `speed != 0`, so the pod accelerates a walk rather than starting one. What engages it, what it
+  costs the pool and what the curve is are in
+  [equipment-pods.md](equipment-pods.md#what-the-turbo-pod-is-worth).
   > Reading the curve requires care: the health accessor returns **accumulated damage**, not health,
   > so the term runs the opposite way to how it first scans. See
   > [damage-system.md](damage-system.md#the-component-damage-system).

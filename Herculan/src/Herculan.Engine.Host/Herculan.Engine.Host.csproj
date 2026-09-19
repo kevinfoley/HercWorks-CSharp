@@ -24,4 +24,11 @@
     <None Include="..\Herculan.Engine.Host.Editor\Assets\Fonts\Open_Sans\static\OpenSans-Regular.ttf" Link="Assets\Fonts\Open_Sans\static\OpenSans-Regular.ttf" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- Loose files, not EmbeddedResource: Localization scans this folder at runtime, so a player can
+       drop in their own .lang file (a new locale, or edits to an existing one) after install without
+       rebuilding anything. -->
+  <ItemGroup>
+    <None Update="Localization\*.lang" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

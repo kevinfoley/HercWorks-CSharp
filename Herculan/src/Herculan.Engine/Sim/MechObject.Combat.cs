@@ -91,7 +91,7 @@ public sealed partial class MechObject {
 	/// <summary>
 	/// Whether the reconstructed <c>DAMAGE LEVEL CRITICAL</c> announcement is raised. Always false:
 	/// retail cannot reach that line, so raising it is a divergence, and it waits on the
-	/// compatibility menu to become the player's choice. See <see cref="ApplyDirectFireDamage"/>.
+	/// Tweaks menu to become the player's choice. See <see cref="ApplyDirectFireDamage"/>.
 	/// </summary>
 	private const bool FixDamageLevelCriticalPost = false;
 
@@ -609,7 +609,7 @@ public sealed partial class MechObject {
 			// which asks for a cockpit that came out of the hit less damaged than it went in; taking
 			// each test from the other reading turns it into the upward crossing it reads as
 			// intended to be. That swap is this engine's reading of the intent, not something the
-			// binary states. Held at false until the compatibility menu can offer it, since retail
+			// binary states. Held at false until the Tweaks menu can offer it, since retail
 			// never says this line — see SystemMessages.DamageLevelCritical and KNOWN_ISSUES.md.
 			if (FixDamageLevelCriticalPost && LocallyPiloted
 					&& before < CockpitShakeDamageLimit && CockpitShakeDamageLimit < after

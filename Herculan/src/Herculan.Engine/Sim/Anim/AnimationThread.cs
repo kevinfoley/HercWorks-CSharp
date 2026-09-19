@@ -36,7 +36,7 @@ public sealed class AnimationThread {
 	///
 	/// <para><b>Not the original's behaviour</b>, and on by default, which is deliberate and against
 	/// this engine's usual rule; clearing it restores the original's arithmetic exactly. Nothing does
-	/// yet — it is the hook for the compatibility settings. What the truncation costs the turret, and
+	/// yet — it is the hook for the Tweaks menu. What the truncation costs the turret, and
 	/// what is left once this is on, are in docs/simulation/torso-aim.md, "Sub-tick seek
 	/// interpolation".</para>
 	/// </summary>

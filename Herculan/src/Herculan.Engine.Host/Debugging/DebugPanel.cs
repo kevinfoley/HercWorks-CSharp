@@ -5,13 +5,13 @@ using Herculan.Engine.Render;
 using Herculan.Engine.Sim;
 using Herculan.Engine.Terrain;
 using ImGuiNET;
-using Silk.NET.Input;
 
 namespace Herculan.Engine.Host.Debugging;
 
 /// <summary>
-/// The debug settings panel, on [Esc] — which therefore no longer quits the host; close the window
-/// for that. It is drawn over whatever view is up, cockpit or external.
+/// The debug settings panel, opened from the menu bar's "Debug" item. Closes on [Esc] or a click
+/// outside the window; see Program.cs for the shared [Esc]/menu-bar state machine that also covers
+/// TweaksMenu. It is drawn over whatever view is up, cockpit or external.
 ///
 /// <para>Built with ImGui, the toolkit the editor host already uses, rather than the game's own HUD
 /// font: that font and its sprite banks are the original's art placed from the original's own layout
@@ -24,7 +24,8 @@ namespace Herculan.Engine.Host.Debugging;
 /// mechanics.</para>
 /// </summary>
 sealed class DebugPanel {
-	/// <summary>Whether the panel is up. Toggled by [Esc]; see <see cref="ReadToggleKey"/>.</summary>
+	/// <summary>Whether the panel is up. Set by the host's [Esc]/menu-bar logic in Program.cs, and
+	/// cleared here on a click outside the window.</summary>
 	public bool IsOpen { get; set; }
 
 	/// <summary>Whether the host should draw the animating skeleton over the world.</summary>
@@ -36,7 +37,10 @@ sealed class DebugPanel {
 	/// </summary>
 	public int SkeletonJointCount { get; set; }
 
-	private bool _escapeDown;
+	/// <summary>Whether the panel was already open on the previous <see cref="Draw"/> call. Suppresses
+	/// the click-outside-closes check for the one frame it opens on — that frame's own click (the menu
+	/// bar's "Debug" item) is itself outside this window and would otherwise close it on arrival.</summary>
+	private bool _wasOpenLastDraw;
 
 	// "Steady eye" pins the eye's *height* to whatever it was the moment the toggle went on and
 	// leaves everything else — the machine's own travel, its lean, the eye's fore/aft swing — alone.
@@ -56,24 +60,6 @@ sealed class DebugPanel {
 	private float _lastStepMeters;
 	private Vec3i _lastMechPosition;
 	private bool _haveLastPosition;
-
-	/// <summary>
-	/// Opens and closes the panel on [Esc]. Call before the host's own ImGui keyboard-capture gate
-	/// and on the key's own edge, so the key that opens the panel is also the key that closes it
-	/// however ImGui feels about focus.
-	/// </summary>
-	public void ReadToggleKey(IKeyboard? keyboard) {
-		if (keyboard == null) {
-			return;
-		}
-
-		bool down = keyboard.IsKeyPressed(Key.Escape);
-		if (down && !_escapeDown) {
-			IsOpen = !IsOpen;
-		}
-
-		_escapeDown = down;
-	}
 
 	/// <summary>
 	/// Applies "steady eye" to a cockpit eye position: with the option off this returns
@@ -191,12 +177,16 @@ sealed class DebugPanel {
 	/// </summary>
 	public void Draw(in DebugPanelContext context, int windowHeight) {
 		if (!IsOpen) {
+			_wasOpenLastDraw = false;
 			return;
 		}
 
+		bool justOpened = !_wasOpenLastDraw;
+		_wasOpenLastDraw = true;
+
 		ImGui.SetNextWindowPos(new Vector2(16f, 16f), ImGuiCond.FirstUseEver);
 		ImGui.SetNextWindowSize(new Vector2(340f, MathF.Min(windowHeight - 32f, 560f)), ImGuiCond.FirstUseEver);
-		ImGui.Begin("Debug — Esc closes");
+		ImGui.Begin("Debug");
 
 		bool skeleton = DrawSkeleton;
 		if (ImGui.Checkbox("Draw skeleton", ref skeleton)) {
@@ -214,6 +204,7 @@ sealed class DebugPanel {
 
 		if (context.PilotMech is not { } pilotMech) {
 			ImGui.TextWrapped("No player machine in this mission, so there is nothing to report.");
+			CloseIfClickedOutside(justOpened);
 			ImGui.End();
 			return;
 		}
@@ -441,7 +432,19 @@ sealed class DebugPanel {
 			_eyeRiseMax = float.MinValue;
 		}
 
+		CloseIfClickedOutside(justOpened);
 		ImGui.End();
+	}
+
+	/// <summary>Closes the panel on a left-click that lands outside it — everything it holds is a
+	/// view option or a live readout (see the class summary), so there is nothing to lose by
+	/// dismissing it this way, unlike TweaksMenu's Save/Cancel. Call once per <see cref="Draw"/>,
+	/// while the window is still current (before <c>ImGui.End()</c>).</summary>
+	private void CloseIfClickedOutside(bool justOpened) {
+		if (!justOpened && !ImGui.IsWindowHovered(ImGuiHoveredFlags.RootAndChildWindows)
+				&& ImGui.IsMouseClicked(ImGuiMouseButton.Left)) {
+			IsOpen = false;
+		}
 	}
 
 	/// <summary>A binary angle in degrees, for the panel's readouts.</summary>

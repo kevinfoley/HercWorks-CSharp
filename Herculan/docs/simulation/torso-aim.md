@@ -170,7 +170,7 @@ The idle timer is run down in the turret block rather than in the cockpit update
 
 `AnimationThread.SeekToPosition` keeps the remainder the original's Q14 scale-down discards, and `FrameFraction` spends it, so a seeked pose is no longer quantised to a whole animation tick. Against OUTLAW: 1747 drawn twist poses across the 76.9° travel where retail has 170, and the drawn view moves every tick from half stick up rather than from three quarters.
 
-`AnimationThread.InterpolateSeekPosition` is the switch, and clearing it restores the original's arithmetic exactly. It defaults **on** — the deliberate exception to this engine's retail-by-default rule — and is the hook for the compatibility settings ([`ROADMAP.md`](../../ROADMAP.md#other-unported-features)). Playback is untouched: only a seek produces a remainder, and the locomotion thread is never seeked.
+`AnimationThread.InterpolateSeekPosition` is the switch, and clearing it restores the original's arithmetic exactly. It defaults **on** — the deliberate exception to this engine's retail-by-default rule — and is the hook for the Tweaks menu ([`ROADMAP.md`](../../ROADMAP.md#other-unported-features)). Playback is untouched: only a seek produces a remainder, and the locomotion thread is never seeked.
 
 What is left is the cosine table rather than the animation. `SimTrig.Cos` quantises a rotation to its 16-BAM step, so the drawn view moves in 0.101° increments and a twist under about 2°/s still steps. Q10 is enough to carry the fraction past that point: one Q10 unit is 8 binary angle across a torso sweep's 45° keyframe interval.
 

@@ -284,6 +284,8 @@ public sealed class SoundDirector : IDisposable {
 	/// attribute byte does. It advances on every call, so two calls for the same id need not answer
 	/// the same, and a call made speculatively spends a request.</para>
 	/// </summary>
+	/// <remarks>UNUSED. Claude could not find any callers for the equivalent feature in DBSIM.
+	/// Implemented for fidelity and in case we discover callers later.</remarks>
 	/// <returns>Whether this request is the one that plays.</returns>
 	public bool ConsumeRequest(int id) {
 		if (Entry(id) is not { } entry) {

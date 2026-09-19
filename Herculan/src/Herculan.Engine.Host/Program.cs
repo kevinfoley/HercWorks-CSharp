@@ -6,10 +6,13 @@ using Herculan.Engine.Content;
 using Herculan.Engine.Gl;
 using Herculan.Engine.Host;
 using Herculan.Engine.Host.Debugging;
+using Herculan.Engine.Host.Localization;
+using Herculan.Engine.Host.Settings;
 using Herculan.Engine.Input;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Render;
 using Herculan.Engine.Scene;
+using Herculan.Engine.Settings;
 using Herculan.Engine.Shell;
 using Herculan.Engine.Sim;
 using Herculan.Engine.Sim.Ai;
@@ -293,6 +296,13 @@ for (int i = 0; i < args.Length; i++) {
 	}
 }
 
+// Host-lifetime, not mission-lifetime: neither reads the install, and both need to survive into
+// --shell and --movie once those have a menu bar of their own to raise TweaksMenu from — see
+// docs/engine/planning.md. Built before that branch so nothing below has to change when they do.
+var localization = new LocalizationTable();
+var tweakSettings = new TweakSettings();
+tweakSettings.LoadFromDisk();
+
 string? installRoot = GameInstall.Locate(positional.Count > 0 ? positional[0] : null);
 if (installRoot == null) {
 	Console.Error.WriteLine(
@@ -446,6 +456,11 @@ var preferencesPanel = PreferencesPanel.Build(content, simulatorPreferences,
 bool pilotingRazor = scene.PlayerObject is { Placement.TypeName: { } playerTypeName }
 	&& HercLUT.GetByAbbrev(playerTypeName)?.Id == ControlsPanel.RazorTypeIndex;
 var controlsPanel = ControlsPanel.Build(content, simulatorPreferences, pilotingRazor, stagedJoystick);
+
+// Retail-deviation toggles — see TweakSettingDefinitions. Not mission state, but built here
+// rather than up with localization/tweakSettings themselves because this is the first place
+// with an ImGui menu bar to raise it from; --shell and --movie return before reaching this point.
+var tweaksMenu = new TweaksMenu(tweakSettings, localization);
 
 // The stick, once the window has an input context to enumerate it with. The bindings themselves are
 // the twelve bytes of prefs.cfg either way — nothing about them changes when the hardware does, which
@@ -835,10 +850,14 @@ System.Numerics.Vector2 externalOrbitLastMouse = System.Numerics.Vector2.Zero;
 // [Return], [Esc] or its CONTINUE button puts it away. It is the same panel class as the [Q] status
 // alert — see StatusAlertPanel — so the pause lives there and nothing is needed here.
 
-// The debug panel, on [Esc] — which therefore no longer quits; close the window for that. It owns
-// its own view options and readouts; see DebugPanel for what it shows and why it is ImGui rather
-// than the game's own HUD font.
+// The debug panel. It owns its own view options and readouts; see DebugPanel for what it shows and
+// why it is ImGui rather than the game's own HUD font.
 var debugPanel = new DebugPanel();
+
+// Hidden until [Esc] first raises it — see ReadMenuBarEscapeKey below — since it is the only way to
+// reach either debugPanel or tweaksMenu and every key from F1 to F12 is already taken.
+bool menuBarVisible = false;
+bool menuBarEscapeDown = false;
 
 string debugFontPath = Path.Combine(AppContext.BaseDirectory,
 	"Assets", "Fonts", "Open_Sans", "static", "OpenSans-Regular.ttf");
@@ -915,8 +934,10 @@ if (pilotMech != null) {
 }
 
 Console.WriteLine("Free camera: W/A/S/D move, R/F rise and fall, arrow keys look, Shift boosts.");
-Console.WriteLine("Esc opens the debug panel (skeleton view, animation readouts) — it no longer quits; "
-	+ "close the window for that.");
+Console.WriteLine("Esc no longer quits — it raises a menu bar at the top of the window (Debug: "
+	+ "skeleton view, animation readouts; Tweaks: this engine's own retail-deviation switchboard). "
+	+ "Esc again backs out one layer at a time: closes whichever of the two is open, then hides the "
+	+ "empty bar. Clicking outside the debug panel closes it too.");
 Console.WriteLine("F1-F6 switch the MFD screen: STATUS, FLASH COMM, NAV MAP, SCANNER, TARGET, MISSILE CAM.");
 Console.WriteLine("On FLASH COMM, A/G/H/O/C/E/F pick an order (, and . step through them) and X "
 	+ "transmits it; Alt with any of those seven transmits that order straight from whichever screen "
@@ -1416,17 +1437,17 @@ window.Update += deltaSeconds => {
 
 	// The modal panels take the keyboard before anything else does. They are modal in the
 	// original — each runs its own event loop, which owns input until the panel comes down — and
-	// [Esc], which dismisses any of them, is this host's debug-panel key, so they have to be asked
+	// [Esc], which dismisses any of them, is also this host's menu-bar key, so they have to be asked
 	// first or two things would act on one keystroke. All are asked every frame — single `|`, not
 	// `||` — so each keeps its own key-edge state whether or not another claimed the keystroke.
 	bool objectivesHandledKey =
 		ReadStatusAlertKeys() | ReadObjectivesKeys() | ReadPreferencesKeys();
 
-	// [Esc] opens and closes the debug panel. Read before the capture gate below, so the key that
-	// opens the panel is also the key that closes it however ImGui feels about focus.
-	if (!objectivesHandledKey) {
-		debugPanel.ReadToggleKey(keyboard);
-	}
+	// [Esc] drives the menu bar and its two panels, once none of the three above claims this frame's
+	// press. Called unconditionally regardless — like them, it tracks its own key edge every frame —
+	// so a press held across the frame a retail panel above consumes it doesn't read as a fresh,
+	// unconsumed press the moment that panel closes.
+	ReadMenuBarEscapeKey(objectivesHandledKey);
 
 	// Everything below reads `controls` rather than the device itself: while the panel has keyboard
 	// focus it is null, so piloting and camera keys go dead instead of the panel and the machine both
@@ -2398,10 +2419,35 @@ window.Render += (_, gl) => {
 		}
 	}
 
+	// The menu bar itself: hidden until [Esc] raises it (see ReadMenuBarEscapeKey) and hidden outright
+	// during --screenshot capture so it never lands in a reference image. A bare item per panel, no
+	// checkmark, since each panel closes itself; mirrors Herculan.Engine.Host.Editor's BuildMenuBar.
+	if (screenshotPath == null && menuBarVisible && ImGui.BeginMainMenuBar()) {
+		if (ImGui.MenuItem("Debug")) {
+			debugPanel.IsOpen = true;
+		}
+
+		if (ImGui.MenuItem("Tweaks")) {
+			tweaksMenu.IsOpen = true;
+		}
+
+		// A click outside the bar hides it, but only while neither panel is up — with one open, that
+		// same click either lands on it (nothing to do here) or is DebugPanel's own outside-click
+		// close, or TweaksMenu's Save/Cancel is the only way out.
+		if (!debugPanel.IsOpen && !tweaksMenu.IsOpen && !ImGui.IsWindowHovered()
+				&& ImGui.IsMouseClicked(ImGuiMouseButton.Left)) {
+			menuBarVisible = false;
+		}
+
+		ImGui.EndMainMenuBar();
+	}
+
 	debugPanel.Draw(
 		new DebugPanelContext(piloting, externalView, pilotMech, scene.Targeting, scene.World,
 			scene.PlayerObject?.Model?.Segments.Length ?? 0, terrain),
 		size.Y);
+
+	tweaksMenu.Draw();
 
 	imgui?.Render();
 
@@ -2613,6 +2659,37 @@ bool ReadPreferencesKeys() {
 			? preferencesKeysDown | (1 << bit)
 			: preferencesKeysDown & ~(1 << bit);
 		return edge;
+	}
+}
+
+// [Esc] backs out one layer at a time: closes whichever of debugPanel/tweaksMenu is open, else
+// hides an empty menu bar, else raises it. The menu bar is the only way to reach either panel,
+// since every key from F1 to F12 is already taken by the game.
+void ReadMenuBarEscapeKey(bool consumedByOtherPanel) {
+	if (keyboard == null) {
+		return;
+	}
+
+	// Tracked every frame independent of consumedByOtherPanel, exactly like the three callers above
+	// track their own Escape edge regardless of who else claims it — otherwise a press that is still
+	// held on the frame a retail panel above lets go of Escape reads as a second, fresh press here.
+	bool down = keyboard.IsKeyPressed(Key.Escape);
+	bool pressed = down && !menuBarEscapeDown;
+	menuBarEscapeDown = down;
+
+	if (pressed && !consumedByOtherPanel) {
+		if (debugPanel.IsOpen || tweaksMenu.IsOpen) {
+			// TweaksMenu goes through Cancel, not a bare close, so an edit made but not yet saved is
+			// discarded rather than left applied-but-unpersisted; DebugPanel has no such state to lose.
+			debugPanel.IsOpen = false;
+			if (tweaksMenu.IsOpen) {
+				tweaksMenu.Cancel();
+			}
+		} else if (menuBarVisible) {
+			menuBarVisible = false;
+		} else {
+			menuBarVisible = true;
+		}
 	}
 }
 

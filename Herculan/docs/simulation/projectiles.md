@@ -1,23 +1,14 @@
 # DBSIM.EXE travelling projectiles (`PROJ.DAT` type `Bullet`)
 
-Addresses are DBSIM virtual addresses. Ported in
-`Herculan.Engine.Sim.{Projectile, BulletCatalog}` and `SimWorld.FireBullet`.
+Addresses are DBSIM virtual addresses. Ported in `Herculan.Engine.Sim.{Projectile, BulletCatalog}` and `SimWorld.FireBullet`.
 
-The other half of the fire dispatch. A `Beam` record carries `Speed == 0` and is over inside the
-call that fired it ([`beam-visuals.md`](beam-visuals.md)); a `Bullet` record becomes a real object
-that crosses the ground over several ticks. Every autocannon, every EMP cannon and the plasma cannon
-fire one. Launcher rounds are a third family with their own table and their own tick — see
-[`rockets.md`](rockets.md).
+The other half of the fire dispatch. A `Beam` record carries `Speed == 0` and is over inside the call that fired it ([`beam-visuals.md`](beam-visuals.md)); a `Bullet` record becomes a real object that crosses the ground over several ticks. Every autocannon, every EMP cannon and the plasma cannon fire one. Launcher rounds are a third family with their own table and their own tick — see [`rockets.md`](rockets.md).
 
-Like a tracer, a bullet lives in the effect pool (`DAT_004a9746`) that `Sim_MainTick` walks **before**
-the machine list, not in the object list the raycast sweeps. It cannot be shot at, and a round that
-leaves the barrel this tick does not move until the next.
+Like a tracer, a bullet lives in the effect pool (`DAT_004a9746`) that `Sim_MainTick` walks **before** the machine list, not in the object list the raycast sweeps. It cannot be shot at, and a round that leaves the barrel this tick does not move until the next.
 
 ## `dat\BULLETS.DAT`
 
-`Bullet_LoadResources` (`0040ade0`) reads it as `int16 count` then that many 14-byte records, and
-loads `dts\BULLETS.DTS` and `dba\BULLETS.DBA` alongside it. **Indexed by the firing `PROJ.DAT`
-record's subtype id**, as `BEAM.DAT` is — `Bullet_GetTypeRecord` (`0040adc0`) is `table + id * 14`.
+`Bullet_LoadResources` (`0040ade0`) reads it as `int16 count` then that many 14-byte records, and loads `dts\BULLETS.DTS` and `dba\BULLETS.DBA` alongside it. **Indexed by the firing `PROJ.DAT` record's subtype id**, as `BEAM.DAT` is — `Bullet_GetTypeRecord` (`0040adc0`) is `table + id * 14`.
 
 | Offset | Field | Meaning |
 |---|---|---|
@@ -41,25 +32,16 @@ Retail (12 records; the five not listed are unreachable — no `Bullet` record c
 | 8 | EMP2 | 2 | 30 | 100 | 256 | 0 |
 | 9 | PLAS, MAGN | 8 | 40 | 100 | 0 | 0 |
 
-Weapon names above are the simulator's own. Subtype 9 is reached by two weapon ids, 25 and 28, whose
-templates both carry `ProjDatIndex` 22; id 28 is `MAGN` in DBSIM's name table and `MFAC` in the shell
-catalog, so listing both spellings counts one weapon twice.
+Weapon names above are the simulator's own. Subtype 9 is reached by two weapon ids, 25 and 28, whose templates both carry `ProjDatIndex` 22; id 28 is `MAGN` in DBSIM's name table and `MFAC` in the shell catalog, so listing both spellings counts one weapon twice.
 
 ## Spawning — `Bullet_Fire` (`0040b43c`)
 
-`Bullet_Fire(missileId, muzzleWorldPoint, aimEulerTriple, ownerMech)`. The powered form
-`Bullet_FirePowered` (`0040b5a0`) is the same call with two fields written after it.
+`Bullet_Fire(missileId, muzzleWorldPoint, aimEulerTriple, ownerMech)`. The powered form `Bullet_FirePowered` (`0040b5a0`) is the same call with two fields written after it.
 
-- **Geometry is one transform.** The object holds a euler triple at `+0x0c` and a transform at
-  `+0x12` whose translation *is* the position (`+0x26`); the rotation is rebuilt from the triple
-  whenever the dirty flag at `+0x32` says the angles moved.
-- **Scatter** displaces euler components 0 and 2 by `(scatter * 2 & random) - scatter`. The mask is
-  literally `scatter * 2`, not a power of two minus one, so the retail 63 draws odd values only.
-  Component 1 is roll about the shot's own axis and is left alone.
-- **Speed** is `ownerMech->vtable+0x38` (travel speed) **plus** the record's `Speed`, so a round
-  fired from a machine running forward flies faster.
-- `Bullet_FirePowered` adds `+0x56`, the capacitor charge the shot was fired at, and — for subtype 9
-  alone — `+0x5b`, the firing machine's selected target at `mech+0x1a4`.
+- **Geometry is one transform.** The object holds a euler triple at `+0x0c` and a transform at `+0x12` whose translation *is* the position (`+0x26`); the rotation is rebuilt from the triple whenever the dirty flag at `+0x32` says the angles moved.
+- **Scatter** displaces euler components 0 and 2 by `(scatter * 2 & random) - scatter`. The mask is literally `scatter * 2`, not a power of two minus one, so the retail 63 draws odd values only. Component 1 is roll about the shot's own axis and is left alone.
+- **Speed** is `ownerMech->vtable+0x38` (travel speed) **plus** the record's `Speed`, so a round fired from a machine running forward flies faster.
+- `Bullet_FirePowered` adds `+0x56`, the capacitor charge the shot was fired at, and — for subtype 9 alone — `+0x5b`, the firing machine's selected target at `mech+0x1a4`.
 
 ## Flight — `Bullet_TickUpdate` (`0040b124`)
 
@@ -67,87 +49,38 @@ catalog, so listing both spellings counts one weapon twice.
 2. `age += IntegrateRateOverTick(0x200)`; expire at `Lifetime * 0x200` with no impact of any kind.
 3. Home, if a target was attached — `Bullet_HomingSteer` (`0040aff0`).
 4. `step = IntegrateRateOverTick(obj+0x52)`, taken along the frame's Y axis.
-5. Build a shot record (same layout as a beam's, see
-   [`weapon-firing.md`](weapon-firing.md#the-shot-record)) with **the frame as the ray and the step
-   as its length**, and run `Sim_RaycastObjectList`. A bullet therefore sweeps the segment it is
-   about to cross rather than testing a point, which is what stops a fast round tunnelling through a
-   machine between ticks.
+5. Build a shot record (same layout as a beam's, see [`weapon-firing.md`](weapon-firing.md#the-shot-record)) with **the frame as the ray and the step as its length**, and run `Sim_RaycastObjectList`. A bullet therefore sweeps the segment it is about to cross rather than testing a point, which is what stops a fast round tunnelling through a machine between ticks.
 6. Struck anything and the shot ends; struck nothing and it moves.
 
-**Both damage figures are scaled Q10 by `+0x56` only when that is nonzero** — an autocannon round,
-spent out of a magazine rather than a charge, does the record's face value. The beam dispatch spells
-the same line unconditionally but can never pass zero.
+**Both damage figures are scaled Q10 by `+0x56` only when that is nonzero** — an autocannon round, spent out of a magazine rather than a charge, does the record's face value. The beam dispatch spells the same line unconditionally but can never pass zero.
 
 ### The plasma branch
 
-Subtype 9 is singled out by literal value. Before the raycast it stashes both damage figures in
-globals and then **empties the shot record** — armour, shield and `SplashFactor` alike — so the
-raycast reports contact and nothing more. Everything the round does it does through a
-`Damage_ExplosiveBlastSweep` at 4000 units, which **excludes nothing**: the object it touched stands
-in the blast like any other. A proximity fuze detonates it within 2000 units of the homing target
-once the bearing error exceeds a quarter turn.
+Subtype 9 is singled out by literal value. Before the raycast it stashes both damage figures in globals and then **empties the shot record** — armour, shield and `SplashFactor` alike — so the raycast reports contact and nothing more. Everything the round does it does through a `Damage_ExplosiveBlastSweep` at 4000 units, which **excludes nothing**: the object it touched stands in the blast like any other. A proximity fuze detonates it within 2000 units of the homing target once the bearing error exceeds a quarter turn.
 
-The blast figure is the record's **armour** damage, power-scaled — the two are equal on the one
-record this reaches. On the way in it is scaled by `Damage_ScaleByDifficulty` (`00426b04`), the same
-difficulty scale `Sim_RaycastObjectList` puts on every other shot's two damage figures. Emptying the
-shot record first is what keeps this round from being scaled twice; the scale itself and the four
-tables that drive it are in [`difficulty.md`](difficulty.md).
+The blast figure is the record's **armour** damage, power-scaled — the two are equal on the one record this reaches. On the way in it is scaled by `Damage_ScaleByDifficulty` (`00426b04`), the same difficulty scale `Sim_RaycastObjectList` puts on every other shot's two damage figures. Emptying the shot record first is what keeps this round from being scaled twice; the scale itself and the four tables that drive it are in [`difficulty.md`](difficulty.md).
 
-The one reader of the stash is a structure struck on its collision-volume path, which puts the
-armour figure back — see
-[`hit-detection.md`](hit-detection.md#base_directfirehittest--00405038).
+The one reader of the stash is a structure struck on its collision-volume path, which puts the armour figure back — see [`hit-detection.md`](hit-detection.md#base_directfirehittest--00405038).
 
-Homing is a steer of the **euler angles**, not of a velocity: the bearing to the target
-(`Math_EulerToward`, `00492884`) drives euler 0 and 2 through `Math_RateLimitedMoveToward` at
-`0x280` per 125 ms. The target point is the vtable `+0x24` aim node, not the origin — see
-[`target-selection.md`](target-selection.md).
+Homing is a steer of the **euler angles**, not of a velocity: the bearing to the target (`Math_EulerToward`, `00492884`) drives euler 0 and 2 through `Math_RateLimitedMoveToward` at `0x280` per 125 ms. The target point is the vtable `+0x24` aim node, not the origin — see [`target-selection.md`](target-selection.md).
 
-`Math_EulerToward` and `Math_HeadingToward` both reach atan2 through `Math_Atan2Guarded`
-(`00492800`), which takes **`(x, y)`** and nudges the *x* when both are zero. So `euler[2]` is
-`atan2(dy, dx)` less a quarter turn and `euler[0]` is `atan2(dz, groundDistance)` — an **elevation
-above the horizon**. Reading the order backwards mirrors the bearing about 45° and turns a level
-target into a quarter turn of pitch; it is worth stating because it did exactly that to this port.
+`Math_EulerToward` and `Math_HeadingToward` both reach atan2 through `Math_Atan2Guarded` (`00492800`), which takes **`(x, y)`** and nudges the *x* when both are zero. So `euler[2]` is `atan2(dy, dx)` less a quarter turn and `euler[0]` is `atan2(dz, groundDistance)` — an **elevation above the horizon**. Reading the order backwards mirrors the bearing about 45° and turns a level target into a quarter turn of pitch; it is worth stating because it did exactly that to this port.
 
 ## Engine port
 
 `Sim.Projectile`, `Sim.BulletCatalog`, `SimWorld.{FireBullet, Projectiles, Impacts}`. Deviations:
 
-- **The difficulty scale is applied in `Detonate` rather than before the raycast**, which is the same
-  arithmetic in a place that suits the port: the original scales its own copy of the blast figure up
-  front, and this recomputes that figure at the blast instead. Everything else on the plasma path — the stash and empty
-  (`WeaponShot.StashDamage`), the unexcluded 4000-unit sweep, the 2000-unit proximity fuze — is
-  ported, and all three of the blast slot's implementations are in place, so plasma hurts machines,
-  buildings and aircraft alike. See
-  [`damage-system.md`](damage-system.md#explosive-damage--the-0x70-slot).
-- **Homing works**, on the target `TargetSelection` puts at `mech+0x1a4`. It steers at the target's
-  shape centre (`SimObject.AimPoint`), not its origin, as the original does.
-- **The animation frame counter climbs rather than wrapping.** The original mods it by the shape's
-  own frame count for the sequence; the renderer takes the same modulo anyway
-  (`TSCellAnimPart_Render` does), so the frame drawn is identical and the simulation stays clear of
-  needing to know what the shape looks like.
-- **The fire sound is ported.** `SimWorld.FireBullet` plays the record's `+0x08` at the muzzle as
-  `id + 10`, through `SimWorld.PlayTableSound`.
-  → [`../formats/audio.md`](../formats/audio.md)
+- **The difficulty scale is applied in `Detonate` rather than before the raycast**, which is the same arithmetic in a place that suits the port: the original scales its own copy of the blast figure up front, and this recomputes that figure at the blast instead. Everything else on the plasma path — the stash and empty (`WeaponShot.StashDamage`), the unexcluded 4000-unit sweep, the 2000-unit proximity fuze — is ported, and all three of the blast slot's implementations are in place, so plasma hurts machines, buildings and aircraft alike. See [`damage-system.md`](damage-system.md#explosive-damage--the-0x70-slot).
+- **Homing works**, on the target `TargetSelection` puts at `mech+0x1a4`. It steers at the target's shape centre (`SimObject.AimPoint`), not its origin, as the original does.
+- **The animation frame counter climbs rather than wrapping.** The original mods it by the shape's own frame count for the sequence; the renderer takes the same modulo anyway (`TSCellAnimPart_Render` does), so the frame drawn is identical and the simulation stays clear of needing to know what the shape looks like.
+- **The fire sound is ported.** `SimWorld.FireBullet` plays the record's `+0x08` at the muzzle as `id + 10`, through `SimWorld.PlayTableSound`. → [`../formats/audio.md`](../formats/audio.md)
 
-The three EMP rounds — `BULLETS.DTS` roots 2 and 3, a `TSCellAnimPart` of five `TSBitmapPart`s — are
-drawn through the billboard path, see [`../formats/dts-billboards.md`](../formats/dts-billboards.md).
-The record's `+0x06` animation interval is what steps their flipbook; it is zero for every other
-round.
+The three EMP rounds — `BULLETS.DTS` roots 2 and 3, a `TSCellAnimPart` of five `TSBitmapPart`s — are drawn through the billboard path, see [`../formats/dts-billboards.md`](../formats/dts-billboards.md). The record's `+0x06` animation interval is what steps their flipbook; it is zero for every other round.
 
 ## How a round is drawn
 
-`Bullet_Draw` (`0040a120`) is the class's vtable slot 0: it zeroes `DAT_004a5b1c` for the duration
-(which is what makes a projectile's textured polys fullbright, see
-[`../formats/dts-texture-binding.md`](../formats/dts-texture-binding.md#tstexture4poly--frame-index-ramp-row-by-light-fullbright-on-demand)),
-installs the object's frame as the model transform, renders the shape instance at `+0x34`, and
-restores.
+`Bullet_Draw` (`0040a120`) is the class's vtable slot 0: it zeroes `DAT_004a5b1c` for the duration (which is what makes a projectile's textured polys fullbright, see [`../formats/dts-texture-binding.md`](../formats/dts-texture-binding.md#tstexture4poly--frame-index-ramp-row-by-light-fullbright-on-demand)), installs the object's frame as the model transform, renders the shape instance at `+0x34`, and restores.
 
-Reaching it, a round is bucketed by terrain cell into `ObjList::drawTable` and then drawn from a
-depth-sorted render entry that carries its distance — so its **depth fade is set from its own
-range** like any other object's, not pinned to a fixed ramp row. The full path and the evidence are
-in [`../formats/distance-fog-and-sky.md`](../formats/distance-fog-and-sky.md).
+Reaching it, a round is bucketed by terrain cell into `ObjList::drawTable` and then drawn from a depth-sorted render entry that carries its distance — so its **depth fade is set from its own range** like any other object's, not pinned to a fixed ramp row. The full path and the evidence are in [`../formats/distance-fog-and-sky.md`](../formats/distance-fog-and-sky.md).
 
-The fade is spent as a row offset inside `Raster_ShadeRampRow`, which the fullbright fill does not
-call — so whether a plasma round actually fogs is untraced. Every other round's shape is
-`TSSolidPoly` and fades normally. The engine fogs all of them per pixel regardless, which is how it
-renders the fade throughout.
+The fade is spent as a row offset inside `Raster_ShadeRampRow`, which the fullbright fill does not call — so whether a plasma round actually fogs is untraced. Every other round's shape is `TSSolidPoly` and fades normally. The engine fogs all of them per pixel regardless, which is how it renders the fade throughout.

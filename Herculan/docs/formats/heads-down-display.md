@@ -1,19 +1,12 @@
 # The Heads-Down Display
 
-The two-page console below the dashboard, reached by panning down from the forward view.
-Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project; addresses are DBSIM. Symbols
-are in `tools/ghidra_scripts/known_symbols.json`, applied with `ES2ApplySymbolNames.java`.
+The two-page console below the dashboard, reached by panning down from the forward view. Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project; addresses are DBSIM. Symbols are in `tools/ghidra_scripts/known_symbols.json`, applied with `ES2ApplySymbolNames.java`.
 
-Surrounding cockpit, canopy art and the pan itself: [`cockpit-hud.md`](cockpit-hud.md). Caption text:
-[`str-strings.md`](str-strings.md). Label placement and fonts: [`dfn-hfn-dci.md`](dfn-hfn-dci.md).
-Closest precedent for the widget vocabulary: [`mfd.md`](mfd.md).
+Surrounding cockpit, canopy art and the pan itself: [`cockpit-hud.md`](cockpit-hud.md). Caption text: [`str-strings.md`](str-strings.md). Label placement and fonts: [`dfn-hfn-dci.md`](dfn-hfn-dci.md). Closest precedent for the widget vocabulary: [`mfd.md`](mfd.md).
 
-Engine implementation: `Herculan.Engine.Content.{HddLayout, HddPage, HddDamageView}`,
-`Herculan.Engine.Render.Overlay2DRenderer.AddHeadsDown`. The command display's own types are listed
-in its section below.
+Engine implementation: `Herculan.Engine.Content.{HddLayout, HddPage, HddDamageView}`, `Herculan.Engine.Render.Overlay2DRenderer.AddHeadsDown`. The command display's own types are listed in its section below.
 
-How a click on one of the widgets below reaches its own click handler:
-[`cockpit-input.md`](cockpit-input.md).
+How a click on one of the widgets below reaches its own click handler: [`cockpit-input.md`](cockpit-input.md).
 
 ## Object model
 
@@ -64,8 +57,7 @@ Page 0 is handed the screen rect and the order column; page 1 the screen rect an
 
 ## `.GAU` block at 1212
 
-**The whole display is authored per herc** — unlike the MFD, whose `.GAU` supplies one panel rect and
-nothing else. The block runs to 1588 and is read as `int32`s from its own start:
+**The whole display is authored per herc** — unlike the MFD, whose `.GAU` supplies one panel rect and nothing else. The block runs to 1588 and is read as `int32`s from its own start:
 
 | Index | Bytes | Contents |
 |---|---|---|
@@ -81,14 +73,9 @@ nothing else. The block runs to 1588 and is read as `int32`s from its own start:
 | `0x5d` | 1584 | Unread |
 | `0x5e` | 1588 | Comm-box highlight mode |
 
-All values are authored in the 320-wide space. `HddGau_ApplyCoordShift` adds `0x28` to the origin's y
-**before** shifting, then shifts every rect by `VideoMode_X/YCoordShift`; the constructor adds the
-shifted origin to each rect.
+All values are authored in the 320-wide space. `HddGau_ApplyCoordShift` adds `0x28` to the origin's y **before** shifting, then shifts every rect by `VideoMode_X/YCoordShift`; the constructor adds the shifted origin to each rect.
 
-**The `+0x28` bias is what puts the block on the art.** Every retail file authors the origin as
-`(0, 197)`, so the bias makes it `(0, 237)` — the canvas origin every retail `.VUE` gives view 1,
-i.e. the row `.HB1` is blitted at. Subtracting the `.VUE` origin back off yields art-local
-coordinates, and in retail data the two cancel exactly: art-local device = authored x 2.
+**The `+0x28` bias is what puts the block on the art.** Every retail file authors the origin as `(0, 197)`, so the bias makes it `(0, 237)` — the canvas origin every retail `.VUE` gives view 1, i.e. the row `.HB1` is blitted at. Subtracting the `.VUE` origin back off yields art-local coordinates, and in retail data the two cancel exactly: art-local device = authored x 2.
 
 Screen rect is 459x201 device (230x101 authored inclusive) in every herc; only its position varies.
 
@@ -104,14 +91,11 @@ Screen rect is 459x201 device (230x101 authored inclusive) in every herc; only i
 | SAMSON | `90,86 – 548,286` | 0 |
 | TOMAHAWK | `90,134 – 548,334` | 1 |
 
-Positions differ structurally, not just by offset: TOMAHAWK puts its comm boxes above the map, OUTLAW
-and RAZOR stack the two page buttons vertically, APOCA/COLOSSUS/MAVERICK put the button strip below
-the map rather than above it.
+Positions differ structurally, not just by offset: TOMAHAWK puts its comm boxes above the map, OUTLAW and RAZOR stack the two page buttons vertically, APOCA/COLOSSUS/MAVERICK put the button strip below the map rather than above it.
 
 ## Widgets
 
-15, in the constructor's index order. Frames are `hba\HDD.HBA`; the lit frame is always the one after
-the unlit.
+15, in the constructor's index order. Frames are `hba\HDD.HBA`; the lit frame is always the one after the unlit.
 
 | i | Role | Unlit frame | Caption |
 |---|---|---|---|
@@ -129,20 +113,13 @@ the unlit.
 | 13 | XMIT | 0 | group 9 entry 0 |
 | 14 | CANCEL | 0 | group 9 entry 1 |
 
-Both page buttons take frames 25/26: the constructor's shared `case 0: case 1:` body re-sets the
-frame base each time, so they differ only by their lit flag.
+Both page buttons take frames 25/26: the constructor's shared `case 0: case 1:` body re-sets the frame base each time, so they differ only by their lit flag.
 
-Page buttons caption themselves from the `"Fx"` literal at `0049d4f5` with byte 1 overwritten by
-`'7' + index` — the same trick `MfdButton_SetCaption` uses for `F1`-`F6`. Font is
-`ColorSchemePanels[12]` `DARK` lit, `[10]` `WHITE` unlit. XMIT/CANCEL use `[4]` `CPON` unlit and
-`[5]` `CPPRESS` lit, centred on a caption box of the plate's own 54x20 size rather than on the widget
-rect.
+Page buttons caption themselves from the `"Fx"` literal at `0049d4f5` with byte 1 overwritten by `'7' + index` — the same trick `MfdButton_SetCaption` uses for `F1`-`F6`. Font is `ColorSchemePanels[12]` `DARK` lit, `[10]` `WHITE` unlit. XMIT/CANCEL use `[4]` `CPON` unlit and `[5]` `CPPRESS` lit, centred on a caption box of the plate's own 54x20 size rather than on the widget rect.
 
 ### Frame-to-widget confirmation
 
-Every widget rect checked against its frame's own size in `hba\HDD.HBA`, across all nine retail
-`.GAU` files — 90 checks, 54 exact. Device inclusive width is `2*(x1-x0) + 1`, so the comparison is
-`rect + 1` against the frame:
+Every widget rect checked against its frame's own size in `hba\HDD.HBA`, across all nine retail `.GAU` files — 90 checks, 54 exact. Device inclusive width is `2*(x1-x0) + 1`, so the comparison is `rect + 1` against the frame:
 
 | Widgets | Rect+1 | Frame | |
 |---|---|---|---|
@@ -153,12 +130,9 @@ Every widget rect checked against its frame's own size in `hba\HDD.HBA`, across 
 | Page buttons | 26x12 | 25-26 = 26x14 | plate overhangs 2 rows |
 | XMIT/CANCEL | 70x18 | 0-1 = 54x20 | plate narrower than the click rect |
 
-The two inexact classes are inexact in the original too: the page-button overhang is the same idiom
-the `PWEAPONS` row plates use, and XMIT/CANCEL's rects overlap each other by a column, so they are
-hit regions rather than art extents.
+The two inexact classes are inexact in the original too: the page-button overhang is the same idiom the `PWEAPONS` row plates use, and XMIT/CANCEL's rects overlap each other by a column, so they are hit regions rather than art extents.
 
-`HDD.HBA` has 27 frames; `HDD.DBA` has the same 27 at different sizes — this bank is **not** a 2x
-pair, unlike the rest of the `hba`/`dba` set.
+`HDD.HBA` has 27 frames; `HDD.DBA` has the same 27 at different sizes — this bank is **not** a 2x pair, unlike the rest of the `hba`/`dba` set.
 
 | Frames | Size (`.HBA`) | Use |
 |---|---|---|
@@ -171,23 +145,18 @@ pair, unlike the rest of the `hba`/`dba` set.
 
 ### Visibility
 
-2 rows x 15 bytes at `HddPageWidgetVisibility` (`0049d24c`), indexed `[page][widget]`. A 0 sets the
-widget's state to 2, the value `HddButton_Paint` refuses to draw at.
+2 rows x 15 bytes at `HddPageWidgetVisibility` (`0049d24c`), indexed `[page][widget]`. A 0 sets the widget's state to 2, the value `HddButton_Paint` refuses to draw at.
 
 | Page | Widgets shown |
 |---|---|
 | 0 Command display | 0-7, 13-14 |
 | 1 Damage detail | 0-5 |
 
-Both rows hide widgets 10-12. That is not a contradiction: those widgets paint only the selection
-highlight, and `HddGauge_LoadPilotFrames` clears the state back to 0 for each slot a squadmate
-occupies. The boxes themselves are drawn by `HddDisplay_Repaint`.
+Both rows hide widgets 10-12. That is not a contradiction: those widgets paint only the selection highlight, and `HddGauge_LoadPilotFrames` clears the state back to 0 for each slot a squadmate occupies. The boxes themselves are drawn by `HddDisplay_Repaint`.
 
 ## Paint order
 
-`HddDisplay_Repaint`: visible widgets, the current page's paint, the indicator rect, the title, then
-the three comm gauges. A page floods its screen rect only on a full repaint, which is why the widgets
-going first does not erase XMIT and CANCEL.
+`HddDisplay_Repaint`: visible widgets, the current page's paint, the indicator rect, the title, then the three comm gauges. A page floods its screen rect only on a full repaint, which is why the widgets going first does not erase XMIT and CANCEL.
 
 ## Colours
 
@@ -205,9 +174,7 @@ Logical ids through `dat\COLORS.DAT` (see [`cockpit-hud.md`](cockpit-hud.md)).
 
 ## Command display — page 0
 
-`HddCommandScreen_Ctor` (`0044c264`), repainted by `HddCommandScreen_Repaint` (`0044c894`) and
-updated by `FUN_0044c960`, its vtable's slot 1. Translation unit fields are quoted off the screen
-object, not the display.
+`HddCommandScreen_Ctor` (`0044c264`), repainted by `HddCommandScreen_Repaint` (`0044c894`) and updated by `FUN_0044c960`, its vtable's slot 1. Translation unit fields are quoted off the screen object, not the display.
 
 | Symbol | Address | Role |
 |---|---|---|
@@ -223,36 +190,26 @@ object, not the display.
 | `HddCommandScreen_SelectPilot` | `0044da70` | Moves the comm-box selection. |
 | `HddCommandScreen_HitTestMarker` | `0044d860` | Screen point to object. |
 
-Engine implementation: `Herculan.Engine.Content.{HddMap, HddMapView, HddMapBounds, HddMapMarker,
-HddCommandScreen, HddCommandState}`, `Herculan.Engine.Render.{HddMapRaster,
-Overlay2DRenderer.DrawHddMap}`.
+Engine implementation: `Herculan.Engine.Content.{HddMap, HddMapView, HddMapBounds, HddMapMarker, HddCommandScreen, HddCommandState}`, `Herculan.Engine.Render.{HddMapRaster, Overlay2DRenderer.DrawHddMap}`.
 
 ### The map's frame of reference
 
-**The mission box is `script.dat` block 1's bounding box.** `DBSim_LoadScriptDat` (`00424308`)
-accumulates it into `DAT_004aa6c4`..`d0` (min x, min y, max x, max y) as it reads the coordinate
-list, before any roster block. Everything the map does is measured against it:
+**The mission box is `script.dat` block 1's bounding box.** `DBSim_LoadScriptDat` (`00424308`) accumulates it into `DAT_004aa6c4`..`d0` (min x, min y, max x, max y) as it reads the coordinate list, before any roster block. Everything the map does is measured against it:
 
 - the screen copies it into its own `+0x160` rect and draws it as the manual's red mission border;
 - the pan clamp is that box grown by 60000 world units on every edge;
 - the terrain raster covers the grown box;
 - the full zoom-out scale fits it.
 
-**Map viewport**: the screen rect inset `4 << XCoordShift` on x and `2 << YCoordShift` on y, with its
-right edge taken from the *order column's* left edge minus the same x inset. Backed by a `0x239`-byte
-offscreen render target — the same object the MFD's nav map uses — centred at
-`-(width >> 1), -(height >> 1)`.
+**Map viewport**: the screen rect inset `4 << XCoordShift` on x and `2 << YCoordShift` on y, with its right edge taken from the *order column's* left edge minus the same x inset. Backed by a `0x239`-byte offscreen render target — the same object the MFD's nav map uses — centred at `-(width >> 1), -(height >> 1)`.
 
-**Projection.** `FUN_0044d160` installs a view projection carrying three numbers only: the centre x
-and y (`+0x18`/`+0x1c`) and the scale (`+0x20`). Points go through `Raster_PerspectiveDivide` against
-a focal length of `1 << DAT_0049d6bc` = 256, so
+**Projection.** `FUN_0044d160` installs a view projection carrying three numbers only: the centre x and y (`+0x18`/`+0x1c`) and the scale (`+0x20`). Points go through `Raster_PerspectiveDivide` against a focal length of `1 << DAT_0049d6bc` = 256, so
 
 ```
 screen = (world - centre) * 256 / scale        // y negated: world +y is up the map
 ```
 
-and `scale` is world units per pixel in 8.8 fixed point. `FUN_0044d224` then adds the viewport's own
-origin and half-extent.
+and `scale` is world units per pixel in 8.8 fixed point. `FUN_0044d224` then adds the viewport's own origin and half-extent.
 
 | Quantity | Value | Source |
 |---|---|---|
@@ -261,50 +218,33 @@ origin and half-extent.
 | Zoom step | `max((full - 60000) / 25, 5000)` | ctor |
 | Pan step | `(((scale - 60000) >> 8) * 45000 / (full - 60000) << 8) + 5000` | `FUN_0044eea0` |
 
-`min`, not `max`, on the fit: the tighter axis fills the viewport and the other crops. The centre is
-the player's own position plus the pan offset, re-clamped every repaint so the viewport's edge never
-leaves the grown box.
+`min`, not `max`, on the fit: the tighter axis fills the viewport and the other crops. The centre is the player's own position plus the pan offset, re-clamped every repaint so the viewport's edge never leaves the grown box.
 
 ### Terrain raster
 
-`HddMap_BuildTerrainRaster` (`0044f6cc`) runs once per mission, not per frame. It walks the active
-height grid, turns each cell's raw height into a palette index, and Gouraud-shades two triangles per
-cell into an offscreen 8-bit bitmap; `HddMap_DrawTerrain` (`004502e4`) then blits that bitmap between
-two projected corners on every repaint, which is why panning and zooming cost nothing.
+`HddMap_BuildTerrainRaster` (`0044f6cc`) runs once per mission, not per frame. It walks the active height grid, turns each cell's raw height into a palette index, and Gouraud-shades two triangles per cell into an offscreen 8-bit bitmap; `HddMap_DrawTerrain` (`004502e4`) then blits that bitmap between two projected corners on every repaint, which is why panning and zooming cost nothing.
 
 ```
 palette = min(rawHeight, 0x7f) / 8 + 16
 ```
 
-Sixteen entries, 16-31 — the theater-owned half of the ramp, so the map re-colours with the theater
-exactly as the terrain does. The bitmap is sized `cells * scale` where `scale` is the largest integer
-fitting the grown box's cell span inside 640x400.
+Sixteen entries, 16-31 — the theater-owned half of the ramp, so the map re-colours with the theater exactly as the terrain does. The bitmap is sized `cells * scale` where `scale` is the largest integer fitting the grown box's cell span inside 640x400.
 
-The cell array is `ActiveHeightGrid + 0xec`, stride `0x10`, height in byte 0; the grid's dimensions
-come from `+0x100`/`+0x104` (log2) and its cell size from `+0x108`.
+The cell array is `ActiveHeightGrid + 0xec`, stride `0x10`, height in byte 0; the grid's dimensions come from `+0x100`/`+0x104` (log2) and its cell size from `+0x108`.
 
 ### Grid and border
 
-`HddCommandScreen_DrawMap` (`0044e30c`) projects the world origin and the point 3,200,000 units out
-on both axes, divides the resulting pixel span by 16, and walks lines out from the origin in both
-directions until they leave the viewport. A grid square is therefore **200,000 world units — 1200
-metres**. Lines are colour id 11.
+`HddCommandScreen_DrawMap` (`0044e30c`) projects the world origin and the point 3,200,000 units out on both axes, divides the resulting pixel span by 16, and walks lines out from the origin in both directions until they leave the viewport. A grid square is therefore **200,000 world units — 1200 metres**. Lines are colour id 11.
 
-The border is the mission box drawn through fill brush mode 4, which `Raster_FillRect` (`004865f8`)
-answers by walking the rect's four edges as lines rather than filling it — a one-pixel frame, in id 9
-(palette 10, red).
+The border is the mission box drawn through fill brush mode 4, which `Raster_FillRect` (`004865f8`) answers by walking the rect's four edges as lines rather than filling it — a one-pixel frame, in id 9 (palette 10, red).
 
 ### Markers
 
-140 icon gadgets allocated up front. `HddCommandScreen_BuildMapMarkers` (`0044ded8`) refills them per
-frame — the player's route first, then one per object in the three global object lists, then one more
-whose position comes from `FUN_0043495c` — and releases the rest.
+140 icon gadgets allocated up front. `HddCommandScreen_BuildMapMarkers` (`0044ded8`) refills them per frame — the player's route first, then one per object in the three global object lists, then one more whose position comes from `FUN_0043495c` — and releases the rest.
 
-Route markers take icons `0x4e`+ and start at the route's **second** point: the loop bound is
-`count - 1` capped at 9 and it indexes `route[i + 1]`.
+Route markers take icons `0x4e`+ and start at the route's **second** point: the loop bound is `count - 1` capped at 9 and it indexes `route[i + 1]`.
 
-`HddCommandScreen_AddObjectMarker` (`0044e080`) picks the icon from the object's target class
-(`+0x1a8`) and its group's side byte (`type+0x12`, 1 for cybrid):
+`HddCommandScreen_AddObjectMarker` (`0044e080`) picks the icon from the object's target class (`+0x1a8`) and its group's side byte (`type+0x12`, 1 for cybrid):
 
 | Class | Friendly | Hostile | Size | Rotates | Ranged |
 |---|---|---|---|---|---|
@@ -316,50 +256,32 @@ Route markers take icons `0x4e`+ and start at the route's **second** point: the 
 | 1/3 structure, `+0x28` in the listed set | 3 | 5 | 14 | no | yes |
 | 1/3 structure, otherwise | 2 | 4 | 18 | no | yes |
 
-The listed silhouettes are 1, 2, 6, 7, 10, 11, 15, 19, 20, 21, 22, 23, 24, 26 and 28. Sizes are the
-argument to `FUN_0044f634`, which becomes the gadget's extent and, halved, the offset the icon is
-drawn back by so it lands on the object.
+The listed silhouettes are 1, 2, 6, 7, 10, 11, 15, 19, 20, 21, 22, 23, 24, 26 and 28. Sizes are the argument to `FUN_0044f634`, which becomes the gadget's extent and, halved, the offset the icon is drawn back by so it lands on the object.
 
-**Rotation.** `HddMarker_Paint` (`0044f194`) buckets the object's heading into eight octants — a
-heading within `0x1000` of zero is octant 0, and every other counts down from 7 in `0x2000` steps —
-then adds `DAT_0049d67c[octant]` to the group's base frame and nudges the blit by
-`DAT_004d1d54[octant]` and `DAT_004d1d5c[octant]` device pixels:
+**Rotation.** `HddMarker_Paint` (`0044f194`) buckets the object's heading into eight octants — a heading within `0x1000` of zero is octant 0, and every other counts down from 7 in `0x2000` steps — then adds `DAT_0049d67c[octant]` to the group's base frame and nudges the blit by `DAT_004d1d54[octant]` and `DAT_004d1d5c[octant]` device pixels:
 
 | Octant | 0 N | 7 NE | 6 E | 5 SE | 4 S | 3 SW | 2 W | 1 NW |
 |---|---|---|---|---|---|---|---|---|
 | Frame offset | 4 | 3 | 7 | 2 | 6 | 1 | 5 | 0 |
 | Nudge x, y | 0, -8 | -4, -4 | -8, 0 | -4, 0 | 0, 0 | 0, 0 | 0, 0 | 0, -4 |
 
-The frame sizes confirm it: in every nine-frame group, offsets 4 and 6 are the tall pair, 5 and 7 the
-wide pair, and 0-3 the four square diagonals. A destroyed object (`+0x99`) takes the base frame with
-no nudge.
+The frame sizes confirm it: in every nine-frame group, offsets 4 and 6 are the tall pair, 5 and 7 the wide pair, and 0-3 the four square diagonals. A destroyed object (`+0x99`) takes the base frame with no nudge.
 
-**Range falloff.** A ranged marker computes an apparent size from its distance to the map centre,
-measured in three dimensions with the zoom standing in for height:
+**Range falloff.** A ranged marker computes an apparent size from its distance to the map centre, measured in three dimensions with the zoom standing in for height:
 
 ```
 apparent = 25000 << 7 / |(x - centreX, y - centreY, -scale)|
 ```
 
-and draws a box of that size in its own colour — id 5 blue friendly, id 9 red hostile — whenever the
-icon it would otherwise blit is taller. `25000 << 7 / 16` puts the crossover at 200,000 world units
-out, the same 1200 m one grid square covers.
+and draws a box of that size in its own colour — id 5 blue friendly, id 9 red hostile — whenever the icon it would otherwise blit is taller. `25000 << 7 / 16` puts the crossover at 200,000 world units out, the same 1200 m one grid square covers.
 
-`hba\ICONS.HBA` is 90 frames: two singles, four structure icons, then eight nine-frame rotation
-groups from frame 6, then ten 16x13 route markers at 78-87 and two 8x5 ticks. It is loaded lazily by
-`HddMarker_Ctor` (`0044f130`) rather than with the rest of the display's art.
+`hba\ICONS.HBA` is 90 frames: two singles, four structure icons, then eight nine-frame rotation groups from frame 6, then ten 16x13 route markers at 78-87 and two 8x5 ticks. It is loaded lazily by `HddMarker_Ctor` (`0044f130`) rather than with the rest of the display's art.
 
 ### The order list and its state machine
 
-**Order rows**: the column's height divided by 9. Row 0 is the incoming-message label
-(`ColorSchemePanels[2]`, background id 14); rows 1-8 are the orders, each 14 device pixels tall, left
-aligned with a bare `5`-pixel margin (unshifted, unlike the MFD's FLASH COMM rows). A 2px-wide
-vertical bar at the column's left edge marks the selected row in id 15, three device pixels down from
-the row's top, and `HddCommandScreen_DrawOrderHighlight` (`0044dd4c`) blits the 116x18 plate — frame
-2 available, frame 4 not — at the row label's own text position.
+**Order rows**: the column's height divided by 9. Row 0 is the incoming-message label (`ColorSchemePanels[2]`, background id 14); rows 1-8 are the orders, each 14 device pixels tall, left aligned with a bare `5`-pixel margin (unshifted, unlike the MFD's FLASH COMM rows). A 2px-wide vertical bar at the column's left edge marks the selected row in id 15, three device pixels down from the row's top, and `HddCommandScreen_DrawOrderHighlight` (`0044dd4c`) blits the 116x18 plate — frame 2 available, frame 4 not — at the row label's own text position.
 
-**Order text** is `STRINGS0.STR` group 0 entries 10-17, and each entry's single attribute byte is the
-index of its hotkey character within its own text:
+**Order text** is `STRINGS0.STR` group 0 entries 10-17, and each entry's single attribute byte is the index of its hotkey character within its own text:
 
 | Entry | Text | Attr | Hotkey | Scancode | Wants |
 |---|---|---|---|---|---|
@@ -372,18 +294,11 @@ index of its hotkey character within its own text:
 | 16 | `SCAN FOR HOSTILES` | 1 | C | `0x2e` | — |
 | 17 | `EMCON` | 0 | E | `0x12` | — |
 
-All eight match the manual's key bindings. `HddCommandScreen_RefreshOrders` (`0044ddec`) fonts an
-available order `ColorSchemePanels[1]` `CPGREEN` with the hotkey character in `[2]` `CPRED`, an
-unavailable one wholly in `[0]` `CPBLUE`, and the selected one in `[3]` `CPYLW` with no hotkey
-alternate at all.
+All eight match the manual's key bindings. `HddCommandScreen_RefreshOrders` (`0044ddec`) fonts an available order `ColorSchemePanels[1]` `CPGREEN` with the hotkey character in `[2]` `CPRED`, an unavailable one wholly in `[0]` `CPBLUE`, and the selected one in `[3]` `CPYLW` with no hotkey alternate at all.
 
-**Availability is one bit.** The screen keeps eight bytes at `+0x131`, and the only two functions
-that write them set all eight: `FUN_0044edd8` to 1 when a pilot is selected and `FUN_0044edfc` to 0
-when none is. So the list is either wholly live or wholly blue.
+**Availability is one bit.** The screen keeps eight bytes at `+0x131`, and the only two functions that write them set all eight: `FUN_0044edd8` to 1 when a pilot is selected and `FUN_0044edfc` to 0 when none is. So the list is either wholly live or wholly blue.
 
-**The message row** is `STRINGS0.STR` group 32 — `SELECT PILOT`, `SELECT COMMAND`,
-`DESIGNATE LOCATION`, `DESIGNATE TARGET` — chosen by `FUN_0044dc44` from the same two facts: whether
-a pilot is selected, and which of the two picks the armed order wants.
+**The message row** is `STRINGS0.STR` group 32 — `SELECT PILOT`, `SELECT COMMAND`, `DESIGNATE LOCATION`, `DESIGNATE TARGET` — chosen by `FUN_0044dc44` from the same two facts: whether a pilot is selected, and which of the two picks the armed order wants.
 
 **The rest of the keyboard**, from the same scancode dispatch:
 
@@ -396,10 +311,7 @@ a pilot is selected, and which of the two picks the armed order wants.
 | Backspace | `0x0e` | Presses CANCEL |
 | Keypad 5 | `0x4c` | Zeroes both pan offsets |
 
-The magnifiers and the four arrows are widget presses rather than keys: `FUN_0044a178`'s cases 2-7
-route them to the four pan functions and the two zoom functions on page 0 and to the damage screen's
-own subject and category steps on page 1. XMIT plays `Sound_Play(0x1a)` when the transmission
-resolves to a recipient and `0x1b` when it does not.
+The magnifiers and the four arrows are widget presses rather than keys: `FUN_0044a178`'s cases 2-7 route them to the four pan functions and the two zoom functions on page 0 and to the damage screen's own subject and category steps on page 1. XMIT plays `Sound_Play(0x1a)` when the transmission resolves to a recipient and `0x1b` when it does not.
 
 ## Damage detail — page 1
 
@@ -415,21 +327,11 @@ Three categories, set by `HddDamageScreen_SetView` (`00450b60`), which also sets
 
 The flyer variant is selected by a flag at the subject type's `+0x50`.
 
-**Rows**: 13 label pairs, so a 19-entry structural list scrolls. Each row is 8 device pixels tall at a
-14-pixel pitch from the column's top. The name starts `0x1e << XCoordShift` = 60 pixels in from the
-column's left edge and runs to the value column, whose width is the measured width of the literal
-`"100"` (`0049da9d`) taken off the column's right edge. Both labels sit on background id 19.
+**Rows**: 13 label pairs, so a 19-entry structural list scrolls. Each row is 8 device pixels tall at a 14-pixel pitch from the column's top. The name starts `0x1e << XCoordShift` = 60 pixels in from the column's left edge and runs to the value column, whose width is the measured width of the literal `"100"` (`0049da9d`) taken off the column's right edge. Both labels sit on background id 19.
 
-**A row is a `.PDG` region, not a table entry.** The update walks the category's region vector in file
-order and takes each region's `index` as the index into the name group *and* into
-`Component_FillDamageReadouts`' buffer — armour entry `1 + id` for structural, dependent entry
-`20 + id` for internal. The two orders differ: every retail internal view lists its regions
-0,1,2,5,6,7,8,3,4,9, so reading group 15 top to bottom gives the wrong names. The value is
-`(0x100 - reading) * 100 >> 8`, the same integrity percentage the MFD's label 4 prints, which is what
-the `"100"` reservation is sized for.
+**A row is a `.PDG` region, not a table entry.** The update walks the category's region vector in file order and takes each region's `index` as the index into the name group *and* into `Component_FillDamageReadouts`' buffer — armour entry `1 + id` for structural, dependent entry `20 + id` for internal. The two orders differ: every retail internal view lists its regions 0,1,2,5,6,7,8,3,4,9, so reading group 15 top to bottom gives the wrong names. The value is `(0x100 - reading) * 100 >> 8`, the same integrity percentage the MFD's label 4 prints, which is what the `"100"` reservation is sized for.
 
-Both of a row's labels are re-fonted together from `Damage_PickRegionTint`'s state, so a name changes
-colour with its number:
+Both of a row's labels are re-fonted together from `Damage_PickRegionTint`'s state, so a name changes colour with its number:
 
 | State | Font | |
 |---|---|---|
@@ -439,42 +341,23 @@ colour with its number:
 | 3 | `[2]` | `cpred` |
 | 4 | `[7]` | `cpgrey` |
 
-That is the manual's green-through-red plus grey for inoperative. The constructor's own `[1]` shows
-only until the first update runs.
+That is the manual's green-through-red plus grey for inoperative. The constructor's own `[1]` shows only until the first update runs.
 
-**Paper doll**: the `.PDG` view for the category, blitted at the screen rect's top-left plus that
-view's own origin, then tinted region by region through
-[`PaperDoll_RecolorRectFromArt`](cockpit-hud.md#tinting) — one tint per row, from the same reading the
-row prints. The structural view's first two regions are the exception: they share one rect, so row 0
-tints on the mean of both cockpit halves and row 1 tints nothing while still printing its own number.
-A flyer chassis has no such pair and tints straight from the row.
+**Paper doll**: the `.PDG` view for the category, blitted at the screen rect's top-left plus that view's own origin, then tinted region by region through [`PaperDoll_RecolorRectFromArt`](cockpit-hud.md#tinting) — one tint per row, from the same reading the row prints. The structural view's first two regions are the exception: they share one rect, so row 0 tints on the mean of both cockpit halves and row 1 tints nothing while still printing its own number. A flyer chassis has no such pair and tints straight from the row.
 
-**Subject caption**: `HddDamageScreen_SetSubjectCaption` (`0044ba2c`) fills an 81x15 device box 56
-pixels in from the screen's left edge and 4 up from its bottom, from the display's five-name array at
-`+0x548` indexed by `+0x55c`. The player draws `ColorSchemePanels[3]` on colour id 6; a squadmate
-`[2]` on that pilot's own `COLORS.DAT` entry; the target `[2]` on id 15. With no subject the screen
-also writes group 19 (`NO TARGET SELECTED` / `NO INFO AVAILABLE`) to a centred label.
+**Subject caption**: `HddDamageScreen_SetSubjectCaption` (`0044ba2c`) fills an 81x15 device box 56 pixels in from the screen's left edge and 4 up from its bottom, from the display's five-name array at `+0x548` indexed by `+0x55c`. The player draws `ColorSchemePanels[3]` on colour id 6; a squadmate `[2]` on that pilot's own `COLORS.DAT` entry; the target `[2]` on id 15. With no subject the screen also writes group 19 (`NO TARGET SELECTED` / `NO INFO AVAILABLE`) to a centred label.
 
 ## Squad comm boxes
 
-Three, at widgets 10-12, backed by `0x14e`-byte gauges in a vector at `+0x12d`. Marker rects come
-from block offset `0x50`; every retail file sets the highlight mode to 1, the branch that fills the
-marker beside the box rather than the box itself.
+Three, at widgets 10-12, backed by `0x14e`-byte gauges in a vector at `+0x12d`. Marker rects come from block offset `0x50`; every retail file sets the highlight mode to 1, the branch that fills the marker beside the box rather than the box itself.
 
 ### Who is in it
 
-The machine's own pilot index — `MecEntry.PilotNameIndex`, the leading field of its `player.mec`
-record ([`../shell/campaign-loop.md`](../shell/campaign-loop.md)), stamped onto the spawned machine at `mech+0x29c` by
-`DBSim_SpawnMissionObjects` (`004253d8`). `HddGauge_LoadPilotFrames` walks `str\PILOTS.STR` to it for
-the box's name, takes `index / 3` (`FUN_00434240`) as the portrait bank `dba\PILOT<n>.DBA` +
-`ofs\PILOT<n>.OFS`, and `(n >> 2) + 1` with 3 remapped to 4 (`FUN_00434260`) as the voice bank
-([`audio.md`](audio.md#file-naming)). So the simulator's 36-name table and VSHELL's own roster are
-indexed by the same number.
+The machine's own pilot index — `MecEntry.PilotNameIndex`, the leading field of its `player.mec` record ([`../shell/campaign-loop.md`](../shell/campaign-loop.md)), stamped onto the spawned machine at `mech+0x29c` by `DBSim_SpawnMissionObjects` (`004253d8`). `HddGauge_LoadPilotFrames` walks `str\PILOTS.STR` to it for the box's name, takes `index / 3` (`FUN_00434240`) as the portrait bank `dba\PILOT<n>.DBA` + `ofs\PILOT<n>.OFS`, and `(n >> 2) + 1` with 3 remapped to 4 (`FUN_00434260`) as the voice bank ([`audio.md`](audio.md#file-naming)). So the simulator's 36-name table and VSHELL's own roster are indexed by the same number.
 
 ### The gauge
 
-`HddGauge_LoadPilotFrames` (`0044a7c0`) loads the bank from `dba\` (hardcoded, like `corners`) plus
-its `.OFS` offsets, and builds six labels relative to the box rect, each `0x21` bytes:
+`HddGauge_LoadPilotFrames` (`0044a7c0`) loads the bank from `dba\` (hardcoded, like `corners`) plus its `.OFS` offsets, and builds six labels relative to the box rect, each `0x21` bytes:
 
 | Label | Rect | Font | Text |
 |---|---|---|---|
@@ -485,19 +368,9 @@ its `.OFS` offsets, and builds six labels relative to the box rect, each `0x21` 
 | `+0x13d` | full width, `y0+80` | `[2]` | group 40 current order |
 | `+0x141` | `x0 .. x0+20`, bottom 20 | `[2]` | slot number, background id 15 |
 
-Offsets are device pixels. The name's per-slot background — `COLORS.DAT` entries 0, 1, 2 = palette
-14, 15, 31 — is the manual's "squad members are shown on the map in the same color that highlights
-their name on the comm screen", and it is the same id the pilot channel's own box fills with
-([`audio.md`](audio.md#its-box)).
+Offsets are device pixels. The name's per-slot background — `COLORS.DAT` entries 0, 1, 2 = palette 14, 15, 31 — is the manual's "squad members are shown on the map in the same color that highlights their name on the comm screen", and it is the same id the pilot channel's own box fills with ([`audio.md`](audio.md#its-box)).
 
-`ofs\PILOT<n>.OFS` has no header and no count: a flat array of three-`int32` entries —
-`{ frameIndex, x, y }` — of which the loader reads a fixed 27, copying each pair to
-`gauge + frameIndex * 8 + 0x3d`. The pair is signed and in the bank's own 320-wide space: it is the
-frame's position inside the box, added **raw** while the frame itself is blitted doubled, and it
-reaches the MFD's full-screen copy unchanged ([`mfd.md`](mfd.md#transmissions)). The first 24 entries
-are the talking-head frames and share one offset per pilot — `PILOT2`, whose last frame differs, is
-the only exception; entries 24-26 cover the three wider frames at the tail of the bank, which nothing
-in the shipped code path draws.
+`ofs\PILOT<n>.OFS` has no header and no count: a flat array of three-`int32` entries — `{ frameIndex, x, y }` — of which the loader reads a fixed 27, copying each pair to `gauge + frameIndex * 8 + 0x3d`. The pair is signed and in the bank's own 320-wide space: it is the frame's position inside the box, added **raw** while the frame itself is blitted doubled, and it reaches the MFD's full-screen copy unchanged ([`mfd.md`](mfd.md#transmissions)). The first 24 entries are the talking-head frames and share one offset per pilot — `PILOT2`, whose last frame differs, is the only exception; entries 24-26 cover the three wider frames at the tail of the bank, which nothing in the shipped code path draws.
 
 ### The state machine — `FUN_0044b5f8`
 
@@ -510,14 +383,9 @@ Per gauge, state at gauge-relative `+0x13b`:
 | 2 | On entry starts the `.SNC` script; `Snc_GetFrame` drives the portrait until it returns -1, then state 3, deadline `now + 0x14`, and `Sound_Play(0x1c)` |
 | 3 | Static, until the deadline; then state 0 |
 
-`CommBox_OnMessageBegin` (`0044b4ec`) enters state 1 — the port's begin callback
-([`audio.md`](audio.md#the-port)) — with deadline `now + 0x14`, plays `0x1c` if it is not already
-playing, and claims the published block at `+0x766` that the MFD reads. So a reply is static,
-portrait, static, and back to the labels.
+`CommBox_OnMessageBegin` (`0044b4ec`) enters state 1 — the port's begin callback ([`audio.md`](audio.md#the-port)) — with deadline `now + 0x14`, plays `0x1c` if it is not already playing, and claims the published block at `+0x766` that the MFD reads. So a reply is static, portrait, static, and back to the labels.
 
-Other gauge fields: `+0x12e` static frame cycle 0-4, `+0x12f` the speech slot, `+0x133` the
-frame-indirection flag, `+0x135` the portrait number, `+0x137` the name pointer (`HddGauge_Name`,
-`0044b900`), `+0x13f` the previous state, `+0x143` the deadline, `+0x147` the comms-out latch.
+Other gauge fields: `+0x12e` static frame cycle 0-4, `+0x12f` the speech slot, `+0x133` the frame-indirection flag, `+0x135` the portrait number, `+0x137` the name pointer (`HddGauge_Name`, `0044b900`), `+0x13f` the previous state, `+0x143` the deadline, `+0x147` the comms-out latch.
 
 ### The three paints
 
@@ -527,16 +395,11 @@ frame-indirection flag, `+0x135` the portrait number, `+0x137` the name pointer 
 | `HddGauge_PaintPilotFrame` `0044b120` | The same flood, then the `pilot<n>` frame at its `.OFS` offset |
 | `HddGauge_PaintStatic` `0044b3b4` | The `static` bank's 5 frames, cycled one per paint |
 
-The two video paints refresh the name label and **nothing else**, so the plate stays and the four
-status lines under it are simply not drawn while a picture is up. Both clip to the video rect —
-`CommBox_PushVideoClip` (`0044b83c`) installs it and `CommBox_PopVideoClip` (`0044b8f8`) takes it
-back off — which is why a portrait taller than its box is cut off at the bezel.
+The two video paints refresh the name label and **nothing else**, so the plate stays and the four status lines under it are simply not drawn while a picture is up. Both clip to the video rect — `CommBox_PushVideoClip` (`0044b83c`) installs it and `CommBox_PopVideoClip` (`0044b8f8`) takes it back off — which is why a portrait taller than its box is cut off at the bezel.
 
-`HddGauge_ConditionIndex` (`0044adf4`) averages the subject's 19 structural damage bytes into a 0-100
-integrity percentage and buckets it at 90 / 74 / 51 / 1 into group 28's five conditions.
+`HddGauge_ConditionIndex` (`0044adf4`) averages the subject's 19 structural damage bytes into a 0-100 integrity percentage and buckets it at 90 / 74 / 51 / 1 into group 28's five conditions.
 
-An unoccupied slot is not painted by the gauge at all: `HddDisplay_Repaint` floods the box rect inset
-one device pixel with id 19 instead.
+An unoccupied slot is not painted by the gauge at all: `HddDisplay_Repaint` floods the box rect inset one device pixel with id 19 instead.
 
 ## Rejected readings
 
@@ -546,69 +409,29 @@ one device pixel with id 19 instead.
 
 ## `hddclip`
 
-Loaded by `CockpitClipRegions_Load` from `edg\HDDCLIP.EDG` — the 320-wide clip file, shifted by
-`VideoMode_X/YCoordShift` at load, not an `hdg\` counterpart. Regions are then offset by the screen
-rect's own position minus the block origin. Same layout as the `.HD*`/`.ED*` files in
-[`cockpit-hud.md`](cockpit-hud.md).
+Loaded by `CockpitClipRegions_Load` from `edg\HDDCLIP.EDG` — the 320-wide clip file, shifted by `VideoMode_X/YCoordShift` at load, not an `hdg\` counterpart. Regions are then offset by the screen rect's own position minus the block origin. Same layout as the `.HD*`/`.ED*` files in [`cockpit-hud.md`](cockpit-hud.md).
 
 ## Engine coverage
 
-Drawn: page buttons with lit state, the four arrows and two magnifiers, the title indicator, page
-titles, the screen flood, the paper doll per category with its region tints, and 13 component rows in
-`.PDG` region order — structural and internal named from the string table, weapons from the player's
-own fitted hardpoints — each with its live percentage and its state's font.
+Drawn: page buttons with lit state, the four arrows and two magnifiers, the title indicator, page titles, the screen flood, the paper doll per category with its region tints, and 13 component rows in `.PDG` region order — structural and internal named from the string table, weapons from the player's own fitted hardpoints — each with its live percentage and its state's font.
 
-Everything the command display draws is drawn. Zoom, pan, recentring, pilot selection and target 
-designation are all wired to both the widgets and the keys.
+Everything the command display draws is drawn. Zoom, pan, recentring, pilot selection and target designation are all wired to both the widgets and the keys.
 
-The comm boxes run their four-state machine and draw what it says: the `pilot<n>` portrait at its
-`.OFS` offset or the cycling `static`, clipped to the box, with the name plate left over it and the
-four status lines suppressed. Both 320-wide-only banks are taken from `dba\` and blitted doubled, the
-way the original doubles them. A destroyed squadmate's box sits on static: the original's idle paint
-reads the machine's own destroyed flag, and `SquadCommChannel.SetCommsOut` is where this engine keeps
-that.
+The comm boxes run their four-state machine and draw what it says: the `pilot<n>` portrait at its `.OFS` offset or the cycling `static`, clipped to the box, with the name plate left over it and the four status lines suppressed. Both 320-wide-only banks are taken from `dba\` and blitted doubled, the way the original doubles them. A destroyed squadmate's box sits on static: the original's idle paint reads the machine's own destroyed flag, and `SquadCommChannel.SetCommsOut` is where this engine keeps that.
 
-Not drawn: the damage rows do not scroll — the engine has no row offset, so a 19-row structural list
-shows its first 13. TODO: verify if this is a divergence from retail that should be marked as an open
-task.
+Not drawn: the damage rows do not scroll — the engine has no row offset, so a 19-row structural list shows its first 13. TODO: verify if this is a divergence from retail that should be marked as an open task.
 
-XMIT delivers a real order — [`../simulation/ai-squadmates.md`](../simulation/ai-squadmates.md) owns
-the transmit path and what the squadmate does with it. The OBJECTIVE: line reports back through
-`Mech_SquadOrderLineIndex` (`0041bac8`), which indexes group 40 with the machine's behaviour
-descriptor `+0x3c` ([`../simulation/ai-dispatch.md`](../simulation/ai-dispatch.md)) and lets the
-standing order override it (1→`TRAVEL`, 2→`PATROL`, 3 or 6→`GUARD`) — but only for a machine that is
-neither immobilised nor destroyed, is not fleeing and is not committed to a fight, so a downed
-squadmate reads `DEAD` or `IMMOBILE` whatever it was ordered to do and one that has found a fight
-reads `ATTACK`.
+XMIT delivers a real order — [`../simulation/ai-squadmates.md`](../simulation/ai-squadmates.md) owns the transmit path and what the squadmate does with it. The OBJECTIVE: line reports back through `Mech_SquadOrderLineIndex` (`0041bac8`), which indexes group 40 with the machine's behaviour descriptor `+0x3c` ([`../simulation/ai-dispatch.md`](../simulation/ai-dispatch.md)) and lets the standing order override it (1→`TRAVEL`, 2→`PATROL`, 3 or 6→`GUARD`) — but only for a machine that is neither immobilised nor destroyed, is not fleeing and is not committed to a fight, so a downed squadmate reads `DEAD` or `IMMOBILE` whatever it was ordered to do and one that has found a fight reads `ATTACK`.
 
-The map raster is built as one texel per grid cell and sampled bilinearly rather than Gouraud-shaded
-into an intermediate bitmap. The colour rule is the original's exactly; what is dropped is the round
-trip through a software rasterizer's scratch buffer.
+The map raster is built as one texel per grid cell and sampled bilinearly rather than Gouraud-shaded into an intermediate bitmap. The colour rule is the original's exactly; what is dropped is the round trip through a software rasterizer's scratch buffer.
 
-`Herculan.Engine.Host` takes `--hdd [0|1]`, `--hdd-damage [0-2]`, `--hdd-pilot [0-2]`,
-`--hdd-order [0-7]` and `--hdd-xmit` — which presses XMIT on the armed order, taking the map centre
-or the nearest eligible unit as its pick, and reports the squad's standing orders before and after
-the run — since a `--screenshot` run never sees a keystroke — and the order list only
-leaves its unavailable blue once a pilot is selected. Key bindings that collide with the host's own
-are gated on the relevant page being down: `[S]`/`[I]`/`[W]` on the damage page, the order hotkeys and
-`[1]`-`[3]` on the command display. The one binding actually taken away rather than shared is the four
-arrow keys, which scroll the map instead of steering while the command display is down; the keypad
-keeps steering throughout.
+`Herculan.Engine.Host` takes `--hdd [0|1]`, `--hdd-damage [0-2]`, `--hdd-pilot [0-2]`, `--hdd-order [0-7]` and `--hdd-xmit` — which presses XMIT on the armed order, taking the map centre or the nearest eligible unit as its pick, and reports the squad's standing orders before and after the run — since a `--screenshot` run never sees a keystroke — and the order list only leaves its unavailable blue once a pilot is selected. Key bindings that collide with the host's own are gated on the relevant page being down: `[S]`/`[I]`/`[W]` on the damage page, the order hotkeys and `[1]`-`[3]` on the command display. The one binding actually taken away rather than shared is the four arrow keys, which scroll the map instead of steering while the command display is down; the keypad keeps steering throughout.
 
 ## Open
 
-- `static` and `pilot<n>` ship in `dba\` only, at 320-wide sizes, so a 640-wide mode has no matching
-  art for them. `pilot<n>` names its folder outright; `static` is loaded through the shared
-  `dba`/`hba` folder global, which selects `hba` in that mode and would miss.
-- `gauge+0x133`, the frame-indirection flag `HddGauge_PaintPilotFrame` branches on, is set to 1 for
-  every slot the loader builds, so the `DAT_0049d1f6` lookup table and the
-  `Math_RandomNext % 3 + 0x18` arm above it are never reached.
+- `static` and `pilot<n>` ship in `dba\` only, at 320-wide sizes, so a 640-wide mode has no matching art for them. `pilot<n>` names its folder outright; `static` is loaded through the shared `dba`/`hba` folder global, which selects `hba` in that mode and would miss.
+- `gauge+0x133`, the frame-indirection flag `HddGauge_PaintPilotFrame` branches on, is set to 1 for every slot the loader builds, so the `DAT_0049d1f6` lookup table and the `Math_RandomNext % 3 + 0x18` arm above it are never reached.
 - Block indices 2-3 (1220) and `0x5d` (1584) are read by no constructor.
-- The comm-box highlight mode's 0 branch, which fills the box rect rather than the marker, is
-  unexercised by retail data.
-- The extra marker `HddCommandScreen_BuildMapMarkers` appends after the object lists takes icon
-  `0x57`, one past the nine route icons, and its position comes from `FUN_0043495c` —
-  `CockpitViewInstance + 0x25e` when the flag at `+0x26a` is set. What sets that flag is not traced.
-- `ICONS.HBA` frames 0-1, and the ninth frame of every rotation group, are addressed by nothing in
-  the display — the eight octants use offsets 0-7 and a destroyed object takes offset 0. The
-  briefing map is the likely consumer of the first pair.
+- The comm-box highlight mode's 0 branch, which fills the box rect rather than the marker, is unexercised by retail data.
+- The extra marker `HddCommandScreen_BuildMapMarkers` appends after the object lists takes icon `0x57`, one past the nine route icons, and its position comes from `FUN_0043495c` — `CockpitViewInstance + 0x25e` when the flag at `+0x26a` is set. What sets that flag is not traced.
+- `ICONS.HBA` frames 0-1, and the ninth frame of every rotation group, are addressed by nothing in the display — the eight octants use offsets 0-7 and a destroyed object takes offset 0. The briefing map is the likely consumer of the first pair.

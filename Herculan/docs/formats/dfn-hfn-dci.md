@@ -1,24 +1,17 @@
 # .DFN / .HFN / .DCI — bitmap fonts and cursor images
 
-Reverse-engineered from `VSHELL.EXE`/`DBSIM.EXE` disassembly in the `ES2Recon` Ghidra project, not
-from the Java source (`ES2TransferApi`/etc. never covered these). Cross-checked against real
-retail files (`ES2/VOL/simvol0/dfn/`, `ES2/VOL/simvol0/dci/`, `ES2/VOL/SHELL0/DFN/`). This doc
-records what's confirmed and what's still open — don't treat the open parts as settled.
+Reverse-engineered from `VSHELL.EXE`/`DBSIM.EXE` disassembly in the `ES2Recon` Ghidra project, not from the Java source (`ES2TransferApi`/etc. never covered these). Cross-checked against real retail files (`ES2/VOL/simvol0/dfn/`, `ES2/VOL/simvol0/dci/`, `ES2/VOL/SHELL0/DFN/`). This doc records what's confirmed and what's still open — don't treat the open parts as settled.
 
 ## The shared "Dynamix resource" envelope
 
-All of `.DFN`, `.HFN`, `.DCI`, `.DBA`/`.HBA`/`.HB0-2`/`.DB0-2` (already-ported
-`DynamixBitmapArray`), and the embedded per-image `DynamixBitmap` sub-header share one 4-byte
-envelope shape, immediately after the standard 9-byte VOL-entry prefix
-(`HercWorks.Vol.VolEntryPrefixCodec`):
+All of `.DFN`, `.HFN`, `.DCI`, `.DBA`/`.HBA`/`.HB0-2`/`.DB0-2` (already-ported `DynamixBitmapArray`), and the embedded per-image `DynamixBitmap` sub-header share one 4-byte envelope shape, immediately after the standard 9-byte VOL-entry prefix (`HercWorks.Vol.VolEntryPrefixCodec`):
 
 ```
 [0..1] uint16 typeId   -- distinguishes the specific resource kind
 [2..3] uint16 0x0028   -- constant across the whole family
 ```
 
-Confirmed `typeId` values (all read as **big-endian** 4-byte magic, matching the existing
-`DynamixBitmapArray.HeaderMagic = 0x01002800` convention already in the codebase):
+Confirmed `typeId` values (all read as **big-endian** 4-byte magic, matching the existing `DynamixBitmapArray.HeaderMagic = 0x01002800` convention already in the codebase):
 
 | typeId (BE dword) | Kind | Status |
 |---|---|---|
@@ -35,8 +28,7 @@ Confirmed `typeId` values (all read as **big-endian** 4-byte magic, matching the
 
 Unlike `DynamixBitmapArray`, `.DCI` is a single embedded `DynamixBitmap` with an extra **hotspot** field spliced between the outer envelope and the sub-header.
 
-Confirmed layout (offsets relative to the start of file content, i.e. after the 9-byte VOL
-prefix):
+Confirmed layout (offsets relative to the start of file content, i.e. after the 9-byte VOL prefix):
 
 ```
 0x00  uint16 typeId       = 0x000B   (BE dword 0x0B002800)
@@ -71,15 +63,9 @@ prefix):
 
 ## `.DFN` / `.HFN` — bitmap font
 
-DBSIM's only HUD text mechanism, and VSHELL's. Not a widget-layout resource: the seven consumer
-functions in `DBSIM.EXE` pass the loaded object as an opaque handle to the generic label
-constructors (`FUN_004387ac`/`FUN_00438884`/`FUN_00438920`) alongside a display string.
+DBSIM's only HUD text mechanism, and VSHELL's. Not a widget-layout resource: the seven consumer functions in `DBSIM.EXE` pass the loaded object as an opaque handle to the generic label constructors (`FUN_004387ac`/`FUN_00438884`/`FUN_00438920`) alongside a display string.
 
-Two sets: `simvol0/dfn/*.DFN` and `simvol0/hfn/*.HFN` (26 and 25 files — the 18
-`ColorSchemePanels` fonts plus spares), and `SHELL0/DFN/*.DFN` (`FONT`, `FONT2`, `MAP`, `BLACK`).
-Same format throughout. `.HFN` is the 640-wide video mode's set and `.DFN` the 320-wide one's,
-selected by `VideoMode_UseHiResPanels == 3`; they are separate art, not a 2x scale of each other
-(cell heights 13 and 10, glyph counts 217 and 223).
+Two sets: `simvol0/dfn/*.DFN` and `simvol0/hfn/*.HFN` (26 and 25 files — the 18 `ColorSchemePanels` fonts plus spares), and `SHELL0/DFN/*.DFN` (`FONT`, `FONT2`, `MAP`, `BLACK`). Same format throughout. `.HFN` is the 640-wide video mode's set and `.DFN` the 320-wide one's, selected by `VideoMode_UseHiResPanels == 3`; they are separate art, not a 2x scale of each other (cell heights 13 and 10, glyph counts 217 and 223).
 
 ### Layout
 
@@ -107,17 +93,11 @@ Offsets relative to content start, i.e. after the 9-byte VOL prefix.
       [glyphCount x uint8]            each glyph's width
 ```
 
-A glyph is `width * cellHeight` bytes, row-major, one palette index per pixel. **Verified across all
-54 retail font files: every glyph's pool slice is exactly `width * cellHeight` bytes, no
-exceptions** — so the width byte and the gap between consecutive offsets state the same fact twice.
+A glyph is `width * cellHeight` bytes, row-major, one palette index per pixel. **Verified across all 54 retail font files: every glyph's pool slice is exactly `width * cellHeight` bytes, no exceptions** — so the width byte and the gap between consecutive offsets state the same fact twice.
 
-The declared width is the advance, art included: cells carry their own right-hand spacing column, so
-a run is laid out by summing widths with no extra tracking. Glyph art is proportional — in
-`ACTIVE.HFN`, `1` is 3 wide, `S` 6, `0` and `A` 8.
+The declared width is the advance, art included: cells carry their own right-hand spacing column, so a run is laid out by summing widths with no extra tracking. Glyph art is proportional — in `ACTIVE.HFN`, `1` is 3 wide, `S` 6, `0` and `A` 8.
 
-Index 0 is transparent and **every retail file uses exactly one other value as its ink**. That is
-what makes the 18 colour-scheme fonts copies of one typeface: a widget picks its text colour by
-picking which font to hand the label constructor, never by passing a colour.
+Index 0 is transparent and **every retail file uses exactly one other value as its ink**. That is what makes the 18 colour-scheme fonts copies of one typeface: a widget picks its text colour by picking which font to hand the label constructor, never by passing a colour.
 
 | `.HFN` | ink | `.HFN` | ink |
 |---|---|---|---|
@@ -127,43 +107,27 @@ picking which font to hand the label constructor, never by passing a colour.
 | `DARK` | 19 | `CPGREEN` | 15 |
 | `RED` | 10 | `ACTIVE` | 24 |
 
-`ColorSchemePanels` (`0049b0ac`) is the 18-entry loaded-font array; see cockpit-hud.md for the load
-order and which widget takes which entry.
+`ColorSchemePanels` (`0049b0ac`) is the 18-entry loaded-font array; see cockpit-hud.md for the load order and which widget takes which entry.
 
-Engine implementation: `Herculan.Engine.Content.HudFont`, packed into the shared HUD atlas by
-`HudSpriteSheet`.
+Engine implementation: `Herculan.Engine.Content.HudFont`, packed into the shared HUD atlas by `HudSpriteSheet`.
 
 ### `inkHeight` and label placement
 
-`inkHeight` (`0x1a`) is the height a label centres by, and the only vertical metric the label code
-reads — `cellHeight` is what the glyph *art* occupies. `Label_SetRect` (`00438884`) and the glyph
-blitter (`FUN_00482428`) read this field and no other, so the inked band is centred in the rect and
-the remaining `cellHeight - inkHeight` rows hang below as descender space. Both sets leave exactly 2:
-11 of 13 (`.HFN`), 8 of 10 (`.DFN`). Centring `cellHeight` instead sits every label 1.5 device pixels
-high.
+`inkHeight` (`0x1a`) is the height a label centres by, and the only vertical metric the label code reads — `cellHeight` is what the glyph *art* occupies. `Label_SetRect` (`00438884`) and the glyph blitter (`FUN_00482428`) read this field and no other, so the inked band is centred in the rect and the remaining `cellHeight - inkHeight` rows hang below as descender space. Both sets leave exactly 2: 11 of 13 (`.HFN`), 8 of 10 (`.DFN`). Centring `cellHeight` instead sits every label 1.5 device pixels high.
 
-`bitsPerPixel` (`0x16`) is read by the same blitter, alongside `cellHeight` from `0x0e` (via
-`FUN_00482410`) and the glyph width from the per-glyph width byte (via `FUN_0048238c`).
+`bitsPerPixel` (`0x16`) is read by the same blitter, alongside `cellHeight` from `0x0e` (via `FUN_00482410`) and the glyph width from the per-glyph width byte (via `FUN_0048238c`).
 
 Full placement formula, including the horizontal rule: [`mfd.md`](mfd.md), "Label placement".
 
 ### Label background
 
-A label paints its rect before its text, in the colour at the label object's field `0x1d` — `0x2e`
-for a weapon row, `0x11` for the scanner's four readouts, `DAT_004d3c26` (`COLORS.DAT` id 19, palette
-16, black) for the shield readouts. That is why retail's shield "100" sits on solid black rather than
-on the bezel art under it.
+A label paints its rect before its text, in the colour at the label object's field `0x1d` — `0x2e` for a weapon row, `0x11` for the scanner's four readouts, `DAT_004d3c26` (`COLORS.DAT` id 19, palette 16, black) for the shield readouts. That is why retail's shield "100" sits on solid black rather than on the bezel art under it.
 
-The first two are **raw palette indices** and the third a logical id: a constructor's immediate is
-already an index, only a data file's number goes through `COLORS.DAT`. See
-[`cockpit-hud.md`](cockpit-hud.md), "`dat\COLORS.DAT`".
+The first two are **raw palette indices** and the third a logical id: a constructor's immediate is already an index, only a data file's number goes through `COLORS.DAT`. See [`cockpit-hud.md`](cockpit-hud.md), "`dat\COLORS.DAT`".
 
 ### Consumers
 
-`HddGauge_LoadPilotFrames` (`0044a7c0`), `HddCommandScreen_RefreshOrders` (`0044ddec`),
-`HddDamageScreen_Update` (`00450c54`), `FUN_00451e94`, `FUN_0043a5a0`, `FUN_0043fe1c`,
-`FUN_0044c960`. VSHELL loads `MAP.DFN` (`ShellMap_DfnPanelPtr`, `00471ca8`) but never reads it back —
-that load is vestigial.
+`HddGauge_LoadPilotFrames` (`0044a7c0`), `HddCommandScreen_RefreshOrders` (`0044ddec`), `HddDamageScreen_Update` (`00450c54`), `FUN_00451e94`, `FUN_0043a5a0`, `FUN_0043fe1c`, `FUN_0044c960`. VSHELL loads `MAP.DFN` (`ShellMap_DfnPanelPtr`, `00471ca8`) but never reads it back — that load is vestigial.
 
 ## Ruled out: `.BND` and `.SNC`
 
@@ -171,7 +135,6 @@ Real files checked (`ACTOR.BND`, `MECH.BND`, `CAM.BND`, `PA_01000.SNC`, `PA_0200
 
 ## Open questions
 
-- `.DFN`/`.HFN`: the header shorts at `0x0a` and `0x18` are 0 in every retail file and have no
-  observed consumer.
+- `.DFN`/`.HFN`: the header shorts at `0x0a` and `0x18` are 0 in every retail file and have no observed consumer.
 - `.DCI`: `PCURSOR.DCI`'s trailing 101 bytes (likely an AND-mask or outline layer, unconfirmed).
 - Whether DBSIM.EXE (not VSHELL) loads the SHELL0 fonts (`FONT.DFN`, `FONT2.DFN`, `BLACK.DFN`).

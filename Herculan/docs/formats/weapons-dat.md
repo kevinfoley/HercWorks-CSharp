@@ -1,24 +1,15 @@
 # WEAPONS.DAT (SHELL0/GAM) and its companion WEAPONS.BIN
 
-Reverse-engineered from `VSHELL.EXE` disassembly and verified against real retail files. This is
-the SHELL0/GAM weapon **catalog** (33 entries: id 0 = NONE + 32 real weapons) — distinct from the
-simulator's `simvol0/dat/WEAPONS.DAT` (see [`weapons-dat-sim.md`](weapons-dat-sim.md)). Both share
-the same 0-32 weapon id.
+Reverse-engineered from `VSHELL.EXE` disassembly and verified against real retail files. This is the SHELL0/GAM weapon **catalog** (33 entries: id 0 = NONE + 32 real weapons) — distinct from the simulator's `simvol0/dat/WEAPONS.DAT` (see [`weapons-dat-sim.md`](weapons-dat-sim.md)). Both share the same 0-32 weapon id.
 
-> **The simulator does not read this file.** DBSIM carries its own 33-entry name table and its names
-> differ (`EMPC`/`SHLD` here, `EMP`/`SHIELD` there), so a cockpit fed from this catalog prints the
-> wrong words. Both spellings, and the full names, are in the table below.
+> **The simulator does not read this file.** DBSIM carries its own 33-entry name table and its names > differ (`EMPC`/`SHLD` here, `EMP`/`SHIELD` there), so a cockpit fed from this catalog prints the > wrong words. Both spellings, and the full names, are in the table below.
 
 ## The weapon id space — three spellings per weapon
 
-One 0-32 id addresses the same weapon in this catalog, in `simvol0/dat/WEAPONS.DAT` and in
-`player.mec`, but **three different name strings describe it** and no two agree throughout:
+One 0-32 id addresses the same weapon in this catalog, in `simvol0/dat/WEAPONS.DAT` and in `player.mec`, but **three different name strings describe it** and no two agree throughout:
 
-- the **catalog code** — a 4-6 character string stored in this file, one per record, and what the
-  `player.mec` editor shows;
-- the **simulator code** — DBSIM's own 33-entry string array at `00498eb0`, what a cockpit weapon
-  gauge prints. See [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#names--fun_0040e18c)
-  for why the simulator ignores the catalog's spelling and when a gauge prints neither;
+- the **catalog code** — a 4-6 character string stored in this file, one per record, and what the `player.mec` editor shows;
+- the **simulator code** — DBSIM's own 33-entry string array at `00498eb0`, what a cockpit weapon gauge prints. See [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#names--fun_0040e18c) for why the simulator ignores the catalog's spelling and when a gauge prints neither;
 - the **full name** — `WEAPONS.BIN`, the only player-facing prose form.
 
 | id | Catalog | Simulator | Full name (`WEAPONS.BIN`) | |
@@ -57,25 +48,15 @@ One 0-32 id addresses the same weapon in this catalog, in `simvol0/dat/WEAPONS.D
 | 31 | `TURB` | `TURBO` | Turbo Pod. | pod, no projectile |
 | 32 | `ENRG` | `ENERGY` | Energy Pod. | pod, no projectile |
 
-Full names are quoted verbatim: ids 27-32 really do carry a trailing full stop in `WEAPONS.BIN`,
-and the lasers really are `GW` there where the codes say plain `L100`.
+Full names are quoted verbatim: ids 27-32 really do carry a trailing full stop in `WEAPONS.BIN`, and the lasers really are `GW` there where the codes say plain `L100`.
 
-The three **Bull** weapons are the Cybrid four-legged HERC's own armament and can never be equipped
-to a player HERC in retail. They are oversized versions of the player equivalents — `BEMP` is the
-only weapon in the game with a barrel count of 3, and `BMSL` carries 36 rounds — so reading a
-`BEMP` figure as an EMP-family stat overstates the family by 4x on shields. Their sim-side templates
-are also the only ones carrying `Field0 = 15000` where every other weapon carries 1500-2500.
+The three **Bull** weapons are the Cybrid four-legged HERC's own armament and can never be equipped to a player HERC in retail. They are oversized versions of the player equivalents — `BEMP` is the only weapon in the game with a barrel count of 3, and `BMSL` carries 36 rounds — so reading a `BEMP` figure as an EMP-family stat overstates the family by 4x on shields. Their sim-side templates are also the only ones carrying `Field0 = 15000` where every other weapon carries 1500-2500.
 
 ### The rank byte, and what retail actually fits
 
-Each record's trailing `int16` — the one that lands in `DAT_00483fa2[id]` rather than in the record
-— sorts the catalog, and it separates the three groups cleanly. Twenty-eight weapons hold **ranks
-1-28**, a permutation with no gap or repeat — `PLAS` is 1 and `MSL6` is 28, so a low rank is an
-advanced weapon. `NONE` and the three Bull weapons hold **99**. `MFAC` alone holds **0**, outside
-the sequence in both directions.
+Each record's trailing `int16` — the one that lands in `DAT_00483fa2[id]` rather than in the record — sorts the catalog, and it separates the three groups cleanly. Twenty-eight weapons hold **ranks 1-28**, a permutation with no gap or repeat — `PLAS` is 1 and `MSL6` is 28, so a low rank is an advanced weapon. `NONE` and the three Bull weapons hold **99**. `MFAC` alone holds **0**, outside the sequence in both directions.
 
-Parsing the mech roster (row #12's ten-slot fit at `0x32`) of all 62 retail `.MSN` files — 1683
-records — gives the complementary view. Eight ids are fitted by nothing:
+Parsing the mech roster (row #12's ten-slot fit at `0x32`) of all 62 retail `.MSN` files — 1683 records — gives the complementary view. Eight ids are fitted by nothing:
 
 | Never fitted | Rank | Reading |
 |---|---|---|
@@ -84,25 +65,15 @@ records — gives the complementary view. Eight ids are fitted by nothing:
 | `LAEW` (26), `MINE` (27) | 8, 15 | inert templates — nothing could fire them anyway |
 | `MFAC` (28) | 0 | a complete, working weapon that nothing in retail fits |
 
-**The roster scan cannot settle player availability by itself** — `ATC75` and `L400` are plainly
-buildable and appear in it exactly as rarely as `MFAC` does. What settles it is
-`gam\arm_weap.dat`, the armory screen's panel layout: it lists **26 weapons**, and the seven ids
-with no panel are `NONE`, the three Bull weapons, `LAEW`, `MINE` and `MFAC`. A weapon with no panel
-cannot be queued, so those seven are unbuyable however the rank byte reads. `ATC75` and `L400` both
-have panels.
+**The roster scan cannot settle player availability by itself** — `ATC75` and `L400` are plainly buildable and appear in it exactly as rarely as `MFAC` does. What settles it is `gam\arm_weap.dat`, the armory screen's panel layout: it lists **26 weapons**, and the seven ids with no panel are `NONE`, the three Bull weapons, `LAEW`, `MINE` and `MFAC`. A weapon with no panel cannot be queued, so those seven are unbuyable however the rank byte reads. `ATC75` and `L400` both have panels.
 
-That also puts rank 0 in its place: `MFAC` is unbuyable because it has no panel, not because of its
-rank, and the rank's only established job is ordering. See
-[`herc-catalogs.md`](herc-catalogs.md#gamarm_weapdat), and
-[`../shell/armory.md`](../shell/armory.md#what-the-armory-will-sell) for the purchase path.
+That also puts rank 0 in its place: `MFAC` is unbuyable because it has no panel, not because of its rank, and the rank's only established job is ordering. See [`herc-catalogs.md`](herc-catalogs.md#gamarm_weapdat), and [`../shell/armory.md`](../shell/armory.md#what-the-armory-will-sell) for the purchase path.
 
 `LAEW`, `MINE` and `MFAC` are indexed in [`../cut-content.md`](../cut-content.md).
 
 ## WEAPONS.BIN — weapon name strings (fully confirmed, byte-exact)
 
-Lives in `ES2/VOL/LANG0.VOL` (one copy per language folder: `ENG`, `FRE`, `GER`) — **not** in
-`SHELL0.VOL` alongside `WEAPONS.DAT` itself, which is why it's easy to miss when only looking at
-the loose-extracted `SHELL0/GAM/` tree. Extract via `HercWorks.Vol.Io.VolFileReader.ParseVolFile`.
+Lives in `ES2/VOL/LANG0.VOL` (one copy per language folder: `ENG`, `FRE`, `GER`) — **not** in `SHELL0.VOL` alongside `WEAPONS.DAT` itself, which is why it's easy to miss when only looking at the loose-extracted `SHELL0/GAM/` tree. Extract via `HercWorks.Vol.Io.VolFileReader.ParseVolFile`.
 
 Verified byte-exact against all 3 language copies (identical; weapon names not localized):
 
@@ -116,14 +87,11 @@ Verified byte-exact against all 3 language copies (identical; weapon names not l
                                id order (offsets[0] = "None", offsets[1] = "Autocannon 20mm", etc.)
 ```
 
-Read by VSHELL: `WeaponsBin_LookupName` (`00408240`) indexes it as `offsets[id] + stringPoolStart`,
-and `WeaponsBin_Open` (`00408605`) opens it by literal filename.
+Read by VSHELL: `WeaponsBin_LookupName` (`00408240`) indexes it as `offsets[id] + stringPoolStart`, and `WeaponsBin_Open` (`00408605`) opens it by literal filename.
 
 ### The `.BIN` string tables
 
-**The container is not weapon-specific.** That same open/lookup pair loads every `.BIN` file in
-`LANG0.VOL`; the names those two functions carry in this project's symbol set record the first file
-identified, not the format's scope.
+**The container is not weapon-specific.** That same open/lookup pair loads every `.BIN` file in `LANG0.VOL`; the names those two functions carry in this project's symbol set record the first file identified, not the format's scope.
 
 | File | Handle | Entries | Contents |
 |---|---|---|---|
@@ -134,31 +102,19 @@ identified, not the format's scope.
 | `wpn_info.bin` | — | 130 | the armory's stat panel, **5 strings per armory slot** |
 | `wpn_desc.bin` | — | 130 | the armory's prose panel, same indexing |
 
-All six walk byte-exact against the retail files: `8 + count*2 + poolSize` equals the file length in
-every case.
+All six walk byte-exact against the retail files: `8 + count*2 + poolSize` equals the file length in every case.
 
-`wpn_info.bin` and `wpn_desc.bin` are indexed by **`gam\arm_weap.dat`'s panel order, not by catalog
-id** — 26 slots of five strings each. Slot 0's five are `Type: Autocannon 20 mm`, `Range: 450 m
-Salvage Required: 5,000 kg`, an empty line, and two description lines. Their `Salvage Required`
-figures agree with this file's `0x14` price times 1000 for all 26 slots, which is what confirms both
-the indexing and the unit. See [`herc-catalogs.md`](herc-catalogs.md#gamarm_weapdat).
+`wpn_info.bin` and `wpn_desc.bin` are indexed by **`gam\arm_weap.dat`'s panel order, not by catalog id** — 26 slots of five strings each. Slot 0's five are `Type: Autocannon 20 mm`, `Range: 450 m Salvage Required: 5,000 kg`, an empty line, and two description lines. Their `Salvage Required` figures agree with this file's `0x14` price times 1000 for all 26 slots, which is what confirms both the indexing and the unit. See [`herc-catalogs.md`](herc-catalogs.md#gamarm_weapdat).
 
-**Which folder is `prefs.cfg`'s.** `WeaponsBin_Open` prefixes every name with `eng\`, `fre\` or
-`ger\` chosen by option 43, which the shell's global init copies out of the option array
-([`../simulation/preferences.md`](../simulation/preferences.md#what-each-byte-is)). A retail file
-holds 0.
+**Which folder is `prefs.cfg`'s.** `WeaponsBin_Open` prefixes every name with `eng\`, `fre\` or `ger\` chosen by option 43, which the shell's global init copies out of the option array ([`../simulation/preferences.md`](../simulation/preferences.md#what-each-byte-is)). A retail file holds 0.
 
-**`LANG0.VOL` is not localized.** Every entry — all six `.BIN` files and `CAMPAIGN.STR` — is
-byte-identical across the `ENG\`, `FRE\` and `GER\` directories, so the three language trees in the
-retail build are three copies of the English text, and that setting changes nothing.
+**`LANG0.VOL` is not localized.** Every entry — all six `.BIN` files and `CAMPAIGN.STR` — is byte-identical across the `ENG\`, `FRE\` and `GER\` directories, so the three language trees in the retail build are three copies of the English text, and that setting changes nothing.
 
 All 33 names are in the id-space table above, transcribed from `WEAPONS_ENG.BIN`.
 
 ## WEAPONS.DAT catalog record (29 bytes)
 
-Loaded by `VSHELL.EXE`'s `LoadWeaponsDat` (`00411fc4`, file-level) → `WeaponsDat_ReadRecord`
-(`00411d57`, per-record). Stored in-memory as a flat array at `DAT_00483be4`, 29-byte (`0x1d`)
-stride per weapon id (confirmed via `IMUL EDX,EDX,0x1d` in `FUN_0041266a`).
+Loaded by `VSHELL.EXE`'s `LoadWeaponsDat` (`00411fc4`, file-level) → `WeaponsDat_ReadRecord` (`00411d57`, per-record). Stored in-memory as a flat array at `DAT_00483be4`, 29-byte (`0x1d`) stride per weapon id (confirmed via `IMUL EDX,EDX,0x1d` in `FUN_0041266a`).
 
 ```
 0x00–0x0f  (16 bytes) the catalog code, NUL-terminated ASCII. The file supplies strlen+1 bytes of
@@ -175,32 +131,20 @@ stride per weapon id (confirmed via `IMUL EDX,EDX,0x1d` in `FUN_0041266a`).
            which is why the file never supplies it
 ```
 
-**The whole record is accounted for**, and none of it holds a numeric weapon stat: 16 bytes of code,
-a name pointer, a price, a flag, an owned count and a list head is 29 exactly. Damage, heat, rate of
-fire and range live on the simulator side ([`weapons-dat-sim.md`](weapons-dat-sim.md)); the only
-range figure the shell has is the prose in `wpn_info.bin`.
+**The whole record is accounted for**, and none of it holds a numeric weapon stat: 16 bytes of code, a name pointer, a price, a flag, an owned count and a list head is 29 exactly. Damage, heat, rate of fire and range live on the simulator side ([`weapons-dat-sim.md`](weapons-dat-sim.md)); the only range figure the shell has is the prose in `wpn_info.bin`.
 
-`0x16`, `0x17` and the `0x19` list are the armory's per-weapon inventory, and the save file is where
-they persist: [`save-games.md`](save-games.md) documents the block that writes all 33 of them, and
-the armory itself is `armory.cpp` (`FUN_00411efd` appends a purchased unit to the list).
+`0x16`, `0x17` and the `0x19` list are the armory's per-weapon inventory, and the save file is where they persist: [`save-games.md`](save-games.md) documents the block that writes all 33 of them, and the armory itself is `armory.cpp` (`FUN_00411efd` appends a purchased unit to the list).
 
 ### `0x16` is the weapon-unlock flag
 
-The catalog ships a starting value per weapon; from then on it is campaign state, and four VSHELL
-sites establish what it means:
+The catalog ships a starting value per weapon; from then on it is campaign state, and four VSHELL sites establish what it means:
 
-- **Campaign progress sets it.** In the mission-load path, for each pending unlock whose slot in the
-  campaign flag array holds the expected value, a `0` byte is set to `1` and that flag slot is
-  cleared — an unlock granted and consumed. This is the weapon-unlock mechanism the campaign
-  condition system feeds; see [`../shell/campaign-loop.md`](../shell/campaign-loop.md).
-- **The armory screen gates display on it.** Where it is `0` the weapon's panel is disabled — enable
-  field at panel `+0x49` cleared, its four buttons greyed, its price never drawn. Where it is `1`
-  the panel is live and prints the `0x14` price.
+- **Campaign progress sets it.** In the mission-load path, for each pending unlock whose slot in the campaign flag array holds the expected value, a `0` byte is set to `1` and that flag slot is cleared — an unlock granted and consumed. This is the weapon-unlock mechanism the campaign condition system feeds; see [`../shell/campaign-loop.md`](../shell/campaign-loop.md).
+- **The armory screen gates display on it.** Where it is `0` the weapon's panel is disabled — enable field at panel `+0x49` cleared, its four buttons greyed, its price never drawn. Where it is `1` the panel is live and prints the `0x14` price.
 - **Purchasing skips a locked weapon**, whatever the player can afford.
 - One HERC-fit check refuses to accept the weapon while the flag is clear.
 
-All 33 flags are also exported to `data\player.mec`, which nothing traced reads back — see
-[`../shell/campaign-loop.md`](../shell/campaign-loop.md).
+All 33 flags are also exported to `data\player.mec`, which nothing traced reads back — see [`../shell/campaign-loop.md`](../shell/campaign-loop.md).
 
 ## File-level format
 
@@ -219,18 +163,11 @@ int16   starting stock count -- 39
         that many 6-byte weapon unit records: { int16 id; int16 condition; int16 ammo type }
 ```
 
-Because the code is length-prefixed and the trailer is fixed, walking name-then-trailer from the
-first record recovers all 33 codes in id order. That walk produced the id-space table above; the
-codes never need hand-transcribing.
+Because the code is length-prefixed and the trailer is fixed, walking name-then-trailer from the first record recovers all 33 codes in id order. That walk produced the id-space table above; the codes never need hand-transcribing.
 
 The rank goes into a *separate* parallel array (`DAT_00483fa2[id]`), not into the 29-byte struct.
 
-The trailing block is the **armory's starting stock**: `LoadWeaponsDat` allocates one ten-byte
-weapon unit per entry, reads three of its fields, and appends it to that catalog record's `0x19`
-list through `FUN_00411efd` — so the player opens a career owning these 39 units. Retail's are four
-`ATC50`, three `ECM` and two each of sixteen other ids, all at condition 100. The unit record is
-shared with the HERC mounts and the save's armory stock; see
-[`herc-catalogs.md`](herc-catalogs.md#the-weapon-unit-record).
+The trailing block is the **armory's starting stock**: `LoadWeaponsDat` allocates one ten-byte weapon unit per entry, reads three of its fields, and appends it to that catalog record's `0x19` list through `FUN_00411efd` — so the player opens a career owning these 39 units. Retail's are four `ATC50`, three `ECM` and two each of sixteen other ids, all at condition 100. The unit record is shared with the HERC mounts and the save's armory stock; see [`herc-catalogs.md`](herc-catalogs.md#the-weapon-unit-record).
 
 ## Rejected readings
 
@@ -243,12 +180,6 @@ shared with the HERC mounts and the save's armory stock; see
 
 ## How to apply
 
-Both files are fully decoded and safe to write transformers for directly. `WEAPONS.BIN` is the
-smaller win — 579 bytes, a trivial indexed string table, and the same shape for all six `.BIN`
-files, so one reader serves them all.
+Both files are fully decoded and safe to write transformers for directly. `WEAPONS.BIN` is the smaller win — 579 bytes, a trivial indexed string table, and the same shape for all six `.BIN` files, so one reader serves them all.
 
-`WEAPONS.DAT` needs a transformer that keeps two things straight. The 29-byte in-memory record is
-**not** the on-disk record: only `0x00`–`0x16` come from the file, the code block is
-length-prefixed and variable, and the rank lives in a parallel array rather than in the struct. And
-the file does not end with the catalog — a round-trip that drops the 39-unit starting stock loses
-the player's opening inventory silently, since nothing about the file's length gives it away.
+`WEAPONS.DAT` needs a transformer that keeps two things straight. The 29-byte in-memory record is **not** the on-disk record: only `0x00`–`0x16` come from the file, the code block is length-prefixed and variable, and the rank lives in a parallel array rather than in the struct. And the file does not end with the catalog — a round-trip that drops the 39-unit starting stock loses the player's opening inventory silently, since nothing about the file's length gives it away.

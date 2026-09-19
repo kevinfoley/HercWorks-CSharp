@@ -1,15 +1,12 @@
 # DBSIM.EXE reactor and Master Energy Pool
 
-Ported in `Herculan.Engine.Sim.MechObject.Power.cs`, `ShieldCharge.cs`,
-`MechPods.cs`.
+Ported in `Herculan.Engine.Sim.MechObject.Power.cs`, `ShieldCharge.cs`, `MechPods.cs`.
 
-The reactor and the pool are separate things: the reactor is a **rate** (`mech+0x256`), the pool is
-a **capacitor** (`mech+0x292`). Consumers draw on the pool, never on the reactor.
+The reactor and the pool are separate things: the reactor is a **rate** (`mech+0x256`), the pool is a **capacitor** (`mech+0x292`). Consumers draw on the pool, never on the reactor.
 
 ## The per-tick cycle — `Mech_PerTickSystemsUpdate` (`0041aa5c`)
 
-Called once per live mech per tick from `Sim_MainTick` (`0045f464`). Its first five statements are
-the whole power model:
+Called once per live mech per tick from `Sim_MainTick` (`0045f464`). Its first five statements are the whole power model:
 
 ```
 pool += IntegrateRateOverTick(reactorRate)      // ADD word ptr [EBX+0x292],AX
@@ -22,12 +19,9 @@ pool   = clamp(pool, 0, 10000)
 
 Consumption is not a subtraction: the pool is **rebuilt** each tick from whatever survives the pass.
 
-- **Reserve = 500.** Held out of every arbitration, so a machine under sustained load settles at 500
-  rather than 0. Below it the budget goes negative, which energy mounts read as "give charge back".
+- **Reserve = 500.** Held out of every arbitration, so a machine under sustained load settles at 500 rather than 0. Below it the budget goes negative, which energy mounts read as "give charge back".
 - **Ceiling = 10000**, also the value `Mech_Constructor` writes at spawn — a HERC powers up full.
-- **Order is weapons, then shields.** The manual's "movement, shields, and weapons, in that order" is
-  wrong on both count and order; locomotion never reads the pool. The consequence it describes is
-  real: shields only ever get what the weapons leave.
+- **Order is weapons, then shields.** The manual's "movement, shields, and weapons, in that order" is wrong on both count and order; locomotion never reads the pool. The consequence it describes is real: shields only ever get what the weapons leave.
 
 ## Reactor output rate — `Mech_ComputeReactorRate` (`00417d08`)
 
@@ -39,17 +33,11 @@ if (EnergyPod && podDamage < 225)
     rate += Q10(1024 - 204*(podDamage/51), 20)   // up to +20
 ```
 
-**Base rate is uniform across the fleet.** The function never reads the mech type record. At the
-25 Hz tick `IntegrateRateOverTick(20)` yields 6 pool units/tick, i.e. 150/s.
+**Base rate is uniform across the fleet.** The function never reads the mech type record. At the 25 Hz tick `IntegrateRateOverTick(20)` yields 6 pool units/tick, i.e. 150/s.
 
-**Computed once, at spawn.** `Mech_ComputeReactorRate` has exactly one reference in the binary —
-the tail of `Mech_ConfigureLoadout` (`004175dc`), itself only reached on spawn. Damage taken
-mid-mission never changes the rate; the damage terms still matter because a machine can spawn
-already damaged.
+**Computed once, at spawn.** `Mech_ComputeReactorRate` has exactly one reference in the binary — the tail of `Mech_ConfigureLoadout` (`004175dc`), itself only reached on spawn. Damage taken mid-mission never changes the rate; the damage terms still matter because a machine can spawn already damaged.
 
-Its sibling `Mech_ComputeShieldCapacity` (`00417bec`) is **not** like this:
-`Mech_ComponentDamageWrite` (`00417de4`) calls it as well as the spawn path, so shield capacity
-really does shrink as the generator is shot.
+Its sibling `Mech_ComputeShieldCapacity` (`00417bec`) is **not** like this: `Mech_ComponentDamageWrite` (`00417de4`) calls it as well as the spawn path, so shield capacity really does shrink as the generator is shot.
 
 ### Reactor damage flags
 
@@ -61,69 +49,37 @@ really does shrink as the generator is shot.
 | > 50%, < 75% (`0xc1`) | `mech+0xaa` | 11 (~59%) | movement penalty; alert sound for the player |
 | ≥ 75% | `mech+0xab` | 3 (~20%) | movement penalty; alert sound |
 
-Identified as the reactor by effect: the same pair cuts power and mobility together. Both latch and
-are never cleared, and the check is gated on **both** being clear — so once `+0xaa` sets, `+0xab` is
-only reachable by a single hit crossing both thresholds at once.
+Identified as the reactor by effect: the same pair cuts power and mobility together. Both latch and are never cleared, and the check is gated on **both** being clear — so once `+0xaa` sets, `+0xab` is only reachable by a single hit crossing both thresholds at once.
 
 ## Equipment pods
 
-Five non-firing pods hang off the weapon-mount factory, filed into a five-pointer array at
-`mech+0x307` by `MechLoadout_FileEquipmentPods` (`0040fb2c`). Two of them are read from this page —
-the **Energy Pod** at `+0x313` by `Mech_ComputeReactorRate` above, and the **Turbo Pod** at `+0x317`,
-which is the only pod that draws on the pool. Its `+0x34` override `TurboPod_ChargeTick` (`0040f0d0`)
-takes its turn like a weapon mount's: an engaged pod spends 35 of its own charge a tick and then, if
-the mount is alive, buys back `min(20, budget, 2000 - charge)` out of what the guns left. So it
-competes with the weapons for the same budget and a machine firing hard refills it slowly. The family
-itself — the five classes, what each overrides, their cockpit rows, when they tick and the damage
-curve they share — is [`equipment-pods.md`](equipment-pods.md).
+Five non-firing pods hang off the weapon-mount factory, filed into a five-pointer array at `mech+0x307` by `MechLoadout_FileEquipmentPods` (`0040fb2c`). Two of them are read from this page — the **Energy Pod** at `+0x313` by `Mech_ComputeReactorRate` above, and the **Turbo Pod** at `+0x317`, which is the only pod that draws on the pool. Its `+0x34` override `TurboPod_ChargeTick` (`0040f0d0`) takes its turn like a weapon mount's: an engaged pod spends 35 of its own charge a tick and then, if the mount is alive, buys back `min(20, budget, 2000 - charge)` out of what the guns left. So it competes with the weapons for the same budget and a machine firing hard refills it slowly. The family itself — the five classes, what each overrides, their cockpit rows, when they tick and the damage curve they share — is [`equipment-pods.md`](equipment-pods.md).
 
-> The manual says the Energy Pod doubles the pool's *capacity*. It does not — 10000 is a literal in
-> both the constructor and the clamp. It doubles the recharge *rate*, which is the manual's own
-> afterthought ("a modest increase in the Pool recharge rate").
+> The manual says the Energy Pod doubles the pool's *capacity*. It does not — 10000 is a literal in > both the constructor and the clamp. It doubles the recharge *rate*, which is the manual's own > afterthought ("a modest increase in the Pool recharge rate").
 
 
 ## Weapon energy arbitration — `WeaponMounts_ArbitrateEnergy` (`004107e4`)
 
-Vtable slot 0 of the mount-manager object at `mech+0x202`, for both the local (`00499238`) and
-remote (`00499338`) manager classes. Ported in `WeaponMounts.ChargeTick`; the mounts it serves are
-in [`weapon-mounts.md`](weapon-mounts.md).
+Vtable slot 0 of the mount-manager object at `mech+0x202`, for both the local (`00499238`) and remote (`00499338`) manager classes. Ported in `WeaponMounts.ChargeTick`; the mounts it serves are in [`weapon-mounts.md`](weapon-mounts.md).
 
-- Mounts are served one at a time, highest priority first. Priority is the mount's `+0x7b`, except a
-  mount already mid-charge (`+0x43`) reports 10000 and jumps the queue.
-- The player's selected mount (`manager+0x1d`) is served before the ranking is consulted; the AI
-  passes `-1` and goes straight to the ranking.
-- Per mount, `WeaponMount_ChargeCapacitor` (`0040f00c`) takes
-  `min(chargeRate +0x7f, budget, capacitor deficit)` into `+0x7d` and passes the remainder on.
-- Once any mount reports itself mid-charge, every mount after it targets zero instead and **bleeds
-  its capacitor back into the pool** at 5/tick. One energy weapon charges at a time.
+- Mounts are served one at a time, highest priority first. Priority is the mount's `+0x7b`, except a mount already mid-charge (`+0x43`) reports 10000 and jumps the queue.
+- The player's selected mount (`manager+0x1d`) is served before the ranking is consulted; the AI passes `-1` and goes straight to the ranking.
+- Per mount, `WeaponMount_ChargeCapacitor` (`0040f00c`) takes `min(chargeRate +0x7f, budget, capacitor deficit)` into `+0x7d` and passes the remainder on.
+- Once any mount reports itself mid-charge, every mount after it targets zero instead and **bleeds its capacitor back into the pool** at 5/tick. One energy weapon charges at a time.
 - Ammunition mounts consume nothing — their slot-`0x34` override returns the budget untouched.
-- PLAS (id 25) is half-efficiency: its deficit counts double and only half of what it draws is
-  stored.
-- The **unlimited energy and ammunition** setting refunds the whole pass's consumption, player only
-  (`DAT_004a9ed6 == 0 && DAT_004a9edc == 1`): the mounts are served and charged as they otherwise
-  would be, and the budget handed back to the pool is the one the pass was called with. Both globals
-  are `script.dat` header fields and the single-mission screen is what sets them — see
-  [`difficulty.md`](difficulty.md#the-two-sibling-cheats).
+- PLAS (id 25) is half-efficiency: its deficit counts double and only half of what it draws is stored.
+- The **unlimited energy and ammunition** setting refunds the whole pass's consumption, player only (`DAT_004a9ed6 == 0 && DAT_004a9edc == 1`): the mounts are served and charged as they otherwise would be, and the budget handed back to the pool is the one the pass was called with. Both globals are `script.dat` header fields and the single-mission screen is what sets them — see [`difficulty.md`](difficulty.md#the-two-sibling-cheats).
 
-An idle machine draws nothing: every energy mount powers up with `+0x7d` already at `+0x7b`, so the
-deficit is zero until a shot is demanded.
+An idle machine draws nothing: every energy mount powers up with `+0x7d` already at `+0x7b`, so the deficit is zero until a shot is demanded.
 
 ## Cockpit readouts
 
-- **Energy meter.** `Player_PerFrameCockpitUpdate` (`0041b130`) computes `(pool << 10) / 10000` and
-  pushes it to the LED bar at UI slot `+0x1e5`, whose range is `0x400`.
-- **Shield rings** show charge; **the shield numbers show balance.** See
-  [damage-system.md](damage-system.md#the-shield-system).
-- **Weapon charge bars** are per-mount capacitors, not the pool, and are scaled against a fixed 1200
-  rather than the mount's own level — see [weapon-mounts.md](weapon-mounts.md).
+- **Energy meter.** `Player_PerFrameCockpitUpdate` (`0041b130`) computes `(pool << 10) / 10000` and pushes it to the LED bar at UI slot `+0x1e5`, whose range is `0x400`.
+- **Shield rings** show charge; **the shield numbers show balance.** See [damage-system.md](damage-system.md#the-shield-system).
+- **Weapon charge bars** are per-mount capacitors, not the pool, and are scaled against a fixed 1200 rather than the mount's own level — see [weapon-mounts.md](weapon-mounts.md).
 
 ## Verified against retail
 
-Refilling a damaged shield array takes ~30 s, matching 3500 ÷ 5 per tick = 700 ticks at the hard
-25 Hz cap (28 s). The recharge cap is per *tick*, not per unit time, but the tick is capped by a
-`GetTickCount` spin (`FUN_004677bc`), so this does not vary with hardware.
+Refilling a damaged shield array takes ~30 s, matching 3500 ÷ 5 per tick = 700 ticks at the hard 25 Hz cap (28 s). The recharge cap is per *tick*, not per unit time, but the tick is capped by a `GetTickCount` spin (`FUN_004677bc`), so this does not vary with hardware.
 
-> A cosmetic mismatch is open: in retail the shield rings fade black→green over ~10 s at mission
-> start. Both facings are full from `Shield_Init` onward and nothing writes zero to the struct
-> (every reference enumerated, including a raw scan for the `0x222` displacement outside decompiled
-> code), so this is a HUD animation, not charge. Not chased; tracked in KNOWN_ISSUES.md.
+> A cosmetic mismatch is open: in retail the shield rings fade black→green over ~10 s at mission > start. Both facings are full from `Shield_Init` onward and nothing writes zero to the struct > (every reference enumerated, including a raw scan for the `0x222` displacement outside decompiled > code), so this is a HUD animation, not charge. Not chased; tracked in KNOWN_ISSUES.md.

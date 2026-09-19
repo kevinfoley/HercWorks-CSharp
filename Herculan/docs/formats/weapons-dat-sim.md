@@ -1,8 +1,6 @@
 # simvol0/dat/WEAPONS.DAT (sim-side weapon mount template table)
 
-Distinct from `SHELL0/GAM/WEAPONS.DAT` (the UI-facing weapon catalog, see `docs/formats/weapons-dat.md`).
-This is DBSIM.EXE's runtime weapon-mount table, loaded by `Weapons_LoadResourceTables`
-(`0x0040fc8c`) via a resource literally named `"weapons"`. **Fully SOLVED and verified byte-exact against the real retail file.**
+Distinct from `SHELL0/GAM/WEAPONS.DAT` (the UI-facing weapon catalog, see `docs/formats/weapons-dat.md`). This is DBSIM.EXE's runtime weapon-mount table, loaded by `Weapons_LoadResourceTables` (`0x0040fc8c`) via a resource literally named `"weapons"`. **Fully SOLVED and verified byte-exact against the real retail file.**
 
 ## Structure
 
@@ -14,9 +12,7 @@ This is DBSIM.EXE's runtime weapon-mount table, loaded by `Weapons_LoadResourceT
 
 ### `WeaponMountTemplate` record (variable length)
 
-Built entirely from **reused low-level record readers**:
-`HercPiece_ReadRecord` (see `docs/simulation/damage-system.md`, "The component damage system"),
-`Collision_ReadCluster`, `Collision_ReadSphereArray` (see `docs/simulation/hit-detection.md`). In-memory struct is 88 bytes (`0x58`), but on-disk record is variable-length; extra in-memory bytes are runtime-only (a pointer + self-index the loader fills in after reading).
+Built entirely from **reused low-level record readers**: `HercPiece_ReadRecord` (see `docs/simulation/damage-system.md`, "The component damage system"), `Collision_ReadCluster`, `Collision_ReadSphereArray` (see `docs/simulation/hit-detection.md`). In-memory struct is 88 bytes (`0x58`), but on-disk record is variable-length; extra in-memory bytes are runtime-only (a pointer + self-index the loader fills in after reading).
 
 Read order (all fields little-endian):
 
@@ -49,8 +45,7 @@ Read order (all fields little-endian):
                              real file data).
 ```
 
-In-memory boundary confirmed: front block 0x00-0x11, sub-sphere/sub-mesh block 0x12-0x21, tail
-0x22-0x51, runtime-only pointer at 0x52, self-index at 0x56. Total 0x58 (88) bytes.
+In-memory boundary confirmed: front block 0x00-0x11, sub-sphere/sub-mesh block 0x12-0x21, tail 0x22-0x51, runtime-only pointer at 0x52, self-index at 0x56. Total 0x58 (88) bytes.
 
 ## Decoded tail fields
 
@@ -72,51 +67,25 @@ Offsets are absolute in-memory (tail-relative = absolute − 0x22).
 | `0x4c` | refire delay, in sim timer units | `WeaponMount_PrepareShot` |
 | `0x22`–`0x28` | **weapon model**, four `MECHWPNS.DTS` shape indices, one per `.GL +6` mounting code | `FUN_0040fab0` |
 
-`0x22`–`0x28` are read as `template[0x22 + code * 2]`, where `code` is the hardpoint's mounting
-byte: the same gun modelled for the four ways it can hang off a chassis, so `ATC20` reads four
-different shapes and a shoulder launcher reads one shape four times. Mounting code 4 is the
-invisible hardpoint and has no entry — nothing is drawn for it. **The shape's cell animation is the
-muzzle flash**; see [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#the-muzzle-flash).
+`0x22`–`0x28` are read as `template[0x22 + code * 2]`, where `code` is the hardpoint's mounting byte: the same gun modelled for the four ways it can hang off a chassis, so `ATC20` reads four different shapes and a shoulder launcher reads one shape four times. Mounting code 4 is the invisible hardpoint and has no entry — nothing is drawn for it. **The shape's cell animation is the muzzle flash**; see [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#the-muzzle-flash).
 
-`0x30` is the ray length the beam dispatch hands `Bullet_FireBurst`. It is also the value
-`FUN_004110ac` requires to be positive before it will put a hardpoint into a fire chain, and every
-pod carries zero, so that gate holds on it too. Retail values run
-75000 (ATC20) down to 15000 (ELF2) — 450 m to 90 m at the simulation's own scale, which does *not*
-match the manual's 20 m figure for the ELF.
+`0x30` is the ray length the beam dispatch hands `Bullet_FireBurst`. It is also the value `FUN_004110ac` requires to be positive before it will put a hardpoint into a fire chain, and every pod carries zero, so that gate holds on it too. Retail values run 75000 (ATC20) down to 15000 (ELF2) — 450 m to 90 m at the simulation's own scale, which does *not* match the manual's 20 m figure for the ELF.
 
-`0x36`/`0x38` decide when an energy mount will fire: `max(0x36, mount+0x7b)` when `0x36 < 0x38`,
-otherwise `0x38`. `0x38` is also what a shot costs, so the two shapes real data takes — equal pair
-(LAS100 80/80) versus small low against a 10000 high (PBEAM 300/10000) — are a fixed-cost weapon and
-a charge-up one.
+`0x36`/`0x38` decide when an energy mount will fire: `max(0x36, mount+0x7b)` when `0x36 < 0x38`, otherwise `0x38`. `0x38` is also what a shot costs, so the two shapes real data takes — equal pair (LAS100 80/80) versus small low against a 10000 high (PBEAM 300/10000) — are a fixed-cost weapon and a charge-up one.
 
-The ELFs are a third shape, (400, 70), and are the reason the pair cannot be read off the template
-alone: their own mount class tests it differently, always taking `max(0x36, mount+0x7b)`, so 400
-against a 960 charge target means a full capacitor to start and 70 per shot to continue. See
-[`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#elf-and-elf2).
+The ELFs are a third shape, (400, 70), and are the reason the pair cannot be read off the template alone: their own mount class tests it differently, always taking `max(0x36, mount+0x7b)`, so 400 against a 960 charge target means a full capacitor to start and 70 per shot to continue. See [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#elf-and-elf2).
 
-`0x3a` is both the round count an ammunition mount powers up with and its cap
-(ATC20 2000 … ATC100 500, MSL6/8/10/24 6/8/10/24), and the ammunition dispatch spends `0x38` rounds
-per shot.
+`0x3a` is both the round count an ammunition mount powers up with and its cap (ATC20 2000 … ATC100 500, MSL6/8/10/24 6/8/10/24), and the ammunition dispatch spends `0x38` rounds per shot.
 
-`0x4c` is 1200 on most weapons — about 15 sim ticks — and **zero on `ELF` and `ELF2`**, whose own
-mount class does not consult the refire timer at all; what paces those two is their capacitor. The
-mount scales it by its own `+0x63`, a constant `0x400`.
+`0x4c` is 1200 on most weapons — about 15 sim ticks — and **zero on `ELF` and `ELF2`**, whose own mount class does not consult the refire timer at all; what paces those two is their capacitor. The mount scales it by its own `+0x63`, a constant `0x400`.
 
-`0x3c` is 1 everywhere except catalog id 19 (the big EMP), where it is 3. `0x3e == 0x13` is true for
-exactly one weapon too — id 23, `EMP2` — because the value is that weapon's own `PROJ.DAT` row; the
-gun dispatch reads it as a burst flag. The two conditions therefore pick out different weapons. See
-[`../simulation/weapon-firing.md`](../simulation/weapon-firing.md#the-gun-branches).
+`0x3c` is 1 everywhere except catalog id 19 (the big EMP), where it is 3. `0x3e == 0x13` is true for exactly one weapon too — id 23, `EMP2` — because the value is that weapon's own `PROJ.DAT` row; the gun dispatch reads it as a burst flag. The two conditions therefore pick out different weapons. See [`../simulation/weapon-firing.md`](../simulation/weapon-firing.md#the-gun-branches).
 
-See [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md) for the mount fields and
-[`../simulation/weapon-firing.md`](../simulation/weapon-firing.md) for the fire path.
+See [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md) for the mount fields and [`../simulation/weapon-firing.md`](../simulation/weapon-firing.md) for the fire path.
 
 ## `+0x52` and `+0x56` — runtime-only, written by the loader
 
-Neither is file data. `Weapons_LoadResourceTables` writes the record's own table index into `+0x56`
-— which is what identifies the sim table and the shell catalog as sharing one 0-32 weapon id — and a
-pointer from a 33-entry string array at `00498eb0` into `+0x52`. That pointer is the name a weapon
-gauge prints, and it is **not** the shell catalog's name for the same id. See
-[`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#names--fun_0040e18c).
+Neither is file data. `Weapons_LoadResourceTables` writes the record's own table index into `+0x56` — which is what identifies the sim table and the shell catalog as sharing one 0-32 weapon id — and a pointer from a 33-entry string array at `00498eb0` into `+0x52`. That pointer is the name a weapon gauge prints, and it is **not** the shell catalog's name for the same id. See [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#names--fun_0040e18c).
 
 ## `ProjDatIndex` — tail-relative offset 0x1c, absolute offset 0x3e
 
@@ -134,8 +103,7 @@ Full weapon-id-to-index table: see `HercWorks.Core.Data.File.Dat.Sim.ProjectileD
 - `Field0` (tier semantics unknown — **not** the range, which is `0x30`)
 - Reused constant fields (`DepCount`, `SubSphereFlagRaw`) from `.DMG`/`.COL`
 - Firing-sequence tuple details
-- `0x4e` (200 for LAS100 rising to 800 for the big launchers) and `0x50` (a small per-family code:
-  1 laser, 2 autocannon, 3 EMP, 4 particle beam, 5 missile)
+- `0x4e` (200 for LAS100 rising to 800 for the big launchers) and `0x50` (a small per-family code: 1 laser, 2 autocannon, 3 EMP, 4 particle beam, 5 missile)
 - The rest of the tail outside the fields above
 
 Implementation: see `HercWorks.Core.Data.File.Dat.Sim.Weapons` and `HercWorks.Core.Io.Transform.Dbsim.WeaponsSimTransformer`.

@@ -4,21 +4,10 @@
 
 ## Call chain — confirmed
 
-- `WriteScriptDatFile` (`FUN_0041ac54`, VSHELL, `msn_gen.cpp`) — called from `FUN_0041c73d` right
-  after `FUN_00417b67` (`.msn` parser) finishes, once per mission load. Writes `data\script.dat`: a
-  fixed 20-byte header + 13 count-prefixed record blocks, from the same `DAT_0047xxxx` globals the
-  `.msn` parser fills.
-- `DBSim_LoadScriptDat` (`FUN_00424308`, DBSIM) — sim-side reader, **pass 1**. Opens
-  `data\player.mec`, `data\mission.str`, `data\script.dat` (in that order) during world init; reads
-  the same 13-block structure, same order, matching strides.
-- `DBSim_SpawnMissionObjects` (`FUN_004253d8`, DBSIM) — **pass 2**, builds the world. Re-opens
-  `data\script.dat` from the top, skips blocks 1-6, walks blocks 7-13 again: constructs one object
-  per slot pass 1 marked live, reads its position, heading, loadout and action links from its own
-  record. See "The two-pass read" below.
-- `ShellMap_LoadScriptDat` (`FUN_004243d7`, VSHELL, `shellmap.cpp`), called from
-  `ShellMap_Constructor` (`FUN_00423f43`) — VSHELL's map-editor reader, independent of DBSIM's. Same
-  13-block structure and order; keeps a different subset per block (see per-block table). Confirms
-  record shape/strides via a second, independently compiled reader.
+- `WriteScriptDatFile` (`FUN_0041ac54`, VSHELL, `msn_gen.cpp`) — called from `FUN_0041c73d` right after `FUN_00417b67` (`.msn` parser) finishes, once per mission load. Writes `data\script.dat`: a fixed 20-byte header + 13 count-prefixed record blocks, from the same `DAT_0047xxxx` globals the `.msn` parser fills.
+- `DBSim_LoadScriptDat` (`FUN_00424308`, DBSIM) — sim-side reader, **pass 1**. Opens `data\player.mec`, `data\mission.str`, `data\script.dat` (in that order) during world init; reads the same 13-block structure, same order, matching strides.
+- `DBSim_SpawnMissionObjects` (`FUN_004253d8`, DBSIM) — **pass 2**, builds the world. Re-opens `data\script.dat` from the top, skips blocks 1-6, walks blocks 7-13 again: constructs one object per slot pass 1 marked live, reads its position, heading, loadout and action links from its own record. See "The two-pass read" below.
+- `ShellMap_LoadScriptDat` (`FUN_004243d7`, VSHELL, `shellmap.cpp`), called from `ShellMap_Constructor` (`FUN_00423f43`) — VSHELL's map-editor reader, independent of DBSIM's. Same 13-block structure and order; keeps a different subset per block (see per-block table). Confirms record shape/strides via a second, independently compiled reader.
 
 ## Row mapping
 
@@ -46,18 +35,11 @@
 
 ## Fixed-size file structure
 
-Real files: `ES2\DATA\script.dat` (the live file) plus 9 distinct save-slot snapshots in `ES2\SAV\`
-(`script0.dat`–`script11.dat`; two pairs are byte-identical to each other and to the live file, so 9
-genuinely distinct files there — 10 total). **Note:** these 10 are snapshots of the format, not 10
-distinct retail missions.
+Real files: `ES2\DATA\script.dat` (the live file) plus 9 distinct save-slot snapshots in `ES2\SAV\` (`script0.dat`–`script11.dat`; two pairs are byte-identical to each other and to the live file, so 9 genuinely distinct files there — 10 total). **Note:** these 10 are snapshots of the format, not 10 distinct retail missions.
 
-**Every file is exactly 13,520 bytes** despite wildly different real record counts per block (e.g.
-row #16's count ranges 7-40 across the corpus) — a fixed-size preallocated buffer, not a
-tightly-packed variable-length file like `.msn`.
+**Every file is exactly 13,520 bytes** despite wildly different real record counts per block (e.g. row #16's count ranges 7-40 across the corpus) — a fixed-size preallocated buffer, not a tightly-packed variable-length file like `.msn`.
 
-All 10 parse cleanly, zero desync in the block sequence; only 1 lands exactly on EOF, the rest carry
-stale trailing bytes past block 13's declared end (the buffer is reused without truncation). **Read
-only through block 13's declared end; ignore trailing bytes.**
+All 10 parse cleanly, zero desync in the block sequence; only 1 lands exactly on EOF, the rest carry stale trailing bytes past block 13's declared end (the buffer is reused without truncation). **Read only through block 13's declared end; ignore trailing bytes.**
 
 ## The two-pass read — and what it means for "DBSIM keeps"
 
@@ -68,9 +50,7 @@ DBSIM reads `script.dat` **twice**, and the two passes want different things:
 | 1 | `DBSim_LoadScriptDat` (`00424308`) | Counts. Keeps blocks 1-6 (the shared reference tables: coordinates, headings, waypoint groups, links, actions, action timers). For blocks 7-9 it keeps **only the type field** of each record, and for block 11 it keeps **only which slots each record activates**. It then allocates one object pool per class, sized to the live count. Nothing is placed. |
 | 2 | `DBSim_SpawnMissionObjects` (`004253d8`) | Builds. Re-opens the file, skips blocks 1-6, and re-reads blocks 7-13 in full — constructing each live object and reading its position ref, heading ref, weapon fit and action links straight out of its own record, then grouping them from block 11. |
 
-**Pass 1 alone looks like `script.dat` carries no placement data** (blocks 7-9 reduced to one field
-each, block 10 discarded, block 11 just flipping activation flags) — that describes pass 1 only, not
-the format. Pass 2 reads the rest.
+**Pass 1 alone looks like `script.dat` carries no placement data** (blocks 7-9 reduced to one field each, block 10 discarded, block 11 just flipping activation flags) — that describes pass 1 only, not the format. Pass 2 reads the rest.
 
 Per record type, what pass 2 reads (offsets into the exported record, not the `.msn` source row):
 
@@ -106,70 +86,19 @@ Per record type, what pass 2 reads (offsets into the exported record, not the `.
 
 ## Placement — the actual rule
 
-1. **Existence.** Every block-11 record *past the first* activates its members. A roster slot no
-   block-11 record names never spawns, which is why a mission's rosters are routinely bigger than
-   its live object count.
-2. **Position.** `FUN_00423b34` builds each block-11 record into a group record carrying its point,
-   heading and member list; `FUN_00417aa8` (mechs) / `FUN_00421ee8` (flyers) / `FUN_00405c3c`
-   (bases) then attach each member, filling in the member's position **only if it does not already
-   have one**. So a roster record's own position ref wins where set, and the group's is the
-   fallback. In every retail file the roster refs are unset, so in practice objects stand at their
-   group's point.
-3. **Groups with no point** fall back to their route: the group's block-10 link **slot 0** resolves
-   to a waypoint group (link record `+0x08` → block 3), whose first waypoint is the spawn point
-   (`FUN_00423b0c`). Patrol squads are placed this way. Only slot 0 is consulted — both this and the
-   heading fallback below read the same `groupRecord+0x44` entry.
-4. **Heading**, when the group's own block-2 ref is unset, is the bearing along the route's **first
-   leg**: `DBSim_SpawnMissionObjects` passes waypoints [1] and [0] (second first) to `FUN_00492828`,
-   which is `atan2(dy, dx) - 0x4000` — the quarter turn every bearing in the sim carries, since a
-   machine's forward axis is model Y. Fewer than two waypoints leaves it at zero. **Every mech group
-   in every retail mission reaches this**, the player's squad included; none of them carry a heading
-   ref.
-5. **Ground height** is not in the file. Mechs and bases get `Terrain_HeightQuery` plus the type's
-   own foot offset (`typeRecord+0x16`, and +5000 when `typeRecord+0x50` is set); flyers get no query
-   at all — they hold the spawn coordinate's Z, or 5000 units when that is zero. Bases are then
-   queried a **second** time: placing one levels the terrain under it, so `DBSim_SpawnMissionObjects`
-   re-settles the whole base list once the roster is down — see
-   [`terrain-heightmap.md`](terrain-heightmap.md#structure-footprints--the-flattening-pass).
-6. **The player's squad is not in `script.dat`.** Block 11's **record 0** exists only to hold its
-   spawn point — pass 1 skips it when marking activation, and pass 2 overwrites its member list with
-   the entries read from `data\player.mec`. That file's own format is decoded in
-   `HercWorks.Core`'s `MecFile`.
+1. **Existence.** Every block-11 record *past the first* activates its members. A roster slot no block-11 record names never spawns, which is why a mission's rosters are routinely bigger than its live object count.
+2. **Position.** `FUN_00423b34` builds each block-11 record into a group record carrying its point, heading and member list; `FUN_00417aa8` (mechs) / `FUN_00421ee8` (flyers) / `FUN_00405c3c` (bases) then attach each member, filling in the member's position **only if it does not already have one**. So a roster record's own position ref wins where set, and the group's is the fallback. In every retail file the roster refs are unset, so in practice objects stand at their group's point.
+3. **Groups with no point** fall back to their route: the group's block-10 link **slot 0** resolves to a waypoint group (link record `+0x08` → block 3), whose first waypoint is the spawn point (`FUN_00423b0c`). Patrol squads are placed this way. Only slot 0 is consulted — both this and the heading fallback below read the same `groupRecord+0x44` entry.
+4. **Heading**, when the group's own block-2 ref is unset, is the bearing along the route's **first leg**: `DBSim_SpawnMissionObjects` passes waypoints [1] and [0] (second first) to `FUN_00492828`, which is `atan2(dy, dx) - 0x4000` — the quarter turn every bearing in the sim carries, since a machine's forward axis is model Y. Fewer than two waypoints leaves it at zero. **Every mech group in every retail mission reaches this**, the player's squad included; none of them carry a heading ref.
+5. **Ground height** is not in the file. Mechs and bases get `Terrain_HeightQuery` plus the type's own foot offset (`typeRecord+0x16`, and +5000 when `typeRecord+0x50` is set); flyers get no query at all — they hold the spawn coordinate's Z, or 5000 units when that is zero. Bases are then queried a **second** time: placing one levels the terrain under it, so `DBSim_SpawnMissionObjects` re-settles the whole base list once the roster is down — see [`terrain-heightmap.md`](terrain-heightmap.md#structure-footprints--the-flattening-pass).
+6. **The player's squad is not in `script.dat`.** Block 11's **record 0** exists only to hold its spawn point — pass 1 skips it when marking activation, and pass 2 overwrites its member list with the entries read from `data\player.mec`. That file's own format is decoded in `HercWorks.Core`'s `MecFile`.
 
-   Otherwise the squad is an ordinary group and **spreads like one**: pass 2 gives every `player.mec`
-   entry the unset-position sentinel and writes the entries into record 0's member array in file
-   order, so entry *i* attaches as member slot *i* and takes slot *i*'s formation offset (rule 7).
-   Placing the whole squad on the bare point instead stacks it, and `Mech_CollisionTest` then refuses
-   every machine its first step, the player's included.
-7. **Formation spread** is applied per member: the member's slot index *within the group's
-   `DiscriminatedRefs` array* (0-19, not a compacted live-member count — `FUN_00423b34` passes the
-   raw loop index straight through) goes to the object's own vtable `+0x78`, and that offset is
-   rotated by the group leader's heading before being added to the group's point. Slot 0 (the first
-   member the group claims) always takes no offset, so it lands exactly on the group's point.
+Otherwise the squad is an ordinary group and **spreads like one**: pass 2 gives every `player.mec` entry the unset-position sentinel and writes the entries into record 0's member array in file order, so entry *i* attaches as member slot *i* and takes slot *i*'s formation offset (rule 7). Placing the whole squad on the bare point instead stacks it, and `Mech_CollisionTest` then refuses every machine its first step, the player's included.
+7. **Formation spread** is applied per member: the member's slot index *within the group's `DiscriminatedRefs` array* (0-19, not a compacted live-member count — `FUN_00423b34` passes the raw loop index straight through) goes to the object's own vtable `+0x78`, and that offset is rotated by the group leader's heading before being added to the group's point. Slot 0 (the first member the group claims) always takes no offset, so it lands exactly on the group's point.
 
-   - **Mechs — implemented.** Vtable `+0x78` is `Mech_ApplyFormationOffset` (`FUN_00417898`), reading
-     `Formation_GetSlotOffset(formationId, slot)` (`FUN_004205cc`): 28 bytes/formation, seven (x, y)
-     `int16` pairs. Load site: `Mech_LoadResources` (`FUN_0041fdb0`) streams `dat\mforms` and writes
-     the vector pointer `Formation_GetSlotOffset` reads (`_DAT_004a9df0`); registered into DBSIM's
-     subsystem-loader table via a thunk at `00420654`. `dat\MFORMS.DAT` is 142 content bytes = 2-byte
-     count (5) + five fixed 28-byte formations, no trailer. Implemented in
-     `Herculan.Engine.World.MechFormationTable`, wired into `MissionLoader.AddRoster`'s mech loop.
-   - **Bases — implemented.** Vtable `+0x78` is `FUN_00405c04` for every base subtype (all five base
-     vtables: `0x497940`/`0x4979d4`/`0x4978ac`/`0x497784`/`0x497818`). Nonzero slot calls
-     `FUN_00405b9c(formationId, slot)`, reading the table `FUN_00405fac` (`base.cpp`) streams from
-     `dat\BFORMS.DAT` (opened via literal string `"bforms"`). File is 3,186 content bytes: a count
-     (17) then per formation a slot count + that many 10-byte (x:int32, y:int32, trailing:int16)
-     entries + the three-`int32` terrain trailer and its buffer list
-     ([below](#the-per-formation-trailer)) — byte-exact, nothing left over.
-     `Formation_RotateAndAddOffset` (`FUN_00411d64`) reduces to a plain 2D rotation:
-     `worldDX = dx·cosθ − dy·sinθ`, `worldDY = dx·sinθ + dy·cosθ`, added to the group's point.
-     Implemented in `Herculan.Engine.World.BaseFormationTable`, wired into `MissionLoader.AddRoster`'s
-     base loop.
-   - **A base formation slot also turns the structure.** The 10-byte slot record's
-     **trailing `int16` is a per-slot heading**, and it is applied on a completely different path
-     from the (x, y) offset above: not by vtable `+0x78`, but by `Base_AttachToGroup`
-     (`FUN_00405c3c`) itself, and only when the structure's own record names no heading (the
-     `-0x8000` sentinel — a block-9 record whose heading ref is `-1`):
+- **Mechs — implemented.** Vtable `+0x78` is `Mech_ApplyFormationOffset` (`FUN_00417898`), reading `Formation_GetSlotOffset(formationId, slot)` (`FUN_004205cc`): 28 bytes/formation, seven (x, y) `int16` pairs. Load site: `Mech_LoadResources` (`FUN_0041fdb0`) streams `dat\mforms` and writes the vector pointer `Formation_GetSlotOffset` reads (`_DAT_004a9df0`); registered into DBSIM's subsystem-loader table via a thunk at `00420654`. `dat\MFORMS.DAT` is 142 content bytes = 2-byte count (5) + five fixed 28-byte formations, no trailer. Implemented in `Herculan.Engine.World.MechFormationTable`, wired into `MissionLoader.AddRoster`'s mech loop.
+- **Bases — implemented.** Vtable `+0x78` is `FUN_00405c04` for every base subtype (all five base vtables: `0x497940`/`0x4979d4`/`0x4978ac`/`0x497784`/`0x497818`). Nonzero slot calls `FUN_00405b9c(formationId, slot)`, reading the table `FUN_00405fac` (`base.cpp`) streams from `dat\BFORMS.DAT` (opened via literal string `"bforms"`). File is 3,186 content bytes: a count (17) then per formation a slot count + that many 10-byte (x:int32, y:int32, trailing:int16) entries + the three-`int32` terrain trailer and its buffer list ([below](#the-per-formation-trailer)) — byte-exact, nothing left over. `Formation_RotateAndAddOffset` (`FUN_00411d64`) reduces to a plain 2D rotation: `worldDX = dx·cosθ − dy·sinθ`, `worldDY = dx·sinθ + dy·cosθ`, added to the group's point. Implemented in `Herculan.Engine.World.BaseFormationTable`, wired into `MissionLoader.AddRoster`'s base loop.
+- **A base formation slot also turns the structure.** The 10-byte slot record's **trailing `int16` is a per-slot heading**, and it is applied on a completely different path from the (x, y) offset above: not by vtable `+0x78`, but by `Base_AttachToGroup` (`FUN_00405c3c`) itself, and only when the structure's own record names no heading (the `-0x8000` sentinel — a block-9 record whose heading ref is `-1`):
 
      ```
      h = group.heading;
@@ -177,48 +106,24 @@ Per record type, what pass 2 reads (offsets into the exported record, not the `.
      object.heading = (short)h;      // a short, so the sum wraps
      ```
 
-     Every nonzero value in the retail table is a clean turn: 8190 (45°), 16380 (90°), 32760 (180°)
-     or their negatives. Eleven of the seventeen formations use at least one. Reading only the two
-     `int32`s and skipping this short puts every member of a group in the right place facing the
-     same way, which is the failure mode to watch for.
+Every nonzero value in the retail table is a clean turn: 8190 (45°), 16380 (90°), 32760 (180°) or their negatives. Eleven of the seventeen formations use at least one. Reading only the two `int32`s and skipping this short puts every member of a group in the right place facing the same way, which is the failure mode to watch for.
 
-     Confirmed on the Scramble training base: group 1 uses formation 9, and roster slots 6 and 8 are
-     two of its three identical silo-cluster structures (type 7). Formation 9's slots 6 and 8 carry
-     16380 and 32760, and in retail those two stand turned by 90° and 180° while the third does not.
-     The 90° one is at world (989519, 1033792), the base the mismatch was reported against.
-   - **Mechs:** `Mech_AttachToGroup` (`FUN_00417aa8`) has the same heading-fallback shape, but
-     `MFORMS.DAT`'s 28-byte formations are seven bare (x, y) `int16` pairs with no room for a
-     per-slot heading. Not investigated further.
-   - **Anchor adjustment — implemented.** A `BinaryFlag` base group is moved onto a fixed spot in
-     its terrain tile before any per-member offset is added. See
-     [Base formation terrain](#base-formation-terrain).
-   - **Flyers — unfixed.** `FUN_00421ee8` is the flyer attach equivalent; not traced. No multi-flyer
-     groups observed in retail data.
-   - **Verification:** all 10 available missions — 26/26 multi-mech groups and 18/18 multi-base groups
-     get distinct member positions, 0 exceptions; BFORMS.DAT/MFORMS.DAT both still parse byte-exact.
-8. **A group whose record names a block-5 action (`0x70`) is not in the mission yet** — undrawn,
-   unsimulated and non-solid until that action fires and the group arrives, on foot or by drop pod.
-   Its placed position is a placeholder the arrival overwrites, which is why retail missions leave
-   such groups stacked on shared points (routinely the player's own spawn). See
-   [`../simulation/mission-deployment.md`](../simulation/mission-deployment.md); **do not read a
-   waiting group's position as where the mission means it to be.**
+Confirmed on the Scramble training base: group 1 uses formation 9, and roster slots 6 and 8 are two of its three identical silo-cluster structures (type 7). Formation 9's slots 6 and 8 carry 16380 and 32760, and in retail those two stand turned by 90° and 180° while the third does not. The 90° one is at world (989519, 1033792), the base the mismatch was reported against.
+- **Mechs:** `Mech_AttachToGroup` (`FUN_00417aa8`) has the same heading-fallback shape, but `MFORMS.DAT`'s 28-byte formations are seven bare (x, y) `int16` pairs with no room for a per-slot heading. Not investigated further.
+- **Anchor adjustment — implemented.** A `BinaryFlag` base group is moved onto a fixed spot in its terrain tile before any per-member offset is added. See [Base formation terrain](#base-formation-terrain).
+- **Flyers — unfixed.** `FUN_00421ee8` is the flyer attach equivalent; not traced. No multi-flyer groups observed in retail data.
+- **Verification:** all 10 available missions — 26/26 multi-mech groups and 18/18 multi-base groups get distinct member positions, 0 exceptions; BFORMS.DAT/MFORMS.DAT both still parse byte-exact.
+8. **A group whose record names a block-5 action (`0x70`) is not in the mission yet** — undrawn, unsimulated and non-solid until that action fires and the group arrives, on foot or by drop pod. Its placed position is a placeholder the arrival overwrites, which is why retail missions leave such groups stacked on shared points (routinely the player's own spawn). See [`../simulation/mission-deployment.md`](../simulation/mission-deployment.md); **do not read a waiting group's position as where the mission means it to be.**
 
 ## Base formation terrain
 
-When a block-11 record's `BinaryFlag` (`0x06`) is set — 39 of 61 retail records — a **base** group
-does two things no other group does, both from the same `BFORMS.DAT` record and both gated by that
-one flag. `Base_AttachToGroup` (`00405c3c`) moves the group's shared anchor onto a fixed spot in a
-terrain tile, and `Base_ApplyFormationTerrain` (`00405db0`) paints that tile with the formation's
-own material. They go together: the move is what puts the structures on the pad. Machines are
-unaffected — `Mech_AttachToGroup` (`00417aa8`) takes no such flag and has none of this arithmetic.
+When a block-11 record's `BinaryFlag` (`0x06`) is set — 39 of 61 retail records — a **base** group does two things no other group does, both from the same `BFORMS.DAT` record and both gated by that one flag. `Base_AttachToGroup` (`00405c3c`) moves the group's shared anchor onto a fixed spot in a terrain tile, and `Base_ApplyFormationTerrain` (`00405db0`) paints that tile with the formation's own material. They go together: the move is what puts the structures on the pad. Machines are unaffected — `Mech_AttachToGroup` (`00417aa8`) takes no such flag and has none of this arithmetic.
 
-The painting side, including the tile geometry both share, is in
-[`terrain-texturing.md`](terrain-texturing.md#base-formation-pads).
+The painting side, including the tile geometry both share, is in [`terrain-texturing.md`](terrain-texturing.md#base-formation-pads).
 
 ### The per-formation trailer
 
-Each formation's slot list is followed by three `int32`s and a length-prefixed buffer list. The
-in-memory record `Base_LoadResources` (`00405fac`) builds is `0x1c` bytes:
+Each formation's slot list is followed by three `int32`s and a length-prefixed buffer list. The in-memory record `Base_LoadResources` (`00405fac`) builds is `0x1c` bytes:
 
 | offset | field |
 |---|---|
@@ -230,9 +135,7 @@ in-memory record `Base_LoadResources` (`00405fac`) builds is `0x1c` bytes:
 | `+0x14` | **`dim`** — buffer count, and the side of the square layout map |
 | `+0x18` | pointer to the `dim` row pointers |
 
-Eleven formations carry a material and a map; the other six carry `-1`, `0`, `0` and no buffers.
-Formation 5's map reads as a legible L-shaped compound, which is the shape of the concrete in that
-material's frame:
+Eleven formations carry a material and a map; the other six carry `-1`, `0`, `0` and no buffers. Formation 5's map reads as a legible L-shaped compound, which is the shape of the concrete in that material's frame:
 
 ```
 .#####..
@@ -253,28 +156,15 @@ x'   = (x & ~(tile-1)) + acrossFraction * tile/256
 y'   = (y & ~(tile-1)) + tile - downFraction * tile/256
 ```
 
-The original spells this `(x & ~mask) + b*step` / `((y & ~mask) + mask + 1) - c*step` with
-`mask = dim*0x2000 - 1` and `step = dim*0x20`, computed per member on a copy of the group's point,
-which is equivalent. The operands are `+0x14`, `+0x0c` and `+0x10` — the map dimension and the two
-fractions. **Only which tile the mission's point falls in survives** — the position within the tile
-is discarded and replaced by the formation's own fraction of it.
+The original spells this `(x & ~mask) + b*step` / `((y & ~mask) + mask + 1) - c*step` with `mask = dim*0x2000 - 1` and `step = dim*0x20`, computed per member on a copy of the group's point, which is equivalent. The operands are `+0x14`, `+0x0c` and `+0x10` — the map dimension and the two fractions. **Only which tile the mission's point falls in survives** — the position within the tile is discarded and replaced by the formation's own fraction of it.
 
-Four independent checks agree on this reading. All 111 members of all eleven mapped formations fall
-inside their own map's bounds, against 64 for the inverted y convention. Every `dim` is predicted by
-its material's block shift, 11 of 11. Across the ten retail handoffs every base group's structures
-then sit entirely inside the tile painted for them, 11 of 11, where the unmoved anchor leaves them
-straddling a tile edge. And in the mission editor the move closes the player-to-base distance in the
-Scramble training mission by 147 m, in the direction and by roughly the amount that base was
-visibly too far away.
+Four independent checks agree on this reading. All 111 members of all eleven mapped formations fall inside their own map's bounds, against 64 for the inverted y convention. Every `dim` is predicted by its material's block shift, 11 of 11. Across the ten retail handoffs every base group's structures then sit entirely inside the tile painted for them, 11 of 11, where the unmoved anchor leaves them straddling a tile edge. And in the mission editor the move closes the player-to-base distance in the Scramble training mission by 147 m, in the direction and by roughly the amount that base was visibly too far away.
 
-A formation's layout map also marks its cells for the per-object flattening pass in
-[`terrain-heightmap.md`](terrain-heightmap.md#structure-footprints--the-flattening-pass), which owns
-that pass and what the two inputs add up to.
+A formation's layout map also marks its cells for the per-object flattening pass in [`terrain-heightmap.md`](terrain-heightmap.md#structure-footprints--the-flattening-pass), which owns that pass and what the two inputs add up to.
 
 ## The 13-block structure
 
-The "DBSIM keeps" column below describes **pass 1 only** — see the two-pass section above for what
-pass 2 goes back for.
+The "DBSIM keeps" column below describes **pass 1 only** — see the two-pass section above for what pass 2 goes back for.
 
 | # | `.msn` row | on-disk shape | GUID-filtered? | DBSIM pass 1 keeps | VSHELL `ShellMap` keeps |
 |---|---|---|---|---|---|
@@ -295,11 +185,7 @@ pass 2 goes back for.
 
 ### Block 5 in memory — 58 bytes (`0x3a`)
 
-The runtime action record `DBSim_LoadScriptDat` builds. **The field-to-offset mapping is that
-function's read order**, which is the only statement of it: two shorts, sixteen bytes of block-4
-refs into a stack buffer, twenty bytes to `+0x0c`, twenty more to `+0x20`, ten bytes read and
-dropped, then `+0x34` and `+0x36`. What each field then means is
-[`../simulation/mission-deployment.md`](../simulation/mission-deployment.md)'s.
+The runtime action record `DBSim_LoadScriptDat` builds. **The field-to-offset mapping is that function's read order**, which is the only statement of it: two shorts, sixteen bytes of block-4 refs into a stack buffer, twenty bytes to `+0x0c`, twenty more to `+0x20`, ten bytes read and dropped, then `+0x34` and `+0x36`. What each field then means is [`../simulation/mission-deployment.md`](../simulation/mission-deployment.md)'s.
 
 | offset | from | field |
 |---|---|---|
@@ -316,9 +202,7 @@ The herc-LUT refs at `0x44`-`0x4D` are the ten bytes read and dropped; DBSIM has
 
 ### Block 6 in memory — 49 bytes (`0x31`)
 
-`DBSim_BuildActionTimerRecord` (`00423104`) resolves each ref to a block-5 record pointer and arms
-the timer through `FUN_004679c0`, which stores the file value **shifted left 11** — so the on-disk
-unit is 2.048 seconds.
+`DBSim_BuildActionTimerRecord` (`00423104`) resolves each ref to a block-5 record pointer and arms the timer through `FUN_004679c0`, which stores the file value **shifted left 11** — so the on-disk unit is 2.048 seconds.
 
 | offset | from | field |
 |---|---|---|
@@ -326,15 +210,11 @@ unit is 2.048 seconds.
 | `0x04`-`0x28` | `0x0A`-`0x1D` | ten action pointers, activated together when the timer expires |
 | `0x2c` | `0x08` | the countdown, in milliseconds |
 
-This is the mission's timer, and it is why an action carrying no trigger area of its own is ordinary
-rather than dead.
+This is the mission's timer, and it is why an action carrying no trigger area of its own is ordinary rather than dead.
 
 ### Block 12 in memory — 76 bytes (`0x4c`)
 
-The **mission objective** record. `DBSim_SpawnMissionObjects` (`004253d8`) reads the 54 bytes pass 1
-threw away into a stack buffer and resolves them in that buffer's own order, which is the only
-statement of the file layout. What each field then means is
-[`../simulation/mission-objectives.md`](../simulation/mission-objectives.md)'s.
+The **mission objective** record. `DBSim_SpawnMissionObjects` (`004253d8`) reads the 54 bytes pass 1 threw away into a stack buffer and resolves them in that buffer's own order, which is the only statement of the file layout. What each field then means is [`../simulation/mission-objectives.md`](../simulation/mission-objectives.md)'s.
 
 | offset | from | field |
 |---|---|---|
@@ -351,14 +231,9 @@ statement of the file layout. What each field then means is
 
 ## Verification
 
-Three independent real readers (`DBSim_LoadScriptDat`, `DBSim_SpawnMissionObjects` and
-`ShellMap_LoadScriptDat`) agree on identical block order and strides. Byte-walker tested against 10
-real files (`ES2\DATA\script.dat` + 9 distinct save-slot snapshots); all parse cleanly with zero
-desync, and `ScriptDatTransformer` round-trips all 10 byte-exact through end of block 13.
+Three independent real readers (`DBSim_LoadScriptDat`, `DBSim_SpawnMissionObjects` and `ShellMap_LoadScriptDat`) agree on identical block order and strides. Byte-walker tested against 10 real files (`ES2\DATA\script.dat` + 9 distinct save-slot snapshots); all parse cleanly with zero desync, and `ScriptDatTransformer` round-trips all 10 byte-exact through end of block 13.
 
-The placement decode is verified end to end by building all 10 as scenes in the HERCULAN Engine:
-every one resolves its zone, theater, rosters, groups and player squad with no unclaimed live slots,
-and every placed object lands inside its zone's bounds.
+The placement decode is verified end to end by building all 10 as scenes in the HERCULAN Engine: every one resolves its zone, theater, rosters, groups and player squad with no unclaimed live slots, and every placed object lands inside its zone's bounds.
 
 ## Header format
 
@@ -378,11 +253,7 @@ The three world fields are confirmed by `DBSim_LoadScriptDat` → `Terrain_LoadZ
 
 ### The training fields
 
-Offsets 10, 12 and 14 are written by `MsnGen_LoadMission` (`0041c73d`, VSHELL) rather than parsed
-out of the `.msn`, which zeroes all ten header globals before it starts. In a campaign the two cheat
-fields are forced to 0 and the difficulty is the player pilot's skill; outside one all three come
-from the single-mission setup screen, which keeps them in `data\prefs.cfg`. The whole chain is in
-[`../simulation/difficulty.md`](../simulation/difficulty.md).
+Offsets 10, 12 and 14 are written by `MsnGen_LoadMission` (`0041c73d`, VSHELL) rather than parsed out of the `.msn`, which zeroes all ten header globals before it starts. In a campaign the two cheat fields are forced to 0 and the difficulty is the player pilot's skill; outside one all three come from the single-mission setup screen, which keeps them in `data\prefs.cfg`. The whole chain is in [`../simulation/difficulty.md`](../simulation/difficulty.md).
 
 ## Reading script.dat
 
@@ -391,30 +262,13 @@ Stop after block 13's declared end and ignore trailing bytes. Files may have sta
 ## Implementation
 
 - `HercWorks.Core.Data.File.Msn.Script.ScriptDat` (model) + `HercWorks.Core.Io.Transform.Common.ScriptDatTransformer` (reader/writer) — round-trip verified byte-exact against all 10 real files (through end of block 13). Deliberately does not pad.
-- `HercWorks.UI.MissionScriptForm` — WinForms editor (Edit ▸ Mission Script), a tab per block.
-  Records are edited in place, never added/removed, since every block indexes the others by array
-  position; the block-13 objective-line list is the exception and is rebuilt from its grid. Save runs an
-  advisory cross-block ref range check. The Hercs tab is master-detail: the block-7 roster on top,
-  the selected record's ten hardpoints below it, each picking its weapon by name and — for the four
-  launchers, the only mounts that read it — its ammunition type out of the parallel second array.
+- `HercWorks.UI.MissionScriptForm` — WinForms editor (Edit ▸ Mission Script), a tab per block. Records are edited in place, never added/removed, since every block indexes the others by array position; the block-13 objective-line list is the exception and is rebuilt from its grid. Save runs an advisory cross-block ref range check. The Hercs tab is master-detail: the block-7 roster on top, the selected record's ten hardpoints below it, each picking its weapon by name and — for the four launchers, the only mounts that read it — its ammunition type out of the parallel second array.
 - `HercWorks.Core.Data.File.Sav.MecFile` + `MecFileTransformer` — `data\player.mec`, the player's squad.
-- `HercWorks.UI.PlayerSquadForm` — WinForms editor for `player.mec` (Edit ▸ Player Squad): player
-  entry index, per-entry mech type and weapon fit, add/remove entries. The mech and weapons the
-  player brings are here, not in `script.dat` (see rule 6 above). Master-detail like the Hercs tab:
-  the selected entry's slots are edited one per row, weapon and ammunition type by name, and slots
-  are added/removed to both parallel arrays at once so their lengths cannot drift apart.
+- `HercWorks.UI.PlayerSquadForm` — WinForms editor for `player.mec` (Edit ▸ Player Squad): player entry index, per-entry mech type and weapon fit, add/remove entries. The mech and weapons the player brings are here, not in `script.dat` (see rule 6 above). Master-detail like the Hercs tab: the selected entry's slots are edited one per row, weapon and ammunition type by name, and slots are added/removed to both parallel arrays at once so their lengths cannot drift apart.
 - `Herculan.Engine.World.ScriptDatHeader` — the engine-side header port.
-- `Herculan.Engine.World.MissionObjective` — the block-12 record, resolved by `MissionLoader`
-  alongside blocks 5 and 6. Block 13 becomes `Mission.BriefingLines` and `data\mission.str`
-  `Mission.Text`; the runtime layer is
-  [`../simulation/mission-objectives.md`](../simulation/mission-objectives.md).
-- `Herculan.Engine.World.MissionLoader` — the two-pass placement rule above, producing a `Mission`
-  of resolved placements. `UnitTypeNames` (`nam\MECHS.NAM`/`FLYERS.NAM`) and `BaseTypeTable`
-  (`dat\BASES.DAT`) resolve the three type numberings.
-- Blocks 7-9 name the fields pass 2 reads (type, position ref, heading ref, and block 7's weapon
-  fit) and round-trip the rest raw as `HeadBytes`/`TailBytes`. Blocks 5 and 11 split an interleaved
-  source span into parallel `ArrayA`/`ArrayB` (even source offsets in A, odd in B) to match the
-  writer's on-disk order.
+- `Herculan.Engine.World.MissionObjective` — the block-12 record, resolved by `MissionLoader` alongside blocks 5 and 6. Block 13 becomes `Mission.BriefingLines` and `data\mission.str` `Mission.Text`; the runtime layer is [`../simulation/mission-objectives.md`](../simulation/mission-objectives.md).
+- `Herculan.Engine.World.MissionLoader` — the two-pass placement rule above, producing a `Mission` of resolved placements. `UnitTypeNames` (`nam\MECHS.NAM`/`FLYERS.NAM`) and `BaseTypeTable` (`dat\BASES.DAT`) resolve the three type numberings.
+- Blocks 7-9 name the fields pass 2 reads (type, position ref, heading ref, and block 7's weapon fit) and round-trip the rest raw as `HeadBytes`/`TailBytes`. Blocks 5 and 11 split an interleaved source span into parallel `ArrayA`/`ArrayB` (even source offsets in A, odd in B) to match the writer's on-disk order.
 
 ## Rejected readings
 

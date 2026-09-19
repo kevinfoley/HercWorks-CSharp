@@ -4,19 +4,9 @@ Ported in `Sim.TargetSelection`, `Sim.Detection`, `SimObject.Target`.
 
 ## Where the selection lives
 
-`+0x1a4` is the selected target every homing weapon and most of the AI reads. It is a field of the
-**shared base**, not of the HERC class: an aircraft and an armed structure keep theirs at the same
-offset, and the two places that read another object's selection — `Ai_SelectTarget`'s scoring and
-`Mission_IsClearOfThreats` — read it off whatever object they are holding without asking what class
-it is. **For the player's machine nothing in the simulation writes it.** The selection is made in the cockpit widget tree at
-`CockpitViewInstance+0x210` and copied onto the machine once a frame by
-`Player_PerFrameCockpitUpdate` (`0041b130`). AI machines get theirs from a separate family, decoded in
-[`ai-targeting.md`](ai-targeting.md) and ported in `Sim.Ai.AiTargeting`.
+`+0x1a4` is the selected target every homing weapon and most of the AI reads. It is a field of the **shared base**, not of the HERC class: an aircraft and an armed structure keep theirs at the same offset, and the two places that read another object's selection — `Ai_SelectTarget`'s scoring and `Mission_IsClearOfThreats` — read it off whatever object they are holding without asking what class it is. **For the player's machine nothing in the simulation writes it.** The selection is made in the cockpit widget tree at `CockpitViewInstance+0x210` and copied onto the machine once a frame by `Player_PerFrameCockpitUpdate` (`0041b130`). AI machines get theirs from a separate family, decoded in [`ai-targeting.md`](ai-targeting.md) and ported in `Sim.Ai.AiTargeting`.
 
-Every writer of `+0x1a4` also maintains `target+0x1a2`, a count of how many objects hold that one, and
-raises `+0x9d` ("target changed"), which suppresses lock for one tick. The armed and triple-turret
-structure ticks raise `+0x9d` too, as shared boilerplate; **nothing reads a structure's copy** — the
-two readers (`Mech_PerTickSystemsUpdate` and `Mech_LockTonePlay`) are both mech-only.
+Every writer of `+0x1a4` also maintains `target+0x1a2`, a count of how many objects hold that one, and raises `+0x9d` ("target changed"), which suppresses lock for one tick. The armed and triple-turret structure ticks raise `+0x9d` too, as shared boilerplate; **nothing reads a structure's copy** — the two readers (`Mech_PerTickSystemsUpdate` and `Mech_LockTonePlay`) are both mech-only.
 
 | Key | Scancode | Function | What it does |
 |---|---|---|---|
@@ -25,55 +15,36 @@ two readers (`Mech_PerTickSystemsUpdate` and `Mech_LockTonePlay`) are both mech-
 | `;` | `0x27` | `FUN_004332dc(view, 0)` | Clear. Undocumented in the manual |
 | `Tab` | `0x0f` | `TargetingPod_CycleComponent` | Step the Targeting Pod's component lock, if one is fitted — [below](#component-targeting--the-targeting-pod) |
 
-`FUN_004332dc(view, obj)` also serves the F4 scanner's TARGET button and a gunsight click. It
-*walks* `+0x210` through the object list from a stored cursor until it lands on the object asked for,
-so a request for something unselectable ends with the selection back where it started.
+`FUN_004332dc(view, obj)` also serves the F4 scanner's TARGET button and a gunsight click. It *walks* `+0x210` through the object list from a stored cursor until it lands on the object asked for, so a request for something unselectable ends with the selection back where it started.
 
 ### Cycle's shortlist — `FUN_0043349c`
 
-Everything selectable and inside the ±8999 cone is filed into one of four buckets by bearing error
-(`|err| >> 10`, clamped to 3), sorted by range within its bucket, keeping four. Flattening the
-buckets in order gives the shortlist: **nearest the crosshair wins, range only breaks ties inside a
-band**. A repeat press whose rebuilt head is unchanged steps to the shortlist entry after the
-current selection.
+Everything selectable and inside the ±8999 cone is filed into one of four buckets by bearing error (`|err| >> 10`, clamped to 3), sorted by range within its bucket, keeping four. Flattening the buckets in order gives the shortlist: **nearest the crosshair wins, range only breaks ties inside a band**. A repeat press whose rebuilt head is unchanged steps to the shortlist entry after the current selection.
 
-The angular-size correction the function computes from the target's range and shape radius is
-multiplied by a literal `PUSH 0x0` (`004335d0`) and is therefore always zero. Not ported, by
-omission.
+The angular-size correction the function computes from the target's range and shape radius is multiplied by a literal `PUSH 0x0` (`004335d0`) and is therefore always zero. Not ported, by omission.
 
 ### Can this be targeted — `FUN_00433174`
 
 Alive (`obj+0x99`/`+0xa4` both clear), on the other side, and **known** by either sensor route:
 
-- radar-visible (`obj+0x95`) within `DAT_004d1cfc` = **200000**, the last of the scanner's three
-  ranges (`MfdDisplay_Ctor` writes 50000/100000/200000) — read directly, not the current setting;
+- radar-visible (`obj+0x95`) within `DAT_004d1cfc` = **200000**, the last of the scanner's three ranges (`MfdDisplay_Ctor` writes 50000/100000/200000) — read directly, not the current setting;
 - or a held contact within `FUN_00426aec` = **30000** on the short scan setting, **60000** otherwise.
 
-`FUN_00433250` is the cone test: bearing less heading **plus** turret twist, within ±8999. The twist
-sign is the original's and is transcribed rather than corrected — `Mech_PerTickSystemsUpdate` and the
-sensor sweep fold it the same way.
+`FUN_00433250` is the cone test: bearing less heading **plus** turret twist, within ±8999. The twist sign is the original's and is transcribed rather than corrected — `Mech_PerTickSystemsUpdate` and the sensor sweep fold it the same way.
 
 ## The sensor model — `FUN_004123ac`
 
-Runs once per tick from `Sim_MainTick`, **after** every object update and the input poll, immediately
-before the per-mech systems pass. Two distinct notions:
+Runs once per tick from `Sim_MainTick`, **after** every object update and the input poll, immediately before the per-mech systems pass. Two distinct notions:
 
-- **Radar visibility** (`obj+0x95`) is a property of one object: something with an active scanner
-  painted it. Set by the sweep, cleared wholesale by decay.
-- **A contact** (`obj+0xc2 + otherListIndex`) is a property of a *pair*, made by looking and shared
-  sideways to the spotter's own side.
+- **Radar visibility** (`obj+0x95`) is a property of one object: something with an active scanner painted it. Set by the sweep, cleared wholesale by decay.
+- **A contact** (`obj+0xc2 + otherListIndex`) is a property of a *pair*, made by looking and shared sideways to the spotter's own side.
 
-`obj+0x4b` is the object's slot in the single live-object list (`ObjectList_Add`, `FUN_00411dd4`) and
-is what indexes both the contact table and the line-of-sight cache at `obj+0x132`.
+`obj+0x4b` is the object's slot in the single live-object list (`ObjectList_Add`, `FUN_00411dd4`) and is what indexes both the contact table and the line-of-sight cache at `obj+0x132`.
 
 ### Passes
 
-1. **Timers.** `obj+0x1e2` (LOS cache) and `obj+0x1e5` (contact decay) tick; an expired decay runs
-   `FUN_0041251c` on the spot, reloading at `10000 + rand(1000)`.
-2. **Sweeps.** `FUN_004128f8` for each live human-side object, over Cybrid objects only — but it
-   writes *both* objects' tables, so a Cybrid learns without sweeping. The locally-piloted machine
-   (`obj+0xa3`) is held back and swept **last**, so squadmates' contacts have already been shared to
-   it.
+1. **Timers.** `obj+0x1e2` (LOS cache) and `obj+0x1e5` (contact decay) tick; an expired decay runs `FUN_0041251c` on the spot, reloading at `10000 + rand(1000)`.
+2. **Sweeps.** `FUN_004128f8` for each live human-side object, over Cybrid objects only — but it writes *both* objects' tables, so a Cybrid learns without sweeping. The locally-piloted machine (`obj+0xa3`) is held back and swept **last**, so squadmates' contacts have already been shared to it.
 3. Clears `obj+0xa2`, a per-tick latch for engagement actions.
 
 ### `FUN_004128f8` ranges
@@ -85,74 +56,40 @@ is what indexes both the contact table and the line-of-sight cache at `obj+0x132
 | < 80000 | The looking half runs at all |
 | < 50000 | Sets `obj+0x9e` and fires the engagement action |
 
-Looking: bearing plus aim twist against the ±`0x3800` sensor arc (`FUN_00411acc`, vtable `+0x44`),
-then LOS. An AI machine's contact goes to `FUN_00412704`, which shares it to everything on its side
-within 100000; the player's machine keeps it to itself. The reciprocal bearing is tested from the
-other object's arc in the same pass.
+Looking: bearing plus aim twist against the ±`0x3800` sensor arc (`FUN_00411acc`, vtable `+0x44`), then LOS. An AI machine's contact goes to `FUN_00412704`, which shares it to everything on its side within 100000; the player's machine keeps it to itself. The reciprocal bearing is tested from the other object's arc in the same pass.
 
-Decay (`FUN_0041251c`) drops a contact past **100001** measured **on the ground plane only**
-(`FastMagnitude2D`, where every other range here is the 3D approximation) or with no LOS, mutually.
+Decay (`FUN_0041251c`) drops a contact past **100001** measured **on the ground plane only** (`FastMagnitude2D`, where every other range here is the 3D approximation) or with no LOS, mutually.
 
 ### Line of sight — `FUN_00412608`
 
-A terrain ray between the two objects' shape-box centres (`+0x1c` of the vtable `+0x24` box, 500 with
-no shape), cached per pair on the observer. **The cache gate tests the *other* object's countdown and
-reloads the observer's** — verified at `00412617`/`0041263f` (`CMP word ptr [ESI+0x1e3]` against
-`MOV word ptr [EBX+0x1e3]`), so it is not a decompiler slip. Since only human-side objects sweep,
-Cybrid timers stay at zero and pairs are re-walked whenever asked.
+A terrain ray between the two objects' shape-box centres (`+0x1c` of the vtable `+0x24` box, 500 with no shape), cached per pair on the observer. **The cache gate tests the *other* object's countdown and reloads the observer's** — verified at `00412617`/`0041263f` (`CMP word ptr [ESI+0x1e3]` against `MOV word ptr [EBX+0x1e3]`), so it is not a decompiler slip. Since only human-side objects sweep, Cybrid timers stay at zero and pairs are re-walked whenever asked.
 
 ## Radar mode
 
-`mech+0x96` is PASSIVE/ACTIVE, toggled by `FUN_0041b468` — the manual's [R] and the F4 scanner's
-PASS/ACTIVE buttons, gated on `obj+0xa3` so only the player's machine flips. **A HERC powers up
-passive**: nothing writes the field at construction and that toggle is its only caller.
-`Base_Construct` latches it on for structure types 5, 6, `0x1d`, `0x1e` — the radar masts.
+`mech+0x96` is PASSIVE/ACTIVE, toggled by `FUN_0041b468` — the manual's [R] and the F4 scanner's PASS/ACTIVE buttons, gated on `obj+0xa3` so only the player's machine flips. **A HERC powers up passive**: nothing writes the field at construction and that toggle is its only caller. `Base_Construct` latches it on for structure types 5, 6, `0x1d`, `0x1e` — the radar masts.
 
-This matters for what the player can target. Passive, targeting depends on visual contacts and
-reaches about 350 m; active, it reaches as far as terrain gives line of sight — measured at 831 m
-against the stock mission's nearest hostile. A distant enemy is usually targetable because *its own*
-radar is on: `Mech_AiCombatReassess` switches an AI machine to ACTIVE the moment it enters a fight
-and a squadmate of the player's back to PASSIVE (see
-[`ai-targeting.md`](ai-targeting.md#the-combat-reassess--mech_aicombatreassess-0041cf18)), ported as
-`MechObject.CombatReassess`.
+This matters for what the player can target. Passive, targeting depends on visual contacts and reaches about 350 m; active, it reaches as far as terrain gives line of sight — measured at 831 m against the stock mission's nearest hostile. A distant enemy is usually targetable because *its own* radar is on: `Mech_AiCombatReassess` switches an AI machine to ACTIVE the moment it enters a fight and a squadmate of the player's back to PASSIVE (see [`ai-targeting.md`](ai-targeting.md#the-combat-reassess--mech_aicombatreassess-0041cf18)), ported as `MechObject.CombatReassess`.
 
-Radar mode is also what an **AI machine's ECM pod** follows, so a Cybrid that lights its radar up on
-entering a fight starts jamming at the same moment — see
-[`equipment-pods.md`](equipment-pods.md).
+Radar mode is also what an **AI machine's ECM pod** follows, so a Cybrid that lights its radar up on entering a fight starts jamming at the same moment — see [`equipment-pods.md`](equipment-pods.md).
 
 ## Object classification
 
-`obj+0x1a8`, written by each constructor: `Mech_Constructor` 0, `Flyer_Constructor` 2,
-`Base_Construct` 1 for every structure except types `0x2d`-`0x34`/`0x37`-`0x3d`, which get 3. All
-three write `0xffff` first. Six type indices (`0x0a`, `0x35`, `0x36`, `0x3e`-`0x40`) match no case
-and leave the original's object pointer uninitialised; the port takes them as ordinary structures.
+`obj+0x1a8`, written by each constructor: `Mech_Constructor` 0, `Flyer_Constructor` 2, `Base_Construct` 1 for every structure except types `0x2d`-`0x34`/`0x37`-`0x3d`, which get 3. All three write `0xffff` first. Six type indices (`0x0a`, `0x35`, `0x36`, `0x3e`-`0x40`) match no case and leave the original's object pointer uninitialised; the port takes them as ordinary structures.
 
 Only classes 0 and 2 are candidates for the nearest-target key.
 
-`script.dat` block 11's `0x6e` (`ScriptEntity164Export.TriStateFlag`) is the side, copied to the
-group record's `+0x12` by `DBSim_BuildGroupRecord`; 0 is human, 1 Cybrid. The stock mission has 2
-human groups and 7 Cybrid.
+`script.dat` block 11's `0x6e` (`ScriptEntity164Export.TriStateFlag`) is the side, copied to the group record's `+0x12` by `DBSim_BuildGroupRecord`; 0 is human, 1 Cybrid. The stock mission has 2 human groups and 7 Cybrid.
 
 ## Aim point — vtable `+0x24`
 
-`Rocket_HomingSteer` (`0040a254`), `Bullet_HomingSteer` (`0040aff0`) and the HUD target indicator
-(`FUN_0041b728`) share one branch verbatim: call the target's vtable `+0x24`, and if it returns a
-record, transform that record's `+0x14` by the target's own rotation; otherwise use the raw origin.
+`Rocket_HomingSteer` (`0040a254`), `Bullet_HomingSteer` (`0040aff0`) and the HUD target indicator (`FUN_0041b728`) share one branch verbatim: call the target's vtable `+0x24`, and if it returns a record, transform that record's `+0x14` by the target's own rotation; otherwise use the raw origin.
 
-**The record is a shape node transform, not a bounding box.** It is
-`shapeInstance+0x16 + index*0x20`, the same 0x20-byte per-node array
-`Mech_ComponentGeometryTest_Candidate` indexes — 9 matrix shorts then a 3-int translation at
-`+0x14`..`+0x1f`. So `+0x14` is the node's model-space position and `+0x1c` is its Z, which is what
-the line-of-sight test adds to the object's own.
+**The record is a shape node transform, not a bounding box.** It is `shapeInstance+0x16 + index*0x20`, the same 0x20-byte per-node array `Mech_ComponentGeometryTest_Candidate` indexes — 9 matrix shorts then a 3-int translation at `+0x14`..`+0x1f`. So `+0x14` is the node's model-space position and `+0x1c` is its Z, which is what the line-of-sight test adds to the object's own.
 
 **Which node is per class:**
 
-- **Mech** — `FUN_00417b98` pushes the type record's `+0x0c` (`.DAT` file offset 10,
-  `HercSimDat.CameraBoneId`) as the part id, so a HERC is aimed at **through its cockpit node**, the
-  same one the pilot's eye rides. It walks and leans with the machine. Retail rises are 7.2 m
-  (HEADHUNT) to 10.4 m (ACHILLES) above the model origin, which sits on the ground.
-- **Flyer and structure** — both install `FUN_00411a9c`, which is `return 0`, so both aim at the raw
-  origin and both sight from the literal 500.
+- **Mech** — `FUN_00417b98` pushes the type record's `+0x0c` (`.DAT` file offset 10, `HercSimDat.CameraBoneId`) as the part id, so a HERC is aimed at **through its cockpit node**, the same one the pilot's eye rides. It walks and leans with the machine. Retail rises are 7.2 m (HEADHUNT) to 10.4 m (ACHILLES) above the model origin, which sits on the ground.
+- **Flyer and structure** — both install `FUN_00411a9c`, which is `return 0`, so both aim at the raw origin and both sight from the literal 500.
 
 `SimObject.AimPoint` / `SimObject.SightHeight`, overridden only on `MechObject`.
 
@@ -189,7 +126,7 @@ Two `SimObjectVtable` slots exist for this and nothing else; the pod is the only
 
 - **`+0x80` `(this, cursor, int *outComponentId)` — advance.** `Mech_NextTargetableComponent` (`00415558`) steps the cursor over `TargetingPodComponentRotation` = `{0, 4, 5, 7, 8, 9, 10}`, skipping any slot the machine has lost (its occupancy array at `+0x20e`) and wrapping at 7. `Base_NextTargetableComponent` (`00403624`) is the structure's, over its type's whole component list. `SimObject_NextTargetableComponent_None` (`00411b1c`) answers `-1`, so a flyer has no parts to single out.
 
-  **The walk steps before it looks, and the slot it started on is never tested.** A machine whose only remaining rotation slot is the one the cursor already sits on answers `-1` to both, and a cursor of `-1` is clamped to position 0 before the first step — so the first `Tab` after no lock gives rotation entry 1, component 4, and never component 0.
+**The walk steps before it looks, and the slot it started on is never tested.** A machine whose only remaining rotation slot is the one the cursor already sits on answers `-1` to both, and a cursor of `-1` is clamped to position 0 before the first step — so the first `Tab` after no lock gives rotation entry 1, component 4, and never component 0.
 - **`+0x84` `(this, componentId)` — still there?** `Mech_ComponentPresent` (`00415540`) reads that one occupancy entry. The resolver asks before using a lock, so a component shot off between presses moves the lock on rather than aiming at nothing.
 
 Seven of a machine's twenty-nine slots, straddling both the chassis band (0, 4, 5) and the systems band (7–10) of [`ai-targeting.md`](ai-targeting.md#which-component-the-shot-is-aimed-at--mech_aiselectaimcomponent-0041ce08)'s table — the manual's "target areas".
@@ -217,39 +154,15 @@ Because `Mech_ComponentDamageWrite` then hands **every** mount its component's r
 
 ## Engine port
 
-`SimObject` carries `ListIndex`, `Side`, `TargetClass`, `Neutralised`, `RadarVisible`,
-`ScannerActive`, `JammerActive`, `AimOffset`/`AimPoint`/`SightHeight`, `TargetedBy` and the two
-per-object tables. `MissionScene.Targeting` holds the selection; the host drives it from
-[Enter]/[']/[;] and pushes it to the machine once a frame.
+`SimObject` carries `ListIndex`, `Side`, `TargetClass`, `Neutralised`, `RadarVisible`, `ScannerActive`, `JammerActive`, `AimOffset`/`AimPoint`/`SightHeight`, `TargetedBy` and the two per-object tables. `MissionScene.Targeting` holds the selection; the host drives it from [Enter]/[']/[;] and pushes it to the machine once a frame.
 
-The pod is `Sim.TargetingPodLock`, hung off `WeaponMount.ComponentLock` for the one mount whose
-catalog id is 29 and null on every other — the engine has a single mount class where the original has
-a subclass per kind, and the four fields belong to the mount that has them. `MechObject` supplies the
-callers: the reset from its `OnTargetChanged`, `CycleTargetComponent` for `[Tab]`, and
-`ResolveTargetAimPoint` for `Player_ResolveTargetAimPoint`, whose result the host resolves **once a
-frame** and hands to both consumers — asking twice would run the decay countdown twice. The target's
-two slots are `SimObject.NextTargetableComponent` / `ComponentPresent`, overridden on `MechObject`;
-`Base_NextTargetableComponent` is not ported, being unreachable behind the `TargetClass` fence.
+The pod is `Sim.TargetingPodLock`, hung off `WeaponMount.ComponentLock` for the one mount whose catalog id is 29 and null on every other — the engine has a single mount class where the original has a subclass per kind, and the four fields belong to the mount that has them. `MechObject` supplies the callers: the reset from its `OnTargetChanged`, `CycleTargetComponent` for `[Tab]`, and `ResolveTargetAimPoint` for `Player_ResolveTargetAimPoint`, whose result the host resolves **once a frame** and hands to both consumers — asking twice would run the decay countdown twice. The target's two slots are `SimObject.NextTargetableComponent` / `ComponentPresent`, overridden on `MechObject`; `Base_NextTargetableComponent` is not ported, being unreachable behind the `TargetClass` fence.
 
-All three entry points also set the gunsight's "indicator armed" byte
-(`TargetSelection.IndicatorArmed`, state-block offset 36) on a successful press, which the target
-box's paint requires — see [`../formats/hud-target-indicator.md`](../formats/hud-target-indicator.md).
-Nothing ever clears it.
+All three entry points also set the gunsight's "indicator armed" byte (`TargetSelection.IndicatorArmed`, state-block offset 36) on a successful press, which the target box's paint requires — see [`../formats/hud-target-indicator.md`](../formats/hud-target-indicator.md). Nothing ever clears it.
 
 Deviations:
 
-- **The observer camera is excluded** from the sensor model by target class. DBSIM's live-object list
-  only ever holds the three combat classes; `SimWorld`'s also holds the camera, which would otherwise
-  spot for the player's side.
-- **`TargetSelection.DropIfInvalid`** is not the original's, which has no player-side abandon check
-  at all: the death path (`FUN_0041eb34`) is gated on `obj+0xa3` being *clear*, so it and
-  `Ai_ShouldAbandonTarget` (`0041c4a8`, see [`ai-targeting.md`](ai-targeting.md#abandoning-a-target--ai_shouldabandontarget-0041c4a8))
-  only ever run for an AI machine. Without something in
-  their place a destroyed target stays locked. It drops on death alone and deliberately does **not**
-  re-run the selectability test: that also asks whether the object is currently known, which radar
-  decay makes come and go, so testing it would drop a live target every few ticks.
-- `obj+0x9e` and the engagement action it fires at 50000 units are `SimObject.Engaged` and
-  `SimObject.EngagementAction` — [`mission-deployment.md`](mission-deployment.md).
-- Not ported: the "enemy detected" callout (vtable `+0x48`, `Mech_AiEnemySighted` — see
-  [`ai-targeting.md`](ai-targeting.md#radio-callouts)), and the second viewing object `DAT_004d2708`
-  selects when watching another machine.
+- **The observer camera is excluded** from the sensor model by target class. DBSIM's live-object list only ever holds the three combat classes; `SimWorld`'s also holds the camera, which would otherwise spot for the player's side.
+- **`TargetSelection.DropIfInvalid`** is not the original's, which has no player-side abandon check at all: the death path (`FUN_0041eb34`) is gated on `obj+0xa3` being *clear*, so it and `Ai_ShouldAbandonTarget` (`0041c4a8`, see [`ai-targeting.md`](ai-targeting.md#abandoning-a-target--ai_shouldabandontarget-0041c4a8)) only ever run for an AI machine. Without something in their place a destroyed target stays locked. It drops on death alone and deliberately does **not** re-run the selectability test: that also asks whether the object is currently known, which radar decay makes come and go, so testing it would drop a live target every few ticks.
+- `obj+0x9e` and the engagement action it fires at 50000 units are `SimObject.Engaged` and `SimObject.EngagementAction` — [`mission-deployment.md`](mission-deployment.md).
+- Not ported: the "enemy detected" callout (vtable `+0x48`, `Mech_AiEnemySighted` — see [`ai-targeting.md`](ai-targeting.md#radio-callouts)), and the second viewing object `DAT_004d2708` selects when watching another machine.

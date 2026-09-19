@@ -1,16 +1,12 @@
 # The Multi-Function Display
 
-Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project. Addresses are DBSIM. Symbols
-are in `tools/ghidra_scripts/known_symbols.json`; apply with `ES2ApplySymbolNames.java`.
+Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project. Addresses are DBSIM. Symbols are in `tools/ghidra_scripts/known_symbols.json`; apply with `ES2ApplySymbolNames.java`.
 
-The console screen the F1-F6 keys switch between six screens. Surrounding cockpit:
-[`cockpit-hud.md`](cockpit-hud.md). Caption text: [`str-strings.md`](str-strings.md).
+The console screen the F1-F6 keys switch between six screens. Surrounding cockpit: [`cockpit-hud.md`](cockpit-hud.md). Caption text: [`str-strings.md`](str-strings.md).
 
-Engine implementation: `Herculan.Engine.Content.{MfdLayout, MfdMode, SimStringTable}`,
-`Herculan.Engine.Render.Overlay2DRenderer.AddMfd`.
+Engine implementation: `Herculan.Engine.Content.{MfdLayout, MfdMode, SimStringTable}`, `Herculan.Engine.Render.Overlay2DRenderer.AddMfd`.
 
-How a click on one of the buttons below reaches `MfdButton_OnClick`:
-[`cockpit-input.md`](cockpit-input.md).
+How a click on one of the buttons below reaches `MfdButton_OnClick`: [`cockpit-input.md`](cockpit-input.md).
 
 ## Object model
 
@@ -44,24 +40,18 @@ Object fields, base `MfdDisplay_Ctor`'s `param_1`:
 
 ### Two button classes
 
-`MfdDisplay_Ctor` switches on the button index and builds its 13 buttons through **two different
-classes**, which is why some MFD buttons show a pressed state and others do not:
+`MfdDisplay_Ctor` switches on the button index and builds its 13 buttons through **two different classes**, which is why some MFD buttons show a pressed state and others do not:
 
 | Class | Ctor | Indices | Repaint | Frame comes from |
 |---|---|---|---|---|
 | Latching | `0044741c` | 0-5, 11, 12 | `MfdButton_Repaint` (`004474e4`) | its own selection flag `+0x40` |
 | Momentary | `004472e4` | 7, 8, 9, 10 | `MfdButton_SetCaption` (`00447358`) | the shared press byte `+0x1b` |
 
-So the F-key column and the two scanner toggles (PASS, ACTIVE) **have no pressed state at all** —
-blue when unselected, green when selected — while SELECT, RANGE, TARGET and XMIT light *only* while
-held and have no selected state.
+So the F-key column and the two scanner toggles (PASS, ACTIVE) **have no pressed state at all** — blue when unselected, green when selected — while SELECT, RANGE, TARGET and XMIT light *only* while held and have no selected state.
 
-`MfdButton_Repaint`'s caption re-font test, `index < 6 || index - 0xb < 2`, covers exactly the
-latching class's indices: it is a class invariant restated, not a rule of its own. Only latching
-buttons ever re-font, which is why holding SELECT does not darken its caption.
+`MfdButton_Repaint`'s caption re-font test, `index < 6 || index - 0xb < 2`, covers exactly the latching class's indices: it is a class invariant restated, not a rule of its own. Only latching buttons ever re-font, which is why holding SELECT does not darken its caption.
 
-Index 6 has **no case in the switch** and so takes whichever class the previous iteration left on the
-stack. It is the degenerate zero rect no mode shows.
+Index 6 has **no case in the switch** and so takes whichever class the previous iteration left on the stack. It is the degenerate zero rect no mode shows.
 
 Per-button fields, base a button pointer from `+0x18`:
 
@@ -85,20 +75,15 @@ Mode index = F-key - 1. `Gau_MfdPanelWidget` boots the display at mode 3.
 | 4 | F5 | `TARGET` | `MfdStatusScreen_Ctor` `0043a2e0` | 0x42 | `MFDStatus` |
 | 5 | F6 | `MISSILE CAM` | `MfdMissileViewScreen_Ctor` `0043facc` | 0x4a | `MFDMissileView` |
 
-Modes 0 and 4 share one constructor and one class — the target screen is the status screen pointed
-at another object.
+Modes 0 and 4 share one constructor and one class — the target screen is the status screen pointed at another object.
 
-Scanner ranges are `_DAT_004d1cf4` = 50000 / 100000 / 200000 world units = 300 / 600 / 1200 m at
-1000 units = 6 m. Index 2 is the default, matching the retail screenshot's `RNG: 1200`.
+Scanner ranges are `_DAT_004d1cf4` = 50000 / 100000 / 200000 world units = 300 / 600 / 1200 m at 1000 units = 6 m. Index 2 is the default, matching the retail screenshot's `RNG: 1200`.
 
 ## Geometry
 
 One rect comes from the herc's `.GAU`; everything inside is hardcoded in DBSIM.
 
-**`.GAU` offset 728** — the MFD block. 728/732 are an origin offset added to the rest, zero in all
-nine retail files. 744-951 hold 13 rect-shaped slots that `MfdGau_ApplyCoordShift` coordinate-shifts
-but no constructor reads; zero in every retail file. 952 is the panel rect
-(`GAUFile.MfdPanel`), read as `param_2[0x38..0x3b]`.
+**`.GAU` offset 728** — the MFD block. 728/732 are an origin offset added to the rest, zero in all nine retail files. 744-951 hold 13 rect-shaped slots that `MfdGau_ApplyCoordShift` coordinate-shifts but no constructor reads; zero in every retail file. 952 is the panel rect (`GAUFile.MfdPanel`), read as `param_2[0x38..0x3b]`.
 
 Panel rect is 115x60 exclusive / 116x61 inclusive in every herc — only its position varies:
 
@@ -110,18 +95,13 @@ Panel rect is 115x60 exclusive / 116x61 inclusive in every herc — only its pos
 | OGRE | `100,167 – 215,227` | TOMAHAWK | `102,176 – 217,236` |
 | OUTLAW | `161,150 – 276,210` | | |
 
-**Screen inset.** The constructor applies `x0 += 0x12 << XCoordShift` and leaves `y0`, `x1`, `y1`,
-then works relative to that origin. The strip left of the inset holds the F-key column, which is why
-its table x values are negative. The inset region is 98x61 GAU inclusive = **196x122 device** =
-exactly the size of `MFD` bank frames 0-2.
+**Screen inset.** The constructor applies `x0 += 0x12 << XCoordShift` and leaves `y0`, `x1`, `y1`, then works relative to that origin. The strip left of the inset holds the F-key column, which is why its table x values are negative. The inset region is 98x61 GAU inclusive = **196x122 device** = exactly the size of `MFD` bank frames 0-2.
 
-Coordinates below are GAU (320-wide) units relative to the inset origin, inclusive on all edges.
-Device pixels are 2x (`CockpitArt.GauToPixelScale`).
+Coordinates below are GAU (320-wide) units relative to the inset origin, inclusive on all edges. Device pixels are 2x (`CockpitArt.GauToPixelScale`).
 
 ### Buttons
 
-13 buttons from four parallel `int16` tables: `0049cacc` x0, `0049cae6` y0, `0049cb00` x1,
-`0049cb1a` y1.
+13 buttons from four parallel `int16` tables: `0049cacc` x0, `0049cae6` y0, `0049cb00` x1, `0049cb1a` y1.
 
 | i | Rect | Size | `MFD` frames | Caption |
 |---|---|---|---|---|
@@ -134,15 +114,11 @@ Device pixels are 2x (`CockpitArt.GauToPixelScale`).
 | 11 | `4,14 – 30,23` | 27x10 | 9 / 10 | `PASS` |
 | 12 | `4,25 – 30,34` | 27x10 | 9 / 10 | `ACTIVE` |
 
-The lower frame of each pair is unlit, the upper lit. Every rect size matches a `dba\MFD.DBA` frame
-size exactly, which is the layout's primary confirmation. Index 6 is a degenerate rect no visibility
-row selects. Indices 7 and 10 share a rect: one top-right button under two names.
+The lower frame of each pair is unlit, the upper lit. Every rect size matches a `dba\MFD.DBA` frame size exactly, which is the layout's primary confirmation. Index 6 is a degenerate rect no visibility row selects. Indices 7 and 10 share a rect: one top-right button under two names.
 
 ### Button visibility
 
-6 rows x 13 bytes at `0049cbd8`. `MfdDisplay_SetMode` and `MfdDisplay_Repaint` index it as
-`table[mode][button]`; the decompiler folds the `+6` entry offset into the symbol, so it reads as
-`DAT_0049cbde + mode * 13`. Indices 0-5 are 1 in every row.
+6 rows x 13 bytes at `0049cbd8`. `MfdDisplay_SetMode` and `MfdDisplay_Repaint` index it as `table[mode][button]`; the decompiler folds the `+6` entry offset into the symbol, so it reads as `DAT_0049cbde + mode * 13`. Indices 0-5 are 1 in every row.
 
 | Mode | Aux buttons shown |
 |---|---|
@@ -153,18 +129,13 @@ row selects. Indices 7 and 10 share a rect: one top-right button under two names
 | 4 TargetStatus | 7 `SELECT` |
 | 5 MissileCam | none |
 
-`MfdButton_OnClick` gives **7 `SELECT` and 9 `TARGET` one shared case**, which branches on the
-current mode: mode 0 steps the status screen's own subject cursor (`+0x318`, a squad roster), every
-other mode calls `TargetSelect_Cycle`. So F5's SELECT and F4's TARGET are the same action, and both
-do what [Enter] does.
+`MfdButton_OnClick` gives **7 `SELECT` and 9 `TARGET` one shared case**, which branches on the current mode: mode 0 steps the status screen's own subject cursor (`+0x318`, a squad roster), every other mode calls `TargetSelect_Cycle`. So F5's SELECT and F4's TARGET are the same action, and both do what [Enter] does.
 
 10 `XMIT` opens a transmission on FLASH COMM.
 
 ### Screen background
 
-`MFD` frames 0-2 are three pieces of screen chrome, all 196x122: **0** two boxes split by a central
-divider, **1** one box spanning the content area, **2** one small box in the top-left corner with the
-rest open. `MfdDisplay_Repaint` selects by mode from the bank's frame-pointer array:
+`MFD` frames 0-2 are three pieces of screen chrome, all 196x122: **0** two boxes split by a central divider, **1** one box spanning the content area, **2** one small box in the top-left corner with the rest open. `MfdDisplay_Repaint` selects by mode from the bank's frame-pointer array:
 
 | Modes | Frame |
 |---|---|
@@ -172,12 +143,9 @@ rest open. `MfdDisplay_Repaint` selects by mode from the bank's frame-pointer ar
 | 3 | 2 |
 | 2, 5 | none — the blit is skipped |
 
-**Frame 0 is never used as a background.** The nav map and missile cam fill the whole screen with
-their own image; the map's paint floods its rect first (below).
+**Frame 0 is never used as a background.** The nav map and missile cam fill the whole screen with their own image; the map's paint floods its rect first (below).
 
-Verified against the retail reference crops: status, flash-comm and target show vertical borders only
-at the content area's outer edges, while the scanner shows an extra border at panel x 100-101 —
-frame 2's box edge at frame-local x 64-65 plus the inset.
+Verified against the retail reference crops: status, flash-comm and target show vertical borders only at the content area's outer edges, while the scanner shows an extra border at panel x 100-101 — frame 2's box edge at frame-local x 64-65 plus the inset.
 
 ### Fixed labels
 
@@ -186,14 +154,11 @@ frame 2's box edge at frame-local x 64-65 plus the inset.
 | Title | `4,0 – 40,9` | `WHITE` (`ColorSchemePanels[10]`) | left |
 | Message | `22,46 – 74,52` | `DARK` (`[12]`) | centre |
 
-The message label carries the speaking pilot's name during a transmission ([below](#transmissions)),
-and is blank otherwise. Its font is the text colour only; the plate behind it is filled with the
-speaker's own `COLORS.DAT` id, which the comm box publishes alongside the name.
+The message label carries the speaking pilot's name during a transmission ([below](#transmissions)), and is blank otherwise. Its font is the text colour only; the plate behind it is filled with the speaker's own `COLORS.DAT` id, which the comm box publishes alongside the name.
 
 ### Label placement
 
-`Label_SetRect` (`00438884`) anchors, `Label_SetText` (`00438920`) places. Together, given a rect,
-an alignment flag and a `short[4]` margin:
+`Label_SetRect` (`00438884`) anchors, `Label_SetText` (`00438920`) places. Together, given a rect, an alignment flag and a `short[4]` margin:
 
 ```
 anchorX = flags & 2 ? ((x1 - x0) >> 1) + x0 + margin[0]  -- centre
@@ -206,26 +171,18 @@ textX   = flags & 2 ? anchorX - (width >> 1) : flags & 4 ? anchorX - width : anc
 textY   = anchorY - inkHeight
 ```
 
-There is no vertical alignment flag: every label is vertically centred in its rect. Retail uses
-alignment 1 (left) for the title, the status labels and the flash-comm rows, and 2 (centre) for
-button captions. All margins are zero except the flash-comm rows'.
+There is no vertical alignment flag: every label is vertically centred in its rect. Retail uses alignment 1 (left) for the title, the status labels and the flash-comm rows, and 2 (centre) for button captions. All margins are zero except the flash-comm rows'.
 
-`inkHeight` is the font's own `0x1a` header field (11 for `.HFN`), **not** its cell height (13) — see
-[`dfn-hfn-dci.md`](dfn-hfn-dci.md), "`inkHeight` and label placement". All the arithmetic is integer,
-both shifts included; doing it in floating point shifts a label up to a pixel on either axis.
+`inkHeight` is the font's own `0x1a` header field (11 for `.HFN`), **not** its cell height (13) — see [`dfn-hfn-dci.md`](dfn-hfn-dci.md), "`inkHeight` and label placement". All the arithmetic is integer, both shifts included; doing it in floating point shifts a label up to a pixel on either axis.
 
 ## Screens
 
 ### `MFDStatus` — modes 0 and 4
 
-`MfdStatusScreen_Ctor` (`0043a2e0`) loads the `bases`, `vehicles` and `flyers` sprite banks — target
-silhouettes — and builds a wireframe viewport plus five labels.
+`MfdStatusScreen_Ctor` (`0043a2e0`) loads the `bases`, `vehicles` and `flyers` sprite banks — target silhouettes — and builds a wireframe viewport plus five labels.
 
 - Wireframe viewport `45,13 – 95,58` (102x92 device).
-- Five labels at x0 6, right edge 45, height 6. y0 from `0049bd8e` = 16, 23, 32, 40, 49. Font
-  selector `0049bd98` = 0,1,0,1,1 into `{ColorSchemePanels[10] WHITE, [14] RED}`. Background
-  `COLORS.DAT` id 0x11.
-Label text sources, all confirmed by xref:
+- Five labels at x0 6, right edge 45, height 6. y0 from `0049bd8e` = 16, 23, 32, 40, 49. Font selector `0049bd98` = 0,1,0,1,1 into `{ColorSchemePanels[10] WHITE, [14] RED}`. Background `COLORS.DAT` id 0x11. Label text sources, all confirmed by xref:
 
 | Label | Text | Source |
 |---|---|---|
@@ -235,21 +192,13 @@ Label text sources, all confirmed by xref:
 | 3 | Condition | `DAT_004d1698[state]` = group 28 |
 | 4 | Integrity or range | composed, below |
 
-`MfdStatusScreen_SetCondition` (`0043b260`) writes labels 3 and 4. Label 4 is the literal `"[ "`,
-then `itoa((0x100 - damage) * 100 >> 8)`, then `"% ]"` — `[ 100% ]` undamaged. When the subject is
-unreadable it writes `XXXXXX` and `XXX` instead.
+`MfdStatusScreen_SetCondition` (`0043b260`) writes labels 3 and 4. Label 4 is the literal `"[ "`, then `itoa((0x100 - damage) * 100 >> 8)`, then `"% ]"` — `[ 100% ]` undamaged. When the subject is unreadable it writes `XXXXXX` and `XXX` instead.
 
-**Group 10 is not the condition table.** It holds a near-identical five-string set (`OK`, `INT DMG`,
-`SHLD DWN`, `CRITICAL`, `WASTED`) and is dead data: `SimStrings_LoadAll` is the only reference to its
-array in the image.
+**Group 10 is not the condition table.** It holds a near-identical five-string set (`OK`, `INT DMG`, `SHLD DWN`, `CRITICAL`, `WASTED`) and is dead data: `SimStrings_LoadAll` is the only reference to its array in the image.
 
 #### The subject
 
-`MfdDisplay_Update` (`00446328`) and `MfdDisplay_SetMode` both park the screen's subject in the
-display's shared state block at `+0xb9`, refreshed every 30 coarse ticks: for mode 0 the entry
-`+0x308[+0x318]` the SELECT button cycles, for mode 4 `CockpitView+0x210`, the current selection.
-Both screens read the same field, so **the two modes differ only in their subject**. The screen
-latches it at `+0x3e` and holds a dead one for 300 ticks before dropping to the empty state.
+`MfdDisplay_Update` (`00446328`) and `MfdDisplay_SetMode` both park the screen's subject in the display's shared state block at `+0xb9`, refreshed every 30 coarse ticks: for mode 0 the entry `+0x308[+0x318]` the SELECT button cycles, for mode 4 `CockpitView+0x210`, the current selection. Both screens read the same field, so **the two modes differ only in their subject**. The screen latches it at `+0x3e` and holds a dead one for 300 ticks before dropping to the empty state.
 
 Everything the paint (`FUN_0043a5a0`) chooses is a property of that subject, not of the mode:
 
@@ -260,9 +209,7 @@ Everything the paint (`FUN_0043a5a0`) chooses is a property of that subject, not
 | Same byte | A friendly gets the integrity readout in label 4; a hostile gets group 20 entry 2 `DIST:  ` with the range appended (`Math_DistanceBetweenPoints` (`00492780`) between the two origins) |
 | Target class `obj+0x1a8` | Which branch below draws the viewport, and how the condition is worked out |
 
-With no subject at all the paint writes `TARGET:` and group 26 `NONE` in `ColorSchemePanels[0]`
-`CPBLUE`, and blanks labels 2-4. A class the switch does not recognise gets `TARGET:` and group 27
-`UNKNOWN` in the same font, with labels 2-4 left as they were.
+With no subject at all the paint writes `TARGET:` and group 26 `NONE` in `ColorSchemePanels[0]` `CPBLUE`, and blanks labels 2-4. A class the switch does not recognise gets `TARGET:` and group 27 `UNKNOWN` in the same font, with labels 2-4 left as they were.
 
 #### Viewport and condition, per class
 
@@ -272,22 +219,15 @@ With no subject at all the paint writes `TARGET:` and group 26 `NONE` in `ColorS
 | 2 flyer | `flyers` bank frame 0, centred in the viewport by its own frame size | `Damage_ToConditionState(damage)`: intact ≥ 90% `OK`, ≥ 74% `SHIELDS DN`, ≥ 51% `INT DAMAGE`, ≥ 1% `CRITICAL`, else `DESTROYED` |
 | 1, 3 structure | `bases` or `vehicles` bank, frame = the type record's `+0x28`, centred the same way | as above |
 
-Damage is the object's vtable `+0x40` as a Q8 fraction — `FUN_0040db2c` over every component and
-dependent for a machine, the component sum for a structure.
+Damage is the object's vtable `+0x40` as a Q8 fraction — `FUN_0040db2c` over every component and dependent for a machine, the component sum for a structure.
 
-`BASES.DAT +0x28` is both the silhouette frame and the type-name index: into group 23's 31 structure
-names when `+0x32` is 0, and group 24's four vehicle names when it is not. Confirmed by construction
-— every structure type states 0-30 and every vehicle type 0-3.
+`BASES.DAT +0x28` is both the silhouette frame and the type-name index: into group 23's 31 structure names when `+0x32` is 0, and group 24's four vehicle names when it is not. Confirmed by construction — every structure type states 0-30 and every vehicle type 0-3.
 
-A bank the game ships only at 320-wide (`flyers` is the one here) is blitted doubled, guarded on
-`VideoMode_UseHiResPanels == 3 && VideoMode_UseHiResBanks == 0`.
+A bank the game ships only at 320-wide (`flyers` is the one here) is blitted doubled, guarded on `VideoMode_UseHiResPanels == 3 && VideoMode_UseHiResBanks == 0`.
 
 #### Region tints
 
-Mechanism, region record and colour ladder: [`cockpit-hud.md`](cockpit-hud.md#tinting). What differs
-here is the reading each region takes, because view 2 is a compact doll whose regions cover more than
-one component. Indices are into `Component_FillDamageReadouts`' buffer, whose entries 1-19 are the
-armour components:
+Mechanism, region record and colour ladder: [`cockpit-hud.md`](cockpit-hud.md#tinting). What differs here is the reading each region takes, because view 2 is a compact doll whose regions cover more than one component. Indices are into `Component_FillDamageReadouts`' buffer, whose entries 1-19 are the armour components:
 
 | Region id | Walker | Flyer chassis (`typeRec+0x50`) |
 |---|---|---|
@@ -300,32 +240,17 @@ armour components:
 | 13 | mean of 14, 16, 18 | — |
 | 14 | mean of 15, 17, 19 | — |
 
-The switch has no default arm and divides by its own count, so a region id it does not name would
-divide by zero. None does: every retail view 2 states a subset of these eight, six of them on a flyer
-chassis. The condition line takes no part in this — it is scanned from the internals, so **armour
-damage moves the doll and nothing else**.
+The switch has no default arm and divides by its own count, so a region id it does not name would divide by zero. None does: every retail view 2 states a subset of these eight, six of them on a flyer chassis. The condition line takes no part in this — it is scanned from the internals, so **armour damage moves the doll and nothing else**.
 
-Last of all, over the tints: with a hostile subject and the Targeting Pod's present flag at
-`CockpitView+0x27c` set, the paint fills the `.PDG` region holding the component id beside it at
-`+0x27e` with `COLORS.DAT` id 16, the region's own rect grown one device pixel on each side. It goes
-down after the damage tints, so the highlight blots the region out rather than outlining it, and it
-stops at the first region that matches. The id only ever comes from a Targeting Pod (`mech+0x30b`) —
-[`../simulation/target-selection.md`](../simulation/target-selection.md#component-targeting--the-targeting-pod).
+Last of all, over the tints: with a hostile subject and the Targeting Pod's present flag at `CockpitView+0x27c` set, the paint fills the `.PDG` region holding the component id beside it at `+0x27e` with `COLORS.DAT` id 16, the region's own rect grown one device pixel on each side. It goes down after the damage tints, so the highlight blots the region out rather than outlining it, and it stops at the first region that matches. The id only ever comes from a Targeting Pod (`mech+0x30b`) — [`../simulation/target-selection.md`](../simulation/target-selection.md#component-targeting--the-targeting-pod).
 
-A region that does not state the component id itself is reached through a merge mapping, because the
-compact view folds each three-deep limb stack into one region: 1 → 0, 9 and 11 → 7, 10 and 12 → 8,
-15 and 17 → 13, and **16 and 18 → 13 as well**, where the tint pass reads region 14 as the mean of
-14, 16 and 18. That last pair is a transcription slip in the original and cannot be observed: the
-pod's rotation only ever produces 0, 4, 5, 7, 8, 9 and 10.
+A region that does not state the component id itself is reached through a merge mapping, because the compact view folds each three-deep limb stack into one region: 1 → 0, 9 and 11 → 7, 10 and 12 → 8, 15 and 17 → 13, and **16 and 18 → 13 as well**, where the tint pass reads region 14 as the mean of 14, 16 and 18. That last pair is a transcription slip in the original and cannot be observed: the pod's rotation only ever produces 0, 4, 5, 7, 8, 9 and 10.
 
 ### `MFDFlashComm` — mode 1
 
 `MfdFlashCommScreen_Ctor` (`0043f5d8`) builds six order rows.
 
-Row block, device pixels relative to the inset origin: rect `2,0xd – 0x60,0x3a` GAU, top-left nudged
-in by `1 << XCoordShift` and bottom-right out by the same, giving x 6-190 and y0 28. Rows step
-`7 << YCoordShift` = 14 device. Both nudges use `XCoordShift` on the y axis — no effect in any retail
-video mode.
+Row block, device pixels relative to the inset origin: rect `2,0xd – 0x60,0x3a` GAU, top-left nudged in by `1 << XCoordShift` and bottom-right out by the same, giving x 6-190 and y0 28. Rows step `7 << YCoordShift` = 14 device. Both nudges use `XCoordShift` on the y axis — no effect in any retail video mode.
 
 Text margin `2 << XCoordShift` = 4 device — the only nonzero label margin on the display. Four fonts:
 
@@ -336,22 +261,11 @@ Text margin `2 << XCoordShift` = 4 device — the only nonzero label margin on t
 | `[6]` `CPOFF` | an unavailable row. **No retail row reaches it**: neither of the two functions that set and clear the unavailable bit (`FUN_0043f9f4`, `FUN_0043fa14`) has a caller in the image |
 | `[2]` `CPRED` | the row's alternate at `+0x21`, which is **not** an unavailable state — `FUN_00438aac` redraws exactly one character of the row in it, at the index the order's own attribute byte names, which is how the hotkey letter is picked out. The [F7] order list uses the same mechanism |
 
-The selected row also carries a plate: `MFD` frames 11-13, 91x8 GAU, blitted by `FUN_0043fa34`
-**after** the text so the hollow rounded rect frames it rather than covering it. Frame 11 unpressed,
-12 while XMIT is held — the index is `0xb +` that button's own press byte — and 13 the plain plate
-that erases a row which has just stopped being selected. `FUN_0043f878` repaints exactly those two
-rows when the cursor moves, rather than the whole block.
+The selected row also carries a plate: `MFD` frames 11-13, 91x8 GAU, blitted by `FUN_0043fa34` **after** the text so the hollow rounded rect frames it rather than covering it. Frame 11 unpressed, 12 while XMIT is held — the index is `0xb +` that button's own press byte — and 13 the plain plate that erases a row which has just stopped being selected. `FUN_0043f878` repaints exactly those two rows when the cursor moves, rather than the whole block.
 
-The screen is flooded with **palette index `0x11`** before any of it goes down — a constructor
-immediate, so an index and not a logical id ([`cockpit-hud.md`](cockpit-hud.md#datcolorsdat--logical-colour-ids)).
+The screen is flooded with **palette index `0x11`** before any of it goes down — a constructor immediate, so an index and not a logical id ([`cockpit-hud.md`](cockpit-hud.md#datcolorsdat--logical-colour-ids)).
 
-The six rows are six *positions*, not six of the eighteen orders: `MfdFlashComm_SelectedVerb`
-(`0043f998`) reads the selected row at `screen+0x32` and adds 3 when that row's own state byte at
-`screen+0x2c + row` has bit 1 set, so the page covers `STRINGS0` group 0 verbs 0-5 or 3-8. `FUN_0043f9d0`
-is what flips that bit after a transmission, and it **returns immediately unless the row is 4 or 5**.
-XMIT (`MfdFlashComm_Transmit`, `00447220`) writes the resolved verb into the shared order record and
-broadcasts it to the whole of the player's group —
-[`../simulation/ai-squadmates.md`](../simulation/ai-squadmates.md).
+The six rows are six *positions*, not six of the eighteen orders: `MfdFlashComm_SelectedVerb` (`0043f998`) reads the selected row at `screen+0x32` and adds 3 when that row's own state byte at `screen+0x2c + row` has bit 1 set, so the page covers `STRINGS0` group 0 verbs 0-5 or 3-8. `FUN_0043f9d0` is what flips that bit after a transmission, and it **returns immediately unless the row is 4 or 5**. XMIT (`MfdFlashComm_Transmit`, `00447220`) writes the resolved verb into the shared order record and broadcasts it to the whole of the player's group — [`../simulation/ai-squadmates.md`](../simulation/ai-squadmates.md).
 
 Screen fields, based at `MfdDisplay+0xd1`:
 
@@ -367,9 +281,7 @@ Screen fields, based at `MfdDisplay+0xd1`:
 
 #### Keyboard
 
-Two dispatches, not one. `CockpitWidgets_HandleCommand` (`00432bc8`) offers every code to
-`FUN_00446c10` first and then to the MFD widget's own command slot `FUN_004469c0`. Codes are PC set-1
-scancodes, `+0x200` for [Alt].
+Two dispatches, not one. `CockpitWidgets_HandleCommand` (`00432bc8`) offers every code to `FUN_00446c10` first and then to the MFD widget's own command slot `FUN_004469c0`. Codes are PC set-1 scancodes, `+0x200` for [Alt].
 
 | Code | Handler | Effect |
 |---|---|---|
@@ -379,18 +291,11 @@ scancodes, `+0x200` for [Alt].
 | `0x33` `0x34` (`,` `.`) | `FUN_004469c0` | Previous / next available row, wrapping |
 | `0x20` (D) | `FUN_004469c0` | Press button 7 SELECT if visible |
 
-`FUN_00447130(display, widget, row)` writes the display's shared row **only when the mode is 1**,
-which is what lets an [Alt] hotkey pressed from another screen transmit a row the cursor never moved
-to. `FUN_00447098` is the mouse path: a click on the selected row presses XMIT and transmits, a click
-on any other selects it.
+`FUN_00447130(display, widget, row)` writes the display's shared row **only when the mode is 1**, which is what lets an [Alt] hotkey pressed from another screen transmit a row the cursor never moved to. `FUN_00447098` is the mouse path: a click on the selected row presses XMIT and transmits, a click on any other selects it.
 
 ### Transmissions
 
-A squadmate answering takes the whole inset, whichever screen is up. `MfdDisplay_Update` reads a
-block published at `CockpitViewInstance+0x1f9` — **the heads-down display's pilot roster**, not the
-MFD — and draws from it *before* it ever reaches the current screen's update slot, jumping past both
-that and the title refresh. So a transmission replaces the screen rather than sitting on it, and the
-title is absent for as long as it lasts.
+A squadmate answering takes the whole inset, whichever screen is up. `MfdDisplay_Update` reads a block published at `CockpitViewInstance+0x1f9` — **the heads-down display's pilot roster**, not the MFD — and draws from it *before* it ever reaches the current screen's update slot, jumping past both that and the title refresh. So a transmission replaces the screen rather than sitting on it, and the title is absent for as long as it lasts.
 
 | Offset | Contents |
 |---|---|
@@ -401,21 +306,15 @@ title is absent for as long as it lasts.
 | `+0x786` | The caption plate's `COLORS.DAT` id — the speaker's own comm-box colour |
 | `+0x788` | The box's state; the caption is written only when it is 2 |
 
-Both of the comm box's video paints write it, *before* their own visibility test, so it works with
-the heads-down display panned up — [`heads-down-display.md`](heads-down-display.md#squad-comm-boxes)
-owns the box and its state machine.
+Both of the comm box's video paints write it, *before* their own visibility test, so it works with the heads-down display panned up — [`heads-down-display.md`](heads-down-display.md#squad-comm-boxes) owns the box and its state machine.
 
-The update floods the inset with palette index `0x11` and blits at
-`inset + (0x14 << XCoordShift, 0)` **plus the `.OFS` pair added raw** — the frame is drawn doubled,
-the offset is not.
+The update floods the inset with palette index `0x11` and blits at `inset + (0x14 << XCoordShift, 0)` **plus the `.OFS` pair added raw** — the frame is drawn doubled, the offset is not.
 
 ### `MFDMap` — mode 2
 
-`MfdMapScreen_Ctor` (`00440494`) takes the whole inset rect, allocates a 0x239-byte offscreen render
-target and centres it at `-((x1 - x0) >> 1)`, `-((y1 - y0) >> 1)`. No labels, no aux buttons.
+`MfdMapScreen_Ctor` (`00440494`) takes the whole inset rect, allocates a 0x239-byte offscreen render target and centres it at `-((x1 - x0) >> 1)`, `-((y1 - y0) >> 1)`. No labels, no aux buttons.
 
-Its paint (`004405e4`) floods the rect with `COLORS.DAT` id 19 (palette 16, black) before rasterizing
-terrain, which is why no screen chrome is blitted for this mode.
+Its paint (`004405e4`) floods the rect with `COLORS.DAT` id 19 (palette 16, black) before rasterizing terrain, which is why no screen chrome is blitted for this mode.
 
 ### `MFDRadar` — mode 3
 
@@ -423,43 +322,22 @@ The plan view, its turret wedge and its contact list: [`mfd-scanner.md`](mfd-sca
 
 ## Paint order
 
-`MfdDisplay_Repaint`: mode buttons 0-5, background, all visible buttons 0-12, the current screen's
-paint, then the title. The background covers only the inset rect and the mode column sits left of it,
-so the first pass is not overdrawn.
+`MfdDisplay_Repaint`: mode buttons 0-5, background, all visible buttons 0-12, the current screen's paint, then the title. The background covers only the inset rect and the mode column sits left of it, so the first pass is not overdrawn.
 
 ## Engine coverage
 
-Drawn: screen background, F-key column with lit state, per-mode aux buttons, titles and captions, the
-nav map's background flood, and **both status screens driven from a live subject** —
-`Herculan.Engine.Content.MfdStatusSubject`, one record for F1 and F5 as in the original. The scanner
-is drawn too — see its own doc, and so are the paper doll's per-region damage tints. Not drawn: the
-mode-switch sweep animation, the missile camera and map terrain, which need a map rasterizer or an
-animation path.
+Drawn: screen background, F-key column with lit state, per-mode aux buttons, titles and captions, the nav map's background flood, and **both status screens driven from a live subject** — `Herculan.Engine.Content.MfdStatusSubject`, one record for F1 and F5 as in the original. The scanner is drawn too — see its own doc, and so are the paper doll's per-region damage tints. Not drawn: the mode-switch sweep animation, the missile camera and map terrain, which need a map rasterizer or an animation path.
 
-FLASH COMM is complete: `MfdFlashCommScreen` keeps the row states and resolves the verb, and
-`Overlay2DRenderer` draws the list with its four fonts, its hotkey character and its plate, and the
-transmission over the top of whichever screen is up. Transmissions come from `SquadCommChannel`
-([`audio.md`](audio.md#the-pilot-and-squad-channel)).
+FLASH COMM is complete: `MfdFlashCommScreen` keeps the row states and resolves the verb, and `Overlay2DRenderer` draws the list with its four fonts, its hotkey character and its plate, and the transmission over the top of whichever screen is up. Transmissions come from `SquadCommChannel` ([`audio.md`](audio.md#the-pilot-and-squad-channel)).
 
-Buttons: the F-key column sets the mode, and `Program.ApplyMfdAuxClick` carries 8 `RANGE`, the shared
-7/9 `SELECT`/`TARGET` case, 10 `XMIT`, and 11 `PASS` / 12 `ACTIVE`. **One is not wired**: mode 0's arm
-of the shared case, which steps a squad roster the engine has no equivalent of. Every row of the order
-list draws available, which is what retail does too — nothing sets the unavailable bit.
+Buttons: the F-key column sets the mode, and `Program.ApplyMfdAuxClick` carries 8 `RANGE`, the shared 7/9 `SELECT`/`TARGET` case, 10 `XMIT`, and 11 `PASS` / 12 `ACTIVE`. **One is not wired**: mode 0's arm of the shared case, which steps a squad roster the engine has no equivalent of. Every row of the order list draws available, which is what retail does too — nothing sets the unavailable bit.
 
-`Herculan.Engine.Host` takes `--mfd <0-5>` to pick the initial screen and `--target` to acquire one,
-since a `--screenshot` run never sees a keystroke; `--flash-comm <0-5>`, `--flash-comm-xmit` and
-`--wait-transmission` drive the order list and hold the run open until a reply is on screen.
+`Herculan.Engine.Host` takes `--mfd <0-5>` to pick the initial screen and `--target` to acquire one, since a `--screenshot` run never sees a keystroke; `--flash-comm <0-5>`, `--flash-comm-xmit` and `--wait-transmission` drive the order list and hold the run open until a reply is on screen.
 
-Status-screen deviations: there is no pilot roster, so only the machine being flown reads `ID:`/`YOU`
-and a squadmate reads `TARGET:` plus its type name; a flyer's name comes from `FLYERS.DAT`
-`NameBytes` (the same `+0x12` the paint reads) and a HERC's from its type name.
+Status-screen deviations: there is no pilot roster, so only the machine being flown reads `ID:`/`YOU` and a squadmate reads `TARGET:` plus its type name; a flyer's name comes from `FLYERS.DAT` `NameBytes` (the same `+0x12` the paint reads) and a HERC's from its type name.
 
 ## Open
 
-- `mfd_dmg` (7 frames, 192x118) is built into three animation sequences of 3/2/3 frames by
-  `MfdDisplay_Ctor` from count table `0049cb40` and six frame-index tables at `0049cb4c`-`0049cb88`.
-  Trigger and meaning not traced; consistent with display-damage static.
-- Frames 14-18 are the whole of the scanner screen, see [`mfd-scanner.md`](mfd-scanner.md). Frame 14
-  matching the `radar` bank's frame size is not a coincidence either — that bank holds the sweep
-  played over the same dish.
+- `mfd_dmg` (7 frames, 192x118) is built into three animation sequences of 3/2/3 frames by `MfdDisplay_Ctor` from count table `0049cb40` and six frame-index tables at `0049cb4c`-`0049cb88`. Trigger and meaning not traced; consistent with display-damage static.
+- Frames 14-18 are the whole of the scanner screen, see [`mfd-scanner.md`](mfd-scanner.md). Frame 14 matching the `radar` bank's frame size is not a coincidence either — that bank holds the sweep played over the same dish.
 - Mode 5, the missile camera, beyond its button and background layout.

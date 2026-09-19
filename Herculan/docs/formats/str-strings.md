@@ -1,19 +1,14 @@
 # `.STR` — simulator string tables
 
-`simvol0\str\*.STR`. DBSIM keeps its UI text out of its code; every caption, readout label and alert
-line comes from one of these.
+`simvol0\str\*.STR`. DBSIM keeps its UI text out of its code; every caption, readout label and alert line comes from one of these.
 
 Engine implementation: `Herculan.Engine.Content.SimStringTable`.
 
 ## Load
 
-`SimStrings_LoadAll` (`00437598`) opens one file and issues a run of registration calls, each naming
-a destination pointer array in `.bss` and a count. Groups are consumed in strict file order, so a
-group's index is its position in that sequence. `STRINGS0.STR` registers 41 groups, the sixth
-(13 entries, `DAT_004d13e0`) being the MFD's captions.
+`SimStrings_LoadAll` (`00437598`) opens one file and issues a run of registration calls, each naming a destination pointer array in `.bss` and a count. Groups are consumed in strict file order, so a group's index is its position in that sequence. `STRINGS0.STR` registers 41 groups, the sixth (13 entries, `DAT_004d13e0`) being the MFD's captions.
 
-The count in a registration is the **destination array's capacity, not the group's size** — group 23
-is registered with 40 slots for 31 strings. Only the order is load-bearing.
+The count in a registration is the **destination array's capacity, not the group's size** — group 23 is registered with 40 slots for 31 strings. Only the order is load-bearing.
 
 ## Layout
 
@@ -31,20 +26,11 @@ repeat until contentLength consumed:
     }
 ```
 
-`attributeCount` is self-describing, which makes the file walkable without the group table. It
-matches `SimStrings_LoadAll` passing a second destination array only for groups whose entries carry
-attributes and NULL for the rest.
+`attributeCount` is self-describing, which makes the file walkable without the group table. It matches `SimStrings_LoadAll` passing a second destination array only for groups whose entries carry attributes and NULL for the rest.
 
-**Verified byte-exact**: this shape consumes `STRINGS0.STR`, `SYSTEM.STR`, `COMMAND1.STR`,
-`PILOTS.STR` and `SOUNDS.STR` to their declared content lengths with zero slack, and each file's
-group counts reproduce the registration sequence in order.
+**Verified byte-exact**: this shape consumes `STRINGS0.STR`, `SYSTEM.STR`, `COMMAND1.STR`, `PILOTS.STR` and `SOUNDS.STR` to their declared content lengths with zero slack, and each file's group counts reproduce the registration sequence in order.
 
-Attribute use: `STRINGS0.STR` group 0 carries one byte per order; `SYSTEM.STR`'s computer messages
-carry eight — the message id, a queue priority, four display timings and the `CVM` voice clip that
-reads the line, decoded in [`audio.md`](audio.md#the-computers-messages); `SOUNDS.STR` carries seven
-— loop count, volume, preload, throttle divisor and the two rolloff distances, then a variation
-count. The sound module reads a tenth byte past them and treats bytes 7-9 as runtime scratch; see
-[`audio.md`](audio.md#the-sound-catalog--strsoundsstr).
+Attribute use: `STRINGS0.STR` group 0 carries one byte per order; `SYSTEM.STR`'s computer messages carry eight — the message id, a queue priority, four display timings and the `CVM` voice clip that reads the line, decoded in [`audio.md`](audio.md#the-computers-messages); `SOUNDS.STR` carries seven — loop count, volume, preload, throttle divisor and the two rolloff distances, then a variation count. The sound module reads a tenth byte past them and treats bytes 7-9 as runtime scratch; see [`audio.md`](audio.md#the-sound-catalog--strsoundsstr).
 
 ## `STRINGS0.STR` groups
 
@@ -84,10 +70,4 @@ Groups referenced by decoded code:
 | 38, 39 | 1,1 | `TIME:`, `SPEED:` — the gunsight readouts |
 | 40 | 8 | Squad comm box's current-order line: `ATTACK`, `TRAVEL`, `PATROL`, `FORM UP`, `GUARD`, `FLEE`, `DEAD`, `IMMOBILE` |
 
-Other files: `SYSTEM.STR` the cockpit computer's 63 messages
-([`audio.md`](audio.md#the-computers-messages)), `PILOT0/1/2/4.STR` what a squadmate can say, keyed
-the same way but with seven attribute bytes and live variants
-([`audio.md`](audio.md#the-pilot-and-squad-channel)), `COMMAND*.STR` mission briefing and tutorial
-dialogue, `PILOTS.STR` 36 pilot surnames indexed by a machine's own pilot index
-([`heads-down-display.md`](heads-down-display.md#squad-comm-boxes)), `SOUNDS.STR` a 57-entry sample
-catalog ([`audio.md`](audio.md)).
+Other files: `SYSTEM.STR` the cockpit computer's 63 messages ([`audio.md`](audio.md#the-computers-messages)), `PILOT0/1/2/4.STR` what a squadmate can say, keyed the same way but with seven attribute bytes and live variants ([`audio.md`](audio.md#the-pilot-and-squad-channel)), `COMMAND*.STR` mission briefing and tutorial dialogue, `PILOTS.STR` 36 pilot surnames indexed by a machine's own pilot index ([`heads-down-display.md`](heads-down-display.md#squad-comm-boxes)), `SOUNDS.STR` a 57-entry sample catalog ([`audio.md`](audio.md)).

@@ -4,35 +4,14 @@
 
 ## Call chain — confirmed
 
-- `FUN_0044d5bd` builds the path `msn\<name>.msn` (string `"msn\\%s.msn"` at `0047a2a6`,
-  `%s` = a name substituted from `DAT_0048dc18+0x45`, with `^` sanitized to `_`), then calls
-  `FUN_0041c73d(path)`.
-- `FUN_0041c73d` (asserts trace to `msn_gen.cpp`) calls `FUN_00417b67(param_1)` **first, with the
-  `.msn` path** — this is the raw-file parser. `FUN_0041ac54` then exports a subset of the loaded
-  data as `data\script.dat` for downstream consumers (DBSIM and VSHELL's `ShellMap` UI).
-- Separately, `ShellMap::ctor` (`FUN_00423f43`, vtable `&PTR_FUN_004721b0`) opens `data\mission.str`
-  and `data\maplabel.str` as string tables, then reads `data\script.dat` directly via `FUN_004243d7`
-  (source `shellmap.cpp`) — a UI-facing consumer of the same data exported from `.msn` parsing.
-  See [`script-dat.md`](script-dat.md) for the relationship.
-- The save-slot handoff copies the three loose working files in and out of a numbered slot, and the
-  two directions are separate functions (source `career.cpp`): `FUN_00412a71` saves, `data\` to
-  `sav\`, and `FUN_00412bbf` loads, `sav\` to `data\`. The pairs are
-  `data\script.dat`/`sav\script%d.dat`, `data\mission.str`/`sav\missn%d.str` and
-  `data\player.mec`/`sav\player%d.mec`, matching the dev note in
-  `herc-works-mdk-main/docs/arch/3space_filetypes_sav.txt`. See
-  [`save-games.md`](save-games.md).
+- `FUN_0044d5bd` builds the path `msn\<name>.msn` (string `"msn\\%s.msn"` at `0047a2a6`, `%s` = a name substituted from `DAT_0048dc18+0x45`, with `^` sanitized to `_`), then calls `FUN_0041c73d(path)`.
+- `FUN_0041c73d` (asserts trace to `msn_gen.cpp`) calls `FUN_00417b67(param_1)` **first, with the `.msn` path** — this is the raw-file parser. `FUN_0041ac54` then exports a subset of the loaded data as `data\script.dat` for downstream consumers (DBSIM and VSHELL's `ShellMap` UI).
+- Separately, `ShellMap::ctor` (`FUN_00423f43`, vtable `&PTR_FUN_004721b0`) opens `data\mission.str` and `data\maplabel.str` as string tables, then reads `data\script.dat` directly via `FUN_004243d7` (source `shellmap.cpp`) — a UI-facing consumer of the same data exported from `.msn` parsing. See [`script-dat.md`](script-dat.md) for the relationship.
+- The save-slot handoff copies the three loose working files in and out of a numbered slot, and the two directions are separate functions (source `career.cpp`): `FUN_00412a71` saves, `data\` to `sav\`, and `FUN_00412bbf` loads, `sav\` to `data\`. The pairs are `data\script.dat`/`sav\script%d.dat`, `data\mission.str`/`sav\missn%d.str` and `data\player.mec`/`sav\player%d.mec`, matching the dev note in `herc-works-mdk-main/docs/arch/3space_filetypes_sav.txt`. See [`save-games.md`](save-games.md).
 
 ## `FUN_00417b67` — the raw `.MSN` parser
 
-Opens the stream (`FUN_00402ad9`), then **asserts a revision field equals `5`** (2-byte value,
-right after open — mirrors the same revision-check pattern already known from `Volume::loadVolume`).
-One scratch pass follows (a `DAT_00470648`-counted loop reading fixed 0x52/82-byte chunks into a
-*reused* buffer, applying effects via `FUN_00416379` rather than storing an array — looks like a
-one-shot campaign-override/patch application, not a persistent entity list), then a long sequence of
-`[uint16 count] → array of fixed-size records` reads. Every record array goes through a shared
-condition-filter helper (`FUN_00417610`, or a couple of specialized siblings) that **compacts the
-array in place**, dropping records whose condition fails — i.e. this function is doing campaign-
-state-aware filtering *while* loading, not a flat/passive parse.
+Opens the stream (`FUN_00402ad9`), then **asserts a revision field equals `5`** (2-byte value, right after open — mirrors the same revision-check pattern already known from `Volume::loadVolume`). One scratch pass follows (a `DAT_00470648`-counted loop reading fixed 0x52/82-byte chunks into a *reused* buffer, applying effects via `FUN_00416379` rather than storing an array — looks like a one-shot campaign-override/patch application, not a persistent entity list), then a long sequence of `[uint16 count] → array of fixed-size records` reads. Every record array goes through a shared condition-filter helper (`FUN_00417610`, or a couple of specialized siblings) that **compacts the array in place**, dropping records whose condition fails — i.e. this function is doing campaign- state-aware filtering *while* loading, not a flat/passive parse.
 
 ### The condition/trigger system (this resolves a long-standing "unknown" from the Java doc comment)
 
@@ -47,12 +26,7 @@ The first record type's type-0 branch is a `switch` on the value `0x119`–`0x11
 | 0x11d | `>`  (operands swapped) |
 | 0x11e | `>=` (operands swapped) |
 
-Each compares a value against `DAT_00482af8[recordField]` — the campaign flag store: 1,000 `int16`
-persisted in every save slot and round-tripped to DBSIM through `data\mission.var`, where the same
-array is `DAT_004a9ef4`. See [`../shell/campaign-loop.md`](../shell/campaign-loop.md). Record types 1–3 use different evaluator
-functions (`FUN_004659ec`, `FUN_004159d0` — a `-99`-sentinel-or-range-check, `FUN_00417610` again)
-— plausibly other trigger-condition flavors (dialogue/event flags, numeric range checks) rather than
-pure flag comparisons.
+Each compares a value against `DAT_00482af8[recordField]` — the campaign flag store: 1,000 `int16` persisted in every save slot and round-tripped to DBSIM through `data\mission.var`, where the same array is `DAT_004a9ef4`. See [`../shell/campaign-loop.md`](../shell/campaign-loop.md). Record types 1–3 use different evaluator functions (`FUN_004659ec`, `FUN_004159d0` — a `-99`-sentinel-or-range-check, `FUN_00417610` again) — plausibly other trigger-condition flavors (dialogue/event flags, numeric range checks) rather than pure flag comparisons.
 
 | offset | field | notes |
 |---|---|---|
@@ -68,26 +42,14 @@ pure flag comparisons.
 
 ### The template-inheritance pattern
 
-Most record types carry a "parent index" field: `-1` means "read this record's fields fresh from
-the stream," any other value means "`memcpy` the already-loaded record at that index instead,"
-sometimes with additional per-field overrides layered on top. This is a real, load-time
-prototype/inheritance mechanism — missions can define an entity as "like entity N, but with these
-fields changed" — not something the current C# port models at all.
+Most record types carry a "parent index" field: `-1` means "read this record's fields fresh from the stream," any other value means "`memcpy` the already-loaded record at that index instead," sometimes with additional per-field overrides layered on top. This is a real, load-time prototype/inheritance mechanism — missions can define an entity as "like entity N, but with these fields changed" — not something the current C# port models at all.
 
 ### Record-array table — **empirically confirmed byte-exact against 61/62 real `.MSN` files**
 
-Two corrections versus the first disassembly-only pass (caught by building a strict byte-walker and
-testing it against every real file — see "Verification note" below):
+Two corrections versus the first disassembly-only pass (caught by building a strict byte-walker and testing it against every real file — see "Verification note" below):
 
-- A **skip-only row** (`DAT_0047066a`) sits between the 144-byte array (#4) and the 22-byte array
-  (now #6) — it reads a count, then seeks forward `count * 0x40` (64) bytes **without storing
-  anything**. Easy to miss reading the decompiled code linearly since it looks like ordinary array
-  setup at a glance.
-- The nested-array row (#8) is **not** `count * 18` bytes as the in-memory struct size implied.
-  Per record it's 10 fixed bytes (5 shorts, the 5th being a nested-entry count), followed by that
-  many nested entries — but **each nested entry only consumes 2 bytes on disk**, not the 6 bytes its
-  in-memory slot is allocated as. The other 4 bytes of each in-memory slot are zero-initialized
-  locally, never read from the file. Missing this caused total desync a few hundred bytes in.
+- A **skip-only row** (`DAT_0047066a`) sits between the 144-byte array (#4) and the 22-byte array (now #6) — it reads a count, then seeks forward `count * 0x40` (64) bytes **without storing anything**. Easy to miss reading the decompiled code linearly since it looks like ordinary array setup at a glance.
+- The nested-array row (#8) is **not** `count * 18` bytes as the in-memory struct size implied. Per record it's 10 fixed bytes (5 shorts, the 5th being a nested-entry count), followed by that many nested entries — but **each nested entry only consumes 2 bytes on disk**, not the 6 bytes its in-memory slot is allocated as. The other 4 bytes of each in-memory slot are zero-initialized locally, never read from the file. Missing this caused total desync a few hundred bytes in.
 
 | # | count global | on-disk shape | storage global | cross-refs into | best current guess |
 |---|---|---|---|---|---|
@@ -109,9 +71,7 @@ testing it against every real file — see "Verification note" below):
 | 16 | `DAT_0047065a` | 164 (`0xa4`) bytes/record | `DAT_00470624` | #6, #7, #8, #10, a **20-entry** discriminated-ref array (0/1/2 → #12/#13/#14), a 10-entry array into #15 | **decoded — see "Row #16 field decode" below.** `EntitySpawn164` — the 20-entry cross-ref array matches `MapEntIds[20]`/`MapEntities[20]` exactly; also has a compound-condition pair (`0x02`/`0x04`, `-99` sentinel), an 18-short always-zero dead zone, and a cleanly discriminated trailing payload (`0x78`: 0/1/2 → 0/2/4 populated fields) |
 | 17 | `DAT_0047064a` | 58 (`0x3a`) bytes/record | `DAT_00470608` | #6 (declared, **never used in retail data**), #8, a `.ENG` id (dominant), a 4-way discriminated ref (0/1/2/3 → #16/#12/#13/#14) | **the mission objective — see "Row #17 field decode" below.** Structurally unusual — no leading GUID field at all (this record is never referenced by anything else in the file); the 42-byte tail is a nested pair-count array, the same idiom as row #8's nested waypoint list |
 
-`DAT_00470664` itself is never the subject of a count+array read in this function — it's used
-throughout as a lookup-table size bound, strongly suggesting it's a shared table (plausibly
-`HercLUT`) loaded once at VSHELL startup, not per-mission.
+`DAT_00470664` itself is never the subject of a count+array read in this function — it's used throughout as a lookup-table size bound, strongly suggesting it's a shared table (plausibly `HercLUT`) loaded once at VSHELL startup, not per-mission.
 
 ### Verification note
 
@@ -233,8 +193,7 @@ Heading record (degrees → BAM conversion). 105 real instances; simplest record
 
 ## Row #11 field decode — "ActionTimer30" (`DAT_00470662`, 30 bytes/record)
 
-A mission timer: an action that arms it, a delay, and the actions fired when the delay runs out. 72
-real instances.
+A mission timer: an action that arms it, a delay, and the actions fired when the delay runs out. 72 real instances.
 
 | offset | field | notes |
 |---|---|---|
@@ -258,9 +217,7 @@ real instances.
 | `0x52–0x8c` | sub-array C → `.ENG` ids (30 slots) | 0–3 real slots; mode 1 |
 | `0x8e` | ref→row #3 variant | 87% real; dominant field; fetches payload value |
 
-Sub-array A's values reach 243 across the corpus, so none of the three indexes the 5-slot shared LUT
-at `DAT_00470664`: they are ids into the mission's own [`.ENG` table](#the-eng-string-table).
-Which of B and C is the briefing and which the debrief is not established.
+Sub-array A's values reach 243 across the corpus, so none of the three indexes the 5-slot shared LUT at `DAT_00470664`: they are ids into the mission's own [`.ENG` table](#the-eng-string-table). Which of B and C is the briefing and which the debrief is not established.
 
 
 ## Row #13 field decode — "UnkEntity102Bytes" (`DAT_00470654`, 102 bytes/record)
@@ -364,10 +321,7 @@ Entity template/spawn; highest inheritance usage (48%). Three-way identity split
 
 ## Row #17 field decode — the objective record (`DAT_0047064a`, 58 bytes/record)
 
-**A mission objective.** No GUID (unreferenced row). Nested pair-count array in tail. 127 instances
-(61 files; `DEMO2.MSN` truncated here). DBSIM reads it as `script.dat` block 12 minus the condition
-ref and the pair count; what each field means at runtime is
-[`../simulation/mission-objectives.md`](../simulation/mission-objectives.md).
+**A mission objective.** No GUID (unreferenced row). Nested pair-count array in tail. 127 instances (61 files; `DEMO2.MSN` truncated here). DBSIM reads it as `script.dat` block 12 minus the condition ref and the pair count; what each field means at runtime is [`../simulation/mission-objectives.md`](../simulation/mission-objectives.md).
 
 | offset | field | notes |
 |---|---|---|
@@ -381,16 +335,11 @@ ref and the pair count; what each field means at runtime is
 | `0x0E` | **failure text** → `.ENG` id | **93% dominant**; first of three consecutive lines |
 | `0x10–0x39` (42 bytes) | nested pair-count array | `0x10`: count (0/1/2), not exported; pairs at `0x12`/`0x14`, `0x16`/`0x18` |
 
-**Nested pairs** are the mission counters the objective writes: first element the counter index
-(20–360, 15 distinct values), second the operation, `{6, 7}` only — increment and decrement out of
-the objective layer's four codes. Declared capacity (7+ pairs) never populated; actual max 2.
+**Nested pairs** are the mission counters the objective writes: first element the counter index (20–360, 15 distinct values), second the operation, `{6, 7}` only — increment and decrement out of the objective layer's four codes. Declared capacity (7+ pairs) never populated; actual max 2.
 
 ## The `.ENG` string table
 
-Every `.MSN` has a same-named `.ENG` beside it in `ZONES.VOL`, and it holds the mission's text: the
-objective lines row #4 lists, the failure paragraph row #17 names, and the briefing and debrief.
-Records are keyed by **id, not by position**, the same GUID-plus-condition idiom the `.MSN` rows use.
-After the 9-byte VOL entry prefix:
+Every `.MSN` has a same-named `.ENG` beside it in `ZONES.VOL`, and it holds the mission's text: the objective lines row #4 lists, the failure paragraph row #17 names, and the briefing and debrief. Records are keyed by **id, not by position**, the same GUID-plus-condition idiom the `.MSN` rows use. After the 9-byte VOL entry prefix:
 
 ```
 int16 count
@@ -403,13 +352,9 @@ count x {
 }
 ```
 
-**Verified byte-exact**: all 62 files consume to their declared content length with zero slack,
-1,111 records, ids 42-253.
+**Verified byte-exact**: all 62 files consume to their declared content length with zero slack, 1,111 records, ids 42-253.
 
-A line ending `" \n"` is authored to break there; the reader that copies these into a mission strips
-one trailing newline. VSHELL exports the subset a mission uses into `data\mission.str` as an ordinary
-[`.STR`](str-strings.md), renumbered from zero, and rewrites row #4's and row #17's ids to match —
-which is why `script.dat`'s refs are small where these are not.
+A line ending `" \n"` is authored to break there; the reader that copies these into a mission strips one trailing newline. VSHELL exports the subset a mission uses into `data\mission.str` as an ordinary [`.STR`](str-strings.md), renumbered from zero, and rewrites row #4's and row #17's ids to match — which is why `script.dat`'s refs are small where these are not.
 
 
 ## How to apply

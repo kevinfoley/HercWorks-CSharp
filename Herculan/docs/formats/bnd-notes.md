@@ -8,9 +8,7 @@ All offsets below are content-relative — the start of what `VolEntry.RawBytes`
 
 ## No shared header
 
-There is no envelope, no format marker and no record tag: the first byte of a `.BND` file's content
-is already the first byte of its per-subsystem record, and its value differs between files (67
-distinct values across the 83).
+There is no envelope, no format marker and no record tag: the first byte of a `.BND` file's content is already the first byte of its per-subsystem record, and its value differs between files (67 distinct values across the 83).
 
 ## CAM.BND's full 24-byte record
 
@@ -72,7 +70,7 @@ Hardcoded instruction immediates in `dbsim-physics-notes.md` (rocket steering) a
 
 ## Notes for future work
 
-**Work is shelved.** If resumed: 
+**Work is shelved.** If resumed:
 
 - Only 5 of 83 files have Java source doc comments (`Cam`, `Mech`, `MechSys`, `AppInput`, `MechView`). Check `herc-works-mdk-main/ES2Core/.../data/file/bnd/*.java` before hex-diffing.
 - `CAM.BND` is fully decoded and implemented: `HercWorks.Core.Data.File.Bnd.Cam` + `Io.Transform.Bnd.CamTransformer` (registered in `TransformerRegistry`, round-trips its 24 content bytes byte-exact). Use as template.

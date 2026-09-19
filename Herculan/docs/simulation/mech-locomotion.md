@@ -1,13 +1,8 @@
 # Herc locomotion — throttle, steering, and animation root motion
 
-Reverse-engineered from `DBSIM.EXE` (`mechsys.cpp`) in the `ES2Recon` Ghidra project. Covers
-ground Hercs only. The Razor (`typeRec+0x50 != 0`) takes different paths throughout — a different
-control law, a different move and a real velocity vector; see
-[`razor-flight.md`](razor-flight.md).
+Reverse-engineered from `DBSIM.EXE` (`mechsys.cpp`) in the `ES2Recon` Ghidra project. Covers ground Hercs only. The Razor (`typeRec+0x50 != 0`) takes different paths throughout — a different control law, a different move and a real velocity vector; see [`razor-flight.md`](razor-flight.md).
 
-**Core fact: Hercs have no velocity vector.** All translation and all turn-in-place rotation come
-from the walk/run/turn animations' root-node motion. The control law only sets a speed scalar,
-a turn rate, and an animation playback rate.
+**Core fact: Hercs have no velocity vector.** All translation and all turn-in-place rotation come from the walk/run/turn animations' root-node motion. The control law only sets a speed scalar, a turn rate, and an animation playback rate.
 
 ## Call graph
 
@@ -51,18 +46,13 @@ a turn rate, and an animation playback rate.
 | `+0x93` | byte | Throttle-dirty flag (input changed it this frame) |
 | `+0x317` | ptr | Turbo Pod mount (id 31); adds a speed bonus that degrades with damage |
 
-Angles are 16-bit binary angle measure: **65536 = 360°**. Confirmed by a full-sweep animation
-(`OUTLAW` seq 5) stepping `0, 8190, 16380, 24570, 32760, -24570, -16380, -8190` = 8 × 8190 ≈ 65536,
-and by turn-in-place keyframes of 1820 = 10.00°.
+Angles are 16-bit binary angle measure: **65536 = 360°**. Confirmed by a full-sweep animation (`OUTLAW` seq 5) stepping `0, 8190, 16380, 24570, 32760, -24570, -16380, -8190` = 8 × 8190 ≈ 65536, and by turn-in-place keyframes of 1820 = 10.00°.
 
 World scale is 166.667 units/metre (see `docs/engine/planning.md`).
 
 ## Mech type record
 
-Loaded by `MechType_InitOne` (`004201a8`) as a 216-byte little-endian record into
-`MECH_TYPE_DATA[i]+2`. **Record offset N = `typeRec+N+2`.** Parsed in C# by
-`HercSimDataTransformer`, which expects `VolEntry.RawBytes` (the 9-byte VOL prefix already
-stripped).
+Loaded by `MechType_InitOne` (`004201a8`) as a 216-byte little-endian record into `MECH_TYPE_DATA[i]+2`. **Record offset N = `typeRec+N+2`.** Parsed in C# by `HercSimDataTransformer`, which expects `VolEntry.RawBytes` (the 9-byte VOL prefix already stripped).
 
 | rec | typeRec | C# field | Meaning |
 |---|---|---|---|
@@ -102,12 +92,9 @@ typeRec+0x02 (turn rate) is NOT rescaled
 typeRec+0xc2 = Q10(315 × rawSpeedForward)       computed BEFORE the rescale
 ```
 
-`scale` normalises the designer's speed points to the model's stride length: `simMax ×
-stridePerTick` tracks `rawSpeedForward` across every Herc (see verification below). It is not
-friction.
+`scale` normalises the designer's speed points to the model's stride length: `simMax × stridePerTick` tracks `rawSpeedForward` across every Herc (see verification below). It is not friction.
 
-The HUD reads `speed × typeRec[0xc2] / typeRec[0x06]`, so `simMax` cancels and top speed always
-displays `315 × rawSpeedForward / 1024` regardless of scale.
+The HUD reads `speed × typeRec[0xc2] / typeRec[0x06]`, so `simMax` cancels and top speed always displays `315 × rawSpeedForward / 1024` regardless of scale.
 
 ## Control law (`Mech_LocomotionTick`)
 
@@ -121,21 +108,11 @@ desired   = clamp(desired, maxRev, maxFwd)
 RateLimitedMoveToward(speed, desired, SpeedAccelDecel)
 ```
 
-`DAT_0049a06e` is **not** a gear selector. `FUN_00459d20` sets it to 1 only when the input
-configuration reports a throttle control *and* the preferences page has that control assigned to
-THROTTLE rather than TURRET, and to 0 otherwise; the key command and the cockpit slider that
-"toggle" it only ever flip between +1 and −1, gated on that same pair. It selects the **joystick
-throttle-lever mode**: 0 = none, ±1 = lever present, sign inverting its sense.
+`DAT_0049a06e` is **not** a gear selector. `FUN_00459d20` sets it to 1 only when the input configuration reports a throttle control *and* the preferences page has that control assigned to THROTTLE rather than TURRET, and to 0 otherwise; the key command and the cockpit slider that "toggle" it only ever flip between +1 and −1, gated on that same pair. It selects the **joystick throttle-lever mode**: 0 = none, ±1 = lever present, sign inverting its sense.
 
-It matters because it is what gates the throttle clamp. At 0 — keyboard and plain stick — the range
-is the full ±0x400, so holding the axis against its stop runs the setting from full forward through a
-one-tick pause at zero and on into full reverse. That one-tick pause is the sign-crossing guard, and
-it is the manual's "Centered is stopped". Non-zero also switches the handler's first block on, which
-reads the axis as an absolute lever position (`|axis − 0x100| × 2`, deadbanded below 100) instead of
-as a rate.
+It matters because it is what gates the throttle clamp. At 0 — keyboard and plain stick — the range is the full ±0x400, so holding the axis against its stop runs the setting from full forward through a one-tick pause at zero and on into full reverse. That one-tick pause is the sign-crossing guard, and it is the manual's "Centered is stopped". Non-zero also switches the handler's first block on, which reads the axis as an absolute lever position (`|axis − 0x100| × 2`, deadbanded below 100) instead of as a rate.
 
-Throttle is two-way bound to the cockpit ThrottleGauge in `Player_PerFrameCockpitUpdate` (`0041b130`),
-arbitrated by the `mech+0x93` dirty flag — this is why dragging the slider works.
+Throttle is two-way bound to the cockpit ThrottleGauge in `Player_PerFrameCockpitUpdate` (`0041b130`), arbitrated by the `mech+0x93` dirty flag — this is why dragging the slider works.
 
 Turn rate — a symmetric tent over speed, `T = SpeedTurn`:
 
@@ -151,30 +128,21 @@ RateLimitedMoveToward(turnRate, turnTarget, DecelTurning)
 heading += turnRate
 ```
 
-Half turn rate at crawl, peak at half top speed, half again at top speed. `Q16Divide(0x32, 0x32)`
-in that branch is a dead constant (always 1.0).
+Half turn rate at crawl, peak at half top speed, half again at top speed. `Q16Divide(0x32, 0x32)` in that branch is a dead constant (always 1.0).
 
-**Turning in place is not produced here** — at zero speed `turnBase` is 0. The turn-in-place
-branch only sets the animation rate to `Q10(350, stickAxis)`; the rotation comes from the
-turn-in-place sequence's root rotation.
+**Turning in place is not produced here** — at zero speed `turnBase` is 0. The turn-in-place branch only sets the animation rate to `Q10(350, stickAxis)`; the rotation comes from the turn-in-place sequence's root rotation.
 
-The remainder of `Mech_LocomotionTick` (~60% of its body) is the gait state machine, switching
-between sequences `AnimId_Walk` / `AnimId_Run` / stop-forward / stop-reverse / turn-in-place /
-death and maintaining `mech+0x2a0`. In steady state `animRate = speed`.
+The remainder of `Mech_LocomotionTick` (~60% of its body) is the gait state machine, switching between sequences `AnimId_Walk` / `AnimId_Run` / stop-forward / stop-reverse / turn-in-place / death and maintaining `mech+0x2a0`. In steady state `animRate = speed`.
 
 ## Center Body
 
-The manual's other half of [Backspace]: instead of bringing the turret back to the legs, it walks the
-legs round under the turret. Scancode `0x2b` (`Sim_DispatchCommand`, `0045fdac`, and the identical case
-in `Sim_PollPlayerInput`) latches `g_CenterBodyMode` (`004d2af4`), clears `g_CenterTurretMode` and the
-ATT flag, and caches
+The manual's other half of [Backspace]: instead of bringing the turret back to the legs, it walks the legs round under the turret. Scancode `0x2b` (`Sim_DispatchCommand`, `0045fdac`, and the identical case in `Sim_PollPlayerInput`) latches `g_CenterBodyMode` (`004d2af4`), clears `g_CenterTurretMode` and the ATT flag, and caches
 
 ```
 g_CenterBodyTargetHeading = heading - Mech_GetTorsoTwistAngle()    // 004d2af8, short
 ```
 
-— the world direction the turret is pointing in. While latched, the player's input block substitutes
-its own steering and twist axis; the throttle and the pitch axis still come from the pilot.
+— the world direction the turret is pointing in. While latched, the player's input block substitutes its own steering and twist axis; the throttle and the pitch axis still come from the pilot.
 
 ```
 bodyError   = heading - target                       // legs still to turn
@@ -187,30 +155,17 @@ Mech_ApplyThrottleInput(mech, steer, throttleAxis)
 Mech_TorsoTwistTick(mech, twist);  Mech_TorsoPitchTick(mech, pitchAxis, range)
 ```
 
-All 16-bit arithmetic, so both errors wrap. Squaring the gained error makes the command soft near the
-target and hard away from it, which is what stops the legs hunting; the sign is put back afterwards.
-Both terms reach their thresholds together, since heading meeting the target forces the twist to zero.
-The extra inversion on `Mech_GetSpeed` (mech vtable `+0x38`, `00415498` — `Q10(2000, mech+0x28e)`)
-sits on top of the one `Mech_ApplyThrottleInput` already does from the stick, so reversing steers the
-right way.
+All 16-bit arithmetic, so both errors wrap. Squaring the gained error makes the command soft near the target and hard away from it, which is what stops the legs hunting; the sign is put back afterwards. Both terms reach their thresholds together, since heading meeting the target forces the twist to zero. The extra inversion on `Mech_GetSpeed` (mech vtable `+0x38`, `00415498` — `Q10(2000, mech+0x28e)`) sits on top of the one `Mech_ApplyThrottleInput` already does from the stick, so reversing steers the right way.
 
-The mode is not cancelled by steering or by the turret axes — only by its own convergence test or by
-[Backspace]. It leaves a few degrees of residual twist, by design: it is not a centring command.
+The mode is not cancelled by steering or by the turret axes — only by its own convergence test or by [Backspace]. It leaves a few degrees of residual twist, by design: it is not a centring command.
 
 ## Timing
 
-Tick rate, the `SimTickDelta`/`DAT_004d3be8` formula (`FUN_004677bc`), and its Q8/125ms scale are
-documented in [`dbsim-physics-notes.md`](dbsim-physics-notes.md#fixed-point-math-toolkit) — not
-repeated here.
+Tick rate, the `SimTickDelta`/`DAT_004d3be8` formula (`FUN_004677bc`), and its Q8/125ms scale are documented in [`dbsim-physics-notes.md`](dbsim-physics-notes.md#fixed-point-math-toolkit) — not repeated here.
 
-Locomotion accel constants (`SpeedAccelDecel`, `DecelTurning`) are raw per-tick steps with no
-`Math_IntegrateRateOverTick`, so **the control law is frame-rate dependent**. The animation
-advance and the torso rates *are* dt-scaled.
+Locomotion accel constants (`SpeedAccelDecel`, `DecelTurning`) are raw per-tick steps with no `Math_IntegrateRateOverTick`, so **the control law is frame-rate dependent**. The animation advance and the torso rates *are* dt-scaled.
 
-> Port note: Herculan does not reproduce this. Both constants go through
-> `SimMath.ScalePerTickStep` (`step x TickDelta / 81`), exact at the original's own 40 ms tick.
-> Below the vanilla tick length, a step that rounds to zero is pinned to 1 — re-check these
-> constants if the engine's tick rate is ever raised above 25 Hz.
+> Port note: Herculan does not reproduce this. Both constants go through > `SimMath.ScalePerTickStep` (`step x TickDelta / 81`), exact at the original's own 40 ms tick. > Below the vanilla tick length, a step that rounds to zero is pinned to 1 — re-check these > constants if the engine's tick rate is ever raised above 25 Hz.
 
 ## Root motion
 
@@ -238,11 +193,9 @@ else {
 }
 ```
 
-`ANSequence.GroundMovement` is the enable flag. `ANAnimListTransition.GroundMovement` is a
-*different* field — a gait-change hook used only when switching sequences, not the steady gait.
+`ANSequence.GroundMovement` is the enable flag. `ANAnimListTransition.GroundMovement` is a *different* field — a gait-change hook used only when switching sequences, not the steady gait.
 
-Application is a matched set around the fraction `thread+0x1c / thread+0x1e`
-(intra-frame accumulator ÷ frame duration):
+Application is a matched set around the fraction `thread+0x1c / thread+0x1e` (intra-frame accumulator ÷ frame duration):
 
 | Function | Effect |
 |---|---|
@@ -251,12 +204,9 @@ Application is a matched set around the fraction `thread+0x1c / thread+0x1e`
 | `00478e60` | frame exit: commits full `G` into `stored` |
 | `00478ee8` | inverse of `00478e60`, for backward playback |
 
-Seeding the root to identity then reading back yields
-`scale(G, frac_after) ∘ scale(G, frac_before)⁻¹` — the exact delta for that tick. Over one full
-frame the Herc advances by exactly `G`, ramped linearly.
+Seeding the root to identity then reading back yields `scale(G, frac_after) ∘ scale(G, frac_before)⁻¹` — the exact delta for that tick. Over one full frame the Herc advances by exactly `G`, ramped linearly.
 
-**Axes:** +Y is forward in model space (matches `Mech_ApplyTerrainSlopeToSpeed`, which builds the
-forward vector as `(0, speed, 0)`); root rotation Z is yaw.
+**Axes:** +Y is forward in model space (matches `Mech_ApplyTerrainSlopeToSpeed`, which builds the forward vector as `(0, speed, 0)`); root rotation Z is yaw.
 
 ### Resulting speed
 
@@ -271,9 +221,7 @@ worldSpeed = 3.125 × speed × (ΣG_cycle / Σticks_cycle)     world units/sec
 
 Frame-rate independent — `elapsedMs` cancels.
 
-Because `G` varies frame to frame (OUTLAW walk: 150, 240, 170, 240, 80, 380 …), world speed
-**pulses with each footfall**, up to 4.75× between the slowest and fastest frame of a stride.
-Averaging `G` over the cycle loses that.
+Because `G` varies frame to frame (OUTLAW walk: 150, 240, 170, 240, 80, 380 …), world speed **pulses with each footfall**, up to 4.75× between the slowest and fastest frame of a stride. Averaging `G` over the cycle loses that.
 
 ### Verification
 
@@ -291,34 +239,23 @@ Predicted run-gait top speed vs. the HUD reading, all Hercs, no fitted parameter
 | MAVERICK | 285 | 0.976 | 278 | 2.862 | 5.025 | 94.3 | 87.7 | 1.076 |
 | SCARAB | 180 | 1.070 | 192 | 1.833 | 3.840 | 49.8 | 55.4 | 0.899 |
 
-Full 18-Herc run: all within 0.899–1.076, mean ≈ 1.00. Four independent quantities must be
-correct for this to hold — root-motion model, the 3.125 tick constant, the load-time rescale, and
-the 166.667 units/m world scale. APOCA is the tightest constraint: stride 8.472 u/tick (largest)
-against scale 0.497 (smallest); without the rescale it is 2× wrong.
+Full 18-Herc run: all within 0.899–1.076, mean ≈ 1.00. Four independent quantities must be correct for this to hold — root-motion model, the 3.125 tick constant, the load-time rescale, and the 166.667 units/m world scale. APOCA is the tightest constraint: stride 8.472 u/tick (largest) against scale 0.497 (smallest); without the rescale it is 2× wrong.
 
 ### Turn-in-place
 
-Uniform across every Herc: 1820 units (10.00°) per frame, 7 frames, 100 ticks/frame = **70° per
-700-tick cycle**, zero translation. At full stick `animRate = Q10(350, 256) = 87.5`, giving
-27.3°/s (180° in 6.6 s). Negative stick plays the sequence backward.
+Uniform across every Herc: 1820 units (10.00°) per frame, 7 frames, 100 ticks/frame = **70° per 700-tick cycle**, zero translation. At full stick `animRate = Q10(350, 256) = 87.5`, giving 27.3°/s (180° in 6.6 s). Negative stick plays the sequence backward.
 
 ## Walk/run gait discontinuity
 
 Real and universal; confirmed against the retail build.
 
-A run stride is ~2× a walk stride but takes 5/6 the time, and `animRate = speed` in both gaits.
-Crossing `typeRec+0x2e` therefore roughly doubles actual ground speed while the HUD number moves
-continuously. Per-Herc run/walk u/tick ratio: 1.76–2.43.
+A run stride is ~2× a walk stride but takes 5/6 the time, and `animRate = speed` in both gaits. Crossing `typeRec+0x2e` therefore roughly doubles actual ground speed while the HUD number moves continuously. Per-Herc run/walk u/tick ratio: 1.76–2.43.
 
-The HUD's 315/1024 constant is calibrated for the run gait only. Below the threshold — 50–60% of
-the throttle range — a Herc physically moves about half what the readout claims. Reproduce the
-mechanism, not the readout.
+The HUD's 315/1024 constant is calibrated for the run gait only. Below the threshold — 50–60% of the throttle range — a Herc physically moves about half what the readout claims. Reproduce the mechanism, not the readout.
 
 ## Damage effects on movement
 
-Three terms, applied to the speed the machine is *asking* for rather than to the speed it has, so a
-damaged machine still accelerates at its own rate. They sit after the obstacle-avoidance step, which
-writes a speed of its own.
+Three terms, applied to the speed the machine is *asking* for rather than to the speed it has, so a damaged machine still accelerates at its own rate. They sit after the obstacle-avoidance step, which writes a speed of its own.
 
 - **The flat penalties**, one pair of thresholds over two independent conditions:
 
@@ -327,37 +264,18 @@ writes a speed of its own.
   | Legs | `mech+0xa9` — a side at `0x8d` damage or worse | `mech+0xa8` — a side past `0x50` |
   | Reactor | `mech+0xab` critical | `mech+0xaa` degraded |
 
-  The severe pair wins outright where both apply. Both leg flags are written by the leg grading in
-  [`damage-system.md`](damage-system.md); the reactor pair cuts power and mobility together — see
-  [reactor-energy-pool.md](reactor-energy-pool.md#reactor-damage-flags).
+The severe pair wins outright where both apply. Both leg flags are written by the leg grading in [`damage-system.md`](damage-system.md); the reactor pair cuts power and mobility together — see [reactor-energy-pool.md](reactor-energy-pool.md#reactor-damage-flags).
 
-- `mech+0x317` is the **Turbo Pod** (`TURB`, catalog id 31), one of the five equipment-pod slots
-  filled by `MechLoadout_FileEquipmentPods` at loadout. It adds a term to desired speed *in the
-  current direction of travel* while it is engaged, worth ~98% of max at full and fading to ~20%
-  before cutting out entirely past 225/256 damage — a speed bonus that degrades, not a throttle
-  runaway, and **maximal at full health**. A stationary machine gets nothing: the term is gated on
-  `speed != 0`, so the pod accelerates a walk rather than starting one. What engages it, what it
-  costs the pool and what the curve is are in
-  [equipment-pods.md](equipment-pods.md#what-the-turbo-pod-is-worth).
-  > Reading the curve requires care: the health accessor returns **accumulated damage**, not health,
-  > so the term runs the opposite way to how it first scans. See
-  > [damage-system.md](damage-system.md#the-component-damage-system).
+- `mech+0x317` is the **Turbo Pod** (`TURB`, catalog id 31), one of the five equipment-pod slots filled by `MechLoadout_FileEquipmentPods` at loadout. It adds a term to desired speed *in the current direction of travel* while it is engaged, worth ~98% of max at full and fading to ~20% before cutting out entirely past 225/256 damage — a speed bonus that degrades, not a throttle runaway, and **maximal at full health**. A stationary machine gets nothing: the term is gated on `speed != 0`, so the pod accelerates a walk rather than starting one. What engages it, what it costs the pool and what the curve is are in [equipment-pods.md](equipment-pods.md#what-the-turbo-pod-is-worth). > Reading the curve requires care: the health accessor returns **accumulated damage**, not health, > so the term runs the opposite way to how it first scans. See > [damage-system.md](damage-system.md#the-component-damage-system).
 
 ## Going down
 
-`Mech_LocomotionTick`'s own branch for an **immobilised** machine, and the whole of how a HERC that
-has lost its legs ends up face down. It is an animation, not a physics result: there is no rigid
-body, no angular velocity and no ground-contact solve anywhere in the mech path, and the pitch you
-see is the last keyframe of a sequence.
+`Mech_LocomotionTick`'s own branch for an **immobilised** machine, and the whole of how a HERC that has lost its legs ends up face down. It is an animation, not a physics result: there is no rigid body, no angular velocity and no ground-contact solve anywhere in the mech path, and the pitch you see is the last keyframe of a sequence.
 
 Two things happen before the gait machine is even reached:
 
-1. **The inputs are taken away.** Throttle and steer are zeroed, the unstick countdown does not run,
-   the slope term and the clamp are skipped, and obstacle avoidance does not run. Everything below
-   still runs, so the machine decelerates through the same rate limiter and walks its remaining
-   momentum off over the next few ticks rather than stopping dead.
-2. **The fall**, taken instead of the gait machine once the thread is settled — unless the machine is
-   turning in place, which wins, so one immobilised mid-pirouette keeps turning.
+1. **The inputs are taken away.** Throttle and steer are zeroed, the unstick countdown does not run, the slope term and the clamp are skipped, and obstacle avoidance does not run. Everything below still runs, so the machine decelerates through the same rate limiter and walks its remaining momentum off over the next few ticks rather than stopping dead.
+2. **The fall**, taken instead of the gait machine once the thread is settled — unless the machine is turning in place, which wins, so one immobilised mid-pirouette keeps turning.
 
 | Thread state | What happens |
 |---|---|
@@ -365,33 +283,19 @@ Two things happen before the gait machine is even reached:
 | Running it | Rate `0x78` |
 | Running it, and `frame == nextFrame` | It has played out: latch `mech+0xb4` **collapsed**, take the landing damage, sound `0x29` |
 
-The end-of-sequence test works only because the death sequence is the chassis' one **non-cyclic**
-sequence — see [`../formats/dts-node-posing.md`](../formats/dts-node-posing.md#cyclic-and-one-shot-sequences).
+The end-of-sequence test works only because the death sequence is the chassis' one **non-cyclic** sequence — see [`../formats/dts-node-posing.md`](../formats/dts-node-posing.md#cyclic-and-one-shot-sequences).
 
-`mech+0xb4` is a third condition distinct from destroyed and immobilised, and the one that takes a
-machine off the AI's books completely: [`ai-targeting.md`](ai-targeting.md)'s targetability test and
-the mission group's condition test both reject a collapsed candidate, while one still falling is
-still a target.
+`mech+0xb4` is a third condition distinct from destroyed and immobilised, and the one that takes a machine off the AI's books completely: [`ai-targeting.md`](ai-targeting.md)'s targetability test and the mission group's condition test both reject a collapsed candidate, while one still falling is still a target.
 
-The landing calls `Mech_SpreadImpactDamage` (`00417a04`) with `(150, 120)` — see
-[`damage-system.md`](damage-system.md#spread-impact-damage--mech_spreadimpactdamage-00417a04), which
-owns that primitive. A bad enough landing can therefore finish a machine off through the death gate.
+The landing calls `Mech_SpreadImpactDamage` (`00417a04`) with `(150, 120)` — see [`damage-system.md`](damage-system.md#spread-impact-damage--mech_spreadimpactdamage-00417a04), which owns that primitive. A bad enough landing can therefore finish a machine off through the death gate.
 
-`Mech_PlaceLegsOnGround` has a death-sequence arm of its own, but it leaves the sound id unset and so
-can never reach the footfall it guards. Nothing to port.
+`Mech_PlaceLegsOnGround` has a death-sequence arm of its own, but it leaves the sound id unset and so can never reach the footfall it guards. Nothing to port.
 
 ## Cockpit eye and bob
 
-No dedicated bob code, and none is needed. `typeRec+0x0c` (`CameraBoneId`) is a shape **part** id.
-`FUN_0041ef14` resolves it through the shape's find-by-id, takes that part's `TSBasePart.Transform`
-as a transform id, and indexes the shape instance's per-node transform array at `shapeInst+0x16`
-(`0x20` bytes per entry) — the same array `FUN_00402628` memcpy's `count << 5` bytes of when saving
-state for a blocked step. The eye rides a node the walk cycle animates, so the bob falls out of
-correct root motion.
+No dedicated bob code, and none is needed. `typeRec+0x0c` (`CameraBoneId`) is a shape **part** id. `FUN_0041ef14` resolves it through the shape's find-by-id, takes that part's `TSBasePart.Transform` as a transform id, and indexes the shape instance's per-node transform array at `shapeInst+0x16` (`0x20` bytes per entry) — the same array `FUN_00402628` memcpy's `count << 5` bytes of when saving state for a blocked step. The eye rides a node the walk cycle animates, so the bob falls out of correct root motion.
 
-Resolution is uniform across the fleet. Every ground HERC lands on the same chain shape, and the
-parent links come from the `ANAnimList` relation pairs — the same table `DtsMeshBuilder` already
-walked to place geometry:
+Resolution is uniform across the fleet. Every ground HERC lands on the same chain shape, and the parent links come from the `ANAnimList` relation pairs — the same table `DtsMeshBuilder` already walked to place geometry:
 
 | | camera part | transform | chain to root |
 |---|---|---|---|
@@ -400,23 +304,15 @@ walked to place geometry:
 | HEADHUNT | 5 | 12 | 12 <- 5 <- 1 |
 | RAZOR | 12 | 1 | 1 (flyer, no animation) |
 
-Node **1** is the one the walk, run, stop and turn sequences animate; 4 and 11 are the turret nodes
-sequences 0 and 5 drive (see [`torso-aim.md`](torso-aim.md)). The bob therefore comes entirely from
-node 1: with the turret held still, 4 and 11 contribute a fixed offset and no motion at all.
+Node **1** is the one the walk, run, stop and turn sequences animate; 4 and 11 are the turret nodes sequences 0 and 5 drive (see [`torso-aim.md`](torso-aim.md)). The bob therefore comes entirely from node 1: with the turret held still, 4 and 11 contribute a fixed offset and no motion at all.
 
-The chain also **rotates** only at 4 and 11. Measured over a full stride on OUTLAW, OGRE, MONGOOSE
-and HEADHUNT, the camera node's world orientation does not move — zero yaw, pitch and roll swing —
-so a walking machine's view bobs without tilting, and everything the pilot's frame is turned by comes
-from the turret.
+The chain also **rotates** only at 4 and 11. Measured over a full stride on OUTLAW, OGRE, MONGOOSE and HEADHUNT, the camera node's world orientation does not move — zero yaw, pitch and roll swing — so a walking machine's view bobs without tilting, and everything the pilot's frame is turned by comes from the turret.
 
-Measured through the port, on flat ground: standing eye height 3.2 m (STINGRAY) to 11.2 m (SAMSON),
-running 4.7 m to 11.8 m (OGRE), against the 6.1-10.4 m statures the manual's HERC specs quote. A
-stride swings the eye 0.24-0.42 m. Nothing here is fitted.
+Measured through the port, on flat ground: standing eye height 3.2 m (STINGRAY) to 11.2 m (SAMSON), running 4.7 m to 11.8 m (OGRE), against the 6.1-10.4 m statures the manual's HERC specs quote. A stride swings the eye 0.24-0.42 m. Nothing here is fitted.
 
 ## Keyframe interpolation
 
-DBSIM interpolates node poses between keyframes, by the same intra-frame fraction it ramps root
-motion with. The pose pipeline is three calls, in `ShapeInstance_StepAnimation` (`00478c2c`):
+DBSIM interpolates node poses between keyframes, by the same intra-frame fraction it ramps root motion with. The pose pipeline is three calls, in `ShapeInstance_StepAnimation` (`00478c2c`):
 
 | Address | Symbol | Role |
 | --- | --- | --- |
@@ -424,90 +320,40 @@ motion with. The pose pipeline is three calls, in `ShapeInstance_StepAnimation` 
 | `004799a4` | `AnimThread_EvalNodeLocals` | **the interpolator** — writes each node's local transform |
 | `00478b58` | `ShapeInst_BuildWorldTransforms` | composes locals up the relation list into `shapeInst+0x16` |
 
-Three arrays on the shape instance: `+0x12` per-node **local** transforms (stride `0xc`), `+0xe`
-per-node dirty flags, `+0x16` per-node **world** transforms (stride `0x20`, indexed by transform id —
-the array `Cockpit_TargetAnglesFromCameraBone` and the cockpit eye read).
+Three arrays on the shape instance: `+0x12` per-node **local** transforms (stride `0xc`), `+0xe` per-node dirty flags, `+0x16` per-node **world** transforms (stride `0x20`, indexed by transform id — the array `Cockpit_TargetAnglesFromCameraBone` and the cockpit eye read).
 
 `AnimThread_EvalNodeLocals`, per animated column:
 
-- reads the transform-pool index at **(sequence, frame)** and at **(nextSequence, nextFrame)** — both
-  cursors the thread already keeps;
+- reads the transform-pool index at **(sequence, frame)** and at **(nextSequence, nextFrame)** — both cursors the thread already keeps;
 - identical indices → copy the 12-byte record straight, no blend;
-- otherwise → `Anim_BlendKeyframeTransforms` (`00492600`) at
-  **`(frameAccumulator * 0x400 + frameDuration / 2) / frameDuration`**, a rounded Q10 fraction — the
-  same `thread+0x1c / thread+0x1e` fraction root motion is ramped by (see [Root
-  motion](#root-motion)). Pose and ground movement therefore ride one clock, which is what keeps the
-  gait smooth at any speed: a slow gait stretches keyframes out in time and the pose keeps moving
-  between them instead of stepping.
-- columns whose part id is 0 are **skipped entirely**, so transform 0 keeps its default and never
-  takes an animated pose. Column 0 of every sequence carries that sequence's root motion, not a pose,
-  which is what the skip exists to keep out of the node array. Across all 18 retail HERCs column 0
-  holds part id 0 in every sequence, transform 0's parent is -1, and no node's chain reaches it — so
-  the skip only matters to a caller that walks *all* transform ids, as a whole-skeleton pose does.
+- otherwise → `Anim_BlendKeyframeTransforms` (`00492600`) at **`(frameAccumulator * 0x400 + frameDuration / 2) / frameDuration`**, a rounded Q10 fraction — the same `thread+0x1c / thread+0x1e` fraction root motion is ramped by (see [Root motion](#root-motion)). Pose and ground movement therefore ride one clock, which is what keeps the gait smooth at any speed: a slow gait stretches keyframes out in time and the pose keeps moving between them instead of stepping.
+- columns whose part id is 0 are **skipped entirely**, so transform 0 keeps its default and never takes an animated pose. Column 0 of every sequence carries that sequence's root motion, not a pose, which is what the skip exists to keep out of the node array. Across all 18 retail HERCs column 0 holds part id 0 in every sequence, transform 0's parent is -1, and no node's chain reaches it — so the skip only matters to a caller that walks *all* transform ids, as a whole-skeleton pose does.
 
-`Anim_BlendKeyframeTransforms` blends a 12-byte record (3 euler shorts, then 3 translation shorts):
-rotation along the **shortest arc** (bias by `0x10000`, subtract, fold back when over `0x7fff` — the
-same wrap `BinaryAngle.Delta` performs), translation as a truncating lerp on the 16-bit difference,
-both `* q10 >> 10`. Fixed point throughout; no float.
+`Anim_BlendKeyframeTransforms` blends a 12-byte record (3 euler shorts, then 3 translation shorts): rotation along the **shortest arc** (bias by `0x10000`, subtract, fold back when over `0x7fff` — the same wrap `BinaryAngle.Delta` performs), translation as a truncating lerp on the 16-bit difference, both `* q10 >> 10`. Fixed point throughout; no float.
 
-`ShapeInst_ExpandRootTransform` (`00478b10`) confirms the local record's layout as
-`[eulerX, eulerY, eulerZ, x, y, z]` shorts, and thread field offsets are confirmed here too: `+4`
-sequence, `+6` frame, `+8` nextSequence, `+10` nextFrame, `+0x1c` frameAccumulator, `+0x1e`
-frameDuration.
+`ShapeInst_ExpandRootTransform` (`00478b10`) confirms the local record's layout as `[eulerX, eulerY, eulerZ, x, y, z]` shorts, and thread field offsets are confirmed here too: `+4` sequence, `+6` frame, `+8` nextSequence, `+10` nextFrame, `+0x1c` frameAccumulator, `+0x1e` frameDuration.
 
-> Port note: `AnimTransform.Blend` ports the blend; `ShapeInstance.NodeTransform` /
-> `InterpolatedLocal` / `FrameFraction` port the evaluation. The port composes lazily per requested
-> node instead of building the whole array, so `ShapeInst_BuildWorldTransforms`'s dirty-flag
-> machinery has no counterpart and needs none. `FrameFraction` carries a second, finer path for a
-> pose parked by a *seek* rather than reached by playback (see
-> [`torso-aim.md`](torso-aim.md#sub-tick-seek-interpolation--not-retail)); advanced playback, which
-> is all locomotion does, takes the formula above unchanged.
-> `ShapeInst_BuildWorldTransforms`'s output array is what geometry is drawn through — see
-> [`dts-node-posing.md`](../formats/dts-node-posing.md).
+> Port note: `AnimTransform.Blend` ports the blend; `ShapeInstance.NodeTransform` / > `InterpolatedLocal` / `FrameFraction` port the evaluation. The port composes lazily per requested > node instead of building the whole array, so `ShapeInst_BuildWorldTransforms`'s dirty-flag > machinery has no counterpart and needs none. `FrameFraction` carries a second, finer path for a > pose parked by a *seek* rather than reached by playback (see > [`torso-aim.md`](torso-aim.md#sub-tick-seek-interpolation--not-retail)); advanced playback, which > is all locomotion does, takes the formula above unchanged. > `ShapeInst_BuildWorldTransforms`'s output array is what geometry is drawn through — see > [`dts-node-posing.md`](../formats/dts-node-posing.md).
 
 ### Evaluation cadence — per tick, not per rendered frame
 
-`ShapeInstance_StepAnimation`'s **only** caller is `SimObject_ApplyRootMotion` (`0040250c`), which
-`Mech_IntegrateMotion` runs once per sim tick. So poses are re-blended once per tick.
+`ShapeInstance_StepAnimation`'s **only** caller is `SimObject_ApplyRootMotion` (`0040250c`), which `Mech_IntegrateMotion` runs once per sim tick. So poses are re-blended once per tick.
 
-There is no separate render rate for them to be per-frame at: `FUN_004677bc` spin-waits the whole
-loop to 40 ms, so **tick and frame are the same thing in DBSIM** (see
-[`dbsim-physics-notes.md`](dbsim-physics-notes.md#fixed-point-math-toolkit)). A vanilla frame always
-shows a pose evaluated that same iteration, at 25 Hz.
+There is no separate render rate for them to be per-frame at: `FUN_004677bc` spin-waits the whole loop to 40 ms, so **tick and frame are the same thing in DBSIM** (see [`dbsim-physics-notes.md`](dbsim-physics-notes.md#fixed-point-math-toolkit)). A vanilla frame always shows a pose evaluated that same iteration, at 25 Hz.
 
-> Port note: the engine runs a fixed 25 Hz tick (`SimWorld.TicksPerSecond`, `TickDelta` pinned to the
-> vanilla 81) with rendering decoupled, so it produces the same 25 distinct poses a second the
-> original does, however fast it renders; consecutive rendered frames may repeat a pose, which
-> vanilla never does only because it never renders faster than it ticks. Sampling `NodeTransform` at
-> render time with a sub-tick fraction would exceed the original's smoothness rather than match it,
-> and is deliberately not done.
+> Port note: the engine runs a fixed 25 Hz tick (`SimWorld.TicksPerSecond`, `TickDelta` pinned to the > vanilla 81) with rendering decoupled, so it produces the same 25 distinct poses a second the > original does, however fast it renders; consecutive rendered frames may repeat a pose, which > vanilla never does only because it never renders faster than it ticks. Sampling `NodeTransform` at > render time with a sub-tick fraction would exceed the original's smoothness rather than match it, > and is deliberately not done.
 
 ## Collision
 
-`Mech_CollisionTest` (`00418f74`) answers "is the position I just integrated into refused", and is
-run after every move. Three things refuse it, in order:
+`Mech_CollisionTest` (`00418f74`) answers "is the position I just integrated into refused", and is run after every move. Three things refuse it, in order:
 
-1. **An object in the way.** The gap is asymmetric: **this** machine contributes its own vtable
-   `+0x5c` and the **other** object its `+0x7c`, and an object whose `+0x7c` is zero is skipped
-   before any distance is taken — see
-   [`hit-detection.md`](hit-detection.md#the-three-radius-slots) for which classes those are. An
-   object still waiting on its mission action is skipped as well.
-2. **A structure's collision volume.** `Structure_GatherWalkCandidates` (`00404ae4`) walks the structure list at `DAT_004a9624`
-   and hands `FUN_00427c68` everything step 1 does not already cover: every static type, plus every
-   animated type that has fallen to a wreck. It skips a structure that is *gone* — destroyed, no
-   hulk, one component. `Structure_WalkCollisionTest` (`00427c68`) then tests the point against each one's `.DGS` height field
-   (see [`hit-detection.md`](hit-detection.md#the-collision-volume--the-dgs-records-height-field)).
-   Step 1 and step 2 are exact complements, so no structure is walked through and none is tested
-   twice.
-3. **Ground too steep**, `|normal.z| < 0x5aa` against normals scaled to the height grid's own one —
-   about 45°. Off the grid counts as steep, which is what keeps a machine inside the zone. For the
-   player only, a *downhill* refusal turns into a slide instead: the slope's X/Y accumulate at Q10
-   10 per tick, and the landing is [below](#the-landing).
+1. **An object in the way.** The gap is asymmetric: **this** machine contributes its own vtable `+0x5c` and the **other** object its `+0x7c`, and an object whose `+0x7c` is zero is skipped before any distance is taken — see [`hit-detection.md`](hit-detection.md#the-three-radius-slots) for which classes those are. An object still waiting on its mission action is skipped as well.
+2. **A structure's collision volume.** `Structure_GatherWalkCandidates` (`00404ae4`) walks the structure list at `DAT_004a9624` and hands `FUN_00427c68` everything step 1 does not already cover: every static type, plus every animated type that has fallen to a wreck. It skips a structure that is *gone* — destroyed, no hulk, one component. `Structure_WalkCollisionTest` (`00427c68`) then tests the point against each one's `.DGS` height field (see [`hit-detection.md`](hit-detection.md#the-collision-volume--the-dgs-records-height-field)). Step 1 and step 2 are exact complements, so no structure is walked through and none is tested twice.
+3. **Ground too steep**, `|normal.z| < 0x5aa` against normals scaled to the height grid's own one — about 45°. Off the grid counts as steep, which is what keeps a machine inside the zone. For the player only, a *downhill* refusal turns into a slide instead: the slope's X/Y accumulate at Q10 10 per tick, and the landing is [below](#the-landing).
 
 ### The landing
 
-A slide that carried the machine more than `0xfa` (250) world units, measured as
-`Math_FastMagnitude2D` over the two accumulated axes, hurts on arrival:
+A slide that carried the machine more than `0xfa` (250) world units, measured as `Math_FastMagnitude2D` over the two accumulated axes, hurts on arrival:
 
 ```
 base   = Q10Multiply(slideDamageScale[difficulty], distance)     // 0049a058: 400, 800, 1200, 1600
@@ -516,20 +362,8 @@ for component in 7..12:                                          // the six leg 
     vtable+0x74(component, RandomBelow(spread) + base, no attacker)
 ```
 
-Every component is rolled separately over a window three times the base wide, so the six readings
-scatter rather than moving together. The write is the ordinary damage endpoint, so the landing
-cascades, can cripple or immobilise, and is stopped by the invulnerability setting like anything
-else ([`difficulty.md`](difficulty.md#the-two-sibling-cheats)). It carries no attacker, so nothing is
-credited if it kills.
+Every component is rolled separately over a window three times the base wide, so the six readings scatter rather than moving together. The write is the ordinary damage endpoint, so the landing cascades, can cripple or immobilise, and is stopped by the invulnerability setting like anything else ([`difficulty.md`](difficulty.md#the-two-sibling-cheats)). It carries no attacker, so nothing is credited if it kills.
 
-It then calls `Cockpit_StartHitShake` (`00434010`), the same view shake and palette flash a hit on
-the cockpit raises ([`../formats/cockpit-hud.md`](../formats/cockpit-hud.md#the-damage-shake)), and
-`Sound_Play(0x29)`, the collision thump. This is the shake's ungated trigger: the direct-fire one
-tests who is flying and how far gone the cockpit is, and this one fires on any landing that got past
-the distance threshold.
+It then calls `Cockpit_StartHitShake` (`00434010`), the same view shake and palette flash a hit on the cockpit raises ([`../formats/cockpit-hud.md`](../formats/cockpit-hud.md#the-damage-shake)), and `Sound_Play(0x29)`, the collision thump. This is the shake's ungated trigger: the direct-fire one tests who is flying and how far gone the cockpit is, and this one fires on any landing that got past the distance threshold.
 
-A block against another **machine** also hurts both of them, through the explosive-damage slot —
-see [`damage-system.md`](damage-system.md#a-collision--mech_collisiontest-00418f74). It additionally
-latches "something ran into me" on the struck object (vtable `+0x68`, `obj+0xb1`) and, separately
-from the block test, records a nearby structure as a lock-on candidate at `mech+0x2b0`; only the
-behaviour layer reads either.
+A block against another **machine** also hurts both of them, through the explosive-damage slot — see [`damage-system.md`](damage-system.md#a-collision--mech_collisiontest-00418f74). It additionally latches "something ran into me" on the struck object (vtable `+0x68`, `obj+0xb1`) and, separately from the block test, records a nearby structure as a lock-on candidate at `mech+0x2b0`; only the behaviour layer reads either.

@@ -8,25 +8,17 @@ DBSIM's sound is three stacked layers:
 | `SFX` | A general resource/voice manager: named samples, handles, a memory budget, priority eviction |
 | `Sound_*` | The game's own layer: a 57-entry catalog keyed by integer id, 3D placement, and a separate five-slot speech channel |
 
-The first two layers, the effects half of the third and the whole of the computer's message channel —
-text as well as voice — are ported; see [Engine coverage](#engine-coverage). CD music and squad
-speech are not.
+The first two layers, the effects half of the third and the whole of the computer's message channel — text as well as voice — are ported; see [Engine coverage](#engine-coverage). CD music and squad speech are not.
 
 ## Backend
 
 ### HMI SOS
 
-`Sos_BindLibrary` (`004957f1`) picks the DLL by `GetVersion()` — Win32s (high bit set, major <= 3)
-gets `sos32s03.dll`, everything else `sos9503.dll` — then walks a self-describing binding table at
-`004a6ab4`: `0x24`-byte records of `{ void **destination, char name[0x20] }`, terminated by a NULL
-destination. **100 entry points** are bound this way: 44 `sosDIGI*`, 45 `sosMIDI*`, 8 `sosTIMER*`,
-plus `sosGetErrorString`, `sosPrepare32Memory`, `sosUnPrepare32Memory`. It refcounts (`004a6ab0`),
-so repeated calls bind once.
+`Sos_BindLibrary` (`004957f1`) picks the DLL by `GetVersion()` — Win32s (high bit set, major <= 3) gets `sos32s03.dll`, everything else `sos9503.dll` — then walks a self-describing binding table at `004a6ab4`: `0x24`-byte records of `{ void **destination, char name[0x20] }`, terminated by a NULL destination. **100 entry points** are bound this way: 44 `sosDIGI*`, 45 `sosMIDI*`, 8 `sosTIMER*`, plus `sosGetErrorString`, `sosPrepare32Memory`, `sosUnPrepare32Memory`. It refcounts (`004a6ab0`), so repeated calls bind once.
 
 Only `sos9503.dll` ships. `sos32s03.dll` does not.
 
-Digital output covers samples and `.hmp` MIDI songs; the `.hmp` path is present but no `.hmp` file
-ships with DBSIM. VSHELL carries a hardcoded `.\sos\song.hmp`, and no `sos\` directory ships either.
+Digital output covers samples and `.hmp` MIDI songs; the `.hmp` path is present but no `.hmp` file ships with DBSIM. VSHELL carries a hardcoded `.\sos\song.hmp`, and no `sos\` directory ships either.
 
 ### CD audio
 
@@ -39,20 +31,15 @@ Music is Red Book, driven straight through MCI on device `cdaudio` — not throu
 | `Music_GetPosition` (`00473c38`) | `MCI_STATUS` item `MCI_STATUS_POSITION`, `MCI_WAIT` |
 | `Music_ResumeAt` (`00473cc0`) | Same open/set/play, but `MCI_FROM` is a saved TMSF position rather than a track start |
 
-The track loops because `sfxWndProc` re-issues `Music_PlayTrack` on `MM_MCINOTIFY` (`0x3b9`) with
-`MCI_NOTIFY_SUCCESSFUL`. `Sim_InitMissionSession` writes the track number (`0049f914`) and the
-enable byte (`0049f918`).
+The track loops because `sfxWndProc` re-issues `Music_PlayTrack` on `MM_MCINOTIFY` (`0x3b9`) with `MCI_NOTIFY_SUCCESSFUL`. `Sim_InitMissionSession` writes the track number (`0049f914`) and the enable byte (`0049f918`).
 
 ### `sfxWndProc` (`00462294`)
 
-Registered through `WndProcHook_Register` — this is one of the four `MainWndProc` filters mentioned
-in [`cockpit-input.md`](cockpit-input.md). It handles exactly two messages: `WM_TIMER` (`0x113`),
-pumped into the SOS/MME service routine, and the `MM_MCINOTIFY` loop above.
+Registered through `WndProcHook_Register` — this is one of the four `MainWndProc` filters mentioned in [`cockpit-input.md`](cockpit-input.md). It handles exactly two messages: `WM_TIMER` (`0x113`), pumped into the SOS/MME service routine, and the `MM_MCINOTIFY` loop above.
 
 ### `DATA\SOUND.CFG`
 
-Plain INI, read with `GetPrivateProfileString` by `Sfx_ReadConfig` (`00463698`) into the manager's
-config block at `+0x24`:
+Plain INI, read with `GetPrivateProfileString` by `Sfx_ReadConfig` (`00463698`) into the manager's config block at `+0x24`:
 
 | Key | Values | Stored |
 |---|---|---|
@@ -61,15 +48,11 @@ config block at `+0x24`:
 | `Rate` | `11` gives `0x10`, anything else `0x20` | `+0x24` |
 | `Width` | `Mono` gives 4, else 8 | `+0x28` |
 
-`+0x26` is fixed at 1 and `+0x32` at `0x200`. `Buffers` only applies to the MME driver, per the
-file's own comments.
+`+0x26` is fixed at 1 and `+0x32` at `0x200`. `Buffers` only applies to the MME driver, per the file's own comments.
 
 ## The `SFX` manager
 
-One instance, `0x4c` bytes, at `0049f904`. Its method names survive as assertion strings in VSHELL
-(DBSIM's copy is stripped down to `setVolume` and `cache`): `open`, `close`, `cache`, `play`,
-`stop`, `stopAll`, `isDone`, `setVolume`, `setPan`, `setPitch`, `setPriority`, `setLooping`,
-`setCallback`, `getAttributes`, `setAttributes`, `getSampleData`.
+One instance, `0x4c` bytes, at `0049f904`. Its method names survive as assertion strings in VSHELL (DBSIM's copy is stripped down to `setVolume` and `cache`): `open`, `close`, `cache`, `play`, `stop`, `stopAll`, `isDone`, `setVolume`, `setPan`, `setPitch`, `setPriority`, `setLooping`, `setCallback`, `getAttributes`, `setAttributes`, `getSampleData`.
 
 `Sfx_Init` (`00463590`) is called as `(memoryCap, 60, 90)` — **60 resource slots, 90 voice slots**.
 
@@ -84,13 +67,9 @@ One instance, `0x4c` bytes, at `0049f904`. Its method names survive as assertion
 | `+0x38` | voice table, stride `0x28` |
 | `+0x3c` / `+0x40` | count of playing samples / playing songs |
 
-**Handles are `generation << 16 | slotIndex`.** Every accessor re-reads the slot's own copy of the
-handle and rejects a mismatch, which is what the `Sample handle is old and no longer valid`
-assertions report. `0xffffffff` is the null handle.
+**Handles are `generation << 16 | slotIndex`.** Every accessor re-reads the slot's own copy of the handle and rejects a mismatch, which is what the `Sample handle is old and no longer valid` assertions report. `0xffffffff` is the null handle.
 
-A *resource* is one file; a *voice* is one playable instance bound to a resource. Two voices opened
-on the same filename share the resource and bump its refcount, which is how the ten music ids and
-their single file coexist.
+A *resource* is one file; a *voice* is one playable instance bound to a resource. Two voices opened on the same filename share the resource and bump its refcount, which is how the ten music ids and their single file coexist.
 
 ### Resource record (`0x21c`)
 
@@ -151,14 +130,11 @@ Because the settings belong to the record and not to the copy, **placing a new c
 
 Each slot has a one-line thunk in `00495xxx` that does nothing but call through it, so a thunk's meaning is recovered by reading its slot address out of the disassembly and finding that address in the table. The pointers live in BSS and are written only by this loop, which is why nothing in the disassembly appears to assign them.
 
-`Sfx_Open` (`00463910`) chooses the path from its third argument: 0 = `.hmp` song, 1 = sample, 2 =
-the streamed type. The caller decides by searching the filename for `.hmp` / `.wav`.
+`Sfx_Open` (`00463910`) chooses the path from its third argument: 0 = `.hmp` song, 1 = sample, 2 = the streamed type. The caller decides by searching the filename for `.hmp` / `.wav`.
 
 ### Memory budget and eviction
 
-`Sfx_Cache` (`00463c48`) is the load/unload call. Loading first stats the file, and if
-`cached + size > cap` it calls `Sfx_EvictUntilFree` (`0046428c`) before committing. The victim
-picker (`0046417c`) scores every live voice and takes the **lowest**:
+`Sfx_Cache` (`00463c48`) is the load/unload call. Loading first stats the file, and if `cached + size > cap` it calls `Sfx_EvictUntilFree` (`0046428c`) before committing. The victim picker (`0046417c`) scores every live voice and takes the **lowest**:
 
 ```
 score = (resource cached ? 100 : 0)
@@ -169,28 +145,19 @@ score = (resource cached ? 100 : 0)
 
 so an idle, uncached, low-priority voice goes first and a looping playing one goes last.
 
-`Sound_Init` (`0046230c`) sets the cap to **2,000,000 bytes**, or **1,000,000** in the low-memory
-mode (`CockpitArt_LoadOnDemand` — `-l`, or under 12 MB physical).
+`Sound_Init` (`0046230c`) sets the cap to **2,000,000 bytes**, or **1,000,000** in the low-memory mode (`CockpitArt_LoadOnDemand` — `-l`, or under 12 MB physical).
 
 ### Backend volume and panning
 
-`Sos_ApplyVolume` (`004739e0`) converts the voice's 0-100 volume to SOS's range as
-`volume * masterVolume * 0x7fff / 10000`, duplicated into both 16-bit halves for left and right, and
-for a MIDI song as `volume * 0x7f / 100`. `masterVolume` (`004a0e48`) is a constant 100 — its setter
-(`004739a8`) has no callers.
+`Sos_ApplyVolume` (`004739e0`) converts the voice's 0-100 volume to SOS's range as `volume * masterVolume * 0x7fff / 10000`, duplicated into both 16-bit halves for left and right, and for a MIDI song as `volume * 0x7f / 100`. `masterVolume` (`004a0e48`) is a constant 100 — its setter (`004739a8`) has no callers.
 
 ## The sound catalog — `str\SOUNDS.STR`
 
-The game addresses sounds by a small integer, 0-56. The mapping lives in `SOUNDS.STR`, a `.STR`
-string table (layout in [`str-strings.md`](str-strings.md)) whose single group of 57 entries pairs a
-filename with a 7-byte attribute blob.
+The game addresses sounds by a small integer, 0-56. The mapping lives in `SOUNDS.STR`, a `.STR` string table (layout in [`str-strings.md`](str-strings.md)) whose single group of 57 entries pairs a filename with a 7-byte attribute blob.
 
-`SoundCatalog_Load` (`00462448`) walks the group into three parallel arrays — names (`004d2b0c`),
-attribute pointers (`004d2bfc`), voice handles (`004d2cfc`) — and for each entry opens a voice, sets
-priority 5, applies the attributes, then fixes up defaults.
+`SoundCatalog_Load` (`00462448`) walks the group into three parallel arrays — names (`004d2b0c`), attribute pointers (`004d2bfc`), voice handles (`004d2cfc`) — and for each entry opens a voice, sets priority 5, applies the attributes, then fixes up defaults.
 
-The code treats the blob as **ten** bytes. The file supplies seven; the last three are runtime
-scratch that the loader initialises in place.
+The code treats the blob as **ten** bytes. The file supplies seven; the last three are runtime scratch that the loader initialises in place.
 
 | Byte | Meaning |
 |---|---|
@@ -205,33 +172,21 @@ scratch that the loader initialises in place.
 | 8 | *runtime*: category volume percentage, initialised to 100 |
 | 9 | *runtime*: play requests counted |
 
-Because `.STR` attribute blobs point directly into the loaded file buffer, bytes 7-9 of one entry
-overlap the next entry's length field and first name byte. That is inert — every pointer is
-collected before the first write — and the four empty entries the file carries after the last real
-sound give the last one its slack.
+Because `.STR` attribute blobs point directly into the loaded file buffer, bytes 7-9 of one entry overlap the next entry's length field and first name byte. That is inert — every pointer is collected before the first write — and the four empty entries the file carries after the last real sound give the last one its slack.
 
 `0xff` in bytes 4 and 5 means "use the default", not "not positional".
 
 ### Ids 0-9 are music
 
-`Sound_IsCategoryEnabled` (`00462680`) splits the catalog at 10: ids below 10 answer to the music
-enable flag (`0049f90c`), ids 10 and up to the effects flag (`0049f910`). Every mute/unmute pair in
-the module respects the same boundary.
+`Sound_IsCategoryEnabled` (`00462680`) splits the catalog at 10: ids below 10 answer to the music enable flag (`0049f90c`), ids 10 and up to the effects flag (`0049f910`). Every mute/unmute pair in the module respects the same boundary.
 
-All ten music entries name `battle1.wav`, and **no `battle1.wav` ships in any archive**, so the
-digital-music path is dead in retail — music is the CD. `Sound_ShiftMusicSet` (`00462fbc`) offsets
-one character of each of the ten filenames by a delta and re-opens them, which is how a different
-set would have been selected.
+All ten music entries name `battle1.wav`, and **no `battle1.wav` ships in any archive**, so the digital-music path is dead in retail — music is the CD. `Sound_ShiftMusicSet` (`00462fbc`) offsets one character of each of the ten filenames by a delta and re-opens them, which is how a different set would have been selected.
 
 ### Sample banks
 
-`Sound_ResolveSamplePath` (`00462238`) prefixes the catalog's filename with `HMI\` normally and
-`HMX\` in the low-memory mode. `SIMSOUND.VOL` carries both: 43 files under `hmi\` and 42 under
-`hmx\`, each `hmx\` file roughly half the size of its `hmi\` twin — the same content at half the
-sample rate.
+`Sound_ResolveSamplePath` (`00462238`) prefixes the catalog's filename with `HMI\` normally and `HMX\` in the low-memory mode. `SIMSOUND.VOL` carries both: 43 files under `hmi\` and 42 under `hmx\`, each `hmx\` file roughly half the size of its `hmi\` twin — the same content at half the sample rate.
 
-**`EXPLO5.WAV` exists only in `hmi\`.** Catalog id `0x22` names it, so in low-memory mode that one
-sound fails to open.
+**`EXPLO5.WAV` exists only in `hmi\`.** Catalog id `0x22` names it, so in low-memory mode that one sound fails to open.
 
 ### The catalog
 
@@ -286,36 +241,21 @@ sound fails to open.
 | 0x34 | `ricup.wav` | 1 | 40 | 0 | 2 | 0 | 15 | 1 |
 | 0x35-0x38 | *(empty)* | | | | | | | |
 
-`-` is the authored `0xff`, i.e. the 5/100 defaults. The four empty entries have no attribute bytes
-at all and are never opened.
+`-` is the authored `0xff`, i.e. the 5/100 defaults. The four empty entries have no attribute bytes at all and are never opened.
 
-`0x33` is not the flamer: it is the burning-object loop, started by the first live
-[`FireEffect`](../simulation/destruction-effects.md#fire) and stopped by the last, and kept
-positioned on whichever fire is nearest the camera — see
-[`../simulation/destruction-effects.md`](../simulation/destruction-effects.md#where-the-shared-sound-is-heard)
-for how that one is picked.
+`0x33` is not the flamer: it is the burning-object loop, started by the first live [`FireEffect`](../simulation/destruction-effects.md#fire) and stopped by the last, and kept positioned on whichever fire is nearest the camera — see [`../simulation/destruction-effects.md`](../simulation/destruction-effects.md#where-the-shared-sound-is-heard) for how that one is picked.
 
-This resolves the sound ids scattered through the other docs: `0x0b` is `laser1.wav`, the beam muzzle
-sound of [`../simulation/weapon-firing.md`](../simulation/weapon-firing.md); `0x16` the target-lost
-tone of [`../simulation/missile-lock.md`](../simulation/missile-lock.md); `0x21` the torso servo
-loop of [`../simulation/torso-aim.md`](../simulation/torso-aim.md); `0x2f` and `0x30` the drop pod's
-fall and landing in [`../simulation/mission-deployment.md`](../simulation/mission-deployment.md).
-The `+ 10` seen at every data-driven call site — `record.SoundId + 10` in `PROJ.DAT`, `ROCKETS.DAT`,
-`EXPLOS.DAT` — is exactly the music/effects split: those tables index the effects half of the
-catalog from zero.
+This resolves the sound ids scattered through the other docs: `0x0b` is `laser1.wav`, the beam muzzle sound of [`../simulation/weapon-firing.md`](../simulation/weapon-firing.md); `0x16` the target-lost tone of [`../simulation/missile-lock.md`](../simulation/missile-lock.md); `0x21` the torso servo loop of [`../simulation/torso-aim.md`](../simulation/torso-aim.md); `0x2f` and `0x30` the drop pod's fall and landing in [`../simulation/mission-deployment.md`](../simulation/mission-deployment.md). The `+ 10` seen at every data-driven call site — `record.SoundId + 10` in `PROJ.DAT`, `ROCKETS.DAT`, `EXPLOS.DAT` — is exactly the music/effects split: those tables index the effects half of the catalog from zero.
 
 ## Playing a sound
 
 Two entry points, both taking a catalog id.
 
-**`Sound_Play` (`0046272c`)** — non-positional. Applies the variation roll, sets volume to
-`Q16Multiply(vol, 65000) * byte8 / 100` (or 0 if the category is muted), and plays.
+**`Sound_Play` (`0046272c`)** — non-positional. Applies the variation roll, sets volume to `Q16Multiply(vol, 65000) * byte8 / 100` (or 0 if the category is muted), and plays.
 
-**`Sound_PlayAt` (`004627dc`)** — positional, `(id, worldPoint)`. Applies the variation roll, then
-`Sound_Place` (`00462898`) computes volume and pan; it plays only if the result is audible.
+**`Sound_PlayAt` (`004627dc`)** — positional, `(id, worldPoint)`. Applies the variation roll, then `Sound_Place` (`00462898`) computes volume and pan; it plays only if the result is audible.
 
-`Sound_Place` resets the model transform and pushes the world point through the current camera
-transform, so the listener is the camera. Then, with `d = Math_FastMagnitude3D(view)`:
+`Sound_Place` resets the model transform and pushes the world point through the current camera transform, so the listener is the camera. Then, with `d = Math_FastMagnitude3D(view)`:
 
 ```
 minRange = attr[4] * 1024
@@ -327,22 +267,15 @@ else:
 volume = volume * attr[8] / 100
 ```
 
-The rolloff divides by `maxRange`, not by `maxRange - minRange`, so a sound at exactly `minRange` is
-already attenuated rather than at full volume.
+The rolloff divides by `maxRange`, not by `maxRange - minRange`, so a sound at exactly `minRange` is already attenuated rather than at full volume.
 
-Pan comes from the horizontal bearing, `a = Math_Atan2Bam(viewX, viewY)`, as `(-2a) & 0xffff` for
-`a < 0x8000` and `2a & 0xffff` otherwise — a full sweep of the pan range over half a turn, mirrored
-front to back.
+Pan comes from the horizontal bearing, `a = Math_Atan2Bam(viewX, viewY)`, as `(-2a) & 0xffff` for `a < 0x8000` and `2a & 0xffff` otherwise — a full sweep of the pan range over half a turn, mirrored front to back.
 
-At 166.667 world units per metre ([`../engine/planning.md`](../engine/planning.md)), a `max` of 40
-is about 245 m, and the largest — `herceng1`'s 50 — about 307 m.
+At 166.667 world units per metre ([`../engine/planning.md`](../engine/planning.md)), a `max` of 40 is about 245 m, and the largest — `herceng1`'s 50 — about 307 m.
 
 ### The play-request gate
 
-`Sound_ConsumeRequest` (`004626c4`) exists so that a sound fired by many objects at once does not play
-once per object. **Nothing in DBSIM calls it**: there is no `CALL` to it anywhere in the code section,
-and its address is stored nowhere, so it is not reached indirectly either. The authored divisors in
-attribute byte 3 are therefore inert in the shipped game, and every play goes through:
+`Sound_ConsumeRequest` (`004626c4`) exists so that a sound fired by many objects at once does not play once per object. **Nothing in DBSIM calls it**: there is no `CALL` to it anywhere in the code section, and its address is stored nowhere, so it is not reached indirectly either. The authored divisors in attribute byte 3 are therefore inert in the shipped game, and every play goes through:
 
 ```
 interval = (2 - detailSetting) * attr[3]
@@ -350,27 +283,19 @@ if interval == 0:  play
 else:              attr[9]++;  play only when attr[9] % interval == 0
 ```
 
-`attr[9]` wraps at `0x0f`. `detailSetting` (`004d1fc7`) is an options-screen 0-2 value, so the
-highest setting zeroes the interval and lets everything through, while the lowest doubles the
-authored divisor.
+`attr[9]` wraps at `0x0f`. `detailSetting` (`004d1fc7`) is an options-screen 0-2 value, so the highest setting zeroes the interval and lets everything through, while the lowest doubles the authored divisor.
 
 ### Mute, suspend and resume
 
-`Sound_MuteMusic` / `Sound_MuteEffects` (`00462c74` / `00462cd8`) zero the volume of their half of
-the catalog and clear the enable flag; the unmute pair restores each id's own
-`Q16Multiply(vol, 65000) * byte8 / 100`. Music mutes by stopping the CD instead when a track is set.
+`Sound_MuteMusic` / `Sound_MuteEffects` (`00462c74` / `00462cd8`) zero the volume of their half of the catalog and clear the enable flag; the unmute pair restores each id's own `Q16Multiply(vol, 65000) * byte8 / 100`. Music mutes by stopping the CD instead when a track is set.
 
-`Sound_SuspendAll` (`00463078`) records which voices are playing into attribute byte 7, saves the CD
-position, and stops everything. `Sound_ResumeAll` (`00463134`) replays exactly those and resumes the
-CD from the saved TMSF position.
+`Sound_SuspendAll` (`00463078`) records which voices are playing into attribute byte 7, saves the CD position, and stops everything. `Sound_ResumeAll` (`00463134`) replays exactly those and resumes the CD from the saved TMSF position.
 
-`Sound_SetCategoryVolume` (`00462f5c`) writes attribute byte 8, the per-sound category scale every
-volume computation multiplies through.
+`Sound_SetCategoryVolume` (`00462f5c`) writes attribute byte 8, the per-sound category scale every volume computation multiplies through.
 
 ### The cockpit power-up
 
-`Cockpit_PowerUpSound` (`004328cc`) is what the player hears on taking a machine. Two sounds, and the
-second is conditional:
+`Cockpit_PowerUpSound` (`004328cc`) is what the player hears on taking a machine. Two sounds, and the second is conditional:
 
 ```
 if (cockpit+0x245 == 0):                 -- once per session
@@ -381,14 +306,9 @@ if (mech+0x1f2 -> +0x50 != 0):
     Sound_SetPitch(0x2d, 42000)          -- 42000/65536, about 0.64
 ```
 
-The engine hum is not started at its recorded rate: it is dropped to roughly two thirds of it
-immediately, which is what turns the sample into a hum rather than a whine. It loops for the rest of
-the mission — attribute byte 0 is 0 — and follows its machine through `Sound_UpdatePosition`.
+The engine hum is not started at its recorded rate: it is dropped to roughly two thirds of it immediately, which is what turns the sample into a hum rather than a whine. It loops for the rest of the mission — attribute byte 0 is 0 — and follows its machine through `Sound_UpdatePosition`.
 
-**The hum belongs to the flyer, not to a HERC.** The gate is type record `+0x50`, which is file
-offset 78, `InputFlagFlyer`, set on the RAZOR alone (see
-[`../simulation/mech-locomotion.md`](../simulation/mech-locomotion.md)'s type-record table). A
-walking HERC powers up with `start3` and nothing else; its running noise is its footsteps.
+**The hum belongs to the flyer, not to a HERC.** The gate is type record `+0x50`, which is file offset 78, `InputFlagFlyer`, set on the RAZOR alone (see [`../simulation/mech-locomotion.md`](../simulation/mech-locomotion.md)'s type-record table). A walking HERC powers up with `start3` and nothing else; its running noise is its footsteps.
 
 ### Sounds a cockpit control makes
 
@@ -400,19 +320,13 @@ Two toggles play a confirmation directly rather than through any data table:
 | Heads-down display transmit (`0044cc40`) | The same pair, reused as its accepted/rejected blip. |
 | `Widget_ClickSound` (`00438e2c`) | `0x11` `gm_69`, the console click. |
 
-The mode-change tone is the [R] path only. The scanner screen's PASS/ACTIVE buttons write
-`mech+0x96` directly and play nothing. The radar toggle also announces the new mode in the
-computer's voice — see [The computer's messages](#the-computers-messages).
+The mode-change tone is the [R] path only. The scanner screen's PASS/ACTIVE buttons write `mech+0x96` directly and play nothing. The radar toggle also announces the new mode in the computer's voice — see [The computer's messages](#the-computers-messages).
 
-`Widget_ClickSound` is the whole of the click: `push 0x11; call Sound_Play; ret`, and it is the
-image's only reference to that id. Nothing calls it directly — it sits in **fifteen widget
-vtables**, so a widget clicks because of what kind of widget it is and not because its handler did
-anything. That is why a button wired to nothing still clicks.
+`Widget_ClickSound` is the whole of the click: `push 0x11; call Sound_Play; ret`, and it is the image's only reference to that id. Nothing calls it directly — it sits in **fifteen widget vtables**, so a widget clicks because of what kind of widget it is and not because its handler did anything. That is why a button wired to nothing still clicks.
 
 ## Speech and the comm portraits
 
-Squadmate and commander speech does not go through the catalog. It has its own five-slot channel pool
-allocated by `Sound_Init`: five records of `0x42` bytes plus a 5 x 100-byte script buffer.
+Squadmate and commander speech does not go through the catalog. It has its own five-slot channel pool allocated by `Sound_Init`: five records of `0x42` bytes plus a 5 x 100-byte script buffer.
 
 ```
 +0x00  int32   SFX voice handle (-1 = free)
@@ -428,15 +342,11 @@ allocated by `Sound_Init`: five records of `0x42` bytes plus a 5 x 100-byte scri
 +0x3e  uint32  SFX voice handle
 ```
 
-`Voice_Acquire` (`00462a98`) looks the requested `.wav` name up across the five slots; a miss evicts
-the least recently used one (`00462a2c`), copies the name in, opens an `SFX` voice at **priority
-`0xff`** so the catalog's priority-5 voices can never evict it, caches it, and loads the matching
-`.SNC` script. Speech is gated on its own enable flag (`0049f97e`).
+`Voice_Acquire` (`00462a98`) looks the requested `.wav` name up across the five slots; a miss evicts the least recently used one (`00462a2c`), copies the name in, opens an `SFX` voice at **priority `0xff`** so the catalog's priority-5 voices can never evict it, caches it, and loads the matching `.SNC` script. Speech is gated on its own enable flag (`0049f97e`).
 
 ### File naming
 
-`CommBox_BeginMessage` (`0044afc8`) builds two names from the speaker's squad slot and the message
-id:
+`CommBox_BeginMessage` (`0044afc8`) builds two names from the speaker's squad slot and the message id:
 
 ```
 suffix = "_" + 2-digit message id + 3-digit variant     e.g. "_01000"
@@ -444,24 +354,15 @@ wav    = "P" + voiceBank + suffix        in simvoice/simvoicf/simvoicg
 snc    = "P" + ('A' + slot) + suffix     in snc/
 ```
 
-`voiceBank` is `(slot >> 2) + 1`, with 3 remapped to 4 — so twelve squad slots share three recorded
-voices, `P1_`, `P2_`, `P4_`. That is the same 1/2/4 grouping as the channel's own message sets
-([below](#its-message-sets)). `SIMVOICE.VOL` holds 147 `P*_*.WAV` and 66 `CVM_*.WAV`, the cockpit
-computer's own lines.
+`voiceBank` is `(slot >> 2) + 1`, with 3 remapped to 4 — so twelve squad slots share three recorded voices, `P1_`, `P2_`, `P4_`. That is the same 1/2/4 grouping as the channel's own message sets ([below](#its-message-sets)). `SIMVOICE.VOL` holds 147 `P*_*.WAV` and 66 `CVM_*.WAV`, the cockpit computer's own lines.
 
-The three name templates live together in DATA as literals the loader patches digits into:
-`BC_00000`, `TMx_0000`, `CVM_0000`.
+The three name templates live together in DATA as literals the loader patches digits into: `BC_00000`, `TMx_0000`, `CVM_0000`.
 
-The archive is chosen by `Voice_ArchiveName` (`0045ef68`), which patches the last character of the
-literal `simvoice` with the language byte — `SIMVOICE` / `SIMVOICF` / `SIMVOICG`. All three are the
-same size, carry the same `SIMVOICE` folder label inside, and differ only in their recordings.
+The archive is chosen by `Voice_ArchiveName` (`0045ef68`), which patches the last character of the literal `simvoice` with the language byte — `SIMVOICE` / `SIMVOICF` / `SIMVOICG`. All three are the same size, carry the same `SIMVOICE` folder label inside, and differ only in their recordings.
 
 ## The computer's messages
 
-`str\SYSTEM.STR` is what the cockpit computer can say: 63 lines, and for each the recording that
-reads it. Two `.STR` groups of 40 and 23 — but **the grouping means nothing**. Every call site
-passes one number, counted straight through both groups, and that same number is in each entry's own
-attribute byte 0.
+`str\SYSTEM.STR` is what the cockpit computer can say: 63 lines, and for each the recording that reads it. Two `.STR` groups of 40 and 23 — but **the grouping means nothing**. Every call site passes one number, counted straight through both groups, and that same number is in each entry's own attribute byte 0.
 
 Eight attribute bytes, all read by `MessagePort_Enqueue` (`00434e8c`) into the queued record:
 
@@ -476,55 +377,23 @@ Eight attribute bytes, all read by `MessagePort_Enqueue` (`00434e8c`) into the q
 | 6 | `+0x28` | `maxWait` — after this it is dropped unshown |
 | 7 | `+0x2c` | Which `CVM_nnnn.WAV` reads the line, one-based |
 
-The four timings are stored as `byte * 0x3c` coarse ticks, so at 16 ms a tick their units read as
-seconds. Every line carries `3, 6, 0, 0x14` — up for 3 to 6 seconds, no delay, gone in 20 if it
-never got its turn — except `TRANSFERRING DATA`, which carries `0x0a, 0x14, 0, 0x14`. The names come
-from the port's own trace string, and the enqueue settles the order: bytes 3 and 4 stay durations
-until the message is shown and have the show tick added in then, while 5 and 6 have the post tick
-added immediately.
+The four timings are stored as `byte * 0x3c` coarse ticks, so at 16 ms a tick their units read as seconds. Every line carries `3, 6, 0, 0x14` — up for 3 to 6 seconds, no delay, gone in 20 if it never got its turn — except `TRANSFERRING DATA`, which carries `0x0a, 0x14, 0, 0x14`. The names come from the port's own trace string, and the enqueue settles the order: bytes 3 and 4 stay durations until the message is shown and have the show tick added in then, while 5 and 6 have the post tick added immediately.
 
-The record reads four bytes past the eight the file supplies. As with `SOUNDS.STR`, attribute blobs
-point into the loaded file buffer, so those four overlap the next entry — and nothing reads them
-back.
+The record reads four bytes past the eight the file supplies. As with `SOUNDS.STR`, attribute blobs point into the loaded file buffer, so those four overlap the next entry — and nothing reads them back.
 
-Byte 7 is a field and not an offset from the id: the numbering runs 1 to 66 across the 63 messages,
-skipping 0x1c, 0x2d and 0x2f, and the archive holds exactly 66 clips — so three are recorded lines
-no message claims.
+Byte 7 is a field and not an offset from the id: the numbering runs 1 to 66 across the 63 messages, skipping 0x1c, 0x2d and 0x2f, and the archive holds exactly 66 clips — so three are recorded lines no message claims.
 
-`SystemMessages_Index` (`00435970`) is what keys the set. It scatters each string into a table at
-`base + attr[0] * 9` — a `{ char *text; byte count; byte *attributes }` triple — and counts how many
-landed in each slot, so **two entries sharing an id would become variants of one message** and the
-post would roll between them (`MessagePort_PickVariant` (`00436a3c`), the same roll `SOUNDS.STR`
-byte 6 drives). All 63 retail ids are distinct, so every count is one and no variant exists.
+`SystemMessages_Index` (`00435970`) is what keys the set. It scatters each string into a table at `base + attr[0] * 9` — a `{ char *text; byte count; byte *attributes }` triple — and counts how many landed in each slot, so **two entries sharing an id would become variants of one message** and the post would roll between them (`MessagePort_PickVariant` (`00436a3c`), the same roll `SOUNDS.STR` byte 6 drives). All 63 retail ids are distinct, so every count is one and no variant exists.
 
 ### The port
 
-Messages reach the **cockpit's message port** (`PMSGPORT.BND`) through a vtable call. The cockpit
-view holds two instances of the same class: the computer's ticker at `view+0x20b` and the pilot and
-squad channel at `view+0x207`. Each is a queue of ten records plus one lifecycle, and the
-preferences screen's COMPUTER MESSAGE and PILOT MESSAGE settings are their two enable bytes —
-options 3 and 2 of the simulator's option array
-([`../simulation/preferences.md`](../simulation/preferences.md#dataprefscfg--the-option-array)),
-offered as TEXT ONLY / VOICE ONLY / TEXT / VOICE.
+Messages reach the **cockpit's message port** (`PMSGPORT.BND`) through a vtable call. The cockpit view holds two instances of the same class: the computer's ticker at `view+0x20b` and the pilot and squad channel at `view+0x207`. Each is a queue of ten records plus one lifecycle, and the preferences screen's COMPUTER MESSAGE and PILOT MESSAGE settings are their two enable bytes — options 3 and 2 of the simulator's option array ([`../simulation/preferences.md`](../simulation/preferences.md#dataprefscfg--the-option-array)), offered as TEXT ONLY / VOICE ONLY / TEXT / VOICE.
 
-The byte gates the two halves separately: the display runs when it is not 1 and the voice when it is
-not 0 — three behaviours for three settings, which is why that row offers no OFF. With the display off the port still runs the whole lifecycle and only skips the drawing —
-`port+0x4d2`, the suppression flag every paint entry point tests alongside `port+0x49e`, "a line is
-up".
+The byte gates the two halves separately: the display runs when it is not 1 and the voice when it is not 0 — three behaviours for three settings, which is why that row offers no OFF. With the display off the port still runs the whole lifecycle and only skips the drawing — `port+0x4d2`, the suppression flag every paint entry point tests alongside `port+0x49e`, "a line is up".
 
-Two further gates sit on the display half, both fields of the cockpit view manager, which
-`CockpitViewManager_Published` (`00429820`) hands back
-([`cockpit-hud.md`](cockpit-hud.md#object-model)). Its `+0x14` is the **current view index**: the
-show refuses to display while it reads 4 — the value outside the four canopy views — and suppresses
-the line exactly as TEXT OFF does, lifecycle and all. Its `+0x1c` is a byte the paint tests first and
-returns on, and that one is not decoded.
+Two further gates sit on the display half, both fields of the cockpit view manager, which `CockpitViewManager_Published` (`00429820`) hands back ([`cockpit-hud.md`](cockpit-hud.md#object-model)). Its `+0x14` is the **current view index**: the show refuses to display while it reads 4 — the value outside the four canopy views — and suppresses the line exactly as TEXT OFF does, lifecycle and all. Its `+0x1c` is a byte the paint tests first and returns on, and that one is not decoded.
 
-Both boxes are the herc's own, the last two fields of its `.GAU`: the pilot channel's at content
-offset 1668, `0,y - 320,y+10`, of which only the height is ever drawn ([below](#its-box)), and the
-ticker's at 1684, `100,y - 220,y+9` — a 120x9 box centred horizontally, at `y = 34` in seven
-cockpits, 43 in APOCA's and 100 in RAZOR's.
-Both are coordinate-shifted into device pixels by the `.GAU` loader's caller
-(`Gau_BuildCockpitWidgets`, `00431bf8`) before the constructor sees them.
+Both boxes are the herc's own, the last two fields of its `.GAU`: the pilot channel's at content offset 1668, `0,y - 320,y+10`, of which only the height is ever drawn ([below](#its-box)), and the ticker's at 1684, `100,y - 220,y+9` — a 120x9 box centred horizontally, at `y = 34` in seven cockpits, 43 in APOCA's and 100 in RAZOR's. Both are coordinate-shifted into device pixels by the `.GAU` loader's caller (`Gau_BuildCockpitWidgets`, `00431bf8`) before the constructor sees them.
 
 `MessagePort_Tick` (`00435610`) is the whole lifecycle, and it runs on four latches:
 
@@ -535,28 +404,13 @@ Both are coordinate-shifted into device pixels by the `.GAU` loader's caller
 | `+0x4cb` | Cancelled |
 | `+0x49e` | A line is up |
 
-Each tick first drops every *queued* message past index 0 whose `maxWait` has passed, then takes the
-front of the queue as current if there is nothing current, then:
+Each tick first drops every *queued* message past index 0 whose `maxWait` has passed, then takes the front of the queue as current if there is nothing current, then:
 
-- **not ready and not cancelled** — if `maxWait` has passed, drop it unshown; otherwise once
-  `minWait` has, mark it due and run the port's begin callbacks (`+0x4b9`, up to two, registered
-  through `MessagePort_AddBeginCallback`, `004355a8`). Only the pilot channel registers any: the
-  comm box installs `CommBox_OnMessageBegin` (`0044b4ec`), which is what starts that speaker's
-  `.wav` and `.SNC` portrait and plays the `whitenz` static under it, and `CommBox_OnMessageEnd`
-  (`0044b5c0`) on the matching end hook. The computer's port has none.
-- **not due, or cancelled** — take the line down when it is cancelled, when `maxTime` has passed,
-  when `minTime` has passed *and the queue holds more than one message*, or when the player's
-  machine is dead (`LocalPlayerMech + 0x99`). That middle clause is the whole of the port's
-  preemption: a message with the screen to itself keeps it for its maximum and gives it up at its
-  minimum only when there is a successor.
-- **due and ready** — show it, and on success add the current tick into `minTime` and `maxTime`,
-  turning both from durations into deadlines.
+- **not ready and not cancelled** — if `maxWait` has passed, drop it unshown; otherwise once `minWait` has, mark it due and run the port's begin callbacks (`+0x4b9`, up to two, registered through `MessagePort_AddBeginCallback`, `004355a8`). Only the pilot channel registers any: the comm box installs `CommBox_OnMessageBegin` (`0044b4ec`), which is what starts that speaker's `.wav` and `.SNC` portrait and plays the `whitenz` static under it, and `CommBox_OnMessageEnd` (`0044b5c0`) on the matching end hook. The computer's port has none.
+- **not due, or cancelled** — take the line down when it is cancelled, when `maxTime` has passed, when `minTime` has passed *and the queue holds more than one message*, or when the player's machine is dead (`LocalPlayerMech + 0x99`). That middle clause is the whole of the port's preemption: a message with the screen to itself keeps it for its maximum and gives it up at its minimum only when there is a successor.
+- **due and ready** — show it, and on success add the current tick into `minTime` and `maxTime`, turning both from durations into deadlines.
 
-`MessagePort_Show` (`00436abc`) is the show. It swallows a repeat of the same id inside 300 coarse
-ticks (about 4.8 s), and a swallowed repeat *refreshes* that window rather than leaving it, so a
-stream of them stays silent for as long as it keeps coming. Otherwise it latches the line
-(`strncpy`, 0x50 characters), restores the box to its authored rect, publishes the scroll origin,
-repaints, and plays an alert tone picked by a switch on the id:
+`MessagePort_Show` (`00436abc`) is the show. It swallows a repeat of the same id inside 300 coarse ticks (about 4.8 s), and a swallowed repeat *refreshes* that window rather than leaving it, so a stream of them stays silent for as long as it keeps coming. Otherwise it latches the line (`strncpy`, 0x50 characters), restores the box to its authored rect, publishes the scroll origin, repaints, and plays an alert tone picked by a switch on the id:
 
 | Ids | Tone |
 |---|---|
@@ -564,50 +418,25 @@ repaints, and plays an alert tone picked by a switch on the id:
 | `0x0c`, `0x0f`, `0x10` (shield generator / powerplant / weapon destroyed), `0x14` `SHIELDS LOW`, `0x15` `SHIELDS CRITICAL` | `0x18` `wrnwoop2` |
 | everything else | `0x1a` `gnract` |
 
-The switch names twelve further ids explicitly — `0x17`, `0x19`, `0x1d`-`0x1f`, `0x2a`-`0x2f` and
-`0x34` — and gives every one of them the same `gnract` its default arm gives, so it is wider than its
-behaviour. Speech goes last, and only then: the voice is
-a consequence of the line going up, not a separate event.
+The switch names twelve further ids explicitly — `0x17`, `0x19`, `0x1d`-`0x1f`, `0x2a`-`0x2f` and `0x34` — and gives every one of them the same `gnract` its default arm gives, so it is wider than its behaviour. Speech goes last, and only then: the voice is a consequence of the line going up, not a separate event.
 
-`MessagePort_Withdraw` (`00435ac8`) is the withdraw. It sets the cancel latch on the current message
-only if that message is not yet due — a line already on screen is left to run out its display time —
-and otherwise removes a match from the queue. It matches on the id **and** the record's `+0x02`
-subject pointer, so the same message about two machines is two entries.
+`MessagePort_Withdraw` (`00435ac8`) is the withdraw. It sets the cancel latch on the current message only if that message is not yet due — a line already on screen is left to run out its display time — and otherwise removes a match from the queue. It matches on the id **and** the record's `+0x02` subject pointer, so the same message about two machines is two entries.
 
-`MessagePort_Pause` (`00435b58`) / `MessagePort_Resume` (`00435b80`) are the pause pair: the second
-shifts every deadline in the queue, the current message's two display deadlines and the scroll's
-publish time forward by however long the pause lasted.
+`MessagePort_Pause` (`00435b58`) / `MessagePort_Resume` (`00435b80`) are the pause pair: the second shifts every deadline in the queue, the current message's two display deadlines and the scroll's publish time forward by however long the pause lasted.
 
 ### The ticker
 
-`MessageTicker_Paint` (`00436cec`) paints it: the box flooded with `COLORS.DAT` id 19 (black), a
-one-pixel frame in id 9 (red) — the fill brush's style 4, which `Raster_FillRect` (`004865f8`)
-implements as four line draws round the rect — and the line in `ColorSchemePanels[2]`, `CPRED`. The
-clip rect is then narrowed by `3 << VideoMode_XCoordShift` on each side before the glyphs go down,
-which is what makes the text slide under the frame rather than past it.
+`MessageTicker_Paint` (`00436cec`) paints it: the box flooded with `COLORS.DAT` id 19 (black), a one-pixel frame in id 9 (red) — the fill brush's style 4, which `Raster_FillRect` (`004865f8`) implements as four line draws round the rect — and the line in `ColorSchemePanels[2]`, `CPRED`. The clip rect is then narrowed by `3 << VideoMode_XCoordShift` on each side before the glyphs go down, which is what makes the text slide under the frame rather than past it.
 
-The text **scrolls**. `MessageTicker_ScrollText` (`00436f70`) recomputes its x every frame as
-`port+0x4af - (0x23 << VideoMode_XCoordShift) * elapsed / 0x3c` — starting at the box's right edge
-and travelling left at `0x23` authored units every `0x3c` ticks — about 36 units, 73 device pixels,
-a second in the 640-wide mode. There is no wrap: a line that outlives its own width simply leaves,
-and against a 120-unit box the 3-to-6-second display time is matched so a long line crosses about
-once.
+The text **scrolls**. `MessageTicker_ScrollText` (`00436f70`) recomputes its x every frame as `port+0x4af - (0x23 << VideoMode_XCoordShift) * elapsed / 0x3c` — starting at the box's right edge and travelling left at `0x23` authored units every `0x3c` ticks — about 36 units, 73 device pixels, a second in the 640-wide mode. There is no wrap: a line that outlives its own width simply leaves, and against a 120-unit box the 3-to-6-second display time is matched so a long line crosses about once.
 
-`TRANSFERRING DATA` (`0x36`) is the one exception, and the only reason the port tests a message id
-outside the tone switch: it is centred in the box instead of scrolling, and it blinks on
-`Time_GetCoarseTicks() & 0x20`. Its 10-and-20-second timings are what make that readable.
+`TRANSFERRING DATA` (`0x36`) is the one exception, and the only reason the port tests a message id outside the tone switch: it is centred in the box instead of scrolling, and it blinks on `Time_GetCoarseTicks() & 0x20`. Its 10-and-20-second timings are what make that readable.
 
-Vertically the line is centred by cell rather than by ink: the paint anchors at `((height -
-cellHeight) >> 1) + inkHeight + 1` and the glyph blitter (`HudFont_DrawGlyph`, `00482428`) subtracts
-`inkHeight` straight back off. That is **not** `Label_SetRect`'s rule (see
-[`mfd.md`](mfd.md#label-placement)), which centres `inkHeight`; the ticker is not a label.
+Vertically the line is centred by cell rather than by ink: the paint anchors at `((height - cellHeight) >> 1) + inkHeight + 1` and the glyph blitter (`HudFont_DrawGlyph`, `00482428`) subtracts `inkHeight` straight back off. That is **not** `Label_SetRect`'s rule (see [`mfd.md`](mfd.md#label-placement)), which centres `inkHeight`; the ticker is not a label.
 
 ### Posters
 
-**This is every poster.** The port is constructed once, in `Gau_BuildCockpitWidgets`, and stored at
-`view+0x20b`, so anything that posts has to load that displacement; there are eighteen such loads in
-the image and five of the functions holding them post. `Computer_PostMessage` (`00420a68`) is the
-shared helper the first row stands for.
+**This is every poster.** The port is constructed once, in `Gau_BuildCockpitWidgets`, and stored at `view+0x20b`, so anything that posts has to load that displacement; there are eighteen such loads in the image and five of the functions holding them post. `Computer_PostMessage` (`00420a68`) is the shared helper the first row stands for.
 
 | Poster | Messages |
 |---|---|
@@ -618,58 +447,31 @@ shared helper the first row stands for.
 | `Mech_ToggleRadarMode` (`0041b468`) | Withdraws **both** `0x2c` `ACTIVE RADAR MODE` and `0x2d` `PASSIVE RADAR MODE`, then posts the one the mode just became — so flipping twice quickly announces where it ended up rather than reading out the sequence |
 | `ConsoleButtons_ToggleAutoTrack` (`00441f7c`) | The same shape with `0x26` `AUTO TRACKING ENGAGED` and `0x27` `AUTO TRACKING DISABLED` |
 
-**`0x12` `DAMAGE LEVEL CRITICAL` has a call site it cannot reach.** In
-`Mech_ApplyDirectFireDamage` (`004188c8`) the struck component's damage percent is read before the
-write and again after, and the post needs the **later** read under 100 and the earlier one over it —
-the reading would have to have fallen. It only falls if the write is negative, which needs the shot's
-diverted splash share to exceed its own armour damage; the largest `SplashFactor` in retail
-`PROJ.DAT` is 1000 against the Q10 unit of 1024, so it never is. The cockpit jolt (`Cockpit_StartHitShake`, `00434010`)
-shares the gate, sits above the test and does fire. A hand-edited `PROJ.DAT` would reach the line.
+**`0x12` `DAMAGE LEVEL CRITICAL` has a call site it cannot reach.** In `Mech_ApplyDirectFireDamage` (`004188c8`) the struck component's damage percent is read before the write and again after, and the post needs the **later** read under 100 and the earlier one over it — the reading would have to have fallen. It only falls if the write is negative, which needs the shot's diverted splash share to exceed its own armour damage; the largest `SplashFactor` in retail `PROJ.DAT` is 1000 against the Q10 unit of 1024, so it never is. The cockpit jolt (`Cockpit_StartHitShake`, `00434010`) shares the gate, sits above the test and does fire. A hand-edited `PROJ.DAT` would reach the line.
 
-Those ids are the whole set, so **over half the file's sixty-three lines are posted by
-nothing** — among them `MISSION OBJECTIVES COMPLETE` (`0x1a`), `PRIMARY OBJECTIVE COMPLETE` (`0x1b`),
-`SECONDARY OBJECTIVE COMPLETE` (`0x1c`), `MISSION ABORTED` (`0x18`), `FRIENDLY TARGET DESTROYED`
-(`0x30`), `AUTO PILOT ENGAGED`/`DISABLED`, `FOLLOW MODE ENGAGED`/`DISABLED` and the `10...9...8...`
-countdown. Every one has a recorded `CVM` clip, and `MessagePort_Show`'s tone switch names several of
-them — the switch is written wider than the game reaches.
+Those ids are the whole set, so **over half the file's sixty-three lines are posted by nothing** — among them `MISSION OBJECTIVES COMPLETE` (`0x1a`), `PRIMARY OBJECTIVE COMPLETE` (`0x1b`), `SECONDARY OBJECTIVE COMPLETE` (`0x1c`), `MISSION ABORTED` (`0x18`), `FRIENDLY TARGET DESTROYED` (`0x30`), `AUTO PILOT ENGAGED`/`DISABLED`, `FOLLOW MODE ENGAGED`/`DISABLED` and the `10...9...8...` countdown. Every one has a recorded `CVM` clip, and `MessagePort_Show`'s tone switch names several of them — the switch is written wider than the game reaches.
 
-**`0x2e` and `0x2f` do not test sides.** Their guard is only that the player fired the killing shot
-and that the victim is the player's own selected target (`mech+0x1a4`), so destroying a friendly you
-had boxed announces `ENEMY TARGET DESTROYED` and the two `FRIENDLY` lines are unreachable.
+**`0x2e` and `0x2f` do not test sides.** Their guard is only that the player fired the killing shot and that the victim is the player's own selected target (`mech+0x1a4`), so destroying a friendly you had boxed announces `ENEMY TARGET DESTROYED` and the two `FRIENDLY` lines are unreachable.
 
-The damage set's own guards — which reading of what, and which latch byte stops each line repeating
-— are [`../simulation/damage-system.md`](../simulation/damage-system.md#what-the-endpoint-announces)'s.
+The damage set's own guards — which reading of what, and which latch byte stops each line repeating — are [`../simulation/damage-system.md`](../simulation/damage-system.md#what-the-endpoint-announces)'s.
 
-At 16 ms a coarse tick the power-up announcement lands 3.2 s in, inside `start3`'s five seconds
-rather than after them.
+At 16 ms a coarse tick the power-up announcement lands 3.2 s in, inside `start3`'s five seconds rather than after them.
 
 ## The pilot and squad channel
 
-The port's second instance, at `view+0x207`. Same queue, same lifecycle, same four timings; a
-different catalog, a different box, and a squadmate's face on the comm portrait beside it.
+The port's second instance, at `view+0x207`. Same queue, same lifecycle, same four timings; a different catalog, a different box, and a squadmate's face on the comm portrait beside it.
 
 ### Its message sets
 
-`str\PILOT0.STR`, `PILOT1.STR`, `PILOT2.STR` and `PILOT4.STR`, one per voice bank, keyed the same way
-`SYSTEM.STR` is but with **seven** attribute bytes read rather than eight: the clip number is absent because the filename is built from the id and the variant instead
-(see [File naming](#file-naming)). `SystemMessages_Index(port, 2, slot, bank)` scatters a bank into a
-per-slot table at `DAT_004d04e8 + slot * 0x183`, 43 ids of 9 bytes each, so each comm box carries its
-own speaker's set.
+`str\PILOT0.STR`, `PILOT1.STR`, `PILOT2.STR` and `PILOT4.STR`, one per voice bank, keyed the same way `SYSTEM.STR` is but with **seven** attribute bytes read rather than eight: the clip number is absent because the filename is built from the id and the variant instead (see [File naming](#file-naming)). `SystemMessages_Index(port, 2, slot, bank)` scatters a bank into a per-slot table at `DAT_004d04e8 + slot * 0x183`, 43 ids of 9 bytes each, so each comm box carries its own speaker's set.
 
-Unlike the computer's, **the variant roll is live here**: ids `0x02`, `0x1e` and `0x1f` carry two or
-three recordings apiece, and `MessagePort_PickVariant` chooses between them.
+Unlike the computer's, **the variant roll is live here**: ids `0x02`, `0x1e` and `0x1f` carry two or three recordings apiece, and `MessagePort_PickVariant` chooses between them.
 
-**Only banks 1, 2 and 4 are ever loaded.** The bank a slot takes is `(slot >> 2) + 1` with 3 remapped
-to 4, which never yields 0, so `PILOT0.STR` ships and is never read — and it is the only one of the
-four that differs in shape rather than in wording: it stores seven attribute bytes per entry where the
-other three store an eighth that is zero throughout, it carries id `0x24` which no other bank has and
-lacks `0x2a` which every other bank has, and its two-recording ids are `0x05` and `0x06` rather than
-`0x02`. Read it as the early draft it is, not as a fourth voice.
+**Only banks 1, 2 and 4 are ever loaded.** The bank a slot takes is `(slot >> 2) + 1` with 3 remapped to 4, which never yields 0, so `PILOT0.STR` ships and is never read — and it is the only one of the four that differs in shape rather than in wording: it stores seven attribute bytes per entry where the other three store an eighth that is zero throughout, it carries id `0x24` which no other bank has and lacks `0x2a` which every other bank has, and its two-recording ids are `0x05` and `0x06` rather than `0x02`. Read it as the early draft it is, not as a fourth voice.
 
 ### What each id says
 
-`PILOT1` as the reference bank; the other two live banks reword every line and
-change none of the meanings. `/` separates the variants of one id.
+`PILOT1` as the reference bank; the other two live banks reword every line and change none of the meanings. `/` separates the variants of one id.
 
 | id | line | raised by |
 |---|---|---|
@@ -714,27 +516,15 @@ change none of the meanings. `/` separates the variants of one id.
 | `0x29` | `NEGATIVE. IT'S TRASHED.` | — |
 | `0x2a` | `ON MY WAY.` | `PATROL GRIDPOINT` / `GOTO GRIDPOINT` taken |
 
-`0x15` is in no bank at all. The em-dashed ids are recorded and posted by nothing traced; which
-situation raises each of the rest is [`../simulation/ai-squadmates.md`](../simulation/ai-squadmates.md)'s
-case table.
+`0x15` is in no bank at all. The em-dashed ids are recorded and posted by nothing traced; which situation raises each of the rest is [`../simulation/ai-squadmates.md`](../simulation/ai-squadmates.md)'s case table.
 
-**`0x1e` is the yes and `0x1f` the no.** Mistaking them is easy because the refusal arms of
-`Mech_ReceiveSquadOrder` post `0x1e`: a squadmate that will not take an order because it is already
-carrying it answers affirmatively, which is correct and reads as a bug in a table of refusals.
+**`0x1e` is the yes and `0x1f` the no.** Mistaking them is easy because the refusal arms of `Mech_ReceiveSquadOrder` post `0x1e`: a squadmate that will not take an order because it is already carrying it answers affirmatively, which is correct and reads as a bug in a table of refusals.
 
 ### Its box
 
-`PilotMessagePort_Speak` (`00435d9c`) paints it, and it looks nothing like the ticker. The box is
-**sized to its line and centred on the screen**: the paint measures the composed text, sets
-`x0 = (screen / 2) - (width / 2) - (10 << XCoordShift)` and `x1 = x0 + width + (0x14 << XCoordShift)`,
-and takes y from the `.GAU` rect unchanged. Every retail file authors that rect as
-`0,y - 320,y+10`, so the authored width is discarded and only the height reaches the screen. The line
-sits at `(screen / 2) - (width / 2)`, vertically at `bottom - ((height - inkHeight) >> 1)` — the
-**ink** centred in the box, where the ticker centres the cell.
+`PilotMessagePort_Speak` (`00435d9c`) paints it, and it looks nothing like the ticker. The box is **sized to its line and centred on the screen**: the paint measures the composed text, sets `x0 = (screen / 2) - (width / 2) - (10 << XCoordShift)` and `x1 = x0 + width + (0x14 << XCoordShift)`, and takes y from the `.GAU` rect unchanged. Every retail file authors that rect as `0,y - 320,y+10`, so the authored width is discarded and only the height reaches the screen. The line sits at `(screen / 2) - (width / 2)`, vertically at `bottom - ((height - inkHeight) >> 1)` — the **ink** centred in the box, where the ticker centres the cell.
 
-**The colours are the speaker's.** The paint resolves the message record's `+0x02` through
-`Squad_IndexOf` and, for a squadmate, fills with that slot's own `COLORS.DAT` colour and frames it in
-the palette entry **one below** the fill:
+**The colours are the speaker's.** The paint resolves the message record's `+0x02` through `Squad_IndexOf` and, for a squadmate, fills with that slot's own `COLORS.DAT` colour and frames it in the palette entry **one below** the fill:
 
 ```
 slot   = record->speaker ? Squad_IndexOf(record->speaker) : -1
@@ -742,31 +532,17 @@ fill   = slot < 0 ? COLORS.DAT[19] : HudColorTable_Get(slot)
 border = slot < 0 ? COLORS.DAT[9]  : fill - 1
 ```
 
-That subtraction is arithmetic on the already-resolved palette index, not a second logical id — slot
-0's id 0 lands on palette 14, green, and its frame on palette 13, yellow. Only a message with no
-squadmate behind it falls back to the computer's black and red. The text is `ColorSchemePanels[2]`
-`CPRED` either way, so red on green is what a squadmate's reply looks like.
+That subtraction is arithmetic on the already-resolved palette index, not a second logical id — slot 0's id 0 lands on palette 14, green, and its frame on palette 13, yellow. Only a message with no squadmate behind it falls back to the computer's black and red. The text is `ColorSchemePanels[2]` `CPRED` either way, so red on green is what a squadmate's reply looks like.
 
-`PilotMessagePort_ComposeLine` (`00435d0c`) builds the line: the speaker's name from their comm box
-(`Squad_PilotName` (`00434298`) into `HddGauge_Name` (`0044b900`), the gauge's own `+0x137`), or the
-fallback at `004342b8` when the record names no object; then `": "`; then the message text,
-`strncat`ed at 0x4a characters.
+`PilotMessagePort_ComposeLine` (`00435d0c`) builds the line: the speaker's name from their comm box (`Squad_PilotName` (`00434298`) into `HddGauge_Name` (`0044b900`), the gauge's own `+0x137`), or the fallback at `004342b8` when the record names no object; then `": "`; then the message text, `strncat`ed at 0x4a characters.
 
-`PilotMessagePort_Paint` (`0043660c`) is a second, different picture of the same port: several
-word-wrapped lines — `PilotMessagePort_WrapText` (`00436318`) wraps at 80 characters in the 640-wide
-mode and 60 in the 320-wide one, and the box grows to `(lines + 1) * (8 << YCoordShift)` — in the
-computer's own black and red, with no speaker colour anywhere in it. What is on screen in
-`Reference/MFD_Talking_head.png` is the speaker-coloured single line.
+`PilotMessagePort_Paint` (`0043660c`) is a second, different picture of the same port: several word-wrapped lines — `PilotMessagePort_WrapText` (`00436318`) wraps at 80 characters in the 640-wide mode and 60 in the 320-wide one, and the box grows to `(lines + 1) * (8 << YCoordShift)` — in the computer's own black and red, with no speaker colour anywhere in it. What is on screen in `Reference/MFD_Talking_head.png` is the speaker-coloured single line.
 
 ## `.SNC` — portrait lip-sync scripts
 
-**`.SNC` is not an audio format.** It is the frame timeline that animates the talking pilot portrait
-in the heads-down display's comm box while the matching `.wav` plays.
+**`.SNC` is not an audio format.** It is the frame timeline that animates the talking pilot portrait in the heads-down display's comm box while the matching `.wav` plays.
 
-556 files in `snc\` (in both `SIMVOL0.VOL` and `SIMSOUND.VOL`): twelve speakers `PA`-`PL` times
-46-47 messages. **The twelve copies of a message are byte-identical** apart from their `.VOL`
-timestamps — the per-speaker naming exists only because the loader builds the name from the speaker
-letter.
+556 files in `snc\` (in both `SIMVOL0.VOL` and `SIMSOUND.VOL`): twelve speakers `PA`-`PL` times 46-47 messages. **The twelve copies of a message are byte-identical** apart from their `.VOL` timestamps — the per-speaker naming exists only because the loader builds the name from the speaker letter.
 
 After the 9-byte `.VOL` entry prefix:
 
@@ -778,19 +554,11 @@ length/2 x {
 }
 ```
 
-The `0xff` terminator is **not in the file** — `Snc_Load` (`00463270`) reads the declared length
-into the slot's 100-byte buffer and appends `0xff` itself. With no script at all the buffer is just
-`0xff`, and the voice plays with the portrait held.
+The `0xff` terminator is **not in the file** — `Snc_Load` (`00463270`) reads the declared length into the slot's 100-byte buffer and appends `0xff` itself. With no script at all the buffer is just `0xff`, and the voice plays with the portrait held.
 
-**Verified across all 556 files**: length always even, always `fileLength - 14`, never containing a
-`0xff` byte, 2-28 pairs (so at most 61 bytes in the 100-byte buffer). Frame values are 0-23 —
-matching the 24 same-sized frames at the head of a `pilot<n>.DBA` bank, described in
-[`heads-down-display.md`](heads-down-display.md) — and deltas 2-74 ticks.
+**Verified across all 556 files**: length always even, always `fileLength - 14`, never containing a `0xff` byte, 2-28 pairs (so at most 61 bytes in the 100-byte buffer). Frame values are 0-23 — matching the 24 same-sized frames at the head of a `pilot<n>.DBA` bank, described in [`heads-down-display.md`](heads-down-display.md) — and deltas 2-74 ticks.
 
-`Snc_Advance` (`004633ac`) reads pairs until the accumulated time passes now, publishes the frame at
-slot `+0x08`, and re-inserts the slot into a small global event queue (`004d2efa`, 8-byte
-`{ time, slot }` entries) that `Snc_ServiceQueue` (`004631c0`) drains. Reaching the `0xff` sets the
-frame to `-1`, which is what tells `HddGauge_PaintPilotFrame` the message is over.
+`Snc_Advance` (`004633ac`) reads pairs until the accumulated time passes now, publishes the frame at slot `+0x08`, and re-inserts the slot into a small global event queue (`004d2efa`, 8-byte `{ time, slot }` entries) that `Snc_ServiceQueue` (`004631c0`) drains. Reaching the `0xff` sets the frame to `-1`, which is what tells `HddGauge_PaintPilotFrame` the message is over.
 
 ## Rejected readings
 
@@ -807,75 +575,29 @@ frame to `-1`, which is what tells `HddGauge_PaintPilotFrame` the message is ove
 
 ## Engine coverage
 
-`Herculan.Engine.Audio` covers the catalog and the effects path: `SoundCatalog` parses `SOUNDS.STR`
-with the attribute layout above, `SoundBank` picks the `HMI`/`HMX` folder and decodes the samples
-out of `SIMSOUND.VOL`, and `SoundDirector` is the `Sound_*` layer — one voice per catalog id, the
-variation roll, the category split, `Sound_Place`'s rolloff and pan, and suspend/resume.
-`OpenAlBackend` stands in for HMI SOS; `NullAudioBackend` runs the same rules silently. `GameAudio` is the host-facing bundle and is itself the `ISoundSink` the simulation
-reaches through `SimWorld.Sounds`, with `PlayTableSound` applying the `+ 10` bias for `PROJ.DAT`,
-`ROCKETS.DAT` and `EXPLOS.DAT` ids.
+`Herculan.Engine.Audio` covers the catalog and the effects path: `SoundCatalog` parses `SOUNDS.STR` with the attribute layout above, `SoundBank` picks the `HMI`/`HMX` folder and decodes the samples out of `SIMSOUND.VOL`, and `SoundDirector` is the `Sound_*` layer — one voice per catalog id, the variation roll, the category split, `Sound_Place`'s rolloff and pan, and suspend/resume. `OpenAlBackend` stands in for HMI SOS; `NullAudioBackend` runs the same rules silently. `GameAudio` is the host-facing bundle and is itself the `ISoundSink` the simulation reaches through `SimWorld.Sounds`, with `PlayTableSound` applying the `+ 10` bias for `PROJ.DAT`, `ROCKETS.DAT` and `EXPLOS.DAT` ids.
 
-The computer's channel is complete. `SystemMessages` parses `SYSTEM.STR` and flattens it to the ids
-the call sites use; `MessagePort` is the port — the ten-slot queue, the four timings, the four
-latches, the repeat suppression, the preemption and the pause — and it drives both halves, raising
-one event for the speech and another for the alert tone rather than reaching into either. Speech is
-`ComputerVoice`, which opens `CVM` clips out of `SIMVOICE.VOL` on first use and keeps them rather
-than running the original's five-slot LRU. The display is `MessageTickerLayout` plus
-`Overlay2DRenderer.AddMessageTicker`: the herc's own `.GAU` box (surfaced as
-`GAUFile.MessageTicker`), the black fill and red frame, the scrolling `CPRED` line, and
-`TRANSFERRING DATA`'s centred blink.
+The computer's channel is complete. `SystemMessages` parses `SYSTEM.STR` and flattens it to the ids the call sites use; `MessagePort` is the port — the ten-slot queue, the four timings, the four latches, the repeat suppression, the preemption and the pause — and it drives both halves, raising one event for the speech and another for the alert tone rather than reaching into either. Speech is `ComputerVoice`, which opens `CVM` clips out of `SIMVOICE.VOL` on first use and keeps them rather than running the original's five-slot LRU. The display is `MessageTickerLayout` plus `Overlay2DRenderer.AddMessageTicker`: the herc's own `.GAU` box (surfaced as `GAUFile.MessageTicker`), the black fill and red frame, the scrolling `CPRED` line, and `TRANSFERRING DATA`'s centred blink.
 
-Three things differ. The port's clock is wall time accumulated by `GameAudio` in 16 ms units rather
-than `GetTickCount`, and it stops across `Suspend`/`Resume`, which is what the original's pause pair
-achieves by shifting every deadline instead. The text is clipped per glyph in geometry rather than
-by a raster clip rect, so the whole cockpit panel stays one draw. And the display's two further
-gates — the refusal to draw while the cockpit view manager's `+0x14` reads 4, and the paint's `+0x1c`
-byte — are not reproduced.
+Three things differ. The port's clock is wall time accumulated by `GameAudio` in 16 ms units rather than `GetTickCount`, and it stops across `Suspend`/`Resume`, which is what the original's pause pair achieves by shifting every deadline instead. The text is clipped per glyph in geometry rather than by a raster clip rect, so the whole cockpit panel stays one draw. And the display's two further gates — the refusal to draw while the cockpit view manager's `+0x14` reads 4, and the paint's `+0x1c` byte — are not reproduced.
 
-The pilot and squad channel is complete too. `SquadMessages` parses a `PILOT<n>.STR` bank with the
-seven-byte attribute layout and its live variants; `SquadMessagePort` is the second port, with the
-same lifecycle and the begin/end callbacks the comm box hangs off it; `SquadVoice` opens the
-`P*_*.WAV` clips. `SquadCommChannel` owns the three boxes and their state machine
-([`heads-down-display.md`](heads-down-display.md#squad-comm-boxes)), and publishes both what the MFD
-draws full-screen and what each box draws in place. The line over the canopy is
-`PilotMessageBoxLayout` plus `Overlay2DRenderer.AddPilotMessage` — the herc's own `.GAU` box
-(surfaced as `GAUFile.PilotMessagePort`), the speaker-coloured fill with its palette-minus-one frame,
-and the composed `NAME: line` in `CPRED`. The word-wrapped multi-line paint is not ported; nothing
-retail shows reaches it.
+The pilot and squad channel is complete too. `SquadMessages` parses a `PILOT<n>.STR` bank with the seven-byte attribute layout and its live variants; `SquadMessagePort` is the second port, with the same lifecycle and the begin/end callbacks the comm box hangs off it; `SquadVoice` opens the `P*_*.WAV` clips. `SquadCommChannel` owns the three boxes and their state machine ([`heads-down-display.md`](heads-down-display.md#squad-comm-boxes)), and publishes both what the MFD draws full-screen and what each box draws in place. The line over the canopy is `PilotMessageBoxLayout` plus `Overlay2DRenderer.AddPilotMessage` — the herc's own `.GAU` box (surfaced as `GAUFile.PilotMessagePort`), the speaker-coloured fill with its palette-minus-one frame, and the composed `NAME: line` in `CPRED`. The word-wrapped multi-line paint is not ported; nothing retail shows reaches it.
 
-The channel's own deviation is the one the computer's port has: its clock is `GameAudio`'s wall time
-rather than `GetTickCount`.
+The channel's own deviation is the one the computer's port has: its clock is `GameAudio`'s wall time rather than `GetTickCount`.
 
-Triggers ported so far: the beam report, the two table-driven fire sounds and the impact sound (with
-the ground hit's suppression), footfalls, the console click, the radar mode tone and its spoken
-announcement, the lock/acquire/loss tones, the power-up with its announcement and its flyer hum, and
-the missile-inbound warning.
+Triggers ported so far: the beam report, the two table-driven fire sounds and the impact sound (with the ground hit's suppression), footfalls, the console click, the radar mode tone and its spoken announcement, the lock/acquire/loss tones, the power-up with its announcement and its flyer hum, and the missile-inbound warning.
 
-**Every poster above is ported but one.** The damage set, the mission-status four, the player think's
-two, the data link's five, the auto-track pair, the radar pair and the power-up pair all post where
-the original posts them. `0x2a`/`0x2b` jamming is the exception, and it is blocked rather than
-skipped: nothing in the engine turns a jammer on yet (`SimObject.JammerActive`), so the toggle that
-would announce it has no state to report. `0x12` is not a gap either — it is unreachable in retail.
-The rest of the file's sixty-three lines have no poster in the original.
+**Every poster above is ported but one.** The damage set, the mission-status four, the player think's two, the data link's five, the auto-track pair, the radar pair and the power-up pair all post where the original posts them. `0x2a`/`0x2b` jamming is the exception, and it is blocked rather than skipped: nothing in the engine turns a jammer on yet (`SimObject.JammerActive`), so the toggle that would announce it has no state to report. `0x12` is not a gap either — it is unreachable in retail. The rest of the file's sixty-three lines have no poster in the original.
 
-The power-up always announces the nominal line: the gauge reading its alternative is chosen by is
-not decompiled, and a machine taken at the start of a mission is undamaged and gets the nominal line
-either way.
+The power-up always announces the nominal line: the gauge reading its alternative is chosen by is not decompiled, and a machine taken at the start of a mission is undamaged and gets the nominal line either way.
 
 **Copies overlap, as they do in retail, but the channel ceiling is this engine's own.** `OpenAlBackend` keeps one buffer per sample and claims a source from a pool of `ChannelCount` (64) per play, so an id sounding twice occupies two sources; `SoundDirector` keeps the id's volume, pan and pitch and the newest handle, exactly as the original's voice record does. What is not reproduced is the ceiling: retail's is whatever its SOS driver was initialised with, and the `sosDIGIInitDriver` argument block at `006b5614` is filled field by field with nothing to name the words, so which one is the channel count is unrecovered. 64 is chosen against what the game asks for and against OpenAL Soft's own limit of 256 sources. A play that finds every channel busy is dropped, which is how `sosDIGIStartSample` fails too.
 
 `SoundDirector.ConsumeRequest` is a faithful port of `Sound_ConsumeRequest` and, like the original, has no caller. It is kept because the attribute it reads is parsed and documented, not because anything uses it.
 
-**The memory budget is not reproduced.** `SoundBank` decodes every sample the catalog names at
-startup instead of honouring the preload attribute and caching the rest on demand, so none of
-[Memory budget and eviction](#memory-budget-and-eviction) exists here — no cap, no refcount, no
-victim scoring. The whole `hmi` bank is about 1.5 MB of 8-bit PCM against the original's own
-2,000,000-byte cap, so there is nothing for the eviction machinery to do; it would only start to
-matter for a bank the retail game does not ship.
+**The memory budget is not reproduced.** `SoundBank` decodes every sample the catalog names at startup instead of honouring the preload attribute and caching the rest on demand, so none of [Memory budget and eviction](#memory-budget-and-eviction) exists here — no cap, no refcount, no victim scoring. The whole `hmi` bank is about 1.5 MB of 8-bit PCM against the original's own 2,000,000-byte cap, so there is nothing for the eviction machinery to do; it would only start to matter for a bank the retail game does not ship.
 
-Not ported: CD music through MCI, the `.hmp` MIDI path, and squadmate and commander speech with its
-`.SNC` portrait scripts. `HercWorks.Core` has `Data/File/Cfg/SoundCfg.cs`, a `SOUND.CFG` key holder
-with no reader.
+Not ported: CD music through MCI, the `.hmp` MIDI path, and squadmate and commander speech with its `.SNC` portrait scripts. `HercWorks.Core` has `Data/File/Cfg/SoundCfg.cs`, a `SOUND.CFG` key holder with no reader.
 
 ### Mid-session audio recovery not yet implemented
 If the endpoint drops while you're playing (unplugging headphones, switching default device), the engine stays silent for good. OpenAL Soft exposes `ALC_EXT_disconnect/ALC_CONNECTED`; detecting it is cheap, but reconnecting means recreating the 64-source pool in`OpenChannels` and re-uploading every buffer `CreateSample` handed out, since sample ids are indices into `_buffers` that `SoundDirector` and `ComputerVoice` both hold. Those ids would need to stay stable across a re-open, or both holders would need re-registering.

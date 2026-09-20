@@ -1,4 +1,4 @@
-using HercWorks.Core.Data.File.Dbsim;
+﻿using HercWorks.Core.Data.File.Dbsim;
 using HercWorks.Core.Io.Transform.Dbsim;
 
 namespace Herculan.Engine.Content;
@@ -31,6 +31,20 @@ public sealed class CockpitViewGeometry {
 
 	/// <summary>DBSIM's own view numbering: the heads-down display, canvas origin (0,237) authored.</summary>
 	public const int HeadsDownViewIndex = 1;
+
+	/// <summary>
+	/// The glance whose canopy bitmap is the authored one, canvas origin (+320,0) — the same view
+	/// <see cref="CockpitArt.SideViewIndex"/> loads <c>.HB2</c> and <c>.HD2</c> for.
+	/// </summary>
+	public const int GlanceViewIndex = 2;
+
+	/// <summary>
+	/// The opposite glance, canvas origin (-320,0). It has no art of its own: DBSIM draws view 2's
+	/// bitmap mirrored, and this engine's mirrored side panel is that view. Its own <c>.VUE</c>
+	/// record is not a copy of view 2's — every retail herc gives this one the full view width where
+	/// view 2's rect stops short of it — so the two clip differently and the pairing matters.
+	/// </summary>
+	public const int MirroredGlanceViewIndex = 3;
 
 	/// <summary>
 	/// The canvas origin every retail <c>.VUE</c> gives the heads-down view, in device pixels — used
@@ -122,6 +136,42 @@ public sealed class CockpitViewGeometry {
 	/// </summary>
 	public bool HasWorldViewport(int viewIndex) =>
 		Entry(viewIndex) is { } e && e.ViewportX1 > e.ViewportX0 && e.ViewportY1 > e.ViewportY0;
+
+	/// <summary>
+	/// Where the 3D scene is allowed to reach inside this view's window, in device pixels from its
+	/// top-left — the record's first four fields, which <c>CockpitView_ApplyViewState</c>
+	/// (<c>00429e60</c>) installs at the render context's <c>+0x210</c> and
+	/// <c>Raster_InstallViewProjection</c> (<c>0048c1d8</c>) reads back as the rasterizer's clip
+	/// rect. Null when the view declares no rect at all (<see cref="HasWorldViewport"/>).
+	///
+	/// <para><b>This is a crop, not a second projection.</b> The rect bounds where pixels may land;
+	/// it does not move the projection centre and does not change how large anything is drawn —
+	/// <see cref="ProjectionCenter"/> is the only thing that moves the axis, and the centre is
+	/// deliberately not the middle of this rect.</para>
+	///
+	/// <para>It is a separate mechanism from the <c>.HD&lt;n&gt;</c> scanline spans, which cut the
+	/// canopy's own silhouette out of the same view (see <c>CockpitClipRegions</c>): the rect is the
+	/// outer bound, the spans are the shape inside it. Retail applies both, and so does this engine
+	/// — the spans through the canopy art's alpha, the rect through the scissor the 3D pass is drawn
+	/// under.</para>
+	///
+	/// <para>The high edges are exclusive: APOCA's forward view gives <c>0,0 - 320,186</c> in the
+	/// 320-wide authored space, which is the full width of that view.</para>
+	/// </summary>
+	public Rect? WorldViewport(int viewIndex) =>
+		HasWorldViewport(viewIndex) && Entry(viewIndex) is { } e
+			? new Rect(e.ViewportX0 << CoordShift, e.ViewportY0 << CoordShift,
+				e.ViewportX1 << CoordShift, e.ViewportY1 << CoordShift)
+			: null;
+
+	/// <summary>A rect in a view window's own device pixels, top-left origin, high edges exclusive.</summary>
+	public readonly record struct Rect(int X0, int Y0, int X1, int Y1) {
+		/// <summary>Width in device pixels.</summary>
+		public int Width => X1 - X0;
+
+		/// <summary>Height in device pixels.</summary>
+		public int Height => Y1 - Y0;
+	}
 
 	private Vue.Entry? Entry(int viewIndex) =>
 		_vue.Entries is { } entries && viewIndex >= 0 && viewIndex < entries.Length ? entries[viewIndex] : null;

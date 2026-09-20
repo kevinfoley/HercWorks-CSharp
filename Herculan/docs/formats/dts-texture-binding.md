@@ -299,16 +299,16 @@ So a child no node reaches is never drawn, and the tree is what orders back-to-f
 ```
 size = (radius << DAT_006c60ac) / max(FastMagnitude3D(viewOffset) - radius, 1)   // projected size
 if (size == 0) size = 1
-t    = Q10Multiply(DAT_004a1034, size)          // global detail scale, Q10
-i    = DAT_004a1038                             // global detail BIAS -- the STRUCTURE DETAIL setting
+t    = Q10Multiply(g_TSDetailPartSizeScaleQ10, size)          // global detail scale, Q10
+i    = g_TSDetailPartBias                             // global detail BIAS -- the STRUCTURE DETAIL setting
 while (i < count - 1 && details[i] < t) i++
-render(parts[min(i - DAT_004a1038, count - 1)])
+render(parts[min(i - g_TSDetailPartBias, count - 1)])
 ```
 
 `radius` is the part's own `ClassItem` bounding radius (`part+8`). Thresholds are walked in file order and the part index is `i - bias`, so:
 
 - `details[]` is ascending and index-aligned with `Parts[]`: **part 0 is the coarsest**, the last is the finest. Retail structure shapes end at 255 (`BASES.DGS` shape 5: `[5, 15, 35, 255]`).
-- A **larger** `DAT_004a1038` shifts the whole scale down, so `LOW`/`MED-HIGH`/`MAXIMUM` is a bias of 2/1/0 in some order with **0 = MAXIMUM**. At bias 0 a close object reaches `count - 1`.
+- A **larger** `g_TSDetailPartBias` shifts the whole scale down, so `LOW`/`MED-HIGH`/`MAXIMUM` is a bias of 2/1/0 in some order with **0 = MAXIMUM**. At bias 0 a close object reaches `count - 1`.
 
 Levels are not always the same shape at different densities. `BASES.DGS` shape 10 (structure type 14, the tall chimney) is a 4-sided box with its corners on the world axes at level 0, and an octagon with its *vertices* on the axes at level 1 — a 45-degree difference in cross-section.
 

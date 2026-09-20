@@ -1089,6 +1089,11 @@ var spriteBatches = new List<SpriteBatch>();
 var posedParts = new List<(SimObject Subject, int TransformId, SceneItem Item)>();
 var segmentMeshes = new Dictionary<string, GpuMesh[]>();
 
+// The machines on the field, each with every LOD root of its shape built and uploaded and one of
+// them selected. Only a machine is here: nothing else in the original carries a detail table, so
+// nothing else changes which shape it is drawn as — see Render.ShapeDetail.
+var detailChains = new List<MechDetailChain>();
+
 // And the same for a shape split by cell rather than by node -- a flyer, or a structure of one of the
 // 57 types that carry no animation, which loses parts to damage but has no posed nodes. One upload
 // per distinct model, as with the other two.
@@ -1181,9 +1186,16 @@ window.Load += (gl, input) => {
 	// The question is asked of the object rather than of its class: the eight animated-library
 	// structure types get a shape instance and threads out of Base_Construct's tail the same way a
 	// machine does (see BaseObject's constructor), and every other structure type gets neither.
+	//
+	// Asked of every root of a machine's LOD chain, not of the one it starts on: the crude roots are
+	// posed by the same thread on the same transform ids (see SceneModelLibrary.MechDetailRoots), so
+	// each of them has to be uploaded as segments too or a machine loses its animation the moment the
+	// distance to the eye picks a coarser one.
 	var animatedKeys = scene.Objects
-		.Where(o => o.Object.Shape is { Threads.Count: > 0 } && o.Model is { } m && m.Segments.Length > 0)
-		.Select(o => o.Model!.Key)
+		.Where(o => o.Object.Shape is { Threads.Count: > 0 })
+		.SelectMany(o => o.Detail?.Roots ?? (o.Model is { } single ? new[] { single } : Array.Empty<SceneModel>()))
+		.Where(m => m.Segments.Length > 0)
+		.Select(m => m.Key)
 		.ToHashSet(StringComparer.OrdinalIgnoreCase);
 
 	// One upload per distinct model, however many objects share it — a mission routinely fields
@@ -1234,36 +1246,63 @@ window.Load += (gl, input) => {
 		uint? texture = modelTextures.TryGetValue(model.Key, out var bound) ? bound.Handle : null;
 		bool isPlayer = ReferenceEquals(sceneObject, scene.PlayerObject);
 
-		if (segmentMeshes.TryGetValue(model.Key, out var segments)) {
+		// A machine is uploaded once per LOD root and drawn as whichever one its projected size on
+		// screen selects, so the build below runs once per root and leaves all but root 0 deselected.
+		// Everything else has one root and the loop runs once — see Render.ShapeDetail, and
+		// SelectDetailRoots for the per-frame half.
+		var detailRoots = sceneObject.Detail?.Roots ?? new[] { model };
+
+		if (segmentMeshes.ContainsKey(model.Key)) {
 			var subject = sceneObject.Object;
-			var segmentItems = new SceneItem[segments.Length];
+			var rootItems = new SceneItem[detailRoots.Count][];
 
-			for (int i = 0; i < segments.Length; i++) {
-				var segment = model.Segments[i];
-				var part = new SceneItem(segments[i],
-					MissionScene.PosedTransformOf(subject, segment.TransformId), texture) {
-					LightSubject = subject
-				};
-
-				segmentItems[i] = part;
-				built.Add(part);
-				posedParts.Add((subject, segment.TransformId, part));
-				if (segment.Gate.IsGated) {
-					gatedParts.Add((subject, segment.Gate, part));
+			for (int root = 0; root < detailRoots.Count; root++) {
+				var rootModel = detailRoots[root];
+				if (!segmentMeshes.TryGetValue(rootModel.Key, out var segments)) {
+					rootItems[root] = Array.Empty<SceneItem>();
+					continue;
 				}
 
-				if (isPlayer) {
-					playerItems.Add(part);
+				uint? rootTexture = modelTextures.TryGetValue(rootModel.Key, out var rootBound)
+					? rootBound.Handle
+					: null;
+				var segmentItems = new SceneItem[segments.Length];
+
+				for (int i = 0; i < segments.Length; i++) {
+					var segment = rootModel.Segments[i];
+					var part = new SceneItem(segments[i],
+						MissionScene.PosedTransformOf(subject, segment.TransformId), rootTexture) {
+						LightSubject = subject,
+						DetailSelected = root == 0
+					};
+
+					segmentItems[i] = part;
+					built.Add(part);
+					posedParts.Add((subject, segment.TransformId, part));
+					if (segment.Gate.IsGated) {
+						gatedParts.Add((subject, segment.Gate, part));
+					}
+
+					if (isPlayer) {
+						playerItems.Add(part);
+					}
 				}
+
+				rootItems[root] = segmentItems;
+			}
+
+			if (sceneObject.Detail is { } chain && rootItems.Length > 1) {
+				detailChains.Add(new MechDetailChain(subject, chain.ShapeRadius, rootItems));
 			}
 
 			// Nothing here goes in `movers`: the posed refresh carries the object's own frame in
 			// front of each node's, so a segmented object that moves is followed by that alone.
 			//
 			// An animated structure still leaves a wreck like any other, and every one of the eight
-			// types that reach here does have a hulk.
+			// types that reach here does have a hulk. A structure has the one root, so the wreck swap
+			// covers rootItems[0] and there is nothing else for it to cover.
 			if (subject is BaseObject segmentedStructure) {
-				RegisterWreckable(sceneObject, segmentedStructure, segmentItems, posed: true);
+				RegisterWreckable(sceneObject, segmentedStructure, rootItems[0], posed: true);
 			}
 
 			continue;
@@ -2061,7 +2100,15 @@ window.Update += deltaSeconds => {
 	// Reading more often than the simulation ticks costs nothing and gains nothing: the thread's
 	// intra-frame fraction only moves in Advance, so consecutive reads between ticks return the same
 	// pose. That is the original's cadence too — see mech-locomotion.md's "Evaluation cadence".
+	// Which root of each machine's shape is drawn, settled before the two loops that follow so that a
+	// root taken up this frame is posed and gated this frame rather than one frame stale.
+	SelectDetailRoots();
+
 	foreach (var (subject, transformId, item) in posedParts) {
+		if (!item.DetailSelected) {
+			continue;
+		}
+
 		item.Transform = MissionScene.PosedTransformOf(subject, transformId);
 	}
 
@@ -2085,6 +2132,10 @@ window.Update += deltaSeconds => {
 	// TSCellAnimPart_Render reads shapeInstance+8. Every piece the shape holds is already uploaded,
 	// so a destroyed component or a collapsed structure part costs a flag rather than a rebuild.
 	foreach (var (owner, gate, item) in gatedParts) {
+		if (!item.DetailSelected) {
+			continue;
+		}
+
 		item.Visible = !owner.AwaitingDeployment && gate.VisibleIn(owner.CellFrames);
 	}
 
@@ -2831,15 +2882,28 @@ void DrawThreePanelCockpitView(GL gl, int totalWidth, int totalHeight) {
 
 	// GL's viewport origin is bottom-left, so a positive y offset moves a panel up the screen — which
 	// is the direction the cockpit travels as the view pans down the canvas.
-	DrawPanel(layout.Left, -sideYawOffset, cockpitSideTexture!, mirrorHorizontally: true, hud: null);
-	DrawPanel(layout.Center, 0, cockpitFrontTexture!, mirrorHorizontally: false, hud: cockpitArt);
-	DrawPanel(layout.Right, sideYawOffset, cockpitSideTexture!, mirrorHorizontally: false, hud: null);
+	// Each panel is one of DBSIM's views and carries that view's own .VUE 3D rect. The two glances
+	// share a canopy bitmap but not a rect — view 3's runs the full width of the view where view 2's
+	// stops short of it — so the mirrored panel takes view 3 rather than a mirrored copy of view 2.
+	DrawPanel(layout.Left, -sideYawOffset, cockpitSideTexture!, mirrorHorizontally: true, hud: null,
+		CockpitViewGeometry.MirroredGlanceViewIndex);
+	DrawPanel(layout.Center, 0, cockpitFrontTexture!, mirrorHorizontally: false, hud: cockpitArt,
+		CockpitViewGeometry.ForwardViewIndex);
+	DrawPanel(layout.Right, sideYawOffset, cockpitSideTexture!, mirrorHorizontally: false, hud: null,
+		CockpitViewGeometry.GlanceViewIndex);
 
 	void DrawPanel(CockpitScreenLayout.PlacedSurface surface, int yawOffset, GpuTexture texture,
-			bool mirrorHorizontally, CockpitArt? hud) {
+			bool mirrorHorizontally, CockpitArt? hud, int viewIndex) {
 		var viewport = surface.Viewport;
 		var panelCamera = ClonePanelCamera(camera, yawOffset);
 		panelCamera.PrincipalPoint = PanelPrincipalPoint(surface);
+
+		// The view's .VUE 3D rect, as a scissor around the whole 3D pass — the outer bound DBSIM's
+		// rasterizer clips to, which the canopy's alpha cutout does not express on its own. See
+		// CockpitViewGeometry.WorldViewport. The sky is inside the scissor because it is part of the
+		// 3D view; the canopy below it must not be, so the test goes off again before the overlay.
+		bool scissored = ApplyWorldViewportScissor(gl, surface, viewIndex, mirrorHorizontally);
+
 		renderer!.Render(panelCamera, VisibleItems(),
 			viewport.X, viewport.Y, viewport.Width, viewport.Height);
 
@@ -2849,10 +2913,48 @@ void DrawThreePanelCockpitView(GL gl, int totalWidth, int totalHeight) {
 		// Before the canopy goes over it, so the skeleton is clipped by the viewport hole like the rest
 		// of the world. Mostly of use with the machine's own model hidden, but it costs one draw call.
 		DrawSkeleton(panelCamera, viewport.Width, viewport.Height);
+
+		if (scissored) {
+			gl.Disable(EnableCap.ScissorTest);
+		}
+
 		overlay!.Draw(viewport.X, viewport.Y, viewport.Width, viewport.Height, texture,
 			surface.ArtWidth, surface.ArtHeight, mirrorHorizontally, hud,
 			spriteTexture: hudSpriteTexture, hudState: hudState);
 	}
+}
+
+// Confines the 3D pass for one panel to that view's .VUE viewport rect, and reports whether it did:
+// a caller that gets true turns the scissor test off again once it has finished drawing the world.
+//
+// Nothing is scissored when the herc ships no .VUE, or when the view declares a zero-size rect. The
+// zero case is not a degenerate rect to clamp away -- it is how every herc but RAZOR says its
+// heads-down view shows no world at all -- but no panel this draws is that view, so it cannot arise
+// here and falling through to "draw unclipped" is the safe reading for a hand-edited file.
+bool ApplyWorldViewportScissor(GL gl, CockpitScreenLayout.PlacedSurface surface, int viewIndex,
+		bool mirrorHorizontally) {
+	if (viewGeometry?.WorldViewport(viewIndex) is not { } rect) {
+		return false;
+	}
+
+	// Art pixels to window pixels, through the same fit the canopy quad is drawn with. The rect is
+	// stated in the view's own screen coordinates, and a mirrored panel's screen is the art
+	// reflected about its width — so the rect is reflected the same way, which swaps its edges.
+	float left = mirrorHorizontally ? surface.ArtWidth - rect.X1 : rect.X0;
+	float right = mirrorHorizontally ? surface.ArtWidth - rect.X0 : rect.X1;
+	var (windowX0, windowY0) = surface.ArtToWindow(left, rect.Y0);
+	var (windowX1, windowY1) = surface.ArtToWindow(right, rect.Y1);
+
+	// GL's scissor box is bottom-left origin in framebuffer pixels, where the window coordinates
+	// above are top-left origin -- the same flip PlacedSurface.ViewportTopInWindow undoes.
+	int x = (int)MathF.Floor(windowX0);
+	int y = (int)MathF.Floor(surface.WindowHeight - windowY1);
+	int width = Math.Max((int)MathF.Ceiling(windowX1) - x, 0);
+	int height = Math.Max((int)MathF.Ceiling(surface.WindowHeight - windowY0) - y, 0);
+
+	gl.Enable(EnableCap.ScissorTest);
+	gl.Scissor(x, y, (uint)width, (uint)height);
+	return true;
 }
 
 // Where the view axis lands on one cockpit panel, as a fraction of that panel's viewport — the
@@ -3173,6 +3275,55 @@ IEnumerable<SceneItem> VisibleItems() =>
 		.Concat(weaponItems)
 		.Concat(debrisItems)
 		.Concat(dropPodItems);
+
+// Which root of each machine's shape is drawn this frame -- Shape_DrawAtDetailLevel (004033e4),
+// ported in Render.ShapeDetail and run here because this is where the camera and the window size
+// both are. The original runs it inside the machine's own draw slot, once per machine per frame,
+// which is this cadence.
+//
+// HERC DETAIL is re-read every frame for the same reason TERRAIN TEXTURE above is: the preferences
+// panel steps it over a scene that is still being drawn behind it, so the player watches the
+// machines coarsen as they step the row.
+void SelectDetailRoots() {
+	if (detailChains.Count == 0) {
+		return;
+	}
+
+	// The focal length of the view being drawn, in its own pixels. Retail's is the video mode's
+	// fixed 2^9 = 512 over 480 rows (docs/formats/cockpit-hud.md); taking it off the window instead
+	// keeps the thresholds a count of pixels on the screen actually being drawn, which is what makes
+	// them a measure of apparent size rather than of a 1996 monitor's.
+	int focalPixels = Math.Max((int)MathF.Round(
+		window.FramebufferSize.Y * Camera.FocalLengthPixels / Camera.FocalViewHeightPixels), 1);
+	int bias = ShapeDetail.BiasFor(simulatorPreferences[SimulatorPreferences.HercDetailOption]);
+	var eye = camera.Position;
+
+	foreach (var chain in detailChains) {
+		// Eye to the object's origin, in world units -- Math_FastMagnitude3D of the view-space
+		// translation the model transform installs, which is the same distance by a shorter route.
+		var offset = chain.Subject.Position - eye;
+		int distance = (int)Math.Min(
+			Math.Sqrt((double)offset.X * offset.X + (double)offset.Y * offset.Y
+				+ (double)offset.Z * offset.Z),
+			int.MaxValue);
+
+		int root = ShapeDetail.SelectRoot(chain.Roots.Length, chain.ShapeRadius, distance,
+			focalPixels, bias);
+		if (root == chain.Active) {
+			continue;
+		}
+
+		foreach (var part in chain.Roots[chain.Active]) {
+			part.DetailSelected = false;
+		}
+
+		foreach (var part in chain.Roots[root]) {
+			part.DetailSelected = true;
+		}
+
+		chain.Active = root;
+	}
+}
 
 // The two things a collapsing structure does to what is on screen. A type that leaves a wreck is
 // redrawn as its BHULKS.DGS root the moment its last part falls -- the original writes that shape
@@ -3730,3 +3881,16 @@ static int Axis(IKeyboard keyboard, Key positive, Key negative,
 /// </summary>
 static short TurretAxis(int keys, short held) =>
 	keys != 0 ? (short)(keys * MechControls.KeyboardAxis) : held;
+
+/// <summary>
+/// One machine's LOD chain as the host holds it: every root's items, uploaded together, and which of
+/// them is currently drawn. See <see cref="Herculan.Engine.Render.ShapeDetail"/> for the selection
+/// and docs/formats/mech-shape-drawing.md for the mechanism it ports.
+/// </summary>
+/// <param name="Subject">The machine, whose position the distance to the eye is measured to.</param>
+/// <param name="ShapeRadius">Root 0's own bounding radius in world units.</param>
+/// <param name="Roots">The items of each root, finest first. A root that failed to upload is empty.</param>
+sealed record MechDetailChain(SimObject Subject, int ShapeRadius, SceneItem[][] Roots) {
+	/// <summary>The root currently selected, which starts at 0 as the build leaves it.</summary>
+	public int Active { get; set; }
+}

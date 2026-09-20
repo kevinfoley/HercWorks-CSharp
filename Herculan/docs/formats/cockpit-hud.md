@@ -122,6 +122,10 @@ After the 9-byte VOL prefix: `int32 viewCount`, then `viewCount x` 8 `int32`s. A
 
 C# port: `HercWorks.Core.Data.File.Dbsim.Vue.Entry` (fields renamed to match the above; they were `WidthMax`/`UnkOfs*` pre-RE guesses). Engine wrapper: `Content.CockpitViewGeometry`.
 
+The rect is the **outer bound** on where the 3D scene may reach, and the `.HD<n>` scanline spans below are the canopy-shaped hole inside it: two mechanisms over one view, both applied. `Content.CockpitViewGeometry.WorldViewport` reads it, and the host draws each panel's whole 3D pass — sky, world, beams, sprites — under a GL scissor set from it, before the canopy quad goes over the top with the spans already punched into its alpha. The two agree on retail data (`APOCA.HD0` resolves to rows 0-371 against a rect of `0,0 - 640,372`), so the scissor changes nothing that is visible on a herc whose canopy is opaque outside its rect — which is what makes the spans sufficient on their own and the rect easy to miss.
+
+Each of the three panels the engine shows at once carries its own view's rect: the forward panel view 0, the unmirrored side panel view 2, and the mirrored side panel view 3, whose rect is reflected about the view width exactly as its art is. The two glances share a canopy bitmap but not a rect — view 3's runs the full width where view 2's stops short of it, on every retail herc — so pairing the mirrored panel with view 2's rect would clip a band off its outer edge that retail does not.
+
 Every retail `.VUE` gives view 1 the canvas origin `(0,237)` — no herc differs.
 
 `APOCA.VUE` (`viewCount = 4`):

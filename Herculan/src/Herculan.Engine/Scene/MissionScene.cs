@@ -11,11 +11,30 @@ using Herculan.Engine.World;
 
 namespace Herculan.Engine.Scene;
 
+/// <summary>
+/// The alternate whole-shape models one object can be drawn as, and what the choice between them is
+/// measured against — see <see cref="Render.ShapeDetail"/>. Only a machine has one.
+/// </summary>
+/// <param name="Roots">
+/// Every root of the shape, finest first. <c>Roots[0]</c> is the same model as
+/// <see cref="SceneObject.Model"/>.
+/// </param>
+/// <param name="ShapeRadius">
+/// Root 0's own <c>TSBasePart.Radius</c> in world units — the radius the original measures projected
+/// size from, whichever root is currently drawn.
+/// </param>
+public sealed record ShapeDetailChain(IReadOnlyList<SceneModel> Roots, int ShapeRadius);
+
 /// <summary>One placed object, paired with the shared model it draws with.</summary>
 /// <param name="Object">The simulation object, which owns the authoritative position and heading.</param>
 /// <param name="Model">Its shared model, or null when its type has none the engine can build yet.</param>
 /// <param name="Placement">The mission record it came from, kept for diagnostics and tooling.</param>
-public sealed record SceneObject(SimObject Object, SceneModel? Model, MissionPlacement Placement);
+/// <param name="Detail">
+/// Its LOD chain, or null for everything that has none — which is everything but a machine, since
+/// only <c>Mech_Constructor</c> installs a detail table on an object.
+/// </param>
+public sealed record SceneObject(SimObject Object, SceneModel? Model, MissionPlacement Placement,
+	ShapeDetailChain? Detail = null);
 
 /// <summary>
 /// Assembles a playable scene from a real mission: the zone and theater the mission names, its
@@ -821,7 +840,7 @@ public sealed class MissionScene {
 	private static SceneObject? Spawn(MissionPlacement placement, SceneModelLibrary models,
 			BaseTypeTable baseTypes, BaseCollisionTable baseCollision, WeaponCatalog? weapons,
 			SimRandom random) {
-		var (simObject, model) = Create(placement, models, baseTypes, baseCollision, weapons, random);
+		var (simObject, model, detail) = Create(placement, models, baseTypes, baseCollision, weapons, random);
 		if (simObject == null) {
 			return null;
 		}
@@ -857,7 +876,7 @@ public sealed class MissionScene {
 				placement.Position.X, placement.Position.Y, FlyerObject.DefaultHoverHeight);
 		}
 
-		return new SceneObject(simObject, model, placement);
+		return new SceneObject(simObject, model, placement, detail);
 	}
 
 	/// <summary>
@@ -871,16 +890,20 @@ public sealed class MissionScene {
 			? new ComponentDamage(data, componentCount, dependentCount, random)
 			: null;
 
-	private static (SimObject? Object, SceneModel? Model) Create(MissionPlacement placement,
+	private static (SimObject? Object, SceneModel? Model, ShapeDetailChain? Detail) Create(
+			MissionPlacement placement,
 			SceneModelLibrary models, BaseTypeTable baseTypes, BaseCollisionTable baseCollision,
 			WeaponCatalog? weapons, SimRandom random) {
 		switch (placement.Kind) {
 			case MissionUnitKind.Mech: {
 				if (placement.TypeName == null || models.MechData(placement.TypeName) is not { } simData) {
-					return (null, null);
+					return (null, null, null);
 				}
 
-				var model = models.Mech(placement.TypeName);
+				// Every root, not just the one that is drawn at the moment: which of them that is
+				// changes with the distance to the eye, every frame — see Render.ShapeDetail.
+				var roots = models.MechDetailRoots(placement.TypeName);
+				var model = roots.Count > 0 ? roots[0] : null;
 				return (
 					new MechObject(placement.TypeName, simData, model?.RadiusWorldUnits ?? 0,
 						new MechLoadout(
@@ -894,12 +917,15 @@ public sealed class MissionScene {
 							ComponentDamage.MechComponentCount, ComponentDamage.MechDependentCount, random),
 						models.MechWeaponCellCount,
 						models.FlightModelFor(placement.TypeName)),
-					model);
+					model,
+					roots.Count > 1
+						? new ShapeDetailChain(roots, models.MechShapeRadius(placement.TypeName))
+						: null);
 			}
 
 			case MissionUnitKind.Flyer: {
 				if (placement.TypeName == null) {
-					return (null, null);
+					return (null, null, null);
 				}
 
 				var model = models.Flyer(placement.TypeName);
@@ -917,12 +943,12 @@ public sealed class MissionScene {
 						MissileProjectile = weapons?.Lookup(
 							ProjectileType.Missile, FlyerObject.MissileSubtype)
 					},
-					model);
+					model, null);
 			}
 
 			case MissionUnitKind.Base: {
 				if (baseTypes[placement.TypeIndex] is not { } type) {
-					return (null, null);
+					return (null, null, null);
 				}
 
 				var model = models.Base(type);
@@ -936,11 +962,11 @@ public sealed class MissionScene {
 						MissileProjectile = weapons?.Lookup(
 							ProjectileType.Missile, BaseObject.MissileSubtype)
 					},
-					model);
+					model, null);
 			}
 
 			default:
-				return (null, null);
+				return (null, null, null);
 		}
 	}
 

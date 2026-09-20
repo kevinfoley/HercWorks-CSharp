@@ -57,7 +57,8 @@ public sealed record SceneModel(
 ///
 /// <para>Three resolution paths, one per roster, each following the original's own selection rule:</para>
 /// <list type="bullet">
-/// <item><b>Mechs</b> — <c>dts\&lt;name&gt;.DTS</c> root 0, textured by the bank
+/// <item><b>Mechs</b> — every root of <c>dts\&lt;name&gt;.DTS</c>, which are LOD variants of the one
+/// chassis and are drawn one at a time (see <see cref="MechDetailRoots"/>), textured by the bank
 /// <c>HercSimDat.ModelSkinId</c> selects (see docs/formats/dts-texture-binding.md).</item>
 /// <item><b>Flyers</b> — <c>dts\&lt;name&gt;.DTS</c> root 0, textured from <c>ENEMY.DBA</c>: the flyer
 /// type loader binds one fixed slot rather than choosing by chassis, and that slot is the Cybrid
@@ -295,14 +296,67 @@ public sealed class SceneModelLibrary {
 	/// building them into the mesh stood a flat untextured plate at every hardpoint. The weapon that
 	/// belongs there is drawn separately, from <see cref="MechWeapon"/>.</para>
 	/// </summary>
-	public SceneModel? Mech(string mechName) {
+	public SceneModel? Mech(string mechName, int rootIndex = 0) {
 		string? bankName = MechData(mechName) is { } data
 			? HercSimDat.TextureGroupDbaBaseName(data.ModelSkinId)
 			: null;
 
-		return Build(mechName + ".DTS", 0, bankName, segmented: true,
+		return Build(mechName + ".DTS", rootIndex, bankName, segmented: true,
 			hiddenPartIds: DtsMeshBuilder.AttachmentPartIds(MechHardpoints(mechName)));
 	}
+
+	/// <summary>
+	/// Every root of a machine's shape, finest first — the alternate models
+	/// <c>Shape_DrawAtDetailLevel</c> picks between each frame (see <see cref="ShapeDetail"/>).
+	/// Empty when the <c>.DTS</c> is missing.
+	///
+	/// <para><b>The chain stops at the first root that renumbers its animation nodes.</b> Each root
+	/// declares its own node tree and a node id means nothing outside it
+	/// (<see cref="ShapeAnimation.SharesNodeNumbering"/>); this engine evaluates one animation per
+	/// machine, root 0's, so a root that compacts its numbering would have its parts posed onto
+	/// whichever joints happen to share their numbers — on APOCA's root 4 that puts the whole upper
+	/// body on a knee. Retail has no such limit: it poses each root through that root's own tree.
+	/// Truncating here is this engine's own divergence, and it costs the crudest one to three roots
+	/// of each chassis — see docs/formats/mech-shape-drawing.md, "Each root numbers its own
+	/// nodes".</para>
+	///
+	/// <para>A prefix rather than a filtered set, because <see cref="ShapeDetail.SelectRoot"/> walks
+	/// the chain by index and a hole in it would move every root past the hole. Retail data makes
+	/// that free: the compatible roots are always the leading ones.</para>
+	/// </summary>
+	public IReadOnlyList<SceneModel> MechDetailRoots(string mechName) {
+		string dtsName = mechName + ".DTS";
+		int count = LoadDts(dtsName)?.Meshes?.Count ?? 0;
+		var roots = new List<SceneModel>(count);
+
+		for (int i = 0; i < count; i++) {
+			if (i > 0 && !ShapeAnimation.SharesNodeNumbering(Root(dtsName, i), Root(dtsName, 0))) {
+				break;
+			}
+
+			if (Mech(mechName, i) is not { } root) {
+				break;
+			}
+
+			roots.Add(root);
+		}
+
+		return roots;
+	}
+
+	/// <summary>
+	/// A machine's own bounding radius in world units — root 0's <c>TSBasePart.Radius</c>, the
+	/// <c>shape+8</c> that <c>Shape_DrawAtDetailLevel</c> measures its projected size from. Zero
+	/// when the shape is missing.
+	///
+	/// <para>Not <see cref="SceneModel.RadiusWorldUnits"/>, which this engine derives from the built
+	/// mesh's bounds for collision. The two differ, and the detail selection wants the one the
+	/// original reads. The radius is taken from root 0 whichever root is being drawn, because the
+	/// original restores root 0 into the shape instance after every draw and so measures root 0's
+	/// every time.</para>
+	/// </summary>
+	public int MechShapeRadius(string mechName) =>
+		Root(mechName + ".DTS", 0) is TSBasePart root ? root.Radius : 0;
 
 	/// <summary>
 	/// The model for a flyer type, or null when the install has no <c>.DTS</c> for it. Split by cell
@@ -694,10 +748,10 @@ public sealed class SceneModelLibrary {
 	}
 
 	/// <summary>
-	/// A mech file's roots are LOD variants of the same machine, so root 0 is taken as the primary;
-	/// a library file's roots (<c>BASES_AN.DTS</c>) are unrelated objects and the caller picks. The
-	/// files carry no flag distinguishing the two cases — that knowledge lives here, as it does in
-	/// the original.
+	/// A mech file's roots are LOD variants of the same machine, drawn one at a time; a library
+	/// file's roots (<c>BASES_AN.DTS</c>) are unrelated objects and the caller picks. The files carry
+	/// no flag distinguishing the two cases — that knowledge lives here, as it does in the original,
+	/// where it is the detail table only <c>Mech_Constructor</c> installs.
 	/// </summary>
 	private DynamixThreeSpaceModel? LoadDts(string dtsName) {
 		if (_files.TryGetValue(dtsName, out var cached)) {

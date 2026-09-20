@@ -1,4 +1,4 @@
-using HercWorks.Core.Data.File.Dts;
+﻿using HercWorks.Core.Data.File.Dts;
 using HercWorks.Core.Data.File.Dts.Anim;
 using HercWorks.Core.Data.File.Dts.Part;
 using HercWorks.Core.Data.File.Dyn;
@@ -237,8 +237,13 @@ public sealed class ShapeAnimation {
 		&& Sequences[sequenceId].FrameCount > 0 && Sequences[sequenceId].PartCount > 0;
 
 	/// <summary>
-	/// Flattens the first <c>ANAnimList</c> found in a parsed model, or returns null when it has
-	/// none. A mech <c>.DTS</c> carries exactly one, on its root shape.
+	/// Flattens the <b>first</b> <c>ANAnimList</c> in a parsed model — root 0's — or returns null
+	/// when it has none.
+	///
+	/// <para>Every root carries one of its own, and they differ: APOCA's root 0 declares 8 sequences
+	/// over a 12-node tree and its root 4 declares 1 over a 9-node tree, renumbered. This is root 0's
+	/// alone, so a caller that draws another root must check
+	/// <see cref="SharesNodeNumbering"/> first.</para>
 	/// </summary>
 	public static ShapeAnimation? FromModel(DynamixThreeSpaceModel? model) {
 		if (model?.Meshes is not { } roots || FirstAnimList(roots) is not { } list) {
@@ -359,6 +364,52 @@ public sealed class ShapeAnimation {
 			sequence?.PartIds ?? Array.Empty<short>(),
 			sequence?.GroundMovement != 0,
 			sequence is ANCyclicSequence);
+	}
+
+	/// <summary>
+	/// Whether <paramref name="root"/> numbers its animation nodes the way <paramref name="reference"/>
+	/// does — true when every <c>(parent, child)</c> pair in its own relation list appears, with the
+	/// same parent, in the reference's.
+	///
+	/// <para><b>Each root of a multi-root shape carries its own <c>ANAnimList</c>, and a node id is
+	/// only meaningful inside the root that declares it.</b> <c>ShapeInst_BuildWorldTransforms</c>
+	/// (<c>00478b58</c>) reads its relation list from <c>shapeInst-&gt;shape-&gt;animList</c>
+	/// (<c>shape+0x2a</c>) — the <i>currently selected</i> root, which
+	/// <c>Shape_DrawAtDetailLevel</c> swaps — so the original poses each root through that root's own
+	/// node tree. Posing one root's geometry with another's transforms lands a part on whatever joint
+	/// happens to share its number.</para>
+	///
+	/// <para>This is the test a caller needs before drawing one root with another's pose: it is
+	/// satisfied when a root merely drops nodes (a dropped id is never reused), and fails when it
+	/// compacts the numbering to close the gap. See docs/formats/mech-shape-drawing.md, "Each root
+	/// numbers its own nodes".</para>
+	/// </summary>
+	public static bool SharesNodeNumbering(TSObject? root, TSObject? reference) {
+		if (root == null || reference == null) {
+			return false;
+		}
+
+		if (ReferenceEquals(root, reference)) {
+			return true;
+		}
+
+		if (FirstAnimList(new[] { root }) is not { } list
+				|| FirstAnimList(new[] { reference }) is not { } referenceList) {
+			return false;
+		}
+
+		var parents = new Dictionary<short, short>();
+		foreach (var relation in referenceList.Relations ?? Array.Empty<Vec2Short>()) {
+			parents[relation.Y] = relation.X;
+		}
+
+		foreach (var relation in list.Relations ?? Array.Empty<Vec2Short>()) {
+			if (!parents.TryGetValue(relation.Y, out short parent) || parent != relation.X) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	private static ANAnimList? FirstAnimList(IEnumerable<TSObject> chunks) {

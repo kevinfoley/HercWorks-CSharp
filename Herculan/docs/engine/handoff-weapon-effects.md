@@ -9,6 +9,4 @@ Addresses below are starting points to decompile, not settled findings — check
 _ These are not organized in any particular order; this may not be the best order to complete these tasks in._
 
 - **Structures clip.** Projectiles and impact effects visibly sink into buildings, which retail does not do. **Hit geometry is ruled out** — measured, see [`../simulation/hit-detection.md`](../simulation/hit-detection.md), "Measured: hit geometry versus the drawn mesh". Remaining suspect is render layering.
-- **A machine's LOD roots are not selected.** The original picks one of a `.DTS`'s roots per frame from projected size and a detail bias; the engine hard-codes root 0. See [`../formats/mech-shape-drawing.md`](../formats/mech-shape-drawing.md).
-- **The 3D view is not clipped to the `.VUE` viewport rect.** Equivalent while the canopy is opaque; not for RAZOR's non-stub heads-down view.
-- In retail, when a target is selected, chain-firing skips weapons for which the selected target is out of range.
+- **RAZOR's heads-down view shows no world.** It is the one herc whose view 1 declares a real 3D rect and a real `.HD1`; the engine's heads-down surface draws the art and the panels but never runs a 3D pass behind them. The rect and the spans are both read — see [`../formats/cockpit-hud.md`](../formats/cockpit-hud.md#vue--per-view-geometry) — so what is missing is a fourth panel camera, not data.

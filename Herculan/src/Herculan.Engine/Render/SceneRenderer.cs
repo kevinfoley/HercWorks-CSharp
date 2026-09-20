@@ -31,6 +31,15 @@ public sealed class SceneItem {
 	/// </summary>
 	public bool Visible { get; set; } = true;
 
+	/// <summary>
+	/// Whether this item belongs to the LOD root its object is currently drawn as — see
+	/// <see cref="ShapeDetail"/>. A machine's shape is uploaded once per root and only one root's
+	/// items are selected at a time, so this is a second, independent reason for a piece not to be
+	/// drawn: <see cref="Visible"/> answers which <i>cell</i> of the shape is showing and this
+	/// answers which <i>shape</i>. Everything that has no LOD chain leaves it true.
+	/// </summary>
+	public bool DetailSelected { get; set; } = true;
+
 	/// <summary>Optional texture for this item. If null, flat-shaded rendering is used.</summary>
 	public uint? TextureHandle { get; set; }
 
@@ -407,7 +416,7 @@ public sealed class SceneRenderer : IDisposable {
 		int uploadedLightCount = -1;
 
 		foreach (var item in items) {
-			if (!item.Visible) {
+			if (!item.Visible || !item.DetailSelected) {
 				continue;
 			}
 

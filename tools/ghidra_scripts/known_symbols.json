@@ -8770,7 +8770,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Shape_DrawAtDetailLevel",
-      "description": "Picks which root of a multi-root shape to draw, per frame, from projected size (radius << DAT_006c60ac / (viewDistance - radius)) against the threshold table at obj+0x41, starting at index min(count-1, DAT_0049736c) and advancing while the size is below the threshold. Installs the transform, calls the shape instance's vtable +0x1c, then restores root 0. A close object therefore draws the root at the bias index.",
+      "description": "Picks which root of a multi-root shape to draw, per frame, from projected size ((radius << DAT_006c60ac) / max(dist - radius, 1), floored at 1) scaled by Q10 g_ShapeDetailSizeScaleQ10, against the descending threshold table the type record's +0xe2 points at. THE TWO INDICES DIFFER: the root index starts at g_ShapeDetailBias, the threshold cursor starts at 0, and both advance together -- so a nonzero bias is a floor on how fine the shape is ever drawn, not an offset into the table. Installs the transform, calls the shape instance's vtable +0x1c, then restores roots[0]. The detail table at obj+0x41 is installed only by SimObjectBase_ConstructWithDetailTable, whose sole caller is Mech_Constructor, so only a machine selects; a structure reaches here with it null and just draws. ENDS AT 004034f2 -- Structure_DrawWithDetailBias at 004034f4 is a separate function Ghidra has not defined, so a containment-based cross-reference reports its calls as coming from inside this one.",
       "source": "docs/formats/mech-shape-drawing.md"
     },
     {
@@ -8846,9 +8846,9 @@
       "address": "0049736c",
       "binary": "DBSIM",
       "type": "data",
-      "confidence": "medium",
-      "name": "maybe_g_ShapeDetailBias",
-      "description": "The starting index of Shape_DrawAtDetailLevel's LOD-root walk, clamped to the root count. A close object draws exactly this root, so a nonzero value makes root 0 unreachable at any distance. Almost certainly the STRUCTURE DETAIL setting, by analogy with TSDetailPart_Render's identical bias, but its writer was not traced.",
+      "confidence": "high",
+      "name": "g_ShapeDetailBias",
+      "description": "Shape_DrawAtDetailLevel's starting root index -- the floor on how fine any machine is drawn. Written by ShapeDetail_ApplyHercDetailSetting from g_HercDetailBiasValues {4,3,2,1,0} indexed by the HERC DETAIL preference byte DAT_004d1fc5, so setting 0 is the crudest and 4 the finest. Zero in the image; the runtime value is the load-bearing one.",
       "source": "docs/formats/mech-shape-drawing.md"
     },
     {
@@ -15175,6 +15175,194 @@
       "name": "Widget_NoClickSound",
       "description": "An empty function standing in for Widget_ClickSound at slot +8 of the slider family's secondary vtable. Dragging the throttle, or any other PanelHSliderGadget/PanelVSliderGadget leaf, makes no sound.",
       "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "004034f4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Structure_DrawWithDetailBias",
+      "description": "The Draw slot (+0x00) of all five structure vtables -- Structure, StructureRadar, StructureArmed, StructureEmplacement and StructureType0x22. Pushes g_TSDetailBiasFromStructureDetail into the TSDetailPart bias via TSDetailPart_SetBias, calls Shape_DrawAtDetailLevel, then restores the bias to 0. This is how the STRUCTURE DETAIL preference reaches TSDetailPart level selection. Ghidra has not defined it as a function, so it appears as Shape_DrawAtDetailLevel+0x110 in containment-based cross-references.",
+      "source": "docs/formats/mech-shape-drawing.md"
+    },
+    {
+      "address": "004033a4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SimObjectBase_ConstructWithDetailTable",
+      "description": "The shape-drawing base constructor that takes a LOD detail table: same body as SimObjectBase_ConstructAnimated, but builds the shape holder from roots[0] and stores the table itself at obj+0x41, where the other two base constructors null that field. Its only caller is Mech_Constructor, which is why a machine is the only class that selects a root.",
+      "source": "docs/formats/mech-shape-drawing.md"
+    },
+    {
+      "address": "0047872c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShapeInst_Construct",
+      "description": "TSShapeInstance constructor. Reads the node count from shape->animList+0x16 into shapeInst+0xc, then allocates the three per-node arrays ONCE: dirty flags at +0xe, local transforms at +0x12 (stride 0xc) and world transforms at +0x16 (stride 0x20). Seeds the locals from the anim list's DefaultTransforms and calls ShapeInst_BuildWorldTransforms. Nothing reallocates these, so an instance stays sized and numbered by the shape it was built with -- root 0 for a machine -- whatever root Shape_DrawAtDetailLevel later swaps in.",
+      "source": "docs/formats/mech-shape-drawing.md"
+    },
+    {
+      "address": "00474bcc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shape_LoadAllRoots",
+      "description": "Loads every root of a ClassItem shape file into a caller-supplied array and returns the count. param_3 is the expected class tag (0x1e0003 for a mech .DTS) and a mismatch only logs; param_4 skips that many leading roots and is 0 at every call site, so all roots are loaded. The staging buffer is 100 slots. MechType_InitOne uses the return as the type record's root count at +0xea, which is why a machine's LOD chain is as long as its file -- nothing truncates it.",
+      "source": "docs/formats/mech-shape-drawing.md"
+    },
+    {
+      "address": "0045d474",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShapeDetail_ApplyHercDetailSetting",
+      "description": "Applies the HERC DETAIL preference (DAT_004d1fc5, 0-4) to three globals through three key/value table pairs: g_ShapeDetailSizeScaleQ10 (2000 in every slot), g_ShapeDetailBias {4,3,2,1,0} and g_TSDetailBiasFromHercDetail {2,2,1,1,0}. Called from maybe_Sim_RenderFrame when the byte changes and unconditionally at mission bring-up (00461ddc); both sites push the preference byte itself, with nothing in between.",
+      "source": "docs/formats/mech-shape-drawing.md"
+    },
+    {
+      "address": "0045d4f0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "StructureDetail_ApplySetting",
+      "description": "The STRUCTURE DETAIL counterpart of ShapeDetail_ApplyHercDetailSetting, called with DAT_004d1fc6 from the same two sites. Walks g_StructureDetailKeys and writes the matching g_StructureDetailValues entry into both g_TSDetailBiasFromStructureDetail -- which Structure_DrawWithDetailBias pushes into the TSDetailPart bias -- and DAT_004a9e48, whose consumer is not traced.",
+      "source": "docs/formats/mech-shape-drawing.md"
+    },
+    {
+      "address": "004768ac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TSDetailPart_SetBias",
+      "description": "One-line setter for g_TSDetailPartBias, the starting level index TSDetailPart_Render walks up from, and its only writer. Every caller is a draw slot bracketing its render with a push and a restore to 0: Structure_DrawWithDetailBias, Flyer_Draw, Debris_Draw and FUN_0040ded8.",
+      "source": "docs/formats/dts-texture-binding.md"
+    },
+    {
+      "address": "0040ded8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "low",
+      "description": "Draw wrapper: pushes g_TSDetailBiasFromHercDetail into the TSDetailPart bias via TSDetailPart_SetBias, calls FUN_0040316c, restores the bias to 0. The same bracket Structure_DrawWithDetailBias applies, but from the HERC DETAIL table rather than the STRUCTURE DETAIL one. What FUN_0040316c draws is not traced.",
+      "source": "docs/formats/mech-shape-drawing.md"
+    },
+    {
+      "address": "0049a344",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_ShapeDetailThresholds",
+      "description": "The LOD root threshold table, seven int32s {75, 60, 45, 25, 18, 12, 6} in projected pixels. MechType_InitOne writes this one address into EVERY mech type record's detail struct at +0xe2, so it is a single global table and not per-chassis data. Descending, so Shape_DrawAtDetailLevel advances while the shape is SMALLER than the entry -- the opposite sense to TSDetailPart_Render's ascending per-part table.",
+      "source": "docs/formats/mech-shape-drawing.md"
+    },
+    {
+      "address": "00497368",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_ShapeDetailSizeScaleQ10",
+      "description": "Q10 factor the projected size is scaled by before the threshold comparison in Shape_DrawAtDetailLevel. Written by ShapeDetail_ApplyHercDetailSetting from g_HercDetailScaleValues, which holds 2000 for all five settings; the image's own initialiser leaves it at Q10 one (1024).",
+      "source": "docs/formats/mech-shape-drawing.md"
+    },
+    {
+      "address": "0049eff4",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_HercDetailScaleKeys",
+      "description": "Five int16 lookup keys {0,1,2,3,4} ShapeDetail_ApplyHercDetailSetting walks with setting <= key to index g_HercDetailScaleValues. Identity, so a setting selects its own slot.",
+      "source": "docs/formats/mech-shape-drawing.md"
+    },
+    {
+      "address": "0049effe",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_HercDetailScaleValues",
+      "description": "Five int16 values for g_ShapeDetailSizeScaleQ10, one per HERC DETAIL setting: 2000 in every slot, so the setting does not in fact move this one.",
+      "source": "docs/formats/mech-shape-drawing.md"
+    },
+    {
+      "address": "0049f008",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_HercDetailBiasKeys",
+      "description": "Five int16 lookup keys {0,1,2,3,4} for the second table pair in ShapeDetail_ApplyHercDetailSetting. Identity, as g_HercDetailScaleKeys is.",
+      "source": "docs/formats/mech-shape-drawing.md"
+    },
+    {
+      "address": "0049f012",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_HercDetailBiasValues",
+      "description": "Five int16 values for g_ShapeDetailBias, one per HERC DETAIL setting: {4,3,2,1,0}. Setting 4 is the finest; setting 0 pins every machine to root 4 or coarser at any distance.",
+      "source": "docs/formats/mech-shape-drawing.md"
+    },
+    {
+      "address": "0049f01c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_HercDetailTSDetailBiasValues",
+      "description": "Five int16 values for g_TSDetailBiasFromHercDetail, one per HERC DETAIL setting: {2,2,1,1,0}. Written by the same pass that writes g_ShapeDetailBias.",
+      "source": "docs/formats/mech-shape-drawing.md"
+    },
+    {
+      "address": "0049f026",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_StructureDetailKeys",
+      "description": "Five int16 lookup keys StructureDetail_ApplySetting walks with setting <= key.",
+      "source": "docs/formats/mech-shape-drawing.md"
+    },
+    {
+      "address": "0049f02c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_StructureDetailValues",
+      "description": "Five int16 values StructureDetail_ApplySetting writes into both g_TSDetailBiasFromStructureDetail and DAT_004a9e48.",
+      "source": "docs/formats/mech-shape-drawing.md"
+    },
+    {
+      "address": "004a98ec",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_TSDetailBiasFromHercDetail",
+      "description": "TSDetailPart starting level derived from the HERC DETAIL setting, via g_HercDetailTSDetailBiasValues. Read by FUN_0040ded8 and WeaponMount_Destroy, each pushing it into g_TSDetailPartBias around a draw.",
+      "source": "docs/formats/mech-shape-drawing.md"
+    },
+    {
+      "address": "004a9638",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_TSDetailBiasFromStructureDetail",
+      "description": "TSDetailPart starting level derived from the STRUCTURE DETAIL setting, via g_StructureDetailValues. Structure_DrawWithDetailBias pushes it into g_TSDetailPartBias for the duration of every structure's draw -- the whole route from that preference to what is drawn.",
+      "source": "docs/formats/mech-shape-drawing.md"
+    },
+    {
+      "address": "004a1038",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_TSDetailPartBias",
+      "description": "The level index TSDetailPart_Render starts its walk from, and subtracts again when indexing Parts. Written only by TSDetailPart_SetBias, which every draw slot that cares brackets its render with. Zero -- maximum detail -- outside such a bracket.",
+      "source": "docs/formats/dts-texture-binding.md"
+    },
+    {
+      "address": "004a1034",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_TSDetailPartSizeScaleQ10",
+      "description": "Q10 factor TSDetailPart_Render scales projected size by before comparing against the part's own Details table. 1024 (Q10 one) in the image.",
+      "source": "docs/formats/dts-texture-binding.md"
     }
   ]
 }

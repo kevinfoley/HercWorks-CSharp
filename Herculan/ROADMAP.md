@@ -22,9 +22,13 @@ The mechanism is understood; what is left is engine work.
   the comm box's `.SNC` portrait animation. Red Book music through MCI is not, so a mission runs
   without its track.
   → [`docs/formats/audio.md`](docs/formats/audio.md)
-- **A machine's LOD roots are not selected.** Root 0 is hard-coded where the original picks one per
-  frame from projected size and a detail bias.
-  → [`docs/formats/mech-shape-drawing.md`](docs/formats/mech-shape-drawing.md)
+- **A machine's crudest LOD roots are never drawn.** Root selection is ported, but the roots that
+  compact their node numbering — the crudest one to three of each chassis — are excluded, because
+  drawing them puts APOCA's upper body on a knee. The original composes every root through root 0's
+  pose array too, so by the binary it should do the same; retail does not visibly do so, and what
+  reconciles that is not yet found. **Settle that before changing anything here**: it decides
+  whether the truncation is a divergence to lift or retail behaviour to match.
+  → [`docs/formats/mech-shape-drawing.md`](docs/formats/mech-shape-drawing.md#the-pose-array-is-root-0s)
 - **Terrain raycast, swept-volume mode.** Only thin-ray mode is ported; the swept-volume mode
   (movement collision) is not, because nothing in the engine needs it yet.
   → [`docs/formats/terrain-heightmap.md`](docs/formats/terrain-heightmap.md)
@@ -139,15 +143,14 @@ hit-testing rather than new drawing code. What is missing:
 - Currently missing is a quirk from retail where the player's shield meter fills in over ~10 seconds at the start of a mission. Claude says there's no explanation for this in the shield code, where the shields start out at full charge, and would take ~30 seconds to fully charge from empty. The fade-in-over-10-seconds may be a HUD animation that hasn't been discovered during RE yet.
 - Similarly to the previous, currently missing is an animation where weapon buttons wink on one-at-a-time when the simulation first starts.
 - Preferences (F12): the screen is laid out, reads the install's own `data\prefs.cfg` and cycles its
-  settings, but five of the nine rows still change nothing — MUSIC, SOUNDS, PILOT MESSAGE, COMPUTER
-  MESSAGE and HERC DETAIL are saved to the file and read by no consumer, so wiring them up means
-  reaching into the audio sink and the message port. TERRAIN DISTANCE, TERRAIN TEXTURE and the audio
-  half of EFFECTS DETAIL are live. What the other two want is not a hookup but a feature each:
+  settings, but four of the nine rows still change nothing — MUSIC, SOUNDS, PILOT MESSAGE and
+  COMPUTER MESSAGE are saved to the file and read by no consumer, so wiring them up means
+  reaching into the audio sink and the message port. TERRAIN DISTANCE, TERRAIN TEXTURE, HERC DETAIL
+  and the audio half of EFFECTS DETAIL are live. What the other two want is not a hookup but a feature each:
   STRUCTURE DETAIL is the bias in `TSDetailPart`'s level selection, and the engine draws the finest
   level unconditionally rather than choosing one by projected size
   (→ [`docs/formats/dts-texture-binding.md`](docs/formats/dts-texture-binding.md#tsdetailpart-level-selection-and-structure-detail));
-  what EFFECTS DETAIL does to the effects themselves, as against to the sound throttle, is undecoded,
-  and HERC DETAIL is undecoded outright.
+  what EFFECTS DETAIL does to the effects themselves, as against to the sound throttle, is undecoded.
   Separately, a changed setting is not applied while the panel is still up: the
   per-option handler table (`004d2060`) is unported. All five of its handlers are decoded; MUSIC,
   SOUNDS and PILOT MESSAGE have no other route to their setting, so those three are where wiring the

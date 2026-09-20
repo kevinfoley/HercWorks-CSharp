@@ -288,7 +288,7 @@ public static class CockpitWidgets {
 	/// <summary>
 	/// The weapon panel's rows. The clickable region is the <c>.GAU</c> hardpoint rect itself, not the
 	/// plate art drawn over it — the row's select gadget is built on that rect
-	/// (<c>WeaponSelectGadget_Ctor</c>) and registered first, so it takes the click even where the
+	/// (<c>ChainedWeaponSelectGadget_Ctor</c>) and registered first, so it takes the click even where the
 	/// energy row's value-field child overlaps it.
 	///
 	/// <para>Rows past the herc's own weapon count are not built at all, so they are not listed. A

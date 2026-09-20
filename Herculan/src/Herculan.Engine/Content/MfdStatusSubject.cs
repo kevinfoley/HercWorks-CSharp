@@ -1,3 +1,6 @@
+using Herculan.Engine.Numerics;
+using Herculan.Engine.Settings;
+
 namespace Herculan.Engine.Content;
 
 /// <summary>Which art the status screen puts in its wireframe viewport.</summary>
@@ -116,7 +119,22 @@ public readonly record struct MfdStatusSubject(
 
 		bool own = subject == viewer;
 		bool hostile = subject.Side != World.MissionSide.Human;
-		int distance = viewer != null ? viewer.Position.ApproxDistanceTo(subject.Position) : 0;
+		int distance;
+		if (TweakSettings.Current.GetSettingValue(TweakSettingDefinitions.ShowTargetDistanceInMeters)) {
+			// Use the same distance formula as the MFD F4 SCANNER screen, so the numbers agree.
+			if (viewer == null) {
+				distance = 0;
+			} else {
+				int dx = subject.Position.X - viewer.Position.X;
+				int dy = subject.Position.Y - viewer.Position.Y;
+				distance = Math.Max(SimMath.FastMagnitude2D(dx, dy), 1);
+			}
+		} else {
+			// Tweak not enabled, use the vanilla formula. This does not agree with SCANNER,
+			// but it isn't apparent because vanilla displays distance in engine units
+			// on the F5 TARGET screen.
+			distance = viewer != null ? viewer.Position.ApproxDistanceTo(subject.Position) : 0;
+		}
 
 		switch (subject) {
 			case Sim.MechObject mech: {

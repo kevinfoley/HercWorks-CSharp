@@ -10,12 +10,25 @@ namespace Herculan.Engine.Settings;
 /// every existing save file without needing a migration.
 /// </summary>
 public sealed class TweakSettings {
+
+	private static TweakSettings? current;
+	public static TweakSettings Current {
+		get {
+			if (current == null) current = new TweakSettings();
+			return current;
+		}
+	}
+
 	private static readonly JsonSerializerOptions SerializerOptions = new() {
 		WriteIndented = true,
 		DefaultIgnoreCondition = JsonIgnoreCondition.Never
 	};
 
 	private readonly Dictionary<TweakSettingDefinition<bool>, bool> _bools = new();
+
+	private TweakSettings() {
+		current = this;
+	}
 
 	public bool GetSettingValue(TweakSettingDefinition<bool> setting)
 		=> _bools.TryGetValue(setting, out bool value) ? value : setting.DefaultValue;

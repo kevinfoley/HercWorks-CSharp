@@ -3,12 +3,14 @@ tweak.target_distance_meters.description On the MFD, show target distance in met
 tweak.show_correct_stats.display_name Show correct stats
 tweak.show_correct_stats.description Fix HERC and weapon stats that vanilla displayed incorrectly in VSHELL, such as the Outlaw's top speed and the Raptor II's hardpoint count.
 tweak.show_accurate_speed.display_name Show accurate speed
-tweak.show_accurate_speed.description Show the HERC's accurate movement speed on the HUD. Retail shows an inaccurate reading while walking.
+tweak.show_accurate_speed.description Show the HERC's true movement speed on the HUD. Retail shows an inaccurate reading while walking.
 tweak.fix_nacelle_impact_position.display_name Fix nacelle impact effect position
 tweak.fix_nacelle_impact_position.description Draw the impact effect for a hit on the Razor's right nacelle at the correct side, instead of always at the left nacelle.
 tweak.preserve_sound_position.display_name Preserve sound position
 tweak.preserve_sound_position.description Fix a new sound effect overwriting the volume and position of an already-playing sound effect of the same type.
-tweak.friendly_target_destroyed.display_name Friendly target destroyed message
-tweak.friendly_target_destroyed.description Play "Friendly Target Destroyed" when the player destroys a friendly unit they have targeted. Retail plays "Enemy Target Destroyed" instead.
+tweak.friendly_target_destroyed_message.display_name "Friendly Target Destroyed" message
+tweak.friendly_target_destroyed_message.description Play "Friendly Target Destroyed" when the player destroys a friendly unit they have targeted. Retail plays "Enemy Target Destroyed" instead.
+tweak.critical_damage_message.display_name "Damage Level Critical" message
+tweak.critical_damage_message.description Play "Damage Level Critical" when the player takes critical damage. Does not work in retail due to a typo in the code.
 tweak.smoother_turret_movement.display_name Smoother turret movement
 tweak.smoother_turret_movement.description Smooth turret rotation when aiming with a joystick or other analog input. Retail rounds the rotation value, causing stutter at slow aiming speeds. Has no effect when aiming with the keyboard.

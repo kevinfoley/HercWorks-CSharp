@@ -2,6 +2,7 @@
 using Herculan.Engine.Sim.Ai;
 using Herculan.Engine.World;
 using Herculan.Engine.Numerics;
+using Herculan.Engine.Settings;
 
 namespace Herculan.Engine.Sim;
 
@@ -608,10 +609,9 @@ public sealed partial class MechObject {
 			// site is inside that block and tests the *pre*-write reading against the same limit,
 			// which asks for a cockpit that came out of the hit less damaged than it went in; taking
 			// each test from the other reading turns it into the upward crossing it reads as
-			// intended to be. That swap is this engine's reading of the intent, not something the
-			// binary states. Held at false until the Tweaks menu can offer it, since retail
-			// never says this line — see SystemMessages.DamageLevelCritical and KNOWN_ISSUES.md.
-			if (FixDamageLevelCriticalPost && LocallyPiloted
+			// intended to be. This is a non-vanilla tweak. See SystemMessages.DamageLevelCritical
+			// and KNOWN_ISSUES.md.
+			if (TweakSettings.Current.GetSettingValue(TweakSettingDefinitions.CriticalDamageMessage) && LocallyPiloted
 					&& before < CockpitShakeDamageLimit && CockpitShakeDamageLimit < after
 					&& (componentIndex == CockpitFrontComponent
 						|| componentIndex == CockpitRearComponent)) {

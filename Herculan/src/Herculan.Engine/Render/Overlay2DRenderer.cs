@@ -7,6 +7,7 @@ using Herculan.Engine.Gl;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Sim;
 using Silk.NET.OpenGL;
+using Herculan.Engine.Settings;
 
 namespace Herculan.Engine.Render;
 
@@ -2048,9 +2049,16 @@ public sealed class Overlay2DRenderer : IDisposable {
 		Label(1, subject.Name, subject.Hostile ? MfdLayout.HostileNameFont : MfdLayout.FriendlyNameFont);
 		Label(2, strings?.Text(MfdLayout.StatusLabelGroup, 0), MfdLayout.StatusLabelFonts[2]);
 		Label(3, strings?.Text(MfdLayout.ConditionGroup, subject.Condition), MfdLayout.StatusLabelFonts[3]);
-		Label(4, subject.Hostile
-			? MfdLayout.DistanceReadout(strings, subject.Distance)
-			: MfdLayout.IntegrityReadout(subject.Damage), MfdLayout.StatusLabelFonts[4]);
+		if (subject.Hostile) { // F5 TARGET screen, show distance.
+			if (TweakSettings.Current.GetSettingValue(TweakSettingDefinitions.ShowTargetDistanceInMeters)) {
+				Label(4, MfdLayout.DistanceReadout(strings, MfdScanner.WorldUnitsToMetres(subject.Distance)),
+					MfdLayout.StatusLabelFonts[4]);
+			} else { // Vanilla functionality is to show the distance in engine units (6mm / unit)
+				Label(4, MfdLayout.DistanceReadout(strings, subject.Distance), MfdLayout.StatusLabelFonts[4]);
+			}
+		} else { // F1 STATUS screen, show hull integrity.
+			Label(4, MfdLayout.IntegrityReadout(subject.Damage), MfdLayout.StatusLabelFonts[4]);
+		}
 
 		switch (subject.SilhouetteKind) {
 			// The paper doll blits at the viewport's top-left plus the .PDG view's own origin plus a

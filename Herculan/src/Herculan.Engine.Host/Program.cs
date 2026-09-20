@@ -300,8 +300,7 @@ for (int i = 0; i < args.Length; i++) {
 // --shell and --movie once those have a menu bar of their own to raise TweaksMenu from — see
 // docs/engine/planning.md. Built before that branch so nothing below has to change when they do.
 var localization = new LocalizationTable();
-var tweakSettings = new TweakSettings();
-tweakSettings.LoadFromDisk();
+TweakSettings.Current.LoadFromDisk();
 
 string? installRoot = GameInstall.Locate(positional.Count > 0 ? positional[0] : null);
 if (installRoot == null) {
@@ -460,7 +459,7 @@ var controlsPanel = ControlsPanel.Build(content, simulatorPreferences, pilotingR
 // Retail-deviation toggles — see TweakSettingDefinitions. Not mission state, but built here
 // rather than up with localization/tweakSettings themselves because this is the first place
 // with an ImGui menu bar to raise it from; --shell and --movie return before reaching this point.
-var tweaksMenu = new TweaksMenu(tweakSettings, localization);
+var tweaksMenu = new TweaksMenu(TweakSettings.Current, localization);
 
 // The stick, once the window has an input context to enumerate it with. The bindings themselves are
 // the twelve bytes of prefs.cfg either way — nothing about them changes when the hardware does, which

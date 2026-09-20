@@ -188,8 +188,9 @@ public sealed record MissionAction(
 /// The action that arms the timer, or <c>-1</c> for one that runs from mission start.
 /// </param>
 /// <param name="Delay">
-/// How long the timer runs, in milliseconds. The file states it in <see cref="DelayShift"/>-bit
-/// units, which <c>FUN_004679c0</c> converts on the way in.
+/// How long the timer runs, in <see cref="Numerics.SimMath.TickDelta"/>'s timer unit. The file
+/// states it in <see cref="DelayShift"/>-bit units, which <c>FUN_004679c0</c> converts on the way
+/// in.
 /// </param>
 /// <param name="SequenceRefs">The actions the timer activates, ten slots with unused ones <c>-1</c>.</param>
 public sealed record MissionActionTimer(int PrimaryActionRef, int Delay, IReadOnlyList<short> SequenceRefs) {
@@ -197,15 +198,15 @@ public sealed record MissionActionTimer(int PrimaryActionRef, int Delay, IReadOn
 	public const int SequenceSlots = 10;
 
 	/// <summary>
-	/// What the file's stored delay is shifted by to make milliseconds — <c>FUN_004679c0</c>'s own
-	/// <c>value &lt;&lt; 11</c>, so the unit is 2.048 seconds and a stored 30 is a little over a
-	/// minute.
+	/// What the file's stored delay is shifted by to reach the simulation's timer unit —
+	/// <c>FUN_004679c0</c>'s own <c>value &lt;&lt; 11</c>. 2048 counts is 1000 ms exactly, so the
+	/// on-disk unit is one second and a stored 30 is half a minute.
 	/// </summary>
 	public const int DelayShift = 11;
 
 	/// <summary>
 	/// What the timer is reloaded with once it expires — <c>ActionTimer_Tick</c>'s literal 30000,
-	/// through the same shift, which is about seventeen hours. It does run again on
+	/// through the same shift, which is about eight hours. It does run again on
 	/// that schedule; it just has nothing left to do, because every action it names has already
 	/// activated and <c>Action_Activate</c> is one-shot.
 	/// </summary>

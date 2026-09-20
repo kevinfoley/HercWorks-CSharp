@@ -12,7 +12,11 @@ public sealed partial class MechObject {
 	/// <summary>How long a target selection holds before the think looks again — the original's own literal.</summary>
 	private const int RamRetargetInterval = 10000;
 
-	/// <summary>The charge lasts this plus <c>rand(<see cref="RamChargeJitter"/>)</c> milliseconds.</summary>
+	/// <summary>
+	/// The charge lasts this plus <c>rand(<see cref="RamChargeJitter"/>)</c>, in
+	/// <see cref="SimMath.CountdownTimerTick"/>'s unit rather than milliseconds: about 1.5 seconds
+	/// before the jitter.
+	/// </summary>
 	private const int RamChargeTime = 3000;
 
 	/// <inheritdoc cref="RamChargeTime"/>

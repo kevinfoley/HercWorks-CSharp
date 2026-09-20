@@ -25,7 +25,7 @@ public sealed class MissionActionTimerState {
 	/// <summary>The actions it fires, unset slots left null.</summary>
 	public IReadOnlyList<MissionActionState?> Sequence { get; }
 
-	/// <summary>Milliseconds left on the countdown.</summary>
+	/// <summary>What is left on the countdown, in <see cref="SimMath.TickDelta"/>'s timer unit.</summary>
 	public int Remaining { get; private set; }
 
 	/// <summary>

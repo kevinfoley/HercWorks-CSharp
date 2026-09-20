@@ -168,7 +168,7 @@ It reaches the file through a plain-file-read helper with no container header, s
 | `+0x1e` | `int16` | non-zero = invulnerable (types 21, 22, 23) |
 | `+0x20` | `int16`×2 | playback rate for each of those threads — [`structure-behaviour.md`](structure-behaviour.md#the-animation-threads) |
 | `+0x24` | `int16` | idle cell-flipbook sequence, `-1` for none — [`structure-behaviour.md`](structure-behaviour.md#the-plain-tick--base_thinktick-00403ca8) |
-| `+0x26` | `int16` | that flipbook's frame interval, in milliseconds |
+| `+0x26` | `int16` | that flipbook's frame interval, in the simulation's timer unit — [`structure-behaviour.md`](structure-behaviour.md#timer-units) |
 | `+0x28` | `int16` | MFD silhouette frame and type-name index |
 | `+0x2a` | `int16` | body radius, vtable `+0x5c` (`Base_GetBodyRadius`, `004035a4`), and `+0x7c` for an animated type; four types state 0 |
 | `+0x30` | `int16` | non-zero installs `BASECOL.DAT`'s model at runtime `+0x38` |

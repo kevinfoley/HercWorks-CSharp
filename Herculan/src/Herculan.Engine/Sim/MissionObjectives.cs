@@ -475,19 +475,21 @@ public sealed class MissionObjectives {
 
 	/// <summary>
 	/// How long the poll waits between readings once it has one that is not worth raising —
-	/// <c>DAT_004a9ee6</c>'s re-arm, in milliseconds.
+	/// <c>DAT_004a9ee6</c>'s re-arm, in <see cref="SimMath.CountdownTimerTick"/>'s unit rather than
+	/// milliseconds: about 4.9 seconds.
 	/// </summary>
 	public const short PollInterval = 10000;
 
 	/// <summary>
 	/// How long an alert-worthy status has to stand before the poll hands it up —
-	/// <c>DAT_004a9ee9</c>'s arm, in milliseconds. Armed once and never re-armed.
+	/// <c>DAT_004a9ee9</c>'s arm, in the same unit — about 4.9 seconds. Armed once and never
+	/// re-armed.
 	/// </summary>
 	public const short AlertDelay = 10000;
 
 	/// <summary>
-	/// How long <see cref="Evaluate"/> holds its answer still after posting a message, in
-	/// milliseconds — <c>DAT_004a9bec</c>'s arm.
+	/// How long <see cref="Evaluate"/> holds its answer still after posting a message —
+	/// <c>DAT_004a9bec</c>'s arm, in the same unit: about a quarter of a second.
 	/// </summary>
 	public const short MessageLockout = 500;
 

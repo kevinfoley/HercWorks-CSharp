@@ -41,12 +41,21 @@ The mechanism is understood; what is left is engine work.
   [`docs/formats/save-games.md`](docs/formats/save-games.md)
 - **The computer's damage messages.** The engine speaks the objective set, the waypoint, the radar
   and auto-track toggles and the power-up line. The rest of `Computer_PostMessage`'s traffic — the
-  `INTERNAL DAMAGE` family, `WEAPON DESTROYED`, `DAMAGE LEVEL CRITICAL`, `SHIELDS CRITICAL`, and
+  `INTERNAL DAMAGE` family, `WEAPON DESTROYED`, `SHIELDS CRITICAL`, and
   `ENEMY TARGET DESTROYED`/`DISABLED` when the player kills what they had selected — is not posted.
+  (This task may have been completed, please verify against docs and code before starting.)
   → [`docs/formats/cockpit-messages.md`](docs/formats/cockpit-messages.md#posters)
 - **Flyer control bindings.** The flight model is ported and the axis roles are known, but key
 bindings are hardcoded placeholders.
   → [`docs/simulation/razor-flight.md`](docs/simulation/razor-flight.md)
+- **The engine can only load a `script.dat` handoff, not a `.MSN`.** `MissionLoader` builds a
+  mission out of the campaign handoff alone; the ~50 real missions in `ZONES.VOL` are `.MSN` files,
+  whose format is decoded and read by `HercWorks.Core`'s `MissionFileTransformer` but which nothing
+  turns into a `Mission`. So the engine can be flown against a handful of saved states and not
+  against the game's own missions, and a scenario that is not in the handoff — a ground-vehicle
+  convoy, for one — has to be built by hand.
+  → [`docs/formats/msn-mission-file.md`](docs/formats/msn-mission-file.md),
+  [`docs/formats/script-dat.md`](docs/formats/script-dat.md)
 
 ## Reverse-engineering still open
 
@@ -72,7 +81,7 @@ The engine cannot be faithful here until the original is understood.
 - **The drop pod's ground mark.** The leftover effect a landed pod spawns comes from the theater's
   `flat`/`flat2` shape pool, which is not ported.
   → [`docs/simulation/mission-deployment.md`](docs/simulation/mission-deployment.md)
-- **The cockpit widget class family's vtables.** `known_vtables.json` covers the simulation-object hierarchy only, so not one widget class is in it, and the slot offsets are not uniform across the family: a new cockpit control has to be reached by dumping its own class's table afresh rather than by looking a shape up. Fifteen tables are known to carry `Widget_ClickSound`, and of those only the shield facing's is tied to the class that owns it.
+- **The cockpit widget class family's vtables.** `known_vtables.json` covers the simulation-object hierarchy only, so not one widget class is in it, and the slot offsets are not uniform across the family: a new cockpit control has to be reached by dumping its own class's table afresh rather than by looking a shape up. Fifteen tables are known to carry `Widget_ClickSound`, and of those only the shield facing's is tied to the class that owns it. (This task may have been completed, please verify against docs and code before starting.)
   → [`docs/formats/cockpit-input.md`](docs/formats/cockpit-input.md),
   [`docs/formats/cockpit-hud.md`](docs/formats/cockpit-hud.md)
 - **External view (`[V]` chase camera) is entirely engine-invented.** DBSIM's own external view

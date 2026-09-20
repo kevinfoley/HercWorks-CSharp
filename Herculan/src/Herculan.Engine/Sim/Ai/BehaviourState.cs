@@ -95,11 +95,11 @@ public enum ThinkSlot {
 /// branched on there rather than dispatched through a field, since it is the only exception.</para>
 /// </summary>
 public sealed class BehaviourState {
-	private BehaviourState(int index, string name, int dwellMs, int flags, ReassessSlot reassess,
+	private BehaviourState(int index, string name, int dwell, int flags, ReassessSlot reassess,
 			ThinkSlot think = ThinkSlot.None, int objectiveLine = 3) {
 		Index = index;
 		Name = name;
-		DwellMs = dwellMs;
+		Dwell = dwell;
 		Flags = flags;
 		Reassess = reassess;
 		Think = think;
@@ -121,11 +121,12 @@ public sealed class BehaviourState {
 	public string Name { get; }
 
 	/// <summary>
-	/// Descriptor <c>+0x04</c> — the dwell time in milliseconds. Only meaningful for the eight
-	/// states whose <see cref="SuppressesDwell"/> is clear; for the rest the countdown is loaded and
-	/// never stepped.
+	/// Descriptor <c>+0x04</c> — the dwell time, in <see cref="SimMath.TimerCountDown"/>'s unit and
+	/// not in milliseconds: the 50000 the combat states state is about 24 seconds. Only meaningful
+	/// for the eight states whose <see cref="SuppressesDwell"/> is clear; for the rest the countdown
+	/// is loaded and never stepped.
 	/// </summary>
-	public int DwellMs { get; }
+	public int Dwell { get; }
 
 	/// <summary>
 	/// Descriptor <c>+0x08</c> as the 16-bit mask it is built from, before
@@ -220,7 +221,8 @@ public struct BehaviourBlock {
 	public BehaviourState? State { get; private set; }
 
 	/// <summary>
-	/// Block <c>+0x05</c> — the dwell countdown, in milliseconds. Reaching zero is what makes
+	/// Block <c>+0x05</c> — the dwell countdown, in <see cref="SimMath.TimerCountDown"/>'s unit.
+	/// Reaching zero is what makes
 	/// <see cref="MechObject.AiTick"/> run the reassess slot; only a state whose
 	/// <see cref="BehaviourState.SuppressesDwell"/> is clear ever counts down at all.
 	/// </summary>
@@ -231,12 +233,12 @@ public struct BehaviourBlock {
 
 	/// <summary>
 	/// <c>Behaviour_SetState</c> (<c>00413e50</c>): installs a descriptor and arms its countdown at
-	/// the descriptor's dwell plus a 0-15 ms jitter, zeroing the tick counter and the block's two
+	/// the descriptor's dwell plus a 0-15 count jitter, zeroing the tick counter and the block's two
 	/// scratch regions — which here is everything the block holds.
 	/// </summary>
 	public void SetState(BehaviourState state) {
 		State = state;
-		DwellCountdown = state.DwellMs + NextJitter();
+		DwellCountdown = state.Dwell + NextJitter();
 		TickCount = 0;
 	}
 

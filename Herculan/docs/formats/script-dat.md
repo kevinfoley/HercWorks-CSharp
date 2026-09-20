@@ -202,13 +202,13 @@ The herc-LUT refs at `0x44`-`0x4D` are the ten bytes read and dropped; DBSIM has
 
 ### Block 6 in memory — 49 bytes (`0x31`)
 
-`DBSim_BuildActionTimerRecord` (`00423104`) resolves each ref to a block-5 record pointer and arms the timer through `FUN_004679c0`, which stores the file value **shifted left 11** — so the on-disk unit is 2.048 seconds.
+`DBSim_BuildActionTimerRecord` (`00423104`) resolves each ref to a block-5 record pointer and arms the timer through `FUN_004679c0`, which stores the file value **shifted left 11** into the simulation's timer unit — 2048 counts, so the on-disk unit is exactly one second.
 
 | offset | from | field |
 |---|---|---|
 | `0x00` | `0x06` | the primary action, or null. Null means the timer runs from mission start |
 | `0x04`-`0x28` | `0x0A`-`0x1D` | ten action pointers, activated together when the timer expires |
-| `0x2c` | `0x08` | the countdown, in milliseconds |
+| `0x2c` | `0x08` | the countdown, in the simulation's timer unit — [`../simulation/structure-behaviour.md`](../simulation/structure-behaviour.md#timer-units) |
 
 This is the mission's timer, and it is why an action carrying no trigger area of its own is ordinary rather than dead.
 

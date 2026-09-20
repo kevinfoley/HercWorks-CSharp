@@ -22,8 +22,8 @@ public class ActionTimer30 : MapObject {
 	public short PrimaryActionRef { get; set; }
 
 	/// <summary>
-	/// 0x08 — the delay. DBSIM shifts it left 11 into milliseconds, so the unit is 2.048 seconds and
-	/// the dominant stored 10 is a little over 20 s.
+	/// 0x08 — the delay. DBSIM shifts it left 11 into its own timer unit, so the unit is one second
+	/// and the dominant stored 10 is ten seconds.
 	/// </summary>
 	public short TimerValue { get; set; }
 

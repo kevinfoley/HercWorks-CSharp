@@ -195,8 +195,10 @@ public readonly record struct BaseComponentType(
 /// than a damage state, and it is what makes a radar dish turn.
 /// </param>
 /// <param name="AnimCellInterval">
-/// <c>+0x26</c> — how long one frame of <paramref name="AnimCellSequence"/> holds, in milliseconds.
-/// Reloaded into the structure's own countdown each time it expires.
+/// <c>+0x26</c> — how long one frame of <paramref name="AnimCellSequence"/> holds, in
+/// <see cref="Numerics.SimMath.CountdownTimerTick"/>'s unit rather than milliseconds: the 256 every
+/// animated type states is a frame every 125 ms. Reloaded into the structure's own countdown each
+/// time it expires.
 /// </param>
 /// <param name="Components">
 /// <c>+0x14</c> — the type's destructible parts, in the order the file states them, which is the

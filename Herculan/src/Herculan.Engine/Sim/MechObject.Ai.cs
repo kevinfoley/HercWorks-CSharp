@@ -400,7 +400,7 @@ public partial class MechObject {
 		// Being shot is a way of being spotted: the whole side near the attacker learns where it is.
 		Detection.ShareContact(world, this, attacker);
 
-		UnderFireWindow = UnderFireWindowMs;
+		UnderFireWindow = UnderFireWindowReload;
 
 		if (inPlayerGroup) {
 			DamageFromPlayerGroup += damage;
@@ -417,7 +417,7 @@ public partial class MechObject {
 			return;
 		}
 
-		RetargetCooldown = RetargetCooldownMs;
+		RetargetCooldown = RetargetCooldownReload;
 
 		if (!state.Committed && Group is { LedByPlayer: true }) {
 			if (attacker.TargetClass == TargetClass.Herc) {
@@ -533,7 +533,7 @@ public partial class MechObject {
 			return;
 		}
 
-		ComplaintCooldown = ComplaintCooldownMs;
+		ComplaintCooldown = ComplaintCooldownReload;
 		PostSquadMessage(world, SquadMessageFriendlyFire);
 	}
 
@@ -815,14 +815,17 @@ public partial class MechObject {
 	/// <summary><c>0049a334</c> — what a component past each band costs in fear.</summary>
 	private static readonly IReadOnlyList<int> FearBandPenalties = new[] { 5, 25, 50 };
 
-	/// <summary>The under-fire window, in milliseconds.</summary>
-	private const int UnderFireWindowMs = 30000;
+	/// <summary>
+	/// The under-fire window, in <see cref="SimMath.TimerCountDown"/>'s unit rather than
+	/// milliseconds: about 15 seconds.
+	/// </summary>
+	private const int UnderFireWindowReload = 30000;
 
-	/// <summary>The retarget cooldown, in milliseconds.</summary>
-	private const int RetargetCooldownMs = 10000;
+	/// <summary>The retarget cooldown, in the same unit — about 4.9 seconds.</summary>
+	private const int RetargetCooldownReload = 10000;
 
-	/// <summary>The friendly-fire complaint cooldown, in milliseconds.</summary>
-	private const int ComplaintCooldownMs = 40000;
+	/// <summary>The friendly-fire complaint cooldown, in the same unit — about 20 seconds.</summary>
+	private const int ComplaintCooldownReload = 40000;
 
 	/// <summary>
 	/// How much damage from the player's own group a squadmate absorbs before it reacts at all.

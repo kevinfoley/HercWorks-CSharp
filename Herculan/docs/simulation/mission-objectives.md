@@ -93,10 +93,10 @@ After a post the answer is held still for 500 ms so the caller's next poll canno
 
 ## The poll — `Mission_PollStatus` (`004131ac`)
 
-`Sim_MainTick`'s last act, run with the player's machine and only while it is not destroyed. Two countdowns shape it, and between them they are why a finished mission takes tens of seconds to say so:
+`Sim_MainTick`'s last act, run with the player's machine and only while it is not destroyed. Two countdowns shape it, and between them they are why a finished mission takes several seconds to say so:
 
-- **The poll interval** (`DAT_004a9ee6`) is re-armed to 10 s every time the answer is not worth raising, so the objectives are read about once every ten seconds. A player **outside the mission box** skips the interval and is read every tick, which is what makes the boundary warning prompt.
-- **The alert delay** (`DAT_004a9ee9`) is armed once, the first time an alert-worthy status appears, and the status is not handed up until its 10 s runs out. A destroyed player skips it.
+- **The poll interval** (`DAT_004a9ee6`) is re-armed to 10000 counts — about 4.9 seconds, see [`structure-behaviour.md`](structure-behaviour.md#timer-units) — every time the answer is not worth raising, so the objectives are read about once every five seconds. A player **outside the mission box** skips the interval and is read every tick, which is what makes the boundary warning prompt.
+- **The alert delay** (`DAT_004a9ee9`) is armed once, the first time an alert-worthy status appears, and the status is not handed up until its own 10000 counts run out. A destroyed player skips it.
 
 A status is worth raising when `DAT_0049935c[status]` is set — 2, 3, 6, 7, 8 and 9. The caller builds the [status alert](#the-status-alert--gnl_alrt-00455934) for it. `DAT_004a9ed0` is the status already raised, which is what stops the same one being raised twice; `Mission_StatusForAlert` (`00413180`) is the wrapper both this and [Q] go through, and **the [Q] path writes that baseline as well** — reading the status yourself is enough to stop the poll announcing it.
 
@@ -107,7 +107,7 @@ A status is worth raising when `DAT_0049935c[status]` is set — 2, 3, 6, 7, 8 a
 The panel that says how the mission stands, and the only thing in the simulator that ends one. Two ways in, and they build the same panel from the same status:
 
 - **[Q]**, scancode `0x10` in `Sim_DispatchCommand`. Asks `Mission_StatusForAlert(player, publish)` with the publish flag set — a quiet evaluation, so never 7 or 8 — and raises the panel for the answer.
-- **the poll**, once the answer is worth raising and its ten-second delay has run out.
+- **the poll**, once the answer is worth raising and its delay has run out.
 
 Either way the caller then compares the button the player pressed against `DAT_0049f5d8[status]`, and **that comparison is the whole of what ends a mission**. It propagates out of `Sim_DispatchCommand` through `Sim_PollPlayerInput` and `Sim_MainTick` as the tick's own return.
 
@@ -255,7 +255,7 @@ Selector **3** also reaches into the AI: `Ai_IsTargetable` refuses the current o
 
 The player parks in front of what their order names and holds position. Holding needs four things at once: the subject alive, its group in the mission, the player within 10000 units in three dimensions, and the player's **aim** — body heading plus turret twist — within 45° of it. Nothing tests speed, so the link can be held while walking past. Breaking off posts `0x38` DATA TRANSFER ABORTED and puts the sequence back to the start.
 
-Four lines are spoken, `0x34` to `0x37`, each after the delay the table at `0049a318` gives for the step before it: 5000, 5000, `0xffff9c40`, 0. **The link therefore takes ten seconds of holding station**; the third entry is negative, `Timer_CountDown` clamps at zero, and `DATA TRANSFER COMPLETE` is queued the tick after `TRANSFERRING DATA`.
+Four lines are spoken, `0x34` to `0x37`, each after the delay the table at `0049a318` gives for the step before it: 5000, 5000, `0xffff9c40`, 0. **The link therefore takes about five seconds of holding station** — 5000 counts is about 2.4 seconds; the third entry is negative, `Timer_CountDown` clamps at zero, and `DATA TRANSFER COMPLETE` is queued the tick after `TRANSFERRING DATA`.
 
 That is not what the player sees. The two are queued a tick apart but shown ten seconds apart, because `TRANSFERRING DATA` is the one `SYSTEM.STR` entry whose display timings are 10 s and 20 s rather than 3 s and 6 s and the port will not let a message yield before its minimum ([`../formats/cockpit-messages.md`](../formats/cockpit-messages.md#the-port)). So the transfer reads on screen as a long operation while the simulation has already finished it: `+0xa0` goes up when the last line is *queued*.
 
@@ -323,6 +323,6 @@ Divergences:
 | Reaching the last waypoint completes a "travel there" objective | Condition 0 reads the group's order-completed flag at `+0x70`, which `Group_OrderTick` sets — so the objective is about the **order** finishing, not about arrival |
 | Meeting every objective ends the mission | It yields status 9 only while `Mission_IsClearOfThreats` also holds for the player. With a live hostile aware and near, the status is 10 and nothing is announced |
 | `+0x00` is a priority, with higher meaning more important | The evaluator's only test is `== 1`. One is mandatory; every other value makes the record a failure condition, which is the opposite meaning rather than a weaker one |
-| The data link finishes instantly because its third delay clamps to zero | The delay is written before the line it precedes, so the link still needs ten seconds of holding; the clamp only removes a wait after the last line is decided |
+| The data link finishes instantly because its third delay clamps to zero | The delay is written before the line it precedes, so the link still needs its two waits of holding; the clamp only removes a wait after the last line is decided |
 | The status alert's body text is a `GNL_ALRT.STR` row chosen by the status | For every status but 5, yes. Status 5 — the one [Q] usually answers — has its body replaced with the outstanding objective's own `mission.str` lines, so the row in the table is not what a player ever reads there |
 | `DAT_0049f5d8` is a per-status button count | It is which button index ends the mission. Status 7's entry is 1 against a one-button panel, which is how its warning is made unanswerable rather than a count being wrong |

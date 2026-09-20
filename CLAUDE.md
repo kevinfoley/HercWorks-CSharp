@@ -66,4 +66,8 @@ status. Drain them into topic docs and delete what you moved.
     resolving those idioms. Reports the union of two alias passes because neither is sound alone.
 
   Both are null-result tools. A field that carries a meaningful value is never *proven* unread; say
-  so rather than asserting it.
+  so rather than asserting it. Nor does a clean `es2_xref.py` sweep settle a function's
+  reachability on its own: a C++ static initialiser can register one into a dispatch table that is
+  empty in the image, so it has no `E8` caller, no `E9` tail jump and no raw dword occurrence
+  anywhere in the file. `Subsystem_RunPhase` (`00401d94`) calls its table by phase id once a frame.
+  Check for a nearby `RegisterSubsystemLoader` before concluding.

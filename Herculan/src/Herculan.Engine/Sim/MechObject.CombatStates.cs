@@ -643,7 +643,10 @@ public sealed partial class MechObject {
 	/// <summary>The angle off the threat that <c>fleeing</c> runs at once it has turned — 135°.</summary>
 	private const short FleeRunOutAngle = 0x6000;
 
-	/// <summary>How often <c>fleeing</c> swaps the side it runs to, in milliseconds.</summary>
+	/// <summary>
+	/// How often <c>fleeing</c> swaps the side it runs to, in
+	/// <see cref="SimMath.TimerCountDown"/>'s unit rather than milliseconds: about two seconds.
+	/// </summary>
 	private const int FleeSideInterval = 4000;
 
 	/// <summary><c>fleeing</c>'s near standoff.</summary>
@@ -652,7 +655,9 @@ public sealed partial class MechObject {
 	/// <summary><c>fleeing</c>'s far standoff.</summary>
 	private const int FleeFarStandoff = 10000000;
 
-	/// <summary>How often <c>skirting</c> re-tests the line of sight, in milliseconds.</summary>
+	/// <summary>
+	/// How often <c>skirting</c> re-tests the line of sight, in the same unit — about 2.4 seconds.
+	/// </summary>
 	private const short SkirtRecheckInterval = 5000;
 
 	/// <summary>Aspect threshold to <i>start</i> circling — 135°.</summary>
@@ -670,10 +675,10 @@ public sealed partial class MechObject {
 	/// <summary>Turret twist inside which the square-up arm stops walking backwards.</summary>
 	private const short CircleSquareUpTwist = 2000;
 
-	/// <summary>How long a break-off lasts, in milliseconds.</summary>
+	/// <summary>How long a break-off lasts, in the same unit — about half a second.</summary>
 	private const short CircleBreakOffDuration = 1000;
 
-	/// <summary>How often one may be armed, in milliseconds.</summary>
+	/// <summary>How often one may be armed, in the same unit — about two seconds.</summary>
 	private const short CircleBreakOffInterval = 4000;
 
 	/// <summary>Total damage taken past which the machine starts breaking off at all.</summary>

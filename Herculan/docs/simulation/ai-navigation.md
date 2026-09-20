@@ -141,12 +141,12 @@ The steer is added to the think function's own, and it grows linearly from nothi
 Avoidance is prediction; this is what happens when it fails. `Mech_MovementTick` (`0041a360`), on a refused move and only for a machine that is not the player:
 
 ```
-mech+0x26e = 10000                       // a 10 s timer at mech+0x26d
+mech+0x26e = 10000                       // a ~4.9 s timer at mech+0x26d
 mech+0x254 = rand & 1 ? -5000 : 5000     // a side, picked by coin flip
 mech+0xae  = (mech.speed > 0)            // back out if it was going forward
 ```
 
-For those ten seconds `Mech_LocomotionTick` ignores the desired speed it was handed and runs the machine at its chassis maximum — reverse if `+0xae` is set, forward if not — while `mech+0x254` biases the avoidance to the side the coin chose. The bias is applied two ways: it breaks the tie when both sides are blocked, and when *neither* side reports anything it invents a 25% closer reading on the chosen side so the machine still turns.
+For those five seconds `Mech_LocomotionTick` ignores the desired speed it was handed and runs the machine at its chassis maximum — reverse if `+0xae` is set, forward if not — while `mech+0x254` biases the avoidance to the side the coin chose. The bias is applied two ways: it breaks the tie when both sides are blocked, and when *neither* side reports anything it invents a 25% closer reading on the chosen side so the machine still turns.
 
 ## The navigation states
 
@@ -158,7 +158,7 @@ Six of the 22 states are navigation rather than combat — 8, 9, 10, 11, 12 and 
 
 That is not the same as a follower never fighting. Two things reach one: `Mech_AiOnTakingFire`, and the combat reassess's leader sweep, which the leader's own think triggers the moment it finds something. **A member dragged in that way acquires its own target**, through its own `Ai_SelectTarget` on the same branch the leader took; it never reads the leader's `mech+0x1a4`. So a follower cannot *notice* a fight, only join one — and the acquisition score's crowding divisor then spreads the group across targets rather than onto the leader's. See [`ai-targeting.md`](ai-targeting.md).
 
-Past the gate, on a 10 s timer in the behaviour block's scratch (`mech+0x5a`):
+Past the gate, on a 10000-count timer — about 4.9 seconds, see [`structure-behaviour.md`](structure-behaviour.md#timer-units) — in the behaviour block's scratch (`mech+0x5a`):
 
 - A machine that is out of action (`+0xa5`, `+0xa4` or `+0x99`) acquires a target and takes `fleeing`.
 - Otherwise it acquires only when the group order verb is 3 or the squad order verb is 2 — the two that actually mean patrol — with the mission-target-only filter, and hands what it finds to `Mech_AiEnterCombat`.
@@ -173,7 +173,7 @@ The same shape and the same gate less its squad-verb term — only leadership an
 
 That also means the cursor can be stepped several times in a tick, once by each member that is within 10000 of the waypoint the previous step just made current. A tightly-packed group crossing a dense stretch of route skips through it faster than one machine would.
 
-It then drops its target, and on the same 10 s timer acquires one into `mech+0x5f` — a *look-at*, not a target: it is never written to `mech+0x1a4`. It is nonetheless **shot at**: the state closes with `Ai_AimAndFire`, the same tail the combat states use, so a machine walking a route engages what it watches without ever selecting it. See [`ai-weapons.md`](ai-weapons.md). The radar (`mech+0x96`) goes ACTIVE whenever there is something to watch.
+It then drops its target, and on the same timer acquires one into `mech+0x5f` — a *look-at*, not a target: it is never written to `mech+0x1a4`. It is nonetheless **shot at**: the state closes with `Ai_AimAndFire`, the same tail the combat states use, so a machine walking a route engages what it watches without ever selecting it. See [`ai-weapons.md`](ai-weapons.md). The radar (`mech+0x96`) goes ACTIVE whenever there is something to watch.
 
 ### `following` (10) — `Mech_BehaviourFollowThink` (`0041daac`)
 
@@ -214,9 +214,9 @@ return steep ? 1 : 2
 |---|---|---|
 | `+0xae` | byte | Unstick direction: reverse out rather than push forward |
 | `+0x254` | short | Unstick side, `±5000` |
-| `+0x26d` | timer | The 10 s unstick window; its counter is the int at `+0x26e` |
+| `+0x26d` | timer | The unstick window, 10000 counts or about 4.9 s; its counter is the int at `+0x26e` |
 | `+0x252` | short | AI cruise speed, from block 7 `+0x02`. Zero means `0xaa` |
-| `+0x5a` | timer | The navigation states' own 10 s decision clock, in the behaviour block's scratch |
+| `+0x5a` | timer | The navigation states' own decision clock, 10000 counts or about 4.9 s, in the behaviour block's scratch |
 | `+0x5f` | ptr | What `travelling` and `following` point the turret at. Not a selected target |
 | `+0x97` | byte | The mission file's standing radar setting for this machine, from block 7 `+0x00` — [`ai-weapons.md`](ai-weapons.md) |
 | `+0x96` | byte | Radar mode, written here from `+0x97`, or from `+0xb2` in the player's squad — [`ai-weapons.md`](ai-weapons.md) |

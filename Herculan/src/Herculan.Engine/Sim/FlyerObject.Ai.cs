@@ -11,8 +11,9 @@ namespace Herculan.Engine.Sim;
 // is; docs/simulation/ai-dispatch.md owns that shared dispatch model.
 public sealed partial class FlyerObject {
 	/// <summary>
-	/// How long a leader waits between target sweeps — the 10000 ms both acquiring thinks reload
-	/// <c>flyer+0x5b</c> with.
+	/// How long a leader waits between target sweeps — the 10000 both acquiring thinks reload
+	/// <c>flyer+0x5b</c> with, which in <see cref="SimMath.CountdownTimerTick"/>'s unit is about
+	/// 4.9 seconds.
 	/// </summary>
 	private const short TargetSweepInterval = 10000;
 
@@ -68,7 +69,10 @@ public sealed partial class FlyerObject {
 	/// <summary>Range inside which the first pass launches a missile rather than opening with guns.</summary>
 	private const int MissileRange = 30000;
 
-	/// <summary>The refire delay, in milliseconds — <c>flyer+0x21f</c>'s reload.</summary>
+	/// <summary>
+	/// The refire delay — <c>flyer+0x21f</c>'s reload, in
+	/// <see cref="SimMath.CountdownTimerTick"/>'s unit: about three quarters of a second.
+	/// </summary>
 	private const short RefireDelay = 0x5dc;
 
 	/// <summary>

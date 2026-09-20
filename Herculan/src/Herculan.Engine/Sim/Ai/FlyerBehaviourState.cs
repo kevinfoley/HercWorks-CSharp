@@ -41,11 +41,11 @@ public enum FlyerThinkSlot {
 /// target inside its think and leaves the state alone.</para>
 /// </summary>
 public sealed class FlyerBehaviourState {
-	private FlyerBehaviourState(int index, string name, int dwellMs, int flags,
+	private FlyerBehaviourState(int index, string name, int dwell, int flags,
 			FlyerThinkSlot think = FlyerThinkSlot.None, bool moves = true) {
 		Index = index;
 		Name = name;
-		DwellMs = dwellMs;
+		Dwell = dwell;
 		Flags = flags;
 		Think = think;
 		Moves = moves;
@@ -57,8 +57,11 @@ public sealed class FlyerBehaviourState {
 	/// <summary>Descriptor <c>+0x00</c> — the game's own name for the state.</summary>
 	public string Name { get; }
 
-	/// <summary>Descriptor <c>+0x04</c> — the dwell time in milliseconds.</summary>
-	public int DwellMs { get; }
+	/// <summary>
+	/// Descriptor <c>+0x04</c> — the dwell time, in <see cref="SimMath.TimerCountDown"/>'s unit
+	/// and not in milliseconds: the 50000 <c>attacking</c> states is about 24 seconds.
+	/// </summary>
+	public int Dwell { get; }
 
 	/// <summary>Descriptor <c>+0x08</c> as the 16-bit mask <c>FUN_00414c65</c> writes.</summary>
 	public int Flags { get; }
@@ -124,7 +127,7 @@ public struct FlyerBehaviourBlock {
 	/// <summary>Block <c>+0x00</c> — the installed descriptor.</summary>
 	public FlyerBehaviourState? State { get; private set; }
 
-	/// <summary>Block <c>+0x05</c> — the dwell countdown, in milliseconds.</summary>
+	/// <summary>Block <c>+0x05</c> — the dwell countdown, in <see cref="SimMath.TimerCountDown"/>'s unit.</summary>
 	public int DwellCountdown;
 
 	/// <summary>Block <c>+0x09</c> — incremented once per AI tick by <c>00413eb0</c>.</summary>
@@ -132,13 +135,13 @@ public struct FlyerBehaviourBlock {
 
 	/// <summary>
 	/// <c>Behaviour_SetState</c> (<c>00413e50</c>) — installs a descriptor and arms its countdown at
-	/// the descriptor's dwell plus the shared 0-15 ms jitter. The jitter global is process-wide and
+	/// the descriptor's dwell plus the shared 0-15 count jitter. The jitter global is process-wide and
 	/// stepped by every state change in the mission, aircraft and machines alike, which is why it
 	/// lives on <see cref="BehaviourBlock"/> rather than being duplicated here.
 	/// </summary>
 	public void SetState(FlyerBehaviourState state) {
 		State = state;
-		DwellCountdown = state.DwellMs + BehaviourBlock.NextJitter();
+		DwellCountdown = state.Dwell + BehaviourBlock.NextJitter();
 		TickCount = 0;
 	}
 }

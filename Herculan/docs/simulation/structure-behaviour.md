@@ -79,7 +79,7 @@ if (typeRec+0x06 != 0) SimObject_ApplyRootMotionIfEnabled(this, 100)
 
 `BASES.DAT +0x24` is a **cell sequence index** and `+0x26` its **frame interval**, in the simulation's timer unit (see [Timer units](#timer-units) — 256 of them is a frame every 125 ms). The array it steps is the same per-sequence cell array damage moves, so an idle animation and a collapsed part are one mechanism pointed at different sequences.
 
-Eight retail types state a sequence, all of them sequence 0 on a 256 ms interval: 8, 9, `0x0a`, `0x0b`, `0x1a`, `0x20`, `0x22`, `0x23`. **Only two of the eight reach this function** — 9 and `0x1a`, the two that are Plain. Types 8, `0x0b`, `0x20` and `0x23` are Armed and `0x22` is the triple turret; each of those ticks steps the same cell array from its own firing path instead, as a muzzle flash rather than a loop. `0x0a` matches no case and is never built. So the free-running flipbook belongs to exactly two structures in the game.
+Eight retail types state a sequence, all of them sequence 0 on a 256-count interval — a frame every 125 ms: 8, 9, `0x0a`, `0x0b`, `0x1a`, `0x20`, `0x22`, `0x23`. **Only two of the eight reach this function** — 9 and `0x1a`, the two that are Plain. Types 8, `0x0b`, `0x20` and `0x23` are Armed and `0x22` is the triple turret; each of those ticks steps the same cell array from its own firing path instead, as a muzzle flash rather than a loop. `0x0a` matches no case and is never built. So the free-running flipbook belongs to exactly two structures in the game.
 
 The second arm is the animation step, for any type that states threads at all.
 

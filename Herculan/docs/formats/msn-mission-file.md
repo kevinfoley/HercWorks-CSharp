@@ -201,7 +201,7 @@ A mission timer: an action that arms it, a delay, and the actions fired when the
 | `0x02` | condition ref | **dead** — always `-1` |
 | `0x04` | ? | **dead** — always `-1` |
 | `0x06` | ref→row #10 | the action that arms the timer; 82% real. Unset means it runs from mission start |
-| `0x08` | delay | DBSIM shifts it left 11 into milliseconds, so the unit is 2.048 s |
+| `0x08` | delay | DBSIM shifts it left 11 into the simulation's timer unit, so the unit is one second |
 | `0x0A–0x1D` | ref[0..9]→row #10 | the actions fired on expiry. **Unused in retail data past slot 0**, but not dead: DBSIM resolves and fires all ten |
 
 

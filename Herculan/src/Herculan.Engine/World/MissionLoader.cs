@@ -266,7 +266,8 @@ public static class MissionLoader {
 	/// <summary>
 	/// Block 6 — the mission's timers, as <c>DBSim_LoadScriptDat</c> (<c>00424308</c>) resolves them
 	/// through <c>DBSim_BuildActionTimerRecord</c> (<c>00423104</c>). The stored delay is shifted into
-	/// milliseconds here, which is what <c>FUN_004679c0</c> does as it arms the countdown.
+	/// the simulation's timer unit here, which is what <c>FUN_004679c0</c> does as it arms the
+	/// countdown.
 	/// </summary>
 	private static MissionActionTimer[] ResolveActionTimers(ScriptDat script) {
 		var timers = new MissionActionTimer[script.ActionTimers.Length];

@@ -70,7 +70,7 @@ if (timer.primary == null || timer.primary.activated) {
 }
 ```
 
-The delay is the file's stored value `<< 11`, so its unit is 2.048 s. A timer with no primary runs from mission start; one with a primary runs from the moment that action activates. The re-arm is through the same shift — about seventeen hours — and by then every action the timer names has activated, so the later expiry does nothing.
+The delay is the file's stored value `<< 11` in the simulation's timer unit, so its unit is exactly one second. A timer with no primary runs from mission start; one with a primary runs from the moment that action activates. The re-arm is through the same shift — about eight hours — and by then every action the timer names has activated, so the later expiry does nothing.
 
 Chaining two of them staggers a sequence: `script6.dat` has action 1 arm a 92-second timer that activates action 2, which arms a 123-second timer that activates action 3.
 

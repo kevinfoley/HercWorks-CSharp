@@ -164,7 +164,7 @@ standoffs = 0 / 10000000
 TurboPod_Engage(mech+0x317)
 ```
 
-Two legs. While the threat is still within 67.5° of the nose the machine reverses with its steering pointed a half turn away, which turns it; once it has turned, the other leg runs it off at 135° to the threat, flipping sides every 4 seconds so it does not run in a straight line. The Turbo Pod is engaged on every tick — this is the one place in the AI that uses one on mission orders, since [`ai-navigation.md`](ai-navigation.md)'s sprint needs a standing squad order.
+Two legs. While the threat is still within 67.5° of the nose the machine reverses with its steering pointed a half turn away, which turns it; once it has turned, the other leg runs it off at 135° to the threat, flipping sides every 4000 counts — about two seconds, see [`structure-behaviour.md`](structure-behaviour.md#timer-units) — so it does not run in a straight line. The Turbo Pod is engaged on every tick — this is the one place in the AI that uses one on mission orders, since [`ai-navigation.md`](ai-navigation.md)'s sprint needs a standing squad order.
 
 **It still shoots at what it is running from.** `Ai_AimAndFire` is called against the stash, and `Mech_AiFleeCheck` has already set `mech+0x2aa` to 300, 600 or 1000, which drops `Ai_ChooseWeapon`'s score floor to near or below zero — so a fleeing machine fires almost anything it still has.
 
@@ -221,7 +221,7 @@ Mech_CenterTorsoTick(mech, 0)
 ```
 
 - **It walks at a point 90° off its own line to the stash**, at the range it currently stands at — an arc around the obstruction, always to the same side, chosen once from where the machine stood when the state began.
-- **The line of sight is re-tested every 5 seconds, not every tick**, and only a *clear* reading ends the state. `Ai_LineOfSightBlocked` ([`ai-navigation.md`](ai-navigation.md#line-of-sight--ai_lineofsightblocked-0041dc24)) answers 1 for anything the machine cannot get past and 2 for ground it could simply walk over, and **only the 1 gets the arc**: on a 2 the machine drives straight at the stash and crests the rise that is in the way.
+- **The line of sight is re-tested every 5000 counts, about 2.4 seconds, not every tick**, and only a *clear* reading ends the state. `Ai_LineOfSightBlocked` ([`ai-navigation.md`](ai-navigation.md#line-of-sight--ai_lineofsightblocked-0041dc24)) answers 1 for anything the machine cannot get past and 2 for ground it could simply walk over, and **only the 1 gets the arc**: on a 2 the machine drives straight at the stash and crests the rise that is in the way.
 - **It does not shoot and it does not steer around anything else.** The torso is centred and the throttle is at the stop. The think has one exit and always returns 0, so the only way out from inside the state is the clear reading on the 5 s re-test; what can still take a machine out of it is external — `Mech_ComponentDamageWrite` installing an out-of-action state, or a group order advancing, which zeroes the dwell countdown and lets the reassess resolve the machine into something else ([`ai-dispatch.md`](ai-dispatch.md#what-the-dwell-time-buys)).
 - The stash is a *position*, taken once. The state never looks at the target again, so a machine skirting after a moving target walks to where that target was.
 
@@ -266,7 +266,7 @@ return 0
 
 `steer()` is `Mech_LocomotionTick(mech, (bearing - heading) >> 8, 0x100, 1)`: **full throttle, and the bearing error's top byte**. Every other state steers at `>> 6`, so a rammer turns a quarter as hard — it commits to a line rather than tracking a target that sidesteps.
 
-The target is acquired with mask `6`, which drops the "it is shooting at me" weight and the crowding divisor both — [`ai-targeting.md`](ai-targeting.md). Nothing else in the state releases it, and its dwell flag keeps the reassess from running, so a rammer holds one target for ten seconds at a time whatever happens to it.
+The target is acquired with mask `6`, which drops the "it is shooting at me" weight and the crowding divisor both — [`ai-targeting.md`](ai-targeting.md). Nothing else in the state releases it, and its dwell flag keeps the reassess from running, so a rammer holds one target for a 10000-count interval — about 4.9 seconds — at a time whatever happens to it.
 
 **The timer arms the phase it is entering, not the one it is leaving.** Both flag and countdown start at zero out of `Behaviour_SetState`, so the first think flips straight to charging: a machine takes the state and begins its run at once, then alternates 3000–4500 ms charging with 8000–12000 ms approaching.
 
@@ -330,7 +330,7 @@ if (|aspect| < threshold) {                         // the target is facing me: 
 
 - **The circle is a point 15000 units out from the target on the machine's own approach line, rotated 33° to one side** — near enough a tangent, so the machine walks a wide arc around a target that is pointing at it and closes on one that is not.
 - **Which side it circles to is the side it is already turning toward**, re-chosen every tick, so a machine that overshoots reverses its arc rather than committing.
-- **The break-off costs a second and is bought with damage.** `mech+0x288` is the running total of damage taken; once it passes 100 the machine spends one second in every four reversing in a straight line with no steering at all. An undamaged machine never breaks off.
+- **The break-off costs half a second and is bought with damage.** `mech+0x288` is the running total of damage taken; once it passes 100 the machine spends 1000 counts in every 4000 — about half a second in every two — reversing in a straight line with no steering at all. An undamaged machine never breaks off.
 - **The hysteresis is one-sided.** The threshold is 0x6000 (135°) while the machine is circling and 0x4000 (90°) once it has squared up, so a target has to turn further to start the circle than to stop it.
 - The square-up arm gates on the machine's *own* turret twist rather than on any range: it stands still while the turret is within 2000 BAM of centre and reverses while it is not, so the machine walks backwards until its hull has caught up with where its guns are already pointing.
 

@@ -200,7 +200,7 @@ Called from the think functions of `attacking`, `flanking`, `facing off` and `dr
 
 There is a **second friendly-fire site**, in `Sim_RaycastObjectList` itself rather than in `Mech_AiOnTakingFire`: when the player hits a machine on his own side but in a different group, `Group_NearestLiveMember` (`00423974`) finds that machine's nearest live groupmate within 100000 and, if it is inside 30000 of the machine that was hit, that groupmate complains instead of the victim.
 
-`Mech_AiEnemySighted` fires once per enemy for the whole player group: `DAT_004a9b84[obj+0x4b]` is a per-object latch, set the first time either the machine or the player holds a contact on that object, and the callout is further rate-limited to one per 10 s by `DAT_004a9be9`. The local player's own machine sets the latch without ever calling out.
+`Mech_AiEnemySighted` fires once per enemy for the whole player group: `DAT_004a9b84[obj+0x4b]` is a per-object latch, set the first time either the machine or the player holds a contact on that object, and the callout is further rate-limited by `DAT_004a9be9`, re-armed to 10000 counts — about 4.9 seconds, see [`structure-behaviour.md`](structure-behaviour.md#timer-units). The local player's own machine sets the latch without ever calling out.
 
 The channel these post to is the pilot-and-squad message port, which is not ported — see [`../formats/audio.md`](../formats/audio.md).
 

@@ -64,7 +64,7 @@ Notes the table makes visible:
 | Offset | Type | Field |
 |---|---|---|
 | `+0x00` | ptr | The state's name, into `BehaviourStateNames` |
-| `+0x04` | int | **Dwell time in milliseconds** — how long the machine stays in this state before reassessing |
+| `+0x04` | int | **Dwell time**, in the simulation's timer unit ([`structure-behaviour.md`](structure-behaviour.md#timer-units)) — how long the machine stays in this state before reassessing |
 | `+0x08` | 16 B | 16 one-byte booleans, expanded from a 16-bit mask by `Behaviour_ExpandFlagBits` (`00415028`) |
 | `+0x18` | triple | **Think** — `{func, thisDelta, vtableIndex}` |
 | `+0x24` | triple | **Move** |
@@ -110,19 +110,19 @@ Not a pointer field: `0x45` bytes embedded in the mech, running `mech+0x4d` to `
 | `+0x0d` | 0x28 B | Zeroed |
 | `+0x35` | 0x10 B | Zeroed, then `+0x36 = 1` |
 
-`DAT_004a9bf4` is a global stepped by 13 per state change and masked to 4 bits, so the jitter is 0–15 ms and deterministic in call order rather than random.
+`DAT_004a9bf4` is a global stepped by 13 per state change and masked to 4 bits, so the jitter is 0–15 counts — a few milliseconds — and deterministic in call order rather than random.
 
 ### What the dwell time buys
 
-`Timer_CountDown` (`004679a4`) subtracts `SimTickDelta` from the countdown each AI tick and clamps it at zero, so `descriptor+0x04` is **milliseconds**. It is handed `&block+0x04` and steps only the `int` that follows, never touching the byte it is given. But `Mech_AiTick` only runs the countdown when descriptor flag bit 0 is *clear*, and that is true of exactly eight states: `deciding`, the five combat states, `driving off en` and `fleeing`. **For every other state the countdown is loaded and never stepped**, so its dwell value — 10 ms, bar `dead` and `disabled` at 0 — never expires on its own. Those states end on their own terms instead, through the paths below.
+`Timer_CountDown` (`004679a4`) subtracts `SimTickDelta` from the countdown each AI tick and clamps it at zero, so `descriptor+0x04` is in **the simulation's timer unit, not milliseconds**: one count is about 0.49 ms ([`structure-behaviour.md`](structure-behaviour.md#timer-units)). It is handed `&block+0x04` and steps only the `int` that follows, never touching the byte it is given. But `Mech_AiTick` only runs the countdown when descriptor flag bit 0 is *clear*, and that is true of exactly eight states: `deciding`, the five combat states, `driving off en` and `fleeing`. **For every other state the countdown is loaded and never stepped**, so its dwell value — 10 counts, bar `dead` and `disabled` at 0 — never expires on its own. Those states end on their own terms instead, through the paths below.
 
 The eight that do run a clock:
 
-- **`deciding` holds for 0 ms**, so it resolves on the tick after it is installed. It is a placeholder, not a state a machine runs in.
-- **Combat states and `driving off en` hold for 50 seconds.** A machine that has committed to `attacking` or `flanking` does not re-open the decision every tick, so it cannot thrash between engagement styles while a fight is in progress.
-- **`fleeing` holds for 15 seconds.**
+- **`deciding` holds for 0**, so it resolves on the tick after it is installed. It is a placeholder, not a state a machine runs in.
+- **Combat states and `driving off en` hold 50000 counts, about 24 seconds.** A machine that has committed to `attacking` or `flanking` does not re-open the decision every tick, so it cannot thrash between engagement styles while a fight is in progress.
+- **`fleeing` holds 15000, about 7.3 seconds.**
 
-The 0–15 ms jitter is noise against all three figures.
+The 0–15 count jitter is noise against all three figures.
 
 Three things cut a dwell short, and they are the whole of what writes `block+0x05` outside `Behaviour_SetState`:
 

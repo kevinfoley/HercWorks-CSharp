@@ -734,7 +734,10 @@ public partial class MechObject {
 	/// <summary>Ground range inside which <see cref="DriveToPoint"/> reports arrival — 60 metres.</summary>
 	private const int ArrivalRange = 10000;
 
-	/// <summary>How often a navigation state re-decides, in milliseconds.</summary>
+	/// <summary>
+	/// How often a navigation state re-decides, in <see cref="SimMath.TimerCountDown"/>'s unit
+	/// rather than milliseconds: about 4.9 seconds.
+	/// </summary>
 	private const int NavDecisionInterval = 10000;
 
 	/// <summary>Ground range inside which a formation member is on station and stops.</summary>

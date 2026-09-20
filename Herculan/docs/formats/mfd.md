@@ -44,8 +44,10 @@ Object fields, base `MfdDisplay_Ctor`'s `param_1`:
 
 | Class | Ctor | Indices | Repaint | Frame comes from |
 |---|---|---|---|---|
-| Latching | `0044741c` | 0-5, 11, 12 | `MfdButton_Repaint` (`004474e4`) | its own selection flag `+0x40` |
-| Momentary | `004472e4` | 7, 8, 9, 10 | `MfdButton_SetCaption` (`00447358`) | the shared press byte `+0x1b` |
+| `MFDStateGadget` (latching) | `MFDStateGadget_Ctor` (`0044741c`) | 0-5, 11, 12 | `MfdButton_Repaint` (`004474e4`) | its own selection flag `+0x40` |
+| `MFDSelectGadget` (momentary) | `MFDSelectGadget_Ctor` (`004472e4`) | 7, 8, 9, 10 | `MfdButton_SetCaption` (`00447358`) | the shared press byte `+0x1b` |
+
+The two names are the classes' own, from their descriptor records — [`cockpit-input.md`](cockpit-input.md#the-cockpits-own-gadget-classes) places them in the cockpit's widget hierarchy.
 
 So the F-key column and the two scanner toggles (PASS, ACTIVE) **have no pressed state at all** — blue when unselected, green when selected — while SELECT, RANGE, TARGET and XMIT light *only* while held and have no selected state.
 

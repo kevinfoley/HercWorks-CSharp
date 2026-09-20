@@ -1,4 +1,4 @@
-{
+﻿{
   "schema_version": 1,
   "_readme": [
     "Confirmed address->meaning mappings for VSHELL.EXE / DBSIM.EXE, extracted from",
@@ -3998,9 +3998,9 @@
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "WeaponSelectGadget_Ctor",
-      "description": "One weapon row's select gadget, built by FUN_00440a68 from the .GAU hardpoint rect. Lays out two sub-rects relative to that rect, mirrored from the right edge for a right-column slot: the hardpoint state box at +6..+9 GAU x, +0..+7 y (PWEAPONS frames 4-6, 6x14 device), and the weapon-name label at +11..+35 x, +0..+5 y. Painted by WeaponSelectGadget_Paint.",
-      "source": "cockpit rendering RE session 2026-08-17"
+      "name": "ChainedWeaponSelectGadget_Ctor",
+      "description": "Constructor for ChainedWeaponSelectGadget (object size 0x67), the clickable weapon row EnergyWeaponGauge_Ctor and AmmoWeaponGauge_Ctor build. Derives from WeaponSelectGadget, whose constructor it calls first; the extra level is what carries fire-chain membership, which is why PodGauge_Ctor builds the plain base class instead. Also builds the row's hardpoint state box and weapon-name label. Class name from the descriptor record at 0044333b.",
+      "source": "docs/formats/cockpit-input.md; docs/simulation/weapon-mounts.md"
     },
     {
       "address": "004426c0",
@@ -4710,8 +4710,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Widget_HitTest",
-      "description": "Point-in-widget test against a single widget, param_1. A per-widget flag at param_1+0x10 selects the shape: 0 = axis-aligned rect, inclusive bounds at param_1[0..3] (x0,y0,x1,y1); nonzero = circular/diamond region, Manhattan distance from a centre point (param_1+0x11/+0x13, int16 cx,cy) at most a radius (param_1+0x15, int16). The circular form is not exercised by any widget traced so far (MFD/HDD/console buttons and the shield facings are all rectangular); presumably serves a knob/dial-shaped control.",
-      "source": "docs/formats/cockpit-input.md 2026-08-20"
+      "description": "Point-in-widget test against a single widget, param_1. A per-widget flag at param_1+0x10 selects the shape: 0 = axis-aligned rect, inclusive bounds at param_1[0..3] (x0,y0,x1,y1); nonzero = circular/diamond region, Manhattan distance from a centre point (param_1+0x11/+0x13, int16 cx,cy) at most a radius (param_1+0x15, int16). Nothing selects the second form: Widget_CtorRect clears that byte for every leaf widget and the only other writer (004526c4) clears it too, so the circular branch is library code DBSIM does not reach.",
+      "source": "docs/formats/cockpit-input.md"
     },
     {
       "address": "00452a00",
@@ -4798,10 +4798,10 @@
       "address": "00452a48",
       "binary": "DBSIM",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Widget_NotifySelfAndChildren",
-      "description": "Toggles a guard flag (+0x227) around calling vtable slot 0 on the caller itself, then on every widget in its +0x256 clickable-child array. What slot 0 means is class-specific (observed as OnClick/OnCommand for MfdDisplay and ShieldsGauge) so this function's own purpose -- relayout notification, a generic show/refresh cascade -- was not independently confirmed, only its mechanical shape.",
-      "source": "docs/formats/cockpit-input.md 2026-08-20"
+      "confidence": "high",
+      "name": "Widget_NotifySelfAndChildren",
+      "description": "Clears a guard flag (+0x227), calls vtable slot 0 on the owner, then calls slot 0 on every widget in its +0x256 clickable-child array. Unreachable in the retail image: its only caller, 00452bac, has no rel32 branch, no stored pointer and no vtable slot anywhere in the PE. The cascades the cockpit actually runs are per class (00442058/0044207c for the console panel).",
+      "source": "docs/formats/cockpit-input.md"
     },
     {
       "address": "00486d70",
@@ -4825,10 +4825,10 @@
       "address": "004807d0",
       "binary": "DBSIM",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Mouse_WarpCursorToPoint",
-      "description": "Rescales a game-space point to client coordinates (inverse of Mouse_RecomputeScale's factor) and calls SetCursorPos. Caller(s) and trigger not traced -- plausibly a 'snap cursor to this widget' affordance, not confirmed.",
-      "source": "docs/formats/cockpit-input.md 2026-08-20"
+      "confidence": "high",
+      "name": "Mouse_WarpCursorToPoint",
+      "description": "Rescales a game-space point to client coordinates (inverse of Mouse_RecomputeScale's factor), ClientToScreens it and calls SetCursorPos. Three callers, all gated on a live mouse device: Gau_RovingGunsightWidget centres the pointer on the gunsight as the cockpit is built, AlertPanel_SetFocus puts it on the focused widget's centre, AlertPanel_Leave restores the position the panel saved at its own +0x302.",
+      "source": "docs/formats/cockpit-input.md"
     },
     {
       "address": "0044380c",
@@ -4844,9 +4844,9 @@
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "ShieldFacing_OnClick",
-      "description": "A shield-facing child widget's own click handler, reached via Widget_OnMouseUp. Gated on the left mouse button bit (param_2&1); forwards the click to its owner (pointer stored at the facing's own +0x24, set to the parent ShieldsGauge at construction) as owner->vtable[0](owner, self, buttonFlags) -- i.e. calls ShieldsGauge_OnClick -- then repaints itself and notifies its label child.",
-      "source": "docs/formats/cockpit-input.md 2026-08-20"
+      "name": "Widget_ForwardClickToOwner",
+      "description": "The base OnClick at leaf-widget vtable slot +8, installed by the intermediate class at vtable 0049dee4 and inherited unchanged by the shield facings, the MFD's momentary button class and the HDD buttons. Gated on the left-button bit; calls owner->vtable[0](owner, self, buttonFlags) through the owner pointer the constructor stored at +0x24, then repaints itself and sounds Widget_ClickSound through slot +8 of its second vtable at +0x20.",
+      "source": "docs/formats/cockpit-input.md"
     },
     {
       "address": "004438e0",
@@ -4897,10 +4897,10 @@
       "address": "00444b70",
       "binary": "DBSIM",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_ShieldFacing_FlashTimer",
-      "description": "A shield-facing child's update slot: a two-stage counter at +0x1f (2->1 calls FUN_0043122c then decrements; 1->0 just decrements) -- plausibly a brief post-click flash/debounce, not independently confirmed.",
-      "source": "docs/formats/cockpit-input.md 2026-08-20"
+      "confidence": "high",
+      "name": "ShieldFacing_FlushDeferredPaint",
+      "description": "The shield facing's vtable slot +0xc, the per-frame deferred-paint flush every cockpit widget class implements. Counter at +0x1f: 2 decrements without repainting (a facing has no content to rebuild, its rings being palette-animated), 1 calls Widget_DrawToCockpit and decrements. The counter is set to 2 by Widget_InvalidateDeferred, which Widget_Repaint calls on every press and release.",
+      "source": "docs/formats/cockpit-input.md"
     },
     {
       "address": "00460764",
@@ -6167,8 +6167,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Widget_ClickSound",
-      "description": "push 0x11; call Sound_Play; ret -- the console click, and the image's only reference to catalog id 0x11. Nothing calls it directly: it sits at slot +8 of fifteen widget notify vtables (0049ca01 is the shield facing's), so a widget clicks because of what kind of widget it is and not because its handler did anything. That is why a button wired to nothing still clicks. The fifteen are counted, not estimated: a raw dword scan for 00438e2c returns exactly these slots -- 0049b7a0, 0049c784, 0049c808, 0049c848, 0049ca09, 0049cf0c, 0049cf4c, 0049cf8c, 0049d5d0, 0049d638, 0049d930, 0049d970, 0049ded0, 0049df10, 0049e048. Only 0049ca09 has its owning table established (the shield facing's notify vtable at 0049ca01, so slot +8); the other fourteen classes are undecoded and none of these tables is in known_vtables.json, which covers the simulation-object hierarchy only. Reached by the shield rocker from both the mouse and the [ and ] keys, which share one code path from ShieldFacing_OnClick onward.",
-      "source": "docs/formats/cockpit-input.md; docs/formats/audio.md"
+      "description": "push 0x11; call Sound_Play. Slot +8 of the secondary (CTLControl subobject) vtable in every button-family gadget class. It is called with the subobject pointer and ignores it, which is why one function serves them all; the slider family replaces it with the empty stub 00439014 and is therefore silent.",
+      "source": "docs/formats/cockpit-input.md"
     },
     {
       "address": "00438d9c",
@@ -13249,7 +13249,7 @@
       "confidence": "high",
       "name": "SimCommandQueue_Push",
       "signature": "undefined4 __cdecl SimCommandQueue_Push(undefined2 command)",
-      "description": "Appends one command code to the queue at DAT_004d2148 that Sim_PollPlayerInput drains into Sim_DispatchCommand, or returns 2 when the queue is closed (DAT_0049eacc). Registered as a callback by SimInput_SetEnabled rather than called directly, which is why it has no call site.",
+      "description": "Appends one command code to the queue at DAT_004d2148 that Input_BuildPlayerDevice drains into Sim_DispatchCommand, or returns 2 when the queue is closed (DAT_0049eacc). Registered as a keyboard subscriber by SimInput_SetEnabled against the 7-byte wanted-code list at 0049eb5d -- 1c 0c 0d 1a 1b 4e 4a, i.e. Enter, -, =, [, ] and the keypad +/- -- which is why it has no call site and why only those seven scancodes take this route.",
       "source": "docs/formats/cockpit-input.md"
     },
     {
@@ -13259,7 +13259,7 @@
       "confidence": "high",
       "name": "SimInput_SetEnabled",
       "signature": "undefined4 __cdecl SimInput_SetEnabled(byte enabled)",
-      "description": "Toggles the simulator's keyboard input on and off. Turning it on registers FUN_0045a308 and SimCommandQueue_Push with the input system; turning it off clears the three 15-byte key-state blocks at DAT_004d2418.",
+      "description": "Toggles the simulator's keyboard input on and off. Turning it on registers two subscribers with KeyListener_Register: Input_KeyjoyAxisKey against the 30-byte list at 0049eb33 and SimCommandQueue_Push against the 7-byte list at 0049eb5d. Turning it off clears the three 15-byte key-state blocks at DAT_004d2418.",
       "source": "docs/formats/cockpit-input.md"
     },
     {
@@ -13493,7 +13493,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Input_BuildPlayerDevice",
-      "description": "The per-frame input build: reads the twelve controls-block bytes at ControlsOptionBase and routes the joystick's four normalised axes, hat and eight buttons into the device struct at DAT_004d234a that Sim_PollPlayerInput consumes. Each axis row's byte selects a DESTINATION pair (0 unassigned, 1 the movement pair, 2 the turret pair), not a source; a control whose destination is taken falls to a second rank that wins when both have moved, and the keyboard pairs are the last fallback. Also: pulls the FIRE-bound button out to +0x0d and zeroes its byte (using a hardcoded 0x11 rather than ControlsOptionBase+4, so a RAZOR finds its trigger through the walker's block), applies the press-once button latch FUN_0045b718 sets, writes the hat over the turret pair at 0xc0 under HAT=2, and applies keyjoy.cfg's Backturn and Rudder reversals.",
+      "description": "The per-frame input build: reads the twelve controls-block bytes at ControlsOptionBase and routes the joystick's four normalised axes, hat and eight buttons into the device struct at DAT_004d234a that Sim_PollPlayerInput consumes. Each axis row's byte selects a DESTINATION pair (0 unassigned, 1 the movement pair, 2 the turret pair), not a source; a control whose destination is taken falls to a second rank that wins when both have moved, and the keyboard pairs are the last fallback. Also: pulls the FIRE-bound button out to +0x0d and zeroes its byte (using a hardcoded 0x11 rather than ControlsOptionBase+4, so a RAZOR finds its trigger through the walker's block), applies the press-once button latch FUN_0045b718 sets, writes the hat over the turret pair at 0xc0 under HAT=2, and applies keyjoy.cfg's Backturn and Rudder reversals. It also owns the command queue at DAT_004d2148: it drains each code through Sim_DispatchCommand after masking with DAT_0049eae0 = 0x47ff (which discards the Shift bank, folding a shifted key onto the plain one) and then resets the count. It is the input-tape record and playback point too -- see docs/formats/tap-input-tape.md.",
       "source": "docs/formats/joystick-input.md"
     },
     {
@@ -14824,6 +14824,357 @@
       "description": "Thin wrapper: WeaponMounts_SelectByGauge on the player mech's weapon manager, returning whether anything was armed. Both the row gadget's click handlers and CockpitWidgets_HandleCommand's number-key case go through it.",
       "source": "docs/simulation/weapon-mounts.md",
       "signature": "bool __cdecl CockpitView_ArmWeaponByGauge(int cockpitView, int gauge)"
+    },
+    {
+      "address": "00452478",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_CtorRect",
+      "description": "Base widget constructor. Installs the base vtable (0049dbb6) at +0x17, copies the four rect ints from param_2, clears the hit-shape byte at +0x10 and the deferred-paint counter at +0x1f. Every leaf widget in the cockpit's clickable list runs through it.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "00455524",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_InvalidateDeferred",
+      "description": "The base Invalidate at leaf-widget vtable slot +4, which Widget_Repaint calls. Its whole body is this->[0x1f] = 2: it schedules a repaint rather than performing one. Slot +0xc, walked once per frame, is what acts on the counter.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "0043122c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_DrawToCockpit",
+      "description": "Blits one widget's rect into the cockpit canvas, pushing the canvas render context and taking the colours from it. Stage 1 of the two-stage deferred paint that vtable slot +0xc drives.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "00477ae0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Key_WndProcHook",
+      "description": "The keyboard filter in the same ten-slot table ahead of MainWndProc as Mouse_WndProcHook. Catches WM_KEYDOWN/UP (0x100/0x101) and WM_SYSKEYDOWN/UP (0x104/0x105), translates the virtual key through the 223-entry scancode table at 004a1104, ORs in 0x800 for Shift, 0x200 for Alt, 0x400 for Ctrl and 0x80 for a key-up, then offers the code to the ten subscribers at 006bb93c; whatever none of them claims goes into the 256-entry ring at 006bb734.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "00477a0c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "KeyListener_Register",
+      "description": "Appends to the ten-slot {enabled, wantedCodes, callback} keyboard subscriber table at 006bb93c that Key_WndProcHook walks. wantedCodes is a NUL-terminated list of the low bytes (scancodes) that subscriber wants; the first callback to return 1 consumes the code.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "0045a308",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Input_KeyjoyAxisKey",
+      "description": "The simulator's axis-key subscriber, registered by SimInput_SetEnabled against the 30-byte list at 0049eb33 (keypad, M, J, K, I and Space, then the same fifteen with the key-up bit). Strips the 0x80 up-bit, finds the code's index in that list, folds the two banks of fifteen together and updates the three 15-byte key-state blocks at 004d2418 that Input_BuildKeyboardAxes reads.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "0045c084",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Input_ReadDeviceEvent",
+      "description": "Pops one code from the unclaimed-key ring at 006bb734 for a keyboard device, draining the rest when the device asks for it. This is the route a code takes when no Key_WndProcHook subscriber claimed it.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "004472e4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MFDSelectGadget_Ctor",
+      "description": "Constructor for MFDSelectGadget, the MFD's momentary leaf button (object size 0x40, indices 7-10). Three levels over Widget_CtorRect ending at vtable 0049cf60, whose slot 0 is MfdButton_SetCaption; leaves slot +8 as the inherited Widget_ForwardClickToOwner, so it has no lit flag and shows only the shared press state. The class name is its own, from the descriptor record at 00447a6f. See docs/formats/mfd.md.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "0044741c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MFDStateGadget_Ctor",
+      "description": "Constructor for MFDStateGadget, the MFD's latching leaf button (object size 0x41, indices 0-5, 11 and 12, plus 6 by falling through the ctor switch). Four levels over Widget_CtorRect ending at vtable 0049cf20, whose slot 0 is MfdButton_Repaint; overrides slot +8 with 004474a8, which refuses a press while the +0x40 lit flag is already set, sets it, forwards to the owner, repaints and sounds the click. The class name is its own, from the descriptor record at 00447a17. See docs/formats/mfd.md.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "004a1104",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "VkToScancode",
+      "description": "223 int32 entries, indexed by Win32 virtual key code, giving the PC set-1 scancode that becomes the low byte of a DBSIM command code. VK_F1 -> 0x3b, VK_F11 -> 0x57, VK_P -> 0x19, VK_OEM_4 -> 0x1a, VK_TAB -> 0x0f. Zero means unmapped. Read only by Key_WndProcHook.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "0049eb33",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "KeyjoyWantedCodes",
+      "description": "The 30-byte NUL-terminated wanted-code list Input_KeyjoyAxisKey is registered against: 47 48 49 4b 4d 4f 50 51 32 24 25 17 4a 4e 39, then the same fifteen with the key-up bit 0x80 set -- keypad, M, J, K, I and Space.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "0049eb5d",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "SimCommandWantedCodes",
+      "description": "The 7-byte NUL-terminated wanted-code list SimCommandQueue_Push is registered against: 1c 0c 0d 1a 1b 4e 4a -- Enter, -, =, [, ] and the keypad +/-. These are the only scancodes that reach the command queue at 004d2148 directly rather than through the player input block.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "0049eae0",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "SimCommandMask",
+      "description": "0x47ff. Input_BuildPlayerDevice ANDs every queued command code with this before dispatching it, which discards the 0x800 Shift bit Key_WndProcHook sets -- so a shifted key folds onto the plain one and there is no Shift command bank.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "006bb93c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "KeyListenerTable",
+      "description": "Ten {enabled, wantedCodes, callback} triples, the keyboard twin of the mouse-listener table at DAT_006c5f5c. Key_WndProcHook walks it; KeyListener_Register appends.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "006bb734",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "KeyEventRing",
+      "description": "256 int16 entries, head at 006bb934 and tail at 006bb938. Key_WndProcHook pushes any command code no KeyListenerTable subscriber consumed; Input_ReadDeviceEvent pops.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "0045e73c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sim_ParseCommandLine",
+      "description": "DBSIM's own argument parser. Owns the input-tape switches -r (record to <name>.tap), -p (play it back) and -D (play a tape DemoTape_PickRandom chooses, with the demo abort armed), plus -eggplant, the language and video switches and the -d dmp log.",
+      "source": "docs/formats/tap-input-tape.md"
+    },
+    {
+      "address": "0045ce9c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "DemoTape_PickRandom",
+      "description": "Loads group 0x14 of tapes\\demolist.str and returns entry time() % count, or entry 0 when the table holds one name. The retail table holds DEMO1, DEMO2 and DEMO3.",
+      "source": "docs/formats/tap-input-tape.md"
+    },
+    {
+      "address": "0045cc88",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Tape_PackFile",
+      "description": "Writes one bundle block into an open tape: a uint32 size then the named file's bytes in 500-byte chunks. A source file it cannot open writes size 0, which is why data\\object.str is empty in every retail tape.",
+      "source": "docs/formats/tap-input-tape.md"
+    },
+    {
+      "address": "0045cd40",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Tape_UnpackFile",
+      "description": "Reads one bundle block out of an open tape and writes it to the named path, in 500-byte chunks. A null destination consumes the block and discards it.",
+      "source": "docs/formats/tap-input-tape.md"
+    },
+    {
+      "address": "004d234a",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "PlayerInputBlock",
+      "description": "The global player input block Input_BuildPlayerDevice fills each frame and returns. Head word is the frame's command code, which Sim_PollPlayerInput dispatches first thing; the four axes follow at +0x0e. A .TAP frame record is a snapshot of its first sixteen bytes.",
+      "source": "docs/formats/tap-input-tape.md"
+    },
+    {
+      "address": "004d255a",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "TapePlayback",
+      "description": "Non-zero while a .TAP input tape is being replayed. Set by Sim_ParseCommandLine's -p and -D, cleared when the tape runs short or a recorded Ctrl+E (command 0x412) stops it.",
+      "source": "docs/formats/tap-input-tape.md"
+    },
+    {
+      "address": "004d255c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "TapeRecording",
+      "description": "Non-zero while input is being recorded to a .TAP tape. Set by Sim_ParseCommandLine's -r once the bundle has been written.",
+      "source": "docs/formats/tap-input-tape.md"
+    },
+    {
+      "address": "004d255e",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "TapeStem",
+      "description": "The tape name from the command line, before the tap extension is forced onto it.",
+      "source": "docs/formats/tap-input-tape.md"
+    },
+    {
+      "address": "004d2566",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "TapeFile",
+      "description": "The open tape's FILE*. Held for the whole mission on playback; the recording path reopens the tape in append mode every frame instead.",
+      "source": "docs/formats/tap-input-tape.md"
+    },
+    {
+      "address": "004d25b4",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "DemoMode",
+      "description": "Set by Sim_ParseCommandLine's -D in addition to TapePlayback. It arms the abort: any command code off the tape, and Input_KeyjoyAxisKey's first axis key, raise DemoAbort.",
+      "source": "docs/formats/tap-input-tape.md"
+    },
+    {
+      "address": "004d25b6",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "DemoAbort",
+      "description": "Raised when a demo-mode replay should end -- by a keypress, by a command on the tape, by the tape running out or by WM_CLOSE. StatusAlertPanel_RunModal reads it to leave the mission.",
+      "source": "docs/formats/tap-input-tape.md"
+    },
+    {
+      "address": "004d1e5a",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "CockpitMouseLive",
+      "description": "Gates CockpitMouse_OnEvent: with this byte clear the listener queues nothing, which is how a replaying .TAP tape owns the cockpit mouse queue. Set again when the tape ends.",
+      "source": "docs/formats/tap-input-tape.md"
+    },
+    {
+      "address": "004421dc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponSelectGadget_Ctor",
+      "description": "Constructor for WeaponSelectGadget (object size 0x46), the weapon-row leaf without chain membership. Called directly only by PodGauge_Ctor -- a pod row cannot join a fire chain -- and as the base constructor of ChainedWeaponSelectGadget_Ctor. Class name from the descriptor record at 00443283.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "00442c00",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponRangeSelectGadget_Ctor",
+      "description": "Constructor for WeaponRangeSelectGadget (object size 0x41), the weapon-range gauge's button; derives from PanelStateGadget, so it latches. Built by FUN_00441dd0. Class name from the descriptor record at 00443223.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "00442956",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponSliderGadget_Ctor",
+      "description": "Constructor for WeaponSliderGadget (object size 0x7e), a PanelHSliderGadget leaf. Unreferenced: no rel32 branch and no stored pointer anywhere in the image, so no retail weapon gauge builds one. Class name from the descriptor record at 004432df.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "00434664",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SystemGadget_Ctor",
+      "description": "Constructor for SystemGadget (object size 0x60), a console button; maybe_SysButtonPair_Ctor builds two. Class name from the descriptor record at 00434ced.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "0044be94",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HDDisplayGadget_Ctor",
+      "description": "Constructor for HDDisplayGadget (object size 0x24), the Heads-Down Display's clickable-surface base; HddMarker_Ctor derives HDDMapGadget from it. Class name from the descriptor record at 004505ab.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "0044f650",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HDDListGadget_Ctor",
+      "description": "Constructor for HDDListGadget (object size 0x2c), one of the two order lists HddCommandScreen_Ctor builds. Derives from PanelListGadget. Class name from the descriptor record at 00450737.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "004475d4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MFDListGadget_Ctor",
+      "description": "Constructor for MFDListGadget (object size 0x28), the MFD's screen-content click region, registered by MfdDisplay_Ctor after the 13 buttons. Derives from PanelListGadget. Class name from the descriptor record at 004479d3.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "004550b0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AlertSliderGadget_Ctor",
+      "description": "Constructor for AlertSliderGadget (object size 0x7e), an alert panel's slider row; derives from PanelHSliderGadget, so its click-sound slot is the empty stub 00439014 and it makes no sound. Class name from the descriptor record at 00455810.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "0045efe0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Language_GetFolderName",
+      "description": "Reads the first byte of data\\language.cfg and returns the matching resource folder name: 'F' -> FRENCH, 'G' -> GERMAN, 'S' -> SPANISH, anything else ENGLISH. The retail CD ships the first three.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "0045f054",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "OnlineManual_Raise",
+      "description": "Command 0x35's handler: composes <Language_GetFolderName()>\\es2guide.hlp into the buffer at 004d29dc and passes it to Help_Show. This is the manual's 'On-Line Manual' MISC. entry -- a Windows help file, not a game screen.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "004668c0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Help_Show",
+      "description": "WinHelpA(mainWindow, path, HELP_CONTENTS, 0), after FUN_004666c4 clears the display when 004d25e2 is set.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "00439014",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_NoClickSound",
+      "description": "An empty function standing in for Widget_ClickSound at slot +8 of the slider family's secondary vtable. Dragging the throttle, or any other PanelHSliderGadget/PanelVSliderGadget leaf, makes no sound.",
+      "source": "docs/formats/cockpit-input.md"
     }
   ]
 }

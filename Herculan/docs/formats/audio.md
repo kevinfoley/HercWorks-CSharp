@@ -324,6 +324,8 @@ The mode-change tone is the [R] path only. The scanner screen's PASS/ACTIVE butt
 
 `Widget_ClickSound` is the whole of the click: `push 0x11; call Sound_Play; ret`, and it is the image's only reference to that id. Nothing calls it directly — it sits in **fifteen widget vtables**, so a widget clicks because of what kind of widget it is and not because its handler did anything. That is why a button wired to nothing still clicks.
 
+Which kind matters: the slot it occupies belongs to the gadget base class, and the slider family overrides it with an empty stub (`00439014`). **Dragging the throttle makes no sound at all**, and neither does an alert panel's slider row — see [`cockpit-input.md`](cockpit-input.md#the-second-vtable-and-the-class-record-beside-it).
+
 ## Speech and the comm portraits
 
 Squadmate and commander speech does not go through the catalog. It has its own five-slot channel pool allocated by `Sound_Init`: five records of `0x42` bytes plus a 5 x 100-byte script buffer.

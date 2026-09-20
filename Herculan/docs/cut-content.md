@@ -26,6 +26,7 @@ Additionally, the game data includes an unused particle-beam weapon for the Cybr
 
 - **Last-known-position scanner blips.** The F4 scanner's hostile branch has a complete implementation of a blinking last-known-position marker, plotted on every other coarse tick. Every object constructor sets the byte that gates it and nothing ever clears it, and nothing writes the stored position either.
 - **One-step capacitor recharge.** `WeaponMount_DemandFullCharge` (`0040f4f0`) fills a weapon capacitor to the 1200 maximum in a single call and is the obvious mechanism for a full-charge pickup or cheat. Its only caller is itself unreferenced anywhere in the image.
+- **The demo attract mode.** DBSIM plays a recorded mission from a `.TAP` input tape on `-D`, picking one at random from `tapes\demolist.str`, and three finished tapes ship in `ES2/TAPES/`. VSHELL builds that switch into DBSIM's argument list behind a flag its own options-block initialiser only ever clears, so nothing in the shipped game starts one. See [`formats/tap-input-tape.md`](formats/tap-input-tape.md).
 - Unused voiceover lines "Shutdown initiated" (CVM_0037.WAV) and "Powerup initiated. Internal damage detected." (CVM_0036.WAV) suggest that Dynamix considered mid-mission shutdown - a feature that was later implemented for stealth purposes in *Starsiege*.
 
 ## Files

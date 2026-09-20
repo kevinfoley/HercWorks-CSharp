@@ -366,7 +366,7 @@ Load path: `ResourcePath_BuildFolderName(name, folder)` → `Resource_Load` (`00
 | `throttle` | `ThrottleGauge_Ctor` (`00447b84`) | throttle slider knob |
 | `sysbuttn`, `icons`, `corners` | `maybe_SysButtonPair_Ctor` (`00434368`), `HddMarker_Ctor` (`0044f130`), `maybe_CockpitFontsAndCorners_Init` (`004544a4`) | |
 
-Widget class names from the same string table: `HUDPipper`, `HUDCrosshairGunsight`, `HUDRovingGunsight`, `HUDLockingGunsight`, `MFDRadar`, `MFDStatus`, `MFDMissileView`, `MFDFlashComm`, `HDDGauge`, `HDDisplay`, `HDDDamage`, `HDDMapGadget` (see [`heads-down-display.md`](heads-down-display.md)), `ShieldsGauge`, `EnergyPoolGauge`, `ThrottleGauge`, `LEDBarGraphV`/`LEDBarGraphH`, `WeaponSelectGadget`, `ChainedWeaponSelectGadget`.
+Those widget class names are not loose strings: each is the name field of a Borland class descriptor record, which also carries the object size, the base class and the vtable the class installs. `tools/scripts/es2_classes.py` dumps all 221 of them, and [`cockpit-input.md`](cockpit-input.md#the-second-vtable-and-the-class-record-beside-it) has the record layout and the clickable-widget hierarchy.
 
 Frame-to-state mapping, as far as it is traced: `PWEAPONS` 0/1 are the selected/unselected row plate, 2/3 the unlit/lit console-button plate, 4/5/6 the hardpoint state box (green / red / amber), 7 a 640x80 strip with no located consumer; `WPN_DMG`'s 10 frames are damage fill levels, frame 0 the opaque empty plate; `THROTTLE` 0 is a 2x12 tick and 1 the 28x12 knob; `RADAR`'s 10 110x110 frames are the sweep animation; `MFD` 0-2 are 196x122 screen chrome, 3-10 five button plates in unlit/lit pairs (see [`mfd.md`](mfd.md)); `HUD` 0 is the 45x45 reticle, 11 the 182x10 rotation-indicator track and 12/13 its 62x4 yellow and green bars (sizes in the 640-wide `hba\` banks; `dba\` is exactly half).
 
@@ -519,8 +519,8 @@ Sub-rects, all relative to the `.GAU` hardpoint rect and mirrored from its right
 
 | Sub-rect | Offsets from the rect, GAU | Built by |
 |---|---|---|
-| hardpoint state box | `x0+6 .. x0+9`, `y0 .. y0+7` | `WeaponSelectGadget_Ctor` (`00442488`) |
-| weapon-name label | `x0+11 .. x0+35`, `y0 .. y0+5` | `WeaponSelectGadget_Ctor` |
+| hardpoint state box | `x0+6 .. x0+9`, `y0 .. y0+7` | `ChainedWeaponSelectGadget_Ctor` (`00442488`) |
+| weapon-name label | `x0+11 .. x0+35`, `y0 .. y0+5` | `ChainedWeaponSelectGadget_Ctor` |
 | value field | `x0+36 .. x0+53`, `y0 .. y0+5` | `FUN_00440a68` / `FUN_00440f78` |
 | pod name label | `x0+11 .. x0+53`, `y0 .. y0+5` | `PodGauge_Ctor` (`00441524`) |
 | Turbo Pod name label | `x0+6 .. x0+34`, `y0+1 .. y0+5` | `TurboPodGauge_Ctor` (`00441a34`) |

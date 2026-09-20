@@ -182,8 +182,8 @@ public readonly record struct CockpitWidget(CockpitWidgetId Id, CockpitSurface S
 	/// (<c>00452388</c>), inclusive on all four edges as the original's is.
 	///
 	/// <para>The original's other case, a Manhattan-distance circular test selected by a per-widget
-	/// flag, is not implemented: no widget in the MFD, the Heads-Down Display, the console buttons or
-	/// the shield facings uses it. See docs/formats/cockpit-input.md §6.</para>
+	/// flag, is not implemented because nothing selects it: the base widget constructor clears that
+	/// flag and no DBSIM widget ever sets it. See docs/formats/cockpit-input.md §6.</para>
 	/// </summary>
 	public bool Contains(float artX, float artY) =>
 		artX >= X0 && artY >= Y0 && artX <= X1 && artY <= Y1;

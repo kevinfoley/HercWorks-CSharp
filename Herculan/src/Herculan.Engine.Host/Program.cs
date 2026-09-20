@@ -1558,7 +1558,7 @@ window.Update += deltaSeconds => {
 		//
 		// They click, because in the original the key does not call the adjust at all: Mech_HandleCommand
 		// (004157c8) hands scancodes 0x1a/0x1b to Widget_PressChild on the shield gauge, which fires the
-		// facing's own press slot — ShieldFacing_OnClick, which calls slot +8 of its notify vtable
+		// facing's own press slot — Widget_ForwardClickToOwner, which calls slot +8 of its second vtable
 		// (0049ca01), and that slot is Widget_ClickSound: catalog id 0x11. Pressing the widget is also
 		// what makes the two input routes agree by construction.
 		bool shieldRearKey = controls.IsKeyPressed(Key.LeftBracket);

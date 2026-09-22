@@ -368,7 +368,7 @@ Load path: `ResourcePath_BuildFolderName(name, folder)` → `Resource_Load` (`00
 | `hdd`, `static`, `hddclip`, `pilotN` | `HddDisplay_Ctor` (`00448cc8`), `HddGauge_LoadPilotFrames` (`0044a7c0`) | heads-down display — see [`heads-down-display.md`](heads-down-display.md) |
 | `pweapons`, `wpn_dmg` | `WeaponGauge_Ctor` (`0044080c`) | weapon hardpoint plates |
 | `throttle` | `ThrottleGauge_Ctor` (`00447b84`) | throttle slider knob |
-| `sysbuttn`, `icons`, `corners` | `maybe_SysButtonPair_Ctor` (`00434368`), `HddMarker_Ctor` (`0044f130`), `maybe_CockpitFontsAndCorners_Init` (`004544a4`) | |
+| `sysbuttn`, `icons`, `corners` | `SystemButtons_Ctor` (`00434368`), `HddMarker_Ctor` (`0044f130`), `maybe_CockpitFontsAndCorners_Init` (`004544a4`) | |
 
 Those widget class names are not loose strings: each is the name field of a Borland class descriptor record, which also carries the object size, the base class and the vtable the class installs. `tools/scripts/es2_classes.py` dumps all 221 of them, and [`cockpit-input.md`](cockpit-input.md#the-second-vtable-and-the-class-record-beside-it) has the record layout and the clickable-widget hierarchy.
 
@@ -376,7 +376,7 @@ Frame-to-state mapping, as far as it is traced: `PWEAPONS` 0/1 are the selected/
 
 ## `.GAU` widget tree
 
-`Gau_Load` (`00431778`, `PANEL.CPP:0x1d6`) reads a `0x6a4`-byte struct and constructs six sub-widget vectors. The file's first two `int32`s are an origin offset added to every widget rect. `Gau_BuildCockpitWidgets` (`00431bf8`) then builds seven top-level widgets from fixed offsets and shifts every rect by `VideoMode_X/YCoordShift`.
+`Gau_Load` (`00431778`, `PANEL.CPP:0x1d6`) reads a `0x6a4`-byte struct and constructs six sub-widget vectors. The file's first two `int32`s are an origin offset added to every widget rect. `Gau_BuildCockpitWidgets` (`00431bf8`) then builds seven top-level widgets from fixed offsets and shifts every rect by `VideoMode_X/YCoordShift`. The order it builds them in is also the cockpit's click precedence — [`cockpit-input.md`](cockpit-input.md#registration-order-is-precedence) has the full sequence.
 
 GAU coordinates are authored in the 320-wide space; the engine's `CockpitArt.GauToPixelScale = 2` maps them onto 640-wide art. See "Cockpit canvas" above for the y-range question.
 

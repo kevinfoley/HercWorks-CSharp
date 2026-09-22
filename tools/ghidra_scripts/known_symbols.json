@@ -1596,8 +1596,9 @@
       "type": "function",
       "confidence": "high",
       "name": "Gau_BuildCockpitWidgets",
-      "description": "Caller of Gau_Load. Builds a per-herc cockpit object and constructs 7 top-level HUD widgets from fixed literal byte offsets (468, 548, 616, 728, 1000, 1088, 1212) into the loaded .GAU struct, storing them at cockpit+0x1e9..+0x1f9 (offset 1088, the roving gunsight, at +0x1f5). Ends with the flyer branch: when the piloted machine's type record has a non-zero +0x50 (InputFlagFlyer, the RAZOR alone) it marks the power-up already finished at cockpit+0x245 and both arms and immediately latches (+0x8d = 1) the ten gauges and the three widgets at +0x1e9/+0x1f5/+0x1ed, so none of them plays its power-up animation and Cockpit_PowerUpSound never stamps a start tick.",
-      "source": "memory project_es2_exe_recon 2026-08-10"
+      "description": "Caller of Gau_Load. Builds the cockpit's widget tree, and the order it does so in IS the flat clickable list's order, which first-hit-wins makes into precedence: SystemButtons_Ctor's two system gadgets, then the seven top-level gauges from fixed literal .GAU offsets (468 console buttons, 548 energy meter, 616 shields, 728 MFD, 1000 throttle, 1088 roving gunsight, 1212 heads-down display) stored at cockpit+0x1e1..+0x1f9, then WeaponMounts_BuildGauges for the weapon rows. Also builds the pilot message port at +0x207 from .GAU 1668 and the computer's message port at +0x20b from 1684. Ends with the flyer branch: when the piloted machine's type record has a non-zero +0x50 (InputFlagFlyer, the RAZOR alone) it marks the power-up already finished at cockpit+0x245 and both arms and immediately latches (+0x8d = 1) the ten gauges and the three widgets at +0x1e9/+0x1f5/+0x1ed, so none of them plays its power-up animation and Cockpit_PowerUpSound never stamps a start tick.",
+      "source": "docs/formats/cockpit-input.md",
+      "signature": "void __cdecl Gau_BuildCockpitWidgets(int *cockpit, char *hercName)"
     },
     {
       "address": "00432340",
@@ -3637,10 +3638,11 @@
       "address": "00434368",
       "binary": "DBSIM",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_SysButtonPair_Ctor",
-      "description": "Lazily loads the `sysbuttn` sprite bank into DAT_0049b63c (folder by DAT_004d25bb == 3), then constructs two widgets whose coordinates are built as `value << (DAT_004d25be & 0x1f)` on X and `<< (DAT_004d25c0 & 0x1f)` on Y -- the per-axis resolution shift that makes .GAU coordinates 320-wide-space and doubles them for 640-wide.",
-      "source": "docs/formats/cockpit-hud.md (HUD sprite art)"
+      "confidence": "high",
+      "name": "SystemButtons_Ctor",
+      "description": "Registers the first two entries of the cockpit's clickable list, ahead of every gauge. Lazily loads the `sysbuttn` sprite bank into DAT_0049b63c (folder by VideoMode_UseHiResPanels == 3), then builds two SystemGadgets from hardcoded coordinates rather than from the .GAU: 12x11 GAU units each at x 305-317 and x 291-303, y 2-13, so they sit in the forward view's top-right corner. Stored at cockpit+0x246 and +0x24a with the count 2 at +0x25a. Child 0 raises the on-line manual, child 1 toggles fullscreen -- see SystemButtons_OnChildClick.",
+      "source": "docs/formats/cockpit-input.md",
+      "signature": "void __cdecl SystemButtons_Ctor(int *cockpit)"
     },
     {
       "address": "0044f130",
@@ -4467,7 +4469,7 @@
       "type": "function",
       "confidence": "high",
       "name": "HddCommandScreen_Ctor",
-      "description": "The [F7] command display. Builds the map viewport as the screen rect inset (4<<XCoordShift, 2<<YCoordShift) with its right edge at the order column's left minus the same, a 0x239-byte offscreen map render target centred on the zone, 140 map marker gadgets, and nine label rows down the order column at (y1-y0)/9 pitch: row 0 the incoming-message label in ColorSchemePanels[2], rows 1-8 the orders in [1] with [2] as the hotkey alternate.",
+      "description": "The [F7] command display. Builds the map viewport as the screen rect inset (4<<XCoordShift, 2<<YCoordShift) with its right edge at the order column's left minus the same, a 0x239-byte offscreen map render target centred on the zone, 140 map marker gadgets (not registered as clickable), and nine label rows down the order column at (y1-y0)/9 pitch: row 0 the incoming-message label in ColorSchemePanels[2], rows 1-8 the orders in [1] with [2] as the hotkey alternate. Registers exactly two clickables, in this order: an HDDListGadget over the whole order column at screen+0x35, then a second over the map viewport at screen+0x39. Both run before HddDisplay_Ctor builds its own fifteen buttons, so they precede those in the flat list.",
       "source": "docs/formats/heads-down-display.md 2026-08-20"
     },
     {
@@ -4782,8 +4784,9 @@
       "type": "function",
       "confidence": "high",
       "name": "Widget_HitTestChildren",
-      "description": "Linear-scans the flat clickable-widget list at param_1+0x256 (count at +0x254) with Widget_HitTest, returning the index of the first widget under the point whose state (+0x1b) is not 2 (hidden). Not a tree walk: every clickable widget anywhere in the cockpit is registered into one shared list by Widget_RegisterClickable, so an off-screen panel's buttons are excluded purely by their hidden state, not by not being reachable.",
-      "source": "docs/formats/cockpit-input.md 2026-08-20"
+      "description": "Linear-scans the flat clickable-widget list at param_1+0x256 (count at +0x254) with Widget_HitTest, returning the index of the FIRST widget under the point whose state (+0x1b) is not 2 (hidden), or -1. First-hit-wins is what makes registration order the tie-break wherever two visible rects overlap, and retail has four such overlaps. Not a tree walk: every clickable widget anywhere in the cockpit is registered into one shared list by Widget_RegisterClickable, so an off-screen panel's buttons are excluded purely by their hidden state, not by not being reachable.",
+      "source": "docs/formats/cockpit-input.md 2026-08-20",
+      "signature": "int __cdecl Widget_HitTestChildren(void *clickableList, int *point)"
     },
     {
       "address": "004527a0",
@@ -4837,7 +4840,8 @@
       "confidence": "high",
       "name": "Widget_RegisterClickable",
       "description": "Appends one widget pointer to the caller's flat +0x256 array (count at +0x254) that Widget_HitTestChildren scans. Called once per child during every cockpit widget tree's construction (MfdDisplay_Ctor's 13 MFD buttons, ShieldsGauge_Ctor's 2 facings, etc.) with the *dereferenced* CockpitViewInstance pointer as the shared root -- every clickable widget in the whole cockpit lands in one list, not a per-panel one.",
-      "source": "docs/formats/cockpit-input.md 2026-08-20"
+      "source": "docs/formats/cockpit-input.md 2026-08-20",
+      "signature": "void __cdecl Widget_RegisterClickable(void *clickableList, void *widget)"
     },
     {
       "address": "00452c64",
@@ -4845,7 +4849,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Widget_Show",
-      "description": "Sets the child widget at index param_2 of the caller's +0x256 array to state 0 (normal/visible) and repaints it. Pairs with Widget_Hide.",
+      "description": "Sets a child's state byte (+0x1b) to 0. UNREFERENCED: no rel32 branch, no vtable slot and no stored pointer anywhere in the image. Every show and hide the cockpit actually performs is a direct store to that byte at the site that wants it -- HddDisplay_SetPage's visibility-table loop, HddCommandScreen_Show/_Hide, and the gauge constructors' own flyer branches.",
       "source": "docs/formats/cockpit-input.md 2026-08-20"
     },
     {
@@ -4854,7 +4858,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Widget_Hide",
-      "description": "Sets the child widget at index param_2 of the caller's +0x256 array to state 2 (hidden -- excluded from Widget_HitTestChildren and refused by every traced Paint slot) and repaints it. Pairs with Widget_Show.",
+      "description": "Sets a child's state byte (+0x1b) to 2. UNREFERENCED: no rel32 branch, no vtable slot and no stored pointer anywhere in the image. Every show and hide the cockpit actually performs is a direct store to that byte at the site that wants it -- HddDisplay_SetPage's visibility-table loop, HddCommandScreen_Show/_Hide, and the gauge constructors' own flyer branches.",
       "source": "docs/formats/cockpit-input.md 2026-08-20"
     },
     {
@@ -15164,8 +15168,9 @@
       "type": "function",
       "confidence": "high",
       "name": "SystemGadget_Ctor",
-      "description": "Constructor for SystemGadget (object size 0x60), a console button; maybe_SysButtonPair_Ctor builds two. Class name from the descriptor record at 00434ced.",
-      "source": "docs/formats/cockpit-input.md"
+      "description": "Constructor for SystemGadget (object size 0x60), the on-line manual and fullscreen-toggle buttons in the forward view's top-right corner; SystemButtons_Ctor builds both. Leaves the state byte at +0x1b holding 3 rather than 0, which Widget_HitTestChildren treats as clickable and SystemGadget_Paint draws as the plain frame. Class name from the descriptor record at 00434ced.",
+      "source": "docs/formats/cockpit-input.md",
+      "signature": "int __cdecl SystemGadget_Ctor(int gadget, int *rect)"
     },
     {
       "address": "0044be94",
@@ -15218,7 +15223,7 @@
       "type": "function",
       "confidence": "high",
       "name": "OnlineManual_Raise",
-      "description": "Command 0x35's handler: composes <Language_GetFolderName()>\\es2guide.hlp into the buffer at 004d29dc and passes it to Help_Show. This is the manual's 'On-Line Manual' MISC. entry -- a Windows help file, not a game screen.",
+      "description": "Command 0x35's handler: composes <Language_GetFolderName()>\\es2guide.hlp into the buffer at 004d29dc, resolves it to a full path through FUN_0045ee44 and returns that path -- the caller passes it to Help_Show. Two callers, Sim_DispatchCommand's `?` case and SystemButtons_OnChildClick's child 0, so the key and the right-hand system button are one path. This is the manual's 'On-Line Manual' MISC. entry -- a Windows help file, not a game screen.",
       "source": "docs/formats/cockpit-input.md"
     },
     {
@@ -15227,7 +15232,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Help_Show",
-      "description": "WinHelpA(mainWindow, path, HELP_CONTENTS, 0), after FUN_004666c4 clears the display when 004d25e2 is set.",
+      "description": "WinHelpA(mainWindow, path, HELP_CONTENTS, 0), after Video_ToggleFullscreen drops the game back to a window when 004d25e2 says it is fullscreen.",
       "source": "docs/formats/cockpit-input.md"
     },
     {
@@ -15426,6 +15431,144 @@
       "name": "g_TSDetailPartSizeScaleQ10",
       "description": "Q10 factor TSDetailPart_Render scales projected size by before comparing against the part's own Details table. 1024 (Q10 one) in the image.",
       "source": "docs/formats/dts-texture-binding.md"
+    },
+    {
+      "address": "004345a0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SystemButtons_OnChildClick",
+      "signature": "void __cdecl SystemButtons_OnChildClick(int cockpit, int widget)",
+      "description": "Owner slot 0 for both SystemGadgets. Matches the clicked widget against the pair at cockpit+0x246 by index and, unless a .TAP is replaying (TapePlayback), runs child 0 as OnlineManual_Raise followed by Help_Show and child 1 as Video_ToggleFullscreen followed by a repaint of the shield gauge at cockpit+0x1e9.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "00434910",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SystemGadget_OnClick",
+      "description": "SystemGadget's vtable +8. Forwards itself to SystemButtons_OnChildClick with the cockpit singleton; ignores the button flags the slot is called with.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "00434748",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SystemGadget_Paint",
+      "description": "SystemGadget's vtable +0. Blits the button's frame in state 0 after rebasing the rect through the widget render context, and in state 3 -- the state its constructor leaves it in -- restores the art underneath instead. Draws nothing in state 2.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "004666c4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Video_ToggleFullscreen",
+      "signature": "void __cdecl Video_ToggleFullscreen(void)",
+      "description": "Fullscreen/windowed switch on the flag at 004d25e2. Going fullscreen: saves the window rect to 004d3750, takes the window topmost at the game resolution via AdjustWindowRectEx + SetWindowPos, ClipCursors the pointer into it, centres it and hides the software cursor; failure posts WM_QUIT. Coming back: restores the saved rect. Reached from the left system button and from Help_Show, which runs it first so raising the on-line manual leaves fullscreen.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "00441dd0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ConsoleButtons_Ctor",
+      "signature": "void * __cdecl ConsoleButtons_Ctor(void *panel, int *gauBlock, void *owner)",
+      "description": "The console button panel under the weapon rows, from .GAU offset 468. Builds FOUR WeaponRangeSelectGadget children from the rects at 484/500/516/532 and registers each with Widget_RegisterClickable in index order -- the chain selector, LINK, TRACK, and a fourth whose rect is zero in every retail .GAU and which therefore never takes a click. Installs ConsoleButtons_OnChildClick as slot 0, and hides child 2 (TRACK) outright when the piloted machine is a flyer.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "00410644",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponMounts_BuildGauges",
+      "signature": "void __cdecl WeaponMounts_BuildGauges(int mountManager)",
+      "description": "Walks the mount array (pointer at +4, count at +8) and calls each mount's own gauge factory slot, vtable +0x64. The closing call of Gau_BuildCockpitWidgets, so every weapon row's clickables are appended to the flat list after all seven gauges and before the edge strips. An energy row registers two -- ChainedWeaponSelectGadget then WeaponChargeBar -- which is why the select gadget wins where the bar overlaps it.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "00447630",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MFDListGadget_OnClick",
+      "signature": "void __cdecl MFDListGadget_OnClick(int gadget, unsigned char buttonFlags)",
+      "description": "The MFD screen-area gadget's vtable +8. Left button only; calls MfdFlashComm_HandleListClick(owner, self, &DAT_004d1e67), the owner taken from the gadget's own +0x24. The mirror of HDDListGadget_OnClick.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "00447098",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdFlashComm_HandleListClick",
+      "signature": "void __cdecl MfdFlashComm_HandleListClick(int display, void *gadget, int *point)",
+      "description": "Resolves a click on the MFD's screen area to a FLASH COMM row. Returns at once unless the display is on mode 1, then walks the six row label rects in index order -- inclusive on all four edges -- and stops at the first hit. Rows are built top..top+14 and stepped by 14, so adjacent rows share a line and the first-match walk gives it to the upper one. A hit on the row already selected presses XMIT and transmits; any other row is selected.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "0044f6ac",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HDDListGadget_OnClick",
+      "signature": "void __cdecl HDDListGadget_OnClick(int gadget, unsigned char buttonFlags)",
+      "description": "Vtable +8 for both of the command display's list gadgets. Left button only; queues the click through HddCommandScreen_QueueListClick with the owner at the gadget's +0x28 and the cockpit click point at DAT_004d1e67. Nothing is decided here.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "0044d3a4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddCommandScreen_QueueListClick",
+      "signature": "void __cdecl HddCommandScreen_QueueListClick(int screen, void *gadget, int *point)",
+      "description": "Records a pending list click on the command display: sets the flag at screen+0x14d, stores which gadget at +0x14e and the point at +0x152 (biased by the view-offset globals 004d25da/de), latches the mouse button word at +0x15b, and marks the display dirty. HddCommandScreen_HandleListClick drains it.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "0044d428",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddCommandScreen_HandleListClick",
+      "signature": "void __cdecl HddCommandScreen_HandleListClick(int screen)",
+      "description": "Drains the pending list click and branches on which gadget it was. Order column (screen+0x35): walks the eight row rects and stops at the first hit, using STRICT inequalities on all four edges -- unlike every other rect test in the cockpit -- so a row's own boundary lines are dead. With no pilot selected it prints the SELECT PILOT message instead; a hit on the row already armed presses XMIT; any other row calls HddCommandScreen_SelectOrder. Map viewport (screen+0x39): stores the point as the map cursor at +0x11d and sets the armed flag at +0x11c.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "0044d598",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddCommandScreen_SynthesizeListClick",
+      "signature": "void __cdecl HddCommandScreen_SynthesizeListClick(int screen, void *gadget, int pick)",
+      "description": "The keyboard's entry into the queued-click path, so key and mouse converge before anything is decided. For the order column it feeds the named row's own rect corner; for the map viewport, pick 0 feeds the live cursor position rebased through the view offsets and pick 1 projects the currently chosen unit's world position into the viewport. Both end in HddCommandScreen_QueueListClick.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "0044cee8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddCommandScreen_Show",
+      "signature": "void __cdecl HddCommandScreen_Show(int screen)",
+      "description": "Command display vtable +0xc, run by HddDisplay_SetPage on the incoming page. Clears the state byte on three widgets: the order-column list gadget at screen+0x35, and the display's XMIT and CANCEL buttons. It does NOT touch the map viewport gadget at screen+0x39 -- nothing in the display's or the screen's translation unit ever writes that widget's state, so the map region is registered at state 0 and stays hit-testable on the damage detail page too.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "0044cf28",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddCommandScreen_Hide",
+      "signature": "void __cdecl HddCommandScreen_Hide(int screen)",
+      "description": "Command display vtable +8, run by HddDisplay_SetPage on the outgoing page. Sets state 2 on the order-column list gadget at screen+0x35 and on XMIT and CANCEL. See HddCommandScreen_Show for the map viewport gadget it leaves alone.",
+      "source": "docs/formats/cockpit-input.md"
     }
   ]
 }

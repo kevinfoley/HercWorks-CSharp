@@ -24,9 +24,9 @@ public enum CockpitWidgetKind {
 	/// <summary>
 	/// A row of the command display's order column — index is an <see cref="HddOrder"/>. The original
 	/// has no widget per row: <c>HddCommandScreen_Ctor</c> registers one clickable over the whole
-	/// column and <c>FUN_0044d428</c> walks the eight label rects to find which was hit. Splitting it
-	/// into eight regions here reaches the same row from the same rects, and lets the shared hit test
-	/// do the walking.
+	/// column and <c>HddCommandScreen_HandleListClick</c> walks the eight label rects to find which
+	/// was hit. Splitting it into eight regions here reaches the same row from the same rects, and
+	/// lets the shared hit test do the walking.
 	/// </summary>
 	HddOrderRow = 5,
 
@@ -42,8 +42,9 @@ public enum CockpitWidgetKind {
 
 	/// <summary>
 	/// A row of the MFD's FLASH COMM order list. As with <see cref="HddOrderRow"/> the original has no
-	/// widget per row — <c>FUN_00447098</c> walks the six label rects under the display's own base
-	/// panel widget — and splitting it into six regions here reaches the same row from the same rects.
+	/// widget per row — <c>MfdFlashComm_HandleListClick</c> walks the six label rects under the
+	/// display's own base panel widget — and splitting it into six regions here reaches the same row
+	/// from the same rects.
 	/// </summary>
 	MfdFlashCommRow = 8,
 
@@ -83,9 +84,13 @@ public enum ShieldFacing {
 }
 
 /// <summary>
-/// The three buttons under the weapon panel, in the order <c>FUN_00441dd0</c> builds them and
-/// <c>FUN_0044212c</c> switches on. The index is the child index, and it is what tells the paint
-/// which of them latches.
+/// The three buttons under the weapon panel, in the order <c>ConsoleButtons_Ctor</c> builds them and
+/// <c>ConsoleButtons_OnChildClick</c> switches on. The index is the child index, and it is what
+/// tells the paint which of them latches.
+///
+/// <para>The original builds a fourth from the <c>.GAU</c> rect at 532, which is zero in every
+/// retail file, so it is a degenerate widget that can never be clicked — the same shape as MFD
+/// button 6.</para>
 /// </summary>
 public enum ConsoleButton {
 	/// <summary>The fire-chain selector, captioned with the chain's Roman numeral. Momentary.</summary>
@@ -247,16 +252,32 @@ public static class CockpitWidgets {
 	/// Every widget that is currently visible, and so currently clickable, for the given cockpit and
 	/// HUD state. Widgets whose panel is not showing are omitted rather than reported hidden — the
 	/// original's hit test skips them just as completely.
+	///
+	/// <para><b>The order is the original's registration order, and it is load-bearing:</b>
+	/// <see cref="HitTest"/> takes the first match, exactly as <c>Widget_HitTestChildren</c> takes the
+	/// first entry of the flat list <c>Widget_RegisterClickable</c> appended to. That list is built by
+	/// <c>Gau_BuildCockpitWidgets</c> (<c>00431bf8</c>) in the order the seven top-level gauges are
+	/// constructed — console buttons (<c>ConsoleButtons_Ctor</c>), energy meter (no clickables),
+	/// shield facings, the multi-function display, the throttle, the roving gunsight, then the
+	/// Heads-Down Display — followed by the weapon rows, which the function's closing
+	/// <c>WeaponMounts_BuildGauges</c> builds one per mount, and finally the screen-edge strips on
+	/// the first cockpit frame.</para>
+	///
+	/// <para>Two of the original's entries have no counterpart here. The pair of <c>SystemGadget</c>s
+	/// <c>SystemButtons_Ctor</c> registers ahead of everything sits in the forward view's top-right
+	/// corner, and the roving gunsight's click surface covers the 3D window; neither is
+	/// implemented, and neither overlaps a widget that is, so leaving them out costs nothing but their
+	/// own behaviour.</para>
 	/// </summary>
 	public static IEnumerable<CockpitWidget> Visible(CockpitArt art, CockpitHudState state) {
 		ArgumentNullException.ThrowIfNull(art);
 
-		// The edge strip goes first deliberately. The original registers its three ScrollTriggers last — they
-		// are built on the first cockpit tick, after every gauge — and its hit test is first-hit-wins, so a
-		// gauge overlapping a strip takes the click. This hit test is later-wins (see HitTest), so the same
-		// precedence needs the opposite order: enumerated first, the strip yields to anything drawn over it.
-		if (VisibleHeadsDownViewEdge(art) is { } viewEdge) {
-			yield return viewEdge;
+		foreach (var widget in VisibleConsoleButtons(art, state)) {
+			yield return widget;
+		}
+
+		foreach (var widget in VisibleShieldFacings(art)) {
+			yield return widget;
 		}
 
 		foreach (var widget in VisibleMfdButtons(art, state)) {
@@ -267,6 +288,10 @@ public static class CockpitWidgets {
 			yield return widget;
 		}
 
+		if (VisibleThrottle(art) is { } throttle) {
+			yield return throttle;
+		}
+
 		foreach (var widget in VisibleHddWidgets(art, state)) {
 			yield return widget;
 		}
@@ -275,16 +300,13 @@ public static class CockpitWidgets {
 			yield return widget;
 		}
 
-		foreach (var widget in VisibleConsoleButtons(art, state)) {
-			yield return widget;
-		}
-
-		foreach (var widget in VisibleShieldFacings(art)) {
-			yield return widget;
-		}
-
-		if (VisibleThrottle(art) is { } throttle) {
-			yield return throttle;
+		// The strips go last because the original builds them last: CockpitView_BuildScrollTriggers
+		// (00433770) runs from the cockpit tick (004327ac) on the first frame that finds +0x23e
+		// clear, after every gauge constructor. Under first-hit-wins that is what lets a console
+		// instrument sitting over the bottom band take the click instead of the strip, which is what
+		// MAVERICK's [F6] button, RAPTOR2's throttle and RAZOR's TRACK button all do.
+		if (VisibleHeadsDownViewEdge(art) is { } viewEdge) {
+			yield return viewEdge;
 		}
 	}
 
@@ -446,25 +468,30 @@ public static class CockpitWidgets {
 	}
 
 	/// <summary>
-	/// The topmost visible widget under an art-space point on one surface, or null when the point is
+	/// The first visible widget under an art-space point on one surface, or null when the point is
 	/// over bare art.
 	///
-	/// <para>Later entries win, which is the opposite of the original's first-hit-wins linear scan
-	/// (<c>Widget_HitTestChildren</c>). The two agree for every retail cockpit because no two visible
-	/// widget rects overlap — the MFD's buttons 7 and 10 share a rect, but they are the same physical
-	/// button under two captions and no mode shows both. Later-wins is chosen anyway so that if an
-	/// overlap ever does appear, the widget drawn on top is the one that takes the click.</para>
+	/// <para><b>First hit wins, and so enumeration order is precedence.</b>
+	/// <c>Widget_HitTestChildren</c> (<c>00452a00</c>) returns the index of the first entry of the
+	/// flat clickable list that the point falls in, so the widget registered earliest takes a
+	/// contested pixel. <see cref="Visible"/> enumerates in the original's own registration order,
+	/// which is what makes that rule reach the same widget here.</para>
+	///
+	/// <para>Retail cockpits do contest pixels, in four places — the FLASH COMM rows, whose rects are
+	/// built <c>top..top+14</c> and stepped by 14 so each shares its bottom line with the row below;
+	/// the Heads-Down Display's XMIT and CANCEL, whose <c>.GAU</c> rects overlap by two authored
+	/// units; the same display's arrow plates, which touch at the corners; and the view strip under
+	/// three hercs' consoles. The earlier widget wins every one of them.</para>
 	/// </summary>
 	public static CockpitWidget? HitTest(CockpitArt art, CockpitHudState state,
 			CockpitSurface surface, float artX, float artY) {
-		CockpitWidget? hit = null;
 		foreach (var widget in Visible(art, state)) {
 			if (widget.Surface == surface && widget.Contains(artX, artY)) {
-				hit = widget;
+				return widget;
 			}
 		}
 
-		return hit;
+		return null;
 	}
 
 	/// <summary>
@@ -512,9 +539,10 @@ public static class CockpitWidgets {
 	}
 
 	/// <summary>
-	/// FLASH COMM's six order rows, when that is the screen the MFD is showing. <c>FUN_00447098</c>
-	/// hit-tests each row's own label rect and does two different things with a hit: a click on the
-	/// row already selected presses XMIT and transmits, and a click on any other row selects it. The
+	/// FLASH COMM's six order rows, when that is the screen the MFD is showing.
+	/// <c>MfdFlashComm_HandleListClick</c> hit-tests each row's own label rect and does two different
+	/// things with a hit: a click on the row already selected presses XMIT and transmits, and a click
+	/// on any other row selects it. The
 	/// rows report <c>Lit</c> for the selected one so a caller can tell which is which without going
 	/// back to the layout.
 	/// </summary>
@@ -545,11 +573,30 @@ public static class CockpitWidgets {
 	/// The visible Heads-Down Display widgets. Their rects are already device pixels relative to the
 	/// <c>.HB1</c> art's top-left — the space <see cref="HddLayout"/> reports in — so they need no
 	/// conversion, only the herc's own <c>.GAU</c> block to have loaded.
+	///
+	/// <para>The command display's two clickables come first because <c>HddDisplay_Ctor</c>
+	/// (<c>00448cc8</c>) builds both pages before it builds its own fifteen buttons, and within
+	/// <c>HddCommandScreen_Ctor</c> the order column is registered ahead of the map. The damage detail
+	/// registers nothing at all — it is labels only.</para>
 	/// </summary>
 	public static IEnumerable<CockpitWidget> VisibleHddWidgets(CockpitArt art, CockpitHudState state) {
 		ArgumentNullException.ThrowIfNull(art);
 		if (art.HeadsDownLayout is not { } layout) {
 			yield break;
+		}
+
+		if (state.Hdd == HddPage.CommandDisplay) {
+			for (int i = 0; i < HddLayout.OrderCount; i++) {
+				var row = layout.OrderRow(i + 1);
+				yield return new CockpitWidget(CockpitWidgetId.HddOrder((HddOrder)i), CockpitSurface.HeadsDown,
+					row.X0, row.Y0, row.X1, row.Y1,
+					Lit: false,
+					Selected: state.Command.SelectedOrder == (HddOrder)i);
+			}
+
+			var viewport = layout.MapViewport;
+			yield return new CockpitWidget(CockpitWidgetId.HddMapArea, CockpitSurface.HeadsDown,
+				viewport.X0, viewport.Y0, viewport.X1, viewport.Y1, Lit: false);
 		}
 
 		var litWidget = state.Hdd == HddPage.CommandDisplay
@@ -580,23 +627,6 @@ public static class CockpitWidgets {
 				rect.X0, rect.Y0, rect.X1, rect.Y1,
 				Lit: HddLayout.IsLatching(widget) ? selected : state.PressedWidget == id,
 				Selected: selected);
-		}
-
-		if (state.Hdd != HddPage.CommandDisplay) {
-			yield break;
-		}
-
-		// The map viewport and the eight order rows, the command display's own two clickables.
-		var viewport = layout.MapViewport;
-		yield return new CockpitWidget(CockpitWidgetId.HddMapArea, CockpitSurface.HeadsDown,
-			viewport.X0, viewport.Y0, viewport.X1, viewport.Y1, Lit: false);
-
-		for (int i = 0; i < HddLayout.OrderCount; i++) {
-			var row = layout.OrderRow(i + 1);
-			yield return new CockpitWidget(CockpitWidgetId.HddOrder((HddOrder)i), CockpitSurface.HeadsDown,
-				row.X0, row.Y0, row.X1, row.Y1,
-				Lit: false,
-				Selected: state.Command.SelectedOrder == (HddOrder)i);
 		}
 	}
 }

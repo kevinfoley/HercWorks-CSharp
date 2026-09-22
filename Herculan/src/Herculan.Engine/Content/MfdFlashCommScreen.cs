@@ -194,7 +194,7 @@ public sealed class MfdFlashCommScreen {
 
 	/// <summary>
 	/// The row a click at <paramref name="deviceX"/>, <paramref name="deviceY"/> — measured from the
-	/// inset origin — lands on, or -1 for none. <c>FUN_00447098</c> hit-tests the six row rects
+	/// inset origin — lands on, or -1 for none. <c>MfdFlashComm_HandleListClick</c> hit-tests the six row rects
 	/// inclusively on all four edges and does nothing outside them.
 	/// </summary>
 	public static int RowAt(float deviceX, float deviceY) {

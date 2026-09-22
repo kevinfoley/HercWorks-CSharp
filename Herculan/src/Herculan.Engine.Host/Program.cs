@@ -3064,7 +3064,7 @@ void ApplyCockpitClick(CockpitClick click) {
 			break;
 
 		// A click on a FLASH COMM row: on the row already selected it presses XMIT and transmits, on
-		// any other it moves the cursor — FUN_00447098's own two arms, and the same shortcut the
+		// any other it moves the cursor — MfdFlashComm_HandleListClick's own two arms, and the same shortcut the
 		// command display's order list has.
 		case CockpitWidgetKind.MfdFlashCommRow when scene.World is { } clickedWorld:
 			int pickedRow = click.Id.Index;
@@ -3080,7 +3080,7 @@ void ApplyCockpitClick(CockpitClick click) {
 			ApplyHddClick(click.Id.AsHddWidget!.Value);
 			break;
 
-		// Clicking an order arms it, which is the same thing its hotkey does — FUN_0044d428 walks the
+		// Clicking an order arms it, which is the same thing its hotkey does — HddCommandScreen_HandleListClick walks the
 		// eight label rects and calls the same FUN_0044d9cc the key dispatch does. Clicking the one
 		// already armed presses XMIT for you, which is that function's own shortcut.
 		case CockpitWidgetKind.HddOrderRow when hddCommand != null:

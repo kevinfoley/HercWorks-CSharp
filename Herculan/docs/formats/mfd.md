@@ -254,6 +254,8 @@ A region that does not state the component id itself is reached through a merge 
 
 Row block, device pixels relative to the inset origin: rect `2,0xd – 0x60,0x3a` GAU, top-left nudged in by `1 << XCoordShift` and bottom-right out by the same, giving x 6-190 and y0 28. Rows step `7 << YCoordShift` = 14 device. Both nudges use `XCoordShift` on the y axis — no effect in any retail video mode.
 
+Each row's rect is `top` to `top + 14` **inclusive**, and the step is the same 14, so **every row shares its bottom line with the row below**. `MfdFlashComm_HandleListClick` walks the six in index order and stops at the first hit, so the shared line belongs to the upper row — the general rule in [`cockpit-input.md`](cockpit-input.md#registration-order-is-precedence).
+
 Text margin `2 << XCoordShift` = 4 device — the only nonzero label margin on the display. Four fonts:
 
 | Font | When |
@@ -293,7 +295,7 @@ Two dispatches, not one. `CockpitWidgets_HandleCommand` (`00432bc8`) offers ever
 | `0x33` `0x34` (`,` `.`) | `FUN_004469c0` | Previous / next available row, wrapping |
 | `0x20` (D) | `FUN_004469c0` | Press button 7 SELECT if visible |
 
-`FUN_00447130(display, widget, row)` writes the display's shared row **only when the mode is 1**, which is what lets an [Alt] hotkey pressed from another screen transmit a row the cursor never moved to. `FUN_00447098` is the mouse path: a click on the selected row presses XMIT and transmits, a click on any other selects it.
+`FUN_00447130(display, widget, row)` writes the display's shared row **only when the mode is 1**, which is what lets an [Alt] hotkey pressed from another screen transmit a row the cursor never moved to. `MfdFlashComm_HandleListClick` is the mouse path: it hit-tests the six label rects itself, inclusive on all four edges, and a click on the selected row presses XMIT and transmits while a click on any other selects it. There is no widget per row — the rows sit under the display's own `MFDListGadget`, which is the widget the shared hit test actually finds.
 
 ### Transmissions
 

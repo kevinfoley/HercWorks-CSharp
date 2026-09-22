@@ -67,8 +67,8 @@ public enum HddDamageView {
 /// file: both arrow sets and both magnifiers, 54 exact matches. The two that do not are the two the
 /// original itself does not match: the page buttons' plate is two rows taller than their rect, the
 /// same overhang the weapon-row plates have, and XMIT and CANCEL have a 54x20 plate inside a 70x18
-/// click rect that overlaps its neighbour by a column — which is why their captions centre on
-/// <see cref="TransmitCaptionBox"/> rather than on the widget. <see cref="Screen"/> is 459x201 device
+/// click rect that overlaps its neighbour by two authored units — which is why their captions
+/// centre on <see cref="TransmitCaptionBox"/> rather than on the widget. <see cref="Screen"/> is 459x201 device
 /// pixels in all nine files with only its position varying, exactly as the MFD's panel rect is.</para>
 ///
 /// <para><b>What this type is and is not.</b> It is the geometry and the string-table indices, both
@@ -492,8 +492,10 @@ public sealed class HddLayout {
 	/// <summary>
 	/// The caption rect for XMIT or CANCEL: the button's top-left plus the plate's own 54x20 size,
 	/// which is the constructor's <c>0x1b &lt;&lt; XCoordShift</c> by <c>10 &lt;&lt; YCoordShift</c>.
-	/// The widget rect itself is wider (70 device pixels, and the two overlap by one) and is the click
-	/// region, not the art's extent — so the caption centres on the plate.
+	/// The widget rect itself is wider (70 device pixels, and the two overlap by two authored units,
+	/// three device columns) and is the click region, not the art's extent — so the caption centres
+	/// on the plate. XMIT is registered first, so it takes the shared columns — see
+	/// <see cref="CockpitWidgets.HitTest"/>.
 	/// </summary>
 	public Rect TransmitCaptionBox(Widget widget) {
 		var rect = this[widget];

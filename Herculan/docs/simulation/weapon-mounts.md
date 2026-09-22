@@ -266,7 +266,7 @@ Linking is visible because `WeaponMounts_PerFrameUpdate` lights a linked mount's
 
 ### Console buttons
 
-`FUN_0044212c` switches on the child index: 0 advances the chain group and wraps at 3, 1 toggles link, 2 toggles auto-track. `ConsoleButton_Paint` then takes each one's frame from a different field — CHAIN and LINK from the shared press byte `+0x1b`, so they light only while held, and TRACK from its own `+0x40` latch. **LINK never stays lit**; the link state lives on the mounts.
+`ConsoleButtons_OnChildClick` switches on the child index: 0 advances the chain group and wraps at 3, 1 toggles link, 2 toggles auto-track. `ConsoleButton_Paint` then takes each one's frame from a different field — CHAIN and LINK from the shared press byte `+0x1b`, so they light only while held, and TRACK from its own `+0x40` latch. **LINK never stays lit**; the link state lives on the mounts.
 
 ## Open
 

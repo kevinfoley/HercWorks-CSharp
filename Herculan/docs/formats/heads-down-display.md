@@ -97,6 +97,8 @@ Positions differ structurally, not just by offset: TOMAHAWK puts its comm boxes 
 
 15, in the constructor's index order. Frames are `hba\HDD.HBA`; the lit frame is always the one after the unlit.
 
+`HddDisplay_Ctor` builds both page objects *before* these fifteen, so the command display's two clickables are registered ahead of them and win any contested pixel ([`cockpit-input.md`](cockpit-input.md#registration-order-is-precedence)). Within the fifteen, the same rule settles two rect overlaps retail ships with: `XMIT` (13) takes the two `.GAU` units it shares with `CANCEL` (14), and on the six hercs using arrow set 0 the up/down arrows (2-3) take the 3x3 device corner they share with the left/right pair (4-5). Set 1's four separate plates do not touch.
+
 | i | Role | Unlit frame | Caption |
 |---|---|---|---|
 | 0 | F7 page button | 25 | `"F7"`, composed |
@@ -130,7 +132,7 @@ Every widget rect checked against its frame's own size in `hba\HDD.HBA`, across 
 | Page buttons | 26x12 | 25-26 = 26x14 | plate overhangs 2 rows |
 | XMIT/CANCEL | 70x18 | 0-1 = 54x20 | plate narrower than the click rect |
 
-The two inexact classes are inexact in the original too: the page-button overhang is the same idiom the `PWEAPONS` row plates use, and XMIT/CANCEL's rects overlap each other by a column, so they are hit regions rather than art extents.
+The two inexact classes are inexact in the original too: the page-button overhang is the same idiom the `PWEAPONS` row plates use, and XMIT/CANCEL's rects overlap each other by two `.GAU` units, so they are hit regions rather than art extents.
 
 `HDD.HBA` has 27 frames; `HDD.DBA` has the same 27 at different sizes — this bank is **not** a 2x pair, unlike the rest of the `hba`/`dba` set.
 
@@ -179,6 +181,7 @@ Logical ids through `dat\COLORS.DAT` (see [`cockpit-hud.md`](cockpit-hud.md)).
 | Symbol | Address | Role |
 |---|---|---|
 | `HddCommandScreen_Ctor` | `0044c264` | Builds the map target, 140 marker gadgets, nine label rows and the two click regions. |
+| `HddCommandScreen_Show` / `_Hide` | `0044cee8` / `0044cf28` | Vtable slots 3 and 2; the page-switch visibility the widget table does not cover. |
 | `HddCommandScreen_Repaint` | `0044c894` | Screen flood, order rows, selected-row bar, magnifiers, markers, map. |
 | `HddCommandScreen_KeyDispatch` | `0044cc40` | Vtable slot 4; switches on the DOS scancode. |
 | `HddCommandScreen_DrawMap` | `0044e30c` | Everything inside the viewport, in the order listed below. |
@@ -276,6 +279,21 @@ apparent = 25000 << 7 / |(x - centreX, y - centreY, -scale)|
 and draws a box of that size in its own colour — id 5 blue friendly, id 9 red hostile — whenever the icon it would otherwise blit is taller. `25000 << 7 / 16` puts the crossover at 200,000 world units out, the same 1200 m one grid square covers.
 
 `hba\ICONS.HBA` is 90 frames: two singles, four structure icons, then eight nine-frame rotation groups from frame 6, then ten 16x13 route markers at 78-87 and two 8x5 ticks. It is loaded lazily by `HddMarker_Ctor` (`0044f130`) rather than with the rest of the display's art.
+
+### The two click regions
+
+The page's only clickables are two `HDDListGadget`s, registered in this order and both inside `HddCommandScreen_Ctor`:
+
+| Screen field | Rect | Role |
+|---|---|---|
+| `+0x35` | the order column, the constructor's `+0xe1` rect verbatim | one region over all nine rows, not one per row |
+| `+0x39` | the map viewport | the whole inset |
+
+Neither acts on the click itself. `HDDListGadget_OnClick` (`0044f6ac`) is left-button only and calls `HddCommandScreen_QueueListClick` (`0044d3a4`), which records which gadget and where and sets a pending flag at `+0x14d`; `HddCommandScreen_HandleListClick` (`0044d428`) drains it and branches on the gadget pointer. For the order column it walks the eight row rects itself — **exclusively** on all four edges, unlike every other rect test in the cockpit, so a row's own boundary lines are dead — and arms that order, or presses XMIT when the click repeats the row already selected. For the map viewport it stores the point as the map cursor.
+
+`HddCommandScreen_SynthesizeListClick` (`0044d598`) is the keyboard's way into the same queue: an order hotkey feeds it the row's own rect corner and Enter feeds it a projected map point, so key and click converge before anything is decided.
+
+**The map region is never hidden.** `HddCommandScreen_Hide` (`0044cf28`) sets state 2 on the order column, `XMIT` and `CANCEL`, and `HddCommandScreen_Show` (`0044cee8`) clears the same three; no function in `HddDisplay_Ctor`'s or `HddCommandScreen_Ctor`'s translation units writes the map gadget's state byte, and those are the only code holding a pointer to it. It is registered at state 0 and stays hit-testable on the damage detail page, where nothing draws it — see [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
 
 ### The order list and its state machine
 
@@ -454,6 +472,8 @@ Everything the command display draws is drawn. Zoom, pan, recentring, pilot sele
 The comm boxes run their four-state machine and draw what it says: the `pilot<n>` portrait at its `.OFS` offset or the cycling `static`, clipped to the box, with the name plate left over it and the four status lines suppressed. Both 320-wide-only banks are taken from `dba\` and blitted doubled, the way the original doubles them. A destroyed squadmate's box sits on static: the original's idle paint reads the machine's own destroyed flag, and `SquadCommChannel.SetCommsOut` is where this engine keeps that.
 
 Not drawn: the damage rows do not scroll — the engine has no row offset, so a 19-row structural list shows its first 13. TODO: verify if this is a divergence from retail that should be marked as an open task.
+
+`CockpitWidgets` splits the order column's single click region into its eight rows so the shared hit test does the walk the original does by hand, and reports the map region only on the command display rather than leaving it live on the damage page.
 
 XMIT delivers a real order — [`../simulation/ai-squadmates.md`](../simulation/ai-squadmates.md) owns the transmit path and what the squadmate does with it. The OBJECTIVE: line reports back through `Mech_SquadOrderLineIndex` (`0041bac8`), which indexes group 40 with the machine's behaviour descriptor `+0x3c` ([`../simulation/ai-dispatch.md`](../simulation/ai-dispatch.md)) and lets the standing order override it (1→`TRAVEL`, 2→`PATROL`, 3 or 6→`GUARD`) — but only for a machine that is neither immobilised nor destroyed, is not fleeing and is not committed to a fight, so a downed squadmate reads `DEAD` or `IMMOBILE` whatever it was ordered to do and one that has found a fight reads `ATTACK`.
 

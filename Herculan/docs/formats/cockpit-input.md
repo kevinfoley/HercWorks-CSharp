@@ -64,9 +64,56 @@ This `{enabled, eventMask, callback}` triple-array shape is not unique to mouse 
 
 ## 5. One flat hit-test registry for the whole cockpit
 
-Every clickable widget anywhere in the cockpit — the MFD's 13 buttons, the HDD's 15 widgets, the 3 console buttons, weapon-select gadgets, the two shield-balance facings — is appended to **one shared list**, not organized per-panel. `Widget_RegisterClickable` (`00452c44`) appends a widget pointer to the caller's own `+0x256` array (count at `+0x254`); every top-level cockpit widget's constructor calls it once per child with the *dereferenced* `CockpitViewInstance` pointer as the shared root. Confirmed identically in `MfdDisplay_Ctor`'s 13-button loop and `ShieldsGauge_Ctor`'s 2-facing loop.
+Every clickable widget anywhere in the cockpit — the MFD's 13 buttons, the HDD's 15 widgets, the console buttons, weapon-select gadgets, the two shield-balance facings — is appended to **one shared list**, not organized per-panel. `Widget_RegisterClickable` (`00452c44`) appends a widget pointer to the caller's own `+0x256` array (count at `+0x254`); every top-level cockpit widget's constructor calls it once per child with the *dereferenced* `CockpitViewInstance` pointer as the shared root. Confirmed identically in `MfdDisplay_Ctor`'s 13-button loop and `ShieldsGauge_Ctor`'s 2-facing loop.
 
-`Widget_HitTestChildren` (`00452a00`) linear-scans that whole list with `Widget_HitTest`, skipping any widget whose state byte (`+0x1b`) is `2`. This is how an off-screen panel's buttons don't intercept clicks: nothing removes them from the list when their panel isn't showing, only `Widget_Hide`/`Widget_Show` (`00452c8c`/`00452c64`) toggling that one state byte.
+`Widget_HitTestChildren` (`00452a00`) linear-scans that whole list with `Widget_HitTest` and returns the index of the **first** entry the point falls in whose state byte (`+0x1b`) is not `2`. This is how an off-screen panel's buttons don't intercept clicks: nothing removes them from the list when their panel isn't showing, only that one state byte changes. Every such change in the image is a direct store; the two library helpers for it, `Widget_Show` and `Widget_Hide` (`00452c64`/`00452c8c`), have no call site, no vtable slot and no stored pointer anywhere in the PE.
+
+### Registration order is precedence
+
+First-hit-wins makes the order the list is built in the whole of the tie-break: where two visible rects contest a pixel, the widget registered earlier takes the click. `Gau_BuildCockpitWidgets` (`00431bf8`) fixes that order, and it is not the order the panels are drawn in:
+
+| # | Registered by | Widgets |
+|---|---|---|
+| 1 | `SystemButtons_Ctor` (`00434368`) | The two `SystemGadget`s below |
+| 2 | `ConsoleButtons_Ctor` (`00441dd0`) | Four `WeaponRangeSelectGadget`s from `.GAU` 484/500/516/532 — the chain selector, LINK, TRACK, and a fourth whose rect is zero in every retail file |
+| 3 | `EnergyPoolGauge_Ctor` (`00444d5c`) | none — its LED bar is not clickable |
+| 4 | `ShieldsGauge_Ctor` (`004434fc`) | The two facings, front then rear (§8) |
+| 5 | `MfdDisplay_Ctor` (`00445218`) | Buttons 0-12 in index order, then the `MFDListGadget` over the screen area |
+| 6 | `ThrottleGauge_Ctor` (`00447b84`) | The slider (§7) |
+| 7 | `Gau_RovingGunsightWidget` (`0043c7d8`) | The `HUDRovingGunsightGadget` click surface over the 3D window |
+| 8 | `HddDisplay_Ctor` (`00448cc8`) | `HddCommandScreen_Ctor`'s order-column list then its map list, **then** the display's own 15 buttons — both page objects are built before the buttons, and the damage detail registers nothing |
+| 9 | `WeaponMounts_BuildGauges` (`00410644`) | Per mount, in mount order: the row's select gadget, then an energy row's charge bar |
+| 10 | `CockpitView_BuildScrollTriggers` (`00433770`) | The three edge strips (§10), on the first cockpit frame |
+
+Step 9 is the closing call of `Gau_BuildCockpitWidgets`: it walks the machine's weapon-mount array and dispatches each mount's own gauge-factory slot (`+0x64`), so a row's clickables are registered by the mount rather than by the cockpit. An energy row registers **two** — `ChainedWeaponSelectGadget` first and `WeaponChargeBar` second — which is why the select gadget takes the click where the charge bar overlaps it.
+
+### Where retail rects overlap
+
+Four places, measured across all nine retail cockpits. First-hit-wins resolves each in favour of the earlier registration:
+
+| Contested | Extent | Taken by |
+|---|---|---|
+| FLASH COMM row *n* against *n+1* | the shared bottom line, every herc | the upper row ([`mfd.md`](mfd.md#mfdflashcomm--mode-1)) |
+| HDD `XMIT` against `CANCEL` | 2 `.GAU` units, every herc | `XMIT`, widget 13 |
+| HDD up/down arrow against left/right | a 3x3 device corner, the six hercs on arrow set 0 | the up/down arrow, widgets 2-3 ([`heads-down-display.md`](heads-down-display.md#widgets)) |
+| The bottom edge strip against a console instrument | MAVERICK's `[F6]`, RAPTOR2's throttle, RAZOR's `TRACK` | the instrument (§10) |
+
+MFD buttons 7 and 10 share a rect but never contest it: no mode shows both ([`mfd.md`](mfd.md#button-visibility)).
+
+### The two system buttons
+
+`SystemButtons_Ctor` (`00434368`) builds a pair of `SystemGadget`s from hardcoded coordinates rather than from the `.GAU` — 12x11 GAU units each, at x 305-317 and x 291-303, y 2-13, so they sit in the forward view's top-right corner. Their art is the `sysbuttn` bank, and the constructor leaves them in state **3**, which `Widget_HitTestChildren` treats as clickable and `SystemGadget_Paint` (`00434748`) draws as the plain frame.
+
+`SystemButtons_OnChildClick` (`004345a0`) matches the clicked child against the pair at `CockpitViewInstance+0x246`/`+0x24a` and, unless a `.TAP` is replaying:
+
+| Child | Effect |
+|---|---|
+| 0, the right-hand button | `OnlineManual_Raise` then `Help_Show` — the same two calls `Sim_DispatchCommand` makes for the `?` key, so the button and the key are one path |
+| 1, the left-hand button | `Video_ToggleFullscreen` (`004666c4`), then repaints the shield gauge |
+
+`Video_ToggleFullscreen` is a real mode switch, not a window maximize: from windowed it sets `004d25e2`, takes the window topmost at the game resolution, `ClipCursor`s the pointer into it and centres it; from fullscreen it restores the window rect saved on the way in. `Help_Show` calls it first when that flag is set, so raising the manual drops the game out of fullscreen.
+
+Neither button is implemented in Herculan, and neither overlaps a widget that is.
 
 Widget state byte (`+0x1b`):
 
@@ -75,7 +122,7 @@ Widget state byte (`+0x1b`):
 | 0 | Normal |
 | 1 | Lit — either held down, or selected (a mode button's current screen). Not hover; there is none |
 | 2 | Excluded from hit-testing by `Widget_HitTestChildren`, whatever the class does about drawing |
-| 3 | A fourth state only the alert family's `PanelButton` uses: the resting state of a preferences or controls option row |
+| 3 | A fourth state, still hit-testable. The alert family's `PanelButton` rests a preferences or controls option row in it, and `SystemGadget_Ctor` leaves both system buttons in it |
 
 `Widget_NotifySelfAndChildren` (`00452a48`) walks that same list — vtable slot 0 on the owner, then on each registered child — but nothing reaches it: its one caller (`00452bac`) has no rel32 branch, no stored pointer and no vtable slot anywhere in the image. The cascades the cockpit actually runs are per class (§7).
 
@@ -198,7 +245,7 @@ The four classes hanging straight off `CTLButtonControl` are the ones that take 
 
 | Class | Size | Base | Constructor | What it is |
 |---|---|---|---|---|
-| `SystemGadget` | `0x60` | `PanelSelectGadget` | `SystemGadget_Ctor` (`00434664`) | A console button, built in pairs by `maybe_SysButtonPair_Ctor` |
+| `SystemGadget` | `0x60` | `PanelSelectGadget` | `SystemGadget_Ctor` (`00434664`) | The online-manual and fullscreen-toggle buttons in the forward view's top-right corner (§5) |
 | `ScrollTrigger` | `0x24` | `CTLButtonControl` | `CockpitView_BuildScrollTriggers` (`00433770`) | One of the three screen-edge view strips (§10). Silent — no `PanelGadget` |
 | `WeaponSelectGadget` | `0x46` | `PanelSelectGadget` | `WeaponSelectGadget_Ctor` (`004421dc`) | A pod row — the class without chain membership, which only `PodGauge_Ctor` builds ([`../simulation/equipment-pods.md`](../simulation/equipment-pods.md)) |
 | `ChainedWeaponSelectGadget` | `0x67` | `WeaponSelectGadget` | `ChainedWeaponSelectGadget_Ctor` (`00442488`) | A weapon row, from `EnergyWeaponGauge_Ctor` and `AmmoWeaponGauge_Ctor` ([`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#arming-chaining-and-linking)) |
@@ -312,7 +359,7 @@ The manual: *"Change views with the mouse by clicking on the screen edge leading
 | `+0x21e` | `{0, 0, 5<<X, H-1}` | Left, full height, 5 columns wide |
 | `+0x222` | `{W-1-(5<<X), 0, W-1, H-1}` | Right, full height, 5 columns wide |
 
-**They are built lazily, on the first cockpit frame rather than in a constructor.** The cockpit tick (`004327ac`) calls the builder once, gated on a one-shot flag at `+0x23e`, which is why the three sit apart from the rest of the widget build.
+**They are built lazily, on the first cockpit frame rather than in a constructor.** The cockpit tick (`004327ac`) calls the builder once, gated on a one-shot flag at `+0x23e`, which is why the three sit apart from the rest of the widget build — and, because registration is precedence (§5), why anything else occupying that band wins the click. Three cockpits do: MAVERICK's `[F6]` button, RAPTOR2's throttle and RAZOR's `TRACK` button all reach into the bottom `3 << YCoordShift` rows, and a click there works the instrument instead of changing view. The other six leave the band clear.
 
 ### A strip changes edge with the view
 
@@ -365,14 +412,19 @@ A dash is a click that hits no strip at all. The heads-down view is the one plac
 | `SliderWidget_GetValueV` / `_SetValueV` | `00452628` / `00452644` | Vertical value from/to knob position |
 | `SliderWidget_RecomputeScaleV` | `00452694` | Q16 pixels-per-unit over the knob travel |
 | `SliderWidget_DragToPointH` / `_GetValueH` / `_SetValueH` / `_RecomputeScaleH` | `004524f8` / `00452544` / `0045255c` / `004525a8` | The horizontal twins |
-| `Widget_HitTestChildren` | `00452a00` | Scans the flat clickable list |
+| `Widget_HitTestChildren` | `00452a00` | Scans the flat clickable list; first hit wins, so registration order is precedence (§5) |
+| `Gau_BuildCockpitWidgets` | `00431bf8` | Builds the seven top-level gauges in the order that becomes the clickable list's own |
+| `SystemButtons_Ctor` / `_OnChildClick` | `00434368` / `004345a0` | The online-manual and fullscreen buttons, and what each one does |
+| `Video_ToggleFullscreen` | `004666c4` | Fullscreen/windowed switch behind the left system button, and the one `Help_Show` runs first |
+| `ConsoleButtons_Ctor` | `00441dd0` | The four `WeaponRangeSelectGadget`s under the weapon panel |
+| `WeaponMounts_BuildGauges` | `00410644` | Dispatches each mount's gauge-factory slot; the closing call of `Gau_BuildCockpitWidgets` |
 | `Widget_OnMouseDown` / `_OnMouseUp` | `004527a0` / `00452870` | Press and click state transitions |
 | `Widget_TrackPressedWidget` | `00452954` | Keeps the held widget depressed only while the pointer is on it |
 | `Widget_PressedIndex` | `0049dbdc` | int16 index of the widget a button is held on, -1 for none |
 | `Widget_DragCapture` | `0049dbde` | Set while a `+0x1d` widget holds the pointer; routes moves to `+0x18` and suppresses the click |
 | `Widget_Repaint` | `00452a90` | Calls a widget's own Paint slot |
 | `Widget_RegisterClickable` | `00452c44` | Appends to the flat clickable list |
-| `Widget_Show` / `Widget_Hide` | `00452c64` / `00452c8c` | Set a child's state to 0 / 2 |
+| `Widget_Show` / `Widget_Hide` | `00452c64` / `00452c8c` | Set a child's state to 0 / 2 — library helpers with no call site, no vtable slot and no stored pointer; every hide in the image is a direct store to `+0x1b` |
 | `Widget_NotifySelfAndChildren` | `00452a48` | Calls vtable slot 0 on self then every clickable child; unreachable — its only caller (`00452bac`) has none of its own |
 | `Widget_CtorRect` | `00452478` | Base widget constructor: copies the rect and clears the hit-shape byte |
 | `Widget_DrawToCockpit` | `0043122c` | Blits one widget's rect into the cockpit canvas; stage 1 of the deferred paint |

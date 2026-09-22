@@ -3042,7 +3042,14 @@ void ApplyCockpitClick(CockpitClick click) {
 	// the handler's: it is a one-line virtual (0x438e2c, the only caller of catalog id 0x11 in the
 	// image) sitting in fifteen widget vtables, so a widget clicks because it is that kind of widget,
 	// not because its action did something. That is why a button with nothing behind it still clicks.
-	audio.Director?.Play(SoundId.ButtonClick);
+	//
+	// The screen-edge strips are the exception, and for the same structural reason: that virtual
+	// lives in the PanelGadget mixin every gadget carries as a second base, and ScrollTrigger is one
+	// of the four classes that take no mixin at all. It is silent for want of the base, not for want
+	// of an action. See docs/formats/cockpit-input.md, "The second vtable".
+	if (click.Id.Kind != CockpitWidgetKind.ViewEdge) {
+		audio.Director?.Play(SoundId.ButtonClick);
+	}
 
 	switch (click.Id.Kind) {
 		case CockpitWidgetKind.MfdButton when click.Id.Index < MfdLayout.ModeCount:
@@ -3113,6 +3120,14 @@ void ApplyCockpitClick(CockpitClick click) {
 		case CockpitWidgetKind.ShieldFacing when pilotMech != null:
 			pilotMech.Shields.AdjustBalance(
 				towardFront: click.Id.AsShieldFacing!.Value == ShieldFacing.Front);
+			break;
+
+		// The screen-edge strip, one band of art that shows at the bottom of the forward view and
+		// the top of the heads-down view. CockpitView_HandleEdgeTrigger (00433a88) picks the command
+		// by current view -- 0 (pan down) from the forward view, 1 (pan up) from the heads-down one --
+		// so the same widget means "down" or "up" according to where the pan already is.
+		case CockpitWidgetKind.ViewEdge when cockpitHeadsDownTexture != null:
+			cockpitPan.Request(headsDown: !cockpitPan.AtHeadsDown);
 			break;
 	}
 }

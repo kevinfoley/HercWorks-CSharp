@@ -322,9 +322,9 @@ Two toggles play a confirmation directly rather than through any data table:
 
 The mode-change tone is the [R] path only. The scanner screen's PASS/ACTIVE buttons write `mech+0x96` directly and play nothing. The radar toggle also announces the new mode in the computer's voice — see [`cockpit-messages.md`](cockpit-messages.md#posters).
 
-`Widget_ClickSound` is the whole of the click: `push 0x11; call Sound_Play; ret`, and it is the image's only reference to that id. Nothing calls it directly — it sits in **fifteen widget vtables**, so a widget clicks because of what kind of widget it is and not because its handler did anything. That is why a button wired to nothing still clicks.
+`Widget_ClickSound` is the whole of the click: `push 0x11; call Sound_Play; ret`, and it is the image's only reference to that id. Nothing calls it directly — it sits in **fifteen widget vtables**, `PanelGadget`'s own and the fourteen button classes that inherit it, so a widget clicks because of what kind of widget it is and not because its handler did anything. That is why a button wired to nothing still clicks.
 
-Which kind matters: the slot it occupies belongs to the gadget base class, and the slider family overrides it with an empty stub (`00439014`). **Dragging the throttle makes no sound at all**, and neither does an alert panel's slider row — see [`cockpit-input.md`](cockpit-input.md#the-second-vtable-and-the-class-record-beside-it).
+Which kind matters: the slot belongs to `PanelGadget`, the mixin base a cockpit widget carries alongside its button or slider class, and `PanelSliderGadget` overrides it with an empty stub (`00439014`). **Dragging the throttle makes no sound at all**, and neither does an alert panel's slider row. A control that takes neither mixin has no such slot to begin with and is silent for that reason: the click surface over the 3D view, the F7 map's surface, `HDDisplayGadget` and `ScrollTrigger` — see [`cockpit-input.md`](cockpit-input.md#the-second-vtable-and-the-class-record-beside-it).
 
 ## Speech and the comm portraits
 

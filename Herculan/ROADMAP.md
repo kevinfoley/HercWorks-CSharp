@@ -52,10 +52,18 @@ The mechanism is understood; what is left is engine work.
 - **Flyer control bindings.** The flight model is ported and the axis roles are known, but key
 bindings are hardcoded placeholders.
   → [`docs/simulation/razor-flight.md`](docs/simulation/razor-flight.md)
+- **The two side windows, and the two screen-edge strips that reach them.** The cockpit has four
+  views; the engine renders two. `.HB2`/`.HD2` are loaded and clipped as `CockpitArt.SideViewIndex`,
+  but nothing ever selects view 2 or 3, so `[F9]`/`[F10]` do nothing and the left and right windows
+  are unreachable. Retail's left and right `ScrollTrigger` strips go with them — the vertical one is
+  ported (`CockpitWidgets.VisibleHeadsDownViewEdge`), but a side strip that queued a view nothing can
+  render would be a dead click region rather than a faithful one.
+  → [`docs/formats/cockpit-input.md`](docs/formats/cockpit-input.md#10-the-screen-edges-are-three-widgets),
+  [`docs/formats/cockpit-hud.md`](docs/formats/cockpit-hud.md)
 - **The engine can only load a `script.dat` handoff, not a `.MSN`.** `MissionLoader` builds a
   mission out of the campaign handoff alone; the ~50 real missions in `ZONES.VOL` are `.MSN` files,
   whose format is decoded and read by `HercWorks.Core`'s `MissionFileTransformer` but which nothing
-  turns into a `Mission`. So the engine can be flown against a handful of saved states and not
+  turns into a `Mission`. So the engine can be played against a handful of saved states and not
   against the game's own missions, and a scenario that is not in the handoff — a ground-vehicle
   convoy, for one — has to be built by hand.
   → [`docs/formats/msn-mission-file.md`](docs/formats/msn-mission-file.md),
@@ -85,9 +93,6 @@ The engine cannot be faithful here until the original is understood.
 - **The drop pod's ground mark.** The leftover effect a landed pod spawns comes from the theater's
   `flat`/`flat2` shape pool, which is not ported.
   → [`docs/simulation/mission-deployment.md`](docs/simulation/mission-deployment.md)
-- **The cockpit widget class family's vtables.** `known_vtables.json` covers the simulation-object hierarchy only, so not one widget class is in it, and the slot offsets are not uniform across the family: a new cockpit control has to be reached by dumping its own class's table afresh rather than by looking a shape up. Fifteen tables are known to carry `Widget_ClickSound`, and of those only the shield facing's is tied to the class that owns it. (This task may have been completed, please verify against docs and code before starting.)
-  → [`docs/formats/cockpit-input.md`](docs/formats/cockpit-input.md),
-  [`docs/formats/cockpit-hud.md`](docs/formats/cockpit-hud.md)
 - **External view (`[V]` chase camera) is entirely engine-invented.** DBSIM's own external view
   placement, transitions, terrain handling and overlay chrome are unrecovered.
   `Render/ExternalCamera.cs` is the single place a real rule would replace the guess.
@@ -163,12 +168,6 @@ hit-testing rather than new drawing code. What is missing:
   bindings do nothing.
   → [`docs/formats/joystick-input.md`](docs/formats/joystick-input.md#the-buttons)
 - Cheats (other than Alt-D to drop a waypoint at your position, which is implemented; this one isn't documented but also doesn't really seem like a cheat).
-- Tweaks menu: the switchboard for the places this engine deliberately departs from retail, so a
-  player can ask for the original behaviour. `TweaksMenu`/`TweakSettings` exist and cover seven
-  deviations, but nothing opens the panel yet — no menu bar calls `TweaksMenu.Open()`. Other
-  deviations still carry no switch at all and default to whichever behaviour their own doc names,
-  e.g. `AnimationThread.InterpolateSeekPosition`.
-  → [`docs/simulation/torso-aim.md`](docs/simulation/torso-aim.md#sub-tick-seek-interpolation--not-retail)
 
 ## Debugging features
 - Launch option to disable AI (so units other than the player remain stationary, though still subject to damage and destruction)

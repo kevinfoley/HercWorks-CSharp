@@ -1,9 +1,16 @@
 ﻿{
   "schema_version": 1,
   "_readme": [
-    "Vtable layouts for DBSIM.EXE's simulation-object class hierarchy, applied to the Ghidra",
-    "project by ES2ApplyVtables.java (tools/ghidra_scripts/). Re-run that script after adding",
-    "entries here -- it is idempotent.",
+    "Vtable layouts for DBSIM.EXE's two class hierarchies -- the simulation objects and the",
+    "cockpit widgets -- applied to the Ghidra project by ES2ApplyVtables.java",
+    "(tools/ghidra_scripts/). Re-run that script after adding entries here -- it is idempotent.",
+    "",
+    "The widget family is enumerable rather than discovered one class at a time: Borland emitted a",
+    "descriptor record per class, stored 12 bytes before that class's vtable, and it carries the",
+    "class's own name. tools/scripts/es2_classes.py --vtables walks both directions, so a new",
+    "cockpit control's table is looked up from its class name and a table found in the",
+    "disassembly is turned back into a class name. Adding a widget class here is therefore a",
+    "matter of naming its instance, not of re-deriving the shape.",
     "",
     "This is one of three companion files. known_symbols.json owns address->function findings and",
     "known_structs.json owns field layout inside an object. This file owns the SHAPE of a class:",
@@ -31,6 +38,13 @@
     "code address in the word after the last slot is not evidence: two of the tables here hold a",
     "pointer into a class-descriptor record there, which resolves and disassembles like anything",
     "else. Growing a definition later costs nothing; a wrong one has to be noticed first.",
+    "",
+    "ONE CLASS OF TABLE STATES ITS OWN LENGTH. Where a class has a second base -- the cockpit",
+    "widgets and REG_OBJ/TS_REG_OBJ are the cases in DBSIM -- the primary table is followed by two",
+    "constants, the second of which is the byte offset from the primary table to the mixin's, so",
+    "slot count = (constant - 8) / 4. Check for that pair before reasoning from call sites: it is",
+    "the binary saying the length rather than the reader inferring it. Its absence means only that",
+    "the class is singly inherited.",
     "",
     "NO SIGNATURES. Each slot becomes a function definition with the default (undefined) return and",
     "no declared parameters -- the least the shape can claim. Argument",
@@ -163,6 +177,307 @@
           "address": "004984fc",
           "label": "GrenadeVtable",
           "description": "DEAD CODE. The Type-3 constructor that builds against this table is never called, and its Tick slot is FUN_0040acb4 (return 0), so an instance would never move or die. Retail Type-3 records are unreachable data -- see known_symbols.json's entry for that constructor. Typed here so the table is not mistaken for a live class later."
+        }
+      ]
+    },
+    {
+      "name": "CockpitWidgetVtable",
+      "binary": "DBSIM",
+      "description": "The seven-slot table every clickable cockpit widget on the CTLButtonControl branch carries, at object +0x17 -- the offset the class's own Borland descriptor record states, so a widget's primary vtable is always reached the same way. SEVEN IS ESTABLISHED, and on a concrete class the block states it outright: the second of the two constants after the table is the byte offset of the mixin's vtable from the start of the primary one, so slot count = (constant - 8) / 4, and every button class carries 0x24. The three input functions that call through the table fix the slot numbers independently (Widget_OnMouseUp (00452870) reads +0x10 then calls +0x08, Widget_OnMouseDown (004527a0) calls +0x18, Widget_Repaint (00452a90) calls +0x04), and the word at +0x1c is not an eighth slot -- in every table on this branch it is either the next class's descriptor pointer (the [descriptor][0][0][vtable] block header this linker emits), the first of the two constants, or padding. Four of those next-class pointers disassemble as code and would read as a confirmed slot. The slider branch is a separate shape with a genuine +0x1c; see CockpitSliderWidgetVtable. Each class's table is found from its name, and each address here from its table, by tools/scripts/es2_classes.py --vtables, which reads the descriptor record stored 12 bytes before every table. See docs/formats/cockpit-input.md.",
+      "slots": [
+        { "offset": 0,   "name": "Paint",              "description": "Redraw the widget's own content -- re-resolve its caption, pick its frame and colour. Called by slot +0x0c's stage 2, never directly by the input layer. CTLControl's table holds the empty 00452ab2; CTLButtonControl installs 00455545." },
+        { "offset": 4,   "name": "Invalidate",         "description": "Widget_Repaint (00452a90) calls this and nothing else, so no widget paints inside its own click. The PanelSelectGadget branch installs Widget_InvalidateDeferred (00455524), whose whole body is this->[0x1f] = 2; CTLControl's default (00452ab7) is empty." },
+        { "offset": 8,   "name": "OnClick",            "description": "(this, value) -- commit the click, with slot +0x10's value. Called by Widget_OnMouseUp (00452870). Most leaves inherit Widget_ForwardClickToOwner (00438e3c) from PanelSelectGadget, which calls owner->vtable[0] through the owner pointer at this+0x24; the MFD's latching class, HDDSelectGadget and the throttle override it." },
+        { "offset": 12,  "name": "FlushDeferredPaint", "description": "Run once a frame down the widget tree: at this->[0x1f] == 2 calls slot 0 and decrements, at 1 calls Widget_DrawToCockpit (0043122c) and decrements. CTLControl's default (0045554a) is empty." },
+        { "offset": 16,  "name": "GetValue",           "description": "The value slot +0x08 is handed. Widget_GetButtonValue (00455530) returns the global mouse-button word 0049db6c, i.e. WHICH BUTTON clicked -- 1 for left, 2 for right. Read by Widget_OnMouseUp immediately before it calls +0x08." },
+        { "offset": 20,  "name": "SetValue",           "description": "(this, value). CTLControl's default (0045553b) is empty; the slider family overrides it." },
+        { "offset": 24,  "name": "DragMove",           "description": "(this, x, y) -- the pointer moved while this widget holds the mouse capture. Widget_OnMouseDown (004527a0) calls it the moment it begins a capture, and CockpitMouse_ProcessQueue calls it for every move until the release. CTLControl's default (00455540) is empty; only the sliders implement it." }
+      ],
+      "instances": [
+        {
+          "address": "0049dbb6",
+          "label": "CTLControlVtable",
+          "description": "The root of the shape: every slot is an empty stub, and the table is followed by neither a mixin table nor the two subobject constants. Not instantiated in the cockpit -- it exists to be inherited from."
+        },
+        {
+          "address": "0049df24",
+          "label": "CTLButtonControlVtable",
+          "description": "The clickable base every cockpit gadget derives from; 0x20 bytes by its descriptor record. Overrides +0x00 (00455545) and +0x04 (00455559) only. No PanelGadget subobject of its own, so no mixin table follows it."
+        },
+        {
+          "address": "0049dee4",
+          "label": "PanelSelectGadgetVtable",
+          "description": "The momentary-button class, 0x40 bytes: CTLButtonControl plus a PanelGadget mixin at +0x20. It is here that +0x08 becomes Widget_ForwardClickToOwner (00438e3c) and +0x04 becomes Widget_InvalidateDeferred (00455524), which is why most leaves need to override neither."
+        },
+        {
+          "address": "0049d5a4",
+          "label": "PanelStateGadgetVtable",
+          "description": "The latching-button class, derived from PanelSelectGadget. Overrides +0x0c with 0044c0b0; its +0x08 is still the forwarder."
+        },
+        {
+          "address": "0049d904",
+          "label": "PanelListGadgetVtable",
+          "description": "The click-region class -- a rectangle that reports where in itself it was hit rather than acting as a button. Overrides +0x00 and +0x04 (00450565 / 0045055b), and its mixin's OnClick thunk is the 00496684 stub."
+        },
+        {
+          "address": "0049b774",
+          "label": "SystemGadgetVtable",
+          "description": "A console button, 0x60 bytes, built in pairs by maybe_SysButtonPair_Ctor; see SystemGadget_Ctor (00434664)."
+        },
+        {
+          "address": "0049b7b4",
+          "label": "ScrollTriggerVtable",
+          "description": "The manual's screen-edge view change: 0x24 bytes, derived from CTLButtonControl, overriding +0x04 (00455559) and +0x08 (ScrollTrigger_OnClick, 00434df0). Three are built by CockpitView_BuildScrollTriggers (00433770) as strips along the bottom, left and right edges of the display, and a click on one calls CockpitView_HandleEdgeTrigger. No PanelGadget subobject: the block ends at +0x1c with linker padding, so +0x20 is a plain owner pointer and the strip is silent."
+        },
+        {
+          "address": "0049c188",
+          "label": "HUDRovingGunsightGadgetVtable",
+          "description": "The click surface over the 3D view, built by Gunsight_ClickSurface_Ctor (0043c120); see docs/formats/hud-target-indicator.md. No PanelGadget subobject, so it is silent."
+        },
+        {
+          "address": "0049c758",
+          "label": "WeaponRangeSelectGadgetVtable",
+          "description": "The weapon-range gauge's button; WeaponRangeSelectGadget_Ctor (00442c00)."
+        },
+        {
+          "address": "0049c7dc",
+          "label": "ChainedWeaponSelectGadgetVtable",
+          "description": "A weapon row, from EnergyWeaponGauge_Ctor and AmmoWeaponGauge_Ctor; see docs/simulation/weapon-mounts.md."
+        },
+        {
+          "address": "0049c81c",
+          "label": "WeaponSelectGadgetVtable",
+          "description": "A pod row -- the weapon-row class without chain membership, built only by PodGauge_Ctor; see docs/simulation/equipment-pods.md."
+        },
+        {
+          "address": "0049c9dd",
+          "label": "ShieldsSelectGadgetVtable",
+          "description": "A shield facing, built by ShieldsGauge_FacingCtor (00444aec). Overrides +0x00 with ShieldFacing_Paint (00444b5c) and +0x0c with ShieldFacing_FlushDeferredPaint (00444b70), which blits without rebuilding content. Its owner is the ShieldsGauge, whose own four-slot table at 0049ca1d is a different shape and is not in the clickable list."
+        },
+        {
+          "address": "0049cee0",
+          "label": "MFDListGadgetVtable",
+          "description": "The MFD's screen-content click region; MFDListGadget_Ctor (004475d4)."
+        },
+        {
+          "address": "0049cf20",
+          "label": "MFDStateGadgetVtable",
+          "description": "An MFD latching button; MFDStateGadget_Ctor (0044741c). See docs/formats/mfd.md."
+        },
+        {
+          "address": "0049cf60",
+          "label": "MFDSelectGadgetVtable",
+          "description": "An MFD momentary button; MFDSelectGadget_Ctor (004472e4)."
+        },
+        {
+          "address": "0049d5e4",
+          "label": "HDDisplayGadgetVtable",
+          "description": "0x24 bytes, derived straight from CTLButtonControl; HDDisplayGadget_Ctor (0044be94) installs it at 0044beb5, its only store. Its first three slots are the 00496684 stub. No PanelGadget subobject, so it is silent."
+        },
+        {
+          "address": "0049d60c",
+          "label": "HDDSelectGadgetVtable",
+          "description": "A Heads-Down Display button; HddButton_Ctor (0044baac). See docs/formats/heads-down-display.md."
+        },
+        {
+          "address": "0049d944",
+          "label": "HDDListGadgetVtable",
+          "description": "The command screen's order lists; HDDListGadget_Ctor (0044f650)."
+        },
+        {
+          "address": "0049d9b0",
+          "label": "HDDMapGadgetVtable",
+          "description": "The F7 map's clickable surface; HddMarker_Ctor (0044f130). Overrides the first four slots. No PanelGadget subobject, so it is silent."
+        },
+        {
+          "address": "0049e01c",
+          "label": "AlertSelectGadgetVtable",
+          "description": "An alert-panel option row; PanelButton_Ctor (00454f64). See docs/simulation/preferences.md."
+        }
+      ]
+    },
+    {
+      "name": "CockpitSliderWidgetVtable",
+      "binary": "DBSIM",
+      "description": "The eight-slot table the CTLSliderControl branch carries at object +0x17: CockpitWidgetVtable's seven slots with the same roles and the same call sites, plus +0x1c. The extra slot is present from CTLSliderControl down and absent from every button class, which is the one place the family's shape is not uniform. EIGHT IS ESTABLISHED the same way as seven: a concrete slider's second constant is 0x28, i.e. (0x28 - 8) / 4 = 8 slots, and the word at +0x20 is the subobject-offset constant 0x3e on a concrete slider and the next class's descriptor pointer on an abstract one, never a code address. See docs/formats/cockpit-input.md.",
+      "slots": [
+        { "offset": 0,   "name": "Paint",              "description": "Redraw the widget's own content -- re-resolve its caption, pick its frame and colour. Called by slot +0x0c's stage 2, never directly by the input layer. CTLControl's table holds the empty 00452ab2; CTLButtonControl installs 00455545." },
+        { "offset": 4,   "name": "Invalidate",         "description": "Widget_Repaint (00452a90) calls this and nothing else, so no widget paints inside its own click. The PanelSelectGadget branch installs Widget_InvalidateDeferred (00455524), whose whole body is this->[0x1f] = 2; CTLControl's default (00452ab7) is empty." },
+        { "offset": 8,   "name": "OnClick",            "description": "(this, value) -- commit the click, with slot +0x10's value. Called by Widget_OnMouseUp (00452870). Most leaves inherit Widget_ForwardClickToOwner (00438e3c) from PanelSelectGadget, which calls owner->vtable[0] through the owner pointer at this+0x24; the MFD's latching class, HDDSelectGadget and the throttle override it." },
+        { "offset": 12,  "name": "FlushDeferredPaint", "description": "Run once a frame down the widget tree: at this->[0x1f] == 2 calls slot 0 and decrements, at 1 calls Widget_DrawToCockpit (0043122c) and decrements. CTLControl's default (0045554a) is empty." },
+        { "offset": 16,  "name": "GetValue",           "description": "The value slot +0x08 is handed. Widget_GetButtonValue (00455530) returns the global mouse-button word 0049db6c, i.e. WHICH BUTTON clicked -- 1 for left, 2 for right. Read by Widget_OnMouseUp immediately before it calls +0x08." },
+        { "offset": 20,  "name": "SetValue",           "description": "(this, value). CTLControl's default (0045553b) is empty; the slider family overrides it." },
+        { "offset": 24,  "name": "DragMove",           "description": "(this, x, y) -- the pointer moved while this widget holds the mouse capture. Widget_OnMouseDown (004527a0) calls it the moment it begins a capture, and CockpitMouse_ProcessQueue calls it for every move until the release. CTLControl's default (00455540) is empty; only the sliders implement it." },
+        { "offset": 28,  "name": "RecomputeScale",     "description": "Recompute the mapping between the widget's rect and its value range. Present only on the CTLSliderControl branch -- the button branch's table stops at +0x18, and the word at +0x1c there is the next class's descriptor pointer. CTLSliderControl installs the 00496684 stub; CTLHSlider and CTLVSlider install axis-specific implementations (004525a8 / 00452694)." }
+      ],
+      "instances": [
+        {
+          "address": "0049db8a",
+          "label": "CTLSliderControlVtable",
+          "description": "The slider branch's base, 0x3e bytes, derived from CTLControl rather than from CTLButtonControl -- which is why a slider is not a button and carries the other mixin. Adds +0x1c, holding the 00496684 stub here. No mixin table follows it."
+        },
+        {
+          "address": "0049df68",
+          "label": "CTLHSliderVtable",
+          "description": "The horizontal slider base. Installs the x-axis implementations in +0x10, +0x14, +0x18 and +0x1c (00452544, 0045255c, 004524f8, 004525a8), which is where a slider's real value and its drag come from."
+        },
+        {
+          "address": "0049d170",
+          "label": "CTLVSliderVtable",
+          "description": "The vertical slider base, the y-axis twin of CTLHSlider (00452628, 00452644, 004525d8, 00452694)."
+        },
+        {
+          "address": "0049df94",
+          "label": "PanelHSliderGadgetVtable",
+          "description": "CTLHSlider plus a PanelSliderGadget mixin at +0x3e, 0x7e bytes. Overrides +0x0c with 0045578e."
+        },
+        {
+          "address": "0049d19c",
+          "label": "PanelVSliderGadgetVtable",
+          "description": "The vertical twin; +0x0c is 00448c02."
+        },
+        {
+          "address": "0049d12c",
+          "label": "ThrottleVSliderGadgetVtable",
+          "description": "The throttle slider every one of the nine retail .GAU files uses; ThrottleSlider_CtorV (00447e24). Overrides +0x00 through +0x0c. See docs/formats/cockpit-input.md."
+        },
+        {
+          "address": "0049d0e8",
+          "label": "ThrottleHSliderGadgetVtable",
+          "description": "The throttle's horizontal twin, never exercised by retail data; ThrottleSlider_CtorFixed (004483c0)."
+        },
+        {
+          "address": "0049c798",
+          "label": "WeaponSliderGadgetVtable",
+          "description": "WeaponSliderGadget_Ctor (00442956) builds it and no retail gauge calls that constructor."
+        },
+        {
+          "address": "0049dfd8",
+          "label": "AlertSliderGadgetVtable",
+          "description": "An alert-panel slider; AlertSliderGadget_Ctor (004550b0)."
+        }
+      ]
+    },
+    {
+      "name": "PanelGadgetMixinVtable",
+      "binary": "DBSIM",
+      "description": "The four-slot table of the PanelGadget mixin -- the second base every concrete cockpit widget carries alongside CTLButtonControl or CTLHSlider/CTLVSlider, and the reason a widget has two vtable pointers. The descriptor records name it: PanelGadget is 8 bytes with its vptr at +0x00, PanelSliderGadget derives from it, and the subobject constant that precedes each table (0x20 for a button, 0x3e for a slider) is where that base sits inside the object -- exactly the amount the table's adjustor thunks subtract. THE MIXIN ADDS NO BEHAVIOUR of its own: three of the four slots thunk straight back into the primary table, and the fourth is the console click. It is not a second interface to implement but the single switch that decides whether a control makes a sound. A class with no mixin table -- CTLControl, CTLButtonControl, CTLSliderControl, CTLHSlider, CTLVSlider, ScrollTrigger, HDDisplayGadget, HDDMapGadget and HUDRovingGunsightGadget -- is silent for want of the base, not for want of an override. The block layout is [descriptor ptr][0][0][primary vtable][subobject offset][mixin vtable offset][this table], and the second constant is that last offset: the distance in bytes from the start of the primary vtable to this one, 0x24 for a button (7 slots * 4 + 8) against 0x28 for a slider (8 * 4 + 8). It holds in all 22 blocks in DBSIM that carry the pair, the two outside the widget family included -- REG_OBJ and TS_REG_OBJ declare a mixin at +0x0c with the constant 0x1c, which is the same arithmetic over a five-slot primary table. The pair is declared by whichever class first mixes the second base in and inherited unchanged by everything below it, so it varies with the branch and not with the leaf. VSHELL's own CTL family carries no such pair anywhere: its widgets are singly inherited and have no mixin. See docs/formats/cockpit-input.md.",
+      "slots": [
+        { "offset": 0,   "name": "Paint",              "description": "Adjustor thunk onto the primary table's +0x00: ADD dword ptr [ESP+4], -<subobject offset>; JMP <primary implementation>. The two abstract mixin tables hold the 00496684 stub instead." },
+        { "offset": 4,   "name": "FlushDeferredPaint", "description": "Adjustor thunk onto the primary table's +0x0c." },
+        { "offset": 8,   "name": "ClickSound",         "description": "Widget_ClickSound (00438e2c) in PanelGadget's table and in every class that derives from it -- push 0x11; call Sound_Play, ignoring the pointer it is handed. PanelSliderGadget replaces it with 00439014, an empty stub, and every slider inherits that. A widget therefore clicks or stays silent according to which of the two mixins it carries, and a class with no mixin at all makes no sound. See docs/formats/audio.md." },
+        { "offset": 12,  "name": "OnClick",            "description": "Adjustor thunk onto the primary table's +0x08." }
+      ],
+      "instances": [
+        {
+          "address": "0049dec8",
+          "label": "PanelGadgetVtable",
+          "description": "The mixin's own table, and the one place the console click is declared: three 00496684 stubs around Widget_ClickSound (00438e2c) at +0x08. The class is 8 bytes and its descriptor puts its vptr at +0x00, not at +0x17."
+        },
+        {
+          "address": "0049df4c",
+          "label": "PanelSliderGadgetVtable",
+          "description": "The slider mixin, derived from PanelGadget. Its one change is +0x08, replaced with the empty 00439014 -- which is the whole of why a slider is silent and a button is not."
+        },
+        {
+          "address": "0049df08",
+          "label": "PanelSelectGadget_PanelGadgetVtable",
+          "description": "PanelSelectGadget's mixin at object +0x20. Its Paint and FlushDeferredPaint thunks are the 00496684 stub and its OnClick thunk is 0045554f."
+        },
+        {
+          "address": "0049d5c8",
+          "label": "PanelStateGadget_PanelGadgetVtable",
+          "description": "PanelStateGadget's mixin at +0x20."
+        },
+        {
+          "address": "0049d928",
+          "label": "PanelListGadget_PanelGadgetVtable",
+          "description": "PanelListGadget's mixin at +0x20."
+        },
+        {
+          "address": "0049b798",
+          "label": "SystemGadget_PanelGadgetVtable",
+          "description": "SystemGadget's mixin at +0x20; thunks 00434de6, 00434ddc, 00434dd2."
+        },
+        {
+          "address": "0049c77c",
+          "label": "WeaponRangeSelectGadget_PanelGadgetVtable",
+          "description": "WeaponRangeSelectGadget's mixin at +0x20."
+        },
+        {
+          "address": "0049c800",
+          "label": "ChainedWeaponSelectGadget_PanelGadgetVtable",
+          "description": "ChainedWeaponSelectGadget's mixin at +0x20."
+        },
+        {
+          "address": "0049c840",
+          "label": "WeaponSelectGadget_PanelGadgetVtable",
+          "description": "WeaponSelectGadget's mixin at +0x20."
+        },
+        {
+          "address": "0049ca01",
+          "label": "ShieldsSelectGadget_PanelGadgetVtable",
+          "description": "The shield facing's mixin at +0x20 -- the click the rocker makes before anything has been decided by the press."
+        },
+        {
+          "address": "0049cf04",
+          "label": "MFDListGadget_PanelGadgetVtable",
+          "description": "MFDListGadget's mixin at +0x20."
+        },
+        {
+          "address": "0049cf44",
+          "label": "MFDStateGadget_PanelGadgetVtable",
+          "description": "MFDStateGadget's mixin at +0x20."
+        },
+        {
+          "address": "0049cf84",
+          "label": "MFDSelectGadget_PanelGadgetVtable",
+          "description": "MFDSelectGadget's mixin at +0x20."
+        },
+        {
+          "address": "0049d630",
+          "label": "HDDSelectGadget_PanelGadgetVtable",
+          "description": "HDDSelectGadget's mixin at +0x20."
+        },
+        {
+          "address": "0049d968",
+          "label": "HDDListGadget_PanelGadgetVtable",
+          "description": "HDDListGadget's mixin at +0x20."
+        },
+        {
+          "address": "0049e040",
+          "label": "AlertSelectGadget_PanelGadgetVtable",
+          "description": "AlertSelectGadget's mixin at +0x20."
+        },
+        {
+          "address": "0049dfbc",
+          "label": "PanelHSliderGadget_PanelSliderGadgetVtable",
+          "description": "PanelHSliderGadget's mixin at object +0x3e, silent."
+        },
+        {
+          "address": "0049d1c4",
+          "label": "PanelVSliderGadget_PanelSliderGadgetVtable",
+          "description": "PanelVSliderGadget's mixin at +0x3e, silent."
+        },
+        {
+          "address": "0049d110",
+          "label": "ThrottleHSliderGadget_PanelSliderGadgetVtable",
+          "description": "ThrottleHSliderGadget's mixin at +0x3e, silent."
+        },
+        {
+          "address": "0049d154",
+          "label": "ThrottleVSliderGadget_PanelSliderGadgetVtable",
+          "description": "ThrottleVSliderGadget's mixin at +0x3e, silent -- the throttle makes no console click when it is dragged."
+        },
+        {
+          "address": "0049c7c0",
+          "label": "WeaponSliderGadget_PanelSliderGadgetVtable",
+          "description": "WeaponSliderGadget's mixin at +0x3e, silent."
+        },
+        {
+          "address": "0049e000",
+          "label": "AlertSliderGadget_PanelSliderGadgetVtable",
+          "description": "AlertSliderGadget's mixin at +0x3e, silent."
         }
       ]
     }

@@ -3936,7 +3936,7 @@
       "type": "function",
       "confidence": "high",
       "name": "VideoMode_Configure",
-      "description": "Sets the whole video-mode global block from a mode byte read out of the prefs file. Mode 0: VideoMode_UseHiResPanels=0, UseHiResBanks=0, viewport 320x240, canvas 320x480, coord shifts 0. Mode 1: UseHiResPanels=3, UseHiResBanks=0, viewport 640x480, canvas 640x960, shifts 1. Mode 2: as mode 1 but UseHiResBanks=1. So UseHiResPanels==3 selects .HFN/.HBA/.HB<n> art while UseHiResBanks separately selects the hi-res HUD sprite banks -- which is why the two idioms documented in cockpit-hud.md differ.",
+      "description": "Sets the whole video-mode global block from a mode byte read out of the prefs file. Mode 0: VideoMode_UseHiResPanels=0, UseHiResBanks=0, viewport 320x240, canvas 320x480, coord shifts 0. Mode 1: UseHiResPanels=3, UseHiResBanks=0, viewport 640x480, canvas 640x960, shifts 1. Mode 2: as mode 1 but UseHiResBanks=1. So UseHiResPanels==3 selects .HFN/.HBA/.HB<n> art while UseHiResBanks separately selects the hi-res HUD sprite banks -- which is why the two idioms documented in cockpit-hud.md differ. All three branches also set DAT_004d25ea to 1, so the hardware-scroll display path is always the live one. None of them writes maybe_CockpitLayoutMode (004d25bc), which no code in the image can write at all.",
       "source": "cockpit rendering RE session 2026-08-17"
     },
     {
@@ -3952,9 +3952,9 @@
       "address": "004d25bc",
       "binary": "DBSIM",
       "type": "data",
-      "confidence": "medium",
+      "confidence": "high",
       "name": "maybe_CockpitLayoutMode",
-      "description": "Alternate cockpit layout selector, 0 by default. Value 1 makes view 0 also blit the view-1 (heads-down) bitmap at y+0xc5 and disables view 1 as a standalone view -- but its second load reuses the unmodified local folder buffer and corrupts the global 'dba' literal, so it looks like dead/buggy code. Value 2 routes blits through the windowed variant (Bitmap_BlitClipped) and moves the view origin into DAT_004d25da/de. Never observed written anywhere in the image.",
+      "description": "Alternate cockpit layout selector, and DEAD: it is BSS, so zero from load, and nothing in the image can write it. All 23 occurrences of the dword 004d25bc in the file are the MOVSX byte reads themselves, and no address in the surrounding block 004d2580-004d2602 is ever address-taken -- every raw occurrence of every one of them is an absolute [mem] operand -- so no register can hold a pointer into the block and no base+displacement store, memset, memcpy or fread can reach it either. Control: 004d25bb (VideoMode_UseHiResPanels), one byte away in the same block and written by VideoMode_Configure, is found by the same method. Both branches the readers test for are therefore unreachable. Value 1 would make view 0 also blit the view-1 (heads-down) bitmap at y+0xc5 and disable view 1 as a standalone view, and it is defective besides -- its second load reuses the unmodified local folder buffer and corrupts the global 'dba' literal. Value 2 would route blits through Bitmap_BlitClipped and put the view origin in DAT_004d25da/de instead of DAT_004cfa24/28; because it cannot, DAT_004d25da/de are never written and the offset Widget_OnMouseDown and Widget_OnMouseUp add from them is always zero. Value 2 routes blits through the windowed variant (Bitmap_BlitClipped) and moves the view origin into DAT_004d25da/de. Never observed written anywhere in the image.",
       "source": "cockpit rendering RE session 2026-08-17"
     },
     {
@@ -4313,9 +4313,72 @@
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "CockpitView_HandleViewKey",
-      "description": "Maps one pressed key id to a view command by current view. +0x21a is the heads-down key ([F7]/[F8]): view 0 queues command 0 (pan down), view 1 queues command 1 (pan up). +0x21e and +0x222 are the two side-glance keys, queuing 5/4 from view 0 and 6 from views 3/2.",
-      "source": "HDD pan RE session 2026-08-20"
+      "name": "CockpitView_HandleEdgeTrigger",
+      "description": "(cockpitView, trigger) -- maps a click on one of the three screen-edge ScrollTrigger strips to a view command, by current view. Not a keyboard handler and not reachable from one: its only caller in the image is ScrollTrigger_OnClick (00434df0), which passes the clicked widget. The manual's 'change views with the mouse by clicking on the screen edge leading to the view you want'. Compares the widget pointer against the three built by CockpitView_BuildScrollTriggers: +0x21a (bottom strip) queues command 0 from view 0 and 1 from view 1; +0x21e (left strip) queues 5 from view 0 and 6 from view 3; +0x222 (right strip) queues 4 from view 0 and 6 from view 2. Each strip therefore serves exactly two views and does nothing from any other. In screen terms each pair is the manual's rule in both directions, because widget rects are in canvas space and the root widget's origin moves with the view: the bottom edge pans down to the heads-down view and the TOP edge pans back up, the same widget both times, and from a side window it is the OPPOSITE edge that returns. Simulated over all four views, every strip lands on the edge facing the view it leads to; see docs/formats/cockpit-input.md.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "00433770",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitView_BuildScrollTriggers",
+      "description": "Builds the three ScrollTrigger widgets, allocating 0x24 bytes each and running Widget_CtorRect before overwriting +0x17 with ScrollTriggerVtable, storing the cockpit view at the widget's +0x20 and calling Widget_RegisterClickable. The rects are screen-relative, in the display's own width and height, with the band thicknesses scaled by VideoMode_XCoordShift/YCoordShift: {0, H-1-(3<<Y), W-1, H-1} the bottom strip at +0x21a, {0, 0, 5<<X, H-1} the left at +0x21e, and {W-1-(5<<X), 0, W-1, H-1} the right at +0x222. Called once, lazily, from the cockpit tick (004327ac) on the first frame that finds the one-shot flag at +0x23e clear -- not from any constructor, which is why the three sit apart from the rest of the widget build.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "0043271c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitWidgets_TranslateForView",
+      "description": "(cockpitView, delta) -- re-places the cockpit's widgets for a view change. FIRST calls Widget_TranslateRootForView on the root (*cockpitView), which is what converts screen coordinates to canvas coordinates for every later hit test; then subtracts the delta from the pair at +0x220/+0x224, then walks the list at +0x246 (count at +0x25a) offsetting each widget's rect by -delta through Widget_OffsetRect. The three screen-edge strips are NOT in that list and are handled separately: when the one-shot build flag at +0x23e is set, it hands the same delta to CockpitView_FlipScrollTriggers. Called from CockpitView_ApplyViewState (00429e60), which has two call sites for it -- one when leaving a glance, passing that view's own origin, and a general one passing the outgoing view's origin minus the incoming view's.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "0045240c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_OffsetRect",
+      "description": "(widget, delta) -- adds delta.x to the widget rect's +0x00 and +0x08 and delta.y to its +0x04 and +0x0c. A pure translate; the only rect mutator the view-change path uses.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "00452734",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_TranslateRootForView",
+      "description": "(root, delta) -- moves the cockpit widget root for a view change: adds the delta to the origin pairs at +0x233/+0x237 and +0x22b/+0x22f and to the root's own rect through Widget_OffsetRect. THIS IS THE SCREEN-TO-CANVAS MAPPING the whole input path depends on: Widget_OnMouseDown and Widget_OnMouseUp hit-test point - root->rect.x0/y0, so moving the root's rect by the view-origin delta is what makes one canvas-space widget rect answer a different part of the screen in each view. Its two calls to FUN_00481244 discard their results. Reached only through the argument-forwarding thunk FUN_00452bc4, itself called only by CockpitWidgets_TranslateForView.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "00452bc4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_TranslateRootForView_Thunk",
+      "description": "(root, dx, dy) -- forwards to Widget_TranslateRootForView(root, &dx), taking the delta as two inline stack ints rather than a pointer. Decompiles as a one-argument call passing &stack0x00000008, which loses the delta; the raw call site at 0043272e-0043273f pushes both ints before the root pointer.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "00433968",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitView_FlipScrollTriggers",
+      "description": "(cockpitView, delta) -- re-places the three ScrollTrigger strips at +0x21a/+0x21e/+0x222 on a view change, and the only code that touches their rects after CockpitView_BuildScrollTriggers makes them. Per axis, a delta of at least a band's worth (>= 6, or < -5) sets a sign and a compensating shift of one full display width or height, and a smaller delta leaves that axis alone. Where the sign is set the band is reflected across its own edge -- y0 = y1, y1 = y0 + height for a downward delta, mirrored for an upward one -- and the rect is then translated by the delta net of the full-screen shift. Reflecting a band and shifting it by a screen is what carries an edge strip to the far side of the display, which is what retail shows: the bottom edge pans down to the heads-down view and the top edge comes back. Simulating it over all four views reproduces retail exactly, including that a click at the top of the heads-down view pans back up and a click at its bottom does nothing. For the bottom strip on a vertical pan the reflection and the translation cancel, leaving the rect alone and letting the root origin do the work; the reflection earns its keep on the side strips, where it carries the left strip's band to the right edge of the left window so the way back is the opposite edge. See docs/formats/cockpit-input.md.",
+      "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "00434df0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ScrollTrigger_OnClick",
+      "description": "ScrollTrigger's vtable +0x08, and the whole of the class's behaviour: calls CockpitView_HandleEdgeTrigger(this->[0x20], this). ScrollTrigger carries no PanelGadget mixin, so +0x20 is a plain owner pointer rather than a second vtable, and the strip makes no console click.",
+      "source": "docs/formats/cockpit-input.md"
     },
     {
       "address": "00432b14",
@@ -4323,7 +4386,7 @@
       "type": "function",
       "confidence": "medium",
       "name": "CockpitView_PollViewDevice",
-      "description": "Polls a device-state block for the four view axes -- bytes +0x1e/+0x1f/+0x20/+0x21 queue view commands 1/0/5/4 respectively -- i.e. the joystick hat's up/down/left/right, the alternative to CockpitView_HandleViewKey's keyboard path. Also handles the +0xb button edge.",
+      "description": "Polls a device-state block for the four view axes -- bytes +0x1e/+0x1f/+0x20/+0x21 queue view commands 1/0/5/4 respectively -- i.e. the joystick hat's up/down/left/right, one of the two device paths into a view command alongside the screen-edge strips CockpitView_HandleEdgeTrigger answers. Also handles the +0xb button edge.",
       "source": "HDD pan RE session 2026-08-20"
     },
     {

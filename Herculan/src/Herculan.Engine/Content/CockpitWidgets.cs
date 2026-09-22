@@ -46,6 +46,27 @@ public enum CockpitWidgetKind {
 	/// panel widget — and splitting it into six regions here reaches the same row from the same rects.
 	/// </summary>
 	MfdFlashCommRow = 8,
+
+	/// <summary>
+	/// One of DBSIM's screen-edge view strips — a <c>ScrollTrigger</c>, the manual's "change views
+	/// with the mouse by clicking on the screen edge leading to the view you want". Index is a
+	/// <see cref="ViewEdgeStrip"/>.
+	/// </summary>
+	ViewEdge = 9,
+}
+
+/// <summary>
+/// Which screen-edge view strip. DBSIM builds three, in <c>CockpitView_BuildScrollTriggers</c>
+/// (<c>00433770</c>) order; only the vertical one has anywhere to go in this engine, because the two
+/// side windows are not implemented (see ROADMAP.md).
+/// </summary>
+public enum ViewEdgeStrip {
+	/// <summary>
+	/// The strip that moves between the forward view and the Heads-Down Display — the original's
+	/// <c>+0x21a</c>. It is one band of cockpit canvas that shows at the <i>bottom</i> of the forward
+	/// view and the <i>top</i> of the heads-down view, not two widgets.
+	/// </summary>
+	HeadsDown = 0,
 }
 
 /// <summary>
@@ -134,9 +155,17 @@ public readonly record struct CockpitWidgetId(CockpitWidgetKind Kind, int Index)
 	public int? AsMfdFlashCommRow =>
 		Kind == CockpitWidgetKind.MfdFlashCommRow ? Index : null;
 
+	/// <summary>One of the screen-edge view strips.</summary>
+	public static CockpitWidgetId ViewEdge(ViewEdgeStrip strip) =>
+		new(CockpitWidgetKind.ViewEdge, (int)strip);
+
 	/// <summary>This id as a shield facing, or null when it is not one.</summary>
 	public ShieldFacing? AsShieldFacing =>
 		Kind == CockpitWidgetKind.ShieldFacing ? (ShieldFacing)Index : null;
+
+	/// <summary>This id as a screen-edge view strip, or null when it is not one.</summary>
+	public ViewEdgeStrip? AsViewEdge =>
+		Kind == CockpitWidgetKind.ViewEdge ? (ViewEdgeStrip)Index : null;
 }
 
 /// <summary>
@@ -222,6 +251,14 @@ public static class CockpitWidgets {
 	public static IEnumerable<CockpitWidget> Visible(CockpitArt art, CockpitHudState state) {
 		ArgumentNullException.ThrowIfNull(art);
 
+		// The edge strip goes first deliberately. The original registers its three ScrollTriggers last — they
+		// are built on the first cockpit tick, after every gauge — and its hit test is first-hit-wins, so a
+		// gauge overlapping a strip takes the click. This hit test is later-wins (see HitTest), so the same
+		// precedence needs the opposite order: enumerated first, the strip yields to anything drawn over it.
+		if (VisibleHeadsDownViewEdge(art) is { } viewEdge) {
+			yield return viewEdge;
+		}
+
 		foreach (var widget in VisibleMfdButtons(art, state)) {
 			yield return widget;
 		}
@@ -249,6 +286,42 @@ public static class CockpitWidgets {
 		if (VisibleThrottle(art) is { } throttle) {
 			yield return throttle;
 		}
+	}
+
+	/// <summary>Band thickness of a horizontal view strip, device pixels — the original's <c>3 &lt;&lt; YCoordShift</c>.</summary>
+	public const int ViewEdgeBandRows = 3 << CockpitViewGeometry.CoordShift;
+
+	/// <summary>
+	/// The strip that moves between the forward view and the Heads-Down Display, or null when the herc
+	/// has no <c>.HB1</c> to pan to.
+	///
+	/// <para><b>One widget, two screen edges.</b> <c>CockpitView_BuildScrollTriggers</c>
+	/// (<c>00433770</c>) makes this a band across the bottom of the forward view's own window, and the
+	/// original's widget rects are in cockpit-canvas space: <c>Widget_OnMouseDown</c> hit-tests
+	/// <c>point - root-&gt;rect</c>, and <c>Widget_TranslateRootForView</c> (<c>00452734</c>) moves
+	/// that root origin by the view delta on every view change. Because the heads-down view's canvas
+	/// origin is only 237 authored rows down a 240-row window, the band it occupies is the bottom of
+	/// the forward view and the top of the heads-down view at the same time — which is why retail pans
+	/// down on a click at the bottom of the screen and back up on a click at the <i>top</i>.</para>
+	///
+	/// <para>Herculan reaches the same behaviour without a canvas: the band is the bottom of the
+	/// forward surface's art, and <see cref="CockpitScreenLayout.WindowToArt"/> already resolves the
+	/// overlap in the forward surface's favour, so once the pan has carried that art to the top of the
+	/// screen the same rect answers a click there. See docs/formats/cockpit-input.md §10.</para>
+	///
+	/// <para>The two side strips are not built. They lead to the left and right windows, which this
+	/// engine does not render (ROADMAP.md); a strip that queued a view nothing can show would be a
+	/// dead click region rather than a faithful one.</para>
+	/// </summary>
+	public static CockpitWidget? VisibleHeadsDownViewEdge(CockpitArt art) {
+		ArgumentNullException.ThrowIfNull(art);
+		if (art.HeadsDown is null) {
+			return null;
+		}
+
+		int bottom = art.Front.Height - 1;
+		return new CockpitWidget(CockpitWidgetId.ViewEdge(ViewEdgeStrip.HeadsDown),
+			CockpitSurface.Forward, 0, bottom - ViewEdgeBandRows, art.Front.Width - 1, bottom, Lit: false);
 	}
 
 	/// <summary>

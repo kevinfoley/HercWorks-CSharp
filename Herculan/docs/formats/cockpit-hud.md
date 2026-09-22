@@ -82,7 +82,7 @@ Command values latched at `+0x18`, and the current-view gate each requires:
 | 5 | 0 (or 2 → 6) | glance to view 3 |
 | 6 | 2 or 3 | return from a glance to view 0 |
 
-Key sites: `FUN_00433a88` maps one bound key per axis (`+0x21a` heads-down, `+0x21e`/`+0x222` the two glances) and picks the command by current view; `FUN_00432b14` reads four separate device-state bytes at `+0x1e`-`+0x21` for commands 1/0/5/4. The manual binds `[F7]`/`[F8]` to the heads-down key and `[F1]`-`[F6]`/`[Esc]` to the way back.
+Two device paths reach those commands. `CockpitView_HandleEdgeTrigger` (`00433a88`) answers a **mouse click on one of three screen-edge strips** — `+0x21a` the bottom one, `+0x21e`/`+0x222` the left and right — picking the command by current view; they are ordinary widgets, and [`cockpit-input.md`](cockpit-input.md#10-the-screen-edges-are-three-widgets) has their rects and the full mapping. `CockpitView_PollViewDevice` (`00432b14`) reads four device-state bytes at `+0x1e`-`+0x21` for commands 1/0/5/4, the joystick hat's up/down/left/right. The manual binds `[F7]`/`[F8]` to heads-down, `[F9]`/`[F10]` to the left and right windows and `[Esc]` to the way back.
 
 ### Heads-down pan — `CockpitView_StepViewTransition` (`0042a9c0`)
 
@@ -352,7 +352,7 @@ The shield meter's rings are the deliberate exception. Their six colours are imm
 
 `UseHiResPanels == 3` selects `.HFN` fonts, `hba\` sprite banks, `hb<n>` canopy art and `hd<n>` clip files. `UseHiResBanks` separately selects hi-res banks for `hudhtick`, `mfd`, `radar`, `hdd`, `pweapons`, `wpn_dmg`, `weapons`, `pdg`, `bases`, `vehicles`, `flyers` and the alert banks — which is why two different flag idioms appear at the bank load sites.
 
-`maybe_CockpitLayoutMode` (`004d25bc`) is never written anywhere in the image. Value 1 is the defective path described above; value 2 routes blits through `Bitmap_BlitClipped` and moves the view origin into `DAT_004d25da`/`de`.
+**`maybe_CockpitLayoutMode` (`004d25bc`) cannot be written.** It is BSS, so zero from load. All 23 occurrences of the dword in the file are the `MOVSX` byte reads themselves, and no address in the surrounding block `004d2580`-`004d2602` is ever address-taken — for every one of them the raw dword count equals the count of absolute `[mem]` operands — so no register can hold a pointer into the block and no base-plus-displacement store, `memset`, `memcpy` or `fread` can reach it either. The control for that method is `004d25bb` (`VideoMode_UseHiResPanels`), one byte away in the same block, which `VideoMode_Configure` does write and the method does find. Both tested values are therefore unreachable: value 1 is the defective path described above, and value 2 would route blits through `Bitmap_BlitClipped` and put the view origin in `DAT_004d25da`/`de` rather than `DAT_004cfa24`/`28`. **So `DAT_004d25da`/`de` are never written**, and the offset `Widget_OnMouseDown` and `Widget_OnMouseUp` add from them ([`cockpit-input.md`](cockpit-input.md#10-the-screen-edges-are-three-widgets)) is always zero.
 
 ## HUD sprite art — `.HBA`/`.DBA`
 

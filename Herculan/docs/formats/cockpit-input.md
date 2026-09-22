@@ -4,7 +4,7 @@ How DBSIM routes a mouse click on the cockpit dashboard/HUD/HDD to a button's ow
 
 Widget geometry, frames and paint logic are covered by [`cockpit-hud.md`](cockpit-hud.md), [`mfd.md`](mfd.md) and [`heads-down-display.md`](heads-down-display.md) — this document is only the input path: how a mouse event becomes a call into a specific widget's own handler.
 
-Implemented in `Herculan.Engine` across three types: `CockpitScreenLayout` (window pixel to art pixel, the step the original does not need), `CockpitWidgets` (the flat clickable list and the rectangular hit test, §5-6) and `CockpitInput` (the queue and the press/release/hold state machine, §3-4 and §7). `Herculan.Engine.Host`'s `Program.cs` queues the events and routes completed clicks. Sections 1-2 and 9 are deliberately not ported — see `CockpitInput`'s own summary for what diverges and why.
+Implemented in `Herculan.Engine` across three types: `CockpitScreenLayout` (window pixel to art pixel, the step the original does not need), `CockpitWidgets` (the flat clickable list and the rectangular hit test, §5-6) and `CockpitInput` (the queue and the press/release/hold state machine, §3-4 and §7). `Herculan.Engine.Host`'s `Program.cs` queues the events and routes completed clicks. Sections 1-2 and 9 are deliberately not ported; of §10's three screen-edge strips only the vertical one is, as `CockpitWidgets.VisibleHeadsDownViewEdge`, the other two leading to views this engine does not render — see `CockpitInput`'s own summary for what diverges and why.
 
 ## Overview
 
@@ -90,6 +90,8 @@ Widget state byte (`+0x1b`):
 | 0 | Axis-aligned rect, inclusive | `+0x0`/`+0x4`/`+0x8`/`+0xc` = x0,y0,x1,y1 |
 | nonzero | Circular/diamond | centre `+0x11`/`+0x13` (int16 cx,cy), radius `+0x15` (int16); test is Manhattan distance ≤ radius, not true Euclidean |
 
+**The point it is given is in cockpit-canvas space, not screen space.** `Widget_OnMouseDown` and `Widget_OnMouseUp` subtract the root widget's own rect origin from the event position first, and that origin is moved by the view-change delta on every view change, so the same widget rect answers a different part of the screen in each view — see §10, where it is the whole of how one edge strip serves two opposite edges. The two also add `DAT_004d25da`/`de` under a flag, but that path is dead: [`cockpit-hud.md`](cockpit-hud.md#video-modes) shows the mode byte that would write those globals can never be set, so the term is always zero.
+
 **Nothing in DBSIM ever selects the second form.** `Widget_CtorRect` (`00452478`) writes `+0x10 = 0`, and all sixteen leaf-widget constructors run it; the only other widget-rect setter in the image (`004526c4`, which `Gau_BuildCockpitWidgets` and `AlertPanel_CtorBase` use) writes 0 too. Nothing writes that byte again, so the circular branch is library code the game does not reach.
 
 ## 7. Press, release, click vs. drag
@@ -112,7 +114,7 @@ Release under capture also takes its own branch: clear the state byte, repaint, 
 
 ### The leaf-widget vtable
 
-Every widget in the clickable list carries the same eight-slot vtable at `+0x17`, inherited down from one base and overridden a slot at a time. The slot numbers are fixed by the three functions that call them — `Widget_OnMouseUp` reads `+0x10` then calls `+8`, `Widget_OnMouseDown` calls `+0x18`, `Widget_Repaint` calls `+4` — so no class is free to move them.
+Every widget in the clickable list carries its vtable at `+0x17` — the offset its own class descriptor states — inherited down from one base and overridden a slot at a time. The slot numbers are fixed by the three functions that call them — `Widget_OnMouseUp` reads `+0x10` then calls `+8`, `Widget_OnMouseDown` calls `+0x18`, `Widget_Repaint` calls `+4` — so no class is free to move them. **A button's table is seven slots and a slider's is eight**, and that extra `+0x1c` is the one place the family's shape is not uniform.
 
 | Slot | Role | Base implementation (`0049dbb6`) |
 |---|---|---|
@@ -135,17 +137,17 @@ An **owning** display object is a different class altogether, with its own short
 
 ### The second vtable, and the class record beside it
 
-A widget carries a **second** vtable pointer for its `CTLControl` base subobject. Both tables live in one contiguous block per class, and a class descriptor sits at the head of it:
+A concrete widget carries a **second** vtable pointer, because it has a second base: the family is multiply inherited, and every gadget is `CTLButtonControl` (or `CTLHSlider`/`CTLVSlider`) **plus `PanelGadget`**. The descriptor records name that mixin outright — `PanelGadget` is 8 bytes with its vptr at `+0x00` rather than `+0x17`, and `PanelSliderGadget` derives from it. Both tables live in one contiguous block per class, and a class descriptor sits at the head of it:
 
 | Block offset | Contents |
 |---|---|
 | `-0x0c` | Pointer to the class's descriptor record |
 | `-0x08`, `-0x04` | Zero |
 | `+0x00` | The primary vtable above — 7 slots for a button class, 8 for a slider |
-| after it | Two constants: the subobject's offset within the object, then a second value (`0x24` for buttons, `0x28` for sliders) |
-| then | The secondary vtable, 4 slots |
+| after it | Two constants: the `PanelGadget` subobject's offset within the object, then the offset of the mixin's vtable from the start of the primary one (`0x24` for buttons, `0x28` for sliders) |
+| then | The mixin's vtable, 4 slots |
 
-**The secondary vtable adds no behaviour.** Three of its four slots are adjustor thunks — `ADD dword ptr [ESP+4], -<subobject offset>; JMP <primary implementation>` — and the fourth is the click sound:
+**The mixin adds no behaviour.** Three of its four slots are adjustor thunks — `ADD dword ptr [ESP+4], -<subobject offset>; JMP <primary implementation>` — and the fourth is the click sound:
 
 | Slot | Contents |
 |---|---|
@@ -154,7 +156,9 @@ A widget carries a **second** vtable pointer for its `CTLControl` base subobject
 | `+0x08` | `Widget_ClickSound` (`00438e2c`), called with the subobject pointer, which it ignores |
 | `+0x0c` | Thunk onto primary `+0x08`, `OnClick` |
 
-The button family puts that subobject at `+0x20` — the `-0x20` its thunks subtract, and the `+0x20` §8 reaches the click sound through. **The slider family differs twice**: its subobject is at `+0x3e`, so its thunks subtract `0x3e`, and its sound slot holds `00439014`, an empty stub. A widget therefore clicks or stays silent according to which base it derives from and nothing else ([`audio.md`](audio.md#sounds-a-cockpit-control-makes)).
+The button family puts that subobject at `+0x20` — the `-0x20` its thunks subtract, and the `+0x20` §8 reaches the click sound through. **The slider family differs twice**: its subobject is at `+0x3e`, so its thunks subtract `0x3e`, and its sound slot holds `00439014`, an empty stub. That is `PanelSliderGadget`'s one and only change to what it inherits: the console click is declared once, in `PanelGadget`'s own table (`0049dec8`), and unsaid once, in `PanelSliderGadget`'s (`0049df4c`).
+
+So a control's sound is decided by which mixin it carries, and **a class that carries neither is silent for want of the base rather than for want of an override**: `ScrollTrigger`, `HDDisplayGadget`, `HDDMapGadget` and `HUDRovingGunsightGadget` have no second table at all, their blocks ending at the primary table's last slot. Fifteen tables hold `Widget_ClickSound` — `PanelGadget`'s and the fourteen button classes that inherit it — and `known_vtables.json` names the class each one belongs to ([`audio.md`](audio.md#sounds-a-cockpit-control-makes)).
 
 The descriptor record is Borland's, one per class that takes part in streaming, and it carries the class's own name:
 
@@ -168,7 +172,11 @@ The descriptor record is Borland's, one per class that takes part in streaming, 
 | name field | NUL-terminated class name |
 | after the name, padded to a dword | The base class's record, `0` for a root |
 
-`tools/scripts/es2_classes.py` dumps them straight from the shipped executable — 221 records in DBSIM, 113 in VSHELL — and `--vtables` resolves each back to its vtable through that `-0x0c` pointer, which is how any vtable found in the disassembly can be turned into a class name.
+`tools/scripts/es2_classes.py` dumps them straight from the shipped executable — 221 records in DBSIM, 113 in VSHELL — and `--vtables` resolves each back to its vtable through that `-0x0c` pointer, which is how any vtable found in the disassembly can be turned into a class name. The family is therefore enumerable rather than discovered a control at a time, and `tools/ghidra_scripts/known_vtables.json` carries the result: `CockpitWidgetVtable`, `CockpitSliderWidgetVtable` and `PanelGadgetMixinVtable`, with all 51 tables named and typed by `ES2ApplyVtables.java`.
+
+**The word after a button class's last slot is not an eighth slot.** A block is followed immediately by the next class's, so `+0x1c` there holds that class's descriptor pointer — a valid address that disassembles like anything else. Four of the button tables (`CTLButtonControl`, `HDDisplayGadget`, `HDDMapGadget`, `HUDRovingGunsightGadget`) have one where an over-long reading would put a slot.
+
+**A block with a mixin states its own primary length**, which is what makes that trap avoidable rather than merely survivable. Since the two constants occupy the eight bytes between the two tables, the second one — the offset from the primary table to the mixin's — gives the primary slot count as `(constant - 8) / 4`: `0x24` → 7 for a button, `0x28` → 8 for a slider. It holds in all 22 DBSIM blocks that carry the pair, including the two outside this family: `REG_OBJ` and `TS_REG_OBJ` declare a mixin at `+0x0c` with the constant `0x1c`, the same arithmetic over a five-slot table. The pair is declared by whichever class first mixes the second base in and inherited unchanged below it, so it varies with the branch and not with the leaf — and a class with no mixin, having nothing to point at, carries no pair and no self-declared length. **VSHELL's own `CTL` family has no pair anywhere**: its widgets are singly inherited.
 
 ### The cockpit's own gadget classes
 
@@ -177,13 +185,21 @@ Every clickable cockpit widget is one leaf of a single hierarchy rooted at `CTLB
 ```
 CTLBox -> CTLControl -> CTLButtonControl -> PanelSelectGadget -> PanelStateGadget
                      |                   -> PanelListGadget
+                     |                   -> HDDisplayGadget -> HDDMapGadget
+                     |                   -> HUDRovingGunsightGadget
+                     |                   -> ScrollTrigger
                      -> CTLSliderControl -> CTLHSlider -> PanelHSliderGadget
                                          -> CTLVSlider -> PanelVSliderGadget
+
+PanelGadget -> PanelSliderGadget                    (the second base, mixed in at the leaves)
 ```
+
+The four classes hanging straight off `CTLButtonControl` are the ones that take no `PanelGadget`: they are click surfaces rather than buttons, and they are the silent ones.
 
 | Class | Size | Base | Constructor | What it is |
 |---|---|---|---|---|
 | `SystemGadget` | `0x60` | `PanelSelectGadget` | `SystemGadget_Ctor` (`00434664`) | A console button, built in pairs by `maybe_SysButtonPair_Ctor` |
+| `ScrollTrigger` | `0x24` | `CTLButtonControl` | `CockpitView_BuildScrollTriggers` (`00433770`) | One of the three screen-edge view strips (§10). Silent — no `PanelGadget` |
 | `WeaponSelectGadget` | `0x46` | `PanelSelectGadget` | `WeaponSelectGadget_Ctor` (`004421dc`) | A pod row — the class without chain membership, which only `PodGauge_Ctor` builds ([`../simulation/equipment-pods.md`](../simulation/equipment-pods.md)) |
 | `ChainedWeaponSelectGadget` | `0x67` | `WeaponSelectGadget` | `ChainedWeaponSelectGadget_Ctor` (`00442488`) | A weapon row, from `EnergyWeaponGauge_Ctor` and `AmmoWeaponGauge_Ctor` ([`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#arming-chaining-and-linking)) |
 | `WeaponRangeSelectGadget` | `0x41` | `PanelStateGadget` | `WeaponRangeSelectGadget_Ctor` (`00442c00`) | The weapon-range gauge's button |
@@ -263,7 +279,7 @@ That same function records and replays both queues to a `.TAP` input tape — th
 Traced end to end as a concrete proof the whole pipeline above is real, not just plausible:
 
 1. `ShieldsGauge_Ctor` builds two facing children via `ShieldsGauge_FacingCtor` (`cockpit-hud.md`), registers each with `Widget_RegisterClickable`, and stores each child's pointer plus a count into its own `+0x18`/`+0x68` array — the same shape `MfdDisplay_Ctor` uses for its 13 buttons.
-2. A click hits `Widget_ForwardClickToOwner` (`00438e3c`) — the facing's `+8` slot, and the base-class default the MFD and HDD leaf buttons share — via `Widget_OnMouseUp`. Gated on the left button bit; forwards to the owner (a pointer stashed at the facing's own `+0x24`, set to the parent `ShieldsGauge` at construction) as `owner->vtable[0](owner, self, buttonFlags)`. It then repaints itself and calls slot `+8` of its second vtable at `+0x20`, which in every cockpit leaf class is `Widget_ClickSound` — so the rocker sounds `0x11` before anything has been decided by the click (see [`audio.md`](audio.md#sounds-a-cockpit-control-makes)).
+2. A click hits `Widget_ForwardClickToOwner` (`00438e3c`) — the facing's `+8` slot, and the base-class default the MFD and HDD leaf buttons share — via `Widget_OnMouseUp`. Gated on the left button bit; forwards to the owner (a pointer stashed at the facing's own `+0x24`, set to the parent `ShieldsGauge` at construction) as `owner->vtable[0](owner, self, buttonFlags)`. It then repaints itself and calls slot `+8` of its second vtable at `+0x20`, which is `Widget_ClickSound` in every class that carries a `PanelGadget` — so the rocker sounds `0x11` before anything has been decided by the click (see [`audio.md`](audio.md#sounds-a-cockpit-control-makes)).
 3. `ShieldsGauge`'s vtable slot 0 is `ShieldsGauge_OnClick` (`0044380c`) — structurally identical to `MfdButton_OnClick`: searches its own `+0x18` table for the clicked child, then sets a state byte: index 0 (front) → `+0xc2=1`, index 1 (rear) → `+0xc3=1`.
 4. `Shield_BalanceInputRead` (`00413bc8`, called once per frame from `Player_PerFrameCockpitUpdate` — gameplay, not paint) reads those same two bytes (part of a 15-byte block starting at `+0xb5`, accessed via `ShieldsGauge_GetStateBlock`), calls `Shield_BalanceAdjust` (±102 of 1024, clamped) accordingly, clears the flags, recomputes front/rear percentages, and writes the block back via `ShieldsGauge_SetStateBlock` (`00443858`) — which also sets a dirty flag (`+0xb0=2`) if the values changed.
 5. `ShieldsGauge_Update` (`00443748`, the per-frame HUD-paint-pass slot, separate from the click pipeline) checks that dirty flag and, if set, refreshes the ring palette and readouts.
@@ -283,6 +299,51 @@ The position the click pipeline reads is the same one the player watches: `Curso
 - `Gau_RovingGunsightWidget` (`0043c7d8`) centres it on the gunsight as the cockpit is built, so a fresh mission starts with the pointer on the reticle.
 - `AlertPanel_SetFocus` (`00454c7c`) moves it to the centre of the widget being focused — in the alert family focus *is* the pointer, which is how a keyboard walk down a preferences or controls panel works ([`../simulation/preferences.md`](../simulation/preferences.md)).
 - `AlertPanel_Leave` (`004548ac`) restores the position the panel saved at its own `+0x302` when it was raised.
+
+## 10. The screen edges are three widgets
+
+The manual: *"Change views with the mouse by clicking on the screen edge leading to the view you want."* That is not a special case anywhere in the input path — it is three ordinary `ScrollTrigger` widgets in the same flat clickable list as every button, hit-tested by the same `Widget_HitTestChildren`.
+
+`CockpitView_BuildScrollTriggers` (`00433770`) allocates and registers them. The rects it builds are the forward view's, `W` and `H` being the display context's own width and height and the band thicknesses scaled by `VideoMode_XCoordShift`/`YCoordShift`:
+
+| Field | Rect as built | Strip in the forward view |
+|---|---|---|
+| `+0x21a` | `{0, H-1-(3<<Y), W-1, H-1}` | Bottom, full width, 3 rows thick |
+| `+0x21e` | `{0, 0, 5<<X, H-1}` | Left, full height, 5 columns wide |
+| `+0x222` | `{W-1-(5<<X), 0, W-1, H-1}` | Right, full height, 5 columns wide |
+
+**They are built lazily, on the first cockpit frame rather than in a constructor.** The cockpit tick (`004327ac`) calls the builder once, gated on a one-shot flag at `+0x23e`, which is why the three sit apart from the rest of the widget build.
+
+### A strip changes edge with the view
+
+**Widget rects are in cockpit-canvas space, not screen space.** `Widget_OnMouseDown` and `Widget_OnMouseUp` convert a screen point before hit-testing by subtracting the **root widget's own rect origin** — `point - root->rect.x0/y0` — and that origin moves with the view. `CockpitWidgets_TranslateForView` (`0043271c`) runs on every view change with the origin delta between the outgoing view and the incoming one, and its first act is `Widget_TranslateRootForView` (`00452734`, reached through the argument-forwarding thunk at `00452bc4`), which adds that delta to the root's rect and to the origin pair at `+0x22b`/`+0x22f`. So in the heads-down view the root origin is `(0,-237)` and a click at screen row 1 is tested as canvas row 238.
+
+That is the whole of why one widget serves opposite edges. The heads-down view's canvas origin is `237` and the forward view's window is `240` rows tall, so the **canvas band at rows 236-239 is the bottom of the forward view and the top of the heads-down view at the same time**. The bottom strip is built into that band and never leaves it.
+
+The three strips also get `CockpitView_FlipScrollTriggers` (`00433968`), which `CockpitWidgets_TranslateForView` calls once `+0x23e` says they exist. It classifies each axis of the delta — at least a band's worth (`>= 6`, or `< -5`) sets a sign and a compensating shift of one full `W` or `H`, anything smaller leaves the axis alone — then **reflects the band across its own edge** (`y0 = y1; y1 = y0 + height` for a downward delta, mirrored for an upward one) and translates by the delta net of that shift. For the bottom strip on a vertical pan the reflection and the translation cancel and the rect is left where it was, the root origin doing all the work. **For the side strips it is the reflection that matters**: the left strip's canvas band `x 0..5` would otherwise sit at screen `x 320..325` in the left window, off the display; reflected to `x -5..0` against a root origin of `(+320,0)` it lands on the **right** edge instead.
+
+Worked through for all four views, every strip ends up on the edge facing the view it leads to:
+
+| In view | Top | Bottom | Left | Right |
+|---|---|---|---|---|
+| 0, forward | — | pan down to heads-down | glance to view 3 | glance to view 2 |
+| 1, heads-down | pan back up | — | hit, but the handler ignores it | hit, but the handler ignores it |
+| 3, left window | — | — | — | return to forward |
+| 2, right window | — | — | return to forward | — |
+
+A dash is a click that hits no strip at all. The heads-down view is the one place a strip is hit and does nothing: the two side strips stretch across that view, and `CockpitView_HandleEdgeTrigger` has no case for them from view 1.
+
+`ScrollTrigger_OnClick` (`00434df0`) is the whole of the class: `CockpitView_HandleEdgeTrigger(this->[0x20], this)`. The handler compares the widget pointer against the three fields and picks a view command by the current view ([`cockpit-hud.md`](cockpit-hud.md#front-window-hud--the-gunsight-complex) has what each command does):
+
+| Strip | From view 0 | From the view it leads to |
+|---|---|---|
+| Bottom | command 0, pan down to heads-down | view 1 → command 1, pan back up |
+| Left | command 5, glance to view 3 | view 3 → command 6, return |
+| Right | command 4, glance to view 2 | view 2 → command 6, return |
+
+**Each strip serves exactly two views**, and the handler does nothing from any other. Those pairs are the manual's rule in both directions: with the canvas mapping above, the edge you click is always the one facing the view you are asking for, going out and coming back.
+
+`ScrollTrigger` carries no `PanelGadget`, so `+0x20` is a plain owner pointer rather than a second vtable and a strip makes no console click.
 
 ## Symbol reference
 
@@ -334,7 +395,14 @@ The position the click pipeline reads is the same one the player watches: `Curso
 | `CockpitWidgets_HandleCommand` | `00432bc8` | The widget tree's command handler; codes 0x02-0x0b press the ten weapon gauges |
 | `ConsoleButtons_HandleCommand` | `004421a0` | Console panel's command slot: 0x26 (L) presses LINK, 0x29 (`) presses the chain button |
 | `Widget_PressChild` | `00438d9c` | Dispatches a child's press slot as if clicked — how a key reaches a button |
-| `Widget_ClickSound` | `00438e2c` | `push 0x11; call Sound_Play` — the console click, in fifteen widget vtables |
+| `CockpitView_BuildScrollTriggers` | `00433770` | Builds the three screen-edge view strips, once, on the first cockpit frame |
+| `ScrollTrigger_OnClick` | `00434df0` | The strip's whole behaviour: hands itself and its owner to the handler below |
+| `CockpitView_HandleEdgeTrigger` | `00433a88` | Which view command a strip queues, by which strip and the current view |
+| `CockpitWidgets_TranslateForView` | `0043271c` | Moves the root, flips the strips and offsets the rest, on every view change |
+| `Widget_TranslateRootForView` | `00452734` | Moves the root's rect by the view delta — the screen-to-canvas mapping the hit test uses |
+| `Widget_OffsetRect` | `0045240c` | Adds a delta to a widget rect's four ints |
+| `CockpitView_FlipScrollTriggers` | `00433968` | Reflects and shifts the three strips so an edge strip changes edge with the view |
+| `Widget_ClickSound` | `00438e2c` | `push 0x11; call Sound_Play` — the console click; in `PanelGadget`'s table and the fourteen button classes that inherit it, and nowhere else |
 | `ShieldsGauge_GetStateBlock` / `_SetStateBlock` | `004438e0` / `00443858` | Read/write the 15-byte live state block |
 | `ShieldsGauge_Paint` / `_Update` | `00443730` / `00443748` | Paint slot; per-frame dirty-flag-gated update |
 | `ShieldFacing_Paint` | `00444b5c` | Visibility test only — rings are palette-animated, not drawn |
@@ -355,6 +423,3 @@ The position the click pipeline reads is the same one the player watches: `Curso
 | `OnlineManual_Raise` | `0045f054` | Builds `<language>\es2guide.hlp` and hands it to `Help_Show` |
 | `Help_Show` | `004668c0` | `WinHelpA(hwnd, path, HELP_CONTENTS, 0)`, after clearing the display |
 
-## Open
-
-- What the second constant after a primary vtable means — `0x24` for the button classes against `0x28` for the sliders, against a subobject offset of `0x20` and `0x3e` respectively, so it is neither the subobject offset nor a fixed successor of it.

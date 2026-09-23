@@ -46,7 +46,17 @@ so it runs from the bitmap's *width* (axis pointing at the viewer) to its *heigh
 
 **Anchor.** The destination quad's corners are `(0,0), (w,0), (w,h), (0,h)`, each rotated and then offset by the projected centre displaced by `-(OfsX, OfsY')` — same scale, same rotation — where `OfsY' = OfsY * height / rows`. So the part's centre lands on bitmap pixel `(OfsX, OfsY')`. `OfsX` is read signed (`*(char *)(part + 0x12)`), `OfsY` unsigned (`*(byte *)(part + 0x13)`).
 
-In-memory bitmap header: `+4` = rows, `+6` = cols. Confirmed from the blit's own source quad (`FUN_00488a8c` builds it as `(0,0), (p[1]-1, 0), (p[1]-1, p[0]-1), (0, p[0]-1)`).
+In-memory bitmap object:
+
+| Offset | Contents |
+|---|---|
+| `+4` | rows, `int16` |
+| `+6` | cols, `int16` |
+| `+0xa` | data length |
+| `+0xe` | data pointer |
+| `+0x12` | packing type: 0 raw, 1 or 3 packed |
+
+`Bitmap_BlitRotatedScaled` (`00488a8c`) takes a pointer to `+4` and builds its source quad from it as `(0,0), (p[1]-1, 0), (p[1]-1, p[0]-1), (0, p[0]-1)`; its flip argument mirrors that quad, bit 2 in x and bit 1 in y. Callers reach it through `Bitmap_BlitRotatedUnpacked` (`00481750`), which first unpacks a packed bitmap into a scratch buffer with `Bitmap_UnpackToScratch` (`00481804`) — one decoder class per packing type — and points `+0xa`/`+0xe` at the copy for the length of the blit.
 
 Every retail bitmap part carries `Transform == -1` and a centre of the origin, so the node composition `00476014` performs is the identity throughout retail data.
 
@@ -64,3 +74,8 @@ All twenty `EXPLOS.DTS` roots carry an offset near half their frame's size — s
 - **Alpha test, not a span skip.** Sprite banks decode palette index 0 to alpha 0 (`SceneModelLibrary.LoadAtlas`'s `transparentIndex0`) and the fragment shader discards it. The structure banks are decoded the same way for their cutout frames; mech skins are not — see [`dts-texture-binding.md`](dts-texture-binding.md).
 - **Depth test on, depth write off**, as [`../simulation/beam-visuals.md`](../simulation/beam-visuals.md) has it and for the same reason.
 - **One draw call per sprite.** A frame holds a handful.
+
+## Open
+
+- The two bitmap packings. `Bitmap_UnpackToScratch` builds a decoder object per type — type 1 `FUN_0047b430` (vtable `004a17c8`), type 3 `FUN_0047b764` (vtable `004a1820`) — over a stream of the data past its leading unpacked-size dword, and calls vtable `+0x18` to decode. Which files carry packed bitmaps is not traced either.
+- Bitmap object `+8` (8 in the map raster) and `+9` (a flags byte in which the raster builder sets bit `0x10`) are unnamed.

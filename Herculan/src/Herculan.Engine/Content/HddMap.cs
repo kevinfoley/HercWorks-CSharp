@@ -18,7 +18,7 @@ namespace Herculan.Engine.Content;
 public readonly record struct HddMapBounds(int MinX, int MinY, int MaxX, int MaxY) {
 	/// <summary>
 	/// World units the pan clamp and the raster are allowed past the border — the literal 60000 the
-	/// command screen adds to every edge (<c>FUN_0044d160</c> and the raster builder both).
+	/// command screen adds to every edge (<c>HddMap_ClampAndInstallView</c> and the raster builder both).
 	/// </summary>
 	public const int Margin = 60000;
 
@@ -98,7 +98,7 @@ public readonly record struct HddMapMarker(int WorldX, int WorldY, int Frame,
 /// </summary>
 /// <remarks>
 /// <para><b>The projection is a divide, not a matrix.</b> The screen installs a view projection
-/// carrying only the centre and the scale (<c>FUN_0044d160</c> writes exactly those three fields)
+/// carrying only the centre and the scale (<c>HddMap_ClampAndInstallView</c> writes exactly those three fields)
 /// and every point goes through <c>Raster_PerspectiveDivide</c> with a focal length of
 /// <c>1 &lt;&lt; DAT_0049d6bc</c> = 256. So a world point lands at
 /// <c>(world - centre) * 256 / scale</c> device pixels from the viewport's own centre, with y
@@ -203,7 +203,7 @@ public sealed class HddMapView {
 
 	/// <summary>
 	/// Re-centres on <paramref name="subject"/> and applies the clamp — the first thing
-	/// <c>FUN_0044e30c</c> does each repaint, followed by <c>FUN_0044d160</c>. The map follows the
+	/// <c>HddCommandScreen_DrawMap</c> does each repaint, followed by <c>HddMap_ClampAndInstallView</c>. The map follows the
 	/// player's machine and the pan rides on top of it, which is why a stationary pan still drifts
 	/// as the machine walks.
 	/// </summary>
@@ -571,21 +571,4 @@ public static class HddMap {
 	/// </summary>
 	public static int RasterPalette(byte rawHeight) =>
 		Math.Min((int)rawHeight, RasterHeightClamp) / RasterHeightDivisor + RasterBasePalette;
-
-	/// <summary>
-	/// The cell rectangle the raster covers: the mission box grown by
-	/// <see cref="HddMapBounds.Margin"/> and taken down to cell coordinates, clipped to the grid.
-	/// Returned as a half-open cell range plus the world rect those cells span, so a caller can both
-	/// size a texture and place it.
-	/// </summary>
-	public static (int CellX0, int CellY0, int CellX1, int CellY1) RasterCells(HeightGrid grid, HddMapBounds bounds) {
-		ArgumentNullException.ThrowIfNull(grid);
-		var grown = bounds.Grown;
-		int shift = grid.CellShift;
-		return (
-			Math.Clamp(grown.MinX >> shift, 0, grid.Width - 1),
-			Math.Clamp(grown.MinY >> shift, 0, grid.Height - 1),
-			Math.Clamp(grown.MaxX >> shift, 0, grid.Width - 1),
-			Math.Clamp(grown.MaxY >> shift, 0, grid.Height - 1));
-	}
 }

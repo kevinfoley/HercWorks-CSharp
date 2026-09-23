@@ -5,25 +5,24 @@ using Herculan.Engine.Terrain;
 namespace Herculan.Engine.Render;
 
 /// <summary>
-/// The command display's terrain raster: the mission's own patch of the height grid, coloured by
-/// height alone, as one RGBA image the map draws under its grid and markers.
+/// The mission's map raster: its own patch of the height grid, coloured by height alone, as one RGBA
+/// image both maps draw — the Heads-Down Display's command display and the MFD's NAV MAP.
 /// </summary>
 /// <remarks>
-/// <para><b>Where it comes from.</b> <c>FUN_0044f6cc</c> builds this once per mission, not per
-/// frame. It walks the active height grid, turns each cell's raw height into a palette index with
-/// <see cref="HddMap.RasterPalette"/>, and Gouraud-shades two triangles per cell into an offscreen
-/// 8-bit bitmap sized to fit the mission box inside 640x400. <c>FUN_004502e4</c> then blits that
-/// bitmap between two projected corners every repaint, which is what makes panning and zooming
-/// cost nothing.</para>
-///
-/// <para><b>What this does instead.</b> One texel per grid cell, and the map quad is drawn with
-/// linear filtering. The intermediate bitmap's own scale factor is dropped because it exists only to
-/// give the software rasterizer somewhere to Gouraud-shade into; sampling the cell grid smoothly is
-/// the same picture without the round trip. What is preserved exactly is the part that is visible:
-/// the colour rule, and therefore that the whole map lives in palette entries 16-31 and re-colours
-/// with the theater.</para>
+/// <c>HddMap_BuildTerrainRaster</c> (<c>0044f6cc</c>): an integer-upscaled bitmap of the grown
+/// mission box, two triangles per cell, each filled in contour bands of palette index — see
+/// docs/formats/heads-down-display.md, "Terrain raster". The band rule is evaluated at each pixel
+/// centre here rather than through a polygon rasterizer. Index 0, which the original leaves off the
+/// grid and in the undrawn last row and column, decodes transparent: an engine choice, since whether
+/// the blit skips it is not traced.
 /// </remarks>
 public sealed class HddMapRaster {
+	/// <summary>The bitmap's largest extent, which the upscale is fitted inside.</summary>
+	public const int FitWidth = 640;
+
+	/// <summary>See <see cref="FitWidth"/>.</summary>
+	public const int FitHeight = 400;
+
 	private HddMapRaster(byte[] pixels, int width, int height, int worldX0, int worldY0, int worldX1, int worldY1) {
 		Pixels = pixels;
 		Width = width;
@@ -37,29 +36,28 @@ public sealed class HddMapRaster {
 	/// <summary>RGBA8, row 0 at the <i>top</i> — i.e. at <see cref="WorldY1"/>, since world +y is up.</summary>
 	public byte[] Pixels { get; }
 
-	/// <summary>Texels across, one per grid cell.</summary>
+	/// <summary>Pixels across.</summary>
 	public int Width { get; }
 
-	/// <summary>Texels down.</summary>
+	/// <summary>Pixels down.</summary>
 	public int Height { get; }
 
-	/// <summary>World x of the left edge — the first cell's own origin.</summary>
+	/// <summary>World x the bitmap's left edge is stretched to: the grown box's, not a cell edge.</summary>
 	public int WorldX0 { get; }
 
-	/// <summary>World y of the bottom edge.</summary>
+	/// <summary>World y of its bottom edge.</summary>
 	public int WorldY0 { get; }
 
-	/// <summary>World x of the right edge, one cell past the last.</summary>
+	/// <summary>World x of its right edge.</summary>
 	public int WorldX1 { get; }
 
-	/// <summary>World y of the top edge.</summary>
+	/// <summary>World y of its top edge.</summary>
 	public int WorldY1 { get; }
 
 	/// <summary>
 	/// Builds the raster for <paramref name="bounds"/> out of <paramref name="grid"/>, resolving each
-	/// texel through <paramref name="palette"/> — <see cref="CockpitArt.PaletteEntry"/>, so the map
-	/// takes the same live palette the terrain does. Returns null when the box falls outside the grid
-	/// entirely, which no real mission does.
+	/// palette index through <paramref name="palette"/> — <see cref="CockpitArt.PaletteEntry"/>, so the
+	/// map takes the same live palette the terrain does. Returns null for an empty box.
 	/// </summary>
 	public static HddMapRaster? Build(HeightGrid grid, HddMapBounds bounds, Func<int, Vector3?> palette) {
 		ArgumentNullException.ThrowIfNull(grid);
@@ -68,18 +66,56 @@ public sealed class HddMapRaster {
 			return null;
 		}
 
-		var (cellX0, cellY0, cellX1, cellY1) = HddMap.RasterCells(grid, bounds);
-		int width = cellX1 - cellX0 + 1;
-		int height = cellY1 - cellY0 + 1;
-		if (width <= 0 || height <= 0) {
+		var grown = bounds.Grown;
+		int shift = grid.CellShift;
+		int x0 = grown.MinX >> shift;
+		int y0 = grown.MinY >> shift;
+		int x1 = grown.MaxX >> shift;
+		int y1 = grown.MaxY >> shift;
+
+		int upscale = Math.Min(FitHeight / (y1 - y0 + 1), FitWidth / (x1 - x0 + 1));
+		if (upscale <= 0) {
 			return null;
 		}
 
-		// Resolved once per palette entry rather than once per texel: the ramp is sixteen colours and
-		// the grid can be a quarter of a million cells.
-		var ramp = new byte[32 * 4];
-		for (int step = 0; step <= HddMap.RasterHeightClamp / HddMap.RasterHeightDivisor; step++) {
-			int index = HddMap.RasterBasePalette + step;
+		int width = (x1 - x0 + 1) * upscale;
+		int height = (y1 - y0 + 1) * upscale;
+		var indices = new byte[width * height];
+
+		int Index(int cellX, int cellY) =>
+			cellX < 0 || cellX >= grid.Width || cellY < 0 || cellY >= grid.Height
+				? 0
+				: HddMap.RasterPalette(grid.RawHeightAt(cellX, cellY));
+
+		for (int y = y1; y > y0; y--) {
+			int top = (y1 - y) * upscale;
+			for (int x = x0; x < x1; x++) {
+				int left = (x - x0) * upscale;
+				int southWest = Index(x, y);
+				int northWest = Index(x, y + 1);
+				int northEast = Index(x + 1, y + 1);
+				int southEast = Index(x + 1, y);
+
+				for (int row = 0; row < upscale; row++) {
+					// Fractions across the square from its south-west corner, sampled at pixel centres.
+					float north = (upscale - row - 0.5f) / upscale;
+					int at = (top + row) * width + left;
+					for (int column = 0; column < upscale; column++) {
+						float east = (column + 0.5f) / upscale;
+						float value = north > east
+							? southWest + (northWest - southWest) * north + (northEast - northWest) * east
+							: southWest + (southEast - southWest) * east + (northEast - southEast) * north;
+						indices[at + column] = (byte)Math.Ceiling(value - 1e-4f);
+					}
+				}
+			}
+		}
+
+		// Resolved once per palette index rather than once per pixel. Every index the bands can reach
+		// lies between 0 (off the grid) and the top of the ramp.
+		const int RampTop = HddMap.RasterBasePalette + HddMap.RasterHeightClamp / HddMap.RasterHeightDivisor;
+		var ramp = new byte[(RampTop + 1) * 4];
+		for (int index = 1; index <= RampTop; index++) {
 			var color = palette(index) ?? Vector3.Zero;
 			ramp[index * 4] = (byte)Math.Clamp(color.X * 255f, 0f, 255f);
 			ramp[index * 4 + 1] = (byte)Math.Clamp(color.Y * 255f, 0f, 255f);
@@ -88,23 +124,10 @@ public sealed class HddMapRaster {
 		}
 
 		var pixels = new byte[width * height * 4];
-		for (int row = 0; row < height; row++) {
-			// Row 0 is the top of the image and so the highest world y, which is the direction the
-			// original's own build loop counts in as it steps its destination down.
-			int cellY = cellY1 - row;
-			for (int column = 0; column < width; column++) {
-				int index = HddMap.RasterPalette(grid.RawHeightAt(cellX0 + column, cellY)) * 4;
-				int at = (row * width + column) * 4;
-				pixels[at] = ramp[index];
-				pixels[at + 1] = ramp[index + 1];
-				pixels[at + 2] = ramp[index + 2];
-				pixels[at + 3] = ramp[index + 3];
-			}
+		for (int i = 0; i < indices.Length; i++) {
+			Buffer.BlockCopy(ramp, indices[i] * 4, pixels, i * 4, 4);
 		}
 
-		int cellSize = grid.CellSize;
-		return new HddMapRaster(pixels, width, height,
-			cellX0 << grid.CellShift, cellY0 << grid.CellShift,
-			(cellX1 << grid.CellShift) + cellSize, (cellY1 << grid.CellShift) + cellSize);
+		return new HddMapRaster(pixels, width, height, grown.MinX, grown.MinY, grown.MaxX, grown.MaxY);
 	}
 }

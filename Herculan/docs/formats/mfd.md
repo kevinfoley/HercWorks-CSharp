@@ -4,7 +4,7 @@ Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project. Addresses 
 
 The console screen the F1-F6 keys switch between six screens. Surrounding cockpit: [`cockpit-hud.md`](cockpit-hud.md). Caption text: [`str-strings.md`](str-strings.md).
 
-Engine implementation: `Herculan.Engine.Content.{MfdLayout, MfdMode, SimStringTable}`, `Herculan.Engine.Render.Overlay2DRenderer.AddMfd`.
+Engine implementation: `Herculan.Engine.Content.{MfdLayout, MfdMode, MfdNavMap, SimStringTable}`, `Herculan.Engine.Render.Overlay2DRenderer.AddMfd`.
 
 How a click on one of the buttons below reaches `MfdButton_OnClick`: [`cockpit-input.md`](cockpit-input.md).
 
@@ -316,9 +316,18 @@ The update floods the inset with palette index `0x11` and blits at `inset + (0x1
 
 ### `MFDMap` — mode 2
 
-`MfdMapScreen_Ctor` (`00440494`) takes the whole inset rect, allocates a 0x239-byte offscreen render target and centres it at `-((x1 - x0) >> 1)`, `-((y1 - y0) >> 1)`. No labels, no aux buttons.
+`MfdMapScreen_Ctor` (`00440494`) takes the whole inset rect, allocates a 0x239-byte offscreen render target centred at `-((x1 - x0) >> 1)`, `-((y1 - y0) >> 1)` — so the map's centre is 97, 60 device pixels into the inset on every retail herc — and a `View_Ctor` view with perspective shift 8 and zero angles. No labels, no aux buttons.
 
-Its paint (`004405e4`) floods the rect with `COLORS.DAT` id 19 (palette 16, black) before rasterizing terrain, which is why no screen chrome is blitted for this mode.
+`MfdMapScreen_Paint` (`004405e4`), every frame the screen is up:
+
+1. Floods the rect with `COLORS.DAT` id 19, which is why no screen chrome is blitted for this mode.
+2. Centres the projection on the viewing machine (`obj+0x26`, `+0x2a`) at a fixed scale of `200000` — 8.8 fixed, about 781 world units or 4.7 m per device pixel. Projection is the command display's, [`heads-down-display.md`](heads-down-display.md#the-maps-frame-of-reference); there is no clamp, zoom or pan.
+3. `HddMap_DrawTerrain(obj+0x10)` — the command display's raster, [`heads-down-display.md`](heads-down-display.md#terrain-raster), turned by the machine's heading where the command display passes 0.
+4. A cross in `COLORS.DAT` id 16: two `Raster_DrawLine` (`004838f8`) calls, `(-1, 0)-(1, 0)` and `(0, -1)-(0, 1)` shifted by `VideoMode_X/YCoordShift`, through the target's origin.
+
+No grid, border or markers.
+
+**Heading up.** The turn is a positive binary angle in screen space, clockwise on a screen whose y runs down. A heading counts the other way — a machine moves along `(-sin h, cos h)` — so turning the picture by the heading puts the nose at the top.
 
 ### `MFDRadar` — mode 3
 
@@ -328,9 +337,11 @@ The plan view, its turret wedge and its contact list: [`mfd-scanner.md`](mfd-sca
 
 `MfdDisplay_Repaint`: mode buttons 0-5, background, all visible buttons 0-12, the current screen's paint, then the title. The background covers only the inset rect and the mode column sits left of it, so the first pass is not overdrawn.
 
+`MfdDisplay_Update` calls the current screen's paint again whenever its dirty flag at `display+0xe5+mode` is set. Mode 1 clears it after one paint. The others leave it set: modes 0 and 4 repaint when a 30-tick timer expires, and modes 2, 3 and 5 every frame — for 2 and 5 the update then redraws the title, which their paint covers.
+
 ## Engine coverage
 
-Drawn: screen background, F-key column with lit state, per-mode aux buttons, titles and captions, the nav map's background flood, and **both status screens driven from a live subject** — `Herculan.Engine.Content.MfdStatusSubject`, one record for F1 and F5 as in the original. The scanner is drawn too — see its own doc, and so are the paper doll's per-region damage tints. Not drawn: the mode-switch sweep animation, the missile camera and map terrain, which need a map rasterizer or an animation path.
+Drawn: screen background, F-key column with lit state, per-mode aux buttons, titles and captions, the whole NAV MAP (`MfdNavMap`), and **both status screens driven from a live subject** — `Herculan.Engine.Content.MfdStatusSubject`, one record for F1 and F5 as in the original. The scanner is drawn too — see its own doc, and so are the paper doll's per-region damage tints. Not drawn: the mode-switch sweep animation and the missile camera.
 
 FLASH COMM is complete: `MfdFlashCommScreen` keeps the row states and resolves the verb, and `Overlay2DRenderer` draws the list with its four fonts, its hotkey character and its plate, and the transmission over the top of whichever screen is up. Transmissions come from `SquadCommChannel` ([`cockpit-messages.md`](cockpit-messages.md#the-pilot-and-squad-channel)).
 

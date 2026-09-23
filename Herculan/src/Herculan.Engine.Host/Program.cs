@@ -1170,11 +1170,9 @@ window.Load += (gl, input) => {
 			hudSpriteTexture = new GpuTexture(gl, hudSprites.Atlas);
 		}
 
-		// One texel per height-grid cell, sampled bilinearly — see HddMapRaster for why linear here
-		// is fidelity rather than a softening of the original.
+		// Nearest, like everything else: the original blits it through its palettized texture mapper.
 		if (hddCommand?.Raster is { } mapRaster) {
-			hddMapTexture = new GpuTexture(gl, mapRaster.Pixels, mapRaster.Width, mapRaster.Height,
-				linear: true);
+			hddMapTexture = new GpuTexture(gl, mapRaster.Pixels, mapRaster.Width, mapRaster.Height);
 		}
 	}
 
@@ -2303,6 +2301,10 @@ window.Update += deltaSeconds => {
 			Scanner = MfdScanner.Build(pilotMech, scene.World?.Objects,
 				scene.Targeting?.Selected, hudState.Scanner),
 
+			// The NAV MAP's paint re-centres on the machine every frame it runs, and blits the same
+			// raster the command display does.
+			NavMap = MfdNavMap.Build(pilotMech, hddCommand?.Raster),
+
 			// The message port has already run for this frame inside audio.Update, above.
 			Message = audio.Messages.Ticker,
 
@@ -2920,7 +2922,7 @@ void DrawThreePanelCockpitView(GL gl, int totalWidth, int totalHeight) {
 
 		overlay!.Draw(viewport.X, viewport.Y, viewport.Width, viewport.Height, texture,
 			surface.ArtWidth, surface.ArtHeight, mirrorHorizontally, hud,
-			spriteTexture: hudSpriteTexture, hudState: hudState);
+			spriteTexture: hudSpriteTexture, hudState: hudState, mapTexture: hddMapTexture);
 	}
 }
 

@@ -64,10 +64,15 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// The texture <paramref name="hud"/>'s sprite atlas was uploaded to. Required alongside the
 	/// atlas: the sheet supplies UVs and pixel sizes, the texture supplies the pixels.
 	/// </param>
+	/// <param name="mapTexture">
+	/// The mission's terrain raster (<see cref="HddMapRaster"/>), which the MFD's NAV MAP draws under
+	/// its cross, or null to leave that screen on its flood. The same texture the Heads-Down Display's
+	/// command display takes.
+	/// </param>
 	public void Draw(int viewportX, int viewportY, int viewportWidth, int viewportHeight,
 			GpuTexture cockpitTexture, int cockpitTextureWidth, int cockpitTextureHeight,
 			bool mirrorHorizontally, CockpitArt? hud, GpuTexture? spriteTexture = null,
-			CockpitHudState? hudState = null) {
+			CockpitHudState? hudState = null, GpuTexture? mapTexture = null) {
 		_gl.Viewport(viewportX, viewportY, (uint)Math.Max(viewportWidth, 1), (uint)Math.Max(viewportHeight, 1));
 		_gl.Disable(EnableCap.DepthTest);
 		_gl.Enable(EnableCap.Blend);
@@ -115,7 +120,24 @@ public sealed class Overlay2DRenderer : IDisposable {
 			AddGaugeFills(hud, scale, quadX0,
 				fillFraction: (hudState ?? CockpitHudState.Default).EnergyFraction / 1024f);
 			if (hud.Sprites is { } sprites) {
-				AddWidgets(hud, sprites, scale, quadX0, hudState ?? CockpitHudState.Default);
+				// The NAV MAP's relief lives in its own texture, so the batch is flushed around it where
+				// the MFD reaches it — which keeps the flood under it and the cross and title over it,
+				// in the paint's own order.
+				void DrawNavMapTerrain(float left, float top, float right, float bottom,
+						Vector2 centre, MfdNavMapState navMap) {
+					if (mapTexture == null) {
+						return;
+					}
+
+					_shader.SetSamplerTexture("uTexture", spriteTexture.Handle, 0);
+					_mesh.SubmitAndDraw(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_vertices));
+					_vertices.Clear();
+					DrawMfdNavMapTerrain(navMap, mapTexture, left, top, right, bottom, centre, scale,
+						viewportX, viewportY, viewportHeight);
+					_vertices.Clear();
+				}
+
+				AddWidgets(hud, sprites, scale, quadX0, hudState ?? CockpitHudState.Default, DrawNavMapTerrain);
 			}
 
 			if (_vertices.Count > 0) {
@@ -924,7 +946,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// authored for exact pixels.
 	/// </summary>
 	private void AddWidgets(CockpitArt hud, HudSpriteSheet sprites, float scale, float quadX0,
-			CockpitHudState state) {
+			CockpitHudState state, NavMapTerrainWriter? drawNavMapTerrain = null) {
 		const float S = CockpitArt.GauToPixelScale;
 		var gau = hud.Gau;
 		float Px(int gauX) => quadX0 + gauX * S * scale;
@@ -1091,7 +1113,9 @@ public sealed class Overlay2DRenderer : IDisposable {
 		}
 
 		AddMfd(hud, state, BlitDevice, BlitRotatedDevice, DrawRun,
-			(x0, y0, x1, y1, color) => AddFilledRect(Dx(x0), Dy(y0), Dx(x1), Dy(y1), color));
+			(x0, y0, x1, y1, color) => AddFilledRect(Dx(x0), Dy(y0), Dx(x1), Dy(y1), color),
+			drawNavMapTerrain is null ? null : (x0, y0, x1, y1, centre, navMap) => drawNavMapTerrain(
+				Dx(x0), Dy(y0), Dx(x1), Dy(y1), new Vector2(Dx(centre.X), Dy(centre.Y)), navMap));
 		// The heading tape. The whole compass — ticks, degree labels and all — is the hudhtick bank's
 		// art laid end to end, and the heading picks which slice of it shows: two consecutive frames a
 		// rect-width apart, clipped to the rect, sliding through it as the machine turns. See HeadingTape.
@@ -1367,7 +1391,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// <summary>
 	/// A one-device-pixel line, stamped a pixel at a time by Bresenham — the same approach
 	/// <see cref="AddCircleOutline"/> takes, and for the same reason: the original rasterizes it
-	/// (<c>FUN_004838f8</c>) rather than drawing a quad, and a quad thin enough to match would
+	/// (<c>Raster_DrawLine</c>) rather than drawing a quad, and a quad thin enough to match would
 	/// alias differently.
 	/// </summary>
 	private static void AddLine(float x0, float y0, float x1, float y1, Vector3 color,
@@ -1874,14 +1898,16 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// <para><b>Four of the six screens draw their own content.</b> STATUS and TARGET STATUS share one
 	/// method off one <see cref="MfdStatusSubject"/> — the machine being flown for F1, the current
 	/// selection for F5 — SCANNER plots live contacts, and FLASH COMM lists the string table's order
-	/// rows. NAV MAP gets its background flood but no terrain, which needs a map rasterizer the engine
-	/// does not have; MISSILE CAM draws its screen and buttons only.</para>
+	/// rows. NAV MAP draws the terrain raster turned to the machine's heading, through
+	/// <paramref name="drawNavMapTerrain"/>, and its centre cross; MISSILE CAM draws its screen and
+	/// buttons only.</para>
 	/// </summary>
 	private static void AddMfd(CockpitArt hud, CockpitHudState state,
 			Action<string, int, float, float> blitDevice,
 			Action<string, int, float, float, short> blitRotatedDevice,
 			MfdTextWriter drawText,
-			Action<float, float, float, float, Vector3> fillRect) {
+			Action<float, float, float, float, Vector3> fillRect,
+			NavMapTerrainWriter? drawNavMapTerrain = null) {
 		if (hud.Sprites is not { } sprites || MfdLayout.InsetOrigin(hud.Gau) is not { } inset) {
 			return;
 		}
@@ -1919,11 +1945,11 @@ public sealed class Overlay2DRenderer : IDisposable {
 			blitDevice(MfdLayout.Bank, background, insetX, insetY);
 		}
 
-		// The nav map owns the whole inset region and its paint (FUN_004405e4) floods that rect with
+		// The nav map owns the whole inset region and its paint (MfdMapScreen_Paint) floods that rect with
 		// COLORS.DAT id 19 — black, the same id the gauge remainder resolves through — before
-		// rasterizing terrain into it. That flood is why the repaint blits no chrome for this mode at
+		// blitting terrain into it. That flood is why the repaint blits no chrome for this mode at
 		// all, and it goes down before the buttons and title for the same reason the original paints
-		// them after. The terrain it would cover needs a map rasterizer the engine does not have.
+		// them after. It is also all that shows where the turned raster does not reach.
 		if (state.Mfd == MfdMode.NavMap
 			&& hud.GaugeColors?.Remainder is { } mapBackground
 			&& sprites.Sprite(MfdLayout.Bank, 0) is { } screen) {
@@ -1964,7 +1990,14 @@ public sealed class Overlay2DRenderer : IDisposable {
 					blitDevice, blitRotatedDevice, fillRect, DrawLabel, X, Y);
 				break;
 			case MfdMode.NavMap:
-				// Its background is flooded above, before the buttons and title go down over it.
+				// Its background is flooded above, before the buttons and title go down over it. A
+				// transmission skips the screen's paint altogether, so the relief is not drawn under it.
+				if (state.Transmission is null && sprites.Sprite(MfdLayout.Bank, 0) is { } mapScreen
+					&& MfdNavMap.Centre(hud.Gau) is { } mapCentre) {
+					AddMfdNavMap(hud, state.NavMap, drawNavMapTerrain, fillRect,
+						insetX, insetY, mapScreen.Width, mapScreen.Height, mapCentre);
+				}
+
 				break;
 		}
 
@@ -1989,6 +2022,77 @@ public sealed class Overlay2DRenderer : IDisposable {
 				X(MfdLayout.TitleRect.X0), Y(MfdLayout.TitleRect.Y0),
 				X(MfdLayout.TitleRect.X1), Y(MfdLayout.TitleRect.Y1), LabelAlign.Left);
 		}
+	}
+
+	/// <summary>
+	/// Receives the NAV MAP's inset rect and centre in device pixels, and the map state to turn and
+	/// blit the terrain raster from — see <see cref="DrawMfdNavMapTerrain"/>.
+	/// </summary>
+	private delegate void NavMapTerrainWriter(float x0, float y0, float x1, float y1,
+		Vector2 centre, MfdNavMapState navMap);
+
+	/// <summary>
+	/// F3's NAV MAP, <c>MfdMapScreen_Paint</c>: the terrain raster, then the cross. The flood under
+	/// both is <see cref="AddMfd"/>'s. See <see cref="MfdNavMap"/>.
+	/// </summary>
+	private static void AddMfdNavMap(CockpitArt hud, MfdNavMapState navMap,
+			NavMapTerrainWriter? drawTerrain, Action<float, float, float, float, Vector3> fillRect,
+			float insetX, float insetY, int width, int height, (int X, int Y) centre) {
+		float centreX = insetX + centre.X;
+		float centreY = insetY + centre.Y;
+
+		if (navMap.Raster != null) {
+			drawTerrain?.Invoke(insetX, insetY, insetX + width, insetY + height,
+				new Vector2(centreX, centreY), navMap);
+		}
+
+		// Two one-pixel lines through the centre, inclusive of their end points.
+		if (hud.LogicalColor(MfdNavMap.CrossColorId) is { } crossColor) {
+			float arm = MfdNavMap.CrossArm * CockpitArt.GauToPixelScale;
+			fillRect(centreX - arm, centreY, centreX + arm + 1f, centreY + 1f, crossColor);
+			fillRect(centreX, centreY - arm, centreX + 1f, centreY + arm + 1f, crossColor);
+		}
+	}
+
+	/// <summary>
+	/// <c>HddMap_DrawTerrain</c> as the NAV MAP calls it: the raster's four corners projected about the
+	/// machine at <see cref="MfdNavMap.Scale"/>, turned about the map centre by the heading with
+	/// <c>Math_Rotate2DPoint</c>'s matrix, and clipped to the inset by a GL scissor — the analogue of
+	/// the screen's own offscreen render target, as <see cref="DrawHddMap"/> uses it.
+	/// </summary>
+	private void DrawMfdNavMapTerrain(MfdNavMapState navMap, GpuTexture mapTexture,
+			float left, float top, float right, float bottom, Vector2 centre, float scale,
+			int viewportX, int viewportY, int viewportHeight) {
+		if (navMap.Raster is not { } raster) {
+			return;
+		}
+
+		int scissorX = viewportX + (int)MathF.Floor(left);
+		int scissorY = viewportY + (int)MathF.Floor(viewportHeight - bottom);
+		int scissorW = Math.Max((int)MathF.Ceiling(right - left), 0);
+		int scissorH = Math.Max((int)MathF.Ceiling(bottom - top), 0);
+		if (scissorW == 0 || scissorH == 0) {
+			return;
+		}
+
+		// A positive binary angle turns clockwise on a screen whose y runs down, which with the
+		// heading's own sense puts the nose up.
+		float cos = SimTrig.Cos(navMap.Heading) / 16384f;
+		float sin = SimTrig.Sin(navMap.Heading) / 16384f;
+		Vector2 Corner(int worldX, int worldY) {
+			var p = MfdNavMap.Project(navMap, worldX, worldY) * scale;
+			return centre + new Vector2(p.X * cos - p.Y * sin, p.X * sin + p.Y * cos);
+		}
+
+		_gl.Enable(EnableCap.ScissorTest);
+		_gl.Scissor(scissorX, scissorY, (uint)scissorW, (uint)scissorH);
+
+		AddTexturedQuad(Corner(raster.WorldX0, raster.WorldY1), Corner(raster.WorldX1, raster.WorldY1),
+			Corner(raster.WorldX1, raster.WorldY0), Corner(raster.WorldX0, raster.WorldY0), 0f, 0f, 1f, 1f);
+		_shader.SetSamplerTexture("uTexture", mapTexture.Handle, 0);
+		_mesh.SubmitAndDraw(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_vertices));
+
+		_gl.Disable(EnableCap.ScissorTest);
 	}
 
 	/// <summary>

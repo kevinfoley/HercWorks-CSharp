@@ -185,7 +185,7 @@ Logical ids through `dat\COLORS.DAT` (see [`cockpit-hud.md`](cockpit-hud.md)).
 | `HddCommandScreen_Repaint` | `0044c894` | Screen flood, order rows, selected-row bar, magnifiers, markers, map. |
 | `HddCommandScreen_KeyDispatch` | `0044cc40` | Vtable slot 4; switches on the DOS scancode. |
 | `HddCommandScreen_DrawMap` | `0044e30c` | Everything inside the viewport, in the order listed below. |
-| `HddMap_DrawTerrain` | `004502e4` | Blits the raster between two projected corners. |
+| `HddMap_DrawTerrain` | `004502e4` | Blits the raster over the grown mission box, turned by its angle argument. |
 | `HddMap_BuildTerrainRaster` | `0044f6cc` | Builds that raster once per mission. |
 | `HddCommandScreen_AddObjectMarker` | `0044e080` | One object's icon, colour and size. |
 | `HddMarker_Paint` | `0044f194` | One marker gadget. |
@@ -206,13 +206,13 @@ Engine implementation: `Herculan.Engine.Content.{HddMap, HddMapView, HddMapBound
 
 **Map viewport**: the screen rect inset `4 << XCoordShift` on x and `2 << YCoordShift` on y, with its right edge taken from the *order column's* left edge minus the same x inset. Backed by a `0x239`-byte offscreen render target — the same object the MFD's nav map uses — centred at `-(width >> 1), -(height >> 1)`.
 
-**Projection.** `FUN_0044d160` installs a view projection carrying three numbers only: the centre x and y (`+0x18`/`+0x1c`) and the scale (`+0x20`). Points go through `Raster_PerspectiveDivide` against a focal length of `1 << DAT_0049d6bc` = 256, so
+**Projection.** `HddMap_ClampAndInstallView` (`0044d160`) writes three numbers into the map's view: the screen's centre x and y (`+0x18`/`+0x1c`) and its scale (`+0x20`), as the view's position triple — a camera straight overhead at a height of `scale`. Points go through `Raster_PerspectiveDivide` against a focal length of `1 << DAT_0049d6bc` = 256, so
 
 ```
 screen = (world - centre) * 256 / scale        // y negated: world +y is up the map
 ```
 
-and `scale` is world units per pixel in 8.8 fixed point. `FUN_0044d224` then adds the viewport's own origin and half-extent.
+and `scale` is world units per pixel in 8.8 fixed point. `HddMap_ToViewport` (`0044d224`) then adds the viewport's own origin and half-extent.
 
 | Quantity | Value | Source |
 |---|---|---|
@@ -225,15 +225,23 @@ and `scale` is world units per pixel in 8.8 fixed point. `FUN_0044d224` then add
 
 ### Terrain raster
 
-`HddMap_BuildTerrainRaster` (`0044f6cc`) runs once per mission, not per frame. It walks the active height grid, turns each cell's raw height into a palette index, and Gouraud-shades two triangles per cell into an offscreen 8-bit bitmap; `HddMap_DrawTerrain` (`004502e4`) then blits that bitmap between two projected corners on every repaint, which is why panning and zooming cost nothing.
+`HddMap_BuildTerrainRaster` (`0044f6cc`) builds one 8-bit bitmap per mission, at `DAT_004d1d7a`; `HddMap_DrawTerrain` (`004502e4`) blits it on every repaint, which is why panning and zooming cost nothing. The MFD's NAV MAP blits the same bitmap — [`mfd.md`](mfd.md#mfdmap--mode-2).
+
+Each grid cell first gets a palette index:
 
 ```
 palette = min(rawHeight, 0x7f) / 8 + 16
 ```
 
-Sixteen entries, 16-31 — the theater-owned half of the ramp, so the map re-colours with the theater exactly as the terrain does. The bitmap is sized `cells * scale` where `scale` is the largest integer fitting the grown box's cell span inside 640x400.
+Sixteen entries, 16-31 — the theater-owned half of the ramp, so the map re-colours with the theater exactly as the terrain does. The cell array is `ActiveHeightGrid + 0xec`, stride `0x10`, height in byte 0; the grid's dimensions come from `+0x100`/`+0x104` (log2) and its cell size from `+0x108`. The index table is built square on the `+0x100` dimension, and a cell off the grid reads index 0.
 
-The cell array is `ActiveHeightGrid + 0xec`, stride `0x10`, height in byte 0; the grid's dimensions come from `+0x100`/`+0x104` (log2) and its cell size from `+0x108`.
+**Extent.** The grown box's corners are shifted down to cells, `x0..x1` by `y0..y1`, with no clamp to the grid. The upscale is `s = min(400 / (y1 - y0 + 1), 640 / (x1 - x0 + 1))` and the bitmap `(x1 - x0 + 1) * s` by `(y1 - y0 + 1) * s`, zeroed.
+
+**Cells.** Rows run `y = y1` down to `y0 + 1` and columns `x = x0` to `x1 - 1`, each an `s`-pixel square with north at the top; the bitmap's last row and column are never drawn and stay index 0. Each square is split bottom-left to top-right into (bottom-left, top-left, top-right) and (bottom-left, top-right, bottom-right), cornered by the indices of `(x, y)`, `(x, y+1)`, `(x+1, y+1)` and `(x+1, y)`.
+
+**Contour bands, not a gradient.** `Raster_FillContourTriangle` (`00486ddc`) interpolates the palette *index*. It cuts the triangle at every whole index between its highest and lowest corner and flat-fills each band with the band's upper index, so a point takes the ceiling of its interpolated index; a triangle whose corners agree is filled flat. That is the map's stepped look: flat terraces with straight, diagonal edges.
+
+**Placement.** `HddMap_DrawTerrain` projects the grown box's own corners — world units, not cell edges — and hands the bitmap to `Bitmap_BlitRotatedUnpacked` (`00481750`, see [`dts-billboards.md`](dts-billboards.md)), which stretches it between them through brush mode 5 — a palettized texture mapper, so nearest-sampled. The map bitmap is built raw, packing type 0. Before the blit it turns the top-left corner about the map centre, `Math_Rotate2DPoint` in screen space, by its one argument, and passes the same angle on. The command display passes 0; the NAV MAP passes a heading.
 
 ### Grid and border
 
@@ -243,7 +251,7 @@ The border is the mission box drawn through fill brush mode 4, which `Raster_Fil
 
 ### Markers
 
-140 icon gadgets allocated up front. `HddCommandScreen_BuildMapMarkers` (`0044ded8`) refills them per frame — the player's route first, then one per object in the three global object lists, then one more whose position comes from `FUN_0043495c` — and releases the rest.
+140 icon gadgets allocated up front. `HddCommandScreen_BuildMapMarkers` (`0044ded8`) refills them per frame — the player's route first, then one per object in the three global object lists, then the player's dropped nav marker, if one is down (`NavMarker_Position`, [`../simulation/player-waypoints.md`](../simulation/player-waypoints.md)), with icon `0x57`, one past the nine route icons — and releases the rest.
 
 Route markers take icons `0x4e`+ and start at the route's **second** point: the loop bound is `count - 1` capped at 9 and it indexes `route[i + 1]`.
 
@@ -477,7 +485,7 @@ Not drawn: the damage rows do not scroll — the engine has no row offset, so a 
 
 XMIT delivers a real order — [`../simulation/ai-squadmates.md`](../simulation/ai-squadmates.md) owns the transmit path and what the squadmate does with it. The OBJECTIVE: line reports back through `Mech_SquadOrderLineIndex` (`0041bac8`), which indexes group 40 with the machine's behaviour descriptor `+0x3c` ([`../simulation/ai-dispatch.md`](../simulation/ai-dispatch.md)) and lets the standing order override it (1→`TRAVEL`, 2→`PATROL`, 3 or 6→`GUARD`) — but only for a machine that is neither immobilised nor destroyed, is not fleeing and is not committed to a fight, so a downed squadmate reads `DEAD` or `IMMOBILE` whatever it was ordered to do and one that has found a fight reads `ATTACK`.
 
-The map raster is built as one texel per grid cell and sampled bilinearly rather than Gouraud-shaded into an intermediate bitmap. The colour rule is the original's exactly; what is dropped is the round trip through a software rasterizer's scratch buffer.
+`HddMapRaster` builds the bitmap at the original's size and applies the band rule at each pixel centre rather than through a polygon rasterizer. It decodes index 0 transparent, an engine choice — see Open.
 
 `Herculan.Engine.Host` takes `--hdd [0|1]`, `--hdd-damage [0-2]`, `--hdd-pilot [0-2]`, `--hdd-order [0-7]` and `--hdd-xmit` — which presses XMIT on the armed order, taking the map centre or the nearest eligible unit as its pick, and reports the squad's standing orders before and after the run — since a `--screenshot` run never sees a keystroke — and the order list only leaves its unavailable blue once a pilot is selected. Key bindings that collide with the host's own are gated on the relevant page being down: `[S]`/`[I]`/`[W]` on the damage page, the order hotkeys and `[1]`-`[3]` on the command display. The one binding actually taken away rather than shared is the four arrow keys, which scroll the map instead of steering while the command display is down; the keypad keeps steering throughout.
 
@@ -487,5 +495,5 @@ The map raster is built as one texel per grid cell and sampled bilinearly rather
 - `gauge+0x133`, the frame-indirection flag `HddGauge_PaintPilotFrame` branches on, is set to 1 for every slot the loader builds, so the `DAT_0049d1f6` lookup table and the `Math_RandomNext % 3 + 0x18` arm above it are never reached.
 - Block indices 2-3 (1220) and `0x5d` (1584) are read by no constructor.
 - The comm-box highlight mode's 0 branch, which fills the box rect rather than the marker, is unexercised by retail data.
-- The extra marker `HddCommandScreen_BuildMapMarkers` appends after the object lists takes icon `0x57`, one past the nine route icons, and its position comes from `FUN_0043495c` — `CockpitViewInstance + 0x25e` when the flag at `+0x26a` is set. What sets that flag is not traced.
+- Whether the map blit draws palette index 0 — the raster's off-grid corners and its undrawn last row and column, visible only at the grown box's far edges. `Raster_DrawPolygonDispatch` fills brush modes 5 and 7 through the function pointer `DAT_004a5848`, which no instruction writes by address, so the routine behind it is not traced. The textured-poly path picks its transparent span half by a different argument, also open — [`dts-texture-binding.md`](dts-texture-binding.md).
 - `ICONS.HBA` frames 0-1, and the ninth frame of every rotation group, are addressed by nothing in the display — the eight octants use offsets 0-7 and a destroyed object takes offset 0. The briefing map is the likely consumer of the first pair.

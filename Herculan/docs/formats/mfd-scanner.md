@@ -131,7 +131,7 @@ PASS and ACTIVE are latching buttons whose lit state is the machine's radar mode
 
 ## Update cadence
 
-`MfdDisplay_Update` dispatches one screen's update slot, the current one's, and mode 3's dirty flag at `MfdDisplay+0xe5+mode` is one it never clears — so the scanner rebuilds and repaints every frame while it is up, where the status screens refresh on a 30-tick timer. While it is *not* up the repeater below calls the same update itself, so the contact list is never more than a frame old whichever screen the display is showing.
+`MfdDisplay_Update` dispatches one screen's update slot, the current one's, and repaints the scanner every frame while it is up ([`mfd.md`](mfd.md#paint-order)). While it is *not* up the repeater below calls the same update itself, so the contact list is never more than a frame old whichever screen the display is showing.
 
 Switching *to* mode 3 first plays the `radar` bank's 10-frame 110x110 sweep once at the dish's position (`MfdDisplay+0x331`, `FUN_00471d04`/`FUN_00471d7c`); the screen paints normally from the frame it finishes. Every other mode just waits out a 0x46-tick delay instead. **Not ported.**
 
@@ -162,7 +162,7 @@ The extent is not in the file: the paint squares off `0x2e` GAU units from that 
 Nothing it shares with the screen beyond two sprites — no dish, no wedge sprite, no background flood, no reference line, no range ring and no readouts.
 
 1. The circle: `FUN_00488070` over the 92x92 rect with the brush in outline mode, colour id 9 → palette 10, red.
-2. The turret arc as **two lines** from the centre to the rim (`FUN_004838f8`), at `Mech_GetTorsoTwistAngle() +/- 0x2000` — the same 90 degrees the screen's wedge sprite covers, drawn with the pen in the same red. Each endpoint is the point `(0, -radius)` rotated, so both reach the rim exactly.
+2. The turret arc as **two lines** from the centre to the rim (`Raster_DrawLine`, `004838f8`), at `Mech_GetTorsoTwistAngle() +/- 0x2000` — the same 90 degrees the screen's wedge sprite covers, drawn with the pen in the same red. Each endpoint is the point `(0, -radius)` rotated, so both reach the rim exactly.
 3. `MFD` frame 18, the player marker, at `centre - (3 << XCoordShift, 0)` as on the screen.
 4. Each contact as two filled discs: radius 2 in colour id 19 (palette 16, black) with radius 1 in the contact's own colour inside it. Both radii are literal device pixels, unshifted, so a blip is the same size in every video mode.
 5. `MFD` frame 16, the target bracket, over the selected contact.

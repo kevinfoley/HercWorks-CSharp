@@ -106,6 +106,10 @@
 /// What F4's scanner plots — its contacts, its display range and the radar mode it mirrors from the
 /// machine. See <see cref="MfdScannerState"/>.
 /// </param>
+/// <param name="NavMap">
+/// Where F3's NAV MAP is centred and which way it is turned — the machine being flown — and the
+/// terrain raster it draws. See <see cref="MfdNavMapState"/>.
+/// </param>
 /// <param name="PilotVideos">
 /// What each of the Heads-Down Display's three comm boxes is showing, or a null entry for a box on
 /// its idle labels — <see cref="SquadCommChannel.Video"/>.
@@ -153,7 +157,8 @@ public readonly record struct CockpitHudState(
 	IReadOnlyList<SquadTransmission?>? PilotVideos = null,
 	PilotMessageLine? PilotMessage = null,
 	WaypointMark? RouteWaypoint = null,
-	WaypointMark? NavMarker = null) {
+	WaypointMark? NavMarker = null,
+	MfdNavMapState NavMap = default) {
 
 	/// <summary>
 	/// Power-up state: an even shield balance printing 100/100 the way <c>ShieldsGauge_UpdateReadouts</c>

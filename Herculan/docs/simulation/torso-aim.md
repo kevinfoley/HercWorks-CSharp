@@ -154,7 +154,7 @@ Scancode `0x2b` (`\`, "Center Body") sets the opposite flag `g_CenterBodyMode` (
 | `Sim/MechControls.cs` | `TorsoTwist`, `TorsoPitch`, `CenterTorso`, `CenterBody` |
 | `Sim/MechObject.cs` | `TorsoTick`, the three-case turret block, and `LatchCenterTorso` |
 | `Sim/WeaponMounts.cs` | `AutoTrack`, the `manager+0x14` latch |
-| `Content/RotationIndicator.cs`, `Render/Overlay2DRenderer.cs` | The HUD rotation indicator — see [`cockpit-hud.md`](../formats/cockpit-hud.md#front-window-hud--the-gunsight-complex) |
+| `Content/RotationIndicator.cs`, `Render/Overlay2DRenderer.cs` | The HUD rotation indicator — see [`cockpit-gunsight-hud.md`](../formats/cockpit-gunsight-hud.md#front-window-hud--the-gunsight-complex) |
 
 `MechObject.EyeTransform` is the pilot's whole frame, orientation included; `EyePosition` is its translation. The host takes the cockpit camera's yaw and pitch from it rather than from the machine's heading.
 

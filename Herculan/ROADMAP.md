@@ -30,7 +30,7 @@ The mechanism is understood; what is left is engine work.
 - **The HUD's "ATT" legend.** Automatic Turret Tracking itself works, and the legend is a label of
   the gunsight complex's, but the engine does not draw it — so nothing on screen says the tracker is
   on but the TRACK button's own lamp and the computer's spoken confirmation.
-  → [`docs/formats/cockpit-hud.md`](docs/formats/cockpit-hud.md#front-window-hud--the-gunsight-complex),
+  → [`docs/formats/cockpit-gunsight-hud.md`](docs/formats/cockpit-gunsight-hud.md#front-window-hud--the-gunsight-complex),
   [`docs/simulation/torso-aim.md`](docs/simulation/torso-aim.md)
 - **What happens after a mission ends.** The objective layer, both its panels and the answer that
   ends a mission are ported, but the engine has nowhere to hand that answer: the original returns it
@@ -48,7 +48,7 @@ bindings are hardcoded placeholders.
   ported (`CockpitWidgets.VisibleHeadsDownViewEdge`), but a side strip that queued a view nothing can
   render would be a dead click region rather than a faithful one.
   → [`docs/formats/cockpit-input.md`](docs/formats/cockpit-input.md#10-the-screen-edges-are-three-widgets),
-  [`docs/formats/cockpit-hud.md`](docs/formats/cockpit-hud.md)
+  [`docs/formats/cockpit-views.md`](docs/formats/cockpit-views.md)
 - **The engine can only load a `script.dat` handoff, not a `.MSN`.** `MissionLoader` builds a
   mission out of the campaign handoff alone; the ~50 real missions in `ZONES.VOL` are `.MSN` files,
   whose format is decoded and read by `HercWorks.Core`'s `MissionFileTransformer` but which nothing

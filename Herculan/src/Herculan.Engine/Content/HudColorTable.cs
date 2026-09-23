@@ -42,7 +42,7 @@ public sealed class HudColorTable {
 	/// colour — a one-pixel vertical pinstripe. Ids 6 and 5 resolve to palette 98 and 97, two shades
 	/// of blue — <c>(0,116,204)</c> and <c>(0,40,160)</c> — which interleaved read as a single shaded
 	/// fill rather than two colours. Field <c>0x2c</c> is the even columns, <c>0x30</c> the odd. See
-	/// docs/formats/cockpit-hud.md, "LED gauges".</para>
+	/// docs/formats/cockpit-hud-widgets.md, "LED gauges".</para>
 	/// </summary>
 	public const int GaugeFillEvenId = 6;
 

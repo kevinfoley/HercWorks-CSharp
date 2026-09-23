@@ -46,7 +46,7 @@ namespace HercWorks.Core.Data.File.Gau;
 ///   1016 - <see cref="HThrottle"/>, 48 bytes: the slider **track** rect at 1016, then the forward
 ///     fill bar at 1032 and the reverse fill bar at 1048 — three X1,Y1,X2,Y2 rects, not a track plus
 ///     four detent points. Matches the Java doc comment's `"1016- SLIDER\THROTTLE\"`. See
-///     <see cref="HThrottle"/> and docs/formats/cockpit-hud.md, "Throttle gauge".
+///     <see cref="HThrottle"/> and docs/formats/cockpit-hud-widgets.md, "Throttle gauge".
 ///   1064 - <see cref="RemainderBeforeTorsoTwist"/>, 40 bytes, NOT modeled as typed fields but
 ///     understood (see <see cref="HTorsoTwist"/> for the disassembly method):
 ///     - 1064 (INT32): <see cref="HThrottle.SlideMode"/>, the throttle's `SLIDE_DIR` flag. Always 1

@@ -2,7 +2,7 @@
 
 The two-page console below the dashboard, reached by panning down from the forward view. Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project; addresses are DBSIM. Symbols are in `tools/ghidra_scripts/known_symbols.json`, applied with `ES2ApplySymbolNames.java`.
 
-Surrounding cockpit, canopy art and the pan itself: [`cockpit-hud.md`](cockpit-hud.md). Caption text: [`str-strings.md`](str-strings.md). Label placement and fonts: [`dfn-hfn-dci.md`](dfn-hfn-dci.md). Closest precedent for the widget vocabulary: [`mfd.md`](mfd.md).
+Surrounding cockpit and the pan itself: [`cockpit-views.md`](cockpit-views.md). Canopy art: [`cockpit-canopy-palette.md`](cockpit-canopy-palette.md). Caption text: [`str-strings.md`](str-strings.md). Label placement and fonts: [`dfn-hfn-dci.md`](dfn-hfn-dci.md). Closest precedent for the widget vocabulary: [`mfd.md`](mfd.md).
 
 Engine implementation: `Herculan.Engine.Content.{HddLayout, HddPage, HddDamageView}`, `Herculan.Engine.Render.Overlay2DRenderer.AddHeadsDown`. The command display's own types are listed in its section below.
 
@@ -162,7 +162,7 @@ Both rows hide widgets 10-12. That is not a contradiction: those widgets paint o
 
 ## Colours
 
-Logical ids through `dat\COLORS.DAT` (see [`cockpit-hud.md`](cockpit-hud.md)).
+Logical ids through `dat\COLORS.DAT` (see [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#datcolorsdat--logical-colour-ids)).
 
 | Use | Id | Palette |
 |---|---|---|
@@ -369,7 +369,7 @@ Both of a row's labels are re-fonted together from `Damage_PickRegionTint`'s sta
 
 That is the manual's green-through-red plus grey for inoperative. The constructor's own `[1]` shows only until the first update runs.
 
-**Paper doll**: the `.PDG` view for the category, blitted at the screen rect's top-left plus that view's own origin, then tinted region by region through [`PaperDoll_RecolorRectFromArt`](cockpit-hud.md#tinting) — one tint per row, from the same reading the row prints. The structural view's first two regions are the exception: they share one rect, so row 0 tints on the mean of both cockpit halves and row 1 tints nothing while still printing its own number. A flyer chassis has no such pair and tints straight from the row.
+**Paper doll**: the `.PDG` view for the category, blitted at the screen rect's top-left plus that view's own origin, then tinted region by region through [`PaperDoll_RecolorRectFromArt`](cockpit-hud-widgets.md#tinting) — one tint per row, from the same reading the row prints. The structural view's first two regions are the exception: they share one rect, so row 0 tints on the mean of both cockpit halves and row 1 tints nothing while still printing its own number. A flyer chassis has no such pair and tints straight from the row.
 
 **Subject caption**: `HddDamageScreen_SetSubjectCaption` (`0044ba2c`) fills an 81x15 device box 56 pixels in from the screen's left edge and 4 up from its bottom, from the display's five-name array at `+0x548` indexed by `+0x55c`. The player draws `ColorSchemePanels[3]` on colour id 6; a squadmate `[2]` on that pilot's own `COLORS.DAT` entry; the target `[2]` on id 15. With no subject the screen also writes group 19 (`NO TARGET SELECTED` / `NO INFO AVAILABLE`) to a centred label.
 
@@ -469,7 +469,7 @@ An unoccupied slot is not painted by the gauge at all: `HddDisplay_Repaint` floo
 
 ## `hddclip`
 
-Loaded by `CockpitClipRegions_Load` from `edg\HDDCLIP.EDG` — the 320-wide clip file, shifted by `VideoMode_X/YCoordShift` at load, not an `hdg\` counterpart. Regions are then offset by the screen rect's own position minus the block origin. Same layout as the `.HD*`/`.ED*` files in [`cockpit-hud.md`](cockpit-hud.md).
+Loaded by `CockpitClipRegions_Load` from `edg\HDDCLIP.EDG` — the 320-wide clip file, shifted by `VideoMode_X/YCoordShift` at load, not an `hdg\` counterpart. Regions are then offset by the screen rect's own position minus the block origin. Same layout as the `.HD*`/`.ED*` files in [`cockpit-views.md`](cockpit-views.md#hd0-hd3--ed0-ed3--3d-viewport-clip-regions).
 
 ## Engine coverage
 

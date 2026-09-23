@@ -411,7 +411,7 @@ Console.WriteLine($"Theater {mission.Header.TheaterIndex} ({scene.Theater.Palett
 
 // Milestone 8: the player's own cockpit canopy art + HUD, drawn as three simultaneous panels
 // (front/left/right) rather than the original's single keyboard-panned view — see
-// docs/engine/planning.md's Milestone 8 section and docs/formats/cockpit-hud.md for why. Falls back
+// docs/engine/planning.md's Milestone 8 section and docs/formats/cockpit-views.md for why. Falls back
 // to the old single full-window 3D view when there's no player.mec or its cockpit assets are missing
 // (e.g. a raw script.dat with no accompanying player.mec).
 // The theater's palette is the live palette — all 256 slots — with only this herc's own 24-entry
@@ -3334,7 +3334,7 @@ void SelectDetailRoots() {
 	}
 
 	// The focal length of the view being drawn, in its own pixels. Retail's is the video mode's
-	// fixed 2^9 = 512 over 480 rows (docs/formats/cockpit-hud.md); taking it off the window instead
+	// fixed 2^9 = 512 over 480 rows (docs/formats/cockpit-views.md); taking it off the window instead
 	// keeps the thresholds a count of pixels on the screen actually being drawn, which is what makes
 	// them a measure of apparent size rather than of a 1996 monitor's.
 	int focalPixels = Math.Max((int)MathF.Round(

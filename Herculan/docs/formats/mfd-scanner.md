@@ -137,7 +137,7 @@ Switching *to* mode 3 first plays the `radar` bank's 10-frame 110x110 sweep once
 
 ## The floating repeater
 
-`FUN_0043f2b0`, reached from `Gunsight_Paint` (`0043d5c8`) and `Gunsight_UpdateAndPaint` (`0043d6dc`) through the one-line `FUN_0043e0ec`. It belongs to the **gunsight complex**, not the MFD — see [`cockpit-hud.md`](cockpit-hud.md) — and is the last thing that complex draws, after every child.
+`FUN_0043f2b0`, reached from `Gunsight_Paint` (`0043d5c8`) and `Gunsight_UpdateAndPaint` (`0043d6dc`) through the one-line `FUN_0043e0ec`. It belongs to the **gunsight complex**, not the MFD — see [`cockpit-gunsight-hud.md`](cockpit-gunsight-hud.md) — and is the last thing that complex draws, after every child.
 
 It reaches the scanner screen object through `CockpitView+0x1ed`'s `+0xd9`, calls that screen's update slot to rebuild the contact list, and **returns immediately when that screen is the display's current one**. So the repeater and the F4 screen are never on screen together: the repeater is what the player sees on F1, F2, F3, F5 and F6.
 

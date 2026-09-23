@@ -1,4 +1,4 @@
-﻿# DBSIM.EXE damage system — shields, components, weapon effectiveness
+# DBSIM.EXE damage system — shields, components, weapon effectiveness
 
 Reverse-engineered from `DBSIM.EXE` disassembly (Ghidra project `ES2Recon`). All addresses are DBSIM.EXE virtual addresses. Confirmed against the official *Earthsiege 2 - On-Line Manual.pdf* where noted. See [`weapon-firing.md`](weapon-firing.md) for how a shot gets here in the first place, [`projectiles.md`](projectiles.md) for the travelling `Bullet` family's own lifecycle, [`dbsim-physics-notes.md`](dbsim-physics-notes.md) for movement/collision/rocket math, and [`../formats/terrain-heightmap.md`](../formats/terrain-heightmap.md) for the terrain heightmap this system's ground-impact checks query.
 
@@ -325,7 +325,7 @@ The Java author's own doc comment on `HercSimDamage.cs` lists real component nam
 
 ### Going out of the fight
 
-Two independent branches, and they are **not** two readings of one condition. Losing legs disables; losing the cockpit, the pilot or life support kills. A machine reaches the second having usually already been through the first.
+Two independent branches, and they are **not** two readings of one condition. Losing legs disables; losing the cockpit, the pilot or life support kills.
 
 **Disabled** — the leg branch, non-flyers only. A leg whose servos read fully destroyed has its child object deleted, so `Mech_PlaceLegsOnGround` stops placing it; that runs whatever else is true of the machine. Then, if it is not already immobilised and half or more of its legs are gone:
 

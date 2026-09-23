@@ -2,7 +2,7 @@
 
 Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project; all addresses are DBSIM virtual addresses. Ported in `Herculan.Engine.Sim.{WeaponCatalog, WeaponMount, WeaponMounts}` and `Herculan.Engine.Content.WeaponRowState`.
 
-Covers how a fit becomes mounts, what those mounts hold, and how the player arms them. What happens when the trigger is pulled is in [`weapon-firing.md`](weapon-firing.md); the pool arbitration they feed is in [`reactor-energy-pool.md`](reactor-energy-pool.md); the widgets they drive are in [`../formats/cockpit-hud.md`](../formats/cockpit-hud.md#weapon-hardpoint-rows); the template table itself is in [`../formats/weapons-dat-sim.md`](../formats/weapons-dat-sim.md).
+Covers how a fit becomes mounts, what those mounts hold, and how the player arms them. What happens when the trigger is pulled is in [`weapon-firing.md`](weapon-firing.md); the pool arbitration they feed is in [`reactor-energy-pool.md`](reactor-energy-pool.md); the widgets they drive are in [`../formats/cockpit-hud-widgets.md`](../formats/cockpit-hud-widgets.md#weapon-hardpoint-rows); the template table itself is in [`../formats/weapons-dat-sim.md`](../formats/weapons-dat-sim.md).
 
 ## The join — `MechLoadout_ConstructWeaponMounts` (`0040fff8`)
 

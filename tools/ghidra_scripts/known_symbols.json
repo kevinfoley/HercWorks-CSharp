@@ -2798,7 +2798,7 @@
       "confidence": "high",
       "name": "maybe_Sim_RenderFrame",
       "description": "The per-frame render root. Order: Terrain_SetupVisibleRegion(ActiveHeightGrid, view, 0), then FUN_004327ac(CockpitViewInstance) (per-widget paint dispatch over the weapon-slot array and the chain/link/autotrack/shield/etc. sub-widgets), then maybe_Scene_SubmitFrameObjects (the 3D world), then conditionally a second terrain setup plus maybe_Terrain_ComputeViewDistance and 0042883c, then Player_PerFrameCockpitUpdate, then three more vtable paint dispatches on CockpitViewInstance sub-objects (+0x1f5, FUN_00433158's result, +0x20b). Widget paint therefore happens BEFORE the 3D scene submit each frame, not after -- though DBSIM's software-blit ordering need not constrain an OpenGL implementation that composites via alpha/depth instead. Named 'maybe_' because the individual draw dispatches were not decoded; its role as the frame root is solid (it is the sole caller of both the terrain setup and the view setup).",
-      "source": "docs/formats/terrain-texturing.md; docs/formats/cockpit-hud.md"
+      "source": "docs/formats/terrain-texturing.md; docs/formats/cockpit-hud-widgets.md"
     },
     {
       "address": "00428bc0",
@@ -2834,7 +2834,7 @@
       "confidence": "high",
       "name": "Hud_UpdateWaypointIndicator",
       "description": "Paint shared by gunsight children 7 and 8. The +0x45 flag picks the subject: set, NavMarker_Position and colour id 15; clear, the waypoint after the player group's route cursor with colour table entry 0, or -- on a branch gated by DAT_004d2af0, which nothing writes -- the player's selected target. Takes the ground range with Vec2_DistanceBetween and the bearing as Math_Atan2Guarded(dx, dy) - 0x4000, then draws the error (mech.heading - bearing) as a filled diamond on the tape within +/-0xe38 and as a filled arrow past the rect's right or left end beyond it. Child 8 also composes 'WAYPOINT ' + cursor+1 + ': ' + Hud_WorldUnitsToMetres(range) + ' M.' into its label.",
-      "source": "docs/formats/cockpit-hud.md",
+      "source": "docs/formats/cockpit-gunsight-hud.md",
       "signature": "void __cdecl Hud_UpdateWaypointIndicator(void *widget)"
     },
     {
@@ -3209,8 +3209,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Sim_InitMissionSession",
-      "description": "Per-mission session setup: resets the light system (FUN_0048dbfc), creates the mission's one hardcoded sun light (Light_CreateMissionSun), then calls DBSim_LoadScriptDat and DBSim_SpawnMissionObjects. Confirms lighting setup happens once per mission load, independent of which script.dat/theater is loaded. Also picks the FOCAL SHIFT -- 9 when DAT_004d30c4 >= 0x4b1 and 8 otherwise -- and passes it as the third argument of the view constructor FUN_0048bc98, which stores it at view+0x1a. That is the whole of the field of view; see docs/formats/cockpit-hud.md.",
-      "source": "flat-shaded lighting RE; docs/formats/cockpit-hud.md for the focal shift"
+      "description": "Per-mission session setup: resets the light system (FUN_0048dbfc), creates the mission's one hardcoded sun light (Light_CreateMissionSun), then calls DBSim_LoadScriptDat and DBSim_SpawnMissionObjects. Confirms lighting setup happens once per mission load, independent of which script.dat/theater is loaded. Also picks the FOCAL SHIFT -- 9 when DAT_004d30c4 >= 0x4b1 and 8 otherwise -- and passes it as the third argument of the view constructor FUN_0048bc98, which stores it at view+0x1a. That is the whole of the field of view; see docs/formats/cockpit-views.md.",
+      "source": "flat-shaded lighting RE; docs/formats/cockpit-views.md for the focal shift"
     },
     {
       "address": "0047eaac",
@@ -3498,7 +3498,7 @@
       "confidence": "high",
       "name": "ResourcePath_BuildFolderName",
       "description": "The shared folder\\name resource-path builder: ResourcePath_BuildFolderName(name, folder) writes 'folder\\\\name' into a shared static buffer (&DAT_006cbcae) via FUN_00492a84(name) + strcat('\\\\') + strcat(folder). Confirmed by tracing its two operands against known-good results (e.g. ResourcePath_BuildFolderName(hercName, \"vue\") and the folder-name pointer table at CockpitDpl_ResourceFolderNames). Matches Herculan.Engine.Content.GameContent's own folder\\name resolution convention exactly -- this is DBSIM's side of the same addressing scheme.",
-      "source": "docs/formats/cockpit-hud.md 2026-08-15 (Milestone 8 Phase 0)"
+      "source": "docs/formats/cockpit-canopy-palette.md 2026-08-15 (Milestone 8 Phase 0)"
     },
     {
       "address": "004a0a14",
@@ -3507,7 +3507,7 @@
       "confidence": "high",
       "name": "CockpitDpl_ResourceFolderNames",
       "description": "A 12-entry constant pointer table of resource folder-name strings: dpl, gl, dmg, col, edg, dba, dci, dfn, gau, hfn, hdg, hba (0x4a0a14-0x4a0a43, pointing into a shared string pool at 0x4a0a44 that separately also holds wb/rb (fopen modes) and nam/dat/bnd/dts, those last four belonging to a different, not-yet-located table). Despite the name, this table is NOT cockpit-exclusive -- gau/dpl/dba/dci/dfn/hfn/hdg/hba are all mech-subsystem resource kinds reused site-wide; named for the first confirmed use found this session (index 0, \"dpl\", is PTR_DAT_004a0a14, used directly by the COCKPIT.DPL/IMPACTCP.DPL load calls -- see CockpitPaletteSingleton).",
-      "source": "docs/formats/cockpit-hud.md 2026-08-15 (Milestone 8 Phase 0)"
+      "source": "docs/formats/cockpit-canopy-palette.md 2026-08-15 (Milestone 8 Phase 0)"
     },
     {
       "address": "0049ac48",
@@ -3516,7 +3516,7 @@
       "confidence": "high",
       "name": "CockpitPaletteSingleton",
       "description": "Pointer to the currently-loaded cockpit-family DynamixPalette object. First loaded lazily (guarded by == 0) as the literal resource 'dpl\\\\cockpit' (s_cockpit_0049ae69 + CockpitDpl_ResourceFolderNames[0]=\"dpl\", via ResourcePath_BuildFolderName + ClassItem_LoadTaggedResource) -- confirms DBSIM loads COCKPIT.DPL by a plain literal name, not a derived/offset one, and the real retail file ES2/VOL/simvol0/dpl/COCKPIT.DPL exists under exactly that name. Later swapped to 'dpl\\\\impactcp' (IMPACTCP.DPL, also a real retail file) as a second, smaller damage/impact-flash palette, whose colors get copied into a 24-entry sub-range of the global active display palette (Palette_InstallRange(0x2a, 0x18, ...)) rather than replacing CockpitPaletteSingleton wholesale. No index-remap/offset was found anywhere in this load path -- decoding a real .HB0 through COCKPIT.DPL with a direct, unmodified index lookup produces a correct, recognizable cockpit image (visually verified against APOCA.HB0/SAMSON.HB0), settling Milestone 8 Phase 0 Q1: the existing TextureViewerForm.PreferredPaletteFor(\"COCKPIT\") heuristic is exactly right, not merely a plausible guess.",
-      "source": "docs/formats/cockpit-hud.md 2026-08-15 (Milestone 8 Phase 0)"
+      "source": "docs/formats/cockpit-canopy-palette.md 2026-08-15 (Milestone 8 Phase 0)"
     },
     {
       "address": "004303c4",
@@ -3525,7 +3525,7 @@
       "confidence": "high",
       "name": "Palette_InstallRange",
       "description": "Palette_InstallRange(baseIndex, count, srcRgbaArray): copies count RGBA/RGB entries from srcRgbaArray into the global active display palette (*(DAT_0049b020+8) + baseIndex*4), then tracks the min/max dirty index range (DAT_0049b028/DAT_0049b02c) for a batched hardware palette update -- classic indexed-display-mode palette management. Used by the cockpit-view constructor to install the small IMPACTCP.DPL flash palette into a 24-entry sub-range (base 0x2a) of the shared 256-slot palette, distinct from CockpitPaletteSingleton's own local RGB array.",
-      "source": "docs/formats/cockpit-hud.md 2026-08-15 (Milestone 8 Phase 0)"
+      "source": "docs/formats/cockpit-canopy-palette.md 2026-08-15 (Milestone 8 Phase 0)"
     },
     {
       "address": "0049b088",
@@ -3533,8 +3533,8 @@
       "type": "data",
       "confidence": "high",
       "name": "CockpitViewInstance",
-      "description": "Singleton pointer to LocalPlayerMech's live cockpit/HUD view object (set once, guarded by == 0, in ColorSchemePanels_LoadAll/00431098). Directly embeds each GAU widget as a live sub-object at a fixed struct offset matching GAUFile.cs's own documented field order: a 10-slot weapon-button array at +0x1c (matches GAU's 10 weapon hardpoint slots), then single widgets at +0x1e1/+0x1e5/+0x1e9/+0x1ed/+0x1f1/+0x1f5/+0x1f9/+0x20b (chain/link/autotrack/energy-meter-family offsets), each paint-dispatched via its own vtable call. Read throughout the cockpit/HUD call graph (Player_PerFrameCockpitUpdate, maybe_Sim_RenderFrame, Gau_BuildCockpitWidgets, Gau_RovingGunsightWidget, Hud_UpdateWaypointIndicator, ~90 more sites) but never seen holding the HB0/HB2 background bitmap itself -- that field, and the exact function that blits the cockpit background art and composites the live 3D view into it, were not pinned to a specific offset/address this session (see docs/formats/cockpit-hud.md's open items). NOT the same object as maybe_MechInspectViewInstance (DAT_004d2544), a separate, much smaller (0x37-byte) object built by Sim_InitMissionSession right after this singleton is already in use.",
-      "source": "docs/formats/cockpit-hud.md 2026-08-15 (Milestone 8 Phase 0)"
+      "description": "Singleton pointer to LocalPlayerMech's live cockpit/HUD view object (set once, guarded by == 0, in ColorSchemePanels_LoadAll/00431098). Directly embeds each GAU widget as a live sub-object at a fixed struct offset matching GAUFile.cs's own documented field order: a 10-slot weapon-button array at +0x1c (matches GAU's 10 weapon hardpoint slots), then single widgets at +0x1e1/+0x1e5/+0x1e9/+0x1ed/+0x1f1/+0x1f5/+0x1f9/+0x20b (chain/link/autotrack/energy-meter-family offsets), each paint-dispatched via its own vtable call. Read throughout the cockpit/HUD call graph (Player_PerFrameCockpitUpdate, maybe_Sim_RenderFrame, Gau_BuildCockpitWidgets, Gau_RovingGunsightWidget, Hud_UpdateWaypointIndicator, ~90 more sites) but never seen holding the HB0/HB2 background bitmap itself -- that field, and the exact function that blits the cockpit background art and composites the live 3D view into it, were not pinned to a specific offset/address this session (see docs/formats/cockpit-views.md's open items). NOT the same object as maybe_MechInspectViewInstance (DAT_004d2544), a separate, much smaller (0x37-byte) object built by Sim_InitMissionSession right after this singleton is already in use.",
+      "source": "docs/formats/cockpit-views.md 2026-08-15 (Milestone 8 Phase 0)"
     },
     {
       "address": "00429660",
@@ -3570,7 +3570,7 @@
       "confidence": "high",
       "name": "Resource_Load",
       "description": "Resource_Load(path): wraps a folder\\name string into a temporary object and calls ClassItem_LoadResource(obj, 0), returning the loaded resource handle. The single entry point every HUD sprite bank, panel and cursor load goes through after ResourcePath_BuildFolderName builds the path.",
-      "source": "docs/formats/cockpit-hud.md (HUD sprite art)"
+      "source": "docs/formats/cockpit-hud-widgets.md (HUD sprite art)"
     },
     {
       "address": "00430d08",
@@ -3579,7 +3579,7 @@
       "confidence": "high",
       "name": "Palette_InterpolateIndexRanges",
       "description": "Palette_InterpolateIndexRanges(from, to, rampCount, levels, out): linearly interpolates palette index RANGES, not colours. Each of from/to/out is an array of (int16 start, int16 count) pairs; for each of rampCount ramps it emits `levels` interpolated ranges in 8.8 fixed point, with the final step forced exactly to the `to` endpoint. Called twice by maybe_World_LoadTheater with endpoint tables read from WORLD<n>.WLD. WORLD0 expands to 11 ramps x 16 levels, all ranges within indices 96-239 (terrain shading only; no cockpit equivalent found).",
-      "source": "docs/formats/cockpit-hud.md (Range-remap idiom)"
+      "source": "docs/formats/cockpit-canopy-palette.md (Palette module)"
     },
     {
       "address": "004306ac",
@@ -3588,7 +3588,7 @@
       "confidence": "high",
       "name": "Palette_CycleAnimatedRanges",
       "description": "Per-frame animated palette cycling. Walks 5 fixed slots (DAT_004cfde8 descriptors, DAT_004cfdfc next-due times, DAT_004cfe10 rotation offsets); when a slot's due time passes it rotates that slot's palette sub-range by one entry and reinstalls it via Palette_InstallRange. Keyed off Time_GetCoarseTicks. Blinking cockpit/console lights.",
-      "source": "docs/formats/cockpit-hud.md (Other palette writers)"
+      "source": "docs/formats/cockpit-canopy-palette.md (Palette module)"
     },
     {
       "address": "0045d532",
@@ -3596,7 +3596,7 @@
       "type": "function",
       "confidence": "low",
       "description": "OPEN LEAD for the unresolved cockpit canopy shading. Copies the live 256-entry palette into two scratch buffers, halves the RGB of two 16-entry spans, and installs them via Palette_InstallRange at base 0x20 (32) and base 0x40 (64) -- both inside the canopy art's own 42-71 index band. Candidate for the lighting-state mechanism that CockpitArt.PaletteIndexOffset currently stands in for. Callers not yet traced.",
-      "source": "docs/formats/cockpit-hud.md (PaletteIndexOffset - unresolved)"
+      "source": "docs/formats/cockpit-canopy-palette.md (Palette)"
     },
     {
       "address": "0043b57c",
@@ -3605,7 +3605,7 @@
       "confidence": "high",
       "name": "HudHeadingTape_Ctor",
       "description": "Constructor for the HUD heading tick tape. Lazily loads the `hudhtick` sprite bank into DAT_0049be70, selecting folder \"hba\" or \"dba\" off DAT_004d25f0 (the 640-wide vs 320-wide video mode flag).",
-      "source": "docs/formats/cockpit-hud.md (HUD sprite art)"
+      "source": "docs/formats/cockpit-hud-widgets.md (HUD sprite art)"
     },
     {
       "address": "00445218",
@@ -3614,7 +3614,7 @@
       "confidence": "high",
       "name": "MfdDisplay_Ctor",
       "description": "Constructor for the multi-function display. Lazily loads three sprite banks -- `mfd` (DAT_0049cbcc), `mfd_dmg` (DAT_0049cbd4) and `radar` -- each selecting folder \"hba\"/\"dba\" off DAT_004d25f0.",
-      "source": "docs/formats/cockpit-hud.md (HUD sprite art)"
+      "source": "docs/formats/cockpit-hud-widgets.md (HUD sprite art)"
     },
     {
       "address": "0044080c",
@@ -3623,7 +3623,7 @@
       "confidence": "high",
       "name": "WeaponGauge_Ctor",
       "description": "Constructor for a weapon hardpoint gauge. Lazily loads the `pweapons` (DAT_0049c4d0) and `wpn_dmg` (DAT_0049c4d4) sprite banks, folder selected off DAT_004d25f0, and builds a 2-row animation frame table into _DAT_004d1adc.",
-      "source": "docs/formats/cockpit-hud.md (HUD sprite art)"
+      "source": "docs/formats/cockpit-hud-widgets.md (HUD sprite art)"
     },
     {
       "address": "00447b84",
@@ -3632,7 +3632,7 @@
       "confidence": "high",
       "name": "ThrottleGauge_Ctor",
       "description": "Constructor for the throttle slider gauge. Lazily loads the `throttle` sprite bank into DAT_0049cfc4, folder selected by DAT_004d25bb == 3 choosing \"hba\" over \"dba\". Reads CockpitViewInstance and its own .GAU track rect. Bank frame 0 is a 2px tick, frame 1 the knob.",
-      "source": "docs/formats/cockpit-hud.md (HUD sprite art)"
+      "source": "docs/formats/cockpit-hud-widgets.md (HUD sprite art)"
     },
     {
       "address": "00434368",
@@ -3660,7 +3660,7 @@
       "confidence": "medium",
       "name": "maybe_CockpitFontsAndCorners_Init",
       "description": "Loads the cockpit's .DFN/.HFN font set (title, cpylw, active, pushed, inactive, green6x8, red6x8) with folder chosen by DAT_004d25bb == 3 selecting \"hfn\" over \"dfn\", then the `corners` sprite bank -- hardcoded to \"dba\", and indeed no hba\\CORNERS.HBA exists -- and finally the `alert` bank via the DAT_004d25f0 idiom.",
-      "source": "docs/formats/cockpit-hud.md (HUD sprite art)"
+      "source": "docs/formats/cockpit-hud-widgets.md (HUD sprite art)"
     },
     {
       "address": "0044a7c0",
@@ -3669,7 +3669,7 @@
       "confidence": "high",
       "name": "HddGauge_LoadPilotFrames",
       "description": "HDDGauge frame loader (PHDD.CPP). Builds the resource name `pilot<n>` with _itoa, loads its .OFS animation-offset table (27 entries), then loads the matching sprite bank from folder \"dba\". Emits the literal errors \"HDDGauge::Couldn't load anim offset\" / \"...bitmap array\".",
-      "source": "docs/formats/cockpit-hud.md (HUD sprite art)"
+      "source": "docs/formats/cockpit-hud-widgets.md (HUD sprite art)"
     },
     {
       "address": "004d25f0",
@@ -3678,7 +3678,7 @@
       "confidence": "high",
       "name": "VideoMode_UseHiResBanks",
       "description": "Nonzero selects the 640-wide `hba` sprite banks, zero selects the 320-wide `dba` ones. Read directly by every HUD bank constructor. A parallel flag DAT_004d25bb == 3 drives the same choice for sysbuttn/throttle/icons and for .hfn over .dfn.",
-      "source": "docs/formats/cockpit-hud.md (HUD sprite art)"
+      "source": "docs/formats/cockpit-hud-widgets.md (HUD sprite art)"
     },
     {
       "address": "004d25be",
@@ -3687,7 +3687,7 @@
       "confidence": "high",
       "name": "VideoMode_XCoordShift",
       "description": "Per-axis resolution shift for hardcoded widget coordinates: the exe writes them as `value << (VideoMode_XCoordShift & 0x1f)`. 0 in the 320-wide mode, 1 in the 640-wide one -- the mechanism behind Herculan.Engine's CockpitArt.GauToPixelScale = 2. DAT_004d25c0 is the Y counterpart.",
-      "source": "docs/formats/cockpit-hud.md (Q3)"
+      "source": "docs/formats/cockpit-hud-widgets.md (.GAU widget tree)"
     },
     {
       "address": "004d25c0",
@@ -3696,7 +3696,7 @@
       "confidence": "high",
       "name": "VideoMode_YCoordShift",
       "description": "Y-axis counterpart of VideoMode_XCoordShift.",
-      "source": "docs/formats/cockpit-hud.md (Q3)"
+      "source": "docs/formats/cockpit-hud-widgets.md (.GAU widget tree)"
     },
     {
       "address": "004d3c00",
@@ -3705,7 +3705,7 @@
       "confidence": "high",
       "name": "HudColorTable",
       "description": "27 int16 palette indices, loaded from dat\\COLORS.DAT (54-byte payload). HUD data files carry small logical colour ids rather than palette indices; those are resolved through this table once at load time, in place (arr[i] = table[arr[i]]). Read at 16 distinct offsets by ~60 functions; nothing in the image writes the address with an immediate because it is filled from the file. Verified: HDD ids 19/9/15/12 resolve to palette 16/10/13/14 = black/red/yellow/green, matching retail HDD screenshots.",
-      "source": "docs/formats/cockpit-hud.md (dat\\COLORS.DAT)"
+      "source": "docs/formats/cockpit-hud-widgets.md (dat\\COLORS.DAT)"
     },
     {
       "address": "00434280",
@@ -3714,7 +3714,7 @@
       "confidence": "high",
       "name": "HudColorTable_Get",
       "description": "Returns HudColorTable[DAT_0049b040[i]] -- resolves a logical colour id held in an initialised id array to a palette index.",
-      "source": "docs/formats/cockpit-hud.md (dat\\COLORS.DAT)"
+      "source": "docs/formats/cockpit-hud-widgets.md (dat\\COLORS.DAT)"
     },
     {
       "address": "004395c4",
@@ -3723,7 +3723,7 @@
       "confidence": "high",
       "name": "LedBarGraph_Ctor",
       "description": "LEDBarGraph constructor: calls LedBarGraph_CtorBase then installs vtable PTR_FUN_0049bd30.",
-      "source": "docs/formats/cockpit-hud.md (LED gauges)"
+      "source": "docs/formats/cockpit-hud-widgets.md (LED gauges)"
     },
     {
       "address": "004390c4",
@@ -3732,7 +3732,7 @@
       "confidence": "high",
       "name": "LedBarGraph_CtorBase",
       "description": "LedBarGraph_CtorBase(obj, rect, range): precomputes span = (end - start) * 0x10000 / range at field 0x14, start at 0x18, end at 0x1c, and seeds the current fill position at 0x20 from the sign of span -- a negative span fills from the far end back, which is how the H and V variants share one implementation.",
-      "source": "docs/formats/cockpit-hud.md (LED gauges)"
+      "source": "docs/formats/cockpit-hud-widgets.md (LED gauges)"
     },
     {
       "address": "004395e8",
@@ -3741,7 +3741,7 @@
       "confidence": "high",
       "name": "LedBarGraph_PaintToValue",
       "description": "Paints the bar for a 16.16 fixed-point value: fills to start + (value * span >> 16) via LedBarGraph_FillPinstripe, then installs field 0x24 as the draw colour and covers the remainder.",
-      "source": "docs/formats/cockpit-hud.md (LED gauges)"
+      "source": "docs/formats/cockpit-hud-widgets.md (LED gauges)"
     },
     {
       "address": "00439758",
@@ -3750,7 +3750,7 @@
       "confidence": "high",
       "name": "LedBarGraph_FillPinstripe",
       "description": "Fills the lit span of an LED bar. Walks the x range twice -- once over even columns, once over odd -- drawing a full-height line each step, with field 0x2c as the even-column colour and 0x30 as the odd. Two near-identical shades interleaved at one pixel read as a single shaded fill rather than two colours.",
-      "source": "docs/formats/cockpit-hud.md (LED gauges)"
+      "source": "docs/formats/cockpit-hud-widgets.md (LED gauges)"
     },
     {
       "address": "004434fc",
@@ -3777,7 +3777,7 @@
       "confidence": "high",
       "name": "PaperDoll_Load",
       "description": "pdamage.cpp .PDG loader. Reads 3 views, each an origin/size pair plus a vector of 0x1c-byte regions {int index, PixelPoint topLeft, PixelPoint bottomRight, int colorId, int spacer}; resolves each region's colorId through HudColorTable in place and shifts its coordinates by VideoMode_X/YCoordShift, with bottomRight additionally +1 in the 640-wide mode. Matches HercWorks.Core's PaperDollGraphic field-for-field, identifying its ViewRegion.Unk_val at offset 0x14 as the colour id.",
-      "source": "docs/formats/cockpit-hud.md (.PDG)"
+      "source": "docs/formats/cockpit-hud-widgets.md (.PDG)"
     },
     {
       "address": "00429c2c",
@@ -3938,7 +3938,7 @@
       "type": "function",
       "confidence": "high",
       "name": "VideoMode_Configure",
-      "description": "Sets the whole video-mode global block from a mode byte read out of the prefs file. Mode 0: VideoMode_UseHiResPanels=0, UseHiResBanks=0, viewport 320x240, canvas 320x480, coord shifts 0. Mode 1: UseHiResPanels=3, UseHiResBanks=0, viewport 640x480, canvas 640x960, shifts 1. Mode 2: as mode 1 but UseHiResBanks=1. So UseHiResPanels==3 selects .HFN/.HBA/.HB<n> art while UseHiResBanks separately selects the hi-res HUD sprite banks -- which is why the two idioms documented in cockpit-hud.md differ. All three branches also set DAT_004d25ea to 1, so the hardware-scroll display path is always the live one. None of them writes maybe_CockpitLayoutMode (004d25bc), which no code in the image can write at all.",
+      "description": "Sets the whole video-mode global block from a mode byte read out of the prefs file. Mode 0: VideoMode_UseHiResPanels=0, UseHiResBanks=0, viewport 320x240, canvas 320x480, coord shifts 0. Mode 1: UseHiResPanels=3, UseHiResBanks=0, viewport 640x480, canvas 640x960, shifts 1. Mode 2: as mode 1 but UseHiResBanks=1. So UseHiResPanels==3 selects .HFN/.HBA/.HB<n> art while UseHiResBanks separately selects the hi-res HUD sprite banks -- which is why the two idioms documented in cockpit-views.md differ. All three branches also set DAT_004d25ea to 1, so the hardware-scroll display path is always the live one. None of them writes maybe_CockpitLayoutMode (004d25bc), which no code in the image can write at all.",
       "source": "cockpit rendering RE session 2026-08-17"
     },
     {
@@ -4299,7 +4299,7 @@
       "type": "function",
       "confidence": "high",
       "name": "CockpitView_StepViewTransition",
-      "description": "Runs a queued view change's animated slide, once per frame from Sim_EndFrame just before CockpitView_ProcessViewCommand, gated on pending != -1 and the armed flag at +0x1c. For commands 0/1 (heads-down pan) it steps the display origin y by 10 canvas rows per loop iteration over vue[dest].canvasOriginY - vue[src].canvasOriginY (237, or 474 after the coord shift), then a remainder step; commands 4/5/6 step x by 0x14. The loop has no timer, retrace poll or frame boundary, so its real-time speed is CPU-bound. On completion: +0x14 += 1 (or -1), +0x18 = -1, +0x1d = 2 (two-frame cooldown). See docs/formats/cockpit-hud.md.",
+      "description": "Runs a queued view change's animated slide, once per frame from Sim_EndFrame just before CockpitView_ProcessViewCommand, gated on pending != -1 and the armed flag at +0x1c. For commands 0/1 (heads-down pan) it steps the display origin y by 10 canvas rows per loop iteration over vue[dest].canvasOriginY - vue[src].canvasOriginY (237, or 474 after the coord shift), then a remainder step; commands 4/5/6 step x by 0x14. The loop has no timer, retrace poll or frame boundary, so its real-time speed is CPU-bound. On completion: +0x14 += 1 (or -1), +0x18 = -1, +0x1d = 2 (two-frame cooldown). See docs/formats/cockpit-views.md.",
       "source": "HDD pan RE session 2026-08-20"
     },
     {
@@ -4958,7 +4958,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ShieldFacing_Paint",
-      "description": "A shield-facing child's Paint slot. Draws no geometry -- only a visibility test (FUN_00431410) -- because the concentric rings retail shows are palette-animated into the herc's own canopy art, not drawn by this widget (see ShieldsGauge_UpdateRingPalette in docs/formats/cockpit-hud.md).",
+      "description": "A shield-facing child's Paint slot. Draws no geometry -- only a visibility test (FUN_00431410) -- because the concentric rings retail shows are palette-animated into the herc's own canopy art, not drawn by this widget (see ShieldsGauge_UpdateRingPalette in docs/formats/cockpit-hud-widgets.md).",
       "source": "docs/formats/cockpit-input.md 2026-08-20"
     },
     {
@@ -5427,7 +5427,7 @@
       "confidence": "high",
       "name": "ThrottleSlider_CtorV",
       "description": "The throttle's vertical slider child, built when .GAU offset 1064 (SLIDE_DIR) == 1 -- the case all 9 retail .GAU files use. Knob spans the track's full width with its height from throttle bank frame 1 (28x12), limits +/-0x400 at +0x24/+0x26, and an initial position centred on the track (knobBottom = trackBottom - (trackHeight - knobHeight)/2), which is the manual's centred-is-stopped detent. Also constructs the two LED fill bars from .GAU ints [8..11] and [12..15] into private fields +0x7e and +0x82 -- it never registers them as children, and nothing ever paints them (see LedBarGraph_CtorV).",
-      "source": "docs/formats/cockpit-hud.md 2026-08-21"
+      "source": "docs/formats/cockpit-hud-widgets.md 2026-08-21"
     },
     {
       "address": "004483c0",
@@ -5436,7 +5436,7 @@
       "confidence": "medium",
       "name": "ThrottleSlider_CtorFixed",
       "description": "The SLIDE_DIR != 1 throttle slider variant: a fixed 12px-wide knob centred horizontally and spanning the track's full height. No retail .GAU selects it (all 9 hold 1 at offset 1064), so this branch is never exercised by retail data and its behaviour is unverified.",
-      "source": "docs/formats/cockpit-hud.md 2026-08-21"
+      "source": "docs/formats/cockpit-hud-widgets.md 2026-08-21"
     },
     {
       "address": "00448378",
@@ -5445,7 +5445,7 @@
       "confidence": "high",
       "name": "ThrottleSlider_OnValue",
       "description": "Throttle slider commit slot (vtable +8). Notifies the parent gauge via FUN_0043904c (which dispatches the owner's slot 0 = ThrottleGauge_OnChildValue, then repaints), then sets ThrottleLeverMode (0049a06e) from the sign of the committed value -- but gated on a joystick throttle control being configured AND assigned to THROTTLE in preferences, so it is inert on a keyboard/mouse setup.",
-      "source": "docs/formats/cockpit-hud.md 2026-08-21"
+      "source": "docs/formats/cockpit-hud-widgets.md 2026-08-21"
     },
     {
       "address": "00447d80",
@@ -5454,7 +5454,7 @@
       "confidence": "high",
       "name": "ThrottleGauge_SetValues",
       "description": "Writes the gauge's live value pair at +0xb1 from a caller struct of two ints: [0] speed as a Q10 fraction of max, [1] throttle Q10 +/-0x400. Pushes the throttle down to the slider child's set-value slot (+0x14) when it changed, and marks the child dirty (+0x1f = 2) when the speed fraction changed. Called once a frame by Player_PerFrameCockpitUpdate.",
-      "source": "docs/formats/cockpit-hud.md 2026-08-21"
+      "source": "docs/formats/cockpit-hud-widgets.md 2026-08-21"
     },
     {
       "address": "00447dd0",
@@ -5463,7 +5463,7 @@
       "confidence": "high",
       "name": "ThrottleGauge_GetValues",
       "description": "Returns gauge + 0xb1, the speedFraction/throttle int pair. Player_PerFrameCockpitUpdate reads [1] (gauge+0xb5) into mech+0x290 unless the mech+0x93 dirty flag says input moved the throttle this frame, in which case it pushes the other way. That arbitration is the whole of the two-way binding between the slider and the keyboard.",
-      "source": "docs/formats/cockpit-hud.md 2026-08-21"
+      "source": "docs/formats/cockpit-hud-widgets.md 2026-08-21"
     },
     {
       "address": "00447de0",
@@ -5472,7 +5472,7 @@
       "confidence": "high",
       "name": "ThrottleGauge_OnChildValue",
       "description": "Gauge slot 0: a child reporting a value. Finds the child in the gauge's array (+0x18, count +0x68); index 0 is the slider, and its value is negated when the gauge's +0xc1 is 0 (the vertical variant) before being stored to +0xb5. That negation cancels SliderWidget_GetValueV's own inversion, leaving positive = forward = knob up.",
-      "source": "docs/formats/cockpit-hud.md 2026-08-21"
+      "source": "docs/formats/cockpit-hud-widgets.md 2026-08-21"
     },
     {
       "address": "00439344",
@@ -5481,7 +5481,7 @@
       "confidence": "high",
       "name": "LedBarGraph_CtorV",
       "description": "Vertical LED bar graph ctor (obj, rect, range) -- the V twin of LedBarGraph_CtorBase (004390c4), taking start/end from the rect's y0/y1 instead of x0/x1. The throttle gauge builds two: .GAU ints [8..11] with range +0x400 (forward fill, above centre) and [12..15] with -0x400 (reverse fill, below). This is what those ints are; they are NOT the four detent points HThrottle previously recorded. NEITHER THROTTLE BAR IS EVER DRAWN: the slider holds them privately, ThrottleSlider_PaintV reads them only for their rects (via FUN_004390b8) to widen the region it invalidates, and the bar draw routines 00439398/00439460 have no callers in the image. A cut feature, along with the gauge+0xb1 speed fraction that would have filled them.",
-      "source": "docs/formats/cockpit-hud.md 2026-08-21"
+      "source": "docs/formats/cockpit-hud-widgets.md 2026-08-21"
     },
     {
       "address": "00459d20",
@@ -5652,7 +5652,7 @@
       "confidence": "high",
       "name": "ThrottleSlider_PaintV",
       "description": "Vertical throttle slider paint. Copies the gauge's +0xb1 speed fraction into +0x7a/+0x4a and does nothing further with it, reads the two LED fill bars' rects only to widen the invalidated region handed to FUN_0043122c, then blits the knob at its current height. It never draws either bar -- see LedBarGraph_CtorV.",
-      "source": "docs/formats/cockpit-hud.md 2026-08-23"
+      "source": "docs/formats/cockpit-hud-widgets.md 2026-08-23"
     },
     {
       "address": "0043d5a4",
@@ -5661,7 +5661,7 @@
       "confidence": "high",
       "name": "Gunsight_AddChild",
       "description": "Appends a child pointer to the roving-gunsight complex's array at widget+0xd7 (count at +0xff), so construction order is child index. Gunsight_Paint (0043d5c8) walks that array calling each child's slot 0.",
-      "source": "docs/formats/cockpit-hud.md 2026-08-23"
+      "source": "docs/formats/cockpit-gunsight-hud.md 2026-08-23"
     },
     {
       "address": "0043d5c8",
@@ -5670,7 +5670,7 @@
       "confidence": "high",
       "name": "Gunsight_Paint",
       "description": "Paints the front-window HUD: every child of the array at widget+0xd7 in order, then the mission-name label and the speed readout.",
-      "source": "docs/formats/cockpit-hud.md 2026-08-23"
+      "source": "docs/formats/cockpit-gunsight-hud.md 2026-08-23"
     },
     {
       "address": "0043d98c",
@@ -5679,7 +5679,7 @@
       "confidence": "high",
       "name": "Gunsight_SetValues",
       "description": "Called once a frame by Player_PerFrameCockpitUpdate with the machine's heading (mech+0x10), turret twist (+0x298) and turret pitch (+0x29a). Caches them at widget+0xb1/+0xb3/+0xb5 and forwards each one's delta to a child's AddDelta slot (+0xc): heading -> child 7 as (new - old), twist -> child 2 (the rotation indicator) as (old - new), pitch -> child 3 as (old - new).",
-      "source": "docs/formats/cockpit-hud.md 2026-08-23"
+      "source": "docs/formats/cockpit-gunsight-hud.md 2026-08-23"
     },
     {
       "address": "0043b378",
@@ -5688,7 +5688,7 @@
       "confidence": "high",
       "name": "HudSlideBar_CtorBase",
       "description": "Base of the front-window HUD's sliding-bar widgets. Stores the rect, defaults the limits to +/-0x4800 at +0x24/+0x26, precomputes the range at +0x2c and seeds the current value at +0x3a to the midpoint. HudSlideBar_SetLimits (0043b3c0) is the vtable +0x10 slot that overrides those limits.",
-      "source": "docs/formats/cockpit-hud.md 2026-08-23"
+      "source": "docs/formats/cockpit-gunsight-hud.md 2026-08-23"
     },
     {
       "address": "0043b3c0",
@@ -5697,7 +5697,7 @@
       "confidence": "high",
       "name": "HudSlideBar_SetLimits",
       "description": "Slide-bar vtable slot +0x10: sets min/max at +0x24/+0x26, recomputes the range and the midpoint value, then runs the recompute slot (+8). The gunsight gives the heading tape and child 7 +/-0xe38 (~20 deg) and the rotation indicator +/-0x38e3 (~80 deg).",
-      "source": "docs/formats/cockpit-hud.md 2026-08-23"
+      "source": "docs/formats/cockpit-gunsight-hud.md 2026-08-23"
     },
     {
       "address": "0043b3f8",
@@ -5706,7 +5706,7 @@
       "confidence": "high",
       "name": "HudSlideBar_AddDelta",
       "description": "Slide-bar vtable slot +0xc: value (+0x3a) -= delta, clamped to [+0x24, +0x26]. The only caller is Gunsight_SetValues, which chooses the delta's sign per child so that a bar either tracks its angle or scrolls against it.",
-      "source": "docs/formats/cockpit-hud.md 2026-08-23"
+      "source": "docs/formats/cockpit-gunsight-hud.md 2026-08-23"
     },
     {
       "address": "0043b438",
@@ -5715,7 +5715,7 @@
       "confidence": "high",
       "name": "HudRotationIndicator_Ctor",
       "description": "The manual's Rotation Indicator -- child 2 of the roving-gunsight complex, driven by the turret twist angle. Has no .GAU rect of its own: Gau_RovingGunsightWidget derives it from the heading tape's rect at offset 1104 with literals (+15, -10, 90 wide, 4 tall) and then gives it limits +/-0x38e3.",
-      "source": "docs/formats/cockpit-hud.md 2026-08-23"
+      "source": "docs/formats/cockpit-gunsight-hud.md 2026-08-23"
     },
     {
       "address": "0043b460",
@@ -5724,7 +5724,7 @@
       "confidence": "high",
       "name": "HudRotationIndicator_Recompute",
       "description": "Slide-bar slot +8 for the rotation indicator: caches the rect's width at +0x28 as the bar's travel, and the track sprite's blit position at +0x2e/+0x32 -- the rect's top-left lifted by (2 << VideoMode_YCoordShift).",
-      "source": "docs/formats/cockpit-hud.md 2026-08-23"
+      "source": "docs/formats/cockpit-gunsight-hud.md 2026-08-23"
     },
     {
       "address": "0043b4a4",
@@ -5733,7 +5733,7 @@
       "confidence": "high",
       "name": "HudRotationIndicator_Paint",
       "description": "Blits HUD bank frame 11 (182x10) as the track, then the sliding bar: frame 13 (green) while |value| <= 299, frame 12 (yellow) otherwise, at rect.x0 + (value - min) * width / range, minus (15 << VideoMode_XCoordShift) to centre the 62px bar on that point. This is the manual's 'turns yellow and moves left or right if your Turret moves from center'.",
-      "source": "docs/formats/cockpit-hud.md 2026-08-23"
+      "source": "docs/formats/cockpit-gunsight-hud.md 2026-08-23"
     },
     {
       "address": "0043b54c",
@@ -5742,7 +5742,7 @@
       "confidence": "high",
       "name": "HudSlideBar_CtorHidden",
       "description": "Child 3 of the roving-gunsight complex, driven by the turret pitch angle. Its vtable (0049c20c) has no-op stubs in both the paint (0043b574) and recompute (0043b56c) slots, so the pitch axis has a slide bar that is never drawn -- there is no on-screen pitch indicator.",
-      "source": "docs/formats/cockpit-hud.md 2026-08-23"
+      "source": "docs/formats/cockpit-gunsight-hud.md 2026-08-23"
     },
     {
       "address": "0048c338",
@@ -6517,7 +6517,7 @@
       "confidence": "high",
       "name": "Raster_InstallViewProjection",
       "description": "Installs a view's projection state into the rasterizer globals: perspective shift from view+0x1a (DAT_006c60ac), near plane from +0x1e (DAT_006c60b0), orthographic divisor from +0x22 (DAT_006c60b4), and from the render target at view+0x16 the clip rect +0x210..+0x21c. The projection centre DAT_006c60b8/bc starts as that rect's top-left and then has the target's +0x220 pair subtracted -- that pair being the .VUE projection centre plus the view's canvas origin, installed by CockpitView_ApplyViewState.",
-      "source": "docs/formats/cockpit-hud.md 2026-08-25"
+      "source": "docs/formats/cockpit-views.md 2026-08-25"
     },
     {
       "address": "0048c5c4",
@@ -6526,7 +6526,7 @@
       "confidence": "high",
       "name": "Raster_ProjectToScreen",
       "description": "Final projection step: screenX = x + DAT_006c60b8, screenY = DAT_006c60bc - y. That centre is the .VUE projection centre, not the middle of the viewport rect, and is where the gunsight reticle sits -- anything running parallel to the view axis vanishes there. APOCA's is 95 rows down a 240-row view.",
-      "source": "docs/formats/cockpit-hud.md 2026-08-25"
+      "source": "docs/formats/cockpit-views.md 2026-08-25"
     },
     {
       "address": "0048c4c0",
@@ -7342,7 +7342,7 @@
       "confidence": "high",
       "name": "HudWaypointIndicator_Ctor",
       "description": "Gunsight children 7 and 8, the manual's Waypoint Indicator. HudRotationIndicator_Ctor's object given vtable 0049c154 (paint Hud_UpdateWaypointIndicator, AddDelta HudWaypointIndicator_ShiftLimits) plus a label child at +0x4e on the rect it was handed dropped 3 << YCoordShift. Both children are handed the HEADING TAPE's rect and its +/-0xe38 limits; child 7 additionally sets its +0x45 flag, which is what makes it the nav marker's rather than the route's. The eight file-scope globals it writes are the diamond and arrow extents.",
-      "source": "docs/formats/cockpit-hud.md",
+      "source": "docs/formats/cockpit-gunsight-hud.md",
       "signature": "void * __cdecl HudWaypointIndicator_Ctor(void *widget, int *deviceRect)"
     },
     {
@@ -7415,8 +7415,8 @@
       "confidence": "high",
       "name": "Damage_PickRegionTint",
       "signature": "void __cdecl Damage_PickRegionTint(int damage, void *region, int *stateAndColorOut)",
-      "description": "Picks the colour one .PDG damage region is repainted in. Writes {condition state, palette index} to the caller's two-int block. Bands are Damage_ToConditionState's -- intact >=90/74/51/1 -- and for the region mode at region+0x18 of 0, 2 or 3 the colours are HudColorTable ids 12, 15, 20, 9, 18 (green, yellow, orange, red, grey). Mode 1 instead keeps the region's own colour id (region+0x14) for the top three bands, so an undamaged region is left alone, and takes ids 6 and 17 for the last two; no retail region states a mode other than 0. Mode >= 4 falls through writing the caller's own scratch. See docs/formats/cockpit-hud.md.",
-      "source": "docs/formats/cockpit-hud.md (.PDG)"
+      "description": "Picks the colour one .PDG damage region is repainted in. Writes {condition state, palette index} to the caller's two-int block. Bands are Damage_ToConditionState's -- intact >=90/74/51/1 -- and for the region mode at region+0x18 of 0, 2 or 3 the colours are HudColorTable ids 12, 15, 20, 9, 18 (green, yellow, orange, red, grey). Mode 1 instead keeps the region's own colour id (region+0x14) for the top three bands, so an undamaged region is left alone, and takes ids 6 and 17 for the last two; no retail region states a mode other than 0. Mode >= 4 falls through writing the caller's own scratch. See docs/formats/cockpit-hud-widgets.md.",
+      "source": "docs/formats/cockpit-hud-widgets.md (.PDG)"
     },
     {
       "address": "00437e94",
@@ -7425,8 +7425,8 @@
       "confidence": "high",
       "name": "PaperDoll_RecolorRect",
       "signature": "void __cdecl PaperDoll_RecolorRect(int *rect, int keyIndex, int tintIndex, int mode)",
-      "description": "Repaints one .PDG region in place, reading each pixel back out of the raster. Modes 0, 1 and 3 rewrite only the pixels holding keyIndex; mode 2 adds tintIndex to every pixel that is not the id-19 background. Modes 0 and 1 skip the walk entirely when the two colours agree. Mode 0 steps whole device pixels at a time when a 320-wide bank is being drawn doubled; the other three step one. The MFD status screen's route -- the HDD damage screen uses PaperDoll_RecolorRectFromArt instead. See docs/formats/cockpit-hud.md.",
-      "source": "docs/formats/cockpit-hud.md (.PDG)"
+      "description": "Repaints one .PDG region in place, reading each pixel back out of the raster. Modes 0, 1 and 3 rewrite only the pixels holding keyIndex; mode 2 adds tintIndex to every pixel that is not the id-19 background. Modes 0 and 1 skip the walk entirely when the two colours agree. Mode 0 steps whole device pixels at a time when a 320-wide bank is being drawn doubled; the other three step one. The MFD status screen's route -- the HDD damage screen uses PaperDoll_RecolorRectFromArt instead. See docs/formats/cockpit-hud-widgets.md.",
+      "source": "docs/formats/cockpit-hud-widgets.md (.PDG)"
     },
     {
       "address": "00438230",
@@ -7435,8 +7435,8 @@
       "confidence": "high",
       "name": "PaperDoll_RecolorRectFromArt",
       "signature": "void __cdecl PaperDoll_RecolorRectFromArt(int *rect, void *art, int *artOrigin, int keyIndex, int tintIndex, int mode)",
-      "description": "PaperDoll_RecolorRect's four modes over a source bitmap rather than the raster: mode 0 walks art's own rows (width at +6, pixels at +0xe) offset by artOrigin, so a region can be recoloured from the art without the screen underneath being repainted first. Modes 1-3 still read the raster back and do not expand pixels. The HDD damage screen's route. See docs/formats/cockpit-hud.md.",
-      "source": "docs/formats/cockpit-hud.md (.PDG)"
+      "description": "PaperDoll_RecolorRect's four modes over a source bitmap rather than the raster: mode 0 walks art's own rows (width at +6, pixels at +0xe) offset by artOrigin, so a region can be recoloured from the art without the screen underneath being repainted first. Modes 1-3 still read the raster back and do not expand pixels. The HDD damage screen's route. See docs/formats/cockpit-hud-widgets.md.",
+      "source": "docs/formats/cockpit-hud-widgets.md (.PDG)"
     },
     {
       "address": "0041b4ec",
@@ -8587,7 +8587,7 @@
       "name": "Widget_BeginPowerUpAnimation",
       "signature": "void __cdecl Widget_BeginPowerUpAnimation(void * widget)",
       "description": "Starts one cockpit widget's power-up animation: sets the armed byte at widget+0x8c and stamps widget+0x90 with Time_GetCoarseTicks. Both live on the shared widget base, cleared by its constructor (00438b20) along with the done byte at +0x8d, and each class reads them in its own paint -- for the roving gunsight that is the compass wind-up in Gunsight_UpdateAndPaint. Cdecl with one stack argument and no used return: all eight call sites, in Cockpit_PowerUpTick and the flyer tail of Gau_BuildCockpitWidgets, discard EAX and pop their own argument.",
-      "source": "docs/formats/cockpit-hud.md"
+      "source": "docs/formats/cockpit-gunsight-hud.md"
     },
     {
       "address": "00432924",
@@ -8640,7 +8640,7 @@
       "type": "function",
       "confidence": "high",
       "description": "Returns CockpitViewManagerPublished (004cfa20) -- the cockpit view manager, or null before the cockpit is built. Sim_PollPlayerInput's HDD VIEW case tests the pointer itself rather than any field of it, which is the retail bug recorded in KNOWN_ISSUES.",
-      "source": "docs/formats/cockpit-hud.md",
+      "source": "docs/formats/cockpit-views.md",
       "name": "CockpitViewManager_Published"
     },
     {
@@ -8649,7 +8649,7 @@
       "type": "data",
       "confidence": "high",
       "description": "A second global holding CockpitViewManagerInstance (004d2544), published at the tail of CockpitViewManager_LoadViews through the setter at 00429810 and read back through the accessor at 00429820. Same object, same fields: +0x14 is the current view index, which is what MessagePort_Show tests when it refuses to draw a line in view 4.",
-      "source": "docs/formats/cockpit-hud.md",
+      "source": "docs/formats/cockpit-views.md",
       "name": "CockpitViewManagerPublished"
     },
     {
@@ -12952,7 +12952,7 @@
       "name": "HudWaypointIndicator_ShiftLimits",
       "signature": "void __cdecl HudWaypointIndicator_ShiftLimits(void *widget, short delta)",
       "description": "Slide-bar slot +0xc as the waypoint indicator overrides it: adds the delta to BOTH limits at +0x24/+0x26 rather than to a value the way HudSlideBar_AddDelta does. Gunsight_SetValues sends child 7 the heading delta here, and it has no visible effect -- Hud_UpdateWaypointIndicator reads neither limit, only the range at +0x2c, which an equal shift of both leaves alone.",
-      "source": "docs/formats/cockpit-hud.md"
+      "source": "docs/formats/cockpit-gunsight-hud.md"
     },
     {
       "address": "0043b5dc",
@@ -12962,7 +12962,7 @@
       "name": "HudHeadingTape_Recompute",
       "signature": "void __cdecl HudHeadingTape_Recompute(void *widget)",
       "description": "Slide-bar slot +8 for the heading tick tape: caches the rect width at +0x28, the bank's frame span in Q16 at +0x40, the scroll x at +0x44 and the two frames to blit at +0x48/+0x4c, seeded to the bank's last and first.",
-      "source": "docs/formats/cockpit-hud.md"
+      "source": "docs/formats/cockpit-gunsight-hud.md"
     },
     {
       "address": "0043b654",
@@ -12972,7 +12972,7 @@
       "name": "HudHeadingTape_SetHeading",
       "signature": "void __cdecl HudHeadingTape_SetHeading(void *widget, short heading)",
       "description": "Slot +0xc for the heading tick tape: maps a heading onto the hudhtick bank with Math_Q16Multiply against +0x40, splitting the product into a frame index and a sub-frame pixel offset, both wrapped at the bank's frame count. Writes the scroll x at +0x44 = rect.x0 - offset and the consecutive frame pair at +0x48/+0x4c. The compass degrees are art, so the heading only picks which slice of the strip shows.",
-      "source": "docs/formats/cockpit-hud.md"
+      "source": "docs/formats/cockpit-gunsight-hud.md"
     },
     {
       "address": "0043b6dc",
@@ -12982,7 +12982,7 @@
       "name": "HudHeadingTape_Paint",
       "signature": "void __cdecl HudHeadingTape_Paint(void *widget)",
       "description": "Narrows the canvas clip to the tape's own rect, then blits the two frames HudHeadingTape_SetHeading chose at +0x44 and +0x44 + rectWidth, so the tape reads as a strip sliding through a window. Restores the four clip fields it borrowed before returning.",
-      "source": "docs/formats/cockpit-hud.md"
+      "source": "docs/formats/cockpit-gunsight-hud.md"
     },
     {
       "address": "0045751c",
@@ -14267,7 +14267,7 @@
       "confidence": "high",
       "name": "CockpitView_ClearShake",
       "description": "Undoes CockpitView_SetShakeBand: restores the view offset from the resting copy at 004cfadc/004cfae0, reinstalls the projection and clears CockpitViewShakeArmed. No-op when that byte is clear or the view mode is 4. Called when the cockpit damage shake ends or restarts, from CockpitView_ApplyViewState, and from the two mech-death screen flashes.",
-      "source": "docs/formats/cockpit-hud.md"
+      "source": "docs/formats/cockpit-canopy-palette.md"
     },
     {
       "address": "00459c98",
@@ -14357,7 +14357,7 @@
       "confidence": "high",
       "name": "CockpitViewManager_Publish",
       "description": "Stores its argument in CockpitViewManagerPublished (004cfa20). One call site: the tail of CockpitViewManager_LoadViews, passing the manager itself.",
-      "source": "docs/formats/cockpit-hud.md"
+      "source": "docs/formats/cockpit-views.md"
     },
     {
       "address": "00458f9c",
@@ -15661,7 +15661,7 @@
       "confidence": "high",
       "name": "View_Ctor",
       "description": "Constructs a view (vtable 004a5b41): View_CtorBase for the position and angles, then the render target at +0x16, the perspective shift at +0x1a and the near plane at +0x1e -- the fields Raster_InstallViewProjection reads. Sim_InitMissionSession passes shift 8 or 9; MfdMapScreen_Ctor passes 8, near plane 0x100, and a zero position and zero angles.",
-      "source": "docs/formats/cockpit-hud.md",
+      "source": "docs/formats/cockpit-views.md",
       "signature": "void * __cdecl View_Ctor(void *this, void *renderTarget, int perspectiveShift, int nearPlane, int *position, short *angles)"
     },
     {
@@ -15671,7 +15671,7 @@
       "confidence": "high",
       "name": "View_CtorBase",
       "description": "Base view constructor (vtable 004a5b51): copies an int[3] position to +4..+0xc and a short[3] angle triple to +0x10..+0x14. The +4 triple is what View_GetActiveObject's readers take as the camera position.",
-      "source": "docs/formats/cockpit-hud.md",
+      "source": "docs/formats/cockpit-views.md",
       "signature": "void * __cdecl View_CtorBase(void *this, int *position, short *angles)"
     },
     {

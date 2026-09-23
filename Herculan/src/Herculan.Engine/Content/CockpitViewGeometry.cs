@@ -5,7 +5,7 @@ namespace Herculan.Engine.Content;
 
 /// <summary>
 /// One herc's <c>vue\&lt;HERC&gt;.VUE</c> — where each cockpit view's window sits inside the cockpit
-/// canvas, in device pixels. See docs/formats/cockpit-hud.md.
+/// canvas, in device pixels. See docs/formats/cockpit-views.md.
 ///
 /// <para><b>The canvas is the mechanism behind the heads-down pan.</b> DBSIM's cockpit lives in a
 /// virtual space taller than the screen — 320x480 in the low-res mode, 640x960 in the two 640x480

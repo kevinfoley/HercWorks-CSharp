@@ -2,7 +2,7 @@
 
 Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project. Addresses are DBSIM. Symbols are in `tools/ghidra_scripts/known_symbols.json`; apply with `ES2ApplySymbolNames.java`.
 
-The console screen the F1-F6 keys switch between six screens. Surrounding cockpit: [`cockpit-hud.md`](cockpit-hud.md). Caption text: [`str-strings.md`](str-strings.md).
+The console screen the F1-F6 keys switch between six screens. Surrounding cockpit: [`cockpit-views.md`](cockpit-views.md), [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md). Caption text: [`str-strings.md`](str-strings.md).
 
 Engine implementation: `Herculan.Engine.Content.{MfdLayout, MfdMode, MfdNavMap, SimStringTable}`, `Herculan.Engine.Render.Overlay2DRenderer.AddMfd`.
 
@@ -229,7 +229,7 @@ A bank the game ships only at 320-wide (`flyers` is the one here) is blitted dou
 
 #### Region tints
 
-Mechanism, region record and colour ladder: [`cockpit-hud.md`](cockpit-hud.md#tinting). What differs here is the reading each region takes, because view 2 is a compact doll whose regions cover more than one component. Indices are into `Component_FillDamageReadouts`' buffer, whose entries 1-19 are the armour components:
+Mechanism, region record and colour ladder: [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#tinting). What differs here is the reading each region takes, because view 2 is a compact doll whose regions cover more than one component. Indices are into `Component_FillDamageReadouts`' buffer, whose entries 1-19 are the armour components:
 
 | Region id | Walker | Flyer chassis (`typeRec+0x50`) |
 |---|---|---|
@@ -267,7 +267,7 @@ Text margin `2 << XCoordShift` = 4 device — the only nonzero label margin on t
 
 The selected row also carries a plate: `MFD` frames 11-13, 91x8 GAU, blitted by `FUN_0043fa34` **after** the text so the hollow rounded rect frames it rather than covering it. Frame 11 unpressed, 12 while XMIT is held — the index is `0xb +` that button's own press byte — and 13 the plain plate that erases a row which has just stopped being selected. `FUN_0043f878` repaints exactly those two rows when the cursor moves, rather than the whole block.
 
-The screen is flooded with **palette index `0x11`** before any of it goes down — a constructor immediate, so an index and not a logical id ([`cockpit-hud.md`](cockpit-hud.md#datcolorsdat--logical-colour-ids)).
+The screen is flooded with **palette index `0x11`** before any of it goes down — a constructor immediate, so an index and not a logical id ([`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#datcolorsdat--logical-colour-ids)).
 
 The six rows are six *positions*, not six of the eighteen orders: `MfdFlashComm_SelectedVerb` (`0043f998`) reads the selected row at `screen+0x32` and adds 3 when that row's own state byte at `screen+0x2c + row` has bit 1 set, so the page covers `STRINGS0` group 0 verbs 0-5 or 3-8. `FUN_0043f9d0` is what flips that bit after a transmission, and it **returns immediately unless the row is 4 or 5**. XMIT (`MfdFlashComm_Transmit`, `00447220`) writes the resolved verb into the shared order record and broadcasts it to the whole of the player's group — [`../simulation/ai-squadmates.md`](../simulation/ai-squadmates.md).
 

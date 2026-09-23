@@ -16,7 +16,7 @@ namespace HercWorks.Core.Data.File.Gau;
 /// Read out of <see cref="GAUFile.Remainder"/> rather than carved out of it, exactly as
 /// <see cref="HThrottle.SlideMode"/> is read out of <see cref="GAUFile.RemainderBeforeTorsoTwist"/>:
 /// surfaced here and still written back verbatim, so the byte-exact round-trip is untouched.
-/// See `Herculan.Engine.Content.TargetBox` and docs/formats/cockpit-hud.md.
+/// See `Herculan.Engine.Content.TargetBox` and docs/formats/cockpit-gunsight-hud.md.
 /// </summary>
 public class HGunsightArea : WidgetBase {
 }

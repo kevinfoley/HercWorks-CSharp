@@ -77,7 +77,7 @@ public sealed partial class MechObject {
 	/// How many times this machine's cockpit has been jolted — a hit on one of its two cockpit
 	/// components, or a slide landing. The host watches it for the edge rather than a flag, the same
 	/// way it watches <see cref="Footfalls"/>, so a jolt taken between two frames is not missed. See
-	/// <c>CockpitHitShake</c>, and docs/formats/cockpit-hud.md, "The damage shake".
+	/// <c>CockpitHitShake</c>, and docs/formats/cockpit-canopy-palette.md, "The damage shake".
 	/// </summary>
 	public int CockpitHits { get; private set; }
 

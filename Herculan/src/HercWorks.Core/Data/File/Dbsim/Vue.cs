@@ -3,7 +3,7 @@ namespace HercWorks.Core.Data.File.Dbsim;
 /// <summary>
 /// FILE - /SIMVOL0/VUE/(herc).VUE — one record per cockpit view, read by
 /// <c>CockpitViewManager_LoadViews</c> (<c>00429834</c>) and installed into the render context by
-/// <c>CockpitView_ApplyViewState</c> (<c>00429e60</c>). See docs/formats/cockpit-hud.md.
+/// <c>CockpitView_ApplyViewState</c> (<c>00429e60</c>). See docs/formats/cockpit-views.md.
 ///   0 - UINT32 - view count (4 in every retail file)
 ///   4 - SEQ_0 (INT32 each): 3D viewport rect x0/y0/x1/y1, view centre cx/cy, canvas origin x/y.
 /// All coordinates are authored in the 320-wide space; the loader shifts them by

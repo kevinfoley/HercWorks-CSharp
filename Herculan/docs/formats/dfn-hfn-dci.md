@@ -107,7 +107,7 @@ Index 0 is transparent and **every retail file uses exactly one other value as i
 | `DARK` | 19 | `CPGREEN` | 15 |
 | `RED` | 10 | `ACTIVE` | 24 |
 
-`ColorSchemePanels` (`0049b0ac`) is the 18-entry loaded-font array; see cockpit-hud.md for the load order and which widget takes which entry.
+`ColorSchemePanels` (`0049b0ac`) is the 18-entry loaded-font array; see [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#hud-fonts) for the load order and which widget takes which entry.
 
 Engine implementation: `Herculan.Engine.Content.HudFont`, packed into the shared HUD atlas by `HudSpriteSheet`.
 
@@ -123,7 +123,7 @@ Full placement formula, including the horizontal rule: [`mfd.md`](mfd.md), "Labe
 
 A label paints its rect before its text, in the colour at the label object's field `0x1d` — `0x2e` for a weapon row, `0x11` for the scanner's four readouts, `DAT_004d3c26` (`COLORS.DAT` id 19, palette 16, black) for the shield readouts. That is why retail's shield "100" sits on solid black rather than on the bezel art under it.
 
-The first two are **raw palette indices** and the third a logical id: a constructor's immediate is already an index, only a data file's number goes through `COLORS.DAT`. See [`cockpit-hud.md`](cockpit-hud.md), "`dat\COLORS.DAT`".
+The first two are **raw palette indices** and the third a logical id: a constructor's immediate is already an index, only a data file's number goes through `COLORS.DAT`. See [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#datcolorsdat--logical-colour-ids), "`dat\COLORS.DAT`".
 
 ### Consumers
 

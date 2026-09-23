@@ -14,7 +14,7 @@ namespace Herculan.Engine.Render;
 /// <summary>
 /// Draws one panel's cockpit-art quad — at its own native aspect ratio, never stretched — plus, for
 /// the center panel only, the herc's HUD widgets over it, positioned from its own <c>.GAU</c> and
-/// drawn in the game's own sprite art and fonts. See docs/formats/cockpit-hud.md and
+/// drawn in the game's own sprite art and fonts. See docs/formats/cockpit-hud-widgets.md and
 /// docs/engine/planning.md's Milestone 8.
 ///
 /// <para>Orthographic, own minimal shader (position/UV/color, no lighting) — same precedent as
@@ -240,7 +240,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// <summary>
 	/// The Heads-Down Display's live content, built the way <c>FUN_00448cc8</c> and its two page
 	/// constructors build it — see <see cref="HddLayout"/> for where every rect and frame index comes
-	/// from, and docs/formats/cockpit-hud.md for the pan that reaches this view.
+	/// from, and docs/formats/cockpit-views.md for the pan that reaches this view.
 	///
 	/// <list type="number">
 	/// <item>the screen area, flooded with colour id 19 the way whichever page owns it floods it;</item>
@@ -1876,7 +1876,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// <summary>
 	/// The multi-function display, built the way <c>MfdDisplay_Ctor</c> (<c>00445218</c>) builds it —
 	/// see <see cref="MfdLayout"/> for where every rect comes from and
-	/// docs/formats/cockpit-hud.md for the panel it sits in.
+	/// docs/formats/cockpit-hud-widgets.md for the panel it sits in.
 	///
 	/// <list type="number">
 	/// <item>the screen background, whichever <c>MFD</c> frame the current mode selects — see

@@ -155,7 +155,7 @@ public sealed class SceneModelLibrary {
 	/// The same pair with the theater's <c>IMPACT&lt;n&gt;.DPL</c> in place of its ordinary palette —
 	/// what the whole scene is drawn through while the cockpit damage flash is up. Null when that
 	/// palette is missing, in which case the flash simply does not recolour anything. See
-	/// docs/formats/cockpit-hud.md, "The damage shake".
+	/// docs/formats/cockpit-canopy-palette.md, "The damage shake".
 	/// </summary>
 	public SurfaceShading? ImpactShading => _impactShading;
 

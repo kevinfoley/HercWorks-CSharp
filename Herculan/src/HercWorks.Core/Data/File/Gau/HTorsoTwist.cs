@@ -10,7 +10,7 @@ namespace HercWorks.Core.Data.File.Gau;
 /// **not** the torso-twist indicator the Java doc comment's `"1104- INDICATOR\TORSO_TWIST"` guess
 /// named. That indicator — the manual's Rotation Indicator — has no rect in the file at all: the
 /// gunsight constructor derives it from this one with literals (`+15, -10`, 90x4). See
-/// docs/formats/cockpit-hud.md's gunsight-complex section,
+/// docs/formats/cockpit-gunsight-hud.md's gunsight-complex section,
 /// `Herculan.Engine.Content.HeadingTape` (which draws the tape itself) and
 /// `Herculan.Engine.Content.RotationIndicator`.
 ///

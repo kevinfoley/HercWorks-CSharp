@@ -62,7 +62,7 @@ display off the port still runs the whole lifecycle and only skips the drawing �
 suppression flag every paint entry point tests alongside `port+0x49e`, "a line is up".
 
 Two further gates sit on the display half, both fields of the cockpit view manager, which
-`CockpitViewManager_Published` (`00429820`) hands back ([`cockpit-hud.md`](cockpit-hud.md#object-model)).
+`CockpitViewManager_Published` (`00429820`) hands back ([`cockpit-views.md`](cockpit-views.md#object-model)).
 Its `+0x14` is the **current view index**: the show refuses to display while it reads 4 — the value
 outside the four canopy views — and suppresses the line exactly as TEXT OFF does, lifecycle and
 all. Its `+0x1c` is a byte the paint tests first and returns on, and that one is not decoded.

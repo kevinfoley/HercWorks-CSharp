@@ -12,7 +12,7 @@ namespace Herculan.Engine.Content;
 /// <para>The whole compass is art: the <c>hudhtick</c> bank is one turn of strip cut into frames, and
 /// the angle picks which slice shows. <see cref="Slice"/> negates the heading it is given, because
 /// that is what the gunsight does before the call. Both are
-/// docs/formats/cockpit-hud.md's heading-tape section, which also owns why the sign is there.</para>
+/// docs/formats/cockpit-gunsight-hud.md's heading-tape section, which also owns why the sign is there.</para>
 ///
 /// <para>The rect is the <c>.GAU</c>'s offset 1104, <see cref="HTorsoTwist"/> — the one
 /// <see cref="RotationIndicator"/> and <see cref="WaypointIndicator"/> hang off too. Units are device

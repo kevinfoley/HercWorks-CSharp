@@ -1,0 +1,144 @@
+# Front-window HUD: the gunsight complex
+
+Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project. All addresses are DBSIM unless noted. Symbols are in `tools/ghidra_scripts/known_symbols.json`; apply with `ES2ApplySymbolNames.java`.
+
+Verified against retail data in `ES2/VOL/simvol0/{hba,gau,dat}/`.
+
+Engine implementation: `Herculan.Engine.Content.{HeadingTape, HeadingTapeSweep}`, `Herculan.Engine.Render.Overlay2DRenderer`.
+
+Everything drawn over the live 3D view, rather than on the console, belongs to one widget: `Gau_RovingGunsightWidget` (`0043c7d8`), built from `.GAU` offset **1088**. The console and console-mounted gauges are a separate widget tree: [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md). The view manager and per-view geometry: [`cockpit-views.md`](cockpit-views.md). How a mouse click on the gunsight surface reaches its handler: [`cockpit-input.md`](cockpit-input.md).
+
+## Front-window HUD — the gunsight complex
+
+Its own ints:
+
+| int | file offset | Role |
+|---|---|---|
+| `[0]`,`[1]` | 1088, 1092 | Origin added to every child rect. Zero in all 9 retail files |
+| `[2]`,`[3]` | 1096, 1100 | The complex's own bottom-right — `320, 117` or `320, 157` |
+| `[4..7]` | 1104-1116 | **Heading tape** rect. `100,y - 220,y+17` in every file, so 120x17 centred on the 320-wide HUD. The rotation indicator is derived from it, below |
+| `[8]`,`[0xa]`,`[0xb]` | 1120, 1128, 1132 | Speed and time readout anchors — see below |
+| `[0xc]`,`[0xd]` | 1136, 1140 | Reticle point |
+| `[0xe]` | 1144 | Half-extent of child 4's rect about the reticle point. Zero in all 9 retail files, and unread by that child's paint |
+| `[0xf..0x12]` | 1148-1163 | Rect shared by children 0, 5 and 6 — `GAUFile.GunsightArea`, the target arrow's safe area |
+| `[0x13..0x16]` | 1164-1179 | The **`ATT` legend's** rect — see below |
+| `[0x17..0x1a]` | 1180-1195 | A second label of the same kind, at the widget's `+0x107`. Neither gunsight paint reaches it |
+| `[0x1b]`,`[0x1c]` | 1196, 1200 | Top-left of the floating scanner repeater — `GAUFile.HudScanner`, a bare point with no size. Per herc; see [`mfd-scanner.md`](mfd-scanner.md) |
+
+The complex also builds two `ColorSchemePanels[12]` (`dark`) labels of its own, at `+0x103` and `+0x107`. The first is the manual's **`ATT` legend**: while the weapon manager's auto-track flag (`manager+0xb3`) is set, both paints blit `HUD` bank frame 14 as its plate and set its text to `STRINGS0.STR` group 37 entry 0 — see [`../simulation/torso-aim.md`](../simulation/torso-aim.md) for the tracker itself.
+
+`Gunsight_AddChild` (`0043d5a4`) appends to a pointer array at the widget's `+0xd7`, so construction order *is* child index. `Gunsight_Paint` (`0043d5c8`) walks that array calling each child's slot 0, then draws two things that are not children at all: the **floating scanner repeater** (`FUN_0043e0ec` into `FUN_0043f2b0`) and `FUN_0043dd70`, which works from a second derived point at the widget's `+0x113` — the reticle plus `(0x46, -0x12)` device — and is not traced.
+
+All nine children derive from `FUN_0043b344`, a bare rect holder. Children 4, 5 and 6 additionally receive the 38-byte state block described in [`hud-target-indicator.md`](hud-target-indicator.md), at `+0x14`.
+
+| # | Ctor | What it is |
+|---|---|---|
+| 0 | `FUN_0043c120` | The clickable gunsight surface. Registers a child gadget with the cockpit's click list — the "gunsight click" entry into `TargetSelect_SetObject`. Its paint (`FUN_0043c1dc`) only tracks the cursor against its rect |
+| 1 | `HudHeadingTape_Ctor` (`0043b57c`) | Heading tick tape, bank `hudhtick`, limits ±`0xe38` |
+| 2 | `HudRotationIndicator_Ctor` (`0043b438`) | The rotation indicator, limits ±`0x38e3` |
+| 3 | `HudSlideBar_CtorHidden` (`0043b54c`) | The pitch axis's slide bar — **paint slot is a no-op** (`0043b574`), so it is never drawn |
+| 4 | `FUN_0043b344`, vtable `0049c124` inline | The reticle |
+| 5 | `FUN_0043b928` (vtable `0049c1c4`) | The target box and its off-screen arrow |
+| 6 | `FUN_0043c240` | Constructed and fed the state block, but its **paint slot is `ret`** (`FUN_0043c260`) |
+| 7, 8 | `HudWaypointIndicator_Ctor` (`0043c268`) | The two waypoint indicators, below. 7 takes the `+0x45` flag that makes it the nav marker's |
+
+Children 4 and 5: [`hud-target-indicator.md`](hud-target-indicator.md).
+
+### Live values
+
+`Player_PerFrameCockpitUpdate` (`0041b130`) calls `Gunsight_SetValues` (`0043d98c`) once a frame with three shorts — `mech+0x10` (heading), `mech+0x298` (twist angle), `mech+0x29a` (pitch angle). The widget caches them at `+0xb1`/`+0xb3`/`+0xb5` and forwards each one's **delta** to a child's `AddDelta` slot (`+0xc`):
+
+| value | child | delta sent |
+|---|---|---|
+| heading | 7 | `new - old` |
+| twist | 2 | `old - new` |
+| pitch | 3 | `old - new` |
+
+Children 2 and 3 are slide bars, and `HudSlideBar_AddDelta` (`0043b3f8`) does `value -= delta` clamped to the bar's limits, so they *track* their angle. Both start at zero, which is where the machine's angles start.
+
+**The heading's delta reaches a waypoint indicator, and does nothing.** Child 7 overrides slot `+0xc` with `HudWaypointIndicator_ShiftLimits` (`0043c3d0`), which adds the delta to `+0x24` and `+0x26` rather than to a value — and `Hud_UpdateWaypointIndicator` reads neither, only the range `+0x2c` that an equal shift of both leaves alone. The heading tape, child 1, is not driven from here at all.
+
+The same call copies the whole 38-byte state block into children 4 and 5. Everything in it past the three angles is filled by the gunsight's own update slot, `Gunsight_UpdateAndPaint` (`0043d6dc`), from the target block at `CockpitView+0x26c` — see [`hud-target-indicator.md`](hud-target-indicator.md). That slot also drives child 1 and runs each child's slot `+4`.
+
+### Rotation indicator
+
+The manual's sliding green bar. It has **no `.GAU` rect of its own**: `Gau_RovingGunsightWidget` derives it from the heading tape's rect with literals — `+15, -10` from its top-left, 90 wide and 4 tall, all in `.GAU` units and shifted by the video mode.
+
+`HudRotationIndicator_Paint` (`0043b4a4`) draws two `HUD`-bank frames:
+
+```
+track:  frame 11 (182x10) at (rect.x0, rect.y0 - (2 << YCoordShift))
+bar:    frame 13 while |value| <= 299, frame 12 otherwise
+        x = rect.x0 + (value - min) * rectWidth / range  (+1 if value < 0)  - (15 << XCoordShift)
+        y = rect.y0
+```
+
+Frame 13 is green and 12 yellow; the 299 threshold is about 1.6°, so any deliberate movement trips it. The trailing `-15` undoes the `+15` the rect carries, which centres the 31-unit-wide bar on the mapped point. The ±`0x38e3` limit is about 80°, deliberately wider than any herc's own 14000 twist limit, so the bar never reaches the ends of its track.
+
+### Heading tape
+
+Child 1, the manual's Heading Indicator. `HudHeadingTape_Recompute` (`0043b5dc`) caches the rect's width at `+0x28` and the `hudhtick` bank's last and first frames at `+0x48`/`+0x4c`; `HudHeadingTape_SetHeading` (`0043b654`) converts the angle it is given into a frame pair and a sub-frame offset:
+
+```
+total   = Math_Q16Multiply(heading, framePixels)     // +0x40, bankFrames * rectWidth in Q16
+frame   = total / rectWidth,  offset = total % rectWidth   // both wrapped at bankFrames
++0x44   = rect.x0 - offset
++0x48   = bank[frame],  +0x4c = bank[frame + 1]
+```
+
+The paint (`0043b6dc`) narrows the canvas clip to the rect and blits those two frames at `+0x44` and `+0x44 + rectWidth`, so the tape is a strip of full-width frames sliding through a window: the whole compass, degree labels included, is art, and the angle picks which slice of it shows. Retail's bank is nine 256x16 frames against a 240-device-pixel window, so the pair always covers it with no seam.
+
+**The angle is the heading negated.** `Gunsight_UpdateAndPaint` reads the viewing object's `mech+0x10` and calls child 1's `+0xc` with `-heading`. Without that sign the strip would run opposite to the simulation's own bearings, and a tick would slide one way while the waypoint diamond naming the same bearing slid the other. Because the art's degrees rise left to right, the negation is also what makes the readout count *up* as the machine turns right, the ordinary compass convention, out of headings that run counter-clockwise.
+
+#### Power-up wind-up
+
+On taking a machine the tape starts at north and winds round to the real heading. Two fields of the shared widget base carry it — `+0x8c` armed, `+0x8d` done — cleared by the base constructor (`00438b20`) and set by `Widget_BeginPowerUpAnimation` (`00438ddc`), which also stamps `+0x90` with `Time_GetCoarseTicks`. While armed and not done, `Gunsight_UpdateAndPaint` substitutes a ramp for the heading:
+
+```
+ramp = (ushort)((coarseTicks - +0x90) * 0x32)
+heading <= 0x8000:  angle = ramp,   done when heading <= ramp
+heading >  0x8000:  angle = -ramp,  done when -ramp <= heading
+```
+
+`0x32` a coarse tick is about 17°/s, so the longest wind-up is some ten seconds. It always takes the short way round: below half a turn the angle climbs from north, above it the angle descends. `Cockpit_PowerUpTick` (`00432924`) arms the gunsight on the first tick after `Cockpit_PowerUpSound` stamps the sequence's start, and arms the ten heads-down gauges on their own delays.
+
+**Two things stop it, which is why it is not seen every mission.**
+
+- **A flyer never winds up.** `Gau_BuildCockpitWidgets` (`00431bf8`) ends with a branch taken when the piloted machine's type record has `InputFlagFlyer` set — `mech+0x1f2 -> +0x50`, the RAZOR alone (see [`../simulation/mech-locomotion.md`](../simulation/mech-locomotion.md)'s type-record table). It arms *and* immediately marks done the gunsight and the ten gauges, and sets `cockpit+0x245`, which stops `Cockpit_PowerUpSound` ever stamping the start time. So a RAZOR cockpit reads true from its first frame; the same flag gates the engine hum, [`audio.md`](audio.md#the-cockpit-power-up).
+- **A heading past half a turn never winds up either.** The descending branch is done as soon as `-ramp <= heading`, and on the frame the widget is armed `ramp` is still zero — which is at or below every heading in that half. The arm and the first paint fall in the same pass, so a machine facing anywhere past `0x8000` is done before it has moved. The climbing branch survives that frame, since a climbing zero is below every heading but zero itself. Listed in [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
+
+Only the tape is ramped. The waypoint indicators over it go on reading the true heading throughout, so they and the compass visibly disagree for as long as the wind-up lasts.
+
+### Waypoint indicators
+
+Children 7 and 8, the manual's Waypoint Indicator. Both are `HudWaypointIndicator_Ctor` (`0043c268`) — `HudRotationIndicator_Ctor`'s object with vtable `0049c154`, a label child, and the `±0xe38` limits the gunsight hands them. **Neither has a `.GAU` rect of its own**: the complex passes both of them the heading tape's rect (offset 1104), so a mark rides the same span of bearing the compass under it does. The `+0x45` flag separates them:
+
+| Child | `+0x45` | Subject | Colour id | Caption |
+|---|---|---|---|---|
+| 7 | 1 | `NavMarker_Position` (`0043495c`) | `DAT_004d3c1e`, id 15 → palette 13 yellow | none |
+| 8 | 0 | The player group's route, or `mech+0x1a4` on a branch that never runs | table entry 0 → palette 14 green | `WAYPOINT n: d M.` |
+
+What each points at, and the branch that never runs, are [`../simulation/player-waypoints.md`](../simulation/player-waypoints.md).
+
+`Hud_UpdateWaypointIndicator` (`0043c3e4`) is the shared paint. It takes the ground range with `Vec2_DistanceBetween` and the bearing with the `Math_Atan2Guarded(dx, dy) - 0x4000` that `Math_HeadingToward` is, then works the error `mech.heading - bearing` as an unsigned short:
+
+| Error | Shape |
+|---|---|
+| ≤ `0xe38` or ≥ `0xf1c8` | Diamond, on the tape |
+| `0xe39`-`0x7fff` | Arrow past the rect's **right** end, pointing right |
+| `0x8000`-`0xf1c7` | Arrow past its **left** end, pointing left |
+
+Simulation headings run counter-clockwise, so a positive error is a subject off to the player's right — which is the end its arrow parks at, and the side of centre its diamond sits on.
+
+Both shapes are filled polygons through `Raster_DrawPolygonDispatch`, not sprites, and both hang off the rect's **top** edge lifted `4 << YCoordShift`. The diamond's centre is `rect.x0 + rectWidth/2 + error * rectWidth / 0x1c70` — the widget's own `+0x28` width over its `+0x2c` range — so it reaches the rect's ends exactly at the limits; it is `5 << XCoordShift` by `5 << YCoordShift` about that point. An arrow's base sits `2 << XCoordShift` past the rect's end with its tip `4 << XCoordShift` further out and its base `5 << YCoordShift` tall.
+
+The caption is the label child, given the tape's rect dropped `3 << YCoordShift` and centred in it — which puts the line below the compass while the marks sit above. Font is `ColorSchemePanels[17]` (`HUD3`, the same face the speed and time *values* use). The text is `STRINGS0.STR` group 37 entry 1 (`"WAYPOINT "`, trailing space included) then the waypoint number, `": "`, the range in metres and `" M."`. The number is the route cursor plus one and the range is `Hud_WorldUnitsToMetres`, so it is always a multiple of six — see [`../engine/planning.md`](../engine/planning.md#world-scale).
+
+### Speed and time readouts
+
+`Gau_RovingGunsightWidget` places these from two anchor points in the same block, both already device-shifted:
+
+- **1128/1132** is the *left* edge of the `SPEED:` caption. The value follows at `captionEnd + (2 << XCoordShift)`.
+- **1120/1124** is the *right* edge of the time field. Its left edge is that minus the measured width of `"00000"` — a five-digit reservation — and the `TIME:` caption is right-aligned `(2 << XCoordShift)` before it.
+
+Captions use `ColorSchemePanels[16]` (`HUD2`, ink 73) and values `[17]` (`HUD3`, ink 74). Those are theater palette indices, not colours the widget picks — which is where retail's pale yellow-green captions and cyan values come from.

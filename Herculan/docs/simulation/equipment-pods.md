@@ -59,7 +59,7 @@ Two consequences for whose ECM is actually on, both following from it being the 
 
 ## Only two pods have a button
 
-`CockpitView_CreatePodGauge` (`004321d4`) switches on the catalog id at `pod+0x77` and builds one of three gauge classes: `TogglePodGauge_Ctor` (`00441998`, vtable `0049c8a4`) for ECM, `TurboPodGauge_Ctor` (`00441a34`, vtable `0049c878`, which derives from it and adds an LED bar over the pod's charge — [`../formats/cockpit-hud.md`](../formats/cockpit-hud.md)) for TURB, and the plain `PodGauge_Ctor` (`00441524`, vtable `0049c8d0`) for TARG, SHLD and ENRG. **The split is the tick table again** — the two classes with a tick of their own are the two with a gauge class of their own.
+`CockpitView_CreatePodGauge` (`004321d4`) switches on the catalog id at `pod+0x77` and builds one of three gauge classes: `TogglePodGauge_Ctor` (`00441998`, vtable `0049c8a4`) for ECM, `TurboPodGauge_Ctor` (`00441a34`, vtable `0049c878`, which derives from it and adds an LED bar over the pod's charge — [`../formats/cockpit-hud-widgets.md`](../formats/cockpit-hud-widgets.md#weapon-hardpoint-rows)) for TURB, and the plain `PodGauge_Ctor` (`00441524`, vtable `0049c8d0`) for TARG, SHLD and ENRG. **The split is the tick table again** — the two classes with a tick of their own are the two with a gauge class of their own.
 
 Every pod row is clickable and sounds on a click: `PodGauge_Ctor` registers the row's `WeaponSelectGadget` child with `Widget_RegisterClickable`, and that child sounds `Widget_ClickSound` and forwards to its owner's slot 0 ([`../formats/cockpit-input.md`](../formats/cockpit-input.md)). What the slot does is where the classes part:
 

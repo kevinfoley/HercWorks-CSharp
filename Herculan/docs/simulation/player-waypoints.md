@@ -1,6 +1,6 @@
 # Player waypoints and the nav marker
 
-What the machine the player is flying does about its own route, and the second point the player can put on the compass. The HUD gadget that draws both is [`../formats/cockpit-hud.md`](../formats/cockpit-hud.md#waypoint-indicators); this doc owns the simulation behind it.
+What the machine the player is flying does about its own route, and the second point the player can put on the compass. The HUD gadget that draws both is [`../formats/cockpit-gunsight-hud.md`](../formats/cockpit-gunsight-hud.md#waypoint-indicators); this doc owns the simulation behind it.
 
 **A player waypoint is the player group's mission route.** There is no separate record: the route is the same block-3 waypoint group, resolved to block-1 points, that an AI group walks — see [`ai-goals.md`](ai-goals.md#the-route-cursor-is-loaded-once) for the cursor and [`../formats/msn-mission-file.md`](../formats/msn-mission-file.md) for the file layout. The player's group holds it in `group+0x06` and its cursor in `group+0x04` like any other.
 

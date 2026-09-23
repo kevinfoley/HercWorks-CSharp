@@ -37,7 +37,8 @@ public sealed record CockpitFrame(byte[] Pixels, int Width, int Height) {
 }
 
 /// <summary>
-/// A herc's cockpit canopy art and HUD widget layout — see docs/formats/cockpit-hud.md (Milestone 8
+/// A herc's cockpit canopy art and HUD widget layout — see docs/formats/cockpit-canopy-palette.md and
+/// docs/formats/cockpit-hud-widgets.md (Milestone 8
 /// Phase 0) for the RE and the real-data verification behind every constant here.
 ///
 /// <para><see cref="Front"/> is <c>(herc).HB0</c> (the center/front view) and <see cref="Side"/> is
@@ -68,7 +69,7 @@ public sealed class CockpitArt {
 	/// independently-positioned real widgets (MFD panel, shield display, throttle, chain button,
 	/// energy meter) on real <c>APOCA.HB0</c> art and finding every one lands exactly on its physical
 	/// console graphic at this scale, and no other tried combination (1x, 2x/1x, 2x/1.2x) fits more
-	/// than one widget at once. See docs/formats/cockpit-hud.md, "Q3".
+	/// than one widget at once. See docs/formats/cockpit-hud-widgets.md, "<c>.GAU</c> widget tree".
 	/// </summary>
 	public const float GauToPixelScale = 2f;
 
@@ -172,7 +173,7 @@ public sealed class CockpitArt {
 	/// <summary>
 	/// Whether the HUD draws through the damage-flash palette. The host sets it from
 	/// <c>CockpitHitShake.FlashActive</c>; it does nothing when the theater supplied no impact
-	/// palette. See docs/formats/cockpit-hud.md, "The damage shake".
+	/// palette. See docs/formats/cockpit-canopy-palette.md, "The damage shake".
 	/// </summary>
 	public bool FlashActive { get; set; }
 

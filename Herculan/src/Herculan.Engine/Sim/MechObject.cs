@@ -1085,7 +1085,7 @@ public sealed partial class MechObject : SimObject {
 	/// <para>The landing also jolts the cockpit, through <see cref="CockpitHits"/> — the second of
 	/// the shake's two triggers, and the ungated one: the direct-fire site tests who is flying and
 	/// how far gone the cockpit is, and this one calls it on any landing that got past the distance
-	/// threshold. See docs/formats/cockpit-hud.md, "The damage shake".</para>
+	/// threshold. See docs/formats/cockpit-canopy-palette.md, "The damage shake".</para>
 	/// </summary>
 	private void SlideLandingDamage(SimWorld world, int slideDistance) {
 		if (slideDistance <= SlideDamageMinimumDistance) {

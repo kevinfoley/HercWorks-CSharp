@@ -16,7 +16,7 @@ public readonly record struct ClipSpan(int Start, int Length);
 ///
 /// <para>On-disk layout, the parse verification against the retail files, and why this is the
 /// viewport cutout mechanism (DBSIM never colour-keys the canopy art) are in
-/// docs/formats/cockpit-hud.md, "<c>.HD0</c>-<c>.HD3</c> / <c>.ED0</c>-<c>.ED3</c> — 3D-viewport clip
+/// docs/formats/cockpit-views.md, "<c>.HD0</c>-<c>.HD3</c> / <c>.ED0</c>-<c>.ED3</c> — 3D-viewport clip
 /// regions". The 9-byte VOL entry prefix that layout is written against has already been stripped by
 /// <see cref="GameContent"/>. Blocks may overlap and repeat; this parser accumulates every source
 /// region per row, as the original's flattening step does.</para>

@@ -1,6 +1,6 @@
 # The HUD target indicator
 
-The front window's target box, its off-screen arrow, and the reticle's on-target frames. Children 4 and 5 of the gunsight complex — see [`cockpit-hud.md`](cockpit-hud.md) for the complex itself and [`../simulation/target-selection.md`](../simulation/target-selection.md) for what makes a selection.
+The front window's target box, its off-screen arrow, and the reticle's on-target frames. Children 4 and 5 of the gunsight complex — see [`cockpit-gunsight-hud.md`](cockpit-gunsight-hud.md) for the complex itself and [`../simulation/target-selection.md`](../simulation/target-selection.md) for what makes a selection.
 
 Engine implementation: `Herculan.Engine.Content.{TargetBox, TargetIndicator}`, `Herculan.Engine.Render.Overlay2DRenderer.{AddTargetBoxLayer, AddTargetIndicator, ReticleFrame}`.
 
@@ -99,7 +99,7 @@ A render context (`0x239` bytes) carries a clip block at `ctx+4`, which `FUN_004
 | Context | Built by | Clip |
 |---|---|---|
 | `CockpitViewInstance+4` | `Gau_BuildCockpitWidgets` (`00431bf8`) | Mode 1, rect = the whole cockpit canvas |
-| The one under it | `CockpitView_ApplyViewState` (`00429e60`) loads the current view's `0x204`-byte block into it | Mode 2, regions = the herc's `.HD`/`.ED` canopy cutout (see [`cockpit-hud.md`](cockpit-hud.md)) |
+| The one under it | `CockpitView_ApplyViewState` (`00429e60`) loads the current view's `0x204`-byte block into it | Mode 2, regions = the herc's `.HD`/`.ED` canopy cutout (see [`cockpit-views.md`](cockpit-views.md#hd0-hd3--ed0-ed3--3d-viewport-clip-regions)) |
 
 `FUN_004311e0` pushes the current context and installs the canvas one; `FUN_00431210` pops. Every widget paint runs inside such a pair, which is why the console instruments — outside the canopy cutout — can draw at all.
 

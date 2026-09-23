@@ -38,7 +38,7 @@ public enum HddDamageView {
 /// The Heads-Down Display's geometry, decoded from <c>FUN_00448cc8</c> (the <c>HDDisplay</c>
 /// constructor at <c>.GAU</c> offset 1212) and the two page constructors it builds —
 /// <c>FUN_0044c264</c> for the command display and <c>FUN_0045079c</c> for the damage detail. See
-/// docs/formats/cockpit-hud.md for the pan that reaches this view and
+/// docs/formats/cockpit-views.md for the pan that reaches this view and
 /// <see cref="MfdLayout"/> for the closest precedent.
 /// </summary>
 /// <remarks>

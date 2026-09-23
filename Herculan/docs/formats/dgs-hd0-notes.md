@@ -1,6 +1,6 @@
 # .DGS shape library
 
-The `.DGS` container and the structure shapes it holds. Companion: [`weapons-dat-sim.md`](weapons-dat-sim.md). The `.HD0`-`.HD3` / `.ED0`-`.ED3` clip-region files this file's name also mentions are documented in [`cockpit-hud.md`](cockpit-hud.md), which owns that format, its loader and its real-file verification.
+The `.DGS` container and the structure shapes it holds. Companion: [`weapons-dat-sim.md`](weapons-dat-sim.md). The `.HD0`-`.HD3` / `.ED0`-`.ED3` clip-region files this file's name also mentions are documented in [`cockpit-views.md`](cockpit-views.md#hd0-hd3--ed0-ed3--3d-viewport-clip-regions), which owns that format, its loader and its real-file verification.
 
 ## `.DGS` container format
 

@@ -2,7 +2,7 @@
 
 How DBSIM routes a mouse click on the cockpit dashboard/HUD/HDD to a button's own click handler. Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project. All addresses are DBSIM. Symbols are in `tools/ghidra_scripts/known_symbols.json`; apply with `ES2ApplySymbolNames.java`.
 
-Widget geometry, frames and paint logic are covered by [`cockpit-hud.md`](cockpit-hud.md), [`mfd.md`](mfd.md) and [`heads-down-display.md`](heads-down-display.md) — this document is only the input path: how a mouse event becomes a call into a specific widget's own handler.
+Widget geometry, frames and paint logic are covered by [`cockpit-views.md`](cockpit-views.md), [`cockpit-canopy-palette.md`](cockpit-canopy-palette.md), [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md), [`cockpit-gunsight-hud.md`](cockpit-gunsight-hud.md), [`mfd.md`](mfd.md) and [`heads-down-display.md`](heads-down-display.md) — this document is only the input path: how a mouse event becomes a call into a specific widget's own handler.
 
 Implemented in `Herculan.Engine` across three types: `CockpitScreenLayout` (window pixel to art pixel, the step the original does not need), `CockpitWidgets` (the flat clickable list and the rectangular hit test, §5-6) and `CockpitInput` (the queue and the press/release/hold state machine, §3-4 and §7). `Herculan.Engine.Host`'s `Program.cs` queues the events and routes completed clicks. Sections 1-2 and 9 are deliberately not ported; of §10's three screen-edge strips only the vertical one is, as `CockpitWidgets.VisibleHeadsDownViewEdge`, the other two leading to views this engine does not render — see `CockpitInput`'s own summary for what diverges and why.
 
@@ -137,7 +137,7 @@ Widget state byte (`+0x1b`):
 | 0 | Axis-aligned rect, inclusive | `+0x0`/`+0x4`/`+0x8`/`+0xc` = x0,y0,x1,y1 |
 | nonzero | Circular/diamond | centre `+0x11`/`+0x13` (int16 cx,cy), radius `+0x15` (int16); test is Manhattan distance ≤ radius, not true Euclidean |
 
-**The point it is given is in cockpit-canvas space, not screen space.** `Widget_OnMouseDown` and `Widget_OnMouseUp` subtract the root widget's own rect origin from the event position first, and that origin is moved by the view-change delta on every view change, so the same widget rect answers a different part of the screen in each view — see §10, where it is the whole of how one edge strip serves two opposite edges. The two also add `DAT_004d25da`/`de` under a flag, but that path is dead: [`cockpit-hud.md`](cockpit-hud.md#video-modes) shows the mode byte that would write those globals can never be set, so the term is always zero.
+**The point it is given is in cockpit-canvas space, not screen space.** `Widget_OnMouseDown` and `Widget_OnMouseUp` subtract the root widget's own rect origin from the event position first, and that origin is moved by the view-change delta on every view change, so the same widget rect answers a different part of the screen in each view — see §10, where it is the whole of how one edge strip serves two opposite edges. The two also add `DAT_004d25da`/`de` under a flag, but that path is dead: [`cockpit-views.md`](cockpit-views.md#video-modes) shows the mode byte that would write those globals can never be set, so the term is always zero.
 
 **Nothing in DBSIM ever selects the second form.** `Widget_CtorRect` (`00452478`) writes `+0x10 = 0`, and all sixteen leaf-widget constructors run it; the only other widget-rect setter in the image (`004526c4`, which `Gau_BuildCockpitWidgets` and `AlertPanel_CtorBase` use) writes 0 too. Nothing writes that byte again, so the circular branch is library code the game does not reach.
 
@@ -303,7 +303,7 @@ That same function records and replays both queues to a `.TAP` input tape — th
 
 Traced end to end as a concrete proof the whole pipeline above is real, not just plausible:
 
-1. `ShieldsGauge_Ctor` builds two facing children via `ShieldsGauge_FacingCtor` (`cockpit-hud.md`), registers each with `Widget_RegisterClickable`, and stores each child's pointer plus a count into its own `+0x18`/`+0x68` array — the same shape `MfdDisplay_Ctor` uses for its 13 buttons.
+1. `ShieldsGauge_Ctor` builds two facing children via `ShieldsGauge_FacingCtor` ([`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#shieldsgauge)), registers each with `Widget_RegisterClickable`, and stores each child's pointer plus a count into its own `+0x18`/`+0x68` array — the same shape `MfdDisplay_Ctor` uses for its 13 buttons.
 2. A click hits `Widget_ForwardClickToOwner` (`00438e3c`) — the facing's `+8` slot, and the base-class default the MFD and HDD leaf buttons share — via `Widget_OnMouseUp`. Gated on the left button bit; forwards to the owner (a pointer stashed at the facing's own `+0x24`, set to the parent `ShieldsGauge` at construction) as `owner->vtable[0](owner, self, buttonFlags)`. It then repaints itself and calls slot `+8` of its second vtable at `+0x20`, which is `Widget_ClickSound` in every class that carries a `PanelGadget` — so the rocker sounds `0x11` before anything has been decided by the click (see [`audio.md`](audio.md#sounds-a-cockpit-control-makes)).
 3. `ShieldsGauge`'s vtable slot 0 is `ShieldsGauge_OnClick` (`0044380c`) — structurally identical to `MfdButton_OnClick`: searches its own `+0x18` table for the clicked child, then sets a state byte: index 0 (front) → `+0xc2=1`, index 1 (rear) → `+0xc3=1`.
 4. `Shield_BalanceInputRead` (`00413bc8`, called once per frame from `Player_PerFrameCockpitUpdate` — gameplay, not paint) reads those same two bytes (part of a 15-byte block starting at `+0xb5`, accessed via `ShieldsGauge_GetStateBlock`), calls `Shield_BalanceAdjust` (±102 of 1024, clamped) accordingly, clears the flags, recomputes front/rear percentages, and writes the block back via `ShieldsGauge_SetStateBlock` (`00443858`) — which also sets a dirty flag (`+0xb0=2`) if the values changed.
@@ -358,7 +358,7 @@ Worked through for all four views, every strip ends up on the edge facing the vi
 
 A dash is a click that hits no strip at all. The heads-down view is the one place a strip is hit and does nothing: the two side strips stretch across that view, and `CockpitView_HandleEdgeTrigger` has no case for them from view 1.
 
-`ScrollTrigger_OnClick` (`00434df0`) is the whole of the class: `CockpitView_HandleEdgeTrigger(this->[0x20], this)`. The handler compares the widget pointer against the three fields and picks a view command by the current view ([`cockpit-hud.md`](cockpit-hud.md#front-window-hud--the-gunsight-complex) has what each command does):
+`ScrollTrigger_OnClick` (`00434df0`) is the whole of the class: `CockpitView_HandleEdgeTrigger(this->[0x20], this)`. The handler compares the widget pointer against the three fields and picks a view command by the current view ([`cockpit-views.md`](cockpit-views.md#view-switching) has what each command does):
 
 | Strip | From view 0 | From the view it leads to |
 |---|---|---|

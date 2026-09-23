@@ -1,34 +1,13 @@
 #!/usr/bin/env python3
-"""Dump the Borland class-descriptor records a DBSIM/VSHELL binary carries.
+"""Dump the Borland class records (RTTI type descriptors) a DBSIM/VSHELL binary carries.
 
-Both executables were built with Borland C++, whose streaming support emits one
-descriptor record per participating class. Each record names the class, so this
-recovers the *authentic* class names rather than invented ones -- and it also
-gives the object size, which settles "how big is this thing" questions that a
-constructor's `operator new` argument would otherwise have to answer one at a
-time.
+Each record names its class, so this recovers the authentic class names, with
+the object size, every base and its subobject offset, and the vtable pointer's
+offset in the object. The record layout and the vtable block that points back
+at it are documented in Herculan/docs/formats/borland-rtti.md.
 
-Record layout, all little-endian:
-
-    +0x00  uint32  object size in bytes
-    +0x04  uint16  always 3
-    +0x06  uint16  offset of the name field within the record (0x20 or 0x30)
-    +0x08  int32   offset of the primary vtable pointer within the OBJECT
-                   (0x17 for the cockpit widget family; -1 when the class has
-                   no vtable)
-    +0x28  uint32  destructor          (only when the name field is at 0x30)
-    +nameOff       NUL-terminated class name
-    after the name, rounded up to a dword:
-                   pointer to the base class's record, 0 for a root
-
-A class's record pointer is stored **12 bytes before its primary vtable**, so
-the vtable block reads
-
-    [record ptr][0][0][primary vtable][subobject offsets][secondary vtable]
-
-which is how a vtable found in the disassembly can be turned into a class name:
-read the dword at vtable-0xc and look it up here. `--vtables` does that in
-reverse, printing the vtable address alongside each class.
+`--vtables` resolves each record to its primary vtable through the record
+pointer stored at vtable-0xc.
 
 Usage:
     python tools/scripts/es2_classes.py
@@ -54,8 +33,9 @@ BINARIES = {
     "VSHELL": os.path.join(REPO, "ES2", "VSHELL.EXE"),
 }
 
-NAME = re.compile(rb"[A-Za-z_][A-Za-z0-9_ *]{2,40}\x00")
-NAME_OFFSETS = (0x20, 0x30)
+NAME = re.compile(rb"[A-Za-z_][A-Za-z0-9_ *<>,&]{2,60}\x00")
+# Type mask -> the name offsets a record of that kind uses: 3 is a class, 1 a plain struct.
+NAME_OFFSETS = {3: (0x20, 0x30), 1: (0x10,)}
 
 
 class Image:
@@ -94,17 +74,17 @@ def scan(img: Image):
     """Every descriptor record in the image, keyed by virtual address."""
     out = {}
     d = img.data
-    for m in re.finditer(b"\x03\x00", d):
+    for m in re.finditer(b"[\x01\x03]\x00", d):
         rec = m.start() - 4
         if rec < 0 or rec + 0x60 > len(d):
             continue
-        name_off = struct.unpack_from("<H", d, rec + 6)[0]
-        if name_off not in NAME_OFFSETS:
+        mask, name_off = struct.unpack_from("<HH", d, rec + 4)
+        if name_off not in NAME_OFFSETS.get(mask, ()):
             continue
         size = struct.unpack_from("<I", d, rec)[0]
-        if not 4 <= size <= 0x400:
+        if not 1 <= size <= 0x400:
             continue
-        nm = NAME.match(d, rec + name_off, rec + name_off + 42)
+        nm = NAME.match(d, rec + name_off, rec + name_off + 62)
         if not nm:
             continue
         va = img.va_of(rec)
@@ -112,12 +92,19 @@ def scan(img: Image):
             continue
         name = nm.group(0)[:-1].decode("latin1")
         vptr = struct.unpack_from("<i", d, rec + 8)[0]
-        # The records are byte-packed in the image, so the pad after the name is
-        # relative to the record, not to an absolute dword boundary.
-        after = rec + ((name_off + len(name) + 1 + 3) & ~3)
-        base = struct.unpack_from("<I", d, after)[0] if after + 4 <= len(d) else 0
+        # The base list: 12-byte {record, subobject offset, flags} entries ending in a zero dword.
+        # A struct record has no base list: its name is where the list's offset would be.
+        bases = []
+        p = rec + struct.unpack_from("<H", d, rec + 0x10)[0] if mask == 3 else len(d)
+        while p + 12 <= len(d) and len(bases) < 8:
+            b, sub, _flags = struct.unpack_from("<IIi", d, p)
+            if b == 0:
+                break
+            bases.append((b, sub))
+            p += 12
         dtor = struct.unpack_from("<I", d, rec + 0x28)[0] if name_off == 0x30 else 0
-        out[va] = {"name": name, "size": size, "vptr": vptr, "base": base, "dtor": dtor}
+        out[va] = {"name": name, "size": size, "vptr": vptr, "bases": bases,
+                   "base": bases[0][0] if bases else 0, "dtor": dtor}
     return out
 
 
@@ -167,10 +154,12 @@ def main() -> int:
         walk(0, 0)
         return 0
 
-    print("%d class descriptor record(s) in %s" % (len(keep), args.binary))
+    print("%d class record(s) in %s" % (len(keep), args.binary))
     for va in sorted(keep, key=lambda v: recs[v]["name"]):
         r = recs[va]
-        base = recs[r["base"]]["name"] if r["base"] in recs else ("%08x" % r["base"] if r["base"] else "-")
+        base = ",".join(
+            (recs[b]["name"] if b in recs else "%08x" % b) + ("@+0x%x" % sub if sub else "")
+            for b, sub in r["bases"]) or "-"
         line = "%-28s %08x size=0x%-5x vptr=%-6s base=%s" % (
             r["name"], va, r["size"], ("+0x%x" % r["vptr"]) if r["vptr"] >= 0 else "none", base)
         if args.vtables:

@@ -182,17 +182,9 @@ Every widget in the clickable list carries its vtable at `+0x17` — the offset 
 
 An **owning** display object is a different class altogether, with its own shorter vtable — stored at offset 0 rather than `+0x17`, and headed by the click handler, which is why a forwarded click lands at *its* slot 0. `ShieldsGauge`'s is `0049ca1d`, four slots of `{OnClick, Paint, Update, 00452344}`; `MfdDisplay`'s is `0049cfa0`, five. Those objects are not in the clickable list and never see `Widget_Repaint`.
 
-### The second vtable, and the class record beside it
+### The second vtable
 
-A concrete widget carries a **second** vtable pointer, because it has a second base: the family is multiply inherited, and every gadget is `CTLButtonControl` (or `CTLHSlider`/`CTLVSlider`) **plus `PanelGadget`**. The descriptor records name that mixin outright — `PanelGadget` is 8 bytes with its vptr at `+0x00` rather than `+0x17`, and `PanelSliderGadget` derives from it. Both tables live in one contiguous block per class, and a class descriptor sits at the head of it:
-
-| Block offset | Contents |
-|---|---|
-| `-0x0c` | Pointer to the class's descriptor record |
-| `-0x08`, `-0x04` | Zero |
-| `+0x00` | The primary vtable above — 7 slots for a button class, 8 for a slider |
-| after it | Two constants: the `PanelGadget` subobject's offset within the object, then the offset of the mixin's vtable from the start of the primary one (`0x24` for buttons, `0x28` for sliders) |
-| then | The mixin's vtable, 4 slots |
+A concrete widget carries a **second** vtable pointer, because it has a second base: the family is multiply inherited, and every gadget is `CTLButtonControl` (or `CTLHSlider`/`CTLVSlider`) **plus `PanelGadget`**. The class records name that mixin outright — `PanelGadget` is 8 bytes with its vptr at `+0x00` rather than `+0x17`, and `PanelSliderGadget` derives from it. Both tables live in the class's one vtable block ([`borland-rtti.md`](borland-rtti.md#vtable-block)): the primary table above, 7 slots for a button class and 8 for a slider, then the pair of constants — the `PanelGadget` subobject's offset, and the distance to the mixin's table, `0x24` for buttons and `0x28` for sliders — then the mixin's 4-slot table.
 
 **The mixin adds no behaviour.** Three of its four slots are adjustor thunks — `ADD dword ptr [ESP+4], -<subobject offset>; JMP <primary implementation>` — and the fourth is the click sound:
 
@@ -207,23 +199,9 @@ The button family puts that subobject at `+0x20` — the `-0x20` its thunks subt
 
 So a control's sound is decided by which mixin it carries, and **a class that carries neither is silent for want of the base rather than for want of an override**: `ScrollTrigger`, `HDDisplayGadget`, `HDDMapGadget` and `HUDRovingGunsightGadget` have no second table at all, their blocks ending at the primary table's last slot. Fifteen tables hold `Widget_ClickSound` — `PanelGadget`'s and the fourteen button classes that inherit it — and `known_vtables.json` names the class each one belongs to ([`audio.md`](audio.md#sounds-a-cockpit-control-makes)).
 
-The descriptor record is Borland's, one per class that takes part in streaming, and it carries the class's own name:
+Because every class record names its class and links to its vtable ([`borland-rtti.md`](borland-rtti.md)), the family is enumerable rather than discovered a control at a time, and `tools/ghidra_scripts/known_vtables.json` carries the result: `CockpitWidgetVtable`, `CockpitSliderWidgetVtable` and `PanelGadgetMixinVtable`, with all 51 tables named and typed by `ES2ApplyVtables.java`.
 
-| Offset | Contents |
-|---|---|
-| `+0x00` | Object size in bytes |
-| `+0x04` | `3` |
-| `+0x06` | Offset of the name field within the record — `0x20` or `0x30` |
-| `+0x08` | Offset of the primary vtable pointer within the **object**: `0x17` for every clickable widget, `-1` for a class with no vtable |
-| `+0x28` | Destructor, in the `0x30` layout |
-| name field | NUL-terminated class name |
-| after the name, padded to a dword | The base class's record, `0` for a root |
-
-`tools/scripts/es2_classes.py` dumps them straight from the shipped executable — 221 records in DBSIM, 113 in VSHELL — and `--vtables` resolves each back to its vtable through that `-0x0c` pointer, which is how any vtable found in the disassembly can be turned into a class name. The family is therefore enumerable rather than discovered a control at a time, and `tools/ghidra_scripts/known_vtables.json` carries the result: `CockpitWidgetVtable`, `CockpitSliderWidgetVtable` and `PanelGadgetMixinVtable`, with all 51 tables named and typed by `ES2ApplyVtables.java`.
-
-**The word after a button class's last slot is not an eighth slot.** A block is followed immediately by the next class's, so `+0x1c` there holds that class's descriptor pointer — a valid address that disassembles like anything else. Four of the button tables (`CTLButtonControl`, `HDDisplayGadget`, `HDDMapGadget`, `HUDRovingGunsightGadget`) have one where an over-long reading would put a slot.
-
-**A block with a mixin states its own primary length**, which is what makes that trap avoidable rather than merely survivable. Since the two constants occupy the eight bytes between the two tables, the second one — the offset from the primary table to the mixin's — gives the primary slot count as `(constant - 8) / 4`: `0x24` → 7 for a button, `0x28` → 8 for a slider. It holds in all 22 DBSIM blocks that carry the pair, including the two outside this family: `REG_OBJ` and `TS_REG_OBJ` declare a mixin at `+0x0c` with the constant `0x1c`, the same arithmetic over a five-slot table. The pair is declared by whichever class first mixes the second base in and inherited unchanged below it, so it varies with the branch and not with the leaf — and a class with no mixin, having nothing to point at, carries no pair and no self-declared length. **VSHELL's own `CTL` family has no pair anywhere**: its widgets are singly inherited.
+**The word after a button class's last slot is not an eighth slot.** Four of the button tables (`CTLButtonControl`, `HDDisplayGadget`, `HDDMapGadget`, `HUDRovingGunsightGadget`) are followed by the next block's record pointer where an over-long reading would put one. Where a block has the mixin pair, it states the primary length itself: `0x24` gives 7 slots and `0x28` gives 8. **VSHELL's own `CTL` family has no pair anywhere**: its widgets are singly inherited.
 
 ### The cockpit's own gadget classes
 

@@ -692,7 +692,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Grenade_Construct",
-      "description": "DEAD CODE, and the class is GRENADE -- its Borland class descriptor at 0040ad0c names it, sitting ahead of its destructor exactly as ROCKET (0040ab6d), BULLET (0040b62d) and PROJECTILE (0040c300) do, and carrying the same base pointer 0040c2d0 as ROCKET and BULLET. Constructs a PROJ.DAT Type-3 object. A whole-image scan for 0040ac3c -- every section, bare LE dword and E8/E9 rel32 targets -- finds it nowhere but its own prologue, so nothing calls it; its vtable GrenadeVtable (004984fc) has FUN_0040acb4 (return 0) in the per-tick slot, so an instance would never move or die. Retail Type-3 records are unreachable data for a cut grenade weapon.",
+      "description": "DEAD CODE, and the class is GRENADE -- its Borland class record at 0040acdc names it, with PROJECTILE (0040c2d0) as its one base, as for ROCKET and BULLET. See docs/formats/borland-rtti.md. Constructs a PROJ.DAT Type-3 object. A whole-image scan for 0040ac3c -- every section, bare LE dword and E8/E9 rel32 targets -- finds it nowhere but its own prologue, so nothing calls it; its vtable GrenadeVtable (004984fc) has FUN_0040acb4 (return 0) in the per-tick slot, so an instance would never move or die. Retail Type-3 records are unreachable data for a cut grenade weapon.",
       "source": "docs/simulation/rockets.md 2026-08-27"
     },
     {

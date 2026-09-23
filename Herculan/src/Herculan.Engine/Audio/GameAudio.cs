@@ -176,11 +176,15 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	/// too, which the digital backend has nothing to do with.
 	/// </param>
 	/// <param name="cdDrive">
-	/// Which CD drive the music comes off, as a drive letter. Null takes the platform's own default,
-	/// which is all retail ever asks for — see <see cref="CdAudio.Open"/>.
+	/// Which CD drive the music comes off, as a drive letter. Null takes the first one holding audio
+	/// — see <see cref="CdAudio.Open"/>.
+	/// </param>
+	/// <param name="musicDirectory">
+	/// A directory of <c>TrackNN.wav</c> files to play instead of the disc; see
+	/// <see cref="WaveFileMusicSource"/>.
 	/// </param>
 	public static GameAudio Create(GameContent content, SimRandom? random = null, bool lowMemory = false,
-			bool silent = false, string? cdDrive = null) {
+			bool silent = false, string? cdDrive = null, string? musicDirectory = null) {
 		// Read first and unconditionally: the message port's display half needs nothing but the text,
 		// so the ticker still runs on a machine with no sound device and in an install with no
 		// SIMSOUND.VOL.
@@ -201,9 +205,12 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 		string? deviceFailure = null;
 		var backend = (silent ? null : (IAudioBackend?)OpenAlBackend.TryCreate(out deviceFailure))
 			?? new NullAudioBackend();
-		// Music is Red Book CD audio and never went through SOS, so it gets its own device: failing to
-		// find a disc leaves the effects half exactly as it was.
-		var cd = silent ? new NullCdAudio("silenced by request") : CdAudio.Open(cdDrive);
+		// Music is Red Book CD audio and never went through SOS, so it gets a stream of its own on the
+		// device rather than a pool channel: failing to find a disc leaves the effects half exactly as
+		// it was.
+		var cd = silent
+			? new NullCdAudio("silenced by request")
+			: CdAudio.Open(backend, cdDrive, musicDirectory);
 		var director = new SoundDirector(bank, backend, random) { Cd = cd };
 		var voice = new ComputerVoice(content, messages, backend);
 		var squadVoice = new SquadVoice(content, backend);

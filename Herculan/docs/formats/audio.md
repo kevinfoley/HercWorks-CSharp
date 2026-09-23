@@ -35,7 +35,26 @@ Music is Red Book, driven straight through MCI on device `cdaudio` — not throu
 
 The device is held open only while a track is sounding: every entry point opens it, and every failure path closes it again.
 
-The track loops because `sfxWndProc` re-issues `Music_PlayTrack` on `MM_MCINOTIFY` (`0x3b9`) with `MCI_NOTIFY_SUCCESSFUL`. The notify is addressed to `Music_NotifyWindow` (`006b560c`), the handle `Sos_InitBackend` was given.
+The track is meant to loop: `sfxWndProc` re-issues `Music_PlayTrack` on `MM_MCINOTIFY` (`0x3b9`) with `MCI_NOTIFY_SUCCESSFUL`. The notify is addressed to `Music_NotifyWindow` (`006b560c`), the handle `Sos_InitBackend` was given.
+
+**On Windows 11 it plays once.** The `mcicda` driver never reports the end of a play: once the play head reaches `MCI_TO` the device goes on answering `MCI_MODE_PLAY` with the position frozen there, and no `MM_MCINOTIFY` is ever posted. So the restart never happens, and retail's mission music falls silent after one pass of its track.
+
+#### The disc
+
+The retail disc's table of contents, as `IOCTL_CDROM_READ_TOC` reports it:
+
+| Track | Kind | Start (LBA) | Length |
+|---|---|---|---|
+| 1 | data | 0 | — |
+| 2 | audio | 172283 | 2:24.87 |
+| 3 | audio | 183148 | 2:45.27 |
+| 4 | audio | 195543 | 2:45.24 |
+| 5 | audio | 207936 | 2:54.20 |
+| 6 | audio | 221001 | 2:53.40 |
+| 7 | audio | 234006 | 2:26.92 |
+| lead-out | | 245025 | |
+
+Track 7 is music in its own right, distinct from the other five, and **the game never plays it**: the track formula below reaches 2 to 6 only.
 
 #### Which track, and whether there is one
 
@@ -45,7 +64,7 @@ The track loops because `sfxWndProc` re-issues `Music_PlayTrack` on `MM_MCINOTIF
 Music_CdTrack = Music_TrackSelect % 5 + 2
 ```
 
-`Music_TrackSelect` (`004d25f7`) is the `-R` command-line switch, parsed with `atol` at `0045e824`. **Nothing else picks a track**, and the switch defaults to 0, so a plain launch plays track 2 of five — tracks 2 to 6, track 1 being the data track. The remainder is a signed `IDIV`, so a negative `-R` would ask MCI for a track below 2.
+`Music_TrackSelect` (`004d25f7`) is the `-R` command-line switch, parsed with `atol` at `0045e824`. **Nothing else picks a track**, and the switch defaults to 0, so a plain launch plays track 2 of the five the formula reaches. The remainder is a signed `IDIV`, so a negative `-R` would ask MCI for a track below 2.
 
 The whole arm is skipped when `TrainingMissionNumber` (`004aa7ac`) is nonzero, so **a training mission runs without music**. That value is the copy of `script.dat` header offset 8 taken at the end of `DBSim_LoadScriptDat` (`00425321`); it also selects the larger pilot and squad message port and supplies the digit of the `TM<n>_` instructor voice template — see [`script-dat.md`](script-dat.md#header-format).
 
@@ -416,13 +435,25 @@ Triggers ported so far: the beam report, the two table-driven fire sounds and th
 
 ### CD music
 
-`MciCdAudio` is the `Music_*` layer, command for command, and `SoundDirector` holds the three globals above it — `CdTrack`, `CdEnabled`, `SavedMusicPosition` — and every branch that tests them: `MuteMusic`/`UnmuteMusic`, the CD arms of `SuspendAll`/`ResumeAll`, and `ApplyMusicOption`, which is the MUSIC row's own handler. `StartMissionMusic` is the mission arm, with `GameAudio.StartMissionMusic` applying the training gate above it. `CdAudio.Open` is the one place the platform is chosen; `NullCdAudio` is a complete implementation for a machine with no drive, no disc, or no MCI, and everything above the device runs unchanged against it.
+`SoundDirector` holds the three globals above the device — `CdTrack`, `CdEnabled`, `SavedMusicPosition` — and every branch that tests them: `MuteMusic`/`UnmuteMusic`, the CD arms of `SuspendAll`/`ResumeAll`, and `ApplyMusicOption`, which is the MUSIC row's own handler. `StartMissionMusic` is the mission arm, with `GameAudio.StartMissionMusic` applying the training gate above it. All of that is retail's. The device underneath, `ICdAudio`, is where the engine diverges.
 
-Three divergences:
+**The transport is the engine's own.** Rather than asking the drive to play, `StreamedCdAudio` reads the track's audio digitally and plays it through OpenAL on a streamed voice of its own (`IAudioBackend.OpenStream`), outside the effect pool. It loops by wrapping its read from the track's last frame to its first, so the seam is gapless, and it is what makes music loop at all on current Windows ([above](#cd-audio)). Its positions are TMSF words at CD-frame resolution, the same shape as MCI's, so the director's saved position means the same thing under either transport. The PCM comes from an `IMusicSource`, and `CdAudio.Open` takes the first of these that works:
+
+1. **`--music-dir`**: a directory of `Track02.wav` … `Track07.wav` (44.1 kHz 16-bit stereo), through `WaveFileMusicSource`. For a machine with no drive.
+2. **The disc**, through `CdRipMusicSource`: `IOCTL_CDROM_READ_TOC`, then `IOCTL_CDROM_RAW_READ` in CD-DA mode against `\\.\F:`, which opens unelevated. The track is read on a worker thread, 26 sectors per call (52 fails with `ERROR_INVALID_PARAMETER`), and never past the track's own end: a read that crosses the lead-out fails whole. Playback starts on the first block, a few tens of milliseconds in, because the read runs at 7.8× realtime from a cold drive and about 20× once it has spun up. A read that fails after retries goes in as silence, sector by sector.
+3. **MCI**, through `MciCdAudio`, for a drive that refuses raw reads or a machine with no digital output device.
+4. **The rip cache** of the one disc this machine has ripped before, with the disc absent.
+
+Every track `CdRipMusicSource` reads whole and undamaged is written to `%LOCALAPPDATA%\Herculan\cd-audio\<disc id>\TrackNN.wav`, where the id is a hash of the table of contents, and is read from there instead of the disc from then on. A cached read takes about 25 ms.
+
+`MciCdAudio` is the `Music_*` layer command for command, with two divergences:
 
 - **The loop is polled, not notified.** Retail asks for `MCI_NOTIFY` and restarts the track from `sfxWndProc`; that wants a Win32 window procedure, and this engine's window is Silk.NET's. `MciCdAudio.Update` asks the device every 200 ms instead, so the seam can be that much later than retail's.
-- **The play head, not the device mode, is what says a track ended.** An MCI CD device that has reached its `MCI_TO` goes on reporting `MCI_MODE_PLAY` and a frozen position indefinitely, so the obvious mode poll never fires; the position is compared against the track's own length, with the mode kept only for a device that genuinely stops.
-- **A drive can be named**, through `--cd-drive`, which adds the `MCI_OPEN_ELEMENT` retail never sends. Without it the engine opens the device type alone, exactly as retail does.
+- **The play head, not the device mode, is what says a track ended.** Given the frozen position [above](#cd-audio), the obvious mode poll never fires; the position is compared against the track's own length, with the mode kept only for a device that genuinely stops.
+
+**A drive can be named** under either transport, through `--cd-drive`. Retail opens MCI's default device and nothing else. Without the switch, `CdRipMusicSource` takes the first CD drive holding audio tracks and `MciCdAudio` opens the device type alone, as retail does. Neither checks which disc it is: any audio CD plays, as it does in retail.
+
+`NullCdAudio` is what a machine with none of the four gets, and everything above the device runs unchanged against it.
 
 The `Sound_SetMusicEnabled(1)` that [overrides the MUSIC preference](#the-mission-session-overrides-the-music-preference) is not reproduced: the engine reads the row, starts the mission's music through it, and leaves it alone.
 

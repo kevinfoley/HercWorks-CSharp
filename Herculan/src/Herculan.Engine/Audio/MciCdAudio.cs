@@ -9,6 +9,10 @@ namespace Herculan.Engine.Audio;
 /// <c>mciSendCommand</c> against MCI device type <c>cdaudio</c>, time format TMSF, play from a
 /// track's start to that track's own length. See docs/formats/audio.md's "CD audio".
 ///
+/// <para><b>The fallback transport.</b> <see cref="CdAudio.Open"/> prefers
+/// <see cref="StreamedCdAudio"/> and comes here only for a drive that refuses raw CD-DA reads or a
+/// machine with no digital output device.</para>
+///
 /// <para><b>Two deliberate divergences</b>, both marked at the member that makes them:</para>
 /// <list type="bullet">
 /// <item>The loop is polled rather than notified — <see cref="Update"/>.</item>

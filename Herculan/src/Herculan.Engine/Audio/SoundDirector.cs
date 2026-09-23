@@ -91,9 +91,9 @@ public sealed class SoundDirector : IDisposable {
 
 	/// <summary>
 	/// The CD player, or a <see cref="NullCdAudio"/> where there is none. The original reaches MCI
-	/// through four <c>SFX</c>-level thunks (<c>Sfx_PlayMusicTrack</c>, <c>00464754</c>, and its three neighbours) rather than
-	/// through the digital backend, which is why music does not go near <see cref="IAudioBackend"/>
-	/// here either.
+	/// through four <c>SFX</c>-level thunks (<c>Sfx_PlayMusicTrack</c>, <c>00464754</c>, and its three
+	/// neighbours) rather than through the effect channels, which is why music sits behind
+	/// <see cref="ICdAudio"/> here rather than in the catalog's voices.
 	/// </summary>
 	public ICdAudio Cd {
 		get => _cd;
@@ -532,8 +532,8 @@ public sealed class SoundDirector : IDisposable {
 	/// pause.</para>
 	/// </summary>
 	public void Update() {
-		// Standing in for the MM_MCINOTIFY that re-issues the play in retail; see MciCdAudio.Update.
-		// It runs across a suspend too, where it does nothing, because the disc is stopped.
+		// Standing in for the MM_MCINOTIFY that re-issues the play in retail; see ICdAudio.Update.
+		// It runs across a suspend too, where it does nothing, because the music is stopped.
 		_cd.Update();
 
 		if (_suspended) {

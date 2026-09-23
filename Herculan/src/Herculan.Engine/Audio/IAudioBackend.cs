@@ -65,4 +65,39 @@ public interface IAudioBackend : IDisposable {
 
 	/// <summary>Stops every playback at once.</summary>
 	void StopAll();
+
+	/// <summary>
+	/// Opens a streamed voice of its own, outside the channel pool and untouched by
+	/// <see cref="StopAll"/> — CD music, which never went through the original's mixer either.
+	/// </summary>
+	/// <returns>The stream, or null when there is no device to play it on.</returns>
+	IAudioStream? OpenStream(int sampleRate, int channels);
+}
+
+/// <summary>
+/// A voice fed PCM a block at a time, for audio too long to hand over as one sample. The caller
+/// keeps <see cref="FreeBlocks"/> blocks queued; the stream plays them in order and starts itself on
+/// the first block queued after it has run dry.
+/// </summary>
+public interface IAudioStream : IDisposable {
+	/// <summary>How many more blocks can be queued now. Asking reclaims the blocks already played.</summary>
+	int FreeBlocks { get; }
+
+	/// <summary>
+	/// Queues interleaved 16-bit PCM, tagged with the frame the block starts at in the caller's own
+	/// numbering, which is what <see cref="Position"/> answers in.
+	/// </summary>
+	void Queue(ReadOnlySpan<short> pcm, long startFrame);
+
+	/// <summary>
+	/// The frame being heard, in the numbering <see cref="Queue"/> was given: the playing block's tag
+	/// plus how far into it playback is. -1 when nothing is queued.
+	/// </summary>
+	long Position { get; }
+
+	/// <summary>Stops and discards everything queued.</summary>
+	void Stop();
+
+	/// <summary>The stream's gain, 0 to 1, under the master gain.</summary>
+	void SetGain(float gain);
 }

@@ -340,9 +340,175 @@ public sealed unsafe class OpenAlBackend : IAudioBackend {
 	}
 
 	/// <inheritdoc />
+	public IAudioStream? OpenStream(int sampleRate, int channels) {
+		if (_disposed || channels is not (1 or 2)) {
+			return null;
+		}
+
+		_al.GetError();
+		uint source = _al.GenSource();
+		if (_al.GetError() != AudioError.NoError) {
+			return null;
+		}
+
+		uint[] buffers = _al.GenBuffers(StreamVoice.BlockCount);
+		if (_al.GetError() != AudioError.NoError) {
+			_al.DeleteSource(source);
+			return null;
+		}
+
+		// Source-relative at the listener: a stereo buffer is never panned by OpenAL anyway, and a
+		// mono one heard dead centre is what music wants.
+		_al.SetSourceProperty(source, SourceBoolean.SourceRelative, true);
+		_al.SetSourceProperty(source, SourceFloat.RolloffFactor, 0f);
+		_al.SetSourceProperty(source, SourceVector3.Position, 0f, 0f, 0f);
+
+		var stream = new StreamVoice(this, source, buffers, sampleRate,
+			channels == 2 ? BufferFormat.Stereo16 : BufferFormat.Mono16, channels);
+		_streams.Add(stream);
+		return stream;
+	}
+
+	private readonly List<StreamVoice> _streams = new();
+
+	/// <summary>
+	/// A dedicated source fed from a ring of <see cref="BlockCount"/> buffers. The tag of each queued
+	/// buffer rides in a FIFO beside the source's own queue, so the two unqueue in step.
+	/// </summary>
+	private sealed class StreamVoice : IAudioStream {
+		/// <summary>Buffers in the ring. With the caller's block size this is the headroom a hitch has.</summary>
+		public const int BlockCount = 4;
+
+		private readonly OpenAlBackend _owner;
+		private readonly uint _source;
+		private readonly uint[] _buffers;
+		private readonly Stack<uint> _free;
+		private readonly Queue<long> _tags = new();
+		private readonly int _sampleRate;
+		private readonly BufferFormat _format;
+		private readonly int _channels;
+		private bool _disposed;
+
+		public StreamVoice(OpenAlBackend owner, uint source, uint[] buffers, int sampleRate,
+				BufferFormat format, int channels) {
+			_owner = owner;
+			_source = source;
+			_buffers = buffers;
+			_free = new Stack<uint>(buffers);
+			_sampleRate = sampleRate;
+			_format = format;
+			_channels = channels;
+		}
+
+		private AL Al => _owner._al;
+
+		private bool Live => !_disposed && !_owner._disposed;
+
+		public int FreeBlocks {
+			get {
+				Reclaim();
+				return Live ? _free.Count : 0;
+			}
+		}
+
+		public long Position {
+			get {
+				if (!Live) {
+					return -1;
+				}
+
+				Reclaim();
+				if (_tags.Count == 0) {
+					return -1;
+				}
+
+				// AL_SAMPLE_OFFSET counts from the head of the queue, which Reclaim has just made the
+				// block that is playing.
+				Al.GetSourceProperty(_source, GetSourceInteger.SampleOffset, out int offset);
+				return _tags.Peek() + offset;
+			}
+		}
+
+		public void Queue(ReadOnlySpan<short> pcm, long startFrame) {
+			if (!Live || pcm.Length < _channels) {
+				return;
+			}
+
+			Reclaim();
+			if (!_free.TryPop(out uint buffer)) {
+				return;
+			}
+
+			fixed (short* data = pcm) {
+				Al.BufferData(buffer, _format, data, pcm.Length * sizeof(short), _sampleRate);
+			}
+
+			Al.SourceQueueBuffers(_source, 1, &buffer);
+			_tags.Enqueue(startFrame);
+
+			// Covers the first block and a run dry alike: a starved source stops by itself, and the
+			// next block queued restarts it.
+			Al.GetSourceProperty(_source, GetSourceInteger.SourceState, out int state);
+			if ((SourceState)state != SourceState.Playing) {
+				Al.SourcePlay(_source);
+			}
+		}
+
+		public void Stop() {
+			if (!Live) {
+				return;
+			}
+
+			// Stopping marks every queued buffer processed, so the reclaim empties the queue.
+			Al.SourceStop(_source);
+			Reclaim();
+		}
+
+		public void SetGain(float gain) {
+			if (Live) {
+				Al.SetSourceProperty(_source, SourceFloat.Gain, Math.Clamp(gain, 0f, 1f));
+			}
+		}
+
+		private void Reclaim() {
+			if (!Live) {
+				return;
+			}
+
+			Al.GetSourceProperty(_source, GetSourceInteger.BuffersProcessed, out int processed);
+			for (int i = 0; i < processed; i++) {
+				uint buffer;
+				Al.SourceUnqueueBuffers(_source, 1, &buffer);
+				_free.Push(buffer);
+				_tags.TryDequeue(out _);
+			}
+		}
+
+		public void Dispose() {
+			if (_disposed) {
+				return;
+			}
+
+			if (!_owner._disposed) {
+				Al.SourceStop(_source);
+				Al.SetSourceProperty(_source, SourceInteger.Buffer, 0);
+				Al.DeleteSource(_source);
+				Al.DeleteBuffers(_buffers);
+				_owner._streams.Remove(this);
+			}
+
+			_disposed = true;
+		}
+	}
+
+	/// <inheritdoc />
 	public void Dispose() {
 		if (_disposed) {
 			return;
+		}
+
+		foreach (var stream in _streams.ToArray()) {
+			stream.Dispose();
 		}
 
 		_disposed = true;

@@ -49,6 +49,7 @@ bool autoTrack = false;
 bool waitForEffectLight = false;
 bool silentAudio = false;
 string? cdDrive = null;
+string? musicDirectory = null;
 int musicTrackSelect = 0;
 int initialHddPilot = -1;
 HddOrder? initialHddOrder = null;
@@ -249,8 +250,12 @@ for (int i = 0; i < args.Length; i++) {
 	} else if (args[i] == "--cd-drive" && i + 1 < args.Length) {
 		// Which drive the music CD is in. Retail asks MCI for the device type alone and takes whichever
 		// CD drive it answers with -- nothing in either executable reads a drive letter from anywhere --
-		// so this is the engine's own, for a machine with more than one drive. See MciCdAudio.
+		// so this is the engine's own, for a machine with more than one drive. See CdAudio.Open.
 		cdDrive = args[++i];
+	} else if (args[i] == "--music-dir" && i + 1 < args.Length) {
+		// A directory of Track02.wav ... Track07.wav to play instead of the disc -- the engine's own,
+		// for a machine with no drive. See WaveFileMusicSource.
+		musicDirectory = args[++i];
 	} else if (args[i] == "--music" && i + 1 < args.Length
 			&& int.TryParse(args[i + 1], out int trackSelect)) {
 		// DBSIM's own -R<n>: the mission's track is n % 5 + 2, so 0-4 pick tracks 2 to 6. Retail has no
@@ -359,7 +364,8 @@ var terrain = scene.World.Terrain;
 // Audio comes up against the same mounted archives and shares the simulation's generator, because
 // the variation roll draws on it exactly as weapon scatter does. It never throws: a machine with no
 // device gets a working GameAudio that happens to be silent.
-var audio = GameAudio.Create(content, scene.World.Random, silent: silentAudio, cdDrive: cdDrive);
+var audio = GameAudio.Create(content, scene.World.Random, silent: silentAudio, cdDrive: cdDrive,
+	musicDirectory: musicDirectory);
 audio.Attach(scene.World);
 Console.WriteLine($"Audio: {audio.Status}");
 

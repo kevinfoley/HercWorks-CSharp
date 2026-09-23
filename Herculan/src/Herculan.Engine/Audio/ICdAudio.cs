@@ -5,11 +5,12 @@ namespace Herculan.Engine.Audio;
 /// Win32 <c>mciSendCommand</c> on device <c>cdaudio</c> and does not touch HMI SOS at all. See
 /// docs/formats/audio.md's "CD audio".
 ///
-/// <para>It is an interface for the same reason <see cref="IAudioBackend"/> is: the one real
-/// implementation is Win32-only (<see cref="MciCdAudio"/>), and everything above it — the track
-/// choice, the enable flag, the saved position across a suspend — is <see cref="SoundDirector"/>'s
-/// and runs unchanged against <see cref="NullCdAudio"/> on a machine with no drive, no disc, or no
-/// MCI.</para>
+/// <para>It is an interface because the transport is not the original's decision to keep: this
+/// engine plays the disc's audio through its own mixer (<see cref="StreamedCdAudio"/>), keeps
+/// retail's MCI (<see cref="MciCdAudio"/>) for a drive that will not be read digitally, and runs
+/// silent (<see cref="NullCdAudio"/>) with neither. Everything above it — the track choice, the
+/// enable flag, the saved position across a suspend — is <see cref="SoundDirector"/>'s and is the
+/// same against all three. <see cref="CdAudio.Open"/> chooses.</para>
 /// </summary>
 public interface ICdAudio : IDisposable {
 	/// <summary>Whether a CD device opened and a disc with audio tracks is in it.</summary>
@@ -49,17 +50,17 @@ public interface ICdAudio : IDisposable {
 	void Stop();
 
 	/// <summary>
-	/// Keeps the track looping. The original has no such call: it asks for <c>MCI_NOTIFY</c> and
-	/// <c>sfxWndProc</c> (<c>00462294</c>) re-issues the play on <c>MM_MCINOTIFY</c>. This engine has
-	/// no Win32 window procedure to hang that off, so the same restart is driven by polling the
-	/// device's mode instead — see <see cref="MciCdAudio.Update"/>.
+	/// Keeps the track playing and looping; call once a frame. The original has no such call: it
+	/// asks for <c>MCI_NOTIFY</c> and <c>sfxWndProc</c> (<c>00462294</c>) re-issues the play on
+	/// <c>MM_MCINOTIFY</c>. <see cref="StreamedCdAudio.Update"/> feeds its stream here, and
+	/// <see cref="MciCdAudio.Update"/> polls the drive for the end of the track.
 	/// </summary>
 	void Update();
 }
 
 /// <summary>
-/// No CD, and nothing goes wrong. What a host gets where <see cref="MciCdAudio"/> cannot be built —
-/// a non-Windows machine, no drive, an empty drive, or <c>--no-sound</c>.
+/// No music, and nothing goes wrong. What a host gets when <see cref="CdAudio.Open"/> finds no
+/// disc, no track files and no rip cache, or under <c>--no-sound</c>.
 /// </summary>
 public sealed class NullCdAudio : ICdAudio {
 	/// <summary>Creates one with the given account of why there is no CD.</summary>

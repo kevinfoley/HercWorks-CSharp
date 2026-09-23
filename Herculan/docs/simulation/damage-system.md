@@ -149,7 +149,7 @@ struck.vtable+0x70(damage, at, 1200, mover)
 
 ### Both pathways converge
 
-They end in the same health-writing primitive (`Mech_ComponentDamageWrite` (`00417de4`) for a mech), and differ in shield-absorption implementation (parallel but separate code), in how many and which components get selected (one deterministic versus many random), and in whether there is a distance-falloff curve. Using the AoE formula for a laser would make it behave like a mini-explosion instead of a precise hit; using the direct-fire formula for a missile would make its splash radius meaningless — keep both as genuinely separate systems in a port.
+They end in the same health-writing primitive (`Mech_ComponentDamageWrite` (`00417de4`) for a mech), and differ in shield-absorption implementation (parallel but separate code), in how many and which components get selected (one deterministic versus many random), and in whether there is a distance-falloff curve.
 
 
 ## The shield system
@@ -218,17 +218,11 @@ return request - granted
 - **Numbers = balance.** `ShieldsGauge_UpdateReadouts` (`00444a68`) reads `+0xbd` — the balance — and prints `balance * 200 >> 10` and the literal complement `200 - that`. **The pair always sums to 200 regardless of charge**; an empty array still reads 100/100. Reading them as a charge percentage is the natural mistake.
 
 Shield recharge is a background trickle on every mech, AI and player alike. Balance adjustment is player input layered on top, touching only the balance field, which the recharge tick reads back on the next tick. The two never call each other.
-
-
-## Open items
-
-- **`Sim_RaycastObjectList` (`00426528`)'s and `Razor_MovementTick`'s exact source translation unit** unconfirmed by a direct assert string — the `objlist.cpp`/`flyersys.cpp` attributions are architecturally well-supported (shared object-list usage; a function that touches nothing but flyer state) but not proven the way `rocket.cpp`/`collide.cpp` were.
-
-## Port notes
+## Traps
 
 The traps, not a summary — everything else here is stated once above and does not need repeating.
 
-1. **The two post-shield damage models are structurally different, not two settings of one.** Direct fire hits exactly one deterministically-selected component with no distance falloff; explosive damage sweeps the object list and rolls each of a machine's 29 components at ~51% odds with linear falloff. Using the explosive formula for a beam turns it into a mini-explosion.
+1. **The two post-shield damage models are structurally different, not two settings of one.** Direct fire hits exactly one deterministically-selected component with no distance falloff; explosive damage sweeps the object list and rolls each of a machine's 29 components at ~51% odds with linear falloff.
 2. **Shield absorption is implemented twice in the original**, once per pathway, and a port needs both gated — `absorbed = min(damage, remainingCharge)`, so damage bleeds through the instant a hit exceeds what is left in that zone, not only once the zone is empty.
 3. **Rates are per tick, not per second.** The 5-unit shield recharge cap is per tick; at 25 Hz and the fleet-wide 3500 capacity a full rebuild is 700 ticks, or 28 s.
 4. **`+0x70` is not "the splash weapon path".** Two of its four callers are not weapons at all — a drop pod landing and two machines colliding — and one of the weapon callers is a direct call on the struck object rather than a sweep.
@@ -247,6 +241,7 @@ Not ported: the Shield Pod's own damage term in `Mech_ComputeShieldCapacity`.
 
 Both by-products of the collision path are live in the original: the "something ran into me" latch at `obj+0xb1`, ported, is what a ramming machine detonates on, and `mech+0x2b0` is the nearby-structure record below.
 
-### The collision path's structure record — `mech+0x2b0`
+## Open items
 
-`Mech_CollisionTest` clears it on entry and, for each candidate whose `TargetClass` is 1 and whose body radius contains the machine, stores that structure (`00418fb2`/`00419016`). It is a render-side hand-off, not an aim or lock-on aid: `maybe_Scene_SubmitFrameObjects` reads it every frame (`00428519`) and, when it is set, submits the machine through `FUN_004283b4(mech, structure+0x1e8)` instead of the ordinary `FUN_0042837c(mech, GetBodyRadius())` — a machine standing inside a building's footprint is bucketed with the building rather than by its own radius. Not ported; the engine's scene pass does not have the bucket this feeds.
+- **`Sim_RaycastObjectList` (`00426528`)'s and `Razor_MovementTick`'s exact source translation unit** unconfirmed by a direct assert string — the `objlist.cpp`/`flyersys.cpp` attributions are architecturally well-supported (shared object-list usage; a function that touches nothing but flyer state) but not proven the way `rocket.cpp`/`collide.cpp` were.
+- **The collision path's structure record — `mech+0x2b0`**. `Mech_CollisionTest` clears it on entry and, for each candidate whose `TargetClass` is 1 and whose body radius contains the machine, stores that structure (`00418fb2`/`00419016`). It is a render-side hand-off, not an aim or lock-on aid: `maybe_Scene_SubmitFrameObjects` reads it every frame (`00428519`) and, when it is set, submits the machine through `FUN_004283b4(mech, structure+0x1e8)` instead of the ordinary `FUN_0042837c(mech, GetBodyRadius())` — a machine standing inside a building's footprint is bucketed with the building rather than by its own radius. Not ported; the engine's scene pass does not have the bucket this feeds.

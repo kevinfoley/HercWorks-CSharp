@@ -60,6 +60,17 @@ In-memory bitmap object:
 
 Every retail bitmap part carries `Transform == -1` and a centre of the origin, so the node composition `00476014` performs is the identity throughout retail data.
 
+### Brush mode 5 skips palette index 0
+
+`Bitmap_BlitRotatedScaled` installs the brush `{5, 4, &sourceQuad, dimensions}` and calls `Raster_DrawPolygonDispatch`, which hands modes 5 and 7 to slot 33 of `g_RasterRoutines` (`004a57c4`, 36 function pointers). The table is zero in the image: `RasterDriver_InstallRoutines` (`0048929e`), called from `maybe_Raster_SelectRenderTarget` (`00481118`), copies it in from the per-driver list `g_RasterDriverTable` (`004a5858`). That list gives drivers 0 and 1 a null table and driver 3 `004a5884`, so slot 33 is always `Raster_FillBitmapPolygon` (`0048a818`).
+
+That routine walks the destination polygon's two edges (`Raster_BitmapEdgeSetup`, `0048a9a0`; `Raster_BitmapEdgeStep`, `0048a944`), interpolating the source quad along each, and fills each scanline with `Raster_SpanBitmap` (`0048aad8`). The span samples the nearest texel through the bitmap's cols (`+6`) and data pointer (`+0xe`). Its last argument picks one of two loops:
+
+- **Mode 5** passes null: a texel of index 0 is not stored (`or al,al` / `je` at `0048ae87`). The mode fixes this; no field of the brush or the bitmap object changes it.
+- **Mode 7** passes brush `+0x10`, a remap table: every texel, index 0 included, is stored as `remap[texel]`.
+
+Neither routine reads the brush's second field.
+
 ### The offset is a hotspot
 
 All twenty `EXPLOS.DTS` roots carry an offset near half their frame's size — shape 6 is `(23, 22)` against a 48x47 frame, shape 9 `(52, 53)` against 112x107 — which is what fixes the mechanism as "anchor lands on this pixel" rather than "quad starts here".
@@ -71,7 +82,7 @@ All twenty `EXPLOS.DTS` roots carry an offset near half their frame's size — s
 `DtsSpriteBuilder` extracts one `SpriteQuad[]` per flipbook frame; `SpriteRenderer` draws them. Deviations:
 
 - **The quad is built in view space, not screen space.** Its four corners are placed in the plane parallel to the image plane at the sprite's depth, from a right/down basis derived from the projected model up axis, and handed to the projection alone. Perspective then reproduces the `1 / depth` scaling exactly rather than by interpolation. The squash and the anchor are the original's formulas verbatim; only the rotation's own perspective skew differs, which the original does not model either.
-- **Alpha test, not a span skip.** Sprite banks decode palette index 0 to alpha 0 (`SceneModelLibrary.LoadAtlas`'s `transparentIndex0`) and the fragment shader discards it. The structure banks are decoded the same way for their cutout frames; mech skins are not — see [`dts-texture-binding.md`](dts-texture-binding.md).
+- **Alpha test in place of the [span skip](#brush-mode-5-skips-palette-index-0).** Sprite banks decode palette index 0 to alpha 0 (`SceneModelLibrary.LoadAtlas`'s `transparentIndex0`) and the fragment shader discards it. The structure banks are decoded the same way for their cutout frames; mech skins are not — see [`dts-texture-binding.md`](dts-texture-binding.md).
 - **Depth test on, depth write off**, as [`../simulation/beam-visuals.md`](../simulation/beam-visuals.md) has it and for the same reason.
 - **One draw call per sprite.** A frame holds a handful.
 

@@ -13,8 +13,8 @@ namespace Herculan.Engine.Render;
 /// mission box, two triangles per cell, each filled in contour bands of palette index — see
 /// docs/formats/heads-down-display.md, "Terrain raster". The band rule is evaluated at each pixel
 /// centre here rather than through a polygon rasterizer. Index 0, which the original leaves off the
-/// grid and in the undrawn last row and column, decodes transparent: an engine choice, since whether
-/// the blit skips it is not traced.
+/// grid and in the undrawn last row and column, decodes transparent, since the original's blit skips
+/// it — docs/formats/dts-billboards.md, "Brush mode 5 skips palette index 0".
 /// </remarks>
 public sealed class HddMapRaster {
 	/// <summary>The bitmap's largest extent, which the upscale is fitted inside.</summary>

@@ -791,7 +791,8 @@ public sealed class SceneModelLibrary {
 	/// <summary>
 	/// <paramref name="transparentIndex0"/> decodes palette index 0 to alpha 0 rather than to an
 	/// opaque colour. An explosion frame is a round puff on a field of index 0 and the original's
-	/// blit skips that index rather than writing it, so every sprite bank asks for it.
+	/// blit skips that index rather than writing it (docs/formats/dts-billboards.md, "Brush mode 5
+	/// skips palette index 0"), so every sprite bank asks for it.
 	///
 	/// <para>The <b>structure</b> banks are cutouts too: <c>BASETEX</c> frames 11, 36, 38, 39, 52, 53,
 	/// 60, 61, 63, 64 and 65 are 20-73% index 0 each, and they are the lattice girders on a

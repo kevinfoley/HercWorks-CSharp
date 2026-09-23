@@ -4136,8 +4136,9 @@
       "type": "function",
       "confidence": "high",
       "name": "MfdMapScreen_Ctor",
-      "description": "Constructor for the MFD's NAV MAP screen (mode 2). Takes the whole inset rect, allocates a 0x239-byte offscreen render target and centres it at -((x1-x0)>>1), -((y1-y0)>>1). No labels and no aux buttons. Its paint (004405e4) floods the rect with COLORS.DAT id 19 (black) before rasterizing terrain, which is why MfdDisplay_Repaint blits no chrome for this mode. See docs/formats/mfd.md.",
-      "source": "docs/formats/mfd.md 2026-08-18"
+      "description": "Constructor for the MFD's NAV MAP screen (mode 2). Copies the inset rect into this+0x18..0x24, allocates a 0x239-byte offscreen render target (this+0x10) centred at -((x1-x0)>>1), -((y1-y0)>>1), and a 0x22-byte view (this+0x14, View_Ctor) with perspective shift 8. No labels, no aux buttons.",
+      "source": "docs/formats/mfd.md",
+      "signature": "void * __cdecl MfdMapScreen_Ctor(void *this, int *insetRect)"
     },
     {
       "address": "0043e70c",
@@ -6590,7 +6591,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Raster_DrawPolygonDispatch",
-      "description": "Generic polygon draw, dispatching on the mode of the brush at *(int*)(clipBlock + 0x228), a {mode, colour} pair. Mode 4 is the line-loop/outline path (edge pairs plus the closing edge); mode 0 resolves the span routine DAT_004a57c4 and calls it as (scanlineList, colour) -- a FLAT FILL of that palette index when the colour's top byte is zero, with a tag-4 lookup when it is 4; 1, 5, 6 and 7 select other fills. FUN_00484116 is the opposite-winding sibling.",
+      "description": "Generic polygon draw, dispatching on the mode of the brush at *(int*)(clipBlock + 0x228), a {mode, colour} pair. Mode 4 is the line-loop/outline path (edge pairs plus the closing edge); mode 0 resolves the span routine DAT_004a57c4 and calls it as (scanlineList, colour) -- a FLAT FILL of that palette index when the colour's top byte is zero, with a tag-4 lookup when it is 4; mode 6 calls slot 1 of g_RasterRoutines, mode 1 FUN_004879c0, and modes 5 and 7 Raster_FillBitmapPolygon through slot 33 (004a5848). FUN_00484116 is the opposite-winding sibling.",
       "source": "docs/formats/dts-texture-binding.md, docs/simulation/beam-visuals.md"
     },
     {
@@ -6680,8 +6681,9 @@
       "type": "function",
       "confidence": "high",
       "name": "Bitmap_BlitRotatedScaled",
-      "description": "Draws a bitmap into a rotated, arbitrarily-sized destination quad. Source quad is the bitmap's full extent (0,0)-(cols-1,rows-1) read from header+4 (rows) and +6 (cols); destination quad is (0,0),(w,0),(w,h),(0,h) from the caller's size pair, each corner rotated by the caller's binary angle and then translated by the caller's position -- so that position is the rotated quad's top-left, not its centre.",
-      "source": "docs/formats/dts-billboards.md 2026-08-26"
+      "description": "Draws a bitmap into a rotated, arbitrarily-sized destination quad through brush mode 5, installing the brush {5, 4, &sourceQuad, dimensions}; mode 5 skips palette index 0 (Raster_SpanBitmap). Its first argument points at the bitmap's rows,cols pair (the bitmap object's +4/+6); the source quad is (0,0),(cols-1,0),(cols-1,rows-1),(0,rows-1). flip bit 2 mirrors it in x, bit 1 in y. The destination quad is (0,0),(w,0),(w,h),(0,h) from the size pair, each corner rotated by the binary angle and then translated by the position -- so that position is the rotated quad's top-left, not its centre.",
+      "source": "docs/formats/dts-billboards.md",
+      "signature": "void __cdecl Bitmap_BlitRotatedScaled(short *dimensions, int *position, unsigned char flip, int *size, short angle)"
     },
     {
       "address": "00407b54",
@@ -9176,8 +9178,9 @@
       "type": "function",
       "confidence": "high",
       "name": "HddMap_DrawTerrain",
-      "description": "Blits the prebuilt map raster between two projected corners with a rotation, through the currently installed map view projection.",
-      "source": "docs/formats/heads-down-display.md"
+      "description": "Blits the map raster DAT_004d1d7a through the installed map projection: projects the grown mission box's own corners (world units, not cell edges), turns the top-left corner about the map centre by the angle with Math_Rotate2DPoint in screen space, and hands the bitmap to Bitmap_BlitRotatedUnpacked with the same angle. The command display passes 0; MfdMapScreen_Paint passes the machine's heading.",
+      "source": "docs/formats/heads-down-display.md",
+      "signature": "void __cdecl HddMap_DrawTerrain(short angle)"
     },
     {
       "address": "0044f6cc",
@@ -9185,8 +9188,9 @@
       "type": "function",
       "confidence": "high",
       "name": "HddMap_BuildTerrainRaster",
-      "description": "Builds the command display map raster once per mission: each height-grid cell becomes palette index min(height,0x7f)/8 + 16, Gouraud-shaded two triangles per cell into an 8-bit bitmap sized to fit the mission box inside 640x400.",
-      "source": "docs/formats/heads-down-display.md"
+      "description": "Builds the map raster DAT_004d1d7a once per mission. Cell index = min(height,0x7f)/8 + 16, 0 off the grid. Grown mission box shifted to cells x0..x1, y0..y1 (unclamped); upscale s = min(400/(y1-y0+1), 640/(x1-x0+1)); bitmap (x1-x0+1)*s by (y1-y0+1)*s, zeroed. Rows y1 down to y0+1, columns x0 to x1-1, each an s-pixel square split bottom-left to top-right into two triangles filled by Raster_FillContourTriangle.",
+      "source": "docs/formats/heads-down-display.md",
+      "signature": "void __cdecl HddMap_BuildTerrainRaster(void)"
     },
     {
       "address": "0044e080",
@@ -15569,6 +15573,219 @@
       "signature": "void __cdecl HddCommandScreen_Hide(int screen)",
       "description": "Command display vtable +8, run by HddDisplay_SetPage on the outgoing page. Sets state 2 on the order-column list gadget at screen+0x35 and on XMIT and CANCEL. See HddCommandScreen_Show for the map viewport gadget it leaves alone.",
       "source": "docs/formats/cockpit-input.md"
+    },
+    {
+      "address": "004405e4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdMapScreen_Paint",
+      "description": "NAV MAP paint, vtable slot 1; runs every frame the screen is up. Floods the inset with COLORS.DAT id 19, centres the map projection on the viewing machine (obj+0x26/+0x2a) at a fixed scale of 200000 (8.8 world units per pixel), calls HddMap_DrawTerrain(obj+0x10) so the map turns heading-up, then draws a cross in id 16 through the centre with two Raster_DrawLine calls, (-1,0)-(1,0) and (0,-1)-(0,1) shifted by VideoMode_X/YCoordShift. No grid, border or markers.",
+      "source": "docs/formats/mfd.md",
+      "signature": "void __cdecl MfdMapScreen_Paint(void *this)"
+    },
+    {
+      "address": "00486ddc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_FillContourTriangle",
+      "description": "Fills a triangle of three {x,y} vertices by interpolating its three palette indices in contour bands: it cuts the triangle at every whole index between the highest and lowest corner and flat-fills each band (Raster_DrawPolygonDispatch, writing the band's upper index into the installed brush's colour) with that index, so a point takes the ceiling of its interpolated index. Equal corners fill flat; a degenerate triangle draws nothing.",
+      "source": "docs/formats/heads-down-display.md",
+      "signature": "void __cdecl Raster_FillContourTriangle(int *vertices, unsigned short *indices)"
+    },
+    {
+      "address": "004838f8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_DrawLine",
+      "description": "Draws a line between two {x,y} points in the installed render context, in the pen at clip block +0x224 (mode 0 flat colour, or mode 2), offset by the context's origin when its +0x208 flag is set and clipped against its clip regions.",
+      "source": "docs/formats/mfd.md",
+      "signature": "void __cdecl Raster_DrawLine(int *from, int *to)"
+    },
+    {
+      "address": "0044c228",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddMap_WorldToScreen",
+      "description": "Projects a world point to screen: view transform (FUN_0048c470), Raster_PerspectiveDivide, Raster_ProjectToScreen.",
+      "source": "docs/formats/heads-down-display.md",
+      "signature": "void __cdecl HddMap_WorldToScreen(int *worldPoint, int *screenOut)"
+    },
+    {
+      "address": "0045eddc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "View_GetActiveObject",
+      "description": "Returns ViewObjectPtr. HddMap_DrawTerrain reads the map projection's +4 triple through it: centre x, centre y, scale.",
+      "source": "docs/formats/heads-down-display.md",
+      "signature": "void * __cdecl View_GetActiveObject(void)"
+    },
+    {
+      "address": "00481b4c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Bitmap_BlitRotatedScaledThunk",
+      "description": "Forwards its last five arguments to Bitmap_BlitRotatedScaled and cleans them up. The first argument (FUN_0048d892's return at both call sites) is never read.",
+      "source": "docs/formats/dts-billboards.md",
+      "signature": "void __cdecl Bitmap_BlitRotatedScaledThunk(int ignored, short *dimensions, int *position, int flip, int *size, short angle)"
+    },
+    {
+      "address": "00481750",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Bitmap_BlitRotatedUnpacked",
+      "description": "Rotated blit of a bitmap object. When the object's packing type (+0x12) is non-zero, Bitmap_UnpackToScratch unpacks it into DAT_006c5ffc, the object's size (+0xa) and data pointer (+0xe) are swapped to the scratch copy for the blit and restored after, and the scratch is freed unless DAT_006c5ff8 is set. Then Bitmap_BlitRotatedScaledThunk with the object's +4 rows,cols pair.",
+      "source": "docs/formats/dts-billboards.md",
+      "signature": "void __cdecl Bitmap_BlitRotatedUnpacked(void *bitmap, int *position, int flip, int *size, short angle)"
+    },
+    {
+      "address": "00481804",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Bitmap_UnpackToScratch",
+      "description": "Unpacks a bitmap object's data (+0xe, length +0xa) into a fresh DAT_006c5ffc buffer sized by the packed data's first dword, through one of two decoder classes chosen by packing type +0x12: 1 (vtable 004a17c8) or 3 (vtable 004a1820). Returns the unpacked size; returns 0 without unpacking for any other type, or when DAT_006c5ff8 is set.",
+      "source": "docs/formats/dts-billboards.md",
+      "signature": "int __cdecl Bitmap_UnpackToScratch(void *bitmap)"
+    },
+    {
+      "address": "0048bc98",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "View_Ctor",
+      "description": "Constructs a view (vtable 004a5b41): View_CtorBase for the position and angles, then the render target at +0x16, the perspective shift at +0x1a and the near plane at +0x1e -- the fields Raster_InstallViewProjection reads. Sim_InitMissionSession passes shift 8 or 9; MfdMapScreen_Ctor passes 8, near plane 0x100, and a zero position and zero angles.",
+      "source": "docs/formats/cockpit-hud.md",
+      "signature": "void * __cdecl View_Ctor(void *this, void *renderTarget, int perspectiveShift, int nearPlane, int *position, short *angles)"
+    },
+    {
+      "address": "0048bb64",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "View_CtorBase",
+      "description": "Base view constructor (vtable 004a5b51): copies an int[3] position to +4..+0xc and a short[3] angle triple to +0x10..+0x14. The +4 triple is what View_GetActiveObject's readers take as the camera position.",
+      "source": "docs/formats/cockpit-hud.md",
+      "signature": "void * __cdecl View_CtorBase(void *this, int *position, short *angles)"
+    },
+    {
+      "address": "00481118",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "medium",
+      "name": "maybe_Raster_SelectRenderTarget",
+      "description": "Takes one descriptor pointer (callers clean up with POP ECX). Returns 1 early when FUN_00481411 and FUN_00481440(desc) both succeed; otherwise installs the rasterizer routine table for driver id desc+0x30 (RasterDriver_InstallRoutines), copies desc +0x4..+0x2c to 004a366a.. (004a366a is the row-pointer table Raster_SpanBitmap writes through), calls g_RasterRoutines slots 18, 16 and 17 with desc +0x34, +0x38, +0x3c, then FUN_004893c0(desc+0x40) and FUN_0048944c(desc+0x44), and returns 0. Called by HddMap_BuildTerrainRaster, Sim_EndFrame and FUN_00464c40. Medium: the descriptor's fields past +0x30 are not decoded.",
+      "source": "docs/formats/dts-billboards.md, 'Brush mode 5 skips palette index 0'"
+    },
+    {
+      "address": "00489284",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "RasterDriver_FindRoutineTable",
+      "description": "Register convention: driver id in EAX, result in EAX. Walks g_RasterDriverTable's {int id, void **table} pairs and returns the matching table pointer, or the terminator's id (-1) when none matches. A matching entry with a null table returns 0.",
+      "source": "docs/formats/dts-billboards.md, 'Brush mode 5 skips palette index 0'"
+    },
+    {
+      "address": "0048929e",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "RasterDriver_InstallRoutines",
+      "description": "Looks the driver id up with RasterDriver_FindRoutineTable and copies g_RasterRoutineCount (36) dwords from the result into g_RasterRoutines with REP MOVSD. Returns 1, or 0 when the id is unknown. It does not test for a null table, which drivers 0 and 1 carry, so every install that returns has copied driver 3's.",
+      "source": "docs/formats/dts-billboards.md, 'Brush mode 5 skips palette index 0'",
+      "signature": "int __cdecl RasterDriver_InstallRoutines(int driverId)"
+    },
+    {
+      "address": "0048a818",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_FillBitmapPolygon",
+      "description": "g_RasterRoutines slot 33, which Raster_DrawPolygonDispatch calls for brush modes 5 and 7. Reads the brush at clipBlock+0x228: +8 the source quad, +0xc the bitmap dimensions pointer, and +0x10 a remap table only when the mode is 7 (otherwise it passes 0). Finds the top and bottom vertices, walks the two edges with Raster_BitmapEdgeSetup/Raster_BitmapEdgeStep and calls Raster_SpanBitmap per scanline within the clip rows. Reached only through the driver-3 table, so Ghidra auto-analysis had no function here.",
+      "source": "docs/formats/dts-billboards.md, 'Brush mode 5 skips palette index 0'",
+      "signature": "void __cdecl Raster_FillBitmapPolygon(int vertexCount, int *vertices)"
+    },
+    {
+      "address": "0048a9a0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_BitmapEdgeSetup",
+      "description": "Advances an edge of Raster_FillBitmapPolygon from vertexIndex to the next vertex in the edge's direction (edge[0], +1 or -1, wrapping), storing its row count, the source-quad u,v at the start in 16.16 and their per-row steps (Math_Q16Divide), and the destination x start and step. Skips zero-height edges. Returns 0 when the walk reaches the bottom vertex.",
+      "source": "docs/formats/dts-billboards.md, 'Brush mode 5 skips palette index 0'",
+      "signature": "int __cdecl Raster_BitmapEdgeSetup(int *edge, int vertexIndex)"
+    },
+    {
+      "address": "0048a944",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_BitmapEdgeStep",
+      "description": "Steps an edge one row: decrements its row count and, at zero, moves to the next edge with Raster_BitmapEdgeSetup (returning 0 when none is left); otherwise adds the u, v and x steps. Returns 1 while the edge continues.",
+      "source": "docs/formats/dts-billboards.md, 'Brush mode 5 skips palette index 0'",
+      "signature": "int __cdecl Raster_BitmapEdgeStep(int *edge)"
+    },
+    {
+      "address": "0048aad8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Raster_SpanBitmap",
+      "description": "Fills one scanline between two edges of Raster_FillBitmapPolygon, sampling the nearest texel through dimensions+2 (cols, the stride) and dimensions+0xa (the data pointer), clipped by the render context's clip mode. With remap null (brush mode 5) a texel of palette index 0 is not stored (OR AL,AL / JE at 0048ae87); with remap set (mode 7) every texel, index 0 included, is stored as remap[texel].",
+      "source": "docs/formats/dts-billboards.md, 'Brush mode 5 skips palette index 0'",
+      "signature": "void __cdecl Raster_SpanBitmap(int *leftEdge, int *rightEdge, short *dimensions, unsigned char *remap)"
+    },
+    {
+      "address": "004a57c4",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_RasterRoutines",
+      "description": "36 rasterizer function pointers, zero in the image and filled by RasterDriver_InstallRoutines. Slot 0 is the mode-0 flat span Raster_DrawPolygonDispatch calls, slot 1 the mode-6 span, slot 33 (004a5848) Raster_FillBitmapPolygon.",
+      "source": "docs/formats/dts-billboards.md, 'Brush mode 5 skips palette index 0'"
+    },
+    {
+      "address": "004a5848",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_RasterRoutines_BitmapPolygon",
+      "description": "Slot 33 of g_RasterRoutines, which Raster_DrawPolygonDispatch calls for brush modes 5 and 7. Filled from driver 3's table with Raster_FillBitmapPolygon.",
+      "source": "docs/formats/dts-billboards.md, 'Brush mode 5 skips palette index 0'"
+    },
+    {
+      "address": "004a5854",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_RasterRoutineCount",
+      "description": "36: the number of dwords RasterDriver_InstallRoutines copies into g_RasterRoutines.",
+      "source": "docs/formats/dts-billboards.md, 'Brush mode 5 skips palette index 0'"
+    },
+    {
+      "address": "004a5858",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_RasterDriverTable",
+      "description": "{int id, void **table} pairs ending in id -1: {0, NULL}, {1, NULL}, {3, g_RasterRoutines_Driver3}. Searched by RasterDriver_FindRoutineTable.",
+      "source": "docs/formats/dts-billboards.md, 'Brush mode 5 skips palette index 0'"
+    },
+    {
+      "address": "004a5884",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_RasterRoutines_Driver3",
+      "description": "Driver 3's 36-entry routine table, the only one g_RasterDriverTable holds; slot 33 is Raster_FillBitmapPolygon (0048a818).",
+      "source": "docs/formats/dts-billboards.md, 'Brush mode 5 skips palette index 0'"
     }
   ]
 }

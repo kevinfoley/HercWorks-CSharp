@@ -12,6 +12,10 @@ Reimplementation of Earthsiege 2 (1996) in C#, reverse-engineered from the retai
 Build: `dotnet build Herculan/HerculanEngine.sln` (engine) and `Herculan/HercWorksMDK.sln` (toolkit).
 Tests: `dotnet test Herculan/HerculanEngine.sln`. Keep both at 0 warnings.
 
+## Reading files
+
+Read whole files with the Read tool, never `cat`/`head -n <big>`/`sed -n 'A,Bp'` — it paginates, numbers lines, and is not re-sent when the same file is read again, whereas a Bash dump that overflows the output limit returns a useless preview and gets re-read in overlapping ranges at several times the cost. Bash is for greps, `find`, and short ranges of a file already read. `tools/scripts/big_file_read_guard.py` enforces this as a `PreToolUse` hook when it is wired into `.claude/settings.json`.
+
 ## Documentation rules
 
 The docs state what is true now. How the project got there belongs in `git log`.

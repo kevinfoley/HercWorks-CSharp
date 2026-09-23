@@ -266,7 +266,7 @@ So `+0x12` of a layout record is a frame index into the matching `dba\` sheet, a
 |---|---|
 | `REPAIR` | the salvage pool, net of the build queue, covers lifting the selected component one level ([`armory.md`](armory.md#what-one-repair-level-costs)) |
 | `REPAIR ALL` | it covers `Repair_HercCost(herc, 100)` — the whole machine to full, a different figure |
-| `SCRAP` | there is a machine, it is not the only deployable one in the eight bays (`Herc_HasSingleDeployable`, 00410add), and a third per-chassis term, `(&DAT_00483b62)[type * 8]`, which is not identified |
+| `SCRAP` | there is a machine, it is not the only deployable one in the eight bays (`Herc_HasSingleDeployable`, 00410add), and a third per-chassis term, `(&DAT_00483b62)[type * 8]` ([Open](#open)) |
 | `CANCEL` | always — no trio is written for it |
 
 "Deployable" is `FUN_00410a9d`: the bay is occupied, `+0x4a` is 100 so the machine is built, and `Herc_IsFlightworthy` (00411681) holds — both leg servos, the engine and life support all above 50.
@@ -357,11 +357,11 @@ That last function also installs the theater palette directly, as `Shell_Install
 
 ## Engine coverage
 
-`Herculan.Engine.Shell` draws the shell frame: the tiled backdrop, the square button and the eight captioned tabs, hit-tested, latching on the six tabs that latch, and gated by `ShellCampaignMode`. The canvas is placed by `ShellScreenLayout`, which scales the fixed 640x480 by window height and centres it, so every rect above is used exactly as the original states it. `ShellPalette` carries the twenty-entry table and the per-tab switch. `--shell-tab-palette` follows it on a tab click, `--shell-palette <name>` pins one entry, `--shell-training` runs the gated half of the strip refresh, `--shell-tab <n>` opens on a tab rather than on the main menu, and `--shell-bay <n>` picks the hangar bay the repair tab works on — the squad roster that moves it in the original is not ported, so that flag is the only way to reach a bay other than the first one holding a finished machine.
+`Herculan.Engine.Shell` draws the shell frame: the tiled backdrop, the square button and the eight captioned tabs, hit-tested, latching on the six tabs that latch, and gated by `ShellCampaignMode`. The canvas is placed by `ShellScreenLayout`, which scales the fixed 640x480 by window height and centres it, so every rect above is used exactly as the original states it. `ShellPalette` carries the twenty-entry table and the per-tab switch. `--shell-tab-palette` follows it on a tab click, `--shell-palette <name>` pins one entry, `--shell-training` runs the gated half of the strip refresh, `--shell-tab <n>` opens on a tab rather than on the main menu, and `--shell-bay <n>` picks the hangar bay the repair tab works on — the squad roster that moves it in the original has no port ([Open](#open)), so that flag is the only way to reach a bay other than the first one holding a finished machine.
 
-**The save screen is drawn**, from real files: `ShellSaveSlots` reads `sav\GAMEFILE.STR` and each `GAME_?.SAV` it marks in use, and `ShellSaveScreen` places every widget above from the same parent-relative rects and prints the detail panel from the staging record. Clicking a row moves the selection and the summary follows; `SAVE` and `RESTORE` gate as the original gates them. The slot rename, and every button's action, are not ported.
+**The save screen is drawn**, from real files: `ShellSaveSlots` reads `sav\GAMEFILE.STR` and each `GAME_?.SAV` it marks in use, and `ShellSaveScreen` places every widget above from the same parent-relative rects and prints the detail panel from the staging record. Clicking a row moves the selection and the summary follows; `SAVE` and `RESTORE` gate as the original gates them. The slot rename, and every button's action, have no port ([Open](#open)).
 
-**The repair screen is drawn**, from a real save's hangar bay and the real price list. `ShellHangar` and `ShellBayMachine` are the eight-pointer bay array and `HercStatus_Get` over one machine's status block; `ShellRepairCosts` parses `gam\damage.dat` and expands it against `gam\herc_inf.dat`'s prices exactly as the loader does, and carries both cost functions. `ShellRepairScreen` places every widget above, fills both lists, prints the three readout panels and gates the buttons. Clicking a row moves the selection and the panels follow, including the refusal of an unfitted hardpoint. The damage diagram, the four buttons' actions and the manual/auto mode switch are not ported; the build queue is not either, so the salvage figure is the pool with nothing deducted.
+**The repair screen is drawn**, from a real save's hangar bay and the real price list. `ShellHangar` and `ShellBayMachine` are the eight-pointer bay array and `HercStatus_Get` over one machine's status block; `ShellRepairCosts` parses `gam\damage.dat` and expands it against `gam\herc_inf.dat`'s prices exactly as the loader does, and carries both cost functions. `ShellRepairScreen` places every widget above, fills both lists, prints the three readout panels and gates the buttons. Clicking a row moves the selection and the panels follow, including the refusal of an unfitted hardpoint. The damage diagram, the four buttons' actions, the manual/auto mode switch and the build queue have no port ([Open](#open)), so the salvage figure is the pool with nothing deducted.
 
 The shell has no loaded game — nothing restores a save — so the host opens the first slot the directory marks in use to have a machine to show. That is the host's own choice and not the original's, which reaches the tab only from a game already in progress.
 
@@ -371,7 +371,7 @@ Following the tab is off by default, which is a presentation choice and not a fi
 
 The engine reloads the whole of `ShellArt` to change palette, where the original re-installs one and lets the hardware palette do the rest — the art here is decoded to RGBA once per palette rather than kept as indices. Same result on screen, at a few milliseconds per click.
 
-Not drawn: the other six tabs' content, both damage diagrams, the mouse cursor (`dba\cursor.dba`), and the sounds each button plays. Nothing sets the campaign mode from a save, so the gate is driven by a command-line flag. See [`../../ROADMAP.md`](../../ROADMAP.md).
+Not drawn: the other six tabs' content, both damage diagrams, the mouse cursor (`dba\cursor.dba`), and the sounds each button plays ([Open](#open)). Nothing sets the campaign mode from a save, so the gate is driven by a command-line flag ([Open](#open)). See [`../../ROADMAP.md`](../../ROADMAP.md).
 
 ## Rejected readings
 
@@ -385,3 +385,16 @@ Not drawn: the other six tabs' content, both damage diagrams, the mouse cursor (
 | Exactly one tab is latched at all times | Seven of the nine handlers latch their own plate and it is easy to assume the other two do too. `MAIN MENU` and `SAVE` clear all nine and write none back, so the strip is drawn with nothing lit while either is up |
 | `FUN_0041f2e6` shows a widget and `FUN_0041f469` hides it, matching their names in the raw Ghidra dump | The dump's own names support that reading — one sets a state bit and recurses into children, the other clears it, and the names line up with which is which. They are swapped: `+0x11` bit 2 is a *hidden* bit, so the setter is the hide. `known_symbols.json` carries the corrected assignment (`Widget_ShowRecursive` at 0041f2e6, `Widget_HideRecursive` at 0041f469); only the raw dump still has it backwards. Three witnesses agree; see [Showing and hiding a widget](#showing-and-hiding-a-widget) |
 | The repair screen's detail figure and its `REPAIR ALL` figure are the same cost scaled | Both say `Salvage Required:` in kg and both come from the same unit-value tables, so a per-item share of the whole is the obvious reading. They use different functions with different targets: `Repair_HercCost` prices the machine to 100, and `Repair_LevelStepCost` (00413871) prices the selected component up to the floor of the next band only ([`armory.md`](armory.md#what-one-repair-level-costs)) |
+
+## Open
+
+- **Open:** `SCRAP`'s third per-chassis gating term, `(&DAT_00483b62)[type * 8]`, has no identified meaning.
+- **Unported:** the squad roster that moves the repair-bay selection in the original; `--shell-bay <n>` is the only way to reach a bay other than the first one holding a finished machine.
+- **Unported:** the save screen's slot rename.
+- **Unported:** the save screen's button actions (`SAVE`, `RESTORE`, `EXIT`, `CANCEL`/`ACCEPT`).
+- **Unported:** the repair screen's damage diagram (both the exploded external picture and the internals picture).
+- **Unported:** the repair screen's four buttons' actions (`REPAIR`, `REPAIR ALL`, `SCRAP`, `CANCEL`) and the manual/auto repair mode switch.
+- **Unported:** the armory build queue; the repair screen's salvage figure is the raw pool with nothing deducted as a result.
+- **Unported:** the other six tabs' content (`MAIN MENU`, `WEAPONS`, `BUILD`, `ARMORY`, `CREW`, `MISSION`).
+- **Unported:** the mouse cursor (`dba\cursor.dba`) and each button's click sound.
+- **Unported:** loading the campaign/training mode from a save; the gate is driven only by a command-line flag.

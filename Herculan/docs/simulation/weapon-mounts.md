@@ -218,7 +218,7 @@ mount->vtable+0x2c                                       // the class's own CanF
 
 `manager+0x31` is the distance to the **selected target**, written by `Player_PerFrameCockpitUpdate` (`0041b130`) through `WeaponMounts_PerFrameUpdate`'s argument, and `Math_DistanceBetweenPoints` measures it from the machine to `target+0x26` each frame. **Zero when nothing is selected**, and the gate is skipped outright on zero — which is what stops every row going red on a machine with no target rather than the window's exclusive lower bound failing them all. The store happens *before* the chain advance, so both readers see the same frame's range.
 
-> The measurement's origin is the machine's own position, except while `DAT_0049ef5c` is set and > this is the local player, when it is the watched object `DAT_004d2708` — the spectator camera, > not ported ([`target-selection.md`](target-selection.md)).
+> The measurement's origin is the machine's own position, except while `DAT_0049ef5c` is set and > this is the local player, when it is the watched object `DAT_004d2708` — the spectator camera > ([`target-selection.md`](target-selection.md), [Open](#open)).
 
 The third gate is **missile lock**, not ammunition: the mount's `vtable+0x60` subtype must have its flag up in `manager+0x0a`. Two subtypes are exempt — 5, which is "not a launcher", and 3, the electro-optical missile, which never latches a flag because the pilot flies it ([`missile-lock.md`](missile-lock.md)). Without that exemption an EO launcher's row could never go green.
 
@@ -268,14 +268,15 @@ Linking is visible because `WeaponMounts_PerFrameUpdate` lights a linked mount's
 
 `ConsoleButtons_OnChildClick` switches on the child index: 0 advances the chain group and wraps at 3, 1 toggles link, 2 toggles auto-track. `ConsoleButton_Paint` then takes each one's frame from a different field — CHAIN and LINK from the shared press byte `+0x1b`, so they light only while held, and TRACK from its own `+0x40` latch. **LINK never stays lit**; the link state lives on the mounts.
 
-## Open
-
-- **The missile-lock gate on readiness.** The engine's `CanFireNow` carries the mount test, the range gate and the link recursion, but not the third one: a launcher whose subtype holds no lock should read red and be skipped, and does not.
-- Template fields other than those named here — see [`../formats/weapons-dat-sim.md`](../formats/weapons-dat-sim.md).
-- **Firing** is in [`weapon-firing.md`](weapon-firing.md). All three dispatch branches are ported; auto-fire is not.
-
 ## Rejected readings
 
 | Reading | Why it is wrong |
 |---|---|
 | The ELF's cell timer at `+0x84` is a per-cell interval, so the spin-up's length is a rate rather than a cell count | `ElfMount_TriggerHeld` zeroes it on the press and `ElfMount_SpinUpAndChargeTick` zeroes it again after every advance, and `Math_CountdownTimerTick` clamps at zero, so it expires on every tick it is asked. Nothing in the retail build ever gives it a non-zero value |
+
+## Open
+
+- **Unported:** the missile-lock gate on readiness. The engine's `CanFireNow` carries the mount test, the range gate and the link recursion, but not the third one: a launcher whose subtype holds no lock should read red and be skipped, and does not.
+- **Unported:** auto-fire — see [`weapon-firing.md`](weapon-firing.md). All three dispatch branches are ported; auto-fire is not.
+- **Unported:** the spectator camera as the readiness range's measurement origin (`DAT_0049ef5c`/`DAT_004d2708`) — see [`target-selection.md`](target-selection.md).
+- **Open:** template fields other than those named here — see [`../formats/weapons-dat-sim.md`](../formats/weapons-dat-sim.md).

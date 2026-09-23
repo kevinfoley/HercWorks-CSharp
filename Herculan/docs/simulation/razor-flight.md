@@ -213,6 +213,8 @@ Contacts go through `Mech_ApplyDirectFireDamage` with `AirframeContactShot` (`00
 
 Its impact effects come from `AirframeContactImpactFx` (`0049a158`), a `PROJ.DAT`-shaped 12-entry table held in the image rather than in a file: shield `{11,11,11,11}`, ground and armour both `{0,1,4,5}`.
 
+The wreckage a fatal contact sheds is ported — group 3 at the contact point, and only from the cockpit and fuselage probes, the two that can end the flight. See [`destruction-effects.md`](destruction-effects.md#spawn-sites).
+
 ## HUD speed
 
 `Mech_GetDisplaySpeedKph` (`0041bb3c`) branches on the flyer flag. A walker divides its speed scalar by the type's top speed; a flyer maps airspeed from `[0, AirSpeedMax]` onto `[0, typeRec+0xc2]` through `Math_MapRange` (`0047de3c`), because a flyer's record does not describe the walker top speed the other branch needs. Both land on the same readout scale, so the gauge reads the same way for either chassis. A RAZOR at full throttle reads 83 km/h.
@@ -220,12 +222,6 @@ Its impact effects come from `AirframeContactImpactFx` (`0049a158`), a `PROJ.DAT
 ## Engine note
 
 `Razor_MovementTick` closes by pitching the looping engine hum (catalog id `0x2d`, `herceng1.wav`) at `FastMagnitude3D(bodyVelocity) * 16 + 28000` in 16.16, clamped to 16 bits, and re-placing it at the machine. It runs for the player's machine alone and is silenced on death. The hum is started by `Cockpit_PowerUpSound` and is the flyer's, not the walker's, despite the sample's name — see [`../formats/audio.md`](../formats/audio.md).
-
-## Not ported
-
-- `Razor_MovementTick`'s own call to `Mech_ConvergeGunsOnRange` (`0041a74c`). A flyer has no pitch tick to reach it from, so the convergence a walker gets there (see [`ai-weapons.md`](ai-weapons.md#gun-convergence--mech_convergegunsonrange-0041a74c)) has to be driven from the movement tick instead, and is not.
-
-The wreckage a fatal contact sheds is ported — group 3 at the contact point, and only from the cockpit and fuselage probes, the two that can end the flight. See [`destruction-effects.md`](destruction-effects.md#spawn-sites).
 
 ## Rejected readings
 
@@ -237,3 +233,7 @@ The wreckage a fatal contact sheds is ported — group 3 at the contact point, a
 | Bytes 12-17 of `.FM` are zero padding | They are zero *on disk*. The loader writes the ceiling slope into 14-17 |
 | The cockpit throttle slider does nothing on a RAZOR | It works. `Player_PerFrameCockpitUpdate` has a flyer-gated line writing the gauge value to `mech+0x2d7`. What is dead is the gauge's *speed* bar, which reads the walker scalar |
 | The RAZOR is an instance of the `Flyer` class | That class is the SKIMMER's. The RAZOR is a `Mech` with `typeRec+0x50` set |
+
+## Open
+
+- **Unported:** `Razor_MovementTick`'s own call to `Mech_ConvergeGunsOnRange` (`0041a74c`). A flyer has no pitch tick to reach it from, so the convergence a walker gets there (see [`ai-weapons.md`](ai-weapons.md#gun-convergence--mech_convergegunsonrange-0041a74c)) has to be driven from the movement tick instead, and is not.

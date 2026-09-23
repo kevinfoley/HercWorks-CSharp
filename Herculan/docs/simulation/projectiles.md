@@ -18,7 +18,7 @@ Like a tracer, a bullet lives in the effect pool (`DAT_004a9746`) that `Sim_Main
 | `+0x06` | *was `Unk2Flag`* | animation frame interval; 0 = static shape |
 | `+0x08` | `SfxFireIdBullets` | sound id, played as `id + 10` |
 | `+0x0a` | *was `Unk3Uint16`* | **firing scatter**, in binary-angle units |
-| `+0x0c` | *was `SfxFireIdMissiles`* | nonzero arms a per-lifetime rate at `obj+0x61`; consumer untraced |
+| `+0x0c` | *was `SfxFireIdMissiles`* | nonzero arms a per-lifetime rate at `obj+0x61` ([Open](#open)) |
 
 Retail (12 records; the five not listed are unreachable — no `Bullet` record carries their id):
 
@@ -83,4 +83,9 @@ The three EMP rounds — `BULLETS.DTS` roots 2 and 3, a `TSCellAnimPart` of five
 
 Reaching it, a round is bucketed by terrain cell into `ObjList::drawTable` and then drawn from a depth-sorted render entry that carries its distance — so its **depth fade is set from its own range** like any other object's, not pinned to a fixed ramp row. The full path and the evidence are in [`../formats/distance-fog-and-sky.md`](../formats/distance-fog-and-sky.md).
 
-The fade is spent as a row offset inside `Raster_ShadeRampRow`, which the fullbright fill does not call — so whether a plasma round actually fogs is untraced. Every other round's shape is `TSSolidPoly` and fades normally. The engine fogs all of them per pixel regardless, which is how it renders the fade throughout.
+The fade is spent as a row offset inside `Raster_ShadeRampRow`, which the fullbright fill does not call ([Open](#open)). Every other round's shape is `TSSolidPoly` and fades normally. The engine fogs all of them per pixel regardless, which is how it renders the fade throughout.
+
+## Open
+
+- **Open:** identify what reads the per-lifetime rate `+0x0c` arms at `obj+0x61` in `BULLETS.DAT`.
+- **Open:** whether a plasma round fogs at all in retail, since its fill never calls `Raster_ShadeRampRow`.

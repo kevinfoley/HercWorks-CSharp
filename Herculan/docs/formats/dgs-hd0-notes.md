@@ -11,8 +11,8 @@ The `.DGS` container and the structure shapes it holds. Companion: [`weapons-dat
 **Record layout** (traced via the class's Watcom base-constructor chain — `FUN_0042762c` → `FUN_00490d5c` → `FUN_0048fd94` → `FUN_0048f894`):
 1. 3×`int16` head fields + 6 raw bytes (base header). The **third is the shape's bounding radius** — see [`../simulation/hit-detection.md`](../simulation/hit-detection.md).
 2. `int16` child count, then that many nested `ClassItem` records
-3. `int16` count + that many 32-byte records (undecoded — BSP-plane-adjacent, per consumer `FUN_00476a1c`)
-4. `int16` count + that many `int16` values (undecoded)
+3. `int16` count + that many 32-byte records, consumed by `FUN_00476a1c` ([Open](#open))
+4. `int16` count + that many `int16` values ([Open](#open))
 5. the shape's **collision volume**: 5×`int16` scalars, a 1024-byte height table, then one row of height codes per grid row. Full layout and queries in [`../simulation/hit-detection.md`](../simulation/hit-detection.md).
 
 Every record's on-disk footprint (header+payload) pads to an even total.
@@ -30,3 +30,8 @@ The HERC roster is the same rule: every root 0 sits at y=0 except COLOSSUS, whic
 So a placed structure is drawn at terrain height with no vertical correction of any kind. Raising an object by its mesh's lowest point is a no-op on every shape but 28, which it drags down onto the ground — visible against retail in `Reference/Building_comparison.png`.
 
 Implementation: `HercWorks.Core.Io.Transform.Dbsim.BasesDgsTransformer`, `HercWorks.Core.Data.File.Dgs.BaseShapeLibrary`. Wired into `Herculan.Engine.Scene.SceneModelLibrary.Base()`.
+
+## Open
+
+- **Open:** the record's step-3 32-byte records. Their consumer, `FUN_00476a1c`, suggests something BSP-plane-adjacent.
+- **Open:** the record's step-4 `int16` values.

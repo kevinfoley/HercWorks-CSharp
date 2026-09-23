@@ -212,7 +212,7 @@ Every spawn site in the table above is ported. Both pools are capped at the orig
 
 The carrier velocity at `004a96e4` is `Flyer_ComponentDamageWrite`'s alone: it points the global at the aircraft's own world velocity for the length of that call, so the wreckage a shot-down flyer sheds keeps flying. `Sim.SimWorld.DebrisCarrierVelocity` is the port.
 
-**Not ported:** the detail-level branches — this engine has no detail setting and always takes the full-detail figure.
+This engine has no detail setting and always takes the full-detail figure ([Open](#open)).
 
 **The arcs are large at this world scale.** A `DEF_DEB` group-2 throw peaks around 48 m and lands about 137 m out over 5 seconds. That follows from constants none of which are this engine's — the 33-88° pitch window, `420 << 10 / mass`, gravity `-0x20`, and the un-integrated position add confirmed in the disassembly above.
 
@@ -225,3 +225,7 @@ The carrier velocity at `004a96e4` is `Flyer_ComponentDamageWrite`'s alone: it p
 | `typeRec+0x04` indexes the base shape table, so a wreck is another building's model | It indexes `dgs\BHULKS.DGS`, a separate library `Base_LoadResources` sizes from the largest value any type states |
 | `WeaponMount_Destroy`'s third argument selects a debris *lifetime*, shorter for the local player | It selects a `(childGroup, deathEffect)` pair, and it is the *path* that picks it: the certain notification passes 0 and the destruction roll passes 1. Neither call site tests who is flying |
 | A debris piece's `+0x59` is a lifetime or an eviction priority, as it is on a fire | Different classes at the same offset. On a piece it is the `EXPLOS.DAT` type that goes off where the piece ends |
+
+## Open
+
+- **Unported:** the detail-level branches throughout debris, fire and structure destruction — the engine has no detail setting and always takes the full-detail figure.

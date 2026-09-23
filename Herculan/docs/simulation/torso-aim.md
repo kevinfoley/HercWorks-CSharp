@@ -174,7 +174,7 @@ The idle timer is run down in the turret block rather than in the cockpit update
 
 What is left is the cosine table rather than the animation. `SimTrig.Cos` quantises a rotation to its 16-BAM step, so the drawn view moves in 0.101° increments and a twist under about 2°/s still steps. Q10 is enough to carry the fraction past that point: one Q10 unit is 8 binary angle across a torso sweep's 45° keyframe interval.
 
-## Not ported
+## Open
 
-- **The HUD's "ATT" legend**, which the manual puts at the upper left of the HUD while tracking. Not located in the cockpit widget set yet.
-- **The servo sound** (`0041a6d0` / `0041a994`): sound 0x21, started when the axis exceeds 0xc0 and the angle is still changing, stopped when the axis centres or the angle stops.
+- **Unported:** the HUD's "ATT" legend, which the manual puts at the upper left of the HUD while tracking; not located in the cockpit widget set.
+- **Unported:** the servo sound (`0041a6d0` / `0041a994`): sound 0x21, started when the axis exceeds 0xc0 and the angle is still changing, stopped when the axis centres or the angle stops.

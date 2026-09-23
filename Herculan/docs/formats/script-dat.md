@@ -109,9 +109,9 @@ Otherwise the squad is an ordinary group and **spreads like one**: pass 2 gives 
 Every nonzero value in the retail table is a clean turn: 8190 (45°), 16380 (90°), 32760 (180°) or their negatives. Eleven of the seventeen formations use at least one. Reading only the two `int32`s and skipping this short puts every member of a group in the right place facing the same way, which is the failure mode to watch for.
 
 Confirmed on the Scramble training base: group 1 uses formation 9, and roster slots 6 and 8 are two of its three identical silo-cluster structures (type 7). Formation 9's slots 6 and 8 carry 16380 and 32760, and in retail those two stand turned by 90° and 180° while the third does not. The 90° one is at world (989519, 1033792), the base the mismatch was reported against.
-- **Mechs:** `Mech_AttachToGroup` (`FUN_00417aa8`) has the same heading-fallback shape, but `MFORMS.DAT`'s 28-byte formations are seven bare (x, y) `int16` pairs with no room for a per-slot heading. Not investigated further.
+- **Mechs:** `Mech_AttachToGroup` (`FUN_00417aa8`) has the same heading-fallback shape, but `MFORMS.DAT`'s 28-byte formations are seven bare (x, y) `int16` pairs with no room for a per-slot heading ([Open](#open)).
 - **Anchor adjustment — implemented.** A `BinaryFlag` base group is moved onto a fixed spot in its terrain tile before any per-member offset is added. See [Base formation terrain](#base-formation-terrain).
-- **Flyers — unfixed.** `FUN_00421ee8` is the flyer attach equivalent; not traced. No multi-flyer groups observed in retail data.
+- **Flyers.** `FUN_00421ee8` is the flyer attach equivalent. No multi-flyer groups appear in retail data ([Open](#open)).
 - **Verification:** all 10 available missions — 26/26 multi-mech groups and 18/18 multi-base groups get distinct member positions, 0 exceptions; BFORMS.DAT/MFORMS.DAT both still parse byte-exact.
 8. **A group whose record names a block-5 action (`0x70`) is not in the mission yet** — undrawn, unsimulated and non-solid until that action fires and the group arrives, on foot or by drop pod. Its placed position is a placeholder the arrival overwrites, which is why retail missions leave such groups stacked on shared points (routinely the player's own spawn). See [`../simulation/mission-deployment.md`](../simulation/mission-deployment.md); **do not read a waiting group's position as where the mission means it to be.**
 
@@ -287,3 +287,8 @@ Stop after block 13's declared end and ignore trailing bytes. Files may have sta
 | The `BinaryFlag` anchor move is the structure-footprint flattening, or feeds it directly | The flattening is per-object, driven by each structure's own shape radius, and reads nothing from `BFORMS.DAT`. What the flag's `BFORMS.DAT` record contributes there is the layout map's cell marks, not the move |
 | Block 13 is the mission's herc/weapon unlock package | Its source, row #4's sub-array A, is described as refs into a small shared LUT, and DBSIM's own field name for the row #17 twin is a LUT ref — so "unlocks reaching DBSIM" is the obvious reading. It is a list of `data\mission.str` line indices: the values run to 243 in the `.MSN` corpus, they are consecutive runs, and the one consumer prints them as labels. Weapon unlocks reach a mission through the tail of `data\player.mec` and are authoritative in the save slot — see [`save-games.md`](save-games.md) |
 | Block 12 is dead because the load pass reads and discards it | Pass 1 discards it exactly as it discards most of blocks 7-9; pass 2 comes back. Anything reading only `DBSim_LoadScriptDat` reaches the same wrong conclusion about the roster |
+
+## Open
+
+- **Open:** whether mechs get any per-slot heading turn on formation attach, the way bases do — `MFORMS.DAT`'s 28-byte formations have no field for one, so the fallback shape `Mech_AttachToGroup` shares with `Base_AttachToGroup` may simply have nothing to read.
+- **Unported:** flyer group formation offset — `FUN_00421ee8` is `Mech_AttachToGroup`/`Base_AttachToGroup`'s flyer equivalent and has no port; no multi-flyer groups appear in retail data to exercise it.

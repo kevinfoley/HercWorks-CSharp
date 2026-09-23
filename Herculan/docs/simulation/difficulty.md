@@ -109,7 +109,7 @@ Three deliberate differences:
 
 The fourth table, `0049a058`, is `MechObject.SlideDamageScale`, read by `MechObject.SlideLandingDamage` where a slide ends, which also raises the cockpit shake the original raises beside the damage — see [`mech-locomotion.md`](mech-locomotion.md#the-landing).
 
-**Nothing in the engine writes any of the three fields.** They arrive only from a `script.dat` on disk: the MDK's mission-script Header tab exposes theater, zone and variant alone (`MissionScriptForm.ApplyHeader`), and the shell's single-mission setup screen — the one place retail sets them — is not ported. An editor toggle or a host flag would make them reachable.
+**Nothing in the engine writes any of the three fields.** They arrive only from a `script.dat` on disk: the MDK's mission-script Header tab exposes theater, zone and variant alone (`MissionScriptForm.ApplyHeader`), and the shell's single-mission setup screen — the one place retail sets them — has no port ([Open](#open)). An editor toggle or a host flag would make them reachable.
 
 ## Rejected readings
 
@@ -120,3 +120,7 @@ The fourth table, `0049a058`, is `MechObject.SlideDamageScale`, read by `MechObj
 | The difficulty scale applies to plasma blast damage only | That is one of `Damage_ScaleByDifficulty`'s three call sites. The other two are in `Sim_RaycastObjectList`, on the two damage figures of every direct-fire shot |
 | `DAT_004a9ee0 == 0` makes the player invulnerable | It is one arm of `Sim_DamageToPlayerDisabled`, and the arm the loader's zeroing of `DAT_004a9ed6` makes unreachable. Invulnerability is its own header field |
 | `prefs.cfg` options `0x25`/`0x26` are the two cheats DBSIM reads | They are VSHELL's half of a file the two programs share. The simulator reads neither: it tests the `script.dat` header fields against `== 1`. The option bytes are the shell's record of what the player asked for, not the switch |
+
+## Open
+
+- **Unported:** the shell's single-mission setup screen — the one place retail sets the difficulty, invulnerability and unlimited-ammo header fields outside a campaign. An editor toggle or a host flag would let the engine set them without it.

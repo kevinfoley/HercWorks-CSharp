@@ -82,4 +82,8 @@ An idle machine draws nothing: every energy mount powers up with `+0x7d` already
 
 Refilling a damaged shield array takes ~30 s, matching 3500 ÷ 5 per tick = 700 ticks at the hard 25 Hz cap (28 s). The recharge cap is per *tick*, not per unit time, but the tick is capped by a `GetTickCount` spin (`FUN_004677bc`), so this does not vary with hardware.
 
-> A cosmetic mismatch is open: in retail the shield rings fade black→green over ~10 s at mission > start. Both facings are full from `Shield_Init` onward and nothing writes zero to the struct > (every reference enumerated, including a raw scan for the `0x222` displacement outside decompiled > code), so this is a HUD animation, not charge. Not chased; tracked in KNOWN_ISSUES.md.
+> In retail the shield rings fade black→green over ~10 s at mission start. Both facings are full from `Shield_Init` onward and nothing writes zero to the struct (every reference enumerated, including a raw scan for the `0x222` displacement outside decompiled code), so this is a HUD animation, not charge ([Open](#open)).
+
+## Open
+
+- **Open:** find the HUD animation that fades the shield rings black→green at mission start. The engine shows them full from the first frame; see [KNOWN_ISSUES.md](../../KNOWN_ISSUES.md).

@@ -3,7 +3,9 @@
 
 Reference docs state what is true now. They are not a record of how the project
 arrived there — that is what git log is for. This linter catches the phrasings
-that show a correction was narrated in place instead of applied.
+that show a correction was narrated in place instead of applied, and open work
+that is scattered through the body or named inconsistently: it belongs in one
+final `## Open` section, as bullets labelled **Unported:** or **Open:**.
 
 Usage:
     python tools/scripts/doc_lint.py                  # lint the default doc set
@@ -127,6 +129,59 @@ RULES: list[tuple[str, str, re.Pattern[str], str]] = [
     ),
 ]
 
+# Open work: the docs track it with exactly two terms, "unported" (a retail feature not yet in C#)
+# and "open" (anything else unfinished), and only in a final `## Open` section, so one scroll to the
+# bottom of a doc finds all of it. Markdown only; the status registers carry their own structure.
+STATUS_EXEMPT_BASENAMES = {"KNOWN_ISSUES.md", "ROADMAP.md", "README.md"}
+OPEN_HEADING = "## Open"
+OPEN_ITEM = re.compile(r"^[-*]\s+\*\*(?:Unported|Open):\*\*\s")
+HEADING = re.compile(r"^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$")
+LINK_TARGET = re.compile(r"\]\([^)]*\)")
+
+# (id, pattern, why) — flagged anywhere in the doc, the Open section included.
+STATUS_RULES: list[tuple[str, re.Pattern[str], str]] = [
+    (
+        "status-synonym",
+        re.compile(
+            r"\b(?:not\s+(?:yet\s+)?(?:ported|implemented|decoded|traced|identified)"
+            r"|untraced|unresolved|un-?decoded|unimplemented|TODO|TBD|yet\s+to\s+be"
+            r"|(?:is|are|remains?|still)\s+(?:unknown|unclear|not\s+(?:known|understood)))\b",
+            re.IGNORECASE,
+        ),
+        "Open work uses two terms only: 'unported' for a retail feature not yet in C#, 'open' for "
+        "anything else. Rephrase, and list the task in the doc's final '## Open' section.",
+    ),
+    (
+        "status-heading",
+        re.compile(
+            r"^\s{0,3}#{1,6}\s+(?:Open\b(?!\s*$)|Not\s+ported|Unported|Unresolved|Remaining|Gaps?\b"
+            r"|TODO|Known\s+open)",
+            re.IGNORECASE,
+        ),
+        "Open work lives under one heading, exactly '## Open', as the doc's last section.",
+    ),
+]
+
+# Flagged outside the Open section only: a hypothesis is a fine Open item, not a fine claim.
+OUTSIDE_OPEN_RULES: list[tuple[str, re.Pattern[str], str]] = [
+    (
+        "hedge",
+        re.compile(r"\b(?:plausibl[ey]|unproven|not\s+proven|unconfirmed|unverified)\b", re.IGNORECASE),
+        "A hedge in the body is an open task in disguise. State what the evidence shows, and put "
+        "what would settle the rest in '## Open'.",
+    ),
+    (
+        "status-outside-open",
+        re.compile(
+            r"\b(?:unported|(?:still|remains?|left|is|are)\s+open"
+            r"|open\s+(?:question|item|task|gap|problem)s?)\b",
+            re.IGNORECASE,
+        ),
+        "Open work is listed in the final '## Open' section, not in body text. Move the task there; "
+        "the body may link to it with [Open](#open).",
+    ),
+]
+
 CODE_COMMENT = re.compile(r"^\s*(?:///|//|\*)")
 
 
@@ -171,15 +226,52 @@ def lint_file(path: str, include_code: bool) -> list[tuple[int, str, str, str, s
     except (OSError, UnicodeDecodeError):
         return []
 
+    check_status = not is_cs and os.path.basename(path) not in STATUS_EXEMPT_BASENAMES
     hits = []
     in_fence = False
+    in_open = False
+    open_line = 0
     for n, line in enumerate(lines, 1):
         stripped = line.strip()
         if not is_cs and (stripped.startswith("```") or stripped.startswith("~~~")):
             in_fence = not in_fence
             continue
+        if check_status and not in_fence:
+            h = HEADING.match(line)
+            if h and len(h.group(1)) <= 2:
+                if in_open:
+                    hits.append((n, "open-not-last", "error", stripped,
+                                 "'## Open' must be the doc's last section, so its tasks are always "
+                                 "at the bottom. Move this section above it."))
+                if stripped == OPEN_HEADING:
+                    if open_line:
+                        hits.append((n, "open-duplicate", "error", stripped,
+                                     f"A second '## Open' section; merge it into the one at line {open_line}."))
+                    open_line = open_line or n
+                    in_open = True
+                    continue
+                in_open = False
+            elif h and in_open:
+                hits.append((n, "open-subheading", "error", stripped,
+                             "The Open section is a flat list of labelled bullets; fold this "
+                             "subheading into the items."))
+            elif in_open and stripped and not line[0].isspace() and not OPEN_ITEM.match(line) \
+                    and not SUPPRESS.search(line):
+                hits.append((n, "open-item", "error", stripped[:60],
+                             "Each Open item is a top-level bullet starting '**Unported:**' or "
+                             "'**Open:**', so a grep across the docs lists every task."))
         if in_fence or SUPPRESS.search(line) or ALLOWED.match(line):
             continue
+        if check_status:
+            # A heading is judged by status-heading alone, so '## Open questions' is flagged once.
+            outside = [] if in_open or HEADING.match(line) else OUTSIDE_OPEN_RULES
+            rules = STATUS_RULES + outside
+            # A link target is another doc's anchor, not this doc's wording.
+            text = LINK_TARGET.sub("]()", line)
+            for rule_id, pattern, why in rules:
+                m = pattern.search(text)
+                if m:
+                    hits.append((n, rule_id, "error", m.group(0).strip(), why))
         # In C# only look at comments, so identifiers and string literals are ignored.
         if is_cs and not CODE_COMMENT.match(line):
             continue
@@ -239,6 +331,8 @@ def hook_mode() -> int:
         "'Rejected readings' table, and append <!-- doc-lint: ok --> to the line.",
         "Also check while you are in the file: does a later section now contradict an earlier "
         "one? Correct the earlier text rather than appending to the end.",
+        "Open work (the status-*, hedge and open-* rules) goes in the final '## Open' section as "
+        "bullets starting '**Unported:**' or '**Open:**'; the body states only what is known.",
     ]
 
     json.dump({

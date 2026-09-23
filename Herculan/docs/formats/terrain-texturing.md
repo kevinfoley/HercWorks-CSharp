@@ -96,10 +96,10 @@ One function **writes** the field; four read it:
 
 - `Terrain_SetupVisibleRegion` (`0046ca98`) sets `grid[+0x10c] = (short)DAT_004a0bcc[DAT_004d1fc3]` — the terrain-detail setting's own table, below — then `>>= (cellShift - 14)` when `cellShift > 14`. The `>>` only ever fires on the two shift-15 zones; nothing compensates in the other direction, so a zone with small cells is simply seen less far across. The original re-reads the setting every frame; `Herculan.Engine.Terrain.TerrainDetail` reads it once at zone load, which is equivalent while nothing changes it mid-mission.
 - `Terrain_BuildDrawRegionQuad` (`0046d220`) builds the draw region as a square of radius `grid[+0x10c] << cellShift` world units around the viewer, clamped to the grid extent. So the LOD field is literally **a terrain draw radius in cells**.
-- `maybe_Terrain_SetDistanceBands` (`00428bc0`) turns that same distance into five scaled values via a 5-entry table at `DAT_0049abb0` — LOD thresholds or similar, consumer not traced. **Not** the distance fog, which is 12-slice and computed per drawn thing.
+- `maybe_Terrain_SetDistanceBands` (`00428bc0`) turns that same distance into five scaled values via a 5-entry table at `DAT_0049abb0` ([Open](#open)). **Not** the distance fog, which is 12-slice and computed per drawn thing.
 - `Terrain_DrawCellQuad` (`0046d344`) installs `grid[+0x10c] << grid[+0x108]` per cell as the visibility range the distance fade is measured against — see [`distance-fog-and-sky.md`](distance-fog-and-sky.md), which tabulates the resulting range per cell shift.
 
-`maybe_Terrain_ComputeViewDistance` (`00470910`) reads the same field per frame for the view setup; its two outputs remain undecoded.
+`maybe_Terrain_ComputeViewDistance` (`00470910`) reads the same field per frame for the view setup ([Open](#open)).
 
 ### The terrain-detail setting
 
@@ -172,9 +172,9 @@ Data-driven, theater-indexed via mission. Core components:
 
 Known constraints: the shelf-packed atlas uses 4 MB/theater. Pads are exact — they are placed from the file, not rolled.
 
-### Detail-texture scatter RNG (unresolved)
+### Detail-texture scatter RNG
 
-Roughly 30% of 2x2 cell blocks roll frame 1 instead of frame 0 (the `TerrainZone_PopulateFromBitmap` roll, capped at material 1 — see above); which blocks get it differs from retail. The engine now seeds its generator from DBSIM's own seed table and cursors, and the zone pass draws from the same instance the rest of the session uses, matching retail's single shared RNG. What is not established is whether DBSIM has already drawn from that instance before the terrain populates on a given zone load — if it has, the draw sequence is offset and the scatter lands on different cells even with the same seed and algorithm. Needs a comparison against a retail screenshot to confirm or rule out. Base pads (frames 2–12) are unaffected — those are placed from `BFORMS.DAT`, not rolled.
+Roughly 30% of 2x2 cell blocks roll frame 1 instead of frame 0 (the `TerrainZone_PopulateFromBitmap` roll, capped at material 1 — see above); which blocks get it differs from retail. The engine seeds its generator from DBSIM's own seed table and cursors, and the zone pass draws from the same instance the rest of the session uses, matching retail's single shared RNG. Base pads (frames 2–12) are unaffected — those are placed from `BFORMS.DAT`, not rolled. ([Open](#open))
 
 ## Rejected readings
 
@@ -183,3 +183,9 @@ Roughly 30% of 2x2 cell blocks roll frame 1 instead of frame 0 (the `TerrainZone
 | A cell's UV rect attaches to the quad with both axes monotone — `u` rising with `cellX`, `v` rising with `cellY` | `v` falls with `cellY`. Monotone `v` mirrors every cell vertically against the row below it, so each cell boundary becomes a mirror seam |
 | Materials 2–12 are addressable but nothing assigns them, so they are dead data | Only the two zone loaders' rolls are capped at material 1. `Terrain_PaintFormationPad` assigns 2–12, one per base formation, and reading the loaders alone makes the gap look unexplained |
 | A formation's layout map is the pad's shape, so painting follows the map | The map is a levelling mask. The material is written to the whole tile regardless, and the pad outline is in the frame art. The maps read as legible site plans, which is what makes this the obvious reading |
+
+## Open
+
+- **Open:** `maybe_Terrain_SetDistanceBands`'s (`00428bc0`) five-entry output table has no identified consumer; the values read as LOD thresholds or similar.
+- **Open:** what `maybe_Terrain_ComputeViewDistance`'s (`00470910`) two outputs mean.
+- **Open:** whether DBSIM has already drawn from the shared RNG instance before terrain populates on a given zone load, which would offset the draw sequence and land the [detail-texture scatter](#detail-texture-scatter-rng) on different cells even with a matching seed and algorithm; a retail screenshot comparison would settle it.

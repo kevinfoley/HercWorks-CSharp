@@ -65,7 +65,7 @@ Two further gates sit on the display half, both fields of the cockpit view manag
 `CockpitViewManager_Published` (`00429820`) hands back ([`cockpit-views.md`](cockpit-views.md#object-model)).
 Its `+0x14` is the **current view index**: the show refuses to display while it reads 4 — the value
 outside the four canopy views — and suppresses the line exactly as TEXT OFF does, lifecycle and
-all. Its `+0x1c` is a byte the paint tests first and returns on, and that one is not decoded.
+all. Its `+0x1c` is a byte the paint tests first and returns on ([Open](#open)).
 
 Both boxes are the herc's own, the last two fields of its `.GAU`: the pilot channel's at content
 offset 1668, `0,y - 320,y+10`, of which only the height is ever drawn ([below](#its-box)), and the
@@ -263,8 +263,8 @@ meanings. `/` separates the variants of one id.
 | `0x29` | `NEGATIVE. IT'S TRASHED.` | — |
 | `0x2a` | `ON MY WAY.` | `PATROL GRIDPOINT` / `GOTO GRIDPOINT` taken |
 
-`0x15` is in no bank at all. The em-dashed ids are recorded and posted by nothing traced; which
-situation raises each of the rest is
+`0x15` is in no bank at all. The em-dashed ids are recorded but have no poster found
+([Open](#open)); which situation raises each of the rest is
 [`../simulation/ai-squadmates.md`](../simulation/ai-squadmates.md)'s case table.
 
 **`0x1e` is the yes and `0x1f` the no.** Mistaking them is easy because the refusal arms of
@@ -332,8 +332,7 @@ Three things differ. The port's clock is wall time accumulated by `GameAudio` in
 than `GetTickCount`, and it stops across `Suspend`/`Resume`, which is what the original's pause pair
 achieves by shifting every deadline instead. The text is clipped per glyph in geometry rather than
 by a raster clip rect, so the whole cockpit panel stays one draw. And the display's two further
-gates — the refusal to draw while the cockpit view manager's `+0x14` reads 4, and the paint's `+0x1c`
-byte — are not reproduced.
+gates are absent ([Open](#open)).
 
 The pilot and squad channel is complete too. `SquadMessages` parses a `PILOT<n>.STR` bank with the
 seven-byte attribute layout and its live variants; `SquadMessagePort` is the second port, with the
@@ -344,19 +343,22 @@ three boxes and their state machine
 MFD draws full-screen and what each box draws in place. The line over the canopy is
 `PilotMessageBoxLayout` plus `Overlay2DRenderer.AddPilotMessage` — the herc's own `.GAU` box
 (surfaced as `GAUFile.PilotMessagePort`), the speaker-coloured fill with its palette-minus-one
-frame, and the composed `NAME: line` in `CPRED`. The word-wrapped multi-line paint is not ported;
-nothing retail shows reaches it.
+frame, and the composed `NAME: line` in `CPRED`.
 
 The channel's own deviation is the one the computer's port has: its clock is `GameAudio`'s wall time
 rather than `GetTickCount`.
 
 **Every poster above is ported but one.** The damage set, the mission-status four, the player
 think's two, the data link's five, the auto-track pair, the radar pair and the power-up pair all
-post where the original posts them. `0x2a`/`0x2b` jamming is the exception, and it is blocked
-rather than skipped: nothing in the engine turns a jammer on yet (`SimObject.JammerActive`), so the
-toggle that would announce it has no state to report. `0x12` is not a gap either — it is
-unreachable in retail. The rest of the file's sixty-three lines have no poster in the original.
+post where the original posts them; `0x2a`/`0x2b` jamming is the exception ([Open](#open)).
+`0x12` is unreachable in retail. The rest of the file's sixty-three lines have no poster in the
+original.
 
-The power-up always announces the nominal line: the gauge reading its alternative is chosen by is
-not decompiled, and a machine taken at the start of a mission is undamaged and gets the nominal
-line either way.
+## Open
+
+- **Unported:** the `0x2a`/`0x2b` jamming lines. Nothing in the engine turns a jammer on (`SimObject.JammerActive`), so the toggle that would announce it has no state to report.
+- **Unported:** the display's two further gates — the refusal to draw while the cockpit view manager's `+0x14` reads 4, and the paint's `+0x1c` byte.
+- **Unported:** `PilotMessagePort_Paint`'s word-wrapped multi-line box. Nothing retail shows reaches it.
+- **Unported:** the power-up's damage announcement, `0x22`. The engine always posts the nominal `0x21`, because the gauge reading `FUN_0041b514` returns is not decompiled; a machine taken at the start of a mission is undamaged and gets the nominal line either way.
+- **Open:** what the cockpit view manager's `+0x1c` byte is.
+- **Open:** whether anything posts the pilot ids the table marks with an em dash. A text search finds no poster, which does not settle it.

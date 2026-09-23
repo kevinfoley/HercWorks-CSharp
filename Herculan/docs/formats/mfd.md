@@ -331,7 +331,7 @@ No grid, border or markers.
 
 ### `MFDRadar` — mode 3
 
-The plan view, its turret wedge and its contact list: [`mfd-scanner.md`](mfd-scanner.md).
+The plan view, its turret wedge and its contact list: [`mfd-scanner.md`](mfd-scanner.md). Frames 14-18 are the whole of that screen's art. Frame 14 matching the `radar` bank's frame size is not a coincidence — that bank holds the sweep played over the same dish.
 
 ## Paint order
 
@@ -341,11 +341,11 @@ The plan view, its turret wedge and its contact list: [`mfd-scanner.md`](mfd-sca
 
 ## Engine coverage
 
-Drawn: screen background, F-key column with lit state, per-mode aux buttons, titles and captions, the whole NAV MAP (`MfdNavMap`), and **both status screens driven from a live subject** — `Herculan.Engine.Content.MfdStatusSubject`, one record for F1 and F5 as in the original. The scanner is drawn too — see its own doc, and so are the paper doll's per-region damage tints. Not drawn: the mode-switch sweep animation and the missile camera.
+Drawn: screen background, F-key column with lit state, per-mode aux buttons, titles and captions, the whole NAV MAP (`MfdNavMap`), and **both status screens driven from a live subject** — `Herculan.Engine.Content.MfdStatusSubject`, one record for F1 and F5 as in the original. The scanner is drawn too — see its own doc, and so are the paper doll's per-region damage tints. Not drawn: the mode-switch sweep animation and the missile camera ([Open](#open)).
 
 FLASH COMM is complete: `MfdFlashCommScreen` keeps the row states and resolves the verb, and `Overlay2DRenderer` draws the list with its four fonts, its hotkey character and its plate, and the transmission over the top of whichever screen is up. Transmissions come from `SquadCommChannel` ([`cockpit-messages.md`](cockpit-messages.md#the-pilot-and-squad-channel)).
 
-Buttons: the F-key column sets the mode, and `Program.ApplyMfdAuxClick` carries 8 `RANGE`, the shared 7/9 `SELECT`/`TARGET` case, 10 `XMIT`, and 11 `PASS` / 12 `ACTIVE`. **One is not wired**: mode 0's arm of the shared case, which steps a squad roster the engine has no equivalent of. Every row of the order list draws available, which is what retail does too — nothing sets the unavailable bit.
+Buttons: the F-key column sets the mode, and `Program.ApplyMfdAuxClick` carries 8 `RANGE`, the shared 7/9 `SELECT`/`TARGET` case, 10 `XMIT`, and 11 `PASS` / 12 `ACTIVE`. One arm of the shared case is not wired ([Open](#open)): mode 0's, which steps a squad roster. Every row of the order list draws available, which is what retail does too — nothing sets the unavailable bit.
 
 `Herculan.Engine.Host` takes `--mfd <0-5>` to pick the initial screen and `--target` to acquire one, since a `--screenshot` run never sees a keystroke; `--flash-comm <0-5>`, `--flash-comm-xmit` and `--wait-transmission` drive the order list and hold the run open until a reply is on screen.
 
@@ -353,6 +353,7 @@ Status-screen deviations: there is no pilot roster, so only the machine being fl
 
 ## Open
 
-- `mfd_dmg` (7 frames, 192x118) is built into three animation sequences of 3/2/3 frames by `MfdDisplay_Ctor` from count table `0049cb40` and six frame-index tables at `0049cb4c`-`0049cb88`. Trigger and meaning not traced; consistent with display-damage static.
-- Frames 14-18 are the whole of the scanner screen, see [`mfd-scanner.md`](mfd-scanner.md). Frame 14 matching the `radar` bank's frame size is not a coincidence either — that bank holds the sweep played over the same dish.
-- Mode 5, the missile camera, beyond its button and background layout.
+- **Open:** what triggers `mfd_dmg`'s three animation sequences of 3/2/3 frames (7 frames, 192x118, built by `MfdDisplay_Ctor` from count table `0049cb40` and six frame-index tables at `0049cb4c`-`0049cb88`) and what they mean; consistent with display-damage static.
+- **Unported:** the mode-switch sweep animation played on switching to the F4 SCANNER screen ([`mfd-scanner.md`](mfd-scanner.md#open)).
+- **Unported:** mode 5, the missile camera, beyond its button and background layout.
+- **Unported:** mode 0's arm of the shared SELECT/TARGET case, which steps a squad roster; the engine has no such roster to step.

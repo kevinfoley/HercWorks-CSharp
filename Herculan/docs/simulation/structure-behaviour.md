@@ -141,7 +141,7 @@ and finishes with `SimObject_ApplyRootMotionIfEnabled(this, 100)`, which is what
 
 ## The triple turret — `004045c8`
 
-Not ported. Type `0x22` alone, and the only object in the game that **aims three turrets from one object**: it rewrites its own heading field to `heading + 0x1555`, evaluates three turrets `0x5554` (120°) apart, and restores the original heading at the end. Each turret runs three weapon slots against `DAT_004a9640`, an 11-`short` descriptor table: slot 0 fires `Rocket_Fire(3, …)` and slots 1 and 2 `Bullet_FireBurst(3, …)` through `WeaponMountTemplate_GetByWeaponId(8)`. Its acquisition is `Ai_SelectTarget(this, 0x10, 0x3000)` — **the `0x3000` bearing cone** [`ai-targeting.md`](ai-targeting.md) names as the base turret's.
+Type `0x22` alone, and the only object in the game that **aims three turrets from one object**: it rewrites its own heading field to `heading + 0x1555`, evaluates three turrets `0x5554` (120°) apart, and restores the original heading at the end. Each turret runs three weapon slots against `DAT_004a9640`, an 11-`short` descriptor table: slot 0 fires `Rocket_Fire(3, …)` and slots 1 and 2 `Bullet_FireBurst(3, …)` through `WeaponMountTemplate_GetByWeaponId(8)`. Its acquisition is `Ai_SelectTarget(this, 0x10, 0x3000)` — **the `0x3000` bearing cone** [`ai-targeting.md`](ai-targeting.md) names as the base turret's.
 
 A slot only fires while its own component is undamaged, and the missile slot installs the target on `this+0x1a4` across the `Rocket_Fire` call and clears it again straight after, purely so the round picks up a lock — the object holds no target otherwise.
 
@@ -203,10 +203,15 @@ Ported: the construction tail, the plain tick including `BaseObject.StepAnimatio
 
 `Target` is on `SimObject`, as `+0x1a4` is on the original's shared base, with the holder-count bookkeeping in that one setter and an `OnTargetChanged` hook for what a HERC and an aircraft each add. `BaseObject.AimPoint` is the `+0x2c` offset. Neither the `+0x9d` changed flag nor a behaviour state exists on a structure, because nothing in the original reads either.
 
-**Not ported:** the triple turret (`004045c8`).
+The triple turret (`004045c8`, [Type `0x22`](#the-triple-turret--004045c8)) is the one structure class this doc covers that the engine lacks ([Open](#open)).
 
 Three things to know about what *is* ported:
 
 - **The turret is drawn moving, from the same node poses the simulation aims with.** `SimObject_InstallModelTransform` (`00401fe4`) and `TSGroup_BindNodeTransform` (`00476014`) are the original's pair, and they are the same for every class: the structure classes install `Shape_DrawAtDetailLevel` (`004033e4`) in their vtable's `+0` unchanged, which hands the whole shape to the shape instance's own render, and that composes each group's node transform in front of the object's. The engine's counterpart is `MissionScene.PosedTransformOf`, over the `MeshSegment`s `SceneModelLibrary.Base` now builds for an `AnimatedLibrary` type. A segment carries a `CellGate` of its own, so the per-node and per-cell splits are one split and the damage states come with it.
 - **`StepAnimation` applies the root delta's translation and heading only**, dropping the pitch and roll a HERC adds. That costs nothing while the delta stays identity, which on retail data it always does.
-- **The retail mission handoff exercises none of the move half.** Its one ground vehicle (type `0x38`) rides in a group whose first member is a plain building, so the class gate keeps it parked — and it stands overlapping an armed tower, which would block every step it tried to take even if the gate let it move. The path was checked by standing that vehicle clear and giving it a route of its own. The follower arm is unexercised: a second mobile ground vehicle to hold station on exists in no mission this engine can load today, because `MissionLoader` reads the `script.dat` handoff and not the campaign's `.MSN` files.
+- **The retail mission handoff exercises none of the move half.** Its one ground vehicle (type `0x38`) rides in a group whose first member is a plain building, so the class gate keeps it parked — and it stands overlapping an armed tower, which would block every step it tried to take even if the gate let it move. The path was checked by standing that vehicle clear and giving it a route of its own ([Open](#open) covers the follower arm).
+
+## Open
+
+- **Unported:** the triple turret (`004045c8`, [Type `0x22`](#the-triple-turret--004045c8)).
+- **Open:** the ground vehicle follower arm has no mission exercising a second mobile vehicle to hold station on; confirm it once `MissionLoader` can load the campaign's `.MSN` files directly instead of only the `script.dat` handoff.

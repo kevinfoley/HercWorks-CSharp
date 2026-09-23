@@ -34,7 +34,7 @@ Four properties a port has to preserve:
 
 It returns the ray's entry point into the hit cylinder, `alongAxis - (radius - offAxis)` floored at 1, which is what `Sim_RaycastObjectList` shortens the ray to. **A fully absorbed shot still returns a hit distance and still stops the ray** — shields do not let fire through to whatever is behind — and the caller spawns only a hit-spark effect.
 3. **Component selection — `Mech_SelectStruckComponent` (`0040c9d4`).** Only reached if some damage penetrated shields. Tests the mech's `col\<NAME>.COL` hit-sphere model cluster by cluster to find the ONE component struck — **not** a random roll, unlike the explosion path. Decoded and ported in [`hit-detection.md`](hit-detection.md). **Missing every sphere is a clean miss**: the shield cylinder is only a gate, and the shot passes on to whatever stands behind.
-4. **Damage application — `Mech_ApplyDirectFireDamage` (`004188c8`).** Takes `SplashFactor` off the top (`Math_Q10Multiply(shotData[+8], armorDamage)`, Q10 — see [`weapon-damage-types.md`](weapon-damage-types.md#weapon-type-effectiveness)) and **splits** the shot: the remainder goes to that component's general health via the mech's `+0x74` slot (`Mech_ComponentDamageWrite` (`00417de4`), see [`component-damage.md`](component-damage.md)), and the split-off share, when non-zero, becomes a 500-unit secondary explosion through this same machine's `+0x70` — a direct call, not a sweep, so it cannot reach anything standing beside it. Health is bucketed into 8 levels (`>>5` of the 0–256 Q8 percentage) for state-transition/alert purposes, plausibly matching the manual's 5-color status system (Green/Yellow/Orange/Red/Gray). A bucket change also rolls to knock out a weapon mount at that component — see [`weapon-damage-types.md`](weapon-damage-types.md#weapon-mount-destruction).
+4. **Damage application — `Mech_ApplyDirectFireDamage` (`004188c8`).** Takes `SplashFactor` off the top (`Math_Q10Multiply(shotData[+8], armorDamage)`, Q10 — see [`weapon-damage-types.md`](weapon-damage-types.md#weapon-type-effectiveness)) and **splits** the shot: the remainder goes to that component's general health via the mech's `+0x74` slot (`Mech_ComponentDamageWrite` (`00417de4`), see [`component-damage.md`](component-damage.md)), and the split-off share, when non-zero, becomes a 500-unit secondary explosion through this same machine's `+0x70` — a direct call, not a sweep, so it cannot reach anything standing beside it. Health is bucketed into 8 levels (`>>5` of the 0–256 Q8 percentage) for state-transition/alert purposes ([Open](#open)). A bucket change also rolls to knock out a weapon mount at that component — see [`weapon-damage-types.md`](weapon-damage-types.md#weapon-mount-destruction).
 
 This is fundamentally different in shape from the explosion path: precisely-aimed weapons hit what you aimed at; explosions spray damage around imprecisely.
 
@@ -126,6 +126,10 @@ vtable+0x74(0, (blastRadius - (|hitPoint - obj[+0x26]| - obj[+0x5c])) * damage /
 ```
 
 Component 0 is the only one a flyer has. There is no range test — the sweep has already made it — so the numerator cannot come out negative. The body radius subtracted is the same one the sweep subtracted, and a flyer's is zero (see [`hit-detection.md`](hit-detection.md#the-three-radius-slots)); for a class whose radius is not zero, a blast going off inside it scales by more than one.
+
+### The collision path's structure record
+
+`Mech_CollisionTest` clears `mech+0x2b0` on entry and, for each candidate whose `TargetClass` is 1 and whose body radius contains the machine, stores that structure (`00418fb2`/`00419016`). It is a render-side hand-off, not an aim or lock-on aid: `maybe_Scene_SubmitFrameObjects` reads it every frame (`00428519`) and, when it is set, submits the machine through `FUN_004283b4(mech, structure+0x1e8)` instead of the ordinary `FUN_0042837c(mech, GetBodyRadius())` — a machine standing inside a building's footprint is bucketed with the building rather than by its own radius ([Open](#open)).
 
 ### A collision — `Mech_CollisionTest` (`00418f74`)
 
@@ -233,15 +237,16 @@ The traps, not a summary — everything else here is stated once above and does 
 
 The explosive pathway is ported entire. `SimWorld.ExplosiveBlastSweep` is the sweep; `SimObject.ExplosiveDamage` is the `+0x70` slot, overridden by `MechObject`, `BaseObject` and `FlyerObject` for the three implementations. The `+0x58` accessors are `MechObject.ComponentPosition` (over an anchor table `BuildComponentAnchors` fills from the `.COL`, which is where the original's loadout step puts it) and `BaseObject.ComponentPosition`. `ShieldCharge.AbsorbExplosion` is the explosion path's shield step, and `SplashFactor`'s share is diverted rather than dropped. The collision call site is `MechObject.CollisionDamage`.
 
-Of the sweep's three call sites the plasma round and the drop pod's landing (`Sim.MeteorObject`, [`mission-deployment.md`](mission-deployment.md)) are both reachable; the ram belongs to a behaviour state that does not exist yet. The sweep returns whether it caught anything, which only the pod reads — a pod that lands on something delivers nothing.
-
-Not ported: the Shield Pod's own damage term in `Mech_ComputeShieldCapacity`.
+Of the sweep's three call sites the plasma round and the drop pod's landing (`Sim.MeteorObject`, [`mission-deployment.md`](mission-deployment.md)) are both reachable; the ram belongs to a behaviour state that does not exist yet ([Open](#open)). The sweep returns whether it caught anything, which only the pod reads — a pod that lands on something delivers nothing.
 
 `MechObject.ShieldsDownAlert` is a pure one-shot: it lacks the `+0xb0` clear the original's per-tick systems update runs above 1500 charge, so in this engine `SHIELDS CRITICAL` announces once per mission and the MFD's `SHIELDS DN` never goes out again ([`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md)).
 
-Both by-products of the collision path are live in the original: the "something ran into me" latch at `obj+0xb1`, ported, is what a ramming machine detonates on, and `mech+0x2b0` is the nearby-structure record below.
+Both by-products of the collision path are live in the original: the "something ran into me" latch at `obj+0xb1`, ported, is what a ramming machine detonates on, and `mech+0x2b0` is the nearby-structure record [above](#the-collision-paths-structure-record).
 
-## Open items
+## Open
 
-- **`Sim_RaycastObjectList` (`00426528`)'s and `Razor_MovementTick`'s exact source translation unit** unconfirmed by a direct assert string — the `objlist.cpp`/`flyersys.cpp` attributions are architecturally well-supported (shared object-list usage; a function that touches nothing but flyer state) but not proven the way `rocket.cpp`/`collide.cpp` were.
-- **The collision path's structure record — `mech+0x2b0`**. `Mech_CollisionTest` clears it on entry and, for each candidate whose `TargetClass` is 1 and whose body radius contains the machine, stores that structure (`00418fb2`/`00419016`). It is a render-side hand-off, not an aim or lock-on aid: `maybe_Scene_SubmitFrameObjects` reads it every frame (`00428519`) and, when it is set, submits the machine through `FUN_004283b4(mech, structure+0x1e8)` instead of the ordinary `FUN_0042837c(mech, GetBodyRadius())` — a machine standing inside a building's footprint is bucketed with the building rather than by its own radius. Not ported; the engine's scene pass does not have the bucket this feeds.
+- **Open:** confirm `Sim_RaycastObjectList` (`00426528`)'s and `Razor_MovementTick`'s exact source translation unit with a direct assert string — the `objlist.cpp`/`flyersys.cpp` attributions are architecturally well-supported (shared object-list usage; a function that touches nothing but flyer state) but not proven the way `rocket.cpp`/`collide.cpp` were.
+- **Unported:** the collision path's structure record, `mech+0x2b0` ([above](#the-collision-paths-structure-record)) — the engine's scene pass does not have the render bucket this feeds.
+- **Unported:** the Shield Pod's own damage term in `Mech_ComputeShieldCapacity`.
+- **Unported:** the ram behaviour state that would exercise `Damage_ExplosiveBlastSweep`'s third call site.
+- **Open:** whether the 8-level health bucketing (`Mech_ApplyDirectFireDamage`'s `>>5` of the Q8 percentage) matches the manual's 5-color status system (Green/Yellow/Orange/Red/Gray).

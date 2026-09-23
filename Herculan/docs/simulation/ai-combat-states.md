@@ -36,7 +36,7 @@ return 0
 | `+0x10` | `int32` | Near standoff. Starts 15000 |
 | `+0x14` | `int32` | Far standoff. Starts 30000 |
 
-The aspect is `targetTurretTwist + (bearingToTarget - 0x8000) - targetHeading`, and its only consumer is `Ai_ChooseWeapon`'s shield-facing test — see [`ai-weapons.md`](ai-weapons.md#open-questions). The two travel thinks build the same quantity by hand rather than through this function.
+The aspect is `targetTurretTwist + (bearingToTarget - 0x8000) - targetHeading`, and its only consumer is `Ai_ChooseWeapon`'s shield-facing test — see [`ai-weapons.md`](ai-weapons.md#open). The two travel thinks build the same quantity by hand rather than through this function.
 
 ## The move step — `Ai_CombatMoveStep` (`0041e828`)
 
@@ -297,7 +297,7 @@ That "nothing lowers it" is a negative claim, so here is what it rests on, by th
 
 The neighbours a wider store could straddle it from — `+0xae`, `+0xaf`, `+0xb0` — are byte fields with byte-wide accesses on a mech base.
 
-The three cover each other's blind spots, which is the point of using them together. The disassembly has undecoded stretches inside AI code — 444 bytes of `Mech_BehaviourDriveOffThink` among them — and both the field scan and the `memset` sweep read the disassembly, so neither sees into those. The decompile does cover them, and it folds the rebase back into the true offset (`*(char *)((int)this + 0xb1)` is how it renders the read above), so a text grep of it for the offset is sound rather than defeated by the `ADD`.
+The three cover each other's blind spots, which is the point of using them together. The disassembly leaves stretches of AI code as raw bytes rather than resolved instructions — 444 of them inside `Mech_BehaviourDriveOffThink` — and both the field scan and the `memset` sweep read the disassembly, so neither sees into those. The decompile does cover them, and it folds the rebase back into the true offset (`*(char *)((int)this + 0xb1)` is how it renders the read above), so a text grep of it for the offset is sound rather than defeated by the `ADD`.
 
 What none of them closes is a write that reaches the byte without naming it: through a base register neither alias pass follows, or through a pointer the decompiler renders as an index rather than a constant. That is the residual, and it is why this is a well-supported claim rather than a proof.
 
@@ -367,7 +367,7 @@ The behaviour block's scratch (`mech+0x5a` to `mech+0x81`, zeroed by every `Beha
 | `+0x5a` | `skirting` | The descriptor to go back to |
 | `+0x5b` | `fleeing` | Side-switch countdown, 4000 ms |
 | `+0x5b` | `ramming` | Retarget countdown, 10000 ms |
-| `+0x5d` | `Ai_CircleStep` | Written zero on the square-up arm, as a `word` that also covers `+0x5e`. **The write is the field's only instruction in the image** |
+| `+0x5d` | `Ai_CircleStep` | Written zero on the square-up arm, as a `word` that also covers `+0x5e`. The write at `0041c858` is the field's only instruction in the image — a rebase-aware `LEA reg,[base + k]` scan finds no other, against a control run on `+0x60` that finds the circling step's write and `skirting`'s reader. Nothing consumes it |
 | `+0x5e` | `skirting` | The state has started |
 | `+0x5f` | `fleeing` | Which side to run to |
 | `+0x5f` | `ramming` | Charging rather than approaching |
@@ -389,14 +389,7 @@ Fields outside the block:
 | `+0xb1` | byte | Something ran into this object. Written by `Mech_CollisionTest` through vtable `+0x68`, read by `Mech_BehaviourRamTick`, never cleared |
 | `+0x288` | int | Total damage taken — [`damage-system.md`](damage-system.md). Read here as the gate on the circling break-off |
 | `+0x31e` | `int32`×3 | Where the target was when the line of fire was found blocked |
-
-## Open questions
-
-- **`BASES.DAT +0x2e`'s generator and transport entries**, and why the missile tower alone states 2 when both readers only test for zero.
-
-`mech+0x5d` is settled as far as it can be: a scan of the whole disassembly that follows `LEA reg,[base + k]` rebases as well as bare displacements finds `0041c858` and nothing else, against a control run on `+0x60` that finds the circling step's write and `skirting`'s reader. Nothing consumes it.
-
-`mech+0x9e` has readers, and they are outside the AI: it is the *engaged* flag, and the mission-objective layer's condition 6 asks it of a group and of an object — [`mission-objectives.md`](mission-objectives.md), [`target-selection.md`](target-selection.md).
+| `+0x9e` | byte | The *engaged* flag. Read outside the AI, by the mission-objective layer's condition 6, of a group and of an object — [`mission-objectives.md`](mission-objectives.md), [`target-selection.md`](target-selection.md) |
 
 ## Rejected readings
 
@@ -425,3 +418,7 @@ What differs from the original, and why:
 - **Every state change goes through one helper that clears the scratch**, because the original's zeroing of the block is what makes a freshly installed state start from nothing, and named C# fields do not get that for free.
 
 Observed running mission 1: a machine on an `attacking base` order cycles `attacking base` → `skirting` → `attacking base` as its shots stop on the compound's other buildings, and can orbit the ring for a minute at a time when the building it is on has others all the way round it. That is the mechanism working as written rather than a divergence: `skirting` bounds itself only by the clear line-of-sight reading, and its dwell flag stops the countdown that would otherwise let the reassess pick something else, so nothing short of the group's next order or the machine's death cuts the cycle.
+
+## Open
+
+- **Open:** `BASES.DAT +0x2e`'s generator and transport entries, and why the missile tower alone states 2 when both readers only test for zero.

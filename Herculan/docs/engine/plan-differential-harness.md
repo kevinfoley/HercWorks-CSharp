@@ -45,7 +45,7 @@ Globals the retail walk needs, all already identified:
 
 Worth doing in this order; each stands on its own.
 
-1. **Snapshot diff — an afternoon, no code.** Break once after mission spawn in any debugger, dump the object list, compare with the engine at the same point. Catches spawn placement, loadout, starting condition and type-record misreads — a large class that is currently unverified — for almost no effort. Do this first whatever happens to the rest.
+1. **Snapshot diff — an afternoon, no code.** Break once after mission spawn in any debugger, dump the object list, compare with the engine at the same point. Catches spawn placement, loadout, starting condition and type-record misreads — a large class no run has yet compared against retail — for almost no effort. Do this first whatever happens to the rest.
 2. **Tick-hash harness — a couple of days.** The DLL, the engine-side emitter, and the diff. This is the piece that pays for itself.
 3. **Per-subsystem field sets — ongoing.** The harness is only as good as the fields chosen for the hash. Pick them when porting a subsystem, while the RE is fresh.
 
@@ -53,15 +53,15 @@ Worth doing in this order; each stands on its own.
 
 Making the two engines agree well enough for the diff to be *quiet* is the actual project. This engine already runs some things back to back where the original has separate dispatch passes — `MechObject.Tick` says so in as many words, and `SimWorld.Raycast`'s ordering relative to the detection sweep is the same kind of choice. Ordering differences produce divergence even when both engines are individually correct, so early runs will be noisy and reconciling them is real work.
 
-That is worth knowing up front, and it is not a reason to skip it: even a noisy diff that says "first divergence at tick 340, object 3" is a far stronger lead than anything playtesting gives. It also converts an open question in [`../../ROADMAP.md`](../../ROADMAP.md) — how many draws DBSIM has made before a given roll — from something to reason about into something to measure, since the generator state is one of the values the harness can dump.
-
-## Open questions
-
-- **Driving the same input.** The simplest first scenario is one with no player input at all: an AI-only engagement, or the player's machine left stationary. Scripted input replay is a later problem and may not be needed for a long time.
-- **How to launch a specific mission** in retail without going through the shell. Not investigated.
-- **Injection mechanics.** A DLL with a trampoline hook is the fast, reliable option. A debugger script needs no build step but breaks on every tick, which may be too slow to run whole missions. Not benchmarked.
-- **Whether `0x4d268f`**, the second generator state block seeded beside the shared one, matters to anything the harness compares. Its consumers have not been traced.
+That is worth knowing up front, and it is not a reason to skip it: even a noisy diff that says "first divergence at tick 340, object 3" is a far stronger lead than anything playtesting gives. It also converts a [`../../ROADMAP.md`](../../ROADMAP.md) item — how many draws DBSIM has made before a given roll — from something to reason about into something to measure, since the generator state is one of the values the harness can dump.
 
 ## Prior art in this repo
 
 `tools/scripts/es2_xref.py` and `tools/scripts/es2_fieldscan.py` answer the static versions of these questions — what references an address, what touches a field. They are the right tools for deciding *which* fields a subsystem's hash should cover, and for confirming a suspected divergence once the diff has pointed at one.
+
+## Open
+
+- **Open:** driving the same input. The simplest first scenario is one with no player input at all: an AI-only engagement, or the player's machine left stationary. Scripted input replay is a later problem and may not be needed for a long time.
+- **Open:** how to launch a specific mission in retail without going through the shell.
+- **Open:** injection mechanics. A DLL with a trampoline hook is the fast, reliable option. A debugger script needs no build step but breaks on every tick, which may be too slow to run whole missions; benchmark it.
+- **Open:** whether `0x4d268f`, the second generator state block seeded beside the shared one, matters to anything the harness compares. Trace its consumers.

@@ -240,10 +240,6 @@ The AI-relevant mech vtable slots, as entry points for the topic docs. Slots who
 | `+0x64` | `Mech_AiOnLineOfFireBlocked` (`0041dd2c`) | "My shot hit something that is not what I aimed at" — the trigger for `skirting`, [`ai-combat-states.md`](ai-combat-states.md#how-it-is-reached) |
 | `+0x68` | `FUN_0042200c` | "Something ran into me" — [`mech-locomotion.md`](mech-locomotion.md) |
 
-## Open questions
-
-- **Bits 6–15 of descriptor `+0x08`.** No state sets one, so nothing can read one.
-
 ## Rejected readings
 
 | Reading | Why it is wrong |
@@ -254,3 +250,7 @@ The AI-relevant mech vtable slots, as entry points for the topic docs. Slots who
 | The think and move functions are dead code | Every one has zero xrefs because it is only ever reached as a pointer-to-member through `00415afc` / `00415b38` / `00415b74`. A whole-image sweep finds each of them as a stored dword in `BehaviourSlotBlocks` and nowhere else — `Mech_MovementTick` at 18 sites, one per state that walks |
 | Changing state drops the machine's target | Four of `Mech_AiSelectBehaviour`'s paths release it, which is most of what one reads when following the reassess, and every other doc's state change goes through that function. It is still local to those four sites: `Mech_AiEngageOrderedTarget` acquires a target on its way into `attacking base`, and the damage, flee-check and taking-fire installers leave the selection standing |
 | A state whose flag bit 0 stops the dwell clock can only be left on its own terms | The clock is what gates the *reassess slot*, and three functions zero the countdown directly. A group advancing its order, or a squad order arriving, resolves a machine out of any state with a reassess — see "What the dwell time buys" |
+
+## Open
+
+- **Open:** bits 6–15 of descriptor `+0x08` — no state sets one, so nothing can read one.

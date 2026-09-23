@@ -59,4 +59,8 @@ The three objective arms live beside the waypoint one in `MechObject.PlayerThink
 | The player's waypoints are their own mission record, separate from the AI's routes | They are order slot 0's route on the player's own group, read through the same `Route_WaypointAt` the AI uses |
 | Reaching a waypoint fires the mission action attached to it | A waypoint carries no action ref. What fires is a block-4 trigger area the author has put on the same coordinate |
 | The waypoint indicator can point at the player's selected target instead of the route | The branch exists, gated on `DAT_004d2af0`. That global has exactly one reference in the image — the read that tests it. Its two `.bss` neighbours `DAT_004d2aec` and `DAT_004d2af4` are each written by name, so the region is individually addressed and nothing is reaching it through a base-plus-offset either: it is zero for the whole run and the branch is unreachable |
-| `Ai_FollowRoute` is the only thing that advances a route cursor | It is one of four callers of `Route_AdvanceCursor`. The others are this think, `Flyer_LeadRouteStep` ([`ai-flyers.md`](ai-flyers.md)) and `FUN_0046a8e4`, the route half of an undecoded class' movement tick at `0046a70c` |
+| `Ai_FollowRoute` is the only thing that advances a route cursor | It is one of four callers of `Route_AdvanceCursor`. The others are this think, `Flyer_LeadRouteStep` ([`ai-flyers.md`](ai-flyers.md)) and `FUN_0046a8e4`, the route half of a movement tick at `0046a70c` whose owning class this doc does not name ([Open](#open)) |
+
+## Open
+
+- **Open:** identify the class whose movement tick at `0046a70c` calls `FUN_0046a8e4`, the fourth caller of `Route_AdvanceCursor`.

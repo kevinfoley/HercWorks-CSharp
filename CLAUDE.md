@@ -39,10 +39,18 @@ The docs state what is true now. How the project got there belongs in `git log`.
    interpretation)? Then keep it forward-looking ("the obvious reading is X; it is actually Y
    because Z") in that doc's **Rejected readings** table. "This doc used to say X" fails the test.
 
-7. **Verify status claims before repeating them.** "Not ported" and "unresolved" go stale silently;
-   grep the named type first.
+7. **Verify status claims before repeating them.** "Unported" and "open" go stale silently; grep
+   the named type first.
 
-`tools/scripts/doc_lint.py` enforces 1, 4 and 6, and runs automatically after any edit under
+8. **Open work lives in one final `## Open` section**, the last section of the doc, as top-level
+   bullets labelled `**Unported:**` (a retail feature this engine lacks) or `**Open:**` (anything
+   else unfinished: incomplete RE, an unconfirmed reading, an unexplained field). Those are the only
+   two status terms — never "not ported", "untraced", "unresolved", "undecoded". The body
+   states what is known and may link to [Open](#open); it carries no tasks and no hedges
+   ("plausibly", "unconfirmed") — a hypothesis is an Open item. `KNOWN_ISSUES.md`, `ROADMAP.md` and
+   `README.md` keep their own structure.
+
+`tools/scripts/doc_lint.py` enforces 1, 4, 6 and 8, and runs automatically after any edit under
 `Herculan/docs/`. `/doc-lint` runs it over the whole set. It cannot catch 2, 3, 5 or 7.
 
 `tools/scripts/doc_links.py` resolves every cross-reference — that the file exists and that a

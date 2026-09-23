@@ -21,7 +21,7 @@ Every writer of `+0x1a4` also maintains `target+0x1a2`, a count of how many obje
 
 Everything selectable and inside the ±8999 cone is filed into one of four buckets by bearing error (`|err| >> 10`, clamped to 3), sorted by range within its bucket, keeping four. Flattening the buckets in order gives the shortlist: **nearest the crosshair wins, range only breaks ties inside a band**. A repeat press whose rebuilt head is unchanged steps to the shortlist entry after the current selection.
 
-The angular-size correction the function computes from the target's range and shape radius is multiplied by a literal `PUSH 0x0` (`004335d0`) and is therefore always zero. Not ported, by omission.
+The angular-size correction the function computes from the target's range and shape radius is multiplied by a literal `PUSH 0x0` (`004335d0`) and is therefore always zero; the engine omits the same dead term.
 
 ### Can this be targeted — `FUN_00433174`
 
@@ -156,7 +156,7 @@ Because `Mech_ComponentDamageWrite` then hands **every** mount its component's r
 
 `SimObject` carries `ListIndex`, `Side`, `TargetClass`, `Neutralised`, `RadarVisible`, `ScannerActive`, `JammerActive`, `AimOffset`/`AimPoint`/`SightHeight`, `TargetedBy` and the two per-object tables. `MissionScene.Targeting` holds the selection; the host drives it from [Enter]/[']/[;] and pushes it to the machine once a frame.
 
-The pod is `Sim.TargetingPodLock`, hung off `WeaponMount.ComponentLock` for the one mount whose catalog id is 29 and null on every other — the engine has a single mount class where the original has a subclass per kind, and the four fields belong to the mount that has them. `MechObject` supplies the callers: the reset from its `OnTargetChanged`, `CycleTargetComponent` for `[Tab]`, and `ResolveTargetAimPoint` for `Player_ResolveTargetAimPoint`, whose result the host resolves **once a frame** and hands to both consumers — asking twice would run the decay countdown twice. The target's two slots are `SimObject.NextTargetableComponent` / `ComponentPresent`, overridden on `MechObject`; `Base_NextTargetableComponent` is not ported, being unreachable behind the `TargetClass` fence.
+The pod is `Sim.TargetingPodLock`, hung off `WeaponMount.ComponentLock` for the one mount whose catalog id is 29 and null on every other — the engine has a single mount class where the original has a subclass per kind, and the four fields belong to the mount that has them. `MechObject` supplies the callers: the reset from its `OnTargetChanged`, `CycleTargetComponent` for `[Tab]`, and `ResolveTargetAimPoint` for `Player_ResolveTargetAimPoint`, whose result the host resolves **once a frame** and hands to both consumers — asking twice would run the decay countdown twice. The target's two slots are `SimObject.NextTargetableComponent` / `ComponentPresent`, overridden on `MechObject`; `Base_NextTargetableComponent` has no engine counterpart, since it sits unreachable behind the `TargetClass` fence in retail too.
 
 All three entry points also set the gunsight's "indicator armed" byte (`TargetSelection.IndicatorArmed`, state-block offset 36) on a successful press, which the target box's paint requires — see [`../formats/hud-target-indicator.md`](../formats/hud-target-indicator.md). Nothing ever clears it.
 
@@ -165,4 +165,8 @@ Deviations:
 - **The observer camera is excluded** from the sensor model by target class. DBSIM's live-object list only ever holds the three combat classes; `SimWorld`'s also holds the camera, which would otherwise spot for the player's side.
 - **`TargetSelection.DropIfInvalid`** is not the original's, which has no player-side abandon check at all: the death path (`FUN_0041eb34`) is gated on `obj+0xa3` being *clear*, so it and `Ai_ShouldAbandonTarget` (`0041c4a8`, see [`ai-targeting.md`](ai-targeting.md#abandoning-a-target--ai_shouldabandontarget-0041c4a8)) only ever run for an AI machine. Without something in their place a destroyed target stays locked. It drops on death alone and deliberately does **not** re-run the selectability test: that also asks whether the object is currently known, which radar decay makes come and go, so testing it would drop a live target every few ticks.
 - `obj+0x9e` and the engagement action it fires at 50000 units are `SimObject.Engaged` and `SimObject.EngagementAction` — [`mission-deployment.md`](mission-deployment.md).
-- Not ported: the "enemy detected" callout (vtable `+0x48`, `Mech_AiEnemySighted` — see [`ai-targeting.md`](ai-targeting.md#radio-callouts)), and the second viewing object `DAT_004d2708` selects when watching another machine.
+
+## Open
+
+- **Unported:** the "enemy detected" callout (vtable `+0x48`, `Mech_AiEnemySighted` — see [`ai-targeting.md`](ai-targeting.md#radio-callouts)).
+- **Unported:** the second viewing object `DAT_004d2708` selects when watching another machine.

@@ -234,11 +234,6 @@ What differs from the original, and why:
 - **The machine sweep's range is the ground one.** The original's is 3D. The two agree on level ground and the sweep reads a machine on a rise as further off than the engine does, so the engine steers around it marginally earlier.
 - **The mode-1 hit point is the walk's own point for the step**, not the refinement `FUN_0046fcac` solves against the blocking face. Both callers only measure a range from it, and the two differ by less than a cell.
 
-## Open questions
-
-- **Descriptor `+0x3c`** groups `skirting` and `ramming` with the combat states against the rest of the navigation roster, which is a stronger distinction than its one reader needs; see [`ai-dispatch.md`](ai-dispatch.md).
-- **Why the firing line is the only source that cuts speed.** The distance thresholds for the other two are zero, which reads more like an unfinished tuning pass than a decision.
-
 ## Rejected readings
 
 | Reading | Why it is wrong |
@@ -250,3 +245,8 @@ What differs from the original, and why:
 | A `following` order ends when the group reaches what it is following | Its completion test is the route test the other two movement verbs use, and nothing in `following` advances the route cursor |
 | Every navigation range is the ground one | Every range a *steer* is computed from is, which is the bulk of them and the reason a hilltop waypoint is as near as its foot. Two ranges that only gate a decision are 3D: the avoidance's machine sweep and `following`'s standoff |
 | `Sim_RaycastShapes`' filter turns on whether the candidate moves | `typeRec+0x06` is a machine's top speed and a structure's animated flag, and the probe wants the second reading. A standing *animated* structure is skipped here and picked up by the collision-radius sweep instead |
+
+## Open
+
+- **Open:** descriptor `+0x3c` groups `skirting` and `ramming` with the combat states against the rest of the navigation roster, a stronger distinction than its one reader needs — see [`ai-dispatch.md`](ai-dispatch.md).
+- **Open:** why the firing line is the only source that cuts speed — the distance thresholds for the other two are zero, which reads more like an unfinished tuning pass than a decision.

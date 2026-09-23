@@ -62,7 +62,7 @@ Page 0 is handed the screen rect and the order column; page 1 the screen rect an
 | Index | Bytes | Contents |
 |---|---|---|
 | 0-1 | 1212 | Origin offset, added to every rect below |
-| 2-3 | 1220 | Unread |
+| 2-3 | 1220 | [Open](#open) |
 | 4-7 | 1228 | Screen rect |
 | 8-11 | 1244 | Order column rect |
 | 12-15 | 1260 | Damage column rect |
@@ -70,7 +70,7 @@ Page 0 is handed the screen rect and the order column; page 1 the screen rect an
 | `0x14`+4i | 1292 | 15 widget rects |
 | `0x50`+4i | 1532 | 3 comm-box marker rects |
 | `0x5c` | 1580 | Arrow-button frame set, 0 or 1 |
-| `0x5d` | 1584 | Unread |
+| `0x5d` | 1584 | [Open](#open) |
 | `0x5e` | 1588 | Comm-box highlight mode |
 
 All values are authored in the 320-wide space. `HddGau_ApplyCoordShift` adds `0x28` to the origin's y **before** shifting, then shifts every rect by `VideoMode_X/YCoordShift`; the constructor adds the shifted origin to each rect.
@@ -479,8 +479,6 @@ Everything the command display draws is drawn. Zoom, pan, recentring, pilot sele
 
 The comm boxes run their four-state machine and draw what it says: the `pilot<n>` portrait at its `.OFS` offset or the cycling `static`, clipped to the box, with the name plate left over it and the four status lines suppressed. Both 320-wide-only banks are taken from `dba\` and blitted doubled, the way the original doubles them. A destroyed squadmate's box sits on static: the original's idle paint reads the machine's own destroyed flag, and `SquadCommChannel.SetCommsOut` is where this engine keeps that.
 
-Not drawn: the damage rows do not scroll — the engine has no row offset, so a 19-row structural list shows its first 13. TODO: verify if this is a divergence from retail that should be marked as an open task.
-
 `CockpitWidgets` splits the order column's single click region into its eight rows so the shared hit test does the walk the original does by hand, and reports the map region only on the command display rather than leaving it live on the damage page.
 
 XMIT delivers a real order — [`../simulation/ai-squadmates.md`](../simulation/ai-squadmates.md) owns the transmit path and what the squadmate does with it. The OBJECTIVE: line reports back through `Mech_SquadOrderLineIndex` (`0041bac8`), which indexes group 40 with the machine's behaviour descriptor `+0x3c` ([`../simulation/ai-dispatch.md`](../simulation/ai-dispatch.md)) and lets the standing order override it (1→`TRAVEL`, 2→`PATROL`, 3 or 6→`GUARD`) — but only for a machine that is neither immobilised nor destroyed, is not fleeing and is not committed to a fight, so a downed squadmate reads `DEAD` or `IMMOBILE` whatever it was ordered to do and one that has found a fight reads `ATTACK`.
@@ -491,8 +489,9 @@ XMIT delivers a real order — [`../simulation/ai-squadmates.md`](../simulation/
 
 ## Open
 
-- `static` and `pilot<n>` ship in `dba\` only, at 320-wide sizes, so a 640-wide mode has no matching art for them. `pilot<n>` names its folder outright; `static` is loaded through the shared `dba`/`hba` folder global, which selects `hba` in that mode and would miss.
-- `gauge+0x133`, the frame-indirection flag `HddGauge_PaintPilotFrame` branches on, is set to 1 for every slot the loader builds, so the `DAT_0049d1f6` lookup table and the `Math_RandomNext % 3 + 0x18` arm above it are never reached.
-- Block indices 2-3 (1220) and `0x5d` (1584) are read by no constructor.
-- The comm-box highlight mode's 0 branch, which fills the box rect rather than the marker, is unexercised by retail data.
-- `ICONS.HBA` frames 0-1, and the ninth frame of every rotation group, are addressed by nothing in the display — the eight octants use offsets 0-7 and a destroyed object takes offset 0. The briefing map is the likely consumer of the first pair.
+- **Unported:** scrolling the damage rows. The engine has no row offset, so a 19-row structural list shows its first 13.
+- **Open:** how retail's 640-wide mode finds `static`. `static` and `pilot<n>` ship in `dba\` only, at 320-wide sizes; `pilot<n>` names its folder outright, but `static` is loaded through the shared `dba`/`hba` folder global, which selects `hba` in that mode and would miss.
+- **Open:** what the `DAT_0049d1f6` lookup table and the `Math_RandomNext % 3 + 0x18` arm are for. `gauge+0x133`, the frame-indirection flag `HddGauge_PaintPilotFrame` branches on, is set to 1 for every slot the loader builds, so neither is reached.
+- **Open:** `.GAU` block indices 2-3 (1220) and `0x5d` (1584). No constructor found reads them.
+- **Open:** the comm-box highlight mode's 0 branch, which fills the box rect rather than the marker. Retail data never selects it.
+- **Open:** what consumes `ICONS.HBA` frames 0-1 and the ninth frame of every rotation group. The display addresses none of them — the eight octants use offsets 0-7 and a destroyed object takes offset 0. The briefing map is the likely consumer of the first pair.

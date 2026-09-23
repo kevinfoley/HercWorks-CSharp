@@ -219,4 +219,4 @@ Every rect in every retail file has `x0 == 0`. This matters because DBSIM's flat
 
 ## Open
 
-- RAZOR's non-stub view-1 3D viewport is not rendered.
+- **Unported:** RAZOR's view-1 3D viewport, the one non-stub `.HD1` (see [`.HD0`-`.HD3`](#hd0-hd3--ed0-ed3--3d-viewport-clip-regions)).

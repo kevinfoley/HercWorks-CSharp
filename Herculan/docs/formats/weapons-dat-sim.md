@@ -18,29 +18,25 @@ Read order (all fields little-endian):
 
 ```
 +0   short Field0        -- 0 for id0/NONE; one of {1500, 2000, 2500, 15000} for every real weapon
-                             seen -- too few distinct values to be a per-weapon-unique stat, plausibly
-                             a range/tier bucket. NOT decoded further.
+                             seen -- too few distinct values to be a per-weapon-unique stat ([Open](#open)).
 +2   short Field1        -- 0 for NONE; exactly -1 (0xFFFF) for every real weapon seen.
 +4   short Field2        -- 0 for NONE; exactly 0x01FF (511) for every real weapon seen.
 +6   short DepCount       -- 0 for NONE, 1 for every real weapon seen.
      DepCount*4 bytes     -- DepCount raw 16-bit pairs, present only if DepCount != 0. Always
-                             exactly (20, 12) in every real weapon record seen. Semantics unknown --
-                             this is HercPiece_ReadRecord's "dependent sub-component list" mechanism
-                             reused generically; for weapons it never varies, so it isn't obviously
-                             a real per-weapon list despite the mechanism supporting one.
+                             exactly (20, 12) in every real weapon record seen. This is
+                             HercPiece_ReadRecord's "dependent sub-component list" mechanism
+                             reused generically; for weapons it never varies ([Open](#open)).
      short SubSphereFlagRaw   -- read via Collision_ReadCluster; constant 0x13 (19) in EVERY
                                   real record seen, including id0/NONE. In a real collision model
-                                  this field is the component index; here it never varies, so its
-                                  meaning for a weapon is unknown.
+                                  this field is the component index; here it never varies ([Open](#open)).
      short SubMeshCountRaw    -- read via Collision_ReadSphereArray; real count is this value
                                   masked with 0x1FFF (top 3 bits are reserved for flags in the
                                   original collision-record format; never observed set here). 0 for
                                   NONE.
      (SubMeshCountRaw & 0x1FFF) * 8 bytes  -- present only if the masked count != 0. Each 8-byte
                                   entry is 4 int16s. Pattern suggests (offsetish, offsetish,
-                                  0-or-small, rate-ish) tuples, plausibly muzzle offset + fire-rate
-                                  for multi-shot weapons (not confirmed field-by-field).
-+0x22 (relative) 48 raw bytes (0x30)  -- Decoded fields below; the rest undecoded. Two
+                                  0-or-small, rate-ish) tuples ([Open](#open)).
++0x22 (relative) 48 raw bytes (0x30)  -- decoded fields below ([Open](#open)). Two
                              bytes at relative offset 0x26 are zeroed in memory at runtime (not
                              real file data).
 ```
@@ -98,12 +94,12 @@ Answers how a weapon id maps to a `PROJ.DAT` record. Read via `WeaponMountTempla
 
 Full weapon-id-to-index table: see `HercWorks.Core.Data.File.Dat.Sim.ProjectileData` doc comment.
 
-## Remaining undecoded
-
-- `Field0` (tier semantics unknown — **not** the range, which is `0x30`)
-- Reused constant fields (`DepCount`, `SubSphereFlagRaw`) from `.DMG`/`.COL`
-- Firing-sequence tuple details
-- `0x4e` (200 for LAS100 rising to 800 for the big launchers) and `0x50` (a small per-family code: 1 laser, 2 autocannon, 3 EMP, 4 particle beam, 5 missile)
-- The rest of the tail outside the fields above
-
 Implementation: see `HercWorks.Core.Data.File.Dat.Sim.Weapons` and `HercWorks.Core.Io.Transform.Dbsim.WeaponsSimTransformer`.
+
+## Open
+
+- **Open:** `Field0`'s tier semantics — **not** the range, which is `0x30`.
+- **Open:** whether `DepCount`'s pair and `SubSphereFlagRaw`, both reused constant fields from `.DMG`/`.COL`, carry any real per-weapon value.
+- **Open:** the firing-sequence tuple fields' exact meaning.
+- **Open:** `0x4e` (200 for LAS100 rising to 800 for the big launchers) and `0x50` (a small per-family code: 1 laser, 2 autocannon, 3 EMP, 4 particle beam, 5 missile).
+- **Open:** the rest of the tail outside the fields decoded above.

@@ -4,7 +4,7 @@ How DBSIM routes a mouse click on the cockpit dashboard/HUD/HDD to a button's ow
 
 Widget geometry, frames and paint logic are covered by [`cockpit-views.md`](cockpit-views.md), [`cockpit-canopy-palette.md`](cockpit-canopy-palette.md), [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md), [`cockpit-gunsight-hud.md`](cockpit-gunsight-hud.md), [`mfd.md`](mfd.md) and [`heads-down-display.md`](heads-down-display.md) — this document is only the input path: how a mouse event becomes a call into a specific widget's own handler.
 
-Implemented in `Herculan.Engine` across three types: `CockpitScreenLayout` (window pixel to art pixel, the step the original does not need), `CockpitWidgets` (the flat clickable list and the rectangular hit test, §5-6) and `CockpitInput` (the queue and the press/release/hold state machine, §3-4 and §7). `Herculan.Engine.Host`'s `Program.cs` queues the events and routes completed clicks. Sections 1-2 and 9 are deliberately not ported; of §10's three screen-edge strips only the vertical one is, as `CockpitWidgets.VisibleHeadsDownViewEdge`, the other two leading to views this engine does not render — see `CockpitInput`'s own summary for what diverges and why.
+Implemented in `Herculan.Engine` across three types: `CockpitScreenLayout` (window pixel to art pixel, the step the original does not need), `CockpitWidgets` (the flat clickable list and the rectangular hit test, §5-6) and `CockpitInput` (the queue and the press/release/hold state machine, §3-4 and §7). `Herculan.Engine.Host`'s `Program.cs` queues the events and routes completed clicks. Sections 1-2 and 9 have no counterpart by design: the host's windowing replaces them. Of §10's three screen-edge strips only the vertical one exists, as `CockpitWidgets.VisibleHeadsDownViewEdge` ([Open](#open)). `CockpitInput`'s own summary says what diverges and why.
 
 ## Overview
 
@@ -113,7 +113,7 @@ MFD buttons 7 and 10 share a rect but never contest it: no mode shows both ([`mf
 
 `Video_ToggleFullscreen` is a real mode switch, not a window maximize: from windowed it sets `004d25e2`, takes the window topmost at the game resolution, `ClipCursor`s the pointer into it and centres it; from fullscreen it restores the window rect saved on the way in. `Help_Show` calls it first when that flag is set, so raising the manual drops the game out of fullscreen.
 
-Neither button is implemented in Herculan, and neither overlaps a widget that is.
+Neither overlaps a widget the engine has ([Open](#open)).
 
 Widget state byte (`+0x1b`):
 
@@ -301,7 +301,7 @@ That same function records and replays both queues to a `.TAP` input tape — th
 
 ## 8. Worked example: the shield-balance rocker
 
-Traced end to end as a concrete proof the whole pipeline above is real, not just plausible:
+Traced end to end, as a concrete check of the whole pipeline above:
 
 1. `ShieldsGauge_Ctor` builds two facing children via `ShieldsGauge_FacingCtor` ([`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#shieldsgauge)), registers each with `Widget_RegisterClickable`, and stores each child's pointer plus a count into its own `+0x18`/`+0x68` array — the same shape `MfdDisplay_Ctor` uses for its 13 buttons.
 2. A click hits `Widget_ForwardClickToOwner` (`00438e3c`) — the facing's `+8` slot, and the base-class default the MFD and HDD leaf buttons share — via `Widget_OnMouseUp`. Gated on the left button bit; forwards to the owner (a pointer stashed at the facing's own `+0x24`, set to the parent `ShieldsGauge` at construction) as `owner->vtable[0](owner, self, buttonFlags)`. It then repaints itself and calls slot `+8` of its second vtable at `+0x20`, which is `Widget_ClickSound` in every class that carries a `PanelGadget` — so the rocker sounds `0x11` before anything has been decided by the click (see [`audio.md`](audio.md#sounds-a-cockpit-control-makes)).
@@ -313,7 +313,7 @@ Traced end to end as a concrete proof the whole pipeline above is real, not just
 
 RAZOR is the exception on the key side only: `Mech_HandleCommand` is a mech vtable slot and the flyer class installs a stub there (`004215c0`), so the brackets do nothing in a RAZOR — but its facings are still built and still take clicks, over what is an altimeter rather than a shield meter in that cockpit (see [`herc-catalogs.md`](herc-catalogs.md) and `HShieldDisplay`).
 
-So the click sets a flag; a gameplay tick consumes the flag into real sim state and a dirty bit; the widget's own per-frame update slot is what actually repaints from that bit. This flag-then-dirty-bit handoff between the sim tick and the paint pass is likely how other sim-driven HUD elements (weapon damage fill, hardpoint state boxes) stay in sync too, though that wasn't checked here.
+So the click sets a flag; a gameplay tick consumes the flag into real sim state and a dirty bit; the widget's own per-frame update slot is what actually repaints from that bit.
 
 ## 9. Cursor rendering
 
@@ -452,4 +452,10 @@ A dash is a click that hits no strip at all. The heads-down view is the one plac
 | `Language_GetFolderName` | `0045efe0` | `data\language.cfg`'s first byte to `ENGLISH`/`FRENCH`/`GERMAN`/`SPANISH` |
 | `OnlineManual_Raise` | `0045f054` | Builds `<language>\es2guide.hlp` and hands it to `Help_Show` |
 | `Help_Show` | `004668c0` | `WinHelpA(hwnd, path, HELP_CONTENTS, 0)`, after clearing the display |
+
+## Open
+
+- **Unported:** the two system buttons (§5), the online manual and the fullscreen toggle.
+- **Unported:** the left and right screen-edge strips (§10). They lead to the side windows, which the engine does not render.
+- **Open:** whether other sim-driven HUD elements (weapon damage fill, hardpoint state boxes) use the shield rocker's flag-then-dirty-bit handoff between the sim tick and the paint pass (§8).
 

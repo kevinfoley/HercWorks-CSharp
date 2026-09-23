@@ -10,7 +10,7 @@ The manual describes a HUD/HDD display split into "structural, internal, and wea
 - **Weaponry** = a *subset of that same array*, distinguished only by name/position (`WEPN_BRACK/LEFT`/`RIGHT`). Weapon-specific runtime state (ammo, heat) lives elsewhere, in the weapon-mount-manager object (`this+0x202`), not in this health record.
 - **Internal** = a *wholly separate*, smaller table, `HercInternals` (Left/Right Leg Servos, Sensor Array, Targeting Computer, Shield Generator, Engine, Hydraulics, Stabilizers, Life Support, Pilot) — reached *probabilistically* through a struck structural/weaponry piece's own `MappedInternals`/`CritChance` list, not directly targetable. An Internal system has no health slot of its own in the 29-component array; damaging it is a chance-based side effect of hitting whichever structural piece maps to it.
 
-"Armor" in the manual's "where shields leave off, armor takes over... duranium plates" sense maps to the per-component `Armor` field on `HercPiece` (`this+0x20a`/`this+0x206`) — not a separate third depleting pool distinct from "structure." Genuinely still open: whether shields differentiate by weapon type anywhere (checked, not found in the shield-absorption functions themselves — see "Weapon-type effectiveness" below).
+"Armor" in the manual's "where shields leave off, armor takes over... duranium plates" sense maps to the per-component `Armor` field on `HercPiece` (`this+0x20a`/`this+0x206`) — not a separate third depleting pool distinct from "structure." Whether shields differentiate by weapon type anywhere is checked below under [Weapon-type effectiveness](#weapon-type-effectiveness); it is not found in the shield-absorption functions themselves ([Open](#open)).
 
 ## Weapon-type effectiveness
 
@@ -38,11 +38,11 @@ if (uVar1 != 0) call obj[+0x70](obj, uVar1, ..., blastRadius=500, ...);  // seco
 ```
 A Q10 **fraction of the already shield-absorbed armor damage** diverted into a small (500-unit-radius) secondary explosion instead of applying straight to the struck component's health. Zero means no secondary explosion — the guard (`if (uVar1 != 0)`) skips it and the full armor-damage amount goes straight to health.
 
-Real nonzero values (`500` or `1000`) appear scattered across several weapons, most consistently for one whole weapon family (uniform `DamageShield==DamageArmor`) — a plausible match for Electron Flux, not proven.
+Real nonzero values (`500` or `1000`) appear scattered across several weapons, most consistently for one whole weapon family (uniform `DamageShield==DamageArmor`) ([Open](#open): whether that family is Electron Flux).
 
 **It is a direct call on the struck object, not a sweep**, so the blast stays inside the machine that was hit and cannot reach anything standing next to it. It also runs the share through `Mech_ShieldAbsorb_Explosive` a second time — the original does not exempt one that has already been through `Mech_ShieldAbsorb_DirectFire` — so both that absorption and its 4× apply on top of what the shot already lost to shields.
 
-**The loader:** `Weapons_LoadResourceTables` (`0040fc8c`) opens `"wpntex"`, `"mechwpn2"`, `"weapons"` (count + 88-byte records — plausibly a per-hardpoint mount-template table, not traced further), then `"proj"` and reads its count + 36-byte records in one flat read into `DAT_004a9980`, linear-searched by `Proj_LookupRecord(category, subtypeId)` (`0040ffc8`) — `PROJ.DAT`'s in-memory copy is keyed by `(category, id)` (matching `Projectile.Type`/`MissileId`), not by flat array index.
+**The loader:** `Weapons_LoadResourceTables` (`0040fc8c`) opens `"wpntex"`, `"mechwpn2"`, `"weapons"` (count + 88-byte records — a candidate per-hardpoint mount-template table, [Open](#open)), then `"proj"` and reads its count + 36-byte records in one flat read into `DAT_004a9980`, linear-searched by `Proj_LookupRecord(category, subtypeId)` (`0040ffc8`) — `PROJ.DAT`'s in-memory copy is keyed by `(category, id)` (matching `Projectile.Type`/`MissileId`), not by flat array index.
 
 ### `Type` — a firing-mechanism selector
 
@@ -64,7 +64,7 @@ Traced all 5 callers of `Proj_LookupRecord` and all 3 of `Bullet_FireBurst` — 
 So `Type 3` is a cut **grenade** weapon class, not an unnamed stub, and its three `PROJ.DAT` records are that weapon's data left in the shipped file — see [`../cut-content.md`](../cut-content.md#projectiles).
 
 Mapping onto the weapon taxonomy — flagged as a reasoned hypothesis from mechanism + shape except where noted confirmed:
-- **`Type 4` (beam) → Lasers + PBW.** Two unusually low-damage `Type 4` entries (150/200, 200/300, both far below the others' 1000+ values) plausibly fit Electron Flux, not confirmed.
+- **`Type 4` (beam) → Lasers + PBW.** Two unusually low-damage `Type 4` entries (150/200, 200/300, both far below the others' 1000+ values) may be Electron Flux's ([Open](#open)).
 - **`Type 2` (real flight time, no splash) → Autocannons + EMP** — accounts for every `Type 2` entry except the one Plasma outlier.
 - **`Type 0` (5 entries) → the game's Missile weapons**, confirmed: its five subtype ids are the five `ROCKETS.DAT` records, and the four the `MSL` launchers reach are `SARH`/`ARH`/`ARM`/`EO` while `BMSL` takes the fifth. `Type 3`'s three entries are data for a class that never runs.
 
@@ -112,3 +112,10 @@ The mount side of all this — what `WeaponMount_Destroy` writes, and the second
 ## Ported
 
 Weapon-mount destruction is ported on both paths — `Sim.WeaponMount.Destroy` and `ConditionChanged`, and `MechObject.RollWeaponMountDestruction`.
+
+## Open
+
+- **Open:** whether shields differentiate by weapon type anywhere; not found in the shield-absorption functions checked so far.
+- **Open:** whether the weapon family carrying `SplashFactor` 500/1000 (uniform `DamageShield==DamageArmor`) is Electron Flux's.
+- **Open:** whether the `"weapons"` table (count + 88-byte records) is a per-hardpoint mount-template table; nothing beyond its load has been checked.
+- **Open:** whether the two low-damage `Type 4` entries (150/200, 200/300) are Electron Flux's.

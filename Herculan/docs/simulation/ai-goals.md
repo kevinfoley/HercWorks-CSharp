@@ -20,7 +20,7 @@ The file half of the subject — how block 10 and block 11 are written and read 
 | `+0x0e` | ptr | block 10 `0x12` | **The subject**, resolved against `+0x0c` by `FUN_00425348` — a group record for kind 0, an object for 1-3 |
 | `+0x12` | ptr | block 10 `0x14` → block 5 | **A mission action.** When it fires, the group moves on |
 
-**`+0x02` and `+0x04` are dead fields, not untraced ones.** An order is only ever reached as `group.orders[group.orderIndex]`, and the whole image holds 29 such fetches; every one of them goes on to read `+0x00`, `+0x0c`, `+0x0e` or `+0x12` and none reads either of these two. `+0x04` is a real block-1 point in 7% of retail records and `+0x02` holds 0, 1 or 3, so both are authored and both are ignored.
+**`+0x02` and `+0x04` are confirmed dead fields, not merely unexamined ones.** An order is only ever reached as `group.orders[group.orderIndex]`, and the whole image holds 29 such fetches; every one of them goes on to read `+0x00`, `+0x0c`, `+0x0e` or `+0x12` and none reads either of these two. `+0x04` is a real block-1 point in 7% of retail records and `+0x02` holds 0, 1 or 3, so both are authored and both are ignored.
 
 The verb's range is the first confirmation the field is what it looks like: across the 62 retail `.MSN` files that parse, block 10's `0x08` only ever holds 0-6, which is exactly the span of the switch in `Mech_AiSelectBehaviour`.
 
@@ -137,10 +137,6 @@ What differs from the original, and why:
 - **A null order slot leaves the machine's state unchanged** rather than installing a null descriptor. The original's behaviour there is a crash, not a decision.
 - **Only `patrolling` and `travelling` can finish a movement order.** The route cursor is advanced by `Ai_FollowRoute` alone, and `following` never calls it — see [`ai-navigation.md`](ai-navigation.md), which is the original's own behaviour rather than a gap here.
 - **The action path is live**: `MissionGroup.BindOrderAction` resolves each slot's `+0x12` and the group advances when it fires — see [`mission-deployment.md`](mission-deployment.md).
-
-## Open questions
-
-None.
 
 ## Rejected readings
 

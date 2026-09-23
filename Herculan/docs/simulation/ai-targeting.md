@@ -144,7 +144,7 @@ Coming out of either with no target also ends in `Mech_AiSelectBehaviour`.
 | Class 0, rating index 1 — evenly matched | `attacking` (3) |
 | Class 0, rating index 2 — it outguns me | `flanking` (4), or `facing off` when the machine's `+0xa8` or `+0xa9` is set or its type's `typeRec+0xc8` is 0xb9 or under |
 
-**The `flanking` gate is forward speed.** `typeRec+0xc8` is not a record field: the file's own word at that offset is zero on all 21 chassis, but `MechType_InitOne` (`004202c1`) overwrites it at load with a copy of `typeRec+0x06`, the chassis' forward speed. Retail speeds run 140 to 325 against a bar of 0xb9 (185), so **13 of the 21 chassis records clear it and 8 do not** — an outgunned machine goes round what outguns it if it is fast enough to, and stands and takes it if it is not. One of the 13 is RAZOR, which no retail mission gives an AI to fight in, so twelve ground chassis flank in practice. `+0xa9` is the softer of the two leg states, which fits a manoeuvre a crippled machine should not attempt; `+0xa8` is unidentified.
+**The `flanking` gate is forward speed.** `typeRec+0xc8` is not a record field: the file's own word at that offset is zero on all 21 chassis, but `MechType_InitOne` (`004202c1`) overwrites it at load with a copy of `typeRec+0x06`, the chassis' forward speed. Retail speeds run 140 to 325 against a bar of 0xb9 (185), so **13 of the 21 chassis records clear it and 8 do not** — an outgunned machine goes round what outguns it if it is fast enough to, and stands and takes it if it is not. One of the 13 is RAZOR, which no retail mission gives an AI to fight in, so twelve ground chassis flank in practice. `+0xa9` is the softer of the two leg states, which fits a manoeuvre a crippled machine should not attempt ([Open](#open) covers `+0xa8`).
 
 `Mech_AiSelectAimComponent` runs on the two class-0 branches that reach it.
 
@@ -202,7 +202,7 @@ There is a **second friendly-fire site**, in `Sim_RaycastObjectList` itself rath
 
 `Mech_AiEnemySighted` fires once per enemy for the whole player group: `DAT_004a9b84[obj+0x4b]` is a per-object latch, set the first time either the machine or the player holds a contact on that object, and the callout is further rate-limited by `DAT_004a9be9`, re-armed to 10000 counts — about 4.9 seconds, see [`structure-behaviour.md`](structure-behaviour.md#timer-units). The local player's own machine sets the latch without ever calling out.
 
-The channel these post to is the pilot-and-squad message port, which is not ported — see [`../formats/audio.md`](../formats/audio.md).
+The channel these post to is the pilot-and-squad message port — see [`../formats/audio.md`](../formats/audio.md).
 
 ## Mech fields this slice owns
 
@@ -232,7 +232,7 @@ Fields settled elsewhere link out rather than being restated.
 
 `Sim.Ai.AiTargeting` holds the shared routines, `Sim.Ai.BehaviourState` the 22 descriptors and the `mech+0x4d` block, `MechObject.Ai.cs` the machine's own half, and `Sim.MissionGroup` the record the AI is driven from. `MissionScene` builds one group per block-11 index, attaching objects in placement order so the group's first member is its leader, and `SimWorld` runs the groups' AI pass alongside the object updates and ahead of the sensor sweep.
 
-**What runs.** The behaviour block and its dwell clock, `Mech_AiTick`'s reassess dispatch, the combat reassess entire — radar, keep-or-acquire, the leader sweep, the flee check, the state install and the aim pick — `Mech_AiOnTakingFire` from the raycast's `+0x50` site, both friendly-fire sites, and `Ai_SelectTarget` with all four weight tables and the combat rating behind them. A structure's two acquisition call sites are not wired: `BaseObject` has no AI yet.
+**What runs.** The behaviour block and its dwell clock, `Mech_AiTick`'s reassess dispatch, the combat reassess entire — radar, keep-or-acquire, the leader sweep, the flee check, the state install and the aim pick — `Mech_AiOnTakingFire` from the raycast's `+0x50` site, both friendly-fire sites, and `Ai_SelectTarget` with all four weight tables and the combat rating behind them ([Open](#open) covers the structure acquisition gap).
 
 **What that adds up to in a mission.** An AI machine is constructed in `deciding` and its group's current order resolves that into the state the order asks for — [`ai-goals.md`](ai-goals.md), or, for a player squadmate under a standing order, [`ai-squadmates.md`](ai-squadmates.md).
 
@@ -249,3 +249,9 @@ Two things are reproduced rather than corrected: the `rand & 1000` jitter in the
 | `Mech_AiOnTakingFire` is a damage function | It is called per raycast candidate from `Sim_RaycastObjectList` and takes a damage amount, which makes it look like one. It applies no damage: the amount only feeds the `+0x281` accumulator that decides whether a player's squadmate reacts at all |
 | `Ai_TargetStateTier` reads offsets `+0x0c`/`+0x0d` of the target's behaviour *block* | It dereferences `target+0x4d` first, so those are offsets into the **descriptor** the block points at — expanded flag bits 4 and 5, not block fields |
 | `Mech_AiSelectAimComponent` picks the target's weakest component | It walks the target's component *occupancy* array but reads `this+0x206` for the damage, which is its own |
+
+## Open
+
+- **Open:** `mech+0xa8`'s meaning — read alongside `+0xa9` in the `flanking` gate's exception.
+- **Open:** whether `mech+0x30b`'s Targeting Pod field `+0x7f` really tracks cached damage — the reading is unconfirmed, which is why the engine does not apply the aim band's targeting-computer override.
+- **Unported:** a structure's two acquisition call sites — `BaseObject` has no AI.

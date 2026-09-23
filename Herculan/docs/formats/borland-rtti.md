@@ -20,10 +20,10 @@ The field order matches the `tpid` type descriptor in Borland's RTL headers. The
 | `+0x14` | code ptr | Set in 8 of DBSIM's 238 class records and none of VSHELL's. `LC_BASE`'s is `004270c1`. The header calls this field the class's `operator delete` |
 | `+0x18` | `uint16` | `1` where `+0x14` is set, otherwise `0` |
 | `+0x1a`, `+0x1c` | `uint16`, ptr | Zero in every record. The header calls these the array `operator delete[]` counterparts |
-| `+0x20`, `+0x24` | `uint32` | Two counts, always equal (1 to 41). The header names them the destructor count and the non-virtual destructor count; their meaning has not been traced here |
+| `+0x20`, `+0x24` | `uint32` | Two counts, always equal (1 to 41). The header names them the destructor count and the non-virtual destructor count |
 | `+0x28` | code ptr | Destructor |
 | `+0x2c` | `uint16` | `1` in every record |
-| `+0x2e` | `uint16` | Offset of a third list within the record, laid out like the other two. The header calls it the list of members that need destroying. It is non-empty in 15 DBSIM records and 7 VSHELL records; it has not been traced here |
+| `+0x2e` | `uint16` | Offset of a third list within the record, laid out like the other two. The header calls it the list of members that need destroying. It is non-empty in 15 DBSIM records and 7 VSHELL records |
 | name offset | `char[]` | NUL-terminated class name |
 
 The fields from `+0x20` up exist only in the `0x30` layout. There are 166 such records in DBSIM and 86 in VSHELL.
@@ -34,7 +34,7 @@ Each list is a run of 12-byte entries ending in a zero dword:
 |---|---|
 | `+0x00` | The base's class record |
 | `+0x04` | Offset of that base's subobject within the object |
-| `+0x08` | `3` in all but five entries, which have `1`. `DVDisplay`'s entry for its struct base `DVDisplayCap` is one of them; the meaning has not been traced |
+| `+0x08` | `3` in all but five entries, which have `1`. `DVDisplay`'s entry for its struct base `DVDisplayCap` is one of them |
 
 A singly inherited class has one entry, at offset 0. A class with a second base names it and gives its offset directly. Examples: `PanelSelectGadget` has `PanelGadget` at `+0x20`, `PanelHSliderGadget` has `PanelSliderGadget` at `+0x3e`, and `REG_OBJ` has `TSContext` at `+0x0c`. The virtual-base list is empty in both binaries.
 
@@ -49,7 +49,7 @@ The records are byte-packed, not dword-aligned, so a record address is usually o
 | `0x08` | — | Never set; no class in either binary has a virtual base |
 | `0x10` | Has a vtable pointer | Set exactly when `+0x08` is not `-1` |
 | `0x20` | Virtual destructor | Set exactly when the `+0x28` destructor appears in the class's own vtable |
-| `0x01`, `0x40` | Not identified | `0x40` is set on every record that has a vtable pointer |
+| `0x01`, `0x40` | [Open](#open) | `0x40` is set on every record that has a vtable pointer |
 
 The common values are `0x77` (the sim objects, with a virtual destructor), `0x55`/`0x57` (the cockpit and shell UI classes, whose destructor is not virtual) and `0x01`/`0x03` (plain structs with no vtable).
 
@@ -85,3 +85,10 @@ Blocks are packed end to end. **The word after a table's last slot is usually th
 | A class's record sits immediately before its destructor | That is true of the projectile family (`ROCKET`, `BULLET`, `GRENADE`, `PROJECTILE`). It holds for only 60 of DBSIM's 166 records with a destructor. The `+0x28` field always holds the destructor. |
 | After the base pointer comes a fixed tail `0, 3, 0` | That tail is the rest of a single-base list: subobject offset 0, flags 3, and the terminator. A class with a second base has a second 12-byte entry there, holding its offset. |
 | The base class's record is found after the name, padded to a dword | This lands on the right place in every record, but it lands on the first base-list entry. The `+0x10` field is what locates the list, and the list can hold more than one base. |
+
+## Open
+
+- **Open:** what the two equal counts at `+0x20`/`+0x24` hold, beyond the header's names for them.
+- **Open:** the third list at `+0x2e`, beyond the header's name for it.
+- **Open:** what the base-list entry flag `1` means, against the usual `3`.
+- **Open:** class flags `0x01` and `0x40`.

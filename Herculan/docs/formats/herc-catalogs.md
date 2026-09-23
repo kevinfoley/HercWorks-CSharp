@@ -105,7 +105,7 @@ Four of the nine fits are byte-identical to the matching `ini_*.dat`. The other 
 
 **This is the only place in retail data that fits `MFAC` to a player machine.** The weapon has no armory panel and ships locked, so nothing in the purchase path can reach it ([`../cut-content.md`](../cut-content.md)) — but three chassis here carry it.
 
-That does not make it reachable, because **no reader for this file has been traced**. The literal `trn_herc.dat` appears in neither `VSHELL.EXE`'s nor `DBSIM.EXE`'s data segment, and no reference to it appears in the VSHELL decompile, where the sibling `arm_`, `rpr_` and `ini_` families are each reached through a nine-entry table of literal filenames. A path assembled at runtime cannot be ruled out from string evidence alone, so treat this as "no load path found", not as proof there is none.
+That does not make it reachable: the literal `trn_herc.dat` appears in neither `VSHELL.EXE`'s nor `DBSIM.EXE`'s data segment, and no reference to it appears in the VSHELL decompile, where the sibling `arm_`, `rpr_` and `ini_` families are each reached through a nine-entry table of literal filenames. A path assembled at runtime cannot be ruled out from string evidence alone ([Open](#open)).
 
 ## `gam\herc_inf.dat` — the chassis stat table
 
@@ -283,10 +283,15 @@ The four `int32` are an inclusive rect and not a position and a size: the 16 byt
 
 | Reading | Why it is wrong |
 |---|---|
-| An `*_hots.dat` area is a position and a size — `{x, y, w, h}` | Four `int32` beginning with a plausible top-left invites it, and the retail values stay inside the canvas read either way, so a parse alone will not settle it. They are two inclusive corners: the bytes are handed straight to `Panel_Ctor`, and the left/right hardpoint pairs are only mirror images when read that way |
+| An `*_hots.dat` area is a position and a size — `{x, y, w, h}` | Four `int32` beginning with what reads as a top-left corner invites it, and the retail values stay inside the canvas read either way, so a parse alone will not settle it. They are two inclusive corners: the bytes are handed straight to `Panel_Ctor`, and the left/right hardpoint pairs are only mirror images when read that way |
 | `herc_inf.dat` `+0x06` gives a chassis's hardpoint count | It is what the Herc Construction screen *prints*, and for the Raptor II it prints 4 where the machine the player receives has 5. `Herc_CapacityForType` reads the in-code table at `0046f73a`, and that is the figure `+0x4c` and every hardpoint loop use. The other eight chassis agree, so a reader checking one file will not notice |
 | The 26 bytes at HERC status block `+0x00` are opaque | They are 13 `int16` component conditions, initialized to 100 alongside the other two arrays by `FUN_00411b88` and averaged with them by `FUN_00411bd4`, whose divisor is `13 + 9 + hardpoints`. See [`save-games.md`](save-games.md#the-66-byte-status-block) |
 | `hercs.dat`'s fifth entry is a wrecked Razor | Its `+0x4a` of 0 is build progress, not condition. The status block a `gam\*.dat` chassis carries is never read from the file and stays at the constructor's uniform 100 |
 | The `+0x4a`/`+0x78` pair is repair state | `Herc_Order` sets them when a chassis is *bought*, from `herc_inf.dat` `+0x0c`, and `Herc_BuildTick` drives them one mission at a time until delivery. Repair works on the status block instead |
 | `+0x4a` is a health or condition ratio | It is the build percentage. The data will not separate the two readings: `+0x4a` is 100 in all nine `ini_*.dat` and in `trn_herc.dat`, which is equally consistent with an undamaged machine. Only `hercs.dat`'s part-built Razor reads anything else, and it reads 0 while that machine is at full condition — so a condition reading has it dead on arrival |
 | `+0x78` picks a frame of `[chassis]_bod.dba` | It is the mission countdown to delivery. Both readings fit the shipped files, where the field is 0 everywhere except that same Razor's 3; what settles it is `Herc_BuildTick`, which decrements it and recomputes `+0x4a` from it against `herc_inf.dat`'s build time. A damage-model frame index would not be arithmetic on a purchase countdown |
+
+## Open
+
+- **Open:** whether anything loads `trn_herc.dat`. No reader is named in either executable's string data, but a runtime-assembled path cannot be ruled out from that alone.
+- **Open:** what `herc_inf.dat`'s `+0x0a` field holds. No consumer has been identified for it.

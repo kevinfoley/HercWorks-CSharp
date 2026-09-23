@@ -114,4 +114,4 @@ The engine reproduces this by draw order instead: the box is emitted as its own 
 ## Engine deviations
 
 - The projection is the original's (`centre ± v * focal / depth` about the `.VUE` projection centre, including the step kick) rather than the GL one. They agree because the camera's field of view is derived from the same focal length.
-- The paint's guard that discards a projection whose view-space z exceeds the approximate 3D magnitude is not ported; it is unreachable in exact arithmetic.
+- The paint's guard that discards a projection whose view-space z exceeds the approximate 3D magnitude has no counterpart here; it is unreachable in exact arithmetic.

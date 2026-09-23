@@ -26,7 +26,7 @@ The first record type's type-0 branch is a `switch` on the value `0x119`–`0x11
 | 0x11d | `>`  (operands swapped) |
 | 0x11e | `>=` (operands swapped) |
 
-Each compares a value against `DAT_00482af8[recordField]` — the campaign flag store: 1,000 `int16` persisted in every save slot and round-tripped to DBSIM through `data\mission.var`, where the same array is `DAT_004a9ef4`. See [`../shell/campaign-loop.md`](../shell/campaign-loop.md). Record types 1–3 use different evaluator functions (`FUN_004659ec`, `FUN_004159d0` — a `-99`-sentinel-or-range-check, `FUN_00417610` again) — plausibly other trigger-condition flavors (dialogue/event flags, numeric range checks) rather than pure flag comparisons.
+Each compares a value against `DAT_00482af8[recordField]` — the campaign flag store: 1,000 `int16` persisted in every save slot and round-tripped to DBSIM through `data\mission.var`, where the same array is `DAT_004a9ef4`. See [`../shell/campaign-loop.md`](../shell/campaign-loop.md). Record types 1–3 use different evaluator functions (`FUN_004659ec`, `FUN_004159d0` — a `-99`-sentinel-or-range-check, `FUN_00417610` again) ([Open](#open)).
 
 | offset | field | notes |
 |---|---|---|
@@ -42,7 +42,7 @@ Each compares a value against `DAT_00482af8[recordField]` — the campaign flag 
 
 ### The template-inheritance pattern
 
-Most record types carry a "parent index" field: `-1` means "read this record's fields fresh from the stream," any other value means "`memcpy` the already-loaded record at that index instead," sometimes with additional per-field overrides layered on top. This is a real, load-time prototype/inheritance mechanism — missions can define an entity as "like entity N, but with these fields changed" — not something the current C# port models at all.
+Most record types carry a "parent index" field: `-1` means "read this record's fields fresh from the stream," any other value means "`memcpy` the already-loaded record at that index instead," sometimes with additional per-field overrides layered on top. This is a real, load-time prototype/inheritance mechanism — missions can define an entity as "like entity N, but with these fields changed" ([Open](#open)).
 
 ### Record-array table — **empirically confirmed byte-exact against 61/62 real `.MSN` files**
 
@@ -54,10 +54,10 @@ Two corrections versus the first disassembly-only pass (caught by building a str
 | # | count global | on-disk shape | storage global | cross-refs into | best current guess |
 |---|---|---|---|---|---|
 | 1 | `DAT_0047064c` | 14 (`0xe`) bytes/record | `DAT_00470604` | `DAT_00482af8` (flags), self (via `0x02`) | **decoded — see "The condition/trigger system" below, now with byte offsets.** `UnkHeaderEntry` — the campaign trigger/flag-comparison record; real usage is heavy (43% use a real condition, unlike almost every other row) |
-| 2 | `DAT_00470648` | 82 (`0x52`) bytes/record | *(scratch, not stored)* | — | one-shot campaign override/patch application, no persistent C# equivalent yet |
+| 2 | `DAT_00470648` | 82 (`0x52`) bytes/record | *(scratch, not stored)* | — | one-shot campaign override/patch application ([Open](#open)) |
 | 3 | `DAT_00470666` | 8 bytes/record | `DAT_0047063c` | referenced by #4, #16, #17 | **decoded — see "Row #3 field decode" below.** A small campaign-variant value lookup: GUID + condition + payload, where the same GUID can carry several condition-gated payload variants |
 | 4 | `DAT_00470668` | 144 (`0x90`) bytes/record | `DAT_00470640` | 3 sub-arrays (10, 30, 30 shorts) of `.ENG` string ids; 1 ref into #3 | **decoded — see "Row #4 field decode" below.** No GUID/identity field at all (offset `0x00` is the condition ref instead) — refutes the existing C# `UnitInfo` hypothesis outright, not just its sub-array split; nothing else in the file references this row |
-| 5 | `DAT_0047066a` | **skip-only**, `count * 0x40` bytes, nothing stored | — | — | genuinely unread/unmodeled data — the game itself skips it at this load path; may only matter to DBSIM, not VSHELL |
+| 5 | `DAT_0047066a` | **skip-only**, `count * 0x40` bytes, nothing stored | — | — | skipped at this load path; the game itself never stores it here ([Open](#open)) |
 | 6 | `DAT_0047064e` | 22 (`0x16`) bytes/record | `DAT_0047060c` | self (inherit/compose) | **decoded — see "Row #6 field decode" below. A 3D world-position/waypoint record** (`MapPoint22`): GUID + 3 dead fields + an int32 X/Y/Z triple. This is the record every row #9 link/reward ref, and several other rows' refs, ultimately resolve to |
 | 7 | `DAT_00470650` | 10 bytes/record | `DAT_00470610` | self | **decoded — see "Row #7 field decode" below.** A minimal record: GUID + 3 fully-dead fields + one small discrete payload (`0`/`1`/`10`) — the simplest record type in the file, unreferenced by anything else |
 | 8 | `DAT_00470656` | **variable**: 10 fixed bytes/record + (nested-count × 2) bytes | `DAT_0047061c` | #6 (nested entries) | **decoded — see "Row #8 field decode" below.** A named, orderable list of row #6 world positions (`WaypointGroup`) — a patrol route/waypoint chain, with real evidence of both spatial coherence and closed-loop (patrol circuit) structure |
@@ -71,7 +71,7 @@ Two corrections versus the first disassembly-only pass (caught by building a str
 | 16 | `DAT_0047065a` | 164 (`0xa4`) bytes/record | `DAT_00470624` | #6, #7, #8, #10, a **20-entry** discriminated-ref array (0/1/2 → #12/#13/#14), a 10-entry array into #15 | **decoded — see "Row #16 field decode" below.** `EntitySpawn164` — the 20-entry cross-ref array matches `MapEntIds[20]`/`MapEntities[20]` exactly; also has a compound-condition pair (`0x02`/`0x04`, `-99` sentinel), an 18-short always-zero dead zone, and a cleanly discriminated trailing payload (`0x78`: 0/1/2 → 0/2/4 populated fields) |
 | 17 | `DAT_0047064a` | 58 (`0x3a`) bytes/record | `DAT_00470608` | #6 (declared, **never used in retail data**), #8, a `.ENG` id (dominant), a 4-way discriminated ref (0/1/2/3 → #16/#12/#13/#14) | **the mission objective — see "Row #17 field decode" below.** Structurally unusual — no leading GUID field at all (this record is never referenced by anything else in the file); the 42-byte tail is a nested pair-count array, the same idiom as row #8's nested waypoint list |
 
-`DAT_00470664` itself is never the subject of a count+array read in this function — it's used throughout as a lookup-table size bound, strongly suggesting it's a shared table (plausibly `HercLUT`) loaded once at VSHELL startup, not per-mission.
+`DAT_00470664` itself is never the subject of a count+array read in this function — it's used throughout as a lookup-table size bound, consistent with a shared table loaded once at VSHELL startup rather than per-mission ([Open](#open)).
 
 ### Verification note
 
@@ -162,7 +162,7 @@ The mission action — `script.dat` block 5, laid out in [`../simulation/mission
 | `0x1A–0x43` | (42 bytes) | **dead** — constant padding (`0000` + twenty `-1`s) |
 | `0x44–0x45` | ref→herc/unit LUT | 1% real |
 | `0x46–0x4D` | ref[1..4]→LUT | **dead** — always `-1` |
-| `0x4E` | secondary value | 0 dominant; meaning unclear (timer? sequence index?) |
+| `0x4E` | secondary value | 0 dominant ([Open](#open)) |
 | `0x50` | polymorphic target | type chosen by `0x06` (0/1/3/4 → rows #12/#13/#14/#16); 1% real |
 
 
@@ -217,7 +217,7 @@ A mission timer: an action that arms it, a delay, and the actions fired when the
 | `0x52–0x8c` | sub-array C → `.ENG` ids (30 slots) | 0–3 real slots; mode 1 |
 | `0x8e` | ref→row #3 variant | 87% real; dominant field; fetches payload value |
 
-Sub-array A's values reach 243 across the corpus, so none of the three indexes the 5-slot shared LUT at `DAT_00470664`: they are ids into the mission's own [`.ENG` table](#the-eng-string-table). Which of B and C is the briefing and which the debrief is not established.
+Sub-array A's values reach 243 across the corpus, so none of the three indexes the 5-slot shared LUT at `DAT_00470664`: they are ids into the mission's own [`.ENG` table](#the-eng-string-table). Which of B and C is the briefing and which the debrief is [Open](#open).
 
 
 ## Row #13 field decode — "UnkEntity102Bytes" (`DAT_00470654`, 102 bytes/record)
@@ -234,7 +234,7 @@ Item flags + condition/inheritance (24%/30% real usage — highest combined rate
 | `0x30` | ref→row #6 | always `-1` in retail, but **not dead** — DBSIM reads it as this flyer's spawn-position override (see `script-dat.md`) |
 | `0x32` | ref→row #7 | same, for heading |
 | `0x34` | presence flag | 68% real; always `0` if present |
-| `0x36` | ? | nearly always `0` |
+| `0x36` | ? | nearly always `0` ([Open](#open)) |
 | `0x38–0x60` | flags block B (20 shorts) | **dead** — 99.9% `-1` |
 | `0x60` | ref→row #10 slot 1 | **dead** — always `-1` |
 | `0x62` | ref→row #10 slot 2 | **only live ref** — 21% real |
@@ -368,3 +368,14 @@ A line ending `" \n"` is authored to break there; the reader that copies these i
 - **Recurring pattern: trailing scalar fields that are almost always a specific constant** — row #13's `0x64` (always `100`), row #14's `0x3C` (`100`/`0`), row #12's `0x8E` (`100` or `50`).
 
 - **Note:** `DEMO2.MSN` undershoots by 42 bytes at row #17; treat as a known outlier rather than a table error.
+
+## Open
+
+- **Open:** what record types 1-3's evaluator functions (`FUN_004659ec`, `FUN_00417610`) test beyond `FUN_004159d0`'s `-99`-sentinel-or-range-check; candidates are dialogue/event flags and numeric range checks, distinct from type 0's pure flag comparisons.
+- **Open:** whether `DAT_00470664` is `HercLUT`, loaded once at VSHELL startup rather than per-mission; only its use as a size bound is confirmed here.
+- **Unported:** row #2's one-shot campaign-override/patch application (82 bytes/record, scratch-applied via `FUN_00416379`, never stored as a persistent array).
+- **Open:** whether row #5 (`DAT_0047066a`, skip-only, `count * 0x40` bytes) is read anywhere else, such as directly by DBSIM, rather than only skipped by this VSHELL load path.
+- **Unported:** the template-inheritance mechanism itself — a record's parent-index field copying an already-loaded record's fields, with per-field overrides layered on top. `MissionFileTransformer` round-trips the raw bytes but does not resolve the copy.
+- **Open:** what row #10's `0x4E` secondary value means; candidates are a timer or a sequence index.
+- **Open:** which of row #4's sub-array B and sub-array C is the mission briefing and which is the debrief.
+- **Open:** what row #13's `0x36` field is; nearly always `0`, not confirmed dead.

@@ -10,7 +10,7 @@ An additive lagged Fibonacci generator over a 56-entry table of `short`s with tw
 
 `Math_RandomBelow` (`00492e18`) wraps it as `(next & 0x7fff) % bound` — the mask **drops the sign bit rather than taking an absolute value**, so a bounded draw is over the low fifteen bits, not the full sixteen, and is not quite uniform for a bound that does not divide `0x8000`.
 
-Callers pass the state block's address and mask the result: `& 0xfff` for the terrain material roll and for the explosion's per-component roll. The simulation's shared block is `0x4d261d`; a second adjacent block at `0x4d268f` is seeded beside it, and what reads that one is not traced.
+Callers pass the state block's address and mask the result: `& 0xfff` for the terrain material roll and for the explosion's per-component roll. The simulation's shared block is `0x4d261d`; a second adjacent block at `0x4d268f` is seeded beside it ([Open](#open)).
 
 ## Seeding — `FUN_00492d7c`
 
@@ -24,4 +24,9 @@ So **DBSIM replays identically on every run**, up to the one wall-clock path int
 
 The `SimRandom(int)` constructor is this engine's own device, for a test that wants a pinned stream independent of the retail table.
 
-**What is still open is not the generator but the call history.** A roll's result depends on how many draws preceded it, so matching a specific retail roll means matching tick order, not just the seed. Until that holds, treat any particular roll as statistically faithful rather than replay-faithful — see [`../../ROADMAP.md`](../../ROADMAP.md). The terrain scatter is the visible case: whether DBSIM has already drawn from the generator by the time a zone populates is not established, and if it has, the scatter lands on different cells ([`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md)).
+A roll's result depends on how many draws preceded it, so matching a specific retail roll means matching tick order, not just the seed; any particular roll is statistically faithful rather than replay-faithful today ([Open](#open)).
+
+## Open
+
+- **Open:** match call order (tick order), not just the seed, so a specific retail roll replays exactly rather than only statistically — see [`../../ROADMAP.md`](../../ROADMAP.md).
+- **Open:** whether DBSIM draws from the generator before a zone populates. The terrain scatter is the visible case: if it does, the scatter lands on different cells than this engine's — see [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).

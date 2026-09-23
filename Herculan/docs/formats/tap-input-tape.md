@@ -100,5 +100,5 @@ The tapes are readable and the switches are live, so `dbsim -ptapes\demo1` repla
 
 ## Open
 
-- Whether the retail tapes' missions are the `DEMO`, `DEMO_01` and `DEMO_02` entries in the campaign's own mission table ([`../shell/campaign-loop.md`](../shell/campaign-loop.md)), or the `DEMO*.MSN` files. A tape carries `script.dat`, which is a save formatted from a `.MSN` rather than the mission file itself, so the two were not matched up.
-- The second bank of button bits at `+0x0d` of a frame header: playback reads it back into locals rather than into named globals, so which control each bit carries was not traced.
+- **Open:** whether the retail tapes' missions are the `DEMO`, `DEMO_01` and `DEMO_02` entries in the campaign's own mission table ([`../shell/campaign-loop.md`](../shell/campaign-loop.md)), or the `DEMO*.MSN` files — a tape carries `script.dat`, a save formatted from a `.MSN` rather than the mission file itself, so the two are not matched up.
+- **Open:** which control each bit of the second bank of button bits at `+0x0d` of a frame header carries; playback reads it back into locals rather than into named globals.

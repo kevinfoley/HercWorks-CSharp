@@ -1,6 +1,6 @@
 # .DFN / .HFN / .DCI — bitmap fonts and cursor images
 
-Reverse-engineered from `VSHELL.EXE`/`DBSIM.EXE` disassembly in the `ES2Recon` Ghidra project, not from the Java source (`ES2TransferApi`/etc. never covered these). Cross-checked against real retail files (`ES2/VOL/simvol0/dfn/`, `ES2/VOL/simvol0/dci/`, `ES2/VOL/SHELL0/DFN/`). This doc records what's confirmed and what's still open — don't treat the open parts as settled.
+Reverse-engineered from `VSHELL.EXE`/`DBSIM.EXE` disassembly in the `ES2Recon` Ghidra project, not from the Java source (`ES2TransferApi`/etc. never covered these). Cross-checked against real retail files (`ES2/VOL/simvol0/dfn/`, `ES2/VOL/simvol0/dci/`, `ES2/VOL/SHELL0/DFN/`).
 
 ## The shared "Dynamix resource" envelope
 
@@ -57,9 +57,9 @@ Confirmed layout (offsets relative to the start of file content, i.e. after the 
 | WCURSOR.DCI | 7×8 | (0,3) | west — left edge, vertically centered |
 | NCURSOR.DCI | 8×8 | (3,0) | north — top edge |
 | SCURSOR.DCI | 8×8 | (3,7) | south — bottom edge |
-| PCURSOR.DCI | 9×16 | (4,4) | pointer/pick — tip-ish, not center (see caveat below) |
+| PCURSOR.DCI | 9×16 | (4,4) | pointer/pick — tip-ish, not center |
 
-**Caveat:** `PCURSOR.DCI` has ~101 undecoded trailing bytes; other 6 files end with 5 zero-padding bytes. The trailing data is mostly zero with scattered `0x38` and `0x3C` values — possibly a second image layer (AND-mask, outline) specific to this cursor, but not confirmed. Preserve as raw when parsing.
+`PCURSOR.DCI` carries about 101 trailing bytes after its pixels, mostly zero with scattered `0x38` and `0x3C` values ([Open](#open)); the other 6 files end with 5 zero-padding bytes. Preserve them as raw when parsing.
 
 ## `.DFN` / `.HFN` — bitmap font
 
@@ -131,10 +131,10 @@ The first two are **raw palette indices** and the third a logical id: a construc
 
 ## Ruled out: `.BND` and `.SNC`
 
-Real files checked (`ACTOR.BND`, `MECH.BND`, `CAM.BND`, `PA_01000.SNC`, `PA_02000.SNC`) do NOT start with `[typeId][0x0028]` after the VOL prefix. Both remain separate, still-undecoded formats.
+Real files checked (`ACTOR.BND`, `MECH.BND`, `CAM.BND`, `PA_01000.SNC`, `PA_02000.SNC`) do NOT start with `[typeId][0x0028]` after the VOL prefix. Both are separate formats: see [`bnd-notes.md`](bnd-notes.md) and [`heads-down-display.md`](heads-down-display.md#snc--portrait-lip-sync-scripts).
 
-## Open questions
+## Open
 
-- `.DFN`/`.HFN`: the header shorts at `0x0a` and `0x18` are 0 in every retail file and have no observed consumer.
-- `.DCI`: `PCURSOR.DCI`'s trailing 101 bytes (likely an AND-mask or outline layer, unconfirmed).
-- Whether DBSIM.EXE (not VSHELL) loads the SHELL0 fonts (`FONT.DFN`, `FONT2.DFN`, `BLACK.DFN`).
+- **Open:** the `.DFN`/`.HFN` header shorts at `0x0a` and `0x18`. They are 0 in every retail file and have no consumer found.
+- **Open:** `PCURSOR.DCI`'s trailing 101 bytes. They may be a second image layer (an AND-mask or outline) specific to this cursor.
+- **Open:** whether DBSIM.EXE (not VSHELL) loads the SHELL0 fonts (`FONT.DFN`, `FONT2.DFN`, `BLACK.DFN`).

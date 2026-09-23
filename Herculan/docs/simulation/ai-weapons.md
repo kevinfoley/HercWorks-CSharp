@@ -185,12 +185,6 @@ if (mount+0x5f == 0 || mount+0x5b == 0) {
 | `mount+0x24`, `+0x28` | short | Convergence pitch and yaw |
 | `mount+0x5b`, `+0x5f` | int | The two convergence gates, from `.GL +0x02`/`+0x04` |
 
-## Open questions
-
-- **The aspect angle is computed and never used.** `Ai_BuildCombatGeometry` (`0041e758`) and both travel thinks build `bearingFromTargetToMe − target.heading + target.turretTwist` and hand it down two calls, and its only consumer is the shield-facing test — which is broken (below). Nothing else reads it. The sign on the twist term is also wrong for the reading the expression otherwise invites, and with no live consumer there is no behaviour to check it against.
-- **`template+0x34`.** Plainly a per-shot cost the AI weighs against damage, and the retail values order the arsenal sensibly, but nothing else in the image reads it, so what units it is in is not recoverable.
-- **`template+0x2c`.** A minimum engagement range, zero throughout retail data.
-
 ## Rejected readings
 
 | Reading | Why it is wrong |
@@ -213,3 +207,9 @@ What differs from the original, and why:
 - **The one-sided aim scatter is reproduced**, since it is what the retail enemy's aim actually does, and `SimWorld.Difficulty` indexes the table as the original does — see [`difficulty.md`](difficulty.md).
 - **The mission action a machine fires on running dry is `SimObject.DefeatAction`**, the same one its death fires — see [`mission-deployment.md`](mission-deployment.md).
 - **The gun convergence runs for the player too**, which is the original's arrangement: the range it converges on is the distance to the selected target, and centring the turret squares the guns up.
+
+## Open
+
+- **Open:** the aspect angle is computed and never used — `Ai_BuildCombatGeometry` (`0041e758`) and both travel thinks build `bearingFromTargetToMe − target.heading + target.turretTwist` and hand it down two calls, and its only consumer is the shield-facing test, which is broken (see [Rejected readings](#rejected-readings)); nothing else reads it, and the sign on the twist term is also wrong for the reading the expression otherwise invites, with no live consumer to check it against.
+- **Open:** `template+0x34` is plainly a per-shot cost the AI weighs against damage, and the retail values order the arsenal sensibly, but nothing else in the image reads it, so its units are not recoverable.
+- **Open:** `template+0x2c` is a minimum engagement range, zero throughout retail data.

@@ -146,7 +146,7 @@ Ported — [`impact-effects.md`](impact-effects.md) carries the array ordering.
 
 ## Rejected readings
 
-Readings a fresh pass could plausibly land on. Each is disproven; do not reintroduce.
+Readings a fresh pass could land on. Each is disproven; do not reintroduce.
 
 | Reading | Why it is wrong |
 |---|---|

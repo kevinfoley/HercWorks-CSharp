@@ -78,7 +78,7 @@ Chaining two of them staggers a sequence: `script6.dat` has action 1 arm a 92-se
 
 Every mech, flyer and structure carries two action pointers, resolved by `DBSim_SpawnMissionObjects` from its roster record's own refs (block 7 `0x80`/`0x82`, block 8 `0x56`/`0x58`, block 9 `0x2e`/`0x30`).
 
-**`+0x1b2` — engaged.** `Detection_Sweep` activates it when a hostile that already has contact on this object closes to 50000 units; both parties latch `+0x9e` and both activate their own. It is gated on `obj+0xa2` being clear — **no writer of that byte has been located**, so what would suppress the activation is open.
+**`+0x1b2` — engaged.** `Detection_Sweep` activates it when a hostile that already has contact on this object closes to 50000 units; both parties latch `+0x9e` and both activate their own. It is gated on `obj+0xa2` being clear — a text search finds no writer of that byte ([Open](#open)).
 
 **`+0x1b6` — defeated.** Four sites, and they are the four ways an object stops being a threat:
 
@@ -158,9 +158,9 @@ Only the leader is repositioned; the rest of the group follows under its orders.
 
 ## The mission counters — `DAT_004a9ef4`
 
-1,000 shorts: `FUN_0042412c` writes 2,000 bytes of the block to `mission_var` as a mission ends, so these are the **campaign's** variables and their reader is outside the simulation. Two things write them during a mission: `Action_Activate`, and a group's own completion hook `FUN_00423f30` (ops 1 clear, 2 increment, 0x0d-0x10 set to op − 0x0c), which is not ported.
+1,000 shorts: `FUN_0042412c` writes 2,000 bytes of the block to `mission_var` as a mission ends, so these are the **campaign's** variables and their reader is outside the simulation. Two things write them during a mission: `Action_Activate`, and a group's own completion hook `FUN_00423f30` (ops 1 clear, 2 increment, 0x0d-0x10 set to op − 0x0c) ([Open](#open)).
 
-The reader is VSHELL's `MissionVar_Read` (`0040ea59`), which loads the file straight back into the same array — `00482af8` there, the store the `.msn` condition opcodes test and every save slot carries. VSHELL also writes `mission_var` from that array before launching a mission (`MissionVar_Write`, `0040e9cb`); whether DBSIM reads it at mission start, rather than only writing it at the end, is a question for the DBSIM side. See [`../shell/campaign-loop.md`](../shell/campaign-loop.md).
+The reader is VSHELL's `MissionVar_Read` (`0040ea59`), which loads the file straight back into the same array — `00482af8` there, the store the `.msn` condition opcodes test and every save slot carries. VSHELL also writes `mission_var` from that array before launching a mission (`MissionVar_Write`, `0040e9cb`) ([Open](#open)). See [`../shell/campaign-loop.md`](../shell/campaign-loop.md).
 
 ## The shipped mission, end to end
 
@@ -181,13 +181,6 @@ Action 0's circle is centred at (1005988, 1058404) with radius 150,000 and its s
 
 `MissionGroup.AwaitingDeployment` is `group+0x14` and `SimObject.AwaitingDeployment` is a *read* of it, so the two cannot disagree; all three gate effects are honoured.
 
-Not ported, and each is a gap in something else rather than in this layer:
-
-- **The message an action queues.** The id is decoded (`+0x34`, already decremented at load) and carried, but it names a `data\mission.str` line and that file is not loaded.
-- **The pod's leftover ground mark**, which comes from the theater's `flat`/`flat2` shape pool.
-- **The counters' reader**, which is the campaign layer.
-- `obj+0xa2`, the suppressor on the engagement action — see above.
-
 The two walk-on verbs are implemented but unexercised: no mission has been found that uses them.
 
 ## Rejected readings
@@ -199,3 +192,12 @@ The two walk-on verbs are implemented but unexercised: no mission has been found
 | `Deployment_PickPointNearPlayer` avoids deployed objects | Only for the walk-on verbs; a drop pod's point is picked without that test |
 | `Actions_EvaluateTriggers` runs before the group pass | `Sim_MainTick` runs it after, so a group arrives a tick after its trigger |
 | `obj+0x1b6` is a death action | It is also activated when a machine runs out of weapons |
+
+## Open
+
+- **Unported:** the message an action queues. The id is decoded (`+0x34`, already decremented at load) and carried, but it names a `data\mission.str` line and that file is not loaded.
+- **Unported:** the pod's leftover ground mark, from the theater's `flat`/`flat2` shape pool.
+- **Unported:** the mission counters' reader, which is the campaign layer.
+- **Unported:** the group completion hook `FUN_00423f30` that writes the mission counters (ops 1 clear, 2 increment, 0x0d-0x10 set to op − 0x0c).
+- **Open:** confirm whether anything writes `obj+0xa2`, the gate on the engaged action ([above](#an-objects-own-two-actions--0x1b2-and-0x1b6)); a text search finds no writer.
+- **Open:** whether DBSIM reads `mission_var` at mission start as well as writing it at mission end ([above](#the-mission-counters--dat_004a9ef4)).

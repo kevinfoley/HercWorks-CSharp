@@ -39,7 +39,7 @@ The reassess maps the group's current order verb onto a state. The verb set is [
 | 4 `sleep` | `sleeping` | latches `flyer+0xa5` |
 | 5 `travel` | `scouting` | latches `flyer+0xa5` |
 
-**Verbs 1, 2 and 6 install nothing, and neither does an empty slot.** The switch has no default and the descriptor it is about to install lives in `ECX`, which nothing on that path writes — the same shape of defect `Mech_AiSelectBehaviour` has for an empty order slot, though **not demonstrably the same consequence**: there the register is provably zero and the dereference is a null one, and no equivalent trace has been done here. See [`ai-goals.md`](ai-goals.md#a-group-with-no-order-at-all); the engine leaves the aircraft in the state it has.
+**Verbs 1, 2 and 6 install nothing, and neither does an empty slot.** The switch has no default and the descriptor it is about to install lives in `ECX`, which nothing on that path writes — the same shape of defect `Mech_AiSelectBehaviour` has for an empty order slot, where the register is provably zero and the dereference is a null one ([Open](#open) covers whether the same holds here). See [`ai-goals.md`](ai-goals.md#a-group-with-no-order-at-all); the engine leaves the aircraft in the state it has.
 
 `flyer+0xa5` is the third byte of the out-of-the-fight triple ([`sim-object-layout.md`](sim-object-layout.md#the-out-of-the-fight-triple--0x99-0xa4-0xa5)), and nothing clears it. A flight ordered to travel or to sleep stops counting as something the other side has to contest, which is the point.
 
@@ -95,7 +95,7 @@ where `bankTurnRate` is `flyer+0x287` — the heading rate the current bank is a
 - A steering command **under 2000** is answered with rudder (`Q16(-turn, 4000)`) and level wings rather than a bank at all — and the rudder is refused while the roll is still over 800, so the wings come level first.
 - Anything larger is flown as a bank.
 
-The pitch channel is `Flyer_PitchToAltitude` (`00422108`) into `Flyer_PitchCommand` (`00422098`): a height error becomes a pitch demand against a **fixed 10000-unit horizontal run**, so the angle asked for depends on the error alone; the demand is then scaled, resolved through the current bank, and damped by the pitch rate. Cruise altitude is a flat 30000 world units.
+The pitch channel is `Flyer_PitchToAltitude` (`00422108`) into `Flyer_PitchCommand` (`00422098`): a height error becomes a pitch demand against a **fixed 10000-unit horizontal run**, so the angle asked for depends on the error alone; the demand is then scaled, resolved through the current bank, and damped by the pitch rate. Cruise altitude is a flat 30000 world units. `Flyer_PitchToAltitude`'s other arm, gated on `flyer+0xae` and reading `flyer+0x23c`, belongs to the walking machine's obstacle avoidance and leg placement ([`ai-navigation.md`](ai-navigation.md), [`mech-locomotion.md`](mech-locomotion.md)); no flyer path writes either field, so the arm never fires for an aircraft.
 
 `Flyer_ApplyFlightCommand` (`004221a8`) hands the result to `FlightModel_Step` (`00466a54`) — see [`razor-flight.md`](razor-flight.md#control-law-flightmodel_step) for the model itself. Two things it does on the way:
 
@@ -106,7 +106,7 @@ The pitch channel is `Flyer_PitchToAltitude` (`00422108`) into `Flyer_PitchComma
 
 The command array's throttle element is **never written** — `Flyer_SteerAndFly` zeroes it at every site — so the flight model's rate branch never steps the setting and it stays at `Flyer_Constructor`'s `0x200`, half. A `SKIMMER` therefore cruises at the airspeed half throttle asks for, 875 of its 500–1000 range, biased only by its own pitch attitude.
 
-`Flyer_FormationThrottle` (`00422260`) does work a throttle figure out of the station error and the leader's speed, clamped to `[0x8c, 0x100]`, and writes it to `flyer+0x21c` — **a field with no reader anywhere in the image**. Not ported.
+`Flyer_FormationThrottle` (`00422260`) does work a throttle figure out of the station error and the leader's speed, clamped to `[0x8c, 0x100]`, and writes it to `flyer+0x21c` — **a field with no reader anywhere in the image**, so the engine does not compute or store it.
 
 ## The move — `Flyer_MovementTick` (`004218c4`)
 
@@ -152,9 +152,9 @@ An aircraft is drawn by **cell** rather than by node — it loses components lik
 | `Flyer_FormationThrottle`'s output controls the flight | `flyer+0x21c` has no reader, and the model's throttle input is zero at every call site |
 | A flyer's own radar is what paints it | It zeroes `flyer+0x96` every non-combat tick. A flight is painted by the other side's scanner or not at all |
 
-## Open questions
+`flyer+0x1f4` gates firing (`|x| < 10`) and `flyer+0x1f8` scales the leader term in the bank command. Both are read exactly once each and written nowhere in the image, so both are identically zero: the gate always passes and the term contributes nothing. The engine models neither, which matches.
 
-- **What the three unhandled verbs actually do.** `Flyer_AiSelectBehaviour` leaves `ECX` unwritten for verbs 1, 2 and 6; what the dispatcher leaves in that register is not traced, and whether any retail `.MSN` gives a flyer group one of them has not been checked — the question is per group kind, and `ai-goals.md`'s verb-range census is not broken down that way.
-- **`flyer+0x1f4`** gates firing (`|x| < 10`) and **`flyer+0x1f8`** scales the leader term in the bank command. Both are read exactly once each and written nowhere in the image, so both are identically zero: the gate always passes and the term contributes nothing. Neither is ported.
-- **`Flyer_PitchToAltitude`'s other arm**, gated on `flyer+0xae` and reading `flyer+0x23c`. Both fields belong to the walking machine's obstacle avoidance and leg placement ([`ai-navigation.md`](ai-navigation.md), [`mech-locomotion.md`](mech-locomotion.md)) and no flyer path writes either, so the substitution cannot fire on an aircraft.
-- **`FUN_00422a3c`**, which zeroes `flyer+0x21c` and returns 0. No caller traced; it is not in the flyer vtable and not in any descriptor triple.
+## Open
+
+- **Open:** what verbs 1, 2 and 6 do — `Flyer_AiSelectBehaviour` leaves `ECX` unwritten for them; what the dispatcher leaves in that register is unchecked, as is whether any retail `.MSN` gives a flyer group one of them (`ai-goals.md`'s verb-range census does not break flyer groups out separately)
+- **Open:** confirm whether anything calls `FUN_00422a3c` (zeroes `flyer+0x21c`, returns 0) — a text search finds no caller, and it is not in the flyer vtable or any descriptor triple

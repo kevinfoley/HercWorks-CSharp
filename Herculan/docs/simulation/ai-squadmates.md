@@ -142,11 +142,6 @@ What differs from the original:
 
 - **`Squad_BroadcastOrder`'s score is zero for the twelve verbs its switch does not cover.** The original's is a stack local assigned only inside that switch, so an uncovered verb leaves every member carrying the previous one's score. Both tie the group and walk it in range order; zero does it without reading uninitialised memory.
 
-## Open questions
-
-- **Verbs 3 and 5 as values of `+0x23e`.** Nothing writes either, and two readers handle them: `Mech_AiGoalPosition` works to `+0x24c` for 3 and to `+0x248` for 5, and `Mech_SquadOrderLineIndex` prints `GUARD` for 3. `Mech_AiSelectBehaviour` installs nothing for either, so a machine carrying one would keep the state it had and steer at `+0x240`.
-- **Group 0 entries 6 and 9** have no text and no case, and sit exactly where the FLASH COMM page's `+3` shift lands rows 3 and 6.
-
 ## Rejected readings
 
 | Reading | Why it is wrong |
@@ -155,3 +150,8 @@ What differs from the original:
 | `mech+0x9a` stops a squadmate shooting at the player's target | It removes that one object from the *acquisition* candidate set. A machine already holding it keeps it; what drops it is verb 1's own retarget branch, which only runs for a machine committed to that exact target |
 | `Squad_BroadcastOrder` ranks the group by fitness for the order | For six verbs. For the other twelve every member scores alike and the ranking is range alone |
 | The order record's point is the only thing `DEFEND POSITION` stores | It stores both: `+0x240` takes the point and `+0x24c` the subject, and `Mech_AiGoalPosition` prefers the subject, so a guard ordered onto a machine follows that machine |
+
+## Open
+
+- **Open:** what verbs 3 and 5 mean as values of `+0x23e` — nothing writes either, though `Mech_AiGoalPosition` and `Mech_SquadOrderLineIndex` both handle them and `Mech_AiSelectBehaviour` installs nothing for either, so a machine carrying one would keep the state it had and steer at `+0x240`.
+- **Open:** group 0 entries 6 and 9 have no text and no case, and sit exactly where the FLASH COMM page's `+3` shift lands rows 3 and 6.

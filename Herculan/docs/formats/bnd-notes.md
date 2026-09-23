@@ -1,10 +1,10 @@
-# .BND — per-subsystem tuning/config source files (SHELVED; CAM.BND confirmed build-time-only, never read by DBSIM.EXE at runtime)
+# .BND — per-subsystem tuning source files
 
 83 entries in `SIMVOL0.VOL`'s `bnd\` folder, one per DBSIM subsystem; filenames map to `DBSIM.EXE` translation units (`ACTOR`, `ALERT`, `BULLET`, `CAM`, `DEBRIS`, `FIRE`, `MECH`, `MECHSYS`, `OBJLIST`, `ROCKET`, `TERRAIN`, `TS_PART`, `PWEAPONS`, etc.). Contents are 6–394 bytes; small per-module tuning/config records, not per-entity arrays.
 
 All offsets below are content-relative — the start of what `VolEntry.RawBytes` holds. A copy unpacked by `ES2/VOL/extractVol.py` carries a further nine leading bytes belonging to the archive, not to this format; see [vol-archive.md](vol-archive.md).
 
-**Status:** Shelved deliberately; not needed at runtime.
+DBSIM never reads a `.BND` file; see [Build-time-only source format](#build-time-only-source-format--values-compiled-into-dbsimexe-never-read-at-runtime). Decoding the other 82 is shelved for that reason.
 
 ## No shared header
 
@@ -41,17 +41,17 @@ All 22 numeric fields but one match the Java author's sample values exactly. Off
 
 Implemented as `HercWorks.Core.Data.File.Bnd.Cam` + `HercWorks.Core.Io.Transform.Bnd.CamTransformer`, registered in `TransformerRegistry` by exact file name (`CAM.BND` — every other `.BND` file has an unrelated record shape). Round-trips byte-exact against real retail `CAM.BND`.
 
-Field *meanings* are unconfirmed — `Distance1`/`Distance2`/`Value3`/`Value4` (2500, 30000, 500, 8000) are plausibly camera near/far or zoom-range values, but unverified. `Unknown3` (49 = ASCII `'1'`) appears at the same offset in `CAM`/`MECH`/`MECHSYS` — plausibly a shared format sub-version byte.
+`Unknown3` (49 = ASCII `'1'`) appears at the same offset in `CAM`, `MECH` and `MECHSYS`. What the fields mean is [Open](#open).
 
 **Other Java-annotated files** (`MECH.BND`, `MECHSYS.BND`, `AppInput.BND`, `MechView.BND`):
-- `MECH.BND`: first 8 bytes match Java notes exactly (242, 164, 51, 49, 12, 0, 42, 0); bytes 8+ diverge, likely per-mech-type array starting ~offset 8. Record 394 bytes total; only first 16 documented.
-- `MECHSYS.BND`: 38-byte record; after first 5 bytes (241, 184, 35, 49, 75), stride `[UINT8 value][3×0x00]` at offsets 4,8,12,16,20,24,28 with values **75, 60, 45, 25, 18, 12, 6** (decreasing, distance/LOD tier?).
-- `AppInput.BND`: offset 0 documented (=84); other 22 bytes unmapped.
-- `MechView.BND`: offsets 0-1 documented only; body untouched.
+- `MECH.BND`: first 8 bytes match Java notes exactly (242, 164, 51, 49, 12, 0, 42, 0); bytes 8+ diverge. Record 394 bytes total; the Java notes document the first 16.
+- `MECHSYS.BND`: 38-byte record; after first 5 bytes (241, 184, 35, 49, 75), stride `[UINT8 value][3×0x00]` at offsets 4,8,12,16,20,24,28 with values **75, 60, 45, 25, 18, 12, 6**.
+- `AppInput.BND`: the Java notes document offset 0 (=84) of 23 bytes.
+- `MechView.BND`: the Java notes document offsets 0-1.
 
 ## Build-time-only source format — values compiled into DBSIM.EXE, never read at runtime
 
-Hardcoded instruction immediates in `dbsim-physics-notes.md` (rocket steering) and disassembly-found weapon range breakpoints (not yet written up in `weapon-damage-types.md`) match byte-exact values in their corresponding `.BND` files:
+Hardcoded instruction immediates in `dbsim-physics-notes.md` (rocket steering) and weapon range breakpoints found in the disassembly match byte-exact values in their corresponding `.BND` files:
 - `ROCKET.BND` at content offsets 6-7, 8-9, 14-15: `1280`, `3072`, `40000`
 - `PWEAPONS.BND` at content offsets 58-65: `120, 360, 180, 1800` (contiguous)
 
@@ -68,12 +68,12 @@ Hardcoded instruction immediates in `dbsim-physics-notes.md` (rocket steering) a
 | A universal 9-byte `.BND` envelope — `[0]=0x02`, `[1..2]` payload length, `[3..4]=0x0000`, `[5..8]` build stamp — followed by a 1-byte record tag | Those nine bytes are the VOL entry prefix, present on every entry of every type, and are absent from the content the game reads. The reading is convincing on an extracted `.BND` alone: the flag really is 0x02, the size field really does hold `fileSize - 10`, and `[3..4]` really is zero — because no `.BND` reaches 64 KB, so the size field's high half is always empty. The "build stamp" is the source file's MS-DOS date and time, which is why files built in the same batch share it. The "record tag" is just the record's first byte. See [vol-archive.md](vol-archive.md). |
 | `CAM.BND`'s record is 25 bytes — one more than the Java notes account for | The 25th byte is the archive's per-entry trailer, which repeats the content's last byte. The record is 24 bytes. |
 
-## Notes for future work
+## Open
 
-**Work is shelved.** If resumed:
-
-- Only 5 of 83 files have Java source doc comments (`Cam`, `Mech`, `MechSys`, `AppInput`, `MechView`). Check `herc-works-mdk-main/ES2Core/.../data/file/bnd/*.java` before hex-diffing.
-- `CAM.BND` is fully decoded and implemented: `HercWorks.Core.Data.File.Bnd.Cam` + `Io.Transform.Bnd.CamTransformer` (registered in `TransformerRegistry`, round-trips its 24 content bytes byte-exact). Use as template.
-- For other files: group by same payload-length, diff within family (e.g., `P*.BND` cockpit panels, `*_ALRT.BND` alert configs) — the approach that cracked `.DCI`.
-- Cross-reference unknown fields against `dbsim-physics-notes.md`'s and `damage-system.md`'s/`weapon-damage-types.md`'s per-subsystem constants (the technique that confirmed build-time-only).
-- No runtime loader exists; don't search for one.
+- **Open:** what `CAM.BND`'s fields mean. `Distance1`/`Distance2`/`Value3`/`Value4` (2500, 30000, 500, 8000) may be camera near/far or zoom-range values; `Unknown3`, shared with `MECH` and `MECHSYS`, may be a format sub-version byte. Matching them to immediates in DBSIM's camera code would settle both.
+- **Open:** the layouts of the other 82 files, shelved because the game never reads them. `MECH.BND` looks like a per-mech-type array from about offset 8; `MECHSYS.BND`'s decreasing 75…6 run looks like distance or LOD tiers. If resumed:
+  - Only 5 of 83 files have Java source doc comments (`Cam`, `Mech`, `MechSys`, `AppInput`, `MechView`). Check `herc-works-mdk-main/ES2Core/.../data/file/bnd/*.java` before hex-diffing.
+  - `CAM.BND` is the template: `HercWorks.Core.Data.File.Bnd.Cam` + `Io.Transform.Bnd.CamTransformer`.
+  - Group the rest by payload length and diff within a family (`P*.BND` cockpit panels, `*_ALRT.BND` alert configs) — the approach that decoded `.DCI`.
+  - Cross-reference fields against the per-subsystem constants in `dbsim-physics-notes.md`, `damage-system.md` and `weapon-damage-types.md`, the technique that established the format is build-time-only.
+- **Open:** write the `PWEAPONS.BND` range breakpoints (120, 360, 180, 1800) up in [`../simulation/weapon-damage-types.md`](../simulation/weapon-damage-types.md) with the code that uses them.

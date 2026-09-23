@@ -72,7 +72,7 @@ So a root whose numbering is compacted has its geometry composed against whateve
 | 4 | 9 (a knee in root 0) | `(-2.76, -1.68, 4.08)` m | 6 m low, 2.8 m off-axis |
 | 5, 6 | 4 (the torso mount) | `(0.00, 0.00, 0.00)` m | on the ground |
 
-**This is unresolved against observed retail behaviour**, which does not show a displaced upper body at the lowest HERC DETAIL setting. Everything above is read from the binary and the shipped shapes; what reconciles it with what retail draws has not been found. Ruled out so far: the shape loader truncating the root list (`FUN_00474bcc` loads all of them, into a 100-slot buffer); the bias coming from anywhere but the HERC DETAIL byte (`0045fbaf` and `00461dc9` both push `DAT_004d1fc5` straight into `ShapeDetail_ApplyHercDetailSetting`); and `Mech_Draw` bypassing the selection (`004174c8` calls `Shape_DrawAtDetailLevel` after its splice loop).
+**Observed retail behaviour does not show a displaced upper body at the lowest HERC DETAIL setting.** Everything above is read from the binary and the shipped shapes ([Open](#open)). Ruled out so far: the shape loader truncating the root list (`FUN_00474bcc` loads all of them, into a 100-slot buffer); the bias coming from anywhere but the HERC DETAIL byte (`0045fbaf` and `00461dc9` both push `DAT_004d1fc5` straight into `ShapeDetail_ApplyHercDetailSetting`); and `Mech_Draw` bypassing the selection (`004174c8` calls `Shape_DrawAtDetailLevel` after its splice loop).
 
 ### The three tunables
 
@@ -147,5 +147,9 @@ The same reasoning covers 14 plain `TSPoly`s reachable at cell 0 across every dr
 |---|---|
 | Hardpoint attachment slots | **Skipped**, not spliced — `DtsMeshBuilder.AttachmentPartIds` derives the id set from the `.GL` and `SceneModelLibrary.Mech` leaves those parts out of the mesh. The fitted case is drawn separately from `MECHWPNS.DTS` (`SceneModelLibrary.MechWeapon`), which is the same picture by a different route |
 | LOD root selection | **Ported, over a shortened chain.** `Render.ShapeDetail` is the rule and the three tables; `SceneModelLibrary.MechDetailRoots` builds the roots and the host selects one per machine per frame (`SelectDetailRoots`). The focal length is the window's rather than retail's fixed 512, so the thresholds stay a count of pixels on the screen being drawn. HERC DETAIL supplies the bias |
-| Compacted roots | **Not drawn.** The chain stops at the last root that keeps root 0's numbering (`ShapeAnimation.SharesNodeNumbering`), so the crudest one to three roots of each chassis are never selected. Drawing them reproduced the displacement in the table above — APOCA's upper body at a knee. Whether retail draws them, and what it looks like when it does, is the open question in "The pose array is root 0's"; the answer decides whether this truncation is a divergence to lift or a retail behaviour to match |
+| Compacted roots | **Not drawn.** The chain stops at the last root that keeps root 0's numbering (`ShapeAnimation.SharesNodeNumbering`), so the crudest one to three roots of each chassis are never selected. Drawing them reproduced the displacement in the table above — APOCA's upper body at a knee. Whether this truncation is a divergence to lift or a retail behaviour to match ([Open](#open)) |
 | Component sub-shape cells | **Drawn.** `DtsMeshBuilder.BuildSegments` builds every cell of every sequence into its own segment under a `CellGate`, and the renderer draws the one `Sim.ComponentDamage.CellFrames` names — the same array, per object, that `shapeInstance+8` is |
+
+## Open
+
+- **Open:** what reconciles the compacted-root pose displacement (see [The pose array is root 0's](#the-pose-array-is-root-0s)) with observed retail behaviour, which shows no displaced upper body at the lowest HERC DETAIL setting. Deciding it settles whether the engine's truncation at the last root sharing root 0's numbering is a divergence to lift or a retail behaviour to match.

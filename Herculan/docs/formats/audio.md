@@ -8,7 +8,7 @@ DBSIM's sound is three stacked layers:
 | `SFX` | A general resource/voice manager: named samples, handles, a memory budget, priority eviction |
 | `Sound_*` | The game's own layer: a 57-entry catalog keyed by integer id, 3D placement, and a separate five-slot speech channel |
 
-The first two layers and the whole of the third are ported; see [Engine coverage](#engine-coverage). Only the `.hmp` MIDI path is not. The message channels themselves — the computer's ticker and the pilot/squad comm boxes that ride on this layer's speech slots — are [`cockpit-messages.md`](cockpit-messages.md)'s.
+All three layers are ported except the `.hmp` MIDI path; see [Engine coverage](#engine-coverage) and [Open](#open). The message channels themselves — the computer's ticker and the pilot/squad comm boxes that ride on this layer's speech slots — are [`cockpit-messages.md`](cockpit-messages.md)'s.
 
 ## Backend
 
@@ -133,7 +133,7 @@ Flag bits, all set by the setters as a side effect of a non-default value:
 | `0x0100` | currently playing |
 | `0x0400` | pitch is not 1.0 |
 | `0x0800` | pan is not centre |
-| `0x1000` | open type 2 — a third playback path, a file streamed by name through the window handle. No DBSIM caller found. |
+| `0x1000` | open type 2 — a third playback path, a file streamed by name through the window handle. See [Open](#open). |
 
 ### A repeated play layers; it does not restart
 
@@ -408,13 +408,11 @@ The five-slot speech channel is ported too: `SquadVoice` opens the `P*_*.WAV` cl
 
 Triggers ported so far: the beam report, the two table-driven fire sounds and the impact sound (with the ground hit's suppression), footfalls, the console click, the radar mode tone and its spoken announcement, the lock/acquire/loss tones, the power-up with its announcement and its flyer hum, and the missile-inbound warning.
 
-**Copies overlap, as they do in retail, but the channel ceiling is this engine's own.** `OpenAlBackend` keeps one buffer per sample and claims a source from a pool of `ChannelCount` (64) per play, so an id sounding twice occupies two sources; `SoundDirector` keeps the id's volume, pan and pitch and the newest handle, exactly as the original's voice record does. What is not reproduced is the ceiling: retail's is whatever its SOS driver was initialised with, and the `sosDIGIInitDriver` argument block at `006b5614` is filled field by field with nothing to name the words, so which one is the channel count is unrecovered. 64 is chosen against what the game asks for and against OpenAL Soft's own limit of 256 sources. A play that finds every channel busy is dropped, which is how `sosDIGIStartSample` fails too.
+**Copies overlap, as they do in retail, but the channel ceiling is this engine's own.** `OpenAlBackend` keeps one buffer per sample and claims a source from a pool of `ChannelCount` (64) per play, so an id sounding twice occupies two sources; `SoundDirector` keeps the id's volume, pan and pitch and the newest handle, exactly as the original's voice record does. What is not reproduced is the ceiling: retail's is whatever its SOS driver was initialised with, and the `sosDIGIInitDriver` argument block at `006b5614` is filled field by field with nothing to name the words ([Open](#open)). 64 is chosen against what the game asks for and against OpenAL Soft's own limit of 256 sources. A play that finds every channel busy is dropped, which is how `sosDIGIStartSample` fails too.
 
 `SoundDirector.ConsumeRequest` is a faithful port of `Sound_ConsumeRequest` and, like the original, has no caller. It is kept because the attribute it reads is parsed and documented, not because anything uses it.
 
 **The memory budget is not reproduced.** `SoundBank` decodes every sample the catalog names at startup instead of honouring the preload attribute and caching the rest on demand, so none of [Memory budget and eviction](#memory-budget-and-eviction) exists here — no cap, no refcount, no victim scoring. The whole `hmi` bank is about 1.5 MB of 8-bit PCM against the original's own 2,000,000-byte cap, so there is nothing for the eviction machinery to do; it would only start to matter for a bank the retail game does not ship.
-
-Not ported: the `.hmp` MIDI path. `HercWorks.Core` has `Data/File/Cfg/SoundCfg.cs`, a `SOUND.CFG` key holder with no reader.
 
 ### CD music
 
@@ -428,5 +426,10 @@ Three divergences:
 
 The `Sound_SetMusicEnabled(1)` that [overrides the MUSIC preference](#the-mission-session-overrides-the-music-preference) is not reproduced: the engine reads the row, starts the mission's music through it, and leaves it alone.
 
-### Mid-session audio recovery not yet implemented
-If the endpoint drops while you're playing (unplugging headphones, switching default device), the engine stays silent for good. OpenAL Soft exposes `ALC_EXT_disconnect/ALC_CONNECTED`; detecting it is cheap, but reconnecting means recreating the 64-source pool in`OpenChannels` and re-uploading every buffer `CreateSample` handed out, since sample ids are indices into `_buffers` that `SoundDirector` and `ComputerVoice` both hold. Those ids would need to stay stable across a re-open, or both holders would need re-registering.
+## Open
+
+- **Unported:** the `.hmp` MIDI path. No `.hmp` ships, so nothing is lost in play.
+- **Unported:** reading `SOUND.CFG`. `HercWorks.Core` has `Data/File/Cfg/SoundCfg.cs`, a key holder with no reader.
+- **Open:** which word of the `sosDIGIInitDriver` argument block at `006b5614` is retail's channel count.
+- **Open:** whether any `Sfx_Open` caller in DBSIM passes open type 2, the streamed voice behind flag `0x1000`. A text search finds none, which does not settle it.
+- **Open:** mid-session audio recovery, an engine need retail never had. If the endpoint drops (unplugged headphones, a changed default device), the engine stays silent for good. OpenAL Soft exposes `ALC_EXT_disconnect`/`ALC_CONNECTED`; detecting it is cheap, but reconnecting means recreating the 64-source pool in `OpenChannels` and re-uploading every buffer `CreateSample` handed out, since sample ids are indices into `_buffers` that `SoundDirector` and `ComputerVoice` both hold. Those ids would need to stay stable across a re-open, or both holders would need re-registering.

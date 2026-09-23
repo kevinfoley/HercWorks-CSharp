@@ -57,7 +57,7 @@ Vtable `+0x14` of `RocketVtable` (`00498448`); draw is `Bullet_Draw`, shared wit
 
 **Damage is never power-scaled**: a rocket comes off a rack, not a capacitor, so the `PROJ.DAT` figures apply at face value. The shot record's `+0x12` carries the subtype id where a bullet hardcodes 5; that field gates an unrelated target-side alert and nothing in the engine reads it.
 
-Also here, both unported: the proximity beep once the round is within 40000 units of the camera's machine, and the pair of globals (`DAT_0049c394`/`DAT_0049c398`) that tell the cockpit its missile view is over.
+Also here: the proximity beep once the round is within 40000 units of the camera's machine, and the pair of globals (`DAT_0049c394`/`DAT_0049c398`) that tell the cockpit its missile view is over ([Open](#open)).
 
 **On retail data the speed cap is unreachable.** Every record's rate of 250 becomes 79 at the simulation's timestep and 39 after the damping, so 80 ticks carry a round from ~540 to ~3600 against a ceiling of 6000 — it is still accelerating when it burns out, and `PROJ.DAT`'s `Speed` sets nothing. Because the life is a tick count while the step scales with the timestep, a rocket is the one shot whose **range** was frame-rate dependent in the original.
 
@@ -92,7 +92,15 @@ Both roots declare one sequence of two frames (`TSShape.SequenceList == [2]`, th
 
 `Sim.Rocket`, `Sim.RocketCatalog`, `SimWorld.{FireRocket, RocketsInFlight}`, `SceneModelLibrary.Rocket`, `MissionScene.RocketModels`. Deviations:
 
-- **Homing works.** The target comes from `TargetSelection`, gated on the subtype's lock flag as the original gates it. The emission gate on subtype 2 is ported. Not ported: the node handle (`+0x5a`), so a round steers at the target's shape centre rather than a named part; and the ECM wobble, which needs `mech+0x9c` read at steer time.
-- **The player's branch is not ported.** There is no missile view to feed it, and the original's no-input state is destructive (it drops the target and rewrites the subtype mid-flight), so a player-flown round flies straight instead of sitting in a state the original only passes through.
+- **Homing works.** The target comes from `TargetSelection`, gated on the subtype's lock flag as the original gates it. The emission gate on subtype 2 is ported. A round steers at the target's shape centre rather than a named part, and the ECM wobble is not reproduced ([Open](#open)).
+- **The player's branch is not reproduced.** The original's no-input state is destructive (it drops the target and rewrites the subtype mid-flight), so a player-flown round flies straight instead of sitting in a state the original only passes through ([Open](#open)).
 - **The flame is built as one mesh per cell.** `DtsMeshBuilder.BuildRoot` takes a cell index and `SceneModelLibrary.Rocket` returns the cells in order; the host picks by the round's own frame counter. That is the engine's equivalent of `TSCellAnimPart_Render` choosing one child — see [`../formats/dts-billboards.md`](../formats/dts-billboards.md).
 - **Sound is ported.** `SimWorld.FireRocket` plays the record's `+0x0c` at the muzzle as `id + 10`, and `Rocket.InboundWarningTick` reproduces the missile-inbound warning: every tick the round measures itself against the camera and the first time it comes inside `0x9c40` world units it plays catalog id `0x32` and latches (`round+0x6`). The warning does not care whose round it is or where it is going, so the player's own launch warns them as it leaves. → [`../formats/audio.md`](../formats/audio.md)
+
+## Open
+
+- **Unported:** the proximity beep once an inbound round is within 40000 units of the camera's machine.
+- **Unported:** the pair of globals (`DAT_0049c394`/`DAT_0049c398`) that tell the cockpit its missile view is over.
+- **Unported:** the node handle (`+0x5a`) a homing round steers at; the engine steers at the target's shape centre instead of a named part.
+- **Unported:** the ECM wobble on a homing round's steer.
+- **Unported:** the player-flown missile view. The engine has no missile view to feed `Rocket_PlayerSteer`, so a player-flown round flies straight instead of sitting in the state the original only passes through.

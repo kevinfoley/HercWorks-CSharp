@@ -2,7 +2,7 @@
 
 Intel's `IV32`, the compression behind 80 of the 93 files in `ES2/AVI/` — both halves of the intro and every mission briefing. See `docs/formats/avi-video.md` for the container they sit in.
 
-This doc holds what is settled. The frame and bitstream header layout, the cell tree below it and the decoder's own progress are still being worked out and live in `docs/engine/handoff-indeo3.md` until they are.
+This doc holds what is settled ([Open](#open)); the frame and bitstream header layout, the cell tree below it, and the decoder's own progress are covered in `docs/engine/handoff-indeo3.md`.
 
 Addresses are virtual addresses in `IR32_32.DLL`, the Intel codec the game's installer drops in `ES2/INDEO/`. Its image base is `10000000`. Nothing in this engine loads that DLL; it is read as evidence only.
 
@@ -31,7 +31,7 @@ The count being unsigned is load-bearing. The first block's is `0xC3`; read as -
 
 Walked correctly the area is exactly 24 blocks. Their counts run 195, 159, 133, 115, 101, 93, 87, 77 and then the same eight again, then 128 and seven 79s; their expansion bytes 7, 9, 10, 11, 12, 12, 12, 13 twice, then -11 and seven -13s. That regularity is itself the check that the walk stayed in step.
 
-A pair's two bytes are the deltas for two adjacent pixels. Read together as one signed 16-bit value, high byte first, they are the unit the expansion arithmetic works in, and folding that value to 16 bits matters: carrying the wider intermediate through the shift in the expansion step below produces a different image that still looks structurally plausible.
+A pair's two bytes are the deltas for two adjacent pixels. Read together as one signed 16-bit value, high byte first, they are the unit the expansion arithmetic works in, and folding that value to 16 bits matters: carrying the wider intermediate through the shift in the expansion step below produces a different but still well-formed image.
 
 ### The expansion
 
@@ -83,3 +83,7 @@ The grammar and the three passes were not read out of the binary here — no dis
 | The codebook seed is the interleaved region at `1004eb56`. | The region is real and its head does read as small signed pairs, and it even walks cleanly to a terminator under the seed grammar above — but the blocks it yields have no regularity at all (counts from 1 to 211, expansion bytes including 0 and -103), where the true area's 24 blocks fall into three obvious groups. It is a coincidental parse. The seed area is at `1004d26a`. |
 | The codebooks can be lifted from the DLL, given the right offset. | The eight objects at `10043e4c` shaped exactly like eight codebooks of 256 two-byte entries are zero on disk, as is the rest of the 16 KB around them, and so are the 1 KB objects near `1003f04c`. There is nothing to lift; the generator is what had to be recovered. |
 | `1004f253` is codebook data. | It is large — 17,953 bytes — but triangular, and nothing in a codebook is. Each of its 16 identical-shaped tables is 1,122 bytes: a leading index *K* counting down from 32 to 0, each followed by 2(32−*K*)+1 entries, with one spare byte at the end of the region. The entries look like indices rather than deltas. `IR32_32.DLL` is an encoder as well as a decoder, and this has an encoder search table's shape, as does the 512-byte table at `1004e954` holding *n*² for *n* = 0…255. |
+
+## Open
+
+- **Open:** the frame and bitstream header layout, the cell tree above these codebooks, and the decoder's overall progress; tracked in `docs/engine/handoff-indeo3.md`.

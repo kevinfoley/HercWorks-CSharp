@@ -88,5 +88,6 @@ All twenty `EXPLOS.DTS` roots carry an offset near half their frame's size — s
 
 ## Open
 
-- The two bitmap packings. `Bitmap_UnpackToScratch` builds a decoder object per type — type 1 `FUN_0047b430` (vtable `004a17c8`), type 3 `FUN_0047b764` (vtable `004a1820`) — over a stream of the data past its leading unpacked-size dword, and calls vtable `+0x18` to decode. Which files carry packed bitmaps is not traced either.
-- Bitmap object `+8` (8 in the map raster) and `+9` (a flags byte in which the raster builder sets bit `0x10`) are unnamed.
+- **Open:** the two bitmap packings. `Bitmap_UnpackToScratch` builds a decoder object per type — type 1 `FUN_0047b430` (vtable `004a17c8`), type 3 `FUN_0047b764` (vtable `004a1820`) — over a stream of the data past its leading unpacked-size dword, and calls vtable `+0x18` to decode.
+- **Open:** which files carry packed bitmaps.
+- **Open:** bitmap object `+8` (8 in the map raster) and `+9` (a flags byte in which the raster builder sets bit `0x10`).

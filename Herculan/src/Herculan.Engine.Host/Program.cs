@@ -48,6 +48,8 @@ bool acquireTarget = false;
 bool autoTrack = false;
 bool waitForEffectLight = false;
 bool silentAudio = false;
+string? cdDrive = null;
+int musicTrackSelect = 0;
 int initialHddPilot = -1;
 HddOrder? initialHddOrder = null;
 bool initialHddTransmit = false;
@@ -244,6 +246,17 @@ for (int i = 0; i < args.Length; i++) {
 		// the strip refresh is reachable at all.
 		shellMode = ShellCampaignMode.Training;
 		runShell = true;
+	} else if (args[i] == "--cd-drive" && i + 1 < args.Length) {
+		// Which drive the music CD is in. Retail asks MCI for the device type alone and takes whichever
+		// CD drive it answers with -- nothing in either executable reads a drive letter from anywhere --
+		// so this is the engine's own, for a machine with more than one drive. See MciCdAudio.
+		cdDrive = args[++i];
+	} else if (args[i] == "--music" && i + 1 < args.Length
+			&& int.TryParse(args[i + 1], out int trackSelect)) {
+		// DBSIM's own -R<n>: the mission's track is n % 5 + 2, so 0-4 pick tracks 2 to 6. Retail has no
+		// other way to choose, and without the switch every mission plays track 2.
+		i++;
+		musicTrackSelect = trackSelect;
 	} else if (args[i] == "--no-sound" || args[i] == "--silent") {
 		// Skip the output device entirely. Same effect as running on a machine with no sound card:
 		// the catalog, the director and the message port all still run, nothing is heard. For a
@@ -346,7 +359,7 @@ var terrain = scene.World.Terrain;
 // Audio comes up against the same mounted archives and shares the simulation's generator, because
 // the variation roll draws on it exactly as weapon scatter does. It never throws: a machine with no
 // device gets a working GameAudio that happens to be silent.
-var audio = GameAudio.Create(content, scene.World.Random, silent: silentAudio);
+var audio = GameAudio.Create(content, scene.World.Random, silent: silentAudio, cdDrive: cdDrive);
 audio.Attach(scene.World);
 Console.WriteLine($"Audio: {audio.Status}");
 
@@ -906,6 +919,15 @@ if (autoTrack && pilotMech != null) {
 // The compass winds up from north over the same power-up, on a walking machine only — the sweep
 // decides that for itself off the same InputFlagFlyer the engine hum is gated on. Built here rather
 // than at cockpit-build time because it needs the tick the power-up began on.
+// Sim_InitMissionSession's music arm. The MUSIC row of prefs.cfg is read first because
+// Prefs_ApplyMusicOption has already run by this point in the original -- Prefs_Init applies every row
+// at startup -- and the arm's own start only plays when the flag it left is up.
+if (audio.Director is { } musicDirector) {
+	musicDirector.MusicEnabled = simulatorPreferences[SimulatorPreferences.MusicOption] != 0;
+}
+
+audio.StartMissionMusic(mission.Header, musicTrackSelect);
+
 HeadingTapeSweep? headingSweep = null;
 if (pilotMech != null) {
 	audio.SetListener(pilotMech.EyePosition, pilotMech.Heading);
@@ -2070,6 +2092,11 @@ window.Update += deltaSeconds => {
 	// is not decoded — see ROADMAP.
 	if (audio.Director is { } soundDirector) {
 		soundDirector.DetailSetting = simulatorPreferences[SimulatorPreferences.EffectsDetailOption];
+
+		// MUSIC, the same way, but through the handler rather than by assignment: the row's own
+		// Prefs_ApplyMusicOption (00459c98) stops the disc or resumes it from where the mute left it,
+		// and it acts only on a change, so re-reading the byte every frame costs nothing.
+		soundDirector.ApplyMusicOption(simulatorPreferences[SimulatorPreferences.MusicOption] != 0);
 	}
 
 	// Every modal freezes the simulation behind it, which is the original's own behaviour: each of

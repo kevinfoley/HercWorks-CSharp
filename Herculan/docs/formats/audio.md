@@ -8,7 +8,7 @@ DBSIM's sound is three stacked layers:
 | `SFX` | A general resource/voice manager: named samples, handles, a memory budget, priority eviction |
 | `Sound_*` | The game's own layer: a 57-entry catalog keyed by integer id, 3D placement, and a separate five-slot speech channel |
 
-The first two layers and the whole of the third are ported; see [Engine coverage](#engine-coverage). Only CD music and the `.hmp` MIDI path are not. The message channels themselves — the computer's ticker and the pilot/squad comm boxes that ride on this layer's speech slots — are [`cockpit-messages.md`](cockpit-messages.md)'s.
+The first two layers and the whole of the third are ported; see [Engine coverage](#engine-coverage). Only the `.hmp` MIDI path is not. The message channels themselves — the computer's ticker and the pilot/squad comm boxes that ride on this layer's speech slots — are [`cockpit-messages.md`](cockpit-messages.md)'s.
 
 ## Backend
 
@@ -22,16 +22,42 @@ Digital output covers samples and `.hmp` MIDI songs; the `.hmp` path is present 
 
 ### CD audio
 
-Music is Red Book, driven straight through MCI on device `cdaudio` — not through SOS at all.
+Music is Red Book, driven straight through MCI on device `cdaudio` — not through SOS at all. The `Sound_*` layer reaches it through four `SFX`-level thunks (`Sfx_PlayMusicTrack` `00464754`, `Sfx_StopMusic` `00464770`, `Sfx_GetMusicPosition` `00464884`, `Sfx_ResumeMusicAt` `00464898`) rather than through the digital backend, so no part of music touches a voice record.
 
 | Function | MCI |
 |---|---|
 | `Music_PlayTrack` (`00473b3c`) | `MCI_OPEN` type `cdaudio`; `MCI_SET` time format TMSF; `MCI_PLAY` `MCI_FROM｜MCI_TO｜MCI_NOTIFY`, from track *n* to that track's own length |
-| `Music_Stop` (`00473af4`) | `MCI_STOP` then `MCI_CLOSE` |
+| `Music_Stop` (`00473af4`) | `MCI_STOP` then `MCI_CLOSE`, and `Music_MciDeviceId` (`004a0e44`) back to -1 |
 | `Music_GetPosition` (`00473c38`) | `MCI_STATUS` item `MCI_STATUS_POSITION`, `MCI_WAIT` |
-| `Music_ResumeAt` (`00473cc0`) | Same open/set/play, but `MCI_FROM` is a saved TMSF position rather than a track start |
+| `Music_GetTrackLength` (`00473c78`) | `MCI_STATUS` item `MCI_STATUS_LENGTH` with `MCI_TRACK`; the result is kept in `Music_TrackLength` (`006b5610`) |
+| `Music_ResumeAt` (`00473cc0`) | Same open/set/play, but `MCI_FROM` is a saved TMSF position rather than a track start, and `MCI_TO` is whatever `Music_TrackLength` already holds — it never re-queries |
+| `Music_IsIdle` (`00473b2c`) | No command; the device id against -1 |
 
-The track loops because `sfxWndProc` re-issues `Music_PlayTrack` on `MM_MCINOTIFY` (`0x3b9`) with `MCI_NOTIFY_SUCCESSFUL`. `Sim_InitMissionSession` writes the track number (`0049f914`) and the enable byte (`0049f918`).
+The device is held open only while a track is sounding: every entry point opens it, and every failure path closes it again.
+
+The track loops because `sfxWndProc` re-issues `Music_PlayTrack` on `MM_MCINOTIFY` (`0x3b9`) with `MCI_NOTIFY_SUCCESSFUL`. The notify is addressed to `Music_NotifyWindow` (`006b560c`), the handle `Sos_InitBackend` was given.
+
+#### Which track, and whether there is one
+
+`Sim_InitMissionSession` (`004614fc`) writes `Music_CdTrack` (`0049f914`) and `Music_CdEnabled` (`0049f918`) and then calls `Sound_StartMissionMusic` (`00463038`), which plays only if `Sound_MusicEnabled` is also up.
+
+```
+Music_CdTrack = Music_TrackSelect % 5 + 2
+```
+
+`Music_TrackSelect` (`004d25f7`) is the `-R` command-line switch, parsed with `atol` at `0045e824`. **Nothing else picks a track**, and the switch defaults to 0, so a plain launch plays track 2 of five — tracks 2 to 6, track 1 being the data track. The remainder is a signed `IDIV`, so a negative `-R` would ask MCI for a track below 2.
+
+The whole arm is skipped when `TrainingMissionNumber` (`004aa7ac`) is nonzero, so **a training mission runs without music**. That value is the copy of `script.dat` header offset 8 taken at the end of `DBSim_LoadScriptDat` (`00425321`); it also selects the larger pilot and squad message port and supplies the digit of the `TM<n>_` instructor voice template — see [`script-dat.md`](script-dat.md#header-format).
+
+`Music_CdEnabled` has exactly one reader, `Sound_SuspendAll`, which is why a mute saves no position unless a track is set but a suspend tests both.
+
+#### The mission session overrides the MUSIC preference
+
+`Sim_InitMissionSession` ends with an unconditional `Sound_SetMusicEnabled(1)`, long after the arm above has already tested the flag. With MUSIC off in `prefs.cfg` no track starts — `Sound_StartMissionMusic` sees the flag down — but the flag is then raised behind it, so the next `Sound_ResumeAll` starts the music the player turned off. Alt-tabbing away and back is enough.
+
+#### No drive is named
+
+`Music_PlayTrack` opens the device type and nothing else: `MCI_OPEN_TYPE` with the string `cdaudio`, no `MCI_OPEN_ELEMENT`, so MCI answers with whichever CD drive it picks. Neither executable reads a drive letter from anywhere — there is no `GetDriveType`, no `GetLogicalDrives`, and no key for one in `SOUND.CFG` or any other configuration file. Nor is the disc checked: any audio CD in the drive plays.
 
 ### `sfxWndProc` (`00462294`)
 
@@ -388,7 +414,19 @@ Triggers ported so far: the beam report, the two table-driven fire sounds and th
 
 **The memory budget is not reproduced.** `SoundBank` decodes every sample the catalog names at startup instead of honouring the preload attribute and caching the rest on demand, so none of [Memory budget and eviction](#memory-budget-and-eviction) exists here — no cap, no refcount, no victim scoring. The whole `hmi` bank is about 1.5 MB of 8-bit PCM against the original's own 2,000,000-byte cap, so there is nothing for the eviction machinery to do; it would only start to matter for a bank the retail game does not ship.
 
-Not ported: CD music through MCI, and the `.hmp` MIDI path. `HercWorks.Core` has `Data/File/Cfg/SoundCfg.cs`, a `SOUND.CFG` key holder with no reader.
+Not ported: the `.hmp` MIDI path. `HercWorks.Core` has `Data/File/Cfg/SoundCfg.cs`, a `SOUND.CFG` key holder with no reader.
+
+### CD music
+
+`MciCdAudio` is the `Music_*` layer, command for command, and `SoundDirector` holds the three globals above it — `CdTrack`, `CdEnabled`, `SavedMusicPosition` — and every branch that tests them: `MuteMusic`/`UnmuteMusic`, the CD arms of `SuspendAll`/`ResumeAll`, and `ApplyMusicOption`, which is the MUSIC row's own handler. `StartMissionMusic` is the mission arm, with `GameAudio.StartMissionMusic` applying the training gate above it. `CdAudio.Open` is the one place the platform is chosen; `NullCdAudio` is a complete implementation for a machine with no drive, no disc, or no MCI, and everything above the device runs unchanged against it.
+
+Three divergences:
+
+- **The loop is polled, not notified.** Retail asks for `MCI_NOTIFY` and restarts the track from `sfxWndProc`; that wants a Win32 window procedure, and this engine's window is Silk.NET's. `MciCdAudio.Update` asks the device every 200 ms instead, so the seam can be that much later than retail's.
+- **The play head, not the device mode, is what says a track ended.** An MCI CD device that has reached its `MCI_TO` goes on reporting `MCI_MODE_PLAY` and a frozen position indefinitely, so the obvious mode poll never fires; the position is compared against the track's own length, with the mode kept only for a device that genuinely stops.
+- **A drive can be named**, through `--cd-drive`, which adds the `MCI_OPEN_ELEMENT` retail never sends. Without it the engine opens the device type alone, exactly as retail does.
+
+The `Sound_SetMusicEnabled(1)` that [overrides the MUSIC preference](#the-mission-session-overrides-the-music-preference) is not reproduced: the engine reads the row, starts the mission's music through it, and leaves it alone.
 
 ### Mid-session audio recovery not yet implemented
 If the endpoint drops while you're playing (unplugging headphones, switching default device), the engine stays silent for good. OpenAL Soft exposes `ALC_EXT_disconnect/ALC_CONNECTED`; detecting it is cheap, but reconnecting means recreating the 64-source pool in`OpenChannels` and re-uploading every buffer `CreateSample` handed out, since sample ids are indices into `_buffers` that `SoundDirector` and `ComputerVoice` both hold. Those ids would need to stay stable across a re-open, or both holders would need re-registering.

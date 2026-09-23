@@ -243,13 +243,22 @@ The placement decode is verified end to end by building all 10 as scenes in the 
 | 2 | zone index — passed to `Terrain_LoadZone` |
 | 4 | a mode flag (`DAT_004a9ed6`). The writer emits a literal 1 and the reader stores 0 over it before anything reads it, so the value on disk never reaches a consumer; what it gates is [the two cheat fields below](#the-training-fields) |
 | 6 | **mission objective type** (`DAT_004a9ed8`) — which arm of the player's think watches for progress, and whether the AI is kept off the data-link subject. See [`../simulation/mission-objectives.md`](../simulation/mission-objectives.md#the-player-thinks-objective-arms). All ten files in the retail install carry 0 |
+| 8 | **training mission number** (`ScriptDatTrainingMission`), 0 for anything that is not one — see [below](#the-training-mission-number). All ten files in the retail install carry 0 |
 | 10 | **unlimited ammunition and energy** (`DAT_004a9edc`) when 1 |
 | 12 | **player invulnerable** (`DAT_004a9ede`) when 1 |
 | 14 | **mission difficulty**, 0-3 (`DAT_004a9ee0`) — see [`../simulation/difficulty.md`](../simulation/difficulty.md). All ten files in the retail install carry 2 |
 | 18 | theater variant, 0 or 1 — low bit of world number, and the single-mission screen's `Day` / `Night` row |
-| 8, 16 | zero across the corpus and unread by `DBSim_LoadScriptDat` |
+| 16 | zero across the corpus and unread by `DBSim_LoadScriptDat` |
 
 The three world fields are confirmed by `DBSim_LoadScriptDat` → `Terrain_LoadZone` / `maybe_World_LoadTheater`. See [`terrain-texturing.md`](terrain-texturing.md) for theater details.
+
+### The training mission number
+
+`DBSim_LoadScriptDat` only stores offset 8. Every reader takes the copy `TrainingMissionNumber` (`004aa7ac`) made at the end of the load (`00425321`), and three things test it:
+
+- **No music.** `Sim_InitMissionSession` sets the CD track only when it is 0, so a training mission runs in silence — see [`audio.md`](audio.md#which-track-and-whether-there-is-one).
+- **A different pilot and squad port.** The cockpit builds a `0x4ef`-byte instance at `view+0x207` instead of the ordinary `0x4df`-byte one, and lifts the box by its own height.
+- **Its own voice clips.** The instructor speaks from the `TM<n>_` name template rather than the squad's `P<bank>_` one, with this number as the digit — see [`audio.md`](audio.md#file-naming).
 
 ### The training fields
 

@@ -33,6 +33,7 @@ public sealed class SoundDirector : IDisposable {
 	private readonly SoundBank _bank;
 	private readonly IAudioBackend _backend;
 	private readonly SimRandom _random;
+	private ICdAudio _cd = new NullCdAudio();
 
 	// One record per catalog id, which is what the original keeps: the sample the row names, the
 	// settings that row is currently carrying, and the handle of the LAST playback started from it.
@@ -83,10 +84,147 @@ public sealed class SoundDirector : IDisposable {
 	public bool IsAvailable => _backend.IsAvailable;
 
 	/// <summary>
-	/// <c>Sound_MusicEnabled</c> (<c>0049f90c</c>) — the enable flag for catalog ids below
-	/// <see cref="SoundId.FirstEffect"/>.
+	/// <c>Sound_MusicEnabled</c> (<c>0049f90c</c>) - the enable flag for catalog ids below
+	/// <see cref="SoundId.FirstEffect"/>, and, once <see cref="CdTrack"/> is set, for the CD.
 	/// </summary>
 	public bool MusicEnabled { get; set; } = true;
+
+	/// <summary>
+	/// The CD player, or a <see cref="NullCdAudio"/> where there is none. The original reaches MCI
+	/// through four <c>SFX</c>-level thunks (<c>Sfx_PlayMusicTrack</c>, <c>00464754</c>, and its three neighbours) rather than
+	/// through the digital backend, which is why music does not go near <see cref="IAudioBackend"/>
+	/// here either.
+	/// </summary>
+	public ICdAudio Cd {
+		get => _cd;
+		set => _cd = value ?? new NullCdAudio();
+	}
+
+	/// <summary>
+	/// <c>Music_CdTrack</c> (<c>0049f914</c>) - which Red Book track this mission plays, or 0 for
+	/// none. <b>It is the switch between the two music paths</b>: every place that touches music
+	/// tests it, taking the CD when it is set and the catalog's ten digital music rows when it is
+	/// not. Those rows all name <c>battle1.wav</c>, which ships in no archive, so the second path is
+	/// dead in retail and silent here.
+	/// </summary>
+	public int CdTrack { get; private set; }
+
+	/// <summary>
+	/// <c>Music_CdEnabled</c> (<c>0049f918</c>) - raised beside <see cref="CdTrack"/> when a mission
+	/// session starts. Only <see cref="SuspendAll"/> reads it.
+	/// </summary>
+	public bool CdEnabled { get; private set; }
+
+	/// <summary>
+	/// <c>Music_SavedPosition</c> (<c>0049f91c</c>) - where the play head was when the music was last
+	/// stopped by a mute or a suspend, as an opaque TMSF word. 0 means "start the track again".
+	/// </summary>
+	public int SavedMusicPosition { get; private set; }
+
+	/// <summary>How many music tracks the mission music cycles over.</summary>
+	public const int MissionTrackCount = 5;
+
+	/// <summary>The lowest track number mission music uses; track 1 is the data track.</summary>
+	public const int FirstMusicTrack = 2;
+
+	/// <summary>
+	/// The track a mission plays, from <c>Sim_InitMissionSession</c> (<c>004614fc</c>):
+	/// <c>select % 5 + 2</c>, so tracks 2 to 6. <paramref name="select"/> is the value of DBSIM's own
+	/// <c>-R</c> command-line switch (<c>DAT_004d25f7</c>, parsed by <c>atol</c> at <c>0045e824</c>),
+	/// which is the only thing that chooses between the five. It is 0 unless the switch is given, so
+	/// a plain launch always plays track 2.
+	///
+	/// <para>The original's remainder is a signed <c>IDIV</c>, so a negative <c>-R</c> would give it
+	/// a track below 2 and <c>MCI_PLAY</c> an invalid one; the magnitude is taken here instead.</para>
+	/// </summary>
+	public static int MissionTrack(int select) =>
+		System.Math.Abs(select % MissionTrackCount) + FirstMusicTrack;
+
+	/// <summary>
+	/// <c>Sim_InitMissionSession</c>'s music arm (<c>00461c86</c>-<c>00461cbc</c>): sets the track and
+	/// the enable byte, then starts the track through <c>Sound_StartMissionMusic</c> (<c>00463038</c>), which plays only when
+	/// <see cref="MusicEnabled"/> is up. The original guards the whole arm on the mission being a
+	/// <b>non-training</b> one - see <see cref="World.ScriptDatHeader.TrainingMissionNumber"/> - so a
+	/// training mission runs in silence.
+	/// </summary>
+	/// <param name="select">The <c>-R</c> value; see <see cref="MissionTrack"/>.</param>
+	public void StartMissionMusic(int select = 0) {
+		CdTrack = MissionTrack(select);
+		CdEnabled = true;
+		SavedMusicPosition = 0;
+
+		if (MusicEnabled) {
+			_cd.PlayTrack(CdTrack);
+		}
+	}
+
+	/// <summary>
+	/// Clears the mission's music and stops the disc. <c>Sim_InitMissionSession</c> has no
+	/// counterpart - retail leaves the process - but a host that loads a second mission needs one.
+	/// </summary>
+	public void StopMissionMusic() {
+		CdTrack = 0;
+		CdEnabled = false;
+		SavedMusicPosition = 0;
+		_cd.Stop();
+	}
+
+	/// <summary>
+	/// <c>Prefs_ApplyMusicOption</c> (<c>00459c98</c>), the MUSIC row's handler out of the option
+	/// table at <c>004d2060</c>: stores the flag and then mutes or unmutes. Acting only on a change is
+	/// what makes it safe to call every frame - the original reaches the handler through
+	/// <c>Prefs_SetOption</c>, which runs it only when the row is stepped.
+	/// </summary>
+	public void ApplyMusicOption(bool enabled) {
+		if (enabled == MusicEnabled) {
+			return;
+		}
+
+		if (enabled) {
+			UnmuteMusic();
+		} else {
+			MuteMusic();
+		}
+	}
+
+	/// <summary>
+	/// <c>Sound_MuteMusic</c> (<c>00462c74</c>). With a CD track set it saves the play position and
+	/// stops the disc; without one it zeroes the ten digital music rows' volumes instead.
+	/// </summary>
+	public void MuteMusic() {
+		SavedMusicPosition = 0;
+
+		if (CdTrack == 0) {
+			for (int id = 0; id < SoundId.FirstEffect && id < _gain.Length; id++) {
+				SetVolume(id, 0);
+			}
+		} else {
+			SavedMusicPosition = _cd.GetPosition();
+			_cd.Stop();
+		}
+
+		MusicEnabled = false;
+	}
+
+	/// <summary>
+	/// <c>Sound_UnmuteMusic</c> (<c>00462d54</c>) - the exact counterpart: the disc resumes from the
+	/// saved position, or restarts the track when there is none.
+	/// </summary>
+	public void UnmuteMusic() {
+		if (CdTrack == 0) {
+			for (int id = 0; id < SoundId.FirstEffect && id < _gain.Length; id++) {
+				if (Entry(id) is { } entry) {
+					SetVolume(id, AttributeVolume(entry));
+				}
+			}
+		} else if (SavedMusicPosition == 0) {
+			_cd.PlayTrack(CdTrack);
+		} else {
+			_cd.ResumeAt(SavedMusicPosition);
+		}
+
+		MusicEnabled = true;
+	}
 
 	/// <summary>
 	/// <c>Sound_EffectsEnabled</c> (<c>0049f910</c>) — the enable flag for ids from
@@ -326,6 +464,17 @@ public sealed class SoundDirector : IDisposable {
 	public void SuspendAll() {
 		_suspended = true;
 
+		// The CD arm comes first, as it does in the original, and is the one place Music_CdEnabled is
+		// read. The position is saved only when music is on; the disc stops either way.
+		SavedMusicPosition = 0;
+		if (CdTrack != 0 && CdEnabled) {
+			if (MusicEnabled) {
+				SavedMusicPosition = _cd.GetPosition();
+			}
+
+			_cd.Stop();
+		}
+
 		for (int id = 0; id < _samples.Length; id++) {
 			var entry = _bank.Catalog.Entries[id];
 			entry.WasPlaying = IsPlaying(id);
@@ -345,6 +494,19 @@ public sealed class SoundDirector : IDisposable {
 			}
 
 			entry.WasPlaying = false;
+		}
+
+		// Unlike the suspend, the resume does not consult Music_CdEnabled: it tests the enable flag
+		// alone, and a mission that never set a track resumes nothing because PlayTrack(0) does
+		// nothing.
+		if (!MusicEnabled) {
+			return;
+		}
+
+		if (SavedMusicPosition == 0) {
+			_cd.PlayTrack(CdTrack);
+		} else {
+			_cd.ResumeAt(SavedMusicPosition);
 		}
 	}
 
@@ -370,6 +532,10 @@ public sealed class SoundDirector : IDisposable {
 	/// pause.</para>
 	/// </summary>
 	public void Update() {
+		// Standing in for the MM_MCINOTIFY that re-issues the play in retail; see MciCdAudio.Update.
+		// It runs across a suspend too, where it does nothing, because the disc is stopped.
+		_cd.Update();
+
 		if (_suspended) {
 			return;
 		}
@@ -462,6 +628,7 @@ public sealed class SoundDirector : IDisposable {
 		}
 
 		_disposed = true;
+		_cd.Dispose();
 		_backend.Dispose();
 	}
 }

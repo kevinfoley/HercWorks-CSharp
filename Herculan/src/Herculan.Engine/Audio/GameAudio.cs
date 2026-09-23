@@ -172,10 +172,15 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	/// <param name="lowMemory">Select the half-rate <c>hmx</c> sample bank.</param>
 	/// <param name="silent">
 	/// Skip the output device and run on <see cref="NullAudioBackend"/> even where one would open.
-	/// Everything above the device behaves as it does on a machine without one.
+	/// Everything above the device behaves as it does on a machine without one. It silences the CD
+	/// too, which the digital backend has nothing to do with.
+	/// </param>
+	/// <param name="cdDrive">
+	/// Which CD drive the music comes off, as a drive letter. Null takes the platform's own default,
+	/// which is all retail ever asks for — see <see cref="CdAudio.Open"/>.
 	/// </param>
 	public static GameAudio Create(GameContent content, SimRandom? random = null, bool lowMemory = false,
-			bool silent = false) {
+			bool silent = false, string? cdDrive = null) {
 		// Read first and unconditionally: the message port's display half needs nothing but the text,
 		// so the ticker still runs on a machine with no sound device and in an install with no
 		// SIMSOUND.VOL.
@@ -196,7 +201,10 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 		string? deviceFailure = null;
 		var backend = (silent ? null : (IAudioBackend?)OpenAlBackend.TryCreate(out deviceFailure))
 			?? new NullAudioBackend();
-		var director = new SoundDirector(bank, backend, random);
+		// Music is Red Book CD audio and never went through SOS, so it gets its own device: failing to
+		// find a disc leaves the effects half exactly as it was.
+		var cd = silent ? new NullCdAudio("silenced by request") : CdAudio.Open(cdDrive);
+		var director = new SoundDirector(bank, backend, random) { Cd = cd };
 		var voice = new ComputerVoice(content, messages, backend);
 		var squadVoice = new SquadVoice(content, backend);
 
@@ -213,6 +221,8 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 		if (deviceFailure != null) {
 			status += $" ({deviceFailure})";
 		}
+
+		status += $", music: {cd.Status}";
 
 		status += messages != null
 			? $", {messages.Count} computer messages"
@@ -264,6 +274,23 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	}
 
 	/// <summary>
+	/// <c>Sim_InitMissionSession</c>'s music arm: starts the mission's Red Book track, unless the
+	/// mission is a training one — the original never sets a track for one of those, so it runs
+	/// without music.
+	/// </summary>
+	/// <param name="header">The mission's own header; only its training number is read.</param>
+	/// <param name="trackSelect">
+	/// DBSIM's <c>-R</c> value, which is the only thing that picks between the five tracks.
+	/// </param>
+	public void StartMissionMusic(World.ScriptDatHeader header, int trackSelect = 0) {
+		if (header.TrainingMissionNumber != 0) {
+			return;
+		}
+
+		_director?.StartMissionMusic(trackSelect);
+	}
+
+	/// <summary>
 	/// <c>FUN_004328cc</c> — the cockpit's power-up, played when the player takes a machine. Plays
 	/// the start-up sequence, and for a flyer also starts the engine hum and drops it to the pitch
 	/// the original sets.
@@ -309,6 +336,10 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 		_pilot = null;
 		Voice?.Stop();
 		Messages.Clear();
+
+		// Retail has no counterpart: DBSIM exits and Windows closes the device with the process. A host
+		// that goes on running has to hand the disc back itself.
+		_director?.StopMissionMusic();
 	}
 
 	/// <summary>

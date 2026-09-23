@@ -1,4 +1,4 @@
-﻿# Roadmap — work not yet done
+# Roadmap — work not yet done
 
 Everything the HERCULAN Engine does not implement yet, in one place. This is the counterpart of
 [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md), which records things that *are* implemented but behave
@@ -17,11 +17,6 @@ The mechanism is understood; what is left is engine work.
   tick slot; type `0x22`'s three-turrets-from-one-object tick (`004045c8`) is the one left, and it
   needs the 11-`short` weapon descriptor table at `DAT_004a9640` dumped out of the data section.
   → [`docs/simulation/structure-behaviour.md`](docs/simulation/structure-behaviour.md)
-- **CD music.** Both message ports are ported — the cockpit computer's ticker and the pilot and
-  squad channel, with its `PILOT<n>.STR` sets, its speaker-coloured box, the `P*_*` voice clips and
-  the comm box's `.SNC` portrait animation. Red Book music through MCI is not, so a mission runs
-  without its track.
-  → [`docs/formats/audio.md`](docs/formats/audio.md)
 - **A machine's crudest LOD roots are never drawn.** Root selection is ported, but the roots that
   compact their node numbering — the crudest one to three of each chassis — are excluded, because
   drawing them puts APOCA's upper body on a knee. The original composes every root through root 0's
@@ -43,12 +38,6 @@ The mechanism is understood; what is left is engine work.
   campaign. Here the window simply closes.
   → [`docs/simulation/mission-objectives.md`](docs/simulation/mission-objectives.md),
   [`docs/formats/save-games.md`](docs/formats/save-games.md)
-- **The computer's damage messages.** The engine speaks the objective set, the waypoint, the radar
-  and auto-track toggles and the power-up line. The rest of `Computer_PostMessage`'s traffic — the
-  `INTERNAL DAMAGE` family, `WEAPON DESTROYED`, `SHIELDS CRITICAL`, and
-  `ENEMY TARGET DESTROYED`/`DISABLED` when the player kills what they had selected — is not posted.
-  (This task may have been completed, please verify against docs and code before starting.)
-  → [`docs/formats/cockpit-messages.md`](docs/formats/cockpit-messages.md#posters)
 - **Flyer control bindings.** The flight model is ported and the axis roles are known, but key
 bindings are hardcoded placeholders.
   → [`docs/simulation/razor-flight.md`](docs/simulation/razor-flight.md)
@@ -148,7 +137,7 @@ hit-testing rather than new drawing code. What is missing:
 - Currently missing is a quirk from retail where the player's shield meter fills in over ~10 seconds at the start of a mission. Claude says there's no explanation for this in the shield code, where the shields start out at full charge, and would take ~30 seconds to fully charge from empty. The fade-in-over-10-seconds may be a HUD animation that hasn't been discovered during RE yet.
 - Similarly to the previous, currently missing is an animation where weapon buttons wink on one-at-a-time when the simulation first starts.
 - Preferences (F12): the screen is laid out, reads the install's own `data\prefs.cfg` and cycles its
-  settings, but four of the nine rows still change nothing — MUSIC, SOUNDS, PILOT MESSAGE and
+  settings, but three of the nine rows still change nothing — SOUNDS, PILOT MESSAGE and
   COMPUTER MESSAGE are saved to the file and read by no consumer, so wiring them up means
   reaching into the audio sink and the message port. TERRAIN DISTANCE, TERRAIN TEXTURE, HERC DETAIL
   and the audio half of EFFECTS DETAIL are live. What the other two want is not a hookup but a feature each:
@@ -157,8 +146,8 @@ hit-testing rather than new drawing code. What is missing:
   (→ [`docs/formats/dts-texture-binding.md`](docs/formats/dts-texture-binding.md#tsdetailpart-level-selection-and-structure-detail));
   what EFFECTS DETAIL does to the effects themselves, as against to the sound throttle, is undecoded.
   Separately, a changed setting is not applied while the panel is still up: the
-  per-option handler table (`004d2060`) is unported. All five of its handlers are decoded; MUSIC,
-  SOUNDS and PILOT MESSAGE have no other route to their setting, so those three are where wiring the
+  per-option handler table (`004d2060`) is unported. All five of its handlers are decoded; SOUNDS
+  and PILOT MESSAGE have no other route to their setting, so those two are where wiring the
   table up would begin. Writing the file back
   is implemented on retail's own terms: each panel merges its own options into a fresh read of the
   file as it closes.

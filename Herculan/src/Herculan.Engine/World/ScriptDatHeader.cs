@@ -32,7 +32,8 @@ public readonly struct ScriptDatHeader {
 	public const short CheatEnabled = 1;
 
 	private ScriptDatHeader(int theaterIndex, int zoneIndex, int objectiveType, int theaterVariant,
-			int difficulty, bool unlimitedAmmunition, bool playerInvulnerable) {
+			int difficulty, bool unlimitedAmmunition, bool playerInvulnerable,
+			int trainingMissionNumber) {
 		TheaterIndex = theaterIndex;
 		ZoneIndex = zoneIndex;
 		ObjectiveType = objectiveType;
@@ -40,6 +41,7 @@ public readonly struct ScriptDatHeader {
 		Difficulty = difficulty;
 		UnlimitedAmmunition = unlimitedAmmunition;
 		PlayerInvulnerable = playerInvulnerable;
+		TrainingMissionNumber = trainingMissionNumber;
 	}
 
 	/// <summary>Theater to load, 0-4 — see <see cref="TheaterDescriptor"/>.</summary>
@@ -90,6 +92,27 @@ public readonly struct ScriptDatHeader {
 	public bool UnlimitedAmmunition { get; }
 
 	/// <summary>
+	/// Offset 8 — <c>DAT_004a9eda</c>, the <b>training mission number</b>, 0 for anything that is
+	/// not one. <c>DBSim_LoadScriptDat</c> only stores it; the copy every reader takes is
+	/// <c>DAT_004aa7ac</c>, made at the end of the load (<c>00425321</c>). Three things branch on it,
+	/// and all three read the copy:
+	///
+	/// <list type="bullet">
+	/// <item><b>No music.</b> <c>Sim_InitMissionSession</c> sets the CD track only when this is 0, so
+	/// a training mission plays none — see <see cref="Audio.SoundDirector.StartMissionMusic"/>.</item>
+	/// <item><b>A different pilot and squad port.</b> The cockpit builds a <c>0x4ef</c>-byte instance
+	/// at <c>view+0x207</c> instead of the ordinary <c>0x4df</c>-byte one, and moves the box up by its
+	/// own height.</item>
+	/// <item><b>Its own voice clips.</b> The instructor speaks from the <c>TM&lt;n&gt;_</c> name
+	/// template rather than the squad's <c>P&lt;bank&gt;_</c> one, with this number as the digit.</item>
+	/// </list>
+	///
+	/// <para>Every one of the ten files in the retail install carries 0: the training missions reach
+	/// DBSIM through the shell, not through a save-slot snapshot.</para>
+	/// </summary>
+	public int TrainingMissionNumber { get; }
+
+	/// <summary>
 	/// Offset 12 — <c>DAT_004a9ede</c>, <b>player invulnerable</b> when the file says exactly 1. It
 	/// gates the whole of the damage write for the locally piloted machine, so its components take
 	/// nothing; its shields still absorb and still drain, because that happens before the write.
@@ -99,7 +122,7 @@ public readonly struct ScriptDatHeader {
 	/// <summary>
 	/// Reads the header from the start of a <c>script.dat</c>'s bytes. The remaining fields are left
 	/// undecoded rather than exposed as raw numbers — <c>DBSim_LoadScriptDat</c> zeroes the one at
-	/// offset 4 before use, and offsets 8 and 16 are unread. <see cref="ObjectiveType"/> is not the
+	/// offset 4 before use, and offset 16 is unread. <see cref="ObjectiveType"/> is not the
 	/// theater's: it is the mission layer's, and its reader is <c>Mech_BehaviourPlayerThink</c>.
 	///
 	/// <para>The two cheat flags are read as <c>== 1</c> rather than as "nonzero", which is how both
@@ -119,6 +142,7 @@ public readonly struct ScriptDatHeader {
 			System.Math.Clamp(
 				(int)BinaryPrimitives.ReadInt16LittleEndian(scriptDat[14..]), 0, DifficultyLevels - 1),
 			BinaryPrimitives.ReadInt16LittleEndian(scriptDat[10..]) == CheatEnabled,
-			BinaryPrimitives.ReadInt16LittleEndian(scriptDat[12..]) == CheatEnabled);
+			BinaryPrimitives.ReadInt16LittleEndian(scriptDat[12..]) == CheatEnabled,
+			BinaryPrimitives.ReadInt16LittleEndian(scriptDat[8..]));
 	}
 }

@@ -15779,6 +15779,123 @@
       "source": "docs/formats/dts-billboards.md, 'Brush mode 5 skips palette index 0'"
     },
     {
+      "address": "00473b2c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Music_IsIdle",
+      "description": "Whether the cdaudio device is closed: Music_MciDeviceId (004a0e44) == -1. Reached through the SFX thunk at 00464784.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00473c78",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Music_GetTrackLength",
+      "description": "MCI_STATUS item MCI_STATUS_LENGTH with MCI_TRACK, under the TMSF time format, so one track's length as an MSF triple. Its result is kept in Music_TrackLength (006b5610) and becomes the MCI_TO of both Music_PlayTrack and Music_ResumeAt, which is why resuming never re-queries it.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00463038",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sound_StartMissionMusic",
+      "description": "Plays Music_CdTrack when the SFX manager is up, a track is set and Sound_MusicEnabled is up. Sim_InitMissionSession's own music start, called immediately after it writes the track and the enable byte.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00464754",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_PlayMusicTrack",
+      "description": "SFX-level thunk to Music_PlayTrack. Music does not go through SOS, so the manager reaches MCI through four thunks of this kind rather than through its own backend.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00464770",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_StopMusic",
+      "description": "SFX-level thunk to Music_Stop.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00464884",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_GetMusicPosition",
+      "description": "SFX-level thunk to Music_GetPosition.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00464898",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_ResumeMusicAt",
+      "description": "SFX-level thunk to Music_ResumeAt.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "00464784",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sfx_IsMusicIdle",
+      "description": "SFX-level thunk to Music_IsIdle.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004d25f7",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "Music_TrackSelect",
+      "description": "The -R command-line switch's value, parsed with atol at 0045e824. Sim_InitMissionSession derives the mission's CD track from it as value % 5 + 2, so 0-4 select tracks 2-6 and an absent switch leaves every mission on track 2. Nothing else selects a track.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "006b5610",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "Music_TrackLength",
+      "description": "The MSF length Music_GetTrackLength last returned, reused as the MCI_TO of the next play.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "006b560c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "Music_NotifyWindow",
+      "description": "The window handle Sos_InitBackend was given, used as MCI_PLAY's dwCallback so MM_MCINOTIFY reaches sfxWndProc when a track ends.",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004a9eda",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "ScriptDatTrainingMission",
+      "description": "script.dat header +0x08. The training mission number, 0 for anything that is not one. DBSim_LoadScriptDat only stores it; every reader takes the copy at TrainingMissionNumber (004aa7ac).",
+      "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "004aa7ac",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "TrainingMissionNumber",
+      "description": "Copy of ScriptDatTrainingMission taken at the end of DBSim_LoadScriptDat (00425321), and the one every reader tests. Nonzero suppresses the mission's CD music, makes the cockpit build the larger 0x4ef-byte pilot and squad message port instead of the 0x4df-byte one, and supplies the digit of the TM<n>_ instructor voice template.",
+      "source": "docs/formats/audio.md"
+    },
+    {
       "address": "004a5884",
       "binary": "DBSIM",
       "type": "data",

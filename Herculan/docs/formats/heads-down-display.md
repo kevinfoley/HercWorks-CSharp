@@ -400,13 +400,9 @@ Offsets are device pixels. The name's per-slot background — `COLORS.DAT` entri
 
 ### `.SNC` — portrait lip-sync scripts
 
-**`.SNC` is not an audio format.** It is the frame timeline that animates the talking pilot
-portrait in a comm box while the matching `.wav` plays.
+**`.SNC` is not an audio format.** It is the frame timeline that animates the talking pilot portrait in a comm box while the matching `.wav` plays.
 
-556 files in `snc\` (in both `SIMVOL0.VOL` and `SIMSOUND.VOL`): twelve speakers `PA`-`PL` times
-46-47 messages. **The twelve copies of a message are byte-identical** apart from their `.VOL`
-timestamps — the per-speaker naming exists only because the loader builds the name from the
-speaker letter.
+556 files in `snc\` (in both `SIMVOL0.VOL` and `SIMSOUND.VOL`): twelve speakers `PA`-`PL` times 46-47 messages. **The twelve copies of a message are byte-identical** apart from their `.VOL` timestamps — the per-speaker naming exists only because the loader builds the name from the speaker letter.
 
 After the 9-byte `.VOL` entry prefix:
 
@@ -418,19 +414,11 @@ length/2 x {
 }
 ```
 
-The `0xff` terminator is **not in the file** — `Snc_Load` (`00463270`) reads the declared length
-into the slot's 100-byte buffer and appends `0xff` itself. With no script at all the buffer is just
-`0xff`, and the voice plays with the portrait held.
+The `0xff` terminator is **not in the file** — `Snc_Load` (`00463270`) reads the declared length into the slot's 100-byte buffer and appends `0xff` itself. With no script at all the buffer is just `0xff`, and the voice plays with the portrait held.
 
-**Verified across all 556 files**: length always even, always `fileLength - 14`, never containing a
-`0xff` byte, 2-28 pairs (so at most 61 bytes in the 100-byte buffer). Frame values are 0-23 —
-matching the 24 same-sized frames at the head of a `pilot<n>.DBA` bank, described
-[above](#the-gauge) — and deltas 2-74 ticks.
+**Verified across all 556 files**: length always even, always `fileLength - 14`, never containing a `0xff` byte, 2-28 pairs (so at most 61 bytes in the 100-byte buffer). Frame values are 0-23 — matching the 24 same-sized frames at the head of a `pilot<n>.DBA` bank, described [above](#the-gauge) — and deltas 2-74 ticks.
 
-`Snc_Advance` (`004633ac`) reads pairs until the accumulated time passes now, publishes the frame at
-slot `+0x08`, and re-inserts the slot into a small global event queue (`004d2efa`, 8-byte
-`{ time, slot }` entries) that `Snc_ServiceQueue` (`004631c0`) drains. Reaching the `0xff` sets the
-frame to `-1`, which is what tells `HddGauge_PaintPilotFrame` the message is over.
+`Snc_Advance` (`004633ac`) reads pairs until the accumulated time passes now, publishes the frame at slot `+0x08`, and re-inserts the slot into a small global event queue (`004d2efa`, 8-byte `{ time, slot }` entries) that `Snc_ServiceQueue` (`004631c0`) drains. Reaching the `0xff` sets the frame to `-1`, which is what tells `HddGauge_PaintPilotFrame` the message is over.
 
 ### The state machine — `FUN_0044b5f8`
 

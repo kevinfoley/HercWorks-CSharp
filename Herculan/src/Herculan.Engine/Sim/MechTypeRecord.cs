@@ -386,9 +386,9 @@ public sealed class MechTypeRecord {
 	public short HudSpeedScale { get; }
 
 	/// <summary>
-	/// The speed readout for a given speed scalar, in km/h — <c>Hud_GetDisplaySpeedKph</c>'s form.
-	/// Note it is calibrated for the run gait only: below <see cref="GaitThreshold"/> a HERC
-	/// physically covers roughly half what this claims.
+	/// The speed readout for a given speed scalar, in km/h — the walker branch of
+	/// <c>Mech_GetDisplaySpeedKph</c> (<c>0041bb3c</c>). Calibrated for the run gait only; see
+	/// docs/simulation/mech-locomotion.md, "Walk/run gait discontinuity".
 	/// </summary>
 	public int DisplaySpeedKph(int speed) =>
 		MaxForward != 0 ? speed * HudSpeedScale / MaxForward : 0;

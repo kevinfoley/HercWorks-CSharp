@@ -94,7 +94,7 @@ typeRec+0xc2 = Q10(315 × rawSpeedForward)       computed BEFORE the rescale
 
 `scale` normalises the designer's speed points to the model's stride length: `simMax × stridePerTick` tracks `rawSpeedForward` across every Herc (see verification below). It is not friction.
 
-The HUD reads `speed × typeRec[0xc2] / typeRec[0x06]`, so `simMax` cancels and top speed always displays `315 × rawSpeedForward / 1024` regardless of scale.
+The HUD reads `speed × typeRec[0xc2] / typeRec[0x06]` (`Mech_GetDisplaySpeedKph`, `0041bb3c`, walker branch; the flyer branch is in [`razor-flight.md`](razor-flight.md)), so `simMax` cancels and top speed always displays `315 × rawSpeedForward / 1024` regardless of scale.
 
 ## Control law (`Mech_LocomotionTick`)
 

@@ -94,7 +94,7 @@ At 166.667 u/m, HERC models measure 10.2m (OUTLAW) to 15.5m (OGRE), ~1.5x the ma
 
 **Independent order-of-magnitude check:** HUD speed readout (`Mech_GetDisplaySpeedKph`, `0041bb3c`) = `speed * 315/1024`; against each mech's `SpeedForward` reproduces the manual's KPH: OUTLAW 325 → 100 (exact), SAMSON 190 → 58 (quoted 60), COLOSSUS 180 → 55, MAVERICK 285 → 88 (quoted 90). Tick rate was later resolved directly (25 Hz, `FUN_004677bc` — see `docs/simulation/dbsim-physics-notes.md`), confirmed independently by `mech-locomotion.md`'s root-motion speed verification.
 
-Symbols: `Hud_WorldUnitsToMetres`, `Hud_UpdateWaypointIndicator`, `Hud_UpdateSpeedReadout`, `Mech_GetDisplaySpeedKph`, `Math_Q10Multiply`, `Math_Q16Multiply`, `Math_Q16Divide`, `Math_FastMagnitude2D`, `Math_MapRange`, `Time_GetCoarseTicks`, `Vec2_Subtract`, `Vec2_Magnitude`, `Vec2_DistanceBetween`.
+Symbols: `Hud_WorldUnitsToMetres`, `Hud_UpdateWaypointIndicator`, `Hud_UpdateSpeedReadout` (`0043dc78`), `Mech_GetDisplaySpeedKph`, `Math_Q10Multiply`, `Math_Q16Multiply`, `Math_Q16Divide`, `Math_FastMagnitude2D`, `Math_MapRange`, `Time_GetCoarseTicks`, `Vec2_Subtract`, `Vec2_Magnitude`, `Vec2_DistanceBetween`.
 
 ## Where missing and divergent behaviour is tracked
 

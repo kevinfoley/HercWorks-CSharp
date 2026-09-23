@@ -67,8 +67,8 @@ namespace HercWorks.Core.Data.File.Gau;
 ///     kept here for compatibility describes what it is. The Rotation Indicator has no rect in the
 ///     file: the gunsight constructor derives it from this one. See <see cref="HTorsoTwist"/>.
 ///   1120 - <see cref="RemainderBeforeReticle"/>, 16 bytes: two (X,Y) anchor points at 1120-1127 and
-///     1132-1135 for a target-speed text readout ("000 K/H" per the literal format string beside the
-///     code that positions it), part of the same gunsight complex as <see cref="HTorsoTwist"/>. Left
+///     1128-1135 for the mission-time and own-speed readouts (docs/formats/cockpit-gunsight-hud.md,
+///     "Speed and time readouts"), part of the same gunsight complex as <see cref="HTorsoTwist"/>. Left
 ///     as raw bytes rather than typed fields — see the note at the end.
 ///   1136 - <see cref="HReticle"/>, 8 bytes (a single (X,Y) point, not a rect — unlike every other
 ///     widget in this file), matching the Java doc comment's `"1136- RETICLE"`. X is a constant 160

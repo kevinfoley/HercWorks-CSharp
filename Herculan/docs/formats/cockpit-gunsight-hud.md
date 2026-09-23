@@ -141,6 +141,8 @@ The caption is the label child, given the tape's rect dropped `3 << YCoordShift`
 - **1128/1132** is the *left* edge of the `SPEED:` caption. The value follows at `captionEnd + (2 << XCoordShift)`.
 - **1120/1124** is the *right* edge of the time field. Its left edge is that minus the measured width of `"00000"` — a five-digit reservation — and the `TIME:` caption is right-aligned `(2 << XCoordShift)` before it.
 
+The speed value's rect is as wide as `"000 K/H"` measured in the value font. Its text is rebuilt on every paint — `Gunsight_Paint` and `Gunsight_UpdateAndPaint` both call `Hud_UpdateSpeedReadout` (`0043dc78`) — as the decimal of `Mech_GetDisplaySpeedKph(LocalPlayerMech)` (`0041bb3c`) followed by `" K/H"`. What that figure means, and why it overstates a walking Herc's speed, is in [`../simulation/mech-locomotion.md`](../simulation/mech-locomotion.md#walkrun-gait-discontinuity).
+
 Captions use `ColorSchemePanels[16]` (`HUD2`, ink 73) and values `[17]` (`HUD3`, ink 74). Those are theater palette indices, not colours the widget picks — which is where retail's pale yellow-green captions and cyan values come from.
 
 ## Open

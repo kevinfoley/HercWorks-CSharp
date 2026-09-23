@@ -286,6 +286,10 @@ apparent = 25000 << 7 / |(x - centreX, y - centreY, -scale)|
 
 and draws a box of that size in its own colour — id 5 blue friendly, id 9 red hostile — whenever the icon it would otherwise blit is taller. `25000 << 7 / 16` puts the crossover at 200,000 world units out, the same 1200 m one grid square covers.
 
+#### The selected pilot's marker
+
+`HddCommandScreen_DrawMap` (`0044e30c`) paints the markers in build order through `FUN_0044e92c`, but holds back the one whose object is the selected squadmate's machine (`DAT_004d044c[slot]`), or the player's own with no pilot selected, and paints it last. That last call is flagged when the held-back machine is the selected squadmate's, and the flag does two things in `FUN_0044e92c`: it draws the link line from the marker to the armed order's pick in the pilot's `HudColorTable` colour, then returns **before** painting the icon whenever a pilot is selected (`screen+0x381`) and `DAT_0049d6ad` is set. `FUN_0044d348` flips `DAT_0049d6ad` every `0x1e` coarse ticks from `HddCommandScreen_Update` (`0044c960`) and forces a full map repaint, so the selected squadmate's own icon blinks at about half a second while its link line stays up. The match is by object pointer, so the blink always lands on the right machine.
+
 `hba\ICONS.HBA` is 90 frames: two singles, four structure icons, then eight nine-frame rotation groups from frame 6, then ten 16x13 route markers at 78-87 and two 8x5 ticks. It is loaded lazily by `HddMarker_Ctor` (`0044f130`) rather than with the rest of the display's art.
 
 ### The two click regions
@@ -454,6 +458,7 @@ An unoccupied slot is not painted by the gauge at all: `HddDisplay_Repaint` floo
 | Reading | Why it is wrong |
 |---|---|
 | The four ids `HddDamageScreen_Ctor` resolves at `HddDamageColorIds` are the damage rows' colours | They look exactly like it — 19, 9, 15, 12 resolve to black, red, yellow and green — and the ctor walks them through `HudColorTable` in place like every other id array. But `0049d9ec` is materialised exactly once in the image, at `004507c9`, which is that resolve loop; nothing ever reads the result. The rows take their colour from a font instead, and from five states rather than four. Whatever these were for, the shipped screen does not use them. |
+| The selected pilot's blink lands on `markers[slot]`, a route waypoint or whichever object was built third | `HddCommandScreen_SelectPilot` (`0044da70`, through `FUN_0044edb8`) and `HddCommandScreen_Update` (`0044c960`, through `FUN_0044f61c`) do index the 140-gadget array at `screen+0x31` by the comm-box slot, 0-2. But `FUN_0044edb8` only flips gadget byte `+0x36`, which `HddMarker_Paint` never reads, and `FUN_0044f61c`'s repaint is overdrawn by the full map repaint `FUN_0044d348` requests on the same tick. The visible blink is `HddCommandScreen_DrawMap`'s, which finds the marker by object — [above](#the-selected-pilots-marker). |
 
 ## `hddclip`
 

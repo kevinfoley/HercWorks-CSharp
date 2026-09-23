@@ -760,10 +760,8 @@ public sealed class Overlay2DRenderer : IDisposable {
 
 		var markers = state.Command.Plotted;
 		for (int i = 0; i < markers.Count; i++) {
-			// The selected pilot's marker blinks on the display's own half-second toggle, which is
-			// what tells the player which of the three they are talking to when the comm boxes are
-			// off the bottom of their attention. The original blinks the wrong gadget — see
-			// Herculan/KNOWN_ISSUES.md.
+			// The selected pilot's marker blinks on the display's own half-second toggle — see
+			// "The selected pilot's marker" in docs/formats/heads-down-display.md.
 			if (!state.Command.Blink && markers[i].PilotSlot == state.Command.SelectedPilot
 				&& state.Command.SelectedPilot >= 0) {
 				continue;

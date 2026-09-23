@@ -7000,7 +7000,7 @@
       "confidence": "high",
       "name": "Component_AddDamage",
       "description": "Adds damage to one component/dependent damage entry. An entry already holding -1 (destroyed) absorbs nothing. An entry the damage finishes stores -1 rather than the max and writes the EXCESS back through the damage pointer, which is what Component_SpillIntoDependents runs on. Returns whether the entry is now destroyed.",
-      "source": "docs/simulation/damage-system.md 2026-08-28"
+      "source": "docs/simulation/component-damage.md 2026-08-28"
     },
     {
       "address": "0040cf44",
@@ -7009,7 +7009,7 @@
       "confidence": "high",
       "name": "Component_SpillIntoDependents",
       "description": "Pours a destroyed component's overflow damage into its dependent sub-pieces, one at a time. The pick is weighted and random: each live dependent contributes its .DMG CritChance to a total, a draw under that total selects one, and if the spill destroys it the remainder goes round again. Returns true only when no live dependents remain -- which is the condition Component_ApplyDamageAndCascade requires before it will cascade.",
-      "source": "docs/simulation/damage-system.md 2026-08-28"
+      "source": "docs/simulation/component-damage.md 2026-08-28"
     },
     {
       "address": "0040cf10",
@@ -7018,7 +7018,7 @@
       "confidence": "high",
       "name": "Component_AllDependentsDestroyed",
       "description": "Whether every dependent sub-piece a component's .DMG record lists is destroyed (-1). Used only by Component_IsFullyDestroyed.",
-      "source": "docs/simulation/damage-system.md 2026-08-28"
+      "source": "docs/simulation/component-damage.md 2026-08-28"
     },
     {
       "address": "0040d9f8",
@@ -7027,7 +7027,7 @@
       "confidence": "high",
       "name": "Component_IsFullyDestroyed",
       "description": "Component destroyed AND all of its dependents destroyed. The stricter of the two 'is this gone' tests; Mech_ComponentDamageWrite asks it of the two cockpit slots (0 and 1) as the mech's death gate.",
-      "source": "docs/simulation/damage-system.md 2026-08-28"
+      "source": "docs/simulation/component-damage.md 2026-08-28"
     },
     {
       "address": "00421bb4",
@@ -8889,7 +8889,7 @@
       "name": "WeaponMounts_MountForHardpointSlot",
       "description": "Linear search of the mount manager's array for the mount whose .GL record's +0x17 equals the argument, or null. Damage components 19-28 are the mounts, so the caller passes component - 19. The match is on the .GL slot, not on a position in the array.",
       "signature": "void * __cdecl WeaponMounts_MountForHardpointSlot(void *manager, short loadoutSlot)",
-      "source": "docs/simulation/damage-system.md"
+      "source": "docs/simulation/weapon-damage-types.md"
     },
     {
       "address": "0040ee0c",
@@ -8927,7 +8927,7 @@
       "confidence": "medium",
       "name": "maybe_Salvage_QueueDestroyedWeapon",
       "description": "Appends one int32 to the global list at DAT_004a9ef0, bumping the count at DAT_004a9eee. Its one traced caller is Mech_ApplyDirectFireDamage's weapon-mount destruction roll, on the Cybrid branch only, packing the destroyed weapon's catalog id (template+0x56) with its remaining condition. Post-mission salvage is the obvious purpose and is not proven -- the consumer was not traced.",
-      "source": "docs/simulation/damage-system.md"
+      "source": "docs/simulation/component-damage.md"
     },
     {
       "address": "004076e4",
@@ -11231,7 +11231,7 @@
       "name": "Mech_ApplyStartingCondition",
       "signature": "void __cdecl Mech_ApplyStartingCondition(MechObject *mech, short conditionPercent)",
       "description": "Applies a mission record's starting condition, as a percentage, once from DBSim_SpawnMissionObjects right after the machine's engagement/defeat actions are resolved. 100 is pristine; bands are >=0x50 untouched, >=0x3c 50 damage, >=0x28 80, >=0x14 120 plus the reactor dependent written off outright, and below 0x14 a WRECK: one of components 7/8 destroyed with 32000 (plus one of 13/14 when typeRec+0x4a>2), mech+0xa4 immobilised and mech+0xb4 collapsed. Each band ends in Mech_SpreadImpactDamage(mech, n, n+0x19). The condition comes from script.dat block 7 +0x84. Args derived from disassembly: two pushes with ADD ESP,0x8 at 004259b0; [EBP+8] mech, [EBP+0xc] word.",
-      "source": "docs/simulation/damage-system.md"
+      "source": "docs/simulation/component-damage.md"
     },
     {
       "address": "00417a04",
@@ -11241,7 +11241,7 @@
       "name": "Mech_SpreadImpactDamage",
       "signature": "void __cdecl Mech_SpreadImpactDamage(MechObject *mech, short maxDamage, short odds)",
       "description": "Spreads one impact over the whole machine instead of aiming it. Each of the 29 live components draws its own (rand & 0xff) < odds roll; a component that is caught takes Q8Multiply(rand(maxDamage) + maxDamage/2, Component_TotalArmor(i)) through vtable +0x74, so the share scales with what that component had to lose. maxDamage 0 returns immediately. Callers: the collapse landing in Mech_LocomotionTick (150, 120) and Mech_ApplyStartingCondition. Args derived from disassembly: [EBP+8] mech, [EBP+0xc] and [EBP+0x10] words, plain RET.",
-      "source": "docs/simulation/damage-system.md"
+      "source": "docs/simulation/component-damage.md"
     },
     {
       "address": "0040dc58",
@@ -11251,7 +11251,7 @@
       "name": "Component_TotalArmor",
       "signature": "int __cdecl Component_TotalArmor(ComponentDamageArrays *arrays, short componentIndex)",
       "description": "Everything a component has to lose: its own armour plus the maximum of every internal mapped onto it, walking the piece's MappedInternals list. The denominator Component_ReadDamagePercent divides by, and the scale Mech_SpreadImpactDamage multiplies by. Args derived from disassembly: [EBP+8] pointer, [EBP+0xc] word.",
-      "source": "docs/simulation/damage-system.md"
+      "source": "docs/simulation/component-damage.md"
     },
     {
       "address": "0041bac8",
@@ -11320,7 +11320,7 @@
       "confidence": "high",
       "name": "Mech_CreditNeutralisedTarget",
       "description": "Mech vtable +0x60, told to the machine that just put victim out of the fight. Plain __cdecl on three stack arguments -- every call site pushes three and cleans 12 bytes, so the decompiler's __thiscall rendering with a leading parameter is wrong. victimAlreadyImmobilised suppresses the kill half only: the per-chassis tally at mech+0x2a4, the +0xa6 latch and the scorer's 0x02 callout. The victim's own 0x25/0x04 cry goes out either way, and is the image's only Ai_PostSquadMessage call that forces a post past a destroyed machine.",
-      "source": "docs/simulation/damage-system.md",
+      "source": "docs/simulation/component-damage.md",
       "signature": "void __cdecl Mech_CreditNeutralisedTarget(SimObject *attacker, SimObject *victim, short victimAlreadyImmobilised)"
     },
     {
@@ -11330,7 +11330,7 @@
       "confidence": "high",
       "name": "Mech_ReportOutOfAction",
       "description": "Run from both of Mech_ComponentDamageWrite's out-of-the-fight branches, before the defeat action. Calls Group_ReportIfAllOutOfAction for the machine's own group, then walks the machine's 10 mission-variable slots (indices at mech+0x1ba, opcodes at mech+0x1ce) writing the global variable table DAT_004a9ef4: opcode 1 zeroes the variable, 2 increments it, 0xd-0x10 store opcode-0xc. Part of the mission-objective/status-report layer, not the AI.",
-      "source": "docs/simulation/damage-system.md"
+      "source": "docs/simulation/component-damage.md"
     },
     {
       "address": "00423f30",
@@ -11348,7 +11348,7 @@
       "confidence": "high",
       "name": "ObjectPool_QueueForDelete",
       "description": "Appends an object to a deferred-delete queue (pointer at queue+0, count at queue+4), used with the global DAT_004a9715. Nothing is destructed here.",
-      "source": "docs/simulation/damage-system.md"
+      "source": "docs/simulation/component-damage.md"
     },
     {
       "address": "00478538",
@@ -11357,7 +11357,7 @@
       "confidence": "high",
       "name": "ObjectPool_FlushDeleteQueue",
       "description": "Drains the queue ObjectPool_QueueForDelete fills: destructs each entry through its vtable +0x08, returns it to the pool, then zeroes the count.",
-      "source": "docs/simulation/damage-system.md"
+      "source": "docs/simulation/component-damage.md"
     },
     {
       "address": "00409904",
@@ -11366,7 +11366,7 @@
       "confidence": "high",
       "name": "Sim_FlushDeleteQueue",
       "description": "One-line wrapper running ObjectPool_FlushDeleteQueue(DAT_004a9715, DAT_004a9711). Mech_ComponentDamageWrite ends with it, which is what commits the child parts a lost leg or a vanishing chassis queued during the damage write.",
-      "source": "docs/simulation/damage-system.md"
+      "source": "docs/simulation/component-damage.md"
     },
     {
       "address": "004240f4",
@@ -11375,7 +11375,7 @@
       "confidence": "high",
       "name": "Sim_DamageToPlayerDisabled",
       "description": "Two-global predicate gating the very first line of Mech_ComponentDamageWrite for the locally piloted machine: if DAT_004a9ed6 is zero the answer is DAT_004a9ede == 1, otherwise DAT_004a9ee0 == 0. Reads as an invulnerability or practice setting; neither global's writer was traced.",
-      "source": "docs/simulation/damage-system.md"
+      "source": "docs/simulation/component-damage.md"
     },
     {
       "address": "004075b2",
@@ -13934,7 +13934,7 @@
       "confidence": "high",
       "name": "Mech_SalvageValue",
       "description": "What one machine is worth to the player's side at mission end. Zero when mech+0xb3 is set. Otherwise queues every hardpoint under 0x80 damage to the salvage list as {template+0x56, (0x100-damage)*100/256}, then returns Q10(Mech_WeightedArmorRemaining(mech), typeRec+0x54) with typeRec+0x54 halved when component 0 is at full damage.",
-      "source": "docs/simulation/damage-system.md",
+      "source": "docs/simulation/component-damage.md",
       "signature": "int __cdecl Mech_SalvageValue(MechObject *mech)"
     },
     {
@@ -13944,7 +13944,7 @@
       "confidence": "high",
       "name": "Mission_TotalSalvage",
       "description": "Sums Mech_SalvageValue over every object on the other side from the player's that is destroyed (+0x99) or immobilised (+0xa4). Called once as the mission writes its results; the total is scaled by Q10(2500) into the campaign salvage pool.",
-      "source": "docs/simulation/damage-system.md",
+      "source": "docs/simulation/component-damage.md",
       "signature": "int __cdecl Mission_TotalSalvage(void *playerGroup, short unused)"
     },
     {
@@ -13954,7 +13954,7 @@
       "confidence": "high",
       "name": "Mech_WeightedArmorRemaining",
       "description": "Sum of (maxArmor - damage) * weight / maxArmor over a machine's live components, against the weight table at 00499fe0. maxArmor is the component's .DMG record; a component at or past 150 damage contributes nothing.",
-      "source": "docs/simulation/damage-system.md"
+      "source": "docs/simulation/component-damage.md"
     },
     {
       "address": "00412f90",

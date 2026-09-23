@@ -12,7 +12,7 @@ Distinct from `SHELL0/GAM/WEAPONS.DAT` (the UI-facing weapon catalog, see `docs/
 
 ### `WeaponMountTemplate` record (variable length)
 
-Built entirely from **reused low-level record readers**: `HercPiece_ReadRecord` (see `docs/simulation/damage-system.md`, "The component damage system"), `Collision_ReadCluster`, `Collision_ReadSphereArray` (see `docs/simulation/hit-detection.md`). In-memory struct is 88 bytes (`0x58`), but on-disk record is variable-length; extra in-memory bytes are runtime-only (a pointer + self-index the loader fills in after reading).
+Built entirely from **reused low-level record readers**: `HercPiece_ReadRecord` (see `docs/simulation/component-damage.md`, "The component damage system"), `Collision_ReadCluster`, `Collision_ReadSphereArray` (see `docs/simulation/hit-detection.md`). In-memory struct is 88 bytes (`0x58`), but on-disk record is variable-length; extra in-memory bytes are runtime-only (a pointer + self-index the loader fills in after reading).
 
 Read order (all fields little-endian):
 

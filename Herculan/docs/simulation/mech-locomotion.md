@@ -73,7 +73,7 @@ Loaded by `MechType_InitOne` (`004201a8`) as a 216-byte little-endian record int
 | 68 | `+0x46` | `AnimId_Death` | The sequence an immobilised machine goes down in — see [Going down](#going-down). The chassis' one non-cyclic sequence |
 | 76 | `+0x4e` | `Mass` | Chassis mass, the Q10 weight each party's speed carries in a collision. 5000 light … 20000 PITBULL, **0 SPIDER**. Was `Unk76_Val` |
 | 78 | `+0x50` | `InputFlagFlyer` | 1 = Razor. Selects the flight paths and the `fm\<NAME>.FM` load — [`razor-flight.md`](razor-flight.md) |
-| 84 | `+0x56` | `Unk84_val` | Whether a hit can knock this chassis' weapon mounts out — 1 on every biped, **0 on the PITBULL**. `Mech_ApplyDirectFireDamage` tests it before rolling; see [`damage-system.md`](damage-system.md#weapon-mount-destruction) |
+| 84 | `+0x56` | `Unk84_val` | Whether a hit can knock this chassis' weapon mounts out — 1 on every biped, **0 on the PITBULL**. `Mech_ApplyDirectFireDamage` tests it before rolling; see [`weapon-damage-types.md`](weapon-damage-types.md#weapon-mount-destruction) |
 | 108 | `+0x6e` | `GaitThresholdReverse` | Reverse-side walk↔run threshold |
 | 110 | `+0x70` | `BodyRadius` | Body radius, **750 on every HERC** — both radius vtable slots return it, see [`hit-detection.md`](hit-detection.md#the-three-radius-slots). Was `Unk110_camExtVal2` |
 | 122 | `+0x7c` | `AnimId_TurnInPlace` | Turn-in-place sequence id |
@@ -264,9 +264,9 @@ Three terms, applied to the speed the machine is *asking* for rather than to the
   | Legs | `mech+0xa9` — a side at `0x8d` damage or worse | `mech+0xa8` — a side past `0x50` |
   | Reactor | `mech+0xab` critical | `mech+0xaa` degraded |
 
-The severe pair wins outright where both apply. Both leg flags are written by the leg grading in [`damage-system.md`](damage-system.md); the reactor pair cuts power and mobility together — see [reactor-energy-pool.md](reactor-energy-pool.md#reactor-damage-flags).
+The severe pair wins outright where both apply. Both leg flags are written by the leg grading in [`component-damage.md`](component-damage.md); the reactor pair cuts power and mobility together — see [reactor-energy-pool.md](reactor-energy-pool.md#reactor-damage-flags).
 
-- `mech+0x317` is the **Turbo Pod** (`TURB`, catalog id 31), one of the five equipment-pod slots filled by `MechLoadout_FileEquipmentPods` at loadout. It adds a term to desired speed *in the current direction of travel* while it is engaged, worth ~98% of max at full and fading to ~20% before cutting out entirely past 225/256 damage — a speed bonus that degrades, not a throttle runaway, and **maximal at full health**. A stationary machine gets nothing: the term is gated on `speed != 0`, so the pod accelerates a walk rather than starting one. What engages it, what it costs the pool and what the curve is are in [equipment-pods.md](equipment-pods.md#what-the-turbo-pod-is-worth). > Reading the curve requires care: the health accessor returns **accumulated damage**, not health, > so the term runs the opposite way to how it first scans. See > [damage-system.md](damage-system.md#the-component-damage-system).
+- `mech+0x317` is the **Turbo Pod** (`TURB`, catalog id 31), one of the five equipment-pod slots filled by `MechLoadout_FileEquipmentPods` at loadout. It adds a term to desired speed *in the current direction of travel* while it is engaged, worth ~98% of max at full and fading to ~20% before cutting out entirely past 225/256 damage — a speed bonus that degrades, not a throttle runaway, and **maximal at full health**. A stationary machine gets nothing: the term is gated on `speed != 0`, so the pod accelerates a walk rather than starting one. What engages it, what it costs the pool and what the curve is are in [equipment-pods.md](equipment-pods.md#what-the-turbo-pod-is-worth). > Reading the curve requires care: the health accessor returns **accumulated damage**, not health, > so the term runs the opposite way to how it first scans. See > [component-damage.md](component-damage.md#the-component-damage-system).
 
 ## Going down
 
@@ -287,7 +287,7 @@ The end-of-sequence test works only because the death sequence is the chassis' o
 
 `mech+0xb4` is a third condition distinct from destroyed and immobilised, and the one that takes a machine off the AI's books completely: [`ai-targeting.md`](ai-targeting.md)'s targetability test and the mission group's condition test both reject a collapsed candidate, while one still falling is still a target.
 
-The landing calls `Mech_SpreadImpactDamage` (`00417a04`) with `(150, 120)` — see [`damage-system.md`](damage-system.md#spread-impact-damage--mech_spreadimpactdamage-00417a04), which owns that primitive. A bad enough landing can therefore finish a machine off through the death gate.
+The landing calls `Mech_SpreadImpactDamage` (`00417a04`) with `(150, 120)` — see [`component-damage.md`](component-damage.md#spread-impact-damage--mech_spreadimpactdamage-00417a04), which owns that primitive. A bad enough landing can therefore finish a machine off through the death gate.
 
 `Mech_PlaceLegsOnGround` has a death-sequence arm of its own, but it leaves the sound id unset and so can never reach the footfall it guards. Nothing to port.
 

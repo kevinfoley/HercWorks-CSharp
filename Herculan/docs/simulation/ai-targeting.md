@@ -215,7 +215,7 @@ Fields settled elsewhere link out rather than being restated.
 | `+0xa5` | byte | No weapons left; written by `Ai_ChooseWeapon` — [`ai-weapons.md`](ai-weapons.md) |
 | `+0xac` | byte | A target was just handed to this machine; skip one acquisition |
 | `+0xb2` | byte | Keeps a player squadmate's radar active; written by `SCAN FOR HOSTILES` and `EMCON` — [`ai-squadmates.md`](ai-squadmates.md) |
-| `+0xb4` | byte | Collapsed — the machine has finished going down and is lying on the ground. Latched when the death animation plays out ([`mech-locomotion.md`](mech-locomotion.md#going-down)), or at spawn for a machine the mission places as a wreck ([`damage-system.md`](damage-system.md#starting-condition--mech_applystartingcondition-004178e8)) |
+| `+0xb4` | byte | Collapsed — the machine has finished going down and is lying on the ground. Latched when the death animation plays out ([`mech-locomotion.md`](mech-locomotion.md#going-down)), or at spawn for a machine the mission places as a wreck ([`component-damage.md`](component-damage.md#starting-condition--mech_applystartingcondition-004178e8)) |
 | `+0xb7` | byte | Invulnerable; `Base_Construct` sets it from `BASES.DAT +0x1e` |
 | `+0x250` | short | Squad order's abandon threshold — [`ai-squadmates.md`](ai-squadmates.md) |
 | `+0x26b` | short | Countdown that holds the radar off, 6000 after an ARM hit — [`ai-weapons.md`](ai-weapons.md) |

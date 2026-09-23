@@ -1,6 +1,6 @@
 # Structure behaviour
 
-What a `BASES.DAT` structure does per tick. Hit detection is [`hit-detection.md`](hit-detection.md) and coming apart is [`damage-system.md`](damage-system.md#going-out-of-the-fight). This doc owns the `+0x18` tick slot and the five classes that fill it.
+What a `BASES.DAT` structure does per tick. Hit detection is [`hit-detection.md`](hit-detection.md) and coming apart is [`component-damage.md`](component-damage.md#going-out-of-the-fight). This doc owns the `+0x18` tick slot and the five classes that fill it.
 
 ## Timer units
 

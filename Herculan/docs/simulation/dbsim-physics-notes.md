@@ -2,7 +2,7 @@
 
 Reverse-engineered from `DBSIM.EXE` disassembly (Ghidra project `ES2Recon`, `-cspec windows` reimport + `ES2CommitAllParams.java` applied — see `project_es2_exe_recon` memory for setup). All addresses are DBSIM.EXE virtual addresses. Several numeric claims below (fast-magnitude coefficients, fixed-point shift amounts) were checked against raw disassembly, not just decompiler output.
 
-Scope is the shared fixed-point primitives and the collision-bound build. Projectile flight is in [`projectiles.md`](projectiles.md) and [`rockets.md`](rockets.md); combat damage resolution (shields, components, weapon effectiveness) is in [`damage-system.md`](damage-system.md); the terrain heightmap format and query is in [`../formats/terrain-heightmap.md`](../formats/terrain-heightmap.md). The pseudo-random generator is a math-library utility of the same kind as the helpers below but is not a fixed-point primitive, and has its own page: [`random-generator.md`](random-generator.md).
+Scope is the shared fixed-point primitives and the collision-bound build. Projectile flight is in [`projectiles.md`](projectiles.md) and [`rockets.md`](rockets.md); combat damage resolution is in [`damage-system.md`](damage-system.md) (shields, the direct-fire/explosive pathways), [`component-damage.md`](component-damage.md) (the `.DMG` health record and cascade) and [`weapon-damage-types.md`](weapon-damage-types.md) (weapon effectiveness); the terrain heightmap format and query is in [`../formats/terrain-heightmap.md`](../formats/terrain-heightmap.md). The pseudo-random generator is a math-library utility of the same kind as the helpers below but is not a fixed-point primitive, and has its own page: [`random-generator.md`](random-generator.md).
 
 ## Fixed-point math toolkit
 

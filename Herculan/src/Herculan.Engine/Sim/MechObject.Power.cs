@@ -77,7 +77,7 @@ public sealed partial class MechObject {
 	/// <see cref="PowerTick"/> releases it above <see cref="ShieldsDownAlertClearCharge"/>. Only the
 	/// player's own machine touches it, which is why the MFD status screen's SHIELDS DN condition
 	/// only ever appears on F1. The two thresholds and what the gap between them buys are in
-	/// docs/simulation/damage-system.md, "What the endpoint announces".
+	/// docs/simulation/component-damage.md, "What the endpoint announces".
 	/// </summary>
 	public bool ShieldsDownAlert { get; internal set; }
 

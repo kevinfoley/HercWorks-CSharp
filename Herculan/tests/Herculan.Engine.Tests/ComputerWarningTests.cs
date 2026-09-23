@@ -19,7 +19,7 @@ namespace Herculan.Engine.Tests;
 /// <para>The latches these rest on are not the warnings' own bookkeeping: <c>+0xa8</c>/<c>+0xa9</c>
 /// are also the two speed penalties and <c>+0xaa</c>/<c>+0xab</c> the reactor's output grades, so a
 /// warning that repeated would mean one of those had come unlatched. See
-/// docs/simulation/damage-system.md.</para>
+/// docs/simulation/component-damage.md.</para>
 ///
 /// <para>Every test skips silently when no Earthsiege 2 install can be found.</para>
 /// </summary>

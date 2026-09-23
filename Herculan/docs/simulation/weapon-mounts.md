@@ -155,7 +155,7 @@ A visibly-mounted hardpoint then throws its own gun as a debris object — the s
 
 ### The certain path — the condition notification
 
-`Mech_ComponentDamageWrite` snapshots **every** mount's component reading before its write and hands both readings to every mount afterwards, through the mount's vtable `+0x68`. The snapshot has to cover all of them because the write cascades: a hit on a shoulder can move a mount several components away. The component a mount reads is `.GL +0x17` + 19 — see [`damage-system.md`](damage-system.md#weapon-mount-destruction).
+`Mech_ComponentDamageWrite` snapshots **every** mount's component reading before its write and hands both readings to every mount afterwards, through the mount's vtable `+0x68`. The snapshot has to cover all of them because the write cascades: a hit on a shoulder can move a mount several components away. The component a mount reads is `.GL +0x17` + 19 — see [`weapon-damage-types.md`](weapon-damage-types.md#weapon-mount-destruction).
 
 `WeaponMount_ConditionChangedBase` (`0040ee0c`), the base class' whole slot: a component reading 256 destroys the mount, with no roll.
 
@@ -171,7 +171,7 @@ A visibly-mounted hardpoint then throws its own gun as a debris object — the s
 
 ### The chance path — the destruction roll
 
-A band change on a mount component rolls once to take that mount out, inside `Mech_ApplyDirectFireDamage`. It is decoded in [`damage-system.md`](damage-system.md#weapon-mount-destruction), which owns the damage side; `WeaponMounts_MountForHardpointSlot` (`00410670`) is the component-to-mount lookup it uses, matching on `.GL +0x17` rather than on a position in the mount array.
+A band change on a mount component rolls once to take that mount out, inside `Mech_ApplyDirectFireDamage`. It is decoded in [`weapon-damage-types.md`](weapon-damage-types.md#weapon-mount-destruction), which owns the damage side; `WeaponMounts_MountForHardpointSlot` (`00410670`) is the component-to-mount lookup it uses, matching on `.GL +0x17` rather than on a position in the mount array.
 
 ## Names — `FUN_0040e18c`
 

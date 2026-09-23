@@ -1,6 +1,6 @@
 # Destruction effects — wreckage, fire, and a structure coming down
 
-What a destroyed thing puts on screen: the shapes it throws (`debris.cpp`), the flames left burning on it (`fire.cpp`), and the multi-stage collapse a building runs before it becomes a wreck (`base.cpp`). All three are driven by the damage model but are separate from it — the arithmetic of losing a part is in [`damage-system.md`](damage-system.md) and [`hit-detection.md`](hit-detection.md).
+What a destroyed thing puts on screen: the shapes it throws (`debris.cpp`), the flames left burning on it (`fire.cpp`), and the multi-stage collapse a building runs before it becomes a wreck (`base.cpp`). All three are driven by the damage model but are separate from it — the arithmetic of losing a part is in [`component-damage.md`](component-damage.md) and [`hit-detection.md`](hit-detection.md).
 
 Impact effects — the puff where a shot lands — are a fourth, different subsystem: [`impact-effects.md`](impact-effects.md). Everything here spawns them, and nothing here is one.
 

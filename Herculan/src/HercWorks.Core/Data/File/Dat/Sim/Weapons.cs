@@ -93,7 +93,7 @@ public class Weapons {
 		/// <c>Mech_ConfigureLoadout</c> (0x004175dc) -&gt; weapon-mount factory (0x0040fff8), which
 		/// branches on it. This is the mechanism
 		/// behind <see cref="ProjectileData"/>'s weapon-id-to-record mapping — see
-		/// docs/simulation/damage-system.md and docs/formats/weapons-dat-sim.md for the full
+		/// docs/simulation/weapon-damage-types.md and docs/formats/weapons-dat-sim.md for the full
 		/// writeup, and <c>ProjectileData</c>'s own doc comment for the resulting confirmed mapping.
 		/// Three cases, confirmed against every real weapon in the retail catalog:
 		///   <list type="bullet">

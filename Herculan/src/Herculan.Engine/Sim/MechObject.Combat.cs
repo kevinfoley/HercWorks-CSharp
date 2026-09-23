@@ -972,7 +972,7 @@ public sealed partial class MechObject {
 	/// <para>The computer's warnings this posts along the way — the shield generator's two, the
 	/// weapon-mount one, the leg grade's pair, the reactor's and the kill announcement — are all
 	/// gated on <see cref="SimObject.LocallyPiloted"/>, so only the machine the player is flying
-	/// says anything. See docs/simulation/damage-system.md.</para>
+	/// says anything. See docs/simulation/component-damage.md.</para>
 	/// </summary>
 	private void ComponentDamageWrite(SimWorld world, short componentIndex, short damage,
 			SimObject? attacker) {

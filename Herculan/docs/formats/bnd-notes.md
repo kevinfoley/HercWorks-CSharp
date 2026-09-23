@@ -51,7 +51,7 @@ Field *meanings* are unconfirmed — `Distance1`/`Distance2`/`Value3`/`Value4` (
 
 ## Build-time-only source format — values compiled into DBSIM.EXE, never read at runtime
 
-Hardcoded instruction immediates in `dbsim-physics-notes.md` (rocket steering) and disassembly-found weapon range breakpoints (not yet written up in `damage-system.md`) match byte-exact values in their corresponding `.BND` files:
+Hardcoded instruction immediates in `dbsim-physics-notes.md` (rocket steering) and disassembly-found weapon range breakpoints (not yet written up in `weapon-damage-types.md`) match byte-exact values in their corresponding `.BND` files:
 - `ROCKET.BND` at content offsets 6-7, 8-9, 14-15: `1280`, `3072`, `40000`
 - `PWEAPONS.BND` at content offsets 58-65: `120, 360, 180, 1800` (contiguous)
 
@@ -75,5 +75,5 @@ Hardcoded instruction immediates in `dbsim-physics-notes.md` (rocket steering) a
 - Only 5 of 83 files have Java source doc comments (`Cam`, `Mech`, `MechSys`, `AppInput`, `MechView`). Check `herc-works-mdk-main/ES2Core/.../data/file/bnd/*.java` before hex-diffing.
 - `CAM.BND` is fully decoded and implemented: `HercWorks.Core.Data.File.Bnd.Cam` + `Io.Transform.Bnd.CamTransformer` (registered in `TransformerRegistry`, round-trips its 24 content bytes byte-exact). Use as template.
 - For other files: group by same payload-length, diff within family (e.g., `P*.BND` cockpit panels, `*_ALRT.BND` alert configs) — the approach that cracked `.DCI`.
-- Cross-reference unknown fields against `dbsim-physics-notes.md`'s and `damage-system.md`'s per-subsystem constants (the technique that confirmed build-time-only).
+- Cross-reference unknown fields against `dbsim-physics-notes.md`'s and `damage-system.md`'s/`weapon-damage-types.md`'s per-subsystem constants (the technique that confirmed build-time-only).
 - No runtime loader exists; don't search for one.

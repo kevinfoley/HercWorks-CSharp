@@ -299,7 +299,7 @@ The six helpers it owns:
 
 `Group_OrderSubjectRouteExhausted` (`004139a0`) sits in the middle of the set and is one step further out still — nothing calls it, the chooser included.
 
-**`mech+0xa6` therefore has no live reader.** `Mech_CreditNeutralisedTarget` latches it on a machine's first cross-side kill ([`damage-system.md`](damage-system.md#what-a-wreck-is-worth--mech_salvagevalue-00418e60)) and only `Group_AnyMemberScoredAKill` ever asks. The same goes for `+0x9f` and `+0xa0` *in their group form* — the objective conditions read the player's own copies directly rather than through these helpers.
+**`mech+0xa6` therefore has no live reader.** `Mech_CreditNeutralisedTarget` latches it on a machine's first cross-side kill ([`component-damage.md`](component-damage.md#what-a-wreck-is-worth--mech_salvagevalue-00418e60)) and only `Group_AnyMemberScoredAKill` ever asks. The same goes for `+0x9f` and `+0xa0` *in their group form* — the objective conditions read the player's own copies directly rather than through these helpers.
 
 ## Engine port
 

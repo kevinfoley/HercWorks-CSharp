@@ -186,7 +186,7 @@ and that the victim is the player's own selected target (`mech+0x1a4`), so destr
 had boxed announces `ENEMY TARGET DESTROYED` and the two `FRIENDLY` lines are unreachable.
 
 The damage set's own guards — which reading of what, and which latch byte stops each line
-repeating — are [`../simulation/damage-system.md`](../simulation/damage-system.md#what-the-endpoint-announces)'s.
+repeating — are [`../simulation/component-damage.md`](../simulation/component-damage.md#what-the-endpoint-announces)'s.
 
 At 16 ms a coarse tick the power-up announcement lands 3.2 s in, inside `start3`'s five seconds
 rather than after them.
@@ -256,7 +256,7 @@ meanings. `/` separates the variants of one id.
 | `0x21` | `PLEASE STAND BY...` | — |
 | `0x22` | `STANDING BY...` | — |
 | `0x23` | `DAMN!` | — |
-| `0x25` | `AAAAAAARRGHH!` | a squadmate destroyed — `Mech_CreditNeutralisedTarget`, [`../simulation/damage-system.md`](../simulation/damage-system.md#what-a-wreck-is-worth--mech_salvagevalue-00418e60) |
+| `0x25` | `AAAAAAARRGHH!` | a squadmate destroyed — `Mech_CreditNeutralisedTarget`, [`../simulation/component-damage.md`](../simulation/component-damage.md#what-a-wreck-is-worth--mech_salvagevalue-00418e60) |
 | `0x26` | `ROGER. RADAR ACTIVATED.` | `SCAN FOR HOSTILES` taken |
 | `0x27` | `I ALREADY SHUT IT DOWN.` | — |
 | `0x28` | `ROGER. SHUTTING DOWN.` | `EMCON` taken |

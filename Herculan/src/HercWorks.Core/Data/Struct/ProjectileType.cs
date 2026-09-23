@@ -4,7 +4,7 @@ namespace HercWorks.Core.Data.Struct;
 /// Ported from org.hercworks.core.data.struct.ProjectileType.
 ///
 /// Independently cross-confirmed against DBSIM.EXE disassembly (see
-/// docs/simulation/damage-system.md): these are the exact 4 literal values DBSIM's own
+/// docs/simulation/weapon-damage-types.md): these are the exact 4 literal values DBSIM's own
 /// PROJ.DAT lookup function (<c>FUN_0040ffc8</c>) is ever called with — a closed set, found from
 /// scratch via disassembly with no reference to this enum, matching it value-for-value. Each value
 /// corresponds to a genuinely different construction path, not just a data variant: `0` (Missile)
@@ -17,7 +17,7 @@ namespace HercWorks.Core.Data.Struct;
 /// <para>The C++ class behind each is named by the binary itself — `0` is <c>ROCKET</c>, `2` is
 /// <c>BULLET</c>, `3` is <c>GRENADE</c>, `4` has no class at all. `0` keeps the name `Missile` here
 /// because that is the weapon it carries in the game's own terms. See
-/// docs/simulation/damage-system.md, "Type — a firing-mechanism selector".</para>
+/// docs/simulation/weapon-damage-types.md, "Type — a firing-mechanism selector".</para>
 /// </summary>
 public sealed class ProjectileType {
 	public static readonly ProjectileType Missile = new("MISSILE", 0);

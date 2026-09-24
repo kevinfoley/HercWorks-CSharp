@@ -370,6 +370,8 @@ A dash is a click that hits no strip at all. The heads-down view is the one plac
 
 `ScrollTrigger` carries no `PanelGadget`, so `+0x20` is a plain owner pointer rather than a second vtable and a strip makes no console click.
 
+Herculan: the bottom strip is `CockpitWidgets.VisibleHeadsDownViewEdge`; the side strips are `Render.CockpitScreenLayout.SideViewEdgeAt`, on the window's edges rather than the forward view's (see [`KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md)).
+
 ## Symbol reference
 
 | Symbol | Address | Role |
@@ -456,6 +458,5 @@ A dash is a click that hits no strip at all. The heads-down view is the one plac
 ## Open
 
 - **Unported:** the two system buttons (§5), the online manual and the fullscreen toggle.
-- **Unported:** the left and right screen-edge strips (§10). They lead to the side windows, which the engine does not render.
 - **Open:** whether other sim-driven HUD elements (weapon damage fill, hardpoint state boxes) use the shield rocker's flag-then-dirty-bit handoff between the sim tick and the paint pass (§8).
 

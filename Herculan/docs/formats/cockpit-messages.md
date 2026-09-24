@@ -202,7 +202,6 @@ The channel's own deviation is the one the computer's port has: its clock is `Ga
 
 ## Open
 
-- **Unported:** the `0x2a`/`0x2b` jamming lines. Nothing in the engine turns a jammer on (`SimObject.JammerActive`), so the toggle that would announce it has no state to report.
 - **Unported:** the display's two further gates — the refusal to draw while the cockpit view manager's `+0x14` reads 4, and the paint's `+0x1c` byte.
 - **Unported:** `PilotMessagePort_Paint`'s word-wrapped multi-line box. Nothing retail shows reaches it.
 - **Unported:** the power-up's damage announcement, `0x22`. The engine always posts the nominal `0x21`, because the gauge reading `FUN_0041b514` returns is not decompiled; a machine taken at the start of a mission is undamaged and gets the nominal line either way.

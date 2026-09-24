@@ -33,18 +33,21 @@ namespace Herculan.Engine.Render;
 /// </list>
 /// </summary>
 public sealed class CockpitScreenLayout {
-	private CockpitScreenLayout(int windowWidth, int windowHeight, int panPixels,
+	private CockpitScreenLayout(int windowWidth, int windowHeight, int panPixels, int sideWidth,
 			PlacedSurface left, PlacedSurface center, PlacedSurface right, PlacedSurface? headsDown,
 			Viewport world) {
 		WindowWidth = windowWidth;
 		WindowHeight = windowHeight;
 		PanPixels = panPixels;
+		_sideWidth = sideWidth;
 		Left = left;
 		Center = center;
 		Right = right;
 		HeadsDown = headsDown;
 		World = world;
 	}
+
+	private readonly int _sideWidth;
 
 	/// <summary>Window width in pixels this layout was computed for.</summary>
 	public int WindowWidth { get; }
@@ -114,10 +117,15 @@ public sealed class CockpitScreenLayout {
 	/// <see cref="CockpitPan.TravelRows"/> — the full forward-to-heads-down distance in canvas rows,
 	/// which is what the heads-down surface's rest position is measured back from.
 	/// </param>
+	/// <param name="glanceOffsetPanels">
+	/// <see cref="CockpitGlance.OffsetPanels"/> — how far the strip has slid toward a side window, in
+	/// side-panel widths, positive toward the right. Clamped to <see cref="GlanceReachPanels"/>.
+	/// </param>
 	public static CockpitScreenLayout Create(int windowWidth, int windowHeight, CockpitArt art,
-			float panOffsetRows, int travelRows) {
+			float panOffsetRows, int travelRows, float glanceOffsetPanels = 0f) {
 		ArgumentNullException.ThrowIfNull(art);
-		return Create(windowWidth, windowHeight, art.Front, art.Side, art.HeadsDown, panOffsetRows, travelRows);
+		return Create(windowWidth, windowHeight, art.Front, art.Side, art.HeadsDown, panOffsetRows, travelRows,
+			glanceOffsetPanels);
 	}
 
 	/// <summary>
@@ -126,7 +134,7 @@ public sealed class CockpitScreenLayout {
 	/// </summary>
 	public static CockpitScreenLayout Create(int windowWidth, int windowHeight,
 			CockpitFrame front, CockpitFrame side, CockpitFrame? headsDown,
-			float panOffsetRows, int travelRows) {
+			float panOffsetRows, int travelRows, float glanceOffsetPanels = 0f) {
 		ArgumentNullException.ThrowIfNull(front);
 		ArgumentNullException.ThrowIfNull(side);
 
@@ -142,7 +150,12 @@ public sealed class CockpitScreenLayout {
 		int centerWidth = PanelWidthForHeight(front, windowHeight);
 		int sideWidth = PanelWidthForHeight(side, windowHeight);
 
-		int leftX = (windowWidth - (sideWidth + centerWidth + sideWidth)) / 2;
+		// A glance slides the whole strip the other way, stopping where the side panel's outer edge
+		// meets the window's — see CockpitGlance for why the stop is not retail's full panel.
+		int overhang = SideOverhang(windowWidth, centerWidth, sideWidth);
+		int glancePixels = Math.Clamp((int)MathF.Round(glanceOffsetPanels * sideWidth), -overhang, overhang);
+
+		int leftX = (windowWidth - (sideWidth + centerWidth + sideWidth)) / 2 - glancePixels;
 		int centerX = leftX + sideWidth;
 		int rightX = centerX + centerWidth;
 
@@ -150,7 +163,7 @@ public sealed class CockpitScreenLayout {
 		int worldX1 = Math.Min(rightX + sideWidth, windowWidth);
 		var world = new Viewport(worldX0, panPixels, Math.Max(worldX1 - worldX0, 1), windowHeight);
 
-		return new CockpitScreenLayout(windowWidth, windowHeight, panPixels,
+		return new CockpitScreenLayout(windowWidth, windowHeight, panPixels, sideWidth,
 			left: Place(new Viewport(leftX, panPixels, sideWidth, windowHeight), side, windowHeight),
 			center: Place(new Viewport(centerX, panPixels, centerWidth, windowHeight), front, windowHeight),
 			right: Place(new Viewport(rightX, panPixels, sideWidth, windowHeight), side, windowHeight),
@@ -159,6 +172,31 @@ public sealed class CockpitScreenLayout {
 				: Place(new Viewport(0, -headsDownTopPixels, windowWidth, windowHeight), headsDown, windowHeight),
 			world: world);
 	}
+
+	/// <summary>
+	/// How far a glance may slide the strip, in side-panel widths: the part of one side panel the window
+	/// cuts off at rest, so the glance stops with that panel's outer edge on the window's edge. 1 in a
+	/// 4:3 window, which is retail's full-panel glance; 0 once the window shows all three panels.
+	/// </summary>
+	public static float GlanceReachPanels(int windowWidth, int windowHeight, CockpitFrame front, CockpitFrame side) {
+		ArgumentNullException.ThrowIfNull(front);
+		ArgumentNullException.ThrowIfNull(side);
+
+		windowHeight = Math.Max(windowHeight, 1);
+		int sideWidth = PanelWidthForHeight(side, windowHeight);
+		int overhang = SideOverhang(Math.Max(windowWidth, 1), PanelWidthForHeight(front, windowHeight), sideWidth);
+		return Math.Min(overhang / (float)sideWidth, 1f);
+	}
+
+	/// <inheritdoc cref="GlanceReachPanels(int, int, CockpitFrame, CockpitFrame)"/>
+	public static float GlanceReachPanels(int windowWidth, int windowHeight, CockpitArt art) {
+		ArgumentNullException.ThrowIfNull(art);
+		return GlanceReachPanels(windowWidth, windowHeight, art.Front, art.Side);
+	}
+
+	/// <summary>Pixels of one side panel the window cuts off when the strip is centred; never negative.</summary>
+	private static int SideOverhang(int windowWidth, int centerWidth, int sideWidth) =>
+		Math.Max(0, (sideWidth + centerWidth + sideWidth - windowWidth) / 2);
 
 	/// <summary>
 	/// The width a panel needs to show <paramref name="frame"/> at <paramref name="height"/> without
@@ -201,6 +239,37 @@ public sealed class CockpitScreenLayout {
 		}
 
 		return null;
+	}
+
+	/// <summary>
+	/// The left or right screen-edge strip under a window pixel, or null. These lead to the side
+	/// windows, and <see cref="Input.CockpitInput"/> tests them only after every art-space widget, the
+	/// same last-registered precedence the original's strips have (docs/formats/cockpit-input.md §10).
+	///
+	/// <para>Retail builds them into the forward view's own left and right columns, which in its 4:3
+	/// frame are the screen's edges. Here the forward view's edges are the seams between panels, in the
+	/// middle of a wide window, so the strips sit on the <i>window's</i> edges instead — the edges the
+	/// manual's "screen edge leading to the view you want" means to the player. That placement is this
+	/// engine's; the width is retail's <see cref="CockpitWidgets.ViewEdgeBandColumns"/>, scaled like
+	/// the art.</para>
+	/// </summary>
+	public CockpitWidget? SideViewEdgeAt(float windowX, float windowY) {
+		if (windowY < 0f || windowY >= WindowHeight) {
+			return null;
+		}
+
+		int band = Math.Max(1, (int)MathF.Round(
+			CockpitWidgets.ViewEdgeBandColumns * (WindowHeight / (float)CockpitViewGeometry.ViewHeight)));
+		ViewEdgeStrip? strip = windowX >= 0f && windowX < band ? ViewEdgeStrip.Left
+			: windowX >= WindowWidth - band && windowX < WindowWidth ? ViewEdgeStrip.Right
+			: null;
+		if (strip is not { } edge) {
+			return null;
+		}
+
+		int x0 = edge == ViewEdgeStrip.Left ? 0 : WindowWidth - band;
+		return new CockpitWidget(CockpitWidgetId.ViewEdge(edge), CockpitSurface.Window,
+			x0, 0, x0 + band - 1, WindowHeight - 1, Lit: false);
 	}
 
 	/// <summary>A GL viewport rect: origin bottom-left, <see cref="Y"/> measured up from the window's bottom edge.</summary>
@@ -259,6 +328,13 @@ public enum CockpitSurface {
 
 	/// <summary>The Heads-Down Display — <c>.HB1</c>.</summary>
 	HeadsDown = 1,
+
+	/// <summary>
+	/// No cockpit frame: the window's own pixels. Only the side screen-edge strips live here
+	/// (<see cref="CockpitScreenLayout.SideViewEdgeAt"/>); <see cref="CockpitScreenLayout.Surface"/>
+	/// has no placement for it, so coordinates pass through unconverted.
+	/// </summary>
+	Window = 2,
 }
 
 /// <summary>A window point resolved to a surface and that surface's own art pixel.</summary>

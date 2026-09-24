@@ -546,6 +546,27 @@ var viewGeometry = cockpitArt?.ViewGeometry;
 var cockpitPan = new CockpitPan(
 	viewGeometry?.HeadsDownTravelY ?? CockpitViewGeometry.DefaultHeadsDownOriginY);
 
+// The sideways glance to the left and right windows — see CockpitGlance.
+var cockpitGlance = new CockpitGlance();
+bool glanceLeftKeyDown = false;
+bool glanceRightKeyDown = false;
+
+// The two view changes share CockpitView_QueueViewCommand's gate on the current view: the pan down
+// starts only from the forward view, and so does a glance. Every request for either goes through
+// these two so no input path can start one while the other is out. The way back is never gated —
+// neither can be out while the other is.
+void RequestHeadsDown(bool headsDown) {
+	if (!headsDown || cockpitGlance.AtForward) {
+		cockpitPan.Request(headsDown);
+	}
+}
+
+void CommandGlance(GlanceSide side) {
+	if (cockpitPan.AtForward && !cockpitPan.HeadsDownRequested) {
+		cockpitGlance.Command(side);
+	}
+}
+
 // The step kick. It rides the projection centre alongside the pan, which is where the original puts
 // it too — see CockpitViewKick.
 var cockpitViewKick = new CockpitViewKick();
@@ -555,7 +576,7 @@ var cockpitViewKick = new CockpitViewKick();
 var cockpitHitShake = new CockpitHitShake();
 
 if (startOnHeadsDown) {
-	cockpitPan.Request(headsDown: true);
+	RequestHeadsDown(headsDown: true);
 	cockpitPan.Advance(CockpitPan.DurationSeconds);
 }
 
@@ -1599,11 +1620,16 @@ window.Update += deltaSeconds => {
 
 		// The hat under VIEWS. The original passes its four bytes straight to
 		// CockpitView_PollViewDevice (00432b14), which queues view commands 1, 0, 5 and 4 — up, down,
-		// and the two outside-view steps. Only the pair this engine has a view for is wired.
+		// and the left and right glances. Level-triggered like the original's, which the glance gate
+		// makes safe: a held direction repeats a command the gate then ignores.
 		if (joystickInput.Views.HasFlag(JoystickHat.North)) {
-			cockpitPan.Request(headsDown: false);
+			RequestHeadsDown(headsDown: false);
 		} else if (joystickInput.Views.HasFlag(JoystickHat.South)) {
-			cockpitPan.Request(headsDown: true);
+			RequestHeadsDown(headsDown: true);
+		} else if (joystickInput.Views.HasFlag(JoystickHat.West)) {
+			CommandGlance(GlanceSide.Left);
+		} else if (joystickInput.Views.HasFlag(JoystickHat.East)) {
+			CommandGlance(GlanceSide.Right);
 		}
 
 		// Keypad [5], all stop: zero the throttle and let the gauge follow the machine this frame
@@ -1769,7 +1795,7 @@ window.Update += deltaSeconds => {
 	// screen") and matches view command 1, the "up" half of the pair at 0042a3f4.
 	if (controls != null && ReadMfdMode(controls) is { } requestedMfdMode) {
 		hudState = hudState with { Mfd = requestedMfdMode };
-		cockpitPan.Request(headsDown: false);
+		RequestHeadsDown(headsDown: false);
 	}
 
 	// FLASH COMM's own keyboard, from the two dispatches that share it. The bare letters
@@ -1851,11 +1877,27 @@ window.Update += deltaSeconds => {
 	if (cockpitHeadsDownTexture != null && controls != null) {
 		if (controls.IsKeyPressed(Key.F7)) {
 			hudState = hudState with { Hdd = HddPage.CommandDisplay };
-			cockpitPan.Request(headsDown: true);
+			RequestHeadsDown(headsDown: true);
 		} else if (controls.IsKeyPressed(Key.F8)) {
 			hudState = hudState with { Hdd = HddPage.DamageDetail };
-			cockpitPan.Request(headsDown: true);
+			RequestHeadsDown(headsDown: true);
 		}
+	}
+
+	// F9 and F10 are the manual's left and right windows, view commands 5 and 4. On the key's edge,
+	// not its level: from a glance the opposite key is a return, so a held key would otherwise go on
+	// to start the other glance the moment the strip got back.
+	if (cockpitArt != null && controls != null) {
+		bool glanceLeftKey = controls.IsKeyPressed(Key.F9);
+		bool glanceRightKey = controls.IsKeyPressed(Key.F10);
+		if (glanceLeftKey && !glanceLeftKeyDown) {
+			CommandGlance(GlanceSide.Left);
+		} else if (glanceRightKey && !glanceRightKeyDown) {
+			CommandGlance(GlanceSide.Right);
+		}
+
+		glanceLeftKeyDown = glanceLeftKey;
+		glanceRightKeyDown = glanceRightKey;
 	}
 
 	// The command display's own keyboard, from the manual's COMMAND DISPLAY table and the screen's
@@ -2019,7 +2061,7 @@ window.Update += deltaSeconds => {
 			&& (imgui == null || !ImGui.GetIO().WantCaptureMouse)) {
 		var framebuffer = window.FramebufferSize;
 		var inputLayout = CockpitScreenLayout.Create(framebuffer.X, framebuffer.Y, cockpitArt,
-			cockpitPan.OffsetRows, cockpitPan.TravelRows);
+			cockpitPan.OffsetRows, cockpitPan.TravelRows, cockpitGlance.OffsetPanels);
 
 		foreach (var click in cockpitInput.Drain(deltaSeconds, inputLayout, cockpitArt, hudState)) {
 			ApplyCockpitClick(click);
@@ -2056,6 +2098,11 @@ window.Update += deltaSeconds => {
 	}
 
 	cockpitPan.Advance(deltaSeconds);
+	if (cockpitArt != null) {
+		var glanceFramebuffer = window.FramebufferSize;
+		cockpitGlance.Advance(deltaSeconds,
+			CockpitScreenLayout.GlanceReachPanels(glanceFramebuffer.X, glanceFramebuffer.Y, cockpitArt));
+	}
 
 	// Clamping the accumulator stops a long stall (a breakpoint, a window drag) from turning into
 	// a burst of catch-up ticks that would teleport everything. A frozen sim neither ticks nor
@@ -2748,7 +2795,8 @@ bool ReadPreferencesKeys() {
 }
 
 // [Esc] backs out one layer at a time: closes whichever of debugPanel/tweaksMenu is open, else
-// hides an empty menu bar, else raises it. The menu bar is the only way to reach either panel,
+// hides an empty menu bar, else returns the cockpit from a side window or the Heads-Down Display,
+// else raises the menu bar. The menu bar is the only way to reach either panel,
 // since every key from F1 to F12 is already taken by the game.
 void ReadMenuBarEscapeKey(bool consumedByOtherPanel) {
 	if (keyboard == null) {
@@ -2772,6 +2820,13 @@ void ReadMenuBarEscapeKey(bool consumedByOtherPanel) {
 			}
 		} else if (menuBarVisible) {
 			menuBarVisible = false;
+		} else if (cockpitArt != null && !ExternalViewActive()
+				&& (!cockpitGlance.AtForward || cockpitPan.HeadsDownRequested)) {
+			// The manual's [Esc] is "the way back" from the side windows and the Heads-Down Display
+			// alike — view command 6 from a glance, 1 from heads-down. Only once that is done does
+			// [Esc] fall through to raising the menu bar.
+			cockpitGlance.Return();
+			RequestHeadsDown(headsDown: false);
 		} else {
 			menuBarVisible = true;
 		}
@@ -2901,7 +2956,7 @@ void DrawThreePanelCockpitView(GL gl, int totalWidth, int totalHeight) {
 	// One placement for the whole frame, shared with the input path so a widget's click region cannot
 	// drift from the art it was drawn over — see CockpitScreenLayout.
 	var layout = CockpitScreenLayout.Create(totalWidth, totalHeight, cockpitArt!,
-		cockpitPan.OffsetRows, cockpitPan.TravelRows);
+		cockpitPan.OffsetRows, cockpitPan.TravelRows, cockpitGlance.OffsetPanels);
 
 	var world = layout.World;
 	var cockpitCamera = CloneCockpitCamera(camera);
@@ -3095,7 +3150,7 @@ void ApplyCockpitClick(CockpitClick click) {
 			// Button i of the F-key column dispatches SetMode(i), and picking a screen pans back up —
 			// the manual's own rule for leaving the Heads-Down Display.
 			hudState = hudState with { Mfd = (MfdMode)click.Id.Index };
-			cockpitPan.Request(headsDown: false);
+			RequestHeadsDown(headsDown: false);
 			break;
 
 		case CockpitWidgetKind.MfdButton:
@@ -3165,8 +3220,16 @@ void ApplyCockpitClick(CockpitClick click) {
 		// the top of the heads-down view. CockpitView_HandleEdgeTrigger (00433a88) picks the command
 		// by current view -- 0 (pan down) from the forward view, 1 (pan up) from the heads-down one --
 		// so the same widget means "down" or "up" according to where the pan already is.
+		case CockpitWidgetKind.ViewEdge when click.Id.AsViewEdge == ViewEdgeStrip.Left:
+			CommandGlance(GlanceSide.Left);
+			break;
+
+		case CockpitWidgetKind.ViewEdge when click.Id.AsViewEdge == ViewEdgeStrip.Right:
+			CommandGlance(GlanceSide.Right);
+			break;
+
 		case CockpitWidgetKind.ViewEdge when cockpitHeadsDownTexture != null:
-			cockpitPan.Request(headsDown: !cockpitPan.AtHeadsDown);
+			RequestHeadsDown(headsDown: !cockpitPan.AtHeadsDown);
 			break;
 	}
 }
@@ -3252,12 +3315,12 @@ void ApplyHddClick(HddLayout.Widget widget) {
 		// display — the same pairing F7 and F8 have.
 		case HddLayout.Widget.PageButton0:
 			hudState = hudState with { Hdd = HddPage.CommandDisplay };
-			cockpitPan.Request(headsDown: true);
+			RequestHeadsDown(headsDown: true);
 			break;
 
 		case HddLayout.Widget.PageButton1:
 			hudState = hudState with { Hdd = HddPage.DamageDetail };
-			cockpitPan.Request(headsDown: true);
+			RequestHeadsDown(headsDown: true);
 			break;
 
 		// On the damage screen the up and down arrows step the component category, which is the same
@@ -3751,11 +3814,11 @@ void ApplyJoystickAction(JoystickAction action, MechObject mech) {
 		// return, a global object pointer whose relation to the current view is not decoded — the two
 		// branches send F7 and [Esc], which together are plainly a toggle, so that is what this is.
 		case JoystickAction.HddView:
-			cockpitPan.Request(headsDown: !cockpitPan.HeadsDownRequested);
+			RequestHeadsDown(headsDown: !cockpitPan.HeadsDownRequested);
 			break;
 
 		case JoystickAction.CockpitView:
-			cockpitPan.Request(headsDown: false);
+			RequestHeadsDown(headsDown: false);
 			break;
 
 		case JoystickAction.LinkWeapon:
@@ -3766,7 +3829,7 @@ void ApplyJoystickAction(JoystickAction action, MechObject mech) {
 		// which is the manual's own rule for leaving the heads-down display.
 		case JoystickAction.MfdDisplays:
 			hudState = hudState with { Mfd = (MfdMode)(((int)hudState.Mfd + 1) % MfdLayout.ModeCount) };
-			cockpitPan.Request(headsDown: false);
+			RequestHeadsDown(headsDown: false);
 			break;
 
 		// Weapon-manager command 0x202, which WeaponMounts_HandleCommand answers with

@@ -113,6 +113,8 @@ Step is 10 canvas rows; `maybe_CockpitLayoutMode == 2` doubles it and forces tra
 
 Herculan: `Herculan.Engine.Render.CockpitPan`, `Content.CockpitViewGeometry`, `Render.Overlay2DRenderer.DrawHeadsDown`. The pan is pinned to a fixed 0.4 s (mode 0's 24 steps at 60 Hz), expressed as a duration so both asset sets pan at one speed, and interpolated continuously rather than in 10-row jumps.
 
+The glances are `Render.CockpitGlance`, on the same terms: mode 0's 320 columns at `0x14` a step is 16 steps, pinned at 60 Hz per panel of travel. The engine shows all three panels at once, so its glance stops where the side panel meets the window's edge rather than one panel over; see [`KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
+
 ## `.VUE` — per-view geometry
 
 After the 9-byte VOL prefix: `int32 viewCount`, then `viewCount x` 8 `int32`s. All coordinates are authored in the 320-wide space and shifted by `VideoMode_X/YCoordShift`.

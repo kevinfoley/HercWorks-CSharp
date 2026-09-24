@@ -334,11 +334,14 @@ public sealed class CockpitInput {
 		}
 	}
 
+	// The side strips go after every art widget for the same reason the bottom one goes last in
+	// CockpitWidgets.Visible: the original registers all three strips after the gauges.
 	private static CockpitWidget? HitTest(CockpitScreenLayout layout, CockpitArt art,
 			CockpitHudState state, float windowX, float windowY) =>
-		layout.WindowToArt(windowX, windowY) is { } surfaceHit
+		(layout.WindowToArt(windowX, windowY) is { } surfaceHit
 			? CockpitWidgets.HitTest(art, state, surfaceHit.Surface, surfaceHit.ArtX, surfaceHit.ArtY)
-			: null;
+			: null)
+		?? layout.SideViewEdgeAt(windowX, windowY);
 
 	/// <summary>One queued event: where the pointer was and everything held at the time (§3's record).</summary>
 	private readonly record struct Event(float X, float Y, CockpitMouseButtons Buttons);

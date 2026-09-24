@@ -169,6 +169,73 @@ public class CockpitScreenLayoutTests {
 		Assert.Equal(CockpitSurface.Forward, layout.WindowToArt(960, 240)!.Value.Surface);
 	}
 
+	/// <summary>
+	/// The glance's reach is the part of a side panel the window cuts off: a whole panel at 4:3, which
+	/// is retail's glance, less in wider windows, and nothing once all three panels fit.
+	/// </summary>
+	[Theory]
+	[InlineData(640, 480, 1f)]
+	[InlineData(1280, 960, 1f)]
+	[InlineData(1920, 1080, 0.8333f)]
+	[InlineData(1920, 480, 0f)]
+	[InlineData(2560, 480, 0f)]
+	public void GlanceReachIsTheCutOffPartOfASidePanel(int width, int height, float expected) =>
+		Assert.Equal(expected, CockpitScreenLayout.GlanceReachPanels(width, height, Frame(), Frame()), 3);
+
+	/// <summary>
+	/// A full glance right lands the right panel's outer edge on the window's right edge, and a glance
+	/// left mirrors it; the world viewport rides with the strip.
+	/// </summary>
+	[Fact]
+	public void FullGlanceBringsTheSidePanelFlushToTheWindowEdge() {
+		const int width = 1920, height = 1080;
+		float reach = CockpitScreenLayout.GlanceReachPanels(width, height, Frame(), Frame());
+
+		var right = CockpitScreenLayout.Create(width, height, Frame(), Frame(), Frame(), 0f, TravelRows, reach);
+		Assert.Equal(width, right.Right.Viewport.X + right.Right.Viewport.Width);
+		Assert.Equal(width, right.World.X + right.World.Width);
+
+		var left = CockpitScreenLayout.Create(width, height, Frame(), Frame(), Frame(), 0f, TravelRows, -reach);
+		Assert.Equal(0, left.Left.Viewport.X);
+		Assert.Equal(0, left.World.X);
+	}
+
+	/// <summary>An offset past the reach — a window narrowed mid-glance — stops at the edge rather than running off it.</summary>
+	[Fact]
+	public void GlancePastTheReachIsClamped() {
+		var layout = CockpitScreenLayout.Create(1920, 1080, Frame(), Frame(), Frame(), 0f, TravelRows, 1f);
+		Assert.Equal(1920, layout.Right.Viewport.X + layout.Right.Viewport.Width);
+	}
+
+	/// <summary>
+	/// Glancing right moves the forward art left on screen — the direction check for the sign of the
+	/// offset — and click regions follow it, because they convert through the same placement.
+	/// </summary>
+	[Fact]
+	public void GlancingRightMovesTheForwardArtLeft() {
+		var rest = CockpitScreenLayout.Create(1920, 1080, Frame(), Frame(), Frame(), 0f, TravelRows);
+		var glanced = CockpitScreenLayout.Create(1920, 1080, Frame(), Frame(), Frame(), 0f, TravelRows, 0.5f);
+
+		float shift = rest.Center.ArtToWindow(320, 240).X - glanced.Center.ArtToWindow(320, 240).X;
+		Assert.Equal(MathF.Round(0.5f * 1440), shift, 3);
+		Assert.Equal(CockpitSurface.Forward, glanced.WindowToArt(960 - shift, 540)!.Value.Surface);
+	}
+
+	/// <summary>The side strips sit on the window's edges, retail's five columns wide at the art's scale.</summary>
+	[Fact]
+	public void SideViewEdgesSitOnTheWindowEdges() {
+		var layout = Layout(1280, 960, panOffsetRows: 0f);
+		int band = CockpitWidgets.ViewEdgeBandColumns * 2;
+
+		Assert.Equal(ViewEdgeStrip.Left, layout.SideViewEdgeAt(0, 480)!.Value.Id.AsViewEdge);
+		Assert.Equal(ViewEdgeStrip.Left, layout.SideViewEdgeAt(band - 1, 480)!.Value.Id.AsViewEdge);
+		Assert.Null(layout.SideViewEdgeAt(band, 480));
+		Assert.Null(layout.SideViewEdgeAt(640, 480));
+		Assert.Equal(ViewEdgeStrip.Right, layout.SideViewEdgeAt(1280 - band, 480)!.Value.Id.AsViewEdge);
+		Assert.Null(layout.SideViewEdgeAt(1280, 480));
+		Assert.Equal(CockpitSurface.Window, layout.SideViewEdgeAt(0, 0)!.Value.Surface);
+	}
+
 	/// <summary>The panel width is the art's aspect ratio at the window's height, and never degenerate.</summary>
 	[Theory]
 	[InlineData(480, 640)]

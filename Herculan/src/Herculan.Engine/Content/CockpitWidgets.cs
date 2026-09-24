@@ -57,9 +57,7 @@ public enum CockpitWidgetKind {
 }
 
 /// <summary>
-/// Which screen-edge view strip. DBSIM builds three, in <c>CockpitView_BuildScrollTriggers</c>
-/// (<c>00433770</c>) order; only the vertical one has anywhere to go in this engine, because the two
-/// side windows are not implemented (see ROADMAP.md).
+/// Which screen-edge view strip, in <c>CockpitView_BuildScrollTriggers</c> (<c>00433770</c>) order.
 /// </summary>
 public enum ViewEdgeStrip {
 	/// <summary>
@@ -68,6 +66,15 @@ public enum ViewEdgeStrip {
 	/// view and the <i>top</i> of the heads-down view, not two widgets.
 	/// </summary>
 	HeadsDown = 0,
+
+	/// <summary>
+	/// The left strip, the original's <c>+0x21e</c>: glance to view 3 from the forward view, back to it
+	/// from view 2. See <see cref="Render.CockpitScreenLayout.SideViewEdgeAt"/> for where it sits.
+	/// </summary>
+	Left = 1,
+
+	/// <summary>The right strip, <c>+0x222</c>: glance to view 2, or back from view 3.</summary>
+	Right = 2,
 }
 
 /// <summary>
@@ -313,6 +320,9 @@ public static class CockpitWidgets {
 	/// <summary>Band thickness of a horizontal view strip, device pixels — the original's <c>3 &lt;&lt; YCoordShift</c>.</summary>
 	public const int ViewEdgeBandRows = 3 << CockpitViewGeometry.CoordShift;
 
+	/// <summary>Band thickness of a side view strip, device pixels — the original's <c>5 &lt;&lt; XCoordShift</c>.</summary>
+	public const int ViewEdgeBandColumns = 5 << CockpitViewGeometry.CoordShift;
+
 	/// <summary>
 	/// The strip that moves between the forward view and the Heads-Down Display, or null when the herc
 	/// has no <c>.HB1</c> to pan to.
@@ -331,9 +341,8 @@ public static class CockpitWidgets {
 	/// overlap in the forward surface's favour, so once the pan has carried that art to the top of the
 	/// screen the same rect answers a click there. See docs/formats/cockpit-input.md §10.</para>
 	///
-	/// <para>The two side strips are not built. They lead to the left and right windows, which this
-	/// engine does not render (ROADMAP.md); a strip that queued a view nothing can show would be a
-	/// dead click region rather than a faithful one.</para>
+	/// <para>The two side strips are not art-space widgets here; see
+	/// <see cref="Render.CockpitScreenLayout.SideViewEdgeAt"/>.</para>
 	/// </summary>
 	public static CockpitWidget? VisibleHeadsDownViewEdge(CockpitArt art) {
 		ArgumentNullException.ThrowIfNull(art);

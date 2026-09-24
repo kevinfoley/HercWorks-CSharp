@@ -2,7 +2,7 @@
 
 DBSIM can record a whole mission's input to a file and play it back frame for frame. A tape carries both halves of what that needs: the starting state, as a bundle of the seven files the mission runs from, and then one record per frame of everything the player did. Three finished tapes ship in `ES2/TAPES/`.
 
-Nothing in the shipped shell can start one — see [Reaching it](#reaching-it). The format itself is settled: a parser written from the code below consumes all three retail tapes to their final byte.
+The main menu's `VIEW DEMO` plays one — see [Reaching it](#reaching-it). The format itself is settled: a parser written from the code below consumes all three retail tapes to their final byte.
 
 ## The switches
 
@@ -77,11 +77,9 @@ Playback in retail appears to have no framerate limit, so the three demos that s
 
 ## Reaching it
 
-Nothing in the retail install passes any of the three switches. `ES.EXE` launches only `vshell -eggplant`, and VSHELL builds DBSIM's argument list from a fixed set — `dummy`, `-eggplant`, `-Z`, `-s`, `-v3`, `-h`, `-F`, `-G`, `-m`, `-D` — appending `-D` when the word at `00482282` is non-zero. The only write to that word anywhere in VSHELL is the `= 0` in its options-block initialiser; the block is only ever touched field by field at absolute addresses, so no bulk load can reach it either, and a field scan for the offset finds no rebased access.
+The main menu's `VIEW DEMO` button (`FUN_0043156f`, VSHELL) exits the shell with code 5, and `ES.EXE` answers that code by starting `dbsim` with `-D`; the tape's end returns exit code 6 and the shell comes back. `ES.EXE -r<name>` passes `-r<name>` through to every mission it launches. Nothing passes `-p`. See [`../command-line.md`](../command-line.md#the-loop), which also covers the unreferenced argument list in VSHELL that ends in `-D`.
 
-That is a null result and stays one, but on the available evidence the demo mode cannot be started from the shipped shell, and the three tapes are content nobody could see — [`../cut-content.md`](../cut-content.md#miscellaneous-features).
-
-The tapes are readable and the switches are live, so `dbsim -ptapes\demo1` replays a retail session.
+`dbsim -eggplant -ptapes\demo1` replays a retail tape directly.
 
 ## Symbol reference
 

@@ -64,7 +64,7 @@ Track 7 is music in its own right, distinct from the other five, and **the game 
 Music_CdTrack = Music_TrackSelect % 5 + 2
 ```
 
-`Music_TrackSelect` (`004d25f7`) is the `-R` command-line switch, parsed with `atol` at `0045e824`. **Nothing else picks a track**, and the switch defaults to 0, so a plain launch plays track 2 of the five the formula reaches. The remainder is a signed `IDIV`, so a negative `-R` would ask MCI for a track below 2.
+`Music_TrackSelect` (`004d25f7`) is the `-R` command-line switch, parsed with `atol` at `0045e824`. **Nothing else in DBSIM picks a track**, and the switch defaults to 0. `ES.EXE` passes `-R<n>` with `n` counting the simulator launches of its own run from 0, so retail's missions play tracks 2, 3, 4, 5, 6, 2… in the order they are flown ([`../command-line.md`](../command-line.md#the-loop)). The remainder is a signed `IDIV`, so a negative `-R` would ask MCI for a track below 2.
 
 The whole arm is skipped when `TrainingMissionNumber` (`004aa7ac`) is nonzero, so **a training mission runs without music**. That value is the copy of `script.dat` header offset 8 taken at the end of `DBSim_LoadScriptDat` (`00425321`); it also selects the larger pilot and squad message port and supplies the digit of the `TM<n>_` instructor voice template — see [`script-dat.md`](script-dat.md#header-format).
 
@@ -460,6 +460,7 @@ The `Sound_SetMusicEnabled(1)` that [overrides the MUSIC preference](#the-missio
 ## Open
 
 - **Unported:** the `.hmp` MIDI path. No `.hmp` ships, so nothing is lost in play.
+- **Unported:** `ES.EXE`'s track rotation. The engine plays track 2 for every mission unless `--music` gives it a select value.
 - **Unported:** reading `SOUND.CFG`. `HercWorks.Core` has `Data/File/Cfg/SoundCfg.cs`, a key holder with no reader.
 - **Open:** which word of the `sosDIGIInitDriver` argument block at `006b5614` is retail's channel count.
 - **Open:** whether any `Sfx_Open` caller in DBSIM passes open type 2, the streamed voice behind flag `0x1000`. A text search finds none, which does not settle it.

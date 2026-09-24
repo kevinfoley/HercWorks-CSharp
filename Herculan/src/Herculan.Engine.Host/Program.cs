@@ -258,8 +258,8 @@ for (int i = 0; i < args.Length; i++) {
 		musicDirectory = args[++i];
 	} else if (args[i] == "--music" && i + 1 < args.Length
 			&& int.TryParse(args[i + 1], out int trackSelect)) {
-		// DBSIM's own -R<n>: the mission's track is n % 5 + 2, so 0-4 pick tracks 2 to 6. Retail has no
-		// other way to choose, and without the switch every mission plays track 2.
+		// DBSIM's own -R<n>: the mission's track is n % 5 + 2, so 0-4 pick tracks 2 to 6. Retail's
+		// launcher passes a mission count here; without the switch this engine plays track 2.
 		i++;
 		musicTrackSelect = trackSelect;
 	} else if (args[i] == "--no-sound" || args[i] == "--silent") {

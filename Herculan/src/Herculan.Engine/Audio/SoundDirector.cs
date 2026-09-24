@@ -131,8 +131,8 @@ public sealed class SoundDirector : IDisposable {
 	/// The track a mission plays, from <c>Sim_InitMissionSession</c> (<c>004614fc</c>):
 	/// <c>select % 5 + 2</c>, so tracks 2 to 6. <paramref name="select"/> is the value of DBSIM's own
 	/// <c>-R</c> command-line switch (<c>DAT_004d25f7</c>, parsed by <c>atol</c> at <c>0045e824</c>),
-	/// which is the only thing that chooses between the five. It is 0 unless the switch is given, so
-	/// a plain launch always plays track 2.
+	/// which is the only thing in DBSIM that chooses between the five. Retail's launcher passes a count of
+	/// the missions flown so far, so the track rotates; see <c>docs/command-line.md</c>.
 	///
 	/// <para>The original's remainder is a signed <c>IDIV</c>, so a negative <c>-R</c> would give it
 	/// a track below 2 and <c>MCI_PLAY</c> an invalid one; the magnitude is taken here instead.</para>

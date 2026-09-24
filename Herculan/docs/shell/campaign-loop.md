@@ -2,12 +2,14 @@
 
 How VSHELL starts a campaign, hands a mission to DBSIM, and folds the result back into the save. **Every address in this doc is in `VSHELL.EXE`**; the shell's source module is named in the assertion strings for each function cited.
 
-The shell and the simulator are separate processes that never run at the same time. They communicate entirely through loose files in `data\`, and the shell is *relaunched* when the mission ends — `FUN_00401525` (`vshell.cpp`) responds to a `-r` command-line switch (`"-r -R Returning from sim"` in the usage text) by loading slot 10 and running the debrief immediately:
+The shell and the simulator are separate processes that never run at the same time. They communicate through loose files in `data\` plus one number: the shell is *relaunched* when the mission ends, and `FUN_00401525` (`vshell.cpp`) responds to a `-X3` or `-X4` command-line switch by loading slot 10 and running the debrief immediately:
 
 ```
 FUN_0040e4f2(10, 0);   // load the campaign autosave
 FUN_0040eae7();        // consume results.dat
 ```
+
+The number is DBSIM's exit code, which `ES.EXE` passes back as `-X`; the codes and the launcher loop are in [`../command-line.md`](../command-line.md#exit-codes). VSHELL's parser, `FUN_0040107c`, stores `-X<n>` through `FUN_0040876a` into `0046e210`; `FUN_00401525` copies that into `0048227e` right after the parse, having zeroed it before through `FUN_004073bc(0)`.
 
 ## The files crossing between the two binaries
 
@@ -209,3 +211,9 @@ Seven jumps in the function resolve to four targets — `00410088`, `00410090`, 
 Two scripted events are hard-coded into the advance, keyed on the position *after* it increments: stage 1 mission 3 calls `FUN_0040e6c8(4)`, and stage 1 mission 6 calls `FUN_0040e7cd(8)` — both squad-roster operations.
 
 Every path that leaves a campaign in a resumable state autosaves through `FUN_0040e37b(10, NULL)`, which is why `GAME_R.SAV` mirrors the newest ordinary save.
+
+## Rejected readings
+
+| Reading | Why it is wrong |
+|---|---|
+| `-r` relaunches the shell into the debrief. | The usage text says so (`"-r -R Returning from sim"`), and the parser's `-r` case does store 3 in `0048227e`. `FUN_00401525` overwrites `0048227e` with the `-X` value at `004015af`, the instruction after the parse returns, so `-r` has no effect: only `-X3` and `-X4` reach the debrief. |

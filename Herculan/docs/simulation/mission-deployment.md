@@ -10,6 +10,8 @@ See [`../formats/script-dat.md`](../formats/script-dat.md) for the record layout
 
 `Action_Activate` (`00423430`) is one-shot: it sets the action's runtime activation flag (in-memory `+0x0a`, zeroed at load), walks the ten (counter ref, operation) pairs at `+0x0c`/`+0x20` bumping (op 6) or clearing (op 5) the mission-counter array `DAT_004a9ef4`, and queues the message at `+0x34`. **The message queue is inside the counter loop**, so an action naming five counters posts its line five times and one naming none posts it not at all.
 
+The message goes to the **pilot and squad** port (`view+0x207`, through `FUN_00433158`), not the computer's ticker, as `{id, null}` — no subject. That port looks a speakerless id up in `str\COMMAND0.STR`, not in `data\mission.str` — see [`../formats/cockpit-messages.md`](../formats/cockpit-messages.md#its-speakerless-set).
+
 | activated by | site | condition |
 |---|---|---|
 | its own trigger areas | `Actions_EvaluateTriggers` (`00426b70`) | a subject stands in one of them |
@@ -179,6 +181,8 @@ Action 0's circle is centred at (1005988, 1058404) with radius 150,000 and its s
 
 `MissionLoader` resolves blocks 4, 5 and 6 and every action ref — a group's `0x70`, an order's `+0x12`, a timer's, and each roster record's own two. `MissionScene` builds the runtime states and binds them. `SimWorld` holds the action array, the timer array, the counters and the pod pool, and ticks them in `Sim_MainTick`'s order.
 
+An activating action posts its message through `ISoundSink.CommandSay`, once per counter slot as the original does.
+
 `MissionGroup.AwaitingDeployment` is `group+0x14` and `SimObject.AwaitingDeployment` is a *read* of it, so the two cannot disagree; all three gate effects are honoured.
 
 The two walk-on verbs are implemented but unexercised: no mission has been found that uses them.
@@ -192,10 +196,10 @@ The two walk-on verbs are implemented but unexercised: no mission has been found
 | `Deployment_PickPointNearPlayer` avoids deployed objects | Only for the walk-on verbs; a drop pod's point is picked without that test |
 | `Actions_EvaluateTriggers` runs before the group pass | `Sim_MainTick` runs it after, so a group arrives a tick after its trigger |
 | `obj+0x1b6` is a death action | It is also activated when a machine runs out of weapons |
+| An action's message is a `data\mission.str` line | That file holds the objective text, and the id looks like a ref into it. The port it is posted to resolves a speakerless id in `COMMAND0.STR` |
 
 ## Open
 
-- **Unported:** the message an action queues. The id is decoded (`+0x34`, already decremented at load) and carried, but it names a `data\mission.str` line and that file is not loaded.
 - **Unported:** the pod's leftover ground mark, from the theater's `flat`/`flat2` shape pool.
 - **Unported:** the mission counters' reader, which is the campaign layer.
 - **Unported:** the group completion hook `FUN_00423f30` that writes the mission counters (ops 1 clear, 2 increment, 0x0d-0x10 set to op − 0x0c).

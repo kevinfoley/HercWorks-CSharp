@@ -93,8 +93,8 @@ public readonly record struct MissionTriggerArea(
 /// <param name="MessageId">
 /// Record <c>+0x34</c>, <b>already decremented</b> — the load pass subtracts one from the stored
 /// value, so this is the index the message port is handed, and <c>-1</c> means the action says
-/// nothing. It names a <c>data\mission.str</c> line; that file is not loaded by this engine, so the
-/// id is carried and not posted.
+/// nothing. It names a <c>str\COMMAND0.STR</c> line, not a <c>data\mission.str</c> one — see
+/// docs/simulation/mission-deployment.md.
 /// </param>
 /// <param name="TargetRef">
 /// Record <c>+0x36</c> — the subject of trigger types 7-10, as the raw ref the file states. The

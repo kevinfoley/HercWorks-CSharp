@@ -255,8 +255,8 @@ public sealed class Mission {
 
 	/// <summary>
 	/// <c>data\mission.str</c>, flattened — the mission's own text: the objective lines the briefing
-	/// screen lists, the description an objective's failure alert prints, and the line a mission
-	/// action queues on the computer's ticker. VSHELL writes it beside <c>script.dat</c> for the
+	/// screen lists and the description an objective's failure alert prints. A mission action's line
+	/// is not in it — see <see cref="MissionAction.MessageId"/>. VSHELL writes it beside <c>script.dat</c> for the
 	/// mission it is launching, so it is per-mission and not a shared catalogue.
 	/// </summary>
 	public IReadOnlyList<string> Text { get; }

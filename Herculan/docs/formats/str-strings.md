@@ -44,6 +44,7 @@ Groups referenced by decoded code:
 | 3 | 1 | `" POD"` — appended to a pod row's name, giving `" SHIELD POD"` |
 | 4 | 4 | Console button captions: `I`, `LINK`, `TRACK`, `` (entry 0 unused — the chain button's numerals come from a separate `.rdata` table, `ChainCountCaptions` at `0049c71c`) |
 | 5 | 13 | MFD captions: `STATUS`, `FLASH COMM`, `NAV MAP`, `SCANNER`, `TARGET`, `MISSILE CAM`, `MODE`, `SELECT`, `RANGE`, `TARGET`, `XMIT`, `PASS`, `ACTIVE`. Entries 0-5 are the screen titles, 6-12 the aux button captions. |
+| 8 | 1 | `HQ` — the name the pilot and squad channel signs a speakerless line with ([`cockpit-messages.md`](cockpit-messages.md#its-speakerless-set)) |
 | 9 | 3 | `XMIT`, `CANCEL`, `EXIT` — the Heads-Down Display's transmit buttons |
 | 10 | 5 | `OK`, `INT DMG`, `SHLD DWN`, `CRITICAL`, `WASTED` — **dead data**: `SimStrings_LoadAll` is the only reference to `DAT_004d1440` in the image. Group 28 is the live condition table. |
 | 11 | 2 | `MAP`, `DAMAGE` — the Heads-Down Display's page-0 title |
@@ -70,4 +71,4 @@ Groups referenced by decoded code:
 | 38, 39 | 1,1 | `TIME:`, `SPEED:` — the gunsight readouts |
 | 40 | 8 | Squad comm box's current-order line: `ATTACK`, `TRAVEL`, `PATROL`, `FORM UP`, `GUARD`, `FLEE`, `DEAD`, `IMMOBILE` |
 
-Other files: `SYSTEM.STR` the cockpit computer's 63 messages ([`cockpit-messages.md`](cockpit-messages.md#the-computers-messages)), `PILOT0/1/2/4.STR` what a squadmate can say, keyed the same way but with seven attribute bytes and live variants ([`cockpit-messages.md`](cockpit-messages.md#the-pilot-and-squad-channel)), `COMMAND*.STR` mission briefing and tutorial dialogue, `PILOTS.STR` 36 pilot surnames indexed by a machine's own pilot index ([`heads-down-display.md`](heads-down-display.md#squad-comm-boxes)), `SOUNDS.STR` a 57-entry sample catalog ([`audio.md`](audio.md)).
+Other files: `SYSTEM.STR` the cockpit computer's 63 messages ([`cockpit-messages.md`](cockpit-messages.md#the-computers-messages)), `PILOT0/1/2/4.STR` what a squadmate can say, keyed the same way but with seven attribute bytes and live variants ([`cockpit-messages.md`](cockpit-messages.md#the-pilot-and-squad-channel)), `COMMAND0.STR` the three lines a mission action can post and `COMMAND1`-`4.STR` the training missions' instructor scripts, both on the pilot and squad channel ([`cockpit-messages.md`](cockpit-messages.md#its-speakerless-set)), `PILOTS.STR` 36 pilot surnames indexed by a machine's own pilot index ([`heads-down-display.md`](heads-down-display.md#squad-comm-boxes)), `SOUNDS.STR` a 57-entry sample catalog ([`audio.md`](audio.md)).

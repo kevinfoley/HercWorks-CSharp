@@ -57,6 +57,13 @@ public interface ISoundSink {
 	void SquadSay(int messageId, object speaker);
 
 	/// <summary>
+	/// Posts a line on the same port with no speaker — a mission action's message, which
+	/// <c>Action_Activate</c> (<c>00423430</c>) queues. The id names a <c>COMMAND0.STR</c> line, signed
+	/// <c>HQ</c>. See <see cref="Content.SquadCommChannel.PostUnattributed"/>.
+	/// </summary>
+	void CommandSay(int messageId);
+
+	/// <summary>
 	/// Withdraws a posted message that has not been said yet — <c>FUN_00435ac8</c>, which the radar
 	/// toggle uses on both of its own lines before posting the one it wants.
 	/// </summary>

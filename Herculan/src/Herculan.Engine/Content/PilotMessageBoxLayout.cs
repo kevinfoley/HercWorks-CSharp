@@ -24,9 +24,9 @@ namespace Herculan.Engine.Content;
 /// and red, through <see cref="NoSpeakerFillColorId"/>.</para>
 ///
 /// <para>Derivation: <c>PilotMessagePort_Speak</c> (<c>00435d9c</c>), which paints this box as well
-/// as dispatching the voice. The class's <c>Paint</c> slot (<c>0043660c</c>) draws a different thing
-/// — several word-wrapped lines in the computer's black and red — and it is the speaker-coloured
-/// single line that is on screen in <c>Reference/MFD_Talking_head.png</c>.</para>
+/// as dispatching the voice. The training mission's port class paints a different thing
+/// (<c>0043660c</c>) — several word-wrapped lines in the computer's black and red — and it is the
+/// speaker-coloured single line that is on screen in <c>Reference/MFD_Talking_head.png</c>.</para>
 /// </summary>
 /// <param name="Top">Device-pixel top edge, from the <c>.GAU</c>.</param>
 /// <param name="Bottom">Device-pixel bottom edge, from the same rect.</param>

@@ -90,20 +90,45 @@ public sealed class SquadCommChannel {
 	private readonly PilotRoster? _roster;
 	private readonly GameContent _content;
 	private readonly Dictionary<int, SquadMessages?> _catalogs = new();
+	private readonly SquadMessages? _command;
+	private readonly string _headquarters;
 
 	private long _now;
 	private int _speakingSlot = -1;
 
+	/// <summary>
+	/// The slot a line with no squadmate behind it is queued under — <c>Squad_IndexOf</c>'s answer
+	/// for a null subject. It opens no comm box and draws in the computer's black and red.
+	/// </summary>
+	public const int NoSpeaker = -1;
+
+	/// <summary>
+	/// <c>STRINGS0.STR</c> group holding the name a speakerless line is signed with — <c>HQ</c>, the
+	/// one entry at <c>DAT_004d1430</c> that <c>FUN_004342b8</c> hands the composer.
+	/// </summary>
+	public const int HeadquartersNameGroup = 8;
+
 	/// <param name="content">The mounted archives, for the portrait scripts and the message sets.</param>
 	/// <param name="roster">The pilot roster, or null when <c>PILOTS.STR</c> would not load.</param>
 	/// <param name="random">The generator the variant roll draws on — pass the world's.</param>
-	public SquadCommChannel(GameContent content, PilotRoster? roster, Numerics.SimRandom? random = null) {
+	/// <param name="trainingMission">
+	/// The mission's training number. Only 0 loads a speakerless set: a training mission builds a
+	/// different port class, which this engine does not have.
+	/// </param>
+	public SquadCommChannel(GameContent content, PilotRoster? roster, Numerics.SimRandom? random = null,
+			int trainingMission = 0) {
 		_content = content ?? throw new ArgumentNullException(nameof(content));
 		_roster = roster;
 
 		for (int i = 0; i < _boxes.Length; i++) {
 			_boxes[i] = new Box();
 		}
+
+		if (trainingMission == 0) {
+			_command = SquadMessages.LoadCommand(content, trainingMission);
+		}
+
+		_headquarters = SimStringTable.Load(content)?.Text(HeadquartersNameGroup, 0) ?? string.Empty;
 
 		Port = new SquadMessagePort(CatalogFor, random);
 		Port.Begin += BeginMessage;
@@ -168,10 +193,12 @@ public sealed class SquadCommChannel {
 	/// <summary>
 	/// The name in slot <paramref name="slot"/>, or empty when it is not seated — the box's own
 	/// <c>+0x137</c>, which <c>FUN_0044b900</c> hands out and which the message composer
-	/// (<c>FUN_00435d0c</c>) puts in front of the line the squadmate speaks.
+	/// (<c>FUN_00435d0c</c>) puts in front of the line the squadmate speaks. <see cref="NoSpeaker"/>
+	/// answers <c>HQ</c>, the composer's fallback for a record naming no object.
 	/// </summary>
 	public string Name(int slot) =>
-		slot >= 0 && slot < SlotCount ? _boxes[slot].Name : string.Empty;
+		slot == NoSpeaker ? _headquarters
+		: slot >= 0 && slot < SlotCount ? _boxes[slot].Name : string.Empty;
 
 	/// <summary>
 	/// Whether a pilot's comms are out — the latch <c>gauge+0x147</c>, which holds the box on static
@@ -196,6 +223,14 @@ public sealed class SquadCommChannel {
 		}
 	}
 
+	/// <summary>
+	/// Posts a line with no subject — a mission action's message, which <c>Action_Activate</c>
+	/// (<c>00423430</c>) sends with a null <c>+0x02</c>. The port's post (<c>PilotMessagePort_Post</c>, <c>00435c48</c>) takes
+	/// such an id from <c>COMMAND0.STR</c> rather than any pilot's set. No box opens for it, because
+	/// the comm box's begin callback resolves the null subject to no slot.
+	/// </summary>
+	public void PostUnattributed(int messageId) => Port.Post(messageId, NoSpeaker);
+
 	/// <summary><c>Squad_IndexOf</c> — which box <paramref name="machine"/> talks in, or -1.</summary>
 	public int SlotOf(object? machine) {
 		if (machine == null) {
@@ -214,8 +249,13 @@ public sealed class SquadCommChannel {
 	/// <summary>
 	/// The message set a box speaks from: its pilot's voice bank resolved to a
 	/// <c>PILOT&lt;bank&gt;.STR</c>, read once and kept. Null for an empty box.
+	/// <see cref="NoSpeaker"/> takes the speakerless set.
 	/// </summary>
 	private SquadMessages? CatalogFor(int slot) {
+		if (slot == NoSpeaker) {
+			return _command;
+		}
+
 		int bank = VoiceBank(slot);
 		if (bank == 0) {
 			return null;

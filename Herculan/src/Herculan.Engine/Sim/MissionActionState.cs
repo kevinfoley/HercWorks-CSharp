@@ -68,10 +68,8 @@ public sealed class MissionActionState {
 	///
 	/// <para>The counter walk is the original's: ten slots, each with a ref and an operation, and a
 	/// slot with a negative ref is skipped whole. <b>The message is inside that loop</b>, so an action
-	/// naming five counters posts its line five times and one naming none posts it not at all —
-	/// reproduced by counting the posts rather than deduplicating them. Nothing consumes them yet:
-	/// the id names a <c>data\mission.str</c> line and that file is not loaded here, so the port the
-	/// original queues on has no counterpart. See <see cref="MissionAction.MessageId"/>.</para>
+	/// naming five counters posts its line five times and one naming none posts it not at all. The
+	/// post goes to the pilot and squad port with no speaker; see <see cref="MissionAction.MessageId"/>.</para>
 	/// </summary>
 	public void Activate(SimWorld world) {
 		if (Activated) {
@@ -94,14 +92,8 @@ public sealed class MissionActionState {
 			}
 
 			if (Record.MessageId >= 0) {
-				PendingMessages++;
+				world.Sounds?.CommandSay(Record.MessageId);
 			}
 		}
 	}
-
-	/// <summary>
-	/// How many times this action's line has been queued. The engine has nowhere to post it, so the
-	/// count stands in for the posts — see <see cref="Activate"/>.
-	/// </summary>
-	public int PendingMessages { get; private set; }
 }

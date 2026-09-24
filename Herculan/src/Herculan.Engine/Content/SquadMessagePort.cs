@@ -14,7 +14,7 @@ namespace Herculan.Engine.Content;
 /// and the comm box that plays it all come off that machine's own pilot;</item>
 /// <item>the message set is per speaker: <c>str\PILOT&lt;bank&gt;.STR</c>, chosen by the pilot's voice
 /// bank, and an id there can have several recordings, one of which is rolled for
-/// (<see cref="SquadMessages.Pick"/>);</item>
+/// (<see cref="SquadMessages.Pick"/>). A post with no speaker takes <c>COMMAND0.STR</c> instead;</item>
 /// <item>it runs <b>begin</b> and <b>end</b> callbacks. Only this channel registers any
 /// (<c>MessagePort_AddBeginCallback</c>, <c>004355a8</c>): <c>CommBox_OnMessageBegin</c>
 /// (<c>0044b4ec</c>) starts that speaker's clip and portrait, and <c>CommBox_OnMessageEnd</c>
@@ -45,7 +45,8 @@ public sealed class SquadMessagePort {
 
 	/// <param name="catalogs">
 	/// The message set for a comm-box slot — the pilot's voice bank resolved to a
-	/// <c>PILOT&lt;bank&gt;.STR</c>. Null for a slot with nobody in it.
+	/// <c>PILOT&lt;bank&gt;.STR</c>, or the speakerless set for
+	/// <see cref="SquadCommChannel.NoSpeaker"/>. Null for a slot with nobody in it.
 	/// </param>
 	/// <param name="random">The generator the variant roll draws on — pass the world's.</param>
 	public SquadMessagePort(Func<int, SquadMessages?> catalogs, SimRandom? random = null) {
@@ -195,7 +196,7 @@ public sealed class SquadMessagePort {
 		/// <summary>Which recording of it — attribute byte 1, and the last digit of both filenames.</summary>
 		public int Variant;
 
-		/// <summary>Which comm box is speaking.</summary>
+		/// <summary>Which comm box is speaking, or <see cref="SquadCommChannel.NoSpeaker"/>.</summary>
 		public int Slot;
 
 		/// <summary>Record <c>+0x02</c>: the machine the line is about, which here is the speaker.</summary>

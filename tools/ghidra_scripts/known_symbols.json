@@ -8489,14 +8489,24 @@
       "source": "docs/formats/heads-down-display.md"
     },
     {
+      "address": "00435c48",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PilotMessagePort_Post",
+      "signature": "void PilotMessagePort_Post(int port, byte *record)",
+      "description": "Vtable slot 0 of the ordinary pilot/squad port (0049bad4). A record whose +0x02 subject is null takes its id from the COMMAND0.STR table at 004d0971 (variants against 004d04c8); otherwise Squad_IndexOf picks the slot's PILOT<bank>.STR table at 004d04e8 + slot * 0x183, and a subject in no slot drops the post. Rolls among variants, then MessagePort_Enqueue.",
+      "source": "docs/formats/cockpit-messages.md"
+    },
+    {
       "address": "00435d9c",
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
       "name": "PilotMessagePort_Speak",
       "signature": "char __cdecl PilotMessagePort_Speak(void *port)",
-      "description": "Paints the pilot/squad channel's box: one line, sized to its own measured width plus a 10-unit margin each side and centred on the screen, filled with the speaking squadmate's COLORS.DAT colour and framed in the palette entry one below it, in ColorSchemePanels[2] CPRED. A message with no squadmate behind it takes ids 19 and 9 instead. Named for the BC_00000 voice arm it opens with, which is dead -- see docs/formats/audio.md, Rejected readings.",
-      "source": "docs/formats/audio.md"
+      "description": "Paints the pilot/squad channel's box: one line, sized to its own measured width plus a 10-unit margin each side and centred on the screen, filled with the speaking squadmate's COLORS.DAT colour and framed in the palette entry one below it, in ColorSchemePanels[2] CPRED. A message with no squadmate behind it takes ids 19 and 9 instead. Named for the BC_00000 voice arm it opens with, gated on record +0x2c (attribute byte 7): 0 for every PILOT<n>.STR line and 1 for every COMMAND0.STR one, so it is HQ's voice, and no BC_ clip ships. See docs/formats/cockpit-messages.md, Its speakerless set.",
+      "source": "docs/formats/cockpit-messages.md"
     },
     {
       "address": "00436318",
@@ -8513,7 +8523,7 @@
       "type": "function",
       "confidence": "high",
       "name": "PilotMessagePort_Paint",
-      "description": "Paints the pilot/squad channel as several word-wrapped lines in the computer's own black and red, with no speaker colour in it -- a different picture from the speaker-coloured single line PilotMessagePort_Speak draws, which is what retail shows. Its box is the .GAU field at content offset 1668, read by Gau_BuildCockpitWidgets rather than by Gau_Load; only the rect's vertical half survives, the horizontal being recomputed from the text every paint.",
+      "description": "The training mission's pilot/squad port class (vtable 0049baa8) paint: several word-wrapped lines in the computer's own black and red, with no speaker colour in it -- a different picture from the speaker-coloured single line PilotMessagePort_Speak draws for an ordinary mission. Its box is the .GAU field at content offset 1668, read by Gau_BuildCockpitWidgets rather than by Gau_Load; only the rect's vertical half survives, the horizontal being recomputed from the text every paint.",
       "source": "docs/formats/audio.md"
     },
     {

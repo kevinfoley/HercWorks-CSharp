@@ -111,6 +111,24 @@ Unlike the computer's, **the variant roll is live here**: ids `0x02`, `0x1e` and
 
 **Only banks 1, 2 and 4 are ever loaded.** The bank a slot takes is `(slot >> 2) + 1` with 3 remapped to 4, which never yields 0, so `PILOT0.STR` ships and is never read — and it is the only one of the four that differs in shape rather than in wording: it stores seven attribute bytes per entry where the other three store an eighth that is zero throughout, it carries id `0x24` which no other bank has and lacks `0x2a` which every other bank has, and its two-recording ids are `0x05` and `0x06` rather than `0x02`. Read it as the early draft it is, not as a fourth voice.
 
+### Its speakerless set
+
+A post whose `+0x02` subject is null is not a squadmate's. The port's post (`PilotMessagePort_Post`, `00435c48`, vtable slot 0) resolves such an id in a table of its own at `004d0971` instead of a slot's, rolling variants against `004d04c8` the same way. `Gau_BuildCockpitWidgets` fills that table right after building the port, from `str\COMMAND<n>.STR` — `SystemMessages_Index` mode 1, the literal `commandX` with the [training mission number](script-dat.md#the-training-mission-number) as the digit. The one poster is `Action_Activate` (`00423430`), a mission action's line ([`../simulation/mission-deployment.md`](../simulation/mission-deployment.md#the-four-ways-an-action-activates)).
+
+An ordinary mission speaks from `COMMAND0.STR`: three lines, one group, a pilot bank's shape with an eighth attribute byte.
+
+| id | line | timings (min/max shown, min/max wait) |
+|---|---|---|
+| `0x00` | `CYBRID UNITS HAVE REACHED OUR PERIMETER! PROTECT OUR BASE!` | 3, 5, 0, 10 |
+| `0x01` | `MAYDAY! MAYDAY! OUR BASE IS UNDER ATTACK!` | 3, 5, 0, 10 |
+| `0x02` | `THIS IS BASE COMMAND. WE ARE UNDER ATTACK! ALL UNITS, PLEASE ASSIST!` | 3, 6, 0, 10 |
+
+The composer signs it `HQ` — `STRINGS0.STR` group 8, the one string at `DAT_004d1430` that `FUN_004342b8` returns — and with no squadmate to colour it, [the box](#its-box) is the computer's black and red. `CommBox_OnMessageBegin` resolves the null subject to no slot and returns, so no comm box opens, no portrait runs and no static plays.
+
+Byte 7 is 1 on all three, and it lands at the queued record's `+0x2c`, the gate on `PilotMessagePort_Speak`'s voice arm. So for these lines that arm runs: it patches `id + 1` and the variant digit into `BC_00000` and hands the name to `Voice_PlayNamed`. No `BC_*` clip ships in any archive, so an action's line is text only.
+
+`COMMAND1.STR`-`COMMAND4.STR` are the four training missions' instructor scripts, and a training mission builds a different port class for `view+0x207` (vtable `0049baa8`, a `0x4ef`-byte instance). Its post (`FUN_004362e4`) enqueues an id's first entry without rolling, its paint is `PilotMessagePort_Paint`'s word-wrapped box ([below](#its-box)), and it speaks the `TM<n>_` clips ([`audio.md`](audio.md#file-naming)). In those files several entries share an id, with attribute byte 1 counting 0, 1, 2 through the sentences of one instruction ([Open](#open)).
+
 ### What each id says
 
 `PILOT1` as the reference bank; the other two live banks reword every line and change none of the meanings. `/` separates the variants of one id.
@@ -178,7 +196,7 @@ That subtraction is arithmetic on the already-resolved palette index, not a seco
 
 `PilotMessagePort_ComposeLine` (`00435d0c`) builds the line: the speaker's name from their comm box (`Squad_PilotName` (`00434298`) into `HddGauge_Name` (`0044b900`), the gauge's own `+0x137`), or the fallback at `004342b8` when the record names no object; then `": "`; then the message text, `strncat`ed at 0x4a characters.
 
-`PilotMessagePort_Paint` (`0043660c`) is a second, different picture of the same port: several word-wrapped lines — `PilotMessagePort_WrapText` (`00436318`) wraps at 80 characters in the 640-wide mode and 60 in the 320-wide one, and the box grows to `(lines + 1) * (8 << YCoordShift)` — in the computer's own black and red, with no speaker colour anywhere in it. What is on screen in `Reference/MFD_Talking_head.png` is the speaker-coloured single line.
+`PilotMessagePort_Paint` (`0043660c`) is the training port's paint, and a different picture: several word-wrapped lines — `PilotMessagePort_WrapText` (`00436318`) wraps at 80 characters in the 640-wide mode and 60 in the 320-wide one, and the box grows to `(lines + 1) * (8 << YCoordShift)` — in the computer's own black and red, with no speaker colour anywhere in it. What is on screen in `Reference/MFD_Talking_head.png` is the speaker-coloured single line.
 
 The speaker's own portrait, alongside this box, is driven separately — see [`heads-down-display.md`](heads-down-display.md#snc--portrait-lip-sync-scripts).
 
@@ -186,7 +204,7 @@ The speaker's own portrait, alongside this box, is driven separately — see [`h
 
 | Reading | Why it is wrong |
 |---|---|
-| `PilotMessagePort_Speak` dispatches the squad's voice | It is named for the `BC_00000` template it patches, and that arm is dead: it patches **`id + 1`** rather than the id, no `BC_*` clip ships in any voice archive, and it is gated on the queued record's `+0x2c` — a byte past the seven a `PILOT<n>.STR` entry supplies, and 0 throughout. What the function actually does on every call is paint the channel's box. A squadmate's voice comes solely from the comm box, through `CommBox_BeginMessage` ([`audio.md`](audio.md#speech-and-the-comm-portraits)). |
+| `PilotMessagePort_Speak` dispatches the squad's voice | It is named for the `BC_00000` template it patches, and that arm is not a squadmate's: it is gated on the queued record's `+0x2c`, attribute byte 7, which is 0 or absent in every `PILOT<n>.STR` entry and 1 in every `COMMAND0.STR` one — so it is `HQ`'s voice ([above](#its-speakerless-set)), and asks for a clip that does not ship. What the function does for a squadmate is paint the channel's box. A squadmate's voice comes solely from the comm box, through `CommBox_BeginMessage` ([`audio.md`](audio.md#speech-and-the-comm-portraits)). |
 
 ## Engine coverage
 
@@ -194,7 +212,7 @@ The computer's channel is complete. `SystemMessages` parses `SYSTEM.STR` and fla
 
 Three things differ. The port's clock is wall time accumulated by `GameAudio` in 16 ms units rather than `GetTickCount`, and it stops while `GameAudio.MessagesPaused` is set — which the host holds for as long as a modal panel is up — and across `Suspend`/`Resume`, which is what the original's pause pair achieves by shifting every deadline instead. The text is clipped per glyph in geometry rather than by a raster clip rect, so the whole cockpit panel stays one draw. And the display's two further gates are absent ([Open](#open)).
 
-The pilot and squad channel is complete too. `SquadMessages` parses a `PILOT<n>.STR` bank with the seven-byte attribute layout and its live variants; `SquadMessagePort` is the second port, with the same lifecycle and the begin/end callbacks the comm box hangs off it; `SquadVoice` opens the `P*_*.WAV` clips ([`audio.md`](audio.md#speech-and-the-comm-portraits)). `SquadCommChannel` owns the three boxes and their state machine ([`heads-down-display.md`](heads-down-display.md#squad-comm-boxes)), and publishes both what the MFD draws full-screen and what each box draws in place. The line over the canopy is `PilotMessageBoxLayout` plus `Overlay2DRenderer.AddPilotMessage` — the herc's own `.GAU` box (surfaced as `GAUFile.PilotMessagePort`), the speaker-coloured fill with its palette-minus-one frame, and the composed `NAME: line` in `CPRED`.
+The pilot and squad channel is complete too. `SquadMessages` parses a `PILOT<n>.STR` bank with the seven-byte attribute layout and its live variants; `SquadMessagePort` is the second port, with the same lifecycle and the begin/end callbacks the comm box hangs off it; `SquadVoice` opens the `P*_*.WAV` clips ([`audio.md`](audio.md#speech-and-the-comm-portraits)). `SquadCommChannel` owns the three boxes and their state machine ([`heads-down-display.md`](heads-down-display.md#squad-comm-boxes)), and publishes both what the MFD draws full-screen and what each box draws in place. The line over the canopy is `PilotMessageBoxLayout` plus `Overlay2DRenderer.AddPilotMessage` — the herc's own `.GAU` box (surfaced as `GAUFile.PilotMessagePort`), the speaker-coloured fill with its palette-minus-one frame, and the composed `NAME: line` in `CPRED`. A speakerless post takes `COMMAND0.STR` and signs it `HQ` (`SquadCommChannel.PostUnattributed`), which is how a mission action's line arrives.
 
 The channel's own deviation is the one the computer's port has: its clock is `GameAudio`'s wall time rather than `GetTickCount`.
 
@@ -203,7 +221,8 @@ The channel's own deviation is the one the computer's port has: its clock is `Ga
 ## Open
 
 - **Unported:** the display's two further gates — the refusal to draw while the cockpit view manager's `+0x14` reads 4, and the paint's `+0x1c` byte.
-- **Unported:** `PilotMessagePort_Paint`'s word-wrapped multi-line box. Nothing retail shows reaches it.
+- **Unported:** the training port (vtable `0049baa8`) — its post, `PilotMessagePort_Paint`'s word-wrapped box and the `TM<n>_` voice. The engine loads no speakerless set for a training mission, so an action there posts nothing.
+- **Open:** how the training port shows the entries that share an id in `COMMAND1.STR`-`COMMAND4.STR`. Its post enqueues only the first; its paint reads further strings out of the set's table (`FUN_004539cc` on `004d04c8`), which is presumably where the rest come in.
 - **Unported:** the power-up's damage announcement, `0x22`. The engine always posts the nominal `0x21`, because the gauge reading `FUN_0041b514` returns is not decompiled; a machine taken at the start of a mission is undamaged and gets the nominal line either way.
 - **Open:** what the cockpit view manager's `+0x1c` byte is.
 - **Open:** whether anything posts the pilot ids the table marks with an em dash. A text search finds no poster, which does not settle it.

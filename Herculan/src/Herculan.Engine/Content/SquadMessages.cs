@@ -61,11 +61,25 @@ public sealed class SquadMessages {
 	public static string ResourceName(int voiceBank) => $"PILOT{voiceBank}.STR";
 
 	/// <summary>
+	/// The resource name for the channel's speakerless set — <c>commandX</c> with the training mission
+	/// number as the digit, so <c>COMMAND0.STR</c> for any mission that is not a training one.
+	/// </summary>
+	public static string CommandResourceName(int trainingMission) => $"COMMAND{trainingMission}.STR";
+
+	/// <summary>
 	/// Reads one voice bank's message set out of the mounted archives, or null when the file is absent
 	/// or does not parse.
 	/// </summary>
 	public static SquadMessages? Load(GameContent content, int voiceBank) =>
 		SimStringTable.Load(content, ResourceName(voiceBank)) is { } table ? FromTable(table) : null;
+
+	/// <summary>
+	/// Reads the speakerless set — what <c>Gau_BuildCockpitWidgets</c> (<c>00431bf8</c>) has
+	/// <c>SystemMessages_Index</c> scatter into the table at <c>004d0971</c>, right after building the
+	/// port. The shape is a pilot bank's, with an eighth attribute byte.
+	/// </summary>
+	public static SquadMessages? LoadCommand(GameContent content, int trainingMission) =>
+		SimStringTable.Load(content, CommandResourceName(trainingMission)) is { } table ? FromTable(table) : null;
 
 	/// <summary>Scatters an already-parsed <c>.STR</c> by attribute byte 0.</summary>
 	public static SquadMessages FromTable(SimStringTable table) {

@@ -718,7 +718,8 @@ if (cockpitArt?.HeadsDownLayout is { } commandLayout && scene.World is { } comma
 // boxes have to know who is in them, and that comes off each machine's own pilot index.
 var flashComm = new MfdFlashCommScreen();
 var pilotRoster = PilotRoster.Load(content);
-var squadComm = new SquadCommChannel(content, pilotRoster, scene.World.Random);
+var squadComm = new SquadCommChannel(content, pilotRoster, scene.World.Random,
+	mission.Header.TrainingMissionNumber);
 var squadSeats = new SimObject?[SquadCommChannel.SlotCount];
 var pilotVideos = new SquadTransmission?[SquadCommChannel.SlotCount];
 

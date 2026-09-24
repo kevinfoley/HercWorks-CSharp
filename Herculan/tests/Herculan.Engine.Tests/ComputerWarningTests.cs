@@ -293,6 +293,8 @@ public class ComputerWarningTests {
 
 		public void SquadSay(int messageId, object speaker) { }
 
+		public void CommandSay(int messageId) { }
+
 		public void Unsay(int messageId) => Said.Remove(messageId);
 	}
 

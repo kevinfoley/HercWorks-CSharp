@@ -2158,6 +2158,10 @@ window.Update += deltaSeconds => {
 	// over that one. The accumulator is held with it, so closing a panel does not pay back the time
 	// it was up as a burst of catch-up ticks.
 	bool frozen = missionOver || AnyModalPanelOpen();
+
+	// The same panels pause both message ports (AlertPanel_Enter, 00454630), so a line on screen when
+	// one comes up is still there, with the rest of its time, when it goes.
+	audio.MessagesPaused = AnyModalPanelOpen();
 	if (!frozen) {
 		tickAccumulator = Math.Min(tickAccumulator + deltaSeconds, MaxAccumulatedSeconds);
 	}

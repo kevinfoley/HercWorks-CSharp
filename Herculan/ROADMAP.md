@@ -25,7 +25,6 @@ The engine cannot be faithful here until the original is understood.
 - **The mission counters' reader.** `DAT_004a9ef4` is written by an activating action and dumped to `mission_var` at mission end. The reader is VSHELL's campaign layer (`MissionVar_Read`, `0040ea59`), which is not ported: nothing in this engine consumes the counters, persists them across missions, or gates `.msn` conditions on them. → [`docs/shell/campaign-loop.md`](docs/shell/campaign-loop.md)
 - **The drop pod's ground mark.** The leftover effect a landed pod spawns comes from the theater's `flat`/`flat2` shape pool, which is not ported. → [`docs/simulation/mission-deployment.md`](docs/simulation/mission-deployment.md)
 - **External view (`[V]` chase camera) is entirely engine-invented.** DBSIM's own external view placement, transitions, terrain handling and overlay chrome are unrecovered. `Render/ExternalCamera.cs` is the single place a real rule would replace the guess.
-- **Pause (`[P]`) is a placeholder** that just stops the fixed-timestep tick loop. Retail DBSIM's own pause has not been traced.
 
 ## The shell front end
 `--shell` draws the frame every tab screen shares — the tiled backdrop, the square button and the eight captioned tabs, hit-tested, latching on the six tabs that latch, gated by campaign mode and switching palette per tab — plus the save and repair screens behind tabs 1 and 3. The five widget paints are ported onto an indexed software canvas, so a further screen is layout, text and hit-testing rather than new drawing code. What is missing:

@@ -359,9 +359,10 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 		Voice?.Update();
 
 		// The port's clock is Time_GetCoarseTicks' wall time, not the simulation's, and it stops while
-		// suspended — which is what the original's own pause pair (FUN_00435b58/FUN_00435b80) achieves
-		// by shifting every deadline forward by however long the pause lasted.
-		if (!_suspended) {
+		// suspended or paused — which is what the original's own pause pair (MessagePort_Pause,
+		// 00435b58 / MessagePort_Resume, 00435b80) achieves by shifting every deadline forward by
+		// however long the pause lasted.
+		if (!_suspended && !MessagesPaused) {
 			_messageTicks += elapsed.TotalSeconds / CoarseTickSeconds;
 		}
 
@@ -417,7 +418,17 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	}
 
 	/// <summary>
-	/// Silences everything without tearing the device down — for a pause or a lost window. Speech is
+	/// Stops both message ports' clock and nothing else — what a modal panel does. The original's
+	/// <c>AlertPanel_Enter</c> (<c>00454630</c>) and <c>AlertPanel_Leave</c> (<c>004548ac</c>) pause
+	/// and resume the two ports and leave the sound alone, so an effect already playing plays out
+	/// and a line already on screen keeps the rest of its display time for after the panel.
+	/// <see cref="Suspend"/> is the lost window's fuller stop.
+	/// </summary>
+	public bool MessagesPaused { get; set; }
+
+	/// <summary>
+	/// Silences everything without tearing the device down — for a lost window, which is where the
+	/// original calls <c>Sound_SuspendAll</c> (<c>FUN_0045f0b8</c>, alongside both ports' pause). Speech is
 	/// cut rather than remembered: <see cref="Resume"/> can only restart a clip from its beginning,
 	/// and half a sentence twice is worse than none. The message port's clock stops, so a line already
 	/// on screen keeps the rest of its display time for after the pause.

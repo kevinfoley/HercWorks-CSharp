@@ -98,12 +98,12 @@ The slide itself, for commands 0/1:
 travel = vue[dest].canvasOriginY - vue[src].canvasOriginY     -- 237, or 474 in the 640x480 modes
 for (i = 0; i < travel; i += 10)
     displayOriginY += 10
-    SetDisplayOrigin(page, {x, displayOriginY})               -- DAT_004a5800
-    FUN_00464910()                                            -- maybe_Screen_PresentFrame
+    Display_SetOrigin(page, {x, displayOriginY})              -- g_RasterRoutines slot 15
+    Display_Present()                                         -- scroll-window path only
 displayOriginY += travel - i                                  -- final remainder step
 ```
 
-The present after each step is what puts the intermediate positions on screen. It is on the hardware-scroll path only: under `-b` (see [Video modes](#video-modes)) the loop still moves the origin, but no step is presented before the frame ends.
+The present after each step is what puts the intermediate positions on screen, and only the scroll-window path makes it; see [Presentation](#presentation).
 
 Step is 10 canvas rows; `maybe_CockpitLayoutMode == 2` doubles it and forces travel to `0x1e0`. The side-glance commands (4/5/6) use step `0x14` and scroll on x instead.
 
@@ -159,7 +159,7 @@ For the glances the canvas origin does not cancel. View 2, origin `+320`, gets i
 
 Herculan draws all three panels at once, so it renders them as that one image: `Render.CockpitScreenLayout.World` is a single viewport spanning the three panels, cut to the window, and the host draws it with one camera whose principal point is the forward view's centre.
 
-`FUN_0048c1d8` also installs, from the same view struct: `+0x1a` the perspective shift (`(width << shift) / z` is the whole of the divide), `+0x1e` the near plane, `+0x22` the orthographic divisor. `2^shift` is the focal length in pixels, which fixes the field of view against the view's row count. `Sim_InitMissionSession` (`004614fc`) picks the shift as 9 when the mode's canvas width (`DAT_004d30c4`) reaches 1201 and 8 otherwise, and passes it as the third argument of `View_Ctor` (`0048bc98`), which stores it at `+0x1a`. The constructor's other fields: render target `+0x16`, near plane `+0x1e`, and through `View_CtorBase` (`0048bb64`) the position `int[3]` at `+4` and three `short` angles at `+0x10`. Both work out to the same angle — 256 px across a 240-row view, 512 across a 480-row one, 50.2 degrees vertical. Engine: `Render.Camera.FocalLengthPixels`.
+`FUN_0048c1d8` also installs, from the same view struct: `+0x1a` the perspective shift (`(width << shift) / z` is the whole of the divide), `+0x1e` the near plane, `+0x22` the orthographic divisor. `2^shift` is the focal length in pixels, which fixes the field of view against the view's row count. `Sim_InitMissionSession` (`004614fc`) picks the shift as 9 when the back buffer's width (`DAT_004d30c4`, a copy of `VideoMode_BackBufferWidth`; see [Video modes](#video-modes)) reaches 1201 and 8 otherwise, and passes it as the third argument of `View_Ctor` (`0048bc98`), which stores it at `+0x1a`. The constructor's other fields: render target `+0x16`, near plane `+0x1e`, and through `View_CtorBase` (`0048bb64`) the position `int[3]` at `+4` and three `short` angles at `+0x10`. Both work out to the same angle — 256 px across a 240-row view, 512 across a 480-row one, 50.2 degrees vertical. Engine: `Render.Camera.FocalLengthPixels`.
 
 Engine: `Content.CockpitViewGeometry.ProjectionCenter`, applied via `Render.Camera.PrincipalPoint` as an off-centre frustum.
 
@@ -213,23 +213,67 @@ Every rect in every retail file has `x0 == 0`. This matters because DBSIM's flat
 
 `VideoMode_Configure` (`0045e4f4`) sets the whole block from a mode argument.
 
-| Mode | `VideoMode_PanelMode` (`004d25bb`) | `VideoMode_UseHiResBanks` (`004d25f0`) | Viewport | Canvas | Coord shifts |
-|---|---|---|---|---|---|
-| 0 | 0 | 0 | 320x240 | 320x480 | 0 |
-| 1 | 3 | 0 | 640x480 | 640x960 | 1 |
-| 2 and up | 3 | 1 | 640x480 | 640x960 | 1 |
+| Mode | `VideoMode_PanelMode` (`004d25bb`) | `VideoMode_UseHiResBanks` (`004d25f0`) | Viewport | Canvas | Back buffer | Coord shifts |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 320x240 | 320x480 | 640x480 | 0 |
+| 1 | 3 | 0 | 640x480 | 640x960 | 1280x960 | 1 |
+| 2 and up | 3 | 1 | 640x480 | 640x960 | 1280x960 | 1 |
+
+The back buffer is `VideoMode_BackBufferWidth`/`Height` (`004d25ca`/`004d25ce`), twice the viewport both ways; see [Presentation](#presentation).
 
 **The argument is the player's only on the command line.** The first call — `WinMain`'s, passing 0 — discards what it was given and reads `data\prefs.cfg` instead, taking option 4 and mapping it to **0 for a stored 1 and 3 for anything else**, so the file reaches mode 0 or the last row and never the middle one. That first call also latches a once-only gate, so the later `-v<n>` call keeps its own argument, and `-v1` is the only way to the low-res banks at 640x480. See [`../simulation/preferences.md`](../simulation/preferences.md#the-video-mode-and-full-screen-bytes).
 
 Both mode flags are fields of one `0xc3`-byte global block at `004d2540`, which `MAIN.CPP`'s static initializer, `Main_StaticInit` (`0045cad8`), zeroes with `memset` and then fills through `EBX`. Borland's `_INIT_` table reaches it at `004a7b70`, a priority-`0x20` entry like every other source file's; it has no direct caller. Its first dword is the main render target. Eighteen functions hold the block's base, in a register or as a pushed argument, and reach its fields by displacement, so a field of this block is never settled by a search for its absolute address.
 
-**`-b` selects the software-scroll path.** Block `+0xaa` (`DAT_004d25ea`) chooses between the two display paths. `Main_StaticInit` and every branch of `VideoMode_Configure` set it to 1, the hardware-scroll path. `Sim_ParseCommandLine` runs after `WinMain`'s `VideoMode_Configure` and `-v` pre-parse, and its `-b` case sets it to 0, so the `DAT_004d25ea == 0` branches below are reachable from the command line.
-
-**`-S` does nothing.** Any `-S` argument other than exactly `-SPRUNKNOWN`, which toggles `DAT_0049ef60` instead, sets `CmdLineSwitch_S` (`004d254b`, block `+0x0b`) to 1. Its only reader is `Sim_InitMissionSession`, which uses it to pick a page count: 1 or 0 under [panel mode 1](#panel-mode-1), 2 or 0 on the software-scroll path, and 0 otherwise. It stores the result to the stack slots `[EBP-0xa4]`/`[EBP-0xa0]`, and no instruction in the function reads them back. The only address-taken local nearby is `View_Ctor`'s 6-byte angle triple at `[EBP-0xb8]`, which does not reach them.
-
 `VideoMode_PanelMode` is a three-valued selector, not a flag. Retail stores only 0 and 3: `Main_StaticInit` writes 0, and `VideoMode_Configure`'s three branches write 0, 3 and 3 (modes 0, 1 and 2+). `PanelMode == 3` selects `.HFN` fonts, `hba\` sprite banks, `hb<n>` canopy art and `hd<n>` clip files. Value 1 is a display mode the shipped game cannot enter; see [Panel mode 1](#panel-mode-1). `UseHiResBanks` separately selects hi-res banks for `hudhtick`, `mfd`, `radar`, `hdd`, `pweapons`, `wpn_dmg`, `weapons`, `pdg`, `bases`, `vehicles`, `flyers` and the alert banks — which is why two different flag idioms appear at the bank load sites.
 
 **`maybe_CockpitLayoutMode` (`004d25bc`) is always zero.** It is byte `+0x7c` of the block, and its only write is `Main_StaticInit`'s store of 0. All 23 absolute occurrences of `004d25bc` are `MOVSX` reads. Over the eighteen functions that hold the block's base, `es2_fieldscan.py` finds one other access to `+0x7c`, a read in `Sim_InitMissionSession`, and finds `Main_StaticInit`'s store as its positive control. Both tested values are therefore unreachable: value 1 is the defective path described in [`cockpit-canopy-palette.md`](cockpit-canopy-palette.md#known-defect-in-the-retail-code), and value 2 would route blits through `Bitmap_BlitClipped` and put the view origin in `DAT_004d25da`/`de` rather than `DAT_004cfa24`/`28`. **So `DAT_004d25da`/`de` stay zero**: their only stores, in `CockpitView_SetView` at `0042a1d8`/`0042a1e1`, are on the value-2 path, and the offset `Widget_OnMouseDown` and `Widget_OnMouseUp` add from them ([`cockpit-input.md`](cockpit-input.md#10-the-screen-edges-are-three-widgets)) is always zero.
+
+### Presentation
+
+DBSIM draws everything into a system-memory back buffer and copies a viewport-sized window of it to the screen. `FUN_00464c40` creates the buffer as a DIB section of `VideoMode_BackBufferWidth` x `Height` (pixels at `BackBuffer_Pixels`, `004d30ac`) and wraps it in a render target named `BMP_8`, which is raster driver 3. `VGA_8` and `VGA_4` name drivers 1 and 0, and their entries in the driver list carry a null routine table, so driver 3's is the only one `RasterDriver_InstallRoutines` can install.
+
+| Symbol | Address | Role |
+|---|---|---|
+| `Display_SetOrigin` | `004648d4` | Slot 15 of `g_RasterRoutines` (`004a5800`), through driver 3's stub `00489802`. Moves the window to `(x, y)`: rebases the render target's pixel pointer and row table on it and stores it in `Display_OriginX`/`Y`. Its page argument is ignored |
+| `Display_OriginX` / `Display_OriginY` | `004d309c` / `004d30a0` | The window's top-left in the back buffer. Zeroed by driver 3's surface setup `FUN_0048a0c8`; every other store is `Display_SetOrigin`'s |
+| `Display_ScreenRect` | `004d307c` | `{0, 0, w-1, h-1}`, the viewport on screen, set by `FUN_0048a0c8` |
+| `Display_Present` | `00464910` | `Screen_PresentFrame(&Display_OriginX, &Display_ScreenRect)` |
+| `Display_PresentRect` | `00464924` | The same for one rect of the view, offset by the render context's origin when its clip mode `+0x20c` is set |
+| `Screen_PresentFrame` | `00465524` | Copies a source point's rect of the back buffer to a screen rect. Fullscreen: locks the DirectDraw primary (or, below 640 wide, the back surface, then flips), copies row by row and draws the software cursor. Windowed: `StretchBlt` from the DIB's DC |
+
+`Display_UseScrollWindow` (block `+0xaa`, `004d25ea`, a word) selects between two ways of getting frames on screen.
+
+**Nonzero is the scroll-window path**, and every retail launch takes it: `Main_StaticInit` and each branch of `VideoMode_Configure` store 1. `Sim_EndFrame` calls `Display_Present` once a frame, and the view slides present after every step. A view change moves the window rather than redrawing: `CockpitView_ApplyViewState` shifts `Display_OriginX` by the difference between the two views' canvas x origins and puts `Display_OriginY` at the destination's canvas y. The back buffer is only two viewports wide, so when a glance's target would fall outside it, `CockpitView_ProcessViewCommand` first copies the viewport into the other half with `FUN_00487d54` and moves the window with it: for command 4 when `Display_OriginX` is nonzero, for command 5 and a return from view 2 when it is 0, and for a return from view 3 when it is nonzero. `CockpitView_SetShakeBand` rests the shake band on `Display_OriginX`/`Y`.
+
+### The `-b` paged path
+
+`Sim_ParseCommandLine` runs after `WinMain`'s `VideoMode_Configure` and `-v` pre-parse, and its `-b` case stores 0 in `Display_UseScrollWindow`. That selects a page-flipping scheme. The render target's `+0x88`/`+0x8c` hold a pair of page indices, and it keeps a source, a draw and a visible page at `+0x38`, `+0x3c` and `+0x34`, each pushed to the driver through `g_RasterRoutines` slots 16, 17 and 18 (`004a5804`-`004a580c`). Its page origins are four points at `+0x48`: `FUN_00464c40` sets them to y = 0, 200, 400 and 600 for a `VGA_8` target and zeroes them for anything else. The pair starts at `{0, 1}`.
+
+| Function | Under `-b` |
+|---|---|
+| `Sim_EndFrame` (`0045fa98`) | Makes `+0x8c` the visible page and `+0x88` the draw page, swaps the pair, and does not call `Display_Present` |
+| `Sim_InitMissionSession` (`004614fc`) | After bring-up calls `Widget_DrawToCockpit(1, {0, 0, 320, 400})` in place of `Display_Present` |
+| `CockpitView_ProcessViewCommand` (`0042a4c4`) | Gates glances on the draw page `+0x88` instead of the window: command 4 and a return from view 3 wait for page 0, command 5 and a return from view 2 for page 2 (1 under [panel mode 1](#panel-mode-1)). A gated command returns with `+0x18` still latched. Every pass that gets past the gate and the cooldown calls `Vga_WaitVerticalRetrace` (`0045c61c`), which spins on VGA port `0x3DA` until bit 3, vertical retrace, is set |
+| `CockpitView_ApplyViewState` (`00429e60`) | Sets the origin to the draw page's origin plus the destination's canvas origin, and leaves it alone for views 2 and 3 |
+| `CockpitView_StepViewTransition` (`0042a9c0`) | For commands 0, 1 and 3 first copies the outgoing image across the pages by the difference between the views' canvas origins; presents no step; ends a glance by swapping the page pair and putting the origin back on the page origin |
+| `Widget_DrawToCockpit` (`0043122c`) | Acts only here. Copies a widget's rect from one page to the other — `+0x8c` to `+0x88` for a first argument of 1, the reverse for 0 — and does nothing for argument 1 while bring-up's `DAT_004d25ae` is set, for a rect `FUN_00431410` rejects, or while a view transition is armed. The offset is `DAT_0049b07e`, `{0, 0}` in the image, whenever the third argument is null, and all 34 calls pass null |
+| `CockpitView_SetShakeBand` (`0042d2f8`) | Rests the band on the view's canvas origin (`DAT_004cfa24`/`28`) and, in views 2 and 3, zeroes the resting x and the saved resting y (`004cfae4`, `004cfae0`) |
+| `AlertPanel_Present` (`00454ab0`), `AlertPanel_Leave` (`004548ac`) | Do not present |
+| `PanelButton_Paint`, `ControlsPanel_RefreshRow`, `PreferencesPanel_Run` | Wrap their painting in `g_RasterRoutines` slots 31 and 30 (`004a5840`/`004a583c`), the pair `Cursor_SyncPosition` calls around a pointer move |
+| `AlertPanel_Leave`, `FUN_00454b70`, `FUN_00454c10`, `FUN_00433c54`, `FUN_00433d90`, `FUN_00433e3c`, `FUN_00433ee8`, `FUN_00433f7c` | Call `Cursor_SyncPosition` or `FUN_00486d64` in place of driver 3's `FUN_0048982e` or `FUN_00489822` |
+
+The block-base scan finds the rest of the readers: over the eighteen holders, `es2_fieldscan.py` reports three reads of `+0xaa`, all in `Sim_InitMissionSession`, and `Main_StaticInit`'s store.
+
+**Driver 3 implements none of the paging.** In its routine table slots 16, 17 and 18 are the empty stubs `004897f0`, `004897f6` and `004897fc`, and slots 30 and 31 are `004897c8` and `004897d3`, which save and restore registers and return. `FUN_00486d64` and `FUN_00489822` are empty; `FUN_0048982e` is `Cursor_SyncPosition` again. Slot 20, the rect copy `FUN_00487d54` ends in (`0048a69b`), moves pixels within the one DIB by the offset it is given and returns at once when the offset is zero, so every `Widget_DrawToCockpit` copy moves nothing. The page indices reach only those stubs and the page-origin lookups, and the origins are zero.
+
+What that leaves:
+
+- **Nothing presents during a mission.** Of `Display_Present`'s 29 call sites, 25 are scroll-window only: 21 in `CockpitView_StepViewTransition` and one each in `AlertPanel_Present`, `AlertPanel_Leave`, `Sim_EndFrame` and `Sim_InitMissionSession`. The rest are the mission loading screen (`FUN_00461344`), the preferences panel's per-pass `FUN_00457180`, and `MainWndProc`'s `WM_PAINT` (windowed only) and `0x812` display-change handlers. The main loop's only other per-frame hook, `Subsystem_RunPhase(6)`, runs the input-tape flush `00401e5c` and nothing else.
+- **The pages are only ever 0 and 1**, so the gates waiting for page 2 never open: command 5 and a return from view 2 stay latched at `+0x18`, and `CockpitView_QueueViewCommand` takes no new command while one is. The only reset of `+0x18` that `es2_fieldscan.py` finds in the view module is `CockpitView_StepViewTransition`'s.
+- **`Vga_WaitVerticalRetrace` executes `IN AL,DX` from user mode** on every pass of `CockpitView_ProcessViewCommand` that is not cooling down or gated. `es2_xref.py` finds its one caller at `0042a726`.
+
+**`-S` has no effect.** Any `-S` argument other than exactly `-SPRUNKNOWN`, which toggles `DAT_0049ef60` instead, sets `CmdLineSwitch_S` (`004d254b`, block `+0x0b`) to 1. Its only reader is `Sim_InitMissionSession`, which builds the pair `{0, count}` from it — count 1 or 0 under [panel mode 1](#panel-mode-1), 2 or 0 on the paged path, 0 otherwise — in the stack slots `[EBP-0xa4]`/`[EBP-0xa0]`, and no instruction in the function reads them back. The only address-taken local nearby is `View_Ctor`'s 6-byte angle triple at `[EBP-0xb8]`, which does not reach them. The instruction after the pair is `CMP word ptr [EDI+0xaa],0` at `004619f7`, a `Display_UseScrollWindow` test that nothing branches on. The counts are the page numbers `CockpitView_ProcessViewCommand`'s paged glance gate waits for; see [Open](#open).
 
 ### Panel mode 1
 
@@ -238,12 +282,12 @@ The code tests `VideoMode_PanelMode` against 1 at 17 sites, 10 of them `!= 1`. N
 | Function | Sites | Under value 1 | Path |
 |---|---|---|---|
 | `CockpitView_ProcessViewCommand` (`0042a4c4`) | 4 | A glance adds ∓`0x3600` (~76°) to the view object's yaw on commands 4/5 and takes it back on 6 | Live; only the value keeps it off |
-| `CockpitView_ProcessViewCommand` | 1 | The last display page index is 1 instead of 2 | `DAT_004d25ea == 0` |
+| `CockpitView_ProcessViewCommand` | 1 | The glance gate's second page is 1 instead of 2 | The [`-b` paged path](#the--b-paged-path) |
 | `Sim_EndFrame` (`0045fa98`) | 2 | Selects the render target at block `+0xac` (`DAT_004d25ec`) around the view transition, then the main one at block `+0` again | Live. Only `Main_StaticInit`'s `memset` writes `+0xac`, so the target is null in this build |
 | `Sim_InitMissionSession` (`004614fc`) | 1 | Picks the discarded page count from `CmdLineSwitch_S` as 1 or 0 | Live, with no effect |
-| `CockpitView_StepViewTransition` (`0042a9c0`) | 9 | Each copy rect is `0x140 x 0x1e0` (320x480, the whole mode-0 canvas) instead of `0x140 x 0xf0` (one view) | Every site is under `DAT_004d25ea == 0` or `maybe_CockpitLayoutMode == 2` |
+| `CockpitView_StepViewTransition` (`0042a9c0`) | 9 | Each copy rect is `0x140 x 0x1e0` (320x480, the whole mode-0 canvas) instead of `0x140 x 0xf0` (one view) | Every site is on the paged path or under `maybe_CockpitLayoutMode == 2` |
 
-Taken together, value 1 keeps the cockpit canvas in its own off-screen surface with one display page fewer, and turns the camera for a glance instead of scrolling the canvas sideways. The retail modes do the opposite on both counts: the canvas is VRAM beyond the screen, and a glance is the forward image plane continued (see [The side glances are one image plane](#the-side-glances-are-one-image-plane)).
+Taken together, value 1 keeps the cockpit canvas in its own off-screen surface with one display page fewer, and turns the camera for a glance instead of scrolling the canvas sideways. The retail modes do the opposite on both counts: the canvas lives in the back buffer around the viewport window (see [Presentation](#presentation)), and a glance is the forward image plane continued (see [The side glances are one image plane](#the-side-glances-are-one-image-plane)).
 
 ## Rejected readings
 
@@ -252,12 +296,15 @@ Taken together, value 1 keeps the cockpit canvas in its own off-screen surface w
 | A glance turns the pilot view ∓`0x3600` (~76°) to face sideways. | `CockpitView_ProcessViewCommand` (`0042a4c4`) does add ∓`0x3600` to the view object's yaw on commands 4/5 and undoes it on 6, and the decompile reads that way at a glance. Every one of those adds is gated on `VideoMode_PanelMode == 1`, which nothing stores; see [Panel mode 1](#panel-mode-1). A retail glance keeps the forward orientation. |
 | `VideoMode_PanelMode` is a flag for the hi-res art set. | It holds three distinct values. 3 selects the art set, and 17 sites test for a 1 that belongs to a scrapped display mode. |
 | Nothing can write a byte of the video-mode block through a pointer, because no address inside `004d2580`-`004d2602` appears as an immediate. | The block starts at `004d2540`, and that base does appear: `Main_StaticInit` loads it into `EBX` and writes `+0x7b` and `+0x7c` through it, and eighteen functions in all hold it. |
+| `-b` selects a software scroll: the same game, with the view slides unanimated. | The flag's other value is the scroll-window path, which suggests two ways of scrolling. `-b` is a page-flipping scheme written against paged VGA targets, and in this image its pages, page flips and page copies all land on driver 3's empty stubs, nothing presents a mission frame, and its glance gate waits for a page that never comes up; see [The `-b` paged path](#the--b-paged-path). |
 | The glances' canvas origins cancel out of the projection centre, so each view is centred in its own window. | The subtraction in `Raster_InstallViewProjection` is against the `.VUE` rect's top-left, which is view-local and `(0,0)` for every view, not against the view's canvas origin. The origin stays in, and it moves the glance's centre off its own window to the forward view's reticle. |
 
 ## Open
 
 - **Unported:** RAZOR's view-1 3D viewport, the one non-stub `.HD1` (see [`.HD0`-`.HD3`](#hd0-hd3--ed0-ed3--3d-viewport-clip-regions)).
 - **Open:** what display [panel mode 1](#panel-mode-1) was for, and which viewport and canvas it ran at. `VideoMode_Configure` has no branch that sets it, so nothing records those. Values 0, 1 and 3 also fit a two-bit field where the high bit requires the low one, but no site tests a single bit.
-- **Open:** what the page count `CmdLineSwitch_S` selects was for. The pair `{0, count}` it is stored with has the shape of an argument block for a call that is no longer there; a switch that sets no back pages would fit, but nothing in the image says so.
+- **Open:** whether the pair `{0, count}` that `CmdLineSwitch_S` selects is the render target's `+0x88`/`+0x8c` page pair, installed by a call the build dropped. The counts match the paged glance gate's page numbers and the pair's first value matches the page it starts on, and `004619f7` tests `Display_UseScrollWindow` with no branch on the result; nothing in the image stores the pair. On that reading `-S` would select a single page.
 - **Open:** `DAT_0049ef60`, which `-SPRUNKNOWN` toggles.
-- **Open:** the rest of the `-b` software-scroll path. About twenty functions branch on `DAT_004d25ea`, and only the heads-down pan's present and `Sim_EndFrame`'s page swap are traced. The glance gate in `CockpitView_ProcessViewCommand` (by page index instead of window x), `PanelButton_Paint`, `Widget_DrawToCockpit`, `CockpitView_SetShakeBand`, the alert panels and the preferences and controls panels are not. It is untested against a retail run with `-b`.
+- **Open:** `-b` against retail. On Windows NT-family systems, including the Windows 11 setup, the expected result is a privileged-instruction fault (`0xC0000096`) at `0045c620`, `Vga_WaitVerticalRetrace`'s `IN AL,DX`, on the first mission frame, after the loading screen has been shown. On Windows 9x, which lets a Win32 program read port `0x3DA`, the expected result is the loading screen staying up for the whole mission while sound and simulation run; palette changes recolouring that frozen image; the F12 preferences panel drawing and updating (its per-pass `FUN_00457180` presents) and staying on screen after it closes; the P, Q and F11 panels pausing the game invisibly; and a glance to view 3, or back from view 2, jamming every view key for the rest of the mission.
+- **Open:** `Display_PresentRect` (`00464924`) has no caller that `es2_xref.py` finds. The same sweep finds `Display_Present`'s 29.
+- **Open:** what the paged path's pre-slide copies in `CockpitView_StepViewTransition` (commands 0, 1 and 3) were meant to do on a paged driver. On driver 3 they copy within the one DIB, from the outgoing view's rows onto the incoming view's.

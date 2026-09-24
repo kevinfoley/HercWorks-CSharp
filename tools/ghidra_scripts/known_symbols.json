@@ -3830,7 +3830,7 @@
       "type": "function",
       "confidence": "high",
       "name": "CockpitView_ProcessViewCommand",
-      "description": "Executes the pending view command. Command 4 selects glance view 2, command 5 glance view 3, command 6 returns to view 0, command 2 selects view 4 (external). The -/+0x3600 yaw adds on 4/5/6 are gated on VideoMode_PanelMode == 1, which no retail mode stores, so a glance never turns the camera: it is the forward view's image plane continued sideways (docs/formats/cockpit-views.md).",
+      "description": "Executes the pending view command. Command 4 selects glance view 2, command 5 glance view 3, command 6 returns to view 0, command 2 selects view 4 (external). The -/+0x3600 yaw adds on 4/5/6 are gated on VideoMode_PanelMode == 1, which no retail mode stores, so a glance never turns the camera: it is the forward view's image plane continued sideways (docs/formats/cockpit-views.md). On the scroll-window path it first moves the image into the other half of the back buffer when a glance target would fall outside it (tests on Display_OriginX); on the -b paged path it instead holds glance commands until the draw page (+0x88) is 0 or 2 (1 under panel mode 1), and every pass past that gate and the cooldown calls Vga_WaitVerticalRetrace.",
       "source": "cockpit rendering RE session 2026-08-17"
     },
     {
@@ -3938,7 +3938,7 @@
       "type": "function",
       "confidence": "high",
       "name": "VideoMode_Configure",
-      "description": "Sets the whole video-mode global block from a mode byte read out of the prefs file. Mode 0: VideoMode_PanelMode=0, UseHiResBanks=0, viewport 320x240, canvas 320x480, coord shifts 0. Mode 1: UseHiResPanels=3, UseHiResBanks=0, viewport 640x480, canvas 640x960, shifts 1. Mode 2: as mode 1 but UseHiResBanks=1. So UseHiResPanels==3 selects .HFN/.HBA/.HB<n> art while UseHiResBanks separately selects the hi-res HUD sprite banks -- which is why the two idioms documented in cockpit-views.md differ. All three branches also set DAT_004d25ea to 1, the hardware-scroll display path; Sim_ParseCommandLine runs later and its -b case clears it, so the software-scroll path is reachable from the command line. None of them writes maybe_CockpitLayoutMode (004d25bc), which no code in the image can write at all.",
+      "description": "Sets the whole video-mode global block from a mode byte read out of the prefs file. Mode 0: VideoMode_PanelMode=0, UseHiResBanks=0, viewport 320x240, canvas 320x480, back buffer 640x480, coord shifts 0. Mode 1: UseHiResPanels=3, UseHiResBanks=0, viewport 640x480, canvas 640x960, back buffer 1280x960, shifts 1. Mode 2: as mode 1 but UseHiResBanks=1. So UseHiResPanels==3 selects .HFN/.HBA/.HB<n> art while UseHiResBanks separately selects the hi-res HUD sprite banks -- which is why the two idioms documented in cockpit-views.md differ. All three branches also set Display_UseScrollWindow (004d25ea) to 1, the scroll-window display path; Sim_ParseCommandLine runs later and its -b case clears it, selecting the paged path. None of them writes maybe_CockpitLayoutMode (004d25bc), which no code in the image can write at all.",
       "source": "cockpit rendering RE session 2026-08-17"
     },
     {
@@ -3965,7 +3965,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Main_StaticInit",
-      "description": "MAIN.CPP's C++ static initialiser: the priority-0x20 entry at 004a7b70 in Borland's _INIT_ table (00 20 d8 ca 45 00), with no direct caller. Loads the video-mode/sim-globals block base 004d2540 into EBX, constructs the member object at 004d2603 (FUN_00481460), memsets the 0xc3-byte block to zero and fills its defaults through EBX: among them VideoMode_PanelMode (+0x7b) and maybe_CockpitLayoutMode (+0x7c) = 0, the 320-wide mode-0 geometry, DAT_004d25ea (+0xaa, the hardware-scroll switch) = 1, PilotingRazor = 0 and ControlsOptionBase = 0xd. Ends by seeding the two Math_RandomNext state blocks at 004d261d and 004d268f. The only write of +0x7c anywhere, and the only writer of +0x7b besides VideoMode_Configure.",
+      "description": "MAIN.CPP's C++ static initialiser: the priority-0x20 entry at 004a7b70 in Borland's _INIT_ table (00 20 d8 ca 45 00), with no direct caller. Loads the video-mode/sim-globals block base 004d2540 into EBX, constructs the member object at 004d2603 (FUN_00481460), memsets the 0xc3-byte block to zero and fills its defaults through EBX: among them VideoMode_PanelMode (+0x7b) and maybe_CockpitLayoutMode (+0x7c) = 0, the 320-wide mode-0 geometry, Display_UseScrollWindow (+0xaa, 004d25ea) = 1, PilotingRazor = 0 and ControlsOptionBase = 0xd. Ends by seeding the two Math_RandomNext state blocks at 004d261d and 004d268f. The only write of +0x7c anywhere, and the only writer of +0x7b besides VideoMode_Configure.",
       "source": "docs/formats/cockpit-views.md"
     },
     {
@@ -3974,7 +3974,7 @@
       "type": "data",
       "confidence": "high",
       "name": "CmdLineSwitch_S",
-      "description": "Byte +0x0b of the 004d2540 block. Zeroed by Main_StaticInit; set to 1 by Sim_ParseCommandLine's -S case (0045e886) for any -S argument other than exactly -SPRUNKNOWN, which instead toggles DAT_0049ef60. Its only reader is Sim_InitMissionSession (004619c3/004619e8, through EDI = block base), which picks a page count from it -- 1/0 under VideoMode_PanelMode 1, 2/0 on the software-scroll path, 0 otherwise -- and stores it to stack slots [EBP-0xa4]/[EBP-0xa0] that no instruction in the function reads back. So in the shipped build the switch has no effect. Scan: every one of the 18 functions that holds the block base, via es2_fieldscan +0xb.",
+      "description": "Byte +0x0b of the 004d2540 block. Zeroed by Main_StaticInit; set to 1 by Sim_ParseCommandLine's -S case (0045e886) for any -S argument other than exactly -SPRUNKNOWN, which instead toggles DAT_0049ef60. Its only reader is Sim_InitMissionSession (004619c3/004619e8, through EDI = block base), which picks a page count from it -- 1/0 under VideoMode_PanelMode 1, 2/0 on the -b paged path, 0 otherwise -- and stores it to stack slots [EBP-0xa4]/[EBP-0xa0] that no instruction in the function reads back. So in the shipped build the switch has no effect. The counts are the page numbers CockpitView_ProcessViewCommand's paged glance gate waits for, and the next instruction (004619f7) tests Display_UseScrollWindow with nothing branching on it; see cockpit-views.md Open. Scan: every one of the 18 functions that holds the block base, via es2_fieldscan +0xb.",
       "source": "docs/formats/cockpit-views.md"
     },
     {
@@ -4326,7 +4326,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Sim_EndFrame",
-      "description": "Per-frame tail: CockpitView_StepViewTransition, Palette_CycleAnimatedRanges, Palette_FlushDirtyRange, page flip (swaps the display context's +0x88/+0x8c page origins through DAT_004a5808/580c), then CockpitView_ProcessViewCommand. The DAT_004d25ea != 0 branch is the hardware-scroll display path.",
+      "description": "Per-frame tail. Scroll-window path (Display_UseScrollWindow != 0): CockpitView_StepViewTransition, Palette_CycleAnimatedRanges, Palette_FlushDirtyRange, Display_Present, CockpitView_ProcessViewCommand, with the +0xac render target selected around them under VideoMode_PanelMode 1. Paged path (-b): the same calls without Display_Present, plus a page flip -- the render target's +0x8c becomes the visible page (+0x34, g_RasterRoutines slot 18), +0x88 the draw page (+0x3c, slot 17), and the two swap. Driver 3 fills both slots with empty stubs, so under -b nothing here reaches the screen.",
       "source": "HDD pan RE session 2026-08-20"
     },
     {
@@ -4895,17 +4895,17 @@
       "type": "function",
       "confidence": "high",
       "name": "Cursor_SyncPosition",
-      "description": "Moves the on-screen pointer to the (x,y) in param_1. If a hardware cursor is active (DAT_004a365e), hides/shows it via two function pointers (DAT_004a5840/DAT_004a583c, a DirectDraw cursor surface's vtable calls) around updating its position (DAT_004a3638/3c); otherwise stashes the position for the software cursor overlay Screen_PresentFrame draws.",
+      "description": "Stores the pointer position in param_1: to DAT_004a3638/3c when DAT_004a365e is set, bracketed by g_RasterRoutines slots 31 and 30 (maybe_ hide/show cursor) when DAT_004a3634 is set; otherwise to DAT_004a3662/66. Driver 3 fills both slots with empty stubs. FUN_0048982e is driver 3's copy of the same routine.",
       "source": "docs/formats/cockpit-input.md 2026-08-20"
     },
     {
       "address": "00465524",
       "binary": "DBSIM",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Screen_PresentFrame",
-      "description": "Dual-purpose per-frame presentation: in windowed/GDI mode (_DAT_004d25e2==0), StretchBlt's the backbuffer to the window via BeginPaint/EndPaint; in fullscreen mode, raw-copies the backbuffer into VRAM and, when a software cursor bitmap is active (DAT_004d37a8), blits it at GetCursorPos() clipped to the viewport, colour-keyed on byte value 1. Named for its dominant role (frame presentation); the cursor blit is secondary but confirms the visible pointer is genuinely drawn from the same OS cursor position the click pipeline reads, not a separate abstracted position.",
-      "source": "docs/formats/cockpit-input.md 2026-08-20"
+      "confidence": "high",
+      "name": "Screen_PresentFrame",
+      "description": "Screen_PresentFrame(int *srcPoint, int *dstRect): copies the back buffer's rect at srcPoint (BackBuffer_Pixels, row stride VideoMode_BackBufferWidth) to dstRect on screen. Fullscreen (_DAT_004d25e2 != 0): restores a lost surface, locks the DirectDraw primary (004d3798), or below 640 wide the back surface (004d379c), copies row by row, blits the software cursor bitmap (DAT_004d37a8) at GetCursorPos() colour-keyed on byte 1, unlocks, and below 640 wide flips. Windowed: StretchBlt from the DIB's DC (004d30b8) inside BeginPaint/EndPaint. Its only callers are Display_Present and Display_PresentRect.",
+      "source": "docs/formats/cockpit-views.md"
     },
     {
       "address": "004807d0",
@@ -14938,7 +14938,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Widget_DrawToCockpit",
-      "description": "Blits one widget's rect into the cockpit canvas, pushing the canvas render context and taking the colours from it. Stage 1 of the two-stage deferred paint that vtable slot +0xc drives.",
+      "description": "Stage 1 of the two-stage deferred paint that vtable slot +0xc drives. Acts only on the -b paged path (Display_UseScrollWindow == 0) and returns 0 otherwise: pushes the canvas render context, sets the source page (+0x38) and draw page (+0x3c) to the render target's +0x8c/+0x88 for a first argument of 1 (the reverse for 0) and copies the widget's rect between them with FUN_00487d54 at the offset in the third argument, DAT_0049b07e ({0,0}) when that is null. Skips argument 1 while DAT_004d25ae is set. All 34 callers pass a null offset, and driver 3's rect copy returns at once on a zero offset, so in this image the copy moves nothing.",
       "source": "docs/formats/cockpit-input.md"
     },
     {
@@ -15921,6 +15921,172 @@
       "name": "g_RasterRoutines_Driver3",
       "description": "Driver 3's 36-entry routine table, the only one g_RasterDriverTable holds; slot 33 is Raster_FillBitmapPolygon (0048a818).",
       "source": "docs/formats/dts-billboards.md, 'Brush mode 5 skips palette index 0'"
+    },
+    {
+      "address": "004648d4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Display_SetOrigin",
+      "description": "Driver 3's g_RasterRoutines slot 15 target, reached through the stub 00489802. Moves the viewport window over the back buffer to point param_2: sets the render target descriptor's pixel pointer and row-table base to base + y*width + x and stores the point in Display_OriginX/Y. Ignores param_1, the page.",
+      "source": "docs/formats/cockpit-views.md",
+      "signature": "void __cdecl Display_SetOrigin(int page, int *point)"
+    },
+    {
+      "address": "00464910",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Display_Present",
+      "description": "Screen_PresentFrame(&Display_OriginX, &Display_ScreenRect): puts the viewport window at the display origin on screen. 29 call sites (es2_xref): 25 on the scroll-window path only, 21 in CockpitView_StepViewTransition and one each in AlertPanel_Present, AlertPanel_Leave, Sim_EndFrame and Sim_InitMissionSession; the mission loading screen FUN_00461344, the preferences panel's per-pass FUN_00457180, and MainWndProc's WM_PAINT (windowed) and 0x812 handlers unconditionally.",
+      "source": "docs/formats/cockpit-views.md",
+      "signature": "void __cdecl Display_Present(void)"
+    },
+    {
+      "address": "00464924",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Display_PresentRect",
+      "description": "Presents one rect {x0,y0,x1,y1} of the view: offsets it by the render context's origin (+0x210/+0x214 minus +0x220/+0x224) when the context's +0x20c is set, then calls Screen_PresentFrame with that rect offset by Display_OriginX/Y as the source and by Display_ScreenRect as the destination. es2_xref finds no rel32 caller and no stored pointer.",
+      "source": "docs/formats/cockpit-views.md",
+      "signature": "void __cdecl Display_PresentRect(int *rect)"
+    },
+    {
+      "address": "004d309c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "Display_OriginX",
+      "description": "x of the viewport window's top-left in the back buffer, with Display_OriginY at 004d30a0. Written only by Display_SetOrigin and zeroed by driver 3's surface setup FUN_0048a0c8. Display_Present passes it to Screen_PresentFrame as the source point.",
+      "source": "docs/formats/cockpit-views.md"
+    },
+    {
+      "address": "004d30a0",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "Display_OriginY",
+      "description": "y of the viewport window's top-left in the back buffer; see Display_OriginX.",
+      "source": "docs/formats/cockpit-views.md"
+    },
+    {
+      "address": "004d307c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "Display_ScreenRect",
+      "description": "int[4] {x0, y0, x1, y1}: the viewport's rect on screen, {0, 0, w-1, h-1}, set by driver 3's surface setup FUN_0048a0c8. Display_Present's destination rect.",
+      "source": "docs/formats/cockpit-views.md"
+    },
+    {
+      "address": "004d25ea",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "Display_UseScrollWindow",
+      "description": "Word at +0xaa of the 004d2540 block. Nonzero (Main_StaticInit and every VideoMode_Configure branch store 1): the scroll-window path, which presents Display_Present once a frame and moves the window over the back buffer for view changes. Zero (Sim_ParseCommandLine's -b, which runs after VideoMode_Configure): a page-flipping path whose page hooks are empty stubs in driver 3, so no mission frame is presented, and whose CockpitView_ProcessViewCommand calls Vga_WaitVerticalRetrace (IN from port 0x3DA) every frame. Readers: see cockpit-views.md 'The -b paged path'; the 18 block-base holders add three reads in Sim_InitMissionSession.",
+      "source": "docs/formats/cockpit-views.md"
+    },
+    {
+      "address": "004d25ca",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "VideoMode_BackBufferWidth",
+      "description": "Back-buffer width set by VideoMode_Configure: 640 in mode 0, 1280 in modes 1/2, twice the viewport. FUN_00464bc0 copies it to 004d30c4 for the DIB; Screen_PresentFrame uses it as the source row stride.",
+      "source": "docs/formats/cockpit-views.md"
+    },
+    {
+      "address": "004d25ce",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "VideoMode_BackBufferHeight",
+      "description": "Back-buffer height set by VideoMode_Configure: 480 in mode 0, 960 in modes 1/2, twice the viewport. Screen_PresentFrame clamps its row count against it.",
+      "source": "docs/formats/cockpit-views.md"
+    },
+    {
+      "address": "004d30ac",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "BackBuffer_Pixels",
+      "description": "Pixel bits of the back-buffer DIB section FUN_00464c40 creates (CreateDIBSection), stored into the BMP_8 descriptor as its pixel pointer. Everything DBSIM draws lands here; Screen_PresentFrame copies from it.",
+      "source": "docs/formats/cockpit-views.md"
+    },
+    {
+      "address": "0045c61c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Vga_WaitVerticalRetrace",
+      "description": "MOV DX,0x3da / IN AL,DX / TEST AL,8 / JZ: spins until the VGA input-status register reports vertical retrace. One caller, CockpitView_ProcessViewCommand (0042a726), on the -b paged path only. A user-mode IN faults on NT-family Windows.",
+      "source": "docs/formats/cockpit-views.md",
+      "signature": "void __cdecl Vga_WaitVerticalRetrace(void)"
+    },
+    {
+      "address": "004a5800",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_RasterRoutines_SetOrigin",
+      "description": "Slot 15 of g_RasterRoutines: driver 3 fills it with 00489802, which calls Display_SetOrigin(page, point).",
+      "source": "docs/formats/cockpit-views.md"
+    },
+    {
+      "address": "004a5804",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "medium",
+      "name": "maybe_g_RasterRoutines_SetSourcePage",
+      "description": "Slot 16 of g_RasterRoutines, called with the render target's +0x38 whenever that is set (the source page of a page-to-page copy). Driver 3 fills it with the empty stub 004897f0.",
+      "source": "docs/formats/cockpit-views.md"
+    },
+    {
+      "address": "004a5808",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "medium",
+      "name": "maybe_g_RasterRoutines_SetDrawPage",
+      "description": "Slot 17 of g_RasterRoutines, called with the render target's +0x3c (the draw page) whenever that is set. Driver 3 fills it with the empty stub 004897f6.",
+      "source": "docs/formats/cockpit-views.md"
+    },
+    {
+      "address": "004a580c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "medium",
+      "name": "maybe_g_RasterRoutines_SetVisiblePage",
+      "description": "Slot 18 of g_RasterRoutines, called with the render target's +0x34 (the visible page), which Sim_EndFrame's -b flip sets. Driver 3 fills it with the empty stub 004897fc.",
+      "source": "docs/formats/cockpit-views.md"
+    },
+    {
+      "address": "004a5814",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "g_RasterRoutines_CopyRect",
+      "description": "Slot 20 of g_RasterRoutines, FUN_00487ad0's (and so FUN_00487d54's) rect copy. Driver 3 fills it with 0048a69b, which copies the rect from (rect - offset) to rect within the one back buffer, choosing the direction by the offset's sign, and returns at once on a zero offset.",
+      "source": "docs/formats/cockpit-views.md"
+    },
+    {
+      "address": "004a583c",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "medium",
+      "name": "maybe_g_RasterRoutines_ShowCursor",
+      "description": "Slot 30 of g_RasterRoutines, called after a pointer move by Cursor_SyncPosition and after drawing on the -b paged path. Driver 3 fills it with 004897c8, which only saves and restores registers.",
+      "source": "docs/formats/cockpit-views.md"
+    },
+    {
+      "address": "004a5840",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "medium",
+      "name": "maybe_g_RasterRoutines_HideCursor",
+      "description": "Slot 31 of g_RasterRoutines, the partner of slot 30 called before the same moves and draws. Driver 3 fills it with 004897d3, which only saves and restores registers.",
+      "source": "docs/formats/cockpit-views.md"
     }
   ]
 }

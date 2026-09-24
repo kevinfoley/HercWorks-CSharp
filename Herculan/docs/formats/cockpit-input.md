@@ -250,7 +250,7 @@ The four classes hanging straight off `CTLButtonControl` are the ones that take 
 | `+0x1f` | What slot `+0x0c` does |
 |---|---|
 | 2 | Calls slot 0 — the widget's own content refresh, re-resolving its caption and picking its frame and colour — then decrements |
-| 1 | Calls `Widget_DrawToCockpit` (`0043122c`), which blits the widget's rect into the cockpit canvas, then decrements |
+| 1 | Calls `Widget_DrawToCockpit` (`0043122c`), then decrements. That call copies the widget's rect to the other display page on the `-b` paged path and returns at once otherwise ([`cockpit-views.md`](cockpit-views.md#the--b-paged-path)), so on a retail launch stage 2 paints the widget and stage 1 does nothing |
 | 0 | Nothing |
 
 A class with no content to rebuild skips the first stage: `ShieldFacing_FlushDeferredPaint` (`00444b70`) decrements at 2 without calling slot 0, and blits at 1.
@@ -317,7 +317,7 @@ So the click sets a flag; a gameplay tick consumes the flag into real sim state 
 
 ## 9. Cursor rendering
 
-The position the click pipeline reads is the same one the player watches: `Cursor_SyncPosition` (`00486d70`) either moves a hardware DirectDraw cursor (when `DAT_004a365e` is set, via two function-pointer calls — hide/show around a position update) or stashes the position for `Screen_PresentFrame`'s software cursor draw. `Screen_PresentFrame` (`00465524`) is DBSIM's per-frame presentation function — `StretchBlt` in windowed/GDI mode, a raw VRAM copy in fullscreen — and in the fullscreen path also blits a cursor sprite at `GetCursorPos()`, clipped to the viewport and colour-keyed on byte value 1, when a software cursor bitmap (`DAT_004d37a8`) is active.
+The position the click pipeline reads is the same one the player watches: `Cursor_SyncPosition` (`00486d70`) stores the position in one of two slots, chosen by `DAT_004a365e`, and when that byte is set brackets the store with `g_RasterRoutines` slots 31 and 30; driver 3, the only raster driver the image installs, fills both with empty stubs. `Screen_PresentFrame` (`00465524`) copies the back buffer's viewport window to the screen ([`cockpit-views.md`](cockpit-views.md#presentation)) — `StretchBlt` in windowed/GDI mode, a row copy into the locked DirectDraw surface in fullscreen — and in the fullscreen path also blits a cursor sprite at `GetCursorPos()`, clipped to the viewport and colour-keyed on byte value 1, when a software cursor bitmap (`DAT_004d37a8`) is active.
 
 `Mouse_WarpCursorToPoint` (`004807d0`) runs the conversion the other way — game space back to client coordinates, `ClientToScreen`, `SetCursorPos` — and three places use it, all of them putting the pointer somewhere known and all gated on a live mouse device:
 
@@ -405,10 +405,10 @@ A dash is a click that hits no strip at all. The heads-down view is the one plac
 | `Widget_Show` / `Widget_Hide` | `00452c64` / `00452c8c` | Set a child's state to 0 / 2 — library helpers with no call site, no vtable slot and no stored pointer; every hide in the image is a direct store to `+0x1b` |
 | `Widget_NotifySelfAndChildren` | `00452a48` | Calls vtable slot 0 on self then every clickable child; unreachable — its only caller (`00452bac`) has none of its own |
 | `Widget_CtorRect` | `00452478` | Base widget constructor: copies the rect and clears the hit-shape byte |
-| `Widget_DrawToCockpit` | `0043122c` | Blits one widget's rect into the cockpit canvas; stage 1 of the deferred paint |
-| `Cursor_SyncPosition` | `00486d70` | Hardware/software cursor position sync |
+| `Widget_DrawToCockpit` | `0043122c` | Stage 1 of the deferred paint: copies a widget's rect to the other display page, on the `-b` paged path only |
+| `Cursor_SyncPosition` | `00486d70` | Stores the pointer position |
 | `Mouse_WarpCursorToPoint` | `004807d0` | `SetCursorPos` wrapper: gunsight centring, alert-panel focus and the panel's saved position |
-| `maybe_Screen_PresentFrame` | `00465524` | Per-frame present; software cursor blit in fullscreen mode |
+| `Screen_PresentFrame` | `00465524` | Copies the back buffer's viewport window to the screen; software cursor blit in fullscreen mode |
 | `ThrottleGauge_Ctor` | `00447b84` | Builds the throttle gauge, its slider child and its two fill bars |
 | `ThrottleGauge_SetValues` / `_GetValues` | `00447d80` / `00447dd0` | The `{speedFraction, throttle}` pair at gauge `+0xb1` |
 | `ThrottleGauge_OnChildValue` | `00447de0` | Slider/bar value in, negated for the vertical variant, stored to `+0xb5` |

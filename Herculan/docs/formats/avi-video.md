@@ -8,7 +8,7 @@ Playback is `HercWorks.Video`, a standalone assembly with no dependencies, and `
 
 | Compression | Files | Geometry | Decoder |
 |---|---|---|---|
-| `IV32` — Indeo Video 3.2 | 80 | 240x180, 288x180 | [Open](#open) |
+| `IV32` — Indeo Video 3.2 | 80 | 240x180, 288x180 | yes, see `docs/formats/indeo3.md` |
 | `CRAM` — Microsoft Video 1 | 6 | 292x200, 640x480 | [Open](#open) |
 | `BI_RLE8` — Microsoft RLE | 4 | 295x226 | yes |
 | `cvid` — Cinepak | 2 | 576x360, 288x180 | [Open](#open) |
@@ -98,12 +98,9 @@ The suite covers these directly: every prefix of a valid file is parsed to prove
 |---|---|
 | Dispatch the decoder on the `strh` handler fourcc | The handler and the format compression disagree. The six Microsoft Video 1 files name `msvc` as their handler but carry `CRAM` in `strf`, and the four MS-RLE files name `mrle` but carry the numeric `BI_RLE8`. Dispatching on the handler finds none of the ten. `CodecRegistry` matches on `AviVideoFormat.Compression`, which comes from `strf`. |
 | A positive `biHeight` means top-down rows | It means bottom-up, which is the DIB convention and what every file in this corpus uses. A negative height is the top-down case. Reading the sign the other way renders every frame vertically mirrored — recognisable, so it survives a careless glance. |
-| `IV32` frame data begins at the start of the `00dc` chunk | It begins 16 bytes in. The chunk opens with a frame header — frame number, a field that is always zero, a checksum and the frame size — and the 48-byte bitstream header follows that. The plane offsets inside it are relative to the start of the *bitstream* header, not to the chunk. |
-| The `IV32` plane offsets are listed in the order the planes appear | The header lists Y, then V, then U, but the data is laid out U, then V, then Y. On the first frame of `INTR_PT1.AVI` the U offset is `0x30` — immediately after the header — and Y is last. |
 
 ## Open
 
-- **Unported:** the `IV32` (Indeo Video 3.2) decoder, 80 files. Work in progress is in `docs/engine/handoff-indeo3.md`.
 - **Unported:** the `CRAM` (Microsoft Video 1) and `cvid` (Cinepak) decoders, 8 files. See `docs/engine/handoff-avi-codecs.md`.
 - **Unported:** the `IV41` (Indeo Video 4.1) decoder, 1 file.
 - **Unported:** stereo cutscene audio. It needs a stereo path through `IAudioBackend`.

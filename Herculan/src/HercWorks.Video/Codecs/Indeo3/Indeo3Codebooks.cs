@@ -38,12 +38,16 @@ internal sealed class Indeo3Codebooks {
 	/// </summary>
 	internal static Indeo3Codebooks Shared { get; } = Build(Indeo3SeedData.SeedArea);
 
-	private Indeo3Codebooks(uint[] words, Indeo3SeedBlock[] blocks) {
+	private Indeo3Codebooks(uint[] words, Indeo3SeedBlock[] blocks, short[][] dyads, uint[][] wideDyads) {
 		_words = words;
 		Blocks = blocks;
+		_dyads = dyads;
+		_wideDyads = wideDyads;
 	}
 
 	private readonly uint[] _words;
+	private readonly short[][] _dyads;
+	private readonly uint[][] _wideDyads;
 
 	/// <summary>The parsed seed blocks, in image order. One per codebook block.</summary>
 	internal Indeo3SeedBlock[] Blocks { get; }
@@ -74,17 +78,26 @@ internal sealed class Indeo3Codebooks {
 			words[w] = (uint)(w * 4);
 		}
 
+		var dyads = new short[BlockCount][];
+		var wideDyads = new uint[BlockCount][];
+
 		for (int q = 0; q < blocks.Length && q < BlockCount; q++) {
 			Indeo3SeedBlock block = blocks[q];
 			int primary = q * BlockStrideWords;
 			int replicated = ReplicatedSetWords + (q * BlockStrideWords);
 
+			dyads[q] = new short[block.Count];
+			wideDyads[q] = new uint[block.Count];
+
 			for (int k = 0; k < block.Count; k++) {
+				dyads[q][k] = block.PairValue(seed, k);
+
 				uint seeded = SeededWord(block.PairValue(seed, k));
 				words[primary + k] = seeded;
 				words[primary + SubTableWords + k] = seeded;
 
 				uint repl = ReplicatedWord(block.Low(seed, k), block.High(seed, k));
+				wideDyads[q][k] = repl;
 				words[replicated + k] = repl;
 				words[replicated + SubTableWords + k] = repl ^ 0x8000_0000;
 			}
@@ -117,7 +130,12 @@ internal sealed class Indeo3Codebooks {
 			}
 		}
 
-		return new Indeo3Codebooks(words, blocks);
+		if (blocks.Length < BlockCount) {
+			throw new InvalidDataException(
+				$"Indeo 3 seed area holds {blocks.Length} blocks; the codec addresses {BlockCount}.");
+		}
+
+		return new Indeo3Codebooks(words, blocks, dyads, wideDyads);
 	}
 
 	/// <summary>
@@ -178,6 +196,27 @@ internal sealed class Indeo3Codebooks {
 
 		return _words[byteOffset / 4];
 	}
+
+	/// <summary>How many dyads block <paramref name="block"/> holds: mode bytes below this are dyad codes.</summary>
+	internal int DyadCount(int block) => _dyads[block].Length;
+
+	/// <summary>
+	/// The side of block <paramref name="block"/>'s quad square: a mode byte at or past
+	/// <see cref="DyadCount"/> names an ordered pair of the first this-many dyads.
+	/// </summary>
+	internal int QuadSide(int block) => Math.Abs(Blocks[block].Expand);
+
+	/// <summary>
+	/// Dyad <paramref name="index"/> of block <paramref name="block"/>: the deltas for two adjacent
+	/// pixels, as one 16-bit value added to both at once, first pixel in the low byte.
+	/// </summary>
+	internal short Dyad(int block, int index) => _dyads[block][index];
+
+	/// <summary>
+	/// The same dyad widened for the 8x8 modes, each delta doubled horizontally: bytes
+	/// <c>(a, a, b, b)</c>, the replicated set's entry.
+	/// </summary>
+	internal uint WideDyad(int block, int index) => _wideDyads[block][index];
 
 	/// <summary>Entry <paramref name="index"/> of block <paramref name="block"/>'s first sub-table.</summary>
 	internal uint Entry(int block, int index) {

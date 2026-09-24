@@ -1,4 +1,5 @@
 using HercWorks.Video.Avi;
+using HercWorks.Video.Codecs.Indeo3;
 using HercWorks.Video.Riff;
 
 namespace HercWorks.Video.Codecs;
@@ -65,9 +66,13 @@ public static class CodecRegistry {
 			return new MicrosoftRleDecoder(format);
 		}
 
-		// Indeo 3, MS Video 1 and Cinepak are not implemented. Returning null means a player reports
-		// the stream as unsupported rather than showing a frame this assembly guessed at; see
-		// docs/engine/handoff-indeo3.md and docs/engine/handoff-avi-codecs.md.
+		if (cc == Indeo3) {
+			return Indeo3Decoder.Create(format, limits);
+		}
+
+		// MS Video 1 and Cinepak are not implemented. Returning null means a player reports the
+		// stream as unsupported rather than showing a frame this assembly guessed at; see
+		// docs/engine/handoff-avi-codecs.md.
 		return null;
 	}
 }

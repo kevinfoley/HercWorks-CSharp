@@ -1,6 +1,6 @@
 # Handoff: MS Video 1 and Cinepak
 
-Scratchpad for the two `HercWorks.Video` codecs that are not written. MS-RLE and the container are done and documented in `docs/formats/avi-video.md`; Indeo 3 has its own handoff. Drain this into the format doc and delete it once both decode.
+Scratchpad for the two `HercWorks.Video` codecs that are not written. MS-RLE, Indeo 3 and the container are done and documented in `docs/formats/avi-video.md` and `docs/formats/indeo3.md`. Drain this into the format doc and delete it once both decode.
 
 Between them these cover 8 of the 93 files: 6 MS Video 1 and 2 Cinepak.
 

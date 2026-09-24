@@ -25,13 +25,13 @@ public sealed class Indeo3CodebookTests {
 		ReadOnlySpan<byte> seed = Indeo3SeedData.SeedArea;
 		Assert.Equal(5251, seed.Length);
 
-		string? dll = FindRetailDll();
+		string? dll = RetailFiles.Find(Path.Combine("INDEO", "IR32_32.DLL"));
 		if (dll is null) {
 			return;
 		}
 
 		byte[] image = File.ReadAllBytes(dll);
-		int fileOffset = VirtualToFileOffset(image, Indeo3SeedData.SeedAreaVirtualAddress);
+		int fileOffset = RetailFiles.VirtualToFileOffset(image, Indeo3SeedData.SeedAreaVirtualAddress);
 
 		Assert.True(
 			image.AsSpan(fileOffset, seed.Length).SequenceEqual(seed),
@@ -206,48 +206,5 @@ public sealed class Indeo3CodebookTests {
 
 		// Nothing at all.
 		Assert.Throws<InvalidDataException>(() => Indeo3Codebooks.ParseSeedArea(ReadOnlySpan<byte>.Empty));
-	}
-
-	/// <summary>Walks up from this assembly to find the retail tree, if it is there.</summary>
-	private static string? FindRetailDll() {
-		DirectoryInfo? at = new(AppContext.BaseDirectory);
-		while (at is not null) {
-			string candidate = Path.Combine(at.FullName, "ES2", "INDEO", "IR32_32.DLL");
-			if (File.Exists(candidate)) {
-				return candidate;
-			}
-
-			at = at.Parent;
-		}
-
-		return null;
-	}
-
-	/// <summary>
-	/// Maps a virtual address in a PE image to its offset in the file on disk, by finding the
-	/// section that contains it.
-	/// </summary>
-	private static int VirtualToFileOffset(ReadOnlySpan<byte> image, uint virtualAddress) {
-		int peHeader = BitConverter.ToInt32(image[0x3c..0x40]);
-		Assert.Equal((byte)'P', image[peHeader]);
-
-		int sectionCount = BitConverter.ToUInt16(image[(peHeader + 6)..]);
-		int optionalHeaderSize = BitConverter.ToUInt16(image[(peHeader + 20)..]);
-		uint imageBase = BitConverter.ToUInt32(image[(peHeader + 24 + 28)..]);
-		uint rva = virtualAddress - imageBase;
-
-		int at = peHeader + 24 + optionalHeaderSize;
-		for (int i = 0; i < sectionCount; i++, at += 40) {
-			uint virtualSize = BitConverter.ToUInt32(image[(at + 8)..]);
-			uint sectionRva = BitConverter.ToUInt32(image[(at + 12)..]);
-			uint rawSize = BitConverter.ToUInt32(image[(at + 16)..]);
-			uint rawOffset = BitConverter.ToUInt32(image[(at + 20)..]);
-
-			if (rva >= sectionRva && rva < sectionRva + Math.Max(virtualSize, rawSize)) {
-				return (int)(rawOffset + (rva - sectionRva));
-			}
-		}
-
-		throw new InvalidDataException($"No section of the image contains {virtualAddress:x8}.");
 	}
 }

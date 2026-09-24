@@ -11,6 +11,17 @@
             "statusMessage": "Checking for oversized file reads"
           }
         ]
+      },
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PROJECT_DIR:-.}/tools/scripts/truncated_enumeration_guard.py\"",
+            "timeout": 10,
+            "statusMessage": "Checking for truncated searches"
+          }
+        ]
       }
     ],
     "PostToolUse": [

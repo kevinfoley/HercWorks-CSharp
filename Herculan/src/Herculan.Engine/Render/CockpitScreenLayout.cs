@@ -34,7 +34,8 @@ namespace Herculan.Engine.Render;
 /// </summary>
 public sealed class CockpitScreenLayout {
 	private CockpitScreenLayout(int windowWidth, int windowHeight, int panPixels,
-			PlacedSurface left, PlacedSurface center, PlacedSurface right, PlacedSurface? headsDown) {
+			PlacedSurface left, PlacedSurface center, PlacedSurface right, PlacedSurface? headsDown,
+			Viewport world) {
 		WindowWidth = windowWidth;
 		WindowHeight = windowHeight;
 		PanPixels = panPixels;
@@ -42,6 +43,7 @@ public sealed class CockpitScreenLayout {
 		Center = center;
 		Right = right;
 		HeadsDown = headsDown;
+		World = world;
 	}
 
 	/// <summary>Window width in pixels this layout was computed for.</summary>
@@ -71,6 +73,20 @@ public sealed class CockpitScreenLayout {
 	/// screen until the pan brings it up.
 	/// </summary>
 	public PlacedSurface? HeadsDown { get; }
+
+	/// <summary>
+	/// The one viewport the 3D scene behind all three panels is drawn into: their combined span, cut
+	/// to the window's width, riding the pan with them. Its height is the panels' own, so the
+	/// camera's vertical field of view — fixed by the focal length over the view's rows — is the same
+	/// as it would be over any one panel.
+	///
+	/// <para>One viewport because retail's three views are one image plane. A glance keeps the
+	/// forward view's camera and focal length, and its projection centre lands off the panel's inner
+	/// edge at the forward view's reticle — see docs/formats/cockpit-views.md, "The side glances are
+	/// one image plane". Cutting to the window is what keeps the side views from costing anything past
+	/// the pixels actually shown.</para>
+	/// </summary>
+	public Viewport World { get; }
 
 	/// <summary>
 	/// The panel a <see cref="CockpitSurface"/> names, or null when this cockpit has no such panel.
@@ -130,13 +146,18 @@ public sealed class CockpitScreenLayout {
 		int centerX = leftX + sideWidth;
 		int rightX = centerX + centerWidth;
 
+		int worldX0 = Math.Max(leftX, 0);
+		int worldX1 = Math.Min(rightX + sideWidth, windowWidth);
+		var world = new Viewport(worldX0, panPixels, Math.Max(worldX1 - worldX0, 1), windowHeight);
+
 		return new CockpitScreenLayout(windowWidth, windowHeight, panPixels,
 			left: Place(new Viewport(leftX, panPixels, sideWidth, windowHeight), side, windowHeight),
 			center: Place(new Viewport(centerX, panPixels, centerWidth, windowHeight), front, windowHeight),
 			right: Place(new Viewport(rightX, panPixels, sideWidth, windowHeight), side, windowHeight),
 			headsDown: headsDown is null
 				? null
-				: Place(new Viewport(0, -headsDownTopPixels, windowWidth, windowHeight), headsDown, windowHeight));
+				: Place(new Viewport(0, -headsDownTopPixels, windowWidth, windowHeight), headsDown, windowHeight),
+			world: world);
 	}
 
 	/// <summary>

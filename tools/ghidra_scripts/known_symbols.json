@@ -2577,7 +2577,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Math_RandomSeed",
-      "description": "Seeds one Math_RandomNext state block: the cursors at +0x70/+0x71 to the literals 0x18 and 0x37, then a memmove of 112 bytes (56 int16) from the static table at 004a6958. The two functions it calls either side, 00492e3c and 00492e41, are both empty stubs -- no clock and no entropy reaches the generator. Called for both 0x4d261d and 0x4d268f from FUN_0045cad8.",
+      "description": "Seeds one Math_RandomNext state block: the cursors at +0x70/+0x71 to the literals 0x18 and 0x37, then a memmove of 112 bytes (56 int16) from the static table at 004a6958. The two functions it calls either side, 00492e3c and 00492e41, are both empty stubs -- no clock and no entropy reaches the generator. Called for both 0x4d261d and 0x4d268f from Main_StaticInit (0045cad8).",
       "source": "docs/simulation/random-generator.md"
     },
     {
@@ -3640,7 +3640,7 @@
       "type": "function",
       "confidence": "high",
       "name": "SystemButtons_Ctor",
-      "description": "Registers the first two entries of the cockpit's clickable list, ahead of every gauge. Lazily loads the `sysbuttn` sprite bank into DAT_0049b63c (folder by VideoMode_UseHiResPanels == 3), then builds two SystemGadgets from hardcoded coordinates rather than from the .GAU: 12x11 GAU units each at x 305-317 and x 291-303, y 2-13, so they sit in the forward view's top-right corner. Stored at cockpit+0x246 and +0x24a with the count 2 at +0x25a. Child 0 raises the on-line manual, child 1 toggles fullscreen -- see SystemButtons_OnChildClick.",
+      "description": "Registers the first two entries of the cockpit's clickable list, ahead of every gauge. Lazily loads the `sysbuttn` sprite bank into DAT_0049b63c (folder by VideoMode_PanelMode == 3), then builds two SystemGadgets from hardcoded coordinates rather than from the .GAU: 12x11 GAU units each at x 305-317 and x 291-303, y 2-13, so they sit in the forward view's top-right corner. Stored at cockpit+0x246 and +0x24a with the count 2 at +0x25a. Child 0 raises the on-line manual, child 1 toggles fullscreen -- see SystemButtons_OnChildClick.",
       "source": "docs/formats/cockpit-input.md",
       "signature": "void __cdecl SystemButtons_Ctor(int *cockpit)"
     },
@@ -3650,7 +3650,7 @@
       "type": "function",
       "confidence": "high",
       "name": "HddMarker_Ctor",
-      "description": "One of the command display map's 140 marker gadgets. Lazily loads the `icons` sprite bank into DAT_0049d6b4, folder selected by VideoMode_UseHiResPanels == 3.",
+      "description": "One of the command display map's 140 marker gadgets. Lazily loads the `icons` sprite bank into DAT_0049d6b4, folder selected by VideoMode_PanelMode == 3.",
       "source": "docs/formats/heads-down-display.md"
     },
     {
@@ -3785,7 +3785,7 @@
       "type": "function",
       "confidence": "high",
       "name": "CockpitCanopy_LoadViewBitmap",
-      "description": "MECHVIEW.CPP:0x12e. THE previously-unlocated .HB0/.HB1/.HB2 (.DB0/.DB1/.DB2) load site. No literal 'hb0' string exists because the folder name is built at runtime: it copies the global folder literal 'dba' (or 'hba' when VideoMode_UseHiResPanels==3) into a stack buffer and overwrites index 2 with an ASCII digit via _itoa, giving db0/db1/db2 or hb0/hb1/hb2, then ResourcePath_BuildFolderName(hercName, buf) + ClassItem_LoadResource. View->file map: fileIdx = viewIdx>2 ? viewIdx-1 : viewIdx, so views 0,1,2,3 -> files 0,1,2,2 and view 4 loads nothing; after loading file 2 the same handle is also stored in slot 3, i.e. views 2 and 3 share one bitmap (view 3 is drawn horizontally mirrored, see CockpitView_SetView). Result handles land in CockpitViewManager+8[viewIdx]. The CockpitLayoutMode==1 branch increments byte 2 of the SHARED global 'dba' literal (MOV ECX,[0x4a0a28]; INC byte ptr [ECX+2]) rather than the local buffer -- verified in raw disassembly at 00429d3e; the follow-on load still uses the unmodified local buffer, so that branch loads db0 twice and corrupts the global folder name. Treat CockpitLayoutMode==1 as an unused/buggy path.",
+      "description": "MECHVIEW.CPP:0x12e. THE previously-unlocated .HB0/.HB1/.HB2 (.DB0/.DB1/.DB2) load site. No literal 'hb0' string exists because the folder name is built at runtime: it copies the global folder literal 'dba' (or 'hba' when VideoMode_PanelMode==3) into a stack buffer and overwrites index 2 with an ASCII digit via _itoa, giving db0/db1/db2 or hb0/hb1/hb2, then ResourcePath_BuildFolderName(hercName, buf) + ClassItem_LoadResource. View->file map: fileIdx = viewIdx>2 ? viewIdx-1 : viewIdx, so views 0,1,2,3 -> files 0,1,2,2 and view 4 loads nothing; after loading file 2 the same handle is also stored in slot 3, i.e. views 2 and 3 share one bitmap (view 3 is drawn horizontally mirrored, see CockpitView_SetView). Result handles land in CockpitViewManager+8[viewIdx]. The CockpitLayoutMode==1 branch increments byte 2 of the SHARED global 'dba' literal (MOV ECX,[0x4a0a28]; INC byte ptr [ECX+2]) rather than the local buffer -- verified in raw disassembly at 00429d3e; the follow-on load still uses the unmodified local buffer, so that branch loads db0 twice and corrupts the global folder name. Treat CockpitLayoutMode==1 as an unused/buggy path.",
       "source": "cockpit rendering RE session 2026-08-17"
     },
     {
@@ -3830,7 +3830,7 @@
       "type": "function",
       "confidence": "high",
       "name": "CockpitView_ProcessViewCommand",
-      "description": "Executes the pending view command. Command 4 selects view 2 and adds -0x3600 to the pilot view yaw; command 5 selects view 3 and adds +0x3600; command 6 returns to view 0 and undoes the yaw. 0x3600/0x10000 of a turn = ~76 degrees, i.e. views 2 and 3 are the two 'glance sideways' views. Command 2 selects view 4 (external).",
+      "description": "Executes the pending view command. Command 4 selects glance view 2, command 5 glance view 3, command 6 returns to view 0, command 2 selects view 4 (external). The -/+0x3600 yaw adds on 4/5/6 are gated on VideoMode_PanelMode == 1, which no retail mode stores, so a glance never turns the camera: it is the forward view's image plane continued sideways (docs/formats/cockpit-views.md).",
       "source": "cockpit rendering RE session 2026-08-17"
     },
     {
@@ -3938,7 +3938,7 @@
       "type": "function",
       "confidence": "high",
       "name": "VideoMode_Configure",
-      "description": "Sets the whole video-mode global block from a mode byte read out of the prefs file. Mode 0: VideoMode_UseHiResPanels=0, UseHiResBanks=0, viewport 320x240, canvas 320x480, coord shifts 0. Mode 1: UseHiResPanels=3, UseHiResBanks=0, viewport 640x480, canvas 640x960, shifts 1. Mode 2: as mode 1 but UseHiResBanks=1. So UseHiResPanels==3 selects .HFN/.HBA/.HB<n> art while UseHiResBanks separately selects the hi-res HUD sprite banks -- which is why the two idioms documented in cockpit-views.md differ. All three branches also set DAT_004d25ea to 1, so the hardware-scroll display path is always the live one. None of them writes maybe_CockpitLayoutMode (004d25bc), which no code in the image can write at all.",
+      "description": "Sets the whole video-mode global block from a mode byte read out of the prefs file. Mode 0: VideoMode_PanelMode=0, UseHiResBanks=0, viewport 320x240, canvas 320x480, coord shifts 0. Mode 1: UseHiResPanels=3, UseHiResBanks=0, viewport 640x480, canvas 640x960, shifts 1. Mode 2: as mode 1 but UseHiResBanks=1. So UseHiResPanels==3 selects .HFN/.HBA/.HB<n> art while UseHiResBanks separately selects the hi-res HUD sprite banks -- which is why the two idioms documented in cockpit-views.md differ. All three branches also set DAT_004d25ea to 1, the hardware-scroll display path; Sim_ParseCommandLine runs later and its -b case clears it, so the software-scroll path is reachable from the command line. None of them writes maybe_CockpitLayoutMode (004d25bc), which no code in the image can write at all.",
       "source": "cockpit rendering RE session 2026-08-17"
     },
     {
@@ -3946,8 +3946,8 @@
       "binary": "DBSIM",
       "type": "data",
       "confidence": "high",
-      "name": "VideoMode_UseHiResPanels",
-      "description": "0 or 3. When 3 the engine loads the 640-wide art set: .HFN fonts, hba\\\\ sprite banks, and the hb0/hb1/hb2 canopy folders (via CockpitCanopy_LoadViewBitmap) plus the hd0-hd3 clip files. Set by VideoMode_Configure.",
+      "name": "VideoMode_PanelMode",
+      "description": "Three-valued panel/display mode selector at +0x7b of the 0xc3-byte video-mode block at 004d2540. Retail stores only 0 (Main_StaticInit, and VideoMode_Configure mode 0) and 3 (VideoMode_Configure modes 1 and 2+). 3 selects the 640-wide art set: .HFN fonts, hba\\ sprite banks, the hb0/hb1/hb2 canopy folders (via CockpitCanopy_LoadViewBitmap) and the hd0-hd3 clip files. 1 is a scrapped display mode that nothing stores but 17 sites test for: glances turn the camera -/+0x3600 (CockpitView_ProcessViewCommand), Sim_EndFrame switches to an off-screen render target at block+0xac around the view transition, and the transition copies the whole 320x480 canvas. See docs/formats/cockpit-views.md, 'Panel mode 1'.",
       "source": "cockpit rendering RE session 2026-08-17"
     },
     {
@@ -3956,8 +3956,26 @@
       "type": "data",
       "confidence": "high",
       "name": "maybe_CockpitLayoutMode",
-      "description": "Alternate cockpit layout selector, and DEAD: it is BSS, so zero from load, and nothing in the image can write it. All 23 occurrences of the dword 004d25bc in the file are the MOVSX byte reads themselves, and no address in the surrounding block 004d2580-004d2602 is ever address-taken -- every raw occurrence of every one of them is an absolute [mem] operand -- so no register can hold a pointer into the block and no base+displacement store, memset, memcpy or fread can reach it either. Control: 004d25bb (VideoMode_UseHiResPanels), one byte away in the same block and written by VideoMode_Configure, is found by the same method. Both branches the readers test for are therefore unreachable. Value 1 would make view 0 also blit the view-1 (heads-down) bitmap at y+0xc5 and disable view 1 as a standalone view, and it is defective besides -- its second load reuses the unmodified local folder buffer and corrupts the global 'dba' literal. Value 2 would route blits through Bitmap_BlitClipped and put the view origin in DAT_004d25da/de instead of DAT_004cfa24/28; because it cannot, DAT_004d25da/de are never written and the offset Widget_OnMouseDown and Widget_OnMouseUp add from them is always zero. Value 2 routes blits through the windowed variant (Bitmap_BlitClipped) and moves the view origin into DAT_004d25da/de. Never observed written anywhere in the image.",
+      "description": "Alternate cockpit layout selector at +0x7c of the video-mode block at 004d2540, and always zero: its only write is Main_StaticInit's (memset, then a 0 store through EBX). All 23 absolute occurrences of 004d25bc are MOVSX reads, and over the 18 functions that hold the block base (in a register or as a pushed argument) es2_fieldscan finds only one other access to +0x7c, a read in Sim_InitMissionSession. Both branches the readers test for are therefore unreachable. Value 1 would make view 0 also blit the view-1 (heads-down) bitmap at y+0xc5 and disable view 1 as a standalone view, and it is defective besides -- its second load reuses the unmodified local folder buffer and corrupts the global 'dba' literal. Value 2 would route blits through Bitmap_BlitClipped and put the view origin in DAT_004d25da/de instead of DAT_004cfa24/28; the only stores to DAT_004d25da/de (CockpitView_SetView, 0042a1d8/0042a1e1) are on that path, so the offset Widget_OnMouseDown and Widget_OnMouseUp add from them is always zero.",
       "source": "cockpit rendering RE session 2026-08-17"
+    },
+    {
+      "address": "0045cad8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Main_StaticInit",
+      "description": "MAIN.CPP's C++ static initialiser: the priority-0x20 entry at 004a7b70 in Borland's _INIT_ table (00 20 d8 ca 45 00), with no direct caller. Loads the video-mode/sim-globals block base 004d2540 into EBX, constructs the member object at 004d2603 (FUN_00481460), memsets the 0xc3-byte block to zero and fills its defaults through EBX: among them VideoMode_PanelMode (+0x7b) and maybe_CockpitLayoutMode (+0x7c) = 0, the 320-wide mode-0 geometry, DAT_004d25ea (+0xaa, the hardware-scroll switch) = 1, PilotingRazor = 0 and ControlsOptionBase = 0xd. Ends by seeding the two Math_RandomNext state blocks at 004d261d and 004d268f. The only write of +0x7c anywhere, and the only writer of +0x7b besides VideoMode_Configure.",
+      "source": "docs/formats/cockpit-views.md"
+    },
+    {
+      "address": "004d254b",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "CmdLineSwitch_S",
+      "description": "Byte +0x0b of the 004d2540 block. Zeroed by Main_StaticInit; set to 1 by Sim_ParseCommandLine's -S case (0045e886) for any -S argument other than exactly -SPRUNKNOWN, which instead toggles DAT_0049ef60. Its only reader is Sim_InitMissionSession (004619c3/004619e8, through EDI = block base), which picks a page count from it -- 1/0 under VideoMode_PanelMode 1, 2/0 on the software-scroll path, 0 otherwise -- and stores it to stack slots [EBP-0xa4]/[EBP-0xa0] that no instruction in the function reads back. So in the shipped build the switch has no effect. Scan: every one of the 18 functions that holds the block base, via es2_fieldscan +0xb.",
+      "source": "docs/formats/cockpit-views.md"
     },
     {
       "address": "004d25d2",

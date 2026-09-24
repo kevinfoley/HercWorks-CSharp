@@ -59,7 +59,7 @@ Four views, indexed 0-3, plus 4 = external/no-cockpit.
 
 Views 2 and 3 share one bitmap handle: `CockpitCanopy_LoadViewBitmap` maps view to file index as `view > 2 ? view - 1 : view`, and after loading file 2 stores the same handle in slot 3. View 3 is drawn horizontally mirrored. There is no separate mirrored asset.
 
-`CockpitView_ProcessViewCommand` (`0042a4c4`) applies ∓`0x3600` (~76°) to the pilot view yaw when entering views 2/3 and undoes it on return to view 0.
+**A glance does not turn the camera.** It keeps the forward view's orientation and focal length, and shows the image plane continued sideways — see [The side glances are one image plane](#the-side-glances-are-one-image-plane).
 
 ### View switching
 
@@ -99,8 +99,11 @@ travel = vue[dest].canvasOriginY - vue[src].canvasOriginY     -- 237, or 474 in 
 for (i = 0; i < travel; i += 10)
     displayOriginY += 10
     SetDisplayOrigin(page, {x, displayOriginY})               -- DAT_004a5800
+    FUN_00464910()                                            -- maybe_Screen_PresentFrame
 displayOriginY += travel - i                                  -- final remainder step
 ```
+
+The present after each step is what puts the intermediate positions on screen. It is on the hardware-scroll path only: under `-b` (see [Video modes](#video-modes)) the loop still moves the origin, but no step is presented before the frame ends.
 
 Step is 10 canvas rows; `maybe_CockpitLayoutMode == 2` doubles it and forces travel to `0x1e0`. The side-glance commands (4/5/6) use step `0x14` and scroll on x instead.
 
@@ -124,7 +127,7 @@ C# port: `HercWorks.Core.Data.File.Dbsim.Vue.Entry` (fields renamed to match the
 
 The rect is the **outer bound** on where the 3D scene may reach, and the `.HD<n>` scanline spans below are the canopy-shaped hole inside it: two mechanisms over one view, both applied. `Content.CockpitViewGeometry.WorldViewport` reads it, and the host draws each panel's whole 3D pass — sky, world, beams, sprites — under a GL scissor set from it, before the canopy quad goes over the top with the spans already punched into its alpha. The two agree on retail data (`APOCA.HD0` resolves to rows 0-371 against a rect of `0,0 - 640,372`), so the scissor changes nothing that is visible on a herc whose canopy is opaque outside its rect — which is what makes the spans sufficient on their own and the rect easy to miss.
 
-Each of the three panels the engine shows at once carries its own view's rect: the forward panel view 0, the unmirrored side panel view 2, and the mirrored side panel view 3, whose rect is reflected about the view width exactly as its art is. The two glances share a canopy bitmap but not a rect — view 3's runs the full width where view 2's stops short of it, on every retail herc — so pairing the mirrored panel with view 2's rect would clip a band off its outer edge that retail does not.
+Each of the three panels the engine shows at once carries its own view's rect: the forward panel view 0, the unmirrored side panel view 2, and the mirrored side panel view 3, whose rect is reflected about the view width exactly as its art is. All three passes render one camera into one viewport spanning the panels, and the rects are the scissors that divide it. The two glances share a canopy bitmap but not a rect — view 3's runs the full width where view 2's stops short of it, on every retail herc — so pairing the mirrored panel with view 2's rect would clip a band off its outer edge that retail does not.
 
 Every retail `.VUE` gives view 1 the canvas origin `(0,237)` — no herc differs.
 
@@ -143,13 +146,18 @@ View 1's zero-size rect is why the heads-down view shows no 3D. **RAZOR is the s
 
 Fields 4-5 are where the view axis lands on screen, and `FUN_0048c5c4` is the projection's last step: `screenX = x + centreX`, `screenY = centreY - y`. Anything running straight away from the eye — a beam leaves its muzzle parallel to the view axis — vanishes at that point, and it is where the gunsight reticle is drawn. **It is not the centre of the viewport rect, and not the centre of the view window.** APOCA's is 95 rows down a 240-row view, 45 above the window's middle.
 
-The value reaches the projection through three steps, all of which cancel to a plain negation:
+The value reaches the projection in two steps:
 
 1. `CockpitView_ApplyViewState` (`00429e60`) copies the record's first six ints into the render context at `+0x210..+0x224`, then adds the view's canvas origin into the last pair.
-2. `FUN_0048c1d8` computes `centre = viewportTopLeft - thatPair`.
-3. Every retail viewport rect starts at `(0,0)`, and the side glances' canvas origins of ±320 cancel against their own window origins.
+2. `Raster_InstallViewProjection` (`0048c1d8`) computes `centre = rectTopLeft - thatPair`, where the rect is the one at `+0x210` — the `.VUE` rect, in the view's own window coordinates.
 
-So the centre relative to a view's own window is `(-cx, -cy)` authored — `(160, 95)` for APOCA. Retail `cy` runs 95 (APOCA, RAPTOR2) to 146 (RAZOR); `cx` is 160 for every herc and every view. All = four views of a herc carry the same pair.
+Every retail rect starts at `(0,0)`, so the centre in a view's own window is `-(c + canvasOrigin)`. For the forward and heads-down views the origin's x is 0 and this is `(-cx, -cy)` authored — `(160, 95)` for APOCA. Retail `cy` runs 95 (APOCA, RAPTOR2) to 146 (RAZOR); `cx` is 160 for every herc and every view, and all four views of a herc carry the same pair.
+
+### The side glances are one image plane
+
+For the glances the canvas origin does not cancel. View 2, origin `+320`, gets its centre at x = `160 - 320 = -160` authored — 160 columns left of its own window, which is exactly where the forward view's centre sits when the forward window is placed immediately left of it on the canvas. View 3, origin `-320`, gets `160 + 320 = 480`, the same point seen from the other side. With the same focal length and no change of orientation (the yaw turn in `CockpitView_ProcessViewCommand` does not run; see [Rejected readings](#rejected-readings)), the forward view and both glances are three windows onto **one** perspective image 960 columns wide authored: the glances are the forward view's image plane continued sideways, not cameras turned to face sideways. That is why the retail side views stretch towards their outer edges the way a very wide lens does.
+
+Herculan draws all three panels at once, so it renders them as that one image: `Render.CockpitScreenLayout.World` is a single viewport spanning the three panels, cut to the window, and the host draws it with one camera whose principal point is the forward view's centre.
 
 `FUN_0048c1d8` also installs, from the same view struct: `+0x1a` the perspective shift (`(width << shift) / z` is the whole of the divide), `+0x1e` the near plane, `+0x22` the orthographic divisor. `2^shift` is the focal length in pixels, which fixes the field of view against the view's row count. `Sim_InitMissionSession` (`004614fc`) picks the shift as 9 when the mode's canvas width (`DAT_004d30c4`) reaches 1201 and 8 otherwise, and passes it as the third argument of `View_Ctor` (`0048bc98`), which stores it at `+0x1a`. The constructor's other fields: render target `+0x16`, near plane `+0x1e`, and through `View_CtorBase` (`0048bb64`) the position `int[3]` at `+4` and three `short` angles at `+0x10`. Both work out to the same angle — 256 px across a 240-row view, 512 across a 480-row one, 50.2 degrees vertical. Engine: `Render.Camera.FocalLengthPixels`.
 
@@ -205,7 +213,7 @@ Every rect in every retail file has `x0 == 0`. This matters because DBSIM's flat
 
 `VideoMode_Configure` (`0045e4f4`) sets the whole block from a mode argument.
 
-| Mode | `VideoMode_UseHiResPanels` (`004d25bb`) | `VideoMode_UseHiResBanks` (`004d25f0`) | Viewport | Canvas | Coord shifts |
+| Mode | `VideoMode_PanelMode` (`004d25bb`) | `VideoMode_UseHiResBanks` (`004d25f0`) | Viewport | Canvas | Coord shifts |
 |---|---|---|---|---|---|
 | 0 | 0 | 0 | 320x240 | 320x480 | 0 |
 | 1 | 3 | 0 | 640x480 | 640x960 | 1 |
@@ -213,10 +221,43 @@ Every rect in every retail file has `x0 == 0`. This matters because DBSIM's flat
 
 **The argument is the player's only on the command line.** The first call — `WinMain`'s, passing 0 — discards what it was given and reads `data\prefs.cfg` instead, taking option 4 and mapping it to **0 for a stored 1 and 3 for anything else**, so the file reaches mode 0 or the last row and never the middle one. That first call also latches a once-only gate, so the later `-v<n>` call keeps its own argument, and `-v1` is the only way to the low-res banks at 640x480. See [`../simulation/preferences.md`](../simulation/preferences.md#the-video-mode-and-full-screen-bytes).
 
-`UseHiResPanels == 3` selects `.HFN` fonts, `hba\` sprite banks, `hb<n>` canopy art and `hd<n>` clip files. `UseHiResBanks` separately selects hi-res banks for `hudhtick`, `mfd`, `radar`, `hdd`, `pweapons`, `wpn_dmg`, `weapons`, `pdg`, `bases`, `vehicles`, `flyers` and the alert banks — which is why two different flag idioms appear at the bank load sites.
+Both mode flags are fields of one `0xc3`-byte global block at `004d2540`, which `MAIN.CPP`'s static initializer, `Main_StaticInit` (`0045cad8`), zeroes with `memset` and then fills through `EBX`. Borland's `_INIT_` table reaches it at `004a7b70`, a priority-`0x20` entry like every other source file's; it has no direct caller. Its first dword is the main render target. Eighteen functions hold the block's base, in a register or as a pushed argument, and reach its fields by displacement, so a field of this block is never settled by a search for its absolute address.
 
-**`maybe_CockpitLayoutMode` (`004d25bc`) cannot be written.** It is BSS, so zero from load. All 23 occurrences of the dword in the file are the `MOVSX` byte reads themselves, and no address in the surrounding block `004d2580`-`004d2602` is ever address-taken — for every one of them the raw dword count equals the count of absolute `[mem]` operands — so no register can hold a pointer into the block and no base-plus-displacement store, `memset`, `memcpy` or `fread` can reach it either. The control for that method is `004d25bb` (`VideoMode_UseHiResPanels`), one byte away in the same block, which `VideoMode_Configure` does write and the method does find. Both tested values are therefore unreachable: value 1 is the defective path described in [`cockpit-canopy-palette.md`](cockpit-canopy-palette.md#known-defect-in-the-retail-code), and value 2 would route blits through `Bitmap_BlitClipped` and put the view origin in `DAT_004d25da`/`de` rather than `DAT_004cfa24`/`28`. **So `DAT_004d25da`/`de` are never written**, and the offset `Widget_OnMouseDown` and `Widget_OnMouseUp` add from them ([`cockpit-input.md`](cockpit-input.md#10-the-screen-edges-are-three-widgets)) is always zero.
+**`-b` selects the software-scroll path.** Block `+0xaa` (`DAT_004d25ea`) chooses between the two display paths. `Main_StaticInit` and every branch of `VideoMode_Configure` set it to 1, the hardware-scroll path. `Sim_ParseCommandLine` runs after `WinMain`'s `VideoMode_Configure` and `-v` pre-parse, and its `-b` case sets it to 0, so the `DAT_004d25ea == 0` branches below are reachable from the command line.
+
+**`-S` does nothing.** Any `-S` argument other than exactly `-SPRUNKNOWN`, which toggles `DAT_0049ef60` instead, sets `CmdLineSwitch_S` (`004d254b`, block `+0x0b`) to 1. Its only reader is `Sim_InitMissionSession`, which uses it to pick a page count: 1 or 0 under [panel mode 1](#panel-mode-1), 2 or 0 on the software-scroll path, and 0 otherwise. It stores the result to the stack slots `[EBP-0xa4]`/`[EBP-0xa0]`, and no instruction in the function reads them back. The only address-taken local nearby is `View_Ctor`'s 6-byte angle triple at `[EBP-0xb8]`, which does not reach them.
+
+`VideoMode_PanelMode` is a three-valued selector, not a flag. Retail stores only 0 and 3: `Main_StaticInit` writes 0, and `VideoMode_Configure`'s three branches write 0, 3 and 3 (modes 0, 1 and 2+). `PanelMode == 3` selects `.HFN` fonts, `hba\` sprite banks, `hb<n>` canopy art and `hd<n>` clip files. Value 1 is a display mode the shipped game cannot enter; see [Panel mode 1](#panel-mode-1). `UseHiResBanks` separately selects hi-res banks for `hudhtick`, `mfd`, `radar`, `hdd`, `pweapons`, `wpn_dmg`, `weapons`, `pdg`, `bases`, `vehicles`, `flyers` and the alert banks — which is why two different flag idioms appear at the bank load sites.
+
+**`maybe_CockpitLayoutMode` (`004d25bc`) is always zero.** It is byte `+0x7c` of the block, and its only write is `Main_StaticInit`'s store of 0. All 23 absolute occurrences of `004d25bc` are `MOVSX` reads. Over the eighteen functions that hold the block's base, `es2_fieldscan.py` finds one other access to `+0x7c`, a read in `Sim_InitMissionSession`, and finds `Main_StaticInit`'s store as its positive control. Both tested values are therefore unreachable: value 1 is the defective path described in [`cockpit-canopy-palette.md`](cockpit-canopy-palette.md#known-defect-in-the-retail-code), and value 2 would route blits through `Bitmap_BlitClipped` and put the view origin in `DAT_004d25da`/`de` rather than `DAT_004cfa24`/`28`. **So `DAT_004d25da`/`de` stay zero**: their only stores, in `CockpitView_SetView` at `0042a1d8`/`0042a1e1`, are on the value-2 path, and the offset `Widget_OnMouseDown` and `Widget_OnMouseUp` add from them ([`cockpit-input.md`](cockpit-input.md#10-the-screen-edges-are-three-widgets)) is always zero.
+
+### Panel mode 1
+
+The code tests `VideoMode_PanelMode` against 1 at 17 sites, 10 of them `!= 1`. Nothing stores 1: besides the four stores above, the only accesses to `+0x7b` through the block's base are reads, in `Sim_InitMissionSession` and in the three blit helpers `FUN_0045c8a0`, `FUN_0045c948` and `FUN_0045c9f4`, which compare it with 3.
+
+| Function | Sites | Under value 1 | Path |
+|---|---|---|---|
+| `CockpitView_ProcessViewCommand` (`0042a4c4`) | 4 | A glance adds ∓`0x3600` (~76°) to the view object's yaw on commands 4/5 and takes it back on 6 | Live; only the value keeps it off |
+| `CockpitView_ProcessViewCommand` | 1 | The last display page index is 1 instead of 2 | `DAT_004d25ea == 0` |
+| `Sim_EndFrame` (`0045fa98`) | 2 | Selects the render target at block `+0xac` (`DAT_004d25ec`) around the view transition, then the main one at block `+0` again | Live. Only `Main_StaticInit`'s `memset` writes `+0xac`, so the target is null in this build |
+| `Sim_InitMissionSession` (`004614fc`) | 1 | Picks the discarded page count from `CmdLineSwitch_S` as 1 or 0 | Live, with no effect |
+| `CockpitView_StepViewTransition` (`0042a9c0`) | 9 | Each copy rect is `0x140 x 0x1e0` (320x480, the whole mode-0 canvas) instead of `0x140 x 0xf0` (one view) | Every site is under `DAT_004d25ea == 0` or `maybe_CockpitLayoutMode == 2` |
+
+Taken together, value 1 keeps the cockpit canvas in its own off-screen surface with one display page fewer, and turns the camera for a glance instead of scrolling the canvas sideways. The retail modes do the opposite on both counts: the canvas is VRAM beyond the screen, and a glance is the forward image plane continued (see [The side glances are one image plane](#the-side-glances-are-one-image-plane)).
+
+## Rejected readings
+
+| Reading | Why it is wrong |
+|---|---|
+| A glance turns the pilot view ∓`0x3600` (~76°) to face sideways. | `CockpitView_ProcessViewCommand` (`0042a4c4`) does add ∓`0x3600` to the view object's yaw on commands 4/5 and undoes it on 6, and the decompile reads that way at a glance. Every one of those adds is gated on `VideoMode_PanelMode == 1`, which nothing stores; see [Panel mode 1](#panel-mode-1). A retail glance keeps the forward orientation. |
+| `VideoMode_PanelMode` is a flag for the hi-res art set. | It holds three distinct values. 3 selects the art set, and 17 sites test for a 1 that belongs to a scrapped display mode. |
+| Nothing can write a byte of the video-mode block through a pointer, because no address inside `004d2580`-`004d2602` appears as an immediate. | The block starts at `004d2540`, and that base does appear: `Main_StaticInit` loads it into `EBX` and writes `+0x7b` and `+0x7c` through it, and eighteen functions in all hold it. |
+| The glances' canvas origins cancel out of the projection centre, so each view is centred in its own window. | The subtraction in `Raster_InstallViewProjection` is against the `.VUE` rect's top-left, which is view-local and `(0,0)` for every view, not against the view's canvas origin. The origin stays in, and it moves the glance's centre off its own window to the forward view's reticle. |
 
 ## Open
 
 - **Unported:** RAZOR's view-1 3D viewport, the one non-stub `.HD1` (see [`.HD0`-`.HD3`](#hd0-hd3--ed0-ed3--3d-viewport-clip-regions)).
+- **Open:** what display [panel mode 1](#panel-mode-1) was for, and which viewport and canvas it ran at. `VideoMode_Configure` has no branch that sets it, so nothing records those. Values 0, 1 and 3 also fit a two-bit field where the high bit requires the low one, but no site tests a single bit.
+- **Open:** what the page count `CmdLineSwitch_S` selects was for. The pair `{0, count}` it is stored with has the shape of an argument block for a call that is no longer there; a switch that sets no back pages would fit, but nothing in the image says so.
+- **Open:** `DAT_0049ef60`, which `-SPRUNKNOWN` toggles.
+- **Open:** the rest of the `-b` software-scroll path. About twenty functions branch on `DAT_004d25ea`, and only the heads-down pan's present and `Sim_EndFrame`'s page swap are traced. The glance gate in `CockpitView_ProcessViewCommand` (by page index instead of window x), `PanelButton_Paint`, `Widget_DrawToCockpit`, `CockpitView_SetShakeBand`, the alert panels and the preferences and controls panels are not. It is untested against a retail run with `-b`.

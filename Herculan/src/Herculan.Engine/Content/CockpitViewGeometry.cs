@@ -111,12 +111,12 @@ public sealed class CockpitViewGeometry {
 	///
 	/// <para><b>The negation is the original's.</b> The file stores (-160, -95), and
 	/// <c>CockpitView_ApplyViewState</c> (<c>00429e60</c>) installs the pair at the render context's
-	/// <c>+0x220</c> with the view's canvas origin added, after which <c>FUN_0048c1d8</c>
-	/// (<c>0048c1d8</c>) computes the centre as <c>viewportTopLeft - that</c>. With every retail
-	/// viewport rect starting at (0,0), the whole chain collapses to negating the stored pair — and it
-	/// collapses the same way for the two side glances, whose canvas origins of ±320 cancel against
-	/// their own window origins. Each view's centre is therefore the same point in its own window, and
-	/// every retail file gives all four views the same pair anyway.</para>
+	/// <c>+0x220</c> with the view's canvas origin added, after which
+	/// <c>Raster_InstallViewProjection</c> (<c>0048c1d8</c>) computes the centre as
+	/// <c>rectTopLeft - that</c>. With every retail rect starting at (0,0), this returns the negated
+	/// pair — the centre in the forward and heads-down views' own windows. A side glance's centre also
+	/// carries its canvas origin, which puts it at the forward view's reticle rather than in its own
+	/// window; see docs/formats/cockpit-views.md, "The side glances are one image plane".</para>
 	/// </summary>
 	public (int X, int Y) ProjectionCenter(int viewIndex) =>
 		Entry(viewIndex) is { } e

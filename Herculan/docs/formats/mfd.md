@@ -225,7 +225,7 @@ Damage is the object's vtable `+0x40` as a Q8 fraction — `FUN_0040db2c` over e
 
 `BASES.DAT +0x28` is both the silhouette frame and the type-name index: into group 23's 31 structure names when `+0x32` is 0, and group 24's four vehicle names when it is not. Confirmed by construction — every structure type states 0-30 and every vehicle type 0-3.
 
-A bank the game ships only at 320-wide (`flyers` is the one here) is blitted doubled, guarded on `VideoMode_UseHiResPanels == 3 && VideoMode_UseHiResBanks == 0`.
+A bank the game ships only at 320-wide (`flyers` is the one here) is blitted doubled, guarded on `VideoMode_PanelMode == 3 && VideoMode_UseHiResBanks == 0`.
 
 #### Region tints
 

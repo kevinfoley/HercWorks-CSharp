@@ -321,9 +321,9 @@ public sealed class SceneRenderer : IDisposable {
 
 	/// <summary>
 	/// Clears the whole framebuffer once per frame. Split out from <see cref="Render"/> so a host can
-	/// draw several panels (Milestone 8's three-panel cockpit view) into disjoint viewport sub-rects
-	/// of the same frame without each call wiping the ones already drawn — call this once, then
-	/// <see cref="Render"/> once per panel.
+	/// draw several passes into one frame (the cockpit's three panels, each under its own scissor)
+	/// without each call wiping the ones already drawn — call this once, then <see cref="Render"/>
+	/// once per pass.
 	/// </summary>
 	public void Clear() {
 		_gl.ClearColor(SkyColor.X, SkyColor.Y, SkyColor.Z, 1f);
@@ -334,9 +334,8 @@ public sealed class SceneRenderer : IDisposable {
 	/// Draws one pass into the viewport sub-rect (<paramref name="viewportX"/>, <paramref
 	/// name="viewportY"/>, <paramref name="viewportWidth"/>, <paramref name="viewportHeight"/>) —
 	/// origin bottom-left in GL viewport convention, matching <c>GL.Viewport</c>'s own. Does not clear
-	/// — call <see cref="Clear"/> once per frame before the first panel. Setting `gl.Viewport` per call
-	/// is what keeps each panel's rasterization confined to its own sub-rect with no scissor-rect
-	/// bookkeeping needed.
+	/// — call <see cref="Clear"/> once per frame before the first pass. Honours whatever scissor the
+	/// caller has set, which is how passes sharing one viewport stay out of each other's pixels.
 	/// </summary>
 	public void Render(Camera camera, IEnumerable<SceneItem> items,
 			int viewportX, int viewportY, int viewportWidth, int viewportHeight) {

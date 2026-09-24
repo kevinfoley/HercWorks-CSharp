@@ -10,7 +10,7 @@ namespace Herculan.Engine.Content;
 /// <param name="Scale">
 /// How many cockpit pixels one of the sprite's own pixels covers - 1 for a bank that ships in
 /// <c>hba</c> and 2 for one that only ships in <c>dba</c>. DBSIM does the same doubling, guarded
-/// on <c>VideoMode_UseHiResPanels == 3 && VideoMode_UseHiResBanks == 0</c>, wherever it blits a
+/// on <c>VideoMode_PanelMode == 3 && VideoMode_UseHiResBanks == 0</c>, wherever it blits a
 /// bank whose hi-res half does not exist.
 /// </param>
 public readonly record struct HudSprite(AtlasRect Rect, int Width, int Height, int Scale = 1);

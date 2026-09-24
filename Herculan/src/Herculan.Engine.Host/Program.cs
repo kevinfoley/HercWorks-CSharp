@@ -2401,7 +2401,7 @@ PilotMessageLine? ComposePilotMessage(SquadCommChannel channel) {
 // own projection rather than the GL one: view-space offsets scaled by the focal length about the
 // herc's .VUE projection centre, which is what FUN_0043b950 does with Raster_ProjectToScreen. It
 // agrees with the GL projection because the camera's field of view is derived from the same focal
-// length and PanelPrincipalPoint installs the same centre, including the step kick.
+// length and CockpitPrincipalPoint installs the same centre, including the step kick.
 TargetIndicator? ResolveTargetIndicator(MechObject pilot,
 		(Vec3i Point, bool ComponentTargeted, short Component) aimPoint) {
 	if (scene.Targeting is not { IndicatorArmed: true, Selected: { } target }) {
@@ -2880,9 +2880,12 @@ void ApplyStatusAlertAnswer() {
 // quads butt together edge-to-edge with no seam or overlap regardless of how the front and side art's
 // proportions differ from each other. The resulting three-panel composite is anchored to the window's
 // horizontal center as one unit: a narrower window crops its outer edges symmetrically, a wider one
-// leaves equal empty margins, and no panel is ever stretched. See CockpitViewLayout for the separate
-// yaw-offset math that keeps the *3D scene* (as opposed to the cockpit art) tiling seamlessly across
-// whatever aspect ratio each panel ends up with.
+// leaves equal empty margins, and no panel is ever stretched.
+//
+// The 3D scene behind the three panels is one camera over one viewport, CockpitScreenLayout.World:
+// retail's glances are the forward view's image plane continued sideways, not turned cameras, so the
+// world runs straight across the panel seams at any pitch. Each panel's pass shares that camera and
+// viewport and differs only in the scissor it is drawn under.
 //
 // The whole composite also slides vertically with the Heads-Down Display pan. The original's cockpit
 // is a canvas twice the screen's height with the forward view's art at canvas row 0 and the HDD's at
@@ -2900,10 +2903,9 @@ void DrawThreePanelCockpitView(GL gl, int totalWidth, int totalHeight) {
 	var layout = CockpitScreenLayout.Create(totalWidth, totalHeight, cockpitArt!,
 		cockpitPan.OffsetRows, cockpitPan.TravelRows);
 
-	// Both side panels are the same width, so one offset serves them mirrored about the centre.
-	float centerAspect = (float)layout.Center.Viewport.Width / Math.Max(totalHeight, 1);
-	float sideAspect = (float)layout.Left.Viewport.Width / Math.Max(totalHeight, 1);
-	int sideYawOffset = CockpitViewLayout.SideYawOffset(camera.FieldOfView, centerAspect, sideAspect);
+	var world = layout.World;
+	var cockpitCamera = CloneCockpitCamera(camera);
+	cockpitCamera.PrincipalPoint = CockpitPrincipalPoint(layout.Center, world);
 
 	// First, so the six-row overlap where the two views' art meets on the canvas resolves the way the
 	// original's VRAM does. Sim_InitMissionSession (004614fc) blits view 1 and then view 0, so HB0's
@@ -2920,56 +2922,59 @@ void DrawThreePanelCockpitView(GL gl, int totalWidth, int totalHeight) {
 	// Each panel is one of DBSIM's views and carries that view's own .VUE 3D rect. The two glances
 	// share a canopy bitmap but not a rect — view 3's runs the full width of the view where view 2's
 	// stops short of it — so the mirrored panel takes view 3 rather than a mirrored copy of view 2.
-	DrawPanel(layout.Left, -sideYawOffset, cockpitSideTexture!, mirrorHorizontally: true, hud: null,
+	DrawPanel(layout.Left, cockpitSideTexture!, mirrorHorizontally: true, hud: null,
 		CockpitViewGeometry.MirroredGlanceViewIndex);
-	DrawPanel(layout.Center, 0, cockpitFrontTexture!, mirrorHorizontally: false, hud: cockpitArt,
+	DrawPanel(layout.Center, cockpitFrontTexture!, mirrorHorizontally: false, hud: cockpitArt,
 		CockpitViewGeometry.ForwardViewIndex);
-	DrawPanel(layout.Right, sideYawOffset, cockpitSideTexture!, mirrorHorizontally: false, hud: null,
+	DrawPanel(layout.Right, cockpitSideTexture!, mirrorHorizontally: false, hud: null,
 		CockpitViewGeometry.GlanceViewIndex);
 
-	void DrawPanel(CockpitScreenLayout.PlacedSurface surface, int yawOffset, GpuTexture texture,
+	void DrawPanel(CockpitScreenLayout.PlacedSurface surface, GpuTexture texture,
 			bool mirrorHorizontally, CockpitArt? hud, int viewIndex) {
-		var viewport = surface.Viewport;
-		var panelCamera = ClonePanelCamera(camera, yawOffset);
-		panelCamera.PrincipalPoint = PanelPrincipalPoint(surface);
-
 		// The view's .VUE 3D rect, as a scissor around the whole 3D pass — the outer bound DBSIM's
 		// rasterizer clips to, which the canopy's alpha cutout does not express on its own. See
 		// CockpitViewGeometry.WorldViewport. The sky is inside the scissor because it is part of the
 		// 3D view; the canopy below it must not be, so the test goes off again before the overlay.
-		bool scissored = ApplyWorldViewportScissor(gl, surface, viewIndex, mirrorHorizontally);
+		// The scissor is also what confines this pass to its own panel of the shared viewport.
+		ApplyWorldViewportScissor(gl, surface, viewIndex, mirrorHorizontally);
 
-		renderer!.Render(panelCamera, VisibleItems(),
-			viewport.X, viewport.Y, viewport.Width, viewport.Height);
+		renderer!.Render(cockpitCamera, VisibleItems(), world.X, world.Y, world.Width, world.Height);
 
-		DrawBeams(panelCamera, viewport.Width, viewport.Height);
-		DrawSprites(panelCamera, viewport.Width, viewport.Height);
+		DrawBeams(cockpitCamera, world.Width, world.Height);
+		DrawSprites(cockpitCamera, world.Width, world.Height);
 
 		// Before the canopy goes over it, so the skeleton is clipped by the viewport hole like the rest
 		// of the world. Mostly of use with the machine's own model hidden, but it costs one draw call.
-		DrawSkeleton(panelCamera, viewport.Width, viewport.Height);
+		DrawSkeleton(cockpitCamera, world.Width, world.Height);
 
-		if (scissored) {
-			gl.Disable(EnableCap.ScissorTest);
-		}
+		gl.Disable(EnableCap.ScissorTest);
 
+		var viewport = surface.Viewport;
 		overlay!.Draw(viewport.X, viewport.Y, viewport.Width, viewport.Height, texture,
 			surface.ArtWidth, surface.ArtHeight, mirrorHorizontally, hud,
 			spriteTexture: hudSpriteTexture, hudState: hudState, mapTexture: hddMapTexture);
 	}
 }
 
-// Confines the 3D pass for one panel to that view's .VUE viewport rect, and reports whether it did:
-// a caller that gets true turns the scissor test off again once it has finished drawing the world.
+// Confines the 3D pass for one panel to that view's .VUE viewport rect, or to the panel itself when
+// there is no rect to use. Either way the scissor is left on, and the caller turns it off once it has
+// finished drawing the world: every panel's pass renders the same shared viewport, so an unscissored
+// one would paint over its neighbours.
 //
-// Nothing is scissored when the herc ships no .VUE, or when the view declares a zero-size rect. The
+// The panel fallback covers a herc that ships no .VUE, and a view that declares a zero-size rect. The
 // zero case is not a degenerate rect to clamp away -- it is how every herc but RAZOR says its
 // heads-down view shows no world at all -- but no panel this draws is that view, so it cannot arise
-// here and falling through to "draw unclipped" is the safe reading for a hand-edited file.
-bool ApplyWorldViewportScissor(GL gl, CockpitScreenLayout.PlacedSurface surface, int viewIndex,
+// here and "the whole panel" is the safe reading for a hand-edited file.
+void ApplyWorldViewportScissor(GL gl, CockpitScreenLayout.PlacedSurface surface, int viewIndex,
 		bool mirrorHorizontally) {
+	gl.Enable(EnableCap.ScissorTest);
+
 	if (viewGeometry?.WorldViewport(viewIndex) is not { } rect) {
-		return false;
+		var viewport = surface.Viewport;
+		int panelX = Math.Max(viewport.X, 0);
+		gl.Scissor(panelX, viewport.Y,
+			(uint)Math.Max(viewport.X + viewport.Width - panelX, 0), (uint)viewport.Height);
+		return;
 	}
 
 	// Art pixels to window pixels, through the same fit the canopy quad is drawn with. The rect is
@@ -2981,27 +2986,26 @@ bool ApplyWorldViewportScissor(GL gl, CockpitScreenLayout.PlacedSurface surface,
 	var (windowX1, windowY1) = surface.ArtToWindow(right, rect.Y1);
 
 	// GL's scissor box is bottom-left origin in framebuffer pixels, where the window coordinates
-	// above are top-left origin -- the same flip PlacedSurface.ViewportTopInWindow undoes.
-	int x = (int)MathF.Floor(windowX0);
+	// above are top-left origin -- the same flip PlacedSurface.ViewportTopInWindow undoes. The
+	// left edge is clamped to the window because a side panel's art overhangs it on a narrow one.
+	int x = Math.Max((int)MathF.Floor(windowX0), 0);
 	int y = (int)MathF.Floor(surface.WindowHeight - windowY1);
 	int width = Math.Max((int)MathF.Ceiling(windowX1) - x, 0);
 	int height = Math.Max((int)MathF.Ceiling(surface.WindowHeight - windowY0) - y, 0);
 
-	gl.Enable(EnableCap.ScissorTest);
 	gl.Scissor(x, y, (uint)width, (uint)height);
-	return true;
 }
 
-// Where the view axis lands on one cockpit panel, as a fraction of that panel's viewport — the
-// herc's own .VUE projection centre, carried through the same art-to-window transform the canopy is
-// drawn with so it stays on the reticle through the heads-down pan.
+// Where the view axis lands in the cockpit's shared world viewport, as a fraction of it — the herc's
+// own .VUE projection centre on the forward panel, carried through the same art-to-window transform
+// the canopy is drawn with so it stays on the reticle through the heads-down pan.
 //
-// All three panels get the same point. The centre is stated per view and every retail file gives all
-// four views the same pair, so the horizon cannot step between panels; and since x is always the
-// middle of the view, only the vertical actually moves. Without a .VUE the fallback is APOCA's,
-// which is a guess — but a far better one than the middle of the window, which is wrong for every
-// herc in the game.
-Vector2 PanelPrincipalPoint(CockpitScreenLayout.PlacedSurface surface) {
+// Only the forward view's centre is used, and that is retail's arithmetic rather than a
+// simplification: a glance's centre is its own .VUE pair offset by its canvas origin, which puts it
+// at the forward view's reticle, off the glance's inner edge — see docs/formats/cockpit-views.md, "The
+// side glances are one image plane". Without a .VUE the fallback is APOCA's, which is a guess — but a
+// far better one than the middle of the window, which is wrong for every herc in the game.
+Vector2 CockpitPrincipalPoint(CockpitScreenLayout.PlacedSurface surface, CockpitScreenLayout.Viewport world) {
 	var (centerX, centerY) = viewGeometry?.ProjectionCenter(CockpitViewGeometry.ForwardViewIndex)
 		?? (CockpitViewGeometry.DefaultProjectionCenterX, CockpitViewGeometry.DefaultProjectionCenterY);
 
@@ -3012,11 +3016,11 @@ Vector2 PanelPrincipalPoint(CockpitScreenLayout.PlacedSurface surface) {
 	// CockpitHitShake.OffsetPixels.
 	var (windowX, windowY) = surface.ArtToWindow(centerX,
 		centerY - cockpitViewKick.OffsetPixels + cockpitHitShake.OffsetPixels);
-	var viewport = surface.Viewport;
 
+	// The world viewport shares the panels' top edge and height, so only x changes frame.
 	return new Vector2(
-		(windowX - viewport.X) / Math.Max(viewport.Width, 1),
-		(windowY - surface.ViewportTopInWindow) / Math.Max(viewport.Height, 1));
+		(windowX - world.X) / Math.Max(world.Width, 1),
+		(windowY - surface.ViewportTopInWindow) / Math.Max(world.Height, 1));
 }
 
 // Every beam fired on the last tick, over the world already drawn into the current viewport. The
@@ -3862,9 +3866,9 @@ static CockpitMouseButtons ButtonFlag(MouseButton button) => button switch {
 	_ => CockpitMouseButtons.None,
 };
 
-static Camera ClonePanelCamera(Camera source, int yawOffset) => new() {
+static Camera CloneCockpitCamera(Camera source) => new() {
 	Position = source.Position,
-	Yaw = source.Yaw + yawOffset,
+	Yaw = source.Yaw,
 	Pitch = source.Pitch,
 	Roll = source.Roll,
 	FieldOfView = source.FieldOfView,

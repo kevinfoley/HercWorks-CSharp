@@ -65,7 +65,7 @@ Confirmed layout (offsets relative to the start of file content, i.e. after the 
 
 DBSIM's only HUD text mechanism, and VSHELL's. Not a widget-layout resource: the seven consumer functions in `DBSIM.EXE` pass the loaded object as an opaque handle to the generic label constructors (`FUN_004387ac`/`FUN_00438884`/`FUN_00438920`) alongside a display string.
 
-Two sets: `simvol0/dfn/*.DFN` and `simvol0/hfn/*.HFN` (26 and 25 files — the 18 `ColorSchemePanels` fonts plus spares), and `SHELL0/DFN/*.DFN` (`FONT`, `FONT2`, `MAP`, `BLACK`). Same format throughout. `.HFN` is the 640-wide video mode's set and `.DFN` the 320-wide one's, selected by `VideoMode_UseHiResPanels == 3`; they are separate art, not a 2x scale of each other (cell heights 13 and 10, glyph counts 217 and 223).
+Two sets: `simvol0/dfn/*.DFN` and `simvol0/hfn/*.HFN` (26 and 25 files — the 18 `ColorSchemePanels` fonts plus spares), and `SHELL0/DFN/*.DFN` (`FONT`, `FONT2`, `MAP`, `BLACK`). Same format throughout. `.HFN` is the 640-wide video mode's set and `.DFN` the 320-wide one's, selected by `VideoMode_PanelMode == 3`; they are separate art, not a 2x scale of each other (cell heights 13 and 10, glyph counts 217 and 223).
 
 ### Layout
 

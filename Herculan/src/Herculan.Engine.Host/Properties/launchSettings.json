@@ -1,0 +1,23 @@
+{
+  "profiles": {
+    "Default": {
+      "commandName": "Project"
+    },
+    "Shell (front end)": {
+      "commandName": "Project",
+      "commandLineArgs": "--shell"
+    },
+    "Mission, developer": {
+      "commandName": "Project",
+      "commandLineArgs": "--developer"
+    },
+    "Demo tape": {
+      "commandName": "Project",
+      "commandLineArgs": "--demo"
+    },
+    "Joystick probe": {
+      "commandName": "Project",
+      "commandLineArgs": "--joystick-probe"
+    }
+  }
+}

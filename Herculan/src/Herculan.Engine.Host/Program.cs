@@ -85,14 +85,21 @@ int stagedStatusAlert = -1;
 string? playTape = null;
 bool demoTape = false;
 bool developerMode = false;
+var argumentErrors = new List<string>();
 for (int i = 0; i < args.Length; i++) {
-	if (args[i] == "--screenshot" && i + 1 < args.Length) {
-		screenshotPath = args[++i];
-	} else if (args[i] == "--mfd" && i + 1 < args.Length && int.TryParse(args[++i], out int mfdIndex)
-			&& mfdIndex >= 0 && mfdIndex <= 5) {
+	if (HostArguments.IsHelp(args[i])) {
+		Console.WriteLine(HostArguments.Usage);
+		return 0;
+	} else if (args[i] == "--screenshot") {
+		if (HostArguments.TryReadString(args, ref i, argumentErrors, out string path)) {
+			screenshotPath = path;
+		}
+	} else if (args[i] == "--mfd") {
 		// Which MFD screen to power up on. F1-F6 switch it live; this exists so a --screenshot run,
 		// which never sees a keystroke, can be pointed at a specific screen.
-		initialMfdMode = (MfdMode)mfdIndex;
+		if (HostArguments.TryReadInt(args, ref i, 0, 5, argumentErrors, out int mfdIndex)) {
+			initialMfdMode = (MfdMode)mfdIndex;
+		}
 	} else if (args[i] == "--quit") {
 		// Power up with the [Q] mission-status alert already raised, for the same reason as
 		// --objectives. With no argument it shows whatever the mission evaluates to at that moment,
@@ -100,9 +107,7 @@ for (int i = 0; i < args.Length; i++) {
 		// GNL_ALRT.STR rows instead, so the one-button and single-line layouts — and 0 and 1, the
 		// pause panel's own two — can be looked at without arranging a mission that produces them.
 		startWithStatusAlert = true;
-		if (i + 1 < args.Length && int.TryParse(args[i + 1], out int forcedStatus)
-			&& forcedStatus >= 0 && forcedStatus < StatusAlertPanel.StatusCount) {
-			i++;
+		if (HostArguments.TryReadOptionalInt(args, ref i, 0, StatusAlertPanel.StatusCount - 1, out int forcedStatus)) {
 			stagedStatusAlert = forcedStatus;
 		}
 	} else if (args[i] == "--objectives") {
@@ -124,9 +129,7 @@ for (int i = 0; i < args.Length; i++) {
 		stagedJoystick = new JoystickCapabilities(Present: true,
 			ButtonCount: JoystickCapabilities.MaxButtons,
 			HasThrottle: true, HasRudder: true, HasHat: true);
-		if (i + 1 < args.Length && int.TryParse(args[i + 1], out int stickButtons)
-			&& stickButtons >= 0 && stickButtons <= JoystickCapabilities.MaxButtons) {
-			i++;
+		if (HostArguments.TryReadOptionalInt(args, ref i, 0, JoystickCapabilities.MaxButtons, out int stickButtons)) {
 			stagedJoystick = stagedJoystick with { ButtonCount = stickButtons };
 		}
 	} else if (args[i] == "--joystick-probe") {
@@ -149,38 +152,40 @@ for (int i = 0; i < args.Length; i++) {
 		// --screenshot run never sees a keystroke. An optional 0 or 1 picks which of its two screens
 		// to land on — the command display or the damage detail, as [F7] and [F8] do live.
 		startOnHeadsDown = true;
-		if (i + 1 < args.Length && int.TryParse(args[i + 1], out int hddIndex)
-			&& hddIndex >= 0 && hddIndex <= 1) {
+		if (HostArguments.TryReadOptionalInt(args, ref i, 0, 1, out int hddIndex)) {
 			initialHddPage = (HddPage)hddIndex;
-			i++;
 		}
-	} else if (args[i] == "--throttle" && i + 1 < args.Length
-			&& int.TryParse(args[++i], out int throttleSetting)) {
+	} else if (args[i] == "--throttle") {
 		// Power up with the throttle already open, for the same reason as --mfd and --hdd: a
 		// --screenshot run never sees a keystroke, and a walking machine is the only way to see the
 		// gait, the cockpit bob or the slider anywhere but its centre. ±1024 is full travel.
-		initialThrottle = (short)Math.Clamp(throttleSetting, -ThrottleTrack.Full, ThrottleTrack.Full);
-	} else if (args[i] == "--heading" && i + 1 < args.Length
-			&& int.TryParse(args[++i], out int headingAngle)) {
+		if (HostArguments.TryReadInt(args, ref i, int.MinValue, int.MaxValue, argumentErrors, out int throttleSetting)) {
+			initialThrottle = (short)Math.Clamp(throttleSetting, -ThrottleTrack.Full, ThrottleTrack.Full);
+		}
+	} else if (args[i] == "--heading") {
 		// Point the machine's lower body somewhere other than along the first leg of its route, which
 		// is where the mission spawns it. A --screenshot run never sees a steering key, so this is the
 		// only way to reach anything the body's own heading drives — the compass tape, and the
 		// waypoint indicator's off-tape arrows. A binary angle: 0x4000 is a quarter turn.
-		initialHeading = headingAngle;
-	} else if (args[i] == "--turret" && i + 2 < args.Length
-			&& int.TryParse(args[i + 1], out int twistAxis) && int.TryParse(args[i + 2], out int pitchAxis)) {
+		if (HostArguments.TryReadInt(args, ref i, int.MinValue, int.MaxValue, argumentErrors, out int headingAngle)) {
+			initialHeading = headingAngle;
+		}
+	} else if (args[i] == "--turret") {
 		// Hold the two turret axes for the whole run, for the same reason as --throttle: a
 		// --screenshot run never sees a keystroke, and the turret only moves while a key is held.
 		// ±256 is full deflection on each.
-		heldTwist = (short)Math.Clamp(twistAxis, -MechControls.AxisFull, MechControls.AxisFull);
-		heldPitch = (short)Math.Clamp(pitchAxis, -MechControls.AxisFull, MechControls.AxisFull);
-		i += 2;
-	} else if (args[i] == "--weapon" && i + 1 < args.Length
-			&& int.TryParse(args[++i], out int weaponRow) && weaponRow >= 1 && weaponRow <= 10) {
+		if (HostArguments.TryReadInt(args, ref i, int.MinValue, int.MaxValue, argumentErrors, out int twistAxis)
+				&& HostArguments.TryReadInt(args, ref i, int.MinValue, int.MaxValue, argumentErrors, out int pitchAxis, "--turret")) {
+			heldTwist = (short)Math.Clamp(twistAxis, -MechControls.AxisFull, MechControls.AxisFull);
+			heldPitch = (short)Math.Clamp(pitchAxis, -MechControls.AxisFull, MechControls.AxisFull);
+		}
+	} else if (args[i] == "--weapon") {
 		// Arm a weapon panel row at power-up, 1-based as the row prints it, and optionally link it.
 		// Same reason as --mfd and --throttle: a --screenshot run never sees a keystroke, and the
 		// armed row and a linked pair are only visible once something has selected one.
-		initialWeaponRow = weaponRow - 1;
+		if (HostArguments.TryReadInt(args, ref i, 1, 10, argumentErrors, out int weaponRow)) {
+			initialWeaponRow = weaponRow - 1;
+		}
 	} else if (args[i] == "--link") {
 		initialLink = true;
 	} else if (args[i] == "--hit-shake") {
@@ -209,41 +214,45 @@ for (int i = 0; i < args.Length; i++) {
 		// only does anything alongside: a --screenshot run never sees a keystroke, and the turret
 		// only slews on its own once ATT has something to hold.
 		autoTrack = true;
-	} else if (args[i] == "--movie" && i + 1 < args.Length) {
+	} else if (args[i] == "--movie") {
 		// Play one cutscene instead of a mission — see MovieHost. Takes a path, or a name to look up
 		// in the install's AVI folder. It exists so a video decoder can be looked at rather than only
 		// asserted about; see docs/formats/avi-video.md.
-		moviePath = args[++i];
+		if (HostArguments.TryReadString(args, ref i, argumentErrors, out string movie)) {
+			moviePath = movie;
+		}
 	} else if (args[i] == "--shell") {
 		// Run the front end instead of a mission — see ShellHost. It shares the install lookup below
 		// and nothing else, so it takes over before any mission loading happens.
 		runShell = true;
-	} else if (args[i] == "--shell-palette" && i + 1 < args.Length) {
+	} else if (args[i] == "--shell-palette") {
 		// Which dpl\<name>.DPL the shell decodes its art through, pinned for the whole run. Without it
 		// the palette follows the tab, as the original's does — see ShellPalette for the table and for
 		// which screen picks which entry.
-		shellPalette = args[++i];
+		if (HostArguments.TryReadString(args, ref i, argumentErrors, out string palette)) {
+			shellPalette = palette;
+		}
 		runShell = true;
 	} else if (args[i] == "--shell-tab-palette") {
 		// Let the palette follow the tab, as the original's does. Off by default only because the tab
 		// content that would cover the bay backdrop is not ported — see ShellHost.
 		shellTabPalettes = true;
 		runShell = true;
-	} else if (args[i] == "--shell-tab" && i + 1 < args.Length
-			&& int.TryParse(args[i + 1], out int requestedTab)) {
+	} else if (args[i] == "--shell-tab") {
 		// Which tab the shell comes up on, 0-7. The original always enters on the main menu; this is here
 		// so --screenshot can land on a tab that has content, and so the save screen is one argument away
 		// rather than a click away.
-		shellTab = Math.Clamp(requestedTab, 0, ShellLayout.TabCount - 1);
-		i++;
+		if (HostArguments.TryReadInt(args, ref i, 0, ShellLayout.TabCount - 1, argumentErrors, out int requestedTab)) {
+			shellTab = requestedTab;
+		}
 		runShell = true;
-	} else if (args[i] == "--shell-bay" && i + 1 < args.Length
-			&& int.TryParse(args[i + 1], out int requestedBay)) {
+	} else if (args[i] == "--shell-bay") {
 		// Which hangar bay the repair tab works on, 0-7 — DAT_00482ae5. In the original the squad roster
 		// down the left of the screen is what moves it; that panel is not ported, so this is the only way
 		// to reach a bay other than the first one holding a finished machine.
-		shellBay = Math.Clamp(requestedBay, 0, ShellHangar.BayCount - 1);
-		i++;
+		if (HostArguments.TryReadInt(args, ref i, 0, ShellHangar.BayCount - 1, argumentErrors, out int requestedBay)) {
+			shellBay = requestedBay;
+		}
 		runShell = true;
 	} else if (args[i] == "--shell-training") {
 		// Run the front end as the training campaign rather than the real one — DAT_0048260c, the flag
@@ -251,21 +260,25 @@ for (int i = 0; i < args.Length; i++) {
 		// the strip refresh is reachable at all.
 		shellMode = ShellCampaignMode.Training;
 		runShell = true;
-	} else if (args[i] == "--cd-drive" && i + 1 < args.Length) {
+	} else if (args[i] == "--cd-drive") {
 		// Which drive the music CD is in. Retail asks MCI for the device type alone and takes whichever
 		// CD drive it answers with -- nothing in either executable reads a drive letter from anywhere --
 		// so this is the engine's own, for a machine with more than one drive. See CdAudio.Open.
-		cdDrive = args[++i];
-	} else if (args[i] == "--music-dir" && i + 1 < args.Length) {
+		if (HostArguments.TryReadString(args, ref i, argumentErrors, out string drive)) {
+			cdDrive = drive;
+		}
+	} else if (args[i] == "--music-dir") {
 		// A directory of Track02.wav ... Track07.wav to play instead of the disc -- the engine's own,
 		// for a machine with no drive. See WaveFileMusicSource.
-		musicDirectory = args[++i];
-	} else if (args[i] == "--music" && i + 1 < args.Length
-			&& int.TryParse(args[i + 1], out int trackSelect)) {
+		if (HostArguments.TryReadString(args, ref i, argumentErrors, out string musicFolder)) {
+			musicDirectory = musicFolder;
+		}
+	} else if (args[i] == "--music") {
 		// DBSIM's own -R<n>: the mission's track is n % 5 + 2, so 0-4 pick tracks 2 to 6. Retail's
 		// launcher passes a mission count here; without the switch this engine plays track 2.
-		i++;
-		musicTrackSelect = trackSelect;
+		if (HostArguments.TryReadInt(args, ref i, 0, int.MaxValue, argumentErrors, out int trackSelect)) {
+			musicTrackSelect = trackSelect;
+		}
 	} else if (args[i] == "--no-sound" || args[i] == "--silent") {
 		// Skip the output device entirely. Same effect as running on a machine with no sound card:
 		// the catalog, the director and the message port all still run, nothing is heard. For a
@@ -276,29 +289,30 @@ for (int i = 0; i < args.Length; i++) {
 		// player's own machine is the one thing the cockpit view never shows, so a --screenshot run
 		// has no other way to see its own legs move.
 		startExternal = true;
-	} else if (args[i] == "--hdd-damage" && i + 1 < args.Length
-			&& int.TryParse(args[++i], out int damageIndex) && damageIndex >= 0 && damageIndex <= 2) {
+	} else if (args[i] == "--hdd-damage") {
 		// Which component category the damage screen powers up listing. [S], [I] and [W] switch it
 		// live; this is the same reason --mfd and --hdd exist.
-		initialHddDamageView = (HddDamageView)damageIndex;
-	} else if (args[i] == "--hdd-pilot" && i + 1 < args.Length
-			&& int.TryParse(args[++i], out int pilotSlot)
-			&& pilotSlot >= 0 && pilotSlot < HddLayout.PilotSlotCount) {
+		if (HostArguments.TryReadInt(args, ref i, 0, 2, argumentErrors, out int damageIndex)) {
+			initialHddDamageView = (HddDamageView)damageIndex;
+		}
+	} else if (args[i] == "--hdd-pilot") {
 		// Which comm box the command display powers up with selected, and which order it powers up
 		// armed. [1]-[3] and the order hotkeys do both live; these exist for the same reason
 		// --hdd-damage does, and because the order list only leaves its unavailable blue once a pilot
 		// is selected — a screenshot run has no other way to reach that.
-		initialHddPilot = pilotSlot;
-	} else if (args[i] == "--hdd-order" && i + 1 < args.Length
-			&& int.TryParse(args[++i], out int orderIndex)
-			&& orderIndex >= 0 && orderIndex < HddLayout.OrderCount) {
-		initialHddOrder = (HddOrder)orderIndex;
-	} else if (args[i] == "--flash-comm" && i + 1 < args.Length
-			&& int.TryParse(args[++i], out int flashCommRow)
-			&& flashCommRow >= 0 && flashCommRow < MfdFlashCommScreen.RowCount) {
+		if (HostArguments.TryReadInt(args, ref i, 0, HddLayout.PilotSlotCount - 1, argumentErrors, out int pilotSlot)) {
+			initialHddPilot = pilotSlot;
+		}
+	} else if (args[i] == "--hdd-order") {
+		if (HostArguments.TryReadInt(args, ref i, 0, HddLayout.OrderCount - 1, argumentErrors, out int orderIndex)) {
+			initialHddOrder = (HddOrder)orderIndex;
+		}
+	} else if (args[i] == "--flash-comm") {
 		// Which FLASH COMM row the cursor sits on at power-up. The seven order letters do it live;
 		// this exists for the same reason --mfd does.
-		initialFlashCommRow = flashCommRow;
+		if (HostArguments.TryReadInt(args, ref i, 0, MfdFlashCommScreen.RowCount - 1, argumentErrors, out int flashCommRow)) {
+			initialFlashCommRow = flashCommRow;
+		}
 	} else if (args[i] == "--flash-comm-xmit") {
 		// Presses XMIT on that row once the mission is up — the [X] key, or a click on the button, or
 		// a second click on the row. A --screenshot run sees no keystroke, so this is the only way to
@@ -313,11 +327,13 @@ for (int i = 0; i < args.Length; i++) {
 		// it. A --screenshot run sees no keystroke and no map click, so this is the only way to reach
 		// the squadmate AI from the command line; an order that wants a pick takes the map centre.
 		initialHddTransmit = true;
-	} else if (args[i] == "--play" && i + 1 < args.Length) {
+	} else if (args[i] == "--play") {
 		// DBSIM's own -p<name>: replay an input tape — a path, or a stem looked up in the install's
 		// TAPES folder, as -p's own "tapes\demo1" is. The mission comes out of the tape, so it replaces
 		// the positional mission argument. See InputTapePlayer.
-		playTape = args[++i];
+		if (HostArguments.TryReadString(args, ref i, argumentErrors, out string tape)) {
+			playTape = tape;
+		}
 	} else if (args[i] == "--developer") {
 		// DBSIM's own -SPRUNKNOWN: the developer keys. See DeveloperKeys and docs/key-bindings.md.
 		developerMode = true;
@@ -325,9 +341,22 @@ for (int i = 0; i < args.Length; i++) {
 		// DBSIM's own -D: a tape picked from TAPES\demolist.str, as VIEW DEMO plays one, which ends the
 		// mission when it runs out or the moment a key is pressed. With --play, that tape instead.
 		demoTape = true;
+	} else if (args[i].StartsWith("--")) {
+		argumentErrors.Add($"Unknown option {args[i]}.");
 	} else {
 		positional.Add(args[i]);
 	}
+}
+
+if (positional.Count > 2) {
+	argumentErrors.Add($"Unexpected argument {positional[2]}: the only positional arguments are the install and the mission.");
+}
+if (argumentErrors.Count > 0) {
+	foreach (string error in argumentErrors) {
+		Console.Error.WriteLine(error);
+	}
+	Console.Error.WriteLine("Run with --help for the list of options.");
+	return 1;
 }
 
 // Host-lifetime, not mission-lifetime: neither reads the install, and both need to survive into

@@ -1,6 +1,6 @@
 # Command lines: ES.EXE, VSHELL and DBSIM
 
-How the three retail executables start one another and what every switch each one parses does. The player-facing summary is [`launch-options.md`](launch-options.md). Addresses name their binary; `ES.EXE` is not in the Ghidra project, and its 2.5 KB of code was read whole from a direct disassembly.
+How the three retail executables start one another and what every switch each one parses does. The player-facing summary is [`launch-options.md`](launch-options.md); HERCULAN's own flags are in [`engine/host-flags.md`](engine/host-flags.md). Addresses name their binary; `ES.EXE` is not in the Ghidra project, and its 2.5 KB of code was read whole from a direct disassembly.
 
 ## ES.EXE — the supervisor
 

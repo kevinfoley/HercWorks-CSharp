@@ -12,7 +12,7 @@ Normally only ES.EXE is started by hand, and it passes the right options on to t
 
 Letter case matters for ES.EXE and the simulator: `-s` and `-S` are different options there. The front end ignores case and also accepts `/` in place of `-`.
 
-This page is for players. The technical detail behind each option is in [`command-line.md`](command-line.md) and the docs it links.
+This page is for players. The technical detail behind each option is in [`command-line.md`](command-line.md) and the docs it links. HERCULAN's own options are in [`engine/host-flags.md`](engine/host-flags.md).
 
 ## Launcher — ES.EXE
 

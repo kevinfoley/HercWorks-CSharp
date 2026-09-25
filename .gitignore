@@ -44,3 +44,4 @@ Herculan/tests/HercWorks.Video.Tests/bin/
 Herculan/tests/HercWorks.Video.Tests/obj/
 Herculan/.obsidian/
 tools/scripts/__pycache__/
+*.csproj.user

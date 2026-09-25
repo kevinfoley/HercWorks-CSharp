@@ -36,7 +36,8 @@ Object fields, base `MfdDisplay_Ctor`'s `param_1`:
 | `+0xeb` | Inset screen rect `x0, y0, x1, y1` |
 | `+0xfb` | Base panel widget, covering the inset rect |
 | `+0x329` | Message label |
-| `+0x331`-`+0x341` | Radar sweep frame table and `radar` bank handle |
+| `+0x331`-`+0x341` | The power-up's sprite sequencer, its sequence set, sequence and frame table, and the `radar` bank — see [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#scanner-dish-grows) |
+| `+0x345` | Coarse tick past which the power-up is done on a screen other than the scanner |
 
 ### Two button classes
 
@@ -331,17 +332,17 @@ No grid, border or markers.
 
 ### `MFDRadar` — mode 3
 
-The plan view, its turret wedge and its contact list: [`mfd-scanner.md`](mfd-scanner.md). Frames 14-18 are the whole of that screen's art. Frame 14 matching the `radar` bank's frame size is not a coincidence — that bank holds the sweep played over the same dish.
+The plan view, its turret wedge and its contact list: [`mfd-scanner.md`](mfd-scanner.md). Frames 14-18 are the whole of that screen's art. Frame 14 matching the `radar` bank's frame size is not a coincidence — that bank is the dish growing into frame 14's shape at power-up ([`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#scanner-dish-grows)).
 
 ## Paint order
 
-`MfdDisplay_Repaint`: mode buttons 0-5, background, all visible buttons 0-12, the current screen's paint, then the title. The background covers only the inset rect and the mode column sits left of it, so the first pass is not overdrawn.
+`MfdDisplay_Repaint`: mode buttons 0-5, background, all visible buttons 0-12, the current screen's paint (`radar` frame 0 instead, while the display is [powering up](cockpit-hud-widgets.md#scanner-dish-grows) on the scanner), then the title. The background covers only the inset rect and the mode column sits left of it, so the first pass is not overdrawn.
 
 `MfdDisplay_Update` calls the current screen's paint again whenever its dirty flag at `display+0xe5+mode` is set. Mode 1 clears it after one paint. The others leave it set: modes 0 and 4 repaint when a 30-tick timer expires, and modes 2, 3 and 5 every frame — for 2 and 5 the update then redraws the title, which their paint covers.
 
 ## Engine coverage
 
-Drawn: screen background, F-key column with lit state, per-mode aux buttons, titles and captions, the whole NAV MAP (`MfdNavMap`), and **both status screens driven from a live subject** — `Herculan.Engine.Content.MfdStatusSubject`, one record for F1 and F5 as in the original. The scanner is drawn too — see its own doc, and so are the paper doll's per-region damage tints. Not drawn: the mode-switch sweep animation and the missile camera ([Open](#open)).
+Drawn: screen background, F-key column with lit state, per-mode aux buttons, titles and captions, the whole NAV MAP (`MfdNavMap`), and **both status screens driven from a live subject** — `Herculan.Engine.Content.MfdStatusSubject`, one record for F1 and F5 as in the original. The scanner is drawn too — see its own doc, and so are the paper doll's per-region damage tints. The power-up's dish animation is `CockpitPowerUp.MfdFrame`. Not drawn: the missile camera ([Open](#open)).
 
 FLASH COMM is complete: `MfdFlashCommScreen` keeps the row states and resolves the verb, and `Overlay2DRenderer` draws the list with its four fonts, its hotkey character and its plate, and the transmission over the top of whichever screen is up. Transmissions come from `SquadCommChannel` ([`cockpit-messages.md`](cockpit-messages.md#the-pilot-and-squad-channel)).
 
@@ -354,6 +355,5 @@ Status-screen deviations: there is no pilot roster, so only the machine being fl
 ## Open
 
 - **Open:** what triggers `mfd_dmg`'s three animation sequences of 3/2/3 frames (7 frames, 192x118, built by `MfdDisplay_Ctor` from count table `0049cb40` and six frame-index tables at `0049cb4c`-`0049cb88`) and what they mean; consistent with display-damage static.
-- **Unported:** the mode-switch sweep animation played on switching to the F4 SCANNER screen ([`mfd-scanner.md`](mfd-scanner.md#open)).
 - **Unported:** mode 5, the missile camera, beyond its button and background layout.
 - **Unported:** mode 0's arm of the shared SELECT/TARGET case, which steps a squad roster; the engine has no such roster to step.

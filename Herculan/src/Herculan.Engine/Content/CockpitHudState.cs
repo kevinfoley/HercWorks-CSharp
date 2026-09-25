@@ -133,6 +133,11 @@
 /// mission's instructor, as a wrapped block. Null when it is quiet or the mission is not a training
 /// one; see <see cref="TrainingMessageLayout"/>.
 /// </param>
+/// <param name="MfdPowerUpFrame">
+/// While the MFD is powering up on its scanner screen, which <see cref="CockpitPowerUp.MfdBank"/>
+/// frame stands over the dish in place of the screen and any transmission; null once it has powered
+/// up. See <see cref="CockpitPowerUp.MfdFrame"/>.
+/// </param>
 public readonly record struct CockpitHudState(
 	IReadOnlyList<WeaponRowState> Weapons,
 	IReadOnlyList<string> HardpointNames,
@@ -164,7 +169,8 @@ public readonly record struct CockpitHudState(
 	WaypointMark? RouteWaypoint = null,
 	WaypointMark? NavMarker = null,
 	MfdNavMapState NavMap = default,
-	TrainingMessageBox? TrainingMessage = null) {
+	TrainingMessageBox? TrainingMessage = null,
+	int? MfdPowerUpFrame = null) {
 
 	/// <summary>
 	/// Power-up state: an even shield balance printing 100/100 the way <c>ShieldsGauge_UpdateReadouts</c>

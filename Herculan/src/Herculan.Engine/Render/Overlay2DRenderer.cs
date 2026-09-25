@@ -2031,6 +2031,12 @@ public sealed class Overlay2DRenderer : IDisposable {
 			case MfdMode.FlashComm:
 				AddMfdFlashComm(hud, state, strings, blitDevice, DrawHotkeyLabel, insetX, insetY);
 				break;
+			// While the display is powering up, the dish's animation stands where the screen would be.
+			// Its frames are the dish's own size and opaque, so nothing of the screen needs drawing under.
+			case MfdMode.Scanner when state.MfdPowerUpFrame is { } powerUpFrame:
+				blitDevice(CockpitPowerUp.MfdBank, powerUpFrame,
+					X(MfdScanner.DiscOrigin.X), Y(MfdScanner.DiscOrigin.Y));
+				break;
 			case MfdMode.Scanner:
 				AddMfdScanner(hud, state.Scanner, state.TorsoTwist,
 					blitDevice, blitRotatedDevice, fillRect, DrawLabel, X, Y);
@@ -2050,7 +2056,8 @@ public sealed class Overlay2DRenderer : IDisposable {
 		// A squadmate answering takes the whole screen: MfdDisplay_Update floods the inset and blits
 		// the transmitting comm box's own frame there before it ever reaches the current screen's
 		// update slot, so the order list is simply not drawn while a reply is coming in.
-		if (state.Transmission is { } transmission) {
+		// The power-up returns from MfdDisplay_Update before the transmission is drawn, too.
+		if (state.Transmission is { } transmission && state.MfdPowerUpFrame is null) {
 			AddMfdTransmission(hud, transmission, blitDevice, DrawLabel, fillRect, insetX, insetY, X, Y);
 		}
 
@@ -2062,8 +2069,10 @@ public sealed class Overlay2DRenderer : IDisposable {
 		// A transmission has no title at all. The flood covers the header strip along with the rest
 		// of the screen, and the branch that draws the pilot jumps past the title refresh as well as
 		// past the screen update — the caption comes back with the full repaint the display queues
-		// when the transmission ends.
-		if (state.Transmission is null && MfdLayout.Title(strings, state.Mfd) is { Length: > 0 } title) {
+		// when the transmission ends. A display still powering up never reaches that branch, so it
+		// keeps its title.
+		if ((state.Transmission is null || state.MfdPowerUpFrame is not null)
+				&& MfdLayout.Title(strings, state.Mfd) is { Length: > 0 } title) {
 			DrawLabel("WHITE", title,
 				X(MfdLayout.TitleRect.X0), Y(MfdLayout.TitleRect.Y0),
 				X(MfdLayout.TitleRect.X1), Y(MfdLayout.TitleRect.Y1), LabelAlign.Left);

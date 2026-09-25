@@ -4109,7 +4109,7 @@
       "type": "function",
       "confidence": "high",
       "name": "MfdDisplay_Update",
-      "description": "MFD per-frame update. Dispatches the current screen's update slot via +0xcd + mode*4, refreshes the title for modes 2 and 5, and when a transmission is active draws the speaking pilot's frames at inset+(0x14,0) and fills the message label at +0x329. See docs/formats/mfd.md.",
+      "description": "MFD per-frame update. While the power-up is armed and not done (+0x8c/+0x8d) on the scanner (mode 3) it starts, then steps, the dish animation's SpriteSequence at +0x331 and returns; the pass after it ends sets done, and the next frees the sequencer and the radar bank. On another screen done comes once the coarse tick passes +0x345. Then dispatches the current screen's update slot via +0xcd + mode*4, refreshes the title for modes 2 and 5, and when a transmission is active draws the speaking pilot's frames at inset+(0x14,0) and fills the message label at +0x329. See docs/formats/mfd.md.",
       "source": "docs/formats/mfd.md 2026-08-18"
     },
     {
@@ -8742,6 +8742,51 @@
       "confidence": "high",
       "name": "TurboPodGauge_PowerUpFill",
       "description": "The Turbo Pod row's power-up fill, the same ramp as EnergyWeaponGauge_PowerUpFill over the pod's raw charge (+0xe2 into +0xc6): min(elapsed * 0x19, live) until elapsed > 0x32, then the live value and done. On a 2500-unit bar it climbs to 1250 and then jumps.",
+      "source": "docs/formats/cockpit-hud-widgets.md"
+    },
+    {
+      "address": "00471ca0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SpriteSequence_Init",
+      "description": "Initialises a 0x2a-byte sprite sequencer over a bank (+0x1e) and a sequence set {count, sequences} (+0x16): state 0, sequence 0 selected (+0x12 = set's first sequence), start tick and frame index zero. Sequences are {count, frames}; a frame entry is {bank frame, hold in coarse ticks}.",
+      "source": "docs/formats/cockpit-hud-widgets.md"
+    },
+    {
+      "address": "00471cd4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SpriteSequence_Select",
+      "description": "Selects sequence n of the sequencer's set (+0x12, index at +0x02) if n is within the set's count; returns whether it did.",
+      "source": "docs/formats/cockpit-hud-widgets.md"
+    },
+    {
+      "address": "00471d04",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SpriteSequence_Start",
+      "description": "Starts the selected sequence at a position: stamps +0x06 with Time_GetCoarseTicks, frame index 0, holds-so-far +0x0a = frame 0's hold, end of hold +0x0e = start + that, position +0x22, state 1, and blits frame 0.",
+      "source": "docs/formats/cockpit-hud-widgets.md"
+    },
+    {
+      "address": "00471d7c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SpriteSequence_Step",
+      "description": "Steps a playing sequencer on the coarse clock: once the current hold has ended it advances past every frame whose hold has run out, and reaching the last frame sets state 2; blits the frame it lands on (or whenever the second argument is set). A call in state 2 drops it to 0 and returns 0; otherwise returns 1 while playing.",
+      "source": "docs/formats/cockpit-hud-widgets.md"
+    },
+    {
+      "address": "00471e18",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SpriteSequence_State",
+      "description": "Returns the sequencer's state short at +0: 0 idle, 1 playing, 2 just ended.",
       "source": "docs/formats/cockpit-hud-widgets.md"
     },
     {

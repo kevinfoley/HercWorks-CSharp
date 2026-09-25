@@ -259,11 +259,11 @@ On taking a walking machine the cockpit comes up piece by piece rather than read
 | Weapon rows, `cockpit+0x70` | `> 20 * (row + 1)` | [the row winks on](#weapon-rows-wink-on) |
 | `ShieldsGauge`, `cockpit+0x1e9` | `!= 0` | [the rings fill](#shield-rings-fill) |
 | Roving gunsight, `cockpit+0x1f5` | `!= 0` | the compass winds up — [`cockpit-gunsight-hud.md`](cockpit-gunsight-hud.md#power-up-wind-up) |
-| MFD, `cockpit+0x1ed` | `!= 0` | [Open](#open) |
+| MFD, `cockpit+0x1ed` | `!= 0` | [the scanner dish grows](#scanner-dish-grows) |
 
 **A flyer skips all of it.** `Gau_BuildCockpitWidgets` (`00431bf8`) ends with a branch taken when the piloted machine's type record has `InputFlagFlyer` set — `mech+0x1f2 -> +0x50`, the RAZOR alone (see [`../simulation/mech-locomotion.md`](../simulation/mech-locomotion.md)'s type-record table). It arms *and* marks done every widget in the table, and sets `cockpit+0x245`, which stops `Cockpit_PowerUpSound` ever stamping the start. The same flag gates the engine hum, [`audio.md`](audio.md#the-cockpit-power-up).
 
-Engine: `Herculan.Engine.Content.CockpitPowerUp`, and `HeadingTapeSweep` for the compass.
+Engine: `Herculan.Engine.Content.CockpitPowerUp`, and `HeadingTapeSweep` for the compass. Retail runs every one of these animations on the coarse clock from a stamped tick, so a widget that is off screen while its update is skipped shows on its return exactly what it would have shown.
 
 ### Weapon rows wink on
 
@@ -284,6 +284,38 @@ done when both facings show their live value
 
 One ring unit a tick, so an even split's `0x200` fills in 512 ticks, about eight seconds. The readouts are not ramped: `+0xbd`, the balance they print, passes straight through.
 
+### Scanner dish grows
+
+The `radar` bank exists for this animation alone. `MfdDisplay_Ctor` (`00445218`) loads it, builds a one-sequence frame table over it — frames 0 to 9, each held 7 ticks — and hands both to a sprite sequencer at `+0x331` (`SpriteSequence_Init`, `00471ca0`); `MfdDisplay_Update` frees all of it the frame the display is done. The frames are 110x110, the dish's own size, and blit at the scanner screen's dish position (screen `+0x18`, [`mfd-scanner.md`](mfd-scanner.md)):
+
+| Frames | Content |
+|---|---|
+| 0-4 | A small ring on the screen's palette 17 background, widening and brightening each frame |
+| 5-8 | The full-size dish ring, its colour settling |
+| 9 | The finished dish, with the transparent interior the scanner's own dish frame (`MFD` 14) has |
+
+Frames 0-8 are fully opaque, so each one covers the last.
+
+The display boots on the scanner (`Gau_MfdPanelWidget` sets mode 3). What it does there, until done:
+
+- **Not yet armed:** `MfdDisplay_Repaint` blits frame 0 over the dish in place of the screen's paint.
+- **Armed:** `MfdDisplay_Update` starts the sequence on its first pass (`SpriteSequence_Start`, `00471d04`, which stamps the coarse tick and blits frame 0) and steps it on every later one (`SpriteSequence_Step`, `00471d7c`). A step advances past every frame whose hold has run out, so frame `k` shows once more than `7k` ticks have passed. Reaching frame 9 blits it and stops the sequence, and the next pass finds it stopped and sets done: about one second in all. Each of these passes returns before the screen's update slot and the transmission branch, so neither the plot nor a squadmate's transmission is drawn while the dish grows.
+
+On any other screen, the update sets done once the coarse tick passes `+0x345`, which the start stamps at 70 ticks (`0x46`) past its own tick — and at once if the sequence never started, since `+0x345` is then zero.
+
+The sequencer is a 0x2a-byte object shared with the widget base's timed state toggle (`FUN_00438bc0`, over widget `+0x6c`):
+
+| Offset | Contents |
+|---|---|
+| `+0x00` | State: 0 idle, 1 playing, 2 just ended — `SpriteSequence_Step` reports an end once and drops back to 0 |
+| `+0x02`, `+0x04` | Sequence index, frame index |
+| `+0x06` | Coarse tick it started on |
+| `+0x0a` | Sum of the holds of the frames reached so far |
+| `+0x0e` | Coarse tick the current frame's hold ends |
+| `+0x12`, `+0x16` | Current sequence `{count, frames}`, sequence set `{count, sequences}`; a frame entry is `{frame, hold}` |
+| `+0x1e` | Sprite bank |
+| `+0x22` | Blit position |
+
 ## Per-frame ordering
 
 `maybe_Sim_RenderFrame` (`0045fb9c`): `Terrain_SetupVisibleRegion`, then `FUN_004327ac` (`CockpitViewInstance` widget paint dispatch), then `maybe_Scene_SubmitFrameObjects` (the 3D world), then `Player_PerFrameCockpitUpdate`, then three more paint dispatches on `CockpitViewInstance` sub-objects (`+0x1f5`, `FUN_00433158`'s result, `+0x20b`).
@@ -292,6 +324,4 @@ One ring unit a tick, so an even split's `0x200` fills in 512 ticks, about eight
 
 - **Unported:** `WPN_DMG`'s damage fill on a weapon row. The per-mount reading behind it is combined entry `32 + slot` of `Component_FillDamageReadouts`' buffer, which the engine's Heads-Down Display weapons page already prints, but the engine's weapon rows do not carry it. They also draw the row plate as the underlay instead of `WPN_DMG` frame 0, which is equivalent only while the row is undamaged.
 - **Open:** what consumes `PWEAPONS` frame 7, a 640x80 strip.
-- **Unported:** the MFD's power-up. While armed and not done, `MfdDisplay_Update` (`00446328`) steps the `radar` bank sequence at `+0x331` when the display is on the scanner (mode 3), marks itself done when it ends, and frees the bank; on any other screen it is done once the coarse tick passes `+0x345`, stamped `+0x46` ticks ahead.
-- **Open:** what the MFD's power-up puts on screen — which frames of the `radar` bank it shows and where.
 - **Open:** which mech-object field picks each widget's frame or fill level per frame, for the widgets this doc does not already trace. The `.GAU` holds only geometry.

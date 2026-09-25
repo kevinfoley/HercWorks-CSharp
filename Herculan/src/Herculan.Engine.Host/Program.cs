@@ -2427,6 +2427,9 @@ window.Update += deltaSeconds => {
 			// asks the box for it through Squad_IndexOf.
 			PilotMessage = ComposePilotMessage(squadComm),
 
+			// The dish's power-up animation, on whichever screen the display is showing this frame.
+			MfdPowerUpFrame = cockpitPowerUp.MfdFrame(hudState.Mfd == MfdMode.Scanner, audio.CoarseTicks),
+
 			// A training mission's port draws its own wrapped block instead of that line.
 			TrainingMessage = ComposeTrainingMessage(squadComm),
 

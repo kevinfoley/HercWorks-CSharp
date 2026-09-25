@@ -3,15 +3,15 @@ using Herculan.Engine.Sim;
 namespace Herculan.Engine.Content;
 
 /// <summary>
-/// The weapon panel's and shield meter's power-up animations: on taking a walking machine the weapon
-/// rows wink on one at a time, each energy row's charge bar fills from empty, and the shield rings
-/// light from dark up to the real charge. <c>Cockpit_PowerUpTick</c> (<c>00432924</c>) arms each
+/// The weapon panel's, shield meter's and MFD's power-up animations: on taking a walking machine the
+/// weapon rows wink on one at a time, each energy row's charge bar fills from empty, the shield rings
+/// light from dark up to the real charge, and the scanner's dish grows out from a small ring. <c>Cockpit_PowerUpTick</c> (<c>00432924</c>) arms each
 /// widget with <c>Widget_BeginPowerUpAnimation</c> (<c>00438ddc</c>) and each widget runs its own
 /// ramp from the tick it was armed on. The delays, the ramps and their sources are
 /// docs/formats/cockpit-hud-widgets.md's power-up section.
 ///
-/// <para>The compass's wind-up is the same sequence's third animation, and is
-/// <see cref="HeadingTapeSweep"/>. A flyer's cockpit skips all three.</para>
+/// <para>The compass's wind-up is the same sequence's other animation, and is
+/// <see cref="HeadingTapeSweep"/>. A flyer's cockpit skips all of them.</para>
 /// </summary>
 public sealed class CockpitPowerUp {
 	/// <summary>
@@ -33,16 +33,41 @@ public sealed class CockpitPowerUp {
 	/// <summary>How many coarse ticks after arming a charge bar stops ramping and reads its live value.</summary>
 	public const int ChargeRampTicks = 0x33;
 
+	/// <summary>
+	/// The <c>RADAR</c> bank, whose ten frames are the dish powering up and nothing else:
+	/// <c>MfdDisplay_Ctor</c> loads it for this animation and <c>MfdDisplay_Update</c> frees it the
+	/// moment the display is done.
+	/// </summary>
+	public const string MfdBank = "RADAR";
+
+	/// <summary>How many frames the dish's animation steps through, the bank's whole ten.</summary>
+	public const int MfdFrameCount = 10;
+
+	/// <summary>How long each frame is held, in coarse ticks — the <c>7</c> every entry of the constructor's frame table states.</summary>
+	public const int MfdFrameTicks = 7;
+
+	/// <summary>
+	/// How long after the animation started the display counts as powered up if it is showing any
+	/// other screen — the <c>+0x46</c> <c>MfdDisplay_Update</c> stamps at <c>+0x345</c> when it starts
+	/// the sequence.
+	/// </summary>
+	public const int MfdOtherScreenTicks = 0x46;
+
 	private readonly long _poweredAt;
 	private readonly long?[] _rowArmedAt = new long?[RowCount];
 	private long? _shieldsArmedAt;
 	private bool _finished;
 	private bool _shieldsDone;
+	private long? _mfdArmedAt;
+	private long? _mfdAnimationStart;
+	private bool _mfdEnded;
+	private bool _mfdDone;
 
 	private CockpitPowerUp(long poweredAt, bool finished) {
 		_poweredAt = poweredAt;
 		_finished = finished;
 		_shieldsDone = finished;
+		_mfdDone = finished;
 	}
 
 	/// <summary>
@@ -63,7 +88,7 @@ public sealed class CockpitPowerUp {
 
 	/// <summary>
 	/// <c>Cockpit_PowerUpTick</c>'s arming pass, once a frame: each row whose delay has passed, and the
-	/// shield meter on the first tick after the power-up began.
+	/// shield meter and the MFD on the first tick after the power-up began.
 	/// </summary>
 	public void Tick(long coarseTicks) {
 		if (_finished) {
@@ -84,7 +109,11 @@ public sealed class CockpitPowerUp {
 			_shieldsArmedAt = coarseTicks;
 		}
 
-		_finished = rowsDone && _shieldsDone;
+		if (_mfdArmedAt == null && elapsed != 0) {
+			_mfdArmedAt = coarseTicks;
+		}
+
+		_finished = rowsDone && _shieldsDone && _mfdDone;
 	}
 
 	/// <summary>
@@ -136,5 +165,60 @@ public sealed class CockpitPowerUp {
 		}
 
 		return (shownFront, shownRear);
+	}
+
+	/// <summary>
+	/// Which <see cref="MfdBank"/> frame the MFD shows at the scanner dish's position in place of the
+	/// scanner screen, or null once the display has powered up. Call it once a frame — like the
+	/// original's update, it starts and latches as it goes.
+	///
+	/// <para>Before the display is armed its repaint puts frame 0 over the dish. Once armed on the
+	/// scanner, <c>MfdDisplay_Update</c> (<c>00446328</c>) starts the sequence and steps it on the coarse
+	/// clock, frame <c>k</c> once more than <c>7k</c> ticks have passed, and returns before the screen's
+	/// own update — so neither the plot nor a squadmate's transmission is drawn while it runs. Frame 9
+	/// ends it and the next update marks the display done. On any other screen the display is done once
+	/// <see cref="MfdOtherScreenTicks"/> have passed since the sequence started, or at once if it never
+	/// started.</para>
+	/// </summary>
+	/// <param name="scannerShowing">Whether the MFD is on the scanner, mode 3, this frame.</param>
+	/// <param name="coarseTicks">The current coarse tick.</param>
+	public int? MfdFrame(bool scannerShowing, long coarseTicks) {
+		if (_mfdDone) {
+			return null;
+		}
+
+		if (_mfdArmedAt == null) {
+			return scannerShowing ? 0 : null;
+		}
+
+		if (!scannerShowing) {
+			if (_mfdAnimationStart is not { } started || coarseTicks > started + MfdOtherScreenTicks) {
+				_mfdDone = true;
+			}
+
+			return null;
+		}
+
+		// The update after the one that showed the last frame finds the sequence stopped and marks the
+		// display done; the scanner screen paints from then on.
+		if (_mfdEnded) {
+			_mfdDone = true;
+			return null;
+		}
+
+		if (_mfdAnimationStart is not { } start) {
+			_mfdAnimationStart = coarseTicks;
+			return 0;
+		}
+
+		// FUN_00471d7c advances past every frame whose hold has run out, so the frame showing is the
+		// first whose end is still at or after now.
+		long elapsed = coarseTicks - start;
+		int frame = elapsed <= MfdFrameTicks ? 0 : (int)Math.Min((elapsed - 1) / MfdFrameTicks, MfdFrameCount - 1);
+		if (frame == MfdFrameCount - 1) {
+			_mfdEnded = true;
+		}
+
+		return frame;
 	}
 }

@@ -133,7 +133,7 @@ PASS and ACTIVE are latching buttons whose lit state is the machine's radar mode
 
 `MfdDisplay_Update` dispatches one screen's update slot, the current one's, and repaints the scanner every frame while it is up ([`mfd.md`](mfd.md#paint-order)). While it is *not* up the repeater below calls the same update itself, so the contact list is never more than a frame old whichever screen the display is showing.
 
-Switching *to* mode 3 first plays the `radar` bank's 10-frame 110x110 sweep once at the dish's position (`MfdDisplay+0x331`, `FUN_00471d04`/`FUN_00471d7c`); the screen paints normally from the frame it finishes. Every other mode just waits out a 0x46-tick delay instead ([Open](#open)).
+The `radar` bank's ten frames play at the dish's position once, when the cockpit powers up, and never again: the display frees the bank the frame its power-up is done, so a later switch to F4 paints the screen at once. See [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#scanner-dish-grows).
 
 ## The floating repeater
 
@@ -177,7 +177,3 @@ Verified against `Reference/Targeting.png`: SAMSON's `51,5` puts the circle at d
 - The ghost-contact branch is transcribed as the skip it actually is.
 - Circles, lines and blips are stamped a pixel at a time by the midpoint and Bresenham algorithms rather than through a general rasterizer; same aliasing, no new drawing primitive.
 - The contact list is rebuilt every frame rather than by whichever of the two scanners is up, which is the same result by a shorter route.
-
-## Open
-
-- **Unported:** the mode-switch sweep animation played when switching to mode 3, the F4 screen.

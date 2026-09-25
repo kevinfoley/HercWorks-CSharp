@@ -22,6 +22,7 @@ using ImGuiNET;
 using Silk.NET.Input;
 using Silk.NET.OpenGL;
 using Silk.NET.OpenGL.Extensions.ImGui;
+using InputTape = HercWorks.Core.Data.File.Dbsim.InputTape;
 
 // The thin front-end host from docs/engine/planning.md's "Engine internal architecture" section:
 // it locates an install, asks the engine to build a scene from a real mission, and runs a real-time
@@ -81,6 +82,8 @@ bool writeJoystickMap = false;
 bool writePreferences = true;
 bool startWithStatusAlert = false;
 int stagedStatusAlert = -1;
+string? playTape = null;
+bool demoTape = false;
 for (int i = 0; i < args.Length; i++) {
 	if (args[i] == "--screenshot" && i + 1 < args.Length) {
 		screenshotPath = args[++i];
@@ -309,6 +312,15 @@ for (int i = 0; i < args.Length; i++) {
 		// it. A --screenshot run sees no keystroke and no map click, so this is the only way to reach
 		// the squadmate AI from the command line; an order that wants a pick takes the map centre.
 		initialHddTransmit = true;
+	} else if (args[i] == "--play" && i + 1 < args.Length) {
+		// DBSIM's own -p<name>: replay an input tape — a path, or a stem looked up in the install's
+		// TAPES folder, as -p's own "tapes\demo1" is. The mission comes out of the tape, so it replaces
+		// the positional mission argument. See InputTapePlayer.
+		playTape = args[++i];
+	} else if (args[i] == "--demo") {
+		// DBSIM's own -D: a tape picked from TAPES\demolist.str, as VIEW DEMO plays one, which ends the
+		// mission when it runs out or the moment a key is pressed. With --play, that tape instead.
+		demoTape = true;
 	} else {
 		positional.Add(args[i]);
 	}
@@ -341,9 +353,49 @@ if (moviePath != null) {
 	return MovieHost.Run(installRoot, moviePath, screenshotPath, silentAudio);
 }
 
+// An input tape to replay, which brings its own mission. -p and -D unpack the tape's bundle over the
+// install's data\; this unpacks it over a copy of it instead, so a replay leaves the install alone.
+InputTapePlayer? tapePlayer = null;
+string? tapeScriptPath = null;
+if (playTape != null || demoTape) {
+	string tapesDirectory = Path.Combine(installRoot, InputTapePlayer.TapesFolderName);
+	string? stem = playTape ?? InputTapePlayer.PickDemo(tapesDirectory);
+	string? tapePath = stem == null
+		? null
+		: new[] { stem, stem + InputTapePlayer.Extension, Path.Combine(tapesDirectory, stem + InputTapePlayer.Extension) }
+			.FirstOrDefault(File.Exists);
+	if (tapePath == null) {
+		Console.Error.WriteLine(stem == null
+			? $"No tape to play: {Path.Combine(tapesDirectory, InputTapePlayer.DemoListFileName)} is missing or empty."
+			: $"No tape at {stem}, {stem}{InputTapePlayer.Extension} or in {tapesDirectory}.");
+		return 1;
+	}
+
+	tapePlayer = InputTapePlayer.Load(tapePath, demoTape);
+	if (tapePlayer == null) {
+		Console.Error.WriteLine($"{tapePath} is not an input tape.");
+		return 1;
+	}
+
+	tapeScriptPath = tapePlayer.ExtractBundle(
+		Path.Combine(Path.GetTempPath(), "herculan-tape", Path.GetFileNameWithoutExtension(tapePath)),
+		Path.Combine(installRoot, MissionLoader.DataFolderName));
+
+	var frames = tapePlayer.Tape.Frames;
+	double recordedSeconds = frames.Sum(frame => InputTapePlayer.SecondsOf(frame.TickDelta));
+	Console.WriteLine($"Tape {tapePlayer.Name}: {frames.Count} frames, {recordedSeconds:0.0} s as recorded, "
+		+ $"unpacked to {Path.GetDirectoryName(tapeScriptPath)}. "
+		+ (demoTape ? "Any key ends the demo." : "Ctrl+E stops it and hands the controls over."));
+	foreach (var (first, last) in tapePlayer.InferredPanelSpans) {
+		Console.WriteLine($"  Frames {first}-{last} hold one SimTickDelta ({frames[first].TickDelta}): the "
+			+ "recording probably had a modal panel up across them.");
+	}
+}
+
 // The mission handoff VSHELL writes and DBSIM reads. It states its own zone and theater, so nothing
 // else here needs configuring. Any of the save-slot snapshots in SAV\ works as an alternative.
-string scriptPath = positional.Count > 1 ? positional[1] : MissionLoader.DefaultScriptPath(installRoot);
+string scriptPath = tapeScriptPath
+	?? (positional.Count > 1 ? positional[1] : MissionLoader.DefaultScriptPath(installRoot));
 if (!File.Exists(scriptPath)) {
 	Console.Error.WriteLine(
 		$"No mission at {scriptPath}.\n" +
@@ -454,8 +506,13 @@ string? dataDirectory = Path.GetDirectoryName(scriptPath);
 var loadedPreferences = SimulatorPreferences.Load(dataDirectory);
 var simulatorPreferences = loadedPreferences ?? SimulatorPreferences.Defaults();
 // Each panel writes its own options back as it closes, which is the original's own timing. --no-write-prefs
-// is the way out; a Defaults() instance has nowhere to write to and so is inert either way.
-simulatorPreferences.SaveEnabled = writePreferences;
+// is the way out; a Defaults() instance has nowhere to write to and so is inert either way. A replay's
+// preferences are the tape's, in a scratch folder, so nothing there is worth writing.
+simulatorPreferences.SaveEnabled = writePreferences && tapePlayer == null;
+
+// A replay applies the original's per-tick steps once per frame, as the recording did — see
+// SimMath.PerTickStepsScaled.
+SimMath.PerTickStepsScaled = tapePlayer == null;
 // The two gates the original's own panel reads. SfxManager being null greys its first four rows, and
 // DAT_0049e9cd -- which FUN_00459d6c sets by trying to fopen the localised simvoice archive -- is
 // what lets the two message rows be stepped at all.
@@ -934,6 +991,7 @@ var debugPanel = new DebugPanel();
 // reach either debugPanel or tweaksMenu and every key from F1 to F12 is already taken.
 bool menuBarVisible = false;
 bool menuBarEscapeDown = false;
+bool tapeEscapeDown = false;
 
 string debugFontPath = Path.Combine(AppContext.BaseDirectory,
 	"Assets", "Fonts", "Open_Sans", "static", "OpenSans-Regular.ttf");
@@ -1202,7 +1260,30 @@ var transientLevelChoice = new Dictionary<PartDetail, int>();
 // 57 types that carry no animation, which loses parts to damage but has no posed nodes. One upload
 // per distinct model, as with the other two.
 var cellMeshes = new Dictionary<string, GpuMesh[]>();
-IKeyboard? keyboard = null;
+// What every key handler below reads: the window's own keyboard, or a replaying tape's keystrokes.
+// liveKeys stays the window's throughout, because a replay still listens to it for [Ctrl+E], for -D's
+// any-key abort and for the menu bar.
+IKeyState? keyboard = null;
+LiveKeys? liveKeys = null;
+var tapeKeys = tapePlayer != null ? new TapeKeys() : null;
+
+// The replay's own state. tapeFrame is the frame taken this host frame, if one was due; the keys it
+// pressed are down for this frame only, and the next frame leaves them up before another press can
+// land (tapePulsed). A frame taken while a modal panel is up is the panel's, not the simulation's.
+InputTape.Frame? tapeFrame = null;
+bool tapeFrameUnderPanel = false;
+bool tapePulsed = false;
+double tapeAccumulator = 0;
+bool tapePanelShown = false;
+
+// The tick of a frame whose own input raised a modal panel. Sim_PollPlayerInput runs the panel from
+// inside Sim_MainTick, so that tick finishes once the panel is down, with the frame's SimTickDelta.
+short? tapeDeferredTick = null;
+
+// The pointer as the tape's mouse events leave it, in framebuffer pixels. The live pointer does not
+// reach the cockpit or a panel during a replay, as CockpitMouseLive (004d1e5a) shuts it out in retail.
+(float X, float Y, CockpitMouseButtons Buttons) tapePointer = (0, 0, CockpitMouseButtons.None);
+bool liveStopRequested = false;
 IMouse? mouse = null;
 bool cameraKeyDown = false;
 var cockpitInput = new CockpitInput();
@@ -1542,7 +1623,24 @@ window.Load += (gl, input) => {
 	pilotedItems = playerItems.Count > 0
 		? built.Where(entry => !playerItems.Contains(entry)).ToArray()
 		: items;
-	keyboard = input.Keyboards.Count > 0 ? input.Keyboards[0] : null;
+	liveKeys = input.Keyboards.Count > 0 ? new LiveKeys(input.Keyboards[0]) : null;
+	keyboard = tapeKeys ?? (IKeyState?)liveKeys;
+
+	// The two things the live keyboard still does while a tape plays, both of which retail tests on
+	// the live command word rather than the tape's: [Ctrl+E] stops the playback, and under -D any key
+	// that makes a command code raises the abort.
+	if (liveKeys != null && tapePlayer != null) {
+		liveKeys.Device.KeyDown += (device, key, _) => {
+			if (tapePlayer.Finished) {
+				return;
+			}
+
+			bool ctrl = device.IsKeyPressed(Key.ControlLeft) || device.IsKeyPressed(Key.ControlRight);
+			if (tapePlayer.DemoMode || (ctrl && key == Key.E)) {
+				liveStopRequested = true;
+			}
+		};
+	}
 
 	// The stick. Its capabilities are what the CONTROLS panel greys its rows against, and the original
 	// re-reads them every time that panel goes up rather than at startup, so nothing here has to be
@@ -1565,6 +1663,10 @@ window.Load += (gl, input) => {
 		// for the same reason — Mouse_RecomputeScale (0048078c) converts client coordinates into the
 		// game's own space before any listener sees them (§2).
 		void Queue(IMouse m, CockpitMouseButtons buttons) {
+			if (TapePlaying()) {
+				return;
+			}
+
 			var client = window.ClientSize;
 			var framebuffer = window.FramebufferSize;
 			cockpitInput.Enqueue(
@@ -1591,6 +1693,10 @@ window.Update += deltaSeconds => {
 
 	AnnounceJoystick();
 
+	// A replay's next frame, when it is due, goes in ahead of every handler below, which then read its
+	// keystrokes and pointer exactly as they would a player's.
+	TakeTapeFrame(deltaSeconds);
+
 	// The modal panels take the keyboard before anything else does. They are modal in the
 	// original — each runs its own event loop, which owns input until the panel comes down — and
 	// [Esc], which dismisses any of them, is also this host's menu-bar key, so they have to be asked
@@ -1608,17 +1714,21 @@ window.Update += deltaSeconds => {
 	// Everything below reads `controls` rather than the device itself: while the panel has keyboard
 	// focus it is null, so piloting and camera keys go dead instead of the panel and the machine both
 	// acting on the same keystroke.
-	var controls = imgui != null && ImGui.GetIO().WantCaptureKeyboard ? null : keyboard;
+	var controls = KeyboardCapturedByImGui() ? null : keyboard;
 
 	// [C] swaps between flying the observer camera and piloting the machine, on the key's own edge
-	// so holding it does not flicker between the two.
-	if (pilotMech != null && controls != null) {
-		bool cameraKey = !FlashCommHasKeyboard() && controls.IsKeyPressed(Key.C);
+	// so holding it does not flicker between the two. It is this engine's key rather than the
+	// original's, so during a replay it stays with the live keyboard.
+	var cameraKeys = TapePlaying() ? (ImGuiHasKeyboard() ? null : liveKeys) : controls;
+	if (pilotMech != null && cameraKeys != null) {
+		bool cameraKey = !FlashCommHasKeyboard() && cameraKeys.IsKeyPressed(Key.C);
 		if (cameraKey && !cameraKeyDown) {
 			piloting = !piloting;
 		}
 		cameraKeyDown = cameraKey;
+	}
 
+	if (pilotMech != null && controls != null) {
 		// [V] swaps between sitting in the cockpit and watching the machine from behind it, on its own
 		// edge for the same reason. The cockpit is not drawn in the external view, and the machine —
 		// left out of the cockpit view because its geometry wraps the eye — is.
@@ -1659,7 +1769,10 @@ window.Update += deltaSeconds => {
 	//
 	// Every edge latch is refreshed rather than left alone, so a key or button pressed to work the
 	// panel does not fire the moment the panel goes down.
-	if (piloting && pilotMech != null && controls != null && AnyModalPanelOpen()) {
+	// A replay pilots whether or not the live player has gone to the free camera: the machine is the
+	// tape's to drive, and the camera is only a way to watch it.
+	bool pilotInput = piloting || TapePlaying();
+	if (pilotInput && pilotMech != null && controls != null && AnyModalPanelOpen()) {
 		pilotMech.Controls = MechControls.Neutral;
 		joystickInput = JoystickPilotInput.None;
 		joystickCenterBody = false;
@@ -1675,14 +1788,16 @@ window.Update += deltaSeconds => {
 		clearTargetKeyDown = controls.IsKeyPressed(Key.Semicolon);
 		cycleComponentKeyDown = controls.IsKeyPressed(Key.Tab);
 		ApplyWeaponKeys(controls, null);
-	} else if (piloting && pilotMech != null && controls != null) {
+	} else if (pilotInput && pilotMech != null && controls != null) {
 		// The stick, read once and used twice: its axes go into MechControls at the bottom of this
 		// block and its button edges are dispatched here. Both come out of the same twelve bytes of
 		// prefs.cfg, resolved by JoystickBindings — the panel edits those bytes live, so a rebinding
-		// takes effect on the next tick with nothing to reload.
-		joystickInput = joystick is null
-			? JoystickPilotInput.None
-			: joystickBindings.Resolve(joystick.Read(), joystick.Capabilities, simulatorPreferences);
+		// takes effect on the next tick with nothing to reload. A replay's stick is the tape's.
+		joystickInput = TapePlaying()
+			? TapeJoystickInput()
+			: joystick is null
+				? JoystickPilotInput.None
+				: joystickBindings.Resolve(joystick.Read(), joystick.Capabilities, simulatorPreferences);
 
 		joystickCenterBody = false;
 		foreach (var action in joystickInput.Pressed) {
@@ -1792,71 +1907,92 @@ window.Update += deltaSeconds => {
 
 		cycleComponentKeyDown = cycleComponentKey;
 
-		// Stick sign convention is the device's, not the game's: forward and left are negative. No
-		// throttle lever, so the throttle's range spans both directions and holding [Down] takes the
-		// machine through zero into reverse — see MechControls.ThrottleLever.
-		//
-		// [I]/[M]/[J]/[K] aim the turret and [Backspace] re-centres it, which is the manual's own
-		// keyboard turret set. The turret's axes are rates, so holding a key sweeps it rather than
-		// putting it somewhere; [Backspace] latches until either axis is touched again.
-		//
-		// [\] is the other half of that pair, Center Body: it walks the legs round under the turret
-		// instead of bringing the turret back, taking the steering and the twist axis until they line
-		// up. It latches on the keypress, and [Backspace] cancels it.
-		// A held key is worth MechControls.KeyboardAxis, half a stick's travel — DBSIM's own keyboard
-		// scale, and the difference between turning at the machine's rate and at twice it.
-		//
-		// While the command display is down the four arrows scroll its map instead of steering, which
-		// is what the manual binds them to there. The keypad keeps steering throughout, so the machine
-		// is never left without a stick; the same split leaves [Backspace] cancelling a transmission
-		// rather than re-centring the turret. This is the one place the two keyboards are separated
-		// rather than allowed to overlap, because scrolling the map and turning the machine with the
-		// same press is the one overlap that would fight the player.
-		//
-		// The stick is combined with all of that rather than replacing it: the original registers the
-		// keyboard's two axis pairs in the same source table as the joystick's four axes and takes
-		// whichever has moved, so a pilot can steer with one hand and nudge with the other. What the
-		// stick reaches at all is the twelve binding bytes' business — see JoystickBindings.
 		bool mapHasArrows = HddCommandHasKeyboard();
-		var keyboardAxes = new PilotAxes(
-			(short)((mapHasArrows
-				? Axis(controls, Key.Keypad6, Key.Keypad4)
-				: Axis(controls, Key.Right, Key.Left, Key.Keypad6, Key.Keypad4)) * MechControls.KeyboardAxis),
-			(short)((mapHasArrows
-				? Axis(controls, Key.Keypad2, Key.Keypad8)
-				: Axis(controls, Key.Down, Key.Up, Key.Keypad2, Key.Keypad8)) * MechControls.KeyboardAxis),
-			TurretAxis(Axis(controls, Key.K, Key.J), heldTwist),
-			TurretAxis(Axis(controls, Key.I, Key.M), heldPitch));
 
-		var axes = joystickBindings.Combine(joystickInput, keyboardAxes);
-
-		pilotMech.Controls = new MechControls(
-			axes.Steer,
-			axes.Throttle,
-			// Set when the stick has a lever and it is bound to THROTTLE rather than to the turret —
-			// Input_SetThrottleLeverMode's own pair of conditions (FUN_00459d20). It is what closes the
-			// throttle clamp to one side of zero, so a lever pilot cannot walk backwards through the
-			// detent the way a keyboard one does.
-			ThrottleLever: joystickBindings.ThrottleLeverMode(
-				joystick?.Capabilities ?? JoystickCapabilities.None, simulatorPreferences),
-			TorsoTwist: axes.TorsoTwist,
-			TorsoPitch: axes.TorsoPitch,
-			CenterTorso: !mapHasArrows && controls.IsKeyPressed(Key.Backspace),
-			CenterBody: joystickCenterBody || controls.IsKeyPressed(Key.BackSlash),
-			// [Space] is held, not pressed — see MechControls.Fire. Holding it keeps the armed weapon
-			// firing as fast as its refire delay and its capacitor allow. So is the joystick trigger,
-			// for the same reason and through the same byte.
-			Fire: heldFire || joystickInput.Fire || controls.IsKeyPressed(Key.Space));
+		// A replay's axes are the tape's, which already hold whatever the keyboard contributed when it
+		// was recorded, and they change only when a frame is taken.
+		if (TapePlaying()) {
+			if (tapeFrame != null && !tapeFrameUnderPanel) {
+				pilotMech.Controls = TapeControls(tapeFrame,
+					centerTorso: !mapHasArrows && controls.IsKeyPressed(Key.Backspace),
+					centerBody: joystickCenterBody || controls.IsKeyPressed(Key.BackSlash));
+			}
+		} else {
+			PilotFromLiveInput(pilotMech, controls, mapHasArrows);
+		}
 	} else {
-		scene.Camera.Input = ReadInput(controls);
-		if (pilotMech != null) {
-			pilotMech.Controls = MechControls.Neutral;
+		if (!TapePlaying()) {
+			scene.Camera.Input = ReadInput(controls);
+			if (pilotMech != null) {
+				pilotMech.Controls = MechControls.Neutral;
+			}
 		}
 
 		// Hands off the stick, but keep swallowing whatever is held on it: a button pressed to dismiss
 		// a panel must not also fire its action the moment the panel goes down.
 		joystickInput = JoystickPilotInput.None;
 		joystickBindings.Suspend(joystick?.Read() ?? JoystickReading.Neutral);
+	}
+
+	// The free camera during a replay, which the live keyboard flies while the tape pilots.
+	if (TapePlaying() && !piloting) {
+		scene.Camera.Input = ReadInput(ImGuiHasKeyboard() ? null : liveKeys);
+	}
+
+	// Stick sign convention is the device's, not the game's: forward and left are negative. No
+	// throttle lever, so the throttle's range spans both directions and holding [Down] takes the
+	// machine through zero into reverse — see MechControls.ThrottleLever.
+	//
+	// [I]/[M]/[J]/[K] aim the turret and [Backspace] re-centres it, which is the manual's own
+	// keyboard turret set. The turret's axes are rates, so holding a key sweeps it rather than
+	// putting it somewhere; [Backspace] latches until either axis is touched again.
+	//
+	// [\] is the other half of that pair, Center Body: it walks the legs round under the turret
+	// instead of bringing the turret back, taking the steering and the twist axis until they line
+	// up. It latches on the keypress, and [Backspace] cancels it.
+	// A held key is worth MechControls.KeyboardAxis, half a stick's travel — DBSIM's own keyboard
+	// scale, and the difference between turning at the machine's rate and at twice it.
+	//
+	// While the command display is down the four arrows scroll its map instead of steering, which
+	// is what the manual binds them to there. The keypad keeps steering throughout, so the machine
+	// is never left without a stick; the same split leaves [Backspace] cancelling a transmission
+	// rather than re-centring the turret. This is the one place the two keyboards are separated
+	// rather than allowed to overlap, because scrolling the map and turning the machine with the
+	// same press is the one overlap that would fight the player.
+	//
+	// The stick is combined with all of that rather than replacing it: the original registers the
+	// keyboard's two axis pairs in the same source table as the joystick's four axes and takes
+	// whichever has moved, so a pilot can steer with one hand and nudge with the other. What the
+	// stick reaches at all is the twelve binding bytes' business — see JoystickBindings.
+	void PilotFromLiveInput(MechObject mech, IKeyState keys, bool mapHasArrows) {
+		var keyboardAxes = new PilotAxes(
+			(short)((mapHasArrows
+				? Axis(keys, Key.Keypad6, Key.Keypad4)
+				: Axis(keys, Key.Right, Key.Left, Key.Keypad6, Key.Keypad4)) * MechControls.KeyboardAxis),
+			(short)((mapHasArrows
+				? Axis(keys, Key.Keypad2, Key.Keypad8)
+				: Axis(keys, Key.Down, Key.Up, Key.Keypad2, Key.Keypad8)) * MechControls.KeyboardAxis),
+			TurretAxis(Axis(keys, Key.K, Key.J), heldTwist),
+			TurretAxis(Axis(keys, Key.I, Key.M), heldPitch));
+
+		var axes = joystickBindings.Combine(joystickInput, keyboardAxes);
+
+		mech.Controls = new MechControls(
+			axes.Steer,
+			axes.Throttle,
+			// Set when the stick has a lever and it is bound to THROTTLE rather than to the turret —
+			// Input_SetThrottleLeverMode's own pair of conditions (FUN_00459d20). It is what closes the
+			// throttle clamp to one side of zero, so a lever pilot cannot walk backwards through the
+			// detent the way a keyboard one does.
+			ThrottleLever: joystickBindings.ThrottleLeverMode(StickCapabilities(), simulatorPreferences),
+			TorsoTwist: axes.TorsoTwist,
+			TorsoPitch: axes.TorsoPitch,
+			CenterTorso: !mapHasArrows && keys.IsKeyPressed(Key.Backspace),
+			CenterBody: joystickCenterBody || keys.IsKeyPressed(Key.BackSlash),
+			// [Space] is held, not pressed — see MechControls.Fire. Holding it keeps the armed weapon
+			// firing as fast as its refire delay and its capacitor allow. So is the joystick trigger,
+			// for the same reason and through the same byte.
+			Fire: heldFire || joystickInput.Fire || keys.IsKeyPressed(Key.Space));
 	}
 
 	// F1-F6 pick the MFD screen, the same keys and the same order as the original's own mode buttons
@@ -2142,7 +2278,7 @@ window.Update += deltaSeconds => {
 		// cockpit had held when the panel was raised.
 		hudState = hudState with { PressedWidget = null };
 	} else if (cockpitArt != null && !ExternalViewActive()
-			&& (imgui == null || !ImGui.GetIO().WantCaptureMouse)) {
+			&& (TapePlaying() || imgui == null || !ImGui.GetIO().WantCaptureMouse)) {
 		var framebuffer = window.FramebufferSize;
 		var inputLayout = CockpitScreenLayout.Create(framebuffer.X, framebuffer.Y, cockpitArt,
 			cockpitPan.OffsetRows, cockpitPan.TravelRows, cockpitGlance.OffsetPanels);
@@ -2195,13 +2331,7 @@ window.Update += deltaSeconds => {
 	// repaints its own widgets and presents, and never reaches the sim tick.
 	// The poll raises the same panel by itself once the mission is decided — Sim_MainTick's own
 	// arm, latched on SimWorld.PendingMissionAlert by the tick that produced it.
-	if (scene.World is { PendingMissionAlert: not MissionStatus.None } alerted
-		&& statusAlertPanel is { IsOpen: false } && objectivesPanel is not { IsOpen: true }
-		&& !missionOver) {
-		var raised = alerted.PendingMissionAlert;
-		alerted.PendingMissionAlert = MissionStatus.None;
-		OpenStatusAlert(raised, alerted.Objectives);
-	}
+	RaisePendingMissionAlert();
 
 	// --quit stages the [Q] panel, which needs a ticked world to evaluate against, so it is raised on
 	// the first update rather than at load.
@@ -2250,16 +2380,22 @@ window.Update += deltaSeconds => {
 	// The same panels pause both message ports (AlertPanel_Enter, 00454630), so a line on screen when
 	// one comes up is still there, with the rest of its time, when it goes.
 	audio.MessagesPaused = AnyModalPanelOpen();
-	if (!frozen) {
-		tickAccumulator = Math.Min(tickAccumulator + deltaSeconds, MaxAccumulatedSeconds);
-	}
-	while (!frozen && tickAccumulator >= SecondsPerTick) {
-		scene.World.Tick();
 
-		// Beams are resolved and forgotten inside the tick, so anything that wants to see one has to
-		// look between ticks — see SimWorld.Beams.
-		debugPanel.SampleBeams(scene.World);
-		tickAccumulator -= SecondsPerTick;
+	// A replay ticks on the tape's frames instead, each for the time it recorded.
+	if (TapePlaying() || tapeFrame != null) {
+		RunTapeTicks();
+	} else {
+		if (!frozen) {
+			tickAccumulator = Math.Min(tickAccumulator + deltaSeconds, MaxAccumulatedSeconds);
+		}
+		while (!frozen && tickAccumulator >= SecondsPerTick) {
+			scene.World.Tick();
+
+			// Beams are resolved and forgotten inside the tick, so anything that wants to see one has to
+			// look between ticks — see SimWorld.Beams.
+			debugPanel.SampleBeams(scene.World);
+			tickAccumulator -= SecondsPerTick;
+		}
 	}
 
 	foreach (var (sceneObject, item) in movers) {
@@ -2793,7 +2929,7 @@ return 0;
 // Returns whether the panel claimed the keystroke.
 bool ReadStatusAlertKeys() {
 	if (statusAlertPanel == null || keyboard == null
-		|| (imgui != null && ImGui.GetIO().WantCaptureKeyboard)) {
+		|| KeyboardCapturedByImGui()) {
 		statusAlertKeysDown = 0;
 		return false;
 	}
@@ -2850,7 +2986,7 @@ bool ReadStatusAlertKeys() {
 // Returns whether the panel claimed the keystroke, so [Esc] does not also reach the debug panel.
 bool ReadObjectivesKeys() {
 	if (objectivesPanel == null || keyboard == null
-		|| (imgui != null && ImGui.GetIO().WantCaptureKeyboard)) {
+		|| KeyboardCapturedByImGui()) {
 		objectivesKeysDown = 0;
 		return false;
 	}
@@ -2897,7 +3033,7 @@ bool ReadObjectivesKeys() {
 // Returns whether the panel claimed the keystroke, so [Esc] does not also reach the debug panel.
 bool ReadPreferencesKeys() {
 	if (preferencesPanel == null || keyboard == null
-		|| (imgui != null && ImGui.GetIO().WantCaptureKeyboard)) {
+		|| KeyboardCapturedByImGui()) {
 		preferencesKeysDown = 0;
 		return false;
 	}
@@ -2943,14 +3079,29 @@ bool ReadPreferencesKeys() {
 // else raises the menu bar. The menu bar is the only way to reach either panel,
 // since every key from F1 to F12 is already taken by the game.
 void ReadMenuBarEscapeKey(bool consumedByOtherPanel) {
-	if (keyboard == null) {
+	// During a replay the two halves of this key come apart: the tape's [Esc] is the game's and only
+	// ever backs out of a view, and the live one keeps the menu bar, which is this engine's.
+	bool tapePlaying = TapePlaying();
+	if (tapePlaying && keyboard != null) {
+		bool tapeDown = keyboard.IsKeyPressed(Key.Escape);
+		if (tapeDown && !tapeEscapeDown && !consumedByOtherPanel && cockpitArt != null
+				&& !ExternalViewActive() && (!cockpitGlance.AtForward || cockpitPan.HeadsDownRequested)) {
+			cockpitGlance.Return();
+			RequestHeadsDown(headsDown: false);
+		}
+
+		tapeEscapeDown = tapeDown;
+		consumedByOtherPanel = false;
+	}
+
+	if (liveKeys == null) {
 		return;
 	}
 
 	// Tracked every frame independent of consumedByOtherPanel, exactly like the three callers above
 	// track their own Escape edge regardless of who else claims it — otherwise a press that is still
 	// held on the frame a retail panel above lets go of Escape reads as a second, fresh press here.
-	bool down = keyboard.IsKeyPressed(Key.Escape);
+	bool down = liveKeys.IsKeyPressed(Key.Escape);
 	bool pressed = down && !menuBarEscapeDown;
 	menuBarEscapeDown = down;
 
@@ -2964,7 +3115,7 @@ void ReadMenuBarEscapeKey(bool consumedByOtherPanel) {
 			}
 		} else if (menuBarVisible) {
 			menuBarVisible = false;
-		} else if (cockpitArt != null && !ExternalViewActive()
+		} else if (!tapePlaying && cockpitArt != null && !ExternalViewActive()
 				&& (!cockpitGlance.AtForward || cockpitPan.HeadsDownRequested)) {
 			// The manual's [Esc] is "the way back" from the side windows and the Heads-Down Display
 			// alike — view command 6 from a glance, 1 from heads-down. Only once that is done does
@@ -2983,21 +3134,14 @@ void ReadMenuBarEscapeKey(bool consumedByOtherPanel) {
 // Widget_OnMouseUp's own re-hit-test.
 void ReadPanelPointer(AlertPanelLayout.Placement place, Action<float, float> onDown,
 		Action<float, float, bool> onUp) {
-	if (mouse == null) {
-		return;
-	}
-
-	var client = window.ClientSize;
-	var framebuffer = window.FramebufferSize;
-	var (panelX, panelY) = place.ToPanel(
-		mouse.Position.X * framebuffer.X / Math.Max(client.X, 1),
-		mouse.Position.Y * framebuffer.Y / Math.Max(client.Y, 1));
+	var (pointerX, pointerY, buttons) = PanelPointer();
+	var (panelX, panelY) = place.ToPanel(pointerX, pointerY);
 
 	// Both buttons press a widget; which one was released is what the click carries, since
 	// CockpitMouse_ProcessQueue ORs the button bit into the click value on the release edge and the
 	// panel reads bit 1 off it. Two of these panels step a setting backwards on the right button.
-	bool right = mouse.IsButtonPressed(MouseButton.Right);
-	bool down = mouse.IsButtonPressed(MouseButton.Left) || right;
+	bool right = buttons.HasFlag(CockpitMouseButtons.Right);
+	bool down = buttons.HasFlag(CockpitMouseButtons.Left) || right;
 	if (down && !panelMouseDown) {
 		panelRightButtonDown = right;
 		onDown(panelX, panelY);
@@ -3007,6 +3151,24 @@ void ReadPanelPointer(AlertPanelLayout.Placement place, Action<float, float> onD
 	}
 
 	panelMouseDown = down;
+}
+
+// Where the pointer is and what it holds, in framebuffer pixels: the live mouse, or during a replay
+// wherever the tape's own mouse events have left it.
+(float X, float Y, CockpitMouseButtons Buttons) PanelPointer() {
+	if (TapePlaying()) {
+		return tapePointer;
+	}
+
+	if (mouse == null) {
+		return (float.NaN, float.NaN, CockpitMouseButtons.None);
+	}
+
+	var client = window.ClientSize;
+	var framebuffer = window.FramebufferSize;
+	return (mouse.Position.X * framebuffer.X / Math.Max(client.X, 1),
+		mouse.Position.Y * framebuffer.Y / Math.Max(client.Y, 1),
+		ButtonsHeld(mouse));
 }
 
 // [Q] asks the mission how it stands and offers a way out of it -- Sim_DispatchCommand's scancode
@@ -3041,7 +3203,7 @@ bool OpenStatusAlert(MissionStatus status, MissionObjectives objectives) {
 		return false;
 	}
 
-	panelMouseDown = mouse?.IsButtonPressed(MouseButton.Left) ?? false;
+	panelMouseDown = PanelPointer().Buttons.HasFlag(CockpitMouseButtons.Left);
 	return true;
 }
 
@@ -3920,6 +4082,239 @@ bool AnyModalPanelOpen() =>
 	statusAlertPanel is { IsOpen: true } || objectivesPanel is { IsOpen: true }
 	|| preferencesPanel is { IsOpen: true } || controlsPanel is { IsOpen: true };
 
+// Sim_MainTick's own arm: once the mission is decided, the poll raises the status alert by itself.
+// Latched on SimWorld.PendingMissionAlert by the tick that produced it.
+void RaisePendingMissionAlert() {
+	if (scene.World is { PendingMissionAlert: not MissionStatus.None } alerted
+		&& statusAlertPanel is { IsOpen: false } && objectivesPanel is not { IsOpen: true }
+		&& !missionOver) {
+		var raised = alerted.PendingMissionAlert;
+		alerted.PendingMissionAlert = MissionStatus.None;
+		OpenStatusAlert(raised, alerted.Objectives);
+	}
+}
+
+// Whether an input tape is driving the mission.
+bool TapePlaying() => tapePlayer is { Finished: false };
+
+bool ImGuiHasKeyboard() => imgui != null && ImGui.GetIO().WantCaptureKeyboard;
+
+// Whether the debug UI is typing and the game's keys should go dead. Never during a replay: the tape's
+// keystrokes are not the player's, and the player typing into the debug panel must not lose them.
+bool KeyboardCapturedByImGui() => !TapePlaying() && ImGuiHasKeyboard();
+
+// What the stick in use can do: the recording machine's during a replay, the attached one otherwise.
+JoystickCapabilities StickCapabilities() =>
+	TapePlaying() ? tapePlayer!.Capabilities : joystick?.Capabilities ?? JoystickCapabilities.None;
+
+// Takes the replay's next frame once it is due, before any handler reads input this host frame, and
+// puts its keystrokes and mouse events where those handlers look. At most one frame a host frame
+// goes in this way: every frame behind it that carries only held state follows in RunTapeTicks.
+//
+// A frame that presses anything waits for a host frame with nothing down, so every key-down edge the
+// tape records is one the handlers see — which also delays it by a host frame when two such frames
+// fall due back to back. The delay is time the pacing then catches up.
+void TakeTapeFrame(double deltaSeconds) {
+	tapeFrame = null;
+	if (tapePlayer == null) {
+		return;
+	}
+
+	tapeKeys?.Release();
+	if (tapePlayer.Finished || missionOver) {
+		return;
+	}
+
+	if (liveStopRequested) {
+		EndTape(stopped: true);
+		return;
+	}
+
+	if (tapePlayer.Peek() is not { } next) {
+		EndTape(stopped: false);
+		return;
+	}
+
+	bool pulsedLastFrame = tapePulsed;
+	tapePulsed = false;
+
+	bool underPanel = AnyModalPanelOpen();
+	double duration = InputTapePlayer.DurationOf(next, underPanel);
+	tapeAccumulator = Math.Min(tapeAccumulator + deltaSeconds, MaxAccumulatedSeconds);
+	if (tapeAccumulator < duration) {
+		return;
+	}
+
+	bool discrete = InputTapePlayer.HasDiscreteInput(next);
+	if (discrete && pulsedLastFrame) {
+		return;
+	}
+
+	tapePlayer.Take();
+	tapeAccumulator -= duration;
+	tapeFrame = next;
+	tapeFrameUnderPanel = underPanel;
+	tapePulsed = discrete;
+
+	foreach (int code in InputTapePlayer.PressesOf(next)) {
+		tapeKeys!.Press(code);
+	}
+
+	foreach (var mouseEvent in next.MouseEvents) {
+		ApplyTapeMouse(mouseEvent, underPanel);
+	}
+}
+
+// One of the tape's mouse events. Its position is in the game's own screen space — Mouse_DispatchEvent
+// (0048083c) scales a client position to half the back buffer, which is the viewport: the 640x480 a
+// panel centres itself on and the forward view fills, or 320x240 in the low-resolution mode — so it
+// lands wherever this engine puts that screen.
+void ApplyTapeMouse(InputTape.MouseEvent mouseEvent, bool underPanel) {
+	var framebuffer = window.FramebufferSize;
+	int scale = simulatorPreferences[SimulatorPreferences.VideoModeOption] == 1 ? 2 : 1;
+
+	var (x, y) = AlertPanelLayout.Placement.CreateAt(framebuffer.X, framebuffer.Y, 0, 0)
+		.ToWindow(mouseEvent.X * scale, mouseEvent.Y * scale);
+	var buttons = (CockpitMouseButtons)(mouseEvent.Buttons & 3);
+	tapePointer = (x, y, buttons);
+
+	// The same queue a live click goes into, and drained by the same code. A panel takes its pointer
+	// from tapePointer instead, as it takes the live one straight off the device.
+	if (!underPanel) {
+		cockpitInput.Enqueue(x, y, buttons);
+	}
+}
+
+// The simulation's half of a replay, after every input handler has seen this host frame's tape frame.
+void RunTapeTicks() {
+	NoteTapePanel();
+	if (missionOver) {
+		return;
+	}
+
+	if (tapeFrame is { } frame) {
+		if (!tapeFrameUnderPanel && AnyModalPanelOpen()) {
+			// The frame's own input put a panel up, which in the original runs from inside that frame's
+			// tick; the rest of the tick waits for the panel.
+			tapeDeferredTick = frame.TickDelta;
+		} else if (!tapeFrameUnderPanel) {
+			TickTape(frame.TickDelta);
+		} else if (!AnyModalPanelOpen() && tapeDeferredTick is { } deferred) {
+			// This frame took the panel down. The tick that raised it finishes now, and it reads the
+			// last input the panel's own loop built, because both share the one input block.
+			tapeDeferredTick = null;
+			if (pilotMech != null) {
+				pilotMech.Controls = TapeControls(frame, centerTorso: false, centerBody: false);
+			}
+
+			TickTape(deferred);
+		}
+	}
+
+	// Then every frame behind it that is due and presses nothing.
+	while (TapePlaying() && !missionOver && tapePlayer!.Peek() is { } next
+			&& !InputTapePlayer.HasDiscreteInput(next)) {
+		bool underPanel = AnyModalPanelOpen();
+		double duration = InputTapePlayer.DurationOf(next, underPanel);
+		if (tapeAccumulator < duration) {
+			break;
+		}
+
+		tapePlayer.Take();
+		tapeAccumulator -= duration;
+		if (!underPanel) {
+			if (pilotMech != null) {
+				pilotMech.Controls = TapeControls(next, centerTorso: false, centerBody: false);
+			}
+
+			TickTape(next.TickDelta);
+		}
+	}
+}
+
+// One tick of the tape's own length. The mission alert goes up straight after the tick that decided
+// it, rather than at the top of the next host frame, so the frames behind it are the panel's — as
+// they are in the recording, where Sim_MainTick raises the panel itself.
+void TickTape(short tickDelta) {
+	scene.World.Tick(tickDelta, InputTapePlayer.SecondsOf(tickDelta) * 1000);
+	debugPanel.SampleBeams(scene.World);
+	RaisePendingMissionAlert();
+	NoteTapePanel();
+}
+
+// Logs the frame each modal panel goes up and comes down on, to set against the tape's own
+// InferredPanelSpans: where they disagree, the replay has left the recording.
+void NoteTapePanel() {
+	bool shown = AnyModalPanelOpen();
+	if (shown != tapePanelShown && tapePlayer != null) {
+		tapePanelShown = shown;
+		Console.WriteLine($"Tape frame {tapePlayer.Position - 1}: a panel {(shown ? "went up" : "came down")}.");
+	}
+}
+
+// The machine's controls from one frame: its axes, with this install's keyjoy.cfg Backturn applied as
+// the original applies it on playback, and its trigger.
+MechControls TapeControls(InputTape.Frame frame, bool centerTorso, bool centerBody) {
+	var axes = joystickBindings.Combine(
+		new JoystickPilotInput(InputTapePlayer.AxesOf(frame), false, Array.Empty<JoystickAction>()),
+		PilotAxes.Centred);
+
+	return new MechControls(axes.Steer, axes.Throttle,
+		ThrottleLever: joystickBindings.ThrottleLeverMode(StickCapabilities(), simulatorPreferences),
+		TorsoTwist: axes.TorsoTwist,
+		TorsoPitch: axes.TorsoPitch,
+		CenterTorso: centerTorso,
+		CenterBody: centerBody,
+		Fire: InputTapePlayer.TriggerOf(frame));
+}
+
+// The frame's stick, in the shape a live one is resolved to. Its buttons are already past the
+// press-once latch, so a set bit is an action this frame; the first set bit claims the tick's one
+// action, as the first pressed button does live — see JoystickBindings.
+JoystickPilotInput TapeJoystickInput() {
+	if (tapeFrame is not { } frame || tapeFrameUnderPanel) {
+		return JoystickPilotInput.None;
+	}
+
+	var pressed = Array.Empty<JoystickAction>();
+	for (int i = 0; i < InputTapePlayer.RecordedButtonCount; i++) {
+		if (!InputTapePlayer.ButtonOf(frame, i)) {
+			continue;
+		}
+
+		var action = joystickBindings.Action(simulatorPreferences, i);
+		if (action is not (JoystickAction.Off or JoystickAction.Fire)) {
+			pressed = new[] { action };
+		}
+
+		break;
+	}
+
+	return new JoystickPilotInput(InputTapePlayer.AxesOf(frame), InputTapePlayer.TriggerOf(frame),
+		pressed, InputTapePlayer.HatOf(frame));
+}
+
+// The tape has run out, or [Ctrl+E] stopped it. Under -D that ends the mission, as the abort does in
+// retail; otherwise the controls go back to the player and the engine's own timestep, which is -p's
+// hand-over.
+void EndTape(bool stopped) {
+	tapePlayer!.Stop();
+	tapeKeys?.Release();
+	Console.WriteLine($"Tape {tapePlayer.Name} {(stopped ? "stopped" : "ended")} at frame {tapePlayer.Position}.");
+
+	if (tapePlayer.DemoMode) {
+		missionOver = true;
+		Console.WriteLine("Demo over. Exiting; the shell is not ported yet.");
+		window.Close();
+		return;
+	}
+
+	keyboard = liveKeys;
+	SimMath.PerTickStepsScaled = true;
+	tickAccumulator = 0;
+	tapeDeferredTick = null;
+}
+
 // The stick as the CONTROLS panel reads it, which is not how the rest of the session reads it: here a
 // button press picks the row it belongs to rather than firing whatever that row is bound to. The panel
 // owns what a press means (ControlsPanel.PressButtonRow); this owns only which press is new.
@@ -4020,8 +4415,7 @@ void ApplyJoystickAction(JoystickAction action, MechObject mech) {
 		// the capability block's +4 and the THROTTLE row together before it will move the mode, so on a
 		// stick without one this button does nothing at all.
 		case JoystickAction.ChangeDirection
-			when joystickBindings.ThrottleLeverMode(
-				joystick?.Capabilities ?? JoystickCapabilities.None, simulatorPreferences) != 0:
+			when joystickBindings.ThrottleLeverMode(StickCapabilities(), simulatorPreferences) != 0:
 			joystickBindings.ThrottleLeverInverted = !joystickBindings.ThrottleLeverInverted;
 			break;
 
@@ -4105,7 +4499,7 @@ void ApplyJoystickAction(JoystickAction action, MechObject mech) {
 // A null <paramref name="mounts"/> is the swallow: every latch is brought up to date and nothing acts,
 // which is what a modal wants — no machine is listening while one is up, and a key pressed to work the
 // panel must not fire as it closes.
-void ApplyWeaponKeys(IKeyboard keyboard, WeaponMounts? mounts) {
+void ApplyWeaponKeys(IKeyState keyboard, WeaponMounts? mounts) {
 	bool alt = keyboard.IsKeyPressed(Key.AltLeft) || keyboard.IsKeyPressed(Key.AltRight);
 
 	for (int slot = 0; slot < weaponRowKeys.Length; slot++) {
@@ -4175,7 +4569,7 @@ static Camera CloneCockpitCamera(Camera source) => new() {
 	FarPlane = source.FarPlane,
 };
 
-static CameraInput ReadInput(IKeyboard? keyboard) {
+static CameraInput ReadInput(IKeyState? keyboard) {
 	if (keyboard == null) {
 		return default;
 	}
@@ -4192,7 +4586,7 @@ static CameraInput ReadInput(IKeyboard? keyboard) {
 
 // The MFD screen the function keys are asking for, or null when none of them is down — returning null
 // rather than a default keeps the display on whatever screen it was already showing.
-static MfdMode? ReadMfdMode(IKeyboard keyboard) {
+static MfdMode? ReadMfdMode(IKeyState keyboard) {
 	Key[] keys = { Key.F1, Key.F2, Key.F3, Key.F4, Key.F5, Key.F6 };
 	for (int i = 0; i < keys.Length; i++) {
 		if (keyboard.IsKeyPressed(keys[i])) {
@@ -4205,7 +4599,7 @@ static MfdMode? ReadMfdMode(IKeyboard keyboard) {
 
 // The Heads-Down damage screen's component category, or null when none of its three keys is down —
 // same rule as ReadMfdMode: returning null leaves the screen on whatever it was already showing.
-static HddDamageView? ReadHddDamageView(IKeyboard keyboard) {
+static HddDamageView? ReadHddDamageView(IKeyState keyboard) {
 	if (keyboard.IsKeyPressed(Key.S)) {
 		return HddDamageView.Structural;
 	}
@@ -4220,7 +4614,7 @@ static HddDamageView? ReadHddDamageView(IKeyboard keyboard) {
 // One signed axis from a pair of keys, plus optional aliases for each direction — the arrow cluster
 // and the numeric keypad are the same key on the hardware the manual is describing, and a host window
 // sees them as two.
-static int Axis(IKeyboard keyboard, Key positive, Key negative,
+static int Axis(IKeyState keyboard, Key positive, Key negative,
 		Key? positiveAlias = null, Key? negativeAlias = null) {
 	bool up = keyboard.IsKeyPressed(positive) || (positiveAlias is { } p && keyboard.IsKeyPressed(p));
 	bool down = keyboard.IsKeyPressed(negative) || (negativeAlias is { } n && keyboard.IsKeyPressed(n));

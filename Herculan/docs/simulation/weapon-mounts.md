@@ -81,7 +81,7 @@ Retail magazines: ATC20 2000, ATC35 1500, ATC50 1000, ATC75 750, ATC100 500, MSL
 
 `FUN_0040e074` writes `Q10Multiply(820, 1200) = 960` into **both** `+0x7b` and `+0x7d` and `20` into `+0x7f` — literals, identical for every energy weapon. A HERC powers up with its capacitors full.
 
-`+0x7b` is a *request*, not a capacity, and it is the manual's **power level**. `FUN_0040f4d8` drops it to 820 when the mount goes idle, and `WeaponMount_AdjustPowerLevel` (`0040f48c`) is what the pilot moves it with, ±80 a press over 0..1200 — see [`weapon-firing.md`](weapon-firing.md#power-level--weaponmount_adjustpowerlevel-0040f48c). The charge bar's denominator is the fixed 1200, so a mount at its spawn charge fills 960/1200 = four-fifths of its bar and only a mount turned up ever fills it.
+`+0x7b` is a *request*, not a capacity: the mount's **power level**, a control the manual never mentions. `FUN_0040f4d8` drops it to 820 when the mount goes idle, and `WeaponMount_AdjustPowerLevel` (`0040f48c`) is what the pilot moves it with, ±80 a press over 0..1200 — see [`weapon-firing.md`](weapon-firing.md#power-level--weaponmount_adjustpowerlevel-0040f48c). The charge bar's denominator is the fixed 1200, so a mount at its spawn charge fills 960/1200 = four-fifths of its bar and only a mount turned up ever fills it.
 
 > `WeaponMount_DemandFullCharge` (`0040f4f0`) sets 1200 in one step and looks like the natural > mechanism, but its only caller has no reference of any kind in the image; neither is reachable in > the retail build.
 

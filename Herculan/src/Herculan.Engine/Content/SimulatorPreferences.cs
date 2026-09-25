@@ -60,6 +60,12 @@ public sealed class SimulatorPreferences {
 	/// <summary>COMPUTER MESSAGE, <c>DAT_004d1fbf</c> — the computer ticker's two halves.</summary>
 	public const int ComputerMessageOption = 3;
 
+	/// <summary>
+	/// VSHELL's <c>Game Resolution</c>, and the byte <c>VideoMode_Configure</c> reads: 0 for
+	/// 640x480, 1 for 320x240. See docs/simulation/preferences.md.
+	/// </summary>
+	public const int VideoModeOption = 4;
+
 	/// <summary>TERRAIN DISTANCE, <c>DAT_004d1fc3</c> — the draw radius, see <see cref="Terrain.TerrainDetail"/>.</summary>
 	public const int TerrainDistanceOption = 7;
 

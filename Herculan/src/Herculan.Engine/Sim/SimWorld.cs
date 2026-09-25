@@ -397,14 +397,20 @@ public sealed class SimWorld {
 	public long TickCount { get; private set; }
 
 	/// <summary>
+	/// How much time the ticks so far stand for, in milliseconds: 40 per tick on the engine's own
+	/// fixed timestep, or whatever a replayed tape's frames recorded.
+	/// </summary>
+	public double ElapsedMilliseconds { get; private set; }
+
+	/// <summary>
 	/// <c>Time_GetCoarseTicks</c>' timebase — <c>GetTickCount() &gt;&gt; 4</c>, so 16 ms units.
 	///
 	/// <para>This is the original's UI and event clock and is deliberately <b>not</b> the simulation
 	/// timestep; gadgets that blink or repeat on a cadence count in these. Derived from
-	/// <see cref="TickCount"/> rather than from the wall clock so it stays in step with a simulation
-	/// that is paused, stepped, or replayed.</para>
+	/// <see cref="ElapsedMilliseconds"/> rather than from the wall clock so it stays in step with a
+	/// simulation that is paused, stepped, or replayed.</para>
 	/// </summary>
-	public long CoarseTicks => TickCount * 1000 / (TicksPerSecond * 16);
+	public long CoarseTicks => (long)(ElapsedMilliseconds / 16);
 
 	/// <summary>
 	/// Simulation rate — <b>the original's own</b>. DBSIM's frame loop (<c>FUN_004677bc</c>) spins on
@@ -1235,11 +1241,22 @@ public sealed class SimWorld {
 	internal void RecordProjectileHit(WeaponShot shot) => _impacts.Add(shot);
 
 	/// <summary>
+	/// Advances the simulation by one tick of the engine's own fixed length. See
+	/// <see cref="Tick(short, double)"/>.
+	/// </summary>
+	public void Tick() => Tick(TickDelta, 1000.0 / TicksPerSecond);
+
+	/// <summary>
 	/// Advances the simulation by one tick: publishes the timestep, then updates every live object.
 	/// Objects flagged removed are skipped, matching how the original's tick walks its lists.
+	///
+	/// <para><paramref name="tickDelta"/> is the <c>SimTickDelta</c> the tick runs with and
+	/// <paramref name="elapsedMilliseconds"/> the time it stands for. Anything but the engine's own
+	/// pair comes from a replayed tape, whose frames each carry the delta the original measured for
+	/// them.</para>
 	/// </summary>
-	public void Tick() {
-		SimMath.TickDelta = TickDelta;
+	public void Tick(short tickDelta, double elapsedMilliseconds) {
+		SimMath.TickDelta = tickDelta;
 		_beams.Clear();
 		_impacts.Clear();
 
@@ -1394,6 +1411,7 @@ public sealed class SimWorld {
 		}
 
 		TickCount++;
+		ElapsedMilliseconds += elapsedMilliseconds;
 	}
 
 	/// <summary>

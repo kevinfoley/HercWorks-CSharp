@@ -6632,7 +6632,7 @@
       "type": "function",
       "confidence": "high",
       "name": "WeaponMount_AdjustPowerLevel",
-      "description": "Energy mount vtable +0x38, reached by WeaponMounts_HandleCommand codes 0x0c/0x0d/0x4a/0x4e ([-], [=], keypad [-], keypad [+]) with the 'up' half as a flag. Moves the charge target (+0x7b) by +/-0x50, clamped to 0..0x4b0. This is the manual's power-level control and the only thing in the retail build that raises a capacitor past its idle 820. The ammunition and pod classes have a no-op in this slot.",
+      "description": "Energy mount vtable +0x38, reached by WeaponMounts_HandleCommand codes 0x0c/0x0d/0x4a/0x4e ([-], [=], keypad [-], keypad [+]) with the 'up' half as a flag. Moves the charge target (+0x7b) by +/-0x50, clamped to 0..0x4b0. This is the power-level control, which the manual never mentions, and the only thing in the retail build that raises a capacitor past its idle 820. The ammunition and pod classes have a no-op in this slot.",
       "source": "docs/simulation/weapon-firing.md 2026-08-24"
     },
     {

@@ -94,14 +94,14 @@ Without `-v` or `-Z` the simulator uses the settings saved from its preferences 
 
 ### Recording and playback
 
-The simulator can record everything the player does during a mission to a file and play it back later. Three such recordings ship as demos, and **VIEW DEMO** on the main menu plays one of them. See [`formats/tap-input-tape.md`](formats/tap-input-tape.md).
+The simulator can record everything the player does during a mission to a file and play it back later. Three such recordings ship as demos, and **VIEW DEMO** on the main menu plays one of them. Playback runs as fast as the computer can draw frames, so on a modern machine a demo lasting minutes is over almost at once. `Ctrl+E` stops a playback. See [`formats/tap-input-tape.md`](formats/tap-input-tape.md#timing).
 
 | Option | What it does |
 |---|---|
 | `-r<name>` | Records the mission to `<name>.tap`. |
 | `-p<name>` | Plays `<name>.tap` back. |
 | `-D` | Plays one of the shipped demo recordings, chosen at random. Player input stops it. This is what VIEW DEMO does. |
-| `-d` | Used with `-r` or `-p`. Saves checkpoints of the game's state beside the recording, and during playback compares against them to catch a replay that has drifted from the original. |
+| `-d` | Checkpoints, placed after `-r` or `-p`. Built to save snapshots of the game's state beside the recording and compare against them during playback, to catch a replay that has drifted from the original. In the released game it only creates an empty `<name>.dmp` when recording; see [Open](#open). |
 
 ### Developer mode: `-SPRUNKNOWN`
 
@@ -141,4 +141,5 @@ Turns on a set of keys the programmers used for testing. The `Ctrl+Alt+number` k
 - **Open:** what the front end's `-a` and non-`eggplant` `-e…` options do.
 - **Open:** what `-C` does with the four names that have no cockpit artwork, and what `-E` does without Spanish speech files.
 - **Open:** where the front end's `-v` and `-?` text appears; it is written to standard output, which a Windows program normally does not have.
+- **Open:** whether anything in the simulator runs the `-d` checkpoints; see [`formats/tap-input-tape.md`](formats/tap-input-tape.md#open).
 - **Open:** `-b` has not been tried against retail; the expected behaviour on each Windows family is in [`formats/cockpit-views.md`](formats/cockpit-views.md#open).

@@ -116,6 +116,13 @@ public static class SimMath {
 	public const short VanillaTickDelta = 81;
 
 	/// <summary>
+	/// Whether <see cref="ScalePerTickStep"/> rescales at all. On by default. A replayed tape turns it
+	/// off: its ticks run at the recording machine's own deltas, and matching the recording means
+	/// applying each step once per frame whatever that frame's length, as the original did.
+	/// </summary>
+	public static bool PerTickStepsScaled { get; set; } = true;
+
+	/// <summary>
 	/// <b>Not a DBSIM function — a deliberate deviation.</b> Converts a constant the original
 	/// applied as a raw per-tick step into this tick's equivalent:
 	/// <c>step * TickDelta / VanillaTickDelta</c>.
@@ -136,9 +143,12 @@ public static class SimMath {
 	/// tick short enough to round it away the result is pinned to 1, so a ramp cannot stall
 	/// outright. Below the vanilla tick length that pin is the quantization floor of a fixed-point
 	/// port with no fractional carry, and the accel constants would want re-checking there.</para>
+	///
+	/// <para>Off while <see cref="PerTickStepsScaled"/> is false, which is how a replayed tape gets
+	/// the original's own frame-rate-dependent ramps back.</para>
 	/// </summary>
 	public static short ScalePerTickStep(short step) {
-		if (step <= 0) {
+		if (step <= 0 || !PerTickStepsScaled) {
 			return step;
 		}
 

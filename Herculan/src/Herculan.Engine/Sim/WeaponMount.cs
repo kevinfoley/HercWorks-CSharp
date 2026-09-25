@@ -80,7 +80,7 @@ public sealed class WeaponMount {
 	public const int EmptyWeaponId = 0;
 
 	/// <summary>
-	/// The step one press of the manual's power-level keys moves an energy mount's charge target —
+	/// The step one press of the power-level keys moves an energy mount's charge target —
 	/// <c>FUN_0040f48c</c>'s literal <c>0x50</c>, clamped to 0..<see cref="EnergyChargeScale"/>.
 	/// </summary>
 	public const short EnergyPowerStep = 0x50;
@@ -1086,7 +1086,8 @@ public sealed class WeaponMount {
 	public const short AmmoGaugeDecayRate = 0xfa;
 
 	/// <summary>
-	/// Vtable slot <c>0x38</c>, <c>FUN_0040f48c</c> — the manual's power-level control, on
+	/// Vtable slot <c>0x38</c>, <c>FUN_0040f48c</c> — the power-level control, which the manual does not
+	/// mention, on
 	/// <c>[-]</c>/<c>[=]</c> and the numeric keypad's <c>[-]</c>/<c>[+]</c>. Moves this mount's charge
 	/// target by <see cref="EnergyPowerStep"/>, clamped to zero and <see cref="EnergyChargeScale"/>.
 	/// Only the energy class implements it; the other two have a no-op in that slot.

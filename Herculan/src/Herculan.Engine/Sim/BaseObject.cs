@@ -506,6 +506,12 @@ public sealed partial class BaseObject : SimObject {
 		}
 	}
 
+	/// <inheritdoc />
+	/// <remarks>The structure's slot is <see cref="ApplyDamage"/>.</remarks>
+	public override void ApplyComponentDamage(SimWorld world, int componentIndex, short damage,
+			SimObject? attacker) =>
+		ApplyDamage(world.Random, componentIndex, damage, attacker, world);
+
 	/// <summary>
 	/// Whether a part is still coming down — it has been destroyed but has stages of its death
 	/// sequence left to run. A structure that has fallen but whose parts are still collapsing reads

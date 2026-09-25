@@ -602,6 +602,17 @@ public abstract class SimObject {
 	}
 
 	/// <summary>
+	/// Vtable <c>+0x74</c> — <paramref name="damage"/> written straight onto one component, with every
+	/// consequence the class attaches to losing it. The three shootable classes each route it to their
+	/// own endpoint; the base does nothing. The simulation's own damage paths reach those endpoints
+	/// directly; this is the slot for a caller that holds only a <see cref="SimObject"/>, as the
+	/// developer keys' <c>Ctrl+Alt+D</c> and <c>Ctrl+Alt+N</c> do.
+	/// </summary>
+	public virtual void ApplyComponentDamage(SimWorld world, int componentIndex, short damage,
+			SimObject? attacker) {
+	}
+
+	/// <summary>
 	/// One simulation step. Rate-based motion inside an override should go through
 	/// <see cref="SimMath.IntegrateRateOverTick"/> rather than multiplying by a float delta —
 	/// <see cref="SimWorld"/> maintains <see cref="SimMath.TickDelta"/> for exactly that.

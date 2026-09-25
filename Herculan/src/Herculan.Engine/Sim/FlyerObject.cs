@@ -270,6 +270,11 @@ public sealed partial class FlyerObject : SimObject {
 	/// is what just went down is here, on the guard all three damage endpoints share, and so is the
 	/// mission action it fires — see <see cref="SimObject.DefeatAction"/>.</para>
 	/// </summary>
+	public override void ApplyComponentDamage(SimWorld world, int componentIndex, short damage,
+			SimObject? attacker) =>
+		ApplyDamage(componentIndex, damage, attacker, world);
+
+	/// <inheritdoc cref="ApplyComponentDamage"/>
 	private void ApplyDamage(int componentIndex, short damage, SimObject? attacker,
 			SimWorld? world = null) {
 		if (_damage == null) {

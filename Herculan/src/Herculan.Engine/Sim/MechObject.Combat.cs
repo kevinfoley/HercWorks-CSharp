@@ -974,6 +974,11 @@ public sealed partial class MechObject {
 	/// gated on <see cref="SimObject.LocallyPiloted"/>, so only the machine the player is flying
 	/// says anything. See docs/simulation/component-damage.md.</para>
 	/// </summary>
+	public override void ApplyComponentDamage(SimWorld world, int componentIndex, short damage,
+			SimObject? attacker) =>
+		ComponentDamageWrite(world, (short)componentIndex, damage, attacker);
+
+	/// <inheritdoc cref="ApplyComponentDamage"/>
 	private void ComponentDamageWrite(SimWorld world, short componentIndex, short damage,
 			SimObject? attacker) {
 		// Sim_DamageToPlayerDisabled (004240f4), asked at the very top and of nothing else in the

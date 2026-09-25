@@ -113,6 +113,8 @@ The recorded deltas are far from the 25 Hz cap's 81. The three retail tapes were
 
 The recorded length is the sum of the deltas at 125/256 ms per count. A frame that took longer than the clamp's 220 ms is recorded as 220 ms, so that sum is the time the simulation saw, which is shorter than the wall time of the recording session.
 
+`tools/scripts/patch_dbsim_tape_pacing.py` patches a retail `DBSIM.EXE` to play tapes in real time, for side-by-side comparison with this engine. It holds each simulation frame for its recorded delta and each panel frame for 6 ms. It is this project's modification, not retail behaviour.
+
 ## The checkpoint file
 
 `-d` opens `<stem>.dmp` into `004d2562`: mode `wb` when recording, which it then closes at once while leaving the handle non-null, and `rb` when playing back. The routine built around it is `FUN_00401dc0 (ptr, size, label)`:

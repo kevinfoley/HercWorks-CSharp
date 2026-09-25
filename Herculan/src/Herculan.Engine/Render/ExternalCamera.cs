@@ -64,19 +64,19 @@ public static class ExternalCamera {
 
 	/// <summary>
 	/// Points <paramref name="camera"/> at a point <see cref="AimHeightMeters"/> above
-	/// <paramref name="mech"/>'s origin, from <see cref="DistanceMeters"/> away on the orbit
+	/// <paramref name="subject"/>'s origin, from <see cref="DistanceMeters"/> away on the orbit
 	/// <paramref name="orbitYawBam"/> and <paramref name="orbitPitchBam"/> describe.
 	/// <paramref name="terrain"/> is optional and only used for the ground clearance floor.
 	/// </summary>
 	/// <param name="orbitYawBam">
-	/// Orbit angle around the machine, in BAM (see <see cref="BinaryAngle"/>), offset from directly
+	/// Orbit angle around the subject, in BAM (see <see cref="BinaryAngle"/>), offset from directly
 	/// behind it — zero reproduces the view's original fixed chase position.
 	/// </param>
 	/// <param name="orbitPitchBam">
 	/// Orbit angle above or below level with the aim point, in BAM, clamped to
 	/// <see cref="MaxOrbitPitch"/> either way.
 	/// </param>
-	public static void Place(Camera camera, MechObject mech, HeightGrid? terrain, int orbitYawBam, int orbitPitchBam) {
+	public static void Place(Camera camera, SimObject subject, HeightGrid? terrain, int orbitYawBam, int orbitPitchBam) {
 		// A negative pitch (e.g. from BinaryAngle.FromRadians) arrives wrapped into the top of the BAM
 		// range rather than as a small negative int — sign-extending the low 16 bits first (the same
 		// trick BinaryAngle.Delta uses) recovers it before the clamp, so the bottom of the range doesn't
@@ -85,8 +85,8 @@ public static class ExternalCamera {
 
 		// The point the camera orbits and stays aimed at — torso height above the machine's origin,
 		// not the origin itself.
-		var mechPosition = mech.Position;
-		var center = new Vec3i(mechPosition.X, mechPosition.Y, mechPosition.Z + Units(AimHeightMeters));
+		var subjectPosition = subject.Position;
+		var center = new Vec3i(subjectPosition.X, subjectPosition.Y, subjectPosition.Z + Units(AimHeightMeters));
 
 		// A HERC's forward vector is (-sin h, cos h) in world XY (see MissionScene.TransformOf), so
 		// directly behind it is the negation of that; orbitYawBam turns the eye further around from
@@ -94,7 +94,7 @@ public static class ExternalCamera {
 		// height the same way any spherical offset would, so orbitPitchBam = 0 sits level with the aim
 		// point and the clamp above keeps it within 45 degrees of that either way.
 		int radius = Units(DistanceMeters);
-		int azimuth = (mech.Heading + orbitYawBam) & 0xffff;
+		int azimuth = (subject.Heading + orbitYawBam) & 0xffff;
 		int horizontal = radius * BinaryAngle.Cos(orbitPitchBam) / BinaryAngle.TrigOne;
 		int vertical = radius * BinaryAngle.Sin(orbitPitchBam) / BinaryAngle.TrigOne;
 

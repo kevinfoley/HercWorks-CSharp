@@ -550,6 +550,27 @@ public sealed partial class MechObject : SimObject {
 			return;
 		}
 
+		PilotInputTick(world);
+		MovementTick(world);
+	}
+
+	/// <summary>
+	/// What a tick frozen by the developer keys' <c>Alt+S</c> does to the player's machine:
+	/// <c>Sim_MainTick</c> (<c>0045f464</c>) still runs <c>Sim_PollPlayerInput</c> under the freeze, so
+	/// the trigger, the throttle law and the turret go on, while the move, the power tick and a flyer's
+	/// flight input sit behind it. So a frozen machine turns if it has speed, slews its turret and fires,
+	/// and walks nowhere. See docs/command-line.md's developer keys.
+	/// </summary>
+	internal void FrozenTick(SimWorld world) {
+		FireTick(world);
+
+		if (Flight == null && !UnderAiControl) {
+			PilotInputTick(world);
+		}
+	}
+
+	/// <summary><c>Sim_PollPlayerInput</c>'s throttle and turret branch, ahead of the move.</summary>
+	private void PilotInputTick(SimWorld world) {
 		LatchCenterBody();
 
 		if (_centeringBody) {
@@ -561,8 +582,6 @@ public sealed partial class MechObject : SimObject {
 			ApplyThrottleInput(world, Controls.Turn);
 			TorsoTick();
 		}
-
-		MovementTick(world);
 	}
 
 	/// <summary>
@@ -923,6 +942,27 @@ public sealed partial class MechObject : SimObject {
 		Pitch = (short)(Pitch + euler.X);
 		Roll = (short)(Roll + euler.Y);
 		Heading = (Heading + euler.Z) & 0xffff;
+		_rotationValid = false;
+	}
+
+	/// <summary>
+	/// The developer keys' move — <c>Mech_HandleCommand</c> (<c>004157c8</c>), codes <c>0x248</c>,
+	/// <c>0x250</c>, <c>0x24b</c> and <c>0x24d</c>: the machine's own frame applied to the offset, and
+	/// the result written straight over its position. Nothing is tested on the way, so it goes through
+	/// terrain, structures and other machines alike. See docs/key-bindings.md.
+	/// </summary>
+	/// <param name="across">Along the machine's own X axis, to its right.</param>
+	/// <param name="along">Along its own Y axis, forward.</param>
+	public void Displace(short across, short along) {
+		Position = Rotation().TransformPoint(across, along, 0);
+	}
+
+	/// <summary>
+	/// The developer keys' turn on the spot — codes <c>0x44b</c> and <c>0x44d</c> of the same handler,
+	/// which add to the euler triple's Z and mark the cached frame stale.
+	/// </summary>
+	public void TurnBy(int angle) {
+		Heading = (Heading + angle) & 0xffff;
 		_rotationValid = false;
 	}
 

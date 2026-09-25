@@ -84,6 +84,7 @@ bool startWithStatusAlert = false;
 int stagedStatusAlert = -1;
 string? playTape = null;
 bool demoTape = false;
+bool developerMode = false;
 for (int i = 0; i < args.Length; i++) {
 	if (args[i] == "--screenshot" && i + 1 < args.Length) {
 		screenshotPath = args[++i];
@@ -317,6 +318,9 @@ for (int i = 0; i < args.Length; i++) {
 		// TAPES folder, as -p's own "tapes\demo1" is. The mission comes out of the tape, so it replaces
 		// the positional mission argument. See InputTapePlayer.
 		playTape = args[++i];
+	} else if (args[i] == "--developer") {
+		// DBSIM's own -SPRUNKNOWN: the developer keys. See DeveloperKeys and docs/key-bindings.md.
+		developerMode = true;
 	} else if (args[i] == "--demo") {
 		// DBSIM's own -D: a tape picked from TAPES\demolist.str, as VIEW DEMO plays one, which ends the
 		// mission when it runs out or the moment a key is pressed. With --play, that tape instead.
@@ -991,6 +995,14 @@ var debugPanel = new DebugPanel();
 // reach either debugPanel or tweaksMenu and every key from F1 to F12 is already taken.
 bool menuBarVisible = false;
 bool menuBarEscapeDown = false;
+
+// The -SPRUNKNOWN keys, and the Alt+S freeze a replay honours without them.
+var developerKeys = new DeveloperKeys(developerMode);
+if (developerMode) {
+	Console.WriteLine("Developer keys on: Alt+S freezes, Alt+keypad + steps one tick, Ctrl+Alt+1-9 size "
+		+ "the Alt+arrow moves and Ctrl+Left/Right turns, Ctrl+N/P view other objects, Ctrl+T hands the "
+		+ "controls off, Ctrl+Alt+,/. pick a component, Ctrl+Alt+D damages it, Ctrl+Alt+N hits a Cybrid.");
+}
 bool tapeEscapeDown = false;
 
 string debugFontPath = Path.Combine(AppContext.BaseDirectory,
@@ -1728,6 +1740,11 @@ window.Update += deltaSeconds => {
 		cameraKeyDown = cameraKey;
 	}
 
+	// The developer keys, which reach the dispatcher only while no modal panel holds the input.
+	if (pilotMech != null && controls != null && !AnyModalPanelOpen() && !missionOver) {
+		developerKeys.Read(controls, scene.World, pilotMech, TapePlaying(), deltaSeconds);
+	}
+
 	if (pilotMech != null && controls != null) {
 		// [V] swaps between sitting in the cockpit and watching the machine from behind it, on its own
 		// edge for the same reason. The cockpit is not drawn in the external view, and the machine —
@@ -1743,7 +1760,7 @@ window.Update += deltaSeconds => {
 	// machine, always aimed back at it. Gated the same way the cockpit's own clicks are — nothing to
 	// drag while the pointer is over the debug panel — and only while the external view is actually
 	// up, so a drag started before switching views doesn't carry over.
-	if (piloting && pilotMech != null && externalView && mouse != null
+	if (ExternalViewActive() && mouse != null
 			&& (imgui == null || !ImGui.GetIO().WantCaptureMouse)) {
 		bool dragging = mouse.IsButtonPressed(MouseButton.Left);
 		var mousePosition = mouse.Position;
@@ -1865,7 +1882,7 @@ window.Update += deltaSeconds => {
 		// [T] toggles ATT. The command display owns [T] as an order hotkey while it is down, so the
 		// two are split the same way the arrows and [Backspace] are, and for the same reason.
 		bool autoTrackKey = !HddCommandHasKeyboard() && controls.IsKeyPressed(Key.T);
-		if (autoTrackKey && !autoTrackKeyDown) {
+		if (autoTrackKey && !autoTrackKeyDown && !CtrlHeld(controls)) {
 			// Sim_DispatchCommand's 0x14 case toggles the TRACK widget and, if that turned it off,
 			// latches the centring mode — so [T] off brings the turret home rather than leaving it
 			// wherever the tracker had it. Backspace's own case is the mirror image.
@@ -1934,6 +1951,17 @@ window.Update += deltaSeconds => {
 		joystickBindings.Suspend(joystick?.Read() ?? JoystickReading.Neutral);
 	}
 
+	// [Ctrl+T]'s hand-off, over whichever of the two above built the controls: Sim_PollPlayerInput
+	// gives the machine none of the four axes and skips Mech_PlayerFireTick, and Mech_ApplyThrottleInput
+	// ignores a lever. What the axes drive instead — FUN_00401c74 on the view object — is not ported.
+	// The two centring commands are dispatcher cases and still reach the machine.
+	if (pilotInput && pilotMech != null && developerKeys.InputDrivesCamera) {
+		pilotMech.Controls = MechControls.Neutral with {
+			CenterTorso = pilotMech.Controls.CenterTorso,
+			CenterBody = pilotMech.Controls.CenterBody,
+		};
+	}
+
 	// The free camera during a replay, which the live keyboard flies while the tape pilots.
 	if (TapePlaying() && !piloting) {
 		scene.Camera.Input = ReadInput(ImGuiHasKeyboard() ? null : liveKeys);
@@ -1965,11 +1993,16 @@ window.Update += deltaSeconds => {
 	// whichever has moved, so a pilot can steer with one hand and nudge with the other. What the
 	// stick reaches at all is the twelve binding bytes' business — see JoystickBindings.
 	void PilotFromLiveInput(MechObject mech, IKeyState keys, bool mapHasArrows) {
+		// Under the developer flag an arrow held with Ctrl or Alt is a move or turn key, and this engine
+		// takes it off the steering and throttle axes. Retail keeps it on them — see KNOWN_ISSUES.md.
+		bool arrowsAreCommands = developerKeys.Enabled && (CtrlHeld(keys) || AltHeld(keys));
 		var keyboardAxes = new PilotAxes(
-			(short)((mapHasArrows
+			(short)((arrowsAreCommands ? 0
+				: mapHasArrows
 				? Axis(keys, Key.Keypad6, Key.Keypad4)
 				: Axis(keys, Key.Right, Key.Left, Key.Keypad6, Key.Keypad4)) * MechControls.KeyboardAxis),
-			(short)((mapHasArrows
+			(short)((arrowsAreCommands ? 0
+				: mapHasArrows
 				? Axis(keys, Key.Keypad2, Key.Keypad8)
 				: Axis(keys, Key.Down, Key.Up, Key.Keypad2, Key.Keypad8)) * MechControls.KeyboardAxis),
 			TurretAxis(Axis(keys, Key.K, Key.J), heldTwist),
@@ -2018,7 +2051,11 @@ window.Update += deltaSeconds => {
 	// FIRE it currently reads.
 	if (controls != null && scene.World is { } flashCommWorld) {
 		bool flashCommUp = FlashCommHasKeyboard();
-		bool alt = controls.IsKeyPressed(Key.AltLeft) || controls.IsKeyPressed(Key.AltRight);
+		bool alt = AltHeld(controls);
+
+		// Every key here is a bare or an [Alt] code. With [Ctrl] down the code is another one — [Ctrl+F],
+		// and the developer keys' [Ctrl+Alt+D], [.] and [,] — so none of them lands here.
+		bool ctrl = CtrlHeld(controls);
 
 		bool Transmit() {
 			bool accepted = flashComm.Transmit(flashCommWorld, flashCommWorld.PlayerMech?.Group);
@@ -2028,7 +2065,7 @@ window.Update += deltaSeconds => {
 
 		for (int i = 0; i < FlashCommKeys.Length; i++) {
 			var (key, row, requiredVerb) = FlashCommKeys[i];
-			if (!Edge(key, ref flashCommKeysDown[i])) {
+			if (!Edge(key, ref flashCommKeysDown[i]) || ctrl) {
 				continue;
 			}
 
@@ -2056,17 +2093,17 @@ window.Update += deltaSeconds => {
 			}
 
 			// [.] and [,] walk the list past any row the squad cannot take.
-			if (Edge(Key.Period, ref flashCommNextRowKeyDown)) {
+			if (Edge(Key.Period, ref flashCommNextRowKeyDown) && !ctrl) {
 				flashComm.StepRow(1);
 			}
-			if (Edge(Key.Comma, ref flashCommPreviousRowKeyDown)) {
+			if (Edge(Key.Comma, ref flashCommPreviousRowKeyDown) && !ctrl) {
 				flashComm.StepRow(-1);
 			}
 		}
 
 		// [Alt+D] is command 0x220, which the cockpit view claims in its own handler before the panel
 		// below it ever sees it: it drops a nav marker rather than transmitting DISENGAGE.
-		if (alt && Edge(Key.D, ref navMarkerKeyDown) && flashCommWorld.PlayerMech is { } marking) {
+		if (alt && Edge(Key.D, ref navMarkerKeyDown) && !ctrl && flashCommWorld.PlayerMech is { } marking) {
 			navMarker.Drop(marking.Position);
 		}
 
@@ -2118,18 +2155,21 @@ window.Update += deltaSeconds => {
 	// just been made for it.
 	if (controls != null && hddCommand is { } command
 		&& cockpitPan.AtHeadsDown && hudState.Hdd == HddPage.CommandDisplay) {
+		// The screen's dispatch matches bare scancodes, so a key under [Ctrl] or [Alt] — a developer
+		// key, most of the letters here — is not one of its own.
+		bool modified = CtrlHeld(controls) || AltHeld(controls);
 		for (int i = 0; i < HddCommandKeys.Length; i++) {
-			if (Edge(HddCommandKeys[i], ref hddOrderKeysDown[i])) {
+			if (Edge(HddCommandKeys[i], ref hddOrderKeysDown[i]) && !modified) {
 				command.SelectOrder((HddOrder)i);
 			}
 		}
 
 		// [,] and [.] walk the list without the pointer, and only once an order is already armed —
 		// both functions return immediately otherwise.
-		if (Edge(Key.Comma, ref hddPreviousOrderKeyDown)) {
+		if (Edge(Key.Comma, ref hddPreviousOrderKeyDown) && !modified) {
 			command.StepOrder(-1);
 		}
-		if (Edge(Key.Period, ref hddNextOrderKeyDown)) {
+		if (Edge(Key.Period, ref hddNextOrderKeyDown) && !modified) {
 			command.StepOrder(1);
 		}
 
@@ -2138,7 +2178,7 @@ window.Update += deltaSeconds => {
 		// magnifiers' and the four arrows' for theirs, so all nine go through the button's press — which
 		// is what holds them back while the sensor dropout has the display dark.
 		for (int slot = 0; slot < HddPilotKeys.Length; slot++) {
-			if (Edge(HddPilotKeys[slot], ref hddPilotKeysDown[slot])) {
+			if (Edge(HddPilotKeys[slot], ref hddPilotKeysDown[slot]) && !modified) {
 				ApplyHddClick(HddLayout.Widget.PilotBox0 + slot);
 			}
 		}
@@ -2156,12 +2196,12 @@ window.Update += deltaSeconds => {
 		// the arrow's button, held back with the rest. Keypad [5] drops the scroll and puts the map back
 		// on the machine.
 		for (int i = 0; i < HddArrowKeys.Length; i++) {
-			if (Edge(HddArrowKeys[i], ref hddArrowKeysDown[i]) && cockpitDropouts.HeadsDown.Dark) {
+			if (Edge(HddArrowKeys[i], ref hddArrowKeysDown[i]) && cockpitDropouts.HeadsDown.Dark && !modified) {
 				ApplyHddClick(HddLayout.Widget.ArrowUp + i);
 			}
 		}
 
-		if (!cockpitDropouts.HeadsDown.Dark) {
+		if (!cockpitDropouts.HeadsDown.Dark && !modified) {
 			command.View.Pan(
 				(controls.IsKeyPressed(Key.Right) ? 1 : 0) - (controls.IsKeyPressed(Key.Left) ? 1 : 0),
 				(controls.IsKeyPressed(Key.Up) ? 1 : 0) - (controls.IsKeyPressed(Key.Down) ? 1 : 0));
@@ -2200,7 +2240,7 @@ window.Update += deltaSeconds => {
 	// down: [S] and [W] are also two thirds of this host's camera movement, and the original has no
 	// such clash because its own [S]/[I]/[W] only mean anything on this screen either.
 	if (controls != null && cockpitPan.AtHeadsDown && hudState.Hdd == HddPage.DamageDetail
-		&& ReadHddDamageView(controls) is { } damageView) {
+		&& !CtrlHeld(controls) && !AltHeld(controls) && ReadHddDamageView(controls) is { } damageView) {
 		hudState = hudState with { HddDamage = damageView };
 	}
 
@@ -2384,12 +2424,24 @@ window.Update += deltaSeconds => {
 	// A replay ticks on the tape's frames instead, each for the time it recorded.
 	if (TapePlaying() || tapeFrame != null) {
 		RunTapeTicks();
+	} else if (developerKeys.StepPending && !frozen) {
+		// Alt+keypad +: this tick and no more. Sim_MainTick re-freezes at the top of the next one.
+		scene.World.Tick();
+		debugPanel.SampleBeams(scene.World);
+		developerKeys.FinishStep();
+		tickAccumulator = 0;
 	} else {
 		if (!frozen) {
 			tickAccumulator = Math.Min(tickAccumulator + deltaSeconds, MaxAccumulatedSeconds);
 		}
 		while (!frozen && tickAccumulator >= SecondsPerTick) {
-			scene.World.Tick();
+			// Alt+S's freeze is not a panel's: the tick still runs, with only the player's input poll
+			// and the mission poll in it. See SimWorld.TickFrozen.
+			if (developerKeys.Frozen) {
+				scene.World.TickFrozen();
+			} else {
+				scene.World.Tick();
+			}
 
 			// Beams are resolved and forgotten inside the tick, so anything that wants to see one has to
 			// look between ticks — see SimWorld.Beams.
@@ -2464,7 +2516,7 @@ window.Update += deltaSeconds => {
 		// The kick and the shake are the pilot's own, so they run only from inside the cockpit. The
 		// original's view mode 4 drops a shake in progress rather than pausing it, which is what
 		// Reset does here.
-		if (externalView) {
+		if (ExternalViewActive()) {
 			cockpitViewKick.Reset();
 			cockpitHitShake.Reset();
 		} else {
@@ -2481,9 +2533,11 @@ window.Update += deltaSeconds => {
 
 		ApplyDamageFlash(cockpitHitShake.FlashActive);
 
-		if (externalView) {
-			// Orbit chase view, ~10 m from the machine. Placeholder geometry — see ExternalCamera.
-			ExternalCamera.Place(camera, pilotMech, terrain,
+		if (ExternalViewActive()) {
+			// Orbit chase view, ~10 m from the machine — or from whatever the developer keys are viewing,
+			// which is this engine's stand-in for retail's view from that object. Placeholder geometry —
+			// see ExternalCamera.
+			ExternalCamera.Place(camera, developerKeys.Viewed ?? pilotMech, terrain,
 				BinaryAngle.FromRadians(externalOrbitYaw), BinaryAngle.FromRadians(externalOrbitPitch));
 		} else {
 			// The eye rides the model node the type record names, so the walk cycle's bob comes with it —
@@ -2855,7 +2909,7 @@ window.Render += (_, gl) => {
 	}
 
 	debugPanel.Draw(
-		new DebugPanelContext(piloting, externalView, pilotMech, scene.Targeting, scene.World,
+		new DebugPanelContext(piloting, ExternalViewActive(), pilotMech, scene.Targeting, scene.World,
 			scene.PlayerObject?.Model?.Segments.Length ?? 0, terrain),
 		size.Y);
 
@@ -2961,7 +3015,8 @@ bool ReadStatusAlertKeys() {
 			: RaiseStatusAlertForQuit();
 	}
 
-	if (pause) {
+	// [Ctrl+P] is 0x419, a developer key, and never reaches the pause.
+	if (pause && !ctrl) {
 		return OpenStatusAlert((MissionStatus)StatusAlertPanel.PauseStatus, scene.World.Objectives);
 	}
 
@@ -3702,7 +3757,7 @@ void ApplyHddClick(HddLayout.Widget widget) {
 // Shots in flight ride on the end of both lists: they are never the player's own machine, so nothing
 // hides them, and they are rebuilt every frame rather than kept because a projectile pool churns.
 IEnumerable<SceneItem> VisibleItems() =>
-	((piloting && !externalView ? pilotedItems : items) ?? Array.Empty<SceneItem>())
+	((piloting && !ExternalViewActive() ? pilotedItems : items) ?? Array.Empty<SceneItem>())
 		.Concat(projectileItems)
 		.Concat(weaponItems)
 		.Concat(debrisItems)
@@ -4045,9 +4100,10 @@ void RefreshSpriteBatches() {
 	}
 }
 
-// Whether this frame is being drawn from the external camera. Only meaningful while piloting — the
-// free camera already draws the whole scene with no cockpit over it.
-bool ExternalViewActive() => externalView && piloting && pilotMech != null;
+// Whether this frame is being drawn from the external camera — [V], or the developer keys viewing an
+// object other than the player's machine. Only meaningful while piloting — the free camera already
+// draws the whole scene with no cockpit over it.
+bool ExternalViewActive() => (externalView || developerKeys.Viewed != null) && piloting && pilotMech != null;
 
 // The weapon panel's keyboard set, on the manual's own bindings. Every one of these reaches exactly
 // the same call the corresponding mouse action does — the original routes them together too, through
@@ -4236,7 +4292,13 @@ void RunTapeTicks() {
 // it, rather than at the top of the next host frame, so the frames behind it are the panel's — as
 // they are in the recording, where Sim_MainTick raises the panel itself.
 void TickTape(short tickDelta) {
-	scene.World.Tick(tickDelta, InputTapePlayer.SecondsOf(tickDelta) * 1000);
+	// Alt+S on the tape freezes the simulation and the tape runs on, as Sim_MainTick keeps polling it.
+	if (developerKeys.Frozen) {
+		scene.World.TickFrozen(tickDelta);
+	} else {
+		scene.World.Tick(tickDelta, InputTapePlayer.SecondsOf(tickDelta) * 1000);
+	}
+
 	debugPanel.SampleBeams(scene.World);
 	RaisePendingMissionAlert();
 	NoteTapePanel();
@@ -4500,11 +4562,15 @@ void ApplyJoystickAction(JoystickAction action, MechObject mech) {
 // which is what a modal wants — no machine is listening while one is up, and a key pressed to work the
 // panel must not fire as it closes.
 void ApplyWeaponKeys(IKeyState keyboard, WeaponMounts? mounts) {
-	bool alt = keyboard.IsKeyPressed(Key.AltLeft) || keyboard.IsKeyPressed(Key.AltRight);
+	bool alt = AltHeld(keyboard);
+
+	// [Ctrl+Alt] and a number is 0x602-0x60a, the developer keys' step size, and [Alt+keypad +] is
+	// 0x24e, their single tick. Neither is a weapon command.
+	bool ctrl = CtrlHeld(keyboard);
 
 	for (int slot = 0; slot < weaponRowKeys.Length; slot++) {
 		bool down = keyboard.IsKeyPressed(weaponRowKeys[slot]);
-		if (down && !weaponRowKeyDown[slot]) {
+		if (down && !weaponRowKeyDown[slot] && !ctrl) {
 			// [Alt] and a number is command 0x202-0x20b, which the weapon manager answers itself; the
 			// bare number is 0x02-0x0b, which CockpitWidgets_HandleCommand answers by pressing the
 			// row's own select gadget. That is why only the bare key can toggle a pod.
@@ -4534,7 +4600,7 @@ void ApplyWeaponKeys(IKeyState keyboard, WeaponMounts? mounts) {
 
 	// [-] and [=], with the keypad's own pair alongside them, move the armed energy weapon's power
 	// level. Also an edge: each press is one step of 0x50 out of 1200.
-	bool powerUpKey = keyboard.IsKeyPressed(Key.Equal) || keyboard.IsKeyPressed(Key.KeypadAdd);
+	bool powerUpKey = keyboard.IsKeyPressed(Key.Equal) || (keyboard.IsKeyPressed(Key.KeypadAdd) && !alt);
 	bool powerDownKey = keyboard.IsKeyPressed(Key.Minus) || keyboard.IsKeyPressed(Key.KeypadSubtract);
 	if (powerUpKey && !powerUpKeyDown) {
 		mounts?.AdjustPower(raise: true);
@@ -4610,6 +4676,12 @@ static HddDamageView? ReadHddDamageView(IKeyState keyboard) {
 
 	return keyboard.IsKeyPressed(Key.W) ? HddDamageView.Weapons : null;
 }
+
+static bool CtrlHeld(IKeyState keyboard) =>
+	keyboard.IsKeyPressed(Key.ControlLeft) || keyboard.IsKeyPressed(Key.ControlRight);
+
+static bool AltHeld(IKeyState keyboard) =>
+	keyboard.IsKeyPressed(Key.AltLeft) || keyboard.IsKeyPressed(Key.AltRight);
 
 // One signed axis from a pair of keys, plus optional aliases for each direction — the arrow cluster
 // and the numeric keypad are the same key on the hardware the manual is describing, and a host window

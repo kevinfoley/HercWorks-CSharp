@@ -1167,7 +1167,7 @@
       "type": "function",
       "confidence": "medium",
       "name": "maybe_MechModule_StaticInit",
-      "description": "The mech module's C++ static initialiser. Registers LAB_00415464 as subsystem phase 2 (create the mech pool) and LAB_0041544c as phase 5 (flush the mech delete queue, run once a frame), zeroes GlobalMechList (004a9bfe, which is the mech pool object itself) and vector-news DAT_004a9c0c. The two registered stubs are undefined functions in Ghidra and have no direct callers -- they are reached only through Subsystem_RunPhase.",
+      "description": "The mech module's C++ static initialiser. Registers LAB_00415464 as subsystem phase 2 (sets word 004a9c06 to 1 and loads the developer keys' move and turn steps 004a9d50/004a9d52 with entry 3, 2000, of the tables at 0049a020/0049a032 -- nothing else; run once per mission from Sim_InitMissionSession) and LAB_0041544c as phase 5 (flush the mech delete queue, run once a frame), zeroes GlobalMechList (004a9bfe, which is the mech pool object itself) and vector-news DAT_004a9c0c. The two registered stubs are undefined functions in Ghidra and have no direct callers -- they are reached only through Subsystem_RunPhase.",
       "source": "docs/simulation/ai-combat-states.md"
     },
     {
@@ -15600,6 +15600,15 @@
       "name": "CockpitMouseLive",
       "description": "Gates CockpitMouse_OnEvent: with this byte clear the listener queues nothing, which is how a replaying .TAP tape owns the cockpit mouse queue. Set again when the tape ends.",
       "source": "docs/formats/tap-input-tape.md"
+    },
+    {
+      "address": "004d2574",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "InputDrivesCamera",
+      "description": "Word, block 004d2540+0x34. Set: the controls steer a camera, not the machine -- every reader tests it together with the missile-camera flag 004d25aa. Input_BuildPlayerDevice re-points the axis sources (+0x22/+0x26 to +0x0e/+0x10), Sim_PollPlayerInput reads the camera axes and skips Mech_PlayerFireTick, Mech_ApplyThrottleInput ignores the lever, FUN_0045e1ec picks label 2 rather than 3 from the table at 004d1724. Writers, all developer keys: Ctrl+T (0x414) toggles it; Ctrl+N/P (0x431/0x419) sets it; FUN_0045df18 sets it to 1 when the viewed object is not 004d256a and restores it from 004d259c when it is. No retail demo tape issues any of those commands.",
+      "source": "docs/command-line.md"
     },
     {
       "address": "004421dc",

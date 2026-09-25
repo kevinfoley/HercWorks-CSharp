@@ -42,7 +42,7 @@ The engine cannot be faithful here until the original is understood.
 
 ## Other unported features
 - The outside and chase views. The joystick's `OUTSIDE VIEW` and `CHASE VIEW` actions step a chain of external cameras (`DAT_004d2572`, four states) that the engine has no equivalent of, so those two bindings do nothing. → [`docs/formats/joystick-input.md`](docs/formats/joystick-input.md#the-buttons)
-- Cheats (other than Alt-D to drop a waypoint at your position, which is implemented; this one isn't documented but also doesn't really seem like a cheat).
+- The camera half of the developer keys. `--developer` ports the rest, but `Ctrl+F` steps the same external-camera chain and does nothing, `Ctrl+T` takes the controls off the machine without giving them to a camera, and `Ctrl+N`/`Ctrl+P` show the chosen object through the placeholder `[V]` view. → [`docs/key-bindings.md`](docs/key-bindings.md#herculan-engine), [`docs/command-line.md`](docs/command-line.md#-sprunknown-the-developer-keys)
 
 ## Debugging features
 - Launch option to disable AI (so units other than the player remain stationary, though still subject to damage and destruction)

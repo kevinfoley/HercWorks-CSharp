@@ -1247,6 +1247,35 @@ public sealed class SimWorld {
 	public void Tick() => Tick(TickDelta, 1000.0 / TicksPerSecond);
 
 	/// <summary>
+	/// One tick under the developer keys' <c>Alt+S</c> freeze, of the engine's own length. See
+	/// <see cref="TickFrozen(short)"/>.
+	/// </summary>
+	public void TickFrozen() => TickFrozen(TickDelta);
+
+	/// <summary>
+	/// One tick under the <c>Alt+S</c> freeze: what <c>Sim_MainTick</c> still runs with
+	/// <c>DAT_004d2576</c> up. That is the player's input poll (<see cref="MechObject.FrozenTick"/>)
+	/// and the mission's verdict; every pool, object, group, timer and the sensor sweep wait. The
+	/// modal panels are not this: they stop the tick outright.
+	/// </summary>
+	public void TickFrozen(short tickDelta) {
+		SimMath.TickDelta = tickDelta;
+		_beams.Clear();
+		_impacts.Clear();
+
+		if (PlayerMech is { Removed: false, AwaitingDeployment: false } player) {
+			player.FrozenTick(this);
+		}
+
+		if (PlayerMech is { Removed: false, Destroyed: false } pilot) {
+			var alert = Objectives.Poll(this, pilot);
+			if (alert != MissionStatus.None) {
+				PendingMissionAlert = alert;
+			}
+		}
+	}
+
+	/// <summary>
 	/// Advances the simulation by one tick: publishes the timestep, then updates every live object.
 	/// Objects flagged removed are skipped, matching how the original's tick walks its lists.
 	///

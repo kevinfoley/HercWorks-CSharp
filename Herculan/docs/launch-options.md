@@ -105,24 +105,7 @@ The simulator can record everything the player does during a mission to a file a
 
 ### Developer mode: `-SPRUNKNOWN`
 
-Turns on a set of keys the programmers used for testing. The `Ctrl+Alt+number` keys choose how far the movement keys move and turn; until one is pressed, the movement keys do nothing.
-
-| Key | What it does |
-|---|---|
-| `Alt+S` | Freezes and unfreezes the whole simulation. |
-| `Alt+keypad +` | While frozen, runs the simulation for one frame. |
-| `Alt+Up`, `Alt+Down` | Moves your HERC forward or back. |
-| `Alt+Left`, `Alt+Right` | Moves your HERC sideways. |
-| `Ctrl+Left`, `Ctrl+Right` | Turns your HERC on the spot. |
-| `Ctrl+Alt+1` … `Ctrl+Alt+9` | Sets the size of each move and turn, from smallest to largest. |
-| `Ctrl+N`, `Ctrl+P` | Moves the camera to the next or previous object in the mission. |
-| `Ctrl+F` | Switches camera mode like `V`, but the outside camera follows the object chosen with `Ctrl+N`/`Ctrl+P` instead of your HERC. |
-| `Ctrl+T` | Takes your HERC off the controls: it stops firing and ignores the throttle. `Ctrl+N` and `Ctrl+P` do this too. Press again to take the controls back. |
-| `Ctrl+Alt+.`, `Ctrl+Alt+,` | Chooses which part of a machine `Ctrl+Alt+D` hits (30 to choose from). |
-| `Ctrl+Alt+D` | Damages the chosen part of whatever the camera is on — your own HERC until the camera has been moved. |
-| `Ctrl+Alt+N` | Hits a nearby Cybrid machine with a massive amount of damage. |
-
-`Alt+S` also works while a recording is being made or played back, without developer mode.
+Turns on a set of keys the programmers used for testing: freezing the simulation, moving and turning your HERC by hand, moving the camera to other objects and damaging them. They are listed with the rest of the keyboard in [`key-bindings.md`](key-bindings.md#developer-keys).
 
 ### Other developer aids
 

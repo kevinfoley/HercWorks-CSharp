@@ -117,10 +117,14 @@ In `Sim_DispatchCommand` (`0045fdac`):
 | `0x24e` | `Alt+keypad +` | Sets `004d2580` and clears the freeze; `Sim_MainTick` re-freezes on its next pass, so one frame runs |
 | `0x431`, `0x419` | `Ctrl+N`, `Ctrl+P` | Next or previous object in `maybe_GlobalLiveObjectList` from `DAT_004d2708`, skipping objects with `+0x2e` below -99000. Stored in `004d25a0` and either viewed through `FUN_0045df18`, or reached through an external-view command when the camera mode `004d2572` is 2. Sets `004d2574` |
 | `0x421` | `Ctrl+F` | The camera-mode cycle `V` (`0x2f`) runs, with `004d25b8` set, so the external camera follows `004d25a0` rather than the player |
-| `0x414` | `Ctrl+T` | Toggles `004d2574`: while it is set, `Sim_PollPlayerInput` (`00460764`) takes its axes from other inputs and skips `Mech_PlayerFireTick`, and `Mech_ApplyThrottleInput` ignores the throttle lever |
+| `0x414` | `Ctrl+T` | Toggles `InputDrivesCamera` (`004d2574`), which hands the controls to a camera: every reader tests it alongside the missile-camera flag `004d25aa`. While it is set, `Input_BuildPlayerDevice` re-points the axis sources, `Sim_PollPlayerInput` (`00460764`) gives the machine none of the steering, throttle or turret axes, hands the re-pointed ones to `FUN_00401c74` on the view object and skips `Mech_PlayerFireTick`, and `Mech_ApplyThrottleInput` ignores the throttle lever. `FUN_0045df18`, which Ctrl+N/P view through, sets it whenever the viewed object is not `004d256a` |
 | `0x634`, `0x633` | `Ctrl+Alt+.`, `Ctrl+Alt+,` | Raise or lower the component index `004d2584`, 0 to 29 |
 | `0x620` | `Ctrl+Alt+D` | 300 damage to that component of the viewed object `DAT_004d2708` — the player's machine until the camera moves — through vtable `+0x74` ([`simulation/component-damage.md`](simulation/component-damage.md)) |
 | `0x631` | `Ctrl+Alt+N` | 32000 damage to component 0 of the first object in the live list whose group is deployed (`+0x14` null) and on side 1, Cybrid ([`simulation/ai-goals.md`](simulation/ai-goals.md)), that has `+0x99` clear and lies within 99,999 units of the player |
+
+The freeze does not stop `Sim_MainTick`. It skips the effect, projectile, meteor and structure pools, the mech pool's `+0x14` walk that reaches `Mech_MovementTick` through `Behaviour_DispatchMove`, the group ticks, the action timers and triggers, `Sim_DetectionTick` and `Mech_PerTickSystemsUpdate`; `Razor_ApplyFlightInput` is gated on it too. `Sim_PollPlayerInput` and `Mission_PollStatus` run regardless. So a frozen player machine still fires through `Mech_PlayerFireTick`, twists and pitches its turret, and runs `Mech_ApplyThrottleInput`: the throttle still moves, and `Mech_LocomotionTick` still ramps the speed toward what it asks for and turns the machine by the turn-rate tent over that speed, less wherever its gait state machine suppresses turning. It covers no ground, the refire timers wait with the systems pass, and what it fires waits with the pools. A modal panel is a harder stop: its own loop never calls `Sim_MainTick`.
+
+Every one of these keys, like every command, acts once per key-down event, so holding one repeats it at the keyboard's auto-repeat rate.
 
 In `Mech_HandleCommand` (`004157c8`), on the player's machine:
 
@@ -131,7 +135,7 @@ In `Mech_HandleCommand` (`004157c8`), on the player's machine:
 | `0x44b`, `0x44d` | `Ctrl+Left`, `Ctrl+Right` | Adds or subtracts the angle step to its yaw |
 | `0x602`-`0x60a` | `Ctrl+Alt+1`-`9` | Sets the step (`004a9d50`) and angle step (`004a9d52`) from two tables at `0049a020` and `0049a032`, both 500, 1000, 1500, 2000, 3000, 4500, 6000, 7500, 9000 |
 
-Both steps start at 0, so the move and turn keys do nothing until a size is picked. The arrow keys share their scancodes with keypad 8, 2, 6 and 4, and `Input_KeyjoyAxisKey` (`0045a308`) would take those as held axes; with the flag up it passes a keypad code on when `Ctrl` or `Alt` is held, which is what lets the six reach the dispatcher.
+Both steps start at 2000, entry 3 of both tables: the mech module's static initialiser (`0041bc5c`) registers `00415464` as subsystem phase 2, which `Sim_InitMissionSession` runs at every mission start, and that stub loads the two entries. The handler is reached through `Sim_DispatchCommand`'s default case, which passes a command it does not claim to the `+0x2c` slot of the viewed object `DAT_004d2708` — `LocalPlayerMech` only when `DAT_0049ef5c` is set, and that dword is 0 in the image with only compares among the seven references `es2_xref.py` finds. `Mech_HandleCommand` works its weapon and all-stop cases on the global `PlayerMech`, so with a machine viewed it is the six move and turn cases above that act on that machine. What a viewed object of another class does with the commands is [Open](#open). The arrow keys share their scancodes with keypad 8, 2, 6 and 4, and `Input_KeyjoyAxisKey` (`0045a308`) takes those as held axes. With the flag up it also passes a keypad code on when `Ctrl` or `Alt` is held, which is what lets the six reach the dispatcher — but only after it has recorded the key as held, so each of the six still steers or moves the throttle as its bare arrow does. The `Alt` bit it stores at `004d245a` does not change that: its one reader, in `Input_BuildKeyboardAxes`, is a compare whose branch lands on the same instruction as its fall-through.
 
 ## Rejected readings
 
@@ -149,4 +153,5 @@ Both steps start at 0, so the move and turn keys do nothing until a size is pick
 - **Open:** what `+0x99` on the player's machine records, which separates exit code 4 from 3, and what VSHELL does with `-X6` beyond the path at `FUN_00401525`.
 - **Open:** what `-C` does with the four names that have no cockpit files (`ROADRUNNER`, `PATRIOT`, `PANTHER`, `TEST3`), and what `-E` does when `SIMVOICS.VOL` is missing.
 - **Open:** where `printf` output from VSHELL's `-v` and `-?` goes, and what `FUN_004092dc` does after it.
-- **Open:** what `Ctrl+T`'s alternative inputs drive.
+- **Open:** what `FUN_00401c74` does with the view object and the axes `Ctrl+T` hands it.
+- **Open:** what the command handlers of a structure and a flyer do with the commands `Sim_DispatchCommand` passes them when `Ctrl+N`/`Ctrl+P` has left one of them viewed.

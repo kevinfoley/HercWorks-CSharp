@@ -138,6 +138,10 @@
 /// frame stands over the dish in place of the screen and any transmission; null once it has powered
 /// up. See <see cref="CockpitPowerUp.MfdFrame"/>.
 /// </param>
+/// <param name="Dropout">
+/// Which displays the sensor dropout has blanked — see <see cref="CockpitDropouts"/>. The weapon rows
+/// carry their own, in <see cref="WeaponRowState"/>.
+/// </param>
 public readonly record struct CockpitHudState(
 	IReadOnlyList<WeaponRowState> Weapons,
 	IReadOnlyList<string> HardpointNames,
@@ -170,7 +174,8 @@ public readonly record struct CockpitHudState(
 	WaypointMark? NavMarker = null,
 	MfdNavMapState NavMap = default,
 	TrainingMessageBox? TrainingMessage = null,
-	int? MfdPowerUpFrame = null) {
+	int? MfdPowerUpFrame = null,
+	CockpitDropoutState Dropout = default) {
 
 	/// <summary>
 	/// Power-up state: an even shield balance printing 100/100 the way <c>ShieldsGauge_UpdateReadouts</c>

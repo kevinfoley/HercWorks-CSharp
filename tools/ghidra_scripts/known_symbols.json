@@ -3623,7 +3623,7 @@
       "type": "function",
       "confidence": "high",
       "name": "WeaponGauge_Ctor",
-      "description": "Constructor for a weapon hardpoint gauge. Lazily loads the `pweapons` (DAT_0049c4d0) and `wpn_dmg` (DAT_0049c4d4) sprite banks, folder selected off DAT_004d25f0, and builds a 2-row animation frame table into _DAT_004d1adc.",
+      "description": "Constructor for a weapon hardpoint gauge. Lazily loads the `pweapons` (DAT_0049c4d0) and `wpn_dmg` (DAT_0049c4d4) sprite banks, folder selected off DAT_004d25f0, builds the two-sequence WPN_DMG frame table (frames 1-9 and 9-1, one tick each) into _DAT_004d1adc, gives the gauge its own sequencer over it at +0x6c, and sets the sensor-dropout ranges to 120-360 dark and 180-1800 shown.",
       "source": "docs/formats/cockpit-hud-widgets.md (HUD sprite art)"
     },
     {
@@ -4588,7 +4588,106 @@
       "type": "function",
       "confidence": "high",
       "name": "MfdDisplay_SetDropoutRanges",
-      "description": "Picks the MFD's sensor-dropout set by condition ([0,1,2,2,2] at 0049cb34): sequencer 004d1d0c[set], sequences set*2 and set*2+1, and the spell ranges from 0049cb94/cba0/cbac/cbb8.",
+      "description": "Picks the MFD's sensor-dropout set by condition ([0,1,2,2,2] at 0049cb34): sequencer 004d1d0c[set], sequences set*2 and set*2+1, and the spell ranges from 0049cb94/cba0/cbac/cbb8. Each sequencer's set holds one sequence, so SpriteSequence_Select refuses both numbers for sets 1 and 2 and the sequencer plays the one it was built with both ways.",
+      "source": "docs/formats/cockpit-hud-widgets.md"
+    },
+    {
+      "address": "00440c90",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "EnergyWeaponGauge_Update",
+      "description": "Energy weapon row's per-frame update. While armed: runs the power-up fill until done, then the sensor dropout -- Player_DependentCondition(2) into +0x74 and PanelGauge_TickDropout when nonzero -- and on the dark-to-shown transition repaints both children (select gadget, charge bar).",
+      "source": "docs/formats/cockpit-hud-widgets.md"
+    },
+    {
+      "address": "00441268",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AmmoWeaponGauge_Update",
+      "description": "Ammunition row's per-frame update. Marks the power-up done at once, runs the sensor dropout as EnergyWeaponGauge_Update does, and refreshes the round-count label only while the row is neither dark nor mid-wipe (+0x76 clear and the +0x6c sequencer idle).",
+      "source": "docs/formats/cockpit-hud-widgets.md"
+    },
+    {
+      "address": "00441850",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PodGauge_Update",
+      "description": "Pod row's per-frame update: the power-up slot, then the sensor dropout, then the name label's repaint, held back while the row is dark or mid-wipe.",
+      "source": "docs/formats/cockpit-hud-widgets.md"
+    },
+    {
+      "address": "004411b4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "AmmoWeaponGauge_Paint",
+      "description": "Ammunition row's paint: the select gadget, then itoa(rounds) into the value label in WHITE (selected) or GRAY, skipped while the row is dark or mid-wipe.",
+      "source": "docs/formats/cockpit-hud-widgets.md"
+    },
+    {
+      "address": "00442394",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponSelectGadget_PaintUnderlay",
+      "description": "Blits WPN_DMG frame 0 (112x14, the row background) at the gadget's .GAU rect and prints the slot number, unless the owning gauge is dark or mid-wipe or not yet armed.",
+      "source": "docs/formats/cockpit-hud-widgets.md"
+    },
+    {
+      "address": "00442b38",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponChargeBar_Paint",
+      "description": "Energy row charge bar's paint: the LEDBarGraph at +0x46 to the value at +0x7a, skipped while the owning gauge (+0x42) is dark or mid-wipe or not yet armed.",
+      "source": "docs/formats/cockpit-hud-widgets.md"
+    },
+    {
+      "address": "00449bd0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddDisplay_Update",
+      "description": "Heads-Down Display per-frame update: records the selected target for the damage page, runs HddDisplay_HandleWidgetPress, then (outside the external view) the sensor dropout with the PanelGauge_Ctor default ranges and no sequencer, flagging the current page for a full repaint when +0x76 changes, then the widgets' and the page's updates.",
+      "source": "docs/formats/cockpit-hud-widgets.md"
+    },
+    {
+      "address": "00449fcc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddDisplay_KeyDispatch",
+      "description": "Heads-Down Display key handler. The arrows, [-]/[=] and keypad -/+, and [1]-[3] press widgets 2-7 and 10-12 through Widget_PressChild, so they share the buttons' dark-state hold; [S]/[I]/[W] set the damage page directly; anything else goes to the current page's own dispatch (vtable +0x10).",
+      "source": "docs/formats/cockpit-hud-widgets.md"
+    },
+    {
+      "address": "0049c4c8",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "WeaponGauge_WipeFirstFrames",
+      "description": "Two shorts {1, 9}: the first WPN_DMG frame of each of the weapon row's two sensor-dropout sequences. WeaponGauge_Ctor steps each to its partner in 0049c4cc ({9, 1}), one frame per coarse tick.",
+      "source": "docs/formats/cockpit-hud-widgets.md"
+    },
+    {
+      "address": "0049cb34",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "MfdDropoutSetByCondition",
+      "description": "Five shorts [0, 1, 2, 2, 2]: which of the MFD's three sensor-dropout sets each condition 0-4 uses.",
+      "source": "docs/formats/cockpit-hud-widgets.md"
+    },
+    {
+      "address": "0049cb40",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "MfdDropoutSequenceCounts",
+      "description": "Six shorts [3, 2, 3, 3, 6, 3], frame counts of the six MFD_DMG sequences whose frame lists sit at 0049cb4c-0049cb88 (six shorts each). MfdDisplay_Ctor builds only the first three, each held 4 ticks.",
       "source": "docs/formats/cockpit-hud-widgets.md"
     },
     {

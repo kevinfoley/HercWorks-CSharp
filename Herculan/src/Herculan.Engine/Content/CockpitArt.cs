@@ -101,7 +101,8 @@ public sealed class CockpitArt {
 	/// the original loads each when its panel is constructed rather than up front; packing them with
 	/// the rest costs one atlas entry each and keeps a panel to a single texture bind.</para>
 	public static readonly string[] HudBankNames = {
-		"HUD", "HUDHTICK", "MFD", "RADAR", "THROTTLE", "WPN_DMG", "PWEAPONS", "HDD", "BASES", "VEHICLES",
+		"HUD", "HUDHTICK", "MFD", SensorDropout.MfdBank, "RADAR", "THROTTLE", SensorDropout.RowBank, "PWEAPONS",
+		"HDD", "BASES", "VEHICLES",
 		"ICONS", ObjectivesPanel.BackgroundBank, StatusAlertPanelLayout.PlateBank,
 		AlertPanelLayout.ButtonBank, PreferencesPanelLayout.PlateBank, ControlsPanelLayout.PlateBank,
 	};
@@ -305,15 +306,9 @@ public sealed class CockpitArt {
 	/// <para>Bank-to-widget mapping, from the loader functions the bank-name string literals xref to
 	/// in DBSIM: <c>HUD</c> is the gunsight/reticle set (<c>Gau_RovingGunsightWidget</c>, 0043c7d8),
 	/// <c>HUDHTICK</c> the heading tick tape (FUN_0043b57c), <c>MFD</c> the multi-function display
-	/// screen (FUN_00445218, which also owns <c>MFD_DMG</c> and <c>RADAR</c>), <c>THROTTLE</c> the
-	/// slider knob (FUN_00447b84), <c>WPN_DMG</c> the weapon hardpoint plates (FUN_0044080c, which
-	/// also owns <c>PWEAPONS</c>).</para>
-	///
-	/// <para>Not yet drawn, and deliberately: the chain/link/autotrack buttons, energy meter and
-	/// shield display have their bezels painted into the canopy art already, and their dynamic part is
-	/// a <c>LEDBarGraphH</c>/<c>LEDBarGraphV</c> fill plus <c>.HFN</c> font text rather than a sprite —
-	/// neither of which this milestone has. Drawing a bank at them on a size hunch would be worse than
-	/// leaving the painted bezel alone.</para>
+	/// screen (FUN_00445218, which also owns <c>MFD_DMG</c>, its sensor-dropout wipe, and <c>RADAR</c>),
+	/// <c>THROTTLE</c> the slider knob (FUN_00447b84), <c>PWEAPONS</c> the weapon row plates and console
+	/// buttons and <c>WPN_DMG</c> the weapon rows' underlay and dropout wipe (both FUN_0044080c).</para>
 	/// </summary>
 	public HudSpriteSheet? Sprites { get; }
 

@@ -797,6 +797,14 @@ bool hddZoomOutPadKeyDown = false;
 bool hddRecentreKeyDown = false;
 bool hddTransmitKeyDown = false;
 bool hddCancelKeyDown = false;
+Key[] HddArrowKeys = { Key.Up, Key.Down, Key.Left, Key.Right };
+bool[] hddArrowKeysDown = new bool[HddArrowKeys.Length];
+
+// A Heads-Down Display button pressed while the sensor dropout has the display dark. The original's
+// press handler (HddDisplay_HandleWidgetPress, 0044a178) returns before it acts and before it clears
+// the press for anything but the two page buttons, so the last such press waits and fires the first
+// frame the display is back — see ApplyHddClick.
+HddLayout.Widget? pendingHddPress = null;
 
 // The cockpit readouts' live values. The hardpoint names come from the shell weapon catalog keyed by
 // player.mec's own hardpoint ids; speed, throttle, turret, the shield numbers and the energy bar are
@@ -965,6 +973,9 @@ audio.StartMissionMusic(mission.Header, musicTrackSelect);
 // run starts with them finished: its warm-up is half a second, and the last row arms at 3.2 s.
 HeadingTapeSweep? headingSweep = null;
 var cockpitPowerUp = CockpitPowerUp.Finished;
+
+// The displays' sensor dropouts, one per display, for the whole mission.
+var cockpitDropouts = new CockpitDropouts();
 if (pilotMech != null) {
 	audio.SetListener(pilotMech.EyePosition, pilotMech.Heading);
 	audio.PowerUp(pilotMech);
@@ -1938,27 +1949,39 @@ window.Update += deltaSeconds => {
 			command.StepOrder(1);
 		}
 
-		// [1]-[3] pick the pilot, left to right, which is what the number under each comm box says.
+		// [1]-[3] pick the pilot, left to right, which is what the number under each comm box says. The
+		// display's key dispatch (FUN_00449fcc) presses the comm box's own widget for these, and the two
+		// magnifiers' and the four arrows' for theirs, so all nine go through the button's press — which
+		// is what holds them back while the sensor dropout has the display dark.
 		for (int slot = 0; slot < HddPilotKeys.Length; slot++) {
 			if (Edge(HddPilotKeys[slot], ref hddPilotKeysDown[slot])) {
-				command.SelectPilot(slot == command.SelectedPilot ? -1 : slot);
+				ApplyHddClick(HddLayout.Widget.PilotBox0 + slot);
 			}
 		}
 
 		// [+] and [-], the two magnifiers.
 		if (Edge(Key.Equal, ref hddZoomInKeyDown) || Edge(Key.KeypadAdd, ref hddZoomInPadKeyDown)) {
-			command.View.ZoomIn();
+			ApplyHddClick(HddLayout.Widget.ZoomIn);
 		}
 		if (Edge(Key.Minus, ref hddZoomOutKeyDown) || Edge(Key.KeypadSubtract, ref hddZoomOutPadKeyDown)) {
-			command.View.ZoomOut();
+			ApplyHddClick(HddLayout.Widget.ZoomOut);
 		}
 
 		// The arrows scroll the map, held rather than edged: the four pan functions are written to be
-		// called repeatedly and clamp themselves against the mission box. Keypad [5] drops the scroll
-		// and puts the map back on the machine.
-		command.View.Pan(
-			(controls.IsKeyPressed(Key.Right) ? 1 : 0) - (controls.IsKeyPressed(Key.Left) ? 1 : 0),
-			(controls.IsKeyPressed(Key.Up) ? 1 : 0) - (controls.IsKeyPressed(Key.Down) ? 1 : 0));
+		// called repeatedly and clamp themselves against the mission box. Dark, a press is one press of
+		// the arrow's button, held back with the rest. Keypad [5] drops the scroll and puts the map back
+		// on the machine.
+		for (int i = 0; i < HddArrowKeys.Length; i++) {
+			if (Edge(HddArrowKeys[i], ref hddArrowKeysDown[i]) && cockpitDropouts.HeadsDown.Dark) {
+				ApplyHddClick(HddLayout.Widget.ArrowUp + i);
+			}
+		}
+
+		if (!cockpitDropouts.HeadsDown.Dark) {
+			command.View.Pan(
+				(controls.IsKeyPressed(Key.Right) ? 1 : 0) - (controls.IsKeyPressed(Key.Left) ? 1 : 0),
+				(controls.IsKeyPressed(Key.Up) ? 1 : 0) - (controls.IsKeyPressed(Key.Down) ? 1 : 0));
+		}
 		if (Edge(Key.Keypad5, ref hddRecentreKeyDown)) {
 			command.View.Recentre();
 		}
@@ -1981,6 +2004,7 @@ window.Update += deltaSeconds => {
 	} else {
 		Array.Clear(hddOrderKeysDown);
 		Array.Clear(hddPilotKeysDown);
+		Array.Clear(hddArrowKeysDown);
 		hddPreviousOrderKeyDown = hddNextOrderKeyDown = false;
 		hddZoomInKeyDown = hddZoomOutKeyDown = false;
 		hddZoomInPadKeyDown = hddZoomOutPadKeyDown = false;
@@ -2366,6 +2390,30 @@ window.Update += deltaSeconds => {
 		// Cockpit_PowerUpTick's arming pass, which runs from the cockpit's own per-frame update.
 		cockpitPowerUp.Tick(audio.CoarseTicks);
 
+		// The dish's power-up animation, on whichever screen the display is showing this frame. Asked
+		// before the dropout, because it is what decides whether the MFD's update gets that far.
+		bool scannerShowing = hudState.Mfd == MfdMode.Scanner;
+		int? mfdPowerUpFrame = cockpitPowerUp.MfdFrame(scannerShowing, audio.CoarseTicks);
+
+		// A Heads-Down Display press held while it was dark, acted on by the first update that finds it
+		// back. The display's update handles its pending press before it ticks the dropout, so this goes
+		// first too, and a press waits one frame past the flip.
+		if (pendingHddPress is { } heldPress && !cockpitDropouts.HeadsDown.Dark && !ExternalViewActive()) {
+			ApplyHddClick(heldPress);
+		}
+
+		// The sensor dropout, from each display's own update. The forward console's rows and the MFD only
+		// update while they are on screen, which a fully panned heads-down view is not.
+		if (scene.World is { } dropoutWorld) {
+			var mounts = pilotMech.Weapons;
+			cockpitDropouts.Tick(SensorDropout.SensorCondition(pilotMech), audio.CoarseTicks,
+				dropoutWorld.PresentationRandom,
+				cockpitUp: !ExternalViewActive(),
+				consoleOnScreen: !cockpitPan.AtHeadsDown,
+				mfdUpdating: cockpitPowerUp.MfdReachesDropout(scannerShowing),
+				rowTicking: row => mounts.BySlot(row) != null && cockpitPowerUp.RowPowered(row));
+		}
+
 		hudState = hudState with {
 			MissionTime = missionClock.Text,
 			SpeedKph = pilotMech.DisplaySpeedKph,
@@ -2381,7 +2429,9 @@ window.Update += deltaSeconds => {
 			ShieldRear = pilotMech.Shields.RearReadout,
 			EnergyFraction = pilotMech.EnergyPoolFraction,
 			Weapons = WeaponRowState.Build(pilotMech.Weapons,
-				cockpitArt.Gau.WeaponListTotal, cockpitArt.Strings, cockpitPowerUp, audio.CoarseTicks),
+				cockpitArt.Gau.WeaponListTotal, cockpitArt.Strings, cockpitPowerUp, audio.CoarseTicks,
+				cockpitDropouts),
+			Dropout = cockpitDropouts.Snapshot,
 			ChainGroup = pilotMech.Weapons.Group,
 			AutoTrack = pilotMech.Weapons.AutoTrack,
 			Target = ResolveTargetIndicator(pilotMech, targetAim),
@@ -2427,8 +2477,7 @@ window.Update += deltaSeconds => {
 			// asks the box for it through Squad_IndexOf.
 			PilotMessage = ComposePilotMessage(squadComm),
 
-			// The dish's power-up animation, on whichever screen the display is showing this frame.
-			MfdPowerUpFrame = cockpitPowerUp.MfdFrame(hudState.Mfd == MfdMode.Scanner, audio.CoarseTicks),
+			MfdPowerUpFrame = mfdPowerUpFrame,
 
 			// A training mission's port draws its own wrapped block instead of that line.
 			TrainingMessage = ComposeTrainingMessage(squadComm),
@@ -3351,6 +3400,15 @@ void ApplyConsoleClick(ConsoleButton button) {
 }
 
 void ApplyHddClick(HddLayout.Widget widget) {
+	// Dark, only the page buttons act. Anything else is held, the latest press replacing any earlier
+	// one, and a page button clears it by being the press that is acted on.
+	bool pageButton = widget is HddLayout.Widget.PageButton0 or HddLayout.Widget.PageButton1;
+	if (cockpitDropouts.HeadsDown.Dark && !pageButton) {
+		pendingHddPress = widget;
+		return;
+	}
+
+	pendingHddPress = null;
 	switch (widget) {
 		// The two page buttons dispatch FUN_0044a5e4 with their own index, and either one opens the
 		// display — the same pairing F7 and F8 have.

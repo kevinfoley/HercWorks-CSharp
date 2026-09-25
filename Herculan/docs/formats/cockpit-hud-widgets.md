@@ -26,7 +26,7 @@ Load path: `ResourcePath_BuildFolderName(name, folder)` → `Resource_Load` (`00
 
 The class names in these symbols (`ThrottleGauge`, `WeaponGauge`, …) are the classes' own, read from their Borland class records ([`borland-rtti.md`](borland-rtti.md)). [`cockpit-input.md`](cockpit-input.md#the-cockpits-own-gadget-classes) has the clickable-widget hierarchy.
 
-Frame-to-state mapping: `PWEAPONS` 0/1 are the selected/unselected row plate, 2/3 the unlit/lit console-button plate, 4/5/6 the hardpoint state box (green / red / amber), 7 a 640x80 strip ([Open](#open)); `WPN_DMG`'s 10 frames are damage fill levels, frame 0 the opaque empty plate; `THROTTLE` 0 is a 2x12 tick and 1 the 28x12 knob; `RADAR`'s 10 110x110 frames are the sweep animation; `MFD` 0-2 are 196x122 screen chrome, 3-10 five button plates in unlit/lit pairs (see [`mfd.md`](mfd.md)); `HUD` 0 is the 45x45 reticle, 11 the 182x10 rotation-indicator track and 12/13 its 62x4 yellow and green bars (sizes in the 640-wide `hba\` banks; `dba\` is exactly half).
+Frame-to-state mapping: `PWEAPONS` 0/1 are the selected/unselected row plate, 2/3 the unlit/lit console-button plate, 4/5/6 the hardpoint state box (green / red / amber), 7 a 640x80 strip ([Open](#open)); `WPN_DMG`'s frame 0 is the row underlay, a flat 112x14 plate in the row background `0x2e`, and frames 1-9 a weapon row's [sensor-dropout wipe](#the-wipes); `MFD_DMG`'s seven 192x118 frames are the MFD's; `THROTTLE` 0 is a 2x12 tick and 1 the 28x12 knob; `RADAR`'s 10 110x110 frames are the sweep animation; `MFD` 0-2 are 196x122 screen chrome, 3-10 five button plates in unlit/lit pairs (see [`mfd.md`](mfd.md)); `HUD` 0 is the 45x45 reticle, 11 the 182x10 rotation-indicator track and 12/13 its 62x4 yellow and green bars (sizes in the 640-wide `hba\` banks; `dba\` is exactly half).
 
 **`static` and `pilot<n>` ship in `dba\` only**, so the 640-wide mode has no matching art for them; see [`heads-down-display.md`](heads-down-display.md).
 
@@ -191,11 +191,11 @@ The two pod labels are the only sub-rects that are ever painted rather than mere
 
 `WeaponSelectGadget_Paint` (`004426c0`) draws:
 
-- `WPN_DMG` frame 0 as the row underlay, then the slot number (`FUN_00442394`);
+- `WPN_DMG` frame 0 as the row underlay, then the slot number (`WeaponSelectGadget_PaintUnderlay`, `00442394`);
 - the name, in `ColorSchemePanels[10]` `WHITE` when selected and `[11]` `GRAY` otherwise;
 - the slot number again, recoloured `[13]` `GREEN` when selected / `[11]` `GRAY`;
 - the state box, `PWEAPONS` 6x14 frames — **only when the mount is armed or in the current fire group**, otherwise the box area is filled with the row background. Frame 4 (green, index 14) when the mount is ready, frame 5 (red) when it is not — including when the selected target is outside the weapon's range, which is also what makes the firing chain skip it ([`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#readiness--weaponmounts_mountisready-00410970)). A pod is in no fire group, so a pod row never has one;
-- last, the row plate: `PWEAPONS` frame 0 selected / frame 1 not, at the rect **minus two device pixels on both axes**. The 116x18 art is not a plate but a frame — a 112x14 hole of palette index 0 is punched out of it, so what fills a row is the console bitmap showing through and all the sprite contributes is a two-pixel bezel. That offset lands the hole's top-left corner exactly on the rect, which is what puts the 14-pixel state box and an engaged pod's plate inside it.
+- last, the row plate: `PWEAPONS` frame 0 selected / frame 1 not, at the rect **minus two device pixels on both axes**. The 116x18 art is not a plate but a frame — a 112x14 hole of palette index 0 is punched out of it, so all the sprite contributes is a two-pixel bezel. That offset lands the hole's top-left corner exactly on the rect, where the underlay fills it, which is what puts the 14-pixel state box and an engaged pod's plate inside it.
 
 The three state flags come from `WeaponMounts_PerFrameUpdate` (`00410b40`), the mount manager's per-frame pass.
 
@@ -318,7 +318,7 @@ The sequencer is a 0x2a-byte object, the same kind the [sensor dropout](#sensor-
 
 ## Sensor dropout
 
-While the player's sensor array is damaged, the cockpit's displays drop out at random. The mechanism is on the `PanelGauge` base, whose constructor (`PanelGauge_Ctor`, `00438b20`) sets it up, and seven update functions run it: the HUD gunsight complex (`Gunsight_UpdateAndPaint`), the MFD (`MfdDisplay_Update`), the Heads-Down Display (`FUN_00449bd0`), and slot 2 of `EnergyWeaponGauge`, `ProjectileWeaponGauge`, `PodWeaponGauge` and `TogglePodGauge`.
+While the player's sensor array is damaged, the cockpit's displays drop out at random. The mechanism is on the `PanelGauge` base, whose constructor (`PanelGauge_Ctor`, `00438b20`) sets it up, and `es2_xref.py` finds six calls to its toggle, one in each display's update: the HUD gunsight complex (`Gunsight_UpdateAndPaint`), the MFD (`MfdDisplay_Update`), the Heads-Down Display (`HddDisplay_Update`, `00449bd0`), and the weapon rows' `EnergyWeaponGauge_Update` (`00440c90`), `AmmoWeaponGauge_Update` (`00441268`) and `PodGauge_Update` (`00441850`).
 
 Each frame the caller stores the sensor array's condition at `+0x74` — `Player_DependentCondition(2)` (`004342e0`), which reads dependent 2 of the player's machine (`STRINGS0` group 15 entry 2, `SENSOR ARRAY`) as `damage << 8 / max` and buckets it through `Damage_ToConditionState`, 0 intact to 4 destroyed — and runs `PanelGauge_TickDropout` (`00438bc0`) only when it is nonzero.
 
@@ -332,25 +332,69 @@ Each frame the caller stores the sensor array's condition at `+0x74` — `Player
 | `+0x7c`, `+0x80` | Range a dark spell is drawn from, in coarse ticks |
 | `+0x84`, `+0x88` | Range a shown spell is drawn from |
 
-Entering either state draws its length with `PanelGauge_RollDuration` (`00438d6c`) — `(next & 0xffff) % (hi - lo) + lo` on the [presentation generator](../simulation/random-generator.md#the-presentation-generator), no draw when the two are equal — and the state flips once it has passed. With a sequencer, the expiry instead starts sequence `+0x70` (going dark) or `+0x72` (coming back), and the state flips when that sequence ends. A condition of 0 forces the dark state, but no caller runs the toggle with one.
+Entering either state draws its length with `PanelGauge_RollDuration` (`00438d6c`) — `(next & 0xffff) % (hi - lo) + lo` on the [presentation generator](../simulation/random-generator.md#the-presentation-generator), no draw when the two are equal — and the state flips once it has passed. With a sequencer, the expiry instead starts sequence `+0x70` (going dark) or `+0x72` (coming back) at the display's own rect (`+4`), steps it once a frame, and flips the state on the step after the sequence ends. A condition of 0 forces the dark state, but no caller runs the toggle with one.
 
 | Display | Dark, by condition 1 / 2 / 3 / 4 | Shown | Sequencer |
 |---|---|---|---|
-| `PanelGauge_Ctor` default | 180-360 | 180-360 | none |
-| Weapon gauges (`WeaponGauge_Ctor`, `0044080c`) | 120-360 | 180-1800 | from the constructor |
+| Heads-Down Display (`PanelGauge_Ctor`'s defaults) | 180-360 | 180-360 | none |
+| Weapon rows (`WeaponGauge_Ctor`, `0044080c`) | 120-360 | 180-1800 | one per row |
 | Gunsight (tables `0049be48`-`0049be66`) | 30-120 / 60-120 / 90-160 / 120-200 | 180-900 / 180-360 / 180-360 / 120-300 | none |
 | MFD (`MfdDisplay_SetDropoutRanges`, `00446db4`) | 30-120 / 60-120 / 60-120 / 60-120 | 180-900 / 180-360 / 180-360 / 180-360 | one of three at `004d1d0c`, by condition |
 
-The gunsight skips its whole paint while dark. The other callers compare `+0x76` with `+0x77` and act on the change ([Open](#open)).
+The Heads-Down Display keeps the defaults: every write `es2_fieldscan.py` finds to `+0x7c`-`+0x88` on a `PanelGauge` is in the base constructor, the gunsight's update, `WeaponGauge_Ctor` or the MFD's setter.
+
+### The wipes
+
+A weapon row and the MFD play a short animation at each change; the gunsight and the Heads-Down Display flip at once.
+
+**Weapon rows.** `WeaponGauge_Ctor` gives every row its own sequencer over `WPN_DMG`, on a two-sequence table it builds once from the start frames at `0049c4c8` and the end frames at `0049c4cc`: frames 1 to 9 going dark and 9 to 1 coming back, one coarse tick each. The frames are 112x14, the plate's hole exactly. Frame 1 fills the row with a bright bar, which collapses to a line and then to a dot, and frame 9 is the plain plate in index 42 — a screen switching off, and on again backwards.
+
+**MFD.** `MfdDisplay_Ctor` builds three sequencers over `MFD_DMG`, whose 192x118 frames blit at the screen inset (`+0xeb`, which the constructor also copies into the base rect). `MfdDisplay_SetDropoutRanges` picks one through `[0, 1, 2, 2, 2]` at `0049cb34` and asks it for sequences `set*2` going dark and `set*2+1` coming back. The counts at `0049cb40` and the frame lists at `0049cb4c`-`0049cb88` describe six sequences, but the constructor's loop builds three, sequence `i` for sequencer `i`, each frame held 4 ticks, and hands each sequencer a sequence set of count 1. `SpriteSequence_Select` accepts an index up to the count, so sets 1 and 2 refuse both their numbers and every wipe plays the sequence its sequencer was built with, both ways:
+
+| Condition | Set | Frames |
+|---|---|---|
+| 1 | 1 | 4, 0 |
+| 2-4 | 2 | 4, 5, 6 |
+
+Frame 4 floods the screen in index 30, 5 is a thin line across it, 6 the blank screen in index 17 and 0 a band across the middle. Set 0 is the one whose numbers `SpriteSequence_Select` accepts (frames 0, 4, 0 going dark and 4, 0 coming back), and it belongs to condition 0, which never ticks. Frames 1-3 are in none of the three built sequences, and the bank has no other reader: `es2_xref.py` finds its three references, all in `MfdDisplay_Ctor`.
+
+### While dark
+
+A display holds back while `+0x76` is set, and one with a sequencer also while the sequencer is anything but idle — the pair every paint below tests. Nothing covers what the wipe last blitted, so its final frame stays up for the whole dark spell.
+
+- **Gunsight.** `Gunsight_UpdateAndPaint` and `Gunsight_Paint` skip the whole paint: every child, the readouts, and the floating scanner repeater.
+- **MFD.** `MfdDisplay_Update` returns before the buttons' updates, a squadmate's transmission and the screen's own update. `MfdDisplay_Repaint` paints the chrome, the buttons and the title and skips the screen.
+- **Weapon rows.** `WeaponSelectGadget_Paint` draws the row plate and nothing else. The underlay and slot number (`WeaponSelectGadget_PaintUnderlay`), the name, the state box, the round count (`AmmoWeaponGauge_Paint`, `004411b4`), the charge bar (`WeaponChargeBar_Paint`, `00442b38`) and a pod's label all hold back, so the wipe's frame is what fills the plate's hole.
+- **Heads-Down Display.** `HddCommandScreen_DrawMap` floods the map viewport in id 19 and draws nothing in it; `HddCommandScreen_RefreshOrders` fonts every order `CPBLUE` with no highlight; `HddDamageScreen_Update` floods the screen rect in id 3 and draws nothing else, the subject caption included. `HddDisplay_Update` flags the current page for a full repaint whenever `+0x76` changes.
+
+**The Heads-Down Display holds its buttons too.** `HddDisplay_HandleWidgetPress` acts on the two page buttons while dark, and for any other press returns before it clears the pending index at `+0x528`. The press stays latched, a later one replaces it, and it runs on the first update that finds the display back — which handles the press before it ticks the dropout, so one frame after the flip. The arrow keys, the magnifiers' keys and `[1]`-`[3]` reach it the same way, since `HddDisplay_KeyDispatch` (`00449fcc`) presses the widget for each; `[S]`/`[I]`/`[W]` and the command display's own keys do not.
+
+Coming back, a weapon row repaints its children and the MFD and the ammunition and pod rows their whole widget, over the wipe's last frame.
+
+### When each display ticks
+
+Each display runs the toggle from its own update, so a display whose update does not run draws no spell. The deadline is an absolute coarse tick, so one that expired meanwhile flips on the first update back.
+
+| Display | Updates |
+|---|---|
+| Gunsight | Outside the external view (view 4), or during a view transition |
+| MFD | Once its power-up has armed it, outside view 4, with its screen on screen; not while the dish is still growing on the scanner |
+| Weapon row | Once its power-up has armed it, with its rect on screen or a view transition running |
+| Heads-Down Display | Outside view 4 |
+
+Engine: `Herculan.Engine.Content.SensorDropout`, `CockpitDropouts` and `SpriteSequence`.
 
 ## Per-frame ordering
 
 `maybe_Sim_RenderFrame` (`0045fb9c`): `Terrain_SetupVisibleRegion`, then `FUN_004327ac` (`CockpitViewInstance` widget paint dispatch), then `maybe_Scene_SubmitFrameObjects` (the 3D world), then `Player_PerFrameCockpitUpdate`, then three more paint dispatches on `CockpitViewInstance` sub-objects (`+0x1f5`, `FUN_00433158`'s result, `+0x20b`).
 
+## Rejected readings
+
+| Reading | Why it is wrong |
+|---|---|
+| `WPN_DMG` and `MFD_DMG` are damage art — a weapon row's damage fill levels and the MFD's damaged screen. | The names say damage and `WPN_DMG`'s frames do step from full to empty. But `es2_xref.py` finds `WPN_DMG`'s bank pointer only in `WeaponGauge_Ctor`, which builds the sensor-dropout sequencer over frames 1-9, and in `WeaponSelectGadget_PaintUnderlay`'s blit of frame 0; `MFD_DMG`'s only in `MfdDisplay_Ctor`, which builds the MFD's three sequencers over it. Both are the [sensor dropout's wipes](#the-wipes), and `WPN_DMG` frame 0 is every row's plain underlay. |
+
 ## Open
 
-- **Unported:** `WPN_DMG`'s damage fill on a weapon row. The per-mount reading behind it is combined entry `32 + slot` of `Component_FillDamageReadouts`' buffer, which the engine's Heads-Down Display weapons page already prints, but the engine's weapon rows do not carry it. They also draw the row plate as the underlay instead of `WPN_DMG` frame 0, which is equivalent only while the row is undamaged.
-- **Unported:** the sensor dropout ([above](#sensor-dropout)).
-- **Open:** what the MFD, the Heads-Down Display and the weapon gauges draw while dark, which art the MFD's three sequencers and the weapon gauges' play, and which ranges the Heads-Down Display runs with. A scan of `00438000`-`0044c000` finds no range write for it beyond the constructor's.
 - **Open:** what consumes `PWEAPONS` frame 7, a 640x80 strip.
 - **Open:** which mech-object field picks each widget's frame or fill level per frame, for the widgets this doc does not already trace. The `.GAU` holds only geometry.

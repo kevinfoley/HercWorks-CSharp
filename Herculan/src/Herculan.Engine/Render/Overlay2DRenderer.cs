@@ -95,7 +95,8 @@ public sealed class Overlay2DRenderer : IDisposable {
 		// front window that goes *behind* the cockpit frame. See AddTargetBox for why — it is the only
 		// gunsight child that drops back into the view's own render context, whose clip block is the
 		// herc's canopy cutout, while every other widget draws through the full-canvas context.
-		if (hud?.Sprites is { } boxSprites && spriteTexture != null) {
+		if (hud?.Sprites is { } boxSprites && spriteTexture != null
+			&& !(hudState ?? CockpitHudState.Default).Dropout.GunsightDark) {
 			_vertices.Clear();
 			AddTargetBoxLayer(hud.Gau, boxSprites, hudState ?? CockpitHudState.Default, scale, quadX0);
 			if (_vertices.Count > 0) {
@@ -226,9 +227,11 @@ public sealed class Overlay2DRenderer : IDisposable {
 		// everything in the window — raster, grid, border, markers — is clipped by the same rect.
 		// Last is also the display's own order: HddDisplay_Repaint paints the widgets and then hands
 		// over to the current page.
+		// HddCommandScreen_DrawMap floods the viewport and stops there while the sensor dropout has the
+		// display dark, so the flood AddHddCommandDisplay left is all the map shows.
 		if (hud?.HeadsDownLayout is { } mapLayout && hud.Sprites is { } mapSprites && spriteTexture != null
 			&& (hudState ?? CockpitHudState.Default) is { Hdd: HddPage.CommandDisplay } mapState
-			&& mapState.Command.View is { } view) {
+			&& !mapState.Dropout.HeadsDownDark && mapState.Command.View is { } view) {
 			DrawHddMap(hud, mapLayout, mapSprites, spriteTexture, mapTexture, mapState, view,
 				scale, quadX0, viewportX, viewportY, viewportHeight);
 		}
@@ -353,9 +356,12 @@ public sealed class Overlay2DRenderer : IDisposable {
 			Fill(layout.Screen, screenFill);
 		}
 
+		// While the sensor dropout has the display dark the damage screen's update floods its rect and
+		// draws nothing else — which the flood above already is, ids 3 and 19 both resolving to palette
+		// 16 — and the command display loses its map and greys its orders.
 		if (state.Hdd == HddPage.CommandDisplay) {
 			AddHddCommandDisplay(hud, layout, sprites, strings, state, background, Blit, Fill, DrawLabel);
-		} else {
+		} else if (!state.Dropout.HeadsDownDark) {
 			AddHddDamageDetail(hud, layout, sprites, strings, state.HddDamage, state, Blit, Fill, DrawLabel,
 				(x0, y0, x1, y1, color) => AddFilledRect(Dx(x0), Dy(y0), Dx(x1), Dy(y1), color));
 		}
@@ -540,9 +546,12 @@ public sealed class Overlay2DRenderer : IDisposable {
 				continue;
 			}
 
+			// The row refresh reads the display's dropout byte too: dark, every order takes the
+			// unavailable font and none is highlighted.
 			var row = layout.OrderRow(i + 1);
-			bool available = command.OrdersAvailable;
-			bool selected = command.SelectedOrder == (HddOrder)i;
+			bool dark = state.Dropout.HeadsDownDark;
+			bool available = command.OrdersAvailable && !dark;
+			bool selected = command.SelectedOrder == (HddOrder)i && !dark;
 
 			// The selected row gets the plate behind its text and a two-pixel bar at the column's own
 			// left edge, three device pixels down from the row's top.
@@ -589,9 +598,9 @@ public sealed class Overlay2DRenderer : IDisposable {
 	///
 	/// <para>The paper doll is the herc's own <c>.PDG</c> view for the category — front for structural,
 	/// rear for internal — blitted at the screen rect's top-left plus that view's own origin, which is
-	/// the paint's own arithmetic rather than a centring rule. The weapons category has no doll and
-	/// lists the mech's fitted hardpoints instead; those are already in
-	/// <see cref="CockpitHudState.HardpointNames"/>.</para>
+	/// the paint's own arithmetic rather than a centring rule. The weapons category lists the mech's
+	/// fitted hardpoints, which are already in <see cref="CockpitHudState.HardpointNames"/>; its blue
+	/// doll and every category's weapon icons are not drawn yet — docs/formats/heads-down-display.md#open.</para>
 	/// </summary>
 	private static void AddHddDamageDetail(CockpitArt hud, HddLayout layout, HudSpriteSheet sprites,
 			SimStringTable? strings, HddDamageView view, CockpitHudState state,
@@ -634,8 +643,8 @@ public sealed class Overlay2DRenderer : IDisposable {
 		}
 
 		// One row per .PDG region, in the file's own order, each naming its string by the region's id.
-		// The weapons category has no doll: its rows are the subject's own fitted hardpoints, which
-		// FUN_00450c54 walks off the mech directly.
+		// The weapons category's rows are the subject's own fitted hardpoints, which FUN_00450c54
+		// walks off the mech directly.
 		var names = HddLayout.ComponentNames(strings, view, inspected.FlyerVariant);
 		int rowCount = view == HddDamageView.Weapons
 			? state.HardpointNames.Count
@@ -1115,10 +1124,15 @@ public sealed class Overlay2DRenderer : IDisposable {
 			(x0, y0, x1, y1, color) => AddFilledRect(Dx(x0), Dy(y0), Dx(x1), Dy(y1), color),
 			drawNavMapTerrain is null ? null : (x0, y0, x1, y1, centre, navMap) => drawNavMapTerrain(
 				Dx(x0), Dy(y0), Dx(x1), Dy(y1), new Vector2(Dx(centre.X), Dy(centre.Y)), navMap));
+
+		// The front-window HUD — the gunsight complex and everything its paint draws after its children
+		// — skips its whole paint while the sensor dropout has it dark.
+		bool gunsight = !state.Dropout.GunsightDark;
+
 		// The heading tape. The whole compass — ticks, degree labels and all — is the hudhtick bank's
 		// art laid end to end, and the heading picks which slice of it shows: two consecutive frames a
 		// rect-width apart, clipped to the rect, sliding through it as the machine turns. See HeadingTape.
-		if (HeadingTape.From(hud) is { } tape) {
+		if (gunsight && HeadingTape.From(hud) is { } tape) {
 			var (frame, next, scrollX) = tape.Slice(state.Heading);
 			BlitDeviceClippedX(HeadingTape.SpriteBank, frame, scrollX, tape.Top, tape.Left, tape.Left + tape.Width);
 			BlitDeviceClippedX(HeadingTape.SpriteBank, next, scrollX + tape.Width, tape.Top,
@@ -1129,7 +1143,7 @@ public sealed class Overlay2DRenderer : IDisposable {
 		// the turret's twist angle, in one of two colours depending on whether the turret is centred.
 		// Its geometry is derived from the heading tape's rect rather than read from the file — see
 		// RotationIndicator.
-		if (RotationIndicator.From(hud) is { } rotation) {
+		if (gunsight && RotationIndicator.From(hud) is { } rotation) {
 			BlitDevice(RotationIndicator.SpriteBank, RotationIndicator.TrackFrame,
 				rotation.TrackX, rotation.TrackY);
 			BlitDevice(RotationIndicator.SpriteBank, RotationIndicator.FrameFor(state.TorsoTwist),
@@ -1153,14 +1167,16 @@ public sealed class Overlay2DRenderer : IDisposable {
 			(x0, y0, x1, y1, color) => AddFilledRect(Dx(x0), Dy(y0), Dx(x1), Dy(y1), color));
 		AddShieldReadouts(gau, state, hud.GaugeColors?.Remainder, DrawTextCentered);
 		AddConsoleButtons(gau, hud.Strings, state, BlitDevice, DrawTextCentered);
-		AddGunsightReadouts(gau, sprites, state, DrawText);
+		if (gunsight) {
+			AddGunsightReadouts(gau, sprites, state, DrawText);
+		}
 
 		// The reticle is a point, not a rect — the only widget in the file that is — so its sprite
 		// centers on it rather than hanging off a top-left corner. Which of the bank's three frames it
 		// wears is the gunsight's on-target state: child 4's paint (FUN_0043b7e0) draws frame 0 with
 		// nothing selected or the selection off the sight, frame 2 once the target projects within
 		// TargetBox.OnTargetTolerance of this very point, and frame 1 when it also has missile lock.
-		if (gau.Reticle is { } reticle) {
+		if (gunsight && gau.Reticle is { } reticle) {
 			int frame = ReticleFrame(gau, state);
 			if (sprites.Sprite(TargetBox.SpriteBank, frame) is { } crosshair) {
 				Blit(TargetBox.SpriteBank, frame,
@@ -1171,25 +1187,29 @@ public sealed class Overlay2DRenderer : IDisposable {
 
 		// Over the reticle, because the gunsight complex paints its children in construction order and
 		// the target box is child 5 to the reticle's child 4.
-		AddTargetIndicator(gau, sprites, hud.TargetArrowColors, state,
-			(bank, frame, left, top, flipX, flipY) => BlitFlipped(bank, frame, Dx(left), Dy(top), flipX, flipY),
-			(a, b, c, color) => AddFilledTriangle(
-				new Vector2(Dx(a.X), Dy(a.Y)),
-				new Vector2(Dx(b.X), Dy(b.Y)),
-				new Vector2(Dx(c.X), Dy(c.Y)), color));
+		if (gunsight) {
+			AddTargetIndicator(gau, sprites, hud.TargetArrowColors, state,
+				(bank, frame, left, top, flipX, flipY) => BlitFlipped(bank, frame, Dx(left), Dy(top), flipX, flipY),
+				(a, b, c, color) => AddFilledTriangle(
+					new Vector2(Dx(a.X), Dy(a.Y)),
+					new Vector2(Dx(b.X), Dy(b.Y)),
+					new Vector2(Dx(c.X), Dy(c.Y)), color));
+		}
 
 		// Children 7 and 8, in construction order: the nav marker's indicator and the route's. Both
 		// hang off the heading tape's rect and are filled polygons rather than sprites — see
 		// WaypointIndicator, which owns all of the arithmetic.
-		if (WaypointIndicator.From(hud) is { } waypoints) {
+		if (gunsight && WaypointIndicator.From(hud) is { } waypoints) {
 			DrawWaypointMark(waypoints, state.NavMarker);
 			DrawWaypointMark(waypoints, state.RouteWaypoint);
 		}
 
 		// And last of all, after every child, the floating scanner repeater — the gunsight's paint
 		// calls it once the child loop is done.
-		AddHudScanner(hud, state, BlitDevice,
-			(x0, y0, x1, y1, color) => AddFilledRect(Dx(x0), Dy(y0), Dx(x1), Dy(y1), color));
+		if (gunsight) {
+			AddHudScanner(hud, state, BlitDevice,
+				(x0, y0, x1, y1, color) => AddFilledRect(Dx(x0), Dy(y0), Dx(x1), Dy(y1), color));
+		}
 
 		// The message port is the view's own last child, constructed after every gauge, so its box
 		// goes over whatever it overlaps rather than under it.
@@ -1725,11 +1745,10 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// own constructor widens the name label across both fields instead.</item>
 	/// </list>
 	///
-	/// <para><c>WPN_DMG</c> is not drawn: its ten frames are damage fill levels, and the row carries no
-	/// reading to pick one with — the mount's own damage is composed (the Heads-Down Display's weapons
-	/// page prints it, see <see cref="PaperDollDamage.WeaponRowReading"/>) but it does not reach here.
-	/// The original blits frame 0 as every row's underlay, before the plate; here the plate is the
-	/// underlay, which comes to the same thing only while the row is undamaged.</para>
+	/// <para>Under all of it, <c>WPN_DMG</c> frame 0 fills the plate's hole — <c>FUN_00442394</c>'s
+	/// underlay, a flat plate in the row's own background colour. The bank's other nine frames are the
+	/// row's sensor-dropout wipe: while <see cref="WeaponRowState.DropoutHidden"/> every paint but the
+	/// plate's bezel holds back, and the wipe's frame stands in the hole instead.</para>
 	/// </summary>
 	private static void AddWeaponRows(GAUFile gau, CockpitHudState state,
 			(Vector3 FillEven, Vector3 FillOdd)? barColors, Vector3? podPlate,
@@ -1761,6 +1780,18 @@ public sealed class Overlay2DRenderer : IDisposable {
 			float left = rect.Origin.X * S;
 			float top = rect.Origin.Y * S;
 
+			// WeaponSelectGadget_Paint draws the plate whatever the dropout is doing, and nothing else of
+			// the row while it holds the row back; the wipe's last frame fills the hole meanwhile.
+			if (row.DropoutHidden) {
+				if (row.DropoutFrame is { } wipe) {
+					blit(SensorDropout.RowBank, wipe, left, top);
+				}
+
+				blit("PWEAPONS", row.Selected ? 0 : 1, left - RowPlateBezel, top - RowPlateBezel);
+				continue;
+			}
+
+			blit(SensorDropout.RowBank, RowUnderlayFrame, left, top);
 			blit("PWEAPONS", row.Selected ? 0 : 1, left - RowPlateBezel, top - RowPlateBezel);
 			if (row.Selected || row.InGroup) {
 				blit("PWEAPONS", row.Ready ? ReadyStateFrame : UnreadyStateFrame, left + 12, top);
@@ -1813,6 +1844,9 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// plate both have to sit for the row to close around them.</para>
 	/// </summary>
 	private const int RowPlateBezel = 2;
+
+	/// <summary>The <see cref="SensorDropout.RowBank"/> frame every row is underlaid with — 112x14, the plate's hole exactly.</summary>
+	private const int RowUnderlayFrame = 0;
 
 	/// <summary><c>PWEAPONS</c> frame for a mount that could fire this instant.</summary>
 	private const int ReadyStateFrame = 4;
@@ -2020,6 +2054,17 @@ public sealed class Overlay2DRenderer : IDisposable {
 				DrawLabel(widget.Selected ? "DARK" : "WHITE", caption,
 					widget.X0, widget.Y0, X(button.X1), Y(button.Y1), LabelAlign.Center);
 			}
+		}
+
+		// The sensor dropout returns from MfdDisplay_Update before the screen, the transmission and the
+		// title, and the wipe's sequencer blits its frames at the display's own rect — the inset. The
+		// last one stays up for the whole dark spell, since nothing paints over it.
+		if (state.Dropout.MfdHidden) {
+			if (state.Dropout.MfdFrame is { } wipe) {
+				blitDevice(SensorDropout.MfdBank, wipe, insetX, insetY);
+			}
+
+			return;
 		}
 
 		switch (state.Mfd) {

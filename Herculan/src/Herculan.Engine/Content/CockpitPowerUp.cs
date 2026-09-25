@@ -168,6 +168,14 @@ public sealed class CockpitPowerUp {
 	}
 
 	/// <summary>
+	/// Whether <c>MfdDisplay_Update</c> gets as far as the sensor dropout this frame: not before the
+	/// display is armed, and not while the dish is still growing on the scanner, both of which return
+	/// first. Ask it after <see cref="MfdFrame"/>, which latches the display done.
+	/// </summary>
+	public bool MfdReachesDropout(bool scannerShowing) =>
+		_mfdDone || (_mfdArmedAt != null && !scannerShowing);
+
+	/// <summary>
 	/// Which <see cref="MfdBank"/> frame the MFD shows at the scanner dish's position in place of the
 	/// scanner screen, or null once the display has powered up. Call it once a frame — like the
 	/// original's update, it starts and latches as it goes.

@@ -52,6 +52,13 @@ namespace Herculan.Engine.Content;
 /// Whether the cockpit's power-up has reached this row yet. A row it has not is not drawn at all —
 /// see <see cref="CockpitPowerUp.RowPowered"/>.
 /// </param>
+/// <param name="DropoutHidden">
+/// Whether the sensor dropout is holding the row back — dark, or with its wipe running. Every paint
+/// the row has but the plate's bezel tests this and draws nothing; see <see cref="SensorDropout.Hidden"/>.
+/// </param>
+/// <param name="DropoutFrame">
+/// The <see cref="SensorDropout.RowBank"/> frame standing in the plate's hole meanwhile.
+/// </param>
 public readonly record struct WeaponRowState(
 	string Name,
 	WeaponMountKind Kind,
@@ -62,7 +69,9 @@ public readonly record struct WeaponRowState(
 	int ChargeMeter,
 	bool ChargeBar = false,
 	bool PodButton = false,
-	bool Powered = true) {
+	bool Powered = true,
+	bool DropoutHidden = false,
+	int? DropoutFrame = null) {
 
 	/// <summary>A <c>.GAU</c> slot with no mount on it.</summary>
 	public static WeaponRowState Empty { get; } =
@@ -119,8 +128,10 @@ public readonly record struct WeaponRowState(
 	/// while they fill. Null for a panel drawn as it stands.
 	/// </param>
 	/// <param name="coarseTicks">The current coarse tick, for <paramref name="powerUp"/>'s ramps.</param>
+	/// <param name="dropouts">The cockpit's sensor dropouts, one per row, or null for none.</param>
 	public static IReadOnlyList<WeaponRowState> Build(WeaponMounts mounts, int slots,
-			SimStringTable? strings, CockpitPowerUp? powerUp = null, long coarseTicks = 0) {
+			SimStringTable? strings, CockpitPowerUp? powerUp = null, long coarseTicks = 0,
+			CockpitDropouts? dropouts = null) {
 		string offline = strings?.Text(OfflineStringGroup, 0) ?? string.Empty;
 		string podSuffix = strings?.Text(PodSuffixStringGroup, 0) ?? string.Empty;
 
@@ -162,7 +173,9 @@ public readonly record struct WeaponRowState(
 				// the button at +0xc2 — so an offline pod's row draws neither the dark font nor the
 				// green plate, whatever the button was left at.
 				PodButton: mount.PodButton && !mount.Disabled,
-				Powered: powered);
+				Powered: powered,
+				DropoutHidden: dropouts?.Row(slot)?.Hidden ?? false,
+				DropoutFrame: dropouts?.Row(slot)?.Frame);
 		}
 
 		return rows;

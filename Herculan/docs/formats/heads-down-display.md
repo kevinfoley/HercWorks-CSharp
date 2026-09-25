@@ -160,6 +160,8 @@ Both rows hide widgets 10-12. That is not a contradiction: those widgets paint o
 
 `HddDisplay_Repaint`: visible widgets, the current page's paint, the indicator rect, the title, then the three comm gauges. A page floods its screen rect only on a full repaint, which is why the widgets going first does not erase XMIT and CANCEL.
 
+While the sensor array is damaged the display drops out for random spells, blanking the map and the damage screen and holding back every button but the page buttons: [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#sensor-dropout).
+
 ## Colours
 
 Logical ids through `dat\COLORS.DAT` (see [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#datcolorsdat--logical-colour-ids)).
@@ -353,7 +355,7 @@ Three categories, set by `HddDamageScreen_SetView` (`00450b60`), which also sets
 |---|---|---|---|---|
 | 0 Structural | S | `0x13` | group 13, or 14 for a flyer | 0 |
 | 1 Internal | I | `0xc` | group 15, or 16 for a flyer | 1 |
-| 2 Weapons | W | fitted weapon count | the mech's own weapon names | none |
+| 2 Weapons | W | fitted weapon count | the mech's own weapon names | 0, recoloured |
 
 The flyer variant is selected by a flag at the subject type's `+0x50`.
 
@@ -374,6 +376,8 @@ Both of a row's labels are re-fonted together from `Damage_PickRegionTint`'s sta
 That is the manual's green-through-red plus grey for inoperative. The constructor's own `[1]` shows only until the first update runs.
 
 **Paper doll**: the `.PDG` view for the category, blitted at the screen rect's top-left plus that view's own origin, then tinted region by region through [`PaperDoll_RecolorRectFromArt`](cockpit-hud-widgets.md#tinting) — one tint per row, from the same reading the row prints. The structural view's first two regions are the exception: they share one rect, so row 0 tints on the mean of both cockpit halves and row 1 tints nothing while still printing its own number. A flyer chassis has no such pair and tints straight from the row.
+
+**Weapon icons.** Over the doll, on every category, `FUN_00451db8` blits the subject machine's weapon-icon list at the doll's origin — `mech+0x1fe`, a count and `0x22`-byte entries: a bitmap at `+0`, its position at `+4`/`+8`, a rect at `+0xc` and blit flags at `+0x1c`. `FUN_00437c8c` builds the list for each machine from `Sim_InitMissionSession`. The structural and internal views then recolour each icon's rect from id 12 to id 6 (palette 98, blue) in mode 1, which is retail's blue weapons around the doll. The weapons view blits `.PDG` view 0 and recolours the whole of it blue — the view's rect from id 12 to id 6 in mode 3, then every region not drawn in id 12 — leaves the icons green, and tints each row's icon from that row's reading.
 
 **Subject caption**: `HddDamageScreen_SetSubjectCaption` (`0044ba2c`) fills an 81x15 device box 56 pixels in from the screen's left edge and 4 up from its bottom, from the display's five-name array at `+0x548` indexed by `+0x55c`. The player draws `ColorSchemePanels[3]` on colour id 6; a squadmate `[2]` on that pilot's own `COLORS.DAT` entry; the target `[2]` on id 15. With no subject the screen also writes group 19 (`NO TARGET SELECTED` / `NO INFO AVAILABLE`) to a centred label.
 
@@ -480,7 +484,7 @@ Loaded by `CockpitClipRegions_Load` from `edg\HDDCLIP.EDG` — the 320-wide clip
 
 ## Engine coverage
 
-Drawn: page buttons with lit state, the four arrows and two magnifiers, the title indicator, page titles, the screen flood, the paper doll per category with its region tints, and 13 component rows in `.PDG` region order — structural and internal named from the string table, weapons from the player's own fitted hardpoints — each with its live percentage and its state's font.
+Drawn: page buttons with lit state, the four arrows and two magnifiers, the title indicator, page titles, the screen flood, the structural and internal paper dolls with their region tints, and 13 component rows in `.PDG` region order — structural and internal named from the string table, weapons from the player's own fitted hardpoints — each with its live percentage and its state's font.
 
 Everything the command display draws is drawn. Zoom, pan, recentring, pilot selection and target designation are all wired to both the widgets and the keys.
 
@@ -496,6 +500,8 @@ XMIT delivers a real order — [`../simulation/ai-squadmates.md`](../simulation/
 
 ## Open
 
+- **Unported:** the damage screen's [weapon icons](#damage-detail--page-1) and the weapons view's blue doll.
+- **Open:** what `FUN_00437c8c` puts in each weapon-icon entry — which bank the bitmaps come from and where each is placed.
 - **Open:** what reaches `HddDamageScreen_PageDown` (`00450c18`) and `HddDamageScreen_PageUp` (`00450c38`). They page the damage row offset forward and back by 13, the first only while a row remains past the current window and the second never below 0, but `es2_xref.py` finds no branch, stored pointer or vtable slot holding either, while the two category steps beside them, `HddDamageScreen_NextView` and `_PrevView`, are reached from `HddDisplay_HandleWidgetPress`. Until something does, the offset stays 0.
 - **Open:** how retail's 640-wide mode finds `static`. `static` and `pilot<n>` ship in `dba\` only, at 320-wide sizes; `pilot<n>` names its folder outright, but `static` is loaded through the shared `dba`/`hba` folder global, which selects `hba` in that mode and would miss.
 - **Open:** what the `DAT_0049d1f6` lookup table is for. `gauge+0x133`, the frame-indirection flag `HddGauge_PaintPilotFrame` branches on, is set to 1 for every slot the loader builds, so the table branch is never taken.

@@ -70,9 +70,9 @@ public class PaperDiagramGraphTransformer : ByteTransformer<PaperDollGraphic> {
 		for (int h = 0; h < pdg.Hardpoints.Length; h++) {
 			var hardpoint = pdg.NewHardpointEntry();
 			hardpoint.Origin = new PixelPoint(IndexIntLE(), IndexIntLE());
-			hardpoint.Unk1 = IndexIntLE();
-			hardpoint.Unk2 = IndexIntLE();
-			hardpoint.Spacer = IndexIntLE();
+			hardpoint.FrameOffset = IndexIntLE();
+			hardpoint.Alignment = IndexIntLE();
+			hardpoint.BlitFlags = IndexIntLE();
 			pdg.Hardpoints[h] = hardpoint;
 		}
 
@@ -116,9 +116,9 @@ public class PaperDiagramGraphTransformer : ByteTransformer<PaperDollGraphic> {
 			var hpoint = pdg.Hardpoints[h];
 			WriteInt(hpoint.Origin.X);
 			WriteInt(hpoint.Origin.Y);
-			WriteInt(hpoint.Unk1);
-			WriteInt(hpoint.Unk2);
-			WriteInt(hpoint.Spacer);
+			WriteInt(hpoint.FrameOffset);
+			WriteInt(hpoint.Alignment);
+			WriteInt(hpoint.BlitFlags);
 		}
 
 		return outStream.ToArray();

@@ -217,7 +217,8 @@ public sealed class WeaponMount {
 	/// <summary>
 	/// This mount's index in the machine's mount array — its position in the <c>.GL</c> file. It is
 	/// what the selected-weapon index, the fire-group arrays and <see cref="LinkPartnerOffset"/> are
-	/// all relative to, and it is the order the Heads-Down Display's weapon list prints in.
+	/// all relative to. The Heads-Down Display's weapon list prints in <see cref="LoadoutSlot"/> order
+	/// instead — see <see cref="Content.DamageHardpoint"/>.
 	/// </summary>
 	public int MountIndex { get; }
 
@@ -231,7 +232,7 @@ public sealed class WeaponMount {
 
 	/// <summary>
 	/// Which slot of the fit's arrays this hardpoint draws from — the <c>.GL</c> record's byte at
-	/// <c>+0x17</c>.
+	/// <c>+0x17</c>. The <c>.PDG</c>'s weapon-icon list is indexed by it too.
 	/// </summary>
 	public int LoadoutSlot { get; }
 
@@ -245,6 +246,13 @@ public sealed class WeaponMount {
 
 	/// <summary>The fit's catalog weapon id for this hardpoint.</summary>
 	public int WeaponId { get; }
+
+	/// <summary>
+	/// The template's damage-detail icon — <c>+0x1c</c>'s <c>+0x50</c>, read by
+	/// <c>PaperDoll_BuildWeaponIcons</c> (<c>00437c8c</c>). -1 for none. See
+	/// <see cref="Content.PaperDollDamage.PlaceWeaponIcon"/>.
+	/// </summary>
+	public int DamageIcon => _template?.DamageIconIndex ?? -1;
 
 	/// <summary>
 	/// The fit's parallel second value for this hardpoint — the ammunition type a launcher is loaded

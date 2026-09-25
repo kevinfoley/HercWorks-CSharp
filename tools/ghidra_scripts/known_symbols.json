@@ -3777,8 +3777,35 @@
       "type": "function",
       "confidence": "high",
       "name": "PaperDoll_Load",
-      "description": "pdamage.cpp .PDG loader. Reads 3 views, each an origin/size pair plus a vector of 0x1c-byte regions {int index, PixelPoint topLeft, PixelPoint bottomRight, int colorId, int spacer}; resolves each region's colorId through HudColorTable in place and shifts its coordinates by VideoMode_X/YCoordShift, with bottomRight additionally +1 in the 640-wide mode. Matches HercWorks.Core's PaperDollGraphic field-for-field, identifying its ViewRegion.Unk_val at offset 0x14 as the colour id.",
+      "description": "pdamage.cpp .PDG loader. Reads 3 views, each an origin/size pair plus a vector of 0x1c-byte regions {int index, PixelPoint topLeft, PixelPoint bottomRight, int colorId, int spacer}; resolves each region's colorId through HudColorTable in place and shifts its coordinates by VideoMode_X/YCoordShift, with bottomRight additionally +1 in the 640-wide mode. Matches HercWorks.Core's PaperDollGraphic field-for-field, identifying its ViewRegion.Unk_val at offset 0x14 as the colour id. Then reads the weapon-icon hardpoint list into +0x54 (count) / +0x58 (0x14-byte entries {int x, int y, int frameOffset, int alignment, int blitFlags}), shifting x and y.",
       "source": "docs/formats/cockpit-hud-widgets.md (.PDG)"
+    },
+    {
+      "address": "004378d8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PaperDoll_InitTables",
+      "description": "Allocates the per-type 0x5c-byte .PDG table PaperDoll_Load fills, loads the weapon-icon bank weapons.hba/.dba into DAT_004d1754, and reads pdg\\WEAPONS.PDG's {width, height} pairs into DAT_004d1758, shifted by VideoMode_X/YCoordShift.",
+      "source": "docs/formats/cockpit-hud-widgets.md (Weapon icons)"
+    },
+    {
+      "address": "00437c8c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PaperDoll_BuildWeaponIcons",
+      "description": "Builds one machine's weapon-icon list (count + 0x22-byte entries: bitmap, x, y, rect, blit flags, short gun index at +0x20), stored at mech+0x1fe by Sim_InitMissionSession. Entry n is .PDG hardpoint n; it finds the .GL record whose slot byte +0x17 is n, takes that mount's template +0x50 plus the entry's frame offset as the WEAPONS frame, and anchors it by the entry's alignment bits against the WEAPONS.PDG size.",
+      "source": "docs/formats/cockpit-hud-widgets.md (Weapon icons)"
+    },
+    {
+      "address": "00451db8",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddDamageScreen_BlitWeaponIcons",
+      "description": "Blits every non-null bitmap of a weapon-icon list at its position plus the doll origin, with the entry's blit flags. HddDamageScreen_Update calls it in both of its category branches.",
+      "source": "docs/formats/heads-down-display.md (Damage detail)"
     },
     {
       "address": "00429c2c",

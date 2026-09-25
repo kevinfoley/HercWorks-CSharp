@@ -37,6 +37,58 @@ public static class PaperDollDamage {
 	public const int DestroyedColorId = 18;
 
 	/// <summary>
+	/// The damage detail's blue — id 6. The structural and internal views recolour the weapon icons'
+	/// <see cref="OkColorId"/> pixels to it; the weapons view recolours the doll to it instead.
+	/// </summary>
+	public const int WeaponIconColorId = 6;
+
+	/// <summary>The weapon-icon bank, <c>hba\WEAPONS.HBA</c>, whose frame sizes are <c>pdg\WEAPONS.PDG</c>.</summary>
+	public const string WeaponIconBank = "WEAPONS";
+
+	/// <summary>
+	/// One weapon icon placed over the doll: its <see cref="WeaponIconBank"/> frame and its rect in
+	/// device pixels relative to the view's origin, <see cref="X"/>/<see cref="Y"/> being where the
+	/// frame is blitted. The recolour walks <c>X..X+Width</c> and <c>Y..Y+Height</c> inclusive.
+	/// </summary>
+	public readonly record struct WeaponIcon(int Frame, int X, int Y, int Width, int Height);
+
+	/// <summary>
+	/// <c>PaperDoll_BuildWeaponIcons</c> (<c>00437c8c</c>) for one <c>.PDG</c> hardpoint: frame
+	/// <paramref name="iconIndex"/> plus the entry's own offset, anchored at its origin by its
+	/// alignment. Arithmetic is in device pixels, as the original's is after the load-time shift, so
+	/// a centred 9-pixel icon backs off 9 device pixels rather than 8. Null for a weapon with no icon
+	/// or a frame <paramref name="sizes"/> has no size for.
+	///
+	/// <para>The entry's blit flags are not applied. Flag 2 moves the icon left by the bitmap's width
+	/// less its <c>WEAPONS.PDG</c> width, but every retail hardpoint entry states 0.</para>
+	/// </summary>
+	public static WeaponIcon? PlaceWeaponIcon(PaperDollGraphic.HardpointEntry hardpoint, int iconIndex,
+			WeaponPaperDiagram sizes, int scale) {
+		int frame = iconIndex + hardpoint.FrameOffset;
+		if (iconIndex < 0 || sizes.Entries is not { } entries || frame < 0 || frame >= entries.Length) {
+			return null;
+		}
+
+		int width = entries[frame].Width * scale;
+		int height = entries[frame].Height * scale;
+		int x = hardpoint.Origin.X * scale;
+		int y = hardpoint.Origin.Y * scale;
+
+		x -= (hardpoint.Alignment & 7) switch {
+			2 => width,
+			4 => width >> 1,
+			_ => 0,
+		};
+		y -= (hardpoint.Alignment & ~7) switch {
+			0x10 => height,
+			0x20 => height >> 1,
+			_ => 0,
+		};
+
+		return new WeaponIcon(frame, x, y, width, height);
+	}
+
+	/// <summary>
 	/// <c>Damage_PickRegionTint</c>'s ladder, in its own bands: one Q8 damage reading in, one of five states
 	/// out. The bands are <see cref="MfdStatusSubject.ConditionFromDamage"/>'s, because they are
 	/// literally the same four thresholds on the same integrity percentage — this function is the
@@ -118,8 +170,8 @@ public static class PaperDollDamage {
 			: readouts[ComponentDamage.FirstArmorReadout + regionId];
 
 	/// <summary>
-	/// The reading behind a weapons-view row: the weapon mount's component and the dependent under it,
-	/// weighed together. Mount <paramref name="loadoutSlot"/> is component
+	/// The reading behind a weapons-view row and its icon: the weapon mount's component and the
+	/// dependent under it, weighed together. Mount <paramref name="loadoutSlot"/> is component
 	/// <see cref="Sim.WeaponMounts.FirstMountComponent"/><c> + slot</c>, which is the buffer's
 	/// <see cref="ComponentDamage.FirstCombinedReadout"/><c> + slot</c>.
 	/// </summary>
@@ -145,5 +197,29 @@ public static class PaperDollDamage {
 			1 => null,
 			_ => RowReading(view, id, readouts),
 		};
+	}
+}
+
+/// <summary>
+/// One chassis hardpoint as the damage detail sees it: the name its weapons-view row prints and the
+/// icon it draws around the doll.
+/// </summary>
+/// <param name="Name">The mount's own name, with none of the cockpit row's pod suffix.</param>
+/// <param name="Icon">The weapon's <see cref="WeaponMount.DamageIcon"/>.</param>
+public readonly record struct DamageHardpoint(string Name, int Icon) {
+	/// <summary>
+	/// A machine's hardpoints indexed by <see cref="WeaponMount.LoadoutSlot"/> — the <c>.GL</c> slot
+	/// byte that <c>.PDG</c> hardpoint entry <c>n</c>, the weapons view's row <c>n</c> and combined
+	/// readout <c>n</c> all name. One entry per slot of the mount array; an empty hardpoint is null.
+	/// </summary>
+	public static IReadOnlyList<DamageHardpoint?> Build(WeaponMounts mounts) {
+		var list = new DamageHardpoint?[mounts.Slots.Count];
+		foreach (var mount in mounts.Mounts) {
+			if (mount.LoadoutSlot >= 0 && mount.LoadoutSlot < list.Length) {
+				list[mount.LoadoutSlot] = new DamageHardpoint(mount.Name, mount.DamageIcon);
+			}
+		}
+
+		return list;
 	}
 }

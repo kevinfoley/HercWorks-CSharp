@@ -84,7 +84,8 @@ public class Weapons {
 		/// <c>0x06</c>/<c>0x08</c> the readiness threshold pair, <c>0x0a</c> magazine size,
 		/// <c>0x0c</c> barrel count, <c>0x10</c>-<c>0x14</c> the muzzle offset triple,
 		/// <c>0x16</c>/<c>0x1a</c> the side offsets, <c>0x1c</c> <see cref="ProjDatIndex"/>, and
-		/// <c>0x1e</c> the refire interval. See docs/formats/weapons-dat-sim.md.
+		/// <c>0x1e</c> the refire interval, <c>0x2e</c> <see cref="DamageIconIndex"/>. See
+		/// docs/formats/weapons-dat-sim.md.
 		/// </summary>
 		public byte[] Tail { get; set; } = new byte[0x30];
 
@@ -116,6 +117,14 @@ public class Weapons {
 		///   </list>
 		/// </summary>
 		public short ProjDatIndex => BitConverter.ToInt16(Tail, 0x1c);
+
+		/// <summary>
+		/// Tail-relative offset 0x2e (absolute 0x50): which icon of the <c>WEAPONS</c> bank the
+		/// Heads-Down Display's damage detail draws for this weapon, before the <c>.PDG</c>
+		/// hardpoint's own frame offset is added. -1 draws none. See
+		/// docs/formats/weapons-dat-sim.md.
+		/// </summary>
+		public short DamageIconIndex => BitConverter.ToInt16(Tail, 0x2e);
 
 		/// <summary>
 		/// Which shape of <c>dts\MECHWPNS.DTS</c> this weapon is drawn as when it is fitted to a

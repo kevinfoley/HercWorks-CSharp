@@ -603,13 +603,9 @@ public sealed class HddLayout {
 
 	/// <summary>
 	/// Which of the three views in a herc's <c>.PDG</c> the damage screen draws beside its list.
-	/// <c>FUN_00450c54</c> indexes the view array by the same 0/1 its category selector produces, so
-	/// structural gets the front doll and internal the rear one. The weapons view's doll — view 0,
-	/// recoloured blue under the weapon icons — is not drawn yet: docs/formats/heads-down-display.md#open.
+	/// <c>HddDamageScreen_Update</c> (<c>00450c54</c>) sets it with the category, so structural gets the
+	/// front doll and internal the rear one; the weapons view reuses the front one and recolours it
+	/// blue.
 	/// </summary>
-	public static int? PaperDollView(HddDamageView view) => view switch {
-		HddDamageView.Structural => 0,
-		HddDamageView.Internal => 1,
-		_ => null,
-	};
+	public static int PaperDollView(HddDamageView view) => view == HddDamageView.Internal ? 1 : 0;
 }

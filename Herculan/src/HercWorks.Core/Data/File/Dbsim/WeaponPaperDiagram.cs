@@ -1,9 +1,13 @@
 namespace HercWorks.Core.Data.File.Dbsim;
 
 /// <summary>
-/// FILE - /SIMVOL0/PDG/WEAPONS.PDG — cannot confirm if this is even used.
-///   0 - UINT32 - total count
-///   SEQ_0: possible x coord, possible y coord.
+/// FILE - /SIMVOL0/PDG/WEAPONS.PDG — the frame sizes of the weapon-icon bank
+/// (<c>hba\WEAPONS.HBA</c>/<c>dba\WEAPONS.DBA</c>) the Heads-Down Display's damage detail draws
+/// around a paper doll. Unlike every other <c>.PDG</c> it holds no views.
+///   0 - INT32 - frame count
+///   then count x { INT32 width, INT32 height }, in the 320-wide space.
+/// Read by DBSIM's <c>PaperDoll_InitTables</c> (<c>004378d8</c>), which shifts each pair by
+/// <c>VideoMode_X/YCoordShift</c>. See docs/formats/cockpit-hud-widgets.md#weapon-icons.
 /// Ported from org.hercworks.core.data.file.dbsim.WeaponPaperDiagram.
 /// </summary>
 public class WeaponPaperDiagram {
@@ -12,7 +16,7 @@ public class WeaponPaperDiagram {
 	public Entry NewEntry() => new();
 
 	public class Entry {
-		public int X { get; set; }
-		public int Y { get; set; }
+		public int Width { get; set; }
+		public int Height { get; set; }
 	}
 }

@@ -13,17 +13,11 @@
 /// One entry per <c>.GAU</c> weapon row, in row order — see <see cref="WeaponRowState"/>. A row no
 /// mount claims draws its plate and number with no name rather than an invented one.
 /// </param>
-/// <param name="HardpointNames">
-/// The same mounts' bare names in <b>mount order</b> — the order the <c>.GL</c> hardpoint list puts
-/// them in, which is not the row order. This is the list the Heads-Down Display's weapon-damage page
-/// prints (<c>FUN_00450c54</c> walks the mount array directly), and it takes the mount's own name
-/// with none of the cockpit row's pod suffix.
-/// </param>
-/// <param name="HardpointSlots">
-/// Each of those mounts' <c>WeaponMount.LoadoutSlot</c>, so the same page can find the damage
-/// component behind a row — see <see cref="PaperDollDamage.WeaponRowReading"/>. Parallel to
-/// <see cref="HardpointNames"/>; the two orders are not the same, which is why the slot has to
-/// travel with the name.
+/// <param name="Hardpoints">
+/// The same machine's hardpoints as the Heads-Down Display's damage detail sees them, indexed by
+/// <c>.GL</c> slot byte rather than in row order — see <see cref="DamageHardpoint.Build"/>. Its weapons
+/// view prints row <c>n</c> from entry <c>n</c>, and every view draws entry <c>n</c>'s icon where
+/// the doll's <c>.PDG</c> hardpoint <c>n</c> places it.
 /// </param>
 /// <param name="ShieldFront">
 /// Front shield readout, 0-200. This is the shield <i>balance</i>, not the charge — the original
@@ -144,7 +138,7 @@
 /// </param>
 public readonly record struct CockpitHudState(
 	IReadOnlyList<WeaponRowState> Weapons,
-	IReadOnlyList<string> HardpointNames,
+	IReadOnlyList<DamageHardpoint?> Hardpoints,
 	int ShieldFront,
 	int ShieldRear,
 	int EnergyFraction,
@@ -165,7 +159,6 @@ public readonly record struct CockpitHudState(
 	MfdScannerState Scanner = default,
 	MessageTicker Message = default,
 	HddCommandState Command = default,
-	IReadOnlyList<int>? HardpointSlots = null,
 	MfdFlashCommState FlashComm = default,
 	SquadTransmission? Transmission = null,
 	IReadOnlyList<SquadTransmission?>? PilotVideos = null,
@@ -189,7 +182,7 @@ public readonly record struct CockpitHudState(
 	/// </summary>
 	public static CockpitHudState Default { get; } = new(
 		Weapons: Array.Empty<WeaponRowState>(),
-		HardpointNames: Array.Empty<string>(),
+		Hardpoints: Array.Empty<DamageHardpoint?>(),
 		ShieldFront: 100,
 		ShieldRear: 100,
 		EnergyFraction: 1024,
@@ -210,7 +203,6 @@ public readonly record struct CockpitHudState(
 		Scanner: MfdScannerState.Empty,
 		Message: default,
 		Command: default,
-		HardpointSlots: Array.Empty<int>(),
 		FlashComm: MfdFlashCommState.Default,
 		Transmission: null,
 		PilotVideos: null,

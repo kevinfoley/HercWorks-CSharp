@@ -23,8 +23,8 @@ public class WeaponPDGTransformer : ByteTransformer<WeaponPaperDiagram> {
 
 		for (int i = 0; i < entries.Length; i++) {
 			var entry = data.NewEntry();
-			entry.X = IndexIntLE();
-			entry.Y = IndexIntLE();
+			entry.Width = IndexIntLE();
+			entry.Height = IndexIntLE();
 
 			entries[i] = entry;
 		}
@@ -45,8 +45,8 @@ public class WeaponPDGTransformer : ByteTransformer<WeaponPaperDiagram> {
 		WriteInt(data.Entries!.Length);
 
 		for (int i = 0; i < data.Entries.Length; i++) {
-			WriteInt(data.Entries[i].X);
-			WriteInt(data.Entries[i].Y);
+			WriteInt(data.Entries[i].Width);
+			WriteInt(data.Entries[i].Height);
 		}
 
 		return outStream.ToArray();

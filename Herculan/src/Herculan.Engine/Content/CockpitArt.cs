@@ -92,6 +92,9 @@ public sealed class CockpitArt {
 	/// is built. Ninety frames of nine-frame rotation groups, and the only consumer is the command
 	/// display's map — see <see cref="HddMap"/>.</para>
 	/// </summary>
+	/// <para><c>WEAPONS</c> is the damage detail's weapon icons, which <c>PaperDoll_InitTables</c>
+	/// loads once with the rest of the paper-doll data; it is kept indexed as well, because the icons
+	/// are recoloured by palette index the way a doll region is (<see cref="PaperDollDamage"/>).</para>
 	/// <para><c>OBJ_ALRT</c> and <c>GNL_ALRT</c> are two of the modal alert panels' plates and
 	/// <c>ALERT</c> the button plate they share (<see cref="ObjectivesPanel"/>,
 	/// <see cref="StatusAlertPanel"/>); <c>PRF_ALRT</c> and <c>CTL_ALRT</c> are the preferences and
@@ -102,7 +105,7 @@ public sealed class CockpitArt {
 	/// the rest costs one atlas entry each and keeps a panel to a single texture bind.</para>
 	public static readonly string[] HudBankNames = {
 		"HUD", "HUDHTICK", "MFD", SensorDropout.MfdBank, "RADAR", "THROTTLE", SensorDropout.RowBank, "PWEAPONS",
-		"HDD", "BASES", "VEHICLES",
+		"HDD", "BASES", "VEHICLES", PaperDollDamage.WeaponIconBank,
 		"ICONS", ObjectivesPanel.BackgroundBank, StatusAlertPanelLayout.PlateBank,
 		AlertPanelLayout.ButtonBank, PreferencesPanelLayout.PlateBank, ControlsPanelLayout.PlateBank,
 	};
@@ -225,6 +228,13 @@ public sealed class CockpitArt {
 	/// </summary>
 	public IReadOnlyDictionary<string, PaperDollGraphic> PaperDolls { get; private init; }
 		= new Dictionary<string, PaperDollGraphic>();
+
+	/// <summary>
+	/// <c>pdg\WEAPONS.PDG</c>, the sizes of the <see cref="PaperDollDamage.WeaponIconBank"/> frames
+	/// the damage detail anchors its weapon icons by. Null when it is missing, in which case no icon
+	/// is drawn.
+	/// </summary>
+	public WeaponPaperDiagram? WeaponIconSizes { get; private init; }
 
 	/// <summary>This herc's diagram, or another machine's by name. Null when that file was missing.</summary>
 	public PaperDollGraphic? PaperDollFor(string? hercName) =>
@@ -468,7 +478,8 @@ public sealed class CockpitArt {
 		var banks = HudBankNames.Concat(hercBanks).ToArray();
 
 		var sprites = HudSpriteSheet.Load(content, palette, banks, HudFontNames,
-			LoResHudBankNames.Concat(extraLoResBankNames ?? Array.Empty<string>()), hercBanks);
+			LoResHudBankNames.Concat(extraLoResBankNames ?? Array.Empty<string>()),
+			hercBanks.Append(PaperDollDamage.WeaponIconBank));
 
 		return new CockpitArt(front, side, headsDown, gau,
 			sprites,
@@ -487,6 +498,9 @@ public sealed class CockpitArt {
 				.Select(name => (Name: name, Doll: LoadPaperDoll(content, name)))
 				.Where(entry => entry.Doll != null)
 				.ToDictionary(entry => entry.Name, entry => entry.Doll!, StringComparer.OrdinalIgnoreCase),
+			WeaponIconSizes = content.Read("pdg", PaperDollDamage.WeaponIconBank + ".PDG") is { } iconSizes
+				? new WeaponPDGTransformer().Parse(iconSizes)
+				: null,
 			ViewGeometry = viewGeometry,
 			HeadsDownLayout = HddLayout.Load(gau,
 				viewGeometry?.CanvasOriginY(CockpitViewGeometry.HeadsDownViewIndex)

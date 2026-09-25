@@ -816,13 +816,12 @@ if (initialMfdMode is { } startMfdMode) {
 }
 
 // The weapon panel. Both lists come off the piloted machine's own mounts, which are already built:
-// the rows in cockpit-row order, and the Heads-Down Display's list in hardpoint order. See
-// WeaponRowState.
+// the rows in cockpit-row order, and the Heads-Down Display's list by .GL slot byte. See
+// WeaponRowState and DamageHardpoint.
 if (cockpitArt?.Gau is { } weaponGau && scene.PlayerMech is { } armedMech) {
 	hudState = hudState with {
 		Weapons = WeaponRowState.Build(armedMech.Weapons, weaponGau.WeaponListTotal, cockpitArt.Strings),
-		HardpointNames = armedMech.Weapons.Mounts.Select(m => m.Name).ToList(),
-		HardpointSlots = armedMech.Weapons.Mounts.Select(m => m.LoadoutSlot).ToList(),
+		Hardpoints = DamageHardpoint.Build(armedMech.Weapons),
 	};
 
 	if (initialWeaponRow is { } startRow) {

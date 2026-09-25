@@ -236,6 +236,23 @@ A region is not filled. `PaperDoll_RecolorRect` (`00437e94`) walks the region's 
 
 Which reading a region takes is the caller's business, and the two callers disagree: see [`mfd.md`](mfd.md#viewport-and-condition-per-class) for the status screen's compact view and [`heads-down-display.md`](heads-down-display.md#damage-detail--page-1) for the damage detail's.
 
+### Weapon icons
+
+After the three views `PaperDoll_Load` reads one more vector, into the doll's `+0x54` (count) and `+0x58`: `0x14`-byte hardpoint entries, `x` and `y` shifted like the regions.
+
+| Offset | Field | Meaning |
+|---|---|---|
+| `0x00` | `x`, `y` | Anchor point, relative to the view's origin |
+| `0x08` | `frameOffset` | Added to the weapon's icon index. 1 on OUTLAW's two side hardpoints, 0 everywhere else |
+| `0x0c` | `alignment` | Which point of the icon lands on the anchor: bits 0-2 horizontal (1 left, 2 right, 4 centre), the rest vertical (8 top, `0x10` bottom, `0x20` centre). `0x24`, centred both ways, on every retail entry but OUTLAW's `0x22`, `0x21` and `0x14` |
+| `0x10` | `blitFlags` | Handed to the blit. 0 on every retail entry |
+
+`PaperDoll_BuildWeaponIcons` (`00437c8c`) turns that into each machine's icon list, stored at `mech+0x1fe` by `Sim_InitMissionSession`. **Entry `n` is the hardpoint whose `.GL` slot byte (`+0x17`) is `n`**, not the `n`th `.GL` record: the builder searches the gun layout for the slot byte and takes the mount at that record's position. Every retail `.PDG` has at most as many entries as its `.GL` has records, and each entry's slot is present, so the search always lands. An empty hardpoint, or a weapon whose template `+0x50` is -1, gets no bitmap.
+
+The frame is template `+0x50` ([`weapons-dat-sim.md`](weapons-dat-sim.md#decoded-tail-fields)) plus `frameOffset`, out of the `weapons` bank — `hba\WEAPONS.HBA` or `dba\WEAPONS.DBA`, loaded once by `PaperDoll_InitTables` (`004378d8`) together with `pdg\WEAPONS.PDG`. That file has no views: it is an `int32` count and then one `{int32 width, int32 height}` per frame in the 320-wide space, shifted at load — fourteen 9x9 frames in retail. The alignment backs the anchor off by that size, or half of it, after the shift; the rect is anchor to anchor plus size, inclusive.
+
+`blitFlags` 2 moves the icon further left by the bitmap's own width less the `WEAPONS.PDG` width; no retail entry sets it.
+
 ## HUD fonts
 
 `ColorSchemePanels_LoadAll` (`00431098`) lazily loads 18 `.DFN`/`.HFN` fonts into `ColorSchemePanels` (`0049b0ac`), then 7 `.DCI` cursors. Load order is the array index:

@@ -598,9 +598,13 @@ public sealed class Overlay2DRenderer : IDisposable {
 	///
 	/// <para>The paper doll is the herc's own <c>.PDG</c> view for the category — front for structural,
 	/// rear for internal — blitted at the screen rect's top-left plus that view's own origin, which is
-	/// the paint's own arithmetic rather than a centring rule. The weapons category lists the mech's
-	/// fitted hardpoints, which are already in <see cref="CockpitHudState.HardpointNames"/>; its blue
-	/// doll and every category's weapon icons are not drawn yet — docs/formats/heads-down-display.md#open.</para>
+	/// the paint's own arithmetic rather than a centring rule. Every category draws the weapon icons
+	/// over it, placed by the <c>.PDG</c>'s hardpoint list — see <see cref="AddHddWeaponIcons"/>.</para>
+	///
+	/// <para>The weapons category's row <c>n</c> is <c>.GL</c> slot <c>n</c> — the hardpoint whose icon
+	/// <c>.PDG</c> entry <c>n</c> places — so its rows run in slot order, stop at whichever of the
+	/// mount array and the <c>.PDG</c> hardpoint list is shorter, and leave an empty hardpoint's row
+	/// blank.</para>
 	/// </summary>
 	private static void AddHddDamageDetail(CockpitArt hud, HddLayout layout, HudSpriteSheet sprites,
 			SimStringTable? strings, HddDamageView view, CockpitHudState state,
@@ -622,17 +626,24 @@ public sealed class Overlay2DRenderer : IDisposable {
 		var inspected = state.StatusSubject;
 		var readings = inspected.Readings;
 		PaperDollGraphic.ViewRegion[]? regions = null;
+		int? iconEntries = null;
 
-		if (HddLayout.PaperDollView(view) is { } dollView
-			&& hud.PaperDoll?.Entries is { } views && dollView < views.Length && views[dollView] is { } doll) {
+		int dollView = HddLayout.PaperDollView(view);
+		if (hud.PaperDoll is { Entries: { } views } paperDoll && dollView < views.Length && views[dollView] is { } doll) {
 			float dollLeft = layout.Screen.X0 + doll.Origin.X * S;
 			float dollTop = layout.Screen.Y0 + doll.Origin.Y * S;
 			blit(hud.HercName, dollView, dollLeft, dollTop);
-			regions = doll.Regions;
+			regions = view == HddDamageView.Weapons ? null : doll.Regions;
+			iconEntries = paperDoll.Hardpoints?.Length;
+
+			AddHddWeaponIcons(hud, sprites, view, doll, dollView, paperDoll.Hardpoints, state.Hardpoints,
+				readings, dollLeft, dollTop, blit, fillRect);
 
 			// One tint per row, in the row's own order — the structural view's first two rows share a
 			// rect (both cockpit halves) and the second of them draws nothing, which is why the reading
-			// comes from PaperDollDamage.TintReading rather than from the row's printed number.
+			// comes from PaperDollDamage.TintReading rather than from the row's printed number. Drawn
+			// after the icons, as the original's per-row pass is, so a worn limb's tint runs under an
+			// icon wherever the doll's art holds the limb's colour.
 			if (regions != null && readings != null) {
 				for (int i = 0; i < regions.Length; i++) {
 					AddPaperDollTint(hud, sprites, hud.HercName, dollView, regions[i],
@@ -643,11 +654,11 @@ public sealed class Overlay2DRenderer : IDisposable {
 		}
 
 		// One row per .PDG region, in the file's own order, each naming its string by the region's id.
-		// The weapons category's rows are the subject's own fitted hardpoints, which FUN_00450c54
-		// walks off the mech directly.
+		// The weapons category's rows are the subject's hardpoints by .GL slot, as many as both the
+		// mount array and the .PDG's icon list reach.
 		var names = HddLayout.ComponentNames(strings, view, inspected.FlyerVariant);
 		int rowCount = view == HddDamageView.Weapons
-			? state.HardpointNames.Count
+			? Math.Min(state.Hardpoints.Count, iconEntries ?? state.Hardpoints.Count)
 			: regions?.Length ?? 0;
 
 		float valueWidth = sprites.Font(HddLayout.DamageRowFont)?.Measure(HddLayout.DamageValueReservation) ?? 0f;
@@ -656,10 +667,8 @@ public sealed class Overlay2DRenderer : IDisposable {
 			string? text;
 			int? reading;
 			if (view == HddDamageView.Weapons) {
-				text = state.HardpointNames[i];
-				reading = readings != null && state.HardpointSlots is { } slots && i < slots.Count
-					? PaperDollDamage.WeaponRowReading(slots[i], readings)
-					: null;
+				text = state.Hardpoints[i]?.Name;
+				reading = readings != null ? PaperDollDamage.WeaponRowReading(i, readings) : null;
 			} else {
 				int id = regions![i].Index;
 				text = id < names.Count ? names[id].Text : null;
@@ -2328,6 +2337,126 @@ public sealed class Overlay2DRenderer : IDisposable {
 					y(MfdLayout.WireframeRect.Y0)
 						+ (y(MfdLayout.WireframeRect.Y1) - y(MfdLayout.WireframeRect.Y0) - height) / 2f);
 				break;
+		}
+	}
+
+	/// <summary>
+	/// The damage detail's weapon icons (<c>HddDamageScreen_BlitWeaponIcons</c>, <c>00451db8</c>) and the
+	/// recolour <c>HddDamageScreen_Update</c> gives them, which is what makes them blue beside a green
+	/// doll on two categories and green beside a blue one on the third. Every palette comparison is
+	/// against the pixel the screen already holds, so the walks below composite the icons over the doll
+	/// to answer it.
+	///
+	/// <list type="bullet">
+	/// <item><b>Structural and internal.</b> The icons are blitted over the doll, then every
+	/// <see cref="PaperDollDamage.OkColorId"/> pixel inside each icon's rect goes
+	/// <see cref="PaperDollDamage.WeaponIconColorId"/> — doll pixels the rect covers included.</item>
+	/// <item><b>Weapons.</b> The doll goes blue first: its view rect's id-12 pixels, then each region
+	/// authored in another colour, over that region's rect. The icons are blitted over it and each is
+	/// tinted from its hardpoint's reading, the green-to-grey ladder a doll region takes, so an intact
+	/// weapon stays green. The doll under them is blue by then and takes no part.</item>
+	/// </list>
+	/// </summary>
+	private static void AddHddWeaponIcons(CockpitArt hud, HudSpriteSheet sprites, HddDamageView view,
+			PaperDollGraphic.ViewEntry doll, int dollView, PaperDollGraphic.HardpointEntry[]? entries,
+			IReadOnlyList<DamageHardpoint?> hardpoints, IReadOnlyList<short>? readings, float dollLeft,
+			float dollTop, Action<string, int, float, float> blit,
+			Action<float, float, float, float, Vector3> fillRect) {
+		const int S = (int)CockpitArt.GauToPixelScale;
+		const string Bank = PaperDollDamage.WeaponIconBank;
+
+		if (hud.Colors is not { } colors
+			|| colors.PaletteIndex(PaperDollDamage.OkColorId) is not { } green
+			|| hud.LogicalColor(PaperDollDamage.WeaponIconColorId) is not { } blue) {
+			return;
+		}
+
+		var dollArt = sprites.Indexed(hud.HercName, dollView);
+
+		if (view == HddDamageView.Weapons && dollArt is { } art) {
+			int ArtAt(int x, int y) =>
+				x >= 0 && y >= 0 && x < art.Width && y < art.Height ? art.Pixels[y * art.Width + x] : -1;
+
+			AddIndexedRecolor(0, 0, doll.Size.X * S, doll.Size.Y * S, ArtAt, green, blue, dollLeft, dollTop,
+				fillRect);
+			foreach (var region in doll.Regions ?? Array.Empty<PaperDollGraphic.ViewRegion>()) {
+				if (colors.PaletteIndex(region.Unk_val) is { } key && key != green) {
+					AddIndexedRecolor(region.TopLeft.X * S, region.TopLeft.Y * S, region.BottomRight.X * S + 1,
+						region.BottomRight.Y * S + 1, ArtAt, key, blue, dollLeft, dollTop, fillRect);
+				}
+			}
+		}
+
+		// PaperDoll_BuildWeaponIcons: .PDG entry n places the icon of .GL slot n, and an empty slot, or
+		// a weapon with no icon, places none.
+		var icons = new List<(PaperDollDamage.WeaponIcon Icon, int Slot, HudSpriteSheet.IndexedFrame Art)>();
+		if (hud.WeaponIconSizes is { } sizes) {
+			for (int slot = 0; slot < (entries?.Length ?? 0); slot++) {
+				if (slot < hardpoints.Count && hardpoints[slot] is { } hardpoint
+					&& PaperDollDamage.PlaceWeaponIcon(entries![slot], hardpoint.Icon, sizes, S) is { } icon
+					&& sprites.Indexed(Bank, icon.Frame) is { } iconArt) {
+					blit(Bank, icon.Frame, dollLeft + icon.X, dollTop + icon.Y);
+					icons.Add((icon, slot, iconArt));
+				}
+			}
+		}
+
+		// The topmost icon pixel at a doll-relative point, the last blitted winning; -1 where no icon
+		// has one.
+		int IconAt(int x, int y) {
+			for (int i = icons.Count - 1; i >= 0; i--) {
+				var (icon, _, iconArt) = icons[i];
+				int u = x - icon.X, v = y - icon.Y;
+				if (u >= 0 && v >= 0 && u < iconArt.Width && v < iconArt.Height
+					&& iconArt.Pixels[v * iconArt.Width + u] is var pixel and not 0) {
+					return pixel;
+				}
+			}
+
+			return -1;
+		}
+
+		foreach (var (icon, slot, _) in icons) {
+			int x1 = icon.X + icon.Width, y1 = icon.Y + icon.Height;
+
+			if (view != HddDamageView.Weapons) {
+				int ScreenAt(int x, int y) => IconAt(x, y) is var pixel and >= 0 ? pixel
+					: dollArt is { } art && x >= 0 && y >= 0 && x < art.Width && y < art.Height
+						? art.Pixels[y * art.Width + x]
+						: -1;
+				AddIndexedRecolor(icon.X, icon.Y, x1, y1, ScreenAt, green, blue, dollLeft, dollTop, fillRect);
+				continue;
+			}
+
+			if (readings == null || PaperDollDamage.WeaponRowReading(slot, readings) is not { } reading) {
+				continue;
+			}
+
+			int tintId = PaperDollDamage.TintColorId(PaperDollDamage.State(reading));
+			if (colors.PaletteIndex(tintId) != green && hud.LogicalColor(tintId) is { } tint) {
+				AddIndexedRecolor(icon.X, icon.Y, x1, y1, IconAt, green, tint, dollLeft, dollTop, fillRect);
+			}
+		}
+	}
+
+	/// <summary>
+	/// <c>PaperDoll_RecolorRect</c>'s walk over an inclusive rect relative to the doll's origin: every
+	/// point whose palette index <paramref name="indexAt"/> reports as <paramref name="key"/> is filled
+	/// with <paramref name="tint"/>, as merged horizontal runs. An icon can sit left of or above the
+	/// origin, so <paramref name="indexAt"/> answers for any point and -1 for one holding nothing.
+	/// </summary>
+	private static void AddIndexedRecolor(int x0, int y0, int x1, int y1, Func<int, int, int> indexAt, int key,
+			Vector3 tint, float left, float top, Action<float, float, float, float, Vector3> fillRect) {
+		for (int y = y0; y <= y1; y++) {
+			int run = int.MinValue;
+			for (int x = x0; x <= x1 + 1; x++) {
+				if (x <= x1 && indexAt(x, y) == key) {
+					run = run == int.MinValue ? x : run;
+				} else if (run != int.MinValue) {
+					fillRect(left + run, top + y, left + x, top + y + 1, tint);
+					run = int.MinValue;
+				}
+			}
 		}
 	}
 

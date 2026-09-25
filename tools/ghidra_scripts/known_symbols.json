@@ -11971,7 +11971,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Shell_SelectTabPalette",
-      "description": "Picks a tab's palette index and hands it to Shell_SetPaletteScope. Tab 3 takes 1, tabs 2 and 4-6 take 2, tab 7 takes stage+4 (briefing), stage+9 (debrief) or 3/4 (map). Case 8 is not a tab: it hides the shell root.",
+      "description": "Picks a tab's palette index and hands it to Shell_SetPaletteScope. Tab 3 takes 1, tabs 2 and 4-6 take 2, tab 7 takes stage+4 (briefing), stage+9 (debrief) or 3/4 (map). Case 8 is not a tab: it shows the shell root (ShellRootWidget), undoing ServiceBay_Show.",
       "source": "docs/shell/screen-layout.md#the-palette"
     },
     {
@@ -11980,7 +11980,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ServiceBay_Show",
-      "description": "Shows the shell panel and root and installs palette 1 (dpl\\palette.dpl).",
+      "description": "Despite the name, HIDES the shell panel and root -- and with the panel every tab-strip button -- then installs palette 1 (dpl\\palette.dpl). Called by tabs 0 and 1, so the main menu and the save screen stand alone with no strip. The name predates the Widget_Show/HideRecursive swap; Shell_SelectTabPalette(8) plus ServiceBay_RefreshTabStrip undo it.",
       "source": "docs/shell/screen-layout.md#the-palette"
     },
     {
@@ -11989,7 +11989,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ServiceBay_RefreshTabStrip",
-      "description": "The tab gate. Hides the shell panel, then writes +0x49 on tabs 2-6 from CampaignModeFlag -- REPAIR, BUILD and ARMORY off in training, all five on in the campaign -- and parks CurrentTabIndex at 0xffff.",
+      "description": "The tab gate. Shows the shell panel (and with it the strip), then writes +0x49 on tabs 2-6 from CampaignModeFlag -- REPAIR, BUILD and ARMORY off in training, all five on in the campaign -- and parks CurrentTabIndex at 0xffff.",
       "source": "docs/shell/screen-layout.md#the-tab-gate"
     },
     {
@@ -12677,12 +12677,66 @@
       "source": "docs/shell/screen-layout.md#the-save-screen"
     },
     {
+      "address": "00437bd3",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "SaveScreen_OnSave",
+      "description": "The SAVE button. Writes nothing: sets the rename state to 1, greys SAVE, RESTORE and EXIT, and calls SaveScreen_BeginRename. ACCEPT is what writes the save.",
+      "source": "docs/shell/screen-layout.md#saving-is-a-rename"
+    },
+    {
+      "address": "004377d2",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "SaveScreen_BeginRename",
+      "description": "Returns at once when the rename state is 0. Otherwise posts an event at the selected row and hands it to FUN_00469cbc, sets the row's caret flags +0xbf and +0xb3, rewrites the row as '%2d. ' with the name blanked, lights CANCEL and ACCEPT, and sets the rename state to 2.",
+      "source": "docs/shell/screen-layout.md#saving-is-a-rename"
+    },
+    {
+      "address": "00437ffa",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "SaveScreen_OnAccept",
+      "description": "The ACCEPT button. Game_SaveSlot(selected, the row's typed text), Stats_StageCurrentGame, refreshes the detail panel, greys CANCEL and ACCEPT, lights SAVE, RESTORE and EXIT, rename state to 0.",
+      "source": "docs/shell/screen-layout.md#saving-is-a-rename"
+    },
+    {
+      "address": "00437e1a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "SaveScreen_OnCancel",
+      "description": "The CANCEL button. Restores the row's GAMEFILE.STR label, greys CANCEL and ACCEPT, lights SAVE, RESTORE and EXIT, rename state to 0, then SaveScreen_SelectSlot(10), which deselects the row and regates SAVE and RESTORE off.",
+      "source": "docs/shell/screen-layout.md#saving-is-a-rename"
+    },
+    {
+      "address": "00437ba9",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "SaveScreen_RowText",
+      "description": "Returns the slot row's own string buffer (+0x45), or an empty string when the row is not built. ACCEPT passes it to Game_SaveSlot as the slot's new label.",
+      "source": "docs/shell/screen-layout.md#saving-is-a-rename"
+    },
+    {
+      "address": "00437d03",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "SaveScreen_OnRestore",
+      "description": "The RESTORE button. Game_LoadSlot(selected, 1), Game_SaveSlot(10, NULL) as the current-game autosave, the save screen teardown, clears DAT_004778aa, then Shell_SelectTabPalette(8) and ServiceBay_RefreshTabStrip -- EXIT's tab-strip path whatever SaveScreen_ExitTarget holds.",
+      "source": "docs/shell/screen-layout.md#leaving-the-save-screen"
+    },
+    {
       "address": "00439d66",
       "binary": "VSHELL",
       "type": "function",
       "confidence": "medium",
       "name": "maybe_SaveScreen_Teardown",
-      "description": "Called first by the EXIT button's handler. Parks the selection on slot 10 and makes four visibility calls over the save screen's root, content panel and both detail panels. Whether those calls show or hide turns on the polarity of the +0x11 bit, which is unresolved.",
+      "description": "Called first by both the EXIT and the RESTORE handlers. Parks the selection on slot 10, then hides the save screen's content panel, root and both detail panels.",
       "source": "docs/shell/screen-layout.md#the-palette"
     },
     {
@@ -12943,8 +12997,8 @@
       "type": "data",
       "confidence": "medium",
       "name": "maybe_SaveScreen_EditMode",
-      "description": "Gates the slot selection move and the SAVE/RESTORE gating. 1 while a slot rename is live -- the SAVE button's handler sets it and greys the other three buttons -- and 2 blocks the selection move entirely. The third state's meaning is untraced.",
-      "source": "docs/shell/screen-layout.md#the-save-screen"
+      "description": "The slot rename's state: 0 idle, 2 while a rename is live (SaveScreen_SelectSlot refuses to move the selection), 1 only transiently inside the SAVE handler before SaveScreen_BeginRename sets 2. ACCEPT and CANCEL write 0.",
+      "source": "docs/shell/screen-layout.md#saving-is-a-rename"
     },
     {
       "address": "0048d344",

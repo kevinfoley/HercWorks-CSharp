@@ -35,10 +35,10 @@ public enum ShellCampaignMode {
 ///
 /// <para><b>Tabs 0 and 1 never latch.</b> Every handler starts by clearing the lit flag on all nine
 /// strip buttons (<c>00439dcb</c>); the six from WEAPONS on then write their own back to 1, and the
-/// main menu's and the save screen's do not. So the strip is drawn with nothing lit while either of
-/// those two is up, which <see cref="SelectTab"/> reproduces — <see cref="SelectedTab"/> is
-/// <c>DAT_0047581c</c>, which screen is up, and the latch is a separate thing that only six of the
-/// eight ever take.</para>
+/// main menu's and the save screen's do not — <see cref="SelectedTab"/> is <c>DAT_0047581c</c>, which
+/// screen is up, and the latch is a separate thing that only six of the eight ever take. Those two
+/// hide the strip outright instead, and <see cref="StripVisible"/> carries that; see
+/// <see cref="SelectTab"/>.</para>
 /// </summary>
 public sealed class ShellScreen {
 	/// <summary>Id of the square button at the left of the strip, past the eight tab ids.</summary>
@@ -53,8 +53,20 @@ public sealed class ShellScreen {
 	/// <summary>Every button on the screen, in the order the builder constructs them.</summary>
 	public IReadOnlyList<ShellButton> Buttons => _buttons;
 
-	/// <summary>Which tab is latched down, 0-7.</summary>
+	/// <summary>Which tab is up, 0-7, or <see cref="NoTab"/> after <see cref="ReturnToFrame"/>.</summary>
 	public int SelectedTab { get; private set; }
+
+	/// <summary>
+	/// <c>DAT_0047581c</c>'s parked value, <c>0xffff</c>: no tab is up, so whichever is clicked next is
+	/// never mistaken for the one already showing.
+	/// </summary>
+	public const int NoTab = -1;
+
+	/// <summary>
+	/// Whether the strip is drawn and answers clicks — the hidden bit of the full-screen panel every
+	/// strip button is parented to (<c>DAT_0048d448</c>).
+	/// </summary>
+	public bool StripVisible { get; private set; } = true;
 
 	/// <summary>The button under the pointer, or null when it is over none.</summary>
 	public int? HoverId => _hoverId;
@@ -91,9 +103,8 @@ public sealed class ShellScreen {
 	/// <summary>
 	/// The strip refresh, <c>0043b0c8</c>: REPAIR, BUILD and ARMORY answer only in the campaign, while
 	/// WEAPONS and CREW answer in both. It writes those five and no others — the two leftmost tabs,
-	/// MISSION and the square button are never gated — and it leaves <see cref="SelectedTab"/> alone,
-	/// where the original also parks <c>DAT_0047581c</c> at <c>0xffff</c> so the next tab clicked is
-	/// never mistaken for the one already up.
+	/// MISSION and the square button are never gated. The rest of the refresh — showing the strip and
+	/// parking <c>DAT_0047581c</c> — is <see cref="ReturnToFrame"/>'s.
 	///
 	/// <para><b>The flag is <c>+0x49</c>.</b> Two things say it is the enable flag: which tabs it
 	/// selects here — the three the training campaign has no salvage economy for — and the repair
@@ -147,6 +158,12 @@ public sealed class ShellScreen {
 	/// Makes one tab the screen that is up, and latches it if it is one of the six that latch. Every
 	/// other plate is released either way, which is the clear all nine handlers start with. Out-of-range
 	/// indices are ignored.
+	///
+	/// <para><b>The save tab hides the strip.</b> Its handler calls <c>0043b23d</c>, which hides the
+	/// strip's parent panel, so the save screen stands alone and its own EXIT and RESTORE are the only
+	/// way off it; both end in <see cref="ReturnToFrame"/>. The main menu's handler hides it the same
+	/// way, and here it does not: that tab has no content ported, so hiding the strip would leave
+	/// nothing on screen to click. That is this engine's choice, not the original's.</para>
 	/// </summary>
 	public void SelectTab(int index) {
 		if (index < 0 || index >= ShellLayout.TabCount) {
@@ -154,6 +171,7 @@ public sealed class ShellScreen {
 		}
 
 		SelectedTab = index;
+		StripVisible = index != SaveTab;
 		foreach (var button in _buttons) {
 			if (button.Id < ShellLayout.TabCount) {
 				button.Selected = button.Id == index && index >= FirstLatchingTab;
@@ -161,8 +179,30 @@ public sealed class ShellScreen {
 		}
 	}
 
-	/// <summary>The button at a canvas point, or null. Disabled buttons do not answer.</summary>
+	/// <summary>
+	/// Puts the bare frame back up with no tab current — the pair the save screen's EXIT and RESTORE
+	/// both end with: <c>0043b162(8)</c>, which shows the frame's root, then the strip refresh
+	/// <c>0043b0c8</c>, which shows the strip's panel, regates it and parks <c>DAT_0047581c</c> at
+	/// <c>0xffff</c>. Nothing is latched, because the tab handler that brought the screen up cleared
+	/// all nine and latched none.
+	/// </summary>
+	public void ReturnToFrame(ShellCampaignMode mode) {
+		StripVisible = true;
+		ApplyTabGate(mode);
+		SelectedTab = NoTab;
+		foreach (var button in _buttons) {
+			if (button.Id < ShellLayout.TabCount) {
+				button.Selected = false;
+			}
+		}
+	}
+
+	/// <summary>The button at a canvas point, or null. Disabled buttons, and a hidden strip, do not answer.</summary>
 	public ShellButton? ButtonAt(float canvasX, float canvasY) {
+		if (!StripVisible) {
+			return null;
+		}
+
 		foreach (var button in _buttons) {
 			if (button.Enabled && button.Rect.Contains(canvasX, canvasY)) {
 				return button;

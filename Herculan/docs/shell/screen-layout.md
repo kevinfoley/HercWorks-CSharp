@@ -38,7 +38,7 @@ Widget fields the builders and the tab handlers write directly:
 Every tab has its own handler, and the eight are the same function with three or four lines changed. Each opens by returning if `DAT_0046c08c` is clear, and then by returning if `DAT_0047581c` — which tab is up — already holds its own index: **clicking the tab you are already on is a no-op**, before the teardown, the palette and the sound alike. What follows is, in order:
 
 1. `00439dcb` — clear the lit flag on all nine strip buttons and repaint them.
-2. Write `+0x45` back to 1 on this tab and repaint it. **Only tabs 2 to 7 do this**; the main menu's and the save screen's handlers skip it, so while either of those is up the whole strip is drawn unlit.
+2. Write `+0x45` back to 1 on this tab and repaint it. **Only tabs 2 to 7 do this**; the main menu's and the save screen's handlers skip it and hide the strip instead ([below](#tabs-0-and-1-hide-the-strip)).
 3. `00439ea7` — tear down whatever tab is currently up, dispatching on `DAT_0047581c`.
 4. `0043b162(tab)` — install the tab's palette.
 5. `0043cfe7(tab)` — build the shared squad roster panel, on tabs 2, 3, 4 and 6 only. Neither ARMORY nor MISSION has one.
@@ -57,7 +57,9 @@ Every tab has its own handler, and the eight are the same function with three or
 | 6 `CREW` | `0043a5ca` | `00441a01` | yes |
 | 7 `MISSION` | `0043a6ca` → `0043a857` | `004441e3` | |
 
-Tabs 0 and 1 take a different route to their palette: instead of `0043b162` they call `00439da0(1)` directly and then `0043b23d`, which re-shows the root and the full-screen panel and installs palette 1 itself. The result is the same entry either way.
+### Tabs 0 and 1 hide the strip
+
+Tabs 0 and 1 take a different route to their palette: instead of `0043b162` they call `00439da0(1)` directly and then `0043b23d`, which **hides** the frame's root (`0048d440`) and the full-screen panel (`0048d448`) and installs palette 1 itself. Every strip button is that panel's child, so the strip goes with it: the main menu and the save screen each stand alone over their own backdrop-textured root, and are left only through their own buttons. The save screen's way back is [its EXIT and RESTORE](#leaving-the-save-screen), which undo exactly this.
 
 Returning to the main menu **autosaves**: `Game_SaveSlot(10, NULL)` is the first thing tab 0's handler does after the teardown, and slot 10 is the campaign-or-training current-game slot ([`../formats/save-games.md`](../formats/save-games.md)).
 
@@ -75,7 +77,7 @@ The mission tab is the one that carries a sub-mode. `0043a857(mode)` stores it i
 | 5 `ARMORY` | on | off |
 | 6 `CREW` | on | on |
 
-The three it gates are exactly the three that spend salvage, and the training campaign has no salvage economy ([`armory.md`](armory.md)). It writes those five and no others, so `MAIN MENU`, `SAVE`, `MISSION` and the square button are live in both. It also parks `DAT_0047581c` at `0xffff`, so whatever tab is clicked next cannot be mistaken for the one already up.
+The three it gates are exactly the three that spend salvage, and the training campaign has no salvage economy ([`armory.md`](armory.md)). It writes those five and no others, so `MAIN MENU`, `SAVE`, `MISSION` and the square button are live in both. It also shows the strip's panel and parks `DAT_0047581c` at `0xffff`, so whatever tab is clicked next cannot be mistaken for the one already up.
 
 `ServiceBay_BuildScreen` clears `+0x49` on tab 5 as it constructs it, which the refresh then overwrites either way.
 
@@ -168,9 +170,40 @@ Tab 1, `SAVED GAMES`. Built by `SaveScreen_BuildScreen` (004385b0), entered by `
 
 The panel is centred on x=320 rather than on the canvas's own inclusive midpoint, so its left margin is 142 and its right 141. The builder overwrites three class defaults on it: `+0x59` to 0 for the dithered body, `+0x5d` to `0x10`, and `+0x55` on all three framed panels to `0x10` — which flattens their checkerboard, since it then dithers the interior colour over itself.
 
-**The rows are 13 tall on a 12-pixel pitch**, so each overlaps its neighbour's border row, and the first and last are inset two pixels further from the left edge than the eight between them. Their right edge is computed from the list panel's absolute corners rather than written, at two pixels inside it. Each carries a permitted-character set at `+0x9f` — `"0123456789abcdefghijklmnopqrstu…"` in place of the class's `"ABCDEFGHIJKLMNOPQRSTUVWXYZ"` — so **renaming a slot is typing into its row**, and `CANCEL`/`ACCEPT` are that edit's two buttons rather than the screen's. The rows clear `+0xb3`, so they show no caret. Selection is `+0xbb`: `0x27` resting, `0x29` selected.
+**The rows are 13 tall on a 12-pixel pitch**, so each overlaps its neighbour's border row, and the first and last are inset two pixels further from the left edge than the eight between them. Their right edge is computed from the list panel's absolute corners rather than written, at two pixels inside it. Each carries a permitted-character set at `+0x9f` — `"0123456789abcdefghijklmnopqrstu…"` in place of the class's `"ABCDEFGHIJKLMNOPQRSTUVWXYZ"` — so **renaming a slot is typing into its row**, and `CANCEL`/`ACCEPT` are that edit's two buttons rather than the screen's. The builder clears `+0xb3` and `+0xbf` on every row, so a row shows no caret until [a rename](#saving-is-a-rename) sets both. It also writes `+0xb7 = 4` on every row ([Open](#open)). Selection is `+0xbb`: `0x27` resting, `0x29` selected.
 
-Three buttons are gated, each written as the trio [the repair panel uses](#the-condition-readout): `SAVE` on a row being selected and there being a game to write (`DAT_0048260a`), `RESTORE` on the selected slot's in-use byte, and both `CANCEL` and `ACCEPT` on the rename being live. `EXIT` never gates. `SaveScreen_OnExit` (00437d94), its handler, returns to the main menu or to the tab strip on `DAT_0048d344` — 0 and 8 respectively, and the save tab sets 8.
+Three buttons are gated, each written as the trio [the repair panel uses](#the-condition-readout): `SAVE` on a row being selected and there being a game to write (`DAT_0048260a`), `RESTORE` on the selected slot's in-use byte, and both `CANCEL` and `ACCEPT` on the rename being live. `EXIT` never gates.
+
+### Saving is a rename
+
+`SAVE` writes nothing. Its handler (`00437bd3`) starts a rename of the selected row, and `ACCEPT` is what writes the save. `DAT_00474f40` is the rename's state: 0 idle, 2 while a rename is live, and 1 only transiently inside `SAVE`'s handler.
+
+| Handler | What it does |
+|---|---|
+| `SAVE`, `00437bd3` | edit state to 1; greys `SAVE`, `RESTORE` and `EXIT`; calls `004377d2` |
+| `004377d2` | returns at once if the edit state is 0. Otherwise posts an event at the selected row and hands the row to `00469cbc` ([Open](#open)); sets its caret flags `+0xbf` and `+0xb3`; rewrites it as `"%2d. %s"` of the slot number and the empty string at `0047526a`, so it reads ` 3. ` with the name gone; lights `CANCEL` and `ACCEPT`; edit state to 2; repaints the list |
+| `ACCEPT`, `00437ffa` | `Game_SaveSlot(selected, text)`, where the text is the row's own string buffer at `+0x45` (`00437ba9`), so what was typed becomes the slot's label; `Stats_StageCurrentGame(selected)`; refreshes the detail panel; greys `CANCEL` and `ACCEPT`, lights `SAVE`, `RESTORE` and `EXIT`; edit state to 0 |
+| `CANCEL`, `00437e1a` | puts the row's `GAMEFILE.STR` label back; greys `CANCEL` and `ACCEPT`, lights `SAVE`, `RESTORE` and `EXIT`; edit state to 0; `SaveScreen_SelectSlot(10)` |
+
+Edit state 2 is what `SaveScreen_SelectSlot` refuses, so the selection cannot move off the row being renamed. `ACCEPT` and `CANCEL` light the three buttons without their usual tests. After `CANCEL` that does not last: the closing `SelectSlot(10)` deselects the row and regates `SAVE` and `RESTORE`, both dead with no row selected. After `ACCEPT` the selection stays on the slot just written.
+
+### Leaving the save screen
+
+With [the strip hidden](#tabs-0-and-1-hide-the-strip), `EXIT` and `RESTORE` are the only ways off the screen. Both open with `maybe_SaveScreen_Teardown` (00439d66), which parks the selection on slot 10 — past every row, so the screen next comes up with nothing selected and `SAVE` and `RESTORE` both dead — and hides the screen's root, content panel and both detail panels.
+
+`SaveScreen_OnExit` (00437d94), `EXIT`'s handler, then goes where `DAT_0048d344` says. 0 rebuilds the main menu; `00431498` writes it, after setting the campaign mode flag to 1 — the handler of a button `0043094c` builds with `estext.bin` caption 6. 8 is `0043b162(8)` then `0043b0c8` — show the frame's root, show and regate the strip, park the current tab at `0xffff` — which leaves the bare frame up with no tab current and nothing lit; tab 1's handler writes it.
+
+`RESTORE`'s handler (`00437d03`) is:
+
+```
+Game_LoadSlot(selectedSlot, 1)   // the whole save, and its career files into data\
+Game_SaveSlot(10, NULL)          // straight back out as the current-game autosave
+teardown
+DAT_004778aa = 0
+0043b162(8); 0043b0c8()          // EXIT's tab-strip path, whatever DAT_0048d344 holds
+```
+
+`Game_LoadSlot` sets `DAT_0048260a`, so `SAVE` is live from then on, and does not touch the campaign mode flag, so the slot-10 write lands in `GAME_R.SAV` or `GAME_T.SAV` by whichever mode the shell is already in ([`../formats/save-games.md`](../formats/save-games.md)). `DAT_004778aa` is the campaign map's once-per-load flag: `maybe_Mission_Show` (004441e3) runs two `FUN_0041e29c` calls in its map arm only while it is clear and then sets it, and `TabHandler_Mission` (0043a6ca) opens the map rather than the briefing only while it is clear and the mission-within-stage counter is zero.
 
 ### The detail panel
 
@@ -349,7 +382,7 @@ The condition itself goes through two functions over two in-image tables. `Repai
 | 10-14 | `db_w1`-`db_w5` | the debrief, indexed by stage |
 | 15-19 | `alph`, `delt`, `omic`, `brav`, `luna` | the theater, indexed by stage |
 
-`0043b162(tab)` is the switch that picks one. Tab 3 takes 1, tabs 2 and 4-6 take 2, and tab 7 takes `stage + 4` for the briefing, `stage + 9` for the debrief and 3 or 4 for the map — `4` once `stage - 1 > 3`. Case 8 is not a tab: it hides the root, and is what `0043b0c8`'s callers pair with the refresh.
+`0043b162(tab)` is the switch that picks one. Tab 3 takes 1, tabs 2 and 4-6 take 2, and tab 7 takes `stage + 4` for the briefing, `stage + 9` for the debrief and 3 or 4 for the map — `4` once `stage - 1 > 3`. Case 8 is not a tab: it shows the frame's root, and is what `0043b0c8`'s callers pair with the refresh.
 
 **The stage counts from one at runtime**, where the save stores it from zero ([`campaign-loop.md`](campaign-loop.md)). Three independent tables say so: the briefing and debrief runs are five long and reached by `stage + 4` and `stage + 9`, the map's Earth-to-Moon switch fires at the same stage the theater run's `luna` sits at, and `maybe_Mission_UpdateLocationTab` carries four `dba\` location names — `alph2`, `delt1`, `omic1`, `brav1` — and branches away to a cutscene entirely when `stage - 1 == 4`. The arithmetic is unguarded in all three places.
 
@@ -359,11 +392,13 @@ That last function also installs the theater palette directly, as `Shell_Install
 
 `Herculan.Engine.Shell` draws the shell frame: the tiled backdrop, the square button and the eight captioned tabs, hit-tested, latching on the six tabs that latch, and gated by `ShellCampaignMode`. The canvas is placed by `ShellScreenLayout`, which scales the fixed 640x480 by window height and centres it, so every rect above is used exactly as the original states it. `ShellPalette` carries the twenty-entry table and the per-tab switch. `--shell-tab-palette` follows it on a tab click, `--shell-palette <name>` pins one entry, `--shell-training` runs the gated half of the strip refresh, `--shell-tab <n>` opens on a tab rather than on the main menu, and `--shell-bay <n>` picks the hangar bay the repair tab works on — the squad roster that moves it in the original has no port ([Open](#open)), so that flag is the only way to reach a bay other than the first one holding a finished machine.
 
-**The save screen is drawn**, from real files: `ShellSaveSlots` reads `sav\GAMEFILE.STR` and each `GAME_?.SAV` it marks in use, and `ShellSaveScreen` places every widget above from the same parent-relative rects and prints the detail panel from the staging record. Clicking a row moves the selection and the summary follows; `SAVE` and `RESTORE` gate as the original gates them. The slot rename, and every button's action, have no port ([Open](#open)).
+**The save screen is drawn**, from real files: `ShellSaveSlots` reads `sav\GAMEFILE.STR` and each `GAME_?.SAV` it marks in use, and `ShellSaveScreen` places every widget above from the same parent-relative rects and prints the detail panel from the staging record. Clicking a row moves the selection and the summary follows; `SAVE` and `RESTORE` gate as the original gates them. Tab 1 hides the strip, and `EXIT` and `RESTORE` leave as above through `ShellScreen.ReturnToFrame`, which is the `0043b162(8)`/`0043b0c8` pair; `RESTORE` parses the slot and rebuilds the hangar and the repair screen from it. The rename, and with it `SAVE`, `CANCEL` and `ACCEPT`, has no port, and neither has `RESTORE`'s autosave ([Open](#open)); `CANCEL` and `ACCEPT` stay grey because nothing starts a rename.
+
+The main menu tab keeps the strip up here, where its handler hides it as tab 1's does: nothing is ported behind that tab, so hiding the strip would leave nothing on screen to click. That is this engine's choice, not the original's.
 
 **The repair screen is drawn**, from a real save's hangar bay and the real price list. `ShellHangar` and `ShellBayMachine` are the eight-pointer bay array and `HercStatus_Get` over one machine's status block; `ShellRepairCosts` parses `gam\damage.dat` and expands it against `gam\herc_inf.dat`'s prices exactly as the loader does, and carries both cost functions. `ShellRepairScreen` places every widget above, fills both lists, prints the three readout panels and gates the buttons. Clicking a row moves the selection and the panels follow, including the refusal of an unfitted hardpoint. The damage diagram, the four buttons' actions, the manual/auto mode switch and the build queue have no port ([Open](#open)), so the salvage figure is the pool with nothing deducted.
 
-The shell has no loaded game — nothing restores a save — so the host opens the first slot the directory marks in use to have a machine to show. That is the host's own choice and not the original's, which reaches the tab only from a game already in progress.
+Until `RESTORE` loads one, the host opens the first slot the directory marks in use to have a machine to show. That is the host's own choice and not the original's, which reaches the tab only from a game already in progress.
 
 **The widget paints run in palette indices, not in quads.** `ShellSurface` is an 8-bit indexed canvas with the primitives the paints are built from, `ShellChrome` ports the five paints onto it, and the result is resolved through the palette and uploaded as one texture per repaint. That is the original's own model and two of its details depend on it: the ink remap that gives a widget its text colour cannot be done on resolved colours, and index 0 staying untouched is what lets a dithered panel body show the backdrop through it. Clipping each paint to its own widget is likewise load-bearing rather than defensive — the title bar's hatch is drawn 700 pixels wide for a 357-pixel panel.
 
@@ -371,7 +406,7 @@ Following the tab is off by default, which is a presentation choice and not a fi
 
 The engine reloads the whole of `ShellArt` to change palette, where the original re-installs one and lets the hardware palette do the rest — the art here is decoded to RGBA once per palette rather than kept as indices. Same result on screen, at a few milliseconds per click.
 
-Not drawn: the other six tabs' content, both damage diagrams, the mouse cursor (`dba\cursor.dba`), and the sounds each button plays ([Open](#open)). Nothing sets the campaign mode from a save, so the gate is driven by a command-line flag ([Open](#open)). See [`../../ROADMAP.md`](../../ROADMAP.md).
+Not drawn: the other six tabs' content, both damage diagrams, the mouse cursor (`dba\cursor.dba`), and the sounds each button plays ([Open](#open)). Nothing sets the campaign mode, so the gate is driven by a command-line flag ([Open](#open)). See [`../../ROADMAP.md`](../../ROADMAP.md).
 
 ## Rejected readings
 
@@ -382,7 +417,8 @@ Not drawn: the other six tabs' content, both damage diagrams, the mouse cursor (
 | A screen's widget rects come from its `gam\rpr_*.dat` or `gam\arm_*.dat` file, the way a cockpit widget's come from the herc's `.GAU` | Those files exist and do carry widget geometry, which makes the inference natural. They cover the per-chassis content panels only; the screen builders that place everything else read no file at all |
 | `warmingi.cpp` is a warning dialog | It is `w` + `arming` + `i`, the weapon-fitting screen, in the same naming pattern as `wsrvbayi.cpp`, `wcrewi.cpp` and `warmoryi.cpp` |
 | The tab screens are drawn through `dpl\bay.dpl` | `SHELL0.VOL` carries one, and the bay screen's own name makes it the obvious candidate for the palette the bay installs. The table at `0046dcdc` does not contain it: index 1 is `dpl\palette.dpl`. Nothing traced so far selects `bay.dpl` at all |
-| Exactly one tab is latched at all times | Seven of the nine handlers latch their own plate and it is easy to assume the other two do too. `MAIN MENU` and `SAVE` clear all nine and write none back, so the strip is drawn with nothing lit while either is up |
+| Exactly one tab is latched at all times | Seven of the nine handlers latch their own plate and it is easy to assume the other two do too. `MAIN MENU` and `SAVE` clear all nine, write none back and [hide the strip](#tabs-0-and-1-hide-the-strip) |
+| `0043b23d` shows the frame, as its Ghidra name `ServiceBay_Show` says | It calls `Widget_HideRecursive` (0041f469) on the frame's root and panel, and the pair that undoes it — `0043b162(8)` and `0043b0c8` — calls `Widget_ShowRecursive` on the same two. The name was given under the swapped reading of those two functions ([above](#showing-and-hiding-a-widget)) |
 | `FUN_0041f2e6` shows a widget and `FUN_0041f469` hides it, matching their names in the raw Ghidra dump | The dump's own names support that reading — one sets a state bit and recurses into children, the other clears it, and the names line up with which is which. They are swapped: `+0x11` bit 2 is a *hidden* bit, so the setter is the hide. `known_symbols.json` carries the corrected assignment (`Widget_ShowRecursive` at 0041f2e6, `Widget_HideRecursive` at 0041f469); only the raw dump still has it backwards. Three witnesses agree; see [Showing and hiding a widget](#showing-and-hiding-a-widget) |
 | The repair screen's detail figure and its `REPAIR ALL` figure are the same cost scaled | Both say `Salvage Required:` in kg and both come from the same unit-value tables, so a per-item share of the whole is the obvious reading. They use different functions with different targets: `Repair_HercCost` prices the machine to 100, and `Repair_LevelStepCost` (00413871) prices the selected component up to the floor of the next band only ([`armory.md`](armory.md#what-one-repair-level-costs)) |
 
@@ -390,11 +426,13 @@ Not drawn: the other six tabs' content, both damage diagrams, the mouse cursor (
 
 - **Open:** `SCRAP`'s third per-chassis gating term, `(&DAT_00483b62)[type * 8]`, has no identified meaning.
 - **Unported:** the squad roster that moves the repair-bay selection in the original; `--shell-bay <n>` is the only way to reach a bay other than the first one holding a finished machine.
-- **Unported:** the save screen's slot rename.
-- **Unported:** the save screen's button actions (`SAVE`, `RESTORE`, `EXIT`, `CANCEL`/`ACCEPT`).
+- **Unported:** the save screen's [rename](#saving-is-a-rename) — `SAVE`, `CANCEL` and `ACCEPT` — and `RESTORE`'s slot-10 autosave and career-file copies. The shell has no save writer and no keyboard input into an edit field.
+- **Open:** the edit field's keyboard handling — how the event `004377d2` posts and `00469cbc` route keystrokes to the row, how the permitted-character set at `+0x9f` filters them (the full string is unread past `"…qrstu"`), backspace, whether the `" 3. "` prefix can be deleted, and whether a key commits or abandons the rename.
+- **Open:** the meaning of the row's `+0xb7 = 4`, and whether `EditField_Paint` draws the caret from `+0xbf`, `+0xb3` or both.
+- **Open:** how `ACCEPT`'s label reaches `sav\GAMEFILE.STR` and where the slot's in-use byte is set — `Game_SaveSlot`'s own body has not been read for either.
 - **Unported:** the repair screen's damage diagram (both the exploded external picture and the internals picture).
 - **Unported:** the repair screen's four buttons' actions (`REPAIR`, `REPAIR ALL`, `SCRAP`, `CANCEL`) and the manual/auto repair mode switch.
 - **Unported:** the armory build queue; the repair screen's salvage figure is the raw pool with nothing deducted as a result.
 - **Unported:** the other six tabs' content (`MAIN MENU`, `WEAPONS`, `BUILD`, `ARMORY`, `CREW`, `MISSION`).
 - **Unported:** the mouse cursor (`dba\cursor.dba`) and each button's click sound.
-- **Unported:** loading the campaign/training mode from a save; the gate is driven only by a command-line flag.
+- **Unported:** setting the campaign/training mode — `FUN_0040e69e`, which `00431498` calls with 1; the gate is driven only by a command-line flag.

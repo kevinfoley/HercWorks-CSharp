@@ -78,9 +78,10 @@ static class ShellHost {
 			: $"No {ShellSaveSlots.DirectoryFileName} in {ShellSaveSlots.Directory(installRoot)} — "
 			  + "the save screen draws its furniture and no rows.");
 
-		// The repair screen works over a loaded game, which the shell only has after a RESTORE. Nothing
-		// here loads one yet, so it opens the first slot the directory marks in use — enough to put a
-		// real machine's damage on the screen, and stated rather than hidden.
+		// The repair screen works over a loaded game, which the original only has once one is started or
+		// restored. Until the save screen's RESTORE replaces it, this opens the first slot the directory
+		// marks in use — enough to put a real machine's damage on the screen, and stated rather than
+		// hidden.
 		var loadedGame = slots.FirstOrDefault(s => s.InUse) is { } inUse
 			? ShellSaveSlots.LoadSave(installRoot, inUse.FileName) : null;
 		var hangar = ShellHangar.From(loadedGame);
@@ -118,7 +119,8 @@ static class ShellHost {
 			: "Campaign: every tab is live.");
 		Console.WriteLine("SAVE and REPAIR are the two tabs with a screen behind them. Click a save slot "
 			+ "row or a repair list row to select it and the panels beside it follow; the other six tabs "
-			+ "latch and show the frame. Close the window to quit.");
+			+ "latch and show the frame. The save screen hides the strip, as the original's does: leave it "
+			+ "with EXIT, or RESTORE a slot to load it into the repair screen. Close the window to quit.");
 		Console.WriteLine(followTabPalette
 			? "Palettes follow the tab, as the original's do. The four tabs on dpl\\arming.dpl draw the "
 			  + "bay backdrop through a palette that is not its own — so does retail, which covers it "
@@ -213,6 +215,11 @@ static class ShellHost {
 				return;
 			}
 
+			// Tab 1's handler writes where EXIT goes before it enters the screen.
+			if (id == ShellScreen.SaveTab) {
+				saveScreen.ExitTarget = ShellSaveExitTarget.TabStrip;
+			}
+
 			screen.SelectTab(id);
 			Console.WriteLine($"Tab {id}"
 				+ (screen.Button(id)?.Caption is { } caption ? $" ({caption})" : string.Empty)
@@ -250,9 +257,64 @@ static class ShellHost {
 				return;
 			}
 
-			if (saveScreen.ButtonAt(canvasX, canvasY) is { } button) {
-				Console.WriteLine($"{button} — the button is live and its action is not ported yet.");
+			switch (saveScreen.ButtonAt(canvasX, canvasY)) {
+				case ShellSaveButton.Restore:
+					RestoreSelectedSlot();
+					break;
+				case ShellSaveButton.Exit:
+					LeaveSaveScreen();
+					break;
+				case { } button:
+					Console.WriteLine($"{button} — the button is live and its action is not ported yet.");
+					break;
 			}
+		}
+
+		// RESTORE, FUN_00437d03: load the selected slot, then leave exactly as EXIT does on the tab-strip
+		// path, whichever way the screen was entered. The original also writes the loaded game straight
+		// back out as the slot-10 autosave and clears the campaign map's intro flag (DAT_004778aa); this
+		// engine has no save writer and no campaign map yet, so neither has a counterpart here.
+		void RestoreSelectedSlot() {
+			int slot = saveScreen.SelectedSlot;
+			if (saveScreen.Slots.ElementAtOrDefault(slot) is not { InUse: true } entry
+					|| ShellSaveSlots.LoadSave(installRoot, entry.FileName) is not { } restored) {
+				Console.WriteLine($"Slot {slot + 1} could not be read — nothing restored.");
+				return;
+			}
+
+			hangar = ShellHangar.From(restored);
+			repairScreen = new ShellRepairScreen(hangar, repairCosts, startBay);
+			saveScreen.CanSave = true;
+			Console.WriteLine($"Restored slot {slot + 1} ({entry.FileName}): "
+				+ (ShellSaveSummary.From(restored) is { } summary
+					? $"{summary.PilotName}, sector {summary.Sector}, mission {summary.Mission + 1}."
+					: "no pilot record.")
+				+ (repairScreen.SelectedBay >= 0
+					? $" Repair opens on bay {repairScreen.SelectedBay}."
+					: " No built machine in any hangar bay."));
+
+			saveScreen.Leave();
+			ReturnToFrame();
+		}
+
+		// EXIT, SaveScreen_OnExit (00437d94): the teardown, then wherever the handler that entered the
+		// screen said to go.
+		void LeaveSaveScreen() {
+			saveScreen.Leave();
+			if (saveScreen.ExitTarget == ShellSaveExitTarget.MainMenu) {
+				screen.SelectTab(ShellScreen.MainMenuTab);
+				Console.WriteLine("Exit — main menu.");
+				RepaintContent();
+				return;
+			}
+
+			ReturnToFrame();
+		}
+
+		void ReturnToFrame() {
+			screen.ReturnToFrame(mode);
+			Console.WriteLine("Back to the tab strip, no tab up.");
+			RepaintContent();
 		}
 
 		// The repair screen's own clicks: a row moves the selection and the detail panel follows, which

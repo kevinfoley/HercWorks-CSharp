@@ -97,7 +97,7 @@ public sealed class ShellRenderer : IDisposable {
 			_mesh.SubmitAndDraw(CollectionsMarshal.AsSpan(_vertices));
 		}
 
-		if (_art.Sprites is { } sheet && _sprites != null) {
+		if (screen.StripVisible && _art.Sprites is { } sheet && _sprites != null) {
 			_vertices.Clear();
 			foreach (var button in screen.Buttons) {
 				AddButton(layout, sheet, button, pressed: screen.PressedId == button.Id);

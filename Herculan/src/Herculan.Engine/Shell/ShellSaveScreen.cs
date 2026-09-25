@@ -10,10 +10,13 @@ public enum ShellSaveButton {
 	/// <summary>Abandons a slot rename. Live only while a row is being typed into.</summary>
 	Cancel = 0,
 
-	/// <summary>Commits a slot rename. Live only while a row is being typed into.</summary>
+	/// <summary>Commits a slot rename, writing the save under the typed label. Live only while a row is being typed into.</summary>
 	Accept = 1,
 
-	/// <summary>Writes the current game into the selected slot.</summary>
+	/// <summary>
+	/// Starts a rename of the selected slot; ACCEPT is what writes the save. See
+	/// docs/shell/screen-layout.md, "Saving is a rename".
+	/// </summary>
 	Save = 2,
 
 	/// <summary>Loads the selected slot. Live only for a slot that holds a save.</summary>
@@ -21,6 +24,18 @@ public enum ShellSaveButton {
 
 	/// <summary>Leaves the screen — back to the tab strip, or to the main menu.</summary>
 	Exit = 4,
+}
+
+/// <summary>
+/// Where EXIT goes — <c>DAT_0048d344</c>, written by whichever handler brought the screen up just
+/// before it enters it. The values are the original's.
+/// </summary>
+public enum ShellSaveExitTarget {
+	/// <summary>Back to the main menu. Written by <c>00431498</c>, the handler of a button <c>0043094c</c> builds.</summary>
+	MainMenu = 0,
+
+	/// <summary>Back to the bare frame and the tab strip. Written by tab 1's handler.</summary>
+	TabStrip = 8,
 }
 
 /// <summary>
@@ -99,6 +114,17 @@ public sealed class ShellSaveScreen {
 
 	/// <summary>The slots, as <c>sav\GAMEFILE.STR</c> lists them. Empty when there is no directory file.</summary>
 	public IReadOnlyList<ShellSaveSlot> Slots => _slots;
+
+	/// <summary>Where EXIT returns to. Set by whoever brings the screen up.</summary>
+	public ShellSaveExitTarget ExitTarget { get; set; } = ShellSaveExitTarget.TabStrip;
+
+	/// <summary>
+	/// The teardown, <c>00439d66</c>, which EXIT and RESTORE both run first: it parks the selection on
+	/// slot 10, past every row, so the screen comes back up with nothing selected and SAVE and RESTORE
+	/// both dead, and then hides the screen's widgets. The hiding is the host's — this screen is simply
+	/// no longer painted once the tab is not up.
+	/// </summary>
+	public void Leave() => SelectSlot(RowCount);
 
 	/// <summary>The slot the row at a canvas point belongs to, or null when the point is on no row.</summary>
 	public int? RowAt(float canvasX, float canvasY) {

@@ -49,7 +49,7 @@ public readonly record struct MessageTicker(string? Text, long ScrollTicks, bool
 /// <para><b>Both halves, one object.</b> Text and speech are not two features that happen to agree:
 /// the port shows a line and speaks it in the same call, and the timings that decide how long it
 /// stays up come from the same <c>SYSTEM.STR</c> attribute bytes either way. That is why the
-/// preference has four settings rather than two checkboxes — see
+/// preference is one three-way setting rather than two checkboxes — see
 /// <see cref="MessageChannelMode"/> — and why turning the text off still runs the whole lifecycle,
 /// drawing nothing (the original's <c>+0x4d2</c> suppression flag).</para>
 ///

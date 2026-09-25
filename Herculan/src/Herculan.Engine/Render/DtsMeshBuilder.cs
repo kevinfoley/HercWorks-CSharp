@@ -24,12 +24,25 @@ namespace Herculan.Engine.Render;
 /// </summary>
 /// <param name="Sequence">The part's <see cref="TSCellAnimPart.AnimSequence"/>, or -1 for ungated.</param>
 /// <param name="Frame">Which child of that part, or -1 for ungated.</param>
-public readonly record struct CellGate(short Sequence, short Frame) {
+/// <param name="Detail">
+/// The <see cref="TSDetailPart"/> this piece is one level of, or null for geometry under none — the
+/// second thing that decides whether a piece is drawn, and per frame rather than per damage state.
+/// Only <see cref="DtsMeshBuilder.BuildCells"/> and <see cref="DtsMeshBuilder.BuildSegments"/> build
+/// every level; the other builds take the finest and leave this null. No retail shape nests a detail
+/// part inside another or inside a cell-animation part, though cells inside a level are common, so
+/// one detail gate and one cell gate are the whole of the condition.
+/// </param>
+/// <param name="Level">Which level of <paramref name="Detail"/>, or -1.</param>
+public readonly record struct CellGate(short Sequence, short Frame, PartDetail? Detail = null,
+		short Level = -1) {
 	/// <summary>Geometry no cell-animation part encloses — always drawn.</summary>
 	public static CellGate Ungated { get; } = new(-1, -1);
 
 	/// <summary>Whether this piece is drawn only while its sequence stands on its frame.</summary>
 	public bool IsGated => Sequence >= 0;
+
+	/// <summary>Whether this piece is drawn only while its detail part selects its level.</summary>
+	public bool IsDetailGated => Detail != null;
 
 	/// <summary>Whether <paramref name="frames"/> puts this piece on screen.</summary>
 	public bool VisibleIn(Sim.ShapeCellFrames? frames) =>
@@ -308,8 +321,16 @@ public static class DtsMeshBuilder {
 		public bool AllCells { get; init; }
 
 		/// <summary>
-		/// The cell the walk is currently inside, pushed and restored around each cell-animation
-		/// child. <see cref="CellGate.Ungated"/> everywhere else.
+		/// Whether the walk descends into <i>every</i> level of a <see cref="TSDetailPart"/>, tagging
+		/// each with the gate it is drawn under, rather than taking the finest. Set wherever
+		/// <see cref="AllCells"/> is: the level is chosen per object per frame, from how far away the
+		/// object is, so one mesh cannot be built around it.
+		/// </summary>
+		public bool AllDetailLevels { get; init; }
+
+		/// <summary>
+		/// The cell and detail level the walk is currently inside, pushed and restored around each
+		/// cell-animation child and each detail level. <see cref="CellGate.Ungated"/> everywhere else.
 		/// </summary>
 		public CellGate Gate { get; set; } = CellGate.Ungated;
 
@@ -472,7 +493,7 @@ public static class DtsMeshBuilder {
 	/// <param name="hiddenPartIds"><inheritdoc cref="BuildRoot" path="/param[@name='hiddenPartIds']"/></param>
 	public static MeshSegment[] BuildSegments(TSObject root, TextureAtlas? atlas = null,
 			SurfaceShading? shading = null, IReadOnlySet<short>? hiddenPartIds = null) {
-		var sink = new Collector { AllCells = true };
+		var sink = new Collector { AllCells = true, AllDetailLevels = true };
 		Collect(root, null, sink, atlas, shading, cellFrame: 0, hiddenPartIds);
 		return EmitSegments(sink);
 	}
@@ -493,7 +514,7 @@ public static class DtsMeshBuilder {
 	/// <param name="hiddenPartIds"><inheritdoc cref="BuildRoot" path="/param[@name='hiddenPartIds']"/></param>
 	public static MeshCell[] BuildCells(TSObject root, TextureAtlas? atlas = null,
 			SurfaceShading? shading = null, IReadOnlySet<short>? hiddenPartIds = null) {
-		var sink = new Collector { AllCells = true };
+		var sink = new Collector { AllCells = true, AllDetailLevels = true };
 		Collect(root, null, sink, atlas, shading, cellFrame: 0, hiddenPartIds);
 		return EmitCells(sink);
 	}
@@ -749,10 +770,11 @@ public static class DtsMeshBuilder {
 	/// same surface twice on purpose: a machine's body part carries its intact geometry in cell 0 and
 	/// the identical geometry moved to one dark ramp in cell 1, and those are alternatives rather
 	/// than a coincident pair. Only one of them is ever on screen, so neither hides the other and
-	/// discarding either would lose a state the part can be in.</para>
+	/// discarding either would lose a state the part can be in. Two levels of one detail part are
+	/// alternatives in the same way, so the detail level is in the key too.</para>
 	/// </summary>
 	private static List<Triangle> DropCoincidentTwins(List<Triangle> triangles) {
-		var groups = new Dictionary<(int, int, int, int, int, int, short, short), int>();
+		var groups = new Dictionary<((int, int, int, int, int, int), CellGate), int>();
 		var keep = new bool[triangles.Count];
 		var order = new List<int>();
 
@@ -764,11 +786,11 @@ public static class DtsMeshBuilder {
 				normal = Vector3.Normalize(normal);
 			}
 
-			var key = (
+			var key = ((
 				(int)MathF.Round(centroid.X * 40f), (int)MathF.Round(centroid.Y * 40f), (int)MathF.Round(centroid.Z * 40f),
 				(int)MathF.Round(MathF.Abs(normal.X) * 100f), (int)MathF.Round(MathF.Abs(normal.Y) * 100f),
-				(int)MathF.Round(MathF.Abs(normal.Z) * 100f),
-				triangle.Gate.Sequence, triangle.Gate.Frame);
+				(int)MathF.Round(MathF.Abs(normal.Z) * 100f)),
+				triangle.Gate);
 
 			if (!groups.TryGetValue(key, out int existing)) {
 				groups[key] = i;
@@ -822,6 +844,10 @@ public static class DtsMeshBuilder {
 					hiddenPartIds);
 				break;
 
+			case TSDetailPart detailPart when sink.AllDetailLevels:
+				CollectEveryDetail(detailPart, animList, sink, atlas, shading, cellFrame, hiddenPartIds);
+				break;
+
 			case TSDetailPart detailPart:
 				CollectHighestDetail(detailPart, animList, sink, atlas, shading, cellFrame, hiddenPartIds);
 				break;
@@ -838,9 +864,10 @@ public static class DtsMeshBuilder {
 				// them, gated, and the renderer picks — see MeshCell.
 				if (cellAnimPart.Parts is { Length: > 0 } cells) {
 					if (sink.AllCells) {
+						// Kept rather than replaced: a cell inside a detail level stays that level's.
 						var outer = sink.Gate;
 						for (int i = 0; i < cells.Length; i++) {
-							sink.Gate = new CellGate(cellAnimPart.AnimSequence, (short)i);
+							sink.Gate = outer with { Sequence = cellAnimPart.AnimSequence, Frame = (short)i };
 							Collect(cells[i], animList, sink, atlas, shading, cellFrame, hiddenPartIds);
 						}
 
@@ -880,23 +907,37 @@ public static class DtsMeshBuilder {
 	}
 
 	/// <summary>
+	/// Every level of a <see cref="TSDetailPart"/>, each under its own <see cref="CellGate"/> naming
+	/// one shared <see cref="PartDetail"/> — which is what lets the renderer pick a level per object
+	/// per frame, as <c>TSDetailPart_Render</c> (<c>004768bc</c>) does, without rebuilding anything.
+	/// </summary>
+	private static void CollectEveryDetail(TSDetailPart detailPart, ANAnimList? animList,
+			Collector sink, TextureAtlas? atlas, SurfaceShading? shading, int cellFrame = 0,
+			IReadOnlySet<short>? hiddenPartIds = null) {
+		if (detailPart.Parts is not { Length: > 0 } parts) {
+			return;
+		}
+
+		var offset = ResolveGroupOffset(detailPart, animList);
+		var detail = new PartDetail(detailPart.Radius, detailPart.Details ?? Array.Empty<short>(),
+			parts.Length, WorldScale.DtsToRender(offset.X, offset.Y, offset.Z));
+
+		var outer = sink.Gate;
+		for (int level = 0; level < parts.Length; level++) {
+			sink.Gate = outer with { Detail = detail, Level = (short)level };
+			Collect(parts[level], animList, sink, atlas, shading, cellFrame, hiddenPartIds);
+		}
+
+		sink.Gate = outer;
+	}
+
+	/// <summary>
 	/// A <see cref="TSDetailPart"/> holds several complete alternate representations of the same
 	/// sub-structure, paired 1:1 with ascending on-screen-size thresholds in <c>Details</c>. This
-	/// takes the <b>last</b> one, which is the level the original selects at maximum detail — the
-	/// setting the options screen calls <c>STRUCTURE DETAIL: MAXIMUM</c>, and the engine's only
-	/// setting for now.
-	///
-	/// <para><c>TSDetailPart_Render</c> (<c>004768bc</c>) is the whole of the selection:</para>
-	/// <code>
-	/// size = (radius &lt;&lt; shift) / max(distance - radius, 1)   // projected size
-	/// t    = Q10Multiply(detailScale, size)
-	/// i    = detailBias;                                          // the STRUCTURE DETAIL setting
-	/// while (i &lt; count - 1 &amp;&amp; details[i] &lt; t) i++;
-	/// render(parts[min(i - detailBias, count - 1)]);
-	/// </code>
-	/// <para>Thresholds are walked in file order, the chosen part is <c>i - detailBias</c>, and a
-	/// larger bias shifts the whole scale <i>down</i> — bias zero is maximum detail and lets a close
-	/// object reach <c>count - 1</c>. <c>Parts[^1]</c> is that loop's limit.</para>
+	/// takes the <b>last</b> one, which is the level <c>TSDetailPart_Render</c> (<c>004768bc</c>)
+	/// draws at bias 0 for an object close enough — see <see cref="PartDetail.Select"/>. It is what
+	/// every build but <see cref="BuildCells"/> and <see cref="BuildSegments"/> draws, at any
+	/// distance.
 	///
 	/// <para>Picking the part paired with the largest <i>threshold</i> is not the same rule, though
 	/// it agrees on every retail shape (all of them end at 255). It would diverge on a file whose
@@ -1092,7 +1133,8 @@ public static class DtsMeshBuilder {
 	}
 
 	/// <summary>
-	/// Walks a group's transform-id parent chain summing translations.
+	/// Walks a part's transform-id parent chain summing translations — a group's, to place its points,
+	/// or a detail part's, to find where its level selection measures from.
 	///
 	/// <para>Rotation is deliberately left unapplied here, and costs nothing: no retail shape's rest
 	/// pose carries one. Every node of all 18 HERCs has a zero-rotation default transform, so this
@@ -1100,7 +1142,7 @@ public static class DtsMeshBuilder {
 	/// against the built meshes' own bounds. Rotation is what an animated node acquires, and that
 	/// path applies it.</para>
 	/// </summary>
-	private static Vector3 ResolveGroupOffset(TSGroup group, ANAnimList? animList) {
+	private static Vector3 ResolveGroupOffset(TSBasePart group, ANAnimList? animList) {
 		if (animList?.Relations == null || animList.Transforms == null || animList.DefaultTransforms == null) {
 			return Vector3.Zero;
 		}

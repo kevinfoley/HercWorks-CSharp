@@ -26,7 +26,7 @@ The caller supplies the modulus, which is why one pair drives a three-value row 
 |---|---|---|
 | 0 MUSIC | `Prefs_ApplyMusicOption` (`00459c98`) | `Sound_SetMusicEnabled`, then `Sound_UnmuteMusic` / `Sound_MuteMusic` |
 | 1 SOUNDS | `Prefs_ApplySoundsOption` (`00459c6c`) | `Sound_SetEffectsEnabled`, then `Sound_UnmuteEffects` / `Sound_MuteEffects` |
-| 2 PILOT MESSAGE | `Prefs_ApplyPilotMessageOption` (`00459cc4`) | `Sound_SpeechEnabled = byte != 0`, so text-only silences the voice half |
+| 2 PILOT MESSAGE | `Prefs_ApplyPilotMessageOption` (`00459cc4`) | `Sound_SpeechEnabled` (`0049f97e`) `= byte != 0`. That flag gates every recorded line — `Voice_Acquire` opens no clip and `Snc_Start` plays none while it is down — so TEXT ONLY here silences the computer's voice too, whatever COMPUTER MESSAGE says |
 | 8 TERRAIN TEXTURE | `Prefs_ApplyTerrainTextureOption` (`00459d4c`) | `TerrainTexturingEnabled` (`004aab2c`) |
 | `0x0e` THROTTLE | `Input_SetThrottleLeverMode` | the herc controls block's THROTTLE row, and so an independent corroboration of where that block starts |
 
@@ -51,7 +51,7 @@ Four callers, and between them they are every write the simulator makes:
 
 **There is no cancel.** `PreferencesPanel_Revert` (`004574e0`) tests the same nine options with `Prefs_OptionChanged` (`00459c38`) and rolls the changed ones back out of the load-time shadow at `004d1ff2` through `Prefs_RevertSelectedOptions` (`00459b04`) — and it is unreferenced, as `Prefs_SaveAllOptions` is. Leaving the preferences panel saves, whichever button does it.
 
-The controls panel pairs its save with `Prefs_CommitOptions` (`00459878`) one instruction later, which walks all 54 options, calls the handler of each one that differs from the load-time shadow, and re-baselines both shadows. That is the apply step the panels otherwise lack.
+The controls panel pairs its save with `Prefs_CommitOptions` (`00459878`) one instruction later, which walks all 54 options, calls the handler of each one that differs from the load-time shadow, and re-baselines both shadows. Both panels pass apply on every write they make, so a click has already run its option's handler, and the commit runs a changed option's handler a second time.
 
 **The controls panel's index list is latched.** `ControlsPanel_Save` builds it from `ControlsOptionBase` the first time it runs and sets `DAT_0049e7fc`, so the list keeps whatever base that was. Within one run of the simulator the player's machine is fixed by the mission load, so the latch has nothing to go stale against. It also means the `- 1` entry is option 12, the joystick-configured flag, only for a walker; flying a RAZOR it is option 24, the walker's last button binding, which is rewritten with its own unchanged value.
 
@@ -69,8 +69,8 @@ The controls panel pairs its save with `Prefs_CommitOptions` (`00459878`) one in
 | 7 | TERRAIN DISTANCE | 0-2, the draw radius ([`../formats/terrain-texturing.md`](../formats/terrain-texturing.md#the-terrain-detail-setting)) |
 | 8 | TERRAIN TEXTURE | off / on |
 | 9 | HERC DETAIL | 0-4, the LOD-root bias ([`../formats/mech-shape-drawing.md`](../formats/mech-shape-drawing.md#the-three-tunables)) |
-| 10 | STRUCTURE DETAIL | 0-2 |
-| 11 | EFFECTS DETAIL | 0-2, and `Sound_DetailSetting` ([`../formats/audio.md`](../formats/audio.md)) |
+| 10 | STRUCTURE DETAIL | 0-2, the `TSDetailPart` bias structures and flyers are drawn under ([`../formats/dts-texture-binding.md`](../formats/dts-texture-binding.md#tsdetailpart-level-selection-and-structure-detail)) |
+| 11 | EFFECTS DETAIL | 0-2, `Sound_DetailSetting`: which smoke stages a collapsing structure plays and whether a debris piece bursts ([`destruction-effects.md`](destruction-effects.md#effects-detail)), and the sound throttle's divisor ([`../formats/audio.md`](../formats/audio.md#the-play-request-gate)) |
 | 12 | the joystick-configured flag | gates `Joystick_InitAndSeedBindings`' one-time seeding |
 | 13-24 | the controls panel's twelve, walking a HERC | [below](#the-bindings-are-twelve-bytes-of-the-same-file) |
 | 25-36 | the same twelve, flying the RAZOR | |
@@ -247,13 +247,27 @@ That function also carries an arm that zeroes the block, taken when the capabili
 
 ## Engine port
 
-`Content.SimulatorPreferences` is the file and the three write primitives. `Content.PreferencesPanel` and `Content.ControlsPanel` hold each panel's text, its state and its click rules, the controls panel's `PressButtonRow` being the joystick's way in; `Content.PreferencesPanelLayout` and `Content.ControlsPanelLayout` hold the geometry tables above, over the same `Content.AlertPanelLayout` the other two panels use, which gained an uncentred placement for the preferences strip and the `INACTIVE` caption font for a greyed row. `Content.JoystickCapabilities` is the capability block. `Render.Overlay2DRenderer.DrawPreferencesPanel` and `DrawControlsPanel` paint them through the shared `DrawAlertPanel`, which carries a per-button bank, frame and font and a per-label alignment for these two. Both plates are packed into the cockpit's sprite atlas with the rest. `Terrain.TerrainDetail` reads its setting through `SimulatorPreferences` rather than parsing the file itself. What reads the twelve binding bytes at run time is `Input.JoystickBindings` — [`../formats/joystick-input.md`](../formats/joystick-input.md#engine-port).
+`Content.SimulatorPreferences` is the file, the three write primitives, the handler table (`RegisterHandler`, run by `Set` with apply as every original caller passes it), the load-time walk (`ApplyAll`, under `Initialising`) and `Commit`. `Content.PreferencesPanel` and `Content.ControlsPanel` hold each panel's text, its state and its click rules, the controls panel's `PressButtonRow` being the joystick's way in; `Content.PreferencesPanelLayout` and `Content.ControlsPanelLayout` hold the geometry tables above, over the same `Content.AlertPanelLayout` the other two panels use, which gained an uncentred placement for the preferences strip and the `INACTIVE` caption font for a greyed row. `Content.JoystickCapabilities` is the capability block. `Render.Overlay2DRenderer.DrawPreferencesPanel` and `DrawControlsPanel` paint them through the shared `DrawAlertPanel`, which carries a per-button bank, frame and font and a per-label alignment for these two. Both plates are packed into the cockpit's sprite atlas with the rest. `Terrain.TerrainDetail` reads its setting through `SimulatorPreferences` rather than parsing the file itself. What reads the twelve binding bytes at run time is `Input.JoystickBindings` — [`../formats/joystick-input.md`](../formats/joystick-input.md#engine-port).
+
+Where each row lands:
+
+| Row | Consumer |
+|---|---|
+| MUSIC, SOUNDS | Their handlers, `SoundDirector.ApplyMusicOption` and `ApplySoundsOption` |
+| PILOT MESSAGE | Its handler, `GameAudio.SpeechEnabled`; the display half is the squad port's `Mode`, which the host copies from the byte every frame |
+| COMPUTER MESSAGE | The computer's port's `Mode`, copied the same way |
+| TERRAIN DISTANCE | `Terrain.TerrainDetail` |
+| TERRAIN TEXTURE | The terrain item's texture binding, re-read every frame in place of the handler |
+| HERC DETAIL | The bias in `Render.ShapeDetail`'s root selection, re-read every frame — [`../formats/mech-shape-drawing.md`](../formats/mech-shape-drawing.md#the-lod-root-is-chosen-per-frame-per-object) |
+| STRUCTURE DETAIL | The bias in `Render.PartDetail`'s level selection, re-read every frame |
+| EFFECTS DETAIL | `SimWorld.EffectsDetail` and `SoundDirector.DetailSetting`, both copied every frame |
+| The twelve bindings | `Input.JoystickBindings`, every tick, in place of the throttle row's handler |
 
 Divergences:
 
-- **A changed setting is not applied while the panel is up.** `SimulatorPreferences.Set` models the store half of `Prefs_SetOption` and neither of the other two: the shadow copy at `004d2028` is a revert path and the handler table at `004d2060` an apply path. So SOUNDS and PILOT MESSAGE, whose handler is the only route their setting has, do not reach the audio sink at all. MUSIC and the controls block are the exceptions, both being re-read rather than pushed — the host hands MUSIC to `SoundDirector.ApplyMusicOption` every frame, which is `Prefs_ApplyMusicOption` and acts only on a change, and the input layer reads the bindings every tick.
+- **Two handlers are not registered.** TERRAIN TEXTURE's and the throttle row's bytes are read where they are used, every frame or tick, which puts the same value in effect without a push.
+- **The load-time shadow is kept, the outgoing one is not.** `Commit` compares against the first; the second (`004d2028`) serves a revert, and neither panel reverts.
 - **`--no-write-prefs` can turn saving off**, which the original has no equivalent of. Saving itself is the original's: each panel merges its own options into a fresh read of the file as it closes, and a file the engine did not read is never written.
-- **Three of the nine settings are stepped, saved and then read by nothing.** TERRAIN DISTANCE (through `Terrain.TerrainDetail`), TERRAIN TEXTURE (the terrain item's texture binding, re-read every frame), HERC DETAIL (the bias in `Render.ShapeDetail`'s root selection, re-read every frame — [`../formats/mech-shape-drawing.md`](../formats/mech-shape-drawing.md#the-lod-root-is-chosen-per-frame-per-object)), EFFECTS DETAIL (`SoundDirector.DetailSetting`, which is the row's audio half and all this engine knows of it), MUSIC (`SoundDirector.ApplyMusicOption`, which stops the CD or resumes it from where the mute left it — [`../formats/audio.md`](../formats/audio.md#cd-music)) and the twelve control bindings (through `Input.JoystickBindings`) have a consumer. SOUNDS, PILOT MESSAGE and COMPUTER MESSAGE round-trip the file correctly and change nothing on screen or in the mix; STRUCTURE DETAIL has nothing to change yet, the engine drawing `TSDetailPart`'s finest level unconditionally.
 - **A joystick button's press reaches the panel from the host**, not from an event handler, because this engine has no widget-tree event to carry it: `ControlsPanel.PressButtonRow` is the select-or- step half and the host's `ReadControlsPanelJoystick` owns the latch. Retail keeps one latch for the panel and the simulation both, in the device block; here the panel has its own, primed from whatever is held while the panel is down so that a button pressed for something else does not also step a row as the panel comes up.
 - **The panels are placed against the window**, as the other two are.
 - **The RAZOR half is selected by the player's chassis id**, resolved through `HercLUT`, where the original reads the global the mission load wrote.

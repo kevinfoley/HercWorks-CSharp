@@ -794,8 +794,15 @@ public sealed partial class BaseObject : SimObject {
 					break;
 
 				default:
-					ScatterSmoke(world, component, sequence);
-					_deathTimer[i] = StructureDeathSequence.StageInterval;
+					// EFFECTS DETAIL decides which smoke stages happen at all, and the stage hold goes
+					// with the smoke: a stage that scatters none leaves its timer at zero, so the next
+					// tick takes the stage after it. At the lowest setting a part runs straight from its
+					// first hit to its collapse in as many ticks as it has stages.
+					if (SmokesAtStage(world.EffectsDetail, _deathStage[i])) {
+						ScatterSmoke(world, component, sequence);
+						_deathTimer[i] = StructureDeathSequence.StageInterval;
+					}
+
 					if (_deathStage[i] == CascadeStage) {
 						FinishDependents(world, i);
 					}
@@ -922,6 +929,15 @@ public sealed partial class BaseObject : SimObject {
 	/// A smoke stage: one secondary explosion at a random point inside the part's own spread box
 	/// around its position.
 	/// </summary>
+	/// <summary>
+	/// Whether a smoke stage scatters its explosion — <c>Base_DeathSequenceTick</c>'s test of
+	/// <c>Sound_DetailSetting</c> (<c>004d1fc7</c>), the EFFECTS DETAIL byte it reads once on entry:
+	/// every stage at 2, the odd-numbered ones at 1, none at 0. Any other value scatters none, as the
+	/// original's two equality tests leave it.
+	/// </summary>
+	public static bool SmokesAtStage(int effectsDetail, int stage) =>
+		effectsDetail == 2 || (effectsDetail == 1 && (stage & 1) != 0);
+
 	private void ScatterSmoke(SimWorld world, BaseComponentType component,
 			StructureDeathSequence sequence) {
 		var spread = component.SmokeSpread;

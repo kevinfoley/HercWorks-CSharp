@@ -462,6 +462,30 @@ simulatorPreferences.SaveEnabled = writePreferences;
 bool soundAvailable = audio.Director != null;
 bool voiceAvailable = content.MountedArchives.Any(
 	name => name.StartsWith("SIMVOIC", StringComparison.OrdinalIgnoreCase));
+
+// Prefs_Init (0045a19c): the option handlers, then the walk that runs each once over what was read,
+// then the voice check. Three of the original's five are registered here; TERRAIN TEXTURE and the
+// throttle row have handlers too, but this engine reads both bytes where they are used, every frame,
+// which comes to the same thing. The MUSIC and SOUNDS handlers skip their mute while the walk runs,
+// as the originals do under PrefsInitInProgress.
+if (audio.Director is { } optionDirector) {
+	simulatorPreferences.RegisterHandler(SimulatorPreferences.MusicOption,
+		value => optionDirector.ApplyMusicOption(value != 0, simulatorPreferences.Initialising));
+	simulatorPreferences.RegisterHandler(SimulatorPreferences.SoundsOption,
+		value => optionDirector.ApplySoundsOption(value != 0, simulatorPreferences.Initialising));
+}
+
+simulatorPreferences.RegisterHandler(SimulatorPreferences.PilotMessageOption,
+	value => audio.SpeechEnabled = value != 0);
+simulatorPreferences.ApplyAll();
+
+// With no voice archive both message rows are forced to TEXT ONLY, through the ordinary setter, so
+// the PILOT MESSAGE handler silences the speech channel with them.
+if (!voiceAvailable) {
+	simulatorPreferences.Set(SimulatorPreferences.PilotMessageOption, 0);
+	simulatorPreferences.Set(SimulatorPreferences.ComputerMessageOption, 0);
+}
+
 var preferencesPanel = PreferencesPanel.Build(content, simulatorPreferences,
 	soundAvailable, voiceAvailable);
 
@@ -959,13 +983,8 @@ if (autoTrack && pilotMech != null) {
 // The compass winds up from north over the same power-up, on a walking machine only — the sweep
 // decides that for itself off the same InputFlagFlyer the engine hum is gated on. Built here rather
 // than at cockpit-build time because it needs the tick the power-up began on.
-// Sim_InitMissionSession's music arm. The MUSIC row of prefs.cfg is read first because
-// Prefs_ApplyMusicOption has already run by this point in the original -- Prefs_Init applies every row
-// at startup -- and the arm's own start only plays when the flag it left is up.
-if (audio.Director is { } musicDirector) {
-	musicDirector.MusicEnabled = simulatorPreferences[SimulatorPreferences.MusicOption] != 0;
-}
-
+// Sim_InitMissionSession's music arm, which plays only when the flag the MUSIC handler left at startup
+// is up.
 audio.StartMissionMusic(mission.Header, musicTrackSelect);
 
 // The weapon rows winking on and the shield rings filling are the same sequence's. A --screenshot
@@ -1125,9 +1144,10 @@ var movers = new List<(SceneObject Object, SceneItem Item)>();
 //
 // A structure is drawn a piece at a time -- one per cell, or one per node and cell for a type that
 // animates -- so the swap covers a set of items and puts a wreck item of its own in their place
-// rather than overwriting one item's mesh.
+// rather than overwriting one item's mesh. The wreck is drawn a cell at a time too, for its detail
+// levels' sake, so it is a set as well.
 var wreckable = new List<(SceneObject Object, BaseObject Structure, SceneItem[] Items,
-	SceneItem? Hulk, bool Posed)>();
+	(SceneItem Item, CellGate Gate)[] Hulk, bool Posed)>();
 
 // Every drawn piece that stands on one cell of one animation sequence, and so is on screen only
 // while its object's ShapeCellFrames says that cell is showing. This is how a machine's destroyed
@@ -1164,6 +1184,15 @@ var segmentMeshes = new Dictionary<string, GpuMesh[]>();
 // them selected. Only a machine is here: nothing else in the original carries a detail table, so
 // nothing else changes which shape it is drawn as — see Render.ShapeDetail.
 var detailChains = new List<MechDetailChain>();
+
+// Every drawn piece that is one level of a TSDetailPart, and so is on screen only while that part's
+// projected size selects its level -- TSDetailPart_Render's choice, made per object per frame by
+// SelectDetailLevels. Only what is built by cell or by node is here: a structure, its wreck and a
+// flyer, which are the shapes that carry detail parts and are drawn under STRUCTURE DETAIL's bias.
+var detailLevelParts = new List<(SimObject Object, CellGate Gate, SceneItem Item)>();
+
+// SelectDetailLevels' per-frame scratch: the level each object's detail part chose this frame.
+var detailLevelChoice = new Dictionary<(SimObject, PartDetail), int>();
 
 // And the same for a shape split by cell rather than by node -- a flyer, or a structure of one of the
 // 57 types that carry no animation, which loses parts to damage but has no posed nodes. One upload
@@ -1352,6 +1381,10 @@ window.Load += (gl, input) => {
 						gatedParts.Add((subject, segment.Gate, part));
 					}
 
+					if (segment.Gate.IsDetailGated) {
+						detailLevelParts.Add((subject, segment.Gate, part));
+					}
+
 					if (isPlayer) {
 						playerItems.Add(part);
 					}
@@ -1392,6 +1425,10 @@ window.Load += (gl, input) => {
 				built.Add(part);
 				if (cell.Gate.IsGated) {
 					gatedParts.Add((sceneObject.Object, cell.Gate, part));
+				}
+
+				if (cell.Gate.IsDetailGated) {
+					detailLevelParts.Add((sceneObject.Object, cell.Gate, part));
 				}
 
 				// A flyer flies, and every cell of it rides the one object transform, so all of them
@@ -1448,20 +1485,28 @@ window.Load += (gl, input) => {
 			return;
 		}
 
-		SceneItem? hulkItem = null;
+		var hulkItems = Array.Empty<(SceneItem Item, CellGate Gate)>();
 		if (structure.Type.HulkTypeIndex >= 0
 				&& scene.HulkModels.TryGetValue(structure.Type.HulkTypeIndex, out var hulk)
-				&& modelMeshes.TryGetValue(hulk.Key, out var hulkMesh)) {
-			hulkItem = new SceneItem(hulkMesh, MissionScene.TransformOf(sceneObject),
-				modelTextures.TryGetValue(hulk.Key, out var hulkTexture) ? hulkTexture.Handle : null) {
-				LightSubject = structure,
-				Visible = false
-			};
+				&& cellMeshes.TryGetValue(hulk.Key, out var hulkCells)) {
+			uint? hulkTexture = modelTextures.TryGetValue(hulk.Key, out var hulkBound) ? hulkBound.Handle : null;
+			hulkItems = new (SceneItem, CellGate)[hulkCells.Length];
+			for (int i = 0; i < hulkCells.Length; i++) {
+				var gate = hulk.Cells[i].Gate;
+				var hulkItem = new SceneItem(hulkCells[i], MissionScene.TransformOf(sceneObject), hulkTexture) {
+					LightSubject = structure,
+					Visible = false
+				};
 
-			built.Add(hulkItem);
+				hulkItems[i] = (hulkItem, gate);
+				built.Add(hulkItem);
+				if (gate.IsDetailGated) {
+					detailLevelParts.Add((structure, gate, hulkItem));
+				}
+			}
 		}
 
-		wreckable.Add((sceneObject, structure, structureItems, hulkItem, posed));
+		wreckable.Add((sceneObject, structure, structureItems, hulkItems, posed));
 	}
 
 	// A unit whose group is still waiting on its arrival action is not in the mission, and
@@ -2175,16 +2220,20 @@ window.Update += deltaSeconds => {
 		terrainItem.TextureHandle = TerrainTextureHandle();
 	}
 
-	// EFFECTS DETAIL's audio half, the same way: Sound_DetailSetting (004d1fc7) is prefs option 11,
-	// and the sound throttle scales its interval against it. Whatever the row does to the *effects*
-	// is not decoded — see ROADMAP.
+	// EFFECTS DETAIL, the same way: Sound_DetailSetting (004d1fc7) is prefs option 11, read where it
+	// is used -- by a collapsing structure's smoke, a debris piece's burst and the sound throttle.
+	byte effectsDetail = simulatorPreferences[SimulatorPreferences.EffectsDetailOption];
+	scene.World.EffectsDetail = effectsDetail;
 	if (audio.Director is { } soundDirector) {
-		soundDirector.DetailSetting = simulatorPreferences[SimulatorPreferences.EffectsDetailOption];
+		soundDirector.DetailSetting = effectsDetail;
+	}
 
-		// MUSIC, the same way, but through the handler rather than by assignment: the row's own
-		// Prefs_ApplyMusicOption (00459c98) stops the disc or resumes it from where the mute left it,
-		// and it acts only on a change, so re-reading the byte every frame costs nothing.
-		soundDirector.ApplyMusicOption(simulatorPreferences[SimulatorPreferences.MusicOption] != 0);
+	// And the two message channels' modes, which each port tests as it shows a line: COMPUTER MESSAGE
+	// (ComputerMessageMode, 004d1fbf) in MessagePort_Show, PILOT MESSAGE (004d1fbe) in the pilot
+	// port's paint. The voice half of PILOT MESSAGE is its handler's, registered at startup.
+	audio.Messages.Mode = (MessageChannelMode)simulatorPreferences[SimulatorPreferences.ComputerMessageOption];
+	if (audio.Squad is { } squadChannel) {
+		squadChannel.Port.Mode = (MessageChannelMode)simulatorPreferences[SimulatorPreferences.PilotMessageOption];
 	}
 
 	// Every modal freezes the simulation behind it, which is the original's own behaviour: each of
@@ -2217,9 +2266,11 @@ window.Update += deltaSeconds => {
 	// Reading more often than the simulation ticks costs nothing and gains nothing: the thread's
 	// intra-frame fraction only moves in Advance, so consecutive reads between ticks return the same
 	// pose. That is the original's cadence too — see mech-locomotion.md's "Evaluation cadence".
-	// Which root of each machine's shape is drawn, settled before the two loops that follow so that a
-	// root taken up this frame is posed and gated this frame rather than one frame stale.
+	// Which root of each machine's shape is drawn, and which level of every detail part, settled before
+	// the two loops that follow so that a piece taken up this frame is posed and gated this frame
+	// rather than one frame stale.
 	SelectDetailRoots();
+	SelectDetailLevels();
 
 	foreach (var (subject, transformId, item) in posedParts) {
 		if (!item.DetailSelected) {
@@ -3499,17 +3550,19 @@ IEnumerable<SceneItem> VisibleItems() =>
 // HERC DETAIL is re-read every frame for the same reason TERRAIN TEXTURE above is: the preferences
 // panel steps it over a scene that is still being drawn behind it, so the player watches the
 // machines coarsen as they step the row.
+// The focal length of the view being drawn, in its own pixels. Retail's is the video mode's fixed
+// 2^9 = 512 over 480 rows (docs/formats/cockpit-views.md); taking it off the window instead keeps the
+// detail thresholds a count of pixels on the screen actually being drawn, which is what makes them a
+// measure of apparent size rather than of a 1996 monitor's.
+int DetailFocalPixels() => Math.Max((int)MathF.Round(
+	window.FramebufferSize.Y * Camera.FocalLengthPixels / Camera.FocalViewHeightPixels), 1);
+
 void SelectDetailRoots() {
 	if (detailChains.Count == 0) {
 		return;
 	}
 
-	// The focal length of the view being drawn, in its own pixels. Retail's is the video mode's
-	// fixed 2^9 = 512 over 480 rows (docs/formats/cockpit-views.md); taking it off the window instead
-	// keeps the thresholds a count of pixels on the screen actually being drawn, which is what makes
-	// them a measure of apparent size rather than of a 1996 monitor's.
-	int focalPixels = Math.Max((int)MathF.Round(
-		window.FramebufferSize.Y * Camera.FocalLengthPixels / Camera.FocalViewHeightPixels), 1);
+	int focalPixels = DetailFocalPixels();
 	int bias = ShapeDetail.BiasFor(simulatorPreferences[SimulatorPreferences.HercDetailOption]);
 	var eye = camera.Position;
 
@@ -3540,6 +3593,37 @@ void SelectDetailRoots() {
 	}
 }
 
+// Which level of every detail part is drawn this frame -- TSDetailPart_Render (004768bc), ported in
+// Render.PartDetail. Everything on the list is drawn by Structure_DrawWithDetailBias (004034f4) or
+// Flyer_Draw (004215cc), and both push the bias STRUCTURE DETAIL selects, so one bias serves the
+// whole list. STRUCTURE DETAIL is re-read every frame, as HERC DETAIL is above.
+void SelectDetailLevels() {
+	if (detailLevelParts.Count == 0) {
+		return;
+	}
+
+	int focalPixels = DetailFocalPixels();
+	int bias = PartDetail.StructureBias(simulatorPreferences[SimulatorPreferences.StructureDetailOption]);
+	var eye = WorldScale.ToRender(camera.Position);
+
+	// Many pieces share one detail part -- every cell of every level -- so each part is measured once.
+	detailLevelChoice.Clear();
+	foreach (var (owner, gate, item) in detailLevelParts) {
+		var detail = gate.Detail!;
+		if (!detailLevelChoice.TryGetValue((owner, detail), out int level)) {
+			// Eye to the part's own node rather than to the object's origin: the original measures
+			// after binding the part's transform, so the distance is to where that node sits.
+			var node = Vector3.Transform(detail.Origin, WorldScale.ToRenderMatrix(owner.WorldFrame));
+			int distance = (int)Math.Min(
+				Vector3.Distance(node, eye) * WorldScale.WorldUnitsPerMeter, int.MaxValue);
+			level = detail.Select(distance, focalPixels, bias);
+			detailLevelChoice[(owner, detail)] = level;
+		}
+
+		item.DetailSelected = level == gate.Level;
+	}
+}
+
 // The two things a collapsing structure does to what is on screen. A type that leaves a wreck is
 // redrawn as its BHULKS.DGS root the moment its last part falls -- the original writes that shape
 // straight onto the object's model instance, which here is the building's own items going dark and
@@ -3550,7 +3634,7 @@ void SelectDetailRoots() {
 // This runs after the per-frame cell-gate pass, and overrides it: once the whole building is a wreck,
 // which of its parts were still standing stops meaning anything.
 void RefreshWreckItems() {
-	foreach (var (sceneObject, structure, structureItems, hulkItem, posed) in wreckable) {
+	foreach (var (sceneObject, structure, structureItems, hulkItems, posed) in wreckable) {
 		if (structure.Sunk) {
 			// A posed structure's items are in node space and the posed refresh above has already
 			// put the sunk position on every one of them; writing the object transform over them
@@ -3565,7 +3649,7 @@ void RefreshWreckItems() {
 			continue;
 		}
 
-		if (!structure.ShowingHulk || hulkItem == null) {
+		if (!structure.ShowingHulk || hulkItems.Length == 0) {
 			continue;
 		}
 
@@ -3573,7 +3657,11 @@ void RefreshWreckItems() {
 			item.Visible = false;
 		}
 
-		hulkItem.Visible = true;
+		// The swap installs the wreck shape into the same shape instance, whose cell frames the hulk
+		// has never had stepped, so every cell-animation part of the wreck stands on its first cell.
+		foreach (var (hulkItem, gate) in hulkItems) {
+			hulkItem.Visible = gate.VisibleIn(null);
+		}
 	}
 }
 

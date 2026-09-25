@@ -405,17 +405,15 @@ public sealed class ControlsPanel {
 	/// <summary>
 	/// Takes the panel down, however it was dismissed, and writes its thirteen options back —
 	/// <c>ControlsPanel_Run</c> calls <c>ControlsPanel_Save</c> (<c>00459140</c>) at <c>00458c07</c>
-	/// on its way out. Only this panel's own options are written; see
-	/// <see cref="SimulatorPreferences.Save"/>.
-	///
-	/// <para>Not modelled alongside it: <c>Prefs_CommitOptions</c> (<c>00459878</c>) one instruction
-	/// later, which applies the five options that have a handler and re-baselines both shadows. The
-	/// controls block needs neither — the input layer re-reads it every tick.</para>
+	/// on its way out, then <c>Prefs_CommitOptions</c> (<c>00459878</c>) one instruction later. Only
+	/// this panel's own options are written; see <see cref="SimulatorPreferences.Save"/> and
+	/// <see cref="SimulatorPreferences.Commit"/>.
 	/// </summary>
 	public void Close() {
 		IsOpen = false;
 		PressedButton = -1;
 		_preferences.Save(SimulatorPreferences.ControlsPanelOptions(IsRazor));
+		_preferences.Commit();
 	}
 
 	/// <summary>
@@ -469,10 +467,9 @@ public sealed class ControlsPanel {
 	/// one steps it — and clears the list selection, which is why clicking an axis row after a button
 	/// row empties the OPTIONS box.</para>
 	///
-	/// <para>DONE closes the panel and RECOMMEND writes the recommended set. What is still not done
-	/// here is what happens <i>after</i> a change: the original's <c>Prefs_SetOption</c> also calls
-	/// the option's handler so the new setting takes effect, and its DONE writes the array back to
-	/// <c>prefs.cfg</c>. Neither is implemented — see <see cref="SimulatorPreferences.Set"/>.</para>
+	/// <para>DONE closes the panel and RECOMMEND writes the recommended set. Every write goes through
+	/// <see cref="SimulatorPreferences.Set"/>, which runs the option's handler as the original's
+	/// <c>Prefs_SetOption</c> does.</para>
 	/// </summary>
 	/// <param name="rightButton">
 	/// Whether the release was of the right button — <c>panel+0x2ff</c>. Every row on this panel steps

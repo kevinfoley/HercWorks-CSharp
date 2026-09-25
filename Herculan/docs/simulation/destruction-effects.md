@@ -106,9 +106,9 @@ Per tick, in order:
 2. Horizontal drag on X and Y only, `Q10Multiply(30, v)` integrated. Nothing slows the fall.
 3. The move, by the **average of the speed before and after** this tick's changes. Verified against the raw disassembly at `00408ca1`: it is `ADD dword [pos], movsx word [avg]` — the average is taken and shifted in 16 bits (`SAR word`), and it is added **un-integrated**, so a debris velocity is per-tick where a RAZOR's is per-second. A Cybrid flyer's is per-tick too — see [`ai-flyers.md`](ai-flyers.md#the-move--flyer_movementtick-004218c4).
 4. Ground: below `terrainHeight + Q10Multiply(500, shapeRadius)` the piece is snapped up to it and bounces at `-Q10Multiply(450, vz)`, its countdown cleared. A rebound under `0x2d` has stopped.
-5. For a piece with a child group: the countdown is ticked only while it is still flying, so ground contact bursts it on that tick either way. The burst spawns its effect, re-installs `+0x5d`, and throws the child group at the tightened window above.
+5. For a piece with a child group: the countdown is ticked only while it is still flying, so ground contact bursts it on that tick either way. The burst spawns its effect, re-installs `+0x5d`, and throws the child group at the tightened window above — unless EFFECTS DETAIL is at its lowest ([below](#effects-detail)).
 
-Gravity is `-0x20` at every detail level but 4, where it is `-10` and wreckage hangs noticeably longer. A piece with no child group has no death branch at all and simply lives until it settles.
+Gravity is `-0x20` everywhere but theater 4, the Moon — the test is `CMP word [ScriptDatHeader], 4` at `00408bf3`, the `script.dat` header's theater index ([`../formats/script-dat.md`](../formats/script-dat.md#header-format)) — where it is `-10` and wreckage hangs noticeably longer. A piece with no child group has no death branch at all and simply lives until it settles.
 
 ### Spawn sites
 
@@ -141,9 +141,9 @@ Gravity is `-0x20` at every detail level but 4, where it is `-10` and wreckage h
 | `+0x4e` | attach cluster id; `< 0` uses the raw local point, `0xffff` is the structures' "no cluster" |
 | `+0x50` | attach point, three `int16` |
 | `+0x57` | frame timer, reloaded to `0x40` |
-| `+0x59` | loops remaining: 30, or 5 at detail level 4 |
+| `+0x59` | loops remaining: 30, or 5 on the Moon |
 
-At detail level 4 only shapes 1 and 3 are built at all; the others go straight back on the free list. The first live instance starts sound `0x33` and `FireEffect_Dtor` stops it on the last — one loop for every fire in the mission at once, kept positioned on whichever is nearest the camera.
+On the Moon — the same theater test, at `0046b3b0` — only shapes 1 and 3 are built at all; the others go straight back on the free list. The first live instance starts sound `0x33` and `FireEffect_Dtor` stops it on the last — one loop for every fire in the mission at once, kept positioned on whichever is nearest the camera.
 
 `FireEffect_TickUpdate` is the tick: count the frame timer down, step the shape's cell animation, decrement the loop count each time the frame wraps to zero, then re-place the effect from wherever the owner has carried it to. It ends when the loop count reaches zero. So a fire **loops** where an impact effect plays once.
 
@@ -184,7 +184,7 @@ The sequence is picked by the component record's `+4`, indexing five parallel fo
 
 `Base_ApplyDamage` sets `state[+5] = stageCount` and `state[+3] = 300`; each expiry of that timer takes one off the stage, and:
 
-- **Stage > 1** — one smoke explosion at a random point inside the part's own spread box (component record `+0x16`, half-extents) around its position, and the timer reloaded to 300. **Stage exactly 4** also runs `Base_FinishDependents`.
+- **Stage > 1** — one smoke explosion at a random point inside the part's own spread box (component record `+0x16`, half-extents) around its position, and the timer reloaded to 300, both only on the stages EFFECTS DETAIL allows ([below](#effects-detail)). **Stage exactly 4** also runs `Base_FinishDependents`, whatever the setting.
 - **Stage 1** — the collapse. `Base_CollapseExplosion` (`004036c0`) sets off the sequence's explosion, at the structure's origin or at the part's emission point on `0049740c`, and reloads the timer with the sequence's hold. Then `Base_ThrowDebris`, then the shape change: a type that leaves a wreck and has just lost its last part switches its model instance's shape pointer to `hulkShapes[typeRec+0x04]` — the **hulk swap** — and anything else steps the sequence the component record's `+2` names to cell 1 (`shapeInstance[+8][rec+2] = 1`, the structure-scale counterpart of a machine's `= 2`) and finishes its dependents. A structure's parts are two-cell `TSCellAnimPart`s whose **second cell is that part's own rubble**, so a collapsing part is replaced by its wreckage rather than removed — unlike a machine's, whose third cell is a bare `TSPoly` and draws nothing.
 - **Stage 0** — the fire. A type stating a whole-structure fire (`typeRec+0x08`) lights it at `typeRec+0x0a`, but only once `Base_EveryPartGone` reports every part either has no fire of its own or is fully damaged; otherwise the part lights its own at its emission point. A structure with neither, one part, and no cell sequence of its own is instead **dropped through the floor** — `-100000` written straight onto its Z, which is how a small object disappears.
 
@@ -195,6 +195,15 @@ The sequence is picked by the component record's `+4`, indexing five parallel fo
 `dgs\BHULKS.DGS` is the wreck library, loaded by `Base_LoadResources` (`00405fac`) into `004a9608`, sized by `max(typeRec+0x04) + 1` over the whole type table, and bound to `BASETEX` whatever bank the standing building used. Retail ships 16 wrecks.
 
 The `BASES.DAT` record fields this section reads are tabulated in [`hit-detection.md`](hit-detection.md#datbasesdat-runtime-record).
+
+## EFFECTS DETAIL
+
+The preferences row of that name is `prefs.cfg` byte 11, `Sound_DetailSetting` (`004d1fc7`), 0 to 2 ([`preferences.md`](preferences.md#what-each-byte-is)). Four instructions read it by its absolute address: the preferences panel's readout, the sound throttle ([`../formats/audio.md`](../formats/audio.md#the-play-request-gate)), and these two.
+
+- **`Base_DeathSequenceTick`** reads it once on entry. A smoke stage scatters its explosion at 2 on every stage, at 1 on the odd-numbered stages only, and at 0 never. **The 300 reload is inside the same test**, so a stage that scatters nothing leaves its timer at zero and the next tick takes the stage after it: at 0 a part goes from its first hit to its collapse in as many ticks as it has stages, and at 1 each even stage passes in one. The collapse, the debris, the fire and the stage-4 cascade are not gated.
+- **`Debris_TickUpdate`** throws a bursting piece's child group only when the setting is non-zero. The piece's own `EXPLOS.DAT` effect goes off either way, above the test; at 0 there is simply no second generation.
+
+A theater-4 test sits beside these in both debris and fire and is a different thing — see [Debris](#the-piece--debris_tickupdate-00408bd8) and [Fire](#fire).
 
 ## HERCULAN Engine
 
@@ -212,7 +221,7 @@ Every spawn site in the table above is ported. Both pools are capped at the orig
 
 The carrier velocity at `004a96e4` is `Flyer_ComponentDamageWrite`'s alone: it points the global at the aircraft's own world velocity for the length of that call, so the wreckage a shot-down flyer sheds keeps flying. `Sim.SimWorld.DebrisCarrierVelocity` is the port.
 
-This engine has no detail setting and always takes the full-detail figure ([Open](#open)).
+EFFECTS DETAIL is `SimWorld.EffectsDetail`, which the host copies out of `prefs.cfg` every frame: `BaseObject.SmokesAtStage` is the smoke test and `DebrisObject` gates the burst. The simulation is not told which theater it is in, so the Moon's gravity and fire figures are not reproduced ([Open](#open)).
 
 **The arcs are large at this world scale.** A `DEF_DEB` group-2 throw peaks around 48 m and lands about 137 m out over 5 seconds. That follows from constants none of which are this engine's — the 33-88° pitch window, `420 << 10 / mass`, gravity `-0x20`, and the un-integrated position add confirmed in the disassembly above.
 
@@ -224,8 +233,9 @@ This engine has no detail setting and always takes the full-detail figure ([Open
 | The `.DMG` record's `+0x03` byte is a HUD slot | It is the index of the `TSCellAnimPart` sequence this component drives, which the destruction path steps to its blank cell. The `= 2` write is a cell frame, not a damage state. See [`../formats/mech-shape-drawing.md`](../formats/mech-shape-drawing.md) |
 | `typeRec+0x04` indexes the base shape table, so a wreck is another building's model | It indexes `dgs\BHULKS.DGS`, a separate library `Base_LoadResources` sizes from the largest value any type states |
 | `WeaponMount_Destroy`'s third argument selects a debris *lifetime*, shorter for the local player | It selects a `(childGroup, deathEffect)` pair, and it is the *path* that picks it: the certain notification passes 0 and the destruction roll passes 1. Neither call site tests who is flying |
+| `Sound_DetailSetting` is an audio setting | The name comes from the sound throttle's read. The byte is the EFFECTS DETAIL row, and it also decides a collapsing structure's smoke and pace and a debris piece's burst ([EFFECTS DETAIL](#effects-detail)) |
 | A debris piece's `+0x59` is a lifetime or an eviction priority, as it is on a fire | Different classes at the same offset. On a piece it is the `EXPLOS.DAT` type that goes off where the piece ends |
 
 ## Open
 
-- **Unported:** the detail-level branches throughout debris, fire and structure destruction — the engine has no detail setting and always takes the full-detail figure.
+- **Unported:** the Moon's debris gravity, fire loop count and fire-shape filter. The engine uses the other theaters' figures everywhere.

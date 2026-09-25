@@ -171,12 +171,13 @@ public sealed class SoundDirector : IDisposable {
 
 	/// <summary>
 	/// <c>Prefs_ApplyMusicOption</c> (<c>00459c98</c>), the MUSIC row's handler out of the option
-	/// table at <c>004d2060</c>: stores the flag and then mutes or unmutes. Acting only on a change is
-	/// what makes it safe to call every frame - the original reaches the handler through
-	/// <c>Prefs_SetOption</c>, which runs it only when the row is stepped.
+	/// table at <c>004d2060</c>: stores the flag and then unmutes or mutes — unless
+	/// <paramref name="initialising"/>, which is <c>PrefsInitInProgress</c> and skips the second half
+	/// so that reading the file cannot drive the mixer.
 	/// </summary>
-	public void ApplyMusicOption(bool enabled) {
-		if (enabled == MusicEnabled) {
+	public void ApplyMusicOption(bool enabled, bool initialising = false) {
+		MusicEnabled = enabled;
+		if (initialising) {
 			return;
 		}
 
@@ -185,6 +186,51 @@ public sealed class SoundDirector : IDisposable {
 		} else {
 			MuteMusic();
 		}
+	}
+
+	/// <summary>
+	/// <c>Prefs_ApplySoundsOption</c> (<c>00459c6c</c>), the SOUNDS row's handler — the MUSIC one
+	/// with the effects half of the catalog in place of the music half.
+	/// </summary>
+	public void ApplySoundsOption(bool enabled, bool initialising = false) {
+		EffectsEnabled = enabled;
+		if (initialising) {
+			return;
+		}
+
+		if (enabled) {
+			UnmuteEffects();
+		} else {
+			MuteEffects();
+		}
+	}
+
+	/// <summary>
+	/// <c>Sound_MuteEffects</c> (<c>00462cd8</c>) — zeroes the volume of every id from
+	/// <see cref="SoundId.FirstEffect"/> up and clears the enable flag, so what is playing falls
+	/// silent and what starts later starts at zero.
+	/// </summary>
+	public void MuteEffects() {
+		for (int id = SoundId.FirstEffect; id < _gain.Length; id++) {
+			SetVolume(id, 0);
+		}
+
+		EffectsEnabled = false;
+	}
+
+	/// <summary>
+	/// <c>Sound_UnmuteEffects</c> (<c>00462df8</c>) — the counterpart, restoring each id's own
+	/// attribute volume. A positional sound still playing comes back at that volume rather than at its
+	/// distance's, until it is next placed; the original does the same.
+	/// </summary>
+	public void UnmuteEffects() {
+		for (int id = SoundId.FirstEffect; id < _gain.Length; id++) {
+			if (Entry(id) is { } entry) {
+				SetVolume(id, AttributeVolume(entry));
+			}
+		}
+
+		EffectsEnabled = true;
 	}
 
 	/// <summary>

@@ -31,7 +31,7 @@ Byte 7 is a field and not an offset from the id: the numbering runs 1 to 66 acro
 
 Messages reach the cockpit's message port through a vtable call. The cockpit view holds two instances of the same class: the computer's ticker at `view+0x20b` and the pilot and squad channel at `view+0x207`. Each is a queue of ten records plus one lifecycle, and the preferences screen's COMPUTER MESSAGE and PILOT MESSAGE settings are their two enable bytes — options 3 and 2 of the simulator's option array ([`../simulation/preferences.md`](../simulation/preferences.md#dataprefscfg--the-option-array)), offered as TEXT ONLY / VOICE ONLY / TEXT / VOICE.
 
-The byte gates the two halves separately: the display runs when it is not 1 and the voice when it is not 0 — three behaviours for three settings, which is why that row offers no OFF. With the display off the port still runs the whole lifecycle and only skips the drawing — `port+0x4d2`, the suppression flag every paint entry point tests alongside `port+0x49e`, "a line is up".
+The byte gates the two halves separately: the display runs when it is not 1 and the voice when it is not 0 — three behaviours for three settings, which is why that row offers no OFF. The voice has a second gate both ports share: PILOT MESSAGE's handler writes `Sound_SpeechEnabled`, which every clip goes through ([`../simulation/preferences.md`](../simulation/preferences.md#dataprefscfg--the-option-array)), so with PILOT MESSAGE on TEXT ONLY the computer is silent whatever COMPUTER MESSAGE says. With the display off the port still runs the whole lifecycle and only skips the drawing — `port+0x4d2`, the suppression flag every paint entry point tests alongside `port+0x49e`, "a line is up".
 
 Two further gates sit on the display half, both fields of the cockpit view manager, which `CockpitViewManager_Published` (`00429820`) hands back ([`cockpit-views.md`](cockpit-views.md#object-model)). Its `+0x14` is the **current view index**: the show refuses to display while it reads 4 — the value outside the four canopy views — and suppresses the line exactly as TEXT OFF does, lifecycle and all. Its `+0x1c` is a byte the paint tests first and returns on ([Open](#open)).
 
@@ -237,6 +237,8 @@ The training port is the same `SquadMessagePort` with `Training` set: it posts a
 The ready latch follows the original: the port readies a line itself only on the training port or when byte 7 is set (`Queued.ShowsWithoutCommBox`), and otherwise `SquadCommChannel` calls `SquadMessagePort.MarkReady` as the portrait starts talking and `Cancel` as its script runs out. A portrait script that will not load stands in for `Voice_Acquire` failing, since this engine opens the clip separately.
 
 The channel's own deviation is the one the computer's port has: its clock is `GameAudio`'s wall time rather than `GetTickCount`.
+
+Both ports' `Mode` is copied out of `prefs.cfg` every frame, so a preferences click takes effect on the next line shown, as the original's direct read of the byte does; `GameAudio.SpeechEnabled` is the shared voice gate.
 
 **Every poster above is ported but one.** The damage set, the mission-status four, the player think's two, the data link's five, the auto-track pair, the radar pair and the power-up pair all post where the original posts them; `0x2a`/`0x2b` jamming is the exception ([Open](#open)). `0x12` is unreachable in retail. The rest of the file's sixty-three lines have no poster in the original.
 

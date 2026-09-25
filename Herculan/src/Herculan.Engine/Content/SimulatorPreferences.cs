@@ -8,7 +8,8 @@ namespace Herculan.Engine.Content;
 /// <c>DAT_004d1fbc</c> to zero for <c>0x36</c> bytes and then reads the file straight over it, with
 /// no parse at all, so an option's index is its byte offset and a retail <c>prefs.cfg</c> is 54
 /// bytes. <c>Prefs_SetOption</c> (<c>0045993c</c>) writes one byte by that index and calls the
-/// option's own handler from the parallel table at <c>DAT_004d2060</c>.</para>
+/// option's own handler from the parallel table at <c>DAT_004d2060</c> — see
+/// <see cref="RegisterHandler"/>.</para>
 ///
 /// <para>Only the options the preferences panel puts on screen are named here; the remaining bytes
 /// are read and carried, not interpreted. The panel's own reader is
@@ -26,8 +27,12 @@ public sealed class SimulatorPreferences {
 
 	private SimulatorPreferences(byte[] options, string? sourceDirectory = null) {
 		_options = options;
+		_baseline = (byte[])options.Clone();
 		SourceDirectory = sourceDirectory;
 	}
+
+	/// <summary>The load-time shadow, <c>DAT_004d1ff2</c> — what <see cref="Commit"/> compares against.</summary>
+	private readonly byte[] _baseline;
 
 	/// <summary>
 	/// The <c>data</c> folder this was read from, or null when it was not read from one. A
@@ -138,23 +143,82 @@ public sealed class SimulatorPreferences {
 	/// </summary>
 	public bool Changed { get; private set; }
 
+	private readonly Action<byte>?[] _handlers = new Action<byte>?[Length];
+
 	/// <summary>
-	/// Writes one option — <c>Prefs_SetOption</c> (<c>0045993c</c>) without its third argument's half.
-	///
-	/// <para>That function does three things: saves the outgoing byte to the shadow array at
-	/// <c>DAT_004d2028</c>, stores the new one, and — when told to apply — calls the option's handler
-	/// from the parallel table at <c>DAT_004d2060</c>, which is what makes a setting take effect while
-	/// the panel is still up. Only the store is modelled here. The shadow is a revert path and the
-	/// handler table is the apply path, and neither is implemented; changing a setting moves the
-	/// number the panel shows and nothing else yet.</para>
+	/// Installs option <paramref name="index"/>'s handler — <c>Prefs_RegisterOptionHandler</c>
+	/// (<c>00459c58</c>), into the table at <c>DAT_004d2060</c>. <c>Prefs_Init</c> fills five slots
+	/// and leaves the rest empty; an option with no handler is read where it is used instead. See
+	/// docs/simulation/preferences.md.
 	/// </summary>
-	public void Set(int index, byte value) {
-		if (index < 0 || index >= _options.Length || _options[index] == value) {
+	public void RegisterHandler(int index, Action<byte> handler) {
+		ArgumentNullException.ThrowIfNull(handler);
+		if (index >= 0 && index < _handlers.Length) {
+			_handlers[index] = handler;
+		}
+	}
+
+	/// <summary>
+	/// Whether <see cref="ApplyAll"/> is running — <c>PrefsInitInProgress</c> (<c>004d2138</c>). The
+	/// MUSIC and SOUNDS handlers read it to store their flag without muting or unmuting anything.
+	/// </summary>
+	public bool Initialising { get; private set; }
+
+	/// <summary>
+	/// Runs every registered handler once with the option's current byte — the walk
+	/// <c>Prefs_LoadOptions</c> (<c>00459754</c>) makes over the table straight after reading the
+	/// file, under <c>Prefs_Init</c>'s <see cref="Initialising"/>.
+	/// </summary>
+	public void ApplyAll() {
+		Initialising = true;
+		try {
+			for (int i = 0; i < _handlers.Length; i++) {
+				_handlers[i]?.Invoke(this[i]);
+			}
+		} finally {
+			Initialising = false;
+		}
+	}
+
+	/// <summary>
+	/// Writes one option — <c>Prefs_SetOption</c> (<c>0045993c</c>), which stores the byte and, when
+	/// <paramref name="apply"/> is set, calls the option's handler with it. The handler runs whether
+	/// or not the byte changed, as the original's does. Every caller in the original passes apply,
+	/// both panels included, so a stepped row takes effect while its panel is still up.
+	///
+	/// <para>The shadow copy the original saves the outgoing byte to (<c>DAT_004d2028</c>) is not
+	/// kept: it serves a revert, and neither panel reverts — see <see cref="PreferencesPanel.Close"/>.</para>
+	/// </summary>
+	public void Set(int index, byte value, bool apply = true) {
+		if (index < 0 || index >= _options.Length) {
 			return;
 		}
 
-		_options[index] = value;
-		Changed = true;
+		if (_options[index] != value) {
+			_options[index] = value;
+			Changed = true;
+		}
+
+		if (apply && index < _handlers.Length) {
+			_handlers[index]?.Invoke(value);
+		}
+	}
+
+	/// <summary>
+	/// <c>Prefs_CommitOptions</c> (<c>00459878</c>) with its apply argument set, which is how its one
+	/// caller, the controls panel's close, passes it: every option that differs from the load-time
+	/// shadow has its handler run again, and the shadow takes the current value. So a setting the
+	/// preferences panel changed is applied a second time when the controls panel closes after it.
+	/// </summary>
+	public void Commit() {
+		for (int i = 0; i < Length && i < _options.Length; i++) {
+			if (_baseline[i] == _options[i]) {
+				continue;
+			}
+
+			_handlers[i]?.Invoke(_options[i]);
+			_baseline[i] = _options[i];
+		}
 	}
 
 	/// <summary>

@@ -181,6 +181,15 @@ public sealed class SimWorld {
 	public Vec3i ListenerPosition { get; set; }
 
 	/// <summary>
+	/// The EFFECTS DETAIL preference, 0-2 — <c>prefs.cfg</c> byte 11, which the original names
+	/// <c>Sound_DetailSetting</c> (<c>004d1fc7</c>) and reads straight out of the option array while
+	/// the simulation runs. Two simulation sites read it: <see cref="BaseObject.SmokesAtStage"/> and a
+	/// debris piece's burst (<see cref="DebrisObject"/>). The host copies the byte in every frame;
+	/// 2, the fullest, until it does.
+	/// </summary>
+	public int EffectsDetail { get; set; } = 2;
+
+	/// <summary>
 	/// The bias every sound id stored in a data table carries — <c>BULLETS.DAT</c>'s fire sound,
 	/// <c>ROCKETS.DAT</c>'s and an <c>EXPLOS.DAT</c> row's. Those tables index the effects half of
 	/// the catalog from zero, so the id they store is <see cref="SoundId.FirstEffect"/> short of a

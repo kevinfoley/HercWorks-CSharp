@@ -11,7 +11,7 @@ namespace Herculan.Engine.Sim;
 /// wrecked machine or a collapsing building and keeps burning. Where an
 /// <see cref="ImpactEffect"/> plays its flipbook once and ends, a fire <i>loops</i> — it counts
 /// <see cref="LoopsRemaining"/> passes of <c>dts\FIRE.DTS</c>'s billboards down to zero and only
-/// then goes out. Thirty passes at full detail, five at the lowest.</para>
+/// then goes out. Thirty passes, or five on the Moon.</para>
 ///
 /// <para><b>It rides its owner.</b> Every tick it re-places itself from where the owner is now, so
 /// a burning HERC's fires walk with it and the fire on a component walks with that component. The
@@ -129,8 +129,9 @@ public sealed class FireEffect {
 	public const short FrameInterval = 0x40;
 
 	/// <summary>
-	/// How many passes a fire plays — 30 at any detail but the lowest, where it is
-	/// <see cref="LowDetailLoopCount"/>. This engine has no detail setting, so it is always 30.
+	/// How many passes a fire plays — 30, except in theater 4, the Moon, where it is
+	/// <see cref="MoonLoopCount"/>. This engine does not tell the simulation which theater it is in,
+	/// so it is always 30.
 	///
 	/// <para>The original also reads this field as the eviction priority when the pool is full, which
 	/// makes the fire with the least left to burn the one that gets taken.</para>
@@ -138,7 +139,7 @@ public sealed class FireEffect {
 	public const short LoopCount = 30;
 
 	/// <inheritdoc cref="LoopCount" />
-	public const short LowDetailLoopCount = 5;
+	public const short MoonLoopCount = 5;
 
 	/// <summary>
 	/// The shape a whole-object fire uses — root 0, what

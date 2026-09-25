@@ -51,9 +51,22 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 
 		// The port drives both halves. Speech is the voice channel's; the alert tone is an ordinary
 		// catalog effect, so it goes through the director like any other cockpit sound.
-		Messages.Speak += messageId => Voice?.Speak(messageId);
+		Messages.Speak += messageId => {
+			if (SpeechEnabled) {
+				Voice?.Speak(messageId);
+			}
+		};
 		Messages.AlertTone += id => _director?.Play(id);
 	}
+
+	/// <summary>
+	/// <c>Sound_SpeechEnabled</c> (<c>0049f97e</c>) — the one gate on every recorded line, the
+	/// computer's, the squad's and the instructor's alike: <c>Voice_Acquire</c> opens no clip and
+	/// <c>Snc_Start</c> plays none while it is down. Its only writer is PILOT MESSAGE's handler, so
+	/// that row's TEXT ONLY silences the computer too, whatever COMPUTER MESSAGE says. A comm box's
+	/// portrait still talks, because its script runs either way.
+	/// </summary>
+	public bool SpeechEnabled { get; set; } = true;
 
 	/// <summary>
 	/// The cockpit computer's speaking channel, or null when there is no device. Separate from
@@ -143,14 +156,18 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 		ArgumentNullException.ThrowIfNull(squad);
 
 		Squad = squad;
-		squad.Speak += (voiceBank, messageId, variant) =>
-			SquadSpeech?.Speak(voiceBank, messageId, variant);
+		squad.Speak += (voiceBank, messageId, variant) => {
+			if (SpeechEnabled) {
+				SquadSpeech?.Speak(voiceBank, messageId, variant);
+			}
+		};
 
 		// The training port speaks at the end of its own paint rather than through a comm box, and
 		// only when PILOT MESSAGE is not TEXT ONLY — the paint's SimOptions[2] test.
 		if (squad.Port.Training) {
 			squad.Port.Shown += message => {
-				if (squad.Port.Mode != MessageChannelMode.TextOnly && InstructorVoiceDirectory is { } directory) {
+				if (squad.Port.Mode != MessageChannelMode.TextOnly && SpeechEnabled
+						&& InstructorVoiceDirectory is { } directory) {
 					SquadSpeech?.SpeakFile(Path.Combine(directory,
 						InstructorVoice.ClipName(squad.TrainingMission, message.Id)));
 				}

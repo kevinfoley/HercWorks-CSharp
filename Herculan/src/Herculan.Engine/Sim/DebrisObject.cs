@@ -134,10 +134,9 @@ public sealed class DebrisObject {
 	/// out, it sets off its effect and throws that group.</item>
 	/// </list>
 	///
-	/// <para>The gravity is the one thing the original scales by detail level: it is
-	/// <see cref="Gravity"/> everywhere except detail level 4, where it is
-	/// <see cref="GravityLowDetail"/> and debris hangs noticeably longer. This engine has no detail
-	/// setting, so it always uses the full-detail figure.</para>
+	/// <para>The gravity is <see cref="Gravity"/> everywhere except theater 4, the Moon, where it is
+	/// <see cref="MoonGravity"/> and debris hangs noticeably longer. This engine does not tell the
+	/// simulation which theater it is in, so it always uses the first figure.</para>
 	/// </summary>
 	internal bool Tick(SimWorld world) {
 		var position = Position;
@@ -190,9 +189,13 @@ public sealed class DebrisObject {
 		}
 
 		// The burst re-installs the database this piece was thrown out of, so its child group is read
-		// against the same table its parent was, however many spawn sites have run in between.
-		world.SpawnDebris(ChildGroup, Position, ChildTable,
-			ChildThrowPitchMin, ChildThrowPitchMax, ChildThrowSpeedScale);
+		// against the same table its parent was, however many spawn sites have run in between. At
+		// EFFECTS DETAIL's lowest setting there is no second generation: the effect goes off and the
+		// piece is simply gone.
+		if (world.EffectsDetail != 0) {
+			world.SpawnDebris(ChildGroup, Position, ChildTable,
+				ChildThrowPitchMin, ChildThrowPitchMax, ChildThrowSpeedScale);
+		}
 
 		return true;
 	}
@@ -205,11 +208,10 @@ public sealed class DebrisObject {
 	public const short Gravity = -0x20;
 
 	/// <summary>
-	/// What the original substitutes at detail level 4 — <c>-10</c>, a third of the weight, which
-	/// makes the cheap setting the one where wreckage hangs in the air. Not used here: this engine
-	/// has no detail setting to read.
+	/// What the original substitutes when <c>ScriptDatHeader</c> — the theater index — is 4, the
+	/// Moon: <c>-10</c>, a third of the weight. Not used here; see <see cref="Tick"/>.
 	/// </summary>
-	public const short GravityLowDetail = -10;
+	public const short MoonGravity = -10;
 
 	/// <summary>
 	/// The horizontal drag coefficient, Q10 — <c>30/1024</c> of the current speed shed per second, on

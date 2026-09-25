@@ -294,7 +294,7 @@ So a child no node reaches is never drawn, and the tree is what orders back-to-f
 
 ## `TSDetailPart` level selection and STRUCTURE DETAIL
 
-`TSDetailPart_Render` (`004768bc`, vtable installed by `FUN_00476834`):
+`TSDetailPart` is the shape-internal half of DBSIM's LOD system — its parts are one piece of a shape at several levels of detail, and the one drawn is chosen by projected size. `TSDetailPart_Render` (`004768bc`, vtable installed by `FUN_00476834`):
 
 ```
 size = (radius << DAT_006c60ac) / max(FastMagnitude3D(viewOffset) - radius, 1)   // projected size
@@ -305,10 +305,27 @@ while (i < count - 1 && details[i] < t) i++
 render(parts[min(i - g_TSDetailPartBias, count - 1)])
 ```
 
-`radius` is the part's own `ClassItem` bounding radius (`part+8`). Thresholds are walked in file order and the part index is `i - bias`, so:
+`radius` is the part's own `ClassItem` bounding radius (`part+8`). `viewOffset` is the part's **own node**, not the object's origin: `TSGroup_BindNodeTransform` runs first, and installing a transform (`FUN_0048d6e0`) copies its view-space translation into `DAT_006c60a0`-`a8`. `g_TSDetailPartSizeScaleQ10` (`004a1034`) is Q10 one, 1024, in the image ([Open](#open)). Thresholds are walked in file order and the part index is `i - bias`, so:
 
 - `details[]` is ascending and index-aligned with `Parts[]`: **part 0 is the coarsest**, the last is the finest. Retail structure shapes end at 255 (`BASES.DGS` shape 5: `[5, 15, 35, 255]`).
-- A **larger** `g_TSDetailPartBias` shifts the whole scale down, so `LOW`/`MED-HIGH`/`MAXIMUM` is a bias of 2/1/0 in some order with **0 = MAXIMUM**. At bias 0 a close object reaches `count - 1`.
+- A **larger** `g_TSDetailPartBias` shifts the whole scale toward the coarse end. At bias 0 a close object reaches `count - 1`.
+
+### Where the bias comes from
+
+`g_TSDetailPartBias` (`004a1038`) is 0 except inside a draw slot that brackets its render with `TSDetailPart_SetBias` (`004768ac`) and a restore to 0:
+
+| Draw slot | Bias pushed |
+|---|---|
+| `Structure_DrawWithDetailBias` (`004034f4`), slot `+0x00` of all five structure vtables | `g_TSDetailBiasFromStructureDetail` (`004a9638`) |
+| `Flyer_Draw` (`004215cc`) | `DAT_004a9e48`, the same value, written beside it |
+| `FUN_0040ded8`, slot `+0x00` of the eleven weapon-mount vtables from `00498aa0` and slot `+0x18` of `00499264` | `g_TSDetailBiasFromHercDetail` (`004a98ec`) |
+| `Debris_Draw` (`00408e6c`) | the piece's own `+0x50`: 0 from `Debris_Construct`, and `g_TSDetailBiasFromHercDetail` for the gun `WeaponMount_Destroy` throws |
+
+A machine's own draw pushes nothing, and its chassis shapes carry no `TSDetailPart`; its roots are selected one level up ([`mech-shape-drawing.md`](mech-shape-drawing.md#the-lod-root-is-chosen-per-frame-per-object)).
+
+**STRUCTURE DETAIL** reaches the first two rows through `StructureDetail_ApplySetting` (`0045d4f0`), which `maybe_Sim_RenderFrame` calls whenever the byte changes and `Sim_InitMissionSession` once at bring-up. Its key table is the identity over the three settings and its values (`g_StructureDetailValues`, `0049f02c`) are `{2, 1, 0}`: LOW is bias 2, MED HIGH 1, MAXIMUM 0. A byte past 2 matches no key and leaves the bias where it was. **HERC DETAIL** reaches the other two through `ShapeDetail_ApplyHercDetailSetting`'s `g_HercDetailTSDetailBiasValues`, `{2, 2, 1, 1, 0}` over its five settings.
+
+Across the retail shape files `TSDetailPart`s sit in the structure libraries (`BASES.DGS`, `BASES_AN.DTS`, `BHULKS.DGS`), the flyer `SKIMMER.DTS`, the weapons (`MECHWPNS.DTS`, `MECHWPN2.DTS`) and `ROCKETS.DTS`. None is nested inside another or inside a `TSCellAnimPart`; cell-animation parts inside a level are common.
 
 Levels are not always the same shape at different densities. `BASES.DGS` shape 10 (structure type 14, the tall chimney) is a 4-sided box with its corners on the world axes at level 0, and an octagon with its *vertices* on the axes at level 1 — a 45-degree difference in cross-section.
 
@@ -328,7 +345,7 @@ Levels are not always the same shape at different densities. `BASES.DGS` shape 1
 | Terrain shade | Exact, `MissionSun.ShadeFor` baked per triangle into `MeshVertex.Shade` |
 | `TSBitmapPart` | Implemented as a view-space billboard quad — see [`dts-billboards.md`](dts-billboards.md) |
 | Cutout texture frames | Structure banks decoded index-0-transparent; shader discards |
-| `TSDetailPart` | Maximum detail only, `Parts[^1]` ([Open](#open)) |
+| `TSDetailPart` | Selected per object per frame for structures, their wrecks and flyers, under STRUCTURE DETAIL's bias (`Render.PartDetail`); `Parts[^1]` for weapons, rockets and debris ([Open](#open)) |
 | `TSBSPPart` | Children drawn in file order ([Open](#open)). Agrees with the original on retail data, where every child is reachable |
 | Front/back visibility test | Normal flip only. `FrontColor` is used unconditionally and a face flagged 5120 is drawn ([Open](#open)). `SceneItem` disables culling outright and the shader shades two-sided |
 | Per-poly stored normals | Exact; `DtsMeshBuilder.ResolveFaceNormal` reads `TSPoly.Normal` as a point index. All triangles fanned from one poly share it. The winding survives only as a fallback for an unresolvable normal index, negated to match |
@@ -381,7 +398,8 @@ Tracked in `KNOWN_ISSUES.md`.
 
 - **Unported:** the back surface pair (`BackColor`/`BackLineColor`). The engine uses `FrontColor` unconditionally.
 - **Unported:** the 5120 "do not draw this face" skip, so a face the original culls is drawn.
-- **Unported:** `TSDetailPart` distance selection and the STRUCTURE DETAIL setting. The engine always draws the finest level.
+- **Unported:** `TSDetailPart` selection for weapons, rockets and debris, which draw their finest level at any distance. Those are built by `DtsMeshBuilder.BuildRoot` a flipbook cell at a time, so every level would multiply every cell; the biases they need are in [Where the bias comes from](#where-the-bias-comes-from).
+- **Open:** whether anything writes `g_TSDetailPartSizeScaleQ10`. Its setter `0047689c` has no reference `es2_xref.py` finds, which does not settle it; the engine measures at the image's 1024.
 - **Unported:** the `TSBSPPart` tree walk, with its ordering and reachability rule.
 - **Unported:** one-vertex polys, which the original paints as one pixel. The engine has no point primitive.
 - **Open:** what the original draws for a two-vertex line poly whose surface names no distinct line colour.

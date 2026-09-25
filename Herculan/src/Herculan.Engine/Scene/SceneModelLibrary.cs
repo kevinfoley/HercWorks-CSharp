@@ -625,9 +625,14 @@ public sealed class SceneModelLibrary {
 	/// type's <see cref="BaseType.HulkTypeIndex"/>. <c>Base_LoadResources</c> loads the library beside
 	/// the two building ones and binds <c>BASETEX</c> to every shape in it, whatever bank the standing
 	/// building used.
+	///
+	/// <para>Split by cell like the building it replaces, though nothing steps a wreck's cells: the
+	/// split is what carries its <c>TSDetailPart</c> levels, which are chosen per frame under
+	/// STRUCTURE DETAIL just as the building's were — see <see cref="DtsMeshBuilder.BuildCells"/>.</para>
 	/// </summary>
 	public SceneModel? Hulk(int shapeIndex) =>
-		BuildFromShapeLibrary(HulkLibraryName, shapeIndex, StructureBankName, transparentBank: true);
+		BuildFromShapeLibrary(HulkLibraryName, shapeIndex, StructureBankName, transparentBank: true,
+			celled: true);
 
 	/// <summary>The wreck library <c>Base_LoadResources</c> opens, by the literal name <c>bhulks</c>.</summary>
 	public const string HulkLibraryName = "BHULKS.DGS";

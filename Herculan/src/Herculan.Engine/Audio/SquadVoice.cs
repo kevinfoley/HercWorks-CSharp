@@ -77,6 +77,29 @@ public sealed class SquadVoice {
 		Speaking = _speaking >= 0 ? name : null;
 	}
 
+	/// <summary>
+	/// Plays a loose <c>.WAV</c> off disk on the same channel — the training instructor's clips,
+	/// which ship outside any archive (<see cref="InstructorVoice"/>). A missing file plays nothing.
+	/// </summary>
+	public void SpeakFile(string path) {
+		if (!_samples.TryGetValue(path, out int sample)) {
+			sample = -1;
+			if (File.Exists(path) && WaveSample.Decode(File.ReadAllBytes(path)) is { } decoded) {
+				sample = _backend.CreateSample(decoded);
+			}
+
+			_samples[path] = sample;
+		}
+
+		if (sample < 0) {
+			return;
+		}
+
+		Stop();
+		_speaking = _backend.Start(sample, _volume, 0f, 1f, looping: false);
+		Speaking = _speaking >= 0 ? Path.GetFileName(path) : null;
+	}
+
 	/// <summary>Notices when the running clip has finished. Call once a frame.</summary>
 	public void Update() {
 		if (Speaking != null && (_speaking < 0 || !_backend.IsPlaying(_speaking))) {

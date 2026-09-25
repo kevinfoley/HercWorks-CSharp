@@ -138,6 +138,7 @@ public class GauFileTransformer : ByteTransformer<GAUFile> {
 		gau.PilotMessagePort = new HPilotMessagePort {
 			Origin = new PixelPoint(pilotX0, pilotY0),
 			Size = new PixelSize(pilotX1 - pilotX0, pilotY1 - pilotY0),
+			TrainingLift = IntLE(gau.Remainder, PilotMessagePortRemainderOffset - 4),
 		};
 
 		// Offset 1684, the file's last four ints: the cockpit message ticker's box — see

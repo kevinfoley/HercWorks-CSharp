@@ -10,7 +10,7 @@ See [`../formats/script-dat.md`](../formats/script-dat.md) for the record layout
 
 `Action_Activate` (`00423430`) is one-shot: it sets the action's runtime activation flag (in-memory `+0x0a`, zeroed at load), walks the ten (counter ref, operation) pairs at `+0x0c`/`+0x20` bumping (op 6) or clearing (op 5) the mission-counter array `DAT_004a9ef4`, and queues the message at `+0x34`. **The message queue is inside the counter loop**, so an action naming five counters posts its line five times and one naming none posts it not at all.
 
-The message goes to the **pilot and squad** port (`view+0x207`, through `FUN_00433158`), not the computer's ticker, as `{id, null}` — no subject. That port looks a speakerless id up in `str\COMMAND0.STR`, not in `data\mission.str` — see [`../formats/cockpit-messages.md`](../formats/cockpit-messages.md#its-speakerless-set).
+The message goes to the **pilot and squad** port (`view+0x207`, through `FUN_00433158`), not the computer's ticker, as `{id, null}` — no subject. That port looks a speakerless id up in `str\COMMAND0.STR` — `COMMAND<n>.STR` in training mission `n` — not in `data\mission.str`; see [`../formats/cockpit-messages.md`](../formats/cockpit-messages.md#its-speakerless-set).
 
 | activated by | site | condition |
 |---|---|---|
@@ -196,7 +196,7 @@ The two walk-on verbs are implemented but unexercised: no mission has been found
 | `Deployment_PickPointNearPlayer` avoids deployed objects | Only for the walk-on verbs; a drop pod's point is picked without that test |
 | `Actions_EvaluateTriggers` runs before the group pass | `Sim_MainTick` runs it after, so a group arrives a tick after its trigger |
 | `obj+0x1b6` is a death action | It is also activated when a machine runs out of weapons |
-| An action's message is a `data\mission.str` line | That file holds the objective text, and the id looks like a ref into it. The port it is posted to resolves a speakerless id in `COMMAND0.STR` |
+| An action's message is a `data\mission.str` line | That file holds the objective text, and the id looks like a ref into it. The port it is posted to resolves a speakerless id in `COMMAND<n>.STR` |
 
 ## Open
 

@@ -85,8 +85,8 @@ namespace HercWorks.Core.Data.File.Gau;
 ///       `"hddclip"`/`"pilots"`/`"static"` string resources — the Heads-Down Display. Reads rects at
 ///       1228, 1260 and 1276, an array of 15 more 16-byte rects at 1292-1531, 3 more at 1532-1579,
 ///       and a 2-byte field at 1588. See docs/formats/heads-down-display.md, "`.GAU` block at 1212".
-///     - 1664: a per-herc vertical nudge (34-85, 0 for RAZOR) applied to the rect below, and only on
-///       the multiplayer path.
+///     - 1664: a per-herc vertical lift (34-85, 0 for RAZOR) applied to the rect below in a training
+///       mission only — <see cref="HPilotMessagePort.TrainingLift"/>.
 ///     - 1668-1683: the pilot and squad message port's box, a 16-byte rect read by the `.GAU`
 ///       loader's *caller* (`FUN_00431bf8`) rather than the loader itself. Full screen width, ten
 ///       units tall — <see cref="PilotMessagePort"/>.

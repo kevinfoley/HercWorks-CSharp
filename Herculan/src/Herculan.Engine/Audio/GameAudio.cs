@@ -128,6 +128,12 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	public SquadCommChannel? Squad { get; private set; }
 
 	/// <summary>
+	/// Where a training mission's instructor clips are read from — see <see cref="InstructorVoice"/>.
+	/// Null leaves the instructor silent.
+	/// </summary>
+	public string? InstructorVoiceDirectory { get; set; }
+
+	/// <summary>
 	/// Hands this the mission's comm boxes and connects their two outputs: the recorded line goes to
 	/// <see cref="SquadSpeech"/> and the static to the effect catalog, which is the same split the
 	/// computer's port takes. From here on <see cref="Update"/> runs the channel on the port's own
@@ -139,6 +145,17 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 		Squad = squad;
 		squad.Speak += (voiceBank, messageId, variant) =>
 			SquadSpeech?.Speak(voiceBank, messageId, variant);
+
+		// The training port speaks at the end of its own paint rather than through a comm box, and
+		// only when PILOT MESSAGE is not TEXT ONLY — the paint's SimOptions[2] test.
+		if (squad.Port.Training) {
+			squad.Port.Shown += message => {
+				if (squad.Port.Mode != MessageChannelMode.TextOnly && InstructorVoiceDirectory is { } directory) {
+					SquadSpeech?.SpeakFile(Path.Combine(directory,
+						InstructorVoice.ClipName(squad.TrainingMission, message.Id)));
+				}
+			};
+		}
 
 		// CommBox_OnMessageBegin tests whether the hiss is already running before starting it, so a
 		// second box opening under the first does not layer a second copy — see the note on

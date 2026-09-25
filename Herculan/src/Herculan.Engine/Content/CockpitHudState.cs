@@ -128,6 +128,11 @@
 /// The same for the marker the player drops on themselves, which wears its own colour and prints no
 /// line. Null while none is down — see <see cref="Content.NavMarker"/>.
 /// </param>
+/// <param name="TrainingMessage">
+/// What the training port is showing in place of <paramref name="PilotMessage"/> — a training
+/// mission's instructor, as a wrapped block. Null when it is quiet or the mission is not a training
+/// one; see <see cref="TrainingMessageLayout"/>.
+/// </param>
 public readonly record struct CockpitHudState(
 	IReadOnlyList<WeaponRowState> Weapons,
 	IReadOnlyList<string> HardpointNames,
@@ -158,7 +163,8 @@ public readonly record struct CockpitHudState(
 	PilotMessageLine? PilotMessage = null,
 	WaypointMark? RouteWaypoint = null,
 	WaypointMark? NavMarker = null,
-	MfdNavMapState NavMap = default) {
+	MfdNavMapState NavMap = default,
+	TrainingMessageBox? TrainingMessage = null) {
 
 	/// <summary>
 	/// Power-up state: an even shield balance printing 100/100 the way <c>ShieldsGauge_UpdateReadouts</c>
@@ -212,3 +218,10 @@ public readonly record struct CockpitHudState(
 /// squadmate behind it — see <see cref="PilotMessageBoxLayout"/>.
 /// </param>
 public readonly record struct PilotMessageLine(string Text, int Slot);
+
+/// <summary>
+/// The training port's wrapped block, already laid out by <see cref="TrainingMessageLayout.Wrap"/>.
+/// </summary>
+/// <param name="Lines">The lines, top to bottom.</param>
+/// <param name="Widest">Which line sets the box's width, or -1 for none.</param>
+public readonly record struct TrainingMessageBox(IReadOnlyList<string> Lines, int Widest);

@@ -49,16 +49,30 @@ public sealed class SquadMessagePort {
 	/// <see cref="SquadCommChannel.NoSpeaker"/>. Null for a slot with nobody in it.
 	/// </param>
 	/// <param name="random">The generator the variant roll draws on — pass the world's.</param>
-	public SquadMessagePort(Func<int, SquadMessages?> catalogs, SimRandom? random = null) {
+	/// <param name="training">Whether this is the training mission's port class — see <see cref="Training"/>.</param>
+	public SquadMessagePort(Func<int, SquadMessages?> catalogs, SimRandom? random = null, bool training = false) {
 		_catalogs = catalogs ?? throw new ArgumentNullException(nameof(catalogs));
 		_random = random;
+		Training = training;
 	}
+
+	/// <summary>
+	/// Whether this is the training mission's port class (vtable <c>0049baa8</c>) rather than the
+	/// ordinary one (<c>0049bad4</c>). Its post (<c>FUN_004362e4</c>) takes an id's first entry
+	/// without rolling and whatever the subject, and its paint joins that entry with the ones after
+	/// it into one word-wrapped block — see <see cref="Queued.Sentences"/> and
+	/// <see cref="TrainingMessageLayout"/>.
+	/// </summary>
+	public bool Training { get; }
 
 	/// <summary>Whether the channel is drawn and spoken. The preferences screen's PILOT MESSAGE setting.</summary>
 	public MessageChannelMode Mode { get; set; } = MessageChannelMode.TextAndVoice;
 
 	/// <inheritdoc cref="MessagePort.PilotDisabled"/>
 	public bool PilotDisabled { get; set; }
+
+	/// <summary>The attribute byte behind <see cref="Queued.ShowsWithoutCommBox"/>.</summary>
+	public const int ShowsWithoutCommBoxAttribute = 7;
 
 	/// <summary>Messages waiting, the one that is up included.</summary>
 	public int QueueLength => _queue.Count;
@@ -76,13 +90,28 @@ public sealed class SquadMessagePort {
 	public event Action<Queued>? End;
 
 	/// <summary>
+	/// Raised as a line goes up — the show. The training port starts its <c>TM&lt;n&gt;_</c> clip
+	/// here, at the end of its paint; the ordinary port's voice belongs to the comm box instead.
+	/// </summary>
+	public event Action<Queued>? Shown;
+
+	/// <summary>
 	/// Posts what <paramref name="slot"/>'s squadmate has to say — <c>Ai_PostSquadMessage</c>
 	/// (<c>00420a98</c>) through the port's vtable slot 0. The id names a line in that pilot's own
 	/// message set, and the recording is rolled among that id's variants here rather than at play
 	/// time, so the portrait script and the clip agree.
 	/// </summary>
 	public void Post(int messageId, int slot, object? speaker = null) {
-		if (_catalogs(slot)?.Pick(messageId, _random) is not { } message) {
+		var catalog = _catalogs(slot);
+		IReadOnlyList<SquadMessages.Entry> sentences = Training
+			? catalog?.Instruction(messageId) ?? Array.Empty<SquadMessages.Entry>()
+			: Array.Empty<SquadMessages.Entry>();
+
+		SquadMessages.Entry? picked = Training
+			? sentences.Count > 0 ? sentences[0] : null
+			: catalog?.Pick(messageId, _random);
+
+		if (picked is not { } message) {
 			return;
 		}
 
@@ -95,6 +124,8 @@ public sealed class SquadMessagePort {
 			Slot = slot,
 			Speaker = speaker,
 			Text = message.Text,
+			Sentences = Training ? sentences.Select(s => s.Text).ToArray() : new[] { message.Text },
+			ShowsWithoutCommBox = Attribute(ShowsWithoutCommBoxAttribute) != 0,
 			Priority = Attribute(SystemMessages.PriorityAttribute),
 			MinTime = Attribute(SystemMessages.MinDisplayAttribute) * TicksPerTimingUnit,
 			MaxTime = Attribute(SystemMessages.MaxDisplayAttribute) * TicksPerTimingUnit,
@@ -117,8 +148,11 @@ public sealed class SquadMessagePort {
 	public void Update(long coarseTicks) {
 		_now = coarseTicks;
 
-		// The paint side's latch, which is what puts a frame between a message coming due and going up.
-		if (_activated) {
+		// The port's own update sets the ready latch only for a line that needs no comm box: any due
+		// line on the training port (FUN_004365d0), and on the ordinary one only a line whose attribute
+		// byte 7 is set (PilotMessagePort_Update, 004361cc). A squadmate's line waits for its box —
+		// see MarkReady.
+		if (_activated && _current is { } due && (Training || due.ShowsWithoutCommBox)) {
 			_ready = true;
 		}
 
@@ -158,13 +192,37 @@ public sealed class SquadMessagePort {
 				_activated = false;
 			}
 		} else {
-			// The show. The pilot channel's own (PilotMessagePort_Speak, 00435d9c) draws a wrapped
-			// line into the cockpit's pilot box; the voice is not started here but by the comm box,
-			// which opens the clip beside its portrait script so the two stay in step.
+			// The show. The ordinary port's (PilotMessagePort_Speak, 00435d9c) draws one line over the
+			// canopy; a squadmate's voice is not started here but by the comm box, which opens the clip
+			// beside its portrait script so the two stay in step.
 			_shown = true;
 			_activated = false;
 			message.MinTime += _now;
 			message.MaxTime += _now;
+			Shown?.Invoke(message);
+		}
+	}
+
+	/// <summary>
+	/// <c>MessagePort_MarkReady</c> (<c>00435b14</c>) — lets <paramref name="message"/> go up on the
+	/// next <see cref="Update"/>, if it is the current line and due. The comm box calls it as the
+	/// speaker's portrait starts talking.
+	/// </summary>
+	public void MarkReady(Queued? message) {
+		if (message != null && ReferenceEquals(message, _current) && _activated) {
+			_ready = true;
+		}
+	}
+
+	/// <summary>
+	/// <c>MessagePort_Cancel</c> (<c>00435b38</c>) — takes the current line down on the next
+	/// <see cref="Update"/>, when <paramref name="message"/> is it or is null. The comm box calls it
+	/// as the portrait's script runs out; a line the port has already taken down is not current, so
+	/// the call does nothing.
+	/// </summary>
+	public void Cancel(Queued? message) {
+		if (message == null || ReferenceEquals(message, _current)) {
+			_cancel = true;
 		}
 	}
 
@@ -204,6 +262,19 @@ public sealed class SquadMessagePort {
 
 		/// <summary>The line itself.</summary>
 		public string Text = string.Empty;
+
+		/// <summary>
+		/// Everything the paint lays out: <see cref="Text"/> alone on the ordinary port, and on the
+		/// training port the instruction's every sentence, <see cref="Text"/> first.
+		/// </summary>
+		public IReadOnlyList<string> Sentences = Array.Empty<string>();
+
+		/// <summary>
+		/// Record <c>+0x2c</c>, attribute byte 7 — whether the ordinary port readies the line itself
+		/// rather than waiting for a comm box. Set on every <c>COMMAND0.STR</c> line, clear on every
+		/// squadmate's.
+		/// </summary>
+		public bool ShowsWithoutCommBox;
 
 		/// <inheritdoc cref="SystemMessages.PriorityAttribute"/>
 		public int Priority;

@@ -86,12 +86,36 @@ public sealed class SquadCommChannel {
 	/// <summary>The bank name the static comes from.</summary>
 	public const string StaticBank = "STATIC";
 
+	/// <summary>
+	/// The death scream, <c>AAAAAAARRGHH!</c> — the one message id the service loop
+	/// (<c>FUN_0044b5f8</c>) singles out, by testing the box's <c>+0x12d</c> copy of it against
+	/// <c>'%'</c>. It gets its own picture (<see cref="ScreamFrame"/> flickering with static) and its
+	/// own ending: the box latches comms-out and stays on static for good.
+	/// </summary>
+	public const int ScreamMessageId = 0x25;
+
+	/// <summary>
+	/// The portrait frame the scream shows — <c>HddGauge_PaintScream</c> (<c>0044b31c</c>)'s literal <c>0x1b</c>, the bank's
+	/// last frame, which no <c>.SNC</c> script reaches.
+	/// </summary>
+	public const int ScreamFrame = 0x1b;
+
+	/// <summary>
+	/// Shortest time either half of the scream's flicker lasts, in coarse ticks — both the first
+	/// frame's <c>now + 5</c> and the floor on each later <c>Math_RandomBelow(0x14)</c>.
+	/// </summary>
+	public const int ScreamMinTicks = 5;
+
+	/// <summary>The bound of that roll.</summary>
+	public const int ScreamRollBound = 0x14;
+
 	private readonly Box[] _boxes = new Box[SlotCount];
 	private readonly PilotRoster? _roster;
 	private readonly GameContent _content;
 	private readonly Dictionary<int, SquadMessages?> _catalogs = new();
 	private readonly SquadMessages? _command;
 	private readonly string _headquarters;
+	private readonly Numerics.SimRandom? _random;
 
 	private long _now;
 	private int _speakingSlot = -1;
@@ -112,25 +136,24 @@ public sealed class SquadCommChannel {
 	/// <param name="roster">The pilot roster, or null when <c>PILOTS.STR</c> would not load.</param>
 	/// <param name="random">The generator the variant roll draws on — pass the world's.</param>
 	/// <param name="trainingMission">
-	/// The mission's training number. Only 0 loads a speakerless set: a training mission builds a
-	/// different port class, which this engine does not have.
+	/// The mission's training number, which picks both the speakerless set (<c>COMMAND&lt;n&gt;.STR</c>)
+	/// and the port class — see <see cref="SquadMessagePort.Training"/>.
 	/// </param>
 	public SquadCommChannel(GameContent content, PilotRoster? roster, Numerics.SimRandom? random = null,
 			int trainingMission = 0) {
 		_content = content ?? throw new ArgumentNullException(nameof(content));
 		_roster = roster;
+		_random = random;
+		TrainingMission = trainingMission;
 
 		for (int i = 0; i < _boxes.Length; i++) {
 			_boxes[i] = new Box();
 		}
 
-		if (trainingMission == 0) {
-			_command = SquadMessages.LoadCommand(content, trainingMission);
-		}
-
+		_command = SquadMessages.LoadCommand(content, trainingMission);
 		_headquarters = SimStringTable.Load(content)?.Text(HeadquartersNameGroup, 0) ?? string.Empty;
 
-		Port = new SquadMessagePort(CatalogFor, random);
+		Port = new SquadMessagePort(CatalogFor, random, training: trainingMission != 0);
 		Port.Begin += BeginMessage;
 		Port.End += EndMessage;
 	}
@@ -140,6 +163,9 @@ public sealed class SquadCommChannel {
 	/// reply is posted to it and it decides when the box opens.
 	/// </summary>
 	public SquadMessagePort Port { get; }
+
+	/// <summary>The mission's training number, 0 for an ordinary mission.</summary>
+	public int TrainingMission { get; }
 
 	/// <summary>
 	/// Raised when a portrait starts, with the speaker's voice bank, the message id and the variant —
@@ -182,6 +208,9 @@ public sealed class SquadCommChannel {
 		box.Name = (pilot < 0 ? null : _roster?.Name(pilot)) ?? string.Empty;
 		box.State = CommBoxState.Idle;
 		box.PreviousState = CommBoxState.Idle;
+		box.CommsOut = false;
+		box.ScreamStatic = false;
+		box.ScreamWasStatic = false;
 	}
 
 	/// <summary>Whether slot <paramref name="slot"/> has a pilot in it.</summary>
@@ -201,13 +230,19 @@ public sealed class SquadCommChannel {
 		: slot >= 0 && slot < SlotCount ? _boxes[slot].Name : string.Empty;
 
 	/// <summary>
-	/// Whether a pilot's comms are out — the latch <c>gauge+0x147</c>, which holds the box on static
-	/// instead of ever letting a picture through. Set for a destroyed squadmate, whose box the idle
-	/// paint hands straight to the static paint.
+	/// Whether the machine in slot <paramref name="slot"/> is destroyed — the machine's own flag,
+	/// which <c>HddGauge_PaintIdle</c> reads to hand an idle box to the static paint, and which the
+	/// service loop reads as a message ends to latch the box's comms out. The owner of the machines
+	/// keeps it in step each frame.
+	///
+	/// <para>It is <b>not</b> the comms-out latch itself (<c>gauge+0x147</c>): that is set only by
+	/// the service loop, when a message ends with the machine destroyed or when the death scream
+	/// ends. The difference matters for the scream, which is posted as the machine is destroyed and
+	/// would never get past the opening static if the latch followed the flag.</para>
 	/// </summary>
-	public void SetCommsOut(int slot, bool out_) {
+	public void SetDestroyed(int slot, bool destroyed) {
 		if (slot >= 0 && slot < SlotCount) {
-			_boxes[slot].CommsOut = out_;
+			_boxes[slot].Destroyed = destroyed;
 		}
 	}
 
@@ -225,9 +260,10 @@ public sealed class SquadCommChannel {
 
 	/// <summary>
 	/// Posts a line with no subject — a mission action's message, which <c>Action_Activate</c>
-	/// (<c>00423430</c>) sends with a null <c>+0x02</c>. The port's post (<c>PilotMessagePort_Post</c>, <c>00435c48</c>) takes
-	/// such an id from <c>COMMAND0.STR</c> rather than any pilot's set. No box opens for it, because
-	/// the comm box's begin callback resolves the null subject to no slot.
+	/// (<c>00423430</c>) sends with a null <c>+0x02</c>. The port's post (<c>PilotMessagePort_Post</c>,
+	/// <c>00435c48</c>) takes such an id from <c>COMMAND0.STR</c> rather than any pilot's set, and a
+	/// training mission's from its own <c>COMMAND&lt;n&gt;.STR</c>. No box opens for it, because the
+	/// comm box's begin callback resolves the null subject to no slot.
 	/// </summary>
 	public void PostUnattributed(int messageId) => Port.Post(messageId, NoSpeaker);
 
@@ -249,10 +285,11 @@ public sealed class SquadCommChannel {
 	/// <summary>
 	/// The message set a box speaks from: its pilot's voice bank resolved to a
 	/// <c>PILOT&lt;bank&gt;.STR</c>, read once and kept. Null for an empty box.
-	/// <see cref="NoSpeaker"/> takes the speakerless set.
+	/// <see cref="NoSpeaker"/> takes the speakerless set, and so does every slot on the training
+	/// port, whose post never looks at the subject.
 	/// </summary>
 	private SquadMessages? CatalogFor(int slot) {
-		if (slot == NoSpeaker) {
+		if (slot == NoSpeaker || Port.Training) {
 			return _command;
 		}
 
@@ -281,10 +318,22 @@ public sealed class SquadCommChannel {
 			return;
 		}
 
+		// CommBox_BeginMessage fails when Voice_Acquire cannot open the recording; the callback then
+		// readies and cancels the line together, so it is dropped unshown and the box stays as it was.
+		// This engine opens the clip separately, so a portrait script that will not load stands in for
+		// that failure.
+		var script = SncScript.Load(_content, _boxes[slot].Portrait, message.Id, message.Variant);
+		if (script == null) {
+			Port.MarkReady(message);
+			Port.Cancel(message);
+			return;
+		}
+
 		var box = _boxes[slot];
+		box.Message = message;
 		box.MessageId = message.Id;
 		box.Variant = message.Variant;
-		box.Script = SncScript.Load(_content, box.Portrait, message.Id, message.Variant);
+		box.Script = script;
 		box.Deadline = _now + StaticTicks;
 		box.State = CommBoxState.OpeningStatic;
 		Hiss?.Invoke(Audio.SoundId.CommStatic);
@@ -297,7 +346,8 @@ public sealed class SquadCommChannel {
 
 	/// <summary>
 	/// <c>CommBox_OnMessageEnd</c> — the matching end hook. It does not cut the box off: the picture
-	/// runs to the end of its own script whatever the port does with the line.
+	/// runs to the end of its own script whatever the port does with the line. The other direction
+	/// does hold: the script ending takes the line down, if it is still up.
 	/// </summary>
 	public void EndMessage(SquadMessagePort.Queued message) {
 	}
@@ -338,10 +388,10 @@ public sealed class SquadCommChannel {
 
 		switch (box.State) {
 			case CommBoxState.Idle:
-				// An idle box is still painting if its comms are out: HddGauge_PaintIdle hands a
-				// destroyed squadmate's box straight to HddGauge_PaintStatic, and that paint advances
-				// the cycle every time it runs.
-				if (box.CommsOut) {
+				// An idle box is still painting if its machine is destroyed: HddGauge_PaintIdle hands
+				// that box straight to HddGauge_PaintStatic, and that paint advances the cycle every
+				// time it runs.
+				if (box.Destroyed) {
 					AdvanceStatic(box);
 				}
 
@@ -359,17 +409,41 @@ public sealed class SquadCommChannel {
 			case CommBoxState.Talking:
 				if (box.PreviousState != CommBoxState.Talking) {
 					// Entering the state is what starts both halves, which is why the clip and the
-					// script are opened in one call and started in one place.
+					// script are opened in one call and started in one place. It is also what lets the
+					// line over the canopy go up (MessagePort_MarkReady from FUN_0044b5f8).
 					box.ScriptStartedAt = _now;
+					Port.MarkReady(box.Message);
 					Speak?.Invoke(box.VoiceBank, box.MessageId, box.Variant);
+
+					if (box.MessageId == ScreamMessageId) {
+						box.Deadline = _now + ScreamMinTicks;
+					}
 				}
 
 				int frame = box.Script?.Frame(_now - box.ScriptStartedAt) ?? SncScript.Finished;
 				if (frame == SncScript.Finished) {
-					box.State = CommBoxState.ClosingStatic;
-					box.Deadline = _now + StaticTicks;
-					Hiss?.Invoke(Audio.SoundId.CommStatic);
+					// And the script running out is what takes it down (MessagePort_Cancel).
+					Port.Cancel(box.Message);
+
+					if (box.MessageId == ScreamMessageId) {
+						// No closing static and no hiss: the box latches comms-out and drops back to
+						// the opening-static state, which the latch then holds for good.
+						box.CommsOut = true;
+						box.State = CommBoxState.OpeningStatic;
+					} else {
+						box.State = CommBoxState.ClosingStatic;
+						box.Deadline = _now + StaticTicks;
+						Hiss?.Invoke(Audio.SoundId.CommStatic);
+
+						// A message that ends with its speaker's machine destroyed latches too.
+						if (box.Destroyed) {
+							box.CommsOut = true;
+						}
+					}
+
 					AdvanceStatic(box);
+				} else if (box.MessageId == ScreamMessageId) {
+					StepScream(box);
 				} else {
 					box.PortraitFrame = Math.Clamp(frame, 0, PilotRoster.TalkingFrameCount - 1);
 				}
@@ -395,6 +469,33 @@ public sealed class SquadCommChannel {
 		}
 	}
 
+	/// <summary>
+	/// <c>HddGauge_PaintScream</c> (<c>0044b31c</c>) — the scream's picture, in place of the script's frames. It flips between
+	/// <see cref="ScreamFrame"/> and static each time the deadline passes, and every flip draws a new
+	/// deadline <c>max(5, Math_RandomBelow(0x14))</c> ticks on, so the face breaks up irregularly for
+	/// as long as the recording runs.
+	/// </summary>
+	private void StepScream(Box box) {
+		if (!box.ScreamStatic) {
+			box.PortraitFrame = ScreamFrame;
+			if (box.Deadline < _now) {
+				box.ScreamStatic = true;
+			}
+		} else {
+			AdvanceStatic(box);
+			if (box.Deadline < _now) {
+				box.ScreamStatic = false;
+			}
+		}
+
+		if (box.ScreamStatic != box.ScreamWasStatic) {
+			int roll = _random?.NextBelow(ScreamRollBound) ?? 0;
+			box.Deadline = _now + Math.Max(ScreamMinTicks, roll);
+		}
+
+		box.ScreamWasStatic = box.ScreamStatic;
+	}
+
 	private static void AdvanceStatic(Box box) {
 		box.StaticFrame++;
 		if (box.StaticFrame >= StaticFrameCount) {
@@ -407,13 +508,9 @@ public sealed class SquadCommChannel {
 	/// it is showing the idle five labels instead. The service loop's paint dispatch, as a value:
 	/// <see cref="CommBoxState.Talking"/> gives the portrait frame and its <c>.OFS</c> offsets,
 	/// either static state gives the <c>STATIC</c> bank's current frame, and idle gives null — except
-	/// for a box whose comms are out, which <c>HddGauge_PaintIdle</c> hands straight on to
-	/// <c>HddGauge_PaintStatic</c> rather than labelling.
-	///
-	/// <para>That last case is the destroyed squadmate. The original's idle paint tests the machine's
-	/// own destroyed flag where this tests the latch, so whoever owns the machines has to keep
-	/// <see cref="SetCommsOut"/> in step with it — which is the right place for it anyway, since the
-	/// latch is also what stops a dead pilot answering.</para>
+	/// for a destroyed squadmate's box, which <c>HddGauge_PaintIdle</c> hands straight on to
+	/// <c>HddGauge_PaintStatic</c> rather than labelling (<see cref="SetDestroyed"/>). The death
+	/// scream alternates <see cref="ScreamFrame"/> with static while it plays.
 	///
 	/// <para>The name is carried on the record for both: the two video paints refresh the box's name
 	/// label and nothing else, so the plate survives the picture going over the rest of the box.</para>
@@ -424,7 +521,7 @@ public sealed class SquadCommChannel {
 		}
 
 		var box = _boxes[slot];
-		if (box.Portrait < 0 || (box.State == CommBoxState.Idle && !box.CommsOut)) {
+		if (box.Portrait < 0 || (box.State == CommBoxState.Idle && !box.Destroyed)) {
 			return null;
 		}
 
@@ -444,13 +541,21 @@ public sealed class SquadCommChannel {
 	/// own paint on the Heads-Down Display, which draw the same frame from the same two banks.</summary>
 	private SquadTransmission Describe(Box box, int slot) {
 		bool talking = box.State == CommBoxState.Talking;
-		var (offsetX, offsetY) = talking
+
+		// The scream's static half is drawn by HddGauge_PaintStatic while the box is still in its
+		// talking state, and that paint publishes the state too — so the caption stays up over it.
+		bool portrait = talking && !(box.MessageId == ScreamMessageId && box.ScreamStatic);
+
+		// The scream's frame is past the 27 entries the .OFS loader reads, so its offset pair is two
+		// fields of the zero-allocated display object nothing is found writing: (0, 0), which is
+		// what Offset answers for a frame the table does not cover.
+		var (offsetX, offsetY) = portrait
 			? _roster?.Offset(box.Portrait, box.PortraitFrame) ?? (0, 0)
 			: (0, 0);
 
 		return new SquadTransmission(
-			talking ? PilotRoster.BankName(box.Portrait) : StaticBank,
-			talking ? box.PortraitFrame : box.StaticFrame,
+			portrait ? PilotRoster.BankName(box.Portrait) : StaticBank,
+			portrait ? box.PortraitFrame : box.StaticFrame,
 			offsetX, offsetY,
 			box.Name,
 			slot,
@@ -466,13 +571,28 @@ public sealed class SquadCommChannel {
 		public string Name = string.Empty;
 		public CommBoxState State;
 		public CommBoxState PreviousState;
+		public SquadMessagePort.Queued? Message;
 		public long Deadline;
+
+		/// <summary><c>gauge+0x147</c> — the comms-out latch. Set only by the service loop.</summary>
 		public bool CommsOut;
+
+		/// <summary>The machine's own destroyed flag, mirrored — see <see cref="SetDestroyed"/>.</summary>
+		public bool Destroyed;
 		public int MessageId;
 		public int Variant;
 		public SncScript? Script;
 		public long ScriptStartedAt;
 		public int StaticFrame;
 		public int PortraitFrame;
+
+		/// <summary>
+		/// <c>gauge+0x148</c> — which half of the scream's flicker is up. Never reset, as in the
+		/// original, where a box screams at most once.
+		/// </summary>
+		public bool ScreamStatic;
+
+		/// <summary><c>gauge+0x149</c> — the same, as of the last paint.</summary>
+		public bool ScreamWasStatic;
 	}
 }

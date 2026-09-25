@@ -8514,8 +8514,81 @@
       "type": "function",
       "confidence": "high",
       "name": "PilotMessagePort_WrapText",
-      "description": "Word-wraps a pilot/squad message for PilotMessagePort_Paint: 80 characters in the 640-wide mode and 60 in the 320-wide one, into 0x78-byte lines at DAT_004d0e13, and sets the box height to (lines + 1) * (8 << YCoordShift) and its width to the widest line measured.",
-      "source": "docs/formats/audio.md"
+      "description": "Training port (vtable 0049baa8) slot +8. Joins an instruction -- the id's first COMMAND<n>.STR entry and the count-1 entries after it in file order (StrTable_NextString) -- into 0x78-byte lines at DAT_004d0e13, at most 80 characters in the 640-wide mode and 60 in the 320-wide one. A sentence that fits is appended after a space; one that does not is split at its last fitting space, the head appended after a space (even to an empty line) and the rest copied unwrapped onto the next line. Sets +0x4eb to the line count, +0x4e7 to (lines + 1) * (8 << YCoordShift) and +0x4e3 to the measured width of the line with the most characters.",
+      "source": "docs/formats/cockpit-messages.md"
+    },
+    {
+      "address": "0044b31c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddGauge_PaintScream",
+      "description": "The comm box's picture for message 0x25 (the death scream), in place of the .SNC frames: portrait frame 0x1b until the deadline +0x143 passes, then HddGauge_PaintStatic until it passes again, flipping the phase byte +0x148; each flip sets a new deadline max(5, Math_RandomBelow(0x14)) coarse ticks on. +0x149 holds the previous phase.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "004362e4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TrainingMessagePort_Post",
+      "signature": "void TrainingMessagePort_Post(int port, byte *record)",
+      "description": "Training port (vtable 0049baa8) slot 0. Ignores the record's subject: enqueues the id's first COMMAND<n>.STR entry from the table at 004d0971, with no variant roll.",
+      "source": "docs/formats/cockpit-messages.md"
+    },
+    {
+      "address": "00436244",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TrainingMessagePort_Ctor",
+      "description": "Builds the training mission's pilot/squad port on top of the ordinary one (00435bf0): installs vtable 0049baa8, stores ColorSchemePanels[10] WHITE (0049b0d4) as its font at +0x4df, and extends the rect by eleven text lines to size the two save-under buffers.",
+      "source": "docs/formats/cockpit-messages.md"
+    },
+    {
+      "address": "004361cc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PilotMessagePort_Update",
+      "description": "Ordinary pilot/squad port (vtable 0049bad4) slot +0x10. Sets the ready latch +0x4ca for a due message only when the record's +0x2c (attribute byte 7) is set -- a squadmate's line is made ready by the comm box instead (00435b14) -- repaints a line that is up, then MessagePort_Tick.",
+      "source": "docs/formats/cockpit-messages.md"
+    },
+    {
+      "address": "004365d0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TrainingMessagePort_Update",
+      "description": "Training port (vtable 0049baa8) slot +0x10. Repaints a line that is up, sets the ready latch for any due message, then MessagePort_Tick.",
+      "source": "docs/formats/cockpit-messages.md"
+    },
+    {
+      "address": "00435b14",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MessagePort_MarkReady",
+      "description": "(port, record): sets the ready latch +0x4ca when record is the current message and it is due. Called by the comm box as a squadmate's portrait starts talking (FUN_0044b5f8), and by CommBox_OnMessageBegin when the box cannot open.",
+      "source": "docs/formats/cockpit-messages.md"
+    },
+    {
+      "address": "00435b38",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MessagePort_Cancel",
+      "description": "(port, record): sets the cancel latch +0x4cb when record is null or the current message. The comm box calls it when a squadmate's portrait script runs out.",
+      "source": "docs/formats/cockpit-messages.md"
+    },
+    {
+      "address": "004539cc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "StrTable_NextString",
+      "description": "(table, string): the string after the given one in a loaded .STR buffer -- steps over the NUL-terminated text by its length prefix, the attribute count byte and its attributes, and the next entry's length -- or null past the buffer's end. Ignores ids and groups.",
+      "source": "docs/formats/cockpit-messages.md"
     },
     {
       "address": "0043660c",
@@ -8523,8 +8596,8 @@
       "type": "function",
       "confidence": "high",
       "name": "PilotMessagePort_Paint",
-      "description": "The training mission's pilot/squad port class (vtable 0049baa8) paint: several word-wrapped lines in the computer's own black and red, with no speaker colour in it -- a different picture from the speaker-coloured single line PilotMessagePort_Speak draws for an ordinary mission. Its box is the .GAU field at content offset 1668, read by Gau_BuildCockpitWidgets rather than by Gau_Load; only the rect's vertical half survives, the horizontal being recomputed from the text every paint.",
-      "source": "docs/formats/audio.md"
+      "description": "The training mission's pilot/squad port class (vtable 0049baa8) show: the lines PilotMessagePort_WrapText built, left-aligned in ColorSchemePanels[10] WHITE on the computer's black with a red frame, the box as wide as the widest line plus 10 units each side, centred on the screen, (lines + 1) text lines tall from the .GAU rect's top (raised on this path by the offset-1664 lift). Then, unless PILOT MESSAGE is TEXT ONLY, plays <drive.cfg dir>\\simvoice\\TM<n>_<id+1>.wav through Voice_PlayNamed.",
+      "source": "docs/formats/cockpit-messages.md"
     },
     {
       "address": "004369a4",

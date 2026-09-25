@@ -42,7 +42,7 @@ Both boxes are the herc's own, the last two fields of its `.GAU`: the pilot chan
 | Latch | Meaning |
 |---|---|
 | `+0x4c9` | Due — `minWait` has passed and the message is waiting to go up |
-| `+0x4ca` | Ready — set by whichever paint entry point runs next, which is what puts one frame between due and shown |
+| `+0x4ca` | Ready — on the ticker set by its next scroll, which is what puts one frame between due and shown; on the pilot and squad channel set by the comm box or by attribute byte 7 ([below](#its-speakerless-set)) |
 | `+0x4cb` | Cancelled |
 | `+0x49e` | A line is up |
 
@@ -125,9 +125,27 @@ An ordinary mission speaks from `COMMAND0.STR`: three lines, one group, a pilot 
 
 The composer signs it `HQ` — `STRINGS0.STR` group 8, the one string at `DAT_004d1430` that `FUN_004342b8` returns — and with no squadmate to colour it, [the box](#its-box) is the computer's black and red. `CommBox_OnMessageBegin` resolves the null subject to no slot and returns, so no comm box opens, no portrait runs and no static plays.
 
-Byte 7 is 1 on all three, and it lands at the queued record's `+0x2c`, the gate on `PilotMessagePort_Speak`'s voice arm. So for these lines that arm runs: it patches `id + 1` and the variant digit into `BC_00000` and hands the name to `Voice_PlayNamed`. No `BC_*` clip ships in any archive, so an action's line is text only.
+Byte 7 is 1 on all three, and it lands at the queued record's `+0x2c`, which gates two things. The port's per-frame update (`PilotMessagePort_Update`, `004361cc`, vtable `+0x10`) sets the ready latch for a due message only when it is set; a squadmate's line, whose byte 7 is 0, is instead made ready by the comm box as its portrait starts talking (`MessagePort_MarkReady`, `00435b14`, from `FUN_0044b5f8`), and cancelled when the portrait's script runs out (`MessagePort_Cancel`, `00435b38`). So byte 7 is what lets a line up with no comm box behind it — without it a speakerless line would wait out its `maxWait` and drop unshown. The same byte gates `PilotMessagePort_Speak`'s voice arm, which patches `id + 1` and the variant digit into `BC_00000` and hands the name to `Voice_PlayNamed`. No `BC_*` clip ships in any archive, so an action's line is text only.
 
-`COMMAND1.STR`-`COMMAND4.STR` are the four training missions' instructor scripts, and a training mission builds a different port class for `view+0x207` (vtable `0049baa8`, a `0x4ef`-byte instance). Its post (`FUN_004362e4`) enqueues an id's first entry without rolling, its paint is `PilotMessagePort_Paint`'s word-wrapped box ([below](#its-box)), and it speaks the `TM<n>_` clips ([`audio.md`](audio.md#file-naming)). In those files several entries share an id, with attribute byte 1 counting 0, 1, 2 through the sentences of one instruction ([Open](#open)).
+Across the retail missions (`.MSN` row #10 `0x4E`, the message id plus one) exactly one campaign action posts from this set: `C1_02.MSN`'s, with id 1, `MAYDAY!`. Ids 0 and 2 are never posted.
+
+### The training port
+
+A training mission builds a different class for `view+0x207` (vtable `0049baa8`, constructor `TrainingMessagePort_Ctor`, `00436244`, a `0x4ef`-byte instance) and indexes `COMMAND<n>.STR` into it, `n` the training mission number. `COMMAND1.STR`-`COMMAND4.STR` are the four instructors' scripts, and every retail training mission's actions post from them — 10 to 21 each.
+
+**Its post (`TrainingMessagePort_Post`, `004362e4`) ignores the subject.** Every id resolves in the `COMMAND<n>` table, and the first entry is enqueued without a variant roll. In these files several consecutive entries share an id: they are the sentences of one instruction, attribute byte 1 counting 0, 1, 2 through them, and only the first carries timings.
+
+**Its paint (`PilotMessagePort_Paint`, `0043660c`) shows them all.** `PilotMessagePort_WrapText` (`00436318`) takes the count from the id's table slot and walks forward from the first sentence with `StrTable_NextString` (`004539cc`), which returns the string after the one it is given in the loaded file, so an instruction is its first entry and the ones after it. It joins them into lines of at most 80 characters (60 in the 320-wide mode):
+
+- A sentence that fits on the current line (`length + column < limit`) is appended after a space, or starts the line if it is empty.
+- One that does not is split at its last space that still fits. The head goes on the current line after a space — added even when that line is empty, so an instruction whose first sentence is too long opens with a blank (`COMMAND2.STR` id 2 does). The rest starts the next line **unwrapped**, however long.
+- The widest line is picked by character count, and only that line is measured for the box's width.
+
+The box is `(lines + 1) * (8 << YCoordShift)` tall, as wide as that measured line plus `10 << XCoordShift` each side, and centred on the screen. Its top is the `.GAU` rect's, raised by the per-herc `int32` at content offset 1664 — `Gau_BuildCockpitWidgets` subtracts it on the training arm only — and the constructor extends the rect by eleven lines to size the save-under buffers. The lines are left-aligned at the box's left edge plus the same margin, the first anchored at `top + 1.5 * lineHeight` and each next one line lower, in `ColorSchemePanels[10]` `WHITE` (`0049b0d4`, stored at `+0x4df`) on the computer's black, framed in its red.
+
+**Its voice follows the paint**, on the same display pass and only when PILOT MESSAGE is not TEXT ONLY: `TMx_0000` with the training number and `id + 1` patched in, under the voice folder (`simvoice`, its last letter the language byte) and the directory `data\drive.cfg` names (`FUN_0045ee44`). So the clips are loose files beside the archives, one per instruction: `SIMVOICE\TM1_0001.WAV` reads all of `COMMAND1.STR` id 0. The 65 retail clips are exactly the four files' instruction ids plus one.
+
+Its per-frame update (`TrainingMessagePort_Update`, `004365d0`) sets the ready latch for any due message, byte 7 or not.
 
 ### What each id says
 
@@ -196,7 +214,7 @@ That subtraction is arithmetic on the already-resolved palette index, not a seco
 
 `PilotMessagePort_ComposeLine` (`00435d0c`) builds the line: the speaker's name from their comm box (`Squad_PilotName` (`00434298`) into `HddGauge_Name` (`0044b900`), the gauge's own `+0x137`), or the fallback at `004342b8` when the record names no object; then `": "`; then the message text, `strncat`ed at 0x4a characters.
 
-`PilotMessagePort_Paint` (`0043660c`) is the training port's paint, and a different picture: several word-wrapped lines — `PilotMessagePort_WrapText` (`00436318`) wraps at 80 characters in the 640-wide mode and 60 in the 320-wide one, and the box grows to `(lines + 1) * (8 << YCoordShift)` — in the computer's own black and red, with no speaker colour anywhere in it. What is on screen in `Reference/MFD_Talking_head.png` is the speaker-coloured single line.
+A training mission draws a different picture altogether ([above](#the-training-port)). What is on screen in `Reference/MFD_Talking_head.png` is the speaker-coloured single line.
 
 The speaker's own portrait, alongside this box, is driven separately — see [`heads-down-display.md`](heads-down-display.md#snc--portrait-lip-sync-scripts).
 
@@ -214,6 +232,10 @@ Three things differ. The port's clock is wall time accumulated by `GameAudio` in
 
 The pilot and squad channel is complete too. `SquadMessages` parses a `PILOT<n>.STR` bank with the seven-byte attribute layout and its live variants; `SquadMessagePort` is the second port, with the same lifecycle and the begin/end callbacks the comm box hangs off it; `SquadVoice` opens the `P*_*.WAV` clips ([`audio.md`](audio.md#speech-and-the-comm-portraits)). `SquadCommChannel` owns the three boxes and their state machine ([`heads-down-display.md`](heads-down-display.md#squad-comm-boxes)), and publishes both what the MFD draws full-screen and what each box draws in place. The line over the canopy is `PilotMessageBoxLayout` plus `Overlay2DRenderer.AddPilotMessage` — the herc's own `.GAU` box (surfaced as `GAUFile.PilotMessagePort`), the speaker-coloured fill with its palette-minus-one frame, and the composed `NAME: line` in `CPRED`. A speakerless post takes `COMMAND0.STR` and signs it `HQ` (`SquadCommChannel.PostUnattributed`), which is how a mission action's line arrives.
 
+The training port is the same `SquadMessagePort` with `Training` set: it posts an instruction's first entry and carries every sentence; `TrainingMessageLayout.Wrap` is `PilotMessagePort_WrapText`, quirks included, and `Overlay2DRenderer.AddTrainingMessage` draws the block. `GAUFile.PilotMessagePort.TrainingLift` is the offset-1664 lift. The instructor's clip is `InstructorVoice`, played through `SquadVoice.SpeakFile` as the line goes up.
+
+The ready latch follows the original: the port readies a line itself only on the training port or when byte 7 is set (`Queued.ShowsWithoutCommBox`), and otherwise `SquadCommChannel` calls `SquadMessagePort.MarkReady` as the portrait starts talking and `Cancel` as its script runs out. A portrait script that will not load stands in for `Voice_Acquire` failing, since this engine opens the clip separately.
+
 The channel's own deviation is the one the computer's port has: its clock is `GameAudio`'s wall time rather than `GetTickCount`.
 
 **Every poster above is ported but one.** The damage set, the mission-status four, the player think's two, the data link's five, the auto-track pair, the radar pair and the power-up pair all post where the original posts them; `0x2a`/`0x2b` jamming is the exception ([Open](#open)). `0x12` is unreachable in retail. The rest of the file's sixty-three lines have no poster in the original.
@@ -221,8 +243,6 @@ The channel's own deviation is the one the computer's port has: its clock is `Ga
 ## Open
 
 - **Unported:** the display's two further gates — the refusal to draw while the cockpit view manager's `+0x14` reads 4, and the paint's `+0x1c` byte.
-- **Unported:** the training port (vtable `0049baa8`) — its post, `PilotMessagePort_Paint`'s word-wrapped box and the `TM<n>_` voice. The engine loads no speakerless set for a training mission, so an action there posts nothing.
-- **Open:** how the training port shows the entries that share an id in `COMMAND1.STR`-`COMMAND4.STR`. Its post enqueues only the first; its paint reads further strings out of the set's table (`FUN_004539cc` on `004d04c8`), which is presumably where the rest come in.
 - **Unported:** the power-up's damage announcement, `0x22`. The engine always posts the nominal `0x21`, because the gauge reading `FUN_0041b514` returns is not decompiled; a machine taken at the start of a mission is undamaged and gets the nominal line either way.
 - **Open:** what the cockpit view manager's `+0x1c` byte is.
 - **Open:** whether anything posts the pilot ids the table marks with an em dash. A text search finds no poster, which does not settle it.

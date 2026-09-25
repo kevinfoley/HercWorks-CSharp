@@ -728,6 +728,11 @@ for (int slot = 0; slot < squadPlacements.Count; slot++) {
 	squadSeats[slot] = squadPlacements[slot].Object;
 }
 
+// A training mission's instructor speaks from loose files beside the archives, in the folder named
+// after whichever voice archive is mounted.
+audio.InstructorVoiceDirectory = InstructorVoice.Directory(dataDirectory,
+	Path.GetFileNameWithoutExtension(content.MountedArchives.FirstOrDefault(
+		name => name.StartsWith("SIMVOIC", StringComparison.OrdinalIgnoreCase)) ?? "SIMVOICE"));
 audio.AttachSquad(squadComm);
 
 // A comm box captions itself with its pilot's roster name, the same one the MFD's transmission plate
@@ -2302,11 +2307,10 @@ window.Update += deltaSeconds => {
 	audio.SetListener(camera.Position, -camera.Yaw & 0xffff);
 	audio.Update(TimeSpan.FromSeconds(deltaSeconds));
 
-	// A destroyed squadmate's comms are out, which is what puts their box on static and stops them
-	// answering. The original's idle paint reads the machine's own destroyed flag; the latch is where
-	// this engine keeps that, so it has to be refreshed from the machine each frame.
+	// A destroyed squadmate's box goes to static. The original's idle paint reads the machine's own
+	// destroyed flag, so the channel is handed it fresh each frame.
 	for (int slot = 0; slot < SquadCommChannel.SlotCount; slot++) {
-		squadComm.SetCommsOut(slot, squadSeats[slot] is { Destroyed: true });
+		squadComm.SetDestroyed(slot, squadSeats[slot] is { Destroyed: true });
 		pilotVideos[slot] = squadComm.Video(slot);
 	}
 
@@ -2414,6 +2418,9 @@ window.Update += deltaSeconds => {
 			// asks the box for it through Squad_IndexOf.
 			PilotMessage = ComposePilotMessage(squadComm),
 
+			// A training mission's port draws its own wrapped block instead of that line.
+			TrainingMessage = ComposeTrainingMessage(squadComm),
+
 			// Each box's own picture. The MFD shows one box's, full screen; the display shows all
 			// three in place, and a destroyed squadmate's sits on static there without ever having
 			// had a message to open it.
@@ -2435,7 +2442,8 @@ window.Update += deltaSeconds => {
 //
 // Nothing is drawn while the channel is on VoiceOnly: the paint's first test is PilotMessageMode != 1.
 PilotMessageLine? ComposePilotMessage(SquadCommChannel channel) {
-	if (channel.Port.Mode == MessageChannelMode.VoiceOnly
+	if (channel.Port.Training
+		|| channel.Port.Mode == MessageChannelMode.VoiceOnly
 		|| channel.Port.Current is not { Text.Length: > 0 } current) {
 		return null;
 	}
@@ -2447,6 +2455,19 @@ PilotMessageLine? ComposePilotMessage(SquadCommChannel channel) {
 	return new PilotMessageLine(
 		name.Length > 0 ? name + PilotMessageBoxLayout.NameSeparator + text : text,
 		current.Slot);
+}
+
+// The training port's block: the instruction's sentences through PilotMessagePort_WrapText's own
+// wrap. The same VoiceOnly test as the ordinary port's paint opens with.
+TrainingMessageBox? ComposeTrainingMessage(SquadCommChannel channel) {
+	if (!channel.Port.Training
+		|| channel.Port.Mode == MessageChannelMode.VoiceOnly
+		|| channel.Port.Current is not { Sentences.Count: > 0 } current) {
+		return null;
+	}
+
+	var (lines, widest) = TrainingMessageLayout.Wrap(current.Sentences);
+	return new TrainingMessageBox(lines, widest);
 }
 
 // Where the selection lands on the canopy, for the front-window target box and arrow — the original's

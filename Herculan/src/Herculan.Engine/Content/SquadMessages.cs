@@ -23,9 +23,13 @@ public sealed class SquadMessages {
 	public const int MaxMessageId = 42;
 
 	private readonly Dictionary<int, List<Entry>> _byId = new();
+	private readonly List<Entry> _ordered;
+	private readonly Dictionary<int, int> _firstIndex;
 
-	private SquadMessages(Dictionary<int, List<Entry>> byId) {
+	private SquadMessages(Dictionary<int, List<Entry>> byId, List<Entry> ordered, Dictionary<int, int> firstIndex) {
 		_byId = byId;
+		_ordered = ordered;
+		_firstIndex = firstIndex;
 	}
 
 	/// <summary>One recording of one message.</summary>
@@ -57,6 +61,23 @@ public sealed class SquadMessages {
 			: entries[random.NextBelow((short)entries.Count)];
 	}
 
+	/// <summary>
+	/// A training instruction: the first entry carrying <paramref name="id"/> and, after it, as many
+	/// more entries <b>in file order</b> as the id has — <c>PilotMessagePort_WrapText</c>
+	/// (<c>00436318</c>) takes the count from the id's table slot and steps with
+	/// <c>FUN_004539cc</c>, which returns the string after the one it is given in the loaded file,
+	/// whatever that string's id. Retail files keep an id's entries together, so the two readings
+	/// agree. Empty when the file has no such id.
+	/// </summary>
+	public IReadOnlyList<Entry> Instruction(int id) {
+		if (!_firstIndex.TryGetValue(id, out int first)) {
+			return Array.Empty<Entry>();
+		}
+
+		int count = Math.Min(Variants(id).Count, _ordered.Count - first);
+		return _ordered.GetRange(first, count);
+	}
+
 	/// <summary>The resource name for one voice bank — <c>pilot1</c>, <c>pilot2</c>, <c>pilot4</c>.</summary>
 	public static string ResourceName(int voiceBank) => $"PILOT{voiceBank}.STR";
 
@@ -84,6 +105,8 @@ public sealed class SquadMessages {
 	/// <summary>Scatters an already-parsed <c>.STR</c> by attribute byte 0.</summary>
 	public static SquadMessages FromTable(SimStringTable table) {
 		var byId = new Dictionary<int, List<Entry>>();
+		var ordered = new List<Entry>();
+		var firstIndex = new Dictionary<int, int>();
 
 		for (int group = 0; group < table.GroupCount; group++) {
 			foreach (var entry in table.Group(group)) {
@@ -97,13 +120,16 @@ public sealed class SquadMessages {
 
 				if (!byId.TryGetValue(id, out var entries)) {
 					byId[id] = entries = new List<Entry>();
+					firstIndex[id] = ordered.Count;
 				}
 
-				entries.Add(new Entry(id, variant, entry.Text, attributes));
+				var parsed = new Entry(id, variant, entry.Text, attributes);
+				entries.Add(parsed);
+				ordered.Add(parsed);
 			}
 		}
 
-		return new SquadMessages(byId);
+		return new SquadMessages(byId, ordered, firstIndex);
 	}
 
 	/// <summary>

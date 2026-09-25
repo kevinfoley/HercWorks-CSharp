@@ -400,7 +400,7 @@ The machine's own pilot index — `MecEntry.PilotNameIndex`, the leading field o
 
 Offsets are device pixels. The name's per-slot background — `COLORS.DAT` entries 0, 1, 2 = palette 14, 15, 31 — is the manual's "squad members are shown on the map in the same color that highlights their name on the comm screen", and it is the same id the pilot channel's own box fills with ([`cockpit-messages.md`](cockpit-messages.md#its-box)).
 
-`ofs\PILOT<n>.OFS` has no header and no count: a flat array of three-`int32` entries — `{ frameIndex, x, y }` — of which the loader reads a fixed 27, copying each pair to `gauge + frameIndex * 8 + 0x3d`. The pair is signed and in the bank's own 320-wide space: it is the frame's position inside the box, added **raw** while the frame itself is blitted doubled, and it reaches the MFD's full-screen copy unchanged ([`mfd.md`](mfd.md#transmissions)). The first 24 entries are the talking-head frames and share one offset per pilot — `PILOT2`, whose last frame differs, is the only exception; entries 24-26 cover the three wider frames at the tail of the bank, which nothing in the shipped code path draws.
+`ofs\PILOT<n>.OFS` has no header and no count: a flat array of three-`int32` entries — `{ frameIndex, x, y }` — of which the loader reads a fixed 27, copying each pair to `gauge + frameIndex * 8 + 0x3d`. The pair is signed and in the bank's own 320-wide space: it is the frame's position inside the box, added **raw** while the frame itself is blitted doubled, and it reaches the MFD's full-screen copy unchanged ([`mfd.md`](mfd.md#transmissions)). The first 24 entries are the talking-head frames and share one offset per pilot — `PILOT2`, whose last frame differs, is the only exception; entries 24-26 cover three wider frames after them, which nothing in the shipped code path draws. The bank's 28th frame, `0x1b`, is the [death scream](#the-death-scream)'s; no `.OFS` entry places it, so its pair is two bytes of the zero-allocated display object (`Mem_AllocZeroed(0x78a)`) that no writer is found for, and it draws at (0, 0).
 
 ### `.SNC` — portrait lip-sync scripts
 
@@ -432,12 +432,24 @@ Per gauge, state at gauge-relative `+0x13b`:
 |---|---|
 | 0 idle | `HddGauge_PaintIdle` |
 | 1 | Static, until `now >= +0x143`; then falls straight through into 2 |
-| 2 | On entry starts the `.SNC` script; `Snc_GetFrame` drives the portrait until it returns -1, then state 3, deadline `now + 0x14`, and `Sound_Play(0x1c)` |
+| 1 | Static, until `now >= +0x143` with the comms-out latch clear; then falls straight through into 2 |
+| 2 | On entry marks the port's line ready (`MessagePort_MarkReady`) and starts the `.SNC` script; `Snc_GetFrame` drives the portrait until it returns -1, then cancels the line (`MessagePort_Cancel`), state 3, deadline `now + 0x14`, and `Sound_Play(0x1c)` — latching comms-out if the squadmate's machine is dead |
 | 3 | Static, until the deadline; then state 0 |
 
-`CommBox_OnMessageBegin` (`0044b4ec`) enters state 1 — the port's begin callback ([`cockpit-messages.md`](cockpit-messages.md#the-port)) — with deadline `now + 0x14`, plays `0x1c` if it is not already playing, and claims the published block at `+0x766` that the MFD reads. So a reply is static, portrait, static, and back to the labels.
+`CommBox_OnMessageBegin` (`0044b4ec`) enters state 1 — the port's begin callback ([`cockpit-messages.md`](cockpit-messages.md#the-port)) — with deadline `now + 0x14`, plays `0x1c` if it is not already playing, and claims the published block at `+0x766` that the MFD reads. So a reply is static, portrait, static, and back to the labels, and the line over the canopy is up only while the portrait talks. When `CommBox_BeginMessage` cannot acquire the recording, the callback marks the line ready and cancels it in one go, and the box does not open.
 
-Other gauge fields: `+0x12e` static frame cycle 0-4, `+0x12f` the speech slot, `+0x133` the frame-indirection flag, `+0x135` the portrait number, `+0x137` the name pointer (`HddGauge_Name`, `0044b900`), `+0x13f` the previous state, `+0x143` the deadline, `+0x147` the comms-out latch.
+The loop drops the published block when its box is idle or its comms-out latch is set.
+
+Other gauge fields: `+0x12d` the message id (written by `CommBox_BeginMessage`), `+0x12e` static frame cycle 0-4, `+0x12f` the speech slot, `+0x133` the frame-indirection flag, `+0x135` the portrait number, `+0x137` the name pointer (`HddGauge_Name`, `0044b900`), `+0x13f` the previous state, `+0x143` the deadline, `+0x147` the comms-out latch, `+0x148`/`+0x149` the scream's flicker phase and its previous value, `+0x14a` the queued message.
+
+#### The death scream
+
+The loop singles out one message by testing `+0x12d` against `'%'`: id `0x25`, `AAAAAAARRGHH!`, which a squadmate posts as its machine is destroyed ([`cockpit-messages.md`](cockpit-messages.md#what-each-id-says)).
+
+- **Its picture.** `HddGauge_PaintScream` (`0044b31c`) paints in place of the script's frames: portrait frame `0x1b` until the deadline passes, then static until it passes again, and back. Every flip sets a new deadline `max(5, Math_RandomBelow(0x14))` ticks on; entering state 2 sets the first at `now + 5`. The script still times it — the recording plays and the scream lasts as long as its `.SNC`. The static half publishes state 2 like the portrait half, so the MFD's caption stays up over it.
+- **Its ending.** When the script runs out the line is cancelled as usual, but the box sets its comms-out latch and returns to state 1 — no closing static, no hiss — where the latch holds it on static for good.
+
+The comms-out latch is set only there and at the end of a message whose speaker's machine is dead; the idle paint's static reads the machine's destroyed flag, not the latch. The two have to stay apart for the scream to play at all: it is posted as the machine dies, and a latch that followed the flag would hold it in state 1.
 
 ### The three paints
 
@@ -470,7 +482,7 @@ Drawn: page buttons with lit state, the four arrows and two magnifiers, the titl
 
 Everything the command display draws is drawn. Zoom, pan, recentring, pilot selection and target designation are all wired to both the widgets and the keys.
 
-The comm boxes run their four-state machine and draw what it says: the `pilot<n>` portrait at its `.OFS` offset or the cycling `static`, clipped to the box, with the name plate left over it and the four status lines suppressed. Both 320-wide-only banks are taken from `dba\` and blitted doubled, the way the original doubles them. A destroyed squadmate's box sits on static: the original's idle paint reads the machine's own destroyed flag, and `SquadCommChannel.SetCommsOut` is where this engine keeps that.
+The comm boxes run their four-state machine and draw what it says: the `pilot<n>` portrait at its `.OFS` offset or the cycling `static`, clipped to the box, with the name plate left over it and the four status lines suppressed. Both 320-wide-only banks are taken from `dba\` and blitted doubled, the way the original doubles them. A destroyed squadmate's box sits on static: the original's idle paint reads the machine's own destroyed flag, which the host hands `SquadCommChannel.SetDestroyed` each frame; the comms-out latch is the channel's own, set where the loop sets it. The death scream flickers and latches as above.
 
 `CockpitWidgets` splits the order column's single click region into its eight rows so the shared hit test does the walk the original does by hand, and reports the map region only on the command display rather than leaving it live on the damage page.
 
@@ -484,7 +496,8 @@ XMIT delivers a real order — [`../simulation/ai-squadmates.md`](../simulation/
 
 - **Unported:** scrolling the damage rows. The engine has no row offset, so a 19-row structural list shows its first 13.
 - **Open:** how retail's 640-wide mode finds `static`. `static` and `pilot<n>` ship in `dba\` only, at 320-wide sizes; `pilot<n>` names its folder outright, but `static` is loaded through the shared `dba`/`hba` folder global, which selects `hba` in that mode and would miss.
-- **Open:** what the `DAT_0049d1f6` lookup table and the `Math_RandomNext % 3 + 0x18` arm are for. `gauge+0x133`, the frame-indirection flag `HddGauge_PaintPilotFrame` branches on, is set to 1 for every slot the loader builds, so neither is reached.
+- **Open:** what the `DAT_0049d1f6` lookup table is for. `gauge+0x133`, the frame-indirection flag `HddGauge_PaintPilotFrame` branches on, is set to 1 for every slot the loader builds, so the table branch is never taken.
+- **Unported:** the draw `HddGauge_PaintPilotFrame`'s live branch makes on every portrait paint. It rolls `Math_RandomNext % 3 + 0x18` and reads that frame's offset pair into two locals nothing uses, so the picture does not depend on it, but it advances the world's generator once per paint and this engine does not.
 - **Open:** `.GAU` block indices 2-3 (1220) and `0x5d` (1584). No constructor found reads them.
 - **Open:** the comm-box highlight mode's 0 branch, which fills the box rect rather than the marker. Retail data never selects it.
 - **Open:** what consumes `ICONS.HBA` frames 0-1 and the ninth frame of every rotation group. The display addresses none of them — the eight octants use offsets 0-7 and a destroyed object takes offset 0. The briefing map is the likely consumer of the first pair.

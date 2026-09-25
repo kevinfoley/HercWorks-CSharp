@@ -11,12 +11,16 @@ namespace HercWorks.Core.Data.File.Gau;
 /// every frame, centring a box of the measured text's own width on the screen, so the authored x
 /// pair is overwritten before anything is drawn with it.
 ///
-/// The <c>int32</c> at content offset 1664, immediately before this rect, is a per-herc vertical
-/// nudge applied to it on the multiplayer path only.
-///
 /// Read out of <see cref="GAUFile.Remainder"/> rather than carved out of it, exactly as
 /// <see cref="HGunsightArea"/>, <see cref="HHudScanner"/> and <see cref="HMessageTicker"/> are:
 /// surfaced here and still written back verbatim, so the byte-exact round-trip is untouched.
 /// </summary>
 public class HPilotMessagePort : WidgetBase {
+	/// <summary>
+	/// Content offset 1664, the <c>int32</c> immediately before the rect: how far the box is raised,
+	/// both edges, in a training mission. <c>FUN_00431bf8</c> subtracts it (coordinate-shifted) only
+	/// on the arm that builds the training port, which grows downward by eleven lines of text and so
+	/// needs the room. 34-85 across the retail files, 0 for RAZOR.
+	/// </summary>
+	public int TrainingLift { get; set; }
 }

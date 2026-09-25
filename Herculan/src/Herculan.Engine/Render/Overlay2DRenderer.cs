@@ -1196,6 +1196,51 @@ public sealed class Overlay2DRenderer : IDisposable {
 
 		// And the second port of the same class, built from the rect immediately before the ticker's.
 		AddPilotMessage(hud, sprites, state.PilotMessage, Dx, Dy, scale);
+		AddTrainingMessage(hud, sprites, state.TrainingMessage, Dx, Dy, scale);
+	}
+
+	/// <summary>
+	/// The training port's block — the instructor's sentences wrapped into white lines, left-aligned
+	/// in a black box with a red frame, the box as wide as the widest line and centred on the screen.
+	/// <see cref="TrainingMessageLayout"/> carries the rules.
+	/// </summary>
+	private void AddTrainingMessage(CockpitArt hud, HudSpriteSheet sprites, TrainingMessageBox? message,
+			Func<float, float> dx, Func<float, float> dy, float scale) {
+		if (message is not { Lines.Count: > 0 } block
+			|| TrainingMessageLayout.From(hud) is not { } box
+			|| sprites.Font(TrainingMessageLayout.Font) is not { } font) {
+			return;
+		}
+
+		const int screen = CockpitViewGeometry.ViewWidth;
+		int textWidth = block.Widest >= 0 ? font.Measure(block.Lines[block.Widest]) : 0;
+		int left = TrainingMessageLayout.Left(screen, textWidth);
+		int right = TrainingMessageLayout.Right(screen, textWidth);
+		int bottom = box.Top + TrainingMessageLayout.Height(block.Lines.Count);
+
+		if (hud.LogicalColor(TrainingMessageLayout.FillColorId) is { } fill) {
+			AddFilledRect(dx(left), dy(box.Top), dx(right), dy(bottom), fill);
+		}
+
+		if (hud.LogicalColor(TrainingMessageLayout.BorderColorId) is { } frame) {
+			AddRectOutline(dx(left), dy(box.Top), dx(right), dy(bottom), scale, frame);
+		}
+
+		for (int i = 0; i < block.Lines.Count; i++) {
+			float pen = TrainingMessageLayout.TextLeft(screen, textWidth);
+			float top = box.LineTop(i, font);
+
+			foreach (char c in block.Lines[i]) {
+				if (font.GlyphIndex(c) is { } glyph
+					&& sprites.Sprite(TrainingMessageLayout.Font, glyph) is { Width: > 0, Height: > 0 } cell) {
+					var r = cell.Rect;
+					AddTexturedQuad(dx(pen), dy(top), dx(pen + cell.Width), dy(top + cell.Height),
+						r.U0, r.V0, r.U1, r.V1);
+				}
+
+				pen += font.Width(c);
+			}
+		}
 	}
 
 	/// <summary>

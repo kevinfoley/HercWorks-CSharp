@@ -257,8 +257,8 @@ The three world fields are confirmed by `DBSim_LoadScriptDat` → `Terrain_LoadZ
 `DBSim_LoadScriptDat` only stores offset 8. Every reader takes the copy `TrainingMissionNumber` (`004aa7ac`) made at the end of the load (`00425321`), and three things test it:
 
 - **No music.** `Sim_InitMissionSession` sets the CD track only when it is 0, so a training mission runs in silence — see [`audio.md`](audio.md#which-track-and-whether-there-is-one).
-- **A different pilot and squad port.** The cockpit builds a `0x4ef`-byte instance at `view+0x207` instead of the ordinary `0x4df`-byte one, and lifts the box by its own height.
-- **Its own voice clips.** The instructor speaks from the `TM<n>_` name template rather than the squad's `P<bank>_` one, with this number as the digit — see [`audio.md`](audio.md#file-naming).
+- **A different pilot and squad port.** The cockpit builds a `0x4ef`-byte instance at `view+0x207` instead of the ordinary `0x4df`-byte one, raises its box by the `.GAU`'s offset-1664 value, and indexes `COMMAND<n>.STR` into it with this number as the digit.
+- **Its own voice clips.** The instructor speaks from the `TM<n>_` name template rather than the squad's `P<bank>_` one, with this number as the digit. Both are [`cockpit-messages.md`](cockpit-messages.md#the-training-port)'s.
 
 ### The training fields
 

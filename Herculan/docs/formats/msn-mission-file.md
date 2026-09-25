@@ -162,7 +162,7 @@ The mission action — `script.dat` block 5, laid out in [`../simulation/mission
 | `0x1A–0x43` | (42 bytes) | **dead** — constant padding (`0000` + twenty `-1`s) |
 | `0x44–0x45` | ref→herc/unit LUT | 1% real |
 | `0x46–0x4D` | ref[1..4]→LUT | **dead** — always `-1` |
-| `0x4E` | secondary value | 0 dominant ([Open](#open)) |
+| `0x4E` | message | the mission message the action posts, **plus one**; 0 for none. `script.dat` block 5 `0x4E` carries it through and DBSIM subtracts the one at load ([`../simulation/mission-deployment.md`](../simulation/mission-deployment.md#the-four-ways-an-action-activates)). 66 real instances: 65 in the four `TRAIN*.MSN` and one in `C1_02.MSN` |
 | `0x50` | polymorphic target | type chosen by `0x06` (0/1/3/4 → rows #12/#13/#14/#16); 1% real |
 
 
@@ -376,6 +376,5 @@ A line ending `" \n"` is authored to break there; the reader that copies these i
 - **Unported:** row #2's one-shot campaign-override/patch application (82 bytes/record, scratch-applied via `FUN_00416379`, never stored as a persistent array).
 - **Open:** whether row #5 (`DAT_0047066a`, skip-only, `count * 0x40` bytes) is read anywhere else, such as directly by DBSIM, rather than only skipped by this VSHELL load path.
 - **Unported:** the template-inheritance mechanism itself — a record's parent-index field copying an already-loaded record's fields, with per-field overrides layered on top. `MissionFileTransformer` round-trips the raw bytes but does not resolve the copy.
-- **Open:** what row #10's `0x4E` secondary value means; candidates are a timer or a sequence index.
 - **Open:** which of row #4's sub-array B and sub-array C is the mission briefing and which is the debrief.
 - **Open:** what row #13's `0x36` field is; nearly always `0`, not confirmed dead.

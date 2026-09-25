@@ -31,15 +31,16 @@ public sealed class PilotRoster {
 
 	/// <summary>
 	/// Entries the offset table is read for — <c>HddGauge_LoadPilotFrames</c>' hardcoded <c>0x1b</c>,
-	/// not a count in the file. The banks ship 28 frames, so the last is never placed.
+	/// not a count in the file. The banks ship 28 frames, so the last — the death scream's,
+	/// <see cref="SquadCommChannel.ScreamFrame"/> — is never placed and draws at (0, 0).
 	/// </summary>
 	public const int OffsetEntryCount = 27;
 
 	/// <summary>
 	/// Talking-head frames at the head of a portrait bank — the range a <c>.SNC</c> script's frame
 	/// bytes cover. The three frames after them are placed by the offset table but drawn by nothing:
-	/// the branch of <c>HddGauge_PaintPilotFrame</c> that would pick one is unreachable, because
-	/// the loader sets the flag that selects the other branch for every slot it builds.
+	/// <c>HddGauge_PaintPilotFrame</c>'s live branch rolls one of them and reads its offset pair into
+	/// locals it never uses.
 	/// </summary>
 	public const int TalkingFrameCount = 24;
 

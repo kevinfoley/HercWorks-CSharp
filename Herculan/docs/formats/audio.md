@@ -403,7 +403,7 @@ snc    = "P" + ('A' + slot) + suffix     in snc/
 
 `voiceBank` is `(slot >> 2) + 1`, with 3 remapped to 4 — so twelve squad slots share three recorded voices, `P1_`, `P2_`, `P4_`. That is the same 1/2/4 grouping as the channel's own message sets ([`cockpit-messages.md`](cockpit-messages.md#its-message-sets)). `SIMVOICE.VOL` holds 147 `P*_*.WAV` and 66 `CVM_*.WAV`, the cockpit computer's own lines.
 
-The three name templates live together in DATA as literals the loader patches digits into: `BC_00000`, `TMx_0000`, `CVM_0000`.
+The three name templates live together in DATA as literals the loader patches digits into: `BC_00000`, `TMx_0000`, `CVM_0000`. `TMx_` is the training instructor's, and its clips are loose files rather than archive entries — see [`cockpit-messages.md`](cockpit-messages.md#the-training-port).
 
 The archive is chosen by `Voice_ArchiveName` (`0045ef68`), which patches the last character of the literal `simvoice` with the language byte — `SIMVOICE` / `SIMVOICF` / `SIMVOICG`. All three are the same size, carry the same `SIMVOICE` folder label inside, and differ only in their recordings.
 

@@ -66,8 +66,9 @@ $matched = @($symbols | Where-Object {
     ($_.address -like "*$q*")
 })
 
-# Aliases: every spelling the repo might use for this symbol. The FUN_/DAT_ forms matter because
-# older docs were written before the symbol was named and still refer to it by raw address.
+# Aliases: every spelling the repo might use for this symbol. Older docs were written before the
+# symbol was named and still refer to it by raw address, usually as FUN_/DAT_/LAB_; Show-Hits
+# matches an address alias with any such prefix, so the prefixed forms need no alias of their own.
 $aliases = New-Object System.Collections.Generic.HashSet[string] ([StringComparer]::OrdinalIgnoreCase)
 $rejected = New-Object System.Collections.Generic.HashSet[string] ([StringComparer]::OrdinalIgnoreCase)
 
@@ -85,8 +86,6 @@ function Test-DistinctiveAlias {
 [void]$aliases.Add($q)
 foreach ($e in $matched) {
     [void]$aliases.Add($e.address)
-    [void]$aliases.Add("FUN_$($e.address)")
-    [void]$aliases.Add("DAT_$($e.address)")
     if ($e.name) {
         [void]$aliases.Add($e.name)
         # The C# port drops the module prefix: Math_CountdownTimerTick becomes
@@ -157,8 +156,15 @@ function Show-Hits {
     # Anchor on word boundaries. Substring matching makes a bare alias like "Draw" hit "drawn",
     # "redraw" and "DrawHeadsDown". [char]92 is a backslash, built this way rather than written
     # literally so the pattern survives being generated through a shell heredoc.
+    # An address is the exception: `_` is a word character, so \b never fires inside FUN_00442394,
+    # and an address with no known_symbols entry would go unfound. Addresses instead refuse only an
+    # adjacent letter or digit, which admits every Ghidra prefix (FUN_, DAT_, LAB_, PTR_, s_, ...)
+    # while still rejecting 00442394 inside 1004423940.
     $wb = [string][char]92 + 'b'
-    $patterns = @($aliases | ForEach-Object { $wb + [regex]::Escape($_) + $wb })
+    $patterns = @($aliases | ForEach-Object {
+        if ($_ -match '^[0-9A-Fa-f]{8}$') { '(?<![0-9A-Za-z])' + $_ + '(?![0-9A-Za-z])' }
+        else { $wb + [regex]::Escape($_) + $wb }
+    })
     $files = Get-ChildItem -Path $Root -Recurse -File -Include $Include -ErrorAction SilentlyContinue
     $hits = @($files | Select-String -Pattern $patterns -SimpleMatch:$false -ErrorAction SilentlyContinue)
 

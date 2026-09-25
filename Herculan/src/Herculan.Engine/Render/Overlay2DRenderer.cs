@@ -1743,6 +1743,9 @@ public sealed class Overlay2DRenderer : IDisposable {
 		for (int i = 0; i < slots; i++) {
 			var rect = weapons[i];
 			var row = i < state.Weapons.Count ? state.Weapons[i] : WeaponRowState.Empty;
+			if (!row.Powered) {
+				continue;
+			}
 
 			// The row's own font, which the slot number always wears: WHITE for the selected row and
 			// GRAY for the rest. A pod row's name is the exception — see nameFont.

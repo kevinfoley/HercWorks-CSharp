@@ -8696,8 +8696,53 @@
       "type": "function",
       "confidence": "high",
       "name": "Cockpit_PowerUpTick",
-      "description": "The cockpit power-up sequence, gated on the start tick Cockpit_PowerUpSound stamps at cockpit+0x241. Each pass arms any widget not yet armed with Widget_BeginPowerUpAnimation: the ten heads-down gauges each after their own delay from the DAT_0049b05a table, and cockpit+0x1e9, +0x1f5 (the roving gunsight) and +0x1ed as soon as elapsed is non-zero. Separately, once 200 < coarse ticks have passed, walks the ten gauges (FUN_0041b514, then FUN_00438700 < 0x5a) and posts message 0x22 POWERUP INITIATED. INTERNAL DAMAGE DETECTED. if any is under, else 0x21 ... ALL SYSTEMS NOMINAL. At 16 ms a coarse tick that lands 3.2 s in, inside start3's five seconds rather than after them.",
+      "description": "The cockpit power-up sequence, gated on the start tick Cockpit_PowerUpSound stamps at cockpit+0x241. Each pass arms any widget not yet armed with Widget_BeginPowerUpAnimation: the ten weapon-row gauges at cockpit+0x70 each after their own delay from PowerUp_RowArmDelays, and cockpit+0x1e9, +0x1f5 (the roving gunsight) and +0x1ed as soon as elapsed is non-zero. Separately, once 200 < coarse ticks have passed, walks ten damage readings (FUN_0041b514 over indices 0-9, then FUN_00438700 < 0x5a) and posts message 0x22 POWERUP INITIATED. INTERNAL DAMAGE DETECTED. if any is under, else 0x21 ... ALL SYSTEMS NOMINAL. At 16 ms a coarse tick that lands 3.2 s in, inside start3's five seconds rather than after them.",
       "source": "docs/formats/audio.md"
+    },
+    {
+      "address": "0049b05a",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "PowerUp_RowArmDelays",
+      "description": "Ten shorts, 20, 40, ... 200: the coarse-tick delay after the power-up start past which Cockpit_PowerUpTick arms each weapon-row gauge in cockpit+0x70, indexed by .GAU weapon row. Read from the PE; the Ghidra listing leaves all but the first two undefined.",
+      "source": "docs/formats/cockpit-hud-widgets.md"
+    },
+    {
+      "address": "00432018",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "CockpitView_RegisterWeaponGauge",
+      "description": "Stores a weapon-row gauge at cockpit+0x70 + row*4 (row -1 takes the first free slot), appends it to the view's widget list at +8 and counts it. The weapon-row array it fills is what Cockpit_PowerUpTick arms and the number-key handler indexes.",
+      "source": "docs/formats/cockpit-hud-widgets.md"
+    },
+    {
+      "address": "004437a4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShieldsGauge_PowerUpFill",
+      "description": "The shield meter's power-up fill, called by ShieldsGauge_Update while armed and not done: each displayed facing (+0xb5, +0xb9) is the lesser of the coarse ticks since arming and the live value ShieldsGauge_SetStateBlock parked at +0xcc/+0xd0; sets done (+0x8d) once both match, and marks the gauge dirty.",
+      "source": "docs/formats/cockpit-hud-widgets.md"
+    },
+    {
+      "address": "00440e84",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "EnergyWeaponGauge_PowerUpFill",
+      "description": "An energy weapon row's power-up fill: the charge bar shows min(elapsed * 0x19, live) against the coarse ticks since the row was armed, then the live value (+0xdb) and done from elapsed >= 0x33. Repaints both children.",
+      "source": "docs/formats/cockpit-hud-widgets.md"
+    },
+    {
+      "address": "00441d88",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "TurboPodGauge_PowerUpFill",
+      "description": "The Turbo Pod row's power-up fill, the same ramp as EnergyWeaponGauge_PowerUpFill over the pod's raw charge (+0xe2 into +0xc6): min(elapsed * 0x19, live) until elapsed > 0x32, then the live value and done. On a 2500-unit bar it climbs to 1250 and then jumps.",
+      "source": "docs/formats/cockpit-hud-widgets.md"
     },
     {
       "address": "00441f7c",

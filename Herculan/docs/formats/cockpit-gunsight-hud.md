@@ -92,7 +92,7 @@ The paint (`0043b6dc`) narrows the canvas clip to the rect and blits those two f
 
 #### Power-up wind-up
 
-On taking a machine the tape starts at north and winds round to the real heading. Two fields of the shared widget base carry it — `+0x8c` armed, `+0x8d` done — cleared by the base constructor (`00438b20`) and set by `Widget_BeginPowerUpAnimation` (`00438ddc`), which also stamps `+0x90` with `Time_GetCoarseTicks`. While armed and not done, `Gunsight_UpdateAndPaint` substitutes a ramp for the heading:
+On taking a machine the tape starts at north and winds round to the real heading — the gunsight's part in the cockpit's [power-up sequence](cockpit-hud-widgets.md#power-up-sequence), which owns the armed/done fields and the arming. While armed and not done, `Gunsight_UpdateAndPaint` substitutes a ramp for the heading:
 
 ```
 ramp = (ushort)((coarseTicks - +0x90) * 0x32)
@@ -100,11 +100,11 @@ heading <= 0x8000:  angle = ramp,   done when heading <= ramp
 heading >  0x8000:  angle = -ramp,  done when -ramp <= heading
 ```
 
-`0x32` a coarse tick is about 17°/s, so the longest wind-up is some ten seconds. It always takes the short way round: below half a turn the angle climbs from north, above it the angle descends. `Cockpit_PowerUpTick` (`00432924`) arms the gunsight on the first tick after `Cockpit_PowerUpSound` stamps the sequence's start, and arms the ten heads-down gauges on their own delays.
+`0x32` a coarse tick is about 17°/s, so the longest wind-up is some ten seconds. It always takes the short way round: below half a turn the angle climbs from north, above it the angle descends. `Cockpit_PowerUpTick` (`00432924`) arms the gunsight on the first tick after the sequence's start.
 
 **Two things stop it, which is why it is not seen every mission.**
 
-- **A flyer never winds up.** `Gau_BuildCockpitWidgets` (`00431bf8`) ends with a branch taken when the piloted machine's type record has `InputFlagFlyer` set — `mech+0x1f2 -> +0x50`, the RAZOR alone (see [`../simulation/mech-locomotion.md`](../simulation/mech-locomotion.md)'s type-record table). It arms *and* immediately marks done the gunsight and the ten gauges, and sets `cockpit+0x245`, which stops `Cockpit_PowerUpSound` ever stamping the start time. So a RAZOR cockpit reads true from its first frame; the same flag gates the engine hum, [`audio.md`](audio.md#the-cockpit-power-up).
+- **A flyer never winds up.** A RAZOR's cockpit skips the [whole sequence](cockpit-hud-widgets.md#power-up-sequence), so its compass reads true from the first frame.
 - **A heading past half a turn never winds up either.** The descending branch is done as soon as `-ramp <= heading`, and on the frame the widget is armed `ramp` is still zero — which is at or below every heading in that half. The arm and the first paint fall in the same pass, so a machine facing anywhere past `0x8000` is done before it has moved. The climbing branch survives that frame, since a climbing zero is below every heading but zero itself. Listed in [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
 
 Only the tape is ramped. The waypoint indicators over it go on reading the true heading throughout, so they and the compass visibly disagree for as long as the wind-up lasts.

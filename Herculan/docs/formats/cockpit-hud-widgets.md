@@ -248,6 +248,42 @@ Each file is the same typeface stencilled in one palette index, so **a widget pi
 
 Format, glyph layout and per-file ink indices: [`dfn-hfn-dci.md`](dfn-hfn-dci.md).
 
+## Power-up sequence
+
+On taking a walking machine the cockpit comes up piece by piece rather than reading true from its first frame. Three fields of the shared widget base carry it — `+0x8c` armed, `+0x8d` done, `+0x90` the coarse tick it was armed on — cleared by the base constructor (`00438b20`) and set by `Widget_BeginPowerUpAnimation` (`00438ddc`); each class reads them in its own paint and update. A coarse tick is `Time_GetCoarseTicks` (`00467724`), `GetTickCount() >> 4`: 16 ms of wall time.
+
+`Cockpit_PowerUpSound` (`004328cc`) stamps the sequence's start at `cockpit+0x241`, and `Cockpit_PowerUpTick` (`00432924`) arms, once a frame, every widget whose moment has come:
+
+| Widget | Armed once ticks since the start | While armed and not done |
+|---|---|---|
+| Weapon rows, `cockpit+0x70` | `> 20 * (row + 1)` | [the row winks on](#weapon-rows-wink-on) |
+| `ShieldsGauge`, `cockpit+0x1e9` | `!= 0` | [the rings fill](#shield-rings-fill) |
+| Roving gunsight, `cockpit+0x1f5` | `!= 0` | the compass winds up — [`cockpit-gunsight-hud.md`](cockpit-gunsight-hud.md#power-up-wind-up) |
+| MFD, `cockpit+0x1ed` | `!= 0` | [Open](#open) |
+
+**A flyer skips all of it.** `Gau_BuildCockpitWidgets` (`00431bf8`) ends with a branch taken when the piloted machine's type record has `InputFlagFlyer` set — `mech+0x1f2 -> +0x50`, the RAZOR alone (see [`../simulation/mech-locomotion.md`](../simulation/mech-locomotion.md)'s type-record table). It arms *and* marks done every widget in the table, and sets `cockpit+0x245`, which stops `Cockpit_PowerUpSound` ever stamping the start. The same flag gates the engine hum, [`audio.md`](audio.md#the-cockpit-power-up).
+
+Engine: `Herculan.Engine.Content.CockpitPowerUp`, and `HeadingTapeSweep` for the compass.
+
+### Weapon rows wink on
+
+`cockpit+0x70` is ten widget slots indexed by `.GAU` weapon row. `FUN_00432018`, the registration every weapon-row gauge factory ends in, stores the gauge at its row; the number-key handler in `CockpitWidgets_HandleCommand` indexes the same array to arm a row. The delays are `DAT_0049b05a`, ten shorts reading 20, 40, … 200, so the rows arm top to bottom 320 ms apart and the last at 3.2 s.
+
+Every weapon and pod gauge's paint (`FUN_00440c68`, `FUN_004411b4`, `PodGauge_Paint`, `FUN_00441c14`) and every child's (`WeaponSelectGadget_Paint`, `FUN_00442394`, both through the owner at child `+0x24`) opens on the owning gauge's armed byte. **A row that is not armed draws nothing**, so the console art shows where it will be.
+
+Once armed, an energy row's charge bar fills rather than appearing full. `FUN_00440e84` shows `min(elapsed * 0x19, value)` against the ticks since the row was armed, then the live value outright from `elapsed >= 0x33`. That reaches `0x400`, the bar's whole range, before the ramp ends. The Turbo Pod's bar runs the same ramp in `FUN_00441d88`, but its value is the pod's raw charge on a 2500-unit bar, so it climbs to 1250 and then jumps to the tank's real level. An ammunition row (`FUN_00441268`) marks itself done on its first update and has nothing to ramp.
+
+### Shield rings fill
+
+Until the meter is done, `ShieldsGauge_SetStateBlock` (`00443858`) copies each frame's live facings to `+0xcc`/`+0xd0` and zeroes the displayed pair at `+0xb5`/`+0xb9`, so before it is armed [the ring ramp](#ring-ramp--shieldsgauge_updateringpalette-004438f0) paints all six rings dark. Once armed, `ShieldsGauge_Update` calls `FUN_004437a4` each frame until done:
+
+```
+shown = min(ticks since armed, live)      -- per facing, on the rings' 0..0x800 scale
+done when both facings show their live value
+```
+
+One ring unit a tick, so an even split's `0x200` fills in 512 ticks, about eight seconds. The readouts are not ramped: `+0xbd`, the balance they print, passes straight through.
+
 ## Per-frame ordering
 
 `maybe_Sim_RenderFrame` (`0045fb9c`): `Terrain_SetupVisibleRegion`, then `FUN_004327ac` (`CockpitViewInstance` widget paint dispatch), then `maybe_Scene_SubmitFrameObjects` (the 3D world), then `Player_PerFrameCockpitUpdate`, then three more paint dispatches on `CockpitViewInstance` sub-objects (`+0x1f5`, `FUN_00433158`'s result, `+0x20b`).
@@ -256,4 +292,6 @@ Format, glyph layout and per-file ink indices: [`dfn-hfn-dci.md`](dfn-hfn-dci.md
 
 - **Unported:** `WPN_DMG`'s damage fill on a weapon row. The per-mount reading behind it is combined entry `32 + slot` of `Component_FillDamageReadouts`' buffer, which the engine's Heads-Down Display weapons page already prints, but the engine's weapon rows do not carry it. They also draw the row plate as the underlay instead of `WPN_DMG` frame 0, which is equivalent only while the row is undamaged.
 - **Open:** what consumes `PWEAPONS` frame 7, a 640x80 strip.
+- **Unported:** the MFD's power-up. While armed and not done, `MfdDisplay_Update` (`00446328`) steps the `radar` bank sequence at `+0x331` when the display is on the scanner (mode 3), marks itself done when it ends, and frees the bank; on any other screen it is done once the coarse tick passes `+0x345`, stamped `+0x46` ticks ahead.
+- **Open:** what the MFD's power-up puts on screen — which frames of the `radar` bank it shows and where.
 - **Open:** which mech-object field picks each widget's frame or fill level per frame, for the widgets this doc does not already trace. The `.GAU` holds only geometry.

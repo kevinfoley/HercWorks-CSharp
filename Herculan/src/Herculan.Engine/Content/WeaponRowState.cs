@@ -48,6 +48,10 @@ namespace Herculan.Engine.Content;
 /// draws it in <c>dark</c> over a green plate flooded across the whole name label. Always false on a
 /// row that is not a pod, and on a destroyed one.
 /// </param>
+/// <param name="Powered">
+/// Whether the cockpit's power-up has reached this row yet. A row it has not is not drawn at all —
+/// see <see cref="CockpitPowerUp.RowPowered"/>.
+/// </param>
 public readonly record struct WeaponRowState(
 	string Name,
 	WeaponMountKind Kind,
@@ -57,7 +61,8 @@ public readonly record struct WeaponRowState(
 	int Rounds,
 	int ChargeMeter,
 	bool ChargeBar = false,
-	bool PodButton = false) {
+	bool PodButton = false,
+	bool Powered = true) {
 
 	/// <summary>A <c>.GAU</c> slot with no mount on it.</summary>
 	public static WeaponRowState Empty { get; } =
@@ -109,15 +114,22 @@ public readonly record struct WeaponRowState(
 	/// <c>STRINGS0.STR</c>, for the two labels above. Without it a pod row prints its bare weapon name
 	/// and a destroyed one prints nothing — neither is invented.
 	/// </param>
+	/// <param name="powerUp">
+	/// The cockpit's power-up, which hides the rows it has not reached and holds the charge bars back
+	/// while they fill. Null for a panel drawn as it stands.
+	/// </param>
+	/// <param name="coarseTicks">The current coarse tick, for <paramref name="powerUp"/>'s ramps.</param>
 	public static IReadOnlyList<WeaponRowState> Build(WeaponMounts mounts, int slots,
-			SimStringTable? strings) {
+			SimStringTable? strings, CockpitPowerUp? powerUp = null, long coarseTicks = 0) {
 		string offline = strings?.Text(OfflineStringGroup, 0) ?? string.Empty;
 		string podSuffix = strings?.Text(PodSuffixStringGroup, 0) ?? string.Empty;
 
 		var rows = new WeaponRowState[Math.Max(slots, 0)];
 		for (int slot = 0; slot < rows.Length; slot++) {
+			bool powered = powerUp?.RowPowered(slot) ?? true;
+			int chargeCap = powerUp?.RowChargeCap(slot, coarseTicks) ?? int.MaxValue;
 			if (mounts.BySlot(slot) is not { } mount) {
-				rows[slot] = Empty;
+				rows[slot] = Empty with { Powered = powered };
 				continue;
 			}
 
@@ -140,13 +152,17 @@ public readonly record struct WeaponRowState(
 				mount.Rounds,
 				// Each bar is scaled to the range its own gauge was built with, so both arrive here in
 				// the LED bar's 0-1024 units. The Turbo's range is wider than its tank, so a full pod
-				// reads four-fifths of a bar exactly as a charged energy weapon does.
-				turbo ? (mount.Charge << 10) / WeaponMount.TurboMeterRange : mount.ChargeMeterValue,
+				// reads four-fifths of a bar exactly as a charged energy weapon does. The power-up's
+				// ramp clamps the value in the gauge's own units, before that scaling.
+				turbo
+					? (Math.Min(mount.Charge, chargeCap) << 10) / WeaponMount.TurboMeterRange
+					: Math.Min(mount.ChargeMeterValue, chargeCap),
 				ChargeBar: turbo || mount.Kind is WeaponMountKind.Energy or WeaponMountKind.Elf,
 				// The destroyed byte at +0xc3 wins outright in the pod row's paint, which never reaches
 				// the button at +0xc2 — so an offline pod's row draws neither the dark font nor the
 				// green plate, whatever the button was left at.
-				PodButton: mount.PodButton && !mount.Disabled);
+				PodButton: mount.PodButton && !mount.Disabled,
+				Powered: powered);
 		}
 
 		return rows;

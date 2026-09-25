@@ -417,7 +417,7 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	/// <see cref="PowerUpAnnounceDelay"/> has passed since the sequence began.
 	///
 	/// <para><b>Always the nominal line.</b> The original chooses between it and
-	/// <see cref="SystemMessages.PowerUpDamaged"/> by walking the ten heads-down gauges and testing
+	/// <see cref="SystemMessages.PowerUpDamaged"/> by walking ten damage readings and testing
 	/// each one's reading against 0x5a, through two accessors (<c>FUN_0041b514</c> and
 	/// <c>Damage_ToConditionState</c>) that are not decompiled — so what that reading is a percentage <i>of</i>
 	/// is not known, and the threshold is not transcribed rather than guessed at. A machine taken at

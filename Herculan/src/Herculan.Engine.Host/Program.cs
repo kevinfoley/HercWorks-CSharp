@@ -961,11 +961,17 @@ if (audio.Director is { } musicDirector) {
 
 audio.StartMissionMusic(mission.Header, musicTrackSelect);
 
+// The weapon rows winking on and the shield rings filling are the same sequence's. A --screenshot
+// run starts with them finished: its warm-up is half a second, and the last row arms at 3.2 s.
 HeadingTapeSweep? headingSweep = null;
+var cockpitPowerUp = CockpitPowerUp.Finished;
 if (pilotMech != null) {
 	audio.SetListener(pilotMech.EyePosition, pilotMech.Heading);
 	audio.PowerUp(pilotMech);
 	headingSweep = HeadingTapeSweep.ForPowerUp(pilotMech, audio.CoarseTicks);
+	if (screenshotPath == null) {
+		cockpitPowerUp = CockpitPowerUp.ForPowerUp(pilotMech, audio.CoarseTicks);
+	}
 }
 
 if (pilotMech != null) {
@@ -2357,6 +2363,9 @@ window.Update += deltaSeconds => {
 		// component. Both consumers — the front-window target box and the MFD's F5 doll — read this.
 		var targetAim = pilotMech.ResolveTargetAimPoint();
 
+		// Cockpit_PowerUpTick's arming pass, which runs from the cockpit's own per-frame update.
+		cockpitPowerUp.Tick(audio.CoarseTicks);
+
 		hudState = hudState with {
 			MissionTime = missionClock.Text,
 			SpeedKph = pilotMech.DisplaySpeedKph,
@@ -2372,7 +2381,7 @@ window.Update += deltaSeconds => {
 			ShieldRear = pilotMech.Shields.RearReadout,
 			EnergyFraction = pilotMech.EnergyPoolFraction,
 			Weapons = WeaponRowState.Build(pilotMech.Weapons,
-				cockpitArt.Gau.WeaponListTotal, cockpitArt.Strings),
+				cockpitArt.Gau.WeaponListTotal, cockpitArt.Strings, cockpitPowerUp, audio.CoarseTicks),
 			ChainGroup = pilotMech.Weapons.Group,
 			AutoTrack = pilotMech.Weapons.AutoTrack,
 			Target = ResolveTargetIndicator(pilotMech, targetAim),
@@ -2521,10 +2530,13 @@ window.Render += (_, gl) => {
 	// live version repaints those pixels and re-uploads — which UpdateShieldRings only asks for on the
 	// frames where a ring's colour actually changed, so a settled array costs one comparison.
 	if (cockpitArt != null && pilotMech != null && cockpitFrontTexture != null) {
+		// While the cockpit is powering up the rings fill from dark instead — see CockpitPowerUp.
 		var shieldRings = pilotMech.Shields;
-		bool repainted = cockpitArt.UpdateShieldRings(
+		var (frontRings, rearRings) = cockpitPowerUp.ShieldCharges(
 			CockpitPalette.ShieldFacingCharge(shieldRings.Front, shieldRings.BaseMax),
-			CockpitPalette.ShieldFacingCharge(shieldRings.Rear, shieldRings.BaseMax));
+			CockpitPalette.ShieldFacingCharge(shieldRings.Rear, shieldRings.BaseMax),
+			audio.CoarseTicks);
+		bool repainted = cockpitArt.UpdateShieldRings(frontRings, rearRings);
 
 		if (repainted) {
 			// Through whichever buffer the damage flash is currently showing — the repaint writes the

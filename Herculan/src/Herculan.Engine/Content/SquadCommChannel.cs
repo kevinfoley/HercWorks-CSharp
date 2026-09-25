@@ -134,7 +134,10 @@ public sealed class SquadCommChannel {
 
 	/// <param name="content">The mounted archives, for the portrait scripts and the message sets.</param>
 	/// <param name="roster">The pilot roster, or null when <c>PILOTS.STR</c> would not load.</param>
-	/// <param name="random">The generator the variant roll draws on — pass the world's.</param>
+	/// <param name="random">
+	/// The generator the variant roll, the scream's flicker and the portrait paint draw on — pass the
+	/// world's <see cref="Sim.SimWorld.PresentationRandom"/>.
+	/// </param>
 	/// <param name="trainingMission">
 	/// The mission's training number, which picks both the speakerless set (<c>COMMAND&lt;n&gt;.STR</c>)
 	/// and the port class — see <see cref="SquadMessagePort.Training"/>.
@@ -446,6 +449,7 @@ public sealed class SquadCommChannel {
 					StepScream(box);
 				} else {
 					box.PortraitFrame = Math.Clamp(frame, 0, PilotRoster.TalkingFrameCount - 1);
+					PaintPortraitDraw();
 				}
 
 				break;
@@ -478,6 +482,7 @@ public sealed class SquadCommChannel {
 	private void StepScream(Box box) {
 		if (!box.ScreamStatic) {
 			box.PortraitFrame = ScreamFrame;
+			PaintPortraitDraw();
 			if (box.Deadline < _now) {
 				box.ScreamStatic = true;
 			}
@@ -495,6 +500,13 @@ public sealed class SquadCommChannel {
 
 		box.ScreamWasStatic = box.ScreamStatic;
 	}
+
+	/// <summary>
+	/// The draw <c>HddGauge_PaintPilotFrame</c> (<c>0044b120</c>) makes on every portrait paint and
+	/// throws away. It moves nothing on screen, only the generator the scream's roll and every sound
+	/// and message variant draw on after it — see docs/formats/heads-down-display.md#the-three-paints.
+	/// </summary>
+	private void PaintPortraitDraw() => _random?.Next();
 
 	private static void AdvanceStatic(Box box) {
 		box.StaticFrame++;

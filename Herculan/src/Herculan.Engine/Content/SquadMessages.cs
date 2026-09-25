@@ -48,7 +48,10 @@ public sealed class SquadMessages {
 
 	/// <summary>
 	/// One recording of <paramref name="id"/>, rolled among its variants the way
-	/// <c>MessagePort_PickVariant</c> (<c>00436a3c</c>) does, or null when the file has no such id.
+	/// <c>PilotMessagePort_Post</c> (<c>00435c48</c>) and <c>MessagePort_PickVariant</c>
+	/// (<c>00436a3c</c>) do, or null when the file has no such id. Both take the full sixteen bits
+	/// unsigned, <c>(next &amp; 0xffff) % count</c>, rather than <see cref="Numerics.SimRandom.NextBelow"/>'s
+	/// fifteen, and draw only when there is more than one variant.
 	/// </summary>
 	public Entry? Pick(int id, Numerics.SimRandom? random) {
 		var entries = Variants(id);
@@ -58,7 +61,7 @@ public sealed class SquadMessages {
 
 		return entries.Count == 1 || random == null
 			? entries[0]
-			: entries[random.NextBelow((short)entries.Count)];
+			: entries[random.NextMasked(0xffff) % entries.Count];
 	}
 
 	/// <summary>

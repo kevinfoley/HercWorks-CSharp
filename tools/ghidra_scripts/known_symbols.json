@@ -4546,6 +4546,51 @@
       "source": "docs/formats/heads-down-display.md 2026-08-20"
     },
     {
+      "address": "00450bcc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddDamageScreen_NextView",
+      "description": "Steps the damage category forward, 2 wrapping to 0, through HddDamageScreen_SetView. Reached from HddDisplay_HandleWidgetPress's arrow-up (2) and widget-9 cases on page 1.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "00450bf0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddDamageScreen_PrevView",
+      "description": "Steps the damage category back, 0 wrapping to 2, through HddDamageScreen_SetView. Reached from HddDisplay_HandleWidgetPress's arrow-down (3) case on page 1.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "00450c18",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddDamageScreen_PageDown",
+      "description": "Adds 13 to the damage row offset +0x84 while offset + 13 is below the row count +0x90. es2_xref finds no branch, stored pointer or vtable slot reaching it.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "00450c38",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddDamageScreen_PageUp",
+      "description": "Takes 13 off the damage row offset +0x84 unless that would go below 0. es2_xref finds no branch, stored pointer or vtable slot reaching it.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
+      "address": "00451e8b",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "HddDamageScreen_KeyDispatch",
+      "description": "Vtable slot 4 of the damage screen (0049dab0), the slot HddDisplay's key dispatch forwards unhandled scancodes to. Returns 0: the screen handles no key of its own.",
+      "source": "docs/formats/heads-down-display.md"
+    },
+    {
       "address": "00450c54",
       "binary": "DBSIM",
       "type": "function",

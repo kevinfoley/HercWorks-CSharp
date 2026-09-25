@@ -52,12 +52,16 @@ public sealed class CockpitHitShake {
 	/// <summary>The toggle interval's bound in coarse ticks, the same function's <c>rand() % 10</c>.</summary>
 	private const short ToggleTickBound = 10;
 
-	/// <summary>
-	/// Its own stream. The original draws both the step and the toggle interval from the one global
-	/// generator the simulation also uses; drawing them from that one here would advance the
-	/// simulation's sequence once a frame from the render loop. See <see cref="SimRandom(int)"/>.
-	/// </summary>
-	private readonly SimRandom _random = new(0x0043408c);
+	private readonly SimRandom _random;
+
+	/// <param name="random">
+	/// The generator the step and the flash interval draw on — pass the world's
+	/// <see cref="Sim.SimWorld.PresentationRandom"/>, the block both of the original's functions take.
+	/// Omitted, it is a private one at the vanilla state.
+	/// </param>
+	public CockpitHitShake(SimRandom? random = null) {
+		_random = random ?? new SimRandom();
+	}
 
 	private bool _running;
 	private double _remainingSeconds;

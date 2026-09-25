@@ -187,7 +187,8 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	/// </summary>
 	/// <param name="content">The mounted archives. Must include <c>SIMSOUND.VOL</c> for the samples.</param>
 	/// <param name="random">
-	/// The generator the variation roll draws on — pass the world's, as the original does.
+	/// The generator the variation roll draws on — pass the world's
+	/// <see cref="Sim.SimWorld.PresentationRandom"/>, as the original does.
 	/// </param>
 	/// <param name="lowMemory">Select the half-rate <c>hmx</c> sample bank.</param>
 	/// <param name="silent">

@@ -583,8 +583,9 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// from the row's state, giving the manual's green through red plus grey for inoperative — see
 	/// <see cref="PaperDollDamage.RowFont"/>.</para>
 	///
-	/// <para>The rows do not scroll: the original carries a row offset this engine has no input for, so
-	/// a 19-row structural list shows its first thirteen.</para>
+	/// <para>The rows do not scroll, in the original either: its row offset stays 0 on every path found,
+	/// so a view with more regions than <see cref="HddLayout.DamageRowCount"/> labels its first thirteen
+	/// and the doll still tints the rest — docs/formats/heads-down-display.md#damage-detail--page-1.</para>
 	///
 	/// <para>The paper doll is the herc's own <c>.PDG</c> view for the category — front for structural,
 	/// rear for internal — blitted at the screen rect's top-left plus that view's own origin, which is

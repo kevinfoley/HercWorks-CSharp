@@ -114,8 +114,8 @@ public sealed class HddLayout {
 	/// </summary>
 	public const int StructuralRowCount = 19;
 
-	/// <summary>Damage rows the screen has labels for — <c>FUN_0045079c</c>'s loop bound. The
-	/// structural view names 19 components, so the list scrolls.</summary>
+	/// <summary>Damage rows the screen has labels for — <c>HddDamageScreen_Ctor</c>'s loop bound, and
+	/// the most a view ever labels.</summary>
 	public const int DamageRowCount = 13;
 
 	/// <summary>

@@ -357,7 +357,7 @@ Three categories, set by `HddDamageScreen_SetView` (`00450b60`), which also sets
 
 The flyer variant is selected by a flag at the subject type's `+0x50`.
 
-**Rows**: 13 label pairs, so a 19-entry structural list scrolls. Each row is 8 device pixels tall at a 14-pixel pitch from the column's top. The name starts `0x1e << XCoordShift` = 60 pixels in from the column's left edge and runs to the value column, whose width is the measured width of the literal `"100"` (`0049da9d`) taken off the column's right edge. Both labels sit on background id 19.
+**Rows**: 13 label pairs, windowed by a row offset at `+0x84`: row *i* is labelled only while `offset <= i < min(offset + 13, count)`, with `count` the `+0x90` that `HddDamageScreen_SetView` sets, and it lands on label `i - offset`. `SetView` zeroes the offset and no path found moves it — the display's arrow presses step the category and the subject, and the screen's own key slot, `HddDamageScreen_KeyDispatch` (`00451e8b`), returns 0 — so a view labels its first 13 regions ([Open](#open)). Two structural views across the 21 retail `.PDG` files have more: PITBULL's 17 regions and SPIDER's 14. The doll still tints every region, because the tint loop is not windowed. Each row is 8 device pixels tall at a 14-pixel pitch from the column's top. The name starts `0x1e << XCoordShift` = 60 pixels in from the column's left edge and runs to the value column, whose width is the measured width of the literal `"100"` (`0049da9d`) taken off the column's right edge. Both labels sit on background id 19.
 
 **A row is a `.PDG` region, not a table entry.** The update walks the category's region vector in file order and takes each region's `index` as the index into the name group *and* into `Component_FillDamageReadouts`' buffer — armour entry `1 + id` for structural, dependent entry `20 + id` for internal. The two orders differ: every retail internal view lists its regions 0,1,2,5,6,7,8,3,4,9, so reading group 15 top to bottom gives the wrong names. The value is `(0x100 - reading) * 100 >> 8`, the same integrity percentage the MFD's label 4 prints, which is what the `"100"` reservation is sized for.
 
@@ -459,6 +459,8 @@ The comms-out latch is set only there and at the end of a message whose speaker'
 | `HddGauge_PaintPilotFrame` `0044b120` | The same flood, then the `pilot<n>` frame at its `.OFS` offset |
 | `HddGauge_PaintStatic` `0044b3b4` | The `static` bank's 5 frames, cycled one per paint |
 
+`HddGauge_PaintPilotFrame`'s live branch also rolls `Math_RandomNext % 3 + 0x18` and reads that frame's offset pair into two locals nothing uses. The picture does not depend on it, but every portrait paint — the scream's face half included — advances the [presentation generator](../simulation/random-generator.md#the-presentation-generator) once, ahead of whatever the scream's flicker, the next sound or the next message variant draws from it.
+
 The two video paints refresh the name label and **nothing else**, so the plate stays and the four status lines under it are simply not drawn while a picture is up. Both clip to the video rect — `CommBox_PushVideoClip` (`0044b83c`) installs it and `CommBox_PopVideoClip` (`0044b8f8`) takes it back off — which is why a portrait taller than its box is cut off at the bezel.
 
 `HddGauge_ConditionIndex` (`0044adf4`) averages the subject's 19 structural damage bytes into a 0-100 integrity percentage and buckets it at 90 / 74 / 51 / 1 into group 28's five conditions.
@@ -482,7 +484,7 @@ Drawn: page buttons with lit state, the four arrows and two magnifiers, the titl
 
 Everything the command display draws is drawn. Zoom, pan, recentring, pilot selection and target designation are all wired to both the widgets and the keys.
 
-The comm boxes run their four-state machine and draw what it says: the `pilot<n>` portrait at its `.OFS` offset or the cycling `static`, clipped to the box, with the name plate left over it and the four status lines suppressed. Both 320-wide-only banks are taken from `dba\` and blitted doubled, the way the original doubles them. A destroyed squadmate's box sits on static: the original's idle paint reads the machine's own destroyed flag, which the host hands `SquadCommChannel.SetDestroyed` each frame; the comms-out latch is the channel's own, set where the loop sets it. The death scream flickers and latches as above.
+The comm boxes run their four-state machine and draw what it says: the `pilot<n>` portrait at its `.OFS` offset or the cycling `static`, clipped to the box, with the name plate left over it and the four status lines suppressed. Both 320-wide-only banks are taken from `dba\` and blitted doubled, the way the original doubles them. A destroyed squadmate's box sits on static: the original's idle paint reads the machine's own destroyed flag, which the host hands `SquadCommChannel.SetDestroyed` each frame; the comms-out latch is the channel's own, set where the loop sets it. The death scream flickers and latches as above. Each portrait paint makes its discarded draw on `SimWorld.PresentationRandom`, the generator the scream's roll and the message variants share.
 
 `CockpitWidgets` splits the order column's single click region into its eight rows so the shared hit test does the walk the original does by hand, and reports the map region only on the command display rather than leaving it live on the damage page.
 
@@ -494,10 +496,9 @@ XMIT delivers a real order — [`../simulation/ai-squadmates.md`](../simulation/
 
 ## Open
 
-- **Unported:** scrolling the damage rows. The engine has no row offset, so a 19-row structural list shows its first 13.
+- **Open:** what reaches `HddDamageScreen_PageDown` (`00450c18`) and `HddDamageScreen_PageUp` (`00450c38`). They page the damage row offset forward and back by 13, the first only while a row remains past the current window and the second never below 0, but `es2_xref.py` finds no branch, stored pointer or vtable slot holding either, while the two category steps beside them, `HddDamageScreen_NextView` and `_PrevView`, are reached from `HddDisplay_HandleWidgetPress`. Until something does, the offset stays 0.
 - **Open:** how retail's 640-wide mode finds `static`. `static` and `pilot<n>` ship in `dba\` only, at 320-wide sizes; `pilot<n>` names its folder outright, but `static` is loaded through the shared `dba`/`hba` folder global, which selects `hba` in that mode and would miss.
 - **Open:** what the `DAT_0049d1f6` lookup table is for. `gauge+0x133`, the frame-indirection flag `HddGauge_PaintPilotFrame` branches on, is set to 1 for every slot the loader builds, so the table branch is never taken.
-- **Unported:** the draw `HddGauge_PaintPilotFrame`'s live branch makes on every portrait paint. It rolls `Math_RandomNext % 3 + 0x18` and reads that frame's offset pair into two locals nothing uses, so the picture does not depend on it, but it advances the world's generator once per paint and this engine does not.
 - **Open:** `.GAU` block indices 2-3 (1220) and `0x5d` (1584). No constructor found reads them.
 - **Open:** the comm-box highlight mode's 0 branch, which fills the box rect rather than the marker. Retail data never selects it.
 - **Open:** what consumes `ICONS.HBA` frames 0-1 and the ninth frame of every rotation group. The display addresses none of them — the eight octants use offsets 0-7 and a destroyed object takes offset 0. The briefing map is the likely consumer of the first pair.

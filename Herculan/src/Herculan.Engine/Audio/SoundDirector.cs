@@ -53,9 +53,9 @@ public sealed class SoundDirector : IDisposable {
 	/// <param name="bank">The catalog and its samples.</param>
 	/// <param name="backend">Where sound goes. Pass a <see cref="NullAudioBackend"/> to run silent.</param>
 	/// <param name="random">
-	/// The generator the variation roll draws on. The original uses the simulation's single global
-	/// state block for this, the same one weapon scatter rolls against, so pass
-	/// <see cref="Sim.SimWorld.Random"/> rather than a private generator when there is a world.
+	/// The generator the variation roll draws on. The original draws it from its second state block,
+	/// which the comm boxes and message variants share and the simulation does not, so pass
+	/// <see cref="Sim.SimWorld.PresentationRandom"/> rather than a private generator when there is a world.
 	/// </param>
 	public SoundDirector(SoundBank bank, IAudioBackend backend, SimRandom? random = null) {
 		_bank = bank;

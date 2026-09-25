@@ -64,4 +64,4 @@ That is worth knowing up front, and it is not a reason to skip it: even a noisy 
 - **Open:** driving the same input. The simplest first scenario is one with no player input at all: an AI-only engagement, or the player's machine left stationary. Scripted input replay is a later problem and may not be needed for a long time.
 - **Open:** how to launch a specific mission in retail without going through the shell.
 - **Open:** injection mechanics. A DLL with a trampoline hook is the fast, reliable option. A debugger script needs no build step but breaks on every tick, which may be too slow to run whole missions; benchmark it.
-- **Open:** whether `0x4d268f`, the second generator state block seeded beside the shared one, matters to anything the harness compares. Trace its consumers.
+- **Open:** whether the [presentation generator](../simulation/random-generator.md#the-presentation-generator) at `0x4d268f` feeds anything the harness compares. Its sounds, messages, portraits and shakes do not; the four consumers that doc leaves open decide it.

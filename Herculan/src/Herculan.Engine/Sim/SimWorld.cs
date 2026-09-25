@@ -52,10 +52,10 @@ public sealed class SimWorld {
 	/// every destruction throwing nothing, which is what this engine did before the pool existed.
 	/// </param>
 	/// <param name="random">
-	/// The generator this world rolls on. DBSIM has exactly one, shared by everything from the
-	/// load-time terrain pass onward, so a caller that rolls before the world exists should build it
-	/// and hand the same instance in rather than letting this make a second one. Omitted, it starts
-	/// at <see cref="SimRandom"/>'s vanilla state.
+	/// The generator this world rolls on. DBSIM's simulation shares one, from the load-time terrain
+	/// pass onward, so a caller that rolls before the world exists should build it and hand the same
+	/// instance in rather than letting this make a second one. Omitted, it starts at
+	/// <see cref="SimRandom"/>'s vanilla state.
 	/// </param>
 	public SimWorld(HeightGrid terrain, BulletCatalog? bullets = null,
 			ExplosionCatalog? explosions = null, RocketCatalog? rockets = null,
@@ -101,6 +101,14 @@ public sealed class SimWorld {
 	/// in the engine to draw on it during a tick.
 	/// </summary>
 	public SimRandom Random { get; }
+
+	/// <summary>
+	/// DBSIM's second generator, the state block at <c>0x4d268f</c> that sounds, message variants,
+	/// the comm-box portraits and the cockpit hit shake draw on, so none of them moves
+	/// <see cref="Random"/>. Seeded beside it to the same vanilla state — see
+	/// docs/simulation/random-generator.md#the-presentation-generator.
+	/// </summary>
+	public SimRandom PresentationRandom { get; } = new();
 
 	/// <summary>
 	/// <c>DAT_004a9ee0</c> — the mission difficulty, <c>0</c>-<c>3</c>, out of
@@ -480,7 +488,10 @@ public sealed class SimWorld {
 		_effects.Add(new ImpactEffect(
 			typeId, record, Explosions.FrameCount(record.ShapeIndex), position, EffectLights));
 
-		if (playSound) {
+		if (playSound && record.SoundId >= 0) {
+			// Math_RandomBelow(0x32) on the presentation generator, whose result the constructor throws
+			// away before playing the row's own sound (004080ca).
+			PresentationRandom.NextBelow(0x32);
 			PlayTableSound(record.SoundId, position);
 		}
 	}

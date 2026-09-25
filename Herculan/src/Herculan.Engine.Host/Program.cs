@@ -364,7 +364,7 @@ var terrain = scene.World.Terrain;
 // Audio comes up against the same mounted archives and shares the simulation's generator, because
 // the variation roll draws on it exactly as weapon scatter does. It never throws: a machine with no
 // device gets a working GameAudio that happens to be silent.
-var audio = GameAudio.Create(content, scene.World.Random, silent: silentAudio, cdDrive: cdDrive,
+var audio = GameAudio.Create(content, scene.World.PresentationRandom, silent: silentAudio, cdDrive: cdDrive,
 	musicDirectory: musicDirectory);
 audio.Attach(scene.World);
 Console.WriteLine($"Audio: {audio.Status}");
@@ -573,7 +573,7 @@ var cockpitViewKick = new CockpitViewKick();
 
 // And the damage shake, which rides the same centre and is ticked beside the kick in the original's
 // own cockpit pass — see CockpitHitShake.
-var cockpitHitShake = new CockpitHitShake();
+var cockpitHitShake = new CockpitHitShake(scene.World.PresentationRandom);
 
 if (startOnHeadsDown) {
 	RequestHeadsDown(headsDown: true);
@@ -718,7 +718,7 @@ if (cockpitArt?.HeadsDownLayout is { } commandLayout && scene.World is { } comma
 // boxes have to know who is in them, and that comes off each machine's own pilot index.
 var flashComm = new MfdFlashCommScreen();
 var pilotRoster = PilotRoster.Load(content);
-var squadComm = new SquadCommChannel(content, pilotRoster, scene.World.Random,
+var squadComm = new SquadCommChannel(content, pilotRoster, scene.World.PresentationRandom,
 	mission.Header.TrainingMissionNumber);
 var squadSeats = new SimObject?[SquadCommChannel.SlotCount];
 var pilotVideos = new SquadTransmission?[SquadCommChannel.SlotCount];

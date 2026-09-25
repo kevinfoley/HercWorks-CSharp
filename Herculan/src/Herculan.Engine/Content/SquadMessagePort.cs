@@ -48,7 +48,10 @@ public sealed class SquadMessagePort {
 	/// <c>PILOT&lt;bank&gt;.STR</c>, or the speakerless set for
 	/// <see cref="SquadCommChannel.NoSpeaker"/>. Null for a slot with nobody in it.
 	/// </param>
-	/// <param name="random">The generator the variant roll draws on — pass the world's.</param>
+	/// <param name="random">
+	/// The generator the variant roll draws on — pass the world's
+	/// <see cref="Sim.SimWorld.PresentationRandom"/>.
+	/// </param>
 	/// <param name="training">Whether this is the training mission's port class — see <see cref="Training"/>.</param>
 	public SquadMessagePort(Func<int, SquadMessages?> catalogs, SimRandom? random = null, bool training = false) {
 		_catalogs = catalogs ?? throw new ArgumentNullException(nameof(catalogs));

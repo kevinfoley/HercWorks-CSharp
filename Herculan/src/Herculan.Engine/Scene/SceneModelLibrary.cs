@@ -43,8 +43,11 @@ namespace Herculan.Engine.Scene;
 /// <param name="Cells">
 /// The same geometry as <paramref name="Mesh"/> split by the cell each piece stands on, for an
 /// object whose shape loses parts to damage but does not animate — see
-/// <see cref="DtsMeshBuilder.BuildCells"/>. A caller draws either <paramref name="Mesh"/> or these,
-/// never both. Empty for every roster that does not ask for it.
+/// <see cref="DtsMeshBuilder.BuildCells"/> — or by <c>TSDetailPart</c> level alone, for a weapon, a
+/// launcher round or a piece of debris, whose levels are chosen per frame but whose flipbook cell is
+/// already baked (<see cref="DtsMeshBuilder.BuildDetailLevels"/>). A caller draws either
+/// <paramref name="Mesh"/> or these, never both. Empty for every roster that does not ask for it, and
+/// for a leveled shape that has no detail part.
 /// </param>
 public sealed record SceneModel(
 	string Key, MeshVertex[] Mesh, int TriangleVertexCount, TextureAtlas? Atlas,
@@ -438,7 +441,7 @@ public sealed class SceneModelLibrary {
 
 		var cells = new List<SceneModel>();
 		for (int cell = 0; cell < DtsMeshBuilder.CellFrameCount(root); cell++) {
-			if (Build(RocketLibraryName, modelId, bankName: null, cellFrame: cell) is { } model) {
+			if (Build(RocketLibraryName, modelId, bankName: null, cellFrame: cell, leveled: true) is { } model) {
 				cells.Add(model);
 			}
 		}
@@ -479,7 +482,8 @@ public sealed class SceneModelLibrary {
 		for (int cell = 0; cell < DtsMeshBuilder.CellFrameCount(root); cell++) {
 			// Opaque, like a machine's own bank and unlike a billboard's: these are ordinary textured
 			// polys and index 0 is a colour in them, not a hole.
-			if (Build(MechWeaponLibraryName, shapeIndex, MechWeaponBankName, cellFrame: cell) is { } model) {
+			if (Build(MechWeaponLibraryName, shapeIndex, MechWeaponBankName, cellFrame: cell,
+					leveled: true) is { } model) {
 				cells.Add(model);
 			}
 		}
@@ -574,7 +578,7 @@ public sealed class SceneModelLibrary {
 	/// through the theater ramp.
 	/// </summary>
 	public SceneModel? Debris(string shapeLibrary, int shapeIndex, string? bankName) =>
-		Build(shapeLibrary, shapeIndex, bankName);
+		Build(shapeLibrary, shapeIndex, bankName, leveled: true);
 
 	/// <summary>How many roots a debris shape file has, or zero when the install has none of it.</summary>
 	public int ShapeCount(string shapeLibrary) => LoadDts(shapeLibrary)?.Meshes?.Count ?? 0;
@@ -645,14 +649,14 @@ public sealed class SceneModelLibrary {
 
 	private SceneModel? Build(string dtsName, int rootIndex, string? bankName,
 			bool segmented = false, bool transparentBank = false, int cellFrame = 0,
-			IReadOnlySet<short>? hiddenPartIds = null, bool celled = false) {
+			IReadOnlySet<short>? hiddenPartIds = null, bool celled = false, bool leveled = false) {
 		string key = cellFrame == 0 ? $"dts\\{dtsName}#{rootIndex}" : $"dts\\{dtsName}#{rootIndex}@{cellFrame}";
 		if (_models.TryGetValue(key, out var cached)) {
 			return cached;
 		}
 
 		var model = BuildFromRoot(key, Root(dtsName, rootIndex), bankName, segmented, transparentBank,
-			cellFrame, hiddenPartIds, celled);
+			cellFrame, hiddenPartIds, celled, leveled);
 		_models[key] = model;
 		return model;
 	}
@@ -727,7 +731,7 @@ public sealed class SceneModelLibrary {
 
 	private SceneModel? BuildFromRoot(string key, TSObject? root, string? bankName,
 			bool segmented = false, bool transparentBank = false, int cellFrame = 0,
-			IReadOnlySet<short>? hiddenPartIds = null, bool celled = false) {
+			IReadOnlySet<short>? hiddenPartIds = null, bool celled = false, bool leveled = false) {
 		if (root == null) {
 			return null;
 		}
@@ -741,15 +745,17 @@ public sealed class SceneModelLibrary {
 
 		// Bounds and radius both come off the flat mesh whichever way the model ends up being drawn:
 		// they describe the machine at rest and undamaged, and neither a walk cycle nor a part coming
-		// off should change how wide it is for collision purposes. Both splits cost a second pass over
+		// off should change how wide it is for collision purposes. Each split costs a second pass over
 		// the shape, so only the rosters that need one ask: segments for what animates, cells for what
-		// damage takes apart without animating.
+		// damage takes apart without animating, levels for the transient shapes built a cell at a time.
 		return new SceneModel(key, build.Vertices, build.TriangleVertexCount, atlas,
 			(int)(radiusInRenderUnits * WorldScale.WorldUnitsPerMeter),
 			(int)(extent.Y * WorldScale.WorldUnitsPerMeter),
 			segmented ? DtsMeshBuilder.BuildSegments(root, atlas, _shading, hiddenPartIds) : Array.Empty<MeshSegment>(),
 			DtsSpriteBuilder.Build(root),
-			celled ? DtsMeshBuilder.BuildCells(root, atlas, _shading, hiddenPartIds) : Array.Empty<MeshCell>());
+			celled ? DtsMeshBuilder.BuildCells(root, atlas, _shading, hiddenPartIds)
+				: leveled ? DtsMeshBuilder.BuildDetailLevels(root, atlas, _shading, cellFrame)
+				: Array.Empty<MeshCell>());
 	}
 
 	/// <summary>

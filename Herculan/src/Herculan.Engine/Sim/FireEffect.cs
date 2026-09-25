@@ -129,9 +129,8 @@ public sealed class FireEffect {
 	public const short FrameInterval = 0x40;
 
 	/// <summary>
-	/// How many passes a fire plays — 30, except in theater 4, the Moon, where it is
-	/// <see cref="MoonLoopCount"/>. This engine does not tell the simulation which theater it is in,
-	/// so it is always 30.
+	/// How many passes a fire plays — 30, except on the Moon (<see cref="SimWorld.OnMoon"/>), where
+	/// it is <see cref="MoonLoopCount"/>.
 	///
 	/// <para>The original also reads this field as the eviction priority when the pool is full, which
 	/// makes the fire with the least left to burn the one that gets taken.</para>

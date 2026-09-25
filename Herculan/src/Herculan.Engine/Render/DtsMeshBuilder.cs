@@ -27,8 +27,9 @@ namespace Herculan.Engine.Render;
 /// <param name="Detail">
 /// The <see cref="TSDetailPart"/> this piece is one level of, or null for geometry under none — the
 /// second thing that decides whether a piece is drawn, and per frame rather than per damage state.
-/// Only <see cref="DtsMeshBuilder.BuildCells"/> and <see cref="DtsMeshBuilder.BuildSegments"/> build
-/// every level; the other builds take the finest and leave this null. No retail shape nests a detail
+/// Only <see cref="DtsMeshBuilder.BuildCells"/>, <see cref="DtsMeshBuilder.BuildSegments"/> and
+/// <see cref="DtsMeshBuilder.BuildDetailLevels"/> build every level; the other builds take the finest
+/// and leave this null. No retail shape nests a detail
 /// part inside another or inside a cell-animation part, though cells inside a level are common, so
 /// one detail gate and one cell gate are the whole of the condition.
 /// </param>
@@ -323,8 +324,9 @@ public static class DtsMeshBuilder {
 		/// <summary>
 		/// Whether the walk descends into <i>every</i> level of a <see cref="TSDetailPart"/>, tagging
 		/// each with the gate it is drawn under, rather than taking the finest. Set wherever
-		/// <see cref="AllCells"/> is: the level is chosen per object per frame, from how far away the
-		/// object is, so one mesh cannot be built around it.
+		/// <see cref="AllCells"/> is, and by <see cref="BuildDetailLevels"/> without it: the level is
+		/// chosen per object per frame, from how far away the object is, so one mesh cannot be built
+		/// around it.
 		/// </summary>
 		public bool AllDetailLevels { get; init; }
 
@@ -517,6 +519,24 @@ public static class DtsMeshBuilder {
 		var sink = new Collector { AllCells = true, AllDetailLevels = true };
 		Collect(root, null, sink, atlas, shading, cellFrame: 0, hiddenPartIds);
 		return EmitCells(sink);
+	}
+
+	/// <summary>
+	/// <see cref="BuildRoot"/>'s mesh at <paramref name="cellFrame"/>, split by <see cref="TSDetailPart"/>
+	/// level alone — for a shape whose cells are a flipbook built one mesh per cell, but whose detail
+	/// levels are still chosen per object per frame: a weapon, a launcher round, a piece of debris.
+	///
+	/// <para>Every piece comes back ungated by cell, since <paramref name="cellFrame"/> has already
+	/// picked the one cell each cell-animation part shows; no retail shape nests a detail part inside
+	/// a cell-animation part, so that pick cannot hide a level. Empty when the shape has no detail
+	/// part, which leaves <see cref="BuildRoot"/>'s single mesh as the whole of it.</para>
+	/// </summary>
+	public static MeshCell[] BuildDetailLevels(TSObject root, TextureAtlas? atlas = null,
+			SurfaceShading? shading = null, int cellFrame = 0) {
+		var sink = new Collector { AllDetailLevels = true };
+		Collect(root, null, sink, atlas, shading, cellFrame);
+		var pieces = EmitCells(sink);
+		return pieces.Any(piece => piece.Gate.IsDetailGated) ? pieces : Array.Empty<MeshCell>();
 	}
 
 	/// <summary>
@@ -936,8 +956,8 @@ public static class DtsMeshBuilder {
 	/// sub-structure, paired 1:1 with ascending on-screen-size thresholds in <c>Details</c>. This
 	/// takes the <b>last</b> one, which is the level <c>TSDetailPart_Render</c> (<c>004768bc</c>)
 	/// draws at bias 0 for an object close enough — see <see cref="PartDetail.Select"/>. It is what
-	/// every build but <see cref="BuildCells"/> and <see cref="BuildSegments"/> draws, at any
-	/// distance.
+	/// every build but <see cref="BuildCells"/>, <see cref="BuildSegments"/> and
+	/// <see cref="BuildDetailLevels"/> draws, at any distance.
 	///
 	/// <para>Picking the part paired with the largest <i>threshold</i> is not the same rule, though
 	/// it agrees on every retail shape (all of them end at 255). It would diverge on a file whose

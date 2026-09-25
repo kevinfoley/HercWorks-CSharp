@@ -56,11 +56,13 @@ public sealed class DebrisObject {
 	/// Ticks of countdown before it bursts. Drawn for every piece, read only by one that has a child
 	/// group.
 	/// </param>
+	/// <param name="hercDetailBias">Whether it is drawn under HERC DETAIL's bias — see <see cref="HercDetailBias"/>.</param>
 	internal DebrisObject(string shapeLibrary, int shapeIndex, int shapeRadius, short childGroup,
 			short destroyEffect, DebrisDatabase? childTable, Vec3i position,
 			(short X, short Y, short Z) euler, (short X, short Y, short Z) velocity,
-			short spinRate, short lifetime) {
+			short spinRate, short lifetime, bool hercDetailBias = false) {
 		ShapeLibrary = shapeLibrary;
+		HercDetailBias = hercDetailBias;
 		ShapeIndex = shapeIndex;
 		_shapeRadius = shapeRadius;
 		ChildGroup = childGroup;
@@ -78,6 +80,18 @@ public sealed class DebrisObject {
 
 	/// <summary>And which root of it.</summary>
 	public int ShapeIndex { get; }
+
+	/// <summary>
+	/// <c>obj+0x50</c>, the <c>TSDetailPart</c> bias <c>Debris_Draw</c> (<c>00408e6c</c>) pushes around
+	/// the piece's render: 0 from <c>Debris_Construct</c>, which is every table-thrown piece, and
+	/// HERC DETAIL's for the gun <see cref="WeaponMount.Destroy"/> throws, which is drawn under the
+	/// same bias it was drawn under on its mount.
+	///
+	/// <para>A flag here rather than the number: the original copies the bias in at the throw, and
+	/// this engine resolves it from the setting when the piece is drawn, so a HERC DETAIL change while
+	/// a gun is in the air re-biases it here and not in the original.</para>
+	/// </summary>
+	public bool HercDetailBias { get; }
 
 	/// <summary>The group it bursts into where it ends, or <c>-1</c>.</summary>
 	public short ChildGroup { get; }
@@ -135,8 +149,7 @@ public sealed class DebrisObject {
 	/// </list>
 	///
 	/// <para>The gravity is <see cref="Gravity"/> everywhere except theater 4, the Moon, where it is
-	/// <see cref="MoonGravity"/> and debris hangs noticeably longer. This engine does not tell the
-	/// simulation which theater it is in, so it always uses the first figure.</para>
+	/// <see cref="MoonGravity"/> and debris hangs noticeably longer.</para>
 	/// </summary>
 	internal bool Tick(SimWorld world) {
 		var position = Position;
@@ -146,7 +159,7 @@ public sealed class DebrisObject {
 		euler.X += (short)SimMath.IntegrateRateOverTick(SpinRate);
 
 		var before = velocity;
-		velocity.Z += (short)SimMath.IntegrateRateOverTick(Gravity);
+		velocity.Z += (short)SimMath.IntegrateRateOverTick(world.OnMoon ? MoonGravity : Gravity);
 		velocity.X -= (short)SimMath.IntegrateRateOverTick((short)SimMath.Q10Multiply(HorizontalDrag, velocity.X));
 		velocity.Y -= (short)SimMath.IntegrateRateOverTick((short)SimMath.Q10Multiply(HorizontalDrag, velocity.Y));
 
@@ -209,7 +222,7 @@ public sealed class DebrisObject {
 
 	/// <summary>
 	/// What the original substitutes when <c>ScriptDatHeader</c> — the theater index — is 4, the
-	/// Moon: <c>-10</c>, a third of the weight. Not used here; see <see cref="Tick"/>.
+	/// Moon: <c>-10</c>, a third of the weight.
 	/// </summary>
 	public const short MoonGravity = -10;
 

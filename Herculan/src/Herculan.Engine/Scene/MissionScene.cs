@@ -307,7 +307,8 @@ public sealed class MissionScene {
 			// The shell chose these three before it wrote the script — see SimWorld.Difficulty.
 			Difficulty = mission.Header.Difficulty,
 			UnlimitedAmmunition = mission.Header.UnlimitedAmmunition,
-			PlayerInvulnerable = mission.Header.PlayerInvulnerable
+			PlayerInvulnerable = mission.Header.PlayerInvulnerable,
+			Theater = mission.Header.TheaterIndex
 		};
 		var models = new SceneModelLibrary(content, theater);
 		var baseTypes = BaseTypeTable.Load(content);

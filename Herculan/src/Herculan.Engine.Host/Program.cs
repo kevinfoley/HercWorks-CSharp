@@ -1188,11 +1188,15 @@ var detailChains = new List<MechDetailChain>();
 // Every drawn piece that is one level of a TSDetailPart, and so is on screen only while that part's
 // projected size selects its level -- TSDetailPart_Render's choice, made per object per frame by
 // SelectDetailLevels. Only what is built by cell or by node is here: a structure, its wreck and a
-// flyer, which are the shapes that carry detail parts and are drawn under STRUCTURE DETAIL's bias.
+// flyer, which are drawn under STRUCTURE DETAIL's bias. Guns, launcher rounds and debris carry detail
+// parts too, and choose their levels as their items are rebuilt each frame -- see AddAtDetail.
 var detailLevelParts = new List<(SimObject Object, CellGate Gate, SceneItem Item)>();
 
 // SelectDetailLevels' per-frame scratch: the level each object's detail part chose this frame.
 var detailLevelChoice = new Dictionary<(SimObject, PartDetail), int>();
+
+// And AddAtDetail's, for the one transient shape it is making items for.
+var transientLevelChoice = new Dictionary<PartDetail, int>();
 
 // And the same for a shape split by cell rather than by node -- a flyer, or a structure of one of the
 // 57 types that carry no animation, which loses parts to damage but has no posed nodes. One upload
@@ -3611,16 +3615,56 @@ void SelectDetailLevels() {
 	foreach (var (owner, gate, item) in detailLevelParts) {
 		var detail = gate.Detail!;
 		if (!detailLevelChoice.TryGetValue((owner, detail), out int level)) {
-			// Eye to the part's own node rather than to the object's origin: the original measures
-			// after binding the part's transform, so the distance is to where that node sits.
-			var node = Vector3.Transform(detail.Origin, WorldScale.ToRenderMatrix(owner.WorldFrame));
-			int distance = (int)Math.Min(
-				Vector3.Distance(node, eye) * WorldScale.WorldUnitsPerMeter, int.MaxValue);
-			level = detail.Select(distance, focalPixels, bias);
+			level = detail.Select(DetailDistance(detail, WorldScale.ToRenderMatrix(owner.WorldFrame), eye),
+				focalPixels, bias);
 			detailLevelChoice[(owner, detail)] = level;
 		}
 
 		item.DetailSelected = level == gate.Level;
+	}
+}
+
+// Eye to a detail part's own node, in world units, for an object drawn at `transform`. To the node
+// rather than to the object's origin: the original measures after binding the part's transform, so
+// the distance is to where that node sits.
+int DetailDistance(PartDetail detail, Matrix4x4 transform, Vector3 eye) {
+	var node = Vector3.Transform(detail.Origin, transform);
+	return (int)Math.Min(Vector3.Distance(node, eye) * WorldScale.WorldUnitsPerMeter, int.MaxValue);
+}
+
+// One transient shape's items for this frame -- a gun on its mount, a launcher round or a piece of
+// wreckage, which are rebuilt every frame rather than kept. A shape with no TSDetailPart is its one
+// mesh; one with them is its ungated pieces plus the level of each detail part TSDetailPart_Render
+// (004768bc) selects under `bias`, chosen here as the item is made because that is when the
+// original chooses it.
+void AddAtDetail(List<SceneItem> into, SceneModel model, Matrix4x4 transform, int bias,
+		Func<GpuMesh, SceneItem> make) {
+	if (!cellMeshes.TryGetValue(model.Key, out var pieces)) {
+		if (modelMeshes.TryGetValue(model.Key, out var mesh)) {
+			into.Add(make(mesh));
+		}
+
+		return;
+	}
+
+	int focalPixels = DetailFocalPixels();
+	var eye = WorldScale.ToRender(camera.Position);
+	transientLevelChoice.Clear();
+
+	for (int i = 0; i < pieces.Length; i++) {
+		var gate = model.Cells[i].Gate;
+		if (gate.Detail is { } detail) {
+			if (!transientLevelChoice.TryGetValue(detail, out int level)) {
+				level = detail.Select(DetailDistance(detail, transform, eye), focalPixels, bias);
+				transientLevelChoice[detail] = level;
+			}
+
+			if (level != gate.Level) {
+				continue;
+			}
+		}
+
+		into.Add(make(pieces[i]));
 	}
 }
 
@@ -3691,19 +3735,24 @@ void RefreshDropPodItems() {
 // One item per piece of wreckage in the air, from the shape file and root its own record names --
 // a debris table's .DTS for anything a destruction threw, and MECHWPN2.DTS for a gun knocked off its
 // hardpoint. The transform is the piece's own frame, so the tumble shows.
+//
+// Debris_Draw (00408e6c) pushes the piece's own detail bias: 0 for a table-thrown piece, HERC DETAIL's
+// for a gun -- see DebrisObject.HercDetailBias.
 void RefreshDebrisItems() {
 	debrisItems.Clear();
+	int hercBias = PartDetail.HercBias(simulatorPreferences[SimulatorPreferences.HercDetailOption]);
 
 	foreach (var piece in scene.World.DebrisInFlight) {
 		if (!scene.DebrisModels.TryGetValue(piece.ShapeLibrary, out var shapes)
 			|| piece.ShapeIndex < 0 || piece.ShapeIndex >= shapes.Count
-			|| shapes[piece.ShapeIndex] is not { } model
-			|| !modelMeshes.TryGetValue(model.Key, out var mesh)) {
+			|| shapes[piece.ShapeIndex] is not { } model) {
 			continue;
 		}
 
 		uint? texture = modelTextures.TryGetValue(model.Key, out var bound) ? bound.Handle : null;
-		debrisItems.Add(new SceneItem(mesh, WorldScale.ToRenderMatrix(piece.WorldTransform), texture));
+		var transform = WorldScale.ToRenderMatrix(piece.WorldTransform);
+		AddAtDetail(debrisItems, model, transform, piece.HercDetailBias ? hercBias : 0,
+			mesh => new SceneItem(mesh, transform, texture));
 	}
 }
 
@@ -3720,8 +3769,11 @@ void RefreshDebrisItems() {
 // an arm or a shoulder, out where a pilot can see it, and its flash is the whole point.
 // maybe_Scene_SubmitFrameObjects (0042841c) submits every mech in GlobalMechList with no
 // local-player test of any kind, so nothing in the original hides either.
+//
+// The mount's draw slot (FUN_0040ded8) pushes HERC DETAIL's TSDetailPart bias around the render.
 void RefreshWeaponItems() {
 	weaponItems.Clear();
+	int bias = PartDetail.HercBias(simulatorPreferences[SimulatorPreferences.HercDetailOption]);
 
 	foreach (var sceneObject in scene.Objects) {
 		if (sceneObject.Object is not MechObject mech || sceneObject.Object.AwaitingDeployment) {
@@ -3735,16 +3787,13 @@ void RefreshWeaponItems() {
 			}
 
 			var model = cells[mount.FlashCell % cells.Count];
-			if (!modelMeshes.TryGetValue(model.Key, out var mesh)) {
-				continue;
-			}
-
 			uint? texture = modelTextures.TryGetValue(model.Key, out var bound) ? bound.Handle : null;
+			var transform = WorldScale.ToRenderMatrix(mount.ModelFrame(mech));
+
 			// Lit as part of the machine it hangs off, which is how the original draws it: a mount's
 			// shape is composed into the mech's own render entry, so it takes that entry's selection.
-			weaponItems.Add(new SceneItem(mesh, WorldScale.ToRenderMatrix(mount.ModelFrame(mech)), texture) {
-				LightSubject = mech
-			});
+			AddAtDetail(weaponItems, model, transform, bias,
+				mesh => new SceneItem(mesh, transform, texture) { LightSubject = mech });
 		}
 	}
 }
@@ -3777,17 +3826,18 @@ void RefreshProjectileItems() {
 	}
 
 	void AddModel(SceneModel model, Transform3 frame) {
-		if (!modelMeshes.TryGetValue(model.Key, out var mesh)) {
-			return;
-		}
-
 		uint? texture = modelTextures.TryGetValue(model.Key, out var bound) ? bound.Handle : null;
+		var transform = WorldScale.ToRenderMatrix(frame);
 
 		// Fullbright, because Bullet_Draw — the vtable slot both classes are drawn through — zeroes
 		// the ramp's row count around the shape render, which makes a round's textured polys a plain
 		// palette copy with no light term. See SceneItem.Fullbright. The plasma round is the one
 		// retail shape it shows on; every other projectile shape is untextured.
-		projectileItems.Add(new SceneItem(mesh, WorldScale.ToRenderMatrix(frame), texture, fullbright: true));
+		//
+		// Bias 0, because Bullet_Draw pushes none: a launcher round's detail parts are chosen by
+		// projected size alone, whatever either detail setting says.
+		AddAtDetail(projectileItems, model, transform, 0,
+			mesh => new SceneItem(mesh, transform, texture, fullbright: true));
 	}
 }
 

@@ -16,8 +16,6 @@ The mechanism is understood; what is left is engine work.
 - **Flyer control bindings.** The flight model is ported and the axis roles are known, but key bindings are hardcoded placeholders. → [`docs/simulation/razor-flight.md`](docs/simulation/razor-flight.md)
 - **The engine can only load a `script.dat` handoff, not a `.MSN`.** `MissionLoader` builds a mission out of the campaign handoff alone; the ~50 real missions in `ZONES.VOL` are `.MSN` files, whose format is decoded and read by `HercWorks.Core`'s `MissionFileTransformer` but which nothing turns into a `Mission`. So the engine can be played against a handful of saved states and not against the game's own missions, and a scenario that is not in the handoff — a ground-vehicle convoy, for one — has to be built by hand. → [`docs/formats/msn-mission-file.md`](docs/formats/msn-mission-file.md), [`docs/formats/script-dat.md`](docs/formats/script-dat.md)
 - **Demo recording and playback.** → [`docs/formats/tap-input-tape.md`](docs/formats/tap-input-tape.md)
-- **LOD for guns, rockets and debris.** Structures, their wrecks and flyers choose their `TSDetailPart` LOD per frame under STRUCTURE DETAIL; the other three always draw their finest LOD, so the bias HERC DETAIL gives a weapon mount acts on nothing. → [`docs/formats/dts-texture-binding.md`](docs/formats/dts-texture-binding.md#where-the-bias-comes-from)
-- **The Moon's debris and fire.** In theater 4 debris falls under a third of the gravity, and fires burn five loops instead of thirty in two shapes of the four; the simulation is not told which theater it is in. → [`docs/simulation/destruction-effects.md`](docs/simulation/destruction-effects.md#fire)
 
 ## Reverse-engineering still open
 

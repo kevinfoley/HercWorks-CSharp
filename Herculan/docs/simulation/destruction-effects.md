@@ -143,7 +143,7 @@ Gravity is `-0x20` everywhere but theater 4, the Moon — the test is `CMP word 
 | `+0x57` | frame timer, reloaded to `0x40` |
 | `+0x59` | loops remaining: 30, or 5 on the Moon |
 
-On the Moon — the same theater test, at `0046b3b0` — only shapes 1 and 3 are built at all; the others go straight back on the free list. The first live instance starts sound `0x33` and `FireEffect_Dtor` stops it on the last — one loop for every fire in the mission at once, kept positioned on whichever is nearest the camera.
+On the Moon — the same theater test, at `0046b3b0` — only shapes 1 and 3 are built at all; the others go straight back on the free list. The test runs after the caller has taken the slot, so with the pool full a filtered fire still evicts the live one with the fewest loops left and lights nothing in its place. The machine sites below light only shapes 0 and 2, so on the Moon a machine never burns — though the whole-object branch still releases the fires already on it. The first live instance starts sound `0x33` and `FireEffect_Dtor` stops it on the last — one loop for every fire in the mission at once, kept positioned on whichever is nearest the camera.
 
 `FireEffect_TickUpdate` is the tick: count the frame timer down, step the shape's cell animation, decrement the loop count each time the frame wraps to zero, then re-place the effect from wherever the owner has carried it to. It ends when the loop count reaches zero. So a fire **loops** where an impact effect plays once.
 
@@ -221,7 +221,7 @@ Every spawn site in the table above is ported. Both pools are capped at the orig
 
 The carrier velocity at `004a96e4` is `Flyer_ComponentDamageWrite`'s alone: it points the global at the aircraft's own world velocity for the length of that call, so the wreckage a shot-down flyer sheds keeps flying. `Sim.SimWorld.DebrisCarrierVelocity` is the port.
 
-EFFECTS DETAIL is `SimWorld.EffectsDetail`, which the host copies out of `prefs.cfg` every frame: `BaseObject.SmokesAtStage` is the smoke test and `DebrisObject` gates the burst. The simulation is not told which theater it is in, so the Moon's gravity and fire figures are not reproduced ([Open](#open)).
+EFFECTS DETAIL is `SimWorld.EffectsDetail`, which the host copies out of `prefs.cfg` every frame: `BaseObject.SmokesAtStage` is the smoke test and `DebrisObject` gates the burst. The theater is `SimWorld.Theater`, set from the `script.dat` header at load; `SimWorld.OnMoon` is the theater-4 test both `DebrisObject.Tick` and `SimWorld.SpawnFire` make.
 
 **The arcs are large at this world scale.** A `DEF_DEB` group-2 throw peaks around 48 m and lands about 137 m out over 5 seconds. That follows from constants none of which are this engine's — the 33-88° pitch window, `420 << 10 / mass`, gravity `-0x20`, and the un-integrated position add confirmed in the disassembly above.
 
@@ -235,7 +235,3 @@ EFFECTS DETAIL is `SimWorld.EffectsDetail`, which the host copies out of `prefs.
 | `WeaponMount_Destroy`'s third argument selects a debris *lifetime*, shorter for the local player | It selects a `(childGroup, deathEffect)` pair, and it is the *path* that picks it: the certain notification passes 0 and the destruction roll passes 1. Neither call site tests who is flying |
 | `Sound_DetailSetting` is an audio setting | The name comes from the sound throttle's read. The byte is the EFFECTS DETAIL row, and it also decides a collapsing structure's smoke and pace and a debris piece's burst ([EFFECTS DETAIL](#effects-detail)) |
 | A debris piece's `+0x59` is a lifetime or an eviction priority, as it is on a fire | Different classes at the same offset. On a piece it is the `EXPLOS.DAT` type that goes off where the piece ends |
-
-## Open
-
-- **Unported:** the Moon's debris gravity, fire loop count and fire-shape filter. The engine uses the other theaters' figures everywhere.

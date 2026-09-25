@@ -190,6 +190,21 @@ public sealed class SimWorld {
 	public int EffectsDetail { get; set; } = 2;
 
 	/// <summary>
+	/// The theater, 0-4 — <see cref="World.ScriptDatHeader.TheaterIndex"/>, which the original tests
+	/// straight out of its copy of the header (<c>ScriptDatHeader</c>). The simulation asks it one
+	/// question, whether this is <see cref="MoonTheater"/>, and asks it twice: in a debris piece's
+	/// gravity (<see cref="DebrisObject"/>) and in which fires light and for how long
+	/// (<see cref="SpawnFire"/>). See docs/simulation/destruction-effects.md.
+	/// </summary>
+	public int Theater { get; set; }
+
+	/// <summary>Theater 4, the Moon — <c>WORLD8</c>/<c>WORLD9</c>.</summary>
+	public const int MoonTheater = 4;
+
+	/// <summary>Whether <see cref="Theater"/> is <see cref="MoonTheater"/>.</summary>
+	internal bool OnMoon => Theater == MoonTheater;
+
+	/// <summary>
 	/// The bias every sound id stored in a data table carries — <c>BULLETS.DAT</c>'s fire sound,
 	/// <c>ROCKETS.DAT</c>'s and an <c>EXPLOS.DAT</c> row's. Those tables index the effects half of
 	/// the catalog from zero, so the id they store is <see cref="SoundId.FirstEffect"/> short of a
@@ -681,7 +696,7 @@ public sealed class SimWorld {
 
 		_debris.Add(new DebrisObject(shapeLibrary, shapeIndex, shapeRadius, childGroup, destroyEffect,
 			childTable, position, euler, LaunchVelocity(bearing, pitch, mass, ThrowSpeedScale),
-			DrawSpinRate(), DrawBurstDelay()));
+			DrawSpinRate(), DrawBurstDelay(), hercDetailBias: true));
 	}
 
 	/// <summary>
@@ -778,6 +793,13 @@ public sealed class SimWorld {
 	///
 	/// <para>The original also starts the shared burning sound on the first live fire and stops it on
 	/// the last, which <see cref="ReleaseFires"/> holds the other end of.</para>
+	///
+	/// <para><b>On the Moon only shapes 1 and 3 burn.</b> The constructor puts any other shape
+	/// straight back on the free list — <i>after</i> the slot was taken, so with the pool full a
+	/// filtered fire still evicts the weakest one and lights nothing in its place. A machine's own
+	/// destruction lights shapes 0 and 2 only, so on the Moon a machine never burns, though the
+	/// whole-object branch still puts out what was burning on it. The fires that do light play
+	/// <see cref="FireEffect.MoonLoopCount"/> passes.</para>
 	/// </summary>
 	/// <param name="owner">What is burning.</param>
 	/// <param name="componentIndex">Which of its components, or <c>-1</c> — see <see cref="FireEffect"/>.</param>
@@ -799,13 +821,17 @@ public sealed class SimWorld {
 			_fires.RemoveAt(weakest);
 		}
 
+		if (OnMoon && shapeIndex != 1 && shapeIndex != 3) {
+			return;
+		}
+
 		bool first = _fires.Count == 0;
 		if (first) {
 			Sounds?.Play(SoundId.BurningObject);
 		}
 
 		var fire = new FireEffect(owner, componentIndex, localPoint, shapeIndex,
-			_fireShapeFrames[shapeIndex], FireEffect.LoopCount);
+			_fireShapeFrames[shapeIndex], OnMoon ? FireEffect.MoonLoopCount : FireEffect.LoopCount);
 		_fires.Add(fire);
 
 		// Sound_Play is not positional, so the loop would sound centred at the row's own volume until

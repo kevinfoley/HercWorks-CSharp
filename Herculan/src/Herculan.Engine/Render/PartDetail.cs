@@ -45,6 +45,22 @@ public sealed class PartDetail(short radius, short[] thresholds, int levelCount,
 	public static int StructureBias(int setting) =>
 		setting >= 0 && setting < StructureBiasBySetting.Length ? StructureBiasBySetting[setting] : 0;
 
+	/// <summary>
+	/// The bias each HERC DETAIL setting selects — <c>g_HercDetailTSDetailBiasValues</c>, written to
+	/// <c>g_TSDetailBiasFromHercDetail</c> (<c>004a98ec</c>) by
+	/// <c>ShapeDetail_ApplyHercDetailSetting</c> (<c>0045d474</c>) beside the root bias
+	/// <see cref="ShapeDetail.BiasFor"/> reads out of the same walk.
+	/// </summary>
+	private static readonly int[] HercBiasBySetting = { 2, 2, 1, 1, 0 };
+
+	/// <summary>
+	/// The bias a weapon mount's draw (<c>FUN_0040ded8</c>) and a gun shot off its mount
+	/// (<c>Debris_Draw</c>) push for HERC DETAIL setting <paramref name="setting"/>, clamped to the
+	/// table as <see cref="ShapeDetail.BiasFor"/> is.
+	/// </summary>
+	public static int HercBias(int setting) =>
+		HercBiasBySetting[Math.Clamp(setting, 0, HercBiasBySetting.Length - 1)];
+
 	/// <summary>The part's own bounding radius, in world units.</summary>
 	public short Radius { get; } = radius;
 

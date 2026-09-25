@@ -9238,7 +9238,7 @@
       "type": "function",
       "confidence": "high",
       "name": "FireEffect_Ctor",
-      "description": "Builds one burning-object effect on a FIRE.DTS shape index: owner at +0x4a, attach cluster id at +0x4e (negative uses the raw local point, 0xffff is the structures' 'no cluster'), attach point at +0x50, frame timer +0x57 = 0x40, and the loop count at +0x59 (30, or 5 at detail level 4). At detail level 4 only shapes 1 and 3 are built; the others go straight back on the free list. The first live instance starts sound 0x33 and FireEffect_Dtor stops it on the last, counted by DAT_006b4fbc. Two spawn sites: Component_DestroyAndCascade, whose DestructionFlags bit 1 releases the machine's other fires and lights shape 0 in their place while bit 3 adds shape 2, and Base_DeathSequenceTick's last stage.",
+      "description": "Builds one burning-object effect on a FIRE.DTS shape index: owner at +0x4a, attach cluster id at +0x4e (negative uses the raw local point, 0xffff is the structures' 'no cluster'), attach point at +0x50, frame timer +0x57 = 0x40, and the loop count at +0x59 (30, or 5 in theater 4, the Moon -- ScriptDatHeader is the script.dat theater index). On the Moon only shapes 1 and 3 are built; the others go straight back on the free list. The first live instance starts sound 0x33 and FireEffect_Dtor stops it on the last, counted by DAT_006b4fbc. Two spawn sites: Component_DestroyAndCascade, whose DestructionFlags bit 1 releases the machine's other fires and lights shape 0 in their place while bit 3 adds shape 2, and Base_DeathSequenceTick's last stage.",
       "source": "docs/simulation/destruction-effects.md"
     },
     {
@@ -10226,7 +10226,7 @@
       "confidence": "high",
       "name": "Debris_TickUpdate",
       "signature": "short __cdecl Debris_TickUpdate(int *debris)",
-      "description": "Debris vtable +0x14. Spin into euler X and gravity (-0x20, or -10 at detail level 4) into the vertical speed; Q10Multiply(30, v) drag on the two horizontal axes only; then the move, by the AVERAGE of the speed before and after this tick and added UN-INTEGRATED, so a debris velocity is per-tick where a flyer's is per-second. Below terrain + Q10Multiply(500, shapeRadius) the piece snaps up and bounces at -Q10Multiply(450, vz), clearing its countdown; a rebound under 0x2d has stopped. A piece with a child group then bursts -- the countdown is ticked only while it is still flying, so ground contact bursts it either way -- spawning its death effect, re-installing the database at +0x5d and throwing the child group at a tightened window (3000, 8000, 320).",
+      "description": "Debris vtable +0x14. Spin into euler X and gravity (-0x20, or -10 in theater 4, the Moon) into the vertical speed; Q10Multiply(30, v) drag on the two horizontal axes only; then the move, by the AVERAGE of the speed before and after this tick and added UN-INTEGRATED, so a debris velocity is per-tick where a flyer's is per-second. Below terrain + Q10Multiply(500, shapeRadius) the piece snaps up and bounces at -Q10Multiply(450, vz), clearing its countdown; a rebound under 0x2d has stopped. A piece with a child group then bursts -- the countdown is ticked only while it is still flying, so ground contact bursts it either way -- spawning its death effect, re-installing the database at +0x5d and throwing the child group at a tightened window (3000, 8000, 320).",
       "source": "docs/simulation/destruction-effects.md"
     },
     {

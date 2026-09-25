@@ -79,7 +79,10 @@ namespace HercWorks.Core.Data.File.Gau;
 ///     - 1144: the half-extent of the gunsight complex's waypoint child, taken about the
 ///       <see cref="HReticle"/> point.
 ///     - 1148-1163: a rect three of the gunsight complex's children share — <see cref="GunsightArea"/>.
-///     - 1164-1195 and 1204-1211 (40 bytes): unaccounted for — no widget constructor reads this span.
+///     - 1164-1179: the ATT legend's box — <see cref="AutoTrackLegend"/>.
+///     - 1180-1195: the gunsight complex's second label, the same kind as the ATT legend, which
+///       neither of its paints writes to.
+///     - 1204-1211: unaccounted for — no widget constructor reads this span.
 ///     - 1196-1203: the floating scanner repeater's top-left — <see cref="HudScanner"/>.
 ///     - 1212-~1588: the file-data footprint of one widget constructor (`FUN_00448cc8`) tied to the
 ///       `"hddclip"`/`"pilots"`/`"static"` string resources — the Heads-Down Display. Reads rects at
@@ -148,6 +151,12 @@ public class GAUFile {
 	/// same bytes and is what the write path emits.
 	/// </summary>
 	public HGunsightArea? GunsightArea { get; set; }
+
+	/// <summary>
+	/// The ATT legend's box at content offset 1164 - see <see cref="HAutoTrackLegend"/>. Surfaced from
+	/// <see cref="Remainder"/> the same way <see cref="GunsightArea"/> is.
+	/// </summary>
+	public HAutoTrackLegend? AutoTrackLegend { get; set; }
 
 	/// <summary>
 	/// The floating scanner repeater's top-left at content offset 1196 - see

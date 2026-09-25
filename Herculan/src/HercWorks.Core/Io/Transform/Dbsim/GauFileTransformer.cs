@@ -40,6 +40,9 @@ public class GauFileTransformer : ByteTransformer<GAUFile> {
 	/// <summary>Byte offset of <see cref="HGunsightArea"/>'s rect inside <see cref="GAUFile.Remainder"/>, which starts at content offset 1144.</summary>
 	private const int GunsightAreaRemainderOffset = 4;
 
+	/// <summary>And <see cref="HAutoTrackLegend"/>'s rect, content offset 1164 inside the same remainder.</summary>
+	private const int AutoTrackLegendRemainderOffset = 20;
+
 	/// <summary>And <see cref="HHudScanner"/>'s point, content offset 1196 inside the same remainder.</summary>
 	private const int HudScannerRemainderOffset = 52;
 
@@ -121,7 +124,18 @@ public class GauFileTransformer : ByteTransformer<GAUFile> {
 			Size = new PixelSize(areaX1 - areaX0, areaY1 - areaY0),
 		};
 
-		// Offset 1196, thirteen ints further on: the floating scanner repeater's top-left, a bare
+		// Offset 1164, straight after it: the ATT legend's box — see HAutoTrackLegend. Surfaced the
+		// same way, left in the remainder.
+		int legendX0 = IntLE(gau.Remainder, AutoTrackLegendRemainderOffset);
+		int legendY0 = IntLE(gau.Remainder, AutoTrackLegendRemainderOffset + 4);
+		int legendX1 = IntLE(gau.Remainder, AutoTrackLegendRemainderOffset + 8);
+		int legendY1 = IntLE(gau.Remainder, AutoTrackLegendRemainderOffset + 12);
+		gau.AutoTrackLegend = new HAutoTrackLegend {
+			Origin = new PixelPoint(legendX0, legendY0),
+			Size = new PixelSize(legendX1 - legendX0, legendY1 - legendY0),
+		};
+
+		// Offset 1196, eight ints further on: the floating scanner repeater's top-left, a bare
 		// point with no size — see HHudScanner. Surfaced the same way, left in the remainder.
 		gau.HudScanner = new HHudScanner {
 			Origin = new PixelPoint(

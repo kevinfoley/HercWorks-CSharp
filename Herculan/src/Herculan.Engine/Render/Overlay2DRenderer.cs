@@ -1176,9 +1176,6 @@ public sealed class Overlay2DRenderer : IDisposable {
 			(x0, y0, x1, y1, color) => AddFilledRect(Dx(x0), Dy(y0), Dx(x1), Dy(y1), color));
 		AddShieldReadouts(gau, state, hud.GaugeColors?.Remainder, DrawTextCentered);
 		AddConsoleButtons(gau, hud.Strings, state, BlitDevice, DrawTextCentered);
-		if (gunsight) {
-			AddGunsightReadouts(gau, sprites, state, DrawText);
-		}
 
 		// The reticle is a point, not a rect — the only widget in the file that is — so its sprite
 		// centers on it rather than hanging off a top-left corner. Which of the bank's three frames it
@@ -1211,6 +1208,13 @@ public sealed class Overlay2DRenderer : IDisposable {
 		if (gunsight && WaypointIndicator.From(hud) is { } waypoints) {
 			DrawWaypointMark(waypoints, state.NavMarker);
 			DrawWaypointMark(waypoints, state.RouteWaypoint);
+		}
+
+		// Once every child has painted, the ATT legend while the tracker is on, then the speed and
+		// time readouts — the order both gunsight paints draw them in.
+		if (gunsight) {
+			AddAutoTrackLegend(gau, hud.Strings, state, BlitDevice, DrawTextCentered);
+			AddGunsightReadouts(gau, sprites, state, DrawText);
 		}
 
 		// And last of all, after every child, the floating scanner repeater — the gunsight's paint
@@ -2813,6 +2817,37 @@ public sealed class Overlay2DRenderer : IDisposable {
 	/// <c>"LINK"</c>, 2 is <c>"TRACK"</c>, 3 is empty.
 	/// </summary>
 	private const int CaptionGroup = 4;
+
+	/// <summary>
+	/// The manual's <b>ATT</b> legend: while the TRACK button is latched, <c>Gunsight_Paint</c>
+	/// (<c>0043d5c8</c>) and <c>Gunsight_UpdateAndPaint</c> (<c>0043d6dc</c>) blit <c>HUD</c> frame
+	/// <see cref="AutoTrackLegendPlateFrame"/> at the legend rect's top-left and centre the text in
+	/// that rect in <c>DARK</c>. Nothing is drawn while it is off. See
+	/// docs/formats/cockpit-gunsight-hud.md#the-att-legend.
+	/// </summary>
+	private static void AddAutoTrackLegend(GAUFile gau, SimStringTable? strings, CockpitHudState state,
+			Action<string, int, float, float> blit,
+			Action<string, string, int, int, int, int, Vector3?> drawCentered) {
+		if (!state.AutoTrack || gau.AutoTrackLegend is not { } legend) {
+			return;
+		}
+
+		const float S = CockpitArt.GauToPixelScale;
+		blit(RotationIndicator.SpriteBank, AutoTrackLegendPlateFrame, legend.Origin.X * S, legend.Origin.Y * S);
+		if (strings?.Text(WaypointIndicator.CaptionGroup, AutoTrackLegendIndex) is { Length: > 0 } text) {
+			drawCentered(AutoTrackLegendFont, text, legend.Origin.X, legend.Origin.Y,
+				legend.Origin.X + legend.Size.Width, legend.Origin.Y + legend.Size.Height, null);
+		}
+	}
+
+	/// <summary><c>HUD</c> bank frame 14, the 50x16 plate behind the legend.</summary>
+	private const int AutoTrackLegendPlateFrame = 14;
+
+	/// <summary><c>STRINGS0.STR</c> group 37 entry 0, <c>"ATT"</c> — the entry before the waypoint caption's.</summary>
+	private const int AutoTrackLegendIndex = 0;
+
+	/// <summary><c>ColorSchemePanels[12]</c>, the font the gunsight constructor gives both its labels.</summary>
+	private const string AutoTrackLegendFont = "DARK";
 
 	/// <summary>
 	/// The speed and mission-time readouts under the reticle, laid out as

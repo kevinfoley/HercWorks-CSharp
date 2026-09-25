@@ -25,7 +25,7 @@ Its own ints:
 | `[0x17..0x1a]` | 1180-1195 | A second label of the same kind, at the widget's `+0x107`. Neither gunsight paint reaches it |
 | `[0x1b]`,`[0x1c]` | 1196, 1200 | Top-left of the floating scanner repeater — `GAUFile.HudScanner`, a bare point with no size. Per herc; see [`mfd-scanner.md`](mfd-scanner.md) |
 
-The complex also builds two `ColorSchemePanels[12]` (`dark`) labels of its own, at `+0x103` and `+0x107`. The first is the manual's **`ATT` legend**: while the weapon manager's auto-track flag (`manager+0xb3`) is set, both paints blit `HUD` bank frame 14 as its plate and set its text to `STRINGS0.STR` group 37 entry 0 — see [`../simulation/torso-aim.md`](../simulation/torso-aim.md) for the tracker itself.
+The complex also builds two `ColorSchemePanels[12]` (`dark`) labels of its own, at `+0x103` and `+0x107`. The first is the manual's **`ATT` legend** — see [below](#the-att-legend).
 
 `Gunsight_AddChild` (`0043d5a4`) appends to a pointer array at the widget's `+0xd7`, so construction order *is* child index. `Gunsight_Paint` (`0043d5c8`) walks that array calling each child's slot 0, then draws two things that are not children at all: the **floating scanner repeater** (`FUN_0043e0ec` into `FUN_0043f2b0`) and `FUN_0043dd70`, which works from a second derived point at the widget's `+0x113` — the reticle plus `(0x46, -0x12)` device ([Open](#open)).
 
@@ -144,6 +144,14 @@ The caption is the label child, given the tape's rect dropped `3 << YCoordShift`
 The speed value's rect is as wide as `"000 K/H"` measured in the value font. Its text is rebuilt on every paint — `Gunsight_Paint` and `Gunsight_UpdateAndPaint` both call `Hud_UpdateSpeedReadout` (`0043dc78`) — as the decimal of `Mech_GetDisplaySpeedKph(LocalPlayerMech)` (`0041bb3c`) followed by `" K/H"`. What that figure means, and why it overstates a walking Herc's speed, is in [`../simulation/mech-locomotion.md`](../simulation/mech-locomotion.md#walkrun-gait-discontinuity).
 
 Captions use `ColorSchemePanels[16]` (`HUD2`, ink 73) and values `[17]` (`HUD3`, ink 74). Those are theater palette indices, not colours the widget picks — which is where retail's pale yellow-green captions and cyan values come from.
+
+### The ATT legend
+
+The manual's upper-left indicator that Automatic Turret Tracking is on. Its label is built over the rect at 1164 — 24x7 in every retail file, `68,0 - 92,7` on most hercs, `60,0` on OGRE, `30,0` on SAMSON and `60,67` on RAZOR — centred (`Label_SetRect` flag 2) with no margin.
+
+Both `Gunsight_Paint` and `Gunsight_UpdateAndPaint` test the console button panel's auto-track latch (`CockpitView+0x1e1`, byte `+0xb3` — the flag `ConsoleButtons_GetStateBlock` copies into the mount manager's `+0x14`) after the child loop. While it is set they blit `HUD` frame 14, a 50x16 plate, at the rect's top-left, then set the label's text to `STRINGS0.STR` group 37 entry 0, `ATT`. While it is clear nothing is drawn. The tracker itself: [`../simulation/torso-aim.md`](../simulation/torso-aim.md#automatic-turret-tracking--t).
+
+Engine: `GAUFile.AutoTrackLegend`, drawn by `Overlay2DRenderer.AddAutoTrackLegend`.
 
 ## Open
 

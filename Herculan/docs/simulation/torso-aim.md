@@ -176,5 +176,4 @@ What is left is the cosine table rather than the animation. `SimTrig.Cos` quanti
 
 ## Open
 
-- **Unported:** the HUD's "ATT" legend, which the manual puts at the upper left of the HUD while tracking; not located in the cockpit widget set.
 - **Unported:** the servo sound (`0041a6d0` / `0041a994`): sound 0x21, started when the axis exceeds 0xc0 and the angle is still changing, stopped when the axis centres or the angle stops.

@@ -20,25 +20,25 @@ So **DBSIM replays identically on every run**, up to the one wall-clock path int
 
 ## The presentation generator
 
-`0x4d268f` is the block directly after the simulation's — `0x4d261d + 0x72`, one 56-entry table and its two cursors — and a generator in its own right. The static initialiser `FUN_0045cad8` seeds the two back to back through `FUN_00492d7c` (`0045cbc8`–`0045cbd8`), so both start in the same state and diverge only through their own draws. Every consumer read so far is a sound, a message, a portrait or a cockpit shake, so none of those moves a simulation roll ([Open](#open)).
+`0x4d268f` is the block directly after the simulation's — `0x4d261d + 0x72`, one 56-entry table and its two cursors — and a generator in its own right. The static initialiser `FUN_0045cad8` seeds the two back to back through `FUN_00492d7c` (`0045cbc8`–`0045cbd8`), so both start in the same state and diverge only through their own draws. Every consumer is presentation — sounds, messages, portraits, smoke, cockpit shakes and the sensor dropout — so none of them moves a simulation roll, and a consumer that never runs costs the simulation nothing either.
 
 Its draw sites are the sixteen `PUSH 0x4d268f` in the image besides that seeding one:
 
 | Site | Function | Draw |
 |---|---|---|
 | `004080ca` | `Explosion_Construct` | `Math_RandomBelow(0x32)`, discarded — the sound it then plays is the type record's `+0x24` plus 10 |
-| `00409298` | `FUN_0040923c` | `next & 3`, added to `+0x28 * 4` into the object's `+0x26` |
-| `0042f86f` | `FUN_0042f860` | `next`, into the third word of its output ([Open](#open)) |
-| `0042f9c7` | `FUN_0042f970` | `next`, one per element into a table at `+0x5a` ([Open](#open)) |
+| `00409298` | `Smoke_Construct` (`0040923c`) | `next & 3`, the first of the four shape variants of smoke type `+0x28` that the emitter cycles through ([Open](#open)) |
+| `0042f86f` | `TexPoly` vtable slot 9 (`0042f860`) | `next`, a random angle; the point that far round a circle of the given radius ([Open](#open)) |
+| `0042f9c7` | `TexPoly` vtable slot 8 (`0042f970`) | `next`, one random angle per ring ([Open](#open)) |
 | `0043404e`, `004340cc` | `Cockpit_StartHitShake`, `Cockpit_HitShakeTick` | `(next & 0xffff) % 10`, the palette flash interval |
 | `004340ea` | `Cockpit_HitShakeTick` | `(next & 0xffff) % 5`, the shake step |
 | `00435cb5` | `FUN_00435c48`, the squad port's post | `(next & 0xffff) % variants`, drawn only for two or more |
 | `00436a67` | `MessagePort_PickVariant` | the same |
-| `00438d7f` | `FUN_00438d6c` | `(next & 0xffff) % (hi - lo) + lo`, not drawn when `hi == lo` |
+| `00438d7f` | `PanelGauge_RollDuration` (`00438d6c`) | `(next & 0xffff) % (hi - lo) + lo`, not drawn when `hi == lo` — the [sensor dropout](../formats/cockpit-hud-widgets.md#sensor-dropout)'s spell lengths |
 | `0044b138` | `HddGauge_PaintPilotFrame` | `next % 3`, discarded — [`../formats/heads-down-display.md`](../formats/heads-down-display.md#the-three-paints) |
 | `0044b381` | `HddGauge_PaintScream` | `Math_RandomBelow(0x14)` |
-| `0045db2f` | `FUN_0045d840` | `(next & 0xffff) % 5`, a shake step once a frame for `0x1e` coarse ticks |
-| `0045dcfb` | `FUN_0045dc34`, the mech-death screen flash | `Math_RandomBelow(10)`, the same kind of shake step |
+| `0045db2f` | `LiftStart_Rise` (`0045d840`) | `(next & 0xffff) % 5`, the lift's closing shake step, once a frame for `0x1e` coarse ticks — [`mission-deployment.md`](mission-deployment.md#the-lift-start) |
+| `0045dcfb` | `Sim_DeathFlash` (`0045dc34`) | `Math_RandomBelow(10)`, the same kind of shake step — [`../formats/cockpit-canopy-palette.md`](../formats/cockpit-canopy-palette.md#palette-module) |
 | `00462753`, `004627ff` | `Sound_Play`, `Sound_PlayAt` | `Math_RandomBelow` over the sound's variation count |
 
 ## Ported
@@ -54,6 +54,7 @@ A roll's result depends on how many draws preceded it, so matching a specific re
 ## Open
 
 - **Open:** match call order (tick order), not just the seed, so a specific retail roll replays exactly rather than only statistically — see [`../../ROADMAP.md`](../../ROADMAP.md).
-- **Open:** what `FUN_0040923c`, `FUN_0042f860`, `FUN_0042f970` and `FUN_00438d6c` use their presentation-generator draws for, and whether this engine has a counterpart that should draw. Until they are read, the generator's separation from the simulation rests on the other sites.
-- **Unported:** the mech-death sequence, and with it the shake steps `FUN_0045d840` and `FUN_0045dc34` draw on the presentation generator.
+- **Open:** what constructs `SMOKE`. `Sim_MainTick` ticks a list of them through `Smoke_Tick` (`004092dc`), each releasing a `SMOKE_BALL` every 200 ticks while its count lasts, but `es2_xref.py` finds no branch or pointer reaching `Smoke_Construct` or landing anywhere from `00409200` to `00409240`. The engine has no `SMOKE`.
+- **Open:** whether `TexPoly` is ever built. Its constructor (`0042f700`, in bytes Ghidra left undisassembled) has no reference `es2_xref.py` finds, the class name appears only in its own RTTI record — not in the persistence name table beside `TSTexture4Poly` — and no retail `.DTS` names it.
+- **Unported:** the draws of the sensor dropout and the death flash, each with the feature it belongs to.
 - **Open:** whether DBSIM draws from the generator before a zone populates. The terrain scatter is the visible case: if it does, the scatter lands on different cells than this engine's — see [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).

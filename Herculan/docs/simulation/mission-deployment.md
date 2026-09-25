@@ -158,6 +158,33 @@ vz     = -height / n
 
 Only the leader is repositioned; the rest of the group follows under its orders. Every retail drop-pod group has exactly one member.
 
+## The lift start
+
+A mission start left over from Metaltech: Earthsiege, in some of whose missions the player's HERC starts underground and rides an elevator lift up to the surface: the cockpit brightens through a palette shift as it nears the top, and the ride ends in a camera shake. DBSIM keeps the whole sequence, but it draws `dba\intro`, which no retail VOL contains, and nothing found sets its gate ([Open](#open)).
+
+`Sim_InitMissionSession` (`004614fc`) gates it on the `0xc3`-byte global block's `+0x54` (`004d2594`) and tests the flag twice:
+
+- **`00461cc6`** — nonzero calls `LiftStart_DarkenPalette` (`0045d52c`). Zero instead sets `0049aef6` to 8, calls the empty `FUN_0042eb40`, flushes the palette and renders one frame; the lift branch makes the first two of those itself and skips the others.
+- **`00461e20`**, near the end of bring-up — nonzero calls `LiftStart_Rise` (`0045d840`).
+
+### The darkening — `LiftStart_DarkenPalette` (`0045d52c`)
+
+Copies the live palette into two new palette objects, rewrites entries 32-47 and 64-79 of the first as (G/2, R/2, B/2) — **red and green swapped as well as halved** — and installs those two spans live. It then starts a `0x78`-coarse-tick (1.92 s) cross-fade from the darkened object to the untouched copy ([`../formats/cockpit-canopy-palette.md`](../formats/cockpit-canopy-palette.md#palette-module)), and clears `0049aef4` ([Open](#open)). In ES2's palette the two spans overlap both ends of the cockpit scheme's window, slots 42-65 ([`../formats/cockpit-canopy-palette.md`](../formats/cockpit-canopy-palette.md#palette)).
+
+### The ride — `LiftStart_Rise` (`0045d840`)
+
+Loads `dba\intro`, the lift's art, and uses its first frame without checking the load. It then **raises** the player's machine from 4000 units below its placed height to that height, 35 units a frame, with sound `0x21` (`explo4.wav`) running. The loop only renders — `Sim_MainTick` does not run, so nothing else in the mission moves. Each frame it:
+
+1. Puts the machine at the current height and rebuilds the view from it.
+2. Projects the view-space point (0, 1000, −camera z) to a screen row. That point is at world height 0, 1000 units ahead, so the surface the lift rises to is the world's zero plane, not the terrain under the machine.
+3. Renders the scene with the viewport's bottom cut to that row, or to its top while the row is at or above 0.
+4. Draws the lift: `intro` from the row down, then colour id 19 from the art's bottom edge to the viewport's bottom — the whole viewport while the art is still above it.
+5. Paints the cockpit overlay at `CockpitViewInstance+0x1f5`, steps the cross-fade while the row is below −200, and ends the frame with `Sim_EndFrame`.
+
+**The brightening can stop part-way.** The fade runs on the clock from its first step, and only this loop steps it. A ride that reaches the top less than 1.92 s after the row passed −200 leaves the 32 entries where its last step put them, and even a completed fade never writes its final colours ([`../formats/cockpit-canopy-palette.md`](../formats/cockpit-canopy-palette.md#palette-module)).
+
+At the top it stops `0x21`, plays `0x29` (`explo2.wav`) and shakes the view for `0x1e` coarse ticks (0.48 s): a band of 5 — a literal, half the damage shake's `5 << VideoMode_YCoordShift` — and one `(next & 0xffff) % 5` step a frame on the [presentation generator](random-generator.md#the-presentation-generator). **None of the shake reaches the screen.** The shake loop calls `maybe_Sim_RenderFrame` without `Sim_EndFrame`, the only per-frame present ([`../formats/cockpit-views.md`](../formats/cockpit-views.md#presentation)), so the last frame of the ride stays up while `0x29` plays. It then clears the shake, frees the two palette objects and their entry buffers, and sets `0049aef4` back to 1.
+
 ## The mission counters — `DAT_004a9ef4`
 
 1,000 shorts: `FUN_0042412c` writes 2,000 bytes of the block to `mission_var` as a mission ends, so these are the **campaign's** variables and their reader is outside the simulation. Two things write them during a mission: `Action_Activate`, and a group's own completion hook `FUN_00423f30` (ops 1 clear, 2 increment, 0x0d-0x10 set to op − 0x0c) ([Open](#open)).
@@ -187,6 +214,8 @@ An activating action posts its message through `ISoundSink.CommandSay`, once per
 
 The two walk-on verbs are implemented but unexercised: no mission has been found that uses them.
 
+The [lift start](#the-lift-start) is left out on purpose: the art it draws is not in the shipped data.
+
 ## Rejected readings
 
 | reading | why it is wrong |
@@ -200,6 +229,8 @@ The two walk-on verbs are implemented but unexercised: no mission has been found
 
 ## Open
 
+- **Open:** what sets block `+0x54`, the lift start's gate. No absolute reference to `004d2594` exists, the block's static initialiser `FUN_0045cad8` does not store it, and of the `+0x54` writes `es2_fieldscan.py` finds, none is through a register holding the block.
+- **Open:** what reads `0049aef4`, the byte the lift start clears for its duration (1 in the image). `es2_xref.py` finds only the lift's two stores.
 - **Unported:** the pod's leftover ground mark, from the theater's `flat`/`flat2` shape pool.
 - **Unported:** the mission counters' reader, which is the campaign layer.
 - **Unported:** the group completion hook `FUN_00423f30` that writes the mission counters (ops 1 clear, 2 increment, 0x0d-0x10 set to op − 0x0c).

@@ -85,11 +85,16 @@ Consequences now resolved: the heading tape's index 74 is a theater colour; the 
 | `Palette_FlushDirtyRange` | `0043048c` | Upload dirty range; whole palette if the active object changed. |
 | `Palette_CycleAnimatedRanges` | `004306ac` | 5 slots of per-frame sub-range rotation, keyed off `Time_GetCoarseTicks`. |
 | `Palette_InterpolateColours` | `004307b0` | Interpolate colour pairs across N steps. |
-| `Palette_BeginCrossFade` | `004308fc` | Precompute 8.8 per-channel deltas between two palette objects; either may be null (fade to/from black). |
-| `Palette_StepCrossFade` | `00430b34` | Advance one frame; returns remaining ticks. |
+| `Palette_BeginCrossFade` | `004308fc` | Precompute 8.8 per-channel deltas between two palette objects over a duration in coarse ticks; either may be null (fade to/from black). |
+| `Palette_StepCrossFade` | `00430b34` | Write the fade's colours for the time elapsed since its first call; returns the coarse ticks remaining. |
 | `Palette_InterpolateIndexRanges` | `00430d08` | Interpolates index *ranges*, not colours — terrain shading only, driven from `WORLD<n>.WLD`. |
 
-`Palette_BeginCrossFade`'s three call sites are all the **mech-death** screen flash: `FUN_0045dc34` (`death1`/`death2`/`world0` at base 0), and `FUN_0045d532`, which installs half-brightness 16-entry spans at bases 32 and 64 before setting up its fade. Neither is part of steady-state cockpit rendering, and neither touches the secondary palette.
+`Palette_BeginCrossFade` has three call sites in two functions, neither part of steady-state cockpit rendering and neither touching the secondary palette:
+
+- **The death flash, `Sim_DeathFlash` (`0045dc34`).** It loads the `death1`, `death2` and `world0` palettes, mutes the effects, plays sound `0x26` (`explos2.wav`), installs `death1` whole and fades it to `death2` over `0x78` ticks, then `death2` to black. For the first `0x1e` coarse ticks of the first fade it also shakes the view in a band of 10, one `Math_RandomBelow(10)` step a frame on the [presentation generator](../simulation/random-generator.md#the-presentation-generator). It ends by installing `world0` and running a `StatusAlertPanel` of kind 2. `es2_xref.py` finds nothing that reaches it ([Open](#open)).
+- **The lift start's darkening, `LiftStart_DarkenPalette` (`0045d52c`).** It rewrites entries 32-47 and 64-79 as (G/2, R/2, B/2), installs them, then fades from that palette back to the live one. Ghidra's function begins six bytes in, at `0045d532`, which is why the sweep finds no caller there; the call is `00461cec`. The rest of the sequence is in [`../simulation/mission-deployment.md`](../simulation/mission-deployment.md#the-lift-start).
+
+**The fade runs on the clock, not per call.** The first `Palette_StepCrossFade` after a `Palette_BeginCrossFade` arms an end time of now plus the duration, and every call writes `from + delta * elapsed >> 8` for the coarse ticks elapsed since then, over the whole entry count from slot 0; entries whose endpoints agree have a zero delta and do not move. Once past the end it returns 0 **without writing**, so the fade's last colours are those of the last call before the end, never the destination itself. A caller that stops calling early leaves the palette part-way.
 
 ### The damage shake
 
@@ -149,5 +154,10 @@ The shield meter's rings are the deliberate exception. Their six colours are imm
 
 | Reading | Why it is wrong |
 |---|---|
-| `Palette_BeginCrossFade` is the damage flash | Its three call sites are all the mech-death screen flash. The damage flash is a hard alternation between two whole palettes — `Palette_ActivateImpact`/`Palette_ToggleImpact` — with no fade of any kind between them |
+| `Palette_BeginCrossFade` is the damage flash | Its call sites are the death flash and the lift start. The damage flash is a hard alternation between two whole palettes — `Palette_ActivateImpact`/`Palette_ToggleImpact` — with no fade of any kind between them |
+| `Palette_StepCrossFade` advances the fade one step per call | It interpolates by coarse ticks elapsed since its first call, so a slow frame rate jumps further per frame rather than stretching the fade — see "Palette module" |
 | The shake's amplitude is how far the view travels | The band is the limit pair the walk is bounded by, not its excursion. A step is only ever taken toward the farther limit, which reverses at the middle, so a ten-pixel band produces a one-to-eight-pixel wander — see "The damage shake" |
+
+## Open
+
+- **Open:** what reaches the death flash, `Sim_DeathFlash`. `es2_xref.py` finds no branch, stored pointer or vtable slot holding it; nothing in the engine plays it either.

@@ -303,7 +303,7 @@ The display boots on the scanner (`Gau_MfdPanelWidget` sets mode 3). What it doe
 
 On any other screen, the update sets done once the coarse tick passes `+0x345`, which the start stamps at 70 ticks (`0x46`) past its own tick — and at once if the sequence never started, since `+0x345` is then zero.
 
-The sequencer is a 0x2a-byte object shared with the widget base's timed state toggle (`FUN_00438bc0`, over widget `+0x6c`):
+The sequencer is a 0x2a-byte object, the same kind the [sensor dropout](#sensor-dropout) plays over widget `+0x6c`:
 
 | Offset | Contents |
 |---|---|
@@ -316,6 +316,33 @@ The sequencer is a 0x2a-byte object shared with the widget base's timed state to
 | `+0x1e` | Sprite bank |
 | `+0x22` | Blit position |
 
+## Sensor dropout
+
+While the player's sensor array is damaged, the cockpit's displays drop out at random. The mechanism is on the `PanelGauge` base, whose constructor (`PanelGauge_Ctor`, `00438b20`) sets it up, and seven update functions run it: the HUD gunsight complex (`Gunsight_UpdateAndPaint`), the MFD (`MfdDisplay_Update`), the Heads-Down Display (`FUN_00449bd0`), and slot 2 of `EnergyWeaponGauge`, `ProjectileWeaponGauge`, `PodWeaponGauge` and `TogglePodGauge`.
+
+Each frame the caller stores the sensor array's condition at `+0x74` — `Player_DependentCondition(2)` (`004342e0`), which reads dependent 2 of the player's machine (`STRINGS0` group 15 entry 2, `SENSOR ARRAY`) as `damage << 8 / max` and buckets it through `Damage_ToConditionState`, 0 intact to 4 destroyed — and runs `PanelGauge_TickDropout` (`00438bc0`) only when it is nonzero.
+
+| Offset | Contents |
+|---|---|
+| `+0x6c` | Sprite sequencer played at each change, or 0 for none |
+| `+0x70`, `+0x72` | Its sequence for going dark, and for coming back |
+| `+0x74` | Sensor condition, 0-4 |
+| `+0x76` | 1 dark, 0 shown; `+0x77` holds the previous frame's |
+| `+0x78` | Coarse tick the current state ends, 0 while none is drawn |
+| `+0x7c`, `+0x80` | Range a dark spell is drawn from, in coarse ticks |
+| `+0x84`, `+0x88` | Range a shown spell is drawn from |
+
+Entering either state draws its length with `PanelGauge_RollDuration` (`00438d6c`) — `(next & 0xffff) % (hi - lo) + lo` on the [presentation generator](../simulation/random-generator.md#the-presentation-generator), no draw when the two are equal — and the state flips once it has passed. With a sequencer, the expiry instead starts sequence `+0x70` (going dark) or `+0x72` (coming back), and the state flips when that sequence ends. A condition of 0 forces the dark state, but no caller runs the toggle with one.
+
+| Display | Dark, by condition 1 / 2 / 3 / 4 | Shown | Sequencer |
+|---|---|---|---|
+| `PanelGauge_Ctor` default | 180-360 | 180-360 | none |
+| Weapon gauges (`WeaponGauge_Ctor`, `0044080c`) | 120-360 | 180-1800 | from the constructor |
+| Gunsight (tables `0049be48`-`0049be66`) | 30-120 / 60-120 / 90-160 / 120-200 | 180-900 / 180-360 / 180-360 / 120-300 | none |
+| MFD (`MfdDisplay_SetDropoutRanges`, `00446db4`) | 30-120 / 60-120 / 60-120 / 60-120 | 180-900 / 180-360 / 180-360 / 180-360 | one of three at `004d1d0c`, by condition |
+
+The gunsight skips its whole paint while dark. The other callers compare `+0x76` with `+0x77` and act on the change ([Open](#open)).
+
 ## Per-frame ordering
 
 `maybe_Sim_RenderFrame` (`0045fb9c`): `Terrain_SetupVisibleRegion`, then `FUN_004327ac` (`CockpitViewInstance` widget paint dispatch), then `maybe_Scene_SubmitFrameObjects` (the 3D world), then `Player_PerFrameCockpitUpdate`, then three more paint dispatches on `CockpitViewInstance` sub-objects (`+0x1f5`, `FUN_00433158`'s result, `+0x20b`).
@@ -323,5 +350,7 @@ The sequencer is a 0x2a-byte object shared with the widget base's timed state to
 ## Open
 
 - **Unported:** `WPN_DMG`'s damage fill on a weapon row. The per-mount reading behind it is combined entry `32 + slot` of `Component_FillDamageReadouts`' buffer, which the engine's Heads-Down Display weapons page already prints, but the engine's weapon rows do not carry it. They also draw the row plate as the underlay instead of `WPN_DMG` frame 0, which is equivalent only while the row is undamaged.
+- **Unported:** the sensor dropout ([above](#sensor-dropout)).
+- **Open:** what the MFD, the Heads-Down Display and the weapon gauges draw while dark, which art the MFD's three sequencers and the weapon gauges' play, and which ranges the Heads-Down Display runs with. A scan of `00438000`-`0044c000` finds no range write for it beyond the constructor's.
 - **Open:** what consumes `PWEAPONS` frame 7, a 640x80 strip.
 - **Open:** which mech-object field picks each widget's frame or fill level per frame, for the widgets this doc does not already trace. The `.GAU` holds only geometry.

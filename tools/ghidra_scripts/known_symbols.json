@@ -3594,9 +3594,10 @@
       "address": "0045d532",
       "binary": "DBSIM",
       "type": "function",
-      "confidence": "low",
-      "description": "OPEN LEAD for the unresolved cockpit canopy shading. Copies the live 256-entry palette into two scratch buffers, halves the RGB of two 16-entry spans, and installs them via Palette_InstallRange at base 0x20 (32) and base 0x40 (64) -- both inside the canopy art's own 42-71 index band. Candidate for the lighting-state mechanism that CockpitArt.PaletteIndexOffset currently stands in for. Callers not yet traced.",
-      "source": "docs/formats/cockpit-canopy-palette.md (Palette)"
+      "confidence": "high",
+      "name": "LiftStart_DarkenPalette",
+      "description": "The lift start's darkening, left over from Metaltech: Earthsiege's elevator-lift mission start. Ghidra's function starts six bytes into this one; the real entry is 0045d52c (push ebp / mov ebp,esp / add esp,-0x34), called from Sim_InitMissionSession at 00461cec when block +0x54 is set. Builds two palette objects over copies of the live entries (004d27c8 over 004d27d0, 004d27cc over 004d27d4), rewrites entries 32-47 and 64-79 of the first as (G>>1, R>>1, B>>1) -- red and green swapped as well as halved -- installs those two spans live, and starts a 0x78-coarse-tick Palette_BeginCrossFade from the darkened object to the copy. Clears 0049aef4. LiftStart_Rise steps the fade and frees all four allocations.",
+      "source": "docs/simulation/mission-deployment.md (The lift start)"
     },
     {
       "address": "0043b57c",
@@ -3902,8 +3903,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Palette_BeginCrossFade",
-      "description": "Palette_BeginCrossFade(fromPalette, toPalette, durationTicks): precomputes per-channel 8.8 deltas into DAT_004cfe28/004d0028/004d0228 for a timed fade between two palette objects (either endpoint may be null, meaning fade to/from black). Driven per frame by Palette_StepCrossFade. This is how the impact/damage flash is applied on top of the cockpit's own colour scheme.",
-      "source": "cockpit rendering RE session 2026-08-17"
+      "description": "Palette_BeginCrossFade(fromPalette, toPalette, durationCoarseTicks): precomputes per-channel 8.8 deltas (to - from) / duration into DAT_004cfe28/004d0028/004d0228 over the from object's entry count, and disarms the step timer (0049b03c). Either endpoint may be null, meaning fade to/from black. Callers: Sim_DeathFlash and LiftStart_DarkenPalette.",
+      "source": "docs/formats/cockpit-canopy-palette.md (Palette module)"
     },
     {
       "address": "00430b34",
@@ -3911,8 +3912,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Palette_StepCrossFade",
-      "description": "Advances the Palette_BeginCrossFade fade one frame, writing interpolated RGB straight into the live palette and extending the dirty range. Returns remaining ticks, 0 when finished.",
-      "source": "cockpit rendering RE session 2026-08-17"
+      "description": "Steps the Palette_BeginCrossFade fade by wall clock, not by call: the first call arms an end time of now + duration in Time_GetCoarseTicks units, and each call writes from + delta * elapsed >> 8 into the live palette from entry DAT_004cfe20 (never written, so 0) and extends the dirty range. Returns the coarse ticks remaining; once past the end it returns 0 without writing, so the last value written is the one from the last call before the end, not the destination.",
+      "source": "docs/formats/cockpit-canopy-palette.md (Palette module)"
     },
     {
       "address": "004307b0",
@@ -4544,6 +4545,105 @@
       "name": "HddDamageScreen_SetView",
       "description": "Selects the damage category and its row count: 0 structural = 0x13 rows, 1 internal = 0xc, 2 weapons = the subject's own fitted weapon count. The manual binds these to [S], [I] and [W], and to the display's up/down arrow buttons.",
       "source": "docs/formats/heads-down-display.md 2026-08-20"
+    },
+    {
+      "address": "004342e0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Player_DependentCondition",
+      "description": "Condition 0-4 of the player machine's dependent (internal) component n: FUN_0041b514 -> FUN_004152ec kind 0 gives damage << 8 / max, bucketed by Damage_ToConditionState. The sensor dropout's callers pass 2, SENSOR ARRAY.",
+      "source": "docs/formats/cockpit-hud-widgets.md"
+    },
+    {
+      "address": "00438b20",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PanelGauge_Ctor",
+      "description": "PanelGauge base constructor (vtable 0049bc6c). Clears the sensor-dropout state (+0x74 condition, +0x76/+0x77 dark flag, +0x78 deadline, +0x6c sequencer) and defaults both spell ranges to 180-360 coarse ticks, sequences +0x70 = 0 and +0x72 = 1.",
+      "source": "docs/formats/cockpit-hud-widgets.md"
+    },
+    {
+      "address": "00438bc0",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PanelGauge_TickDropout",
+      "description": "The sensor dropout's two-state toggle over PanelGauge +0x6c..+0x88: +0x76 = 1 dark, 0 shown. Draws each state's length with PanelGauge_RollDuration from +0x7c/+0x80 (dark) or +0x84/+0x88 (shown) and flips when it passes; with a sequencer at +0x6c the expiry plays sequence +0x70 or +0x72 and flips when it ends. Condition +0x74 == 0 forces dark; every caller skips the call then.",
+      "source": "docs/formats/cockpit-hud-widgets.md"
+    },
+    {
+      "address": "00438d6c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "PanelGauge_RollDuration",
+      "description": "(Math_RandomNext(presentation generator 0x4d268f) & 0xffff) % (hi - lo) + lo; returns lo without drawing when hi == lo.",
+      "source": "docs/formats/cockpit-hud-widgets.md"
+    },
+    {
+      "address": "00446db4",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "MfdDisplay_SetDropoutRanges",
+      "description": "Picks the MFD's sensor-dropout set by condition ([0,1,2,2,2] at 0049cb34): sequencer 004d1d0c[set], sequences set*2 and set*2+1, and the spell ranges from 0049cb94/cba0/cbac/cbb8.",
+      "source": "docs/formats/cockpit-hud-widgets.md"
+    },
+    {
+      "address": "0040923c",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Smoke_Construct",
+      "description": "SMOKE (DRAWABLE, vtable 00498064, 0x2a bytes) constructor: owner +0x15, component +0x19, smoke type +0x28, first shape variant +0x26 = type*4 + (Math_RandomNext(0x4d268f) & 3). es2_xref finds nothing reaching it.",
+      "source": "docs/simulation/random-generator.md"
+    },
+    {
+      "address": "004092dc",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Smoke_Tick",
+      "description": "Called from Sim_MainTick. Every 200 ticks while the count +0x24 lasts, places a SMOKE_BALL at the owner component's point (or a fixed offset) and steps +0x26 to the next of the type's four variants.",
+      "source": "docs/simulation/random-generator.md"
+    },
+    {
+      "address": "00409178",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "SmokeBall_Construct",
+      "description": "SMOKE_BALL (TS_OBJ, vtable 00498084) constructor: shape from DAT_004a96fc[variant], position from the argument, frame timer 200.",
+      "source": "docs/simulation/random-generator.md"
+    },
+    {
+      "address": "0045d840",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "LiftStart_Rise",
+      "description": "The lift start's ride, left over from Metaltech: Earthsiege: called from Sim_InitMissionSession at 00461e28 when block +0x54 is set. Loads dba\\intro (absent from every retail VOL) and uses its frame 0 unchecked. Raises the player machine from placed z - 4000 to placed z, 35 units a frame, with sound 0x21 running; each frame projects view-space (0, 1000, -camera z) -- world height 0, 1000 units ahead -- to a screen row, renders the scene with the viewport bottom cut to that row, blits intro from the row down and fills colour id 19 (DAT_004d3c26) below it, and steps the cross-fade while the row is below -200 and LiftStart_FadeRemaining is nonzero, then Sim_EndFrame. Sim_MainTick does not run. At the top: stops 0x21, plays 0x29, CockpitView_SetShakeBand(5) and one CockpitView_StepShake((next & 0xffff) % 5) on 0x4d268f per maybe_Sim_RenderFrame for 0x1e coarse ticks, with no Sim_EndFrame, so none of those frames is presented. Then clears the shake, frees the palettes and sets 0049aef4.",
+      "source": "docs/simulation/mission-deployment.md (The lift start)"
+    },
+    {
+      "address": "0049f160",
+      "binary": "DBSIM",
+      "type": "data",
+      "confidence": "high",
+      "name": "LiftStart_FadeRemaining",
+      "description": "LiftStart_Rise's copy of Palette_StepCrossFade's return value, 1 in the image. The ride steps the fade only while this is nonzero, and nothing else reads or writes it (es2_xref.py: the two accesses at 0045dac1 and 0045dad8), so once a step returns 0 the fade is never stepped again.",
+      "source": "docs/simulation/mission-deployment.md (The lift start)"
+    },
+    {
+      "address": "0045dc34",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Sim_DeathFlash",
+      "description": "Loads the death1/death2/world0 palettes, mutes effects, plays 0x26, fades death1 -> death2 -> black over 0x78 ticks each while shaking the view (band 10, Math_RandomBelow(0x4d268f, 10)) for the first 0x1e ticks, then installs world0 and runs a StatusAlertPanel of kind 2. es2_xref finds nothing reaching it.",
+      "source": "docs/formats/cockpit-canopy-palette.md"
     },
     {
       "address": "00450bcc",

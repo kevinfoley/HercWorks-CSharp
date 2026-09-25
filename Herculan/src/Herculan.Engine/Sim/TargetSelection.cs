@@ -302,21 +302,25 @@ public sealed class TargetSelection {
 	public void Clear() => Select(null);
 
 	/// <summary>
-	/// Drops a selection that is out of the fight. Not a function of the original, which has no
-	/// player-side target-abandon check at all: its death-path clear (<c>FUN_0041eb34</c>) is gated on
-	/// <c>obj+0xa3</c> being <i>clear</i>, so it only ever runs for an AI machine, as does the
-	/// abandon check beside it (<c>FUN_0041c4a8</c>). Neither is ported, and without something in
-	/// their place a destroyed machine stays selected and homing rounds keep chasing its wreck.
+	/// Drops a selection that can no longer be selected — the tail of the cockpit's per-frame update
+	/// (<c>FUN_004327ac</c>, run from <c>maybe_Sim_RenderFrame</c>), which clears <c>view+0x210</c>
+	/// whenever <see cref="CanTarget"/> fails for it. So a target that dies, or that stops being
+	/// <i>known</i> by either sensor route, is let go: a Cybrid the radar loses line of sight to and
+	/// that is outside contact range is deselected the next frame.
 	///
-	/// <para><b>Selectability is deliberately not the test.</b> <see cref="CanTarget"/> also asks
-	/// whether the object is <i>known</i> — painted on radar, or held as a contact — and that comes
-	/// and goes on its own: <see cref="Detection"/> clears radar visibility wholesale every time an
-	/// object's contact list decays, and repaints it only if something is emitting. Testing it here
-	/// would drop a live target the moment it blinked out of the contact table and re-drop it every
-	/// few ticks, which is a thing the original never does to a player's selection.</para>
+	/// <para>The update skips its whole widget pass while the cockpit is hidden (<c>view+0x20f</c>,
+	/// which <c>CockpitView_ApplyViewState</c> raises for view 4, the external view), so the check
+	/// does not run there and a selection survives in the external view until the cockpit returns.</para>
+	///
+	/// <para>A painted object's radar visibility does not blink between the two: decay clears it and
+	/// the sweep repaints it within one <see cref="Detection.Tick"/>, and this runs outside that.</para>
+	///
+	/// <para>The <see cref="SimObject.Removed"/> test is the engine's own — DBSIM's object list has no
+	/// removed-but-listed state — and applies in every view.</para>
 	/// </summary>
-	public void DropIfInvalid() {
-		if (Selected != null && (Selected.Removed || Selected.Neutralised)) {
+	/// <param name="cockpitShown">Whether the cockpit is drawn, i.e. not the external view.</param>
+	public void DropIfInvalid(bool cockpitShown) {
+		if (Selected != null && (Selected.Removed || (cockpitShown && !CanTarget(Selected)))) {
 			Selected = null;
 		}
 	}

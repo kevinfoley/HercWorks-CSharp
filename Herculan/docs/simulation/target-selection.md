@@ -30,6 +30,12 @@ Alive (`obj+0x99`/`+0xa4` both clear), on the other side, and **known** by eithe
 - radar-visible (`obj+0x95`) within `DAT_004d1cfc` = **200000**, the last of the scanner's three ranges (`MfdDisplay_Ctor` writes 50000/100000/200000) — read directly, not the current setting;
 - or a held contact within `FUN_00426aec` = **30000** on the short scan setting, **60000** otherwise.
 
+### Losing the selection — `FUN_004327ac`
+
+The cockpit's per-frame update, run from `maybe_Sim_RenderFrame` just before `Player_PerFrameCockpitUpdate` copies the selection onto the machine, ends by re-running `TargetSelect_CanTarget` on `view+0x210` and clearing it when that fails. A selection is therefore dropped the frame its target dies **or stops being known** — no longer radar-visible within 200000 and not a held contact within the scan range. The whole widget pass, this check included, is skipped while `view+0x20f` is set, which `CockpitView_ApplyViewState` does for view 4, the external view; a selection survives there until the cockpit returns.
+
+Radar visibility does not blink the selection off: decay clears `obj+0x95` and the sweep repaints it inside the same `FUN_004123ac`, and the check runs outside it.
+
 `FUN_00433250` is the cone test: bearing less heading **plus** turret twist, within ±8999. The twist sign is the original's and is transcribed rather than corrected — `Mech_PerTickSystemsUpdate` and the sensor sweep fold it the same way.
 
 ## The sensor model — `FUN_004123ac`
@@ -62,7 +68,7 @@ Decay (`FUN_0041251c`) drops a contact past **100001** measured **on the ground 
 
 ### Line of sight — `FUN_00412608`
 
-A terrain ray between the two objects' shape-box centres (`+0x1c` of the vtable `+0x24` box, 500 with no shape), cached per pair on the observer. **The cache gate tests the *other* object's countdown and reloads the observer's** — verified at `00412617`/`0041263f` (`CMP word ptr [ESI+0x1e3]` against `MOV word ptr [EBX+0x1e3]`), so it is not a decompiler slip. Since only human-side objects sweep, Cybrid timers stay at zero and pairs are re-walked whenever asked.
+A terrain ray between the two objects' aim nodes (`+0x1c` of the vtable `+0x24` record — see [Aim point](#aim-point--vtable-0x24) — or 500 when that slot returns nothing), cached per pair on the observer. **The cache gate tests the *other* object's countdown and reloads the observer's** — verified at `00412617`/`0041263f` (`CMP word ptr [ESI+0x1e3]` against `MOV word ptr [EBX+0x1e3]`), so it is not a decompiler slip. Since only human-side objects sweep, Cybrid timers stay at zero and pairs are re-walked whenever asked.
 
 ## Radar mode
 
@@ -89,9 +95,10 @@ Only classes 0 and 2 are candidates for the nearest-target key.
 **Which node is per class:**
 
 - **Mech** — `FUN_00417b98` pushes the type record's `+0x0c` (`.DAT` file offset 10, `HercSimDat.CameraBoneId`) as the part id, so a HERC is aimed at **through its cockpit node**, the same one the pilot's eye rides. It walks and leans with the machine. Retail rises are 7.2 m (HEADHUNT) to 10.4 m (ACHILLES) above the model origin, which sits on the ground.
-- **Flyer and structure** — both install `FUN_00411a9c`, which is `return 0`, so both aim at the raw origin and both sight from the literal 500.
+- **Structure** — all five structure vtables install `FUN_00403548`, which fills a static record with a fixed matrix and the translation `(0, 0, BASES.DAT +0x2c)`, the type's aim-point height (1000 to 2000). A structure is aimed at that far up its side, the same point its own `+0x30` (`Base_GetAimPoint`, `0040351c`) gives, and sights from that height. A turret standing just behind a rise stays in line of sight over the rise's edge because of it; at 500 it drops out.
+- **Flyer** — installs `SimObject_GetAimNodeTransform_None` (`00411a9c`), which is `return 0`, so a flyer is aimed at its raw origin and sights from the literal 500.
 
-`SimObject.AimPoint` / `SimObject.SightHeight`, overridden only on `MechObject`.
+`SimObject.AimPoint` / `SimObject.SightHeight`, overridden on `MechObject` and `BaseObject`.
 
 ## Component targeting — the Targeting Pod
 
@@ -163,8 +170,15 @@ All three entry points also set the gunsight's "indicator armed" byte (`TargetSe
 Deviations:
 
 - **The observer camera is excluded** from the sensor model by target class. DBSIM's live-object list only ever holds the three combat classes; `SimWorld`'s also holds the camera, which would otherwise spot for the player's side.
-- **`TargetSelection.DropIfInvalid`** is not the original's, which has no player-side abandon check at all: the death path (`FUN_0041eb34`) is gated on `obj+0xa3` being *clear*, so it and `Ai_ShouldAbandonTarget` (`0041c4a8`, see [`ai-targeting.md`](ai-targeting.md#abandoning-a-target--ai_shouldabandontarget-0041c4a8)) only ever run for an AI machine. Without something in their place a destroyed target stays locked. It drops on death alone and deliberately does **not** re-run the selectability test: that also asks whether the object is currently known, which radar decay makes come and go, so testing it would drop a live target every few ticks.
+- `TargetSelection.DropIfInvalid` is [the cockpit update's drop](#losing-the-selection--fun_004327ac), plus a removed-object test of the engine's own that applies in every view — DBSIM's object list has no removed-but-listed state.
 - `obj+0x9e` and the engagement action it fires at 50000 units are `SimObject.Engaged` and `SimObject.EngagementAction` — [`mission-deployment.md`](mission-deployment.md).
+
+## Rejected readings
+
+| Obvious reading | Actually |
+|---|---|
+| The player's selection is never dropped: the death path `FUN_0041eb34` and `Ai_ShouldAbandonTarget` (`0041c4a8`, see [`ai-targeting.md`](ai-targeting.md#abandoning-a-target--ai_shouldabandontarget-0041c4a8)) both run only for AI machines, and a text search for writes to `+ 0x210)` finds only the three selection commands | `FUN_004327ac` clears it, written by the decompiler as `param_1[0x84] = 0` — `0x84 * 4 = 0x210` — so an offset search misses it. See [Losing the selection](#losing-the-selection--fun_004327ac) |
+| Structures sight from the literal 500 because they install the `return 0` stub at vtable `+0x24` | That stub (`00411a9c`) is the flyer's and the base class's; all five structure vtables install `FUN_00403548`. See [Aim point](#aim-point--vtable-0x24) |
 
 ## Open
 

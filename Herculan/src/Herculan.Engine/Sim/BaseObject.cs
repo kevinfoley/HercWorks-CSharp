@@ -264,6 +264,15 @@ public sealed partial class BaseObject : SimObject {
 		new(Position.X, Position.Y, Position.Z + Type.AimPointHeight);
 
 	/// <inheritdoc />
+	/// <remarks>
+	/// The structure's vtable <c>+0x24</c> (<c>00403548</c>) returns a node transform whose
+	/// translation is <c>(0, 0, </c><see cref="BaseType.AimPointHeight"/><c>)</c>, so the sweep sights
+	/// a structure from the same height it is aimed at — 1000 to 2000 units, not the 500 fallback. A
+	/// turret on a rise stays in line of sight over the rise's edge because of it.
+	/// </remarks>
+	public override int SightHeight => Type.AimPointHeight;
+
+	/// <inheritdoc />
 	public override bool ScannerActive => ScannerTypes.Contains(Type.Index);
 
 	/// <inheritdoc />

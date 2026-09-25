@@ -2342,10 +2342,10 @@ window.Update += deltaSeconds => {
 
 	// Player_PerFrameCockpitUpdate's own copy: whatever the cockpit has selected becomes the
 	// machine's mech+0x1a4, once a frame and before the sim ticks, so a weapon fired during the tick
-	// sees this frame's target. The drop that precedes it is not the original's — see
-	// TargetSelection.DropIfInvalid for the two functions that would otherwise do that job.
+	// sees this frame's target. The drop that precedes it is the cockpit update's own — see
+	// TargetSelection.DropIfInvalid.
 	if (scene.Targeting is { } playerTargeting) {
-		playerTargeting.DropIfInvalid();
+		playerTargeting.DropIfInvalid(cockpitShown: !ExternalViewActive());
 		playerTargeting.PushToPilot();
 	}
 

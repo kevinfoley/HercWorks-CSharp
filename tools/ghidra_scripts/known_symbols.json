@@ -546,6 +546,15 @@
       "source": "docs/formats/msn-mission-file.md"
     },
     {
+      "address": "00403548",
+      "binary": "DBSIM",
+      "type": "function",
+      "confidence": "high",
+      "name": "Base_GetAimNodeTransform",
+      "description": "Structure vtable +0x24, installed by all five Base_Construct tables: fills the static record at 004a9650 with a fixed matrix and the translation (0, 0, BASES.DAT +0x2c), the type's aim-point height. Detection_LineOfSight reads its +0x1c as the sight height; the homing and HUD aim paths read its +0x14.",
+      "source": "docs/simulation/target-selection.md"
+    },
+    {
       "address": "0047df94",
       "binary": "DBSIM",
       "type": "function",
@@ -7549,7 +7558,7 @@
       "type": "function",
       "confidence": "high",
       "name": "SimObject_GetAimNodeTransform_None",
-      "description": "Vtable +0x24 on both the flyer and structure classes: return 0. Every caller's null branch falls back to the object's raw origin for aiming and to a literal 500 for sight height, so only a mech has an aim node. The mech's own is Mech_GetAimNodeTransform.",
+      "description": "Vtable +0x24 on the flyer and the SimObject base: return 0. Every caller's null branch falls back to the object's raw origin for aiming and to a literal 500 for sight height. The mech's own is Mech_GetAimNodeTransform; all five structure vtables install Base_GetAimNodeTransform (00403548) instead.",
       "source": "docs/simulation/target-selection.md 2026-08-29"
     },
     {

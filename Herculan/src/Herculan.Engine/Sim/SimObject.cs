@@ -160,9 +160,9 @@ public abstract class SimObject {
 	/// the HUD's target indicator (<c>Player_ResolveTargetAimPoint</c>, <c>0041b728</c>) take
 	/// instead of the object's position.
 	///
-	/// <para>The base returns the origin, which is what a flyer and a structure both keep. Only
-	/// <see cref="MechObject"/> overrides it — see there for which node it names and why aiming at a
-	/// HERC's position puts a missile between its feet, and docs/simulation/target-selection.md,
+	/// <para>The base returns the origin, which is what a flyer keeps. <see cref="MechObject"/> and
+	/// <see cref="BaseObject"/> override it — see the mech's for which node it names and why aiming at
+	/// a HERC's position puts a missile between its feet, and docs/simulation/target-selection.md,
 	/// "Aim point", for the fallback every caller shares.</para>
 	/// </summary>
 	public virtual Vec3i AimPoint => Position;
@@ -174,8 +174,7 @@ public abstract class SimObject {
 	/// by it.
 	///
 	/// <para>The base is <c>Detection_LineOfSight</c>'s (<c>00412608</c>) own literal 500, used
-	/// whenever that slot returns nothing — so a flyer and a structure always sight from 500 and only
-	/// a HERC sights from its own geometry.</para>
+	/// whenever that slot returns nothing — which it does only for a flyer.</para>
 	/// </summary>
 	public virtual int SightHeight => Detection.DefaultSightHeight;
 

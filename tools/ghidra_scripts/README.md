@@ -50,7 +50,7 @@ Each has an `_readme` entry carrying its own schema.
 | `ES2DecompileContainingBatch` | `spec` | Same for many addresses, deduped by function. |
 | `ES2DecompileRange` | `lo` `hi` `out` | Decompiles every function whose entry point falls in a range. |
 | `ES2DecompileNamed` | `spec` | Decompiles functions by name. |
-| `ES2DumpFullDecomp` | `out` `[timeout]` | Whole-program decompilation. |
+| `ES2DumpFullDecomp` | `out` `[timeout]` | Whole-program decompilation. `tools/scripts/ghidra_full_decomp.py` runs it for both binaries into `analysis_out/` and reports how many DBSIM functions carry `known_symbols.json` names. |
 | `ES2DumpCallSites` | `addrs(+)` `ctx` `maxSites` `out` | Call sites with surrounding instructions — settles argument setup and `__cdecl` vs `__stdcall`, which the ANALYSIS-tier prototypes get wrong throughout this database. |
 
 ### Searching

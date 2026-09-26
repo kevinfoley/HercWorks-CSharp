@@ -55,6 +55,14 @@ sealed class TapeKeys : IKeyState {
 	}
 
 	/// <summary>
+	/// Every scancode a recording presses: each <see cref="KeysOf"/> maps, less the four modifiers,
+	/// which reach a command code as its Alt and Ctrl bits rather than as keys of their own.
+	/// </summary>
+	public static readonly int[] RecordedScancodes = Enumerable.Range(1, 0x58)
+		.Where(code => code is not (0x1d or 0x2a or 0x36 or 0x38) && KeysOf(code).Any())
+		.ToArray();
+
+	/// <summary>
 	/// The keys a set-1 scancode stands for. <c>VkToScancode</c> (<c>004a1104</c>) gives the arrow and
 	/// editing cluster the keypad's own scancodes, so each of those codes is both keys here.
 	/// </summary>

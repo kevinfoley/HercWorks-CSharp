@@ -226,11 +226,12 @@ public sealed class JoystickBindings {
 				break;
 		}
 
-		return new JoystickPilotInput(axes, ResolveFire(reading, preferences),
-			ResolveButtons(reading, capabilities, preferences), views,
+		var pressed = ResolveButtons(reading, capabilities, preferences, out int claimed);
+		return new JoystickPilotInput(axes, ResolveFire(reading, preferences), pressed, views,
 			KeyboardAimsTurret: stickRow == JoystickAxisAssignment.Movement,
 			SuppressKeyboardPitch: capabilities.HasThrottle
-				&& throttleRow != JoystickAxisAssignment.Unassigned);
+				&& throttleRow != JoystickAxisAssignment.Unassigned,
+			ClaimedButton: claimed);
 	}
 
 	/// <summary>
@@ -243,7 +244,14 @@ public sealed class JoystickBindings {
 	/// turret instead of duplicating it — and negates the pitch half on the way, so the caller hands
 	/// over the pair it would otherwise have steered with and lets this do the shuffle.</para>
 	/// </summary>
-	public PilotAxes Combine(JoystickPilotInput input, PilotAxes keyboard) {
+	public PilotAxes Combine(JoystickPilotInput input, PilotAxes keyboard) =>
+		ApplyBackturn(CombineBeforeBackturn(input, keyboard));
+
+	/// <summary>
+	/// <see cref="Combine"/> short of <c>Backturn</c>: the four axes as <c>Input_BuildPlayerDevice</c>
+	/// holds them at the point it records a tape frame, which is before Backturn is applied.
+	/// </summary>
+	public PilotAxes CombineBeforeBackturn(JoystickPilotInput input, PilotAxes keyboard) {
 		if (input.KeyboardAimsTurret) {
 			keyboard = new PilotAxes(0, 0,
 				keyboard.Steer != 0 ? keyboard.Steer : keyboard.TorsoTwist,
@@ -258,8 +266,13 @@ public sealed class JoystickBindings {
 			keyboard = keyboard with { TorsoPitch = (short)-keyboard.TorsoPitch };
 		}
 
-		var axes = input.Axes.Or(keyboard);
+		return input.Axes.Or(keyboard);
+	}
 
+	/// <summary>
+	/// The last of <c>data\keyjoy.cfg</c>, applied dead last to the combined axes.
+	/// </summary>
+	public PilotAxes ApplyBackturn(PilotAxes axes) {
 		// Backturn, applied dead last to the combined result: while the throttle axis is positive —
 		// backing up — the steering axis is inverted, so the machine turns the way reversing a vehicle
 		// turns.
@@ -303,9 +316,10 @@ public sealed class JoystickBindings {
 	/// pressed together therefore act one tick apart rather than together.</para>
 	/// </summary>
 	private IReadOnlyList<JoystickAction> ResolveButtons(JoystickReading reading,
-			JoystickCapabilities capabilities, SimulatorPreferences preferences) {
+			JoystickCapabilities capabilities, SimulatorPreferences preferences, out int claimedButton) {
 		List<JoystickAction>? pressed = null;
 		bool claimed = false;
+		claimedButton = -1;
 		int live = Math.Min(capabilities.ButtonCount, ButtonCount);
 
 		for (int i = 0; i < ButtonCount; i++) {
@@ -325,6 +339,7 @@ public sealed class JoystickBindings {
 			}
 
 			claimed = true;
+			claimedButton = i;
 			_latched[i] = true;
 
 			var action = Action(preferences, i);

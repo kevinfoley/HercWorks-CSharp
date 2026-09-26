@@ -84,38 +84,55 @@ public class InputTapeTransformer : ByteTransformer<InputTape> {
 		}
 
 		using var outStream = new MemoryStream();
-
-		void Emit(byte[] bytes) => outStream.Write(bytes, 0, bytes.Length);
-
-		for (int i = 0; i < InputTape.BundleFileCount; i++) {
-			byte[] file = tape.Bundle[i] ?? Array.Empty<byte>();
-			Emit(WriteIntLE(file.Length));
-			Emit(file);
-		}
-
-		Emit(tape.Capabilities);
+		Emit(outStream, WriteBundle(tape.Bundle));
+		Emit(outStream, tape.Capabilities);
 
 		foreach (var frame in tape.Frames) {
-			Emit(WriteShortLE(frame.CommandWord));
-			Emit(WriteShortLESegment(frame.Axes));
-			Emit(WriteShortLE(frame.TickDelta));
-			outStream.WriteByte(frame.ButtonBank);
-			outStream.WriteByte(frame.RawButtonBank);
-			outStream.WriteByte(frame.TriggerBank);
-			outStream.WriteByte(frame.Spare);
-			Emit(WriteIntLE(frame.MouseEvents.Count));
-			Emit(WriteIntLE(frame.Commands.Length));
-
-			foreach (var mouse in frame.MouseEvents) {
-				Emit(WriteIntLE(mouse.X));
-				Emit(WriteIntLE(mouse.Y));
-				Emit(WriteShortLE((short)mouse.Buttons));
-				Emit(WriteIntLE(mouse.Time));
-			}
-
-			Emit(WriteShortLESegment(frame.Commands));
+			Emit(outStream, WriteFrame(frame));
 		}
 
 		return outStream.ToArray();
 	}
+
+	/// <summary>
+	/// The bundle alone — seven size-prefixed files, a null entry written as size 0 the way
+	/// <c>Tape_PackFile</c> writes a file it could not open. A recorder writes this, then the capability
+	/// block, then <see cref="WriteFrame"/> once per frame.
+	/// </summary>
+	public byte[] WriteBundle(byte[]?[] bundle) {
+		using var outStream = new MemoryStream();
+		for (int i = 0; i < InputTape.BundleFileCount; i++) {
+			byte[] file = (i < bundle.Length ? bundle[i] : null) ?? Array.Empty<byte>();
+			Emit(outStream, WriteIntLE(file.Length));
+			Emit(outStream, file);
+		}
+
+		return outStream.ToArray();
+	}
+
+	/// <summary>One frame record: the 24-byte header, its mouse events and its command codes.</summary>
+	public byte[] WriteFrame(InputTape.Frame frame) {
+		using var outStream = new MemoryStream();
+		Emit(outStream, WriteShortLE(frame.CommandWord));
+		Emit(outStream, WriteShortLESegment(frame.Axes));
+		Emit(outStream, WriteShortLE(frame.TickDelta));
+		outStream.WriteByte(frame.ButtonBank);
+		outStream.WriteByte(frame.RawButtonBank);
+		outStream.WriteByte(frame.TriggerBank);
+		outStream.WriteByte(frame.Spare);
+		Emit(outStream, WriteIntLE(frame.MouseEvents.Count));
+		Emit(outStream, WriteIntLE(frame.Commands.Length));
+
+		foreach (var mouse in frame.MouseEvents) {
+			Emit(outStream, WriteIntLE(mouse.X));
+			Emit(outStream, WriteIntLE(mouse.Y));
+			Emit(outStream, WriteShortLE((short)mouse.Buttons));
+			Emit(outStream, WriteIntLE(mouse.Time));
+		}
+
+		Emit(outStream, WriteShortLESegment(frame.Commands));
+		return outStream.ToArray();
+	}
+
+	private static void Emit(Stream stream, byte[] bytes) => stream.Write(bytes, 0, bytes.Length);
 }

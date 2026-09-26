@@ -32,13 +32,18 @@ namespace Herculan.Engine.Input;
 /// Whether an assigned throttle axis has taken the keyboard's turret-pitch contribution out of play,
 /// which the original does whenever a lever exists and is bound to anything at all.
 /// </param>
+/// <param name="ClaimedButton">
+/// The button, 0-based, whose press took this tick's one action slot — whatever it is bound to, FIRE
+/// and OFF included, as those consume the slot too. -1 when none did. An input tape records it.
+/// </param>
 public readonly record struct JoystickPilotInput(
 		PilotAxes Axes,
 		bool Fire,
 		IReadOnlyList<JoystickAction> Pressed,
 		JoystickHat Views = JoystickHat.None,
 		bool KeyboardAimsTurret = false,
-		bool SuppressKeyboardPitch = false) {
+		bool SuppressKeyboardPitch = false,
+		int ClaimedButton = -1) {
 
 	/// <summary>No stick, or one the input layer could not enumerate. Every field inert.</summary>
 	public static readonly JoystickPilotInput None =

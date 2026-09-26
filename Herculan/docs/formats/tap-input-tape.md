@@ -43,7 +43,7 @@ The three retail tapes are three different missions — `script.dat` byte 0, the
 
 **A replay is not fully determined by the tape.** Three things come from the playing machine's install:
 
-- **Six preference bytes.** `-p` reads `data\prefs.cfg` and `tapes\prefs.cfg`, copies bytes 0-3 and 8-10 of the former over the latter — sound, music, the two message modes, terrain texture and the two detail settings ([`../simulation/preferences.md`](../simulation/preferences.md#what-each-byte-is)) — and writes `tapes\prefs.cfg` back. It also stores that path in the preferences path at `0049e844`, which the loader otherwise fills with `data\prefs.cfg`, so the simulator runs from the reconciled copy.
+- **Six preference bytes.** `-p` reads `data\prefs.cfg` and `tapes\prefs.cfg`, copies bytes 0-3 and 8-10 of the former over the latter — sound, music, the two message modes, terrain texture and the two detail settings ([`../simulation/preferences.md`](../simulation/preferences.md#what-each-byte-is)) — and writes `tapes\prefs.cfg` back. EFFECTS DETAIL is one of them, and a collapsing structure's smoke and a debris piece's burst read it, so the playing machine's setting reaches the simulation. It also stores that path in the preferences path at `0049e844`, which the loader otherwise fills with `data\prefs.cfg`, so the simulator runs from the reconciled copy.
 - **The keyjoy switches.** `Keyjoy_LoadConfig` (`0045b78c`) always reads `data\keyjoy.cfg`, so the tape's own copy in `tapes\` is never read. Its `Backturn` applies to the replayed axes: it is applied after the point where a frame is recorded, and playback runs that code too.
 - **Everything the bundle does not carry**, which is whatever `data\` already holds — the mission's text in `mission.str` among it.
 
@@ -132,7 +132,11 @@ The main menu's `VIEW DEMO` button (`FUN_0043156f`, VSHELL) exits the shell with
 
 ## Engine port
 
-`--play <tape>` is `-p` and `--demo` is `-D`; `--demo` with `--play` plays that tape in demo mode. A tape is a path or a stem found in the install's `TAPES` folder. `HercWorks.Core`'s `InputTapeTransformer` reads and writes the format, byte-identical on the three retail tapes; `Input.InputTapePlayer` decodes frames and lays out the bundle, and the host feeds each frame's keystrokes, pointer, stick and trigger through the same handlers live input takes. The tape's keystrokes reach the host's key handlers through `TapeKeys`, which maps each set-1 scancode back to a key.
+`--play <tape>` is `-p`, `--demo` is `-D` and `--record <tape>` is `-r`; `--demo` with `--play` plays that tape in demo mode. `HercWorks.Core`'s `InputTapeTransformer` reads and writes the format, byte-identical on the three retail tapes.
+
+### Playback
+
+A tape is a path or a stem found in the install's `TAPES` folder. `Input.InputTapePlayer` decodes frames and lays out the bundle, and the host feeds each frame's keystrokes, pointer, stick and trigger through the same handlers live input takes. The tape's keystrokes reach the host's key handlers through `TapeKeys`, which maps each set-1 scancode back to a key.
 
 Where it differs from retail, by this engine's choice:
 
@@ -144,6 +148,43 @@ Where it differs from retail, by this engine's choice:
 - **Divergence is logged.** The host prints each frame a panel goes up or comes down on, and `InputTapePlayer.InferredPanelSpans` lists the runs of one repeated delta that mark the recording's own panels; a mismatch is the replay leaving the recording.
 
 After the tape, `--play` hands the controls back to the player on the engine's own timestep, and `--demo` ends the mission. `[Ctrl+E]` stops either; under `--demo` any key does.
+
+### Recording
+
+`--record <tape>` writes `<tape>.tap`, the extension forced as `-r` forces it. `Input.InputTapeRecorder` writes the file as it goes, as `-r` does:
+
+- **The bundle**, at startup, before any panel writes its options back. It comes from the folder the mission was loaded from: the mission file itself, its lance file by slot (`script3.dat` takes `player3.mec`), and the other five from beside it. A file that is not there is an empty entry.
+- **The capability block**, ahead of the first frame, from the stick in use at that moment. The hat flag is written as `0x10`, the value the retail tapes carry.
+- **One frame per engine tick**, with `SimWorld.TickDelta` (81) as its delta, and **one per host frame a modal panel is up for**, repeating the last tick's delta.
+
+A frame's held input is the host frame's own: the four axes before Backturn, the trigger, and the stick's eight raw buttons. Its discrete input rides the next frame written, which is the first tick of the host frame or, when the host frame ran none, a later one:
+
+- **Key presses** are the key-down edges of the keyboard as polled at the top of the host frame, the same state the handlers poll, so a key pressed and released between two frames is not recorded. The first press is the command word and the rest go in the command queue; Alt and Ctrl held with a key are its `0x200` and `0x400` bits, and the modifier keys themselves, and every release, are left out.
+- **Mouse events** are converted to the game's screen space, the inverse of what playback does with them.
+- **The stick button that fired**, as its bit when it is one of buttons 1-4 and is not bound to FIRE, and the hat's four view bits.
+
+Nothing is recorded while the debug UI has the keyboard or the pointer, or while the player flies the free camera.
+
+While recording, the live loop follows playback's order where ordinary live play does not, so that the tape replays the ticks the recording ran:
+
+- **The mission alert** goes up straight after the tick that decided it, and the rest of that host frame's ticks do not run. Ordinary live play raises it at the top of the next host frame.
+- **A panel raised by a frame's own input** — `[Q]`, `[F11]`, `[F12]` — leaves that frame on the tape as one that ticks, and its tick runs once the panel comes down, as [playback](#playback) runs it. Ordinary live play drops that tick.
+
+### What a replay of an engine recording does not reproduce
+
+Beyond what the [bundle](#the-bundle) leaves to the playing machine and the buttons the format [does not record](#the-stream), these are the engine's own:
+
+- **Tick length.** The engine's tick is 40 ms and `SimTickDelta` 81 is 39.55 ms, which is what a replay advances the simulation's clock by. That clock gains 1.1% on the recording, and missile lock timing (`MechObject.Lock`) reads it.
+- **Pointer precision.** Mouse positions are rounded to the game's 640x480 screen, where the live pointer is in window pixels, so a throttle-slider drag or a click on a widget's edge can land differently.
+- **Held keys.** A key the host acts on for every frame it is held, rather than on its down edge, replays as held for one frame. The heads-down map's arrow scroll is one.
+- **Repeated presses.** Presses from host frames that ran no tick share one frame, so a key pressed in two of them replays as one press.
+- **The stick on the CONTROLS panel.** The panel reads the device directly, so presses made on it are not on the tape.
+- **The single-step key.** `Alt+keypad +` ticks the simulation once while recording; playback has no single step and runs that frame as a frozen tick.
+- **The staging flags.** `--heading`, `--throttle`, `--weapon`, `--link`, `--track` and `--target` set the mission's opening state, which the bundle does not carry.
+- **The free camera.** Keys pressed while flying it are not recorded, including `F1`-`F6`, which act whether or not the player is piloting.
+- **`[Esc]`.** A press that closed the debug UI or the menu bar is recorded, and replays as the game's `[Esc]`, which backs out of a side window or the Heads-Down Display.
+- **The device map.** A bipolar throttle is `data\herculan-joystick.cfg`'s setting, which the bundle does not carry, so the playing machine's applies.
+- **The stick's shape.** The capability block is written once, so a stick plugged in or out later in the recording is not on it.
 
 ## Symbol reference
 
@@ -179,4 +220,5 @@ After the tape, `--play` hands the controls back to the player on the engine's o
 
 - **Open:** whether the retail tapes' missions are the `DEMO`, `DEMO_01` and `DEMO_02` entries in the campaign's own mission table ([`../shell/campaign-loop.md`](../shell/campaign-loop.md)), or the `DEMO*.MSN` files — a tape carries `script.dat`, a save formatted from a `.MSN` rather than the mission file itself, so the two are not matched up.
 - **Open:** which panel `DEMO1`'s last 484 frames were recorded under. No command on the tape raises one, which leaves the status alert `Sim_MainTick` raises when the mission is decided as the candidate.
-- **Unported:** recording (`-r`) and the checkpoint file (`-d`). The engine plays tapes and does not write them.
+- **Unported:** the checkpoint file (`-d`).
+- **Open:** whether an engine recording replays in step with itself on a real install, and whether retail DBSIM plays one. Neither has been run.

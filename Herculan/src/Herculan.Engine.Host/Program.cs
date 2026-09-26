@@ -83,6 +83,7 @@ bool startWithStatusAlert = false;
 int stagedStatusAlert = -1;
 string? playTape = null;
 bool demoTape = false;
+string? recordTape = null;
 bool developerMode = false;
 var argumentErrors = new List<string>();
 for (int i = 0; i < args.Length; i++) {
@@ -327,6 +328,12 @@ for (int i = 0; i < args.Length; i++) {
 		if (HostArguments.TryReadString(args, ref i, argumentErrors, out string tape)) {
 			playTape = tape;
 		}
+	} else if (args[i] == "--record") {
+		// DBSIM's own -r<name>: record this mission's input to <name>.tap, which --play replays. The
+		// extension is forced, as -r forces it. See InputTapeRecorder.
+		if (HostArguments.TryReadString(args, ref i, argumentErrors, out string tape)) {
+			recordTape = Path.ChangeExtension(tape, InputTapePlayer.Extension);
+		}
 	} else if (args[i] == "--developer") {
 		// DBSIM's own -SPRUNKNOWN: the developer keys. See DeveloperKeys and docs/key-bindings.md.
 		developerMode = true;
@@ -341,6 +348,9 @@ for (int i = 0; i < args.Length; i++) {
 	}
 }
 
+if (recordTape != null && (playTape != null || demoTape)) {
+	argumentErrors.Add("--record cannot be combined with --play or --demo.");
+}
 if (positional.Count > 2) {
 	argumentErrors.Add($"Unexpected argument {positional[2]}: the only positional arguments are the install and the mission.");
 }
@@ -534,6 +544,20 @@ var simulatorPreferences = loadedPreferences ?? SimulatorPreferences.Defaults();
 // is the way out; a Defaults() instance has nowhere to write to and so is inert either way. A replay's
 // preferences are the tape's, in a scratch folder, so nothing there is worth writing.
 simulatorPreferences.SaveEnabled = writePreferences && tapePlayer == null;
+
+// -r writes its bundle before the mission starts, so the tape starts from the files as they are now,
+// before any panel writes its options back.
+InputTapeRecorder? tapeRecorder = null;
+if (recordTape != null) {
+	try {
+		tapeRecorder = InputTapeRecorder.Create(recordTape, scriptPath, dataDirectory);
+	} catch (Exception e) when (e is IOException or UnauthorizedAccessException) {
+		Console.Error.WriteLine($"Cannot record to {recordTape}: {e.Message}");
+		return 1;
+	}
+
+	Console.WriteLine($"Recording input to {tapeRecorder.Path}.");
+}
 
 // A replay applies the original's per-tick steps once per frame, as the recording did — see
 // SimMath.PerTickStepsScaled.
@@ -1317,6 +1341,13 @@ short? tapeDeferredTick = null;
 // reach the cockpit or a panel during a replay, as CockpitMouseLive (004d1e5a) shuts it out in retail.
 (float X, float Y, CockpitMouseButtons Buttons) tapePointer = (0, 0, CockpitMouseButtons.None);
 bool liveStopRequested = false;
+
+// A recording's own state: whether a modal panel was up as this host frame began, which makes the frame
+// one of the panel's; whether a panel raised by a frame's own input is holding that frame's tick back;
+// and which scancodes were down last host frame, for the key-down edges.
+bool recordPanelAtStart = false;
+bool recordDeferredTick = false;
+var recordKeysDown = new HashSet<int>();
 IMouse? mouse = null;
 bool cameraKeyDown = false;
 var cockpitInput = new CockpitInput();
@@ -1702,10 +1733,10 @@ window.Load += (gl, input) => {
 
 			var client = window.ClientSize;
 			var framebuffer = window.FramebufferSize;
-			cockpitInput.Enqueue(
-				m.Position.X * framebuffer.X / Math.Max(client.X, 1),
-				m.Position.Y * framebuffer.Y / Math.Max(client.Y, 1),
-				buttons);
+			float x = m.Position.X * framebuffer.X / Math.Max(client.X, 1);
+			float y = m.Position.Y * framebuffer.Y / Math.Max(client.Y, 1);
+			cockpitInput.Enqueue(x, y, buttons);
+			RecordMouse(x, y, buttons, framebuffer.X, framebuffer.Y);
 		}
 
 		// The mask is built from the event's own button rather than read back off the device, so it
@@ -1729,6 +1760,9 @@ window.Update += deltaSeconds => {
 	// A replay's next frame, when it is due, goes in ahead of every handler below, which then read its
 	// keystrokes and pointer exactly as they would a player's.
 	TakeTapeFrame(deltaSeconds);
+
+	// And a recording's keystrokes, read at the same moment the handlers below will read them.
+	RecordFrameStart();
 
 	// The modal panels take the keyboard before anything else does. They are modal in the
 	// original — each runs its own event loop, which owns input until the panel comes down — and
@@ -1831,11 +1865,13 @@ window.Update += deltaSeconds => {
 		// block and its button edges are dispatched here. Both come out of the same twelve bytes of
 		// prefs.cfg, resolved by JoystickBindings — the panel edits those bytes live, so a rebinding
 		// takes effect on the next tick with nothing to reload. A replay's stick is the tape's.
+		var stickReading = TapePlaying() || joystick is null ? JoystickReading.Neutral : joystick.Read();
 		joystickInput = TapePlaying()
 			? TapeJoystickInput()
 			: joystick is null
 				? JoystickPilotInput.None
-				: joystickBindings.Resolve(joystick.Read(), joystick.Capabilities, simulatorPreferences);
+				: joystickBindings.Resolve(stickReading, joystick.Capabilities, simulatorPreferences);
+		RecordStick(joystickInput);
 
 		joystickCenterBody = false;
 		foreach (var action in joystickInput.Pressed) {
@@ -1956,7 +1992,7 @@ window.Update += deltaSeconds => {
 					centerBody: joystickCenterBody || controls.IsKeyPressed(Key.BackSlash));
 			}
 		} else {
-			PilotFromLiveInput(pilotMech, controls, mapHasArrows);
+			PilotFromLiveInput(pilotMech, controls, mapHasArrows, stickReading);
 		}
 	} else {
 		if (!TapePlaying()) {
@@ -2013,7 +2049,7 @@ window.Update += deltaSeconds => {
 	// keyboard's two axis pairs in the same source table as the joystick's four axes and takes
 	// whichever has moved, so a pilot can steer with one hand and nudge with the other. What the
 	// stick reaches at all is the twelve binding bytes' business — see JoystickBindings.
-	void PilotFromLiveInput(MechObject mech, IKeyState keys, bool mapHasArrows) {
+	void PilotFromLiveInput(MechObject mech, IKeyState keys, bool mapHasArrows, JoystickReading stickReading) {
 		// Under the developer flag an arrow held with Ctrl or Alt is a move or turn key, and this engine
 		// takes it off the steering and throttle axes. Retail keeps it on them — see KNOWN_ISSUES.md.
 		bool arrowsAreCommands = developerKeys.Enabled && (CtrlHeld(keys) || AltHeld(keys));
@@ -2029,7 +2065,8 @@ window.Update += deltaSeconds => {
 			TurretAxis(Axis(keys, Key.K, Key.J), heldTwist),
 			TurretAxis(Axis(keys, Key.I, Key.M), heldPitch));
 
-		var axes = joystickBindings.Combine(joystickInput, keyboardAxes);
+		var recordedAxes = joystickBindings.CombineBeforeBackturn(joystickInput, keyboardAxes);
+		var axes = joystickBindings.ApplyBackturn(recordedAxes);
 
 		mech.Controls = new MechControls(
 			axes.Steer,
@@ -2047,6 +2084,9 @@ window.Update += deltaSeconds => {
 			// firing as fast as its refire delay and its capacitor allow. So is the joystick trigger,
 			// for the same reason and through the same byte.
 			Fire: heldFire || joystickInput.Fire || keys.IsKeyPressed(Key.Space));
+
+		// A tape records the axes ahead of Backturn, which playback applies again.
+		tapeRecorder?.SetHeld(recordedAxes, mech.Controls.Fire, stickReading.Buttons);
 	}
 
 	// F1-F6 pick the MFD screen, the same keys and the same order as the original's own mode buttons
@@ -2445,29 +2485,44 @@ window.Update += deltaSeconds => {
 	// A replay ticks on the tape's frames instead, each for the time it recorded.
 	if (TapePlaying() || tapeFrame != null) {
 		RunTapeTicks();
-	} else if (developerKeys.StepPending && !frozen) {
-		// Alt+keypad +: this tick and no more. Sim_MainTick re-freezes at the top of the next one.
-		scene.World.Tick();
-		debugPanel.SampleBeams(scene.World);
-		developerKeys.FinishStep();
-		tickAccumulator = 0;
 	} else {
-		if (!frozen) {
-			tickAccumulator = Math.Min(tickAccumulator + deltaSeconds, MaxAccumulatedSeconds);
-		}
-		while (!frozen && tickAccumulator >= SecondsPerTick) {
-			// Alt+S's freeze is not a panel's: the tick still runs, with only the player's input poll
-			// and the mission poll in it. See SimWorld.TickFrozen.
-			if (developerKeys.Frozen) {
-				scene.World.TickFrozen();
-			} else {
-				scene.World.Tick();
+		// A recording writes one frame per host frame a modal panel is up for, as a panel's own loop
+		// builds the input once a pass. The frame that takes the panel down also finishes the tick a
+		// frame's own input held back when it raised the panel, as playback does.
+		if (tapeRecorder != null && recordPanelAtStart) {
+			tapeRecorder.EmitPanel(StickCapabilities());
+			if (recordDeferredTick && !missionOver && !AnyModalPanelOpen()) {
+				recordDeferredTick = false;
+				TickLive(emit: false);
+				frozen = missionOver || AnyModalPanelOpen();
 			}
+		}
 
-			// Beams are resolved and forgotten inside the tick, so anything that wants to see one has to
-			// look between ticks — see SimWorld.Beams.
+		bool ticked = false;
+		if (developerKeys.StepPending && !frozen) {
+			// Alt+keypad +: this tick and no more. Sim_MainTick re-freezes at the top of the next one.
+			scene.World.Tick();
 			debugPanel.SampleBeams(scene.World);
-			tickAccumulator -= SecondsPerTick;
+			RecordTick();
+			developerKeys.FinishStep();
+			tickAccumulator = 0;
+			ticked = true;
+		} else {
+			if (!frozen) {
+				tickAccumulator = Math.Min(tickAccumulator + deltaSeconds, MaxAccumulatedSeconds);
+			}
+			while (!frozen && tickAccumulator >= SecondsPerTick) {
+				tickAccumulator -= SecondsPerTick;
+				ticked = true;
+				frozen = TickLive(emit: true);
+			}
+		}
+
+		// This frame's own input raised a panel, so nothing ticked: the frame goes on the tape as one
+		// that ticks, and playback holds its tick back until the panel is down, as the recording does.
+		if (tapeRecorder != null && !recordPanelAtStart && !ticked && !missionOver && AnyModalPanelOpen()) {
+			tapeRecorder.EmitTick(SimWorld.TickDelta, StickCapabilities());
+			recordDeferredTick = true;
 		}
 	}
 
@@ -2970,6 +3025,11 @@ window.Render += (_, gl) => {
 };
 
 window.Closing += () => {
+	if (tapeRecorder != null) {
+		tapeRecorder.Dispose();
+		Console.WriteLine($"Recorded {tapeRecorder.FrameCount} frames to {tapeRecorder.Path}.");
+	}
+
 	audio.Dispose();
 	imgui?.Dispose();
 	renderer?.Dispose();
@@ -3797,7 +3857,7 @@ IEnumerable<SceneItem> VisibleItems() =>
 // detail thresholds a count of pixels on the screen actually being drawn, which is what makes them a
 // measure of apparent size rather than of a 1996 monitor's.
 int DetailFocalPixels() => Math.Max((int)MathF.Round(
-	window.FramebufferSize.Y * Camera.FocalLengthPixels / Camera.FocalViewHeightPixels), 1);
+	window!.FramebufferSize.Y * Camera.FocalLengthPixels / Camera.FocalViewHeightPixels), 1);
 
 void SelectDetailRoots() {
 	if (detailChains.Count == 0) {
@@ -4183,6 +4243,107 @@ bool KeyboardCapturedByImGui() => !TapePlaying() && ImGuiHasKeyboard();
 // What the stick in use can do: the recording machine's during a replay, the attached one otherwise.
 JoystickCapabilities StickCapabilities() =>
 	TapePlaying() ? tapePlayer!.Capabilities : joystick?.Capabilities ?? JoystickCapabilities.None;
+
+// One tick on the engine's own timestep. Returns whether the simulation has stopped behind a modal
+// panel or the mission's end, which only a recording asks about mid-loop — see RecordTick.
+bool TickLive(bool emit) {
+	// Alt+S's freeze is not a panel's: the tick still runs, with only the player's input poll and the
+	// mission poll in it. See SimWorld.TickFrozen.
+	if (developerKeys.Frozen) {
+		scene.World.TickFrozen();
+	} else {
+		scene.World.Tick();
+	}
+
+	// Beams are resolved and forgotten inside the tick, so anything that wants to see one has to look
+	// between ticks — see SimWorld.Beams.
+	debugPanel.SampleBeams(scene.World);
+	return RecordTick(emit);
+}
+
+// A recording's half of a tick: the frame goes on the tape, and the mission alert goes up straight
+// after the tick that decided it rather than at the top of the next host frame, so the ticks the loop
+// would still run behind it do not happen — as in a replay, where Sim_MainTick raises it itself.
+bool RecordTick(bool emit = true) {
+	if (tapeRecorder == null) {
+		return false;
+	}
+
+	if (emit) {
+		tapeRecorder.EmitTick(SimWorld.TickDelta, StickCapabilities());
+	}
+
+	RaisePendingMissionAlert();
+	return missionOver || AnyModalPanelOpen();
+}
+
+// The top of a recorded host frame: whether it is a panel's, and the keys that went down since the last
+// one. Keys are edges of the polled state rather than the device's own events, because the handlers
+// poll too: a key pressed and let go between two frames is one no handler saw. Only what reaches the
+// game is recorded — nothing while the debug UI has the keyboard or the free camera is being flown.
+void RecordFrameStart() {
+	if (tapeRecorder == null) {
+		return;
+	}
+
+	recordPanelAtStart = AnyModalPanelOpen();
+	tapeRecorder.SetHeld(PilotAxes.Centred, false, 0);
+	if (liveKeys == null) {
+		return;
+	}
+
+	bool listening = !ImGuiHasKeyboard() && (piloting || recordPanelAtStart);
+	int modifiers = (AltHeld(liveKeys) ? InputTapePlayer.AltBit : 0)
+		| (CtrlHeld(liveKeys) ? InputTapePlayer.CtrlBit : 0);
+	foreach (int scancode in TapeKeys.RecordedScancodes) {
+		bool down = TapeKeys.KeysOf(scancode).Any(liveKeys.IsKeyPressed);
+		if (down && listening && !recordKeysDown.Contains(scancode)) {
+			tapeRecorder.AddPress(scancode | modifiers);
+		}
+
+		if (down) {
+			recordKeysDown.Add(scancode);
+		} else {
+			recordKeysDown.Remove(scancode);
+		}
+	}
+}
+
+// One live mouse event onto the tape, in the game's own screen space — ApplyTapeMouse run backwards.
+// Dropped where the cockpit would not see it: over the debug UI, or in the free camera.
+void RecordMouse(float x, float y, CockpitMouseButtons buttons, int framebufferWidth, int framebufferHeight) {
+	if (tapeRecorder == null) {
+		return;
+	}
+
+	if (!AnyModalPanelOpen() && (!piloting || (imgui != null && ImGui.GetIO().WantCaptureMouse))) {
+		return;
+	}
+
+	int scale = simulatorPreferences[SimulatorPreferences.VideoModeOption] == 1 ? 2 : 1;
+	var (screenX, screenY) = AlertPanelLayout.Placement.CreateAt(framebufferWidth, framebufferHeight, 0, 0)
+		.ToPanel(x, y);
+	tapeRecorder.AddMouse(new InputTape.MouseEvent {
+		X = (int)MathF.Round(screenX / scale),
+		Y = (int)MathF.Round(screenY / scale),
+		Buttons = (ushort)((int)buttons & 3),
+		Time = (int)audio.CoarseTicks,
+	});
+}
+
+// The stick's discrete half onto the tape: the button that fired and the hat's views. The trigger's
+// own button is left out, as retail extracts the trigger from it before the frame is written.
+void RecordStick(JoystickPilotInput input) {
+	if (tapeRecorder == null || TapePlaying()) {
+		return;
+	}
+
+	int fired = input.ClaimedButton >= 0
+		&& joystickBindings.Action(simulatorPreferences, input.ClaimedButton) != JoystickAction.Fire
+			? input.ClaimedButton
+			: -1;
+	tapeRecorder.SetDiscreteStick(fired, input.Views);
+}
 
 // Takes the replay's next frame once it is due, before any handler reads input this host frame, and
 // puts its keystrokes and mouse events where those handlers look. At most one frame a host frame

@@ -29,6 +29,12 @@ public sealed class InputTapePlayer {
 	/// <summary>The extension <c>-p</c>, <c>-r</c> and <c>-D</c> all force onto a tape's stem.</summary>
 	public const string Extension = ".tap";
 
+	/// <summary>The bundle's seven files, in bundle order, as <c>-r</c> names them in <c>data\</c>.</summary>
+	public static readonly IReadOnlyList<string> BundleFileNames = new[] {
+		MissionLoader.ScriptFileName, MissionLoader.PlayerFileName, "mission.var",
+		SimulatorPreferences.FileName, "restore.dat", "object.str", KeyjoyConfig.FileName,
+	};
+
 	/// <summary>
 	/// How long a frame recorded while a modal panel was up is held for — <b>this engine's estimate</b>.
 	/// A panel's loop calls <c>Input_BuildPlayerDevice</c> without the frame wait, so those frames
@@ -158,11 +164,7 @@ public sealed class InputTapePlayer {
 			}
 		}
 
-		string[] names = {
-			MissionLoader.ScriptFileName, MissionLoader.PlayerFileName, "mission.var",
-			SimulatorPreferences.FileName, "restore.dat", "object.str", KeyjoyConfig.FileName,
-		};
-
+		var names = BundleFileNames;
 		for (int i = 0; i < InputTape.BundleFileCount; i++) {
 			if (names[i] == KeyjoyConfig.FileName) {
 				continue;

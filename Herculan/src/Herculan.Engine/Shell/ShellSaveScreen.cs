@@ -126,9 +126,13 @@ public sealed class ShellSaveScreen {
 	/// </summary>
 	public void Leave() => SelectSlot(RowCount);
 
-	/// <summary>The slot the row at a canvas point belongs to, or null when the point is on no row.</summary>
+	/// <summary>
+	/// The slot the row at a canvas point belongs to, or null when the point is on no row. Rows overlap by
+	/// their border line, which goes to the lower row because it was built later
+	/// (docs/shell/screen-layout.md#which-widget-a-click-reaches).
+	/// </summary>
 	public int? RowAt(float canvasX, float canvasY) {
-		for (int slot = 0; slot < RowCount; slot++) {
+		for (int slot = RowCount - 1; slot >= 0; slot--) {
 			if (RowRect(slot).Contains(canvasX, canvasY)) {
 				return slot;
 			}

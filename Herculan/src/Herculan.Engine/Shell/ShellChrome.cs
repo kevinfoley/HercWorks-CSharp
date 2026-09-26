@@ -210,7 +210,7 @@ public static class ShellChrome {
 	}
 
 	/// <summary>
-	/// <c>ImagePanel_Paint</c> (<c>0040b772</c>), the paint of the panel class <c>maybe_Widget_InitRect</c> (<c>0040b698</c>)
+	/// <c>ImagePanel_Paint</c> (<c>0040b772</c>), the paint of the panel class <c>ImagePanel_Ctor</c> (<c>0040b698</c>)
 	/// builds — one bitmap at an offset within the widget (<c>+0x55</c>, <c>+0x59</c>), then the border
 	/// over it with no fill, so an image that reaches the edge loses its outermost pixels to the border.
 	/// Nothing is drawn at all while <c>+0x51</c> is clear, which the constructor leaves it.

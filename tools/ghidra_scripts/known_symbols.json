@@ -1723,7 +1723,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Window_Ctor",
-      "description": "Lowest-level widget base constructor (window.cpp-equivalent). Sets a placeholder vtable (&PTR_FUN_004717dc, classic Watcom base-subobject-under-construction pattern), zeroes state fields, calls FUN_0041eb5c(widget, parent, rectPtr, style) to install the {x,y,w,h} rect (fields at +0x25/+0x29/+0x2d/+0x31 = left/top/right/bottom) and attach to the parent's child tree, then sets the real base vtable (&PTR_FUN_0046e828). Called by every other widget constructor, directly or via Control_Ctor.",
+      "description": "Lowest-level widget base constructor. Sets a placeholder vtable (&PTR_004717dc) then the real base vtable (&PTR_0046e828, whose slot 0 is Widget_DispatchCallback), zeroes +0x11 and the event mask +0x39, and calls Widget_SetRect(widget, parent, rect, handler) -- the 4th argument is the click handler stored at +0x3d. Text_Ctor and EditField_Ctor build on this directly rather than on Control_Ctor.",
       "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL widget-class disambiguation pass"
     },
     {
@@ -1732,7 +1732,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Control_Ctor",
-      "description": "Mid-level widget base (wwinbase.cpp/esdialog.cpp-equivalent), one level above Window_Ctor: calls Window_Ctor, sets its own vtable (&PTR_FUN_0046e810), zeroes an icon/style field at +0x45, ORs style flags 0x60 into the +0x39 flags word, sets +0x49=1 (default-visible), then calls Widget_ShowRecursive to cascade the show/attach notification down the tree. This is the base every 'has visible chrome' widget (Text, Button, Panel-family) constructs through, distinct from the plain-rect InitRect variant which skips it.",
+      "description": "Mid-level widget base, one level above Window_Ctor: sets its own vtable (&PTR_0046e810, slot 0 Control_HandleEvent), zeroes the lit flag +0x45, ORs 0x60 into the event mask +0x39 -- the 0x20 bit is what lets the widget take mouse events -- sets the enable flag +0x49 = 1, then Widget_ShowRecursive. Panel_Ctor and so every Panel-derived class (Button, FramedPanel, TitledPanel, Grid, ImagePanel, HatchedDivider) goes through it; Text_Ctor does not.",
       "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL widget-class disambiguation pass"
     },
     {
@@ -1777,7 +1777,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Text_Ctor",
-      "description": "The Text/Label widget class (0xc9=201-byte struct, by far the most-constructed widget class in VSHELL's screens, 68 uses across the 6 tab screens alone -- consistent with 'every caption/value/button-label is one of these'). Calls Control_Ctor, sets its own vtable (&PTR_FUN_0046ec54), stores font id (+0x45) and alignment/style (+0xb5, seen as constant 0x29=41 everywhere), then calls Text_SetString to copy the caller's string into a fixed 100-char buffer. Also constructed internally as the embedded caption child of Button_Ctor/ButtonIcon_Ctor.",
+      "description": "The Text/Label widget class (0xc9 bytes), the most-constructed widget in VSHELL's screens. Calls Window_Ctor, not Control_Ctor, sets its own vtable (&PTR_0046ec54, slot 0 Text_HandleEvent), stores the font handle (+0xb1), alignment (+0x45), ink replacement colour (+0xb5), opaque flag (+0xc1), then Text_SetString; then clears 0x18 from the event mask +0x39, leaving 0x07 -- no mouse bit, so a Text never takes a click and one on it is delivered to its parent. 5th argument is the handler at +0x3d. Also the embedded caption child of Button_Ctor/ButtonIcon_Ctor and TitledPanel_Ctor.",
       "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL widget-class disambiguation pass"
     },
     {
@@ -12655,7 +12655,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Widget_SetRect",
-      "description": "Stores a constructor's rect verbatim into +0x25/+0x29/+0x2d/+0x31 -- left, top, right, bottom, parent-relative -- then attaches to the parent and has FUN_0041ef45 derive the absolute rect into +0x15/+0x19/+0x1d/+0x21. FUN_0041ec33 confirms the relation by adding a parent's +0x15 to a child's +0x25.",
+      "description": "Stores a constructor's rect verbatim into +0x25/+0x29/+0x2d/+0x31 -- left, top, right, bottom, parent-relative -- has FUN_0041ef45 derive the absolute rect into +0x15/+0x19/+0x1d/+0x21, attaches to the parent with Widget_AttachChild (0041f134), ORs 0x1f into the event mask +0x39, and stores its 4th argument, the click handler, at +0x3d.",
       "source": "docs/shell/screen-layout.md#how-a-widget-paints"
     },
     {
@@ -12844,8 +12844,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Control_HandleEvent",
-      "description": "The widget base's event handler, and the answer to what stops a gated widget responding: mouse events (type 0x20) are processed only when +0x49 is non-zero, so a cleared enable flag skips the whole switch. Sub-event 2 presses (+0x45 = 1, repaint), 1 releases (dispatch the widget's own callback via 0041f5d4, clear +0x45, repaint) and 0x10 cancels. Type 4 is a repaint, type 2 the shown event.",
-      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+      "description": "The widget base's event handler (slot 0 of Control, Panel, FramedPanel, TitledPanel and Grid). Mouse events (type 0x20) are acted on only while the enable flag +0x49 is set and DAT_00470d70 and DAT_00470e70 are clear. Sub-code 2 or 4 (a press) lights +0x45 and repaints; 1 or 3 (a release) with +0x45 lit calls Widget_DispatchCallback, clears +0x45, repaints; the leave event 0x10 clears +0x45. Nothing is passed to the parent, so a widget with no handler, or a disabled one, swallows the click. Type 4 is a repaint, type 2 the hidden event.",
+      "source": "docs/shell/screen-layout.md#which-widget-a-click-reaches"
     },
     {
       "address": "00409b0f",
@@ -16891,6 +16891,159 @@
       "name": "SquadPositionsInPlay",
       "description": "The player structure's leading int16: squad positions in play, the player's counted as 0. Bounds the auto-repair (0040e862) and player.mec export (0040f1e4) loops; Squad_UpdateOnStrength puts a member on strength only below it; the crew screen lights the rows below it.",
       "source": "docs/formats/save-games.md#savgame_sav--block-order"
+    },
+    {
+      "address": "0041f134",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_AttachChild",
+      "description": "Widget_AttachChild(parent, child): pushes the child onto the HEAD of the parent's child list (+0xd head, +5 next sibling, +9 previous sibling or, on the head with +0x11 bit 1 set, the parent). Only caller Widget_SetRect, so every child list runs newest first -- which is why the later-built of two overlapping siblings wins a click.",
+      "source": "docs/shell/screen-layout.md#which-widget-a-click-reaches"
+    },
+    {
+      "address": "0041f17a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_Detach",
+      "description": "Unlinks a widget from its parent's child list and clears its links. Called by two teardowns (0040ce2b, 0043c7ea) that delete what they unlink; nothing re-attaches, so no child list is reordered.",
+      "source": "docs/shell/screen-layout.md#which-widget-a-click-reaches"
+    },
+    {
+      "address": "0041f283",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_Parent",
+      "description": "Returns a widget's parent: walks +9 (previous sibling) while +0x11 bit 1 is clear, then returns +9 of the list head, which is the parent.",
+      "source": "docs/shell/screen-layout.md#which-widget-a-click-reaches"
+    },
+    {
+      "address": "0041f2b2",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_ContainsPoint",
+      "description": "Widget_ContainsPoint(widget, point): 1 when the point is inside the widget's absolute rect +0x15..+0x21, edges included.",
+      "source": "docs/shell/screen-layout.md#which-widget-a-click-reaches"
+    },
+    {
+      "address": "00469d1c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Widget_HitTestTree",
+      "description": "Widget_HitTestTree(handler, widget, point): null when the widget is hidden (+0x11 bit 2) or the point is outside it; otherwise tries its children in list order (newest first) recursively and returns the first hit, or the widget itself. The pointer's target on every mouse move.",
+      "source": "docs/shell/screen-layout.md#which-widget-a-click-reaches"
+    },
+    {
+      "address": "00469ba4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "EventQueue_Pump",
+      "description": "Drains the event queue at handler+0x11. A mouse move (type 0x20, sub-code 0) re-runs Widget_HitTestTree from the display root and, when the answer changes, sends leave (0x10) to the old target and enter (8) to the new; any other event with no target goes to the current pointer target at handler+1. Then Event_Deliver.",
+      "source": "docs/shell/screen-layout.md#which-widget-a-click-reaches"
+    },
+    {
+      "address": "00469f34",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Event_Deliver",
+      "description": "Finds the receiver with Event_FindReceiver, discards the event when there is none, otherwise makes the point local (Event_ToLocal) and calls the receiver's vtable slot 0.",
+      "source": "docs/shell/screen-layout.md#which-widget-a-click-reaches"
+    },
+    {
+      "address": "00469fb8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Event_FindReceiver",
+      "description": "Walks from the event's target (+0x20) through Widget_Parent to the first widget whose event mask +0x39 has the event type's bit; the result goes to event+0x1c. How a click on a Text reaches its parent.",
+      "source": "docs/shell/screen-layout.md#which-widget-a-click-reaches"
+    },
+    {
+      "address": "00469fe4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Event_ToLocal",
+      "description": "Subtracts the event target's absolute origin (+0x15, +0x19) from the event point (+0x10, +0x14).",
+      "source": "docs/shell/screen-layout.md#which-widget-a-click-reaches"
+    },
+    {
+      "address": "00468440",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Event_Post",
+      "description": "Queues an event. A mouse move is first scaled, accumulated and clamped to the display (with a hop to an adjacent display at an edge); every event gets the display at +0x18 before it is queued.",
+      "source": "docs/shell/screen-layout.md#which-widget-a-click-reaches"
+    },
+    {
+      "address": "00469d74",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Pointer_Leave",
+      "description": "Sends a leave event (0x10) to the pointer's current target and clears it. The leave is what clears a pressed widget's +0x45, cancelling the click.",
+      "source": "docs/shell/screen-layout.md#which-widget-a-click-reaches"
+    },
+    {
+      "address": "00469e1c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Pointer_Enter",
+      "description": "Sets the pointer's target (hit-testing from the display root when passed null) and sends it an enter event (8); then sets the cursor from the first +0x35 up the parent chain.",
+      "source": "docs/shell/screen-layout.md#which-widget-a-click-reaches"
+    },
+    {
+      "address": "0040b3a7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Text_HandleEvent",
+      "description": "The Text class's event handler (vtable 0046ec54 slot 0): event 2 goes to Widget_DispatchCallback, event 4 paints (Text_Paint), everything else is discarded. It has no mouse arm, and Text's event mask keeps mouse events from reaching it in the first place.",
+      "source": "docs/shell/screen-layout.md#which-widget-a-click-reaches"
+    },
+    {
+      "address": "0040c3b5",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HatchedDivider_HandleEvent",
+      "description": "HatchedDivider's event handler (vtable 0046ee08 slot 0): Control_HandleEvent's mouse arm -- press lights +0x45, release with it lit dispatches the +0x3d handler, gated on +0x49 -- without its DAT_00470d70/DAT_00470e70 test, and the leave event repaints recursively.",
+      "source": "docs/shell/screen-layout.md#which-widget-a-click-reaches"
+    },
+    {
+      "address": "00408b03",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mouse_OnButtonState",
+      "description": "Turns a change of mouse button state into queued mouse records: sub-code 0 for a move, 2/1 for the left button going down/up, 4/3 for the right.",
+      "source": "docs/shell/screen-layout.md#which-widget-a-click-reaches"
+    },
+    {
+      "address": "00468cfc",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MouseEvent_Ctor",
+      "description": "Constructs a 0x29-byte mouse event: type 0x20 at +0xc, sub-code byte at +0x24.",
+      "source": "docs/shell/screen-layout.md#which-widget-a-click-reaches"
+    },
+    {
+      "address": "0046b234",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Eh_InitExceptBlock",
+      "description": "Borland C++ exception-frame prologue: links the caller's frame record into the FS:[0] SEH chain. Called first by most VSHELL functions with a destructor-bearing local, the click thunks included; not part of any dispatch.",
+      "source": "docs/shell/screen-layout.md#which-widget-a-click-reaches"
     }
   ]
 }

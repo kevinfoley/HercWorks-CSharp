@@ -205,20 +205,22 @@ public sealed class ShellRepairScreen {
 
 	/// <summary>
 	/// The <c>(column, row)</c> a canvas point selects, or null: a row of either list, or a hotspot over
-	/// the external picture, which is only there to click while that picture is the one up.
+	/// the external picture, which is only there to click while that picture is the one up. Rows overlap
+	/// by their border line, which goes to the lower row because it was built later
+	/// (docs/shell/screen-layout.md#which-widget-a-click-reaches).
 	/// </summary>
 	public (int Column, int Row)? RowAt(float canvasX, float canvasY) {
 		if (_column == 0 && _diagrams?.HotspotAt(Machine, canvasX, canvasY) is { } hotspot) {
 			return (0, hotspot);
 		}
 
-		for (int row = 0; row < ColumnZeroRowCount; row++) {
+		for (int row = ColumnZeroRowCount - 1; row >= 0; row--) {
 			if (RowRect(0, row).Contains(canvasX, canvasY)) {
 				return (0, row);
 			}
 		}
 
-		for (int row = 0; row < InternalRowCount; row++) {
+		for (int row = InternalRowCount - 1; row >= 0; row--) {
 			if (RowRect(1, row).Contains(canvasX, canvasY)) {
 				return (1, row);
 			}

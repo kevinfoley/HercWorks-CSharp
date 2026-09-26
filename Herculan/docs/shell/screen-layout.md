@@ -30,7 +30,7 @@ Widget fields the builders and the tab handlers write directly:
 | Offset | Meaning |
 |---|---|
 | `+0x45` | the lit flag. The widget's own mouse handler toggles it 0/1, and the paint picks the button's face from it. A tab handler writes 1 and repaints before building its screen, which is what latches the active tab lit; `0043b0c8` clears it across all nine. On the palette scope, a different class, the same offset is a palette index instead |
-| `+0x49` | 1 from the constructor, and the enable flag. The tab gate clears it on the three tabs the training campaign has no economy for, and the repair panel writes it alongside two greying colour fields on a test of whether the player can afford the button ([below](#the-condition-readout)) — moving with the greying, on an affordability test, is what makes it the enable flag rather than a style bit. The button's own paint reads it for one thing, whether the caption takes the pressed nudge; what stops a cleared widget responding is in the base class's click dispatch and is not read |
+| `+0x49` | 1 from the constructor, and the enable flag. The tab gate clears it on the three tabs the training campaign has no economy for, and the repair panel writes it alongside two greying colour fields on a test of whether the player can afford the button ([below](#the-condition-readout)) — moving with the greying, on an affordability test, is what makes it the enable flag rather than a style bit. The button's own paint reads it for one thing, whether the caption takes the pressed nudge; the base class's event handler ignores mouse events while it is clear, so a cleared widget swallows a click on it ([below](#which-widget-a-click-reaches)) |
 | `+0x51` | 1 from `Panel_Ctor`, and the gate on drawing any chrome at all: `Panel_FillAndBorder` (0040a726) returns immediately when it is clear. Written 0 on both the root and the full-screen panel, which is how each shows its bitmap with no fill and no border. Not the button field of the same offset — different class, different layout past the base |
 
 ## What a tab click does
@@ -117,7 +117,29 @@ Three things say so independently:
 
 `TitledPanel_Ctor` ends by hiding the panel it just built, so a screen's widgets are constructed dark and its entry routine is what puts them up. The edit-field constructor `EditField_Ctor` (0040bbf4) does the opposite and leaves its widget visible.
 
-Both consult the widget's effective parent, which `FUN_0041f283` finds by walking up the `+9` chain while a node's bit 1 is clear. The show refuses to run at all while that parent is itself hidden, and the hide sets bit 4 when it is — so bit 2 is the widget's own state and bit 4 records that an ancestor is hiding it as well, which is what lets a subtree come back up in the state it went down in.
+Both consult the widget's parent, which `Widget_Parent` (0041f283) finds by walking the `+9` chain while a node's bit 1 is clear: `+9` holds the previous sibling, and only on the first child in a list, which has bit 1 set, the parent. The show refuses to run at all while that parent is itself hidden, and the hide sets bit 4 when it is — so bit 2 is the widget's own state and bit 4 records that an ancestor is hiding it as well, which is what lets a subtree come back up in the state it went down in.
+
+## Which widget a click reaches
+
+Input reaches widgets through an event queue, not directly. A mouse change becomes an event of type `0x20` with a sub-code at `+0x24`, which `Mouse_OnButtonState` (00408b03) assigns: 0 a move, 2 and 1 the left button going down and up, 4 and 3 the right. `EventQueue_Pump` (00469ba4) drains the queue.
+
+**A move picks the target and a button event goes to it.** On a move the pump hit-tests from the display's root with `Widget_HitTestTree` (00469d1c). A widget is hit only when it is not hidden (`+0x11` bit 2, [above](#showing-and-hiding-a-widget)) and the point lies inside its absolute rect, edges included. Its children are then tried in list order, and the first that is hit answers in its place, recursively; a widget none of whose children is hit is the answer itself. When the answer changes, the old widget is sent a leave event (`0x10`) and the new one an enter (8). A button event carries no position test of its own: it goes to whatever the last move left under the pointer.
+
+**Siblings are tried newest first.** `Widget_AttachChild` (0041f134), which `Widget_SetRect` calls from every constructor, pushes a child onto the *head* of its parent's list. The only other list operation, `Widget_Detach` (0041f17a), is called by two teardowns that delete what they unlink, so no list is ever reordered. Where two siblings overlap, the one built later answers, and a child can be hit only where it lies inside its parent.
+
+**The event then climbs to the first widget that takes mouse events.** `Event_Deliver` (00469f34) walks from the hit through `Widget_Parent` to the first widget whose event mask at `+0x39` has the event type's bit, and calls that widget's vtable slot 0 with the point made relative to the hit. `Widget_SetRect` starts the mask at `0x1f` and `Control_Ctor` adds `0x60`, which carries the mouse bit. `Text_Ctor` is built on `Window_Ctor` rather than `Control_Ctor` and clears `0x18`, leaving `0x07`. **A `Text` therefore never takes a click**: a click on a caption, a label or a value reaches its parent. `Panel` and everything built on it, `Button` among them, goes through `Control_Ctor`, and `EditField_Ctor` adds `0x360` itself, so all of those take clicks.
+
+**The widget that takes a click keeps it.** `Control_HandleEvent` (004097da) — slot 0 of `Panel`, `FramedPanel`, `TitledPanel` and `Grid` — and `HatchedDivider`'s copy of it, `HatchedDivider_HandleEvent` (0040c3b5), act on a mouse event only while the enable flag `+0x49` is set. A press, either button, lights `+0x45` and repaints; a release with `+0x45` lit calls `Widget_DispatchCallback` (0041f5d4), which runs the handler at `+0x3d` — the constructor's handler argument — or discards the event when there is none; the leave event clears `+0x45`. Nothing on either path hands the event to the parent, so a widget with no handler, or a disabled one, swallows a click on it. So a click fires on the release, and only when the button went down on the same widget and the pointer never left it. `Control_HandleEvent` also ignores mouse events while `DAT_00470d70` or `DAT_00470e70` is set, a test `HatchedDivider_HandleEvent` does not make ([Open](#open)).
+
+What that decides on the screens ported here:
+
+| Overlap | Who answers |
+|---|---|
+| a [repair hotspot](#the-damage-diagram) over another | the six body areas are built first and the weapons after, each in index order, so a weapon over a body area, a higher mount over a lower one, a higher area over a lower one |
+| rows 13 tall on a 12-pixel pitch — the save list, both repair lists | the lower row owns the shared border line |
+| a [crew row](#the-rows)'s texts | the row; its portrait is a panel of its own carrying the row's handler |
+| a row's four [text columns](#a-row-is-four-text-columns), a button's caption | the row, the button |
+| the repair screen's five [readouts](#the-repair-screen) | the readout, which is disabled and swallows it |
 
 ## How a widget paints
 
@@ -258,7 +280,7 @@ The content panel takes the right two thirds of the canvas. The left is the [dam
 
 Each row carries a click handler from the 25-thunk table at `0048d1f8`, one per `(column, row)` pair, and what that pair means and which clicks are refused are [below](#the-arming-and-repair-hotspots).
 
-**Five of the "buttons" are readouts.** A `Button` is constructed with a border colour and an enable flag, and the mode, salvage, item cost, condition and total cost boxes are all built disabled with border `0x13` and caption `0x17` where a live button takes `0x22` and `0x29`. They are boxes with a figure in them and nothing dispatches a click to them. Four of the five also set the caption's `+0xc1`, so each clears its own rect before drawing and a refresh overwrites the last figure cleanly; the mode box, which changes only with the mode flag, does not.
+**Five of the "buttons" are readouts.** A `Button` is constructed with a border colour and an enable flag, and the mode, salvage, item cost, condition and total cost boxes are all built disabled with border `0x13` and caption `0x17` where a live button takes `0x22` and `0x29`. They are boxes with a figure in them, and a click on one stops there and does nothing ([Which widget a click reaches](#which-widget-a-click-reaches)). Four of the five also set the caption's `+0xc1`, so each clears its own rect before drawing and a refresh overwrites the last figure cleanly; the mode box, which changes only with the mode flag, does not.
 
 The three `FramedPanel`s keep the constructor's `+0x55` of `0x25`, so their bodies carry a visible checkerboard — where the save screen flattens its own to `0x10`. The content panel keeps `+0x59` at the constructor's 1, so its body is filled rather than dithered and no backdrop shows through it.
 
@@ -308,7 +330,7 @@ Ids past 15 are the Razor's: its twelve body records are two parts per group, 0-
 
 **Which of the two is up follows the selection.** `Repair_SwapDiagram` shows the internals diagram when the selection moves into the internals list and the exploded picture when it moves back, so the picture always matches the list being worked in. With no bay selected the squad panel shows its empty picture, `DAT_0048d4dc`, instead: the same widget at the builder's rect with its grid lines off.
 
-`Hotspots_BuildOverlay` (0043c1a0) lays the clickable areas over each bay's exploded picture: the chassis's six `gam\rpr_hots.dat` areas as handlers 0-5, and for each fitted mount a panel over the weapon part's own rect (`Repair_WeaponPartRect`, `00414418`) as handler `6 + slot`. Every one is a `Panel` with `+0x51` cleared, so none of them draws. They are children of the external picture, so while the internals picture is up there is nothing on the diagram to click.
+`Hotspots_BuildOverlay` (0043c1a0) lays the clickable areas over each bay's exploded picture: the chassis's six `gam\rpr_hots.dat` areas as handlers 0-5, and for each fitted mount a panel over the weapon part's own rect (`Repair_WeaponPartRect`, `00414418`) as handler `6 + slot`. Every one is a `Panel` with `+0x51` cleared, so none of them draws. They are children of the external picture, so while the internals picture is up there is nothing on the diagram to click. Where two overlap — a weapon part over a body area, on several chassis — the one built later answers ([Which widget a click reaches](#which-widget-a-click-reaches)).
 
 ## The squad panel
 
@@ -387,7 +409,7 @@ Tab 6, `CREW`. Built once by `Crew_BuildScreen` (00440eb8, `wcrewi.cpp`), which 
 
 A pilot's portrait is the `c_pilots` frame its roster id (`+0x00`) names; the bank has twelve, one per roster id. The three squad portraits are the three pilots the player structure points at from `+0x3f` — the squad members of [the squad panel](#the-squad-panel).
 
-**The image panel** is the class `maybe_Widget_InitRect` (0040b698) builds. Its paint, `ImagePanel_Paint` (`0040b772`), blits the bitmap at `+0x5d` at the offset `(+0x55, +0x59)` and then draws the border over it with no fill, so a 56x52 portrait at `(0, 0)` in a row's 57x53 panel loses its top row and left column to the border. The constructor clears `+0x51`, which stops the paint drawing anything; the builder sets it on all seven.
+**The image panel** is the class `ImagePanel_Ctor` (0040b698) builds. Its paint, `ImagePanel_Paint` (`0040b772`), blits the bitmap at `+0x5d` at the offset `(+0x55, +0x59)` and then draws the border over it with no fill, so a 56x52 portrait at `(0, 0)` in a row's 57x53 panel loses its top row and left column to the border. The constructor clears `+0x51`, which stops the paint drawing anything; the builder sets it on all seven.
 
 **`HatchedDivider_Paint` (0040c513)** fills and borders the panel, draws horizontal lines in `+0x59` from row `+0x55` down to the bottom border, redraws row `+0x55` and the border in `+0x4d`, and with `+0x5d` set draws a second border one pixel inside the first. The constructor sets `+0x55` to the widget's height, which draws no lines at all; the crew builder writes 0, which makes the lines a solid body.
 
@@ -405,7 +427,7 @@ Row 0 is the player; rows 1-3 are the three squad positions. `Crew_MatchRowPilot
 
 It writes the values' own colour too, `0x16` and `0x17`, but `Crew_FillRows` runs after it and its `Text_SetString` calls overwrite it with `0x29`, so every value is drawn in `0x29`.
 
-**`Crew_SelectRow(row)` (`00441b85`) selects a row**, and a row's panel and its portrait both carry it as their click handler, through four thunks from `004423b0`. It relights the border of the row and its portrait — `0x21` on the row being left, `0x29` on the new one — calls `Squad_SelectBay` (`0043d64d`) with the row's pilot's bay, the player's for row 0 and `-1` for a row with no pilot, and only then stores the row in `DAT_004776dc`. It has no early return, so clicking the selected row runs it again.
+**`Crew_SelectRow(row)` (`00441b85`) selects a row**, and a row's panel and its portrait both carry it as their click handler, through four thunks from `004423b0`. The row's six texts are built with no handler and take no mouse events, so a click on one reaches the row ([Which widget a click reaches](#which-widget-a-click-reaches)). It relights the border of the row and its portrait — `0x21` on the row being left, `0x29` on the new one — calls `Squad_SelectBay` (`0043d64d`) with the row's pilot's bay, the player's for row 0 and `-1` for a row with no pilot, and only then stores the row in `DAT_004776dc`. It has no early return, so clicking the selected row runs it again.
 
 ### Entering the crew screen
 
@@ -556,7 +578,8 @@ Not drawn: the other five tabs' content, the mouse cursor (`dba\cursor.dba`), an
 
 ## Open
 
-- **Open:** which widget answers a click where two overlap, since the base class's hit dispatch has not been read. A weapon part's rect overlaps a body area on several chassis, and the engine gives the click to the weapon, the later child; a crew row's six texts sit on the row, and the engine gives a click on them to the row.
+- **Unported:** [a click's timing](#which-widget-a-click-reaches). The original acts on either button's release, and only on the widget the button went down on, if the pointer never left it. The engine takes the left button only; its tab strip fires when the release is on the pressed button even after leaving it and coming back, and the content screens act on a release wherever it lands.
+- **Open:** what `DAT_00470d70` and `DAT_00470e70` are. `Control_HandleEvent` (004097da) ignores mouse events while either is set, and the window procedure drops button messages while `DAT_00470d70` is.
 - **Unported:** the squad panel on WEAPONS and BUILD, which goes with those two screens, and their arms of `Squad_SelectBay` (`0043d64d`).
 - **Open:** what retail draws for a machine under construction whose body bank lacks the construction frames ([The bay picture](#the-bay-picture)). `Squad_BuildBayPictures` (`00414e5b`) indexes past them unchecked; the engine draws nothing for a missing frame.
 - **Unported:** the save screen's [rename](#saving-is-a-rename) — `SAVE`, `CANCEL` and `ACCEPT` — and `RESTORE`'s slot-10 autosave and career-file copies. The shell has no save writer and no keyboard input into an edit field.

@@ -130,18 +130,19 @@ public sealed class ShellRepairDiagrams {
 	/// six <c>rpr_hots.dat</c> areas for the chassis, row <c>6 + slot</c> the rect of the weapon part
 	/// fitted in that mount. The panels are built with no chrome, so nothing of them is drawn.
 	///
-	/// <para>Where a weapon's rect overlaps a body area the weapon answers, on the reading that a later
-	/// child is on top; the original's hit order is an Open item in docs/shell/screen-layout.md.</para>
+	/// <para>Where panels overlap, the one built last answers, and a point off the picture reaches none of
+	/// them: the builder makes the six areas and then the weapons, so the test runs weapons from the
+	/// highest mount down and then areas from 5 down. See docs/shell/screen-layout.md#which-widget-a-click-reaches.</para>
 	/// </summary>
 	public int? HotspotAt(ShellBayMachine? machine, float canvasX, float canvasY) {
-		if (machine == null) {
+		if (machine == null || !ExternalPictureRect.Contains(canvasX, canvasY)) {
 			return null;
 		}
 
 		float x = canvasX - ExternalPictureRect.X0;
 		float y = canvasY - ExternalPictureRect.Y0;
 
-		for (int mount = 0; mount < machine.MountCapacity; mount++) {
+		for (int mount = machine.MountCapacity - 1; mount >= 0; mount--) {
 			// Repair_WeaponPartRect (00414418) — the part's own rect, one pixel past its frame on both axes as it is written.
 			if (WeaponRecord(machine, mount) is { } record && Frame(_weaponBank, record.FrameId) is { } frame
 				&& x >= record.OriginX && y >= record.OriginY
@@ -151,7 +152,7 @@ public sealed class ShellRepairDiagrams {
 		}
 
 		var areas = _hotspots?.Entries?.FirstOrDefault(entry => entry.HercId == machine.ChassisType)?.Areas;
-		for (int row = 0; row < (areas?.Length ?? 0); row++) {
+		for (int row = (areas?.Length ?? 0) - 1; row >= 0; row--) {
 			if (areas![row] is { } area && x >= area.X0 && y >= area.Y0 && x <= area.X1 && y <= area.Y1) {
 				return row;
 			}

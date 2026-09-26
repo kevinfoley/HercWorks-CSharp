@@ -275,7 +275,11 @@ public sealed class ShellCrewScreen {
 		}
 	}
 
-	/// <summary>The row under a canvas point, or null — its panel and everything drawn in it.</summary>
+	/// <summary>
+	/// The row under a canvas point, or null — its panel and everything drawn in it: the texts take no mouse
+	/// events, so a click on one reaches the row, and the portrait carries the row's own handler
+	/// (docs/shell/screen-layout.md#which-widget-a-click-reaches).
+	/// </summary>
 	public static int? RowAt(float canvasX, float canvasY) {
 		for (int row = 0; row < RowCount; row++) {
 			if (RowRect(row).Contains(canvasX, canvasY)) {

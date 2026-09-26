@@ -129,10 +129,10 @@ public class ShellSaveScreenTests {
 		Assert.Equal(3, screen.RowAt(row.X0, row.Y0 + 1));
 		Assert.Null(screen.RowAt(row.X0 - 1, row.Y0 + 1));
 
-		// The rows overlap by their shared border row, so one row of pixels is inside two of them. This
-		// resolves it to the lower index, which is a choice: the original leaves it to the widget
-		// manager's z-order walk, and which end of the sibling list that starts from is not traced.
-		Assert.Equal(2, screen.RowAt(row.X0, row.Y0));
+		// The rows overlap by their shared border row, so one row of pixels is inside two of them. The
+		// original hit-tests siblings newest first, so the row built later — the lower one — takes it.
+		Assert.Equal(3, screen.RowAt(row.X0, row.Y0));
+		Assert.Equal(4, screen.RowAt(row.X0, row.Y1));
 
 		var exit = screen.ButtonRect(ShellSaveButton.Exit);
 		Assert.Equal(ShellSaveButton.Exit, screen.ButtonAt(exit.X0, exit.Y0));

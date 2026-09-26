@@ -192,6 +192,10 @@ public class ShellRepairScreenTests {
 		Assert.Equal((1, 3), screen.RowAt(row.X0, row.Y0 + 1));
 		Assert.Null(screen.RowAt(row.X0 - 1, row.Y0 + 1));
 
+		// Rows share their border line, and the row built later — the lower one — takes it.
+		Assert.Equal((1, 3), screen.RowAt(row.X0, row.Y0));
+		Assert.Equal((1, 4), screen.RowAt(row.X0, row.Y1));
+
 		var repair = screen.ButtonRect(ShellRepairButton.Repair);
 		Assert.Equal(ShellRepairButton.Repair, screen.ButtonAt(repair.X0 + 1, repair.Y0 + 1));
 

@@ -1,4 +1,5 @@
 using HercWorks.Core.Data.File.Dat.Sim;
+using HercWorks.Core.Data.File.Dbsim;
 using HercWorks.Core.Data.File.Dyn;
 using HercWorks.Core.Io.Transform.Common;
 using HercWorks.Core.Io.Transform.Dbsim;
@@ -7,24 +8,14 @@ using HercWorks.Vol;
 namespace HercWorks.UI;
 
 /// <summary>
-/// Viewer for .DTS 3D models (mechs, terrain props, etc.) — orbit camera over a flat/solid-shaded
-/// software-rendered mesh (see Model3DViewerControl for the rasterizer and DtsGeometryBuilder for
-/// how DTS's chunk tree becomes triangles). Textured (TSTexture4Poly) polys resolve to a real DBA
-/// frame and render UV-mapped once a texture bank is loaded via "Load Texture Bank" below (frame
-/// resolution confirmed via Ghidra RE of VSHELL.EXE — see docs/formats/dts-texture-binding.md's
-/// settlement of the front/back stride question); without one loaded, they still fall
-/// back to the original fixed placeholder color. The UV-corner mapping onto each poly's vertices is
-/// a labeled approximation (see DtsGeometryBuilder's doc comment), not an independently confirmed
-/// reproduction of the exe's own rasterizer math. TSBitmapPart geometry is still not built at all.
-///
-/// Per user domain knowledge (not derivable from the .DTS/.DBA files themselves — see
-/// that doc): the real in-game mech-body texture source isn't one uniform file-per-mech rule. Most
-/// mechs share a weight-class atlas (simvol0/dba/LIGHT.DBA, MEDIUM.DBA, or HEAVY.DBA, plus a
-/// separate ENEMY.DBA variant), but "certain mechs" use NEWHERCS.DBA instead, and the Apocalypse/
-/// Razor each have their own dedicated atlas (APOCATEX.DBA/RAZORTEX.DBA). Same-basename DBAs like
-/// SAMSON.DBA/OUTLAW.DBA are a red herring — those are 2D UI graphics used in damage readouts, not
-/// 3D mesh textures. Follows the same designer-split, Open-dialog-with-VolEntryPrefixCodec pattern
-/// as ImageExportForm.
+/// Viewer for .DTS 3D models (mechs, terrain props, etc.) — orbit camera over a software-rendered
+/// mesh coloured the way DBSIM colours it (see DtsGeometryBuilder for the poly types and
+/// Model3DViewerControl for the rasterizer). That needs three inputs: a theater palette (.DPL), the
+/// same theater's ramp (.RMP, found by the palette's basename) and, for textured polys, the bank
+/// the shape is bound to. A mech's bank comes from its sim .DAT's ModelSkinId — the seven shared
+/// atlases in docs/formats/dts-texture-binding.md's "DBSIM's mech-to-texture mapping"; same-basename
+/// DBAs like SAMSON.DBA are 2D damage-readout art, not mesh textures. Whatever is missing falls back
+/// to placeholder colours. TSBitmapPart billboards are not built.
 /// </summary>
 public partial class Model3DViewerForm : Form {
 	private readonly DTSModelTransformer _dtsTransformer = new();
@@ -48,6 +39,9 @@ public partial class Model3DViewerForm : Form {
 	private DynamixPalette? _loadedPalette;
 	private string? _loadedTextureBankName;
 	private string? _loadedPaletteName;
+	private TerrainRampFile? _loadedRamp;
+	private string? _loadedRampName;
+	private readonly TerrainRampFileTransformer _rmpTransformer = new();
 
 	public Model3DViewerForm() {
 		InitializeComponent();
@@ -275,7 +269,7 @@ public partial class Model3DViewerForm : Form {
 		}
 
 		byte[] rawBytes = VolEntryPrefixCodec.StripIfPresent(File.ReadAllBytes(dialog.FileName)).Content;
-		LoadPalette(rawBytes, Path.GetFileName(dialog.FileName));
+		LoadPalette(rawBytes, Path.GetFileName(dialog.FileName), dialog.FileName);
 	}
 
 	/// <summary>Triggers RebuildTexturedRoots on success so the newly picked bank actually shows up in the render.</summary>
@@ -301,7 +295,7 @@ public partial class Model3DViewerForm : Form {
 		}
 	}
 
-	private void LoadPalette(byte[]? rawBytes, string? label) {
+	private void LoadPalette(byte[]? rawBytes, string? label, string? loosePath = null) {
 		if (rawBytes is not { Length: > 0 }) {
 			return;
 		}
@@ -316,11 +310,67 @@ public partial class Model3DViewerForm : Form {
 
 			_loadedPalette = palette;
 			_loadedPaletteName = label;
+			LoadMatchingRamp(loosePath);
 			RebuildTexturedRoots();
 		} catch (Exception ex) {
 			MessageBox.Show(this, $"Failed to load palette:\n{ex.Message}", "Error",
 				MessageBoxButtons.OK, MessageBoxIcon.Error);
 		}
+	}
+
+	/// <summary>
+	/// A theater's ramp shares its palette's basename — <c>rmp\WORLD2.RMP</c> beside
+	/// <c>dpl\WORLD2.DPL</c>, the pairing the engine's theater loader uses. Looked for in the source
+	/// VOL, or for a loose palette beside it and in a sibling <c>rmp</c> folder. Silent when absent:
+	/// the solid, shaded and textured chains then keep placeholders.
+	/// </summary>
+	private void LoadMatchingRamp(string? loosePalettePath) {
+		_loadedRamp = null;
+		_loadedRampName = null;
+
+		string? baseName = _loadedPaletteName != null ? Path.GetFileNameWithoutExtension(_loadedPaletteName) : null;
+		if (baseName == null) {
+			return;
+		}
+
+		byte[]? bytes = null;
+		string? name = null;
+		if (_sourceVol != null && FindVolEntries(_sourceVol, FileType.Rmp).FirstOrDefault(e =>
+				string.Equals(Path.GetFileNameWithoutExtension(e.FileName ?? ""), baseName, StringComparison.OrdinalIgnoreCase))
+				is { } entry) {
+			bytes = entry.RawBytes;
+			name = entry.FileName;
+		} else if (loosePalettePath != null && Path.GetDirectoryName(loosePalettePath) is { } folder) {
+			var candidates = new[] {
+				Path.Combine(folder, baseName + ".RMP"),
+				Path.Combine(Path.GetDirectoryName(folder) ?? folder, "rmp", baseName + ".RMP")
+			};
+			if (candidates.FirstOrDefault(File.Exists) is { } path) {
+				bytes = VolEntryPrefixCodec.StripIfPresent(File.ReadAllBytes(path)).Content;
+				name = Path.GetFileName(path);
+			}
+		}
+
+		try {
+			if (bytes is { Length: > 0 } && _rmpTransformer.Parse(bytes) is TerrainRampFile ramp) {
+				_loadedRamp = ramp;
+				_loadedRampName = name;
+			}
+		} catch {
+			// Best-effort, like the palette default.
+		}
+	}
+
+	/// <summary>
+	/// Everything the builder colours with. Index 0 is a cutout in every bank but the seven mech
+	/// skins, which is how the engine decodes them (it treats structures, projectiles and effects
+	/// as transparent banks).
+	/// </summary>
+	private ShapeRenderContext RenderContext() {
+		string? bankBase = _loadedTextureBankName != null ? Path.GetFileNameWithoutExtension(_loadedTextureBankName) : null;
+		bool mechSkin = bankBase != null && Enumerable.Range(0, 7)
+			.Any(id => string.Equals(HercSimDat.TextureGroupDbaBaseName((short)id), bankBase, StringComparison.OrdinalIgnoreCase));
+		return new ShapeRenderContext(_loadedTextureBank, _loadedPalette, _loadedRamp, TransparentIndex0: !mechSkin);
 	}
 
 	private static List<VolEntry> FindVolEntries(Voln vol, FileType ext) {
@@ -355,7 +405,7 @@ public partial class Model3DViewerForm : Form {
 			TryLoadDefaultPalette();
 		}
 
-		var roots = DtsGeometryBuilder.Build(model, _loadedTextureBank, _loadedPalette);
+		var roots = DtsGeometryBuilder.Build(model, RenderContext());
 		_viewerControl.LoadMeshes(roots);
 		PopulatePartSelector(roots);
 
@@ -385,6 +435,7 @@ public partial class Model3DViewerForm : Form {
 		try {
 			_loadedPalette = (DynamixPalette?)_dplTransformer.Parse(rawBytes);
 			_loadedPaletteName = _loadedPalette != null ? candidate.FileName : null;
+			LoadMatchingRamp(null);
 		} catch {
 			// Best-effort default — swallow and leave _loadedPalette null.
 		}
@@ -464,7 +515,7 @@ public partial class Model3DViewerForm : Form {
 		for (int i = 0; i < meshes.Count && i < _viewerControl.Roots.Count; i++) {
 			int? lodIndex = i == selectedPart ? selectedLod : null;
 			string label = _viewerControl.Roots[i].Mesh.Label;
-			var rebuilt = DtsGeometryBuilder.BuildRoot(meshes[i], label, lodIndex, _loadedTextureBank, _loadedPalette);
+			var rebuilt = DtsGeometryBuilder.BuildRoot(meshes[i], label, lodIndex, RenderContext());
 			_viewerControl.ReplaceRoot(i, rebuilt);
 		}
 
@@ -605,7 +656,7 @@ public partial class Model3DViewerForm : Form {
 			return;
 		}
 
-		var rebuilt = DtsGeometryBuilder.BuildRoot(meshes[partIndex], $"Part {partIndex}", lodIndex, _loadedTextureBank, _loadedPalette);
+		var rebuilt = DtsGeometryBuilder.BuildRoot(meshes[partIndex], $"Part {partIndex}", lodIndex, RenderContext());
 		_viewerControl.ReplaceRoot(partIndex, rebuilt);
 		UpdateStatusForCurrentSelection();
 	}
@@ -621,12 +672,13 @@ public partial class Model3DViewerForm : Form {
 		string lodNote = _lodSelector.Visible && _lodSelector.SelectedIndex >= 0
 			? $", detail level {_lodSelector.SelectedIndex} of {_lodSelector.Items.Count}"
 			: "";
-		string paletteNote = _loadedPaletteName != null ? $", palette {_loadedPaletteName}" : ", no palette";
+		string paletteNote = _loadedPaletteName != null
+			? $" Palette {_loadedPaletteName}, ramp {_loadedRampName ?? "not found (flat and textured colours are placeholders)"}."
+			: " No palette (all colours are placeholders).";
 		string textureNote = _loadedTextureBankName != null
-			? $" — texture bank loaded: {_loadedTextureBankName} ({_loadedTextureBank?.Images?.Length ?? 0} frames" +
-			  $"{paletteNote}), applied to TSTexture4Poly faces " +
-			  "(TSBitmapPart geometry is still not built — see class doc comment)."
+			? $" Texture bank {_loadedTextureBankName} ({_loadedTextureBank?.Images?.Length ?? 0} frames)."
 			: "";
+		textureNote = paletteNote + textureNote;
 		_statusLabel.Text =
 			$"Loaded {_loadedDisplayName} — part {partIndex} of {_viewerControl.Roots.Count}{lodNote}, {triangleCount} triangle(s).{textureNote}";
 	}

@@ -36,10 +36,11 @@ public enum Model3DRenderMode {
 /// grid and wireframe edge overlay still go through GDI+ directly, since they're not competing for
 /// overlapping fill pixels the way triangle interiors are.
 ///
-/// Deliberately does NOT backface-cull: the source data's winding convention (CW vs CCW as seen
-/// from outside) was never verified, and culling on a wrong guess would render the model
-/// inside-out. The depth buffer makes this cheap either way — every candidate pixel still gets a
-/// correct nearest-wins test regardless of which side of each triangle is "front."
+/// Front or back is decided per triangle per frame from its poly's stored normal against the eye,
+/// as <c>TSPoly_FrontBackVisibilityTest</c> does, and the chosen side is drawn unless it is the
+/// format's hidden pair (see DtsGeometryBuilder). Colours arrive already resolved; only a side
+/// built without a palette (<see cref="DtsFace.Lit"/> false) gets this control's own headlight
+/// shading as a placeholder.
 /// </summary>
 public sealed class Model3DViewerControl : Control {
 	private readonly List<ViewerMesh> _roots = new();
@@ -236,7 +237,17 @@ public sealed class Model3DViewerControl : Control {
 				}
 
 				foreach (var tri in root.Mesh.Triangles) {
-					RasterizeTriangle(tri, view, proj, lightDir, near, pixels, depthBuffer, width, height);
+					RasterizeTriangle(tri, eye, view, proj, lightDir, near, pixels, depthBuffer, width, height);
+				}
+			}
+
+			foreach (var root in _roots) {
+				if (!root.Visible) {
+					continue;
+				}
+
+				foreach (var line in root.Mesh.Lines) {
+					RasterizeLine(line, eye, view, proj, near, pixels, depthBuffer, width, height);
 				}
 			}
 
@@ -258,8 +269,14 @@ public sealed class Model3DViewerControl : Control {
 	/// edge-function rasterizer, testing every candidate pixel's interpolated 1/w against the
 	/// buffer instead of relying on a whole-triangle draw order.
 	/// </summary>
-	private static void RasterizeTriangle(DtsTriangle tri, Matrix4x4 view, Matrix4x4 proj, Vector3 lightDir,
+	private static void RasterizeTriangle(DtsTriangle tri, Vector3 eye, Matrix4x4 view, Matrix4x4 proj, Vector3 lightDir,
 			float near, int[] pixels, float[] depthBuffer, int width, int height) {
+		bool facingEye = Vector3.Dot(tri.FaceNormal, eye - tri.A) >= 0f;
+		DtsFace face = facingEye ? tri.Front : tri.Back;
+		if (!face.Draw) {
+			return;
+		}
+
 		Vector3 ca = Vector3.Transform(tri.A, view);
 		Vector3 cb = Vector3.Transform(tri.B, view);
 		Vector3 cc = Vector3.Transform(tri.C, view);
@@ -295,24 +312,27 @@ public sealed class Model3DViewerControl : Control {
 		}
 		float invArea = 1f / area;
 
-		Vector3 faceNormal = Vector3.Cross(tri.B - tri.A, tri.C - tri.A);
-		float normalLength = faceNormal.Length();
-		float intensity = 0.65f;
-		if (normalLength > 1e-6f) {
-			float nDotL = MathF.Abs(Vector3.Dot(faceNormal / normalLength, lightDir));
-			intensity = 0.35f + 0.65f * nDotL;
-		}
+		// Placeholder light for a side the builder could not resolve (no palette loaded).
+		float intensity = face.Lit ? 1f : 0.35f + 0.65f * MathF.Abs(Vector3.Dot(tri.FaceNormal, lightDir));
 
-		bool textured = tri.Texture is { } tex;
+		bool textured = face.Texture is { } tex;
 		DtsTexture texture = default;
+		// Homogeneous UV weights (one projective map across a quad), folded into the 1/w terms.
+		float qa = tri.UvWeights.X * invWa, qb = tri.UvWeights.Y * invWb, qc = tri.UvWeights.Z * invWc;
 		float uAw = 0, uBw = 0, uCw = 0, vAw = 0, vBw = 0, vCw = 0;
+		bool gouraud = !textured && (face.A != face.B || face.B != face.C);
 		int argb = 0;
+		Vector3 colA = default, colB = default, colC = default;
 		if (textured) {
-			texture = tri.Texture!.Value;
-			uAw = tri.UvA.X * invWa; uBw = tri.UvB.X * invWb; uCw = tri.UvC.X * invWc;
-			vAw = tri.UvA.Y * invWa; vBw = tri.UvB.Y * invWb; vCw = tri.UvC.Y * invWc;
+			texture = face.Texture!.Value;
+			uAw = tri.UvA.X * qa; uBw = tri.UvB.X * qb; uCw = tri.UvC.X * qc;
+			vAw = tri.UvA.Y * qa; vBw = tri.UvB.Y * qb; vCw = tri.UvC.Y * qc;
+		} else if (gouraud) {
+			colA = new Vector3(face.A.R, face.A.G, face.A.B) * invWa;
+			colB = new Vector3(face.B.R, face.B.G, face.B.B) * invWb;
+			colC = new Vector3(face.C.R, face.C.G, face.C.B) * invWc;
 		} else {
-			argb = Scale(tri.Color, intensity).ToArgb();
+			argb = Scale(face.A, intensity).ToArgb();
 		}
 
 		for (int y = minY; y <= maxY; y++) {
@@ -335,20 +355,81 @@ public sealed class Model3DViewerControl : Control {
 
 				float pixelInvW = w0 * invWa + w1 * invWb + w2 * invWc;
 				int idx = rowOffset + x;
-				if (pixelInvW > depthBuffer[idx]) {
-					depthBuffer[idx] = pixelInvW;
-
-					if (textured) {
-						float u = (w0 * uAw + w1 * uBw + w2 * uCw) / pixelInvW;
-						float v = (w0 * vAw + w1 * vBw + w2 * vCw) / pixelInvW;
-						int tx = Math.Clamp((int)(u * texture.Width), 0, texture.Width - 1);
-						int ty = Math.Clamp((int)(v * texture.Height), 0, texture.Height - 1);
-						int texel = texture.Pixels[ty * texture.Width + tx];
-						pixels[idx] = Scale(Color.FromArgb(texel), intensity).ToArgb();
-					} else {
-						pixels[idx] = argb;
-					}
+				if (pixelInvW <= depthBuffer[idx]) {
+					continue;
 				}
+
+				if (textured) {
+					float q = w0 * qa + w1 * qb + w2 * qc;
+					float u = (w0 * uAw + w1 * uBw + w2 * uCw) / q;
+					float v = (w0 * vAw + w1 * vBw + w2 * vCw) / q;
+					int tx = Math.Clamp((int)(u * texture.Width), 0, texture.Width - 1);
+					int ty = Math.Clamp((int)(v * texture.Height), 0, texture.Height - 1);
+					int texel = texture.Pixels[ty * texture.Width + tx];
+					// A cutout texel (palette index 0 in a transparent bank) draws nothing at all.
+					if ((texel >>> 24) == 0) {
+						continue;
+					}
+					pixels[idx] = face.Lit ? texel : Scale(Color.FromArgb(texel), intensity).ToArgb();
+				} else if (gouraud) {
+					Vector3 c = (w0 * colA + w1 * colB + w2 * colC) / pixelInvW;
+					pixels[idx] = Color.FromArgb(255, (int)Math.Clamp(c.X, 0, 255), (int)Math.Clamp(c.Y, 0, 255),
+						(int)Math.Clamp(c.Z, 0, 255)).ToArgb();
+				} else {
+					pixels[idx] = argb;
+				}
+				depthBuffer[idx] = pixelInvW;
+			}
+		}
+	}
+
+	/// <summary>
+	/// A solid poly's outline edge, or a line poly, in the side's line colour — drawn after every fill
+	/// against the depth buffer with a little slack, so an outline shows on its own face but not
+	/// through a face in front of it. The original's second pass is the same edge loop over the
+	/// filled polygon.
+	/// </summary>
+	private static void RasterizeLine(DtsLine line, Vector3 eye, Matrix4x4 view, Matrix4x4 proj, float near,
+			int[] pixels, float[] depthBuffer, int width, int height) {
+		bool facingEye = Vector3.Dot(line.FaceNormal, eye - line.A) >= 0f;
+		if ((facingEye ? line.Front : line.Back) is not { } color) {
+			return;
+		}
+
+		Vector3 ca = Vector3.Transform(line.A, view);
+		Vector3 cb = Vector3.Transform(line.B, view);
+		if (ca.Z >= -near || cb.Z >= -near) {
+			return;
+		}
+
+		Vector4 pa = Vector4.Transform(ca, proj);
+		Vector4 pb = Vector4.Transform(cb, proj);
+		if (pa.W <= 1e-6f || pb.W <= 1e-6f) {
+			return;
+		}
+
+		float invWa = 1f / pa.W, invWb = 1f / pb.W;
+		float xa = (pa.X * invWa * 0.5f + 0.5f) * width, ya = (1f - (pa.Y * invWa * 0.5f + 0.5f)) * height;
+		float xb = (pb.X * invWb * 0.5f + 0.5f) * width, yb = (1f - (pb.Y * invWb * 0.5f + 0.5f)) * height;
+
+		int steps = (int)MathF.Ceiling(MathF.Max(MathF.Abs(xb - xa), MathF.Abs(yb - ya)));
+		if (steps > 4 * (width + height)) {
+			return;
+		}
+
+		int argb = color.ToArgb();
+		for (int s = 0; s <= steps; s++) {
+			float t = steps == 0 ? 0f : (float)s / steps;
+			int x = (int)(xa + (xb - xa) * t);
+			int y = (int)(ya + (yb - ya) * t);
+			if (x < 0 || x >= width || y < 0 || y >= height) {
+				continue;
+			}
+
+			float invW = invWa + (invWb - invWa) * t;
+			int idx = y * width + x;
+			if (invW >= depthBuffer[idx] * 0.995f) {
+				pixels[idx] = argb;
 			}
 		}
 	}

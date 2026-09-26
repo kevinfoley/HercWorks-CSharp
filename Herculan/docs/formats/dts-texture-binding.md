@@ -331,7 +331,7 @@ Levels are not always the same shape at different densities. `BASES.DGS` shape 1
 
 ## Implementation status
 
-`Herculan.Engine` unless noted. `Model3DViewerControl` (HercWorks.UI) implements the `TSTexture4Poly` path and, for everything else, `DefaultShapeColors` — none of the shading work below.
+`Herculan.Engine` unless noted. The WinForms model viewer (`HercWorks.UI.DtsGeometryBuilder`, `ShapeShading`) resolves all four poly types the same way, with the sun at a fixed heading, and also draws the back surface pair and skips a 5120-flagged pair; it has no billboards, no BSP walk and no fog.
 
 | Mechanism | Status |
 |---|---|
@@ -369,7 +369,7 @@ Readings a fresh pass could land on. Each is disproven; do not reintroduce.
 | `00474e9c` is `TSSolidPoly_Render` | It is `TSTexture4Poly_Render`; the type registry settles it. Assigned by resemblance to VSHELL's renderer |
 | A flat poly's `FrontColor` is a `.DBA` frame index sampled as a dither swatch | Only `TSTexture4Poly`'s is a frame index |
 | A flat/shaded surface renders as the frame's **average colour** | The value is a palette index (`TSSolidPoly`) or a ramp number (`TSShadedPoly`/`TSGouraudPoly`). Averaging `BASETEX` frames 0/8/12 gives browns and greens where ramps 0/8/12 are greys and blue-greys |
-| `DefaultShapeColors`, a 13-entry guess table | Mostly clamps to cyan. Still the WinForms viewer's live colour path (`HercWorks.UI.DtsGeometryBuilder`), which has none of the shading work below — a superseded stand-in, not a reading anything new should adopt |
+| `DefaultShapeColors`, a 13-entry guess table | Mostly clamps to cyan. A superseded stand-in, not a reading anything new should adopt |
 | A direct `.DPL[FrontColor]` palette index for the lit types | Right idea, wrong table — it indexes the ramp table, not the colour table |
 | `abs()` on the light term (to keep winding-flipped triangles from going black) | Gives a surface pointing away from the sun the same light as one facing it. The original flips the normal toward the **eye**, then lights it signed |
 | The terrain shade curve (`512 * facing`) applied to shapes | Shapes use `Light_ComputeShadeForFace`; see the table above |

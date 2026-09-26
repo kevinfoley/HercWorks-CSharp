@@ -120,6 +120,9 @@ public class ShellRepairScreenTests {
 		Assert.Equal(0, ShellRepairScreen.IndexOf(ShellRepairCategory.Hardpoint, 6));
 		Assert.Equal(9, ShellRepairScreen.IndexOf(ShellRepairCategory.Hardpoint, 15));
 		Assert.Equal(8, ShellRepairScreen.IndexOf(ShellRepairCategory.Internal, 8));
+
+		// Both lists end to end are the builder's twenty-five handlers, so no row is unaccounted for.
+		Assert.Equal(25, ShellRepairScreen.ColumnZeroRowCount + ShellRepairScreen.InternalRowCount);
 	}
 
 	/// <summary>
@@ -200,17 +203,46 @@ public class ShellRepairScreenTests {
 	/// The damage bands are the repair ladder's own, so the word a condition prints and the level it
 	/// would be worked to are the same number. 90 and up is level 0 and only a dead component is 5.
 	/// </summary>
+	[Theory]
+	[InlineData(100, 0)]
+	[InlineData(90, 0)]
+	[InlineData(89, 1)]
+	[InlineData(80, 1)]
+	[InlineData(79, 2)]
+	[InlineData(60, 2)]
+	[InlineData(59, 3)]
+	[InlineData(30, 3)]
+	[InlineData(29, 4)]
+	[InlineData(1, 4)]
+	[InlineData(0, 5)]
+	public void BandsAConditionOntoTheRepairLadder(int condition, int level) =>
+		Assert.Equal(level, ShellRepairCosts.LevelForCondition(condition));
+
+	/// <summary>
+	/// One colour per band, from the table at <c>004765ca</c>, and a destroyed component's is the odd
+	/// one out. Taken at each band's lower edge, so a colour shifted by one band shows here.
+	/// </summary>
 	[Fact]
-	public void BandsAConditionOntoTheRepairLadder() {
-		Assert.Equal(0, ShellRepairCosts.LevelForCondition(100));
-		Assert.Equal(0, ShellRepairCosts.LevelForCondition(90));
-		Assert.Equal(1, ShellRepairCosts.LevelForCondition(89));
-		Assert.Equal(1, ShellRepairCosts.LevelForCondition(80));
-		Assert.Equal(2, ShellRepairCosts.LevelForCondition(79));
-		Assert.Equal(3, ShellRepairCosts.LevelForCondition(59));
-		Assert.Equal(4, ShellRepairCosts.LevelForCondition(29));
-		Assert.Equal(4, ShellRepairCosts.LevelForCondition(1));
-		Assert.Equal(5, ShellRepairCosts.LevelForCondition(0));
+	public void ColoursAConditionByItsBand() {
+		var colours = new[] { 90, 80, 60, 30, 1, 0 }.Select(ShellRepairScreen.BandColor);
+		Assert.Equal(new byte[] { 14, 13, 12, 11, 10, 39 }, colours);
+		Assert.Equal(14, ShellRepairScreen.BandColor(100));
+	}
+
+	/// <summary>
+	/// The retail string overrun: six levels, four words. Levels 4 and 5 read <c>0x6c</c> and
+	/// <c>0x6d</c> — <c>% Complete</c> and <c>Unassigned</c> — and the port reproduces that rather than
+	/// clamping; see Herculan/KNOWN_ISSUES.md. Pinned so that a later change which "fixes" it has to do
+	/// so deliberately.
+	/// </summary>
+	[Fact]
+	public void ReadsTheLastTwoConditionWordsPastTheEndOfTheirRun() {
+		Assert.Equal(0x68, ShellRepairScreen.ConditionWordText(100));
+		Assert.Equal(0x69, ShellRepairScreen.ConditionWordText(80));
+		Assert.Equal(0x6a, ShellRepairScreen.ConditionWordText(60));
+		Assert.Equal(0x6b, ShellRepairScreen.ConditionWordText(30));
+		Assert.Equal(0x6c, ShellRepairScreen.ConditionWordText(29));
+		Assert.Equal(0x6d, ShellRepairScreen.ConditionWordText(0));
 	}
 
 	/// <summary>
@@ -321,13 +353,13 @@ public class ShellRepairScreenTests {
 	[Fact]
 	public void ClipsEveryPaintToItsOwnWidget() {
 		var surface = new ShellSurface(ShellLayout.CanvasWidth, ShellLayout.CanvasHeight);
-		var panel = ShellRepairScreen.PanelRect;
+		var owned = new[] { ShellRepairScreen.PanelRect, ShellSquadPanel.PanelRect, ShellSquadPanel.ReadoutRect };
 
 		ScreenFor(BayEntry(mountCapacity: 2, weapons: new[] { 5, 6 })).Paint(surface, null, null);
 
 		for (int y = 0; y < ShellLayout.CanvasHeight; y++) {
 			for (int x = 0; x < ShellLayout.CanvasWidth; x++) {
-				if (!panel.Contains(x, y)) {
+				if (!owned.Any(rect => rect.Contains(x, y))) {
 					Assert.Equal(ShellSurface.Transparent, surface.At(x, y));
 				}
 			}

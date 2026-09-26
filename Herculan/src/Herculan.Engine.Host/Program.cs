@@ -247,9 +247,8 @@ for (int i = 0; i < args.Length; i++) {
 		}
 		runShell = true;
 	} else if (args[i] == "--shell-bay") {
-		// Which hangar bay the repair tab works on, 0-7 — DAT_00482ae5. In the original the squad roster
-		// down the left of the screen is what moves it; that panel is not ported, so this is the only way
-		// to reach a bay other than the first one holding a finished machine.
+		// Which hangar bay the repair tab opens on, 0-7 — DAT_00482ae5, which the squad roster moves once
+		// the screen is up.
 		if (HostArguments.TryReadInt(args, ref i, 0, ShellHangar.BayCount - 1, argumentErrors, out int requestedBay)) {
 			shellBay = requestedBay;
 		}

@@ -20,7 +20,7 @@ Four levels, built in this order:
 
 1. **The root**, textured with the backdrop bitmap the shell's global init keeps in `DAT_0046dcd4`, sized to its parent's rect rather than to a literal.
 2. **A full-screen panel** at `{0, 0, 0x27f, 0x1df}`, which every other widget on the screen is parented to. Because it sits at the origin, a child's rect is also its canvas rect — parent-relative and absolute coincide for everything on the strip.
-3. **The palette scope** at `{0, 0x1e, 0x27f, 0x1df}` — the canvas below the strip. It is parented to the root rather than to the panel, and it is how the screen's palette is chosen; see [The palette](#the-palette).
+3. **The palette scope** at `{0, 0x1e, 0x27f, 0x1df}` — the canvas below the strip. It is parented to the shell's top-level window (`DAT_004810e4`, the root's own parent) rather than to the panel, and it is how the screen's palette is chosen; see [The palette](#the-palette).
 4. **The strip itself**: one square button and eight tabs.
 
 Widget fields the builders and the tab handlers write directly:
@@ -87,7 +87,7 @@ All nine buttons share the top and bottom edges `4` and `0x1b`. The tabs are 75 
 
 | Widget | Rect | Caption | Art |
 |---|---|---|---|
-| square button | `{7, 4, 0x17, 0x1b}` | none | `dba\online.dba` frames 0 and 1 |
+| square button | `{7, 4, 0x17, 0x1b}` | `?`, the literal at `00475dcd` rather than an `estext.bin` entry | `dba\online.dba` frames 0 and 1 |
 | tab 0 | `{0x19, 4, 0x63, 0x1b}` | `0x13` `MAIN MENU` | `dba\mnu_bttn.dba` frames 1 and 2 |
 | tab 1 | `{0x65, 4, 0xaf, 0x1b}` | `0x14` `SAVE` | as tab 0 |
 | tab 2 | `{0xb1, 4, 0xfb, 0x1b}` | `0x15` `WEAPONS` | as tab 0 |
@@ -227,11 +227,11 @@ The label indices run out of layout order: `Salvage:`, `Sector:` and `Mission:` 
 
 Tab 3, `REPAIR`. Its widgets are built once by `Repair_BuildScreen` (00432037), the screen is brought up by `Repair_Enter` and taken down by `Repair_Leave`, its rows are filled by `Repair_FillRow` (004339b2), its component names set by `Repair_SetComponentNames` (00433cdf), its selection moved by `Repair_SelectHotspot` (00433eb9) and its three readout panels refilled by `Repair_RefreshDetail` (00433445). Every rect is four immediates on the builder's stack and they are parent-relative, as everywhere else.
 
-The content panel takes the right two thirds of the canvas; the left is the machine's damage diagram and the squad roster, neither of which this builder owns.
+The content panel takes the right two thirds of the canvas. The left is the [damage diagram](#the-damage-diagram) and the [squad panel](#the-squad-panel); of those this builder owns only the eight internals pictures.
 
 | Widget | Class | Rect (in its parent) | Content |
 |---|---|---|---|
-| 8 damage diagrams | `Grid` | `{0x10, 0x2f, 0xe0, 0x12f}` in the canvas | one per bay, [below](#the-damage-diagram) |
+| 8 internals pictures | `Grid` | `{0x10, 0x2f, 0xe0, 0x12f}` in the canvas | one per bay, [below](#the-damage-diagram) |
 | content panel | `TitledPanel` | `{0xf1, 0x2b, 0x278, 0x1d9}` | `0x3d` `REPAIR`, header 19 tall, plate `0x7f`-`0x10a`, face `0x25` |
 | external list | `TitledPanel` | `{4, 0x1a, 0xe5, 0x105}` | `0x3e` `External`; `+0x65 = 0`, so no hatch and no plate |
 | 6 group rows | `Panel` | `{0xc, i*0xc + 0x1c, 0xd5, i*0xc + 0x28}` | `0x4e`-`0x53` |
@@ -282,14 +282,61 @@ It is driven by the bay selection rather than by screen entry: `FUN_0043d64d` ca
 
 ### The damage diagram
 
-`Repair_BuildDiagrams` (004140a9) builds both pictures over the same rect, one pair per bay, and binds their art:
+Both pictures are `Grid` widgets (`Grid_Ctor`, 0040b7e0): a filled panel with a `0x22` border, grid lines every 16 pixels in `+0x6e6` = `0x22` while `+0x6e5` is set, and thirty 56-byte part slots from `+0x55`. `ESGrid_SetPart` (0040b8cf) writes a slot: a position, a frame, blit flags at `+0x89`, and ten colour remap pairs — a source index at `+0x61` and a target at `+0x75`, the target defaulting to `0x10`. `Grid_Paint` (0040b97c) draws the panel and the lines, then blits the parts in slot order, and after each one fills the part's rect, `{x, y, x + width, y + height}`, through a lookup table that is the identity except for each pair whose target is not `0x10`. **A part's colour is chosen at paint time, and by rect rather than by mask**, so a recoloured part also recolours the matching pixels of any earlier part it overlaps.
 
-- **`0048d4bc[bay]`, the exploded external picture.** For each of the chassis's `gam\rpr_*.dat` component records it places one part at the record's two `int32` as an x and a y, drawing frame `+0x12` of `dba\rpr_<chassis>.dba`; then, for each occupied hardpoint, it looks the fitted weapon up in that file's per-weapon group list (`FUN_00413ccc`, keyed by weapon id and by `slot + 6`) and places that part from a shared weapons bank. This is the picture the six `rpr_hots.dat` areas overlay.
-- **`0048d118[bay]`, the internals diagram.** One part only, from the single further layout record per chassis at `00484534` — which is what that record is for — drawing frame `+0x12` of `dba\<chassis>_int.dba`. The Razor gets a second part at `(0x1d, 0xe)` from a third bank.
+`Repair_BuildDiagrams` (004140a9) fills both pictures for all eight bays:
 
-So `+0x12` of a layout record is a frame index into the matching `dba\` sheet, and the two `int32` at `+0x02` and `+0x06` are the part's position ([`../formats/herc-catalogs.md`](../formats/herc-catalogs.md#gamrpr_dat--repair-bay-layout)).
+- **`0048d4bc[bay]`, the exploded external picture.** These are the squad panel's eight pictures, built by `Squad_BuildRosterList` at `{5, 0x2b, 0xeb, 0x130}` and moved here to `{0x10, 0x2f}`, `0xd0` by `0x100`, with their grid lines on. Each `gam\rpr_*.dat` body record becomes the part in the slot its id names, from frame `+0x12` of `dba\rpr_<chassis>.dba` with the record's flags, remapping index `0xe`. Each fitted mount then adds the record `FUN_00413ccc` finds in the weapon's group with id `slot + 6`, from `dba\rpr_wpns.dba`, remapping `0xf`; a weapon with no record for that socket draws nothing.
+- **`0048d118[bay]`, the internals picture.** One part in slot 0 from the chassis's single internals record, drawing its frame of `dba\<chassis>_int.dba` with flags 0. The Razor gets a second part in slot 1: frame 1 of the same bank at `(0x1d, 0xe)`. The decompiler shows that handle as a global of its own, `0046fe0c`; it is entry 8 of the bank cache at `0046fdec`, the one the Razor's first part was just loaded into.
 
-**Which of the two is up follows the selection.** `Repair_SwapDiagram` shows the internals diagram when the selection moves into the internals list and the exploded picture when it moves back, so the picture always matches the list being worked in.
+The blit flags are 0 or 2 in every retail record, and 2 is the mirror: each left/right pair is one frame placed twice.
+
+**The two sides disagree.** On every chassis with torsos, group 1 (`Left Torso`) sits on the viewer's left and group 4 (`Left Leg`) on the viewer's right, with 2 and 5 opposite them; the Razor's nacelles and wings split the same way. The `rpr_hots.dat` areas follow the layout records, so the colours and the clicks are consistent with the picture and with each other, and only the pairing of sides is wrong. Recorded in [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).
+
+`FUN_0041469a` colours whichever picture the selection's column has up, and `Repair_RefreshDetail` calls it on every refresh:
+
+| Picture | Slot | Remap | Target |
+|---|---|---|---|
+| external | each body record's id | `0xe` | the band colour ([below](#the-condition-readout)) of group `id`, or `id - 0x10` for an id past 15 |
+| external | `6 + slot`, each mount below the capacity | `0xf` | the band colour of that hardpoint |
+| internals | 0 | the nine indices at `0046fe80`, `1d 1c 18 19 17 1e 16 1f 1b` | the band colour of internal 0-8, in list order |
+
+Ids past 15 are the Razor's: its twelve body records are two parts per group, 0-5 and 16-21.
+
+**Which of the two is up follows the selection.** `Repair_SwapDiagram` shows the internals diagram when the selection moves into the internals list and the exploded picture when it moves back, so the picture always matches the list being worked in. With no bay selected the squad panel shows its empty picture, `DAT_0048d4dc`, instead: the same widget at the builder's rect with its grid lines off.
+
+`Hotspots_BuildOverlay` (0043c1a0) lays the clickable areas over each bay's exploded picture: the chassis's six `gam\rpr_hots.dat` areas as handlers 0-5, and for each fitted mount a panel over the weapon part's own rect (`FUN_00414418`) as handler `6 + slot`. Every one is a `Panel` with `+0x51` cleared, so none of them draws. They are children of the external picture, so while the internals picture is up there is nothing on the diagram to click.
+
+## The squad panel
+
+`wsquadi.cpp`'s per-slot panel, built once by `Squad_BuildRosterList` (0043c999) and put up by `Squad_ShowPanel` (0043cfe7) on the WEAPONS, REPAIR, BUILD and CREW tabs. Every rect is a canvas literal.
+
+| Widget | Class | Rect | Content |
+|---|---|---|---|
+| 8 pictures | `Grid` | `{5, 0x2b, 0xeb, 0x130}` | one per bay; the repair tab moves them ([above](#the-damage-diagram)) |
+| empty picture | `Grid` | `{5, 0x2b, 0xeb, 0x130}` | `DAT_0048d4dc`, grid lines off |
+| pilot label | `Text` | `{5, 0x134, 0x25, 0x141}` | `0x65` `Pilot:`, left, `0x1a` |
+| pilot | `Text` | `{0x28, 0x134, 0x82, 0x141}` | left, `0x17`, opaque |
+| skill label | `Text` | `{5, 0x141, 0x25, 0x14e}` | `0x66` `Skill:`, left, `0x1a` |
+| skill | `Text` | `{0x28, 0x141, 0x82, 0x14e}` | left, `0x17`, opaque |
+| condition label | `Text` | `{0x8d, 0x134, 0xea, 0x141}` | `0x67` `Condition:`, right, `0x1a` |
+| condition | `Text` | `{0x8d, 0x141, 0xea, 0x14e}` | right, opaque |
+| roster | `TitledPanel` | `{6, 0x154, 0xec, 0x1da}` | `0x64` `Squad Inventory`, header 19 tall, `+0x65 = 0` |
+| 8 rows | `Panel` | `{9, i*0xe + 0x16, 0xe2, i*0xe + 0x23}` in the roster | border `0x10`, `0x29` on the selected bay |
+
+The rows are 14 tall on a 14-pixel pitch, so unlike the repair lists they do not overlap. Each is a [four-column row](#a-row-is-four-text-columns) cut at `0x21`, `0x70` and `0x7b`: `"%d."` of the bay number centred, the machine's name left, `-` centred, and the crew column left. `FUN_0043da47` writes the name, `estext.bin` `0x6e + type`, in the band colour of the machine's overall condition (`HercStatus_OverallCondition`, 00411bd4), finished or not. `FUN_0043dad7` writes the crew column in `0x27`: the assigned pilot's name, or `"%d%s"` of the build percentage and `0x6c` `% Complete` for a machine still being built.
+
+`FUN_0043d38a(bay)` fills the readout:
+
+| Field | Bay with a pilot | Machine, no pilot | Empty bay |
+|---|---|---|---|
+| pilot | the pilot's name | `0x6d` `Unassigned` | blank |
+| skill | `0x35 + skill` | blank | blank |
+| condition | the band word `0x68 + level` of the overall condition, in the band colour; while the machine is being built, `"%d%s"` of the build percentage and `% Complete` in `0x20` | the same | blank |
+
+A bay's pilot is `FUN_00410220(00482a78, bay)`, which looks at exactly four records: the player's own, embedded at `+0x04`, and the three squad members the player structure points at from `+0x3f`. `FUN_004101b8` sets those pointers on load to record `DAT_00483b48[k]` of squad `k`, so a pilot elsewhere in the squad block is never shown against a bay.
+
+**A roster click is `FUN_0043d64d(bay)`**, through eight thunks from `0043dde7`. It returns at once for the bay already selected, and each tab takes the click its own way. The repair tab's arm refuses a bay that is empty or still being built; otherwise it hides whichever of the old bay's two pictures was up and shows the new bay's external one, relights the two rows, stores `DAT_00482ae5`, resets the selection with `Repair_SelectHotspot(0, 0)`, and refills the names, the rows and the panels.
 
 ### What the buttons are gated on
 
@@ -299,7 +346,7 @@ So `+0x12` of a layout record is a frame index into the matching `dba\` sheet, a
 |---|---|
 | `REPAIR` | the salvage pool, net of the build queue, covers lifting the selected component one level ([`armory.md`](armory.md#what-one-repair-level-costs)) |
 | `REPAIR ALL` | it covers `Repair_HercCost(herc, 100)` — the whole machine to full, a different figure |
-| `SCRAP` | there is a machine, it is not the only deployable one in the eight bays (`Herc_HasSingleDeployable`, 00410add), and a third per-chassis term, `(&DAT_00483b62)[type * 8]` ([Open](#open)) |
+| `SCRAP` | there is a machine, it is not the only deployable one in the eight bays (`Herc_HasSingleDeployable`, 00410add), and its chassis is available — `(&DAT_00483b62)[type * 8]`, the `herc_inf.dat` `+0x0e` flag that `Herc_GrantUnlocks` (004118c5) sets and save block 7 carries ([`../formats/save-games.md`](../formats/save-games.md)) |
 | `CANCEL` | always — no trio is written for it |
 
 "Deployable" is `FUN_00410a9d`: the bay is occupied, `+0x4a` is 100 so the machine is built, and `Herc_IsFlightworthy` (00411681) holds — both leg servos, the engine and life support all above 50.
@@ -361,7 +408,7 @@ The condition itself goes through two functions over two in-image tables. `Repai
 
 `dfn\font.dfn` is in the archive and the init does not ask for it.
 
-**There is one backdrop for the whole shell.** `0046dcd4` is written exactly once, by this init, and all eight screen builders pass that same handle as their root's image. So a screen that installs `arming.dpl` is drawing `bay2a_84` through a palette that is not its own — which is never visible in retail, because those screens' content covers the canvas. Anything that draws the frame without the content sees it.
+**There is one backdrop for the whole shell.** `0046dcd4` is written exactly once, by this init, and all eight screen builders pass that same handle as their root's image. So a screen that installs `arming.dpl` is drawing `bay2a_84` through a palette that is not its own. Retail never shows it: captures of the WEAPONS and REPAIR tabs are black wherever their widgets leave the canvas uncovered, the strip's row included ([Open](#open)).
 
 ## The palette
 
@@ -390,13 +437,13 @@ That last function also installs the theater palette directly, as `Shell_Install
 
 ## Engine coverage
 
-`Herculan.Engine.Shell` draws the shell frame: the tiled backdrop, the square button and the eight captioned tabs, hit-tested, latching on the six tabs that latch, and gated by `ShellCampaignMode`. The canvas is placed by `ShellScreenLayout`, which scales the fixed 640x480 by window height and centres it, so every rect above is used exactly as the original states it. `ShellPalette` carries the twenty-entry table and the per-tab switch. `--shell-tab-palette` follows it on a tab click, `--shell-palette <name>` pins one entry, `--shell-training` runs the gated half of the strip refresh, `--shell-tab <n>` opens on a tab rather than on the main menu, and `--shell-bay <n>` picks the hangar bay the repair tab works on — the squad roster that moves it in the original has no port ([Open](#open)), so that flag is the only way to reach a bay other than the first one holding a finished machine.
+`Herculan.Engine.Shell` draws the shell frame: the tiled backdrop, the square button and the eight captioned tabs, hit-tested, latching on the six tabs that latch, and gated by `ShellCampaignMode`. The canvas is placed by `ShellScreenLayout`, which scales the fixed 640x480 by window height and centres it, so every rect above is used exactly as the original states it. `ShellPalette` carries the twenty-entry table and the per-tab switch. `--shell-tab-palette` follows it on a tab click, `--shell-palette <name>` pins one entry, `--shell-training` runs the gated half of the strip refresh, `--shell-tab <n>` opens on a tab rather than on the main menu, and `--shell-bay <n>` picks the hangar bay the repair tab opens on.
 
 **The save screen is drawn**, from real files: `ShellSaveSlots` reads `sav\GAMEFILE.STR` and each `GAME_?.SAV` it marks in use, and `ShellSaveScreen` places every widget above from the same parent-relative rects and prints the detail panel from the staging record. Clicking a row moves the selection and the summary follows; `SAVE` and `RESTORE` gate as the original gates them. Tab 1 hides the strip, and `EXIT` and `RESTORE` leave as above through `ShellScreen.ReturnToFrame`, which is the `0043b162(8)`/`0043b0c8` pair; `RESTORE` parses the slot and rebuilds the hangar and the repair screen from it. The rename, and with it `SAVE`, `CANCEL` and `ACCEPT`, has no port, and neither has `RESTORE`'s autosave ([Open](#open)); `CANCEL` and `ACCEPT` stay grey because nothing starts a rename.
 
 The main menu tab keeps the strip up here, where its handler hides it as tab 1's does: nothing is ported behind that tab, so hiding the strip would leave nothing on screen to click. That is this engine's choice, not the original's.
 
-**The repair screen is drawn**, from a real save's hangar bay and the real price list. `ShellHangar` and `ShellBayMachine` are the eight-pointer bay array and `HercStatus_Get` over one machine's status block; `ShellRepairCosts` parses `gam\damage.dat` and expands it against `gam\herc_inf.dat`'s prices exactly as the loader does, and carries both cost functions. `ShellRepairScreen` places every widget above, fills both lists, prints the three readout panels and gates the buttons. Clicking a row moves the selection and the panels follow, including the refusal of an unfitted hardpoint. The damage diagram, the four buttons' actions, the manual/auto mode switch and the build queue have no port ([Open](#open)), so the salvage figure is the pool with nothing deducted.
+**The repair screen is drawn**, from a real save's hangar bay and the real price list. `ShellHangar` and `ShellBayMachine` are the eight-pointer bay array and `HercStatus_Get` over one machine's status block; `ShellRepairCosts` parses `gam\damage.dat` and expands it against `gam\herc_inf.dat`'s prices exactly as the loader does, and carries both cost functions. `ShellRepairScreen` places every widget above, fills both lists, prints the three readout panels and gates the buttons. `ShellRepairDiagrams` loads the nine layouts, `rpr_hots.dat` and their banks and paints whichever picture the selection's column has up, and `ShellSquadPanel` draws the readout and the roster. Clicking a row, a hotspot on the external picture or a roster row moves the selection or the bay and the panels follow, including the refusal of an unfitted hardpoint and of an unbuilt bay. The four buttons' actions, the manual/auto mode switch and the build queue have no port ([Open](#open)), so the salvage figure is the pool with nothing deducted.
 
 Until `RESTORE` loads one, the host opens the first slot the directory marks in use to have a machine to show. That is the host's own choice and not the original's, which reaches the tab only from a game already in progress.
 
@@ -404,9 +451,11 @@ Until `RESTORE` loads one, the host opens the first slot the directory marks in 
 
 Following the tab is off by default, which is a presentation choice and not a fidelity one: the four tabs on `arming.dpl` have no content ported, so nothing covers the shared backdrop there and switching would put a visibly wrong bay on screen and read as a palette bug. The save and repair screens are both on `palette.dpl`, the entry the shell already uses, so they are unaffected either way.
 
+The whole content surface is painted afresh on every change, where the original repaints only the widgets that moved. Rows overlap by a pixel and whichever paints second owns the shared border row, so the selected row is painted last, which keeps its highlight whole as `Repair_SelectHotspot`'s incoming repaint does.
+
 The engine reloads the whole of `ShellArt` to change palette, where the original re-installs one and lets the hardware palette do the rest — the art here is decoded to RGBA once per palette rather than kept as indices. Same result on screen, at a few milliseconds per click.
 
-Not drawn: the other six tabs' content, both damage diagrams, the mouse cursor (`dba\cursor.dba`), and the sounds each button plays ([Open](#open)). Nothing sets the campaign mode, so the gate is driven by a command-line flag ([Open](#open)). See [`../../ROADMAP.md`](../../ROADMAP.md).
+Not drawn: the other six tabs' content, the mouse cursor (`dba\cursor.dba`), and the sounds each button plays ([Open](#open)). The frame shows the backdrop behind the repair screen where retail shows black ([Open](#open)). Nothing sets the campaign mode, so the gate is driven by a command-line flag ([Open](#open)). See [`../../ROADMAP.md`](../../ROADMAP.md).
 
 ## Rejected readings
 
@@ -424,13 +473,13 @@ Not drawn: the other six tabs' content, both damage diagrams, the mouse cursor (
 
 ## Open
 
-- **Open:** `SCRAP`'s third per-chassis gating term, `(&DAT_00483b62)[type * 8]`, has no identified meaning.
-- **Unported:** the squad roster that moves the repair-bay selection in the original; `--shell-bay <n>` is the only way to reach a bay other than the first one holding a finished machine.
+- **Open:** what keeps the backdrop off the tab screens in retail. Every path that shows the strip also shows the backdrop-textured root (`0043b162(8)` before `0043b0c8`), and the WEAPONS and REPAIR captures are black wherever their widgets leave the canvas bare.
+- **Open:** which of two overlapping hotspots answers a click. A weapon part's rect overlaps a body area on several chassis; the engine gives the click to the weapon, the later child, and the base class's hit dispatch has not been read.
+- **Unported:** the squad panel on the other three tabs that share it — its pictures on WEAPONS and BUILD and its roster on CREW, each of which takes a roster click its own way in `FUN_0043d64d`.
 - **Unported:** the save screen's [rename](#saving-is-a-rename) — `SAVE`, `CANCEL` and `ACCEPT` — and `RESTORE`'s slot-10 autosave and career-file copies. The shell has no save writer and no keyboard input into an edit field.
 - **Open:** the edit field's keyboard handling — how the event `004377d2` posts and `00469cbc` route keystrokes to the row, how the permitted-character set at `+0x9f` filters them (the full string is unread past `"…qrstu"`), backspace, whether the `" 3. "` prefix can be deleted, and whether a key commits or abandons the rename.
 - **Open:** the meaning of the row's `+0xb7 = 4`, and whether `EditField_Paint` draws the caret from `+0xbf`, `+0xb3` or both.
 - **Open:** how `ACCEPT`'s label reaches `sav\GAMEFILE.STR` and where the slot's in-use byte is set — `Game_SaveSlot`'s own body has not been read for either.
-- **Unported:** the repair screen's damage diagram (both the exploded external picture and the internals picture).
 - **Unported:** the repair screen's four buttons' actions (`REPAIR`, `REPAIR ALL`, `SCRAP`, `CANCEL`) and the manual/auto repair mode switch.
 - **Unported:** the armory build queue; the repair screen's salvage figure is the raw pool with nothing deducted as a result.
 - **Unported:** the other six tabs' content (`MAIN MENU`, `WEAPONS`, `BUILD`, `ARMORY`, `CREW`, `MISSION`).

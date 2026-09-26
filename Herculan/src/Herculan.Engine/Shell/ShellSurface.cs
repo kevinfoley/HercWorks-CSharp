@@ -178,20 +178,31 @@ public sealed class ShellSurface {
 	/// One glyph, or any other indexed bitmap, at a top-left corner. Source index 0 is left alone, so a
 	/// glyph shows only its ink and whatever is under it stays.
 	/// </summary>
-	public void Blit(DynamixBitmap bitmap, int left, int top) {
+	/// <param name="flags">
+	/// The blitter's flag word. 2 mirrors left to right, as DBSIM's glance view uses it
+	/// (docs/formats/cockpit-views.md), and every left/right pair in <c>gam\rpr_*.dat</c> is one frame
+	/// placed twice with 0 and 2. 1 is taken as the top-to-bottom mirror, which no shell layout record
+	/// uses.
+	/// </param>
+	public void Blit(DynamixBitmap bitmap, int left, int top, int flags = 0) {
 		byte[] source = bitmap.ImageData ?? Array.Empty<byte>();
 		int cols = bitmap.Cols;
 		int rows = bitmap.Rows;
+		bool mirrorX = (flags & MirrorXFlag) != 0;
+		bool mirrorY = (flags & MirrorYFlag) != 0;
 
 		for (int y = 0; y < rows; y++) {
 			for (int x = 0; x < cols; x++) {
 				int at = y * cols + x;
 				if (at < source.Length && source[at] != Transparent) {
-					Plot(left + x, top + y, source[at]);
+					Plot(left + (mirrorX ? cols - 1 - x : x), top + (mirrorY ? rows - 1 - y : y), source[at]);
 				}
 			}
 		}
 	}
+
+	private const int MirrorYFlag = 1;
+	private const int MirrorXFlag = 2;
 
 	/// <summary>
 	/// Resolves the surface through <paramref name="palette"/> into RGBA8, top row first, with

@@ -118,6 +118,30 @@ public sealed class ShellBayMachine {
 	public int WeaponAt(int slot) => slot >= 0 && slot < _weaponId.Length ? _weaponId[slot] : 0;
 
 	/// <summary>
+	/// <c>HercStatus_OverallCondition</c> (<c>00411bd4</c>) — all 13 external facets, the nine
+	/// internals and one entry per mount slot up to the capacity, over <c>capacity + 22</c>. It is
+	/// called with <c>+0x4c</c>, so an empty slot's 100 counts towards the mean.
+	/// </summary>
+	public int OverallCondition {
+		get {
+			int total = 0;
+			foreach (short facet in _external) {
+				total += facet;
+			}
+
+			foreach (short component in _internal) {
+				total += component;
+			}
+
+			for (int slot = 0; slot < MountCapacity; slot++) {
+				total += Condition(ShellRepairCategory.Hardpoint, slot);
+			}
+
+			return total / (MountCapacity + _external.Length + _internal.Length);
+		}
+	}
+
+	/// <summary>
 	/// <c>HercStatus_GroupMean</c> (<c>00411c29</c>) — a group's facets summed and divided by how many
 	/// there are, integer division as the original does it.
 	/// </summary>
@@ -161,6 +185,10 @@ public sealed class ShellBayMachine {
 	}
 }
 
+/// <summary>The pilot assigned to a hangar bay, as the squad panel prints them.</summary>
+/// <param name="Skill">The skill ladder at <c>+0x25</c>, 0-3; the panel prints <c>estext.bin</c> <c>0x35 + skill</c>.</param>
+public sealed record ShellBayPilot(string Name, int Skill);
+
 /// <summary>
 /// The eight hangar bays and the salvage pool — what every tab from WEAPONS to CREW works over, and
 /// what the repair screen in particular reads a machine out of.
@@ -173,7 +201,13 @@ public sealed class ShellHangar {
 	/// <summary>How many bays there are. Every loop in the shell that walks them bounds at eight.</summary>
 	public const int BayCount = 8;
 
+	/// <summary>The squad block's shape: three squads of twelve pilot records, one squad member drawn from each.</summary>
+	private const int SquadCount = 3;
+	private const int PilotsPerSquad = 12;
+
 	private readonly ShellBayMachine?[] _bays = new ShellBayMachine?[BayCount];
+	private readonly List<(int Bay, ShellBayPilot Pilot)> _pilots = new();
+	private readonly HashSet<int> _availableChassis = new();
 
 	private ShellHangar() { }
 
@@ -182,6 +216,32 @@ public sealed class ShellHangar {
 
 	/// <summary>The machine in one bay, or null when the bay is empty or the index is out of range.</summary>
 	public ShellBayMachine? Bay(int slot) => slot >= 0 && slot < BayCount ? _bays[slot] : null;
+
+	/// <summary>
+	/// <c>FUN_00410220(00482a78, slot)</c> — the pilot assigned to a bay, or null. It searches exactly
+	/// four records: the player's own, then the three squad members the player structure points at
+	/// (<c>+0x3f</c>). Each of those pointers is set on load to record <c>DAT_00483b48[k]</c> of squad
+	/// <c>k</c>, so a pilot in the squad block who is not one of the three is never found here.
+	/// </summary>
+	public ShellBayPilot? PilotFor(int slot) {
+		if (slot < 0) {
+			return null;
+		}
+
+		foreach (var (bay, pilot) in _pilots) {
+			if (bay == slot) {
+				return pilot;
+			}
+		}
+
+		return null;
+	}
+
+	/// <summary>
+	/// A chassis type's availability flag — save block 7, <c>herc_inf.dat</c> record <c>+0x0e</c> at
+	/// <c>(&amp;DAT_00483b62)[type * 8]</c>, the flag <c>Herc_GrantUnlocks</c> (<c>004118c5</c>) sets.
+	/// </summary>
+	public bool IsChassisAvailable(int chassisType) => _availableChassis.Contains(chassisType);
 
 	/// <summary>
 	/// <c>FUN_00410c2a</c> — the first bay holding a fully built machine, or <c>-1</c> when there is
@@ -231,6 +291,31 @@ public sealed class ShellHangar {
 			}
 		}
 
+		foreach (var (herc, flag) in save.UnlockedHercs) {
+			if (flag != 0) {
+				hangar._availableChassis.Add(herc.Id);
+			}
+		}
+
+		// FUN_004101b8 points the player structure's three squad pointers at record
+		// DAT_00483b48[k] of squad k; those three shorts open the eight the save model keeps between
+		// the squad block and the player's record.
+		hangar.AddPilot(save.PlayerPilot);
+		for (int squad = 0; squad < SquadCount; squad++) {
+			int member = save.UnkRange_prePlayer[squad];
+			if (member >= 0 && member < PilotsPerSquad
+				&& save.Squadmates?.ElementAtOrDefault(squad * PilotsPerSquad + member) is { } pilot) {
+				hangar.AddPilot(pilot);
+			}
+		}
+
 		return hangar;
+	}
+
+	private void AddPilot(PilotEntry? pilot) {
+		if (pilot != null) {
+			_pilots.Add((pilot.BayId,
+				new ShellBayPilot((pilot.Name ?? string.Empty).TrimEnd('\0'), pilot.Skill?.Id ?? 0)));
+		}
 	}
 }

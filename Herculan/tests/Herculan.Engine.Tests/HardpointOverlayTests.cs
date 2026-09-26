@@ -114,66 +114,9 @@ public class HardpointOverlayTests {
 	}
 
 	/// <summary>
-	/// The repair screen's twenty-five hotspots resolve to the three condition arrays, which are the
-	/// same three modes the status-block accessor takes. Pinned as a whole table because the split
-	/// point is arithmetic — row 6 is hardpoint 0 — and an off-by-one there silently repairs the wrong
-	/// component rather than failing.
-	/// </summary>
-	[Theory]
-	[InlineData(0, 0, ShellComponentKind.ExternalGroup, 0)]
-	[InlineData(0, 5, ShellComponentKind.ExternalGroup, 5)]
-	[InlineData(0, 6, ShellComponentKind.Hardpoint, 0)]
-	[InlineData(0, 15, ShellComponentKind.Hardpoint, 9)]
-	[InlineData(1, 0, ShellComponentKind.Internal, 0)]
-	[InlineData(1, 8, ShellComponentKind.Internal, 8)]
-	public void RepairHotspotResolvesToItsComponent(int column, int row, ShellComponentKind kind, int index) =>
-		Assert.Equal(new ShellComponentSelection(kind, index), ShellRepairHotspots.Resolve(column, row));
-
-	/// <summary>
-	/// The counts are the arrays' own lengths, and the table is exactly as long as the handler table
-	/// the screen builds — twenty-five, which is what says neither column has a row unaccounted for.
-	/// </summary>
-	[Fact]
-	public void EveryHandlerInTheTableResolves() {
-		Assert.Equal(25, ShellRepairHotspots.HandlerCount);
-
-		int resolved = 0;
-		foreach (int column in new[] { ShellRepairHotspots.PictureColumn, ShellRepairHotspots.ListColumn }) {
-			for (int row = 0; row < 16; row++) {
-				if (ShellRepairHotspots.Resolve(column, row) != null) {
-					resolved++;
-				}
-			}
-		}
-
-		Assert.Equal(ShellRepairHotspots.HandlerCount, resolved);
-		Assert.Null(ShellRepairHotspots.Resolve(ShellRepairHotspots.PictureColumn, 16));
-		Assert.Null(ShellRepairHotspots.Resolve(ShellRepairHotspots.ListColumn, 9));
-		Assert.Null(ShellRepairHotspots.Resolve(2, 0));
-	}
-
-	/// <summary>
-	/// A hardpoint row past the machine's mount capacity, or one with nothing fitted, is refused; a
-	/// body group or an internal never is. This is the guard that stops an empty slot being selected.
-	/// </summary>
-	[Fact]
-	public void EmptyOrOutOfRangeHardpointIsNotSelectable() {
-		var hardpoint = new ShellComponentSelection(ShellComponentKind.Hardpoint, 3);
-
-		Assert.True(ShellRepairHotspots.IsSelectable(hardpoint, mountCapacity: 5, fittedWeaponId: 12));
-		Assert.False(ShellRepairHotspots.IsSelectable(hardpoint, mountCapacity: 3, fittedWeaponId: 12));
-		Assert.False(ShellRepairHotspots.IsSelectable(hardpoint, mountCapacity: 5, fittedWeaponId: 0));
-
-		// The other two arrays are always present, so nothing gates them.
-		foreach (var kind in new[] { ShellComponentKind.ExternalGroup, ShellComponentKind.Internal }) {
-			Assert.True(ShellRepairHotspots.IsSelectable(new ShellComponentSelection(kind, 0), 0, 0));
-		}
-	}
-
-	/// <summary>
 	/// The six areas <c>rpr_hots.dat</c> carries per chassis are the six external groups — the file's
-	/// own count agreeing with the hit model's split point, which is one of the three facts that
-	/// identifies them.
+	/// own count agrees with the repair screen's split point, where column 0's rows turn from groups
+	/// into hardpoints.
 	/// </summary>
 	[Fact]
 	public void RepairFileCarriesOneAreaPerExternalGroup() {
@@ -182,55 +125,8 @@ public class HardpointOverlayTests {
 		}
 
 		foreach (var herc in overlay.Entries!) {
-			Assert.Equal(ShellRepairHotspots.ExternalGroupCount, herc.Areas!.Length);
+			Assert.Equal(ShellRepairScreen.ExternalRowCount, herc.Areas!.Length);
 		}
-	}
-
-	/// <summary>
-	/// The damage ladder, at every band edge. The comparison is strictly-greater, so the boundary
-	/// values are where an off-by-one would show and nowhere else.
-	/// </summary>
-	[Theory]
-	[InlineData(100, 0)]
-	[InlineData(90, 0)]
-	[InlineData(89, 1)]
-	[InlineData(80, 1)]
-	[InlineData(79, 2)]
-	[InlineData(60, 2)]
-	[InlineData(59, 3)]
-	[InlineData(30, 3)]
-	[InlineData(29, 4)]
-	[InlineData(1, 4)]
-	[InlineData(0, ShellDamageLevel.Destroyed)]
-	public void DamageLevelBandsMatchTheRepairLadder(int condition, int level) =>
-		Assert.Equal(level, ShellDamageLevel.For(condition));
-
-	/// <summary>
-	/// The retail string overrun: six levels, four words. Levels 4 and 5 index past the run, and the
-	/// port reproduces that rather than clamping — see Herculan/KNOWN_ISSUES.md. Pinned so that a later
-	/// change which "fixes" it has to do so deliberately.
-	/// </summary>
-	[Fact]
-	public void LastTwoDamageLevelsHaveNoWordOfTheirOwn() {
-		for (int level = 0; level < ShellDamageLevel.CaptionCount; level++) {
-			Assert.True(ShellDamageLevel.HasCaption(level));
-			Assert.Equal(ShellDamageLevel.FirstCaption + level, ShellDamageLevel.CaptionIndex(level));
-		}
-
-		Assert.False(ShellDamageLevel.HasCaption(4));
-		Assert.False(ShellDamageLevel.HasCaption(ShellDamageLevel.Destroyed));
-
-		// 0x6c and 0x6d — "% Complete" and "Unassigned", which is what retail prints there.
-		Assert.Equal(0x6c, ShellDamageLevel.CaptionIndex(4));
-		Assert.Equal(0x6d, ShellDamageLevel.CaptionIndex(ShellDamageLevel.Destroyed));
-	}
-
-	/// <summary>Every level has a colour, and a destroyed component's is the odd one out.</summary>
-	[Fact]
-	public void EveryDamageLevelHasAColour() {
-		Assert.Equal(new[] { 14, 13, 12, 11, 10, 39 }, ShellDamageLevel.Colors);
-		Assert.Equal(39, ShellDamageLevel.Color(ShellDamageLevel.Destroyed));
-		Assert.Equal(14, ShellDamageLevel.Color(ShellDamageLevel.For(100)));
 	}
 
 	/// <summary>

@@ -86,14 +86,14 @@ static class ShellHost {
 			? ShellSaveSlots.LoadSave(installRoot, inUse.FileName) : null;
 		var hangar = ShellHangar.From(loadedGame);
 		var repairCosts = ShellRepairCosts.Load(content);
-		var repairScreen = new ShellRepairScreen(hangar, repairCosts, startBay);
+		var repairDiagrams = ShellRepairDiagrams.Load(content);
+		var repairScreen = new ShellRepairScreen(hangar, repairCosts, startBay, repairDiagrams);
+		Console.WriteLine($"Damage diagram layouts loaded for {repairDiagrams.LayoutCount} chassis.");
 		Console.WriteLine(repairCosts == null
 			? $"No gam\\{ShellRepairCosts.ValuesResourceName} or gam\\{ShellRepairCosts.ChassisResourceName}"
 			  + " — the repair screen draws its labels and no cost figures."
 			: $"Repair costs loaded for {repairCosts.ChassisCount} chassis.");
 
-		// Every bay, not just the one the screen opens on: the squad roster that would let a player move
-		// between them is not ported, so --shell-bay plus this listing is the only way to see the others.
 		for (int bay = 0; bay < ShellHangar.BayCount; bay++) {
 			if (hangar.Bay(bay) is not { } machine) {
 				continue;
@@ -112,14 +112,14 @@ static class ShellHost {
 
 		var screen = ShellScreen.CreateFrame(art.Text, startTab, mode);
 		Console.WriteLine(art.Text != null
-			? $"Tabs: {string.Join(", ", screen.Buttons.Where(b => b.Caption != null).Select(b => b.Caption))}"
+			? $"Tabs: {string.Join(", ", screen.Buttons.Where(b => b.Id < ShellLayout.TabCount && b.Caption != null).Select(b => b.Caption))}"
 			: "No estext.bin — the tabs draw their plates and no captions.");
 		Console.WriteLine(mode == ShellCampaignMode.Training
 			? "Training campaign: REPAIR, BUILD and ARMORY are gated off, as the strip refresh gates them."
 			: "Campaign: every tab is live.");
 		Console.WriteLine("SAVE and REPAIR are the two tabs with a screen behind them. Click a save slot "
-			+ "row or a repair list row to select it and the panels beside it follow; the other six tabs "
-			+ "latch and show the frame. The save screen hides the strip, as the original's does: leave it "
+			+ "row, or a repair list row, a part of the damage diagram or a Squad Inventory row, to select "
+			+ "it and the panels beside it follow; the other six tabs latch and show the frame. The save screen hides the strip, as the original's does: leave it "
 			+ "with EXIT, or RESTORE a slot to load it into the repair screen. Close the window to quit.");
 		Console.WriteLine(followTabPalette
 			? "Palettes follow the tab, as the original's do. The four tabs on dpl\\arming.dpl draw the "
@@ -283,7 +283,7 @@ static class ShellHost {
 			}
 
 			hangar = ShellHangar.From(restored);
-			repairScreen = new ShellRepairScreen(hangar, repairCosts, startBay);
+			repairScreen = new ShellRepairScreen(hangar, repairCosts, startBay, repairDiagrams);
 			saveScreen.CanSave = true;
 			Console.WriteLine($"Restored slot {slot + 1} ({entry.FileName}): "
 				+ (ShellSaveSummary.From(restored) is { } summary
@@ -317,9 +317,19 @@ static class ShellHost {
 			RepaintContent();
 		}
 
-		// The repair screen's own clicks: a row moves the selection and the detail panel follows, which
-		// is the whole of what the original's FUN_00433eb9 does before its own refill.
+		// The repair screen's own clicks: a row or a hotspot moves the selection and the detail panel
+		// follows, which is the whole of what the original's FUN_00433eb9 does before its own refill; a
+		// roster row moves the bay, FUN_0043d64d's repair-tab arm.
 		void ClickRepair(float canvasX, float canvasY) {
+			if (ShellSquadPanel.RowAt(canvasX, canvasY) is { } bay) {
+				if (repairScreen.SelectBay(bay)) {
+					RepaintContent();
+					Console.WriteLine($"Bay {bay}: chassis type {repairScreen.Machine?.ChassisType}.");
+				}
+
+				return;
+			}
+
 			if (repairScreen.RowAt(canvasX, canvasY) is { } cell) {
 				// A hardpoint row past the machine's capacity, or one holding no weapon, refuses the
 				// selection outright — nothing moves and nothing repaints.

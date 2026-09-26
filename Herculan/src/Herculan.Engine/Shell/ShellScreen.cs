@@ -44,6 +44,9 @@ public sealed class ShellScreen {
 	/// <summary>Id of the square button at the left of the strip, past the eight tab ids.</summary>
 	public const int MenuButtonId = ShellLayout.TabCount;
 
+	/// <summary>The square button's caption, the two bytes <c>3f 00</c> at <c>00475dcd</c>.</summary>
+	private const string MenuButtonCaption = "?";
+
 	private readonly List<ShellButton> _buttons = new();
 	private int? _hoverId;
 	private int? _pressedId;
@@ -83,10 +86,12 @@ public sealed class ShellScreen {
 		var screen = new ShellScreen();
 
 		// The strip's leftmost button, whose two faces come from the ONLINE bank rather than the tab
-		// plate's — which is why it is built separately rather than as a tab.
+		// plate's — which is why it is built separately rather than as a tab. Its caption is the one on
+		// the strip that is not an estext.bin entry: the builder passes the literal at 00475dcd.
 		screen._buttons.Add(new ShellButton(MenuButtonId, ShellLayout.MenuButton,
 			unlit: new ShellSprite(ShellArt.MenuButtonBank, 0),
-			lit: new ShellSprite(ShellArt.MenuButtonBank, 1)));
+			lit: new ShellSprite(ShellArt.MenuButtonBank, 1),
+			caption: MenuButtonCaption));
 
 		for (int i = 0; i < ShellLayout.TabCount; i++) {
 			screen._buttons.Add(new ShellButton(i, ShellLayout.Tab(i),

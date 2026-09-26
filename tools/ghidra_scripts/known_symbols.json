@@ -1921,8 +1921,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Squad_BuildRosterList",
-      "description": "wsquadi.cpp: builds a repeated row of widgets in a do/while loop over a fixed base rect with a hardcoded per-row Y stride (not a per-row data record). Same TU as Squad_BuildScreen (address range 0043c1a0-0043e52c).",
-      "source": "project_es2_exe_recon memory, 2026-08-11 VSHELL screen-layout pass"
+      "description": "wsquadi.cpp: builds the squad panel -- the eight per-bay picture Grids and the empty one at {5, 0x2b, 0xeb, 0x130}, the Pilot/Skill/Condition label and value Texts, the Squad Inventory TitledPanel and its eight four-column rows on a 14-pixel pitch -- then loads the armory and repair layouts.",
+      "source": "docs/shell/screen-layout.md#the-squad-panel"
     },
     {
       "address": "0043e52c",
@@ -12429,8 +12429,8 @@
       "type": "function",
       "confidence": "high",
       "name": "Squad_ShowPanel",
-      "description": "Shows the per-slot panel four tabs share: hides the seven widgets at 0048d4e0-0048d4f8 and the selected slot's picture, and colours the eight slot rows -- 0x29 on the selected one, 0x10 on the rest.",
-      "source": "docs/shell/handoff-vshell-re.md"
+      "description": "Puts up the per-slot panel the WEAPONS, REPAIR, BUILD and CREW tabs share: runs the tab's picture builder (0043c915), refills the readout and the roster, shows the selected bay's picture (or the empty one at 0048d4dc for no bay), the six readout texts and the roster, and colours the eight roster rows -- 0x29 on the selected one, 0x10 on the rest.",
+      "source": "docs/shell/screen-layout.md#the-squad-panel"
     },
     {
       "address": "0043d0e9",
@@ -12439,7 +12439,7 @@
       "confidence": "high",
       "name": "Squad_HidePanel",
       "description": "The mirror of Squad_ShowPanel, run from Shell_TeardownCurrentTab.",
-      "source": "docs/shell/handoff-vshell-re.md"
+      "source": "docs/shell/screen-layout.md#the-squad-panel"
     },
     {
       "address": "00482ae5",
@@ -16603,6 +16603,114 @@
       "name": "maybe_g_RasterRoutines_HideCursor",
       "description": "Slot 31 of g_RasterRoutines, the partner of slot 30 called before the same moves and draws. Driver 3 fills it with 004897d3, which only saves and restores registers.",
       "source": "docs/formats/cockpit-views.md"
+    },
+    {
+      "address": "00410220",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squad_PilotForBay",
+      "description": "The pilot record assigned to a hangar bay, or null: the player's own (embedded at +0x04, bay at +0x26) and then the three squad members the player structure points at from +0x3f. -1 finds nothing.",
+      "source": "docs/shell/screen-layout.md#the-squad-panel"
+    },
+    {
+      "address": "0041026c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squad_PilotNameForBay",
+      "description": "Squad_PilotForBay's name field (+0x04), or estext.bin entry 0, the empty string.",
+      "source": "docs/shell/screen-layout.md#the-squad-panel"
+    },
+    {
+      "address": "004101b8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Player_Read",
+      "description": "Reads save block 5 -- two int16 and the player's pilot record -- then points the three squad pointers at +0x3f at record DAT_00483b48[k] of squad k.",
+      "source": "docs/shell/screen-layout.md#the-squad-panel"
+    },
+    {
+      "address": "00413ccc",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "RepairLayout_FindWeaponPart",
+      "description": "Looks one weapon's part up in a chassis's rpr_*.dat weapon groups: the record in group weaponId whose part id is the third argument (slot + 6 at both callers), or null.",
+      "source": "docs/shell/screen-layout.md#the-damage-diagram"
+    },
+    {
+      "address": "00414418",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_WeaponPartRect",
+      "description": "The inclusive rect {x, y, x + width, y + height} of the weapon part fitted in one mount, from its rpr_*.dat record and its rpr_wpns.dba frame; the repair tab's hotspot for that mount. Asserts with a Data Error message when the chassis has no record for the weapon in that socket.",
+      "source": "docs/shell/screen-layout.md#the-damage-diagram"
+    },
+    {
+      "address": "0041469a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_ColorDiagram",
+      "description": "Colours the selected bay's damage picture for the selection's column: on the external picture each body part's 0xe remap target to its group's band colour and each mount part's 0xf target to its hardpoint's; on the internals picture the nine 0046fe80 indices of slot 0 to the internals' band colours. Called by Repair_BuildDiagrams and on every Repair_RefreshDetail.",
+      "source": "docs/shell/screen-layout.md#the-damage-diagram"
+    },
+    {
+      "address": "0043c915",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squad_BuildTabPictures",
+      "description": "Per-tab picture builder the squad panel's show runs: tab 3 builds the repair diagrams and their hotspot overlay, tabs 2, 4 and 6 FUN_00414e5b, tab 2 the arming hotspots as well.",
+      "source": "docs/shell/screen-layout.md#the-squad-panel"
+    },
+    {
+      "address": "0043c95a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squad_FreeTabPictures",
+      "description": "The teardown counterpart of Squad_BuildTabPictures, per tab.",
+      "source": "docs/shell/screen-layout.md#the-squad-panel"
+    },
+    {
+      "address": "0043d38a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squad_RefreshReadout",
+      "description": "Fills the squad panel's Pilot/Skill/Condition values for one bay: the pilot's name or Unassigned, 0x35 + skill, and the overall condition's band word in its colour or N% Complete in 0x20 while the machine is being built.",
+      "source": "docs/shell/screen-layout.md#the-squad-panel"
+    },
+    {
+      "address": "0043d64d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squad_SelectBay",
+      "description": "A squad roster click: returns for the bay already selected, then takes the bay each tab's own way. The repair tab refuses an empty or unbuilt bay, swaps the pictures, relights the rows, stores DAT_00482ae5 and resets the repair selection to (0, 0).",
+      "source": "docs/shell/screen-layout.md#the-squad-panel"
+    },
+    {
+      "address": "0043da47",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squad_RefreshRowNames",
+      "description": "Writes each roster row's machine name (the HERC record's +0x04 string) in the band colour of its overall condition.",
+      "source": "docs/shell/screen-layout.md#the-squad-panel"
+    },
+    {
+      "address": "0043dad7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squad_RefreshRowCrew",
+      "description": "Writes each roster row's last column in 0x27: the assigned pilot's name, or N% Complete for a machine still being built.",
+      "source": "docs/shell/screen-layout.md#the-squad-panel"
     }
   ]
 }

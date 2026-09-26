@@ -38,10 +38,12 @@ public enum ShellRepairButton {
 /// accessor modes — so one number says which list a row is in, which array holds its condition and
 /// which table prices it.</para>
 ///
-/// <para><b>The left of the canvas is not this screen's.</b> The builder puts eight grid widgets
-/// there, one per bay, holding the machine's internals diagram; the exploded external picture over
-/// the same rect belongs to the shared squad panel. Neither is drawn here — see
-/// docs/shell/screen-layout.md, "The repair screen".</para>
+/// <para><b>The left of the canvas is mostly not this screen's.</b> The builder puts eight grid
+/// widgets there, one per bay, holding the machine's internals diagram; the exploded external picture
+/// over the same rect, the pilot readout and the roster below it belong to the squad panel the
+/// WEAPONS, BUILD and CREW tabs share. <see cref="ShellRepairDiagrams"/> and
+/// <see cref="ShellSquadPanel"/> draw them, and this screen decides which picture is up and which bay
+/// the roster has selected.</para>
 /// </summary>
 public sealed class ShellRepairScreen {
 	/// <summary>The six external component groups, column 0's first rows.</summary>
@@ -62,11 +64,8 @@ public sealed class ShellRepairScreen {
 	/// </summary>
 	public static readonly ShellRect PanelRect = new(0xf1, 0x2b, 0x278, 0x1d9);
 
-	/// <summary>
-	/// The rect the eight per-bay grid widgets share, <c>{0x10, 0x2f, 0xe0, 0x12f}</c>. Not painted
-	/// here; it is where the damage diagram goes.
-	/// </summary>
-	public static readonly ShellRect PictureRect = new(0x10, 0x2f, 0xe0, 0x12f);
+	/// <summary>The rect both damage pictures share.</summary>
+	public static readonly ShellRect PictureRect = ShellRepairDiagrams.PictureRect;
 
 	private static readonly ShellRect ExternalPanelRect = new(4, 0x1a, 0xe5, 0x105);
 	private static readonly ShellRect InternalPanelRect = new(4, 0x10b, 0xe5, 0x1a3);
@@ -96,12 +95,15 @@ public sealed class ShellRepairScreen {
 
 	private readonly ShellHangar _hangar;
 	private readonly ShellRepairCosts? _costs;
+	private readonly ShellRepairDiagrams? _diagrams;
 	private int _column;
 	private int _row;
 
-	public ShellRepairScreen(ShellHangar? hangar = null, ShellRepairCosts? costs = null, int bay = 0) {
+	public ShellRepairScreen(ShellHangar? hangar = null, ShellRepairCosts? costs = null, int bay = 0,
+			ShellRepairDiagrams? diagrams = null) {
 		_hangar = hangar ?? ShellHangar.From(null);
 		_costs = costs;
+		_diagrams = diagrams;
 
 		// FUN_004332ec: entering the screen on a bay that holds nothing, or holds something still under
 		// construction, moves the selection to the first bay that holds a finished machine.
@@ -185,10 +187,14 @@ public sealed class ShellRepairScreen {
 		return true;
 	}
 
-	/// <summary>Moves to another hangar bay, as <c>FUN_0043d64d</c> does for the repair tab.</summary>
-	public void SelectBay(int bay) {
-		if (bay == SelectedBay || bay < -1 || bay >= ShellHangar.BayCount) {
-			return;
+	/// <summary>
+	/// Moves to another hangar bay, as <c>FUN_0043d64d</c> does for the repair tab, and reports whether
+	/// it moved. A bay that is empty or still being built refuses, silently.
+	/// </summary>
+	public bool SelectBay(int bay) {
+		if (bay == SelectedBay || bay < -1 || bay >= ShellHangar.BayCount
+			|| (bay != -1 && !ShellSquadPanel.CanSelect(_hangar, bay))) {
+			return false;
 		}
 
 		SelectedBay = bay;
@@ -197,10 +203,18 @@ public sealed class ShellRepairScreen {
 		// detail panel, so a hardpoint row selected on the last machine cannot outlive it.
 		_column = 0;
 		_row = 0;
+		return true;
 	}
 
-	/// <summary>The row at a canvas point, or null when the point is on no row of either list.</summary>
+	/// <summary>
+	/// The <c>(column, row)</c> a canvas point selects, or null: a row of either list, or a hotspot over
+	/// the external picture, which is only there to click while that picture is the one up.
+	/// </summary>
 	public (int Column, int Row)? RowAt(float canvasX, float canvasY) {
+		if (_column == 0 && _diagrams?.HotspotAt(Machine, canvasX, canvasY) is { } hotspot) {
+			return (0, hotspot);
+		}
+
 		for (int row = 0; row < ColumnZeroRowCount; row++) {
 			if (RowRect(0, row).Contains(canvasX, canvasY)) {
 				return (0, row);
@@ -232,16 +246,16 @@ public sealed class ShellRepairScreen {
 	/// <c>FUN_00433445</c> writes at each one: the border colour, the caption colour and the enable
 	/// flag together.
 	///
-	/// <para>SCRAP's third term is <c>(&amp;DAT_00483b62)[chassisType * 8]</c>, a per-chassis word that
-	/// has not been identified; it is not applied here, so SCRAP may read as live in a case where retail
-	/// greys it.</para>
+	/// <para>SCRAP also needs the machine's chassis to be available — <c>(&amp;DAT_00483b62)[type * 8]</c>,
+	/// the flag <see cref="ShellHangar.IsChassisAvailable"/> reads.</para>
 	/// </summary>
 	public bool IsEnabled(ShellRepairButton button) => button switch {
 		// Both repair gates compare as unsigned in the original, which only differs from this when the
 		// build queue has committed more than the pool holds.
 		ShellRepairButton.Repair => Machine != null && AvailableKilograms >= SelectionCost,
 		ShellRepairButton.RepairAll => Machine != null && AvailableKilograms >= MachineCost,
-		ShellRepairButton.Scrap => Machine != null && !_hangar.HasSingleDeployable(),
+		ShellRepairButton.Scrap => Machine is { } machine && !_hangar.HasSingleDeployable()
+			&& _hangar.IsChassisAvailable(machine.ChassisType),
 		_ => true,
 	};
 
@@ -282,6 +296,9 @@ public sealed class ShellRepairScreen {
 	public void Paint(ShellSurface surface, ShellText? text, HudSpriteSheet? sprites) {
 		var font = sprites?.Font(ShellArt.ScreenFont);
 
+		_diagrams?.Paint(surface, Machine, _column);
+		ShellSquadPanel.Paint(surface, font, text, _hangar, SelectedBay);
+
 		ShellChrome.PaintTitledPanel(surface, PanelRect, PanelBorder, PanelFace,
 			ShellChrome.InteriorColor, TitleHeight, headerChrome: true, TitlePlateFirst, TitlePlateLast,
 			fill: true);
@@ -320,7 +337,16 @@ public sealed class ShellRepairScreen {
 
 		int rows = column == 0 ? ColumnZeroRowCount : InternalRowCount;
 		for (int row = 0; row < rows; row++) {
-			PaintRow(surface, font, text, column, row);
+			if (column != _column || row != _row) {
+				PaintRow(surface, font, text, column, row);
+			}
+		}
+
+		// Rows overlap by a pixel, so whichever paints second owns the shared border row. The original
+		// repaints the incoming selection after the outgoing one (Repair_SelectHotspot), which leaves the
+		// highlight whole; painting it last here keeps it so on a full repaint too.
+		if (column == _column) {
+			PaintRow(surface, font, text, column, _row);
 		}
 	}
 
@@ -393,7 +419,7 @@ public sealed class ShellRepairScreen {
 		// calls Text_SetString with 0x17, which overwrites +0xb5 before the paint. The write is dead; see
 		// docs/shell/screen-layout.md, "The repair screen".
 		PaintReadout(surface, font, Inside(panel, ItemConditionReadoutRect),
-			text?.Text(FirstConditionWordText + ShellRepairCosts.LevelForCondition(SelectionCondition)));
+			text?.Text(ConditionWordText(SelectionCondition)));
 		PaintButton(surface, font, text?.Text(RepairText), ShellRepairButton.Repair);
 	}
 
@@ -455,6 +481,14 @@ public sealed class ShellRepairScreen {
 	/// </summary>
 	public static byte BandColor(int condition) =>
 		BandColors[ShellRepairCosts.LevelForCondition(condition)];
+
+	/// <summary>
+	/// The <c>estext.bin</c> word the Condition readout prints for a condition: the damage level's
+	/// offset into the run at <see cref="FirstConditionWordText"/>. Levels 4 and 5 index past that run,
+	/// and this reproduces the overrun rather than clamping it.
+	/// </summary>
+	public static int ConditionWordText(int condition) =>
+		FirstConditionWordText + ShellRepairCosts.LevelForCondition(condition);
 
 	/// <summary>A figure with the string table's <c>kg</c> after it — the screen's own <c>"%ld %s"</c>.</summary>
 	private static string WithKilograms(int value, ShellText? text) =>
@@ -574,9 +608,17 @@ public sealed class ShellRepairScreen {
 	private const int KilogramsText = 0xc8;
 
 	/// <summary>
-	/// Two runs the screen indexes into by a value. The weapon names start one past <c>--Empty--</c>,
+	/// The weapon names, which the screen indexes by weapon id. They start one past <c>--Empty--</c>,
 	/// so id 0 lands on <c>None</c> and a fitted weapon on its own name.
 	/// </summary>
 	private const int FirstWeaponNameText = 0x7e;
+
+	/// <summary>
+	/// The condition words, which the screen indexes by damage level. The run is four words long —
+	/// <c>Nominal</c>, <c>Light</c>, <c>Moderate</c>, <c>Heavy</c> — for six levels, so level 4 reads
+	/// <c>0x6c</c> <c>% Complete</c> and level 5 <c>0x6d</c> <c>Unassigned</c>, the two unrelated
+	/// entries that follow. See Herculan/KNOWN_ISSUES.md and docs/shell/screen-layout.md, "The Condition
+	/// readout".
+	/// </summary>
 	private const int FirstConditionWordText = 0x68;
 }

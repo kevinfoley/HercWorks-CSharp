@@ -8,7 +8,7 @@ namespace Herculan.Engine.Tests;
 
 /// <summary>
 /// <c>gam\arm_hots.dat</c> and <c>gam\rpr_hots.dat</c> — the clickable regions laid over a chassis
-/// picture, both read by <c>Squad_BuildScreen</c> (<c>0043c1a0</c>) through one piece of code.
+/// picture, both read by <c>Hotspots_BuildOverlay</c> (<c>0043c1a0</c>) through one piece of code.
 ///
 /// <para>What these pin is the reading that a parse alone cannot settle: the four <c>int32</c> are
 /// two inclusive corners, not a corner and a size. Retail's values stay inside the canvas either way,

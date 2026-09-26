@@ -82,7 +82,7 @@ The controls panel pairs its save with `Prefs_CommitOptions` (`00459878`) one in
 | 46 | **VSHELL's** single-mission extra machine | a three-way cycle past the eight chassis the screen shows as buttons; writes its choice into option 40 |
 | 47 | **VSHELL's** `Sierra.ini` gate | non-zero skips reading that file at startup. A retail `prefs.cfg` ships 1 |
 
-`ControlsOptionBase` (`004d25fb`) selects between the last two blocks: `Sim_InitMissionSession` (`004614fc`) sets it to `0x19` when `PilotingRazor` (`004d25f5`) is set and `0x0d` otherwise, and `PreferencesManager_Reset` (`0045cad8`) starts it on `0x0d`. **The two blocks are independent** — a binding made in a walker does not disturb the RAZOR's.
+`ControlsOptionBase` (`004d25fb`) selects between the last two blocks: `Sim_InitMissionSession` (`004614fc`) sets it to `0x19` when `PilotingRazor` (`004d25f5`) is set and `0x0d` otherwise, and `Main_StaticInit` (`0045cad8`) starts it on `0x0d`. **The two blocks are independent** — a binding made in a walker does not disturb the RAZOR's.
 
 Options 48-53 have no reference in either image and are zero in a retail file. Neither panel reads them.
 

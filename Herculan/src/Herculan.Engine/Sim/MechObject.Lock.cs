@@ -8,8 +8,8 @@ namespace Herculan.Engine.Sim;
 /// Missile lock — the second half of <c>Mech_PerTickSystemsUpdate</c> (<c>0041aa5c</c>), everything
 /// after the reactor and shield bookkeeping <see cref="PowerTick"/> ports.
 ///
-/// <para><b>What <c>manager+0x0a</c> actually is.</b> The symbol table calls its reader
-/// <c>Mech_MissileAmmoCount</c> and that name is wrong: it counts nothing. The array is five flags,
+/// <para><b>What <c>manager+0x0a</c> is.</b> Its reader is <c>Mech_MissileLockState</c>, and it
+/// counts nothing. The array is five flags,
 /// one per <c>PROJ.DAT</c> missile subtype, meaning <i>this class of launcher has achieved lock on
 /// the machine's current target</i>. It is cleared and rebuilt every tick, for every machine, by
 /// the block ported here — the player's included, which is why a player's missiles lock in retail

@@ -6,7 +6,7 @@ namespace HercWorks.Core.Io.Transform.Shell;
 /// <summary>
 /// Reads and writes <c>gam\arm_hots.dat</c> and <c>gam\rpr_hots.dat</c>, which share one format —
 /// see <see cref="HardpointOverlayConfig"/> for it and for the evidence. Mirrors
-/// <c>Squad_BuildScreen</c>'s own reader (<c>0043c1a0</c>): a count, then that many groups of a
+/// <c>Hotspots_BuildOverlay</c>'s own reader (<c>0043c1a0</c>): a count, then that many groups of a
 /// chassis id, an area count and that many four-int32 rects.
 ///
 /// <para>Ported from <c>org.hercworks.core.io.transform.shell.HardpointOverlayTransformer</c>.</para>

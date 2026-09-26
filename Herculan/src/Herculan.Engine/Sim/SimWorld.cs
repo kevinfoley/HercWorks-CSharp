@@ -1188,7 +1188,7 @@ public sealed class SimWorld {
 	/// rocket comes off a rack, never out of a capacitor, so the record's damage is what it does.
 	///
 	/// <para><b>A target is attached only when this class of launcher has lock</b> — the launcher's
-	/// vtable <c>+0x6c</c> (<c>Mech_MissileAmmoCount</c>, <c>004155ac</c>), which despite its name
+	/// vtable <c>+0x6c</c> (<c>Mech_MissileLockState</c>, <c>004155ac</c>), which
 	/// reads the per-subtype lock flags at <c>manager+0x0a</c> rather than any ammunition count. See
 	/// <see cref="MechObject.MissileLockTick"/> for what builds them. A round fired without lock
 	/// flies where it was pointed, which is exactly what the original does. <b>A

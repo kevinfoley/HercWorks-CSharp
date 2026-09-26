@@ -86,8 +86,7 @@ public sealed class WeaponMounts {
 	/// lock on the machine's current target</b>. Five entries, indexed by
 	/// <see cref="WeaponMount.AmmoType"/>.
 	///
-	/// <para>Read by <c>Mech_MissileAmmoCount</c> (mech vtable <c>+0x6c</c>) — a name this port keeps
-	/// only because it is what the symbol table calls it; it counts nothing. <c>Rocket_Fire</c> uses
+	/// <para>Read by <c>Mech_MissileLockState</c> (mech vtable <c>+0x6c</c>). <c>Rocket_Fire</c> uses
 	/// it to decide whether the round it is launching gets a target attached, and
 	/// <c>WeaponMounts_MountIsReady</c> uses it to light a missile row's ready box.</para>
 	///

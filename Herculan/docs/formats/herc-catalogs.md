@@ -260,7 +260,7 @@ The group records' first two `int32` are each incremented by one as they are rea
 
 ### `gam\arm_hots.dat` and `gam\rpr_hots.dat` — the clickable regions
 
-The two files are one format, read by the same code: `Squad_BuildScreen` (`0043c1a0`, `wsquadi.cpp`) opens `arm_hots.dat` when it is building for the arming tab and `rpr_hots.dat` for the repair tab, and does nothing else differently.
+The two files are one format, read by the same code: `Hotspots_BuildOverlay` (`0043c1a0`, `wsquadi.cpp`) opens `arm_hots.dat` when it is building for the arming tab and `rpr_hots.dat` for the repair tab, and does nothing else differently.
 
 ```
 int16   groupCount            -- 9; the reader asserts it

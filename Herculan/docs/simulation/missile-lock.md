@@ -4,7 +4,7 @@ Ported in `MechObject.MissileLockTick`, `WeaponMounts.MissileLock`.
 
 ## `manager+0x0a` is the lock state, not an ammunition count
 
-Its reader is named `Mech_MissileAmmoCount` (mech vtable `+0x6c`, `004155ac`) and the name is wrong — <!-- doc-lint: ok --> it counts nothing. The array is **five flags, one per `PROJ.DAT` missile subtype: has this class of launcher achieved lock on the machine's current target.**
+Its reader is `Mech_MissileLockState` (mech vtable `+0x6c`, `004155ac`), and it counts nothing. The array is **five flags, one per `PROJ.DAT` missile subtype: has this class of launcher achieved lock on the machine's current target.**
 
 `Mech_PerTickSystemsUpdate` (`0041aa5c`) clears all five at the top of its target block and sets the ones whose countdown has expired, for **every** mech each tick, the player's included. That is why a player's missiles lock in retail, and why `Rocket_Fire`'s gate on it is a real gate.
 

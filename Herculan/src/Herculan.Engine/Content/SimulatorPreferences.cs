@@ -84,7 +84,7 @@ public sealed class SimulatorPreferences {
 	/// <summary>
 	/// Where the [F12] → CONTROLS panel's twelve options start for a walking HERC — <c>DAT_004d25fb</c>
 	/// as <c>Sim_InitMissionSession</c> (<c>004614fc</c>) sets it, and the value
-	/// <c>PreferencesManager_Reset</c> (<c>0045cad8</c>) starts it on.
+	/// <c>Main_StaticInit</c> (<c>0045cad8</c>) starts it on.
 	/// </summary>
 	public const int HercControlsBase = 0x0d;
 

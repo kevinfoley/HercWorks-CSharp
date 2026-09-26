@@ -51,42 +51,117 @@ public sealed class ShellBayPictures {
 	private static readonly string[] LayoutStems = { "OUTL", "RAPT", "TOMA", "SAMS", "COLO", "APOC", "OGRE", "MAVR", "RAZR" };
 
 	/// <summary>
-	/// The banks' own stems, in the same order — the tables at <c>0046ff74</c> (<c>_bod</c>) and
-	/// <c>0046ff9c</c> (<c>_wep</c>). They are not the layout stems: the Razor's is <c>fly</c>.
+	/// The banks' own stems, in the same order — the tables at <c>0046ff74</c> (<c>_bod</c>),
+	/// <c>0046ff9c</c> (<c>_wep</c>) and <c>0046ffc0</c> (<c>_out</c>, the socket outlines). They are not
+	/// the layout stems: the Razor's is <c>fly</c>.
 	/// </summary>
 	private static readonly string[] BankStems = { "OUT", "RAP", "TOM", "SAM", "COL", "APOC", "OGR", "MAV", "FLY" };
+
+	/// <summary>
+	/// The part slot <c>Arming_MarkHardpoint</c> (<c>004155db</c>) puts the selected socket's outline in,
+	/// past every weapon slot the widest chassis uses.
+	/// </summary>
+	private const int OutlineSlot = 12;
+
+	/// <summary>The outline's one remap pair: the bank's index <c>0xba</c> drawn as <c>99</c>.</summary>
+	private const byte OutlineInk = 0xba;
+	private const byte OutlineColor = 99;
+
+	private const string HotspotResourceName = "ARM_HOTS.DAT";
 
 	private readonly ArmHerc?[] _layouts;
 	private readonly DynamixBitmap[]?[] _bodyBanks;
 	private readonly DynamixBitmap[]?[] _weaponBanks;
+	private readonly DynamixBitmap[]?[] _outlineBanks;
 	private readonly DynamixBitmap[]? _emptyBay;
+	private readonly HardpointOverlayConfig? _hotspots;
 
 	private ShellBayPictures(ArmHerc?[] layouts, DynamixBitmap[]?[] bodyBanks, DynamixBitmap[]?[] weaponBanks,
-			DynamixBitmap[]? emptyBay) {
+			DynamixBitmap[]?[] outlineBanks, DynamixBitmap[]? emptyBay, HardpointOverlayConfig? hotspots) {
 		_layouts = layouts;
 		_bodyBanks = bodyBanks;
 		_weaponBanks = weaponBanks;
+		_outlineBanks = outlineBanks;
 		_emptyBay = emptyBay;
+		_hotspots = hotspots;
 	}
 
 	/// <summary>
-	/// Reads the nine <c>gam\arm_*.dat</c> layouts and the nineteen banks they draw from. Anything
-	/// missing leaves that chassis's picture empty rather than failing the screen.
+	/// Reads the nine <c>gam\arm_*.dat</c> layouts, <c>gam\arm_hots.dat</c> and the banks they draw
+	/// from. Anything missing leaves that chassis's picture or hotspots empty rather than failing the
+	/// screen.
 	/// </summary>
 	public static ShellBayPictures Load(GameContent content) {
 		var layouts = new ArmHerc?[LayoutStems.Length];
 		var bodyBanks = new DynamixBitmap[]?[LayoutStems.Length];
 		var weaponBanks = new DynamixBitmap[]?[LayoutStems.Length];
+		var outlineBanks = new DynamixBitmap[]?[LayoutStems.Length];
 
 		for (int type = 0; type < LayoutStems.Length; type++) {
 			layouts[type] = content.Read(ShellRepairCosts.CatalogFolder, $"ARM_{LayoutStems[type]}.DAT") is { } bytes
 				? new ArmHercTransformer().Parse(bytes) : null;
 			bodyBanks[type] = ShellArt.ReadBankFrames(content, $"{BankStems[type]}_BOD");
 			weaponBanks[type] = ShellArt.ReadBankFrames(content, $"{BankStems[type]}_WEP");
+			outlineBanks[type] = ShellArt.ReadBankFrames(content, $"{BankStems[type]}_OUT");
 		}
 
-		return new ShellBayPictures(layouts, bodyBanks, weaponBanks,
-			ShellArt.ReadBankFrames(content, EmptyBayBankName));
+		var hotspots = content.Read(ShellRepairCosts.CatalogFolder, HotspotResourceName) is { } hotBytes
+			? new HardpointOverlayTransformer().Parse(hotBytes) : null;
+
+		return new ShellBayPictures(layouts, bodyBanks, weaponBanks, outlineBanks,
+			ShellArt.ReadBankFrames(content, EmptyBayBankName), hotspots);
+	}
+
+	/// <summary>
+	/// Whether the chassis's layout has a record for <paramref name="weaponId"/> in <paramref name="mount"/>'s
+	/// socket, whatever its frame — <c>Arming_RowLive</c> (<c>004149fb</c>)'s test of
+	/// <c>RepairLayout_FindWeaponPart</c>. Every retail layout has a <c>None</c> (0) record for every socket.
+	/// </summary>
+	public bool HasSocket(int chassisType, int weaponId, int mount) =>
+		chassisType >= 0 && chassisType < _layouts.Length && _layouts[chassisType] is { } layout
+		&& FindRecord(layout, weaponId, mount) != null;
+
+	/// <summary>
+	/// The outline <c>Arming_MarkHardpoint</c> (<c>004155db</c>) puts in part slot 12 for
+	/// <paramref name="mount"/>: the socket's record for the weapon fitted there, <c>None</c>'s for an
+	/// empty mount, drawn from the chassis's <c>_out</c> bank at the record's second position, one pixel
+	/// in as the loader leaves it, with <c>0xba</c> remapped to <c>99</c>. Null when there is no record or
+	/// its frame is <c>-1</c>, in which case the original leaves whatever outline the slot already holds.
+	/// </summary>
+	public ShellGridPart? Outline(ShellBayMachine machine, int mount) {
+		int type = machine.ChassisType;
+		if (type < 0 || type >= _layouts.Length || _layouts[type] is not { } layout
+			|| FindRecord(layout, machine.WeaponAt(mount), mount) is not { FrameId: not -1 } record
+			|| Frame(_outlineBanks[type], record.FrameId) is not { } frame) {
+			return null;
+		}
+
+		return new ShellGridPart(frame, record.OutlineX + 1, record.OutlineY + 1, record.Flags?.Val ?? 0,
+			new[] { (OutlineInk, OutlineColor) });
+	}
+
+	/// <summary>
+	/// The hardpoint whose hotspot is under a canvas point, or null — the panels
+	/// <c>Hotspots_BuildOverlay(2)</c> (<c>0043c1a0</c>) lays over each bay's picture, one per mount below
+	/// the capacity from the chassis's <c>arm_hots.dat</c> areas, which are rects in the picture. They are
+	/// built with no chrome, so nothing of them is drawn. Where two overlap the one built later, the
+	/// higher mount, answers, and a point off the picture reaches none of them.
+	/// </summary>
+	public int? HotspotAt(ShellBayMachine? machine, float canvasX, float canvasY) {
+		if (machine == null || !PictureRect.Contains(canvasX, canvasY)) {
+			return null;
+		}
+
+		var areas = _hotspots?.Entries?.FirstOrDefault(entry => entry.HercId == machine.ChassisType)?.Areas;
+		float x = canvasX - PictureRect.X0;
+		float y = canvasY - PictureRect.Y0;
+		for (int mount = Math.Min(machine.MountCapacity, areas?.Length ?? 0) - 1; mount >= 0; mount--) {
+			if (areas![mount] is { } area && x >= area.X0 && y >= area.Y0 && x <= area.X1 && y <= area.Y1) {
+				return mount;
+			}
+		}
+
+		return null;
 	}
 
 	/// <summary>How many chassis have a layout — nine when the archive is complete.</summary>
@@ -94,16 +169,21 @@ public sealed class ShellBayPictures {
 
 	/// <summary>
 	/// Paints the picture <c>Squad_ShowPanel</c> puts up: the selected bay's, or the empty picture when
-	/// no bay is selected. Both have their grid lines off.
+	/// no bay is selected. Both have their grid lines off. <paramref name="outline"/> is the weapons
+	/// screen's socket outline, drawn in part slot 12 of a bay's picture.
 	/// </summary>
-	public void Paint(ShellSurface surface, ShellHangar hangar, int selectedBay) {
+	public void Paint(ShellSurface surface, ShellHangar hangar, int selectedBay, ShellGridPart? outline = null) {
 		if (selectedBay < 0) {
 			ShellGrid.Paint(surface, EmptyPictureRect, gridLines: false, EmptyBayParts());
 			return;
 		}
 
-		ShellGrid.Paint(surface, PictureRect, gridLines: false,
-			hangar.Bay(selectedBay) is { } machine ? MachineParts(machine) : EmptyBayParts());
+		var parts = hangar.Bay(selectedBay) is { } machine ? MachineParts(machine) : EmptyBayParts();
+		if (outline != null) {
+			parts[OutlineSlot] = outline;
+		}
+
+		ShellGrid.Paint(surface, PictureRect, gridLines: false, parts);
 	}
 
 	/// <summary>The empty bay: <c>mt_3qtr</c>'s two frames, top and bottom, in slots 0 and 1.</summary>
@@ -160,14 +240,13 @@ public sealed class ShellBayPictures {
 	/// <c>slot + 2</c>. An empty mount, or a weapon with no art for that socket, has none, and so does a
 	/// record whose frame is <c>-1</c>.
 	/// </summary>
-	private static UiHardpointGraphic? WeaponRecord(ArmHerc layout, int weaponId, int mount) {
-		if (weaponId <= 0 || layout.WeaponHardpoints is not { } groups
-			|| !groups.TryGetValue((short)weaponId, out var sockets)) {
-			return null;
-		}
+	private static UiHardpointGraphic? WeaponRecord(ArmHerc layout, int weaponId, int mount) =>
+		weaponId > 0 && FindRecord(layout, weaponId, mount) is { FrameId: not -1 } record ? record : null;
 
-		return sockets.FirstOrDefault(socket => socket.Id == FirstWeaponPart + mount && socket.FrameId != -1);
-	}
+	/// <summary><c>RepairLayout_FindWeaponPart</c> (<c>00413ccc</c>) itself: the record in the weapon's group whose id is <c>mount + 2</c>, whatever its frame.</summary>
+	private static UiHardpointGraphic? FindRecord(ArmHerc layout, int weaponId, int mount) =>
+		layout.WeaponHardpoints is { } groups && groups.TryGetValue((short)weaponId, out var sockets)
+			? sockets.FirstOrDefault(socket => socket.Id == FirstWeaponPart + mount) : null;
 
 	private static void SetPart(ShellGridPart?[] parts, int slot, DynamixBitmap? frame, int x, int y, int flags) {
 		if (slot >= 0 && slot < ShellGrid.PartSlots && frame != null) {

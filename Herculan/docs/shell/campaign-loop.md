@@ -110,7 +110,7 @@ This is `data\player.mec`, and the record it emits is the one `HercWorks.Core.Da
 
 The player's own entry reads its two leading fields from `00482a7e` and `00482aa1`, which are the same two pilot fields reached directly: the player structure at `00482a78` embeds its pilot record at `+0x04`, putting the name index at `00482a7e` and the skill tier at `00482aa1`.
 
-The `5` filler that [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md) observes in every non-launcher slot is written here — it is this function's literal default for a hardpoint with no unit mounted. Where a unit *is* mounted the field is that unit's own ammo type, which the armory sets to `1` for a missile rack and `5` for everything else ([`../formats/herc-catalogs.md`](../formats/herc-catalogs.md#the-weapon-unit-record)), so `5` reaches the file by two routes and means the same thing on both.
+The `5` filler that [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md) observes in every non-launcher slot is written here — it is this function's literal default for a hardpoint with no unit mounted. Where a unit *is* mounted the field is that unit's own ammo type, which the armory and the weapons screen set ([`../formats/herc-catalogs.md`](../formats/herc-catalogs.md#the-weapon-unit-record)), so `5` reaches the file by two routes and means the same thing on both.
 
 ### The trailing weapon table
 

@@ -75,15 +75,15 @@ One mounted or stocked weapon. Ten bytes in memory, five `int16`, constructed by
 |---|---|
 | `+0x00` | weapon catalog id |
 | `+0x02` | armory class index, derived by `Weapon_ClassIndexForId` (`004119b4`) and never stored in any file |
-| `+0x04` | 100, from the constructor |
+| `+0x04` | the hardpoint condition the unit is fitted at: `Herc_FitMount` (`004114ec`) writes it into the machine's status block ([`../shell/screen-layout.md`](../shell/screen-layout.md#fitting-a-weapon)). 100 from the constructor, and the catalog form leaves it there |
 | `+0x06` | condition |
-| `+0x08` | ammo type |
+| `+0x08` | ammo type — the guidance kind |
 
 Two file forms share it. The `gam\*.dat` form is six bytes — `+0x00`, `+0x06`, `+0x08` (`WeaponUnit_ReadCatalogForm`, `00411a36`) — and the save form is all ten (`WeaponUnit_ReadSaveForm` (`00411aa6`) / `WeaponUnit_WriteSaveForm` (`00411aff`)).
 
 `Weapon_ClassIndexForId` searches the thirty-entry table at `0046f868` for the id and returns its position. That table holds ids `0`–`18` and `22`–`32`: **every id except the three Bull weapons**, which therefore resolve to `-1`. It is an independent statement of the same exclusion `arm_weap.dat` makes below.
 
-Ammo type `0`–`3` are the guidance kinds `ARM`, `ARH`, `SARH`, `EO` (`estext.bin` `0xa1`–`0xa4`); `5` means the hardpoint carries nothing guided. Retail data holds `5` everywhere except the missile racks, and `Armory_DeliverQueue` (`00412428`) writes `1` for ids 13–16 and `5` for everything else. The `5` that [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md) observes in every non-launcher slot originates here.
+Ammo type `0`–`3` are the guidance kinds `SARH`, `ARH`, `ARM`, `EO`; `5` means the hardpoint carries nothing guided. The weapons screen's four buttons caption them `ARM`, `ARH`, `SARH`, `EO` (`estext.bin` `0xa1`–`0xa4`), which is not the kinds' order: each button passes its own kind ([`../shell/screen-layout.md`](../shell/screen-layout.md#guidance-kinds)). Retail data holds `5` everywhere except the missile racks, `Armory_DeliverQueue` (`00412428`) writes `1` for ids 13–16 and `5` for everything else, and the weapons screen rewrites it when it fits a unit or a guidance button is pressed. The `5` that [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md) observes in every non-launcher slot originates here.
 
 ## `gam\ini_*.dat` — the stock fit per chassis
 

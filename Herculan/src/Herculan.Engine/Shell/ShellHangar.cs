@@ -6,6 +6,38 @@ using HercWorks.Core.Data.Struct.Vshell.Sav;
 namespace Herculan.Engine.Shell;
 
 /// <summary>
+/// One weapon unit — the ten-byte record a mount holds and the armory's stock lists are made of
+/// (docs/formats/herc-catalogs.md#the-weapon-unit-record). Fitting and stripping move the unit itself
+/// between a mount and the stock, so what it carries goes with it.
+/// </summary>
+public sealed class ShellWeaponUnit {
+	public ShellWeaponUnit(int weaponId, int fitCondition = 100, int condition = 100, int guidance = NoGuidance) {
+		WeaponId = weaponId;
+		FitCondition = fitCondition;
+		Condition = condition;
+		Guidance = guidance;
+	}
+
+	/// <summary>The kind an unguided unit carries, <c>WeaponUnit_Ctor</c>'s 5, and what the arming screen reads for an empty mount.</summary>
+	public const int NoGuidance = 5;
+
+	/// <summary><c>+0x00</c>, the weapon catalog id.</summary>
+	public int WeaponId { get; }
+
+	/// <summary><c>+0x04</c> — what <c>Herc_FitMount</c> (<c>004114ec</c>) writes into the hardpoint's status entry when the unit is fitted.</summary>
+	public int FitCondition { get; }
+
+	/// <summary><c>+0x06</c>.</summary>
+	public int Condition { get; }
+
+	/// <summary><c>+0x08</c>, the guidance kind: SARH 0, ARH 1, ARM 2, EO 3, or <see cref="NoGuidance"/>.</summary>
+	public int Guidance { get; internal set; }
+
+	internal static ShellWeaponUnit From(ShellWeaponEntry entry) =>
+		new(entry.Id?.Id ?? 0, entry.HealthArmor, entry.HealthInteral, entry.MissileType?.Id ?? NoGuidance);
+}
+
+/// <summary>
 /// One machine in a hangar bay, as the shell's screens read it — <c>DAT_00482ac3</c>'s eight pointers,
 /// each to the 122-byte HERC record in the loaded save (docs/formats/save-games.md).
 ///
@@ -49,17 +81,17 @@ public sealed class ShellBayMachine {
 	private readonly short[] _external;
 	private readonly short[] _internal;
 	private readonly short[] _hardpoint;
-	private readonly short[] _weaponId;
+	private readonly ShellWeaponUnit?[] _mounts;
 
 	private ShellBayMachine(int chassisType, int mountCapacity, int buildPercent, short[] external,
-			short[] internals, short[] hardpoint, short[] weaponId) {
+			short[] internals, short[] hardpoint, ShellWeaponUnit?[] mounts) {
 		ChassisType = chassisType;
 		MountCapacity = mountCapacity;
 		BuildPercent = buildPercent;
 		_external = external;
 		_internal = internals;
 		_hardpoint = hardpoint;
-		_weaponId = weaponId;
+		_mounts = mounts;
 	}
 
 	/// <summary>
@@ -178,7 +210,16 @@ public sealed class ShellBayMachine {
 	/// The weapon id fitted in one mount slot, or 0 for an empty slot — the first <c>int16</c> of the
 	/// mount record at <c>+0x50 + slot*4</c>, which every screen reads the same way.
 	/// </summary>
-	public int WeaponAt(int slot) => slot >= 0 && slot < _weaponId.Length ? _weaponId[slot] : 0;
+	public int WeaponAt(int slot) => Mount(slot)?.WeaponId ?? 0;
+
+	/// <summary>The unit fitted in one mount slot — the pointer at <c>+0x50 + slot*4</c> — or null for an empty slot.</summary>
+	public ShellWeaponUnit? Mount(int slot) => slot >= 0 && slot < _mounts.Length ? _mounts[slot] : null;
+
+	internal void SetMount(int slot, ShellWeaponUnit? unit) {
+		if (slot >= 0 && slot < _mounts.Length) {
+			_mounts[slot] = unit;
+		}
+	}
 
 	/// <summary>
 	/// <c>HercStatus_OverallCondition</c> (<c>00411bd4</c>) — all 13 external facets, the nine
@@ -228,7 +269,7 @@ public sealed class ShellBayMachine {
 
 		int capacity = HercLUT.GetById((short)chassisType)?.HardpointMax ?? -1;
 		return new ShellBayMachine(chassisType, capacity, 0, Full(HercExternals.Values().Count),
-			Full(DamageRepairCost.InternalCount), Full(MountSlots), new short[MountSlots]);
+			Full(DamageRepairCost.InternalCount), Full(MountSlots), new ShellWeaponUnit?[MountSlots]);
 	}
 
 	/// <summary>Builds the view over one parsed bay record.</summary>
@@ -249,15 +290,15 @@ public sealed class ShellBayMachine {
 		}
 
 		var hardpoint = new short[entry.HealthHardpoints.Length];
-		var weaponId = new short[entry.HealthHardpoints.Length];
+		var mounts = new ShellWeaponUnit?[entry.HealthHardpoints.Length];
 		for (int slot = 0; slot < hardpoint.Length; slot++) {
 			hardpoint[slot] = entry.HealthHardpoints[slot]?.Health ?? (short)Complete;
-			weaponId[slot] = entry.Weapons.TryGetValue((short)slot, out var weapon) && weapon.Id != null
-				? (short)weapon.Id.Id : (short)0;
+			mounts[slot] = entry.Weapons.TryGetValue((short)slot, out var weapon) && weapon.Id != null
+				? ShellWeaponUnit.From(weapon) : null;
 		}
 
 		return new ShellBayMachine(entry.Id?.Id ?? 0, entry.HardpointMax, entry.BuildPercent,
-			external, internals, hardpoint, weaponId);
+			external, internals, hardpoint, mounts);
 	}
 }
 
@@ -328,7 +369,27 @@ public sealed class ShellHangar {
 	/// </summary>
 	public int SalvageKilograms { get; internal set; }
 
-	private readonly Dictionary<int, (bool Unlocked, int Owned)> _stock = new();
+	/// <summary>
+	/// The armory's stock of one weapon: its unlock flag, and the units it holds — the list at
+	/// <c>weapons.dat</c> record <c>+0x19</c>, kept here with its head last. <c>Armory_AddUnit</c>
+	/// (<c>00411efd</c>) pushes onto the head and <c>Armory_PopUnit</c> (<c>00411ec7</c>) takes it off, so the
+	/// unit fitted next is the one that went in last.
+	/// </summary>
+	private sealed class WeaponStock {
+		public bool Unlocked;
+		public readonly List<ShellWeaponUnit> Units = new();
+	}
+
+	private readonly Dictionary<int, WeaponStock> _stock = new();
+
+	private WeaponStock Stock(int weaponId) {
+		if (!_stock.TryGetValue(weaponId, out var stock)) {
+			stock = new WeaponStock();
+			_stock[weaponId] = stock;
+		}
+
+		return stock;
+	}
 
 	/// <summary>
 	/// A weapon's unlock flag, <c>weapons.dat</c> record <c>+0x16</c> at <c>(&amp;DAT_00483bfa)[id * 0x1d]</c> — save
@@ -337,7 +398,55 @@ public sealed class ShellHangar {
 	public bool IsWeaponUnlocked(int weaponId) => _stock.TryGetValue(weaponId, out var entry) && entry.Unlocked;
 
 	/// <summary>How many units of a weapon the armory holds, record <c>+0x17</c> at <c>DAT_00483bfb</c>.</summary>
-	public int WeaponsOwned(int weaponId) => _stock.TryGetValue(weaponId, out var entry) ? entry.Owned : 0;
+	public int WeaponsOwned(int weaponId) => _stock.TryGetValue(weaponId, out var entry) ? entry.Units.Count : 0;
+
+	/// <summary><c>Armory_AddUnit</c> (<c>00411efd</c>) — the unit onto the head of its weapon's list.</summary>
+	private void AddUnit(ShellWeaponUnit unit) => Stock(unit.WeaponId).Units.Add(unit);
+
+	/// <summary><c>Armory_PopUnit</c> (<c>00411ec7</c>) — the head of a weapon's list, or null when it is empty.</summary>
+	private ShellWeaponUnit? PopUnit(int weaponId) {
+		var units = Stock(weaponId).Units;
+		if (units.Count == 0) {
+			return null;
+		}
+
+		var unit = units[^1];
+		units.RemoveAt(units.Count - 1);
+		return unit;
+	}
+
+	/// <summary>
+	/// <c>Herc_FitMount</c> (<c>004114ec</c>), which the weapons screen's row click runs through
+	/// <c>Arming_FitSelected</c>: the unit in <paramref name="slot"/> goes back onto its weapon's stock
+	/// list, and then <c>None</c> (0) leaves the slot empty at condition 100, and any other weapon takes
+	/// the head of that weapon's list — its <see cref="ShellWeaponUnit.FitCondition"/> becomes the
+	/// hardpoint's condition and its guidance is reset, to ARH for the three missile racks and to none for
+	/// everything else, the Razor's launcher included. With that list empty the slot is left empty and
+	/// its condition untouched. See docs/shell/screen-layout.md#fitting-a-weapon.
+	/// </summary>
+	public void FitMount(ShellBayMachine machine, int slot, int weaponId) {
+		if (machine.Mount(slot) is { } old) {
+			AddUnit(old);
+		}
+
+		if (weaponId == 0) {
+			machine.SetMount(slot, null);
+			machine.SetCondition(ShellRepairCategory.Hardpoint, slot, 100);
+			return;
+		}
+
+		var unit = PopUnit(weaponId);
+		machine.SetMount(slot, unit);
+		if (unit != null) {
+			machine.SetCondition(ShellRepairCategory.Hardpoint, slot, unit.FitCondition);
+			unit.Guidance = weaponId is >= FirstGuidedRack and <= LastGuidedRack ? ArhGuidance : ShellWeaponUnit.NoGuidance;
+		}
+	}
+
+	/// <summary>The weapons <c>Herc_FitMount</c> fits with a guidance kind — the three missile racks, <c>0xd</c> to <c>0xf</c>.</summary>
+	private const int FirstGuidedRack = 0xd;
+	private const int LastGuidedRack = 0xf;
+	private const int ArhGuidance = 1;
 
 	/// <summary>The armory build queue's five slots, <c>0046f8d6</c>: one weapon id each, 0 for an empty slot.</summary>
 	private readonly int[] _queue = new int[QueueSlots];
@@ -408,8 +517,7 @@ public sealed class ShellHangar {
 	/// <paramref name="valueTons"/> times 1000 goes into the pool.
 	/// </summary>
 	public void ScrapStock(int weaponId, int valueTons) {
-		var (unlocked, _) = _stock.GetValueOrDefault(weaponId);
-		_stock[weaponId] = (unlocked, 0);
+		Stock(weaponId).Units.Clear();
 		SalvageKilograms += valueTons * ShellRepairCosts.KilogramsPerTon;
 	}
 
@@ -469,14 +577,13 @@ public sealed class ShellHangar {
 	/// <summary>
 	/// <c>Herc_StripMounts</c> (<c>00411795</c>) — each fitted mount below the capacity at
 	/// <see cref="ReturnToStockCondition"/> or better goes back into stock through <c>Armory_AddUnit</c>
-	/// (<c>00411efd</c>), which adds one to the weapon's count held; anything worse is destroyed.
+	/// (<c>00411efd</c>); anything worse is destroyed.
 	/// </summary>
 	private void StripMounts(ShellBayMachine machine) {
 		for (int slot = 0; slot < machine.MountCapacity; slot++) {
-			int weapon = machine.WeaponAt(slot);
-			if (weapon != 0 && machine.Condition(ShellRepairCategory.Hardpoint, slot) >= ReturnToStockCondition) {
-				var (unlocked, owned) = _stock.GetValueOrDefault(weapon);
-				_stock[weapon] = (unlocked, owned + 1);
+			if (machine.Mount(slot) is { } unit
+				&& machine.Condition(ShellRepairCategory.Hardpoint, slot) >= ReturnToStockCondition) {
+				AddUnit(unit);
 			}
 		}
 	}
@@ -653,7 +760,15 @@ public sealed class ShellHangar {
 		hangar.SalvageKilograms = save.SalvageTotal;
 		foreach (var item in save.Inventory?.Items ?? Array.Empty<Inventory.InventoryItem>()) {
 			if (item?.Id is { } id) {
-				hangar._stock[id.Id] = (item.UnlockFlag != 0, item.Quantity);
+				// The save's stock reader, FUN_00411dbb, pushes each unit onto the head as it reads it, so the
+				// file's last unit is the head.
+				var stock = hangar.Stock(id.Id);
+				stock.Unlocked = item.UnlockFlag != 0;
+				foreach (var entry in item.Data ?? Array.Empty<ShellWeaponEntry>()) {
+					if (entry != null) {
+						stock.Units.Add(ShellWeaponUnit.From(entry));
+					}
+				}
 			}
 		}
 

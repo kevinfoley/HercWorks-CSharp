@@ -116,12 +116,13 @@ public static class ShellSquadPanel {
 			&& (crewRow == 0 || machine.ChassisType != ShellRepairScreen.FlyerChassisType));
 
 	/// <summary>
-	/// Draws the picture of <paramref name="selectedBay"/> when <paramref name="pictures"/> is given, then
-	/// the readout for it and the eight rows under it.
+	/// Draws the picture of <paramref name="selectedBay"/> when <paramref name="pictures"/> is given, with
+	/// the weapons screen's socket <paramref name="outline"/> on it, then the readout for it and the eight
+	/// rows under it.
 	/// </summary>
 	public static void Paint(ShellSurface surface, HudFont? font, ShellText? text, ShellHangar hangar,
-			int selectedBay, ShellBayPictures? pictures = null) {
-		pictures?.Paint(surface, hangar, selectedBay);
+			int selectedBay, ShellBayPictures? pictures = null, ShellGridPart? outline = null) {
+		pictures?.Paint(surface, hangar, selectedBay, outline);
 		PaintReadout(surface, font, text, hangar, selectedBay);
 
 		ShellChrome.PaintTitledPanel(surface, PanelRect, PanelBorder, HeaderFace, ShellChrome.InteriorColor,

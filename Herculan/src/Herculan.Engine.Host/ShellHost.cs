@@ -408,6 +408,9 @@ static class ShellHost {
 				case ShellWidgetKind.WeaponsButton:
 					ClickWeaponsButton((ShellWeaponsButton)widget.Index);
 					break;
+				case ShellWidgetKind.WeaponsHotspot:
+					SelectHardpoint(widget.Index);
+					break;
 				case ShellWidgetKind.ArmoryRow:
 					ClickArmoryRow(widget.Index);
 					break;
@@ -746,38 +749,47 @@ static class ShellHost {
 			LogWeapons();
 		}
 
-		// An inventory row's handler, Arming_SelectRow (0043f71c).
+		// An inventory row's handler, one of the thunks from 00440300: Arming_SelectRow (0043f71c) with the
+		// fit armed, so with a hardpoint selected the row's weapon goes into it.
 		void SelectWeaponsRow(int row) {
-			if (weaponsScreen?.SelectRow(row) == true) {
+			if (weaponsScreen?.SelectRow(row, fit: true) == true) {
 				RepaintContent();
 				LogWeapons();
 			}
 		}
 
-		// The four guidance buttons show their kind, the rack's own button selects its row again, and the
-		// hardpoint steppers are not ported.
+		// A hotspot over the bay picture, Arming_SelectHardpoint (0043dbb2).
+		void SelectHardpoint(int hardpoint) {
+			if (weaponsScreen?.SelectHardpoint(hardpoint) == true) {
+				RepaintContent();
+				LogWeapons();
+			}
+		}
+
+		// The four guidance buttons show their kind and write it to the mount, the rack's own button
+		// selects its row again without fitting it (0044012a), and the steppers move the hardpoint.
 		void ClickWeaponsButton(ShellWeaponsButton button) {
 			if (weaponsScreen == null) {
 				return;
 			}
 
-			switch (button) {
-				case ShellWeaponsButton.Arm or ShellWeaponsButton.Arh or ShellWeaponsButton.Sarh or ShellWeaponsButton.Eo:
-					weaponsScreen.ShowGuidance((int)button);
-					break;
-				case ShellWeaponsButton.Weapon:
-					if (!weaponsScreen.SelectRow(weaponsScreen.SelectedRow)) {
-						return;
-					}
+			bool changed = button switch {
+				ShellWeaponsButton.Arm or ShellWeaponsButton.Arh or ShellWeaponsButton.Sarh or ShellWeaponsButton.Eo =>
+					ShowWeaponsGuidance((int)button),
+				ShellWeaponsButton.Weapon => weaponsScreen.SelectRow(weaponsScreen.SelectedRow, fit: false),
+				ShellWeaponsButton.PreviousHardpoint => weaponsScreen.PreviousHardpoint(),
+				_ => weaponsScreen.NextHardpoint(),
+			};
 
-					break;
-				default:
-					Console.WriteLine($"{button} — hardpoint selection is not ported yet.");
-					return;
+			if (changed) {
+				RepaintContent();
+				LogWeapons();
 			}
+		}
 
-			RepaintContent();
-			LogWeapons();
+		bool ShowWeaponsGuidance(int button) {
+			weaponsScreen!.ShowGuidance(button);
+			return true;
 		}
 
 		void LogWeapons() {
@@ -786,8 +798,13 @@ static class ShellHost {
 			}
 
 			int weapon = weaponsScreen.SelectedWeapon;
+			int hardpoint = weaponsScreen.SelectedHardpoint;
+			var mount = weaponsScreen.Machine?.Mount(hardpoint);
 			Console.WriteLine($"Weapons: bay {weaponsScreen.SelectedBay}, row {weaponsScreen.SelectedRow} "
 				+ $"({art.Text?.Text(0x7e + weapon) ?? $"weapon {weapon}"}, {hangar.WeaponsOwned(weapon)} held)"
+				+ (hardpoint == -1 ? ", no hardpoint"
+					: $", hardpoint {hardpoint + 1} holding " + (mount == null ? "nothing"
+						: $"weapon {mount.WeaponId} at {weaponsScreen.Machine!.Condition(ShellRepairCategory.Hardpoint, hardpoint)}%, guidance {mount.Guidance}"))
 				+ (weaponsScreen.ShowingGuidance ? $", showing guidance kind {weaponsScreen.ShownGuidance}." : "."));
 		}
 

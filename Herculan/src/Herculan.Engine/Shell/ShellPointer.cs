@@ -69,6 +69,7 @@ public enum ShellWidgetKind {
 	BuildButton,
 	WeaponsRow,
 	WeaponsButton,
+	WeaponsHotspot,
 	ArmoryRow,
 	ArmoryButton,
 	MissionButton,

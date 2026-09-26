@@ -12937,6 +12937,15 @@
       "source": "docs/shell/armory.md#what-one-repair-level-costs"
     },
     {
+      "address": "004114ec",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Herc_FitMount",
+      "description": "(herc, slot, weapon): Armory_AddUnit of the slot's unit and +0x4e minus one; weapon 0 empties the slot at condition 100 through HercStatus_Set; otherwise Armory_PopUnit of the weapon becomes the mount, its +0x04 the hardpoint condition, +0x4e plus one, and its +0x08 guidance 1 for ids 0xd-0xf and 5 for any other (0x10 included). An empty stock list leaves the slot empty and its condition unwritten. es2_xref.py finds one caller, Arming_FitSelected (0043dc8a).",
+      "source": "docs/shell/screen-layout.md#fitting-a-weapon"
+    },
+    {
       "address": "0043d9cf",
       "binary": "VSHELL",
       "type": "function",
@@ -17609,7 +17618,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Arming_FitSelected",
-      "description": "With a hardpoint selected: calls FUN_004114ec(herc, hardpoint, weapon) while Arming_FitArmed is set, then Arming_MarkHardpoint and repaints the bay picture.",
+      "description": "With a hardpoint selected: calls Herc_FitMount (004114ec)(herc, hardpoint, weapon) while Arming_FitArmed is set, then Arming_MarkHardpoint and repaints the bay picture.",
       "source": "docs/shell/screen-layout.md#the-weapons-screen"
     },
     {

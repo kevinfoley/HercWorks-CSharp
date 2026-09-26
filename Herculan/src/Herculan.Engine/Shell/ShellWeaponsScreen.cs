@@ -83,10 +83,12 @@ public sealed class ShellWeaponsArt {
 /// This tab's arm of <c>Squad_SelectBay</c> (<c>0043d64d</c>) refuses an empty bay and one still being
 /// built.</para>
 ///
-/// <para><b>No hardpoint is ever selected here.</b> Every entry and every bay change leaves the
-/// selection at <c>-1</c>, and only the steppers and the hotspots on the bay picture move it; neither is
-/// ported. With none selected, clicking a row shows the weapon and fits nothing, which is what retail
-/// does too.</para>
+/// <para><b>A row fits a weapon only with a hardpoint selected.</b> Every entry and every bay change
+/// clears the hardpoint, and the steppers and the hotspots over the bay picture select one
+/// (<c>Arming_SelectHardpoint</c>, <c>0043dbb2</c>), lighting the row of what it carries and outlining its
+/// socket. With one selected, a row click fits that row's weapon into it through
+/// <see cref="ShellHangar.FitMount"/> and a guidance button writes its kind into the mount. With none,
+/// a row click only shows the weapon.</para>
 /// </summary>
 public sealed class ShellWeaponsScreen {
 	/// <summary>
@@ -196,11 +198,45 @@ public sealed class ShellWeaponsScreen {
 	/// <summary>The first of the three <c>wpn_desc.bin</c> lines under the picture, or <c>-1</c> before any row is selected.</summary>
 	private int _description = -1;
 
+	/// <summary>
+	/// <c>ArmingSelectedHardpoint</c>, the mount a row click fits into, <c>-1</c> for none. Only
+	/// <see cref="SelectHardpoint"/> sets it; every entry and every bay change clears it.
+	/// </summary>
+	public int SelectedHardpoint { get; private set; } = -1;
+
+	/// <summary>
+	/// Part slot 12 of the bay picture, the socket outline <c>Arming_MarkHardpoint</c> (<c>004155db</c>) last
+	/// drew. A bay change clears it and a mount with no outline record leaves it, so it can outline a
+	/// socket other than the selected one. Leaving the tab clears every part of every bay picture
+	/// (<c>Squad_FreeTabPictures</c>, <c>0043c95a</c>), so it does not outlive a visit.
+	/// </summary>
+	private ShellGridPart? _outline;
+
+	/// <summary>What <c>Arming_RefreshRows</c> (<c>0043fbc6</c>) last made of each row.</summary>
+	private enum RowState {
+		Locked,
+		Live,
+		Dead,
+	}
+
+	/// <summary>
+	/// Each row's state as the last <c>Arming_RefreshRows</c> left it. The refresh runs only inside a row
+	/// selection that goes through, so a selection that returns early leaves the rows gated for whatever
+	/// hardpoint was selected when it last ran — as the original's widgets do.
+	/// </summary>
+	private readonly RowState[] _rowState = Enumerable.Repeat(RowState.Live, RowWeapons.Length).ToArray();
+
 	/// <summary>The weapon id a row lists.</summary>
 	public static int WeaponOfRow(int row) => row >= 0 && row < RowWeapons.Length ? RowWeapons[row] : -1;
 
+	/// <summary><c>Arming_RowOfWeapon</c> (<c>0043f6f7</c>) — the row listing a weapon id, or <c>-1</c>.</summary>
+	public static int RowOfWeapon(int weaponId) => Array.IndexOf(RowWeapons, weaponId);
+
 	/// <summary>The selected row's weapon id, or <c>-1</c>.</summary>
 	public int SelectedWeapon => WeaponOfRow(SelectedRow);
+
+	/// <summary>The machine in <see cref="SelectedBay"/>, or null.</summary>
+	public ShellBayMachine? Machine => _hangar.Bay(SelectedBay);
 
 	/// <summary>
 	/// <c>Arming_Enter</c> (<c>0043f548</c>). When the bay it inherits is none, empty or unfinished it
@@ -214,44 +250,76 @@ public sealed class ShellWeaponsScreen {
 	public void Enter(ShellHangar hangar, int bay) {
 		_hangar = hangar;
 		SelectedBay = hangar.Bay(bay) is { IsBuilt: true } ? bay : hangar.FirstBuiltBay();
-		SelectRow(0);
+		_outline = null;
+		SelectedHardpoint = -1;
+		SelectRow(0, fit: false);
 	}
 
 	/// <summary>
 	/// <c>Squad_SelectBay</c> (<c>0043d64d</c>)'s arming arm: an empty bay and an unfinished machine are
-	/// refused. Otherwise the hardpoint is cleared, row 0 selected, and the bay taken. Returns whether the
-	/// bay moved.
+	/// refused. Otherwise the hardpoint and the old bay's outline are cleared, row 0 selected, and the
+	/// bay taken. Returns whether the bay moved.
 	/// </summary>
 	public bool ClickRoster(int bay) {
 		if (bay == SelectedBay || bay < 0 || bay >= ShellHangar.BayCount || _hangar.Bay(bay) is not { IsBuilt: true }) {
 			return false;
 		}
 
-		SelectRow(0);
+		SelectedHardpoint = -1;
+		_outline = null;
+		SelectRow(0, fit: false);
 		SelectedBay = bay;
 		return true;
 	}
 
 	/// <summary>
-	/// <c>Arming_SelectRow</c> (<c>0043f71c</c>) with no hardpoint selected, which is a row's handler through
-	/// the 27 thunks from <c>00440300</c>. It is a no-op for the row already lit unless a guidance picture has
-	/// been put up since. It lights the row and shows its weapon's picture — a blank box for <c>None</c> —
-	/// and three lines of <c>wpn_desc.bin</c> from <c>id * 3</c>. A missile rack's row puts up the four
-	/// guidance buttons and a fifth captioned with the rack's name; any other row takes all five down and
-	/// forgets the guidance kind. Returns whether anything changed.
+	/// <c>Arming_SelectRow</c> (<c>0043f71c</c>). A row's own handler, through the 27 thunks from
+	/// <c>00440300</c>, is the only caller that passes <paramref name="fit"/> — the thunk's
+	/// <c>Arming_FitArmed</c> — so a selection made by the entry, a bay change, a hardpoint or the rack
+	/// button fits nothing.
+	///
+	/// <para>It is a no-op for the row already lit unless a guidance picture has been put up since or a
+	/// hardpoint is selected. With a hardpoint it refuses a weapon the armory holds none of unless the
+	/// mount already carries it; the test reads the mount's guidance kind first, so a mount whose kind
+	/// equals the weapon's id lets it through. It then fits the weapon, regates the rows, lights the row
+	/// and shows its weapon's picture — a blank box for <c>None</c> — and three lines of
+	/// <c>wpn_desc.bin</c> from <c>id * 3</c>. A missile rack's row puts up the four guidance buttons and a
+	/// fifth captioned with the rack's name, and with a hardpoint lights the mount's kind; any other row
+	/// takes all five down and forgets the guidance kind. Returns whether it went through.</para>
 	/// </summary>
-	public bool SelectRow(int row) {
-		if (row < 0 || row >= RowWeapons.Length || (row == SelectedRow && ShownGuidance == -1)) {
+	public bool SelectRow(int row, bool fit) {
+		if (row < 0 || row >= RowWeapons.Length
+			|| (row == SelectedRow && ShownGuidance == -1 && SelectedHardpoint == -1)) {
 			return false;
 		}
 
 		int weapon = RowWeapons[row];
+		if (SelectedHardpoint != -1 && weapon != 0 && Machine is { } machine) {
+			int kind = machine.Mount(SelectedHardpoint)?.Guidance ?? ShellWeaponUnit.NoGuidance;
+			if (kind != weapon && _hangar.WeaponsOwned(weapon) == 0 && machine.WeaponAt(SelectedHardpoint) != weapon) {
+				return false;
+			}
+		}
+
+		// Arming_FitSelected (0043dc44).
+		if (SelectedHardpoint != -1) {
+			if (fit && Machine is { } fitted) {
+				_hangar.FitMount(fitted, SelectedHardpoint, weapon);
+			}
+
+			MarkHardpoint(SelectedHardpoint);
+		}
+
+		RefreshRows();
 		SelectedRow = row;
 		ShowingGuidance = false;
 		_description = weapon * DescriptionLines;
 
 		if (weapon is >= FirstMissileRack and <= LastMissileRack) {
 			GuidanceButtonsShown = true;
+			if (SelectedHardpoint != -1 && Machine is { } racked) {
+				ShowGuidanceKind(racked.Mount(SelectedHardpoint)?.Guidance ?? ShellWeaponUnit.NoGuidance, show: false);
+			}
 		} else {
 			GuidanceButtonsShown = false;
 			_litGuidanceButton = -1;
@@ -262,28 +330,99 @@ public sealed class ShellWeaponsScreen {
 	}
 
 	/// <summary>
-	/// <c>Arming_ShowGuidance</c> (<c>0043fd69</c>) as a guidance button calls it: lights the button, swaps the
-	/// weapon's picture for the kind's, and prints the kind's three lines from <c>99 + kind * 3</c>. It
-	/// then writes the kind into the selected hardpoint's mount, which with none selected does nothing.
+	/// <c>Arming_SelectHardpoint</c> (<c>0043dbb2</c>), a hotspot's handler through the ten thunks from
+	/// <c>0043e15f</c>, and what both steppers call: a no-op for the hardpoint already selected, otherwise
+	/// it selects the row of the weapon the mount carries — <c>None</c>'s for an empty one — without
+	/// fitting it, and outlines the socket. Returns whether the hardpoint moved.
+	///
+	/// <para>With no bay selected the original reads the mount through the pointer before the bay array
+	/// (<c>00482abf</c>); this engine does nothing.</para>
 	/// </summary>
-	public void ShowGuidance(int button) {
-		if (button < 0 || button >= ButtonGuidance.Length) {
-			return;
+	public bool SelectHardpoint(int hardpoint) {
+		if (hardpoint == SelectedHardpoint || Machine is not { } machine) {
+			return false;
 		}
 
-		int kind = ButtonGuidance[button];
-		_litGuidanceButton = button;
-		ShowingGuidance = true;
-		ShownGuidance = kind;
-		_description = FirstGuidanceDescription + kind * DescriptionLines;
+		SelectedHardpoint = hardpoint;
+		SelectRow(RowOfWeapon(machine.WeaponAt(hardpoint)), fit: false);
+		MarkHardpoint(hardpoint);
+		return true;
 	}
 
 	/// <summary>
-	/// A row's state as <c>Arming_RefreshRows</c> (<c>0043fbc6</c>) leaves it, before the lit row is drawn
-	/// over it: a weapon that is still locked is disabled with every column in <c>0x10</c>, the background.
-	/// With no hardpoint selected every unlocked weapon is live.
+	/// <c>&gt;</c>'s handler (<c>004402a2</c>), <c>Arming_NextHardpoint</c> (<c>0043dd09</c>): the next mount
+	/// modulo the capacity, so the first with none selected.
 	/// </summary>
-	public bool IsRowEnabled(int row) => row == SelectedRow || _hangar.IsWeaponUnlocked(WeaponOfRow(row));
+	public bool NextHardpoint() =>
+		Machine is { MountCapacity: > 0 } machine && SelectHardpoint((SelectedHardpoint + 1) % machine.MountCapacity);
+
+	/// <summary>
+	/// <c>&lt;</c>'s handler (<c>00440244</c>), <c>Arming_PreviousHardpoint</c> (<c>0043dd49</c>): the mount
+	/// before, wrapping from the first — or from none — to the last.
+	/// </summary>
+	public bool PreviousHardpoint() =>
+		Machine is { MountCapacity: > 0 } machine
+		&& SelectHardpoint((SelectedHardpoint < 1 ? machine.MountCapacity : SelectedHardpoint) - 1);
+
+	/// <summary>
+	/// <c>Arming_ShowGuidance(kind, 1)</c> (<c>0043fd69</c>) as a guidance button calls it: lights the
+	/// button, swaps the weapon's picture for the kind's, prints the kind's three lines from
+	/// <c>99 + kind * 3</c>, and writes the kind into the selected hardpoint's mount.
+	/// </summary>
+	public void ShowGuidance(int button) {
+		if (button >= 0 && button < ButtonGuidance.Length) {
+			ShowGuidanceKind(ButtonGuidance[button], show: true);
+		}
+	}
+
+	/// <summary>
+	/// <c>Arming_ShowGuidance(kind, show)</c>. The kind's button is lit, and none for the unguided kind 5.
+	/// With <paramref name="show"/> clear the pictures are left as the row selection put them. Either way
+	/// <c>Arming_SetMountGuidance</c> (<c>0043dcb6</c>) writes the kind into the selected hardpoint's mount
+	/// when there is one and it is fitted.
+	/// </summary>
+	private void ShowGuidanceKind(int kind, bool show) {
+		_litGuidanceButton = Array.IndexOf(ButtonGuidance, kind);
+		if (show) {
+			ShowingGuidance = true;
+			ShownGuidance = kind;
+			_description = FirstGuidanceDescription + kind * DescriptionLines;
+		}
+
+		if (SelectedHardpoint != -1 && Machine?.Mount(SelectedHardpoint) is { } unit) {
+			unit.Guidance = kind;
+		}
+	}
+
+	/// <summary>
+	/// <c>Arming_MarkHardpoint</c> (<c>004155db</c>)'s outline. The weapon part it redraws is the one
+	/// <see cref="ShellBayPictures"/> already draws from the mount.
+	/// </summary>
+	private void MarkHardpoint(int hardpoint) {
+		if (Machine is { } machine && _pictures?.Outline(machine, hardpoint) is { } outline) {
+			_outline = outline;
+		}
+	}
+
+	/// <summary>
+	/// <c>Arming_RefreshRows</c> (<c>0043fbc6</c>): a locked weapon's row is disabled with every column in
+	/// <c>0x10</c>, the background; an unlocked one is live in <c>0x27</c> while <c>Arming_RowLive</c>
+	/// (<c>004149fb</c>) holds and dead in <c>0x25</c> when it does not. With no hardpoint selected every
+	/// unlocked row is live; with one, only a weapon the chassis's layout has a record for in that socket.
+	/// </summary>
+	private void RefreshRows() {
+		for (int row = 0; row < RowWeapons.Length; row++) {
+			int weapon = RowWeapons[row];
+			_rowState[row] = !_hangar.IsWeaponUnlocked(weapon) ? RowState.Locked
+				: SelectedHardpoint == -1 || Machine is not { } machine
+					|| (_pictures?.HasSocket(machine.ChassisType, weapon, SelectedHardpoint) ?? true)
+					? RowState.Live : RowState.Dead;
+		}
+	}
+
+	/// <summary>Whether a row takes a click: the lit row always, any other as the last refresh left it.</summary>
+	public bool IsRowEnabled(int row) => row == SelectedRow || (row >= 0 && row < RowWeapons.Length
+		&& _rowState[row] == RowState.Live);
 
 	/// <summary>One row's rect, in the canvas.</summary>
 	public static ShellRect RowRect(int row) {
@@ -305,11 +444,15 @@ public sealed class ShellWeaponsScreen {
 		button is ShellWeaponsButton.PreviousHardpoint or ShellWeaponsButton.NextHardpoint || GuidanceButtonsShown;
 
 	/// <summary>
-	/// What the pointer hits: a live row and which of its text columns, or a button that is up. A locked
-	/// row is disabled and swallows a click, and so does the picture box, whose builder clears its enable
-	/// flag — here the same as hitting nothing.
+	/// What the pointer hits: a hotspot over the bay picture, a live row and which of its text columns,
+	/// or a button that is up. A disabled row swallows a click, and so does the picture box, whose builder
+	/// clears its enable flag — here the same as hitting nothing.
 	/// </summary>
 	public ShellHit? HitAt(float canvasX, float canvasY) {
+		if (_pictures?.HotspotAt(Machine, canvasX, canvasY) is { } hardpoint) {
+			return new ShellHit(new ShellWidget(ShellWidgetKind.WeaponsHotspot, hardpoint), ShellHandler.Control);
+		}
+
 		foreach (var button in Enum.GetValues<ShellWeaponsButton>()) {
 			if (IsShown(button) && ButtonRect(button).Contains(canvasX, canvasY)) {
 				return ShellHit.Button(new ShellWidget(ShellWidgetKind.WeaponsButton, (int)button), ButtonRect(button),
@@ -334,7 +477,7 @@ public sealed class ShellWeaponsScreen {
 	public void Paint(ShellSurface surface, ShellText? text, HudSpriteSheet? sprites) {
 		var font = sprites?.Font(ShellArt.ScreenFont);
 
-		ShellSquadPanel.Paint(surface, font, text, _hangar, SelectedBay, _pictures);
+		ShellSquadPanel.Paint(surface, font, text, _hangar, SelectedBay, _pictures, _outline);
 
 		ShellChrome.PaintTitledPanel(surface, PanelRect, Border, PanelFace, ShellChrome.InteriorColor, TitleHeight,
 			headerChrome: true, TitlePlateFirst, TitlePlateLast, fill: true);
@@ -353,7 +496,8 @@ public sealed class ShellWeaponsScreen {
 	/// <summary>
 	/// The <c>Weapons Inventory</c> list: a flat header with no hatch over a filled body, and the 27 rows.
 	/// A row reads the weapon's name and, right-aligned, how many the armory holds — two spaces for
-	/// <c>None</c>. A locked weapon's row is all background; the lit row's border and text are <c>0x29</c>.
+	/// <c>None</c>. A locked weapon's row is all background, a dead one <c>0x25</c>; the lit row's border and
+	/// text are <c>0x29</c>.
 	/// </summary>
 	private void PaintList(ShellSurface surface, HudFont? font, ShellText? text) {
 		var list = Inside(PanelRect, ListRect);
@@ -366,7 +510,11 @@ public sealed class ShellWeaponsScreen {
 			int weapon = RowWeapons[row];
 			bool selected = row == SelectedRow;
 			bool unlocked = _hangar.IsWeaponUnlocked(weapon);
-			byte color = selected ? LitColor : unlocked ? RowColor : ShellChrome.InteriorColor;
+			byte color = selected ? LitColor : _rowState[row] switch {
+				RowState.Live => RowColor,
+				RowState.Dead => DeadRowColor,
+				_ => ShellChrome.InteriorColor,
+			};
 			string count = !unlocked ? LockedCount : weapon == 0 ? NoneCount : $"{_hangar.WeaponsOwned(weapon)}";
 
 			var rect = RowRect(row);
@@ -453,6 +601,7 @@ public sealed class ShellWeaponsScreen {
 	private const byte DescriptionBand = 0x25;
 
 	private const byte RowColor = 0x27;
+	private const byte DeadRowColor = 0x25;
 	private const byte LitColor = 0x29;
 	private const byte ButtonBorder = 0x22;
 	private const byte LitGuidanceBorder = 0x20;

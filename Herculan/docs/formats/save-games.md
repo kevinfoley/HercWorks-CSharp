@@ -86,7 +86,7 @@ int16   number of owned units (weapons.dat record +0x17)
         that many 10-byte weapon unit records
 ```
 
-The byte is the weapon's unlock flag and the owned units are a linked list at the catalog record's `+0x19` at runtime. See [`weapons-dat.md`](weapons-dat.md) for the catalog record those fields belong to and [`herc-catalogs.md`](herc-catalogs.md#the-weapon-unit-record) for the unit record, which is the same five `int16` a HERC's mounts serialize.
+The byte is the weapon's unlock flag and the owned units are a linked list at the catalog record's `+0x19` at runtime. `FUN_00411dbb` reads one weapon's entry and pushes each unit onto the list's head as it reads it, so the file's last unit is the head — the one the weapons screen fits next. See [`weapons-dat.md`](weapons-dat.md) for the catalog record those fields belong to and [`herc-catalogs.md`](herc-catalogs.md#the-weapon-unit-record) for the unit record, which is the same five `int16` a HERC's mounts serialize.
 
 ### Pilot record — 59 bytes (`0x3b`) in memory
 

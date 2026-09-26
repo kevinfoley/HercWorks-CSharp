@@ -115,11 +115,15 @@ static class ShellHost {
 		// built by hand (prefs.cfg option 45), which gates CLEAR. The prices are also what the repair and
 		// build screens deduct the save's build queue at. The screen is built on first entry and kept.
 		var armoryCatalog = ShellArmoryCatalog.Load(content);
-		bool manualWeaponBuild = SimulatorPreferences.Load(Path.Combine(installRoot, "DATA"))?[WeaponsBuildingOption] != 0;
+		// Option 44 is the repair mode the repair screen's readout names.
+		var preferences = SimulatorPreferences.Load(Path.Combine(installRoot, "DATA"));
+		bool manualWeaponBuild = preferences?[WeaponsBuildingOption] != 0;
+		int repairMode = preferences?[RepairOption] ?? ShellRepairScreen.AutoRepairMode;
 		ShellArmoryScreen? armoryScreen = null;
 
 		var repairScreen = new ShellRepairScreen(hangar, repairCosts, startBay, repairDiagrams) {
 			QueuedKilograms = armoryCatalog.QueuedTotal(hangar),
+			RepairMode = repairMode,
 		};
 		Console.WriteLine($"Damage diagram layouts loaded for {repairDiagrams.LayoutCount} chassis.");
 
@@ -179,7 +183,8 @@ static class ShellHost {
 		Console.WriteLine("Every tab has a screen behind it but MISSION's map view. On the "
 			+ "main menu, SAVE/RESTORE opens the save screen, whose EXIT comes back to the menu. Click a save "
 			+ "slot row, or a repair list row, a part of the damage diagram or a Squad Inventory row, to "
-			+ "select it and the panels beside it follow. On BUILD, click a chassis to see its blueprint and "
+			+ "select it and the panels beside it follow; REPAIR lifts the selected part one level, REPAIR ALL "
+			+ "rebuilds the machine, and CANCEL undoes both since the bay was selected. On BUILD, click a chassis to see its blueprint and "
 			+ "figures, or a Squad Inventory row to pick the bay SCRAP and BUILD are gated on. On WEAPONS, click an "
 			+ "inventory row to see the weapon, and on a missile rack a guidance button to see that kind. BUILD orders "
 			+ "the chassis into an empty bay, and SCRAP, there or on REPAIR, asks before it scraps the bay's machine. "
@@ -386,8 +391,7 @@ static class ShellHost {
 					OpenScrapDialog(repairScreen.SelectedBay);
 					break;
 				case ShellWidgetKind.RepairButton:
-					Console.WriteLine($"{(ShellRepairButton)widget.Index} — the button is live and its action "
-						+ "is not ported yet.");
+					ClickRepairButton((ShellRepairButton)widget.Index);
 					break;
 				case ShellWidgetKind.SquadRow:
 					ClickRoster(widget.Index);
@@ -489,6 +493,7 @@ static class ShellHost {
 			missionMapShown = false;
 			repairScreen = new ShellRepairScreen(hangar, repairCosts, startBay, repairDiagrams) {
 				QueuedKilograms = armoryCatalog.QueuedTotal(hangar),
+				RepairMode = repairMode,
 			};
 			saveScreen.CanSave = true;
 			Console.WriteLine($"Restored slot {slot + 1} ({entry.FileName}): "
@@ -536,6 +541,30 @@ static class ShellHost {
 			Console.WriteLine($"{category} {ShellRepairScreen.IndexOf(category, row)}: "
 				+ $"condition {repairScreen.SelectionCondition}, "
 				+ $"{repairScreen.SelectionCost} kg to repair one level.");
+		}
+
+		// REPAIR (00434b2d), REPAIR ALL (00434c59) and CANCEL (00434d73). Each refills the rows and the readout
+		// panels after it, which the repaint does here.
+		void ClickRepairButton(ShellRepairButton button) {
+			switch (button) {
+				case ShellRepairButton.Repair:
+					int cost = repairScreen.Repair();
+					Console.WriteLine($"Repaired {repairScreen.SelectedCategory} {repairScreen.SelectedIndex} to "
+						+ $"{repairScreen.SelectionCondition} for {cost} kg.");
+					break;
+				case ShellRepairButton.RepairAll:
+					Console.WriteLine($"Repaired bay {repairScreen.SelectedBay} to 100 for {repairScreen.RepairAll()} kg.");
+					break;
+				case ShellRepairButton.Cancel:
+					repairScreen.Cancel();
+					Console.WriteLine($"Repairs to bay {repairScreen.SelectedBay} undone.");
+					break;
+				default:
+					return;
+			}
+
+			Console.WriteLine($"{hangar.SalvageKilograms} kg in the pool, {repairScreen.AvailableKilograms} kg available.");
+			RepaintContent();
 		}
 
 		// A Squad Inventory row's handler, Squad_SelectBay (0043d64d), whose arm is the tab that is up.
@@ -996,4 +1025,7 @@ static class ShellHost {
 
 	/// <summary><c>prefs.cfg</c> option 45, VSHELL's <c>Weapons Building:</c> — 1 builds weapons by hand (docs/simulation/preferences.md).</summary>
 	private const int WeaponsBuildingOption = 45;
+
+	/// <summary><c>prefs.cfg</c> option 44, VSHELL's <c>Repair Options:</c> (docs/simulation/preferences.md).</summary>
+	private const int RepairOption = 44;
 }

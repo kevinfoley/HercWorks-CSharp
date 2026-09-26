@@ -15,7 +15,7 @@ public enum ShellRepairButton {
 	/// <summary>Scraps the machine for salvage. Dead while it is the only one that can fly.</summary>
 	Scrap = 2,
 
-	/// <summary>Leaves the screen.</summary>
+	/// <summary>Puts the pool and the machine back as they stood when the bay was selected. It does not leave the screen.</summary>
 	Cancel = 3,
 }
 
@@ -134,10 +134,31 @@ public sealed class ShellRepairScreen {
 	public int AvailableKilograms => _hangar.SalvageKilograms - QueuedKilograms;
 
 	/// <summary>
-	/// <c>DAT_004824e4</c> — whether repairs are billed item by item or run automatically at debrief.
-	/// The readout box names the mode that is current; nothing on this screen changes it.
+	/// <c>ShellOption_RepairMode</c> (<c>004824e4</c>), <c>prefs.cfg</c> option 44: 0 repairs every machine
+	/// automatically at debrief, 1 and 2 leave the player's own machine to this screen
+	/// (docs/simulation/preferences.md). Only the preferences screen changes it.
 	/// </summary>
-	public bool ManualRepair { get; set; } = true;
+	public int RepairMode { get; set; } = AutoRepairMode;
+
+	/// <summary>The mode that repairs every machine at debrief.</summary>
+	public const int AutoRepairMode = 0;
+
+	/// <summary>The mode that leaves the player's machine to be repaired by hand.</summary>
+	public const int ManualRepairMode = 1;
+
+	/// <summary>
+	/// The word the mode readout holds. The builder writes <c>Manual Repair</c> and <c>Repair_Enter</c>
+	/// (<c>004332ec</c>) rewrites it for modes 0 and 1 only, so mode 2 keeps whatever was there last.
+	/// </summary>
+	private int _modeText = ManualRepairText;
+
+	/// <summary>
+	/// <c>Repair_Snapshot</c> (<c>004338f6</c>)'s copies, <c>DAT_0048d25c</c> and the 66 bytes at
+	/// <c>DAT_0048d260</c>: the pool and the selected machine's status block as they stood when the screen
+	/// was entered or the bay last changed. CANCEL puts both back.
+	/// </summary>
+	private int _snapshotSalvage;
+	private ShellMachineStatus? _snapshotStatus;
 
 	/// <summary>
 	/// <c>Repair_HotspotCategory</c> (<c>00433410</c>) — which of the three condition arrays a <c>(column, row)</c> pair addresses.
@@ -185,12 +206,82 @@ public sealed class ShellRepairScreen {
 	}
 
 	/// <summary>
-	/// <c>Repair_Enter</c> (<c>004332ec</c>)'s bay rule, run on every entry: a bay that holds nothing, or
-	/// holds something still under construction, gives way to the first bay holding a finished machine.
+	/// <c>Repair_Enter</c> (<c>004332ec</c>), run on every entry: the mode readout is rewritten, a bay
+	/// that holds nothing or holds something still under construction gives way to the first bay holding
+	/// a finished machine, the snapshot CANCEL restores is taken and the selection goes back to
+	/// <c>(0, 0)</c>.
 	/// </summary>
 	public void Enter() {
+		if (RepairMode == AutoRepairMode) {
+			_modeText = AutoRepairText;
+		} else if (RepairMode == ManualRepairMode) {
+			_modeText = ManualRepairText;
+		}
+
 		if (Machine is not { IsBuilt: true }) {
 			SelectBay(_hangar.FirstBuiltBay());
+		}
+
+		TakeSnapshot();
+		_column = 0;
+		_row = 0;
+	}
+
+	/// <summary>
+	/// REPAIR, <c>Repair_OnRepair</c> (<c>00434b2d</c>): the selected component's one-level cost comes
+	/// off the pool and the component is set to <see cref="ShellRepairCosts.TargetForLevel"/> of its
+	/// level. The cost is taken off the whole pool, not the net figure the button is gated on. Returns
+	/// the cost.
+	/// </summary>
+	public int Repair() {
+		if (Machine is not { } machine) {
+			return 0;
+		}
+
+		int cost = SelectionCost;
+		_hangar.SalvageKilograms -= cost;
+		machine.SetCondition(SelectedCategory, SelectedIndex,
+			ShellRepairCosts.TargetForLevel(ShellRepairCosts.LevelForCondition(SelectionCondition)));
+		return cost;
+	}
+
+	/// <summary>
+	/// REPAIR ALL, <c>Repair_OnRepairAll</c> (<c>00434c59</c>): <see cref="MachineCost"/> comes off the
+	/// pool and <c>Repair_Apply(herc, 100)</c> (<c>004113af</c>) sets the whole machine to 100. Returns
+	/// the cost.
+	/// </summary>
+	public int RepairAll() {
+		if (Machine is not { } machine) {
+			return 0;
+		}
+
+		int cost = MachineCost;
+		_hangar.SalvageKilograms -= cost;
+		machine.ApplyRepair(ShellRepairCosts.RepairTarget[0]);
+		return cost;
+	}
+
+	/// <summary>
+	/// CANCEL, <c>Repair_OnCancel</c> (<c>00434d73</c>): the pool goes back to the snapshot outright, so
+	/// anything else that moved it since is undone too, and the snapshot's status block is copied over
+	/// the selected machine. With no machine selected the original copies it over whatever
+	/// <c>00482abf</c> points at; this engine restores only the pool (docs/shell/screen-layout.md#open).
+	/// </summary>
+	public void Cancel() {
+		_hangar.SalvageKilograms = _snapshotSalvage;
+		if (Machine is { } machine && _snapshotStatus != null) {
+			machine.RestoreStatus(_snapshotStatus);
+		}
+	}
+
+	/// <summary>
+	/// <c>Repair_Snapshot</c> (<c>004338f6</c>). With no bay selected the pool is copied and the status
+	/// copy keeps the last bay's.
+	/// </summary>
+	private void TakeSnapshot() {
+		_snapshotSalvage = _hangar.SalvageKilograms;
+		if (SelectedBay != -1 && Machine is { } machine) {
+			_snapshotStatus = machine.CaptureStatus();
 		}
 	}
 
@@ -207,9 +298,11 @@ public sealed class ShellRepairScreen {
 		SelectedBay = bay;
 
 		// The original resets the selection to (0, 0) on a bay change, before refilling the rows and the
-		// detail panel, so a hardpoint row selected on the last machine cannot outlive it.
+		// detail panel, so a hardpoint row selected on the last machine cannot outlive it. The snapshot
+		// CANCEL restores is retaken last, so CANCEL only ever undoes work on the bay now selected.
 		_column = 0;
 		_row = 0;
+		TakeSnapshot();
 		return true;
 	}
 
@@ -341,7 +434,7 @@ public sealed class ShellRepairScreen {
 		// The mode box and the salvage box: a centred label over a dead button used as a readout.
 		PaintLabel(surface, font, text?.Text(ModeLabelText), Inside(PanelRect, ModeLabelRect));
 		PaintReadout(surface, font, Inside(PanelRect, ModeReadoutRect),
-			text?.Text(ManualRepair ? ManualRepairText : AutoRepairText));
+			text?.Text(_modeText));
 		PaintLabel(surface, font, text?.Text(SalvageLabelText), Inside(PanelRect, SalvageLabelRect));
 		PaintReadout(surface, font, Inside(PanelRect, SalvageReadoutRect),
 			WithKilograms(AvailableKilograms, text));

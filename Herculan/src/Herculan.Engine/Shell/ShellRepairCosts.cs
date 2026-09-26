@@ -56,8 +56,7 @@ public sealed class ShellRepairCosts {
 	public static readonly short[] RepairTarget = { 100, 89, 79, 59, 29, 0 };
 
 	/// <summary>
-	/// The floor of each level's condition band — <c>RepairLevelTable</c> at <c>0046fd84</c>. It is
-	/// also, shifted by one, the target <see cref="SelectedItemCost"/> repairs to.
+	/// The floor of each level's condition band — <c>RepairLevelTable</c> at <c>0046fd84</c>.
 	/// </summary>
 	public static readonly short[] RepairLevelFloor = { 90, 80, 60, 30, 1, 0 };
 
@@ -195,9 +194,16 @@ public sealed class ShellRepairCosts {
 			return 0;
 		}
 
-		int target = level == 0 ? RepairTarget[0] : RepairLevelFloor[level - 1];
-		return (target - condition) * unitValue / 100;
+		return (TargetForLevel(level) - condition) * unitValue / 100;
 	}
+
+	/// <summary>
+	/// <c>Repair_TargetForLevel</c> (<c>00413838</c>) — what one REPAIR lifts a component in
+	/// <paramref name="level"/> to: 100 for level 0, otherwise one more than the level's
+	/// <see cref="RepairTarget"/>, which is the floor of the band above.
+	/// </summary>
+	public static int TargetForLevel(int level) =>
+		level == 0 ? RepairTarget[0] : RepairTarget[level] + 1;
 
 	/// <summary>
 	/// <c>Repair_HercCost</c> (<c>004139f7</c>) — the whole machine to <paramref name="target"/>:

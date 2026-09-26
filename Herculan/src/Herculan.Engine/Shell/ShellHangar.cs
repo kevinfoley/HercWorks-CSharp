@@ -115,6 +115,66 @@ public sealed class ShellBayMachine {
 	}
 
 	/// <summary>
+	/// <c>HercStatus_Set(block, category, index, value)</c> (<c>00411cbd</c>), <c>HercStatus_Get</c>'s
+	/// setter. An external group is written through <c>HercStatus_SetGroup</c> (<c>00411c78</c>), which
+	/// puts the value in every facet the group covers, so the group's mean reads it back exactly.
+	/// </summary>
+	public void SetCondition(ShellRepairCategory category, int index, int value) {
+		if (index < 0) {
+			return;
+		}
+
+		switch (category) {
+			case ShellRepairCategory.ExternalGroup:
+				if (index < ExternalGroupFacets.Length) {
+					foreach (int facet in ExternalGroupFacets[index]) {
+						if (facet < _external.Length) {
+							_external[facet] = (short)value;
+						}
+					}
+				}
+
+				break;
+			case ShellRepairCategory.Internal:
+				if (index < _internal.Length) {
+					_internal[index] = (short)value;
+				}
+
+				break;
+			default:
+				if (index < _hardpoint.Length) {
+					_hardpoint[index] = (short)value;
+				}
+
+				break;
+		}
+	}
+
+	/// <summary>
+	/// <c>Repair_Apply</c> (<c>004113af</c>) — <paramref name="target"/> into all 13 external facets, all
+	/// nine internals and each mount slot below the capacity, except that an empty slot is set to 100.
+	/// A fitted mount at 0 is written too, although <see cref="ShellRepairCosts.HercCost"/> bills nothing for it.
+	/// </summary>
+	public void ApplyRepair(int target) {
+		Array.Fill(_external, (short)target);
+		Array.Fill(_internal, (short)target);
+		for (int slot = 0; slot < MountCapacity && slot < _hardpoint.Length; slot++) {
+			_hardpoint[slot] = WeaponAt(slot) == 0 ? (short)Complete : (short)target;
+		}
+	}
+
+	/// <summary>A copy of the status block's three arrays, for <see cref="RestoreStatus"/> to put back.</summary>
+	public ShellMachineStatus CaptureStatus() =>
+		new((short[])_external.Clone(), (short[])_internal.Clone(), (short[])_hardpoint.Clone());
+
+	/// <summary>Puts back a status block <see cref="CaptureStatus"/> took, whichever machine it was taken from.</summary>
+	public void RestoreStatus(ShellMachineStatus status) {
+		Array.Copy(status.External, _external, Math.Min(status.External.Length, _external.Length));
+		Array.Copy(status.Internal, _internal, Math.Min(status.Internal.Length, _internal.Length));
+		Array.Copy(status.Hardpoint, _hardpoint, Math.Min(status.Hardpoint.Length, _hardpoint.Length));
+	}
+
+	/// <summary>
 	/// The weapon id fitted in one mount slot, or 0 for an empty slot — the first <c>int16</c> of the
 	/// mount record at <c>+0x50 + slot*4</c>, which every screen reads the same way.
 	/// </summary>
@@ -202,6 +262,12 @@ public sealed class ShellBayMachine {
 }
 
 /// <summary>
+/// A copy of one machine's 66-byte status block — the three arrays <see cref="ShellBayMachine"/> keeps —
+/// as the repair screen's CANCEL restores it.
+/// </summary>
+public sealed record ShellMachineStatus(short[] External, short[] Internal, short[] Hardpoint);
+
+/// <summary>
 /// One pilot record as the shell's screens print it (docs/formats/save-games.md, "The pilot record").
 /// The crew screen's assignments change the bay, the squad position and the on-strength byte, always
 /// through <see cref="ShellHangar"/>.
@@ -256,8 +322,11 @@ public sealed class ShellHangar {
 
 	private ShellHangar() { }
 
-	/// <summary>The salvage pool in kilograms, <c>CareerSalvage</c> (<c>00482af4</c>): the save's, then moved by BUILD and SCRAP.</summary>
-	public int SalvageKilograms { get; private set; }
+	/// <summary>
+	/// The salvage pool in kilograms, <c>CareerSalvage</c> (<c>00482af4</c>): the save's, then moved by
+	/// BUILD, SCRAP and the repair screen, whose CANCEL writes it back outright.
+	/// </summary>
+	public int SalvageKilograms { get; internal set; }
 
 	private readonly Dictionary<int, (bool Unlocked, int Owned)> _stock = new();
 

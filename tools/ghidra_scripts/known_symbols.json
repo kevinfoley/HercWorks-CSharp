@@ -362,7 +362,7 @@
       "type": "function",
       "confidence": "high",
       "name": "HercStatus_Get",
-      "description": "Indexed accessor into a HERC's 66-byte status block (record +0x08): mode 1 reads block+0x1a+index*2 (10 condition values, index 9 being the machine's overall condition), mode 2 reads block+0x2e+index*2 (10 per-hardpoint conditions). NOT an average -- (block,1,9) is one element, not a mean over 9 sections. FUN_00411cbd is the matching setter.",
+      "description": "Indexed accessor into a HERC's 66-byte status block (record +0x08): mode 1 reads block+0x1a+index*2 (10 condition values, index 9 being the machine's overall condition), mode 2 reads block+0x2e+index*2 (10 per-hardpoint conditions). NOT an average -- (block,1,9) is one element, not a mean over 9 sections. HercStatus_Set (00411cbd) is the matching setter.",
       "source": "docs/formats/save-games.md"
     },
     {
@@ -12564,7 +12564,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Repair_Enter",
-      "description": "Brings the repair screen up: shows the content panel and both list panels, sets the mode readout from DAT_004824e4, moves the bay selection to the first built machine when the current bay holds nothing workable, fills both lists (00433caf), snapshots the machine (004338f6) and seeds the selection at (0, 0).",
+      "description": "Brings the repair screen up: shows the content panel and both list panels, sets the mode readout from DAT_004824e4, moves the bay selection to the first built machine when the current bay holds nothing workable, fills both lists (00433caf), snapshots the pool and the machine (Repair_Snapshot, 004338f6) and seeds the selection at (0, 0).",
       "source": "docs/shell/screen-layout.md#the-repair-screen"
     },
     {
@@ -18115,6 +18115,69 @@
       "name": "Pilot_SetDefaults",
       "description": "A pilot record's defaults: bay -1, off strength, position (+0x27) -1, +0x2b 100, then +0x2d, +0x2f, +0x31 and the fields after them 0. Called by Pilot_Init.",
       "source": "docs/formats/save-games.md#pilot-record--59-bytes-0x3b-in-memory"
+    },
+    {
+      "address": "00411cbd",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HercStatus_Set",
+      "description": "HercStatus_Get's setter: (block, mode, index, value). Mode 0 writes an external group through HercStatus_SetGroup (00411c78), mode 1 block+0x1a+index*2, mode 2 block+0x2e+index*2.",
+      "source": "docs/shell/screen-layout.md#repairing-and-cancelling"
+    },
+    {
+      "address": "00411c78",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HercStatus_SetGroup",
+      "description": "Writes one value into every external facet an external group covers, walking the group's -1-terminated row of HercComponentGroupTable (0046f8a4).",
+      "source": "docs/shell/screen-layout.md#repairing-and-cancelling"
+    },
+    {
+      "address": "004338f6",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_Snapshot",
+      "description": "Copies CareerSalvage into DAT_0048d25c and, with a bay selected, the selected machine's 66-byte status block (HercList_CopySelectedStatus) into DAT_0048d260. Called at the end of Repair_Enter and of Squad_SelectBay's repair arm; Repair_OnCancel restores both.",
+      "source": "docs/shell/screen-layout.md#repairing-and-cancelling"
+    },
+    {
+      "address": "00434eb7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HercList_CopySelectedStatus",
+      "description": "Copies the status block (+0x08, 0x42 bytes) of the machine in the bay list's selected slot (list +0x22) into the caller's buffer; with the slot empty it writes nothing.",
+      "source": "docs/shell/screen-layout.md#repairing-and-cancelling"
+    },
+    {
+      "address": "00434b2d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_OnRepair",
+      "description": "The repair screen's REPAIR handler: Repair_SelectionCost off CareerSalvage, then HercStatus_Set of the selection to Repair_TargetForLevel(Repair_DamageLevel(condition)); refills the row and Repair_RefreshDetail.",
+      "source": "docs/shell/screen-layout.md#repairing-and-cancelling"
+    },
+    {
+      "address": "00434c59",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_OnRepairAll",
+      "description": "The repair screen's REPAIR ALL handler: Repair_HercCost(herc, 100) off CareerSalvage, Repair_Apply(herc, 100), Repair_FillAllRows.",
+      "source": "docs/shell/screen-layout.md#repairing-and-cancelling"
+    },
+    {
+      "address": "00434d73",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_OnCancel",
+      "description": "The repair screen's CANCEL handler: CareerSalvage back from DAT_0048d25c and the status block at DAT_0048d260 copied over the selected machine, Repair_FillAllRows. Does not leave the screen.",
+      "source": "docs/shell/screen-layout.md#repairing-and-cancelling"
     }
   ]
 }

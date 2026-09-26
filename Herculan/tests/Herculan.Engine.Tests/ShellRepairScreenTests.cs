@@ -373,6 +373,174 @@ public class ShellRepairScreenTests {
 		Assert.False(surface.IsBlank);
 	}
 
+	/// <summary>
+	/// <c>Repair_TargetForLevel</c> (<c>00413838</c>): 100 from the top band, otherwise the floor of the
+	/// band above — the same target the per-item cost is quoted to.
+	/// </summary>
+	[Theory]
+	[InlineData(0, 100)]
+	[InlineData(1, 90)]
+	[InlineData(2, 80)]
+	[InlineData(3, 60)]
+	[InlineData(4, 30)]
+	[InlineData(5, 1)]
+	public void TargetsTheFloorOfTheBandAbove(int level, int target) =>
+		Assert.Equal(target, ShellRepairCosts.TargetForLevel(level));
+
+	/// <summary>
+	/// REPAIR lifts the selection one band and takes the quoted cost off the whole pool — not the net
+	/// figure the button is gated on, so a queued weapon does not change what is charged.
+	/// </summary>
+	[Fact]
+	public void RepairLiftsTheSelectionOneBandAndChargesTheWholePool() {
+		var hangar = HangarWith(salvage: 1_000_000, BayEntry(mountCapacity: 0, weapons: Array.Empty<int>(),
+			groupCondition: 50, internalCondition: 25));
+		var screen = ScreenFor(hangar);
+		screen.QueuedKilograms = 400_000;
+
+		// The Cockpit group at 50 is level 3, priced up to 60: (60 - 50) * 7628 / 100.
+		Assert.Equal(762, screen.SelectionCost);
+		Assert.Equal(762, screen.Repair());
+		Assert.Equal(60, screen.SelectionCondition);
+		Assert.Equal(1_000_000 - 762, hangar.SalvageKilograms);
+
+		// Again: 60 is level 2, so the next REPAIR goes to 80, and the one after to 90.
+		screen.Repair();
+		Assert.Equal(80, screen.SelectionCondition);
+		screen.Repair();
+		Assert.Equal(90, screen.SelectionCondition);
+
+		// Nothing else moved: the other groups and every internal are where they were.
+		Assert.Equal(50, screen.Machine!.Condition(ShellRepairCategory.ExternalGroup, 1));
+		Assert.Equal(25, screen.Machine.Condition(ShellRepairCategory.Internal, 0));
+
+		// An internal at 25 is level 4, lifted to 30.
+		screen.Select(1, 0);
+		screen.Repair();
+		Assert.Equal(30, screen.Machine.Condition(ShellRepairCategory.Internal, 0));
+	}
+
+	/// <summary>
+	/// An external group is written through <c>HercStatus_SetGroup</c> (<c>00411c78</c>), every facet it
+	/// covers at once, so a group whose facets differ comes out uniform.
+	/// </summary>
+	[Fact]
+	public void RepairWritesEveryFacetOfAGroup() {
+		var entry = BayEntry(mountCapacity: 0, weapons: Array.Empty<int>());
+		entry.HealthExternals![HercExternals.CockpitFront].Health = 100;
+		entry.HealthExternals[HercExternals.CockpitRear].Health = 50;
+		var screen = ScreenFor(HangarWith(salvage: 1_000_000, entry));
+
+		// The mean, 75, is level 2: both facets go to 80, the front one down from 100.
+		screen.Repair();
+		var status = screen.Machine!.CaptureStatus();
+		Assert.Equal(80, status.External[HercExternals.CockpitFront.Id]);
+		Assert.Equal(80, status.External[HercExternals.CockpitRear.Id]);
+	}
+
+	/// <summary>
+	/// REPAIR ALL charges the rebuild figure and sets everything to 100 — a fitted mount at 0 too,
+	/// although the rebuild figure bills nothing for it — and leaves an empty mount at 100.
+	/// </summary>
+	[Fact]
+	public void RepairAllRebuildsTheMachineIncludingADestroyedMount() {
+		var entry = BayEntry(mountCapacity: 3, weapons: new[] { 5, 0, 7 }, groupCondition: 40,
+			internalCondition: 70);
+		entry.HealthHardpoints[0]!.Health = 0;
+		entry.HealthHardpoints[2]!.Health = 55;
+		var hangar = HangarWith(salvage: 1_000_000, entry);
+		var screen = ScreenFor(hangar);
+
+		int quoted = screen.MachineCost;
+		Assert.Equal(quoted, screen.RepairAll());
+		Assert.Equal(1_000_000 - quoted, hangar.SalvageKilograms);
+
+		var machine = screen.Machine!;
+		for (int group = 0; group < ShellRepairScreen.ExternalRowCount; group++) {
+			Assert.Equal(100, machine.Condition(ShellRepairCategory.ExternalGroup, group));
+		}
+
+		for (int component = 0; component < ShellRepairScreen.InternalRowCount; component++) {
+			Assert.Equal(100, machine.Condition(ShellRepairCategory.Internal, component));
+		}
+
+		Assert.Equal(100, machine.Condition(ShellRepairCategory.Hardpoint, 0));
+		Assert.Equal(100, machine.Condition(ShellRepairCategory.Hardpoint, 1));
+		Assert.Equal(100, machine.Condition(ShellRepairCategory.Hardpoint, 2));
+		Assert.Equal(0, screen.MachineCost);
+	}
+
+	/// <summary>
+	/// CANCEL puts the pool and the machine back as they stood on entry, and stays on the screen.
+	/// </summary>
+	[Fact]
+	public void CancelRestoresThePoolAndTheMachineFromEntry() {
+		var hangar = HangarWith(salvage: 1_000_000, BayEntry(mountCapacity: 0, weapons: Array.Empty<int>(),
+			groupCondition: 50, internalCondition: 50));
+		var screen = ScreenFor(hangar);
+
+		screen.Repair();
+		screen.Select(1, 2);
+		screen.Repair();
+		screen.RepairAll();
+		Assert.NotEqual(1_000_000, hangar.SalvageKilograms);
+
+		screen.Cancel();
+		Assert.Equal(1_000_000, hangar.SalvageKilograms);
+		Assert.Equal(50, screen.Machine!.Condition(ShellRepairCategory.ExternalGroup, 0));
+		Assert.Equal(50, screen.Machine.Condition(ShellRepairCategory.Internal, 2));
+		Assert.Equal(0, screen.SelectedBay);
+		Assert.Equal((1, 2), (screen.SelectedColumn, screen.SelectedRow));
+	}
+
+	/// <summary>
+	/// The snapshot is retaken on every bay change, so CANCEL undoes only the work on the bay now
+	/// selected, and the pool it restores already carries what the earlier bay's repairs cost.
+	/// </summary>
+	[Fact]
+	public void CancelUndoesOnlyTheBaySelectedSinceTheLastChange() {
+		var hangar = HangarWith(salvage: 1_000_000,
+			BayEntry(mountCapacity: 0, weapons: Array.Empty<int>(), groupCondition: 50),
+			BayEntry(mountCapacity: 0, weapons: Array.Empty<int>(), groupCondition: 50));
+		var screen = ScreenFor(hangar);
+
+		screen.Repair();
+		int afterFirstBay = hangar.SalvageKilograms;
+
+		Assert.True(screen.SelectBay(1));
+		screen.Repair();
+		screen.Cancel();
+
+		Assert.Equal(afterFirstBay, hangar.SalvageKilograms);
+		Assert.Equal(50, hangar.Bay(1)!.Condition(ShellRepairCategory.ExternalGroup, 0));
+		Assert.Equal(60, hangar.Bay(0)!.Condition(ShellRepairCategory.ExternalGroup, 0));
+	}
+
+	/// <summary>
+	/// Every entry retakes the snapshot and puts the selection back on the first row, as
+	/// <c>Repair_Enter</c> (<c>004332ec</c>) does with <c>Repair_SelectHotspot(0, 0)</c>.
+	/// </summary>
+	[Fact]
+	public void EnteringRetakesTheSnapshotAndResetsTheSelection() {
+		var hangar = HangarWith(salvage: 1_000_000, BayEntry(mountCapacity: 0, weapons: Array.Empty<int>(),
+			groupCondition: 50, internalCondition: 50));
+		var screen = ScreenFor(hangar);
+
+		screen.Select(1, 4);
+		screen.Repair();
+		int afterRepair = hangar.SalvageKilograms;
+		Assert.True(afterRepair < 1_000_000);
+
+		screen.Enter();
+		Assert.Equal((0, 0), (screen.SelectedColumn, screen.SelectedRow));
+
+		screen.Repair();
+		screen.Cancel();
+		Assert.Equal(afterRepair, hangar.SalvageKilograms);
+		Assert.Equal(50, screen.Machine!.Condition(ShellRepairCategory.ExternalGroup, 0));
+		Assert.Equal(60, screen.Machine.Condition(ShellRepairCategory.Internal, 4));
+	}
+
 	/// <summary><c>gam\damage.dat</c> round-trips: the walk is fixed-length apart from its one count.</summary>
 	[Fact]
 	public void RoundTripsTheComponentValueTable() {
@@ -404,6 +572,23 @@ public class ShellRepairScreenTests {
 		save.HercBay[0] = entry;
 		return new ShellRepairScreen(ShellHangar.From(save),
 			ShellRepairCosts.Expand(RetailValues(), new short[] { 100 }));
+	}
+
+	/// <summary>A hangar with one machine per entry, from bay 0 up.</summary>
+	private static ShellHangar HangarWith(int salvage, params HercBayEntry[] entries) {
+		var save = new PlayerSave { SalvageTotal = salvage };
+		for (short bay = 0; bay < entries.Length; bay++) {
+			save.HercBay[bay] = entries[bay];
+		}
+
+		return ShellHangar.From(save);
+	}
+
+	/// <summary>A screen over <paramref name="hangar"/>, entered as the host enters it, so its snapshot is taken.</summary>
+	private static ShellRepairScreen ScreenFor(ShellHangar hangar) {
+		var screen = new ShellRepairScreen(hangar, ShellRepairCosts.Expand(RetailValues(), new short[] { 100 }));
+		screen.Enter();
+		return screen;
 	}
 
 	private static ShellBayMachine Machine(int mountCapacity, int[] weapons, int chassisType = 0,

@@ -43,6 +43,9 @@ public sealed class ShellBayMachine {
 	/// <summary>A machine is deliverable only at 100% built; anything less is still in the workshop.</summary>
 	private const int Complete = 100;
 
+	/// <summary>The mount slots a record carries, whatever its capacity — <c>HercRecord_Ctor</c> (<c>00410d7a</c>) clears ten.</summary>
+	private const int MountSlots = 10;
+
 	private readonly short[] _external;
 	private readonly short[] _internal;
 	private readonly short[] _hardpoint;
@@ -155,6 +158,19 @@ public sealed class ShellBayMachine {
 		return total / facets.Length;
 	}
 
+	/// <summary>
+	/// A machine just bought — <c>Herc_Order</c> (<c>00411019</c>) over the record <c>HercRecord_Ctor</c>
+	/// (<c>00410d7a</c>) leaves: every condition 100, no weapon in any mount, the chassis type, the
+	/// capacity <c>Herc_CapacityForType</c> (<c>00410d54</c>) reads, and 0% built.
+	/// </summary>
+	public static ShellBayMachine Ordered(int chassisType) {
+		static short[] Full(int length) => Enumerable.Repeat((short)Complete, length).ToArray();
+
+		int capacity = HercLUT.GetById((short)chassisType)?.HardpointMax ?? -1;
+		return new ShellBayMachine(chassisType, capacity, 0, Full(HercExternals.Values().Count),
+			Full(DamageRepairCost.InternalCount), Full(MountSlots), new short[MountSlots]);
+	}
+
 	/// <summary>Builds the view over one parsed bay record.</summary>
 	public static ShellBayMachine From(HercBayEntry entry) {
 		var external = new short[HercExternals.Values().Count];
@@ -211,7 +227,7 @@ public sealed class ShellBayPilot {
 	/// <summary>The skill ladder at <c>+0x25</c>, 0-3; the panel prints <c>estext.bin</c> <c>0x35 + skill</c>.</summary>
 	public int Skill { get; }
 
-	/// <summary><c>+0x27</c> — which of the crew screen's three wingman rows, 1-3, the pilot fills, or <c>-1</c>.</summary>
+	/// <summary><c>+0x27</c> — which of the crew screen's three wingman rows, 1-3, the pilot fills, or <c>-1</c>; the player's is 0.</summary>
 	public int SquadPosition { get; internal set; }
 
 	/// <summary><c>+0x24</c>, the on-strength byte. Meaningful for the three squad members only.</summary>
@@ -240,7 +256,7 @@ public sealed class ShellHangar {
 
 	private ShellHangar() { }
 
-	/// <summary>The salvage pool in kilograms, as the save carries it.</summary>
+	/// <summary>The salvage pool in kilograms, <c>CareerSalvage</c> (<c>00482af4</c>): the save's, then moved by BUILD and SCRAP.</summary>
 	public int SalvageKilograms { get; private set; }
 
 	private readonly Dictionary<int, (bool Unlocked, int Owned)> _stock = new();
@@ -266,8 +282,135 @@ public sealed class ShellHangar {
 	/// <summary>The weapon id in each queue slot, 0 for an empty one.</summary>
 	public IReadOnlyList<int> QueuedWeapons => _queue;
 
-	/// <summary><c>FUN_00412642</c> — how many of the five queue slots hold <paramref name="weaponId"/>.</summary>
+	/// <summary><c>Armory_QueuedCount</c> (<c>00412642</c>) — how many of the five queue slots hold <paramref name="weaponId"/>.</summary>
 	public int QueuedCount(int weaponId) => _queue.Count(id => id == weaponId);
+
+	/// <summary>
+	/// <c>Armory_Enqueue</c> (<c>004125e7</c>) — the weapon into the first empty slot, one free slot fewer.
+	/// Nothing while <see cref="QueueFreeSlots"/> is 0, which <c>Armory_FirstFreeSlot</c> (<c>004125bb</c>)
+	/// tests before it looks at the slots.
+	/// </summary>
+	public void Enqueue(int weaponId) {
+		if (QueueFreeSlots == 0) {
+			return;
+		}
+
+		int slot = Array.IndexOf(_queue, 0);
+		if (slot != -1) {
+			_queue[slot] = weaponId;
+			QueueFreeSlots--;
+		}
+	}
+
+	/// <summary><c>Armory_Dequeue</c> (<c>0041260d</c>) — every slot holding the weapon emptied, one free slot more for each.</summary>
+	public void Dequeue(int weaponId) {
+		for (int slot = 0; slot < QueueSlots; slot++) {
+			if (_queue[slot] == weaponId) {
+				_queue[slot] = 0;
+				QueueFreeSlots++;
+			}
+		}
+	}
+
+	/// <summary><c>Armory_ResetQueue</c> (<c>0041213d</c>) — five free slots, all empty.</summary>
+	public void ResetQueue() {
+		Array.Clear(_queue);
+		QueueFreeSlots = QueueSlots;
+	}
+
+	/// <summary>
+	/// <c>Armory_TrimQueueToBudget</c> (<c>004123ba</c>) — while what the queue has committed is more than
+	/// the pool, compared unsigned, slots are emptied from the first, one free slot more for each.
+	/// </summary>
+	public void TrimQueueToBudget(Func<int, int> priceKilograms) {
+		uint total = (uint)_queue.Where(id => id != 0).Sum(priceKilograms);
+		for (int slot = 0; slot < QueueSlots && (uint)SalvageKilograms < total; slot++) {
+			if (_queue[slot] != 0) {
+				total -= (uint)priceKilograms(_queue[slot]);
+				_queue[slot] = 0;
+				QueueFreeSlots++;
+			}
+		}
+	}
+
+	/// <summary>
+	/// The weapon scrap dialog's ACCEPT, <c>Armory_ScrapWeapons</c> (<c>0040e7b2</c>) through
+	/// <c>Armory_ScrapStock</c> (<c>00412555</c>): every unit of the weapon the armory holds is freed and
+	/// <paramref name="valueTons"/> times 1000 goes into the pool.
+	/// </summary>
+	public void ScrapStock(int weaponId, int valueTons) {
+		var (unlocked, _) = _stock.GetValueOrDefault(weaponId);
+		_stock[weaponId] = (unlocked, 0);
+		SalvageKilograms += valueTons * ShellRepairCosts.KilogramsPerTon;
+	}
+
+	/// <summary>
+	/// The condition at which a mount survives its machine being scrapped: <c>Herc_StripMounts</c>
+	/// (<c>00411795</c>) returns one at or above it to stock, and <c>Herc_ScrapValue</c> (<c>00413b50</c>)
+	/// pays salvage for one below it.
+	/// </summary>
+	public const int ReturnToStockCondition = 80;
+
+	/// <summary>
+	/// BUILD's order, <c>Hangar_BuySelected</c> (<c>0040e91c</c>): <c>HercList_OrderIntoSelected</c> (<c>00410982</c>) puts a new record in <paramref name="bay"/> — the
+	/// selected one, whatever it holds — and <see cref="ShellBayMachine.Ordered"/> fills it, and the price,
+	/// <paramref name="priceTons"/> times 1000, comes off the pool. Returns the price.
+	/// </summary>
+	public int Order(int bay, int chassisType, int priceTons) {
+		if (bay < 0 || bay >= BayCount) {
+			return 0;
+		}
+
+		_bays[bay] = ShellBayMachine.Ordered(chassisType);
+		int price = priceTons * ShellRepairCosts.KilogramsPerTon;
+		SalvageKilograms -= price;
+		return price;
+	}
+
+	/// <summary>
+	/// The scrap dialog's ACCEPT, <c>Hangar_ScrapSelected</c> (<c>0040e757</c>, docs/shell/armory.md#scrapping): the machine in
+	/// <paramref name="bay"/> is valued, its mounts stripped into stock and the bay emptied
+	/// (<c>HercList_ScrapSelected</c>, <c>00410922</c>), the value goes into the pool, and the pilot the bay had loses it — and whoever
+	/// holds that pilot's squad position is taken off strength. Returns the salvage credited.
+	/// </summary>
+	public int Scrap(int bay, ShellRepairCosts? costs) {
+		if (bay < 0 || bay >= BayCount) {
+			return 0;
+		}
+
+		int value = 0;
+		if (_bays[bay] is { } machine) {
+			value = costs?.ScrapValue(machine) ?? 0;
+			StripMounts(machine);
+			_bays[bay] = null;
+		}
+
+		SalvageKilograms += value;
+		if (PilotFor(bay) is { } pilot) {
+			pilot.Bay = -1;
+			int member = SquadMemberIndexAt(pilot.SquadPosition);
+			if (member != -1) {
+				SetOnStrength(member, false);
+			}
+		}
+
+		return value;
+	}
+
+	/// <summary>
+	/// <c>Herc_StripMounts</c> (<c>00411795</c>) — each fitted mount below the capacity at
+	/// <see cref="ReturnToStockCondition"/> or better goes back into stock through <c>Armory_AddUnit</c>
+	/// (<c>00411efd</c>), which adds one to the weapon's count held; anything worse is destroyed.
+	/// </summary>
+	private void StripMounts(ShellBayMachine machine) {
+		for (int slot = 0; slot < machine.MountCapacity; slot++) {
+			int weapon = machine.WeaponAt(slot);
+			if (weapon != 0 && machine.Condition(ShellRepairCategory.Hardpoint, slot) >= ReturnToStockCondition) {
+				var (unlocked, owned) = _stock.GetValueOrDefault(weapon);
+				_stock[weapon] = (unlocked, owned + 1);
+			}
+		}
+	}
 
 	/// <summary>The player's own pilot record, embedded in the player structure at <c>+0x04</c>.</summary>
 	public ShellBayPilot? Player { get; private set; }

@@ -16,10 +16,22 @@ public enum ShellArmoryButton {
 /// missing leaves its part of the screen blank.
 /// </summary>
 public sealed class ShellArmoryCatalog {
-	private readonly Dictionary<int, int> _priceTons;
+	/// <summary>How many catalog ids there are, and so how many ranks the auto-fill walks.</summary>
+	private const int CatalogSize = 0x21;
 
-	private ShellArmoryCatalog(Dictionary<int, int> priceTons, ShellText? names, ShellText? info) {
+	/// <summary>The rank <c>WeaponsDat_IdAtRank</c> (<c>0041230c</c>) skips: never built automatically.</summary>
+	private const int NeverAutoBuilt = 99;
+
+	/// <summary>How many of a weapon the auto-fill keeps in stock: it queues one the armory holds fewer of.</summary>
+	private const int AutoFillStock = 2;
+
+	private readonly Dictionary<int, int> _priceTons;
+	private readonly Dictionary<int, int> _rank;
+
+	private ShellArmoryCatalog(Dictionary<int, int> priceTons, Dictionary<int, int> rank, ShellText? names,
+			ShellText? info) {
 		_priceTons = priceTons;
+		_rank = rank;
 		Names = names;
 		Info = info;
 	}
@@ -32,14 +44,86 @@ public sealed class ShellArmoryCatalog {
 
 	public static ShellArmoryCatalog Load(GameContent content) {
 		var prices = new Dictionary<int, int>();
+		var ranks = new Dictionary<int, int>();
 		if (content.Read(ShellRepairCosts.CatalogFolder, "WEAPONS.DAT") is { } bytes
 				&& new WeaponsDatTransformer().Parse(bytes) is { } catalog) {
 			foreach (var entry in catalog.Data) {
 				prices[entry.Id] = entry.SalvageCost;
+				ranks[entry.Id] = entry.AutobuildPriority;
 			}
 		}
 
-		return new ShellArmoryCatalog(prices, ShellText.Load(content, "WEAPONS.BIN"), ShellText.Load(content, "WPN_INFO.BIN"));
+		return new ShellArmoryCatalog(prices, ranks, ShellText.Load(content, "WEAPONS.BIN"),
+			ShellText.Load(content, "WPN_INFO.BIN"));
+	}
+
+	/// <summary>
+	/// <c>Armory_ScrapValueTons</c> (<c>0041266a</c>) — what scrapping the armory's whole stock of a weapon
+	/// yields, in tons: a tenth of the price of every unit held, the price truncated to tons first, and at
+	/// least 1 for a stock that is not empty. The weapon scrap dialog quotes it and its ACCEPT pays it.
+	/// </summary>
+	public int ScrapValueTons(ShellHangar hangar, int weaponId) {
+		int owned = hangar.WeaponsOwned(weaponId);
+		if (owned == 0) {
+			return 0;
+		}
+
+		int value = PriceKilograms(weaponId) / ShellRepairCosts.KilogramsPerTon * owned / 10;
+		return (short)value < 1 ? 1 : value;
+	}
+
+	/// <summary>
+	/// <c>Armory_RefreshQueue</c> (<c>00412413</c>), which the weapon scrap runs after paying out: with
+	/// weapons built by hand the queue is trimmed to the pool (<see cref="ShellHangar.TrimQueueToBudget"/>),
+	/// and built automatically it is refilled from scratch (<see cref="AutoFillQueue"/>).
+	/// </summary>
+	public void RefreshQueue(ShellHangar hangar, bool manualBuild) {
+		if (manualBuild) {
+			hangar.TrimQueueToBudget(PriceKilograms);
+		} else {
+			AutoFillQueue(hangar);
+		}
+	}
+
+	/// <summary>
+	/// <c>Armory_AutoFillQueue</c> (<c>00412341</c>) — the queue emptied, then every rank from 0 walked
+	/// while a slot is free, queueing the weapon at that rank when it is unlocked, the armory holds fewer
+	/// than two, and the running total plus its price is <i>less than</i> the pool, compared unsigned.
+	///
+	/// <para>A rank no weapon holds resolves to id <c>-1</c>, and retail then reads the record before the
+	/// catalog, whose unlock byte is the high byte of the Razor's <c>herc_inf.dat</c> price — 0 for its
+	/// 120 tons — so it is never queued. This skips it outright.</para>
+	/// </summary>
+	public void AutoFillQueue(ShellHangar hangar) {
+		hangar.ResetQueue();
+		int total = 0;
+		for (int rank = 0; rank < CatalogSize; rank++) {
+			if (hangar.QueueFreeSlots == 0) {
+				return;
+			}
+
+			int weapon = IdAtRank(rank);
+			if (weapon == -1 || !hangar.IsWeaponUnlocked(weapon) || hangar.WeaponsOwned(weapon) >= AutoFillStock) {
+				continue;
+			}
+
+			int price = PriceKilograms(weapon);
+			if ((uint)(price + total) < (uint)hangar.SalvageKilograms) {
+				total += price;
+				hangar.Enqueue(weapon);
+			}
+		}
+	}
+
+	/// <summary><c>WeaponsDat_IdAtRank</c> (<c>0041230c</c>) — the lowest id holding a rank, never one ranked 99; <c>-1</c> when none does.</summary>
+	private int IdAtRank(int rank) {
+		for (int id = 0; id < CatalogSize; id++) {
+			if (_rank.TryGetValue(id, out int held) && held != NeverAutoBuilt && held == rank) {
+				return id;
+			}
+		}
+
+		return -1;
 	}
 
 	/// <summary>
@@ -69,9 +153,10 @@ public sealed class ShellArmoryCatalog {
 /// else in whichever box holds it. A weapon's picture is the exception, placed by its
 /// <c>arm_weap.dat</c> record.</para>
 ///
-/// <para><b>Only selection is ported.</b> Clicking the lit row again queues or unqueues a unit when
-/// <c>prefs.cfg</c> option 45 says weapons are built by hand, and <c>Clear</c> and <c>Scrap</c> act on
-/// the queue and the stock; none of that is here. The screen reads the queue the save carries.</para>
+/// <para>Clicking the lit row again queues a unit with the left button and takes one off with the
+/// right when <c>prefs.cfg</c> option 45 says weapons are built by hand, and <c>Clear</c> takes all of
+/// them off, all on <see cref="ShellHangar"/>'s queue. <c>Scrap</c> puts up the weapon
+/// <see cref="ShellScrapDialog"/>, which sells the lit weapon's whole stock.</para>
 /// </summary>
 public sealed class ShellArmoryScreen {
 	/// <summary>
@@ -147,6 +232,13 @@ public sealed class ShellArmoryScreen {
 	/// </summary>
 	private readonly byte[] _rowColor = new byte[RowCount];
 
+	/// <summary>
+	/// Each row's count-held colour, which <c>Armory_RefreshReadout</c> (<c>00449cab</c>) also writes: it
+	/// rewrites the lit row's count in <c>0x29</c> on every refresh. It parts from the row's colour only
+	/// after a weapon scrap, whose row refresh puts the lit row back to <c>0x27</c> just before.
+	/// </summary>
+	private readonly byte[] _heldColor = new byte[RowCount];
+
 	/// <summary>Builds the screen and enters it.</summary>
 	public ShellArmoryScreen(ShellHangar? hangar = null, bool manualBuild = false, ShellArmoryCatalog? catalog = null,
 			ShellWeaponsArt? art = null) {
@@ -187,7 +279,7 @@ public sealed class ShellArmoryScreen {
 		ManualBuild = manualBuild;
 		SelectedRow = -1;
 		RefreshRows();
-		SelectRow(0);
+		ClickRow(0);
 	}
 
 	/// <summary>
@@ -198,27 +290,101 @@ public sealed class ShellArmoryScreen {
 	private void RefreshRows() {
 		for (int row = 0; row < RowCount; row++) {
 			_rowColor[row] = _hangar.IsWeaponUnlocked(WeaponOfRow(row)) ? RowColor : ShellChrome.InteriorColor;
+			_heldColor[row] = _rowColor[row];
 		}
 	}
 
 	/// <summary>
-	/// <c>Armory_ClickRow</c> (<c>0044969f</c>) and <c>Armory_RightClickRow</c> (<c>004499de</c>) — the left and
-	/// right release on a row — for a row that is not the lit one: the old row goes back to <c>0x27</c> and
-	/// its picture is hidden, the new one is lit <c>0x29</c> with its picture and five lines of
-	/// <c>wpn_info.bin</c> from <c>row * 5</c>. Returns whether the selection moved; on the lit row itself,
-	/// with weapons built by hand, the two handlers queue and unqueue a unit instead, which is not ported.
-	/// With weapons built automatically the lit row selects again, which changes nothing.
+	/// <c>Armory_ClickRow</c> (<c>0044969f</c>), a row's left release. On a row that is not the lit one,
+	/// or on any row while weapons are built automatically, it selects (<see cref="SelectRow"/>). On the
+	/// lit row with weapons built by hand it queues one unit, while a queue slot is free and what the
+	/// queue has committed plus the price is <i>less than</i> the pool, compared unsigned. Returns whether
+	/// anything changed.
 	/// </summary>
-	public bool SelectRow(int row) {
-		if (row < 0 || row >= RowCount || row == SelectedRow) {
+	public bool ClickRow(int row) {
+		if (row < 0 || row >= RowCount) {
+			return false;
+		}
+
+		if (!ManualBuild || row != SelectedRow) {
+			return SelectRow(row);
+		}
+
+		int weapon = WeaponOfRow(row);
+		int price = _catalog?.PriceKilograms(weapon) ?? 0;
+		if (_hangar.QueueFreeSlots == 0 || (uint)(AllocatedKilograms + price) >= (uint)_hangar.SalvageKilograms) {
+			return false;
+		}
+
+		_hangar.Enqueue(weapon);
+		return true;
+	}
+
+	/// <summary>
+	/// <c>Armory_RightClickRow</c> (<c>004499de</c>), a row's right release. It selects as the left does;
+	/// on the lit row with weapons built by hand it takes one unit off by taking every unit off
+	/// (<see cref="Clear"/>) and queueing one fewer back through <see cref="ClickRow"/>, each of which tests
+	/// the slot and the pool again. The units put back take the first empty slots.
+	/// </summary>
+	public bool RightClickRow(int row) {
+		if (row < 0 || row >= RowCount) {
+			return false;
+		}
+
+		if (!ManualBuild || row != SelectedRow) {
+			return SelectRow(row);
+		}
+
+		int keep = _hangar.QueuedCount(WeaponOfRow(row)) - 1;
+		Clear();
+		for (int unit = 0; unit < keep; unit++) {
+			ClickRow(row);
+		}
+
+		return true;
+	}
+
+	/// <summary>
+	/// <c>Clear</c>'s handler (<c>00449ef4</c>), <c>Armory_DequeueLit</c> (<c>0044963c</c>): with a row lit,
+	/// every queued unit of its weapon comes off.
+	/// </summary>
+	public void Clear() {
+		if (SelectedRow != -1) {
+			_hangar.Dequeue(SelectedWeapon);
+		}
+	}
+
+	/// <summary>
+	/// The end of the weapon scrap's ACCEPT (<c>WeaponScrapDialog_OnAccept</c>, <c>00447db7</c>):
+	/// <c>Armory_RefreshRows</c>, which puts every live row back to <c>0x27</c>, the lit one included, and
+	/// <c>Armory_RefreshReadout</c>, which rewrites the lit row's count held in <c>0x29</c>. The row stays
+	/// the lit one.
+	/// </summary>
+	public void RefreshAfterScrap() {
+		RefreshRows();
+		if (SelectedRow != -1) {
+			_heldColor[SelectedRow] = LitColor;
+		}
+	}
+
+	/// <summary>
+	/// The selecting half of both handlers: the old row goes back to <c>0x27</c> and its picture is
+	/// hidden, the new one is lit <c>0x29</c> with its picture and five lines of <c>wpn_info.bin</c> from
+	/// <c>row * 5</c>. Returns whether the selection moved; the original runs it again on the lit row
+	/// while weapons are built automatically, which changes nothing.
+	/// </summary>
+	private bool SelectRow(int row) {
+		if (row == SelectedRow) {
 			return false;
 		}
 
 		if (SelectedRow != -1) {
 			_rowColor[SelectedRow] = RowColor;
+			_heldColor[SelectedRow] = RowColor;
 		}
 
 		_rowColor[row] = LitColor;
+		_heldColor[row] = LitColor;
 		SelectedRow = row;
 		return true;
 	}
@@ -321,7 +487,7 @@ public sealed class ShellArmoryScreen {
 				ShellTextAlign.Left, color);
 			Column(surface, font, rect, QueuedRight, NameRight, _catalog?.Names?.Text(weapon), ShellTextAlign.Left, color);
 			Column(surface, font, rect, NameRight, HeldRight, unlocked ? $"{_hangar.WeaponsOwned(weapon)}" : null,
-				ShellTextAlign.Right, color);
+				ShellTextAlign.Right, _heldColor[row]);
 			Column(surface, font, rect, HeldRight, rect.Width - 2,
 				_catalog != null ? $"{_catalog.PriceKilograms(weapon) / ShellRepairCosts.KilogramsPerTon}" : null,
 				ShellTextAlign.Right, color);

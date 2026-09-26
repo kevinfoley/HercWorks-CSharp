@@ -153,10 +153,10 @@
       "address": "0041266a",
       "binary": "VSHELL",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Armory_ItemCostCalc",
-      "description": "Reads WeaponsDat_RecordArray fields 0x14 (price, /1000) and 0x17 (multiplier -- plausibly ammo/quantity count, not confirmed by a load-time read).",
-      "source": "docs/formats/weapons-dat.md"
+      "confidence": "high",
+      "name": "Armory_ScrapValueTons",
+      "description": "What scrapping the armory's whole stock of a weapon yields, in tons: (weapons.dat +0x14 / 1000) * the +0x17 count held / 10, raised to 1 when that is below 1 and the count is not 0; 0 for an empty stock. The weapon scrap dialog quotes it.",
+      "source": "docs/shell/armory.md#scrapping"
     },
     {
       "address": "00412428",
@@ -17818,6 +17818,303 @@
       "name": "Armory_LitRow",
       "description": "The armory's lit row, 0-25, or -1 (0xffff in the image). Written by Armory_ClickRow and Armory_RightClickRow, reset by Armory_Leave.",
       "source": "docs/shell/screen-layout.md#the-armory-screen"
+    },
+    {
+      "address": "0040e91c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Hangar_BuySelected",
+      "description": "BUILD's order: HercList_OrderIntoSelected(00482ac3, chassis) and CareerSalvage minus the price Herc_Order returns (EAX passes through 00410982).",
+      "source": "docs/shell/screen-layout.md#scrapping-and-building-are-gated-on-the-bay"
+    },
+    {
+      "address": "00410982",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HercList_OrderIntoSelected",
+      "description": "herclist.cpp. Allocates a 0x7a-byte HERC record (HercRecord_Ctor), stores it in the slot the hangar's +0x22 (selected bay) names without testing it, increments the count at +0x20, and runs Herc_Order on it.",
+      "source": "docs/shell/screen-layout.md#scrapping-and-building-are-gated-on-the-bay"
+    },
+    {
+      "address": "00410922",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HercList_ScrapSelected",
+      "description": "herclist.cpp. For the hangar's +0x22 slot, when occupied: Herc_Scrap, ClearMounts, free, slot to null, count at +0x20 minus one. Returns the value, 0 for an empty slot.",
+      "source": "docs/shell/armory.md#scrapping"
+    },
+    {
+      "address": "0040e757",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Hangar_ScrapSelected",
+      "description": "The scrap dialog's ACCEPT action: CareerSalvage += HercList_ScrapSelected(00482ac3); the pilot Squad_PilotForBay finds for the selected bay gets bay -1, and the squad member at that pilot's +0x27 position is set off strength.",
+      "source": "docs/shell/armory.md#scrapping"
+    },
+    {
+      "address": "0041140f",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Herc_ScrapValueTons",
+      "description": "Herc_ScrapValue / 1000 -- the figure the herc scrap dialog quotes.",
+      "source": "docs/shell/screen-layout.md#the-scrap-dialog"
+    },
+    {
+      "address": "00411432",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Herc_Scrap",
+      "description": "Herc_ScrapValue then Herc_StripMounts; returns the value. Called by HercList_ScrapSelected and Herc_SettleAfterMission.",
+      "source": "docs/shell/armory.md#scrapping"
+    },
+    {
+      "address": "00447328",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ScrapDialog_Build",
+      "description": "Builds the herc scrap dialog once at startup: a full-display Window, an ESAlert panel at {0xcb,199,0x1af,0x149} titled estext 0xc9 WARNING, two FramedPanels, caption 0xcc and a figure Text, CANCEL (0xca, 00447c38) and ACCEPT (0xcb, 00447c96).",
+      "source": "docs/shell/screen-layout.md#the-scrap-dialog"
+    },
+    {
+      "address": "00447711",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ScrapDialog_Show",
+      "description": "Writes \"%d %s\" of Herc_ScrapValueTons(selected bay's machine) and estext 0xcd into the dialog's figure and shows it (Alert_Show). Called by Build_OnScrap and Repair_OnScrap.",
+      "source": "docs/shell/screen-layout.md#the-scrap-dialog"
+    },
+    {
+      "address": "00447795",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ScrapDialog_Hide",
+      "description": "Hides the herc scrap dialog (Alert_Hide).",
+      "source": "docs/shell/screen-layout.md#the-scrap-dialog"
+    },
+    {
+      "address": "00447c38",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ScrapDialog_OnCancel",
+      "description": "CANCEL's handler: ScrapDialog_Hide only. The builder passes it as a bare address, so auto-analysis made no function of it; ES2DefineFunctionAt 00447c38 creates it.",
+      "source": "docs/shell/screen-layout.md#the-scrap-dialog"
+    },
+    {
+      "address": "00447c96",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ScrapDialog_OnAccept",
+      "description": "ACCEPT's handler: ScrapDialog_Hide, Hangar_ScrapSelected, Squad_RefreshAfterScrap; tab 4 Build_GateButtons; tab 3 Squad_SelectBay(Herc_FirstBuiltBay) and Repair_RefreshDetail; then repaints 0048d13c, 0048d1cc and 0048d4f4.",
+      "source": "docs/shell/screen-layout.md#the-scrap-dialog"
+    },
+    {
+      "address": "00446ee0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Build_OnScrap",
+      "description": "The build screen's SCRAP handler: ScrapDialog_Show.",
+      "source": "docs/shell/screen-layout.md#scrapping-and-building-are-gated-on-the-bay"
+    },
+    {
+      "address": "00446f3e",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Build_OnBuild",
+      "description": "The build screen's BUILD handler: Hangar_BuySelected(DAT_004786e4), then the roster names and crew, the readout, Build_RefreshSalvage and Build_GateButtons.",
+      "source": "docs/shell/screen-layout.md#scrapping-and-building-are-gated-on-the-bay"
+    },
+    {
+      "address": "00434d15",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_OnScrap",
+      "description": "The repair screen's SCRAP handler: ScrapDialog_Show.",
+      "source": "docs/shell/screen-layout.md#what-the-buttons-are-gated-on"
+    },
+    {
+      "address": "0043d17c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squad_RefreshAfterScrap",
+      "description": "Squad_SetEmptyBayPicture, repaint of the selected bay's picture, the readout, the roster names and crew; on tab 3 the repair salvage figure (004338b3), on tab 4 Build_RefreshSalvage.",
+      "source": "docs/shell/screen-layout.md#the-scrap-dialog"
+    },
+    {
+      "address": "00415506",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squad_SetEmptyBayPicture",
+      "description": "Puts dba\\mt_3qtr.dba frames 0 and 1 at (1,1) and (1,0x8c) into the selected bay's squad-panel picture, after clearing it.",
+      "source": "docs/shell/screen-layout.md#the-scrap-dialog"
+    },
+    {
+      "address": "0040b239",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Alert_Show",
+      "description": "Widget_ShowRecursive on the widget's parent, then on the widget.",
+      "source": "docs/shell/screen-layout.md#the-scrap-dialog"
+    },
+    {
+      "address": "0040b258",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Alert_Hide",
+      "description": "Widget_HideRecursive on the widget, then on its parent.",
+      "source": "docs/shell/screen-layout.md#the-scrap-dialog"
+    },
+    {
+      "address": "0040afe0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ESAlert_Ctor",
+      "description": "esalert.cpp. TitledPanel_Ctor, then its own vtable (0046ebe0), 0x60 ORed into the event mask, and a buffer the size of the rect. Its paint is TitledPanel_Paint (via 0040b221).",
+      "source": "docs/shell/screen-layout.md#the-scrap-dialog"
+    },
+    {
+      "address": "004338b3",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Repair_RefreshSalvage",
+      "description": "The repair screen's salvage readout: CareerSalvage - Armory_QueuedTotal().",
+      "source": "docs/shell/screen-layout.md#the-scrap-dialog"
+    },
+    {
+      "address": "0043d37c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squad_RefreshSelectedReadout",
+      "description": "Squad_RefreshReadout(DAT_00482ae5).",
+      "source": "docs/shell/screen-layout.md#the-scrap-dialog"
+    },
+    {
+      "address": "004477ae",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponScrapDialog_Build",
+      "description": "The armory Scrap dialog's builder: the herc scrap dialog's rects and colours, caption estext 0xce, CANCEL 00447d59, ACCEPT 00447db7.",
+      "source": "docs/shell/screen-layout.md#the-scrap-dialog"
+    },
+    {
+      "address": "00447b97",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponScrapDialog_Show",
+      "description": "Stores the weapon id in DAT_0048d970, writes \"%d %s\" of Armory_ScrapValueTons(id) and estext 0xcd into the figure and shows the dialog.",
+      "source": "docs/shell/screen-layout.md#selecting-and-queueing"
+    },
+    {
+      "address": "00447c1d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponScrapDialog_Hide",
+      "description": "Hides the armory's scrap dialog (Alert_Hide).",
+      "source": "docs/shell/screen-layout.md#the-scrap-dialog"
+    },
+    {
+      "address": "0040e7b2",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_ScrapWeapons",
+      "description": "The weapon scrap dialog's ACCEPT action: CareerSalvage += Armory_ScrapStock(id).",
+      "source": "docs/shell/armory.md#scrapping"
+    },
+    {
+      "address": "00412555",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_ScrapStock",
+      "description": "(short)Armory_ScrapValueTons(id) * 1000, after Armory_ClearStock has emptied the weapon's stock (the value is taken first).",
+      "source": "docs/shell/armory.md#scrapping"
+    },
+    {
+      "address": "00411f9d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_ClearStock",
+      "description": "Pops and frees every unit on a weapons.dat record's +0x19 owned-unit list through Armory_PopUnit, one off the +0x17 count each.",
+      "source": "docs/shell/armory.md#scrapping"
+    },
+    {
+      "address": "00411ec7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_PopUnit",
+      "description": "Unlinks the head of a weapons.dat record's +0x19 unit list, frees the list node, decrements +0x17 and returns the unit; 0 when 00411f87 reports the list empty.",
+      "source": "docs/shell/armory.md#scrapping"
+    },
+    {
+      "address": "00412413",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_RefreshQueue",
+      "description": "Armory_AutoFillQueue while ShellOption_WeaponsBuildMode is 0 (built automatically), Armory_TrimQueueToBudget otherwise. Run by the weapon scrap's ACCEPT.",
+      "source": "docs/shell/armory.md#scrapping"
+    },
+    {
+      "address": "00447d59",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponScrapDialog_OnCancel",
+      "description": "The weapon scrap dialog's CANCEL: WeaponScrapDialog_Hide only.",
+      "source": "docs/shell/screen-layout.md#the-scrap-dialog"
+    },
+    {
+      "address": "00447db7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "WeaponScrapDialog_OnAccept",
+      "description": "The weapon scrap dialog's ACCEPT: WeaponScrapDialog_Hide, Armory_ScrapWeapons(DAT_0048d970), Armory_RefreshQueue, Armory_RefreshRows, Armory_RefreshReadout.",
+      "source": "docs/shell/screen-layout.md#the-scrap-dialog"
+    },
+    {
+      "address": "00410107",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Player_Create",
+      "description": "Builds the player structure at 00482a78 for a new career (Game_NewCareer): Pilot_Init of the embedded record with the given name and skill, then bay 0, position (+0x27) 0 and on strength, and the three squad-member pointers at +0x3f.",
+      "source": "docs/formats/save-games.md#pilot-record--59-bytes-0x3b-in-memory"
+    },
+    {
+      "address": "0040fd17",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Pilot_SetDefaults",
+      "description": "A pilot record's defaults: bay -1, off strength, position (+0x27) -1, +0x2b 100, then +0x2d, +0x2f, +0x31 and the fields after them 0. Called by Pilot_Init.",
+      "source": "docs/formats/save-games.md#pilot-record--59-bytes-0x3b-in-memory"
     }
   ]
 }

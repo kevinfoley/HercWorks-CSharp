@@ -28,7 +28,7 @@ The three per-chassis file families are each reached through a nine-entry pointe
 
 ## `gam\hercs.dat` — the starting hangar
 
-`LoadHercsDat` (`004104ed`, `herclist.cpp`) fills the hangar object at `00482ac3` at new-career time. The hangar is eight pointer slots at `+0x00`, an occupied count at `+0x20` and a scratch index at `+0x22` (`00482ae3` and `00482ae5` reached directly).
+`LoadHercsDat` (`004104ed`, `herclist.cpp`) fills the hangar object at `00482ac3` at new-career time. The hangar is eight pointer slots at `+0x00`, an occupied count at `+0x20` and the selected bay at `+0x22` (`00482ae3` and `00482ae5` reached directly) — the bay the squad panel shows, and the one the build screen buys into and the scrap dialog scraps ([`../shell/screen-layout.md`](../shell/screen-layout.md#the-scrap-dialog)).
 
 ```
 int16   count

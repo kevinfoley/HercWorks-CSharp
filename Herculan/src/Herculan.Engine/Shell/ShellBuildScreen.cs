@@ -26,8 +26,8 @@ public enum ShellBuildButton {
 /// <para><b>The left of the canvas is the squad panel</b>, which <see cref="ShellSquadPanel"/> draws.
 /// This tab's arm of <c>Squad_SelectBay</c> (<c>0043d64d</c>) takes any bay, empty or unfinished.</para>
 ///
-/// <para>The buttons are gated and not acted on: SCRAP's confirmation dialog and BUILD's order are not
-/// ported.</para>
+/// <para>BUILD orders the selected chassis into the selected bay (<see cref="Build"/>); SCRAP opens
+/// <see cref="ShellScrapDialog"/>, which the host puts up.</para>
 /// </summary>
 public sealed class ShellBuildScreen {
 	/// <summary>The chassis types the list offers, one row each — every type, the Razor included.</summary>
@@ -132,8 +132,8 @@ public sealed class ShellBuildScreen {
 
 	/// <summary>
 	/// What the armory's build queue has committed out of the salvage pool. The screen quotes and gates
-	/// on the pool net of it (<c>CareerSalvage - Armory_QueuedTotal()</c>). The host sets it from the queue
-	/// the save carries (<see cref="ShellArmoryCatalog.QueuedTotal"/>).
+	/// on the pool net of it (<c>CareerSalvage - Armory_QueuedTotal()</c>). The host sets it from
+	/// <see cref="ShellHangar"/>'s queue on every tab entry (<see cref="ShellArmoryCatalog.QueuedTotal"/>).
 	/// </summary>
 	public int QueuedKilograms { get; set; }
 
@@ -209,9 +209,14 @@ public sealed class ShellBuildScreen {
 	/// the repair screen's SCRAP test (docs/shell/screen-layout.md#what-the-buttons-are-gated-on).
 	///
 	/// <para>With no bay selected the original reads the dword before the eight-pointer array as the
-	/// bay; this engine takes that as an empty bay, which is its own choice.</para>
+	/// bay's machine (docs/shell/screen-layout.md#scrapping-and-building-are-gated-on-the-bay); this engine
+	/// greys both buttons instead, which is its own choice.</para>
 	/// </summary>
 	public bool IsEnabled(ShellBuildButton button) {
+		if (SelectedBay < 0) {
+			return false;
+		}
+
 		var machine = _hangar.Bay(SelectedBay);
 		if (machine == null) {
 			// The comparison is unsigned in the original, which differs from this only when the queue has
@@ -222,6 +227,17 @@ public sealed class ShellBuildScreen {
 
 		return button == ShellBuildButton.Scrap && !_hangar.HasSingleDeployable()
 			&& _hangar.IsChassisAvailable(machine.ChassisType);
+	}
+
+	/// <summary>
+	/// BUILD's handler (<c>Build_OnBuild</c>, <c>00446f3e</c>): the selected chassis is ordered into the selected bay and its
+	/// price comes off the pool (<see cref="ShellHangar.Order"/>); the roster, the readout, the salvage
+	/// figure and the gate then refresh. The handler tests nothing itself — the gate is what stops it.
+	/// </summary>
+	public void Build() {
+		if (SelectedEntry is { } entry) {
+			_hangar.Order(SelectedBay, SelectedChassis, entry.SalvageReq);
+		}
 	}
 
 	/// <summary>One chassis row's rect, in the canvas.</summary>

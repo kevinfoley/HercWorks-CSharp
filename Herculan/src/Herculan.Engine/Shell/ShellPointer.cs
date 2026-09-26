@@ -73,6 +73,7 @@ public enum ShellWidgetKind {
 	ArmoryButton,
 	MissionButton,
 	MissionArrow,
+	ScrapDialogButton,
 }
 
 /// <summary>One widget. <see cref="Sub"/> is a second index where one kind needs two, as the repair lists' <c>(column, row)</c> do.</summary>

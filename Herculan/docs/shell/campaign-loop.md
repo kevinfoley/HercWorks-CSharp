@@ -37,7 +37,7 @@ It is also what unlocks weapons: the mission-load path grants a pending unlock w
 
 ## Starting a campaign — `Game_NewCareer` (`0040e2ed`)
 
-Takes the pilot name and the mode flag (`DAT_0048260c`: 1 campaign, 0 training; the training entry points pass the literal `TRAINEE`). It loads `gam\weapons.dat`, generates the pilot roster, loads `gam\hercs.dat`, initializes the career position, and seeds the salvage pool:
+Takes the pilot name and the mode flag (`DAT_0048260c`: 1 campaign, 0 training; the training entry points pass the literal `TRAINEE`). It loads `gam\weapons.dat`, generates the pilot roster, builds the player (`Player_Create`, `00410107`: bay 0, squad position 0, on strength, and the three squad-member pointers — [`../formats/save-games.md`](../formats/save-games.md#pilot-record--59-bytes-0x3b-in-memory)), loads `gam\hercs.dat`, initializes the career position, and seeds the salvage pool:
 
 ```
 DAT_00482af4 = rand(0..10) * 1000 + 100000;

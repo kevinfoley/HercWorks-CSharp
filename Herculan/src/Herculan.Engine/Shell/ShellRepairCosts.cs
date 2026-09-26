@@ -70,11 +70,14 @@ public sealed class ShellRepairCosts {
 	private readonly short[,] _externalGroupValue;
 	private readonly short[,] _internalValue;
 	private readonly short[] _weaponValue;
+	private readonly short[] _priceTons;
 
-	private ShellRepairCosts(short[,] externalGroupValue, short[,] internalValue, short[] weaponValue) {
+	private ShellRepairCosts(short[,] externalGroupValue, short[,] internalValue, short[] weaponValue,
+			short[] priceTons) {
 		_externalGroupValue = externalGroupValue;
 		_internalValue = internalValue;
 		_weaponValue = weaponValue;
+		_priceTons = priceTons;
 	}
 
 	/// <summary>How many chassis types the tables cover — nine in retail.</summary>
@@ -125,7 +128,7 @@ public sealed class ShellRepairCosts {
 			weapons[id] = (short)Q10(values.WeaponScale, values.WeaponValue[id]);
 		}
 
-		return new ShellRepairCosts(external, internals, weapons);
+		return new ShellRepairCosts(external, internals, weapons, priceInTons.ToArray());
 	}
 
 	/// <summary>
@@ -226,6 +229,47 @@ public sealed class ShellRepairCosts {
 
 			total += ItemCost(UnitValue(machine.ChassisType, ShellRepairCategory.Hardpoint, weaponId),
 				condition, target);
+		}
+
+		return total;
+	}
+
+	/// <summary>
+	/// <c>Herc_ScrapValue</c> (<c>00413b50</c>) — what scrapping a machine yields, in kilograms
+	/// (docs/shell/armory.md#scrapping): each external group and internal at its condition's share of
+	/// its unit value, and each mount below <see cref="ShellHangar.ReturnToStockCondition"/> likewise
+	/// against its weapon's value. Every term truncates on its own. A machine not yet built is worth
+	/// <c>(100 - built) / 100</c> of its price, divided first as the original does, so nothing between 1%
+	/// and 99%.
+	/// </summary>
+	public int ScrapValue(ShellBayMachine? machine) {
+		if (machine == null) {
+			return 0;
+		}
+
+		int type = machine.ChassisType;
+		if (!machine.IsBuilt) {
+			int price = type >= 0 && type < _priceTons.Length ? _priceTons[type] : 0;
+			return (100 - machine.BuildPercent) / 100 * price * KilogramsPerTon;
+		}
+
+		int total = 0;
+		for (int group = 0; group < DamageRepairCost.ExternalGroupCount; group++) {
+			total += machine.Condition(ShellRepairCategory.ExternalGroup, group)
+				* UnitValue(type, ShellRepairCategory.ExternalGroup, group) / 100;
+		}
+
+		for (int component = 0; component < DamageRepairCost.InternalCount; component++) {
+			total += machine.Condition(ShellRepairCategory.Internal, component)
+				* UnitValue(type, ShellRepairCategory.Internal, component) / 100;
+		}
+
+		// No test that the mount is fitted, as in the original; an empty slot is valued against weapon 0.
+		for (int slot = 0; slot < machine.MountCapacity; slot++) {
+			int condition = machine.Condition(ShellRepairCategory.Hardpoint, slot);
+			if (condition < ShellHangar.ReturnToStockCondition) {
+				total += condition * UnitValue(type, ShellRepairCategory.Hardpoint, machine.WeaponAt(slot)) / 100;
+			}
 		}
 
 		return total;

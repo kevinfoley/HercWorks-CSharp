@@ -136,6 +136,11 @@ static class ShellHost {
 		var chassisCatalog = ShellBuildScreen.LoadCatalog(content);
 		ShellBuildScreen? buildScreen = null;
 
+		// The WARNING dialog both SCRAP buttons open, and its twin the armory's Scrap opens, each built once
+		// as the original builds them at startup. At most one is ever up.
+		var scrapDialog = ShellScrapDialog.Herc();
+		var weaponScrapDialog = ShellScrapDialog.Weapons();
+
 		// The weapons screen's pictures and prose, and the screen itself, built on first entry and kept.
 		var weaponsArt = ShellWeaponsArt.Load(content);
 		ShellWeaponsScreen? weaponsScreen = null;
@@ -176,8 +181,11 @@ static class ShellHost {
 			+ "slot row, or a repair list row, a part of the damage diagram or a Squad Inventory row, to "
 			+ "select it and the panels beside it follow. On BUILD, click a chassis to see its blueprint and "
 			+ "figures, or a Squad Inventory row to pick the bay SCRAP and BUILD are gated on. On WEAPONS, click an "
-			+ "inventory row to see the weapon, and on a missile rack a guidance button to see that kind. On ARMORY, "
-			+ "click a row to see the weapon and its figures. On CREW, click "
+			+ "inventory row to see the weapon, and on a missile rack a guidance button to see that kind. BUILD orders "
+			+ "the chassis into an empty bay, and SCRAP, there or on REPAIR, asks before it scraps the bay's machine. "
+			+ "On ARMORY, click a row to see the weapon and its figures; with weapons built by hand, click the lit row "
+			+ "again to queue one, right-click it to take one off, or CLEAR to take them all off; SCRAP sells the lit "
+			+ "weapon's whole stock. On CREW, click "
 			+ "a row to select it, then a squad portrait to put that pilot in the row, a Squad Inventory row "
 			+ "to give the row's pilot that bay, or CLEAR to empty the row. MISSION shows the briefing once a "
 			+ "stage is under way: its three text buttons switch the summary and the arrows beside it page "
@@ -195,6 +203,10 @@ static class ShellHost {
 		IMouse? mouse = null;
 		bool leftHeld = false;
 		bool rightHeld = false;
+
+		// Which button the event being delivered is, for the handlers that tell them apart: an armory
+		// row's thunk calls one function on the left release and another on the right.
+		var eventButton = ShellMouseButton.Left;
 		int framesRendered = 0;
 
 		window.Load += (loadedGl, input) => {
@@ -286,7 +298,12 @@ static class ShellHost {
 		// What a tab's entry does beyond showing it. The mission tab's map view sets the campaign map's
 		// once-per-load flag (Mission_Show, 004441e3), so the next visit opens the briefing.
 		void EnterTab(int id) {
-			if (id == ShellScreen.CrewTab) {
+			// The repair and build screens quote the pool net of the queue, which the armory tab changes.
+			repairScreen.QueuedKilograms = armoryCatalog.QueuedTotal(hangar);
+
+			if (id == ShellScreen.RepairTab) {
+				repairScreen.Enter();
+			} else if (id == ShellScreen.CrewTab) {
 				EnterCrew();
 			} else if (id == ShellScreen.WeaponsTab) {
 				EnterWeapons();
@@ -302,6 +319,14 @@ static class ShellHost {
 		// The widget under a canvas point. The strip is drawn over the content and hit first; below it,
 		// whichever tab is up.
 		ShellHit? HitAt(float canvasX, float canvasY) {
+			if (scrapDialog.IsOpen) {
+				return scrapDialog.HitAt(canvasX, canvasY);
+			}
+
+			if (weaponScrapDialog.IsOpen) {
+				return weaponScrapDialog.HitAt(canvasX, canvasY);
+			}
+
 			if (screen.HitAt(canvasX, canvasY) is { } strip) {
 				return strip;
 			}
@@ -330,6 +355,7 @@ static class ShellHost {
 			}
 
 			wasHeld = held;
+			eventButton = button;
 			if (held) {
 				pointer.Press(button, Fire);
 			} else {
@@ -356,6 +382,9 @@ static class ShellHost {
 				case ShellWidgetKind.RepairRow or ShellWidgetKind.RepairHotspot:
 					SelectRepair(widget.Index, widget.Sub);
 					break;
+				case ShellWidgetKind.RepairButton when (ShellRepairButton)widget.Index == ShellRepairButton.Scrap:
+					OpenScrapDialog(repairScreen.SelectedBay);
+					break;
 				case ShellWidgetKind.RepairButton:
 					Console.WriteLine($"{(ShellRepairButton)widget.Index} — the button is live and its action "
 						+ "is not ported yet.");
@@ -367,8 +396,7 @@ static class ShellHost {
 					SelectChassis(widget.Index);
 					break;
 				case ShellWidgetKind.BuildButton:
-					Console.WriteLine($"{(ShellBuildButton)widget.Index} — the button is live and its action "
-						+ "is not ported yet.");
+					ClickBuildButton((ShellBuildButton)widget.Index);
 					break;
 				case ShellWidgetKind.WeaponsRow:
 					SelectWeaponsRow(widget.Index);
@@ -380,8 +408,10 @@ static class ShellHost {
 					ClickArmoryRow(widget.Index);
 					break;
 				case ShellWidgetKind.ArmoryButton:
-					Console.WriteLine($"{(ShellArmoryButton)widget.Index} — the button is live and its action "
-						+ "is not ported yet.");
+					ClickArmoryButton((ShellArmoryButton)widget.Index);
+					break;
+				case ShellWidgetKind.ScrapDialogButton:
+					ClickScrapDialogButton((ShellScrapDialogButton)widget.Index);
 					break;
 				case ShellWidgetKind.MissionButton:
 					ClickMissionButton((ShellMissionButton)widget.Index);
@@ -599,6 +629,69 @@ static class ShellHost {
 				+ $"BUILD {(buildScreen.IsEnabled(ShellBuildButton.Build) ? "live" : "dead")}.");
 		}
 
+		// BUILD's handler (00446f3e) orders the chassis; SCRAP's (00446ee0) puts the dialog up.
+		void ClickBuildButton(ShellBuildButton button) {
+			if (buildScreen == null) {
+				return;
+			}
+
+			if (button == ShellBuildButton.Scrap) {
+				OpenScrapDialog(buildScreen.SelectedBay);
+				return;
+			}
+
+			buildScreen.Build();
+			Console.WriteLine($"Built chassis {buildScreen.SelectedChassis} into bay {buildScreen.SelectedBay}.");
+			RepaintContent();
+			LogBuild();
+		}
+
+		// Both SCRAP handlers, the build tab's (00446ee0) and the repair tab's (00434d15): 00447711 quotes
+		// the selected bay's machine and shows the dialog.
+		void OpenScrapDialog(int bay) {
+			scrapDialog.Open(bay, (repairCosts?.ScrapValue(hangar.Bay(bay)) ?? 0) / ShellRepairCosts.KilogramsPerTon);
+			Console.WriteLine($"Scrap bay {bay}? It will yield {scrapDialog.YieldTons} tons.");
+			RepaintContent();
+		}
+
+		// CANCEL (00447c38) only takes the dialog down. ACCEPT (00447c96) takes it down, scraps the bay
+		// (0040e757), and on the repair tab moves to the first bay holding a finished machine; the build
+		// tab keeps the bay, now empty, and regates.
+		void ClickScrapDialogButton(ShellScrapDialogButton button) {
+			if (weaponScrapDialog.IsOpen) {
+				ClickWeaponScrapDialogButton(button);
+				return;
+			}
+
+			scrapDialog.Close();
+			if (button == ShellScrapDialogButton.Accept) {
+				int value = hangar.Scrap(scrapDialog.Subject, repairCosts);
+				Console.WriteLine($"Scrapped bay {scrapDialog.Subject} for {value} kg; {hangar.SalvageKilograms} kg in the pool.");
+				if (screen.SelectedTab == ShellScreen.RepairTab) {
+					repairScreen.SelectBay(hangar.FirstBuiltBay());
+				}
+			}
+
+			RepaintContent();
+		}
+
+		// The weapon dialog's CANCEL (00447d59) only takes it down. ACCEPT (WeaponScrapDialog_OnAccept,
+		// 00447db7) takes it down, sells the whole stock (Armory_ScrapWeapons, 0040e7b2), trims or refills
+		// the queue by the build mode (Armory_RefreshQueue, 00412413), and refreshes the rows and readout.
+		void ClickWeaponScrapDialogButton(ShellScrapDialogButton button) {
+			weaponScrapDialog.Close();
+			if (button == ShellScrapDialogButton.Accept && armoryScreen != null) {
+				int weapon = weaponScrapDialog.Subject;
+				hangar.ScrapStock(weapon, armoryCatalog.ScrapValueTons(hangar, weapon));
+				armoryCatalog.RefreshQueue(hangar, manualWeaponBuild);
+				armoryScreen.RefreshAfterScrap();
+				Console.WriteLine($"Scrapped weapon {weapon}'s stock; {hangar.SalvageKilograms} kg in the pool.");
+				LogArmory();
+			}
+
+			RepaintContent();
+		}
+
 		// Tab 4's entry, from the bay the repair screen has selected, as the crew tab's is.
 		void EnterBuild() {
 			if (buildScreen == null) {
@@ -683,21 +776,44 @@ static class ShellHost {
 			LogArmory();
 		}
 
-		// A row's release, Armory_ClickRow (0044969f) or Armory_RightClickRow (004499de). On the lit row with
-		// weapons built by hand those queue and unqueue a unit, which is not ported.
+		// A row's release: Armory_ClickRow (0044969f) for the left button, Armory_RightClickRow (004499de)
+		// for the right.
 		void ClickArmoryRow(int row) {
 			if (armoryScreen == null) {
 				return;
 			}
 
-			if (!armoryScreen.SelectRow(row)) {
-				if (armoryScreen.ManualBuild) {
-					Console.WriteLine("Queueing a weapon is not ported yet.");
+			bool changed = eventButton == ShellMouseButton.Left
+				? armoryScreen.ClickRow(row)
+				: armoryScreen.RightClickRow(row);
+			if (!changed) {
+				return;
+			}
+
+			RepaintContent();
+			LogArmory();
+		}
+
+		// Clear (00449ef4) takes the lit weapon's units off the queue. Scrap (Armory_OnScrap, 00449e78) puts
+		// the weapon scrap dialog up on the lit weapon's stock.
+		void ClickArmoryButton(ShellArmoryButton button) {
+			if (armoryScreen == null) {
+				return;
+			}
+
+			if (button == ShellArmoryButton.Scrap) {
+				if (armoryScreen.SelectedRow != -1) {
+					int weapon = armoryScreen.SelectedWeapon;
+					weaponScrapDialog.Open(weapon, armoryCatalog.ScrapValueTons(hangar, weapon));
+					Console.WriteLine($"Scrap weapon {weapon}? {hangar.WeaponsOwned(weapon)} held will yield "
+						+ $"{weaponScrapDialog.YieldTons} tons.");
+					RepaintContent();
 				}
 
 				return;
 			}
 
+			armoryScreen.Clear();
 			RepaintContent();
 			LogArmory();
 		}
@@ -710,7 +826,8 @@ static class ShellHost {
 			int weapon = armoryScreen.SelectedWeapon;
 			Console.WriteLine($"Armory: row {armoryScreen.SelectedRow} "
 				+ $"({armoryCatalog.Names?.Text(weapon) ?? $"weapon {weapon}"}, {hangar.WeaponsOwned(weapon)} held, "
-				+ $"{hangar.QueuedCount(weapon)} queued, {armoryCatalog.PriceKilograms(weapon)} kg).");
+				+ $"{hangar.QueuedCount(weapon)} queued, {armoryCatalog.PriceKilograms(weapon)} kg); "
+				+ $"{hangar.QueueFreeSlots} slots free, {armoryScreen.AllocatedKilograms} kg allocated.");
 		}
 
 		// Tab 7's entry, Mission_Show (004441e3), in the view the tab handler picks. Only the
@@ -825,6 +942,8 @@ static class ShellHost {
 					break;
 			}
 
+			scrapDialog.Paint(contentSurface, art.Text, art.Sprites);
+			weaponScrapDialog.Paint(contentSurface, art.Text, art.Sprites);
 			renderer.SetContent(contentSurface);
 		}
 

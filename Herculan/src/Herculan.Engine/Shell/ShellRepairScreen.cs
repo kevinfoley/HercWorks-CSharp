@@ -126,7 +126,7 @@ public sealed class ShellRepairScreen {
 	/// What the armory's build queue has already committed out of the salvage pool. The repair screen
 	/// quotes the pool <i>net</i> of it (<c>CareerSalvage - Armory_QueuedTotal()</c>) and gates both
 	/// repair buttons on that net figure, so a queued weapon is salvage the repair bay cannot see. The
-	/// host sets it from the queue the save carries (<see cref="ShellArmoryCatalog.QueuedTotal"/>).
+	/// host sets it from <see cref="ShellHangar"/>'s queue on every tab entry (<see cref="ShellArmoryCatalog.QueuedTotal"/>).
 	/// </summary>
 	public int QueuedKilograms { get; set; }
 
@@ -182,6 +182,16 @@ public sealed class ShellRepairScreen {
 		_column = column;
 		_row = row;
 		return true;
+	}
+
+	/// <summary>
+	/// <c>Repair_Enter</c> (<c>004332ec</c>)'s bay rule, run on every entry: a bay that holds nothing, or
+	/// holds something still under construction, gives way to the first bay holding a finished machine.
+	/// </summary>
+	public void Enter() {
+		if (Machine is not { IsBuilt: true }) {
+			SelectBay(_hangar.FirstBuiltBay());
+		}
 	}
 
 	/// <summary>

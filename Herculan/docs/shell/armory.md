@@ -19,9 +19,9 @@ The Herc Construction screen is the one place that prints a chassis price withou
 
 ## Buying a chassis — `Herc_Order` (`00411019`)
 
-Purchase gates on three things: the chassis's availability flag in `herc_inf.dat` `+0x0e`, a free hangar slot, and the pool covering the price *after* whatever the weapon queue has already committed (`DAT_00482af4 - Armory_QueuedTotal() <= price` refuses).
+The Herc Construction screen's `BUILD` buys ([`screen-layout.md`](screen-layout.md#scrapping-and-building-are-gated-on-the-bay)), and nothing on the buying path tests anything: the screen's gates stand in front of it. The chassis's row is live only while its availability flag, `herc_inf.dat` `+0x0e`, is set, and `BUILD` only on an empty selected bay and while the pool is more than the price *after* whatever the weapon queue has already committed (`DAT_00482af4 - Armory_QueuedTotal() > price`, compared unsigned).
 
-`Herc_Order` then builds the record in place — type, capacity from the in-code table, `+0x4a` progress 0, no hardpoints occupied, `+0x78` set to `herc_inf.dat` `+0x0c` — and returns the price to charge. A bought chassis therefore arrives **empty and unbuilt**, and `Herc_BuildTick` (`00411086`) advances it one mission per debrief until `+0x78` reaches zero.
+`Herc_Order` builds the record in place in the selected bay — type, capacity from the in-code table, `+0x4a` progress 0, no hardpoints occupied, `+0x78` set to `herc_inf.dat` `+0x0c` — and returns the price, which `0040e91c` takes off the pool at once. A bought chassis therefore arrives **empty, unbuilt and paid for**, and `Herc_BuildTick` (`00411086`) advances it one mission per debrief until `+0x78` reaches zero.
 
 Retail's `gam\hercs.dat` opens a new career with this state already on the books: a Razor at 0% with three missions to run ([`../formats/herc-catalogs.md`](../formats/herc-catalogs.md#gamhercsdat--the-starting-hangar)).
 
@@ -91,6 +91,18 @@ The debrief charges repairs through `FUN_0040e804`, which runs `Repair_Auto` ove
 `Herc_StripMounts` (`00411795`) decides what survives: a mount at **80 condition or better goes back into armory stock** through `Armory_AddUnit` (`00411efd`), and anything below is destroyed. `Herc_ScrapValue`'s mount loop counts exactly the complement — the ones under 80 — so a returned weapon is credited as inventory rather than as salvage.
 
 At debrief `Herc_SettleAfterMission` (`00410c7c`) applies the same judgement to the machine itself: below 30 average condition it is scrapped out of the hangar for its value and the hangar count drops; at 30 or above only the overall-condition slot is reset to 100.
+
+**The player scraps from the shell** through the scrap dialog's `ACCEPT` ([`screen-layout.md`](screen-layout.md#the-scrap-dialog)), which runs `Hangar_ScrapSelected` (`0040e757`) on the selected bay:
+
+1. `HercList_ScrapSelected` (`00410922`) takes the machine through `Herc_Scrap` (`00411432`) — `Herc_ScrapValue`, then `Herc_StripMounts` — frees it, empties the slot and takes one off the hangar count at `00482ae3`. An empty slot yields 0 and is left alone.
+2. The value goes into the pool.
+3. The pilot `Squad_PilotForBay` finds for the bay has its bay set to `-1`, and the squad member `Squad_MemberAtPosition` finds at that pilot's position, `+0x27`, is taken off strength through `Squad_SetOnStrength` — the pilot itself, for a squad member. The player's position is 0 and no squad member ever holds 0 ([`../formats/save-games.md`](../formats/save-games.md#pilot-record--59-bytes-0x3b-in-memory)), so scrapping the player's machine takes nobody off strength and leaves the player's own on-strength byte as it was.
+
+The debrief's scrap is the same first step with one more write: it also adds one to `00482ae7`, the hangar's `+0x24`, which the shell's leaves alone.
+
+**Weapons are scrapped a whole stock at a time**, from the armory's `Scrap` ([`screen-layout.md`](screen-layout.md#the-scrap-dialog)). `Armory_ScrapValueTons` (`0041266a`) values the stock at a tenth of its price in tons — `weapons.dat` `+0x14` truncated to tons, times the count held at `+0x17`, over 10 — and at least 1 ton for a stock that is not empty; an empty one is worth 0. `Armory_ScrapWeapons` (`0040e7b2`) adds `Armory_ScrapStock` (`00412555`) to the pool, which is that figure times 1000 after `Armory_ClearStock` (`00411f9d`) has freed every unit on the record's list, one off the count each. So scrapping gives up every unit for a tenth of their price, the condition of none of them counting.
+
+The pool has grown, and `Armory_RefreshQueue` (`00412413`) then reconciles the build queue with it by the build mode: auto-filled from scratch while weapons are built automatically — and the stock just emptied is below two, so the weapon goes back on the queue in its rank's turn when a slot is free and the pool covers it — or trimmed to the pool while they are built by hand.
 
 **The under-construction branch of `Herc_ScrapValue` pays nothing or everything.** For a machine whose `+0x4a` is below 100 the value is `((100 - +0x4a) / 100) * price * 1000`, and that integer division yields 0 for every progress figure from 1 to 99 — only an untouched 0% chassis returns anything, and it returns the full price. The intended form is almost certainly `(100 - +0x4a) * price * 1000 / 100`.
 

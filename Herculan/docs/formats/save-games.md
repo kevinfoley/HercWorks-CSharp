@@ -102,7 +102,7 @@ Serialized by `Pilot_Write` (`0040fd5f`), read by `FUN_0040fefc`, initialized by
 | `+0x22` | `int16` | assigned hangar slot; `-1` when unassigned |
 | `+0x24` | `byte` | on strength — gates repair billing, results accounting and the `player.mec` export |
 | `+0x25` | `int16` | skill `0-3` — `ROOKIE`, `REGULAR`, `VETERAN`, `ELITE` (`estext.bin` `0x35`-`0x38`), drawn against the weight table at `0046f5ec` |
-| `+0x27` | `int16` | squad position, 1-3 — the crew screen row the pilot fills ([`../shell/screen-layout.md`](../shell/screen-layout.md#the-rows)); initialized `-1`. Selects the promotion divisors in `Pilot_Progress` (`00410066`) |
+| `+0x27` | `int16` | squad position, 1-3 — the crew screen row the pilot fills ([`../shell/screen-layout.md`](../shell/screen-layout.md#the-rows)); initialized `-1` by `Pilot_SetDefaults` (`0040fd17`). The player's is 0: `Player_Create` (`00410107`, from `Game_NewCareer`) writes it straight after `Pilot_Init`. A squad member's comes only from `Squad_SetMemberPosition`, whose four callers pass `-1`, `k + 1` or a crew row from 1 to 3, so no member holds 0. Selects the promotion divisors in `Pilot_Progress` (`00410066`) |
 | `+0x29` | `int16` | rank `0-3` — `Lieutenant`, `Captain`, `Major`, `Lt Colonel` (`estext.bin` `0x39`-`0x3c`), seeded from the skill via `0046f5f4` |
 | `+0x2b` | `int16` | condition, initialized 100 and overwritten at debrief from the HERC's damage |
 | `+0x2d` | `int16` | Herc kills, this mission |

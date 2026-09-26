@@ -63,7 +63,6 @@ bool runShell = false;
 string? moviePath = null;
 string? shellPalette = null;
 var shellMode = ShellCampaignMode.Campaign;
-bool shellTabPalettes = false;
 int shellTab = ShellScreen.MainMenuTab;
 int shellBay = 0;
 
@@ -233,11 +232,6 @@ for (int i = 0; i < args.Length; i++) {
 			shellPalette = palette;
 		}
 		runShell = true;
-	} else if (args[i] == "--shell-tab-palette") {
-		// Let the palette follow the tab, as the original's does. Off by default only because the tab
-		// content that would cover the bay backdrop is not ported — see ShellHost.
-		shellTabPalettes = true;
-		runShell = true;
 	} else if (args[i] == "--shell-tab") {
 		// Which tab the shell comes up on, 0-7. The original always enters on the main menu; this is here
 		// so --screenshot can land on a tab that has content, and so the save screen is one argument away
@@ -376,8 +370,7 @@ if (installRoot == null) {
 // --shell runs the front end instead, and shares nothing below this point: different archives, no
 // zone, no simulation, no fixed timestep. See ShellHost.
 if (runShell) {
-	return ShellHost.Run(installRoot, shellPalette, screenshotPath, shellMode, shellTabPalettes,
-		shellTab, shellBay);
+	return ShellHost.Run(installRoot, shellPalette, screenshotPath, shellMode, shellTab, shellBay);
 }
 
 // --movie shares even less: no archives, no zone, no shell art — one file and a quad. See MovieHost.

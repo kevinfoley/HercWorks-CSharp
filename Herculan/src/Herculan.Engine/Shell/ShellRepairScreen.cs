@@ -64,9 +64,6 @@ public sealed class ShellRepairScreen {
 	/// </summary>
 	public static readonly ShellRect PanelRect = new(0xf1, 0x2b, 0x278, 0x1d9);
 
-	/// <summary>The rect both damage pictures share.</summary>
-	public static readonly ShellRect PictureRect = ShellRepairDiagrams.PictureRect;
-
 	private static readonly ShellRect ExternalPanelRect = new(4, 0x1a, 0xe5, 0x105);
 	private static readonly ShellRect InternalPanelRect = new(4, 0x10b, 0xe5, 0x1a3);
 

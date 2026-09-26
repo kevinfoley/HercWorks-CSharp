@@ -16754,16 +16754,52 @@
       "type": "function",
       "confidence": "high",
       "name": "Squad_UpdateOnStrength",
-      "description": "(player, position): sets the on-strength byte of the squad member at that position when the position is below the player structure's leading short (00482a78) and the member has a bay, clears it otherwise (via FUN_00410327). Matches every retail save's on-strength bytes.",
+      "description": "(player, position): sets the on-strength byte of the squad member at that position when the position is below the player structure's leading short (00482a78) and the member has a bay, clears it otherwise (via Squad_SetOnStrength, 00410327). Matches every retail save's on-strength bytes.",
+      "source": "docs/formats/save-games.md#savgame_sav--block-order"
+    },
+    {
+      "address": "0040e6c8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Player_SetBay",
+      "description": "(bay): stores bay in 00482a9e, the player pilot record's +0x22.",
+      "source": "docs/shell/screen-layout.md#the-rows"
+    },
+    {
+      "address": "0040e6d7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squad_SetMemberBay",
+      "description": "(member, bay): writes squad member's +0x22. Bay -1 clears its on-strength byte through Squad_SetOnStrength; any other bay calls Squad_UpdateOnStrength with the member index in the position argument.",
+      "source": "docs/shell/screen-layout.md#the-rows"
+    },
+    {
+      "address": "004102be",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squad_SetMemberPosition",
+      "description": "(player, member, position): writes the squad member's position, pilot record +0x27, through the player structure's pointer at +0x3f.",
+      "source": "docs/shell/screen-layout.md#the-rows"
+    },
+    {
+      "address": "00410327",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squad_SetOnStrength",
+      "description": "(player, member, flag): writes the squad member's on-strength byte (+0x24), incrementing or decrementing the player structure's +2 (00482a7a, machines on strength) when the byte changes.",
       "source": "docs/formats/save-games.md#savgame_sav--block-order"
     },
     {
       "address": "00441afa",
       "binary": "VSHELL",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Crew_Leave",
-      "description": "Hides the crew content panel (DAT_0048d72c). Read as the crew tab's teardown from its body only; the teardown dispatcher's call to it was not checked.",
+      "confidence": "high",
+      "name": "Crew_Leave",
+      "description": "The crew tab's teardown: hides the crew content panel (DAT_0048d72c). Called from Shell_TeardownCurrentTab (00439ea7) at 00439f21.",
       "source": "docs/shell/screen-layout.md#the-crew-screen"
     },
     {
@@ -16806,27 +16842,27 @@
       "address": "00441eb8",
       "binary": "VSHELL",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Crew_AssignSquadMember",
-      "description": "(k): on any row but the player's, moves squad member k into the selected row's position (+0x27), clearing whoever held it, then assigns the selected bay and refills. Read in outline only.",
+      "confidence": "high",
+      "name": "Crew_AssignSquadMember",
+      "description": "(k), the three squad portraits' action. Returns at once on the player's row (CrewSelectedRow 0). Otherwise frees the selected row's position from whoever holds it (Squad_SetMemberPosition -1), gives it to squad member k, clears any row pointer at 004776e0 holding k and points the selected row at k, then Crew_AssignSelectedBay, Squad_RefreshRowCrew, the readout and Crew_FillRows.",
       "source": "docs/shell/screen-layout.md#the-rows"
     },
     {
       "address": "00441f94",
       "binary": "VSHELL",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Crew_ClearRow",
-      "description": "CLEAR's action: empties the selected row's position and refills. Read in outline only.",
+      "confidence": "high",
+      "name": "Crew_ClearRow",
+      "description": "CLEAR's action. On a squad row holding a member: Squad_SetMemberBay(k, -1), Squad_SetMemberPosition(k, -1), nulls the row pointer, Crew_FillRows, then Squad_SelectBay with the member's now -1 bay while Squad_RosterClickFlag is set. Nothing on the player's row or an empty one.",
       "source": "docs/shell/screen-layout.md#the-rows"
     },
     {
       "address": "00442055",
       "binary": "VSHELL",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Crew_AssignSelectedBay",
-      "description": "Gives SelectedBaySlot to the selected row's pilot (the player through FUN_0040e6c8, a squad member through its +0x22), unassigning whoever had it. Called from Squad_SelectBay's crew arm while Squad_RosterClickFlag is set. Read in outline only.",
+      "confidence": "high",
+      "name": "Crew_AssignSelectedBay",
+      "description": "Gives SelectedBaySlot to the selected row's pilot when the row is the player's or has a pilot: unassigns the player (Player_SetBay -1) and every squad member (Squad_SetMemberBay -1) whose bay equals it, then writes it to the player through Player_SetBay or to the squad member's +0x22 followed by Squad_UpdateOnStrength(row), and Crew_FillRows. With SelectedBaySlot -1 every bayless squad member counts as its holder. Called from Squad_SelectBay's crew arm while Squad_RosterClickFlag is set, and from Crew_AssignSquadMember.",
       "source": "docs/shell/screen-layout.md#entering-the-crew-screen"
     },
     {

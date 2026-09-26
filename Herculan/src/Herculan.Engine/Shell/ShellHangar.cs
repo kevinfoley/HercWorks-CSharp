@@ -185,16 +185,38 @@ public sealed class ShellBayMachine {
 	}
 }
 
-/// <summary>One pilot record as the shell's screens print it (docs/formats/save-games.md, "The pilot record").</summary>
-/// <param name="RosterId">
-/// <c>+0x00</c>, 0-11 — also the pilot's portrait, the frame of <c>dba\c_pilots.dba</c> the crew screen shows.
-/// </param>
-/// <param name="Bay">The hangar bay at <c>+0x22</c>, <c>-1</c> when unassigned.</param>
-/// <param name="Skill">The skill ladder at <c>+0x25</c>, 0-3; the panel prints <c>estext.bin</c> <c>0x35 + skill</c>.</param>
-/// <param name="SquadPosition">
-/// <c>+0x27</c> — which of the crew screen's three wingman rows, 1-3, the pilot fills, or <c>-1</c>.
-/// </param>
-public sealed record ShellBayPilot(string Name, int RosterId, int Bay, int Skill, int SquadPosition);
+/// <summary>
+/// One pilot record as the shell's screens print it (docs/formats/save-games.md, "The pilot record").
+/// The crew screen's assignments change the bay, the squad position and the on-strength byte, always
+/// through <see cref="ShellHangar"/>.
+/// </summary>
+public sealed class ShellBayPilot {
+	public ShellBayPilot(string name, int rosterId, int bay, int skill, int squadPosition, bool onStrength) {
+		Name = name;
+		RosterId = rosterId;
+		Bay = bay;
+		Skill = skill;
+		SquadPosition = squadPosition;
+		OnStrength = onStrength;
+	}
+
+	public string Name { get; }
+
+	/// <summary><c>+0x00</c>, 0-11 — also the pilot's portrait, the frame of <c>dba\c_pilots.dba</c> the crew screen shows.</summary>
+	public int RosterId { get; }
+
+	/// <summary>The hangar bay at <c>+0x22</c>, <c>-1</c> when unassigned.</summary>
+	public int Bay { get; internal set; }
+
+	/// <summary>The skill ladder at <c>+0x25</c>, 0-3; the panel prints <c>estext.bin</c> <c>0x35 + skill</c>.</summary>
+	public int Skill { get; }
+
+	/// <summary><c>+0x27</c> — which of the crew screen's three wingman rows, 1-3, the pilot fills, or <c>-1</c>.</summary>
+	public int SquadPosition { get; internal set; }
+
+	/// <summary><c>+0x24</c>, the on-strength byte. Meaningful for the three squad members only.</summary>
+	public bool OnStrength { get; internal set; }
+}
 
 /// <summary>
 /// The eight hangar bays and the salvage pool — what every tab from WEAPONS to CREW works over, and
@@ -241,17 +263,79 @@ public sealed class ShellHangar {
 	public int SquadPositions { get; private set; }
 
 	/// <summary>
-	/// <c>Squad_MemberAtPosition</c> (<c>004102d6</c>) — the squad member whose <c>+0x27</c> is <paramref name="position"/>, or null.
-	/// It tests the three in pointer order and takes the first.
+	/// <c>00482a7a</c>, the player structure's second short: how many machines are on strength, the
+	/// player's included. <see cref="SetOnStrength"/> moves it with the squad members' <c>+0x24</c> bytes.
 	/// </summary>
-	public ShellBayPilot? SquadMemberAt(int position) {
-		foreach (var pilot in _squad) {
-			if (pilot.SquadPosition == position) {
-				return pilot;
+	public int MachinesOnStrength { get; private set; }
+
+	/// <summary>
+	/// <c>Squad_MemberAtPosition</c> (<c>004102d6</c>) — the index among <see cref="SquadMembers"/> of
+	/// the member whose <c>+0x27</c> is <paramref name="position"/>, or <c>-1</c>. It tests the three in
+	/// pointer order and takes the first.
+	/// </summary>
+	public int SquadMemberIndexAt(int position) {
+		for (int member = 0; member < _squad.Count; member++) {
+			if (_squad[member].SquadPosition == position) {
+				return member;
 			}
 		}
 
-		return null;
+		return -1;
+	}
+
+	/// <summary>The squad member at <paramref name="position"/>, as <see cref="SquadMemberIndexAt"/> finds them, or null.</summary>
+	public ShellBayPilot? SquadMemberAt(int position) =>
+		SquadMemberIndexAt(position) is >= 0 and var member ? _squad[member] : null;
+
+	/// <summary>
+	/// Writes a pilot's bay, <c>+0x22</c> — for the player <c>Player_SetBay</c> (<c>0040e6c8</c>), which writes
+	/// <c>00482a9e</c>; for a squad member the plain store the crew screen makes before
+	/// <see cref="UpdateOnStrength"/>.
+	/// </summary>
+	public static void SetBay(ShellBayPilot pilot, int bay) => pilot.Bay = bay;
+
+	/// <summary><c>Squad_SetMemberPosition</c> (<c>004102be</c>) — writes squad member <paramref name="member"/>'s position, <c>+0x27</c>.</summary>
+	public void SetSquadPosition(int member, int position) {
+		if (member >= 0 && member < _squad.Count) {
+			_squad[member].SquadPosition = position;
+		}
+	}
+
+	/// <summary>
+	/// <c>Squad_SetMemberBay(member, -1)</c> (<c>0040e6d7</c>) — takes squad member <paramref name="member"/> out of any bay and
+	/// off strength. That is the only way the crew screen calls it.
+	/// </summary>
+	public void UnassignSquadMemberBay(int member) {
+		if (member >= 0 && member < _squad.Count) {
+			_squad[member].Bay = -1;
+			SetOnStrength(member, false);
+		}
+	}
+
+	/// <summary>
+	/// <c>Squad_UpdateOnStrength</c> (<c>00410366</c>) — the member at <paramref name="position"/> is on
+	/// strength when the position is in play and they have a bay, and off it otherwise.
+	/// </summary>
+	public void UpdateOnStrength(int position) {
+		int member = SquadMemberIndexAt(position);
+		if (member != -1) {
+			SetOnStrength(member, position < SquadPositions && _squad[member].Bay != -1);
+		}
+	}
+
+	/// <summary>
+	/// <c>Squad_SetOnStrength</c> (<c>00410327</c>) — writes a member's on-strength byte and moves <see cref="MachinesOnStrength"/>
+	/// by one when the byte actually changes.
+	/// </summary>
+	private void SetOnStrength(int member, bool onStrength) {
+		var pilot = _squad[member];
+		if (onStrength && !pilot.OnStrength) {
+			MachinesOnStrength++;
+		} else if (!onStrength && pilot.OnStrength) {
+			MachinesOnStrength--;
+		}
+
+		pilot.OnStrength = onStrength;
 	}
 
 	/// <summary>The machine in one bay, or null when the bay is empty or the index is out of range.</summary>
@@ -345,7 +429,8 @@ public sealed class ShellHangar {
 		// points the player structure's three squad pointers at record DAT_00483b48[k] of squad k. The
 		// save model keeps all five among the eight shorts between the squad block and the player's
 		// record: DAT_00483b48's three first, the player block's two last.
-		hangar.SquadPositions = save.UnkRange_prePlayer[SquadPositionsShort];
+		hangar.SquadPositions = save.SquadPositionsInPlay;
+		hangar.MachinesOnStrength = save.MachinesOnStrength;
 		hangar.Player = Pilot(save.PlayerPilot);
 		for (int squad = 0; squad < SquadCount; squad++) {
 			int member = save.UnkRange_prePlayer[squad];
@@ -358,11 +443,8 @@ public sealed class ShellHangar {
 		return hangar;
 	}
 
-	/// <summary>Where <c>DAT_00482a78</c> sits among the save model's eight shorts before the player's record.</summary>
-	private const int SquadPositionsShort = 6;
-
 	private static ShellBayPilot? Pilot(PilotEntry? pilot) =>
 		pilot == null ? null
 			: new ShellBayPilot((pilot.Name ?? string.Empty).TrimEnd('\0'), pilot.SquadmateId, pilot.BayId,
-				pilot.Skill?.Id ?? 0, pilot.CrewRowNum);
+				pilot.Skill?.Id ?? 0, pilot.CrewRowNum, pilot.Active != 0);
 }

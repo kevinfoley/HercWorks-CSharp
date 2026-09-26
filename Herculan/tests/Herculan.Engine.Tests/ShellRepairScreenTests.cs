@@ -36,8 +36,9 @@ public class ShellRepairScreenTests {
 		Assert.True(panel.X1 < ShellLayout.CanvasWidth);
 		Assert.True(panel.Y1 < ShellLayout.CanvasHeight);
 
-		// The picture the screen leaves room for sits entirely to its left.
-		Assert.True(ShellRepairScreen.PictureRect.X1 < panel.X0);
+		// Both pictures the screen leaves room for sit entirely to its left.
+		Assert.True(ShellRepairDiagrams.ExternalPictureRect.X1 < panel.X0);
+		Assert.True(ShellRepairDiagrams.InternalsPictureRect.X1 < panel.X0);
 	}
 
 	/// <summary>

@@ -208,7 +208,7 @@ Seven jumps in the function resolve to four targets — `00410088`, `00410090`, 
 
 **The position advances whether or not the mission was won.** `Career_Advance` increments the mission index before it inspects the outcome; the outcome only chooses the branch. Rolling past a stage's mission count resets the mission index to 0 and increments the stage.
 
-Two scripted events are hard-coded into the advance, keyed on the position *after* it increments: stage 1 mission 3 calls `FUN_0040e6c8(4)`, and stage 1 mission 6 calls `FUN_0040e7cd(8)` — both squad-roster operations.
+Two scripted events are hard-coded into the advance, keyed on the position *after* it increments: stage 1 mission 3 calls `Player_SetBay(4)` (`0040e6c8`), which moves the player into bay 4, and stage 1 mission 6 calls `FUN_0040e7cd(8)`, another squad-roster operation.
 
 Every path that leaves a campaign in a resumable state autosaves through `Game_SaveSlot(10, NULL)` (`0040e37b`), which is why `GAME_R.SAV` mirrors the newest ordinary save.
 

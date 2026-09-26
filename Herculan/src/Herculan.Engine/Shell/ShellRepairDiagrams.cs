@@ -20,10 +20,16 @@ namespace Herculan.Engine.Shell;
 public sealed class ShellRepairDiagrams {
 	/// <summary>
 	/// Where <c>Repair_BuildDiagrams</c> (<c>004140a9</c>) moves the squad panel's eight pictures for
-	/// this tab — <c>{0x10, 0x2f}</c>, <c>0xd0</c> wide and <c>0x100</c> tall — which is also the
-	/// literal rect <c>Repair_BuildScreen</c> builds the eight internals pictures at.
+	/// this tab, the exploded external ones: <c>{0x10, 0x2f}</c>, sized <c>0xd0</c> by <c>0x100</c>,
+	/// with the far corner inclusive.
 	/// </summary>
-	public static readonly ShellRect PictureRect = new(0x10, 0x2f, 0x10 + 0xd0, 0x2f + 0x100);
+	public static readonly ShellRect ExternalPictureRect = new(0x10, 0x2f, 0x10 + 0xd0 - 1, 0x2f + 0x100 - 1);
+
+	/// <summary>
+	/// The literal rect <c>Repair_BuildScreen</c> (<c>00432037</c>) builds the eight internals pictures
+	/// at, one pixel wider and taller than the external picture.
+	/// </summary>
+	public static readonly ShellRect InternalsPictureRect = new(0x10, 0x2f, 0xe0, 0x12f);
 
 	/// <summary>
 	/// The squad panel's empty picture (<c>DAT_0048d4dc</c>), shown when no bay is selected. It keeps the
@@ -111,8 +117,11 @@ public sealed class ShellRepairDiagrams {
 			return;
 		}
 
-		ShellGrid.Paint(surface, PictureRect, gridLines: true,
-			column == 0 ? ExternalParts(machine) : InternalParts(machine));
+		if (column == 0) {
+			ShellGrid.Paint(surface, ExternalPictureRect, gridLines: true, ExternalParts(machine));
+		} else {
+			ShellGrid.Paint(surface, InternalsPictureRect, gridLines: true, InternalParts(machine));
+		}
 	}
 
 	/// <summary>
@@ -129,8 +138,8 @@ public sealed class ShellRepairDiagrams {
 			return null;
 		}
 
-		float x = canvasX - PictureRect.X0;
-		float y = canvasY - PictureRect.Y0;
+		float x = canvasX - ExternalPictureRect.X0;
+		float y = canvasY - ExternalPictureRect.Y0;
 
 		for (int mount = 0; mount < machine.MountCapacity; mount++) {
 			// Repair_WeaponPartRect (00414418) — the part's own rect, one pixel past its frame on both axes as it is written.

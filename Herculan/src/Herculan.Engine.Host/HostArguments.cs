@@ -78,7 +78,7 @@ static class HostArguments {
 
 		Front end (each implies --shell)
 		  --shell-tab <0-7>  --shell-bay <0-7>  --shell-training
-		  --shell-palette <name>  --shell-tab-palette
+		  --shell-palette <name>
 
 		Sound and music
 		  --no-sound, --silent        no audio device

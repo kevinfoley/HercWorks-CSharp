@@ -342,6 +342,19 @@ public partial class PlayerSquadForm : Form {
 		BindLoadout();
 	}
 
+	/// <summary>
+	/// Opens the selected entry's three condition arrays — the same 66 bytes the save stores for that
+	/// machine, copied here verbatim at export.
+	/// </summary>
+	private void OnEditConditions(object? sender, EventArgs e) {
+		if (_squadGrid.CurrentRow?.DataBoundItem is not PlayerSquadRow row) {
+			return;
+		}
+
+		using var editor = new MachineConditionsForm(row.Source, $"Conditions — entry {row.Index}");
+		editor.ShowDialog(this);
+	}
+
 	private void OnRemoveEntry(object? sender, EventArgs e) {
 		if (_squadGrid.CurrentRow?.DataBoundItem is not PlayerSquadRow row) {
 			return;

@@ -51,6 +51,7 @@ partial class PlayerSquadForm {
 		_buttonPanel = new Panel();
 		_addEntryButton = new Button();
 		_removeEntryButton = new Button();
+		_conditionsButton = new Button();
 		_statusStrip = new StatusStrip();
 		_statusLabel = new ToolStripStatusLabel();
 		_menuStrip.SuspendLayout();
@@ -357,6 +358,7 @@ partial class PlayerSquadForm {
 		//
 		_buttonPanel.Controls.Add(_addEntryButton);
 		_buttonPanel.Controls.Add(_removeEntryButton);
+		_buttonPanel.Controls.Add(_conditionsButton);
 		_buttonPanel.Dock = DockStyle.Bottom;
 		_buttonPanel.Location = new Point(0, 576);
 		_buttonPanel.Name = "_buttonPanel";
@@ -383,6 +385,16 @@ partial class PlayerSquadForm {
 		_removeEntryButton.Text = "Remove Entry";
 		_removeEntryButton.UseVisualStyleBackColor = true;
 		_removeEntryButton.Click += OnRemoveEntry;
+		//
+		// _conditionsButton
+		//
+		_conditionsButton.Location = new Point(300, 10);
+		_conditionsButton.Name = "_conditionsButton";
+		_conditionsButton.Size = new Size(160, 28);
+		_conditionsButton.TabIndex = 2;
+		_conditionsButton.Text = "Edit Conditions...";
+		_conditionsButton.UseVisualStyleBackColor = true;
+		_conditionsButton.Click += OnEditConditions;
 		//
 		// _statusStrip
 		//
@@ -463,6 +475,7 @@ partial class PlayerSquadForm {
 	private Panel _buttonPanel;
 	private Button _addEntryButton;
 	private Button _removeEntryButton;
+	private Button _conditionsButton;
 	private StatusStrip _statusStrip;
 	private ToolStripStatusLabel _statusLabel;
 }

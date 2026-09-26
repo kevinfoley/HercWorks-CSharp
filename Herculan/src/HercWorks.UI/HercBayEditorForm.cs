@@ -42,12 +42,15 @@ public partial class HercBayEditorForm : Form {
 				continue;
 			}
 			var part = entry.HealthInternals?.GetValueOrDefault(internalPart) ?? new ShellHercPart(internalPart.Id, internalPart.Label);
-			_internalsRows.Add(new HercPartRow { Id = internalPart.Id, Label = internalPart.Label, Health = part.Health });
+			// In the save, index 9 is the machine's overall condition rather than a component
+			// (docs/formats/save-games.md); HercInternals' own label for it serves the sim's .DMG files.
+			string label = internalPart == HercInternals.Pilot ? "Overall condition" : internalPart.Label;
+			_internalsRows.Add(new HercPartRow { Id = internalPart.Id, Label = label, Health = part.Health });
 		}
 
 		for (short h = 0; h < entry.HealthHardpoints.Length; h++) {
 			var part = entry.HealthHardpoints[h];
-			_hardpointsRows.Add(new HercPartRow { Id = h, Label = $"hardpoint_{h}", Health = part?.Health ?? 0 });
+			_hardpointsRows.Add(new HercPartRow { Id = h, Label = $"Slot {h}", Health = part?.Health ?? 0 });
 		}
 
 		foreach (var kv in entry.Weapons) {

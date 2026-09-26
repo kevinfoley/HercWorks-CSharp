@@ -4,10 +4,10 @@ namespace HercWorks.Core.Data.Struct.Herc;
 public sealed class HercExternals {
 	public static readonly HercExternals CockpitFront = new(0, "Cockpit Front");
 	public static readonly HercExternals CockpitRear = new(1, "Cockpit Rear");
-	public static readonly HercExternals TorsoLeftFront = new(2, "Left Torso");
-	public static readonly HercExternals TorsoRightFront = new(3, "Right Torso");
-	public static readonly HercExternals TorsoLeftRear = new(4, "Left Torso");
-	public static readonly HercExternals TorsoRightRear = new(5, "Right Torso");
+	public static readonly HercExternals TorsoLeftFront = new(2, "Left Torso Front");
+	public static readonly HercExternals TorsoRightFront = new(3, "Right Torso Front");
+	public static readonly HercExternals TorsoLeftRear = new(4, "Left Torso Rear");
+	public static readonly HercExternals TorsoRightRear = new(5, "Right Torso Rear");
 	public static readonly HercExternals Chassis = new(6, "Chassis");
 	public static readonly HercExternals LegLeftTop = new(7, "Leg Left Thigh");
 	public static readonly HercExternals LegRightTop = new(8, "Leg Right Thigh");

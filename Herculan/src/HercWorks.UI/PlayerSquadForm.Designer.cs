@@ -335,21 +335,21 @@ partial class PlayerSquadForm {
 		// _unk00Column
 		//
 		_unk00Column.DataPropertyName = "PilotNameIndex";
-		_unk00Column.HeaderText = "Pilot";
+		_unk00Column.HeaderText = "Pilot name index";
 		_unk00Column.Name = "_unk00Column";
 		_unk00Column.Width = 70;
 		//
 		// _unk02Column
 		//
-		_unk02Column.DataPropertyName = "Unk02";
-		_unk02Column.HeaderText = "Unk 02";
+		_unk02Column.DataPropertyName = "PilotSkill";
+		_unk02Column.HeaderText = "Pilot skill (0-3)";
 		_unk02Column.Name = "_unk02Column";
 		_unk02Column.Width = 70;
 		//
 		// _unk3AColumn
 		//
 		_unk3AColumn.DataPropertyName = "Unk3A";
-		_unk3AColumn.HeaderText = "Unk 3A";
+		_unk3AColumn.HeaderText = "Unk 3A (shell writes 0)";
 		_unk3AColumn.Name = "_unk3AColumn";
 		_unk3AColumn.Width = 70;
 		//

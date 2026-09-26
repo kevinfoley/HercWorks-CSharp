@@ -7,11 +7,11 @@ namespace HercWorks.Core.Data.Struct.Herc;
 /// </summary>
 public sealed class HercLUT {
 	public static readonly HercLUT Outlaw = new(0, "Outlaw", 3, "OUTLAW");
-	public static readonly HercLUT RaptorII = new(1, "Raptor_II", 5, "RAPTOR2");
+	public static readonly HercLUT RaptorII = new(1, "Raptor II", 5, "RAPTOR2");
 	public static readonly HercLUT Tomahawk = new(2, "Tomahawk", 5, "TOMAHAWK");
 	public static readonly HercLUT Samson = new(3, "Samson", 8, "SAMSON");
 	public static readonly HercLUT Colossus = new(4, "Colossus", 9, "COLOSSUS");
-	public static readonly HercLUT Apocalypse = new(5, "Apocalypse", 10, "APOCA");
+	public static readonly HercLUT Apocalypse = new(5, "Apocalypse", 9, "APOCA");
 	public static readonly HercLUT Ogre = new(6, "Ogre", 10, "OGRE");
 	public static readonly HercLUT Maverick = new(7, "Maverick", 4, "MAVERICK");
 	public static readonly HercLUT Razor = new(8, "Razor", 7, "RAZOR");
@@ -41,6 +41,12 @@ public sealed class HercLUT {
 	// Mutable, matching the (unusual, but legal in Java) mutable enum fields in the original.
 	public string Name { get; set; }
 	public short Id { get; set; }
+	/// <summary>
+	/// Mount capacity. For the nine player chassis (ids 0-8) this is VSHELL's in-code table that
+	/// <c>Herc_CapacityForType</c> (<c>00410d54</c>) reads, which is what a save's <c>+0x4c</c> holds
+	/// — not <c>herc_inf.dat</c>'s display figure, which says 4 for the Raptor II. See
+	/// <c>docs/formats/herc-catalogs.md</c>.
+	/// </summary>
 	public short HardpointMax { get; set; }
 	public string AbbrevDat { get; set; }
 

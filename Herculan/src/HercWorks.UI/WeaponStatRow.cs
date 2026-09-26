@@ -9,7 +9,7 @@ public class WeaponStatRow {
 	public short Id { get; set; }
 	public string Name { get; set; } = string.Empty;
 
-	/// <summary>Raw stored value — per the file format doc, multiply by 100 to get Kg.</summary>
+	/// <summary>Price in tons; VSHELL multiplies it by 1000 at load to charge the pool, which is in kg.</summary>
 	public short SalvageCost { get; set; }
 
 	public byte StartUnlock { get; set; }

@@ -328,7 +328,7 @@ partial class CampaignResourcesForm {
 		// _hercUnlockUnlockedColumn
 		//
 		_hercUnlockUnlockedColumn.DataPropertyName = "Unlocked";
-		_hercUnlockUnlockedColumn.HeaderText = "Unlocked";
+		_hercUnlockUnlockedColumn.HeaderText = "Available";
 		_hercUnlockUnlockedColumn.Name = "_hercUnlockUnlockedColumn";
 		_hercUnlockUnlockedColumn.Width = 80;
 		//
@@ -373,7 +373,7 @@ partial class CampaignResourcesForm {
 		// _sqIdColumn
 		//
 		_sqIdColumn.DataPropertyName = "SquadmateId";
-		_sqIdColumn.HeaderText = "Id";
+		_sqIdColumn.HeaderText = "Roster Id";
 		_sqIdColumn.Name = "_sqIdColumn";
 		_sqIdColumn.ReadOnly = true;
 		_sqIdColumn.Width = 40;
@@ -395,7 +395,7 @@ partial class CampaignResourcesForm {
 		// _sqActiveColumn
 		//
 		_sqActiveColumn.DataPropertyName = "Active";
-		_sqActiveColumn.HeaderText = "Active Flag";
+		_sqActiveColumn.HeaderText = "On Strength";
 		_sqActiveColumn.Name = "_sqActiveColumn";
 		_sqActiveColumn.Width = 70;
 		//
@@ -416,35 +416,35 @@ partial class CampaignResourcesForm {
 		// _sqCrewRowColumn
 		//
 		_sqCrewRowColumn.DataPropertyName = "CrewRowNum";
-		_sqCrewRowColumn.HeaderText = "Crew Row";
+		_sqCrewRowColumn.HeaderText = "Squad Position";
 		_sqCrewRowColumn.Name = "_sqCrewRowColumn";
 		_sqCrewRowColumn.Width = 70;
 		//
 		// _sqHealthColumn
 		//
 		_sqHealthColumn.DataPropertyName = "ProbablyHealth";
-		_sqHealthColumn.HeaderText = "Health?";
+		_sqHealthColumn.HeaderText = "Condition";
 		_sqHealthColumn.Name = "_sqHealthColumn";
 		_sqHealthColumn.Width = 70;
 		//
 		// _sqKillsHercsColumn
 		//
 		_sqKillsHercsColumn.DataPropertyName = "KillsHercs";
-		_sqKillsHercsColumn.HeaderText = "Kills (Hercs)";
+		_sqKillsHercsColumn.HeaderText = "Last Mission Kills (Hercs)";
 		_sqKillsHercsColumn.Name = "_sqKillsHercsColumn";
 		_sqKillsHercsColumn.Width = 90;
 		//
 		// _sqKillsFlyersColumn
 		//
 		_sqKillsFlyersColumn.DataPropertyName = "KillsFlyers";
-		_sqKillsFlyersColumn.HeaderText = "Kills (Flyers)";
+		_sqKillsFlyersColumn.HeaderText = "Last Mission Kills (Flyers)";
 		_sqKillsFlyersColumn.Name = "_sqKillsFlyersColumn";
 		_sqKillsFlyersColumn.Width = 90;
 		//
 		// _sqKillsBuildingColumn
 		//
 		_sqKillsBuildingColumn.DataPropertyName = "KillsBuilding";
-		_sqKillsBuildingColumn.HeaderText = "Kills (Buildings)";
+		_sqKillsBuildingColumn.HeaderText = "Last Mission Kills (Bases)";
 		_sqKillsBuildingColumn.Name = "_sqKillsBuildingColumn";
 		_sqKillsBuildingColumn.Width = 100;
 		//
@@ -465,7 +465,7 @@ partial class CampaignResourcesForm {
 		// _sqTotalKillBldngColumn
 		//
 		_sqTotalKillBldngColumn.DataPropertyName = "TotalKillBldng";
-		_sqTotalKillBldngColumn.HeaderText = "Total Kills (Buildings)";
+		_sqTotalKillBldngColumn.HeaderText = "Total Kills (Bases)";
 		_sqTotalKillBldngColumn.Name = "_sqTotalKillBldngColumn";
 		_sqTotalKillBldngColumn.Width = 130;
 		//
@@ -521,7 +521,7 @@ partial class CampaignResourcesForm {
 		// _inventoryBuildableColumn
 		//
 		_inventoryBuildableColumn.DataPropertyName = "Buildable";
-		_inventoryBuildableColumn.HeaderText = "Buildable";
+		_inventoryBuildableColumn.HeaderText = "Unlocked";
 		_inventoryBuildableColumn.Name = "_inventoryBuildableColumn";
 		_inventoryBuildableColumn.Width = 80;
 		//
@@ -559,6 +559,7 @@ partial class CampaignResourcesForm {
 		_hercBayGrid.Size = new Size(966, 520);
 		_hercBayGrid.TabIndex = 0;
 		_hercBayGrid.CellClick += OnHercBayCellClick;
+		_hercBayGrid.CellValueChanged += OnHercBayCellValueChanged;
 		//
 		// _hercBayIdColumn
 		//
@@ -585,14 +586,14 @@ partial class CampaignResourcesForm {
 		// _hercBayBuildStepColumn
 		//
 		_hercBayBuildStepColumn.DataPropertyName = "BuildStepNum";
-		_hercBayBuildStepColumn.HeaderText = "Build Step";
+		_hercBayBuildStepColumn.HeaderText = "Missions to Build";
 		_hercBayBuildStepColumn.Name = "_hercBayBuildStepColumn";
 		_hercBayBuildStepColumn.Width = 80;
 		//
 		// _hercBayHardpointMaxColumn
 		//
 		_hercBayHardpointMaxColumn.DataPropertyName = "HardpointMax";
-		_hercBayHardpointMaxColumn.HeaderText = "Hardpoint Max";
+		_hercBayHardpointMaxColumn.HeaderText = "Mount Capacity";
 		_hercBayHardpointMaxColumn.Name = "_hercBayHardpointMaxColumn";
 		_hercBayHardpointMaxColumn.Width = 100;
 		//

@@ -35,7 +35,8 @@ internal sealed class PlayerSquadRow {
 	public string WeaponFit => WeaponFitOption.Summarize(Source.WeaponRefs, Source.WeaponAmmoTypes);
 
 	public short PilotNameIndex { get => Source.PilotNameIndex; set => Source.PilotNameIndex = value; }
-	public short Unk02 { get => Source.Unk02; set => Source.Unk02 = value; }
+	/// <summary>The pilot's skill tier, 0-3 — Core's <c>MecEntry.Unk02</c>.</summary>
+	public short PilotSkill { get => Source.Unk02; set => Source.Unk02 = value; }
 	public short Unk3A { get => Source.Unk3A; set => Source.Unk3A = value; }
 }
 

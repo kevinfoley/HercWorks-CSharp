@@ -16,8 +16,8 @@ namespace HercWorks.UI;
 /// <para><b>Records are edited in place, not added or removed.</b> Every block past the first two
 /// addresses the others by array index — a group's member list indexes the Herc roster, a roster
 /// slot's position indexes the point table — so inserting or deleting a record would silently
-/// repoint every ref after it. The one exception is the Unlocks block, which nothing references and
-/// which is therefore rebuilt wholesale from its grid.</para>
+/// repoint every ref after it. The one exception is the objective-line block, which nothing
+/// references and which is therefore rebuilt wholesale from its grid.</para>
 ///
 /// <para>The Hercs tab is master-detail rather than one wide grid: the roster on top, and below it
 /// the selected Herc's ten hardpoints one row each, with its weapon and (for launchers only) its
@@ -386,8 +386,9 @@ public partial class MissionScriptForm : Form {
 	}
 
 	/// <summary>
-	/// Writes the three decoded header fields back into the raw 20 bytes, leaving every other short
-	/// exactly as loaded (they are constant across the whole real corpus and undecoded).
+	/// Writes the three world-selection fields back into the raw 20 bytes, leaving every other short
+	/// exactly as loaded. The others are decoded (objective type, training mission number, the two
+	/// cheat flags and difficulty — see docs/formats/script-dat.md) but not yet editable here.
 	/// </summary>
 	private void ApplyHeader(ScriptDat script) {
 		WriteHeaderShort(script, 0, (short)_theaterInput.Value);

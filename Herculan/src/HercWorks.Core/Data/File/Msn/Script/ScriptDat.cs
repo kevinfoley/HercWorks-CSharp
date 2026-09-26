@@ -103,7 +103,9 @@ public class ScriptDat {
 
 	/// <summary>
 	/// Block 12 — row #17 (<see cref="UnitSpawn58"/>) export, 54 bytes/record, unfiltered (row #17
-	/// has no GUID to filter on). DBSIM reads and fully discards this block. <see cref="ScriptUnitSpawn58Export.PairRefs"/>/
+	/// has no GUID to filter on) — <b>the mission's objectives</b>. DBSIM's first pass discards this
+	/// block and its spawn pass comes back to build the objectives from it; see
+	/// <c>docs/formats/script-dat.md</c>. <see cref="ScriptUnitSpawn58Export.PairRefs"/>/
 	/// <see cref="ScriptUnitSpawn58Export.PairTags"/> are the source record's <c>Pairs[10]</c> array
 	/// re-exported as parallel arrays (all 10 refs, then all 10 tags) rather than interleaved pairs —
 	/// the writer's own on-disk order. <c>ConditionRef</c> (0x00) and <c>PairCount</c> (0x10) are not exported.
@@ -468,8 +470,8 @@ public class ScriptEntity164Export {
 /// PairCount (0x10) — both skipped, not exported; row #17 is written unfiltered (no GUID to
 /// filter on). <see cref="PairRefs"/>/<see cref="PairTags"/> are <see cref="UnitSpawn58.Pairs"/>'s
 /// 10 (ref, tag) entries re-exported as parallel arrays (all 10 refs, then all 10 tags) — the
-/// writer's own on-disk order, not an array of pair structs. DBSIM reads and fully discards every
-/// instance of this block.
+/// writer's own on-disk order, not an array of pair structs. Each record is one mission objective:
+/// DBSIM's first pass discards the block and its spawn pass builds the objectives from it.
 /// </summary>
 public class ScriptUnitSpawn58Export {
 	public short Unk02 { get; set; }

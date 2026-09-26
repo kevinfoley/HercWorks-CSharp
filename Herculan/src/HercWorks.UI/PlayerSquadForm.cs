@@ -312,8 +312,9 @@ public partial class PlayerSquadForm : Form {
 
 	/// <summary>
 	/// Adds a wingman by cloning the selected entry (or the first one). The three trailing spans are
-	/// copied wholesale into DBSIM's mech record and nothing is known about their contents, so an
-	/// entry built from scratch would be guesswork — cloning a real one keeps them valid.
+	/// the machine's condition arrays (externals, internals with the overall figure, per-hardpoint),
+	/// which this form does not edit — cloning a real entry carries a real set rather than an
+	/// invented one.
 	/// </summary>
 	private void OnAddEntry(object? sender, EventArgs e) {
 		if (_loaded == null || _rows.Count == 0) {
@@ -426,12 +427,7 @@ public partial class PlayerSquadForm : Form {
 
 			File.WriteAllBytes(dialog.FileName, outBytes);
 
-			// Same preallocated-buffer situation as script.dat: the retail file carries stale bytes
-			// past its last declared entry, which DBSIM never reads.
-			MessageBox.Show(this,
-				$"Saved in {formatNote}.\n\n" +
-				$"Written as {outBytes.Length:N0} bytes — the game's own file carries stale trailing data " +
-				"past its last entry, which DBSIM stops short of and ignores.",
+			MessageBox.Show(this, $"Saved in {formatNote}.",
 				"Done", MessageBoxButtons.OK, MessageBoxIcon.Information);
 		} catch (Exception ex) {
 			MessageBox.Show(this, $"Failed to save file:\n{ex.Message}", "Error",

@@ -78,7 +78,10 @@ internal sealed class ScriptRouteRow : ScriptRow {
 	}
 }
 
-/// <summary>Block 4.</summary>
+/// <summary>
+/// Block 4 — a trigger area. Type 0 is a box between two block-1 points; any other type is a
+/// circle round <see cref="RefA"/> whose radius is <see cref="RefBOrLiteral"/> × 10.
+/// </summary>
 internal sealed class ScriptLinkRewardRow : ScriptRow {
 	public required ScriptLinkOrReward Source { get; init; }
 
@@ -88,9 +91,10 @@ internal sealed class ScriptLinkRewardRow : ScriptRow {
 }
 
 /// <summary>
-/// Block 5. ArrayA/ArrayB are the record's undecoded interleaved constant span — shown so an edit
-/// elsewhere can be sanity-checked against them, but read-only, since nothing is known about what a
-/// changed value would mean.
+/// Block 5 — a mission action. <see cref="SecondaryValue"/> is the message it posts plus one (0 for
+/// none), <see cref="RefsRow9"/> its block-4 trigger areas, and the two counter arrays the mission
+/// counters it writes when it activates; DBSIM reads <see cref="LutRefs"/> and throws it away. See
+/// docs/formats/script-dat.md and docs/simulation/mission-deployment.md.
 /// </summary>
 internal sealed class ScriptActionRow : ScriptRow {
 	public required ScriptAction Source { get; init; }
@@ -110,11 +114,23 @@ internal sealed class ScriptActionRow : ScriptRow {
 		set => ShortCsv.ParseInto(value, Source.LutRefs);
 	}
 
-	public string ArrayA => ShortCsv.Format(Source.ArrayA);
-	public string ArrayB => ShortCsv.Format(Source.ArrayB);
+	/// <summary>Ten mission-counter refs — Core's <c>ArrayA</c>.</summary>
+	public string CounterRefs {
+		get => ShortCsv.Format(Source.ArrayA);
+		set => ShortCsv.ParseInto(value, Source.ArrayA);
+	}
+
+	/// <summary>The operation for each counter ref: 6 increments it, 5 clears it — Core's <c>ArrayB</c>.</summary>
+	public string CounterOps {
+		get => ShortCsv.Format(Source.ArrayB);
+		set => ShortCsv.ParseInto(value, Source.ArrayB);
+	}
 }
 
-/// <summary>Block 6.</summary>
+/// <summary>
+/// Block 6 — a mission timer: the action that arms it (-1 runs it from mission start), a delay in
+/// seconds, and the ten actions fired when it expires.
+/// </summary>
 internal sealed class ScriptActionTimerRow : ScriptRow {
 	public required ScriptActionTimer Source { get; init; }
 
@@ -198,8 +214,11 @@ internal sealed class ScriptBaseRow : ScriptRow {
 }
 
 /// <summary>
-/// Block 10 — route links. DBSIM's spawn pass resolves these to give a group with no point of its
-/// own a spawn position (the first waypoint of the referenced route).
+/// Block 10 — a group order, one of the ten a block-11 group works through in slot order.
+/// <see cref="SmallInt1"/> is the verb (search/destroy, ram, guard, patrol, sleep, travel, follow),
+/// the discriminated pair the order's subject, and <see cref="ActionRef"/> an action that moves the
+/// group on to its next order. A group's route and its fallback spawn point come from its slot-0
+/// order's <see cref="RouteRef"/>. See docs/simulation/ai-goals.md.
 /// </summary>
 internal sealed class ScriptRouteLinkRow : ScriptRow {
 	public required ScriptLinkedRef22Export Source { get; init; }
@@ -218,7 +237,8 @@ internal sealed class ScriptRouteLinkRow : ScriptRow {
 /// roster block MemberRefs indexes (0 mechs / 1 flyers / 2 bases), and every record past record 0
 /// activates the slots it names. Record 0 is the player squad's placeholder — it activates nothing
 /// and DBSIM fills its members from data\player.mec — so it is shown but its member list is
-/// meaningless.
+/// meaningless. <see cref="TriStateFlag"/> is the side (0 human, 1 Cybrid); a set
+/// <see cref="ActionRef"/> keeps the group out of the mission until that action fires.
 /// </summary>
 internal sealed class ScriptGroupRow : ScriptRow {
 	public required ScriptEntity164Export Source { get; init; }
@@ -250,33 +270,46 @@ internal sealed class ScriptGroupRow : ScriptRow {
 	}
 }
 
-/// <summary>Block 12 — read and discarded by DBSIM; kept editable for round-trip completeness.</summary>
+/// <summary>
+/// Block 12 — a mission objective. DBSIM's first pass discards it and the spawn pass comes back to
+/// build the objectives from it; see docs/simulation/mission-objectives.md.
+/// </summary>
 internal sealed class ScriptEntityLinkRow : ScriptRow {
 	public required ScriptUnitSpawn58Export Source { get; init; }
 
-	public short Unk02 { get => Source.Unk02; set => Source.Unk02 = value; }
-	public short Unk04 { get => Source.Unk04; set => Source.Unk04 = value; }
+	/// <summary>1 = must be satisfied; anything else makes it a failure condition. Core's <c>Unk02</c>.</summary>
+	public short Required { get => Source.Unk02; set => Source.Unk02 = value; }
+
+	/// <summary>Core's <c>Unk04</c>.</summary>
+	public short ConditionCode { get => Source.Unk04; set => Source.Unk04 = value; }
 	public short Discriminator { get => Source.Discriminator; set => Source.Discriminator = value; }
 	public short DiscriminatedRef { get => Source.DiscriminatedRef; set => Source.DiscriminatedRef = value; }
 	public short PointRef { get => Source.RefRow6; set => Source.RefRow6 = value; }
 	public short RouteRef { get => Source.RefRow8; set => Source.RefRow8 = value; }
-	public short LutRef { get => Source.LutRef; set => Source.LutRef = value; }
 
-	public string PairRefs {
+	/// <summary>
+	/// The first of three consecutive <c>data\mission.str</c> lines shown when the objective fails.
+	/// Core's <c>LutRef</c>.
+	/// </summary>
+	public short FailureTextLine { get => Source.LutRef; set => Source.LutRef = value; }
+
+	/// <summary>Mission-counter refs — Core's <c>PairRefs</c>.</summary>
+	public string CounterRefs {
 		get => ShortCsv.Format(Source.PairRefs);
 		set => ShortCsv.ParseInto(value, Source.PairRefs);
 	}
 
-	public string PairTags {
+	/// <summary>The operation for each counter ref — Core's <c>PairTags</c>.</summary>
+	public string CounterOps {
 		get => ShortCsv.Format(Source.PairTags);
 		set => ShortCsv.ParseInto(value, Source.PairTags);
 	}
 }
 
 /// <summary>
-/// Block 13 — one entry of the mission's herc/weapon unlock package. This block is a plain
-/// count-prefixed list with nothing referencing it, so rows here can be added and removed freely;
-/// the whole array is rebuilt from the grid on save.
+/// Block 13 — one line of the objective list the player is shown, as a <c>data\mission.str</c> line
+/// index. This block is a plain count-prefixed list with nothing referencing it, so rows here can be
+/// added and removed freely; the whole array is rebuilt from the grid on save.
 /// </summary>
 internal sealed class ScriptUnlockRow {
 	public short Value { get; set; }

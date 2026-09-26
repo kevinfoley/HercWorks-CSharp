@@ -8,10 +8,9 @@ using HercWorks.Vol;
 namespace HercWorks.UI;
 
 /// <summary>
-/// Editor for SHELL/GAM/WEAPONS.DAT's weapon catalog (id, name, salvage cost, start-unlock flag,
-/// armory autobuild priority) — one row per weapon. The file's separate campaign-start loadout
-/// section (StartingWeapons) isn't shown here; that belongs more to a future Campaign Resources
-/// editor than to per-weapon stats, but its bytes are carried through unchanged on save so
+/// Editor for SHELL/GAM/WEAPONS.DAT's weapon catalog (id, catalog code, price, unlock flag, rank)
+/// — one row per weapon. The file's trailing section, the armory's starting stock
+/// (StartingWeapons), isn't shown here, but its bytes are carried through unchanged on save so
 /// nothing is lost. Follows the same pattern as HercStatsForm: opens whichever copy GamePaths' GAM
 /// search order finds and saves to a loose .DAT override, uses the shared VolEntryPrefixCodec via
 /// GameFile so exports stay retail-compatible, and keeps layout in
@@ -23,7 +22,7 @@ public partial class WeaponStatsForm : Form {
 
 	private GameFile? _loadedFile;
 
-	// Campaign-start loadout section, carried through unchanged — not edited by this form.
+	// The armory's starting stock, carried through unchanged — not edited by this form.
 	private short _loadedStartWeaponTotal;
 	private UiWeaponEntry[]? _loadedStartingWeapons;
 
@@ -51,6 +50,12 @@ public partial class WeaponStatsForm : Form {
 	/// HercStatsForm's: a loose override wins, otherwise this comes out of SHELL0.VOL.
 	/// </summary>
 	private const string DefaultFileName = "WEAPONS.DAT";
+
+	/// <summary>
+	/// The longest catalog code the game can hold: VSHELL reads it, NUL included, into the 16-byte
+	/// head of its in-memory record. See <c>docs/formats/weapons-dat.md</c>.
+	/// </summary>
+	private const int MaxCodeLength = 15;
 
 	protected override void OnLoad(EventArgs e) {
 		base.OnLoad(e);
@@ -127,6 +132,19 @@ public partial class WeaponStatsForm : Form {
 		if (_rows.Count == 0) {
 			MessageBox.Show(this, "Open a WEAPONS.DAT file first.", "Nothing to save",
 				MessageBoxButtons.OK, MessageBoxIcon.Information);
+			return;
+		}
+
+		var tooLong = _rows
+			.Where(row => row.Name.Length > MaxCodeLength)
+			.Select(row => $"Weapon {row.Id}: \"{row.Name}\" ({row.Name.Length} characters)")
+			.ToList();
+
+		if (tooLong.Count > 0) {
+			MessageBox.Show(this,
+				$"A catalog code is at most {MaxCodeLength} characters — VSHELL reads it, NUL included, into a " +
+				"16-byte buffer, so a longer one overruns the record.\n\n" + string.Join("\n", tooLong),
+				"Cannot save", MessageBoxButtons.OK, MessageBoxIcon.Error);
 			return;
 		}
 

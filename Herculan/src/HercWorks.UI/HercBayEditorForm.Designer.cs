@@ -116,7 +116,7 @@ partial class HercBayEditorForm {
 		// _externalsHealthColumn
 		//
 		_externalsHealthColumn.DataPropertyName = "Health";
-		_externalsHealthColumn.HeaderText = "Health";
+		_externalsHealthColumn.HeaderText = "Condition";
 		_externalsHealthColumn.Name = "_externalsHealthColumn";
 		_externalsHealthColumn.Width = 80;
 		//
@@ -165,7 +165,7 @@ partial class HercBayEditorForm {
 		// _internalsHealthColumn
 		//
 		_internalsHealthColumn.DataPropertyName = "Health";
-		_internalsHealthColumn.HeaderText = "Health";
+		_internalsHealthColumn.HeaderText = "Condition";
 		_internalsHealthColumn.Name = "_internalsHealthColumn";
 		_internalsHealthColumn.Width = 80;
 		//
@@ -214,7 +214,7 @@ partial class HercBayEditorForm {
 		// _hardpointsHealthColumn
 		//
 		_hardpointsHealthColumn.DataPropertyName = "Health";
-		_hardpointsHealthColumn.HeaderText = "Health";
+		_hardpointsHealthColumn.HeaderText = "Condition";
 		_hardpointsHealthColumn.Name = "_hardpointsHealthColumn";
 		_hardpointsHealthColumn.Width = 80;
 		//
@@ -261,27 +261,27 @@ partial class HercBayEditorForm {
 		// _weaponNameIdColumn
 		//
 		_weaponNameIdColumn.DataPropertyName = "NameId";
-		_weaponNameIdColumn.HeaderText = "Name Id";
+		_weaponNameIdColumn.HeaderText = "Class Index";
 		_weaponNameIdColumn.Name = "_weaponNameIdColumn";
 		_weaponNameIdColumn.Width = 70;
 		//
 		// _weaponArmorColumn
 		//
 		_weaponArmorColumn.DataPropertyName = "HealthArmor";
-		_weaponArmorColumn.HeaderText = "Armor";
+		_weaponArmorColumn.HeaderText = "+0x04 (always 100)";
 		_weaponArmorColumn.Name = "_weaponArmorColumn";
 		_weaponArmorColumn.Width = 70;
 		//
 		// _weaponInternalColumn
 		//
 		_weaponInternalColumn.DataPropertyName = "HealthInternal";
-		_weaponInternalColumn.HeaderText = "Internal";
+		_weaponInternalColumn.HeaderText = "Condition";
 		_weaponInternalColumn.Name = "_weaponInternalColumn";
 		_weaponInternalColumn.Width = 70;
 		//
 		// _weaponMissileColumn
 		//
-		_weaponMissileColumn.HeaderText = "Missile Type";
+		_weaponMissileColumn.HeaderText = "Ammo Type";
 		_weaponMissileColumn.Name = "_weaponMissileColumn";
 		_weaponMissileColumn.Width = 140;
 		//

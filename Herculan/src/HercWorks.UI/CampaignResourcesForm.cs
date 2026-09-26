@@ -159,10 +159,48 @@ public partial class CampaignResourcesForm : Form {
 		}
 	}
 
+	/// <summary>
+	/// A new chassis brings its own mount capacity, which the save stores beside the type and the
+	/// shell writer loops to — so it follows the type rather than keeping the old chassis's. It stays
+	/// editable afterwards.
+	/// </summary>
+	private void OnHercBayCellValueChanged(object? sender, DataGridViewCellEventArgs e) {
+		if (e.RowIndex < 0 || e.ColumnIndex != _hercBayHercColumn.Index) {
+			return;
+		}
+
+		var row = _hercBayRows[e.RowIndex];
+		if (row.Herc != null) {
+			row.HardpointMax = row.Herc.HardpointMax;
+			_hercBayGrid.InvalidateRow(e.RowIndex);
+		}
+	}
+
+	/// <summary>
+	/// Mounts at or past a bay's capacity: the shell's own save writer loops only to the capacity, so
+	/// the game drops them the next time it saves.
+	/// </summary>
+	private List<string> MountsPastCapacity() =>
+		_hercBayRows
+			.SelectMany(row => row.Entry.Weapons.Keys
+				.Where(socket => socket >= row.HardpointMax)
+				.Select(socket => $"Bay {row.BayId}: weapon in socket {socket}, capacity {row.HardpointMax}."))
+			.ToList();
+
 	private void OnSaveAs(object? sender, EventArgs e) {
 		if (_loadedSave == null) {
 			MessageBox.Show(this, "Open a save file first.", "Nothing to save",
 				MessageBoxButtons.OK, MessageBoxIcon.Information);
+			return;
+		}
+
+		_hercBayGrid.EndEdit();
+
+		var pastCapacity = MountsPastCapacity();
+		if (pastCapacity.Count > 0 && MessageBox.Show(this,
+				"These weapons sit in sockets the machine does not have. The game will drop them the next " +
+				"time it saves:\n\n" + string.Join("\n", pastCapacity) + "\n\nSave anyway?",
+				"Mount capacity", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) {
 			return;
 		}
 
@@ -222,6 +260,12 @@ public partial class CampaignResourcesForm : Form {
 
 			foreach (var row in _hercBayRows) {
 				row.Entry.Id = row.Herc;
+				// The record stores the type twice (+0x00, and +0x02 through VSHELL's identity map
+				// over 0-8), and the shell takes the name and the stats from +0x02 — so a changed
+				// chassis has to land in both.
+				if (row.Herc != null) {
+					row.Entry.NameId = row.Herc.Id;
+				}
 				row.Entry.BuildPercent = row.BuildPercent;
 				row.Entry.BuildStepNum = row.BuildStepNum;
 				row.Entry.HardpointMax = row.HardpointMax;

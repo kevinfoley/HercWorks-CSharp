@@ -130,35 +130,35 @@ partial class HercStatsForm {
 		// _hardpointTotalColumn
 		//
 		_hardpointTotalColumn.DataPropertyName = "HardpointTotal";
-		_hardpointTotalColumn.HeaderText = "Hardpoints";
+		_hardpointTotalColumn.HeaderText = "Hardpoints (display only)";
 		_hardpointTotalColumn.Name = "_hardpointTotalColumn";
 		_hardpointTotalColumn.Width = 90;
 		//
 		// _salvageReqColumn
 		//
 		_salvageReqColumn.DataPropertyName = "SalvageReq";
-		_salvageReqColumn.HeaderText = "Salvage Req (tons)";
+		_salvageReqColumn.HeaderText = "Price (tons)";
 		_salvageReqColumn.Name = "_salvageReqColumn";
 		_salvageReqColumn.Width = 130;
 		//
 		// _unknownFlagColumn
 		//
 		_unknownFlagColumn.DataPropertyName = "UnknownFlag";
-		_unknownFlagColumn.HeaderText = "Unknown Flag";
+		_unknownFlagColumn.HeaderText = "+0x0A (no reader known)";
 		_unknownFlagColumn.Name = "_unknownFlagColumn";
 		_unknownFlagColumn.Width = 100;
 		//
 		// _buildMissionCountColumn
 		//
 		_buildMissionCountColumn.DataPropertyName = "BuildMissionCount";
-		_buildMissionCountColumn.HeaderText = "Build Mission Count";
+		_buildMissionCountColumn.HeaderText = "Build Time (missions)";
 		_buildMissionCountColumn.Name = "_buildMissionCountColumn";
 		_buildMissionCountColumn.Width = 140;
 		//
 		// _flagCampaignStartColumn
 		//
 		_flagCampaignStartColumn.DataPropertyName = "FlagCampaignStart";
-		_flagCampaignStartColumn.HeaderText = "Campaign Start Unlocked";
+		_flagCampaignStartColumn.HeaderText = "Available";
 		_flagCampaignStartColumn.Name = "_flagCampaignStartColumn";
 		_flagCampaignStartColumn.Width = 160;
 		//

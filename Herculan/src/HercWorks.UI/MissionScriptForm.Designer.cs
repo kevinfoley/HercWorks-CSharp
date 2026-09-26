@@ -551,7 +551,7 @@ partial class MissionScriptForm {
 		_linksTab.Padding = new Padding(3);
 		_linksTab.Size = new Size(1052, 556);
 		_linksTab.TabIndex = 4;
-		_linksTab.Text = "Links / Rewards";
+		_linksTab.Text = "Trigger Areas";
 		_linksTab.UseVisualStyleBackColor = true;
 		//
 		// _linksGrid
@@ -581,21 +581,21 @@ partial class MissionScriptForm {
 		// _lrTypeColumn
 		//
 		_lrTypeColumn.DataPropertyName = "TypeFlag";
-		_lrTypeColumn.HeaderText = "Type";
+		_lrTypeColumn.HeaderText = "Type (0 box / else radius)";
 		_lrTypeColumn.Name = "_lrTypeColumn";
 		_lrTypeColumn.Width = 80;
 		//
 		// _lrRefAColumn
 		//
 		_lrRefAColumn.DataPropertyName = "RefA";
-		_lrRefAColumn.HeaderText = "Ref A";
+		_lrRefAColumn.HeaderText = "Point ref";
 		_lrRefAColumn.Name = "_lrRefAColumn";
 		_lrRefAColumn.Width = 100;
 		//
 		// _lrRefBColumn
 		//
 		_lrRefBColumn.DataPropertyName = "RefBOrLiteral";
-		_lrRefBColumn.HeaderText = "Ref B / literal";
+		_lrRefBColumn.HeaderText = "Box corner point ref / radius ÷ 10";
 		_lrRefBColumn.Name = "_lrRefBColumn";
 		_lrRefBColumn.Width = 120;
 		//
@@ -638,59 +638,57 @@ partial class MissionScriptForm {
 		// _acTypeColumn
 		//
 		_acTypeColumn.DataPropertyName = "Type";
-		_acTypeColumn.HeaderText = "Type";
+		_acTypeColumn.HeaderText = "Type (whose position)";
 		_acTypeColumn.Name = "_acTypeColumn";
 		_acTypeColumn.Width = 60;
 		//
 		// _acVerbColumn
 		//
 		_acVerbColumn.DataPropertyName = "Verb";
-		_acVerbColumn.HeaderText = "Verb";
+		_acVerbColumn.HeaderText = "Verb (how a group arrives)";
 		_acVerbColumn.Name = "_acVerbColumn";
 		_acVerbColumn.Width = 60;
 		//
 		// _acSecondaryColumn
 		//
 		_acSecondaryColumn.DataPropertyName = "SecondaryValue";
-		_acSecondaryColumn.HeaderText = "Secondary";
+		_acSecondaryColumn.HeaderText = "Message + 1 (0 = none)";
 		_acSecondaryColumn.Name = "_acSecondaryColumn";
 		_acSecondaryColumn.Width = 80;
 		//
 		// _acTargetColumn
 		//
 		_acTargetColumn.DataPropertyName = "Target";
-		_acTargetColumn.HeaderText = "Target";
+		_acTargetColumn.HeaderText = "Target ref";
 		_acTargetColumn.Name = "_acTargetColumn";
 		_acTargetColumn.Width = 70;
 		//
 		// _acRefsColumn
 		//
 		_acRefsColumn.DataPropertyName = "RefsRow9";
-		_acRefsColumn.HeaderText = "Link refs (8)";
+		_acRefsColumn.HeaderText = "Trigger area refs (8)";
 		_acRefsColumn.Name = "_acRefsColumn";
 		_acRefsColumn.Width = 220;
 		//
 		// _acLutRefsColumn
 		//
 		_acLutRefsColumn.DataPropertyName = "LutRefs";
-		_acLutRefsColumn.HeaderText = "Herc LUT refs (5)";
+		_acLutRefsColumn.HeaderText = "Herc LUT refs (5, unread by DBSIM)";
 		_acLutRefsColumn.Name = "_acLutRefsColumn";
 		_acLutRefsColumn.Width = 160;
 		//
 		// _acArrayAColumn
 		//
-		_acArrayAColumn.DataPropertyName = "ArrayA";
-		_acArrayAColumn.HeaderText = "Constant span A";
+		_acArrayAColumn.DataPropertyName = "CounterRefs";
+		_acArrayAColumn.HeaderText = "Mission counter refs (10)";
 		_acArrayAColumn.Name = "_acArrayAColumn";
-		_acArrayAColumn.ReadOnly = true;
 		_acArrayAColumn.Width = 200;
 		//
 		// _acArrayBColumn
 		//
-		_acArrayBColumn.DataPropertyName = "ArrayB";
-		_acArrayBColumn.HeaderText = "Constant span B";
+		_acArrayBColumn.DataPropertyName = "CounterOps";
+		_acArrayBColumn.HeaderText = "Counter operations (10: 6 increment, 5 clear)";
 		_acArrayBColumn.Name = "_acArrayBColumn";
-		_acArrayBColumn.ReadOnly = true;
 		_acArrayBColumn.Width = 200;
 		//
 		// _actionTimersTab
@@ -731,21 +729,21 @@ partial class MissionScriptForm {
 		// _apPrimaryColumn
 		//
 		_apPrimaryColumn.DataPropertyName = "PrimaryActionRef";
-		_apPrimaryColumn.HeaderText = "Action ref";
+		_apPrimaryColumn.HeaderText = "Arming action ref (-1 = mission start)";
 		_apPrimaryColumn.Name = "_apPrimaryColumn";
 		_apPrimaryColumn.Width = 90;
 		//
 		// _apTimerColumn
 		//
 		_apTimerColumn.DataPropertyName = "TimerValue";
-		_apTimerColumn.HeaderText = "Type / timer";
+		_apTimerColumn.HeaderText = "Delay (seconds)";
 		_apTimerColumn.Name = "_apTimerColumn";
 		_apTimerColumn.Width = 100;
 		//
 		// _apSequenceColumn
 		//
 		_apSequenceColumn.DataPropertyName = "SequenceRefs";
-		_apSequenceColumn.HeaderText = "Sequence action refs (10)";
+		_apSequenceColumn.HeaderText = "Actions fired on expiry (10)";
 		_apSequenceColumn.Name = "_apSequenceColumn";
 		_apSequenceColumn.Width = 500;
 		//
@@ -1031,7 +1029,7 @@ partial class MissionScriptForm {
 		_routeLinksTab.Padding = new Padding(3);
 		_routeLinksTab.Size = new Size(1052, 556);
 		_routeLinksTab.TabIndex = 10;
-		_routeLinksTab.Text = "Route Links";
+		_routeLinksTab.Text = "Orders";
 		_routeLinksTab.UseVisualStyleBackColor = true;
 		//
 		// _routeLinksGrid
@@ -1062,21 +1060,21 @@ partial class MissionScriptForm {
 		// _rlSmall1Column
 		//
 		_rlSmall1Column.DataPropertyName = "SmallInt1";
-		_rlSmall1Column.HeaderText = "Small 1";
+		_rlSmall1Column.HeaderText = "Verb (0-6)";
 		_rlSmall1Column.Name = "_rlSmall1Column";
 		_rlSmall1Column.Width = 80;
 		//
 		// _rlSmall2Column
 		//
 		_rlSmall2Column.DataPropertyName = "SmallInt2";
-		_rlSmall2Column.HeaderText = "Small 2";
+		_rlSmall2Column.HeaderText = "Small int (unread)";
 		_rlSmall2Column.Name = "_rlSmall2Column";
 		_rlSmall2Column.Width = 80;
 		//
 		// _rlPointColumn
 		//
 		_rlPointColumn.DataPropertyName = "PointRef";
-		_rlPointColumn.HeaderText = "Point ref";
+		_rlPointColumn.HeaderText = "Point ref (unread)";
 		_rlPointColumn.Name = "_rlPointColumn";
 		_rlPointColumn.Width = 90;
 		//
@@ -1090,21 +1088,21 @@ partial class MissionScriptForm {
 		// _rlDiscriminatorColumn
 		//
 		_rlDiscriminatorColumn.DataPropertyName = "DiscriminatorType";
-		_rlDiscriminatorColumn.HeaderText = "Entity kind";
+		_rlDiscriminatorColumn.HeaderText = "Subject kind (-1 none / 0 group / 1 herc / 2 flyer / 3 base)";
 		_rlDiscriminatorColumn.Name = "_rlDiscriminatorColumn";
 		_rlDiscriminatorColumn.Width = 90;
 		//
 		// _rlDiscriminatedRefColumn
 		//
 		_rlDiscriminatedRefColumn.DataPropertyName = "DiscriminatedRef";
-		_rlDiscriminatedRefColumn.HeaderText = "Entity ref";
+		_rlDiscriminatedRefColumn.HeaderText = "Subject ref";
 		_rlDiscriminatedRefColumn.Name = "_rlDiscriminatedRefColumn";
 		_rlDiscriminatedRefColumn.Width = 90;
 		//
 		// _rlActionColumn
 		//
 		_rlActionColumn.DataPropertyName = "ActionRef";
-		_rlActionColumn.HeaderText = "Action ref";
+		_rlActionColumn.HeaderText = "Next-order action ref";
 		_rlActionColumn.Name = "_rlActionColumn";
 		_rlActionColumn.Width = 90;
 		//
@@ -1190,7 +1188,7 @@ partial class MissionScriptForm {
 		// _grpRouteLinksColumn
 		//
 		_grpRouteLinksColumn.DataPropertyName = "RouteLinkRefs";
-		_grpRouteLinksColumn.HeaderText = "Route link refs (10)";
+		_grpRouteLinksColumn.HeaderText = "Order refs (10, in order)";
 		_grpRouteLinksColumn.Name = "_grpRouteLinksColumn";
 		_grpRouteLinksColumn.Width = 260;
 		//
@@ -1204,14 +1202,14 @@ partial class MissionScriptForm {
 		// _grpTriStateColumn
 		//
 		_grpTriStateColumn.DataPropertyName = "TriStateFlag";
-		_grpTriStateColumn.HeaderText = "Tri-state";
+		_grpTriStateColumn.HeaderText = "Side (0 human / 1 Cybrid)";
 		_grpTriStateColumn.Name = "_grpTriStateColumn";
 		_grpTriStateColumn.Width = 80;
 		//
 		// _grpActionColumn
 		//
 		_grpActionColumn.DataPropertyName = "ActionRef";
-		_grpActionColumn.HeaderText = "Action ref";
+		_grpActionColumn.HeaderText = "Deployment action ref (-1 = present at start)";
 		_grpActionColumn.Name = "_grpActionColumn";
 		_grpActionColumn.Width = 90;
 		//
@@ -1223,7 +1221,7 @@ partial class MissionScriptForm {
 		_entityLinksTab.Padding = new Padding(3);
 		_entityLinksTab.Size = new Size(1052, 556);
 		_entityLinksTab.TabIndex = 12;
-		_entityLinksTab.Text = "Entity Links";
+		_entityLinksTab.Text = "Objectives";
 		_entityLinksTab.UseVisualStyleBackColor = true;
 		//
 		// _entityLinksGrid
@@ -1254,36 +1252,36 @@ partial class MissionScriptForm {
 		//
 		// _elUnk02Column
 		//
-		_elUnk02Column.DataPropertyName = "Unk02";
-		_elUnk02Column.HeaderText = "Unk 02";
+		_elUnk02Column.DataPropertyName = "Required";
+		_elUnk02Column.HeaderText = "Required (1 = must be met)";
 		_elUnk02Column.Name = "_elUnk02Column";
 		_elUnk02Column.Width = 80;
 		//
 		// _elUnk04Column
 		//
-		_elUnk04Column.DataPropertyName = "Unk04";
-		_elUnk04Column.HeaderText = "Unk 04";
+		_elUnk04Column.DataPropertyName = "ConditionCode";
+		_elUnk04Column.HeaderText = "Condition code";
 		_elUnk04Column.Name = "_elUnk04Column";
 		_elUnk04Column.Width = 80;
 		//
 		// _elDiscriminatorColumn
 		//
 		_elDiscriminatorColumn.DataPropertyName = "Discriminator";
-		_elDiscriminatorColumn.HeaderText = "Entity kind";
+		_elDiscriminatorColumn.HeaderText = "Subject kind (0 group / 1 herc / 2 flyer / 3 base)";
 		_elDiscriminatorColumn.Name = "_elDiscriminatorColumn";
 		_elDiscriminatorColumn.Width = 90;
 		//
 		// _elDiscriminatedRefColumn
 		//
 		_elDiscriminatedRefColumn.DataPropertyName = "DiscriminatedRef";
-		_elDiscriminatedRefColumn.HeaderText = "Entity ref";
+		_elDiscriminatedRefColumn.HeaderText = "Subject ref";
 		_elDiscriminatedRefColumn.Name = "_elDiscriminatedRefColumn";
 		_elDiscriminatedRefColumn.Width = 90;
 		//
 		// _elPointColumn
 		//
 		_elPointColumn.DataPropertyName = "PointRef";
-		_elPointColumn.HeaderText = "Point ref";
+		_elPointColumn.HeaderText = "Point ref (unread)";
 		_elPointColumn.Name = "_elPointColumn";
 		_elPointColumn.Width = 90;
 		//
@@ -1296,22 +1294,22 @@ partial class MissionScriptForm {
 		//
 		// _elLutRefColumn
 		//
-		_elLutRefColumn.DataPropertyName = "LutRef";
-		_elLutRefColumn.HeaderText = "LUT ref";
+		_elLutRefColumn.DataPropertyName = "FailureTextLine";
+		_elLutRefColumn.HeaderText = "Failure text line (mission.str)";
 		_elLutRefColumn.Name = "_elLutRefColumn";
 		_elLutRefColumn.Width = 90;
 		//
 		// _elPairRefsColumn
 		//
-		_elPairRefsColumn.DataPropertyName = "PairRefs";
-		_elPairRefsColumn.HeaderText = "Pair refs (10)";
+		_elPairRefsColumn.DataPropertyName = "CounterRefs";
+		_elPairRefsColumn.HeaderText = "Mission counter refs (10)";
 		_elPairRefsColumn.Name = "_elPairRefsColumn";
 		_elPairRefsColumn.Width = 240;
 		//
 		// _elPairTagsColumn
 		//
-		_elPairTagsColumn.DataPropertyName = "PairTags";
-		_elPairTagsColumn.HeaderText = "Pair tags (10)";
+		_elPairTagsColumn.DataPropertyName = "CounterOps";
+		_elPairTagsColumn.HeaderText = "Counter operations (10)";
 		_elPairTagsColumn.Name = "_elPairTagsColumn";
 		_elPairTagsColumn.Width = 240;
 		//
@@ -1324,7 +1322,7 @@ partial class MissionScriptForm {
 		_unlocksTab.Padding = new Padding(3);
 		_unlocksTab.Size = new Size(1052, 556);
 		_unlocksTab.TabIndex = 13;
-		_unlocksTab.Text = "Unlocks";
+		_unlocksTab.Text = "Objective Lines";
 		_unlocksTab.UseVisualStyleBackColor = true;
 		//
 		// _unlocksGrid
@@ -1344,7 +1342,7 @@ partial class MissionScriptForm {
 		// _unlockValueColumn
 		//
 		_unlockValueColumn.DataPropertyName = "Value";
-		_unlockValueColumn.HeaderText = "Herc/weapon LUT ref";
+		_unlockValueColumn.HeaderText = "mission.str line";
 		_unlockValueColumn.Name = "_unlockValueColumn";
 		_unlockValueColumn.Width = 200;
 		//
@@ -1365,7 +1363,7 @@ partial class MissionScriptForm {
 		_addUnlockButton.Name = "_addUnlockButton";
 		_addUnlockButton.Size = new Size(120, 28);
 		_addUnlockButton.TabIndex = 0;
-		_addUnlockButton.Text = "Add Unlock";
+		_addUnlockButton.Text = "Add Line";
 		_addUnlockButton.UseVisualStyleBackColor = true;
 		_addUnlockButton.Click += OnAddUnlock;
 		//
@@ -1375,7 +1373,7 @@ partial class MissionScriptForm {
 		_removeUnlockButton.Name = "_removeUnlockButton";
 		_removeUnlockButton.Size = new Size(120, 28);
 		_removeUnlockButton.TabIndex = 1;
-		_removeUnlockButton.Text = "Remove Unlock";
+		_removeUnlockButton.Text = "Remove Line";
 		_removeUnlockButton.UseVisualStyleBackColor = true;
 		_removeUnlockButton.Click += OnRemoveUnlock;
 		//

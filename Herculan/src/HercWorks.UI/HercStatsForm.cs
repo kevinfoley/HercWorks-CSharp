@@ -7,8 +7,9 @@ using HercWorks.Vol;
 namespace HercWorks.UI;
 
 /// <summary>
-/// Editor for SHELL/GAM/HERC_INF.DAT — one row per herc (weight, speed, hardpoint total, salvage
-/// requirement, build-mission count, campaign-unlock flag). On open it loads the copy GamePaths'
+/// Editor for SHELL/GAM/HERC_INF.DAT — one row per herc (mass, speed, displayed hardpoint count,
+/// price, build time, availability flag). The hardpoint column is only what the Herc Construction
+/// screen prints; the capacity the game equips comes from a table in VSHELL's code (see HercLUT). On open it loads the copy GamePaths'
 /// GAM search order finds — a loose override, an unpacked SHELL0 tree, or the entry inside
 /// SHELL0.VOL — and always saves to a loose .DAT (there's no VOL repacker yet), which the game
 /// reads in preference to its packed copy per the technique documented in the original project's

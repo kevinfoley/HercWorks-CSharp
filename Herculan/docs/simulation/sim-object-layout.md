@@ -22,7 +22,7 @@ and after that run whichever one you need:
 sh tools/gh.sh ES2ApplyStructures "E:\ES2Stuff\tools\ghidra_scripts\known_structs.json"
 ```
 
-Once a function's parameter is typed with `SimObject *` or `MechObject *`, the decompiler renders `*(char *)(param_2 + 0x99)` as `param_2->destroyed`, `*(short *)((int)mech + 0x252)` as `mech->cruiseSpeed`, and `(**(code **)(*param_1 + 0x48))(...)` as `(*param_1->vtbl->AiEnemySighted)(...)`. That is the whole point of the exercise: an offset recorded once in the JSON reads back named in every function that touches an object.
+Once a function's parameter is typed with `SimObject *` or one of the three derived types, `MechObject *`, `FlyerObject *` or `StructureObject *`, the decompiler renders `*(char *)(param_2 + 0x99)` as `param_2->destroyed`, `*(short *)((int)mech + 0x252)` as `mech->cruiseSpeed`, and `(**(code **)(*param_1 + 0x48))(...)` as `(*param_1->vtbl->AiEnemySighted)(...)`. That is the whole point of the exercise: an offset recorded once in the JSON reads back named in every function that touches an object.
 
 **Defining a struct renders nothing on its own** — a function's parameter has to be typed with it, and that is where the labour is. A function carrying a `signature` in `known_symbols.json` owns its whole parameter list there, struct types included; one without gets typed from `known_structs.json`'s `applications`. Never both: applying a signature replaces the parameter list, so two files describing one parameter would fight.
 

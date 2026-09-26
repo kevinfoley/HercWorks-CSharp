@@ -631,12 +631,92 @@
       ]
     },
     {
+      "name": "FlightBlock",
+      "binary": "DBSIM",
+      "size": 78,
+      "description": "The flight model's per-object state, handed to FlightModel_Step (00466a54) by pointer. Two classes carry one: a mech at +0x2b9 (a RAZOR -- Razor_ApplyFlightInput passes mech+0x2b9) and a flyer at +0x243 (Flyer_ApplyFlightCommand passes flyer+0x243 in the same argument). One function reads both, so the layout is one layout. docs/simulation/razor-flight.md owns the meanings.",
+      "fields": [
+        {
+          "offset": 0,
+          "width": 12,
+          "type": "int[3]",
+          "name": "bodyVelocity",
+          "confidence": "high",
+          "description": "+0x00 -- velocity in the airframe's own frame: X sideslip (-X is port), Y airspeed, Z vertical. Mech_Constructor zeroes the whole 0x4e-byte block and seeds the Y component to 1000."
+        },
+        {
+          "offset": 12,
+          "width": 12,
+          "type": "int[3]",
+          "name": "worldVelocity",
+          "confidence": "high",
+          "description": "+0x0c -- the same velocity in world space. Razor_MovementTick integrates it into the position; Flyer_MovementTick adds it raw."
+        },
+        {
+          "offset": 24,
+          "width": 2,
+          "type": "short",
+          "name": "pitchRate",
+          "confidence": "high",
+          "description": "+0x18 -- binary angle per unit time."
+        },
+        {
+          "offset": 26,
+          "width": 2,
+          "type": "short",
+          "name": "rollRate",
+          "confidence": "high",
+          "description": "+0x1a."
+        },
+        {
+          "offset": 28,
+          "width": 2,
+          "type": "short",
+          "name": "yawRate",
+          "confidence": "high",
+          "description": "+0x1c -- what the rudder builds, distinct from the heading rate the bank produces."
+        },
+        {
+          "offset": 30,
+          "width": 2,
+          "type": "short",
+          "name": "throttle",
+          "confidence": "high",
+          "description": "+0x1e -- the flight throttle, a separate field from a walker's mech+0x290. On a mech, Razor_ApplyFlightInput copies it onto +0x290 and sets the +0x93 dirty flag, and Player_PerFrameCockpitUpdate writes both under the type record's flyer flag -- the only path by which the cockpit slider reaches a RAZOR. Flyer_Constructor seeds a flyer's with 0x200 and nothing changes it."
+        },
+        {
+          "offset": 32,
+          "width": 4,
+          "type": "short *",
+          "name": "eulerAnglesPtr",
+          "confidence": "high",
+          "description": "+0x20 -- back-pointer to the owning object's euler triple at +0x0c. Every flight path addresses the block through it."
+        },
+        {
+          "offset": 36,
+          "width": 32,
+          "type": "Transform32",
+          "name": "previousFrameInverse",
+          "confidence": "high",
+          "description": "+0x24 -- last tick's transform, transposed and with the translation negated and rotated. Mech_Constructor builds it from +0x12 and +0x26 and then inverts it in place; the docs cite mech+0x2f1 separately, which is this transform's own translation."
+        },
+        {
+          "offset": 68,
+          "width": 4,
+          "type": "int",
+          "name": "bankHeadingRate",
+          "confidence": "high",
+          "description": "+0x44 -- the heading rate the current bank angle is producing. This is what turns a RAZOR: there is no rudder-driven yaw in the heading. Flyer_SteerAndFly reads a flyer's low half as a short (flyer+0x287)."
+        }
+      ]
+    },
+    {
       "name": "MechObject",
       "binary": "DBSIM",
       "size": 874,
       "description": "A HERC -- the class every walking machine and the RAZOR are instances of. Embeds SimObject at offset 0 (so the vtable, transform, behaviour block and flag block are the base's fields) and starts its own at +0x1f2, running to 0x36a. Constructed by Mech_Constructor (00415bb0), allocated from the pool set up at 00425185 whose element size is this struct's length.",
       "notes": [
-        "THE FLIGHT BLOCK AT +0x2b9 BELONGS TO THIS STRUCT, not to FlyerObject: a RAZOR is a mech with the type record's flyer flag set, which docs/simulation/razor-flight.md establishes and owns. The layout corroborates it -- +0x2b9 is past the end of the flyer class (0x291), and Mech_Constructor is what zeroes the block and seeds the airspeed.",
+        "THE FLIGHT BLOCK AT +0x2b9 IS A RAZOR'S: a RAZOR is a mech with the type record's flyer flag set, which docs/simulation/razor-flight.md establishes and owns. The flyer class has its own copy of the same block at flyer+0x243 -- see FlightBlock.",
         "THE TWO TIMER FLAVOURS ARE NOT DISTINGUISHABLE FROM THE FIELD, only from which function ticks it. +0x258 through +0x26c are seven 3-byte CountdownTimers stepped by Math_CountdownTimerTick; +0x26d through +0x280 are four 5-byte LongCountdownTimers stepped by Timer_CountDown. Both keep their counter at +1, which is why every doc cites these fields one byte above the record: mech+0x26b IS the counter of the timer based at +0x26a, not a field of its own. Searching for the cited offset finds the accesses; searching for it as a record base finds nothing.",
         "+0x261 IS A LOCK TIMER SLOT THAT NOTHING TICKS. The run from +0x258 has a regular stride of 3 and +0x264 is the fifth element of it, so the fourth exists in the layout; no call to Math_CountdownTimerTick names it, matching the engine port's note that missile subtype 3 is never used.",
         "THE GAPS AT +0x1fe, +0x2a4 AND +0x301 ARE UNREAD, NOT ESTABLISHED AS PADDING. No access to them was located; they are left out rather than filled so a later finding does not have to displace an invented field.",
@@ -1049,75 +1129,11 @@
         },
         {
           "offset": 697,
-          "width": 12,
-          "type": "int[3]",
-          "name": "bodyVelocity",
+          "width": 78,
+          "type": "FlightBlock",
+          "name": "flight",
           "confidence": "high",
-          "description": "+0x2b9 -- velocity in the airframe's own frame: X sideslip (-X is port), Y airspeed, Z vertical. Mech_Constructor zeroes 0x4e bytes from here, which is the whole flight block, and seeds the Y component to 1000."
-        },
-        {
-          "offset": 709,
-          "width": 12,
-          "type": "int[3]",
-          "name": "worldVelocity",
-          "confidence": "high",
-          "description": "+0x2c5 -- the same velocity in world space, and what Razor_MovementTick integrates into the position."
-        },
-        {
-          "offset": 721,
-          "width": 2,
-          "type": "short",
-          "name": "pitchRate",
-          "confidence": "high",
-          "description": "+0x2d1 -- binary angle per unit time."
-        },
-        {
-          "offset": 723,
-          "width": 2,
-          "type": "short",
-          "name": "rollRate",
-          "confidence": "high",
-          "description": "+0x2d3."
-        },
-        {
-          "offset": 725,
-          "width": 2,
-          "type": "short",
-          "name": "yawRate",
-          "confidence": "high",
-          "description": "+0x2d5 -- what the rudder builds, distinct from the heading rate the bank produces."
-        },
-        {
-          "offset": 727,
-          "width": 2,
-          "type": "short",
-          "name": "flyerThrottle",
-          "confidence": "high",
-          "description": "+0x2d7 -- the flyer's own throttle, a second copy of throttle rather than the same field. Razor_ApplyFlightInput copies it onto +0x290 and sets the +0x93 dirty flag, and Player_PerFrameCockpitUpdate writes both under the type record's flyer flag -- which is the only path by which the cockpit slider reaches a RAZOR."
-        },
-        {
-          "offset": 729,
-          "width": 4,
-          "type": "short *",
-          "name": "eulerAnglesPtr",
-          "confidence": "high",
-          "description": "+0x2d9 -- back-pointer to the object's own euler triple at +0x0c, set by Mech_Constructor. Every flight path addresses the block through it."
-        },
-        {
-          "offset": 733,
-          "width": 32,
-          "type": "Transform32",
-          "name": "previousFrameInverse",
-          "confidence": "high",
-          "description": "+0x2dd -- last tick's transform, transposed and with the translation negated and rotated. Mech_Constructor builds it from +0x12 and +0x26 and then inverts it in place; the docs cite +0x2f1 separately, which is this transform's own translation."
-        },
-        {
-          "offset": 765,
-          "width": 4,
-          "type": "int",
-          "name": "bankHeadingRate",
-          "confidence": "high",
-          "description": "+0x2fd -- the heading rate the current bank angle is producing. This is what turns a RAZOR: there is no rudder-driven yaw in the heading."
+          "description": "+0x2b9 -- the flight model's state, 0x4e bytes. Mech_Constructor zeroes it and seeds the airspeed; only a RAZOR ever flies it."
         },
         {
           "offset": 775,
@@ -1142,6 +1158,224 @@
           "name": "blockedLineOfFirePoint",
           "confidence": "high",
           "description": "+0x31e -- where the machine last had its line of fire blocked. Mech_AiOnLineOfFireBlocked (0041dd2c) copies the target's position here and sets +0xad; Mech_BehaviourSkirtThink then walks an arc around it."
+        }
+      ]
+    },
+    {
+      "name": "StructureObject",
+      "binary": "DBSIM",
+      "size": 621,
+      "vtable": "SimObjectVtable",
+      "description": "A structure -- every BASES.DAT type, from a plain building to a ground vehicle; the five structure vtables share this layout. Embeds SimObject at offset 0 and starts its own fields at +0x1f2, running to 0x26d. Constructed by Base_Construct (00405314), allocated from the pool set up at 00405e1e whose element size is this struct's length.",
+      "fields": [
+        {
+          "offset": 0,
+          "width": 498,
+          "type": "SimObject",
+          "name": "base",
+          "confidence": "high",
+          "description": "+0x00 -- the base class, embedded. Field 0 of it is the vtable, which Base_Construct points at StructureVtable (00497940) and then at the type's own table."
+        },
+        {
+          "offset": 498,
+          "width": 4,
+          "type": "void *",
+          "name": "typeRecord",
+          "confidence": "high",
+          "description": "+0x1f2 -- this type's 0x3c-byte BASES.DAT record, [004a9620] + index*0x3c. Stored from EBX by Base_Construct at 00405b82 (MOV dword ptr [EDI+0x1f2],EBX)."
+        },
+        {
+          "offset": 502,
+          "width": 3,
+          "type": "CountdownTimer",
+          "name": "cellAnimTimer",
+          "confidence": "high",
+          "description": "+0x1f6 -- the idle cell-animation interval. Base_ThinkTick (00403ca8) ticks it with Math_CountdownTimerTick and reloads the counter (+0x1f7) from BASES.DAT +0x26; Base_Construct seeds the counter at 00405b7b (MOV word ptr [EDI+0x1f7],AX). docs/simulation/structure-behaviour.md owns the behaviour."
+        },
+        {
+          "offset": 505,
+          "width": 8,
+          "type": "void *[2]",
+          "name": "animThreads",
+          "confidence": "high",
+          "description": "+0x1f9 -- one animation thread per sequence, as many as BASES.DAT +0x06 states. Base_Construct stores each ShapeInst_AddThread result through a cursor it steps by 4 from structure+0x1f9 (004059d5); Base_TurretSeek reads the thread for each axis from the same base."
+        },
+        {
+          "offset": 513,
+          "width": 4,
+          "type": "short *",
+          "name": "aliveFlags",
+          "confidence": "high",
+          "description": "+0x201 -- one short per component, 1 while that component stands. Base_Construct allocates it (Mem_AllocZeroedTagged, record +0x12 components * 2), stores it at 00405a64, then sets every entry to 1 with MOV word ptr [EDX+EAX*2],1."
+        },
+        {
+          "offset": 517,
+          "width": 4,
+          "type": "void *",
+          "name": "componentStates",
+          "confidence": "high",
+          "description": "+0x205 -- the per-component state array, 11 bytes per entry, record +0x12 entries. Allocated by Cpp_VectorNew in Base_Construct and stored at 00405a82."
+        },
+        {
+          "offset": 521,
+          "width": 4,
+          "type": "short[2]",
+          "name": "turretRate",
+          "confidence": "high",
+          "description": "+0x209 -- the turret's rate per axis (0 elevation, 1 traverse). Base_TurretSeek passes structure+0x209+axis*2 to Math_RateLimitedMoveToward (00403e5f)."
+        },
+        {
+          "offset": 525,
+          "width": 4,
+          "type": "short[2]",
+          "name": "turretAngle",
+          "confidence": "high",
+          "description": "+0x20d -- the turret's angle per axis (0 elevation, 1 traverse). Base_TurretSeek adds the rate four bytes below and clamps (00403e6b-00403e91); Base_GetTurretAngle returns the traverse at +0x20f."
+        },
+        {
+          "offset": 529,
+          "width": 3,
+          "type": "CountdownTimer",
+          "name": "refireTimer",
+          "confidence": "high",
+          "description": "+0x211 -- the armed tick's refire countdown, reloaded with 1500. Ticked by Math_CountdownTimerTick at 004043b6."
+        },
+        {
+          "offset": 536,
+          "width": 3,
+          "type": "CountdownTimer",
+          "name": "firingWindowTimer",
+          "confidence": "high",
+          "description": "+0x218 -- the armed tick's firing window. Ticked by Math_CountdownTimerTick at 00404374; each expiry flips +0x21b and reloads the counter at +0x219 from 004973e0[flag]."
+        },
+        {
+          "offset": 539,
+          "width": 2,
+          "type": "short",
+          "name": "firingWindowOpen",
+          "confidence": "high",
+          "description": "+0x21b -- 1 while the armed tick may fire, flipped on each firing-window expiry (00404399) and tested before firing (004043ce)."
+        },
+        {
+          "offset": 541,
+          "width": 3,
+          "type": "CountdownTimer",
+          "name": "retargetTimer",
+          "confidence": "high",
+          "description": "+0x21d -- the armed tick's retarget countdown, reloaded with 10000. Ticked by Math_CountdownTimerTick at 00404132."
+        },
+        {
+          "offset": 544,
+          "width": 2,
+          "type": "short",
+          "name": "driveSpeed",
+          "confidence": "high",
+          "description": "+0x220 -- a ground vehicle's speed. Slewed by Math_RateLimitedMoveToward in its control law (0046a798) and stepped along model Y by GroundVehicle_Advance (0046a733)."
+        },
+        {
+          "offset": 546,
+          "width": 3,
+          "type": "CountdownTimer",
+          "name": "backOffTimer",
+          "confidence": "high",
+          "description": "+0x222 -- a ground vehicle's back-off after a blocked step. GroundVehicle_ThinkTick arms the counter at +0x223 with 3000 (0046a6cc); the control law ticks it at 0046a7b1."
+        },
+        {
+          "offset": 551,
+          "width": 1,
+          "type": "byte",
+          "name": "backOffReverse",
+          "confidence": "high",
+          "description": "+0x227 -- set with the back-off: non-zero when the vehicle was moving forward, so the back-off drives it in reverse (0046a6c6)."
+        }
+      ]
+    },
+    {
+      "name": "FlyerObject",
+      "binary": "DBSIM",
+      "size": 657,
+      "vtable": "SimObjectVtable",
+      "description": "A flyer -- the Cybrid aircraft class, a sibling of the mech rather than a shortened one. Embeds SimObject at offset 0; its own fields run from +0x1f2 to 0x291. Constructed by Flyer_Constructor (004215f4), allocated from the pool set up at 00425220 whose element size is this struct's length.",
+      "fields": [
+        {
+          "offset": 0,
+          "width": 498,
+          "type": "SimObject",
+          "name": "base",
+          "confidence": "high",
+          "description": "+0x00 -- the base class, embedded. Field 0 of it is the vtable, which Flyer_Constructor points at FlyerVtable (0049a5e0)."
+        },
+        {
+          "offset": 500,
+          "width": 2,
+          "type": "short",
+          "name": "fireGate",
+          "confidence": "high",
+          "description": "+0x1f4 -- Flyer_AttackRun fires only while |value| < 10. Read once and written nowhere in the image, so the gate always passes."
+        },
+        {
+          "offset": 504,
+          "width": 2,
+          "type": "short",
+          "name": "leaderBankGain",
+          "confidence": "high",
+          "description": "+0x1f8 -- scales the leader term in Flyer_SteerAndFly's bank command. Read once and written nowhere in the image, so the term contributes nothing."
+        },
+        {
+          "offset": 506,
+          "width": 4,
+          "type": "void *",
+          "name": "typeRecord",
+          "confidence": "high",
+          "description": "+0x1fa -- this type's 0x70-byte record, FlyerType_RecordIndex(...) * 0x70 + [004a9e78]. Stored by Flyer_Constructor at 004216d2 and dereferenced straight after."
+        },
+        {
+          "offset": 510,
+          "width": 2,
+          "type": "short",
+          "name": "attackPhase",
+          "confidence": "high",
+          "description": "+0x1fe -- Flyer_AttackRun's circuit phase: 0 extending, 1 running in."
+        },
+        {
+          "offset": 512,
+          "width": 28,
+          "type": "ComponentDamageArrays",
+          "name": "componentDamage",
+          "confidence": "high",
+          "description": "+0x200 -- the same header a mech keeps at +0x206. Flyer_Constructor hands flyer+0x200 to Component_AllocDamageArrays (0040d2cc, counts 1 and 1) and to Component_LinkMaxRefData (0040d354)."
+        },
+        {
+          "offset": 540,
+          "width": 2,
+          "type": "short",
+          "name": "formationThrottle",
+          "confidence": "high",
+          "description": "+0x21c -- what Flyer_FormationThrottle computes from the station error and the leader's speed. Nothing in the image reads it."
+        },
+        {
+          "offset": 542,
+          "width": 3,
+          "type": "CountdownTimer",
+          "name": "refireTimer",
+          "confidence": "high",
+          "description": "+0x21e -- Flyer_AttackRun's refire countdown, reloaded with 1500. Ticked by Math_CountdownTimerTick at 004228fd."
+        },
+        {
+          "offset": 563,
+          "width": 2,
+          "type": "short",
+          "name": "maybe_speed",
+          "confidence": "medium",
+          "description": "+0x233 -- what Flyer_GetSpeed (vtable +0x38) returns; Flyer_FormationThrottle reads the leader's as its speed and Flyer_AttackRun this aircraft's as its travel speed. Flyer_Constructor seeds it from the type record; whether anything else writes it is open."
+        },
+        {
+          "offset": 579,
+          "width": 78,
+          "type": "FlightBlock",
+          "name": "flight",
+          "confidence": "high",
+          "description": "+0x243 -- the flight model's state, the class's last 0x4e bytes (0x243 + 0x4e = 0x291). Flyer_ApplyFlightCommand passes this address to FlightModel_Step (004221b6)."
         }
       ]
     },
@@ -1569,6 +1803,198 @@
       "parameter": 2,
       "struct": "ShellRect",
       "description": "maybe_Widget_InitRect's rect -- how each screen's root widget is sized."
+    },
+    {
+      "function": "0040351c",
+      "parameter": 0,
+      "struct": "StructureObject",
+      "description": "Base_GetAimPoint's this -- a slot only the structure vtables hold, so this is a structure."
+    },
+    {
+      "function": "00403548",
+      "parameter": 0,
+      "struct": "StructureObject",
+      "description": "Base_GetAimNodeTransform's this -- a slot only the structure vtables hold, so this is a structure."
+    },
+    {
+      "function": "00403594",
+      "parameter": 0,
+      "struct": "StructureObject",
+      "description": "Base_GetTurretAngle's this -- a slot only the structure vtables hold, so this is a structure."
+    },
+    {
+      "function": "00403ca8",
+      "parameter": 0,
+      "struct": "StructureObject",
+      "description": "Base_ThinkTick's this -- a slot only the structure vtables hold, so this is a structure."
+    },
+    {
+      "function": "00404100",
+      "parameter": 0,
+      "struct": "StructureObject",
+      "description": "Base_ArmedThinkTick's this -- a slot only the structure vtables hold, so this is a structure."
+    },
+    {
+      "function": "004045c8",
+      "parameter": 0,
+      "struct": "StructureObject",
+      "description": "maybe_Base_TripleTurretThinkTick's this -- a slot only the structure vtables hold, so this is a structure."
+    },
+    {
+      "function": "00404d70",
+      "parameter": 0,
+      "struct": "StructureObject",
+      "description": "Base_ApplyDamage's this -- a slot only the structure vtables hold, so this is a structure."
+    },
+    {
+      "function": "00405038",
+      "parameter": 0,
+      "struct": "StructureObject",
+      "description": "Base_DirectFireHitTest's this -- a slot only the structure vtables hold, so this is a structure."
+    },
+    {
+      "function": "004052b4",
+      "parameter": 0,
+      "struct": "StructureObject",
+      "description": "Base_DamageFraction's this -- a slot only the structure vtables hold, so this is a structure."
+    },
+    {
+      "function": "00405c04",
+      "parameter": 0,
+      "struct": "StructureObject",
+      "description": "Base_ApplyFormationOffset's this -- a slot only the structure vtables hold, so this is a structure."
+    },
+    {
+      "function": "00406868",
+      "parameter": 0,
+      "struct": "StructureObject",
+      "description": "Base_FirstLiveComponent's this -- a slot only the structure vtables hold, so this is a structure."
+    },
+    {
+      "function": "0046a5d0",
+      "parameter": 0,
+      "struct": "StructureObject",
+      "description": "GroundVehicle_ThinkTick's this -- a slot only the structure vtables hold, so this is a structure."
+    },
+    {
+      "function": "004217fc",
+      "parameter": 0,
+      "struct": "FlyerObject",
+      "description": "Flyer_DispatchMove's this -- a slot only FlyerVtable holds, so this is a flyer."
+    },
+    {
+      "function": "0042184c",
+      "parameter": 0,
+      "struct": "FlyerObject",
+      "description": "Flyer_DispatchThink's this -- a slot only FlyerVtable holds, so this is a flyer."
+    },
+    {
+      "function": "00421888",
+      "parameter": 0,
+      "struct": "FlyerObject",
+      "description": "Flyer_DispatchReassess's this -- a slot only FlyerVtable holds, so this is a flyer."
+    },
+    {
+      "function": "00421bb4",
+      "parameter": 0,
+      "struct": "FlyerObject",
+      "description": "Flyer_ComponentDamageWrite's this -- a slot only FlyerVtable holds, so this is a flyer."
+    },
+    {
+      "function": "00421c8c",
+      "parameter": 0,
+      "struct": "FlyerObject",
+      "description": "Flyer_DirectFireHitTest's this -- a slot only FlyerVtable holds, so this is a flyer."
+    },
+    {
+      "function": "00421e84",
+      "parameter": 0,
+      "struct": "FlyerObject",
+      "description": "Flyer_GetOverallDamage's this -- a slot only FlyerVtable holds, so this is a flyer."
+    },
+    {
+      "function": "00421e98",
+      "parameter": 0,
+      "struct": "FlyerObject",
+      "description": "Flyer_ApplyFormationOffset's this -- a slot only FlyerVtable holds, so this is a flyer."
+    },
+    {
+      "function": "00415488",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_GetTorsoTwistAngle's this -- a slot only MechVtable holds, so this is a mech."
+    },
+    {
+      "function": "00411acc",
+      "parameter": 0,
+      "struct": "SimObject",
+      "description": "SimObject_BearingInSensorArc's this -- a slot the mech, flyer and structure vtables share, and not one of the projectile slots."
+    },
+    {
+      "function": "0042200c",
+      "parameter": 0,
+      "struct": "SimObject",
+      "description": "SimObject_SetRunInto's this -- a slot the mech, flyer and structure vtables share, and not one of the projectile slots."
+    },
+    {
+      "function": "00411bc8",
+      "parameter": 0,
+      "struct": "SimObject",
+      "description": "Mech_ReportOutOfAction's subject -- its four callers are Base_ApplyDamage, Mech_ComponentDamageWrite (twice) and Flyer_ComponentDamageWrite, each passing its own this, so a structure, a mech or a flyer. Reads +0x45, +0x1ba and +0x1ce, all base fields."
+    },
+    {
+      "function": "00411d64",
+      "parameter": 0,
+      "struct": "SimObject",
+      "description": "Formation_RotateAndAddOffset's subject -- its three callers are the structure, mech and flyer ApplyFormationOffset slots, each passing its own this. Reads the group pointer at +0x45."
+    },
+    {
+      "function": "004027fc",
+      "parameter": 0,
+      "struct": "SimObject",
+      "description": "SimObject_PopTransform's subject -- its two callers (both Mech_MovementTick) pass a mech, and every field it touches (+0x0c, +0x12, +0x26-+0x34) is a base field, so the base type is the one the body needs."
+    },
+    {
+      "function": "00403eec",
+      "parameter": 0,
+      "struct": "StructureObject",
+      "description": "Base_AimTurret's subject -- its one caller, Base_ArmedThinkTick, passes its own this."
+    },
+    {
+      "function": "0046a70c",
+      "parameter": 0,
+      "struct": "StructureObject",
+      "description": "GroundVehicle_Advance's subject -- its one caller, GroundVehicle_ThinkTick, passes its own this. Reads the structure's +0x220 as well as base fields."
+    },
+    {
+      "function": "0046a510",
+      "parameter": 0,
+      "struct": "StructureObject",
+      "description": "GroundVehicle_CollisionTest's subject -- its one caller, GroundVehicle_ThinkTick, passes its own this."
+    },
+    {
+      "function": "0041693c",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_ApplyTerrainSlopeToSpeed's subject -- its one caller, Mech_LocomotionTick, passes its mech."
+    },
+    {
+      "function": "00416274",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_AiObstacleAvoidance's subject -- its one caller, Mech_LocomotionTick, passes its mech; reads the mech's own +0x1f2, +0x26e and +0x28e."
+    },
+    {
+      "function": "0041b0bc",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Mech_LockTonePlay's subject -- its one caller, Mech_PerTickSystemsUpdate, passes its mech."
+    },
+    {
+      "function": "0041dc24",
+      "parameter": 0,
+      "struct": "MechObject",
+      "description": "Ai_LineOfSightBlocked's subject -- its one caller, Mech_BehaviourSkirtThink, passes its mech."
     }
   ]
 }

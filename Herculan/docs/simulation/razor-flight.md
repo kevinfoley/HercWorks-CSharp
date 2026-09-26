@@ -76,6 +76,8 @@ which is `typeRec+0x1dc + 14`, i.e. the middle of the record it has just read. T
 
 `Mech_Constructor` zeroes 0x4e bytes from here, seeds the airspeed at 1000 and copies the machine's throttle into `+0x2d7`. Every flyer path addresses the block through a single pointer.
 
+The `Flyer` class ([`ai-flyers.md`](ai-flyers.md)) carries the same block as its last 0x4e bytes, at `flyer+0x243`: `Flyer_ApplyFlightCommand` (`004221a8`) hands `FlightModel_Step` that address in the argument where `Razor_ApplyFlightInput` hands it `mech+0x2b9`, and `0x243 + 0x4e` is the flyer's whole length. Subtract `0x76` from the offsets below for a flyer's — `flyer+0x287` is the bank heading rate.
+
 | Offset | Type | Meaning |
 | --- | --- | --- |
 | `+0x2b9` | i32 | Body velocity X — sideslip. **-X is port**, see [Contact probes](#contact-probes) |

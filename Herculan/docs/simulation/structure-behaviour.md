@@ -96,7 +96,7 @@ A structure that has already fallen hands the whole tick to `Base_ThinkTick`, so
 
 `BASES.DAT +0x2e` is read here as a **value**, not the flag [`ai-combat-states.md`](ai-combat-states.md#basesdat-0x2e) reads it as: 0 unarmed, 1 gun, 2 launcher. Retail states 1 on six types and 2 on two.
 
-**The countdown at `+0x86` is a firing window, not a barrel selector.** Each expiry flips the flag at `+0x21b` and reloads from the pair at `004973e0`, both of whose entries are 10000 — **about five seconds**, not ten, see [Timer units](#timer-units) — so a tower fires for five seconds, holds for five, and repeats. Fire is gated on the flag being set.
+**The countdown at `+0x218` is a firing window, not a barrel selector.** Each expiry flips the flag at `+0x21b` and reloads the counter at `+0x219` from the pair at `004973e0`, both of whose entries are 10000 — **about five seconds**, not ten, see [Timer units](#timer-units) — so a tower fires for five seconds, holds for five, and repeats. Fire is gated on the flag being set.
 
 **It is the launcher that rolls, not the gun.** A gun tower fires both barrels every time it is allowed to. A launcher rolls `rand & 0x1f == 0` for the first barrel and, only if that failed, again for the second — so it puts at most one round up per opportunity and usually none.
 

@@ -957,7 +957,7 @@
       "name": "Mech_ApplyExplosiveDamage",
       "description": "Mech vtable +0x70. Args (weaponDamage, hitPos, blastRadius, attacker). Front/rear facing classification (<0x4000 BAM) -> Mech_ShieldAbsorb_Explosive -> per-component roll at 0x802-in-0x1000 across up to 29 slots -> component world position via vtable +0x58 -> linear distance falloff (overflow * (blastRadius-distance)/blastRadius) via mech vtable +0x74. Structurally different from the direct-fire path: many random components with falloff, versus one deterministic component without.",
       "source": "docs/simulation/damage-system.md",
-      "signature": "void __cdecl Mech_ApplyExplosiveDamage(int *this, short damage, int *hitPoint, short blastRadius, int *attacker)"
+      "signature": "void __cdecl Mech_ApplyExplosiveDamage(MechObject *this, short damage, int *hitPoint, short blastRadius, int *attacker)"
     },
     {
       "address": "00413c68",
@@ -5876,7 +5876,7 @@
       "name": "Behaviour_DispatchMove",
       "description": "Mech vtable +0x14. Reads the behaviour descriptor at *(mech+0x4d) and calls its +0x24 move triple as (*func)(mech + thisDelta), returning 0 without calling when the triple is entirely zero. This -- not vtable +0x18 -- is how Mech_MovementTick and Razor_MovementTick are reached, which is why neither has an xref.",
       "source": "docs/simulation/ai-dispatch.md",
-      "signature": "undefined4 __cdecl Behaviour_DispatchMove(int mech)"
+      "signature": "undefined4 __cdecl Behaviour_DispatchMove(MechObject *mech)"
     },
     {
       "address": "00415b38",
@@ -5886,7 +5886,7 @@
       "name": "Behaviour_DispatchThink",
       "description": "Mech vtable +0x18. Same shape as Behaviour_DispatchMove but reads the descriptor's +0x18 think triple. Every per-state think function in BehaviourStateTable is reached only through here.",
       "source": "docs/simulation/ai-dispatch.md",
-      "signature": "undefined4 __cdecl Behaviour_DispatchThink(int mech)"
+      "signature": "undefined4 __cdecl Behaviour_DispatchThink(MechObject *mech)"
     },
     {
       "address": "00415b74",
@@ -5896,7 +5896,7 @@
       "name": "Behaviour_DispatchReassess",
       "description": "Mech vtable +0x1c, reading the descriptor's +0x30 triple. 'Reassess' is this engine's name for the slot, from what its two implementations do -- the game's own name is not in the binary. Combat states (attacking, flanking, facing off, attacking base, attacking flyer, fleeing) point it at 0041cf18; every other live state points it straight at Mech_AiSelectBehaviour, and 0041cf18 itself calls that twice.",
       "source": "docs/simulation/ai-dispatch.md",
-      "signature": "undefined4 __cdecl Behaviour_DispatchReassess(int mech)"
+      "signature": "undefined4 __cdecl Behaviour_DispatchReassess(MechObject *mech)"
     },
     {
       "address": "0041eb34",
@@ -7396,7 +7396,7 @@
       "name": "Base_GetBodyRadius",
       "description": "Structure vtable +0x5c: returns BASES.DAT +0x2a. The type's own stated body radius -- what the blast sweep subtracts from a candidate's distance -- distinct from the shape's bounding radius at shape+8 (SimObject_GetShapeRadius, vtable +0x10). The two disagree by up to a fifth on retail data and four types state 0 here. Base_GetCollisionRadius (+0x7c) returns the same field under a condition.",
       "source": "docs/simulation/hit-detection.md",
-      "signature": "short __cdecl Base_GetBodyRadius(int *this)"
+      "signature": "short __cdecl Base_GetBodyRadius(StructureObject *this)"
     },
     {
       "address": "00404f20",
@@ -7406,7 +7406,7 @@
       "name": "Base_ApplyExplosiveDamage",
       "description": "Structure vtable +0x70, the blast counterpart of Base_ApplyDamage. Returns early for an invulnerable type, for a wreck that leaves a hulk, and -- the gate that matters -- for a type with no BASECOL.DAT model installed at typeRec+0x38, which makes 40 of the 65 retail types immune to explosions while still vulnerable to direct fire. For every live component it draws and compares (rand & 0xfff) < 0x1004, a ceiling one above the largest value that mask can produce, so THE ROLL NEVER FAILS and every component is measured; the draw only advances the generator. Measures the blast point against the component's own position via vtable +0x58 and applies (blastRadius - distance) * damage / blastRadius through vtable +0x74. No shields, no facing.",
       "source": "docs/simulation/damage-system.md",
-      "signature": "void __cdecl Base_ApplyExplosiveDamage(int *this, short damage, int *hitPoint, short blastRadius, int *attacker)"
+      "signature": "void __cdecl Base_ApplyExplosiveDamage(StructureObject *this, short damage, int *hitPoint, short blastRadius, int *attacker)"
     },
     {
       "address": "0040501c",
@@ -10244,7 +10244,7 @@
       "name": "Base_ComponentPosition",
       "description": "Structure vtable +0x58: the world position of one destructible part, which is what the blast falloff measures from. Builds the object's rotation from its euler triple if the +0x32 dirty flag is set, then puts the component's own point at BASES.DAT component record +0x10 through the object transform at obj+0x12. No node resolution -- a structure's parts do not move -- and NOT the BASECOL.DAT sphere geometry a shot is tested against.",
       "source": "docs/simulation/hit-detection.md",
-      "signature": "void __cdecl Base_ComponentPosition(int this, short componentIndex, int *out)"
+      "signature": "void __cdecl Base_ComponentPosition(StructureObject *this, short componentIndex, int *out)"
     },
     {
       "address": "004035b8",
@@ -10254,7 +10254,7 @@
       "name": "Base_GetCollisionRadius",
       "description": "Structure vtable +0x7c: the radius at which this structure blocks a walking machine, read by Mech_CollisionTest of the object being walked into, and by Mech_AiObstacleAvoidance through the same vtable slot to decide whether a candidate is worth sweeping. Returns BASES.DAT +0x2a only for an ANIMATED type (typeRec+0x06 nonzero) that is not a wreck-with-hulk; 0 otherwise, and 0 means walk through me. The static types it returns 0 for are the ones FUN_00404ae4's collision-volume sweep covers instead, so the two sets are exact complements.",
       "source": "docs/simulation/hit-detection.md",
-      "signature": "short __cdecl Base_GetCollisionRadius(int *this)"
+      "signature": "short __cdecl Base_GetCollisionRadius(StructureObject *this)"
     },
     {
       "address": "0041b60c",
@@ -10264,7 +10264,7 @@
       "name": "Mech_ComponentPosition",
       "description": "Mech vtable +0x58: the world position of one of the 29 .DMG components. Indexes the piece table at *(mech+0x1fa) by componentIndex * 0x12 and reads the two RUNTIME-ONLY HercPiece fields +0x0c (shape part id) and +0x0e (pointer to a short[3] point), which the .DMG loader leaves as -1/null and Mech_ConfigureLoadout fills in from the .COL. A null point returns the MACHINE'S OWN POSITION -- which is most of a HERC, since a mech .COL names only 6-16 of the 29 slots. Otherwise the point goes through the object transform, composing the part's posed node transform first when the part id is > 0 (strictly greater, so part 0 stays in the object frame). A part the shape lacks falls back to the identity transform at 006c572c. Also the accessor a missile takes its lock node's position from.",
       "source": "docs/simulation/damage-system.md",
-      "signature": "void __cdecl Mech_ComponentPosition(int this, short componentIndex, int *out)"
+      "signature": "void __cdecl Mech_ComponentPosition(MechObject *this, short componentIndex, int *out)"
     },
     {
       "address": "00411b3c",
@@ -10294,7 +10294,7 @@
       "name": "Mech_GetBodyRadius",
       "description": "Mech vtable +0x5c: returns typeRec+0x70 (HercSimDat offset 110, BodyRadius), which every retail HERC states as 750. Mech_GetCollisionRadius at 0041552c (vtable +0x7c) is a byte-identical second copy of this function, so a machine's body and collision radii are the same field. Distinct from typeRec+0x1a, the generous shot radius the direct-fire hit test rejects against, and from shape+8, the drawn model's bound.",
       "source": "docs/simulation/hit-detection.md",
-      "signature": "short __cdecl Mech_GetBodyRadius(int this)"
+      "signature": "short __cdecl Mech_GetBodyRadius(MechObject *this)"
     },
     {
       "address": "0041552c",
@@ -10304,7 +10304,7 @@
       "name": "Mech_GetCollisionRadius",
       "description": "Mech vtable +0x7c: a byte-identical copy of Mech_GetBodyRadius (00415518), returning the same typeRec+0x70 -- 750 on all 21 retail chassis, so it is never zero for a machine. Read by Mech_CollisionTest of the object being walked into, and by Mech_AiObstacleAvoidance through the same vtable slot.",
       "source": "docs/simulation/hit-detection.md",
-      "signature": "short __cdecl Mech_GetCollisionRadius(int this)"
+      "signature": "short __cdecl Mech_GetCollisionRadius(MechObject *this)"
     },
     {
       "address": "0040cb84",
@@ -13530,7 +13530,7 @@
       "name": "Flyer_GetSpeed",
       "description": "Flyer vtable +0x38: Q10(1000, flyer+0x233), where +0x233 is the type record's +0x04 SpeedForward copied in by Flyer_Constructor and never written again. A chassis constant, not anything the aircraft is doing.",
       "source": "docs/simulation/ai-dispatch.md; flyer AI slice",
-      "signature": "short __cdecl Flyer_GetSpeed(void *flyer)"
+      "signature": "short __cdecl Flyer_GetSpeed(FlyerObject *flyer)"
     },
     {
       "address": "004215cc",
@@ -15600,7 +15600,7 @@
       "name": "Mech_NextTargetableComponent",
       "description": "MechVtable +0x80. Steps a targeting pod's component cursor over the seven-entry rotation TargetingPodComponentRotation, skipping any slot the machine has lost (its occupancy array at +0x20e) and wrapping at 7. Answers the new cursor and writes the component id it names through the out-parameter, both -1 when the walk comes back to where it started.",
       "source": "docs/simulation/target-selection.md",
-      "signature": "int __cdecl Mech_NextTargetableComponent(void *mech, int cursor, int *outComponentId)"
+      "signature": "int __cdecl Mech_NextTargetableComponent(MechObject *mech, int cursor, int *outComponentId)"
     },
     {
       "address": "00415540",
@@ -15610,7 +15610,7 @@
       "name": "Mech_ComponentPresent",
       "description": "MechVtable +0x84. One entry of the occupancy array at mech+0x20e, by component slot. The targeting pod asks it to notice that the component it had locked has been shot off. The index is not bounds-checked; the pod cannot pass a bad one because the cursor and the id it holds are written together by Mech_NextTargetableComponent.",
       "source": "docs/simulation/target-selection.md",
-      "signature": "int __cdecl Mech_ComponentPresent(void *mech, int componentId)"
+      "signature": "int __cdecl Mech_ComponentPresent(MechObject *mech, int componentId)"
     },
     {
       "address": "00403624",
@@ -15620,7 +15620,7 @@
       "name": "Base_NextTargetableComponent",
       "description": "Structure vtables +0x80, the structure's Mech_NextTargetableComponent: the same walk over its type's whole component list (count at type+0x12, occupancy at structure+0x201) with the component id equal to the cursor. Not reached in retail -- a targeting pod's lock is set to -1 for every target whose TargetClass is not 0, the same fence damage-system.md records for vtable +0x58.",
       "source": "docs/simulation/target-selection.md",
-      "signature": "void __cdecl Base_NextTargetableComponent(void *structure, int cursor, int *outComponentId)"
+      "signature": "void __cdecl Base_NextTargetableComponent(StructureObject *structure, int cursor, int *outComponentId)"
     },
     {
       "address": "0040360c",
@@ -15630,7 +15630,7 @@
       "name": "Base_ComponentPresent",
       "description": "Structure vtables +0x84, the structure's Mech_ComponentPresent, over structure+0x201.",
       "source": "docs/simulation/target-selection.md",
-      "signature": "int __cdecl Base_ComponentPresent(void *structure, int componentId)"
+      "signature": "int __cdecl Base_ComponentPresent(StructureObject *structure, int componentId)"
     },
     {
       "address": "00411b1c",

@@ -5,8 +5,8 @@
 ## Call chain — confirmed
 
 - `Msn_BuildPath` (`0044d5bd`) builds the path `msn\<name>.msn` (string `"msn\\%s.msn"` at `0047a2a6`, `%s` = a name substituted from `DAT_0048dc18+0x45`, with `^` sanitized to `_`), then calls `MsnGen_LoadMission(path)` (`0041c73d`).
-- `MsnGen_LoadMission` (asserts trace to `msn_gen.cpp`) calls `MsnGen_ParseMsnFile(param_1)` (`00417b67`) **first, with the `.msn` path** — this is the raw-file parser. `WriteScriptDatFile` (`0041ac54`) then exports a subset of the loaded data as `data\script.dat` for downstream consumers (DBSIM and VSHELL's `ShellMap` UI).
-- Separately, `ShellMap_Constructor` (`00423f43`, vtable `&PTR_FUN_004721b0`) opens `data\mission.str` and `data\maplabel.str` as string tables, then reads `data\script.dat` directly via `ShellMap_LoadScriptDat` (`004243d7`, source `shellmap.cpp`) — a UI-facing consumer of the same data exported from `.msn` parsing. See [`script-dat.md`](script-dat.md) for the relationship.
+- `MsnGen_LoadMission` (asserts trace to `msn_gen.cpp`) calls `MsnGen_ParseMsnFile(param_1)` (`00417b67`) **first, with the `.msn` path** — this is the raw-file parser. `WriteScriptDatFile` (`0041ac54`) then exports a subset of the loaded data as `data\script.dat` for downstream consumers (DBSIM and the briefing's map, VSHELL's `ShellMap`).
+- Separately, `ShellMap_Constructor` (`00423f43`, vtable `&PTR_FUN_004721b0`) opens `data\mission.str` and `data\maplabel.str` as string tables, then reads `data\script.dat` directly via `ShellMap_LoadScriptDat` (`004243d7`, source `shellmap.cpp`) — the briefing's map ([`../shell/mission-map.md`](../shell/mission-map.md)), a second consumer of the same data exported from `.msn` parsing. See [`script-dat.md`](script-dat.md) for the relationship.
 - The save-slot handoff copies the three loose working files in and out of a numbered slot, and the two directions are separate functions (source `career.cpp`): `Career_SaveSlot` (`00412a71`) saves, `data\` to `sav\`, and `Career_LoadSlot` (`00412bbf`) loads, `sav\` to `data\`. The pairs are `data\script.dat`/`sav\script%d.dat`, `data\mission.str`/`sav\missn%d.str` and `data\player.mec`/`sav\player%d.mec`, matching the dev note in `herc-works-mdk-main/docs/arch/3space_filetypes_sav.txt`. See [`save-games.md`](save-games.md).
 
 ## `MsnGen_ParseMsnFile` (`00417b67`) — the raw `.MSN` parser
@@ -79,7 +79,7 @@ Two corrections versus the first disassembly-only pass (caught by building a str
 
 ### Relationship to `data\script.dat`
 
-`data\script.dat` is a GUID-filtered, field-subset re-export of these same `.msn` row arrays, written by `WriteScriptDatFile` (`0041ac54`) right after `.msn` parsing finishes. It is read independently by both DBSIM (the real gameplay simulator) and VSHELL's own `ShellMap` map-editor UI. For full verified block-by-block mapping and field-level detail on what each reader keeps vs. discards from each row, see [`script-dat.md`](script-dat.md) — treat that doc as authoritative.
+`data\script.dat` is a GUID-filtered, field-subset re-export of these same `.msn` row arrays, written by `WriteScriptDatFile` (`0041ac54`) right after `.msn` parsing finishes. It is read independently by both DBSIM (the real gameplay simulator) and VSHELL's briefing map, `ShellMap`. For full verified block-by-block mapping and field-level detail on what each reader keeps vs. discards from each row, see [`script-dat.md`](script-dat.md) — treat that doc as authoritative.
 
 ## Row #6 field decode — "MapPoint22" (`DAT_0047064e`, 22 bytes/record)
 

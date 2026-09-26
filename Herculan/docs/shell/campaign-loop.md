@@ -9,7 +9,7 @@ Game_LoadSlot(10, 0);            // 0040e4f2: load the campaign autosave
 Game_ProcessMissionResults();    // 0040eae7: consume results.dat
 ```
 
-The number is DBSIM's exit code, which `ES.EXE` passes back as `-X`; the codes and the launcher loop are in [`../command-line.md`](../command-line.md#exit-codes). VSHELL's parser, `FUN_0040107c`, stores `-X<n>` through `FUN_0040876a` into `0046e210`; `FUN_00401525` copies that into `0048227e` right after the parse, having zeroed it before through `FUN_004073bc(0)`.
+The number is DBSIM's exit code, which `ES.EXE` passes back as `-X`; the codes and the launcher loop are in [`../command-line.md`](../command-line.md#exit-codes). VSHELL's parser, `FUN_0040107c`, stores `-X<n>` through `Shell_SetExitCode` (`0040876a`) into `0046e210`; `FUN_00401525` copies that into `0048227e` right after the parse, having zeroed it before through `FUN_004073bc(0)`.
 
 ## The files crossing between the two binaries
 
@@ -125,7 +125,7 @@ int16   33 (0x21), written as a literal
 
 The byte is the weapon's unlock flag, the same one every save slot stores for all 33 catalog ids ([`../formats/weapons-dat.md`](../formats/weapons-dat.md)).
 
-**Nothing traced reads this table back.** VSHELL reopens `data\player.mec` in exactly one place — `ShellMap_ReadSquadHeader` (`00424db0`), the map screen — and reads only the leading two `int16`, the player entry index and the squad size, before closing it and moving on to `data\mforms.dat` for formation layout. It never reaches the entries, let alone the table. On the simulator side, `MecFile`'s note records DBSIM's reader stopping at the last entry. The save file, not the export, is where the flags are authoritative: the export is regenerated from it at every launch, so the copy here is duplicated state.
+**Nothing traced reads this table back.** VSHELL reopens `data\player.mec` in exactly one place — `ShellMap_ReadSquadHeader` (`00424db0`), the briefing's map ([`mission-map.md`](mission-map.md#the-squads-positions)) — and reads only the leading two `int16`, the player entry index and the squad size, before closing it and moving on to `data\mforms.dat` for formation layout. It never reaches the entries, let alone the table. On the simulator side, `MecFile`'s note records DBSIM's reader stopping at the last entry. The save file, not the export, is where the flags are authoritative: the export is regenerated from it at every launch, so the copy here is duplicated state.
 
 Both path strings are referenced as bare addresses (`0046f511`, `0046f521`), so the decompile does not show their text; read out of the binary they are two separate copies of the same literal, `data\player.mec`. The function removes that file and immediately recreates it.
 

@@ -3,7 +3,7 @@
 /// <summary>
 /// <c>data\script.dat</c> — DBSIM's real gameplay handoff format, written by VSHELL immediately
 /// after it parses a <see cref="MissionFile"/> (`.msn`) and read independently by both DBSIM (the
-/// actual simulator) and VSHELL's own map-editor UI (`ShellMap`). Every block below is a
+/// actual simulator) and VSHELL's briefing map (`ShellMap`). Every block below is a
 /// GUID-filtered, field-subset re-export of one of <see cref="MissionFile"/>'s already-decoded
 /// rows — this is not an independently-authored format. See
 /// docs/formats/script-dat.md for the full byte-exact writeup (verified against three independently

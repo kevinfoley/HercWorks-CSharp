@@ -318,8 +318,7 @@ public sealed class ShellSaveScreen {
 			summary == null ? null : text?.Text(FirstSectorWord + summary.Sector),
 			ShellTextAlign.Left);
 
-		// The mission counter is stored from zero and printed from one, the same off-by-one the stage
-		// counter takes everywhere in the shell.
+		// The mission counter is stored from zero and printed from one.
 		Label(new ShellRect(0x0e, 0x72, 0x54, 0x7e), MissionLabel);
 		Value(new ShellRect(0x5a, 0x72, 0xc5, 0x7e),
 			summary == null ? null : (summary.Mission + 1).ToString(), ShellTextAlign.Left);
@@ -397,9 +396,8 @@ public sealed class ShellSaveScreen {
 	/// Three runs of consecutive words the screen indexes into, each by a field's own value.
 	///
 	/// <para>The sector run is reached as <c>sector + 0x76</c> and <c>0x76</c> is <c>Razor</c>, a
-	/// chassis name — the run of five sector names starts at <c>0x77</c>. That is not an off-by-one
-	/// here: the campaign stage counts from one at runtime where the save stores it from zero, so
-	/// stage 1 lands on the first name. Three other tables in the shell say the same thing.</para>
+	/// chassis name — the run of five sector names starts at <c>0x77</c>. That is not an off-by-one:
+	/// stage 0 is training and the campaign's stages are 1-5, so stage 1 lands on the first name.</para>
 	/// </summary>
 	private const int FirstSkillWord = 0x35;
 	private const int FirstRankWord = 0x39;

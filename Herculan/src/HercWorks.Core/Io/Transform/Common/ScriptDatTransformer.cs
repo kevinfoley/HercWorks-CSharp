@@ -7,7 +7,7 @@ namespace HercWorks.Core.Io.Transform.Common;
 /// the full byte-exact-verified format writeup this follows: a fixed 20-byte header, then 13
 /// count-prefixed record blocks in exact order, each a GUID-filtered field-subset re-export of one
 /// of <see cref="MissionFile"/>'s already-decoded rows. Confirmed against two independently
-/// compiled real readers (DBSIM's own loader and VSHELL's `ShellMap` map-editor reader) plus all 10
+/// compiled real readers (DBSIM's own loader and VSHELL's briefing map, `ShellMap`) plus all 10
 /// real sample files found in the installed game (`ES2\DATA\script.dat` + 9 distinct
 /// `ES2\SAV\scriptN.dat` save-slot snapshots).
 ///

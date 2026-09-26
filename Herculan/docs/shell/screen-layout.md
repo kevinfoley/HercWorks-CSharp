@@ -246,14 +246,14 @@ What the handlers call, as read:
 
 | Button | Calls |
 |---|---|
-| `INSTANT ACTION` | `FUN_0040e69e(0)`, `FUN_0044befb`, `Game_NewCareer("TRAINEE", …)`, `Game_ExportMissionHandoff`, `FUN_0040876a(2)`, `DAT_0046c074 = 1` |
+| `INSTANT ACTION` | `FUN_0040e69e(0)`, `FUN_0044befb`, `Game_NewCareer("TRAINEE", …)`, `Game_ExportMissionHandoff`, `Shell_SetExitCode(2)`, `DAT_0046c074 = 1` |
 | `START NEW GAME` | `MainMenu_Hide`, `FUN_0040e69e(1)`, `0043bc0a` |
 | `CONTINUE GAME` | between `FUN_0040877f(1)` and `FUN_0040877f(0)`: `FUN_0040e69e(1)`, `Game_LoadSlot(10, 1)`, selected save slot 10; then `MainMenu_Hide` and the bare frame (`0043b162(8)`, `0043b0c8`) when `DAT_0048260e` is 2, `FUN_0044cecf(DAT_0048260e)` otherwise |
 | `SAVE/RESTORE` | `MainMenu_Hide`, `FUN_0040e69e(1)`, `DAT_0048d344 = 0`, `SaveScreen_Enter` — the [save screen](#the-save-screen), with `EXIT` set to come back here |
 | `ONLINE MANUAL` | `004317ea`: `<language>\es2guide.hlp`, chosen by the language letter `E`, `F` or `G` |
 | `PRACTICE MISSIONS` | `MainMenu_Hide`, `0044bc92`, `FUN_0040e69e(0)` |
 | `PREFERENCES` | `MainMenu_Hide`, `PreferencesScreen_Enter` |
-| `VIEW DEMO` | `FUN_0040876a(5)`, `DAT_0046c074 = 1` |
+| `VIEW DEMO` | `Shell_SetExitCode(5)`, `DAT_0046c074 = 1` |
 | `CREDITS` | shows a bare window (`DAT_0048d0c4`) and plays movie `0x54` through `Movie_Enqueue` and `Movie_PlayQueue`, then hides it |
 | `QUIT` | `DAT_0046c074 = 1`, `FUN_0040723d` |
 
@@ -329,7 +329,7 @@ DAT_004778aa = 0
 
 The label indices run out of layout order: `Salvage:`, `Sector:` and `Mission:` are drawn in that order from `0x2c`, `0x2e`, `0x2d`.
 
-**The sector run is a fourth witness that the stage counts from one at runtime.** `0x76` is `Razor`, a chassis name; the five sector words `Alpha`, `Delta`, `Omicron`, `Bravo`, `Luna` start at `0x77`. Stage 1 lands on the first of them, and the save stores the stage from zero ([`campaign-loop.md`](campaign-loop.md)).
+**The sector run starts at stage 1.** `0x76` is `Razor`, a chassis name; the five sector words `Alpha`, `Delta`, `Omicron`, `Bravo`, `Luna` start at `0x77`. Stage 0 is the training campaign and the campaign's chapters are stages 1-5 ([`campaign-loop.md`](campaign-loop.md#the-campaign-table--gamcareerdat)), so the first chapter lands on the first sector word.
 
 ## The weapons screen
 
@@ -799,9 +799,28 @@ The map panel's top is `0x2b` while `DAT_00481e68`, the shell's full-screen flag
 
 All three show Telecomm, the Telecomm picture, the map panel and the summary. The briefing also lights `Objectives`, `Intelligence` and `Rock & Roll` — caption `0x29`, border `0x22`, enabled — then lights `Mission Briefing` through `Mission_LightViewButton(1)` and puts text box 1 up through `Mission_ShowTextBox(1)`, and writes `stage + 4`, the stage's briefing palette, into `DAT_0046c076` for the movie. The debrief greys `Rock & Roll` (`0x26`, disabled) before the same call hides it with the bar, and writes `stage + 9`. The briefing and debrief movies are enqueued with the rect `{0x15, 0x56, 0xef, 0xb3}`, over the Telecomm picture.
 
-**`Rock & Roll >`** (`Mission_OnRockAndRoll`, `00445509`) opens the dialog `FUN_0044d27c(code)` and goes no further when the player has no bay (`00482a9e` is `-1`, code 2), when the player's machine is not deployable (`FUN_00410a9d`, code 0), when `FUN_00410b11` refuses it (code 1) or when `FUN_0040f6c6` does (code 3). Otherwise it writes the mission handoff (`Game_ExportMissionHandoff`, [`campaign-loop.md`](campaign-loop.md#launching-a-mission--game_exportmissionhandoff-0040f0d4)), calls `FUN_0040876a(2)` and sets `DAT_0046c074`, as `INSTANT ACTION` does ([Open](#open)).
+**The map buttons** each call a method of the shell's map object, `DAT_0046f26c` — `+0xc`, `+0x10`, `+0x14` and `+0x18` for the four arrows, `+4` and `+8` for the last two — then its paint: once while `+0x65`, the count of auto-repeat ticks so far, is below 3, twice below 6, three times below 9 and four times from there. The map, its camera and what each method does are in [`mission-map.md`](mission-map.md).
 
-**The map buttons** each call a method of the shell's map object, `DAT_0046f26c` — `+0xc`, `+0x10`, `+0x14` and `+0x18` for the four arrows, `+4` and `+8` for the last two — then its slot 0: once while `+0x65`, the count of auto-repeat ticks so far, is below 3, twice below 6, three times below 9 and four times from there ([Open](#open)).
+### Rock & Roll
+
+`Rock & Roll >` (`Mission_OnRockAndRoll`, `00445509`) runs four tests and puts the first that fails up as a refusal:
+
+| Code | Test | Lines |
+|---|---|---|
+| 2 | the player has a bay — `00482a9e`, the player's pilot `+0x22`, is not `-1` | `0x140` `You have no herc assignment. Select`, `0x141` `a herc for this mission.` |
+| 0 | its machine is built to 100 and flightworthy — `Herc_IsDeployable` (`00410a9d`) | `0x13c` `Your herc is not functional. Repair`, `0x13d` `your herc or select another herc.` |
+| 1 | it is armed — `Herc_IsArmed` (`00410b11`) through `Herc_HasWeapon` (`004116ec`): one of its ten mounts holds a weapon below `0x1d`, so the four pods do not arm a machine | `0x13e` `Your herc is unarmed. Select some`, `0x13f` `weapons or another herc.` |
+| 3 | every squad member on strength, in a position from 1 up to those in play, has an armed machine — `Squad_AllArmed` (`0040f6c6`) | `0x142` `One or more hercs of your squad is`, `0x143` `unarmed. Arm or reassign hercs.` |
+
+With all four passed it writes the mission handoff (`Game_ExportMissionHandoff`, [`campaign-loop.md`](campaign-loop.md#launching-a-mission--game_exportmissionhandoff-0040f0d4)), sets the exit code to 2 (`Shell_SetExitCode`, `0040876a`, which stores `0046e210`) and sets `DAT_0046c074`, which ends the shell's main loop; the launcher answers 2 by running the simulator ([`../command-line.md`](../command-line.md#exit-codes)). `INSTANT ACTION` ends the same way.
+
+**The refusal** is an `ESAlert` built once by `LaunchRefusal_Build` (`0044cfdc`) in a window the size of the display, so its rect is a canvas rect. `LaunchRefusal_Show(code)` (`0044d27c`) writes the code's two lines, `estext.bin` `0x13c + 2 * code` and the next, and shows it; `OKAY`'s handler, `LaunchRefusal_OnOkay` (`0044d404`), hides it.
+
+| Widget | Class | Rect (in its parent) | Content |
+|---|---|---|---|
+| alert | `ESAlert` | `{0xb1, 0x67, 0x1d2, 0xc6}` | `0x13b` `WARNING!`, header 20 tall, border `0x15`, face `0x25`, plate `100`-`0xbd`, filled body |
+| 2 lines | `Text` | `{5, 0x1e, 0x117, 0x2b}`, `{5, 0x2c, 0x117, 0x39}` | centred, `0x29`, no backing |
+| `OKAY` | `Button` | `{0x5f, 0x45, 0xc3, 0x54}` | `0x144`, border `0x22` |
 
 ### The summary text box
 
@@ -917,7 +936,7 @@ The condition itself goes through two functions over two in-image tables. `Repai
 
 `0043b162(tab)` is the switch that picks one. Tab 3 takes 1, tabs 2 and 4-6 take 2, and tab 7 takes `stage + 4` for the briefing, `stage + 9` for the debrief and 3 or 4 for the map — `4` once `stage - 1 > 3`. Case 8 is not a tab: it shows the frame's root, and is what `0043b0c8`'s callers pair with the refresh.
 
-**The stage counts from one at runtime**, where the save stores it from zero ([`campaign-loop.md`](campaign-loop.md)). Three independent tables say so: the briefing and debrief runs are five long and reached by `stage + 4` and `stage + 9`, the map's Earth-to-Moon switch fires at the same stage the theater run's `luna` sits at, and `maybe_Mission_UpdateLocationTab` carries four `dba\` location names — `alph2`, `delt1`, `omic1`, `brav1` — and branches away to a cutscene entirely when `stage - 1 == 4`. The arithmetic is unguarded in all three places.
+**The stage is the career's own, 1-5 for the campaign** — stage 0 is training ([`campaign-loop.md`](campaign-loop.md#the-campaign-table--gamcareerdat)) — and the save holds the same number. Three tables are built for it: the briefing and debrief runs are five long and reached by `stage + 4` and `stage + 9`, the map's Earth-to-Moon switch fires at the same stage the theater run's `luna` sits at, and `maybe_Mission_UpdateLocationTab` carries four `dba\` location names — `alph2`, `delt1`, `omic1`, `brav1` — and branches away to a cutscene entirely when `stage - 1 == 4`. The arithmetic is unguarded in all three places, so the training campaign's briefing, at stage 0, is drawn through `cam_moon`. `Reference/Managment_Mission_Briefing.png`, taken on a save at stage 3, is drawn through `br_w3` ([`mission-map.md`](mission-map.md#the-camera)).
 
 That last function also installs the theater palette directly, as `Shell_InstallPalette(stage + 0xe)`. Because stage 5 branches away before the call, `luna` is in the table and unreached by this path.
 
@@ -943,7 +962,7 @@ That last function also installs the theater palette directly, as `Shell_Install
 
 **The armory screen is drawn and selects**, from the same save, `gam\weapons.dat`, `weapons.bin`, `wpn_info.bin` and the weapons screen's pictures. `ShellArmoryScreen` places every widget above, gates the rows on the save's unlock flags, prints the queued counts and the four figures from the queue, gates `Clear` on `data\prefs.cfg` option 45, and opens on the first row. A row click with either button moves the selection, and on the lit row with weapons built by hand queues a unit or takes one off, as [Selecting and queueing](#selecting-and-queueing) says; `Clear` takes them all off. The queue is `ShellHangar`'s, which the repair and build screens net their salvage of on their next entry. `Scrap` puts up the weapon twin of the scrap dialog, whose `ACCEPT` sells the lit weapon's stock and trims or refills the queue by the build mode.
 
-**The mission screen's briefing view is drawn and reads**, from the loaded slot's career block and its own `sav\missn%d.str` — `Career_LoadSlot` copies that file to `data\mission.str`, so it is the same text. `ShellMissionTexts` assembles the three career texts, `ShellTextBox` is the text box with its wrap and its page count, and `ShellMissionScreen` places every widget of the view, puts up the briefing, and lets the three text buttons switch the summary and the page buttons page it, the arrows drawing their lit face while pressed. The Mission Map panel's body stays black, because the map object that draws there has no port, and its six buttons fire nothing; the auto-repeat, the Telecomm movie and `Rock & Roll >` have none either. The map and debrief views show the bare frame ([Open](#open)).
+**The mission screen's briefing view is drawn and reads**, from the loaded slot's career block and its own `sav\missn%d.str` — `Career_LoadSlot` copies that file to `data\mission.str`, so it is the same text. `ShellMissionTexts` assembles the three career texts, `ShellTextBox` is the text box with its wrap and its page count, and `ShellMissionScreen` places every widget of the view, puts up the briefing, and lets the three text buttons switch the summary and the page buttons page it, the arrows drawing their lit face while pressed. The map object draws the Mission Map panel's body and its six buttons move it, as [`mission-map.md`](mission-map.md#engine-coverage) says. `Rock & Roll >` runs [its four tests](#rock--roll), puts `ShellLaunchRefusalDialog` up on the first that fails — which, like the scrap dialog, keeps every click but `OKAY` off the screen beneath, this engine's choice — and otherwise has `ShellMissionLaunch` write the handoff and closes the shell, and the host runs the mission. The handoff is the loaded slot's `script%d.dat` and `missn%d.str`, the flag array as `mission.var`, and `player.mec` exported from the hangar as the screens left it, byte-exact against every retail `sav\player%d.mec` whose save was written before its mission; it is written to a scratch folder rather than over the install's `data\`, which is this engine's choice, and the simulator's settings are still read from and written to the install's `data\`. The auto-repeat and the Telecomm movie have no port, and the map and debrief views show the bare frame ([Open](#open)).
 
 Every content `Button` is drawn by `ShellChrome.PaintButton`, the inner border included.
 
@@ -957,7 +976,7 @@ The whole content surface is painted afresh on every change, where the original 
 
 The engine reloads the whole of `ShellArt` to change palette, where the original re-installs one and lets the hardware palette do the rest — the art here is decoded to RGBA once per palette rather than kept as indices. Same result on screen, at a few milliseconds per click.
 
-Not drawn: the mission tab's map and debrief views, the mouse cursor (`dba\cursor.dba`), the sounds each button plays, and the pressed nudge of a content button's caption ([Open](#open)). Nothing sets the campaign mode, so the gate is driven by a command-line flag ([Open](#open)). See [`../../ROADMAP.md`](../../ROADMAP.md).
+Not drawn: the mission tab's campaign-map and debrief views, the mouse cursor (`dba\cursor.dba`), the sounds each button plays, and the pressed nudge of a content button's caption ([Open](#open)). Nothing sets the campaign mode, so the gate is driven by a command-line flag ([Open](#open)). See [`../../ROADMAP.md`](../../ROADMAP.md).
 
 ## Rejected readings
 
@@ -976,6 +995,7 @@ Not drawn: the mission tab's map and debrief views, the mouse cursor (`dba\curso
 | `00445758` is the mission tab's builder | It is the largest function after `wmissini.cpp`'s assert-string anchor, so the file attribution points at the mission tab. Every widget it builds is one that `Build_Enter` (`0044690d`), tab 4's entry, shows and the teardown's build arm hides, and its captions are the `Herc Construction` run `0xba`-`0xc5`. `known_symbols.json` names it `Build_BuildScreen`; the mission tab's builder is `Mission_BuildScreen` (`00442534`) |
 | `00442534` builds the crew screen's detail panel | It sits between the crew screen's thunks and `wmissini.cpp`'s first assert string, inside the address range that reads as `wcrewi.cpp`'s, and it is that module's size. Every widget it builds is one `Mission_Show` (`004441e3`) shows and `Mission_Leave` (`00444a05`), the teardown's mission arm, hides, and its captions are the mission run `0xaf`-`0xb8`. It is [the mission screen's](#the-mission-screen) builder, `Mission_BuildScreen` |
 | The palette scope draws nothing — it exists only to fire the palette install | It carries no bitmap, no caption and no chrome, and its handler's event 2 is the install. Its event 4 is a paint, `PaletteScope_Paint` (`0040cb40`), which fills its rect with `0x10`; that fill is why retail's tab screens are black ([The palette](#the-palette)) |
+| The save stores the campaign stage from zero and the shell counts it from one | Every per-stage table is reached one past the first entry a zero-based stage would need — `0x76 + stage` for the sector name lands on `Razor` at stage 0, and the briefing palettes start at `stage + 4` — which reads as a zero-based value shifted at runtime. The campaign's stages are 1-5 in `gam\career.dat` itself, stage 0 being training, and the tables are indexed by the number the save holds: retail draws the briefing of a save at stage 3 through `br_w3` ([The palette](#the-palette)) |
 
 ## Open
 
@@ -988,12 +1008,11 @@ Not drawn: the mission tab's map and debrief views, the mouse cursor (`dba\curso
 - **Open:** the edit field's keyboard handling past its dispatch. Keystrokes reach the row as the pointer's target ([Saving is a rename](#saving-is-a-rename)). `EditField_HandleEvent` passes a key (event `0x40`) to `FUN_0040bdd2` while `+0xbf` is set, acts on a command (`0x100`) only while `+0xbf` and `+0xa7` are both set — backspace (1) and the left arrow (4) both call `FUN_0040be56`, and Enter (`0x0a`) releases the lock and the focus — and hands every key and command on to the row's handler. Unread: which event `004377d2` posts at the row, how the permitted-character set at `+0x9f` filters (the full string is unread past `"…qrstu"`), whether the `" 3. "` prefix can be deleted, and what the row's handler does with a key — whether one commits or abandons the rename.
 - **Open:** the meaning of the row's `+0xb7 = 4`, and whether `EditField_Paint` draws the caret from `+0xbf`, `+0xb3` or both.
 - **Open:** how `ACCEPT`'s label reaches `sav\GAMEFILE.STR` and where the slot's in-use byte is set — `Game_SaveSlot`'s own body has not been read for either.
-- **Unported:** the mission tab's map view and debrief view.
-- **Unported:** the shell's map object (`DAT_0046f26c`), which draws the map inside the briefing's Mission Map panel, and the six map buttons' methods on it (`+4`-`+0x18`); `ShellMap_Constructor` (`00423f43`) is its constructor ([`../formats/msn-mission-file.md`](../formats/msn-mission-file.md)).
-- **Unported:** the auto-repeat of the mission screen's arrows, and `Rock & Roll >`'s launch and refusal dialogs.
-- **Open:** what `FUN_00410b11` and `FUN_0040f6c6` test before `Rock & Roll >` launches, and the four refusal dialogs' text (`FUN_0044d27c`).
+- **Unported:** the mission tab's campaign-map view and debrief view.
+- **Unported:** the auto-repeat of the mission screen's arrows.
+- **Open:** whether the launch refusal keeps clicks off the screen beneath it, the same question as the scrap dialog's.
 - **Open:** what shows the mission screen's twenty report texts, which the debrief view leaves as it finds them, and what fills their figures.
 - **Unported:** every main-menu button's action but `SAVE/RESTORE`'s ([The main menu](#the-main-menu)), and the startup sequence that first brings the menu up.
-- **Open:** the startup widget's class — `FUN_0040c85c` builds it and `FUN_0040ca06` adds each frame — and what advances its `+0x6d` to 5; and what `FUN_0040876a`, `FUN_0040877f`, `DAT_0046c074` and `FUN_0044cecf`, which the main menu's handlers call, each do.
+- **Open:** the startup widget's class — `FUN_0040c85c` builds it and `FUN_0040ca06` adds each frame — and what advances its `+0x6d` to 5; and what `FUN_0040877f` and `FUN_0044cecf`, which the main menu's handlers call, each do.
 - **Unported:** the mouse cursor (`dba\cursor.dba`) and each button's click sound.
 - **Unported:** setting the campaign/training mode everywhere but `SAVE/RESTORE` — `FUN_0040e69e`, which four other main-menu handlers call; otherwise the gate is driven by a command-line flag.

@@ -379,8 +379,17 @@ if (installRoot == null) {
 
 // --shell runs the front end instead, and shares nothing below this point: different archives, no
 // zone, no simulation, no fixed timestep. See ShellHost.
+// Rock & Roll closes the shell and hands back a mission, which then runs here as a positional one would:
+// the retail launcher's own answer to the shell's exit code 2. Its handoff sits in a scratch folder, so
+// the simulator's settings are still the install's.
+ShellLaunch? shellLaunch = null;
 if (runShell) {
-	return ShellHost.Run(installRoot, shellPalette, screenshotPath, shellMode, shellTab, shellBay);
+	var (shellExit, launched) = ShellHost.Run(installRoot, shellPalette, screenshotPath, shellMode, shellTab, shellBay);
+	if (launched == null) {
+		return shellExit;
+	}
+
+	shellLaunch = launched;
 }
 
 // --movie shares even less: no archives, no zone, no shell art — one file and a quad. See MovieHost.
@@ -430,6 +439,7 @@ if (playTape != null || demoTape) {
 // The mission handoff VSHELL writes and DBSIM reads. It states its own zone and theater, so nothing
 // else here needs configuring. Any of the save-slot snapshots in SAV\ works as an alternative.
 string scriptPath = tapeScriptPath
+	?? shellLaunch?.ScriptPath
 	?? (positional.Count > 1 ? positional[1] : MissionLoader.DefaultScriptPath(installRoot));
 if (!File.Exists(scriptPath)) {
 	Console.Error.WriteLine(
@@ -444,7 +454,7 @@ Console.WriteLine($"HERCULAN Engine — loading {scriptPath} from {installRoot}"
 var content = GameContent.Mount(GameInstall.ArchiveDirectory(installRoot));
 Console.WriteLine($"Mounted archives: {string.Join(", ", content.MountedArchives)}");
 
-var scene = MissionScene.Load(content, scriptPath);
+var scene = MissionScene.Load(content, scriptPath, shellLaunch?.DataDirectory);
 var mission = scene.Mission;
 var terrain = scene.World.Terrain;
 
@@ -533,7 +543,7 @@ var statusAlertPanel = StatusAlertPanel.Build(content);
 // The [F12] preferences panel, showing the install's own data\prefs.cfg — the same file the terrain
 // draw distance is already read out of, and the same folder the mission's script.dat came from. The
 // same folder holds keyjoy.cfg, the four axis-sense switches, and Herculan's own device map.
-string? dataDirectory = Path.GetDirectoryName(scriptPath);
+string? dataDirectory = shellLaunch?.DataDirectory ?? Path.GetDirectoryName(scriptPath);
 // Nullable only long enough to answer "was there a file?": an install with no prefs.cfg should not
 // have one invented for it, and SimulatorPreferences.Save refuses to write where it did not read.
 // Everything downstream shares the one instance, so a rebinding made on the CONTROLS panel is the

@@ -233,10 +233,9 @@ public sealed class ShellMissionArt {
 /// <para><b>Every rect here is a literal in the executable</b>, kept parent-relative as the builder
 /// writes them: the four panels in the canvas, everything else in the panel holding it.</para>
 ///
-/// <para><b>Only the briefing view is ported, and only its text.</b> The map inside the
-/// <c>Mission Map</c> panel is drawn by the shell's map object and is not here, so the panel's body
-/// stays black and its six buttons fire nothing; the Telecomm movie is not played; and
-/// <c>Rock &amp; Roll &gt;</c> launches nothing. The three text buttons and the page buttons work.</para>
+/// <para><b>Only the briefing view is ported.</b> The map inside the <c>Mission Map</c> panel is the
+/// shell's map object, <see cref="ShellMap"/>, drawn over this screen and moved by its six buttons;
+/// <c>Rock &amp; Roll &gt;</c> is <see cref="ShellMissionLaunch"/>'s; the Telecomm movie is not played.</para>
 /// </summary>
 public sealed class ShellMissionScreen {
 	/// <summary>The four panels, in the canvas, each parented to the top-level window.</summary>

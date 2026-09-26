@@ -227,7 +227,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ShellMap_Constructor",
-      "description": "ShellMap::ctor (vtable &PTR_FUN_004721b0). Opens data\\mission.str and data\\maplabel.str as independent string tables, then calls ShellMap_LoadScriptDat. Confirmed via assert string.",
+      "description": "ShellMap::ctor (vtable &PTR_FUN_004721b0). Opens data\\mission.str and data\\maplabel.str as independent string tables, then calls ShellMap_LoadScriptDat. Confirmed via assert string. The object is the briefing's map; see docs/shell/mission-map.md.",
       "source": "docs/formats/msn-mission-file.md"
     },
     {
@@ -236,7 +236,7 @@
       "type": "function",
       "confidence": "high",
       "name": "ShellMap_LoadScriptDat",
-      "description": "shellmap.cpp. VSHELL's own map-editor reader for data\\script.dat -- a SECOND, independent reader of the same 13-block structure WriteScriptDatFile (0041ac54, VSHELL) writes and DBSim_LoadScriptDat (00424308, DBSIM) also reads. Confirmed byte-for-byte identical block order/strides to both, differing only in which fields it keeps vs seeks past (e.g. keeps row12/row14/row15 blocks in full for UI display, where DBSIM keeps only 1 field or discards entirely). NOT an independent/map-rendering-only format -- that was an earlier, since-corrected guess. See docs/formats/script-dat.md.",
+      "description": "shellmap.cpp. The briefing map's reader for data\\script.dat -- a SECOND, independent reader of the same 13-block structure WriteScriptDatFile (0041ac54, VSHELL) writes and DBSim_LoadScriptDat (00424308, DBSIM) also reads. Confirmed byte-for-byte identical block order/strides to both, differing only in which fields it keeps vs seeks past (e.g. keeps row12/row14/row15 blocks in full for UI display, where DBSIM keeps only 1 field or discards entirely). NOT an independent/map-rendering-only format -- that was an earlier, since-corrected guess. See docs/formats/script-dat.md.",
       "source": "docs/formats/script-dat.md"
     },
     {
@@ -18187,6 +18187,483 @@
       "name": "Repair_OnCancel",
       "description": "The repair screen's CANCEL handler: CareerSalvage back from DAT_0048d25c and the status block at DAT_0048d260 copied over the selected machine, Repair_FillAllRows. Does not leave the screen.",
       "source": "docs/shell/screen-layout.md#repairing-and-cancelling"
+    },
+    {
+      "address": "0040e1a7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_Build",
+      "description": "Destroys the map in DAT_0046f26c, constructs a new one (0x3c5 bytes) over the canvas rect {0x123,0x43,0x249,0x124} and builds its relief (ShellMap_BuildRelief). Called from Game_LoadSlot, Career_LoadCurrentMission and Msn_BuildPath.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "0041fdc8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MapCamera_Ctor",
+      "description": "The map's camera base class: rect width/height at +0x46/+0x4a, own drawing context at +4 centred on the rect, 3Space camera at +0xc (focal shift 7 at +0x10, no rotation), position +0x12/+0x16, altitude +0x1a = 200000 (DAT_00471870), pan +0x3a/+0x3e zeroed, pan step via MapCamera_PanStepFor.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "0041fff2",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MapCamera_Project",
+      "description": "World point to canvas through the map camera: FUN_0045e2d0, FUN_0045e350 ((view << 7) / depth) and FUN_0045e424 (centre offset, y flipped) -- a plan view about the viewport centre.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "004200e4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MapCamera_ZoomIn",
+      "description": "Map vtable +4: altitude -= 50000 while the result stays >= 50000, then MapCamera_PanStepFor.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "00420185",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MapCamera_ResetPan",
+      "description": "Map vtable +0x1c: zeroes the pan +0x3a/+0x3e.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "00420195",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "MapCamera_PanStepFor",
+      "description": "Pan step +0x42 = ((alt-50000>>3)*(100000-5000>>3))/(1000000-50000>>3)*8 + 5000.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "0040146a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_RunIntro",
+      "description": "Main-loop hook: when Mission_Show set DAT_0046c075, installs the briefing palette and loops ShellMap_IntroStep until it returns false; a click (DAT_0046c07c) or scancode 1/0x39 calls ShellMap_SkipIntro.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "00424b48",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_LoadZone",
+      "description": "Loads dat\\zone%d.dat (keeps int32[2] cell shift at +0x104, int32[3] height scale) and dba\\zone%d.dba through HeightGrid_Load into the map's HeightGrid (DAT_00472258).",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "0042524e",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_FitBounds",
+      "description": "Full view: centre of the widened block-1 bounds and the altitude fitting both halves in the viewport; also the altitude limit +0x3bd.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "004252e1",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_FitSquad",
+      "description": "Squad view +0x193/+0x197/+0x19b: the same fit over the squad's positions widened by 250000.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "004253ef",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_SkipIntro",
+      "description": "Moves the intro state +0x172 to 0x11 (the closing zoom) when it is below 0x12.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "0042540a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_Paint",
+      "description": "Map vtable slot 0: camera clamp, then clear, relief, grid and bounds, path, bases, nav markers, squad.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "0042551f",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_Clear",
+      "description": "Fills the viewport with 0x10; busy-waits 10 ticks during the intro's first paint.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "004255b7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_PaintRelief",
+      "description": "Stretches the relief bitmap (+0x3c1) over the bounds widened by 100000 through FUN_0045330c.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "004258f6",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_PaintGrid",
+      "description": "Grid lines in 0x0f every 200000 through the projected origin; outside the first paint, the bounds outlined in colour 10 (Gfx_FillRect mode 4).",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "00425c7b",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_IntroStep",
+      "description": "The intro state machine (+0x172, 20 states): hold, zoom to the squad, reveal the squad, pan along the nav path, zoom back. Timer is GetTickCount()>>4.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "0042670d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_PaintPath",
+      "description": "Nav path in 0x0e; part-way through the intro only the line to the camera centre and a radius-3 pen.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "0042698d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_PaintBases",
+      "description": "Bases shown by +0x1a (friendly non-zero, hostile == 1), mis_icon frame by type.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "00426c8c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_PaintIcon",
+      "description": "Icon at a world point: projected size below a threshold plots a pixel, below the frame height a scaled blit, else the frame.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "00426d3f",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_PaintNavMarkers",
+      "description": "mis_icon frames 14+ at path points after the first, up to nine.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "00426e5c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_PaintSquad",
+      "description": "Squad icons, frame 3 for block-7 record 0 else 5, as many as the intro has revealed.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "00426f30",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_CurrentLine",
+      "description": "Picks the mission.str line the intro has reached into +0x17e; the rest of its body is empty branches, so it draws nothing.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "00426fe0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_BuildRelief",
+      "description": "Banded relief of the cells under the widened bounds: min(h,0x7f)/5 + 0xd1, two Gfx_BandedTriangle per cell, min(640/cols, 400/rows) pixels a cell.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "00427891",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_ClampCamera",
+      "description": "Caps the altitude at +0x3bd and keeps the centre half a viewport inside the bounds widened by 100000.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "00427946",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_ZoomOut",
+      "description": "Map vtable +8: altitude += 50000 when the clamp leaves it; then ShellMap_PanStepFor.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "00427997",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_PanWest",
+      "description": "Map vtable +0x14: pan x -= step when the clamp leaves the moved centre alone.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "004279eb",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_PanEast",
+      "description": "Map vtable +0x18: pan x += step, same test.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "00427a3f",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_PanNorth",
+      "description": "Map vtable +0xc: pan y += step, same test.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "00427a93",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_PanSouth",
+      "description": "Map vtable +0x10: pan y -= step, same test.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "00427ae7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ShellMap_PanStepFor",
+      "description": "Pan step = ((alt-50000>>8)*(100000-5000))/(+0x3bd-50000)*256 + 5000.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "00428d5b",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HeightGrid_FromBitmap",
+      "description": "hgrid.cpp: the shell's copy of the zone loader's bitmap path -- one height byte per pixel, rows north to south, material rolls.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "00429010",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "HeightGrid_Load",
+      "description": "hgrid.cpp: loads data\\mat0.dat, then a .dba through HeightGrid_FromBitmap or any other extension as the ASCII debug format.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "00457aa8",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gfx_BandedTriangle",
+      "description": "8-bit 'Gouraud' triangle: cut into one flat band per palette index between its corners' colours, each band a quad through the polygon filler.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "0045852c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Gfx_FillEllipse",
+      "description": "Ellipse in the box it is given; the map uses it for the intro pen.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "00465a1c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shell_TimerTicks",
+      "description": "(GetTickCount() - base) >> 4: the timer the map intro runs on, one tick 16 ms.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "004505f0",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_Atan2Bam",
+      "description": "VSHELL's copy of DBSIM's Math_Atan2Bam (0047d220): atan2(y=param_2, x=param_1) in BAM.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "00450882",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_FastMagnitude3D",
+      "description": "VSHELL's copy of DBSIM's Math_FastMagnitude3D: L + M*0.34375 + S*0.25.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "00451f94",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Math_RotateVec2Q14",
+      "description": "2D vector through a Q14 2x2 matrix, each component (sum + 0x2000) >> 14.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "00444ee7",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_OnMapUp",
+      "description": "Map button 1: ShellMap vtable +0xc then its paint, 1-4 times by the auto-repeat count +0x65.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "00444fb6",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_OnMapDown",
+      "description": "Map button 2: vtable +0x10.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "00445085",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_OnMapLeft",
+      "description": "Map button 3: vtable +0x14.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "00445154",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_OnMapRight",
+      "description": "Map button 4: vtable +0x18.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "00445223",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_OnMapZoomIn",
+      "description": "Map button 5 (arrows pointing in): vtable +4.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "004452f2",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Mission_OnMapZoomOut",
+      "description": "Map button 6 (arrows pointing out): vtable +8.",
+      "source": "docs/shell/mission-map.md"
+    },
+    {
+      "address": "00410a9d",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Herc_IsDeployable",
+      "description": "Bay pointer non-null, built to 100 (FUN_00410a64) and Herc_IsFlightworthy. Rock & Roll code 0.",
+      "source": "docs/shell/screen-layout.md#rock--roll"
+    },
+    {
+      "address": "00410b11",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Herc_IsArmed",
+      "description": "Bay pointer non-null and Herc_HasWeapon. Rock & Roll code 1.",
+      "source": "docs/shell/screen-layout.md#rock--roll"
+    },
+    {
+      "address": "004116ec",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Herc_HasWeapon",
+      "description": "True when one of the ten mounts holds a weapon id below 0x1d (the four pods do not count).",
+      "source": "docs/shell/screen-layout.md#rock--roll"
+    },
+    {
+      "address": "0040f6c6",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Squad_AllArmed",
+      "description": "Every squad member on strength in positions 1..SquadPositionsInPlay-1 has an armed machine. Rock & Roll code 3.",
+      "source": "docs/shell/screen-layout.md#rock--roll"
+    },
+    {
+      "address": "0044cfdc",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "LaunchRefusal_Build",
+      "description": "Builds Rock & Roll's WARNING! ESAlert {0xb1,0x67,0x1d2,0xc6}, its two text lines and OKAY.",
+      "source": "docs/shell/screen-layout.md#rock--roll"
+    },
+    {
+      "address": "0044d27c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "LaunchRefusal_Show",
+      "description": "Writes estext 0x13c+2*code and the next into the two lines and shows the alert.",
+      "source": "docs/shell/screen-layout.md#rock--roll"
+    },
+    {
+      "address": "0044d404",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "LaunchRefusal_OnOkay",
+      "description": "OKAY's handler: hides the alert.",
+      "source": "docs/shell/screen-layout.md#rock--roll"
+    },
+    {
+      "address": "0044d4cc",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Career_LoadCurrentMission",
+      "description": "Loads the career's current mission (MsnGen_LoadMission); in campaign mode builds the map and shows the briefing, in training exports the handoff and launches at once.",
+      "source": "docs/shell/screen-layout.md#rock--roll"
+    },
+    {
+      "address": "0040876a",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Shell_SetExitCode",
+      "description": "Stores the shell's exit code in 0046e210; 2 launches the simulator, 5 a demo.",
+      "source": "docs/command-line.md#exit-codes"
     }
   ]
 }

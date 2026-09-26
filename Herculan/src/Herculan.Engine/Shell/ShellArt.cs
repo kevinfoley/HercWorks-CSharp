@@ -32,9 +32,10 @@ public sealed record ShellImage(byte[] Pixels, int Width, int Height);
 public sealed class ShellArt {
 	/// <summary>
 	/// The archives the shell reads. <c>SHELL0.VOL</c> carries the art, the fonts and the catalogs;
-	/// <c>LANG0.VOL</c> carries the <c>.BIN</c> string tables, including <see cref="Text"/>'s.
+	/// <c>LANG0.VOL</c> carries the <c>.BIN</c> string tables, including <see cref="Text"/>'s; and
+	/// <c>ZONES.VOL</c> the zones, whose heights the briefing's map draws its relief from.
 	/// </summary>
-	public static readonly string[] Archives = { "SHELL0.VOL", "LANG0.VOL" };
+	public static readonly string[] Archives = { "SHELL0.VOL", "LANG0.VOL", "ZONES.VOL" };
 
 	/// <summary>
 	/// Entry <see cref="ShellPalette.ServiceBay"/> of the palette table: the one the shell installs on

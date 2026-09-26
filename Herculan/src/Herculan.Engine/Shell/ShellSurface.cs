@@ -205,6 +205,118 @@ public sealed class ShellSurface {
 	private const int MirrorXFlag = 2;
 
 	/// <summary>
+	/// A bitmap drawn to fill a rectangle <paramref name="width"/> by <paramref name="height"/> from
+	/// <paramref name="left"/>, <paramref name="top"/> — the blitter's scaled path, <c>FUN_00458e78</c>,
+	/// sampled nearest. Source index 0 is left alone, as in <see cref="Blit"/>.
+	/// </summary>
+	public void ScaledBlit(DynamixBitmap bitmap, int left, int top, int width, int height) {
+		byte[] source = bitmap.ImageData ?? Array.Empty<byte>();
+		int cols = bitmap.Cols;
+		int rows = bitmap.Rows;
+		if (width <= 0 || height <= 0 || cols <= 0 || rows <= 0) {
+			return;
+		}
+
+		for (int y = 0; y < height; y++) {
+			int row = y * rows / height;
+			for (int x = 0; x < width; x++) {
+				int at = row * cols + x * cols / width;
+				if (at < source.Length && source[at] != Transparent) {
+					Plot(left + x, top + y, source[at]);
+				}
+			}
+		}
+	}
+
+	/// <summary>
+	/// Another surface drawn stretched over the inclusive rectangle from <paramref name="left"/>,
+	/// <paramref name="top"/> to <paramref name="left"/> + <paramref name="width"/>, <paramref name="top"/>
+	/// + <paramref name="height"/> — <c>FUN_0045330c</c>, a texture-mapped quad whose corners carry the
+	/// source's corner texels, sampled nearest. Source index 0 is left alone.
+	/// </summary>
+	public void StretchBlit(ShellSurface source, int left, int top, int width, int height) {
+		if (width <= 0 || height <= 0 || source.Width <= 0 || source.Height <= 0) {
+			return;
+		}
+
+		int x0 = Math.Max(left, ClipRect.X0);
+		int x1 = Math.Min(left + width, ClipRect.X1);
+		int y0 = Math.Max(top, ClipRect.Y0);
+		int y1 = Math.Min(top + height, ClipRect.Y1);
+		for (int y = y0; y <= y1; y++) {
+			int v = (int)((long)(y - top) * (source.Height - 1) / height);
+			for (int x = x0; x <= x1; x++) {
+				byte index = source.At((int)((long)(x - left) * (source.Width - 1) / width), v);
+				if (index != Transparent) {
+					_indices[y * Width + x] = index;
+				}
+			}
+		}
+	}
+
+	/// <summary>
+	/// A filled convex polygon, vertices as alternating x and y — the solid path of the polygon filler,
+	/// <c>FUN_00455798</c>. Each row from the topmost vertex to the bottommost is filled between the
+	/// leftmost and rightmost points of the outline on that row, both included.
+	/// </summary>
+	public void FillConvex(ReadOnlySpan<int> xy, byte index) {
+		int count = xy.Length / 2;
+		if (count < 3) {
+			return;
+		}
+
+		int top = int.MaxValue;
+		int bottom = int.MinValue;
+		for (int i = 0; i < count; i++) {
+			top = Math.Min(top, xy[i * 2 + 1]);
+			bottom = Math.Max(bottom, xy[i * 2 + 1]);
+		}
+
+		for (int y = Math.Max(top, ClipRect.Y0); y <= Math.Min(bottom, ClipRect.Y1); y++) {
+			int left = int.MaxValue;
+			int right = int.MinValue;
+			for (int i = 0; i < count; i++) {
+				int ax = xy[i * 2];
+				int ay = xy[i * 2 + 1];
+				int bx = xy[(i + 1) % count * 2];
+				int by = xy[(i + 1) % count * 2 + 1];
+				if (y < Math.Min(ay, by) || y > Math.Max(ay, by)) {
+					continue;
+				}
+
+				if (ay == by) {
+					left = Math.Min(left, Math.Min(ax, bx));
+					right = Math.Max(right, Math.Max(ax, bx));
+					continue;
+				}
+
+				int x = ax + (int)((long)(bx - ax) * (y - ay) / (by - ay));
+				left = Math.Min(left, x);
+				right = Math.Max(right, x);
+			}
+
+			left = Math.Max(left, ClipRect.X0);
+			right = Math.Min(right, ClipRect.X1);
+			if (left <= right) {
+				_indices.AsSpan(y * Width + left, right - left + 1).Fill(index);
+			}
+		}
+	}
+
+	/// <summary>A filled ellipse inside the inclusive box around (<paramref name="cx"/>, <paramref name="cy"/>) — <c>FUN_0045852c</c>'s solid path.</summary>
+	public void FillEllipse(int cx, int cy, int radiusX, int radiusY, byte index) {
+		if (radiusX <= 0 || radiusY <= 0) {
+			Fill(cx - radiusX, cy - radiusY, cx + radiusX, cy + radiusY, index);
+			return;
+		}
+
+		for (int dy = -radiusY; dy <= radiusY; dy++) {
+			int span = (int)(radiusX * Math.Sqrt(1.0 - (double)dy * dy / ((double)radiusY * radiusY)) + 0.5);
+			Fill(cx - span, cy + dy, cx + span, cy + dy, index);
+		}
+	}
+
+	/// <summary>
 	/// Resolves the surface through <paramref name="palette"/> into RGBA8, top row first, with
 	/// <see cref="Transparent"/> becoming alpha 0 so the backdrop behind it shows through. An index the
 	/// palette does not carry comes out as opaque grey of that index's value, the same fallback

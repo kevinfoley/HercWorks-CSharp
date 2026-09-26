@@ -254,7 +254,8 @@ public sealed class MissionScene {
 	/// <summary>
 	/// Loads the mission at <paramref name="scriptPath"/> and everything it needs.
 	/// </summary>
-	public static MissionScene Load(GameContent content, string scriptPath) {
+	/// <param name="dataDirectory">Where the simulator's settings are, when not beside the script.</param>
+	public static MissionScene Load(GameContent content, string scriptPath, string? dataDirectory = null) {
 		var mission = MissionLoader.Load(content, scriptPath);
 
 		var materials = TerrainMaterialTable.Load(content);
@@ -269,8 +270,9 @@ public sealed class MissionScene {
 
 		// How far this mission draws is a player setting, not a property of the zone — see
 		// TerrainDetail. The simulator keeps it beside the script it was handed, so this looks for it
-		// in the same folder, and falls back to the highest setting when there is nothing to read.
-		int detail = TerrainDetail.LevelFrom(Path.GetDirectoryName(scriptPath));
+		// in the same folder unless told otherwise, and falls back to the highest setting when there is
+		// nothing to read.
+		int detail = TerrainDetail.LevelFrom(dataDirectory ?? Path.GetDirectoryName(scriptPath));
 		var terrain = TerrainZoneLoader.Load(content, mission.Header.ZoneIndex, materials, random,
 			detailLevel: detail);
 

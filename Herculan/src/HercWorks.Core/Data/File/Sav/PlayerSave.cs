@@ -55,7 +55,10 @@ public class PlayerSave {
 	// The arrays stay the storage, so the round trip is unchanged; these name the fields
 	// docs/formats/save-games.md decodes.
 
-	/// <summary>Career block short 0 — the campaign stage, counted from zero in the save.</summary>
+	/// <summary>
+	/// Career block short 0 — the campaign stage, <c>0046fb18</c> as the shell runs it: 0 for training and
+	/// 1-5 for the campaign's chapters, the rows of <c>gam\career.dat</c>.
+	/// </summary>
 	public short CampaignStage { get => Unk4_stateFlags[0]; set => Unk4_stateFlags[0] = value; }
 
 	/// <summary>Career block short 1 — the mission within the stage.</summary>

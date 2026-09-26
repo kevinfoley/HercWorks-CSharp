@@ -29,8 +29,8 @@ public enum ShellMissionView {
 /// <para><see cref="Names"/> is the table at <c>0046dcdc</c> that <c>Shell_InstallPalette(index)</c> (<c>004075b2</c>) indexes,
 /// read out of the executable's data segment: twenty <c>dpl\*.dpl</c> paths, in this order. The
 /// entries past the first three are what tie the campaign's five stages to their art — five briefing
-/// palettes, five debrief palettes and five theater palettes, all indexed by the stage number, which
-/// is what says the stage counts from one at runtime rather than from zero as it is stored.</para>
+/// palettes, five debrief palettes and five theater palettes, all indexed by the stage number. The
+/// campaign's stages are 1-5 — stage 0 is training — so stage 1 lands on each run's first entry.</para>
 ///
 /// <para><b>Stage 5 is the Moon.</b> The three per-stage runs end on <c>luna</c>, the campaign map
 /// switches from <c>cam_er</c> to <c>cam_moon</c> at exactly the same stage, and the mission tab's
@@ -89,7 +89,7 @@ public static class ShellPalette {
 	/// rather than defensive: <c>Shell_SelectTabPalette</c> (<c>0043b162</c>)'s mission arm is three bare <c>if</c>s against
 	/// <c>DAT_0048106c</c> with no <c>else</c>, so a fourth value leaves whatever palette was up.
 	///
-	/// <para><paramref name="stage"/> is the campaign stage, counting from 1 (see the class remarks).
+	/// <para><paramref name="stage"/> is the campaign stage as the save holds it, 1-5 for the campaign.
 	/// The arithmetic is the original's and is unguarded there: it is reproduced unguarded here, so a
 	/// stage outside 1-5 gives an index outside the briefing or debrief run exactly as it does in
 	/// retail, and <see cref="Name"/> is what refuses it.</para>

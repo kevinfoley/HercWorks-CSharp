@@ -42,7 +42,7 @@ The state word at `00402070` (ES.EXE) starts at 1 and is replaced by each child'
 | Code | Set by | Meaning to `ES.EXE` |
 |---|---|---|
 | 0 | the shell quitting; DBSIM when `004d2582` is set, which `Ctrl+Q`'s `EXIT EARTHSIEGE?` confirmation does | quit |
-| 2 | VSHELL `FUN_0040876a(2)` — the mission launch paths, including `Msn_BuildPath` (`0044d5bd`, VSHELL) | fly a mission |
+| 2 | VSHELL `Shell_SetExitCode(2)` (`0040876a`) — the mission launch paths, including `Msn_BuildPath` (`0044d5bd`, VSHELL) | fly a mission |
 | 3 | DBSIM at mission end | shell, into the debrief |
 | 4 | DBSIM in place of 3 when the player's machine has `+0x99` set and `MissionModeFlag` (`004a9ed6`) is up | shell, into the debrief |
 | 5 | VSHELL `FUN_0043156f` — the main menu's `VIEW DEMO` button | fly a demo tape |
@@ -62,7 +62,7 @@ DBSIM returns its code from `WinMain` out of `004d283c`, written in `FUN_00461ee
 | `-s` | `00482272` = 0 | No sound |
 | `-m` | `00482270` = 1 | No mouse |
 | `-k` | `00482271` = 0 | No keyboard |
-| `-X<n>` | `FUN_0040876a(n)` → `0046e210` | Copied into `0048227e` right after the parse; see [`shell/campaign-loop.md`](shell/campaign-loop.md) |
+| `-X<n>` | `Shell_SetExitCode(n)` → `0046e210` | Copied into `0048227e` right after the parse; see [`shell/campaign-loop.md`](shell/campaign-loop.md) |
 | `-r` | `0048227e` = 3 | Overwritten by the `-X` copy; no effect ([`shell/campaign-loop.md`](shell/campaign-loop.md#rejected-readings)) |
 | `-@` | `00482284` = 1 | The mission picker below |
 | `-a` | `00482275` = 0 | Turns off the ten-slot queue at `00485668` that `FUN_0041e29c` fills and `FUN_0041e368` plays out ([Open](#open)) |

@@ -67,8 +67,13 @@ public sealed class MechFormationTable {
 		return slotIndex < slots.Length ? slots[slotIndex] : null;
 	}
 
-	public static MechFormationTable Load(GameContent content) {
-		byte[] bytes = content.ReadRequired(ResourceFolder, ResourceName);
+	public static MechFormationTable Load(GameContent content) => Parse(content.ReadRequired(ResourceFolder, ResourceName));
+
+	/// <summary>
+	/// The table out of its bytes. VSHELL's map reads the same records from the loose
+	/// <c>data\mforms.dat</c> (<c>ShellMap_ReadSquadHeader</c>, <c>00424db0</c>), which is the same file.
+	/// </summary>
+	public static MechFormationTable Parse(byte[] bytes) {
 		int offset = 0;
 
 		short NextInt16() {

@@ -84,15 +84,22 @@ public sealed class ShellBayMachine {
 	private readonly ShellWeaponUnit?[] _mounts;
 
 	private ShellBayMachine(int chassisType, int mountCapacity, int buildPercent, short[] external,
-			short[] internals, short[] hardpoint, ShellWeaponUnit?[] mounts) {
+			short[] internals, short overall, short[] hardpoint, ShellWeaponUnit?[] mounts) {
 		ChassisType = chassisType;
 		MountCapacity = mountCapacity;
 		BuildPercent = buildPercent;
 		_external = external;
 		_internal = internals;
+		_overall = overall;
 		_hardpoint = hardpoint;
 		_mounts = mounts;
 	}
+
+	/// <summary>
+	/// The status block's tenth internal entry, the machine's overall condition: the debrief sets it and
+	/// nothing in the shell's screens reads it, so it only travels, into the <c>player.mec</c> export.
+	/// </summary>
+	private readonly short _overall;
 
 	/// <summary>
 	/// The chassis type, 0-8. The record carries it twice and the two coincide — <c>+0x02</c> is
@@ -195,6 +202,16 @@ public sealed class ShellBayMachine {
 		}
 	}
 
+	/// <summary>
+	/// The whole 66-byte status block as <c>FUN_004106b7</c> copies it out of the record's <c>+0x08</c> span
+	/// into <c>player.mec</c>: the 13 external facets, the ten internal entries — the nine components and
+	/// the overall condition — and the ten hardpoints, every one an <c>int16</c>.
+	/// </summary>
+	public (byte[] External, byte[] Internal, byte[] Hardpoint) StatusBlock() {
+		static byte[] Bytes(IEnumerable<short> values) => values.SelectMany(BitConverter.GetBytes).ToArray();
+		return (Bytes(_external), Bytes(_internal.Append(_overall)), Bytes(_hardpoint));
+	}
+
 	/// <summary>A copy of the status block's three arrays, for <see cref="RestoreStatus"/> to put back.</summary>
 	public ShellMachineStatus CaptureStatus() =>
 		new((short[])_external.Clone(), (short[])_internal.Clone(), (short[])_hardpoint.Clone());
@@ -269,7 +286,7 @@ public sealed class ShellBayMachine {
 
 		int capacity = HercLUT.GetById((short)chassisType)?.HardpointMax ?? -1;
 		return new ShellBayMachine(chassisType, capacity, 0, Full(HercExternals.Values().Count),
-			Full(DamageRepairCost.InternalCount), Full(MountSlots), new ShellWeaponUnit?[MountSlots]);
+			Full(DamageRepairCost.InternalCount), Complete, Full(MountSlots), new ShellWeaponUnit?[MountSlots]);
 	}
 
 	/// <summary>Builds the view over one parsed bay record.</summary>
@@ -297,8 +314,10 @@ public sealed class ShellBayMachine {
 				? ShellWeaponUnit.From(weapon) : null;
 		}
 
+		short overall = entry.HealthInternals != null
+			&& entry.HealthInternals.TryGetValue(HercInternals.Pilot, out var overallPart) ? overallPart.Health : (short)Complete;
 		return new ShellBayMachine(entry.Id?.Id ?? 0, entry.HardpointMax, entry.BuildPercent,
-			external, internals, hardpoint, mounts);
+			external, internals, overall, hardpoint, mounts);
 	}
 }
 
@@ -314,9 +333,11 @@ public sealed record ShellMachineStatus(short[] External, short[] Internal, shor
 /// through <see cref="ShellHangar"/>.
 /// </summary>
 public sealed class ShellBayPilot {
-	public ShellBayPilot(string name, int rosterId, int bay, int skill, int squadPosition, bool onStrength) {
+	public ShellBayPilot(string name, int rosterId, int bay, int skill, int squadPosition, bool onStrength,
+			int nameIndex = 0) {
 		Name = name;
 		RosterId = rosterId;
+		NameIndex = nameIndex;
 		Bay = bay;
 		Skill = skill;
 		SquadPosition = squadPosition;
@@ -327,6 +348,9 @@ public sealed class ShellBayPilot {
 
 	/// <summary><c>+0x00</c>, 0-11 — also the pilot's portrait, the frame of <c>dba\c_pilots.dba</c> the crew screen shows.</summary>
 	public int RosterId { get; }
+
+	/// <summary><c>+0x02</c>, the pilot's <c>esnames.bin</c> name index, which the <c>player.mec</c> export writes first in each entry.</summary>
+	public int NameIndex { get; }
 
 	/// <summary>The hangar bay at <c>+0x22</c>, <c>-1</c> when unassigned.</summary>
 	public int Bay { get; internal set; }
@@ -809,5 +833,5 @@ public sealed class ShellHangar {
 	private static ShellBayPilot? Pilot(PilotEntry? pilot) =>
 		pilot == null ? null
 			: new ShellBayPilot((pilot.Name ?? string.Empty).TrimEnd('\0'), pilot.SquadmateId, pilot.BayId,
-				pilot.Skill?.Id ?? 0, pilot.CrewRowNum, pilot.Active != 0);
+				pilot.Skill?.Id ?? 0, pilot.CrewRowNum, pilot.Active != 0, pilot.NameIndex);
 }

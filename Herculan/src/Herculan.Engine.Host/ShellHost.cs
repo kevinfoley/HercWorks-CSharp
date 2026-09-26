@@ -1,5 +1,6 @@
 using Herculan.Engine.Content;
 using Herculan.Engine.Shell;
+using Herculan.Engine.World;
 using Silk.NET.Input;
 using Silk.NET.OpenGL;
 
@@ -22,6 +23,12 @@ namespace Herculan.Engine.Host;
 /// events means two changes inside one update arrive together, move first; a press and release both
 /// inside one update are lost.</para>
 /// </summary>
+/// <summary>
+/// A mission <c>Rock &amp; Roll &gt;</c> handed over: the <c>script.dat</c> the handoff was written beside,
+/// and the folder the simulator's own settings are read from and written back to.
+/// </summary>
+sealed record ShellLaunch(string ScriptPath, string DataDirectory);
+
 static class ShellHost {
 	/// <summary>
 	/// Frames to let pass before <c>--screenshot</c> fires. The shell has nothing to settle — no
@@ -36,13 +43,25 @@ static class ShellHost {
 	/// </summary>
 	private const int CurrentGameSlot = 10;
 
-	public static int Run(string installRoot, string? paletteName, string? screenshotPath = null,
+	/// <summary>
+	/// The folder the launch handoff is written to. The original writes it over the install's own
+	/// <c>data</c> folder; this engine leaves the install's copies as they are and writes a scratch folder
+	/// instead, which is this engine's choice.
+	/// </summary>
+	private static string HandoffDirectory => Path.Combine(Path.GetTempPath(), "herculan-launch");
+
+	/// <summary>
+	/// Runs the front end until its window closes. Returns the exit code and, when <c>Rock &amp; Roll &gt;</c>
+	/// closed it, the mission to run — <c>FUN_0040876a(2)</c>, the code the retail launcher answers by
+	/// starting the simulator.
+	/// </summary>
+	public static (int ExitCode, ShellLaunch? Launch) Run(string installRoot, string? paletteName, string? screenshotPath = null,
 			ShellCampaignMode mode = ShellCampaignMode.Campaign, int startTab = ShellScreen.MainMenuTab,
 			int startBay = 0) {
 		var content = GameContent.Mount(GameInstall.ArchiveDirectory(installRoot), ShellArt.Archives);
 		Console.WriteLine($"Mounted archives: {string.Join(", ", content.MountedArchives)}");
 
-		// The mission tab's palette depends on the campaign stage, counted from one, and on which of its
+		// The mission tab's palette depends on the campaign stage, the career's own 1-5, and on which of its
 		// views the tab opens: the map while the campaign map's once-per-load flag (DAT_004778aa) is
 		// clear and the mission-within-stage counter is zero, the briefing otherwise
 		// (TabHandler_Mission, 0043a6ca). All three come from the loaded game below.
@@ -59,7 +78,7 @@ static class ShellHost {
 				$"It needs {string.Join(" and ", ShellArt.Archives)}, a "
 				+ $"dpl\\{startPalette}.DPL palette and "
 				+ $"dbm\\{ShellArt.BackdropName}.DBM.");
-			return 1;
+			return (1, null);
 		}
 
 		var art = loaded;
@@ -93,7 +112,7 @@ static class ShellHost {
 		var loadedGame = loadedSlot >= 0 ? ShellSaveSlots.LoadSave(installRoot, slots[loadedSlot].FileName) : null;
 		var hangar = ShellHangar.From(loadedGame);
 		if (loadedGame != null) {
-			campaignStage = loadedGame.CampaignStage + 1;
+			campaignStage = loadedGame.CampaignStage;
 			missionInStage = loadedGame.MissionInStage;
 		}
 
@@ -102,6 +121,12 @@ static class ShellHost {
 		var missionTexts = ShellMissionTexts.Load(installRoot, loadedSlot, loadedGame);
 		var missionScreen = new ShellMissionScreen(ShellMissionArt.Load(content));
 		var missionViewUp = ShellMissionView.Map;
+
+		// The map inside the briefing's Mission Map panel, built for the loaded slot's mission the first
+		// time the briefing comes up after a load, as the original builds it when a mission is loaded,
+		// and kept until the next load. Its intro runs the first time it is shown.
+		var mapArt = ShellMapArt.Load(content);
+		ShellMap? missionMap = null;
 
 		// The art was loaded before the game, so a start on the mission tab took stage 1's palette.
 		if (!string.Equals(PaletteFor(startTab), art.PaletteName, StringComparison.OrdinalIgnoreCase)
@@ -144,6 +169,10 @@ static class ShellHost {
 		// as the original builds them at startup. At most one is ever up.
 		var scrapDialog = ShellScrapDialog.Herc();
 		var weaponScrapDialog = ShellScrapDialog.Weapons();
+
+		// The dialog Rock & Roll refuses through, and the mission it hands over when it does not.
+		var launchRefusal = new ShellLaunchRefusalDialog();
+		ShellLaunch? launch = null;
 
 		// The weapons screen's pictures and prose, and the screen itself, built on first entry and kept.
 		var weaponsArt = ShellWeaponsArt.Load(content);
@@ -194,7 +223,8 @@ static class ShellHost {
 			+ "a row to select it, then a squad portrait to put that pilot in the row, a Squad Inventory row "
 			+ "to give the row's pilot that bay, or CLEAR to empty the row. MISSION shows the briefing once a "
 			+ "stage is under way: its three text buttons switch the summary and the arrows beside it page "
-			+ "through it; its map view is not ported. The square button latches and shows the frame. The save screen hides "
+			+ "through it, the six buttons beside the map move it, and Rock & Roll launches the mission once every "
+				+ "machine going is fit and armed; its campaign-map view is not ported. The square button latches and shows the frame. The save screen hides "
 			+ "the strip, as the original's does: leave it with EXIT, or RESTORE a slot to load it into the "
 			+ "repair screen. Close the window to quit.");
 		Console.WriteLine(paletteName != null
@@ -206,8 +236,10 @@ static class ShellHost {
 		ShellRenderer? renderer = null;
 		GL? gl = null;
 		IMouse? mouse = null;
+		IKeyboard? keyboard = null;
 		bool leftHeld = false;
 		bool rightHeld = false;
+		bool skipKeyHeld = false;
 
 		// Which button the event being delivered is, for the handlers that tell them apart: an armory
 		// row's thunk calls one function on the left release and another on the right.
@@ -218,6 +250,7 @@ static class ShellHost {
 			gl = loadedGl;
 			renderer = new ShellRenderer(loadedGl, art);
 			mouse = input.Mice.Count > 0 ? input.Mice[0] : null;
+			keyboard = input.Keyboards.Count > 0 ? input.Keyboards[0] : null;
 			RepaintContent();
 		};
 
@@ -239,6 +272,28 @@ static class ShellHost {
 
 			var layout = ShellScreenLayout.Create(framebuffer.X, framebuffer.Y);
 			var (canvasX, canvasY) = layout.WindowToCanvas(windowX, windowY);
+
+			// The map's intro runs as the original's does, in a loop of its own that takes nothing but a
+			// button going down or Esc or Space, each of which skips to its closing zoom
+			// (FUN_0040146a). Every widget is out of reach until it ends — this engine's choice.
+			if (MapIntroUp() is { } intro) {
+				bool left = mouse.IsButtonPressed(MouseButton.Left);
+				bool right = mouse.IsButtonPressed(MouseButton.Right);
+				bool key = keyboard != null && (keyboard.IsKeyPressed(Key.Escape) || keyboard.IsKeyPressed(Key.Space));
+				if ((left && !leftHeld) || (right && !rightHeld) || (key && !skipKeyHeld)) {
+					intro.Skip();
+				}
+
+				leftHeld = left;
+				rightHeld = right;
+				skipKeyHeld = key;
+				if (!intro.Advance(MapClock())) {
+					Console.WriteLine("Mission map: the intro is over; the six buttons move the map.");
+				}
+
+				RepaintContent();
+				return;
+			}
 
 			pointer.Move(HitAt(canvasX, canvasY));
 			ButtonEdge(mouse.IsButtonPressed(MouseButton.Left), ref leftHeld, ShellMouseButton.Left);
@@ -270,7 +325,7 @@ static class ShellHost {
 		};
 
 		window.Run();
-		return 0;
+		return (0, launch);
 
 		void Activate(int id) {
 			if (id == ShellScreen.MenuButtonId) {
@@ -330,6 +385,10 @@ static class ShellHost {
 
 			if (weaponScrapDialog.IsOpen) {
 				return weaponScrapDialog.HitAt(canvasX, canvasY);
+			}
+
+			if (launchRefusal.IsOpen) {
+				return launchRefusal.HitAt(canvasX, canvasY);
 			}
 
 			if (screen.HitAt(canvasX, canvasY) is { } strip) {
@@ -426,6 +485,10 @@ static class ShellHost {
 				case ShellWidgetKind.MissionArrow:
 					ClickMissionArrow((ShellMissionArrow)widget.Index);
 					break;
+				case ShellWidgetKind.LaunchRefusalOkay:
+					launchRefusal.Close();
+					RepaintContent();
+					break;
 				default:
 					ClickCrew(widget);
 					break;
@@ -490,8 +553,11 @@ static class ShellHost {
 			}
 
 			hangar = ShellHangar.From(restored);
+			loadedSlot = slot;
+			loadedGame = restored;
+			missionMap = null;
 			missionTexts = ShellMissionTexts.Load(installRoot, slot, restored);
-			campaignStage = restored.CampaignStage + 1;
+			campaignStage = restored.CampaignStage;
 			missionInStage = restored.MissionInStage;
 			missionMapShown = false;
 			repairScreen = new ShellRepairScreen(hangar, repairCosts, startBay, repairDiagrams) {
@@ -887,13 +953,29 @@ static class ShellHost {
 			}
 
 			missionScreen.EnterBriefing(missionTexts, art.Sprites?.Font(ShellArt.ScreenFont));
+			missionMap ??= loadedSlot >= 0 ? ShellMap.Load(installRoot, loadedSlot, content) : null;
+
+			// The intro's first pass puts the camera on the full view before anything is painted.
+			if (missionMap is { IntroRunning: true } intro) {
+				intro.Advance(MapClock());
+			}
+			Console.WriteLine(missionMap == null
+				? $"Mission map: slot {loadedSlot} has no script{loadedSlot}.dat — the panel stays black."
+				: $"Mission map: bounds {missionMap.MinX},{missionMap.MinY} - {missionMap.MaxX},{missionMap.MaxY}, "
+				  + $"altitude {missionMap.FullView.Z}"
+				  + (missionMap.IntroRunning ? "; its intro runs now — click, Esc or Space to skip it." : "."));
 			LogMission();
 		}
 
-		// A text button shows its text; Rock & Roll's launch (00445509) is not ported.
+		// The map, while its intro is still running on the briefing that is up.
+		ShellMap? MapIntroUp() =>
+			screen.SelectedTab == ShellScreen.MissionTab && missionViewUp == ShellMissionView.Briefing
+				&& missionMap is { IntroRunning: true } map ? map : null;
+
+		// A text button shows its text; Rock & Roll launches the mission.
 		void ClickMissionButton(ShellMissionButton button) {
 			if (button == ShellMissionButton.RockAndRoll) {
-				Console.WriteLine("Rock & Roll — launching the mission is not ported yet.");
+				RockAndRoll();
 				return;
 			}
 
@@ -902,10 +984,17 @@ static class ShellHost {
 			LogMission();
 		}
 
-		// The page arrows page the text that is up; the map's six move a map this engine does not draw.
+		// The page arrows page the text that is up; the map's six call the map's methods and repaint it
+		// (FUN_00444ee7 to FUN_004452f2), once each, the auto-repeat not being ported.
 		void ClickMissionArrow(ShellMissionArrow arrow) {
 			if (arrow is not (ShellMissionArrow.PageUp or ShellMissionArrow.PageDown)) {
-				Console.WriteLine($"{arrow} — the mission map is not ported yet.");
+				if (missionMap != null) {
+					missionMap.Press(arrow);
+					RepaintContent();
+					Console.WriteLine($"{arrow}: camera {missionMap.CameraX + missionMap.PanX},"
+						+ $"{missionMap.CameraY + missionMap.PanY}, altitude {missionMap.CameraZ}, pan step {missionMap.PanStep}.");
+				}
+
 				return;
 			}
 
@@ -913,6 +1002,28 @@ static class ShellHost {
 				RepaintContent();
 				LogMission();
 			}
+		}
+
+		// Mission_OnRockAndRoll (00445509): the first test to fail puts the refusal up; otherwise the handoff
+		// is written and the shell's window closes, and the host runs the mission it names.
+		void RockAndRoll() {
+			if (ShellMissionLaunch.Check(hangar) is { } refusal) {
+				launchRefusal.Open(refusal);
+				Console.WriteLine($"Rock & Roll refused: {refusal}.");
+				RepaintContent();
+				return;
+			}
+
+			string? scriptPath = loadedGame == null ? null
+				: ShellMissionLaunch.WriteHandoff(HandoffDirectory, installRoot, loadedSlot, loadedGame, hangar);
+			if (scriptPath == null) {
+				Console.WriteLine($"Rock & Roll: slot {loadedSlot} has no script{loadedSlot}.dat to launch.");
+				return;
+			}
+
+			launch = new ShellLaunch(scriptPath, Path.Combine(installRoot, MissionLoader.DataFolderName));
+			Console.WriteLine($"Rock & Roll — handoff written to {HandoffDirectory}; launching the mission.");
+			window.Close();
 		}
 
 		void LogMission() {
@@ -978,6 +1089,7 @@ static class ShellHost {
 					break;
 				case ShellScreen.MissionTab when missionViewUp == ShellMissionView.Briefing:
 					missionScreen.Paint(contentSurface, art.Text, art.Sprites, pointer.Lit);
+					missionMap?.Paint(contentSurface, mapArt, MapClock());
 					break;
 				default:
 					if (!filled) {
@@ -990,6 +1102,7 @@ static class ShellHost {
 
 			scrapDialog.Paint(contentSurface, art.Text, art.Sprites);
 			weaponScrapDialog.Paint(contentSurface, art.Text, art.Sprites);
+			launchRefusal.Paint(contentSurface, art.Text, art.Sprites);
 			renderer.SetContent(contentSurface);
 		}
 
@@ -1034,6 +1147,9 @@ static class ShellHost {
 			Console.WriteLine($"Palette dpl\\{name}.DPL.");
 		}
 	}
+
+	/// <summary>The map's timer, <c>FUN_00465a1c</c>: <c>GetTickCount()</c> in units of 16 ms.</summary>
+	private static uint MapClock() => (uint)(Environment.TickCount64 >> 4);
 
 	/// <summary>The tabs this engine has a screen behind.</summary>
 	private static bool HasScreen(int tab) =>

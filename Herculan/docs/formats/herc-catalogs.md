@@ -253,10 +253,12 @@ layout record, 22 bytes on disk into a 26-byte struct:
   8 B     +0x02   x, y
   8 B     +0x0a   a second x, y
   int16   +0x12   frame index into the matching dba\ sheet
-  2 B     +0x16
+  int16   +0x16   blit flags: 0, or 2 to mirror left to right
 ```
 
-The group records' first two `int32` are each incremented by one as they are read — a one-pixel inset applied at load.
+The group records' four `int32` are each incremented by one as they are read — a one-pixel inset applied at load; the two leading records' are not.
+
+`Squad_BuildBayPictures` (`00414e5b`) places the two leading records as the top and bottom halves of the squad panel's bay picture and a fitted weapon's group record as its part, by id `slot + 2` ([`../shell/screen-layout.md`](../shell/screen-layout.md#the-bay-picture)). The second x, y is where `FUN_004155db`, on the arming screen, draws a mount's frame from the chassis's `_out` bank. Every retail file puts the two halves in parts 0 and 1, at `(1, 1)` and `(1, 140)`.
 
 ### `gam\arm_hots.dat` and `gam\rpr_hots.dat` — the clickable regions
 

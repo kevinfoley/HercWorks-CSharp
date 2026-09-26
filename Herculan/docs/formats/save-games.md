@@ -60,13 +60,15 @@ No header, no magic, no length field: the file is the concatenation below. Writt
 | 2 | 22 | the armory build queue: free-slot count (`0046f8d4`), then 5x `{ int16 slot; int16 weapon id }` from `0046f8d6` | same |
 | 3 | 152 | career block (below) | `Career_SaveSlot` (`00412a71`) / `Career_LoadSlot` (`00412bbf`) |
 | 4 | varies | 3 squads x 12 pilot records, then 3x `int16` at `00483b48` and 3x `int16` at `00483b4e` | `FUN_0040fc16` / `FUN_0040fc77` |
-| 5 | varies | the player: `int16`, `int16`, then one pilot record — **the same shape as a squadmate's**, roster id included | `FUN_0041016d` / `Player_Read` (`004101b8`) |
+| 5 | varies | the player: `int16` squad positions in play (`00482a78`), `int16` machines on strength (`00482a7a`), then one pilot record — **the same shape as a squadmate's**, roster id included | `FUN_0041016d` / `Player_Read` (`004101b8`) |
 | 6 | varies | hangar: `int16` count, then that many `{ int16 slot; HERC record }` | `FUN_00410658` / `FUN_0041080a` |
 | 7 | 18 | the 9 chassis availability flags — `herc_inf.dat` record `+0x0e`, stride 16 from `00483b62` | `FUN_00411954` / `FUN_00411989` |
 | 8 | 4 | the salvage pool (`00482af4`) | inline |
 | 9 | 2000 | the campaign flag array (`00482af8`) | inline |
 | 10 | 2 | game state (`0048260e`) | inline |
 | 11 | 20 | `004832c8` | inline |
+
+**`00482a78` counts squad positions, the player's as position 0.** `Squad_UpdateOnStrength` (`00410366`) sets a squad member's on-strength byte only when its position (`+0x27`) is below it and it has a bay, and the auto-repair pass (`0040e862`) and the `player.mec` export (`0040f1e4`) bound their loops over positions by it. `00482a7a` is the number of machines on strength, the export's entry count ([`../shell/campaign-loop.md`](../shell/campaign-loop.md)).
 
 Blocks 8, 9 and 11 are one contiguous span in memory: the salvage pool at `00482af4`, the flag array immediately after at `00482af8`, and its 2000 bytes ending exactly at `004832c8`. Block 10 comes from `0048260e`, elsewhere entirely. Block 11 is the 20 bytes past the end of what `data\mission.var` carries; only the save writer and reader are traced touching them.
 
@@ -100,7 +102,7 @@ Serialized by `Pilot_Write` (`0040fd5f`), read by `FUN_0040fefc`, initialized by
 | `+0x22` | `int16` | assigned hangar slot; `-1` when unassigned |
 | `+0x24` | `byte` | on strength — gates repair billing, results accounting and the `player.mec` export |
 | `+0x25` | `int16` | skill `0-3` — `ROOKIE`, `REGULAR`, `VETERAN`, `ELITE` (`estext.bin` `0x35`-`0x38`), drawn against the weight table at `0046f5ec` |
-| `+0x27` | `int16` | squad slot; initialized `-1`. Selects the promotion divisors in `Pilot_Progress` (`00410066`) |
+| `+0x27` | `int16` | squad position, 1-3 — the crew screen row the pilot fills ([`../shell/screen-layout.md`](../shell/screen-layout.md#the-rows)); initialized `-1`. Selects the promotion divisors in `Pilot_Progress` (`00410066`) |
 | `+0x29` | `int16` | rank `0-3` — `Lieutenant`, `Captain`, `Major`, `Lt Colonel` (`estext.bin` `0x39`-`0x3c`), seeded from the skill via `0046f5f4` |
 | `+0x2b` | `int16` | condition, initialized 100 and overwritten at debrief from the HERC's damage |
 | `+0x2d` | `int16` | Herc kills, this mission |

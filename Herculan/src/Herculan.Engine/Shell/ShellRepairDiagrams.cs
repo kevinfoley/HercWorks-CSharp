@@ -14,12 +14,8 @@ namespace Herculan.Engine.Shell;
 /// and the internals one while it is in the internals list. See docs/shell/screen-layout.md, "The
 /// damage diagram".
 ///
-/// <para><b>Both pictures are <c>Grid</c> widgets</b> (<c>Grid_Ctor</c>, <c>0040b7e0</c>): a filled
-/// panel with 16-pixel grid lines and thirty part slots, each a bitmap, a position, blit flags and ten
-/// colour remap pairs. <c>Grid_Paint</c> (<c>0040b97c</c>) blits the parts in slot order and after
-/// each one remaps its pairs over the part's rect, so a part's colour is chosen at paint time rather
-/// than baked into its frame. That remap is also why a damaged part can tint the pixels of an earlier
-/// part it overlaps: it is a rect, not a mask.</para>
+/// <para><b>Both pictures are <see cref="ShellGrid"/> widgets</b>, whose remap pairs are what colour
+/// each part by its damage band at paint time rather than in its frame.</para>
 /// </summary>
 public sealed class ShellRepairDiagrams {
 	/// <summary>
@@ -36,23 +32,8 @@ public sealed class ShellRepairDiagrams {
 	/// </summary>
 	public static readonly ShellRect EmptyPictureRect = new(5, 0x2b, 0xeb, 0x130);
 
-	/// <summary>The part slots a grid carries, and the range <c>ESGrid_SetPart</c> asserts.</summary>
-	public const int PartSlots = 30;
-
-	/// <summary>Colour remap pairs per part slot.</summary>
-	public const int RemapPairs = 10;
-
 	/// <summary>The part slot a mount's weapon lands in: <c>slot + 6</c>, past the six body groups.</summary>
 	public const int FirstWeaponPart = 6;
-
-	/// <summary>The border and grid-line colour, <c>Grid_Ctor</c>'s <c>0x22</c> at <c>+0x4d</c> and <c>+0x6e6</c>.</summary>
-	private const byte GridColor = 0x22;
-
-	/// <summary>The grid pitch, a literal in <c>Grid_Paint</c>.</summary>
-	private const int GridPitch = 0x10;
-
-	/// <summary>A remap pair whose target is this is skipped — <c>Grid_InitRow</c>'s default.</summary>
-	private const byte NoRemap = 0x10;
 
 	/// <summary>The ink a chassis part is drawn in and remapped from, <c>Repair_BuildDiagrams</c>'s <c>0xe</c>.</summary>
 	private const byte BodyInk = 0x0e;
@@ -106,21 +87,16 @@ public sealed class ShellRepairDiagrams {
 		for (int type = 0; type < ChassisStems.Length; type++) {
 			layouts[type] = content.Read(ShellRepairCosts.CatalogFolder, $"RPR_{ChassisStems[type]}.DAT") is { } bytes
 				? new RprHercTransform().Parse(bytes) : null;
-			bodyBanks[type] = ReadBank(content, $"RPR_{ChassisStems[type]}");
-			internalBanks[type] = ReadBank(content, $"{ChassisStems[type]}_INT");
+			bodyBanks[type] = ShellArt.ReadBankFrames(content, $"RPR_{ChassisStems[type]}");
+			internalBanks[type] = ShellArt.ReadBankFrames(content, $"{ChassisStems[type]}_INT");
 		}
 
 		var hotspots = content.Read(ShellRepairCosts.CatalogFolder, HotspotResourceName) is { } hotBytes
 			? new HardpointOverlayTransformer().Parse(hotBytes) : null;
 
-		return new ShellRepairDiagrams(layouts, bodyBanks, internalBanks, ReadBank(content, WeaponBankName),
-			hotspots);
+		return new ShellRepairDiagrams(layouts, bodyBanks, internalBanks,
+			ShellArt.ReadBankFrames(content, WeaponBankName), hotspots);
 	}
-
-	private static DynamixBitmap[]? ReadBank(GameContent content, string name) =>
-		content.Read(ShellArt.BankFolder, name + ".DBA") is { } bytes
-			&& new DynamixBitmapArrayTransformer().Parse(bytes) is DynamixBitmapArray { Images: { } images }
-			? images : null;
 
 	/// <summary>How many chassis have a layout — nine when the archive is complete.</summary>
 	public int LayoutCount => _layouts.Count(layout => layout != null);
@@ -131,11 +107,11 @@ public sealed class ShellRepairDiagrams {
 	/// </summary>
 	public void Paint(ShellSurface surface, ShellBayMachine? machine, int column) {
 		if (machine == null) {
-			PaintGrid(surface, EmptyPictureRect, gridLines: false, Array.Empty<Part>());
+			ShellGrid.Paint(surface, EmptyPictureRect, gridLines: false, Array.Empty<ShellGridPart>());
 			return;
 		}
 
-		PaintGrid(surface, PictureRect, gridLines: true,
+		ShellGrid.Paint(surface, PictureRect, gridLines: true,
 			column == 0 ? ExternalParts(machine) : InternalParts(machine));
 	}
 
@@ -181,8 +157,8 @@ public sealed class ShellRepairDiagrams {
 	/// <c>0xe</c> to its group's band colour, and one per fitted mount in slot <c>6 + mount</c> from the
 	/// shared weapons bank, remapping <c>0xf</c> to that mount's band colour.
 	/// </summary>
-	private Part[] ExternalParts(ShellBayMachine machine) {
-		var parts = new Part[PartSlots];
+	private ShellGridPart?[] ExternalParts(ShellBayMachine machine) {
+		var parts = new ShellGridPart?[ShellGrid.PartSlots];
 		int type = machine.ChassisType;
 		if (type < 0 || type >= _layouts.Length || _layouts[type] is not { } layout) {
 			return parts;
@@ -214,8 +190,8 @@ public sealed class ShellRepairDiagrams {
 	/// The internals picture: the chassis's single internals record in slot 0, whose nine component
 	/// inks each remap to that internal's band colour. The Razor adds a second, uncoloured part.
 	/// </summary>
-	private Part[] InternalParts(ShellBayMachine machine) {
-		var parts = new Part[PartSlots];
+	private ShellGridPart?[] InternalParts(ShellBayMachine machine) {
+		var parts = new ShellGridPart?[ShellGrid.PartSlots];
 		int type = machine.ChassisType;
 		if (type < 0 || type >= _layouts.Length || _layouts[type]?.InternalImage is not { } record) {
 			return parts;
@@ -227,14 +203,14 @@ public sealed class ShellRepairDiagrams {
 				ShellRepairScreen.BandColor(machine.Condition(ShellRepairCategory.Internal, i)));
 		}
 
-		if (record.Id >= 0 && record.Id < PartSlots
+		if (record.Id >= 0 && record.Id < ShellGrid.PartSlots
 			&& Frame(_internalBanks[type], record.FrameId) is { } frame) {
 			// Repair_BuildDiagrams passes 0 for the internals part's flags rather than the record's.
-			parts[record.Id] = new Part(frame, record.OriginX, record.OriginY, 0, remaps);
+			parts[record.Id] = new ShellGridPart(frame, record.OriginX, record.OriginY, 0, remaps);
 		}
 
 		if (type == FlyerChassisType && Frame(_internalBanks[type], FlyerSecondPartFrame) is { } second) {
-			parts[1] = new Part(second, FlyerSecondPartX, FlyerSecondPartY, 0, Array.Empty<(byte, byte)>());
+			parts[1] = new ShellGridPart(second, FlyerSecondPartX, FlyerSecondPartY, 0, Array.Empty<(byte, byte)>());
 		}
 
 		return parts;
@@ -256,57 +232,13 @@ public sealed class ShellRepairDiagrams {
 		return sockets.FirstOrDefault(socket => socket.Id == FirstWeaponPart + mount);
 	}
 
-	private static void SetPart(Part[] parts, int slot, DynamixBitmap? frame, int x, int y, int flags,
+	private static void SetPart(ShellGridPart?[] parts, int slot, DynamixBitmap? frame, int x, int y, int flags,
 			byte ink, byte color) {
-		if (slot >= 0 && slot < PartSlots && frame != null) {
-			parts[slot] = new Part(frame, x, y, flags, new[] { (ink, color) });
+		if (slot >= 0 && slot < ShellGrid.PartSlots && frame != null) {
+			parts[slot] = new ShellGridPart(frame, x, y, flags, new[] { (ink, color) });
 		}
 	}
 
 	private static DynamixBitmap? Frame(DynamixBitmap[]? bank, int frame) =>
 		bank != null && frame >= 0 && frame < bank.Length ? bank[frame] : null;
-
-	/// <summary>
-	/// <c>Grid_Paint</c> (<c>0040b97c</c>): the filled, bordered panel, the grid lines, then each part
-	/// blitted and its remap pairs applied over its rect, in slot order. Lines run from 16 up to but
-	/// not onto the far edge, so the border is the last line on each axis.
-	/// </summary>
-	private static void PaintGrid(ShellSurface surface, ShellRect rect, bool gridLines, Part[] parts) {
-		int w = rect.Width - 1;
-		int h = rect.Height - 1;
-		var clip = surface.PushClip(rect);
-
-		ShellChrome.PaintPanel(surface, rect, GridColor, fill: true);
-
-		if (gridLines) {
-			for (int y = GridPitch; y < h; y += GridPitch) {
-				surface.Line(rect.X0, rect.Y0 + y, rect.X0 + w, rect.Y0 + y, GridColor);
-			}
-
-			for (int x = GridPitch; x < w; x += GridPitch) {
-				surface.Line(rect.X0 + x, rect.Y0, rect.X0 + x, rect.Y0 + h, GridColor);
-			}
-		}
-
-		foreach (var part in parts) {
-			if (part == null) {
-				continue;
-			}
-
-			int left = rect.X0 + part.X;
-			int top = rect.Y0 + part.Y;
-			surface.Blit(part.Frame, left, top, part.Flags);
-
-			foreach (var (from, to) in part.Remaps) {
-				if (to != NoRemap) {
-					surface.Remap(left, top, left + part.Frame.Cols, top + part.Frame.Rows, from, to);
-				}
-			}
-		}
-
-		surface.PopClip(clip);
-	}
-
-	/// <summary>One occupied part slot: its frame, where it sits in the grid, its blit flags and its remap pairs.</summary>
-	private sealed record Part(DynamixBitmap Frame, int X, int Y, int Flags, (byte From, byte To)[] Remaps);
 }

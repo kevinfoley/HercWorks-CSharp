@@ -25,7 +25,7 @@ The doc presents the bare name as settled; the register holds it as a guess. If 
 | `SaveScreen_Teardown` | `00439d66` (VSHELL) | medium | `docs/shell/screen-layout.md:192` |
 | `Mission_Show` | `004441e3` (VSHELL) | medium: identified from its dispatch position only | `docs/shell/screen-layout.md:206` |
 
-Five more `maybe_` names are still spelled `FUN_` in the docs because the `FUN_` cleanup would not put a guess into prose: `00416379` (`msn-mission-file.md`), `0041266a` (`weapons-dat.md`), `0045e480` (`dts-texture-binding.md`), `004045c8` (`ai-targeting.md`), `0048c338` (`dts-node-posing.md`). Confirming one is also the cue to replace its `FUN_` spelling.
+Nine more `maybe_` names are still spelled `FUN_` in the docs because the `FUN_` cleanup would not put a guess into prose: `00416379` (`msn-mission-file.md`), `0041266a` (`weapons-dat.md`), `0045e480` (`dts-texture-binding.md`), `004045c8` (`ai-targeting.md`), `0048c338` (`dts-node-posing.md`), and `00441afa`, `00441eb8`, `00441f94`, `00442055` (VSHELL, the crew screen's actions, `docs/shell/screen-layout.md`). Confirming one is also the cue to replace its `FUN_` spelling.
 
 ## Doc names a function the register does not carry
 

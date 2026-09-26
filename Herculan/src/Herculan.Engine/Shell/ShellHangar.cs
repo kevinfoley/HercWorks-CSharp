@@ -185,9 +185,16 @@ public sealed class ShellBayMachine {
 	}
 }
 
-/// <summary>The pilot assigned to a hangar bay, as the squad panel prints them.</summary>
+/// <summary>One pilot record as the shell's screens print it (docs/formats/save-games.md, "The pilot record").</summary>
+/// <param name="RosterId">
+/// <c>+0x00</c>, 0-11 — also the pilot's portrait, the frame of <c>dba\c_pilots.dba</c> the crew screen shows.
+/// </param>
+/// <param name="Bay">The hangar bay at <c>+0x22</c>, <c>-1</c> when unassigned.</param>
 /// <param name="Skill">The skill ladder at <c>+0x25</c>, 0-3; the panel prints <c>estext.bin</c> <c>0x35 + skill</c>.</param>
-public sealed record ShellBayPilot(string Name, int Skill);
+/// <param name="SquadPosition">
+/// <c>+0x27</c> — which of the crew screen's three wingman rows, 1-3, the pilot fills, or <c>-1</c>.
+/// </param>
+public sealed record ShellBayPilot(string Name, int RosterId, int Bay, int Skill, int SquadPosition);
 
 /// <summary>
 /// The eight hangar bays and the salvage pool — what every tab from WEAPONS to CREW works over, and
@@ -206,13 +213,46 @@ public sealed class ShellHangar {
 	private const int PilotsPerSquad = 12;
 
 	private readonly ShellBayMachine?[] _bays = new ShellBayMachine?[BayCount];
-	private readonly List<(int Bay, ShellBayPilot Pilot)> _pilots = new();
+	private readonly List<ShellBayPilot> _squad = new();
 	private readonly HashSet<int> _availableChassis = new();
 
 	private ShellHangar() { }
 
 	/// <summary>The salvage pool in kilograms, as the save carries it.</summary>
 	public int SalvageKilograms { get; private set; }
+
+	/// <summary>The player's own pilot record, embedded in the player structure at <c>+0x04</c>.</summary>
+	public ShellBayPilot? Player { get; private set; }
+
+	/// <summary>
+	/// The three squad members the player structure points at from <c>+0x3f</c>, in pointer order —
+	/// the pilots the crew screen offers as <c>Available Pilots</c>. Fewer than three only when the
+	/// save's squad block is short.
+	/// </summary>
+	public IReadOnlyList<ShellBayPilot> SquadMembers => _squad;
+
+	/// <summary>
+	/// The player structure's leading <c>int16</c>, <c>DAT_00482a78</c>: how many squad positions,
+	/// counting the player's as position 0, are in play. The auto-repair pass and the
+	/// <c>player.mec</c> export both bound their per-position loops by it, a squad member counts as on
+	/// strength only in a position below it (<c>Squad_UpdateOnStrength</c>, <c>00410366</c>), and the crew screen draws the rows
+	/// below it lit.
+	/// </summary>
+	public int SquadPositions { get; private set; }
+
+	/// <summary>
+	/// <c>Squad_MemberAtPosition</c> (<c>004102d6</c>) — the squad member whose <c>+0x27</c> is <paramref name="position"/>, or null.
+	/// It tests the three in pointer order and takes the first.
+	/// </summary>
+	public ShellBayPilot? SquadMemberAt(int position) {
+		foreach (var pilot in _squad) {
+			if (pilot.SquadPosition == position) {
+				return pilot;
+			}
+		}
+
+		return null;
+	}
 
 	/// <summary>The machine in one bay, or null when the bay is empty or the index is out of range.</summary>
 	public ShellBayMachine? Bay(int slot) => slot >= 0 && slot < BayCount ? _bays[slot] : null;
@@ -228,8 +268,12 @@ public sealed class ShellHangar {
 			return null;
 		}
 
-		foreach (var (bay, pilot) in _pilots) {
-			if (bay == slot) {
+		if (Player?.Bay == slot) {
+			return Player;
+		}
+
+		foreach (var pilot in _squad) {
+			if (pilot.Bay == slot) {
 				return pilot;
 			}
 		}
@@ -297,25 +341,28 @@ public sealed class ShellHangar {
 			}
 		}
 
-		// Player_Read (004101b8) points the player structure's three squad pointers at record
-		// DAT_00483b48[k] of squad k; those three shorts open the eight the save model keeps between
-		// the squad block and the player's record.
-		hangar.AddPilot(save.PlayerPilot);
+		// Player_Read (004101b8) reads the player block's two leading shorts into 00482a78 and 00482a7a, then
+		// points the player structure's three squad pointers at record DAT_00483b48[k] of squad k. The
+		// save model keeps all five among the eight shorts between the squad block and the player's
+		// record: DAT_00483b48's three first, the player block's two last.
+		hangar.SquadPositions = save.UnkRange_prePlayer[SquadPositionsShort];
+		hangar.Player = Pilot(save.PlayerPilot);
 		for (int squad = 0; squad < SquadCount; squad++) {
 			int member = save.UnkRange_prePlayer[squad];
 			if (member >= 0 && member < PilotsPerSquad
-				&& save.Squadmates?.ElementAtOrDefault(squad * PilotsPerSquad + member) is { } pilot) {
-				hangar.AddPilot(pilot);
+				&& Pilot(save.Squadmates?.ElementAtOrDefault(squad * PilotsPerSquad + member)) is { } pilot) {
+				hangar._squad.Add(pilot);
 			}
 		}
 
 		return hangar;
 	}
 
-	private void AddPilot(PilotEntry? pilot) {
-		if (pilot != null) {
-			_pilots.Add((pilot.BayId,
-				new ShellBayPilot((pilot.Name ?? string.Empty).TrimEnd('\0'), pilot.Skill?.Id ?? 0)));
-		}
-	}
+	/// <summary>Where <c>DAT_00482a78</c> sits among the save model's eight shorts before the player's record.</summary>
+	private const int SquadPositionsShort = 6;
+
+	private static ShellBayPilot? Pilot(PilotEntry? pilot) =>
+		pilot == null ? null
+			: new ShellBayPilot((pilot.Name ?? string.Empty).TrimEnd('\0'), pilot.SquadmateId, pilot.BayId,
+				pilot.Skill?.Id ?? 0, pilot.CrewRowNum);
 }

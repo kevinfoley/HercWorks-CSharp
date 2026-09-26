@@ -3,14 +3,21 @@ using Herculan.Engine.Content;
 namespace Herculan.Engine.Shell;
 
 /// <summary>
-/// The squad panel <c>wsquadi.cpp</c> shares across the WEAPONS, REPAIR, BUILD and CREW tabs: the
-/// <c>Pilot:</c>/<c>Skill:</c>/<c>Condition:</c> readout for the selected bay, and the eight-row
-/// <c>Squad Inventory</c> list that selects it. Built once by <c>Squad_BuildRosterList</c>
-/// (<c>0043c999</c>), shown by <c>Squad_ShowPanel</c> (<c>0043cfe7</c>), its readout filled by
-/// <c>Squad_RefreshReadout</c> (<c>0043d38a</c>) and its rows by <c>Squad_RefreshRowNames</c> (<c>0043da47</c>) and <c>Squad_RefreshRowCrew</c> (<c>0043dad7</c>). The rects are
-/// literals in the canvas. See docs/shell/screen-layout.md, "The squad panel".
+/// The squad panel <c>wsquadi.cpp</c> shares across the WEAPONS, REPAIR, BUILD and CREW tabs — the
+/// whole left-hand column: the picture of the selected bay, the <c>Pilot:</c>/<c>Skill:</c>/
+/// <c>Condition:</c> readout under it, and the eight-row <c>Squad Inventory</c> list that selects the
+/// bay. Built once by <c>Squad_BuildRosterList</c> (<c>0043c999</c>), shown by <c>Squad_ShowPanel</c>
+/// (<c>0043cfe7</c>), its readout filled by <c>Squad_RefreshReadout</c> (<c>0043d38a</c>) and its rows by <c>Squad_RefreshRowNames</c> (<c>0043da47</c>)
+/// and <c>Squad_RefreshRowCrew</c> (<c>0043dad7</c>). The rects are literals in the canvas. See docs/shell/screen-layout.md,
+/// "The squad panel".
 ///
-/// <para>Only the repair tab's use of it is ported, which is what <see cref="CanSelect"/> encodes.</para>
+/// <para><b>What the picture shows depends on the tab.</b> WEAPONS, BUILD and CREW fill it with the
+/// three-quarter view <see cref="ShellBayPictures"/> draws; the repair tab refills the same widgets with
+/// its damage diagram, which <see cref="ShellRepairDiagrams"/> draws, and passes no pictures here.</para>
+///
+/// <para><b>Each tab takes a roster click its own way</b>, all inside <c>Squad_SelectBay</c> (<c>0043d64d</c>).
+/// <see cref="CanSelect"/> is the repair tab's rule and <see cref="CanSelectForCrew"/> the crew
+/// tab's.</para>
 /// </summary>
 public static class ShellSquadPanel {
 	/// <summary>The <c>Squad Inventory</c> panel, in the canvas.</summary>
@@ -91,9 +98,23 @@ public static class ShellSquadPanel {
 	/// </summary>
 	public static bool CanSelect(ShellHangar hangar, int bay) => hangar.Bay(bay) is { IsBuilt: true };
 
-	/// <summary>Draws the readout for <paramref name="selectedBay"/> and the eight rows under it.</summary>
+	/// <summary>
+	/// <c>Squad_SelectBay</c> (<c>0043d64d</c>)'s crew-tab arm: no bay at all, or a bay holding a finished machine — and not
+	/// the Razor unless <paramref name="crewRow"/> is the player's own row, 0, since a squad member
+	/// cannot fly it. The row it tests is the crew screen's selection at the moment of the call, which
+	/// on a crew-row click is still the row being left.
+	/// </summary>
+	public static bool CanSelectForCrew(ShellHangar hangar, int bay, int crewRow) =>
+		bay == -1 || (hangar.Bay(bay) is { IsBuilt: true } machine
+			&& (crewRow == 0 || machine.ChassisType != ShellRepairScreen.FlyerChassisType));
+
+	/// <summary>
+	/// Draws the picture of <paramref name="selectedBay"/> when <paramref name="pictures"/> is given, then
+	/// the readout for it and the eight rows under it.
+	/// </summary>
 	public static void Paint(ShellSurface surface, HudFont? font, ShellText? text, ShellHangar hangar,
-			int selectedBay) {
+			int selectedBay, ShellBayPictures? pictures = null) {
+		pictures?.Paint(surface, hangar, selectedBay);
 		PaintReadout(surface, font, text, hangar, selectedBay);
 
 		ShellChrome.PaintTitledPanel(surface, PanelRect, PanelBorder, HeaderFace, ShellChrome.InteriorColor,

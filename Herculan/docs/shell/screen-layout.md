@@ -43,7 +43,7 @@ Every tab has its own handler, and the eight are the same function with three or
 4. `0043b162(tab)` — install the tab's palette.
 5. `0043cfe7(tab)` — build the shared squad roster panel, on tabs 2, 3, 4 and 6 only. Neither ARMORY nor MISSION has one.
 6. The screen's own builder.
-7. `DAT_0047581c = tab`, then `0042ee89` — the click sound.
+7. `DAT_0047581c = tab`, then `0042ee89` — the click sound. Tab 6's handler stores its index before its builder instead, so the crew screen's entry already runs as tab 6 ([below](#entering-the-crew-screen)).
 
 | Tab | Handler | Builds | Roster |
 |---|---|---|---|
@@ -123,11 +123,11 @@ Both consult the widget's effective parent, which `FUN_0041f283` finds by walkin
 
 **A widget carries its rect twice.** `Widget_SetRect` (`0041eb5c`) stores the constructor's rect verbatim into `+0x25`/`+0x29`/`+0x2d`/`+0x31` — left, top, right, bottom, **parent-relative** — and `FUN_0041ef45` derives the absolute rect into `+0x15`/`+0x19`/`+0x1d`/`+0x21`. `FUN_0041ec33` shows the relation directly: it adds the parent's `+0x15` to a child's `+0x25` to get the child's `+0x1d`. Only `Widget_MoveRect` (0041ebef) moves a widget afterwards, and it rewrites the relative pair and rederives the absolute one.
 
-Five paints are the whole visual vocabulary of a shell screen. All of them work in **widget-local coordinates**, where the extent they draw against is `+0x2d - +0x25`. Because that is a difference it is the same in either space — one less than the inclusive width — so a paint never reads an origin at all: `Widget_BeginPaint` (0041f585) opens every one of them and binds the drawing context to the widget's absolute rect and clips to it.
+The paints in the table below are the visual vocabulary of the screens ported so far. All of them work in **widget-local coordinates**, where the extent they draw against is `+0x2d - +0x25`. Because that is a difference it is the same in either space — one less than the inclusive width — so a paint never reads an origin at all: `Widget_BeginPaint` (0041f585) opens every one of them and binds the drawing context to the widget's absolute rect and clips to it.
 
 **Colour is always a palette index**, taken from a widget field, and the drawing context carries a `{mode, colour}` pair: mode 0 at `+0x22c` is a solid fill, mode 6 is a blit through a 256-entry lookup table. `Gfx_FillRect` (00457364) fills a rect, `Gfx_DrawLine` (004552e4) draws a line between two inclusive endpoints, and `Gfx_PlotPixel` (0045999c) plots one pixel.
 
-**The border is a chamfer.** `Panel_FillAndBorder(widget, fill)` optionally clears the interior to a literal `0x10` — the shell's one background colour, in all five paints — and then draws four edges each stopping one pixel short at both ends, so the true corners stay empty, and paints the four pixels one step *inside* those corners instead. That clipped-corner box is every panel and every button in the shell. It draws nothing at all when `+0x51` is clear, which is how a screen's backdrop-textured root shows its bitmap and no chrome.
+**The border is a chamfer.** `Panel_FillAndBorder(widget, fill)` optionally clears the interior to a literal `0x10` — the shell's one background colour, in every paint that fills — and then draws four edges each stopping one pixel short at both ends, so the true corners stay empty, and paints the four pixels one step *inside* those corners instead. That clipped-corner box is every panel and every button in the shell. It draws nothing at all when `+0x51` is clear, which is how a screen's backdrop-textured root shows its bitmap and no chrome.
 
 | Class | Paint | What it adds |
 |---|---|---|
@@ -136,6 +136,9 @@ Five paints are the whole visual vocabulary of a shell screen. All of them work 
 | `TitledPanel` | `0040ac27` | the header strip, its hatch and title plate, a divider, and a dithered *or* filled body |
 | `Text` | `0040b439` | one string, aligned, with an optional backing fill |
 | edit field | `0040c14f` | one editable string, left-aligned, with an optional caret |
+| image panel | `0040b772` | one bitmap at an offset, under an unfilled border ([below](#the-crew-screen)) |
+| `HatchedDivider` | `0040c513` | a body of horizontal lines and an optional inner border ([below](#the-crew-screen)) |
+| `Grid` | `0040b97c` | grid lines and thirty recolourable bitmap parts ([below](#the-damage-diagram)) |
 
 `TitledPanel_Paint` fills its header strip to `+0x55` for `+0x61` rows, then — when `+0x65` is set, which the constructor does and nothing clears — lays a **diagonal hatch** over it in colour 13: bands of fourteen 45-degree lines on a 28-pixel pitch, 26 bands from five pixels left of the widget. That is over 700 pixels of hatch for a panel a third as wide, and only the clip stops the surplus; the paint relies on clipping rather than measuring. It then punches the hatch back out to `+0x55` between `+0x6d` and `+0x71`, which is the **title plate** the caption reads against, draws the header's own side edges, and closes with a divider on row `+0x61`.
 
@@ -313,7 +316,7 @@ Ids past 15 are the Razor's: its twelve body records are two parts per group, 0-
 
 | Widget | Class | Rect | Content |
 |---|---|---|---|
-| 8 pictures | `Grid` | `{5, 0x2b, 0xeb, 0x130}` | one per bay; the repair tab moves them ([above](#the-damage-diagram)) |
+| 8 pictures | `Grid` | `{5, 0x2b, 0xeb, 0x130}` | one per bay; filled and moved by the tab ([below](#the-bay-picture)) |
 | empty picture | `Grid` | `{5, 0x2b, 0xeb, 0x130}` | `DAT_0048d4dc`, grid lines off |
 | pilot label | `Text` | `{5, 0x134, 0x25, 0x141}` | `0x65` `Pilot:`, left, `0x1a` |
 | pilot | `Text` | `{0x28, 0x134, 0x82, 0x141}` | left, `0x17`, opaque |
@@ -336,7 +339,23 @@ The rows are 14 tall on a 14-pixel pitch, so unlike the repair lists they do not
 
 A bay's pilot is `Squad_PilotForBay(00482a78, bay)` (`00410220`), which looks at exactly four records: the player's own, embedded at `+0x04`, and the three squad members the player structure points at from `+0x3f`. `Player_Read` (`004101b8`) sets those pointers on load to record `DAT_00483b48[k]` of squad `k`, so a pilot elsewhere in the squad block is never shown against a bay.
 
-**A roster click is `Squad_SelectBay(bay)` (`0043d64d`)**, through eight thunks from `0043dde7`. It returns at once for the bay already selected, and each tab takes the click its own way. The repair tab's arm refuses a bay that is empty or still being built; otherwise it hides whichever of the old bay's two pictures was up and shows the new bay's external one, relights the two rows, stores `DAT_00482ae5`, resets the selection with `Repair_SelectHotspot(0, 0)`, and refills the names, the rows and the panels.
+**A roster click is `Squad_SelectBay(bay)` (`0043d64d`)**, through eight thunks from `0043dde7`, each of which sets `DAT_004765be` for the length of the call. It returns at once for the bay already selected, and each tab takes the click its own way, picked by `DAT_0047581c`. The repair tab's arm refuses a bay that is empty or still being built; otherwise it hides whichever of the old bay's two pictures was up and shows the new bay's external one, relights the two rows, stores `DAT_00482ae5`, resets the selection with `Repair_SelectHotspot(0, 0)`, and refills the names, the rows and the panels. The crew tab's arm is [below](#entering-the-crew-screen).
+
+### The bay picture
+
+`Squad_ShowPanel(tab)` starts with `Squad_BuildTabPictures(tab)` (`0043c915`), which fills the eight pictures for the tab: `Repair_BuildDiagrams` on the repair tab ([above](#the-damage-diagram)), and `Squad_BuildBayPictures` (`00414e5b`) on WEAPONS, BUILD and CREW. It then shows the selected bay's picture, or the empty one (`DAT_0048d4dc`) when no bay is selected.
+
+`Squad_BuildBayPictures` moves each bay's picture to `{5, 0x2b}` at `0xe7` by `0x105` — `FUN_0041ec33` and `FUN_0041ece6` take a size and write the far corner as `origin + size - 1`, so the pictures end on row `0x12f`, one short of the rect they were built at — and switches their grid lines off. It fills them from `gam\arm_<chassis>.dat` ([`../formats/herc-catalogs.md`](../formats/herc-catalogs.md#gamarm_dat--armory-layout)) and three banks per chassis, whose stems are not the layout files': `out`, `rap`, `tom`, `sam`, `col`, `apoc`, `ogr`, `mav` and `fly`.
+
+| Part | Slot | Frame | Position |
+|---|---|---|---|
+| top half | the first layout record's id | `dba\<stem>_bod.dba`, the record's own frame once the machine is built; `dba\mt_3qtr.dba` frame 0 at 0% built; body frame 2 below 51% built and 4 from it | the record's |
+| bottom half | the second record's id | as above with frames 1, 1, 3 and 5 | the record's |
+| each fitted weapon | the group record's id | `dba\<stem>_wep.dba`, the record's frame | the record's, one pixel in from the load |
+
+A weapon's record is the one in its weapon-id group whose id is `slot + 2`, found by `RepairLayout_FindWeaponPart` (`00413ccc`), and a record whose frame is `-1` draws nothing. Every part takes its record's `+0x16` as its blit flags and no colour remap, so nothing on this picture is recoloured by damage. An empty bay, and the empty picture, get `mt_3qtr`'s two frames at `(1, 1)` and `(1, 0x8c)`. Retail's layouts put the body in slots 0 and 1 and the weapons from 2.
+
+The body banks do not all carry the construction frames: `out_bod` and `mav_bod` have two frames, `rap_bod` and `tom_bod` four, and the other five six ([Open](#open)).
 
 ### What the buttons are gated on
 
@@ -350,6 +369,51 @@ A bay's pilot is `Squad_PilotForBay(00482a78, bay)` (`00410220`), which looks at
 | `CANCEL` | always — no trio is written for it |
 
 "Deployable" is `FUN_00410a9d`: the bay is occupied, `+0x4a` is 100 so the machine is built, and `Herc_IsFlightworthy` (00411681) holds — both leg servos, the engine and life support all above 50.
+
+## The crew screen
+
+Tab 6, `CREW`. Built once by `Crew_BuildScreen` (00440eb8, `wcrewi.cpp`), which also loads `dba\c_pilots.dba` and `dba\star.dba`; entered by `maybe_Crew_Show` (00441a01) and hidden by `FUN_00441afa`. Rects are parent-relative. The left of the canvas is [the squad panel](#the-squad-panel).
+
+| Widget | Class | Rect (in its parent) | Content |
+|---|---|---|---|
+| content panel | `TitledPanel` | `{0xf1, 0x2b, 0x278, 0x1d9}` | `0xa8` `PILOT ASSIGNMENT`, header 19 tall, plate `0x7e`-`0x108`, face `0x25` |
+| 3 squad portraits | image panel | `{0xbc, 0x19, 0xf7, 0x50}`, `{0xfc, …, 0x137, …}`, `{0x13c, …, 0x177, …}` | the squad member's portrait at `(1, 1)`, border `0x21` |
+| `CLEAR` | `Button` | `{0x99, 0x188, 0xdf, 0x197}` | `0xa9`, border `0x22` |
+| label | `Text` | `{10, 0x1d, 0xb4, 0x29}` | `0xab` `Available Pilots:`, right, `0x29` |
+| 4 rows | `HatchedDivider` | `{0xd, i*0x4a + 0x58, 0x178, i*0x4a + 0x9e}` | `+0x55 = 0`, `+0x5d = 1`, border `0x21` |
+| row portrait | image panel | `{0xb, 9, 0x43, 0x3d}` in the row | row 0 `star.dba` frame 0, rows 1-3 the pilot's portrait |
+| 3 labels | `Text` | `{100, 0xb, 0xec, 0x18}`, then 13 lower twice | `0xac` `Name:`, `0xad` `Skill:`, `0xae` `Herc:`, right |
+| 3 values | `Text` | `{0xef, 0xb, 0x164, 0x18}`, then 13 lower twice | left, opaque |
+
+A pilot's portrait is the `c_pilots` frame its roster id (`+0x00`) names; the bank has twelve, one per roster id. The three squad portraits are the three pilots the player structure points at from `+0x3f` — the squad members of [the squad panel](#the-squad-panel).
+
+**The image panel** is the class `maybe_Widget_InitRect` (0040b698) builds. Its paint, `ImagePanel_Paint` (`0040b772`), blits the bitmap at `+0x5d` at the offset `(+0x55, +0x59)` and then draws the border over it with no fill, so a 56x52 portrait at `(0, 0)` in a row's 57x53 panel loses its top row and left column to the border. The constructor clears `+0x51`, which stops the paint drawing anything; the builder sets it on all seven.
+
+**`HatchedDivider_Paint` (0040c513)** fills and borders the panel, draws horizontal lines in `+0x59` from row `+0x55` down to the bottom border, redraws row `+0x55` and the border in `+0x4d`, and with `+0x5d` set draws a second border one pixel inside the first. The constructor sets `+0x55` to the widget's height, which draws no lines at all; the crew builder writes 0, which makes the lines a solid body.
+
+### The rows
+
+Row 0 is the player; rows 1-3 are the three squad positions. `Crew_MatchRowPilots` (`00441b08`) fills the pointers at `004776e0` with the squad member whose position, pilot record `+0x27`, is the row — `Squad_MemberAtPosition` (`004102d6`) tests the three in pointer order — or null. `Crew_FillRows` (`00441c4f`) fills the values: the player's name, `0x35 + skill` and the chassis name `0x6e + type` of the player's bay (`00482a9e`), or `0x7e` `None` when that bay is empty; the same three from a squad member's record and bay; and for a row with no pilot, no portrait and `estext.bin` entry 0 in all three.
+
+`Crew_ColourRows` (`00441857`) colours each row by whether it is below `DAT_00482a78`, the count of squad positions in play ([`../formats/save-games.md`](../formats/save-games.md#savgame_sav--block-order)):
+
+| | Row in play | Row out of play |
+|---|---|---|
+| body, `+0x59` | `0x25` | `0x10` |
+| labels | `0x19` | `0x1a` |
+| value backing, `+0xc5` | `0x25` | `0x10` |
+
+It writes the values' own colour too, `0x16` and `0x17`, but `Crew_FillRows` runs after it and its `Text_SetString` calls overwrite it with `0x29`, so every value is drawn in `0x29`.
+
+**`Crew_SelectRow(row)` (`00441b85`) selects a row.** It relights the border of the row and its portrait — `0x21` on the row being left, `0x29` on the new one — calls `Squad_SelectBay` (`0043d64d`) with the row's pilot's bay, the player's for row 0 and `-1` for a row with no pilot, and only then stores the row in `DAT_004776dc`. The three squad portraits' handlers (`FUN_00442151`, `FUN_004421fc`, `FUN_004422a7`) light the clicked portrait and call `FUN_00441eb8(k)`, which on any row but the player's moves squad member `k` into the selected row's position; `CLEAR` calls `FUN_00441f94`, which empties it ([Open](#open)).
+
+### Entering the crew screen
+
+`maybe_Crew_Show` runs `Crew_ColourRows` (`00441857`) and `Crew_MatchRowPilots` (`00441b08`), sets the three squad portraits, selects rows 0, 1, 2, 3 and then 0 again, runs `Crew_FillRows` (`00441c4f`), and then calls `Squad_SelectBay(bay)` (`0043d64d`) for every bay that holds a machine, in order.
+
+The tab handler has already stored 6 in `DAT_0047581c` ([above](#what-a-tab-click-does)), so all of those calls take `Squad_SelectBay`'s crew arm. It accepts `-1`, or a bay holding a finished machine that is not the Razor unless `DAT_004776dc` is 0 — a squad member cannot be given the Razor, and on a row click the row it tests is the one being left. It swaps the bay's picture and relights the roster rows as the repair arm does, stores `DAT_00482ae5` and refills the readout; while `DAT_004765be` is set, which only a roster click does, it first gives the bay to the selected row's pilot (`FUN_00442055`).
+
+**So the screen opens on the last bay that holds a finished machine**, whatever bay was selected before and whichever is the player's: the row loop ends on row 0, which lets the closing loop accept every finished machine, the Razor included. The readout under the picture is that bay's until a row is clicked.
 
 ## The arming and repair hotspots
 
@@ -408,13 +472,15 @@ The condition itself goes through two functions over two in-image tables. `Repai
 
 `dfn\font.dfn` is in the archive and the init does not ask for it.
 
-**There is one backdrop for the whole shell.** `0046dcd4` is written exactly once, by this init, and all eight screen builders pass that same handle as their root's image. So a screen that installs `arming.dpl` is drawing `bay2a_84` through a palette that is not its own. Retail never shows it: captures of the WEAPONS and REPAIR tabs are black wherever their widgets leave the canvas uncovered, the strip's row included ([Open](#open)).
+**There is one backdrop for the whole shell.** `0046dcd4` is written exactly once, by this init, and all eight screen builders pass that same handle as their root's image. So a screen that installs `arming.dpl` is drawing `bay2a_84` through a palette that is not its own. On the tab screens only the strip row ever shows it, and the backdrop's top 30 rows are black: everything below the strip is covered by [the palette scope's fill](#the-palette).
 
 ## The palette
 
 **The palette is a widget, not a call.** `DAT_0048d444` is the palette scope from the widget tree above: a `Window` subclass built by `0040ca6c` (vtable `PTR_FUN_0046ef04`, allocation `0x47`) whose `+0x45` is a palette index rather than a lit flag. Its event handler `0040cab7` responds to event 2 by calling `Shell_InstallPalette(+0x45)` and committing the result. So the shell changes palette by writing `+0x45` between the two visibility calls of `00439da0(index)`, and the second of them is what fires the install.
 
-**The scope is installed by being hidden**, which follows from [the visibility pair](#showing-and-hiding-a-widget): `00439da0` shows the scope, writes the index and hides it again, and it is the hide that posts event 2. That is consistent rather than odd — the scope draws nothing, so its two states are only ever a way to fire the callback, and the pair works repeatedly because each call leaves the bit where the next one needs it.
+**The scope is installed by being hidden**, which follows from [the visibility pair](#showing-and-hiding-a-widget): `00439da0` shows the scope, writes the index and hides it again, and it is the hide that posts event 2. The pair works repeatedly because each call leaves the bit where the next one needs it.
+
+**The scope paints, and its paint is what makes the tab screens black.** Its handler sends event 4 to `PaletteScope_Paint` (`0040cb40`), which fills the whole scope rect, `{0, 0x1e, 0x27f, 0x1df}`, with `0x10`, and the show posts that event. Tabs 2-7 all install their palette through the scope (`0043b162` cases 2-7 call `00439da0`), and nothing repaints the backdrop-textured root afterwards, so each of those tabs draws its screen over a black canvas and shows black wherever its widgets leave it bare. The main menu and the save screen go through the scope too, then put up their own backdrop-textured root over the fill, which is why they show the bay.
 
 `Shell_InstallPalette(index)` (004075b2) reads a pointer table of `dpl\*.dpl` paths at `0046dcdc`, twenty entries long:
 
@@ -445,17 +511,19 @@ The main menu tab keeps the strip up here, where its handler hides it as tab 1's
 
 **The repair screen is drawn**, from a real save's hangar bay and the real price list. `ShellHangar` and `ShellBayMachine` are the eight-pointer bay array and `HercStatus_Get` over one machine's status block; `ShellRepairCosts` parses `gam\damage.dat` and expands it against `gam\herc_inf.dat`'s prices exactly as the loader does, and carries both cost functions. `ShellRepairScreen` places every widget above, fills both lists, prints the three readout panels and gates the buttons. `ShellRepairDiagrams` loads the nine layouts, `rpr_hots.dat` and their banks and paints whichever picture the selection's column has up, and `ShellSquadPanel` draws the readout and the roster. Clicking a row, a hotspot on the external picture or a roster row moves the selection or the bay and the panels follow, including the refusal of an unfitted hardpoint and of an unbuilt bay. The four buttons' actions, the manual/auto mode switch and the build queue have no port ([Open](#open)), so the salvage figure is the pool with nothing deducted.
 
+**The crew screen is drawn**, from the same save. `ShellCrewScreen` places every widget above, fills the four rows and the three squad portraits from the pilot records `ShellHangar` carries, colours the rows by `00482a78`, and runs the entry's selection, so it opens on the bay retail opens on. `ShellBayPictures` loads the nine `arm_*.dat` layouts and their banks and draws the bay picture, and `ShellSquadPanel` draws it with the readout and the roster as the one left-hand column the four tabs share. Nothing on the screen answers a click ([Open](#open)). The bay the entry starts from is the repair screen's, the only selection this engine carries between tabs.
+
 Until `RESTORE` loads one, the host opens the first slot the directory marks in use to have a machine to show. That is the host's own choice and not the original's, which reaches the tab only from a game already in progress.
 
-**The widget paints run in palette indices, not in quads.** `ShellSurface` is an 8-bit indexed canvas with the primitives the paints are built from, `ShellChrome` ports the five paints onto it, and the result is resolved through the palette and uploaded as one texture per repaint. That is the original's own model and two of its details depend on it: the ink remap that gives a widget its text colour cannot be done on resolved colours, and index 0 staying untouched is what lets a dithered panel body show the backdrop through it. Clipping each paint to its own widget is likewise load-bearing rather than defensive — the title bar's hatch is drawn 700 pixels wide for a 357-pixel panel.
+**The widget paints run in palette indices, not in quads.** `ShellSurface` is an 8-bit indexed canvas with the primitives the paints are built from, `ShellChrome` and `ShellGrid` port the paints onto it, and the result is resolved through the palette and uploaded as one texture per repaint. That is the original's own model and two of its details depend on it: the ink remap that gives a widget its text colour cannot be done on resolved colours, and index 0 staying untouched is what lets a dithered panel body show the backdrop through it. Clipping each paint to its own widget is likewise load-bearing rather than defensive — the title bar's hatch is drawn 700 pixels wide for a 357-pixel panel.
 
-Following the tab is off by default, which is a presentation choice and not a fidelity one: the four tabs on `arming.dpl` have no content ported, so nothing covers the shared backdrop there and switching would put a visibly wrong bay on screen and read as a palette bug. The save and repair screens are both on `palette.dpl`, the entry the shell already uses, so they are unaffected either way.
+`ShellPalette.PaintScope` is the scope's fill, and the host lays it down before painting any of tabs 2-7, ported or not, so those tabs are black below the strip as retail's are. A tab with a screen behind it always installs its own palette; a bare tab stays on `palette.dpl` unless `--shell-tab-palette` is given, and `--shell-palette` pins one entry on every tab. That default is this engine's choice, not the original's.
 
 The whole content surface is painted afresh on every change, where the original repaints only the widgets that moved. Rows overlap by a pixel and whichever paints second owns the shared border row, so the selected row is painted last, which keeps its highlight whole as `Repair_SelectHotspot`'s incoming repaint does.
 
 The engine reloads the whole of `ShellArt` to change palette, where the original re-installs one and lets the hardware palette do the rest — the art here is decoded to RGBA once per palette rather than kept as indices. Same result on screen, at a few milliseconds per click.
 
-Not drawn: the other six tabs' content, the mouse cursor (`dba\cursor.dba`), and the sounds each button plays ([Open](#open)). The frame shows the backdrop behind the repair screen where retail shows black ([Open](#open)). Nothing sets the campaign mode, so the gate is driven by a command-line flag ([Open](#open)). See [`../../ROADMAP.md`](../../ROADMAP.md).
+Not drawn: the other five tabs' content, the mouse cursor (`dba\cursor.dba`), and the sounds each button plays ([Open](#open)). Nothing sets the campaign mode, so the gate is driven by a command-line flag ([Open](#open)). See [`../../ROADMAP.md`](../../ROADMAP.md).
 
 ## Rejected readings
 
@@ -470,18 +538,21 @@ Not drawn: the other six tabs' content, the mouse cursor (`dba\cursor.dba`), and
 | `0043b23d` shows the frame, as its Ghidra name `ServiceBay_Show` says | It calls `Widget_HideRecursive` (0041f469) on the frame's root and panel, and the pair that undoes it — `0043b162(8)` and `0043b0c8` — calls `Widget_ShowRecursive` on the same two. The name was given under the swapped reading of those two functions ([above](#showing-and-hiding-a-widget)) |
 | `0041f2e6` shows a widget and `0041f469` hides it, matching their names in the raw Ghidra dump | The dump's own names support that reading — one sets a state bit and recurses into children, the other clears it, and the names line up with which is which. They are swapped: `+0x11` bit 2 is a *hidden* bit, so the setter is the hide. `known_symbols.json` carries the corrected assignment (`Widget_ShowRecursive` at 0041f2e6, `Widget_HideRecursive` at 0041f469); only the raw dump still has it backwards. Three witnesses agree; see [Showing and hiding a widget](#showing-and-hiding-a-widget) |
 | The repair screen's detail figure and its `REPAIR ALL` figure are the same cost scaled | Both say `Salvage Required:` in kg and both come from the same unit-value tables, so a per-item share of the whole is the obvious reading. They use different functions with different targets: `Repair_HercCost` prices the machine to 100, and `Repair_LevelStepCost` (00413871) prices the selected component up to the floor of the next band only ([`armory.md`](armory.md#what-one-repair-level-costs)) |
+| The palette scope draws nothing — it exists only to fire the palette install | It carries no bitmap, no caption and no chrome, and its handler's event 2 is the install. Its event 4 is a paint, `PaletteScope_Paint` (`0040cb40`), which fills its rect with `0x10`; that fill is why retail's tab screens are black ([The palette](#the-palette)) |
 
 ## Open
 
-- **Open:** what keeps the backdrop off the tab screens in retail. Every path that shows the strip also shows the backdrop-textured root (`0043b162(8)` before `0043b0c8`), and the WEAPONS and REPAIR captures are black wherever their widgets leave the canvas bare.
 - **Open:** which of two overlapping hotspots answers a click. A weapon part's rect overlaps a body area on several chassis; the engine gives the click to the weapon, the later child, and the base class's hit dispatch has not been read.
-- **Unported:** the squad panel on the other three tabs that share it — its pictures on WEAPONS and BUILD and its roster on CREW, each of which takes a roster click its own way in `Squad_SelectBay` (`0043d64d`).
+- **Unported:** the squad panel on WEAPONS and BUILD, which goes with those two screens, and their arms of `Squad_SelectBay` (`0043d64d`).
+- **Unported:** every click on the crew screen — selecting a row (`Crew_SelectRow`, `00441b85`), a squad portrait's assignment (`FUN_00441eb8`), a roster click's assignment (`FUN_00442055`) and `CLEAR` (`FUN_00441f94`).
+- **Open:** the crew assignments in detail. `FUN_00441eb8`, `FUN_00442055` and `FUN_00441f94`, and the `FUN_0040e6c8` and `FUN_0040e6d7` they call, are read only as far as [the rows](#the-rows) states.
+- **Open:** what retail draws for a machine under construction whose body bank lacks the construction frames ([The bay picture](#the-bay-picture)). `Squad_BuildBayPictures` (`00414e5b`) indexes past them unchecked; the engine draws nothing for a missing frame.
 - **Unported:** the save screen's [rename](#saving-is-a-rename) — `SAVE`, `CANCEL` and `ACCEPT` — and `RESTORE`'s slot-10 autosave and career-file copies. The shell has no save writer and no keyboard input into an edit field.
 - **Open:** the edit field's keyboard handling — how the event `004377d2` posts and `00469cbc` route keystrokes to the row, how the permitted-character set at `+0x9f` filters them (the full string is unread past `"…qrstu"`), backspace, whether the `" 3. "` prefix can be deleted, and whether a key commits or abandons the rename.
 - **Open:** the meaning of the row's `+0xb7 = 4`, and whether `EditField_Paint` draws the caret from `+0xbf`, `+0xb3` or both.
 - **Open:** how `ACCEPT`'s label reaches `sav\GAMEFILE.STR` and where the slot's in-use byte is set — `Game_SaveSlot`'s own body has not been read for either.
 - **Unported:** the repair screen's four buttons' actions (`REPAIR`, `REPAIR ALL`, `SCRAP`, `CANCEL`) and the manual/auto repair mode switch.
 - **Unported:** the armory build queue; the repair screen's salvage figure is the raw pool with nothing deducted as a result.
-- **Unported:** the other six tabs' content (`MAIN MENU`, `WEAPONS`, `BUILD`, `ARMORY`, `CREW`, `MISSION`).
+- **Unported:** the other five tabs' content (`MAIN MENU`, `WEAPONS`, `BUILD`, `ARMORY`, `MISSION`).
 - **Unported:** the mouse cursor (`dba\cursor.dba`) and each button's click sound.
 - **Unported:** setting the campaign/training mode — `FUN_0040e69e`, which `00431498` calls with 1; the gate is driven only by a command-line flag.

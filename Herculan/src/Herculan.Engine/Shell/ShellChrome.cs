@@ -1,3 +1,4 @@
+using HercWorks.Core.Data.File.Dyn;
 using Herculan.Engine.Content;
 
 namespace Herculan.Engine.Shell;
@@ -20,8 +21,9 @@ public enum ShellTextAlign {
 }
 
 /// <summary>
-/// The shell's widget paints, ported one function each. Together they are the whole visual vocabulary
-/// of a VSHELL screen: a flat panel, a bordered box, a titled group box, a label and an edit field.
+/// The shell's widget paints, ported one function each: a flat panel, a bordered box, a titled group
+/// box, a line-filled box, an image panel, a label and an edit field. The <c>Grid</c> picture is
+/// <see cref="ShellGrid"/>'s.
 /// The screen builders place them and set their colour fields; the derivation and the field offsets
 /// are in docs/shell/screen-layout.md.
 ///
@@ -168,6 +170,59 @@ public static class ShellChrome {
 
 		PaintCorners(surface, rect, borderColor);
 		Line(surface, rect, 0, headerHeight, w, headerHeight, borderColor);
+		surface.PopClip(clip);
+	}
+
+	/// <summary>
+	/// <c>HatchedDivider_Paint</c> (<c>0040c513</c>) — a bordered box whose interior is laid down as
+	/// horizontal lines in <paramref name="lineColor"/> from row <paramref name="firstLine"/> to the
+	/// bottom, with an optional second border one pixel inside the first. With the first line at 0 the
+	/// lines are a solid fill; the class is a line fill because its constructor starts them at the
+	/// bottom edge, drawing none.
+	/// </summary>
+	/// <param name="lineColor">The widget's <c>+0x59</c>, <c>0x10</c> from the constructor.</param>
+	/// <param name="firstLine">The widget's <c>+0x55</c>, which the constructor sets to the rect's height.</param>
+	/// <param name="innerBorder">The widget's <c>+0x5d</c>, clear from the constructor.</param>
+	public static void PaintHatchedDivider(ShellSurface surface, ShellRect rect, byte borderColor,
+			byte lineColor, int firstLine, bool innerBorder) {
+		int w = rect.Width - 1;
+		int h = rect.Height - 1;
+		var clip = surface.PushClip(rect);
+
+		PaintPanel(surface, rect, borderColor, fill: true);
+		for (int y = firstLine; y < h; y++) {
+			Line(surface, rect, 1, y, w - 1, y, lineColor);
+		}
+
+		Line(surface, rect, 1, firstLine, w - 1, firstLine, borderColor);
+		PaintPanel(surface, rect, borderColor, fill: false);
+
+		// The inner border, one pixel in: its top and bottom run to the right-hand column and its sides
+		// stop a pixel short of both ends, so its left corners are the outer border's own inset pixels.
+		if (innerBorder) {
+			Line(surface, rect, 2, 1, w - 1, 1, borderColor);
+			Line(surface, rect, w - 1, 2, w - 1, h - 2, borderColor);
+			Line(surface, rect, w - 1, h - 1, 2, h - 1, borderColor);
+			Line(surface, rect, 1, h - 2, 1, 2, borderColor);
+		}
+
+		surface.PopClip(clip);
+	}
+
+	/// <summary>
+	/// <c>ImagePanel_Paint</c> (<c>0040b772</c>), the paint of the panel class <c>maybe_Widget_InitRect</c> (<c>0040b698</c>)
+	/// builds — one bitmap at an offset within the widget (<c>+0x55</c>, <c>+0x59</c>), then the border
+	/// over it with no fill, so an image that reaches the edge loses its outermost pixels to the border.
+	/// Nothing is drawn at all while <c>+0x51</c> is clear, which the constructor leaves it.
+	/// </summary>
+	public static void PaintImagePanel(ShellSurface surface, ShellRect rect, DynamixBitmap? image,
+			int offsetX, int offsetY, byte borderColor) {
+		var clip = surface.PushClip(rect);
+		if (image != null) {
+			surface.Blit(image, rect.X0 + offsetX, rect.Y0 + offsetY);
+		}
+
+		PaintPanel(surface, rect, borderColor, fill: false);
 		surface.PopClip(clip);
 	}
 

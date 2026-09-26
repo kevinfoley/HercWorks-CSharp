@@ -38,11 +38,12 @@ static class ShellHost {
 
 		// Reassigned when a tab switches palette, since the art is decoded through one palette at load
 		// rather than re-mapped per frame — see SwitchPalette.
-		if (ShellArt.Load(content, paletteName) is not { } loaded) {
+		string startPalette = PaletteFor(startTab);
+		if (ShellArt.Load(content, startPalette) is not { } loaded) {
 			Console.Error.WriteLine(
 				$"Could not load the shell's art from {GameInstall.ArchiveDirectory(installRoot)}.\n" +
 				$"It needs {string.Join(" and ", ShellArt.Archives)}, a "
-				+ $"dpl\\{paletteName ?? ShellArt.DefaultPaletteName}.DPL palette and "
+				+ $"dpl\\{startPalette}.DPL palette and "
 				+ $"dbm\\{ShellArt.BackdropName}.DBM.");
 			return 1;
 		}
@@ -56,15 +57,6 @@ static class ShellHost {
 				? $"Banks and fonts: {string.Join(", ", sheet.BankNames)} in a "
 				  + $"{sheet.Atlas.Width}x{sheet.Atlas.Height} atlas."
 				: "No sprite banks or fonts could be loaded — backdrop only."));
-
-		// Following the tab is opt-in, and that is a presentation choice rather than a fidelity one.
-		// The original has exactly one backdrop bitmap for the whole shell — bay2a_84, loaded once by
-		// esglobal.cpp into DAT_0046dcd4, and all eight screen builders texture their root with that
-		// same handle — so on the four tabs that install arming.dpl the bay art really is being drawn
-		// through a palette that is not its own. Retail never shows it: those screens' content covers
-		// the canvas. This one draws the frame and nothing else, so the switch would put a mangled bay
-		// on screen and read as a palette bug. An explicit --shell-palette pins one entry instead.
-		bool followTabPalette = followTabPalettes && paletteName == null;
 
 		// The save screen reads real files: sav\GAMEFILE.STR for the slot list and each GAME_?.SAV it
 		// says is in use for that slot's summary. Both are loose files beside the VOL folder rather than
@@ -89,6 +81,14 @@ static class ShellHost {
 		var repairDiagrams = ShellRepairDiagrams.Load(content);
 		var repairScreen = new ShellRepairScreen(hangar, repairCosts, startBay, repairDiagrams);
 		Console.WriteLine($"Damage diagram layouts loaded for {repairDiagrams.LayoutCount} chassis.");
+
+		// The squad panel's three-quarter view, which the crew tab shows (and WEAPONS and BUILD would), and
+		// the crew screen's two portrait banks. The crew screen is rebuilt on every entry, since its entry
+		// is what decides the bay it opens on.
+		var bayPictures = ShellBayPictures.Load(content);
+		var crewPortraits = ShellCrewPortraits.Load(content);
+		ShellCrewScreen? crewScreen = null;
+		Console.WriteLine($"Bay picture layouts loaded for {bayPictures.LayoutCount} chassis.");
 		Console.WriteLine(repairCosts == null
 			? $"No gam\\{ShellRepairCosts.ValuesResourceName} or gam\\{ShellRepairCosts.ChassisResourceName}"
 			  + " — the repair screen draws its labels and no cost figures."
@@ -111,23 +111,30 @@ static class ShellHost {
 			: "No built machine in any hangar bay — the repair screen draws empty rows.");
 
 		var screen = ShellScreen.CreateFrame(art.Text, startTab, mode);
+		if (screen.SelectedTab == ShellScreen.CrewTab) {
+			EnterCrew();
+		}
+
 		Console.WriteLine(art.Text != null
 			? $"Tabs: {string.Join(", ", screen.Buttons.Where(b => b.Id < ShellLayout.TabCount && b.Caption != null).Select(b => b.Caption))}"
 			: "No estext.bin — the tabs draw their plates and no captions.");
 		Console.WriteLine(mode == ShellCampaignMode.Training
 			? "Training campaign: REPAIR, BUILD and ARMORY are gated off, as the strip refresh gates them."
 			: "Campaign: every tab is live.");
-		Console.WriteLine("SAVE and REPAIR are the two tabs with a screen behind them. Click a save slot "
+		Console.WriteLine("SAVE, REPAIR and CREW are the tabs with a screen behind them. Click a save slot "
 			+ "row, or a repair list row, a part of the damage diagram or a Squad Inventory row, to select "
-			+ "it and the panels beside it follow; the other six tabs latch and show the frame. The save screen hides the strip, as the original's does: leave it "
-			+ "with EXIT, or RESTORE a slot to load it into the repair screen. Close the window to quit.");
-		Console.WriteLine(followTabPalette
-			? "Palettes follow the tab, as the original's do. The four tabs on dpl\\arming.dpl draw the "
-			  + "bay backdrop through a palette that is not its own — so does retail, which covers it "
-			  + "with screen content this engine has not ported yet."
-			: $"Palette pinned to {art.PaletteName}. Pass --shell-tab-palette to let it follow the tab "
-			  + "as the original does; with no screen content ported yet that shows the bay backdrop "
-			  + "through the arming palette on four of the eight tabs.");
+			+ "it and the panels beside it follow; CREW is drawn and answers no clicks yet; the other five "
+			+ "tabs latch and show the frame. The save screen hides the strip, as the original's does: "
+			+ "leave it with EXIT, or RESTORE a slot to load it into the repair screen. Close the window to "
+			+ "quit.");
+		Console.WriteLine(paletteName != null
+			? $"Palette pinned to {art.PaletteName} on every tab."
+			: followTabPalettes
+				? "Palettes follow the tab, as the original's do. WEAPONS, BUILD and ARMORY draw the bay "
+				  + "backdrop through dpl\\arming.dpl, which is not its own — so does retail, which covers "
+				  + "it with screen content this engine has not ported yet."
+				: "Each tab with a screen installs its own palette; the bare tabs stay on "
+				  + $"{ShellArt.DefaultPaletteName}. Pass --shell-tab-palette to let those follow too.");
 
 		using var window = new EngineWindow("HERCULAN Engine — shell");
 
@@ -223,7 +230,11 @@ static class ShellHost {
 			screen.SelectTab(id);
 			Console.WriteLine($"Tab {id}"
 				+ (screen.Button(id)?.Caption is { } caption ? $" ({caption})" : string.Empty)
-				+ (id == ShellScreen.SaveTab ? "." : " — no screen behind it yet."));
+				+ (HasScreen(id) ? "." : " — no screen behind it yet."));
+
+			if (id == ShellScreen.CrewTab) {
+				EnterCrew();
+			}
 
 			SwitchPalette(id);
 			RepaintContent();
@@ -350,6 +361,17 @@ static class ShellHost {
 			}
 		}
 
+		// Tab 6's entry. The bay it starts from is the one the previous tab left selected, DAT_00482ae5,
+		// which here only the repair screen tracks; the entry then moves it.
+		void EnterCrew() {
+			crewScreen = new ShellCrewScreen(hangar, repairScreen.SelectedBay, bayPictures, crewPortraits);
+			var player = hangar.Player;
+			Console.WriteLine($"Crew: {hangar.SquadPositions} squad positions in play, "
+				+ $"{hangar.SquadMembers.Count} squad members; "
+				+ (player != null ? $"player {player.Name} in bay {player.Bay}; " : "no player record; ")
+				+ $"the entry leaves bay {crewScreen.SelectedBay} selected.");
+		}
+
 		// Rasterizes the current tab's content and hands it to the renderer. Called on a state change
 		// rather than per frame: it resolves a whole canvas of palette indices and uploads a texture,
 		// which is the same "repaint only what moved" the original's widget paints are driven by.
@@ -358,35 +380,64 @@ static class ShellHost {
 				return;
 			}
 
-			if (screen.SelectedTab != ShellScreen.SaveTab && screen.SelectedTab != ShellScreen.RepairTab) {
-				renderer.SetContent(null);
-				return;
+			contentSurface.Clear();
+
+			// Tabs 2-7 switch palette through the scope, whose paint blacks out everything below the
+			// strip; the tab's screen, if one is ported, draws over that.
+			bool filled = ShellPalette.FillsScope(screen.SelectedTab);
+			if (filled) {
+				ShellPalette.PaintScope(contentSurface);
 			}
 
-			contentSurface.Clear();
-			if (screen.SelectedTab == ShellScreen.RepairTab) {
-				repairScreen.Paint(contentSurface, art.Text, art.Sprites);
-			} else {
-				saveScreen.Paint(contentSurface, art.Text, art.Sprites);
+			switch (screen.SelectedTab) {
+				case ShellScreen.RepairTab:
+					repairScreen.Paint(contentSurface, art.Text, art.Sprites);
+					break;
+				case ShellScreen.SaveTab:
+					saveScreen.Paint(contentSurface, art.Text, art.Sprites);
+					break;
+				case ShellScreen.CrewTab when crewScreen != null:
+					crewScreen.Paint(contentSurface, art.Text, art.Sprites);
+					break;
+				default:
+					if (!filled) {
+						renderer.SetContent(null);
+						return;
+					}
+
+					break;
 			}
 
 			renderer.SetContent(contentSurface);
 		}
 
-		// The tab's own palette, as Shell_SelectTabPalette (0043b162) picks it. The original writes an index into the palette
-		// widget and shows it; here the whole of the art is decoded through one palette at load, so a
-		// change means loading it again and rebuilding the renderer's textures. That is a few
-		// milliseconds on a click, and it happens only when the index actually moves.
+		// Which palette a tab is drawn through. An explicit --shell-palette pins one entry everywhere. A
+		// tab with a screen always takes its own, Shell_SelectTabPalette (0043b162)'s: its art is authored for that palette,
+		// and the crew screen's portraits and bay picture are unreadable through palette.dpl. A bare tab
+		// keeps the default unless --shell-tab-palette is given, which is this engine's choice rather
+		// than the original's.
+		string PaletteFor(int tab) {
+			if (paletteName != null) {
+				return paletteName;
+			}
+
+			return (followTabPalettes || HasScreen(tab)) && ShellPalette.ForTab(tab) is { } index
+				&& ShellPalette.Name(index) is { } name
+				? name : ShellArt.DefaultPaletteName;
+		}
+
+		// The original writes an index into the palette widget and shows it; here the whole of the art
+		// is decoded through one palette at load, so a change means loading it again and rebuilding the
+		// renderer's textures. That is a few milliseconds on a click, and it happens only when the
+		// palette actually changes.
 		void SwitchPalette(int tab) {
-			if (!followTabPalette || gl == null
-					|| ShellPalette.ForTab(tab) is not { } index
-					|| ShellPalette.Name(index) is not { } name
-					|| string.Equals(name, art.PaletteName, StringComparison.OrdinalIgnoreCase)) {
+			string name = PaletteFor(tab);
+			if (gl == null || string.Equals(name, art.PaletteName, StringComparison.OrdinalIgnoreCase)) {
 				return;
 			}
 
 			if (ShellArt.Load(content, name) is not { } reloaded) {
-				Console.WriteLine($"Palette {index} ({name}) could not be loaded — keeping {art.PaletteName}.");
+				Console.WriteLine($"Palette {name} could not be loaded — keeping {art.PaletteName}.");
 				return;
 			}
 
@@ -397,7 +448,11 @@ static class ShellHost {
 			// The new renderer has no content texture, and the old one's was resolved through the old
 			// palette anyway — so the tab's content is rasterized again through the palette it is now
 			// being drawn in. Activate calls RepaintContent after this returns.
-			Console.WriteLine($"Palette {index} — dpl\\{name}.DPL.");
+			Console.WriteLine($"Palette dpl\\{name}.DPL.");
 		}
 	}
+
+	/// <summary>The tabs this engine has a screen behind.</summary>
+	private static bool HasScreen(int tab) =>
+		tab is ShellScreen.SaveTab or ShellScreen.RepairTab or ShellScreen.CrewTab;
 }

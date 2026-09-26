@@ -105,7 +105,16 @@ static class ShellHost {
 
 		var repairCosts = ShellRepairCosts.Load(content);
 		var repairDiagrams = ShellRepairDiagrams.Load(content);
-		var repairScreen = new ShellRepairScreen(hangar, repairCosts, startBay, repairDiagrams);
+		// The armory's prices, names and stat lines, and the preferences byte that says whether weapons are
+		// built by hand (prefs.cfg option 45), which gates CLEAR. The prices are also what the repair and
+		// build screens deduct the save's build queue at. The screen is built on first entry and kept.
+		var armoryCatalog = ShellArmoryCatalog.Load(content);
+		bool manualWeaponBuild = SimulatorPreferences.Load(Path.Combine(installRoot, "DATA"))?[WeaponsBuildingOption] != 0;
+		ShellArmoryScreen? armoryScreen = null;
+
+		var repairScreen = new ShellRepairScreen(hangar, repairCosts, startBay, repairDiagrams) {
+			QueuedKilograms = armoryCatalog.QueuedTotal(hangar),
+		};
 		Console.WriteLine($"Damage diagram layouts loaded for {repairDiagrams.LayoutCount} chassis.");
 
 		// The squad panel's three-quarter view, which the crew tab shows (and WEAPONS and BUILD would), and
@@ -156,14 +165,15 @@ static class ShellHost {
 		Console.WriteLine(mode == ShellCampaignMode.Training
 			? "Training campaign: REPAIR, BUILD and ARMORY are gated off, as the strip refresh gates them."
 			: "Campaign: every tab is live.");
-		Console.WriteLine("MAIN MENU, SAVE, WEAPONS, REPAIR, BUILD and CREW are the tabs with a screen behind them. On the "
+		Console.WriteLine("MAIN MENU, SAVE, WEAPONS, REPAIR, BUILD, ARMORY and CREW are the tabs with a screen behind them. On the "
 			+ "main menu, SAVE/RESTORE opens the save screen, whose EXIT comes back to the menu. Click a save "
 			+ "slot row, or a repair list row, a part of the damage diagram or a Squad Inventory row, to "
 			+ "select it and the panels beside it follow. On BUILD, click a chassis to see its blueprint and "
 			+ "figures, or a Squad Inventory row to pick the bay SCRAP and BUILD are gated on. On WEAPONS, click an "
-			+ "inventory row to see the weapon, and on a missile rack a guidance button to see that kind. On CREW, click "
+			+ "inventory row to see the weapon, and on a missile rack a guidance button to see that kind. On ARMORY, "
+			+ "click a row to see the weapon and its figures. On CREW, click "
 			+ "a row to select it, then a squad portrait to put that pilot in the row, a Squad Inventory row "
-			+ "to give the row's pilot that bay, or CLEAR to empty the row. The other three tabs latch and "
+			+ "to give the row's pilot that bay, or CLEAR to empty the row. The square button and MISSION latch and "
 			+ "show the frame. The save screen hides "
 			+ "the strip, as the original's does: leave it with EXIT, or RESTORE a slot to load it into the "
 			+ "repair screen. Close the window to quit.");
@@ -268,6 +278,8 @@ static class ShellHost {
 				EnterWeapons();
 			} else if (id == ShellScreen.BuildTab) {
 				EnterBuild();
+			} else if (id == ShellScreen.ArmoryTab) {
+				EnterArmory();
 			} else if (id == ShellScreen.MissionTab && MissionView() == ShellMissionView.Map) {
 				missionMapShown = true;
 			}
@@ -291,6 +303,7 @@ static class ShellHost {
 					?? weaponsScreen.HitAt(canvasX, canvasY),
 				ShellScreen.CrewTab when crewScreen != null => ShellSquadPanel.HitAt(canvasX, canvasY)
 					?? ShellCrewScreen.HitAt(canvasX, canvasY),
+				ShellScreen.ArmoryTab when armoryScreen != null => armoryScreen.HitAt(canvasX, canvasY),
 				_ => null,
 			};
 		}
@@ -347,6 +360,13 @@ static class ShellHost {
 					break;
 				case ShellWidgetKind.WeaponsButton:
 					ClickWeaponsButton((ShellWeaponsButton)widget.Index);
+					break;
+				case ShellWidgetKind.ArmoryRow:
+					ClickArmoryRow(widget.Index);
+					break;
+				case ShellWidgetKind.ArmoryButton:
+					Console.WriteLine($"{(ShellArmoryButton)widget.Index} — the button is live and its action "
+						+ "is not ported yet.");
 					break;
 				default:
 					ClickCrew(widget);
@@ -415,7 +435,9 @@ static class ShellHost {
 			campaignStage = restored.CampaignStage + 1;
 			missionInStage = restored.MissionInStage;
 			missionMapShown = false;
-			repairScreen = new ShellRepairScreen(hangar, repairCosts, startBay, repairDiagrams);
+			repairScreen = new ShellRepairScreen(hangar, repairCosts, startBay, repairDiagrams) {
+				QueuedKilograms = armoryCatalog.QueuedTotal(hangar),
+			};
 			saveScreen.CanSave = true;
 			Console.WriteLine($"Restored slot {slot + 1} ({entry.FileName}): "
 				+ (ShellSaveSummary.From(restored) is { } summary
@@ -564,6 +586,8 @@ static class ShellHost {
 				buildScreen.Enter(hangar, repairScreen.SelectedBay);
 			}
 
+			buildScreen.QueuedKilograms = armoryCatalog.QueuedTotal(hangar);
+
 			LogBuild();
 		}
 
@@ -623,6 +647,50 @@ static class ShellHost {
 				+ (weaponsScreen.ShowingGuidance ? $", showing guidance kind {weaponsScreen.ShownGuidance}." : "."));
 		}
 
+		// Tab 5's entry, Armory_Enter (004494f7). The armory has no squad panel and no bay.
+		void EnterArmory() {
+			if (armoryScreen == null) {
+				armoryScreen = new ShellArmoryScreen(hangar, manualWeaponBuild, armoryCatalog, weaponsArt);
+			} else {
+				armoryScreen.Enter(hangar, manualWeaponBuild);
+			}
+
+			Console.WriteLine($"Armory: weapons built {(manualWeaponBuild ? "by hand" : "automatically")}, "
+				+ $"{hangar.QueueFreeSlots} of {ShellHangar.QueueSlots} queue slots free, "
+				+ $"{armoryScreen.AllocatedKilograms} kg allocated, {armoryScreen.AvailableKilograms} kg available.");
+			LogArmory();
+		}
+
+		// A row's release, Armory_ClickRow (0044969f) or Armory_RightClickRow (004499de). On the lit row with
+		// weapons built by hand those queue and unqueue a unit, which is not ported.
+		void ClickArmoryRow(int row) {
+			if (armoryScreen == null) {
+				return;
+			}
+
+			if (!armoryScreen.SelectRow(row)) {
+				if (armoryScreen.ManualBuild) {
+					Console.WriteLine("Queueing a weapon is not ported yet.");
+				}
+
+				return;
+			}
+
+			RepaintContent();
+			LogArmory();
+		}
+
+		void LogArmory() {
+			if (armoryScreen == null) {
+				return;
+			}
+
+			int weapon = armoryScreen.SelectedWeapon;
+			Console.WriteLine($"Armory: row {armoryScreen.SelectedRow} "
+				+ $"({armoryCatalog.Names?.Text(weapon) ?? $"weapon {weapon}"}, {hangar.WeaponsOwned(weapon)} held, "
+				+ $"{hangar.QueuedCount(weapon)} queued, {armoryCatalog.PriceKilograms(weapon)} kg).");
+		}
+
 		// Tab 6's entry. The bay it starts from is the one the previous tab left selected, DAT_00482ae5,
 		// which here only the repair screen tracks; the entry then moves it.
 		void EnterCrew() {
@@ -674,6 +742,9 @@ static class ShellHost {
 					break;
 				case ShellScreen.CrewTab when crewScreen != null:
 					crewScreen.Paint(contentSurface, art.Text, art.Sprites);
+					break;
+				case ShellScreen.ArmoryTab when armoryScreen != null:
+					armoryScreen.Paint(contentSurface, art.Text, art.Sprites);
 					break;
 				default:
 					if (!filled) {
@@ -732,5 +803,8 @@ static class ShellHost {
 	/// <summary>The tabs this engine has a screen behind.</summary>
 	private static bool HasScreen(int tab) =>
 		tab is ShellScreen.MainMenuTab or ShellScreen.SaveTab or ShellScreen.WeaponsTab or ShellScreen.RepairTab or ShellScreen.BuildTab
-			or ShellScreen.CrewTab;
+			or ShellScreen.ArmoryTab or ShellScreen.CrewTab;
+
+	/// <summary><c>prefs.cfg</c> option 45, VSHELL's <c>Weapons Building:</c> — 1 builds weapons by hand (docs/simulation/preferences.md).</summary>
+	private const int WeaponsBuildingOption = 45;
 }

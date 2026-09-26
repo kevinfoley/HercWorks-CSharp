@@ -34,7 +34,7 @@ Weapons are not bought off a shelf; they are queued into five build slots and de
 0046f8d6   5 x int16   one weapon catalog id per slot, 0 = empty
 ```
 
-The armory screen prints all three views of it: `Armory_QueuedTotal` (`00412586`) sums `weapons.dat` `+0x14` over the occupied slots against `Allocated:` (`estext.bin` `0xd6`), the free count against `Workspace Available:` (`0xd3`), and `5 - free` against `Workspace In Use:` (`0xd4`).
+The armory screen prints all three views of it: `Armory_QueuedTotal` (`00412586`) sums `weapons.dat` `+0x14` over the occupied slots against `Allocated:` (`estext.bin` `0xd6`), the free count against `Workspace Available:` (`0xd3`), and `5 - free` against `Workspace In Use:` (`0xd4`) ([`screen-layout.md`](screen-layout.md#the-armory-readout)).
 
 - **Enqueue** — `Armory_Enqueue` (`004125e7`) takes the first free slot from `Armory_FirstFreeSlot` (`004125bb`) and decrements the free count; with no slot free it does nothing.
 - **Dequeue** — `Armory_Dequeue` (`0041260d`) clears every slot holding that id and increments the free count per slot cleared.
@@ -121,7 +121,7 @@ Two parallel mechanisms, both keyed on the campaign flag array and both consumin
 
 See [`../formats/weapons-dat.md`](../formats/weapons-dat.md#0x16-is-the-weapon-unlock-flag) and [`../formats/herc-catalogs.md`](../formats/herc-catalogs.md#chassis-unlocks--herc_grantunlocks-004118c5) for each.
 
-A locked weapon's armory panel is drawn disabled and its price withheld; a locked chassis is refused by the construction screen. Neither flag affects a machine already in the hangar.
+A locked weapon's armory row is disabled and drawn in the background colour, a gap in the list; a locked chassis is refused by the construction screen. Neither flag affects a machine already in the hangar.
 
 ## What the armory will sell
 

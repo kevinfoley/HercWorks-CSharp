@@ -140,7 +140,7 @@ Loaded by `VSHELL.EXE`'s `LoadWeaponsDat` (`00411fc4`, file-level) → `WeaponsD
 The catalog ships a starting value per weapon; from then on it is campaign state, and four VSHELL sites establish what it means:
 
 - **Campaign progress sets it.** In the mission-load path, for each pending unlock whose slot in the campaign flag array holds the expected value, a `0` byte is set to `1` and that flag slot is cleared — an unlock granted and consumed. This is the weapon-unlock mechanism the campaign condition system feeds; see [`../shell/campaign-loop.md`](../shell/campaign-loop.md).
-- **The armory screen gates display on it.** Where it is `0` the weapon's panel is disabled — enable field at panel `+0x49` cleared, its four buttons greyed, its price never drawn. Where it is `1` the panel is live and prints the `0x14` price.
+- **The armory screen gates its rows on it.** Where it is `0` the weapon's row is disabled — `+0x49` cleared — and its four text columns, the `0x14` price among them, drawn in the background colour, so the list shows a gap. Where it is `1` the row is live and readable ([`../shell/screen-layout.md`](../shell/screen-layout.md#the-armory-rows)).
 - **Purchasing skips a locked weapon**, whatever the player can afford.
 - One HERC-fit check refuses to accept the weapon while the flag is clear.
 

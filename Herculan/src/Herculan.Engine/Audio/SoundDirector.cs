@@ -556,7 +556,7 @@ public sealed class SoundDirector : IDisposable {
 		}
 	}
 
-	/// <summary>Stops everything at once — <c>Sfx_StopAll</c>.</summary>
+	/// <summary>Stops everything at once — <c>Sfx_StopAll</c> (<c>004647dc</c>).</summary>
 	public void StopAll() {
 		Array.Clear(_repeatsLeft);
 		Array.Fill(_current, -1);

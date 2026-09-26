@@ -254,6 +254,21 @@ public sealed class ShellHangar {
 	/// <summary>How many units of a weapon the armory holds, record <c>+0x17</c> at <c>DAT_00483bfb</c>.</summary>
 	public int WeaponsOwned(int weaponId) => _stock.TryGetValue(weaponId, out var entry) ? entry.Owned : 0;
 
+	/// <summary>The armory build queue's five slots, <c>0046f8d6</c>: one weapon id each, 0 for an empty slot.</summary>
+	private readonly int[] _queue = new int[QueueSlots];
+
+	/// <summary>How many slots the armory build queue has (docs/shell/armory.md).</summary>
+	public const int QueueSlots = 5;
+
+	/// <summary>The queue's free-slot count, <c>0046f8d4</c> — the armory's <c>Workspace Available:</c>.</summary>
+	public int QueueFreeSlots { get; private set; } = QueueSlots;
+
+	/// <summary>The weapon id in each queue slot, 0 for an empty one.</summary>
+	public IReadOnlyList<int> QueuedWeapons => _queue;
+
+	/// <summary><c>FUN_00412642</c> — how many of the five queue slots hold <paramref name="weaponId"/>.</summary>
+	public int QueuedCount(int weaponId) => _queue.Count(id => id == weaponId);
+
 	/// <summary>The player's own pilot record, embedded in the player structure at <c>+0x04</c>.</summary>
 	public ShellBayPilot? Player { get; private set; }
 
@@ -428,6 +443,11 @@ public sealed class ShellHangar {
 			if (item?.Id is { } id) {
 				hangar._stock[id.Id] = (item.UnlockFlag != 0, item.Quantity);
 			}
+		}
+
+		hangar.QueueFreeSlots = save.WorkshopSpace;
+		for (int slot = 0; slot < QueueSlots && slot < save.WorkshopSlots.Length; slot++) {
+			hangar._queue[slot] = save.WorkshopSlots[slot]?.Id ?? 0;
 		}
 		foreach (var (slot, entry) in save.HercBay) {
 			if (slot >= 0 && slot < BayCount && entry != null) {

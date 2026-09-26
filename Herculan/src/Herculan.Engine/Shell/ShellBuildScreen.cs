@@ -132,8 +132,8 @@ public sealed class ShellBuildScreen {
 
 	/// <summary>
 	/// What the armory's build queue has committed out of the salvage pool. The screen quotes and gates
-	/// on the pool net of it (<c>CareerSalvage - Armory_QueuedTotal()</c>); the queue is not ported, so
-	/// this stays at zero.
+	/// on the pool net of it (<c>CareerSalvage - Armory_QueuedTotal()</c>). The host sets it from the queue
+	/// the save carries (<see cref="ShellArmoryCatalog.QueuedTotal"/>).
 	/// </summary>
 	public int QueuedKilograms { get; set; }
 

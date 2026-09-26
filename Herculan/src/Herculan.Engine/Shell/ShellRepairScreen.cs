@@ -125,8 +125,8 @@ public sealed class ShellRepairScreen {
 	/// <summary>
 	/// What the armory's build queue has already committed out of the salvage pool. The repair screen
 	/// quotes the pool <i>net</i> of it (<c>CareerSalvage - Armory_QueuedTotal()</c>) and gates both
-	/// repair buttons on that net figure, so a queued chassis is money the repair bay cannot see. The
-	/// queue itself is not ported, so this stays at zero until it is.
+	/// repair buttons on that net figure, so a queued weapon is salvage the repair bay cannot see. The
+	/// host sets it from the queue the save carries (<see cref="ShellArmoryCatalog.QueuedTotal"/>).
 	/// </summary>
 	public int QueuedKilograms { get; set; }
 

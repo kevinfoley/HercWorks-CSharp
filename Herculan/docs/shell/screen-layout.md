@@ -654,6 +654,62 @@ A machine is built into an empty bay, and only an occupied one can be scrapped. 
 
 `Build_FillBlueprints` (`0041579d`) fills the nine grids from the same records and banks as the repair screen's [exploded external picture](#the-damage-diagram): each `gam\rpr_*.dat` body record, from `dba\rpr_<chassis>.dba`, in the slot its id names with the record's flags. No weapon is drawn. Every part's remap pair is `0xe` to `0xe`, which `Grid_Paint` applies because the target is not `0x10` and which changes nothing, so the parts show in their own ink. `Build_Leave` frees the nine banks (`00415928`) and `Build_Enter` loads them again.
 
+## The armory screen
+
+Tab 5, `ARMORY`, the weapon build queue ([`armory.md`](armory.md#the-weapon-build-queue--armory_-armorycpp-00411efd)). Built once by `Armory_BuildScreen` (`00447e34`, `warmoryi.cpp`), entered by `Armory_Enter` (`004494f7`) and hidden by `Armory_Leave` (`004495b6`), the teardown dispatcher's armory arm. Rects are parent-relative. The tab has no squad panel, and the content panel, parented to the shell's top-level window, spans the canvas.
+
+| Widget | Class | Rect (in its parent) | Content |
+|---|---|---|---|
+| content panel | `TitledPanel` | `{0, 0x2d, 0x27f, 0x1d9}` | `0xcf` `ARMORY`, header 19 tall, plate `0xf1`-`0x18c`, face `0x25`, filled body |
+| list | `TitledPanel` | `{0xd, 0x1a, 0x117, 0x1a3}` | `0xd0` `Armaments Inventory`, header 19 tall, face `0x24`, `+0x65 = 0` |
+| 6 headings | `Text` | [below](#the-armory-rows), in the list | `0x29` |
+| 26 rows | `Panel` | `{8, i*0xc + 0x3c, 0xf8, i*0xc + 0x48}` in the list | border `0x21`, `+0x51 = 0` |
+| picture box | `HatchedDivider` | `{0x121, 0x1a, 0x272, 0xf3}` | border `0x15`, `+0x55 = 0x77`, `+0x59 = 0xf`, `+0x49 = 0` |
+| 26 weapon pictures | image panel | each `gam\arm_weap.dat` record's corner in the box, sized to its frame | that frame of `dba\arm_weap.dba` |
+| 5 info lines | `Text` | `{0, 0x8a, W, 0x96}`, `{0, 0x96, W, 0xa2}`, `{0, 0xa2, W, 0xae}`, `{0, 0xae, W, 0xbc}`, `{0, 0xbc, W, 200}` in the box | centred, `0x29`, opaque in `0xf` |
+| readout panel | `FramedPanel` | `{0x121, 0xf8, 0x272, 0x14e}` | filled, border `0x15`, face `0xf` |
+| 2 workspace labels | `Text` | `{0x4a, 9, 0xdc, 0x15}`, `{0x4a, 0x15, 0xdc, 0x21}` in it | `0xd3` `Workspace Available:`, `0xd4` `Workspace In Use:`, left, `0x29` |
+| 2 workspace counts | `Text` | `{0xdc, 9, 0xeb, 0x15}`, `{0xdc, 0x15, 0xeb, 0x21}` in it | built as `1` and `4`, right, `0x29`, opaque |
+| 2 salvage labels | `Text` | `{0x28, 0x2b, 0xa2, 0x37}`, `{0xa2, 0x2b, 0xfe, 0x37}` in it | `0xd5` `Salvage Available:` left, `0xd6` `Allocated:` right, `0x29` |
+| salvage box | `Button` | `{0x31, 0x3d, 0x93, 0x4e}` in it | built blank, border `0x13`, disabled, caption opaque |
+| allocated box | `Button` | `{0xaf, 0x3d, 0x111, 0x4e}` in it | the same |
+| button panel | `FramedPanel` | `{0x121, 0x153, 0x272, 0x18c}` | filled, border `0x15`, face `0xf` |
+| `Clear` | `Button` | `{0x31, 0x14, 0x93, 0x23}` in it | `0xd1`, border `0x22` |
+| `Scrap` | `Button` | `{0xaf, 0x14, 0x111, 0x23}` in it | `0xd2`, border `0x22` |
+
+`W` is the parent's own width, `+0x2d - +0x25`. The picture box is [the weapons screen's](#the-weapons-screen) with a different rect and band: black above row `0x77` and solid `0xf` below it, the pictures in the black and the info lines in the band. The builder reads `arm_weap.dat`'s weapon list into `0048d984`, indexed by `Arming_RowOfWeapon`, and reads past the file's guidance list without building a picture from it.
+
+### The armory rows
+
+The headings are `0xd7` `Num to` at `{10, 0x19, 0x4b, 0x25}` over `0xd8` `build` at `{10, 0x25, 0x4b, 0x31}`, `0xd9` `Type` at `{0x4c, 0x25, 0xaa, 0x31}` and `0xda` `avail.` at `{0xb4, 0x25, 0xdc, 0x31}`, all left-aligned, and `0xdb` `Salv.` at `{0xdc, 0x19, W - 9, 0x25}` over `0xdc` `req.` at `{0xdc, 0x25, W - 9, 0x31}`, right-aligned.
+
+The rows list the first 26 weapon ids of the table at `004769b0` — [the weapons screen's](#the-inventory-rows) without `None` — 13 tall on a 12-pixel pitch, so, as in the repair lists, the lower row owns the shared line. Each is a [four-column row](#a-row-is-four-text-columns) cut at `0x32`, `0xb4` and `0xc9`: the queued count and the weapon's name, both left-aligned, then the count held and the price in tons, both right-aligned. The name is `weapons.bin`'s, through `weapons.dat` record `+0x10` rather than `estext.bin`, and the price is `"%d"` of `+0x14 / 1000`, written once by the builder ([`../formats/weapons-dat.md`](../formats/weapons-dat.md#weaponsdat-catalog-record-29-bytes)).
+
+**A row draws no border.** The builder installs the list-row vtable at `00479bb0` on every row, as the other row builders do, and then clears `+0x51`. Its paint, `ListRow_Paint` (`0040a600`), clears the interior to `0x10`, runs `Panel_FillAndBorder` — which draws nothing with `+0x51` clear — and paints the four columns, so the lit row shows only in its text.
+
+`Armory_RefreshRows` (`00449329`) runs on every entry. A weapon whose unlock flag `+0x16` is clear has its row disabled and its four columns set to `0x10`, the background, so the list shows a gap and keeps the builder's texts behind it. An unlocked weapon's row is enabled, and its first column set to `"[ %1d ]"` of `Armory_QueuedCount` (`00412642`) or to `"[   ]"` with none queued, its third to `"%d"` of the count held, and all four to `0x27`.
+
+### Selecting and queueing
+
+Each row's handler is one of 26 thunks from `0044a0b6`, which calls `Armory_ClickRow` (`0044969f`) on the left release and `Armory_RightClickRow` (`004499de`) on the right. On any row but the lit one (`Armory_LitRow`, `00479174`), and on every row while weapons are built automatically, both select it: the old row goes back to `0x27` and its picture is hidden, and the new row is lit `0x29`, its picture shown and the five info lines filled from `wpn_info.bin` entries `Arming_RowOfWeapon(id) * 5` onward — `row * 5`, since the rows and that table share an order.
+
+Whether weapons are built by hand is `prefs.cfg` option 45, `ShellOption_WeaponsBuildMode` ([`../simulation/preferences.md`](../simulation/preferences.md)). When they are, the lit row queues instead:
+
+| Click on the lit row | Does |
+|---|---|
+| left | with a queue slot free and `Armory_QueuedTotal() + price` **less than** the pool, `Armory_Enqueue` of the weapon, the first column rewritten in `0x29`, and the readout refreshed |
+| right | one unit fewer: `Armory_DequeueLit` (`0044963c`) takes every queued unit of the weapon off, and `Armory_ClickRow` then queues the count less one back |
+
+A pool exactly covering the queue plus the price refuses the unit, as the build screen's `BUILD` refuses [a pool equal to the chassis's price](#scrapping-and-building-are-gated-on-the-bay).
+
+`Armory_Enter` writes the [greying trio](#the-condition-readout) at `Clear` from the build mode, so `Clear` is live only while weapons are built by hand, then runs `Armory_RefreshRows` and `Armory_RefreshReadout`, shows the content panel and the list, and calls `Armory_ClickRow(0)`. `Armory_Leave` puts the lit row back to `-1`, so **the screen always opens on the first row, `Autocannon 20mm`**, and that call selects rather than queues.
+
+`Clear` (`00449ef4`) is `Armory_DequeueLit`: every queued unit of the lit weapon comes off, the first column goes back to `"[   ]"` in `0x29`, and the readout is refreshed. `Scrap` (`00449e78`) calls `FUN_00447b97` with the lit weapon's id, which prints `"%d %s"` of `maybe_Armory_ItemCostCalc(id)` and `0xcd` `tons of salvage.` into a dialog's text and shows the dialog ([Open](#open)).
+
+### The armory readout
+
+`Armory_RefreshReadout` (`00449cab`) writes all four figures centred in `0x29`: the salvage box `"%ld %s"` of `CareerSalvage - Armory_QueuedTotal()` and `0xc8` `kg`, the allocated box `"%d %s"` of `Armory_QueuedTotal()` and `kg`, and the two workspace counts, the queue's free slots and five less them. It then rewrites the lit row's count held in `0x29`. The two boxes are built as [the repair screen's readouts](#the-repair-screen) are — disabled, border `0x13` — but their captions are drawn in `0x29` rather than `0x17`.
+
 ## The arming and repair hotspots
 
 Both screens lay clickable rects over a picture of the selected machine. The geometry comes from `gam\arm_hots.dat` and `gam\rpr_hots.dat` ([`../formats/herc-catalogs.md`](../formats/herc-catalogs.md#gamarm_hotsdat-and-gamrpr_hotsdat--the-clickable-regions)), which carry position and nothing else: **an area's index within its chassis group is its identity**, because the builder passes `handlerTable[areaIndex]` as the panel's click handler. Each handler is a one-line thunk that calls a common function with its own index baked in.
@@ -750,13 +806,15 @@ That last function also installs the theater palette directly, as `Shell_Install
 
 **The main menu is drawn**: `ShellMainMenu` places the panel and the ten buttons above and greys `CONTINUE GAME` on slot 10's in-use flag from `GAMEFILE.STR`. `SAVE/RESTORE` acts — campaign mode, then the save screen with `EXIT` coming back to the menu — and the other nine do nothing ([Open](#open)). The tab keeps the strip up here, where its handler hides it as tab 1's does: with only `SAVE/RESTORE` acting, hiding it would leave `RESTORE` of a written slot as the only way to the other tabs. That is this engine's choice, not the original's.
 
-**The repair screen is drawn**, from a real save's hangar bay and the real price list. `ShellHangar` and `ShellBayMachine` are the eight-pointer bay array and `HercStatus_Get` over one machine's status block; `ShellRepairCosts` parses `gam\damage.dat` and expands it against `gam\herc_inf.dat`'s prices exactly as the loader does, and carries both cost functions. `ShellRepairScreen` places every widget above, fills both lists, prints the three readout panels and gates the buttons. `ShellRepairDiagrams` loads the nine layouts, `rpr_hots.dat` and their banks and paints whichever picture the selection's column has up, and `ShellSquadPanel` draws the readout and the roster. Clicking a row, a hotspot on the external picture or a roster row moves the selection or the bay and the panels follow, including the refusal of an unfitted hardpoint and of an unbuilt bay. The four buttons' actions, the manual/auto mode switch and the build queue have no port ([Open](#open)), so the salvage figure is the pool with nothing deducted.
+**The repair screen is drawn**, from a real save's hangar bay and the real price list. `ShellHangar` and `ShellBayMachine` are the eight-pointer bay array and `HercStatus_Get` over one machine's status block; `ShellRepairCosts` parses `gam\damage.dat` and expands it against `gam\herc_inf.dat`'s prices exactly as the loader does, and carries both cost functions. `ShellRepairScreen` places every widget above, fills both lists, prints the three readout panels and gates the buttons. `ShellRepairDiagrams` loads the nine layouts, `rpr_hots.dat` and their banks and paints whichever picture the selection's column has up, and `ShellSquadPanel` draws the readout and the roster. Clicking a row, a hotspot on the external picture or a roster row moves the selection or the bay and the panels follow, including the refusal of an unfitted hardpoint and of an unbuilt bay. The four buttons' actions and the manual/auto mode switch have no port ([Open](#open)). The salvage figure is the pool net of the build queue the save carries, as the build screen's is.
 
 **The crew screen is drawn and assigns**, from the same save. `ShellCrewScreen` places every widget above, fills the four rows and the three squad portraits from the pilot records `ShellHangar` carries, colours the rows by `00482a78`, and runs the entry's selection, so it opens on the bay retail opens on. A row click, a squad portrait, a roster click and `CLEAR` do what [Assigning pilots](#assigning-pilots) says, on the hangar the other tabs read, on-strength bytes and count included. `ShellBayPictures` loads the nine `arm_*.dat` layouts and their banks and draws the bay picture, and `ShellSquadPanel` draws it with the readout and the roster as the one left-hand column the four tabs share. The bay the entry starts from is the repair screen's, the only selection this engine carries between tabs.
 
 **The weapons screen is drawn and shows**, from the same save's armory stock, `gam\arm_weap.dat`, `dba\arm_weap.dba` and `wpn_desc.bin`. `ShellWeaponsScreen` places every widget above, lists the 27 rows with their counts and unlock gaps, shows the lit row's picture and description, puts the guidance buttons up for a missile rack and shows a kind's picture from them, and opens on the first row. The roster click takes the arming arm's bay rule. No hardpoint is ever selected, so a row click fits nothing, which is what retail does with none selected; the steppers do nothing ([Open](#open)). Its bay starts from the repair screen's, as the crew and build screens' do.
 
 **The build screen is drawn and selects**, from the same save and `gam\herc_inf.dat`. `ShellBuildScreen` places every widget above, gates the rows on the save's availability flags, prints the selected chassis's figures and the net salvage, and gates `SCRAP` and `BUILD` on the bay; `ShellRepairDiagrams` draws the blueprint from the repair screen's layouts. A row click moves the chassis and a roster click moves the bay, as [The build screen](#the-build-screen) says. Neither button acts ([Open](#open)). Its bay starts from the repair screen's, as the crew screen's does, and with no bay selected it takes the bay as empty where the original reads past the array — this engine's choice.
+
+**The armory screen is drawn and selects**, from the same save, `gam\weapons.dat`, `weapons.bin`, `wpn_info.bin` and the weapons screen's pictures. `ShellArmoryScreen` places every widget above, gates the rows on the save's unlock flags, prints the queued counts and the four figures from the queue the save carries, gates `Clear` on `data\prefs.cfg` option 45, and opens on the first row. A row click with either button moves the selection. Queueing and unqueueing on the lit row, `Clear` and `Scrap` do nothing ([Open](#open)).
 
 Until `RESTORE` loads one, the host opens the first slot the directory marks in use to have a machine to show. That is the host's own choice and not the original's, which reaches the tab only from a game already in progress.
 
@@ -768,7 +826,7 @@ The whole content surface is painted afresh on every change, where the original 
 
 The engine reloads the whole of `ShellArt` to change palette, where the original re-installs one and lets the hardware palette do the rest — the art here is decoded to RGBA once per palette rather than kept as indices. Same result on screen, at a few milliseconds per click.
 
-Not drawn: the other two tabs' content, the mouse cursor (`dba\cursor.dba`), the sounds each button plays, and the pressed nudge of a content button's caption ([Open](#open)). Nothing sets the campaign mode, so the gate is driven by a command-line flag ([Open](#open)). See [`../../ROADMAP.md`](../../ROADMAP.md).
+Not drawn: the mission tab's content, the mouse cursor (`dba\cursor.dba`), the sounds each button plays, and the pressed nudge of a content button's caption ([Open](#open)). Nothing sets the campaign mode, so the gate is driven by a command-line flag ([Open](#open)). See [`../../ROADMAP.md`](../../ROADMAP.md).
 
 ## Rejected readings
 
@@ -801,8 +859,10 @@ Not drawn: the other two tabs' content, the mouse cursor (`dba\cursor.dba`), the
 - **Open:** the meaning of the row's `+0xb7 = 4`, and whether `EditField_Paint` draws the caret from `+0xbf`, `+0xb3` or both.
 - **Open:** how `ACCEPT`'s label reaches `sav\GAMEFILE.STR` and where the slot's in-use byte is set — `Game_SaveSlot`'s own body has not been read for either.
 - **Unported:** the repair screen's four buttons' actions (`REPAIR`, `REPAIR ALL`, `SCRAP`, `CANCEL`) and the manual/auto repair mode switch.
-- **Unported:** the armory build queue; the repair screen's salvage figure is the raw pool with nothing deducted as a result.
-- **Unported:** the other two tabs' content (`ARMORY`, `MISSION`).
+- **Unported:** changing the armory build queue — [queueing and unqueueing on the lit row](#selecting-and-queueing) and `Clear`; the repair, build and armory screens all read the queue the save carries.
+- **Unported:** the armory's `Scrap` dialog (`FUN_00447b97`), its accept (`00447db7`) and its cancel (`00447d59`).
+- **Open:** what the armory's `Scrap` does to the stock. The accept calls `FUN_0040e7b2` with the weapon and then `FUN_00412413`, and refreshes the rows and the readout; neither callee is read, nor `maybe_Armory_ItemCostCalc` (`0041266a`), whose figure the dialog quotes in tons.
+- **Unported:** the mission tab's content.
 - **Unported:** every main-menu button's action but `SAVE/RESTORE`'s ([The main menu](#the-main-menu)), and the startup sequence that first brings the menu up.
 - **Open:** the startup widget's class — `FUN_0040c85c` builds it and `FUN_0040ca06` adds each frame — and what advances its `+0x6d` to 5; and what `FUN_0040876a`, `FUN_0040877f`, `DAT_0046c074` and `FUN_0044cecf`, which the main menu's handlers call, each do.
 - **Unported:** the mouse cursor (`dba\cursor.dba`) and each button's click sound.

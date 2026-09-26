@@ -8156,8 +8156,8 @@
       "binary": "DBSIM",
       "type": "function",
       "confidence": "high",
-      "name": "Sfx_ServiceFinishedVoices",
-      "description": "Sweeps the voice table, asking the backend which playing voices have finished, clearing their 0x100 flag and decrementing the manager's playing counts.",
+      "name": "Sfx_StopAll",
+      "description": "(manager). Sfx_Stop's body over every voice with the 0x100 playing flag and a live resource: Sos_StopVoice (which returns 1 unconditionally), decrement the playing-song (+0x40) or playing-sample (+0x3c) count, clear 0x100. The loop is bounded by +0x10, the resource slot count (60), not the voice count +0x14 (90). Only caller: Sound_SuspendAll (0046311c).",
       "source": "docs/formats/audio.md"
     },
     {
@@ -12499,10 +12499,10 @@
       "address": "004494f7",
       "binary": "VSHELL",
       "type": "function",
-      "confidence": "medium",
-      "name": "maybe_Armory_Show",
-      "description": "Built by tab 5's handler. Identified from its dispatch position only.",
-      "source": "docs/shell/screen-layout.md#what-a-tab-click-does"
+      "confidence": "high",
+      "name": "Armory_Enter",
+      "description": "Tab 5's entry. Writes the greying trio at Clear from ShellOption_WeaponsBuildMode (live only when weapons are built by hand), runs Armory_RefreshRows and Armory_RefreshReadout, shows the content panel and the list, and calls Armory_ClickRow(0). Armory_Leave has put the lit row back to -1, so that call always selects.",
+      "source": "docs/shell/screen-layout.md#the-armory-screen"
     },
     {
       "address": "00441a01",
@@ -17467,6 +17467,114 @@
       "name": "Arming_DescriptionBin",
       "description": "The wpn_desc.bin handle Arming_BuildScreen opens.",
       "source": "docs/shell/screen-layout.md#the-weapons-screen"
+    },
+    {
+      "address": "00449329",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_RefreshRows",
+      "description": "For each of the 26 armory rows: a weapon whose unlock flag (weapons.dat +0x16) is clear has the row disabled and all four columns recoloured 0x10; otherwise the row is enabled, column 0 set to \"[ %1d ]\" of the queued count or \"[   ]\", column 2 to \"%d\" of the owned count, and all four recoloured 0x27.",
+      "source": "docs/shell/screen-layout.md#the-armory-screen"
+    },
+    {
+      "address": "004495b6",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_Leave",
+      "description": "The teardown dispatcher's armory arm: hides the lit row's picture, the content panel and the list, and sets the lit row DAT_00479174 back to -1.",
+      "source": "docs/shell/screen-layout.md#the-armory-screen"
+    },
+    {
+      "address": "0044963c",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_DequeueLit",
+      "description": "Clear's action: with a row lit, Armory_Dequeue of its weapon, column 0 back to \"[   ]\" in 0x29, and Armory_RefreshReadout.",
+      "source": "docs/shell/screen-layout.md#the-armory-screen"
+    },
+    {
+      "address": "0044969f",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_ClickRow",
+      "description": "A row's left release. On a row other than the lit one, or with weapons built automatically: recolours the old row 0x27 and hides its picture, lights the new one 0x29, shows its picture and fills the five wpn_info.bin lines from Arming_RowOfWeapon(id) * 5, and stores the row. On the lit row with weapons built by hand: with a queue slot free and QueuedTotal + price < CareerSalvage, Armory_Enqueue and the row's queued count and the readout refreshed.",
+      "source": "docs/shell/screen-layout.md#the-armory-screen"
+    },
+    {
+      "address": "004499de",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_RightClickRow",
+      "description": "A row's right release. Selects exactly as Armory_ClickRow; on the lit row with weapons built by hand, removes one queued unit by dequeuing every one (Armory_DequeueLit) and enqueuing count - 1 again through Armory_ClickRow.",
+      "source": "docs/shell/screen-layout.md#the-armory-screen"
+    },
+    {
+      "address": "00449cab",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_RefreshReadout",
+      "description": "Writes the armory's four figures, all centred in 0x29: \"%ld kg\" of CareerSalvage - Armory_QueuedTotal, \"%d kg\" of Armory_QueuedTotal, the free queue slots and 5 minus them; then the lit row's owned count in 0x29.",
+      "source": "docs/shell/screen-layout.md#the-armory-screen"
+    },
+    {
+      "address": "00449ef4",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_OnClear",
+      "description": "Clear's click handler: Armory_DequeueLit.",
+      "source": "docs/shell/screen-layout.md#the-armory-screen"
+    },
+    {
+      "address": "00449e78",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_OnScrap",
+      "description": "Scrap's click handler: FUN_00447b97 with the lit row's weapon id, when a row is lit.",
+      "source": "docs/shell/screen-layout.md#the-armory-screen"
+    },
+    {
+      "address": "00412642",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "Armory_QueuedCount",
+      "description": "How many of the five queue slots hold the given weapon id.",
+      "source": "docs/shell/screen-layout.md#the-armory-screen"
+    },
+    {
+      "address": "0040a600",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ListRow_Paint",
+      "description": "Slot 1 of the list-row vtable at 00479bb0, which the repair, squad, arming, build and armory builders each write over Panel_Ctor's on their rows: clears the interior {1, 1, w-1, h-1} to 0x10, runs Panel_FillAndBorder (nothing while +0x51 is clear), and paints the four text columns.",
+      "source": "docs/shell/screen-layout.md#the-armory-screen"
+    },
+    {
+      "address": "0040a58b",
+      "binary": "VSHELL",
+      "type": "function",
+      "confidence": "high",
+      "name": "ListRow_SetColumnColor",
+      "description": "Writes one of a row's four text columns' colour, +0xb5, by column index; does not repaint.",
+      "source": "docs/shell/screen-layout.md#the-armory-screen"
+    },
+    {
+      "address": "00479174",
+      "binary": "VSHELL",
+      "type": "data",
+      "confidence": "high",
+      "name": "Armory_LitRow",
+      "description": "The armory's lit row, 0-25, or -1 (0xffff in the image). Written by Armory_ClickRow and Armory_RightClickRow, reset by Armory_Leave.",
+      "source": "docs/shell/screen-layout.md#the-armory-screen"
     }
   ]
 }

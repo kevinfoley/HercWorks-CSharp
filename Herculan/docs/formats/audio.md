@@ -334,7 +334,7 @@ else:              attr[9]++;  play only when attr[9] % interval == 0
 
 `Sound_MuteMusic` / `Sound_MuteEffects` (`00462c74` / `00462cd8`) zero the volume of their half of the catalog and clear the enable flag; the unmute pair restores each id's own `Q16Multiply(vol, 65000) * byte8 / 100`. Music mutes by stopping the CD instead when a track is set.
 
-`Sound_SuspendAll` (`00463078`) records which voices are playing into attribute byte 7, saves the CD position, and stops everything. `Sound_ResumeAll` (`00463134`) replays exactly those and resumes the CD from the saved TMSF position.
+`Sound_SuspendAll` (`00463078`) records which voices are playing into attribute byte 7, saves the CD position, and stops everything through `Sfx_StopAll`. That sweep is bounded by the manager's resource slot count (`+0x10`, 60) rather than its voice count (`+0x14`, 90), but `Sfx_Open` fills voice slots lowest first and DBSIM never holds more than 58 open — 53 catalog voices and the 5 speech slots — so every voice is still reached. `Sound_ResumeAll` (`00463134`) replays exactly those and resumes the CD from the saved TMSF position.
 
 `Sound_SetCategoryVolume` (`00462f5c`) writes attribute byte 8, the per-sound category scale every volume computation multiplies through.
 
